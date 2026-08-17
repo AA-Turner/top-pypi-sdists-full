@@ -1,10 +1,14 @@
 """Dynamic tools: progressive tool disclosure for agents.
 
-When ``agent.use_dynamic_tools`` is True the agent's full tool catalog is NOT
-loaded into the LLM context. Instead the agent gets four small meta-tools that
-let it discover/inspect/run the hidden tools on demand, plus an inline catalog
-hint in its instructions. This keeps the context window lean — only the tools a
-given task actually needs end up fully loaded.
+When ``agent.use_dynamic_tools`` is True *and* the agent has at least
+``XPANDER_DYNAMIC_TOOLS_MIN_TOOLS`` (default 50) hideable tools, the agent's
+full tool catalog is NOT loaded into the LLM context. Instead the agent gets
+four small meta-tools that let it discover/inspect/run the hidden tools on
+demand, plus an inline catalog hint in its instructions. This keeps the context
+window lean — only the tools a given task actually needs end up fully loaded.
+Below the threshold the whole catalog is cheaper to load than to search, so it
+is attached directly; ``dynamic_tools_active`` is the single answer every
+call site asks.
 
 The four meta-tools (all ``xp_``-prefixed so they survive the always-loaded
 filter and the context-optimizer ``startswith("xp")`` skip):
@@ -14,8 +18,10 @@ filter and the context-optimizer ``startswith("xp")`` skip):
 - ``xp_get_tool``     — full schema + example for one hidden tool.
 - ``xp_execute_tool`` — run a hidden tool by name with its arguments.
 
-Only ``xp_execute_tool`` reports activity (it dispatches a real tool); the three
-read-only meta-tools are pure catalog reads and never emit activity events.
+The three read-only meta-tools report their own activity — reaching a tool takes
+three calls and the user should see all of them — and carry reasoning headers so
+each row has a title. ``xp_execute_tool`` stays silent: the real tool it
+dispatches reports itself, so reporting the wrapper would double up.
 
 Everything model-facing here is written for agent readability: XML-style blocks
 (consistent with the repo's existing prompt blocks) with ``<when>``/``<then>``
@@ -23,13 +29,14 @@ hints and concrete examples.
 """
 
 import json
+import os
 import re
 import uuid
 from inspect import Parameter, Signature
-from typing import Any, Callable, Dict, List
+from typing import Any, Callable, Dict, List, Optional, Union
 
 from loguru import logger
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, model_validator
 
 from xpander_sdk.modules.tools_repository.utils.result_offload import (
     MIN_SAVE_CHARS,
@@ -43,14 +50,21 @@ from xpander_sdk.modules.tools_repository.utils.workspace_payload import (
     has_workspace_path,
     resolve_workspace_payload,
 )
+from xpander_sdk.utils.agno_tool_resolution import register_dynamic_tools_repo
 from xpander_sdk.utils.cache import cached_tool_json_schema
 from xpander_sdk.utils.event_loop import run_sync
 
-# --- Constants (no env vars; module-level toggles only) --------------------- #
+# --- Constants -------------------------------------------------------------- #
 
 # Tool name prefixes that are NEVER hidden (workspace, schedule, compaction,
 # MCP, and the meta-tools themselves all start with one of these).
 DYNAMIC_TOOL_PREFIXES = ("xp", "mcp")
+
+# Minimum hideable-tool count before dynamic mode engages. Below it the agent's
+# flag alone is not enough: a small catalog costs less in context than the
+# search/get/execute round-trips it would take to reach it.
+DYNAMIC_TOOLS_MIN_TOOLS_ENV = "XPANDER_DYNAMIC_TOOLS_MIN_TOOLS"
+DYNAMIC_TOOLS_MIN_TOOLS_DEFAULT = 50
 
 # Max chars for a truncated catalog description.
 TRUNCATED_DESC_LEN = 140
@@ -59,6 +73,15 @@ TRUNCATED_DESC_LEN = 140
 DEFAULT_LIST_LIMIT = 30
 DEFAULT_SEARCH_LIMIT = 7
 MAX_PAGE_LIMIT = 100
+
+# A search returning at most this many tools inlines their schemas, so the model
+# can execute straight from the search result instead of paying a second
+# round-trip per tool. Above it results stay summarized.
+AUTO_FULL_SEARCH_RESULTS = 3
+
+# Schemas one xp_get_tool call will read. Bounds the context a single call can
+# pull in; a task needing more than this is browsing, not preparing a call.
+MAX_SCHEMAS_PER_GET = 10
 
 # Max hidden tools listed inline in the instruction hint before pointing the
 # model at xp_list_tools for the rest.
@@ -92,6 +115,81 @@ def is_always_loaded(tool: Any) -> bool:
 def hidden_tools(all_tools: List[Any]) -> List[Any]:
     """Tools the meta-tools operate over (everything not always-loaded)."""
     return [t for t in all_tools if not is_always_loaded(t)]
+
+
+def dynamic_tools_min_tools() -> int:
+    """Hideable-tool count at or above which dynamic mode engages. 0 disables
+    the size gate, leaving the agent flag as the only condition.
+
+    Read per call, not at import: the worker injects secrets into os.environ
+    during its lifespan, after this module is imported."""
+    raw = os.getenv(DYNAMIC_TOOLS_MIN_TOOLS_ENV)
+    if raw is None or not str(raw).strip():
+        return DYNAMIC_TOOLS_MIN_TOOLS_DEFAULT
+    try:
+        return max(0, int(str(raw).strip()))
+    except (TypeError, ValueError):
+        logger.warning(
+            f"Invalid {DYNAMIC_TOOLS_MIN_TOOLS_ENV}={raw!r}; "
+            f"using {DYNAMIC_TOOLS_MIN_TOOLS_DEFAULT}"
+        )
+        return DYNAMIC_TOOLS_MIN_TOOLS_DEFAULT
+
+
+def log_dynamic_tools_decision(agent: Any, repo: Any, active: bool) -> None:
+    """State whether dynamic mode engaged for this run, and what decided it.
+
+    Without it the only visible signal is the absence of the instruction hint,
+    which is indistinguishable from the agent simply having no hideable tools —
+    and once a size gate is in play, "why is this agent still offloading" has to
+    be answerable from the log rather than by reading code."""
+    try:
+        flag = bool(getattr(agent, "use_dynamic_tools", False))
+        hideable = len(hidden_tools(repo.dynamic_catalog))
+        threshold = dynamic_tools_min_tools()
+
+        if not flag:
+            reason = "use_dynamic_tools is off for this agent"
+        elif threshold <= 0:
+            reason = f"size gate disabled ({DYNAMIC_TOOLS_MIN_TOOLS_ENV}=0)"
+        elif active:
+            reason = f"{hideable} hideable tools >= threshold {threshold}"
+        else:
+            reason = (
+                f"only {hideable} hideable tools, under the threshold of {threshold} "
+                f"- the full catalog is attached directly"
+            )
+        state = "ENABLED" if active else "DISABLED"
+        logger.info(f"[dynamic-tools] {state}: {reason}")
+    except Exception:
+        pass
+
+
+def reset_dynamic_run_state(repo: Any) -> None:
+    """Drop the previous run's MCP proxies, toolkits and inspected-tool set.
+
+    A worker reuses one repo across tasks, so leftovers would both leak into this
+    run's catalog and inflate the count the size gate reads."""
+    for attr in ("_dynamic_mcp_proxies", "_dynamic_mcp_toolkits", "_dynamic_inspected"):
+        state = getattr(repo, attr, None)
+        if state is not None:
+            state.clear()
+
+
+def dynamic_tools_active(agent: Any, repo: Any) -> bool:
+    """True when the agent opted in AND its hideable catalog is large enough.
+
+    Every decision point (tool filtering, meta-tool injection, the instruction
+    hint, the MCP collapse) must route through this — a site reading the raw
+    flag would disagree with the others whenever the size gate bites. The count
+    only ever grows within a run (MCP proxies are appended once dynamic mode
+    connects them), so the answer cannot flip from True back to False."""
+    if not bool(getattr(agent, "use_dynamic_tools", False)):
+        return False
+    threshold = dynamic_tools_min_tools()
+    if threshold <= 0:
+        return True
+    return len(hidden_tools(repo.dynamic_catalog)) >= threshold
 
 
 # --- Keyword scoring -------------------------------------------------------- #
@@ -259,7 +357,54 @@ def render_tool(tool: Any, full_schema: bool = False) -> str:
 # --- Meta-tool payload models ----------------------------------------------- #
 
 
-class _ListToolsPayload(BaseModel):
+class _MetaToolReasoning(BaseModel):
+    """The user-visible reasoning shown on a discovery call's activity row."""
+
+    toolcallreasoningtitle: str = Field(
+        ...,
+        description=(
+            "The concrete action this call performs (max 5 words). If you cannot "
+            'name one, you already have what you need — answer now. Example: '
+            '"Find an issue-tracker tool".'
+        ),
+    )
+    toolcallreasoningdescription: Optional[str] = Field(
+        None,
+        description=(
+            "One-sentence markdown summary of the action and goal (max 100 "
+            'characters). Example: "Look for a tool that can create a Jira issue."'
+        ),
+    )
+
+
+class _MetaToolPayload(BaseModel):
+    """Base for the read-only meta-tools: carries the reasoning headers.
+
+    ``headers`` is required so the model reliably fills it, but a call that
+    omits it is repaired rather than rejected — a validation error here would
+    cost a turn, and the report path synthesizes a title from the arguments."""
+
+    headers: _MetaToolReasoning = Field(
+        ...,
+        description="Why you are making this call — shown to the user.",
+    )
+
+    @model_validator(mode="before")
+    @classmethod
+    def _tolerate_missing_headers(cls, data: Any) -> Any:
+        if not isinstance(data, dict):
+            return data
+        headers = data.get("headers")
+        if isinstance(headers, _MetaToolReasoning):
+            return data
+        if not isinstance(headers, dict):
+            return {**data, "headers": {"toolcallreasoningtitle": ""}}
+        if headers.get("toolcallreasoningtitle") is None:
+            return {**data, "headers": {**headers, "toolcallreasoningtitle": ""}}
+        return data
+
+
+class _ListToolsPayload(_MetaToolPayload):
     cursor: int = Field(
         0,
         description="0-based start index. Pass the next_cursor from the previous page.",
@@ -270,7 +415,7 @@ class _ListToolsPayload(BaseModel):
     )
 
 
-class _SearchToolsPayload(BaseModel):
+class _SearchToolsPayload(_MetaToolPayload):
     query: str = Field(
         ...,
         description="What you need in plain words, e.g. 'create a jira issue'.",
@@ -282,8 +427,14 @@ class _SearchToolsPayload(BaseModel):
     )
 
 
-class _GetToolPayload(BaseModel):
-    name: str = Field(..., description="Exact tool name from list/search results.")
+class _GetToolPayload(_MetaToolPayload):
+    name: Union[str, List[str]] = Field(
+        ...,
+        description=(
+            "Exact tool id from list/search results. Pass a list to read several "
+            f"schemas in this one call (up to {MAX_SCHEMAS_PER_GET})."
+        ),
+    )
 
 
 class _ExecuteToolPayload(BaseModel):
@@ -313,13 +464,18 @@ _LIST_DESC = (
 )
 _SEARCH_DESC = (
     "Find tools by intent. <when>Before any external action when no loaded tool fits.</when> "
-    "<then>Pick the best result by its `name` (the tool id), call xp_get_tool to read its schema, "
-    "then xp_execute_tool.</then> "
-    "Set detail='full' to include schemas. Wrap arguments in a `payload` object."
+    "<then>Pick the best result by its `name` (the tool id). A narrow search returns each "
+    "match with its full schema — when the result already shows the schema, call "
+    "xp_execute_tool with it directly. Call xp_get_tool only for a match returned as a "
+    "summary.</then> "
+    "Set detail='full' to force schemas on a wide result set. Wrap arguments in a `payload` object."
 )
 _GET_DESC = (
-    "Get one tool's full schema and a ready-to-copy execute example. "
-    "<when>ALWAYS call this before xp_execute_tool — do not guess a tool's arguments.</when> "
+    "Get a tool's full schema and a ready-to-copy execute example. "
+    "<when>Before xp_execute_tool for a tool whose schema you have not seen yet — never guess "
+    "a tool's arguments. Skip it when the search result already carried the schema.</when> "
+    "<then>Needing several schemas is still ONE call: pass them as a list, "
+    '`name: ["tool_a", "tool_b"]`, and every schema comes back together.</then> '
     "`name` is the tool id from search/list. Wrap arguments in a `payload` object."
 )
 _EXECUTE_DESC = (
@@ -406,17 +562,48 @@ def _search_impl(repo: Any, data: Dict[str, Any], inspected: set) -> str:
             f"Or call xp_list_tools to browse.</no_matches>"
         )
 
+    # A short result set is cheaper to hand over whole than to make the model
+    # fetch one schema at a time: reaching a tool took search + get + execute,
+    # and the get carried the same schema this can inline for a few hundred
+    # tokens. Wide result sets stay summarized so a vague query cannot dump the
+    # catalog into context.
+    if not full and len(top) <= AUTO_FULL_SEARCH_RESULTS:
+        full = True
+
     # detail='full' reveals each tool's schema, so those count as inspected and
     # become eligible for xp_execute_tool without a separate xp_get_tool call.
     if full:
         inspected.update(t.id for t in top)
 
+    logger.info(
+        f"[dynamic-tools] search query={query!r} hits={len(top)} schemas_inlined={full}"
+    )
     entries = "\n".join(render_tool(t, full_schema=full) for t in top)
     return f'<results query="{_xml_escape(query)}" count="{len(top)}">\n{entries}\n</results>'
 
 
-def _get_impl(repo: Any, data: Dict[str, Any], inspected: set) -> str:
-    name = str(data.get("name", "") or "").strip()
+def _requested_names(data: Dict[str, Any]) -> List[str]:
+    """Tool ids asked for, from either ``name`` or ``names``, in order and deduped.
+
+    ``name`` accepts a list too: a model told it can read several will put them
+    there as often as it uses the plural field."""
+    raw: List[Any] = []
+    for key in ("name", "names"):
+        value = data.get(key)
+        if isinstance(value, (list, tuple, set)):
+            raw.extend(value)
+        elif value is not None:
+            raw.append(value)
+
+    seen: Dict[str, None] = {}
+    for item in raw:
+        text = str(item or "").strip()
+        if text and text not in seen:
+            seen[text] = None
+    return list(seen)[:MAX_SCHEMAS_PER_GET]
+
+
+def _render_one(repo: Any, name: str, inspected: set) -> str:
     tool = repo.get_tool_by_id(name) or repo.get_tool_by_name(name)
     if not tool:
         return (
@@ -427,6 +614,22 @@ def _get_impl(repo: Any, data: Dict[str, Any], inspected: set) -> str:
     # Mark inspected: the model has now seen this tool's schema and may execute it.
     inspected.add(tool.id)
     return render_tool(tool, full_schema=True)
+
+
+def _get_impl(repo: Any, data: Dict[str, Any], inspected: set) -> str:
+    names = _requested_names(data)
+    if not names:
+        return (
+            '<not_found name="">'
+            "Pass the tool id in `name` — one id, or several to read together. "
+            "Call xp_search_tools first to find it."
+            "</not_found>"
+        )
+    logger.info(f"[dynamic-tools] get schemas={len(names)} names={names}")
+    if len(names) > 1:
+        entries = "\n".join(_render_one(repo, n, inspected) for n in names)
+        return f'<tools count="{len(names)}">\n{entries}\n</tools>'
+    return _render_one(repo, names[0], inspected)
 
 
 async def _execute_impl(repo: Any, data: Dict[str, Any], inspected: set) -> Any:
@@ -683,6 +886,8 @@ def build_meta_tools(repo: Any) -> List[Callable]:
     (or xp_search_tools detail='full'). xp_execute_tool hard-refuses the rest.
     The set lives on the repo (not in this closure) so the gate survives any
     re-materialization of the non-cached ``functions`` property within a run."""
+    # a hidden id called directly must be resolvable back into xp_execute_tool
+    register_dynamic_tools_repo(repo)
     is_async = bool(repo.is_async)
     inspected: set = repo._dynamic_inspected
     return [
@@ -743,14 +948,21 @@ def build_dynamic_tools_hint(repo: Any) -> str:
 <dynamic_tools>
 Your full tool library ({total} tools) is NOT loaded into context. Only xp*/knowledge tools are directly callable; everything else — including MCP server tools (name starts with `mcp_tool_`) — is reached through the meta-tools below.
 <workflow>
-1. xp_search_tools(query) — find candidates by intent (or xp_list_tools to browse).
-2. xp_get_tool(name) — read the chosen tool's schema + a ready-to-copy execute example. REQUIRED before step 3.
+1. xp_search_tools(query) — find candidates by intent (or xp_list_tools to browse). A narrow search
+   returns each match WITH its schema; when it does, go straight to step 3.
+2. xp_get_tool(name) — only for a match that came back as a summary: reads its schema + a
+   ready-to-copy execute example. Need several? Pass a LIST — xp_get_tool(name=["a","b"])
+   returns every schema in one call, so two tools cost one step, not two.
 3. xp_execute_tool(name, arguments) — run it, with `arguments` matching the schema exactly.
 </workflow>
 <rules>
 - Search FIRST. Never assume a tool is missing because it isn't loaded — search for it.
+- One search is usually enough: query the capability you need, then execute the best match.
+- Batch the read-only steps. A task needing several tools reads them together — one
+  xp_get_tool with a list of names — and only then starts executing.
 - `name` is the tool id shown in search/list/catalog — use it verbatim for xp_get_tool and xp_execute_tool.
-- ALWAYS xp_get_tool before xp_execute_tool. Never guess a tool's arguments — match the schema exactly:
+- Work from a schema you have actually seen — from the search result when it carried one, from
+  xp_get_tool otherwise. Never guess a tool's arguments — match the schema exactly:
   most tools want the FULL nested envelope (e.g. {{"body_params": {{...}}, "headers": {{...}}}}), but MCP
   tools (`mcp_tool_*`) take FLAT args with no body_params wrapper — copy the shape their schema shows.
 - xp*/knowledge tools are already available directly; no search needed for those. MCP tools are NOT

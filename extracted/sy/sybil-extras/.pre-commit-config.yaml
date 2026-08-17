@@ -7,45 +7,6 @@ fail_fast: true
 # See https://pre-commit.com/hooks.html for more hooks
 default_install_hook_types: [pre-commit, pre-push]
 
-ci:
-  # We use system Python, with required dependencies specified in pyproject.toml.
-  # We therefore cannot use those dependencies in pre-commit CI.
-  skip:
-    - actionlint
-    - check-manifest
-    - deptry
-    - doc8
-    - pydocstringformatter
-    - interrogate
-    - interrogate-docs
-    - mypy
-    - mypy-docs
-    - pylint
-    - pylint-docs
-    - pyproject-fmt-fix
-    - pyright
-    - pyright-docs
-    - pyright-verifytypes
-    - ty
-    - ty-docs
-    - pyroma
-    - ruff-check-fix
-    - ruff-check-fix-docs
-    - ruff-format-fix
-    - ruff-format-fix-docs
-    - shellcheck
-    - shellcheck-docs
-    - shfmt
-    - shfmt-docs
-    - sphinx-lint
-    - strict-kwargs-fix
-    - vulture
-    - vulture-docs
-    - yamlfix
-    - pyrefly
-    - pyrefly-docs
-    - zizmor
-
 repos:
   - repo: meta
     hooks:
@@ -300,6 +261,16 @@ repos:
         stages: [pre-commit]
         require_serial: true
 
+      - id: no-defaults
+        name: no-defaults
+        entry: uv run --extra=dev no-defaults
+        language: python
+        types_or: [python]
+        additional_dependencies:
+          - *uv_version
+        stages: [pre-commit]
+        require_serial: true
+
       - id: ruff-check-fix
         name: Ruff check fix
         entry: uv run --extra=dev -m ruff check --fix
@@ -334,6 +305,36 @@ repos:
           run --extra=dev ruff format"
         language: python
         types_or: [markdown, rst]
+        additional_dependencies:
+          - *uv_version
+        stages: [pre-commit]
+
+      # Vale enforces prose style rules, such as banning em dashes, in
+      # reStructuredText and Markdown files.
+      # The rules come from the ``ai-tells`` package pinned in ``.vale.ini``,
+      # which ``vale sync`` downloads into the (gitignored) ``styles``
+      # directory.
+      # Vale needs ``rst2html`` from Docutils on the ``PATH`` to parse
+      # reStructuredText.
+      # ``vale sync`` also runs when ``.vale.ini`` changes, so a package
+      # bump takes effect without waiting for the next reStructuredText
+      # change.
+      - id: vale-sync
+        name: vale sync
+        entry: uv run --extra=dev vale sync
+        language: python
+        pass_filenames: false
+        files: (\.(rst|md)$|^\.vale\.ini$)
+        additional_dependencies:
+          - *uv_version
+        stages: [pre-commit]
+
+      - id: vale
+        name: vale
+        entry: uv run --extra=dev vale
+        language: python
+        types_or: [rst, markdown]
+        require_serial: true
         additional_dependencies:
           - *uv_version
         stages: [pre-commit]

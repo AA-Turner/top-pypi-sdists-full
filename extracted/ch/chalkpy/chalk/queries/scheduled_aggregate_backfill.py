@@ -33,6 +33,11 @@ class ScheduledAggregateBackfill:
         upper_bound: End of the backfill window (UTC). Defaults to now.
         allow_empty_tiles: If ``False``, tiles with no data raise an error.
         planner_options: Planner options to apply when executing the backfill.
+        num_shards: Maximum number of bucket-aligned, time-sharded jobs to split each
+            run's window into. Must be > 1 when set. The server chooses the actual count (at most this many,
+            based on its per-shard window-width policy). Useful when a single job over
+            the run's window would run out of memory or disk. Unset preserves the
+            single-job behavior.
         environment: If set, this backfill is only scheduled when deploying to the named
             environment. Deploying to any other environment silently skips it — the backfill
             is not planned or persisted anywhere. Unlike ``ScheduledQuery``'s
@@ -56,6 +61,7 @@ class ScheduledAggregateBackfill:
         allow_empty_tiles: bool = True,
         planner_options: dict[str, str] | None = None,
         environment: str | None = None,
+        num_shards: int | None = None,
     ):
         super().__init__()
         self.errors = []
@@ -106,6 +112,11 @@ class ScheduledAggregateBackfill:
             # TODO remove this after a reasonable grace period
             allow_empty_tiles = False
 
+        if num_shards is not None and num_shards <= 1:
+            self.errors.append(
+                f"Scheduled aggregate backfill '{name}' was instantiated with num_shards={num_shards}, but num_shards must be > 1 when set; omit it to run each run as a single job"
+            )
+
         if lower_bound is not None:
             lower_bound = lower_bound.astimezone(tz=timezone.utc)
         if upper_bound is not None:
@@ -131,6 +142,7 @@ class ScheduledAggregateBackfill:
         self.allow_empty_tiles = allow_empty_tiles
         self.planner_options = {k: str(v) for k, v in planner_options.items()} if planner_options else None
         self.environment = environment
+        self.num_shards = num_shards
         self.filename = caller_filename
 
         SCHEDULED_AGGREGATE_BACKFILL_REGISTRY[name] = self

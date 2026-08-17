@@ -39,7 +39,7 @@ from xpander_sdk.modules.backend.utils.prompt_budget import log_wire_budget
 # Claude families that support prompt caching. Anthropic ignores an unknown
 # cache_control gracefully, but gating keeps intent explicit and mirrors
 # _bedrock_cache._supports_cache.
-_CACHE_SUPPORTED_MODELS = ("claude-3", "claude-opus-4", "claude-opus-5", "claude-sonnet-4", "claude-sonnet-5", "claude-haiku-4")
+_CACHE_SUPPORTED_MODELS = ("claude-3", "claude-fable-5", "claude-opus-4", "claude-opus-5", "claude-sonnet-4", "claude-sonnet-5", "claude-haiku-4")
 
 _CACHE_CONTROL = {"type": "ephemeral"}
 

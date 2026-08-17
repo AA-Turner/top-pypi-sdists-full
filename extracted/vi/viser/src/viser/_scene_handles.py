@@ -26,14 +26,61 @@ import numpy.typing as npt
 from typing_extensions import Self, deprecated, override
 
 from . import _messages
-from ._assignable_props_api import AssignablePropsBase
-from .infra._infra import WebsockClientConnection, WebsockServer
+from ._assignable_props_api import AssignablePropsBase, colors_to_uint8
+from .infra._infra import (
+    WebsockClientConnection,
+    WebsockServer,
+)
 
 if TYPE_CHECKING:
     from ._gui_api import GuiApi
     from ._scene_api import SceneApi
     from ._viser import ClientHandle
     from .infra import ClientId
+
+
+_PoseTupleT = TypeVar("_PoseTupleT", bound=Tuple[float, ...])
+
+
+def _set_pose_vector(
+    current: np.ndarray,
+    value: _PoseTupleT | np.ndarray,
+    length: int,
+    queue: Callable[[_messages.Message], None],
+    make_message: Callable[[_PoseTupleT], _messages.Message],
+) -> None:
+    """Shared write path for the scene-node and skinned-bone pose setters.
+
+    Casts and validates ``value``, no-ops if it is numerically unchanged from
+    ``current``, and otherwise writes it into ``current`` in place and queues the
+    message built from the cast value (via ``queue``, typically the owning
+    SceneApi's owner-stamping ``_queue_scene_message``). Keeping this in one
+    place stops the four near-identical wxyz/position setters from drifting
+    apart.
+    """
+    from ._scene_api import cast_vector
+
+    value_cast: _PoseTupleT = cast_vector(value, length)
+    value_arr = np.asarray(value_cast)
+    if np.allclose(value_arr, current):
+        return
+    current[:] = value_arr
+    queue(make_message(value_cast))
+
+
+def _queue_empty_interaction_bindings(
+    api: SceneApi, name: str, *, had_click: bool, had_drag: bool
+) -> None:
+    """Broadcast empty click/drag binding tuples for a node whose name-keyed
+    interaction state is being retired, so a re-created node with the same
+    name doesn't inherit the prior node's filters from the persistent buffer.
+    Shared by ``remove()`` and the same-name-replacement supersede in
+    ``_make`` so the two can't drift; emits only -- callers own any
+    ``drag_cb`` bookkeeping."""
+    if had_click:
+        api._queue_scene_message(_messages.SetSceneNodeClickBindingsMessage(name, ()))
+    if had_drag:
+        api._queue_scene_message(_messages.SetSceneNodeDragBindingsMessage(name, ()))
 
 
 @dataclasses.dataclass(frozen=True)
@@ -185,6 +232,11 @@ class _SceneNodeHandleState:
     _last_published_click_bindings: tuple[_messages.DragBinding, ...] | None = None
 
 
+def _normalize_node_name(name: str) -> str:
+    """Scene node names are canonicalized to always start with "/"."""
+    return name if name.startswith("/") else "/" + name
+
+
 class _SceneNodeMessage(Protocol):
     name: str
     props: Any
@@ -195,7 +247,7 @@ class SceneNodeHandle(AssignablePropsBase[_SceneNodeHandleState]):
 
     @override
     def _queue_update(self, name: str, value: Any) -> None:
-        self._impl.api._websock_interface.queue_message(
+        self._impl.api._queue_scene_message(
             _messages.SceneNodeUpdateMessage(self._impl.name, {name: value})
         )
 
@@ -217,27 +269,104 @@ class SceneNodeHandle(AssignablePropsBase[_SceneNodeHandleState]):
         """Create scene node: send state to client(s) and set up
         server-side state."""
         # Normalize name to always start with "/".
-        if not name.startswith("/"):
-            name = "/" + name
-            message.name = name
+        name = _normalize_node_name(name)
+        message.name = name
 
-        # Ensure all ancestor nodes exist (creates intermediate frames as needed).
-        api._ensure_ancestors_exist(name)
+        # Snapshot array props before the message is queued and persisted for
+        # replay. The add_* methods use np.asarray casts that may alias the
+        # caller's array; without a copy here, a caller mutating that array
+        # (e.g. reusing one buffer across an animation loop) could retroactively
+        # change what was already sent.
+        for _field_name, _field_value in vars(message.props).items():
+            if isinstance(_field_value, np.ndarray):
+                setattr(message.props, _field_name, _field_value.copy())
 
-        # Send message.
-        assert isinstance(message, _messages.Message)
-        api._websock_interface.queue_message(message)
+        # Same-name REPLACEMENT (explicitly supported: re-adding a node under
+        # an existing name swaps it out) plus the new node's registration,
+        # atomic under the lifecycle lock: a concurrent old_handle.remove()
+        # from another thread must either run fully before this block or
+        # observe the FINISHED supersession (registry pointing at the new
+        # handle) and warn-return -- never interleave while the old handle
+        # is marked removed but still registered, where its remove() would
+        # tear down the replacement's fresh state.
+        with api._node_lifecycle_lock:
+            # Ensure all SAME-SCOPE ancestors exist (creates virtual anchor
+            # frames as needed; re-enters _make under the reentrant lifecycle
+            # lock). Scene state is scope-local: another scope's variant of
+            # an ancestor name neither satisfies nor blocks this scope's
+            # chain.
+            api._ensure_ancestors_exist(name)
 
-        out = cls(_SceneNodeHandleState(name, copy.deepcopy(message.props), api))
-        api._handle_from_node_name[name] = out
+            old_handle = api._handle_from_node_name.get(name)
+            if old_handle is not None and not old_handle._impl.removed:
+                # 1. The old Python handle goes inert. Removal resolves by NAME,
+                #    so a later old_handle.remove() would otherwise find the
+                #    REPLACEMENT in the registry and delete it (marking the new
+                #    handle removed) out from under the caller.
+                old_handle._impl.removed = True
+                old_handle._on_remove()
+                # 2. The old node's per-axis updates must not replay onto the new
+                #    node: the new create replaces the old one in the persistent
+                #    buffer via its redundancy key, but pose/visibility/props
+                #    updates and name-keyed binding messages live in separate
+                #    namespaces -- a late joiner would apply the OLD pose to the
+                #    NEW node. Purge them (mirrors the remove()/GC sweep); the
+                #    new node's own state is queued below.
+                api._websock_interface.get_message_buffer().remove_entity_state_from_buffer(
+                    "scene", name
+                )
+                # 3. LIVE clients keep interaction bindings across a same-name
+                #    create (deliberate, for reconnect replays), so the buffer
+                #    purge alone leaves the replacement clickable/draggable on
+                #    already-connected clients -- firing events with no matching
+                #    callbacks. Broadcast explicit empty bindings, exactly as
+                #    remove() does. The inert old handle's callbacks stay: an
+                #    in-flight drag on the old node must still dispatch its end.
+                _queue_empty_interaction_bindings(
+                    api,
+                    name,
+                    had_click=len(old_handle._impl.click_cb) > 0,
+                    had_drag=bool(old_handle._impl.drag_cb),
+                )
 
-        # Track parent -> child relationship.
-        parent = name.rsplit("/", 1)[0]
-        api._children_from_node_name.setdefault(parent, set()).add(name)
-        api._children_from_node_name.setdefault(name, set())
+            # Send message, stamped with this scope's owner id -- and marked
+            # virtual when this create is an auto-generated ancestor anchor
+            # (see SceneApi._creating_virtual_anchors).
+            assert isinstance(message, _messages.Message)
+            if api._creating_virtual_anchors:
+                message.virtual = True  # type: ignore[attr-defined]
+            api._queue_scene_message(message)
+
+            # Shallow copy is enough to decouple the handle from the queued
+            # message: AssignablePropsBase.__init__ copies each top-level
+            # array, and scene-node props are flat (arrays + immutable
+            # scalars/tuples).
+            out = cls(_SceneNodeHandleState(name, copy.copy(message.props), api))
+            api._handle_from_node_name[name] = out
+
+            # Track parent -> child relationship.
+            parent = name.rsplit("/", 1)[0]
+            api._children_from_node_name.setdefault(parent, set()).add(name)
+            api._children_from_node_name.setdefault(name, set())
 
         out.wxyz = wxyz
         out.position = position
+        if old_handle is not None:
+            # Replacement: force-broadcast the new node's pose even when it
+            # equals the fresh-handle default (the setters above no-op on
+            # equality). A live client that applied the OLD node's pose keeps
+            # it across the re-add (the client preserves node state on
+            # same-name creates for reconnect replays), so the reset must
+            # arrive as an explicit message -- and it replaces any stale pose
+            # entry in the buffer via its redundancy key.
+            from ._scene_api import cast_vector
+
+            api._queue_scene_message(
+                _messages.SetOrientationMessage(name, cast_vector(out._impl.wxyz, 4))
+            )
+            api._queue_scene_message(
+                _messages.SetPositionMessage(name, cast_vector(out._impl.position, 3))
+            )
 
         # Toggle visibility to make sure we send a
         # SetSceneNodeVisibilityMessage to the client.
@@ -254,15 +383,14 @@ class SceneNodeHandle(AssignablePropsBase[_SceneNodeHandleState]):
 
     @wxyz.setter
     def wxyz(self, wxyz: tuple[float, float, float, float] | np.ndarray) -> None:
-        from ._scene_api import cast_vector
-
-        wxyz_cast = cast_vector(wxyz, 4)
-        wxyz_array = np.asarray(wxyz)
-        if np.allclose(wxyz_cast, self._impl.wxyz):
-            return
-        self._impl.wxyz[:] = wxyz_array
-        self._impl.api._websock_interface.queue_message(
-            _messages.SetOrientationMessage(self._impl.name, wxyz_cast)
+        # wxyz is assumed to be a unit quaternion (the client applies it to the
+        # object's rotation without normalizing).
+        _set_pose_vector(
+            self._impl.wxyz,
+            wxyz,
+            4,
+            self._impl.api._queue_scene_message,
+            lambda v: _messages.SetOrientationMessage(self._impl.name, v),
         )
 
     @property
@@ -274,15 +402,12 @@ class SceneNodeHandle(AssignablePropsBase[_SceneNodeHandleState]):
 
     @position.setter
     def position(self, position: tuple[float, float, float] | np.ndarray) -> None:
-        from ._scene_api import cast_vector
-
-        position_cast = cast_vector(position, 3)
-        position_array = np.asarray(position)
-        if np.allclose(position_array, self._impl.position):
-            return
-        self._impl.position[:] = position_array
-        self._impl.api._websock_interface.queue_message(
-            _messages.SetPositionMessage(self._impl.name, position_cast)
+        _set_pose_vector(
+            self._impl.position,
+            position,
+            3,
+            self._impl.api._queue_scene_message,
+            lambda v: _messages.SetPositionMessage(self._impl.name, v),
         )
 
     @property
@@ -294,20 +419,28 @@ class SceneNodeHandle(AssignablePropsBase[_SceneNodeHandleState]):
     def visible(self, visible: bool) -> None:
         if visible == self._impl.visible:
             return
-        self._impl.api._websock_interface.queue_message(
+        self._impl.api._queue_scene_message(
             _messages.SetSceneNodeVisibilityMessage(self._impl.name, visible)
         )
         self._impl.visible = visible
 
     def remove(self) -> None:
         """Remove the node from the scene."""
+        # The whole teardown runs under the scene's lifecycle lock: it must
+        # be atomic against interaction-callback registration and same-name
+        # supersession from other threads (see _node_lifecycle_lock). The
+        # body is synchronous and never re-enters the lock.
+        with self._impl.api._node_lifecycle_lock:
+            self._remove_locked()
+
+    def _remove_locked(self) -> None:
         # Warn if already removed.
+        api = self._impl.api
         if self._impl.removed:
             warnings.warn(f"Attempted to remove already removed node: {self.name}")
             return
 
         # Collect all descendants via BFS.
-        api = self._impl.api
         to_remove = [self._impl.name]
         i = 0
         while i < len(to_remove):
@@ -336,26 +469,45 @@ class SceneNodeHandle(AssignablePropsBase[_SceneNodeHandleState]):
             if handle is None:
                 continue
             impl = handle._impl
-            if len(impl.click_cb) > 0:
-                # Empty the per-node click-binding set so a re-created
-                # node with the same name doesn't inherit the prior
-                # node's modifier filters from the persistent buffer.
-                api._websock_interface.queue_message(
-                    _messages.SetSceneNodeClickBindingsMessage(node_name, ())
+            had_drag = bool(impl.drag_cb)
+            # Snapshot the active-drag state BEFORE the emits: a concurrent
+            # drag-end can retire the active marker while the emits run, and
+            # a post-emit-only check would then clear the callbacks the end
+            # dispatch is about to snapshot -- losing the user's required
+            # on_drag_end.
+            drag_active = api._is_drag_active_for(node_name)
+            # These emits are part of the removal: on a dead per-client
+            # buffer (remove() from on_client_disconnect) they are benign
+            # no-ops and must not trip the dead-connection write warning.
+            with api._websock_interface.get_message_buffer().sanctioned_dead_writes():
+                _queue_empty_interaction_bindings(
+                    api,
+                    node_name,
+                    had_click=len(impl.click_cb) > 0,
+                    had_drag=had_drag,
                 )
-            if impl.drag_cb:
-                if not api._is_drag_active_for(node_name):
-                    impl.drag_cb.clear()
-                api._websock_interface.queue_message(
-                    _messages.SetSceneNodeDragBindingsMessage(node_name, ())
-                )
+            # Clear AFTER both emits (the snapshots above key them): if an
+            # emit raises mid-remove, the handle keeps its callback state, so
+            # a RETRY re-emits everything -- clearing first left a retry
+            # reading had_drag=False and the stale non-empty drag binding
+            # persistent forever. Cleared only when no drag was in flight
+            # either before OR after the emits (belt and braces for a drag
+            # retiring mid-emit).
+            if had_drag and not drag_active and not api._is_drag_active_for(node_name):
+                impl.drag_cb.clear()
 
-        # Clean up all descendants from both dicts.
+        # Tear down each descendant from both dicts and let it release any
+        # subclass-specific registries via the polymorphic ``_on_remove`` hook.
+        # This runs once per node -- for direct removal, ``reset()``, and
+        # cascading parent removal alike -- because a node removed via an
+        # ancestor never has its own ``remove()`` called.
         for node_name in to_remove:
             handle = api._handle_from_node_name.pop(node_name, None)
-            if handle is not None:
-                handle._impl.removed = True
             api._children_from_node_name.pop(node_name, None)
+            if handle is None:
+                continue
+            handle._impl.removed = True
+            handle._on_remove()
 
         # Remove from parent's children set.
         parent = self._impl.name.rsplit("/", 1)[0]
@@ -363,12 +515,22 @@ class SceneNodeHandle(AssignablePropsBase[_SceneNodeHandleState]):
         if parent_children is not None:
             parent_children.discard(self._impl.name)
 
-        # Send a RemoveSceneNodeMessage per descendant so redundancy keys
-        # clean up their creation messages from the broadcast buffer.
+        # Send a RemoveSceneNodeMessage per SAME-SCOPE descendant so
+        # redundancy keys clean up their creation messages from the buffer.
+        # Cascade is scope-local by design: the client does not recurse on
+        # removes (this enumeration is the complete removal set), and the
+        # other scope's variants of these names -- including any children
+        # hanging from their own scope's virtual anchors -- are untouched.
         for node_name in to_remove:
-            api._websock_interface.queue_message(
-                _messages.RemoveSceneNodeMessage(node_name)
-            )
+            api._queue_scene_message(_messages.RemoveSceneNodeMessage(node_name))
+
+    def _on_remove(self) -> None:
+        """Release any subclass-specific registries for this node.
+
+        Called once per node during removal -- including when the node is
+        removed via an ancestor's cascade, where a subclass ``remove()`` would
+        never run. The base node holds no extra registries, so this is a no-op;
+        subclasses override it to clean up their own state."""
 
 
 @dataclasses.dataclass(frozen=True)
@@ -430,10 +592,19 @@ class SceneNodeDragEvent(Generic[TSceneNodeHandle]):
     target: TSceneNodeHandle
     """Scene node that is being dragged."""
     phase: DragPhase
-    """Drag lifecycle phase: ``"start"`` at press, ``"update"`` on
-    every throttled pointermove (~20Hz), ``"end"`` at release. A
-    single drag fires exactly one ``"start"``, zero or more
-    ``"update"``s, and exactly one ``"end"``."""
+    """Drag lifecycle phase: ``"start"`` once a press is confirmed as a
+    drag (the pointer travels past a small motion threshold -- a
+    stationary press/release fires nothing), ``"update"`` on every
+    throttled pointermove (~20Hz), ``"end"`` at release.
+
+    A gesture is partitioned into one *segment* per held modifier-combo.
+    Each segment fires exactly one ``"start"``, zero or more
+    ``"update"``s, and exactly one ``"end"``. If the user changes the
+    held modifier mid-drag, the current segment ends and a new one
+    starts under the new modifier (see :attr:`modifier`) -- so a single
+    physical drag can produce more than one ``start``/``end`` pair. When
+    the modifier doesn't change, this collapses to the common case of a
+    single ``start`` ... ``end`` per gesture."""
     instance_index: int | None
     """Instance index within a batched scene node (e.g. batched meshes,
     batched GLBs, batched axes); ``None`` for non-batched nodes. Frozen
@@ -454,15 +625,30 @@ class SceneNodeDragEvent(Generic[TSceneNodeHandle]):
     button: Literal["left", "middle", "right"]
     """Mouse button that initiated the drag."""
     modifier: _messages.KeyModifier | None
-    """Modifier-combo held at drag-start (frozen for the drag's
-    lifetime). ``None`` if no modifiers were held; otherwise a
-    canonical :data:`KeyModifier` string."""
+    """Modifier-combo that owns the current drag segment. Constant within
+    a segment and matches the binding this callback was registered for;
+    if the user changes the held modifier mid-drag the segment ends and a
+    new one begins under the new combo (see :attr:`phase`). ``None`` if no
+    modifiers are held; otherwise a canonical :data:`KeyModifier`
+    string."""
 
 
 _VALID_DRAG_BUTTONS: Tuple[_messages.DragButton, ...] = get_args(_messages.DragButton)
 
 
 class _RaycastSupportedSceneNodeHandle(SceneNodeHandle):
+    def _ensure_not_removed(self) -> None:
+        """Interaction-callback (de)registration publishes name-keyed binding
+        messages into the persistent broadcast buffer; on a removed handle
+        those are ghosts that replay to late joiners once the node's remove
+        tombstone is garbage-collected. Same contract as property writes,
+        which raise via AssignablePropsBase.__setattr__."""
+        if self._impl.removed:
+            raise RuntimeError(
+                f"Cannot register or remove callbacks on a removed "
+                f"{type(self).__name__}."
+            )
+
     def _sync_drag_bindings(self) -> None:
         """Recompute the union of registered (button, modifiers) and
         push it to the client as a full binding set."""
@@ -476,7 +662,7 @@ class _RaycastSupportedSceneNodeHandle(SceneNodeHandle):
             bindings.append(
                 _messages.DragBinding(button=entry.button, modifier=entry.modifier)
             )
-        self._impl.api._websock_interface.queue_message(
+        self._impl.api._queue_scene_message(
             _messages.SetSceneNodeDragBindingsMessage(self._impl.name, tuple(bindings))
         )
 
@@ -516,6 +702,7 @@ class _RaycastSupportedSceneNodeHandle(SceneNodeHandle):
         Callable[[SceneNodeDragEvent[Self]], NoneOrCoroutine],
     ]:
         self._validate_button(button)
+        self._ensure_not_removed()
         normalized = _messages._normalize_key_modifier(modifier)
 
         def decorator(
@@ -532,12 +719,17 @@ class _RaycastSupportedSceneNodeHandle(SceneNodeHandle):
                 button=button,
                 modifier=normalized,
             )
-            # Skip duplicate registration -- without this, the same
-            # callback fires twice per matching event. Equality is by
-            # tuple/dataclass value.
-            if entry not in self._impl.drag_cb:
-                self._impl.drag_cb.append(entry)
-                self._sync_drag_bindings()
+            # Atomic vs remove()/supersede from other threads, and
+            # re-checked: the decorator can be applied long after the eager
+            # factory-time check (e.g. held across a remove()).
+            with self._impl.api._node_lifecycle_lock:
+                self._ensure_not_removed()
+                # Skip duplicate registration -- without this, the same
+                # callback fires twice per matching event. Equality is by
+                # tuple/dataclass value.
+                if entry not in self._impl.drag_cb:
+                    self._impl.drag_cb.append(entry)
+                    self._sync_drag_bindings()
             return func
 
         return decorator
@@ -567,12 +759,32 @@ class _RaycastSupportedSceneNodeHandle(SceneNodeHandle):
     ) -> Any:
         """Attach a callback for the full drag lifecycle.
 
-        Fires three times per gesture: once with
-        ``event.phase == "start"`` at press, zero or more times with
-        ``"update"`` (throttled pointermove), once with ``"end"`` at
-        release. ``end`` fires even on cancellation paths (window
-        blur, pointer cancel, node removed mid-drag) so per-drag
-        state can be released.
+        Fires once with ``event.phase == "start"`` when a press is
+        confirmed as a drag (the pointer travels past a small motion
+        threshold; a stationary press/release fires nothing), zero or
+        more times with ``"update"`` (throttled pointermove), and once
+        with ``"end"`` at release. ``end`` fires even on cancellation
+        paths (window blur, pointer cancel, node removed mid-drag) so
+        per-drag state can be released.
+
+        Modifiers are live: if the user changes the held modifier
+        mid-drag, the current segment ends and a new one begins under
+        the new combo, routing to whichever callback that combo is bound
+        to. A callback therefore sees a clean ``start`` ... ``end`` pair
+        for *its* modifier each time that modifier is engaged, and a
+        single physical drag may fire more than one such pair. To switch
+        behavior mid-drag (e.g. changing the drag plane), register a
+        separate ``on_drag`` for each modifier combo. ``event.modifier``
+        identifies the active segment.
+
+        A switch-created segment's ``start`` is confirmed briefly
+        (~100ms, or sooner on pointer motion) before it fires; releasing
+        the mouse button within that window discards the segment
+        entirely. In particular, releasing the modifier a beat before
+        the button -- the natural way to end a modifier-drag -- does
+        *not* fire a spurious start/end pair on the combo left behind
+        (e.g. a bare ``on_drag`` registered alongside a modifier
+        binding).
 
         Usable as a bare decorator (``@handle.on_drag``, defaults to
         ``button="left"`` and no modifiers) or with arguments
@@ -585,9 +797,12 @@ class _RaycastSupportedSceneNodeHandle(SceneNodeHandle):
                 ordered ``"+"``-separated string like ``"cmd/ctrl"``,
                 ``"shift"``, or ``"cmd/ctrl+shift"``. ``None`` matches
                 "no modifiers held". Matching is exact: listed modifiers
-                must be held and others must not be. Left-drag on this
-                node intercepts the gesture -- the camera only orbits on
-                empty-space drags.
+                must be held and others must not be. The match is
+                re-evaluated whenever the held modifier changes mid-drag,
+                so this callback is entered and exited as its combo is
+                engaged and released. Left-drag on this node intercepts
+                the gesture -- the camera only orbits on empty-space
+                drags.
 
         Note on ordering: synchronous (``def``) callbacks are submitted
         to a thread pool fire-and-forget and can run out of order -- an
@@ -612,13 +827,15 @@ class _RaycastSupportedSceneNodeHandle(SceneNodeHandle):
         ``callback="all"`` removes every drag callback; a specific
         function removes only entries whose callback identity matches.
         """
-        if callback == "all":
-            self._impl.drag_cb.clear()
-        else:
-            self._impl.drag_cb = [
-                entry for entry in self._impl.drag_cb if entry.callback != callback
-            ]
-        self._sync_drag_bindings()
+        with self._impl.api._node_lifecycle_lock:
+            self._ensure_not_removed()
+            if callback == "all":
+                self._impl.drag_cb.clear()
+            else:
+                self._impl.drag_cb = [
+                    entry for entry in self._impl.drag_cb if entry.callback != callback
+                ]
+            self._sync_drag_bindings()
 
     @overload
     def on_click(
@@ -661,22 +878,32 @@ class _RaycastSupportedSceneNodeHandle(SceneNodeHandle):
         """
         # Validate eagerly so a bad string raises at the call site,
         # not when the user later applies the returned decorator.
+        self._ensure_not_removed()
         normalized_modifier = _messages._normalize_key_modifier(modifier)
 
         def register(callback: Callable) -> Callable:
-            self._impl.click_cb.append(
-                _ClickCallbackEntry(
-                    callback=cast(
-                        Callable[
-                            [SceneNodePointerEvent[_RaycastSupportedSceneNodeHandle]],
-                            Union[None, Coroutine],
-                        ],
-                        callback,
-                    ),
-                    modifier=normalized_modifier,
+            # Atomic vs remove()/supersede from other threads, and
+            # re-checked: the decorator can be applied long after the eager
+            # factory-time check (e.g. held across a remove()).
+            with self._impl.api._node_lifecycle_lock:
+                self._ensure_not_removed()
+                self._impl.click_cb.append(
+                    _ClickCallbackEntry(
+                        callback=cast(
+                            Callable[
+                                [
+                                    SceneNodePointerEvent[
+                                        _RaycastSupportedSceneNodeHandle
+                                    ]
+                                ],
+                                Union[None, Coroutine],
+                            ],
+                            callback,
+                        ),
+                        modifier=normalized_modifier,
+                    )
                 )
-            )
-            self._publish_click_state()
+                self._publish_click_state()
             return callback
 
         if func is None:
@@ -691,13 +918,15 @@ class _RaycastSupportedSceneNodeHandle(SceneNodeHandle):
         Args:
             callback: Either "all" to remove all callbacks, or a specific callback function to remove.
         """
-        if callback == "all":
-            self._impl.click_cb.clear()
-        else:
-            self._impl.click_cb = [
-                entry for entry in self._impl.click_cb if entry.callback != callback
-            ]
-        self._publish_click_state()
+        with self._impl.api._node_lifecycle_lock:
+            self._ensure_not_removed()
+            if callback == "all":
+                self._impl.click_cb.clear()
+            else:
+                self._impl.click_cb = [
+                    entry for entry in self._impl.click_cb if entry.callback != callback
+                ]
+            self._publish_click_state()
 
     def _publish_click_state(self) -> None:
         """Publish ``SetSceneNodeClickBindingsMessage`` to the client
@@ -718,10 +947,46 @@ class _RaycastSupportedSceneNodeHandle(SceneNodeHandle):
         # Queue the message BEFORE committing the cache. If
         # ``queue_message`` raises, the cache stays at its previous
         # value so the next state change retries the publish.
-        self._impl.api._websock_interface.queue_message(
+        self._impl.api._queue_scene_message(
             _messages.SetSceneNodeClickBindingsMessage(self._impl.name, bindings)
         )
         self._impl._last_published_click_bindings = bindings
+
+
+class _SupportsThickness(Protocol):
+    """Line-style props shared by every handle carrying the deprecated
+    ``line_width`` alias."""
+
+    thickness: float
+    thickness_units: Literal["screen", "world"]
+
+
+def _get_deprecated_line_width(handle: _SupportsThickness) -> float:
+    """Shared body of the deprecated ``line_width`` getters."""
+    warnings.warn(
+        "The 'line_width' property is deprecated. Use 'thickness' instead.",
+        DeprecationWarning,
+        stacklevel=3,
+    )
+    return handle.thickness
+
+
+def _set_deprecated_line_width(handle: _SupportsThickness, value: float) -> None:
+    """Shared body of the deprecated ``line_width`` setters."""
+    warnings.warn(
+        "The 'line_width' property is deprecated; assigning it forces "
+        "thickness_units='screen' so the value keeps its historical "
+        "pixel meaning. Use 'thickness' with 'thickness_units' instead.",
+        DeprecationWarning,
+        stacklevel=3,
+    )
+    # line_width was always screen-space pixels; pin the units so the
+    # assigned value keeps that meaning even on a handle created with the
+    # new world-space thickness defaults. Units first: on a live client the
+    # transient (old thickness, "screen") state renders as a briefly-thin
+    # line rather than a world-units-wide ribbon.
+    handle.thickness_units = "screen"
+    handle.thickness = value
 
 
 class CameraFrustumHandle(
@@ -729,6 +994,22 @@ class CameraFrustumHandle(
     _messages.CameraFrustumProps,
 ):
     """Handle for camera frustums."""
+
+    @property
+    @deprecated("The 'line_width' property is deprecated. Use 'thickness' instead.")
+    def line_width(self) -> float:
+        """Deprecated alias for :attr:`thickness`.
+
+        .. deprecated::
+            Use 'thickness' instead; it is interpreted in the units given
+            by 'thickness_units'.
+        """
+        return _get_deprecated_line_width(self)
+
+    @line_width.setter
+    @deprecated("The 'line_width' property is deprecated. Use 'thickness' instead.")
+    def line_width(self, value: float) -> None:
+        _set_deprecated_line_width(self, value)
 
     _image: np.ndarray | None
     _jpeg_quality: int | None
@@ -744,6 +1025,7 @@ class CameraFrustumHandle(
         from ._scene_api import _encode_image_binary
 
         if image is None:
+            self._image = None
             self._image_data = None
             return
 
@@ -879,7 +1161,10 @@ class PointCloudHandle(
         if points.dtype != dtype:
             new_points = points.astype(dtype)
             self._impl.props.points = new_points
-            self._queue_update("points", new_points)
+            # Queue a private snapshot, not the stored array (a later same-shape
+            # `points` update mutates the stored buffer in place, which could
+            # corrupt this still-unsent message). Mirrors props_setattr.
+            self._queue_update("points", new_points.copy())
 
 
 class BatchedAxesHandle(
@@ -976,6 +1261,70 @@ class GaussianSplatHandle(
 
         self.buffer = new_buffer
 
+    @staticmethod
+    def _pack_centers(buffer: np.ndarray, centers: np.ndarray) -> None:
+        buffer[:, 0:3] = np.ascontiguousarray(centers, dtype=np.float32).view(np.uint32)
+
+    @staticmethod
+    def _pack_covariances(buffer: np.ndarray, covariances: np.ndarray) -> None:
+        # Extract upper-triangular terms: indices [0,1,2,4,5,8] from flattened 3x3.
+        cov_triu = covariances.reshape((-1, 9))[:, np.array([0, 1, 2, 4, 5, 8])]
+        cov_triu_f16 = np.ascontiguousarray(cov_triu, dtype=np.float16)
+        buffer[:, 4:7] = cov_triu_f16.view(np.uint32)
+
+    @staticmethod
+    def _pack_rgba(
+        buffer: np.ndarray,
+        rgbs: np.ndarray | None = None,
+        opacities: np.ndarray | None = None,
+    ) -> None:
+        rgba = buffer[:, 7:8].view(np.uint8).reshape(-1, 4)
+        if rgbs is not None:
+            rgba[:, :3] = colors_to_uint8(rgbs)
+        if opacities is not None:
+            rgba[:, 3:4] = colors_to_uint8(opacities)
+        buffer[:, 7:8] = rgba.view(np.uint32)
+
+    def set_gaussians(
+        self,
+        centers: np.ndarray,
+        covariances: np.ndarray,
+        rgbs: np.ndarray,
+        opacities: np.ndarray,
+    ) -> None:
+        """Atomically update all Gaussian attributes, including count changes.
+
+        This is the preferred fast path when per-frame updates may change the
+        number of Gaussians: all attributes land in a single buffer update,
+        preventing transient mixed-state frames from sequential property
+        assignments (centers/covariances/rgbs/opacities one-by-one). A call
+        that leaves the buffer numerically unchanged sends no message.
+        """
+        assert centers.ndim == 2 and centers.shape[1] == 3, (
+            f"centers must have shape (N, 3), got {centers.shape}"
+        )
+        num_gaussians = centers.shape[0]
+        assert covariances.ndim == 3 and covariances.shape == (num_gaussians, 3, 3), (
+            f"covariances must have shape ({num_gaussians}, 3, 3), got {covariances.shape}"
+        )
+        assert rgbs.ndim == 2 and rgbs.shape == (num_gaussians, 3), (
+            f"rgbs must have shape ({num_gaussians}, 3), got {rgbs.shape}"
+        )
+        assert opacities.ndim == 2 and opacities.shape == (num_gaussians, 1), (
+            f"opacities must have shape ({num_gaussians}, 1), got {opacities.shape}"
+        )
+
+        # Assemble the full buffer locally, then store it with a single
+        # property assignment: props_setattr rejects writes to removed handles,
+        # resizes or copies in place as needed, and queues exactly one private
+        # snapshot for the wire. Routing a resize through _ensure_buffer_size
+        # here would queue an extra all-default buffer message first.
+        buffer = np.zeros((num_gaussians, 8), dtype=np.uint32)
+        self._pack_centers(buffer, centers)
+        self._pack_covariances(buffer, covariances)
+        self._pack_rgba(buffer, rgbs=rgbs, opacities=opacities)
+        self.buffer = buffer
+
     @property
     def centers(self) -> npt.NDArray[np.float32]:
         """Centers of the Gaussians. Shape: (N, 3). Synchronized automatically when assigned."""
@@ -987,8 +1336,11 @@ class GaussianSplatHandle(
             f"centers must have shape (N, 3), got {centers.shape}"
         )
         self._ensure_buffer_size(centers.shape[0])
-        self.buffer[:, 0:3] = centers.astype(np.float32).view(np.uint32)
-        self._queue_update("buffer", self.buffer)
+        self._pack_centers(self.buffer, centers)
+        # Queue a private snapshot: the stored buffer is mutated in place by
+        # later sub-property assignments, possibly while the event loop is still
+        # serializing this message. Matches the guard in props_setattr.
+        self._queue_update("buffer", self.buffer.copy())
 
     @property
     def rgbs(self) -> npt.NDArray[np.uint8]:
@@ -998,16 +1350,12 @@ class GaussianSplatHandle(
 
     @rgbs.setter
     def rgbs(self, rgbs: np.ndarray) -> None:
-        from ._assignable_props_api import colors_to_uint8
-
         assert rgbs.ndim == 2 and rgbs.shape[1] == 3, (
             f"rgbs must have shape (N, 3), got {rgbs.shape}"
         )
         self._ensure_buffer_size(rgbs.shape[0])
-        rgba = self.buffer[:, 7:8].view(np.uint8).reshape(-1, 4)
-        rgba[:, :3] = colors_to_uint8(rgbs)
-        self.buffer[:, 7:8] = rgba.view(np.uint32)
-        self._queue_update("buffer", self.buffer)
+        self._pack_rgba(self.buffer, rgbs=rgbs)
+        self._queue_update("buffer", self.buffer.copy())
 
     @property
     def opacities(self) -> npt.NDArray[np.uint8]:
@@ -1018,16 +1366,12 @@ class GaussianSplatHandle(
 
     @opacities.setter
     def opacities(self, opacities: np.ndarray) -> None:
-        from ._assignable_props_api import colors_to_uint8
-
         assert opacities.ndim == 2 and opacities.shape[1] == 1, (
             f"opacities must have shape (N, 1), got {opacities.shape}"
         )
         self._ensure_buffer_size(opacities.shape[0])
-        rgba = self.buffer[:, 7:8].view(np.uint8).reshape(-1, 4)
-        rgba[:, 3:4] = colors_to_uint8(opacities)
-        self.buffer[:, 7:8] = rgba.view(np.uint32)
-        self._queue_update("buffer", self.buffer)
+        self._pack_rgba(self.buffer, opacities=opacities)
+        self._queue_update("buffer", self.buffer.copy())
 
     @property
     def covariances(self) -> npt.NDArray[np.float32]:
@@ -1055,11 +1399,8 @@ class GaussianSplatHandle(
             f"covariances must have shape (N, 3, 3), got {covariances.shape}"
         )
         self._ensure_buffer_size(covariances.shape[0])
-        # Extract upper-triangular terms: indices [0,1,2,4,5,8] from flattened 3x3.
-        cov_triu = covariances.reshape((-1, 9))[:, np.array([0, 1, 2, 4, 5, 8])]
-        cov_triu_f16 = cov_triu.astype(np.float16)
-        self.buffer[:, 4:7] = np.ascontiguousarray(cov_triu_f16).view(np.uint32)
-        self._queue_update("buffer", self.buffer)
+        self._pack_covariances(self.buffer, covariances)
+        self._queue_update("buffer", self.buffer.copy())
 
 
 class MeshSkinnedHandle(
@@ -1082,6 +1423,9 @@ class BoneState:
     bone_index: int
     wxyz: np.ndarray
     position: np.ndarray
+    mesh_impl: _SceneNodeHandleState
+    """The owning skinned mesh's node state: bone writes are refused once the
+    mesh is removed, like every other write on a removed handle."""
 
 
 @dataclasses.dataclass
@@ -1089,6 +1433,14 @@ class MeshSkinnedBoneHandle:
     """Handle for reading and writing the poses of bones in a skinned mesh."""
 
     _impl: BoneState
+
+    def _ensure_mesh_not_removed(self) -> None:
+        if self._impl.mesh_impl.removed:
+            raise RuntimeError(
+                "Cannot assign a bone pose on a removed skinned mesh: the "
+                "SetBone message would linger for the dead name and corrupt "
+                "a re-added same-name mesh."
+            )
 
     @property
     def wxyz(self) -> npt.NDArray[np.float64]:
@@ -1099,17 +1451,16 @@ class MeshSkinnedBoneHandle:
 
     @wxyz.setter
     def wxyz(self, wxyz: tuple[float, float, float, float] | np.ndarray) -> None:
-        from ._scene_api import cast_vector
-
-        wxyz_cast = cast_vector(wxyz, 4)
-        wxyz_array = np.asarray(wxyz)
-        if np.allclose(wxyz_cast, self._impl.wxyz):
-            return
-        self._impl.wxyz[:] = wxyz_array
-        self._impl.websock_interface.queue_message(
-            _messages.SetBoneOrientationMessage(
-                self._impl.name, self._impl.bone_index, wxyz_cast
-            )
+        # wxyz is assumed to be a unit quaternion (see SceneNodeHandle.wxyz).
+        self._ensure_mesh_not_removed()
+        _set_pose_vector(
+            self._impl.wxyz,
+            wxyz,
+            4,
+            self._impl.mesh_impl.api._queue_scene_message,
+            lambda v: _messages.SetBoneOrientationMessage(
+                self._impl.name, self._impl.bone_index, v
+            ),
         )
 
     @property
@@ -1121,17 +1472,15 @@ class MeshSkinnedBoneHandle:
 
     @position.setter
     def position(self, position: tuple[float, float, float] | np.ndarray) -> None:
-        from ._scene_api import cast_vector
-
-        position_cast = cast_vector(position, 3)
-        position_array = np.asarray(position)
-        if np.allclose(position_array, self._impl.position):
-            return
-        self._impl.position[:] = position_array
-        self._impl.websock_interface.queue_message(
-            _messages.SetBonePositionMessage(
-                self._impl.name, self._impl.bone_index, position_cast
-            )
+        self._ensure_mesh_not_removed()
+        _set_pose_vector(
+            self._impl.position,
+            position,
+            3,
+            self._impl.mesh_impl.api._queue_scene_message,
+            lambda v: _messages.SetBonePositionMessage(
+                self._impl.name, self._impl.bone_index, v
+            ),
         )
 
 
@@ -1148,6 +1497,22 @@ class LineSegmentsHandle(
 ):
     """Handle for line segments objects."""
 
+    @property
+    @deprecated("The 'line_width' property is deprecated. Use 'thickness' instead.")
+    def line_width(self) -> float:
+        """Deprecated alias for :attr:`thickness`.
+
+        .. deprecated::
+            Use 'thickness' instead; it is interpreted in the units given
+            by 'thickness_units'.
+        """
+        return _get_deprecated_line_width(self)
+
+    @line_width.setter
+    @deprecated("The 'line_width' property is deprecated. Use 'thickness' instead.")
+    def line_width(self, value: float) -> None:
+        _set_deprecated_line_width(self, value)
+
 
 class ArrowsHandle(
     SceneNodeHandle,
@@ -1155,12 +1520,57 @@ class ArrowsHandle(
 ):
     """Handle for arrow objects."""
 
+    @property
+    @deprecated("The 'line_width' property is deprecated and has no effect.")
+    def line_width(self) -> float:
+        """Deprecated; arrows no longer have a line-width fallback rendering
+        path.
+
+        .. deprecated::
+            Reads return the legacy default (1.0); writes warn and are
+            ignored.
+        """
+        warnings.warn(
+            "The 'line_width' property is deprecated and has no effect: "
+            "arrows no longer have a line-width fallback rendering path.",
+            DeprecationWarning,
+            stacklevel=2,
+        )
+        return 1.0
+
+    @line_width.setter
+    @deprecated("The 'line_width' property is deprecated and has no effect.")
+    def line_width(self, value: float) -> None:
+        del value
+        warnings.warn(
+            "The 'line_width' property is deprecated and has no effect: "
+            "arrows no longer have a line-width fallback rendering path.",
+            DeprecationWarning,
+            stacklevel=2,
+        )
+
 
 class SplineCatmullRomHandle(
     SceneNodeHandle,
     _messages.CatmullRomSplineProps,
 ):
     """Handle for Catmull-Rom splines."""
+
+    @property
+    @deprecated("The 'line_width' property is deprecated. Use 'thickness' instead.")
+    def line_width(self) -> float:
+        """Deprecated alias for :attr:`thickness`.
+
+        .. deprecated::
+            Use 'thickness' instead; it is interpreted in the units given
+            by 'thickness_units'.
+        """
+        return _get_deprecated_line_width(self)
+
+    @line_width.setter
+    @deprecated("The 'line_width' property is deprecated. Use 'thickness' instead.")
+    def line_width(self, value: float) -> None:
+        _set_deprecated_line_width(self, value)
 
     @property
     @deprecated("The 'positions' property is deprecated. Use 'points' instead.")
@@ -1197,6 +1607,22 @@ class SplineCubicBezierHandle(
     _messages.CubicBezierSplineProps,
 ):
     """Handle for cubic Bezier splines."""
+
+    @property
+    @deprecated("The 'line_width' property is deprecated. Use 'thickness' instead.")
+    def line_width(self) -> float:
+        """Deprecated alias for :attr:`thickness`.
+
+        .. deprecated::
+            Use 'thickness' instead; it is interpreted in the units given
+            by 'thickness_units'.
+        """
+        return _get_deprecated_line_width(self)
+
+    @line_width.setter
+    @deprecated("The 'line_width' property is deprecated. Use 'thickness' instead.")
+    def line_width(self, value: float) -> None:
+        _set_deprecated_line_width(self, value)
 
     @property
     @deprecated(
@@ -1339,6 +1765,11 @@ class TransformControlsHandle(
         super().__init__(impl)
         self._impl_aux = impl_aux
 
+    @override
+    def _on_remove(self) -> None:
+        # Drop the name-keyed gizmo registry entry.
+        self._impl.api._handle_from_transform_controls_name.pop(self._impl.name, None)
+
     @property
     def update_timestamp(self) -> float:
         return self._impl_aux.last_updated
@@ -1426,11 +1857,6 @@ class TransformControlsHandle(
 
         self._impl_aux.update_cb = [cb for cb in self._impl_aux.update_cb if keep(cb)]
 
-    def remove(self) -> None:
-        """Remove the node from the scene."""
-        self._impl.api._handle_from_transform_controls_name.pop(self.name)
-        super().remove()
-
 
 class Gui3dContainerHandle(
     SceneNodeHandle,
@@ -1447,23 +1873,19 @@ class Gui3dContainerHandle(
         self._gui_api._container_handle_from_uuid[self._container_id] = self
 
     def __enter__(self) -> Gui3dContainerHandle:
-        self._container_id_restore = self._gui_api._get_container_uuid()
+        self._container_id_restore = self._gui_api._snapshot_container_context()
         self._gui_api._set_container_uuid(self._container_id)
         return self
 
     def __exit__(self, *args) -> None:
         del args
         assert self._container_id_restore is not None
-        self._gui_api._set_container_uuid(self._container_id_restore)
+        self._gui_api._restore_container_context(self._container_id_restore)
         self._container_id_restore = None
 
-    def remove(self) -> None:
-        """Permanently remove this GUI container from the visualizer."""
-
-        # Call scene node remove.
-        super().remove()
-
-        # Clean up contained GUI elements.
+    @override
+    def _on_remove(self) -> None:
+        # Remove contained GUI elements, then drop the UUID-keyed container entry.
         for child in tuple(self._children.values()):
             child.remove()
-        self._gui_api._container_handle_from_uuid.pop(self._container_id)
+        self._gui_api._container_handle_from_uuid.pop(self._container_id, None)

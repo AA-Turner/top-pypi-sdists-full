@@ -22,8 +22,29 @@ NONEXISTENT_PLUGIN_DIR = Path("/nonexistent/plugin-dir").resolve()
 EXPECTED_GOOD_PLUGIN_SCORE = 91
 
 
+def test_internal_bounded_hook_dispatches_before_argument_parser(monkeypatch: pytest.MonkeyPatch) -> None:
+    observed: list[str] = []
+    monkeypatch.setattr("sys.frozen", True, raising=False)
+    monkeypatch.setattr(
+        "codex_plugin_scanner.guard.adapters.bounded_cli_hook_bridge.main_from_argv",
+        lambda argv: observed.extend(argv) or 7,
+    )
+
+    assert main(["__guard-bounded-hook", '{"harness":"grok"}']) == 7
+    assert observed == ['{"harness":"grok"}']
+
+
+def test_internal_bounded_hook_is_not_available_from_python_install(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.delattr("sys.frozen", raising=False)
+
+    with pytest.raises(SystemExit):
+        main(["__guard-bounded-hook", "{}"])
+
+
 class TestFormatJson:
-    def test_valid_json_output(self):
+    def test_good_plugin_json_output_has_expected_schema_and_category_structure(self):
         result = scan_plugin(FIXTURES / "good-plugin")
         output = format_json(result)
         parsed = json.loads(output)
@@ -40,10 +61,6 @@ class TestFormatJson:
         assert "summary" in parsed
         assert "findings" in parsed
 
-    def test_categories_have_correct_structure(self):
-        result = scan_plugin(FIXTURES / "good-plugin")
-        output = format_json(result)
-        parsed = json.loads(output)
         cat = parsed["categories"][0]
         assert "name" in cat
         assert "score" in cat
@@ -66,22 +83,15 @@ class TestFormatJson:
 
 
 class TestFormatText:
-    def test_contains_header(self):
+    def test_good_plugin_text_output_contains_summary_and_categories(self):
         result = scan_plugin(FIXTURES / "good-plugin")
         output = format_text(result)
         assert "Plugin Scanner" in output
         assert f"{result.score}/100" in output
         assert "Excellent" in output
 
-    def test_contains_category_names(self):
-        result = scan_plugin(FIXTURES / "good-plugin")
-        output = format_text(result)
         assert "Manifest Validation" in output
         assert "Security" in output
-
-    def test_contains_final_score_line(self):
-        result = scan_plugin(FIXTURES / "good-plugin")
-        output = format_text(result)
         assert "Final Score" in output
 
     def test_bad_plugin_output(self):

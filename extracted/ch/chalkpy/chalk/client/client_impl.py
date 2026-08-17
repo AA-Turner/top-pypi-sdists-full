@@ -98,6 +98,9 @@ from chalk.client.models import (
     CreateOfflineQueryJobRequest,
     CreateOfflineQueryJobResponse,
     CreatePromptEvaluationRequest,
+    DataQualityTestAssertion,
+    DataQualityTestRequest,
+    DataQualityTestResponse,
     DatasetIcebergConversionResponse,
     DatasetJobStatusRequest,
     DatasetResponse,
@@ -205,7 +208,7 @@ from chalk.parsed._proto.utils import encode_proto_to_b64
 from chalk.parsed.branch_state import BranchGraphSummary
 from chalk.parsed.to_proto import ToProtoConverter
 from chalk.prompts import Prompt
-from chalk.queries.data_quality import DataQualityCheck, check_env_overrides
+from chalk.queries.data_quality import DataQualityCheck, check_env_overrides, resolve_test_stage
 from chalk.queries.query_context import ContextJsonDict, JsonValue
 from chalk.scalinggroup.spec import (
     AutoScalingSpec,
@@ -5074,6 +5077,43 @@ https://docs.chalk.ai/cli/apply
             ) from e
         return BranchGraphSummary.from_dict(resp_json)  # type: ignore
 
+    def test_dqm(
+        self,
+        query_id: Union[str, uuid.UUID],
+        *,
+        input_checks: Collection[Union[str, DataQualityCheck]] = (),
+        output_checks: Collection[Union[str, DataQualityCheck]] = (),
+        environment: Optional[EnvironmentId] = None,
+        branch: Union[BranchId, ellipsis, None] = ...,
+        timeout: Union[float, ellipsis, None] = ...,
+    ) -> DataQualityTestResponse:
+        stage, checks = resolve_test_stage(input=input_checks, output=output_checks)
+        request = DataQualityTestRequest(
+            query_id=str(query_id),
+            stage=stage.value,
+            # Built from `to_assertion()` rather than from hand-picked attributes: it is the
+            # one definition of an assertion's wire shape, shared with the specs a scheduled
+            # query ships, so a test run cannot describe a check differently from the way a
+            # real run describes it -- and a field added there travels without an edit here.
+            assertions=[DataQualityTestAssertion(**check.to_assertion()) for check in checks],
+        )
+        return self._request(
+            method="POST",
+            uri="/v1/dqm/test",
+            json=request,
+            response=DataQualityTestResponse,
+            environment_override=environment,
+            preview_deployment_id=None,
+            branch=branch,
+            # Data plane: the check is a real query over the table the previous run wrote, so
+            # it runs on the engine rather than the metadata plane.
+            metadata_request=False,
+            # A check aggregates the whole table, so on a large output it can outlast a
+            # request timeout that is fine for an online query. Exposed so a caller can raise
+            # it for one call rather than reconfiguring the client.
+            timeout=timeout,
+        )
+
     def test_streaming_resolver(
         self,
         resolver: Union[str, Resolver],
@@ -6716,6 +6756,7 @@ https://docs.chalk.ai/cli/apply
         enable_profiling: bool = False,
         resource_group: str | None = None,
         input_sql: str | None = None,
+        num_shards: int | None = None,
         plan_only: bool = False,
     ) -> AggregateBackfillResponse:
         return self._grpc_client.trigger_aggregate_backfill(
@@ -6730,6 +6771,7 @@ https://docs.chalk.ai/cli/apply
             enable_profiling=enable_profiling,
             resource_group=resource_group,
             input_sql=input_sql,
+            num_shards=num_shards,
             plan_only=plan_only,
         )
 

@@ -85,7 +85,7 @@ class ApprovalAttentionCoordinator:
             )
             self._thread.start()
 
-    def stop(self) -> None:
+    def stop(self) -> bool:
         with self._condition:
             self._stopping = True
             self._pending.clear()
@@ -94,7 +94,9 @@ class ApprovalAttentionCoordinator:
         if thread is not None:
             thread.join(timeout=5)
         with self._condition:
-            self._thread = None
+            if self._thread is thread and (thread is None or not thread.is_alive()):
+                self._thread = None
+            return self._thread is None
 
     def schedule(
         self,
@@ -165,6 +167,9 @@ class ApprovalAttentionCoordinator:
         config = self._config_for_requests(requests)
         if config.approval_surface_policy != "attention-aware" or self._runtime.has_live_surface("approval-center"):
             return
+        open_key = f"approval-request:{item.request_ids[0]}"
+        if self._runtime.has_surface_opened("approval-center", open_key):
+            return
         if self._last_opened_at is not None:
             elapsed = now - self._last_opened_at
             if item.urgent and elapsed < _CRITICAL_BURST_COOLDOWN_SECONDS:
@@ -179,7 +184,7 @@ class ApprovalAttentionCoordinator:
         if opened is False:
             return
         self._last_opened_at = now
-        self._runtime.record_surface_open(surface="approval-center", open_key=f"attention:{item.request_ids[0]}")
+        self._runtime.record_surface_open(surface="approval-center", open_key=open_key)
 
     def _reschedule(self, item: _PendingAttention, *, due_at: float) -> None:
         with self._condition:

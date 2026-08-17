@@ -1,6 +1,6 @@
-"""Tensorhub snapshot policy composed over HashRepo.
+"""Tensorhub snapshot policy composed over tensorfs.
 
-Tensorhub supplies a resolved manifest and opaque GET grants. HashRepo owns the
+Tensorhub supplies a resolved manifest and opaque GET grants. tensorfs owns the
 chunk manifest, local object store, verified transfers, and materialization.
 This module retains only worker policy: component selection, pickle refusal,
 disk headroom, endpoint-volume fill order, and boot observability.
@@ -20,7 +20,7 @@ import threading
 from pathlib import Path
 from typing import Any, Callable, Iterable, Optional, Sequence
 
-from hashrepo import (
+from gen_worker._vendor.tensorfs import (
     CASRef,
     Chunk,
     DigestMismatch,
@@ -84,10 +84,10 @@ class _SnapshotEntry:
 
 
 def _norm_rel_path(path: str) -> str:
-    """Tensorhub path adapter; HashRepo performs the authoritative check."""
+    """Tensorhub path adapter; tensorfs performs the authoritative check."""
 
     value = str(path or "").strip()
-    # Constructing an entry applies HashRepo's complete portable-path policy.
+    # Constructing an entry applies tensorfs's complete portable-path policy.
     return FileEntry(value, 0, CASRef("0" * 64)).path
 
 
@@ -127,7 +127,7 @@ def _validate_resolved(ref: TensorhubRef, resolved: WorkerResolvedRepo) -> Worke
         if entry.path.endswith(".parts.json") or re.search(r"\.part\d{4}$", entry.path):
             raise ValueError(
                 f"resolved model file {entry.path}: legacy split-file snapshots are not "
-                "part of HashRepo v1; republish the repository"
+                "part of tensorfs v1; republish the repository"
             )
         if not file.chunks and not str(file.url or "").strip():
             raise ValueError(f"resolved model file missing transfer: {entry.path}")
@@ -422,41 +422,68 @@ class CozySnapshotDownloader:
         missing: list[TransferGrant] = []
         done = 0
         total = sum(grant.size_bytes for grant in grants)
-        for grant in grants:
+
+        # Report per grant: a counter frozen at zero reads as a stalled
+        # transfer and the pod is killed mid-progress.
+        def report_residency() -> None:
+            if progress is not None:
+                progress(done, total)
+
+        def resident(grant: TransferGrant) -> bool:
             try:
-                resident = cas.contains(grant.digest, size=grant.size_bytes)
+                return bool(cas.contains(grant.digest, size=grant.size_bytes))
             except DigestMismatch:
-                resident = False
-            if resident:
+                return False
+
+        def filled(grant: TransferGrant) -> bool:
+            if fill is None:
+                return False
+            try:
+                source = fill.verify_object(grant.digest, size=grant.size_bytes)
+                cas.put_file(source, expected=grant.digest, size=grant.size_bytes)
+                return True
+            except (DigestMismatch, FileNotFoundError, OSError):
+                return False
+
+        # Every check re-hashes the object — ~1.0s of solid CPU per GiB WARM,
+        # but that is the fast end of a ~14x spread: measured cold-and-contended
+        # it is ~14s/GiB (tensorfs#42), which is what puts a large resident
+        # snapshot past the hub's window. A resume re-hashes everything earlier
+        # attempts landed. On the caller's
+        # loop thread that stranded the heartbeat and every queued event until
+        # the scan ended, so each check runs off-thread and only the emission
+        # stays on the caller's thread.
+        report_residency()
+        for grant in grants:
+            if await asyncio.to_thread(resident, grant):
                 done += grant.size_bytes
                 settle(grant.digest, boot_phases.SOURCE_LOCAL)
-                continue
-            copied = False
-            if fill is not None:
-                try:
-                    source = fill.verify_object(grant.digest, size=grant.size_bytes)
-                    cas.put_file(source, expected=grant.digest, size=grant.size_bytes)
-                    copied = True
-                except (DigestMismatch, FileNotFoundError, OSError):
-                    copied = False
-            if copied:
+            elif await asyncio.to_thread(filled, grant):
                 done += grant.size_bytes
                 settle(grant.digest, boot_phases.SOURCE_VOLUME)
             else:
                 missing.append(grant)
+            report_residency()
 
-        required = sum(grant.size_bytes for grant in missing) + _DISK_HEADROOM_BYTES
+        # Every resident snapshot occupies disk TWICE: the CAS objects plus the
+        # materialized tree `_publish_snapshot` writes next. Sizing only the
+        # missing objects under-counted by exactly one whole model, and the
+        # `missing and` guard skipped the check entirely when every object was
+        # already resident — the case where the publish is the ONLY writer. A
+        # pod passed this gate and then ENOSPC'd mid-materialize.
+        fetch = sum(grant.size_bytes for grant in missing)
+        publish = sum(entry.size_bytes for entry in entries.values())
+        required = fetch + publish + _DISK_HEADROOM_BYTES
         free = shutil.disk_usage(cas.root).free
-        if missing and required > free:
+        if required > free:
             raise InsufficientDiskError(
-                f"insufficient disk for snapshot download: need {required} bytes, "
+                f"insufficient disk for snapshot: need {required} bytes "
+                f"({fetch} to fetch, {publish} to publish), "
                 f"{free} free at {cas.root}",
                 available_bytes=free,
                 required_bytes=required,
                 path=str(cas.root),
             )
-        if progress is not None:
-            progress(done, total)
 
         sink = _NETWORK_BYTES_SINK.get()
         moved = 0
@@ -486,7 +513,7 @@ class CozySnapshotDownloader:
                             f"expired grants: {', '.join(map(str, report.expired))}"
                         )
                     raise RuntimeError(
-                        "HashRepo download failed: " + "; ".join(reasons)
+                        "tensorfs download failed: " + "; ".join(reasons)
                     )
         except BaseException:
             if comp_spans is not None:
@@ -499,7 +526,7 @@ class CozySnapshotDownloader:
                     source = cas.verify_object(grant.digest, size=grant.size_bytes)
                     fill.put_file(source, expected=grant.digest, size=grant.size_bytes)
                 except (DigestMismatch, OSError):
-                    _log.warning("HashRepo volume fill failed for %s", grant.digest)
+                    _log.warning("tensorfs volume fill failed for %s", grant.digest)
 
 
 def delete_blobs(base_dir: Path, digests: Any) -> None:

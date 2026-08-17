@@ -40,6 +40,8 @@ EXPECTED_LATTICE: tuple[GuardAction, ...] = (
     "sandbox-required",
     "block",
 )
+ACTION_LATTICE_PAIR_CASES = tuple(product(EXPECTED_LATTICE, repeat=2))
+ACTION_LATTICE_COMPOSERS = (most_restrictive_guard_action, _merge_strongest_actions, _strongest_security_value)
 
 
 def test_lattice_is_exhaustive_ordered_and_contiguous() -> None:
@@ -49,17 +51,16 @@ def test_lattice_is_exhaustive_ordered_and_contiguous() -> None:
     assert tuple(GUARD_ACTION_SEVERITY.values()) == tuple(range(len(EXPECTED_LATTICE)))
 
 
-@pytest.mark.parametrize(("left", "right"), product(EXPECTED_LATTICE, repeat=2))
-def test_most_restrictive_composition_is_commutative_for_every_valid_pair(
-    left: GuardAction,
-    right: GuardAction,
-) -> None:
-    expected = max((left, right), key=EXPECTED_LATTICE.index)
+def test_most_restrictive_composition_is_commutative_for_every_valid_pair() -> None:
+    failures: list[str] = []
+    for left, right in ACTION_LATTICE_PAIR_CASES:
+        expected = max((left, right), key=EXPECTED_LATTICE.index)
+        actuals = tuple(compose(left, right) for compose in ACTION_LATTICE_COMPOSERS)
+        actuals += (most_restrictive_guard_action(right, left),)
+        if any(actual != expected for actual in actuals):
+            failures.append(f"action-lattice-{left}-{right}: expected={expected!r}, actuals={actuals!r}")
 
-    assert most_restrictive_guard_action(left, right) == expected
-    assert most_restrictive_guard_action(right, left) == expected
-    assert _merge_strongest_actions(left, right) == expected
-    assert _strongest_security_value(left, right) == expected
+    assert not failures, "\n".join(failures)
 
 
 def test_most_restrictive_composition_is_idempotent_and_associative() -> None:
@@ -88,6 +89,16 @@ def test_unknown_inputs_fail_closed_with_stable_diagnostics(value: object) -> No
     assert result.original_type == type(value).__name__
     assert result.recognized is False
     assert guard_action_severity(value) == GUARD_ACTION_SEVERITY["review"]
+
+
+def test_legacy_product_ask_alias_normalizes_to_exact_review_without_contract_error() -> None:
+    result = normalize_guard_action_result("ask", unknown_action="require-reapproval")
+
+    assert result.action == "review"
+    assert result.reason_code is None
+    assert result.original_action == "ask"
+    assert result.recognized is True
+    assert guard_action_severity("ask") == GUARD_ACTION_SEVERITY["review"]
 
 
 def test_unknown_action_never_loses_to_allow_or_warn() -> None:
@@ -179,9 +190,7 @@ def test_present_invalid_local_config_actions_do_not_fall_back_to_warn(tmp_path)
 @pytest.mark.parametrize("invalid_value", (None, 7, False, {}, {"action": None}, {"default_action": 7}))
 def test_present_invalid_action_map_values_do_not_disappear(invalid_value: object) -> None:
     assert _coerce_action_map({"codex": invalid_value}) == {"codex": "require-reapproval"}
-    assert _coerce_risk_action_map({"network_egress": invalid_value}) == {
-        "network_egress": "require-reapproval"
-    }
+    assert _coerce_risk_action_map({"network_egress": invalid_value}) == {"network_egress": "require-reapproval"}
 
 
 @pytest.mark.parametrize("protected_action", ("require-reapproval", "sandbox-required"))

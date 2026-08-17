@@ -96,6 +96,8 @@ def test_data_shaped_tools_are_offload_eligible(tool_name):
         "xpcreate_agent_plan",
         "xpworkspace-file-write",
         "xpworkspace-context-retrieve",
+        "xpload_skill",
+        "load_skill",
     ],
 )
 def test_control_tools_still_skip(tool_name):

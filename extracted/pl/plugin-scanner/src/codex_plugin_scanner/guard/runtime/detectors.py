@@ -72,6 +72,7 @@ class DetectorContext:
     prior_decisions: Mapping[str, object]
     threat_intel: Mapping[str, object]
     redaction_settings: Mapping[str, object]
+    approved_scan_roots: tuple[Path, ...] = ()
 
 
 class GuardDetector(Protocol):
@@ -161,10 +162,10 @@ class DetectorRegistry:
                 elapsed_ms = _elapsed_ms(started_at, self._clock())
                 telemetry.append(_telemetry(detector, "error", elapsed_ms=elapsed_ms, error_type=type(error).__name__))
                 continue
+            signals.extend(_filter_signals(detector_signals, category_filter))
             if elapsed_ms > timeout_ms:
                 telemetry.append(_telemetry(detector, "timeout", elapsed_ms=elapsed_ms))
                 continue
-            signals.extend(_filter_signals(detector_signals, category_filter))
             telemetry.append(_telemetry(detector, "ok", elapsed_ms=elapsed_ms))
         return DetectorRunResult(signals=tuple(signals), telemetry=tuple(telemetry))
 

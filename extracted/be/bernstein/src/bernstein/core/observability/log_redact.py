@@ -25,6 +25,8 @@ import re
 from collections import Counter
 from typing import Any
 
+from bernstein.core.security.luhn import luhn_check
+
 # ---------------------------------------------------------------------------
 # PII patterns - kept in sync with memory_sanitizer._PII_RULES
 # ---------------------------------------------------------------------------
@@ -49,6 +51,25 @@ _PII_PATTERNS: list[tuple[str, re.Pattern[str]]] = [
 ]
 
 _REDACTED = "[REDACTED]"
+
+
+def _redact_card(match: re.Match[str]) -> str:
+    """Redact a card-shaped match only when it actually checksums as a card.
+
+    Sixteen consecutive digits on their own are not a card number: trace ids,
+    order numbers, and ledger sequences share the shape. Redacting those
+    rewrites legitimate identifiers in persisted records, which is the same
+    false-positive class the credential rules below already avoid.
+
+    No length bound of its own: the ``credit_card`` pattern matches exactly
+    sixteen digits, so the shape is already fixed by the time this runs.
+    """
+    digits = re.sub(r"[\s\-]", "", match.group(0))
+    return _REDACTED if luhn_check(digits) else match.group(0)
+
+
+# Patterns whose match needs validating before it is treated as PII.
+_PII_VALIDATORS = {"credit_card": _redact_card}
 
 # Credential matches deliberately require either a known prefix/header/block or
 # a sensitive field name.  Entropy alone is not a signal: content hashes,
@@ -86,8 +107,9 @@ def redact_pii(text: str) -> str:
         Sanitised copy with PII spans replaced.
     """
     result = text
-    for _label, pattern in _PII_PATTERNS:
-        result = pattern.sub(_REDACTED, result)
+    for label, pattern in _PII_PATTERNS:
+        validator = _PII_VALIDATORS.get(label)
+        result = pattern.sub(validator, result) if validator else pattern.sub(_REDACTED, result)
     return result
 
 

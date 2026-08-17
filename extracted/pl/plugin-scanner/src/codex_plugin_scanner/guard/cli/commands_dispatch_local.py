@@ -1,7 +1,7 @@
 """Guard CLI command dispatch helpers."""
 
 # fmt: off
-# ruff: noqa: F403, F405, I001
+# ruff: noqa: F403, F405
 
 from __future__ import annotations
 
@@ -20,6 +20,64 @@ if TYPE_CHECKING:
 
 from ._commands_shared import *
 from .commands_parser_helpers import *
+
+
+def _migrate_legacy_macos_secrets(store: GuardStore) -> None:
+    migration_pairs = (
+        (
+            "legacy_extension_control_authority_secret_migration_required",
+            "migrate_legacy_extension_control_authority_secrets",
+        ),
+        ("legacy_macos_oauth_secret_migration_required", "migrate_legacy_macos_oauth_secret"),
+    )
+    required_migrations: list[str] = []
+    for required_method_name, migration_method_name in migration_pairs:
+        method = getattr(store, required_method_name, None)
+        if callable(method):
+            with suppress(Exception):
+                if bool(method()):
+                    required_migrations.append(migration_method_name)
+    if not required_migrations:
+        return
+    try:
+        explicit_store = GuardStore(
+            store.guard_home,
+            prime_policy_integrity=False,
+            allow_system_keyring=True,
+        )
+    except Exception:
+        return
+    allow_interactive = True
+    for method_name in required_migrations:
+        method = getattr(explicit_store, method_name, None)
+        if callable(method):
+            with suppress(Exception):
+                method(allow_interactive=allow_interactive)
+            allow_interactive = False
+
+
+def _run_guard_pytest_contained_command(
+    args: argparse.Namespace,
+    *,
+    input_text: str | None = None,
+    output_stream: TextIO | None = None,
+) -> int:
+    """Run pytest only after the versioned OS containment profile is active."""
+
+    del input_text, output_stream
+    from ..runtime.restricted_pytest import RestrictedPytestError, run_restricted_pytest
+
+    command = list(getattr(args, "pytest_command", []) or [])
+    try:
+        return run_restricted_pytest(
+            command,
+            workspace=Path(str(args.workspace)),
+            cwd=Path(str(args.cwd)) if getattr(args, "cwd", None) else Path.cwd(),
+            timeout_seconds=int(args.timeout_seconds),
+        )
+    except RestrictedPytestError as error:
+        print(f"{error.reason_code}: {error}", file=sys.stderr)
+        return error.exit_code
 
 def _run_guard_command_inspection_command(
     args: argparse.Namespace,
@@ -151,9 +209,17 @@ def _run_guard_update_command(
     else:
         try:
             store = GuardStore(guard_home)
+            _migrate_legacy_macos_secrets(store)
         except (OSError, RuntimeError, sqlite3.Error) as error:
             store = None
             update_store_error = error
+    try:
+        local_config = config or load_guard_config(guard_home, workspace=workspace)
+    except (OSError, ValueError):
+        local_config = None
+    include_alpha = bool(getattr(args, "alpha", False)) or (
+        local_config is not None and local_config.update_channel == "alpha"
+    )
     payload, exit_code = run_guard_update(
         dry_run=dry_run,
         context=context,
@@ -161,19 +227,10 @@ def _run_guard_update_command(
         workspace=str(workspace) if workspace else None,
         now=_now(),
         wheel=getattr(args, "wheel", None),
+        guard_home=guard_home,
+        include_alpha=include_alpha,
+        force_pypi_reinstall=bool(getattr(args, "force_pypi_reinstall", False)),
     )
-    if not dry_run and exit_code == 0 and context is not None:
-        from .update_commands import refresh_guard_daemon_after_update
-
-        daemon_refresh, daemon_refresh_note = refresh_guard_daemon_after_update(context)
-        if daemon_refresh is not None:
-            payload["daemon_refresh"] = daemon_refresh
-        if daemon_refresh_note is not None:
-            notes_value = payload.get("notes")
-            note_items = notes_value if isinstance(notes_value, list) else []
-            notes = [str(item) for item in note_items if isinstance(item, str)]
-            notes.append(daemon_refresh_note)
-            payload["notes"] = notes
     if update_store_error is not None:
         notes_value = payload.get("notes")
         notes = [str(item) for item in (notes_value if isinstance(notes_value, list) else []) if isinstance(item, str)]
@@ -231,9 +288,75 @@ def _run_guard_protect_command(
             harness=harness,
         ),
     )
+    if (
+        bool(getattr(args, "package_shim_ui", False))
+        and not bool(getattr(args, "json", False))
+        and config.approval_wait_timeout_seconds > 0
+    ):
+        approval_request_ids = payload.get("approval_request_ids")
+        request_ids = [
+            str(item)
+            for item in (approval_request_ids if isinstance(approval_request_ids, list) else [])
+            if isinstance(item, str) and item
+        ]
+        if request_ids:
+            wait_result = wait_for_approval_requests(
+                store=store,
+                request_ids=request_ids,
+                timeout_seconds=config.approval_wait_timeout_seconds,
+            )
+            payload["approval_wait"] = wait_result
+            wait_items = wait_result.get("items")
+            resolved_items = [
+                item
+                for item in (wait_items if isinstance(wait_items, list) else [])
+                if isinstance(item, dict)
+            ]
+            if bool(wait_result.get("resolved")) and not any(
+                str(item.get("resolution_action")) == "block" for item in resolved_items
+            ):
+                initial_payload = payload
+                fresh_payload, fresh_exit_code = build_protect_payload(
+                    command=protect_command,
+                    store=store,
+                    workspace_dir=protect_workspace,
+                    dry_run=bool(getattr(args, "dry_run", False)),
+                    now=_now(),
+                    config=current_protect_config(),
+                    current_config_provider=current_protect_config,
+                    unsafe_raw_output=bool(getattr(args, "unsafe_raw_output", False)),
+                )
+                if fresh_exit_code == 0:
+                    payload, exit_code = fresh_payload, fresh_exit_code
+                elif _package_shim_approval_matches_fresh_request(initial_payload, fresh_payload):
+                    fresh_verdict = fresh_payload.get("verdict")
+                    if isinstance(fresh_verdict, dict):
+                        fresh_verdict["action"] = "allow"
+                        fresh_verdict["blocking"] = False
+                    fresh_payload["policy_action"] = "allow"
+                    fresh_payload["approval_wait"] = wait_result
+                    payload, exit_code = fresh_payload, 0
     if not _suppress_package_shim_allow_output(args, payload):
         _emit("protect", payload, getattr(args, "json", False))
     return exit_code
+
+
+def _package_shim_approval_matches_fresh_request(
+    initial_payload: dict[str, object],
+    fresh_payload: dict[str, object],
+) -> bool:
+    """Resume only when the full package request and execution context are unchanged."""
+    initial_request = initial_payload.get("request")
+    fresh_request = fresh_payload.get("request")
+    fresh_verdict = fresh_payload.get("verdict")
+    if not isinstance(initial_request, dict) or not isinstance(fresh_request, dict):
+        return False
+    if not isinstance(fresh_verdict, dict):
+        return False
+    fresh_action = str(fresh_verdict.get("action") or "")
+    if fresh_action not in {"review", "require-reapproval"}:
+        return False
+    return initial_request == fresh_request
 
 def _run_guard_start_command(
     args: argparse.Namespace,
@@ -416,6 +539,8 @@ def _run_guard_install_command(
 ) -> int:
     context = _require_guard_context(context)
     store = _require_guard_store(store)
+    if not bool(getattr(args, "dry_run", False)):
+        _migrate_legacy_macos_secrets(store)
     try:
         if bool(getattr(args, "dry_run", False)):
             payload = build_managed_install_plan(args.harness, bool(getattr(args, "all", False)), context, store)
@@ -472,6 +597,7 @@ __all__ = [
     "_run_guard_mcp_command",
     "_run_guard_preflight_command",
     "_run_guard_protect_command",
+    "_run_guard_pytest_contained_command",
     "_run_guard_scan_command",
     "_run_guard_start_command",
     "_run_guard_status_command",

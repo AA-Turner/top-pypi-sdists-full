@@ -22,7 +22,8 @@ from typing import (
     Any, Callable, Dict, List, Mapping, Optional, Sequence, Tuple,
 )
 
-from torch_compiled_graphs import (
+from gen_worker._vendor.torchcg import (
+    GRAPH_CLASS_BLOCK,
     CallIngress,
     CallInput,
     CompiledGraphRunner,
@@ -34,6 +35,7 @@ from torch_compiled_graphs import (
 
 from . import activity as activity_mod
 from . import aot_identity
+from . import local_cell_store
 from .cell_adopt import AdoptOutcome
 from . import serve_posture
 from . import shape_growth
@@ -48,8 +50,6 @@ from .models.cache_paths import open_worker_engine, tensorhub_cas_dir
 from .models.memory import is_cuda_oom
 
 logger = logging.getLogger(__name__)
-
-ARTIFACT_KIND = "aot-inductor"
 #: pgw#791: an input the artifact was compiled for as 16-byte aligned arrived
 #: unaligned (or non-contiguous) and this ingress realigned it. Typed and
 #: hub-visible because the ALTERNATIVE is what shipped: AOTInductor's own
@@ -169,7 +169,7 @@ def entry_from_meta(meta: Mapping[str, Any]) -> Dict[str, Any]:
     pgw#1176: the plural ``entries_from_meta`` is GONE with the multi-entry
     artifact. A caller that wants several entries holds several artifacts.
     """
-    graph_class = meta.get("graph_class")
+    graph_class = meta.get(GRAPH_CLASS_BLOCK)
     if not isinstance(graph_class, Mapping):
         raise ValueError("compiled graph metadata has no graph_class")
     graph = graph_class.get("graph")
@@ -1210,9 +1210,7 @@ def wrap_module(
                 f"target={label}: {detail}",
                 phase=reason,
                 family=str(meta.get("family") or ""),
-                compiled_graph_key=str(
-                    meta.get("compiled_graph_key") or meta.get("compiled_graph_key") or ""
-                ),
+                compiled_graph_key=str(meta.get("compiled_graph_key") or ""),
                 graph_class=name,
             )
             siblings = tuple(getattr(runner, "runners", ()) or ())
@@ -1299,9 +1297,7 @@ def wrap_module(
                 declared_class=ingress_class_name(label, args, kwargs),
                 reason=exc.reason,
                 detail=str(exc)[:400],
-                compiled_graph_key=str(
-                    meta.get("compiled_graph_key") or meta.get("compiled_graph_key") or ""
-                ),
+                compiled_graph_key=str(meta.get("compiled_graph_key") or ""),
             ))
             return original(*args, **eager_kwargs)
         except ConstantsUnboundError as exc:
@@ -1496,6 +1492,23 @@ def arm_compiled_graph(
         raise AdoptError(
             "compiled_graph_key_invalid", f"not a compiled-graph key: {key!r}"
         )
+    # pgw#1283 criterion 4 — THE WORKER'S OWN QUARANTINE, asked before the CAS
+    # is. §1.3.4 keeps a refused cell "quarantined-local for forensics"; before
+    # the store cutover those bytes lived only in `local_cell_store`, so no
+    # load path could reach them. They are now in the very CAS this function
+    # resolves from, and TCG has no concept of a worker parity/arm refusal, so
+    # without this the runner loads a cell this worker already refused.
+    #
+    # Only the QUARANTINED verdict refuses. An unverified row is a cell that is
+    # durable but not yet proven — §1.5 stores before the gate runs, and it is
+    # this very arm that proves it — and a key this worker never recorded is
+    # every hub-delivered cell there is.
+    if local_cell_store.is_quarantined(key):
+        raise AdoptError(
+            "compiled_graph_worker_quarantined",
+            f"this worker quarantined {key!r} at its own gate (§1.3.4); its "
+            f"bytes are kept for forensics and are never armed",
+        )
     engine = open_worker_engine(cache_dir)
     destination = _tcg_destination(cache_dir, key)
     compiled_graph = engine.resolve(key, destination)
@@ -1509,7 +1522,7 @@ def arm_compiled_graph(
             "compiled_graph_unavailable", f"TCG could not load {key!r}"
         )
     metadata = dict(compiled_graph.metadata)
-    graph_class = metadata.get("graph_class")
+    graph_class = metadata.get(GRAPH_CLASS_BLOCK)
     if not isinstance(graph_class, Mapping):
         raise AdoptError(
             "contract_invalid",
@@ -1637,7 +1650,7 @@ def entry_states(pipeline: Any) -> Dict[str, Dict[str, Any]]:
 def _adopt_identity(artifact: Path) -> str:
     """Best-effort exact TCG key for a typed adopt event."""
     try:
-        from torch_compiled_graphs.artifact import read_metadata
+        from gen_worker._vendor.torchcg.artifact import read_metadata
 
         meta = read_metadata(artifact)
     except Exception:  # noqa: BLE001 - identity is diagnostic on a refusal
@@ -1654,7 +1667,7 @@ def _import_and_arm(
     expected: "Optional[aot_identity.ExpectedIdentity]",
     declared: Sequence[str],
 ) -> Dict[str, Any]:
-    from torch_compiled_graphs.artifact import read_metadata
+    from gen_worker._vendor.torchcg.artifact import read_metadata
 
     transfer_staging = (
         artifact.parent.name == ".incoming"
@@ -1731,7 +1744,7 @@ def enable(
             reason, exc)
         return AdoptOutcome.miss(
             reason, f"{identity}: {type(exc).__name__}: {exc}", identity)
-    entry = dict(meta.get("graph_class") or {})
+    entry = dict(meta.get(GRAPH_CLASS_BLOCK) or {})
     armed = len(armed_entries(pipeline))
     logger.info(
         "aot-serve: armed %s entry %s (sku=%s torch=%s precision=%s, "
@@ -1976,7 +1989,6 @@ def unwrap(pipeline: Any) -> bool:
 
 __all__ = [
     "AdoptOutcome",
-    "ARTIFACT_KIND",
     "COMPILED_GRAPH_FORMAT",
     "COMPILED_GRAPH_FORMAT_KEY",
     "ConstantsUnboundError",

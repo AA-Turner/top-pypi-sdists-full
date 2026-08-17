@@ -19,6 +19,7 @@ from xpander_sdk.modules.tools_repository.utils.schemas import PAYLOAD_WRAPPER_R
 from xpander_sdk.modules.tools_repository.sub_modules.dynamic_tools import (
     build_dynamic_tools_hint,
     build_meta_tools,
+    dynamic_tools_active,
     is_always_loaded,
 )
 from xpander_sdk.utils.cache import cached_tool_json_schema
@@ -190,7 +191,7 @@ class ToolsRepository(XPanderSharedModel):
         # loaded; knowledge-base and MCP tools never pass through here (they are
         # injected by the framework layer), so they are unaffected by design.
         agent = getattr(self.configuration.state, "agent", None)
-        use_dynamic = bool(getattr(agent, "use_dynamic_tools", False))
+        use_dynamic = dynamic_tools_active(agent, self)
 
         source_tools = self.list
         if use_dynamic:

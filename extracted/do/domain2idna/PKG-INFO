@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: domain2idna
-Version: 1.12.4
+Version: 1.12.5
 Summary: The tool to convert a domain or a file with a list of domain to the famous IDNA format.
 Home-page: https://github.com/PyFunceble/domain2idna
 Author: funilrys
@@ -18,26 +18,24 @@ Classifier: License :: OSI Approved :: MIT License
 Requires-Python: >=3.6.2, <4
 Description-Content-Type: text/markdown
 License-File: LICENSE
-Requires-Dist: setuptools>=65.5.1
 Requires-Dist: colorama
 Provides-Extra: test
-Requires-Dist: tox; extra == "test"
 Requires-Dist: coverage; extra == "test"
+Requires-Dist: tox; extra == "test"
 Provides-Extra: dev
+Requires-Dist: pylint; extra == "dev"
+Requires-Dist: isort; extra == "dev"
 Requires-Dist: bandit; extra == "dev"
 Requires-Dist: flake8; extra == "dev"
-Requires-Dist: isort; extra == "dev"
-Requires-Dist: pylint; extra == "dev"
 Requires-Dist: black; extra == "dev"
 Provides-Extra: full
-Requires-Dist: bandit; extra == "full"
-Requires-Dist: flake8; extra == "full"
-Requires-Dist: colorama; extra == "full"
-Requires-Dist: setuptools>=65.5.1; extra == "full"
-Requires-Dist: isort; extra == "full"
-Requires-Dist: tox; extra == "full"
-Requires-Dist: coverage; extra == "full"
 Requires-Dist: pylint; extra == "full"
+Requires-Dist: coverage; extra == "full"
+Requires-Dist: isort; extra == "full"
+Requires-Dist: bandit; extra == "full"
+Requires-Dist: tox; extra == "full"
+Requires-Dist: colorama; extra == "full"
+Requires-Dist: flake8; extra == "full"
 Requires-Dist: black; extra == "full"
 Dynamic: author
 Dynamic: author-email

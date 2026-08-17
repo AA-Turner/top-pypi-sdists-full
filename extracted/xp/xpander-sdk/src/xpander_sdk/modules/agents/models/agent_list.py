@@ -38,7 +38,7 @@ class AgentsListItem(BaseModel):
         organization_id (str): ID of the organization that owns the agent.
         created_at (datetime): Timestamp when the agent was created.
         description (Optional[str]): Optional detailed description of the agent.
-        access_scope (Optional[AgentAccessScope]): Optional access scope of the agent, defaults to Personal.
+        access_scope (Optional[AgentAccessScope]): Optional access scope of the agent, defaults to Organizational.
         created_by (Optional[str]): Optional user id of the creator of the agent, defaults to None.
         type: Optional[AgentType]
 
@@ -62,7 +62,7 @@ class AgentsListItem(BaseModel):
     organization_id: str
     created_at: datetime
     description: Optional[str] = None
-    access_scope: Optional[AgentAccessScope] = AgentAccessScope.Personal
+    access_scope: Optional[AgentAccessScope] = AgentAccessScope.Organizational
     created_by: Optional[str] = None
     type: Optional[AgentType] = None
 

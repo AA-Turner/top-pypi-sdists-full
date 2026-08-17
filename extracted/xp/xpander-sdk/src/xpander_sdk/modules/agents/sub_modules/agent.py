@@ -182,7 +182,7 @@ class Agent(XPanderSharedModel):
             oidc_pre_auth_token_mcp_audience: Optional[bool] = False
             oidc_pre_auth_token_llm_audience: Optional[str] = None
             workspace_tools_enabled: Optional[bool] = True
-            live_surface_sharing_enabled: Optional[bool] = False
+            live_surface_sharing_enabled: Optional[bool] = True
 
         Example:
             >>> agent = Agent(id="agent123", name="Example Agent")
@@ -245,16 +245,16 @@ class Agent(XPanderSharedModel):
     use_oidc_pre_auth_token_for_llm: Optional[bool] = False
     oidc_pre_auth_token_llm_audience: Optional[str] = None
     oidc_pre_auth_token_mcp_audience: Optional[str] = None
-    can_self_schedule: Optional[bool] = False
+    can_self_schedule: Optional[bool] = True
     max_self_schedules: Optional[int] = Field(default=3, ge=1, le=1000)
     use_dynamic_tools: Optional[bool] = False
     workspace_tools_enabled: Optional[bool] = True
-    live_surface_sharing_enabled: Optional[bool] = False
+    live_surface_sharing_enabled: Optional[bool] = True
     is_autonomous: Optional[bool] = False
     discoverable: Optional[bool] = True
     with_auto_context_management: Optional[bool] = True
     developer_access: Optional[bool] = True
-    should_stage_before_publish: Optional[bool] = True
+    should_stage_before_publish: Optional[bool] = False
 
     _connection_string: Optional[DatabaseConnectionString] = None
 

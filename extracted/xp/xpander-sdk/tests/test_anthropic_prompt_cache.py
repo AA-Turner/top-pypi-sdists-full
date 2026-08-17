@@ -39,7 +39,7 @@ class TestAgnoBaseContract:
 
 class TestSupportsCache:
     def test_supported_families(self):
-        for model_id in ("claude-3-5-sonnet", "claude-opus-4-8", "claude-opus-5", "claude-sonnet-4-6", "claude-sonnet-5", "claude-haiku-4-5"):
+        for model_id in ("claude-3-5-sonnet", "claude-fable-5", "claude-opus-4-8", "claude-opus-5", "claude-sonnet-4-6", "claude-sonnet-5", "claude-haiku-4-5"):
             assert CachingClaude(id=model_id, api_key="x")._supports_cache(), model_id
 
     def test_unsupported_model(self):

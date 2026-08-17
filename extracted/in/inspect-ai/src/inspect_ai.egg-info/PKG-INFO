@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: inspect_ai
-Version: 0.3.258
+Version: 0.3.259
 Summary: Framework for large language model evaluations
 Author: UK AI Security Institute
 License: MIT License
@@ -82,7 +82,7 @@ Requires-Dist: mistralai>=2.4.5; extra == "dev"
 Requires-Dist: moto[server]>=5.1.5; extra == "dev"
 Requires-Dist: mypy>=2.3.0; extra == "dev"
 Requires-Dist: nbformat; extra == "dev"
-Requires-Dist: openai>=2.45.0; extra == "dev"
+Requires-Dist: openai>=3.1.0; extra == "dev"
 Requires-Dist: pandas>=2.0.0; extra == "dev"
 Requires-Dist: pandas-stubs; extra == "dev"
 Requires-Dist: panflute; extra == "dev"
@@ -94,6 +94,7 @@ Requires-Dist: pytest; extra == "dev"
 Requires-Dist: pytest-cov; extra == "dev"
 Requires-Dist: pytest-dotenv; extra == "dev"
 Requires-Dist: pytest-mock; extra == "dev"
+Requires-Dist: pytest-reportlog; extra == "dev"
 Requires-Dist: pytest-textual-snapshot; extra == "dev"
 Requires-Dist: pytest-timeout; extra == "dev"
 Requires-Dist: pytest-watcher; extra == "dev"
@@ -115,7 +116,7 @@ Requires-Dist: types-psutil; extra == "dev"
 Requires-Dist: types-python-dateutil; extra == "dev"
 Requires-Dist: types-PyYAML; extra == "dev"
 Requires-Dist: types-regex; extra == "dev"
-Requires-Dist: xai_sdk>=1.7.0; extra == "dev"
+Requires-Dist: xai_sdk>=1.18.0; extra == "dev"
 Requires-Dist: zipfile-zstd>=0.0.4; python_version < "3.14" and extra == "dev"
 Provides-Extra: doc
 Requires-Dist: click>=8.2.0; extra == "doc"

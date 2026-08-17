@@ -136,10 +136,11 @@ async def _queue_span_event(run_ctx: "RunContext", trace_id: str) -> None:
         if run_ctx.project_name:
             payload["project_name"] = run_ctx.project_name
 
-        # Calculate duration
+        # Calculate duration. The key must stay "duration_ns" - the ingest
+        # mapper reads that exact name, and "duration" silently never arrives.
         if run_ctx.start_time:
             duration_ns = int((end_time - run_ctx.start_time).total_seconds() * 1e9)
-            payload["duration"] = duration_ns
+            payload["duration_ns"] = duration_ns
 
         # Extract LLM-specific fields from metadata and add as direct fields
         # This ensures LLM spans have proper model, token, and cost data

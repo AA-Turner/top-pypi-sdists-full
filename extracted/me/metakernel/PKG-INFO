@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: metakernel
-Version: 1.0.0
+Version: 1.0.6
 Summary: A Jupyter/IPython Kernel base class in Python
 License-Expression: BSD-3-Clause
 License-File: LICENSE.txt
@@ -13,6 +13,8 @@ Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
 Classifier: Programming Language :: Python :: 3.14
+Classifier: Programming Language :: Python :: 3.15
+Classifier: Programming Language :: Python :: Free Threading :: 3 - Stable
 Classifier: Framework :: IPython
 Classifier: Topic :: System :: Shells
 Provides-Extra: activity
@@ -240,7 +242,7 @@ c.OctaveKernel.plot_settings = dict(backend='qt')
 # Documentation
 
 Example notebooks can be viewed
-[here](http://nbviewer.jupyter.org/github/Calysto/metakernel/tree/main/examples/).
+[here](https://nbviewer.jupyter.org/github/Calysto/metakernel/tree/main/examples/).
 
 Documentation is available
 [online](http://Calysto.github.io/metakernel/). Magics have interactive

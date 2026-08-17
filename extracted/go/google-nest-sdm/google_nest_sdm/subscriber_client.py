@@ -4,15 +4,16 @@ from __future__ import annotations
 
 import asyncio
 import logging
-from typing import Awaitable, Callable, AsyncIterable, Any, TypeVar
-from collections.abc import AsyncGenerator
+from collections.abc import AsyncGenerator, AsyncIterable, Awaitable, Callable
+from typing import Any
 
 from aiohttp.client_exceptions import ClientError
-from google.api_core.exceptions import GoogleAPIError, NotFound, Unauthenticated
-from google.auth.exceptions import RefreshError, GoogleAuthError, TransportError
-from google.auth.transport.requests import Request
 from google import pubsub_v1
-from google.oauth2.credentials import Credentials
+from google.api_core.exceptions import GoogleAPIError, NotFound, Unauthenticated
+from google.auth.credentials import Credentials
+from google.auth.exceptions import GoogleAuthError, RefreshError, TransportError
+from google.auth.transport.requests import Request
+from google.oauth2.credentials import Credentials as OAuthCredentials
 
 from .auth import AbstractAuth
 from .diagnostics import SUBSCRIBER_DIAGNOSTICS as DIAGNOSTICS
@@ -25,7 +26,6 @@ from .exceptions import (
 
 _LOGGER = logging.getLogger(__name__)
 
-_T = TypeVar("_T")
 
 RPC_TIMEOUT_SECONDS = 30.0
 STREAMING_PULL_TIMEOUT_SECONDS = 55.0
@@ -33,7 +33,7 @@ STREAM_ACK_TIMEOUT_SECONDS = 180
 STREAM_ACK_FREQUENCY_SECONDS = 90
 
 
-def refresh_creds(creds: Credentials) -> Credentials:
+def refresh_creds(creds: OAuthCredentials) -> OAuthCredentials:
     """Refresh credentials.
 
     This is not part of the subscriber API, exposed only to facilitate testing.
@@ -53,13 +53,13 @@ def refresh_creds(creds: Credentials) -> Credentials:
     return creds
 
 
-def exception_handler[_T: Any](
+def exception_handler[T](
     func_name: str,
-) -> Callable[..., Callable[..., Awaitable[_T]]]:
+) -> Callable[[Callable[..., Awaitable[T]]], Callable[..., Awaitable[T]]]:
     """Wrap a function with exception handling."""
 
-    def wrapped(func: Callable[..., Awaitable[_T]]) -> Callable[..., Awaitable[_T]]:
-        async def wrapped_func(*args: Any, **kwargs: Any) -> _T:
+    def wrapped(func: Callable[..., Awaitable[T]]) -> Callable[..., Awaitable[T]]:
+        async def wrapped_func(*args: Any, **kwargs: Any) -> T:
             try:
                 return await func(*args, **kwargs)
             except NotFound as err:
@@ -112,7 +112,7 @@ async def pull_request_generator(
         await asyncio.sleep(STREAM_ACK_FREQUENCY_SECONDS)
 
 
-async def aiter_exception_handler(iterable: AsyncIterable[_T]) -> AsyncIterable[_T]:
+async def aiter_exception_handler[T](iterable: AsyncIterable[T]) -> AsyncIterable[T]:
     """Wrap an async iterable with pub/sub exception handling."""
     _LOGGER.debug("Starting streaming iterator")
 
@@ -166,7 +166,7 @@ class SubscriberClient:
                 DIAGNOSTICS.increment("create_subscription.creds_error")
                 raise AuthException(f"Access token failure: {err}") from err
             _LOGGER.debug("Credentials refreshed, new expiry %s", creds.expiry)
-            self._creds = creds  # type: ignore[assignment]
+            self._creds = creds
             self._client = pubsub_v1.SubscriberAsyncClient(credentials=self._creds)
         return self._client
 
@@ -184,7 +184,7 @@ class SubscriberClient:
                 stream: AsyncIterable[
                     pubsub_v1.types.StreamingPullResponse
                 ] = await client.streaming_pull(requests=req_gen)
-        except asyncio.TimeoutError as err:
+        except TimeoutError as err:
             _LOGGER.debug("Timeout in streaming_pull %s", err)
             DIAGNOSTICS.increment("streaming_pull.timeout")
             raise SubscriberTimeoutException("Timeout in streaming_pull") from err
@@ -204,7 +204,7 @@ class SubscriberClient:
                     subscription=self._subscription_name,
                     ack_ids=ack_ids,
                 )
-        except asyncio.TimeoutError as err:
+        except TimeoutError as err:
             _LOGGER.debug("Timeout in acknowledge: %s", err)
             DIAGNOSTICS.increment("acknowledge.timeout")
             raise SubscriberTimeoutException("Timeout in acknowledge") from err

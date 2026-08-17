@@ -11,10 +11,14 @@ from pathlib import Path
 
 import pytest
 
+from codex_plugin_scanner.guard import approvals as approvals_module
+from codex_plugin_scanner.guard.cli import commands_hook_generic
 from codex_plugin_scanner.guard.cli import commands_support as guard_commands_module
 from codex_plugin_scanner.guard.cli.commands_hook_generic import (
     _generic_hook_approval_reuse,
+    _generic_hook_memory_command,
     _generic_hook_payload_digest,
+    _generic_hook_saved_decision,
 )
 from codex_plugin_scanner.guard.config import GuardConfig
 from codex_plugin_scanner.guard.consumer import artifact_hash
@@ -25,6 +29,7 @@ from codex_plugin_scanner.guard.proxy.stdio import (
     _sensitive_read_current_action,
     build_sensitive_read_approval_hash,
 )
+from codex_plugin_scanner.guard.runtime.actions import GuardActionEnvelope, normalize_harness_payload
 from codex_plugin_scanner.guard.runtime.approval_context import (
     APPROVAL_CONTEXT_TOKEN_PREFIX,
     build_configured_environment_hash,
@@ -57,6 +62,43 @@ def test_generic_hook_integrity_warning_does_not_hide_separate_valid_saved_block
     assert reuse.action == "block"
     assert reuse.saved_action == "block"
     assert reuse.reason_code == "approval_reuse_integrity_failure"
+
+
+def test_generic_hook_exact_decision_uses_its_own_integrity_result(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    store = GuardStore(tmp_path / "guard-home")
+    responses: list[dict[str, object]] = [
+        {
+            "decision": {"action": "allow"},
+            "ignored_local_integrity": {"integrity_status": "tampered"},
+        },
+        {
+            "decision": {"action": "block"},
+            "ignored_local_integrity": None,
+        },
+    ]
+
+    def lookup(*_args: object, **_kwargs: object) -> dict[str, object]:
+        return responses.pop(0)
+
+    monkeypatch.setattr(store, "resolve_policy_decision_lookup_with_memory_pattern", lookup)
+
+    decision, ignored_integrity = _generic_hook_saved_decision(
+        artifact_hash="guard-approval-context:v1:current",
+        artifact_id=_GENERIC_ARTIFACT_ID,
+        artifact_name="opaque request",
+        harness=_GENERIC_HARNESS,
+        legacy_artifact_hash=None,
+        payload=_generic_payload(),
+        publisher=None,
+        runtime_workspace=tmp_path,
+        store=store,
+    )
+
+    assert decision == {"action": "block"}
+    assert ignored_integrity is None
 
 
 def _generic_payload() -> dict[str, object]:
@@ -94,6 +136,16 @@ def test_generic_hook_payload_digest_ignores_delivery_ids_but_keeps_nested_actio
     assert _generic_hook_payload_digest(retried) != _generic_hook_payload_digest(changed_argument)
 
 
+def test_generic_shell_memory_uses_exact_nested_command() -> None:
+    command = "ln -s /workspace-a/node_modules ./node_modules"
+    payload = {
+        "tool_name": "Bash",
+        "tool_input": {"command": command},
+    }
+
+    assert _generic_hook_memory_command(payload) == command
+
+
 def _run_generic_hook(
     *,
     capsys: pytest.CaptureFixture[str],
@@ -101,18 +153,20 @@ def _run_generic_hook(
     payload: dict[str, object],
     store: GuardStore,
     workspace: Path,
+    harness: str = _GENERIC_HARNESS,
+    action_envelope: GuardActionEnvelope | None = None,
     post_claim_revalidator: Callable[[str], int | None] | None = None,
 ) -> tuple[int, dict[str, object]]:
     args = argparse.Namespace(
         artifact_id=None,
         artifact_name=None,
-        harness=_GENERIC_HARNESS,
+        harness=harness,
         json=True,
         policy_action=None,
     )
     rc = guard_commands_module._run_hook_generic_payload(
         args,
-        action_envelope=None,
+        action_envelope=action_envelope,
         config=config,
         home_dir=workspace.parent,
         payload=payload,
@@ -388,6 +442,410 @@ def test_generic_hook_saved_allow_never_lowers_new_current_block(
         )
         is not None
     )
+
+
+@pytest.mark.parametrize("event_name", ["PreToolUse", "PostToolUse", "UserPromptSubmit"])
+def test_generic_hook_observe_mode_records_block_without_enforcing_it(
+    tmp_path: Path,
+    capsys: pytest.CaptureFixture[str],
+    monkeypatch: pytest.MonkeyPatch,
+    event_name: str,
+) -> None:
+    monkeypatch.setattr(
+        approvals_module,
+        "_notify_pending_approval",
+        lambda **_kwargs: pytest.fail("watch-only persistence must stay silent"),
+    )
+    workspace = tmp_path / "workspace"
+    workspace.mkdir()
+    store = GuardStore(tmp_path / "guard-home")
+    config = GuardConfig(
+        guard_home=tmp_path / "guard-home",
+        workspace=workspace,
+        default_action="block",
+        mode="observe",
+    )
+    payload = {**_generic_payload(), "event": event_name}
+    if event_name == "PreToolUse":
+        payload["tool_name"] = "Bash"
+        payload["tool_input"] = {"command": "git status --short"}
+    recorded_activity: dict[str, object] = {}
+    monkeypatch.setattr(
+        commands_hook_generic,
+        "record_pre_hook_command_activity_best_effort",
+        lambda **kwargs: recorded_activity.update(kwargs),
+    )
+
+    rc, output = _run_generic_hook(
+        capsys=capsys,
+        config=config,
+        payload=payload,
+        store=store,
+        workspace=workspace,
+    )
+
+    assert rc == 0
+    assert output["policy_action"] == "allow"
+    assert output["policy_composition"]["observed_policy_action"] == "block"
+    assert output["policy_composition"]["authoritative_action"] == "allow"
+    assert {
+        "source": "observe_mode",
+        "observed_policy_action": "block",
+        "authoritative_action": "allow",
+    } in output["scanner_evidence"]
+    assert store.list_receipts(limit=1)[0]["policy_decision"] == "allow"
+    if event_name == "PreToolUse":
+        assert recorded_activity["policy_action"] == "allow"
+        assert recorded_activity["prompted"] is False
+        pending = store.list_approval_requests(limit=10)
+        assert len(pending) == 1
+        assert pending[0]["policy_action"] == "require-reapproval"
+        assert pending[0]["scanner_evidence"][-1] == {
+            "source": "observe_mode_inbox",
+            "observed_policy_action": "block",
+            "queued_policy_action": "require-reapproval",
+            "authoritative_action": "allow",
+        }
+        assert "approval_requests" not in output
+
+
+def test_codex_pretool_observe_mode_persists_observed_decision_evidence(
+    tmp_path: Path,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    workspace = tmp_path / "workspace"
+    workspace.mkdir()
+    store = GuardStore(tmp_path / "guard-home")
+    config = GuardConfig(
+        guard_home=tmp_path / "guard-home",
+        workspace=workspace,
+        default_action="block",
+        mode="observe",
+    )
+    payload = {
+        **_generic_payload(),
+        "event": "PreToolUse",
+        "tool_name": "Bash",
+        "tool_input": {"command": "git status --short"},
+    }
+
+    rc, _output = _run_generic_hook(
+        capsys=capsys,
+        config=config,
+        payload=payload,
+        store=store,
+        workspace=workspace,
+        harness="codex",
+    )
+
+    assert rc == 0
+    receipt = store.list_receipts(limit=1)[0]
+    assert receipt["policy_decision"] == "allow"
+    assert {
+        "source": "observe_mode",
+        "observed_policy_action": "block",
+        "authoritative_action": "allow",
+    } in receipt["scanner_evidence"]
+
+
+@pytest.mark.parametrize("default_action", ["allow", "warn"])
+def test_generic_hook_observe_mode_does_not_queue_actions_policy_already_allows(
+    tmp_path: Path,
+    capsys: pytest.CaptureFixture[str],
+    default_action: GuardAction,
+) -> None:
+    workspace = tmp_path / "workspace"
+    workspace.mkdir()
+    store = GuardStore(tmp_path / "guard-home")
+    config = GuardConfig(
+        guard_home=tmp_path / "guard-home",
+        workspace=workspace,
+        default_action=default_action,
+        mode="observe",
+    )
+    payload = {
+        **_generic_payload(),
+        "event": "PreToolUse",
+        "tool_name": "Bash",
+        "tool_input": {"command": "git status --short"},
+    }
+
+    rc, output = _run_generic_hook(
+        capsys=capsys,
+        config=config,
+        payload=payload,
+        store=store,
+        workspace=workspace,
+    )
+
+    assert rc == 0
+    assert output["policy_action"] in {"allow", "warn"}
+    assert output["policy_composition"]["observed_policy_action"] is None
+    assert store.list_approval_requests(limit=10) == []
+
+
+def test_codex_review_queue_retains_exact_shell_action_for_remembered_policy(
+    tmp_path: Path,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    workspace = tmp_path / "workspace"
+    workspace.mkdir()
+    store = GuardStore(tmp_path / "guard-home")
+    config = GuardConfig(
+        guard_home=tmp_path / "guard-home",
+        workspace=workspace,
+        default_action="review",
+    )
+    payload = {
+        **_generic_payload(),
+        "hook_event_name": "PreToolUse",
+        "permission_mode": "ask",
+        "tool_name": "Bash",
+        "tool_input": {"command": "npm run guard:acquisition-loop"},
+    }
+    action_envelope = normalize_harness_payload(
+        "codex",
+        "PreToolUse",
+        payload,
+        workspace=workspace,
+        home_dir=tmp_path,
+    )
+
+    rc, _output = _run_generic_hook(
+        capsys=capsys,
+        config=config,
+        payload=payload,
+        store=store,
+        workspace=workspace,
+        harness="codex",
+        action_envelope=action_envelope,
+    )
+
+    assert rc == 1
+    pending = store.list_approval_requests(limit=10)
+    assert len(pending) == 1
+    assert pending[0]["action_envelope_json"]["command"] == "npm run guard:acquisition-loop"
+    assert pending[0]["exact_action_persistence_eligible"] is True
+
+
+def test_watch_only_exact_allow_requires_review_after_enforcement_is_enabled(
+    tmp_path: Path,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    workspace = tmp_path / "workspace"
+    workspace.mkdir()
+    store = GuardStore(tmp_path / "guard-home")
+    payload = {
+        **_generic_payload(),
+        "hook_event_name": "PreToolUse",
+        "permission_mode": "ask",
+        "tool_name": "Bash",
+        "tool_input": {"command": "npm run guard:acquisition-loop"},
+    }
+    action_envelope = normalize_harness_payload(
+        "codex",
+        "PreToolUse",
+        payload,
+        workspace=workspace,
+        home_dir=tmp_path,
+    )
+    observe_config = GuardConfig(
+        guard_home=tmp_path / "guard-home",
+        workspace=workspace,
+        default_action="review",
+        mode="observe",
+    )
+    rc, _output = _run_generic_hook(
+        capsys=capsys,
+        config=observe_config,
+        payload=payload,
+        store=store,
+        workspace=workspace,
+        harness="codex",
+        action_envelope=action_envelope,
+    )
+    assert rc == 0
+    observed = store.list_approval_requests(limit=10)[0]
+    assert "paused" not in str(observed["trigger_summary"]).lower()
+    assert "paused" not in str(observed["why_now"]).lower()
+    assert "continue" in str(observed["why_now"]).lower()
+    approvals_module.apply_approval_resolution(
+        store=store,
+        request_id=str(observed["request_id"]),
+        action="allow",
+        scope="artifact",
+        workspace=None,
+        reason="remember exact action",
+        persist_policy=True,
+        scope_contract_version=str(observed["scope_contract_version"]),
+        scope_contract_digest=str(observed["scope_contract_digest"]),
+    )
+
+    enforce_config = replace(observe_config, mode="prompt")
+    rc, output = _run_generic_hook(
+        capsys=capsys,
+        config=enforce_config,
+        payload=payload,
+        store=store,
+        workspace=workspace,
+        harness="codex",
+        action_envelope=action_envelope,
+    )
+
+    assert rc == 1, json.dumps(output, sort_keys=True)
+    assert output["policy_action"] == "review"
+
+    changed_mode_payload = {**payload, "permission_mode": "bypassPermissions"}
+    changed_mode_envelope = normalize_harness_payload(
+        "codex",
+        "PreToolUse",
+        changed_mode_payload,
+        workspace=workspace,
+        home_dir=tmp_path,
+    )
+    changed_mode_rc, changed_mode_output = _run_generic_hook(
+        capsys=capsys,
+        config=enforce_config,
+        payload=changed_mode_payload,
+        store=store,
+        workspace=workspace,
+        harness="codex",
+        action_envelope=changed_mode_envelope,
+    )
+    assert changed_mode_rc == 1
+    assert changed_mode_output["policy_action"] == "review"
+
+    changed_payload = {
+        **payload,
+        "tool_input": {"command": "npm run guard:other"},
+    }
+    changed_envelope = normalize_harness_payload(
+        "codex",
+        "PreToolUse",
+        changed_payload,
+        workspace=workspace,
+        home_dir=tmp_path,
+    )
+    changed_rc, changed_output = _run_generic_hook(
+        capsys=capsys,
+        config=enforce_config,
+        payload=changed_payload,
+        store=store,
+        workspace=workspace,
+        harness="codex",
+        action_envelope=changed_envelope,
+    )
+
+    assert changed_rc == 1
+    assert changed_output["policy_action"] == "review"
+
+    other_workspace = tmp_path / "other-workspace"
+    other_workspace.mkdir()
+    other_envelope = normalize_harness_payload(
+        "codex",
+        "PreToolUse",
+        payload,
+        workspace=other_workspace,
+        home_dir=tmp_path,
+    )
+    other_rc, other_output = _run_generic_hook(
+        capsys=capsys,
+        config=replace(enforce_config, workspace=other_workspace),
+        payload=payload,
+        store=store,
+        workspace=other_workspace,
+        harness="codex",
+        action_envelope=other_envelope,
+    )
+
+    assert other_rc == 1
+    assert other_output["policy_action"] == "review"
+
+
+def test_watch_only_exact_block_applies_after_enforcement_is_enabled(
+    tmp_path: Path,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    workspace = tmp_path / "workspace"
+    workspace.mkdir()
+    store = GuardStore(tmp_path / "guard-home")
+    payload = {
+        **_generic_payload(),
+        "hook_event_name": "PreToolUse",
+        "tool_name": "Bash",
+        "tool_input": {"command": "npm run guard:acquisition-loop"},
+    }
+    action_envelope = normalize_harness_payload(
+        "codex",
+        "PreToolUse",
+        payload,
+        workspace=workspace,
+        home_dir=tmp_path,
+    )
+    observe_config = GuardConfig(
+        guard_home=tmp_path / "guard-home",
+        workspace=workspace,
+        default_action="review",
+        mode="observe",
+    )
+    rc, _output = _run_generic_hook(
+        capsys=capsys,
+        config=observe_config,
+        payload=payload,
+        store=store,
+        workspace=workspace,
+        harness="codex",
+        action_envelope=action_envelope,
+    )
+    assert rc == 0
+    observed = store.list_approval_requests(limit=10)[0]
+    approvals_module.apply_approval_resolution(
+        store=store,
+        request_id=str(observed["request_id"]),
+        action="block",
+        scope="artifact",
+        workspace=None,
+        reason="block exact action",
+        persist_policy=True,
+        scope_contract_version=str(observed["scope_contract_version"]),
+        scope_contract_digest=str(observed["scope_contract_digest"]),
+    )
+    assert any(decision["action"] == "block" for decision in store.list_policy_decisions())
+    enforce_config = replace(observe_config, mode="prompt")
+    blocked_rc, blocked_output = _run_generic_hook(
+        capsys=capsys,
+        config=enforce_config,
+        payload=payload,
+        store=store,
+        workspace=workspace,
+        harness="codex",
+        action_envelope=action_envelope,
+    )
+    assert blocked_rc == 1
+    assert blocked_output["policy_action"] == "block"
+
+    changed_payload = {
+        **payload,
+        "tool_input": {"command": "npm run guard:other"},
+    }
+    changed_envelope = normalize_harness_payload(
+        "codex",
+        "PreToolUse",
+        changed_payload,
+        workspace=workspace,
+        home_dir=tmp_path,
+    )
+    changed_rc, changed_output = _run_generic_hook(
+        capsys=capsys,
+        config=enforce_config,
+        payload=changed_payload,
+        store=store,
+        workspace=workspace,
+        harness="codex",
+        action_envelope=changed_envelope,
+    )
+    assert changed_rc == 1
+    assert changed_output["policy_action"] == "review"
 
 
 @pytest.mark.parametrize(
@@ -915,8 +1373,11 @@ def test_stdio_sensitive_read_current_review_still_queues_approval(tmp_path: Pat
     assert marker.exists() is False
     event = result["events"][0]
     assert event["approval_reuse_reason_code"] == "approval_reuse_no_saved_decision"
+    assert event["policy_action"] == "review"
+    assert event["decision"] == "review"
+    assert event["transport_outcome"] == "not-forwarded"
     assert len(event["approval_requests"]) == 1
-    assert store.list_approval_requests(limit=1)[0]["policy_action"] == "require-reapproval"
+    assert store.list_approval_requests(limit=1)[0]["policy_action"] == "review"
 
 
 def test_stdio_sensitive_read_unchanged_exact_one_shot_is_claimed_and_forwarded(
@@ -978,7 +1439,9 @@ def test_stdio_sensitive_read_unchanged_exact_one_shot_is_claimed_and_forwarded(
 
     assert marker.exists() is True
     assert result["responses"][0]["result"]["ok"] is True
-    assert result["events"][0]["decision"] == "forward"
+    assert result["events"][0]["decision"] == "allow"
+    assert result["events"][0]["policy_action"] == "allow"
+    assert result["events"][0]["transport_outcome"] == "forwarded"
     assert result["events"][0]["approval_reuse_reason_code"] == "approval_reuse_accepted"
     claim_events = store.list_events(event_name="approval.local_once_applied")
     assert len(claim_events) == 1
@@ -1112,7 +1575,7 @@ def test_stdio_sensitive_read_fails_closed_when_postclaim_config_refresh_fails(
     assert marker.exists() is False
     assert result["responses"][0]["error"]["code"] == -32001
     event = result["events"][0]
-    assert event["decision"] == "block"
+    assert event["decision"] == "require-reapproval"
     assert event["approval_reuse_reason_code"] == "approval_reuse_current_config_refresh_failed"
     assert len(event["approval_requests"]) == 1
     approval_evidence = event["approval_requests"][0]["scanner_evidence"]
@@ -1163,7 +1626,7 @@ def test_stdio_invalidated_saved_allow_with_current_review_never_reaches_child(t
     assert result["responses"][0]["error"]["code"] == -32001
     assert marker.exists() is False
     event = result["events"][0]
-    assert event["decision"] == "block"
+    assert event["decision"] == "require-reapproval"
     assert event["approval_reuse_status"] == "rejected"
     assert event["approval_reuse_reason_code"] == "approval_reuse_identity_changed"
     assert len(event["approval_requests"]) == 1

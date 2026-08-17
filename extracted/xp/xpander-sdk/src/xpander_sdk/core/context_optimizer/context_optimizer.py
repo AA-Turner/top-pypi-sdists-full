@@ -21,6 +21,7 @@ Module layout (post-refactor):
   - ``helpers/recent_actions.py`` — ``<recent_actions>`` block builder
   - ``helpers/chunking.py``  — Layer 2 message chunking
   - ``workspace_cache.py``   — Layer 1 in-memory cache + workspace write queue
+  - ``structure_sketch.py``  — deterministic JSON shape line for Layer 1 previews
   - ``encryption.py``        — XOR stream cipher + key derivation
   - ``context_optimizer.py`` — ``XPanderContextOptimizer`` class itself
 """
@@ -63,9 +64,13 @@ from xpander_sdk.core.context_optimizer.constants import (
     EMERGENCY_COMPACT_FRACTION,
     FINALIZE_MODE_ENABLED,
     INCLUDE_RECENT_ACTIONS,
+    L1_ALWAYS_SKIP,
     L1_HEADROOM_BANDS,
     L1_XP_OFFLOAD_ELIGIBLE,
     LEDGER_ENABLED,
+    PINNED_SKILL_MAX_CHARS,
+    PINNED_SKILLS_MAX,
+    SKILL_PIN_TOOL_NAMES,
     EMERGENCY_CONNECTIVITY_RETRY_BASE_DELAY,
     EMERGENCY_CONNECTIVITY_RETRY_MAX_ATTEMPTS,
     EMERGENCY_CONNECTIVITY_RETRY_MAX_DELAY,
@@ -75,6 +80,8 @@ from xpander_sdk.core.context_optimizer.constants import (
     MAX_PRE_RETRY_COMPACTIONS,
     MAX_STAGNANT_COMPACTIONS,
     MIN_TOKENS_FOR_PRE_RETRY_COMPACT,
+    OFFLOAD_SUMMARY_MAX_CHARS,
+    PENDING_SUMMARY_MAX_PASSES,
     PLAN_BLOCK_LABEL,
     PRE_RETRY_COMPACT_MAX_ATTEMPTS,
     PRE_RETRY_COMPACT_MAX_NONTIMEOUT_ATTEMPTS,
@@ -147,6 +154,7 @@ from xpander_sdk.core.context_optimizer.prompts import (
     RECENT_ACTIONS_BLOCK_TEMPLATE,
     build_pre_retry_focus_instructions,
 )
+from xpander_sdk.core.context_optimizer.structure_sketch import sketch_structure
 from xpander_sdk.core.context_optimizer.mixins import MapReduceMixin
 from xpander_sdk.core.context_optimizer.workspace_cache import WorkspaceCache
 from xpander_sdk.core.xpander_api_client import APIClient
@@ -186,6 +194,11 @@ __all__ = [
 ]
 
 
+# Pin-message header doubles as the re-harvest marker across optimizer instances.
+_PIN_HEADER = "Skill playbooks already loaded in this task"
+_PLAYBOOK_SPAN_RE = re.compile(r'<skill_playbook\s+name="([^"]+)".*?(?:</skill_playbook>|\Z)', re.DOTALL)
+
+
 @dataclass
 class XPanderContextOptimizer(MapReduceMixin, CompressionManager):
     """4-layer context optimizer for xpander.ai agents (+ emergency).
@@ -223,10 +236,11 @@ class XPanderContextOptimizer(MapReduceMixin, CompressionManager):
     # ``agno._load_compaction_model`` by credential-availability priority.
     compaction_model: Any = None
 
-    # Layer 1 settings
+    # Layer 1 settings. The budget sits where keeping a result inline costs
+    # less than the retrieve round-trip an offload usually buys.
     min_content_length: int = 100
-    max_content_length: int = 8_000
-    preview_length: int = 2_000
+    max_content_length: int = 16_000
+    preview_length: int = 4_000
 
     # Layer 2 settings
     context_window: int = 200_000
@@ -284,11 +298,21 @@ class XPanderContextOptimizer(MapReduceMixin, CompressionManager):
         default_factory=set, init=False, repr=False
     )
 
+    # context_id -> (fire-and-forget summary task, passes_seen); spliced into
+    # its preview by a later microcompact pass, never awaited in the tool hook.
+    _pending_offload_summaries: Dict[str, tuple] = field(
+        default_factory=dict, init=False, repr=False
+    )
+
     # Tool-call IDs of large xpworkspace-context-retrieve results already
     # shown to the model once. acompress runs pre-model each turn, so a
     # second sighting means the full payload was consumed last turn and can
     # be re-offloaded back to a preview pointing at its original context_id.
     _retrieve_msgs_seen_once: set = field(default_factory=set, init=False, repr=False)
+    # skill name -> rendered playbook, harvested from skill-load tool results
+    # before each L2 wipe and re-injected after it. Rebuilt from this dict every
+    # compaction, so repeated compactions can never duplicate a pin.
+    _pinned_skill_playbooks: dict = field(default_factory=dict, init=False, repr=False)
     # Last whole-session token estimate, refreshed once per turn in acompress.
     # One turn stale by construction; it only selects an offload band.
     _last_estimated_tokens: int = field(default=0, init=False, repr=False)
@@ -728,7 +752,7 @@ class XPanderContextOptimizer(MapReduceMixin, CompressionManager):
     def _l1_skip_tool(tool_name: Optional[str]) -> bool:
         if not tool_name:
             return False
-        if tool_name in ("think", "analyze"):
+        if tool_name in L1_ALWAYS_SKIP:
             return True
         if tool_name.startswith("xp") and tool_name not in L1_XP_OFFLOAD_ELIGIBLE:
             return True
@@ -807,18 +831,27 @@ class XPanderContextOptimizer(MapReduceMixin, CompressionManager):
         if context_id.endswith(".xp"):
             context_id = context_id[:-3]
         est_tokens = self._estimate_tokens_for_text(content)
+        sketch = sketch_structure(content)
+        structure_line = f"[STRUCTURE] {sketch}\n" if sketch else ""
+        decide_from = "the preview and the structure line" if sketch else "the preview"
         return (
             f"{content[: self.preview_length]}\n\n"
             f"[TRUNCATED OUTPUT - {original_len:,} chars (~{est_tokens:,} tokens) total, showing first {self.preview_length:,} chars]\n"
+            f"{structure_line}"
             f"Full result saved (encrypted) to: {workspace_path}\n"
-            f'To retrieve the full output, call xpworkspace-context-retrieve with context_id="{context_id}" — '
-            f'optionally pass query="<regex>" or semantic_query="<text>" to get back only the matching parts '
+            f"Decide from {decide_from} first — when that already answers the "
+            f"step you are on, continue without retrieving. "
+            f'When you need specific values, call xpworkspace-context-retrieve with context_id="{context_id}" '
+            f'and query="<regex>" or semantic_query="<text>" to get back only the matching parts '
             f"instead of all ~{est_tokens:,} tokens. You can call it multiple times on the same context_id with "
             f"different queries to drill in without re-pulling the whole result. "
-            f"The file is encrypted and scoped to the current task — do not use xpworkspace-bash or xpworkspace-file-read. "
-            f"Do this if the preview above is insufficient for your current task. "
+            f"A retrieve with neither query returns everything — reserve it for when every record matters, "
+            f"such as transforming or persisting the whole dataset, and write what comes back to a plaintext "
+            f"workspace file in that same step. "
+            f"The file is encrypted and scoped to the current task; xpworkspace-context-retrieve is the reader "
+            f"that decrypts it. "
             f"If this content contains rules, steps, or procedures you are expected to follow "
-            f"(a playbook, runbook, or SOP), you MUST retrieve the full content before acting - "
+            f"(a playbook, runbook, or SOP), retrieve the full content before acting - "
             f"a preview is never a sufficient basis for following a procedure."
         )
 
@@ -880,6 +913,55 @@ class XPanderContextOptimizer(MapReduceMixin, CompressionManager):
             f"({original_len:,} -> {compressed_len:,} chars, path={workspace_path})"
         )
         return replacement, workspace_path
+
+    def _pin_skill_playbook(self, name: str, playbook: str) -> None:
+        """Upsert one playbook span, newest-wins, bounded by PINNED_SKILLS_MAX."""
+        if len(playbook) > PINNED_SKILL_MAX_CHARS:
+            cut = PINNED_SKILL_MAX_CHARS - 60
+            playbook = playbook[:cut] + "\n[truncated - full files in ./skills/]\n</skill_playbook>"
+        self._pinned_skill_playbooks.pop(name, None)
+        self._pinned_skill_playbooks[name] = playbook
+        while len(self._pinned_skill_playbooks) > PINNED_SKILLS_MAX:
+            self._pinned_skill_playbooks.pop(next(iter(self._pinned_skill_playbooks)))
+
+    def _harvest_skill_playbooks(self, messages: List[Message]) -> None:
+        """Collect loaded skill playbooks so they survive the L2 wipe.
+
+        Only successful loads carry the <skill_playbook> wrapper; failure
+        strings never do, so the tag doubles as the success check. Only the
+        tagged span is pinned - the load result's apply-now tail would
+        re-instruct a restart from step one on every compaction. A prior
+        pin message (role=user, our header) is re-harvested too, so pins
+        survive a fresh optimizer instance (e.g. a plan retry).
+        """
+        for msg in messages:
+            role = getattr(msg, "role", None)
+            if role == "user" and isinstance(msg.content, str) and msg.content.startswith(_PIN_HEADER):
+                for m in re.finditer(_PLAYBOOK_SPAN_RE, msg.content):
+                    self._pin_skill_playbook(m.group(1), m.group(0))
+                continue
+            if role != "tool":
+                continue
+            if self._effective_tool_name(msg) not in SKILL_PIN_TOOL_NAMES:
+                continue
+            content = unwrap_tool_result_content(msg.content)
+            if not isinstance(content, str):
+                continue
+            match = re.search(_PLAYBOOK_SPAN_RE, content)
+            if match:
+                self._pin_skill_playbook(match.group(1), match.group(0))
+
+    def _render_pinned_skill_playbooks(self) -> str:
+        """One user message re-carrying every pinned playbook, or '' when none."""
+        if not self._pinned_skill_playbooks:
+            return ""
+        return (
+            _PIN_HEADER
+            + ", kept across context compaction. "
+            "Follow them from wherever the accompanying context summary says you are - do not "
+            "restart them and do not load these skills again:\n"
+            + "\n".join(self._pinned_skill_playbooks.values())
+        )
 
     def _maybe_reoffload_retrieve(self, msg: Message) -> bool:
         """Collapse a stale full-payload context-retrieve result back to a
@@ -944,6 +1026,80 @@ class XPanderContextOptimizer(MapReduceMixin, CompressionManager):
         )
         return True
 
+    def register_pending_summary(self, context_id: str, summary_task: Any) -> None:
+        """Track an in-flight offload summary for a later splice into its preview."""
+        if not context_id or summary_task is None:
+            return
+        self._pending_offload_summaries[context_id] = (summary_task, 0)
+
+    @staticmethod
+    def _splice_summary_into_preview(
+        messages: List[Message], context_id: str, summary: str
+    ) -> bool:
+        """Insert ``[SUMMARY] ...`` under the truncation marker of one preview."""
+        # One line, bounded: the block is line-oriented and the summarizer returns free text.
+        summary = " ".join(summary.split())[:OFFLOAD_SUMMARY_MAX_CHARS]
+        if not summary:
+            return False
+        marker = f'context_id="{context_id}"'
+        for msg in messages:
+            if msg.role != "tool":
+                continue
+            uses_compressed = msg.compressed_content is not None
+            text = msg.compressed_content if uses_compressed else msg.content
+            if not isinstance(text, str) or marker not in text or "[SUMMARY]" in text:
+                continue
+            lines = text.split("\n")
+            for idx, line in enumerate(lines):
+                if line.startswith("[TRUNCATED OUTPUT -"):
+                    lines.insert(idx + 1, f"[SUMMARY] {summary}")
+                    break
+            else:
+                continue
+            updated = "\n".join(lines)
+            if uses_compressed:
+                msg.compressed_content = updated
+            else:
+                msg.content = updated
+            return True
+        return False
+
+    def _splice_ready_summaries(self, messages: List[Message]) -> None:
+        """Fold resolved offload summaries into their previews, one shot each."""
+        for context_id, (summary_task, passes) in list(
+            self._pending_offload_summaries.items()
+        ):
+            try:
+                done = summary_task.done()
+            except Exception:
+                self._pending_offload_summaries.pop(context_id, None)
+                continue
+            if not done:
+                if passes + 1 >= PENDING_SUMMARY_MAX_PASSES:
+                    self._pending_offload_summaries.pop(context_id, None)
+                    logger.debug(
+                        f"[context-optimizer] layer 1: offload summary still pending after "
+                        f"{PENDING_SUMMARY_MAX_PASSES} passes, left to warm the cache (ctx={context_id})"
+                    )
+                else:
+                    self._pending_offload_summaries[context_id] = (
+                        summary_task,
+                        passes + 1,
+                    )
+                continue
+            self._pending_offload_summaries.pop(context_id, None)
+            try:
+                summary = summary_task.result()
+            except Exception as exc:
+                logger.debug(f"[context-optimizer] offload summary unavailable: {exc}")
+                continue
+            if not isinstance(summary, str) or not summary.strip():
+                continue
+            if self._splice_summary_into_preview(messages, context_id, summary.strip()):
+                logger.debug(
+                    f"[context-optimizer] layer 1: spliced summary into preview (ctx={context_id})"
+                )
+
     async def layer_1_microcompact(self, messages: List[Message]) -> None:
         """Fallback offload loop for messages the tool hook didn't process.
 
@@ -952,6 +1108,9 @@ class XPanderContextOptimizer(MapReduceMixin, CompressionManager):
         still runs every turn so messages arriving from session history /
         resumed runs (where the hook never fired) are offloaded too.
         """
+        if self._pending_offload_summaries:
+            self._splice_ready_summaries(messages)
+
         offloaded_count = 0
         passthrough_count = 0
         skipped_count = 0
@@ -1875,9 +2034,13 @@ class XPanderContextOptimizer(MapReduceMixin, CompressionManager):
                 recent_actions_block=recent_actions_block,
                 authoritative_ledger_block=authoritative_ledger_block,
             )
+            self._harvest_skill_playbooks(messages)
             system_messages = [m for m in messages if m.role == "system"]
             messages.clear()
             messages.extend(system_messages)
+            pinned_playbooks = self._render_pinned_skill_playbooks()
+            if pinned_playbooks:
+                messages.append(Message(role="user", content=pinned_playbooks))
             messages.append(Message(role="user", content=continuation_message))
 
             # Stagnant-compaction warning injection. The post-compaction

@@ -277,6 +277,115 @@ class TestStatusRendering:
 
 
 # --------------------------------------------------------------------------- #
+# What a status answer may say about a failure
+# --------------------------------------------------------------------------- #
+
+
+_KEYED_URL = "https://acme.example/v1/chat?api-key=sk-live-4f2b"
+
+
+def _failed(status: TaskStatus = TaskStatus.FAILED, **extra: Any) -> TaskHandle:
+    """A handle whose `error` embeds a model client's own message, as a real one does."""
+    exception = RuntimeError(f"401 Unauthorized calling {_KEYED_URL}")
+    return TaskHandle(
+        task_id="t1",
+        subagent_name="worker",
+        description="dig",
+        status=status,
+        error=f"{type(exception).__name__}: {exception}",
+        exception=exception,
+        **extra,
+    )
+
+
+class TestAStatusAnswerNamesTheTypeNotTheMessage:
+    """A task-status tool's answer is stored and shown, so it carries no vendor text.
+
+    A host stores a `ToolReturnPart` whole -- it is the tool's own answer, not a
+    retry prompt something can scrub -- and renders it to everyone who can read the
+    run. A model client's message carries the failing request URL with the key still
+    in its query string on a custom `base_url`, so handing `handle.error` to the
+    model put that key on a transcript row. The class is named instead, and
+    `handle.error` keeps the original for the host to log.
+    """
+
+    async def test_check_task_on_a_failed_task_names_the_class(self) -> None:
+        toolset = _toolset()
+        toolset.task_manager.handles["t1"] = _failed()
+
+        result = await toolset.tools["check_task"].function(Ctx(), "t1")
+
+        assert "Error: RuntimeError" in result
+        assert _KEYED_URL not in result
+        assert "401" not in result
+
+    async def test_check_task_mid_retry_names_the_class_and_keeps_the_count(self) -> None:
+        """This one leaks for a delegation that eventually succeeds.
+
+        `finish` clears `error` on completion, but the model may have polled while
+        the task was retrying, and by then the answer is already a transcript row.
+        """
+        toolset = _toolset()
+        toolset.task_manager.handles["t1"] = _failed(
+            TaskStatus.RETRYING, started_at=utcnow(), retry_count=2
+        )
+
+        result = await toolset.tools["check_task"].function(Ctx(), "t1")
+
+        assert "Retry 2: RuntimeError" in result
+        assert _KEYED_URL not in result
+
+    async def test_check_task_on_a_cancellation_that_carried_one_names_the_class(self) -> None:
+        toolset = _toolset()
+        toolset.task_manager.handles["t1"] = _failed(TaskStatus.CANCELLED)
+
+        result = await toolset.tools["check_task"].function(Ctx(), "t1")
+
+        assert "Outcome: RuntimeError" in result
+        assert _KEYED_URL not in result
+
+    async def test_wait_tasks_names_the_class(self) -> None:
+        toolset = _toolset()
+        toolset.task_manager.handles["t1"] = _failed()
+
+        result = await toolset.tools["wait_tasks"].function(Ctx(), ["t1"])
+
+        assert "FAILED - RuntimeError" in result
+        assert _KEYED_URL not in result
+
+    async def test_a_budget_that_ran_out_still_says_so(self) -> None:
+        """The marker is this library's own text, so replacing it would lose the
+        one thing that tells a model to stop delegating rather than retry."""
+        toolset = _toolset()
+        exhausted = UsageLimitExceeded("The next request would exceed the limit")
+        toolset.task_manager.handles["t1"] = TaskHandle(
+            task_id="t1",
+            subagent_name="worker",
+            description="dig",
+            status=TaskStatus.FAILED,
+            error=f"usage limit exceeded: {exhausted}",
+            exception=exhausted,
+        )
+
+        result = await toolset.tools["check_task"].function(Ctx(), "t1")
+
+        assert "Error: usage limit exceeded: UsageLimitExceeded" in result
+        assert "The next request would exceed the limit" not in result
+
+    async def test_the_handle_keeps_the_original_for_the_host_to_log(self) -> None:
+        """Scrubbing the answer must not scrub the record. #699's contract is that
+        `error` holds the whole thing and `exception` is how a host composes its own."""
+        toolset = _toolset()
+        handle = _failed()
+        toolset.task_manager.handles["t1"] = handle
+
+        await toolset.tools["check_task"].function(Ctx(), "t1")
+
+        assert handle.error is not None
+        assert _KEYED_URL in handle.error
+
+
+# --------------------------------------------------------------------------- #
 # Run isolation
 # --------------------------------------------------------------------------- #
 
@@ -759,10 +868,11 @@ class TestErrorContract:
     async def test_sync_propagates_usage_limit(self) -> None:
         """Containing an exhausted budget would let the parent keep delegating."""
         handle = TaskHandle(task_id="t1", subagent_name="worker", description="d")
+        exhausted = UsageLimitExceeded("out of tokens")
 
         with pytest.raises(UsageLimitExceeded):
             await _run_sync(
-                agent=StubAgent(error=UsageLimitExceeded("out of tokens")),
+                agent=StubAgent(error=exhausted),
                 config=_config(),
                 description="work",
                 deps=Deps(),
@@ -773,6 +883,7 @@ class TestErrorContract:
 
         assert handle.status == TaskStatus.FAILED
         assert handle.error == "usage limit exceeded: out of tokens"
+        assert handle.exception is exhausted
 
     async def test_async_records_usage_limit_under_the_same_marker(self) -> None:
         """A background delegation has no caller to raise into, so it records instead.
@@ -781,8 +892,9 @@ class TestErrorContract:
         made telemetry depend on knowing how a delegation had been dispatched.
         """
         toolset = _toolset()
+        exhausted = UsageLimitExceeded("out of tokens")
         await _run_async(
-            agent=StubAgent(error=UsageLimitExceeded("out of tokens")),
+            agent=StubAgent(error=exhausted),
             config=_config(),
             description="work",
             deps=Deps(),
@@ -795,6 +907,7 @@ class TestErrorContract:
         handle = toolset.task_manager.handles["t1"]
         assert handle.status == TaskStatus.FAILED
         assert handle.error == "usage limit exceeded: out of tokens"
+        assert handle.exception is exhausted
 
     @pytest.mark.parametrize(
         "error",
@@ -842,6 +955,50 @@ class TestErrorContract:
 
         with pytest.raises(ValueError, match="bad argument"):
             await toolset.tools["task"].function(Ctx(), "work", "worker")
+
+    async def test_a_failed_delegation_hands_the_host_the_exception_behind_the_text(self) -> None:
+        """`TaskHandle.exception` carries the exception whose text `error` embeds.
+
+        A provider error's message can carry the failing request URL with the
+        key still in its query string. A host that must not surface foreign
+        text reads the class from here, composes its own sentence and logs the
+        original (agenticos#699).
+        """
+        boom = RuntimeError("401 from https://llm.example.com/v1?api_key=sk-secret")
+        handle = TaskHandle(task_id="t1", subagent_name="worker", description="d")
+
+        with pytest.raises(ModelRetry):
+            await _run_sync(
+                agent=StubAgent(error=boom),
+                config=_config(),
+                description="work",
+                deps=Deps(),
+                task_id="t1",
+                handle=handle,
+            )
+
+        assert handle.status == TaskStatus.FAILED
+        assert handle.exception is boom
+
+    async def test_a_background_failure_records_the_exception_too(self) -> None:
+        """Both dispatch modes fill `TaskHandle.exception`, like `error` itself."""
+        boom = RuntimeError("401 from https://llm.example.com/v1?api_key=sk-secret")
+        manager = TaskManager(message_bus=InMemoryMessageBus())
+
+        await _run_async(
+            agent=StubAgent(error=boom),
+            config=_config(),
+            description="work",
+            deps=Deps(),
+            task_id="t1",
+            task_manager=manager,
+            message_bus=manager.message_bus,
+        )
+        await asyncio.gather(*manager.tasks.values(), return_exceptions=True)
+
+        handle = manager.handles["t1"]
+        assert handle.status == TaskStatus.FAILED
+        assert handle.exception is boom
 
     async def test_sync_marks_handle_deferred_when_a_suspension_propagates(self) -> None:
         """A suspension is not a failure, and the handle has to say which it was.

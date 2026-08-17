@@ -9,7 +9,7 @@ from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
     from ._commands_shared import _now
-    from .commands_support_codex_git import _git_repo_root
+    from .commands_support_codex_git_config import _git_repo_root
     from .commands_support_connect import (
         _announce_guard_device_connect_copy,
         _finalize_guard_connect_payload,
@@ -21,6 +21,7 @@ if TYPE_CHECKING:
 
 from ._commands_shared import *
 from .commands_parser_helpers import *
+from ..browser_opener import open_browser_url
 
 def _add_guard_common_args(
     parser: argparse.ArgumentParser,
@@ -277,7 +278,7 @@ def _run_init_command(
                         announce_copy=None
                         if getattr(args, "json", False)
                         else _announce_guard_device_connect_copy,
-                        open_browser=webbrowser.open,
+                        open_browser=open_browser_url,
                     )
                     step_payload = _finalize_guard_connect_payload(
                         store=store,
@@ -435,11 +436,14 @@ def _resolve_default_install_workspace(
 ) -> Path | None:
     """Pick a project workspace for install/uninstall when --workspace is omitted."""
 
-    cwd = Path.cwd().resolve()
     harness = _requested_install_harness(args)
     cursor_project_dir = _workspace_from_cursor_project_dir()
     if cursor_project_dir is not None and (harness is None or harness == "cursor"):
         return cursor_project_dir
+    try:
+        cwd = Path.cwd().resolve()
+    except OSError:
+        return None
 
     if _workspace_has_project_markers(cwd):
         return cwd

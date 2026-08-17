@@ -1,4 +1,26 @@
 export type DecisionScope = "artifact" | "workspace" | "publisher" | "harness" | "global";
+export type ApprovalResolutionAction = "allow" | "block";
+
+export type GuardApprovalScopesByAction = Record<ApprovalResolutionAction, DecisionScope[]>;
+
+export type GuardRecommendedScopesByAction = Record<ApprovalResolutionAction, DecisionScope | null>;
+
+export type GuardTaskCapabilityEligibility = {
+  eligible: boolean;
+  reason_codes: string[];
+};
+
+export const GUARD_ACTIONS = [
+  "allow",
+  "warn",
+  "review",
+  "require-reapproval",
+  "sandbox-required",
+  "block",
+] as const;
+
+/** The authoritative enforcement actions emitted by Guard. */
+export type GuardAction = (typeof GUARD_ACTIONS)[number];
 
 export const GUARD_ACTION_TYPES = [
   "prompt",
@@ -88,6 +110,9 @@ export type GuardScannerEvidence =
   | PackageExecutionContextEvidence;
 
 export type GuardDecisionV2 = {
+  /** Exact six-valued enforcement action. */
+  guard_action: GuardAction;
+  /** Legacy product-facing projection retained for copy compatibility. */
   action: GuardDecisionV2Action;
   reason: string;
   user_title: string;
@@ -96,6 +121,7 @@ export type GuardDecisionV2 = {
   dashboard_primary_detail: string;
   approval_scopes: string[];
   retry_instruction: string | null;
+  package_review_cloud_reason_code?: string | null;
   signals: RiskSignalV2[];
   confidence: GuardDecisionV2Confidence;
 };
@@ -118,6 +144,13 @@ export type GuardActionEnvelope = {
   mcp_tool: string | null;
   package_manager: string | null;
   package_name: string | null;
+  command_category?: string | null;
+  package_intent_kind?: string | null;
+  package_targets?: string[];
+  /** Exact Guard action projected immediately before execution. */
+  pre_execution_result?: GuardAction | null;
+  /** Legacy receipt/approval projection when present. */
+  policy_action?: GuardAction | null;
   script_name: string | null;
   raw_payload_redacted: Record<string, unknown>;
 };
@@ -125,7 +158,10 @@ export type GuardActionEnvelope = {
 export type GuardHeadlineState =
   | "setup"
   | "protected"
+  | "partial"
+  | "degraded"
   | "blocked"
+  | "needs_decision"
   | "local_only"
   | "connected";
 
@@ -137,9 +173,16 @@ export type GuardApprovalRequest = {
   artifact_type: string;
   artifact_hash: string;
   publisher: string | null;
-  policy_action: string;
-  recommended_scope: DecisionScope;
+  policy_action: GuardAction;
+  recommended_scope: DecisionScope | null;
   allowed_scopes?: DecisionScope[];
+  scope_contract_version?: string | null;
+  scope_contract_digest?: string | null;
+  allowed_scopes_by_action?: GuardApprovalScopesByAction;
+  recommended_scope_by_action?: GuardRecommendedScopesByAction;
+  scope_restrictions?: string[];
+  task_capability_eligibility?: GuardTaskCapabilityEligibility;
+  exact_action_persistence_eligible?: boolean;
   risk_headline?: string;
   risk_summary?: string;
   risk_signals?: string[];
@@ -162,14 +205,67 @@ export type GuardApprovalRequest = {
   resolved_at: string | null;
   action_envelope_json?: GuardActionEnvelope | null;
   decision_v2_json?: GuardDecisionV2 | null;
+  decision_contract_error?: string;
   fallback_cli_command?: string | null;
   raw_command_text?: string | null;
+  queue_preview?: string | null;
+  queue_command_category?: string | null;
   action_identity?: string | null;
   queue_group_id?: string | null;
   dedupe_count?: number;
   last_seen_at?: string | null;
   display_status?: string;
   scanner_evidence?: GuardScannerEvidence[];
+  temporary_mcp_approval?: GuardTemporaryMcpApproval | null;
+  local_tool_approval?: GuardLocalToolApproval | null;
+};
+
+export type GuardTemporaryMcpGrantTarget = "exact" | "category" | "server";
+export type GuardTemporaryMcpGrantDuration = "once" | "15m" | "1h" | "5h";
+
+export type GuardTemporaryMcpApproval = {
+  eligible: boolean;
+  server_name: string;
+  server_identity_hash: string;
+  category: string;
+  target_label: string | null;
+  allowed_targets: GuardTemporaryMcpGrantTarget[];
+  allowed_durations: GuardTemporaryMcpGrantDuration[];
+  hard_risk_exclusions: string[];
+};
+
+export type GuardLocalToolGrantTarget = "capability" | "version";
+export type GuardLocalToolGrantDuration = "once" | "15m" | "1h" | "5h" | "version" | "always";
+
+export type GuardLocalToolApproval = {
+  eligible: boolean;
+  tool_name: string;
+  tool_identity_hash: string;
+  capability: string;
+  read_only_reason: string;
+  trust_basis: "verified-files" | "package-profile";
+  indefinite_allowed: boolean;
+  allowed_targets: GuardLocalToolGrantTarget[];
+  allowed_durations: GuardLocalToolGrantDuration[];
+  hard_risk_exclusions: string[];
+};
+
+export type GuardApprovalResolutionInput = {
+  requestId: string;
+  action: "allow" | "block";
+  scope: DecisionScope;
+  workspace?: string;
+  reason: string;
+  approval_password?: string;
+  approval_totp_code?: string;
+  approval_gate_use_cooldown?: boolean;
+  scope_contract_version?: string;
+  scope_contract_digest?: string;
+  persist_policy?: boolean;
+  mcp_grant_target?: GuardTemporaryMcpGrantTarget;
+  mcp_grant_duration?: GuardTemporaryMcpGrantDuration;
+  local_tool_grant_target?: GuardLocalToolGrantTarget;
+  local_tool_grant_duration?: Exclude<GuardLocalToolGrantDuration, "once">;
 };
 
 export type GuardApprovalPageStatus = "pending" | "resolved" | "all";
@@ -249,6 +345,37 @@ export type GuardRuntimeState = {
   approval_center_url: string;
 };
 
+export type GuardProtectionState = "protected" | "partial" | "degraded";
+
+export type GuardProtectionCheckStatus = "pass" | "unknown" | "fail";
+
+export type GuardProtectionCheck = {
+  check_id: string;
+  status: GuardProtectionCheckStatus;
+  reason_code: string;
+};
+
+export type GuardProtectionAppHealth = {
+  harness: string;
+  state: GuardProtectionState;
+  label: string;
+  detail: string;
+  evidence_gap: boolean;
+  checks: GuardProtectionCheck[];
+  reason_codes: string[];
+};
+
+export type GuardProtectionHealth = {
+  schema_version: "guard.protection-health.v1";
+  state: GuardProtectionState;
+  label: string;
+  detail: string;
+  evidence_gap: boolean;
+  checks: GuardProtectionCheck[];
+  reason_codes: string[];
+  apps: GuardProtectionAppHealth[];
+};
+
 export type GuardCloudUserProfile = {
   email: string;
   display_name: string;
@@ -323,10 +450,13 @@ export type PackageManagerProtection = {
   path_status: "in_path" | "restart_required" | "missing_from_path";
   path_contains_shim_dir: boolean;
   restart_shell_required: boolean;
+  process_path_status?: "active" | "profile_staged" | "missing";
+  process_restart_required?: boolean;
   shell_profile_configured: boolean;
   shell_profile_path: string | null;
   shim_dir: string;
   supported_managers: string[];
+  detected_managers?: string[];
   installed_managers: string[];
   active_managers: string[];
   missing_shims: string[];
@@ -409,10 +539,26 @@ export type GuardCloudCommandCapability = {
   revoke_command: string;
 };
 
+export type GuardOperatorHealthState = "healthy" | "backlogged" | "saturated" | "store-contended";
+
+export type GuardOperatorHealth = {
+  state: GuardOperatorHealthState;
+  cause: string;
+  automatic_recovery: string;
+  repairable: boolean;
+  queue_depth: number;
+  queue_limit: number;
+  oldest_wait_ms: number;
+  workers_busy: number;
+  workers_ready: number;
+  workers_configured: number;
+};
+
 export type GuardRuntimeSnapshot = {
   generated_at: string;
   approval_center_url: string | null;
   runtime_state: GuardRuntimeState | null;
+  protection_health?: GuardProtectionHealth;
   device: GuardRuntimeDevice;
   latest_connect_state: GuardLatestConnectState | null;
   proof_status: GuardProofStatus;
@@ -445,6 +591,7 @@ export type GuardRuntimeSnapshot = {
   managed_installs?: GuardManagedInstall[];
   inventory?: GuardInventoryItem[];
   cloud_command_capability?: GuardCloudCommandCapability;
+  operator_health?: GuardOperatorHealth;
   security_level?: "balanced" | "strict" | "custom";
   supply_chain?: SupplyChainSnapshot;
 };
@@ -454,7 +601,7 @@ export type GuardReceipt = {
   harness: string;
   artifact_id: string;
   artifact_hash: string;
-  policy_decision: string;
+  policy_decision: GuardAction;
   capabilities_summary: string;
   changed_capabilities: string[];
   provenance_summary: string;
@@ -466,6 +613,7 @@ export type GuardReceipt = {
   diff_summary?: string | null;
   scanner_evidence?: GuardScannerEvidence[];
   action_envelope_json?: GuardActionEnvelope | null;
+  decision_contract_error?: string;
 };
 
 export type ReceiptScannerEvidence = NonNullable<GuardReceipt["scanner_evidence"]>[number];
@@ -717,8 +865,9 @@ export type GuardInventoryItem = {
   last_approved_at: string | null;
   removed_at: string | null;
   present: boolean;
-  last_policy_action: string;
+  last_policy_action: GuardAction;
   artifact_hash: string;
+  decision_contract_error?: string;
 };
 
 export type GuardApprovalGatePublicConfig = {
@@ -751,7 +900,9 @@ export type GuardSettings = {
   approval_browser_immediate_severity: RiskSignalV2Severity;
   telemetry: boolean;
   sync: boolean;
+  receipt_redaction_level: "full" | "partial" | "none";
   billing: boolean;
+  update_channel?: "stable" | "alpha";
   approval_gate?: GuardApprovalGatePublicConfig;
 };
 
@@ -874,6 +1025,18 @@ export type PackageFirewallActionResponse = {
   entitlement: PackageFirewallEntitlement;
 };
 
+export type SupplyChainRepairStepFailure = {
+  step: "package_shims" | "runtime_activation" | "intelligence_sync";
+  message: string;
+};
+
+export type SupplyChainRepairResult = {
+  repaired: boolean;
+  completed_steps: string[];
+  failed_steps: SupplyChainRepairStepFailure[];
+  message: string;
+};
+
 export type SupplyChainAuditDecision = "allow" | "monitor" | "warn" | "ask" | "block";
 
 export type SupplyChainAuditSeverity = "critical" | "high" | "medium" | "low" | "unknown";
@@ -946,12 +1109,25 @@ export type GuardUpdateStatus = {
   update_suppressed?: boolean;
   retry_command?: string;
   update_attempt_message?: string;
+  release_channel: "stable" | "alpha";
 };
 
 export type GuardUpdateReconnectOptions = {
   expectedPreviousVersion?: string | null;
   expectedLatestVersion?: string | null;
   sawUpdateInProgress?: boolean;
+  authorization?: GuardDaemonReconnectAuthorization | null;
+};
+
+export type GuardDaemonReconnectAuthorization = {
+  protocolVersion: 1;
+  reconnectId: string;
+  verifier: string;
+  surface: "dashboard";
+  issuedAtMs: number;
+  expiresAtMs: number;
+  installationId: string;
+  guardHomeId: string;
 };
 
 export type GuardUpdateScheduleResult = {

@@ -4,7 +4,7 @@ A conversion / dataset / training endpoint writes files locally, calls
 ``publish_flavors(ctx, flavors)``, and returns a result struct. Each flavor's
 ``path`` (file or directory) becomes ONE Tensorhub publish against the
 destination repo (explicit ``destination_repo=`` or the job payload's
-reserved ``destination.repo`` field). Nothing publishes implicitly.
+reserved ``destination.ref`` field). Nothing publishes implicitly.
 
 Publishes over the chunked sha256 CAS (``HubClient.publish_v2``).
 """
@@ -18,49 +18,38 @@ from typing import Any, Iterable, Mapping
 from .. import activity as _activity
 from ..hubio.client import CommitFile, CommitResult, HubClient, files_from_tree
 from ..hubio.publish_state import JOURNAL_NAME
-from ..models.ladder import (
-    CLASS_BASE,
-    Placement,
-    classify_flavor_token,
-    default_placement,
-    placement_to_metadata,
-)
+from ..models.ladder import CLASS_BASE, classify_flavor_token
 from .dtype_pins import verify_produced_tree
 from .produced import ProducedFlavor
 from .writer import assert_one_file_per_component
 from ..models.file_layout import validate_file_layout
 
-_PLACEMENT_ATTR_KEYS = ("placement_sm_allowed", "placement_sm_min", "placement_engines")
+# pgw#1300 deleted the ``placement_*`` OVERRIDE SURFACE, not just its defaults:
+# the block no longer carries an SM allow-list, an SM floor or an engine list,
+# so there is nothing left to override. Producers still set these — e.g.
+# `training-endpoints/conversion/src/conversion/quant/modelopt.py:1263` writes
+# `placement_sm_allowed` — and an attribute pgw does not read must not land in
+# `checkpoints.metadata` as prose. They are dropped here until those producers
+# stop writing them; then this tuple goes too.
+_DEAD_PLACEMENT_ATTRS = ("placement_sm_allowed", "placement_sm_min", "placement_engines")
 
 
-def _csv_ints(raw: str) -> tuple[int, ...]:
-    return tuple(int(v) for v in (s.strip() for s in raw.split(",")) if v)
+def _precision_class_block(attrs: Mapping[str, str], label: str) -> dict[str, Any] | None:
+    """The ONE surviving key of ``checkpoints.metadata["placement"]``.
 
-
-def _csv_strs(raw: str) -> tuple[str, ...]:
-    return tuple(v for v in (s.strip() for s in raw.split(",")) if v)
-
-
-def _placement_block(attrs: Mapping[str, str], label: str) -> dict[str, Any] | None:
-    """The placement stamp — arch requirements the SKU-aware precision
-    ladder reads back at resolution. Derived from the flavor
-    token's class defaults; producers may override via explicit
-    ``precision_class`` / ``placement_*`` attrs. Base rows stay unstamped
-    (bare = runs wherever it fits, by definition)."""
-    explicit = any(attrs.get(k) for k in _PLACEMENT_ATTR_KEYS)
+    pgw#1300 / th#2055: card admission is gone — pod purchase depends only on
+    the endpoint owner's (GPU, lane) ladder — but `precision_class` survives,
+    because tensorhub's `precision.StoredPrecisionOf` reads it as its strongest
+    evidence for a stored class where no tensor-layout contract is proven.
+    Taken from the producer's explicit ``precision_class`` attr, else derived
+    from the flavor token. Base rows stay unstamped: the hub's own fallback for
+    an unstamped row is `ClassBase`, so a block would restate it.
+    """
     cls = str(attrs.get("precision_class", "") or "").strip().lower()
     cls = cls or classify_flavor_token(label)
-    if not cls or (cls == CLASS_BASE and not explicit):
+    if not cls or cls == CLASS_BASE:
         return None
-    p = default_placement(cls) or Placement(cls)
-    if explicit:
-        p = Placement(
-            cls,
-            sm_allowed=_csv_ints(attrs.get("placement_sm_allowed", "")) or p.sm_allowed,
-            sm_min=int(attrs.get("placement_sm_min", "") or 0) or p.sm_min,
-            engines=_csv_strs(attrs.get("placement_engines", "")) or p.engines,
-        )
-    return placement_to_metadata(p)
+    return {"precision_class": cls}
 
 
 def _flavor_files(flavor: ProducedFlavor) -> list[CommitFile]:
@@ -95,13 +84,15 @@ def _source_stamps(ctx: Any, client: HubClient) -> tuple[str | None, bool | None
         if th is None:
             return None, None
         resolved = resolve_repo(th, base_url=client.base_url, token=client.token)
-        # A new hub tells us whether false is evidence or merely the wire
-        # default. Never turn unknown/inconclusive into an authored false on
-        # the derived checkpoint. Empty status is an old hub, whose behavior
-        # remains unchanged for rolling compatibility.
+        # `distilled_status` tells us whether false is evidence or merely the
+        # wire default. Never turn unknown into an authored false on the
+        # derived checkpoint. Only "classified" is evidence — the hub's own
+        # rule (`modelfamily.StoredCheckpointFacts`), and an EMPTY status is
+        # one of the unknowns: the resolve route omits the key whenever the
+        # stored column is empty, so "" means nothing measured the axis.
         distilled = (
             resolved.distilled
-            if resolved.distilled_status in ("", "classified")
+            if resolved.distilled_status == "classified"
             else None
         )
         return resolved.objective, distilled
@@ -163,6 +154,37 @@ def destination_release(ctx: Any, explicit: str = "") -> str:
     return rel
 
 
+def destination_ref(ctx: Any, explicit: str = "") -> str:
+    """THE bare ``owner/repo`` a producer publishes into: the explicit
+    argument, else the invoking request's ``destination.ref``.
+
+    ONE vocabulary with ``executor._producer_destination_repo``: the reserved
+    struct's key is ``ref``, and tag/flavor/checkpoint selectors are stripped
+    so a caller that passed ``owner/repo:tag`` still addresses the repo.
+
+    pgw#1305: this used to read the retired ``destination.repo`` key and
+    nothing else, so an invoke carrying the ``destination={ref, release}``
+    that :func:`destination_release`'s own refusal asks for was told
+    ``destination_repo is required`` — the two halves of one reserved struct
+    disagreed about its key.
+    """
+    ref = str(explicit or "").strip()
+    if not ref:
+        info = getattr(ctx, "destination", None) or {}
+        if isinstance(info, dict):
+            ref = str(info.get("ref") or "").strip()
+    for sep in (":", "@", "#"):
+        ref = ref.split(sep, 1)[0]
+    ref = ref.strip().strip("/")
+    if not ref:
+        raise ValueError(
+            "destination_repo is required: the invoke named no "
+            "`destination.ref`. Invoke with destination={ref, release}, or "
+            "pass destination_repo= explicitly."
+        )
+    return ref
+
+
 def publish_flavors(
     ctx: Any,
     flavors: Iterable[ProducedFlavor],
@@ -197,12 +219,13 @@ def publish_flavors(
     ``journal_path`` is where the in-flight ``publish_id`` is recorded so a
     retry on this pod re-uploads instead of re-casting. Pass the produced
     tree's own directory; omit it and the publish is unrecoverable."""
-    dest = str(destination_repo or "").strip()
-    if not dest:
-        info = getattr(ctx, "destination", None) or {}
-        dest = str((info.get("repo") if isinstance(info, dict) else "") or "").strip()
-    if not dest:
-        raise ValueError("destination_repo is required (payload.destination.repo)")
+    # The hub-write declaration, checked before anything is read or uploaded
+    # (pgw#1294). Undeclared code never had a grant minted for it, so this is
+    # that refusal arriving at the call site instead of after the bytes moved.
+    require = getattr(ctx, "_require_publish_declaration", None)
+    if callable(require):
+        require("publish_flavors")
+    dest = destination_ref(ctx, destination_repo)
     release = destination_release(ctx, release)
 
     client = HubClient.from_ctx(ctx)
@@ -235,7 +258,7 @@ def publish_flavors(
         # precision is published either way.
         produced_dtypes = verify_produced_tree(Path(flavor.path))
         attrs = {str(k): str(v) for k, v in (flavor.attributes or {}).items()}
-        # A PRODUCER-LOCAL label. It classifies the placement stamp and names
+        # A PRODUCER-LOCAL label. It classifies the precision class and names
         # the activity leg; it is NOT sent to the hub and does not name a
         # catalog row — `dtype` + `artifact_contract` state what the bytes are.
         label = str(flavor.flavor or attrs.get("dtype") or "").strip()
@@ -248,9 +271,9 @@ def publish_flavors(
             for k in ("quantization_method", "quantization_library")
             if attrs.get(k)
         }
-        placement = _placement_block(attrs, label)
+        placement = _precision_class_block(attrs, label)
         meta = {**(dict(metadata) if metadata else {}), **attrs}
-        for k in _PLACEMENT_ATTR_KEYS:
+        for k in _DEAD_PLACEMENT_ATTRS:
             meta.pop(k, None)
         # It rides its own typed field (and is PROVEN there); a metadata copy
         # would be an unproven second statement of the same thing.
@@ -275,7 +298,7 @@ def publish_flavors(
             release=release,
             mode=mode,
             # The conversion producer's own legs. (The per-object liveness beat
-            # lives in HashRepo's transfer progress callback, so it
+            # lives in tensorfs's transfer progress callback, so it
             # cannot be lost by a caller who forgets to pass a callback.)
             on_stage=functools.partial(_publish_leg, dest, label),
             journal_path=journal_path or _journal_beside(flavor),
@@ -293,4 +316,4 @@ def publish_flavors(
     return results
 
 
-__all__ = ["destination_release", "publish_flavors"]
+__all__ = ["destination_ref", "destination_release", "publish_flavors"]

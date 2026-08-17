@@ -1,15 +1,25 @@
-import re
-from enum import Enum
-from typing import Optional, TextIO, Any, Union
-import xml.etree.ElementTree as ET
+# mypy: disable-error-code="override"
 
-from .base import FormatBase
-from ..common import etree_iter_child_nodes, etree_register_namespace_override, etree_append_child_nodes
+import re
+import warnings
+import xml.etree.ElementTree as ET
+from enum import Enum
+from typing import TYPE_CHECKING, NotRequired, TextIO, TypedDict, Unpack, override
+
+from ..common import (
+    etree_append_child_nodes,
+    etree_iter_child_nodes,
+    etree_register_namespace_override,
+)
 from ..ssaevent import SSAEvent
 from ..ssastyle import SSAStyle
+from ..time import make_time, ms_to_times
+from ..warnings import TimestampUnderflow
+from .base import FormatBase
 from .substation import parse_tags
-from ..time import ms_to_times, make_time
-from ..ssafile import SSAFile
+
+if TYPE_CHECKING:
+    from ..ssafile import SSAFile
 
 
 TT_NS = "{http://www.w3.org/ns/ttml}"
@@ -24,10 +34,17 @@ class TimeContainer(Enum):
 class TTMLFormat(FormatBase):
     """Timed Text Markup Language (TTML) subtitle format implementation"""
 
+    class ReaderArgs(TypedDict):
+        ignore_par_time_offset: NotRequired[bool]
+
+    class WriterArgs(TypedDict):
+        pass
+
     @staticmethod
     def ms_to_timestamp(ms: int) -> str:
         """Convert ms to 'HH:MM:SS.mmm'"""
         if ms < 0:
+            warnings.warn("Underflow in TTML timestamp, clamping to zero", TimestampUnderflow)
             ms = 0
         h, m, s, ms = ms_to_times(ms)
         return f"{h:02d}:{m:02d}:{s:02d}.{ms:03d}"
@@ -52,7 +69,8 @@ class TTMLFormat(FormatBase):
         raise NotImplementedError(f"Unsupported time expression: {expr}")
 
     @classmethod
-    def guess_format(cls, text: str) -> Optional[str]:
+    @override
+    def guess_format(cls, text: str) -> str | None:
         """See :meth:`pysubs2.formats.FormatBase.guess_format()`"""
         if "http://www.w3.org/ns/ttml" in text:
             return "ttml"
@@ -60,13 +78,13 @@ class TTMLFormat(FormatBase):
         return None
 
     @classmethod
+    @override
     def from_file(
             cls,
             subs: "SSAFile",
             fp: TextIO,
             format_: str,
-            ignore_par_time_offset: bool = False,
-            **kwargs: Any
+            **kwargs: Unpack[ReaderArgs]
     ) -> None:
         """
         Rudimentary TTML parser. No formatting/styling apart from newlines is supported.
@@ -80,6 +98,8 @@ class TTMLFormat(FormatBase):
                 but is used in Apple Music lyrics.
 
         """
+        ignore_par_time_offset: bool = kwargs.get("ignore_par_time_offset", False)
+
         tree = ET.parse(fp)
         root = tree.getroot()
 
@@ -91,7 +111,8 @@ class TTMLFormat(FormatBase):
         parser.parse_body(body_elem)
 
     @classmethod
-    def to_file(cls, subs: "SSAFile", fp: TextIO, format_: str, **kwargs: Any) -> None:
+    @override
+    def to_file(cls, subs: "SSAFile", fp: TextIO, format_: str, **kwargs: Unpack[WriterArgs]) -> None:
         """
         TTML writer. Has partial support for styles and override tags.
 
@@ -150,7 +171,7 @@ class TTMLFormat(FormatBase):
             print(output_xml, file=fp)
 
     @classmethod
-    def ssastyle_to_tts(cls, style: SSAStyle, base_style: Optional[SSAStyle] = None) -> dict[str, str]:
+    def ssastyle_to_tts(cls, style: SSAStyle, base_style: SSAStyle | None = None) -> dict[str, str]:
         """
         Convert `SSAStyle` (or its difference to base style) into dictionary of XML attributes
 
@@ -178,7 +199,7 @@ class TTMLFormat(FormatBase):
         if base_style is None or base_style.italic != style.italic:
             attrs[f"{TTS_NS}fontStyle"] = "italic" if style.italic else "normal"
         if base_style is None or base_style.primarycolor != style.primarycolor:
-            attrs[f"{TTS_NS}color"] = "#{0.r:02X}{0.g:02X}{0.b:02X}".format(style.primarycolor)
+            attrs[f"{TTS_NS}color"] = f"#{style.primarycolor.r:02X}{style.primarycolor.g:02X}{style.primarycolor.b:02X}"
 
         return attrs
 
@@ -186,7 +207,7 @@ class TTMLFormat(FormatBase):
     def _append_text(cls, elem: ET.Element, text: str) -> None:
         text = text.replace("\\h", " ")
         chunks = re.split(r"\\[Nn]", text)
-        nodes: list[Union[ET.Element, str]] = []
+        nodes: list[ET.Element | str] = []
         for i, chunk in enumerate(chunks):
             if i > 0:
                 nodes.append(ET.Element(f"{TT_NS}br"))

@@ -27,7 +27,7 @@ Typical usage example:
     >>> task.stop()
 """
 
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import (
     Any,
     AsyncGenerator,
@@ -127,7 +127,11 @@ def _prepare_pdfs(
     def route(item: Any) -> Any:
         try:
             return prepare_pdf(
-                item.url, caps, item.size, allow_text=allow_text, text_budget=text_budget
+                item.url,
+                caps,
+                item.size,
+                allow_text=allow_text,
+                text_budget=text_budget,
             )
         except Exception as e:
             return e
@@ -589,7 +593,9 @@ class Task(XPanderSharedModel):
                 try:
                     image = prepare_image(item.url, caps, item.size)
                 except Exception as e:
-                    logger.warning(f"dropping unfetchable/invalid image {item.url}: {e}")
+                    logger.warning(
+                        f"dropping unfetchable/invalid image {item.url}: {e}"
+                    )
                     item.action = "skip"
                     item.reason = str(e)
                     continue
@@ -757,7 +763,9 @@ class Task(XPanderSharedModel):
         remaining = _MAX_INLINE_TOTAL_CHARS
         for item in raw_results:
             if isinstance(item, dict) and isinstance(item.get("content"), str):
-                content = truncate_inline_text(item["content"], item.get("url", ""), remaining)
+                content = truncate_inline_text(
+                    item["content"], item.get("url", ""), remaining
+                )
                 remaining -= len(content)
                 results.append({**item, "content": content})
             else:
@@ -848,6 +856,12 @@ class Task(XPanderSharedModel):
                         uncompleted_tasks=uncompleted_tasks,
                         retry_count=retry_count,
                     )
+
+        # Minute-accurate complement to the hour-coarsened prefix clock; pinned to created_at so recomposition renders byte-identically.
+        sent_at = self.created_at or datetime.now(timezone.utc)
+        if sent_at.tzinfo is not None:
+            sent_at = sent_at.astimezone(timezone.utc)
+        message += f"\n\nMessage timestamp (UTC): {sent_at.strftime('%Y-%m-%d %H:%M')}"
 
         return message
 

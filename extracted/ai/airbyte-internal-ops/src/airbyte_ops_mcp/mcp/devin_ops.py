@@ -40,7 +40,6 @@ from airbyte_ops_mcp.human_in_the_loop import (
     dispatch_escalation,
 )
 from airbyte_ops_mcp.session_namer import (
-    NamingScheme,
     extract_session_id,
     generate_friendly_name,
 )
@@ -1407,14 +1406,9 @@ def devin_session_feedback_followup(
 class DevinSessionNameResponse(BaseModel):
     """Response from the Devin session naming tool."""
 
-    session_id: str = Field(description="The input session ID")
-    scheme_version: str = Field(description="The naming scheme version identifier")
-    name: str = Field(
-        description="The generated human-friendly session name in Title Case"
-    )
-    full_name: str = Field(
-        description="The contextual full name including 'Devin' suffix (e.g. 'Silly Fred Devin')"
-    )
+    session_id: str = Field(description="Resolved session ID")
+    name: str = Field(description="Two-word session name")
+    full_name: str = Field(description="Session name with the Devin suffix")
 
 
 @mcp_tool(
@@ -1424,29 +1418,15 @@ class DevinSessionNameResponse(BaseModel):
 def get_devin_session_name(
     session_id: Annotated[
         str,
-        "The Devin session identifier or session URL. Accepts a raw session "
-        "ID (e.g. 'b2a641e838214f91b50d0f88940ac119') or a full session URL "
-        "(e.g. 'https://app.devin.ai/sessions/b2a641e8...'). The ID is "
-        "extracted automatically from URLs. The same ID always produces "
-        "the same name — this is a deterministic lookup, not a creation.",
+        "Bare session ID or session URL.",
     ],
 ) -> DevinSessionNameResponse:
-    """Look up the deterministic friendly name for a Devin session.
-
-    Uses the silly-buddy naming scheme to generate a Title Case two-word
-    name (e.g. "Smelly Fred") from the session ID. The output is immutable
-    and idempotent — the same session ID always yields the same name.
-
-    If a full URL is provided instead of a bare ID, the session ID is
-    extracted from the URL automatically.
-    """
+    """Deterministically look up a Devin session name from its ID or URL."""
     resolved_id = extract_session_id(session_id)
-    scheme = NamingScheme.SILLY_BUDDY
-    name = generate_friendly_name(resolved_id, scheme)
+    name = generate_friendly_name(resolved_id)
     full_name = f"{name} Devin"
     return DevinSessionNameResponse(
         session_id=resolved_id,
-        scheme_version="v1",
         name=name,
         full_name=full_name,
     )

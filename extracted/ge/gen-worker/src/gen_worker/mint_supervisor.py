@@ -60,7 +60,7 @@ import msgspec
 from . import activity as activity_mod
 from . import artifact_meta
 from . import boot_phases
-from . import graph_facts
+from gen_worker._vendor.torchcg import GRAPH_CLASS_BLOCK
 from . import compile_posture
 from . import mint_workers
 from . import progress as progress_mod
@@ -92,7 +92,7 @@ GRAPH_DIRNAME = "graphs"
 class DeclaredBlockerRefusal(RuntimeError):
     """This family declares an OPEN mint blocker (pgw#1115).
 
-    Deliberately NOT ``MintRefused``: that name is live in ``aot_contract``
+    Deliberately NOT ``MintRefused``: that name is live in ``aot_inputs``
     and the atom raises it for *"every declared class refused"*
     (``aot_mint``, "absence is a verdict"). Both are terminal, so sharing the
     name would make the two indistinguishable at the terminus with no test
@@ -261,7 +261,7 @@ def rule_on_boot_memo(
     blocks: Dict[str, Dict[str, Any]] = {}
     for row in entries:
         block = dict(getattr(row, "metadata", None) or {}).get(
-            graph_facts.TCG_GRAPH_CLASS_BLOCK)
+            GRAPH_CLASS_BLOCK)
         if not isinstance(block, Mapping):
             return ""
         blocks[str(row.entry)] = dict(block)
@@ -594,7 +594,7 @@ def held_graph_classes(out_dir: Path) -> List[Any]:
     for path in sorted(out_dir.glob("*.tar.gz")):
         try:
             meta = dict(artifact_meta.read_metadata(path))
-            name = str(meta[graph_facts.TCG_GRAPH_CLASS_BLOCK]["name"])
+            name = str(meta[GRAPH_CLASS_BLOCK]["name"])
             key = str(meta.get("compiled_graph_key") or "")
         except Exception:  # noqa: BLE001 — see the docstring
             logger.warning(

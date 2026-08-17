@@ -1,6 +1,6 @@
-Metadata-Version: 2.4
+Metadata-Version: 2.5
 Name: feu
-Version: 0.8.1
+Version: 0.8.2
 Dynamic: Maintainer
 Dynamic: Maintainer-email
 Summary: A lightweight Python library for managing packages and versions across different Python environments
@@ -12,13 +12,13 @@ License-Expression: BSD-3-Clause
 License-File: LICENSE
 Keywords: compatibility,dependency,install,package,package-manager,version,version-management
 Classifier: Development Status :: 4 - Beta
+Classifier: Environment :: Console
 Classifier: Intended Audience :: Developers
 Classifier: Intended Audience :: Information Technology
 Classifier: Intended Audience :: Science/Research
-Classifier: License :: OSI Approved :: BSD License
-Classifier: Operating System :: MacOS
-Classifier: Operating System :: POSIX :: Linux
+Classifier: Operating System :: OS Independent
 Classifier: Programming Language :: Python :: 3
+Classifier: Programming Language :: Python :: 3 :: Only
 Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
@@ -30,6 +30,7 @@ Classifier: Topic :: Software Development :: Libraries :: Python Modules
 Classifier: Topic :: System :: Installation/Setup
 Classifier: Topic :: System :: Software Distribution
 Classifier: Topic :: Utilities
+Classifier: Typing :: Typed
 Requires-Python: >=3.10
 Requires-Dist: packaging<27.0,>=21.0
 Requires-Dist: tomli<3.0,>=2.0; python_version < '3.11'
@@ -196,6 +197,7 @@ is the corresponding `feu` versions and supported dependencies.
 | `feu`   | `packaging`    | `python`       | `click`<sup>*</sup> | `gitpython`<sup>*</sup> | `requests`<sup>*</sup> | `rich`<sup>*</sup> |
 |---------|----------------|----------------|---------------------|-------------------------|------------------------|--------------------|
 | `main`  | `>=21.0,<27.0` | `>=3.10`       | `>=8.1,<9.0`        | `>=3.1.41,<4.0`         | `>=2.30,<3.0`          | `>=14.0.0,<16.0`   |
+| `0.8.2` | `>=21.0,<27.0` | `>=3.10`       | `>=8.1,<9.0`        | `>=3.1.41,<4.0`         | `>=2.30,<3.0`          | `>=14.0.0,<16.0`   |
 | `0.8.1` | `>=21.0,<27.0` | `>=3.10`       | `>=8.1,<9.0`        | `>=3.1.41,<4.0`         | `>=2.30,<3.0`          | `>=14.0.0,<16.0`   |
 | `0.8.0` | `>=21.0,<27.0` | `>=3.10`       | `>=8.1,<9.0`        | `>=3.1.41,<4.0`         | `>=2.30,<3.0`          | `>=14.0.0,<16.0`   |
 | `0.7.3` | `>=21.0,<27.0` | `>=3.10`       | `>=8.1,<9.0`        | `>=3.1.41,<4.0`         | `>=2.30,<3.0`          |                    |

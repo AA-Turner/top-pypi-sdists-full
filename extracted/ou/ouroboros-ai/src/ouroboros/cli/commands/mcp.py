@@ -86,6 +86,7 @@ class LLMBackend(str, Enum):  # noqa: UP042
     KIRO = "kiro"
     PI = "pi"
     ZCODE = "zcode"
+    DSH = "dsh"
 
 
 def _write_pid_file() -> bool:
@@ -697,6 +698,12 @@ async def _run_mcp_server(
             mcp_bridge=mcp_bridge,
         )
 
+        # Serve startup is the one place that may prime the update-notice
+        # cache (#2066): non-serving server constructions stay network-free.
+        from ouroboros.mcp.update_notice import maybe_schedule_cache_refresh
+
+        maybe_schedule_cache_refresh()
+
         tool_count = len(server.info.tools)
 
         # One event per host session attach (Claude/Codex spawn `mcp serve`
@@ -1164,7 +1171,7 @@ def serve(
             "--llm-backend",
             help=(
                 "LLM backend for interview/seed/evaluation tools (claude_code, "
-                "litellm, codex, copilot, opencode, gemini, goose, kiro, pi, or zcode)."
+                "litellm, codex, copilot, opencode, gemini, goose, kiro, pi, zcode, or dsh)."
             ),
             case_sensitive=False,
         ),
@@ -1323,7 +1330,7 @@ def info(
             "--llm-backend",
             help=(
                 "LLM backend for interview/seed/evaluation tools (claude_code, "
-                "litellm, codex, copilot, opencode, gemini, goose, kiro, pi, or zcode)."
+                "litellm, codex, copilot, opencode, gemini, goose, kiro, pi, zcode, or dsh)."
             ),
             case_sensitive=False,
         ),

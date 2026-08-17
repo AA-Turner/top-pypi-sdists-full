@@ -3,10 +3,13 @@
 Test cases for Confluence Server API client.
 """
 
+import io
+import logging
+
 import pytest
 from requests import HTTPError, Response
 from types import SimpleNamespace
-from unittest.mock import patch
+from unittest.mock import call, patch
 
 from atlassian.confluence import ConfluenceServer
 from atlassian.errors import ApiError, ApiNotAcceptable, ApiNotFoundError, ApiPermissionError, ApiValueError
@@ -39,6 +42,158 @@ class TestConfluenceServer:
         )
         assert confluence.api_version == "2.0"
         assert confluence.api_root == "custom/api/root"
+
+    def test_bad_request_includes_confluence_validation_details(self, confluence_server):
+        response = Response()
+        response.status_code = 400
+        response.reason = "Bad Request"
+        response._content = (
+            b'{"message":"Invalid storage format",'
+            b'"detail":"The ac:link element is not closed",'
+            b'"errors":{"body":"Invalid XHTML at line 17"}}'
+        )
+
+        with pytest.raises(HTTPError) as error:
+            confluence_server.raise_for_status(response)
+        assert "Invalid storage format" in str(error.value)
+        assert "ac:link element is not closed" in str(error.value)
+        assert "Invalid XHTML at line 17" in str(error.value)
+
+    def test_bad_request_includes_a_bounded_non_json_response(self, confluence_server):
+        response = Response()
+        response.status_code = 400
+        response.reason = "Bad Request"
+        response._content = b"<html><body>Malformed XHTML near the table macro</body></html>"
+
+        with pytest.raises(HTTPError, match="Malformed XHTML near the table macro"):
+            confluence_server.raise_for_status(response)
+
+    @patch.object(ConfluenceServer, "post")
+    def test_create_page_includes_first_version_comment(self, mock_post, confluence_server):
+        mock_post.return_value = {"id": "123"}
+
+        confluence_server.create_page("TEAM", "Report", "<p>Body</p>", version_comment="Initial import")
+
+        assert mock_post.call_args.kwargs["data"]["version"] == {"message": "Initial import"}
+
+    @patch.object(ConfluenceServer, "get")
+    @patch.object(ConfluenceServer, "put")
+    def test_attach_content_uses_atomic_create_or_update_endpoint(self, mock_put, mock_get, confluence_server):
+        content = io.BytesIO(b"new image")
+        mock_put.return_value = {"results": [{"id": "attachment-1"}]}
+
+        confluence_server.attach_content(content, "diagram.png", "image/png", page_id="123")
+
+        mock_get.assert_not_called()
+        assert mock_put.call_args.kwargs["path"] == "rest/api/content/123/child/attachment"
+        assert mock_put.call_args.kwargs["headers"] == {
+            "X-Atlassian-Token": "no-check",
+            "Accept": "application/json",
+        }
+        assert mock_put.call_args.kwargs["files"] == {"file": ("diagram.png", content, "image/png")}
+
+    @patch.object(ConfluenceServer, "put")
+    def test_attach_content_normalizes_path_like_attachment_names(self, mock_put, confluence_server):
+        content = io.BytesIO(b"new image")
+        mock_put.return_value = {"results": [{"id": "attachment-1"}]}
+
+        confluence_server.attach_content(content, r"reports\\daily/diagram.png", "image/png", page_id="123")
+
+        assert mock_put.call_args.kwargs["files"] == {"file": ("diagram.png", content, "image/png")}
+
+    def test_attach_content_rejects_empty_attachment_name(self, confluence_server):
+        with pytest.raises(ApiValueError, match="must contain a filename"):
+            confluence_server.attach_content(io.BytesIO(b"content"), "/", page_id="123")
+
+    def test_download_attachments_accepts_historical_download_path_alias(self, confluence_server):
+        with patch.object(confluence_server, "get_attachments_from_content", return_value={"results": []}):
+            assert confluence_server.download_attachments_from_page("123", download_path="/tmp") == {
+                "attachments_downloaded": 0,
+                "path": "/tmp",
+            }
+
+    def test_download_attachments_rejects_conflicting_path_arguments(self, confluence_server):
+        with pytest.raises(ApiValueError, match="only one"):
+            confluence_server.download_attachments_from_page("123", path="/tmp/a", download_path="/tmp/b")
+
+    @patch.object(ConfluenceServer, "put")
+    def test_set_restrictions_for_content_uses_rest_setter(self, mock_put, confluence_server):
+        restrictions = [{"operation": "read", "restrictions": {"user": [{"type": "known", "username": "ada"}]}}]
+        mock_put.return_value = {"restrictions": restrictions}
+
+        assert confluence_server.set_restrictions_for_content("123", restrictions) == {"restrictions": restrictions}
+        mock_put.assert_called_once_with("rest/api/content/123/restriction", data=restrictions)
+
+    def test_set_restrictions_for_content_requires_a_list(self, confluence_server):
+        with pytest.raises(ApiValueError, match="must be a list"):
+            confluence_server.set_restrictions_for_content("123", {"operation": "read"})
+
+    @patch.object(ConfluenceServer, "get_page_child_by_type")
+    @patch.object(ConfluenceServer, "get_page_as_pdf")
+    def test_iter_page_tree_as_pdf_exports_every_descendant_in_tree_order(
+        self, mock_get_pdf, mock_get_children, confluence_server
+    ):
+        mock_get_pdf.side_effect = [b"%PDF-root", b"%PDF-first", b"%PDF-grandchild", b"%PDF-second"]
+        mock_get_children.side_effect = [
+            iter([{"id": "first"}, {"id": "second"}]),
+            iter([{"id": "grandchild"}]),
+            iter([]),
+            iter([]),
+        ]
+
+        assert list(confluence_server.iter_page_tree_as_pdf("root")) == [
+            ("root", b"%PDF-root"),
+            ("first", b"%PDF-first"),
+            ("grandchild", b"%PDF-grandchild"),
+            ("second", b"%PDF-second"),
+        ]
+
+    @patch.object(ConfluenceServer, "update_space")
+    def test_set_space_homepage_uses_space_update_payload(self, mock_update_space, confluence_server):
+        mock_update_space.return_value = {"key": "TEAM", "homepage": {"id": "123"}}
+
+        assert confluence_server.set_space_homepage("TEAM", "123") == {
+            "key": "TEAM",
+            "homepage": {"id": "123"},
+        }
+        mock_update_space.assert_called_once_with("TEAM", {"homepage": {"id": "123"}})
+
+    @patch.object(ConfluenceServer, "_get_paged")
+    def test_get_all_page_versions_follows_paginated_history(self, mock_get_paged, confluence_server):
+        mock_get_paged.return_value = iter([{"number": 2}, {"number": 1}])
+
+        assert confluence_server.get_all_page_versions("123", limit=50, expand="collaborators") == [
+            {"number": 2},
+            {"number": 1},
+        ]
+        mock_get_paged.assert_called_once_with("content/123/version", params={"limit": 50, "expand": "collaborators"})
+
+    @patch.object(ConfluenceServer, "get_page_by_id")
+    def test_identical_page_content_is_logged_as_info_not_warning(self, mock_get_page, confluence_server, caplog):
+        mock_get_page.side_effect = [
+            {"title": "Status"},
+            {"body": {"storage": {"value": "<p>unchanged</p>"}}},
+        ]
+
+        with caplog.at_level(logging.INFO, logger="atlassian.confluence.server"):
+            assert confluence_server.is_page_content_is_already_updated("123", "<p>unchanged</p>", "Status")
+
+        assert "Content of 123 is exactly the same" in caplog.text
+        assert not [record for record in caplog.records if record.levelno == logging.WARNING]
+
+    @patch.object(ConfluenceServer, "_insert_to_existing_page")
+    def test_append_page_renders_structured_input_as_json_code_block(self, mock_insert, confluence_server):
+        confluence_server.append_page("123", "Status", {"users": ["Ada"]})
+
+        body = mock_insert.call_args.args[2]
+        assert '<ac:structured-macro ac:name="code">' in body
+        assert '<ac:parameter ac:name="language">json</ac:parameter>' in body
+        assert '"users": [' in body
+        assert '"Ada"' in body
+
+    def test_append_page_rejects_structured_input_for_wiki_representation(self, confluence_server):
+        with pytest.raises(ApiValueError, match="representation='storage'"):
+            confluence_server.append_page("123", "Status", ["Ada"], representation="wiki")
 
     @patch.object(ConfluenceServer, "get_page_by_id")
     def test_get_tables_from_page_returns_consistent_empty_summary(self, mock_get_page, confluence_server):
@@ -75,6 +230,74 @@ class TestConfluenceServer:
 
         with pytest.raises(ApiNotFoundError):
             confluence_server.update_page("123", "Missing page")
+
+    @pytest.mark.parametrize("method, args", [("remove_content", ("123",)), ("remove_page", ("123",))])
+    @patch.object(ConfluenceServer, "delete")
+    def test_delete_content_403_raises_explicit_permission_error(self, mock_delete, confluence_server, method, args):
+        response = Response()
+        response.status_code = 403
+        mock_delete.side_effect = HTTPError(response=response)
+
+        with pytest.raises(ApiPermissionError, match="does not have permission to trash or purge"):
+            getattr(confluence_server, method)(*args)
+
+    @patch.object(ConfluenceServer, "delete")
+    def test_remove_page_returns_successful_delete_status(self, mock_delete, confluence_server):
+        response = Response()
+        response.status_code = 204
+        mock_delete.return_value = response
+
+        assert confluence_server.remove_page("123") == 204
+        mock_delete.assert_called_once_with("rest/api/content/123", params={}, advanced_mode=True)
+
+    @patch.object(ConfluenceServer, "delete")
+    def test_remove_page_preserves_advanced_mode_response(self, mock_delete, confluence_server):
+        response = Response()
+        response.status_code = 204
+        mock_delete.return_value = response
+        confluence_server.advanced_mode = True
+
+        assert confluence_server.remove_page("123") is response
+
+    @patch.object(ConfluenceServer, "post")
+    def test_set_page_property_deserializes_json_string_payload(self, mock_post, confluence_server):
+        property_data = '{"key": "myprop", "value": {"hash": "1111"}}'
+
+        confluence_server.set_page_property("123", property_data)
+
+        mock_post.assert_called_once_with(
+            path="content/123/property", data={"key": "myprop", "value": {"hash": "1111"}}
+        )
+
+    @patch.object(ConfluenceServer, "delete")
+    @patch.object(ConfluenceServer, "get_page_child_by_type")
+    def test_remove_page_recursively_lists_all_children_before_deleting(
+        self, mock_get_children, mock_delete, confluence_server
+    ):
+        children_fully_listed = False
+
+        def children():
+            nonlocal children_fully_listed
+            yield {"id": "first"}
+            yield {"id": "second"}
+            children_fully_listed = True
+
+        mock_get_children.side_effect = [children(), iter(()), iter(())]
+
+        def delete_after_children_are_listed(*args, **kwargs):
+            assert children_fully_listed
+            return Response()
+
+        mock_delete.side_effect = delete_after_children_are_listed
+
+        confluence_server.remove_page("root", recursive=True)
+
+        assert children_fully_listed
+        assert [call.args[0] for call in mock_delete.call_args_list] == [
+            "rest/api/content/first",
+            "rest/api/content/second",
+            "rest/api/content/root",
+        ]
 
     @patch.object(ConfluenceServer, "put")
     @patch.object(ConfluenceServer, "history")
@@ -285,9 +508,67 @@ class TestConfluenceServer:
             full_width=False,
         )
 
+    @patch.object(ConfluenceServer, "create_page")
+    @patch.object(ConfluenceServer, "page_exists", return_value=False)
+    def test_update_or_create_passes_version_comment_when_creating(
+        self, mock_page_exists, mock_create_page, confluence_server
+    ):
+        mock_create_page.return_value = {"id": "123", "_links": {"tinyui": "/x/abc"}}
+
+        confluence_server.update_or_create(
+            title="Top level", body="<p>Body</p>", space="TEAM", version_comment="Initial import"
+        )
+
+        assert mock_create_page.call_args.kwargs["version_comment"] == "Initial import"
+
     def test_update_or_create_requires_space_for_a_top_level_page(self, confluence_server):
         with pytest.raises(ApiValueError, match="space is required"):
             confluence_server.update_or_create(title="Top level", body="<p>Body</p>")
+
+    @patch.object(ConfluenceServer, "create_page")
+    @patch.object(ConfluenceServer, "page_exists")
+    @patch.object(ConfluenceServer, "get_descendant_page_id", return_value="")
+    def test_update_or_create_creates_when_same_title_is_under_another_parent(
+        self, mock_descendant_id, mock_page_exists, mock_create_page, confluence_server
+    ):
+        mock_create_page.return_value = {"id": "new", "_links": {"tinyui": "/x/new"}}
+
+        confluence_server.update_or_create("parent-a", "Report", "<p>Body</p>", space="TEAM")
+
+        mock_descendant_id.assert_called_once_with("TEAM", "parent-a", "Report")
+        mock_page_exists.assert_not_called()
+        mock_create_page.assert_called_once_with(
+            space="TEAM",
+            parent_id="parent-a",
+            title="Report",
+            body="<p>Body</p>",
+            representation="storage",
+            editor=None,
+            full_width=False,
+        )
+
+    @patch.object(ConfluenceServer, "update_page")
+    @patch.object(ConfluenceServer, "page_exists")
+    @patch.object(ConfluenceServer, "get_descendant_page_id", return_value="child-a")
+    def test_update_or_create_updates_only_the_matching_child(
+        self, mock_descendant_id, mock_page_exists, mock_update_page, confluence_server
+    ):
+        mock_update_page.return_value = {"id": "child-a", "_links": {"tinyui": "/x/child"}}
+
+        confluence_server.update_or_create("parent-a", "Report", "<p>Body</p>", space="TEAM")
+
+        mock_descendant_id.assert_called_once_with("TEAM", "parent-a", "Report")
+        mock_page_exists.assert_not_called()
+        mock_update_page.assert_called_once_with(
+            parent_id="parent-a",
+            page_id="child-a",
+            title="Report",
+            body="<p>Body</p>",
+            representation="storage",
+            minor_edit=False,
+            version_comment=None,
+            full_width=False,
+        )
 
     @patch.object(ConfluenceServer, "update_page")
     def test_update_existing_page_preserves_confluence_image_storage_markup(self, mock_update_page, confluence_server):
@@ -636,6 +917,15 @@ class TestConfluenceServer:
         mock_delete.assert_called_once_with("space/TEST", **{})
         assert result == {"success": True}
 
+    @patch.object(ConfluenceServer, "delete")
+    def test_delete_missing_space_raises_api_not_found_error(self, mock_delete, confluence_server):
+        response = Response()
+        response.status_code = 404
+        mock_delete.side_effect = HTTPError(response=response)
+
+        with pytest.raises(ApiNotFoundError, match="There is no space with the given key"):
+            confluence_server.delete_space("MISSING")
+
     @patch.object(ConfluenceServer, "get")
     def test_get_space_content(self, mock_get, confluence_server):
         """Test get_space_content method."""
@@ -933,6 +1223,26 @@ class TestConfluenceServer:
 
     # Comment Management Tests
     @patch.object(ConfluenceServer, "get")
+    def test_get_page_comments_expands_body_and_author_metadata(self, mock_get, confluence_server):
+        mock_get.return_value = {
+            "results": [
+                {
+                    "body": {"view": {"value": "<p>Comment</p>"}},
+                    "history": {"createdBy": {"username": "author"}},
+                    "version": {"by": {"username": "editor"}},
+                }
+            ]
+        }
+
+        result = confluence_server.get_page_comments("123", expand="body.view,history,version", limit=100)
+
+        assert result["results"][0]["history"]["createdBy"]["username"] == "author"
+        mock_get.assert_called_once_with(
+            "rest/api/content/123/child/comment",
+            params={"id": "123", "start": 0, "limit": 100, "expand": "body.view,history,version"},
+        )
+
+    @patch.object(ConfluenceServer, "get")
     def test_get_comments(self, mock_get, confluence_server):
         """Test get_comments method."""
         mock_get.return_value = {"results": [{"id": "comment1", "text": "Test Comment"}]}
@@ -1157,6 +1467,14 @@ class TestConfluenceServer:
         )
 
     @patch.object(ConfluenceServer, "get")
+    def test_get_all_spaces_accepts_category_label_filter(self, mock_get, confluence_server):
+        mock_get.return_value = {"results": []}
+
+        confluence_server.get_all_spaces(label="service", start=0, limit=500)
+
+        mock_get.assert_called_once_with("rest/api/space", params={"limit": 500, "label": "service"})
+
+    @patch.object(ConfluenceServer, "get")
     def test_get_all_blog_posts_from_space_trash(self, mock_get, confluence_server):
         """Test get_all_blog_posts_from_space_trash method."""
         mock_get.return_value = {"results": [{"id": "456", "title": "Trashed Blog Post"}]}
@@ -1188,6 +1506,15 @@ class TestConfluenceServer:
         mock_get.assert_called_once_with("space/TEST/export", **{})
         assert result == {"exportData": "base64_encoded_space"}
 
+    @patch.object(
+        ConfluenceServer, "get_space_export", side_effect=["https://example.test/eng", "https://example.test/hr"]
+    )
+    def test_iter_space_exports_is_sequential(self, mock_get_space_export, confluence_server):
+        result = list(confluence_server.iter_space_exports(["ENG", "HR"], "html"))
+
+        assert result == [("ENG", "https://example.test/eng"), ("HR", "https://example.test/hr")]
+        assert mock_get_space_export.call_args_list == [call("ENG", "html"), call("HR", "html")]
+
     # Utility Methods Tests
     @patch.object(ConfluenceServer, "get")
     def test_get_metadata(self, mock_get, confluence_server):
@@ -1216,6 +1543,19 @@ class TestConfluenceServer:
             "spaces/flyingpdf/pdfpageexport.action?pageId=123",
             headers=confluence_server.form_token_headers,
             advanced_mode=True,
+        )
+
+    @patch.object(ConfluenceServer, "get")
+    def test_get_page_as_word_returns_legacy_export_bytes(self, mock_get, confluence_server):
+        """The Word endpoint is binary data, not a DOCX conversion endpoint."""
+        export = b"MIME-Version: 1.0\r\nContent-Type: multipart/related\r\n"
+        mock_get.return_value = export
+
+        result = confluence_server.get_page_as_word("123")
+
+        assert result == export
+        mock_get.assert_called_once_with(
+            "exportword?pageId=123", headers=confluence_server.form_token_headers, not_json_response=True
         )
 
     @patch.object(ConfluenceServer, "post")

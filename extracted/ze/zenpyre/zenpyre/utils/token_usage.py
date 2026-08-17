@@ -3,6 +3,7 @@ r"""Contain utilities to compute token usage."""
 from __future__ import annotations
 
 __all__ = [
+    "accumulate_token_usage",
     "format_token_usage",
     "get_token_usage",
     "log_token_usage",
@@ -133,3 +134,44 @@ def log_token_usage(result: Any, *, only_if_nonzero: bool = True) -> None:
     if only_if_nonzero and not usage.get("total_tokens", 0):
         return
     logger.info(format_token_usage(usage))
+
+
+def accumulate_token_usage(usage: dict[str, int], result: Any) -> None:
+    """Add the token usage found in ``result`` to a running ``usage``
+    total, in place.
+
+    This is a convenience wrapper around :func:`get_token_usage` for
+    callers that need to keep a running total across several calls
+    (e.g. one entry per iteration of a loop), instead of summing a
+    single batch upfront. ``result`` can be any shape accepted by
+    :func:`get_token_usage`, such as a single ``BaseMessage``, the
+    dict returned by ``agent.invoke(...)``, or the list returned by
+    ``agent.batch(...)``.
+
+    Args:
+        usage: The running token usage totals to update, in place.
+            Missing keys are treated as ``0``. Typically built up by
+            repeated calls to this function, e.g. starting from
+            ``{}``.
+        result: Any object potentially containing ``AIMessage``
+            instances, as accepted by :func:`get_token_usage`.
+
+    Example:
+        ```pycon
+        >>> from langchain_core.messages import AIMessage, UsageMetadata
+        >>> from zenpyre.utils.token_usage import accumulate_token_usage
+        >>> usage = {}
+        >>> accumulate_token_usage(
+        ...     usage,
+        ...     AIMessage(
+        ...         content="hi",
+        ...         usage_metadata=UsageMetadata(input_tokens=10, output_tokens=5, total_tokens=15),
+        ...     ),
+        ... )
+        >>> usage
+        {'input_tokens': 10, 'output_tokens': 5, 'total_tokens': 15}
+
+        ```
+    """
+    for key, value in get_token_usage(result).items():
+        usage[key] = usage.get(key, 0) + value

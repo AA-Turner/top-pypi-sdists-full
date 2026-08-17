@@ -3,14 +3,43 @@
 from __future__ import annotations
 
 import re
-from typing import Literal
 
-GitHubGraphQLCapability = Literal["read_remote", "maintain_remote", "mutate_remote", "unknown"]
-GitHubGraphQLAssessment = tuple[GitHubGraphQLCapability, str, str]
+from .github_capability_contract import GitHubCommandAssessment, GitHubCommandCapability, github_assessment
 
 _GRAPHQL_NAME = re.compile(r"\b[_A-Za-z][_0-9A-Za-z]*\b")
 _GRAPHQL_ALIAS = re.compile(r"\b(?P<name>[_A-Za-z][_0-9A-Za-z]*)\s*:")
-_ROUTINE_MUTATIONS = frozenset(
+_ROUTINE_REVIEW_THREAD_ID = r"PRRT_[A-Za-z0-9_-]{8,}"
+_ROUTINE_REVIEW_THREAD_SELECTION = r"(?:id\s+isResolved|isResolved\s+id|id|isResolved)"
+_ROUTINE_REVIEW_THREAD_LITERAL = re.compile(
+    rf'''\A\s*mutation\s*\{{\s*
+    resolveReviewThread\s*\(\s*input\s*:\s*\{{\s*threadId\s*:\s*"{_ROUTINE_REVIEW_THREAD_ID}"\s*\}}\s*\)\s*
+    \{{\s*thread\s*\{{\s*{_ROUTINE_REVIEW_THREAD_SELECTION}\s*\}}\s*\}}\s*\}}\s*\Z''',
+    re.VERBOSE | re.ASCII,
+)
+_ROUTINE_REVIEW_THREAD_VARIABLE = re.compile(
+    rf"""\A\s*mutation\s*\(\s*\$threadId\s*:\s*ID!\s*\)\s*\{{\s*
+    resolveReviewThread\s*\(\s*input\s*:\s*\{{\s*threadId\s*:\s*\$threadId\s*\}}\s*\)\s*
+    \{{\s*thread\s*\{{\s*{_ROUTINE_REVIEW_THREAD_SELECTION}\s*\}}\s*\}}\s*\}}\s*\Z""",
+    re.VERBOSE | re.ASCII,
+)
+_ROUTINE_REVIEW_THREAD_VALUE = re.compile(rf"\A{_ROUTINE_REVIEW_THREAD_ID}\Z", re.ASCII)
+_MAINTENANCE_MUTATIONS = frozenset(
+    {
+        "minimizeComment",
+        "resolveReviewThread",
+        "unminimizeComment",
+        "unresolveReviewThread",
+    }
+)
+_MERGE_MUTATIONS = frozenset(
+    {
+        "disablePullRequestAutoMerge",
+        "enablePullRequestAutoMerge",
+        "mergePullRequest",
+        "updatePullRequestBranch",
+    }
+)
+_CONTENT_MUTATIONS = frozenset(
     {
         "addComment",
         "addProjectV2DraftIssue",
@@ -24,33 +53,25 @@ _ROUTINE_MUTATIONS = frozenset(
         "createDiscussion",
         "createIssue",
         "createPullRequest",
-        "disablePullRequestAutoMerge",
-        "enablePullRequestAutoMerge",
         "markDiscussionCommentAsAnswer",
         "markPullRequestReadyForReview",
-        "mergePullRequest",
-        "minimizeComment",
         "reopenDiscussion",
         "reopenIssue",
-        "resolveReviewThread",
         "submitPullRequestReview",
         "unmarkDiscussionCommentAsAnswer",
-        "unminimizeComment",
-        "unresolveReviewThread",
         "updateDiscussion",
         "updateDiscussionComment",
         "updateIssue",
         "updateIssueComment",
         "updateProjectV2ItemFieldValue",
         "updatePullRequest",
-        "updatePullRequestBranch",
         "updatePullRequestReview",
         "updatePullRequestReviewComment",
     }
 )
 
 
-def classify_graphql_document(document: str) -> GitHubGraphQLAssessment:
+def classify_graphql_document(document: str) -> GitHubCommandAssessment:
     """Classify one static GraphQL document, allowing only narrow review maintenance."""
 
     sanitized = _strip_strings_and_comments(document)
@@ -60,25 +81,29 @@ def classify_graphql_document(document: str) -> GitHubGraphQLAssessment:
         if "mutation" in match.group("name").lower() or "subscription" in match.group("name").lower()
     ]
     if suspicious_aliases:
-        return (
+        return github_assessment(
             "unknown",
             "github.graphql.suspicious-alias",
             "A GraphQL alias resembles an operation type and is not classified automatically.",
         )
     has_fragment_definition = re.search(r"\bfragment\b", sanitized) is not None
     if has_fragment_definition and re.search(r"\bmutation\b", sanitized) is not None:
-        return (
+        return github_assessment(
             "mutate_remote",
             "github.graphql.remote-mutation",
             "GraphQL mutations with fragment definitions require confirmation.",
         )
     operations = _top_level_operations(sanitized)
     if operations is None:
-        return "unknown", "github.graphql.invalid-document", "The GraphQL document is not balanced."
+        return github_assessment("unknown", "github.graphql.invalid-document", "The GraphQL document is not balanced.")
     if not operations:
-        return "unknown", "github.graphql.missing-operation", "No static GraphQL operation was found."
+        return github_assessment(
+            "unknown",
+            "github.graphql.missing-operation",
+            "No static GraphQL operation was found.",
+        )
     if len(operations) != 1:
-        return (
+        return github_assessment(
             "unknown",
             "github.graphql.multiple-operations",
             "Multiple GraphQL operations or a batched document cannot be classified automatically.",
@@ -86,24 +111,73 @@ def classify_graphql_document(document: str) -> GitHubGraphQLAssessment:
     operation = operations[0]
     if operation == "mutation":
         root_fields = _root_fields(sanitized)
-        if not has_fragment_definition and root_fields and frozenset(root_fields) <= _ROUTINE_MUTATIONS:
-            return (
-                "maintain_remote",
-                "github.graphql.routine-mutation",
-                "The GraphQL mutation contains only statically understood routine root fields.",
-            )
-        return (
-            "mutate_remote",
-            "github.graphql.remote-mutation",
-            "The GraphQL operation can change GitHub-hosted state.",
+        capabilities: tuple[GitHubCommandCapability, ...] = tuple(
+            capability for field in root_fields or () for capability in _graphql_mutation_capabilities(field)
+        )
+        if has_fragment_definition or not capabilities:
+            capabilities = ("mutate_remote",)
+        return github_assessment(
+            capabilities,
+            "github.graphql.mixed-mutation" if len(set(capabilities)) > 1 else _graphql_reason(capabilities[0]),
+            "The GraphQL operation contains statically classified mutation root fields.",
         )
     if operation == "subscription":
-        return (
+        return github_assessment(
             "mutate_remote",
             "github.graphql.remote-mutation",
             "The GraphQL operation can change or subscribe to GitHub-hosted state.",
         )
-    return "read_remote", "github.graphql.proven-query", "The GraphQL document is a single static query."
+    return github_assessment(
+        "read_remote",
+        "github.graphql.proven-query",
+        "The GraphQL document is a single static query.",
+    )
+
+
+def _graphql_mutation_capabilities(field: str) -> tuple[GitHubCommandCapability, ...]:
+    if field in _MAINTENANCE_MUTATIONS:
+        return ("maintain_remote",)
+    if field in _MERGE_MUTATIONS:
+        return ("merge_remote",)
+    if field in _CONTENT_MUTATIONS:
+        return ("content_remote",)
+    lowered = field.lower()
+    capabilities: list[GitHubCommandCapability] = []
+    if lowered.startswith("delete") or lowered.startswith("remove"):
+        capabilities.append("delete_remote")
+    if any(marker in lowered for marker in ("secret", "token")):
+        capabilities.append("secret_remote")
+    if any(marker in lowered for marker in ("collaborator", "deploykey", "permission", "repository")):
+        capabilities.append("access_remote")
+    if "workflow" in lowered:
+        capabilities.append("workflow_remote")
+    if "release" in lowered:
+        capabilities.append("publish_remote")
+    return tuple(capabilities) or ("mutate_remote",)
+
+
+def is_routine_review_thread_resolution(
+    document: str,
+    fields: tuple[tuple[str, str], ...],
+) -> bool:
+    """Accept only one idempotent review-thread resolution with a static target."""
+
+    query_fields = [value for name, value in fields if name == "query"]
+    if len(query_fields) != 1 or query_fields[0] != document:
+        return False
+    if _ROUTINE_REVIEW_THREAD_LITERAL.fullmatch(document) is not None:
+        return len(fields) == 1
+    thread_ids = [value for name, value in fields if name == "threadId"]
+    return (
+        _ROUTINE_REVIEW_THREAD_VARIABLE.fullmatch(document) is not None
+        and len(fields) == 2
+        and len(thread_ids) == 1
+        and _ROUTINE_REVIEW_THREAD_VALUE.fullmatch(thread_ids[0]) is not None
+    )
+
+
+def _graphql_reason(capability: GitHubCommandCapability) -> str:
+    return f"github.graphql.{capability.replace('_remote', '').replace('_', '-')}"
 
 
 def _root_fields(document: str) -> tuple[str, ...] | None:

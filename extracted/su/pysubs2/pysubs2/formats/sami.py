@@ -1,17 +1,25 @@
+# mypy: disable-error-code="override"
+
 from dataclasses import dataclass
 from html.parser import HTMLParser
-from typing import Optional, TextIO, Any
+from typing import TYPE_CHECKING, TextIO, TypedDict, Unpack, override
 
-from .base import FormatBase
 from ..ssaevent import SSAEvent
-from ..ssafile import SSAFile
+from .base import FormatBase
+
+if TYPE_CHECKING:
+    from ..ssafile import SSAFile
 
 
 class SAMIFormat(FormatBase):
     """Synchronized Accessible Media Interchange (SAMI) subtitle format implementation"""
 
+    class ReaderArgs(TypedDict):
+        pass
+
     @classmethod
-    def guess_format(cls, text: str) -> Optional[str]:
+    @override
+    def guess_format(cls, text: str) -> str | None:
         """See :meth:`pysubs2.formats.FormatBase.guess_format()`"""
         if text.lstrip().startswith("<SAMI>"):
             return "sami"
@@ -19,7 +27,8 @@ class SAMIFormat(FormatBase):
         return None
 
     @classmethod
-    def from_file(cls, subs: "SSAFile", fp: TextIO, format_: str, **kwargs: Any) -> None:
+    @override
+    def from_file(cls, subs: "SSAFile", fp: TextIO, format_: str, **kwargs: Unpack[ReaderArgs]) -> None:
         """
         See :meth:`pysubs2.formats.FormatBase.from_file()`
 
@@ -68,7 +77,7 @@ class SAMIParser(HTMLParser):
     def __init__(self) -> None:
         super().__init__()
         self.sync_elements: list[SyncElement] = []
-        self.current_sync_element: Optional[SyncElement] = None
+        self.current_sync_element: SyncElement | None = None
 
     def begin_sync_element(self, start_ms: int) -> None:
         if self.current_sync_element is not None:
@@ -84,7 +93,8 @@ class SAMIParser(HTMLParser):
         if self.current_sync_element is not None:
             self.current_sync_element.text += text
 
-    def handle_starttag(self, tag: str, attrs: list[tuple[str, Optional[str]]]) -> None:
+    @override
+    def handle_starttag(self, tag: str, attrs: list[tuple[str, str | None]]) -> None:
         if tag == "sync":
             start_ms = int(dict(attrs)["start"] or 0)
             self.begin_sync_element(start_ms)
@@ -93,11 +103,13 @@ class SAMIParser(HTMLParser):
         elif tag in ("b", "i", "s", "u"):
             self.append_text("{\\" + tag + "1}")
 
+    @override
     def handle_endtag(self, tag: str) -> None:
         if tag in ("sync", "body", "sami"):
             self.close_sync_element()
         elif tag in ("b", "i", "s", "u"):
             self.append_text("{\\" + tag + "0}")
 
+    @override
     def handle_data(self, data: str) -> None:
         self.append_text(data)

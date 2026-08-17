@@ -8,7 +8,7 @@ import sys
 import traceback
 from ast import literal_eval as safe_eval
 from collections.abc import Callable
-from typing import TYPE_CHECKING, Any, NoReturn, TypeVar, cast
+from typing import TYPE_CHECKING, Any, NoReturn, TypeVar
 
 if TYPE_CHECKING:
     from IPython.core.interactiveshell import InteractiveShell
@@ -66,7 +66,7 @@ class Magic:
         if fargs[0] == "self":
             fargs = fargs[1:]
 
-        fargs = [f for f in fargs if f not in kwargs.keys()]
+        fargs = [f for f in fargs if f not in kwargs]
         if len(args) > len(fargs) and not arg_spec.varargs:
             extra = " ".join(str(s) for s in (args[len(fargs) - 1 :]))
             args = args[: len(fargs) - 1] + [extra]
@@ -90,7 +90,7 @@ class Magic:
         if fargs[0] == "self":
             fargs = fargs[1:]
 
-        fargs = [f for f in fargs if f not in kwargs.keys()]
+        fargs = [f for f in fargs if f not in kwargs]
         if len(args) > len(fargs) and not arg_spec.varargs:
             extra = " ".join(str(s) for s in (args[len(fargs) - 1 :]))
             args = args[: len(fargs) - 1] + [extra]
@@ -154,7 +154,7 @@ def get_ipython() -> InteractiveShell | None:
     """Return the running IPython shell instance, or None if not in IPython."""
     from IPython import get_ipython as _get_ipython  # type: ignore[attr-defined]
 
-    return cast("InteractiveShell | None", _get_ipython())  # type: ignore[no-untyped-call]
+    return _get_ipython()
 
 
 def option(*args: Any, **kwargs: Any) -> Callable[[_F], _F]:
@@ -207,7 +207,7 @@ def _parse_args(
 
     args = _split_args(args)
 
-    kwargs = dict()
+    kwargs = {}
     if getattr(func, "has_options", False):
         parser = MagicOptionParser(usage=usage, conflict_handler="resolve")
         parser.add_options(func.options)
@@ -293,7 +293,7 @@ def _format_option(option: Any) -> str:
     output += option.get_opt_string() + " "
     output += " " * (15 - len(output))
     output += option.help + " "
-    if not option.default == ("NO", "DEFAULT"):
+    if option.default != ("NO", "DEFAULT"):
         output += f"[default: {option.default}]"
     return str(output)
 

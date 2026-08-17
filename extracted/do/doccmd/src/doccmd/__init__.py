@@ -739,7 +739,7 @@ def _handle_error(
     message: str,
     exit_code: int,
     continue_on_error: bool,
-    exc: Exception | None = None,
+    exc: Exception | None,
 ) -> _CollectedError:
     """Handle an error by either returning it or raising a fatal error."""
     if continue_on_error:
@@ -793,6 +793,7 @@ def _process_file_path(
                     message=could_not_determine_encoding_msg,
                     exit_code=1,
                     continue_on_error=continue_on_error,
+                    exc=None,
                 )
             )
         return local_errors
@@ -1028,8 +1029,8 @@ class _DetectingPyconEvaluator:
         """Run the appropriate evaluator based on content detection."""
         source = str(object=example.parsed)
         if _is_pycon_source(source=source):
-            return self._pycon_evaluator(example)
-        return self._regular_evaluator(example)
+            return self._pycon_evaluator(example=example)
+        return self._regular_evaluator(example=example)
 
 
 @beartype

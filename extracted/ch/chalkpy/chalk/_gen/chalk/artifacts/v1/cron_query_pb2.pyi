@@ -51,6 +51,7 @@ class CronQuery(_message.Message):
         "write_to",
         "observed_at_lower_bound",
         "observed_at_upper_bound",
+        "data_quality_check_specs",
     )
     class PlannerOptionsEntry(_message.Message):
         __slots__ = ("key", "value")
@@ -87,6 +88,7 @@ class CronQuery(_message.Message):
     WRITE_TO_FIELD_NUMBER: _ClassVar[int]
     OBSERVED_AT_LOWER_BOUND_FIELD_NUMBER: _ClassVar[int]
     OBSERVED_AT_UPPER_BOUND_FIELD_NUMBER: _ClassVar[int]
+    DATA_QUALITY_CHECK_SPECS_FIELD_NUMBER: _ClassVar[int]
     name: str
     cron: str
     file_name: str
@@ -114,6 +116,7 @@ class CronQuery(_message.Message):
     write_to: _offline_query_pb2.OfflineQueryWriteTo
     observed_at_lower_bound: str
     observed_at_upper_bound: str
+    data_quality_check_specs: _containers.RepeatedScalarFieldContainer[str]
     def __init__(
         self,
         name: _Optional[str] = ...,
@@ -143,4 +146,5 @@ class CronQuery(_message.Message):
         write_to: _Optional[_Union[_offline_query_pb2.OfflineQueryWriteTo, _Mapping]] = ...,
         observed_at_lower_bound: _Optional[str] = ...,
         observed_at_upper_bound: _Optional[str] = ...,
+        data_quality_check_specs: _Optional[_Iterable[str]] = ...,
     ) -> None: ...

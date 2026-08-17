@@ -1,6 +1,6 @@
 Metadata-Version: 2.5
 Name: code-puppy
-Version: 0.0.720
+Version: 0.0.728
 Summary: Code generation agent
 Project-URL: repository, https://github.com/mpfaffenberger/code_puppy
 Project-URL: HomePage, https://github.com/mpfaffenberger/code_puppy
@@ -16,19 +16,21 @@ Classifier: Programming Language :: Python :: 3.13
 Classifier: Topic :: Software Development :: Code Generators
 Requires-Python: <3.15,>=3.11
 Requires-Dist: agent-client-protocol<0.12,>=0.11.0
-Requires-Dist: anthropic==0.79.0
+Requires-Dist: anthropic>=0.108.0
+Requires-Dist: anyio>=4.7.0
 Requires-Dist: azure-identity>=1.15.0
 Requires-Dist: boto3>=1.43.9
-Requires-Dist: code-puppy-core-plugins>=0.0.2
+Requires-Dist: code-puppy-core-plugins>=0.0.8
 Requires-Dist: httpx[http2]>=0.24.1
 Requires-Dist: json-repair>=0.46.2
 Requires-Dist: keyring>=24.0.0
 Requires-Dist: mcp>=1.9.4
-Requires-Dist: openai>=1.99.1
+Requires-Dist: openai>=2.45.0
+Requires-Dist: packaging>=24.0
 Requires-Dist: pillow>=10.0.0
 Requires-Dist: playwright>=1.40.0; sys_platform != 'android'
 Requires-Dist: prompt-toolkit>=3.0.52
-Requires-Dist: pydantic-ai-slim[anthropic,mcp,openai]==1.56.0
+Requires-Dist: pydantic-ai-slim[anthropic,mcp,openai]==2.31.0
 Requires-Dist: pydantic>=2.4.0
 Requires-Dist: pyfiglet>=0.8.post1
 Requires-Dist: python-dotenv>=1.0.0

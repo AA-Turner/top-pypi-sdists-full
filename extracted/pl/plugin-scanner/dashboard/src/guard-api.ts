@@ -8,8 +8,23 @@ import {
   CODEX_RESUME_STATUSES
 } from "./guard-types";
 import { computeTrendBuckets } from "./evidence/evidence-metrics";
+import { normalizeProtectionHealth, protectionHeadlineFor } from "./protection-health";
+import {
+  AUTHORITATIVE_DECISION_INCONSISTENT,
+  guardActionDisposition,
+  guardDecisionV2Action,
+  isActionBearingKey,
+  isGuardAction,
+  isRecognizedGuardActionInput,
+  mostRestrictiveGuardAction,
+  normalizeGuardAction,
+} from "./guard-action";
+import { parseTemporaryMcpApproval } from "./temporary-mcp-approval";
+import { parseLocalToolApproval } from "./local-tool-approval";
+import { isConnectableAppHarness } from "./apps/harness-setup-target";
 import type {
   GuardActionEnvelope,
+  GuardAction,
   GuardActionType,
   GuardApprovalPage,
   GuardApprovalPageFilters,
@@ -47,18 +62,23 @@ import type {
   GuardReceiptArtifactStat,
   GuardReceiptDailyActivity,
   GuardReceiptHarnessStat,
+  GuardRuntimeState,
   GuardRuntimeSnapshot,
   GuardCloudConnectStatusResponse,
   SupplyChainBundle,
+  SupplyChainRepairResult,
+  SupplyChainRepairStepFailure,
   SupplyChainSnapshot,
   GuardSettingsPayload,
   GuardSettingsExport,
   GuardSettings,
   GuardUpdateScheduleResult,
+  GuardDaemonReconnectAuthorization,
   GuardUpdateReconnectOptions,
   GuardUpdateStatus,
   GuardUpdateVersionCheck,
   DecisionScope,
+  GuardApprovalResolutionInput,
   RiskSignalV2,
   RiskSignalV2Category,
   RiskSignalV2RedactionLevel,
@@ -75,18 +95,61 @@ import {
 
 const GUARD_TOKEN_PARAM = "guard-token";
 const GUARD_DAEMON_PARAM = "guardDaemon";
+const GUARD_UPDATE_CHANNEL_STORAGE_KEY = "guard-update-channel";
 const GUARD_SURFACE_PROTOCOL_VERSIONS = ["1.1", "1.0"] as const;
 const DEFAULT_GUARD_DAEMON_PORT = 4781;
 const GUARD_DAEMON_PORT_RANGE = 1000;
 const GUARD_DAEMON_DISCOVERY_PROBE_COUNT = 25;
 const GUARD_DAEMON_DISCOVERY_PROBE_BATCH_SIZE = 5;
 const GUARD_DAEMON_PROBE_TIMEOUT_MS = 800;
+const GUARD_DAEMON_RECONNECT_PROTOCOL_VERSION = 1;
+const GUARD_DAEMON_RECONNECT_NONCE_BYTES = 32;
+const RUNTIME_HEARTBEAT_MAX_AGE_MS = 30_000;
+const RUNTIME_HEARTBEAT_FUTURE_TOLERANCE_MS = 5_000;
 let guardTokenOverride: string | null = null;
 let guardTokenLocationKey: string | null = null;
+let guardDaemonReconnectDiagnostic = "dashboard_reconnect_not_started";
 
-type RawGuardApprovalRequest = Omit<GuardApprovalRequest, "action_envelope_json" | "decision_v2_json"> & {
+type RawGuardApprovalRequest = Omit<
+  GuardApprovalRequest,
+  | "action_envelope_json"
+  | "decision_v2_json"
+  | "policy_action"
+  | "decision_contract_error"
+  | "recommended_scope"
+  | "allowed_scopes"
+  | "scope_contract_version"
+  | "scope_contract_digest"
+  | "allowed_scopes_by_action"
+  | "recommended_scope_by_action"
+  | "scope_restrictions"
+  | "task_capability_eligibility"
+  | "temporary_mcp_approval"
+  | "local_tool_approval"
+> & {
   action_envelope_json?: unknown;
   decision_v2_json?: unknown;
+  policy_action?: unknown;
+  decision_contract_error?: unknown;
+  recommended_scope?: unknown;
+  allowed_scopes?: unknown;
+  scope_contract_version?: unknown;
+  scope_contract_digest?: unknown;
+  allowed_scopes_by_action?: unknown;
+  recommended_scope_by_action?: unknown;
+  scope_restrictions?: unknown;
+  task_capability_eligibility?: unknown;
+  temporary_mcp_approval?: unknown;
+  local_tool_approval?: unknown;
+};
+
+type RawGuardReceipt = Omit<GuardReceipt, "action_envelope_json" | "policy_decision"> & {
+  action_envelope_json?: unknown;
+  policy_decision?: unknown;
+};
+
+type RawGuardInventoryItem = Omit<GuardInventoryItem, "last_policy_action"> & {
+  last_policy_action?: unknown;
 };
 
 type ApprovalRequestListPayload = {
@@ -99,13 +162,27 @@ type ApprovalRequestListPayload = {
 
 type RuntimeSnapshotPayload = Omit<
   GuardRuntimeSnapshot,
-  "items" | "queue_summary" | "supply_chain" | "managed_installs" | "cloud_command_capability"
+  | "items"
+  | "queue_summary"
+  | "supply_chain"
+  | "managed_installs"
+  | "cloud_command_capability"
+  | "protection_health"
+  | "operator_health"
+  | "runtime_state"
+  | "latest_receipts"
+  | "inventory"
 > & {
   items?: RawGuardApprovalRequest[] | null;
+  latest_receipts?: RawGuardReceipt[] | null;
+  inventory?: RawGuardInventoryItem[] | null;
   queue_summary?: unknown;
   supply_chain?: unknown;
   managed_installs?: unknown;
   cloud_command_capability?: unknown;
+  protection_health?: unknown;
+  operator_health?: unknown;
+  runtime_state?: unknown;
 };
 
 type QueueResolutionPayload = Omit<
@@ -205,6 +282,24 @@ function saveGuardStorage(name: string, value: string): void {
   saveBrowserStorage(() => window.localStorage, name, value);
 }
 
+function isGuardUpdateChannel(value: unknown): value is "stable" | "alpha" {
+  return value === "stable" || value === "alpha";
+}
+
+export function readRememberedGuardUpdateChannel(): "stable" | "alpha" | null {
+  if (typeof window === "undefined") {
+    return null;
+  }
+  const value = readGuardStorage(GUARD_UPDATE_CHANNEL_STORAGE_KEY);
+  return isGuardUpdateChannel(value) ? value : null;
+}
+
+function rememberGuardUpdateChannel(channel: "stable" | "alpha"): void {
+  if (typeof window !== "undefined") {
+    saveGuardStorage(GUARD_UPDATE_CHANNEL_STORAGE_KEY, channel);
+  }
+}
+
 export function readGuardToken(): string | null {
   const locationKey = `${window.location.origin}${window.location.pathname}${window.location.search}${window.location.hash}`;
   if (guardTokenLocationKey !== locationKey) {
@@ -232,7 +327,17 @@ function saveGuardDaemonOrigin(daemonOrigin: string): void {
 }
 
 function preferredGuardDaemonPort(): number {
-  const fromOrigin = readGuardDaemonOrigin();
+  const establishedOrigin = establishedGuardDaemonOriginForReconnect();
+  const rawDaemonUrl = guardParam(GUARD_DAEMON_PARAM);
+  const suppliedToken = guardParam(GUARD_TOKEN_PARAM);
+  const mayUseUnboundHint = Boolean(suppliedToken?.trim()) || !readGuardStorage(GUARD_TOKEN_PARAM);
+  const fromOrigin =
+    establishedOrigin ??
+    (rawDaemonUrl && mayUseUnboundHint ? localGuardDaemonOrigin(rawDaemonUrl) : null) ??
+    (() => {
+      const storedDaemonUrl = readGuardStorage(GUARD_DAEMON_PARAM);
+      return storedDaemonUrl ? localGuardDaemonOrigin(storedDaemonUrl) : null;
+    })();
   if (fromOrigin) {
     try {
       const port = Number(new URL(fromOrigin).port);
@@ -269,20 +374,36 @@ export function buildGuardDaemonCandidatePorts(preferredPort: number): number[] 
 }
 
 async function probeGuardDaemonHealth(origin: string): Promise<boolean> {
-  const controller = new AbortController();
-  const timeoutId = window.setTimeout(() => controller.abort(), GUARD_DAEMON_PROBE_TIMEOUT_MS);
+  const candidateOrigin = localGuardDaemonOrigin(origin);
+  if (!candidateOrigin) {
+    return false;
+  }
   try {
-    const response = await fetch(`${origin}/healthz`, { signal: controller.signal });
+    const { response, payload } = await fetchGuardDaemonCandidateJson(`${candidateOrigin}/healthz`, {
+      redirect: "error",
+    });
     if (!response.ok) {
       return false;
     }
-    const payload: unknown = await response.json();
     if (!isRecord(payload)) {
       return false;
     }
     return payload.ok === true && payload.compatibility_version === 2;
   } catch {
     return false;
+  }
+}
+
+async function fetchGuardDaemonCandidateJson(
+  input: RequestInfo,
+  init: RequestInit,
+): Promise<{ response: Response; payload: unknown }> {
+  const controller = new AbortController();
+  const timeoutId = window.setTimeout(() => controller.abort(), GUARD_DAEMON_PROBE_TIMEOUT_MS);
+  try {
+    const response = await fetch(input, { ...init, signal: controller.signal });
+    const payload: unknown = await response.json();
+    return { response, payload };
   } finally {
     window.clearTimeout(timeoutId);
   }
@@ -339,12 +460,301 @@ export function updateReconnectSucceeded(
   return options.sawUpdateInProgress === true;
 }
 
+type GuardDaemonReconnectChallenge = {
+  protocol_version: 1;
+  reconnect_id: string;
+  client_nonce: string;
+  server_nonce: string;
+  state_id: string;
+  candidate_origin: string;
+  installation_id: string;
+  guard_home_id: string;
+  surface: "dashboard";
+  issued_at_ms: number;
+  expires_at_ms: number;
+};
+
+function isHexDigest(value: unknown): value is string {
+  return typeof value === "string" && /^[0-9a-f]{64}$/.test(value);
+}
+
+function randomHex(bytes: number): string {
+  const value = new Uint8Array(bytes);
+  globalThis.crypto.getRandomValues(value);
+  return [...value].map((item) => item.toString(16).padStart(2, "0")).join("");
+}
+
+function hexBytes(value: string): Uint8Array {
+  const bytes = new Uint8Array(value.length / 2);
+  for (let index = 0; index < value.length; index += 2) {
+    bytes[index / 2] = Number.parseInt(value.slice(index, index + 2), 16);
+  }
+  return bytes;
+}
+
+function canonicalReconnectPayload(value: Record<string, string | number>): string {
+  const entries = Object.entries(value).sort(([left], [right]) => {
+    if (left < right) return -1;
+    if (left > right) return 1;
+    return 0;
+  });
+  return JSON.stringify(Object.fromEntries(entries));
+}
+
+async function dashboardReconnectProof(
+  verifier: string,
+  proofContext: "server" | "client",
+  challenge: GuardDaemonReconnectChallenge,
+): Promise<string> {
+  const key = await globalThis.crypto.subtle.importKey(
+    "raw",
+    hexBytes(verifier).buffer as ArrayBuffer,
+    { name: "HMAC", hash: "SHA-256" },
+    false,
+    ["sign"],
+  );
+  const message = new TextEncoder().encode(
+    canonicalReconnectPayload({ proof_context: proofContext, ...challenge }),
+  ).buffer as ArrayBuffer;
+  const signature = await globalThis.crypto.subtle.sign("HMAC", key, message);
+  return [...new Uint8Array(signature)].map((item) => item.toString(16).padStart(2, "0")).join("");
+}
+
+function constantTimeHexEqual(left: string, right: string): boolean {
+  if (!isHexDigest(left) || !isHexDigest(right)) {
+    return false;
+  }
+  let difference = 0;
+  for (let index = 0; index < left.length; index += 1) {
+    difference |= left.charCodeAt(index) ^ right.charCodeAt(index);
+  }
+  return difference === 0;
+}
+
+function parseReconnectAuthorization(payload: unknown): GuardDaemonReconnectAuthorization | null {
+  if (!isRecord(payload)) {
+    return null;
+  }
+  if (
+    payload["protocol_version"] !== GUARD_DAEMON_RECONNECT_PROTOCOL_VERSION ||
+    payload["surface"] !== "dashboard" ||
+    !isHexDigest(payload["reconnect_id"]) ||
+    !isHexDigest(payload["verifier"]) ||
+    !isHexDigest(payload["installation_id"]) ||
+    !isHexDigest(payload["guard_home_id"]) ||
+    typeof payload["issued_at_ms"] !== "number" ||
+    typeof payload["expires_at_ms"] !== "number" ||
+    payload["expires_at_ms"] <= payload["issued_at_ms"]
+  ) {
+    return null;
+  }
+  const now = Date.now();
+  if (payload["issued_at_ms"] > now + 5_000 || payload["expires_at_ms"] > now + 305_000) {
+    return null;
+  }
+  return {
+    protocolVersion: 1,
+    reconnectId: payload["reconnect_id"],
+    verifier: payload["verifier"],
+    surface: "dashboard",
+    issuedAtMs: payload["issued_at_ms"],
+    expiresAtMs: payload["expires_at_ms"],
+    installationId: payload["installation_id"],
+    guardHomeId: payload["guard_home_id"],
+  };
+}
+
+function parseReconnectChallenge(
+  payload: unknown,
+  authorization: GuardDaemonReconnectAuthorization,
+  candidateOrigin: string,
+  clientNonce: string,
+): { challenge: GuardDaemonReconnectChallenge; proof: string } | null {
+  if (!isRecord(payload)) {
+    return null;
+  }
+  const stringFields = ["state_id"] as const;
+  if (
+    payload["protocol_version"] !== GUARD_DAEMON_RECONNECT_PROTOCOL_VERSION ||
+    payload["reconnect_id"] !== authorization.reconnectId ||
+    payload["client_nonce"] !== clientNonce ||
+    payload["candidate_origin"] !== candidateOrigin ||
+    payload["installation_id"] !== authorization.installationId ||
+    payload["guard_home_id"] !== authorization.guardHomeId ||
+    payload["surface"] !== authorization.surface ||
+    !isHexDigest(payload["server_nonce"]) ||
+    !isHexDigest(payload["proof"]) ||
+    !stringFields.every((field) => typeof payload[field] === "string" && payload[field].length > 0) ||
+    typeof payload["issued_at_ms"] !== "number" ||
+    typeof payload["expires_at_ms"] !== "number"
+  ) {
+    return null;
+  }
+  const challenge: GuardDaemonReconnectChallenge = {
+    protocol_version: 1,
+    reconnect_id: authorization.reconnectId,
+    client_nonce: clientNonce,
+    server_nonce: payload["server_nonce"],
+    state_id: payload["state_id"] as string,
+    candidate_origin: candidateOrigin,
+    installation_id: authorization.installationId,
+    guard_home_id: authorization.guardHomeId,
+    surface: "dashboard",
+    issued_at_ms: payload["issued_at_ms"],
+    expires_at_ms: payload["expires_at_ms"],
+  };
+  const now = Date.now();
+  if (
+    challenge.issued_at_ms > now + 5_000 ||
+    challenge.expires_at_ms < now ||
+    challenge.expires_at_ms > authorization.expiresAtMs
+  ) {
+    return null;
+  }
+  return { challenge, proof: payload["proof"] };
+}
+
+export async function prepareGuardDaemonReconnect(): Promise<GuardDaemonReconnectAuthorization> {
+  const daemonOrigin = establishedGuardDaemonOriginForReconnect();
+  const guardToken = readGuardToken();
+  if (!daemonOrigin || !guardToken) {
+    guardDaemonReconnectDiagnostic = "dashboard_reconnect_prepare_origin_unavailable";
+    throw new Error("Guard could not identify the authenticated daemon for a secure reconnect.");
+  }
+  let response = await fetch(`${daemonOrigin}/v1/update/reconnect/prepare`, withGuardAuthForToken({
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: "{}",
+    redirect: "error",
+  }, guardToken));
+  if (response.status === 401) {
+    const refreshedToken = await initializeGuardDashboardSessionAtOrigin(daemonOrigin, guardToken);
+    if (refreshedToken && refreshedToken !== guardToken) {
+      saveGuardToken(refreshedToken);
+      response = await fetch(`${daemonOrigin}/v1/update/reconnect/prepare`, withGuardAuthForToken({
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: "{}",
+        redirect: "error",
+      }, refreshedToken));
+    }
+  }
+  const authorization = response.ok ? parseReconnectAuthorization(await response.json()) : null;
+  if (!authorization || authorization.expiresAtMs <= Date.now()) {
+    guardDaemonReconnectDiagnostic = "dashboard_reconnect_prepare_failed";
+    throw new Error("Guard could not prepare a secure dashboard reconnect.");
+  }
+  guardDaemonReconnectDiagnostic = "dashboard_reconnect_prepared";
+  return authorization;
+}
+
+function establishedGuardDaemonOriginForReconnect(): string | null {
+  const pageOrigin = localGuardDaemonOrigin(window.location.origin);
+  if (pageOrigin) {
+    return pageOrigin;
+  }
+  const suppliedToken = guardParam(GUARD_TOKEN_PARAM);
+  if (suppliedToken?.trim()) {
+    const suppliedDaemon = guardParam(GUARD_DAEMON_PARAM);
+    const suppliedOrigin = suppliedDaemon ? localGuardDaemonOrigin(suppliedDaemon) : null;
+    if (suppliedOrigin) {
+      return suppliedOrigin;
+    }
+  }
+  const storedDaemon = readGuardStorage(GUARD_DAEMON_PARAM);
+  return storedDaemon ? localGuardDaemonOrigin(storedDaemon) : null;
+}
+
+export function readGuardDaemonReconnectDiagnostic(): string {
+  return guardDaemonReconnectDiagnostic;
+}
+
+async function authenticateGuardDaemonCandidate(
+  origin: string,
+  authorization: GuardDaemonReconnectAuthorization,
+): Promise<boolean> {
+  const candidateOrigin = localGuardDaemonOrigin(origin);
+  if (!candidateOrigin || authorization.expiresAtMs <= Date.now()) {
+    guardDaemonReconnectDiagnostic = "dashboard_reconnect_authorization_expired";
+    return false;
+  }
+  const clientNonce = randomHex(GUARD_DAEMON_RECONNECT_NONCE_BYTES);
+  try {
+    const { response: challengeResponse, payload: challengePayload } = await fetchGuardDaemonCandidateJson(`${candidateOrigin}/v1/update/reconnect/challenge`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        protocol_version: GUARD_DAEMON_RECONNECT_PROTOCOL_VERSION,
+        reconnect_id: authorization.reconnectId,
+        client_nonce: clientNonce,
+        candidate_origin: candidateOrigin,
+      }),
+      redirect: "error",
+    });
+    if (!challengeResponse.ok) {
+      guardDaemonReconnectDiagnostic = "dashboard_reconnect_candidate_unavailable";
+      return false;
+    }
+    const parsed = parseReconnectChallenge(
+      challengePayload,
+      authorization,
+      candidateOrigin,
+      clientNonce,
+    );
+    if (!parsed) {
+      guardDaemonReconnectDiagnostic = "dashboard_reconnect_challenge_invalid";
+      return false;
+    }
+    const expectedServerProof = await dashboardReconnectProof(
+      authorization.verifier,
+      "server",
+      parsed.challenge,
+    );
+    if (!constantTimeHexEqual(parsed.proof, expectedServerProof)) {
+      guardDaemonReconnectDiagnostic = "dashboard_reconnect_server_proof_invalid";
+      return false;
+    }
+    const clientProof = await dashboardReconnectProof(
+      authorization.verifier,
+      "client",
+      parsed.challenge,
+    );
+    const { response: verificationResponse, payload: verificationPayload } = await fetchGuardDaemonCandidateJson(`${candidateOrigin}/v1/update/reconnect/verify`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        protocol_version: GUARD_DAEMON_RECONNECT_PROTOCOL_VERSION,
+        challenge: parsed.challenge,
+        proof: clientProof,
+      }),
+      redirect: "error",
+    });
+    if (!verificationResponse.ok) {
+      guardDaemonReconnectDiagnostic = "dashboard_reconnect_client_proof_rejected";
+      return false;
+    }
+    if (!isRecord(verificationPayload) || verificationPayload["verified"] !== true) {
+      guardDaemonReconnectDiagnostic = "dashboard_reconnect_client_proof_rejected";
+      return false;
+    }
+    guardDaemonReconnectDiagnostic = "dashboard_reconnect_proof_accepted";
+    return true;
+  } catch {
+    guardDaemonReconnectDiagnostic = "dashboard_reconnect_candidate_unavailable";
+    return false;
+  }
+}
+
 async function initializeGuardDashboardSessionAtOrigin(
   origin: string,
   guardToken: string | null,
 ): Promise<string | null> {
+  const candidateOrigin = localGuardDaemonOrigin(origin);
+  if (!candidateOrigin) {
+    return null;
+  }
   try {
-    const response = await fetch(`${origin}/v1/initialize`, {
+    const { response, payload } = await fetchGuardDaemonCandidateJson(`${candidateOrigin}/v1/initialize`, {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
@@ -355,11 +765,12 @@ async function initializeGuardDashboardSessionAtOrigin(
         surface: "dashboard",
         supported_protocol_versions: [...GUARD_SURFACE_PROTOCOL_VERSIONS],
       }),
+      redirect: "error",
     });
     if (!response.ok) {
       return null;
     }
-    return parseDashboardSessionToken(await response.json());
+    return parseDashboardSessionToken(payload);
   } catch {
     return null;
   }
@@ -369,27 +780,38 @@ export async function fetchGuardUpdateStatusAtOrigin(
   origin: string,
   guardToken: string | null,
 ): Promise<GuardUpdateStatus> {
-  const response = await fetch(`${origin}/v1/update/status`, {
+  const candidateOrigin = localGuardDaemonOrigin(origin);
+  if (!candidateOrigin) {
+    throw new Error("Invalid Guard daemon origin");
+  }
+  const { response, payload } = await fetchGuardDaemonCandidateJson(`${candidateOrigin}/v1/update/status`, {
     headers: guardToken ? { "X-Guard-Dashboard-Session": guardToken } : {},
+    cache: "no-store",
+    redirect: "error",
   });
   if (!response.ok) {
     throw new Error(`Update status failed with ${response.status}`);
   }
-  return normalizeGuardUpdateStatus(await response.json());
+  return normalizeGuardUpdateStatus(payload);
 }
 
 export function redirectToGuardDaemonOrigin(
   origin: string,
   guardToken: string | null,
 ): void {
-  const url = new URL(origin);
+  const candidateOrigin = localGuardDaemonOrigin(origin);
+  if (!candidateOrigin) {
+    guardDaemonReconnectDiagnostic = "dashboard_reconnect_origin_invalid";
+    return;
+  }
+  const url = new URL(candidateOrigin);
   url.pathname = window.location.pathname;
   url.search = window.location.search;
   const fragmentPairs: string[] = [];
   if (guardToken) {
     fragmentPairs.push(`${GUARD_TOKEN_PARAM}=${encodeURIComponent(guardToken)}`);
   }
-  fragmentPairs.push(`${GUARD_DAEMON_PARAM}=${encodeURIComponent(origin)}`);
+  fragmentPairs.push(`${GUARD_DAEMON_PARAM}=${encodeURIComponent(candidateOrigin)}`);
   url.hash = fragmentPairs.join("&");
   window.location.replace(url.toString());
 }
@@ -397,8 +819,13 @@ export function redirectToGuardDaemonOrigin(
 export async function reconnectGuardDaemonAfterUpdate(
   options?: GuardUpdateReconnectOptions,
 ): Promise<{ origin: string | null; status: GuardUpdateStatus | null; sawUpdateInProgress: boolean } | null> {
-  const guardToken = readGuardToken();
   const reconnectOptions = options ?? {};
+  const authorization = reconnectOptions.authorization;
+  if (!authorization) {
+    guardDaemonReconnectDiagnostic = "dashboard_reconnect_authorization_missing";
+    return null;
+  }
+  const guardToken = readGuardToken();
   const awaitingVersionChange = Boolean(reconnectOptions.expectedPreviousVersion);
   const ports = buildGuardDaemonCandidatePorts(preferredGuardDaemonPort());
   let sawUpdateInProgress = reconnectOptions.sawUpdateInProgress === true;
@@ -409,6 +836,9 @@ export async function reconnectGuardDaemonAfterUpdate(
       batch.map(async (port) => {
         const origin = `http://127.0.0.1:${port}`;
         if (!(await probeGuardDaemonHealth(origin))) {
+          return null;
+        }
+        if (!(await authenticateGuardDaemonCandidate(origin, authorization))) {
           return null;
         }
         try {
@@ -428,11 +858,11 @@ export async function reconnectGuardDaemonAfterUpdate(
 
     const active = results.find((result) => result !== null && result.origin !== null && result.status !== null);
     if (active?.origin && active.status) {
-      saveGuardDaemonOrigin(active.origin);
       const refreshedToken = await initializeGuardDashboardSessionAtOrigin(active.origin, guardToken);
       if (refreshedToken) {
         saveGuardToken(refreshedToken);
       }
+      saveGuardDaemonOrigin(active.origin);
       return {
         origin: active.origin,
         status: active.status,
@@ -451,31 +881,52 @@ export async function reconnectGuardDaemonAfterUpdate(
 }
 
 function readGuardDaemonOrigin(): string | null {
+  const storedDaemonUrl = readGuardStorage(GUARD_DAEMON_PARAM);
+  const storedDaemonOrigin = storedDaemonUrl ? localGuardDaemonOrigin(storedDaemonUrl) : null;
   const rawDaemonUrl = guardParam(GUARD_DAEMON_PARAM);
   if (rawDaemonUrl) {
     const daemonOrigin = localGuardDaemonOrigin(rawDaemonUrl);
-    if (daemonOrigin) {
+    const suppliedToken = guardParam(GUARD_TOKEN_PARAM);
+    const hasStoredToken = Boolean(readGuardStorage(GUARD_TOKEN_PARAM));
+    if (daemonOrigin && (Boolean(suppliedToken?.trim()) || !hasStoredToken)) {
       saveGuardStorage(GUARD_DAEMON_PARAM, daemonOrigin);
       return daemonOrigin;
     }
   }
-  const storedDaemonUrl = readGuardStorage(GUARD_DAEMON_PARAM);
-  return storedDaemonUrl ? localGuardDaemonOrigin(storedDaemonUrl) : null;
+  return storedDaemonOrigin;
 }
 
-function localGuardDaemonOrigin(rawUrl: string): string | null {
+export function canonicalizeGuardDaemonOrigin(rawUrl: string): string | null {
   try {
-    const url = new URL(rawUrl);
-    if (url.protocol !== "http:" || !["127.0.0.1", "localhost", "[::1]", "::1"].includes(url.hostname)) {
+    const rawOrigin = rawUrl.trim();
+    const url = new URL(rawOrigin);
+    if (url.protocol !== "http:" || !["127.0.0.1", "[::1]"].includes(url.hostname)) {
       return null;
     }
-    if (url.username || url.password || (url.pathname && url.pathname !== "/") || url.search || url.hash) {
+    if (
+      url.username ||
+      url.password ||
+      (url.pathname && url.pathname !== "/") ||
+      url.search ||
+      url.hash ||
+      !url.port
+    ) {
       return null;
     }
-    return url.origin;
+    const port = Number(url.port);
+    if (!Number.isInteger(port) || port < 1 || port > 65_535) {
+      return null;
+    }
+    const canonicalHost = url.hostname === "[::1]" ? "[::1]" : "127.0.0.1";
+    const canonical = `http://${canonicalHost}:${port}`;
+    return url.origin === canonical && (rawOrigin === canonical || rawOrigin === `${canonical}/`) ? canonical : null;
   } catch {
     return null;
   }
+}
+
+function localGuardDaemonOrigin(rawUrl: string): string | null {
+  return canonicalizeGuardDaemonOrigin(rawUrl);
 }
 
 function guardApiInput(input: RequestInfo): RequestInfo {
@@ -520,6 +971,18 @@ async function fetchWithGuardAuth(input: RequestInfo, init?: RequestInit): Promi
   return fetch(requestInput, withGuardAuthForToken(init, refreshedGuardToken));
 }
 
+export async function fetchCommandActivityApi(input: RequestInfo, init?: RequestInit): Promise<Response> {
+  const approvedPath =
+    typeof input === "string" &&
+    /^\/v1\/(?:command-activity(?:\/(?:analytics|diagnostics|events|feedback))?|command-extensions)(?:\?[^#]*)?$/.test(
+      input,
+    );
+  if (!approvedPath) {
+    throw new Error("Invalid command activity API path");
+  }
+  return fetchWithGuardAuth(input, init);
+}
+
 function guardAuthHeaders(): HeadersInit {
   const guardToken = readGuardToken();
   return guardToken ? { "X-Guard-Dashboard-Session": guardToken } : {};
@@ -549,7 +1012,8 @@ async function refreshGuardDashboardSession(guardToken: string): Promise<string 
         client_name: "guard-dashboard-web",
         surface: "dashboard",
         supported_protocol_versions: [...GUARD_SURFACE_PROTOCOL_VERSIONS]
-      })
+      }),
+      redirect: "error",
     });
     if (!response.ok) {
       return null;
@@ -619,15 +1083,57 @@ function isApprovalPageStatus(value: unknown): value is GuardApprovalPageStatus 
   return value === "pending" || value === "resolved" || value === "all";
 }
 
+function matchingAliasedField(
+  raw: Record<string, unknown>,
+  snakeKey: string,
+  camelKey: string,
+): { matches: boolean; value: unknown } {
+  const hasSnake = Object.prototype.hasOwnProperty.call(raw, snakeKey);
+  const hasCamel = Object.prototype.hasOwnProperty.call(raw, camelKey);
+  if (hasSnake && hasCamel && raw[snakeKey] !== raw[camelKey]) {
+    return { matches: false, value: undefined };
+  }
+  return { matches: true, value: hasSnake ? raw[snakeKey] : raw[camelKey] };
+}
+
 export function parseActionEnvelope(raw: unknown): GuardActionEnvelope | null {
   if (!isRecord(raw)) {
     return null;
   }
+  const allowedActionFields = new Set([
+    "action_id",
+    "action_type",
+    "pre_execution_result",
+    "policy_action",
+    "actionId",
+    "actionType",
+    "preExecutionResult",
+    "policyAction",
+  ]);
+  if (Object.keys(raw).some((key) => isActionBearingKey(key) && !allowedActionFields.has(key))) {
+    return null;
+  }
+  const aliasedActionId = matchingAliasedField(raw, "action_id", "actionId");
+  const aliasedActionType = matchingAliasedField(raw, "action_type", "actionType");
+  const aliasedPreExecutionResult = matchingAliasedField(
+    raw,
+    "pre_execution_result",
+    "preExecutionResult",
+  );
+  const aliasedPolicyAction = matchingAliasedField(raw, "policy_action", "policyAction");
+  if (
+    !aliasedActionId.matches ||
+    !aliasedActionType.matches ||
+    !aliasedPreExecutionResult.matches ||
+    !aliasedPolicyAction.matches
+  ) {
+    return null;
+  }
   const schemaVersion = raw["schema_version"];
-  const actionId = raw["action_id"];
+  const actionId = aliasedActionId.value;
   const harness = raw["harness"];
   const eventName = raw["event_name"];
-  const actionType = raw["action_type"];
+  const actionType = aliasedActionType.value;
   const workspace = raw["workspace"];
   const workspaceHash = raw["workspace_hash"];
   const toolName = raw["tool_name"];
@@ -640,6 +1146,11 @@ export function parseActionEnvelope(raw: unknown): GuardActionEnvelope | null {
   const mcpTool = raw["mcp_tool"];
   const packageManager = raw["package_manager"];
   const packageName = raw["package_name"];
+  const commandCategory = raw["command_category"];
+  const packageIntentKind = raw["package_intent_kind"];
+  const packageTargets = raw["package_targets"];
+  const preExecutionResult = aliasedPreExecutionResult.value;
+  const policyAction = aliasedPolicyAction.value;
   const scriptName = raw["script_name"];
   const rawPayloadRedacted = raw["raw_payload_redacted"];
   if (
@@ -662,11 +1173,19 @@ export function parseActionEnvelope(raw: unknown): GuardActionEnvelope | null {
     !isStringOrNull(mcpTool) ||
     !isStringOrNull(packageManager) ||
     !isStringOrNull(packageName) ||
+    (commandCategory !== undefined && !isStringOrNull(commandCategory)) ||
+    (packageIntentKind !== undefined && !isStringOrNull(packageIntentKind)) ||
+    (preExecutionResult !== undefined && preExecutionResult !== null && !isGuardAction(preExecutionResult)) ||
+    (policyAction !== undefined && policyAction !== null && !isGuardAction(policyAction)) ||
     !isStringOrNull(scriptName)
   ) {
     return null;
   }
-  if (!isStringArray(targetPaths) || !isStringArray(networkHosts)) {
+  if (
+    !isStringArray(targetPaths) ||
+    !isStringArray(networkHosts) ||
+    (packageTargets !== undefined && !isStringArray(packageTargets))
+  ) {
     return null;
   }
   if (!isRecord(rawPayloadRedacted)) {
@@ -690,6 +1209,13 @@ export function parseActionEnvelope(raw: unknown): GuardActionEnvelope | null {
     mcp_tool: mcpTool,
     package_manager: packageManager,
     package_name: packageName,
+    command_category: isStringOrNull(commandCategory) ? commandCategory : null,
+    package_intent_kind: isStringOrNull(packageIntentKind) ? packageIntentKind : null,
+    package_targets: isStringArray(packageTargets) ? packageTargets : [],
+    pre_execution_result: isGuardAction(preExecutionResult) ? preExecutionResult : null,
+    ...(policyAction === undefined
+      ? {}
+      : { policy_action: isGuardAction(policyAction) ? policyAction : null }),
     script_name: scriptName,
     raw_payload_redacted: rawPayloadRedacted
   };
@@ -744,6 +1270,11 @@ export function parseDecisionV2(raw: unknown): GuardDecisionV2 | null {
   if (!isRecord(raw)) {
     return null;
   }
+  const allowedActionFields = new Set(["guard_action", "action"]);
+  if (Object.keys(raw).some((key) => isActionBearingKey(key) && !allowedActionFields.has(key))) {
+    return null;
+  }
+  const guardAction = raw["guard_action"];
   const action = raw["action"];
   const reason = raw["reason"];
   const userTitle = raw["user_title"];
@@ -752,10 +1283,13 @@ export function parseDecisionV2(raw: unknown): GuardDecisionV2 | null {
   const dashboardPrimaryDetail = raw["dashboard_primary_detail"];
   const approvalScopes = raw["approval_scopes"];
   const retryInstruction = raw["retry_instruction"];
+  const packageReviewCloudReasonCode = raw["package_review_cloud_reason_code"];
   const signals = raw["signals"];
   const confidence = raw["confidence"];
   if (
+    !isGuardAction(guardAction) ||
     !isDecisionV2Action(action) ||
+    action !== guardDecisionV2Action(guardAction) ||
     !isNonEmptyString(reason) ||
     !isNonEmptyString(userTitle) ||
     !isNonEmptyString(userBody) ||
@@ -763,12 +1297,14 @@ export function parseDecisionV2(raw: unknown): GuardDecisionV2 | null {
     !isNonEmptyString(dashboardPrimaryDetail) ||
     !isStringArray(approvalScopes) ||
     !isStringOrNull(retryInstruction) ||
+    !(packageReviewCloudReasonCode === undefined || isStringOrNull(packageReviewCloudReasonCode)) ||
     !isRiskSignalV2Array(signals) ||
     !isDecisionV2Confidence(confidence)
   ) {
     return null;
   }
   return {
+    guard_action: guardAction,
     action,
     reason,
     user_title: userTitle,
@@ -777,16 +1313,166 @@ export function parseDecisionV2(raw: unknown): GuardDecisionV2 | null {
     dashboard_primary_detail: dashboardPrimaryDetail,
     approval_scopes: approvalScopes,
     retry_instruction: retryInstruction,
+    package_review_cloud_reason_code: packageReviewCloudReasonCode,
     signals,
     confidence
   };
 }
 
+type LegacyPackageActionMetadata = Readonly<{
+  recognized: boolean;
+  action: GuardAction | null;
+}>;
+
+/** Recognize the historical package-receipt metadata shape without treating it as a typed action envelope. */
+function parseLegacyPackageActionMetadata(raw: unknown): LegacyPackageActionMetadata {
+  if (
+    !isRecord(raw) ||
+    raw["schema_version"] !== undefined ||
+    !("policy_action" in raw) ||
+    typeof raw["package_manager"] !== "string" ||
+    !isStringArray(raw["package_targets"]) ||
+    typeof raw["redacted_command"] !== "string"
+  ) {
+    return { recognized: false, action: null };
+  }
+  if (Object.keys(raw).some((key) => isActionBearingKey(key) && key !== "policy_action")) {
+    return { recognized: false, action: null };
+  }
+  const action = raw["policy_action"];
+  return { recognized: true, action: isRecognizedGuardActionInput(action) ? normalizeGuardAction(action) : null };
+}
+
+const DECISION_SCOPE_VALUES: ReadonlySet<string> = new Set([
+  "artifact",
+  "workspace",
+  "publisher",
+  "harness",
+  "global",
+]);
+
+function isDecisionScope(value: unknown): value is DecisionScope {
+  return typeof value === "string" && DECISION_SCOPE_VALUES.has(value);
+}
+
+function parseDecisionScopeList(value: unknown): DecisionScope[] | null {
+  if (!Array.isArray(value) || !value.every(isDecisionScope)) {
+    return null;
+  }
+  return [...new Set(value)];
+}
+
+function parseStringList(value: unknown): string[] | null {
+  if (!Array.isArray(value) || !value.every((item) => typeof item === "string")) {
+    return null;
+  }
+  return [...new Set(value)];
+}
+
+function parseOptionalString(value: unknown): string | null {
+  return typeof value === "string" && value.trim().length > 0 ? value : null;
+}
+
 export function normalizeApprovalRequest(item: RawGuardApprovalRequest): GuardApprovalRequest {
+  const { decision_contract_error: rawContractError, ...baseItem } = item;
+  const policyAction = normalizeGuardAction(item.policy_action);
+  const decisionV2 = parseDecisionV2(item.decision_v2_json);
+  const actionEnvelope = parseActionEnvelope(item.action_envelope_json);
+  const legacyActionMetadata = parseLegacyPackageActionMetadata(item.action_envelope_json);
+  const hasUnknownPolicyAction = !isRecognizedGuardActionInput(item.policy_action);
+  const hasMalformedActionEnvelope =
+    item.action_envelope_json !== undefined &&
+    item.action_envelope_json !== null &&
+    actionEnvelope === null &&
+    !(legacyActionMetadata.recognized && legacyActionMetadata.action !== null);
+  const hasContradictoryActionEnvelope =
+    (actionEnvelope !== null &&
+      [actionEnvelope.pre_execution_result, actionEnvelope.policy_action].some(
+        (action) => action !== undefined && action !== null && action !== policyAction,
+      )) ||
+    (legacyActionMetadata.recognized && legacyActionMetadata.action !== policyAction);
+  const hasDecisionContractError =
+    rawContractError !== undefined ||
+    hasUnknownPolicyAction ||
+    hasMalformedActionEnvelope ||
+    hasContradictoryActionEnvelope ||
+    (item.decision_v2_json !== undefined && item.decision_v2_json !== null && decisionV2 === null) ||
+    (decisionV2 !== null &&
+      (decisionV2.guard_action !== policyAction || decisionV2.action !== guardDecisionV2Action(policyAction)));
+  const failClosedPolicyAction = hasDecisionContractError
+    ? mostRestrictiveGuardAction(
+        policyAction,
+        "require-reapproval",
+        decisionV2?.guard_action,
+        actionEnvelope?.pre_execution_result,
+        actionEnvelope?.policy_action,
+        legacyActionMetadata.action,
+      )
+    : policyAction;
+  const hasScopeContract = [
+    item.scope_contract_version,
+    item.scope_contract_digest,
+    item.allowed_scopes_by_action,
+    item.recommended_scope_by_action,
+    item.scope_restrictions,
+    item.task_capability_eligibility,
+  ].some((value) => value !== undefined && value !== null);
+  const scopeContractVersion = parseOptionalString(item.scope_contract_version);
+  const scopeContractDigest = parseOptionalString(item.scope_contract_digest);
+  const hasCompleteScopeContract = scopeContractVersion !== null && scopeContractDigest !== null;
+  const rawAllowedByAction = isRecord(item.allowed_scopes_by_action)
+    ? item.allowed_scopes_by_action
+    : {};
+  const rawRecommendedByAction = isRecord(item.recommended_scope_by_action)
+    ? item.recommended_scope_by_action
+    : {};
+  const rawTaskEligibility = isRecord(item.task_capability_eligibility)
+    ? item.task_capability_eligibility
+    : null;
+  const taskReasonCodes = parseStringList(rawTaskEligibility?.reason_codes);
+  const taskCapabilityEligibility =
+    typeof rawTaskEligibility?.eligible === "boolean" && taskReasonCodes !== null
+      ? {
+          eligible: rawTaskEligibility.eligible,
+          reason_codes: taskReasonCodes,
+        }
+      : undefined;
+  const allowedScopes = parseDecisionScopeList(item.allowed_scopes);
+  const scopeRestrictions = parseStringList(item.scope_restrictions);
   return {
-    ...item,
-    action_envelope_json: parseActionEnvelope(item.action_envelope_json),
-    decision_v2_json: parseDecisionV2(item.decision_v2_json)
+    ...baseItem,
+    policy_action: failClosedPolicyAction,
+    recommended_scope: isDecisionScope(item.recommended_scope) ? item.recommended_scope : null,
+    allowed_scopes: allowedScopes ?? undefined,
+    scope_contract_version: hasScopeContract ? scopeContractVersion : undefined,
+    scope_contract_digest: hasScopeContract ? scopeContractDigest : undefined,
+    allowed_scopes_by_action: hasScopeContract
+      ? {
+          allow: hasCompleteScopeContract ? parseDecisionScopeList(rawAllowedByAction.allow) ?? [] : [],
+          block: hasCompleteScopeContract ? parseDecisionScopeList(rawAllowedByAction.block) ?? [] : [],
+        }
+      : undefined,
+    recommended_scope_by_action: hasScopeContract
+      ? {
+          allow:
+            hasCompleteScopeContract && isDecisionScope(rawRecommendedByAction.allow)
+              ? rawRecommendedByAction.allow
+              : null,
+          block:
+            hasCompleteScopeContract && isDecisionScope(rawRecommendedByAction.block)
+              ? rawRecommendedByAction.block
+              : null,
+        }
+      : undefined,
+    scope_restrictions: hasScopeContract ? scopeRestrictions ?? [] : undefined,
+    task_capability_eligibility: hasScopeContract ? taskCapabilityEligibility : undefined,
+    temporary_mcp_approval: parseTemporaryMcpApproval(item.temporary_mcp_approval),
+    local_tool_approval: parseLocalToolApproval(item.local_tool_approval),
+    action_envelope_json: hasDecisionContractError ? null : actionEnvelope,
+    decision_v2_json: hasDecisionContractError ? null : decisionV2,
+    ...(hasDecisionContractError
+      ? { decision_contract_error: AUTHORITATIVE_DECISION_INCONSISTENT }
+      : {}),
   };
 }
 
@@ -832,6 +1518,16 @@ function normalizeQueueSummary(raw: unknown, pendingCount: number): GuardQueueSu
   };
 }
 
+function normalizeProcessPathStatus(value: unknown): NonNullable<PackageManagerProtection["process_path_status"]> {
+  if (value === "active") {
+    return "active";
+  }
+  if (value === "profile_staged") {
+    return "profile_staged";
+  }
+  return "missing";
+}
+
 function normalizePackageManagerProtection(raw: unknown): PackageManagerProtection | undefined {
   if (!isRecord(raw)) {
     return undefined;
@@ -842,15 +1538,19 @@ function normalizePackageManagerProtection(raw: unknown): PackageManagerProtecti
       : raw["path_status"] === "restart_required"
       ? "restart_required"
       : "missing_from_path";
+  const processPathStatus = normalizeProcessPathStatus(raw["process_path_status"]);
   const shimDir = typeof raw["shim_dir"] === "string" ? raw["shim_dir"] : "";
   return {
     path_status: pathStatus,
     path_contains_shim_dir: raw["path_contains_shim_dir"] === true,
     restart_shell_required: raw["restart_shell_required"] === true,
+    process_path_status: processPathStatus,
+    process_restart_required: raw["process_restart_required"] === true,
     shell_profile_configured: raw["shell_profile_configured"] === true,
     shell_profile_path: isStringOrNull(raw["shell_profile_path"]) ? raw["shell_profile_path"] : null,
     shim_dir: shimDir,
     supported_managers: normalizeStringArray(raw["supported_managers"]),
+    detected_managers: normalizeStringArray(raw["detected_managers"]),
     installed_managers: normalizeStringArray(raw["installed_managers"]),
     active_managers: normalizeStringArray(raw["active_managers"]),
     missing_shims: normalizeStringArray(raw["missing_shims"]),
@@ -956,15 +1656,141 @@ function normalizeCloudCommandCapability(raw: unknown): GuardRuntimeSnapshot["cl
   };
 }
 
+function nonNegativeNumber(value: unknown): number {
+  return typeof value === "number" && Number.isFinite(value) && value >= 0 ? value : 0;
+}
+
+export function normalizeOperatorHealth(raw: unknown): GuardRuntimeSnapshot["operator_health"] {
+  if (!isRecord(raw)) {
+    return undefined;
+  }
+  const state = raw["state"];
+  const cause = raw["cause"];
+  const automaticRecovery = raw["automatic_recovery"];
+  if (
+    !["healthy", "backlogged", "saturated", "store-contended"].includes(String(state))
+    || typeof cause !== "string"
+    || typeof automaticRecovery !== "string"
+  ) {
+    return undefined;
+  }
+  return {
+    state: state as "healthy" | "backlogged" | "saturated" | "store-contended",
+    cause,
+    automatic_recovery: automaticRecovery,
+    repairable: raw["repairable"] === true,
+    queue_depth: nonNegativeNumber(raw["queue_depth"]),
+    queue_limit: nonNegativeNumber(raw["queue_limit"]),
+    oldest_wait_ms: nonNegativeNumber(raw["oldest_wait_ms"]),
+    workers_busy: nonNegativeNumber(raw["workers_busy"]),
+    workers_ready: nonNegativeNumber(raw["workers_ready"]),
+    workers_configured: nonNegativeNumber(raw["workers_configured"]),
+  };
+}
+
 export function normalizeRuntimeSnapshot(snapshot: RuntimeSnapshotPayload): GuardRuntimeSnapshot {
+  const protectionHealth = normalizeProtectionHealth(snapshot.protection_health);
+  const runtimeState = normalizeRuntimeState(snapshot.runtime_state);
+  const headline = protectionHeadlineFor({
+    health: protectionHealth,
+    runtimeActive: runtimeState !== null,
+    pendingCount: snapshot.pending_count,
+  });
   return {
     ...snapshot,
+    ...headline,
+    runtime_state: runtimeState,
     items: normalizeApprovalRequests(snapshot.items),
+    latest_receipts: normalizeReceipts(snapshot.latest_receipts),
+    inventory: normalizeInventory(snapshot.inventory),
     queue_summary: normalizeQueueSummary(snapshot.queue_summary, snapshot.pending_count),
     supply_chain: normalizeSupplyChainSnapshot(snapshot.supply_chain),
     managed_installs: normalizeManagedInstalls(snapshot.managed_installs),
     cloud_command_capability: normalizeCloudCommandCapability(snapshot.cloud_command_capability),
+    operator_health: normalizeOperatorHealth(snapshot.operator_health),
+    protection_health: protectionHealth,
   };
+}
+
+function normalizeRuntimeState(raw: unknown): GuardRuntimeState | null {
+  if (!isRecord(raw)) {
+    return null;
+  }
+  const sessionId = raw["session_id"];
+  const daemonHost = raw["daemon_host"];
+  const daemonPort = raw["daemon_port"];
+  const startedAt = raw["started_at"];
+  const lastHeartbeatAt = raw["last_heartbeat_at"];
+  const approvalCenterUrl = raw["approval_center_url"];
+  if (
+    typeof sessionId !== "string" ||
+    sessionId.length === 0 ||
+    typeof daemonHost !== "string" ||
+    !isLoopbackRuntimeHost(daemonHost) ||
+    typeof daemonPort !== "number" ||
+    !Number.isInteger(daemonPort) ||
+    daemonPort <= 0 ||
+    daemonPort > 65_535 ||
+    typeof startedAt !== "string" ||
+    parseAwareTimestamp(startedAt) === null ||
+    typeof lastHeartbeatAt !== "string" ||
+    !isFreshAwareTimestamp(lastHeartbeatAt) ||
+    typeof approvalCenterUrl !== "string" ||
+    !isMatchingRuntimeUrl(approvalCenterUrl, daemonHost, daemonPort)
+  ) {
+    return null;
+  }
+  return {
+    session_id: sessionId,
+    daemon_host: daemonHost,
+    daemon_port: daemonPort,
+    started_at: startedAt,
+    last_heartbeat_at: lastHeartbeatAt,
+    approval_center_url: approvalCenterUrl,
+  };
+}
+
+function parseAwareTimestamp(value: string): number | null {
+  if (!/(?:Z|[+-]\d{2}:\d{2})$/u.test(value)) {
+    return null;
+  }
+  const timestamp = Date.parse(value);
+  return Number.isFinite(timestamp) ? timestamp : null;
+}
+
+function isFreshAwareTimestamp(value: string): boolean {
+  const timestamp = parseAwareTimestamp(value);
+  if (timestamp === null) {
+    return false;
+  }
+  const now = Date.now();
+  return (
+    timestamp >= now - RUNTIME_HEARTBEAT_MAX_AGE_MS &&
+    timestamp <= now + RUNTIME_HEARTBEAT_FUTURE_TOLERANCE_MS
+  );
+}
+
+function isLoopbackRuntimeHost(value: string): boolean {
+  return value === "127.0.0.1" || value === "localhost" || value === "::1";
+}
+
+function isMatchingRuntimeUrl(value: string, daemonHost: string, daemonPort: number): boolean {
+  try {
+    const url = new URL(value);
+    const hostname = url.hostname.startsWith("[") ? url.hostname.slice(1, -1) : url.hostname;
+    return (
+      url.protocol === "http:" &&
+      hostname === daemonHost &&
+      Number(url.port) === daemonPort &&
+      url.username.length === 0 &&
+      url.password.length === 0 &&
+      url.pathname === "/" &&
+      url.search.length === 0 &&
+      url.hash.length === 0
+    );
+  } catch {
+    return false;
+  }
 }
 
 function normalizeQueueCopy(raw: unknown): GuardQueueResolutionCopy | null {
@@ -1061,9 +1887,13 @@ function queuePath(basePath: string, params: URLSearchParams): string {
 const PENDING_QUEUE_PAGE_LIMIT = 200;
 const MAX_PENDING_QUEUE_PAGES = 50;
 
-export async function fetchAllPendingRequests(): Promise<GuardApprovalRequest[]> {
+type PendingRequestPageCallback = (items: GuardApprovalRequest[]) => void;
+
+export async function fetchAllPendingRequests(onPage?: PendingRequestPageCallback): Promise<GuardApprovalRequest[]> {
   if (isGuardDemoMode()) {
-    return getDemoRequests();
+    const demoRequests = getDemoRequests();
+    onPage?.(demoRequests);
+    return demoRequests;
   }
   const items: GuardApprovalRequest[] = [];
   let cursor: string | undefined;
@@ -1075,6 +1905,7 @@ export async function fetchAllPendingRequests(): Promise<GuardApprovalRequest[]>
       includeTotals: pageIndex === 0,
     });
     items.push(...page.items);
+    onPage?.([...items]);
     if (!page.next_cursor || page.next_cursor === cursor) {
       return items;
     }
@@ -1099,6 +1930,24 @@ function runtimeSnapshotSearchParams(
   return params;
 }
 
+export class GuardSessionUnavailableError extends Error {
+  constructor() {
+    super("Guard dashboard session is not available. Reopen the Guard dashboard from the authenticated URL.");
+    this.name = "GuardSessionUnavailableError";
+  }
+}
+
+/**
+ * Fail fast when the dashboard has no session token. Without this gate,
+ * auth-required polling loops keep issuing requests that the daemon rejects
+ * with 401s, generating a steady stream of unauthorized audit events.
+ */
+function requireGuardSessionToken(): void {
+  if (!readGuardToken()) {
+    throw new GuardSessionUnavailableError();
+  }
+}
+
 export async function fetchInboxState(input: { activeRequestId?: string } = {}): Promise<{
   snapshot: GuardRuntimeSnapshot;
   items: GuardApprovalRequest[];
@@ -1107,6 +1956,7 @@ export async function fetchInboxState(input: { activeRequestId?: string } = {}):
     const snapshot = buildDemoRuntimeSnapshot();
     return { snapshot, items: snapshot.items };
   }
+  requireGuardSessionToken();
   const [snapshotPayload, items] = await Promise.all([
     readJson<RuntimeSnapshotPayload>(
       queuePath("/v1/runtime", runtimeSnapshotSearchParams({ ...input, includeItems: false, includeReceipts: false })),
@@ -1134,6 +1984,7 @@ export async function fetchApprovalPage(input: GuardApprovalPageFilters = {}): P
       status: input.status ?? "pending"
     };
   }
+  requireGuardSessionToken();
   const payload = await readJson<ApprovalRequestListPayload>(queuePath("/v1/requests", queueSearchParams(input)));
   return normalizeApprovalPage(payload, input.status ?? "pending");
 }
@@ -1144,6 +1995,7 @@ export async function fetchRuntimeSnapshot(
   if (isGuardDemoMode()) {
     return buildDemoRuntimeSnapshot();
   }
+  requireGuardSessionToken();
   const params = runtimeSnapshotSearchParams(input);
   const query = params.toString();
   const path = query.length > 0 ? `/v1/runtime?${query}` : "/v1/runtime";
@@ -1155,6 +2007,7 @@ export async function fetchQueueSummary(input: { activeRequestId?: string } = {}
   if (isGuardDemoMode()) {
     return buildDemoRuntimeSnapshot().queue_summary ?? normalizeQueueSummary(null, getDemoRequests().length);
   }
+  requireGuardSessionToken();
   const params = new URLSearchParams();
   if (input.activeRequestId) {
     params.set("active_request_id", input.activeRequestId);
@@ -1229,6 +2082,18 @@ export function buildDemoRuntimeSnapshot(): GuardRuntimeSnapshot {
       last_heartbeat_at: now,
       approval_center_url: "http://127.0.0.1:4455"
     },
+    operator_health: {
+      state: "healthy",
+      cause: "Local reviews are processing within available capacity.",
+      automatic_recovery: "Guard drains queued work and adjusts ready workers automatically.",
+      repairable: false,
+      queue_depth: 0,
+      queue_limit: 256,
+      oldest_wait_ms: 0,
+      workers_busy: 1,
+      workers_ready: 3,
+      workers_configured: 4,
+    },
     device: {
       installation_id: "demo-device-7f4a9c2d",
       device_label: "Demo MacBook Pro",
@@ -1266,11 +2131,11 @@ export function buildDemoRuntimeSnapshot(): GuardRuntimeSnapshot {
     },
     pending_count: demoRequests.length,
     receipt_count: demoReceipts.length,
-    headline_state: demoRequests.length > 0 ? "blocked" : "connected",
-    headline_label: demoRequests.length > 0 ? "Blocked" : "Connected",
+    headline_state: demoRequests.length > 0 ? "needs_decision" : "connected",
+    headline_label: demoRequests.length > 0 ? "Decision needed" : "Connected",
     headline_detail:
       demoRequests.length > 0
-        ? "A blocked action is waiting for review."
+        ? "An action is waiting for a decision in the review queue."
         : "This machine is connected to Guard Cloud and waiting for the first protected session to appear.",
     sync_configured: true,
     cloud_user_profile: {
@@ -1326,8 +2191,8 @@ export async function fetchInventory(): Promise<GuardInventoryItem[]> {
   if (isGuardDemoMode()) {
     return [];
   }
-  const payload = await readJson<{ items: GuardInventoryItem[] }>("/v1/inventory");
-  return payload.items;
+  const payload = await readJson<{ items: RawGuardInventoryItem[] }>("/v1/inventory");
+  return normalizeInventory(payload.items);
 }
 
 export async function fetchSettings(): Promise<GuardSettingsPayload> {
@@ -1361,6 +2226,7 @@ export async function fetchSettings(): Promise<GuardSettingsPayload> {
         approval_browser_immediate_severity: "critical",
         telemetry: false,
         sync: false,
+        receipt_redaction_level: "full",
         billing: false
       }
     };
@@ -1447,14 +2313,43 @@ export async function fetchRequest(requestId: string): Promise<GuardApprovalRequ
   return normalizeApprovalRequest(payload);
 }
 
-type RawGuardReceipt = Omit<GuardReceipt, "action_envelope_json"> & {
-  action_envelope_json?: unknown;
-};
-
 function normalizeReceipt(item: RawGuardReceipt): GuardReceipt {
+  const policyAction = normalizeGuardAction(item.policy_decision);
+  const actionEnvelope = parseActionEnvelope(item.action_envelope_json);
+  const legacyActionMetadata = parseLegacyPackageActionMetadata(item.action_envelope_json);
+  const hasUnknownPolicyAction = !isRecognizedGuardActionInput(item.policy_decision);
+  const hasMalformedActionEnvelope =
+    item.action_envelope_json !== undefined &&
+    item.action_envelope_json !== null &&
+    actionEnvelope === null &&
+    !(legacyActionMetadata.recognized && legacyActionMetadata.action !== null);
+  const hasContradictoryActionEnvelope =
+    (actionEnvelope !== null &&
+      [actionEnvelope.pre_execution_result, actionEnvelope.policy_action].some(
+        (action) => action !== undefined && action !== null && action !== policyAction,
+      )) ||
+    (legacyActionMetadata.recognized && legacyActionMetadata.action !== policyAction);
+  const hasDecisionContractError =
+    item.decision_contract_error !== undefined ||
+    hasUnknownPolicyAction ||
+    hasMalformedActionEnvelope ||
+    hasContradictoryActionEnvelope;
+  const failClosedPolicyAction = hasDecisionContractError
+    ? mostRestrictiveGuardAction(
+        policyAction,
+        "require-reapproval",
+        actionEnvelope?.pre_execution_result,
+        actionEnvelope?.policy_action,
+        legacyActionMetadata.action,
+      )
+    : policyAction;
   return {
     ...item,
-    action_envelope_json: parseActionEnvelope(item.action_envelope_json)
+    policy_decision: failClosedPolicyAction,
+    action_envelope_json: hasDecisionContractError ? null : actionEnvelope,
+    ...(hasDecisionContractError
+      ? { decision_contract_error: AUTHORITATIVE_DECISION_INCONSISTENT }
+      : {}),
   };
 }
 
@@ -1463,6 +2358,25 @@ function normalizeReceipts(items: RawGuardReceipt[] | null | undefined): GuardRe
     return [];
   }
   return items.map(normalizeReceipt);
+}
+
+function normalizeInventory(items: RawGuardInventoryItem[] | null | undefined): GuardInventoryItem[] {
+  if (!Array.isArray(items)) {
+    return [];
+  }
+  return items.map((item) => {
+    const hasDecisionContractError =
+      item.decision_contract_error !== undefined || !isRecognizedGuardActionInput(item.last_policy_action);
+    return {
+      ...item,
+      last_policy_action: hasDecisionContractError
+        ? mostRestrictiveGuardAction(item.last_policy_action, "require-reapproval")
+        : normalizeGuardAction(item.last_policy_action),
+      ...(hasDecisionContractError
+        ? { decision_contract_error: AUTHORITATIVE_DECISION_INCONSISTENT }
+        : {}),
+    };
+  });
 }
 
 export async function fetchReceipts(): Promise<GuardReceipt[]> {
@@ -1552,8 +2466,8 @@ export function normalizeReceiptAnalytics(raw: unknown): GuardReceiptAnalytics |
 }
 
 function buildReceiptAnalyticsFromSample(receipts: GuardReceipt[]): GuardReceiptAnalytics {
-  const allowed = receipts.filter((r) => r.policy_decision === "allow").length;
-  const blocked = receipts.filter((r) => r.policy_decision === "block").length;
+  const allowed = receipts.filter((r) => guardActionDisposition(r.policy_decision) === "allowed").length;
+  const blocked = receipts.filter((r) => guardActionDisposition(r.policy_decision) === "blocked").length;
   const reviewed = receipts.length - allowed - blocked;
   const timestamps = receipts.map((r) => r.timestamp).sort();
   const trend_buckets: GuardReceiptAnalyticsBucket[] = computeTrendBuckets(receipts, 7).map((bucket) => ({
@@ -1672,16 +2586,17 @@ function normalizeGuardCloudConnectStatus(value: unknown): GuardCloudConnectStat
   };
 }
 
-export async function fetchGuardCloudConnectStatus(): Promise<GuardCloudConnectStatusResponse> {
-  return normalizeGuardCloudConnectStatus(await readJson<unknown>("/v1/cloud/connect"));
+export async function fetchGuardCloudConnectStatus(signal?: AbortSignal): Promise<GuardCloudConnectStatusResponse> {
+  return normalizeGuardCloudConnectStatus(await readJson<unknown>("/v1/cloud/connect", { signal }));
 }
 
-export async function startGuardCloudConnect(): Promise<GuardCloudConnectStatusResponse> {
+export async function startGuardCloudConnect(signal?: AbortSignal): Promise<GuardCloudConnectStatusResponse> {
   return normalizeGuardCloudConnectStatus(
     await readJson<unknown>("/v1/cloud/connect", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({}),
+      signal,
     }),
   );
 }
@@ -1907,6 +2822,9 @@ export async function runHarnessAction(input: {
   dryRun?: boolean;
   confirmationPhrase?: string;
 }): Promise<GuardHarnessActionResult> {
+  if (!isConnectableAppHarness(input.harness)) {
+    throw new Error(`${input.harness} is not a connectable AI app.`);
+  }
   if (isGuardDemoMode()) {
     return {
       harness: input.harness,
@@ -1973,13 +2891,7 @@ function fetchGuardApi(input: RequestInfo, init?: RequestInit): Promise<Response
   return fetchWithGuardAuth(input, init);
 }
 
-export async function resolveRequest(input: {
-  requestId: string;
-  action: "allow" | "block";
-  scope: DecisionScope;
-  workspace?: string;
-  reason: string;
-}): Promise<void> {
+export async function resolveRequest(input: GuardApprovalResolutionInput): Promise<void> {
   await resolveRequestWithQueueResult(input);
 }
 
@@ -2090,16 +3002,7 @@ export async function disableApprovalGateTotp(
   });
 }
 
-export async function resolveRequestWithQueueResult(input: {
-  requestId: string;
-  action: "allow" | "block";
-  scope: DecisionScope;
-  workspace?: string;
-  reason: string;
-  approval_password?: string;
-  approval_totp_code?: string;
-  approval_gate_use_cooldown?: boolean;
-}): Promise<GuardQueueResolutionResult> {
+export async function resolveRequestWithQueueResult(input: GuardApprovalResolutionInput): Promise<GuardQueueResolutionResult> {
   if (isGuardDemoMode()) {
     return {
       resolved: true,
@@ -2128,6 +3031,20 @@ export async function resolveRequestWithQueueResult(input: {
       scope: input.scope,
       workspace: input.workspace || undefined,
       reason: input.reason || undefined,
+      ...(input.scope_contract_version !== undefined
+        ? { scope_contract_version: input.scope_contract_version }
+        : {}),
+      ...(input.scope_contract_digest !== undefined
+        ? { scope_contract_digest: input.scope_contract_digest }
+        : {}),
+      ...(input.mcp_grant_target !== undefined ? { mcp_grant_target: input.mcp_grant_target } : {}),
+      ...(input.mcp_grant_duration !== undefined ? { mcp_grant_duration: input.mcp_grant_duration } : {}),
+      ...(input.local_tool_grant_target !== undefined
+        ? { local_tool_grant_target: input.local_tool_grant_target }
+        : {}),
+      ...(input.local_tool_grant_duration !== undefined
+        ? { local_tool_grant_duration: input.local_tool_grant_duration }
+        : {}),
       ...(input.approval_password !== undefined ? { approval_password: input.approval_password } : {}),
       ...(input.approval_totp_code !== undefined ? { approval_totp_code: input.approval_totp_code } : {}),
       ...(input.approval_gate_use_cooldown !== undefined ? { approval_gate_use_cooldown: input.approval_gate_use_cooldown } : {})
@@ -2212,6 +3129,62 @@ export async function repairApprovalCenter(): Promise<{ repaired: boolean; clear
   return response.json() as Promise<{ repaired: boolean; cleared: string[] }>;
 }
 
+export type GuardProtectionRepairResult = {
+  repaired: boolean;
+  repair_scope: "local_integrity";
+  check_ids: string[];
+  message: string;
+};
+
+export class GuardProtectionRepairError extends Error {
+  readonly status: number;
+  readonly code: string | null;
+  readonly repairScope: "local_integrity" | null;
+
+  constructor(status: number, payload: Record<string, unknown> | null) {
+    const message = payload === null ? null : stringValue(payload.message);
+    super(message ?? `Protection repair failed with ${status}`);
+    this.name = "GuardProtectionRepairError";
+    this.status = status;
+    this.code = payload === null ? null : stringValue(payload.error);
+    this.repairScope = payload?.repair_scope === "local_integrity" ? "local_integrity" : null;
+  }
+}
+
+export async function repairProtectionCheck(checkId: string): Promise<GuardProtectionRepairResult> {
+  if (isGuardDemoMode()) {
+    return {
+      repaired: true,
+      repair_scope: "local_integrity",
+      check_ids: [checkId],
+      message: "Protection restored.",
+    };
+  }
+  const response = await fetchWithGuardAuth("/v1/protection/repair", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ check_id: checkId }),
+  });
+  const payload = (await response.json().catch(() => null)) as unknown;
+  if (!response.ok) {
+    throw new GuardProtectionRepairError(response.status, isRecord(payload) ? payload : null);
+  }
+  if (
+    !isRecord(payload)
+    || payload.repaired !== true
+    || payload.repair_scope !== "local_integrity"
+    || !Array.isArray(payload.check_ids)
+  ) {
+    throw new Error("Guard returned an invalid protection repair result.");
+  }
+  return {
+    repaired: true,
+    repair_scope: "local_integrity",
+    check_ids: payload.check_ids.filter((value): value is string => typeof value === "string"),
+    message: stringValue(payload.message) ?? "Protection restored.",
+  };
+}
+
 function normalizeGuardUpdateVersionCheck(raw: unknown): GuardUpdateVersionCheck {
   const value = isRecord(raw) ? raw : {};
   return {
@@ -2224,7 +3197,10 @@ function normalizeGuardUpdateVersionCheck(raw: unknown): GuardUpdateVersionCheck
   };
 }
 
-export function normalizeGuardUpdateStatus(raw: unknown): GuardUpdateStatus {
+export function normalizeGuardUpdateStatus(
+  raw: unknown,
+  fallbackReleaseChannel: "stable" | "alpha" | null = null,
+): GuardUpdateStatus {
   const value = isRecord(raw) ? raw : {};
   const versionCheck = normalizeGuardUpdateVersionCheck(value.version_check);
   const currentVersion = stringValue(value.current_version) ?? versionCheck.current_version ?? "unknown";
@@ -2249,6 +3225,9 @@ export function normalizeGuardUpdateStatus(raw: unknown): GuardUpdateStatus {
     retry_command: typeof value.retry_command === "string" ? value.retry_command : undefined,
     update_attempt_message:
       typeof value.update_attempt_message === "string" ? value.update_attempt_message : undefined,
+    release_channel: isGuardUpdateChannel(value.release_channel)
+      ? value.release_channel
+      : (fallbackReleaseChannel ?? "stable"),
   };
 }
 
@@ -2270,8 +3249,15 @@ export async function fetchGuardUpdateStatus(): Promise<GuardUpdateStatus> {
       blocked_reason: null,
     });
   }
-  const payload = await readJson<unknown>("/v1/update/status");
-  return normalizeGuardUpdateStatus(payload);
+  const payload = await readJson<unknown>("/v1/update/status", { cache: "no-store" });
+  const declaredChannel = isRecord(payload) && isGuardUpdateChannel(payload.release_channel)
+    ? payload.release_channel
+    : null;
+  const status = normalizeGuardUpdateStatus(payload, readRememberedGuardUpdateChannel());
+  if (declaredChannel) {
+    rememberGuardUpdateChannel(declaredChannel);
+  }
+  return status;
 }
 
 export async function scheduleGuardUpdate(
@@ -2289,6 +3275,7 @@ export async function scheduleGuardUpdate(
       : undefined;
   const response = await fetchWithGuardAuth("/v1/update", {
     method: "POST",
+    redirect: "error",
     ...(body
       ? { headers: { "Content-Type": "application/json" }, body }
       : {}),
@@ -2306,6 +3293,38 @@ export async function scheduleGuardUpdate(
     message: stringValue(payload.message) ?? undefined,
     error: stringValue(payload.error) ?? undefined,
   };
+}
+
+export type GuardUpdateChannelProof = {
+  approval_password?: string;
+  approval_totp_code?: string;
+};
+
+export async function setGuardUpdateChannel(
+  channel: "stable" | "alpha",
+  proof?: GuardUpdateChannelProof,
+): Promise<GuardUpdateStatus> {
+  if (isGuardDemoMode()) {
+    return normalizeGuardUpdateStatus({
+      ...(await fetchGuardUpdateStatus()),
+      release_channel: channel,
+    });
+  }
+  const response = await fetchWithGuardAuth("/v1/update/channel", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ update_channel: channel, ...proof }),
+  });
+  const payload = await response.json().catch(() => ({}));
+  if (!response.ok) {
+    const value = isRecord(payload) ? payload : {};
+    throw new Error(stringValue(value.message) ?? `Update channel failed with ${response.status}`);
+  }
+  const declaredChannel = isRecord(payload) && isGuardUpdateChannel(payload.release_channel)
+    ? payload.release_channel
+    : channel;
+  rememberGuardUpdateChannel(declaredChannel);
+  return normalizeGuardUpdateStatus(payload, declaredChannel);
 }
 
 export async function setupDesktopNotifications(): Promise<GuardNotificationSetupResult> {
@@ -2701,6 +3720,12 @@ export function normalizePackageFirewallStatus(value: unknown): PackageFirewallS
       : pathStatusValue === "restart_required"
       ? "restart_required"
       : "missing_from_path";
+  const processPathStatusValue = readPackageShimField(
+    shimStatus,
+    "process_path_status",
+    "processPathStatus",
+  );
+  const processPathStatus = normalizeProcessPathStatus(processPathStatusValue);
   const packageShims = normalizePackageShimEntries(record.package_shims, supportedManagers, rawPathStatus);
   const protectedManagers = packageShims
     .filter((shim) => shim.activation_state === "protected")
@@ -2716,16 +3741,20 @@ export function normalizePackageFirewallStatus(value: unknown): PackageFirewallS
       readPackageShimField(shimStatus, "path_contains_shim_dir", "pathContainsShimDir") === true,
     restart_shell_required:
       readPackageShimField(shimStatus, "restart_shell_required", "restartShellRequired") === true,
+    process_path_status: processPathStatus,
+    process_restart_required:
+      readPackageShimField(shimStatus, "process_restart_required", "processRestartRequired") === true,
     shell_profile_configured:
       readPackageShimField(shimStatus, "shell_profile_configured", "shellProfileConfigured") === true,
     shell_profile_path: isStringOrNull(shellProfilePath) ? (shellProfilePath as string | null) : null,
     shim_dir: stringValue(readPackageShimField(shimStatus, "shim_dir", "shimDir")) ?? "",
     supported_managers: supportedManagers,
+    detected_managers: detectedManagers,
     installed_managers: installedManagers,
     active_managers: activeManagers,
     missing_shims: missingManagers,
     protected_managers: protectedManagers,
-    unprotected_managers: supportedManagers.filter((manager) => !protectedSet.has(manager)),
+    unprotected_managers: detectedManagers.filter((manager) => !protectedSet.has(manager)),
   };
   return {
     actions: normalizePackageFirewallActions(record.actions),
@@ -2818,7 +3847,7 @@ export async function runPackageFirewallAction(
   return normalizePackageFirewallAction(payloadBody);
 }
 
-export async function activatePackageFirewallRuntime(): Promise<void> {
+export async function activatePackageFirewallRuntime(): Promise<string> {
   const response = await fetchGuardApi("/v1/supply-chain/package-shims/activate", {
     method: "POST",
     headers: {
@@ -2827,10 +3856,13 @@ export async function activatePackageFirewallRuntime(): Promise<void> {
     },
     body: JSON.stringify({}),
   });
-  if (response.ok) {
-    return;
-  }
   const payloadBody = (await response.json().catch(() => null)) as unknown;
+  if (response.ok) {
+    if (isRecord(payloadBody) && typeof payloadBody.message === "string" && payloadBody.message.trim()) {
+      return payloadBody.message;
+    }
+    return "Guard verified the shell setup. Open a new terminal to inherit the updated PATH.";
+  }
   if (isRecord(payloadBody) && typeof payloadBody.message === "string" && payloadBody.message.trim()) {
     throw new Error(payloadBody.message);
   }
@@ -2935,6 +3967,76 @@ export async function runPackageSync(credentials?: {
     );
   }
   return normalizePackageFirewallAction(payloadBody);
+}
+
+export async function repairSupplyChainProtection(credentials?: {
+  approval_password?: string;
+  approval_totp_code?: string;
+}): Promise<SupplyChainRepairResult> {
+  if (isGuardDemoMode()) {
+    return {
+      repaired: true,
+      completed_steps: ["package_shims", "runtime_activation", "intelligence_sync"],
+      failed_steps: [],
+      message: "Supply-chain protection restored and refreshed.",
+    };
+  }
+  const response = await fetchGuardApi("/v1/supply-chain/repair", {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      ...guardAuthHeaders(),
+    },
+    body: JSON.stringify({
+      ...(credentials?.approval_password !== undefined
+        ? { approval_password: credentials.approval_password }
+        : {}),
+      ...(credentials?.approval_totp_code !== undefined
+        ? { approval_totp_code: credentials.approval_totp_code }
+        : {}),
+    }),
+  });
+  const payloadBody = (await response.json().catch(() => null)) as unknown;
+  if (!response.ok) {
+    throw new GuardHarnessActionError(
+      response.status,
+      isGuardHarnessActionErrorPayload(payloadBody) ? payloadBody : null,
+    );
+  }
+  if (!isRecord(payloadBody) || !isRecord(payloadBody.result)) {
+    throw new Error("Guard returned an invalid supply-chain repair result.");
+  }
+  const result = payloadBody.result;
+  const failures: SupplyChainRepairStepFailure[] = [];
+  if (Array.isArray(result.failed_steps)) {
+    for (const candidate of result.failed_steps) {
+      if (!isRecord(candidate)) continue;
+      const step = stringValue(candidate.step);
+      const message = stringValue(candidate.message);
+      if (
+        (step === "package_shims" ||
+          step === "runtime_activation" ||
+          step === "intelligence_sync") &&
+        message !== null
+      ) {
+        failures.push({ step, message });
+      }
+    }
+  }
+  const completedSteps = Array.isArray(result.completed_steps)
+    ? result.completed_steps.filter((value): value is string => typeof value === "string")
+    : [];
+  const requiredSteps = ["package_shims", "runtime_activation", "intelligence_sync"];
+  const completedWithoutFailures =
+    Array.isArray(result.failed_steps) &&
+    result.failed_steps.length === 0 &&
+    requiredSteps.every((step) => completedSteps.includes(step));
+  return {
+    repaired: result.repaired === true || (!("repaired" in result) && completedWithoutFailures),
+    completed_steps: completedSteps,
+    failed_steps: failures,
+    message: stringValue(result.message) ?? "Supply-chain repair finished.",
+  };
 }
 
 export type EvidencePageData = {

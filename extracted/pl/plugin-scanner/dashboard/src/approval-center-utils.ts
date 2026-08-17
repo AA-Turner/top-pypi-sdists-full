@@ -9,8 +9,9 @@ import type {
 import { guardAwareHref } from "./guard-api";
 import { resolveQueueCategory } from "./queue-state";
 import { whyPaused } from "./evidence/plain-english";
+import { guardActionPresentation } from "./guard-action";
 
-export const EMPTY_QUEUE_TITLE = "No blocked actions";
+export const EMPTY_QUEUE_TITLE = "Review queue is clear";
 export const STALE_REQUEST_COPY = "This request was already decided.";
 export const QUEUE_CONNECTION_ERROR_HEADLINE = "Guard daemon not reachable: approval links work when Guard is running on this device.";
 export const QUEUE_CONNECTION_ERROR_INSTRUCTION = "Start Guard on this machine, then reload to continue approving or blocking.";
@@ -22,6 +23,16 @@ export type DataFlowEvidenceSummary = {
   signalId: string;
   count: number;
 };
+
+export function isWatchOnlyObservation(item: GuardApprovalRequest): boolean {
+  return (item.scanner_evidence as unknown[] | undefined ?? []).some(
+    (evidence) =>
+      typeof evidence === "object" &&
+      evidence !== null &&
+      "source" in evidence &&
+      evidence.source === "observe_mode_inbox",
+  );
+}
 
 export function deriveDataFlowEvidence(item: GuardApprovalRequest): DataFlowEvidenceSummary | null {
   const signals = item.decision_v2_json?.signals ?? [];
@@ -71,15 +82,40 @@ function resolveDataFlowSinkLabel(signal: RiskSignalV2): string {
   return "External sink";
 }
 
-export function buildRetryAfterApprovalCopy(item: GuardApprovalRequest, action: "allow" | "block"): string {
+export function buildRetryAfterApprovalCopy(
+  item: GuardApprovalRequest,
+  action: "allow" | "block",
+  persistedExactAction = false,
+): string {
   const harness = harnessDisplayName(item.harness);
+  if (isWatchOnlyObservation(item)) {
+    if (persistedExactAction && action === "allow") {
+      return "Saved. Guard will allow this exact action next time when the remembered option is selected.";
+    }
+    if (persistedExactAction) return "Saved. Guard will stop this exact action next time.";
+    return "Reviewed. Watch only already allowed this action to run; no future rule was saved.";
+  }
   if (action === "allow") {
-    return `Approved. Return to ${harness} to resume, or it will continue automatically if still running.`;
+    if (persistedExactAction) {
+      return `Saved. Return to ${harness} to retry. Guard will allow this exact action next time; changed commands still need review.`;
+    }
+    return `Approved once. Return to ${harness} and retry within 15 minutes.`;
   }
   return `Blocked. Return to ${harness} to continue with a different action, or ask it to try something else.`;
 }
 
+function isApplyPatchEnvelope(envelope: GuardActionEnvelope): boolean {
+  return (
+    envelope.action_type === "file_write" &&
+    envelope.tool_name?.trim().toLowerCase() === "apply_patch" &&
+    envelope.command?.trim().startsWith("*** Begin Patch") === true
+  );
+}
+
 export function resolveEnvelopeDisplayText(envelope: GuardActionEnvelope): string | null {
+  if (isApplyPatchEnvelope(envelope) && envelope.command !== null && envelope.command.length > 0) {
+    return envelope.command;
+  }
   if (envelope.action_type === "shell_command" && envelope.command !== null && envelope.command.length > 0) {
     return envelope.command;
   }
@@ -103,6 +139,9 @@ export function resolveActionEnvelopeDetailText(
   envelope: GuardActionEnvelope,
   options: { mcpInputMaxLength?: number | null } = {}
 ): string | null {
+  if (isApplyPatchEnvelope(envelope) && envelope.command !== null && envelope.command.length > 0) {
+    return envelope.command;
+  }
   if (envelope.action_type === "shell_command") {
     return envelope.command !== null && envelope.command.length > 0 ? envelope.command : null;
   }
@@ -172,6 +211,13 @@ export function humanizeChangedFields(values: string[]): string {
 }
 
 export function buildPauseLine(item: GuardApprovalRequest): string {
+  const resolutionBlockReason = requestResolutionBlockReason(item);
+  if (resolutionBlockReason !== null) {
+    return resolutionBlockReason;
+  }
+  if (isWatchOnlyObservation(item)) {
+    return "Watch only let this action run. Guard recorded it because the current policy would have paused it in an enforcing mode.";
+  }
   if (item.policy_action === "block") {
     return `${harnessDisplayName(item.harness)} kept this blocked because you already saved a block decision for it.`;
   }
@@ -182,6 +228,13 @@ export function buildPauseLine(item: GuardApprovalRequest): string {
 }
 
 export function buildRecommendation(item: GuardApprovalRequest): string {
+  const resolutionBlockReason = requestResolutionBlockReason(item);
+  if (resolutionBlockReason !== null) {
+    return resolutionBlockReason;
+  }
+  if (isWatchOnlyObservation(item)) {
+    return "Save an exact allow only when this action is expected. Changed commands, paths, hosts, or tools will still need review.";
+  }
   if (item.changed_fields.length === 1 && item.changed_fields[0] === "first_seen") {
     return "If this is what you expected, approve this retry. Project approval remembers this same action here without trusting new sensitive actions.";
   }
@@ -192,6 +245,10 @@ export function buildRecommendation(item: GuardApprovalRequest): string {
 }
 
 export function buildQueueSummary(item: GuardApprovalRequest): string {
+  const resolutionBlockReason = requestResolutionBlockReason(item);
+  if (resolutionBlockReason !== null) {
+    return resolutionBlockReason;
+  }
   if (item.policy_action === "block") {
     return "You already chose to block this action.";
   }
@@ -245,16 +302,7 @@ export function scopeLabel(scope: string, variant: "review" | "policy" = "review
 }
 
 export function policyActionLabel(action: string): string {
-  switch (action) {
-    case "require-reapproval":
-      return "Needs review";
-    case "block":
-      return "Blocked";
-    case "allow":
-      return "Allowed";
-    default:
-      return action;
-  }
+  return guardActionPresentation(action).label;
 }
 
 export function artifactTypeLabel(artifactType: string): string {
@@ -301,7 +349,24 @@ export function buildStoppedReason(item: GuardApprovalRequest, receipt: GuardRec
 }
 
 export function buildResumeInstruction(item: GuardApprovalRequest): string {
+  const resolutionBlockReason = requestResolutionBlockReason(item);
+  if (resolutionBlockReason !== null) {
+    return resolutionBlockReason;
+  }
   return `Choose the smallest approval that matches what you meant to do, save it, then retry in ${harnessDisplayName(item.harness)}.`;
+}
+
+export function requestResolutionBlockReason(item: GuardApprovalRequest): string | null {
+  if (item.decision_contract_error !== undefined) {
+    return "HOL Guard found inconsistent stored decision data. This request cannot be approved; rerun the action to create a fresh, consistent review request.";
+  }
+  if (item.policy_action === "sandbox-required") {
+    return "Policy requires this action to run in an approved sandbox. An approval cannot bypass the sandbox requirement.";
+  }
+  if (item.policy_action === "block") {
+    return "Policy terminally blocked this action. This queue record is diagnostic and cannot be overridden by an approval.";
+  }
+  return null;
 }
 
 export function shortConfigPath(path: string): string {
@@ -405,6 +470,10 @@ export function resolveSecondaryRiskSummary(item: GuardApprovalRequest): string 
     return null;
   }
   if (duplicatesStoppedActionText(item, summary)) {
+    return null;
+  }
+  const dashboardDetail = resolveDecisionV2Detail(item);
+  if (dashboardDetail && normalizeDuplicateReviewText(summary) === normalizeDuplicateReviewText(dashboardDetail)) {
     return null;
   }
   return summary;
@@ -544,6 +613,26 @@ export function resolveStoppedCommandText(item: GuardApprovalRequest): string {
   return item.artifact_name.trim() || item.artifact_id;
 }
 
+export function resolveRequestWorkingDirectory(item: GuardApprovalRequest): string | null {
+  const actionType = item.action_envelope_json?.action_type;
+  const artifactType = item.artifact_type.toLowerCase();
+  const isExecutableAction =
+    actionType === "shell_command" ||
+    actionType === "package_script" ||
+    artifactType.includes("command") ||
+    artifactType.includes("shell") ||
+    artifactType.includes("package");
+  if (!isExecutableAction) {
+    return null;
+  }
+  const envelopeWorkspace = item.action_envelope_json?.workspace?.trim();
+  if (envelopeWorkspace) {
+    return envelopeWorkspace;
+  }
+  const requestWorkspace = item.workspace?.trim();
+  return requestWorkspace || null;
+}
+
 function resolvePrimaryReviewText(item: GuardApprovalRequest): string {
   const envelope = item.action_envelope_json;
   if (envelope) {
@@ -613,6 +702,8 @@ export function harnessDisplayName(harness: string): string {
       return "Kimi";
     case "grok":
       return "Grok";
+    case "omp":
+      return "Oh My Pi";
     default:
       return capitalizeHarness(normalized);
   }
@@ -710,7 +801,9 @@ export function resolveApprovalShareUrl(item: GuardApprovalRequest): string | nu
 }
 
 export function resolveTerminalLabel(item: GuardApprovalRequest): string {
-  const actionType = item.action_envelope_json?.action_type;
+  const envelope = item.action_envelope_json;
+  if (envelope && isApplyPatchEnvelope(envelope)) return "Patch";
+  const actionType = envelope?.action_type;
   if (actionType === "shell_command") return "Command";
   if (actionType === "prompt") return "Prompt excerpt";
   if (actionType === "file_read" || actionType === "file_write") return "File path";
@@ -722,7 +815,7 @@ export function resolveTerminalLabel(item: GuardApprovalRequest): string {
   if (item.artifact_type === "prompt_request") return "Prompt excerpt";
   if (item.artifact_type === "tool_action_request") return "Tool action";
 
-  return "Stopped command";
+  return "Command";
 }
 
 export type CodexResumeUx = {

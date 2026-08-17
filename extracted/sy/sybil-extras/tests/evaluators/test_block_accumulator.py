@@ -21,7 +21,10 @@ class _ConcurrencyTrackingNamespace(dict[str, object]):
         self.max_concurrent = 0
         self._lock = threading.Lock()
 
-    def get(self, key: object, default: object = None) -> object:
+    # ``dict.get`` accepts an optional second argument. Taking it as
+    # ``*default`` keeps the override compatible without giving this
+    # signature a default.
+    def get(self, key: object, /, *default: object) -> object:
         """Get a value while recording how many reads overlap."""
         with self._lock:
             self._active += 1
@@ -31,7 +34,7 @@ class _ConcurrencyTrackingNamespace(dict[str, object]):
             # ``key`` is typed ``object`` to match ``dict.get`` across type
             # checkers; the namespace is only ever queried with string keys.
             assert isinstance(key, str)
-            return super().get(key, default)
+            return super().get(key, *default)
         finally:
             with self._lock:
                 self._active -= 1

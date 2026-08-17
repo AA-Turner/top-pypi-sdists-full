@@ -412,7 +412,7 @@ def test_codex_guard_proxy_falls_back_to_approval_center_when_client_cannot_elic
     assert pending[0]["artifact_type"] == "tool_call"
 
 
-def test_codex_guard_proxy_observe_mode_allows_risky_tool_calls_and_still_queues_review(tmp_path):
+def test_codex_guard_proxy_observe_mode_allows_risky_tool_calls_without_approval_request(tmp_path):
     context = _context(tmp_path)
     store = GuardStore(context.guard_home)
     config = GuardConfig(guard_home=context.guard_home, workspace=context.workspace_dir, mode="observe")
@@ -442,8 +442,18 @@ def test_codex_guard_proxy_observe_mode_allows_risky_tool_calls_and_still_queues
 
     assert result["responses"][1]["result"]["content"][0]["text"] == "dangerous_delete"
     assert json.loads(marker_path.read_text(encoding="utf-8"))["name"] == "dangerous_delete"
-    assert len(pending) == 1
-    assert store.list_receipts(limit=1)[0]["policy_decision"] == "require-reapproval"
+    assert pending == []
+    event = result["events"][1]
+    assert event["decision"] == "allow"
+    assert event["policy_action"] == "allow"
+    assert event["observed_policy_action"] == "require-reapproval"
+    receipt = store.list_receipts(limit=1)[0]
+    assert receipt["policy_decision"] == "allow"
+    assert receipt["scanner_evidence"][-1] == {
+        "source": "observe_mode",
+        "observed_policy_action": "require-reapproval",
+        "authoritative_action": "allow",
+    }
 
 
 def test_codex_guard_proxy_queues_approval_when_inline_prompt_gets_no_response(tmp_path):
@@ -1180,7 +1190,7 @@ def test_codex_guard_proxy_buffers_other_inline_approval_responses(tmp_path):
 
 @pytest.mark.parametrize(
     ("action", "forwards", "receipt_action"),
-    (("warn", True, "warn"), ("review", False, "require-reapproval")),
+    (("warn", True, "warn"), ("review", False, "review")),
 )
 def test_codex_guard_proxy_only_passes_through_policy_actions_that_permit_execution(
     monkeypatch,
@@ -1232,7 +1242,7 @@ def test_codex_guard_proxy_only_passes_through_policy_actions_that_permit_execut
         assert json.loads(marker_path.read_text(encoding="utf-8"))["name"] == "dangerous_delete"
         assert store.count_approval_requests() == 0
     else:
-        assert result["responses"][1]["error"]["data"]["guardPolicyAction"] == "require-reapproval"
+        assert result["responses"][1]["error"]["data"]["guardPolicyAction"] == "review"
         assert marker_path.exists() is False
         assert store.count_approval_requests() == 1
     assert store.list_receipts(limit=1)[0]["policy_decision"] == receipt_action

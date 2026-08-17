@@ -23,6 +23,12 @@ if TYPE_CHECKING:
     from .commands_support_runtime_artifacts import _codex_command_references_sensitive_local_source
 
 
+from ..runtime.git_execution_safety import (
+    git_config_routing_environment_is_clean,
+    git_status_args_are_read_only,
+    git_status_has_execution_free_config,
+    trusted_git_binary_for_cwd,
+)
 from ..runtime.secret_file_requests import (
     COMMAND_CANDIDATE_LIST_KEYS,
     COMMAND_SEQUENCE_KEYS,
@@ -142,7 +148,7 @@ def _codex_command_parts_are_git_grep(parts: list[str]) -> bool:
     return bool(parts) and Path(parts[0]).name.lower() == "git" and _git_grep_search_args(parts[1:]) is not None
 
 def _codex_command_part_is_local_reader(parts: list[str], index: int, *, cwd: Path | None) -> bool:
-    local_read_commands = {"cat", "grep", "head", "rg", "sed", "tail"}
+    local_read_commands = {"cat", "grep", "head", "nl", "rg", "sed", "tail", "wc", "yq"}
     executable = Path(parts[index]).name.lower()
     if executable not in local_read_commands:
         return False
@@ -164,8 +170,54 @@ def _codex_post_tool_command_is_read_only_source_inspection(
     command_texts = _codex_post_tool_command_texts(payload)
     return bool(command_texts) and all(
         _codex_command_is_read_only_source_inspection(command_text, cwd=cwd, home_dir=home_dir)
+        or _codex_command_is_read_only_git_metadata(command_text, cwd=cwd)
         for command_text in command_texts
     )
+
+
+def _codex_command_is_read_only_git_metadata(
+    command_text: str,
+    *,
+    cwd: Path | None = None,
+) -> bool:
+    if any(marker in command_text for marker in ("\n", "\r", ";", "&", "|", "<", ">", "`", "$(")):
+        return False
+    try:
+        parts = shlex.split(command_text)
+    except ValueError:
+        return False
+    if not parts or parts[0] != "git":
+        return False
+    try:
+        execution_cwd = (cwd or Path.cwd()).resolve()
+    except (OSError, RuntimeError):
+        return False
+    if trusted_git_binary_for_cwd(execution_cwd) is None or not git_config_routing_environment_is_clean():
+        return False
+    args = parts[1:]
+    if args[:1] == ["-C"]:
+        if len(args) < 3:
+            return False
+        target = Path(args[1]).expanduser()
+        try:
+            target = (target if target.is_absolute() else execution_cwd / target).resolve(strict=True)
+            target.relative_to(execution_cwd)
+        except (OSError, RuntimeError, ValueError):
+            return False
+        if not target.is_dir():
+            return False
+        execution_cwd = target
+        args = args[2:]
+    if not args or args[0].startswith("-"):
+        return False
+    if args[0] == "status":
+        return git_status_args_are_read_only(args) and git_status_has_execution_free_config(execution_cwd)
+    if args[0:2] == ["worktree", "list"]:
+        return all(
+            arg in {"--porcelain", "-v", "--verbose", "-z"} or arg.startswith("--expire=")
+            for arg in args[2:]
+        )
+    return args[0:2] == ["branch", "--list"] and all(not arg.startswith("-") for arg in args[2:])
 
 
 def _codex_post_tool_command_text(payload: dict[str, object]) -> str:
@@ -209,9 +261,9 @@ def _codex_post_tool_command_texts(payload: dict[str, object]) -> tuple[str, ...
 
 _CODEX_READ_ONLY_SEARCH_COMMANDS = frozenset({"fd", "rg", "grep", "egrep", "fgrep"})
 
-_CODEX_READ_ONLY_VIEW_COMMANDS = frozenset({"cat", "head", "tail", "sed"})
+_CODEX_READ_ONLY_VIEW_COMMANDS = frozenset({"cat", "head", "nl", "tail", "sed", "wc", "yq"})
 
-_CODEX_READ_ONLY_PIPE_FILTERS = frozenset({"head", "tail", "sed"})
+_CODEX_READ_ONLY_PIPE_FILTERS = frozenset({"cat", "head", "nl", "tail", "sed", "wc"})
 
 _CODEX_READ_ONLY_SEARCH_WRAPPERS = frozenset({"bash", "sh", "zsh"})
 
@@ -340,6 +392,7 @@ _CODEX_GIT_DIFF_BOOLEAN_OPTIONS = frozenset(
         "--shortstat",
         "--stat",
         "--summary",
+        "--staged",
     }
 )
 

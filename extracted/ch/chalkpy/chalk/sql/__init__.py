@@ -266,6 +266,9 @@ def PostgreSQLSource(
     engine_args: dict[str, Any] | None = ...,
     async_engine_args: dict[str, Any] | None = ...,
     permission_tags: list[str] | None = ...,
+    aws_iam_auth: bool | str | None = ...,
+    aws_region: str | None = ...,
+    aws_role_arn: str | None = ...,
 ) -> SQLSourceWithTableIngestProtocol:
     """You can also configure the integration directly using environment
     variables on your local machine or from those added through the
@@ -289,6 +292,17 @@ def PostgreSQLSource(
         Additional arguments to use when constructing the SQLAlchemy engine.
     async_engine_args
         Additional arguments to use when constructing an async SQLAlchemy engine.
+    aws_iam_auth
+        Authenticate to Amazon RDS with IAM instead of a password. Chalk mints a short-lived
+        auth token for each connection, so no password is stored. The database user must have
+        been granted `rds_iam`, and Chalk's IAM principal needs `rds-db:connect` on it.
+        RDS requires TLS for IAM connections.
+    aws_region
+        AWS region of the RDS instance, used when signing IAM auth tokens. Defaults to the
+        ambient AWS configuration chain. Only used when `aws_iam_auth` is set.
+    aws_role_arn
+        Optional IAM role to assume before signing IAM auth tokens, for cross-account access.
+        Only used when `aws_iam_auth` is set.
 
     Returns
     -------
@@ -324,6 +338,9 @@ def PostgreSQLSource(
     engine_args: Optional[Dict[str, Any]] = None,
     async_engine_args: Optional[Dict[str, Any]] = None,
     permission_tags: list[str] | None = None,
+    aws_iam_auth: Optional[Union[bool, str]] = None,
+    aws_region: Optional[str] = None,
+    aws_role_arn: Optional[str] = None,
 ) -> TableIngestProtocol:
     """Create a PostgreSQL data source. SQL-based data sources
     created without arguments assume a configuration in your
@@ -344,6 +361,9 @@ def PostgreSQLSource(
         engine_args=engine_args,
         async_engine_args=async_engine_args,
         permission_tags=permission_tags,
+        aws_iam_auth=aws_iam_auth,
+        aws_region=aws_region,
+        aws_role_arn=aws_role_arn,
     )
 
 

@@ -1,17 +1,19 @@
 import argparse
 import codecs
-import re
-from pathlib import Path
-from io import TextIOWrapper
-import sys
-from textwrap import dedent
-from typing import Any, Optional
-
-from .formats import get_file_extension, FORMAT_IDENTIFIERS
-from .time import make_time
-from .ssafile import SSAFile
-from .common import VERSION
 import logging
+import re
+import sys
+from io import TextIOWrapper
+from pathlib import Path
+from textwrap import dedent
+from typing import Any
+
+from .common import VERSION
+from .formats import FORMAT_IDENTIFIERS, get_file_extension
+from .ssafile import SSAFile
+from .time import make_time
+
+logger = logging.getLogger(__name__)
 
 
 def positive_float(s: str) -> float:
@@ -33,7 +35,7 @@ def time(s: str) -> int:
     d = {}
     for v, k in re.findall(r"(\d*\.?\d*)(ms|m|s|h)", s):
         d[k] = float(v)
-    return make_time(**d)  # type: ignore  # Argument 1 has incomp. type "**Dict[Any, float]"; expected "Optional[int]"
+    return make_time(**d)  # type: ignore
 
 
 class Pysubs2CLI:
@@ -131,7 +133,7 @@ class Pysubs2CLI:
         if args.verbose:
             logging.basicConfig(level=logging.DEBUG)
         
-        output_dir: Optional[Path] = args.output_dir
+        output_dir: Path | None = args.output_dir
 
         if output_dir is not None and not output_dir.exists():
             output_dir.mkdir(parents=True)
@@ -149,8 +151,8 @@ class Pysubs2CLI:
             extra_output_args["keep_ssa_tags"] = True
         if args.sub_no_write_fps_declaration:
             extra_output_args["write_fps_declaration"] = False
-        logging.debug("Extra arguments to SSAFile.from_file(): %r", extra_input_args)
-        logging.debug("Extra arguments to SSAFile.to_file(): %r", extra_output_args)
+        logger.debug("Extra arguments to SSAFile.from_file(): %r", extra_input_args)
+        logger.debug("Extra arguments to SSAFile.to_file(): %r", extra_output_args)
 
         input_paths: list[Path] = args.files
         if input_paths:
@@ -163,7 +165,7 @@ class Pysubs2CLI:
                     errors += 1
                 else:
                     with inpath.open("r", encoding=args.input_enc, errors=args.enc_error_handling) as infile:
-                        subs = SSAFile.from_file(infile, args.input_format, args.fps, **extra_input_args)
+                        subs = SSAFile.from_file(infile, args.input_format, fps=args.fps, **extra_input_args)
 
                     self.process(subs, args)
 
@@ -182,17 +184,17 @@ class Pysubs2CLI:
                         outpath = output_dir / filename
 
                     with outpath.open("w", encoding=args.output_enc, errors=args.enc_error_handling) as outfile:
-                        subs.to_file(outfile, output_format, args.fps, apply_styles=not args.clean,
+                        subs.to_file(outfile, output_format, fps=args.fps, apply_styles=not args.clean,
                                      **extra_output_args)
         elif not sys.stdin.isatty():
             infile = TextIOWrapper(sys.stdin.buffer, encoding=args.input_enc, errors=args.enc_error_handling)
             outfile = TextIOWrapper(sys.stdout.buffer, encoding=args.output_enc, errors=args.enc_error_handling)
 
-            subs = SSAFile.from_file(infile, args.input_format, args.fps)
+            subs = SSAFile.from_file(infile, args.input_format, fps=args.fps)
             self.process(subs, args)
             output_format = args.output_format or subs.format
             assert output_format is not None, "output_format must not be None (it's either given or inferred at read time)"
-            subs.to_file(outfile, output_format, args.fps, apply_styles=not args.clean)
+            subs.to_file(outfile, output_format, fps=args.fps, apply_styles=not args.clean)
         else:
             self.parser.print_help()
             errors += 1

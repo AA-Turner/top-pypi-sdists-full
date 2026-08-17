@@ -77,6 +77,9 @@ MODEL_OVERRIDES: List[Tuple[str, str, Dict[str, Any]]] = [
     ("*", "glm-4.6", {"supports_vision": False, "supports_native_pdf": False}),
     ("*", "glm-4.7", {"supports_vision": False, "supports_native_pdf": False}),
     ("*", "glm-4.7v", {"supports_vision": True, "supports_native_pdf": False}),
+    # Kimi K2 / K2 Thinking are text-only; K2.5 (vision) stays on the Bedrock defaults.
+    ("*", "kimi-k2", {"supports_vision": False, "supports_native_pdf": False}),
+    ("*", "kimi-k2.5", {"supports_vision": True, "supports_native_pdf": True}),
     # Gateway routing fallbacks: gpt-4.1-nano / gpt-5-nano do vision, not type:'file'.
     ("openai", "gpt-4.1-nano", {"supports_vision": True, "supports_native_pdf": False}),
     ("openai", "gpt-5-nano", {"supports_vision": True, "supports_native_pdf": False}),

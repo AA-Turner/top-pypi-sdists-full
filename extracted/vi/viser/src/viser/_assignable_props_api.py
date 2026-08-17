@@ -24,7 +24,7 @@ def colors_to_uint8(colors: np.ndarray) -> npt.NDArray[np.uint8]:
     if colors.dtype != np.uint8:
         if np.issubdtype(colors.dtype, np.floating):
             colors = np.clip(colors * 255.0, 0, 255).astype(np.uint8)
-        if np.issubdtype(colors.dtype, np.integer):
+        elif np.issubdtype(colors.dtype, np.integer):
             colors = np.clip(colors, 0, 255).astype(np.uint8)
     return colors
 
@@ -143,17 +143,30 @@ def props_setattr(self, name: str, value: Any) -> None:
                 current_value[:] = value
             else:
                 setattr(self._impl.props, name, value.copy())
+            # Queue a private snapshot for the wire. It must alias NEITHER the
+            # caller's ``value`` (which the caller may mutate after assignment,
+            # e.g. an animation loop reusing one buffer) NOR the server's stored
+            # array (which a later same-shape update mutates in place, possibly
+            # while the event-loop thread is still serializing this message).
+            queued: Any = value.copy()
         else:
-            # Non-array properties
+            # Non-array properties (immutable / already a fresh cast).
             setattr(self._impl.props, name, value)
+            queued = value
     else:
         return object.__setattr__(self, name, value)
 
-    self._queue_update(name, value)
+    self._queue_update(name, queued)
     self._on_prop_assigned(name)
 
 
 def props_getattr(self, name: str) -> Any:
+    # This only works because *Props dataclass fields never have defaults:
+    # a field default would become a class attribute on the handle (which
+    # inherits the props dataclass for typing), and normal attribute lookup
+    # would find it before __getattr__ is consulted -- reads would return
+    # the default forever instead of the live value. Enforced by
+    # tests/test_handle_prop_reads.py.
     if name in self._prop_hints:
         return getattr(self._impl.props, name)
     else:

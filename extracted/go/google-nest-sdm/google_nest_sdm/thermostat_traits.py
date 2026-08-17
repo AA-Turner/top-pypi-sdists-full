@@ -1,14 +1,14 @@
 """Traits for thermostats."""
 
-from __future__ import annotations
-
+import asyncio
+import logging
 from dataclasses import dataclass, field
-from typing import Final, ClassVar
+from typing import Any, ClassVar, Final, Self
 
 import aiohttp
-from mashumaro import field_options, DataClassDictMixin
+from mashumaro import field_options
 
-from .traits import CommandDataClass, TraitType
+from .traits import BaseTrait, CommandDataClass, TraitType
 
 __all__ = [
     "ThermostatEcoTrait",
@@ -17,13 +17,63 @@ __all__ = [
     "ThermostatTemperatureSetpointTrait",
 ]
 
+_LOGGER = logging.getLogger(__name__)
+
 STATUS: Final = "status"
 AVAILABLE_MODES: Final = "availableModes"
 MODE: Final = "mode"
 
 
+@dataclass(frozen=True)
+class PendingSetpoint:
+    """Represents a setpoint modification waiting to be dispatched."""
+
+    heat_celsius: float | None = None
+    cool_celsius: float | None = None
+
+    def merge(self, other: Self) -> Self:
+        """Merge a new setpoint request into this pending setpoint."""
+        return self.__class__(
+            heat_celsius=(
+                other.heat_celsius
+                if other.heat_celsius is not None
+                else self.heat_celsius
+            ),
+            cool_celsius=(
+                other.cool_celsius
+                if other.cool_celsius is not None
+                else self.cool_celsius
+            ),
+        )
+
+    def as_command(self) -> dict[str, Any]:
+        """Convert this pending setpoint into an SDM API command payload."""
+        if self.heat_celsius is not None and self.cool_celsius is not None:
+            return {
+                "command": "sdm.devices.commands.ThermostatTemperatureSetpoint.SetRange",
+                "params": {
+                    "heatCelsius": self.heat_celsius,
+                    "coolCelsius": self.cool_celsius,
+                },
+            }
+
+        if self.heat_celsius is not None:
+            return {
+                "command": "sdm.devices.commands.ThermostatTemperatureSetpoint.SetHeat",
+                "params": {"heatCelsius": self.heat_celsius},
+            }
+
+        if self.cool_celsius is not None:
+            return {
+                "command": "sdm.devices.commands.ThermostatTemperatureSetpoint.SetCool",
+                "params": {"coolCelsius": self.cool_celsius},
+            }
+
+        raise ValueError("Invalid pending setpoint state: neither heat nor cool is set")
+
+
 @dataclass
-class ThermostatEcoTrait(DataClassDictMixin, CommandDataClass):
+class ThermostatEcoTrait(CommandDataClass):
     """This trait belongs to any device that has a sensor to measure temperature."""
 
     NAME: ClassVar[TraitType] = TraitType.THERMOSTAT_ECO
@@ -56,7 +106,7 @@ class ThermostatEcoTrait(DataClassDictMixin, CommandDataClass):
 
 
 @dataclass
-class ThermostatHvacTrait:
+class ThermostatHvacTrait(BaseTrait):
     """This trait belongs to devices that can report HVAC details."""
 
     NAME: ClassVar[TraitType] = TraitType.THERMOSTAT_HVAC
@@ -66,7 +116,7 @@ class ThermostatHvacTrait:
 
 
 @dataclass
-class ThermostatModeTrait(DataClassDictMixin, CommandDataClass):
+class ThermostatModeTrait(CommandDataClass):
     """This trait belongs to devices that support different thermostat modes."""
 
     NAME: ClassVar[TraitType] = TraitType.THERMOSTAT_MODE
@@ -87,8 +137,20 @@ class ThermostatModeTrait(DataClassDictMixin, CommandDataClass):
 
 
 @dataclass
-class ThermostatTemperatureSetpointTrait(DataClassDictMixin, CommandDataClass):
-    """This trait belongs to devices that support setting target temperature."""
+class ThermostatTemperatureSetpointTrait(CommandDataClass):
+    """This trait belongs to devices that support setting target temperature.
+
+    Commands sent through `set_heat()`, `set_cool()`, and `set_range()` enforce
+    progressive rate limiting and command coalescing:
+    - **Rate Limiting**: Commands respect a graduated delay schedule via `RateLimiter`
+      to avoid hitting Nest SDM API rate limits.
+    - **Coalescing**: Concurrent or rapid calls occurring during a throttle delay window
+      merge into a single pending setpoint (e.g. rapid separate heat and cool changes
+      are combined into a single `SetRange` API command).
+    - **Blocking Await**: Callers await the actual rate-limited dispatch. When multiple
+      callers coalesce, they share the same in-flight dispatch; all callers resolve
+      with the `aiohttp.ClientResponse` on success or receive the raised exception on error.
+    """
 
     NAME: ClassVar[TraitType] = TraitType.THERMOSTAT_TEMPERATURE_SETPOINT
 
@@ -102,29 +164,74 @@ class ThermostatTemperatureSetpointTrait(DataClassDictMixin, CommandDataClass):
     )
     """Highest cooling temperature where thermostat begins cooling."""
 
+    def __post_init__(self) -> None:
+        self._cmd = None
+        self._pending_setpoint: PendingSetpoint | None = None
+        self._pending_future: asyncio.Future[aiohttp.ClientResponse] | None = None
+        self._lock: asyncio.Lock | None = None
+
+    async def _handle_setpoint_request(
+        self, setpoint: PendingSetpoint
+    ) -> aiohttp.ClientResponse:
+        """Handle incoming setpoint change with coalescing and blocking dispatch.
+
+        Merges the requested setpoint into any currently queued pending setpoint.
+        If a dispatch is already waiting on the rate limiter (leader), this caller
+        joins as a follower and awaits the shared future. The leader acquires the rate
+        limiter, dispatches the combined command payload to the SDM API, and resolves
+        or propagates exceptions to all waiting callers.
+        """
+        if self._lock is None:
+            self._lock = asyncio.Lock()
+
+        async with self._lock:
+            self._pending_setpoint = (
+                self._pending_setpoint.merge(setpoint)
+                if self._pending_setpoint
+                else setpoint
+            )
+
+            if self._pending_future and not self._pending_future.done():
+                future = self._pending_future
+                is_leader = False
+            else:
+                loop = asyncio.get_running_loop()
+                future = loop.create_future()
+                self._pending_future = future
+                is_leader = True
+
+        if not is_leader:
+            return await future
+
+        try:
+            await self.cmd.rate_limiter.acquire()
+            async with self._lock:
+                to_send = self._pending_setpoint
+                self._pending_setpoint = None
+                self._pending_future = None
+
+            assert to_send is not None
+            response = await self.cmd.execute(to_send.as_command())
+            future.set_result(response)
+            return response
+        except BaseException as err:
+            if not future.done():
+                future.set_exception(err)
+            # Consume the exception on the future so asyncio GC doesn't warn
+            # when only the leader was present, while followers still receive it on await.
+            future.exception()
+            raise
+
     async def set_heat(self, heat: float) -> aiohttp.ClientResponse:
-        """Change the thermostat Eco mode."""
-        data = {
-            "command": "sdm.devices.commands.ThermostatTemperatureSetpoint.SetHeat",
-            "params": {"heatCelsius": heat},
-        }
-        return await self.cmd.execute(data)
+        """Set the heat temperature setpoint."""
+        return await self._handle_setpoint_request(PendingSetpoint(heat_celsius=heat))
 
     async def set_cool(self, cool: float) -> aiohttp.ClientResponse:
-        """Change the thermostat Eco mode."""
-        data = {
-            "command": "sdm.devices.commands.ThermostatTemperatureSetpoint.SetCool",
-            "params": {"coolCelsius": cool},
-        }
-        return await self.cmd.execute(data)
+        """Set the cool temperature setpoint."""
+        return await self._handle_setpoint_request(PendingSetpoint(cool_celsius=cool))
 
     async def set_range(self, heat: float, cool: float) -> aiohttp.ClientResponse:
-        """Change the thermostat Eco mode."""
-        data = {
-            "command": "sdm.devices.commands.ThermostatTemperatureSetpoint.SetRange",
-            "params": {
-                "heatCelsius": heat,
-                "coolCelsius": cool,
-            },
-        }
-        return await self.cmd.execute(data)
+        """Set the heat and cool temperature range setpoints."""
+        return await self._handle_setpoint_request(
+            PendingSetpoint(heat_celsius=heat, cool_celsius=cool)
+        )

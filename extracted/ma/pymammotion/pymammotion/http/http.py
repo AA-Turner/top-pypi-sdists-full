@@ -7,9 +7,10 @@ import csv
 from functools import wraps
 import hashlib
 import hmac
+from http import HTTPStatus
 import json
 import logging
-import random
+import secrets
 import time
 from typing import TYPE_CHECKING, Any, TypeVar, cast
 
@@ -165,10 +166,11 @@ def create_oauth_signature(
 
     # Create MD5 hash of client secret
     try:
-        md5_hash = hashlib.md5(client_secret.encode("utf-8")).digest()
+        # MD5 is fixed by the Mammotion oauth signature scheme; the server rejects anything else.
+        md5_hash = hashlib.md5(client_secret.encode("utf-8")).digest()  # noqa: S324
         # Convert to hex string
         hashed_secret = md5_hash.hex()
-    except Exception:
+    except Exception:  # noqa: BLE001 — an unsignable secret yields an empty hash, rejected upstream
         hashed_secret = ""
 
     # Sign with HMAC-SHA256
@@ -221,7 +223,7 @@ class MammotionHTTP:
         # Add this method to generate a 10-digit random number
         def get_10_random() -> str:
             """Generate a 10-digit random number as a string."""
-            return "".join([str(random.randint(0, 9)) for _ in range(7)])
+            return "".join([str(secrets.randbelow(10)) for _ in range(7)])
 
         # Replace the line in the __init__ method with:
         self.client_id = f"{int(time.time() * 1000)}_{get_10_random()}_1"
@@ -498,7 +500,7 @@ class MammotionHTTP:
 
     @refresh_token_decorator
     async def get_all_error_codes(self) -> dict[str, ErrorInfo]:
-        """Retrieves and parses all error codes from the MAMMOTION API."""
+        """Retrieve and parse all error codes from the MAMMOTION API."""
         async with self._client_session() as session:
             resp = await session.post(
                 f"{MAMMOTION_API_DOMAIN}/user-server/v1/code/record/export-data",
@@ -510,6 +512,9 @@ class MammotionHTTP:
             )
             if (resp.headers.get("Content-Type") or "").startswith("application/json"):
                 data = await resp.json()
+                if resp.status != HTTPStatus.OK.value:
+                    _LOGGER.warning("Failed to fetch error codes. Status code: %s, %s", resp.status, data)
+                    return {}
                 reader = csv.DictReader(data.get("data", "").split("\n"), delimiter=",")
                 codes = {}
                 for row in reader:
@@ -586,9 +591,12 @@ class MammotionHTTP:
             if (resp.headers.get("Content-Type") or "").startswith("application/json"):
                 data = await resp.json()
                 _LOGGER.debug("pair_devices_mqtt response: %s", data)
+                if resp.status != HTTPStatus.OK.value:
+                    _LOGGER.warning("Failed to pair devices. Status code: %s, %s", resp.status, data)
+                    return Response(code=resp.status, msg="pair devices failed")
                 return Response.from_dict(data)
 
-        return Response(code=200, msg="success")
+        return Response(code=resp.status, msg="success")
 
     @refresh_token_decorator
     async def unpair_devices_mqtt(self, mower_name: str, rtk_name: str) -> Response:
@@ -602,9 +610,12 @@ class MammotionHTTP:
             if (resp.headers.get("Content-Type") or "").startswith("application/json"):
                 data = await resp.json()
                 _LOGGER.debug("unpair_devices_mqtt response: %s", data)
+                if resp.status != HTTPStatus.OK.value:
+                    _LOGGER.warning("Failed to unpair devices. Status code: %s, %s", resp.status, data)
+                    return Response(code=resp.status, msg="unpair devices failed")
                 return Response.from_dict(data)
 
-        return Response(code=200, msg="success")
+        return Response(code=resp.status, msg="success")
 
     @refresh_token_decorator
     async def net_rtk_enable(self, device_id: str) -> Response:
@@ -618,14 +629,17 @@ class MammotionHTTP:
             if (resp.headers.get("Content-Type") or "").startswith("application/json"):
                 data = await resp.json()
                 _LOGGER.debug("net_rtk_enable response: %s", data)
+                if resp.status != HTTPStatus.OK.value:
+                    _LOGGER.warning("Failed to enable net RTK. Status code: %s, %s", resp.status, data)
+                    return Response(code=resp.status, msg="net rtk enable failed")
                 return Response.from_dict(data)
 
-        return Response(code=200, msg="success")
+        return Response(code=resp.status, msg="success")
 
     @refresh_token_decorator
     async def get_stream_subscription(self, iot_id: str, is_yuka: bool) -> Response[StreamSubscriptionResponse]:
         # Prepare the payload with cameraStates based on is_yuka flag
-        """Fetches stream subscription data for a given IoT device."""
+        """Fetch stream subscription data for a given IoT device."""
 
         payload = {"deviceId": iot_id, "mode": 0, "cameraStates": []}
 
@@ -685,13 +699,16 @@ class MammotionHTTP:
             )
             if (resp.headers.get("Content-Type") or "").startswith("application/json"):
                 data = await resp.json()
+                if resp.status != HTTPStatus.OK.value:
+                    _LOGGER.warning("Failed to fetch video resource. Status code: %s, %s", resp.status, data)
+                    return Response(code=resp.status, msg="get video resource failed")
                 return response_factory(Response[VideoResourceResponse], data)
 
-        return Response(code=200, msg="success")
+        return Response(code=resp.status, msg="success")
 
     @refresh_token_decorator
     async def get_device_ota_firmware(self, iot_ids: list[str]) -> Response[list[CheckDeviceVersion]]:
-        """Checks device firmware versions for a list of IoT IDs."""
+        """Check device firmware versions for a list of IoT IDs."""
         async with self._client_session() as session:
             resp = await session.post(
                 f"{MAMMOTION_API_DOMAIN}/device-server/v1/devices/version/check",
@@ -707,14 +724,18 @@ class MammotionHTTP:
             )
             if (resp.headers.get("Content-Type") or "").startswith("application/json"):
                 data = await resp.json()
+
                 # TODO catch errors from mismatch like token expire etc
-                return response_factory(Response[list[CheckDeviceVersion]], data)
+                if resp.status == HTTPStatus.OK.value:
+                    return response_factory(Response[list[CheckDeviceVersion]], data)
+                _LOGGER.warning("Failed to fetch OTA firmware info. Status code: %s, %s", resp.status, data)
+                return Response(code=resp.status, msg="get ota firmware failed", data=[])
 
         return Response(code=200, msg="success", data=[])
 
     @refresh_token_decorator
     async def start_ota_upgrade(self, iot_id: str, version: str) -> Response[str]:
-        """Initiates an OTA upgrade for a device."""
+        """Initiate an OTA upgrade for a device."""
         async with self._client_session() as session:
             resp = await session.post(
                 f"{MAMMOTION_API_DOMAIN}/device-server/v1/ota/device/upgrade",
@@ -730,13 +751,16 @@ class MammotionHTTP:
             if (resp.headers.get("Content-Type") or "").startswith("application/json"):
                 data = await resp.json()
                 # TODO catch errors from mismatch like token expire etc
+                if resp.status != HTTPStatus.OK.value:
+                    _LOGGER.warning("Failed to start OTA upgrade. Status code: %s, %s", resp.status, data)
+                    return Response(code=resp.status, msg="start ota upgrade failed")
                 return response_factory(Response[str], data)
 
         return Response(code=200, msg="success")
 
     @refresh_token_decorator
     async def get_rtk_devices(self) -> Response[list[RTK]]:
-        """Fetches stream subscription data from agora.io for a given IoT device."""
+        """Fetch stream subscription data from agora.io for a given IoT device."""
         async with self._client_session() as session:
             resp = await session.get(
                 f"{MAMMOTION_API_DOMAIN}/device-server/v1/rtk/devices",
@@ -748,7 +772,10 @@ class MammotionHTTP:
             )
             if (resp.headers.get("Content-Type") or "").startswith("application/json"):
                 data = await resp.json()
-                return response_factory(Response[list[RTK]], data)
+                if resp.status == HTTPStatus.OK.value:
+                    return response_factory(Response[list[RTK]], data)
+                _LOGGER.warning("Failed to fetch RTK devices. Status code: %s, %s", resp.status, data)
+                return Response(code=resp.status, msg="get rtk devices failed", data=[])
 
         return Response(code=200, msg="success", data=[])
 
@@ -787,6 +814,9 @@ class MammotionHTTP:
                     _token_fingerprint(self._login_info.access_token if self._login_info else None),
                 )
                 raise UnauthorizedExceptionError("Access Token expired")
+            if resp.status != HTTPStatus.OK.value:
+                _LOGGER.warning("Failed to fetch user device list. Status code: %s, %s", resp.status, resp_dict)
+                return Response(code=resp.status, msg="get device list failed", data=[])
             if resp_dict:
                 response = response_factory(Response[list[DeviceInfo]], resp_dict)
                 self.device_info = response.data if response.data else self.device_info
@@ -796,7 +826,7 @@ class MammotionHTTP:
 
     @refresh_token_decorator
     async def get_user_shared_device_page(self) -> Response[ShareRecords]:
-        """Fetches pending share invitations for the current user."""
+        """Fetch pending share invitations for the current user."""
         async with self._client_session() as session:
             resp = await session.post(
                 f"{MAMMOTION_API_DOMAIN}/user-server/v1/share/device/page",
@@ -810,6 +840,9 @@ class MammotionHTTP:
             )
             if (resp.headers.get("Content-Type") or "").startswith("application/json"):
                 resp_dict = await resp.json()
+                if resp.status != HTTPStatus.OK.value:
+                    _LOGGER.warning("Failed to fetch shared devices. Status code: %s, %s", resp.status, resp_dict)
+                    return Response(code=resp.status, msg="get shared device page failed")
                 response = response_factory(Response[ShareRecords], resp_dict)
                 self.devices_shared_info = response.data if response.data else self.devices_shared_info
                 return response
@@ -836,13 +869,16 @@ class MammotionHTTP:
             )
             if (resp.headers.get("Content-Type") or "").startswith("application/json"):
                 resp_dict = await resp.json()
+                if resp.status != HTTPStatus.OK.value:
+                    _LOGGER.warning("Failed to confirm share. Status code: %s, %s", resp.status, resp_dict)
+                    return Response(code=resp.status, msg="confirm share failed")
                 return response_factory(Response[dict | bool], resp_dict)
 
         return Response(code=200, msg="success")
 
     @refresh_token_decorator
     async def get_user_device_page(self) -> Response[DeviceRecords]:
-        """Fetches device list for a user, is either new API or for newer devices."""
+        """Fetch the device list for a user, from either the new API or the newer-device API."""
         async with self._client_session() as session:
             resp = await session.post(
                 f"{self.jwt_info.iot}/v1/user/device/page",
@@ -914,7 +950,7 @@ class MammotionHTTP:
                     "User-Agent": "okhttp/4.9.3",
                     "Client-Id": self.client_id,
                     "Client-Type": "1",
-                    "Request-Id": "".join([str(random.randint(0, 9)) for _ in range(21)]),
+                    "Request-Id": "".join([str(secrets.randbelow(10)) for _ in range(21)]),
                     "Accept-Language": "en-US",
                     "L-T-Z": f"{int(time.time())}/0/0",
                 },
@@ -968,7 +1004,7 @@ class MammotionHTTP:
                 await self.on_login_refreshed()
 
     async def login(self, account: str, password: str) -> Response[LoginResponseData]:
-        """Logs in to the service using provided account and password."""
+        """Log in to the service using the provided account and password."""
         self.account = account
         self._password = password
         async with self._client_session() as session:
@@ -1043,7 +1079,7 @@ class MammotionHTTP:
             login_req=refresh_request,
             client_id=MAMMOTION_OAUTH2_CLIENT_ID,
             client_secret=MAMMOTION_OAUTH2_CLIENT_SECRET,
-            token_endpoint="/oauth2/token",
+            token_endpoint="/oauth2/token",  # noqa: S106 — a URL path, not a credential
             timestamp=timestamp,
         )
 
@@ -1146,7 +1182,7 @@ class MammotionHTTP:
             login_req=login_request,
             client_id=MAMMOTION_OAUTH2_CLIENT_ID,
             client_secret=MAMMOTION_OAUTH2_CLIENT_SECRET,
-            token_endpoint="/oauth2/token",
+            token_endpoint="/oauth2/token",  # noqa: S106 — a URL path, not a credential
             timestamp=timestamp,
         )
 

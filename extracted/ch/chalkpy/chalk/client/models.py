@@ -2064,6 +2064,135 @@ class StreamResolverTestMessagePayload(BaseModel):
         }
 
 
+class DataQualityTestAssertion(BaseModel):
+    """One compiled check on the wire.
+
+    Mirrors `CompiledCheck.to_assertion()` field for field, and is built from it rather than
+    from hand-picked attributes, so a new field added there travels without this model having
+    to learn about it.
+    """
+
+    name: str
+    sql: str
+    terminate_on_failure: bool
+    kind: Optional[str] = None
+    description: Optional[str] = None
+    source_sql: Optional[str] = None
+    preview_sql: Optional[str] = None
+
+
+class DataQualityTestRequest(BaseModel):
+    """Wire form of a `ChalkClient.test_dqm` call."""
+
+    query_id: str
+    stage: str
+    assertions: List[DataQualityTestAssertion]
+
+
+class DataQualityProjection(BaseModel):
+    """One value a data quality check reported.
+
+    Which field carries the value is decided by `kind`, which the check's own output column
+    name declared: `_metric` populates `value`, `_distribution` populates `buckets`, and
+    `_check` populates `success`. The others stay unset rather than defaulting, so a null
+    `value` on a check never has to be interpreted.
+    """
+
+    name: str
+    """The output column name with its kind suffix stripped, e.g. `row_count` for
+    `row_count_metric`."""
+
+    column: str
+    """The output column name as written, including the suffix."""
+
+    kind: str
+    """One of `metric`, `distribution`, `check`."""
+
+    failed: bool
+    """Only a `check` can fail; a metric and a distribution are reports."""
+
+    value: Optional[float] = None
+    buckets: List[float] = Field(default_factory=list)
+    success: Optional[bool] = None
+    error: Optional[str] = None
+
+    def __str__(self) -> str:
+        if self.kind == "metric":
+            return f"{self.name}={self.value}"
+        if self.kind == "distribution":
+            return f"{self.name}=<{len(self.buckets)} buckets>"
+        suffix = f" ({self.error})" if self.error else ""
+        return f"{self.name}={'pass' if self.success else 'FAIL'}{suffix}"
+
+
+class DataQualityCheckResult(BaseModel):
+    """What one check reported, or why it could not run."""
+
+    name: str
+    passed: bool
+    terminate_on_failure: bool
+    projections: List[DataQualityProjection] = Field(default_factory=list)
+
+    kind: Optional[str] = None
+    """How the check was written -- `bool`, `bad_rows`, `metric`, `distribution` or `sql`.
+    What tells a bad-rows count of 3 apart from a metric that happens to be 3."""
+
+    description: Optional[str] = None
+
+    preview_sql: Optional[str] = None
+    """A query returning the rows behind this verdict, for a check whose finding *is* rows.
+    Not run for you: run it to look at them, which is usually the next thing you want when a
+    `sql_bad_rows` check trips while you are drafting it."""
+
+    error: Optional[str] = None
+    """Set when the check could not be executed at all -- bad SQL, an unknown column, or a
+    query that did not aggregate down to one row. The other checks in the same call still
+    report normally, which is the point of testing them: one broken draft must not hide what
+    the checks beside it found."""
+
+
+class DataQualityTestResponse(BaseModel):
+    """The result of `ChalkClient.test_dqm`."""
+
+    query_id: str
+    stage: str
+
+    passed: bool
+    """False when any check failed, or could not run."""
+
+    would_terminate: bool
+    """Whether a scheduled query carrying these checks would have failed this stage and
+    cancelled its downstream work. Distinct from `passed` because a check declared with
+    `terminate_on_failure=False` reports its failure without gating."""
+
+    checked_uri_count: int
+    """How many parquet files the checks read."""
+
+    columns: List[str] = Field(default_factory=list)
+    """The checked table's columns. Worth reading first: feature columns are dotted and must
+    be quoted in the check's SQL, and a stage pointed at the wrong table shows up here."""
+
+    assertions: List[DataQualityCheckResult] = Field(default_factory=list)
+
+    def __str__(self) -> str:
+        verdict = "passed" if self.passed else ("FAILED (would terminate)" if self.would_terminate else "FAILED")
+        lines = [f"Data quality checks on {self.stage} of {self.query_id}: {verdict}"]
+        for assertion in self.assertions:
+            if assertion.error is not None:
+                lines.append(f"  [{assertion.name}] could not run: {assertion.error}")
+                continue
+            gating = "" if assertion.terminate_on_failure else " (advisory)"
+            for projection in assertion.projections:
+                lines.append(f"  [{assertion.name}] {projection}{gating}")
+            if assertion.description is not None:
+                lines.append(f"      {assertion.description}")
+            # Only for a check that actually tripped: on a passing one the offending rows are
+            # by definition empty, and offering to go look at them would be noise.
+            if not assertion.passed and assertion.preview_sql is not None:
+                lines.append(f"      offending rows: {assertion.preview_sql}")
+        return "\n".join(lines)
+
+
 class StreamResolverTestRequest(BaseModel):
     resolver_fqn: str
     num_messages: Optional[int] = None

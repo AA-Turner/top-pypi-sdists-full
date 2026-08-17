@@ -10,6 +10,9 @@ from pydantic import AnyUrl, AwareDatetime, BaseModel, ConfigDict, Field, Secret
 
 
 class StartupCaptureConfig(BaseModel):
+    model_config = ConfigDict(
+        extra="forbid",
+    )
     enabled: bool = Field(
         ..., description="When true, the daemon opens a diagnostics capture at boot."
     )
@@ -21,7 +24,26 @@ class StartupCaptureConfig(BaseModel):
     )
     anonymise: bool = Field(
         ...,
-        description="Whether to hash device-address-shaped values in the recorded archive.",
+        description="Whether device-address-shaped values in the recorded archive are hashed. Responses always carry the effective value.",
+    )
+
+
+class StartupCaptureConfigWrite(BaseModel):
+    model_config = ConfigDict(
+        extra="forbid",
+    )
+    enabled: bool = Field(
+        ..., description="When true, the daemon opens a diagnostics capture at boot."
+    )
+    duration_seconds: int = Field(
+        ...,
+        description="Duration of the boot-time capture. Zero falls back to the default (300 s).",
+        ge=0,
+        le=1800,
+    )
+    anonymise: bool | None = Field(
+        True,
+        description="Whether to hash device-address-shaped values in the recorded archive. Omitting the key means true; send `false` explicitly to switch anonymisation off.",
     )
 
 
@@ -1322,12 +1344,16 @@ class Scheme(StrEnum):
     bearer = "bearer"
     session = "session"
     oidc = "oidc"
+    ingress = "ingress"
 
 
 class Identity(BaseModel):
     subject: str
     role: Role
-    scheme: Scheme | None = None
+    scheme: Scheme | None = Field(
+        None,
+        description="How the request authenticated. `ingress` is the Home Assistant Ingress passthrough the add-on deployment uses.",
+    )
 
 
 class UserListEntry(BaseModel):
@@ -1382,6 +1408,32 @@ class CreateTokenResponse(BaseModel):
     role: Role
 
 
+class Kind1(StrEnum):
+    pairing = "pairing"
+    session = "session"
+    discovery = "discovery"
+
+
+class Severity(StrEnum):
+    info = "info"
+    warning = "warning"
+    error = "error"
+
+
+class MatterDiagnosticEvent(BaseModel):
+    at: AwareDatetime
+    kind: Kind1
+    severity: Severity
+    message: str = Field(..., description="One sentence an operator can act on.")
+    detail: dict[str, str] | None = Field(
+        None, description="Identifiers that make the message specific."
+    )
+
+
+class MatterDiagnosticEventList(BaseModel):
+    events: list[MatterDiagnosticEvent]
+
+
 class MatterFabric(BaseModel):
     fabric_index: int = Field(
         ...,
@@ -1390,8 +1442,20 @@ class MatterFabric(BaseModel):
         le=254,
     )
     fabric_id: int
+    fabric_id_hex: str = Field(
+        ...,
+        description="The exact 64-bit fabric id as 16 uppercase hex digits. A JSON number carries only 53 bits of integer precision, so a client that renders `fabric_id` shows rounded low digits for any id above 2^53. Render this field.",
+    )
     node_id: int
+    node_id_hex: str = Field(
+        ...,
+        description="The exact 64-bit operational node id as 16 uppercase hex digits, in the form controllers and chip-tool print it. Render this field rather than `node_id`, which loses precision in transport.",
+    )
     vendor_id: int = Field(..., ge=0, le=65535)
+    vendor_name: str | None = Field(
+        None,
+        description='Human-readable name of the controller vendor behind vendor_id (e.g. "Apple", "Google"). A vendor the daemon has no name for renders as its id in `0xNNNN` form rather than an empty string, so the row still identifies the controller.',
+    )
     label: str | None = None
     compressed_id: str = Field(
         ..., description="8-byte compressed fabric identifier, hex-encoded"
@@ -1482,13 +1546,13 @@ class MatterMdnsService(BaseModel):
     txt: dict[str, str]
 
 
-class Severity(StrEnum):
+class Severity1(StrEnum):
     error = "error"
     warning = "warning"
 
 
 class MatterMdnsFinding(BaseModel):
-    severity: Severity
+    severity: Severity1
     code: str = Field(
         ..., description="Stable identifier; the message is prose and may be reworded"
     )
@@ -1705,7 +1769,7 @@ class UnIgnoreCandidateChannel(BaseModel):
     )
 
 
-class Kind1(StrEnum):
+class Kind2(StrEnum):
     initial = "initial"
     change = "change"
     refresh = "refresh"
@@ -1717,7 +1781,7 @@ class WsEnvelope(BaseModel):
         description='Monotonic, daemon-assigned sequence number. Strictly\nincreasing across the daemon\'s lifetime (resets to 0\non restart). Clients store the last received `seq` and\nreconnect with `{op:"subscribe", topics:[...], since:N}`\nto resume the stream.\n',
         ge=1,
     )
-    kind: Kind1 = Field(
+    kind: Kind2 = Field(
         ...,
         description="Event-family discriminator. `change` is the default\nand dominant case; `initial` is set on the first\nobservation of a data point (e.g. during cold-start\nreplay); `refresh` is reserved for periodic re-emits.\n",
     )
@@ -1759,6 +1823,14 @@ class DataPointValueChangedPayload(BaseModel):
     )
     modified_at: AwareDatetime = Field(
         ..., description="RFC3339Nano timestamp the CCU observed the change at."
+    )
+    category: str | None = Field(
+        None,
+        description="Model category of the data point (`switch`, `sensor`, …).\nOnly sent to clients that subscribed with `classify: true`;\nomitted otherwise.\n",
+    )
+    data_point_type: str | None = Field(
+        None,
+        description="North-bound type the category collapses into. Same\n`classify: true` opt-in as `category`.\n",
     )
 
 
@@ -1912,7 +1984,10 @@ class HubMetricChangedPayload(BaseModel):
 
 class HubConnectivityChangedPayload(BaseModel):
     central: str
-    interface_id: str
+    interface_id: str = Field(
+        ...,
+        description="The interface's wire id `<central>-<interface>` — the same id GET /interfaces reports and the REST connectivity data point carries.",
+    )
     reachable: bool
     latency_ms: float | None = Field(
         None, description="Probe round-trip in milliseconds; omitted when not measured."
@@ -1978,14 +2053,14 @@ class AlarmStateChangedPayload(BaseModel):
     )
 
 
-class Kind2(StrEnum):
+class Kind3(StrEnum):
     exit_delay = "exit_delay"
     entry_delay = "entry_delay"
 
 
 class AlarmCountdownPayload(BaseModel):
     zone_id: str
-    kind: Kind2
+    kind: Kind3
     remaining_s: int
     total_s: int
     remaining_ms: int = Field(
@@ -2003,14 +2078,6 @@ class AlarmNotificationPayload(BaseModel):
     mode: str | None = None
 
 
-class Mode1(StrEnum):
-    perimeter = "perimeter"
-    full = "full"
-    night = "night"
-    vacation = "vacation"
-    custom = "custom"
-
-
 class AlarmTriggeredPayload(BaseModel):
     zone_id: str
     zone_name: str
@@ -2024,8 +2091,9 @@ class AlarmTriggeredPayload(BaseModel):
         ...,
         description="Stable machine-readable cause token (sensor, adopted, central_lost, restored).",
     )
-    mode: Mode1 | None = Field(
-        None, description="Protection mode that was active at trigger time."
+    mode: Mode | None = Field(
+        None,
+        description="Protection mode that was active at trigger time. `disarmed` for an always-on trigger (hazard detector, panic) that fires independently of the arm state.",
     )
 
 
@@ -2088,6 +2156,7 @@ class Class(StrEnum):
     fault = "fault"
     test = "test"
     config = "config"
+    maintenance = "maintenance"
 
 
 class AlarmJournalAppendedPayload(BaseModel):
@@ -2136,7 +2205,7 @@ class EntityNameCatalogue(BaseModel):
     )
 
 
-class Severity1(StrEnum):
+class Severity2(StrEnum):
     ok = "ok"
     info = "info"
     warning = "warning"
@@ -2165,7 +2234,7 @@ class ActiveClass(StrEnum):
 
 
 class SecurityStateChangedPayload(BaseModel):
-    severity: Severity1
+    severity: Severity2
     previous_severity: PreviousSeverity | None = Field(
         None,
         description="The severity the fold left. Omitted on the first report\nafter start-up, where there is no previous value.\n",
@@ -2258,7 +2327,10 @@ class HubMetricDataPoint(BaseModel):
 
 
 class HubConnectivityDataPoint(BaseModel):
-    interface_id: str
+    interface_id: str = Field(
+        ...,
+        description="The interface's wire id `<central>-<interface>` (e.g. `ccu1-HmIP-RF`) — the same id GET /interfaces reports, so a client can build its per-interface entities from /interfaces and key this value onto them.",
+    )
     reachable: bool
 
 
@@ -2724,7 +2796,7 @@ class CentralBehavior(BaseModel):
     )
 
 
-class Kind3(StrEnum):
+class Kind4(StrEnum):
     week_profile = "week_profile"
     climate = "climate"
 
@@ -2789,14 +2861,14 @@ class SimpleScheduleEntry(BaseModel):
     )
 
 
-class Kind4(StrEnum):
+class Kind5(StrEnum):
     climate = "climate"
     simple = "simple"
 
 
 class Schedule(BaseModel):
     channel: ScheduleChannelRef
-    kind: Kind4
+    kind: Kind5
     domain: str | None = None
     active_profile: str | None = None
     active_profile_index: int | None = None
@@ -2961,6 +3033,11 @@ class BackupEntry(BaseModel):
     central: str
     bytes: int
     created_at: AwareDatetime
+
+
+class EditSessionRequest(BaseModel):
+    key: str
+    token: str
 
 
 class EditSessionResponse(BaseModel):
@@ -3274,27 +3351,18 @@ class State2(StrEnum):
     triggered = "triggered"
 
 
-class Mode2(StrEnum):
-    disarmed = "disarmed"
-    perimeter = "perimeter"
-    full = "full"
-    night = "night"
-    vacation = "vacation"
-    custom = "custom"
-
-
 class Incident1(BaseModel):
     id: str | None = None
     silenced: bool | None = None
 
 
-class Kind5(StrEnum):
+class Kind6(StrEnum):
     exit_delay = "exit_delay"
     entry_delay = "entry_delay"
 
 
 class Countdown(BaseModel):
-    kind: Kind5 | None = None
+    kind: Kind6 | None = None
     remaining_s: int | None = None
     total_s: int | None = None
 
@@ -3303,7 +3371,7 @@ class AlarmZoneStatus(BaseModel):
     id: str
     name: str
     state: State2 = Field(..., description="Arm-state-machine state.")
-    mode: Mode2 | None = Field(
+    mode: Mode | None = Field(
         None, description="Currently active (or, while arming, target) protection mode."
     )
     bypassed: list[str] | None = Field(
@@ -3364,7 +3432,7 @@ class AlarmCodePerms(BaseModel):
     silence: bool
 
 
-class Kind6(StrEnum):
+class Kind7(StrEnum):
     pin = "pin"
     keypad_slot = "keypad_slot"
     remote_key = "remote_key"
@@ -3373,7 +3441,7 @@ class Kind6(StrEnum):
 class AlarmCode(BaseModel):
     id: str
     name: str
-    kind: Kind6 = Field(..., description="Code class.")
+    kind: Kind7 = Field(..., description="Code class.")
     duress: bool | None = Field(
         None,
         description="A PIN that disarms normally but fires a silent duress alarm. Only meaningful for the pin kind.\n",
@@ -3399,7 +3467,7 @@ class AlarmCode(BaseModel):
 
 class AlarmCodeRequest(BaseModel):
     name: str
-    kind: Kind6
+    kind: Kind7
     pin: str | None = Field(
         None,
         description="Cleartext code, write-only, for the pin kind. Omitted on update to keep the existing hash.\n",
@@ -3463,6 +3531,10 @@ class SecuritySourceView(BaseModel):
     overridden: bool | None = Field(
         None,
         description="An operator decision, not the classifier, produced this verdict.",
+    )
+    override_included: bool | None = Field(
+        None,
+        description="The stored override's raw inclusion bit, present only when `overridden` is true. A read surface seeds its include/exclude toggle from it so a prior exclusion is not silently undone on the next save; absent means no override is stored and the default-included behaviour holds.\n",
     )
     since: AwareDatetime | None = None
 
@@ -3637,6 +3709,7 @@ class Class10(StrEnum):
     fault = "fault"
     test = "test"
     config = "config"
+    maintenance = "maintenance"
 
 
 class AlarmJournalEntry(BaseModel):
@@ -3854,7 +3927,7 @@ class SecurityFaultChangedPayload(BaseModel):
     fault_id: str
     class_: Class1 = Field(..., alias="class")
     reason: Reason
-    severity: Severity1
+    severity: Severity2
     source: AlarmSource
     open: bool = Field(
         ..., description="True when the fault was raised, false when it cleared."
@@ -3875,7 +3948,7 @@ class SecurityFaultChangedPayload(BaseModel):
 
 class SecurityNotificationPayload(BaseModel):
     class_: Class1 = Field(..., alias="class")
-    severity: Severity1
+    severity: Severity2
     verb: Verb
     subject: str = Field(
         ...,
@@ -3908,7 +3981,10 @@ class CentralRow(BaseModel):
         ...,
         description="Daemon-local identifier; must be unique. This is the\ncanonical central-scope discriminator: guaranteed equal to\n`SystemCCUEntry.name` and to the `central` field in\nWS / payload envelopes (`name == SystemCCUEntry.name ==\npayload.central`). Changing it re-scopes every per-central\nrequest, subscription and payload for this CCU.\n",
     )
-    host: str = Field(..., description="CCU hostname or IP address.")
+    host: str = Field(
+        ...,
+        description="CCU hostname or IP address. Present but empty on the two read operations when the caller is below the admin role; the sibling connection fields are omitted outright there.",
+    )
     serial: str | None = Field(
         None,
         description='CCU hardware serial, set when the central is adopted from SSDP/UPnP discovery. Empty for YAML / manually-entered rows. Lets discovery mark a CCU "already configured" by serial regardless of its host.',
@@ -3962,7 +4038,7 @@ class ScheduleDeviceSummary(BaseModel):
     name: str = Field(..., description="Display name.")
     model: str | None = Field(None, description='Device type, e.g. "HmIP-eTRV-2".')
     channel: ScheduleChannelRef
-    kind: Kind3 = Field(
+    kind: Kind4 = Field(
         ...,
         description="`week_profile` when a dedicated channel carries the profile,\n`climate` when a thermostat carries it in MASTER.\n",
     )
@@ -4023,7 +4099,7 @@ class Area(BaseModel):
 class SecurityClassState(BaseModel):
     class_: Class7 = Field(..., alias="class")
     active: bool
-    severity: Severity1 = Field(
+    severity: Severity2 = Field(
         ...,
         description="What this class contributes to the folded severity right now — not what its name implies. Colour the class from this, never from `active`: a low battery must not look like a fire. `intrusion` is arm-aware, so an active source whose zone is disarmed grades `info` rather than `alarm`; `warning` means the arm state behind at least one active source could not be resolved. `ok` while inactive.\n",
     )
@@ -4125,7 +4201,7 @@ class UnIgnoreCandidateGroup(BaseModel):
 
 
 class SecuritySnapshot(BaseModel):
-    severity: Severity1 = Field(..., description="The folded overall state.")
+    severity: Severity2 = Field(..., description="The folded overall state.")
     classes: list[SecurityClassState] = Field(
         ...,
         description="One entry per class the installation has sources for, in escalation order. A class without sources is absent, not inactive.\n",

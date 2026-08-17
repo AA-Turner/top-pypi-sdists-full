@@ -213,6 +213,10 @@ def test_exact_browser_allow_finalizes_every_authoritative_surface_once(
     assert fresh_state.response_payload["policy_action"] == "allow"
     assert fresh_state.response_payload["resolved_policy_action"] == "allow"
     assert fresh_state.response_payload["decision_v2_json"]["action"] == "allow"
+    assert "paused" not in str(fresh_state.response_payload["trigger_summary"]).lower()
+    assert "reviewed" in str(fresh_state.response_payload["trigger_summary"]).lower()
+    assert "allows" in str(fresh_state.response_payload["why_now"]).lower()
+    assert "allows" in str(fresh_state.response_payload["risk_headline"]).lower()
     assert fresh_state.response_payload["policy_composition"]["authoritative_action"] == "allow"
     assert fresh_state.response_payload["operation"]["status"] == "completed"
     assert fresh_state.response_payload["operation_status"] == "completed"
@@ -405,7 +409,7 @@ def test_current_terminal_block_is_not_queued_or_browser_approved(
 
     monkeypatch.setattr(guard_commands_module, "ensure_guard_daemon", unexpected)
     monkeypatch.setattr(guard_commands_module, "queue_blocked_approvals", unexpected)
-    monkeypatch.setattr(guard_commands_module, "wait_for_approval_requests", unexpected)
+    monkeypatch.setattr(interaction_module, "wait_for_approval_requests", unexpected)
     output = StringIO()
     stdout = StringIO()
     with redirect_stdout(stdout):

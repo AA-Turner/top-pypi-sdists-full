@@ -3,11 +3,17 @@ pysubs2.formats.subrip tests
 
 """
 from textwrap import dedent
-import pytest
 from typing import Any
 
-from pysubs2 import SSAFile, SSAEvent, make_time
+import pytest
+
+from pysubs2 import SSAEvent, SSAFile, make_time
 from pysubs2.formats.subrip import MAX_REPRESENTABLE_TIME
+from pysubs2.warnings import (
+    PossibleMissedSubtitleWarning,
+    TimestampOverflow,
+    TimestampUnderflow,
+)
 
 
 def test_simple_write() -> None:
@@ -298,10 +304,19 @@ def test_keep_ssa_tags_and_html_tags() -> None:
 def test_overflow_timestamp_write() -> None:
     ref = SSAFile()
     ref.append(SSAEvent(start=make_time(h=1000), end=make_time(h=1001), text="test"))
-    with pytest.warns(RuntimeWarning):
+    with pytest.warns(TimestampOverflow):
         text = ref.to_string("srt")
     subs = SSAFile.from_string(text)
     assert subs[0].end == MAX_REPRESENTABLE_TIME
+
+
+def test_underflow_timestamp_write() -> None:
+    ref = SSAFile()
+    ref.append(SSAEvent(start=-1000, end=1000, text="test"))
+    with pytest.warns(TimestampUnderflow):
+        text = ref.to_string("srt")
+    subs = SSAFile.from_string(text)
+    assert subs[0].start == 0
 
 
 def test_win1250_passthrough_with_surrogateescape(tmp_path: Any) -> None:
@@ -460,3 +475,45 @@ def test_big5_read_write(tmp_path: Any) -> None:
         output_bytes = fp.read().replace(b"\r", b"")
 
     assert input_bytes == output_bytes
+
+
+
+def test_warning_about_malformed_timestamp() -> None:
+    """See issue #112"""
+    text = dedent("""\
+    1
+    00:00:13,980 --> 00:00:19werwer,580
+    entry1
+
+    2
+    00:00:20,980 --> 00:00:21,680
+    entry2
+    """)
+
+    with pytest.warns(PossibleMissedSubtitleWarning, match="Possible missed subtitle start near line 2"):
+        subs = SSAFile.from_string(text)
+
+    assert len(subs) == 1
+    assert subs[0].text == "entry2"
+    assert subs[0].start == make_time(s=20, ms=980)
+
+
+def test_warning_about_extra_timestamp() -> None:
+    """See issue #112"""
+    text = dedent("""\
+    1
+    00:00:13,980 --> 00:00:19,580
+    entry1
+
+    2
+    00:00:20,980 --> 00:00:21,680
+    entry2
+    00:00:21,680
+    """)
+
+    with pytest.warns(PossibleMissedSubtitleWarning, match="Possible missed subtitle start near line 8"):
+        subs = SSAFile.from_string(text)
+
+    assert len(subs) == 2
+    assert subs[0].text == "entry1"
+    assert subs[1].text == "entry2\\N00:00:21,680"

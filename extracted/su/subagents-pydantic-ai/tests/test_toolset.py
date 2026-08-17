@@ -1027,7 +1027,8 @@ class TestRunSync:
     @pytest.mark.asyncio
     async def test_run_sync_crash_returns_on_failure_message(self):
         """`on_failure` turns a crash into a steering message instead of a retry."""
-        mock_agent = FakeAgent(error=Exception("boom"))
+        boom = Exception("boom")
+        mock_agent = FakeAgent(error=boom)
         config = SubAgentConfig(
             name="test",
             description="Test agent",
@@ -1048,16 +1049,19 @@ class TestRunSync:
         assert result == "Summarise from what you already have."
         assert handle.status == TaskStatus.FAILED
         assert handle.error == "Exception: boom"
+        assert handle.exception is boom
 
     @pytest.mark.asyncio
     async def test_run_sync_propagates_crash_when_not_contained(self):
         """`contain_errors=False` lets the original exception reach the parent run."""
-        mock_agent = FakeAgent(error=ValueError("bad tool argument"))
+        bad = ValueError("bad tool argument")
+        mock_agent = FakeAgent(error=bad)
         config = SubAgentConfig(
             name="test",
             description="Test agent",
             instructions="Do test",
         )
+        handle = TaskHandle(task_id="task-123", subagent_name="test", description="d")
 
         with pytest.raises(ValueError, match="bad tool argument"):
             await _run_sync(
@@ -1066,8 +1070,12 @@ class TestRunSync:
                 description="do the thing",
                 deps=MockDeps(),
                 task_id="task-123",
+                handle=handle,
                 contain_errors=False,
             )
+
+        assert handle.status == TaskStatus.FAILED
+        assert handle.exception is bad
 
     @pytest.mark.asyncio
     async def test_run_sync_propagates_control_flow_signals(self):
@@ -2658,7 +2666,10 @@ class TestToolsetFunctionsCoverage:
             # Check task status
             status = await check_tool.function(ctx, task_id)
             assert "failed" in status.lower()
-            assert "Task crashed" in status
+            # The class, not the message: a return is stored whole on the parent's
+            # transcript and a provider's text carries the keyed request URL.
+            assert "Error: Exception" in status
+            assert "Task crashed" not in status
 
     @pytest.mark.asyncio
     async def test_answer_subagent_success(self):
@@ -2865,8 +2876,8 @@ class TestToolsetFunctionsCoverage:
             await asyncio.sleep(0.1)
 
             result = await wait_tool.function(ctx, [tid1], 5.0)
-            assert "FAILED" in result
-            assert "Search API down" in result
+            assert "FAILED - Exception" in result
+            assert "Search API down" not in result
 
     @pytest.mark.asyncio
     async def test_wait_tasks_not_found(self):

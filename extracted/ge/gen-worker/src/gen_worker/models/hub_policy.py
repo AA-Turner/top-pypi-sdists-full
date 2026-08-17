@@ -41,8 +41,17 @@ def detect_worker_capabilities(*, extra_libs: Optional[List[str]] = None) -> Ten
 
     # Known optional libs that affect artifact compatibility.
     # Keep this hardcoded (no env config), per Cozy design.
+    #
+    # pgw#1300: "nunchaku" is GONE from this probe. pgw#1298 kept it as an
+    # ADMISSION TOKEN — the hub refused any svdq row whose stamped
+    # `engines=["nunchaku"]` was not in `installed_libs`. th#2055 (`65f0882f2`)
+    # deleted that gate outright (`precision/ladder.go` `admitted()` and
+    # `AdmitLiteral`'s engine arm are gone), and no hub reader consults this
+    # list for `nunchaku` any more; the ones that remain ask for `torchao` /
+    # `modelopt` backends. So the token claims a capability we deleted in
+    # pgw#1298 and gates nothing — reporting it is a lie with no consumer.
     known = ["bitsandbytes", "torchao", "transformer_engine",
-             "nunchaku", "deepcompressor", "modelopt"]
+             "deepcompressor", "modelopt"]
     if extra_libs:
         known.extend(extra_libs)
     for name in known:

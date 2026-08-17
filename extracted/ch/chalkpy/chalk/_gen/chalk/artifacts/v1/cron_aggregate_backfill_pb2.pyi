@@ -39,6 +39,7 @@ class CronAggregateBackfill(_message.Message):
         "targets",
         "environment",
         "planner_options",
+        "num_shards",
     )
     class PlannerOptionsEntry(_message.Message):
         __slots__ = ("key", "value")
@@ -62,6 +63,7 @@ class CronAggregateBackfill(_message.Message):
     TARGETS_FIELD_NUMBER: _ClassVar[int]
     ENVIRONMENT_FIELD_NUMBER: _ClassVar[int]
     PLANNER_OPTIONS_FIELD_NUMBER: _ClassVar[int]
+    NUM_SHARDS_FIELD_NUMBER: _ClassVar[int]
     name: str
     schedule: str
     file_name: str
@@ -76,6 +78,7 @@ class CronAggregateBackfill(_message.Message):
     targets: _containers.RepeatedScalarFieldContainer[CronAggregateBackfillTarget]
     environment: str
     planner_options: _containers.ScalarMap[str, str]
+    num_shards: int
     def __init__(
         self,
         name: _Optional[str] = ...,
@@ -92,4 +95,5 @@ class CronAggregateBackfill(_message.Message):
         targets: _Optional[_Iterable[_Union[CronAggregateBackfillTarget, str]]] = ...,
         environment: _Optional[str] = ...,
         planner_options: _Optional[_Mapping[str, str]] = ...,
+        num_shards: _Optional[int] = ...,
     ) -> None: ...

@@ -15,6 +15,7 @@ if TYPE_CHECKING:
 
 from ._commands_shared import *
 from .commands_parser_helpers import *
+from ..browser_opener import open_browser_url
 from ..local_supply_chain import _resolve_guard_sync_auth_context as _local_resolve_guard_sync_auth_context
 from ..synced_policy import synced_policy_payload as _synced_policy_payload
 
@@ -107,6 +108,9 @@ def _guard_doctor_latest_connect_state_payload(latest_state: dict[str, object]) 
 _PERSISTED_POLICY_BUNDLE_REJECTION_REASONS = frozenset(
     {
         "bundle_hash_mismatch",
+        "bundle_expired",
+        "bundle_not_yet_valid",
+        "bundle_signature_invalid",
         "bundle_version_downgrade",
         "invalid_acknowledgements",
         "invalid_bundle_hash",
@@ -114,14 +118,29 @@ _PERSISTED_POLICY_BUNDLE_REJECTION_REASONS = frozenset(
         "invalid_cloud_exceptions",
         "invalid_expires_at",
         "invalid_issued_at",
+        "invalid_min_daemon_version",
         "invalid_policy_bundle",
+        "invalid_payload_hash",
         "invalid_policy_defaults",
+        "invalid_receipt_redaction_level",
         "invalid_rollout_state",
         "invalid_rules",
+        "invalid_signature_encoding",
         "invalid_verifier",
         "invalid_workspace_id",
+        "inactive_rollout_state",
         "missing_required_field",
         "payload_hash_mismatch",
+        "missing_signature",
+        "missing_signing_key_id",
+        "signing_key_fingerprint_mismatch",
+        "signing_key_not_current",
+        "signing_key_purpose_mismatch",
+        "signing_key_revoked",
+        "signing_key_workspace_mismatch",
+        "trusted_key_unavailable",
+        "unsupported_signature_algorithm",
+        "untrusted_signing_key",
         "unsupported_contract_version",
         "unsupported_daemon_version",
         "wrong_workspace",
@@ -420,7 +439,7 @@ def _build_guard_device_connect_payload(
                 connect_url=connect_url,
                 wait_timeout_seconds=wait_timeout_seconds,
                 announce_copy=announce_copy,
-                open_browser=webbrowser.open,
+                open_browser=open_browser_url,
                 ci_safe=ci_safe,
                 machine_label=machine_label,
             )

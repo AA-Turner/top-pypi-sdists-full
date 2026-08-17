@@ -3,7 +3,7 @@ members = ["crates/*"]
 resolver = "3"
 
 [workspace.package]
-version = "0.4.13"
+version = "0.4.14"
 edition = "2024"
 rust-version = "1.95"
 repository = "https://github.com/j178/prek"
@@ -11,41 +11,32 @@ homepage = "https://prek.j178.dev/"
 license = "MIT"
 
 [workspace.dependencies]
-prek-consts = { path = "crates/prek-consts", version = "0.4.13" }
-prek-identify = { path = "crates/prek-identify", version = "0.4.13" }
-prek-pty = { path = "crates/prek-pty", version = "0.4.13" }
+prek-consts = { path = "crates/prek-consts", version = "0.4.14" }
+prek-identify = { path = "crates/prek-identify", version = "0.4.14" }
+prek-pty = { path = "crates/prek-pty", version = "0.4.14" }
 
 aho-corasick = { version = "1.1.4" }
 annotate-snippets = { version = "0.12.13" }
 anstream = { version = "1.0.0" }
+anstyle-parse = { version = "1.0.0" }
 anstyle-query = { version = "1.1.5" }
 anyhow = { version = "1.0.86" }
 async-trait = { version = "0.1.89" }
 async-compression = { version = "0.4.18", features = ["gzip", "xz", "tokio"] }
-async_zip = { version = "0.0.20", package = "astral_async_zip", features = [
-  "deflate",
-  "tokio"
-] }
-axoupdater = { version = "0.10.0", default-features = false, features = [
-  "github_releases"
-] }
+async_zip = { version = "0.0.20", package = "astral_async_zip", features = ["deflate", "tokio"] }
+axoupdater = { version = "0.10.0", default-features = false, features = ["github_releases"] }
 bstr = { version = "1.11.0" }
 cargo_metadata = { version = "0.23.1" }
 clap = { version = "4.6.0", features = ["derive", "env", "string", "wrap_help"] }
 clap_complete = { version = "4.6.0", features = ["unstable-dynamic"] }
-console = { version = "0.16", default-features = false, features = [
-  "ansi-parsing",
-  "std"
-] }
+console = { version = "0.16", default-features = false, features = ["ansi-parsing", "std"] }
 ctrlc = { version = "3.4.5" }
 dunce = { version = "1.0.5" }
 etcetera = { version = "0.11.0" }
 fancy-regex = { version = "0.19.0" }
 fastrand = { version = "2.4.1", default-features = false }
 fs-err = { version = "3.3.0", features = ["tokio"] }
-futures-util = { version = "0.3.31", default-features = false, features = [
-  "alloc"
-] }
+futures-util = { version = "0.3.31", default-features = false, features = ["alloc"] }
 hex = { version = "0.4.3" }
 http = { version = "1.1.0" }
 ignore = { version = "0.4.23" }
@@ -57,7 +48,7 @@ libc = { version = "0.2.182" }
 # Enable static linking for liblzma
 # This is required for the `xz` feature in `async-compression`
 liblzma = { version = "0.4.5", features = ["static"] }
-mea = { version = "0.6.3" }
+asyncband = { version = "0.6.7" }
 memchr = { version = "2.7.5" }
 owo-colors = { version = "4.1.0" }
 phf = { version = "0.14.0", default-features = false, features = ["macros"] }
@@ -68,11 +59,9 @@ reqwest = { version = "0.13.2", default-features = false, features = [
   "json",
   "rustls",
   "system-proxy",
-  "socks"
+  "socks",
 ] }
-aws-lc-rs = { version = "1.17.0", default-features = false, features = [
-  "aws-lc-sys"
-] }
+aws-lc-rs = { version = "1.17.0", default-features = false, features = ["aws-lc-sys"] }
 rustc-hash = { version = "2.1.1" }
 rustix = { version = "1.0.8", features = ["pty", "process", "fs", "termios"] }
 rayon = { version = "1.11.0" }
@@ -80,17 +69,12 @@ same-file = { version = "1.0.6" }
 seahash = { version = "4.1.0" }
 semver = { version = "1.0.24", features = ["serde"] }
 serde = { version = "1.0.210", features = ["derive"] }
-serde_json = { version = "1.0.132", features = [
-  "preserve_order",
-  "unbounded_depth"
-] }
+serde_json = { version = "1.0.132", features = ["preserve_order", "unbounded_depth"] }
 serde_stacker = { version = "0.1.12" }
-serde-saphyr = { version = "1.0.0", default-features = false, features = [
-  "deserialize",
-  "serialize"
-] }
+serde-saphyr = { version = "1.1.0", default-features = false, features = ["deserialize", "serialize"] }
 shlex = { version = "2.0.0" }
 globset = { version = "0.4.18" }
+granit-parser = { version = "1.1.0" }
 similar = { version = "3.0.0" }
 ssl-certs = { version = "0.1.1" }
 strum = { version = "0.28.0", features = ["derive"] }
@@ -106,7 +90,7 @@ tokio = { version = "1.47.1", features = [
   "sync",
   "macros",
   "net",
-  "time"
+  "time",
 ] }
 tokio-tar = { version = "0.6.4", package = "astral-tokio-tar" }
 tokio-util = { version = "0.7.13", features = ["compat", "io"] }
@@ -114,7 +98,7 @@ toml = { version = "1.0.1", default-features = false, features = [
   "fast_hash",
   "parse",
   "preserve_order",
-  "serde"
+  "serde",
 ] }
 toml_edit = { version = "0.25.1" }
 tracing = { version = "0.1.40" }

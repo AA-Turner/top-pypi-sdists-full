@@ -21,6 +21,7 @@ from ..runtime.false_positive_rules import (
     SOURCE_INSPECTION_SENSITIVE_PARTS,
     target_is_known_skill_doc_path,
 )
+from .skill_paths import resolve_known_skill_doc_path
 
 SOURCE_CLASSIFIER_VERSION = "source-paths-v1"
 
@@ -50,6 +51,17 @@ _EXTERNAL_SOURCE_SENSITIVE_PARTS = _SENSITIVE_SEARCH_BASENAMES | frozenset(
 )
 _SOURCE_SEARCH_PREFIXES = tuple(f"{part}/" for part in sorted(SOURCE_INSPECTION_PARTS))
 _SOURCE_SEARCH_EXTENSIONS = SOURCE_INSPECTION_EXTENSIONS
+_WORKFLOW_SOURCE_PREFIX = (".github", "workflows")
+
+
+def _hidden_parts_are_allowed_source(parts: list[str]) -> bool:
+    hidden_parts = [part for part in parts if part.startswith(".")]
+    if not hidden_parts:
+        return True
+    if all(part in _BENIGN_SOURCE_DOTFILES for part in hidden_parts):
+        return True
+    has_workflow_prefix = any(tuple(parts[index : index + 2]) == _WORKFLOW_SOURCE_PREFIX for index in range(len(parts)))
+    return has_workflow_prefix and hidden_parts == [".github"]
 
 
 @dataclass(frozen=True, slots=True)
@@ -188,13 +200,28 @@ def source_path_is_allowed(
         return SourcePathDecision(allowed=False, reason_code="empty_path")
 
     if target_is_known_skill_doc_path(stripped, home_dir=home_dir):
-        resolved = resolve_source_candidate_path(stripped, cwd=cwd, home_dir=home_dir)
+        resolved = resolve_known_skill_doc_path(stripped, home_dir=home_dir)
+        if resolved is None:
+            resolved = resolve_source_candidate_path(stripped, cwd=cwd, home_dir=home_dir)
         return SourcePathDecision(
             allowed=True,
             reason_code="known_skill_doc_path",
             resolved_path=resolved,
             relative_path=stripped,
         )
+
+    if home_dir is not None and stripped in {"~/.hol-support/SAFETY.md", str(home_dir / ".hol-support" / "SAFETY.md")}:
+        safety_doc = home_dir / ".hol-support" / "SAFETY.md"
+        try:
+            if safety_doc.is_file() and not safety_doc.is_symlink():
+                return SourcePathDecision(
+                    allowed=True,
+                    reason_code="guard_safety_doc_path",
+                    resolved_path=safety_doc.resolve(strict=True),
+                    relative_path=stripped,
+                )
+        except (OSError, RuntimeError):
+            pass
 
     if any(char in stripped for char in ("*", "?", "{", "}")):
         return SourcePathDecision(allowed=False, reason_code="glob_pattern")
@@ -214,7 +241,7 @@ def source_path_is_allowed(
         # Check for symlinks BEFORE resolving — resolve() follows symlinks
         # and would hide them, making path_contains_symlink a no-op.
         try:
-            target_path.relative_to(base_dir)
+            _ = target_path.relative_to(base_dir)
         except ValueError:
             if not allow_external_source or not external_path_requested:
                 return SourcePathDecision(allowed=False, reason_code="absolute_path_outside_workspace")
@@ -241,7 +268,7 @@ def source_path_is_allowed(
             if not resolved_home_dir.is_dir():
                 return SourcePathDecision(allowed=False, reason_code="external_home_unavailable")
             try:
-                candidate.relative_to(resolved_home_dir)
+                _ = candidate.relative_to(resolved_home_dir)
             except ValueError:
                 return SourcePathDecision(allowed=False, reason_code="external_target_outside_home")
             if not _is_immediate_sibling_git_checkout_path(candidate, workspace_dir=base_dir):
@@ -254,8 +281,7 @@ def source_path_is_allowed(
                 _external_source_filename_is_sensitive(candidate)
             ):
                 return SourcePathDecision(allowed=False, reason_code="sensitive_basename")
-            hidden_parts = [part for part in lowered_parts if part.startswith(".")]
-            if hidden_parts and not all(part in _BENIGN_SOURCE_DOTFILES for part in hidden_parts):
+            if not _hidden_parts_are_allowed_source(lowered_parts):
                 return SourcePathDecision(allowed=False, reason_code="unsafe_hidden_dir")
             normalized = "/".join(parts)
             if not (
@@ -301,8 +327,7 @@ def source_path_is_allowed(
     if any(part in _SENSITIVE_SEARCH_BASENAMES for part in lowered_parts):
         return SourcePathDecision(allowed=False, reason_code="sensitive_basename")
 
-    hidden_parts = [part for part in lowered_parts if part.startswith(".")]
-    if hidden_parts and not all(part in _BENIGN_SOURCE_DOTFILES for part in hidden_parts):
+    if not _hidden_parts_are_allowed_source(lowered_parts):
         return SourcePathDecision(allowed=False, reason_code="unsafe_hidden_dir")
 
     normalized = "/".join(parts)
@@ -362,8 +387,7 @@ def absolute_source_target_is_source_like(target_path: Path) -> bool:
     lowered_parts = [part.lower() for part in parts]
     if any(part in _SENSITIVE_SEARCH_BASENAMES for part in lowered_parts):
         return False
-    hidden_parts = [part for part in lowered_parts if part.startswith(".")]
-    if hidden_parts and not all(part in _BENIGN_SOURCE_DOTFILES for part in hidden_parts):
+    if not _hidden_parts_are_allowed_source(lowered_parts):
         return False
     normalized = "/".join(parts)
     if any(f"/{prefix}" in f"/{normalized}" for prefix in _SOURCE_SEARCH_PREFIXES):

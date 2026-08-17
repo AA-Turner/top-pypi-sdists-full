@@ -9,7 +9,7 @@ from typing import Any, ClassVar, Dict, Optional, Tuple, Type, TypeVar, Union, c
 
 import numpy as np
 import numpy.typing as npt
-from typing_extensions import Annotated, Literal, TypeAlias, override
+from typing_extensions import Annotated, Literal, TypeAlias, TypedDict, override
 
 from . import infra, theme, uplot
 
@@ -171,10 +171,18 @@ LabelAnchor = Literal[
 EntityType: TypeAlias = Literal["gui", "scene", "command", "notification", "modal"]
 """Kinds of removable entities in the protocol."""
 
-LifecyclePhase: TypeAlias = Literal["create", "update", "remove"]
+LifecyclePhase: TypeAlias = Literal["create", "update_dict", "update_simple", "remove"]
 """Phase of an entity message. Create and Remove share a redundancy-key
-namespace (so Remove supersedes Create); Update has its own namespace keyed by
-prop-set."""
+namespace (so Remove supersedes Create). There are two update flavors, both
+purged when their entity is removed:
+
+- ``update_dict``: carries an ``updates`` dict; coalesces per prop-set
+  (``{entity}:{id}:update:{props}``), so independent prop changes don't clobber
+  each other.
+- ``update_simple``: a single-purpose update with no ``updates`` dict (e.g.
+  ``SetPositionMessage``); coalesces latest-wins per message *type*
+  (``{entity}:{id}:update:{ClassName}``), so e.g. position and orientation stay
+  in separate slots."""
 
 EntityIdField: TypeAlias = Literal["uuid", "name"]
 """Name of the dataclass field that carries the entity id. ``"uuid"`` for
@@ -228,15 +236,17 @@ class Message(infra.Message):
             entity_id = getattr(self, self.entity_id_field)
             if self.lifecycle_phase in ("create", "remove"):
                 key = f"{self.entity_type}:{entity_id}:create-or-remove"
-            else:
-                # Delta updates coalesce per prop-set; full-props updates
-                # (no `updates` dict) coalesce latest-wins per entity.
-                if hasattr(self, "updates"):
-                    updates: Dict[str, Any] = self.updates  # type: ignore[attr-defined]
-                    prop_suffix = ",".join(sorted(updates.keys()))
-                else:
-                    prop_suffix = "full"
+            elif self.lifecycle_phase == "update_dict":
+                # Delta updates coalesce per prop-set, so independent prop
+                # changes don't clobber each other.
+                updates: Dict[str, Any] = self.updates  # type: ignore[attr-defined]
+                prop_suffix = ",".join(sorted(updates.keys()))
                 key = f"{self.entity_type}:{entity_id}:update:{prop_suffix}"
+            else:
+                # update_simple: single-purpose update, coalesce latest-wins
+                # per message type (so e.g. SetPosition and SetOrientation for
+                # the same node stay in separate slots).
+                key = f"{self.entity_type}:{entity_id}:update:{type(self).__name__}"
         else:
             # Non-entity fallback: ClassName + any incidental name/uuid fields.
             parts = [type(self).__name__]
@@ -296,6 +306,19 @@ class _CreateSceneNodeMessage(
     include_in_scene_serialization=True,
 ):
     name: str
+    owner: str = dataclasses.field(default="", init=False)
+    """Scope that owns this node: "" for the broadcast scope
+    (``server.scene``), otherwise an opaque per-client identifier. Each
+    scene-tree name holds at most one variant per owner; the client renders
+    the effective variant chosen by the display rule (real client > real
+    broadcast > virtual client > virtual broadcast). ``init=False`` so
+    defaulted fields don't precede subclasses' non-default props on
+    Python < 3.10; stamped by the queueing SceneApi."""
+    virtual: bool = dataclasses.field(default=False, init=False)
+    """True for auto-created intermediate ancestor frames. Virtual variants
+    yield to real ones in the display rule and exist so every node has a
+    complete same-scope ancestor chain (which is what makes scope-local
+    cascade removal orphan-free)."""
 
 
 @dataclasses.dataclass
@@ -304,9 +327,13 @@ class RemoveSceneNodeMessage(
     entity=EntityLifecycle("scene", "remove", "name"),
     include_in_scene_serialization=True,
 ):
-    """Remove a particular node from the scene."""
+    """Remove a particular node's variant, for the scope stamped in
+    ``owner``, from the scene. Removal is scope-local: it never touches the
+    other scope's variant of the same name (the server enumerates one such
+    message per same-scope descendant; the client does not cascade)."""
 
     name: str
+    owner: str = dataclasses.field(default="", init=False)
 
 
 @dataclasses.dataclass
@@ -362,7 +389,7 @@ class NotificationShowMessage(
 @dataclasses.dataclass
 class NotificationUpdateMessage(
     Message,
-    entity=EntityLifecycle("notification", "update", "uuid"),
+    entity=EntityLifecycle("notification", "update_simple", "uuid"),
     include_in_scene_serialization=False,
 ):
     """Server -> client message to update an existing notification.
@@ -443,13 +470,20 @@ class ScenePointerEnableMessage(Message, include_in_scene_serialization=False):
     """Set the modifier-filter set for a scene pointer ``event_type``.
 
     An empty ``modifiers`` tuple disables all callbacks for that
-    ``event_type``. A non-empty tuple enables them, and the client uses
-    the filter list to gate gesture engagement: a pointerdown whose
-    held-modifier state doesn't match any filter is treated as if no
-    callback were registered (no rectangle drawn, no message sent)."""
+    ``event_type`` in the sending scope. A non-empty tuple enables them,
+    and the client uses the filter list to gate gesture engagement: a
+    pointerdown whose held-modifier state doesn't match any filter is
+    treated as if no callback were registered (no rectangle drawn, no
+    message sent).
+
+    Filters are kept per ``owner`` on the client and engagement uses the
+    union across owners, so the broadcast scope and a client scope can
+    register pointer callbacks independently -- one scope clearing its
+    filters never deactivates the other's."""
 
     event_type: ScenePointerEventType
     modifiers: Tuple[Optional[KeyModifier], ...]
+    owner: str = dataclasses.field(default="", init=False)
 
     @override
     def redundancy_key(self) -> str:
@@ -471,7 +505,7 @@ class CameraFrustumProps:
     """Field of view of the camera (in radians). """
     aspect: float
     """Aspect ratio of the camera (width over height)."""
-    line_width: float
+    thickness: float
     """Width of the frustum lines."""
     color: Tuple[int, int, int]
     """Color of the frustum as RGB integers. """
@@ -485,12 +519,14 @@ class CameraFrustumProps:
     """Whether to receive shadows. If True, receives shadows normally. If
     False, no shadows. If a float (0-1), shadows are rendered with a fixed
     opacity regardless of lighting conditions. """
-    variant: Literal["wireframe", "filled"] = "wireframe"
+    variant: Literal["wireframe", "filled"]
     """Variant of the frustum visualization. 'wireframe' shows lines only,
     'filled' adds semi-transparent faces. """
-    scale: Union[float, Tuple[float, float, float]] = 0.3
+    scale: Union[float, Tuple[float, float, float]]
     """Scale factor for the size of the frustum. A single float for uniform
     scaling or a tuple of (x, y, z) for per-axis scaling."""
+    thickness_units: Literal["screen", "world"]
+    """Units for thickness: 'world' for scene units, 'screen' for pixels."""
 
 
 @dataclasses.dataclass
@@ -510,7 +546,7 @@ class GlbProps:
     """Whether to receive shadows. If True, receives shadows normally. If
     False, no shadows. If a float (0-1), shadows are rendered with a fixed
     opacity regardless of lighting conditions. """
-    scale: Union[float, Tuple[float, float, float]] = 1.0
+    scale: Union[float, Tuple[float, float, float]]
     """A scale for resizing the GLB asset. A single float for uniform scaling
     or a tuple of (x, y, z) for per-axis scaling."""
 
@@ -535,7 +571,7 @@ class FrameProps:
     """Radius of the origin sphere."""
     origin_color: Tuple[int, int, int]
     """Color of the origin sphere as RGB integers. """
-    scale: Union[float, Tuple[float, float, float]] = 1.0
+    scale: Union[float, Tuple[float, float, float]]
     """Scale of the coordinate frame. A single float for uniform scaling or a
     tuple of (x, y, z) for per-axis scaling."""
 
@@ -564,7 +600,7 @@ class BatchedAxesProps:
     """Length of each axis."""
     axes_radius: float
     """Radius of each axis."""
-    scale: Union[float, Tuple[float, float, float]] = 1.0
+    scale: Union[float, Tuple[float, float, float]]
     """Scale of the batched axes. A single float for uniform scaling or a
     tuple of (x, y, z) for per-axis scaling."""
 
@@ -613,7 +649,7 @@ class GridProps:
     """Color of the ground plane as RGB integers."""
     plane_opacity: float
     """Opacity of the ground plane, 0: invisible, 1: fully opaque."""
-    scale: Union[float, Tuple[float, float, float]] = 1.0
+    scale: Union[float, Tuple[float, float, float]]
     """Scale of the grid. A single float for uniform scaling or a
     tuple of (x, y, z) for per-axis scaling."""
 
@@ -682,10 +718,10 @@ class PointCloudProps:
     """Precision used to store point positions. Assignments to `points` are cast to
     the current precision, and changing `precision` re-casts the existing `points`
     buffer in place, so `precision` and `points` can be assigned in either order."""
-    scale: Union[float, Tuple[float, float, float]] = 1.0
+    scale: Union[float, Tuple[float, float, float]]
     """Scale of the point cloud. A single float for uniform scaling or a
     tuple of (x, y, z) for per-axis scaling."""
-    point_shading: Literal["flat", "gradient"] = "gradient"
+    point_shading: Literal["flat", "gradient"]
     """Shading mode for points. "flat" renders each point as a solid color.
     "gradient" adds a center-to-edge shading effect: lighter in the center,
     original color at the midpoint, darker at the edges."""
@@ -959,7 +995,7 @@ class BoxProps:
     """Whether to receive shadows. If True, receives shadows normally. If
     False, no shadows. If a float (0-1), shadows are rendered with a fixed
     opacity regardless of lighting conditions. """
-    scale: Union[float, Tuple[float, float, float]] = 1.0
+    scale: Union[float, Tuple[float, float, float]]
     """Scale of the box. A single float for uniform scaling or a
     tuple of (x, y, z) for per-axis scaling."""
 
@@ -989,7 +1025,7 @@ class IcosphereProps:
     """Whether to receive shadows. If True, receives shadows normally. If
     False, no shadows. If a float (0-1), shadows are rendered with a fixed
     opacity regardless of lighting conditions. """
-    scale: Union[float, Tuple[float, float, float]] = 1.0
+    scale: Union[float, Tuple[float, float, float]]
     """Scale of the icosphere. A single float for uniform scaling or a
     tuple of (x, y, z) for per-axis scaling."""
 
@@ -1020,7 +1056,7 @@ class CylinderProps:
     """Whether to receive shadows. If True, receives shadows normally. If
     False, no shadows. If a float (0-1), shadows are rendered with a fixed
     opacity regardless of lighting conditions."""
-    scale: Union[float, Tuple[float, float, float]] = 1.0
+    scale: Union[float, Tuple[float, float, float]]
     """Scale of the cylinder. A single float for uniform scaling or a
     tuple of (x, y, z) for per-axis scaling."""
 
@@ -1124,9 +1160,9 @@ class BatchedMeshesProps(_BatchedMeshExtraProps):
     """Whether or not to cast shadows."""
     receive_shadow: bool
     """Whether or not to receive shadows."""
-    batched_opacities: Optional[npt.NDArray[np.float32]] = None
+    batched_opacities: Optional[npt.NDArray[np.float32]]
     """Per-instance opacity multipliers, shape (N,). Multiplied with global opacity."""
-    scale: Union[float, Tuple[float, float, float]] = 1.0
+    scale: Union[float, Tuple[float, float, float]]
     """Scale of the batched meshes. A single float for uniform scaling or a
     tuple of (x, y, z) for per-axis scaling."""
 
@@ -1148,13 +1184,17 @@ class BatchedGlbProps(_BatchedMeshExtraProps):
     """Whether or not to cast shadows."""
     receive_shadow: bool
     """Whether or not to receive shadows."""
-    scale: Union[float, Tuple[float, float, float]] = 1.0
+    scale: Union[float, Tuple[float, float, float]]
     """Scale of the batched GLB. A single float for uniform scaling or a
     tuple of (x, y, z) for per-axis scaling."""
 
 
 @dataclasses.dataclass
-class SetBoneOrientationMessage(Message, include_in_scene_serialization=True):
+class SetBoneOrientationMessage(
+    Message,
+    entity=EntityLifecycle("scene", "update_simple", "name"),
+    include_in_scene_serialization=True,
+):
     """Server -> client message to set a skinned mesh bone's orientation.
 
     As with all other messages, transforms take the `T_parent_local` convention."""
@@ -1162,6 +1202,7 @@ class SetBoneOrientationMessage(Message, include_in_scene_serialization=True):
     name: str
     bone_index: int
     wxyz: Tuple[float, float, float, float]
+    owner: str = dataclasses.field(default="", init=False)
 
     @override
     def redundancy_key(self) -> str:
@@ -1169,7 +1210,11 @@ class SetBoneOrientationMessage(Message, include_in_scene_serialization=True):
 
 
 @dataclasses.dataclass
-class SetBonePositionMessage(Message, include_in_scene_serialization=True):
+class SetBonePositionMessage(
+    Message,
+    entity=EntityLifecycle("scene", "update_simple", "name"),
+    include_in_scene_serialization=True,
+):
     """Server -> client message to set a skinned mesh bone's position.
 
     As with all other messages, transforms take the `T_parent_local` convention."""
@@ -1177,6 +1222,7 @@ class SetBonePositionMessage(Message, include_in_scene_serialization=True):
     name: str
     bone_index: int
     position: Tuple[float, float, float]
+    owner: str = dataclasses.field(default="", init=False)
 
     @override
     def redundancy_key(self) -> str:
@@ -1280,23 +1326,54 @@ class SetCameraFovMessage(Message, include_in_scene_serialization=True):
 
 
 @dataclasses.dataclass
-class SetOrientationMessage(Message, include_in_scene_serialization=True):
+class SetCameraMinOrbitDistanceMessage(Message, include_in_scene_serialization=True):
+    """Server -> client message to set how close the camera may be dollied in
+    to its orbit (look-at) point.
+
+    A constraint rather than a pose, so unlike the camera position/look-at messages
+    there is no `initial` flag: URL parameters override where the camera *is*, not how
+    far it is allowed to travel.
+    """
+
+    min_orbit_distance: float
+
+
+@dataclasses.dataclass
+class SetCameraMaxOrbitDistanceMessage(Message, include_in_scene_serialization=True):
+    """Server -> client message to set how far the camera may be dollied out
+    from its orbit (look-at) point."""
+
+    max_orbit_distance: float
+
+
+@dataclasses.dataclass
+class SetOrientationMessage(
+    Message,
+    entity=EntityLifecycle("scene", "update_simple", "name"),
+    include_in_scene_serialization=True,
+):
     """Server -> client message to set a scene node's orientation.
 
     As with all other messages, transforms take the `T_parent_local` convention."""
 
     name: str
     wxyz: Tuple[float, float, float, float]
+    owner: str = dataclasses.field(default="", init=False)
 
 
 @dataclasses.dataclass
-class SetPositionMessage(Message, include_in_scene_serialization=True):
+class SetPositionMessage(
+    Message,
+    entity=EntityLifecycle("scene", "update_simple", "name"),
+    include_in_scene_serialization=True,
+):
     """Server -> client message to set a scene node's position.
 
     As with all other messages, transforms take the `T_parent_local` convention."""
 
     name: str
     position: Tuple[float, float, float]
+    owner: str = dataclasses.field(default="", init=False)
 
 
 @dataclasses.dataclass
@@ -1308,6 +1385,10 @@ class TransformControlsUpdateMessage(Message, include_in_scene_serialization=Fal
     name: str
     wxyz: Tuple[float, float, float, float]
     position: Tuple[float, float, float]
+    owner: str = ""
+    """Echo of the effective variant's owner, so the server dispatches to
+    exactly one scope's registry (regular init field: this message is
+    deserialized)."""
 
 
 @dataclasses.dataclass
@@ -1315,6 +1396,7 @@ class TransformControlsDragStartMessage(Message, include_in_scene_serialization=
     """Client -> server message when a transform control drag starts."""
 
     name: str
+    owner: str = ""
 
 
 @dataclasses.dataclass
@@ -1322,6 +1404,7 @@ class TransformControlsDragEndMessage(Message, include_in_scene_serialization=Fa
     """Client -> server message when a transform control drag ends."""
 
     name: str
+    owner: str = ""
 
 
 @dataclasses.dataclass
@@ -1356,17 +1439,22 @@ class ImageProps:
     """Whether to receive shadows. If True, receives shadows normally. If
     False, no shadows. If a float (0-1), shadows are rendered with a fixed
     opacity regardless of lighting conditions. """
-    scale: Union[float, Tuple[float, float, float]] = 1.0
+    scale: Union[float, Tuple[float, float, float]]
     """Scale of the image. A single float for uniform scaling or a
     tuple of (x, y, z) for per-axis scaling."""
 
 
 @dataclasses.dataclass
-class SetSceneNodeVisibilityMessage(Message, include_in_scene_serialization=True):
+class SetSceneNodeVisibilityMessage(
+    Message,
+    entity=EntityLifecycle("scene", "update_simple", "name"),
+    include_in_scene_serialization=True,
+):
     """Set the visibility of a particular node in the scene."""
 
     name: str
     visible: bool
+    owner: str = dataclasses.field(default="", init=False)
 
 
 @dataclasses.dataclass(frozen=True)
@@ -1396,6 +1484,7 @@ class SetSceneNodeDragBindingsMessage(Message, include_in_scene_serialization=Fa
 
     name: str
     bindings: Tuple[DragBinding, ...]
+    owner: str = dataclasses.field(default="", init=False)
 
 
 @dataclasses.dataclass
@@ -1413,6 +1502,7 @@ class SetSceneNodeClickBindingsMessage(Message, include_in_scene_serialization=F
 
     name: str
     bindings: Tuple[DragBinding, ...]
+    owner: str = dataclasses.field(default="", init=False)
 
 
 @dataclasses.dataclass
@@ -1426,6 +1516,9 @@ class SceneNodeClickMessage(Message, include_in_scene_serialization=False):
     ray_direction: Tuple[float, float, float]
     screen_pos: Tuple[float, float]
     modifier: Optional[KeyModifier]
+    owner: str = ""
+    """Echo of the clicked variant's owner, so the server dispatches to
+    exactly one scope's registry."""
 
 
 _DragPhase: TypeAlias = Literal["start", "update", "end"]
@@ -1456,6 +1549,9 @@ class SceneNodeDragMessage(Message, include_in_scene_serialization=False):
     """Current pointer in OpenCV screen-space coordinates."""
     button: Literal["left", "middle", "right"]
     modifier: Optional[KeyModifier]
+    owner: str = ""
+    """Echo of the dragged variant's owner, so the server dispatches to
+    exactly one scope's registry."""
 
 
 @dataclasses.dataclass
@@ -1691,6 +1787,104 @@ class GuiImageMessage(_CreateGuiComponentMessage):
     props: GuiImageProps
 
 
+class EdgePlacement(TypedDict):
+    """Dock a standalone panel to a viewport edge."""
+
+    kind: Literal["edge"]
+    edge: Literal["left", "right"]
+
+
+class SplitPlacement(TypedDict):
+    """Split a standalone panel above/below another panel (a column split)."""
+
+    kind: Literal["split"]
+    anchor_uuid: str
+    """Tab-group uuid of the anchor panel (CONTROL_PANEL_ID for the main panel)."""
+    side: Literal["above", "below"]
+
+
+class FloatPlacement(TypedDict):
+    """Float a standalone panel at an explicit position (None => client default)."""
+
+    kind: Literal["float"]
+    x: Optional[float]
+    y: Optional[float]
+
+
+# Panel placement is WRITE-ONLY from the server: each command fires one of the
+# per-axis messages below. There is no server-side placement state to read back;
+# all placement state lives on the client. Each message is an `update_simple`
+# entity update (entity "gui"), so they coalesce latest-wins PER MESSAGE TYPE
+# (position / width / height / collapsed stay in independent slots, never
+# clobbering each other), persist in the buffer, replay to late-joining clients,
+# and are purged when the panel is removed. This is the same lifecycle used by
+# scene SetPositionMessage / SetOrientationMessage. Because e.g. set_width emits
+# only GuiSetPanelWidthMessage (never a position), resizing can't re-dock a panel
+# the user has moved -- no before/after gating needed.
+
+
+@dataclasses.dataclass
+class GuiSetPanelPositionMessage(
+    Message,
+    entity=EntityLifecycle("gui", "update_simple", "uuid"),
+    include_in_scene_serialization=False,
+):
+    """Dock/float a panel (or the main control panel). Write-only."""
+
+    uuid: str
+    position: Union[EdgePlacement, SplitPlacement, FloatPlacement]
+    counter: int
+    """Layout-update counter (bumped on EVERY placement call): one monotonic
+    counter per GuiApi run, shared across panels (D50). The client applies a
+    replayed/late placement only if this exceeds the last counter it applied
+    for that panel axis -- there is no user-touched arm (D52) -- so a
+    reconnect replay doesn't clobber a layout the user rearranged, while the
+    server can still re-assert by calling a placement method again."""
+    run_id: str
+    """Random id of the GuiApi instance that sent this (fresh per server process
+    and per client-scoped `client.gui`). The client compares it axis-by-axis
+    against the run_id it last applied: a DIFFERENT run_id means a new server
+    run (whose counters restarted) or another scope (whose counters are
+    independent), so the counter comparison is meaningless and the placement is
+    treated as a fresh, deliberate command."""
+
+
+@dataclasses.dataclass
+class GuiSetPanelWidthMessage(
+    Message,
+    entity=EntityLifecycle("gui", "update_simple", "uuid"),
+    include_in_scene_serialization=False,
+):
+    """Set a panel's width in pixels (None clears the override -> default/theme
+    width). Write-only."""
+
+    uuid: str
+    width: Optional[float]
+    counter: int
+    """Global-per-run layout-update counter (shared across panels, D50); see
+    GuiSetPanelPositionMessage."""
+    run_id: str
+    """Sending GuiApi instance id; see GuiSetPanelPositionMessage."""
+
+
+@dataclasses.dataclass
+class GuiSetPanelHeightMessage(
+    Message,
+    entity=EntityLifecycle("gui", "update_simple", "uuid"),
+    include_in_scene_serialization=False,
+):
+    """Set a panel's height in pixels (floating panels only; None clears the
+    override -> auto). Write-only."""
+
+    uuid: str
+    height: Optional[float]
+    counter: int
+    """Global-per-run layout-update counter (shared across panels, D50); see
+    GuiSetPanelPositionMessage."""
+    run_id: str
+    """Sending GuiApi instance id; see GuiSetPanelPositionMessage."""
+
+
 @dataclasses.dataclass
 class GuiTabGroupProps:
     _tab_labels: Tuple[str, ...]
@@ -1709,6 +1903,74 @@ class GuiTabGroupProps:
 class GuiTabGroupMessage(_CreateGuiComponentMessage):
     container_uuid: str
     props: GuiTabGroupProps
+
+
+@dataclasses.dataclass
+class GuiPanelProps:
+    """Props for a standalone panel (`server.gui.add_panel()`). A panel carries
+    its own tabs (it IS the tab container). Placement is NOT a prop: it is
+    write-only client state, driven by the GuiSetPanel* messages above."""
+
+    _tab_labels: Tuple[str, ...]
+    """(Private) Tuple of labels for each tab."""
+    _tab_icons_html: Tuple[Union[str, None], ...]
+    """(Private) Tuple of HTML strings for icons of each tab, or None if no icon."""
+    _tab_container_ids: Tuple[str, ...]
+    """(Private) Tuple of container IDs for each tab."""
+    order: float
+    """Order value for arranging panels."""
+    visible: bool
+    """Visibility state of the panel: when False the panel renders nothing (its
+    panes are removed from the dock layout) without being destroyed."""
+
+
+@dataclasses.dataclass
+class GuiSetPanelCollapsedMessage(
+    Message,
+    entity=EntityLifecycle("gui", "update_simple", "uuid"),
+    include_in_scene_serialization=False,
+):
+    """Minimize (collapse) or expand a panel's CONTAINER. Write-only.
+
+    Collapse is container state on the client (a floating window's flag or a
+    docked column's rail), so this applies to the panel's containing stack --
+    panels stacked together minimize together, exactly like the on-screen
+    minimize control (D47; supersedes D31's removal, whose motivating
+    mixed-stack awkwardness was dissolved by container-owned collapse).
+    """
+
+    uuid: str
+    collapsed: bool
+    counter: int
+    """Global-per-run layout-update counter (shared across panels, D50); see
+    GuiSetPanelPositionMessage."""
+    run_id: str
+    """Sending GuiApi instance id; see GuiSetPanelPositionMessage."""
+
+
+@dataclasses.dataclass
+class GuiPanelMessage(
+    Message,
+    entity=EntityLifecycle("gui", "create", "uuid"),
+    include_in_scene_serialization=False,
+):
+    """A standalone panel: a dockable / floating GUI container that lives outside
+    the control panel. Deliberately NOT a GuiComponentMessage -- it is a
+    top-level entity (like a modal), so it never enters the inline GUI tree."""
+
+    uuid: str
+    props: GuiPanelProps
+
+
+@dataclasses.dataclass
+class GuiPanelRemoveMessage(
+    Message,
+    entity=EntityLifecycle("gui", "remove", "uuid"),
+    include_in_scene_serialization=False,
+):
+    """Sent server->client to remove a standalone panel."""
+
+    uuid: str
 
 
 @dataclasses.dataclass
@@ -1956,7 +2218,7 @@ class GuiButtonGroupMessage(_CreateGuiComponentMessage):
 @dataclasses.dataclass
 class GuiUpdateMessage(
     Message,
-    entity=EntityLifecycle("gui", "update", "uuid"),
+    entity=EntityLifecycle("gui", "update_dict", "uuid"),
     include_in_scene_serialization=False,
 ):
     """Sent client<->server when any property of a GUI component is changed."""
@@ -1969,7 +2231,7 @@ class GuiUpdateMessage(
 @dataclasses.dataclass
 class SceneNodeUpdateMessage(
     Message,
-    entity=EntityLifecycle("scene", "update", "name"),
+    entity=EntityLifecycle("scene", "update_dict", "name"),
     include_in_scene_serialization=True,
 ):
     """Sent client<->server when any property of a scene node is changed."""
@@ -1977,6 +2239,10 @@ class SceneNodeUpdateMessage(
     name: str
     updates: Dict[str, Any]
     """Mapping from property name to new value."""
+    owner: str = ""
+    """Owning scope of the targeted variant. A regular init field (unlike
+    the other server->client owner stamps) so the message stays
+    deserializable in both directions."""
 
 
 @dataclasses.dataclass
@@ -2004,14 +2270,16 @@ class LineSegmentsProps:
     points: npt.NDArray[np.float32]
     """A numpy array of shape (N, 2, 3) containing a batched set of line
     segments."""
-    line_width: float
+    thickness: float
     """Width of the lines."""
     colors: npt.NDArray[np.uint8]
     """Numpy array of shape (N, 2, 3) containing a color for each point.
     """
-    scale: Union[float, Tuple[float, float, float]] = 1.0
+    scale: Union[float, Tuple[float, float, float]]
     """Scale of the line segments. A single float for uniform scaling or a
     tuple of (x, y, z) for per-axis scaling."""
+    thickness_units: Literal["screen", "world"]
+    """Units for thickness: 'world' for scene units, 'screen' for pixels."""
 
 
 @dataclasses.dataclass
@@ -2022,15 +2290,13 @@ class ArrowProps:
     """Array of shape (N, 2, 3) containing start/end points for each of N arrows."""
     colors: npt.NDArray[np.uint8]
     """Array of shape (N, 3) containing colors per arrow, or (3,) for uniform color."""
-    shaft_radius: float = 0.02
+    shaft_radius: float
     """Radius of the arrow shaft."""
-    head_radius: float = 0.05
+    head_radius: float
     """Radius of the arrow head cone."""
-    head_length: float = 0.1
+    head_length: float
     """Length of the arrow head."""
-    line_width: float = 1
-    """Width of the lines (fallback rendering)."""
-    scale: Union[float, Tuple[float, float, float]] = 1.0
+    scale: Union[float, Tuple[float, float, float]]
     """Scale of the arrows."""
 
 
@@ -2058,15 +2324,17 @@ class CatmullRomSplineProps:
     """Tension of the curve. Affects the tightness of the curve."""
     closed: bool
     """Boolean indicating if the spline is closed (forms a loop)."""
-    line_width: float
+    thickness: float
     """Width of the spline line."""
     color: Tuple[int, int, int]
     """Color of the spline as RGB integers."""
     segments: Optional[int]
     """Number of segments to divide the spline into."""
-    scale: Union[float, Tuple[float, float, float]] = 1.0
+    scale: Union[float, Tuple[float, float, float]]
     """Scale of the spline. A single float for uniform scaling or a
     tuple of (x, y, z) for per-axis scaling."""
+    thickness_units: Literal["screen", "world"]
+    """Units for thickness: 'world' for scene units, 'screen' for pixels."""
 
 
 @dataclasses.dataclass
@@ -2082,15 +2350,17 @@ class CubicBezierSplineProps:
     """Array of shape (N, 3) defining the spline's key points."""
     control_points: npt.NDArray[np.float32]
     """Array of shape (2*N-2, 3) defining control points for Bezier curve shaping."""
-    line_width: float
+    thickness: float
     """Width of the spline line."""
     color: Tuple[int, int, int]
     """Color of the spline as RGB integers."""
     segments: Optional[int]
     """Number of segments to divide the spline into."""
-    scale: Union[float, Tuple[float, float, float]] = 1.0
+    scale: Union[float, Tuple[float, float, float]]
     """Scale of the spline. A single float for uniform scaling or a
     tuple of (x, y, z) for per-axis scaling."""
+    thickness_units: Literal["screen", "world"]
+    """Units for thickness: 'world' for scene units, 'screen' for pixels."""
 
 
 @dataclasses.dataclass
@@ -2116,7 +2386,7 @@ class GaussianSplatsProps:
     - rgba (int32)
 
     Where cov1-6 are the upper-triangular terms of covariance matrices."""
-    scale: Union[float, Tuple[float, float, float]] = 1.0
+    scale: Union[float, Tuple[float, float, float]]
     """Scale of the Gaussian splats. A single float for uniform scaling or a
     tuple of (x, y, z) for per-axis scaling."""
 
@@ -2138,6 +2408,14 @@ class GetRenderRequestMessage(Message, include_in_scene_serialization=False):
     # Correlation ID echoed back in the response, so concurrent get_render()
     # calls on the same client can be matched to their responses.
     render_uuid: str
+
+    @override
+    def redundancy_key(self) -> str:
+        # Every in-flight request must survive independently in the outgoing
+        # buffer. Under the class-name default key, a second concurrent
+        # get_render() on the same client evicted the first caller's
+        # still-unsent request, hanging that caller until timeout.
+        return type(self).__name__ + "-" + self.render_uuid
 
 
 @dataclasses.dataclass
@@ -2229,6 +2507,16 @@ class ShareUrlRequest(Message, include_in_scene_serialization=False):
 
 
 @dataclasses.dataclass
+class ReplayDoneMessage(Message, include_in_scene_serialization=False):
+    """Server->client marker: the (re)connect replay of the persistent message
+    buffer is complete -- everything after this is live traffic. Injected
+    per-connection by the message producer (never stored in the buffer). The
+    client uses it to end its reconnect phase: state held dormant across the
+    replay (e.g. dock panes for panels that may be re-created under the same
+    uuid) is purged for entities the replay did not revive."""
+
+
+@dataclasses.dataclass
 class ShareUrlUpdated(Message, include_in_scene_serialization=False):
     """Message from server->client to indicate that the share URL has been updated."""
 
@@ -2281,7 +2569,7 @@ class RegisterCommandMessage(
 @dataclasses.dataclass
 class CommandUpdateMessage(
     Message,
-    entity=EntityLifecycle("command", "update", "uuid"),
+    entity=EntityLifecycle("command", "update_dict", "uuid"),
     include_in_scene_serialization=False,
 ):
     """Message from server->client to update properties of an existing command."""
@@ -2306,3 +2594,52 @@ class CommandTriggerMessage(Message, include_in_scene_serialization=False):
     """Message from client->server when a command is triggered from the command palette."""
 
     uuid: str
+
+
+@dataclasses.dataclass
+class LocalStorageSetItemMessage(Message, include_in_scene_serialization=False):
+    """Set a key in the client's localStorage."""
+
+    key: str
+    value: str
+
+    @override
+    def redundancy_key(self) -> str:
+        return "LocalStorageItem-" + self.key
+
+
+@dataclasses.dataclass
+class LocalStorageRemoveItemMessage(Message, include_in_scene_serialization=False):
+    """Remove a key from the client's localStorage."""
+
+    key: str
+
+    @override
+    def redundancy_key(self) -> str:
+        return "LocalStorageItem-" + self.key
+
+
+@dataclasses.dataclass
+class LocalStorageClearMessage(Message, include_in_scene_serialization=False):
+    """Clear all viser-written keys from the client's localStorage."""
+
+
+@dataclasses.dataclass
+class LocalStorageGetItemRequestMessage(Message, include_in_scene_serialization=False):
+    """Message from server->client requesting a value from localStorage."""
+
+    key: str
+    request_uuid: str
+
+    @override
+    def redundancy_key(self) -> str:
+        return type(self).__name__ + "-" + self.request_uuid
+
+
+@dataclasses.dataclass
+class LocalStorageGetItemResponseMessage(Message, include_in_scene_serialization=False):
+    """Message from client->server carrying the requested localStorage value."""
+
+    value: Optional[str]
+    error: Optional[str]
+    request_uuid: str

@@ -41,6 +41,7 @@ from xpander_sdk.core.context_optimizer.constants import (
     TOOL_CALL_LIMIT_DEFAULT,
     TOTAL_TOOL_CALLS_WARN_AT,
     TRUNCATED_TOOL_CALL_MESSAGE,
+    UNPARSEABLE_PAYLOAD_MESSAGE,
     WRAPUP_GRACE_CALLS,
 )
 from xpander_sdk.core.context_optimizer.context_optimizer import (
@@ -109,9 +110,12 @@ from xpander_sdk.modules.backend.utils.tool_call_events import (
     PLANNING_TOOLS,
     REASONING_TOOLS,
     report_reasoning_event,
+    TOOL_CALL_REASONING_DESCRIPTION,
+    TOOL_CALL_REASONING_TITLE,
     report_tool_call_request,
     report_tool_call_result,
     resolve_plan_task_id,
+    resolve_reasoning,
     should_skip_tool_report,
     TOOL_CALL_PLAN_TASK_ID,
 )
@@ -127,6 +131,11 @@ from xpander_sdk.modules.tools_repository.models.mcp import (
 )
 from xpander_sdk.modules.tools_repository.models.tool_invocation_result import (
     ToolInvocationResult,
+)
+from xpander_sdk.modules.tools_repository.sub_modules.dynamic_tools import (
+    dynamic_tools_active,
+    log_dynamic_tools_decision,
+    reset_dynamic_run_state,
 )
 from xpander_sdk.modules.tools_repository.sub_modules.mcp_tool_proxy import (
     build_mcp_proxies,
@@ -151,12 +160,20 @@ from agno.guardrails import OpenAIModerationGuardrail
 from agno.models.base import Model
 
 from xpander_sdk.utils.agno_output_parsing import install_agno_output_parsing_patch
+from xpander_sdk.utils.agno_tool_resolution import (
+    UNKNOWN_TOOL_PREFIX,
+    install_agno_tool_resolution_patch,
+)
 from xpander_sdk.utils.cache import backend_config_cache, scope_token
 from xpander_sdk.utils.event_loop import run_sync
 
 # agno's structured-output cleaner turns literal newlines into spaces, flattening markdown
 if not install_agno_output_parsing_patch():
     logger.warning("[agno-parsing] inactive - markdown answers may arrive flattened")
+
+# a hidden-catalog id called directly must repair into xp_execute_tool, not dead-end
+if not install_agno_tool_resolution_patch():
+    logger.warning("[tool-repair] inactive - unknown tool calls will dead-end")
 
 # Feature flags
 USE_HEADROOM: bool = True
@@ -228,9 +245,14 @@ CONTEXT_OPTIMIZATION_INSTRUCTIONS = """
 <context_optimization>
 Some tool results are truncated to save space. A "[TRUNCATED OUTPUT]" message carries a
 `context_id` UUID; the full result is saved encrypted at `CONTEXT_OPTIMIZATION/<context_id>.xp`.
-To read it, call `xpworkspace-context-retrieve` with that context_id (scoped to the current task —
-items from other tasks can't be decrypted). Do NOT bash (`cat`, `head`) or `xpworkspace-file-read`
-these paths — they return base64 ciphertext, not plaintext.
+A truncated result keeps the head of the output and, for JSON, a `[STRUCTURE]` line stating its
+shape, key names and record counts; treat both as first-class evidence — when they answer the step
+you are on, proceed without retrieving.
+To read the rest, call `xpworkspace-context-retrieve` with that context_id (scoped to the current
+task — items from other tasks can't be decrypted). Prefer `query` (regex) or `semantic_query` (text)
+so you pull only the parts the step needs; the call is repeatable on the same context_id, so start
+narrow and broaden. `xpworkspace-context-retrieve` is the reader that decrypts these paths — bash
+(`cat`, `head`) and `xpworkspace-file-read` see base64 ciphertext.
 After a compaction you may see a `<session_backup>` pointer
 (`CONTEXT_OPTIMIZATION/session_backup_<task_id>.xp`) holding the full pre-compaction transcript;
 retrieve it with `context_id="session_backup_<task_id>"`, only when the summary lacks a specific detail.
@@ -438,6 +460,22 @@ shell.
 </workspace_secrets>
 """
 
+# The gateway's own inline-card tool. It is never attached to a run built here, but
+# the card guidance dispatched with a child names it, so a child that follows that
+# guidance literally calls a tool it does not hold.
+GATEWAY_CARD_TOOL = "show_card"
+
+# Injected only when the run holds a chat-card tool AND not the gateway's own, so
+# the gateway (which really does have show_card) can never receive it.
+CHAT_CARD_TOOL_INSTRUCTIONS = """
+<chat_cards>
+Your inline card tool in this runtime is xpchatcard-upsert: write the manifest to a workspace file
+and pass its path with a stable card_id. Card guidance you receive may name show_card, which belongs
+to a different runtime and is not attached here — when you mean to render a card, use
+xpchatcard-upsert and carry on.
+</chat_cards>
+"""
+
 # Large-payload authoring guidance — only injected when workspace tools are present.
 # Tells the LLM to offload very large tool-call payloads to a workspace file and
 # pass `workspace_path` instead of inlining. Resolution happens server-side in the
@@ -635,149 +673,6 @@ Rules:
 )
 
 
-# Everyday abbreviations models pass verbatim ("time in PST?") mapped to IANA zones.
-_TZ_ALIASES = {
-    "pst": "America/Los_Angeles",
-    "pdt": "America/Los_Angeles",
-    "mst": "America/Denver",
-    "mdt": "America/Denver",
-    "cst": "America/Chicago",
-    "cdt": "America/Chicago",
-    "est": "America/New_York",
-    "edt": "America/New_York",
-    "gmt": "Etc/GMT",
-    "utc": "UTC",
-    "bst": "Europe/London",
-    "cet": "Europe/Paris",
-    "cest": "Europe/Paris",
-    "ist": "Asia/Jerusalem",
-    "idt": "Asia/Jerusalem",
-    "jst": "Asia/Tokyo",
-    "aest": "Australia/Sydney",
-    "aedt": "Australia/Sydney",
-}
-
-_MAX_TIME_TIMEZONES = 8
-
-
-def _build_current_time_tool() -> Any:
-    """Build the ``xpget_current_time`` agno Function.
-
-    The context clock line is hour-coarsened so the cached prompt prefix stays
-    byte-identical within the hour; this tool is the minute-accurate complement.
-    """
-    from agno.tools.function import Function
-
-    def _entrypoint(payload: Optional[Union[Dict[str, Any], str]] = None) -> str:
-        """Return the precise current time in UTC plus any requested timezones."""
-        from datetime import datetime, timezone as _utc_tz
-        from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
-
-        if isinstance(payload, str):
-            parsed = parse_structured_string(payload)
-            payload = parsed if isinstance(parsed, dict) else {}
-        requested = (payload or {}).get("timezones") or []
-        if isinstance(requested, str):
-            requested = [requested]
-        now_utc = datetime.now(_utc_tz.utc)
-
-        def _entry(tz_name: str) -> Dict[str, str]:
-            local = now_utc.astimezone(
-                ZoneInfo(_TZ_ALIASES.get(tz_name.strip().lower(), tz_name.strip()))
-            )
-            offset = local.strftime("%z")
-            return {
-                "time": local.strftime("%Y-%m-%d %H:%M"),
-                "weekday": local.strftime("%A"),
-                "utc_offset": offset[:3] + ":" + offset[3:],
-                "abbreviation": local.strftime("%Z"),
-            }
-
-        out: Dict[str, Any] = {"UTC": _entry("UTC")}
-        # "utc" is pre-seeded so case variants can't produce a duplicate entry.
-        seen = {"utc"}
-        wanted: List[str] = []
-        for raw_name in requested:
-            tz_name = str(raw_name).strip()
-            if tz_name and tz_name.lower() not in seen:
-                seen.add(tz_name.lower())
-                wanted.append(tz_name)
-        dropped = wanted[_MAX_TIME_TIMEZONES:]
-        wanted = wanted[:_MAX_TIME_TIMEZONES]
-        for tz_name in wanted:
-            try:
-                out[tz_name] = _entry(tz_name)
-            except (ZoneInfoNotFoundError, ValueError):
-                out[tz_name] = {
-                    "error": (
-                        f"Unknown timezone '{tz_name}' - use an IANA name "
-                        "like 'America/Los_Angeles'."
-                    )
-                }
-            except Exception as exc:
-                logger.warning(f"[current-time] lookup failed for '{tz_name}': {exc}")
-                out[tz_name] = {"error": f"Time lookup failed for '{tz_name}'."}
-        if dropped:
-            out["_note"] = (
-                f"Skipped {len(dropped)} timezones beyond the "
-                f"{_MAX_TIME_TIMEZONES}-timezone cap: {', '.join(dropped)}."
-            )
-        return json.dumps(out)
-
-    return Function(
-        name="xpget_current_time",
-        description=(
-            "Get the exact current time. The clock line in your context is coarsened to "
-            "the hour; this tool returns the minute-accurate now. Call it whenever the "
-            "user asks the time or date, or when a precise now matters (scheduling "
-            "arithmetic, deadlines, countdowns). Returns UTC plus one entry per requested "
-            "timezone; state the timezone in your answer. "
-            "Wrap arguments in a `payload` object."
-        ),
-        parameters={
-            "type": "object",
-            "properties": {
-                "payload": {
-                    "type": "object",
-                    "properties": {
-                        "timezones": {
-                            "type": "array",
-                            "items": {"type": "string"},
-                            "description": (
-                                "IANA timezone names to include, e.g. "
-                                '["America/Los_Angeles", "Asia/Jerusalem"]. '
-                                "Common abbreviations (PST, EST, IST, ...) are "
-                                "accepted. Optional - UTC always comes back; "
-                                "up to 8 per call."
-                            ),
-                        },
-                        "headers": {
-                            "type": "object",
-                            "properties": {
-                                "toolcallreasoningtitle": {
-                                    "type": "string",
-                                    "description": 'Action-oriented title (max 5 words) describing the purpose. Example: "Check the current time".',
-                                },
-                                "toolcallreasoningdescription": {
-                                    "type": "string",
-                                    "description": 'One-sentence markdown summary of the action and goal (max 100 characters). Example: "Fetch the precise current time in the user\'s timezone."',
-                                },
-                            },
-                            "required": [
-                                "toolcallreasoningtitle",
-                                "toolcallreasoningdescription",
-                            ],
-                        },
-                    },
-                    "required": ["headers"],
-                },
-            },
-            "required": ["payload"],
-        },
-        entrypoint=_entrypoint,
-    )
-
-
 def _build_compact_tool():
     """Build the ``xpcompact_context`` agno Function.
 
@@ -854,7 +749,9 @@ _TOOLCALL_HEADER_KEYS = frozenset(
 
 
 def _stray_header_keys(envelope: Dict[str, Any]) -> List[str]:
-    return [k for k in envelope if isinstance(k, str) and k.lower() in _TOOLCALL_HEADER_KEYS]
+    return [
+        k for k in envelope if isinstance(k, str) and k.lower() in _TOOLCALL_HEADER_KEYS
+    ]
 
 
 def _route_header_keys(envelope: Dict[str, Any]) -> None:
@@ -929,7 +826,10 @@ def _classify_tool_error(error: Exception) -> str:
     if any(
         marker in error_str
         for marker in [
-            "permission_denied", "permission denied", "access denied", "accessdenied",
+            "permission_denied",
+            "permission denied",
+            "access denied",
+            "accessdenied",
         ]
     ):
         return "auth"
@@ -1055,9 +955,7 @@ def _record_gated_call(task: Any) -> int:
     return count
 
 
-def _premature_finalize_rejection(
-    optimizer: Any, function_name: str
-) -> Optional[str]:
+def _premature_finalize_rejection(optimizer: Any, function_name: str) -> Optional[str]:
     """Return the rejection message when xpfinalize_task is called while Finalize-Only Mode is inactive, else None."""
     if function_name != "xpfinalize_task":
         return None
@@ -1161,7 +1059,8 @@ _FINALIZE_SAFE_READS = _READ_ONLY_TOOLS - {"xpworkspace-secrets-list"}
 
 def _is_finalize_safe_read(function_name: str, arguments: Any) -> bool:
     """A non-destructive read the finalize-mode gate must never block. Covers the direct
-    read-only tools and a dynamic-dispatch (`xp_execute_tool`) whose inner tool is one."""
+    read-only tools and a dynamic-dispatch (`xp_execute_tool`) whose inner tool is one.
+    """
     if function_name in _FINALIZE_SAFE_READS:
         return True
     if function_name == _DYNAMIC_DISPATCH_META_TOOL:
@@ -1183,6 +1082,7 @@ def _finalize_safe_read_allowed(task: Any, function_name: str, arguments: Any) -
     except Exception:
         return True
     return reads <= FINALIZE_SAFE_READS_CAP
+
 
 REDUNDANT_CALL_MESSAGE = (
     "Redundant call blocked: '{tool}' already ran with these exact arguments earlier in this "
@@ -1233,7 +1133,9 @@ _NOOP_BASH_PATTERNS = (
     re.compile(r"^sleep\s+[\d.]+$"),
     re.compile(r"^printf\b[^|<>$`;&]*$"),
     # reads of /dev/null / guaranteed-empty input: `wc -l < /dev/null`, `cat /dev/null`
-    re.compile(r"^(?:wc|cat|head|tail|md5(?:sum)?|sha\d+sum|sort|uniq)\b[^|;&]*<\s*/dev/null$"),
+    re.compile(
+        r"^(?:wc|cat|head|tail|md5(?:sum)?|sha\d+sum|sort|uniq)\b[^|;&]*<\s*/dev/null$"
+    ),
     re.compile(r"^(?:wc|cat|head|tail)(?:\s+-[a-zA-Z]+)*\s+/dev/null$"),
 )
 # Byte-identical to the sandbox refusal so _NO_PROGRESS_MARKERS matches both origins.
@@ -1271,13 +1173,50 @@ def _is_noop_bash_command(command: str) -> bool:
 
 # Pure readers/filters only - sed/awk/find/xargs/env/sort can write or exec, and
 # misclassifying a mutation as a read would hide its state change from the ledger.
-_BASH_READ_ONLY_BINARIES = frozenset({
-    "ls", "cat", "head", "tail", "wc", "stat", "file", "grep", "egrep", "fgrep",
-    "rg", "du", "df", "tree", "pwd", "which", "type", "printenv", "date", "whoami",
-    "id", "uname", "hostname", "md5", "md5sum", "shasum", "sha256sum", "diff",
-    "cmp", "jq", "yq", "uniq", "cut", "tr", "basename", "dirname", "realpath",
-    "readlink", "echo", "printf",
-})
+_BASH_READ_ONLY_BINARIES = frozenset(
+    {
+        "ls",
+        "cat",
+        "head",
+        "tail",
+        "wc",
+        "stat",
+        "file",
+        "grep",
+        "egrep",
+        "fgrep",
+        "rg",
+        "du",
+        "df",
+        "tree",
+        "pwd",
+        "which",
+        "type",
+        "printenv",
+        "date",
+        "whoami",
+        "id",
+        "uname",
+        "hostname",
+        "md5",
+        "md5sum",
+        "shasum",
+        "sha256sum",
+        "diff",
+        "cmp",
+        "jq",
+        "yq",
+        "uniq",
+        "cut",
+        "tr",
+        "basename",
+        "dirname",
+        "realpath",
+        "readlink",
+        "echo",
+        "printf",
+    }
+)
 
 
 def _bash_command_is_read_only(normalized: str) -> bool:
@@ -1306,9 +1245,10 @@ _FILLER_TITLE_RE = re.compile(
 )
 
 FILLER_TITLE_REFUSAL = (
-    "Refused: this call's own reasoning title says it performs no real work, so it was "
-    "not run and nothing was recorded. If the work is done, write your final answer to "
-    "the user now - no tool call is needed to end a task."
+    "Refused: this call's own reasoning does not name work the call performs, so it "
+    "was not run and nothing was recorded. If this call is real, send it again with a title "
+    "and description naming the concrete action it performs. If the work is done, write your "
+    "final answer to the user now - no tool call is needed to end a task."
 )
 
 # Degenerate titles ("x", "n/a", "ok") carry no action; 3-letter words ("run") stay legal.
@@ -1327,8 +1267,8 @@ _TITLE_STOPWORDS = frozenset(
 )
 
 
-def _extract_reasoning_title(arguments: Any) -> Optional[str]:
-    """Best-effort read of toolcallreasoningtitle from the shapes the LLM emits."""
+def _extract_reasoning_header(arguments: Any, key: str) -> Optional[str]:
+    """Best-effort read of a reasoning header from the shapes the LLM emits."""
     if not isinstance(arguments, dict):
         return None
     candidates = [arguments]
@@ -1342,13 +1282,23 @@ def _extract_reasoning_title(arguments: Any) -> Optional[str]:
     for candidate in candidates:
         headers = candidate.get("headers")
         if isinstance(headers, dict):
-            title = headers.get("toolcallreasoningtitle")
-            if isinstance(title, str) and title.strip():
-                return title
-        title = candidate.get("toolcallreasoningtitle")
-        if isinstance(title, str) and title.strip():
-            return title
+            value = headers.get(key)
+            if isinstance(value, str) and value.strip():
+                return value
+        value = candidate.get(key)
+        if isinstance(value, str) and value.strip():
+            return value
     return None
+
+
+def _extract_reasoning_title(arguments: Any) -> Optional[str]:
+    """Best-effort read of the reasoning title from the shapes the LLM emits."""
+    return _extract_reasoning_header(arguments, TOOL_CALL_REASONING_TITLE)
+
+
+def _extract_reasoning_description(arguments: Any) -> Optional[str]:
+    """Best-effort read of the reasoning description from the shapes the LLM emits."""
+    return _extract_reasoning_header(arguments, TOOL_CALL_REASONING_DESCRIPTION)
 
 
 def _is_filler_title(title: Optional[str]) -> bool:
@@ -1361,12 +1311,59 @@ def _is_filler_title(title: Optional[str]) -> bool:
     if _DEGENERATE_TITLE_RE.fullmatch(stripped.lower()):
         return True
     # hyphens stay inside tokens ("no-op" must not split); 1-char fragments carry no signal
-    tokens = [
-        t.replace("-", "")
-        for t in re.split(r"[\s_/]+", stripped.lower())
-    ]
+    tokens = [t.replace("-", "") for t in re.split(r"[\s_/]+", stripped.lower())]
     tokens = [t for t in tokens if len(t) > 1 and t not in _TITLE_STOPWORDS]
     return bool(tokens) and all(_FILLER_TOKEN_RE.fullmatch(t) for t in tokens)
+
+
+# A description that opens by denying the call's own necessity is a confession even
+# when the title reads like real work; single words count only when standalone.
+_FILLER_DESC_RE = re.compile(
+    r"^(?:not[\s_-]+(?:needed|used|required|necessary|applicable)|"
+    r"no[\s_-]+action[\s_-]+(?:needed|required))\b"
+    r"|^(?:unused|unneeded|skipping)[\s.!?;:-]*$",
+    re.IGNORECASE,
+)
+
+
+def _is_filler_description(description: Optional[str]) -> bool:
+    """True when the model's own reasoning description declares the call does nothing.
+
+    Descriptions are free prose, so only whole-phrase confessions count - the title
+    token tier would misread ordinary sentences built from its vocabulary."""
+    if not description:
+        return False
+    stripped = description.strip()
+    if not stripped:
+        return False
+    if _FILLER_DESC_RE.match(stripped):
+        return True
+    # trailing punctuation must not hide a one-phrase confession ("Placeholder.")
+    bare = stripped.rstrip(" .!?;:-")
+    if not bare:
+        return False
+    return bool(_FILLER_TITLE_RE.match(bare)) or bool(
+        _DEGENERATE_TITLE_RE.fullmatch(bare.lower())
+    )
+
+
+def _carries_no_arguments(arguments: Any) -> bool:
+    """True when the call passes nothing but its reasoning headers.
+
+    A tool invoked with no arguments cannot be doing hidden work, so its title
+    is the only thing the filler guard could judge — and on a no-argument read
+    (the current time, say) the title carries no information the call does not
+    already state. Refusing it costs a turn and, three times over, the run."""
+    if not isinstance(arguments, dict):
+        return False
+    payload = arguments.get("payload")
+    body = payload if isinstance(payload, dict) else arguments
+    return not any(
+        key != "headers"
+        and not str(key).lower().startswith("toolcall")
+        and value not in (None, {}, [], "")
+        for key, value in body.items()
+    )
 
 
 class ToolSchemaValidationError(RuntimeError):
@@ -1429,8 +1426,16 @@ def _extract_share_path(arguments: Any) -> Optional[str]:
     """Best-effort read of xpworkspace-file-share's path argument."""
     if not isinstance(arguments, dict):
         return None
-    container = arguments.get("payload") if isinstance(arguments.get("payload"), dict) else arguments
-    body = container.get("body_params") if isinstance(container.get("body_params"), dict) else container
+    container = (
+        arguments.get("payload")
+        if isinstance(arguments.get("payload"), dict)
+        else arguments
+    )
+    body = (
+        container.get("body_params")
+        if isinstance(container.get("body_params"), dict)
+        else container
+    )
     path = body.get("path")
     return path if isinstance(path, str) else None
 
@@ -1476,16 +1481,28 @@ NO_PROGRESS_MESSAGE = (
 # redundancy guard here, and the memory tool).
 _NO_PROGRESS_MARKERS = (
     "Refused: this command reads nothing and changes nothing",
-    "Refused: this call's own reasoning title",
+    "Refused: this call's own reasoning",
     "Redundant call blocked:",
     "Already delivered: a live surface renders inline",
     "No memory was changed",
     "Not written: this task has already made",
     "Already known - not saved again",
     "Tool call rejected: the arguments arrived EMPTY",
+    "Tool call rejected: the payload arrived as text",
     "Rejected: finalize-only mode is NOT active",
     "Tool disabled:",
     "Org-wide sharing is turned off for this agent",
+    # always-on communication builtins' validation refusals (controller builtin_methods)
+    "Provide at least one recipient address in `to`",
+    "Provide the search terms in `query`",
+    # inline live-surface manifest rejections (controller live_surfaces)
+    "Fix the manifest and call",
+    "manifest_too_large",
+    # gateway support-ticket tool refusals (agent-controller agent_gateway/tools.py)
+    "Add the issue details in `description`",
+    "Support tickets are filed under a signed-in xpander user",
+    "The support system did not confirm the ticket",
+    UNKNOWN_TOOL_PREFIX,
 )
 
 
@@ -1535,7 +1552,8 @@ DISABLED_TOOL_REPEAT_MESSAGE = (
 
 def _report_blocked_call(task: Any, effective_name: str, message: str) -> None:
     """Fire-and-forget activity pair for a refused call - gated/aborted calls previously
-    emitted NO events, so a run stuck behind the guards looked like minutes of silence."""
+    emitted NO events, so a run stuck behind the guards looked like minutes of silence.
+    """
     if task is None or should_skip_tool_report(effective_name):
         return
 
@@ -1543,11 +1561,18 @@ def _report_blocked_call(task: Any, effective_name: str, message: str) -> None:
         # one coroutine so the result can never land before its request
         rid = str(uuid.uuid4())
         await report_tool_call_request(
-            task, rid, effective_name, tool_name=effective_name,
+            task,
+            rid,
+            effective_name,
+            tool_name=effective_name,
             payload={"blocked": True},
         )
         await report_tool_call_result(
-            task, rid, effective_name, message, is_error=True,
+            task,
+            rid,
+            effective_name,
+            message,
+            is_error=True,
             tool_name=effective_name,
         )
 
@@ -1562,7 +1587,9 @@ def _disable_tool(task: Any, effective_name: str) -> Set[str]:
     are never disabled - that could take out xpfinalize_task or the finalize-safe reads
     and deadlock the run's own exit path."""
     if effective_name.startswith("xp"):
-        disabled = getattr(task, "_xp_disabled_tools", None) if task is not None else None
+        disabled = (
+            getattr(task, "_xp_disabled_tools", None) if task is not None else None
+        )
         return disabled if isinstance(disabled, set) else set()
     if task is None:
         return {effective_name}
@@ -1608,12 +1635,14 @@ PLAN_COMPLETE_STOP = (
     "calls will run. Your next message MUST be plain text with your final answer to the "
     "user, based on the work already done. Do NOT call any more tools."
 )
-_PLAN_REOPEN_TOOLS = frozenset({
-    "xpcreate_agent_plan",
-    "xpadd_new_agent_plan_item",
-    "xpupdate_agent_plan_item",
-    "xpdelete_agent_plan_item",
-})
+_PLAN_REOPEN_TOOLS = frozenset(
+    {
+        "xpcreate_agent_plan",
+        "xpadd_new_agent_plan_item",
+        "xpupdate_agent_plan_item",
+        "xpdelete_agent_plan_item",
+    }
+)
 
 
 def _plan_payload_dict(result: Any, depth: int = 0) -> Optional[dict]:
@@ -1664,7 +1693,9 @@ def _detect_plan_complete(effective_name: str, result: Any) -> Optional[int]:
     return None
 
 
-def _track_plan_complete(task: Any, effective_name: str, result: Any, result_is_error: bool = False) -> str:
+def _track_plan_complete(
+    task: Any, effective_name: str, result: Any, result_is_error: bool = False
+) -> str:
     """Post-result bookkeeping: detect completion (note appended into the result), clear on reopen."""
     if task is None:
         return ""
@@ -2037,6 +2068,21 @@ def _get_params_schema(
     return None
 
 
+def _expects_object_payload(params_schema: Optional[dict]) -> bool:
+    """True when the tool's ``payload`` argument is declared as an object.
+
+    Fails closed: an unknown schema means the call is dispatched as before,
+    since the SDK's own tools take a string payload and parse it themselves."""
+    if not isinstance(params_schema, dict):
+        return False
+    payload = (params_schema.get("properties") or {}).get("payload")
+    if not isinstance(payload, dict):
+        return False
+    return (
+        payload.get("type") == "object" or "properties" in payload or "$ref" in payload
+    )
+
+
 def _get_required_params(
     tools: Optional[List[Any]],
     function_name: str,
@@ -2187,9 +2233,6 @@ async def build_agent_args(
 
     if tools and len(tools) != 0:
         args["tools"].extend(tools)
-
-    # The context clock is hour-coarsened for prompt caching; this is the precise clock.
-    args["tools"].append(_build_current_time_tool())
 
     _mem_user = task.input.user if task and task.input else None
     _mem_enabled = args.pop("_xpander_memory_enabled", True)
@@ -2363,6 +2406,16 @@ async def build_agent_args(
             args["instructions"] = _compose_dynamic_prompt(
                 args.get("instructions") or "", dynamic_prompt_text, position
             )
+        channel_presence_text = await _aget_channel_presence_text(xpander_agent)
+        if channel_presence_text:
+            args["instructions"] = (
+                f"{args.get('instructions') or ''}\n\n"
+                '<channel_presence note="the channels where you are present and '
+                "reachable - answer from this when someone asks where they can "
+                'reach you or which channels you are in">\n'
+                f"{channel_presence_text}\n"
+                "</channel_presence>"
+            )
 
     if (
         xpander_agent.is_a_team
@@ -2424,6 +2477,20 @@ async def build_agent_args(
         args["instructions"] += LARGE_PAYLOAD_AUTHORING_INSTRUCTIONS
         args["instructions"] += WORKSPACE_SECRETS_INSTRUCTIONS
 
+    # Card guidance inherited from the gateway names `show_card`, which is a
+    # gateway-side tool: a run here that follows it literally gets "Function
+    # show_card not found" and burns turns hunting for it. Point at the card tool
+    # this run actually holds instead. Gated on the toolset, so a run that really
+    # does hold show_card (the gateway itself) never sees this.
+    _tool_names = {
+        getattr(t, "__name__", None) or getattr(t, "name", "") or ""
+        for t in args.get("tools", [])
+    }
+    if any(n.startswith("xpchatcard-") for n in _tool_names) and (
+        GATEWAY_CARD_TOOL not in _tool_names
+    ):
+        args["instructions"] += CHAT_CARD_TOOL_INSTRUCTIONS
+
     # Inject the resolved skills catalog (embedded in the agent payload). Listed
     # inline so the agent discovers skills without reading ./skills/INDEX.md (which
     # syncs asynchronously). Appended here, not via AgentInstructions, so it
@@ -2441,8 +2508,8 @@ async def build_agent_args(
     # reached via the xp_* meta-tools (built in ToolsRepository.functions). Inject
     # the discovery hint + inline catalog here, after instruction overrides, so it
     # survives instructions_override. The hint is empty when nothing is hidden.
-    if getattr(xpander_agent, "use_dynamic_tools", False) and getattr(
-        xpander_agent, "tools", None
+    if getattr(xpander_agent, "tools", None) and dynamic_tools_active(
+        xpander_agent, xpander_agent.tools
     ):
         args["instructions"] += xpander_agent.tools.build_dynamic_tools_hint()
 
@@ -2688,6 +2755,25 @@ async def build_agent_args(
             except Exception as exc:
                 logger.debug(f"[tool-hook] arg coercion skipped: {exc}")
 
+        # The meta-tools take a single `payload` object, and the model sometimes
+        # passes their fields flat (`query=...` instead of `payload={"query": ...}`).
+        # Pydantic answers with "payload missing" plus "query unexpected", which
+        # reads as a schema mismatch rather than a wrapper it forgot. There is
+        # exactly one parameter, so flat fields can only be that payload.
+        if function_name in DYNAMIC_META_TOOLS and isinstance(arguments, dict):
+            flat = {
+                k: v
+                for k, v in arguments.items()
+                if k != "payload" and not str(k).lower().startswith("toolcall")
+            }
+            if flat and not isinstance(arguments.get("payload"), dict):
+                for key in flat:
+                    arguments.pop(key, None)
+                arguments["payload"] = flat
+                logger.debug(
+                    f"[tool-hook] wrapped flat args in a payload for {function_name}"
+                )
+
         # Effective tool identity for loop detection. The dynamic-tools dispatcher
         # (xp_execute_tool) hides the real tool in payload.name and runs it without
         # re-entering this hook, so the stuck/volume/error-streak guards below key
@@ -2714,18 +2800,43 @@ async def build_agent_args(
             _report_blocked_call(task, eff_name, message)
             return message
 
-        # Self-declared filler: the reasoning title itself says the call does no work.
-        # Refused before dispatch, billing, and activity logging - nothing is recorded.
-        # xpfinalize_task is exempt: "finalize task" is its one legitimate title.
+        # Self-declared filler (title or description) is refused before dispatch,
+        # billing, and activity logging; xpfinalize_task's one legitimate title is exempt.
+        confessed_filler_allowed = False
         if eff_name != "xpfinalize_task":
             try:
                 # dynamic dispatch may carry the headers on the OUTER call, not the inner args
                 _reasoning_title = _extract_reasoning_title(
                     eff_args if isinstance(eff_args, dict) else None
                 ) or _extract_reasoning_title(arguments)
-                if _is_filler_title(_reasoning_title):
+                _reasoning_desc = _extract_reasoning_description(
+                    eff_args if isinstance(eff_args, dict) else None
+                ) or _extract_reasoning_description(arguments)
+                _title_confessed = _is_filler_title(_reasoning_title)
+                _confessed = _title_confessed or _is_filler_description(_reasoning_desc)
+                if _confessed and _carries_no_arguments(
+                    eff_args if isinstance(eff_args, dict) else arguments
+                ):
+                    # A no-argument call has no work to judge, so the title is
+                    # ceremony the model fills in to satisfy a required field.
+                    # Running it costs a round-trip; refusing it three times costs
+                    # the task. The activity row still reads well - the label
+                    # falls back to the tool's own name downstream. It still feeds
+                    # the no-progress streak below.
+                    confessed_filler_allowed = True
                     logger.info(
-                        f"[filler-title] refused '{eff_name}' - self-labelled filler call"
+                        f"[filler-title] allowed no-argument '{eff_name}' despite "
+                        f"title={_reasoning_title!r} desc={_reasoning_desc!r}"
+                    )
+                elif _title_confessed:
+                    # only the title vetoes an argument-carrying call: description
+                    # prose legitimately opens with these phrases while naming real work
+                    # The title goes in the operator log, never in the refusal the
+                    # model reads: three of these end a run in finalize mode, and
+                    # without the title nobody can tell a real catch from a misread.
+                    logger.info(
+                        f"[filler-title] refused '{eff_name}' - self-labelled filler "
+                        f"call, title={_reasoning_title!r} desc={_reasoning_desc!r}"
                     )
                     warning = _record_no_progress(FILLER_TITLE_REFUSAL)
                     return (
@@ -2745,9 +2856,9 @@ async def build_agent_args(
                     if function_name == _DYNAMIC_DISPATCH_META_TOOL
                     else arguments
                 )
-                if isinstance(_share_path, str) and _share_path.strip().lower().endswith(
-                    ".livesurface"
-                ):
+                if isinstance(
+                    _share_path, str
+                ) and _share_path.strip().lower().endswith(".livesurface"):
                     logger.info(f"[livesurface-share] refused share of {_share_path!r}")
                     warning = _record_no_progress(LIVESURFACE_SHARE_REFUSAL)
                     return (
@@ -2835,7 +2946,9 @@ async def build_agent_args(
             strip_workspace_path(arguments)
 
         # One signature for both guards, blind to the cosmetic reasoning headers.
-        _sig_args = _signature_args(eff_args) if isinstance(eff_args, dict) else eff_args
+        _sig_args = (
+            _signature_args(eff_args) if isinstance(eff_args, dict) else eff_args
+        )
         _sig_body = (
             _bounded_arg_signature(_sig_args)
             if isinstance(_sig_args, dict)
@@ -2890,9 +3003,7 @@ async def build_agent_args(
                 )
                 bash_command = _coerce_bash_command(bash_args)
                 if bash_command is not None and _is_noop_bash_command(bash_command):
-                    logger.info(
-                        f"[bash-noop] refused locally: {bash_command[:120]!r}"
-                    )
+                    logger.info(f"[bash-noop] refused locally: {bash_command[:120]!r}")
                     warning = _record_no_progress(BASH_NOOP_REFUSAL)
                     return (
                         f"{BASH_NOOP_REFUSAL}\n\n{warning}"
@@ -3068,7 +3179,9 @@ async def build_agent_args(
                 if pc_calls > PLAN_COMPLETE_GRACE_CALLS:
                     if isinstance(optimizer_for_pc, XPanderContextOptimizer):
                         try:
-                            enter_finalize_mode(optimizer_for_pc, reason="plan_complete")
+                            enter_finalize_mode(
+                                optimizer_for_pc, reason="plan_complete"
+                            )
                         except Exception as exc:
                             logger.warning(
                                 f"[plan-complete] failed to enter finalize mode: {exc}"
@@ -3172,8 +3285,9 @@ async def build_agent_args(
                         operation_id=function_name,
                         tool_name=function_name,
                         payload=arguments,
-                        reasoning=extract_reasoning(
-                            arguments if isinstance(arguments, dict) else None
+                        reasoning=resolve_reasoning(
+                            function_name,
+                            arguments if isinstance(arguments, dict) else None,
                         ),
                         plan_task_id=tc_plan_task_id,
                     )
@@ -3241,6 +3355,50 @@ async def build_agent_args(
                 if streak_warning:
                     return f"{TRUNCATED_TOOL_CALL_MESSAGE}\n\n{streak_warning}"
                 return TRUNCATED_TOOL_CALL_MESSAGE
+
+        # The other truncation shape: the payload streamed as a JSON string that
+        # stops mid-object. A parseable string is normalized here so the tool and
+        # the activity row both see the object; an unparseable one is rejected
+        # with the same class of guidance as the empty-args case, because the
+        # pydantic error it would otherwise raise blames the quoting rather than
+        # the cut-off stream. Only for tools whose schema declares an object
+        # payload — the SDK's own tools accept a string and parse it themselves.
+        if isinstance(arguments, dict) and isinstance(arguments.get("payload"), str):
+            raw_payload = arguments["payload"]
+            parsed_payload = parse_structured_string(raw_payload)
+            if isinstance(parsed_payload, dict):
+                arguments["payload"] = parsed_payload
+            elif _expects_object_payload(
+                _get_params_schema(args.get("tools"), function_name, matched_tool)
+            ):
+                logger.warning(
+                    f"[truncated-call-guard] rejecting '{function_name}': payload "
+                    f"arrived as an unparseable string ({len(raw_payload)} chars)"
+                )
+                if activity_request_id and task:
+                    try:
+                        _spawn_bg(
+                            report_tool_call_result(
+                                task=task,
+                                request_id=activity_request_id,
+                                operation_id=function_name,
+                                tool_name=function_name,
+                                payload=arguments,
+                                result=UNPARSEABLE_PAYLOAD_MESSAGE,
+                                is_error=True,
+                                plan_task_id=tc_plan_task_id,
+                            )
+                        )
+                    except Exception:
+                        pass
+                warnings = [
+                    _record_tool_outcome(eff_name, True),
+                    _record_no_progress(UNPARSEABLE_PAYLOAD_MESSAGE),
+                ]
+                streak_warning = "\n\n".join(w for w in warnings if w)
+                if streak_warning:
+                    return f"{UNPARSEABLE_PAYLOAD_MESSAGE}\n\n{streak_warning}"
+                return UNPARSEABLE_PAYLOAD_MESSAGE
 
         # Layer 1 in-memory cache + workspace write queue (PRO-1148).
         #
@@ -3710,15 +3868,20 @@ async def build_agent_args(
                         tool_name=eff_name,
                     )
                     if replacement is not None:
-                        # Agent-gateway sub-tasks: warm the TOOL_CALL_ANALYSIS
-                        # summary cache fire-and-forget. Never block the hot path
-                        # waiting for it — the summary is used by later retrievals.
+                        # Fire-and-forget: a later microcompact pass splices the
+                        # summary in, so the hot path never waits on it.
                         if is_agent_gateway_task(task):
                             try:
-                                asyncio.create_task(
+                                summary_task = asyncio.create_task(
                                     get_tool_call_summary(
                                         task, function_name, arguments, clean_content
                                     )
+                                )
+                                context_id = (workspace_path or "").rsplit("/", 1)[-1]
+                                if context_id.endswith(".xp"):
+                                    context_id = context_id[:-3]
+                                optimizer.register_pending_summary(
+                                    context_id, summary_task
                                 )
                             except Exception as exc:
                                 logger.debug(
@@ -3766,8 +3929,11 @@ async def build_agent_args(
         warnings = [
             IDENTICAL_RESULT_NOTE if identical_result else None,
             _record_tool_outcome(eff_name, result_is_error),
-            # a refused noop / blocked repeat "succeeds", so the error streak never sees it
-            _record_no_progress(result, force=identical_result),
+            # a refused noop / blocked repeat "succeeds", so the error streak never sees it;
+            # an allowed confessed-filler call ran but by its own label advanced nothing
+            _record_no_progress(
+                result, force=identical_result or confessed_filler_allowed
+            ),
             # plan finished -> tell the model in-band and arm the wrap-up budget
             # (effective name: plan tools may arrive via xp_execute_tool)
             _track_plan_complete(task, eff_name, result, result_is_error),
@@ -3779,7 +3945,9 @@ async def build_agent_args(
         # Plan-less endgame: advisory only - a repeating nudge, never finalize. Read-heavy
         # work after a write is legitimate at any length; the hard breakers contain storms.
         _log_junk_query(task, eff_name, arguments)
-        wrapup_streak = _bump_wrapup_streak(task, eff_name, result_is_error, _bash_read_only)
+        wrapup_streak = _bump_wrapup_streak(
+            task, eff_name, result_is_error, _bash_read_only
+        )
         if wrapup_streak and wrapup_streak % WRAPUP_GRACE_CALLS == 0:
             result = append_to_tool_result(result, WRAPUP_NUDGE)
             # first nudge at INFO for operators; repeats at DEBUG to keep marathon logs quiet
@@ -4186,6 +4354,34 @@ async def _aget_dynamic_prompt_text(agent: Agent) -> str:
         return ""
 
 
+# The text lands inside <channel_presence>: its own tag must never close/reopen it.
+_CHANNEL_PRESENCE_TAG = re.compile(r"</?channel_presence[^>]*>", re.IGNORECASE)
+
+
+async def _aget_channel_presence_text(agent: Agent) -> str:
+    """Resolve where this agent is present per channel, rendered controller-side.
+
+    Mirrors the gateway's presence leg (workspace, bound channels, bot addresses; cached
+    controller-side). Fail-open: any problem returns "" so agent construction never breaks.
+    Failures log at debug - a controller without the endpoint yet is an expected state.
+    """
+    path = APIRoute.ResolveChannelPresence.value.format(agent_id=agent.id)
+    try:
+        api_client = APIClient(configuration=agent.configuration)
+        result = await asyncio.wait_for(
+            api_client.make_request(path=path, method="POST"),
+            timeout=DYNAMIC_PROMPT_RESOLVE_TIMEOUT_SECONDS,
+        )
+        text = result.get("text") if isinstance(result, dict) else None
+        return _CHANNEL_PRESENCE_TAG.sub("", text or "")
+    except Exception as e:
+        logger.debug(
+            f"channel presence resolve skipped for agent {agent.id} "
+            f"(POST {path}, timeout {DYNAMIC_PROMPT_RESOLVE_TIMEOUT_SECONDS}s): {e}"
+        )
+        return ""
+
+
 def _load_llm_model(
     agent: Agent,
     override: Optional[Dict[str, Any]] = {},
@@ -4582,6 +4778,7 @@ def _load_llm_model(
             and "opus-4-8" not in llm_model_name
             and "opus-5" not in llm_model_name
             and "sonnet-5" not in llm_model_name
+            and "fable-5" not in llm_model_name
         ):
             llm_args["temperature"] = 0.0
 
@@ -4607,10 +4804,12 @@ def _load_llm_model(
         llm_args["default_headers"] = llm_args["extra_headers"]
         llm_args["default_headers"]["User-Agent"] = llm_usage_identifier
         del llm_args["extra_headers"]
+        # Fable rejects sampling params outright, so never hand it a temperature.
+        if "fable" not in llm_model_name:
+            llm_args["temperature"] = 0.0
         llm = CachingClaude(
             id=llm_model_name,
             api_key=get_llm_key("ANTHROPIC_API_KEY"),
-            temperature=0.0,
             cache_system_prompt=True,
             retries=3,
             exponential_backoff=True,
@@ -4927,6 +5126,8 @@ def _parse_listed_memories(context: str) -> Dict[str, str]:
         mem_id: _normalized_memory_text(mem_text)
         for mem_id, mem_text in _MEMORY_BLOCK_LINE_RE.findall(context or "")
     }
+
+
 # Mirrors user_memories/service.py::memory_id_for - the id a save will land on is
 # derivable, so it can be handed to the model without waiting for the write.
 _MEMORY_ID_NS = uuid.UUID("6b9c9d5e-7a10-4f5f-9b53-2f5b1f7a9e42")
@@ -4962,7 +5163,9 @@ _MEM_MISS = (
 )
 
 
-def _memory_id_for(scope: str, user_id: Optional[str], agent_id: Optional[str], text: str) -> str:
+def _memory_id_for(
+    scope: str, user_id: Optional[str], agent_id: Optional[str], text: str
+) -> str:
     """The id the controller will store this memory under; must stay identical to its
     `memory_id_for`, or a save would hand the model an id that does not exist."""
     normalized = re.sub(r"\s+", " ", (text or "").strip().lower()).rstrip(".!?")
@@ -4973,7 +5176,8 @@ def _memory_id_for(scope: str, user_id: Optional[str], agent_id: Optional[str], 
 
 def _sanitize_memory(text: Any) -> str:
     """One-line, tag-free memory text: a stored `</memories>` would otherwise close the
-    context block and turn a memory into free-standing instructions for every later run."""
+    context block and turn a memory into free-standing instructions for every later run.
+    """
     cleaned = re.sub(r"[<>]", "", str(text or ""))
     return re.sub(r"\s+", " ", cleaned).strip()[:MEMORY_MAX_CHARS]
 
@@ -5045,7 +5249,9 @@ def _build_memory_tool(
     user_id = user.id if user else None
     path = APIRoute.UserMemories.value.format(agent_id=agent.id)
 
-    async def _persist(body: Dict[str, Any], timeout: float = _MEMORY_PERSIST_TIMEOUT_S) -> Any:
+    async def _persist(
+        body: Dict[str, Any], timeout: float = _MEMORY_PERSIST_TIMEOUT_S
+    ) -> Any:
         # contained + bounded: an unretrieved raise_for_status would otherwise surface as
         # "Task exception was never retrieved", and the client default timeout is 20 min
         try:
@@ -5133,7 +5339,9 @@ def _build_memory_tool(
             # a bare id substring may be an unrelated hex token like a commit hash
             if any(
                 known_id
-                and re.search(rf"\bmemor(?:y|ies)\b[^.;]{{0,60}}\b{known_id}", normalized)
+                and re.search(
+                    rf"\bmemor(?:y|ies)\b[^.;]{{0,60}}\b{known_id}", normalized
+                )
                 for known_id in known
             ):
                 return _MEM_ALREADY_KNOWN
@@ -5146,7 +5354,9 @@ def _build_memory_tool(
         # every write counts: budgeting only saves left `update` as an uncapped side door
         written = _task_state("_xp_memory_ops") or 0
         if written >= MEMORY_OPS_PER_TASK:
-            logger.info(f"[memories] {action} refused for agent {agent.id}: task budget spent")
+            logger.info(
+                f"[memories] {action} refused for agent {agent.id}: task budget spent"
+            )
             return _MEM_BUDGET.format(n=MEMORY_OPS_PER_TASK)
         _remember("_xp_memory_ops", written + 1)
         _remember("_xp_memory_writes", signatures | {signature})
@@ -5171,14 +5381,19 @@ def _build_memory_tool(
                 agent.id if scope == "agent" else None,
                 memory,
             )[:8]
-            _remember("_xp_memory_saved", (_task_state("_xp_memory_saved") or set()) | {new_id})
+            _remember(
+                "_xp_memory_saved",
+                (_task_state("_xp_memory_saved") or set()) | {new_id},
+            )
             coro = _persist(body)
             try:
                 _spawn_bg(coro)
             except RuntimeError:
                 # sync entrypoint path (backend.get_args + Agent.run): no running loop here
                 run_sync(coro)
-            logger.info(f"[memories] save queued for agent {agent.id} scope={scope} id={new_id}")
+            logger.info(
+                f"[memories] save queued for agent {agent.id} scope={scope} id={new_id}"
+            )
             return f"Saved [{new_id}]."
 
         # update/delete block on the verdict: answering from a static dict is what told the
@@ -5196,7 +5411,9 @@ def _build_memory_tool(
             return "Deleted."
         # an update rehashes the id when the text changes, so publish where the row lives now
         landed = str(result.get("memory_id") or memory_id)[:8].lower()
-        _remember("_xp_memory_saved", (_task_state("_xp_memory_saved") or set()) | {landed})
+        _remember(
+            "_xp_memory_saved", (_task_state("_xp_memory_saved") or set()) | {landed}
+        )
         previous = str(result.get("previous") or "")
         replaced = f' Replaced: "{previous[:120]}".' if previous else ""
         return f"Updated [{landed}].{replaced}"
@@ -5324,7 +5541,9 @@ async def _configure_user_memories(
                 timeout=_MEMORY_FETCH_TIMEOUT_S,
             )
             if isinstance(bundle, dict):
-                block = _render_memories_block(bundle, declare_only=_declares_memory_ops(task))
+                block = _render_memories_block(
+                    bundle, declare_only=_declares_memory_ops(task)
+                )
                 # honor the user's master toggle: no block AND no save tool when off
                 args["_xpander_memory_enabled"] = bool(
                     (bundle.get("settings") or {}).get("enabled", True)
@@ -5548,15 +5767,15 @@ async def _resolve_agent_tools(
     # is unavailable) — caller passes a list to receive them; else collect locally.
     notes = skipped_notes if skipped_notes is not None else []
 
+    # Per-run reset, before anything reads the catalog: leftovers from a previous
+    # task would leak into this run and inflate the count the size gate reads.
+    reset_dynamic_run_state(agent.tools)
+
     # Dynamic mode collapses MCP tools into the same meta-tool disclosure as the
     # xpander catalog: the SDK connects each server here, hides its tools from the
-    # LLM, and exposes them via xp_search/get/execute. Per-run reset because the
-    # repo can be reused across tasks in a long-lived worker.
-    use_dynamic = bool(getattr(agent, "use_dynamic_tools", False))
-    if use_dynamic:
-        agent.tools._dynamic_mcp_proxies.clear()
-        agent.tools._dynamic_mcp_toolkits.clear()
-        agent.tools._dynamic_inspected.clear()
+    # LLM, and exposes them via xp_search/get/execute.
+    use_dynamic = dynamic_tools_active(agent, agent.tools)
+    log_dynamic_tools_decision(agent, agent.tools, use_dynamic)
 
     mcp_servers = agent.mcp_servers
 
@@ -5773,7 +5992,9 @@ async def _resolve_agent_tools(
                         elif not auth_result:
                             auth_failure = "authentication failed"
                         elif auth_result.type != MCPOAuthResponseType.TOKEN_READY:
-                            auth_failure = "authentication timed out (sign-in not completed)"
+                            auth_failure = (
+                                "authentication timed out (sign-in not completed)"
+                            )
                         if auth_failure:
                             logger.warning(
                                 f"MCP server '{mcp.name or mcp.url}' authentication failed "
@@ -5873,7 +6094,9 @@ async def _resolve_agent_tools(
                 f"fix it in agent settings. Its tools are unavailable this run."
             )
     mcp_tools: List[MCPTools] = [
-        tool for tool in built if tool is not None and not isinstance(tool, BaseException)
+        tool
+        for tool in built
+        if tool is not None and not isinstance(tool, BaseException)
     ]
 
     return agent.tools.functions + mcp_tools
@@ -5907,6 +6130,7 @@ _MODEL_CONTEXT_WINDOWS_EXACT: Dict[str, int] = {
     "openai/gpt-4.1-mini": 1_047_576,
     "openai/gpt-4.1-nano": 1_047_576,
     # Anthropic Bedrock global cross-region — declared 1M in catalog
+    "global.anthropic.claude-fable-5": 1_000_000,
     "global.anthropic.claude-opus-5": 1_000_000,
     "global.anthropic.claude-opus-4-8": 1_000_000,
     "global.anthropic.claude-opus-4-7": 1_000_000,
@@ -5914,6 +6138,7 @@ _MODEL_CONTEXT_WINDOWS_EXACT: Dict[str, int] = {
     "global.anthropic.claude-sonnet-5": 1_000_000,
     "global.anthropic.claude-sonnet-4-6": 1_000_000,
     # Anthropic direct (Bedrock catalog declares 1M for these next-gen IDs)
+    "claude-fable-5": 1_000_000,
     "claude-opus-5": 1_000_000,
     "claude-opus-4-8": 1_000_000,
     "claude-opus-4-7": 1_000_000,
@@ -6404,6 +6629,7 @@ _MODEL_CONTEXT_WINDOWS_SUBSTRING: List[Tuple[str, int]] = [
     ("gemini-3", 1_000_000),
     ("gemini-2", 1_000_000),
     ("gemini-1.5", 1_000_000),
+    ("claude-fable-5", 1_000_000),
     ("claude-opus-5", 1_000_000),
     ("claude-opus-4-8", 1_000_000),
     ("claude-opus-4-7", 1_000_000),

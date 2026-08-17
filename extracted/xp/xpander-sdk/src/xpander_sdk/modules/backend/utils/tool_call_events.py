@@ -34,8 +34,9 @@ if TYPE_CHECKING:
     from xpander_sdk.modules.tasks.sub_modules.task import Task
 
 
-# Sizing mirrors Layer 1 microcompaction, but this clamp is DISPLAY-ONLY: the
-# model may well have received the full result (L1 skips most xp* tools).
+# Sized independently of Layer 1 - this clamp is DISPLAY-ONLY and applies to
+# every tool call, including the xp* ones L1 skips, so the model may well have
+# received the full result. Raising L1's threshold does not move these.
 DEFAULT_MAX_CONTENT_LENGTH = 8_000
 DEFAULT_PREVIEW_LENGTH = 2_000
 
@@ -86,10 +87,9 @@ AGNO_INTERNAL_TEAM_TOOLS = frozenset(
     ]
 )
 
-# Dynamic-tools meta-tools. These are SDK plumbing for progressive tool
-# disclosure (discover/inspect/run hidden tools). Their own calls are hidden
-# from the activity log — only the REAL tool dispatched through xp_execute_tool
-# is reported (xp_execute_tool calls ainvoke with report_activity=True). See
+# Dynamic-tools meta-tools: SDK plumbing for progressive tool disclosure
+# (discover/inspect/run hidden tools). This set gates the agno graph preflight,
+# NOT activity reporting — see ACTIVITY_SILENT_META_TOOLS below and
 # modules/tools_repository/sub_modules/dynamic_tools.py.
 DYNAMIC_META_TOOLS = frozenset(
     [
@@ -99,6 +99,12 @@ DYNAMIC_META_TOOLS = frozenset(
         "xp_execute_tool",
     ]
 )
+
+# The discovery meta-tools (list/search/get) DO report activity: reaching a tool
+# takes three calls and the user should see all of them. xp_execute_tool is the
+# exception — it dispatches the real tool, which reports itself through
+# ainvoke(report_activity=True), so reporting the wrapper would double up.
+ACTIVITY_SILENT_META_TOOLS = frozenset(["xp_execute_tool"])
 
 
 # Tool-call summary pre-warm. When a task is dispatched by the agent gateway
@@ -205,8 +211,10 @@ async def get_tool_call_summary(
 
     Same payload shape as ``_prewarm_tool_call_summary`` (so it shares the same
     org+preset+payload cache entry), but returns the formatted summary instead of
-    discarding it — used to append a ready summary to an offloaded result's
-    preview. Returns ``None`` on any failure or an unexpected response shape.
+    discarding it. The offload path runs this as a background task registered on
+    the optimizer (``register_pending_summary``) and a later microcompact pass
+    splices the text into the preview, so the agent loop never waits on it.
+    Returns ``None`` on any failure or an unexpected response shape.
     """
     try:
         client = APIClient(configuration=task.configuration)
@@ -247,9 +255,9 @@ def should_skip_tool_report(tool_name: Optional[str]) -> bool:
 
     This covers the deep-planning tools (fully hidden from activity), the
     reasoning tools (reported via the separate Think / Analyze helper below),
-    and agno's internal team-orchestration tools (framework plumbing, fully
-    hidden). Callers should short-circuit tool-call emission when this
-    returns True.
+    agno's internal team-orchestration tools (framework plumbing, fully
+    hidden), and xp_execute_tool (the real tool it dispatches reports itself).
+    Callers should short-circuit tool-call emission when this returns True.
     """
     if not tool_name:
         return False
@@ -257,7 +265,7 @@ def should_skip_tool_report(tool_name: Optional[str]) -> bool:
         tool_name in PLANNING_TOOLS
         or tool_name in REASONING_TOOLS
         or tool_name in AGNO_INTERNAL_TEAM_TOOLS
-        or tool_name in DYNAMIC_META_TOOLS
+        or tool_name in ACTIVITY_SILENT_META_TOOLS
     )
 
 
@@ -479,6 +487,74 @@ def extract_reasoning(
             )
 
     return None
+
+
+def _meta_tool_payload(arguments: Optional[Dict[str, Any]]) -> Dict[str, Any]:
+    """The meta-tool's own fields, whether or not they arrived payload-wrapped."""
+    if not isinstance(arguments, dict):
+        return {}
+    payload = arguments.get("payload")
+    return payload if isinstance(payload, dict) else arguments
+
+
+def synthesize_meta_tool_reasoning(
+    tool_name: Optional[str],
+    arguments: Optional[Dict[str, Any]],
+) -> Optional[ToolCallRequestReasoning]:
+    """Reasoning for a discovery meta-tool built from its own arguments.
+
+    The activity row is only renderable with a title, so the discovery calls get
+    one from their arguments whenever the model did not write one itself.
+    """
+    if tool_name not in ("xp_search_tools", "xp_get_tool", "xp_list_tools"):
+        return None
+
+    data = _meta_tool_payload(arguments)
+    if tool_name == "xp_search_tools":
+        query = str(data.get("query", "") or "").strip()
+        return ToolCallRequestReasoning(
+            title="Searching tools",
+            description=(
+                f"Looking for a tool matching '{query}'."
+                if query
+                else "Looking for a tool that fits the task."
+            ),
+        )
+    if tool_name == "xp_get_tool":
+        name = str(data.get("name", "") or "").strip()
+        return ToolCallRequestReasoning(
+            title="Loading tool",
+            description=(
+                f"Reading the schema of {name}."
+                if name
+                else "Reading a tool's schema before running it."
+            ),
+        )
+    cursor = data.get("cursor", 0) or 0
+    return ToolCallRequestReasoning(
+        title="Listing tools",
+        description=f"Browsing the available tool catalog from position {cursor}.",
+    )
+
+
+def resolve_reasoning(
+    tool_name: Optional[str],
+    arguments: Optional[Dict[str, Any]],
+) -> Optional[ToolCallRequestReasoning]:
+    """The reasoning to report: what the model wrote, else a synthesized one.
+
+    A model that writes only a description still leaves the row without the title
+    it renders from, so the synthesized title fills in under the model's own
+    description."""
+    written = extract_reasoning(arguments)
+    if written is not None and written.title:
+        return written
+    synthesized = synthesize_meta_tool_reasoning(tool_name, arguments)
+    if synthesized is None:
+        return written
+    if written is not None and written.description:
+        synthesized.description = written.description
+    return synthesized
 
 
 # Sentinel distinguishing an absent ``toolcallplantaskid`` header from one that

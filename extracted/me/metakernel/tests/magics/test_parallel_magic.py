@@ -17,7 +17,9 @@ NO_IPYPARALLEL = ipyparallel is None
 
 
 @pytest.mark.skipif(ipyparallel is None, reason="Requires ipyparallel")
-@pytest.mark.skipif(sys.platform == "darwin", reason="Fails on darwin")
+@pytest.mark.skipif(
+    sys.platform != "linux", reason="Requires ipcluster; too slow on non-Linux CI"
+)
 def test_parallel_magic() -> None:
     kernel = get_kernel(EvalKernel)
     # start up an EvalKernel on each node:
@@ -31,6 +33,9 @@ def test_parallel_magic() -> None:
 
 
 @pytest.mark.skipif(ipyparallel is None, reason="Requires ipyparallel")
+@pytest.mark.skipif(
+    sys.platform != "linux", reason="Requires ipcluster; too slow on non-Linux CI"
+)
 def test_px_error_reports_exception_not_noisy_traceback() -> None:
     """%%px with failing code should report the remote error, not a noisy
     'Error in calling magic' wrapper with full Python traceback (issue #61)."""
@@ -347,9 +352,10 @@ class _PxView:
     def __getitem__(self, key: Any) -> Any:
         self._call_count += 1
         self.called_with.append(key)
-        if self._raises is not None:
-            if self._fail_times == 0 or self._call_count <= self._fail_times:
-                raise self._raises
+        if self._raises is not None and (
+            self._fail_times == 0 or self._call_count <= self._fail_times
+        ):
+            raise self._raises
         return self._return_value
 
     def __setitem__(self, key: Any, value: Any) -> None:

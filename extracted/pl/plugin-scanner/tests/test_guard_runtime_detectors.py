@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+import time
 from pathlib import Path
 
 import pytest
@@ -196,7 +197,7 @@ def test_detector_registry_skips_disabled_detector_ids(tmp_path):
     ]
 
 
-def test_detector_registry_discards_signals_when_detector_exceeds_timeout(tmp_path):
+def test_detector_registry_preserves_completed_signals_when_detector_exceeds_timeout(tmp_path):
     calls: list[str] = []
     registry = DetectorRegistry(
         (RecordingDetector("secret.slow", ("secret",), calls, _signal("secret:slow", "secret")),),
@@ -206,9 +207,36 @@ def test_detector_registry_discards_signals_when_detector_exceeds_timeout(tmp_pa
     result = registry.run(_action(), _context(tmp_path), timeout_ms=50)
 
     assert calls == ["secret.slow"]
-    assert result.signals == ()
+    assert [signal.signal_id for signal in result.signals] == ["secret:slow"]
     assert result.telemetry[0].status == "timeout"
     assert result.telemetry[0].elapsed_ms == 75
+    assert result.slow_detectors(threshold_ms=50) == result.telemetry
+
+
+def test_detector_registry_preserves_signals_after_cpu_bound_timeout(tmp_path):
+    class CpuBoundDetector:
+        detector_id = "secret.cpu-bound"
+        categories: tuple[RiskSignalCategory, ...] = ("secret",)
+
+        def detect(self, action: GuardActionEnvelope, context: DetectorContext) -> tuple[RiskSignalV2, ...]:
+            assert action.action_type == "harness_start"
+            assert context.workspace is not None
+            deadline = time.monotonic() + 0.005
+            accumulator = 0
+            while time.monotonic() < deadline:
+                accumulator += 1
+            assert accumulator > 0
+            return (_signal("secret:cpu-bound", "secret"),)
+
+    result = DetectorRegistry((CpuBoundDetector(),)).run(
+        _action(),
+        _context(tmp_path),
+        timeout_ms=1,
+    )
+
+    assert [signal.signal_id for signal in result.signals] == ["secret:cpu-bound"]
+    assert result.telemetry[0].status == "timeout"
+    assert result.telemetry[0].elapsed_ms >= 5
 
 
 def test_detector_registry_isolates_detector_exceptions_as_telemetry(tmp_path):
@@ -534,6 +562,9 @@ def test_guard_run_invokes_detector_registry_only_when_feature_flag_enabled(tmp_
     assert "runtime_detector_signals_v2" not in disabled_result
     assert enabled_result["runtime_detector_signals_v2"] == [_signal("secret:local", "secret").to_dict()]
     assert isinstance(enabled_result["runtime_detector_telemetry"], list)
+    run_decision = enabled_result["run_authoritative_decision"]
+    assert run_decision["action"] == "allow"
+    assert run_decision["signals"] == [_signal("secret:local", "secret").to_dict()]
 
 
 def test_guard_run_keeps_detector_results_after_blocked_resolver_reevaluation(tmp_path, monkeypatch):
@@ -631,6 +662,61 @@ def test_detector_composition_can_block_unblocked_evaluation(tmp_path):
     assert result["blocked"] is True
     assert result["blocked_by_detector"] == "bypass signal 'guard.bypass' forces block"
     assert result["runtime_detector_composition"]["action"] == "block"
+
+
+def test_guard_run_detector_block_without_artifacts_uses_run_authority(tmp_path, monkeypatch):
+    home_dir = tmp_path / "home"
+    workspace_dir = tmp_path / "workspace"
+    workspace_dir.mkdir()
+    detection = HarnessDetection(
+        harness="codex",
+        installed=True,
+        command_available=True,
+        config_paths=(),
+        artifacts=(),
+    )
+    bypass_signal = RiskSignalV2(
+        signal_id="bypass:no-artifact-launch",
+        category="bypass",
+        severity="high",
+        confidence="strong",
+        detector="guard.bypass",
+        title="Guard bypass attempt",
+        plain_reason="Detector blocked the aggregate launch without an artifact.",
+        technical_detail=None,
+        evidence_ref=None,
+        redaction_level="summary",
+        false_positive_hint=None,
+        advisory_id=None,
+    )
+    detector_calls: list[str] = []
+    detector = RecordingDetector("guard.bypass", ("bypass",), detector_calls, bypass_signal)
+    monkeypatch.setattr(guard_runner_module, "detect_harness", lambda _harness, _context: detection)
+    monkeypatch.setattr(guard_runner_module, "register_default_detectors", lambda: (detector,))
+    monkeypatch.setattr(
+        guard_runner_module.subprocess,
+        "run",
+        lambda *_args, **_kwargs: pytest.fail("run-level detector block must not launch"),
+    )
+
+    result = guard_runner_module.guard_run(
+        "codex",
+        HarnessContext(home_dir=home_dir, workspace_dir=workspace_dir, guard_home=home_dir),
+        GuardStore(home_dir),
+        GuardConfig(guard_home=home_dir, workspace=workspace_dir, runtime_detector_registry=True),
+        dry_run=False,
+        passthrough_args=[],
+    )
+
+    assert detector_calls == ["guard.bypass"]
+    assert result["blocked"] is True
+    assert result["blocked_by_detector"] == "bypass signal 'guard.bypass' forces block"
+    assert "authority_error" not in result
+    run_decision = result["run_authoritative_decision"]
+    assert run_decision["action"] == "block"
+    assert run_decision["composition_trace"]["runtime_detector_action"] == "block"
+    assert run_decision["signals"] == [bypass_signal.to_dict()]
+    assert run_decision["decision_v2"]["signals"] == [bypass_signal.to_dict()]
 
 
 def test_authoritative_detector_block_controls_artifact_persistence(tmp_path):
@@ -894,6 +980,11 @@ def test_guard_run_detector_review_precedes_saved_allow_reuse_and_persists_autho
     assert artifact_result["policy_composition"]["current_action"] == "review"
     assert artifact_result["policy_composition"]["runtime_detector_action"] == "review"
     assert artifact_result["policy_composition"]["final_action"] == "review"
+    assert artifact_result["risk_summary"] == persistence_signal.plain_reason
+    assert artifact_result["risk_headline"] == persistence_signal.plain_reason
+    assert "no obvious" not in artifact_result["risk_summary"].lower()
+    assert persistence_signal.to_dict() in artifact_result["authoritative_decision"]["signals"]
+    assert persistence_signal.to_dict() in artifact_result["decision_v2_json"]["signals"]
     assert artifact_result["scanner_evidence"][-1] == {
         "source": "runtime_detector_registry",
         "status": "review-required",
@@ -910,6 +1001,10 @@ def test_guard_run_detector_review_precedes_saved_allow_reuse_and_persists_autho
     assert receipts[0]["policy_decision"] == "review"
     assert receipts[0]["approval_source"] == "runtime-detector"
     assert receipts[0]["scanner_evidence"][-1] == artifact_result["scanner_evidence"][-1]
+    assert any(
+        evidence.get("kind") == "risk_signal_v2" and evidence.get("signal") == persistence_signal.to_dict()
+        for evidence in receipts[0]["scanner_evidence"]
+    )
     assert (
         store.peek_local_once_approval(
             harness="codex",

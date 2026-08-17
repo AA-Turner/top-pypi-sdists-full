@@ -501,6 +501,29 @@ class TestGuardProtect:
         assert request.targets[0].source_url is None
         assert "registers a remote server endpoint" not in protect._request_risk_signals(request)
 
+    def test_guard_protect_excludes_npm_prefix_destination_from_targets(self, tmp_path: Path) -> None:
+        install_dir = tmp_path / "agent" / "npm"
+
+        request = protect.parse_protect_command(
+            [
+                "npm",
+                "install",
+                "@firecrawl/pi-firecrawl",
+                "--prefix",
+                str(install_dir),
+                "--legacy-peer-deps",
+            ]
+        )
+
+        assert [target.package_name for target in request.targets] == ["@firecrawl/pi-firecrawl"]
+
+    def test_guard_protect_parses_versioned_scoped_npm_package(self) -> None:
+        request = protect.parse_protect_command(["npm", "install", "@firecrawl/pi-firecrawl@1.2.3"])
+
+        assert len(request.targets) == 1
+        assert request.targets[0].package_name == "@firecrawl/pi-firecrawl"
+        assert request.targets[0].version == "1.2.3"
+
     def test_guard_protect_parses_claude_add_json_payload(self) -> None:
         request = protect.parse_protect_command(
             [
@@ -855,6 +878,13 @@ class TestGuardProtect:
             source_scope="project",
         )
         store.add_receipt(receipt)
+        initial_action_envelope = {
+            "package_manager": "npm",
+            "package_targets": ["badpkg@1.0.0"],
+            "policy_action": "allow",
+            "redacted_command": "npm install badpkg@1.0.0",
+        }
+        store.set_receipt_action_envelope(receipt.receipt_id, initial_action_envelope)
         payload: dict[str, object] = {
             "request": {"executor": "npm", "install_kind": "install"},
             "verdict": {
@@ -867,7 +897,21 @@ class TestGuardProtect:
             "matched_advisories": [],
             "executed": False,
             "dry_run": False,
-            "receipt": receipt.to_dict(),
+            "supply_chain_evaluation": {
+                "decision": "allow",
+                "policy_action": "allow",
+                "risk_summary": "Initial package authority allowed execution.",
+                "user_copy": {
+                    "title": "Package allowed",
+                    "summary": "Initial package authority allowed execution.",
+                    "next_step": "Continue.",
+                    "harness_message": "Package allowed.",
+                },
+            },
+            "receipt": {
+                **receipt.to_dict(),
+                "action_envelope_json": initial_action_envelope,
+            },
         }
         cached_verdict = protect.ProtectVerdict(
             action="block",
@@ -887,9 +931,14 @@ class TestGuardProtect:
         assert returncode == 2
         assert merged_payload["verdict"]["action"] == "block"
         assert merged_payload["receipt"]["policy_decision"] == "block"
+        assert merged_payload["receipt"]["action_envelope_json"]["policy_action"] == "block"
+        assert merged_payload["supply_chain_evaluation"]["policy_action"] == "block"
+        assert merged_payload["supply_chain_evaluation"]["decision"] == "block"
+        assert "blocked" in merged_payload["supply_chain_evaluation"]["user_copy"]["title"].lower()
         stored_receipts = store.list_receipts(limit=10)
         assert len(stored_receipts) == 1
         assert stored_receipts[0]["policy_decision"] == "block"
+        assert stored_receipts[0]["action_envelope_json"]["policy_action"] == "block"
         events = store.list_events(event_name="install_time_block")
         assert len(events) == 1
         assert events[0]["payload"]["cached_advisory_override"] is True

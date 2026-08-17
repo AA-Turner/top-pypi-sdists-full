@@ -41,6 +41,14 @@ _BARE_NAME_RE = re.compile(IDENT)
 # breaks the match instead of guessing, as in the yaml/unknown-type rule.
 _YAML_TYPE_RE = re.compile(r"(?:^|\s)Тип\s*:\s*[\w\s.,<>|?]*$")
 
+#: `новый Имя.` right before the cursor - a constructor, where only a type name may follow.
+#: Both spellings of the keyword, and the word must stand on its own (`Обновый` is a name).
+_AFTER_NEW_RE = re.compile(
+    rf"(?:^|[^A-Za-z0-9А-Яа-яЁё_])(?:новый|new)\s+{IDENT}\s*\.\s*(?:{IDENT})?$", re.IGNORECASE)
+
+#: Kinds that name a TYPE - what a constructor accepts after the dot.
+_TYPE_KINDS = frozenset({"family", "localType", "object", "enum", "tabular"})
+
 
 class IndexLookup:
     """Precomputed lookups over the index dict built by indexer.build_index."""
@@ -108,6 +116,29 @@ class IndexLookup:
             found = members.get(name.rpartition(".")[2])
         return found
 
+    def form_data_object(self, stem: str) -> Optional[tuple[str, str]]:
+        """(name, written type) of the data object of a form: `("Object", "Goods.Object")`.
+
+        A form module addresses the entity it edits by a BARE name, and nothing in the module
+        declares that name - the base type of the form does, by its argument
+        (`ObjectForm<Programs.Object>`). The pair is answered only when the project really has
+        such an object with such a facet, so a base of any other shape yields nothing rather
+        than a guess. Without this a loop over a tabular section of one's own object
+        (`для Стр из Объект.Возможности`) had no element type.
+        """
+        record = self.struct_by_name(stem) or {}
+        written = record.get("base_written")
+        if not isinstance(written, str) or "<" not in written:
+            return None
+        argument = written.partition("<")[2].rstrip(">").strip()
+        owner, _, facet = argument.rpartition(".")
+        if not owner or not facet:
+            return None
+        found = self.object_by_name(owner)
+        if not found or facet not in (found.get("family") or ()):
+            return None
+        return facet, argument
+
     def method_returns(self) -> dict[str, dict[str, str]]:
         """{name: {method: result type}} - the return types the inference needs of a PROJECT
         name, in the shape it expects of the stdlib catalogue, so that a variable initialized by
@@ -139,6 +170,17 @@ class IndexLookup:
                 keys = [str(name)] + ([f"{owner}.{name}"] if owner else [])
                 for key in keys:
                     cached[key] = {**cached.get(key, {}), **types}
+            # A VALUE of an enumeration is a member whose type is the enumeration itself
+            # (`Role.Admin` is a `Role`), and that is the one member the catalogue of a
+            # project name could not state. Without it the dot after a value answered nothing,
+            # and a loop over a literal list of values had no element type.
+            for entry in self.index.get("objects") or []:
+                values = entry.get("values") or ()
+                name = entry.get("name")
+                if not values or not name:
+                    continue
+                by_value = {str(_name_of(v)): str(name) for v in values if _name_of(v)}
+                cached[str(name)] = {**cached.get(str(name), {}), **by_value}
             for module, methods in self._module_methods.items():
                 # The WRITTEN form when the index has it: the head says `UserId` where the
                 # module declares `UserId?`, and a caller judging the empty value needs the
@@ -349,13 +391,41 @@ def resolve_references(
     return uniq
 
 
+def _nominal_head(written: str) -> str:
+    """The type name without its generic arguments (`Таблица<ДинамическийСписок>` -> Таблица)."""
+    return (written or "").split("<", 1)[0].strip()
+
+
 def _method_entry(m: dict) -> dict:
+    """A completion item for a project method.
+
+    The parentheses come WITH it, the way every other list of methods offers them: a method
+    accepted from here used to insert the bare name, and the author had to type the call
+    himself - the same list built elsewhere put them in, so the editor behaved differently
+    depending on which branch answered.
+    """
     annotations = m.get("annotations") or []
+    name = m.get("name", "")
     return {
-        "label": m.get("name", ""),
+        "label": name,
         "kind": "method",
         "detail": ", ".join(annotations) if annotations else "метод",
+        "snippet": f"{name}($0)",
     }
+
+
+def _enumeration_value_entries(lookup: IndexLookup, type_name: str) -> Optional[list[dict]]:
+    """Members of a VALUE of an enumeration described in metadata: the methods of its module.
+
+    An enumeration has no record among the structures - it is an object of the project - so the
+    dot after a variable of that type answered nothing, though the module beside it declares
+    exactly the methods such a value is asked for (`Вариант.Представление()`). The values
+    themselves are NOT members here: they belong to the enumeration as a static root.
+    """
+    found = lookup.object_by_name(type_name)
+    if not found or found.get("kind") != "Перечисление":
+        return None
+    return [_method_entry(m) for m in lookup.methods_by_module(type_name)] or None
 
 
 def _project_type_entries(lookup: IndexLookup, type_name: str) -> Optional[list[dict]]:
@@ -364,7 +434,7 @@ def _project_type_entries(lookup: IndexLookup, type_name: str) -> Optional[list[
     set) - fields, enumeration values and the methods of the module extending the type."""
     struct = lookup.struct_by_name(type_name)
     if not struct:
-        return None
+        return _enumeration_value_entries(lookup, type_name)
     # A constant is not a field: the hint says what the author writes in the yaml of the set.
     field_detail = "константа" if struct.get("kind") == "НаборКонстант" else "поле"
     entries = [
@@ -475,18 +545,38 @@ def _object_member_entries(lookup: IndexLookup, name: str) -> Optional[list[dict
     if not obj and not methods:
         return None
     entries: list[dict] = []
+    # One name - one line. The family of an object ALREADY holds the names of its tabular
+    # sections and of the types its module declares, so listing those separately offered every
+    # one of them twice: once as a bare "тип" and once as what it really is. The specific line
+    # is built first and the family fills in only what is left.
+    seen: set[str] = set()
+
+    def add(entry: dict) -> None:
+        label = str(entry.get("label") or "")
+        if not label or label in seen:
+            return
+        seen.add(label)
+        entries.append(entry)
+
     if obj:
         if obj.get("kind") == "Перечисление":
             for v in obj.get("values", []):
-                entries.append({"label": v.get("name", ""), "kind": "enumMember", "detail": "значение перечисления"})
+                add({"label": v.get("name", ""), "kind": "enumMember", "detail": "значение перечисления"})
         else:
+            # The family names the tabular sections and the module types too, and each of those
+            # gets an exact line below - so the family yields those names to it and keeps the
+            # order it always had: the types the object generates come first.
+            exact = {str(_name_of(t)) for t in obj.get("tabular", [])}
+            exact |= {str(_name_of(t)) for t in obj.get("local_types", [])}
             for f in obj.get("family", []):
-                entries.append({"label": str(f), "kind": "family", "detail": "тип"})
+                if str(f) not in exact:
+                    add({"label": str(f), "kind": "family", "detail": "тип"})
             # Members of the kind's singleton type: what the code writes on the object name
             # itself, next to the types the object generates. A method takes the parentheses
             # snippet, a property does not; data generated before the two were told apart
             # arrives in one bucket and gets neither the snippet nor a claim about which it is.
-            entries.extend(_manager_entries(obj.get("manager")))
+            for entry in _manager_entries(obj.get("manager")):
+                add(entry)
             # A kind whose element generates a singleton type carrying its OWN entries names
             # them on the object itself: the parameters of a client-work-parameters element are
             # read as `Имя.Параметр` (docs topics/client-work-parameters). They live in the index
@@ -496,17 +586,17 @@ def _object_member_entries(lookup: IndexLookup, name: str) -> Optional[list[dict
             if isinstance(own, dict):
                 types = own.get("property_types") or {}
                 for prop in own.get("properties") or ():
-                    entries.append({
+                    add({
                         "label": str(prop),
                         "kind": "property",
                         "detail": str(types.get(prop) or "свойство"),
                     })
             for t in obj.get("tabular", []):
-                entries.append({"label": t.get("name", ""), "kind": "tabular", "detail": "табличная часть"})
+                add({"label": t.get("name", ""), "kind": "tabular", "detail": "табличная часть"})
             for t in obj.get("local_types", []):
-                entries.append({"label": t.get("name", ""), "kind": "localType", "detail": "локальный тип"})
+                add({"label": t.get("name", ""), "kind": "localType", "detail": "локальный тип"})
     for m in methods:
-        entries.append(_method_entry(m))
+        add(_method_entry(m))
     return entries
 
 
@@ -569,6 +659,38 @@ _STANDARD_QUERY_FIELDS = {
 def _name_of(item) -> str:
     return item.get("name", "") if isinstance(item, dict) else str(item)
 
+
+
+#: A row of a tabular section always answers these, whatever the section declares.
+_TABULAR_ROW_FIELDS = ("Ссылка", "НомерСтроки")
+
+
+def _tabular_query_entries(lookup: "IndexLookup", named: str) -> Optional[list[dict]]:
+    """Fields of `<Объект>.<ТабличнаяЧасть>` in a query, or None when that is not one.
+
+    A query reads a tabular section as a table of its own (`ИЗ Товары.Состав КАК С`), and its
+    fields are known exactly - the section's own attributes plus the row's standard ones. A
+    dotted name that is NOT a section (a virtual table of a register) answers None here and
+    goes on to the ordinary path, which knows no such object and stays silent as before.
+    """
+    if "." not in named:
+        return None
+    owner, _, section = named.rpartition(".")
+    table = lookup.object_by_name(owner)
+    if not table:
+        return None
+    found = next(
+        (t for t in (table.get("tabular") or []) if _name_of(t) == section), None
+    )
+    if found is None:
+        return None
+    entries = [{"label": f, "kind": "field", "detail": "стандартное поле"}
+               for f in _TABULAR_ROW_FIELDS]
+    for attribute in (found.get("attributes") or []) if isinstance(found, dict) else []:
+        name = _name_of(attribute)
+        if name:
+            entries.append({"label": name, "kind": "field", "detail": "реквизит"})
+    return entries
 
 def _query_field_entries(
     kind: str, attributes: list, tabular: list,
@@ -715,12 +837,19 @@ def resolve_completions(
         # module half used to answer, so a component without a module of its own (the usual
         # case: a group, a table, an input) left the dot silent, though the yaml states its
         # type and the catalogue describes that type in full.
+        # The written type is usually GENERIC (`Таблица<ДинамическийСписок>` is the everyday
+        # shape of a list form), and the catalogue is keyed by the nominal head, so the head is
+        # what the lookup asks for. And when neither half has anything, the branch must NOT
+        # answer - the chain below knows the components as a root of its own and answers there.
         entries = [_method_entry(x) for x in lookup.methods_by_module(m.group(1))]
         component = lookup.component(file_stem, m.group(1))
-        of_type = (stdlib_members or {}).get((component or {}).get("type", ""))
+        written = (component or {}).get("type", "")
+        of_type = ((stdlib_members or {}).get(written)
+                   or (stdlib_members or {}).get(_nominal_head(written)))
         if of_type:
             entries += _stdlib_entries(of_type, project_language)
-        return entries or None
+        if entries:
+            return entries
     if expr_type and CHAIN_TAIL_RE.search(line_prefix):
         members = (stdlib_members or {}).get(expr_type)
         if members:
@@ -743,7 +872,11 @@ def resolve_completions(
         # (`ИЗ Акция КАК А` - that is exactly how projects address tables) are determined by
         # the caller: the query language is parsed by the lexer.
         if in_query:
-            table = lookup.object_by_name((query_tables or {}).get(token, token))
+            named = (query_tables or {}).get(token, token)
+            section = _tabular_query_entries(lookup, named)
+            if section is not None:
+                return section
+            table = lookup.object_by_name(named)
             if not table:
                 return None
             return _query_field_entries(
@@ -768,6 +901,11 @@ def resolve_completions(
             return _project_type_entries(lookup, var_type)
         entries = _object_member_entries(lookup, token)
         if entries is not None:
+            # After `новый Имя.` only a TYPE can stand, and the members of the object are not
+            # all types: the methods of its module and the members of its manager have no
+            # business in a constructor and only pushed the types out of sight.
+            if _AFTER_NEW_RE.search(line_prefix):
+                return [e for e in entries if e["kind"] in _TYPE_KINDS] or None
             return entries
         # Not a project object and not a variable - so a stdlib type or a global (КонтекстДоступа.):
         # members come from the linter dataset's type_members, keyed there under both name forms.

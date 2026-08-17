@@ -1,6 +1,6 @@
-Metadata-Version: 2.4
+Metadata-Version: 2.5
 Name: viser
-Version: 1.0.30
+Version: 1.1.0
 Summary: 3D visualization + Python
 Project-URL: GitHub, https://github.com/viser-project/viser
 License: MIT
@@ -42,6 +42,7 @@ Requires-Dist: pyliblzfse>=0.4.1; (platform_system != 'Windows') and extra == 'd
 Requires-Dist: pyright>=1.1.308; extra == 'dev'
 Requires-Dist: pytest; extra == 'dev'
 Requires-Dist: pytest-playwright>=0.4.0; extra == 'dev'
+Requires-Dist: pytest-split>=0.8.0; extra == 'dev'
 Requires-Dist: pytest-xdist>=3.0.0; extra == 'dev'
 Requires-Dist: robot-descriptions>=1.18.0; extra == 'dev'
 Requires-Dist: ruff>=0.9.3; extra == 'dev'

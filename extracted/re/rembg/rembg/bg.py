@@ -27,6 +27,7 @@ from pymatting.util.util import stack_images
 from scipy.ndimage import binary_erosion, gaussian_filter
 from skimage.morphology import disk, opening
 
+from .matting import vitmatte_alpha
 from .session_factory import new_session
 from .sessions import sessions, sessions_names, sessions_names_downloadable
 from .sessions.base import BaseSession
@@ -109,6 +110,37 @@ def naive_cutout(img: PILImage, mask: PILImage) -> PILImage:
     empty = Image.new("RGBA", (img.size), 0)
     cutout = Image.composite(img, empty, mask)
     return cutout
+
+
+def decontaminate_cutout(img: PILImage, mask: PILImage) -> PILImage:
+    """
+    Estimate the true foreground color and apply the mask as alpha.
+
+    Unlike naive_cutout, this recovers the unblended foreground color for
+    semi-transparent pixels. A pixel on a soft edge was captured as a mix of
+    the foreground and the background behind it, so simply making it
+    transparent leaves the background color behind as fringing, which is most
+    visible around fine details such as hair.
+
+    Args:
+        img (PILImage): The image to be modified.
+        mask (PILImage): The mask to be applied as alpha.
+
+    Returns:
+        PILImage: The cutout with the background color fringing removed.
+    """
+    if img.mode != "RGB":
+        img = img.convert("RGB")
+
+    img_normalized = np.asarray(img) / 255.0
+    alpha = np.asarray(mask.convert("L")) / 255.0
+
+    foreground = estimate_foreground_ml(img_normalized, alpha)
+    cutout = stack_images(foreground, alpha)
+
+    cutout = np.clip(cutout * 255, 0, 255).astype(np.uint8)
+
+    return Image.fromarray(cutout)
 
 
 def putalpha_cutout(img: PILImage, mask: PILImage) -> PILImage:
@@ -234,6 +266,9 @@ def remove(
     session: Optional[BaseSession] = None,
     only_mask: bool = False,
     post_process_mask: bool = False,
+    decontaminate: bool = False,
+    vitmatte: bool = False,
+    vitmatte_model: Optional[str] = None,
     bgcolor: Optional[Tuple[int, int, int, int]] = None,
     force_return_bytes: bool = False,
     *args: Optional[Any],
@@ -242,7 +277,7 @@ def remove(
     """
     Remove the background from an input image.
 
-    This function takes in various parameters and returns a modified version of the input image with the background removed. The function can handle input data in the form of bytes, a PIL image, or a numpy array. The function first checks the type of the input data and converts it to a PIL image if necessary. It then fixes the orientation of the image and proceeds to perform background removal using the 'u2net' model. The result is a list of binary masks representing the foreground objects in the image. These masks are post-processed and combined to create a final cutout image. If a background color is provided, it is applied to the cutout image. The function returns the resulting cutout image in the format specified by the input 'return_type' parameter or as python bytes if force_return_bytes is true.
+    This function takes in various parameters and returns a modified version of the input image with the background removed. The function can handle input data in the form of bytes, a PIL image, or a numpy array. The function first checks the type of the input data and converts it to a PIL image if necessary. It then fixes the orientation of the image and proceeds to perform background removal using the 'bria-rmbg' model. The result is a list of binary masks representing the foreground objects in the image. These masks are post-processed and combined to create a final cutout image. If a background color is provided, it is applied to the cutout image. The function returns the resulting cutout image in the format specified by the input 'return_type' parameter or as python bytes if force_return_bytes is true.
 
     Parameters:
         data (Union[bytes, PILImage, np.ndarray]): The input image data.
@@ -250,9 +285,12 @@ def remove(
         alpha_matting_foreground_threshold (int, optional): Foreground threshold for alpha matting. Defaults to 240.
         alpha_matting_background_threshold (int, optional): Background threshold for alpha matting. Defaults to 10.
         alpha_matting_erode_size (int, optional): Erosion size for alpha matting. Defaults to 10.
-        session (Optional[BaseSession], optional): A session object for the 'u2net' model. Defaults to None.
+        session (Optional[BaseSession], optional): A session object for the 'bria-rmbg' model. Defaults to None.
         only_mask (bool, optional): Flag indicating whether to return only the binary masks. Defaults to False.
         post_process_mask (bool, optional): Flag indicating whether to post-process the masks. Defaults to False.
+        decontaminate (bool, optional): Flag indicating whether to remove the background color fringing left on soft edges. Ignored when alpha_matting is on. Defaults to False.
+        vitmatte (bool, optional): Flag indicating whether to refine the mask with ViTMatte, which recovers more soft edge detail than alpha matting. Takes precedence over alpha_matting. Defaults to False.
+        vitmatte_model (Optional[str], optional): Which ViTMatte checkpoint to use: small-distinctions-646 (default), small-composition-1k, base-distinctions-646, or base-composition-1k. Defaults to None.
         bgcolor (Optional[Tuple[int, int, int, int]], optional): Background color for the cutout image. Defaults to None.
         force_return_bytes (bool, optional): Flag indicating whether to return the cutout image as bytes. Defaults to False.
         *args (Optional[Any]): Additional positional arguments.
@@ -283,7 +321,7 @@ def remove(
     img = fix_image_orientation(img)
 
     if session is None:
-        session = new_session("u2net", *args, **kwargs)
+        session = new_session("bria-rmbg", *args, **kwargs)
 
     masks = session.predict(img, *args, **kwargs)
     cutouts = []
@@ -295,6 +333,24 @@ def remove(
         if only_mask:
             cutout = mask
 
+        elif vitmatte:
+            # ViTMatte predicts coverage but not colour, so the refined alpha
+            # still goes through the same foreground estimation `-dc` uses.
+            # Without it the recovered strands keep the old background colour.
+            refined = vitmatte_alpha(
+                img,
+                mask,
+                variant=vitmatte_model,
+                foreground_threshold=alpha_matting_foreground_threshold,
+                background_threshold=alpha_matting_background_threshold,
+                erode_size=alpha_matting_erode_size,
+            )
+
+            if putalpha:
+                cutout = putalpha_cutout(img, refined)
+            else:
+                cutout = decontaminate_cutout(img, refined)
+
         elif alpha_matting:
             try:
                 cutout = alpha_matting_cutout(
@@ -305,13 +361,17 @@ def remove(
                     alpha_matting_erode_size,
                 )
             except ValueError:
+                # Alpha matting already unmixes the foreground color, so fall
+                # back to the decontaminated cutout to keep the edges usable.
                 if putalpha:
                     cutout = putalpha_cutout(img, mask)
                 else:
-                    cutout = naive_cutout(img, mask)
+                    cutout = decontaminate_cutout(img, mask)
         else:
             if putalpha:
                 cutout = putalpha_cutout(img, mask)
+            elif decontaminate:
+                cutout = decontaminate_cutout(img, mask)
             else:
                 cutout = naive_cutout(img, mask)
 

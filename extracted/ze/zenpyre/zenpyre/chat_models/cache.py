@@ -6,7 +6,7 @@ __all__ = ["CachingChatModel"]
 
 import logging
 from collections.abc import Callable  # noqa: TC003
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING, Any, ClassVar
 
 from coola.hashing import hash_object
 from langchain_core.language_models import BaseChatModel
@@ -27,7 +27,7 @@ if TYPE_CHECKING:
         CallbackManagerForLLMRun,
     )
 
-if is_persista_available():
+if is_persista_available():  # pragma: no cover
     from persista.cache import Cache  # noqa: TC002
 
 logger: logging.Logger = logging.getLogger(__name__)
@@ -98,7 +98,7 @@ class CachingChatModel(BaseChatModel):
         ```
     """
 
-    model_config = ConfigDict(arbitrary_types_allowed=True)
+    model_config: ClassVar[ConfigDict] = ConfigDict(arbitrary_types_allowed=True)
 
     chat_model: Runnable[Any, BaseMessage]
     response_cache: Cache | None = None

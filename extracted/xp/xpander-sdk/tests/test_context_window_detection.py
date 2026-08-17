@@ -36,6 +36,7 @@ _KNOWN_MODELS = [
     # 1M
     ("gpt-4.1", 1_047_576),
     ("gpt-4.1-mini", 1_047_576),
+    ("global.anthropic.claude-fable-5", 1_000_000),
     ("global.anthropic.claude-opus-5", 1_000_000),
     ("global.anthropic.claude-opus-4-8", 1_000_000),
     ("global.anthropic.claude-opus-4-7", 1_000_000),
@@ -43,6 +44,8 @@ _KNOWN_MODELS = [
     ("global.anthropic.claude-sonnet-4-6", 1_000_000),
     # Versioned Bedrock form resolves via substring, not just the exact map.
     ("global.anthropic.claude-sonnet-5-20250930-v1:0", 1_000_000),
+    ("global.anthropic.claude-fable-5-20260609-v1:0", 1_000_000),
+    ("claude-fable-5", 1_000_000),
     ("claude-opus-5", 1_000_000),
     ("claude-opus-4-8", 1_000_000),
     ("claude-opus-4-7", 1_000_000),

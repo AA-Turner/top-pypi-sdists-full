@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: azure-mgmt-recoveryservices
-Version: 4.1.0
+Version: 4.2.0
 Summary: Microsoft Azure Recoveryservices Management Client Library for Python
 Author-email: Microsoft Corporation <azpysdkhelp@microsoft.com>
 License-Expression: MIT
@@ -86,6 +86,13 @@ If you encounter any bugs or have suggestions, please file an issue in the
 section of the project. 
 
 # Release History
+
+## 4.2.0 (2026-08-13)
+
+### Features Added
+
+  - Model `VaultProperties` added property `region_of_choice_settings`
+  - Added model `RegionOfChoiceSettings`
 
 ## 4.1.0 (2026-07-07)
 

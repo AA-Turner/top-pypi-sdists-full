@@ -6,7 +6,10 @@ mutation), and compare two runs with symbolic-friendly equality.
 Used by CrossHair-on-CrossHair tests (``compare_results``/``compare_returns``),
 the ``diffbehavior`` command (``flexible_equal``), and the single-operation
 differential shared by ``fuzz_core_test`` and the support measurement
-(``run_differential``).
+(``run_differential`` over a ``CallSpec``).
+
+Nothing here reaches for ``crosshair.inputgen``, which needs hypothesis (a dev-only
+extra): a caller builds the ``CallSpec`` and supplies its inputs.
 """
 
 from collections.abc import Set as AbcSet
@@ -15,6 +18,7 @@ from dataclasses import dataclass
 from decimal import Decimal
 from time import process_time
 from typing import (
+    Any,
     Callable,
     Collection,
     Dict,
@@ -33,8 +37,8 @@ from typing import (
 from crosshair.core import (
     Patched,
     deep_realize,
+    pin_to,
     proxy_for_type,
-    smt_for_unification,
     suspected_proxy_intolerance_exception,
 )
 from crosshair.statespace import (
@@ -351,8 +355,47 @@ def compare_results(fn: Callable, *a: object, **kw: object) -> ResultComparison:
 # ---------------------------------------------------------------------------
 _UNPINNED = object()  # could not pin a symbolic value to a given concrete input
 _UNSUPPORTED = object()  # pinned fine, but the op rejected the symbolic proxy
+# Thorough defaults (the support measurement's "leave no divergence unfound"
+# budget).  A latency-sensitive caller (fuzz_core_test) passes a much smaller
+# budget: nearly every input that pins at all does so on the first iteration in
+# well under a second, so a large budget only slows the inputs that never pin.
 _DIFF_MAX_PIN_ITERS = 80
 _DIFF_PIN_TIMEOUT = 10.0
+
+
+@dataclass(frozen=True)
+class CallSpec:
+    """How to call one operation.
+
+    ``expr`` is eval-able source over ``arg_names`` (a method's receiver comes first
+    and is named ``a``).  It is source rather than a callable because operators MUST
+    be applied with operator syntax: ``list.__ge__(a, b)`` rejects a symbolic
+    receiver, where ``a >= b`` does not.
+
+    ``crosshair.inputgen.op_call``/``func_call`` build these, and
+    ``crosshair.inputgen.inputs_for`` generates argument tuples for one.
+    """
+
+    fn: Any  # the underlying callable, for signature-based input generation
+    expr: str
+    arg_names: Tuple[str, ...]
+    eval_globals: Mapping[str, Any]  # names ``expr`` needs beyond ``arg_names``
+    # Index of the call shape this spec drives, into the op's ordered shape list
+    # (``crosshair.inputgen.op_shapes``).  An op is driven once per shape: shapes
+    # differ in which arguments they pass -- a different overload arity (pow's 2-
+    # and 3-argument forms) or the optional/keyword-only tail filled in (subn's
+    # ``count``).  ``inputs_for`` regenerates a shape's inputs from this index.
+    shape: int
+
+    def accepts(self, values: Sequence[Any]) -> bool:
+        """Whether an argument tuple fits this expression."""
+        return len(values) == len(self.arg_names)
+
+    def invoke(self, values: Sequence[Any]) -> Any:
+        """Evaluate the operation on one argument tuple."""
+        return eval(
+            self.expr, dict(self.eval_globals), dict(zip(self.arg_names, values))
+        )
 
 
 @dataclass
@@ -407,43 +450,22 @@ def _proxy_type(v: object) -> object:
     return t
 
 
-def _pin(space: StateSpace, proxies: dict, concrete: dict) -> None:
-    """Constrain each symbolic ``proxy`` to equal its concrete value.
-
-    Scalars/strings/lists unify directly via ``smt_for_unification``; anything
-    else is pinned by branching (the ``!=`` forks the space, and a non-matching
-    branch raises ``IgnoreAttempt`` so the search retries another path)."""
-    for name, lit in concrete.items():
-        sym = proxies[name]
-        with NoTracing():
-            eq = smt_for_unification(sym, lit)
-        if eq is not None:
-            space.add(eq)
-            continue
-        if isinstance(lit, Collection):
-            len_eq = len(lit) == len(sym)  # type: ignore
-            if hasattr(len_eq, "var"):  # symbolic length -> add as a solver hint
-                space.add(len_eq.var)
-        if lit != sym:
-            raise IgnoreAttempt(f'symbolic "{name}" != concrete value')
-        if repr(lit) != repr(sym):  # dict/set ordering, -0.0 vs 0.0, ...
-            raise IgnoreAttempt(f'symbolic "{name}" not repr-equal to concrete value')
-
-
 def run_symbolic_pinned(
     applier: Callable,
     arg_names: Sequence[str],
     concrete_vals: Sequence[object],
     max_pin_iters: int = _DIFF_MAX_PIN_ITERS,
+    pin_timeout: float = _DIFF_PIN_TIMEOUT,
 ) -> object:
     """Run ``applier(*symbolic)`` with each symbolic arg pinned to its concrete
     value; return the ExecutionResult, or ``_UNPINNED`` if no path could be
-    pinned within the budget."""
+    pinned within the budget.  ``pin_timeout`` caps each pin-and-run attempt (in
+    process-time seconds)."""
     search_root = RootNode()
     with COMPOSITE_TRACER, NoTracing():
         for _itr in range(1, max_pin_iters + 1):
             space = StateSpace(
-                process_time() + _DIFF_PIN_TIMEOUT, 3.0, search_root=search_root
+                process_time() + pin_timeout, 3.0, search_root=search_root
             )
             try:
                 with Patched(), StateSpaceContext(space):
@@ -452,7 +474,9 @@ def run_symbolic_pinned(
                         for n, v in zip(arg_names, concrete_vals)
                     }
                     with ResumedTracing():
-                        _pin(space, proxies, dict(zip(arg_names, concrete_vals)))
+                        # Pin each symbolic proxy to its concrete value, then run.
+                        for name, value in zip(arg_names, concrete_vals):
+                            pin_to(proxies[name], value)
                         res = summarize_execution(
                             applier, [proxies[n] for n in arg_names]
                         )
@@ -486,41 +510,32 @@ def run_symbolic_pinned(
 
 
 def run_differential(
-    fn: Callable,
-    expr: str,
-    arg_names: Sequence[str],
-    eval_globals: Mapping[str, object],
-    k: int = 3,
-    seed: int = 0,
+    call: CallSpec,
+    inputs: Sequence[Sequence[object]],
     max_pin_iters: int = _DIFF_MAX_PIN_ITERS,
-    seedkey: Optional[str] = None,
+    pin_timeout: float = _DIFF_PIN_TIMEOUT,
 ) -> DiffResult:
-    """Drive one operation on up to ``k`` valid inputs, comparing a symbolic run
-    (args pinned to the input) against a concrete run.  Returns a ``DiffResult``
-    with the count of inputs actually driven and the first ``Divergence`` (or
-    None if all matched).  ``max_pin_iters`` bounds the per-input pin search; use
-    a small value when speed matters more than pinning every container shape (an
-    input that can't pin in budget is simply skipped).  ``seedkey`` is the op's
-    catalog identity, forwarded to ``valid_inputs`` so a CUSTOM_INPUTS override
-    (e.g. aliased ``x is x``) applies.
+    """Drive one operation on each of ``inputs``, comparing a symbolic run (args
+    pinned to the input) against a concrete run.  Returns a ``DiffResult`` with the
+    count of inputs actually driven and the first ``Divergence`` (or None if all
+    matched).  ``max_pin_iters`` and ``pin_timeout`` bound the per-input pin search;
+    use small values when speed matters more than pinning every container shape (an
+    input that can't pin in budget is simply skipped).
 
-    ``expr`` is eval'd over ``arg_names`` (plus ``eval_globals``); see
-    ``crosshair.inputgen.op_call``/``func_call`` for building these."""
-    from crosshair.inputgen import valid_inputs
+    Generate ``inputs`` with ``crosshair.inputgen.inputs_for(call)``, which fits
+    them to ``call``'s overload shape."""
+    arg_names = call.arg_names
 
     def applier(*vs):
-        return eval(expr, dict(eval_globals), dict(zip(arg_names, vs)))
+        return call.invoke(vs)
 
-    inputs = [
-        t
-        for t in valid_inputs(fn, k=k, seed=seed, seedkey=seedkey)
-        if len(t) == len(arg_names)
-    ]
     checked = 0
     unsupported = 0
     for vals in inputs:
-        debug("differential:", expr, "with", vals)
-        symbolic = run_symbolic_pinned(applier, arg_names, vals, max_pin_iters)
+        debug("differential:", call.expr, "with", vals)
+        symbolic = run_symbolic_pinned(
+            applier, arg_names, vals, max_pin_iters, pin_timeout
+        )
         if symbolic is _UNPINNED:
             continue
         if symbolic is _UNSUPPORTED:

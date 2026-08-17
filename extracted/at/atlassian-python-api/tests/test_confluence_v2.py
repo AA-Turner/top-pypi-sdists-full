@@ -578,11 +578,11 @@ class TestConfluenceV2(unittest.TestCase):
         # Assertions
         expected_params = {
             "limit": 10,
-            "id": "123,456",
-            "key": "TEST,DEV",
+            "ids": ["123", "456"],
+            "keys": ["TEST", "DEV"],
             "type": "global",
             "status": "current",
-            "label": "important,documentation",
+            "labels": ["important", "documentation"],
             "sort": "name",
         }
         mock_get_paged.assert_called_once_with("api/v2/spaces", params=expected_params)
@@ -935,6 +935,105 @@ class TestConfluenceV2(unittest.TestCase):
         result = self.confluence_v2.delete_space_label(space_id, label)
         mock_delete.assert_called_with("api/v2/spaces/12345/labels/test-label")
         self.assertTrue(result)
+
+    # Tests for GraphQL Gateway methods
+
+    @patch("atlassian.confluence.cloud.ConfluenceCloud.post")
+    def test_graphql_uses_tenanted_gateway(self, mock_post):
+        mock_post.return_value = {"data": {"me": {"user": {"accountId": "account-1"}}}}
+
+        result = self.confluence_v2.graphql("query CurrentUser { me { user { accountId } } }")
+
+        self.assertEqual(result["data"]["me"]["user"]["accountId"], "account-1")
+        mock_post.assert_called_once_with(
+            "https://example.atlassian.net/gateway/api/graphql",
+            json={"query": "query CurrentUser { me { user { accountId } } }", "variables": {}},
+            absolute=True,
+        )
+
+    @patch("atlassian.confluence.cloud.ConfluenceCloud.post")
+    def test_search_graphql_uses_confluence_cloud_location(self, mock_post):
+        mock_post.return_value = {
+            "data": {"search": {"search": {"edges": [{"node": {"id": "1", "title": "Result"}}], "totalCount": 1}}}
+        }
+
+        result = self.confluence_v2.search_graphql("deployment guide", cloud_id="cloud-123")
+
+        self.assertEqual(result["data"]["search"]["search"]["totalCount"], 1)
+        request = mock_post.call_args.kwargs["json"]
+        self.assertEqual(request["variables"]["query"], "deployment guide")
+        self.assertEqual(request["variables"]["filters"]["locations"], ["ari:cloud:confluence::site/cloud-123"])
+
+    def test_search_graphql_rejects_invalid_arguments(self):
+        with self.assertRaisesRegex(ValueError, "must not be empty"):
+            self.confluence_v2.search_graphql("", cloud_id="cloud-123")
+        with self.assertRaisesRegex(ValueError, "between 1 and 100"):
+            self.confluence_v2.search_graphql("query", cloud_id="cloud-123", first=101)
+
+    # Tests for generic V2 content-property methods
+
+    @patch("atlassian.confluence.cloud.ConfluenceCloud._get_paged")
+    def test_get_content_properties_uses_resource_specific_endpoint(self, mock_get_paged):
+        mock_get_paged.return_value = [{"id": "property-1", "key": "report"}]
+
+        result = self.confluence_v2.get_v2_content_properties("whiteboard", "123", cursor="next", limit=50)
+
+        self.assertEqual(result, [{"id": "property-1", "key": "report"}])
+        mock_get_paged.assert_called_once_with(
+            "api/v2/whiteboards/123/properties", params={"limit": 50, "cursor": "next"}
+        )
+
+    @patch("atlassian.confluence.cloud.ConfluenceCloud.delete")
+    @patch("atlassian.confluence.cloud.ConfluenceCloud.put")
+    @patch("atlassian.confluence.cloud.ConfluenceCloud.get")
+    @patch("atlassian.confluence.cloud.ConfluenceCloud.post")
+    def test_content_property_lifecycle(self, mock_post, mock_get, mock_put, mock_delete):
+        data = {"key": "report", "value": {"enabled": True}}
+        self.confluence_v2.create_v2_content_property("page", "123", data)
+        self.confluence_v2.get_v2_content_property("page", "123", "property-1")
+        self.confluence_v2.update_v2_content_property("page", "123", "property-1", data)
+        self.confluence_v2.delete_v2_content_property("page", "123", "property-1")
+
+        url = "api/v2/pages/123/properties/property-1"
+        mock_post.assert_called_once_with("api/v2/pages/123/properties", data=data)
+        mock_get.assert_called_once_with(url)
+        mock_put.assert_called_once_with(url, data=data)
+        mock_delete.assert_called_once_with(url)
+
+    def test_content_properties_reject_unknown_content_type(self):
+        with self.assertRaisesRegex(ValueError, "content_type"):
+            self.confluence_v2.get_v2_content_properties("unknown", "123")
+
+    # Tests for V2 data-classification methods
+
+    @patch("atlassian.confluence.cloud.ConfluenceCloud.get")
+    def test_content_classification_level_uses_resource_specific_endpoint(self, mock_get):
+        mock_get.return_value = {"id": "level-1"}
+
+        result = self.confluence_v2.get_content_classification_level("whiteboard", "123", status="draft")
+
+        self.assertEqual({"id": "level-1"}, result)
+        mock_get.assert_called_once_with("api/v2/whiteboards/123/classification-level", params={"status": "draft"})
+
+    @patch("atlassian.confluence.cloud.ConfluenceCloud.delete")
+    @patch("atlassian.confluence.cloud.ConfluenceCloud.put")
+    @patch("atlassian.confluence.cloud.ConfluenceCloud.post")
+    def test_content_classification_level_lifecycle(self, mock_post, mock_put, mock_delete):
+        self.confluence_v2.update_content_classification_level("page", "123", "level-1")
+        self.confluence_v2.reset_content_classification_level("page", "123", status="draft")
+        self.confluence_v2.delete_space_default_classification_level("456")
+
+        mock_put.assert_called_once_with(
+            "api/v2/pages/123/classification-level", data={"id": "level-1", "status": "current"}
+        )
+        mock_post.assert_called_once_with("api/v2/pages/123/classification-level/reset", data={"status": "draft"})
+        mock_delete.assert_called_once_with("api/v2/spaces/456/classification-level/default")
+
+    def test_content_classification_level_rejects_invalid_values(self):
+        with self.assertRaisesRegex(ValueError, "content_type"):
+            self.confluence_v2.get_content_classification_level("folder", "123")
+        with self.assertRaisesRegex(ValueError, "status must be"):
+            self.confluence_v2.update_content_classification_level("page", "123", "level-1", status="archived")
 
     # Tests for Whiteboard methods
 

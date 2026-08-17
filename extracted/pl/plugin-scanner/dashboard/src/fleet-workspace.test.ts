@@ -1,4 +1,5 @@
-import { resolveFleetHeroCopy } from "./fleet-workspace";
+import { cloudPolicyRecoveryHint } from "./fleet-protection-recovery";
+import { repairHarnessesFor, resolveFleetHeroCopy } from "./fleet-workspace";
 import type { FleetHeroCopy } from "./fleet-workspace";
 
 function assert(condition: boolean, message: string): void {
@@ -13,7 +14,7 @@ const urls = {
   connect_url: "http://localhost:7392/connect",
 };
 
-const localOnlyWithApps = resolveFleetHeroCopy("local_only", 2, urls);
+const localOnlyWithApps = resolveFleetHeroCopy("local_only", 2, "protected", urls);
 assert(
   localOnlyWithApps.primaryCtaLabel !== "Open Cloud Devices",
   `F1: local_only primary CTA must not be "Open Cloud Devices" — got "${localOnlyWithApps.primaryCtaLabel}"`
@@ -28,14 +29,14 @@ assert(
 );
 assert(localOnlyWithApps.status === "clear", "F1: local_only with apps status should be clear");
 
-const localOnlyNoApps = resolveFleetHeroCopy("local_only", 0, urls);
+const localOnlyNoApps = resolveFleetHeroCopy("local_only", 0, "degraded", urls);
 assert(
   localOnlyNoApps.primaryCtaHref === urls.connect_url,
   `F2: local_only no-apps primary CTA href should be connect_url — got "${localOnlyNoApps.primaryCtaHref}"`
 );
 assert(localOnlyNoApps.status === "setup_gap", "F2: local_only no apps status should be setup_gap");
 
-const pairedWaitingWithApps = resolveFleetHeroCopy("paired_waiting", 3, urls);
+const pairedWaitingWithApps = resolveFleetHeroCopy("paired_waiting", 3, "protected", urls);
 assert(
   pairedWaitingWithApps.primaryCtaLabel === "Open Cloud Devices",
   `F3: paired_waiting primary CTA should be "Open Cloud Devices" — got "${pairedWaitingWithApps.primaryCtaLabel}"`
@@ -47,10 +48,10 @@ assert(
 );
 assert(pairedWaitingWithApps.status === "clear", "F3: paired_waiting with apps status should be clear");
 
-const pairedWaitingNoApps = resolveFleetHeroCopy("paired_waiting", 0, urls);
+const pairedWaitingNoApps = resolveFleetHeroCopy("paired_waiting", 0, "degraded", urls);
 assert(pairedWaitingNoApps.status === "setup_gap", "F3b: paired_waiting no apps status should be setup_gap");
 
-const pairedActiveWithApps = resolveFleetHeroCopy("paired_active", 2, urls);
+const pairedActiveWithApps = resolveFleetHeroCopy("paired_active", 2, "protected", urls);
 assert(
   pairedActiveWithApps.primaryCtaLabel === "Open Cloud Devices",
   `F4: paired_active primary CTA should be "Open Cloud Devices" — got "${pairedActiveWithApps.primaryCtaLabel}"`
@@ -61,8 +62,102 @@ assert(
 );
 assert(pairedActiveWithApps.status === "clear", "F4: paired_active with apps status should be clear");
 
-const pairedActiveNoApps = resolveFleetHeroCopy("paired_active", 0, urls);
+const pairedActiveNoApps = resolveFleetHeroCopy("paired_active", 0, "degraded", urls);
+
+const localCloudProof = cloudPolicyRecoveryHint({
+  cloudState: "local_only",
+  cloudSyncState: "disabled",
+  cloudPolicySyncError: null,
+  connectUrl: urls.connect_url,
+});
+assert(localCloudProof?.actionLabel === "Connect Guard Cloud", "local Cloud proof uses the separate connect action");
+assert(
+  localCloudProof?.detail.includes("Local Guard remains active") === true,
+  "missing Cloud proof must not degrade local Guard copy",
+);
+assert(
+  localCloudProof?.detail.includes("separate from local repair") === true,
+  "Cloud proof must not be described as a local integrity repair",
+);
+const activeCloudProof = cloudPolicyRecoveryHint({
+  cloudState: "paired_active",
+  cloudSyncState: "healthy",
+  cloudPolicySyncError: null,
+  connectUrl: urls.connect_url,
+});
+assert(activeCloudProof === null, "healthy Cloud proof needs no recovery hint");
+const pendingCloudProof = cloudPolicyRecoveryHint({
+  cloudState: "paired_active",
+  cloudSyncState: "pending",
+  cloudPolicySyncError: null,
+  connectUrl: urls.fleet_url,
+});
+assert(
+  pendingCloudProof?.actionLabel === "Open Guard Cloud" &&
+    pendingCloudProof.detail.includes("separate from local repair"),
+  "incomplete Cloud proof remains an independent Cloud action",
+);
+
+const degradedWithApps = resolveFleetHeroCopy("paired_active", 2, "degraded", urls);
+assert(degradedWithApps.status === "degraded", "active installs cannot imply protected fleet health");
+assert(degradedWithApps.headline === "App protection is degraded", "degraded fleet copy is explicit");
+assert(
+  degradedWithApps.primaryCtaLabel === "Restore full protection",
+  `degraded fleet CTA must be actionable — got "${degradedWithApps.primaryCtaLabel}"`
+);
+assert(
+  degradedWithApps.primaryCtaHref === "#protection-recovery",
+  `degraded fleet CTA must target local recovery — got "${degradedWithApps.primaryCtaHref}"`
+);
 assert(pairedActiveNoApps.status === "setup_gap", "F5: paired_active no apps status should be setup_gap");
+
+const partialWithApps = resolveFleetHeroCopy("paired_active", 2, "partial", urls);
+assert(partialWithApps.status === "partial", "partial fleet status is explicit");
+assert(
+  partialWithApps.primaryCtaHref === "#protection-recovery",
+  `partial fleet CTA must target local recovery — got "${partialWithApps.primaryCtaHref}"`
+);
+
+const targetedRepairs = repairHarnessesFor(
+  [
+    { harness: "codex", active: true },
+    { harness: "grok", active: true },
+    { harness: "cursor", active: false },
+  ],
+  {
+    schema_version: "guard.protection-health.v1",
+    state: "degraded",
+    label: "Degraded",
+    detail: "One app needs repair.",
+    evidence_gap: false,
+    checks: [],
+    reason_codes: [],
+    apps: [
+      {
+        harness: "codex",
+        state: "protected",
+        label: "Protected",
+        detail: "Hooks verified.",
+        evidence_gap: false,
+        checks: [{ check_id: "harness_hooks", status: "pass", reason_code: "hooks_verified" }],
+        reason_codes: ["hooks_verified"],
+      },
+      {
+        harness: "grok",
+        state: "degraded",
+        label: "Degraded",
+        detail: "Hooks need repair.",
+        evidence_gap: false,
+        checks: [{ check_id: "harness_hooks", status: "fail", reason_code: "hook_verification_failed" }],
+        reason_codes: ["hook_verification_failed"],
+      },
+    ],
+  },
+);
+assert(
+  targetedRepairs.length === 2 && targetedRepairs[0] === "grok" && targetedRepairs[1] === "cursor",
+  "F8: fleet repair must reinstall inactive apps and active apps with failed hook proof",
+);
 
 const allStates: FleetHeroCopy[] = [localOnlyWithApps, pairedWaitingWithApps, pairedActiveWithApps];
 for (const state of allStates) {

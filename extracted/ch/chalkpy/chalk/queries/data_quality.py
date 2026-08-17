@@ -824,3 +824,43 @@ def check_env_overrides(
         output_checks=compiled[DataQualityStage.OUTPUT.value],
     )
     return {CHECK_SPECS_ENV_VAR: dumps_specs(specs)} if specs else {}
+
+
+def resolve_test_stage(
+    *,
+    input: Iterable[str | DataQualityCheck] = (),  # noqa: A002 - the keyword names the stage
+    output: Iterable[str | DataQualityCheck] = (),
+    context: str = "this `test_dqm` call",
+) -> tuple[DataQualityStage, list[CompiledCheck]]:
+    """Pick the single stage a `test_dqm` call is about, and compile its checks.
+
+    `with_checks` and `offline_query` take both stages at once because a query has both
+    tables, at different points in its run. A test run has one table -- the parquet the
+    operation being replayed wrote -- so accepting both would silently check that one table
+    twice, once under each name.
+
+    Compilation problems raise rather than being collected, matching `check_env_overrides`:
+    a scheduled query reports them as `chalk apply` diagnostics, but there is no later point
+    at which the caller of a client method would see them.
+    """
+    compiled: dict[DataQualityStage, list[CompiledCheck]] = {}
+    errors: list[str] = []
+    for stage, items in ((DataQualityStage.INPUT, input), (DataQualityStage.OUTPUT, output)):
+        stage_checks, stage_errors = compile_checks(items, stage=stage, context=context)
+        compiled[stage] = stage_checks
+        errors.extend(stage_errors)
+    if errors:
+        raise DataQualityCheckError("\n".join(errors))
+
+    if compiled[DataQualityStage.INPUT] and compiled[DataQualityStage.OUTPUT]:
+        raise ValueError(
+            "`test_dqm` checks one table per call: the parquet the operation `query_id` wrote. Pass "
+            + "either `input_checks=` or `output_checks=`, not both. For a scheduled query, the output "
+            + "stage is the query's own id and the input stage is the id of the step that produced its spine."
+        )
+    if compiled[DataQualityStage.INPUT]:
+        return DataQualityStage.INPUT, compiled[DataQualityStage.INPUT]
+    # No checks at all is a legal request: it reports the checked table's columns, which is how
+    # an author finds the exact quoted names to write checks against. `output` is the stage that
+    # takes, because a bare query id is far more often a query's own run than its spine producer.
+    return DataQualityStage.OUTPUT, compiled[DataQualityStage.OUTPUT]

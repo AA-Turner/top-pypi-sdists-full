@@ -33,11 +33,10 @@ from typing import (
     FrozenSet,
     Iterator,
     List,
+    Mapping,
     Optional,
     Sequence,
-    Set,
     Tuple,
-    cast,
 )
 
 from hypothesis import HealthCheck, given
@@ -46,6 +45,13 @@ from hypothesis import settings
 from hypothesis import strategies as st
 
 from crosshair.auditwall import SideEffectDetected, enabled_auditwall
+from crosshair.behavior_compare import CallSpec
+from crosshair.typeshed_lookup import (
+    method_funcdefs,
+    module_funcdefs,
+    params,
+    stub_names,
+)
 
 # ---------------------------------------------------------------------------
 # the operation surface: builtin types + their methods
@@ -198,23 +204,52 @@ def receiver_name(argnames: Sequence[str]) -> str:
     return recv
 
 
-def call_expr(method: str, argnames: Sequence[str], recv: str = "a") -> Optional[str]:
+def render_args(
+    argnames: Sequence[str], keywords: Optional[Sequence[bool]] = None
+) -> str:
+    """Render a call's argument list: ``name`` positionally, ``name=name`` where the
+    parallel ``keywords`` flag is set (keyword-only args)."""
+    if keywords is None:
+        keywords = [False] * len(argnames)
+    return ", ".join(f"{n}={n}" if kw else n for n, kw in zip(argnames, keywords))
+
+
+def call_expr(
+    method: str,
+    argnames: Sequence[str],
+    recv: str = "a",
+    keywords: Optional[Sequence[bool]] = None,
+) -> Optional[str]:
     """The source expression invoking ``method`` on receiver ``recv`` with the
     given argument names, or None when an operator form needs an argument the
-    signature doesn't supply."""
-    if method in _BINOP:
-        return f"{recv} {_BINOP[method]} {argnames[0]}" if argnames else None
-    if method == "__divmod__":
-        return f"divmod({recv}, {argnames[0]})" if argnames else None
+    signature doesn't supply.  ``keywords`` marks arguments to pass by keyword.
+
+    Every name in ``argnames`` appears in the result: the operator syntaxes place
+    exactly one operand, so an overload supplying more (``int.__pow__``'s
+    ``(x, modulo)``) uses the explicit dunder form rather than silently dropping
+    the extra argument.  Callers rely on this to pair an argument tuple with an
+    expression that consumes all of it."""
+    takes_one_operand = method in _BINOP or method in (
+        "__divmod__",
+        "__contains__",
+        "__getitem__",
+    )
+    if takes_one_operand and not argnames:  # no operand to apply the operator to
+        return None
+    if len(argnames) == 1:
+        if method in _BINOP:
+            return f"{recv} {_BINOP[method]} {argnames[0]}"
+        if method == "__divmod__":
+            return f"divmod({recv}, {argnames[0]})"
+        if method == "__contains__":
+            return f"{argnames[0]} in {recv}"
+        if method == "__getitem__":
+            return f"{recv}[{argnames[0]}]"
     if method in _UNARY and not argnames:
         return _UNARY[method].format(a=recv)
     if method in _CALLOP and not argnames:
         return _CALLOP[method].format(a=recv)
-    if method == "__contains__":
-        return f"{argnames[0]} in {recv}" if argnames else None
-    if method == "__getitem__":
-        return f"{recv}[{argnames[0]}]" if argnames else None
-    return f"{recv}.{method}({', '.join(argnames)})"
+    return f"{recv}.{method}({render_args(argnames, keywords)})"
 
 
 ANN_NS = vars(typing) | {
@@ -486,147 +521,10 @@ def _arg_strategy(spec: Any, n: int) -> "st.SearchStrategy[Any]":
     return sized(spec, n)
 
 
-# --- typeshed access, pinned to the RUNNING interpreter --------------------
-# get_stub_names evaluates `sys.version_info`/`sys.platform` guards for the given
-# search context, so the surface matches what THIS interpreter actually has: no
-# version skew (no math.fma on 3.12), no manual `if` descent, and re-exports
-# (bisect_left <- _bisect) and class members come pre-resolved.
-_SEARCH_CTX: Any = None
-_STUB_NAMES: Dict[str, Dict[str, Any]] = {}  # module -> {name: NameInfo}
-# builtins holds the concrete types + object; typing holds the ABC bases
-# (MutableSequence/Mapping/...) where typeshed declares inherited methods.
-_STUB_CLASS_MODULES = ("builtins", "typing")
-
-
-def _search_ctx() -> Any:
-    global _SEARCH_CTX
-    if _SEARCH_CTX is None:
-        import typeshed_client as _tc
-
-        _SEARCH_CTX = _tc.get_search_context(
-            version=sys.version_info[:2], platform=sys.platform
-        )
-    return _SEARCH_CTX
-
-
-def _stub_names(module: str) -> Dict[str, Any]:
-    """Lazily fetch the version/platform-resolved {name: NameInfo} for a module."""
-    if module not in _STUB_NAMES:
-        import typeshed_client as _tc
-
-        try:
-            _STUB_NAMES[module] = (
-                _tc.get_stub_names(module, search_context=_search_ctx()) or {}
-            )
-        except Exception:
-            _STUB_NAMES[module] = {}
-    return _STUB_NAMES[module]
-
-
-def _funcdefs(ni: Any, _depth: int = 0) -> List[Any]:
-    """FunctionDefs behind a NameInfo: a plain def, an @overload group, or a
-    re-export (followed across modules), else []."""
-    if ni is None or _depth > 4:
-        return []
-    import typeshed_client as _tc
-
-    node = ni.ast
-    if isinstance(node, (_ast.FunctionDef, _ast.AsyncFunctionDef)):
-        return [node]
-    if isinstance(node, _tc.OverloadedName):
-        return [
-            d
-            for d in node.definitions
-            if isinstance(d, (_ast.FunctionDef, _ast.AsyncFunctionDef))
-        ]
-    if isinstance(
-        node, _tc.ImportedName
-    ):  # re-export, e.g. bisect.bisect_left <- _bisect
-        return _funcdefs(
-            _stub_names(".".join(node.module_name)).get(cast(str, node.name)),
-            _depth + 1,
-        )
-    return []
-
-
-def _stub_class(name: str, module: str = "builtins", _depth: int = 0) -> Optional[Any]:
-    """The version-resolved (class NameInfo, defining module) for ``name``, searched
-    in ``(module, "builtins", "typing")`` and following cross-module re-exports
-    (e.g. ``fractions.Fraction``'s base ``Rational`` -> ``numbers.Rational``).
-    Returns the module the ClassDef actually lives in so base-following can search
-    there next."""
-    if _depth > 4:
-        return None
-    import typeshed_client as _tc
-
-    for mod in (module, *_STUB_CLASS_MODULES):
-        ni = _stub_names(mod).get(name)
-        if ni is None:
-            continue
-        if isinstance(ni.ast, _ast.ClassDef):
-            return (ni, mod)
-        if isinstance(ni.ast, _tc.ImportedName):  # re-export -> follow to its module
-            return _stub_class(
-                cast(str, ni.ast.name or name),
-                ".".join(ni.ast.module_name),
-                _depth + 1,
-            )
-    return None
-
-
-def _base_ref(base: Any, default_mod: str) -> Optional[Tuple[str, str]]:
-    """(base_class_name, module_to_resolve_it_in) for a base-class AST node.
-
-    A bare ``Name`` (``class Fraction(Rational)``) resolves in the current class's
-    module (and _stub_class follows any re-export from there).  A dotted
-    ``Attribute`` (``class RegexFlag(enum.IntFlag)``) resolves its final attr in the
-    *qualifier* module -- ``enum`` here, ``os.path`` for ``os.path.X`` -- so bases
-    imported as ``import enum`` (not ``from enum import IntFlag``) still follow to
-    where the class is actually defined instead of dead-ending in the child module."""
-    if isinstance(base, _ast.Name):
-        return (base.id, default_mod)
-    if isinstance(base, _ast.Attribute):
-        parts = []
-        node: Any = base.value
-        while isinstance(node, _ast.Attribute):
-            parts.append(node.attr)
-            node = node.value
-        if isinstance(node, _ast.Name):
-            parts.append(node.id)
-            return (base.attr, ".".join(reversed(parts)))
-    return None
-
-
-def _class_chain(cls_name: str, module: str = "builtins") -> List[Any]:
-    """Typeshed MRO for cls_name: derived-first class NameInfos, following declared
-    bases (subscripts stripped), with ``object`` always last.  ``module`` is the
-    class's owning module; each base resolves in the module named by its qualifier
-    (dotted bases) or the module where the current class was found (bare names)."""
-    chain: List[Any] = []
-    seen: Set[str] = set()
-
-    def visit(name: str, mod: str) -> None:
-        if name in seen:
-            return
-        res = _stub_class(name, mod)
-        if res is None:
-            return
-        ni, found_mod = res
-        seen.add(name)
-        chain.append(ni)
-        for b in ni.ast.bases:
-            base = b.value if isinstance(b, _ast.Subscript) else b
-            ref = _base_ref(base, found_mod)
-            if ref and ref[0] not in ("Generic", "Protocol"):
-                visit(*ref)
-
-    visit(cls_name, module)
-    if "object" not in seen:
-        obj = _stub_class("object")
-        if obj is not None:
-            chain.append(obj[0])
-    return chain
-
+# --- typeshed access -------------------------------------------------------
+# Resolution (version/platform guards, @overload grouping, re-exports, the
+# typeshed MRO) lives in crosshair.typeshed_lookup; what a typeshed annotation
+# means for FUZZING is this module's job.
 
 # The generatable type for every unconstrained "object-like" slot: a bare
 # object/Any parameter, an unbound element TypeVar, or a generic container's element
@@ -882,60 +780,121 @@ def _map_ann(node: Any, binds: Dict[str, str]) -> str:
     raise _Unsupported(type(node).__name__)
 
 
-def _method_overloads(typ: type, method: str, module: str = "builtins") -> List[Any]:
-    """typeshed FunctionDefs for typ.method, resolved up the MRO: the first class
-    in the chain that defines it wins (so a derived override beats an inherited
-    base), returning all (version-resolved) overloads from that class."""
-    for ni in _class_chain(typ.__name__, module):
-        fns = _funcdefs((ni.child_nodes or {}).get(method))
-        if fns:
-            return fns
-    return []
+@dataclass(frozen=True)
+class Arg:
+    """One argument of a call shape (the receiver excluded).  ``keyword`` renders it
+    as ``name=name`` rather than positionally (keyword-only arguments)."""
+
+    name: str
+    annotation: str
+    literals: Tuple[Any, ...]
+    keyword: bool
 
 
-def _overload_sigs(
-    overloads: List[Any],
-    binds: Dict[str, str],
-    module: str,
-    drop: Tuple[str, ...],
-) -> List[List[Tuple[str, str, Tuple[Any, ...]]]]:
-    """Map each overload's required positional args (receiver/names in ``drop``
-    excluded) to [(argname, annotation_str, literal_values), ...], de-duplicated.
-    An empty inner list means a zero-arg call; [] means no overload could be mapped.
+@dataclass(frozen=True)
+class Shape:
+    """One way to call an op: an ordered argument list, plus every overload
+    ``variant`` that produces the same call expression (their per-arg types are
+    unioned when generating inputs).
 
-    A *args op (set.update(*s), math.gcd(*ints), ...) with no required positionals
-    also gets a candidate that passes one expanded vararg, so consumers that only
-    take *args become drivable."""
-    out, seen = [], set()
+    ``key`` is ``((name, keyword), ...)``, the identity the expression depends on:
+    overloads differing only in argument types share a shape, overloads differing in
+    argument count or kind are distinct shapes."""
+
+    key: Tuple[Tuple[str, bool], ...]
+    variants: Tuple[Tuple[Arg, ...], ...]
+
+    @property
+    def arg_names(self) -> Tuple[str, ...]:
+        return tuple(name for name, _kw in self.key)
+
+
+def _arg_of(
+    node: Any, binds: Dict[str, str], module: str, keyword: bool
+) -> Optional[Arg]:
+    """Map one typeshed ``ast.arg`` to an :class:`Arg`, or None if its annotation is
+    missing or unsupported."""
+    if node.annotation is None:
+        return None
+    try:
+        annstr, lits = _map_arg(node.annotation, binds, module)
+    except _Unsupported:
+        return None
+    return Arg(node.arg, annstr, lits, keyword)
+
+
+def _overload_variants(
+    fn: Any, binds: Dict[str, str], module: str, is_method: bool
+) -> List[Tuple[Arg, ...]]:
+    """The call-argument lists one overload offers (receiver excluded):
+
+    * the REQUIRED shape -- required positionals (rendered positionally) followed by
+      required keyword-only args (rendered ``name=name``);
+    * a *args expansion of it (set.update(*s), math.gcd(*ints), ...) that REPLACES the
+      bare no-argument form;
+    * a MAXIMAL shape that also fills the optional tail: the longest mappable prefix
+      of optional positionals (positionally) plus every mappable optional keyword-only
+      arg (``name=name``), or nothing when no optional is mappable.
+
+    Empty (an overload with an unmappable required arg is not drivable)."""
+    p = params(fn, is_method=is_method)
+    base_args: List[Arg] = []
+    for node, keyword in [(a, False) for a in p.required_positional] + [
+        (a, True) for a in p.required_kwonly
+    ]:
+        arg = _arg_of(node, binds, module, keyword)
+        if arg is None:
+            return []
+        base_args.append(arg)
+    base = tuple(base_args)
+    variants = [base]
+    if p.vararg is not None and p.vararg.annotation is not None:
+        va = _arg_of(p.vararg, binds, module, False)
+        if va is not None:
+            expanded = base + (va,)
+            variants = [expanded] if not base else [base, expanded]
+    optional: List[Arg] = []
+    for a in p.optional_positional:
+        arg = _arg_of(a, binds, module, False)
+        if arg is None:  # optional positionals render positionally: stop at a gap
+            break
+        optional.append(arg)
+    optional += [
+        arg
+        for a in p.optional_kwonly
+        if (arg := _arg_of(a, binds, module, True)) is not None
+    ]
+    if optional:
+        variants.append(base + tuple(optional))
+    return variants
+
+
+def _shapes(
+    overloads: List[Any], binds: Dict[str, str], module: str, is_method: bool
+) -> List[Shape]:
+    """The ordered, de-duplicated call shapes across an op's overloads, the primary
+    shape first.  The primary is the first non-empty REQUIRED shape; a maximal
+    (optional-filled) shape never displaces it, and an op whose required form takes no
+    arguments keeps that empty primary.  [] when no overload could be mapped."""
+    groups: Dict[Tuple[Tuple[str, bool], ...], List[Tuple[Arg, ...]]] = {}
+    order: List[Tuple[Tuple[str, bool], ...]] = []
+    primary_key: Optional[Tuple[Tuple[str, bool], ...]] = None
     for fn in overloads:
-        pos = fn.args.posonlyargs + fn.args.args
-        ndef = len(fn.args.defaults)
-        required = pos[: len(pos) - ndef] if ndef else pos
-        required = [a for a in required if a.arg not in drop]
-        try:
-            sig = tuple(
-                (a.arg,) + _map_arg(a.annotation, binds, module)
-                for a in required
-                if a.annotation
-            )
-        except _Unsupported:
-            continue
-        if len(sig) != len(required):  # an arg lacked an annotation
-            continue
-        variants = [sig]
-        if fn.args.vararg is not None and fn.args.vararg.annotation is not None:
-            try:
-                va = fn.args.vararg
-                variants.append(
-                    sig + ((va.arg,) + _map_arg(va.annotation, binds, module),)
-                )
-            except _Unsupported:
-                pass
-        for v in variants:
-            if v not in seen:
-                seen.add(v)
-                out.append(list(v))
-    return out
+        # variants[0] is the required shape; a maximal shape (idx > 0) is never primary.
+        for idx, variant in enumerate(_overload_variants(fn, binds, module, is_method)):
+            key = tuple((a.name, a.keyword) for a in variant)
+            if key not in groups:
+                groups[key] = []
+                order.append(key)
+            if variant not in groups[key]:
+                groups[key].append(variant)
+            if primary_key is None and variant and idx == 0:
+                primary_key = key
+    chosen = primary_key if primary_key is not None else (order[0] if order else None)
+    if chosen is not None:
+        order.remove(chosen)
+        order.insert(0, chosen)
+    return [Shape(key, tuple(groups[key])) for key in order]
 
 
 # The reflexive comparison dunders: a user reads these as "compare two of the
@@ -950,10 +909,8 @@ _REFLEXIVE_CMP = frozenset({"__eq__", "__ne__", "__lt__", "__le__", "__gt__", "_
 
 
 @functools.lru_cache(maxsize=None)
-def _candidate_sigs(
-    typ: type, method: str, module: str = "builtins"
-) -> List[List[Tuple[str, str, Tuple[Any, ...]]]]:
-    """Candidate signatures per typeshed overload of typ.method (see _overload_sigs).
+def _candidate_sigs(typ: type, method: str, module: str = "builtins") -> List[Shape]:
+    """The call shapes of typ.method, one per distinct call form (see :func:`_shapes`).
     ``module`` is the type's owning module; for a non-builtin class the receiver
     carries no element-TypeVar binds and arg annotations resolve against ``module``.
     ``Self`` binds to the receiver's own annotation, so methods taking another
@@ -962,9 +919,8 @@ def _candidate_sigs(
     binds = {"Self": recv_ann, **recv_binds}
     if method in _REFLEXIVE_CMP:  # measure ==/!=/ordering against the SAME type
         binds = {**binds, "object": recv_ann, "Any": recv_ann}
-    return _overload_sigs(
-        _method_overloads(typ, method, module), binds, module, ("self",)
-    )
+    overloads, _ = method_funcdefs(typ.__name__, method, module)
+    return _shapes(overloads, binds, module, True)
 
 
 @functools.lru_cache(maxsize=None)
@@ -1013,7 +969,7 @@ def _module_literal_aliases(module: str) -> Dict[str, Tuple[Any, ...]]:
     if module not in _LIT_ALIASES:
         amap: Dict[str, Tuple[Any, ...]] = {}
         _LIT_ALIASES[module] = amap  # store first (guards alias->alias re-entry)
-        for name, ni in _stub_names(module).items():
+        for name, ni in stub_names(module).items():
             node = ni.ast
             val = (
                 node.value if isinstance(node, (_ast.Assign, _ast.AnnAssign)) else None
@@ -1050,7 +1006,7 @@ def _module_alias_annstr(module: str) -> Dict[str, str]:
         except Exception:
             mod = None
         if mod is not None:
-            for cname, cni in _stub_names(module).items():
+            for cname, cni in stub_names(module).items():
                 # Skip names _NAME_MAP already handles: it deliberately simplifies
                 # some builtins (object/memoryview -> int/bytes) to keep fuzzing
                 # cheap, and seeding "builtins.object" here would override that and
@@ -1062,7 +1018,7 @@ def _module_alias_annstr(module: str) -> Dict[str, str]:
                 ):
                     resolved[cname] = f"{module}.{cname}"
         raw: Dict[str, Any] = {}
-        for name, ni in _stub_names(module).items():
+        for name, ni in stub_names(module).items():
             node = ni.ast
             val = (
                 node.value if isinstance(node, (_ast.Assign, _ast.AnnAssign)) else None
@@ -1086,6 +1042,53 @@ def _module_alias_annstr(module: str) -> Dict[str, str]:
     return _ALIAS_ANNSTR[module]
 
 
+def _dotted_path(node: Any) -> Optional[List[str]]:
+    """The attribute path a Name/Attribute chain spells (``a.b.c`` -> ["a","b","c"]),
+    or None for any other shape."""
+    parts: List[str] = []
+    while isinstance(node, _ast.Attribute):
+        parts.append(node.attr)
+        node = node.value
+    if not isinstance(node, _ast.Name):
+        return None
+    parts.append(node.id)
+    return list(reversed(parts))
+
+
+def _literal_const(node: Any, module: Optional[str] = None) -> Any:
+    """The concrete value of a Literal element, or None when it can't be produced.
+
+    Handles a bare constant, a negated numeric one (``Literal[-1]`` parses as
+    ``UnaryOp(USub, Constant(1))``, not a ``Constant(-1)``), and a dotted member
+    reference (``Literal[RegexFlag.IGNORECASE]``, an ``Attribute``) resolved against
+    the live ``module``.  ``Literal[None]`` yields None, i.e. is dropped.
+
+    A dotted element the runtime spells differently than typeshed does yields None:
+    typeshed models ``dataclasses._MISSING_TYPE`` as an ``Enum`` carrying a
+    ``MISSING`` member, but the runtime class has no such attribute."""
+    if isinstance(node, _ast.Constant):
+        return node.value
+    if (
+        isinstance(node, _ast.UnaryOp)
+        and isinstance(node.op, _ast.USub)
+        and isinstance(node.operand, _ast.Constant)
+        and isinstance(node.operand.value, (int, float, complex))
+    ):
+        return -node.operand.value
+    if isinstance(node, _ast.Attribute) and module:
+        path = _dotted_path(node)
+        if path is None:
+            return None
+        try:
+            value: Any = importlib.import_module(module)
+            for part in path:
+                value = getattr(value, part)
+        except Exception:
+            return None
+        return value
+    return None
+
+
 def _literal_values(node: Any, module: str) -> Tuple[Any, ...]:
     """Tuple of concrete values if ``node`` is a Literal[...] (or an alias / a
     union containing one); else ()."""
@@ -1100,9 +1103,7 @@ def _literal_values(node: Any, module: str) -> Tuple[Any, ...]:
                 node.slice.elts if isinstance(node.slice, _ast.Tuple) else [node.slice]
             )
             return tuple(
-                e.value
-                for e in elts
-                if isinstance(e, _ast.Constant) and e.value is not None
+                v for v in (_literal_const(e, module) for e in elts) if v is not None
             )
     if isinstance(node, _ast.Name):
         return _module_literal_aliases(module).get(node.id, ())
@@ -1404,26 +1405,16 @@ _MODULE_FUNCS: Dict[str, Dict[str, List[Any]]] = {}
 
 
 def _module_funcs(module: str) -> Dict[str, List[Any]]:
-    """Lazily map name -> [FunctionDef overloads] for a module's free functions,
-    version/platform-resolved, with @overloads grouped and re-exports followed."""
+    """Lazily map name -> [FunctionDef overloads] for a module's free functions."""
     if module not in _MODULE_FUNCS:
-        funcs: Dict[str, List[Any]] = {}
-        for name, ni in _stub_names(module).items():
-            defs = _funcdefs(ni)
-            if defs:
-                funcs[name] = defs
-        _MODULE_FUNCS[module] = funcs
+        _MODULE_FUNCS[module] = module_funcdefs(module)
     return _MODULE_FUNCS[module]
 
 
 @functools.lru_cache(maxsize=None)
-def _func_candidate_sigs(
-    module: str, func: str
-) -> List[List[Tuple[str, str, Tuple[Any, ...]]]]:
-    """Candidate signatures per overload of module.func (see _overload_sigs)."""
-    return _overload_sigs(
-        _module_funcs(module).get(func, []), {}, module, ("self", "cls")
-    )
+def _func_candidate_sigs(module: str, func: str) -> List[Shape]:
+    """The call shapes of module.func, one per distinct call form (see :func:`_shapes`)."""
+    return _shapes(_module_funcs(module).get(func, []), {}, module, False)
 
 
 def _module_classes(module: str) -> List[type]:
@@ -1437,7 +1428,7 @@ def _module_classes(module: str) -> List[type]:
     except Exception:
         return []
     out: List[type] = []
-    for name, ni in _stub_names(module).items():
+    for name, ni in stub_names(module).items():
         if name.startswith("_") or not isinstance(ni.ast, _ast.ClassDef):
             continue
         obj = getattr(mod, name, None)
@@ -1449,46 +1440,96 @@ def _module_classes(module: str) -> List[type]:
 # ---------------------------------------------------------------------------
 # public bridge: a native callable -> concrete, valid argument tuples
 # ---------------------------------------------------------------------------
+def _method_owner(fn: Any) -> Optional[type]:
+    """The class ``fn`` is a method of, or None when it is a free function.
+
+    A C-level descriptor names its class in ``__objclass__``.  A method of a class
+    written in Python carries no such attribute, so the owner is the innermost class
+    its ``__qualname__`` walks through -- the LONGEST leading prefix that resolves to
+    a type, which also finds the class behind a method built by a closure
+    (``fractions.Fraction.__add__`` is ``Fraction._operator_fallbacks.<locals>.\
+forward``)."""
+    objclass = getattr(fn, "__objclass__", None)
+    if isinstance(objclass, type):
+        return objclass
+    qualname = getattr(fn, "__qualname__", "")
+    module = getattr(fn, "__module__", None)
+    if not module:
+        return None
+    try:
+        step_into: Any = importlib.import_module(module)
+    except Exception:
+        return None
+    owner = None
+    for step in qualname.split(".")[:-1]:
+        if step == "<locals>":  # a function scope; getattr can't descend into it
+            break
+        step_into = getattr(step_into, step, None)
+        if step_into is None:
+            break
+        if isinstance(step_into, type):
+            owner = step_into
+    return owner
+
+
 def _sig_for(fn: Any) -> Optional[Tuple[str, Any, str, Any]]:
-    """('method', typ, name, sigs) | ('func', module, name, sigs) | None."""
-    objcls = getattr(fn, "__objclass__", None)
-    if objcls in RECV and getattr(fn, "__name__", None):
-        module = getattr(objcls, "__module__", "builtins")
-        return (
-            "method",
-            objcls,
-            fn.__name__,
-            _candidate_sigs(objcls, fn.__name__, module),
-        )
-    mod, name = getattr(fn, "__module__", None), getattr(fn, "__name__", None)
-    if mod and name:
-        return ("func", mod, name, _func_candidate_sigs(mod, name))
+    """('method', typ, name, sigs) | ('func', module, name, sigs) | None.
+
+    A method whose receiver type has no construction strategy resolves to None
+    rather than to the free-function branch: a module often exports a function
+    sharing a method's name (``gettext.install`` beside
+    ``NullTranslations.install``), and borrowing that signature would bind the
+    receiver to an argument of an unrelated function."""
+    name = getattr(fn, "__name__", None)
+    if not name:
+        return None
+    owner = _method_owner(fn)
+    if owner is not None:
+        if owner not in RECV:
+            return None
+        module = getattr(owner, "__module__", "builtins")
+        return ("method", owner, name, _candidate_sigs(owner, name, module))
+    module = getattr(fn, "__module__", None)
+    if module:
+        return ("func", module, name, _func_candidate_sigs(module, name))
     return None
 
 
-def primary_sig(sigs: Sequence[Any]) -> Any:
-    """The candidate overload to drive an op with.  Prefer the first NON-empty
-    one: a variadic like ``set.difference_update(*s)`` yields both a zero-arg and
-    a one-arg candidate, and the zero-arg form gives no coverage (and trips
-    spurious arity differences), so we drive the form that actually passes args."""
-    return next((s for s in sigs if s), sigs[0])
+def op_shapes(fn: Any) -> List[Shape]:
+    """The ordered call shapes of ``fn`` (primary first), or [] if not drivable.
+    A :class:`~crosshair.behavior_compare.CallSpec`'s ``shape`` indexes into this,
+    so building a call and regenerating its inputs pick the SAME shape."""
+    info = _sig_for(fn)
+    return info[3] if info else []
 
 
-def _specs_for(fn: Any) -> Optional[List[Any]]:
-    """Per-arg fuzz specs (and, for methods, a leading receiver spec), or None."""
+def _candidate_specs_for(fn: Any, shape: int = 0) -> Optional[List[List[Any]]]:
+    """One per-arg fuzz-spec list per overload VARIANT of the op's ``shape`` (index
+    into :func:`op_shapes`), or None.  A shape's variants share a call expression but
+    may differ in argument types (str vs bytes), so each is generated and the caller
+    unions them.  Methods carry a leading receiver spec."""
     info = _sig_for(fn)
     if not info or not info[3]:
         return None
-    kind = info[0]
-    sig = primary_sig(info[3])
+    kind, shapes = info[0], info[3]
+    if shape >= len(shapes):
+        return None
     if kind == "method":
         typ, name = info[1], info[2]
         module = getattr(typ, "__module__", "builtins")
-        return [_ann(RECV[typ][0])] + [
-            _resolve_arg(n, ann, lits, module, name) for n, ann, lits in sig
+        prefix = [_ann(RECV[typ][0])]
+    else:
+        module, name = info[1], info[2]
+        prefix = []
+    out = [
+        prefix
+        + [
+            _resolve_arg(a.name, a.annotation, a.literals, module, name)
+            for a in variant
         ]
-    mod, name = info[1], info[2]
-    return [_resolve_arg(n, ann, lits, mod, name) for n, ann, lits in sig]
+        for variant in shapes[shape].variants
+    ]
+    return out or None
 
 
 def tuple_strategy(
@@ -1511,6 +1552,7 @@ def valid_inputs(
     develop: bool = True,
     size: int = 3,
     seedkey: Optional[str] = None,
+    shape: int = 0,
 ) -> List[Tuple[Any, ...]]:
     """Up to ``k`` concrete, valid argument tuples for ``fn`` (a builtin function
     or method descriptor).  Deterministic given ``seed``.  ``develop`` drops the
@@ -1519,12 +1561,20 @@ def valid_inputs(
     an op cliffs.  ``seedkey`` is the op's catalog identity -- pass it to enable a
     :data:`CUSTOM_INPUTS` override (correlated / aliased / roundtrip inputs); a
     caller with only ``fn`` (which can't recover the public seedkey -- ``operator``
-    funcs report ``__module__ == "_operator"``) simply omits it.  Returns [] when no
-    signature can be resolved."""
-    specs = _specs_for(fn)
-    if not specs:
+    funcs report ``__module__ == "_operator"``) simply omits it.  ``shape`` indexes
+    :func:`op_shapes` to select the call shape to generate for (0 = primary).
+    Returns [] when no signature can be resolved."""
+    specs_list = _candidate_specs_for(fn, shape)
+    if not specs_list:
         return []
-    strat = tuple_strategy(seedkey, specs, size)
+    if seedkey and seedkey in CUSTOM_INPUTS:
+        # A correlated/aliased/roundtrip override drives its own shape off the
+        # first candidate; don't fan it out across overloads.
+        strat = tuple_strategy(seedkey, specs_list[0], size)
+    else:
+        strat = st.one_of(
+            *[tuple_strategy(seedkey, specs, size) for specs in specs_list]
+        )
     out = []
 
     @hyp_seed(seed)
@@ -1538,6 +1588,7 @@ def valid_inputs(
     def run(t):
         out.append(t)
 
+    out.sort()
     try:
         run()
     except Exception:
@@ -1545,43 +1596,77 @@ def valid_inputs(
     return (out[1 : k + 1] or out[:k]) if develop else out[:k]
 
 
-# How to *call* one operation -- shared by the differential test and the support
-# measurement so both drive an op the same way.  Returns (fn, expr, arg_names,
-# eval_globals): ``fn`` for input generation, and ``expr`` an eval-able source
-# over ``arg_names`` (receiver named ``a`` for methods) -- operators MUST use
-# operator syntax, so we eval rather than call the dunder descriptor.
+def can_synthesize_inputs(call: CallSpec) -> bool:
+    """Whether arguments for a call spec's overload shape are constructable at all.
+    Static: it resolves the strategies without generating a value."""
+    return _candidate_specs_for(call.fn, call.shape) is not None
+
+
+def inputs_for(
+    call: CallSpec,
+    k: int = 5,
+    seed: int = 0,
+    size: int = 3,
+    seedkey: Optional[str] = None,
+) -> List[Tuple[Any, ...]]:
+    """Up to ``k`` concrete argument tuples fitting a call spec's expression.  Tuples
+    the expression can't take are dropped, so a CUSTOM_INPUTS override built for
+    another overload shape can't be driven through the wrong one."""
+    return [
+        t
+        for t in valid_inputs(
+            call.fn, k=k, seed=seed, size=size, seedkey=seedkey, shape=call.shape
+        )
+        if call.accepts(t)
+    ]
+
+
 def op_call(
-    typ: type, method: str, module: str = "builtins"
-) -> Optional[Tuple[Any, str, List[str], Dict[str, Any]]]:
+    typ: type, method: str, module: str = "builtins", shape: int = 0
+) -> Optional[CallSpec]:
     """Call spec for a (type, method), or None if not drivable.  ``module`` is the
-    type's owning module (``"builtins"`` for the builtin types)."""
+    type's owning module (``"builtins"`` for the builtin types).  ``shape`` indexes
+    :func:`op_shapes` to select which call shape to drive (0 = primary)."""
     if method in SKIP_DUNDERS:
         return None
-    sigs = _candidate_sigs(typ, method, module)
-    if not sigs:
+    shapes = _candidate_sigs(typ, method, module)
+    if shape >= len(shapes):
         return None
-    argnames = [n for n, _, _ in primary_sig(sigs)]
+    argnames = [n for n, _kw in shapes[shape].key]
+    keywords = [kw for _n, kw in shapes[shape].key]
     recv = receiver_name(argnames)
-    expr = call_expr(method, argnames, recv)
+    expr = call_expr(method, argnames, recv, keywords)
     if expr is None:  # operator form needs an arg the signature doesn't supply
         return None
-    return (getattr(typ, method), expr, [recv] + argnames, {})
+    return CallSpec(
+        fn=getattr(typ, method),
+        expr=expr,
+        arg_names=(recv, *argnames),
+        eval_globals={},
+        shape=shape,
+    )
 
 
-def func_call(
-    module: str, name: str
-) -> Optional[Tuple[Any, str, List[str], Dict[str, Any]]]:
-    """Call spec for a module-level free function, or None if not drivable."""
+def func_call(module: str, name: str, shape: int = 0) -> Optional[CallSpec]:
+    """Call spec for a module-level free function, or None if not drivable.
+    ``shape`` indexes :func:`op_shapes` to select which call shape to drive."""
     fn = getattr(importlib.import_module(module), name, None)
     if fn is None:
         return None
-    fsigs = _func_candidate_sigs(module, name)
-    if not fsigs:
+    shapes = _func_candidate_sigs(module, name)
+    if shape >= len(shapes):
         return None
-    argnames = [n for n, _, _ in primary_sig(fsigs)]
-    if not argnames:  # nothing to vary
+    argnames = [n for n, _kw in shapes[shape].key]
+    if not argnames:  # a bare no-argument call exercises nothing worth driving
         return None
-    return (fn, f"_fn({', '.join(argnames)})", argnames, {"_fn": fn})
+    keywords = [kw for _n, kw in shapes[shape].key]
+    return CallSpec(
+        fn=fn,
+        expr=f"_fn({render_args(argnames, keywords)})",
+        arg_names=tuple(argnames),
+        eval_globals={"_fn": fn},
+        shape=shape,
+    )
 
 
 def func_surface(module: str) -> List[str]:
@@ -1623,7 +1708,8 @@ class Operation:
       synthesized for it (typically an unconstructable receiver -- a class not in
       :data:`RECV` -- so ``valid_inputs`` is always empty).  Neither consumer can
       exercise it; this marks an input-generation gap rather than a property of the
-      op.  Detected statically via :func:`_specs_for` (no live run needed).
+      op.  Detected statically via :func:`can_synthesize_inputs` (no live
+      run needed).
     * ``not_value_function`` -- drivable, but its output isn't a deterministic,
       value-comparable function of the inputs (unordered-container ordering, an
       arbitrary popped element, an identity-eq result, reflection), so the forward
@@ -1645,13 +1731,15 @@ class Operation:
     module: str  # owning module ("builtins" for the builtin types)
     owner: str  # type name (methods) or module name (funcs)
     name: str
-    call: Optional[Tuple[Any, str, List[str], Dict[str, Any]]]
+    call: Optional[CallSpec]
     skip_reason: Optional[str] = None  # statically not drivable
     out_of_scope: Optional[str] = None  # OS-layer handle; never modelable
     no_inputs: Optional[str] = None  # signature present but no inputs synthesizable
     not_value_function: Optional[str] = None  # output not a comparable value fn
     side_effect: Optional[str] = None  # audit event the concrete op reaches for
     probe_hazard: Optional[str] = None  # op blocks/crashes the concrete probe
+    # One spec per call shape OTHER than ``call``'s (see CallSpec.shape).
+    alt_calls: Tuple[CallSpec, ...] = ()
 
     @property
     def drivable(self) -> bool:
@@ -1662,13 +1750,17 @@ class Operation:
             and self.no_inputs is None
         )
 
-    def inputs(self, k: int = 5, seed: int = 0, size: int = 3) -> List[Tuple[Any, ...]]:
-        """Concrete valid argument tuples for this op at the given ``size``."""
+    def drives(self) -> List[CallSpec]:
+        """Every call spec this op can be driven with, the primary shape first."""
         if self.call is None:
             return []
-        return valid_inputs(
-            self.call[0], k=k, seed=seed, size=size, seedkey=self.seedkey
-        )
+        return [self.call, *self.alt_calls]
+
+    def inputs(self, k: int = 5, seed: int = 0, size: int = 3) -> List[Tuple[Any, ...]]:
+        """Concrete valid argument tuples for this op's primary shape."""
+        if self.call is None:
+            return []
+        return inputs_for(self.call, k=k, seed=seed, size=size, seedkey=self.seedkey)
 
 
 # Parameter NAMES that denote an OS-layer handle.  typeshed annotates all of these
@@ -1690,15 +1782,12 @@ _OS_HANDLE_PARAMS: Dict[str, str] = {
 }
 
 
-def _out_of_scope_reason(
-    call: Optional[Tuple[Any, str, List[str], Dict[str, Any]]],
-) -> Optional[str]:
+def _out_of_scope_reason(call: Optional[CallSpec]) -> Optional[str]:
     """Why this op is fundamentally out of CrossHair's scope, or None.  Currently:
     it takes an OS-layer handle (a file descriptor) we can never model."""
     if call is None:
         return None
-    _fn, _expr, argnames, _eg = call
-    for name in argnames:
+    for name in call.arg_names:
         reason = _OS_HANDLE_PARAMS.get(name)
         if reason is not None:
             return reason
@@ -1792,6 +1881,7 @@ SIDE_EFFECT_OVERRIDES: Dict[str, str] = {
     "glob.iglob": "reads the filesystem (I/O)",
     "os.chmod": "mutates the filesystem (I/O)",
     "os.chown": "mutates the filesystem (I/O)",
+    "os.eventfd": "creates an eventfd file descriptor (I/O)",
     "os.execvp": "spawns a process (I/O)",
     "os.lchown": "mutates the filesystem (I/O)",
     "os.link": "mutates the filesystem (I/O)",
@@ -1817,6 +1907,7 @@ SIDE_EFFECT_OVERRIDES: Dict[str, str] = {
     "os.utime": "mutates the filesystem (I/O)",
     "posix.chmod": "mutates the filesystem (I/O)",
     "posix.chown": "mutates the filesystem (I/O)",
+    "posix.eventfd": "creates an eventfd file descriptor (I/O)",
     "posix.lchown": "mutates the filesystem (I/O)",
     "posix.link": "mutates the filesystem (I/O)",
     "posix.mkdir": "mutates the filesystem (I/O)",
@@ -2098,6 +2189,10 @@ GLOBAL_STATE_OVERRIDES: Dict[str, str] = {
     "locale.textdomain": "mutates the global gettext domain",
     "locale.bindtextdomain": "mutates the global gettext domain",
     "locale.bind_textdomain_codeset": "mutates the global gettext domain",
+    # [<3.11] writes its codeset argument into gettext's global _localecodesets,
+    # so driving it with a symbolic codeset leaks a symbolic that later gettext
+    # ops in the process (ldgettext, ldngettext) then read outside a statespace.
+    "gettext.bind_textdomain_codeset": "mutates the global gettext codeset mapping",
     "signal.signal": "installs a global signal handler",
     "signal.pthread_sigmask": "mutates the thread signal mask",
     "faulthandler.dump_traceback_later": "arms a global faulthandler timer",
@@ -2135,6 +2230,12 @@ GLOBAL_STATE_OVERRIDES: Dict[str, str] = {
     "mimetypes.add_type": "mutates the global MIME-types registry",
     "modulefinder.AddPackagePath": "mutates modulefinder's global package-path table",
     "modulefinder.ReplacePackage": "mutates modulefinder's global replace-package map",
+    # Caches the pointer type it builds in a module-level dict KEYED BY ITS
+    # ARGUMENT, so driving it symbolically leaves a symbolic key in ctypes' cache.
+    # A later lookup then compares against that key outside any state space
+    # ([3.14+] "Not in a statespace context" from the concrete run).
+    "ctypes.POINTER": "caches by argument in ctypes' global pointer-type table",
+    "ctypes.SetPointerType": "mutates ctypes' global pointer-type table",
 }
 
 
@@ -2284,7 +2385,7 @@ CRASH = "unprobeable: concrete probe crashed the interpreter"
 
 
 def probe_side_effect(
-    call: Optional[Tuple[Any, str, List[str], Dict[str, Any]]],
+    call: Optional[CallSpec],
     seedkey: Optional[str] = None,
     k: int = 3,
     seed: int = 0,
@@ -2305,13 +2406,7 @@ def probe_side_effect(
         return None
     if seedkey is not None and seedkey in PROBE_HAZARD_OVERRIDES:
         return PROBE_HAZARD_OVERRIDES[seedkey]
-    fn, expr, argnames, eval_globals = call
-    inputs = valid_inputs(fn, k=k, seed=seed, size=size)
-    if not inputs:
-        return None
-    for vals in inputs:
-        if len(vals) != len(argnames):
-            continue
+    for vals in inputs_for(call, k=k, seed=seed, size=size):
         try:
             with enabled_auditwall(
                 reject_prefixes=PROBE_REJECT_EVENTS
@@ -2320,7 +2415,7 @@ def probe_side_effect(
             ):
                 stdin, sys.stdin = sys.stdin, io.StringIO()
                 try:
-                    eval(expr, dict(eval_globals), dict(zip(argnames, vals)))
+                    call.invoke(vals)
                 finally:
                     sys.stdin = stdin
         except SideEffectDetected as exc:
@@ -2332,7 +2427,7 @@ def probe_side_effect(
     return None
 
 
-def _probe_child(call: Any, seedkey: Optional[str], q: Any) -> None:
+def _probe_child(call: Optional[CallSpec], seedkey: Optional[str], q: Any) -> None:
     try:
         q.put(("ok", probe_side_effect(call, seedkey)))
     except BaseException as exc:  # the probe itself blew up (not the op's own error)
@@ -2340,7 +2435,7 @@ def _probe_child(call: Any, seedkey: Optional[str], q: Any) -> None:
 
 
 def probe_side_effect_isolated(
-    call: Optional[Tuple[Any, str, List[str], Dict[str, Any]]],
+    call: Optional[CallSpec],
     seedkey: Optional[str] = None,
     timeout: float = 5.0,
 ) -> Optional[str]:
@@ -2374,7 +2469,7 @@ def probe_side_effect_isolated(
 
 
 def _probe(
-    call: Optional[Tuple[Any, str, List[str], Dict[str, Any]]],
+    call: Optional[CallSpec],
     seedkey: str,
     mode: Any,
 ) -> Tuple[Optional[str], Optional[str]]:
@@ -2396,7 +2491,7 @@ def _probe(
 
 
 def _classify(
-    call: Optional[Tuple[Any, str, List[str], Dict[str, Any]]],
+    call: Optional[CallSpec],
     seedkey: str,
     probe: Any,
 ) -> Tuple[
@@ -2420,7 +2515,7 @@ def _classify(
     oos = _out_of_scope_reason(call)
     if oos is not None:  # never modelable -> don't waste a probe on it
         return (None, oos, None, None, None, None)
-    if _specs_for(call[0]) is None:  # signature exists but no inputs synthesizable
+    if not can_synthesize_inputs(call):  # signature exists, arguments don't
         return (
             None,
             None,
@@ -2442,6 +2537,25 @@ def _classify(
     return (None, None, None, None, side_effect, hazard)
 
 
+def _alt_calls(
+    build: Callable[[int], Optional[CallSpec]],
+    shapes: Sequence[Shape],
+) -> Tuple[CallSpec, ...]:
+    """A spec for every non-primary call shape that is drivable in its own right.
+    A shape whose expression can't place its arguments, that takes an OS-layer
+    handle, or that has no synthesizable inputs is left out -- the same bars the
+    primary call clears."""
+    out = []
+    for idx in range(1, len(shapes)):
+        call = build(idx)
+        if call is None or _out_of_scope_reason(call) is not None:
+            continue
+        if not can_synthesize_inputs(call):
+            continue
+        out.append(call)
+    return tuple(out)
+
+
 def _method_op(module: str, typ: type, meth: str, probe: Any) -> Operation:
     call = op_call(typ, meth, module)
     if module == "builtins":
@@ -2451,6 +2565,13 @@ def _method_op(module: str, typ: type, meth: str, probe: Any) -> Operation:
         key = f"{module}.{typ.__name__}_{meth}_method"
         seedkey = f"{module}.{typ.__name__}.{meth}"
     skip, oos, no_inputs, nvf, side_effect, hazard = _classify(call, seedkey, probe)
+    alts = (
+        _alt_calls(
+            lambda n: op_call(typ, meth, module, n), _candidate_sigs(typ, meth, module)
+        )
+        if call is not None and skip is None and oos is None and no_inputs is None
+        else ()
+    )
     return Operation(
         key=key,
         seedkey=seedkey,
@@ -2459,6 +2580,7 @@ def _method_op(module: str, typ: type, meth: str, probe: Any) -> Operation:
         owner=typ.__name__,
         name=meth,
         call=call,
+        alt_calls=alts,
         skip_reason=skip,
         out_of_scope=oos,
         no_inputs=no_inputs,
@@ -2472,6 +2594,13 @@ def _func_op(module: str, name: str, probe: Any) -> Operation:
     call = func_call(module, name)
     seedkey = f"{module}.{name}"
     skip, oos, no_inputs, nvf, side_effect, hazard = _classify(call, seedkey, probe)
+    alts = (
+        _alt_calls(
+            lambda n: func_call(module, name, n), _func_candidate_sigs(module, name)
+        )
+        if call is not None and skip is None and oos is None and no_inputs is None
+        else ()
+    )
     return Operation(
         key=seedkey,
         seedkey=seedkey,
@@ -2480,6 +2609,7 @@ def _func_op(module: str, name: str, probe: Any) -> Operation:
         owner=module,
         name=name,
         call=call,
+        alt_calls=alts,
         skip_reason=skip,
         out_of_scope=oos,
         no_inputs=no_inputs,

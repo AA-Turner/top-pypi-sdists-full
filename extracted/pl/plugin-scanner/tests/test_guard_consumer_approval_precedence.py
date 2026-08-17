@@ -179,6 +179,19 @@ def _write_test_executable(path: Path, body: str = "#!/bin/sh\nexit 0\n") -> Pat
     return path
 
 
+def _install_codex_native_hooks(context: HarnessContext) -> None:
+    payload: dict[str, object] = {"features": {"hooks": True}}
+    CodexHarnessAdapter._install_config_hooks(payload, context)
+    config_path = CodexHarnessAdapter._hook_config_path(context)
+    config_path.parent.mkdir(parents=True, exist_ok=True)
+    CodexHarnessAdapter._write_authenticated_hook_config(
+        context,
+        config_path=config_path,
+        payload=payload,
+        previous_manifest=None,
+    )
+
+
 def test_guard_run_launch_environment_hash_is_canonical_and_value_sensitive() -> None:
     first = guard_runner_module._guard_run_launch_environment_hash({"B": "two", "A": "one"})
     reordered = guard_runner_module._guard_run_launch_environment_hash({"A": "one", "B": "two"})
@@ -378,6 +391,15 @@ def test_guard_run_claims_exact_saved_review_allow_only_at_real_launch(
     assert result["blocked"] is False
     assert result["launched"] is True
     assert launch_calls
+    item = result["artifacts"][0]
+    expected_claim = {
+        "status": "consumed",
+        "approval_context_hash": context_hash,
+        "reason_code": "approval_reuse_accepted",
+    }
+    assert item["approval_claim"] == expected_claim
+    assert item["policy_composition"]["saved_approval_claim"] == expected_claim
+    assert item["authoritative_decision"]["enforcement"]["authority_finalized"] is True
     assert (
         store.peek_local_once_approval(
             harness=artifact.harness,
@@ -572,6 +594,12 @@ def test_codex_postclaim_setup_uses_authorized_canonical_prefix_after_symlink_sw
     executable_alias.parent.mkdir(parents=True)
     executable_alias.symlink_to(safe_codex)
     monkeypatch.setenv("PATH", f"{executable_alias.parent}{os.pathsep}{os.environ.get('PATH', '')}")
+    context = HarnessContext(
+        home_dir=tmp_path,
+        workspace_dir=tmp_path / "workspace",
+        guard_home=config.guard_home,
+    )
+    _install_codex_native_hooks(context)
 
     class SwapAtAuthorizedSetupAdapter(CodexHarnessAdapter):
         def launch_command_from_authorized_plan(self, *args, **kwargs) -> list[str]:
@@ -589,11 +617,7 @@ def test_codex_postclaim_setup_uses_authorized_canonical_prefix_after_symlink_sw
 
     result = guard_runner_module.guard_run(
         "codex",
-        HarnessContext(
-            home_dir=tmp_path,
-            workspace_dir=tmp_path / "workspace",
-            guard_home=config.guard_home,
-        ),
+        context,
         store,
         config,
         dry_run=False,
@@ -625,6 +649,12 @@ def test_no_saved_codex_setup_uses_previewed_canonical_prefix_after_symlink_swap
     executable_alias.parent.mkdir(parents=True)
     executable_alias.symlink_to(safe_codex)
     monkeypatch.setenv("PATH", f"{executable_alias.parent}{os.pathsep}{os.environ.get('PATH', '')}")
+    context = HarnessContext(
+        home_dir=tmp_path,
+        workspace_dir=tmp_path / "workspace",
+        guard_home=config.guard_home,
+    )
+    _install_codex_native_hooks(context)
 
     class SwapAtAuthorizedSetupAdapter(CodexHarnessAdapter):
         def launch_command_from_authorized_plan(self, *args, **kwargs) -> list[str]:
@@ -642,11 +672,7 @@ def test_no_saved_codex_setup_uses_previewed_canonical_prefix_after_symlink_swap
 
     result = guard_runner_module.guard_run(
         "codex",
-        HarnessContext(
-            home_dir=tmp_path,
-            workspace_dir=tmp_path / "workspace",
-            guard_home=config.guard_home,
-        ),
+        context,
         store,
         config,
         dry_run=False,
@@ -2035,7 +2061,8 @@ def test_evaluation_records_exact_saved_allow_without_claiming_before_launch(
         "saved_action": "allow",
         "saved_state_present": True,
         "scanner_action": item["verdict_action"],
-        "scoring_recommendation": item["verdict_action"],
+        "raw_scoring_recommendation": item["scoring_recommendation"]["action"],
+        "scoring_recommendation_non_authoritative": True,
         "final_action": "allow",
         "trusted_request_override": False,
     }
@@ -2185,7 +2212,7 @@ def _with_runtime_detector_telemetry(
         ],
         "runtime_detector_composition": {
             "action": "allow",
-            "reason": "no detector signal",
+            "reason": "no detector signals; base policy action applies",
             "downgraded": False,
             "upgraded": False,
         },

@@ -109,6 +109,7 @@ PROTECTED_FIELDS: set[str] = {
     "start_time",
     "end_time",
     "duration",
+    "duration_ns",
     "timestamp",
     "created_at",
     "updated_at",

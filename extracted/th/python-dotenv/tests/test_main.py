@@ -10,6 +10,7 @@ from unittest import mock
 import pytest
 
 import dotenv
+from dotenv.main import DotEnv
 
 
 def test_set_key_no_file(tmp_path):
@@ -39,6 +40,9 @@ def test_set_key_no_file(tmp_path):
         ("a=b\nc=d\ne=f", "c", "g", (True, "c", "g"), "a=b\nc='g'\ne=f"),
         ("a=b\n", "c", "d", (True, "c", "d"), "a=b\nc='d'\n"),
         ("a=b", "c", "d", (True, "c", "d"), "a=b\nc='d'\n"),
+        ("", "a", "b\\c", (True, "a", "b\\c"), "a='b\\\\c'\n"),
+        ("", "a", "b\\", (True, "a", "b\\"), "a='b\\\\'\n"),
+        ("", "a", "b\\'c", (True, "a", "b\\'c"), "a='b\\\\\\'c'\n"),
     ],
 )
 def test_set_key(dotenv_path, before, key, value, expected, after):
@@ -51,6 +55,32 @@ def test_set_key(dotenv_path, before, key, value, expected, after):
     assert result == expected
     assert dotenv_path.read_text() == after
     mock_warning.assert_not_called()
+
+
+@pytest.mark.parametrize(
+    "value",
+    [
+        "C:\\Users",
+        "C:\\Users\\",
+        "\\d+",
+        "back\\",
+        "a\\'b",
+        "it's",
+        'say "hi"',
+        "a\\nb",
+        "plain",
+        "",
+    ],
+)
+def test_set_key_round_trips(dotenv_path, value):
+    dotenv_path.write_text("")
+
+    dotenv.set_key(dotenv_path, "a", value)
+    dotenv.set_key(dotenv_path, "b", "sentinel")
+
+    assert dotenv.get_key(dotenv_path, "a") == value
+    # A value that is mis-tokenized can swallow the lines that follow it.
+    assert dotenv.get_key(dotenv_path, "b") == "sentinel"
 
 
 def test_set_key_encoding(dotenv_path):
@@ -225,6 +255,18 @@ def test_get_key_none(dotenv_path):
 
     assert result is None
     mock_warning.assert_not_called()
+
+
+def test_empty_dotenv_dict_is_cached(tmp_path):
+    dotenv_path = tmp_path / ".env"
+    dotenv_path.write_text("")
+    dotenv_obj = DotEnv(dotenv_path)
+
+    with mock.patch.object(dotenv_obj, "parse", wraps=dotenv_obj.parse) as mock_parse:
+        assert dotenv_obj.dict() == {}
+        assert dotenv_obj.dict() == {}
+
+    assert mock_parse.call_count == 1
 
 
 def test_unset_with_value(dotenv_path):

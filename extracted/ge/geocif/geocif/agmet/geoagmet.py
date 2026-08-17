@@ -87,6 +87,18 @@ class AgmetGeo(base.BaseGeo):
         self.logo_geoglam = self.dir_metadata / "images" / self.parser.get(
             "AGMET", "logo_geoglam"
         )
+        # USA branding: any USA plot carries the NASA Acres logo INSTEAD of
+        # the Harvest + GEOGLAM pair (standing rule, 2026-08-16). File
+        # configurable via [AGMET] logo_usa; default acres.png.
+        self.logo_usa = self.dir_metadata / "images" / self.parser.get(
+            "AGMET", "logo_usa", fallback="acres.png"
+        )
+        # Logo display box in pixels (figimage draws at native size — a 3089px
+        # wide asset would otherwise cover the figure). See plot.LOGO_MAX_PX.
+        self.logo_max_px = (
+            self.parser.getint("AGMET", "logo_max_width_px", fallback=plot.LOGO_MAX_PX[0]),
+            self.parser.getint("AGMET", "logo_max_height_px", fallback=plot.LOGO_MAX_PX[1]),
+        )
         # When True, county-level filenames get the admin_1 (state) appended:
         # {region}_{state}.png — needed where ADM2_NAME collides across states
         # (e.g. Kiowa in CO/KS/OK).  Default off for backward compatibility.
@@ -159,6 +171,14 @@ class AgmetGeo(base.BaseGeo):
             ]
 
         return final
+
+    def logos_for_country(self, country: str) -> list:
+        """Logo set for a country's plots: USA -> NASA Acres only (standing
+        rule, 2026-08-16); everywhere else -> Harvest + GEOGLAM."""
+        c = str(country).lower()
+        if "united_states" in c or c in ("usa", "us"):
+            return [self.logo_usa]
+        return [self.logo_harvest, self.logo_geoglam]
 
     def read_statistics(self, country=None, read_countries=False, **kwargs):
         """Read zone/country info. country is optional when only reading countries."""
@@ -709,7 +729,7 @@ def _process_combination(obj, country, scale, crop, growing_season):
                 closest=obj.closest,
                 dates_cal=dates_calendar,
                 frcast_yr=obj.plot_season,
-                logos=[obj.logo_harvest, obj.logo_geoglam],
+                logos=obj.logos_for_country(obj.country),
                 dir_out=obj.dir_agmet / obj.scale_short,
                 sup_title=sup_title,
                 fname=fname,
@@ -720,6 +740,7 @@ def _process_combination(obj, country, scale, crop, growing_season):
                 boundary_gdf=boundary_gdf,
                 admin_level=obj.scale,
                 show_logos=obj.show_logos,
+                logo_max_px=obj.logo_max_px,
             ).plot()
 
         ###############################################################
@@ -825,7 +846,7 @@ def _process_combination(obj, country, scale, crop, growing_season):
                     closest=obj.closest,
                     dates_cal=dates_calendar,
                     frcast_yr=obj.plot_season,
-                    logos=[obj.logo_harvest, obj.logo_geoglam],
+                    logos=obj.logos_for_country(obj.country),
                     dir_out=obj.dir_agmet / "district",
                     sup_title=sup_title,
                     fname=f"{cal_region}.png",
@@ -836,6 +857,7 @@ def _process_combination(obj, country, scale, crop, growing_season):
                     highlight_gdf=highlight_gdf,
                     admin_level=obj.scale,
                     show_logos=obj.show_logos,
+                    logo_max_px=obj.logo_max_px,
                 ).plot()
 
 

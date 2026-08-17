@@ -1,18 +1,26 @@
+# mypy: disable-error-code="override"
+
 """
 Support for the OpenAI Whisper speech recognition library.
 
 See https://github.com/openai/whisper
 
 """
-from .base import FormatBase
-from ..ssaevent import SSAEvent
-from ..ssafile import SSAFile
-from ..time import make_time, timestamp_to_ms
-from typing import Union, Any, Optional, Sequence, TextIO
 import re
+import warnings
+from collections.abc import Sequence
+from typing import TYPE_CHECKING, Any, TextIO, TypedDict, Unpack, override
+
+from ..ssaevent import SSAEvent
+from ..time import make_time, timestamp_to_ms
+from ..warnings import PossibleMissedSubtitleWarning
+from .base import FormatBase
+
+if TYPE_CHECKING:
+    from ..ssafile import SSAFile
 
 
-def load_from_whisper(result_or_segments: Union[dict[str, Any], list[dict[str, Any]]]) -> SSAFile:
+def load_from_whisper(result_or_segments: dict[str, Any] | list[dict[str, Any]]) -> "SSAFile":
     """
     Load subtitle file from OpenAI Whisper transcript
 
@@ -44,6 +52,7 @@ def load_from_whisper(result_or_segments: Union[dict[str, Any], list[dict[str, A
     else:
         raise TypeError("Expected either a dict with 'segments' key, or a list of segments")
 
+    from ..ssafile import SSAFile
     subs = SSAFile()
     for segment in segments:
         event = SSAEvent(start=make_time(s=segment["start"]), end=make_time(s=segment["end"]))
@@ -58,11 +67,15 @@ class WhisperJAXFormat(FormatBase):
     Parser for Whisper JAX transcription, one event per line, eg. ``[00:02.880 -> 00:07.240]  transcribed text``
 
     """
+    class ReaderArgs(TypedDict):
+        pass
+
     TIMESTAMP = re.compile(r"(?:(\d{1,2}):)?(\d{2}):(\d{2})[.](\d{3})")
     LINE = re.compile(r"\[([^]]+) -> ([^]]+)] (.*)")
 
     @classmethod
-    def guess_format(cls, text: str) -> Optional[str]:
+    @override
+    def guess_format(cls, text: str) -> str | None:
         """See :meth:`pysubs2.formats.FormatBase.guess_format()`"""
         for line in text.lstrip().splitlines():
             if cls.parse_line(line):
@@ -73,7 +86,7 @@ class WhisperJAXFormat(FormatBase):
         return None
 
     @classmethod
-    def parse_line(cls, line: str) -> Optional[SSAEvent]:
+    def parse_line(cls, line: str) -> SSAEvent | None:
         m = cls.LINE.match(line)
         if m is None:
             return None
@@ -95,12 +108,18 @@ class WhisperJAXFormat(FormatBase):
         return timestamp_to_ms([x or "0" for x in groups])
 
     @classmethod
-    def from_file(cls, subs: "SSAFile", fp: TextIO, format_: str, **kwargs: Any) -> None:
+    @override
+    def from_file(cls, subs: "SSAFile", fp: TextIO, format_: str, **kwargs: Unpack[ReaderArgs]) -> None:
         """
         See :meth:`pysubs2.formats.FormatBase.from_file()`
         """
-        for line in fp.readlines():
+        for lineno, line in enumerate(fp, 1):
             line = line.strip()
             e = cls.parse_line(line)
             if e is not None:
                 subs.append(e)
+            elif re.search(r"\w", line):
+                warnings.warn(
+                    f"Possible missed subtitle at line {lineno}",
+                    PossibleMissedSubtitleWarning
+                )

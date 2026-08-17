@@ -41,6 +41,7 @@ from . import cpu_budget
 from . import measured_posture as posture_mod
 from . import mint_workers
 from . import settings_authority
+from . import process_role
 from . import progress as progress_mod
 from . import serve_posture
 from . import serving_mode as serving_mode_mod
@@ -140,12 +141,7 @@ if typing.TYPE_CHECKING:
     from . import compile_cache
     from . import fleet_cells
     from .models.serve_fit import ServePlan
-from .request_context import (
-    ConversionContext,
-    DatasetContext,
-    RequestContext,
-    TrainingContext,
-)
+from .request_context import JobContext, RequestContext
 from .request_context._helpers import _decode_unverified_jwt_claims
 from .utils import lora as lora_util
 import errno as _errno
@@ -188,18 +184,23 @@ from . import hot_swap
 from . import mint_supervisor
 from .hostfacts import cuda_ready
 
+# pgw#1294: the three producer contexts MERGED into JobContext, so every
+# producer kind resolves to the same class under three names until th#2052
+# deletes the names. The map stays explicit rather than collapsing to one
+# entry — the KINDS are still distinct declarations and one of them (eval)
+# deliberately publishes nothing.
 _CONTEXT_BY_KIND: Dict[str, type] = {
     "inference": RequestContext,
-    "conversion": ConversionContext,
-    "dataset": DatasetContext,
-    "training": TrainingContext,
+    "conversion": JobContext,
+    "dataset": JobContext,
+    "training": JobContext,
     # th#1255: an eval materializes the same reserved refs a conversion does
     # (its `source` IS the reference arm) and writes request output assets.
     # It just publishes nothing, and there is no separate surface for that —
     # publish authority is the hub's call, and the hub refuses repo writes
     # for kind=eval. A distinct EvalContext would only restate that refusal
     # somewhere it cannot be enforced.
-    "eval": ConversionContext,
+    "eval": JobContext,
 }
 
 logger = logging.getLogger(__name__)
@@ -353,8 +354,11 @@ def _producer_destination_repo(payload: Any, destination_info: Dict[str, Any]) -
     The reserved struct (``payload.destination.ref``) wins; the flat
     ``payload.destination_repo`` scalar is the wire form gen-orchestrator
     dispatches. Tag/flavor/checkpoint selectors are stripped.
+
+    ``destination.repo`` is NOT read: it is a retired spelling no producer
+    in-tree or in any peer repo writes (pgw#1305).
     """
-    ref = str(destination_info.get("ref") or destination_info.get("repo") or "").strip()
+    ref = str(destination_info.get("ref") or "").strip()
     if not ref:
         ref = str(getattr(payload, "destination_repo", "") or "").strip()
     for sep in (":", "@", "#"):
@@ -4407,6 +4411,13 @@ class Executor:
             activity_mod.bind_sink(self._send, asyncio.get_running_loop())
         except RuntimeError:
             pass
+        else:
+            # pgw#1309: THIS is the serving process — it holds the session the
+            # compile children's pid rows are read beside. Declared where the
+            # transport is bound, so the fact and the wire that carries it
+            # arrive together.
+            process_role.declare(process_role.ROLE_SERVING)
+            process_role.emit_boot_role()
         rec = self._class_record(spec)
         async with self._setup_singleflight(spec, rec) as intent_id:
             if rec.ready and not rec.stale:
@@ -7925,6 +7936,14 @@ class Executor:
             router = hot_swap.router_of(pipe)
             if router is not None:
                 router.suspend()
+                # SUSPEND stops new eager routing; it does not reach the warm
+                # jobs already queued or compiling, and the next loop DELETES
+                # the capture directory they write into. Disown them here or
+                # the resulting FileNotFoundError reaches the hub as a
+                # serve_degrade plus a permanent shape_gap for a coverage hole
+                # this cleanup invented (pgw#1311). Non-blocking: we are on
+                # the event loop and one compile is minutes long.
+                router.cancel_warm()
         for pending in {id(p): p for p in bg.pendings.values()}.values():
             try:
                 fleet_cells_mod.abandon_self_mint(pending)
@@ -8205,7 +8224,7 @@ class Executor:
         sibling-coverage rule, and advertise the identity on the live compile
         targets. Everything between is ``mint_supervisor``'s — deliberately,
         because that is the compiled-graph interior and it is the surface the
-        ``torch-compiled-graphs`` extraction lifts whole. Residency (which pipe,
+        ``torchcg`` extraction lifts whole. Residency (which pipe,
         which target, what the wire is told) does not leak into it.
 
         Raises what ``_background_mint`` handles and nothing else:
@@ -9332,6 +9351,15 @@ class Executor:
             if job.exec_task is not None:
                 job.exec_task.cancel()
             await self._finish(job, pb.JOB_STATUS_RETRYABLE, safe_message=safe_message)
+        # Background warm compiles are in-flight units too. The turn gate
+        # already refuses new ones once `draining` is set, but the one holding
+        # a turn keeps compiling and would report into a stream being torn
+        # down. Off-loop so the drain's own deadlines still tick (pgw#1311).
+        left = await asyncio.to_thread(hot_swap.quiesce)
+        if left:
+            logger.warning(
+                "drain: %d background warm compile(s) still running at the "
+                "quiesce deadline; their results are disowned", left)
 
     # ---- job execution -----------------------------------------------------
 
@@ -9598,6 +9626,7 @@ class Executor:
             },
             **_resolve_slots_kwargs(spec, order.slots, order.adapters),
             execution_hints=execution_hints,
+            publishes=bool(spec.publishes),
             **producer_kwargs,
         )
         job.ctx = ctx

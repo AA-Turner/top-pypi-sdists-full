@@ -3,6 +3,7 @@
 import logging
 import re
 import time
+import warnings
 from urllib.parse import quote
 from .base import ConfluenceCloudBase
 import requests
@@ -22,6 +23,13 @@ class Cloud(ConfluenceCloudBase):
     """
 
     def __init__(self, url="https://api.atlassian.com/", *args, **kwargs):
+        if kwargs.get("api_version") == "cloud":
+            warnings.warn(
+                "api_version='cloud' is deprecated; ConfluenceCloud already " "selects Cloud endpoints.",
+                DeprecationWarning,
+                stacklevel=2,
+            )
+            kwargs.pop("api_version")
         # Set default values only if not provided
         if "cloud" not in kwargs:
             kwargs["cloud"] = True
@@ -135,6 +143,17 @@ class Cloud(ConfluenceCloudBase):
     def get_content(self, content_id, **kwargs):
         """Get content by ID."""
         return self.get(f"content/{content_id}", **kwargs)
+
+    def iter_page_versions(self, page_id, limit=200, expand=None):
+        """Yield every version of a legacy Confluence Cloud page lazily."""
+        params = {"limit": int(limit)}
+        if expand is not None:
+            params["expand"] = expand
+        return self._get_paged(f"rest/api/content/{page_id}/version", params=params)
+
+    def get_all_page_versions(self, page_id, limit=200, expand=None):
+        """Return every version of a legacy Confluence Cloud page as a list."""
+        return list(self.iter_page_versions(page_id, limit=limit, expand=expand))
 
     def get_content_by_type(self, content_type, **kwargs):
         """Get content by type (page, blogpost, etc.)."""

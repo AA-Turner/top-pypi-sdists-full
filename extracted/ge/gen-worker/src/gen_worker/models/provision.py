@@ -29,6 +29,8 @@ from typing import (
     Tuple,
 )
 
+from gen_worker._vendor.torchcg import ARTIFACT_KIND, GRAPH_CLASS_BLOCK
+
 from ..cell_adopt import AdoptOutcome
 from ..component_vocab import denoiser_components
 from ..api.binding import ModelRef, wire_ref
@@ -70,7 +72,7 @@ class ModelResolutionError(Exception):
 def _compiled_graph_metadata(path: Path) -> Optional[Dict[str, Any]]:
     """Read metadata through TCG, returning ``None`` for a non-TCG artifact."""
 
-    from torch_compiled_graphs import artifact as compiled_graph_artifact
+    from gen_worker._vendor.torchcg import artifact as compiled_graph_artifact
 
     try:
         return dict(compiled_graph_artifact.read_metadata(Path(path)))
@@ -407,7 +409,7 @@ def arm_aot(
         # component name (pgw#740: the vocabulary is not repeated in live
         # code; a guessed name on a non-UNet family would silently skip the
         # install and waste the arm).
-        graph_class = (meta or {}).get("graph_class") or {}
+        graph_class = (meta or {}).get(GRAPH_CLASS_BLOCK) or {}
         targets: list[str] = []
         if isinstance(graph_class, Mapping):
             target = str(graph_class.get("target") or "").strip()
@@ -584,7 +586,7 @@ def arm_aot(
         # is also the first point that needs a way BACK DOWN. Both spans below
         # are abandonable: the entry de-arms, its runner is released, the
         # pipeline serves eager and the worker stays alive.
-        graph_class = (meta or {}).get("graph_class") or {}
+        graph_class = (meta or {}).get(GRAPH_CLASS_BLOCK) or {}
         _entry_name = str(
             graph_class.get("name") if isinstance(graph_class, Mapping) else ""
         )
@@ -645,7 +647,7 @@ def arm_aot(
         # condemns that class and says nothing about its siblings. The refused
         # entry de-arms sticky, its siblings keep serving compiled, and it is
         # not published.
-        graph_class = meta.get("graph_class") or {}
+        graph_class = meta.get(GRAPH_CLASS_BLOCK) or {}
         entry = str(
             graph_class.get("name") if isinstance(graph_class, Mapping) else ""
         )
@@ -819,7 +821,7 @@ def enable_compiled(
     adopt. Staying eager rolls the branches back — canonical zeroed slots
     cost +21-32% eager (gw#547); the eager adapter path re-enables sparse
     placement per request."""
-    from .. import aot_serve, compile_cache  # lazy: keeps `import gen_worker` off the compile/pb stack
+    from .. import compile_cache  # lazy: keeps `import gen_worker` off the compile/pb stack
     # Deferred: receipts pulls +151 modules onto the `import gen_worker` path.
     from .. import receipts
 
@@ -848,7 +850,7 @@ def enable_compiled(
         # through to the ordinary inductor lane.
         meta = _compiled_graph_metadata(artifact)
         kind = str((meta or {}).get("kind") or "")
-        if kind == aot_serve.ARTIFACT_KIND:
+        if kind == ARTIFACT_KIND:
             aot = arm_aot(pipe, cfg, cache_dir, Path(artifact), bucket, meta)
             if aot.armed:
                 return aot

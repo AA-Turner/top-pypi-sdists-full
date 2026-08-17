@@ -94,6 +94,29 @@ def _resolve_stats_file(country, parser=None) -> str:
     return fn
 
 
+def admin1_lookup(dir_stats, country, parser=None):
+    """Map normalized admin_2 (county) names -> admin_1 (state) names.
+
+    Read from the same production-statistics file the yield join uses (via
+    _resolve_stats_file) with the same name normalization, so the mapping can
+    never disagree with the join. Backs the optional 'State' categorical for
+    admin_2 runs. Returns {} when the file or columns are unavailable.
+    """
+    path = Path(dir_stats) / _resolve_stats_file(country, parser)
+    if not path.is_file():
+        return {}
+    df = pd.read_csv(
+        path, low_memory=False,
+        usecols=lambda c: c in ("country", "admin_1", "admin_2"),
+    )
+    if not {"country", "admin_1", "admin_2"}.issubset(df.columns):
+        return {}
+    df = df[df["country"] == country].dropna(subset=["admin_1", "admin_2"])
+    if df.empty:
+        return {}
+    return dict(zip(_norm_region_series(df["admin_2"]), df["admin_1"].astype(str)))
+
+
 def regions_with_yields(dir_stats, country, crop, admin_zone, parser=None):
     """Normalized names of regions with at least one usable yield record.
 

@@ -5,9 +5,11 @@
 from __future__ import annotations
 
 from datetime import datetime, timezone
+from typing import cast
 
 # ruff: noqa: F403,F405
 from .store_base import *
+from .store_receipt_rollups import reconcile_dirty_receipt_rollups, reconcile_pending_receipt_events
 
 
 class StoreCloudEventsMixin:
@@ -255,21 +257,28 @@ class StoreCloudEventsMixin:
 
     def list_cloud_exceptions(self, harness: str | None = None) -> list[dict[str, object]]:
         from .cloud_exceptions import (
-            build_cloud_exceptions_from_stored_items,
+            build_cloud_exceptions_from_policy_bundle,
             cloud_exception_to_dict,
+            dedupe_cloud_exceptions,
             list_active_cloud_exceptions,
         )
+        from .synced_policy import SyncPayloadReader, validated_synced_policy_bundle
 
-        payload = self.get_sync_payload("cloud_exceptions")
-        raw_items: list[dict[str, object]] = []
-        if isinstance(payload, list):
-            raw_items = [item for item in payload if isinstance(item, dict)]
-        elif isinstance(payload, dict):
-            nested = payload.get("items")
-            if isinstance(nested, list):
-                raw_items = [item for item in nested if isinstance(item, dict)]
-        parsed_items = build_cloud_exceptions_from_stored_items(raw_items)
-        active_items = list_active_cloud_exceptions(parsed_items, harness=harness)
+        policy_bundle = validated_synced_policy_bundle(cast(SyncPayloadReader, cast(object, self)))
+        if policy_bundle is None:
+            return []
+        try:
+            device_metadata = self.get_device_metadata()
+            device_id = str(device_metadata["installation_id"])
+        except (KeyError, OSError, RuntimeError, TypeError, ValueError):
+            return []
+        acknowledgement = self.get_sync_payload("policy_bundle_ack")
+        parsed_items = build_cloud_exceptions_from_policy_bundle(
+            policy_bundle,
+            device_id=device_id,
+            policy_bundle_ack=acknowledgement if isinstance(acknowledgement, dict) else None,
+        )
+        active_items = list_active_cloud_exceptions(dedupe_cloud_exceptions(parsed_items), harness=harness)
         return [cloud_exception_to_dict(item) for item in active_items]
 
     def delete_sync_payload(self, state_key: str) -> None:
@@ -378,6 +387,11 @@ class StoreCloudEventsMixin:
         query += " order by occurred_at asc, event_id asc limit ?"
         params.append(limit)
         with self._connect() as connection:
+            if receipt_rollups_need_backfill(connection):
+                backfill_receipt_rollups(connection)
+            else:
+                reconcile_dirty_receipt_rollups(connection)
+            reconcile_pending_receipt_events(connection)
             rows = connection.execute(query, tuple(params)).fetchall()
         events: list[dict[str, object]] = []
         for row in rows:

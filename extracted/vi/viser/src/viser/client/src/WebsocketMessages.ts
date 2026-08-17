@@ -9,10 +9,12 @@
 export interface CameraFrustumMessage {
   type: "CameraFrustumMessage";
   name: string;
+  owner: string;
+  virtual: boolean;
   props: {
     fov: number;
     aspect: number;
-    line_width: number;
+    thickness: number;
     color: [number, number, number];
     _format: "jpeg" | "png";
     _image_data: Uint8Array<ArrayBuffer> | null;
@@ -20,6 +22,7 @@ export interface CameraFrustumMessage {
     receive_shadow: boolean | number;
     variant: "wireframe" | "filled";
     scale: number | [number, number, number];
+    thickness_units: "screen" | "world";
   };
 }
 /** GlTF message.
@@ -29,6 +32,8 @@ export interface CameraFrustumMessage {
 export interface GlbMessage {
   type: "GlbMessage";
   name: string;
+  owner: string;
+  virtual: boolean;
   props: {
     glb_data: Uint8Array<ArrayBuffer>;
     cast_shadow: boolean;
@@ -43,6 +48,8 @@ export interface GlbMessage {
 export interface FrameMessage {
   type: "FrameMessage";
   name: string;
+  owner: string;
+  virtual: boolean;
   props: {
     show_axes: boolean;
     axes_length: number;
@@ -62,6 +69,8 @@ export interface FrameMessage {
 export interface BatchedAxesMessage {
   type: "BatchedAxesMessage";
   name: string;
+  owner: string;
+  virtual: boolean;
   props: {
     batched_wxyzs: Float32Array;
     batched_positions: Float32Array;
@@ -78,6 +87,8 @@ export interface BatchedAxesMessage {
 export interface GridMessage {
   type: "GridMessage";
   name: string;
+  owner: string;
+  virtual: boolean;
   props: {
     width: number;
     height: number;
@@ -105,6 +116,8 @@ export interface GridMessage {
 export interface LabelMessage {
   type: "LabelMessage";
   name: string;
+  owner: string;
+  virtual: boolean;
   props: {
     text: string;
     font_size_mode: "screen" | "scene";
@@ -130,6 +143,8 @@ export interface LabelMessage {
 export interface Gui3DMessage {
   type: "Gui3DMessage";
   name: string;
+  owner: string;
+  virtual: boolean;
   props: { order: number; container_uuid: string };
 }
 /** Point cloud message.
@@ -144,6 +159,8 @@ export interface Gui3DMessage {
 export interface PointCloudMessage {
   type: "PointCloudMessage";
   name: string;
+  owner: string;
+  virtual: boolean;
   props: {
     points: Uint16Array | Float32Array;
     colors: Uint8Array<ArrayBuffer>;
@@ -161,6 +178,8 @@ export interface PointCloudMessage {
 export interface DirectionalLightMessage {
   type: "DirectionalLightMessage";
   name: string;
+  owner: string;
+  virtual: boolean;
   props: {
     color: [number, number, number];
     intensity: number;
@@ -174,6 +193,8 @@ export interface DirectionalLightMessage {
 export interface AmbientLightMessage {
   type: "AmbientLightMessage";
   name: string;
+  owner: string;
+  virtual: boolean;
   props: { color: [number, number, number]; intensity: number };
 }
 /** Hemisphere light message.
@@ -183,6 +204,8 @@ export interface AmbientLightMessage {
 export interface HemisphereLightMessage {
   type: "HemisphereLightMessage";
   name: string;
+  owner: string;
+  virtual: boolean;
   props: {
     sky_color: [number, number, number];
     ground_color: [number, number, number];
@@ -196,6 +219,8 @@ export interface HemisphereLightMessage {
 export interface PointLightMessage {
   type: "PointLightMessage";
   name: string;
+  owner: string;
+  virtual: boolean;
   props: {
     color: [number, number, number];
     intensity: number;
@@ -211,6 +236,8 @@ export interface PointLightMessage {
 export interface RectAreaLightMessage {
   type: "RectAreaLightMessage";
   name: string;
+  owner: string;
+  virtual: boolean;
   props: {
     color: [number, number, number];
     intensity: number;
@@ -225,6 +252,8 @@ export interface RectAreaLightMessage {
 export interface SpotLightMessage {
   type: "SpotLightMessage";
   name: string;
+  owner: string;
+  virtual: boolean;
   props: {
     color: [number, number, number];
     intensity: number;
@@ -245,6 +274,8 @@ export interface SpotLightMessage {
 export interface MeshMessage {
   type: "MeshMessage";
   name: string;
+  owner: string;
+  virtual: boolean;
   props: {
     vertices: Float32Array;
     faces: Uint32Array;
@@ -266,6 +297,8 @@ export interface MeshMessage {
 export interface BoxMessage {
   type: "BoxMessage";
   name: string;
+  owner: string;
+  virtual: boolean;
   props: {
     dimensions: [number, number, number];
     color: [number, number, number];
@@ -286,6 +319,8 @@ export interface BoxMessage {
 export interface IcosphereMessage {
   type: "IcosphereMessage";
   name: string;
+  owner: string;
+  virtual: boolean;
   props: {
     radius: number;
     subdivisions: number;
@@ -307,6 +342,8 @@ export interface IcosphereMessage {
 export interface CylinderMessage {
   type: "CylinderMessage";
   name: string;
+  owner: string;
+  virtual: boolean;
   props: {
     radius: number;
     height: number;
@@ -329,6 +366,8 @@ export interface CylinderMessage {
 export interface SkinnedMeshMessage {
   type: "SkinnedMeshMessage";
   name: string;
+  owner: string;
+  virtual: boolean;
   props: {
     vertices: Float32Array;
     faces: Uint32Array;
@@ -354,6 +393,8 @@ export interface SkinnedMeshMessage {
 export interface BatchedMeshesMessage {
   type: "BatchedMeshesMessage";
   name: string;
+  owner: string;
+  virtual: boolean;
   props: {
     batched_wxyzs: Float32Array;
     batched_positions: Float32Array;
@@ -380,6 +421,8 @@ export interface BatchedMeshesMessage {
 export interface BatchedGlbMessage {
   type: "BatchedGlbMessage";
   name: string;
+  owner: string;
+  virtual: boolean;
   props: {
     batched_wxyzs: Float32Array;
     batched_positions: Float32Array;
@@ -398,6 +441,8 @@ export interface BatchedGlbMessage {
 export interface TransformControlsMessage {
   type: "TransformControlsMessage";
   name: string;
+  owner: string;
+  virtual: boolean;
   props: {
     scale: number;
     line_width: number;
@@ -419,6 +464,8 @@ export interface TransformControlsMessage {
 export interface ImageMessage {
   type: "ImageMessage";
   name: string;
+  owner: string;
+  virtual: boolean;
   props: {
     _format: "jpeg" | "png";
     _data: Uint8Array<ArrayBuffer>;
@@ -436,11 +483,14 @@ export interface ImageMessage {
 export interface LineSegmentsMessage {
   type: "LineSegmentsMessage";
   name: string;
+  owner: string;
+  virtual: boolean;
   props: {
     points: Float32Array;
-    line_width: number;
+    thickness: number;
     colors: Uint8Array<ArrayBuffer>;
     scale: number | [number, number, number];
+    thickness_units: "screen" | "world";
   };
 }
 /** Message from server->client carrying arrow information.
@@ -450,13 +500,14 @@ export interface LineSegmentsMessage {
 export interface ArrowMessage {
   type: "ArrowMessage";
   name: string;
+  owner: string;
+  virtual: boolean;
   props: {
     points: Float32Array;
     colors: Uint8Array<ArrayBuffer>;
     shaft_radius: number;
     head_radius: number;
     head_length: number;
-    line_width: number;
     scale: number | [number, number, number];
   };
 }
@@ -467,15 +518,18 @@ export interface ArrowMessage {
 export interface CatmullRomSplineMessage {
   type: "CatmullRomSplineMessage";
   name: string;
+  owner: string;
+  virtual: boolean;
   props: {
     points: Float32Array;
     curve_type: "centripetal" | "chordal" | "catmullrom";
     tension: number;
     closed: boolean;
-    line_width: number;
+    thickness: number;
     color: [number, number, number];
     segments: number | null;
     scale: number | [number, number, number];
+    thickness_units: "screen" | "world";
   };
 }
 /** Message from server->client carrying Cubic Bezier spline information.
@@ -485,13 +539,16 @@ export interface CatmullRomSplineMessage {
 export interface CubicBezierSplineMessage {
   type: "CubicBezierSplineMessage";
   name: string;
+  owner: string;
+  virtual: boolean;
   props: {
     points: Float32Array;
     control_points: Float32Array;
-    line_width: number;
+    thickness: number;
     color: [number, number, number];
     segments: number | null;
     scale: number | [number, number, number];
+    thickness_units: "screen" | "world";
   };
 }
 /** Message from server->client carrying splattable Gaussians.
@@ -501,15 +558,21 @@ export interface CubicBezierSplineMessage {
 export interface GaussianSplatsMessage {
   type: "GaussianSplatsMessage";
   name: string;
+  owner: string;
+  virtual: boolean;
   props: { buffer: Uint32Array; scale: number | [number, number, number] };
 }
-/** Remove a particular node from the scene.
+/** Remove a particular node's variant, for the scope stamped in
+ * ``owner``, from the scene. Removal is scope-local: it never touches the
+ * other scope's variant of the same name (the server enumerates one such
+ * message per same-scope descendant; the client does not cascade).
  *
  * (automatically generated)
  */
 export interface RemoveSceneNodeMessage {
   type: "RemoveSceneNodeMessage";
   name: string;
+  owner: string;
 }
 /** GuiFolderMessage(uuid: 'str', container_uuid: 'str', props: 'GuiFolderProps')
  *
@@ -1270,10 +1333,16 @@ export interface ScenePointerMessage {
 /** Set the modifier-filter set for a scene pointer ``event_type``.
  *
  * An empty ``modifiers`` tuple disables all callbacks for that
- * ``event_type``. A non-empty tuple enables them, and the client uses
- * the filter list to gate gesture engagement: a pointerdown whose
- * held-modifier state doesn't match any filter is treated as if no
- * callback were registered (no rectangle drawn, no message sent).
+ * ``event_type`` in the sending scope. A non-empty tuple enables them,
+ * and the client uses the filter list to gate gesture engagement: a
+ * pointerdown whose held-modifier state doesn't match any filter is
+ * treated as if no callback were registered (no rectangle drawn, no
+ * message sent).
+ *
+ * Filters are kept per ``owner`` on the client and engagement uses the
+ * union across owners, so the broadcast scope and a client scope can
+ * register pointer callbacks independently -- one scope clearing its
+ * filters never deactivates the other's.
  *
  * (automatically generated)
  */
@@ -1290,6 +1359,7 @@ export interface ScenePointerEnableMessage {
     | "cmd/ctrl+alt+shift"
     | null
   )[];
+  owner: string;
 }
 /** Fog message.
  *
@@ -1347,6 +1417,7 @@ export interface SetBoneOrientationMessage {
   name: string;
   bone_index: number;
   wxyz: [number, number, number, number];
+  owner: string;
 }
 /** Server -> client message to set a skinned mesh bone's position.
  *
@@ -1359,6 +1430,7 @@ export interface SetBonePositionMessage {
   name: string;
   bone_index: number;
   position: [number, number, number];
+  owner: string;
 }
 /** Server -> client message to set the camera's position.
  *
@@ -1414,6 +1486,29 @@ export interface SetCameraFovMessage {
   fov: number;
   initial: boolean;
 }
+/** Server -> client message to set how close the camera may be dollied in
+ * to its orbit (look-at) point.
+ *
+ * A constraint rather than a pose, so unlike the camera position/look-at messages
+ * there is no `initial` flag: URL parameters override where the camera *is*, not how
+ * far it is allowed to travel.
+ *
+ *
+ * (automatically generated)
+ */
+export interface SetCameraMinOrbitDistanceMessage {
+  type: "SetCameraMinOrbitDistanceMessage";
+  min_orbit_distance: number;
+}
+/** Server -> client message to set how far the camera may be dollied out
+ * from its orbit (look-at) point.
+ *
+ * (automatically generated)
+ */
+export interface SetCameraMaxOrbitDistanceMessage {
+  type: "SetCameraMaxOrbitDistanceMessage";
+  max_orbit_distance: number;
+}
 /** Server -> client message to set a scene node's orientation.
  *
  * As with all other messages, transforms take the `T_parent_local` convention.
@@ -1424,6 +1519,7 @@ export interface SetOrientationMessage {
   type: "SetOrientationMessage";
   name: string;
   wxyz: [number, number, number, number];
+  owner: string;
 }
 /** Server -> client message to set a scene node's position.
  *
@@ -1435,6 +1531,7 @@ export interface SetPositionMessage {
   type: "SetPositionMessage";
   name: string;
   position: [number, number, number];
+  owner: string;
 }
 /** Client -> server message when a transform control is updated.
  *
@@ -1447,6 +1544,7 @@ export interface TransformControlsUpdateMessage {
   name: string;
   wxyz: [number, number, number, number];
   position: [number, number, number];
+  owner: string;
 }
 /** Client -> server message when a transform control drag starts.
  *
@@ -1455,6 +1553,7 @@ export interface TransformControlsUpdateMessage {
 export interface TransformControlsDragStartMessage {
   type: "TransformControlsDragStartMessage";
   name: string;
+  owner: string;
 }
 /** Client -> server message when a transform control drag ends.
  *
@@ -1463,6 +1562,7 @@ export interface TransformControlsDragStartMessage {
 export interface TransformControlsDragEndMessage {
   type: "TransformControlsDragEndMessage";
   name: string;
+  owner: string;
 }
 /** Message for rendering a background image.
  *
@@ -1482,6 +1582,7 @@ export interface SetSceneNodeVisibilityMessage {
   type: "SetSceneNodeVisibilityMessage";
   name: string;
   visible: boolean;
+  owner: string;
 }
 /** Declare the drag-input combinations a scene node listens for.
  *
@@ -1511,6 +1612,7 @@ export interface SetSceneNodeDragBindingsMessage {
       | "cmd/ctrl+alt+shift"
       | null;
   }[];
+  owner: string;
 }
 /** Declare the click-input combinations a scene node listens for.
  *
@@ -1540,6 +1642,7 @@ export interface SetSceneNodeClickBindingsMessage {
       | "cmd/ctrl+alt+shift"
       | null;
   }[];
+  owner: string;
 }
 /** Message for clicked objects.
  *
@@ -1561,6 +1664,7 @@ export interface SceneNodeClickMessage {
     | "alt+shift"
     | "cmd/ctrl+alt+shift"
     | null;
+  owner: string;
 }
 /** Client -> server message for a scene-node drag (start/update/end).
  *
@@ -1590,6 +1694,7 @@ export interface SceneNodeDragMessage {
     | "alt+shift"
     | "cmd/ctrl+alt+shift"
     | null;
+  owner: string;
 }
 /** Reset GUI.
  *
@@ -1624,6 +1729,87 @@ export interface GuiFormSubmitMessage {
  */
 export interface GuiFormDirtyMessage {
   type: "GuiFormDirtyMessage";
+  uuid: string;
+}
+/** Dock/float a panel (or the main control panel). Write-only.
+ *
+ * (automatically generated)
+ */
+export interface GuiSetPanelPositionMessage {
+  type: "GuiSetPanelPositionMessage";
+  uuid: string;
+  position:
+    | { kind: "edge"; edge: "left" | "right" }
+    | { kind: "split"; anchor_uuid: string; side: "above" | "below" }
+    | { kind: "float"; x: number | null; y: number | null };
+  counter: number;
+  run_id: string;
+}
+/** Set a panel's width in pixels (None clears the override -> default/theme
+ * width). Write-only.
+ *
+ * (automatically generated)
+ */
+export interface GuiSetPanelWidthMessage {
+  type: "GuiSetPanelWidthMessage";
+  uuid: string;
+  width: number | null;
+  counter: number;
+  run_id: string;
+}
+/** Set a panel's height in pixels (floating panels only; None clears the
+ * override -> auto). Write-only.
+ *
+ * (automatically generated)
+ */
+export interface GuiSetPanelHeightMessage {
+  type: "GuiSetPanelHeightMessage";
+  uuid: string;
+  height: number | null;
+  counter: number;
+  run_id: string;
+}
+/** Minimize (collapse) or expand a panel's CONTAINER. Write-only.
+ *
+ * Collapse is container state on the client (a floating window's flag or a
+ * docked column's rail), so this applies to the panel's containing stack --
+ * panels stacked together minimize together, exactly like the on-screen
+ * minimize control (D47; supersedes D31's removal, whose motivating
+ * mixed-stack awkwardness was dissolved by container-owned collapse).
+ *
+ *
+ * (automatically generated)
+ */
+export interface GuiSetPanelCollapsedMessage {
+  type: "GuiSetPanelCollapsedMessage";
+  uuid: string;
+  collapsed: boolean;
+  counter: number;
+  run_id: string;
+}
+/** A standalone panel: a dockable / floating GUI container that lives outside
+ * the control panel. Deliberately NOT a GuiComponentMessage -- it is a
+ * top-level entity (like a modal), so it never enters the inline GUI tree.
+ *
+ * (automatically generated)
+ */
+export interface GuiPanelMessage {
+  type: "GuiPanelMessage";
+  uuid: string;
+  props: {
+    _tab_labels: string[];
+    _tab_icons_html: (string | null)[];
+    _tab_container_ids: string[];
+    order: number;
+    visible: boolean;
+  };
+}
+/** Sent server->client to remove a standalone panel.
+ *
+ * (automatically generated)
+ */
+export interface GuiPanelRemoveMessage {
+  type: "GuiPanelRemoveMessage";
   uuid: string;
 }
 /** GuiModalMessage(order: 'float', uuid: 'str', title: 'str')
@@ -1672,6 +1858,7 @@ export interface SceneNodeUpdateMessage {
   type: "SceneNodeUpdateMessage";
   name: string;
   updates: { [key: string]: any };
+  owner: string;
 }
 /** Message from server->client to configure parts of the GUI.
  *
@@ -1800,6 +1987,18 @@ export interface FileTransferPartAck {
 export interface ShareUrlRequest {
   type: "ShareUrlRequest";
 }
+/** Server->client marker: the (re)connect replay of the persistent message
+ * buffer is complete -- everything after this is live traffic. Injected
+ * per-connection by the message producer (never stored in the buffer). The
+ * client uses it to end its reconnect phase: state held dormant across the
+ * replay (e.g. dock panes for panels that may be re-created under the same
+ * uuid) is purged for entities the replay did not revive.
+ *
+ * (automatically generated)
+ */
+export interface ReplayDoneMessage {
+  type: "ReplayDoneMessage";
+}
 /** Message from server->client to indicate that the share URL has been updated.
  *
  * (automatically generated)
@@ -1924,6 +2123,49 @@ export interface CommandTriggerMessage {
   type: "CommandTriggerMessage";
   uuid: string;
 }
+/** Set a key in the client's localStorage.
+ *
+ * (automatically generated)
+ */
+export interface LocalStorageSetItemMessage {
+  type: "LocalStorageSetItemMessage";
+  key: string;
+  value: string;
+}
+/** Remove a key from the client's localStorage.
+ *
+ * (automatically generated)
+ */
+export interface LocalStorageRemoveItemMessage {
+  type: "LocalStorageRemoveItemMessage";
+  key: string;
+}
+/** Clear all viser-written keys from the client's localStorage.
+ *
+ * (automatically generated)
+ */
+export interface LocalStorageClearMessage {
+  type: "LocalStorageClearMessage";
+}
+/** Message from server->client requesting a value from localStorage.
+ *
+ * (automatically generated)
+ */
+export interface LocalStorageGetItemRequestMessage {
+  type: "LocalStorageGetItemRequestMessage";
+  key: string;
+  request_uuid: string;
+}
+/** Message from client->server carrying the requested localStorage value.
+ *
+ * (automatically generated)
+ */
+export interface LocalStorageGetItemResponseMessage {
+  type: "LocalStorageGetItemResponseMessage";
+  value: string | null;
+  error: string | null;
+  request_uuid: string;
+}
 
 export type Message =
   | CameraFrustumMessage
@@ -1997,6 +2239,8 @@ export type Message =
   | SetCameraNearMessage
   | SetCameraFarMessage
   | SetCameraFovMessage
+  | SetCameraMinOrbitDistanceMessage
+  | SetCameraMaxOrbitDistanceMessage
   | SetOrientationMessage
   | SetPositionMessage
   | TransformControlsUpdateMessage
@@ -2011,6 +2255,12 @@ export type Message =
   | ResetGuiMessage
   | GuiFormSubmitMessage
   | GuiFormDirtyMessage
+  | GuiSetPanelPositionMessage
+  | GuiSetPanelWidthMessage
+  | GuiSetPanelHeightMessage
+  | GuiSetPanelCollapsedMessage
+  | GuiPanelMessage
+  | GuiPanelRemoveMessage
   | GuiModalMessage
   | GuiCloseModalMessage
   | GuiButtonHoldMessage
@@ -2024,13 +2274,19 @@ export type Message =
   | FileTransferPart
   | FileTransferPartAck
   | ShareUrlRequest
+  | ReplayDoneMessage
   | ShareUrlUpdated
   | ShareUrlDisconnect
   | SetGuiPanelLabelMessage
   | RegisterCommandMessage
   | CommandUpdateMessage
   | RemoveCommandMessage
-  | CommandTriggerMessage;
+  | CommandTriggerMessage
+  | LocalStorageSetItemMessage
+  | LocalStorageRemoveItemMessage
+  | LocalStorageClearMessage
+  | LocalStorageGetItemRequestMessage
+  | LocalStorageGetItemResponseMessage;
 export type SceneNodeMessage =
   | CameraFrustumMessage
   | GlbMessage
@@ -2172,7 +2428,7 @@ export const SceneNodePropsSchema: {
       kind: "default",
       tsType: "number",
     },
-    line_width: {
+    thickness: {
       kind: "default",
       tsType: "number",
     },
@@ -2205,6 +2461,11 @@ export const SceneNodePropsSchema: {
     scale: {
       kind: "default",
       tsType: "(number | [number, number, number])",
+    },
+    thickness_units: {
+      kind: "stringLiteral",
+      tsType: "'screen' | 'world'",
+      options: ["screen", "world"],
     },
   },
   GlbMessage: {
@@ -2984,7 +3245,7 @@ export const SceneNodePropsSchema: {
       kind: "default",
       tsType: "Float32Array",
     },
-    line_width: {
+    thickness: {
       kind: "default",
       tsType: "number",
     },
@@ -2995,6 +3256,11 @@ export const SceneNodePropsSchema: {
     scale: {
       kind: "default",
       tsType: "(number | [number, number, number])",
+    },
+    thickness_units: {
+      kind: "stringLiteral",
+      tsType: "'screen' | 'world'",
+      options: ["screen", "world"],
     },
   },
   ArrowMessage: {
@@ -3015,10 +3281,6 @@ export const SceneNodePropsSchema: {
       tsType: "number",
     },
     head_length: {
-      kind: "default",
-      tsType: "number",
-    },
-    line_width: {
       kind: "default",
       tsType: "number",
     },
@@ -3045,7 +3307,7 @@ export const SceneNodePropsSchema: {
       kind: "boolean",
       tsType: "boolean",
     },
-    line_width: {
+    thickness: {
       kind: "default",
       tsType: "number",
     },
@@ -3060,6 +3322,11 @@ export const SceneNodePropsSchema: {
     scale: {
       kind: "default",
       tsType: "(number | [number, number, number])",
+    },
+    thickness_units: {
+      kind: "stringLiteral",
+      tsType: "'screen' | 'world'",
+      options: ["screen", "world"],
     },
   },
   CubicBezierSplineMessage: {
@@ -3071,7 +3338,7 @@ export const SceneNodePropsSchema: {
       kind: "default",
       tsType: "Float32Array",
     },
-    line_width: {
+    thickness: {
       kind: "default",
       tsType: "number",
     },
@@ -3086,6 +3353,11 @@ export const SceneNodePropsSchema: {
     scale: {
       kind: "default",
       tsType: "(number | [number, number, number])",
+    },
+    thickness_units: {
+      kind: "stringLiteral",
+      tsType: "'screen' | 'world'",
+      options: ["screen", "world"],
     },
   },
   GaussianSplatsMessage: {

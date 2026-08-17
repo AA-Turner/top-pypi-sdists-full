@@ -16,6 +16,49 @@ from skmisc.loess import loess as _loess
 from geocif.backup import constants
 from geocif.agmet import utils
 
+# Logo display box in figure pixels. fig.figimage draws at NATIVE pixel size,
+# so a high-resolution asset renders enormous: acres.png is 3089x973 and
+# spanned the whole figure (swallowing the title) until it was scaled here,
+# while harvest.png (221x235) and geoglam.png (466x143) always fit. Logos are
+# scaled DOWN to this box preserving aspect ratio and are never upscaled. The
+# 240px height is deliberate: harvest.png is 235px tall, so a tighter bound
+# would silently shrink every existing non-USA figure. acres.png binds on
+# width instead -> 500x157.
+LOGO_MAX_PX = (500, 240)
+
+# "Data Sources" caption block (figure fractions). The body is bottom-anchored
+# here and grows upward; the bold header is placed just above its top line.
+DATA_SOURCES_BODY_Y = 0.13
+DATA_SOURCES_LINESPACING = 1.5
+
+
+def data_sources_header_y(n_lines, fig_height_in, fontsize,
+                          body_y=DATA_SOURCES_BODY_Y,
+                          linespacing=DATA_SOURCES_LINESPACING, pad_lines=0.5):
+    """Figure-fraction y for the 'Data Sources' header, given the body size.
+
+    Keeps the header exactly ``pad_lines`` above the body's top line whatever
+    the line count, so conditional source lines can never overlap it.
+    """
+    line_h = (fontsize * linespacing) / (float(fig_height_in) * 72.0)
+    return body_y + (n_lines + pad_lines) * line_h
+
+
+def load_scaled_logo(path, max_w=LOGO_MAX_PX[0], max_h=LOGO_MAX_PX[1]):
+    """Read a logo image, downscaled to fit within (max_w, max_h) pixels."""
+    from PIL import Image
+
+    img = Image.open(str(path))
+    w, h = img.size
+    scale = min(max_w / w, max_h / h, 1.0)
+    if scale < 1.0:
+        # Pillow 10 moved the filters to Image.Resampling; keep both working.
+        resample = getattr(Image, "Resampling", Image).LANCZOS
+        img = img.resize(
+            (max(1, round(w * scale)), max(1, round(h * scale))), resample
+        )
+    return np.asarray(img)
+
 
 def _lowess(y, x, frac=0.2, it=3):
     """LOWESS smoothing via skmisc, fitted only on non-NaN values."""
@@ -103,6 +146,7 @@ class AgmetPlotter:
         highlight_gdf=None,
         admin_level=None,
         show_logos=True,
+        logo_max_px=LOGO_MAX_PX,
     ):
         self.df = df.copy()
         self.names_cols = names_cols
@@ -122,6 +166,7 @@ class AgmetPlotter:
         self.highlight_gdf = highlight_gdf
         self.admin_level = admin_level
         self.show_logos = show_logos
+        self.logo_max_px = logo_max_px
 
         self.use_forecast = False
         self.color_list = get_colors("tableau", only_colors=True)
@@ -504,13 +549,15 @@ class AgmetPlotter:
 
     def _add_annotations(self, fig, leg):
         """Add logos, data sources, production share, and footer text."""
-        import matplotlib.image as image
-
         if self.show_logos and self.logos:
-            im = image.imread(str(self.logos[0]))
-            fig.figimage(im, 150, 2250, zorder=3)
-            im = image.imread(str(self.logos[1]))
-            fig.figimage(im, 450, 2300, zorder=3)
+            # Any number of logos, laid out left-to-right at the fixed corner
+            # anchors (single-logo lists — e.g. the USA NASA-Acres branding —
+            # draw just one image).
+            _positions = [(150, 2250), (450, 2300), (750, 2300)]
+            _max_w, _max_h = self.logo_max_px
+            for _logo, (_x, _y) in zip(self.logos, _positions):
+                im = load_scaled_logo(_logo, _max_w, _max_h)
+                fig.figimage(im, _x, _y, zorder=3)
 
         # Configure legend FIRST so its title position can be measured
         leg.get_frame().set_facecolor("none")
@@ -526,8 +573,6 @@ class AgmetPlotter:
         # present), which made it land below 0.13 on some country plots
         # and overlap the first line of the body. A constant keeps
         # every plot in the gallery looking the same.
-        ds_y = 0.25
-        fig.text(0.83, ds_y, "Data Sources", fontsize=14, fontweight="bold")
         if self.precip_var == "chirps":
             precip_str = "Precipitation: CHIRPS\n"
         elif self.precip_var == "daymet_prcp":
@@ -545,16 +590,33 @@ class AgmetPlotter:
         fldas_str = ""
         if any(c.startswith("fldas_") for c in self.df.columns):
             fldas_str = "Forecast: FLDAS NMME\n"
-        fig.text(
-            0.83,
-            0.13,
+        body = (
             "NDVI: UMD GLAM system\n"
             + temp_str
             + precip_str
             + "Evaporative Stress Index: NASA ESI\n"
             + "Soil Moisture: NASA-USDA Global Soil Moisture\n"
-            + fldas_str,
-            linespacing=1.5,
+            + fldas_str
+        )
+        # The body is anchored at DATA_SOURCES_BODY_Y and grows UPWARD, and its
+        # line count varies per run (the forecast and FLDAS lines appear
+        # conditionally), so a constant header y eventually collides with the
+        # top body line — as it did on the 6-line USA agmet figures. Derive the
+        # header position from the actual line count instead: deterministic and
+        # render-free, unlike the old legend-bbox measurement this replaced.
+        fs = plt.rcParams["font.size"]
+        fig.text(
+            0.83, DATA_SOURCES_BODY_Y, body,
+            linespacing=DATA_SOURCES_LINESPACING, va="bottom", fontsize=fs,
+        )
+        ds_y = data_sources_header_y(
+            n_lines=len([ln for ln in body.split("\n") if ln.strip()]),
+            fig_height_in=fig.get_figheight(),
+            fontsize=fs,
+        )
+        fig.text(
+            0.83, ds_y, "Data Sources",
+            fontsize=14, fontweight="bold", va="bottom",
         )
 
         from geocif.viz import diagnostics as _diag

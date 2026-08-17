@@ -1366,7 +1366,7 @@ def trace_project_cmd(run_id: str, workdir: str, no_stability: bool, as_json: bo
 
     root = Path(workdir).resolve()
     journal_path = _journal_path_for_run(root, run_id)
-    events = load_events(journal_path)
+    events = load_events(journal_path).events
     if not events:
         raise click.ClickException(
             f"no event journal for run {sanitize_log(run_id)} at {sanitize_log(str(journal_path))}",
@@ -1448,7 +1448,7 @@ def trace_verify_projection_cmd(run_id: str, workdir: str, projection_path: str 
 
     root = Path(workdir).resolve()
     try:
-        events = load_events(_journal_path_for_run(root, run_id), strict=True)
+        events = load_events(_journal_path_for_run(root, run_id), strict=True).events
     except JournalParseError as exc:
         # A verifier attests over the journal on disk, not a filtered
         # sequence: a malformed row is exactly the corruption a verifier
@@ -1851,9 +1851,10 @@ def _resolve_journal_path(run_id: str, runs_dir: Path) -> Path:
 def _replay_verify_journal(*, run_id: str, sdd_dir: str, as_json: bool) -> None:
     """Recompute the journal head and report the first divergent step.
 
-    On an intact journal, reports byte-identity. When a step diverges,
-    writes a ``divergence_report.json`` artifact listing ``(step_index,
-    expected_hash, actual_hash)`` and exits non-zero (issue #2293, AC2).
+    On an intact journal, reports chain consistency, reader coverage, and the
+    external-identity verdict. When a step diverges, writes a
+    ``divergence_report.json`` artifact listing ``(step_index, expected_hash,
+    actual_hash)`` and exits non-zero (issue #2293, AC2).
 
     Flagged provider-side mutation entries (a mutation that arrived in
     deterministic mode despite suppression being requested) fail
@@ -1869,13 +1870,24 @@ def _replay_verify_journal(*, run_id: str, sdd_dir: str, as_json: bool) -> None:
         raise SystemExit(1)
 
     result = verify_journal(journal_path)
-    if result.ok:
+    if result.chain_consistent and not result.discarded_line_indices:
         _fail_on_flagged_provider_mutations(run_id=run_id, journal_path=journal_path, as_json=as_json)
         if as_json:
-            console.print_json(json.dumps({"run_id": run_id, "verified": True, "count": result.count}))
+            console.print_json(
+                json.dumps(
+                    {
+                        "run_id": run_id,
+                        "chain_consistent": True,
+                        "coverage": result.coverage.value,
+                        "identity": result.identity.value,
+                        "count": result.count,
+                    }
+                )
+            )
         else:
             console.print(
-                f"[green]OK[/green] journal for [bold]{run_id}[/bold] is byte-identical ({result.count} steps)"
+                f"[green]CHAIN INTACT[/green] for [bold]{run_id}[/bold] ({result.count} steps); "
+                f"identity={result.identity.value}"
             )
         return
 
@@ -2016,6 +2028,14 @@ def _replay_from_step(*, run_id: str, sdd_dir: str, from_step: int, as_json: boo
     help="Rebuild deterministic run state by walking the journal to step N.",
 )
 @click.option(
+    "--yes-i-want-to-publish",
+    "yes_i_want_to_publish",
+    is_flag=True,
+    default=False,
+    help="replay publish: confirm writing a redacted receipt outside .sdd/runtime/. "
+    "Only valid with the 'publish' verb; any other verb rejects it.",
+)
+@click.option(
     "--fork-from",
     "fork_from",
     type=int,
@@ -2052,6 +2072,7 @@ def replay_cmd(
     extra_context: str | None,
     verify: bool,
     from_step: int | None,
+    yes_i_want_to_publish: bool,
     fork_from: int | None,
     jump_to_failure: bool,
     sign_key: str | None,
@@ -2076,10 +2097,11 @@ def replay_cmd(
       bernstein replay <RUN_ID> --from-step N     # rebuild state to step N
       bernstein replay diff RUN_A RUN_B           # first-divergence finder
       bernstein replay <AGENT_ID>                 # per-step journal view (#1799)
-      bernstein replay export <AGENT_ID> -o RECEIPT   # portable receipt (#1799)
-      bernstein replay publish <AGENT_ID> -o RECEIPT  # redacted publish (#1799)
+      bernstein replay export <AGENT_ID> [OUT]                          # portable receipt (#1799)
+      bernstein replay publish <AGENT_ID> [OUT] --yes-i-want-to-publish # redacted publish (#1799)
       bernstein replay verify <RECEIPT>           # offline verifier (#1799)
       bernstein replay diff-journal A B           # per-step divergence finder
+      bernstein replay repair <RUN_ID>            # truncate a crash-torn tail (#3910)
       bernstein replay debug <RUN>                # forensic single-chain walk (#2605)
       bernstein replay debug <LEFT> <RIGHT>       # two-run time-travel path diff
       bernstein replay debug <RUN> --fork-from N  # fork-and-reproduce at step N
@@ -2088,6 +2110,33 @@ def replay_cmd(
     # converting ``replay`` to a full :class:`click.Group` (which would
     # break the back-compat ``bernstein replay <RUN_ID>`` shape).
     args = list(run_id)
+
+    # --yes-i-want-to-publish is declared command-wide (click has no way to
+    # scope an option to one pseudo-subcommand here), so it is reachable on
+    # every verb. Honour it only for ``publish``; anywhere else it is a
+    # named error rather than a silent no-op -- the whole point of this
+    # fix is that an accepted flag must never be quietly ignored (#3976).
+    if yes_i_want_to_publish and not (args and args[0] == "publish"):
+        # Routed through _fail so this refusal is machine-readable too. It is
+        # a refusal the flag fix itself introduced (#3991), and it had no
+        # JSON form at all -- a caller passing --as-json got prose for the
+        # one error most likely to be produced by a script (#3996).
+        from bernstein.cli.commands.replay_cmd import ReplayError, _fail
+
+        raise SystemExit(
+            _fail(
+                as_json=as_json,
+                error=ReplayError["FLAG_NOT_APPLICABLE"],
+                prose=(
+                    "[red]Error:[/red] --yes-i-want-to-publish only applies to "
+                    "'bernstein replay publish'; refusing rather than silently "
+                    "ignoring it here."
+                ),
+                detail=("--yes-i-want-to-publish only applies to 'bernstein replay publish'"),
+                code=2,
+            )
+        )
+
     if args and args[0] == "diff":
         _replay_diff_dispatch(args[1:], sdd_dir=sdd_dir, as_json=as_json)
         return
@@ -2103,8 +2152,13 @@ def replay_cmd(
             limit=limit,
         )
         return
-    if args and args[0] in {"export", "publish", "verify", "diff-journal"}:
-        _replay_journal_dispatch(args, sdd_dir=sdd_dir, as_json=as_json)
+    if args and args[0] in {"export", "publish", "verify", "diff-journal", "repair"}:
+        _replay_journal_dispatch(
+            args,
+            sdd_dir=sdd_dir,
+            as_json=as_json,
+            yes_i_want_to_publish=yes_i_want_to_publish,
+        )
         return
 
     if len(args) != 1:
@@ -2192,6 +2246,7 @@ def _replay_journal_dispatch(
     *,
     sdd_dir: str,
     as_json: bool,
+    yes_i_want_to_publish: bool = False,
 ) -> None:
     """Dispatch the new ``export | publish | verify | diff-journal`` verbs.
 
@@ -2204,7 +2259,7 @@ def _replay_journal_dispatch(
 
     if verb == "export":
         if len(args) < 2:
-            console.print("[red]Usage:[/red] bernstein replay export <AGENT_ID> [-o OUT]")
+            console.print("[red]Usage:[/red] bernstein replay export <AGENT_ID> [OUT]")
             raise SystemExit(2)
         agent_id = args[1]
         # Output path can be passed as the third positional or default beside .sdd.
@@ -2216,20 +2271,21 @@ def _replay_journal_dispatch(
             agent_id=agent_id,
             sdd_dir=sdd_path,
             output=output,
+            as_json=as_json,
         )
         if rc != 0:
             raise SystemExit(rc)
         return
 
     if verb == "publish":
-        # Publish requires an explicit ``--yes`` style sentinel positional so
-        # operators cannot accidentally publish from a script that just adds
-        # a verb name.
+        # Publish requires the explicit --yes-i-want-to-publish confirmation
+        # (declared on the ``replay`` command and gated to this verb by the
+        # caller) so operators cannot accidentally publish from a script
+        # that just adds a verb name.
         if len(args) < 2:
-            console.print("[red]Usage:[/red] bernstein replay publish <AGENT_ID> [OUT] --opt-in")
+            console.print("[red]Usage:[/red] bernstein replay publish <AGENT_ID> [OUT] --yes-i-want-to-publish")
             raise SystemExit(2)
         agent_id = args[1]
-        opt_in = "--opt-in" in args
         positional_tail = [a for a in args[2:] if not a.startswith("--")]
         output = (
             Path(positional_tail[0])
@@ -2243,7 +2299,8 @@ def _replay_journal_dispatch(
             agent_id=agent_id,
             sdd_dir=sdd_path,
             output=output,
-            opt_in=opt_in,
+            opt_in=yes_i_want_to_publish,
+            as_json=as_json,
         )
         if rc != 0:
             raise SystemExit(rc)
@@ -2265,6 +2322,7 @@ def _replay_journal_dispatch(
             receipt_path=receipt,
             expected_head=expected_head,
             public_key_path=None,
+            as_json=as_json,
         )
         if rc != 0:
             raise SystemExit(rc)
@@ -2285,6 +2343,18 @@ def _replay_journal_dispatch(
             sdd_dir=sdd_path,
             as_json=as_json,
         )
+        if rc != 0:
+            raise SystemExit(rc)
+        return
+
+    if verb == "repair":
+        if len(args) != 2:
+            console.print("[red]Usage:[/red] bernstein replay repair <RUN_ID>")
+            raise SystemExit(2)
+
+        from bernstein.cli.commands.replay_cmd import replay_repair
+
+        rc = replay_repair(run_id=args[1], sdd_dir=sdd_path, as_json=as_json)
         if rc != 0:
             raise SystemExit(rc)
         return

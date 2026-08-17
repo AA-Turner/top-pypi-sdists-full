@@ -4,7 +4,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "plugin-scanner"
-version = "2.0.1116"
+version = "2.2.107"
 description = "Lint, verify, and gate plugin ecosystems for maintainers, CI, and publish workflows."
 readme = "README.md"
 license = "Apache-2.0"
@@ -45,24 +45,25 @@ classifiers = [
 ]
 dependencies = [
     "rich>=14.0,<15",
-    "cryptography>=49.0.0",
+    "cryptography>=50.0.0",
     "keyring>=25.0",
     "packaging>=24.0",
+    "pyyaml>=6.0.3",
     "requests>=2.32,<3",
     "tomli>=2.0; python_version < '3.11'",
-    "cisco-ai-skill-scanner~=2.0.11; python_version < '3.14'",
+    "cisco-ai-skill-scanner~=2.0.12",
+    "litellm==1.93.0; python_version < '3.15'",
     "mcp>=1.28.1,<2; python_version >= '3.10'",
 ]
 
 [project.optional-dependencies]
 cisco = [
-    "litellm==1.91.3; python_version >= '3.11' and python_version < '3.14'",
+    "litellm==1.93.0; python_version >= '3.11' and python_version < '3.15'",
 ]
 dev = [
     "basedpyright>=1.39.8",
     "build>=1.5.0",
     "jsonschema>=4.26.0",
-    "pyyaml>=6.0.3",
     "pytest>=9.0.3",
     "pytest-cov>=7.1.0",
     "ruff>=0.15.15",
@@ -76,18 +77,22 @@ publish = [
 
 [dependency-groups]
 cisco-mcp = [
-    "cisco-ai-mcp-scanner==4.7.3; python_version >= '3.11' and python_version < '3.14'",
+    "cisco-ai-mcp-scanner==4.8.1; python_full_version >= '3.11.4'",
+]
+dev = [
+    "mutmut>=3.4,<4",
 ]
 
 [tool.uv]
 override-dependencies = [
-    "aiohttp==3.14.1",
+    "aiohttp==3.14.3",
     "click==8.4.1",
-    "cisco-ai-skill-scanner==2.0.11",
+    "cisco-ai-skill-scanner==2.0.12",
     "fastapi==0.137.1",
-    "importlib-metadata==9.0.0",
+    "importlib-metadata==8.9.0",
     "jsonschema==4.26.0",
-    "litellm==1.91.3",
+    "litellm==1.93.0",
+    "magika==1.0.3",
     "openai==2.41.1",
     "pyjwt==2.13.0",
     "python-dotenv==1.2.2",
@@ -103,6 +108,8 @@ plugin-ecosystem-scanner = "codex_plugin_scanner.cli:main"
 
 [project.urls]
 Homepage = "https://hol.org/guard"
+Security = "https://hol.org/guard/security"
+"Security Policy" = "https://github.com/hashgraph-online/hol-guard/blob/main/SECURITY.md"
 Documentation = "https://github.com/hashgraph-online/hol-guard/tree/main/docs/guard"
 Repository = "https://github.com/hashgraph-online/hol-guard"
 Issues = "https://github.com/hashgraph-online/hol-guard/issues"
@@ -137,14 +144,33 @@ select = ["E", "F", "W", "I", "N", "UP", "B", "A", "SIM", "RUF"]
 [tool.pytest.ini_options]
 testpaths = ["tests"]
 python_files = ["test_*.py"]
-addopts = ["-m", "not slow"]
+addopts = ["--strict-markers", "-m", "not slow"]
 markers = [
+  "adapter_contract: verifies the shared security contract for a harness adapter",
   "daemon_aibom_refresh: enables the daemon AIBOM refresh worker for focused tests",
   "daemon_bundle_refresh: enables the daemon supply-chain bundle refresh worker for focused tests",
   "daemon_headless_queue: enables request-triggered daemon cloud sync for focused tests",
   "daemon_headless_refresh: enables the daemon headless cloud sync worker for focused tests",
   "daemon_service_workers: enables command queue and live request sync workers for focused tests",
+  "installed: requires verification through an installed package artifact",
+  "integration: verifies multiple Guard subsystems together",
+  "parser: verifies parsing or normalization security semantics",
+  "policy: verifies policy composition or enforcement semantics",
+  "regression: protects a previously observed defect or security finding",
+  "release: required for a release-candidate verification gate",
+  "security_critical: protects a Guard security boundary that cannot be removed without an equivalent replacement",
   "slow: marks tests as slow (deselected by default; run with -m slow to include)",
+  "soak: marks long-running acceptance workloads that require explicit opt-in",
+  "compat: verifies a supported Python or platform compatibility contract",
+]
+
+[tool.mutmut]
+source_paths = ["src/codex_plugin_scanner/guard/runtime/command_model.py"]
+also_copy = ["src/codex_plugin_scanner"]
+pytest_add_cli_args_test_selection = [
+  "tests/test_guard_command_model.py",
+  "tests/test_guard_command_critical_floors.py",
+  "tests/test_guard_command_corpus.py",
 ]
 
 [tool.basedpyright]

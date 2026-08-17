@@ -1,3 +1,19 @@
+# SPDX-License-Identifier: ISC
+
+# Copyright (c) 2021, Timothée Mazzucotelli and contributors
+
+# Permission to use, copy, modify, and/or distribute this software for any
+# purpose with or without fee is hereby granted, provided that the above
+# copyright notice and this permission notice appear in all copies.
+
+# THE SOFTWARE IS PROVIDED "AS IS" AND THE AUTHOR DISCLAIMS ALL WARRANTIES
+# WITH REGARD TO THIS SOFTWARE INCLUDING ALL IMPLIED WARRANTIES OF
+# MERCHANTABILITY AND FITNESS. IN NO EVENT SHALL THE AUTHOR BE LIABLE FOR
+# ANY SPECIAL, DIRECT, INDIRECT, OR CONSEQUENTIAL DAMAGES OR ANY DAMAGES
+# WHATSOEVER RESULTING FROM LOSS OF USE, DATA OR PROFITS, WHETHER IN AN
+# ACTION OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS ACTION, ARISING OUT OF
+# OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
+
 # This module contains the data classes that represent resolvable names and expressions.
 # First we declare data classes for each kind of expression, mostly corresponding to Python's AST nodes.
 # Then we declare builder methods, that iterate AST nodes and build the corresponding data classes,
@@ -111,6 +127,7 @@ def _join(
     joint: str | Expr,
     *,
     flat: bool = True,
+    outer_precedence: _OperatorPrecedence = _OperatorPrecedence.NONE,
 ) -> Iterator[str | Expr]:
     """Apply a separator between elements.
 
@@ -119,20 +136,20 @@ def _join(
     """
     it = iter(elements)
     try:
-        # Since we are in a sequence, don't parenthesize items.
+        # Since we are in a sequence, don't parenthesize items (unless told otherwise).
         # Avoids [a + b, c + d] being serialized as [(a + b), (c + d)]
-        yield from _yield(next(it), flat=flat, outer_precedence=_OperatorPrecedence.NONE)
+        yield from _yield(next(it), flat=flat, outer_precedence=outer_precedence)
     except StopIteration:
         return
     for element in it:
-        yield from _yield(joint, flat=flat, outer_precedence=_OperatorPrecedence.NONE)
-        yield from _yield(element, flat=flat, outer_precedence=_OperatorPrecedence.NONE)
+        yield from _yield(joint, flat=flat, outer_precedence=outer_precedence)
+        yield from _yield(element, flat=flat, outer_precedence=outer_precedence)
 
 
 def _field_as_dict(
     element: str | bool | Expr | list[str | Expr] | None,  # noqa: FBT001
     **kwargs: Any,
-) -> str | bool | None | list | dict:
+) -> str | bool | list | dict | None:
     if isinstance(element, Expr):
         return _expr_as_dict(element, **kwargs)
     if isinstance(element, list):
@@ -277,7 +294,12 @@ class ExprAttribute(Expr):
 
     def iterate(self, *, flat: bool = True) -> Iterator[str | Expr]:
         precedence = _get_precedence(self)
-        yield from _yield(self.values[0], flat=flat, outer_precedence=precedence, is_left=True)
+        first = self.values[0]
+        if isinstance(first, str) and first.isdigit():
+            # Integer literals need parentheses: `1.bit_length()` is a syntax error.
+            yield f"({first})"
+        else:
+            yield from _yield(first, flat=flat, outer_precedence=precedence, is_left=True)
         for value in self.values[1:]:
             yield "."
             yield from _yield(value, flat=flat, outer_precedence=precedence)
@@ -417,12 +439,14 @@ class ExprComprehension(Expr):
         if self.is_async:
             yield "async "
         yield "for "
-        yield from _yield(self.target, flat=flat)
+        yield from _yield(self.target, flat=flat, outer_precedence=_OperatorPrecedence.NONE)
         yield " in "
-        yield from _yield(self.iterable, flat=flat)
-        if self.conditions:
+        # The iterable and conditions are disjunctions in the grammar:
+        # lambdas, conditionals and walrus assignments need parentheses there.
+        yield from _yield(self.iterable, flat=flat, outer_precedence=_OperatorPrecedence.OR, is_left=True)
+        for condition in self.conditions:
             yield " if "
-            yield from _join(self.conditions, " if ", flat=flat)
+            yield from _yield(condition, flat=flat, outer_precedence=_OperatorPrecedence.OR, is_left=True)
 
 
 # TODO: `ExprConstant` is never instantiated,
@@ -451,10 +475,16 @@ class ExprDict(Expr):
 
     def iterate(self, *, flat: bool = True) -> Iterator[str | Expr]:
         yield "{"
+        # Walrus assignments and yields need parentheses in keys and values,
+        # e.g. `{1: (x := 2)}`.
         yield from _join(
-            (("None" if key is None else key, ": ", value) for key, value in zip(self.keys, self.values, strict=False)),
+            (
+                ("**", value) if key is None else (key, ": ", value)
+                for key, value in zip(self.keys, self.values, strict=False)
+            ),
             ", ",
             flat=flat,
+            outer_precedence=_OperatorPrecedence.STARRED,
         )
         yield "}"
 
@@ -465,16 +495,20 @@ class ExprDictComp(Expr):
 
     key: str | Expr
     """Target key."""
-    value: str | Expr
+    value: str | Expr | None
     """Target value."""
     generators: Sequence[Expr]
     """Generators iterated on."""
 
     def iterate(self, *, flat: bool = True) -> Iterator[str | Expr]:
         yield "{"
-        yield from _yield(self.key, flat=flat)
-        yield ": "
-        yield from _yield(self.value, flat=flat)
+        if self.value:
+            yield from _yield(self.key, flat=flat, outer_precedence=_OperatorPrecedence.NONE)
+            yield ": "
+            yield from _yield(self.value, flat=flat, outer_precedence=_OperatorPrecedence.NONE)
+        else:
+            yield "**"
+            yield from _yield(self.key, flat=flat, outer_precedence=_OperatorPrecedence.NONE)
         yield " "
         yield from _join(self.generators, " ", flat=flat)
         yield "}"
@@ -491,33 +525,70 @@ class ExprExtSlice(Expr):
         yield from _join(self.dims, ", ", flat=flat)
 
 
+def _iterate_format_parts(
+    value: str | Expr,
+    conversion: str | None,
+    format_spec: Sequence[str | Expr] | None,
+    *,
+    flat: bool = True,
+) -> Iterator[str | Expr]:
+    # Shared by `ExprFormatted` and `ExprInterpolation`.
+    yield "{"
+    if str(value).startswith("{"):
+        # Separate braces, `{{` would be read as an escaped brace, e.g. `f"{ {1: 2}}"`.
+        yield " "
+    # Lambdas and walrus assignments need parentheses:
+    # their colon would otherwise start the format specifier, e.g. `f"{(x := 1)}"`.
+    yield from _yield(value, flat=flat, outer_precedence=_OperatorPrecedence.IF_ELSE)
+    if conversion:
+        yield f"!{conversion}"
+    if format_spec:
+        yield ":"
+        for part in format_spec:
+            if isinstance(part, str):
+                # Literal braces must be doubled, as in literal f-string parts.
+                yield part.replace("{", "{{").replace("}", "}}")
+            else:
+                yield from _yield(part, flat=flat, outer_precedence=_OperatorPrecedence.NONE)
+    yield "}"
+
+
 @dataclass(eq=True, slots=True)
 class ExprFormatted(Expr):
     """Formatted string like `{1 + 1}`."""
 
     value: str | Expr
     """Formatted value."""
+    conversion: str | None = None
+    """Conversion flag (`s`, `r` or `a`), without the leading exclamation mark."""
+    format_spec: Sequence[str | Expr] | None = None
+    """Format specifier parts: literal strings and interpolated expressions."""
 
     def iterate(self, *, flat: bool = True) -> Iterator[str | Expr]:
-        yield "{"
-        # Prevent parentheses from being added, avoiding `{(1 + 1)}`
-        yield from _yield(self.value, flat=flat, outer_precedence=_OperatorPrecedence.NONE)
-        yield "}"
+        yield from _iterate_format_parts(self.value, self.conversion, self.format_spec, flat=flat)
 
 
 @dataclass(eq=True, slots=True)
 class ExprGeneratorExp(Expr):
-    """Generator expressions like `a for b in c for d in e`."""
+    """Generator expressions like `(a for b in c for d in e)`."""
 
     element: str | Expr
     """Yielded element."""
     generators: Sequence[Expr]
     """Generators iterated on."""
+    implicit: bool = False
+    """Whether the generator's parentheses are implicit (as the sole argument of a call)."""
 
     def iterate(self, *, flat: bool = True) -> Iterator[str | Expr]:
-        yield from _yield(self.element, flat=flat)
+        # Generator expressions require parentheses everywhere
+        # except as the sole argument of a call, e.g. `f(a for a in b)`.
+        if not self.implicit:
+            yield "("
+        yield from _yield(self.element, flat=flat, outer_precedence=_OperatorPrecedence.NONE)
         yield " "
         yield from _join(self.generators, " ", flat=flat)
+        if not self.implicit:
+            yield ")"
 
 
 @dataclass(eq=True, slots=True)
@@ -555,12 +626,50 @@ class ExprInterpolation(Expr):
 
     value: str | Expr
     """Interpolated value."""
+    conversion: str | None = None
+    """Conversion flag (`s`, `r` or `a`), without the leading exclamation mark."""
+    format_spec: Sequence[str | Expr] | None = None
+    """Format specifier parts: literal strings and interpolated expressions."""
 
     def iterate(self, *, flat: bool = True) -> Iterator[str | Expr]:
-        yield "{"
-        # Prevent parentheses from being added, avoiding `{(1 + 1)}`
-        yield from _yield(self.value, flat=flat, outer_precedence=_OperatorPrecedence.NONE)
-        yield "}"
+        yield from _iterate_format_parts(self.value, self.conversion, self.format_spec, flat=flat)
+
+
+_FSTRING_ALL_QUOTES = ("'", '"', "'''", '"""')
+_FSTRING_MULTI_QUOTES = ('"""', "'''")
+
+
+def _fstring_choose_quote(values: Sequence[str | Expr]) -> tuple[str, list[str]]:
+    # Follows ast.unparse's visit_JoinedStr quote-selection algorithm.
+    # Pre-render all parts: literals get brace-doubled, expressions get flattened.
+    fstring_parts: list[tuple[str, bool]] = []
+    for value in values:
+        if isinstance(value, str):
+            fstring_parts.append((value.replace("{", "{{").replace("}", "}}"), True))
+        else:
+            fstring_parts.append((str(value), False))
+
+    quote_types: list[str] = list(_FSTRING_ALL_QUOTES)
+    escaped_parts: list[str] = []
+
+    for raw, is_constant in fstring_parts:
+        if is_constant:
+            escaped = (
+                raw.replace("\\", "\\\\")
+                .replace("\r", "\\r")
+                .replace("\0", "\\x00")
+                .replace("\n", "\\n")
+                .replace("\t", "\\t")
+            )
+            quote_types = [q for q in quote_types if q not in escaped] or quote_types
+            escaped_parts.append(escaped)
+        else:
+            if "\n" in raw:
+                quote_types = [q for q in quote_types if q in _FSTRING_MULTI_QUOTES] or quote_types
+            quote_types = [q for q in quote_types if q not in raw] or quote_types
+            escaped_parts.append(raw)
+
+    return quote_types[0], escaped_parts
 
 
 @dataclass(eq=True, slots=True)
@@ -571,9 +680,14 @@ class ExprJoinedStr(Expr):
     """Joined values."""
 
     def iterate(self, *, flat: bool = True) -> Iterator[str | Expr]:
-        yield "f'"
-        yield from _join(self.values, "", flat=flat)
-        yield "'"
+        quote, escaped_parts = _fstring_choose_quote(self.values)
+        yield f"f{quote}"
+        for value, escaped in zip(self.values, escaped_parts, strict=True):
+            if isinstance(value, str):
+                yield escaped
+            else:
+                yield from _yield(value, flat=flat, outer_precedence=_OperatorPrecedence.NONE)
+        yield quote
 
 
 @dataclass(eq=True, slots=True)
@@ -613,7 +727,8 @@ class ExprKeyword(Expr):
     def iterate(self, *, flat: bool = True) -> Iterator[str | Expr]:
         yield self.name
         yield "="
-        yield from _yield(self.value, flat=flat)
+        # Walrus assignments and yields need parentheses, e.g. `f(a=(b := c))`.
+        yield from _yield(self.value, flat=flat, outer_precedence=_OperatorPrecedence.STARRED)
 
 
 @dataclass(eq=True, slots=True)
@@ -625,7 +740,7 @@ class ExprVarPositional(Expr):
 
     def iterate(self, *, flat: bool = True) -> Iterator[str | Expr]:
         yield "*"
-        yield from _yield(self.value, flat=flat)
+        yield from _yield(self.value, flat=flat, outer_precedence=_OperatorPrecedence.BIT_OR, is_left=True)
 
 
 @dataclass(eq=True, slots=True)
@@ -637,7 +752,7 @@ class ExprVarKeyword(Expr):
 
     def iterate(self, *, flat: bool = True) -> Iterator[str | Expr]:
         yield "**"
-        yield from _yield(self.value, flat=flat)
+        yield from _yield(self.value, flat=flat, outer_precedence=_OperatorPrecedence.BIT_OR, is_left=True)
 
 
 @dataclass(eq=True, slots=True)
@@ -651,33 +766,35 @@ class ExprLambda(Expr):
 
     def iterate(self, *, flat: bool = True) -> Iterator[str | Expr]:
         pos_only = False
-        pos_or_kw = False
-        kw_only = False
-        length = len(self.parameters)
+        star = False
         yield "lambda"
-        if length:
+        if self.parameters:
             yield " "
-        for index, parameter in enumerate(self.parameters, 1):
+        for index, parameter in enumerate(self.parameters):
+            if index:
+                yield ", "
             if parameter.kind is ParameterKind.positional_only:
                 pos_only = True
-            elif parameter.kind is ParameterKind.var_positional:
+            elif pos_only:
+                # End of the positional-only section.
+                pos_only = False
+                yield "/, "
+            if parameter.kind is ParameterKind.var_positional:
+                star = True
                 yield "*"
             elif parameter.kind is ParameterKind.var_keyword:
                 yield "**"
-            elif parameter.kind is ParameterKind.positional_or_keyword and not pos_or_kw:
-                pos_or_kw = True
-            elif parameter.kind is ParameterKind.keyword_only and not kw_only:
-                kw_only = True
+            elif parameter.kind is ParameterKind.keyword_only and not star:
+                # `*args` also starts the keyword-only section.
+                star = True
                 yield "*, "
-            if parameter.kind is not ParameterKind.positional_only and pos_only:
-                pos_only = False
-                yield "/, "
             yield parameter.name
             if parameter.default and parameter.kind not in (ParameterKind.var_positional, ParameterKind.var_keyword):
                 yield "="
-                yield from _yield(parameter.default, flat=flat)
-            if index < length:
-                yield ", "
+                yield from _yield(parameter.default, flat=flat, outer_precedence=_OperatorPrecedence.STARRED)
+        if pos_only:
+            # All parameters are positional-only.
+            yield ", /"
         yield ": "
         # Body of lambda should not have parentheses, avoiding `lambda: a.b`
         yield from _yield(self.body, flat=flat, outer_precedence=_OperatorPrecedence.NONE)
@@ -707,7 +824,7 @@ class ExprListComp(Expr):
 
     def iterate(self, *, flat: bool = True) -> Iterator[str | Expr]:
         yield "["
-        yield from _yield(self.element, flat=flat)
+        yield from _yield(self.element, flat=flat, outer_precedence=_OperatorPrecedence.NONE)
         yield " "
         yield from _join(self.generators, " ", flat=flat)
         yield "]"
@@ -817,9 +934,10 @@ class ExprNamedExpr(Expr):
     """Value."""
 
     def iterate(self, *, flat: bool = True) -> Iterator[str | Expr]:
-        yield from _yield(self.target, flat=flat)
+        yield from _yield(self.target, flat=flat, outer_precedence=_OperatorPrecedence.NONE)
         yield " := "
-        yield from _yield(self.value, flat=flat)
+        # Nested walrus assignments and yields need parentheses, e.g. `a := (b := c)`.
+        yield from _yield(self.value, flat=flat, outer_precedence=_OperatorPrecedence.STARRED)
 
 
 @dataclass(eq=True, slots=True)
@@ -860,7 +978,7 @@ class ExprSetComp(Expr):
 
     def iterate(self, *, flat: bool = True) -> Iterator[str | Expr]:
         yield "{"
-        yield from _yield(self.element, flat=flat)
+        yield from _yield(self.element, flat=flat, outer_precedence=_OperatorPrecedence.NONE)
         yield " "
         yield from _join(self.generators, " ", flat=flat)
         yield "}"
@@ -878,14 +996,15 @@ class ExprSlice(Expr):
     """Iteration step."""
 
     def iterate(self, *, flat: bool = True) -> Iterator[str | Expr]:
+        # Walrus assignments need parentheses in slice bounds, e.g. `a[(b := c):]`.
         if self.lower is not None:
-            yield from _yield(self.lower, flat=flat)
+            yield from _yield(self.lower, flat=flat, outer_precedence=_OperatorPrecedence.STARRED)
         yield ":"
         if self.upper is not None:
-            yield from _yield(self.upper, flat=flat)
+            yield from _yield(self.upper, flat=flat, outer_precedence=_OperatorPrecedence.STARRED)
         if self.step is not None:
             yield ":"
-            yield from _yield(self.step, flat=flat)
+            yield from _yield(self.step, flat=flat, outer_precedence=_OperatorPrecedence.STARRED)
 
 
 @dataclass(eq=True, slots=True)
@@ -938,9 +1057,14 @@ class ExprTemplateStr(Expr):
     """Joined values."""
 
     def iterate(self, *, flat: bool = True) -> Iterator[str | Expr]:
-        yield "t'"
-        yield from _join(self.values, "", flat=flat)
-        yield "'"
+        quote, escaped_parts = _fstring_choose_quote(self.values)
+        yield f"t{quote}"
+        for value, escaped in zip(self.values, escaped_parts, strict=True):
+            if isinstance(value, str):
+                yield escaped
+            else:
+                yield from _yield(value, flat=flat, outer_precedence=_OperatorPrecedence.NONE)
+        yield quote
 
 
 @dataclass(eq=True, slots=True)
@@ -953,6 +1077,12 @@ class ExprTuple(Expr):
     """Whether the tuple is implicit (e.g. without parentheses in a subscript's slice)."""
 
     def iterate(self, *, flat: bool = True) -> Iterator[str | Expr]:
+        # We fixed `_build_tuple` to make sure we never build
+        # implicit tuples with no elements, but since users might load
+        # data built with previous Griffe versions, we must be defensive here.
+        if not self.elements:
+            yield "()"
+            return
         if not self.implicit:
             yield "("
         yield from _join(self.elements, ", ", flat=flat)
@@ -985,6 +1115,18 @@ class ExprUnaryOp(Expr):
 
 
 @dataclass(eq=True, slots=True)
+class ExprAwait(Expr):
+    """Await expressions like `await call()`."""
+
+    value: str | Expr
+    """Awaited value."""
+
+    def iterate(self, *, flat: bool = True) -> Iterator[str | Expr]:
+        yield "await "
+        yield from _yield(self.value, flat=flat, outer_precedence=_OperatorPrecedence.CALL_ATTRIBUTE)
+
+
+@dataclass(eq=True, slots=True)
 class ExprYield(Expr):
     """Yield statements like `yield a`."""
 
@@ -995,7 +1137,7 @@ class ExprYield(Expr):
         yield "yield"
         if self.value is not None:
             yield " "
-            yield from _yield(self.value, flat=flat)
+            yield from _yield(self.value, flat=flat, outer_precedence=_OperatorPrecedence.STARRED)
 
 
 @dataclass(eq=True, slots=True)
@@ -1007,7 +1149,7 @@ class ExprYieldFrom(Expr):
 
     def iterate(self, *, flat: bool = True) -> Iterator[str | Expr]:
         yield "yield from "
-        yield from _yield(self.value, flat=flat)
+        yield from _yield(self.value, flat=flat, outer_precedence=_OperatorPrecedence.STARRED)
 
 
 _unary_op_map = {
@@ -1051,13 +1193,14 @@ _compare_op_map = {
     ast.NotIn: "not in",
 }
 
-# TODO: Support `ast.Await`.
 _precedence_map = {
     # Literals and names.
     ExprName: lambda _: _OperatorPrecedence.ATOMIC,
     ExprConstant: lambda _: _OperatorPrecedence.ATOMIC,
     ExprJoinedStr: lambda _: _OperatorPrecedence.ATOMIC,
     ExprFormatted: lambda _: _OperatorPrecedence.ATOMIC,
+    ExprTemplateStr: lambda _: _OperatorPrecedence.ATOMIC,
+    ExprInterpolation: lambda _: _OperatorPrecedence.ATOMIC,
     # Container displays.
     ExprList: lambda _: _OperatorPrecedence.ATOMIC,
     ExprTuple: lambda _: _OperatorPrecedence.ATOMIC,
@@ -1070,6 +1213,7 @@ _precedence_map = {
     ExprAttribute: lambda _: _OperatorPrecedence.CALL_ATTRIBUTE,
     ExprSubscript: lambda _: _OperatorPrecedence.CALL_ATTRIBUTE,
     ExprCall: lambda _: _OperatorPrecedence.CALL_ATTRIBUTE,
+    ExprAwait: lambda _: _OperatorPrecedence.AWAIT,
     ExprUnaryOp: lambda e: {"not": _OperatorPrecedence.NOT}.get(e.operator, _OperatorPrecedence.POS_NEG_BIT_NOT),
     ExprBinOp: lambda e: {
         "**": _OperatorPrecedence.EXPONENT,
@@ -1091,13 +1235,12 @@ _precedence_map = {
     ExprIfExp: lambda _: _OperatorPrecedence.IF_ELSE,
     ExprNamedExpr: lambda _: _OperatorPrecedence.ASSIGN,
     ExprLambda: lambda _: _OperatorPrecedence.LAMBDA,
-    # NOTE: Ruff categorizes as atomic, but `(a for a in b).c` implies its less than `CALL_ATTRIBUTE`.
-    ExprGeneratorExp: lambda _: _OperatorPrecedence.LAMBDA,
+    ExprGeneratorExp: lambda _: _OperatorPrecedence.ATOMIC,
     ExprVarPositional: lambda _: _OperatorPrecedence.STARRED,
     ExprVarKeyword: lambda _: _OperatorPrecedence.STARRED,
     ExprYield: lambda _: _OperatorPrecedence.YIELD,
     ExprYieldFrom: lambda _: _OperatorPrecedence.YIELD,
-    # These are not standalone, they appear in specific contexts where precendence is not a concern.
+    # These are not standalone, they appear in specific contexts where precedence is not a concern.
     # NOTE: `for ... in ... if` part, not the whole `[...]`.
     ExprComprehension: lambda _: _OperatorPrecedence.NONE,
     ExprExtSlice: lambda _: _OperatorPrecedence.NONE,
@@ -1123,6 +1266,10 @@ def _build_attribute(node: ast.Attribute, parent: Module | Class, **kwargs: Any)
     return ExprAttribute([left, ExprName(node.attr)])
 
 
+def _build_await(node: ast.Await, parent: Module | Class, **kwargs: Any) -> Expr:
+    return ExprAwait(_build(node.value, parent, **kwargs))
+
+
 def _build_binop(node: ast.BinOp, parent: Module | Class, **kwargs: Any) -> Expr:
     return ExprBinOp(
         _build(node.left, parent, **kwargs),
@@ -1140,7 +1287,11 @@ def _build_boolop(node: ast.BoolOp, parent: Module | Class, **kwargs: Any) -> Ex
 
 def _build_call(node: ast.Call, parent: Module | Class, **kwargs: Any) -> Expr:
     function = _build(node.func, parent, **kwargs)
-    positional_args = [_build(arg, parent, **kwargs) for arg in node.args]
+    if len(node.args) == 1 and not node.keywords and isinstance(node.args[0], ast.GeneratorExp):
+        # A sole generator argument reuses the call's parentheses, e.g. `f(a for a in b)`.
+        positional_args = [_build(node.args[0], parent, implicit_parens=True, **kwargs)]
+    else:
+        positional_args = [_build(arg, parent, **kwargs) for arg in node.args]
     keyword_args = [_build(kwarg, parent, function=function, **kwargs) for kwarg in node.keywords]
     return ExprCall(function, [*positional_args, *keyword_args])
 
@@ -1176,7 +1327,7 @@ def _build_constant(
         if in_joined_str and not in_formatted_str:
             # We're in a f-string, not in a formatted value, don't keep quotes.
             return node.value
-        if parse_strings and not literal_strings:
+        if parse_strings and not literal_strings and not in_formatted_str:
             # We're in a place where a string could be a type annotation
             # (and not in a Literal[...] type annotation).
             # We parse the string and build from the resulting nodes again.
@@ -1211,9 +1362,20 @@ def _build_dict(node: ast.Dict, parent: Module | Class, **kwargs: Any) -> Expr:
 def _build_dictcomp(node: ast.DictComp, parent: Module | Class, **kwargs: Any) -> Expr:
     return ExprDictComp(
         _build(node.key, parent, **kwargs),
-        _build(node.value, parent, **kwargs),
+        None if node.value is None else _build(node.value, parent, **kwargs),
         [_build(gen, parent, **kwargs) for gen in node.generators],
     )
+
+
+_conversion_map = {115: "s", 114: "r", 97: "a"}
+
+
+def _build_format_spec(node: ast.expr | None, parent: Module | Class, **kwargs: Any) -> list[str | Expr] | None:
+    if node is None:
+        return None
+    # Format specifiers are joined-string parts without the `f` prefix and quotes:
+    # literal parts stay raw, interpolated parts are built recursively.
+    return [_build(value, parent, in_joined_str=True, **kwargs) for value in node.values]  # ty:ignore[unresolved-attribute]
 
 
 def _build_formatted(
@@ -1221,15 +1383,27 @@ def _build_formatted(
     parent: Module | Class,
     *,
     in_formatted_str: bool = False,  # noqa: ARG001
+    in_joined_str: bool = False,  # noqa: ARG001
     **kwargs: Any,
 ) -> Expr:
-    return ExprFormatted(_build(node.value, parent, in_formatted_str=True, **kwargs))
+    return ExprFormatted(
+        _build(node.value, parent, in_formatted_str=True, in_joined_str=True, **kwargs),
+        conversion=_conversion_map.get(node.conversion),
+        format_spec=_build_format_spec(node.format_spec, parent, **kwargs),
+    )
 
 
-def _build_generatorexp(node: ast.GeneratorExp, parent: Module | Class, **kwargs: Any) -> Expr:
+def _build_generatorexp(
+    node: ast.GeneratorExp,
+    parent: Module | Class,
+    *,
+    implicit_parens: bool = False,
+    **kwargs: Any,
+) -> Expr:
     return ExprGeneratorExp(
         _build(node.elt, parent, **kwargs),
         [_build(gen, parent, **kwargs) for gen in node.generators],
+        implicit=implicit_parens,
     )
 
 
@@ -1298,7 +1472,15 @@ def _build_setcomp(node: ast.SetComp, parent: Module | Class, **kwargs: Any) -> 
     return ExprSetComp(_build(node.elt, parent, **kwargs), [_build(gen, parent, **kwargs) for gen in node.generators])
 
 
-def _build_slice(node: ast.Slice, parent: Module | Class, **kwargs: Any) -> Expr:
+def _build_slice(
+    node: ast.Slice,
+    parent: Module | Class,
+    *,
+    subscript_slice: bool = False,  # noqa: ARG001
+    **kwargs: Any,
+) -> Expr:
+    # Note: `subscript_slice` is intentionally consumed here so that it doesn't propagate
+    # to the slice bounds, where tuples require their parentheses, e.g. `o[(1, 2):]`.
     return ExprSlice(
         None if node.lower is None else _build(node.lower, parent, **kwargs),
         None if node.upper is None else _build(node.upper, parent, **kwargs),
@@ -1347,7 +1529,12 @@ def _build_tuple(
     compr_target: bool = False,
     **kwargs: Any,
 ) -> Expr:
-    return ExprTuple([_build(el, parent, **kwargs) for el in node.elts], implicit=subscript_slice or compr_target)
+    # An empty tuple is always written as `()` and cannot be implicit.
+    # This arises in annotations like `tuple[()]`, where the AST represents
+    # the subscript slice as an empty Tuple node, but the parentheses must
+    # be preserved to produce valid Python (`tuple[]` is a SyntaxError).
+    implicit = (subscript_slice or compr_target) if node.elts else False
+    return ExprTuple([_build(el, parent, **kwargs) for el in node.elts], implicit=implicit)
 
 
 def _build_unaryop(node: ast.UnaryOp, parent: Module | Class, **kwargs: Any) -> Expr:
@@ -1368,6 +1555,7 @@ class _BuildCallable(Protocol):
 
 _node_map: dict[type, _BuildCallable] = {
     ast.Attribute: _build_attribute,
+    ast.Await: _build_await,
     ast.BinOp: _build_binop,
     ast.BoolOp: _build_boolop,
     ast.Call: _build_call,
@@ -1399,8 +1587,19 @@ _node_map: dict[type, _BuildCallable] = {
 
 if sys.version_info >= (3, 14):
 
-    def _build_interpolation(node: ast.Interpolation, parent: Module | Class, **kwargs: Any) -> Expr:
-        return ExprInterpolation(_build(node.value, parent, **kwargs))
+    def _build_interpolation(
+        node: ast.Interpolation,
+        parent: Module | Class,
+        *,
+        in_formatted_str: bool = False,  # noqa: ARG001
+        in_joined_str: bool = False,  # noqa: ARG001
+        **kwargs: Any,
+    ) -> Expr:
+        return ExprInterpolation(
+            _build(node.value, parent, in_formatted_str=True, in_joined_str=True, **kwargs),
+            conversion=_conversion_map.get(node.conversion),
+            format_spec=_build_format_spec(node.format_spec, parent, **kwargs),
+        )
 
     def _build_templatestr(
         node: ast.TemplateStr,

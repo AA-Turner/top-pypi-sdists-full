@@ -28,6 +28,9 @@ from ._gui_handles import GuiUploadButtonHandle as GuiUploadButtonHandle
 from ._gui_handles import GuiUplotHandle as GuiUplotHandle
 from ._gui_handles import GuiVector2Handle as GuiVector2Handle
 from ._gui_handles import GuiVector3Handle as GuiVector3Handle
+from ._gui_handles import MainPanelHandle as MainPanelHandle
+from ._gui_handles import PanelHandle as PanelHandle
+from ._gui_handles import PlaceableHandle as PlaceableHandle
 from ._gui_handles import UploadedFile as UploadedFile
 from ._icons_enum import Icon as Icon
 from ._icons_enum import IconName as IconName
@@ -71,6 +74,7 @@ from ._scene_handles import TransformControlsHandle as TransformControlsHandle
 from ._viser import CameraHandle as CameraHandle
 from ._viser import ClientHandle as ClientHandle
 from ._viser import InitialCameraConfig as InitialCameraConfig
+from ._viser import LocalStorageHandle as LocalStorageHandle
 from ._viser import ViserServer as ViserServer
 
 # Legacy alias for ``ScenePointerEvent``: importable at runtime but
@@ -79,4 +83,4 @@ from ._viser import ViserServer as ViserServer
 if not _TYPE_CHECKING:
     from ._scene_handles import ScenePointerEvent as ScenePointerEvent
 
-__version__ = "1.0.30"
+__version__ = "1.1.0"

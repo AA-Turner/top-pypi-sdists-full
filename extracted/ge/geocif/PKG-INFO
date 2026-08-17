@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: geocif
-Version: 0.4.912
+Version: 0.4.919
 Summary: Models to visualize and forecast crop conditions and yields
 Author-email: Ritvik Sahajpal <ritvik@umd.edu>
 License: MIT
@@ -388,6 +388,8 @@ The experiments runner writes to a dedicated DB and analysis folder under `dir_o
 
 The yield outlook runner produces a diverging choropleth map showing current forecast yield as a percentage of the historical mean/median prediction per region, plus a combined CSV. Per (country, crop, model, stage) it also renders skill choropleths — `mape_map`, `rmse_map`, and `r2_map` (per-region MAPE, RMSE, and R²) — and metric-progression plots across forecast stages, each in both a full per-region version and a decluttered `*_national` version (single national line with a gray ±1 std-across-regions band).
 
+In addition, model performance is aggregated to every admin level **above** the run level (`[ML] plot_parent_aggregations`, default `True`): an admin_2 (county) run also gets admin_1 (state) and national outputs; an admin_1 run gets national outputs. Observed/predicted yields are area-weighted means per (parent, year) — groups with missing/zero `Area (ha)` fall back to unweighted means — with the county→state mapping reused from the production-statistics file (`ml.stats.admin1_lookup`). Per level this writes a pooled obs-vs-pred scatter (+ hexbin), a per-parent metrics CSV (r², rRMSE%, MAPE% + pooled row), a national obs-vs-pred time series, per-parent rRMSE%/r² choropleths (admin_1 only; boundary from `[ML] parent_boundary_admin_1`, falling back to `Level_1.shp` — skipped with a warning when missing or when <50% of parent names match), and a `lookup_plots_csvs.csv` mapping each plot to its companion CSV.
+
 ```
 {dir_output}/
 └── ml/
@@ -395,7 +397,17 @@ The yield outlook runner produces a diverging choropleth map showing current for
         └── {MMMM_DD_YYYY}/
             └── outlook/
                 ├── yield_outlook_{country}_{crop}_{model}_{stage}_{year}.png
-                └── yield_outlook_{year}.csv
+                ├── yield_outlook_{year}.csv
+                ├── plots/{model}/{country}/{crop}/{admin_1|national}/
+                │   ├── scatter_{level}_{country}_{crop}_{model}.png (+ _hexbin)
+                │   ├── timeseries_national_{country}_{crop}_{model}.png  (national only)
+                │   ├── rrmse_map_admin_1_...png / r2_map_admin_1_...png  (admin_1 only)
+                │   └── lookup_plots_csvs.csv
+                └── csvs/{model}/{country}/{crop}/{admin_1|national}/
+                    ├── aggregated_predictions_{level}_{country}_{crop}_{model}.csv
+                    ├── metrics_{level}_{country}_{crop}_{model}.csv
+                    ├── scatter/timeseries companion CSVs
+                    └── lookup_plots_csvs.csv
 ```
 
 ## Config file documentation
@@ -464,6 +476,37 @@ boundary_file = adm_shapefile.gpkg
 calendar_file = EWCM_2025-04-21.xlsx
 crops = ['maize']
 ```
+
+#### Restricting a run to specific regions (`run_regions`)
+
+Optional per-country knob (falls back to `[DEFAULT]`). Unset = run every
+region, which is the default behaviour.
+
+```ini
+[usa]
+admin_level = admin_2
+
+; names below are admin_1 (state) even though the run is admin_2 (county)
+run_regions_level = admin_1
+; flat list  -> applies to every crop
+run_regions = ["illinois", "iowa"]
+; or per crop -> a crop missing from the dict runs all its regions
+run_regions = {"maize": ["illinois", "iowa"], "soybean": ["arkansas"]}
+```
+
+- `run_regions_level` declares the admin level the names are given at;
+  it defaults to the run's own `admin_level`.
+- An **admin_1 selection on an admin_2 run** keeps every county inside the
+  selected states (parent lookup via the production-statistics file, same
+  normalization as the yield join). An **admin_2 selection on an admin_1 run**
+  maps the county names up to their parent states.
+- Names are matched case-insensitively with `_` treated as a space, so
+  `South Dakota`, `south_dakota` and `SOUTH DAKOTA` are the same region.
+- Selected names that match nothing are listed in a warning; a selection that
+  matches **no** region raises a `ValueError` instead of running empty.
+- The filter is applied in `_prepare_ml_dataframe`, so training, LOOCV, the
+  SQLite output, plots and parent aggregations all see only the selected
+  regions.
 
 ### crops.txt
 

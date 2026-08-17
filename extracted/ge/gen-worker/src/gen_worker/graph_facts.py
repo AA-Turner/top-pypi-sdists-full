@@ -5,7 +5,7 @@ pgw#1277 split the old ``compiled_graph_key`` module along the boundary it had
 always described but never enforced. Compiled-graph IDENTITY — the three
 ``cg-key-v1`` axes, their canonical fold, the key grammar and the derivation of
 a key from an artifact's recorded facts — belongs to
-:mod:`torch_compiled_graphs.identity` and lives there only. What survives here
+:mod:`torchcg.identity` and lives there only. What survives here
 is everything the worker owns because TCG has no concept of it:
 
 * the DECLARED ENVELOPE (:func:`envelope_facts`) — the serving region an author
@@ -37,31 +37,7 @@ import json
 from dataclasses import dataclass
 from typing import Any, Dict, Iterable, Mapping, Tuple
 
-from torch_compiled_graphs import is_compiled_graph_key
-
-#: The three identity axes, restated for the PUBLISH WIRE (pgw#1224 / th#1842).
-#: Every batched entry must restate all three, so the wire needs the
-#: enumeration by name.
-#:
-#: This is a PROJECTION of :mod:`torch_compiled_graphs.identity`, not a second
-#: authority — TCG does not export its required-axis tuple today, and
-#: ``tests/test_identity_is_tcg_pgw1277.py`` fences this copy against TCG's
-#: actual refusal so the two cannot drift silently. Delete this constant the
-#: moment TCG publishes the tuple.
-KEY_AXES: Tuple[str, ...] = ("graph", "sm", "toolchain")
-
-#: The block TCG writes into every artifact's metadata to name the ONE graph
-#: class that artifact carries.
-#:
-#: pgw#1277: the worker used to call this block ``entry`` and read it by that
-#: name. TCG has minted every artifact since pgw#1270 and has never written an
-#: ``entry`` block, so every reader was reading a shape that does not exist —
-#: publish refused outright, held classes recompiled, the boot-key memo
-#: silently disabled. Like :data:`KEY_AXES` this is a PROJECTION of a TCG
-#: constant that TCG does not export yet, and
-#: ``tests/test_identity_is_tcg_pgw1277.py`` fences it against TCG's own
-#: refusal. Delete it the moment TCG publishes the name.
-TCG_GRAPH_CLASS_BLOCK = "graph_class"
+from gen_worker._vendor.torchcg import is_compiled_graph_key
 
 #: The MANIFEST block recording one declaration's DECLARED ENVELOPE.
 #:
@@ -210,8 +186,6 @@ def manifest_digest(class_hashes: Iterable[str]) -> str:
 
 __all__ = [
     "EXPORT_ENVELOPE_KEY",
-    "KEY_AXES",
-    "TCG_GRAPH_CLASS_BLOCK",
     "GraphFactsError",
     "SlotSubject",
     "envelope_digest",

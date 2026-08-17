@@ -88,6 +88,18 @@ TRUNCATED_TOOL_CALL_MESSAGE = (
     "content well under the output limit."
 )
 
+# The other shape a truncated tool call takes: the payload streamed as a JSON
+# string that stops mid-object. The pydantic error for this reads as "payload
+# must not be a quoted string", which sends the model off re-quoting an argument
+# that was never the problem — so name the real cause and the way out.
+UNPARSEABLE_PAYLOAD_MESSAGE = (
+    "Tool call rejected: the payload arrived as text that stops before the JSON "
+    "closes, which is what a tool call cut off by the output-token limit looks "
+    "like. The arguments were not run. Re-emit the call with less inline content "
+    "— split large content across several calls, or write it to a workspace file "
+    "first and pass the path. If the work is already done, answer the user now."
+)
+
 # Minimum estimated session tokens required to trigger a pre_retry
 # compaction. Below this, the session is small enough that a fresh
 # retry without compaction will work — paying for an LLM
@@ -144,6 +156,20 @@ L1_XP_OFFLOAD_ELIGIBLE = frozenset(
     }
 )
 
+# Playbooks are followed verbatim and never re-loaded, so skill-load results must not be
+# offloaded - including the gateway's un-prefixed load_skill, otherwise offload-eligible.
+SKILL_LOAD_TOOL_NAMES = frozenset({"xpload_skill", "load_skill"})
+
+# Tools whose results L1 must never offload regardless of prefix or size.
+L1_ALWAYS_SKIP = frozenset({"think", "analyze"}) | SKILL_LOAD_TOOL_NAMES
+
+# L2 keeps only system messages, so xpload_skill playbooks are re-injected after each
+# compaction; the gateway's load_skill result is an 8K routing aid and is never pinned.
+SKILL_PIN_TOOL_NAMES = frozenset({"xpload_skill"})
+PINNED_SKILLS_MAX = 2
+# One rendered bundle is clamped to 32K by the controller; headroom for wrappers.
+PINNED_SKILL_MAX_CHARS = 33_000
+
 # The dynamic-tools dispatcher hides the real tool in payload.name and runs it
 # without re-entering the tool hook, so a result from any external/MCP tool
 # would otherwise reach L1 under this opaque xp* name and be skipped.
@@ -156,6 +182,11 @@ DYNAMIC_DISPATCH_META_TOOL = "xp_execute_tool"
 # at (estimated_tokens / context_window) below each fraction; above the last
 # band the configured base value is used unchanged.
 L1_HEADROOM_BANDS = ((0.35, 4), (0.60, 2))
+
+# Microcompact passes a pending offload summary waits before being abandoned.
+PENDING_SUMMARY_MAX_PASSES = 3
+# Cap on a summary spliced into an offload preview, which is line-oriented.
+OFFLOAD_SUMMARY_MAX_CHARS = 600
 
 # Emergency fires at 88% of context window — lower than the 95% used previously
 # because by then the prompt + reserved-output overhead has often pushed the

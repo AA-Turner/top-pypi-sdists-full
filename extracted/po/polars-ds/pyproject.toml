@@ -5,12 +5,21 @@ build-backend = "maturin"
 [project]
 name = "polars_ds"
 requires-python = ">=3.9"
-version = "0.12.0"
+version = "0.12.1"
 
 license = { file = "LICENSE.txt" }
 classifiers = [
-    "Development Status :: 4 - Beta",
+    "Development Status :: 5 - Production/Stable",
     "Programming Language :: Rust",
+    "Programming Language :: Python",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3 :: Only",
+    "Programming Language :: Python :: 3.9",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Programming Language :: Python :: 3.14",
     "Programming Language :: Python :: Implementation :: CPython",
     "Programming Language :: Python :: Implementation :: PyPy",
     "License :: OSI Approved :: MIT License",
@@ -39,6 +48,10 @@ module-name = "polars_ds._polars_ds"
 line-length = 100
 fix = true
 src = ["python"]
+
+[tool.ruff.lint]
+# Ignore F401 (unused imports) and F403 (wildcard imports) in init files
+per-file-ignores = { "__init__.py" = ["F401", "F403"] }
 
 [tool.ruff.format]
 docstring-code-format = true

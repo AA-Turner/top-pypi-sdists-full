@@ -14,6 +14,7 @@ from typing import (
     Dict,
     List,
     Optional,
+    Tuple,
     Type,
     TypeVar,
     Union,
@@ -96,6 +97,21 @@ def _prepare_for_serialization(
         return float(value)
     if annotation is int or isinstance(value, np.integer):
         return int(value)
+    # np.bool_ (from mask.any(), arr > 0, np.all(...), etc.) is neither
+    # np.floating nor np.integer, and msgpack cannot encode it -- unconverted
+    # it raised inside the broadcast producer, tearing down every client's
+    # connection (and, being a persistent update, re-crashing on reconnect).
+    if annotation is bool or isinstance(value, np.bool_):
+        return bool(value)
+    # Any OTHER numpy scalar msgpack can't encode -- most importantly np.str_
+    # and np.bytes_ from a numpy string array (names[i], labels), which are
+    # far more common than bool. .item() returns the python-native
+    # equivalent. Closes the same crash class as the branches above; without
+    # it a numpy-array-sourced name/label bricked the producer for all
+    # clients. (Placed after float/int/bool so the common numeric paths keep
+    # their explicit fast conversions.)
+    if isinstance(value, np.generic):
+        return value.item()
 
     if dataclasses.is_dataclass(annotation):
         return _prepare_for_serialization(vars(value), dict, binary_buffers)
@@ -125,7 +141,7 @@ def _prepare_for_serialization(
 
     # Handle numpy arrays: extract or inline depending on mode.
     if isinstance(value, np.ndarray):
-        data = value.data if value.data.c_contiguous else value.copy().data
+        data = value.data if value.flags.c_contiguous else value.copy().data
         if binary_buffers is not None:
             # Extract into separate buffer with tagged placeholder.
             idx = len(binary_buffers)
@@ -147,12 +163,38 @@ def _prepare_for_serialization(
     return value
 
 
+def is_binary_placeholder(value: Any) -> bool:
+    """Detect the tagged placeholder dicts created above for extracted binary
+    buffers. Must stay in sync with the client's detection in
+    ``BinaryMessageDecode.ts``, which tests for the same two keys."""
+    return isinstance(value, dict) and "__binary_index" in value and "dtype" in value
+
+
 T = TypeVar("T", bound="Message")
 
 
 @functools.lru_cache(maxsize=None)
 def get_type_hints_cached(cls: Type[Any]) -> Dict[str, Any]:
     return get_type_hints(cls)  # type: ignore
+
+
+@functools.lru_cache(maxsize=None)
+def wire_field_names(cls: Type[Any]) -> Tuple[str, ...]:
+    """Names of the fields a message type puts on the wire: declared,
+    type-hinted dataclass fields, in declaration order. THE single
+    definition of the wire field set -- the serializer and the TypeScript
+    interface generator must never disagree on it. Declared fields (not
+    ``vars()``) so that non-init defaulted fields (e.g. the scene messages'
+    owner/virtual stamps) are included even before first assignment."""
+    hints = get_type_hints_cached(cls)
+    return tuple(f.name for f in dataclasses.fields(cls) if f.name in hints)
+
+
+@functools.lru_cache(maxsize=None)
+def _non_init_field_names(cls: Type[Any]) -> Tuple[str, ...]:
+    """Dataclass fields excluded from ``__init__`` (assigned post-construction
+    on deserialization). Empty for most message types."""
+    return tuple(f.name for f in dataclasses.fields(cls) if not f.init)
 
 
 class Message(abc.ABC):
@@ -177,6 +219,32 @@ class Message(abc.ABC):
     # the attribute without static errors.
     include_in_scene_serialization: ClassVar[bool]
 
+    def entity_state_key(self) -> Optional[Tuple[str, str]]:
+        """The (entity_type, entity_id) this message carries PER-ENTITY state
+        for, or None for messages that carry none: update messages
+        (``update_dict``/``update_simple``) key to their declared entity;
+        phase-less messages carrying a ``name`` key to ``("scene", name)``
+        (name-keyed adjacency exists only for SCENE nodes -- interaction
+        bindings etc.; other entity families key by uuid fields that never
+        collide with a scene name). The ONE definition of this taxonomy: the
+        buffer's entity-state index, the same-name-replacement purge, and the
+        connect-time garbage collector's sweep all resolve through it."""
+        phase = self.lifecycle_phase
+        if phase in ("update_dict", "update_simple"):
+            if self.entity_type is not None and self.entity_id_field is not None:
+                return (self.entity_type, getattr(self, self.entity_id_field))
+            return None
+        if phase is None:
+            name = getattr(self, "name", None)
+            if name is not None:
+                return ("scene", name)
+        return None
+
+    def targets_entity_state(self, entity_type: str, entity_id: str) -> bool:
+        """True when this message carries per-entity state for the given
+        entity; the predicate form of :meth:`entity_state_key`."""
+        return self.entity_state_key() == (entity_type, entity_id)
+
     def as_serializable_dict(
         self, binary_buffers: Optional[List[memoryview]] = None
     ) -> Dict[str, Any]:
@@ -187,12 +255,11 @@ class Message(abc.ABC):
         Otherwise, arrays are inlined as memoryviews in the returned dict."""
         message_type = type(self)
         hints = get_type_hints_cached(message_type)
-        # Filter to type-hinted fields only -- excludes dynamic attributes
-        # like cached values that shouldn't be serialized.
         out = {
-            k: _prepare_for_serialization(v, hints[k], binary_buffers)
-            for k, v in vars(self).items()
-            if k in hints
+            name: _prepare_for_serialization(
+                getattr(self, name), hints[name], binary_buffers
+            )
+            for name in wire_field_names(message_type)
         }
         out["type"] = message_type.__name__
         return out
@@ -219,7 +286,22 @@ class Message(abc.ABC):
         # a blanket recursive traversal of the entire message tree.
         message_type = cls._subclass_from_type_string()[cast(str, mapping.pop("type"))]
         message_kwargs = message_type._from_serializable_dict(mapping)
-        return message_type(**message_kwargs)
+        # Non-init fields (e.g. the scene messages' owner/virtual stamps,
+        # declared init=False so defaulted fields can follow subclasses'
+        # positional ones on Python 3.8) can't be passed to __init__; strip
+        # them out and assign after construction so the serialize ->
+        # deserialize round trip stays lossless. The per-class name tuple is
+        # cached: most message types have none, and this runs per inbound
+        # message.
+        non_init = {
+            k: message_kwargs.pop(k)
+            for k in _non_init_field_names(message_type)
+            if k in message_kwargs
+        }
+        decoded = message_type(**message_kwargs)
+        for k, v in non_init.items():
+            setattr(decoded, k, v)
+        return decoded
 
     @classmethod
     @functools.lru_cache(maxsize=100)

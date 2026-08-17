@@ -1,6 +1,6 @@
-Metadata-Version: 2.4
+Metadata-Version: 2.5
 Name: rq
-Version: 2.10.0
+Version: 2.11.0
 Summary: RQ is a simple, lightweight, library for creating background jobs, and processing them.
 Project-URL: changelog, https://github.com/rq/rq/blob/master/CHANGES.md
 Project-URL: documentation, https://python-rq.org/docs/
@@ -26,6 +26,7 @@ Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
+Classifier: Programming Language :: Python :: 3.14
 Classifier: Topic :: Internet
 Classifier: Topic :: Scientific/Engineering
 Classifier: Topic :: Software Development :: Libraries :: Python Modules
@@ -256,7 +257,23 @@ cron.register(
     queue_name='reports',
     cron='0 8 1 * *'
 )
+
+Cron jobs can also send webhooks to a monitoring endpoint when a scheduled run finishes or fails:
+
 ```python
+from rq import cron, Webhook
+
+# Ping a monitoring endpoint after the nightly backup finishes or fails
+cron.register(
+    backup_database,
+    queue_name='maintenance',
+    cron='0 3 * * *',
+    webhooks=[
+        Webhook('https://example.com/finished', 'finished'),
+        Webhook('https://example.com/failed', 'failed'),
+    ],
+)
+```
 
 More details on functionality can be found in the [docs](https://python-rq.org/docs/cron/).
 

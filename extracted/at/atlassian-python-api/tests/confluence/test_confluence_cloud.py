@@ -35,6 +35,12 @@ class TestConfluenceCloud:
         assert confluence.api_version == "1"
         assert confluence.api_root == "custom/api/root"
 
+    def test_legacy_cloud_api_version_is_normalized(self):
+        with pytest.warns(DeprecationWarning):
+            confluence = ConfluenceCloud(url="https://test.atlassian.net", api_version="cloud")
+
+        assert confluence.api_version == "2"
+
     @patch.object(ConfluenceCloud, "_get_paged")
     def test_iter_cql_follows_all_result_pages(self, mock_get_paged, confluence_cloud):
         mock_get_paged.return_value = iter([{"id": "1"}, {"id": "2"}])
@@ -42,12 +48,33 @@ class TestConfluenceCloud:
         assert list(confluence_cloud.iter_cql("type=page", limit=250)) == [{"id": "1"}, {"id": "2"}]
         mock_get_paged.assert_called_once_with("content/search", params={"cql": "type=page", "limit": 250})
 
+    @patch.object(ConfluenceCloud, "get")
+    def test_cql_passes_the_nested_content_storage_expansion(self, mock_get, confluence_cloud):
+        confluence_cloud.cql("type=page", limit=25, expand="content.body.storage")
+
+        mock_get.assert_called_once_with(
+            "content/search", params={"cql": "type=page", "limit": 25, "expand": "content.body.storage"}
+        )
+
     @patch.object(ConfluenceCloud, "iter_cql")
     def test_cql_all_materializes_iter_cql_results(self, mock_iter_cql, confluence_cloud):
         mock_iter_cql.return_value = iter([{"id": "1"}, {"id": "2"}])
 
         assert confluence_cloud.cql_all("type=page") == [{"id": "1"}, {"id": "2"}]
         mock_iter_cql.assert_called_once_with("type=page")
+
+    @patch.object(ConfluenceCloud, "_get_paged")
+    def test_get_all_page_versions_follows_paginated_history(self, mock_get_paged, confluence_cloud):
+        mock_get_paged.return_value = iter([{"number": 2}, {"number": 1}])
+
+        assert confluence_cloud.get_all_page_versions("123", expand="storage", limit=50) == [
+            {"number": 2},
+            {"number": 1},
+        ]
+        mock_get_paged.assert_called_once_with(
+            "rest/api/content/123/version",
+            params={"limit": 50, "expand": "storage"},
+        )
 
     @patch.object(ConfluenceCloud, "put")
     def test_update_template_uses_v1_endpoint_and_object_payload(self, mock_put, confluence_cloud):

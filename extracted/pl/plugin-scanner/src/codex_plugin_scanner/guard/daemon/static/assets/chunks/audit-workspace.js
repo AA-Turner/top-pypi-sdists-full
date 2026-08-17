@@ -1,6 +1,6 @@
-import { j as jsxRuntimeExports, ad as Tag, l as formatRelativeTime, r as reactExports, A as ActionButton, bD as HiMiniChevronLeft, z as HiMiniChevronRight, aK as IconActionButton, n as HiMiniXMark, aP as GuardModalLayer, bE as HiMiniFunnel, ae as HiMiniMagnifyingGlass, bF as HiMiniArrowDown, bG as HiMiniArrowUp, S as SectionLabel, ax as HiMiniArrowPath, aO as HiMiniBugAnt, b as EmptyState, U as HiMiniAdjustmentsHorizontal, aQ as ConnectFlowCard, x as HiMiniExclamationTriangle, bH as runAuditRemediation, B as Badge, aD as isSupplyChainAuditEvidence, d as HiMiniCheckCircle, J as HiMiniXCircle, h as harnessDisplayName, b8 as HiMiniDocumentText, b7 as guardAwareHref, k as HiMiniShieldCheck } from "../guard-dashboard.js";
-import { p as packageWorkbenchEcosystems, f as filterPackageWorkbenchFindings, s as sortPackageWorkbenchFindings, u as useResolvedApprovalGate, i as isApprovalGateRequiredError, A as ApprovalProofModal } from "./supply-chain-hub-workspace.js";
-import { r as resolveManagerCoverageStatus } from "./supply-chain-protection-stats.js";
+import { j as jsxRuntimeExports, ak as Tag, t as formatRelativeTime, r as reactExports, A as ActionButton, bO as HiMiniChevronLeft, c as HiMiniChevronRight, aU as IconActionButton, x as HiMiniXMark, aZ as GuardModalLayer, bP as HiMiniFunnel, al as HiMiniMagnifyingGlass, bQ as HiMiniArrowDown, bR as HiMiniArrowUp, S as SectionLabel, aI as HiMiniArrowPath, aY as HiMiniBugAnt, k as EmptyState, a0 as HiMiniAdjustmentsHorizontal, a_ as ConnectFlowCard, K as HiMiniExclamationTriangle, bS as runAuditRemediation, M as Badge, bK as isBlockedGuardAction, aN as isSupplyChainAuditEvidence, m as HiMiniCheckCircle, U as HiMiniXCircle, e as harnessDisplayName, bj as HiMiniDocumentText, bi as guardAwareHref, q as HiMiniShieldCheck } from "../guard-dashboard.js";
+import { p as packageWorkbenchEcosystems, f as filterPackageWorkbenchFindings, b as sortPackageWorkbenchFindings, u as useResolvedApprovalGate, i as isApprovalGateRequiredError, A as ApprovalProofModal } from "./supply-chain-hub-workspace.js";
+import { r as resolveManagerCoverageManagers, a as resolveManagerCoverageStatus } from "./supply-chain-protection-stats.js";
 const STEPS = [
   { id: "preparing", label: "Prepare workspace" },
   { id: "scanning", label: "Scan manifests and lockfiles" },
@@ -935,21 +935,7 @@ function buildPackageManagerAuditResult(manager, protection, generatedAt) {
   if (coverage === "protected") {
     return null;
   }
-  if (coverage === "restart_required") {
-    return {
-      id: `unprotected-${manager}`,
-      severity: "medium",
-      title: `${manager} is waiting for restart`,
-      detail: `Guard already updated your shell profile for ${manager}. Open a new shell or restart AI apps so ${manager} resolves through Guard.`,
-      harness: "global",
-      workspace: null,
-      timestamp: generatedAt,
-      remediation: "Open a new shell or restart AI apps to finish package-manager interception.",
-      remediationAction: null,
-      resolved: false,
-      evidenceHref: null
-    };
-  }
+  if (coverage === "restart_required") return null;
   if (coverage === "path_repair") {
     return {
       id: `unprotected-${manager}`,
@@ -991,7 +977,7 @@ function deriveFrontendAuditResults(receipts, snapshot) {
   const results = [];
   const protection = snapshot.supply_chain?.package_manager_protection;
   if (protection) {
-    const managersNeedingAttention = protection.supported_managers.filter(
+    const managersNeedingAttention = resolveManagerCoverageManagers(protection).filter(
       (manager) => resolveManagerCoverageStatus(protection, manager) !== "protected"
     );
     for (const mgr of managersNeedingAttention) {
@@ -1001,7 +987,7 @@ function deriveFrontendAuditResults(receipts, snapshot) {
       }
     }
   }
-  const blockedReceipts = receipts.filter((r) => r.policy_decision === "block");
+  const blockedReceipts = receipts.filter((r) => isBlockedGuardAction(r.policy_decision));
   for (const r of blockedReceipts.slice(0, 20)) {
     const evidenceParams = new URLSearchParams();
     evidenceParams.set("harness", r.harness || "global");

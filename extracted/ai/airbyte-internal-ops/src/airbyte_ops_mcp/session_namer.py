@@ -2,15 +2,15 @@
 """Deterministic friendly-name generation from arbitrary string identifiers.
 
 Generates human-friendly names by hashing an input string and mapping it to
-curated word lists stored in a versioned YAML seed file. Two naming schemes
-are currently shipped:
-
-- **superhero**: adjective + hero/villain noun (e.g., "Speedy Avenger")
-- **silly-buddy**: silly adjective + first name (e.g., "Smelly Fred")
+curated adjective and noun lists. The lists pair serious adjectives with
+heroic or professional nouns.
 
 Names are deterministic: the same input string always produces the same name
-for a given scheme. The namespace is large enough (~60K+ combinations per
-scheme) that collisions are unlikely for moderate volumes (~10K/month).
+for a given identifier. The namespace is 22,464 combinations, so a name is a
+readable handle rather than a unique key — with thousands of names drawn per
+month, repeats are expected (roughly `n**2 / (2 * N)` collisions for `n` names
+over a namespace of `N`). Callers that need uniqueness must use the identifier
+itself, not the name.
 
 This module is intentionally generic — it operates on arbitrary string
 identifiers, not specifically Devin sessions. Domain-specific wrappers
@@ -21,7 +21,6 @@ from __future__ import annotations
 
 import hashlib
 import re
-from enum import StrEnum
 from functools import lru_cache
 from importlib import resources
 from typing import Any
@@ -29,29 +28,12 @@ from urllib.parse import urlparse
 
 import yaml
 
-# ---------------------------------------------------------------------------
-# Naming scheme enum
-# ---------------------------------------------------------------------------
-
-_SEED_FILE_NAME = "random_name_seeds-v1.yaml"
-
-
-class NamingScheme(StrEnum):
-    """Available naming schemes."""
-
-    SUPERHERO = "superhero"
-    SILLY_BUDDY = "silly-buddy"
+_SEED_FILE_NAME = "friendly_name_words.yaml"
 
 
 # ---------------------------------------------------------------------------
 # Seed data loading
 # ---------------------------------------------------------------------------
-
-# Maps each scheme to (adjective_key, noun_key) in the YAML file.
-_SCHEME_KEYS: dict[NamingScheme, tuple[str, str]] = {
-    NamingScheme.SUPERHERO: ("superhero_adjectives", "superhero_nouns"),
-    NamingScheme.SILLY_BUDDY: ("silly_buddy_adjectives", "silly_buddy_names"),
-}
 
 
 @lru_cache(maxsize=1)
@@ -61,11 +43,10 @@ def _load_seed_data() -> dict[str, Any]:
     return yaml.safe_load(seed_file.read_text(encoding="utf-8"))
 
 
-def _get_word_lists(scheme: NamingScheme) -> tuple[list[str], list[str]]:
-    """Return (adjectives, nouns) for the given scheme."""
+def _get_word_lists() -> tuple[list[str], list[str]]:
+    """Return the adjective and noun lists."""
     data = _load_seed_data()
-    adj_key, noun_key = _SCHEME_KEYS[scheme]
-    return data[adj_key], data[noun_key]
+    return data["adjectives"], data["nouns"]
 
 
 # ---------------------------------------------------------------------------
@@ -92,65 +73,58 @@ def _pick_pair(
 # ---------------------------------------------------------------------------
 
 _SESSION_URL_PATTERN = re.compile(
-    r"https?://[^/]+/sessions/([0-9a-fA-F-]+)",
+    r"https?://[^/]+/sessions/([^/?#]+)",
 )
+_SESSION_ID_PATTERN = re.compile(r"[0-9a-fA-F-]+")
 
 
 def extract_session_id(identifier: str) -> str:
-    """Extract a bare session ID from a string that may be a URL.
+    """Extract a bare session ID from a URL or Devin ID.
 
-    If *identifier* looks like a Devin session URL
-    (e.g. `https://app.devin.ai/sessions/abc123`), the trailing path
-    segment is returned.  Otherwise the original string is returned
-    unchanged.
+    Session URLs may include query parameters, fragments, or trailing path
+    segments. A `devin-` prefix is removed when its suffix looks like a
+    session ID. Other unrecognized input is returned unchanged.
     """
     match = _SESSION_URL_PATTERN.search(identifier)
     if match:
-        return match.group(1)
+        candidate = _normalize_session_id(match.group(1))
+        return candidate if candidate is not None else identifier
+
     # Also handle generic URLs where the last path segment is the ID.
     parsed = urlparse(identifier)
     if parsed.scheme in ("http", "https") and parsed.path:
         # Return last non-empty path segment.
         segments = [s for s in parsed.path.split("/") if s]
-        if segments:
-            return segments[-1]
-    return identifier
+        candidate = segments[-1] if segments else identifier
+        fallback = candidate
+    else:
+        candidate = identifier
+        fallback = identifier
+    normalized = _normalize_session_id(candidate)
+    return normalized if normalized is not None else fallback
 
 
-def generate_friendly_name(
-    identifier: str,
-    scheme: NamingScheme = NamingScheme.SILLY_BUDDY,
-) -> str:
+def _normalize_session_id(candidate: str) -> str | None:
+    """Return a normalized session ID, or `None` for an invalid candidate."""
+    if candidate.startswith("devin-"):
+        candidate = candidate.removeprefix("devin-")
+    return candidate if _SESSION_ID_PATTERN.fullmatch(candidate) else None
+
+
+def generate_friendly_name(identifier: str) -> str:
     """Generate a deterministic human-friendly name from a string identifier.
 
     Args:
         identifier: Any string (e.g. a UUID, URL, session key).
-        scheme: Which naming scheme to use.
 
-    Returns:
-        A Title Case two-word name such as `"Speedy Avenger"`.
+    Returns a Title Case two-word name.
     """
-    adjectives, nouns = _get_word_lists(scheme)
+    adjectives, nouns = _get_word_lists()
     adj, noun = _pick_pair(identifier, adjectives, nouns)
     return f"{adj} {noun}".title()
 
 
-def generate_all_names(identifier: str) -> dict[str, str]:
-    """Generate names for an identifier across all schemes.
-
-    Args:
-        identifier: Any string to name.
-
-    Returns:
-        A dict mapping scheme value to generated name (Title Case).
-    """
-    return {
-        scheme.value: generate_friendly_name(identifier, scheme)
-        for scheme in NamingScheme
-    }
-
-
-def get_namespace_size(scheme: NamingScheme) -> int:
-    """Return the total number of possible name combinations for a scheme."""
-    adjectives, nouns = _get_word_lists(scheme)
+def get_namespace_size() -> int:
+    """Return the total number of possible name combinations."""
+    adjectives, nouns = _get_word_lists()
     return len(adjectives) * len(nouns)

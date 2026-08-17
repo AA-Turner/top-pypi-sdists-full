@@ -115,6 +115,7 @@ def test_core_sandbox_public_export_surface_is_stable() -> None:
             "SandboxAgent",
             "SandboxArchiveLimits",
             "SandboxPathGrant",
+            "SandboxWorkspaceScope",
             "SandboxConcurrencyLimits",
             "SandboxError",
             "SandboxRunConfig",
@@ -368,6 +369,7 @@ def test_sandbox_dataclass_constructor_field_order_is_stable() -> None:
         "snapshot",
         "concurrency_limits",
         "archive_limits",
+        "cwd",
     )
 
 
@@ -414,7 +416,7 @@ def test_optional_sandbox_dataclass_constructor_field_order_is_stable(
         (
             "agents.sandbox.sandboxes.docker",
             "DockerSandboxClientOptions",
-            ("image", "exposed_ports"),
+            ("image", "exposed_ports", "network_mode"),
         ),
         (
             "agents.extensions.sandbox.e2b",
@@ -451,6 +453,8 @@ def test_optional_sandbox_dataclass_constructor_field_order_is_stable(
                 "use_sleep_cmd",
                 "image_builder_version",
                 "idle_timeout",
+                "cpu",
+                "memory",
             ),
         ),
         (
@@ -571,6 +575,7 @@ def test_optional_sandbox_client_options_positional_field_order_is_stable(
                 "workspace_root_ready",
                 "image",
                 "container_id",
+                "network_mode",
             ),
         ),
         (
@@ -626,6 +631,8 @@ def test_optional_sandbox_client_options_positional_field_order_is_stable(
                 "use_sleep_cmd",
                 "image_builder_version",
                 "idle_timeout",
+                "cpu",
+                "memory",
             ),
         ),
         (

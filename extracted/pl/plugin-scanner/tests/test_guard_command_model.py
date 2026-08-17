@@ -20,6 +20,7 @@ def test_parse_shell_command_preserves_compound_suffix_and_path_override() -> No
     assert parsed.path_overridden is True
     assert parsed.segments[1].arguments == ("reset", "--hard", "HEAD~1")
     assert parsed.confidence == "exact"
+    assert parsed.extraction_provenance == "guard-shell"
 
 
 def test_parse_shell_command_tracks_env_wrapper_path_override() -> None:
@@ -28,6 +29,14 @@ def test_parse_shell_command_tracks_env_wrapper_path_override() -> None:
     assert parsed.segments[0].executable == "npx"
     assert parsed.segments[0].environment_names == ("PATH",)
     assert parsed.path_overridden is True
+
+
+def test_parse_shell_command_consumes_option_like_env_operand_once() -> None:
+    parsed = parse_shell_command("env -u -i python -m pytest -q")
+
+    assert parsed.wrapper_chain == ("env",)
+    assert parsed.segments[0].executable == "python"
+    assert parsed.segments[0].arguments == ("-m", "pytest", "-q")
 
 
 def test_parse_shell_command_tracks_sudo_and_nested_environment_wrapper() -> None:

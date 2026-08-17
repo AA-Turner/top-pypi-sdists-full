@@ -1,3 +1,19 @@
+# SPDX-License-Identifier: ISC
+
+# Copyright (c) 2021, Timothée Mazzucotelli and contributors
+
+# Permission to use, copy, modify, and/or distribute this software for any
+# purpose with or without fee is hereby granted, provided that the above
+# copyright notice and this permission notice appear in all copies.
+
+# THE SOFTWARE IS PROVIDED "AS IS" AND THE AUTHOR DISCLAIMS ALL WARRANTIES
+# WITH REGARD TO THIS SOFTWARE INCLUDING ALL IMPLIED WARRANTIES OF
+# MERCHANTABILITY AND FITNESS. IN NO EVENT SHALL THE AUTHOR BE LIABLE FOR
+# ANY SPECIAL, DIRECT, INDIRECT, OR CONSEQUENTIAL DAMAGES OR ANY DAMAGES
+# WHATSOEVER RESULTING FROM LOSS OF USE, DATA OR PROFITS, WHETHER IN AN
+# ACTION OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS ACTION, ARISING OUT OF
+# OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
+
 # This module contains data encoders/serializers and decoders/deserializers.
 # We only support JSON for now, but might want to add more formats in the future.
 
@@ -197,7 +213,7 @@ def _attach_parent_to_exprs(obj: Class | Function | Attribute | TypeAlias, paren
 def _load_module(obj_dict: dict[str, Any]) -> Module:
     filepath = obj_dict.get("filepath")
     if filepath is not None:
-        filepath: Path | list[Path] = [*map(Path, filepath)] if isinstance(filepath, list) else Path(filepath)  # ty:ignore[invalid-argument-type,invalid-assignment]
+        filepath: Path | list[Path] = [*map(Path, filepath)] if isinstance(filepath, list) else Path(filepath)
     module = Module(
         name=obj_dict["name"],
         filepath=filepath,

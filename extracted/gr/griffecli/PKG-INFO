@@ -1,6 +1,6 @@
-Metadata-Version: 2.4
+Metadata-Version: 2.5
 Name: griffecli
-Version: 2.1.0
+Version: 2.2.0
 Summary: Signatures for entire Python programs. Extract the structure, the frame, the skeleton of your project, to generate API documentation or find breaking changes in your API.
 Author-email: Timothée Mazzucotelli <dev@pawamoy.fr>
 License-Expression: ISC
@@ -22,4 +22,4 @@ Classifier: Topic :: Utilities
 Classifier: Typing :: Typed
 Requires-Python: >=3.10
 Requires-Dist: colorama>=0.4
-Requires-Dist: griffelib==2.1.0
+Requires-Dist: griffelib==2.2.0

@@ -1454,32 +1454,6 @@ class TestBackgroundJobPath:
         assert state.worktree_policy is AutoWorktreePolicy.ALWAYS
 
     @pytest.mark.asyncio
-    async def test_complete_product_with_short_timeout_fails_fast(
-        self, event_store, tmp_path, fake_inner_auto
-    ) -> None:
-        job_manager = MagicMock()
-        job_manager.allocate_job_id = AsyncMock(return_value="job_alloc")
-        store = AutoStore(tmp_path / "store")
-        h = StartAutoHandler(event_store=event_store, job_manager=job_manager, store=store)
-        h._inner_auto = fake_inner_auto
-
-        result = await h.handle(
-            {
-                "goal": "build a product",
-                "cwd": str(tmp_path),
-                "complete_product": True,
-                "pipeline_timeout_seconds": 100,
-            }
-        )
-
-        assert result.is_err
-        assert "complete_product=true requires pipeline_timeout_seconds >= 1800" in str(
-            result.error
-        )
-        job_manager.start_job.assert_not_called()
-        fake_inner_auto.handle.assert_not_called()
-
-    @pytest.mark.asyncio
     async def test_fresh_structured_goal_runner_resumes_without_preference_override(
         self, event_store, tmp_path
     ) -> None:
@@ -1572,7 +1546,40 @@ class TestBackgroundJobPath:
         kwargs = captured["pipeline_kwargs"]
         assert kwargs["seed_qa_evaluator"] is not None
         assert kwargs["seed_qa_evaluator"].qa_handler is qa_handler
-        assert kwargs["evaluator"] is None
+        # The pipeline no longer takes an `evaluator`: the run job's chain owns
+        # the post-run verdict.
+        assert "evaluator" not in kwargs
+
+    @pytest.mark.asyncio
+    async def test_auto_never_suppresses_the_run_job_successors(
+        self, event_store, tmp_path
+    ) -> None:
+        """Auto has no post-run phase left, so the run job's chain is the only owner.
+
+        The suppression flag existed for complete-product Auto, which drove
+        RALPH_HANDOFF -> EVALUATE itself. With that path retired there is no
+        second owner to protect against, and an override would leave the
+        finished run ungraded.
+        """
+        captured: dict[str, object] = {}
+
+        class FakeAutoPipeline:
+            def __init__(self, *_args, **kwargs):
+                captured["pipeline_kwargs"] = kwargs
+
+            async def run(self, state):
+                return AutoPipelineResult(
+                    status="blocked",
+                    auto_session_id=state.auto_session_id,
+                    phase=str(state.phase.value),
+                )
+
+        with patch("ouroboros.mcp.tools.auto_handler.AutoPipeline", FakeAutoPipeline):
+            h = AutoHandler(store=AutoStore(tmp_path), event_store=event_store)
+            await h._run({"goal": "build a CLI"})
+
+        run_starter = captured["pipeline_kwargs"]["run_starter"]
+        assert not hasattr(run_starter, "owns_successors")
 
     @pytest.mark.asyncio
     async def test_plugin_mode_returns_subagent_without_enqueue(
@@ -2851,3 +2858,64 @@ class TestAutoHandlerLeaseRelease:
 
         assert result.is_ok
         assert not lease_path.exists()
+
+
+class TestAutoRunSuccessorWiring:
+    """Auto-created run handlers must be able to enqueue the chain they delegate to.
+
+    #2120 turned the successor chain back on for default Auto, but Auto builds
+    its own ``StartExecuteSeedHandler``. Without the successor stack that
+    delegation silently degrades to
+    ``evaluation_status="enqueue_failed"`` — the run finishes and nothing
+    grades it, which is the exact failure the delegation was meant to remove.
+    """
+
+    def test_mcp_execution_start_handler_can_enqueue_successors(self) -> None:
+        from ouroboros.mcp.tools.auto_handler import _execution_start_handler
+
+        handler = _execution_start_handler(
+            None,
+            llm_backend=None,
+            agent_runtime_backend="claude",
+            opencode_mode=None,
+            mcp_manager=None,
+            mcp_tool_prefix="",
+        )
+
+        start_evaluate = handler.start_evaluate_handler
+        assert start_evaluate is not None
+        # ...and the link below it, or a rejected verdict cannot start Ralph.
+        start_ralph = start_evaluate.start_ralph_handler
+        assert start_ralph is not None
+        # A Ralph handler assembled by hand enqueues a job that then dies on its
+        # first generation with "EvolutionaryLoop not configured", so a non-null
+        # handler is not evidence the chain completes.
+        assert start_ralph._evolve_handler.evolutionary_loop is not None
+
+    def test_rebuild_preserves_an_injected_successor_stack(self) -> None:
+        """Rebuilding for another runtime must not drop the server's wiring."""
+        from ouroboros.mcp.tools.auto_handler import _execution_start_handler
+        from ouroboros.mcp.tools.execution_handlers import (
+            ExecuteSeedHandler,
+            StartExecuteSeedHandler,
+        )
+        from ouroboros.mcp.tools.run_successors import build_run_successor_handler
+
+        injected = build_run_successor_handler(agent_runtime_backend="claude")
+        original = StartExecuteSeedHandler(
+            execute_handler=ExecuteSeedHandler(agent_runtime_backend="claude"),
+            agent_runtime_backend="claude",
+            start_evaluate_handler=injected,
+        )
+
+        rebuilt = _execution_start_handler(
+            original,
+            llm_backend=None,
+            agent_runtime_backend="codex",
+            opencode_mode=None,
+            mcp_manager=None,
+            mcp_tool_prefix="",
+        )
+
+        assert rebuilt is not original
+        assert rebuilt.start_evaluate_handler is injected

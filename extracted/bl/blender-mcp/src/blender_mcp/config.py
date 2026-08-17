@@ -15,6 +15,8 @@ class TelemetryConfig:
     max_prompt_length: int = 1000
     screenshot_max_size: int = 800
     supabase_bucket: str = "telemetry-screenshots"
+    trajectory_steps_table: str = "trajectory_steps"
+    trajectory_feedback_table: str = "trajectory_feedback"
 
     def __post_init__(self):
         if not self.supabase_url or not self.supabase_anon_key:

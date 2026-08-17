@@ -141,17 +141,26 @@ class BuildableModule(BuildableFromSources):
 
         from importlib.machinery import EXTENSION_SUFFIXES
 
-        if self.gil_disabled:
-            target = '.abi3t'
-        elif self.uses_limited_api:
-            target = '.abi3'
-        else:
-            target = None
+        if self.uses_limited_api:
+            # Prefer an arch-specific extension if present (added in Python
+            # v3.15).
+            abi3 = abi3t = None
 
-        if target:
-            for s in EXTENSION_SUFFIXES:
-                if target in s:
-                    return s
+            for es in EXTENSION_SUFFIXES:
+                if es.startswith('.abi3t-'):
+                    abi3t = es
+                elif abi3t is None and es.startswith('.abi3t'):
+                    abi3t = es
+                elif es.startswith('.abi3-'):
+                    abi3 = es
+                elif abi3 is None and es.startswith('.abi3'):
+                    abi3 = es
+
+            if self.gil_disabled and abi3t is not None:
+                return abi3t
+
+            if abi3 is not None:
+                return abi3
 
         return EXTENSION_SUFFIXES[0]
 
@@ -201,7 +210,7 @@ class BuildableBindings(BuildableModule):
 
         with open(config_path, 'w') as cf:
             sip_version_str = SIP_VERSION_STR if self.project.version_info else ''
-            abi_major, abi_minor = self.project.target_abi
+            abi_major, abi_minor = self.project.abi_version
             tags = ', '.join(['"{}"'.format(t) for t in bindings.tags])
             disabled = ', '.join(
                     ['"{}"'.format(f) for f in bindings.disabled_features])
@@ -214,5 +223,5 @@ module-tags = [{tags}]
 module-disabled-features = [{disabled}]
 ''')
 
-            if self.project.target_abi >= (14, 0):
+            if self.project.abi_version[0] >= 14:
                 cf.write(f'sip-module-configuration = {self.sip_module_configuration}\n')

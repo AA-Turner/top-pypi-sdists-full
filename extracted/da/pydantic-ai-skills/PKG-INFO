@@ -1,6 +1,6 @@
-Metadata-Version: 2.4
+Metadata-Version: 2.5
 Name: pydantic-ai-skills
-Version: 1.3.0
+Version: 1.4.0
 Summary: A lightweight agent skill implementation for Pydantic AI
 Project-URL: Homepage, https://github.com/dougtrajano/pydantic-ai-skills
 Project-URL: Source, https://github.com/dougtrajano/pydantic-ai-skills
@@ -51,6 +51,10 @@ Requires-Dist: python-dotenv>=1.2.0; extra == 'examples'
 Requires-Dist: uvicorn>=0.46.0; extra == 'examples'
 Provides-Extra: git
 Requires-Dist: gitpython>=3.1.40; extra == 'git'
+Provides-Extra: localsandbox
+Requires-Dist: localsandbox>=0.3.2; (python_version >= '3.12') and extra == 'localsandbox'
+Provides-Extra: opensandbox
+Requires-Dist: opensandbox>=0.1.15; extra == 'opensandbox'
 Provides-Extra: s3
 Requires-Dist: boto3>=1.26.0; extra == 's3'
 Provides-Extra: test

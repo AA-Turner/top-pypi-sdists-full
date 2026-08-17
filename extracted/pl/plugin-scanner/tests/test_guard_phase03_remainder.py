@@ -12,7 +12,14 @@ import pytest
 from codex_plugin_scanner.guard.adapters.base import HarnessContext
 from codex_plugin_scanner.guard.cli import update_commands
 from codex_plugin_scanner.guard.cli.install_commands import apply_managed_install, list_harness_setup_items
+from codex_plugin_scanner.guard.mdm.contracts import ManagedNetworkPolicy
 from codex_plugin_scanner.guard.store import GuardStore
+from tests.update_context_test_support import build_legacy_update_context
+
+
+@pytest.fixture(autouse=True)
+def _use_legacy_update_context(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setattr(update_commands, "build_trusted_update_context", build_legacy_update_context)
 
 
 def _context(tmp_path: Path) -> HarnessContext:
@@ -69,9 +76,126 @@ def test_update_detects_uv_tool_install_and_pins_latest_version(monkeypatch: pyt
 
     assert exit_code == 0
     assert payload["installer"] == "uv"
-    assert payload["command"] == ["uv", "tool", "install", "--force", "hol-guard==2.0.10"]
-    assert payload["retry_command"] == "uv tool install --force hol-guard==2.0.10"
+    assert payload["command"] == [
+        "uv",
+        "tool",
+        "install",
+        "--force",
+        "--refresh-package",
+        "hol-guard",
+        "hol-guard==2.0.10",
+    ]
+    assert payload["retry_command"] == "hol-guard update"
     assert payload["binary_diagnostics"]["path_status"] == "uv_tool_shim_detected"
+
+
+def test_update_alpha_pins_latest_alpha_release(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setattr(update_commands.sys, "prefix", "/opt/pipx/venvs/hol-guard")
+    monkeypatch.setattr(update_commands.shutil, "which", lambda name: f"/opt/bin/{name}")
+    monkeypatch.setattr(update_commands, "_current_version", lambda: "2.0.1127")
+    monkeypatch.setattr(update_commands, "_direct_url_payload", lambda: None)
+    monkeypatch.setattr(update_commands, "_latest_alpha_version_from_pypi", lambda _current: "2.1.0a35")
+
+    payload, exit_code = update_commands.run_guard_update(dry_run=True, include_alpha=True)
+
+    assert exit_code == 0
+    assert payload["command"] == [
+        "pipx",
+        "runpip",
+        "hol-guard",
+        "install",
+        "--upgrade",
+        "--force-reinstall",
+        "--pre",
+        "hol-guard==2.1.0a35",
+    ]
+    assert payload["retry_command"] == "hol-guard update --alpha"
+    assert payload["release_channel"] == "alpha"
+    assert payload["version_check"]["release_channel"] == "alpha"
+
+
+def test_update_command_allows_prerelease_for_alpha_pins() -> None:
+    assert update_commands._update_command(
+        "uv",
+        use_pypi=True,
+        target_version="2.1.0a51",
+    ) == [
+        "uv",
+        "tool",
+        "install",
+        "--force",
+        "--refresh-package",
+        "hol-guard",
+        "--prerelease=allow",
+        "hol-guard==2.1.0a51",
+    ]
+    assert update_commands._update_command(
+        "pipx",
+        use_pypi=True,
+        target_version="2.1.0a51",
+    ) == ["pipx", "runpip", "hol-guard", "install", "--upgrade", "--force-reinstall", "--pre", "hol-guard==2.1.0a51"]
+    assert update_commands._update_command(
+        "pip",
+        use_pypi=True,
+        target_version="2.1.0a51",
+    )[-2:] == ["--pre", "hol-guard==2.1.0a51"]
+    assert update_commands._update_command(
+        "uv",
+        use_pypi=True,
+        target_version="2.0.1127",
+    ) == ["uv", "tool", "install", "--force", "--refresh-package", "hol-guard", "hol-guard==2.0.1127"]
+
+
+def test_latest_alpha_version_selects_newest_alpha_across_majors_and_skips_yanked(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setattr(update_commands, "_latest_version_from_pypi", lambda: "2.0.1127")
+    monkeypatch.setattr(
+        update_commands,
+        "_last_pypi_payload",
+        {
+            "releases": {
+                "2.1.0a34": [{"yanked": False}],
+                "2.1.0a35": [{"yanked": False}],
+                "2.2.0a1": [{"yanked": True}],
+                "2.2.0b1": [{"yanked": False}],
+                "3.0.0a9": [{"yanked": False}],
+                "3.1.0a1": [{"yanked": False}],
+            }
+        },
+    )
+
+    assert update_commands._latest_alpha_version_from_pypi("2.0.1127") == "3.1.0a1"
+    assert update_commands._latest_alpha_version_from_pypi("2.2.15") == "3.1.0a1"
+
+
+def test_alpha_python_fallback_stays_on_alpha_channel(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setattr(update_commands, "_latest_version_from_pypi", lambda: "2.2.20")
+    monkeypatch.setattr(update_commands, "_runtime_python_version", lambda: "3.12.0")
+    monkeypatch.setattr(
+        update_commands,
+        "_last_pypi_payload",
+        {
+            "releases": {
+                "2.2.20": [{"yanked": False, "requires_python": ">=3.10"}],
+                "3.0.0a8": [{"yanked": False, "requires_python": ">=3.10"}],
+                "3.0.0a9": [{"yanked": False, "requires_python": ">=3.13"}],
+            }
+        },
+    )
+    monkeypatch.setattr(
+        update_commands,
+        "_latest_alpha_version_from_pypi",
+        lambda _current: "3.0.0a9",
+    )
+
+    payload = update_commands._version_check_payload("2.2.15", include_alpha=True)
+
+    assert payload["release_channel"] == "alpha"
+    assert payload["status"] == "stale"
+    assert payload["latest_version"] == "3.0.0a8"
+    assert payload["pypi_latest_version"] == "3.0.0a9"
+    assert payload["pypi_latest_python_incompatible"] is True
 
 
 def test_update_version_check_marks_stale_local_install(monkeypatch: pytest.MonkeyPatch) -> None:
@@ -156,6 +280,7 @@ def test_update_version_check_reports_invalid_current_version_as_unavailable(
 
 def test_latest_version_lookup_uses_practical_timeout(monkeypatch: pytest.MonkeyPatch) -> None:
     timeouts: list[float] = []
+    read_limits: list[int] = []
 
     class FakeResponse:
         def __enter__(self) -> FakeResponse:
@@ -169,7 +294,8 @@ def test_latest_version_lookup_uses_practical_timeout(monkeypatch: pytest.Monkey
         ) -> None:
             return None
 
-        def read(self) -> bytes:
+        def read(self, limit: int) -> bytes:
+            read_limits.append(limit)
             return b'{"info":{"version":"2.0.1"}}'
 
     def fake_urlopen(request: object, timeout: float) -> FakeResponse:
@@ -180,6 +306,80 @@ def test_latest_version_lookup_uses_practical_timeout(monkeypatch: pytest.Monkey
 
     assert update_commands._latest_version_from_pypi() == "2.0.1"
     assert timeouts == [3.0]
+    assert read_limits == [update_commands._PYPI_RESPONSE_LIMIT_BYTES + 1]
+
+
+def test_latest_version_lookup_rejects_oversized_response(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setattr(update_commands, "_PYPI_RESPONSE_LIMIT_BYTES", 32)
+
+    class FakeResponse:
+        def __enter__(self) -> FakeResponse:
+            return self
+
+        def __exit__(
+            self,
+            exc_type: type[BaseException] | None,
+            exc_value: BaseException | None,
+            traceback: object,
+        ) -> None:
+            return None
+
+        def read(self, limit: int) -> bytes:
+            assert limit == 33
+            return b"x" * limit
+
+    monkeypatch.setattr(update_commands.urllib.request, "urlopen", lambda *_args, **_kwargs: FakeResponse())
+
+    assert update_commands._latest_version_from_pypi() is None
+
+
+def test_version_lookup_uses_captured_update_network_policy(monkeypatch: pytest.MonkeyPatch) -> None:
+    captured_policies: list[ManagedNetworkPolicy | None] = []
+    policy = ManagedNetworkPolicy(proxy_mode="none")
+
+    class FakeResponse:
+        def __enter__(self) -> FakeResponse:
+            return self
+
+        def __exit__(
+            self,
+            exc_type: type[BaseException] | None,
+            exc_value: BaseException | None,
+            traceback: object,
+        ) -> None:
+            return None
+
+        def read(self, _limit: int) -> bytes:
+            return b'{"info":{"version":"2.0.1"}}'
+
+    def fake_urlopen(
+        request: object,
+        *,
+        timeout: float,
+        policy: ManagedNetworkPolicy | None,
+    ) -> FakeResponse:
+        del request, timeout
+        captured_policies.append(policy)
+        return FakeResponse()
+
+    monkeypatch.setattr(update_commands, "managed_urlopen", fake_urlopen)
+
+    payload = update_commands._version_check_payload("2.0.0", network_policy=policy)
+
+    assert payload["latest_version"] == "2.0.1"
+    assert captured_policies == [policy]
+
+
+def test_bounded_version_read_enforces_total_deadline(monkeypatch: pytest.MonkeyPatch) -> None:
+    observed_times = iter((0.0, 0.5, 1.1))
+    monkeypatch.setattr(update_commands.time, "monotonic", lambda: next(observed_times))
+
+    class SlowDripResponse:
+        def read1(self, _limit: int) -> bytes:
+            return b"x"
+
+    with pytest.raises(TimeoutError, match="deadline"):
+        update_commands._read_bounded_pypi_response(SlowDripResponse(), deadline=1.0)
 
 
 def test_latest_version_lookup_handles_truncated_response(monkeypatch: pytest.MonkeyPatch) -> None:
@@ -291,8 +491,10 @@ def test_codex_doctor_marks_partial_native_hook_install_as_broken(tmp_path: Path
     payload = get_adapter("codex").diagnostics(context)
 
     assert payload["setup_status"] == "broken"
-    assert payload["native_hook_state"]["managed_pre_tool_hook_installed"] is True
+    assert payload["native_hook_state"]["managed_pre_tool_hook_installed"] is False
     assert payload["native_hook_state"]["managed_hook_installed"] is False
+    assert payload["native_hook_state"]["integrity_status"] == "missing"
+    assert payload["native_hook_state"]["foreign_hook_entries_present"] is True
     assert any("managed Codex hooks are missing" in warning for warning in payload["warnings"])
 
 
@@ -478,3 +680,61 @@ def test_install_native_contract_output_prefers_native_hooks_for_supported_harne
     assert managed_install["native_hooks"] is True
     assert managed_install["primary_integration"] == "native_hooks"
     assert managed_install["manifest"]["mode"] == "codex-mcp-proxy"
+
+
+def test_success_status_same_version_force_reinstall_is_current() -> None:
+    payload = {
+        "current_version": "2.2.31",
+        "resulting_version": "2.2.31",
+        "stdout": "Successfully installed hol-guard-2.2.31 rich-14.3.4",
+        "stderr": "",
+        "version_check": {
+            "status": "current",
+            "update_available": False,
+            "latest_version": "2.2.31",
+        },
+        "upgrade_source": "pypi",
+    }
+    assert update_commands._success_status(payload) == "current"
+    assert update_commands._version_changed("2.2.31", "2.2.31") is False
+
+
+def test_success_status_same_version_explicit_recovery_is_updated() -> None:
+    payload = {
+        "current_version": "2.2.31",
+        "resulting_version": "2.2.31",
+        "stdout": "Successfully installed hol-guard-2.2.31",
+        "stderr": "",
+        "recovery_reinstall": True,
+        "version_check": {
+            "status": "current",
+            "update_available": False,
+            "latest_version": "2.2.31",
+        },
+        "upgrade_source": "pypi",
+    }
+    assert update_commands._success_status(payload) == "updated"
+    assert (
+        update_commands._success_message(
+            status="updated",
+            current_version="2.2.31",
+            resulting_version="2.2.31",
+        )
+        == "HOL Guard source was repaired successfully."
+    )
+
+
+def test_success_status_version_bump_is_updated() -> None:
+    payload = {
+        "current_version": "2.2.30",
+        "resulting_version": "2.2.31",
+        "stdout": "Successfully installed hol-guard-2.2.31",
+        "stderr": "",
+        "version_check": {
+            "status": "current",
+            "update_available": False,
+            "latest_version": "2.2.31",
+        },
+        "upgrade_source": "pypi",
+    }
+    assert update_commands._success_status(payload) == "updated"

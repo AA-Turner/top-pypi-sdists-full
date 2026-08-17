@@ -20,7 +20,7 @@ import logging
 from pathlib import Path
 from typing import Any, Optional
 
-from hashrepo import (
+from gen_worker._vendor.tensorfs import (
     CASRef,
     Chunk,
     DigestMismatch,
@@ -28,7 +28,11 @@ from hashrepo import (
     TransferGrant,
     download,
 )
-from torch_compiled_graphs import StoreOutcome, is_compiled_graph_key
+from gen_worker._vendor.torchcg import (
+    ARTIFACT_KIND,
+    StoreOutcome,
+    is_compiled_graph_key,
+)
 
 from . import boot_phases, receipts
 from .api.errors import RetryableError
@@ -101,7 +105,7 @@ def materialize_named_artifact(
     with boot_phases.span(
         boot_phases.PHASE_CELL_FETCH,
         ref=cell_ref,
-        artifact_kind="aot-inductor",
+        artifact_kind=ARTIFACT_KIND,
         artifact_key=str(content_digest or ""),
     ) if boot_phases.in_boot() else contextlib.nullcontext() as fetch_span:
         return _materialize_named_artifact(
@@ -190,7 +194,7 @@ def _materialize_named_artifact(
     except ValueError as exc:
         raise NamedArtifactUnavailable(
             "artifact_fetch_failed",
-            f"{what}: named cell {cell_ref!r} has invalid HashRepo transport: {exc}",
+            f"{what}: named cell {cell_ref!r} has invalid tensorfs transport: {exc}",
         ) from exc
     try:
         report = download(grants, cas)

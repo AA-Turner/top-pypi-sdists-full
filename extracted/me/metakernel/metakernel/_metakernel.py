@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import asyncio
 import glob
 import importlib
 import inspect
@@ -96,7 +97,7 @@ class MetaKernel(Kernel):
     app_name = "metakernel"
     identifier_regex = r"[^\d\W][\w\.]*"
     func_call_regex = r"([^\d\W][\w\.]*)\([^\)\()]*\Z"
-    magic_prefixes = dict(magic="%", shell="!", help="?")
+    magic_prefixes = {"magic": "%", "shell": "!", "help": "?"}
     help_suffix = "?"
     help_links = [
         {
@@ -117,7 +118,7 @@ class MetaKernel(Kernel):
         # 'file_extension': '.py',
         "help_links": help_links,
     }
-    plot_settings: dict[str, Any] = Dict(dict(backend="inline")).tag(config=True)  # type: ignore[assignment]
+    plot_settings: dict[str, Any] = Dict({"backend": "inline"}).tag(config=True)  # type: ignore[assignment]
 
     meta_kernel = None
 
@@ -142,7 +143,10 @@ class MetaKernel(Kernel):
             # (eg, not as a process)
             # FIXME: take care of input/output, eg StringIO
             #        make work without a session
-            self.log = logging.Logger(".metakernel")  # type:ignore[unreachable]
+            # Each kernel instance needs its own isolated Logger (not a shared
+            # one from the logging manager's registry) so its handlers -- and
+            # the log text tests capture from them -- don't leak across instances.
+            self.log = logging.Logger(".metakernel")  # type:ignore[unreachable]  # noqa: LOG001
         else:
             # Write has already been set
             try:
@@ -245,13 +249,11 @@ class MetaKernel(Kernel):
         """
         Set a variable to a Python-typed value.
         """
-        pass
 
     def get_variable(self, name: str) -> Any:
         """
         Lookup a variable name and return a Python-typed value.
         """
-        pass
 
     def repr(self, item: Any) -> str:
         """The repr of the kernel."""
@@ -272,7 +274,6 @@ class MetaKernel(Kernel):
 
     def handle_plot_settings(self) -> None:
         """Handle the current plot settings"""
-        pass
 
     def get_local_magics_dir(self) -> str:
         """
@@ -291,7 +292,6 @@ class MetaKernel(Kernel):
         """
         Execute code in the kernel language.
         """
-        pass
 
     def do_execute_file(self, filename: str) -> Any:
         """
@@ -314,13 +314,7 @@ class MetaKernel(Kernel):
 
         for highlighting expressions in the frontend.
         """
-        if code == "reset":
-            raise Exception("This kernel does not implement this meta command")
-        elif code == "stop":
-            raise Exception("This kernel does not implement this meta command")
-        elif code == "step":
-            raise Exception("This kernel does not implement this meta command")
-        elif code.startswith("inspect "):
+        if code in ("reset", "stop", "step") or code.startswith("inspect "):
             raise Exception("This kernel does not implement this meta command")
         else:
             raise Exception(f"Unknown meta command: '{code}'")
@@ -344,7 +338,35 @@ class MetaKernel(Kernel):
 
     def restart_kernel(self) -> None:
         """Restart the kernel"""
-        pass
+
+    def _request_shutdown(self) -> None:
+        """Send an ask_exit payload and schedule kernel shutdown.
+
+        Called when do_execute_direct raises SystemExit so the kernel closes
+        gracefully instead of waiting for the parent-process monitor to fire.
+        """
+        self.kernel_resp["payload"] = [{"source": "ask_exit", "keepkernel": False}]
+
+        # Suppress the parent-poller warning: we are shutting down intentionally,
+        # so whichever exit path fires first (ours or the poller's) is fine.
+        # The poller logs via traitlets.log.get_logger(), which returns the app's
+        # logger directly — filters must be added there, not on logging.root (root
+        # filters are not re-applied to propagated records).
+        class _SuppressParentExit(logging.Filter):
+            def filter(self, record: logging.LogRecord) -> bool:
+                return "Parent appears to have exited" not in record.getMessage()
+
+        _f = _SuppressParentExit()
+        self.log.addFilter(_f)
+        logging.root.addFilter(_f)
+
+        loop = asyncio.get_event_loop()
+
+        async def _shutdown() -> None:
+            await self.do_shutdown(False)
+            os._exit(0)
+
+        loop.call_later(0.1, lambda: loop.create_task(_shutdown()))
 
     ############################################
     # Implement base class methods
@@ -437,6 +459,9 @@ class MetaKernel(Kernel):
                         retval = self.do_execute_direct(code)
                         if inspect.isawaitable(retval):
                             retval = await retval
+                    except SystemExit:
+                        self._request_shutdown()
+                        return self.kernel_resp
                     except Exception as e:
                         retval = ExceptionWrapper(type(e).__name__, str(e), [])
             # Post-process magics:
@@ -450,6 +475,9 @@ class MetaKernel(Kernel):
                     retval = self.do_execute_direct(code)
                     if inspect.isawaitable(retval):
                         retval = await retval
+                except SystemExit:
+                    self._request_shutdown()
+                    return self.kernel_resp
                 except Exception as e:
                     retval = ExceptionWrapper(type(e).__name__, str(e), [])
 
@@ -534,7 +562,7 @@ class MetaKernel(Kernel):
 
         https://jupyter-client.readthedocs.io/en/stable/messaging.html#history
         """
-        with open(self.hist_file) as fid:
+        with open(self.hist_file) as fid:  # noqa: ASYNC230 -- small file, infrequent call
             self.hist_cache = json.loads(fid.read() or "[]")
         return {"status": "ok", "history": [(None, None, h) for h in self.hist_cache]}
 
@@ -545,7 +573,7 @@ class MetaKernel(Kernel):
         https://jupyter-client.readthedocs.io/en/stable/messaging.html#kernel-shutdown
         """
         if self.hist_file:
-            with open(self.hist_file, "w") as fid:
+            with open(self.hist_file, "w") as fid:  # noqa: ASYNC230 -- small file, infrequent call
                 json.dump(self.hist_cache[-self.max_hist_cache :], fid)
         if restart:
             self.Print("Restarting kernel...")
@@ -600,6 +628,13 @@ class MetaKernel(Kernel):
             "metadata": {},
         }
 
+        # When the cursor sits after a non-identifier character (e.g. `/`, `-`) the
+        # id_regex matches empty string, setting cursor_start to 0.  Path completions
+        # are already stripped of their prefix, so we only need to append them at the
+        # cursor position — not replace from the beginning of the line.
+        if not info["obj"] and info["path_matches"]:
+            content["cursor_start"] = content["cursor_end"]
+
         matches = info["path_matches"]
 
         if info["magic"]:
@@ -625,7 +660,7 @@ class MetaKernel(Kernel):
 
             elif not info["magic"]["code"] and not info["magic"]["args"]:
                 matches = []
-                for name in magics.keys():
+                for name in magics:
                     if name.startswith(info["magic"]["name"]):
                         pre = info["magic"]["prefix"]
                         matches.append(pre + name)
@@ -643,6 +678,13 @@ class MetaKernel(Kernel):
                     content["cursor_end"] + len(info["full_obj"]) - len(info["obj"])
                 )
                 matches = new_list
+
+        # Extend the path-completion fix (#432) to magic get_completions: when the
+        # cursor sits after a non-identifier character (e.g. `--`, `-`) the id_regex
+        # again matches empty string so cursor_start is 0.  Completions should be
+        # appended at the cursor, not used to replace the entire line.
+        if not info["obj"] and matches:
+            content["cursor_start"] = content["cursor_end"]
 
         content["matches"] = sorted(matches)
 

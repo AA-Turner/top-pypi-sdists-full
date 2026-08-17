@@ -1,6 +1,7 @@
 """Structured-output parsing keeps the markdown a model wrote with literal newlines."""
 
 import json
+from typing import Any, Callable, List
 
 import pytest
 from pydantic import BaseModel
@@ -99,6 +100,67 @@ def test_multiple_objects_defer_to_agno():
 def test_prose_only_input_is_not_hijacked():
     assert lenient_structured_parse("just a sentence, no json here") is None
     assert _parse("just a sentence, no json here") is None
+
+
+def _counting_original(calls: List[Any]) -> Callable:
+    """Stand-in for agno's parser that records every content it is delegated."""
+
+    def original(content: Any, output_schema: Any = None) -> None:
+        calls.append(content)
+        return None
+
+    return original
+
+
+def test_empty_and_prose_content_never_reach_agno() -> None:
+    """Streaming narration/empty turns must not enter agno's warning chain."""
+    from xpander_sdk.utils.agno_output_parsing import (
+        _patch_parse_response_dict_str,
+        _patch_parse_response_model_str,
+    )
+
+    calls: List[Any] = []
+    wrapped = _patch_parse_response_model_str(_counting_original(calls))
+    assert wrapped("", Envelope) is None
+    assert wrapped("   \n", Envelope) is None
+    assert wrapped("Let me check the calendar first.", Envelope) is None
+    assert calls == []
+
+    dict_calls: List[Any] = []
+    wrapped_dict = _patch_parse_response_dict_str(_counting_original(dict_calls))
+    assert wrapped_dict("") is None
+    assert wrapped_dict("plain narration, nothing structured") is None
+    assert dict_calls == []
+
+
+def test_bare_scalar_json_still_delegates() -> None:
+    """agno's json.loads tier accepts scalars - a brace-less 'true' stays agno's call."""
+    from xpander_sdk.utils.agno_output_parsing import _patch_parse_response_dict_str
+
+    calls: List[Any] = []
+    wrapped = _patch_parse_response_dict_str(_counting_original(calls))
+    assert wrapped("true") is None
+    assert wrapped("42") is None
+    assert wrapped('"quoted answer"') is None
+    assert len(calls) == 3
+
+
+def test_prose_wrapping_a_real_envelope_still_parses() -> None:
+    """Prose followed by a real envelope keeps parsing end to end."""
+    raw = "Here you go:\n" + json.dumps(
+        {"title": "T", "short_summary": "S", "final_result": "done"}
+    )
+    assert _parse(raw).final_result == "done"
+
+
+def test_unparseable_braced_content_still_delegates() -> None:
+    """Anything carrying a brace keeps agno's original in the loop."""
+    from xpander_sdk.utils.agno_output_parsing import _patch_parse_response_model_str
+
+    calls: List[Any] = []
+    wrapped = _patch_parse_response_model_str(_counting_original(calls))
+    assert wrapped('{"title": broken', Envelope) is None
+    assert len(calls) == 1
 
 
 def test_missing_required_field_falls_back():

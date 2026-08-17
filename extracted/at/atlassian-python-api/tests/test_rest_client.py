@@ -4,6 +4,7 @@ Unit tests for atlassian.rest_client module
 """
 
 import io
+from base64 import b64decode
 from datetime import datetime, timedelta
 from types import SimpleNamespace
 
@@ -78,6 +79,24 @@ class TestAtlassianRestAPI:
         assert prepared_request.headers["Authorization"] == "Bearer expected-token"
         assert api.session.trust_env is True
 
+    def test_token_authentication_strips_file_line_endings(self):
+        api = AtlassianRestAPI(url="https://confluence.example.test", token="expected-token\r\n")
+
+        prepared_request = api.session.prepare_request(requests.Request("GET", "https://confluence.example.test"))
+
+        assert prepared_request.headers["Authorization"] == "Bearer expected-token"
+
+    def test_cloud_api_token_uses_basic_authentication(self):
+        api = AtlassianRestAPI(
+            url="https://confluence.example.test", username="you@example.test", password="cloud-api-token", cloud=True
+        )
+
+        prepared_request = api.session.prepare_request(requests.Request("GET", "https://confluence.example.test"))
+
+        scheme, encoded_credentials = prepared_request.headers["Authorization"].split(" ", 1)
+        assert scheme == "Basic"
+        assert b64decode(encoded_credentials).decode() == "you@example.test:cloud-api-token"
+
     def test_log_curl_debug_does_not_double_encode_serialized_json(self, monkeypatch):
         messages = []
         monkeypatch.setattr("atlassian.rest_client.log.log", lambda **kwargs: messages.append(kwargs["msg"]))
@@ -124,6 +143,20 @@ class TestAtlassianRestAPI:
         self.api.request("GET", "tasks", params={"task-id": [1, 2]}, advanced_mode=True)
 
         assert captured["url"].endswith("tasks?task-id=1&task-id=2")
+
+    def test_request_serializes_boolean_data_for_requests(self, monkeypatch):
+        captured = {}
+
+        def request(**kwargs):
+            captured.update(kwargs)
+            return SimpleNamespace(status_code=200, reason="OK", text="", encoding=None)
+
+        monkeypatch.setattr(self.api._session, "request", request)
+        monkeypatch.setattr(self.api, "raise_for_status", lambda _response: None)
+
+        self.api.request("POST", "content", data=True, advanced_mode=True)
+
+        assert captured["data"] == "true"
 
     def test_init_with_cert(self):
         """Test initialization with certificate"""

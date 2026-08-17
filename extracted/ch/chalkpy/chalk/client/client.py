@@ -27,6 +27,7 @@ from chalk.client.models import (
     BulkOnlineQueryResponse,
     ChalkError,
     CreateModelTrainingJobResponse,
+    DataQualityTestResponse,
     FeatureDropResponse,
     FeatureObservationDeletionResponse,
     FeatureReference,
@@ -73,6 +74,7 @@ if TYPE_CHECKING:
     from chalk.client._chalkdf_import import ChalkDfDataFrame
     from chalk.client.api import APINamespace
     from chalk.features._encoding.inputs import InputSchemaHint
+    from chalk.queries.data_quality import DataQualityCheck
     from chalk.queries.named_query import NamedQuery
     from chalk.scalinggroup.spec import (
         AutoScalingSpec,
@@ -2783,6 +2785,76 @@ class ChalkClient:
         """
         ...
 
+    def test_dqm(
+        self,
+        query_id: str | uuid.UUID,
+        *,
+        input_checks: Collection[str | DataQualityCheck] = (),
+        output_checks: Collection[str | DataQualityCheck] = (),
+        environment: EnvironmentId | None = None,
+        branch: BranchId | ellipsis | None = ...,
+        timeout: float | ellipsis | None = ...,
+    ) -> DataQualityTestResponse:
+        """Run data quality checks against a query that already ran.
+
+        The checks are the same ones `ScheduledQuery.with_checks` and `offline_query` take,
+        and they compile to the same SQL, so a check drafted here pastes into the query
+        declaration unchanged. Unlike those two, this re-runs nothing: it replays the checks
+        against the table a past run already wrote, gating nothing and writing nothing.
+
+        Parameters
+        ----------
+        query_id
+            The operation whose output is checked. For `output_checks=` that is the query's
+            own id. For `input_checks=` it is the id of the step that produced the spine,
+            since a spine is that step's output and no operation records its own input.
+        input_checks
+            Checks to run against the table as `dqm.input`.
+        output_checks
+            Checks to run against the table as `dqm.output`.
+            Pass one stage or the other, not both: a call checks the single table `query_id`
+            wrote, and passing both would check that one table twice under two names.
+            Passing neither is legal and reports just the table's columns.
+        environment
+            The environment under which to run. API tokens can be scoped to an environment;
+            if none is specified the environment is taken from the client's cached token.
+        branch
+            If specified, Chalk will route the request to the relevant branch.
+        timeout
+            Request timeout in seconds. A check aggregates the whole table, so on a large
+            output it can outlast a timeout that is fine for an online query.
+
+        Returns
+        -------
+        DataQualityTestResponse
+            `passed` is the verdict, `would_terminate` says whether a scheduled query
+            carrying these checks would have failed this stage, and `assertions` carries each
+            check's reported metrics, distributions and verdicts. A check whose SQL could not
+            run reports its `error` instead of failing the whole call, so one broken draft
+            does not hide what the checks beside it found. `columns` is the checked table's
+            schema, which is worth reading first: feature columns are dotted and must be
+            quoted.
+
+        Examples
+        --------
+        >>> from chalk.client import ChalkClient
+        >>> from chalk.queries import Check
+        >>> client = ChalkClient()
+        >>> # Start by looking at what the run actually produced. Feature columns are dotted,
+        >>> # so they must be quoted in a check's SQL.
+        >>> client.test_dqm(query_id="<the run>").columns
+        ['user.id', 'user.email', 'user.age']
+        >>> result = client.test_dqm(
+        ...     query_id="<the run>",
+        ...     output_checks=[
+        ...         Check.sql_metric('count("user.email") * 1.0 / count(*)', min=0.9, name="email_coverage"),
+        ...         Check.sql_bad_rows('"user.age" > 120', name="implausible_age"),
+        ...     ],
+        ... )
+        >>> print(result)
+        """
+        ...
+
     def test_streaming_resolver(
         self,
         resolver: str | Resolver,
@@ -3434,6 +3506,7 @@ class ChalkClient:
         enable_profiling: bool = False,
         resource_group: str | None = None,
         input_sql: str | None = None,
+        num_shards: int | None = None,
         plan_only: bool = False,
     ) -> AggregateBackfillResponse:
         """Trigger one or more aggregate backfill jobs.
@@ -3466,6 +3539,13 @@ class ChalkClient:
             Resource group to use for the created backfill jobs.
         input_sql : str, optional
             Chalk SQL query to use to resolve event data. Mutually exclusive with `resolver`.
+        num_shards : int, optional
+            Maximum number of bucket-aligned, time-sharded jobs to split each backfill
+            job's window into. Must be > 1 when provided. The server chooses the actual count (at most this many,
+            based on its per-shard window-width policy) so that all shards stay aligned
+            to the aggregation's bucket grid. Useful when a single job over the full
+            window would run out of memory or disk. Requires a Chalk deployment with
+            job-queue execution enabled; unset preserves the single-job behavior.
         plan_only : bool, optional
             If `True`, validate the request and return the planner's split with cost
             estimates without creating anything. The response's `job` is `None`, and

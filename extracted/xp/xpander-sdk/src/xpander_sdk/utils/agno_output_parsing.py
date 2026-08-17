@@ -10,6 +10,7 @@ raw text first and accept it only when it validates against the same schema;
 anything else falls through to agno untouched.
 """
 
+import json
 import re
 from typing import Any, Callable, List, Optional
 
@@ -84,10 +85,29 @@ def lenient_structured_parse(content: str) -> Optional[dict]:
     return parsed if isinstance(parsed, dict) else None
 
 
+def _nothing_to_parse(content: Any) -> bool:
+    """True when no parser could extract anything: empty or brace-less non-JSON text."""
+    if not isinstance(content, str):
+        return False
+    if not content.strip():
+        return True
+    if "{" in content or "[" in content:
+        return False
+    try:
+        # a bare scalar ("true", "42", a quoted string) is agno's to handle
+        json.loads(content)
+        return False
+    except Exception:
+        return True
+
+
 def _patch_parse_response_model_str(original: Callable) -> Callable:
     """Wrap agno's schema parser with the lenient tier, falling back to `original`."""
 
     def parse_response_model_str(content: Any, output_schema: Any) -> Optional[Any]:
+        # streaming feeds every narration/empty turn here - skip agno's warning chain
+        if _nothing_to_parse(content):
+            return None
         try:
             data = lenient_structured_parse(content)
             if data is not None:
@@ -103,6 +123,8 @@ def _patch_parse_response_dict_str(original: Callable) -> Callable:
     """Wrap agno's dict parser with the lenient tier, falling back to `original`."""
 
     def parse_response_dict_str(content: Any) -> Optional[dict]:
+        if _nothing_to_parse(content):
+            return None
         try:
             data = lenient_structured_parse(content)
             if data is not None:

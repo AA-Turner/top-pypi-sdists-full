@@ -67,7 +67,6 @@ call with it; a paragraph is not a caller.
 from __future__ import annotations
 
 import hashlib
-import importlib.metadata
 import importlib.util
 import json
 import logging
@@ -81,12 +80,13 @@ from typing import (
 
 import msgspec
 
+from ._vendor import vendored_rev
 from . import boot_phases, compile_cache as cc, graph_facts
 from .child_contract import CompileSpec, MintSlot, slot_subjects
 from . import hostfacts
 
 if TYPE_CHECKING:
-    from torch_compiled_graphs import GraphClassDeclaration
+    from gen_worker._vendor.torchcg import GraphClassDeclaration
 
 logger = logging.getLogger(__name__)
 
@@ -355,11 +355,14 @@ def _endpoint_source_facts(modules: Sequence[str]) -> Tuple[Tuple[str, str], ...
 
 
 def _tcg_version() -> str:
-    """Installed TCG release whose declaration semantics the memo stores."""
-    try:
-        return str(importlib.metadata.version("torch-compiled-graphs"))
-    except importlib.metadata.PackageNotFoundError:
-        return ""
+    """Vendored TCG rev whose declaration semantics the memo stores.
+
+    pgw#1310: TCG is vendored, so it has no distribution metadata to read. The
+    old `importlib.metadata.version(...)` swallowed PackageNotFoundError into
+    `""` — which, once the distribution was gone, would have silently dropped
+    TCG from the memo key and stopped a TCG change from invalidating anything.
+    """
+    return vendored_rev("torchcg")
 
 
 def closure_digest(
@@ -544,12 +547,18 @@ def assert_memo_honest(
         f"invalidated: " + "; ".join(disagreements[:4]))
 
 
+# pgw#1299: these are `GraphClassDeclaration`'s FIELD names, not TCG's
+# artifact-metadata block. `graph_class` here is the field holding a class NAME;
+# `GRAPH_CLASS_BLOCK` is the metadata block key. Equal strings, different
+# vocabularies — substituting the block name would couple pgw's own boot-memo
+# wire format to a rename of something else entirely. A TCG field rename is
+# already loud here: `declaration.graph_class` below raises AttributeError.
 _DECLARATION_FIELDS = frozenset({
     "class_hash",
     "class_dims",
     "fork",
     "graph",
-    "graph_class",
+    "graph_class",  # tcg-vocab: declaration field name, not the metadata block
     "graph_witness",
     "literal_values",
     "lora_bucket",
@@ -563,7 +572,7 @@ _DECLARATION_FIELDS = frozenset({
 def serialize_declaration(declaration: "GraphClassDeclaration") -> str:
     """Canonical wire form of one already-validated TCG declaration."""
     payload = {
-        "graph_class": declaration.graph_class,
+        "graph_class": declaration.graph_class,  # tcg-vocab: declaration field
         "target": declaration.target,
         "graph": dict(declaration.graph),
         "graph_witness": declaration.graph_witness,
@@ -589,7 +598,7 @@ def declaration_hashes(declarations: Mapping[str, str]) -> Dict[str, str]:
     ingress, range, witness, coordinates and literals; comparing its derived
     hash to the child's stated hash catches a corrupt or drifted child wire.
     """
-    from torch_compiled_graphs import GraphClassDeclaration
+    from gen_worker._vendor.torchcg import GraphClassDeclaration
 
     hashes: Dict[str, str] = {}
     for name, canonical in declarations.items():
@@ -615,14 +624,14 @@ def declaration_hashes(declarations: Mapping[str, str]) -> Dict[str, str]:
             raise ValueError(
                 f"boot graph class {name!r} declaration is not canonical JSON"
             )
-        if payload.get("graph_class") != name:
+        if payload.get("graph_class") != name:  # tcg-vocab: declaration field
             raise ValueError(
                 f"boot graph class map names {name!r}, declaration names "
-                f"{payload.get('graph_class')!r}"
+                f"{payload.get('graph_class')!r}"  # tcg-vocab: declaration field
             )
         try:
             declaration = GraphClassDeclaration(
-                graph_class=payload["graph_class"],
+                graph_class=payload["graph_class"],  # tcg-vocab: declaration field
                 target=payload["target"],
                 graph=payload["graph"],
                 graph_witness=payload["graph_witness"],
@@ -679,7 +688,7 @@ def fold(
     This parent supplies only the current ``sm`` and toolchain through TCG's
     public identity functions; no worker graph or key arithmetic remains.
     """
-    from torch_compiled_graphs.identity import from_axes, toolchain_axis_digest
+    from gen_worker._vendor.torchcg.identity import from_axes, toolchain_axis_digest
 
     sm = str(cc.runtime_key().get("sm") or "")
     if not sm:

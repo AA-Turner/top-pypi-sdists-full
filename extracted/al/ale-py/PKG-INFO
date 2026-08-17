@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: ale-py
-Version: 0.12.0
+Version: 0.12.1
 Summary: The Arcade Learning Environment (ALE) - a platform for AI research.
 Keywords: reinforcement-learning,arcade-learning-environment,atari
 Author: Marc G. Bellemare, Yavar Naddaf, Joel Veness, Michael Bowling
@@ -19,7 +19,7 @@ Classifier: Topic :: Scientific/Engineering
 Classifier: Topic :: Scientific/Engineering :: Artificial Intelligence
 Project-URL: homepage, https://github.com/Farama-Foundation/Arcade-Learning-Environment
 Project-URL: documentation, https://ale.farama.org
-Project-URL: changelog, https://github.com/Farama-Foundation/Arcade-Learning-Environment/blob/master/CHANGELOG.md
+Project-URL: changelog, https://github.com/Farama-Foundation/Arcade-Learning-Environment/blob/main/CHANGELOG.md
 Requires-Python: >=3.10
 Requires-Dist: numpy>1.20
 Requires-Dist: typing-extensions; python_version < "3.11"
@@ -29,14 +29,14 @@ Requires-Dist: opencv-python>=3.0; extra == "vector"
 Provides-Extra: xla
 Requires-Dist: gymnasium>=1.1.0; extra == "xla"
 Requires-Dist: opencv-python>=3.0; extra == "xla"
-Requires-Dist: jax>=0.4.31; (sys_platform == "win32" or sys_platform == "linux") and extra == "xla"
-Requires-Dist: chex; (sys_platform == "win32" or sys_platform == "linux") and extra == "xla"
+Requires-Dist: jax>=0.4.31; extra == "xla"
+Requires-Dist: chex; extra == "xla"
 Provides-Extra: test
 Requires-Dist: pytest>=7.0; extra == "test"
 Requires-Dist: gymnasium>=1.1.0; extra == "test"
 Requires-Dist: opencv-python>=3.0; extra == "test"
-Requires-Dist: jax>=0.4.31; (sys_platform == "win32" or sys_platform == "linux") and extra == "test"
-Requires-Dist: chex; (sys_platform == "win32" or sys_platform == "linux") and extra == "test"
+Requires-Dist: jax>=0.4.31; extra == "test"
+Requires-Dist: chex; extra == "test"
 Description-Content-Type: text/markdown
 
 [![Python](https://img.shields.io/pypi/pyversions/ale-py.svg)](https://badge.fury.io/py/ale-py)
@@ -44,7 +44,7 @@ Description-Content-Type: text/markdown
 
 <p align="center">
     <a href="https://ale.farama.org/" target = "_blank">
-    <img src="https://github.com/Farama-Foundation/Arcade-Learning-Environment/blob/main/docs/_static/img/ale.svg" width="500px" />
+    <img src="ale-text-v2-centered.png" width="500px" />
 </a>
 
 **The Arcade Learning Environment (ALE) is a simple framework that allows researchers and hobbyists to develop AI agents for Atari 2600 games.**
@@ -142,7 +142,7 @@ cmake --build . --target install
 ```
 
 There are optional flags `-DSDL_SUPPORT=ON/OFF` to toggle SDL support (i.e., `display_screen` and `sound` support; `OFF` by default), `-DBUILD_CPP_LIB=ON/OFF` to build
-the `ale-lib` C++ target (`ON` by default), and `-DBUILD_PYTHON_LIB=ON/OFF` to build the pybind11 wrapper (`ON` by default).
+the `ale-lib` C++ target (`ON` by default), and `-DBUILD_PYTHON_LIB=ON/OFF` to build the nanobind wrapper (`ON` by default).
 
 Finally, you can link against the ALE in your own CMake project as follows
 
@@ -219,7 +219,7 @@ In BibTex format:
 
 If you use the CALE (Continuous ALE), we ask you that you also cite the following:
 
-*Jesse Farebrother and Pablo Samuel Castro.  Cale:  Continuous arcade learning environment.Ad-vances in Neural Information Processing Systems, 2024.*
+*Jesse Farebrother and Pablo Samuel Castro.  Cale:  Continuous arcade learning environment. Advances in Neural Information Processing Systems, 2024.*
 
 In BibTex format:
 

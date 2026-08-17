@@ -6,6 +6,7 @@ import argparse
 import io
 import json
 from pathlib import Path
+from types import SimpleNamespace
 from typing import cast
 
 import pytest
@@ -13,7 +14,10 @@ import pytest
 from codex_plugin_scanner.guard.adapters.base import HarnessContext
 from codex_plugin_scanner.guard.cli import commands_hook_copilot as copilot_hook
 from codex_plugin_scanner.guard.cli import commands_hook_runtime_review as runtime_review
-from codex_plugin_scanner.guard.cli.commands_hook_runtime_state import RuntimeArtifactHookState
+from codex_plugin_scanner.guard.cli.commands_hook_runtime_state import (
+    RuntimeArtifactHookState,
+    set_runtime_artifact_hook_final_action,
+)
 from codex_plugin_scanner.guard.config import GuardConfig
 from codex_plugin_scanner.guard.mcp_tool_calls import ToolCallDecision
 from codex_plugin_scanner.guard.models import GuardArtifact
@@ -111,7 +115,7 @@ def _runtime_receipt(artifact: GuardArtifact, artifact_hash: str, policy_action:
     )
 
 
-def test_runtime_review_observe_mode_keeps_saved_block_terminal(
+def test_runtime_review_observe_mode_records_saved_block_without_enforcing_it(
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
@@ -153,6 +157,7 @@ def test_runtime_review_observe_mode_keeps_saved_block_terminal(
     monkeypatch.setattr(runtime_review, "ensure_guard_daemon", _fail_queue)
     monkeypatch.setattr(runtime_review, "queue_blocked_approvals", _fail_queue)
 
+    store = GuardStore(context.guard_home)
     result = runtime_review._review_runtime_artifact_hook(
         state,
         _copilot_args(),
@@ -161,17 +166,18 @@ def test_runtime_review_observe_mode_keeps_saved_block_terminal(
         guard_home=context.guard_home,
         managed_install=None,
         payload={"hook_event_name": "PreToolUse", "tool_name": "dangerous_delete"},
-        store=GuardStore(context.guard_home),
+        store=store,
         workspace=context.workspace_dir,
     )
 
-    assert result == 0
-    assert state.policy_action == "block"
-    assert state.response_payload["policy_action"] == "block"
-    assert emitted_actions == ["block"]
+    assert result is None
+    assert state.policy_action == "allow"
+    assert state.response_payload["policy_action"] == "allow"
+    assert state.response_payload["observed_policy_action"] == "block"
+    assert emitted_actions == []
 
 
-def test_runtime_review_observe_mode_allows_fresh_block_without_approval_queue(
+def test_runtime_review_observe_mode_allows_fresh_block_with_retrospective_queue(
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
@@ -202,6 +208,7 @@ def test_runtime_review_observe_mode_allows_fresh_block_without_approval_queue(
     monkeypatch.setattr(runtime_review, "ensure_guard_daemon", _fail_queue)
     monkeypatch.setattr(runtime_review, "queue_blocked_approvals", _fail_queue)
 
+    store = GuardStore(context.guard_home)
     result = runtime_review._review_runtime_artifact_hook(
         state,
         _copilot_args(json_output=True),
@@ -210,18 +217,190 @@ def test_runtime_review_observe_mode_allows_fresh_block_without_approval_queue(
         guard_home=context.guard_home,
         managed_install=None,
         payload={"hook_event_name": "PreToolUse", "tool_name": "dangerous_delete"},
-        store=GuardStore(context.guard_home),
+        store=store,
         workspace=context.workspace_dir,
     )
 
     assert result is None
     assert state.policy_action == "allow"
     assert state.response_payload["policy_action"] == "allow"
+    assert state.response_payload["resolved_policy_action"] == "allow"
     assert state.response_payload["approval_requests"] == []
     assert state.response_payload["observed_terminal_action"] == "block"
+    assert state.response_payload["observed_policy_action"] == "block"
+    assert "terminal_action" not in state.response_payload
+    assert "blocked" not in str(state.response_payload["trigger_summary"]).lower()
+    assert "reviewed" in str(state.response_payload["trigger_summary"]).lower()
+    assert "allows" in str(state.response_payload["why_now"]).lower()
+    assert state.decision_v2_payload["action"] == "allow"
+    assert state.receipt.policy_decision == "allow"
+    pending = store.list_approval_requests(limit=10)
+    assert len(pending) == 1
+    assert pending[0]["policy_action"] == "require-reapproval"
+    assert pending[0]["scanner_evidence"][-1] == {
+        "source": "observe_mode_inbox",
+        "observed_policy_action": "block",
+        "queued_policy_action": "require-reapproval",
+        "authoritative_action": "allow",
+    }
 
 
-def test_copilot_pretool_observe_mode_keeps_saved_block_terminal_with_evidence(
+def test_runtime_final_action_rewrites_package_copy_and_preserves_observation(
+    tmp_path: Path,
+) -> None:
+    artifact = _artifact(tmp_path)
+    artifact_hash = "guard-approval-context:v1:package-review"
+    observed_user_copy = {
+        "title": "Package warning",
+        "summary": "Guard found a package warning.",
+        "next_step": "Inspect the warning.",
+        "harness_message": "Package action allowed with a warning.",
+    }
+    state = RuntimeArtifactHookState(
+        action_envelope=None,
+        artifact_id=artifact.artifact_id,
+        artifact_name=artifact.name,
+        browser_approval_daemon_client=None,
+        changed_capabilities=["runtime_tool_call"],
+        decision_signals=(),
+        decision_v2_payload={},
+        event_name="PreToolUse",
+        initial_policy_action="review",
+        package_evaluation=object(),
+        policy_action="review",
+        receipt=_runtime_receipt(artifact, artifact_hash, "review"),
+        requested_policy_action="review",
+        response_payload={
+            "policy_action": "review",
+            "risk_summary": "Guard paused this package action for review.",
+            "supply_chain_evaluation": {
+                "decision": "warn",
+                "policy_action": "warn",
+                "risk_summary": "Guard found a package warning.",
+                "user_copy": observed_user_copy,
+            },
+        },
+        risk_summary="Guard paused this package action for review.",
+        runtime_artifact=artifact,
+        runtime_artifact_hash=artifact_hash,
+        scanner_evidence_payload=[],
+        stored_policy_action=None,
+    )
+
+    set_runtime_artifact_hook_final_action(
+        state,
+        "allow",
+        observed_policy_action="review",
+    )
+
+    decision = state.decision_v2_payload
+    package = cast(dict[str, object], state.response_payload["supply_chain_evaluation"])
+    user_copy = cast(dict[str, object], package["user_copy"])
+    assert state.response_payload["policy_action"] == "allow"
+    assert state.response_payload["risk_summary"] == decision["dashboard_primary_detail"]
+    assert "review" not in str(state.response_payload["risk_summary"]).lower()
+    assert "allows" in str(state.response_payload["risk_headline"]).lower()
+    assert package["decision"] == "allow"
+    assert package["policy_action"] == "allow"
+    assert package["risk_summary"] == decision["dashboard_primary_detail"]
+    assert user_copy == {
+        "title": decision["user_title"],
+        "summary": decision["user_body"],
+        "next_step": decision["user_body"],
+        "harness_message": decision["harness_message"],
+    }
+    assert state.response_payload["observed_policy_action"] == "review"
+    assert package["observed_policy_action"] == "warn"
+    assert package["observed_risk_summary"] == "Guard found a package warning."
+    assert package["observed_user_copy"] == observed_user_copy
+
+
+def test_runtime_observe_mode_preserves_executable_package_warning(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    artifact = _artifact(tmp_path)
+    context = _context(tmp_path)
+    artifact_hash = "guard-approval-context:v1:mixed-review-warning"
+    package_evaluation = SimpleNamespace(
+        policy_action="warn",
+        to_dict=lambda: {
+            "decision": "warn",
+            "policy_action": "warn",
+            "risk_summary": "Package warning remains executable.",
+        },
+    )
+    state = RuntimeArtifactHookState(
+        action_envelope=None,
+        artifact_id=artifact.artifact_id,
+        artifact_name=artifact.name,
+        browser_approval_daemon_client=None,
+        changed_capabilities=["runtime_tool_call"],
+        decision_signals=(),
+        decision_v2_payload={},
+        event_name="PreToolUse",
+        initial_policy_action="review",
+        package_evaluation=package_evaluation,
+        policy_action="review",
+        receipt=_runtime_receipt(artifact, artifact_hash, "review"),
+        requested_policy_action="review",
+        response_payload={
+            "policy_action": "review",
+            "risk_summary": "Overall policy requires review.",
+            "policy_composition": {
+                "current_config_action": "review",
+                "package_action": "warn",
+                "authoritative_action": "review",
+            },
+            "supply_chain_evaluation": {
+                "decision": "warn",
+                "policy_action": "warn",
+                "risk_summary": "Package warning remains executable.",
+                "user_copy": {
+                    "title": "Package warning",
+                    "summary": "Package warning remains executable.",
+                },
+            },
+        },
+        risk_summary="Overall policy requires review.",
+        runtime_artifact=artifact,
+        runtime_artifact_hash=artifact_hash,
+        scanner_evidence_payload=[],
+        stored_policy_action=None,
+    )
+    monkeypatch.setattr(runtime_review, "ensure_guard_daemon", _fail_queue)
+    monkeypatch.setattr(runtime_review, "load_guard_surface_daemon_client", _fail_queue)
+    monkeypatch.setattr(runtime_review, "queue_blocked_approvals", _fail_queue)
+
+    store = GuardStore(context.guard_home)
+    result = runtime_review._review_runtime_artifact_hook(
+        state,
+        _copilot_args(json_output=True),
+        config=GuardConfig(context.guard_home, context.workspace_dir, mode="observe"),
+        context=context,
+        guard_home=context.guard_home,
+        managed_install=None,
+        payload={"hook_event_name": "PreToolUse", "tool_name": "dangerous_delete"},
+        store=store,
+        workspace=context.workspace_dir,
+    )
+
+    package = cast(dict[str, object], state.response_payload["supply_chain_evaluation"])
+    assert result is None
+    assert state.policy_action == "warn"
+    assert state.response_payload["policy_action"] == "warn"
+    assert state.response_payload["approval_requests"] == []
+    pending = store.list_approval_requests(limit=10)
+    assert len(pending) == 1
+    assert pending[0]["scanner_evidence"][-1]["authoritative_action"] == "warn"
+    assert state.response_payload["observed_policy_action"] == "review"
+    assert state.decision_v2_payload["guard_action"] == "warn"
+    assert state.receipt.policy_decision == "warn"
+    assert package["policy_action"] == "warn"
+    assert package["observed_policy_action"] == "warn"
+
+
+def test_copilot_pretool_observe_mode_records_saved_block_without_enforcing_it(
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
@@ -230,7 +409,6 @@ def test_copilot_pretool_observe_mode_keeps_saved_block_terminal_with_evidence(
     store = GuardStore(context.guard_home)
     output = io.StringIO()
     monkeypatch.setattr(copilot_hook, "evaluate_tool_call", lambda **_kwargs: _saved_block_decision())
-    monkeypatch.setattr(copilot_hook, "_queue_observed_copilot_approval", _fail_queue)
     monkeypatch.setattr(copilot_hook, "_record_harness_usage_for_hook", lambda **_kwargs: None)
 
     result = copilot_hook._run_hook_copilot_pretool(
@@ -248,8 +426,7 @@ def test_copilot_pretool_observe_mode_keeps_saved_block_terminal_with_evidence(
 
     response = cast(dict[str, object], json.loads(output.getvalue()))
     assert result == 0
-    assert response["permissionDecision"] == "deny"
-    assert "approve" not in str(response["permissionDecisionReason"]).lower()
+    assert response["permissionDecision"] == "allow"
     assert response["approval_reuse"] == {
         "status": "accepted",
         "reason_code": "approval_reuse_saved_block",
@@ -262,13 +439,20 @@ def test_copilot_pretool_observe_mode_keeps_saved_block_terminal_with_evidence(
     assert isinstance(approval_reuse, dict)
     assert isinstance(scanner_evidence, list)
     assert scanner_evidence[0] == {"source": "approval_reuse", **approval_reuse}
+    assert scanner_evidence[-1] == {
+        "source": "observe_mode",
+        "observed_policy_action": "block",
+        "authoritative_action": "allow",
+    }
     receipt = store.list_receipts(limit=1)[0]
-    assert receipt["policy_decision"] == "block"
+    assert receipt["policy_decision"] == "allow"
     assert _receipt_reuse_evidence(store) == {"source": "approval_reuse", **approval_reuse}
-    assert store.list_approval_requests(limit=10) == []
+    pending = store.list_approval_requests(limit=10)
+    assert len(pending) == 1
+    assert pending[0]["policy_action"] == "require-reapproval"
 
 
-def test_copilot_permission_request_saved_block_is_terminal_and_never_queued(
+def test_copilot_permission_request_observe_mode_does_not_enforce_saved_block(
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
@@ -277,7 +461,6 @@ def test_copilot_permission_request_saved_block_is_terminal_and_never_queued(
     store = GuardStore(context.guard_home)
     output = io.StringIO()
     monkeypatch.setattr(copilot_hook, "evaluate_tool_call", lambda **_kwargs: _saved_block_decision())
-    monkeypatch.setattr(copilot_hook, "_queue_observed_copilot_approval", _fail_queue)
     monkeypatch.setattr(copilot_hook, "ensure_guard_daemon", _fail_queue)
     monkeypatch.setattr(copilot_hook, "queue_blocked_approvals", _fail_queue)
     monkeypatch.setattr(copilot_hook, "_record_harness_usage_for_hook", lambda **_kwargs: None)
@@ -298,9 +481,8 @@ def test_copilot_permission_request_saved_block_is_terminal_and_never_queued(
 
     response = cast(dict[str, object], json.loads(output.getvalue()))
     assert result == 0
-    assert response["behavior"] == "deny"
-    assert response["interrupt"] is True
-    assert "approve" not in str(response["message"]).lower()
+    assert response["behavior"] == "allow"
+    assert "interrupt" not in response
     approval_reuse = response["approval_reuse"]
     scanner_evidence = response["scanner_evidence"]
     assert isinstance(approval_reuse, dict)
@@ -311,9 +493,11 @@ def test_copilot_permission_request_saved_block_is_terminal_and_never_queued(
     assert isinstance(first_evidence, dict)
     assert first_evidence["reason_code"] == "approval_reuse_saved_block"
     receipt = store.list_receipts(limit=1)[0]
-    assert receipt["policy_decision"] == "block"
+    assert receipt["policy_decision"] == "allow"
     assert _receipt_reuse_evidence(store)["reason_code"] == "approval_reuse_saved_block"
-    assert store.list_approval_requests(limit=10) == []
+    pending = store.list_approval_requests(limit=10)
+    assert len(pending) == 1
+    assert pending[0]["policy_action"] == "require-reapproval"
 
 
 def test_copilot_permission_request_fresh_block_is_terminal_and_never_queued(
@@ -325,7 +509,6 @@ def test_copilot_permission_request_fresh_block_is_terminal_and_never_queued(
     store = GuardStore(context.guard_home)
     output = io.StringIO()
     monkeypatch.setattr(copilot_hook, "evaluate_tool_call", lambda **_kwargs: _fresh_block_decision())
-    monkeypatch.setattr(copilot_hook, "_queue_observed_copilot_approval", _fail_queue)
     monkeypatch.setattr(copilot_hook, "ensure_guard_daemon", _fail_queue)
     monkeypatch.setattr(copilot_hook, "queue_blocked_approvals", _fail_queue)
     monkeypatch.setattr(copilot_hook, "_record_harness_usage_for_hook", lambda **_kwargs: None)
@@ -363,7 +546,6 @@ def test_copilot_saved_allow_is_explained_in_native_response_and_allow_receipt(
     store = GuardStore(context.guard_home)
     output = io.StringIO()
     monkeypatch.setattr(copilot_hook, "evaluate_tool_call", lambda **_kwargs: _saved_allow_decision())
-    monkeypatch.setattr(copilot_hook, "_queue_observed_copilot_approval", _fail_queue)
     monkeypatch.setattr(copilot_hook, "_record_harness_usage_for_hook", lambda **_kwargs: None)
 
     result = copilot_hook._run_hook_copilot_pretool(
@@ -395,7 +577,7 @@ def test_copilot_saved_allow_is_explained_in_native_response_and_allow_receipt(
 
 
 @pytest.mark.parametrize("flow", ("pretool", "permission-request"))
-def test_copilot_observe_mode_allows_fresh_block_without_approval_queue(
+def test_copilot_observe_mode_allows_fresh_block_with_retrospective_queue(
     flow: str,
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,
@@ -405,7 +587,6 @@ def test_copilot_observe_mode_allows_fresh_block_without_approval_queue(
     store = GuardStore(context.guard_home)
     output = io.StringIO()
     monkeypatch.setattr(copilot_hook, "evaluate_tool_call", lambda **_kwargs: _fresh_block_decision())
-    monkeypatch.setattr(copilot_hook, "_queue_observed_copilot_approval", _fail_queue)
     monkeypatch.setattr(copilot_hook, "_record_harness_usage_for_hook", lambda **_kwargs: None)
     config = GuardConfig(context.guard_home, context.workspace_dir, mode="observe")
     if flow == "pretool":
@@ -444,3 +625,12 @@ def test_copilot_observe_mode_allows_fresh_block_without_approval_queue(
     scanner_evidence = receipt["scanner_evidence"]
     assert isinstance(scanner_evidence, list)
     assert not any(item.get("source") == "approval_reuse" for item in scanner_evidence if isinstance(item, dict))
+    pending = store.list_approval_requests(limit=10)
+    assert len(pending) == 1
+    assert pending[0]["policy_action"] == "require-reapproval"
+    assert pending[0]["scanner_evidence"][-1] == {
+        "source": "observe_mode_inbox",
+        "observed_policy_action": "block",
+        "queued_policy_action": "require-reapproval",
+        "authoritative_action": "allow",
+    }

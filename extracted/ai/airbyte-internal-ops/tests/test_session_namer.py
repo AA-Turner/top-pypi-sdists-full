@@ -3,10 +3,8 @@
 import pytest
 
 from airbyte_ops_mcp.session_namer import (
-    NamingScheme,
     _load_seed_data,
     extract_session_id,
-    generate_all_names,
     generate_friendly_name,
     get_namespace_size,
 )
@@ -14,24 +12,17 @@ from airbyte_ops_mcp.session_namer import (
 
 @pytest.mark.unit
 @pytest.mark.parametrize(
-    "identifier,scheme",
+    "identifier",
     [
-        pytest.param("test-session-123", NamingScheme.SUPERHERO, id="superhero"),
-        pytest.param("test-session-123", NamingScheme.SILLY_BUDDY, id="silly_buddy"),
-        pytest.param("", NamingScheme.SUPERHERO, id="empty_string"),
-        pytest.param(
-            "b2a641e838214f91b50d0f88940ac119",
-            NamingScheme.SUPERHERO,
-            id="uuid_like",
-        ),
+        pytest.param("test-session-123", id="standard"),
+        pytest.param("", id="empty_string"),
+        pytest.param("b2a641e838214f91b50d0f88940ac119", id="uuid_like"),
     ],
 )
-def test_generate_friendly_name_deterministic(
-    identifier: str, scheme: NamingScheme
-) -> None:
-    """Same identifier + scheme always produces the same Title Case two-word name."""
-    name_a = generate_friendly_name(identifier, scheme)
-    name_b = generate_friendly_name(identifier, scheme)
+def test_generate_friendly_name_deterministic(identifier: str) -> None:
+    """The same identifier always produces the same Title Case two-word name."""
+    name_a = generate_friendly_name(identifier)
+    name_b = generate_friendly_name(identifier)
     assert name_a == name_b
     parts = name_a.split(" ")
     assert len(parts) == 2, f"Expected 2 words, got {len(parts)}: {name_a!r}"
@@ -41,110 +32,59 @@ def test_generate_friendly_name_deterministic(
 
 @pytest.mark.unit
 @pytest.mark.parametrize(
-    "id_a,id_b,scheme",
+    "id_a,id_b",
     [
-        pytest.param(
-            "session-alpha", "session-beta", NamingScheme.SUPERHERO, id="superhero"
-        ),
-        pytest.param(
-            "session-alpha",
-            "session-beta",
-            NamingScheme.SILLY_BUDDY,
-            id="silly_buddy",
-        ),
+        pytest.param("session-alpha", "session-beta", id="different_ids"),
     ],
 )
-def test_generate_friendly_name_different_ids(
-    id_a: str, id_b: str, scheme: NamingScheme
-) -> None:
+def test_generate_friendly_name_different_ids(id_a: str, id_b: str) -> None:
     """Different identifiers produce different names (probabilistically)."""
-    assert generate_friendly_name(id_a, scheme) != generate_friendly_name(id_b, scheme)
+    assert generate_friendly_name(id_a) != generate_friendly_name(id_b)
 
 
 @pytest.mark.unit
-def test_generate_all_names_matches_individual() -> None:
-    """generate_all_names returns one entry per scheme, matching individual calls."""
-    identifier = "consistency-check"
-    all_names = generate_all_names(identifier)
-    assert set(all_names.keys()) == {s.value for s in NamingScheme}
-    for scheme in NamingScheme:
-        assert all_names[scheme.value] == generate_friendly_name(identifier, scheme)
+def test_get_namespace_size() -> None:
+    """The namespace size matches the combinations in the seed lists."""
+    assert get_namespace_size() == 156 * 144
 
 
 @pytest.mark.unit
 @pytest.mark.parametrize(
-    "scheme,min_size",
+    "identifier,expected_name",
     [
-        pytest.param(NamingScheme.SUPERHERO, 40_000, id="superhero"),
-        pytest.param(NamingScheme.SILLY_BUDDY, 40_000, id="silly_buddy"),
-    ],
-)
-def test_get_namespace_size(scheme: NamingScheme, min_size: int) -> None:
-    """Each scheme has at least 40K combinations."""
-    size = get_namespace_size(scheme)
-    assert isinstance(size, int)
-    assert size >= min_size
-
-
-@pytest.mark.unit
-def test_naming_scheme_members() -> None:
-    """Enum has exactly the two expected members with correct string values."""
-    assert NamingScheme.SUPERHERO.value == "superhero"
-    assert NamingScheme.SILLY_BUDDY.value == "silly-buddy"
-    assert len(NamingScheme) == 2
-
-
-@pytest.mark.unit
-@pytest.mark.parametrize(
-    "identifier,scheme,expected_name",
-    [
-        pytest.param(
-            "test-session-123",
-            NamingScheme.SUPERHERO,
-            "Teal Burglar",
-            id="superhero_known",
-        ),
-        pytest.param(
-            "test-session-123",
-            NamingScheme.SILLY_BUDDY,
-            "Sneaky Seymour",
-            id="silly_buddy_known",
-        ),
+        pytest.param("test-session-123", "Trustworthy Sheriff", id="standard_known"),
         pytest.param(
             "b2a641e838214f91b50d0f88940ac119",
-            NamingScheme.SUPERHERO,
-            "Hardy Paladin",
-            id="superhero_uuid",
-        ),
-        pytest.param(
-            "b2a641e838214f91b50d0f88940ac119",
-            NamingScheme.SILLY_BUDDY,
-            "Ratty Kate",
-            id="silly_buddy_uuid",
+            "Prudent Navigator",
+            id="standard_uuid",
         ),
     ],
 )
-def test_golden_vectors(
-    identifier: str, scheme: NamingScheme, expected_name: str
-) -> None:
-    """Known (identifier, scheme) pairs always produce the exact expected name."""
-    assert generate_friendly_name(identifier, scheme) == expected_name
+def test_golden_vectors(identifier: str, expected_name: str) -> None:
+    """Known identifiers always produce the exact expected name."""
+    assert generate_friendly_name(identifier) == expected_name
 
 
 @pytest.mark.unit
 def test_yaml_seed_data_loads() -> None:
     """YAML seed file loads and contains expected keys with non-empty lists."""
     data = _load_seed_data()
-    expected_keys = [
-        "superhero_adjectives",
-        "superhero_nouns",
-        "silly_buddy_adjectives",
-        "silly_buddy_names",
-    ]
+    expected_keys = ["adjectives", "nouns"]
     for key in expected_keys:
         assert key in data, f"Missing key: {key}"
         assert isinstance(data[key], list), f"{key} is not a list"
-        assert len(data[key]) > 100, f"{key} has too few entries: {len(data[key])}"
+        assert len(data[key]) > 0, f"{key} is empty"
+
+
+@pytest.mark.unit
+def test_yaml_seed_entries_are_strings() -> None:
+    """Every seed entry is a string, including YAML boolean-like words."""
+    data = _load_seed_data()
+    for key in ("adjectives", "nouns"):
+        assert all(isinstance(entry, str) for entry in data[key]), (
+            f"{key} contains a non-string entry; quote YAML boolean-like words "
+            "per the seed file quoting rule"
+        )
 
 
 # ---------------------------------------------------------------------------
@@ -170,6 +110,36 @@ _KNOWN_ID = "b2a641e838214f91b50d0f88940ac119"
             id="devin_url_trailing_slash",
         ),
         pytest.param(
+            f"https://app.devin.ai/sessions/{_KNOWN_ID}?pr=1281",
+            _KNOWN_ID,
+            id="devin_url_query_parameter",
+        ),
+        pytest.param(
+            f"https://app.devin.ai/sessions/{_KNOWN_ID}#tab=shell",
+            _KNOWN_ID,
+            id="devin_url_fragment",
+        ),
+        pytest.param(
+            f"https://app.devin.ai/sessions/{_KNOWN_ID}/pr/1281",
+            _KNOWN_ID,
+            id="devin_url_extra_path",
+        ),
+        pytest.param(
+            f"https://app.devin.ai/sessions/devin-{_KNOWN_ID}",
+            _KNOWN_ID,
+            id="devin_url_prefixed_id",
+        ),
+        pytest.param(
+            f"devin-{_KNOWN_ID}",
+            _KNOWN_ID,
+            id="devin_prefixed_id",
+        ),
+        pytest.param(
+            "https://app.devin.ai/sessions/deadbeef-zz",
+            "https://app.devin.ai/sessions/deadbeef-zz",
+            id="devin_url_invalid_id",
+        ),
+        pytest.param(
             f"https://other.example.com/sessions/{_KNOWN_ID}",
             _KNOWN_ID,
             id="other_host_sessions_url",
@@ -191,8 +161,19 @@ def test_extract_session_id(raw_input: str, expected_id: str) -> None:
 def test_url_and_bare_id_produce_same_name() -> None:
     """A session URL and its bare ID must produce identical names."""
     url = f"https://app.devin.ai/sessions/{_KNOWN_ID}"
-    name_from_id = generate_friendly_name(_KNOWN_ID, NamingScheme.SILLY_BUDDY)
-    name_from_url = generate_friendly_name(
-        extract_session_id(url), NamingScheme.SILLY_BUDDY
-    )
-    assert name_from_id == name_from_url == "Ratty Kate"
+    name_from_id = generate_friendly_name(_KNOWN_ID)
+    name_from_url = generate_friendly_name(extract_session_id(url))
+    assert name_from_id == name_from_url
+
+
+@pytest.mark.unit
+def test_devin_id_and_bare_id_produce_same_name() -> None:
+    """All supported forms, including a prefixed URL, produce one name."""
+    devin_id = f"devin-{_KNOWN_ID}"
+    url = f"https://app.devin.ai/sessions/{_KNOWN_ID}"
+    prefixed_url = f"https://app.devin.ai/sessions/{devin_id}"
+    names = {
+        generate_friendly_name(extract_session_id(identifier))
+        for identifier in (devin_id, _KNOWN_ID, url, prefixed_url)
+    }
+    assert names == {generate_friendly_name(_KNOWN_ID)}

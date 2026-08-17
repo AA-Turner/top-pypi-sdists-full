@@ -1,4 +1,5 @@
 import {
+  keyModifierFromEvent,
   matchesModifierFilter,
   motionExceedsThreshold,
   pointerButtonFromNative,
@@ -6,10 +7,7 @@ import {
   type KeyModifier,
 } from "../dragUtils";
 import { CameraLockManager } from "./cameraLock";
-import {
-  HoverCursorManager,
-  type ScenePointerEventType,
-} from "./hoverSet";
+import { HoverCursorManager, type ScenePointerEventType } from "./hoverSet";
 
 export type { ScenePointerEventType } from "./hoverSet";
 
@@ -52,7 +50,26 @@ const IDLE: CanvasGesture = { kind: "idle" };
 
 export class ScenePointerController {
   private gesture: CanvasGesture = IDLE;
-  private readonly filters = new Map<ScenePointerEventType, (KeyModifier | null)[]>();
+  /** Modifier filters per event type, kept PER OWNER (broadcast scope ""
+   * plus this connection's client scope): both scopes may register scene
+   * pointer callbacks independently, and one scope disabling its filters
+   * must not deactivate the other's. Gesture engagement uses the union
+   * across owners; the server dispatches one ScenePointerMessage to every
+   * scope, each of which matches against its own registrations. */
+  private readonly filters = new Map<
+    ScenePointerEventType,
+    Map<string, (KeyModifier | null)[]>
+  >();
+
+  private unionFilter(
+    eventType: ScenePointerEventType,
+  ): (KeyModifier | null)[] | undefined {
+    const byOwner = this.filters.get(eventType);
+    if (byOwner === undefined) return undefined;
+    const out: (KeyModifier | null)[] = [];
+    for (const modifiers of byOwner.values()) out.push(...modifiers);
+    return out;
+  }
   /** Cleanup for window-level pointerup/pointercancel listeners
    * installed while a gesture is engaged. Null when idle. The
    * listeners catch releases that happen off the canvas -- a
@@ -84,7 +101,9 @@ export class ScenePointerController {
       this.cancelPointer(event.pointerId);
     };
     window.addEventListener("pointerup", onPointerUp, { passive: true });
-    window.addEventListener("pointercancel", onPointerCancel, { passive: true });
+    window.addEventListener("pointercancel", onPointerCancel, {
+      passive: true,
+    });
     this.windowListenerCleanup = () => {
       window.removeEventListener("pointerup", onPointerUp);
       window.removeEventListener("pointercancel", onPointerCancel);
@@ -103,23 +122,35 @@ export class ScenePointerController {
 
   applyFiltersDelta(
     eventType: ScenePointerEventType,
+    owner: string,
     modifiers: readonly (KeyModifier | null)[],
   ): void {
-    if (modifiers.length === 0) this.filters.delete(eventType);
-    else this.filters.set(eventType, [...modifiers]);
+    const byOwner = this.filters.get(eventType);
+    if (modifiers.length === 0) {
+      if (byOwner !== undefined) {
+        byOwner.delete(owner);
+        if (byOwner.size === 0) this.filters.delete(eventType);
+      }
+    } else if (byOwner === undefined) {
+      this.filters.set(eventType, new Map([[owner, [...modifiers]]]));
+    } else {
+      byOwner.set(owner, [...modifiers]);
+    }
     this.hover.refresh();
   }
 
   getFilter(
     eventType: ScenePointerEventType,
   ): readonly (KeyModifier | null)[] | undefined {
-    return this.filters.get(eventType);
+    return this.unionFilter(eventType);
   }
 
   anyFilterMatches(modifier: KeyModifier | null): boolean {
-    for (const list of this.filters.values()) {
-      for (const f of list) {
-        if (matchesModifierFilter(modifier, f)) return true;
+    for (const byOwner of this.filters.values()) {
+      for (const list of byOwner.values()) {
+        for (const f of list) {
+          if (matchesModifierFilter(modifier, f)) return true;
+        }
       }
     }
     return false;
@@ -140,7 +171,8 @@ export class ScenePointerController {
 
     const input: DragInput = { button, modifier: args.modifier };
     const eligible = new Set<ScenePointerEventType>();
-    for (const [eventType, modifiers] of this.filters) {
+    for (const eventType of this.filters.keys()) {
+      const modifiers = this.unionFilter(eventType)!;
       if (
         button === "left" &&
         modifiers.some((m) => matchesModifierFilter(args.modifier, m))
@@ -178,7 +210,10 @@ export class ScenePointerController {
   /** Returns true when the rect-select overlay should repaint. */
   onPointerMove(args: { pointerId: number; xy: [number, number] }): boolean {
     const g = this.gesture;
-    if (g.kind !== "scene-pointer-candidate" && g.kind !== "scene-rect-select") {
+    if (
+      g.kind !== "scene-pointer-candidate" &&
+      g.kind !== "scene-rect-select"
+    ) {
       return false;
     }
     if (g.pointerId !== args.pointerId) return false;
@@ -256,10 +291,20 @@ export class ScenePointerController {
     this.removeWindowListeners();
   }
 
-  resetForTest(): void {
-    this.cancelAny();
+  /** Drop every scope's filters. Called on (re)connect: owner ids are
+   * connection-scoped (a reconnected browser is a NEW client id), so any
+   * surviving per-owner entry is unreachable garbage that would keep its
+   * event type permanently engaged -- no disable for that owner can ever
+   * arrive. Broadcast-scope enables replay from the persistent buffer
+   * right after. */
+  clearFilters(): void {
     this.filters.clear();
     this.hover.refresh();
+  }
+
+  resetForTest(): void {
+    this.cancelAny();
+    this.clearFilters();
   }
 }
 
@@ -269,7 +314,10 @@ type NodeCandidate = {
   startClientXy: [number, number];
   release: (() => void) | null;
   cleanup: () => void;
-  onPromote: (() => boolean) | null;
+  /** Called with the modifier held on the promoting pointermove -- the
+   * modifier may have changed since pointerdown, and the drag layer's
+   * own key listeners only install once the drag begins. */
+  onPromote: ((promotionModifier: KeyModifier | null) => boolean) | null;
 };
 
 export class NodeGestureController {
@@ -295,7 +343,7 @@ export class NodeGestureController {
     nodeKey: string;
     startClientXy: [number, number];
     lockCamera: boolean;
-    onPromote: (() => boolean) | null;
+    onPromote: ((promotionModifier: KeyModifier | null) => boolean) | null;
   }): void {
     this.cancelCandidate();
 
@@ -310,7 +358,7 @@ export class NodeGestureController {
       ) {
         return;
       }
-      this.promoteOrCancelCandidate();
+      this.promoteOrCancelCandidate(keyModifierFromEvent(event));
     };
     const handlePointerUp = (event: PointerEvent) => {
       const candidate = this.candidate;
@@ -379,12 +427,14 @@ export class NodeGestureController {
     this.cancelAny();
   }
 
-  private promoteOrCancelCandidate(): void {
+  private promoteOrCancelCandidate(
+    promotionModifier: KeyModifier | null,
+  ): void {
     const candidate = this.candidate;
     if (candidate === null) return;
     const promote = candidate.onPromote;
     this.cancelCandidate();
-    if (promote !== null) promote();
+    if (promote !== null) promote(promotionModifier);
   }
 
   private cancelCandidate(): void {

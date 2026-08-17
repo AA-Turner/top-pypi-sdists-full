@@ -7,8 +7,24 @@ import functools
 import io
 import logging
 import os
+import time
+import weakref
 from datetime import datetime
-from typing import TYPE_CHECKING, Any, Callable, Deque, Dict, Iterable, List, Mapping, Optional, Sequence, Union, cast
+from typing import (
+    TYPE_CHECKING,
+    Any,
+    Callable,
+    Deque,
+    Dict,
+    Iterable,
+    List,
+    Mapping,
+    Optional,
+    Sequence,
+    Tuple,
+    Union,
+    cast,
+)
 
 import pyarrow as pa
 import pyarrow.csv
@@ -36,7 +52,7 @@ if TYPE_CHECKING:
     import polars as pl
     from polars._typing import PolarsDataType
     from polars.type_aliases import PolarsTemporalType
-    from sqlalchemy.engine import URL, Connection
+    from sqlalchemy.engine import URL, Connection, Engine
 
 
 @functools.cache
@@ -79,6 +95,24 @@ _PGDATABASE_NAME = "PGDATABASE"
 _PGUSER_NAME = "PGUSER"
 _PGPASSWORD_NAME = "PGPASSWORD"
 _ENGINE_ARGUMENTS_NAME = "ENGINE_ARGUMENTS"
+_PG_AWS_IAM_AUTH_NAME = "PG_AWS_IAM_AUTH"
+_PG_AWS_REGION_NAME = "PG_AWS_REGION"
+_PG_AWS_ROLE_ARN_NAME = "PG_AWS_ROLE_ARN"
+
+_TRUTHY_VALUES = ("true", "1", "yes", "t", "y")
+
+#: RDS caps an IAM auth token at 15 minutes. Re-minting a little early keeps a token
+#: from expiring between the time we hand it to libpq and the time the handshake
+#: completes, and the presign itself is local so re-minting is nearly free.
+_RDS_IAM_TOKEN_TTL_SECONDS = 15 * 60
+_RDS_IAM_TOKEN_REFRESH_MARGIN_SECONDS = 60
+
+#: Role session name, so IAM-authenticated connections are attributable in CloudTrail.
+_RDS_IAM_ROLE_SESSION_NAME = "ChalkRdsIamAuth"
+
+
+def _parse_bool_integration_variable(value: str) -> bool:
+    return value.strip().lower() in _TRUTHY_VALUES
 
 
 class PostgreSQLSourceImpl(BaseSQLSource, TableIngestMixIn, SQLSourceWithTableIngestProtocol):
@@ -96,6 +130,12 @@ class PostgreSQLSourceImpl(BaseSQLSource, TableIngestMixIn, SQLSourceWithTableIn
         async_engine_args: Optional[Dict[str, Any]] = None,
         integration_variable_override: Optional[Mapping[str, str]] = None,
         permission_tags: list[str] | None = None,
+        # Appended rather than inserted next to `password`: the `PostgreSQLSource` factory
+        # passes host/port/db/user/password/name positionally, so inserting here would
+        # silently shift those arguments.
+        aws_iam_auth: Optional[Union[bool, str]] = None,
+        aws_region: Optional[str] = None,
+        aws_role_arn: Optional[str] = None,
     ):
         try:
             import psycopg  # Used for the async driver
@@ -133,6 +173,32 @@ class PostgreSQLSourceImpl(BaseSQLSource, TableIngestMixIn, SQLSourceWithTableIn
         self.password = password or load_integration_variable(
             integration_name=name, name=_PGPASSWORD_NAME, override=integration_variable_override
         )
+        # The dashboard stores this as the string "true"/"false" (integration variables are all
+        # strings), while Python callers pass a real bool -- accept both.
+        self.aws_iam_auth: bool = bool(
+            aws_iam_auth
+            if isinstance(aws_iam_auth, bool)
+            else (
+                _parse_bool_integration_variable(aws_iam_auth)
+                if isinstance(aws_iam_auth, str)
+                else load_integration_variable(
+                    integration_name=name,
+                    name=_PG_AWS_IAM_AUTH_NAME,
+                    parser=_parse_bool_integration_variable,
+                    override=integration_variable_override,
+                )
+            )
+        )
+        self.aws_region = aws_region or load_integration_variable(
+            integration_name=name, name=_PG_AWS_REGION_NAME, override=integration_variable_override
+        )
+        self.aws_role_arn = aws_role_arn or load_integration_variable(
+            integration_name=name, name=_PG_AWS_ROLE_ARN_NAME, override=integration_variable_override
+        )
+        #: Cached (client, expiry_epoch_seconds) for RDS IAM token minting. The boto3 client is what
+        #: is expensive to build; the token itself is a local presign, so it is minted per connection.
+        self._rds_iam_client_cache: Optional[Tuple[Any, float]] = None
+        self._rds_iam_listener_engines: "weakref.WeakSet[Any]" = weakref.WeakSet()
         self.ingested_tables: Dict[str, Any] = {}
         if engine_args is None:
             engine_args = {}
@@ -177,6 +243,93 @@ class PostgreSQLSourceImpl(BaseSQLSource, TableIngestMixIn, SQLSourceWithTableIn
 
     def get_sqlglot_dialect(self) -> str | None:
         return "postgres"
+
+    def _get_rds_iam_client(self) -> Any:
+        """A boto3 RDS client for minting IAM auth tokens.
+
+        The client is cached because building one (and assuming a role, when configured) is the
+        expensive part; minting a token off it is a local signing operation. When a role is assumed
+        the cache is bounded by the STS credentials' own expiry, since those creds stop working
+        roughly an hour in and a stale client would then fail every new connection.
+        """
+        cached = self._rds_iam_client_cache
+        if cached is not None and cached[1] > time.time():
+            return cached[0]
+
+        try:
+            import boto3
+        except ImportError as e:
+            # Deliberately not `chalkpy[postgresql]`: boto3 is not part of that extra, so naming it
+            # would send the user to an install that does not fix the problem.
+            raise missing_dependency_exception("boto3", e)
+
+        if self.aws_role_arn:
+            sts = boto3.client("sts", region_name=self.aws_region)
+            assumed = sts.assume_role(RoleArn=self.aws_role_arn, RoleSessionName=_RDS_IAM_ROLE_SESSION_NAME)
+            credentials = assumed["Credentials"]
+            session = boto3.Session(
+                aws_access_key_id=credentials["AccessKeyId"],
+                aws_secret_access_key=credentials["SecretAccessKey"],
+                aws_session_token=credentials["SessionToken"],
+                region_name=self.aws_region,
+            )
+            # Re-assume slightly before the credentials lapse rather than exactly at expiry.
+            expiry = credentials["Expiration"].timestamp() - _RDS_IAM_TOKEN_REFRESH_MARGIN_SECONDS
+        else:
+            session = boto3.Session(region_name=self.aws_region)
+            expiry = float("inf")
+
+        client = session.client("rds", region_name=self.aws_region)
+        self._rds_iam_client_cache = (client, expiry)
+        return client
+
+    def generate_rds_iam_token(self) -> str:
+        """Mints an RDS IAM auth token for this source's endpoint and user.
+
+        Valid for 15 minutes, but RDS only checks it during the connection handshake, so this is
+        called once per connection attempt rather than cached.
+        """
+        if self.host is None or self.user is None:
+            raise ValueError("PostgreSQL RDS IAM authentication requires both a host and a user")
+        return self._get_rds_iam_client().generate_db_auth_token(
+            DBHostname=self.host,
+            # The port is covered by the token's signature, so it must match the port dialed.
+            # libpq's default when unset is 5432, so sign for that.
+            Port=self.port if self.port is not None else 5432,
+            DBUsername=self.user,
+            Region=self.aws_region,
+        )
+
+    def _inject_rds_iam_token(self, _dialect: Any, _conn_rec: Any, _cargs: Any, cparams: Dict[str, Any]) -> None:
+        """SQLAlchemy ``do_connect`` hook that swaps in a freshly minted token as the password.
+
+        Both psycopg2 and psycopg take the password through ``cparams``. This has to happen per
+        connection rather than being baked into the engine URL: a token is only valid for 15
+        minutes, so a URL built once would stop authenticating as soon as the pool replaced a
+        connection.
+        """
+        cparams["password"] = self.generate_rds_iam_token()
+
+    def _register_rds_iam_listener(self, engine: Any) -> Any:
+        """Attaches the token hook to ``engine`` exactly once."""
+        if not self.aws_iam_auth or engine in self._rds_iam_listener_engines:
+            return engine
+        from sqlalchemy import event
+
+        event.listen(engine, "do_connect", self._inject_rds_iam_token)
+        self._rds_iam_listener_engines.add(engine)
+        return engine
+
+    def get_engine(self) -> Engine:
+        # Registered here rather than in __init__ so enabling IAM auth does not force an engine to
+        # be built at import time, the way the MSSQL Azure-AD path does.
+        return self._register_rds_iam_listener(super().get_engine())
+
+    def get_async_engine(self) -> Any:
+        engine = super().get_async_engine()
+        # Async engines wrap a sync Engine, and `do_connect` fires on that inner engine.
+        self._register_rds_iam_listener(engine.sync_engine)
+        return engine
 
     def local_engine_url(self) -> URL:
         from sqlalchemy.engine.url import URL
@@ -572,6 +725,14 @@ class PostgreSQLSourceImpl(BaseSQLSource, TableIngestMixIn, SQLSourceWithTableIn
                 create_integration_variable(_PGDATABASE_NAME, self.name, self.db),
                 create_integration_variable(_PGUSER_NAME, self.name, self.user),
                 create_integration_variable(_PGPASSWORD_NAME, self.name, self.password),
+                # Serialized lower-case: `create_integration_variable` would otherwise emit
+                # "True"/"False", which the truthy parsers used on the way back in are
+                # case-sensitive about.
+                create_integration_variable(
+                    _PG_AWS_IAM_AUTH_NAME, self.name, str(self.aws_iam_auth).lower() if self.aws_iam_auth else None
+                ),
+                create_integration_variable(_PG_AWS_REGION_NAME, self.name, self.aws_region),
+                create_integration_variable(_PG_AWS_ROLE_ARN_NAME, self.name, self.aws_role_arn),
             ]
             if v is not None
         }

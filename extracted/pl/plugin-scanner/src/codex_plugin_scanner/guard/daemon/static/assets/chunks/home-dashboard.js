@@ -1,4 +1,4 @@
-import { g as getHeatmapLevel, j as jsxRuntimeExports, S as SectionLabel, E as EvidenceInsightsShareButton, G as GuardStatMetric, H as HomeInsightsMetrics, a as EvidenceActivityHeatmapMini, r as reactExports, u as useReceiptAnalytics, h as harnessDisplayName, i as isDisplayableHarness, b as EmptyState, A as ActionButton, c as EvidenceInsightsShareModal, d as HiMiniCheckCircle, e as GuardHero, f as formatNumber, k as HiMiniShieldCheck, D as DeviceProofCard, l as formatRelativeTime, m as HiMiniSparkles, n as HiMiniXMark, o as HiMiniChevronUp, p as HiMiniChevronDown, q as resolveCloudIntelCopy, s as HiMiniCloud, t as HiMiniQuestionMarkCircle, v as useFocusTrap, w as approvalProofRequiresTotp, x as HiMiniExclamationTriangle, y as HiMiniBolt, B as Badge, z as HiMiniChevronRight, C as HiMiniMinusCircle } from "../guard-dashboard.js";
+import { g as getHeatmapLevel, j as jsxRuntimeExports, S as SectionLabel, E as EvidenceInsightsShareButton, G as GuardStatMetric, H as HomeInsightsMetrics, a as EvidenceActivityHeatmapMini, r as reactExports, h as homeCommandActivityModel, b as HiMiniCommandLine, c as HiMiniChevronRight, d as createCommandActivityClient, f as fetchCommandActivityApi, u as useReceiptAnalytics, e as harnessDisplayName, i as isConnectableAppHarness, p as protectionHealthFor, k as EmptyState, A as ActionButton, l as EvidenceInsightsShareModal, m as HiMiniCheckCircle, n as GuardHero, O as OperatorHealthCard, o as formatNumber, q as HiMiniShieldCheck, D as DeviceProofCard, s as guardActionDisposition, t as formatRelativeTime, v as guardActionActivityCopy, w as HiMiniSparkles, x as HiMiniXMark, y as HiMiniChevronUp, z as HiMiniChevronDown, B as resolveCloudIntelCopy, C as HiMiniCloud, F as HiMiniQuestionMarkCircle, I as useFocusTrap, J as approvalProofRequiresPassword, K as HiMiniExclamationTriangle, L as HiMiniBolt, M as Badge, N as HiMiniMinusCircle } from "../guard-dashboard.js";
 import { H as HomeProtectionModule } from "./home-protection-module.js";
 function HomeInsightsSkeleton() {
   return /* @__PURE__ */ jsxRuntimeExports.jsxs(jsxRuntimeExports.Fragment, { children: [
@@ -66,6 +66,48 @@ function EvidenceInsightsHomePreview({
     ) : analyticsLoading ? /* @__PURE__ */ jsxRuntimeExports.jsx("div", { className: "guard-skeleton h-4 w-36 rounded" }) : null }) : null
   ] });
 }
+const client = createCommandActivityClient(fetchCommandActivityApi);
+function HomeCommandActivityCard(props) {
+  const [analytics, setAnalytics] = reactExports.useState(null);
+  reactExports.useEffect(() => {
+    const controller = new AbortController();
+    client.fetchAnalytics({ days: 90, top_limit: 10, dimension: null, dimension_value: null }, controller.signal).then(
+      (data) => setAnalytics(data),
+      () => void 0
+    );
+    return () => controller.abort();
+  }, []);
+  const handleOpen = reactExports.useCallback(() => props.onOpen(), [props.onOpen]);
+  const model = analytics === null ? null : homeCommandActivityModel(analytics);
+  if (model === null) return null;
+  return /* @__PURE__ */ jsxRuntimeExports.jsxs("section", { className: "rounded-lg border border-slate-200 bg-white p-4 shadow-sm", "aria-labelledby": "home-command-activity-title", children: [
+    /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "flex items-start justify-between gap-4", children: [
+      /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "flex min-w-0 items-start gap-3", children: [
+        /* @__PURE__ */ jsxRuntimeExports.jsx("div", { className: "flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-brand-blue/[0.08] text-brand-blue", children: /* @__PURE__ */ jsxRuntimeExports.jsx(HiMiniCommandLine, { className: "h-5 w-5", "aria-hidden": "true" }) }),
+        /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "min-w-0", children: [
+          /* @__PURE__ */ jsxRuntimeExports.jsx("h2", { id: "home-command-activity-title", className: "text-sm font-semibold text-brand-dark", children: "Commands checked" }),
+          /* @__PURE__ */ jsxRuntimeExports.jsx("p", { className: "mt-0.5 text-xs text-slate-500", children: model.window })
+        ] })
+      ] }),
+      /* @__PURE__ */ jsxRuntimeExports.jsx("button", { type: "button", onClick: handleOpen, "aria-label": "Open command activity", className: "flex h-9 w-9 shrink-0 items-center justify-center rounded-lg text-slate-500 hover:bg-slate-100 hover:text-brand-dark", children: /* @__PURE__ */ jsxRuntimeExports.jsx(HiMiniChevronRight, { className: "h-5 w-5", "aria-hidden": "true" }) })
+    ] }),
+    /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "mt-4 grid grid-cols-3 gap-3", children: [
+      /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { children: [
+        /* @__PURE__ */ jsxRuntimeExports.jsx("p", { className: "text-xl font-semibold text-brand-dark", children: model.metrics.commandsChecked.toLocaleString() }),
+        /* @__PURE__ */ jsxRuntimeExports.jsx("p", { className: "text-xs text-slate-500", children: "Checked" })
+      ] }),
+      /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { children: [
+        /* @__PURE__ */ jsxRuntimeExports.jsx("p", { className: "text-xl font-semibold text-brand-dark", children: model.metrics.prompted.toLocaleString() }),
+        /* @__PURE__ */ jsxRuntimeExports.jsx("p", { className: "text-xs text-slate-500", children: "Review prompts" })
+      ] }),
+      /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { children: [
+        /* @__PURE__ */ jsxRuntimeExports.jsx("p", { className: "text-xl font-semibold text-brand-dark", children: model.metrics.postProof.toLocaleString() }),
+        /* @__PURE__ */ jsxRuntimeExports.jsx("p", { className: "text-xs text-slate-500", children: "Post proof" })
+      ] })
+    ] }),
+    /* @__PURE__ */ jsxRuntimeExports.jsx("p", { className: `mt-3 text-xs ${model.health ? "text-amber-700" : "text-slate-500"}`, children: model.health ?? "Evidence store reporting normally." })
+  ] });
+}
 const safeLocalStorage = {
   getItem(key) {
     try {
@@ -119,8 +161,11 @@ function redactHomeArtifactLabel(value) {
   return trimmed;
 }
 function buildRecentProtectionCopy(receipt) {
-  const decisionLabel = receipt.policy_decision === "block" ? "blocked" : "allowed";
-  return `${harnessDisplayName(receipt.harness)} ${decisionLabel} ${redactHomeArtifactLabel(receipt.artifact_name)}`;
+  return guardActionActivityCopy(
+    receipt.policy_decision,
+    harnessDisplayName(receipt.harness),
+    redactHomeArtifactLabel(receipt.artifact_name)
+  );
 }
 function HomeWorkspace(props) {
   const [toastMessage, setToastMessage] = reactExports.useState(null);
@@ -184,25 +229,27 @@ function HomeWorkspace(props) {
   const snapshot = props.runtime.kind === "ready" ? props.runtime.snapshot : null;
   const queuedCount = props.requests.kind === "ready" ? props.requests.items.length : 0;
   const policyItems = props.policies.kind === "ready" ? props.policies.items : [];
-  const managedInstalls = (snapshot?.managed_installs ?? []).filter((item) => isDisplayableHarness(item.harness));
+  const managedInstalls = (snapshot?.managed_installs ?? []).filter((item) => isConnectableAppHarness(item.harness));
   const activeInstalls = managedInstalls.filter((item) => item.active);
   const observedHarnesses = snapshot ? Array.from(
     new Set([
       ...snapshot.items.map((item) => item.harness),
       ...snapshot.latest_receipts.map((receipt) => receipt.harness),
       ...policyItems.map((policy) => policy.harness)
-    ].filter(isDisplayableHarness))
+    ].filter(isConnectableAppHarness))
   ).sort() : [];
   const clearHarnesses = activeInstalls.length > 0 ? activeInstalls.map((i) => i.harness) : observedHarnesses;
   const watchedAppsCount = activeInstalls.length > 0 ? activeInstalls.length : observedHarnesses.length;
+  const protectionState = snapshot ? protectionHealthFor(snapshot).state : "degraded";
   const state = reactExports.useMemo(
     () => deriveHomeState({
       hasActiveInstalls: activeInstalls.length > 0,
       hasObservedHarnesses: observedHarnesses.length > 0,
       queuedCount,
-      watchedAppsCount
+      watchedAppsCount,
+      protectionState
     }),
-    [activeInstalls.length, observedHarnesses.length, queuedCount, watchedAppsCount]
+    [activeInstalls.length, observedHarnesses.length, protectionState, queuedCount, watchedAppsCount]
   );
   const dailyStory = reactExports.useMemo(
     () => snapshot ? buildDailyStory(snapshot.latest_receipts, queuedCount) : null,
@@ -263,6 +310,7 @@ function HomeWorkspace(props) {
         cta: /* @__PURE__ */ jsxRuntimeExports.jsx(ActionButton, { onClick: ctaAction, "data-primary": "true", children: state.ctaLabel })
       }
     ),
+    snapshot.operator_health ? /* @__PURE__ */ jsxRuntimeExports.jsx(OperatorHealthCard, { health: snapshot.operator_health }) : null,
     /* @__PURE__ */ jsxRuntimeExports.jsx(
       EvidenceInsightsHomePreview,
       {
@@ -278,6 +326,7 @@ function HomeWorkspace(props) {
         onShare: handleShareOpen
       }
     ),
+    /* @__PURE__ */ jsxRuntimeExports.jsx(HomeCommandActivityCard, { onOpen: props.onOpenCommands }),
     /* @__PURE__ */ jsxRuntimeExports.jsx(StreakMilestoneBanner, { streak }),
     /* @__PURE__ */ jsxRuntimeExports.jsx(
       NewAppDiscoveryBanner,
@@ -351,7 +400,14 @@ function HomeWorkspace(props) {
       ] })
     ] }),
     /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "grid gap-4 sm:grid-cols-2 lg:grid-cols-3", children: [
-      /* @__PURE__ */ jsxRuntimeExports.jsx(DeviceProofCard, { device: snapshot.device, proofStatus: snapshot.proof_status }),
+      /* @__PURE__ */ jsxRuntimeExports.jsx(
+        DeviceProofCard,
+        {
+          device: snapshot.device,
+          proofStatus: snapshot.proof_status,
+          connectUrl: snapshot.connect_url
+        }
+      ),
       /* @__PURE__ */ jsxRuntimeExports.jsx(
         CloudStatusCard,
         {
@@ -383,8 +439,8 @@ function ClearConfirmDialog(props) {
   const dialogRef = reactExports.useRef(null);
   useFocusTrap(true, dialogRef);
   const needsProof = props.approvalGate?.enabled === true && props.approvalGate.configured === true;
-  const needsTotp = approvalProofRequiresTotp(props.approvalGate);
-  const proofIncomplete = needsProof && (needsTotp ? props.clearTotpCode.trim() === "" : props.clearPassword.trim() === "");
+  const needsPassword = approvalProofRequiresPassword(props.approvalGate);
+  const proofIncomplete = needsProof && (needsPassword ? props.clearPassword.trim() === "" : props.clearTotpCode.trim() === "");
   return /* @__PURE__ */ jsxRuntimeExports.jsx("div", { className: "guard-fade-in fixed inset-0 z-50 flex items-center justify-center bg-black/30 p-4 backdrop-blur-sm", role: "dialog", "aria-modal": "true", "aria-label": "Confirm clear decisions", children: /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { ref: dialogRef, className: "guard-fade-in w-full max-w-md rounded-2xl border border-brand-attention/20 bg-white p-6 shadow-2xl", children: [
     /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "flex items-start gap-3", children: [
       /* @__PURE__ */ jsxRuntimeExports.jsx(HiMiniExclamationTriangle, { className: "mt-0.5 h-5 w-5 shrink-0 text-brand-attention", "aria-hidden": "true" }),
@@ -395,38 +451,35 @@ function ClearConfirmDialog(props) {
           props.clearConfirm.all ? "all saved approvals" : `decisions for ${props.clearConfirm.harness ?? "this app"}`,
           ". Guard will ask again next time matching actions run."
         ] }),
-        needsProof && /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "mt-4 grid gap-3", children: [
-          !needsTotp ? /* @__PURE__ */ jsxRuntimeExports.jsxs("label", { className: "block", children: [
-            /* @__PURE__ */ jsxRuntimeExports.jsx("span", { className: "text-xs font-semibold uppercase tracking-[0.18em] text-slate-500", children: "Approval password" }),
-            /* @__PURE__ */ jsxRuntimeExports.jsx(
-              "input",
-              {
-                type: "password",
-                autoComplete: "current-password",
-                value: props.clearPassword,
-                onChange: props.onClearPasswordChange,
-                className: "mt-1 min-h-10 w-full rounded-xl border border-slate-200 bg-white px-3 text-sm text-brand-dark focus:border-brand-blue focus:outline-none focus:ring-2 focus:ring-brand-blue/20"
-              }
-            )
-          ] }) : null,
-          needsTotp ? /* @__PURE__ */ jsxRuntimeExports.jsxs("label", { className: "block", children: [
-            /* @__PURE__ */ jsxRuntimeExports.jsx("span", { className: "text-xs font-semibold uppercase tracking-[0.18em] text-slate-500", children: "Authenticator code" }),
-            /* @__PURE__ */ jsxRuntimeExports.jsx(
-              "input",
-              {
-                type: "text",
-                inputMode: "numeric",
-                pattern: "[0-9]*",
-                maxLength: 6,
-                value: props.clearTotpCode,
-                onChange: props.onClearTotpCodeChange,
-                placeholder: "123456",
-                autoComplete: "one-time-code",
-                className: "mt-1 min-h-10 w-full rounded-xl border border-slate-200 bg-white px-3 text-sm tracking-[0.28em] text-brand-dark focus:border-brand-blue focus:outline-none focus:ring-2 focus:ring-brand-blue/20"
-              }
-            )
-          ] }) : null
-        ] }),
+        needsProof && /* @__PURE__ */ jsxRuntimeExports.jsx("div", { className: "mt-4 grid gap-3", children: needsPassword ? /* @__PURE__ */ jsxRuntimeExports.jsxs("label", { className: "block", children: [
+          /* @__PURE__ */ jsxRuntimeExports.jsx("span", { className: "text-xs font-semibold uppercase tracking-[0.18em] text-slate-500", children: "Approval password" }),
+          /* @__PURE__ */ jsxRuntimeExports.jsx(
+            "input",
+            {
+              type: "password",
+              autoComplete: "current-password",
+              value: props.clearPassword,
+              onChange: props.onClearPasswordChange,
+              className: "mt-1 min-h-10 w-full rounded-xl border border-slate-200 bg-white px-3 text-sm text-brand-dark focus:border-brand-blue focus:outline-none focus:ring-2 focus:ring-brand-blue/20"
+            }
+          )
+        ] }) : /* @__PURE__ */ jsxRuntimeExports.jsxs("label", { className: "block", children: [
+          /* @__PURE__ */ jsxRuntimeExports.jsx("span", { className: "text-xs font-semibold uppercase tracking-[0.18em] text-slate-500", children: "Authenticator code" }),
+          /* @__PURE__ */ jsxRuntimeExports.jsx(
+            "input",
+            {
+              type: "text",
+              inputMode: "numeric",
+              pattern: "[0-9]*",
+              maxLength: 6,
+              value: props.clearTotpCode,
+              onChange: props.onClearTotpCodeChange,
+              placeholder: "123456",
+              autoComplete: "one-time-code",
+              className: "mt-1 min-h-10 w-full rounded-xl border border-slate-200 bg-white px-3 text-sm tracking-[0.28em] text-brand-dark focus:border-brand-blue focus:outline-none focus:ring-2 focus:ring-brand-blue/20"
+            }
+          )
+        ] }) }),
         props.clearError !== null && /* @__PURE__ */ jsxRuntimeExports.jsx("p", { className: "mt-3 rounded-xl border border-brand-attention/20 bg-brand-attention/[0.04] px-3 py-2 text-sm text-brand-dark", children: props.clearError })
       ] })
     ] }),
@@ -454,12 +507,12 @@ function ClearConfirmDialog(props) {
   ] }) });
 }
 function deriveHomeState(input) {
-  const { hasActiveInstalls, hasObservedHarnesses, queuedCount, watchedAppsCount } = input;
+  const { hasActiveInstalls, hasObservedHarnesses, protectionState, queuedCount, watchedAppsCount } = input;
   if (queuedCount > 0) {
     return {
       heroStatus: "needs_review",
       headline: queuedCount === 1 ? "1 action needs review" : `${queuedCount} actions need review`,
-      subheadline: "Guard stopped something. Review and decide whether to allow or block it.",
+      subheadline: "Guard paused an action for your decision. Review it, then choose whether to allow or block it.",
       ctaLabel: "Review now",
       ctaTarget: "inbox"
     };
@@ -482,6 +535,24 @@ function deriveHomeState(input) {
       ctaTarget: "protect"
     };
   }
+  if (protectionState === "degraded") {
+    return {
+      heroStatus: "degraded",
+      headline: "Protection is degraded",
+      subheadline: "Guard is running, but one or more required protection checks failed or remain unproven.",
+      ctaLabel: "Review protection",
+      ctaTarget: "protect"
+    };
+  }
+  if (protectionState === "partial") {
+    return {
+      heroStatus: "partial",
+      headline: "Protection is partial",
+      subheadline: "Core protection passes, but complete decision-stream evidence is not available.",
+      ctaLabel: "Review protection",
+      ctaTarget: "protect"
+    };
+  }
   return {
     heroStatus: "clear",
     headline: "All clear",
@@ -494,8 +565,9 @@ function buildDailyStory(receipts, queuedCount) {
   const today = /* @__PURE__ */ new Date();
   today.setHours(0, 0, 0, 0);
   const todayReceipts = receipts.filter((r) => new Date(r.timestamp) >= today);
-  const allowedToday = todayReceipts.filter((r) => r.policy_decision === "allow").length;
-  const blockedToday = todayReceipts.filter((r) => r.policy_decision === "block").length;
+  const allowedToday = todayReceipts.filter((r) => guardActionDisposition(r.policy_decision) === "allowed").length;
+  const blockedToday = todayReceipts.filter((r) => guardActionDisposition(r.policy_decision) === "blocked").length;
+  const reviewedToday = todayReceipts.filter((r) => guardActionDisposition(r.policy_decision) === "reviewed").length;
   if (queuedCount > 0) {
     const actionText = queuedCount === 1 ? "1 action is" : `${queuedCount} actions are`;
     const pronoun = queuedCount === 1 ? "it" : "them";
@@ -505,13 +577,19 @@ function buildDailyStory(receipts, queuedCount) {
       stats: [{ label: "pending review", value: queuedCount }]
     };
   }
-  if (allowedToday + blockedToday > 0) {
+  if (allowedToday + blockedToday + reviewedToday > 0) {
+    const clauses = [];
+    if (allowedToday > 0) clauses.push(`allowed ${allowedToday} action${allowedToday !== 1 ? "s" : ""}`);
+    if (blockedToday > 0) clauses.push(`blocked ${blockedToday}`);
+    if (reviewedToday > 0) clauses.push(`sent ${reviewedToday} for review`);
+    const story = clauses.length > 1 ? `${clauses.slice(0, -1).join(", ")} and ${clauses[clauses.length - 1]}` : clauses[0];
     return {
       title: "Today so far",
-      body: `Guard allowed ${allowedToday} action${allowedToday !== 1 ? "s" : ""} and blocked ${blockedToday}.`,
+      body: `Guard ${story}.`,
       stats: [
-        { label: "allowed", value: allowedToday },
-        { label: "blocked", value: blockedToday }
+        ...allowedToday > 0 ? [{ label: "allowed", value: allowedToday }] : [],
+        ...blockedToday > 0 ? [{ label: "blocked", value: blockedToday }] : [],
+        ...reviewedToday > 0 ? [{ label: "review", value: reviewedToday }] : []
       ]
     };
   }
@@ -523,6 +601,18 @@ function buildDailyStory(receipts, queuedCount) {
     };
   }
   return null;
+}
+function harnessPriorityScore(install, observed, pendingCount) {
+  let score = 0;
+  if (install?.active) {
+    score = 3;
+  } else if (install !== void 0) {
+    score = 2;
+  } else if (observed) {
+    score = 1;
+  }
+  if (pendingCount > 0) score += 4;
+  return score;
 }
 function computeStreak(receipts) {
   if (receipts.length === 0) return 0;
@@ -569,8 +659,8 @@ function AppsAtAGlance(props) {
       const bInstall = props.managedInstalls.find((i) => i.harness === b);
       const aPending = pendingByHarness.get(a) ?? 0;
       const bPending = pendingByHarness.get(b) ?? 0;
-      const aScore = (aInstall?.active ? 3 : aInstall !== void 0 ? 2 : props.observedHarnesses.includes(a) ? 1 : 0) + (aPending > 0 ? 4 : 0);
-      const bScore = (bInstall?.active ? 3 : bInstall !== void 0 ? 2 : props.observedHarnesses.includes(b) ? 1 : 0) + (bPending > 0 ? 4 : 0);
+      const aScore = harnessPriorityScore(aInstall, props.observedHarnesses.includes(a), aPending);
+      const bScore = harnessPriorityScore(bInstall, props.observedHarnesses.includes(b), bPending);
       return bScore - aScore;
     });
   }, [props.managedInstalls, props.observedHarnesses, pendingByHarness]);
@@ -759,8 +849,8 @@ function NewAppDiscoveryBanner(props) {
   )) });
 }
 function resolveNewAppDiscoveries(managedInstalls, observedHarnesses) {
-  const activeHarnesses = new Set(managedInstalls.filter((i) => isDisplayableHarness(i.harness)).map((i) => i.harness));
-  return observedHarnesses.filter((h) => isDisplayableHarness(h) && !activeHarnesses.has(h));
+  const activeHarnesses = new Set(managedInstalls.filter((i) => isConnectableAppHarness(i.harness)).map((i) => i.harness));
+  return observedHarnesses.filter((h) => isConnectableAppHarness(h) && !activeHarnesses.has(h));
 }
 function NewAppBanner(props) {
   const storageKey = `guard-new-app-dismissed-${props.harness}`;

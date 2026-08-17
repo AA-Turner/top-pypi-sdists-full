@@ -1,4 +1,5 @@
 from unittest import TestCase
+from unittest.mock import patch
 
 from atlassian.bitbucket import Bitbucket
 
@@ -91,3 +92,66 @@ class TestWebhook(TestCase):
             self.fake_webhooks[0]["project_key"], self.fake_webhooks[0]["repository_slug"], self.webhook_id
         )
         self.assertIsNone(webhook, "Delete response is not None")
+
+
+class TestHookScripts(TestCase):
+    def setUp(self):
+        self.bitbucket = Bitbucket("https://bitbucket.example.com", username="admin", password="password")
+
+    @patch.object(Bitbucket, "post")
+    def test_create_hook_script_uses_multipart_latest_endpoint(self, mock_post):
+        script = b"#!/bin/sh\necho hook\n"
+        mock_post.return_value = {"id": 12}
+
+        result = self.bitbucket.create_hook_script(script, "Audit pushes", "POST", "Audit every push")
+
+        self.assertEqual(result, {"id": 12})
+        files = mock_post.call_args.kwargs["files"]
+        self.assertEqual(files["content"], ("hook-script", script, "application/octet-stream"))
+        self.assertEqual(files["name"], (None, "Audit pushes"))
+        self.assertEqual(files["type"], (None, "POST"))
+        self.assertEqual(files["description"], (None, "Audit every push"))
+        self.assertEqual(mock_post.call_args.args[0], "rest/api/latest/hook-scripts")
+        self.assertEqual(mock_post.call_args.kwargs["headers"], self.bitbucket.no_check_headers)
+
+    def test_create_hook_script_rejects_unknown_hook_type(self):
+        with self.assertRaisesRegex(ValueError, "PRE.*POST"):
+            self.bitbucket.create_hook_script(b"#!/bin/sh", "Invalid", "PRE_RECEIVE")
+
+    @patch.object(Bitbucket, "put")
+    def test_configure_project_hook_script(self, mock_put):
+        self.bitbucket.configure_project_hook_script("PROJ", 12, ["repo:refs_changed"])
+
+        mock_put.assert_called_once_with(
+            "rest/api/latest/projects/PROJ/hook-scripts/12", data={"triggerIds": ["repo:refs_changed"]}
+        )
+
+    @patch.object(Bitbucket, "put")
+    def test_configure_repo_hook_script(self, mock_put):
+        self.bitbucket.configure_repo_hook_script("PROJ", "repository", 12)
+
+        mock_put.assert_called_once_with(
+            "rest/api/latest/projects/PROJ/repos/repository/hook-scripts/12", data={"triggerIds": []}
+        )
+
+
+class TestPersonalRepositories(TestCase):
+    def setUp(self):
+        self.bitbucket = Bitbucket("https://bitbucket.example.com", username="admin", password="password")
+
+    def test_personal_repository_urls_use_the_user_centric_route(self):
+        self.assertEqual(
+            self.bitbucket._url_repo("~alice", "example"),
+            "rest/api/1.0/users/~alice/repos/example",
+        )
+        self.assertEqual(self.bitbucket._url_repos("~alice"), "rest/api/1.0/users/~alice/repos")
+
+    @patch.object(Bitbucket, "post")
+    def test_pull_request_settings_support_personal_repositories(self, mock_post):
+        settings = {"requiredApprovals": 2}
+
+        self.bitbucket.set_pull_request_settings("~alice", "example", settings)
+
+        mock_post.assert_called_once_with(
+            "rest/api/1.0/users/~alice/repos/example/settings/pull-requests", data=settings
+        )

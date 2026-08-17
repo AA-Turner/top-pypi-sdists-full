@@ -3,10 +3,14 @@ from __future__ import annotations
 import json
 import os
 import sys
+import threading
 from collections.abc import Callable, Iterator
+from hashlib import sha256
 from pathlib import Path
 
 import pytest
+
+from tests.guard_test_invariants import TEST_INVARIANTS, invariant_markers_for_nodeid
 
 SRC_PATH = Path(__file__).resolve().parents[1] / "src"
 SUPPORT_PATH = Path(__file__).resolve().parent / "support"
@@ -21,6 +25,33 @@ pythonpath_entries = [entry for entry in existing_pythonpath.split(os.pathsep) i
 pythonpath_prefix = [str(path) for path in (SUPPORT_PATH, SRC_PATH) if str(path) not in pythonpath_entries]
 if pythonpath_prefix:
     os.environ["PYTHONPATH"] = os.pathsep.join([*pythonpath_prefix, *pythonpath_entries])
+
+
+def pytest_addoption(parser: pytest.Parser) -> None:
+    parser.addoption(
+        "--validate-test-invariants",
+        action="store_true",
+        default=False,
+        help="fail collection when a protected invariant no longer resolves to a concrete test",
+    )
+
+
+def pytest_collection_modifyitems(config: pytest.Config, items: list[pytest.Item]) -> None:
+    for item in items:
+        for marker in invariant_markers_for_nodeid(item.nodeid):
+            item.add_marker(marker)
+
+    if not config.getoption("--validate-test-invariants"):
+        return
+    collected = {item.nodeid for item in items}
+    missing = [
+        invariant
+        for invariant in TEST_INVARIANTS
+        if not any(nodeid == invariant.selector or nodeid.startswith(f"{invariant.selector}[") for nodeid in collected)
+    ]
+    if missing:
+        details = ", ".join(f"{invariant.invariant_id} ({invariant.selector})" for invariant in missing)
+        raise pytest.UsageError(f"Protected test invariants are missing from collection: {details}")
 
 
 def _test_guard_homes_with_daemon_state(root: Path) -> set[Path]:
@@ -72,6 +103,20 @@ def _reset_guard_sync_resolver_override(monkeypatch: pytest.MonkeyPatch) -> None
 
 
 @pytest.fixture(autouse=True)
+def _isolate_lifecycle_authority_home(
+    request: pytest.FixtureRequest,
+    monkeypatch: pytest.MonkeyPatch,
+    tmp_path_factory: pytest.TempPathFactory,
+) -> None:
+    """Keep lifecycle authorization independent from the developer's real Guard state."""
+    from codex_plugin_scanner.guard.cli import commands_lifecycle_gate
+
+    node_digest = sha256(request.node.nodeid.encode()).hexdigest()[:24]
+    user_home = tmp_path_factory.getbasetemp() / "lifecycle-authority" / node_digest
+    monkeypatch.setattr(commands_lifecycle_gate, "trusted_user_home", lambda: user_home)
+
+
+@pytest.fixture(autouse=True)
 def _isolate_trust_attestation_env(monkeypatch: pytest.MonkeyPatch) -> None:
     """Clear trust attestation env vars so tests don't inherit the developer's shell config."""
     for key in (
@@ -116,6 +161,7 @@ def _isolate_daemon_background_refresh_workers(
 class _FakeSystemKeyringModule:
     def __init__(self) -> None:
         self._secrets: dict[tuple[str, str], str] = {}
+        self._lock: threading.RLock = threading.RLock()
 
     @staticmethod
     def _store_path() -> Path | None:
@@ -144,7 +190,15 @@ class _FakeSystemKeyringModule:
         for (service_name, secret_id), secret_value in secrets.items():
             payload.setdefault(service_name, {})[secret_id] = secret_value
         store_path.parent.mkdir(parents=True, exist_ok=True)
-        store_path.write_text(json.dumps(payload, sort_keys=True, separators=(",", ":")), encoding="utf-8")
+        temporary_path = store_path.with_name(f".{store_path.name}.{os.getpid()}.{id(self)}.tmp")
+        try:
+            _ = temporary_path.write_text(
+                json.dumps(payload, sort_keys=True, separators=(",", ":")),
+                encoding="utf-8",
+            )
+            _ = temporary_path.replace(store_path)
+        finally:
+            temporary_path.unlink(missing_ok=True)
 
     @staticmethod
     def get_keyring():
@@ -154,17 +208,20 @@ class _FakeSystemKeyringModule:
         return _Backend()
 
     def set_password(self, service_name: str, secret_id: str, value: str) -> None:
-        secrets = self._load()
-        secrets[(service_name, secret_id)] = value
-        self._persist(secrets)
+        with self._lock:
+            secrets = self._load()
+            secrets[(service_name, secret_id)] = value
+            self._persist(secrets)
 
     def get_password(self, service_name: str, secret_id: str) -> str | None:
-        return self._load().get((service_name, secret_id))
+        with self._lock:
+            return self._load().get((service_name, secret_id))
 
     def delete_password(self, service_name: str, secret_id: str) -> None:
-        secrets = self._load()
-        secrets.pop((service_name, secret_id), None)
-        self._persist(secrets)
+        with self._lock:
+            secrets = self._load()
+            secrets.pop((service_name, secret_id), None)
+            self._persist(secrets)
 
 
 @pytest.fixture
@@ -195,10 +252,6 @@ _FAKE_SYSTEM_KEYRING_DISABLED_FILES = {
     "test_guard_store_migrations.py",
 }
 
-_FAKE_SYSTEM_KEYRING_DISABLED_NODEIDS = {
-    "tests/test_guard_cli.py::TestGuardCli::test_guard_status_reports_oauth_key_storage_health",
-}
-
 
 @pytest.fixture(autouse=True)
 def _policy_integrity_keyring_for_selected_tests(
@@ -207,10 +260,7 @@ def _policy_integrity_keyring_for_selected_tests(
     monkeypatch: pytest.MonkeyPatch,
     tmp_path: Path,
 ) -> None:
-    if (
-        request.node.path.name in _FAKE_SYSTEM_KEYRING_DISABLED_FILES
-        or request.node.nodeid in _FAKE_SYSTEM_KEYRING_DISABLED_NODEIDS
-    ):
+    if request.node.path.name in _FAKE_SYSTEM_KEYRING_DISABLED_FILES:
         return
     monkeypatch.setenv("HOL_GUARD_TEST_KEYRING_FILE", str(tmp_path / "fake-system-keyring.json"))
     install_fake_system_keyring()

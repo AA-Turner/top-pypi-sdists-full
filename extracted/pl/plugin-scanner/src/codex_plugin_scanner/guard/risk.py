@@ -15,6 +15,10 @@ from .types import GuardSignal
 _RULE_VERSION = "guard-risk-v2"
 _URL_PATTERN = re.compile(r"https?://[^\s'\"`]+", re.IGNORECASE)
 _HOST_PATTERN = re.compile(r"\b(?:[a-z0-9-]+\.)+[a-z]{2,}\b", re.IGNORECASE)
+_MEDIA_TYPE_PATTERN = re.compile(
+    r"\b(?:application|audio|font|image|message|model|multipart|text|video)/[a-z0-9!#$&^_.+-]+",
+    re.IGNORECASE,
+)
 _NON_NETWORK_SUFFIXES = {
     "md",
     "json",
@@ -24,7 +28,13 @@ _NON_NETWORK_SUFFIXES = {
     "txt",
     "py",
     "js",
+    "jsx",
+    "cjs",
+    "cts",
+    "mjs",
+    "mts",
     "ts",
+    "tsx",
     "sh",
     "cfg",
     "conf",
@@ -33,6 +43,7 @@ _NON_NETWORK_SUFFIXES = {
     "bak",
     "bin",
 }
+_NON_NETWORK_EXACT_FILENAMES = frozenset({"next.config"})
 _ENCODED_PATTERNS: tuple[tuple[str, str], ...] = (
     (r"\bbase64(?:\s+--decode|\s+-d)\b", "base64 decode invocation"),
     (r"\bb64decode\b", "runtime base64 decode invocation"),
@@ -285,6 +296,7 @@ def extract_network_hosts(text: str) -> set[str]:
     """Extract host-like network references from text."""
 
     hosts: set[str] = set()
+    media_type_spans = tuple(match.span() for match in _MEDIA_TYPE_PATTERN.finditer(text))
     for value in _URL_PATTERN.findall(text):
         try:
             parsed = urlsplit(value)
@@ -294,13 +306,15 @@ def extract_network_hosts(text: str) -> set[str]:
             hosts.add(parsed.hostname.lower())
     for match in _HOST_PATTERN.finditer(text):
         value = match.group(0)
+        if any(start <= match.start() and match.end() <= end for start, end in media_type_spans):
+            continue
         if value.count(".") < 1:
             continue
         if text[match.end() : match.end() + 1] == "(":
             continue
         lowered = value.lower()
         suffix = lowered.rsplit(".", 1)[-1]
-        if suffix in _NON_NETWORK_SUFFIXES:
+        if lowered in _NON_NETWORK_EXACT_FILENAMES or suffix in _NON_NETWORK_SUFFIXES:
             continue
         hosts.add(lowered)
     return hosts
@@ -421,6 +435,35 @@ def _env_keys(artifact: GuardArtifact) -> list[str]:
 
 def _metadata_signals(artifact: GuardArtifact) -> list[GuardSignal]:
     signals: list[GuardSignal] = []
+    if artifact.metadata.get("inspection_complete") is False or artifact.metadata.get("config_parse_complete") is False:
+        reason = artifact.metadata.get("inspection_reason") or artifact.metadata.get("config_reason") or "unknown"
+        signals.append(
+            GuardSignal(
+                signal_id="inspection:incomplete",
+                family="execution",
+                severity=8,
+                confidence=0.98,
+                evidence_source="artifact",
+                matched_text=str(reason),
+                explanation="artifact inspection is incomplete",
+                remediation="Repair or reduce the input, then run a complete inspection before approval.",
+                rule_version=_RULE_VERSION,
+            )
+        )
+    elif artifact.metadata.get("analysis_truncated") is True:
+        signals.append(
+            GuardSignal(
+                signal_id="inspection:analysis-truncated",
+                family="execution",
+                severity=6,
+                confidence=0.95,
+                evidence_source="artifact",
+                matched_text=None,
+                explanation="artifact risk preview is truncated",
+                remediation="Review the complete content before approval.",
+                rule_version=_RULE_VERSION,
+            )
+        )
     for key in ("runtime_request_signals", "prompt_signals"):
         value = artifact.metadata.get(key)
         if not isinstance(value, list):

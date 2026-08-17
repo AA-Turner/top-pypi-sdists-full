@@ -608,12 +608,13 @@ def run_setup(
     try:
         params = inspect.signature(setup_fn).parameters
     except (TypeError, ValueError):
-        # Odd callables without an inspectable signature: keep the legacy
-        # best-effort behavior for them only.
-        try:
-            setup_fn(**resolved_models)
-        except TypeError:
-            setup_fn()
+        # Odd callables without an inspectable signature (decorated,
+        # C-implemented, wrapped). pgw#1307: this used to swallow the TypeError
+        # and re-call `setup_fn()` with NO models, silently dropping every
+        # resolved slot — the exact blanket arm this function's docstring
+        # forbids. A setup we cannot satisfy is an authoring error; let it
+        # raise, naming the models we resolved.
+        setup_fn(**resolved_models)
         return {} if return_loaded else None
     if any(p.kind is inspect.Parameter.VAR_KEYWORD for p in params.values()):
         setup_fn(**resolved_models)
@@ -1245,6 +1246,10 @@ def _run_inner(args: argparse.Namespace) -> int:
     ctx = build_local_context(
         kind=selected.kind,
         allow_publish=bool(args.allow_publish),
+        # The hub-write declaration travels into the local run (pgw#1294), so
+        # an author who forgot publishes=True meets the refusal in the dev
+        # loop instead of on a rented pod.
+        publishes=bool(getattr(selected.spec, "publishes", False)),
     )
     ctx._set_execution_lane(_local_executing_execution_lane(
         selected.bindings, getattr(args, "execution_lane", ""), selected.handles))

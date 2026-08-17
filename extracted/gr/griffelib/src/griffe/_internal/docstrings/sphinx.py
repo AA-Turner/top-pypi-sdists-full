@@ -1,3 +1,19 @@
+# SPDX-License-Identifier: ISC
+
+# Copyright (c) 2021, Timothée Mazzucotelli and contributors
+
+# Permission to use, copy, modify, and/or distribute this software for any
+# purpose with or without fee is hereby granted, provided that the above
+# copyright notice and this permission notice appear in all copies.
+
+# THE SOFTWARE IS PROVIDED "AS IS" AND THE AUTHOR DISCLAIMS ALL WARRANTIES
+# WITH REGARD TO THIS SOFTWARE INCLUDING ALL IMPLIED WARRANTIES OF
+# MERCHANTABILITY AND FITNESS. IN NO EVENT SHALL THE AUTHOR BE LIABLE FOR
+# ANY SPECIAL, DIRECT, INDIRECT, OR CONSEQUENTIAL DAMAGES OR ANY DAMAGES
+# WHATSOEVER RESULTING FROM LOSS OF USE, DATA OR PROFITS, WHETHER IN AN
+# ACTION OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS ACTION, ARISING OUT OF
+# OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
+
 # This module defines functions to parse Sphinx docstrings into structured data.
 
 # Credits to Patrick Lannigan ([@plannigan](https://github.com/plannigan))
@@ -91,6 +107,8 @@ class SphinxOptions(TypedDict, total=False):
 
     warn_unknown_params: bool
     """Whether to warn about unknown parameters."""
+    warn_missing_types: bool
+    """Whether to warn about missing types or annotations."""
     warnings: bool
     """Whether to issue warnings for parsing issues."""
 
@@ -99,6 +117,7 @@ def parse_sphinx(
     docstring: Docstring,
     *,
     warn_unknown_params: bool = True,
+    warn_missing_types: bool = True,
     warnings: bool = True,
 ) -> list[DocstringSection]:
     """Parse a Sphinx-style docstring.
@@ -106,6 +125,7 @@ def parse_sphinx(
     Parameters:
         docstring: The docstring to parse.
         warn_unknown_params: Warn about documented parameters not appearing in the signature.
+        warn_missing_types: Warn about missing types or annotations.
         warnings: Whether to log warnings at all.
 
     Returns:
@@ -115,6 +135,7 @@ def parse_sphinx(
 
     options = {
         "warn_unknown_params": warn_unknown_params,
+        "warn_missing_types": warn_missing_types,
         "warnings": warnings,
     }
 

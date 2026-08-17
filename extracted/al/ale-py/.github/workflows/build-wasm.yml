@@ -18,13 +18,16 @@ on:
     branches:
       - "*"
 
+permissions:
+  contents: read
+
 jobs:
   build-wasm:
     name: Build WASM
     runs-on: ubuntu-latest
 
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7
 
       - name: Setup Emscripten
         uses: mymindstorm/setup-emsdk@v16

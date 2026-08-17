@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: sphinx-markdown-builder
-Version: 0.6.10
+Version: 0.6.11
 Summary: A Sphinx extension to add markdown generation support.
 Author-email: Liran Funaro <liran.funaro@gmail.com>
 License-Expression: MIT
@@ -13,6 +13,7 @@ Classifier: Operating System :: OS Independent
 Classifier: Topic :: Software Development :: Libraries :: Python Modules
 Requires-Python: >=3.7
 Description-Content-Type: text/markdown
+License-File: LICENSE
 Requires-Dist: sphinx>=5.1.0
 Requires-Dist: tabulate
 Requires-Dist: docutils
@@ -29,6 +30,7 @@ Requires-Dist: pytest-cov; extra == "dev"
 Requires-Dist: coveralls; extra == "dev"
 Requires-Dist: sphinxcontrib-plantuml; extra == "dev"
 Requires-Dist: sphinxcontrib.httpdomain; extra == "dev"
+Dynamic: license-file
 
 # sphinx-markdown-builder
 
@@ -39,7 +41,7 @@ A Sphinx extension to add markdown generation support.
 ## Install
 
 ```sh
-pip3 install sphinx-markdown-builder==0.6.10
+pip3 install sphinx-markdown-builder==0.6.11
 ```
 
 ## Usage

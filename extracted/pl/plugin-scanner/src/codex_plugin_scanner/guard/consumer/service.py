@@ -26,7 +26,7 @@ from ..models import (
     HarnessDetection,
     PolicyDecision,
 )
-from ..policy import build_decision_v2, decide_action
+from ..policy import decide_action
 from ..receipts import build_receipt
 from ..risk import artifact_risk_signals_typed, artifact_risk_summary, summarize_signals
 from ..runtime.approval_context import (
@@ -41,8 +41,10 @@ from ..runtime.approval_reuse import (
     ApprovalReuseValidationFailure,
     evaluate_approval_reuse,
 )
+from ..runtime.decisions import build_authoritative_decision, evaluation_authority_error
 from ..runtime.signals import RiskSignalV2
 from ..schemas import build_consumer_mode_contract
+from ..skill_directory_identity import validated_complete_skill_directory_hash
 from ..store import GuardStore
 from ..types import (
     CapabilityDelta,
@@ -78,6 +80,9 @@ _PROMPT_FILE_HASH_VOLATILE_METADATA_KEYS = frozenset(
 _CONSUMER_APPROVAL_POLICY_VERSION = "consumer-evaluation-v1"
 _TRUSTED_REQUEST_OVERRIDE_REASON = "trusted_request_override_exact_context"
 _RUNTIME_DETECTOR_BLOCK_REASON = "runtime_detector_block"
+_RUNTIME_DETECTOR_REVIEW_REASON = "runtime_detector_review"
+_RUNTIME_DETECTOR_WARN_REASON = "runtime_detector_warn"
+_SKILL_DIRECTORY_IDENTITY_REASON = "skill_directory_identity_non_reusable"
 
 
 class ArtifactDiff(TypedDict):
@@ -115,7 +120,33 @@ def _serialize_artifact(artifact: GuardArtifact) -> dict[str, object]:
     return payload
 
 
+def _codex_hook_identity(artifact: GuardArtifact) -> str | None:
+    if artifact.harness != "codex" or artifact.artifact_type != "hook":
+        return None
+    identity = artifact.metadata.get("codex_hook_identity")
+    return identity if isinstance(identity, str) and identity else None
+
+
+def _snapshot_codex_hook_identity(snapshot: Mapping[str, object]) -> str | None:
+    if snapshot.get("harness") != "codex" or snapshot.get("artifact_type") != "hook":
+        return None
+    metadata = snapshot.get("metadata")
+    if not isinstance(metadata, Mapping):
+        return None
+    identity = metadata.get("codex_hook_identity")
+    return identity if isinstance(identity, str) and identity else None
+
+
 def _hash_payload(artifact: GuardArtifact) -> dict[str, object]:
+    codex_hook_identity = _codex_hook_identity(artifact)
+    if codex_hook_identity is not None:
+        return {
+            "schema": "codex-hook-artifact-hash-v1",
+            "harness": artifact.harness,
+            "artifact_type": artifact.artifact_type,
+            "source_scope": artifact.source_scope,
+            "codex_hook_identity": codex_hook_identity,
+        }
     payload = artifact.to_dict()
     metadata = artifact.metadata
     if (
@@ -165,6 +196,19 @@ def diff_artifact(previous: dict[str, object] | None, current: GuardArtifact) ->
             "current_snapshot": current_payload,
         }
     previous_payload = dict(previous)
+    previous_codex_hook_identity = _snapshot_codex_hook_identity(previous_payload)
+    current_codex_hook_identity = _codex_hook_identity(current)
+    if current_codex_hook_identity is not None and previous_codex_hook_identity == current_codex_hook_identity:
+        previous_hash = previous.get("artifact_hash")
+        previous_hash_value = previous_hash if isinstance(previous_hash, str) else None
+        hash_changed = previous_hash_value is not None and previous_hash_value != current_hash
+        return {
+            "changed": hash_changed,
+            "changed_fields": ["metadata"] if hash_changed else [],
+            "previous_hash": previous_hash_value,
+            "current_hash": current_hash,
+            "current_snapshot": current_payload,
+        }
     if "env_keys" not in previous_payload:
         previous_payload["env_keys"] = []
     changed_fields = [key for key, value in current_payload.items() if previous_payload.get(key) != value]
@@ -190,10 +234,6 @@ def diff_removed_artifact(previous: dict[str, object]) -> ArtifactDiff:
         "current_hash": None,
         "current_snapshot": previous,
     }
-
-
-def _is_blocking_action(policy_action: GuardAction) -> bool:
-    return policy_action in {"review", "require-reapproval", "sandbox-required", "block"}
 
 
 def _guard_default_action(artifact: GuardArtifact) -> GuardAction | None:
@@ -265,7 +305,14 @@ def build_history_context(
             continue
         if payload.get("artifact_id") != artifact_id:
             continue
-        if event.get("event_name") in {"changed_artifact_caught", "premium_advisory", "install_time_block"}:
+        if event.get("event_name") in {
+            "changed_artifact_caught",
+            "premium_advisory",
+            "install_time_block",
+            "install_time_review",
+            "install_time_require-reapproval",
+            "install_time_sandbox-required",
+        }:
             prior_incidents += 1
     publisher_trust: PublisherTrust = "unknown"
     if publisher:
@@ -488,11 +535,52 @@ def _consumer_execution_identity(
 
 
 def _consumer_context_metadata(artifact: GuardArtifact) -> dict[str, object]:
+    codex_hook_identity = _codex_hook_identity(artifact)
+    if codex_hook_identity is not None:
+        return {
+            "codex_hook_identity_schema": artifact.metadata.get("codex_hook_identity_schema"),
+            "codex_hook_identity": codex_hook_identity,
+        }
     if artifact.artifact_type != "prompt_request":
         return dict(artifact.metadata)
     return {
         key: value for key, value in artifact.metadata.items() if key not in _PROMPT_FILE_HASH_VOLATILE_METADATA_KEYS
     }
+
+
+def _skill_directory_identity_reusable(
+    *,
+    artifact_type: object,
+    metadata: object,
+) -> bool | None:
+    """Classify the optional migrated skill identity boundary.
+
+    ``None`` preserves legacy behavior for adapters that do not emit the
+    marker.  Once the marker key is present, only a complete, reusable v1
+    envelope whose digest agrees with ``directory_hash`` may reuse approval.
+    """
+
+    if artifact_type != "skill" or not isinstance(metadata, Mapping):
+        return None
+    if "skillDirectoryIdentity" not in metadata:
+        return None
+    if metadata.get("inspection_complete") is False:
+        return False
+    return validated_complete_skill_directory_hash(metadata) is not None
+
+
+def _skill_directory_identity_evidence(reusable: bool | None) -> tuple[dict[str, object], ...]:
+    if reusable is not False:
+        return ()
+    return (
+        {
+            "source": "skill_directory_identity",
+            "status": "incomplete",
+            "reason_code": _SKILL_DIRECTORY_IDENTITY_REASON,
+            "reusable": False,
+            "action_floor": "require-reapproval",
+        },
+    )
 
 
 def _consumer_policy_context(
@@ -544,8 +632,29 @@ def _consumer_approval_context_token(
     effective_cwd = _consumer_effective_cwd(config)
     normalized_cwd = _normalized_consumer_path(effective_cwd)
     normalized_workspace = _normalized_consumer_path(config.workspace) if config.workspace is not None else None
-    return build_approval_context_token(
-        identity={
+    codex_hook_identity = _codex_hook_identity(artifact)
+    if codex_hook_identity is not None:
+        identity_payload: dict[str, object] = {
+            "artifact_id": artifact.artifact_id,
+            "artifact_name": artifact.name,
+            "artifact_type": artifact.artifact_type,
+            "codex_hook_identity": codex_hook_identity,
+            "config_path": f"codex-hook://{artifact.source_scope}",
+            "cwd": normalized_cwd,
+            "detection_harness": detection.harness,
+            "executable": {"codex_hook_identity": codex_hook_identity},
+            "harness": artifact.harness,
+            "publisher": artifact.publisher,
+            "source_scope": artifact.source_scope,
+            "workspace": normalized_workspace,
+        }
+        content_payload: dict[str, object] = {
+            "artifact_hash": content_hash,
+            "codex_hook_identity": codex_hook_identity,
+            "metadata": _consumer_context_metadata(artifact),
+        }
+    else:
+        identity_payload = {
             "artifact_id": artifact.artifact_id,
             "artifact_name": artifact.name,
             "artifact_type": artifact.artifact_type,
@@ -562,14 +671,17 @@ def _consumer_approval_context_token(
             "publisher": artifact.publisher,
             "source_scope": artifact.source_scope,
             "workspace": normalized_workspace,
-        },
-        content={
+        }
+        content_payload = {
             "args": list(artifact.args),
             "artifact_hash": content_hash,
             "command": artifact.command,
             "metadata": _consumer_context_metadata(artifact),
             "url": artifact.url,
-        },
+        }
+    return build_approval_context_token(
+        identity=identity_payload,
+        content=content_payload,
         capabilities={
             "artifact_capabilities": dict(capability_snapshot),
             "command_available": detection.command_available,
@@ -765,6 +877,70 @@ def _runtime_detector_scanner_evidence(block_reason: str | None) -> tuple[dict[s
     )
 
 
+def _runtime_detector_risk_signals(
+    runtime_detector_context: Mapping[str, object] | None,
+) -> tuple[RiskSignalV2, ...]:
+    if runtime_detector_context is None:
+        return ()
+    raw_signals = runtime_detector_context.get("signals_v2")
+    if not isinstance(raw_signals, list):
+        return ()
+    signals: list[RiskSignalV2] = []
+    seen: set[str] = set()
+    for raw_signal in raw_signals:
+        if not isinstance(raw_signal, Mapping):
+            continue
+        try:
+            signal = RiskSignalV2.from_dict(raw_signal)
+        except (TypeError, ValueError):
+            continue
+        if signal.signal_id in seen:
+            continue
+        seen.add(signal.signal_id)
+        signals.append(signal)
+    return tuple(signals)
+
+
+def _runtime_detector_context_authority(
+    runtime_detector_context: Mapping[str, object] | None,
+) -> tuple[GuardAction | None, str | None]:
+    if runtime_detector_context is None:
+        return None, None
+    raw_composition = runtime_detector_context.get("composition")
+    if not isinstance(raw_composition, Mapping):
+        return None, None
+    action = raw_composition.get("action")
+    if not _is_guard_action(action) or action not in {"allow", "warn", "review", "block"}:
+        return None, None
+    reason = raw_composition.get("reason")
+    return action, reason if isinstance(reason, str) and reason.strip() else None
+
+
+def _merge_risk_signals(
+    static_signals: tuple[RiskSignalV2, ...],
+    runtime_signals: tuple[RiskSignalV2, ...],
+) -> tuple[RiskSignalV2, ...]:
+    merged: list[RiskSignalV2] = []
+    seen: set[str] = set()
+    for signal in (*static_signals, *runtime_signals):
+        if signal.signal_id in seen:
+            continue
+        seen.add(signal.signal_id)
+        merged.append(signal)
+    return tuple(merged)
+
+
+def _runtime_signal_scanner_evidence(signals: tuple[RiskSignalV2, ...]) -> tuple[dict[str, object], ...]:
+    return tuple(
+        {
+            "source": "runtime_detector_registry",
+            "kind": "risk_signal_v2",
+            "signal": signal.to_dict(),
+        }
+        for signal in signals
+    )
+
+
 def _trusted_request_override_applies(
     trusted_request_overrides: Mapping[str, str] | None,
     *,
@@ -828,6 +1004,31 @@ def _claimed_saved_approval_applies(
     )
 
 
+def _saved_approval_claim_evidence(
+    claimed_saved_approval_overrides: Mapping[str, str] | None,
+    retained_saved_approval_overrides: Mapping[str, str] | None,
+    *,
+    artifact_id: str,
+    approval_context_hash: str,
+    claimed: bool,
+) -> dict[str, str] | None:
+    """Serialize the exact internal claim proof that finalized this authority."""
+
+    if not claimed:
+        return None
+    if (claimed_saved_approval_overrides or {}).get(artifact_id) == approval_context_hash:
+        disposition = "consumed"
+    elif (retained_saved_approval_overrides or {}).get(artifact_id) == approval_context_hash:
+        disposition = "retained"
+    else:
+        raise ValueError("claimed saved approval is missing its exact context proof")
+    return {
+        "status": disposition,
+        "approval_context_hash": approval_context_hash,
+        "reason_code": APPROVAL_REUSE_ACCEPTED,
+    }
+
+
 def detect_all(context: HarnessContext) -> list[HarnessDetection]:
     """Run detection across all adapters."""
 
@@ -868,6 +1069,8 @@ def evaluate_detection(
     effective_default_action = default_action if _is_guard_action(default_action) else None
     prior_receipts = store.count_receipts(detection.harness) if persist else 0
     previous_snapshots = store.list_snapshots(detection.harness)
+    runtime_risk_signals_v2 = _runtime_detector_risk_signals(runtime_detector_context)
+    runtime_context_action, runtime_context_reason = _runtime_detector_context_authority(runtime_detector_context)
     current_artifact_ids: set[str] = set()
     for artifact in detection.artifacts:
         current_artifact_ids.add(artifact.artifact_id)
@@ -883,7 +1086,10 @@ def evaluate_detection(
         current_capabilities = normalize_artifact_capabilities(artifact)
         capability_delta = compute_capability_delta(previous_capabilities, current_capabilities)
         structured_signals = artifact_risk_signals_typed(artifact)
-        risk_signals_v2 = tuple(RiskSignalV2.from_guard_signal(signal) for signal in structured_signals)
+        risk_signals_v2 = _merge_risk_signals(
+            tuple(RiskSignalV2.from_guard_signal(signal) for signal in structured_signals),
+            runtime_risk_signals_v2,
+        )
         history_context = build_history_context(store, detection.harness, artifact.artifact_id, artifact.publisher)
         provenance_bundle = build_provenance_bundle(store, artifact.publisher)
         verdict = score_verdict(structured_signals, capability_delta, provenance_bundle, history_context)
@@ -907,6 +1113,15 @@ def evaluate_detection(
             current_policy_action,
             scanner_action,
         )
+        skill_directory_identity_reusable = _skill_directory_identity_reusable(
+            artifact_type=artifact.artifact_type,
+            metadata=artifact.metadata,
+        )
+        if skill_directory_identity_reusable is False:
+            current_policy_action = most_restrictive_guard_action(
+                current_policy_action,
+                "require-reapproval",
+            )
         approval_context_hash = _consumer_approval_context_token(
             detection=detection,
             artifact=artifact,
@@ -943,6 +1158,13 @@ def evaluate_detection(
             has_saved_state=has_saved_state,
             approval_reuse=approval_reuse,
         )
+        approval_claim = _saved_approval_claim_evidence(
+            claimed_saved_approval_overrides,
+            retained_saved_approval_overrides,
+            artifact_id=artifact.artifact_id,
+            approval_context_hash=approval_context_hash,
+            claimed=claimed_saved_approval,
+        )
         if claimed_saved_approval:
             approval_reuse = evaluate_approval_reuse(
                 current_policy_action,
@@ -957,7 +1179,19 @@ def evaluate_detection(
             approval_reuse=approval_reuse,
         )
         policy_action: GuardAction = "allow" if trusted_request_override else approval_reuse.action
-        if runtime_detector_block_reason:
+        runtime_review_approved = bool(
+            trusted_request_override
+            or (
+                approval_reuse.accepted
+                and approval_reuse.current_action == "review"
+                and approval_reuse.saved_action == "allow"
+            )
+        )
+        if runtime_context_action == "warn":
+            policy_action = most_restrictive_guard_action(policy_action, "warn")
+        if runtime_context_action == "review" and not runtime_review_approved:
+            policy_action = most_restrictive_guard_action(policy_action, "review")
+        if runtime_context_action == "block" or runtime_detector_block_reason:
             policy_action = "block"
         approval_authority_finalized = (
             not approval_reuse.should_claim or claimed_saved_approval or trusted_request_override
@@ -967,7 +1201,9 @@ def evaluate_detection(
             has_saved_state=has_saved_state,
         )
         scanner_evidence = (
+            *_skill_directory_identity_evidence(skill_directory_identity_reusable),
             *approval_reuse_evidence,
+            *_runtime_signal_scanner_evidence(runtime_risk_signals_v2),
             *(
                 (
                     {
@@ -982,20 +1218,68 @@ def evaluate_detection(
             ),
             *_runtime_detector_scanner_evidence(runtime_detector_block_reason),
         )
-        if _is_blocking_action(policy_action):
-            blocked = True
         decision_reason = (
             _RUNTIME_DETECTOR_BLOCK_REASON
             if runtime_detector_block_reason
+            else _RUNTIME_DETECTOR_WARN_REASON
+            if runtime_context_action == "warn" and policy_action == "warn"
+            else _RUNTIME_DETECTOR_REVIEW_REASON
+            if runtime_context_action == "review" and policy_action == "review"
             else _TRUSTED_REQUEST_OVERRIDE_REASON
             if trusted_request_override
             else approval_reuse.reason_code
             if has_saved_state
             else policy_action
         )
-        decision_v2 = build_decision_v2(policy_action, reason=decision_reason, signals=risk_signals_v2)
-        risk_signals = tuple(signal.explanation for signal in structured_signals)
-        risk_summary = artifact_risk_summary(artifact) if structured_signals else summarize_signals(())
+        policy_composition = {
+            "configured_action": configured_action,
+            "current_action": current_policy_action,
+            "saved_action": approval_reuse.saved_action,
+            "saved_state_present": has_saved_state,
+            "scanner_action": scanner_action,
+            "raw_scoring_recommendation": verdict.action,
+            "scoring_recommendation_non_authoritative": True,
+            "trusted_request_override": trusted_request_override,
+            **(
+                {
+                    "skill_directory_identity_reusable": skill_directory_identity_reusable,
+                    "skill_directory_identity_floor": "require-reapproval",
+                }
+                if skill_directory_identity_reusable is False
+                else {}
+            ),
+            **({"saved_approval_claim": approval_claim} if approval_claim is not None else {}),
+            **(
+                {
+                    "runtime_detector_action": "block" if runtime_detector_block_reason else runtime_context_action,
+                    "runtime_detector_reason": runtime_detector_block_reason or runtime_context_reason,
+                }
+                if runtime_detector_block_reason or runtime_context_action is not None
+                else {}
+            ),
+            "final_action": policy_action,
+        }
+        authoritative_decision = build_authoritative_decision(
+            policy_action,
+            reason=decision_reason,
+            composition_trace=policy_composition,
+            signals=risk_signals_v2,
+            authority_finalized=approval_authority_finalized,
+        )
+        policy_action = authoritative_decision.action
+        if authoritative_decision.enforcement.blocking:
+            blocked = True
+        risk_signals = tuple(signal.plain_reason for signal in authoritative_decision.signals)
+        has_runtime_authority = bool(
+            runtime_risk_signals_v2 or runtime_detector_block_reason or runtime_context_action is not None
+        )
+        risk_summary = (
+            authoritative_decision.decision_v2.dashboard_primary_detail
+            if has_runtime_authority
+            else artifact_risk_summary(artifact)
+            if structured_signals
+            else summarize_signals(())
+        )
         changed_capabilities = [delta.delta_type for delta in capability_delta] or list(diff["changed_fields"])
         launch_target = _launch_target_from_artifact(artifact)
         incident = build_incident_context(
@@ -1050,7 +1334,7 @@ def evaluate_detection(
                 policy_action=policy_action,
                 changed=bool(diff["changed"]),
                 now=now,
-                approved=not _is_blocking_action(policy_action) and approval_authority_finalized,
+                approved=authoritative_decision.enforcement.snapshot_permitted,
             )
             store.save_artifact_capability(
                 harness=detection.harness,
@@ -1073,7 +1357,7 @@ def evaluate_detection(
                     str(diff["current_hash"]),
                     now,
                 )
-            if not _is_blocking_action(policy_action) and approval_authority_finalized:
+            if authoritative_decision.enforcement.snapshot_permitted:
                 store.save_snapshot(
                     detection.harness,
                     artifact.artifact_id,
@@ -1103,8 +1387,7 @@ def evaluate_detection(
                 "artifact_name": artifact.name,
                 "changed": diff["changed"],
                 "changed_fields": diff["changed_fields"],
-                "policy_action": policy_action,
-                "decision_v2_json": decision_v2.to_dict(),
+                **authoritative_decision.to_artifact_projection(),
                 "artifact_hash": diff["current_hash"],
                 "approval_context_hash": approval_context_hash,
                 "effective_workspace": workspace,
@@ -1116,23 +1399,15 @@ def evaluate_detection(
                     "applied": trusted_request_override,
                     "reason_code": _TRUSTED_REQUEST_OVERRIDE_REASON if trusted_request_override else None,
                 },
-                "policy_composition": {
-                    "configured_action": configured_action,
-                    "current_action": current_policy_action,
-                    "saved_action": approval_reuse.saved_action,
-                    "saved_state_present": has_saved_state,
-                    "scanner_action": scanner_action,
-                    "scoring_recommendation": verdict.action,
-                    "trusted_request_override": trusted_request_override,
-                    **(
-                        {
-                            "runtime_detector_action": "block",
-                            "runtime_detector_reason": runtime_detector_block_reason,
-                        }
-                        if runtime_detector_block_reason
-                        else {}
-                    ),
-                    "final_action": policy_action,
+                **({"approval_claim": approval_claim} if approval_claim is not None else {}),
+                "scoring_recommendation": {
+                    "non_authoritative": True,
+                    "action": verdict.action,
+                    "mapped_guard_action": scanner_action,
+                    "reasons": list(verdict.reasons),
+                    "confidence": verdict.confidence,
+                    "severity": verdict.severity,
+                    "evidence_sources": list(verdict.evidence_sources),
                 },
                 "risk_signals": list(risk_signals),
                 "risk_summary": risk_summary,
@@ -1148,8 +1423,6 @@ def evaluate_detection(
                 "remediation": list(verdict.recommended_next_actions),
                 "suppressibility": verdict.suppressible,
                 "review_priority": verdict.review_priority,
-                "verdict_action": verdict.action,
-                "verdict_reasons": list(verdict.reasons),
                 "artifact_type": artifact.artifact_type,
                 "config_path": artifact.config_path,
                 "source_scope": artifact.source_scope,
@@ -1179,6 +1452,15 @@ def evaluate_detection(
             config=config,
             changed=True,
         )
+        skill_directory_identity_reusable = _skill_directory_identity_reusable(
+            artifact_type=previous.get("artifact_type"),
+            metadata=previous.get("metadata"),
+        )
+        if skill_directory_identity_reusable is False:
+            current_policy_action = most_restrictive_guard_action(
+                current_policy_action,
+                "require-reapproval",
+            )
         approval_context_hash = _removed_consumer_approval_context_token(
             harness=detection.harness,
             artifact_id=artifact_id,
@@ -1218,6 +1500,13 @@ def evaluate_detection(
             has_saved_state=has_saved_state,
             approval_reuse=approval_reuse,
         )
+        approval_claim = _saved_approval_claim_evidence(
+            claimed_saved_approval_overrides,
+            retained_saved_approval_overrides,
+            artifact_id=artifact_id,
+            approval_context_hash=approval_context_hash,
+            claimed=claimed_saved_approval,
+        )
         if claimed_saved_approval:
             approval_reuse = evaluate_approval_reuse(
                 current_policy_action,
@@ -1232,7 +1521,19 @@ def evaluate_detection(
             approval_reuse=approval_reuse,
         )
         policy_action = "allow" if trusted_request_override else approval_reuse.action
-        if runtime_detector_block_reason:
+        runtime_review_approved = bool(
+            trusted_request_override
+            or (
+                approval_reuse.accepted
+                and approval_reuse.current_action == "review"
+                and approval_reuse.saved_action == "allow"
+            )
+        )
+        if runtime_context_action == "warn":
+            policy_action = most_restrictive_guard_action(policy_action, "warn")
+        if runtime_context_action == "review" and not runtime_review_approved:
+            policy_action = most_restrictive_guard_action(policy_action, "review")
+        if runtime_context_action == "block" or runtime_detector_block_reason:
             policy_action = "block"
         approval_authority_finalized = (
             not approval_reuse.should_claim or claimed_saved_approval or trusted_request_override
@@ -1242,7 +1543,9 @@ def evaluate_detection(
             has_saved_state=has_saved_state,
         )
         scanner_evidence = (
+            *_skill_directory_identity_evidence(skill_directory_identity_reusable),
             *approval_reuse_evidence,
+            *_runtime_signal_scanner_evidence(runtime_risk_signals_v2),
             *(
                 (
                     {
@@ -1257,19 +1560,68 @@ def evaluate_detection(
             ),
             *_runtime_detector_scanner_evidence(runtime_detector_block_reason),
         )
-        if _is_blocking_action(policy_action):
-            blocked = True
-        decision_v2 = build_decision_v2(
-            policy_action,
-            reason=(
-                _RUNTIME_DETECTOR_BLOCK_REASON
-                if runtime_detector_block_reason
-                else _TRUSTED_REQUEST_OVERRIDE_REASON
-                if trusted_request_override
-                else approval_reuse.reason_code
-                if has_saved_state
-                else policy_action
+        decision_reason = (
+            _RUNTIME_DETECTOR_BLOCK_REASON
+            if runtime_detector_block_reason
+            else _RUNTIME_DETECTOR_WARN_REASON
+            if runtime_context_action == "warn" and policy_action == "warn"
+            else _RUNTIME_DETECTOR_REVIEW_REASON
+            if runtime_context_action == "review" and policy_action == "review"
+            else _TRUSTED_REQUEST_OVERRIDE_REASON
+            if trusted_request_override
+            else approval_reuse.reason_code
+            if has_saved_state
+            else policy_action
+        )
+        policy_composition = {
+            "configured_action": configured_action,
+            "current_action": current_policy_action,
+            "saved_action": approval_reuse.saved_action,
+            "saved_state_present": has_saved_state,
+            # Removal has no artifact body to score. Keep the historical warn
+            # recommendation as diagnostic evidence, but do not claim it was
+            # an enforcement input.
+            "scanner_action": None,
+            "raw_scoring_recommendation": "warn",
+            "scoring_recommendation_non_authoritative": True,
+            "trusted_request_override": trusted_request_override,
+            **(
+                {
+                    "skill_directory_identity_reusable": skill_directory_identity_reusable,
+                    "skill_directory_identity_floor": "require-reapproval",
+                }
+                if skill_directory_identity_reusable is False
+                else {}
             ),
+            **({"saved_approval_claim": approval_claim} if approval_claim is not None else {}),
+            **(
+                {
+                    "runtime_detector_action": "block" if runtime_detector_block_reason else runtime_context_action,
+                    "runtime_detector_reason": runtime_detector_block_reason or runtime_context_reason,
+                }
+                if runtime_detector_block_reason or runtime_context_action is not None
+                else {}
+            ),
+            "final_action": policy_action,
+        }
+        authoritative_decision = build_authoritative_decision(
+            policy_action,
+            reason=decision_reason,
+            composition_trace=policy_composition,
+            signals=runtime_risk_signals_v2,
+            authority_finalized=approval_authority_finalized,
+        )
+        policy_action = authoritative_decision.action
+        if authoritative_decision.enforcement.blocking:
+            blocked = True
+        removed_risk_signals = tuple(signal.plain_reason for signal in authoritative_decision.signals)
+        has_runtime_authority = bool(
+            runtime_risk_signals_v2 or runtime_detector_block_reason or runtime_context_action is not None
+        )
+        removed_risk_summary = (
+            authoritative_decision.decision_v2.dashboard_primary_detail
+            if has_runtime_authority
+            else "Artifact was removed from the harness configuration."
         )
         artifact_name = previous.get("name")
         source_scope = previous.get("source_scope")
@@ -1289,7 +1641,7 @@ def evaluate_detection(
             changed_fields=["removed"],
             policy_action=policy_action,
             launch_target=None,
-            risk_summary=None,
+            risk_summary=removed_risk_summary,
         )
         receipt = build_receipt(
             harness=detection.harness,
@@ -1336,7 +1688,7 @@ def evaluate_detection(
                 "removed",
                 now,
             )
-            if not _is_blocking_action(policy_action) and approval_authority_finalized:
+            if authoritative_decision.enforcement.snapshot_permitted:
                 store.delete_snapshot(detection.harness, artifact_id)
             store.add_receipt(receipt)
             store.add_event(
@@ -1359,8 +1711,7 @@ def evaluate_detection(
                 "artifact_name": str(artifact_name) if isinstance(artifact_name, str) else artifact_id,
                 "changed": True,
                 "changed_fields": ["removed"],
-                "policy_action": policy_action,
-                "decision_v2_json": decision_v2.to_dict(),
+                **authoritative_decision.to_artifact_projection(),
                 "artifact_hash": previous_hash,
                 "approval_context_hash": approval_context_hash,
                 "effective_workspace": workspace,
@@ -1372,27 +1723,20 @@ def evaluate_detection(
                     "applied": trusted_request_override,
                     "reason_code": _TRUSTED_REQUEST_OVERRIDE_REASON if trusted_request_override else None,
                 },
-                "policy_composition": {
-                    "configured_action": configured_action,
-                    "current_action": current_policy_action,
-                    "saved_action": approval_reuse.saved_action,
-                    "saved_state_present": has_saved_state,
-                    "scoring_recommendation": "warn",
-                    "trusted_request_override": trusted_request_override,
-                    **(
-                        {
-                            "runtime_detector_action": "block",
-                            "runtime_detector_reason": runtime_detector_block_reason,
-                        }
-                        if runtime_detector_block_reason
-                        else {}
-                    ),
-                    "final_action": policy_action,
+                **({"approval_claim": approval_claim} if approval_claim is not None else {}),
+                "scoring_recommendation": {
+                    "non_authoritative": True,
+                    "action": "warn",
+                    "mapped_guard_action": "warn",
+                    "reasons": ["Artifact removal should be reviewed for intentionality."],
+                    "confidence": 0.7,
+                    "severity": 3,
+                    "evidence_sources": ["history"],
                 },
                 "removed": True,
-                "risk_signals": ["artifact removed from local harness configuration"],
-                "risk_summary": "Artifact was removed from the harness configuration.",
-                "signals": [],
+                "risk_signals": list(removed_risk_signals) or ["artifact removed from local harness configuration"],
+                "risk_summary": removed_risk_summary,
+                "signals": [signal.to_dict() for signal in authoritative_decision.signals],
                 "confidence": 0.7,
                 "severity": 3,
                 "evidence_sources": ["history"],
@@ -1404,8 +1748,6 @@ def evaluate_detection(
                 "remediation": ["defer_and_notify_team"],
                 "suppressibility": True,
                 "review_priority": "low",
-                "verdict_action": "warn",
-                "verdict_reasons": ["Artifact removal should be reviewed for intentionality."],
                 "artifact_type": removed_artifact_type,
                 "config_path": str(config_path) if isinstance(config_path, str) else None,
                 "source_scope": str(source_scope) if isinstance(source_scope, str) else None,
@@ -1417,6 +1759,15 @@ def evaluate_detection(
                 "risk_headline": incident["risk_headline"],
             }
         )
+    evaluation: dict[str, Any] = {
+        "harness": detection.harness,
+        "artifacts": results,
+        "blocked": blocked,
+        "receipts_recorded": receipts_recorded,
+    }
+    authority_error = evaluation_authority_error(evaluation)
+    if authority_error is not None:
+        raise RuntimeError(authority_error)
     if persist and prior_receipts == 0 and receipts_recorded > 0:
         store.add_event(
             "first_protected_harness_session",
@@ -1436,12 +1787,7 @@ def evaluate_detection(
             artifacts=results,
             now=now,
         )
-    return {
-        "harness": detection.harness,
-        "artifacts": results,
-        "blocked": blocked,
-        "receipts_recorded": receipts_recorded,
-    }
+    return evaluation
 
 
 def record_policy(

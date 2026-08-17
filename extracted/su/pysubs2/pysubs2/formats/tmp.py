@@ -1,13 +1,22 @@
+# mypy: disable-error-code="override"
+
 import re
 import warnings
-from typing import Optional, TextIO, Any
+from typing import TYPE_CHECKING, NotRequired, TextIO, TypedDict, Unpack, override
 
-from .base import FormatBase
 from ..ssaevent import SSAEvent
 from ..ssastyle import SSAStyle
+from ..time import TIMESTAMP_SHORT, make_time, ms_to_times, timestamp_to_ms
+from ..warnings import (
+    PossibleMissedSubtitleWarning,
+    TimestampOverflow,
+    TimestampUnderflow,
+)
+from .base import FormatBase
 from .substation import parse_tags
-from ..time import ms_to_times, make_time, TIMESTAMP_SHORT, timestamp_to_ms
-from ..ssafile import SSAFile
+
+if TYPE_CHECKING:
+    from ..ssafile import SSAFile
 
 
 #: Pattern that matches TMP line
@@ -20,19 +29,27 @@ MAX_REPRESENTABLE_TIME = make_time(h=99, m=59, s=59)
 class TmpFormat(FormatBase):
     """TMP subtitle format implementation"""
 
+    class ReaderArgs(TypedDict):
+        pass
+
+    class WriterArgs(TypedDict):
+        apply_styles: NotRequired[bool]
+
     @staticmethod
     def ms_to_timestamp(ms: int) -> str:
         """Convert ms to 'HH:MM:SS'"""
         if ms < 0:
+            warnings.warn("Underflow in TMP timestamp, clamping to zero", TimestampUnderflow)
             ms = 0
-        if ms > MAX_REPRESENTABLE_TIME:
-            warnings.warn("Overflow in TMP timestamp, clamping to MAX_REPRESENTABLE_TIME", RuntimeWarning)
+        elif ms > MAX_REPRESENTABLE_TIME:
+            warnings.warn("Overflow in TMP timestamp, clamping to MAX_REPRESENTABLE_TIME", TimestampOverflow)
             ms = MAX_REPRESENTABLE_TIME
         h, m, s, _ = ms_to_times(ms)
         return f"{h:02d}:{m:02d}:{s:02d}"
 
     @classmethod
-    def guess_format(cls, text: str) -> Optional[str]:
+    @override
+    def guess_format(cls, text: str) -> str | None:
         """See :meth:`pysubs2.formats.FormatBase.guess_format()`"""
         if "[Script Info]" in text or "[V4+ Styles]" in text:
             # disambiguation vs. SSA/ASS
@@ -45,7 +62,8 @@ class TmpFormat(FormatBase):
         return None
 
     @classmethod
-    def from_file(cls, subs: "SSAFile", fp: TextIO, format_: str, **kwargs: Any) -> None:
+    @override
+    def from_file(cls, subs: "SSAFile", fp: TextIO, format_: str, **kwargs: Unpack[ReaderArgs]) -> None:
         """See :meth:`pysubs2.formats.FormatBase.from_file()`"""
         events = []
 
@@ -55,9 +73,14 @@ class TmpFormat(FormatBase):
             text = re.sub(r"< */? *[a-zA-Z][^>]*>", "", text) # strip other HTML tags
             return text
 
-        for line in fp:
+        for lineno, line in enumerate(fp, 1):
             match = TMP_LINE.match(line)
             if not match:
+                if re.search(r"\w", line):
+                    warnings.warn(
+                        f"Possible missed subtitle at line {lineno}",
+                        PossibleMissedSubtitleWarning
+                    )
                 continue
 
             start, text = match.groups()
@@ -79,7 +102,8 @@ class TmpFormat(FormatBase):
         subs.events = events
 
     @classmethod
-    def to_file(cls, subs: "SSAFile", fp: TextIO, format_: str, apply_styles: bool = True, **kwargs: Any) -> None:
+    @override
+    def to_file(cls, subs: "SSAFile", fp: TextIO, format_: str, **kwargs: Unpack[WriterArgs]) -> None:
         """
         See :meth:`pysubs2.formats.FormatBase.to_file()`
 
@@ -89,6 +113,8 @@ class TmpFormat(FormatBase):
             apply_styles: If False, do not write any styling.
 
         """
+        apply_styles: bool = kwargs.get("apply_styles", True)
+
         def prepare_text(text: str, style: SSAStyle) -> str:
             body = []
             for fragment, sty in parse_tags(text, style, subs.styles):

@@ -29,12 +29,14 @@ from xpander_sdk.core.context_optimizer.finalize_mode import (
 from xpander_sdk.core.context_optimizer.prompts import (
     build_pre_retry_focus_instructions,
 )
+from xpander_sdk.core.context_optimizer.structure_sketch import sketch_structure
 
 __all__ = [
     # Core
     "XPanderContextOptimizer",
     "CompactRetryResult",
     "build_pre_retry_focus_instructions",
+    "sketch_structure",
     # Action ledger
     "ActionLedger",
     "attach_to_task",

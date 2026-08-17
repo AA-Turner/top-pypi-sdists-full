@@ -3,6 +3,7 @@ from __future__ import annotations
 import asyncio
 import dataclasses
 import io
+import math
 import time
 import warnings
 from collections.abc import Coroutine
@@ -21,7 +22,7 @@ from typing import (
 )
 
 import numpy as np
-from typing_extensions import Literal, ParamSpec, TypeAlias, deprecated
+from typing_extensions import Literal, Never, ParamSpec, TypeAlias, deprecated
 
 from viser._backwards_compat_shims import deprecated_positional_shim
 
@@ -69,10 +70,15 @@ from ._scene_handles import (
     TransformControlsEvent,
     TransformControlsHandle,
     _DragInput,
+    _normalize_node_name,
     _RaycastSupportedSceneNodeHandle,
     _TransformControlsState,
 )
-from ._threadpool_exceptions import print_threadpool_errors
+from ._threadpool_exceptions import (
+    print_awaited_callback_error,
+    print_task_error,
+    print_threadpool_errors,
+)
 
 if TYPE_CHECKING:
     import trimesh
@@ -132,10 +138,25 @@ def _drag_input_matches_filter(
 def _encode_rgb(rgb: RgbTupleOrArray) -> tuple[int, int, int]:
     if isinstance(rgb, np.ndarray):
         assert rgb.shape == (3,)
-    rgb_fixed = tuple(
-        int(value) if np.issubdtype(type(value), np.integer) else int(value * 255)
-        for value in rgb
-    )
+
+    def channel(value: Any) -> int:
+        # Match the array-color path (colors_to_uint8) exactly: integers are
+        # [0,255], floats are [0,1] scaled by 255, everything clamped to
+        # [0,255] with int() truncation (mirrors astype(uint8)). Clamp the
+        # SCALED float BEFORE int() so a non-finite channel can't reach int()
+        # (int(nan)/int(inf) raise): NaN -> 0, +Inf -> 255, -Inf -> 0, the
+        # same values np.clip(...).astype(uint8) produces. Without the clamp,
+        # out-of-range channels bled into adjacent bytes on the client
+        # (rgbToInt shifts) and an extreme float overflowed msgpack's int
+        # range at flush -- a crash far from the offending call.
+        if np.issubdtype(type(value), np.integer):
+            return min(255, max(0, int(value)))
+        scaled = float(value) * 255.0
+        if math.isnan(scaled):
+            return 0
+        return int(min(255.0, max(0.0, scaled)))
+
+    rgb_fixed = tuple(channel(value) for value in rgb)
     assert len(rgb_fixed) == 3
     return rgb_fixed  # type: ignore
 
@@ -165,11 +186,58 @@ TVector = TypeVar("TVector", bound=tuple)
 
 
 def cast_vector(vector: TVector | np.ndarray, length: int) -> TVector:
-    if not isinstance(vector, tuple):
-        assert cast(np.ndarray, vector).shape == (length,), (
-            f"Expected vector of shape {(length,)}, but got {vector.shape} instead"
+    # Arity is checked for EVERY input form: tuples/lists used to pass
+    # through unchecked, so a 2-tuple handed to a 3-vector API silently
+    # desynced from the client's fixed component count.
+    if isinstance(vector, np.ndarray):
+        if vector.shape != (length,):
+            raise ValueError(
+                f"Expected vector of shape {(length,)}, but got {vector.shape} instead"
+            )
+    elif len(vector) != length:
+        raise ValueError(
+            f"Expected vector of length {length}, but got {len(vector)} instead"
         )
     return cast(TVector, tuple(map(float, vector)))
+
+
+def _warn_wireframe_conflicts(
+    wireframe: bool, material: str, flat_shading: bool
+) -> None:
+    """Warn about arguments that are ignored when wireframe rendering is on.
+
+    Called one level below the public ``add_*`` method, so ``stacklevel=3``
+    points the warning at the user's call site (warn -> here -> add_* -> user).
+    """
+    if wireframe and material != "standard":
+        warnings.warn(
+            f"Invalid combination of {wireframe=} and {material=}. Material argument will be ignored.",
+            stacklevel=3,
+        )
+    if wireframe and flat_shading:
+        warnings.warn(
+            f"Invalid combination of {wireframe=} and {flat_shading=}. Flat shading argument will be ignored.",
+            stacklevel=3,
+        )
+
+
+def _validate_batched_transforms(
+    batched_wxyzs: Any, batched_positions: Any, batched_scales: Any
+) -> Tuple[np.ndarray, np.ndarray, Optional[np.ndarray], int]:
+    """Coerce and shape-check the per-instance transform arrays shared by the
+    batched scene primitives. Returns ``(wxyzs, positions, scales, count)``.
+    ``wxyzs`` and ``positions`` keep their input dtype (cast to float32 at
+    message construction); ``scales`` is cast to float32 here.
+    """
+    batched_wxyzs = np.asarray(batched_wxyzs)
+    batched_positions = np.asarray(batched_positions)
+    count = batched_wxyzs.shape[0]
+    assert batched_wxyzs.shape == (count, 4)
+    assert batched_positions.shape == (count, 3)
+    if batched_scales is not None:
+        batched_scales = np.asarray(batched_scales, dtype=np.float32)
+        assert batched_scales.shape in ((count,), (count, 3))
+    return batched_wxyzs, batched_positions, batched_scales, count
 
 
 MISSING_SENTINEL = "MISSING"
@@ -207,6 +275,40 @@ class SceneApi:
             str, TransformControlsHandle
         ] = {}
         self._handle_from_node_name: dict[str, SceneNodeHandle] = {}
+        self._creating_virtual_anchors = False
+        """True only while _ensure_ancestors_exist creates intermediate
+        frames; _make stamps `virtual=True` on create messages queued while
+        set. An api-level flag (rather than a parameter) keeps the marker
+        out of the public add_frame signature; the lifecycle lock makes it
+        race-free."""
+        if isinstance(owner, ViserServer):
+            self._owner_id = ""
+            """Opaque owner id stamped on every outgoing scene message: ""
+            for the broadcast scope, otherwise a per-client identifier. Each
+            scene-tree name holds at most one variant per owner on the
+            frontend; the effective (rendered, interactive) variant follows
+            the display rule: real client > real broadcast > virtual client
+            > virtual broadcast. Scene state is fully scope-local -- adds,
+            updates, and removals from one scope never touch the other
+            scope's variant of the same name."""
+            server_owner = owner
+        else:
+            self._owner_id = str(owner.client_id)
+            server_owner = owner._viser_server
+        self._node_lifecycle_lock = server_owner._scene_lifecycle_lock
+        """Serializes scene-node lifecycle transitions (remove, same-name
+        supersede) against interaction-callback (de)registration. All
+        critical sections are short and synchronous (no awaits inside).
+        Shared server-wide by every SceneApi: scene lifecycle is scope-local,
+        so per-scope locks would also be correct, but one lock keeps the
+        invariants easy to reason about and costs nothing (lifecycle ops are
+        rare and short). Reentrant: ancestor auto-creation re-enters by
+        design, and subclass _on_remove hooks run under the lock and must
+        stay safe to extend. Without this lock, a registration racing a
+        remove/supersede from another thread could publish a name-keyed
+        binding into the persistent buffer AFTER the teardown's
+        empty-bindings emit -- a ghost a same-name successor would inherit
+        on late-joining clients."""
         self._children_from_node_name: dict[str, set[str]] = {}
         # Tracks handles with an in-flight drag gesture, plus the last
         # message we processed for that drag. Populated on
@@ -225,6 +327,14 @@ class SceneApi:
             tuple[ClientId, str],
             tuple[_RaycastSupportedSceneNodeHandle, _messages.SceneNodeDragMessage],
         ] = {}
+        # Same idea for transform-control gizmos: track in-flight drags so a
+        # late ``update``/``end`` still dispatches after the gizmo (or an
+        # ancestor) is removed mid-drag -- which pops the handle from
+        # ``_handle_from_transform_controls_name`` -- and so ``on_drag_end``
+        # fires (and the entry is released) on a mid-drag disconnect.
+        self._active_transform_drag_handles: dict[
+            tuple[ClientId, str], TransformControlsHandle
+        ] = {}
 
         # Enable/disable of ``ScenePointerEnableMessage`` is
         # reference-counted per ``event_type``: enable when the first
@@ -233,47 +343,126 @@ class SceneApi:
         self._scene_pointer_cb: list[_PointerCallbackEntry] = []
         self._scene_pointer_done_cb: list[Callable[[], None | Coroutine]] = []
 
-        # Set up world axes handle.
-        self.world_axes: FrameHandle = self.add_frame(
-            "/WorldAxes",
-            axes_radius=0.0125,
-        )
-        """Handle for the world axes, which are created by default."""
+        # Set up world axes handle. Only the SERVER scope creates one by
+        # default (each ClientHandle used to re-add /WorldAxes over its own
+        # connection, racing the broadcast replay). Client-scoped SceneApis
+        # expose no world_axes handle -- see the property below; a client
+        # that wants different axes adds its own "/WorldAxes" frame, which
+        # shadows the server's variant for that one client.
+        self._world_axes: FrameHandle | None = None
+        if self._owner_id == "":
+            self._world_axes = self.add_frame(
+                "/WorldAxes",
+                axes_radius=0.0125,
+            )
+            self._world_axes.visible = False
 
-        self.world_axes.visible = False
-
-        self._websock_interface.register_handler(
+        # Node-keyed interaction messages echo the effective variant's owner,
+        # and every incoming message fans out to BOTH the server's and the
+        # connection's handler lists -- so these handlers are registered
+        # through the owner-scoping wrapper, which makes exactly one scope's
+        # SceneApi act on each message. Registering one of these directly
+        # would not fail; it would silently double-dispatch callbacks in
+        # both scopes.
+        self._register_owner_scoped_handler(
             _messages.TransformControlsUpdateMessage,
             self._handle_transform_controls_updates,
         )
-        self._websock_interface.register_handler(
+        self._register_owner_scoped_handler(
             _messages.TransformControlsDragStartMessage,
             self._handle_transform_controls_drag_start,
         )
-        self._websock_interface.register_handler(
+        self._register_owner_scoped_handler(
             _messages.TransformControlsDragEndMessage,
             self._handle_transform_controls_drag_end,
         )
-        self._websock_interface.register_handler(
+        self._register_owner_scoped_handler(
             _messages.SceneNodeClickMessage,
             self._handle_node_click_updates,
         )
-        self._websock_interface.register_handler(
+        self._register_owner_scoped_handler(
             _messages.SceneNodeDragMessage, self._handle_node_drag
         )
+        # Deliberately NOT owner-scoped: scene pointer events are scene-level
+        # (no target node). The client engages a gesture when the held
+        # modifiers match the UNION of both scopes' filters and sends ONE
+        # message; every scope's handler then dispatches its own matching
+        # registrations -- coexistence, with per-owner filter state on the
+        # client (ScenePointerEnableMessage.owner) so one scope's disable
+        # never deactivates the other's callbacks.
         self._websock_interface.register_handler(
             _messages.ScenePointerMessage,
             self._handle_scene_pointer_updates,
         )
 
+    @property
+    def world_axes(self) -> FrameHandle:
+        """Handle for the world axes, which are created by default. Hidden
+        until made visible via ``server.scene.world_axes.visible = True``.
+
+        Only available on the server's scene API; accessing this on a client
+        handle's ``client.scene`` raises ``AttributeError``. To show
+        different axes for one client, add a client-scoped frame named
+        ``"/WorldAxes"`` -- the client's variant shadows the server's for
+        that one viewer."""
+        if self._world_axes is None:
+            raise AttributeError(
+                "world_axes is only available on the server's scene API "
+                "(server.scene.world_axes). To show or hide the shared axes "
+                "for every client, assign server.scene.world_axes.visible; "
+                "to override them for one client, add a client-scoped frame "
+                'named "/WorldAxes" (it shadows the server\'s node for that '
+                "client)."
+            )
+        return self._world_axes
+
+    def _queue_scene_message(self, message: _messages.Message) -> None:
+        """Queue a name-keyed scene message, stamped with this scope's owner
+        id. Every scene message that targets a node by name MUST go through
+        here (or stamp ``owner`` itself): an unstamped message defaults to
+        the broadcast owner and would be routed to the wrong variant on the
+        client."""
+        # A message class without a declared `owner` field would accept the
+        # assignment below but silently DROP it at serialization (only
+        # declared fields go over the wire) -- the client would then route
+        # the message to the wrong variant. Catch that at the first test
+        # that exercises the new message instead.
+        assert hasattr(message, "owner"), (
+            f"{type(message).__name__} is queued as a scene message but "
+            "declares no `owner` field."
+        )
+        message.owner = self._owner_id  # type: ignore[attr-defined]
+        self._websock_interface.queue_message(message)
+
+    def _register_owner_scoped_handler(self, message_cls, handler) -> None:
+        """Register an incoming-message handler that only fires when the
+        message's echoed ``owner`` matches this scope. This is the dispatch
+        rule that makes the fan-out registration model safe: node-keyed
+        interaction messages reach both the server's and the connection's
+        handler lists, and exactly one scope may act on each."""
+
+        async def owner_scoped(client_id: ClientId, message) -> None:
+            if message.owner != self._owner_id:
+                return
+            await handler(client_id, message)
+
+        self._websock_interface.register_handler(message_cls, owner_scoped)
+
     def _is_drag_active_for(self, name: str) -> bool:
         """Whether the named scene node currently has any in-flight drag
         gesture (from any connected client). Used by ``remove()`` to
         decide whether to clear ``drag_cb`` immediately or preserve it
-        until the in-flight drag's ``end`` message arrives."""
-        return any(key[1] == name for key in self._active_drag_handles)
+        until the in-flight drag's ``end`` message arrives.
 
-    async def _drop_active_drags_for_client(self, client_id: ClientId) -> None:
+        Iterates a snapshot: this runs on the caller's thread while the
+        event loop's message handlers mutate the dict, and a live dict view
+        raises "dictionary changed size during iteration". (list(dict) is a
+        single C-level copy, atomic under the GIL.)"""
+        return any(key[1] == name for key in list(self._active_drag_handles))
+
+    async def _drop_active_drags_for_client(
+        self, client_id: ClientId, event_client: ClientHandle | None = None
+    ) -> None:
         """Drop any in-flight drag entries for a disconnecting client,
         synthesizing a ``phase="end"`` event so user state allocated in
         ``on_drag_start`` can be released. Without this, a mid-drag
@@ -282,6 +471,12 @@ class SceneApi:
         ``_is_drag_active_for`` will return spurious-true for the
         leaked node name -- preventing a future ``remove()`` from
         clearing its callbacks) and silently skips ``on_drag_end``."""
+        # Per-entry exception isolation for the setup that runs OUTSIDE
+        # _dispatch_callback's per-callback isolation (client resolution,
+        # event construction, callback filtering): a throwing entry must not
+        # strand the REMAINING entries (each pins a handle and blocks a
+        # future remove() from clearing its callbacks) or abort the caller's
+        # disconnect teardown.
         stale_keys = [k for k in self._active_drag_handles if k[0] == client_id]
         for k in stale_keys:
             entry = self._active_drag_handles.pop(k, None)
@@ -291,15 +486,66 @@ class SceneApi:
             # Synthesize an end event using the most recently observed
             # client-reported positions.
             synthetic = dataclasses.replace(last_msg, phase="end")
-            await self._dispatch_drag_callbacks(client_id, handle, synthetic)
+            try:
+                await self._dispatch_drag_callbacks(
+                    client_id, handle, synthetic, event_client
+                )
+            except Exception as exc:
+                print_awaited_callback_error(exc)
+
+        # Same for in-flight transform-control gizmo drags.
+        stale_tc_keys = [
+            k for k in self._active_transform_drag_handles if k[0] == client_id
+        ]
+        for k in stale_tc_keys:
+            tc_handle = self._active_transform_drag_handles.pop(k, None)
+            if tc_handle is None:
+                continue
+            try:
+                await self._fire_transform_controls_callbacks(
+                    client_id, tc_handle, "end", event_client
+                )
+            except Exception as exc:
+                print_awaited_callback_error(exc)
 
     def _ensure_ancestors_exist(self, name: str) -> None:
-        """Create intermediate frame nodes for any missing ancestors of `name`."""
+        """Create VIRTUAL intermediate frames for any ancestors of ``name``
+        missing from THIS scope's registry.
+
+        Unconditional per scope: an anchor is created even when another
+        scope has a (real) variant of the ancestor name. Virtual variants
+        yield to real ones in the client's display rule, so the anchor never
+        shadows anything -- it exists so every node has a complete
+        same-scope ancestor chain, which is what makes scope-local cascade
+        removal orphan-free (a client child survives a broadcast parent's
+        removal by hanging from its own scope's anchor, which inherits the
+        departing variant's pose client-side).
+
+        Caller (``SceneNodeHandle._make``) holds the lifecycle lock, so the
+        existence checks and creates are atomic against concurrent
+        adds/removes."""
+        # Fast path: a registered parent implies a complete ancestor chain
+        # (every add ensures its own chain; cascade removes whole same-scope
+        # subtrees), so per-add cost is one rsplit + dict lookup.
+        parent = name.rsplit("/", 1)[0]
+        if parent == "" or parent in self._handle_from_node_name:
+            return
         parts = name.split("/")
-        for i in range(2, len(parts)):  # skip root ("") and the node itself
-            ancestor = "/".join(parts[:i])
-            if ancestor not in self._handle_from_node_name:
-                self.add_frame(ancestor, show_axes=False)
+        # The anchors are ordinary add_frame() calls; the flag below makes
+        # _make stamp their create messages virtual, keeping the marker out
+        # of add_frame's public signature. Safe without save/restore
+        # subtleties: the lifecycle lock serializes adds, and the nested
+        # _ensure_ancestors_exist calls that add_frame triggers all hit the
+        # fast path above (ancestors are created parent-first).
+        self._creating_virtual_anchors = True
+        try:
+            for i in range(2, len(parts)):  # skip root ("") and the node itself
+                ancestor = "/".join(parts[:i])
+                if ancestor not in self._handle_from_node_name:
+                    # Recurses into _make under the reentrant lifecycle lock.
+                    self.add_frame(ancestor, show_axes=False)
+        finally:
+            self._creating_virtual_anchors = False
 
     def set_up_direction(
         self,
@@ -369,8 +615,10 @@ class SceneApi:
         )
 
         if not np.any(np.isnan(R_threeworld_world.wxyz)):
-            # Set the orientation of the root node.
-            self._websock_interface.queue_message(
+            # Set the orientation of the root node. The root ("") is a
+            # singleton on the client -- name-empty messages apply to it
+            # regardless of the stamped owner.
+            self._queue_scene_message(
                 _messages.SetOrientationMessage(
                     "", cast_vector(R_threeworld_world.wxyz, 4)
                 )
@@ -387,9 +635,7 @@ class SceneApi:
         Args:
             visible: Whether or not all scene nodes should be visible.
         """
-        self._websock_interface.queue_message(
-            _messages.SetSceneNodeVisibilityMessage("", visible)
-        )
+        self._queue_scene_message(_messages.SetSceneNodeVisibilityMessage("", visible))
 
     @deprecated_positional_shim
     def add_light_directional(
@@ -807,20 +1053,60 @@ class SceneApi:
         )
         return GlbHandle._make(self, message, name, wxyz, position, visible)
 
-    @deprecated_positional_shim
+    @overload
     def add_line_segments(
         self,
         name: str,
         points: np.ndarray,
         colors: np.ndarray | RgbTupleOrArray,
         *,
-        line_width: float = 1,
+        thickness: float = 0.01,
+        thickness_units: Literal["screen", "world"] = "world",
         scale: float | tuple[float, float, float] = 1.0,
         wxyz: tuple[float, float, float, float] | np.ndarray = (1.0, 0.0, 0.0, 0.0),
         position: tuple[float, float, float] | np.ndarray = (0.0, 0.0, 0.0),
         visible: bool = True,
+    ) -> LineSegmentsHandle: ...
+
+    @overload
+    @deprecated("The `line_width` parameter is deprecated. Use `thickness` instead.")
+    def add_line_segments(
+        self,
+        name: str,
+        points: np.ndarray,
+        colors: np.ndarray | RgbTupleOrArray,
+        *,
+        line_width: Never,
+        scale: float | tuple[float, float, float] = 1.0,
+        wxyz: tuple[float, float, float, float] | np.ndarray = (1.0, 0.0, 0.0, 0.0),
+        position: tuple[float, float, float] | np.ndarray = (0.0, 0.0, 0.0),
+        visible: bool = True,
+    ) -> LineSegmentsHandle: ...
+
+    @deprecated_positional_shim
+    def add_line_segments(  # pyright: ignore[reportInconsistentOverload]
+        self,
+        name: str,
+        points: np.ndarray,
+        colors: np.ndarray | RgbTupleOrArray,
+        *,
+        thickness: float = 0.01,
+        thickness_units: Literal["screen", "world"] = "world",
+        scale: float | tuple[float, float, float] = 1.0,
+        wxyz: tuple[float, float, float, float] | np.ndarray = (1.0, 0.0, 0.0, 0.0),
+        position: tuple[float, float, float] | np.ndarray = (0.0, 0.0, 0.0),
+        visible: bool = True,
+        **_deprecated_kwargs,
     ) -> LineSegmentsHandle:
         """Add line segments to the scene.
+
+        .. note::
+
+            **API change.** The screen-space pixel ``line_width`` parameter is
+            deprecated in favor of ``thickness``, which defaults to world-space
+            units. Code passing ``line_width`` keeps its exact old rendering
+            (it maps to ``thickness_units="screen"``) and emits a
+            :class:`DeprecationWarning`.
 
         Args:
             name: A scene tree name. Names in the format of /parent/child can
@@ -830,7 +1116,14 @@ class SceneApi:
             colors: Colors of the line segments. Can be a single color as an RGB tuple or
                 np.ndarray of shape (3,) to apply to all segments, or an np.ndarray of
                 shape (N, 2, 3) to specify colors for each point of each segment.
-            line_width: Width of the lines.
+            thickness: Thickness of the lines, in the units chosen via
+                ``thickness_units``. Defaults to `0.01` world units.
+            thickness_units: Units for ``thickness``. `"world"` (default)
+                keeps lines a fixed thickness in scene units, so they get
+                thinner with distance like real geometry. `"screen"` keeps a
+                fixed pixel thickness regardless of distance. The deprecated
+                ``line_width`` argument maps to screen-space pixels, matching
+                its old behavior exactly.
             scale: Scale of the line segments. A single float for uniform
                 scaling or a tuple of (x, y, z) for per-axis scaling.
             wxyz: Quaternion rotation to parent frame from local frame (R_pl).
@@ -840,6 +1133,19 @@ class SceneApi:
         Returns:
             Handle for manipulating scene node.
         """
+        if "line_width" in _deprecated_kwargs:
+            warnings.warn(
+                "The `line_width` parameter is deprecated. Use `thickness` with "
+                "`thickness_units='screen'` for the same behavior.",
+                DeprecationWarning,
+                stacklevel=2,
+            )
+            thickness = float(_deprecated_kwargs.pop("line_width"))
+            thickness_units = "screen"
+        if _deprecated_kwargs:
+            raise TypeError(
+                f"Unexpected keyword arguments: {list(_deprecated_kwargs.keys())}"
+            )
         points_array = np.asarray(points, dtype=np.float32)
         if (
             points_array.shape[-1] != 3
@@ -859,13 +1165,14 @@ class SceneApi:
             props=_messages.LineSegmentsProps(
                 points=points_array,
                 colors=colors_array,
-                line_width=line_width,
+                thickness=thickness,
+                thickness_units=thickness_units,
                 scale=scale,
             ),
         )
         return LineSegmentsHandle._make(self, message, name, wxyz, position, visible)
 
-    @deprecated_positional_shim
+    @overload
     def add_arrows(
         self,
         name: str,
@@ -875,11 +1182,45 @@ class SceneApi:
         shaft_radius: float = 0.02,
         head_radius: float = 0.05,
         head_length: float = 0.1,
-        line_width: float = 1,
         scale: float | tuple[float, float, float] = 1.0,
         wxyz: tuple[float, float, float, float] | np.ndarray = (1.0, 0.0, 0.0, 0.0),
         position: tuple[float, float, float] | np.ndarray = (0.0, 0.0, 0.0),
         visible: bool = True,
+    ) -> ArrowsHandle: ...
+
+    @overload
+    @deprecated("The `line_width` parameter is deprecated and has no effect.")
+    def add_arrows(
+        self,
+        name: str,
+        points: np.ndarray,
+        colors: np.ndarray | RgbTupleOrArray,
+        *,
+        line_width: Never,
+        shaft_radius: float = 0.02,
+        head_radius: float = 0.05,
+        head_length: float = 0.1,
+        scale: float | tuple[float, float, float] = 1.0,
+        wxyz: tuple[float, float, float, float] | np.ndarray = (1.0, 0.0, 0.0, 0.0),
+        position: tuple[float, float, float] | np.ndarray = (0.0, 0.0, 0.0),
+        visible: bool = True,
+    ) -> ArrowsHandle: ...
+
+    @deprecated_positional_shim
+    def add_arrows(  # pyright: ignore[reportInconsistentOverload]
+        self,
+        name: str,
+        points: np.ndarray,
+        colors: np.ndarray | RgbTupleOrArray,
+        *,
+        shaft_radius: float = 0.02,
+        head_radius: float = 0.05,
+        head_length: float = 0.1,
+        scale: float | tuple[float, float, float] = 1.0,
+        wxyz: tuple[float, float, float, float] | np.ndarray = (1.0, 0.0, 0.0, 0.0),
+        position: tuple[float, float, float] | np.ndarray = (0.0, 0.0, 0.0),
+        visible: bool = True,
+        **_deprecated_kwargs,
     ) -> ArrowsHandle:
         """Add arrows to the scene.
 
@@ -897,7 +1238,6 @@ class SceneApi:
             shaft_radius: Radius of the arrow shaft.
             head_radius: Radius of the arrow head cone.
             head_length: Length of the arrow head.
-            line_width: Width of the lines (fallback rendering).
             scale: Scale of the arrows. A single float for uniform
                 scaling or a tuple of (x, y, z) for per-axis scaling.
             wxyz: Quaternion rotation to parent frame from local frame (R_pl).
@@ -907,6 +1247,22 @@ class SceneApi:
         Returns:
             Handle for manipulating scene node.
         """
+        if "line_width" in _deprecated_kwargs:
+            # Accepted-and-ignored rather than remapped: unlike the spline /
+            # line-segment APIs, arrows have no thickness equivalent -- the
+            # old prop only affected a client fallback rendering path that no
+            # longer exists.
+            warnings.warn(
+                "The `line_width` parameter is deprecated and has no effect: "
+                "arrows no longer have a line-width fallback rendering path.",
+                DeprecationWarning,
+                stacklevel=2,
+            )
+            _deprecated_kwargs.pop("line_width")
+        if _deprecated_kwargs:
+            raise TypeError(
+                f"Unexpected keyword arguments: {list(_deprecated_kwargs.keys())}"
+            )
         points_array = np.asarray(points, dtype=np.float32)
         if (
             points_array.ndim != 3
@@ -929,7 +1285,6 @@ class SceneApi:
                 shaft_radius=shaft_radius,
                 head_radius=head_radius,
                 head_length=head_length,
-                line_width=line_width,
                 scale=scale,
             ),
         )
@@ -944,7 +1299,8 @@ class SceneApi:
         curve_type: Literal["centripetal", "chordal", "catmullrom"] = "centripetal",
         tension: float = 0.5,
         closed: bool = False,
-        line_width: float = 1,
+        thickness: float = 0.01,
+        thickness_units: Literal["screen", "world"] = "world",
         color: RgbTupleOrArray = (20, 20, 20),
         segments: int | None = None,
         scale: float | tuple[float, float, float] = 1.0,
@@ -963,7 +1319,27 @@ class SceneApi:
         curve_type: Literal["centripetal", "chordal", "catmullrom"] = "centripetal",
         tension: float = 0.5,
         closed: bool = False,
-        line_width: float = 1,
+        thickness: float = 0.01,
+        thickness_units: Literal["screen", "world"] = "world",
+        color: RgbTupleOrArray = (20, 20, 20),
+        segments: int | None = None,
+        scale: float | tuple[float, float, float] = 1.0,
+        wxyz: tuple[float, float, float, float] | np.ndarray = (1.0, 0.0, 0.0, 0.0),
+        position: tuple[float, float, float] | np.ndarray = (0.0, 0.0, 0.0),
+        visible: bool = True,
+    ) -> SplineCatmullRomHandle: ...
+
+    @overload
+    @deprecated("The `line_width` parameter is deprecated. Use `thickness` instead.")
+    def add_spline_catmull_rom(
+        self,
+        name: str,
+        points: np.ndarray,
+        *,
+        curve_type: Literal["centripetal", "chordal", "catmullrom"] = "centripetal",
+        tension: float = 0.5,
+        closed: bool = False,
+        line_width: Never,
         color: RgbTupleOrArray = (20, 20, 20),
         segments: int | None = None,
         scale: float | tuple[float, float, float] = 1.0,
@@ -981,7 +1357,8 @@ class SceneApi:
         curve_type: Literal["centripetal", "chordal", "catmullrom"] = "centripetal",
         tension: float = 0.5,
         closed: bool = False,
-        line_width: float = 1,
+        thickness: float = 0.01,
+        thickness_units: Literal["screen", "world"] = "world",
         color: RgbTupleOrArray = (20, 20, 20),
         segments: int | None = None,
         scale: float | tuple[float, float, float] = 1.0,
@@ -994,6 +1371,14 @@ class SceneApi:
 
         This method creates a spline based on a set of points and interpolates
         them using the Catmull-Rom algorithm. This can be used to create smooth curves.
+
+        .. note::
+
+            **API change.** The screen-space pixel ``line_width`` parameter is
+            deprecated in favor of ``thickness``, which defaults to world-space
+            units. Code passing ``line_width`` keeps its exact old rendering
+            (it maps to ``thickness_units="screen"``) and emits a
+            :class:`DeprecationWarning`.
 
         .. note::
 
@@ -1011,7 +1396,14 @@ class SceneApi:
             curve_type: Type of the curve ('centripetal', 'chordal', 'catmullrom').
             tension: Tension of the curve. Affects the tightness of the curve.
             closed: Boolean indicating if the spline is closed (forms a loop).
-            line_width: Width of the spline line.
+            thickness: Thickness of the spline line, in the units chosen via
+                ``thickness_units``. Defaults to `0.01` world units.
+            thickness_units: Units for ``thickness``. `"world"` (default)
+                keeps the line a fixed thickness in scene units, so it gets
+                thinner with distance like real geometry. `"screen"` keeps a
+                fixed pixel thickness regardless of distance. The deprecated
+                ``line_width`` argument maps to screen-space pixels, matching
+                its old behavior exactly.
             color: Color of the spline as an RGB tuple.
             segments: Number of segments to divide the spline into.
             scale: Scale of the spline. A single float for uniform scaling or a
@@ -1035,6 +1427,15 @@ class SceneApi:
                 DeprecationWarning,
                 stacklevel=2,
             )
+        if "line_width" in _deprecated_kwargs:
+            warnings.warn(
+                "The `line_width` parameter is deprecated. Use `thickness` with "
+                "`thickness_units='screen'` for the same behavior.",
+                DeprecationWarning,
+                stacklevel=2,
+            )
+            thickness = float(_deprecated_kwargs.pop("line_width"))
+            thickness_units = "screen"
         if _deprecated_kwargs:
             raise TypeError(
                 f"Unexpected keyword arguments: {list(_deprecated_kwargs.keys())}"
@@ -1046,11 +1447,12 @@ class SceneApi:
         message = _messages.CatmullRomSplineMessage(
             name,
             _messages.CatmullRomSplineProps(
-                points=np.asarray(points).astype(np.float32),
+                points=np.asarray(points, dtype=np.float32),
                 curve_type=curve_type,
                 tension=tension,
                 closed=closed,
-                line_width=line_width,
+                thickness=thickness,
+                thickness_units=thickness_units,
                 color=_encode_rgb(color),
                 segments=segments,
                 scale=scale,
@@ -1073,7 +1475,8 @@ class SceneApi:
         points: np.ndarray,
         control_points: np.ndarray,
         *,
-        line_width: float = 1.0,
+        thickness: float = 0.01,
+        thickness_units: Literal["screen", "world"] = "world",
         color: RgbTupleOrArray = (20, 20, 20),
         segments: int | None = None,
         scale: float | tuple[float, float, float] = 1.0,
@@ -1092,7 +1495,25 @@ class SceneApi:
         positions: tuple[tuple[float, float, float], ...],
         control_points: tuple[tuple[float, float, float], ...],
         *,
-        line_width: float = 1.0,
+        thickness: float = 0.01,
+        thickness_units: Literal["screen", "world"] = "world",
+        color: RgbTupleOrArray = (20, 20, 20),
+        segments: int | None = None,
+        scale: float | tuple[float, float, float] = 1.0,
+        wxyz: tuple[float, float, float, float] | np.ndarray = (1.0, 0.0, 0.0, 0.0),
+        position: tuple[float, float, float] | np.ndarray = (0.0, 0.0, 0.0),
+        visible: bool = True,
+    ) -> SplineCubicBezierHandle: ...
+
+    @overload
+    @deprecated("The `line_width` parameter is deprecated. Use `thickness` instead.")
+    def add_spline_cubic_bezier(
+        self,
+        name: str,
+        points: np.ndarray,
+        control_points: np.ndarray,
+        *,
+        line_width: Never,
         color: RgbTupleOrArray = (20, 20, 20),
         segments: int | None = None,
         scale: float | tuple[float, float, float] = 1.0,
@@ -1114,7 +1535,8 @@ class SceneApi:
         | np.ndarray
         | MISSING_SENTINEL_TYPE = MISSING_SENTINEL,
         *,
-        line_width: float = 1.0,
+        thickness: float = 0.01,
+        thickness_units: Literal["screen", "world"] = "world",
         color: RgbTupleOrArray = (20, 20, 20),
         segments: int | None = None,
         scale: float | tuple[float, float, float] = 1.0,
@@ -1138,6 +1560,14 @@ class SceneApi:
 
             The `positions` parameter is deprecated and will be removed in the future. Use `points` instead.
 
+        .. note::
+
+            **API change.** The screen-space pixel ``line_width`` parameter is
+            deprecated in favor of ``thickness``, which defaults to world-space
+            units. Code passing ``line_width`` keeps its exact old rendering
+            (it maps to ``thickness_units="screen"``) and emits a
+            :class:`DeprecationWarning`.
+
         Args:
             name: A scene tree name. Names in the format of /parent/child can be used to
                 define a kinematic tree.
@@ -1146,7 +1576,14 @@ class SceneApi:
                 exactly `2 * len(points) - 2` control points. For a cubic Bezier with N
                 points, the curve passes through points[0], points[1], ..., points[N-1],
                 with two control points between each consecutive pair of points.
-            line_width: Width of the spline line.
+            thickness: Thickness of the spline line, in the units chosen via
+                ``thickness_units``. Defaults to `0.01` world units.
+            thickness_units: Units for ``thickness``. `"world"` (default)
+                keeps the line a fixed thickness in scene units, so it gets
+                thinner with distance like real geometry. `"screen"` keeps a
+                fixed pixel thickness regardless of distance. The deprecated
+                ``line_width`` argument maps to screen-space pixels, matching
+                its old behavior exactly.
             color: Color of the spline as an RGB tuple.
             segments: Number of segments to divide the spline into.
             scale: Scale of the spline. A single float for uniform scaling or a
@@ -1170,6 +1607,15 @@ class SceneApi:
                 DeprecationWarning,
                 stacklevel=2,
             )
+        if "line_width" in _deprecated_kwargs:
+            warnings.warn(
+                "The `line_width` parameter is deprecated. Use `thickness` with "
+                "`thickness_units='screen'` for the same behavior.",
+                DeprecationWarning,
+                stacklevel=2,
+            )
+            thickness = float(_deprecated_kwargs.pop("line_width"))
+            thickness_units = "screen"
         if _deprecated_kwargs:
             raise TypeError(
                 f"Unexpected keyword arguments: {list(_deprecated_kwargs.keys())}"
@@ -1182,9 +1628,10 @@ class SceneApi:
         message = _messages.CubicBezierSplineMessage(
             name,
             _messages.CubicBezierSplineProps(
-                points=np.asarray(points).astype(np.float32),
-                control_points=np.asarray(control_points).astype(np.float32),
-                line_width=line_width,
+                points=np.asarray(points, dtype=np.float32),
+                control_points=np.asarray(control_points, dtype=np.float32),
+                thickness=thickness,
+                thickness_units=thickness_units,
                 color=_encode_rgb(color),
                 segments=segments,
                 scale=scale,
@@ -1194,7 +1641,7 @@ class SceneApi:
             self, message, name, wxyz, position, visible
         )
 
-    @deprecated_positional_shim
+    @overload
     def add_camera_frustum(
         self,
         name: str,
@@ -1202,7 +1649,8 @@ class SceneApi:
         aspect: float,
         *,
         scale: float | tuple[float, float, float] = 0.3,
-        line_width: float = 2.0,
+        thickness: float = 0.02,
+        thickness_units: Literal["screen", "world"] = "world",
         color: RgbTupleOrArray = (20, 20, 20),
         image: np.ndarray | None = None,
         format: Literal["auto", "png", "jpeg"] = "auto",
@@ -1213,6 +1661,51 @@ class SceneApi:
         cast_shadow: bool = True,
         receive_shadow: bool | float = True,
         variant: Literal["wireframe", "filled"] = "wireframe",
+    ) -> CameraFrustumHandle: ...
+
+    @overload
+    @deprecated("The `line_width` parameter is deprecated. Use `thickness` instead.")
+    def add_camera_frustum(
+        self,
+        name: str,
+        fov: float,
+        aspect: float,
+        *,
+        scale: float | tuple[float, float, float] = 0.3,
+        line_width: Never,
+        color: RgbTupleOrArray = (20, 20, 20),
+        image: np.ndarray | None = None,
+        format: Literal["auto", "png", "jpeg"] = "auto",
+        jpeg_quality: int | None = None,
+        wxyz: tuple[float, float, float, float] | np.ndarray = (1.0, 0.0, 0.0, 0.0),
+        position: tuple[float, float, float] | np.ndarray = (0.0, 0.0, 0.0),
+        visible: bool = True,
+        cast_shadow: bool = True,
+        receive_shadow: bool | float = True,
+        variant: Literal["wireframe", "filled"] = "wireframe",
+    ) -> CameraFrustumHandle: ...
+
+    @deprecated_positional_shim
+    def add_camera_frustum(  # pyright: ignore[reportInconsistentOverload]
+        self,
+        name: str,
+        fov: float,
+        aspect: float,
+        *,
+        scale: float | tuple[float, float, float] = 0.3,
+        thickness: float = 0.02,
+        thickness_units: Literal["screen", "world"] = "world",
+        color: RgbTupleOrArray = (20, 20, 20),
+        image: np.ndarray | None = None,
+        format: Literal["auto", "png", "jpeg"] = "auto",
+        jpeg_quality: int | None = None,
+        wxyz: tuple[float, float, float, float] | np.ndarray = (1.0, 0.0, 0.0, 0.0),
+        position: tuple[float, float, float] | np.ndarray = (0.0, 0.0, 0.0),
+        visible: bool = True,
+        cast_shadow: bool = True,
+        receive_shadow: bool | float = True,
+        variant: Literal["wireframe", "filled"] = "wireframe",
+        **_deprecated_kwargs,
     ) -> CameraFrustumHandle:
         """Add a camera frustum to the scene for visualization.
 
@@ -1223,6 +1716,14 @@ class SceneApi:
         Like all cameras in the viser Python API, frustums follow the OpenCV [+Z forward,
         +X right, +Y down] convention. fov is vertical in radians; aspect is width over height.
 
+        .. note::
+
+            **API change.** The screen-space pixel ``line_width`` parameter is
+            deprecated in favor of ``thickness``, which defaults to world-space
+            units. Code passing ``line_width`` keeps its exact old rendering
+            (it maps to ``thickness_units="screen"``) and emits a
+            :class:`DeprecationWarning`.
+
         Args:
             name: A scene tree name. Names in the format of /parent/child can be used to
                 define a kinematic tree.
@@ -1230,7 +1731,14 @@ class SceneApi:
             aspect: Aspect ratio of the camera (width over height).
             scale: Scale factor for the size of the frustum. A single float
                 for uniform scaling or a tuple of (x, y, z) for per-axis scaling.
-            line_width: Width of the frustum lines, in screen space. Defaults to `2.0`.
+            thickness: Thickness of the frustum lines, in the units chosen via
+                ``thickness_units``. Defaults to `0.02` world units.
+            thickness_units: Units for ``thickness``. `"world"` (default)
+                keeps the lines a fixed thickness in scene units, so they get
+                thinner with distance like real geometry. `"screen"` keeps a
+                fixed pixel thickness regardless of distance. The deprecated
+                ``line_width`` argument maps to screen-space pixels, matching
+                its old behavior exactly.
             color: Color of the frustum as an RGB tuple.
             image: Optional image to be displayed on the frustum.
             format: Format to transport and display the image using. 'auto' will use PNG for RGBA images and JPEG for RGB.
@@ -1248,6 +1756,19 @@ class SceneApi:
         Returns:
             Handle for manipulating scene node.
         """
+        if "line_width" in _deprecated_kwargs:
+            warnings.warn(
+                "The `line_width` parameter is deprecated. Use `thickness` with "
+                "`thickness_units='screen'` for the same behavior.",
+                DeprecationWarning,
+                stacklevel=2,
+            )
+            thickness = float(_deprecated_kwargs.pop("line_width"))
+            thickness_units = "screen"
+        if _deprecated_kwargs:
+            raise TypeError(
+                f"Unexpected keyword arguments: {list(_deprecated_kwargs.keys())}"
+            )
         if image is not None:
             resolved_format, binary = _encode_image_binary(
                 image, format, jpeg_quality=jpeg_quality
@@ -1262,7 +1783,8 @@ class SceneApi:
                 fov=fov,
                 aspect=aspect,
                 scale=scale,
-                line_width=line_width,
+                thickness=thickness,
+                thickness_units=thickness_units,
                 color=_encode_rgb(color),
                 _format=resolved_format,
                 _image_data=binary,
@@ -1380,20 +1902,15 @@ class SceneApi:
         Returns:
             Handle for manipulating scene node.
         """
-        batched_wxyzs = np.asarray(batched_wxyzs)
-        batched_positions = np.asarray(batched_positions)
-
-        num_axes = batched_wxyzs.shape[0]
-        assert batched_wxyzs.shape == (num_axes, 4)
-        assert batched_positions.shape == (num_axes, 3)
-
-        if batched_scales is not None:
-            batched_scales = np.asarray(batched_scales).astype(np.float32)
-            assert batched_scales.shape in ((num_axes,), (num_axes, 3))
+        batched_wxyzs, batched_positions, batched_scales, _ = (
+            _validate_batched_transforms(
+                batched_wxyzs, batched_positions, batched_scales
+            )
+        )
 
         props = _messages.BatchedAxesProps(
-            batched_wxyzs=batched_wxyzs.astype(np.float32),
-            batched_positions=batched_positions.astype(np.float32),
+            batched_wxyzs=np.asarray(batched_wxyzs, dtype=np.float32),
+            batched_positions=np.asarray(batched_positions, dtype=np.float32),
             batched_scales=batched_scales,
             axes_length=axes_length,
             axes_radius=axes_radius,
@@ -1675,29 +2192,35 @@ class SceneApi:
         Returns:
             Handle for manipulating scene node.
         """
-        if wireframe and material != "standard":
-            warnings.warn(
-                f"Invalid combination of {wireframe=} and {material=}. Material argument will be ignored.",
-                stacklevel=2,
-            )
-        if wireframe and flat_shading:
-            warnings.warn(
-                f"Invalid combination of {wireframe=} and {flat_shading=}. Flat shading argument will be ignored.",
-                stacklevel=2,
-            )
+        _warn_wireframe_conflicts(wireframe, material, flat_shading)
+
+        # Normalized UP FRONT (as add_transform_controls does): _make()
+        # normalizes internally, so a bare name would leave the typed-handle
+        # registry swap keyed differently from the registration -- and the
+        # bones' SetBone messages addressed to a name no client node has.
+        name = _normalize_node_name(name)
 
         assert len(bone_wxyzs) == len(bone_positions)
         num_bones = len(bone_wxyzs)
+        if num_bones == 0:
+            raise ValueError("A skinned mesh requires at least one bone.")
         assert skin_weights.shape == (vertices.shape[0], num_bones)
 
-        # Take the four biggest indices.
-        top4_skin_indices = np.argsort(skin_weights, axis=-1)[:, -4:]
-        top4_skin_weights = skin_weights[
-            np.arange(vertices.shape[0])[:, None], top4_skin_indices
+        # Take up to the four biggest weights per vertex. The client expects
+        # exactly four bone indices/weights per vertex, so when the rig has
+        # fewer than four bones we pad with zero-weight (index 0) entries, which
+        # have no effect on the skinning result.
+        num_vertices = vertices.shape[0]
+        num_influences = min(4, num_bones)
+        pad = 4 - num_influences
+        top_skin_indices = np.argsort(skin_weights, axis=-1)[:, -num_influences:]
+        top_skin_weights = skin_weights[
+            np.arange(num_vertices)[:, None], top_skin_indices
         ]
-        assert (
-            top4_skin_weights.shape == top4_skin_indices.shape == (vertices.shape[0], 4)
-        )
+        if pad > 0:
+            top_skin_indices = np.pad(top_skin_indices, ((0, 0), (0, pad)))
+            top_skin_weights = np.pad(top_skin_weights, ((0, 0), (0, pad)))
+        assert top_skin_weights.shape == top_skin_indices.shape == (num_vertices, 4)
 
         bone_wxyzs = np.asarray(bone_wxyzs)
         bone_positions = np.asarray(bone_positions)
@@ -1706,8 +2229,8 @@ class SceneApi:
         message = _messages.SkinnedMeshMessage(
             name=name,
             props=_messages.SkinnedMeshProps(
-                vertices=vertices.astype(np.float32),
-                faces=faces.astype(np.uint32),
+                vertices=np.asarray(vertices, dtype=np.float32),
+                faces=np.asarray(faces, dtype=np.uint32),
                 color=_encode_rgb(color),
                 wireframe=wireframe,
                 opacity=opacity,
@@ -1715,17 +2238,17 @@ class SceneApi:
                 side=side,
                 material=material,
                 scale=scale,
-                bone_wxyzs=bone_wxyzs.astype(np.float32),
-                bone_positions=bone_positions.astype(np.float32),
-                skin_indices=top4_skin_indices.astype(np.uint16),
-                skin_weights=top4_skin_weights.astype(np.float32),
+                bone_wxyzs=np.asarray(bone_wxyzs, dtype=np.float32),
+                bone_positions=np.asarray(bone_positions, dtype=np.float32),
+                skin_indices=top_skin_indices.astype(np.uint16),
+                skin_weights=np.asarray(top_skin_weights, dtype=np.float32),
                 cast_shadow=cast_shadow,
                 receive_shadow=receive_shadow,
             ),
         )
-        handle = MeshHandle._make(self, message, name, wxyz, position, visible)
-        return MeshSkinnedHandle(
-            handle._impl,
+        node_handle = MeshHandle._make(self, message, name, wxyz, position, visible)
+        handle = MeshSkinnedHandle(
+            node_handle._impl,
             bones=tuple(
                 MeshSkinnedBoneHandle(
                     _impl=BoneState(
@@ -1734,11 +2257,21 @@ class SceneApi:
                         bone_index=i,
                         wxyz=bone_wxyzs[i].copy(),
                         position=bone_positions[i].copy(),
+                        mesh_impl=node_handle._impl,
                     )
                 )
                 for i in range(num_bones)
             ),
         )
+        # Register the typed handle (not the plain MeshHandle from `_make`)
+        # so click/drag dispatch resolves a target that carries `.bones`.
+        # Under the lifecycle lock, and only while the registry still points
+        # at the handle _make just registered (same rule as
+        # add_transform_controls).
+        with self._node_lifecycle_lock:
+            if self._handle_from_node_name.get(name) is node_handle:
+                self._handle_from_node_name[name] = handle
+        return handle
 
     @deprecated_positional_shim
     def add_mesh_simple(
@@ -1790,21 +2323,12 @@ class SceneApi:
         Returns:
             Handle for manipulating scene node.
         """
-        if wireframe and material != "standard":
-            warnings.warn(
-                f"Invalid combination of {wireframe=} and {material=}. Material argument will be ignored.",
-                stacklevel=2,
-            )
-        if wireframe and flat_shading:
-            warnings.warn(
-                f"Invalid combination of {wireframe=} and {flat_shading=}. Flat shading argument will be ignored.",
-                stacklevel=2,
-            )
+        _warn_wireframe_conflicts(wireframe, material, flat_shading)
         message = _messages.MeshMessage(
             name=name,
             props=_messages.MeshProps(
-                vertices=vertices.astype(np.float32),
-                faces=faces.astype(np.uint32),
+                vertices=np.asarray(vertices, dtype=np.float32),
+                faces=np.asarray(faces, dtype=np.uint32),
                 color=_encode_rgb(color),
                 wireframe=wireframe,
                 opacity=opacity,
@@ -1931,45 +2455,38 @@ class SceneApi:
         Returns:
             Handle for manipulating scene node.
         """
-        if wireframe and material != "standard":
-            warnings.warn(
-                f"Invalid combination of {wireframe=} and {material=}. Material argument will be ignored.",
-                stacklevel=2,
+        _warn_wireframe_conflicts(wireframe, material, flat_shading)
+
+        batched_wxyzs, batched_positions, batched_scales, num_instances = (
+            _validate_batched_transforms(
+                batched_wxyzs, batched_positions, batched_scales
             )
-        if wireframe and flat_shading:
-            warnings.warn(
-                f"Invalid combination of {wireframe=} and {flat_shading=}. Flat shading argument will be ignored.",
-                stacklevel=2,
-            )
-
-        batched_wxyzs = np.asarray(batched_wxyzs)
-        batched_positions = np.asarray(batched_positions)
-
-        num_instances = batched_wxyzs.shape[0]
-        assert batched_wxyzs.shape == (num_instances, 4)
-        assert batched_positions.shape == (num_instances, 3)
-
-        if batched_scales is not None:
-            batched_scales = np.asarray(batched_scales).astype(np.float32)
-            assert batched_scales.shape in ((num_instances,), (num_instances, 3))
+        )
 
         # Handle batched opacities.
         if batched_opacities is not None:
-            batched_opacities = np.asarray(batched_opacities).astype(np.float32)
+            batched_opacities = np.asarray(batched_opacities, dtype=np.float32)
             assert batched_opacities.shape == (num_instances,)
 
         # Handle batched colors.
         batched_colors_array = None
         if batched_colors is not None:
             batched_colors_array = colors_to_uint8(np.asarray(batched_colors))
+            # Validate length against the instance count (like the other
+            # per-instance arrays above); otherwise a mismatched-length color
+            # array is sent verbatim and the client silently drops all colors.
+            assert batched_colors_array.shape in ((3,), (num_instances, 3)), (
+                f"batched_colors must have shape (3,) or ({num_instances}, 3), "
+                f"got {batched_colors_array.shape}."
+            )
 
         message = _messages.BatchedMeshesMessage(
             name=name,
             props=_messages.BatchedMeshesProps(
-                vertices=vertices.astype(np.float32),
-                faces=faces.astype(np.uint32),
-                batched_wxyzs=batched_wxyzs.astype(np.float32),
-                batched_positions=batched_positions.astype(np.float32),
+                vertices=np.asarray(vertices, dtype=np.float32),
+                faces=np.asarray(faces, dtype=np.uint32),
+                batched_wxyzs=np.asarray(batched_wxyzs, dtype=np.float32),
+                batched_positions=np.asarray(batched_positions, dtype=np.float32),
                 batched_scales=batched_scales,
                 batched_colors=batched_colors_array,
                 wireframe=wireframe,
@@ -2029,16 +2546,11 @@ class SceneApi:
         Returns:
             Handle for manipulating scene node.
         """
-        batched_wxyzs = np.asarray(batched_wxyzs)
-        batched_positions = np.asarray(batched_positions)
-
-        num_instances = batched_wxyzs.shape[0]
-        assert batched_wxyzs.shape == (num_instances, 4)
-        assert batched_positions.shape == (num_instances, 3)
-
-        if batched_scales is not None:
-            batched_scales = np.asarray(batched_scales).astype(np.float32)
-            assert batched_scales.shape in ((num_instances,), (num_instances, 3))
+        batched_wxyzs, batched_positions, batched_scales, _ = (
+            _validate_batched_transforms(
+                batched_wxyzs, batched_positions, batched_scales
+            )
+        )
 
         with io.BytesIO() as data_buffer:
             mesh.export(data_buffer, file_type="glb")
@@ -2047,8 +2559,8 @@ class SceneApi:
                 name=name,
                 props=_messages.BatchedGlbProps(
                     glb_data=glb_data,
-                    batched_wxyzs=batched_wxyzs.astype(np.float32),
-                    batched_positions=batched_positions.astype(np.float32),
+                    batched_wxyzs=np.asarray(batched_wxyzs, dtype=np.float32),
+                    batched_positions=np.asarray(batched_positions, dtype=np.float32),
                     batched_scales=batched_scales,
                     lod=lod,
                     cast_shadow=cast_shadow,
@@ -2103,23 +2615,18 @@ class SceneApi:
         Returns:
             Handle for manipulating scene node.
         """
-        batched_wxyzs = np.asarray(batched_wxyzs)
-        batched_positions = np.asarray(batched_positions)
-
-        num_instances = batched_wxyzs.shape[0]
-        assert batched_wxyzs.shape == (num_instances, 4)
-        assert batched_positions.shape == (num_instances, 3)
-
-        if batched_scales is not None:
-            batched_scales = np.asarray(batched_scales).astype(np.float32)
-            assert batched_scales.shape in ((num_instances,), (num_instances, 3))
+        batched_wxyzs, batched_positions, batched_scales, _ = (
+            _validate_batched_transforms(
+                batched_wxyzs, batched_positions, batched_scales
+            )
+        )
 
         message = _messages.BatchedGlbMessage(
             name=name,
             props=_messages.BatchedGlbProps(
                 glb_data=glb_data,
-                batched_wxyzs=batched_wxyzs.astype(np.float32),
-                batched_positions=batched_positions.astype(np.float32),
+                batched_wxyzs=np.asarray(batched_wxyzs, dtype=np.float32),
+                batched_positions=np.asarray(batched_positions, dtype=np.float32),
                 batched_scales=batched_scales,
                 lod=lod,
                 cast_shadow=cast_shadow,
@@ -2179,12 +2686,14 @@ class SceneApi:
             [
                 # First texelFetch.
                 # - xyz (96 bits): centers.
-                centers.astype(np.float32).view(np.uint8),
+                np.ascontiguousarray(centers, dtype=np.float32).view(np.uint8),
                 # - w (32 bits): this is reserved for use by the renderer.
                 np.zeros((num_gaussians, 4), dtype=np.uint8),
                 # Second texelFetch.
                 # - xyz (96 bits): upper-triangular terms of covariance.
-                cov_triu.astype(np.float16).copy().view(np.uint8),
+                # ascontiguousarray: .view() requires a contiguous array, and
+                # cov_triu is non-contiguous from the advanced indexing above.
+                np.ascontiguousarray(cov_triu, dtype=np.float16).view(np.uint8),
                 # - w (32 bits): rgba.
                 colors_to_uint8(rgbs),
                 colors_to_uint8(opacities),
@@ -2250,23 +2759,12 @@ class SceneApi:
         Returns:
             Handle for manipulating scene node.
         """
-        if isinstance(dimensions, np.ndarray):
-            dimensions_list = dimensions.tolist()
-            assert len(dimensions_list) == 3, (
-                f"Expected 3 dimensions, got {len(dimensions_list)}"
-            )
-            dimensions_tuple = (
-                float(dimensions_list[0]),
-                float(dimensions_list[1]),
-                float(dimensions_list[2]),
-            )
-        else:
-            assert len(dimensions) == 3, f"Expected 3 dimensions, got {len(dimensions)}"
-            dimensions_tuple = (
-                float(dimensions[0]),
-                float(dimensions[1]),
-                float(dimensions[2]),
-            )
+        assert len(dimensions) == 3, f"Expected 3 dimensions, got {len(dimensions)}"
+        dimensions_tuple = (
+            float(dimensions[0]),
+            float(dimensions[1]),
+            float(dimensions[2]),
+        )
 
         message = _messages.BoxMessage(
             name=name,
@@ -2591,6 +3089,11 @@ class SceneApi:
         Returns:
             Handle for manipulating (and reading state of) scene node.
         """
+        # Normalize the name up front so the node map, the transform-controls
+        # registry, and the pose-sync messages below all key off the same
+        # (leading-slash) name the client uses.
+        name = _normalize_node_name(name)
+
         message = _messages.TransformControlsMessage(
             name=name,
             props=_messages.TransformControlsProps(
@@ -2614,14 +3117,14 @@ class SceneApi:
                 wxyz=tuple(map(float, state._impl.wxyz)),  # type: ignore
             )
             message_orientation.excluded_self_client = client_id
-            self._websock_interface.queue_message(message_orientation)
+            self._queue_scene_message(message_orientation)
 
             message_position = _messages.SetPositionMessage(
                 name=name,
                 position=tuple(map(float, state._impl.position)),  # type: ignore
             )
             message_position.excluded_self_client = client_id
-            self._websock_interface.queue_message(message_position)
+            self._queue_scene_message(message_position)
 
         node_handle = SceneNodeHandle._make(
             self, message, name, wxyz, position, visible
@@ -2632,7 +3135,17 @@ class SceneApi:
             sync_cb=sync_cb,
         )
         handle = TransformControlsHandle(node_handle._impl, state_aux)
-        self._handle_from_transform_controls_name[name] = handle
+        # Store the typed handle (not the plain SceneNodeHandle from `_make`) in
+        # the node map so removal via `reset()` / re-add dedup goes through the
+        # same path that cleans up the transform-controls registry. Under the
+        # lifecycle lock, and only while the registry still points at the
+        # handle _make just registered: a concurrent remove()/reset() or
+        # same-name re-add in the gap must not have its result overwritten
+        # with a dead handle.
+        with self._node_lifecycle_lock:
+            if self._handle_from_node_name.get(name) is node_handle:
+                self._handle_from_transform_controls_name[name] = handle
+                self._handle_from_node_name[name] = handle
         return handle
 
     def reset(self) -> None:
@@ -2641,7 +3154,10 @@ class SceneApi:
         # Remove all scene nodes.
         handles = list(self._handle_from_node_name.values())
         for handle in handles:
-            if handle.name == "/WorldAxes":
+            # The broadcast scope keeps its default world-axes handle; a
+            # client-scoped "/WorldAxes" is an ordinary per-client override
+            # and resets away like everything else.
+            if handle.name == "/WorldAxes" and self._owner_id == "":
                 continue
             # Skip handles already removed by cascading.
             if handle._impl.removed:
@@ -2651,29 +3167,33 @@ class SceneApi:
         # Clear the background image.
         self.set_background_image(image=None)
 
-    def _get_client_handle(self, client_id: ClientId) -> ClientHandle:
-        """Private helper for getting a client handle from its ID."""
+    def _get_client_handle(self, client_id: ClientId) -> ClientHandle | None:
+        """Resolve the ClientHandle for a given client_id. Returns ``None``
+        when the client disconnected between queueing and dispatch --
+        callers early-return, dropping the event. Mirrors
+        ``GuiApi._resolve_client`` so the two APIs treat the same race the
+        same way."""
         # Avoid circular imports.
         from ._viser import ViserServer
 
-        # Implementation-wise, note that MessageApi is never directly instantiated.
-        # Instead, it serves as a mixin/base class for either ViserServer, which
-        # maintains a registry of connected clients, or ClientHandle, which should
-        # only ever be dealing with its own client_id.
         if isinstance(self._owner, ViserServer):
-            # TODO: there's a potential race condition here when the client disconnects.
-            # This probably applies to multiple other parts of the code, we should
-            # revisit all of the cases where we index into connected_clients.
-            return self._owner._connected_clients[client_id]
-        else:
-            assert client_id == self._owner.client_id
-            return self._owner
+            return self._owner._connected_clients.get(client_id)
+        assert client_id == self._owner.client_id
+        return self._owner
 
     async def _handle_transform_controls_updates(
         self, client_id: ClientId, message: _messages.TransformControlsUpdateMessage
     ) -> None:
-        """Apply pose update and fire `update_cb` with phase="update"."""
-        handle = self._handle_from_transform_controls_name.get(message.name, None)
+        """Apply pose update and fire `update_cb` with phase="update".
+
+        Registered via _register_owner_scoped_handler, like every node-keyed
+        handler below: only the scope whose owner the message echoes runs it.
+        """
+        # Prefer the active-drag map so a late update still resolves after the
+        # gizmo was removed mid-drag (which pops it from the live registry).
+        handle = self._active_transform_drag_handles.get(
+            (client_id, message.name)
+        ) or self._handle_from_transform_controls_name.get(message.name, None)
         if handle is None:
             return
 
@@ -2682,7 +3202,13 @@ class SceneApi:
         handle._impl_aux.last_updated = time.time()
 
         await self._fire_transform_controls_callbacks(client_id, handle, "update")
-        if handle._impl_aux.sync_cb is not None:
+        # Fire the callback even for a removed gizmo (late update during teardown),
+        # but skip the cross-client pose broadcast: sync_cb queues PERSISTENT
+        # Set{Orientation,Position} messages keyed by node name, which would
+        # linger in the broadcast buffer for the removed name (the
+        # RemoveSceneNodeMessage uses a different redundancy key and won't purge
+        # them) and corrupt the pose of a future same-name node.
+        if handle._impl_aux.sync_cb is not None and not handle._impl.removed:
             handle._impl_aux.sync_cb(client_id, handle)
 
     async def _handle_transform_controls_drag_start(
@@ -2691,12 +3217,15 @@ class SceneApi:
         handle = self._handle_from_transform_controls_name.get(message.name, None)
         if handle is None:
             return
+        self._active_transform_drag_handles[(client_id, message.name)] = handle
         await self._fire_transform_controls_callbacks(client_id, handle, "start")
 
     async def _handle_transform_controls_drag_end(
         self, client_id: ClientId, message: _messages.TransformControlsDragEndMessage
     ) -> None:
-        handle = self._handle_from_transform_controls_name.get(message.name, None)
+        handle = self._active_transform_drag_handles.pop(
+            (client_id, message.name), None
+        ) or self._handle_from_transform_controls_name.get(message.name, None)
         if handle is None:
             return
         await self._fire_transform_controls_callbacks(client_id, handle, "end")
@@ -2706,20 +3235,22 @@ class SceneApi:
         client_id: ClientId,
         handle: TransformControlsHandle,
         phase: DragPhase,
+        event_client: ClientHandle | None = None,
     ) -> None:
+        # Unlike the click/drag/pointer events (whose `client` field is
+        # non-Optional, so an unresolvable client drops the event),
+        # TransformControlsEvent.client is Optional by contract: gizmo
+        # lifecycle callbacks still fire when the client can't be resolved.
         event = TransformControlsEvent(
-            client=self._get_client_handle(client_id),
+            client=event_client
+            if event_client is not None
+            else self._get_client_handle(client_id),
             client_id=client_id,
             target=handle,
             phase=phase,
         )
         for cb in handle._impl_aux.update_cb:
-            if asyncio.iscoroutinefunction(cb):
-                await cb(event)
-            else:
-                self._thread_executor.submit(cb, event).add_done_callback(
-                    print_threadpool_errors
-                )
+            await self._dispatch_callback(cb, event)
 
     async def _dispatch_callback(
         self,
@@ -2727,10 +3258,15 @@ class SceneApi:
         event: Any,
     ) -> None:
         """Run a user callback either via ``await`` (async) or via the
-        thread pool (sync). The thread-pool branch routes exceptions
-        through ``print_threadpool_errors``."""
+        thread pool (sync). Exceptions are reported and isolated in BOTH
+        branches (print_awaited_callback_error / print_threadpool_errors):
+        one throwing callback must not starve its sibling callbacks or
+        abort the caller (message dispatch, disconnect teardown)."""
         if asyncio.iscoroutinefunction(cb):
-            await cb(event)
+            try:
+                await cb(event)
+            except Exception as exc:
+                print_awaited_callback_error(exc)
         else:
             self._thread_executor.submit(cb, event).add_done_callback(
                 print_threadpool_errors
@@ -2743,8 +3279,12 @@ class SceneApi:
         handle = self._handle_from_node_name.get(message.name, None)
         if handle is None or handle._impl.click_cb is None:
             return
+        client = self._get_client_handle(client_id)
+        if client is None:
+            # Client disconnected between queueing and dispatch; drop.
+            return
         event = SceneNodePointerEvent(
-            client=self._get_client_handle(client_id),
+            client=client,
             client_id=client_id,
             event="click",
             target=cast(_RaycastSupportedSceneNodeHandle, handle),
@@ -2812,6 +3352,7 @@ class SceneApi:
         client_id: ClientId,
         handle: _RaycastSupportedSceneNodeHandle,
         message: _messages.SceneNodeDragMessage,
+        event_client: ClientHandle | None = None,
     ) -> None:
         """Run all matching ``handle`` drag callbacks for ``message``.
 
@@ -2822,8 +3363,16 @@ class SceneApi:
         if not matching:
             return
 
+        client = (
+            event_client
+            if event_client is not None
+            else self._get_client_handle(client_id)
+        )
+        if client is None:
+            # Client disconnected between queueing and dispatch; drop.
+            return
         event = SceneNodeDragEvent(
-            client=self._get_client_handle(client_id),
+            client=client,
             client_id=client_id,
             target=cast(_RaycastSupportedSceneNodeHandle, handle),
             phase=message.phase,
@@ -2846,6 +3395,9 @@ class SceneApi:
         if not self._scene_pointer_cb:
             return
         client = self._get_client_handle(client_id)
+        if client is None:
+            # Client disconnected between queueing and dispatch; drop.
+            return
         modifier = message.modifier
 
         # Build the typed event once for the actual gesture; the legacy
@@ -2988,19 +3540,7 @@ class SceneApi:
     ) -> Any:
         normalized_modifier = _messages._normalize_key_modifier(modifier)
 
-        from ._viser import ClientHandle, ViserServer
-
         def decorator(func: Callable[[Any], None]) -> Callable[[Any], None]:
-            # Server-scope and client-scope share the same client-side
-            # enable toggle. Coexistence would let one scope's
-            # disable silently deactivate the other's callbacks;
-            # enforce exclusivity instead.
-            if isinstance(self._owner, ViserServer):
-                for client in self._owner.get_clients().values():
-                    client.scene._remove_all_pointer_callbacks()
-            elif isinstance(self._owner, ClientHandle):
-                self._owner._viser_server.scene._remove_all_pointer_callbacks()
-
             self._scene_pointer_cb.append(
                 _PointerCallbackEntry(
                     callback=func,
@@ -3031,7 +3571,7 @@ class SceneApi:
                 }
             ),
         )
-        self._websock_interface.queue_message(
+        self._queue_scene_message(
             _messages.ScenePointerEnableMessage(
                 event_type=event_type, modifiers=modifiers
             )
@@ -3139,12 +3679,21 @@ class SceneApi:
 
     def _fire_scene_pointer_done_callbacks(self) -> None:
         # Snapshot -- each cleanup may unregister itself via the same
-        # handle without breaking iteration.
+        # handle without breaking iteration. Exceptions are reported and
+        # isolated like every other callback path: one throwing cleanup
+        # must not starve its siblings or leave the list uncleared.
         for cleanup in list(self._scene_pointer_done_cb):
             if asyncio.iscoroutinefunction(cleanup):
-                self._event_loop.create_task(cleanup())
+                # run_coroutine_threadsafe, not create_task: callback removal
+                # can run on a user thread, and create_task is neither
+                # thread-safe nor guaranteed to wake the loop.
+                future = asyncio.run_coroutine_threadsafe(cleanup(), self._event_loop)
+                future.add_done_callback(print_task_error)
             else:
-                cleanup()
+                try:
+                    cleanup()
+                except Exception as exc:
+                    print_awaited_callback_error(exc)
         self._scene_pointer_done_cb = []
 
     @deprecated_positional_shim
@@ -3178,6 +3727,10 @@ class SceneApi:
         # from both GuiApi and MessageApi. The pattern below is unideal.
         gui_api = self._owner.gui
 
+        # Normalize the name so the dedup check below matches the (leading-slash)
+        # key the node map actually uses.
+        name = _normalize_node_name(name)
+
         # Remove the 3D GUI container if it already exists. This will make sure
         # contained GUI elements are removed, preventing potential memory leaks.
         if name in self._handle_from_node_name:
@@ -3194,7 +3747,26 @@ class SceneApi:
         node_handle = SceneNodeHandle._make(
             self, message, name, wxyz, position, visible=visible
         )
-        return Gui3dContainerHandle(node_handle._impl, gui_api, container_id)
+        handle = Gui3dContainerHandle(node_handle._impl, gui_api, container_id)
+        # Store the typed handle (not the plain SceneNodeHandle from `_make`) in
+        # the node map so removal via `reset()` / re-add dedup / cascading parent
+        # removal cleans up the container's GUI children and registry entry.
+        # Under the lifecycle lock, and only while the registry still points
+        # at the handle _make just registered: a concurrent remove()/reset()
+        # or same-name re-add in the gap must not have its result overwritten
+        # with a dead handle.
+        with self._node_lifecycle_lock:
+            if self._handle_from_node_name.get(name) is node_handle:
+                self._handle_from_node_name[name] = handle
+                registered = True
+            else:
+                registered = False
+        if not registered:
+            # Superseded in the gap: the constructor registered the container
+            # UUID, and the superseder only saw the plain base handle -- so
+            # release the orphan registration here (no children exist yet).
+            handle._on_remove()
+        return handle
 
     def get_handle_by_name(self, name: str) -> SceneNodeHandle | None:
         """Get the scene node handle for the given `name`, if it exists.
@@ -3211,9 +3783,7 @@ class SceneApi:
         Returns:
             Scene node handle, or None if no such node exists.
         """
-        if not name.startswith("/"):
-            name = "/" + name
-        return self._handle_from_node_name.get(name, None)
+        return self._handle_from_node_name.get(_normalize_node_name(name), None)
 
     def remove_by_name(self, name: str) -> None:
         """Remove the scene node with the given `name` and any of its children.
@@ -3223,9 +3793,7 @@ class SceneApi:
             ``add_*()`` call and calling :meth:`SceneNodeHandle.remove()`
             directly instead of using this method.
         """
-        name = name.rstrip("/")  # '/parent/' => '/parent'
-        if not name.startswith("/"):
-            name = "/" + name
+        name = _normalize_node_name(name.rstrip("/"))  # '/parent/' => '/parent'
         handle = self._handle_from_node_name.get(name)
         if handle is not None:
             handle.remove()

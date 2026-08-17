@@ -3,6 +3,8 @@ import platform
 import re
 import sys
 import unittest
+from typing import Any
+from unittest.mock import patch
 
 import pytest
 
@@ -33,11 +35,13 @@ class REPLWrapTestCase(unittest.TestCase):
         assert "real" in res, res
 
         # PAGER should be set to cat, otherwise man hangs
-        res = bash.run_command("man sleep", timeout=2)
-        assert "SLEEP" in res, res
+        res = bash.run_command("NO_COLOR=1 man sleep", timeout=2)
+        # groff-1.23.0 uses backspaces in output. Strip them along with
+        # the preceding character to normalize the tested result.
+        assert "SLEEP" in re.sub(r".\x08", "", res), res
 
         # should handle CR by default
-        cmd = r'for i in {1..3};do echo -ne "\r$i"; sleep 1; done'
+        cmd = r'for i in {1..3};do echo -ne "\r$i"; sleep 0.1; done'
         res = bash.run_command(cmd)
         assert "\r1\r2\r3" in res
 
@@ -68,6 +72,34 @@ class REPLWrapTestCase(unittest.TestCase):
         # Check that the REPL was reset (SIGINT) after the incomplete input
         res = bash.run_command("echo '1 2\n3 4'")
         self.assertEqual(res.strip().splitlines(), ["1 2", "3 4"])
+
+    def test_startup_failure_kills_spawned_child(self) -> None:
+        """A child that never sends a prompt is killed rather than leaked.
+
+        __init__ raises before returning, so the caller never gets a wrapper to
+        clean up with; without cleanup here the process outlives the caller.
+        """
+        spawned = []
+        real_spawnu = pexpect.spawnu
+
+        def _spawn_with_short_timeout(*args: Any, **kwargs: Any) -> Any:
+            child = real_spawnu(*args, **kwargs)
+            child.timeout = 2
+            spawned.append(child)
+            return child
+
+        with (
+            patch.object(pexpect, "spawnu", _spawn_with_short_timeout),
+            pytest.raises(pexpect.TIMEOUT),
+        ):
+            replwrap.REPLWrapper(
+                f"{sys.executable} -c 'import time; time.sleep(60)'",
+                "prompt-this-child-never-sends",
+                "PS1='{0}' PS2='{1}'",
+            )
+
+        assert spawned, "the command should have been spawned"
+        assert not spawned[0].isalive(), "the spawned child was left running"
 
     def test_existing_spawn(self) -> None:
         child = pexpect.spawnu("bash", timeout=5, echo=False)
@@ -134,6 +166,7 @@ class REPLWrapTestCase(unittest.TestCase):
             sys.executable,
             ">>> ",
             "import sys; sys.ps1={0!r}; sys.ps2={1!r}",
+            extra_env={"PYTHON_BASIC_REPL": "1"},
         )
         res = p.run_command("1+1")
         assert res.strip() == "2"
@@ -147,6 +180,7 @@ class REPLWrapTestCase(unittest.TestCase):
             ">>> ",
             "import sys; sys.ps1={0!r}; sys.ps2={1!r}",
             args=["-i", "-c", "x=4+7"],
+            extra_env={"PYTHON_BASIC_REPL": "1"},
         )
         res = p.run_command("x-11")
         assert res.strip() == "0"

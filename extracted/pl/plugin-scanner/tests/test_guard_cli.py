@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import shlex
 import sqlite3
 import subprocess
 import sys
@@ -24,20 +25,55 @@ except ModuleNotFoundError:
 
 from codex_plugin_scanner.cli import main
 from codex_plugin_scanner.guard.adapters import claude_code as claude_adapter_module
+from codex_plugin_scanner.guard.adapters import codex as codex_adapter_module
 from codex_plugin_scanner.guard.adapters import cursor as cursor_adapter_module
 from codex_plugin_scanner.guard.adapters.base import HarnessContext
 from codex_plugin_scanner.guard.adapters.claude_code import CLAUDE_GUARD_DAEMON_HOOK_MARKER, ClaudeCodeHarnessAdapter
 from codex_plugin_scanner.guard.adapters.cursor_cli import CursorCliLaunchEntry
 from codex_plugin_scanner.guard.adapters.opencode import OpenCodeHarnessAdapter
 from codex_plugin_scanner.guard.cli import commands as guard_commands_module
+from codex_plugin_scanner.guard.cli import commands_support_connect as guard_connect_support_module
+from codex_plugin_scanner.guard.cli import commands_support_workspace as guard_workspace_support_module
 from codex_plugin_scanner.guard.cli import product as guard_product_module
 from codex_plugin_scanner.guard.cli import prompt as guard_prompt_module
 from codex_plugin_scanner.guard.cli import update_commands as guard_update_commands_module
 from codex_plugin_scanner.guard.cli.render import emit_guard_payload
+from codex_plugin_scanner.guard.codex_config import dump_toml
 from codex_plugin_scanner.guard.config import GuardConfig, load_guard_config, resolve_risk_action
 from codex_plugin_scanner.guard.desktop_notifications import DesktopNotificationSetupResult
+from codex_plugin_scanner.guard.policy_bundle_parser import (
+    computed_policy_bundle_hash,
+    payload_hash_for_policy_bundle,
+)
 from codex_plugin_scanner.guard.runtime import runner as guard_runner_module
 from codex_plugin_scanner.guard.store import GuardStore
+from tests.cloud_exception_bundle_fixtures import build_cloud_exception_policy_bundle
+from tests.policy_bundle_signing_helpers import policy_bundle_test_keyring, sign_policy_bundle
+from tests.update_context_test_support import build_legacy_update_context, stage_legacy_wheel
+
+
+@pytest.fixture(autouse=True)
+def _use_legacy_update_context(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setattr(
+        guard_update_commands_module,
+        "build_trusted_update_context",
+        build_legacy_update_context,
+    )
+    monkeypatch.setattr(guard_update_commands_module, "stage_trusted_wheel", stage_legacy_wheel)
+    monkeypatch.setattr(
+        guard_update_commands_module,
+        "record_local_wheel_receipt",
+        lambda _artifact, *, guard_home, installed_version: guard_home / "local-wheel-source.json",
+    )
+
+
+def _command_handler_argv(handler: dict[str, object]) -> tuple[str, ...]:
+    command = handler.get("command")
+    args = handler.get("args")
+    assert isinstance(command, str)
+    assert isinstance(args, list)
+    assert all(isinstance(arg, str) for arg in args)
+    return (command, *args)
 
 
 def _seed_guard_cloud(
@@ -59,6 +95,12 @@ def _seed_guard_cloud(
         workspace_id=workspace_id,
         now=now,
     )
+    if workspace_id is not None:
+        store.set_sync_payload(
+            "policy_bundle_keyring",
+            policy_bundle_test_keyring(workspace_id=workspace_id),
+            now,
+        )
     if sync_url is not None:
         captured_sync_url = sync_url
         captured_token = token
@@ -68,6 +110,25 @@ def _seed_guard_cloud(
 
         _mp = pytest.MonkeyPatch()
         _mp.setattr(guard_runner_module, "_resolve_guard_sync_auth_context", _fake_resolve)
+
+
+def _signed_status_policy_bundle(*, workspace_id: str = "workspace-1") -> dict[str, object]:
+    policy_bundle = build_cloud_exception_policy_bundle(workspace_id=workspace_id)
+    policy_bundle["bundleVersion"] = "policy-2026-05-01.3"
+    policy_bundle["rolloutState"] = "enforcing"
+    return sign_policy_bundle(policy_bundle, workspace_id=workspace_id)
+
+
+def _digest_only_status_policy_bundle(*, workspace_id: str = "workspace-1") -> dict[str, object]:
+    policy_bundle = _signed_status_policy_bundle(workspace_id=workspace_id)
+    policy_bundle["verifier"] = {
+        "algorithm": "sha256",
+        "keyId": "attacker-recomputed-digest",
+        "signature": None,
+    }
+    policy_bundle["bundleHash"] = computed_policy_bundle_hash(policy_bundle)
+    policy_bundle["payloadHash"] = payload_hash_for_policy_bundle(policy_bundle)
+    return policy_bundle
 
 
 def _disable_oauth_persistence_assert(monkeypatch: pytest.MonkeyPatch) -> None:
@@ -98,12 +159,18 @@ def _read_codex_config(path: Path) -> dict[str, object]:
         return tomllib.load(handle)
 
 
-def _seed_sync_credentials(home_dir: Path, sync_url: str, token: str = "demo-token") -> None:
+def _seed_sync_credentials(
+    home_dir: Path,
+    sync_url: str,
+    token: str = "demo-token",
+    workspace_id: str = "workspace-1",
+) -> None:
     from codex_plugin_scanner.guard.cli.oauth_client import generate_dpop_key_pair
     from codex_plugin_scanner.guard.runtime import runner as guard_runner_module
 
     dpop_key_material = generate_dpop_key_pair()
-    GuardStore(home_dir).set_oauth_local_credentials(
+    store = GuardStore(home_dir)
+    store.set_oauth_local_credentials(
         issuer="https://hol.org",
         client_id="guard-local-daemon",
         refresh_token=token,
@@ -112,7 +179,13 @@ def _seed_sync_credentials(home_dir: Path, sync_url: str, token: str = "demo-tok
         dpop_public_jwk_thumbprint=dpop_key_material.public_jwk_thumbprint,
         grant_id="grant-1",
         machine_id="machine-1",
+        workspace_id=workspace_id,
         now="2026-04-09T00:00:00Z",
+    )
+    store.set_sync_payload(
+        "policy_bundle_keyring",
+        policy_bundle_test_keyring(workspace_id=workspace_id),
+        "2026-04-09T00:00:00Z",
     )
     guard_runner_module._test_sync_auth_context_override = {
         "sync_url": sync_url,
@@ -800,14 +873,59 @@ class TestGuardCli:
         assert "hook" not in error_output
         assert "daemon" not in error_output
 
-    def test_root_guard_missing_subcommand_points_to_root_help(self, monkeypatch, capsys):
+    def test_bare_hol_guard_shows_help_without_side_effects(self, tmp_path, monkeypatch, capsys):
+        side_effects: list[str] = []
         monkeypatch.setattr(sys, "argv", ["hol-guard"])
+        monkeypatch.setenv("HOME", str(tmp_path / "home"))
+        monkeypatch.setattr(guard_commands_module.sys.stdin, "isatty", lambda: False)
+        monkeypatch.setattr(
+            guard_commands_module,
+            "ensure_guard_daemon",
+            lambda *_args, **_kwargs: side_effects.append("dashboard"),
+        )
+        monkeypatch.setattr(
+            guard_commands_module,
+            "apply_managed_install",
+            lambda *_args, **_kwargs: side_effects.append("apps"),
+        )
+        monkeypatch.setattr(
+            guard_commands_module,
+            "_run_guard_device_connect_flow",
+            lambda **_kwargs: side_effects.append("cloud"),
+        )
+        monkeypatch.setattr(
+            guard_commands_module,
+            "ensure_desktop_notification_setup",
+            lambda *_args, **_kwargs: side_effects.append("notifications"),
+        )
 
         with pytest.raises(SystemExit) as exc_info:
-            main([])
+            main()
+
+        assert exc_info.value.code == 0
+        assert side_effects == []
+        output = capsys.readouterr().out
+        assert "usage: hol-guard" in output
+        assert "Run `hol-guard --help`" not in output
+
+    def test_hol_guard_routes_flat_commands_without_nested_guard_alias(self, monkeypatch, capsys) -> None:
+        called: dict[str, object] = {}
+
+        def _fake_run_guard_command(args):
+            called["guard_command"] = args.guard_command
+            return 7
+
+        monkeypatch.setattr(sys, "argv", ["hol-guard"])
+        monkeypatch.setattr("codex_plugin_scanner.cli.run_guard_command", _fake_run_guard_command)
+
+        assert main(["status"]) == 7
+        assert called == {"guard_command": "status"}
+
+        with pytest.raises(SystemExit) as exc_info:
+            main(["guard", "status"])
 
         assert exc_info.value.code == 2
-        assert "Run `hol-guard guard --help` to inspect available Guard commands." in capsys.readouterr().err
+        assert "invalid choice: 'guard'" in capsys.readouterr().err
 
     def test_plugin_guard_program_routes_directly_to_guard_mode(self, monkeypatch) -> None:
         called: dict[str, object] = {}
@@ -2573,9 +2691,23 @@ args = ["workspace-skill.js", "--changed"]
             store = kwargs["store"]
             current_config_provider = kwargs["current_config_provider"]
             _write_text(store.guard_home / "config.toml", 'default_action = "warn"\n')
+            policy_bundle = build_cloud_exception_policy_bundle(workspace_id="workspace-1")
+            policy_defaults = policy_bundle["policyDefaults"]
+            assert isinstance(policy_defaults, dict)
+            policy_defaults["defaultAction"] = "block"
             store.set_sync_payload(
-                "policy",
-                {"defaultAction": "block"},
+                "oauth_local_credentials",
+                {"workspace_id": "workspace-1"},
+                "2026-07-17T00:00:00+00:00",
+            )
+            store.set_sync_payload(
+                "policy_bundle_keyring",
+                policy_bundle_test_keyring(workspace_id="workspace-1"),
+                "2026-07-17T00:00:00+00:00",
+            )
+            store.set_sync_payload(
+                "policy_bundle",
+                sign_policy_bundle(policy_bundle, workspace_id="workspace-1"),
                 "2026-07-17T00:00:00+00:00",
             )
             captured["config"] = current_config_provider()
@@ -2814,34 +2946,28 @@ args = ["workspace-skill.js", "--changed"]
         assert pretool_entries[0] == {"command": "python guard-pre.py"}
         guard_pretool_entry = pretool_entries[1]
         assert install_output["managed_install"]["manifest"]["notes"][0]
-        expected_session_start_command = ClaudeCodeHarnessAdapter._session_start_command(
-            HarnessContext(
-                home_dir=home_dir,
-                workspace_dir=workspace_dir,
-                guard_home=home_dir,
-            )
+        context = HarnessContext(
+            home_dir=home_dir,
+            workspace_dir=workspace_dir,
+            guard_home=home_dir,
         )
+        expected_session_start_argv = ClaudeCodeHarnessAdapter._session_start_command_parts(context)
         assert guard_pretool_entry["matcher"] == "Bash|Read|Write|Edit|MultiEdit|WebFetch|WebSearch|mcp__.*"
         assert (
-            install_settings_payload["hooks"]["SessionStart"][0]["hooks"][0]["command"]
-            == expected_session_start_command
+            _command_handler_argv(install_settings_payload["hooks"]["SessionStart"][0]["hooks"][0])
+            == expected_session_start_argv
         )
-        expected_hook_command = ClaudeCodeHarnessAdapter._daemon_hook_command(
-            HarnessContext(
-                home_dir=home_dir,
-                workspace_dir=workspace_dir,
-                guard_home=home_dir,
-            )
-        )
+        expected_hook_argv = ClaudeCodeHarnessAdapter._daemon_hook_command_parts(context)
         assert guard_pretool_entry["hooks"][0]["type"] == "command"
-        assert guard_pretool_entry["hooks"][0]["command"] == expected_hook_command
+        assert _command_handler_argv(guard_pretool_entry["hooks"][0]) == expected_hook_argv
         assert "url" not in guard_pretool_entry["hooks"][0]
         assert install_settings_payload["hooks"].get("UserPromptSubmit", []) == []
         assert install_settings_payload["hooks"]["Notification"][0]["matcher"] == "permission_prompt"
-        assert install_settings_payload["hooks"]["Notification"][0]["hooks"][0]["type"] == "command"
-        assert install_settings_payload["hooks"]["Notification"][0]["hooks"][0]["command"] == expected_hook_command
-        assert "url" not in install_settings_payload["hooks"]["Notification"][0]["hooks"][0]
-        assert install_settings_payload["hooks"]["Stop"][0]["hooks"][0]["command"] == expected_hook_command
+        notification_handler = install_settings_payload["hooks"]["Notification"][0]["hooks"][0]
+        assert notification_handler["type"] == "command"
+        assert _command_handler_argv(notification_handler) == expected_hook_argv
+        assert "url" not in notification_handler
+        assert _command_handler_argv(install_settings_payload["hooks"]["Stop"][0]["hooks"][0]) == expected_hook_argv
         assert uninstall_rc == 0
         assert uninstall_output["managed_install"]["active"] is False
         assert settings_payload["hooks"]["SessionStart"] == []
@@ -2963,7 +3089,7 @@ args = ["workspace-skill.js", "--changed"]
         assert store.get_managed_install("claude-code") is not None
         assert store.get_managed_install("claude") is None
 
-    def test_guard_install_omp_alias_dry_run_returns_pi_setup_plan(self, tmp_path, capsys):
+    def test_guard_install_omp_alias_dry_run_returns_omp_setup_plan(self, tmp_path, capsys):
         home_dir = tmp_path / "home"
         workspace_dir = tmp_path / "workspace"
         home_dir.mkdir(parents=True, exist_ok=True)
@@ -2987,11 +3113,11 @@ args = ["workspace-skill.js", "--changed"]
 
         assert rc == 0
         assert output["dry_run"] is True
-        assert output["harness"] == "pi"
-        assert output["contract"]["harness"] == "pi"
+        assert output["harness"] == "omp"
+        assert output["contract"]["harness"] == "omp"
         assert "omp" in output["contract"]["install_aliases"]
         assert "oh-my-pi" in output["contract"]["install_aliases"]
-        assert store.get_managed_install("pi") is None
+        assert store.get_managed_install("omp") is None
 
     def test_guard_uninstall_claude_removes_legacy_claude_code_shim(self, tmp_path, capsys):
         home_dir = tmp_path / "home"
@@ -3099,7 +3225,7 @@ args = ["workspace-skill.js", "--changed"]
         assert len(payload["hooks"]["Notification"]) == 1
         assert len(payload["hooks"]["Stop"]) == 1
         pretool_hook_commands = [
-            hook["command"]
+            "\0".join(_command_handler_argv(hook))
             for hook in payload["hooks"]["PreToolUse"][0]["hooks"]
             if isinstance(hook, dict) and isinstance(hook.get("command"), str)
         ]
@@ -3107,7 +3233,7 @@ args = ["workspace-skill.js", "--changed"]
         assert CLAUDE_GUARD_DAEMON_HOOK_MARKER in pretool_hook_commands[0]
         assert "legacy-guard-home" not in pretool_hook_commands[0]
         notification_hook_commands = [
-            hook["command"]
+            "\0".join(_command_handler_argv(hook))
             for hook in payload["hooks"]["Notification"][0]["hooks"]
             if isinstance(hook, dict) and isinstance(hook.get("command"), str)
         ]
@@ -3934,7 +4060,10 @@ args = ["workspace-skill.js", "--changed"]
         monkeypatch.setattr(guard_update_commands_module.sys, "prefix", "/opt/guard-venv")
         monkeypatch.setattr(guard_update_commands_module.sys, "executable", "/opt/guard-venv/bin/python")
         monkeypatch.setattr(guard_update_commands_module, "_direct_url_payload", lambda: None)
-        monkeypatch.setattr(guard_update_commands_module, "_current_version_from_subprocess", lambda: "2.0.18")
+        monkeypatch.setattr(guard_update_commands_module, "_current_version", lambda: "2.0.18")
+        monkeypatch.setattr(
+            guard_update_commands_module, "_current_version_from_subprocess", lambda *_args, **_kwargs: "2.0.18"
+        )
         monkeypatch.setattr(guard_update_commands_module, "_latest_version_from_pypi", lambda: "2.0.18")
 
         rc = main(["guard", "update", "--home", str(home_dir), "--json"])
@@ -3942,9 +4071,10 @@ args = ["workspace-skill.js", "--changed"]
 
         assert rc == 0
         assert output["installer"] == "pip"
-        assert commands == [["/opt/guard-venv/bin/python", "-m", "pip", "install", "--upgrade", "hol-guard"]]
-        assert output["status"] == "updated"
-        assert output["stdout"] == "updated"
+        assert commands == []
+        assert output["status"] == "current"
+        assert output["changed"] is False
+        assert output["message"] == "HOL Guard is already current."
 
     def test_guard_update_uses_pipx_when_running_from_pipx(self, tmp_path, monkeypatch, capsys):
         home_dir = tmp_path / "home"
@@ -3957,7 +4087,10 @@ args = ["workspace-skill.js", "--changed"]
         monkeypatch.setattr(guard_update_commands_module.subprocess, "run", fake_run)
         monkeypatch.setattr(guard_update_commands_module.sys, "prefix", "/mock-home/.local/pipx/venvs/hol-guard")
         monkeypatch.setattr(guard_update_commands_module, "_direct_url_payload", lambda: None)
-        monkeypatch.setattr(guard_update_commands_module, "_current_version_from_subprocess", lambda: "2.0.18")
+        monkeypatch.setattr(guard_update_commands_module, "_current_version", lambda: "2.0.18")
+        monkeypatch.setattr(
+            guard_update_commands_module, "_current_version_from_subprocess", lambda *_args, **_kwargs: "2.0.18"
+        )
         monkeypatch.setattr(guard_update_commands_module, "_latest_version_from_pypi", lambda: "2.0.18")
 
         rc = main(["guard", "update", "--home", str(home_dir), "--json"])
@@ -3965,8 +4098,10 @@ args = ["workspace-skill.js", "--changed"]
 
         assert rc == 0
         assert output["installer"] == "pipx"
-        assert commands == [["pipx", "upgrade", "hol-guard"]]
-        assert output["status"] == "updated"
+        assert commands == []
+        assert output["status"] == "current"
+        assert output["changed"] is False
+        assert output["message"] == "HOL Guard is already current."
 
     def test_guard_update_pins_detected_stable_release_from_uv_canary(self, tmp_path, monkeypatch, capsys):
         home_dir = tmp_path / "home"
@@ -3980,7 +4115,9 @@ args = ["workspace-skill.js", "--changed"]
         monkeypatch.setattr(guard_update_commands_module.sys, "prefix", "/mock-home/.local/share/uv/tools/hol-guard")
         monkeypatch.setattr(guard_update_commands_module, "_direct_url_payload", lambda: None)
         monkeypatch.setattr(guard_update_commands_module, "_current_version", lambda: "2.0.1091.dev10044056673277")
-        monkeypatch.setattr(guard_update_commands_module, "_current_version_from_subprocess", lambda: "2.0.1092")
+        monkeypatch.setattr(
+            guard_update_commands_module, "_current_version_from_subprocess", lambda *_args, **_kwargs: "2.0.1092"
+        )
         monkeypatch.setattr(guard_update_commands_module, "_latest_version_from_pypi", lambda: "2.0.1092")
 
         rc = main(["guard", "update", "--home", str(home_dir), "--json"])
@@ -3988,7 +4125,9 @@ args = ["workspace-skill.js", "--changed"]
 
         assert rc == 0
         assert output["installer"] == "uv"
-        assert commands == [["uv", "tool", "install", "--force", "hol-guard==2.0.1092"]]
+        assert commands == [
+            ["uv", "tool", "install", "--force", "--refresh-package", "hol-guard", "hol-guard==2.0.1092"]
+        ]
         assert output["resulting_version"] == "2.0.1092"
         assert output["status"] == "updated"
 
@@ -4012,7 +4151,9 @@ args = ["workspace-skill.js", "--changed"]
         monkeypatch.setattr(guard_update_commands_module.sys, "prefix", "/mock-home/.local/pipx/venvs/hol-guard")
         monkeypatch.setattr(guard_update_commands_module, "_direct_url_payload", lambda: None)
         monkeypatch.setattr(guard_update_commands_module, "_current_version", lambda: "2.0.36")
-        monkeypatch.setattr(guard_update_commands_module, "_current_version_from_subprocess", lambda: "2.0.36")
+        monkeypatch.setattr(
+            guard_update_commands_module, "_current_version_from_subprocess", lambda *_args, **_kwargs: "2.0.36"
+        )
         monkeypatch.setattr(guard_update_commands_module, "_latest_version_from_pypi", lambda: "2.0.36")
 
         rc = main(["guard", "update", "--home", str(home_dir), "--json"])
@@ -4020,12 +4161,10 @@ args = ["workspace-skill.js", "--changed"]
 
         assert rc == 0
         assert output["installer"] == "pipx"
-        assert commands == [["pipx", "upgrade", "hol-guard"]]
+        assert commands == []
         assert output["status"] == "current"
+        assert output["changed"] is False
         assert output["message"] == "HOL Guard is already current."
-        assert output["notes"] == ["upgrading shared libraries...", "upgrading hol-guard..."]
-        assert output["stdout"].startswith("hol-guard is already at latest version 2.0.36")
-        assert output["stderr"] == "upgrading shared libraries...\nupgrading hol-guard..."
 
     def test_guard_update_treats_first_install_as_updated_when_only_dependencies_are_current(
         self, tmp_path, monkeypatch, capsys
@@ -4050,7 +4189,9 @@ args = ["workspace-skill.js", "--changed"]
         monkeypatch.setattr(guard_update_commands_module.sys, "executable", "/opt/guard-venv/bin/python")
         monkeypatch.setattr(guard_update_commands_module, "_direct_url_payload", lambda: None)
         monkeypatch.setattr(guard_update_commands_module, "_current_version", lambda: "unknown")
-        monkeypatch.setattr(guard_update_commands_module, "_current_version_from_subprocess", lambda: "2.0.36")
+        monkeypatch.setattr(
+            guard_update_commands_module, "_current_version_from_subprocess", lambda *_args, **_kwargs: "2.0.36"
+        )
         monkeypatch.setattr(guard_update_commands_module, "_latest_version_from_pypi", lambda: "2.0.36")
 
         rc = main(["guard", "update", "--home", str(home_dir), "--json"])
@@ -4110,16 +4251,21 @@ args = ["workspace-skill.js", "--changed"]
     def test_guard_update_ignores_malformed_guard_config(self, tmp_path, monkeypatch, capsys):
         home_dir = tmp_path / "home"
         _write_text(home_dir / "config.toml", "[broken\n")
+        captured_alpha: list[object] = []
         monkeypatch.setattr(
             guard_commands_module,
             "run_guard_update",
-            lambda **_: ({"status": "updated", "message": "ok"}, 0),
+            lambda **kwargs: (
+                captured_alpha.append(kwargs.get("include_alpha")) or {"status": "updated", "message": "ok"},
+                0,
+            ),
         )
 
         rc = main(["guard", "update", "--home", str(home_dir), "--json"])
         output = json.loads(capsys.readouterr().out)
 
         assert rc == 0
+        assert captured_alpha == [False]
         assert output["status"] == "updated"
         assert output["message"] == "ok"
 
@@ -4169,19 +4315,88 @@ args = ["workspace-skill.js", "--changed"]
         assert captured_wheels == ["dist"]
         assert output["status"] == "planned"
 
+    def test_guard_update_forwards_alpha_opt_in(self, tmp_path, monkeypatch, capsys):
+        home_dir = tmp_path / "home"
+        captured_alpha: list[object] = []
+
+        monkeypatch.setattr(
+            guard_commands_module,
+            "run_guard_update",
+            lambda **kwargs: (
+                captured_alpha.append(kwargs.get("include_alpha")) or {"status": "planned", "message": "ok"},
+                0,
+            ),
+        )
+
+        rc = main(["guard", "update", "--home", str(home_dir), "--alpha", "--json"])
+        output = json.loads(capsys.readouterr().out)
+
+        assert rc == 0
+        assert captured_alpha == [True]
+        assert output["status"] == "planned"
+
+    def test_guard_update_uses_persisted_alpha_channel(self, tmp_path, monkeypatch, capsys):
+        home_dir = tmp_path / "home"
+        _write_text(home_dir / "config.toml", 'update_channel = "alpha"\n')
+        captured_alpha: list[object] = []
+
+        monkeypatch.setattr(
+            guard_commands_module,
+            "run_guard_update",
+            lambda **kwargs: (
+                captured_alpha.append(kwargs.get("include_alpha")) or {"status": "planned", "message": "ok"},
+                0,
+            ),
+        )
+
+        rc = main(["guard", "update", "--home", str(home_dir), "--json"])
+        output = json.loads(capsys.readouterr().out)
+
+        assert rc == 0
+        assert captured_alpha == [True]
+        assert output["status"] == "planned"
+
     def test_guard_update_repairs_stale_codex_native_hooks(self, tmp_path, monkeypatch, capsys):
         home_dir = tmp_path / "home"
-        _write_text(
-            home_dir / ".codex" / "config.toml",
-            """
-approval_policy = "never"
-
-[mcp_servers.test-stdio]
-command = "/bin/sh"
-args = ["-lc", "echo hi"]
-""".strip()
-            + "\n",
+        context = HarnessContext(
+            home_dir=home_dir,
+            workspace_dir=None,
+            guard_home=home_dir,
+            home_override_explicit=True,
         )
+        config_payload: dict[str, object] = {
+            "approval_policy": "never",
+            "features": {"hooks": True},
+            "mcp_servers": {
+                "test-stdio": {
+                    "command": "/bin/sh",
+                    "args": ["-lc", "echo hi"],
+                }
+            },
+        }
+        guard_update_commands_module.CodexHarnessAdapter._install_config_hooks(config_payload, context)
+        hooks = config_payload["hooks"]
+        assert isinstance(hooks, dict)
+        pre_tool_groups = hooks["PreToolUse"]
+        assert isinstance(pre_tool_groups, list)
+        pre_tool_group = pre_tool_groups[-1]
+        assert isinstance(pre_tool_group, dict)
+        entries = pre_tool_group["hooks"]
+        assert isinstance(entries, list)
+        entry = entries[0]
+        assert isinstance(entry, dict)
+        config_path = home_dir / ".codex" / "config.toml"
+        guard_update_commands_module.CodexHarnessAdapter._write_authenticated_hook_config(
+            context,
+            config_path=config_path,
+            payload=config_payload,
+            previous_manifest=None,
+        )
+        entry["command"] = f"{entry['command']} --tampered"
+        _write_text(config_path, dump_toml(config_payload))
+        stale_state = guard_update_commands_module.codex_native_hook_state(context)
+        assert stale_state["protection_active"] is False
+        assert stale_state["shell_protection_active"] is False
         GuardStore(home_dir).set_managed_install(
             "codex",
             True,
@@ -4202,13 +4417,16 @@ args = ["-lc", "echo hi"]
         )
         monkeypatch.setattr(guard_update_commands_module, "_direct_url_payload", lambda: None)
         monkeypatch.setattr(guard_update_commands_module, "_current_version", lambda: "2.0.39")
-        monkeypatch.setattr(guard_update_commands_module, "_current_version_from_subprocess", lambda: "2.0.39")
+        monkeypatch.setattr(
+            guard_update_commands_module, "_current_version_from_subprocess", lambda *_args, **_kwargs: "2.0.39"
+        )
         monkeypatch.setattr(guard_update_commands_module, "_latest_version_from_pypi", lambda: "2.0.39")
 
         rc = main(["guard", "update", "--home", str(home_dir), "--json"])
         output = json.loads(capsys.readouterr().out)
-        config_text = (home_dir / ".codex" / "config.toml").read_text(encoding="utf-8")
-        hooks_payload = _read_codex_hooks(home_dir / ".codex" / "config.toml")
+        config_text = config_path.read_text(encoding="utf-8")
+        hooks_payload = _read_codex_hooks(config_path)
+        repaired_state = guard_update_commands_module.codex_native_hook_state(context)
 
         assert rc == 0
         assert output["status"] == "current"
@@ -4217,6 +4435,163 @@ args = ["-lc", "echo hi"]
         assert "hooks = true" in config_text
         assert "codex_hooks" not in config_text
         assert hooks_payload["PreToolUse"]
+        assert repaired_state["shell_protection_active"] is True
+
+    def test_guard_update_repairs_authenticated_codex_hook_tampering_despite_shape_match(
+        self, tmp_path, monkeypatch, capsys
+    ):
+        home_dir = tmp_path / "home"
+        install_rc = main(["guard", "install", "codex", "--home", str(home_dir), "--json"])
+        json.loads(capsys.readouterr().out)
+        config_path = home_dir / ".codex" / "config.toml"
+        config_payload = tomllib.loads(config_path.read_text(encoding="utf-8"))
+        managed_handler = config_payload["hooks"]["PreToolUse"][-1]["hooks"][0]
+        managed_handler["statusMessage"] = "HOL Guard checking tool action (tampered)"
+        _write_text(config_path, codex_adapter_module.dump_toml(config_payload))
+        context = HarnessContext(home_dir=home_dir, workspace_dir=Path.cwd(), guard_home=home_dir)
+
+        before = codex_adapter_module.codex_native_hook_state(context)
+
+        assert install_rc == 0
+        assert before["protection_active"] is False
+        assert before["integrity_reason"] == "codex_hook_registration_mismatch"
+
+        monkeypatch.setattr(
+            guard_update_commands_module.subprocess,
+            "run",
+            lambda command, **_: subprocess.CompletedProcess(
+                command,
+                0,
+                stdout="hol-guard is already at latest version 2.0.39",
+                stderr="",
+            ),
+        )
+        monkeypatch.setattr(guard_update_commands_module, "_direct_url_payload", lambda: None)
+        monkeypatch.setattr(guard_update_commands_module, "_current_version", lambda: "2.0.39")
+        monkeypatch.setattr(
+            guard_update_commands_module, "_current_version_from_subprocess", lambda *_args, **_kwargs: "2.0.39"
+        )
+        monkeypatch.setattr(guard_update_commands_module, "_latest_version_from_pypi", lambda: "2.0.39")
+
+        update_rc = main(["guard", "update", "--home", str(home_dir), "--json"])
+        output = json.loads(capsys.readouterr().out)
+        repaired = codex_adapter_module.codex_native_hook_state(context)
+
+        assert update_rc == 0
+        assert output["managed_install"]["active"] is True
+        assert repaired["protection_active"] is True
+        assert repaired["integrity_status"] == "valid"
+
+    def test_guard_update_refuses_to_replace_altered_codex_identity_record(self, tmp_path, monkeypatch, capsys):
+        home_dir = tmp_path / "home"
+        assert main(["guard", "install", "codex", "--home", str(home_dir), "--json"]) == 0
+        json.loads(capsys.readouterr().out)
+        context = HarnessContext(home_dir=home_dir, workspace_dir=Path.cwd(), guard_home=home_dir)
+        installed_state = codex_adapter_module.codex_native_hook_state(context)
+        manifest_path = Path(str(installed_state["manifest_path"]))
+        manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+        bridge_identity = next(item for item in manifest["packaged_files"] if item["role"] == "bridge")
+        bridge_identity["sha256"] = "0" * 64
+        _write_text(manifest_path, json.dumps(manifest, sort_keys=True) + "\n")
+        altered_manifest = manifest_path.read_bytes()
+
+        altered_state = codex_adapter_module.codex_native_hook_state(context)
+
+        assert altered_state["protection_active"] is False
+        assert altered_state["integrity_status"] == "tampered"
+        assert altered_state["integrity_reason"] == "codex_hook_manifest_mac_invalid"
+
+        monkeypatch.setattr(
+            guard_update_commands_module.subprocess,
+            "run",
+            lambda command, **_: subprocess.CompletedProcess(
+                command,
+                0,
+                stdout="hol-guard is already at latest version 2.0.39",
+                stderr="",
+            ),
+        )
+        monkeypatch.setattr(guard_update_commands_module, "_direct_url_payload", lambda: None)
+        monkeypatch.setattr(guard_update_commands_module, "_current_version", lambda: "2.0.39")
+        monkeypatch.setattr(
+            guard_update_commands_module, "_current_version_from_subprocess", lambda *_args, **_kwargs: "2.0.39"
+        )
+        monkeypatch.setattr(guard_update_commands_module, "_latest_version_from_pypi", lambda: "2.0.39")
+
+        update_rc = main(["guard", "update", "--home", str(home_dir), "--json"])
+        output = json.loads(capsys.readouterr().out)
+        final_state = codex_adapter_module.codex_native_hook_state(context)
+
+        assert update_rc == 0
+        assert "managed_install" not in output
+        assert any("Reinstall hol-guard from a trusted package" in note for note in output["notes"])
+        assert manifest_path.read_bytes() == altered_manifest
+        assert final_state["protection_active"] is False
+        assert final_state["integrity_reason"] == "codex_hook_manifest_mac_invalid"
+
+    def test_guard_update_does_not_reauthenticate_same_version_tampered_packaged_hook(
+        self, tmp_path, monkeypatch, capsys
+    ):
+        home_dir = tmp_path / "home"
+        bridge_path = tmp_path / "package" / "codex_daemon_hook_bridge.py"
+        bridge_path.parent.mkdir(parents=True)
+        original_bridge = Path(codex_adapter_module.__file__).with_name("codex_daemon_hook_bridge.py").read_bytes()
+        bridge_path.write_bytes(original_bridge)
+        bridge_path.chmod(0o644)
+        original_command_parts = codex_adapter_module._hook_command_parts
+        original_packaged_paths = codex_adapter_module._hook_packaged_file_paths
+
+        def relocated_command_parts(hook_context: HarnessContext) -> tuple[str, ...]:
+            parts = list(original_command_parts(hook_context))
+            parts[1] = str(bridge_path)
+            return tuple(parts)
+
+        def relocated_packaged_paths() -> tuple[tuple[str, Path], ...]:
+            return tuple((role, bridge_path if role == "bridge" else path) for role, path in original_packaged_paths())
+
+        monkeypatch.setattr(codex_adapter_module, "_hook_command_parts", relocated_command_parts)
+        monkeypatch.setattr(codex_adapter_module, "_hook_packaged_file_paths", relocated_packaged_paths)
+        assert main(["guard", "install", "codex", "--home", str(home_dir), "--json"]) == 0
+        json.loads(capsys.readouterr().out)
+        context = HarnessContext(home_dir=home_dir, workspace_dir=Path.cwd(), guard_home=home_dir)
+        installed_state = codex_adapter_module.codex_native_hook_state(context)
+        manifest_path = Path(str(installed_state["manifest_path"]))
+        original_manifest = manifest_path.read_bytes()
+        tampered_bridge = original_bridge + b"\n# local tamper\n"
+        bridge_path.write_bytes(tampered_bridge)
+
+        altered_state = codex_adapter_module.codex_native_hook_state(context)
+
+        assert altered_state["protection_active"] is False
+        assert altered_state["integrity_reason"] == "codex_hook_bridge_hash_mismatch"
+
+        def fake_update(command: list[str], **_: object) -> subprocess.CompletedProcess[str]:
+            return subprocess.CompletedProcess(
+                command,
+                0,
+                stdout="hol-guard is already at latest version 2.0.39",
+                stderr="",
+            )
+
+        monkeypatch.setattr(guard_update_commands_module.subprocess, "run", fake_update)
+        monkeypatch.setattr(guard_update_commands_module, "_direct_url_payload", lambda: None)
+        monkeypatch.setattr(guard_update_commands_module, "_current_version", lambda: "2.0.39")
+        monkeypatch.setattr(
+            guard_update_commands_module, "_current_version_from_subprocess", lambda *_args, **_kwargs: "2.0.39"
+        )
+        monkeypatch.setattr(guard_update_commands_module, "_latest_version_from_pypi", lambda: "2.0.39")
+
+        update_rc = main(["guard", "update", "--home", str(home_dir), "--json"])
+        output = json.loads(capsys.readouterr().out)
+        final_state = codex_adapter_module.codex_native_hook_state(context)
+
+        assert update_rc == 0
+        assert "managed_install" not in output
+        assert any("refused to authenticate changed same-version hook code" in note for note in output["notes"])
+        assert bridge_path.read_bytes() == tampered_bridge
+        assert manifest_path.read_bytes() == original_manifest
+        assert final_state["protection_active"] is False
+        assert final_state["integrity_reason"] == "codex_hook_bridge_hash_mismatch"
 
     def test_guard_update_repairs_missing_codex_config_for_managed_install(self, tmp_path, monkeypatch, capsys):
         home_dir = tmp_path / "home"
@@ -4240,7 +4615,9 @@ args = ["-lc", "echo hi"]
         )
         monkeypatch.setattr(guard_update_commands_module, "_direct_url_payload", lambda: None)
         monkeypatch.setattr(guard_update_commands_module, "_current_version", lambda: "2.0.39")
-        monkeypatch.setattr(guard_update_commands_module, "_current_version_from_subprocess", lambda: "2.0.39")
+        monkeypatch.setattr(
+            guard_update_commands_module, "_current_version_from_subprocess", lambda *_args, **_kwargs: "2.0.39"
+        )
         monkeypatch.setattr(guard_update_commands_module, "_latest_version_from_pypi", lambda: "2.0.39")
 
         rc = main(["guard", "update", "--home", str(home_dir), "--json"])
@@ -4256,7 +4633,9 @@ args = ["-lc", "echo hi"]
         assert "codex_hooks" not in config_text
         assert hooks_payload["PreToolUse"]
 
-    def test_guard_update_repairs_workspace_codex_install_in_recorded_workspace(self, tmp_path, monkeypatch, capsys):
+    def test_guard_update_keeps_unauthenticated_legacy_codex_workspace_record_global(
+        self, tmp_path, monkeypatch, capsys
+    ):
         home_dir = tmp_path / "home"
         workspace_dir = tmp_path / "workspace"
         GuardStore(home_dir).set_managed_install(
@@ -4279,7 +4658,9 @@ args = ["-lc", "echo hi"]
         )
         monkeypatch.setattr(guard_update_commands_module, "_direct_url_payload", lambda: None)
         monkeypatch.setattr(guard_update_commands_module, "_current_version", lambda: "2.0.39")
-        monkeypatch.setattr(guard_update_commands_module, "_current_version_from_subprocess", lambda: "2.0.39")
+        monkeypatch.setattr(
+            guard_update_commands_module, "_current_version_from_subprocess", lambda *_args, **_kwargs: "2.0.39"
+        )
         monkeypatch.setattr(guard_update_commands_module, "_latest_version_from_pypi", lambda: "2.0.39")
 
         rc = main(["guard", "update", "--home", str(home_dir), "--json"])
@@ -4293,9 +4674,35 @@ args = ["-lc", "echo hi"]
         assert "hooks = true" in config_text
         assert "codex_hooks" not in config_text
         assert hooks_payload["PreToolUse"]
+        hook_command = hooks_payload["PreToolUse"][0]["hooks"][0]["command"]
+        bridge_config = json.loads(shlex.split(hook_command)[3])
+        assert "--workspace" not in bridge_config["fallback_command"]
         assert (workspace_dir / ".codex" / "config.toml").exists() is False
 
-    def test_guard_update_repairs_malformed_codex_config(self, tmp_path, monkeypatch, capsys):
+    def test_codex_repair_preserves_authenticated_legacy_workspace_binding(self, tmp_path, monkeypatch):
+        home_dir = tmp_path / "home"
+        workspace_dir = (tmp_path / "workspace").resolve()
+        context = HarnessContext(home_dir=home_dir, workspace_dir=None, guard_home=home_dir)
+        managed_install = {
+            "harness": "codex",
+            "workspace": str(workspace_dir),
+            "manifest": {},
+        }
+        monkeypatch.setattr(
+            guard_update_commands_module,
+            "load_authenticated_hook_manifest",
+            lambda *_args: {"context": {"workspace_dir": str(workspace_dir)}},
+        )
+
+        repair_context, repair_workspace = guard_update_commands_module._repair_context_from_managed_install(
+            context,
+            managed_install,
+        )
+
+        assert repair_context.workspace_override_explicit is True
+        assert repair_workspace == str(workspace_dir)
+
+    def test_guard_update_fails_closed_on_malformed_codex_config(self, tmp_path, monkeypatch, capsys):
         home_dir = tmp_path / "home"
         _write_text(home_dir / ".codex" / "config.toml", "[broken\n")
         GuardStore(home_dir).set_managed_install(
@@ -4317,7 +4724,9 @@ args = ["-lc", "echo hi"]
         )
         monkeypatch.setattr(guard_update_commands_module, "_direct_url_payload", lambda: None)
         monkeypatch.setattr(guard_update_commands_module, "_current_version", lambda: "2.0.39")
-        monkeypatch.setattr(guard_update_commands_module, "_current_version_from_subprocess", lambda: "2.0.39")
+        monkeypatch.setattr(
+            guard_update_commands_module, "_current_version_from_subprocess", lambda *_args, **_kwargs: "2.0.39"
+        )
         monkeypatch.setattr(guard_update_commands_module, "_latest_version_from_pypi", lambda: "2.0.39")
 
         rc = main(["guard", "update", "--home", str(home_dir), "--json"])
@@ -4325,8 +4734,9 @@ args = ["-lc", "echo hi"]
 
         assert rc == 0
         assert output["status"] == "current"
-        assert output["managed_install"]["harness"] == "codex"
-        assert output["managed_install"]["active"] is True
+        assert "managed_install" not in output
+        assert any("codex_hook_inventory_source_malformed" in note for note in output["notes"])
+        assert (home_dir / ".codex" / "config.toml").read_text(encoding="utf-8") == "[broken\n"
 
     def test_guard_update_does_not_adopt_unmanaged_codex_config(self, tmp_path, monkeypatch, capsys):
         home_dir = tmp_path / "home"
@@ -4353,7 +4763,9 @@ args = ["-lc", "echo hi"]
         )
         monkeypatch.setattr(guard_update_commands_module, "_direct_url_payload", lambda: None)
         monkeypatch.setattr(guard_update_commands_module, "_current_version", lambda: "2.0.39")
-        monkeypatch.setattr(guard_update_commands_module, "_current_version_from_subprocess", lambda: "2.0.39")
+        monkeypatch.setattr(
+            guard_update_commands_module, "_current_version_from_subprocess", lambda *_args, **_kwargs: "2.0.39"
+        )
         monkeypatch.setattr(guard_update_commands_module, "_latest_version_from_pypi", lambda: "2.0.39")
 
         rc = main(["guard", "update", "--home", str(home_dir), "--json"])
@@ -4397,7 +4809,9 @@ args = ["-lc", "echo hi"]
         )
         monkeypatch.setattr(guard_update_commands_module, "_direct_url_payload", lambda: None)
         monkeypatch.setattr(guard_update_commands_module, "_current_version", lambda: "2.0.39")
-        monkeypatch.setattr(guard_update_commands_module, "_current_version_from_subprocess", lambda: "2.0.39")
+        monkeypatch.setattr(
+            guard_update_commands_module, "_current_version_from_subprocess", lambda *_args, **_kwargs: "2.0.39"
+        )
         monkeypatch.setattr(guard_update_commands_module, "_latest_version_from_pypi", lambda: "2.0.39")
 
         rc = main(["guard", "update", "--home", str(home_dir), "--json"])
@@ -4440,7 +4854,9 @@ args = ["-lc", "echo hi"]
         )
         monkeypatch.setattr(guard_update_commands_module, "_direct_url_payload", lambda: None)
         monkeypatch.setattr(guard_update_commands_module, "_current_version", lambda: "2.0.39")
-        monkeypatch.setattr(guard_update_commands_module, "_current_version_from_subprocess", lambda: "2.0.39")
+        monkeypatch.setattr(
+            guard_update_commands_module, "_current_version_from_subprocess", lambda *_args, **_kwargs: "2.0.39"
+        )
         monkeypatch.setattr(guard_update_commands_module, "_latest_version_from_pypi", lambda: "2.0.39")
         monkeypatch.setattr(
             guard_update_commands_module,
@@ -4483,7 +4899,9 @@ args = ["-lc", "echo hi"]
         )
         monkeypatch.setattr(guard_update_commands_module, "_direct_url_payload", lambda: None)
         monkeypatch.setattr(guard_update_commands_module, "_current_version", lambda: "2.0.39")
-        monkeypatch.setattr(guard_update_commands_module, "_current_version_from_subprocess", lambda: "2.0.39")
+        monkeypatch.setattr(
+            guard_update_commands_module, "_current_version_from_subprocess", lambda *_args, **_kwargs: "2.0.39"
+        )
         monkeypatch.setattr(guard_update_commands_module, "_latest_version_from_pypi", lambda: "2.0.39")
         original_get_managed_install = GuardStore.get_managed_install
         lookup_calls: list[str] = []
@@ -4509,9 +4927,7 @@ args = ["-lc", "echo hi"]
         assert output["managed_install"]["active"] is True
         assert _read_codex_hooks(home_dir / ".codex" / "config.toml")["PreToolUse"]
 
-    def test_guard_update_repairs_workspace_codex_when_lookup_fails_from_home_scoped_context(
-        self, tmp_path, monkeypatch, capsys
-    ):
+    def test_guard_update_does_not_infer_codex_repair_workspace_from_caller_cwd(self, tmp_path, monkeypatch, capsys):
         home_dir = tmp_path / "home"
         workspace_dir = tmp_path / "workspace"
         _write_text(
@@ -4540,7 +4956,9 @@ args = ["-lc", "echo hi"]
         )
         monkeypatch.setattr(guard_update_commands_module, "_direct_url_payload", lambda: None)
         monkeypatch.setattr(guard_update_commands_module, "_current_version", lambda: "2.0.39")
-        monkeypatch.setattr(guard_update_commands_module, "_current_version_from_subprocess", lambda: "2.0.39")
+        monkeypatch.setattr(
+            guard_update_commands_module, "_current_version_from_subprocess", lambda *_args, **_kwargs: "2.0.39"
+        )
         monkeypatch.setattr(guard_update_commands_module, "_latest_version_from_pypi", lambda: "2.0.39")
         original_get_managed_install = GuardStore.get_managed_install
         lookup_calls: list[str] = []
@@ -4562,12 +4980,14 @@ args = ["-lc", "echo hi"]
 
         assert rc == 0
         assert output["status"] == "current"
-        assert output["managed_install"]["workspace"] == str(workspace_dir)
+        assert output["managed_install"]["workspace"] is None
         assert output["managed_install"]["active"] is True
         assert _read_codex_hooks(home_dir / ".codex" / "config.toml")["PreToolUse"]
         assert "hooks" not in _read_codex_config(workspace_dir / ".codex" / "config.toml")
 
-    def test_guard_update_repairs_workspace_codex_without_existing_codex_directory(self, tmp_path, monkeypatch, capsys):
+    def test_guard_update_does_not_adopt_empty_caller_workspace_during_backup_repair(
+        self, tmp_path, monkeypatch, capsys
+    ):
         home_dir = tmp_path / "home"
         workspace_dir = tmp_path / "workspace"
         workspace_dir.mkdir(parents=True, exist_ok=True)
@@ -4586,7 +5006,9 @@ args = ["-lc", "echo hi"]
         )
         monkeypatch.setattr(guard_update_commands_module, "_direct_url_payload", lambda: None)
         monkeypatch.setattr(guard_update_commands_module, "_current_version", lambda: "2.0.39")
-        monkeypatch.setattr(guard_update_commands_module, "_current_version_from_subprocess", lambda: "2.0.39")
+        monkeypatch.setattr(
+            guard_update_commands_module, "_current_version_from_subprocess", lambda *_args, **_kwargs: "2.0.39"
+        )
         monkeypatch.setattr(guard_update_commands_module, "_latest_version_from_pypi", lambda: "2.0.39")
         original_get_managed_install = GuardStore.get_managed_install
         lookup_calls: list[str] = []
@@ -4608,7 +5030,7 @@ args = ["-lc", "echo hi"]
 
         assert rc == 0
         assert output["status"] == "current"
-        assert output["managed_install"]["workspace"] == str(workspace_dir)
+        assert output["managed_install"]["workspace"] is None
         assert output["managed_install"]["active"] is True
         assert _read_codex_hooks(home_dir / ".codex" / "config.toml")["PreToolUse"]
         assert (workspace_dir / ".codex" / "config.toml").exists() is False
@@ -5099,6 +5521,12 @@ curl --data-binary @"$1" http://127.0.0.1:8787/guard-canary
         pending = store.list_approval_requests(limit=5)
         assert len(pending) == 1
         assert pending[0]["policy_action"] == "require-reapproval"
+        assert pending[0]["scanner_evidence"][-1] == {
+            "source": "observe_mode_inbox",
+            "observed_policy_action": "require-reapproval",
+            "queued_policy_action": "require-reapproval",
+            "authoritative_action": "allow",
+        }
 
     def test_guard_codex_pretooluse_returns_without_browser_wait_for_secret_exfil(self, tmp_path, monkeypatch, capsys):
         home_dir = tmp_path / "home"
@@ -6571,6 +6999,39 @@ url = http://127.0.0.1:8787/guard-canary
         assert "stdout" in output
         assert "pipx could not upgrade hol-guard in the current environment" in output
 
+    def test_guard_update_deferred_output_keeps_propagation_detail_calm(self, capsys):
+        emit_guard_payload(
+            "update",
+            {
+                "current_version": "2.2.1",
+                "installer": "pipx",
+                "command": [
+                    "pipx",
+                    "runpip",
+                    "hol-guard",
+                    "install",
+                    "--upgrade",
+                    "--force-reinstall",
+                    "hol-guard==2.2.3",
+                ],
+                "dry_run": False,
+                "resulting_version": "2.2.1",
+                "status": "deferred",
+                "message": (
+                    "The newest HOL Guard release is still reaching PyPI. "
+                    "Your current installation remains active; try the update again shortly."
+                ),
+                "stderr": "ERROR: No matching distribution found for hol-guard==2.2.3",
+            },
+            False,
+        )
+
+        output = capsys.readouterr().out
+
+        assert "Guard update: deferred" in output
+        assert "current installation remains active" in output
+        assert "stderr" not in output
+
     def test_guard_uninstall_auto_detects_managed_harnesses(self, tmp_path, capsys):
         home_dir = tmp_path / "home"
         workspace_dir = tmp_path / "workspace"
@@ -6807,7 +7268,7 @@ url = http://127.0.0.1:8787/guard-canary
                 "issuedAt": "2026-06-05T13:45:00Z",
                 "expiresAt": None,
                 "verifier": {
-                    "algorithm": "sha256",
+                    "algorithm": "rsa-pss-sha256",
                     "keyId": "guard-policy-bundle-v1",
                     "signature": None,
                 },
@@ -6827,7 +7288,7 @@ url = http://127.0.0.1:8787/guard-canary
             },
         }
         policy_bundle = _SyncRequestHandler.response_payload["policyBundle"]
-        policy_bundle["bundleHash"] = guard_runner_module._computed_policy_bundle_hash(policy_bundle)
+        _SyncRequestHandler.response_payload["policyBundle"] = sign_policy_bundle(policy_bundle)
 
         server = HTTPServer(("127.0.0.1", 0), _SyncRequestHandler)
         thread = threading.Thread(target=server.serve_forever, daemon=True)
@@ -6854,13 +7315,10 @@ url = http://127.0.0.1:8787/guard-canary
         store = GuardStore(home_dir)
         now = "2026-05-01T00:00:00Z"
         _seed_guard_cloud(store)
+        policy_bundle = _signed_status_policy_bundle()
         store.set_sync_payload(
             "policy_bundle",
-            {
-                "bundleVersion": "policy-2026-05-01.3",
-                "bundleHash": "sha256:bundle-proof",
-                "rolloutState": "enforcing",
-            },
+            policy_bundle,
             now,
         )
         store.set_sync_payload(
@@ -6874,9 +7332,49 @@ url = http://127.0.0.1:8787/guard-canary
 
         assert rc == 0
         assert payload["cloud_policy_bundle_version"] == "policy-2026-05-01.3"
-        assert payload["cloud_policy_bundle_hash"] == "sha256:bundle-proof"
+        assert payload["cloud_policy_bundle_hash"] == policy_bundle["bundleHash"]
         assert payload["cloud_policy_rollout_state"] == "enforcing"
         assert payload["cloud_policy_sync_error"] == "auth_expired"
+
+    def test_guard_status_does_not_mask_current_auth_failure_with_stale_sync_success(self, tmp_path, capsys):
+        home_dir = tmp_path / "home"
+        store = GuardStore(home_dir)
+        _seed_guard_cloud(store)
+        store.set_sync_payload(
+            "sync_summary",
+            {"synced_at": "2026-05-01T00:00:00Z", "receipts_stored": 1},
+            "2026-05-01T00:00:00Z",
+        )
+        store.set_sync_payload(
+            "headless_app_sync_summary",
+            {"status": "auth_expired"},
+            "2026-05-01T01:00:00Z",
+        )
+
+        rc = main(["guard", "status", "--home", str(home_dir), "--json"])
+        payload = json.loads(capsys.readouterr().out)
+
+        assert rc == 0
+        assert payload["cloud_state"] == "local_only"
+        assert "repair" in str(payload["cloud_state_detail"]).lower()
+        assert payload["last_sync_at"] == "2026-05-01T00:00:00Z"
+
+    def test_guard_status_rejects_digest_only_cached_bundle_metadata(self, tmp_path, capsys):
+        home_dir = tmp_path / "home"
+        store = GuardStore(home_dir)
+        now = "2026-05-01T00:00:00Z"
+        _seed_guard_cloud(store)
+        store.set_sync_payload("policy_bundle", _digest_only_status_policy_bundle(), now)
+        store.set_sync_payload("policy_bundle_last_error", {"reason": "auth_expired"}, now)
+
+        rc = main(["guard", "status", "--home", str(home_dir), "--json"])
+        payload = json.loads(capsys.readouterr().out)
+
+        assert rc == 0
+        assert payload["cloud_policy_bundle_version"] is None
+        assert payload["cloud_policy_bundle_hash"] is None
+        assert payload["cloud_policy_rollout_state"] is None
+        assert payload["cloud_policy_sync_error"] == "unsupported_signature_algorithm"
 
     def test_guard_status_explains_local_only_policy_state(self, tmp_path, capsys):
         home_dir = tmp_path / "home"
@@ -7119,7 +7617,7 @@ url = http://127.0.0.1:8787/guard-canary
             del store, announce_copy, ci_safe, machine_label
             assert connect_url == "https://hol.org/guard/connect"
             assert wait_timeout_seconds == 180
-            assert open_browser is not None
+            assert open_browser is guard_connect_support_module.open_browser_url
             browser_opened = bool(open_browser("https://hol.org/guard/oauth/device"))
             return {
                 "status": "connected",
@@ -7132,7 +7630,11 @@ url = http://127.0.0.1:8787/guard-canary
 
         monkeypatch.setattr(guard_commands_module, "_run_guard_browser_connect_flow", unexpected_browser_flow)
         monkeypatch.setattr(guard_commands_module, "_run_guard_device_connect_flow", fake_device_flow)
-        monkeypatch.setattr(guard_commands_module.webbrowser, "open", lambda target: opened.append(target) or True)
+        monkeypatch.setattr(
+            guard_connect_support_module,
+            "open_browser_url",
+            lambda target: opened.append(target) or True,
+        )
 
         connect_rc = main(
             [
@@ -7179,22 +7681,21 @@ url = http://127.0.0.1:8787/guard-canary
             workspace_id="workspace-123",
             now="2026-06-01T00:00:00+00:00",
         )
+        expected_storage_health = store.get_oauth_local_credential_health()
+        monkeypatch.setattr(
+            GuardStore,
+            "get_oauth_local_credential_health",
+            lambda _store: expected_storage_health,
+        )
 
         status_rc = main(["guard", "status", "--home", str(home_dir), "--workspace", str(workspace_dir), "--json"])
         status_output = json.loads(capsys.readouterr().out)
 
         assert status_rc == 0
-        assert status_output["oauth_storage_health"] == {
-            "configured": True,
-            "state": "healthy",
-            "backend": "encrypted-file",
-            "fallback_backend": None,
-            "issuer": "https://hol.org",
-            "client_id": "guard-local-daemon",
-            "grant_id": "grant-123",
-            "machine_id": "machine-123",
-            "workspace_id": "workspace-123",
-        }
+        assert status_output["oauth_storage_health"] == expected_storage_health
+        assert status_output["oauth_storage_health"]["configured"] is True
+        assert status_output["oauth_storage_health"]["state"] == "healthy"
+        assert "refresh-secret-value" not in json.dumps(status_output)
 
     def test_guard_connect_status_prefers_active_sync_over_expired_browser_pairing(self, tmp_path, capsys, monkeypatch):
         home_dir = tmp_path / "home"
@@ -8012,6 +8513,44 @@ url = http://127.0.0.1:8787/guard-canary
         assert output["reason"] == "opened"
         assert "notification_setup_started" not in output
 
+    def test_guard_daemon_ensure_releases_wake_reservation_after_failure(
+        self,
+        tmp_path,
+        monkeypatch,
+    ) -> None:
+        home_dir = tmp_path / "home"
+        guard_home = tmp_path / "guard-home"
+        cleared: list[tuple[Path, str]] = []
+
+        def fail_startup(_guard_home: Path, *, home_dir: Path | None = None) -> str:
+            assert _guard_home == guard_home
+            assert home_dir == tmp_path / "home"
+            raise RuntimeError("startup failed")
+
+        monkeypatch.setattr(guard_commands_module, "ensure_guard_daemon", fail_startup)
+        monkeypatch.setattr(
+            guard_commands_module,
+            "clear_guard_daemon_wake_reservation",
+            lambda home, *, token: cleared.append((home, token)) or True,
+        )
+
+        exit_code = main(
+            [
+                "guard",
+                "daemon",
+                "ensure",
+                "--home",
+                str(home_dir),
+                "--guard-home",
+                str(guard_home),
+                "--wake-token",
+                "wake-token",
+            ]
+        )
+
+        assert exit_code == 1
+        assert cleared == [(guard_home, "wake-token")]
+
     def test_guard_init_requires_progressive_approval_before_side_effects(self, tmp_path, capsys, monkeypatch):
         home_dir = tmp_path / "home"
         guard_home = tmp_path / "guard-home"
@@ -8102,15 +8641,16 @@ url = http://127.0.0.1:8787/guard-canary
             }
 
         monkeypatch.setattr(guard_commands_module, "apply_managed_install", fake_install)
-        monkeypatch.setattr(
-            guard_commands_module,
-            "_run_guard_device_connect_flow",
-            lambda **_kwargs: {
+
+        def fake_device_connect_flow(**kwargs: object) -> dict[str, object]:
+            assert kwargs["open_browser"] is guard_workspace_support_module.open_browser_url
+            return {
                 "connected": False,
                 "status": "waiting_for_browser",
                 "connect_url": "https://hol.org/guard/connect",
-            },
-        )
+            }
+
+        monkeypatch.setattr(guard_commands_module, "_run_guard_device_connect_flow", fake_device_connect_flow)
 
         def fake_setup(
             guard_home_path: Path,
@@ -8586,9 +9126,9 @@ url = http://127.0.0.1:8787/guard-canary
 
         output = capsys.readouterr().out
 
-        assert "This device is protected locally" in output
+        assert "Guard is running locally" in output
         assert "Sign in to finish Guard Cloud setup" in output
-        assert "Local protection is active." in output
+        assert "Local Guard is available." in output
         assert "Sign in on the Guard connect page" in output
         assert "Machine registered, first proof pending" not in output
         assert "Dashboard proof is still syncing" not in output
@@ -8613,9 +9153,9 @@ url = http://127.0.0.1:8787/guard-canary
 
         output = capsys.readouterr().out
 
-        assert "This device is protected locally" in output
+        assert "Guard is running locally" in output
         assert "Upgrade to sync this device to Guard Cloud" in output
-        assert "Local protection is active." in output
+        assert "Local Guard is available." in output
         assert "Upgrade your Guard plan" in output
         assert "shared proof" in output
         assert "Fleet history to Guard Cloud" in output
@@ -8638,7 +9178,7 @@ url = http://127.0.0.1:8787/guard-canary
 
         output = capsys.readouterr().out
 
-        assert "This device is protected locally" in output
+        assert "Guard is running locally" in output
         assert "Upgrade to sync this device to Guard Cloud" in output
         assert "First Guard Cloud proof is on the way" not in output
 
@@ -8772,12 +9312,10 @@ url = http://127.0.0.1:8787/guard-canary
         assert sync_output["advisories_stored"] == 1
         assert advisories_output["items"][0]["publisher"] == "hashgraph-online"
         assert advisories_output["items"][0]["headline"] == "Publisher rotated to a new remote domain."
-        assert any(item["source"] == "cloud-sync" and item["action"] == "allow" for item in policies_output["items"])
-        assert any(
-            item["source"] == "team-policy" and item["publisher"] == "hashgraph-online"
-            for item in policies_output["items"]
+        assert not any(
+            item["source"] in {"cloud-sync", "team-policy", "policy-bundle"} for item in policies_output["items"]
         )
-        assert exceptions_output["items"][0]["artifact_id"] == "codex:project:workspace_skill"
+        assert exceptions_output["items"] == []
 
     def test_guard_exceptions_handles_synced_naive_expiry_timestamps(self, tmp_path, capsys):
         home_dir = tmp_path / "home"
@@ -8808,7 +9346,7 @@ url = http://127.0.0.1:8787/guard-canary
             login_rc = 0
 
             sync_rc = main(["guard", "sync", "--home", str(home_dir), "--json"])
-            json.loads(capsys.readouterr().out)
+            sync_output = json.loads(capsys.readouterr().out)
             exceptions_rc = main(["guard", "exceptions", "--home", str(home_dir), "--json"])
             exceptions_output = json.loads(capsys.readouterr().out)
         finally:
@@ -8818,7 +9356,8 @@ url = http://127.0.0.1:8787/guard-canary
         assert login_rc == 0
         assert sync_rc == 0
         assert exceptions_rc == 0
-        assert exceptions_output["items"][0]["expires_at"] == "2099-01-01T00:00:00+00:00"
+        assert sync_output["exceptions_stored"] == 0
+        assert exceptions_output["items"] == []
 
     def test_guard_sync_clears_cached_policy_when_server_omits_it(self, tmp_path, capsys):
         home_dir = tmp_path / "home"
@@ -8911,7 +9450,7 @@ url = http://127.0.0.1:8787/guard-canary
                 "issuedAt": "2026-04-09T00:00:00Z",
                 "expiresAt": None,
                 "verifier": {
-                    "algorithm": "sha256",
+                    "algorithm": "rsa-pss-sha256",
                     "keyId": "guard-policy-bundle-v1",
                     "signature": None,
                 },
@@ -8926,7 +9465,22 @@ url = http://127.0.0.1:8787/guard-canary
                     "telemetryEnabled": False,
                     "syncEnabled": True,
                 },
-                "rules": [],
+                "rules": [
+                    {
+                        "ruleId": "block-global-tools",
+                        "action": "block",
+                        "reason": "Block the global tools fixture through signed policy authority.",
+                        "artifactId": "codex:global:global_tools",
+                        "scope": {
+                            "agents": [],
+                            "devices": [],
+                            "ecosystems": [],
+                            "environments": [],
+                            "harnesses": ["codex"],
+                            "locations": [],
+                        },
+                    }
+                ],
                 "acknowledgements": [
                     {
                         "deviceId": "device-1",
@@ -8957,7 +9511,8 @@ url = http://127.0.0.1:8787/guard-canary
             },
         }
         policy_bundle = _SyncRequestHandler.response_payload["policyBundle"]
-        policy_bundle["bundleHash"] = guard_runner_module._computed_policy_bundle_hash(policy_bundle)
+        signed_policy_bundle = sign_policy_bundle(policy_bundle)
+        _SyncRequestHandler.response_payload["policyBundle"] = signed_policy_bundle
 
         server = HTTPServer(("127.0.0.1", 0), _SyncRequestHandler)
         thread = threading.Thread(target=server.serve_forever, daemon=True)
@@ -8989,40 +9544,7 @@ url = http://127.0.0.1:8787/guard-canary
         assert _SyncRequestHandler.captured_body is not None
         assert run_output["blocked"] is True
         store = GuardStore(home_dir)
-        assert store.get_sync_payload("policy_bundle") == {
-            "contractVersion": "guard-policy-bundle.v1",
-            "bundleVersion": "policy-2026-04-09.1",
-            "bundleHash": guard_runner_module._computed_policy_bundle_hash(
-                _SyncRequestHandler.response_payload["policyBundle"]
-            ),
-            "issuedAt": "2026-04-09T00:00:00Z",
-            "expiresAt": None,
-            "verifier": {
-                "algorithm": "sha256",
-                "keyId": "guard-policy-bundle-v1",
-                "signature": None,
-            },
-            "rolloutState": "enforcing",
-            "policyDefaults": {
-                "mode": "enforce",
-                "defaultAction": "warn",
-                "unknownPublisherAction": "review",
-                "changedHashAction": "allow",
-                "newNetworkDomainAction": "warn",
-                "subprocessAction": "block",
-                "telemetryEnabled": False,
-                "syncEnabled": True,
-            },
-            "rules": [],
-            "acknowledgements": [
-                {
-                    "deviceId": "device-1",
-                    "deviceName": "Guard local daemon",
-                    "acknowledgedAt": "2026-04-09T00:01:00Z",
-                    "status": "synced",
-                }
-            ],
-        }
+        assert store.get_sync_payload("policy_bundle") == signed_policy_bundle
         assert any(
             artifact["artifact_id"] == "codex:global:global_tools" and artifact["policy_action"] == "block"
             for artifact in run_output["artifacts"]
@@ -9031,6 +9553,7 @@ url = http://127.0.0.1:8787/guard-canary
     def test_synced_policy_payload_prefers_bundle_defaults(self, tmp_path):
         home_dir = tmp_path / "home"
         store = GuardStore(home_dir)
+        _seed_guard_cloud(store)
         store.set_sync_payload(
             "policy",
             {
@@ -9055,7 +9578,7 @@ url = http://127.0.0.1:8787/guard-canary
                 "issuedAt": "2026-04-09T00:10:00Z",
                 "expiresAt": None,
                 "verifier": {
-                    "algorithm": "sha256",
+                    "algorithm": "rsa-pss-sha256",
                     "keyId": "guard-policy-bundle-v1",
                     "signature": None,
                 },
@@ -9075,6 +9598,10 @@ url = http://127.0.0.1:8787/guard-canary
             },
             "2026-04-09T00:10:00Z",
         )
+        cached_bundle = store.get_sync_payload("policy_bundle")
+        assert isinstance(cached_bundle, dict)
+        cached_bundle = sign_policy_bundle(cached_bundle)
+        store.set_sync_payload("policy_bundle", cached_bundle, "2026-04-09T00:10:00Z")
 
         assert guard_commands_module._synced_policy_payload(store) == {
             "mode": "enforce",
@@ -9086,9 +9613,25 @@ url = http://127.0.0.1:8787/guard-canary
             "telemetryEnabled": False,
             "syncEnabled": True,
             "updatedAt": "2026-04-09T00:10:00Z",
-            "bundleHash": "sha256:cf9abe12666da1cbd99e0aeb7b94d15f34c5051bb69bff1e5208477f305e6362",
+            "bundleHash": cached_bundle["bundleHash"],
             "bundleVersion": "policy-2026-04-09.1",
         }
+
+    def test_synced_policy_payload_fails_closed_for_unauthenticated_cached_bundle(self, tmp_path):
+        store = GuardStore(tmp_path / "home")
+        _seed_guard_cloud(store)
+        fallback_policy = {"mode": "observe", "defaultAction": "warn"}
+        store.set_sync_payload("policy", fallback_policy, "2026-04-09T00:00:00Z")
+        digest_bundle = build_cloud_exception_policy_bundle(workspace_id="workspace-1")
+        digest_bundle["verifier"] = {
+            "algorithm": "sha256",
+            "keyId": "legacy-digest-only",
+            "signature": None,
+        }
+        digest_bundle["bundleHash"] = guard_runner_module._computed_policy_bundle_hash(digest_bundle)
+        store.set_sync_payload("policy_bundle", digest_bundle, "2026-04-09T00:10:00Z")
+
+        assert guard_commands_module._synced_policy_payload(store) is None
 
     def test_guard_invalid_harness_returns_parser_error(self, tmp_path, capsys):
         home_dir = tmp_path / "home"
@@ -9428,7 +9971,16 @@ url = http://127.0.0.1:8787/guard-canary
             "message": "Guard authorization expired. Run `hol-guard connect` to sign in again.",
         }
 
-    def test_refresh_cloud_policy_bundle_preserves_bundle_rejection_reason(self, tmp_path, monkeypatch):
+    @pytest.mark.parametrize(
+        "rejection_reason",
+        ["bundle_version_downgrade", "inactive_rollout_state"],
+    )
+    def test_refresh_cloud_policy_bundle_preserves_bundle_rejection_reason(
+        self,
+        tmp_path,
+        monkeypatch,
+        rejection_reason,
+    ):
         home_dir = tmp_path / "home"
         _disable_oauth_persistence_assert(monkeypatch)
         store = GuardStore(home_dir)
@@ -9437,7 +9989,7 @@ url = http://127.0.0.1:8787/guard-canary
         def _bundle_rejected(current_store: GuardStore, **_kwargs: object) -> dict[str, object]:
             current_store.set_sync_payload(
                 "policy_bundle_last_error",
-                {"reason": "bundle_version_downgrade"},
+                {"reason": rejection_reason},
                 "2026-04-09T00:00:00Z",
             )
             return {"synced": True}
@@ -9459,7 +10011,7 @@ url = http://127.0.0.1:8787/guard-canary
         guard_commands_module._refresh_cloud_policy_bundle(store, bundle_only=True)
 
         assert store.get_sync_payload("policy_bundle_last_error") == {
-            "reason": "bundle_version_downgrade",
+            "reason": rejection_reason,
         }
 
     def test_refresh_cloud_policy_bundle_preserves_bundle_hash_mismatch_reason(self, tmp_path, monkeypatch):

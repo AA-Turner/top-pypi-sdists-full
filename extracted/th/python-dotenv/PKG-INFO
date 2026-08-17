@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: python-dotenv
-Version: 1.2.2
+Version: 1.2.3
 Summary: Read key-value pairs from a .env file and set them as environment variables
 Author-email: Saurabh Kumar <me+github@saurabh-kumar.com>
 License: BSD-3-Clause
@@ -295,11 +295,22 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/), and this
 project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [v1.2.2] - 2026-03-01
+## [Unreleased]
+
+## [1.2.3] - 2026-08-16
+
+### Fixed
+
+- Strip a leading UTF-8 BOM from `.env` file contents so the first variable is no longer silently lost when the file is saved with BOM (e.g. by some JetBrains IDEs on Windows) by [@h1whelan] in [#640]
+- `set_key` now escapes backslashes, so values containing them (Windows paths, regular expressions) survive a write/read round-trip. Quoted values ending in an escaped backslash are no longer mis-parsed as an escaped quote, which used to swallow the following lines by [@dchaudhari7177] in [#680]
+- `dotenv run` now prints a friendly error instead of a traceback when no command is given by [@bbc2] in [#606]
+- Cache the parsed result for empty `.env` files so repeated `dotenv_values`/`load_dotenv` calls no longer re-read the file by [@ReinerBRO] in [#638]
+
+## [1.2.2] - 2026-03-01
 
 ### Added
 
-- Support for Python 3.14, including the free-threaded (3.14t) build. (#)
+- Support for Python 3.14, including the free-threaded (3.14t) build. (#588)
 
 ### Changed
 
@@ -311,7 +322,7 @@ project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Fixed
 
-- Improved `set_key` and `unset_key` behavior when interacting with symlinks by [@bbc2] in [#790c5](https://github.com/theskumar/python-dotenv/commit/790c5c02991100aa1bf41ee5330aca75edc51311)
+- Improved `set_key` and `unset_key` behavior when interacting with symlinks by [@bbc2] in [790c5c0]
 - Corrected the license specifier and added missing Python 3.14 classifiers in package metadata by [@JYOuyang] in [#590]
 
 ### Breaking Changes
@@ -337,40 +348,40 @@ project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 ## [1.2.0] - 2025-10-26
 
 - Upgrade build system to use PEP 517 & PEP 518 to use `build` and `pyproject.toml` by [@EpicWink] in [#583]
-- Add support for Python 3.14 by [@23f3001135] in [#579](https://github.com/theskumar/python-dotenv/pull/563)
+- Add support for Python 3.14 by [@23f3001135] in [#579]
 - Add support for disabling of `load_dotenv()` using `PYTHON_DOTENV_DISABLED` env var. by [@matthewfranglen] in [#569]
 
 ## [1.1.1] - 2025-06-24
 
 ### Fixed
 
-- CLI: Ensure `find_dotenv` work reliably on python 3.13 by [@theskumar] in [#563](https://github.com/theskumar/python-dotenv/pull/563)
-- CLI: revert the use of execvpe on Windows by [@wrongontheinternet] in [#566](https://github.com/theskumar/python-dotenv/pull/566)
+- CLI: Ensure `find_dotenv` work reliably on python 3.13 by [@theskumar] in [#563]
+- CLI: revert the use of execvpe on Windows by [@wrongontheinternet] in [#566]
 
 ## [1.1.0] - 2025-03-25
 
-**Feature**
+### Added
 
 - Add support for python 3.13
 - Enhance `dotenv run`, switch to `execvpe` for better resource management and signal handling ([#523]) by [@eekstunt]
 
-**Fixed**
+### Fixed
 
 - `find_dotenv` and `load_dotenv` now correctly looks up at the current directory when running in debugger or pdb ([#553] by [@randomseed42])
 
-**Misc**
+### Misc
 
 - Drop support for Python 3.8
 
 ## [1.0.1] - 2024-01-23
 
-**Fixed**
+### Fixed
 
 - Gracefully handle code which has been imported from a zipfile ([#456] by [@samwyma])
 - Allow modules using `load_dotenv` to be reloaded when launched in a separate thread ([#497] by [@freddyaboulton])
 - Fix file not closed after deletion, handle error in the rewrite function ([#469] by [@Qwerty-133])
 
-**Misc**
+### Misc
 
 - Use pathlib.Path in tests ([#466] by [@eumiro])
 - Fix year in release date in changelog.md ([#454] by [@jankislinger])
@@ -378,14 +389,14 @@ project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [1.0.0] - 2023-02-24
 
-**Fixed**
+### Fixed
 
 - Drop support for python 3.7, add python 3.12-dev (#449 by [@theskumar])
 - Handle situations where the cwd does not exist. (#446 by [@jctanner])
 
 ## [0.21.1] - 2023-01-21
 
-**Added**
+### Added
 
 - Use Python 3.11 non-beta in CI (#438 by [@bbc2])
 - Modernize variables code (#434 by [@Nougat-Waffle])
@@ -394,7 +405,7 @@ project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 - Improve error message for `get` and `list` commands when env file can't be opened (#441 by [@bbc2])
 - Updated License to align with BSD OSI template (#433 by [@lsmith77])
 
-**Fixed**
+### Fixed
 
 - Fix Out-of-scope error when "dest" variable is undefined (#413 by [@theGOTOguy])
 - Fix IPython test warning about deprecated `magic` (#440 by [@bbc2])
@@ -402,13 +413,13 @@ project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [0.21.0] - 2022-09-03
 
-**Added**
+### Added
 
 - CLI: add support for invocations via 'python -m'. (#395 by [@theskumar])
 - `load_dotenv` function now returns `False`. (#388 by [@larsks])
 - CLI: add --format= option to list command. (#407 by [@sammck])
 
-**Fixed**
+### Fixed
 
 - Drop Python 3.5 and 3.6 and upgrade GA (#393 by [@eggplants])
 - Use `open` instead of `io.open`. (#389 by [@rabinadk1])
@@ -419,12 +430,12 @@ project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [0.20.0] - 2022-03-24
 
-**Added**
+### Added
 
 - Add `encoding` (`Optional[str]`) parameter to `get_key`, `set_key` and `unset_key`.
   (#379 by [@bbc2])
 
-**Fixed**
+### Fixed
 
 - Use dict to specify the `entry_points` parameter of `setuptools.setup` (#376 by
   [@mgorny]).
@@ -432,25 +443,25 @@ project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [0.19.2] - 2021-11-11
 
-**Fixed**
+### Fixed
 
 - In `set_key`, add missing newline character before new entry if necessary. (#361 by
   [@bbc2])
 
 ## [0.19.1] - 2021-08-09
 
-**Added**
+### Added
 
 - Add support for Python 3.10. (#359 by [@theskumar])
 
 ## [0.19.0] - 2021-07-24
 
-**Changed**
+### Changed
 
 - Require Python 3.5 or a later version. Python 2 and 3.4 are no longer supported. (#341
   by [@bbc2]).
 
-**Added**
+### Added
 
 - The `dotenv_path` argument of `set_key` and `unset_key` now has a type of `Union[str,
 os.PathLike]` instead of just `os.PathLike` (#347 by [@bbc2]).
@@ -460,7 +471,7 @@ os.PathLike]` instead of just `os.PathLike` (#347 by [@bbc2]).
 
 ## [0.18.0] - 2021-06-20
 
-**Changed**
+### Changed
 
 - Raise `ValueError` if `quote_mode` isn't one of `always`, `auto` or `never` in
   `set_key` (#330 by [@bbc2]).
@@ -473,23 +484,23 @@ os.PathLike]` instead of just `os.PathLike` (#347 by [@bbc2]).
 
 ## [0.17.1] - 2021-04-29
 
-**Fixed**
+### Fixed
 
 - Fixed tests for build environments relying on `PYTHONPATH` (#318 by [@befeleme]).
 
 ## [0.17.0] - 2021-04-02
 
-**Changed**
+### Changed
 
 - Make `dotenv get <key>` only show the value, not `key=value` (#313 by [@bbc2]).
 
-**Added**
+### Added
 
 - Add `--override`/`--no-override` option to `dotenv run` (#312 by [@zueve] and [@bbc2]).
 
 ## [0.16.0] - 2021-03-27
 
-**Changed**
+### Changed
 
 - The default value of the `encoding` parameter for `load_dotenv` and `dotenv_values` is
   now `"utf-8"` instead of `None` (#306 by [@bbc2]).
@@ -497,17 +508,17 @@ os.PathLike]` instead of just `os.PathLike` (#347 by [@bbc2]).
 
 ## [0.15.0] - 2020-10-28
 
-**Added**
+### Added
 
 - Add `--export` option to `set` to make it prepend the binding with `export` (#270 by
   [@jadutter]).
 
-**Changed**
+### Changed
 
 - Make `set` command create the `.env` file in the current directory if no `.env` file was
   found (#270 by [@jadutter]).
 
-**Fixed**
+### Fixed
 
 - Fix potentially empty expanded value for duplicate key (#260 by [@bbc2]).
 - Fix import error on Python 3.5.0 and 3.5.1 (#267 by [@gongqingkui]).
@@ -516,30 +527,30 @@ os.PathLike]` instead of just `os.PathLike` (#347 by [@bbc2]).
 
 ## [0.14.0] - 2020-07-03
 
-**Changed**
+### Changed
 
 - Privilege definition in file over the environment in variable expansion (#256 by
   [@elbehery95]).
 
-**Fixed**
+### Fixed
 
 - Improve error message for when file isn't found (#245 by [@snobu]).
 - Use HTTPS URL in package meta data (#251 by [@ekohl]).
 
 ## [0.13.0] - 2020-04-16
 
-**Added**
+### Added
 
 - Add support for a Bash-like default value in variable expansion (#248 by [@bbc2]).
 
 ## [0.12.0] - 2020-02-28
 
-**Changed**
+### Changed
 
 - Use current working directory to find `.env` when bundled by PyInstaller (#213 by
   [@gergelyk]).
 
-**Fixed**
+### Fixed
 
 - Fix escaping of quoted values written by `set_key` (#236 by [@bbc2]).
 - Fix `dotenv run` crashing on environment variables without values (#237 by [@yannham]).
@@ -547,23 +558,23 @@ os.PathLike]` instead of just `os.PathLike` (#347 by [@bbc2]).
 
 ## [0.11.0] - 2020-02-07
 
-**Added**
+### Added
 
 - Add `interpolate` argument to `load_dotenv` and `dotenv_values` to disable interpolation
   (#232 by [@ulyssessouza]).
 
-**Changed**
+### Changed
 
 - Use logging instead of warnings (#231 by [@bbc2]).
 
-**Fixed**
+### Fixed
 
 - Fix installation in non-UTF-8 environments (#225 by [@altendky]).
 - Fix PyPI classifiers (#228 by [@bbc2]).
 
 ## [0.10.5] - 2020-01-19
 
-**Fixed**
+### Fixed
 
 - Fix handling of malformed lines and lines without a value (#222 by [@bbc2]):
   - Don't print warning when key has no value.
@@ -572,7 +583,7 @@ os.PathLike]` instead of just `os.PathLike` (#347 by [@bbc2]).
 
 ## [0.10.4] - 2020-01-17
 
-**Added**
+### Added
 
 - Make typing optional (#179 by [@techalchemy]).
 - Print a warning on malformed line (#211 by [@bbc2]).
@@ -712,6 +723,17 @@ os.PathLike]` instead of just `os.PathLike` (#347 by [@bbc2]).
 [#586]: https://github.com/theskumar/python-dotenv/issues/586
 [#590]: https://github.com/theskumar/python-dotenv/issues/590
 [#607]: https://github.com/theskumar/python-dotenv/issues/607
+[#588]: https://github.com/theskumar/python-dotenv/issues/588
+[#579]: https://github.com/theskumar/python-dotenv/pull/579
+[#566]: https://github.com/theskumar/python-dotenv/pull/566
+[#563]: https://github.com/theskumar/python-dotenv/pull/563
+[#497]: https://github.com/theskumar/python-dotenv/pull/497
+[#161]: https://github.com/theskumar/python-dotenv/issues/161
+[#606]: https://github.com/theskumar/python-dotenv/pull/606
+[#638]: https://github.com/theskumar/python-dotenv/pull/638
+[#640]: https://github.com/theskumar/python-dotenv/pull/640
+[#680]: https://github.com/theskumar/python-dotenv/pull/680
+[790c5c0]: https://github.com/theskumar/python-dotenv/commit/790c5c02991100aa1bf41ee5330aca75edc51311
 
 <!-- contributors -->
 
@@ -721,6 +743,7 @@ os.PathLike]` instead of just `os.PathLike` (#347 by [@bbc2]).
 [@Nicals]: https://github.com/Nicals
 [@Nougat-Waffle]: https://github.com/Nougat-Waffle
 [@Qwerty-133]: https://github.com/Qwerty-133
+[@ReinerBRO]: https://github.com/ReinerBRO
 [@alanjds]: https://github.com/alanjds
 [@altendky]: https://github.com/altendky
 [@andrewsmith]: https://github.com/andrewsmith
@@ -728,10 +751,11 @@ os.PathLike]` instead of just `os.PathLike` (#347 by [@bbc2]).
 [@bbc2]: https://github.com/bbc2
 [@befeleme]: https://github.com/befeleme
 [@cjauvin]: https://github.com/cjauvin
+[@dchaudhari7177]: https://github.com/dchaudhari7177
 [@eaf]: https://github.com/eaf
 [@earlbread]: https://github.com/earlbread
 [@eekstunt]: https://github.com/eekstunt
-[@eggplants]: https://github.com/@eggplants
+[@eggplants]: https://github.com/eggplants
 [@ekohl]: https://github.com/ekohl
 [@elbehery95]: https://github.com/elbehery95
 [@eumiro]: https://github.com/eumiro
@@ -739,19 +763,20 @@ os.PathLike]` instead of just `os.PathLike` (#347 by [@bbc2]).
 [@gergelyk]: https://github.com/gergelyk
 [@gongqingkui]: https://github.com/gongqingkui
 [@greyli]: https://github.com/greyli
-[@harveer07]: https://github.com/@harveer07
+[@h1whelan]: https://github.com/h1whelan
+[@harveer07]: https://github.com/harveer07
 [@jadutter]: https://github.com/jadutter
 [@jankislinger]: https://github.com/jankislinger
 [@jctanner]: https://github.com/jctanner
-[@larsks]: https://github.com/@larsks
+[@larsks]: https://github.com/larsks
 [@lsmith77]: https://github.com/lsmith77
 [@matthewfranglen]: https://github.com/matthewfranglen
 [@mgorny]: https://github.com/mgorny
-[@naorlivne]: https://github.com/@naorlivne
+[@naorlivne]: https://github.com/naorlivne
 [@qnighy]: https://github.com/qnighy
-[@rabinadk1]: https://github.com/@rabinadk1
-[@randomseed42]: https://github.com/zueve
-[@sammck]: https://github.com/@sammck
+[@rabinadk1]: https://github.com/rabinadk1
+[@randomseed42]: https://github.com/randomseed42
+[@sammck]: https://github.com/sammck
 [@samwyma]: https://github.com/samwyma
 [@sidharth-sudhir]: https://github.com/sidharth-sudhir
 [@snobu]: https://github.com/snobu
@@ -767,7 +792,8 @@ os.PathLike]` instead of just `os.PathLike` (#347 by [@bbc2]).
 [@JYOuyang]: https://github.com/JYOuyang
 [@burnout-projects]: https://github.com/burnout-projects
 [@cpackham-atlnz]: https://github.com/cpackham-atlnz
-[Unreleased]: https://github.com/theskumar/python-dotenv/compare/v1.2.2...HEAD
+[Unreleased]: https://github.com/theskumar/python-dotenv/compare/v1.2.3...HEAD
+[1.2.3]: https://github.com/theskumar/python-dotenv/compare/v1.2.2...v1.2.3
 [1.2.2]: https://github.com/theskumar/python-dotenv/compare/v1.2.1...v1.2.2
 [1.2.1]: https://github.com/theskumar/python-dotenv/compare/v1.2.0...v1.2.1
 [1.2.0]: https://github.com/theskumar/python-dotenv/compare/v1.1.1...v1.2.0

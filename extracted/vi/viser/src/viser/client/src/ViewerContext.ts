@@ -31,6 +31,14 @@ export type ViewerMutable = {
   sendMessage: (message: Message) => void;
   sendCamera: (() => void) | null;
   resetCameraPose: ((animate: boolean) => void) | null;
+  // Synchronously resize the R3F renderer + camera to a given CSS size (and
+  // repaint that frame). Set by SceneContextSetter once the renderer exists.
+  // Called from the dock's region-width drag so the GL backbuffer tracks the
+  // panel edge on the SAME tick instead of trailing R3F's async ResizeObserver.
+  // The caller passes the AUTHORITATIVE size it just computed -- reading the
+  // canvas's clientWidth here instead would lag, because the new CSS inset isn't
+  // reliably reflowed yet at this point in the drag frame. Null until mount.
+  syncCanvasSize: ((width: number, height: number) => void) | null;
 
   // DOM/Three.js references.
   canvas: HTMLCanvasElement | null;
@@ -39,6 +47,14 @@ export type ViewerMutable = {
   camera: THREE.PerspectiveCamera | null;
   backgroundMaterial: THREE.ShaderMaterial | null;
   cameraControl: CameraControls | null;
+  /** Server-configured max orbit distance. The camera-controls instance's
+   * own `maxDistance` is an EFFECTIVE bound that ratchets up to the current
+   * distance whenever the camera is placed beyond this configured value
+   * (server-set pose, initial camera): camera-controls clamps every user
+   * dolly to [min, max], so a hard bound teleported such cameras to the
+   * boundary on the first scroll tick. See the per-frame reconciliation in
+   * SynchronizedCameraControls. */
+  configuredMaxOrbitDistance: number;
 
   // Scene management.
   nodeRefFromName: {
@@ -52,7 +68,12 @@ export type ViewerMutable = {
   // hack runs again. Lives here (not a component ref) so WebsocketInterface can
   // reset it on reconnect.
   firstMessageBatch: boolean;
-  getRenderRequestState: "ready" | "triggered" | "pause" | "in_progress";
+  // Render-capture state machine (driven by the two useFrame hooks in
+  // MessageHandler.tsx's FrameSynchronizedMessageHandler): "ready" ->
+  // nothing pending; "commit_wait" -> request processed alongside other
+  // messages, give React one frame to commit them; "capture" -> capture
+  // this frame. Message handling is gated on "ready".
+  getRenderRequestState: "ready" | "commit_wait" | "capture";
   getRenderRequest: null | GetRenderRequestMessage;
 
   // Diagnostic snapshot for the initial-camera / scene-orientation flow,
@@ -65,10 +86,20 @@ export type ViewerMutable = {
     rootWxyzAtCapture: [number, number, number, number];
   } | null;
 
-  // Skinned mesh state.
+  // Skinned mesh state, keyed PER VARIANT via variantKey(owner,
+  // name): each scope's variant of a name owns independent bone state, so
+  // bone updates for a shadowed variant accumulate without corrupting the
+  // effective one, and promotion finds the promoted variant's state intact.
   skinnedMeshState: {
-    [name: string]: {
+    [ownerAndName: string]: {
       initialized: boolean;
+      // True once a mounted SkinnedMesh instance has claimed this entry.
+      // Entries can be recreated without a remount (FilePlayback's loop and
+      // its same-batch remove + re-add replay same message refs into a
+      // kept-mounted tree), so the surviving instance must be able to adopt
+      // an UNCLAIMED fresh entry -- while never touching one already
+      // claimed by a different live instance (same-name re-add race).
+      claimed: boolean;
       dirty: boolean; // Flag to track if bones need updating.
       poses: {
         wxyz: [number, number, number, number];
@@ -81,6 +112,8 @@ export type ViewerMutable = {
   // triggering React re-renders on every pose update.
   nodePoseData: NodePoseDataMap;
 };
+
+export { variantKey } from "./SceneTreeState";
 
 export type ViewerContextContents = {
   // Non-mutable state.

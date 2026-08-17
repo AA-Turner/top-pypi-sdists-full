@@ -18,7 +18,10 @@ except ModuleNotFoundError:  # pragma: no cover - Python 3.10
 
 from codex_plugin_scanner.cli import main
 from codex_plugin_scanner.guard.adapters.base import HarnessContext
+from codex_plugin_scanner.guard.adapters.codex import CodexHarnessAdapter
 from codex_plugin_scanner.guard.cli import commands as guard_commands_module
+from codex_plugin_scanner.guard.cli import commands_support_hook_payload as guard_hook_payload_module
+from codex_plugin_scanner.guard.codex_config import read_toml_payload
 from codex_plugin_scanner.guard.consumer.service import diff_artifact
 from codex_plugin_scanner.guard.policy_integrity import PolicyIntegrityVerificationResult
 from codex_plugin_scanner.guard.runtime import runner as guard_runner_module
@@ -67,6 +70,25 @@ command = "node"
 args = ["workspace-skill.js"]
 """.strip()
         + "\n",
+    )
+
+
+def _install_codex_native_hooks(home_dir: Path, workspace_dir: Path) -> None:
+    context = HarnessContext(
+        home_dir=home_dir,
+        workspace_dir=workspace_dir,
+        guard_home=home_dir,
+        home_override_explicit=True,
+        workspace_override_explicit=True,
+    )
+    config_path = home_dir / ".codex" / "config.toml"
+    payload = read_toml_payload(config_path)
+    CodexHarnessAdapter._install_config_hooks(payload, context)
+    CodexHarnessAdapter._write_authenticated_hook_config(
+        context,
+        config_path=config_path,
+        payload=payload,
+        previous_manifest=None,
     )
 
 
@@ -151,6 +173,7 @@ def test_guard_run_launches_with_configured_home(monkeypatch, tmp_path, capsys):
     _build_guard_fixture(home_dir, workspace_dir)
     fake_codex = _make_pinnable_harness_executable(tmp_path, monkeypatch, "codex")
     _write_text(home_dir / "config.toml", 'changed_hash_action = "allow"\n')
+    _install_codex_native_hooks(home_dir, workspace_dir)
     captured_env: dict[str, str] = {}
     captured_cwd: Path | None = None
     captured_command: list[str] = []
@@ -255,8 +278,12 @@ def test_guard_run_keeps_direct_env_prompt_terminal_when_sandbox_is_required(mon
     _write_text(home_dir / "config.toml", 'changed_hash_action = "allow"\nmode = "prompt"\n')
     _make_fake_codex(fake_bin, marker_path)
     monkeypatch.setenv("PATH", f"{fake_bin}{os.pathsep}{os.environ.get('PATH', '')}")
-    monkeypatch.setattr(guard_commands_module, "ensure_guard_daemon", lambda _guard_home: "http://127.0.0.1:4455")
-    monkeypatch.setattr(guard_commands_module.webbrowser, "open", lambda _url: True)
+    monkeypatch.setattr(
+        guard_commands_module,
+        "schedule_guard_daemon_ensure",
+        lambda _guard_home, **_kwargs: "http://127.0.0.1:4455",
+    )
+    monkeypatch.setattr(guard_hook_payload_module, "open_browser_url", lambda _url: True)
 
     first_rc = main(
         [
@@ -764,7 +791,7 @@ def test_guard_run_opencode_prompt_request_uses_opencode_policy_path(monkeypatch
     _build_opencode_fixture(home_dir, workspace_dir)
     _write_text(home_dir / "config.toml", 'changed_hash_action = "require-reapproval"\nmode = "prompt"\n')
     monkeypatch.setattr(guard_commands_module, "ensure_guard_daemon", lambda _guard_home: "http://127.0.0.1:4455")
-    monkeypatch.setattr(guard_commands_module.webbrowser, "open", lambda _url: True)
+    monkeypatch.setattr(guard_hook_payload_module, "open_browser_url", lambda _url: True)
 
     rc = main(
         [
@@ -798,7 +825,7 @@ def test_guard_run_opencode_blocks_new_plugin_when_unknown_artifacts_require_app
     _build_opencode_fixture(home_dir, workspace_dir)
     _write_text(home_dir / "config.toml", 'changed_hash_action = "allow"\nmode = "prompt"\n')
     monkeypatch.setattr(guard_commands_module, "ensure_guard_daemon", lambda _guard_home: "http://127.0.0.1:4455")
-    monkeypatch.setattr(guard_commands_module.webbrowser, "open", lambda _url: True)
+    monkeypatch.setattr(guard_hook_payload_module, "open_browser_url", lambda _url: True)
 
     first_rc = main(
         [
@@ -860,7 +887,7 @@ def test_guard_run_opencode_reapproves_changed_plugin_and_skill_content(monkeypa
     )
     _write_text(home_dir / "config.toml", 'changed_hash_action = "require-reapproval"\nmode = "prompt"\n')
     monkeypatch.setattr(guard_commands_module, "ensure_guard_daemon", lambda _guard_home: "http://127.0.0.1:4455")
-    monkeypatch.setattr(guard_commands_module.webbrowser, "open", lambda _url: True)
+    monkeypatch.setattr(guard_hook_payload_module, "open_browser_url", lambda _url: True)
     context = HarnessContext(home_dir=home_dir, workspace_dir=workspace_dir, guard_home=home_dir)
     baseline_detection = guard_runner_module.detect_harness("opencode", context)
     store = GuardStore(home_dir)
@@ -926,7 +953,7 @@ def test_guard_run_opencode_reapproves_changed_secret_plugin_option(monkeypatch,
     _write_json(workspace_dir / "opencode.json", {})
     _write_text(home_dir / "config.toml", 'changed_hash_action = "require-reapproval"\nmode = "prompt"\n')
     monkeypatch.setattr(guard_commands_module, "ensure_guard_daemon", lambda _guard_home: "http://127.0.0.1:4455")
-    monkeypatch.setattr(guard_commands_module.webbrowser, "open", lambda _url: True)
+    monkeypatch.setattr(guard_hook_payload_module, "open_browser_url", lambda _url: True)
 
     first_rc = main(
         [
@@ -984,7 +1011,7 @@ def test_guard_run_opencode_prompt_request_prefers_real_config_file(monkeypatch,
     _write_text(workspace_dir / ".opencode" / "plugins" / "workspace-plugin.mjs", "export default {};\n")
     _write_text(home_dir / "config.toml", 'changed_hash_action = "allow"\nmode = "prompt"\n')
     monkeypatch.setattr(guard_commands_module, "ensure_guard_daemon", lambda _guard_home: "http://127.0.0.1:4455")
-    monkeypatch.setattr(guard_commands_module.webbrowser, "open", lambda _url: True)
+    monkeypatch.setattr(guard_hook_payload_module, "open_browser_url", lambda _url: True)
 
     rc = main(
         [
@@ -1017,7 +1044,7 @@ def test_guard_run_still_blocks_when_prompt_contains_negation_elsewhere(monkeypa
     _make_fake_codex(fake_bin, marker_path)
     monkeypatch.setenv("PATH", f"{fake_bin}{os.pathsep}{os.environ.get('PATH', '')}")
     monkeypatch.setattr(guard_commands_module, "ensure_guard_daemon", lambda _guard_home: "http://127.0.0.1:4455")
-    monkeypatch.setattr(guard_commands_module.webbrowser, "open", lambda _url: True)
+    monkeypatch.setattr(guard_hook_payload_module, "open_browser_url", lambda _url: True)
 
     rc = main(
         [
@@ -1051,7 +1078,7 @@ def test_guard_run_blocks_env_content_request_without_read_verb(monkeypatch, tmp
     _make_fake_codex(fake_bin, marker_path)
     monkeypatch.setenv("PATH", f"{fake_bin}{os.pathsep}{os.environ.get('PATH', '')}")
     monkeypatch.setattr(guard_commands_module, "ensure_guard_daemon", lambda _guard_home: "http://127.0.0.1:4455")
-    monkeypatch.setattr(guard_commands_module.webbrowser, "open", lambda _url: True)
+    monkeypatch.setattr(guard_hook_payload_module, "open_browser_url", lambda _url: True)
 
     rc = main(
         [
@@ -1084,7 +1111,7 @@ def test_guard_prompt_artifact_terminal_sandbox_block_is_not_queued(monkeypatch,
     _make_fake_codex(fake_bin, tmp_path / "codex-args.txt")
     monkeypatch.setenv("PATH", f"{fake_bin}{os.pathsep}{os.environ.get('PATH', '')}")
     monkeypatch.setattr(guard_commands_module, "ensure_guard_daemon", lambda _guard_home: "http://127.0.0.1:4455")
-    monkeypatch.setattr(guard_commands_module.webbrowser, "open", lambda _url: True)
+    monkeypatch.setattr(guard_hook_payload_module, "open_browser_url", lambda _url: True)
 
     main(
         [
@@ -1160,8 +1187,12 @@ def test_opencode_prompt_hook_queues_prompt_approval(monkeypatch, tmp_path, caps
             "source_scope": "project",
         },
     )
-    monkeypatch.setattr(guard_commands_module, "ensure_guard_daemon", lambda _guard_home: "http://127.0.0.1:4455")
-    monkeypatch.setattr(guard_commands_module.webbrowser, "open", lambda _url: True)
+    monkeypatch.setattr(
+        guard_commands_module,
+        "schedule_guard_daemon_ensure",
+        lambda _guard_home, **_kwargs: "http://127.0.0.1:4455",
+    )
+    monkeypatch.setattr(guard_hook_payload_module, "open_browser_url", lambda _url: True)
 
     rc = main(
         [
@@ -1194,10 +1225,11 @@ def test_guard_run_allows_debug_prompt_with_quoted_publish_error(monkeypatch, tm
     marker_path = tmp_path / "codex-args.txt"
     _build_guard_fixture(home_dir, workspace_dir)
     _write_text(home_dir / "config.toml", 'changed_hash_action = "allow"\nmode = "prompt"\n')
+    _install_codex_native_hooks(home_dir, workspace_dir)
     _make_fake_codex(fake_bin, marker_path)
     monkeypatch.setenv("PATH", f"{fake_bin}{os.pathsep}{os.environ.get('PATH', '')}")
     monkeypatch.setattr(guard_commands_module, "ensure_guard_daemon", lambda _guard_home: "http://127.0.0.1:4455")
-    monkeypatch.setattr(guard_commands_module.webbrowser, "open", lambda _url: True)
+    monkeypatch.setattr(guard_hook_payload_module, "open_browser_url", lambda _url: True)
 
     prompt = """
 Saw this error while debugging skill publish:
@@ -1257,7 +1289,7 @@ def test_guard_run_allows_debug_prompt_for_wrapper_harnesses(
     _write_text(home_dir / "config.toml", 'changed_hash_action = "allow"\nmode = "prompt"\n')
     captured = _capture_launch(monkeypatch)
     monkeypatch.setattr(guard_commands_module, "ensure_guard_daemon", lambda _guard_home: "http://127.0.0.1:4455")
-    monkeypatch.setattr(guard_commands_module.webbrowser, "open", lambda _url: True)
+    monkeypatch.setattr(guard_hook_payload_module, "open_browser_url", lambda _url: True)
 
     prompt = """
 Saw this error while debugging skill publish:
@@ -1321,7 +1353,7 @@ def test_guard_run_blocks_secret_prompt_for_wrapper_harnesses(
     _write_text(home_dir / "config.toml", 'changed_hash_action = "allow"\nmode = "prompt"\n')
     captured = _capture_launch(monkeypatch)
     monkeypatch.setattr(guard_commands_module, "ensure_guard_daemon", lambda _guard_home: "http://127.0.0.1:4455")
-    monkeypatch.setattr(guard_commands_module.webbrowser, "open", lambda _url: True)
+    monkeypatch.setattr(guard_hook_payload_module, "open_browser_url", lambda _url: True)
 
     stdout_buffer = io.StringIO()
     with contextlib.redirect_stdout(stdout_buffer):

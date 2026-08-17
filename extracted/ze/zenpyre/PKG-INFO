@@ -1,6 +1,6 @@
-Metadata-Version: 2.4
+Metadata-Version: 2.5
 Name: zenpyre
-Version: 0.0.1a64
+Version: 0.0.1a66
 Dynamic: Maintainer
 Dynamic: Maintainer-email
 Summary: Utilities for LangChain
@@ -28,7 +28,7 @@ Classifier: Topic :: Scientific/Engineering
 Classifier: Topic :: Scientific/Engineering :: Artificial Intelligence
 Classifier: Topic :: Software Development :: Libraries
 Requires-Python: >=3.10
-Requires-Dist: coola<2.0,>=1.1.10a0
+Requires-Dist: coola<2.0,>=1.1.10
 Requires-Dist: iden<1.0,>=0.4.1
 Requires-Dist: langchain-core<2.0,>=1.4
 Requires-Dist: langchain<2.0,>=1.3
@@ -46,7 +46,7 @@ Requires-Dist: langchain-huggingface<2.0,>=1.2; (sys_platform == 'linux' or (sys
 Requires-Dist: langchain-ollama<2.0,>=1.1; extra == 'all'
 Requires-Dist: langchain-openai<2.0,>=1.2; extra == 'all'
 Requires-Dist: langchain-text-splitters<2.0,>=1.0; extra == 'all'
-Requires-Dist: persista>=0.0.3a7; extra == 'all'
+Requires-Dist: persista>=0.0.3; extra == 'all'
 Requires-Dist: polars<2.0,>=1.0; extra == 'all'
 Requires-Dist: sentence-transformers<6.0,>=5.0; extra == 'all'
 Provides-Extra: anthropic
@@ -66,7 +66,7 @@ Requires-Dist: langchain-ollama<2.0,>=1.1; extra == 'ollama'
 Provides-Extra: openai
 Requires-Dist: langchain-openai<2.0,>=1.2; extra == 'openai'
 Provides-Extra: persista
-Requires-Dist: persista>=0.0.3a7; extra == 'persista'
+Requires-Dist: persista>=0.0.3; extra == 'persista'
 Provides-Extra: polars
 Requires-Dist: polars<2.0,>=1.0; extra == 'polars'
 Provides-Extra: sentence-transformers

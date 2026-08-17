@@ -1,6 +1,6 @@
-Metadata-Version: 2.4
+Metadata-Version: 2.5
 Name: solana
-Version: 0.40.1
+Version: 0.40.2
 Summary: Solana.py
 Project-URL: Homepage, https://github.com/michaelhly/solana-py
 Project-URL: Repository, https://github.com/michaelhly/solana-py
@@ -17,12 +17,12 @@ Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
 Classifier: Programming Language :: Python :: 3.14
 Requires-Python: >=3.11
-Requires-Dist: aiolimiter>=1.1.0
-Requires-Dist: construct-typing<0.8.0,>=0.6.2
-Requires-Dist: httpx2[http2]>=2.4.0
+Requires-Dist: aiolimiter>=1.2.1
+Requires-Dist: construct-typing<0.9.0,>=0.8.1
+Requires-Dist: httpx2[http2]>=2.10.0
 Requires-Dist: pydantic>=2.13.4
-Requires-Dist: solders<0.29,>=0.23
-Requires-Dist: websockets>=14.0
+Requires-Dist: solders<0.30,>=0.28
+Requires-Dist: websockets>=16.0
 Description-Content-Type: text/markdown
 
 <div align="center">
@@ -87,6 +87,7 @@ pip install solana
 import asyncio
 from solana.rpc.async_api import AsyncClient
 
+
 async def main():
     async with AsyncClient("https://api.devnet.solana.com") as client:
         res = await client.is_connected()
@@ -98,6 +99,7 @@ async def main():
     print(res)  # True
     await client.close()
 
+
 asyncio.run(main())
 ```
 
@@ -107,6 +109,7 @@ asyncio.run(main())
 import asyncio
 from asyncstdlib import enumerate
 from solana.rpc.websocket_api import connect
+
 
 async def main():
     async with connect("wss://api.devnet.solana.com") as websocket:
@@ -127,6 +130,7 @@ async def main():
                 break
             print(msg)
         await websocket.logs_unsubscribe(subscription_id)
+
 
 asyncio.run(main())
 ```

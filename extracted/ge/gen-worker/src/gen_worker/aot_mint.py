@@ -1,6 +1,6 @@
 """Worker graph-class declaration, tracing, and mint supervision.
 
-``torch-compiled-graphs`` owns compiled-graph identity, compiler policy,
+``torchcg`` owns compiled-graph identity, compiler policy,
 package admission, artifact storage, and execution.  This module retains only
 the worker facts that TCG cannot know: endpoint declarations, pipeline
 composition, per-class tracing, child-pool orchestration, and mint telemetry.
@@ -24,13 +24,14 @@ from pathlib import Path
 from typing import (
     Any, Callable, Dict, Iterator, List, Mapping, Optional, Sequence, Tuple)
 
-from torch_compiled_graphs import (
+from gen_worker._vendor.torchcg import (
+    GRAPH_CLASS_BLOCK,
     CallIngress,
     IngressError,
     build_call_ingress,
     exported_input_name,
 )
-from torch_compiled_graphs.identity import toolchain_axis_digest
+from gen_worker._vendor.torchcg.identity import toolchain_axis_digest
 
 from . import activity as activity_mod
 from . import aot_compile_pool, aot_serve, boot_phases
@@ -1520,7 +1521,7 @@ def fold_held_graph_classes(
     metas = {str(row.entry): dict(row.metadata) for row in held}
     blocks: Dict[str, Dict[str, Any]] = {}
     for name, meta in metas.items():
-        block = meta.get("graph_class")
+        block = meta.get(GRAPH_CLASS_BLOCK)
         if not isinstance(block, dict):
             raise MintRefused(
                 f"held graph class {name!r} carries no graph_class, so its "
@@ -1632,7 +1633,7 @@ def mint_graph_classes(
                 f"graph class {name!r}: the compile child returned an "
                 f"unreadable envelope ({exc}) — an artifact whose metadata "
                 f"this process cannot parse cannot be published") from exc
-        graph_class = meta.get("graph_class")
+        graph_class = meta.get(GRAPH_CLASS_BLOCK)
         if (
             not isinstance(graph_class, dict)
             or str(graph_class.get("name") or "") != name
@@ -1659,7 +1660,7 @@ def mint_graph_classes(
                 f"reach the child that owns it, so one class would publish "
                 f"two artifacts")
         held_meta = dict(carried.metadata)
-        held_block = held_meta.get("graph_class")
+        held_block = held_meta.get(GRAPH_CLASS_BLOCK)
         if not isinstance(held_block, dict):
             raise MintRefused(
                 f"held graph class {name!r} carries no graph_class, so its "
@@ -2260,7 +2261,7 @@ def tcg_graph_class_spec(traced: TracedClass, export_spec: ExportSpec) -> Any:
     prevents boot lookup and mint from growing two worker-side descriptions of
     the same graph class.
     """
-    from torch_compiled_graphs import GraphClassSpec
+    from gen_worker._vendor.torchcg import GraphClassSpec
 
     if traced.program is None:
         raise ValueError(f"graph class {traced.name!r} carries no exported program")
@@ -2329,7 +2330,7 @@ def _mint_phase_table(
     return {
         "v": 1,
         "n_entries": len(minted),
-        "compiler_owner": "torch-compiled-graphs",
+        "compiler_owner": "torchcg",
         "totals": {**totals, **{k: v for k, v in timings.items()}},
         "phases": phase_totals,
         "overlays": overlay_totals,

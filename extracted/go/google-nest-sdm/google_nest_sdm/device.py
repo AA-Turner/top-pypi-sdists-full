@@ -1,24 +1,23 @@
 """A device from the Smart Device Management API."""
 
-from __future__ import annotations
-
 import datetime
 import logging
-from typing import Any, Awaitable, Callable
-from dataclasses import dataclass, field, fields, asdict
+from collections.abc import Awaitable, Callable
+from dataclasses import dataclass, field, fields
+from typing import Any, Self
 
-from mashumaro import field_options, DataClassDictMixin
+from mashumaro import DataClassDictMixin, field_options
 from mashumaro.config import BaseConfig
 from mashumaro.types import SerializationStrategy
 
 from . import camera_traits, device_traits, doorbell_traits, thermostat_traits
 from .auth import AbstractAuth
-from .doorbell_traits import DoorbellChimeTrait
 from .diagnostics import Diagnostics, redact_data
+from .doorbell_traits import DoorbellChimeTrait
 from .event import EventMessage, EventProcessingError
 from .event_media import EventMediaManager
+from .model import SDM_PREFIX, TRAITS, TraitDataClass
 from .traits import Command
-from .model import TraitDataClass, SDM_PREFIX, TRAITS
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -200,12 +199,9 @@ class Device(TraitTypes):
     _callbacks: list[Callable[[EventMessage], Awaitable[None]]] = field(
         init=False, metadata={"serialize": "omit"}, default_factory=list
     )
-    _trait_event_ts: dict[str, datetime.datetime] = field(
-        init=False, metadata={"serialize": "omit"}, default_factory=dict
-    )
 
     @staticmethod
-    def MakeDevice(raw_data: dict[str, Any], auth: AbstractAuth) -> Device:
+    def MakeDevice(raw_data: dict[str, Any], auth: AbstractAuth) -> "Device":
         """Create a device with the appropriate traits."""
 
         # Hack for incorrect nest API response values
@@ -303,7 +299,7 @@ class Device(TraitTypes):
         self, parsed_traits: TraitTypes, timestamp: datetime.datetime
     ) -> None:
         if timestamp.tzinfo is None:
-            timestamp = timestamp.replace(tzinfo=datetime.timezone.utc)
+            timestamp = timestamp.replace(tzinfo=datetime.UTC)
         for trait_field in fields(parsed_traits):
             if (
                 (alias := trait_field.metadata.get("alias")) is None
@@ -311,36 +307,23 @@ class Device(TraitTypes):
                 or not (new := getattr(parsed_traits, trait_field.name))
             ):
                 continue
-            # Discard updates to traits that are newer than the update
-            if (ts := self._trait_timestamp(trait_field.name)) and ts > timestamp:
-                _LOGGER.debug("Discarding stale update (%s)", timestamp)
-                continue
 
-            # Only merge updates into existing models, updating the existing
-            # fields present in the update trait
             if not (existing := getattr(self, trait_field.name)):
                 continue
-            for k, v in asdict(new).items():
-                if v is not None:
-                    setattr(existing, k, v)
-            self._trait_event_ts[trait_field.name] = timestamp
+            existing.handle_trait_update(new, timestamp)
 
-    def merge_from_update(self, new_device: Device) -> None:
+    def merge_from_update(self, new_device: Self) -> None:
         """Merge fields from an updated device object.
 
         This is used when refreshing the device list from the API.
         """
-        self._async_update_traits(new_device, datetime.datetime.utcnow())
-
+        self._async_update_traits(new_device, datetime.datetime.now(datetime.UTC))
 
     def _trait_timestamp(self, trait_field_name: str) -> datetime.datetime | None:
         """Get the last update timestamp for a given trait field."""
-        if (ts := self._trait_event_ts.get(trait_field_name)) is None:
-            return None
-        if ts.tzinfo is None:
-            return ts.replace(tzinfo=datetime.timezone.utc)
-        return ts
-
+        if trait := getattr(self, trait_field_name, None):
+            return trait.last_event_ts
+        return None
 
     @property
     def event_media_manager(self) -> EventMediaManager:

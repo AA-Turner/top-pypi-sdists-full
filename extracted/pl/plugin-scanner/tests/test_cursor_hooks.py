@@ -2,11 +2,14 @@
 
 from __future__ import annotations
 
+import hashlib
+import hmac
 import json
 import os
 import sqlite3
 import subprocess
 import sys
+import time
 from pathlib import Path
 
 import pytest
@@ -15,13 +18,18 @@ from codex_plugin_scanner.guard.adapters.base import HarnessContext
 from codex_plugin_scanner.guard.adapters.cursor_hooks import (
     _MANAGED_HOOK_EVENTS,
     _MANAGED_HOOK_TIMEOUT_SECONDS,
+    HOOK_SCRIPT_NAME,
+    _hook_script_mode_is_executable,
     _strip_managed_hook_entries,
     cursor_hook_response_from_guard,
     cursor_hook_should_block,
+    cursor_hooks_path,
+    cursor_native_hook_state,
     install_cursor_hooks,
     prepare_cursor_hook_payload,
     uninstall_cursor_hooks,
 )
+from codex_plugin_scanner.guard.cli import update_commands as guard_update_commands_module
 from codex_plugin_scanner.guard.daemon.server import GuardDaemonServer
 from codex_plugin_scanner.guard.models import GuardArtifact
 from codex_plugin_scanner.guard.store import GuardStore
@@ -37,6 +45,15 @@ def _cursor_shell_artifact(*, workspace_dir: Path, command: str) -> GuardArtifac
         config_path=str(workspace_dir / ".cursor" / "mcp.json"),
         command=command,
     )
+
+
+def test_cursor_hook_executable_mode_is_platform_portable(monkeypatch) -> None:
+    monkeypatch.setattr("codex_plugin_scanner.guard.adapters.cursor_hooks.os.name", "nt")
+    assert _hook_script_mode_is_executable(0o600) is True
+
+    monkeypatch.setattr("codex_plugin_scanner.guard.adapters.cursor_hooks.os.name", "posix")
+    assert _hook_script_mode_is_executable(0o600) is False
+    assert _hook_script_mode_is_executable(0o700) is True
 
 
 def _record_cursor_pending_for_test(
@@ -188,7 +205,7 @@ def test_cursor_hook_script_source_routes_hook_argv_by_cli_entrypoint(
     context = HarnessContext(home_dir=tmp_path / "home", guard_home=tmp_path / "guard", workspace_dir=tmp_path)
     monkeypatch.setattr(
         "codex_plugin_scanner.guard.adapters.cursor_hooks._resolve_guard_cli_command",
-        lambda: ["hol-guard"],
+        lambda _context: ["hol-guard"],
     )
     hol_guard_source = cursor_hook_script_source(context)
     assert 'GUARD_HOOK_ARGV = ["hook"' in hol_guard_source
@@ -196,7 +213,7 @@ def test_cursor_hook_script_source_routes_hook_argv_by_cli_entrypoint(
 
     monkeypatch.setattr(
         "codex_plugin_scanner.guard.adapters.cursor_hooks._resolve_guard_cli_command",
-        lambda: [sys.executable, "-m", "codex_plugin_scanner.cli"],
+        lambda _context: [sys.executable, "-m", "codex_plugin_scanner.cli"],
     )
     module_source = cursor_hook_script_source(context)
     assert 'GUARD_HOOK_ARGV = ["guard", "hook"' in module_source
@@ -215,6 +232,344 @@ def test_cursor_hook_script_source_includes_daemon_fast_path(tmp_path: Path) -> 
     assert "subprocess.CompletedProcess(" in source
 
 
+def test_cursor_hook_script_uses_one_deadline_and_isolated_process_tree(tmp_path: Path) -> None:
+    from codex_plugin_scanner.guard.adapters.cursor_hooks import cursor_hook_script_source
+
+    context = HarnessContext(home_dir=tmp_path / "home", guard_home=tmp_path / "guard", workspace_dir=tmp_path)
+    source = cursor_hook_script_source(context)
+
+    assert "deadline_monotonic = time.monotonic() + GUARD_HOOK_TIMEOUT_SECONDS" in source
+    assert "timeout = _request_timeout(deadline_monotonic" in source
+    assert "run_isolated_hook_process(" in source
+    assert "allow_windows_breakaway=True" in source
+    assert "_FALLBACK_LOCK.acquire(blocking=False)" in source
+    assert 'daemon_failure_kind not in {None, "overload"}' in source
+    assert "[*GUARD_RECOVERY_COMMAND, failure_kind]" in source
+
+
+def test_cursor_hook_recovers_dead_daemon_once_then_retries(
+    tmp_path: Path,
+) -> None:
+    import http.server
+    import threading
+
+    from codex_plugin_scanner.guard.adapters.cursor_hooks import cursor_hook_script_source
+
+    home_dir = tmp_path / "home"
+    guard_home = tmp_path / "guard"
+    workspace_dir = tmp_path / "workspace"
+    recovery_marker = tmp_path / "recovery-kind"
+    fallback_marker = tmp_path / "fallback-ran"
+    token = "cursor-recovery-token"
+    guard_home.mkdir()
+    workspace_dir.mkdir()
+
+    class _RecoveredDaemonHandler(http.server.BaseHTTPRequestHandler):
+        def _write_json(self, payload: dict[str, object]) -> None:
+            body = json.dumps(payload).encode()
+            self.send_response(200)
+            self.send_header("Content-Type", "application/json")
+            self.send_header("Content-Length", str(len(body)))
+            self.end_headers()
+            self.wfile.write(body)
+
+        def do_GET(self) -> None:
+            self._write_json({"ok": True, "compatibility_version": "v1"})
+
+        def do_POST(self) -> None:
+            if self.path == "/v1/healthz/verify":
+                body = json.loads(self.rfile.read(int(self.headers["Content-Length"])))
+                proof = hmac.new(
+                    token.encode(),
+                    f"{self.server.server_address[1]}:{body['nonce']}".encode(),
+                    hashlib.sha256,
+                ).hexdigest()
+                self._write_json({"proof": proof})
+                return
+            self._write_json({"policy_action": "allow"})
+
+        def log_message(self, *_args: object) -> None:
+            pass
+
+    server = http.server.HTTPServer(("127.0.0.1", 0), _RecoveredDaemonHandler)
+    thread = threading.Thread(target=server.serve_forever, daemon=True)
+    thread.start()
+    port = server.server_address[1]
+    recovery = tmp_path / "recover.py"
+    recovery.write_text(
+        "import json,sys\n"
+        "from pathlib import Path\n"
+        f"Path({str(recovery_marker)!r}).write_text(sys.argv[1], encoding='utf-8')\n"
+        f"Path({str(guard_home / 'daemon-state.json')!r}).write_text("
+        f"json.dumps({{'port': {port}, 'pid': {os.getpid()}, 'compatibility_version': 'v1'}}), encoding='utf-8')\n",
+        encoding="utf-8",
+    )
+    fallback = tmp_path / "fallback.py"
+    fallback.write_text(
+        f"from pathlib import Path;Path({str(fallback_marker)!r}).write_text('ran');"
+        'print(\'{"policy_action":"block"}\')\n',
+        encoding="utf-8",
+    )
+    (guard_home / "daemon-state.json").write_text(
+        json.dumps({"port": 59999, "pid": 999999, "compatibility_version": "v1"}),
+        encoding="utf-8",
+    )
+    (guard_home / "daemon-auth-token").write_text(token, encoding="utf-8")
+    context = HarnessContext(home_dir=home_dir, guard_home=guard_home, workspace_dir=workspace_dir)
+    script_path = tmp_path / "cursor-hook.py"
+    script_path.write_text(
+        cursor_hook_script_source(
+            context,
+            guard_cli=[sys.executable, str(fallback)],
+            recovery_command=[sys.executable, str(recovery)],
+        ),
+        encoding="utf-8",
+    )
+
+    try:
+        proc = subprocess.run(
+            [sys.executable, str(script_path)],
+            input=json.dumps(
+                {
+                    "hook_event_name": "beforeShellExecution",
+                    "tool_name": "Bash",
+                    "command": "echo hi",
+                    "cwd": str(workspace_dir),
+                }
+            ),
+            capture_output=True,
+            text=True,
+            timeout=5,
+        )
+    finally:
+        server.shutdown()
+
+    assert proc.returncode == 0, proc.stderr
+    assert json.loads(proc.stdout) == {"permission": "allow"}
+    assert recovery_marker.read_text(encoding="utf-8") == "transport-failure"
+    assert not fallback_marker.exists()
+
+
+def test_cursor_hook_authenticated_overload_skips_recovery(
+    tmp_path: Path,
+) -> None:
+    import http.server
+    import threading
+
+    from codex_plugin_scanner.guard.adapters.cursor_hooks import cursor_hook_script_source
+
+    home_dir = tmp_path / "home"
+    guard_home = tmp_path / "guard"
+    workspace_dir = tmp_path / "workspace"
+    recovery_marker = tmp_path / "recovery-ran"
+    token = "cursor-overload-token"
+    guard_home.mkdir()
+    workspace_dir.mkdir()
+
+    class _OverloadedDaemonHandler(http.server.BaseHTTPRequestHandler):
+        def do_GET(self) -> None:
+            self.send_response(200)
+            self.send_header("Content-Type", "application/json")
+            self.end_headers()
+            self.wfile.write(json.dumps({"ok": True, "compatibility_version": "v1"}).encode())
+
+        def do_POST(self) -> None:
+            if self.path == "/v1/healthz/verify":
+                body = json.loads(self.rfile.read(int(self.headers["Content-Length"])))
+                proof = hmac.new(
+                    token.encode(),
+                    f"{self.server.server_address[1]}:{body['nonce']}".encode(),
+                    hashlib.sha256,
+                ).hexdigest()
+                self.send_response(200)
+                self.send_header("Content-Type", "application/json")
+                self.end_headers()
+                self.wfile.write(json.dumps({"proof": proof}).encode())
+                return
+            self.send_response(503)
+            self.send_header("Content-Type", "application/json")
+            self.end_headers()
+            self.wfile.write(json.dumps({"error": "daemon_hook_capacity_exceeded"}).encode())
+
+        def log_message(self, *_args: object) -> None:
+            pass
+
+    server = http.server.HTTPServer(("127.0.0.1", 0), _OverloadedDaemonHandler)
+    thread = threading.Thread(target=server.serve_forever, daemon=True)
+    thread.start()
+    port = server.server_address[1]
+    recovery = tmp_path / "recover.py"
+    recovery.write_text(
+        f"from pathlib import Path;Path({str(recovery_marker)!r}).write_text('ran')\n",
+        encoding="utf-8",
+    )
+    fallback = tmp_path / "fallback.py"
+    fallback.write_text('print(\'{"policy_action":"block"}\')\n', encoding="utf-8")
+    (guard_home / "daemon-state.json").write_text(
+        json.dumps({"port": port, "pid": os.getpid(), "compatibility_version": "v1"}),
+        encoding="utf-8",
+    )
+    (guard_home / "daemon-auth-token").write_text(token, encoding="utf-8")
+    context = HarnessContext(home_dir=home_dir, guard_home=guard_home, workspace_dir=workspace_dir)
+    script_path = tmp_path / "cursor-hook.py"
+    script_path.write_text(
+        cursor_hook_script_source(
+            context,
+            guard_cli=[sys.executable, str(fallback)],
+            recovery_command=[sys.executable, str(recovery)],
+        ),
+        encoding="utf-8",
+    )
+
+    try:
+        proc = subprocess.run(
+            [sys.executable, str(script_path)],
+            input=json.dumps(
+                {
+                    "hook_event_name": "beforeShellExecution",
+                    "tool_name": "Bash",
+                    "command": "echo hi",
+                    "cwd": str(workspace_dir),
+                }
+            ),
+            capture_output=True,
+            text=True,
+            timeout=5,
+        )
+    finally:
+        server.shutdown()
+
+    assert proc.returncode == 2
+    assert json.loads(proc.stdout)["permission"] == "deny"
+    assert not recovery_marker.exists()
+
+
+def test_cursor_managed_hook_carries_deadline_and_typed_single_retry_contract(tmp_path: Path) -> None:
+    from codex_plugin_scanner.guard.adapters.cursor_hooks import cursor_hook_script_source
+
+    source = cursor_hook_script_source(
+        HarnessContext(
+            home_dir=tmp_path / "home",
+            guard_home=tmp_path / "guard",
+            workspace_dir=tmp_path / "workspace",
+        ),
+        guard_cli=[sys.executable, "-c", "print('{}')"],
+        recovery_command=[sys.executable, "-c", "raise SystemExit(0)"],
+    )
+
+    assert 'request_payload["guard_remaining_ms"]' in source
+    assert 'overload_payload.get("reason_code") == "transient_overload"' in source
+    assert source.count("25 + secrets.randbelow(51)") == 1
+    assert "No approval was requested" in source
+
+
+def test_cursor_hook_recovery_honors_total_deadline(tmp_path: Path) -> None:
+    from codex_plugin_scanner.guard.adapters.cursor_hooks import cursor_hook_script_source
+
+    home_dir = tmp_path / "home"
+    guard_home = tmp_path / "guard"
+    workspace_dir = tmp_path / "workspace"
+    guard_home.mkdir()
+    workspace_dir.mkdir()
+    recovery = tmp_path / "slow-recovery.py"
+    recovery.write_text("import time;time.sleep(10)\n", encoding="utf-8")
+    fallback = tmp_path / "fallback.py"
+    fallback.write_text('print(\'{"policy_action":"allow"}\')\n', encoding="utf-8")
+    (guard_home / "daemon-state.json").write_text(
+        json.dumps({"port": 59999, "pid": 999999, "compatibility_version": "v1"}),
+        encoding="utf-8",
+    )
+    (guard_home / "daemon-auth-token").write_text("stale-token", encoding="utf-8")
+    context = HarnessContext(home_dir=home_dir, guard_home=guard_home, workspace_dir=workspace_dir)
+    source = cursor_hook_script_source(
+        context,
+        guard_cli=[sys.executable, str(fallback)],
+        recovery_command=[sys.executable, str(recovery)],
+    ).replace(
+        f"GUARD_HOOK_TIMEOUT_SECONDS = {_MANAGED_HOOK_TIMEOUT_SECONDS - 3}",
+        "GUARD_HOOK_TIMEOUT_SECONDS = 0.2",
+        1,
+    )
+    script_path = tmp_path / "cursor-hook.py"
+    script_path.write_text(source, encoding="utf-8")
+    started = time.monotonic()
+
+    proc = subprocess.run(
+        [sys.executable, str(script_path)],
+        input=json.dumps(
+            {
+                "hook_event_name": "beforeShellExecution",
+                "tool_name": "Bash",
+                "command": "echo hi",
+                "cwd": str(workspace_dir),
+            }
+        ),
+        capture_output=True,
+        text=True,
+        timeout=3,
+    )
+
+    # Includes cold interpreter startup, which can dominate the injected 200 ms hook budget on loaded CI.
+    assert time.monotonic() - started < 2
+    assert proc.returncode == 2
+    assert json.loads(proc.stdout)["permission"] == "deny"
+
+
+@pytest.mark.skipif(os.name != "posix", reason="process-group descendant assertion requires POSIX")
+def test_cursor_hook_timeout_kills_fallback_descendants(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    from codex_plugin_scanner.guard.adapters.cursor_hooks import cursor_hook_script_source
+
+    home_dir = tmp_path / "home"
+    guard_home = tmp_path / "guard"
+    workspace_dir = tmp_path / "workspace"
+    marker = tmp_path / "descendant-ran"
+    guard_home.mkdir()
+    workspace_dir.mkdir()
+    fake_guard = tmp_path / "slow-guard.py"
+    descendant = f"import time;time.sleep(0.8);open({str(marker)!r},'w',encoding='utf-8').write('ran')"
+    fake_guard.write_text(
+        f"import subprocess,sys,time\nsubprocess.Popen([sys.executable, '-c', {descendant!r}])\ntime.sleep(10)\n",
+        encoding="utf-8",
+    )
+    monkeypatch.setattr(
+        "codex_plugin_scanner.guard.adapters.cursor_hooks._resolve_guard_cli_command",
+        lambda _context: [sys.executable, str(fake_guard)],
+    )
+    context = HarnessContext(home_dir=home_dir, guard_home=guard_home, workspace_dir=workspace_dir)
+    source = cursor_hook_script_source(context)
+    source = source.replace(
+        f"GUARD_HOOK_TIMEOUT_SECONDS = {_MANAGED_HOOK_TIMEOUT_SECONDS - 3}",
+        "GUARD_HOOK_TIMEOUT_SECONDS = 0.2",
+        1,
+    )
+    script_path = tmp_path / "cursor-hook.py"
+    script_path.write_text(source, encoding="utf-8")
+
+    proc = subprocess.run(
+        [sys.executable, str(script_path)],
+        input=json.dumps(
+            {
+                "hook_event_name": "beforeShellExecution",
+                "tool_name": "Bash",
+                "command": "echo hi",
+                "cwd": str(workspace_dir),
+            }
+        ),
+        capture_output=True,
+        text=True,
+        env={**os.environ, "CURSOR_PROJECT_DIR": str(workspace_dir)},
+        timeout=3,
+    )
+    time.sleep(1)
+
+    assert proc.returncode == 2
+    assert json.loads(proc.stdout)["permission"] == "deny"
+    assert not marker.exists()
+
+
 def test_cursor_hook_script_uses_daemon_fast_path(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     from codex_plugin_scanner.guard.adapters.cursor_hooks import cursor_hook_script_source
 
@@ -229,7 +584,7 @@ def test_cursor_hook_script_uses_daemon_fast_path(tmp_path: Path, monkeypatch: p
     try:
         monkeypatch.setattr(
             "codex_plugin_scanner.guard.adapters.cursor_hooks._resolve_guard_cli_command",
-            lambda: [sys.executable, "-m", "codex_plugin_scanner.cli"],
+            lambda _context: [sys.executable, "-m", "codex_plugin_scanner.cli"],
         )
         context = HarnessContext(home_dir=home_dir, guard_home=guard_home, workspace_dir=workspace_dir)
         script_path = tmp_path / "cursor-hook.py"
@@ -258,19 +613,274 @@ def test_cursor_hook_script_uses_daemon_fast_path(tmp_path: Path, monkeypatch: p
     assert json.loads(proc.stdout) == {"permission": "allow"}
 
 
-def test_cursor_resolve_guard_cli_command_prefers_plugin_guard(monkeypatch: pytest.MonkeyPatch) -> None:
+@pytest.mark.parametrize(
+    ("guard_payload", "guard_exit_code"),
+    [
+        ({"error": "evaluation failed"}, 1),
+        ({"policy_action": "future-action"}, 0),
+        ({"recorded": False}, 0),
+    ],
+)
+def test_generated_cursor_hook_fails_closed_for_missing_or_unknown_guard_action(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    guard_payload: dict[str, object],
+    guard_exit_code: int,
+) -> None:
+    from codex_plugin_scanner.guard.adapters.cursor_hooks import cursor_hook_script_source
+
+    home_dir = tmp_path / "home"
+    guard_home = tmp_path / "guard"
+    workspace_dir = tmp_path / "workspace"
+    guard_home.mkdir()
+    workspace_dir.mkdir()
+    fake_guard = tmp_path / "fake-guard.py"
+    fake_guard.write_text(
+        f"import json\nprint(json.dumps({guard_payload!r}))\nraise SystemExit({guard_exit_code})\n",
+        encoding="utf-8",
+    )
+    monkeypatch.setattr(
+        "codex_plugin_scanner.guard.adapters.cursor_hooks._resolve_guard_cli_command",
+        lambda _context: [sys.executable, str(fake_guard)],
+    )
+    context = HarnessContext(home_dir=home_dir, guard_home=guard_home, workspace_dir=workspace_dir)
+    script_path = tmp_path / "cursor-hook.py"
+    script_path.write_text(cursor_hook_script_source(context), encoding="utf-8")
+
+    proc = subprocess.run(
+        [sys.executable, str(script_path)],
+        input=json.dumps(
+            {
+                "hook_event_name": "beforeShellExecution",
+                "tool_name": "Bash",
+                "command": "echo hi",
+                "cwd": str(workspace_dir),
+            }
+        ),
+        capture_output=True,
+        text=True,
+        env={**os.environ, "CURSOR_PROJECT_DIR": str(workspace_dir)},
+        timeout=10,
+    )
+
+    assert proc.returncode == 2
+    response = json.loads(proc.stdout)
+    assert response["permission"] == "deny"
+    assert "failed closed" in response["user_message"]
+
+
+def test_cursor_resolve_guard_cli_command_ignores_path_collisions(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
     from codex_plugin_scanner.guard.adapters.cursor_hooks import _resolve_guard_cli_command
 
-    def fake_which(command: str) -> str | None:
-        if command == "plugin-guard":
-            return "/usr/local/bin/plugin-guard"
-        if command == "hol-guard":
-            return "/usr/local/bin/hol-guard"
-        return None
+    fake_bin = tmp_path / "fake-bin"
+    fake_bin.mkdir()
+    marker = tmp_path / "path-collision-ran"
+    for name in ("plugin-guard", "hol-guard"):
+        collision = fake_bin / name
+        collision.write_text(f"#!/bin/sh\ntouch {marker}\n", encoding="utf-8")
+        collision.chmod(0o755)
+    monkeypatch.setenv("PATH", f"{fake_bin}{os.pathsep}{os.environ.get('PATH', '')}")
+    context = HarnessContext(
+        home_dir=tmp_path / "home",
+        guard_home=tmp_path / "guard",
+        workspace_dir=tmp_path / "workspace",
+    )
 
-    monkeypatch.setattr("codex_plugin_scanner.guard.adapters.cursor_hooks.shutil.which", fake_which)
+    command = _resolve_guard_cli_command(context)
 
-    assert _resolve_guard_cli_command() == ["/usr/local/bin/plugin-guard"]
+    assert command == [str(Path(sys.executable).absolute()), "-I", "-s", "-m", "codex_plugin_scanner.cli"]
+    assert not marker.exists()
+
+
+@pytest.mark.parametrize("collision_kind", ["executable", "symlink", "non-executable", "other-venv"])
+def test_cursor_install_persists_only_attested_cli_identity(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    collision_kind: str,
+) -> None:
+    fake_bin = tmp_path / ("other-venv" if collision_kind == "other-venv" else "fake-bin") / "bin"
+    fake_bin.mkdir(parents=True)
+    marker = tmp_path / "path-collision-ran"
+    target = fake_bin / "collision-target"
+    target.write_text(f"#!/bin/sh\ntouch {marker}\n", encoding="utf-8")
+    target.chmod(0o755)
+    for name in ("plugin-guard", "hol-guard"):
+        collision = fake_bin / name
+        if collision_kind == "symlink":
+            collision.symlink_to(target)
+        else:
+            collision.write_text(target.read_text(encoding="utf-8"), encoding="utf-8")
+            collision.chmod(0o644 if collision_kind == "non-executable" else 0o755)
+    monkeypatch.setenv("PATH", f"{fake_bin}{os.pathsep}{os.environ.get('PATH', '')}")
+    home = tmp_path / "home"
+    workspace = tmp_path / "workspace"
+    workspace.mkdir()
+    context = HarnessContext(home_dir=home, guard_home=tmp_path / "guard", workspace_dir=workspace)
+
+    manifest = install_cursor_hooks(context)
+
+    identity = manifest["guard_cli_identity"]
+    assert isinstance(identity, dict)
+    assert identity["command"] == [
+        str(Path(sys.executable).absolute()),
+        "-I",
+        "-s",
+        "-m",
+        "codex_plugin_scanner.cli",
+    ]
+    assert identity["entry_point"] == "codex_plugin_scanner.cli:main"
+    assert identity["package_root"] == str(Path(__file__).resolve().parents[1] / "src")
+    interpreter = identity["interpreter"]
+    assert isinstance(interpreter, dict)
+    assert Path(str(interpreter["target_path"])).is_absolute()
+    assert len(str(interpreter["target_sha256"])) == 64
+    assert not marker.exists()
+    assert cursor_native_hook_state(context)["protection_active"] is True
+
+
+def test_cursor_install_from_home_does_not_remove_global_hook_state(tmp_path: Path) -> None:
+    home = tmp_path / "home"
+    home.mkdir()
+    context = HarnessContext(home_dir=home, guard_home=tmp_path / "guard", workspace_dir=home)
+
+    manifest = install_cursor_hooks(context)
+
+    assert Path(str(manifest["state_path"])).is_file()
+    assert cursor_native_hook_state(context)["protection_active"] is True
+
+
+def test_cursor_update_repairs_tampered_cli_binding(tmp_path: Path) -> None:
+    home = tmp_path / "home"
+    workspace = tmp_path / "workspace"
+    workspace.mkdir()
+    context = HarnessContext(home_dir=home, guard_home=tmp_path / "guard", workspace_dir=workspace)
+    hooks_manifest = install_cursor_hooks(context)
+    store = GuardStore(context.guard_home)
+    store.set_managed_install(
+        "cursor",
+        True,
+        str(workspace),
+        {"surface": "editor", **hooks_manifest},
+        "2026-07-20T00:00:00+00:00",
+    )
+    script_path = Path(str(hooks_manifest["managed_hook_script_path"]))
+    original_source = script_path.read_text(encoding="utf-8")
+    script_path.write_text(
+        original_source.replace("codex_plugin_scanner.cli", "attacker_controlled.cli", 1),
+        encoding="utf-8",
+    )
+    assert cursor_native_hook_state(context)["reason"] == "guard_cursor_hook_script_tampered"
+
+    repaired, warning = guard_update_commands_module._repair_cursor_install(
+        context=context,
+        store=store,
+        workspace=str(workspace),
+        now="2026-07-20T00:01:00+00:00",
+    )
+
+    assert warning is None
+    assert repaired is not None
+    assert cursor_native_hook_state(context)["protection_active"] is True
+    assert script_path.read_text(encoding="utf-8") == original_source
+
+
+def test_cursor_update_repairs_stale_attested_cli_identity(tmp_path: Path) -> None:
+    home = tmp_path / "home"
+    workspace = tmp_path / "workspace"
+    workspace.mkdir()
+    context = HarnessContext(home_dir=home, guard_home=tmp_path / "guard", workspace_dir=workspace)
+    hooks_manifest = install_cursor_hooks(context)
+    store = GuardStore(context.guard_home)
+    store.set_managed_install(
+        "cursor",
+        True,
+        str(workspace),
+        {"surface": "editor", **hooks_manifest},
+        "2026-07-20T00:00:00+00:00",
+    )
+    state_path = Path(str(hooks_manifest["state_path"]))
+    state = json.loads(state_path.read_text(encoding="utf-8"))
+    state["guard_cli_identity"]["guard_version"] = "0.0.0-stale"
+    state_path.write_text(json.dumps(state, indent=2) + "\n", encoding="utf-8")
+    stale = cursor_native_hook_state(context)
+
+    repaired, warning = guard_update_commands_module._repair_cursor_install(
+        context=context,
+        store=store,
+        workspace=str(workspace),
+        now="2026-07-20T00:01:00+00:00",
+    )
+
+    assert stale["reason"] == "guard_cursor_cli_identity_mismatch"
+    assert warning is None
+    assert repaired is not None
+    assert cursor_native_hook_state(context)["protection_active"] is True
+
+
+def test_cursor_update_reports_context_resolution_failure(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    context = HarnessContext(home_dir=tmp_path / "home", guard_home=tmp_path / "guard", workspace_dir=None)
+    store = GuardStore(context.guard_home)
+    store.set_managed_install(
+        "cursor",
+        True,
+        str(tmp_path / "workspace"),
+        {"surface": "editor"},
+        "2026-07-20T00:00:00+00:00",
+    )
+
+    def _fail_context_resolution(*_args: object, **_kwargs: object) -> tuple[HarnessContext, str | None]:
+        raise RuntimeError("invalid repair context")
+
+    monkeypatch.setattr(
+        guard_update_commands_module,
+        "_repair_context_from_managed_install",
+        _fail_context_resolution,
+    )
+
+    repaired, warning = guard_update_commands_module._repair_cursor_install(
+        context=context,
+        store=store,
+        workspace=None,
+        now="2026-07-20T00:01:00+00:00",
+    )
+
+    assert repaired is None
+    assert warning == "Could not inspect Cursor protection during update: invalid repair context"
+
+
+def test_cursor_install_is_idempotent_across_path_changes(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    home = tmp_path / "home"
+    workspace = tmp_path / "workspace"
+    workspace.mkdir()
+    context = HarnessContext(home_dir=home, guard_home=tmp_path / "guard", workspace_dir=workspace)
+    markers: list[Path] = []
+    manifests: list[dict[str, object]] = []
+    for index in range(2):
+        fake_bin = tmp_path / f"fake-bin-{index}"
+        fake_bin.mkdir()
+        marker = tmp_path / f"path-collision-{index}-ran"
+        markers.append(marker)
+        for name in ("plugin-guard", "hol-guard"):
+            collision = fake_bin / name
+            collision.write_text(f"#!/bin/sh\ntouch {marker}\n", encoding="utf-8")
+            collision.chmod(0o755)
+        monkeypatch.setenv("PATH", str(fake_bin))
+        manifests.append(install_cursor_hooks(context))
+
+    hooks = json.loads(cursor_hooks_path(context).read_text(encoding="utf-8"))["hooks"]
+    assert manifests[0]["guard_cli_identity"] == manifests[1]["guard_cli_identity"]
+    assert all(len(hooks[event_name]) == 1 for event_name in _MANAGED_HOOK_EVENTS)
+    assert not any(marker.exists() for marker in markers)
+    assert cursor_native_hook_state(context)["protection_active"] is True
 
 
 def test_strip_managed_hook_entries_removes_hol_guard_pretooluse(tmp_path: Path) -> None:
@@ -322,7 +932,7 @@ def test_install_cursor_hooks_strips_legacy_pretooluse_entry(tmp_path: Path, mon
     )
     monkeypatch.setattr(
         "codex_plugin_scanner.guard.adapters.cursor_hooks._resolve_guard_cli_command",
-        lambda: ["hol-guard"],
+        lambda _context: ["hol-guard"],
     )
     context = HarnessContext(home_dir=home, guard_home=guard_home, workspace_dir=workspace)
     result = install_cursor_hooks(context)
@@ -335,6 +945,32 @@ def test_install_cursor_hooks_strips_legacy_pretooluse_entry(tmp_path: Path, mon
     for event_name in _MANAGED_HOOK_EVENTS:
         entry = installed["hooks"][event_name][-1]
         assert entry["timeout"] == _MANAGED_HOOK_TIMEOUT_SECONDS
+
+
+def test_install_cursor_hooks_preserves_top_level_event_entries(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    home = tmp_path / "home"
+    guard_home = tmp_path / "guard"
+    workspace = tmp_path / "workspace"
+    workspace.mkdir()
+    hooks_path = home / ".cursor" / "hooks.json"
+    hooks_path.parent.mkdir(parents=True)
+    existing_entries = {event_name: [{"command": f"user-{event_name}"}] for event_name in _MANAGED_HOOK_EVENTS}
+    hooks_path.write_text(json.dumps({"version": 1, **existing_entries}) + "\n", encoding="utf-8")
+    monkeypatch.setattr(
+        "codex_plugin_scanner.guard.adapters.cursor_hooks._resolve_guard_cli_command",
+        lambda _context: ["hol-guard"],
+    )
+
+    install_cursor_hooks(HarnessContext(home_dir=home, guard_home=guard_home, workspace_dir=workspace))
+    installed = json.loads(hooks_path.read_text(encoding="utf-8"))
+
+    for event_name in _MANAGED_HOOK_EVENTS:
+        entries = installed["hooks"][event_name]
+        assert entries[0] == existing_entries[event_name][0]
+        assert entries[-1]["command"].endswith(HOOK_SCRIPT_NAME)
 
 
 def test_prepare_cursor_hook_payload_maps_before_mcp_execution() -> None:
@@ -388,14 +1024,32 @@ def test_cursor_hook_response_from_guard_allows_shell() -> None:
     assert response["permission"] == "allow"
 
 
-def test_cursor_hook_would_prompt_user_for_warn_with_risk() -> None:
+@pytest.mark.parametrize("policy_action", ["", "future-action", "ALLOW"])
+def test_cursor_hook_response_from_guard_fails_closed_for_unknown_action(policy_action: str) -> None:
+    response = cursor_hook_response_from_guard(
+        policy_action=policy_action,
+        guard_payload={"risk_summary": "Malformed Guard response."},
+        hook_event_name="beforeShellExecution",
+    )
+    assert response["permission"] == "deny"
+
+
+def test_cursor_hook_warn_with_risk_remains_allowed_without_a_prompt() -> None:
     from codex_plugin_scanner.guard.adapters.cursor_hooks import cursor_hook_would_prompt_user
 
-    assert cursor_hook_would_prompt_user(
+    payload = {"risk_signals": ["destructive shell command"]}
+    assert not cursor_hook_would_prompt_user(
         policy_action="warn",
-        guard_payload={"risk_signals": ["destructive shell command"]},
+        guard_payload=payload,
     )
+    response = cursor_hook_response_from_guard(
+        policy_action="warn",
+        guard_payload=payload,
+        hook_event_name="beforeShellExecution",
+    )
+    assert response == {"permission": "allow"}
     assert not cursor_hook_would_prompt_user(policy_action="allow", guard_payload={})
+    assert cursor_hook_would_prompt_user(policy_action="review", guard_payload={})
     assert cursor_hook_would_prompt_user(policy_action="require-reapproval", guard_payload={})
 
 
@@ -485,7 +1139,7 @@ def test_install_cursor_hooks_registers_after_shell_observer(tmp_path: Path, mon
     hooks_path.write_text('{"version": 1, "hooks": {}}\n', encoding="utf-8")
     monkeypatch.setattr(
         "codex_plugin_scanner.guard.adapters.cursor_hooks._resolve_guard_cli_command",
-        lambda: ["hol-guard"],
+        lambda _context: ["hol-guard"],
     )
     context = HarnessContext(home_dir=home, guard_home=guard_home, workspace_dir=workspace)
     install_cursor_hooks(context)
@@ -565,6 +1219,174 @@ def test_cursor_native_shell_session_allow_after_trusted_after_shell(tmp_path: P
         )
         is None
     )
+
+
+def test_cursor_native_accept_resolves_inbox_when_approval_gate_enabled(tmp_path: Path) -> None:
+    from codex_plugin_scanner.guard.adapters.cursor_hooks import prepare_cursor_hook_payload
+    from codex_plugin_scanner.guard.approval_gate import update_settings as update_approval_gate_settings
+    from codex_plugin_scanner.guard.cli import commands as guard_commands_module
+    from codex_plugin_scanner.guard.models import GuardApprovalRequest
+    from codex_plugin_scanner.guard.store import GuardStore
+
+    home_dir = tmp_path / "home"
+    workspace_dir = tmp_path / "workspace"
+    workspace_dir.mkdir()
+    store = GuardStore(home_dir)
+    update_approval_gate_settings(
+        store.guard_home,
+        {
+            "enabled": True,
+            "new_password": "cursor-native-accept-gate",
+            "confirm_password": "cursor-native-accept-gate",
+            "cooldown_seconds": 0,
+            "strict_all_decisions": False,
+        },
+    )
+    conversation_id = "conv-cursor-native-inbox"
+    command = "rm -rf ./hol-guard-cursor-native-test-marker"
+    generation_id = "gen-cursor-native-inbox"
+    request_id = "req-cursor-native-inbox"
+    artifact = _cursor_shell_artifact(workspace_dir=workspace_dir, command=command)
+    store.add_approval_request(
+        GuardApprovalRequest(
+            request_id=request_id,
+            harness="cursor",
+            artifact_id=artifact.artifact_id,
+            artifact_name=artifact.name,
+            artifact_hash="hash-cursor-shell",
+            policy_action="require-reapproval",
+            recommended_scope="artifact",
+            changed_fields=("tool_action_request",),
+            source_scope="project",
+            config_path=artifact.config_path,
+            review_command=f"hol-guard approvals approve {request_id}",
+            approval_url=f"http://127.0.0.1:5474/approvals/{request_id}",
+        ),
+        "2026-08-15T00:00:00+00:00",
+    )
+    _record_cursor_pending_for_test(
+        store=store,
+        guard_home=home_dir,
+        guard_commands_module=guard_commands_module,
+        conversation_id=conversation_id,
+        command=command,
+        workspace_dir=workspace_dir,
+        generation_id=generation_id,
+    )
+    guard_commands_module._attach_cursor_pending_approval_request_ids(
+        store=store,
+        payload={
+            "conversation_id": conversation_id,
+            "hook_event_name": "beforeShellExecution",
+            "command": command,
+            "cwd": str(workspace_dir),
+            "generation_id": generation_id,
+        },
+        response_payload={"approval_request_ids": [request_id]},
+    )
+    saved = guard_commands_module._persist_cursor_native_permission_after_shell(
+        store=store,
+        payload=prepare_cursor_hook_payload(
+            {
+                "conversation_id": conversation_id,
+                "generation_id": generation_id,
+                "hook_event_name": "afterShellExecution",
+                "command": command,
+                "cwd": str(workspace_dir),
+                "duration": 15,
+            }
+        ),
+        harness="cursor",
+        home_dir=home_dir,
+        guard_home=home_dir,
+        workspace=workspace_dir,
+        hook_env=_trusted_cursor_after_shell_env(
+            home_dir,
+            conversation_id=conversation_id,
+            command=command,
+            workspace_dir=workspace_dir,
+            approval_binding=generation_id,
+        ),
+    )
+    resolved = store.get_approval_request(request_id)
+
+    assert saved is True
+    assert resolved is not None
+    assert resolved.get("status") == "resolved"
+    assert resolved.get("resolution_action") == "allow"
+    assert store.list_approval_requests(status="pending", harness="cursor") == []
+
+
+def test_cursor_native_accept_resolves_inbox_by_artifact_when_ids_missing(tmp_path: Path) -> None:
+    from codex_plugin_scanner.guard.adapters.cursor_hooks import prepare_cursor_hook_payload
+    from codex_plugin_scanner.guard.cli import commands as guard_commands_module
+    from codex_plugin_scanner.guard.models import GuardApprovalRequest
+    from codex_plugin_scanner.guard.store import GuardStore
+
+    home_dir = tmp_path / "home"
+    workspace_dir = tmp_path / "workspace"
+    workspace_dir.mkdir()
+    store = GuardStore(home_dir)
+    conversation_id = "conv-cursor-native-inbox-fallback"
+    command = "rm -rf ./hol-guard-cursor-native-test-marker"
+    generation_id = "gen-cursor-native-inbox-fallback"
+    request_id = "req-cursor-native-inbox-fallback"
+    artifact = _cursor_shell_artifact(workspace_dir=workspace_dir, command=command)
+    store.add_approval_request(
+        GuardApprovalRequest(
+            request_id=request_id,
+            harness="cursor",
+            artifact_id=artifact.artifact_id,
+            artifact_name=artifact.name,
+            artifact_hash="hash-cursor-shell",
+            policy_action="require-reapproval",
+            recommended_scope="artifact",
+            changed_fields=("tool_action_request",),
+            source_scope="project",
+            config_path=artifact.config_path,
+            review_command=f"hol-guard approvals approve {request_id}",
+            approval_url=f"http://127.0.0.1:5474/approvals/{request_id}",
+        ),
+        "2026-08-15T00:00:00+00:00",
+    )
+    _record_cursor_pending_for_test(
+        store=store,
+        guard_home=home_dir,
+        guard_commands_module=guard_commands_module,
+        conversation_id=conversation_id,
+        command=command,
+        workspace_dir=workspace_dir,
+        generation_id=generation_id,
+    )
+    saved = guard_commands_module._persist_cursor_native_permission_after_shell(
+        store=store,
+        payload=prepare_cursor_hook_payload(
+            {
+                "conversation_id": conversation_id,
+                "generation_id": generation_id,
+                "hook_event_name": "afterShellExecution",
+                "command": command,
+                "cwd": str(workspace_dir),
+                "duration": 15,
+            }
+        ),
+        harness="cursor",
+        home_dir=home_dir,
+        guard_home=home_dir,
+        workspace=workspace_dir,
+        hook_env=_trusted_cursor_after_shell_env(
+            home_dir,
+            conversation_id=conversation_id,
+            command=command,
+            workspace_dir=workspace_dir,
+            approval_binding=generation_id,
+        ),
+    )
+    resolved = store.get_approval_request(request_id)
+
+    assert saved is True
+    assert resolved is not None
+    assert resolved.get("status") == "resolved"
 
 
 def test_cursor_tampered_pending_shell_cannot_bootstrap_signed_native_allow(tmp_path: Path) -> None:
@@ -1294,7 +2116,7 @@ def test_uninstall_cursor_hooks_restores_backup(tmp_path: Path, monkeypatch: pyt
     hooks_path.write_text('{"version": 1, "hooks": {"preToolUse": []}}\n', encoding="utf-8")
     monkeypatch.setattr(
         "codex_plugin_scanner.guard.adapters.cursor_hooks._resolve_guard_cli_command",
-        lambda: ["hol-guard"],
+        lambda _context: ["hol-guard"],
     )
     context = HarnessContext(home_dir=home, guard_home=guard_home, workspace_dir=workspace)
     install_cursor_hooks(context)
@@ -1314,7 +2136,7 @@ def test_cursor_hook_daemon_fast_path_rejects_stale_pid(tmp_path: Path, monkeypa
 
     monkeypatch.setattr(
         "codex_plugin_scanner.guard.adapters.cursor_hooks._resolve_guard_cli_command",
-        lambda: [sys.executable, "-m", "codex_plugin_scanner.cli"],
+        lambda _context: [sys.executable, "-m", "codex_plugin_scanner.cli"],
     )
     context = HarnessContext(home_dir=home_dir, guard_home=guard_home, workspace_dir=workspace_dir)
     script_path = tmp_path / "cursor-hook.py"
@@ -1384,7 +2206,7 @@ def test_cursor_hook_daemon_fast_path_rejects_empty_response(tmp_path: Path, mon
     try:
         monkeypatch.setattr(
             "codex_plugin_scanner.guard.adapters.cursor_hooks._resolve_guard_cli_command",
-            lambda: [sys.executable, "-m", "codex_plugin_scanner.cli"],
+            lambda _context: [sys.executable, "-m", "codex_plugin_scanner.cli"],
         )
         context = HarnessContext(home_dir=home_dir, guard_home=guard_home, workspace_dir=workspace_dir)
         script_path = tmp_path / "cursor-hook.py"
@@ -1461,7 +2283,7 @@ def test_cursor_hook_daemon_fast_path_rejects_spoofed_healthz(tmp_path: Path, mo
     try:
         monkeypatch.setattr(
             "codex_plugin_scanner.guard.adapters.cursor_hooks._resolve_guard_cli_command",
-            lambda: [sys.executable, "-m", "codex_plugin_scanner.cli"],
+            lambda _context: [sys.executable, "-m", "codex_plugin_scanner.cli"],
         )
         context = HarnessContext(home_dir=home_dir, guard_home=guard_home, workspace_dir=workspace_dir)
         script_path = tmp_path / "cursor-hook.py"
@@ -1537,7 +2359,7 @@ def test_cursor_hook_daemon_fast_path_404_falls_through_to_cli(tmp_path: Path, m
     try:
         monkeypatch.setattr(
             "codex_plugin_scanner.guard.adapters.cursor_hooks._resolve_guard_cli_command",
-            lambda: [sys.executable, "-m", "codex_plugin_scanner.cli"],
+            lambda _context: [sys.executable, "-m", "codex_plugin_scanner.cli"],
         )
         context = HarnessContext(home_dir=home_dir, guard_home=guard_home, workspace_dir=workspace_dir)
         script_path = tmp_path / "cursor-hook.py"

@@ -29,6 +29,7 @@ prek-identify = { workspace = true, features = ["serde"] }
 aho-corasick = { workspace = true }
 annotate-snippets = { workspace = true }
 anstream = { workspace = true }
+anstyle-parse = { workspace = true }
 anstyle-query = { workspace = true }
 anyhow = { workspace = true }
 async-trait = { workspace = true }
@@ -55,10 +56,11 @@ indoc = { workspace = true }
 itertools = { workspace = true }
 json5 = { workspace = true }
 globset = { workspace = true }
+granit-parser = { workspace = true }
 # Enable static linking for liblzma
 # This is required for the `xz` feature in `async-compression`
 liblzma = { workspace = true }
-mea = { workspace = true }
+asyncband = { workspace = true }
 memchr = { workspace = true }
 owo-colors = { workspace = true }
 regex = { workspace = true }

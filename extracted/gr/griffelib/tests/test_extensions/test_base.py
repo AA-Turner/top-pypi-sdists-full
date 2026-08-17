@@ -1,4 +1,20 @@
-"""Tests for the base extension functionality."""
+# SPDX-License-Identifier: ISC
+#
+# Copyright (c) 2021, Timothée Mazzucotelli and contributors
+#
+# Permission to use, copy, modify, and/or distribute this software for any
+# purpose with or without fee is hereby granted, provided that the above
+# copyright notice and this permission notice appear in all copies.
+#
+# THE SOFTWARE IS PROVIDED "AS IS" AND THE AUTHOR DISCLAIMS ALL WARRANTIES
+# WITH REGARD TO THIS SOFTWARE INCLUDING ALL IMPLIED WARRANTIES OF
+# MERCHANTABILITY AND FITNESS. IN NO EVENT SHALL THE AUTHOR BE LIABLE FOR
+# ANY SPECIAL, DIRECT, INDIRECT, OR CONSEQUENTIAL DAMAGES OR ANY DAMAGES
+# WHATSOEVER RESULTING FROM LOSS OF USE, DATA OR PROFITS, WHETHER IN AN
+# ACTION OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS ACTION, ARISING OUT OF
+# OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
+
+# Tests for the base extension functionality.
 
 from __future__ import annotations
 
@@ -20,14 +36,7 @@ from griffe import (
     temporary_visited_module,
     temporary_visited_package,
 )
-from griffe._internal.models import (
-    Attribute,
-    Class,
-    Function,
-    Module,
-    Object,
-    TypeAlias,
-)
+from griffe._internal.models import Attribute, Class, Function, Module, Object, TypeAlias
 
 if TYPE_CHECKING:
     import ast
@@ -130,9 +139,7 @@ class AnalysisEventsTest(Extension):  # noqa: D101
         PACKAGE_ROOT.joinpath("tests/test_extensions/test_base.py:AnalysisEventsTest").absolute().as_posix(),
     ],
 )
-def test_loading_extensions(
-    extension: str | dict[str, dict[str, Any]] | Extension | type[Extension],
-) -> None:
+def test_loading_extensions(extension: str | dict[str, dict[str, Any]] | Extension | type[Extension]) -> None:
     """Test the extensions loading mechanisms.
 
     Parameters:
@@ -185,10 +192,7 @@ def test_analysis_events_without_type_aliases() -> None:
 
 
 # YORE: EOL 3.11: Remove line.
-@pytest.mark.skipif(
-    sys.version_info < (3, 12),
-    reason="Python less than 3.12 does not have PEP 695 type aliases",
-)
+@pytest.mark.skipif(sys.version_info < (3, 12), reason="Python less than 3.12 does not have PEP 695 type aliases")
 def test_analysis_events() -> None:
     """Test analysis events triggering."""
     extension = AnalysisEventsTest()
@@ -290,10 +294,7 @@ def test_load_events_without_type_aliases() -> None:
 
 
 # YORE: EOL 3.11: Remove line.
-@pytest.mark.skipif(
-    sys.version_info < (3, 12),
-    reason="Python less than 3.12 does not have PEP 695 type aliases",
-)
+@pytest.mark.skipif(sys.version_info < (3, 12), reason="Python less than 3.12 does not have PEP 695 type aliases")
 def test_load_events() -> None:
     """Test load events triggering."""
     extension = LoadEventsTest()

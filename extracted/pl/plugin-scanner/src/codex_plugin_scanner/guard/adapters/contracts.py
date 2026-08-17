@@ -140,6 +140,7 @@ _DISPLAY_NAMES = {
     "kimi": "Kimi",
     "grok": "Grok",
     "pi": "Pi",
+    "omp": "Oh My Pi",
     "zcode": "ZCode",
 }
 
@@ -294,7 +295,7 @@ HARNESS_CONTRACTS: tuple[HarnessProtectionContract, ...] = (
         resume_support=False,
         known_blind_spots=(
             "Tool output post-processing and inline edits applied without a tool call are not visible to Guard. "
-            "Hooks run in parallel and fail open on crash or timeout."
+            "Hooks run in parallel, so separate requests may be reviewed concurrently."
         ),
         smoke_command="hol-guard install kimi --dry-run",
     ),
@@ -306,28 +307,26 @@ HARNESS_CONTRACTS: tuple[HarnessProtectionContract, ...] = (
             "~/.grok/managed_config.toml",
             "~/.grok/hooks/",
         ),
-        event_surfaces=("shell", "prompt", "mcp_tool", "file_read"),
+        event_surfaces=("shell", "prompt", "mcp_tool", "file_read", "file_write"),
         native_approval=False,
         browser_fallback=True,
         resume_support=False,
         known_blind_spots=(
-            "Grok hooks fail open on crash or timeout. --always-approve and bypassPermissions weaken "
-            "prompt policy but PreToolUse hooks still run when installed."
+            "Grok UserPromptSubmit hooks are observe-only, so prompt screening cannot block the model from "
+            "seeing a prompt. Enforcement is the catch-all PreToolUse hook, including subagent and MCP tools. "
+            "--always-approve and bypassPermissions weaken Grok's own prompt policy, but the Guard hook still "
+            "returns a native deny when policy blocks a tool call."
         ),
         smoke_command="hol-guard install grok --dry-run",
     ),
     HarnessProtectionContract(
         harness="pi",
-        install_aliases=("pi", "pi-agent", "pi-coding-agent", "omp", "oh-my-pi"),
+        install_aliases=("pi", "pi-agent", "pi-coding-agent"),
         config_paths=(
             "~/.pi/agent/settings.json",
             ".pi/settings.json",
             "~/.pi/agent/extensions/*.ts",
             ".pi/extensions/*.ts",
-            "~/.omp/agent/settings.json",
-            ".omp/settings.json",
-            "~/.omp/agent/extensions/*.ts",
-            ".omp/extensions/*.ts",
         ),
         event_surfaces=("shell", "prompt", "mcp_tool", "file_read", "tool_result"),
         native_approval=True,
@@ -338,6 +337,26 @@ HARNESS_CONTRACTS: tuple[HarnessProtectionContract, ...] = (
             "configured package surfaces plus the prompt and tool events forwarded by the managed extension."
         ),
         smoke_command="hol-guard install pi --dry-run",
+    ),
+    HarnessProtectionContract(
+        harness="omp",
+        install_aliases=("omp", "oh-my-pi"),
+        config_paths=(
+            "~/.omp/agent/settings.json",
+            ".omp/settings.json",
+            "~/.omp/agent/extensions/*.ts",
+            ".omp/extensions/*.ts",
+        ),
+        event_surfaces=("shell", "prompt", "mcp_tool", "file_read", "tool_result"),
+        native_approval=True,
+        browser_fallback=True,
+        resume_support=True,
+        known_blind_spots=(
+            "Oh My Pi package install and update flows happen outside the runtime extension bridge, so Guard "
+            "observes the "
+            "configured package surfaces plus the prompt and tool events forwarded by the managed extension."
+        ),
+        smoke_command="hol-guard install omp --dry-run",
     ),
     HarnessProtectionContract(
         harness="zcode",

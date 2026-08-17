@@ -41,44 +41,54 @@ optional-dependencies.dev = [
     "check-manifest==0.51",
     "deptry==0.25.1",
     "interrogate==1.7.0",
-    "mypy[faster-cache]==1.20.2",
-    "mypy-strict-kwargs==2026.1.12",
-    "prek==0.3.10",
-    "pylint==4.0.5",
+    "mypy[faster-cache]==2.3.0",
+    "mypy-strict-kwargs==2026.7.19.1",
+    "no-defaults==2.1.0",
+    "prek==0.4.13",
+    "pylint==4.0.7",
     "pylint-per-file-ignores==3.2.1",
-    "pyproject-fmt==2.21.1",
-    "pyrefly==0.62.0",
-    "pyright==1.1.409",
+    "pyproject-fmt==2.27.0",
+    "pyrefly==1.2.0",
+    "pyright==1.1.411",
     "pyroma==5.0.1",
     "pytest-cov==7.1.0",
-    "ruff==0.15.12",
+    "ruff==0.16.2",
     # We add shellcheck-py not only for shell scripts and shell code blocks,
     # but also because having it installed means that ``actionlint-py`` will
     # use it to lint shell commands in GitHub workflow files.
     "shellcheck-py==0.11.0.1",
-    "shfmt-py==3.12.0.2",
-    "ty==0.0.31",
+    "shfmt-py==4.0.0",
+    "strict-kwargs==2026.7.24",
+    "towncrier==25.8.0",
+    "ty==0.0.66",
+    "vale==3.13.0.0",
     "vulture==2.16",
     "yamlfix==1.19.1",
-    "zizmor==1.24.1",
+    "zizmor==1.29.0",
 ]
 optional-dependencies.release = [
     "check-wheel-contents==0.6.3",
+    "towncrier==25.8.0",
 ]
 urls.Source = "https://github.com/adamtheturtle/pytest-beartype-tests"
 entry-points.pytest11.pytest_beartype_tests = "pytest_beartype_tests.plugin"
 
 [tool.setuptools]
-zip-safe = false
-package-data.pytest_beartype_tests = [
-    "py.typed",
-]
 packages.find.where = [
     "src",
 ]
+package-data.pytest_beartype_tests = [
+    "py.typed",
+]
+zip-safe = false
 
 [tool.setuptools_scm]
 version_scheme = "post-release"
+
+[tool.uv]
+# pytest 9.0.3 still lacks the pytester.makepyfile typing fix from pytest-dev/pytest#14080.
+# Keep local uv resolution pinned until a pytest release includes it.
+sources.pytest = { git = "https://github.com/pytest-dev/pytest.git", rev = "fd90f701b3356998fc0562a1fae3c52afcf8e0dc" }
 
 [tool.ruff]
 line-length = 79
@@ -88,6 +98,8 @@ lint.select = [
 lint.ignore = [
     # Ruff warns that this conflicts with the formatter.
     "COM812",
+    # Copyright headers are not required.
+    "CPY001",
     # Ruff warns that this conflicts with the formatter.
     "ISC001",
     # Ignore 'too-many-*' errors as they seem to get in the way more than
@@ -100,14 +112,60 @@ lint.ignore = [
 lint.unfixable = [
     "ERA001",
 ]
+lint.external = [ "NOD" ]
+lint.flake8-tidy-imports.banned-api."typing.cast".msg = "typing.cast is banned: use explicit type narrowing or a typed variable instead."
 lint.pydocstyle.convention = "google"
 
 [tool.pylint]
+"MESSAGES CONTROL".disable = [
+    # Too difficult to please
+    "duplicate-code",
+    # Let ruff handle long lines
+    "line-too-long",
+    "locally-disabled",
+    "missing-return-type-doc",
+    # We don't need everything to be documented because of mypy
+    "missing-type-doc",
+    "too-few-public-methods",
+    "too-many-arguments",
+    "too-many-instance-attributes",
+    "too-many-lines",
+    "too-many-locals",
+    "too-many-return-statements",
+    # Let ruff deal with sorting
+    "ungrouped-imports",
+    # Let ruff handle unused imports
+    "unused-import",
+    # mypy does not want untyped parameters.
+    "useless-type-doc",
+    # Let ruff handle imports
+    "wrong-import-order",
+]
+"MESSAGES CONTROL".enable = [
+    "bad-inline-option",
+    "deprecated-pragma",
+    "file-ignored",
+    "use-symbolic-message-instead",
+    "useless-suppression",
+]
+DEPRECATED_BUILTINS.bad-functions = [
+    # Use Pylint until Ruff can ban bare builtin calls, or until custom rules
+    # make this removable:
+    # https://github.com/astral-sh/ruff/issues/10079
+    # https://github.com/astral-sh/ruff/issues/970
+    "filter",
+    "getattr",
+    "hasattr",
+    "map",
+    "setattr",
+]
 FORMAT.single-line-if-stmt = false
-MASTER.persistent = true
+# Return non-zero exit code if useless-suppression is emitted.
+MAIN.fail-on = [
+    "useless-suppression",
+]
 MASTER.jobs = 0
 MASTER.load-plugins = [
-    "pylint_per_file_ignores",
     "pylint.extensions.bad_builtin",
     "pylint.extensions.comparison_placement",
     "pylint.extensions.consider_refactoring_into_while_condition",
@@ -123,59 +181,49 @@ MASTER.load-plugins = [
     "pylint.extensions.redefined_variable_type",
     "pylint.extensions.set_membership",
     "pylint.extensions.typing",
+    "pylint_per_file_ignores",
 ]
+MASTER.persistent = true
 MASTER.unsafe-load-any-extension = false
-"MESSAGES CONTROL".enable = [
-    "bad-inline-option",
-    "deprecated-pragma",
-    "file-ignored",
-    "use-symbolic-message-instead",
-    "useless-suppression",
-]
-"MESSAGES CONTROL".disable = [
-    "too-few-public-methods",
-    "too-many-locals",
-    "too-many-arguments",
-    "too-many-instance-attributes",
-    "too-many-return-statements",
-    "too-many-lines",
-    "locally-disabled",
-    # Let ruff handle long lines
-    "line-too-long",
-    # Let ruff handle unused imports
-    "unused-import",
-    # Let ruff deal with sorting
-    "ungrouped-imports",
-    # We don't need everything to be documented because of mypy
-    "missing-type-doc",
-    "missing-return-type-doc",
-    # Too difficult to please
-    "duplicate-code",
-    # Let ruff handle imports
-    "wrong-import-order",
-    # mypy does not want untyped parameters.
-    "useless-type-doc",
-]
+
+[tool.interrogate]
+fail-under = 100
+verbose = 2
+omit-covered-files = true
 
 [tool.check-manifest]
 ignore = [
     ".pre-commit-config.yaml",
-    "LICENSE",
+    ".vale.ini",
+    "CHANGELOG.rst",
     "conftest.py",
+    "LICENSE",
+    "newsfragments",
+    "newsfragments/**",
     "tests",
     "tests/**",
+    "towncrier_template.rst.jinja",
     "uv.lock",
     "zizmor.yml",
 ]
 
 [tool.deptry]
+# pytest is required at runtime: it loads our plugin via the ``pytest11``
+# entry point. The ``import pytest`` statement is only needed for typing.
+per_rule_ignores.DEP002 = [ "pytest" ]
 optional_dependencies_dev_groups = [
     "dev",
     "release",
 ]
-# pytest is required at runtime: it loads our plugin via the ``pytest11``
-# entry point. The ``import pytest`` statement is only needed for typing.
-per_rule_ignores.DEP002 = [ "pytest" ]
+
+[tool.vulture]
+exclude = [ ".venv" ]
+ignore_names = [
+    # pytest plugin hook implementation.
+    "pytest_collection_modifyitems",
+    # pytest discovers ``pytest_plugins`` declarations in conftest files.
+    "pytest_plugins",
+]
 
 [tool.pyproject-fmt]
 indent = 4
@@ -183,23 +231,24 @@ keep_full_version = true
 max_supported_python = "3.14"
 
 [tool.mypy]
-strict = true
 files = [ "." ]
 exclude = [ "build" ]
+exclude_gitignore = true
 follow_untyped_imports = true
+strict = true
 plugins = [ "mypy_strict_kwargs" ]
 
 [tool.pyrefly]
 errors.non-exhaustive-match = "error"
 
 [tool.pyright]
-reportUnnecessaryTypeIgnoreComment = true
-enableTypeIgnoreComments = false
 typeCheckingMode = "strict"
+enableTypeIgnoreComments = false
+reportUnnecessaryTypeIgnoreComment = true
 
 [tool.ty]
-analysis.respect-type-ignore-comments = false
 terminal.error-on-warning = true
+analysis.respect-type-ignore-comments = false
 
 [tool.pytest]
 ini_options.xfail_strict = true
@@ -214,20 +263,34 @@ report.exclude_also = [
 report.fail_under = 100
 report.show_missing = true
 
-[tool.interrogate]
-fail-under = 100
-omit-covered-files = true
-verbose = 2
-
-[tool.vulture]
-exclude = [ ".venv" ]
-ignore_names = [
-    # pytest plugin hook implementation.
-    "pytest_collection_modifyitems",
-    # pytest discovers ``pytest_plugins`` declarations in conftest files.
-    "pytest_plugins",
+[tool.towncrier]
+# The changelog and the per-release GitHub release notes are both built
+# from news fragments under ``newsfragments/``.  The release workflow
+# runs ``towncrier build`` to assemble them; contributors add one
+# fragment file per user-facing change.
+directory = "newsfragments"
+filename = "CHANGELOG.rst"
+# Custom template so an assembled version reproduces the historical
+# style exactly: a bare ``<version>`` heading (no project name, no
+# date) followed by a flat bullet list with no per-type sub-headings.
+template = "towncrier_template.rst.jinja"
+title_format = "{version}"
+issue_format = "#{issue}"
+# ``title_format`` underline first, then any nested headings.  A bare
+# version such as ``2026.05.18`` underlined with ``-`` matches every
+# pre-towncrier entry in CHANGELOG.rst.
+underlines = [ "-", "~", "^" ]
+type = [
+    # A single, unnamed fragment type keeps the assembled output as one
+    # flat bullet list, matching the historical changelog (which never
+    # grouped entries under "Features"/"Bugfixes"/... sub-headings).
+    { directory = "change", name = "", showcontent = true },
 ]
 
 [tool.yamlfix]
 section_whitelines = 1
 whitelines = 1
+
+[tool.no_defaults]
+private_only = true
+per_file_enforcement."tests/**" = "all"

@@ -1,13 +1,23 @@
+# mypy: disable-error-code="override"
+
 import re
 import warnings
-from typing import Sequence, Optional, TextIO, Any
+from collections.abc import Sequence
+from typing import TYPE_CHECKING, NotRequired, TextIO, TypedDict, Unpack, override
 
-from .base import FormatBase
 from ..ssaevent import SSAEvent
 from ..ssastyle import SSAStyle
+from ..time import TIMESTAMP, make_time, ms_to_times, timestamp_to_ms
+from ..warnings import (
+    PossibleMissedSubtitleWarning,
+    TimestampOverflow,
+    TimestampUnderflow,
+)
+from .base import FormatBase
 from .substation import parse_tags
-from ..time import ms_to_times, make_time, TIMESTAMP, timestamp_to_ms
-from ..ssafile import SSAFile
+
+if TYPE_CHECKING:
+    from ..ssafile import SSAFile
 
 
 #: Largest timestamp allowed in SubRip, ie. 99:59:59,999.
@@ -18,13 +28,22 @@ class SubripFormat(FormatBase):
     """SubRip Text (SRT) subtitle format implementation"""
     TIMESTAMP = TIMESTAMP
 
+    class ReaderArgs(TypedDict):
+        keep_html_tags: NotRequired[bool]
+        keep_unknown_html_tags: NotRequired[bool]
+
+    class WriterArgs(TypedDict):
+        apply_styles: NotRequired[bool]
+        keep_ssa_tags: NotRequired[bool]
+
     @staticmethod
     def ms_to_timestamp(ms: int) -> str:
         """Convert ms to 'HH:MM:SS,mmm'"""
         if ms < 0:
+            warnings.warn("Underflow in SubRip timestamp, clamping to zero", TimestampUnderflow)
             ms = 0
-        if ms > MAX_REPRESENTABLE_TIME:
-            warnings.warn("Overflow in SubRip timestamp, clamping to MAX_REPRESENTABLE_TIME", RuntimeWarning)
+        elif ms > MAX_REPRESENTABLE_TIME:
+            warnings.warn("Overflow in SubRip timestamp, clamping to MAX_REPRESENTABLE_TIME", TimestampOverflow)
             ms = MAX_REPRESENTABLE_TIME
         h, m, s, ms = ms_to_times(ms)
         return f"{h:02d}:{m:02d}:{s:02d},{ms:03d}"
@@ -34,7 +53,8 @@ class SubripFormat(FormatBase):
         return timestamp_to_ms(groups)
 
     @classmethod
-    def guess_format(cls, text: str) -> Optional[str]:
+    @override
+    def guess_format(cls, text: str) -> str | None:
         """See :meth:`pysubs2.formats.FormatBase.guess_format()`"""
         if "[Script Info]" in text or "[V4+ Styles]" in text:
             # disambiguation vs. SSA/ASS
@@ -55,8 +75,8 @@ class SubripFormat(FormatBase):
         return None
 
     @classmethod
-    def from_file(cls, subs: "SSAFile", fp: TextIO, format_: str, keep_html_tags: bool = False,
-                  keep_unknown_html_tags: bool = False, **kwargs: Any) -> None:
+    @override
+    def from_file(cls, subs: "SSAFile", fp: TextIO, format_: str, **kwargs: Unpack[ReaderArgs]) -> None:
         """
         See :meth:`pysubs2.formats.FormatBase.from_file()`
 
@@ -77,16 +97,24 @@ class SubripFormat(FormatBase):
                 If False, these other HTML tags will be stripped from output
                 (in the previous example, you would get only ``example {\\i1}text{\\i0}``).
         """
+        keep_html_tags: bool = kwargs.get("keep_html_tags", False)
+        keep_unknown_html_tags: bool = kwargs.get("keep_unknown_html_tags", False)
+
         timestamps: list[tuple[int, int]] = [] # (start, end)
         following_lines: list[list[str]] = [] # contains lists of lines following each timestamp
 
-        for line in fp:
+        for lineno, line in enumerate(fp, 1):
             stamps = cls.TIMESTAMP.findall(line)
             if len(stamps) == 2: # timestamp line
                 start, end = map(cls.timestamp_to_ms, stamps)
                 timestamps.append((start, end))
                 following_lines.append([])
             else:
+                if stamps:
+                    warnings.warn(
+                        f"Possible missed subtitle start near line {lineno}",
+                        PossibleMissedSubtitleWarning
+                    )
                 if timestamps:
                     following_lines[-1].append(line)
 
@@ -120,8 +148,8 @@ class SubripFormat(FormatBase):
             subs.append(e)
 
     @classmethod
-    def to_file(cls, subs: "SSAFile", fp: TextIO, format_: str, apply_styles: bool = True,
-                keep_ssa_tags: bool = False, **kwargs: Any) -> None:
+    @override
+    def to_file(cls, subs: "SSAFile", fp: TextIO, format_: str, **kwargs: Unpack[WriterArgs]) -> None:
         """
         See :meth:`pysubs2.formats.FormatBase.to_file()`
 
@@ -143,6 +171,9 @@ class SubripFormat(FormatBase):
                 is SRT which doesn't use line styles - this shouldn't be much
                 of an issue in practice.)
         """
+        apply_styles: bool = kwargs.get("apply_styles", True)
+        keep_ssa_tags: bool = kwargs.get("keep_ssa_tags", False)
+
         def prepare_text(text: str, style: SSAStyle) -> str:
             text = text.replace(r"\h", " ")
             text = text.replace(r"\n", "\n")

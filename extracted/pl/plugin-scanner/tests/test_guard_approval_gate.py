@@ -50,8 +50,11 @@ from codex_plugin_scanner.guard.policy_integrity import PolicyIntegrityVerificat
 from codex_plugin_scanner.guard.proxy import runtime_mcp as runtime_mcp_module
 from codex_plugin_scanner.guard.proxy.runtime_mcp import RuntimeMcpGuardProxy
 from codex_plugin_scanner.guard.runtime import runner as guard_runner_module
+from codex_plugin_scanner.guard.runtime.self_approval import _AGENT_ENV_MARKERS
 from codex_plugin_scanner.guard.store import GuardStore
 from codex_plugin_scanner.guard.totp import TotpSecretStore, _temporary_atomic_path, totp_code_at_counter
+from tests.cloud_exception_bundle_fixtures import build_cloud_exception_policy_bundle
+from tests.policy_bundle_signing_helpers import policy_bundle_test_keyring, sign_policy_bundle
 
 
 @pytest.fixture(autouse=True)
@@ -92,6 +95,22 @@ def _seed_guard_cloud(store, *, workspace_id=None, sync_url=None, token="demo-to
 
 PASSWORD = "correct-password"
 WRONG_PASSWORD = "wrong-password"
+
+
+@pytest.fixture(autouse=True)
+def _clear_agent_env_markers(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Isolate approval-gate tests from agent-harness environment markers.
+
+    The approval CLI refuses to mutate approvals when invoked inside a known
+    agent hook context (self-approval defense). When the test suite itself
+    runs under such a harness (CI agent shells, local Claude/Cursor/Codex
+    sessions), those markers leak into os.environ and flip gate tests to the
+    blocked path. Clear them per test; tests that exercise the defense set
+    their own marker via monkeypatch.
+    """
+
+    for marker in _AGENT_ENV_MARKERS:
+        monkeypatch.delenv(marker, raising=False)
 
 
 def _store(tmp_path: Path) -> GuardStore:
@@ -289,7 +308,7 @@ def test_approval_gate_approve_once_does_not_persist_policy(
     assert store.list_policy_decisions("codex") == []
 
 
-def test_approval_gate_artifact_remember_persists_policy(
+def test_approval_gate_artifact_remember_stays_one_time_for_reapproval(
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
@@ -311,9 +330,7 @@ def test_approval_gate_artifact_remember_persists_policy(
     )
 
     assert resolved["status"] == "resolved"
-    policy = store.list_policy_decisions("codex")[0]
-    assert policy["action"] == "allow"
-    assert policy["artifact_id"] == "codex:project:req-remember"
+    assert store.list_policy_decisions("codex") == []
     first_retry = store.resolve_policy_decision(
         "codex",
         "codex:project:req-remember",
@@ -327,11 +344,10 @@ def test_approval_gate_artifact_remember_persists_policy(
         now="2026-04-11T00:03:00+00:00",
     )
     assert first_retry is not None
-    assert second_retry is not None
     assert first_retry["action"] == "allow"
-    assert second_retry["action"] == "allow"
-    remembered_events = store.list_events(limit=20, event_name="rule.remembered.local")
-    assert any(event["payload"]["request_id"] == "req-remember" for event in remembered_events)
+    assert second_retry is None
+    once_events = store.list_events(limit=20, event_name="approval.once")
+    assert any(event["payload"]["request_id"] == "req-remember" for event in once_events)
 
 
 def test_approval_gate_workspace_scope_uses_request_workspace_without_cli_override(
@@ -363,10 +379,10 @@ def test_approval_gate_workspace_scope_uses_request_workspace_without_cli_overri
     resolved = apply_approval_resolution(
         store=store,
         request_id="req-workspace",
-        action="allow",
+        action="block",
         scope="workspace",
         workspace=None,
-        reason="remember this project",
+        reason="block this project",
         now="2026-04-11T00:01:00+00:00",
         approval_gate_input=ApprovalGateInput(password=PASSWORD),
     )
@@ -380,7 +396,7 @@ def test_approval_gate_workspace_scope_uses_request_workspace_without_cli_overri
             workspace=str(workspace),
             now="2026-04-11T00:02:00+00:00",
         )["action"]
-        == "allow"
+        == "block"
     )
 
 
@@ -413,7 +429,7 @@ def test_approval_gate_workspace_scope_rejects_tampered_workspace_override(
         apply_approval_resolution(
             store=store,
             request_id="req-workspace-mismatch",
-            action="allow",
+            action="block",
             scope="workspace",
             workspace=str(tmp_path / "workspace-b"),
             reason="tampered project scope",
@@ -422,25 +438,27 @@ def test_approval_gate_workspace_scope_rejects_tampered_workspace_override(
         )
 
 
-def test_approval_gate_rejects_unsupported_broad_scope_for_unscoped_request(tmp_path: Path) -> None:
+def test_approval_gate_narrows_legacy_broad_allow_for_unscoped_request(tmp_path: Path) -> None:
     store = _store(tmp_path)
     _enable_gate(store)
     _add_request(store, "req-global")
 
-    with pytest.raises(ValueError, match="unsupported_request_scope"):
-        apply_approval_resolution(
-            store=store,
-            request_id="req-global",
-            action="allow",
-            scope="global",
-            workspace=None,
-            reason="too broad",
-            now="2026-04-11T00:01:00+00:00",
-            approval_gate_input=ApprovalGateInput(password=PASSWORD),
-        )
+    resolved = apply_approval_resolution(
+        store=store,
+        request_id="req-global",
+        action="allow",
+        scope="global",
+        workspace=None,
+        reason="too broad",
+        now="2026-04-11T00:01:00+00:00",
+        approval_gate_input=ApprovalGateInput(password=PASSWORD),
+    )
+
+    assert resolved["resolution_scope"] == "artifact"
+    assert resolved["scope_warning"] == "legacy_scope_narrowed_to_artifact"
 
 
-def test_approval_gate_rejects_unsupported_workspace_scope_without_bound_workspace(tmp_path: Path) -> None:
+def test_approval_gate_narrows_legacy_workspace_scope_without_bound_workspace(tmp_path: Path) -> None:
     store = _store(tmp_path)
     _enable_gate(store)
     store.add_approval_request(
@@ -461,17 +479,19 @@ def test_approval_gate_rejects_unsupported_workspace_scope_without_bound_workspa
         "2026-04-11T00:00:00+00:00",
     )
 
-    with pytest.raises(ValueError, match="unsupported_request_scope"):
-        apply_approval_resolution(
-            store=store,
-            request_id="req-workspace-unsupported",
-            action="allow",
-            scope="workspace",
-            workspace=None,
-            reason="too broad",
-            now="2026-04-11T00:01:00+00:00",
-            approval_gate_input=ApprovalGateInput(password=PASSWORD),
-        )
+    resolved = apply_approval_resolution(
+        store=store,
+        request_id="req-workspace-unsupported",
+        action="allow",
+        scope="workspace",
+        workspace=None,
+        reason="too broad",
+        now="2026-04-11T00:01:00+00:00",
+        approval_gate_input=ApprovalGateInput(password=PASSWORD),
+    )
+
+    assert resolved["resolution_scope"] == "artifact"
+    assert resolved["scope_warning"] == "legacy_scope_narrowed_to_artifact"
 
 
 def test_approval_gate_cooldown_works_expires_and_revokes(tmp_path: Path) -> None:
@@ -1743,30 +1763,23 @@ def test_daemon_approval_defaults_artifact_scope_to_one_time(tmp_path: Path) -> 
     assert store.list_policy_decisions("codex") == []
 
 
-def test_daemon_approval_rejects_unsupported_request_scope(tmp_path: Path) -> None:
+def test_daemon_approval_narrows_legacy_unsupported_request_scope(tmp_path: Path) -> None:
     store = _store(tmp_path)
     _add_request(store, "req-daemon-global")
     daemon = GuardDaemonServer(store, host="127.0.0.1", port=0)
     daemon.start()
     try:
-        request = urllib.request.Request(
-            f"http://127.0.0.1:{daemon.port}/v1/requests/req-daemon-global/approve",
-            data=json.dumps({"scope": "global"}).encode("utf-8"),
-            headers={"Content-Type": "application/json", "X-Guard-Token": daemon._server.auth_token},
-            method="POST",
+        payload = _post_daemon_json(
+            daemon,
+            "/v1/requests/req-daemon-global/approve",
+            {"scope": "global"},
         )
-        try:
-            urllib.request.urlopen(request, timeout=5)
-        except urllib.error.HTTPError as error:
-            payload = json.loads(error.read().decode("utf-8"))
-            status = error.code
-        else:
-            raise AssertionError("expected HTTPError for unsupported request scope")
     finally:
         daemon.stop()
 
-    assert status == 400
-    assert payload["error"] == "unsupported_request_scope"
+    assert payload["resolved"] is True
+    assert payload["applied_scope"] == "artifact"
+    assert payload["scope_warning"] == "legacy_scope_narrowed_to_artifact"
 
 
 @pytest.mark.parametrize("field_name", ["remember", "persist_policy"])
@@ -1812,7 +1825,7 @@ def test_daemon_approval_false_artifact_scope_still_allows_once(
     )
 
 
-def test_daemon_approval_can_remember_exact_artifact_scope(tmp_path: Path) -> None:
+def test_daemon_reapproval_cannot_remember_exact_artifact_scope(tmp_path: Path) -> None:
     store = _store(tmp_path)
     _add_request(store, "req-daemon-remember")
     daemon = GuardDaemonServer(store, host="127.0.0.1", port=0)
@@ -1827,8 +1840,8 @@ def test_daemon_approval_can_remember_exact_artifact_scope(tmp_path: Path) -> No
         daemon.stop()
 
     assert body["resolved"] is True
-    policy = store.list_policy_decisions("codex")[0]
-    assert policy["artifact_id"] == "codex:project:req-daemon-remember"
+    assert body["applied_scope"] == "artifact"
+    assert store.list_policy_decisions("codex") == []
 
 
 def test_approval_gate_direct_lower_layers_cannot_bypass(tmp_path: Path) -> None:
@@ -1934,7 +1947,32 @@ def test_approval_gate_background_remote_policy_sync_fails_closed_without_crashi
 ) -> None:
     store = _store(tmp_path)
     _enable_gate(store)
-    _seed_guard_cloud(store, workspace_id=None)
+    workspace_id = "workspace-approval-gate"
+    _seed_guard_cloud(store, workspace_id=workspace_id)
+    store.set_sync_payload(
+        "policy_bundle_keyring",
+        policy_bundle_test_keyring(workspace_id=workspace_id),
+        "2026-04-19T00:00:00+00:00",
+    )
+    policy_bundle = build_cloud_exception_policy_bundle(workspace_id=workspace_id)
+    policy_bundle["cloudExceptions"] = []
+    policy_bundle["rules"] = [
+        {
+            "ruleId": "cloud-allow",
+            "action": "allow",
+            "reason": "Exercise approval-gated activation of signed remote policy.",
+            "artifactId": "codex:project:cloud-allow",
+            "scope": {
+                "agents": [],
+                "devices": [],
+                "ecosystems": [],
+                "environments": [],
+                "harnesses": ["codex"],
+                "locations": [],
+            },
+        }
+    ]
+    policy_bundle = sign_policy_bundle(policy_bundle, workspace_id=workspace_id)
     monkeypatch.setattr(
         guard_runner_module,
         "_guard_device_metadata",
@@ -1954,14 +1992,7 @@ def test_approval_gate_background_remote_policy_sync_fails_closed_without_crashi
             return json.dumps(
                 {
                     "syncedAt": "2026-04-19T00:00:10+00:00",
-                    "exceptions": [
-                        {
-                            "scope": "artifact",
-                            "harness": "codex",
-                            "artifactId": "codex:project:cloud-allow",
-                            "action": "allow",
-                        }
-                    ],
+                    "policyBundle": policy_bundle,
                 }
             ).encode("utf-8")
 
@@ -2017,7 +2048,7 @@ def test_approval_gate_runtime_mcp_remembered_inline_allow_queues_fallback(
     opened_urls: list[str] = []
     monkeypatch.setattr(runtime_mcp_module, "ensure_guard_daemon", lambda _guard_home: "http://127.0.0.1:5474")
     monkeypatch.setattr(runtime_mcp_module, "load_guard_daemon_auth_token", lambda _guard_home: "secret-token")
-    monkeypatch.setattr(runtime_mcp_module.webbrowser, "open", lambda url: opened_urls.append(url) or True)
+    monkeypatch.setattr(runtime_mcp_module, "open_browser_url", lambda url: opened_urls.append(url) or True)
 
     response, event = proxy._allow_and_forward(
         message={"id": 1},

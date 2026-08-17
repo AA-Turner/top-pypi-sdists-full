@@ -11,6 +11,7 @@ from codex_plugin_scanner.guard.runtime import supply_chain_package_eval as supp
 from codex_plugin_scanner.guard.runtime.supply_chain_bundle import load_supply_chain_bundle_response
 from codex_plugin_scanner.guard.runtime.supply_chain_package_eval import evaluate_package_request_artifact
 from codex_plugin_scanner.guard.store import GuardStore
+from tests.test_guard_supply_chain_evaluator import _force_unpaid_entitlement
 
 from .guard_python_phase12_support import (
     WORKSPACE_ID,
@@ -171,6 +172,7 @@ def test_evaluate_package_request_artifact_allows_recommended_safe_python_versio
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
+    _force_unpaid_entitlement(monkeypatch)
     home_dir = tmp_path / "home"
     workspace_dir = tmp_path / "workspace"
     workspace_dir.mkdir()
@@ -242,6 +244,7 @@ def test_evaluate_package_request_artifact_scopes_offline_decisions_to_python_ec
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
+    _force_unpaid_entitlement(monkeypatch)
     home_dir = tmp_path / "home"
     workspace_dir = tmp_path / "workspace"
     workspace_dir.mkdir()
@@ -284,6 +287,7 @@ def test_evaluate_package_request_artifact_does_not_allow_fix_versions_from_othe
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
+    _force_unpaid_entitlement(monkeypatch)
     home_dir = tmp_path / "home"
     workspace_dir = tmp_path / "workspace"
     workspace_dir.mkdir()
@@ -365,12 +369,6 @@ source = { registry = "https://pypi.org/simple" }
         bundle_response_fixture(packages=[npm_package, pypi_package]),
         "2026-05-19T00:00:00Z",
     )
-    monkeypatch.setattr(
-        supply_chain_package_eval_module,
-        "_safe_dependency_map_for_path",
-        lambda _path, _text, *, deadline: {"requests": "2.31.0"},
-    )
-
     bundle_response = load_supply_chain_bundle_response(bundle_response_fixture(packages=[npm_package, pypi_package]))
     artifact = artifact_from_command_fixture("uv add fastapi>=0.110,<0.116", workspace=workspace_dir)
     results = supply_chain_package_eval_module._transitive_lockfile_results(
@@ -405,6 +403,11 @@ version = 1
 name = "fastapi"
 version = "0.115.0"
 source = { registry = "https://pypi.org/simple" }
+
+[[package]]
+name = "requests"
+version = "2.31.0"
+source = { registry = "https://pypi.org/simple" }
 """.strip()
         + "\n",
     )
@@ -424,12 +427,6 @@ source = { registry = "https://pypi.org/simple" }
         ),
         "2026-05-19T00:00:00Z",
     )
-    monkeypatch.setattr(
-        supply_chain_package_eval_module,
-        "_safe_dependency_map_for_path",
-        lambda _path, _text, *, deadline: {"requests": "2.31.0"},
-    )
-
     artifact = artifact_from_command_fixture("uv add fastapi>=0.110,<0.116", workspace=workspace_dir)
     result = evaluate_package_request_artifact(artifact=artifact, store=store, workspace_dir=workspace_dir)
 

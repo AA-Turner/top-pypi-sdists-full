@@ -1,5 +1,6 @@
 import { useRef, useCallback } from "react";
-import type { GuardApprovalRequest, GuardQueueResolutionResult } from "./guard-types";
+import type { GuardApprovalRequest, GuardProtectionState, GuardQueueResolutionResult } from "./guard-types";
+import { requestSupportsScope } from "./approval-scopes";
 
 export type QueueSortDirection = "newest" | "oldest" | "category" | "highest_risk";
 
@@ -20,7 +21,7 @@ export const REVIEW_SEMANTIC_GROUPS: { id: SemanticGroupId; label: string; match
   {
     id: "shell",
     label: "Shell execution",
-    matches: ["shell_command", "destructive_shell", "encoded_shell", "git_operation", "process_control"],
+    matches: ["shell_command", "destructive_shell", "encoded_shell", "git_operation", "process_control", "docker_command", "github_command"],
   },
   {
     id: "network",
@@ -63,6 +64,8 @@ export type QueueCategoryId =
   | "file_upload"
   | "file_delete_cleanup"
   | "git_operation"
+  | "docker_command"
+  | "github_command"
   | "process_control"
   | "container_or_deploy"
   | "persistence_change"
@@ -170,6 +173,18 @@ export const QUEUE_CATEGORIES: QueueCategory[] = [
     description: "Mutates repository state through git add, commit, merge, rebase, push, pull, reset, or checkout.",
   },
   {
+    id: "docker_command",
+    label: "Docker command",
+    shortLabel: "Docker",
+    description: "Runs Docker containers, images, builds, Compose services, or registries.",
+  },
+  {
+    id: "github_command",
+    label: "GitHub command",
+    shortLabel: "GitHub",
+    description: "Reads or changes GitHub repositories, pull requests, workflows, or releases.",
+  },
+  {
     id: "process_control",
     label: "Process control",
     shortLabel: "Process",
@@ -272,6 +287,8 @@ const CATEGORY_RISK_SCORE = new Map<QueueCategoryId, number>([
   ["file_delete_cleanup", 3],
   ["network", 3],
   ["container_or_deploy", 4],
+  ["docker_command", 4],
+  ["github_command", 4],
   ["git_operation", 4],
   ["process_control", 4],
   ["file_upload", 4],
@@ -398,7 +415,13 @@ export type BulkApprovalTier = "blocked" | "high" | "elevated" | "low";
  * dashboard's risk disclosure escalating its copy and friction accordingly.
  */
 export function bulkApprovalRiskTier(group: QueueGroup): BulkApprovalTier {
-  if (group.primary.policy_action === "block") return "blocked";
+  if (
+    group.primary.decision_contract_error !== undefined ||
+    group.primary.policy_action === "block" ||
+    group.primary.policy_action === "sandbox-required"
+  ) {
+    return "blocked";
+  }
   const categoryId = resolveQueueCategory(group.primary).id;
   if (BULK_BLOCKED_CATEGORY_IDS.has(categoryId)) return "blocked";
   if (BULK_HIGH_CATEGORY_IDS.has(categoryId)) return "high";
@@ -407,7 +430,10 @@ export function bulkApprovalRiskTier(group: QueueGroup): BulkApprovalTier {
 }
 
 export function isBulkApprovableGroup(group: QueueGroup): boolean {
-  return bulkApprovalRiskTier(group) !== "blocked";
+  return (
+    bulkApprovalRiskTier(group) !== "blocked" &&
+    requestSupportsScope(group.primary, "allow", "artifact")
+  );
 }
 
 export function countSensitiveFileReadGroups(groups: QueueGroup[]): number {
@@ -623,7 +649,7 @@ export function queueCategoriesForItems(items: GuardApprovalRequest[]): QueueCat
 function resolveQueueCategoryId(item: GuardApprovalRequest): QueueCategoryId {
   const envelope = item.action_envelope_json;
   const decisionCategories = item.decision_v2_json?.signals.map((signal) => signal.category) ?? [];
-  const command = envelope?.command ?? item.launch_target ?? "";
+  const command = envelope?.command ?? item.queue_preview ?? item.launch_target ?? "";
   const text = queueCategoryText(item);
   const isPromptReview = envelope?.action_type === "prompt" || decisionCategories.includes("prompt");
   const isWriteReview = envelope?.action_type === "file_write" || commandLooksLikeFileEdit(command);
@@ -662,6 +688,17 @@ function resolveQueueCategoryId(item: GuardApprovalRequest): QueueCategoryId {
 
   if (fileDeleteOrCleanupCommand(command, text)) {
     return "file_delete_cleanup";
+  }
+
+  if (textIncludesAny(text, ["destructive shell command", " rm -", "rm -rf", "delete files", "wipe", "force-clean", "git clean -fd", "truncate"])) {
+    return "destructive_shell";
+  }
+
+  const commandCategory = categoryFromCommandExtension(
+    envelope?.command_category ?? item.queue_command_category,
+  );
+  if (commandCategory !== null) {
+    return commandCategory;
   }
 
   if (gitOperationCommand(command)) {
@@ -720,10 +757,6 @@ function resolveQueueCategoryId(item: GuardApprovalRequest): QueueCategoryId {
     return "source_edit";
   }
 
-  if (textIncludesAny(text, ["destructive shell command", " rm -", "rm -rf", "delete files", "wipe", "force-clean", "git clean -fd", "truncate"])) {
-    return "destructive_shell";
-  }
-
   if (networkCommand(command, text) || decisionCategories.includes("network")) {
     return "network";
   }
@@ -732,6 +765,13 @@ function resolveQueueCategoryId(item: GuardApprovalRequest): QueueCategoryId {
     return "shell_command";
   }
   return "other";
+}
+
+function categoryFromCommandExtension(extensionId: string | null | undefined): QueueCategoryId | null {
+  if (extensionId === "command.git") return "git_operation";
+  if (extensionId === "command.container-runtime") return "docker_command";
+  if (extensionId === "command.github" || extensionId === "command.cicd.github") return "github_command";
+  return null;
 }
 
 function queueCategoryText(item: GuardApprovalRequest): string {
@@ -745,6 +785,7 @@ function queueCategoryText(item: GuardApprovalRequest): string {
     item.launch_summary ?? "",
     item.why_now ?? "",
     item.launch_target ?? "",
+    item.queue_preview ?? "",
     envelope?.action_type ?? "",
     envelope?.command ?? "",
     envelope?.tool_name ?? "",
@@ -1125,6 +1166,7 @@ export function searchQueue(items: GuardApprovalRequest[], term: string): GuardA
       item.launch_summary ?? "",
       item.why_now ?? "",
       envelope?.command ?? "",
+      item.queue_preview ?? "",
       item.raw_command_text ?? "",
       item.fallback_cli_command ?? "",
       item.review_command ?? "",
@@ -1182,13 +1224,14 @@ export function buildNextUpChipText(item: GuardApprovalRequest): string {
 
 export function buildHomePrimaryState(
   pendingCount: number,
-  watchedAppsCount: number
+  watchedAppsCount: number,
+  protectionState: GuardProtectionState = "degraded",
 ): HomePrimaryState {
   if (pendingCount > 0) {
     return {
       status: "needs_decision",
-      copy: `${pendingCount} action${pendingCount !== 1 ? "s" : ""} paused and waiting for your decision.`,
-      ctaLabel: "Review blocked action",
+      copy: `${pendingCount} action finding${pendingCount !== 1 ? "s" : ""} waiting for review.`,
+      ctaLabel: "Review waiting action",
     };
   }
   if (watchedAppsCount === 0) {
@@ -1198,9 +1241,18 @@ export function buildHomePrimaryState(
       ctaLabel: "Set up protection",
     };
   }
+  if (protectionState !== "protected") {
+    return {
+      status: "setup_needed",
+      copy: protectionState === "partial"
+        ? "App protection is partial. Review the missing evidence before relying on it."
+        : "App protection is degraded. Review required checks before relying on it.",
+      ctaLabel: "Review protection",
+    };
+  }
   return {
     status: "protected",
-    copy: "Guard is protecting your apps. No blocked actions right now.",
+    copy: "Guard is protecting your apps. No actions are waiting for a decision.",
     ctaLabel: "Open review queue",
   };
 }

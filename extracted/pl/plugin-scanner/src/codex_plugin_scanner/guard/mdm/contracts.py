@@ -97,6 +97,7 @@ class ManagedUpdatePolicy:
     minimum_version: str | None = None
     maximum_version: str | None = None
     allow_downgrade: bool = False
+    index_url: str | None = None
 
     def to_dict(self) -> dict[str, object]:
         return {
@@ -105,6 +106,7 @@ class ManagedUpdatePolicy:
             "minimumVersion": self.minimum_version,
             "maximumVersion": self.maximum_version,
             "allowDowngrade": self.allow_downgrade,
+            "indexConfigured": self.index_url is not None,
         }
 
 
@@ -118,13 +120,14 @@ class ManagedPolicy:
     update: ManagedUpdatePolicy = field(default_factory=ManagedUpdatePolicy)
     daemon_startup: Literal["on-demand", "login"] = "on-demand"
     content_hash: str = ""
+    policy_bundle_keyring: dict[str, object] | None = None
 
     @property
     def install_owner(self) -> InstallOwner:
         return self.update.owner
 
     def to_public_dict(self) -> dict[str, object]:
-        return {
+        payload: dict[str, object] = {
             "schemaVersion": self.schema_version,
             "contentHash": self.content_hash,
             "lockedSettings": sorted(self.locked_settings),
@@ -133,6 +136,14 @@ class ManagedPolicy:
             "update": self.update.to_dict(),
             "daemonStartup": self.daemon_startup,
         }
+        if self.policy_bundle_keyring is not None:
+            raw_keys = self.policy_bundle_keyring.get("keys")
+            payload["policyBundleKeyring"] = {
+                "configured": True,
+                "keyCount": len(raw_keys) if isinstance(raw_keys, list) else 0,
+                "workspaceId": self.policy_bundle_keyring.get("workspaceId"),
+            }
+        return payload
 
 
 @dataclass(frozen=True, slots=True)

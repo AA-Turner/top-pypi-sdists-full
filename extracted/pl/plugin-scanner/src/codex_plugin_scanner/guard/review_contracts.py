@@ -8,12 +8,19 @@ import json
 from copy import deepcopy
 from dataclasses import dataclass
 from datetime import datetime, timedelta, timezone
+from typing import Literal
 
 from cryptography.exceptions import InvalidSignature, UnsupportedAlgorithm
 from cryptography.hazmat.primitives import hashes, serialization
 from cryptography.hazmat.primitives.asymmetric import padding
 from cryptography.hazmat.primitives.asymmetric.rsa import RSAPublicKey
 
+from .approval_scope_support import (
+    APPROVAL_SCOPE_CONTRACT_VERSION,
+    IneligibleApprovalScopeError,
+    request_scope_contract,
+    resolve_request_scope_selection,
+)
 from .models import DECISION_SCOPE_VALUES
 from .policy_bundle_trusted_keys import (
     PolicyBundleVerificationKey,
@@ -28,11 +35,15 @@ _LOCAL_REVIEW_REQUEST_CONTRACT_VERSION = "guard.local-review-request.v1"
 _REMOTE_APPROVAL_CONTRACT_VERSION = "guard.remote-approval.v1"
 _DECISION_MEMORY_BUNDLE_CONTRACT_VERSION = "guard.decision-memory-bundle.v1"
 _REMOTE_APPROVAL_ALLOWED_SCOPES = frozenset(DECISION_SCOPE_VALUES)
+_REMOTE_APPROVAL_RESOLVER_ROLES = frozenset({"owner", "workspace-owner", "admin", "operator"})
+_REMOTE_APPROVAL_KEY_PURPOSE = "remote_approval"
 _REMOTE_APPROVAL_SIGNATURE_ALGORITHM = "rsa-pss-sha256"
 _DECISION_MEMORY_SIGNATURE_ALGORITHM = "rsa-pss-sha256"
 _CLAIM_HASH_KEYS = ("claimHash",)
 _SIGNED_PAYLOAD_STRIP_KEYS = ("payloadHash", "signature", "signatureAlgorithm", "verificationKeys", "bundleHash")
 _GUARD_REVIEW_VERIFICATION_KEYRING_SYNC_KEY = "guard_review_verification_keyring"
+
+RemoteApprovalDecision = Literal["allow", "block"]
 
 
 class GuardReviewContractError(ValueError):
@@ -137,6 +148,8 @@ def _resolve_anchored_signing_key(
     advertised_keys: tuple[PolicyBundleVerificationKey, ...],
     anchored_keys: tuple[PolicyBundleVerificationKey, ...],
     key_id: str,
+    expected_purpose: str | None = None,
+    expected_workspace_id: str | None = None,
 ) -> PolicyBundleVerificationKey:
     signing_key = resolve_policy_bundle_signing_key(key_id, anchored_keys)
     if signing_key is None:
@@ -146,6 +159,14 @@ def _resolve_anchored_signing_key(
         raise GuardReviewContractError("missing_signing_key")
     if advertised_key.fingerprint_sha256 != signing_key.fingerprint_sha256:
         raise GuardReviewContractError("untrusted_signing_key")
+    if expected_purpose is not None and (
+        signing_key.purpose != expected_purpose or advertised_key.purpose != expected_purpose
+    ):
+        raise GuardReviewContractError("signing_key_purpose_mismatch")
+    if expected_workspace_id is not None and (
+        signing_key.workspace_id != expected_workspace_id or advertised_key.workspace_id != expected_workspace_id
+    ):
+        raise GuardReviewContractError("signing_key_workspace_mismatch")
     if not signing_key_is_current(signing_key):
         raise GuardReviewContractError("expired_signing_key")
     return signing_key
@@ -156,6 +177,8 @@ def _verify_signed_payload(
     *,
     signature_algorithm: str,
     store,
+    expected_key_purpose: str | None = None,
+    expected_workspace_id: str | None = None,
 ) -> None:
     if signature_algorithm not in {_REMOTE_APPROVAL_SIGNATURE_ALGORITHM, _DECISION_MEMORY_SIGNATURE_ALGORITHM}:
         raise GuardReviewContractError("invalid_signature_algorithm")
@@ -176,6 +199,8 @@ def _verify_signed_payload(
         advertised_keys=advertised_keys,
         anchored_keys=_anchored_review_verification_keys(store),
         key_id=key_id,
+        expected_purpose=expected_key_purpose,
+        expected_workspace_id=expected_workspace_id,
     )
     try:
         public_key = serialization.load_pem_public_key(signing_key.public_key_pem.encode("utf-8"))
@@ -301,7 +326,7 @@ def build_local_review_request_claim(
     artifact_id = _non_empty_string(request_row.get("artifact_id"))
     harness_id = _non_empty_string(request_row.get("harness"))
     policy_action = _non_empty_string(request_row.get("policy_action"))
-    recommended_scope = _non_empty_string(request_row.get("recommended_scope"))
+    recommended_scope = _request_recommended_scope(request_row)
     created_at = _non_empty_string(request_row.get("created_at"))
     last_seen_at = _non_empty_string(request_row.get("last_seen_at")) or created_at
     required_fields = (
@@ -363,6 +388,20 @@ def payload_hash_for_remote_approval_envelope(envelope: dict[str, object]) -> st
     return _sha256_hex(_canonical_signed_payload(envelope))
 
 
+def normalize_remote_approval_decision(value: object) -> RemoteApprovalDecision | None:
+    """Normalize only the documented signed remote decision wire values."""
+
+    if not isinstance(value, str) or not value.strip():
+        return None
+    normalized = value.strip()
+    folded = normalized.replace("_", "-")
+    if folded in {"allow", "allow-once"} or normalized == "allowOnce":
+        return "allow"
+    if folded in {"block", "deny", "denied", "blocked"}:
+        return "block"
+    return None
+
+
 def validated_remote_approval_envelope(
     envelope: dict[str, object],
     *,
@@ -373,6 +412,8 @@ def validated_remote_approval_envelope(
         raise GuardReviewContractError("unsupported_remote_approval_contract")
     if envelope.get("scope") not in _REMOTE_APPROVAL_ALLOWED_SCOPES:
         raise GuardReviewContractError("invalid_remote_approval_scope")
+    if normalize_remote_approval_decision(envelope.get("decision")) is None:
+        raise GuardReviewContractError("invalid_remote_approval_decision")
     issued_at = _parse_iso_timestamp(envelope.get("issuedAt"), field_name="issued_at")
     expires_at = _parse_iso_timestamp(envelope.get("expiresAt"), field_name="expires_at")
     if expires_at <= issued_at:
@@ -389,10 +430,15 @@ def validated_remote_approval_envelope(
     payload_hash = _non_empty_string(envelope.get("payloadHash"))
     if payload_hash is None or payload_hash != payload_hash_for_remote_approval_envelope(envelope):
         raise GuardReviewContractError("remote_approval_payload_hash_mismatch")
+    workspace_id = _non_empty_string(envelope.get("workspaceId"))
+    if workspace_id is None:
+        raise GuardReviewContractError("signing_key_workspace_mismatch")
     _verify_signed_payload(
         envelope,
         signature_algorithm=_non_empty_string(envelope.get("signatureAlgorithm")) or "",
         store=store,
+        expected_key_purpose=_REMOTE_APPROVAL_KEY_PURPOSE,
+        expected_workspace_id=workspace_id,
     )
     return envelope
 
@@ -416,6 +462,10 @@ def validate_remote_approval_request_binding(
         raise GuardReviewContractError("remote_approval_machine_mismatch")
     if _non_empty_string(envelope.get("deviceId")) != oauth.device_id:
         raise GuardReviewContractError("remote_approval_device_mismatch")
+    reviewer_user_id = _non_empty_string(envelope.get("reviewerUserId"))
+    reviewer_role = _non_empty_string(envelope.get("reviewerRole"))
+    if reviewer_user_id is None or reviewer_role not in _REMOTE_APPROVAL_RESOLVER_ROLES:
+        raise GuardReviewContractError("remote_approval_reviewer_not_authorized")
     if _non_empty_string(envelope.get("harnessId")) != _non_empty_string(request_row.get("harness")):
         raise GuardReviewContractError("remote_approval_harness_mismatch")
     if _non_empty_string(envelope.get("actionEnvelopeHash")) != _action_envelope_hash(request_row):
@@ -425,10 +475,42 @@ def validate_remote_approval_request_binding(
     expected_claim = build_local_review_request_claim(request_row=request_row, oauth=oauth, store=store)
     if _non_empty_string(envelope.get("sourceClaimHash")) != _non_empty_string(expected_claim.get("claimHash")):
         raise GuardReviewContractError("remote_approval_claim_hash_mismatch")
+    expected_nonce = _non_empty_string(expected_claim.get("nonce"))
+    receipt_id = _non_empty_string(envelope.get("receiptId"))
+    envelope_nonce = _non_empty_string(envelope.get("nonce"))
+    if expected_nonce is None or receipt_id is None or envelope_nonce != f"{expected_nonce}:{receipt_id}":
+        raise GuardReviewContractError("remote_approval_nonce_mismatch")
     envelope_scope = _non_empty_string(envelope.get("scope"))
-    request_scope = _non_empty_string(request_row.get("recommended_scope"))
-    if envelope_scope != request_scope:
+    action = normalize_remote_approval_decision(envelope.get("decision"))
+    if action is None:
+        raise GuardReviewContractError("invalid_remote_approval_decision")
+    contract = request_scope_contract(request_row)
+    if envelope_scope is None:
         raise GuardReviewContractError("remote_approval_scope_mismatch")
+    try:
+        resolve_request_scope_selection(
+            request_row,
+            action=action,
+            requested_scope=envelope_scope,
+            contract_version=APPROVAL_SCOPE_CONTRACT_VERSION,
+            contract_digest=contract.digest,
+        )
+    except (IneligibleApprovalScopeError, ValueError) as error:
+        raise GuardReviewContractError("remote_approval_scope_mismatch") from error
+
+
+def _request_recommended_scope(request_row: dict[str, object], *, decision: str | None = None) -> str | None:
+    recommendations = request_row.get("recommended_scope_by_action")
+    if isinstance(recommendations, dict):
+        action = "block" if decision == "block" else "allow"
+        selected = _non_empty_string(recommendations.get(action))
+        if selected is not None:
+            return selected
+        if decision is None:
+            fallback = _non_empty_string(recommendations.get("block"))
+            if fallback is not None:
+                return fallback
+    return _non_empty_string(request_row.get("recommended_scope"))
 
 
 def payload_hash_for_decision_memory_bundle(bundle: dict[str, object]) -> str:

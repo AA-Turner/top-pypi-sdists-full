@@ -576,7 +576,7 @@ class Geocif:
         self._refresh_target_column()
 
         if self.model_name == "ngboost":
-            self.cat_features = [col for col in self.cat_features if col != "Region"]
+            self.cat_features = [col for col in self.cat_features if col not in ("Region", "State")]
 
     def _setup_regression_flags(self):
         """Setup flags for regression models. Uses dispatch_name so the
@@ -659,7 +659,7 @@ class Geocif:
         self.estimate_ci = self.parser.getboolean("ML", "estimate_ci")
         self.estimate_ci_for_all = self.parser.getboolean("ML", "estimate_ci_for_all")
         self.ci_method = self.parser.get("ML", "ci_method", fallback="crepes")
-        self.cat_features = [col for col in self.cat_features if col != "Region"]
+        self.cat_features = [col for col in self.cat_features if col not in ("Region", "State")]
 
     def _setup_standard_ml_flags(self):
         """Flags for standard ML models with full features."""
@@ -1610,6 +1610,242 @@ class Geocif:
             )
         return df[df["Region"].isin(kept)].copy()
 
+    def _config_option(self, option: str, fallback: str = "") -> str:
+        """Read a config option from the per-country section, then [DEFAULT].
+
+        Same lookup order as ``_filter_by_min_production_share``. Returns
+        ``fallback`` when neither section defines it (or the value is blank).
+        """
+        for section in (getattr(self, "country", None), "DEFAULT"):
+            if section and self.parser.has_option(section, option):
+                value = self.parser.get(section, option)
+                if value is not None and str(value).strip():
+                    return str(value).strip()
+        return fallback
+
+    @staticmethod
+    def _normalize_admin_level(level: str) -> str:
+        """Canonicalize an admin-level string: 'Admin1'/'admin 1' -> 'admin_1'."""
+        norm = str(level).strip().lower().replace(" ", "_").replace("-", "_")
+        match = re.fullmatch(r"admin_?(\d)", norm)
+        return f"admin_{match.group(1)}" if match else norm
+
+    def _get_run_region_selection(self) -> Optional[list]:
+        """Region names the user asked to restrict this run to, or None.
+
+        Config (per-country section, falling back to [DEFAULT])::
+
+            run_regions = ["illinois", "iowa"]                 ; all crops
+            run_regions = {"maize": ["illinois"], "soybean": [...]}
+
+        Parsed with ``ast.literal_eval``. Returns None — meaning "no
+        filtering", today's default behaviour — when the option is unset,
+        unparseable, not a list/dict, or a dict that has no entry for the
+        crop currently being run. A malformed value never raises: it is
+        logged and treated as unset.
+        """
+        raw = self._config_option("run_regions")
+        if not raw:
+            return None
+
+        try:
+            selection = ast.literal_eval(raw)
+        except (ValueError, SyntaxError) as exc:
+            self.logger.warning(
+                f"Failed to parse run_regions ({raw!r}) for {self.country}: "
+                f"{exc}. Ignoring — running all regions."
+            )
+            return None
+
+        if isinstance(selection, dict):
+            crop_key = str(getattr(self, "crop", "")).strip().lower().replace(" ", "_")
+            by_crop = {
+                str(k).strip().lower().replace(" ", "_"): v
+                for k, v in selection.items()
+            }
+            if crop_key not in by_crop:
+                self.logger.info(
+                    f"run_regions has no entry for crop '{self.crop}' — "
+                    f"running all regions for {self.country}/{self.crop}"
+                )
+                return None
+            selection = by_crop[crop_key]
+
+        if isinstance(selection, str):
+            selection = [selection]
+        if not isinstance(selection, (list, tuple, set)):
+            self.logger.warning(
+                f"run_regions for {self.country} must be a list or a "
+                f"{{crop: list}} dict, got {type(selection).__name__} — "
+                f"ignoring, running all regions."
+            )
+            return None
+
+        names = [str(name).strip() for name in selection if str(name).strip()]
+        return names or None
+
+    def _filter_to_selected_regions(self, df: pd.DataFrame) -> pd.DataFrame:
+        """Restrict the ML frame to the user-selected regions (``run_regions``).
+
+        The selection may be given at a DIFFERENT admin level than the run
+        itself, declared by ``run_regions_level`` (default: the run's own
+        ``admin_level``):
+
+        * selection level == run level — direct name match.
+        * admin_1 selection, admin_2 run — each county Region is mapped to
+          its parent state via ``ml.stats.admin1_lookup`` and kept when that
+          state was selected. This is the headline case: "run every county in
+          Illinois and Iowa".
+        * admin_2 selection, admin_1 run — the selected county names are
+          mapped UP to their parent states and those states are kept.
+        * anything else — logged as a warning and left untouched.
+
+        Name matching reuses ``ml.stats._norm_region_*`` (the yield-join
+        normalization), so "South Dakota", "south_dakota" and "SOUTH DAKOTA"
+        are the same name. Selected names that match nothing are listed in a
+        warning (typo protection). A selection that matches NO rows raises
+        ValueError — a silently empty run is worse than a loud failure.
+        """
+        selection = self._get_run_region_selection()
+        if not selection or df.empty or "Region" not in df.columns:
+            return df
+
+        from geocif.ml import stats as ml_stats
+
+        run_level = self._normalize_admin_level(getattr(self, "admin_zone", "") or "")
+        sel_level = self._normalize_admin_level(
+            self._config_option("run_regions_level", fallback=run_level)
+        )
+
+        region_norm = ml_stats._norm_region_series(df["Region"])
+        wanted = {ml_stats._norm_region_name(name) for name in selection}
+        n_regions_before = region_norm.nunique()
+
+        def _lookup():
+            dir_stats = Path(self.parser.get("PATHS", "dir_production_statistics"))
+            country_str = str(self.country).title().replace("_", " ")
+            return ml_stats.admin1_lookup(dir_stats, country_str, parser=self.parser)
+
+        if sel_level == run_level:
+            keys = region_norm
+            unmatched = [
+                name for name in selection
+                if ml_stats._norm_region_name(name) not in set(keys)
+            ]
+        elif sel_level == "admin_1" and run_level == "admin_2":
+            mapping = _lookup()
+            if not mapping:
+                self.logger.error(
+                    f"run_regions given at admin_1 for an admin_2 run but no "
+                    f"admin_2->admin_1 mapping is available for {self.country} "
+                    f"(check production_statistics_file) — running all regions."
+                )
+                return df
+            parent_norm = {
+                k: ml_stats._norm_region_name(v) for k, v in mapping.items()
+            }
+            keys = region_norm.map(parent_norm)
+            present = set(keys.dropna())
+            unmatched = [
+                name for name in selection
+                if ml_stats._norm_region_name(name) not in present
+            ]
+        elif sel_level == "admin_2" and run_level == "admin_1":
+            mapping = _lookup()
+            if not mapping:
+                self.logger.error(
+                    f"run_regions given at admin_2 for an admin_1 run but no "
+                    f"admin_2->admin_1 mapping is available for {self.country} "
+                    f"(check production_statistics_file) — running all regions."
+                )
+                return df
+            parent_of = {}
+            for name in selection:
+                norm_name = ml_stats._norm_region_name(name)
+                if norm_name in mapping:
+                    parent_of[name] = ml_stats._norm_region_name(mapping[norm_name])
+            wanted = set(parent_of.values())
+            keys = region_norm
+            present = set(keys)
+            unmatched = [
+                name for name in selection
+                if parent_of.get(name) is None or parent_of[name] not in present
+            ]
+            self.logger.info(
+                f"run_regions given at admin_2 for an admin_1 run — mapped "
+                f"{len(parent_of)} selected region(s) up to "
+                f"{len(wanted)} parent admin_1 region(s): "
+                f"{', '.join(sorted(wanted))}"
+            )
+        else:
+            self.logger.warning(
+                f"run_regions_level='{sel_level}' cannot be reconciled with "
+                f"admin_level='{run_level}' for {self.country}/{self.crop} — "
+                f"ignoring run_regions, running all regions."
+            )
+            return df
+
+        if unmatched:
+            self.logger.warning(
+                f"run_regions: {len(unmatched)} selected name(s) matched no "
+                f"region in {self.country}/{self.crop} (check spelling): "
+                f"{', '.join(unmatched)}"
+            )
+
+        mask = keys.isin(wanted).fillna(False).astype(bool)
+        if not mask.any():
+            examples = sorted({str(r) for r in df["Region"].unique()})[:5]
+            raise ValueError(
+                f"run_regions selected 0 regions for {self.country}/{self.crop}: "
+                f"none of the {len(selection)} name(s) given at "
+                f"'{sel_level}' (e.g. {', '.join(selection[:5])}) match any "
+                f"Region in the '{run_level}' frame "
+                f"(e.g. {', '.join(examples)}). Fix run_regions / "
+                f"run_regions_level, or unset run_regions to run all regions."
+            )
+
+        out = df[mask].copy()
+        n_kept = ml_stats._norm_region_series(out["Region"]).nunique()
+        self.logger.info(
+            f"run_regions filter ({self.country}/{self.crop}, selection at "
+            f"'{sel_level}', run at '{run_level}'): kept {n_kept} of "
+            f"{n_regions_before} regions ({len(out)} of {len(df)} rows), "
+            f"dropped {n_regions_before - n_kept}"
+        )
+        return out
+
+    def _add_state_column(self, df: pd.DataFrame) -> pd.DataFrame:
+        """Populate the 'State' categorical (parent admin_1) for admin_2 runs.
+
+        Opt-in purely via [ML] cat_features containing "State" — no separate
+        flag, nothing country-specific. The county->state mapping comes from
+        the production-statistics file (admin_2 -> admin_1) via
+        ml.stats.admin1_lookup, which shares file resolution and name
+        normalization with the yield join, so the two can never disagree.
+        Unmapped regions get the explicit level "unknown" rather than NaN.
+        """
+        if "State" not in self.cat_features or "State" in df.columns or df.empty:
+            return df
+        from geocif.ml import stats as ml_stats
+
+        dir_stats = Path(self.parser.get("PATHS", "dir_production_statistics"))
+        country_str = self.country.title().replace("_", " ")
+        mapping = ml_stats.admin1_lookup(dir_stats, country_str, parser=self.parser)
+        if not mapping:
+            self.logger.warning(
+                "'State' in cat_features but no admin_2->admin_1 mapping "
+                f"available for {country_str}; filling 'unknown'"
+            )
+        df["State"] = (
+            ml_stats._norm_region_series(df["Region"]).map(mapping).fillna("unknown")
+        )
+        n_states = df["State"].nunique()
+        self.logger.info(
+            f"State categorical added: {n_states} states across "
+            f"{df['Region'].nunique()} regions"
+        )
+        return df
+
     def _prepare_ml_dataframe(self) -> pd.DataFrame:
         """Convert raw data into ML-ready format."""
         df = self._filter_by_simulation_stages()
@@ -1628,6 +1864,15 @@ class Geocif:
         # [<country>] min_production_share_pct then [DEFAULT]. Ignored if
         # <=0 or unset. Complements the fixed-5%-quantile filter above.
         df = self._filter_by_min_production_share(df)
+
+        # Explicit user region selection ([<country>] run_regions, optionally
+        # given at a coarser/finer level via run_regions_level). Applied AFTER
+        # the production filters so their country-wide statistics keep their
+        # meaning, and before _save_ml_dataframe so training, LOOCV, the DB,
+        # plots and parent aggregations all see only the selected regions.
+        df = self._filter_to_selected_regions(df)
+
+        df = self._add_state_column(df)
 
         self._save_ml_dataframe(df)
         df[self.cat_features] = df[self.cat_features].astype("category")
@@ -3505,6 +3750,10 @@ class Geocif:
             clusters_assigned = self._cluster_by_calendar_region(df)
             df = df.merge(clusters_assigned, on="Region")
             df["Region_ID"] = df["Region_ID"].astype("category")
+        elif self.cluster_strategy == "admin_1":
+            clusters_assigned = self._cluster_by_admin1(df)
+            df = df.merge(clusters_assigned, on="Region")
+            df["Region_ID"] = df["Region_ID"].astype("category")
         else:
             raise ValueError(f"Unsupported cluster strategy {self.cluster_strategy}")
 
@@ -3685,6 +3934,52 @@ class Geocif:
         self.logger.info(
             f"Crop-calendar-region clustering: {len(regions)} regions "
             f"→ {n_zones} zone-pool(s) ({n_unmatched} unmatched region name(s))"
+        )
+        return pd.DataFrame({"Region": regions, "Region_ID": region_ids})
+
+    def _cluster_by_admin1(self, df: pd.DataFrame) -> pd.DataFrame:
+        """Pool regions by their PARENT admin_1 unit (one model per state).
+
+        The admin_2 counterpart to ``crop_calendar_region``: instead of pooling
+        every county into one national model (``single``) or splitting to one
+        model per county (``individual``), each admin_1 unit trains its own
+        pooled model over its counties. Parent lookup is
+        ``ml.stats.admin1_lookup`` — the same county->state map used by the
+        ``State`` categorical and the ``run_regions`` filter, so all three
+        agree by construction. Counties whose parent can't be resolved get
+        their own singleton cluster rather than being merged into a wrong pool
+        (same rule as the calendar-zone clusterer).
+
+        Returns:
+            DataFrame with columns ["Region", "Region_ID"].
+        """
+        from geocif.ml import stats as ml_stats
+
+        regions = list(df["Region"].astype(str).unique())
+        dir_stats = Path(self.parser.get("PATHS", "dir_production_statistics"))
+        country_str = self.country.title().replace("_", " ")
+        # admin1_lookup keys are normalized with spaces ("iowa adair"); the
+        # grouping helper normalizes with underscores — restate the map in the
+        # helper's key space so the two never disagree.
+        _norm = lambda s: str(s).lower().replace(" ", "_").replace("-", "_")
+        parent_map = {
+            _norm(k): v
+            for k, v in ml_stats.admin1_lookup(
+                dir_stats, country_str, parser=self.parser
+            ).items()
+        }
+        if not parent_map:
+            self.logger.error(
+                f"cluster_strategy=admin_1: no admin_2 -> admin_1 mapping for "
+                f"{country_str}; every region becomes its own cluster"
+            )
+        region_ids = utils.group_ids_by_key(regions, parent_map, norm=_norm)
+
+        n_groups = len(set(region_ids))
+        n_unmatched = sum(1 for r in regions if _norm(r) not in parent_map)
+        self.logger.info(
+            f"admin_1 clustering: {len(regions)} regions → {n_groups} "
+            f"state-pool(s) ({n_unmatched} unmatched region name(s))"
         )
         return pd.DataFrame({"Region": regions, "Region_ID": region_ids})
 
@@ -3877,6 +4172,24 @@ class Geocif:
     # FEATURE SELECTION
     # ============================================================================
 
+    def _string_cat_columns(self, X: pd.DataFrame) -> list:
+        """cat_features present in X whose values are non-numeric (e.g.
+        Region, State). These must be excluded from numeric feature
+        selection; they re-enter the model via cat_features at train time.
+        Numeric categoricals (Region_ID, Harvest Year) stay in selection,
+        preserving pre-State behavior."""
+        out = []
+        for c in self.cat_features:
+            if c not in X.columns:
+                continue
+            s = X[c]
+            vals = pd.Series(
+                s.cat.categories if isinstance(s.dtype, pd.CategoricalDtype) else s.unique()
+            )
+            if pd.to_numeric(vals, errors="coerce").isna().any():
+                out.append(c)
+        return out
+
     def apply_feature_selector(self, region: int, dir_output: Path):
         """
         Apply feature selection for a specific region.
@@ -3913,7 +4226,7 @@ class Geocif:
         # use every column, regardless of the configured method.
         stage_id = str(getattr(self, "stage_info", {}).get("Stage_ID", ""))
         if getattr(self, "is_pre_season", False) or stage_id.startswith(("PS_", "IS_")):
-            X_for_selection = self.X_train.drop(columns=["Region"], errors="ignore")
+            X_for_selection = self.X_train.drop(columns=self._string_cat_columns(self.X_train), errors="ignore")
             self.selected_features = X_for_selection.columns.tolist()
             self.logger.info(
                 f"Skipping feature selection for {self.country} {self.crop} "
@@ -3930,11 +4243,11 @@ class Geocif:
             ]
         elif self.feature_selection.lower() == "none":
             self.logger.info(f"Skipping feature selection for {self.country} {self.crop}")
-            X_for_selection = self.X_train.drop(columns=["Region"], errors="ignore")
+            X_for_selection = self.X_train.drop(columns=self._string_cat_columns(self.X_train), errors="ignore")
             self.selected_features = X_for_selection.columns.tolist()
             self.logger.info(f"Using all {len(self.selected_features)} features")
         else:
-            X_for_selection = self.X_train.drop(columns=["Region"], errors="ignore")
+            X_for_selection = self.X_train.drop(columns=self._string_cat_columns(self.X_train), errors="ignore")
             stage_id_dbg = str(getattr(self, "stage_info", {}).get("Stage_ID", ""))
             self.logger.debug(
                 f"[apply_feature_selector] selecting features for "

@@ -17,23 +17,20 @@ from google.protobuf import timestamp_pb2 as google_dot_protobuf_dot_timestamp__
 
 
 DESCRIPTOR = _descriptor_pool.Default().AddSerializedFile(
-    b'\n0chalk/artifacts/v1/cron_aggregate_backfill.proto\x12\x12\x63halk.artifacts.v1\x1a\x1fgoogle/protobuf/timestamp.proto"\xb3\x06\n\x15\x43ronAggregateBackfill\x12\x12\n\x04name\x18\x01 \x01(\tR\x04name\x12\x1a\n\x08schedule\x18\x02 \x01(\tR\x08schedule\x12\x1b\n\tfile_name\x18\x03 \x01(\tR\x08\x66ileName\x12\x1a\n\x08\x66\x65\x61tures\x18\x04 \x03(\tR\x08\x66\x65\x61tures\x12\x1c\n\tresolvers\x18\x05 \x03(\tR\tresolvers\x12\x1d\n\nquery_tags\x18\x06 \x03(\tR\tqueryTags\x12G\n\x06target\x18\x07 \x01(\x0e\x32/.chalk.artifacts.v1.CronAggregateBackfillTargetR\x06target\x12*\n\x0eresource_group\x18\x08 \x01(\tH\x00R\rresourceGroup\x88\x01\x01\x12;\n\x0blower_bound\x18\t \x01(\x0b\x32\x1a.google.protobuf.TimestampR\nlowerBound\x12;\n\x0bupper_bound\x18\n \x01(\x0b\x32\x1a.google.protobuf.TimestampR\nupperBound\x12/\n\x11\x61llow_empty_tiles\x18\x0b \x01(\x08H\x01R\x0f\x61llowEmptyTiles\x88\x01\x01\x12I\n\x07targets\x18\x0c \x03(\x0e\x32/.chalk.artifacts.v1.CronAggregateBackfillTargetR\x07targets\x12%\n\x0b\x65nvironment\x18\r \x01(\tH\x02R\x0b\x65nvironment\x88\x01\x01\x12\x66\n\x0fplanner_options\x18\x0e \x03(\x0b\x32=.chalk.artifacts.v1.CronAggregateBackfill.PlannerOptionsEntryR\x0eplannerOptions\x1a\x41\n\x13PlannerOptionsEntry\x12\x10\n\x03key\x18\x01 \x01(\tR\x03key\x12\x14\n\x05value\x18\x02 \x01(\tR\x05value:\x02\x38\x01\x42\x11\n\x0f_resource_groupB\x14\n\x12_allow_empty_tilesB\x0e\n\x0c_environment*\xa4\x01\n\x1b\x43ronAggregateBackfillTarget\x12.\n*CRON_AGGREGATE_BACKFILL_TARGET_UNSPECIFIED\x10\x00\x12)\n%CRON_AGGREGATE_BACKFILL_TARGET_ONLINE\x10\x01\x12*\n&CRON_AGGREGATE_BACKFILL_TARGET_OFFLINE\x10\x02\x42\x9e\x01\n\x16\x63om.chalk.artifacts.v1B\x1a\x43ronAggregateBackfillProtoP\x01\xa2\x02\x03\x43\x41X\xaa\x02\x12\x43halk.Artifacts.V1\xca\x02\x12\x43halk\\Artifacts\\V1\xe2\x02\x1e\x43halk\\Artifacts\\V1\\GPBMetadata\xea\x02\x14\x43halk::Artifacts::V1b\x06proto3'
+    b'\n0chalk/artifacts/v1/cron_aggregate_backfill.proto\x12\x12\x63halk.artifacts.v1\x1a\x1fgoogle/protobuf/timestamp.proto"\xaf\x05\n\x15\x43ronAggregateBackfill\x12\x0c\n\x04name\x18\x01 \x01(\t\x12\x10\n\x08schedule\x18\x02 \x01(\t\x12\x11\n\tfile_name\x18\x03 \x01(\t\x12\x10\n\x08\x66\x65\x61tures\x18\x04 \x03(\t\x12\x11\n\tresolvers\x18\x05 \x03(\t\x12\x12\n\nquery_tags\x18\x06 \x03(\t\x12?\n\x06target\x18\x07 \x01(\x0e\x32/.chalk.artifacts.v1.CronAggregateBackfillTarget\x12\x1b\n\x0eresource_group\x18\x08 \x01(\tH\x00\x88\x01\x01\x12/\n\x0blower_bound\x18\t \x01(\x0b\x32\x1a.google.protobuf.Timestamp\x12/\n\x0bupper_bound\x18\n \x01(\x0b\x32\x1a.google.protobuf.Timestamp\x12\x1e\n\x11\x61llow_empty_tiles\x18\x0b \x01(\x08H\x01\x88\x01\x01\x12@\n\x07targets\x18\x0c \x03(\x0e\x32/.chalk.artifacts.v1.CronAggregateBackfillTarget\x12\x18\n\x0b\x65nvironment\x18\r \x01(\tH\x02\x88\x01\x01\x12V\n\x0fplanner_options\x18\x0e \x03(\x0b\x32=.chalk.artifacts.v1.CronAggregateBackfill.PlannerOptionsEntry\x12\x17\n\nnum_shards\x18\x0f \x01(\x05H\x03\x88\x01\x01\x1a\x35\n\x13PlannerOptionsEntry\x12\x0b\n\x03key\x18\x01 \x01(\t\x12\r\n\x05value\x18\x02 \x01(\t:\x02\x38\x01\x42\x11\n\x0f_resource_groupB\x14\n\x12_allow_empty_tilesB\x0e\n\x0c_environmentB\r\n\x0b_num_shards*\xa4\x01\n\x1b\x43ronAggregateBackfillTarget\x12.\n*CRON_AGGREGATE_BACKFILL_TARGET_UNSPECIFIED\x10\x00\x12)\n%CRON_AGGREGATE_BACKFILL_TARGET_ONLINE\x10\x01\x12*\n&CRON_AGGREGATE_BACKFILL_TARGET_OFFLINE\x10\x02\x62\x06proto3'
 )
 
 _globals = globals()
 _builder.BuildMessageAndEnumDescriptors(DESCRIPTOR, _globals)
 _builder.BuildTopDescriptorsAndMessages(DESCRIPTOR, "chalk.artifacts.v1.cron_aggregate_backfill_pb2", _globals)
 if _descriptor._USE_C_DESCRIPTORS == False:
-    _globals["DESCRIPTOR"]._options = None
-    _globals[
-        "DESCRIPTOR"
-    ]._serialized_options = b"\n\026com.chalk.artifacts.v1B\032CronAggregateBackfillProtoP\001\242\002\003CAX\252\002\022Chalk.Artifacts.V1\312\002\022Chalk\\Artifacts\\V1\342\002\036Chalk\\Artifacts\\V1\\GPBMetadata\352\002\024Chalk::Artifacts::V1"
+    DESCRIPTOR._options = None
     _globals["_CRONAGGREGATEBACKFILL_PLANNEROPTIONSENTRY"]._options = None
     _globals["_CRONAGGREGATEBACKFILL_PLANNEROPTIONSENTRY"]._serialized_options = b"8\001"
-    _globals["_CRONAGGREGATEBACKFILLTARGET"]._serialized_start = 928
-    _globals["_CRONAGGREGATEBACKFILLTARGET"]._serialized_end = 1092
+    _globals["_CRONAGGREGATEBACKFILLTARGET"]._serialized_start = 796
+    _globals["_CRONAGGREGATEBACKFILLTARGET"]._serialized_end = 960
     _globals["_CRONAGGREGATEBACKFILL"]._serialized_start = 106
-    _globals["_CRONAGGREGATEBACKFILL"]._serialized_end = 925
-    _globals["_CRONAGGREGATEBACKFILL_PLANNEROPTIONSENTRY"]._serialized_start = 803
-    _globals["_CRONAGGREGATEBACKFILL_PLANNEROPTIONSENTRY"]._serialized_end = 868
+    _globals["_CRONAGGREGATEBACKFILL"]._serialized_end = 793
+    _globals["_CRONAGGREGATEBACKFILL_PLANNEROPTIONSENTRY"]._serialized_start = 668
+    _globals["_CRONAGGREGATEBACKFILL_PLANNEROPTIONSENTRY"]._serialized_end = 721
 # @@protoc_insertion_point(module_scope)

@@ -32,6 +32,53 @@ from codex_plugin_scanner.guard.mcp_tool_calls import (
 )
 from codex_plugin_scanner.guard.models import GuardAction, GuardArtifact, PolicyDecision
 from codex_plugin_scanner.guard.store import GuardStore
+from tests.policy_bundle_signing_helpers import (
+    TEST_POLICY_BUNDLE_WORKSPACE_ID,
+    policy_bundle_test_keyring,
+    sign_policy_bundle,
+)
+
+_SIGNED_POLICY_REFRESHED_AT = "2026-07-17T00:01:00+00:00"
+
+
+def _provision_test_policy_bundle_anchor(store: GuardStore) -> None:
+    store.set_sync_payload(
+        "oauth_local_credentials",
+        {"workspace_id": TEST_POLICY_BUNDLE_WORKSPACE_ID},
+        _SIGNED_POLICY_REFRESHED_AT,
+    )
+    store.set_sync_payload(
+        "policy_bundle_keyring",
+        policy_bundle_test_keyring(workspace_id=TEST_POLICY_BUNDLE_WORKSPACE_ID),
+        _SIGNED_POLICY_REFRESHED_AT,
+    )
+
+
+def _activate_signed_block_policy(store: GuardStore) -> None:
+    policy_bundle = sign_policy_bundle(
+        {
+            "contractVersion": "guard-policy-bundle.v1",
+            "bundleVersion": "policy-2026-07-17.post-claim",
+            "issuedAt": _SIGNED_POLICY_REFRESHED_AT,
+            "expiresAt": None,
+            "verifier": {},
+            "rolloutState": "enforcing",
+            "policyDefaults": {
+                "mode": "enforce",
+                "defaultAction": "block",
+                "unknownPublisherAction": "review",
+                "changedHashAction": "require-reapproval",
+                "newNetworkDomainAction": "block",
+                "subprocessAction": "block",
+                "telemetryEnabled": False,
+                "syncEnabled": True,
+            },
+            "rules": [],
+            "acknowledgements": [],
+        },
+        workspace_id=TEST_POLICY_BUNDLE_WORKSPACE_ID,
+    )
+    store.set_sync_payload("policy_bundle", policy_bundle, _SIGNED_POLICY_REFRESHED_AT)
 
 
 def _record_once_allow(
@@ -155,8 +202,9 @@ def test_runtime_artifact_hook_rebuilds_policy_after_claim(
         store=store,
         workspace=workspace,
     )
-    assert result.policy_action == "block"
-    assert result.response_payload["policy_action"] == "block"
+    assert result.policy_action == "allow"
+    assert result.response_payload["policy_action"] == "allow"
+    assert result.response_payload["observed_policy_action"] == "block"
     assert result.response_payload["approval_requests"] == []
 
 
@@ -295,13 +343,13 @@ def test_copilot_pretool_uses_fresh_provider_after_claim(
     response = json.loads(output.getvalue())
     receipt = store.list_receipts(limit=1)[0]
     inventory = store.find_inventory_item(artifact.artifact_id)
-    event = store.list_events(limit=1, event_name="runtime_tool_call_blocked")[0]
     assert result == 0
-    assert response["permissionDecision"] == "deny"
-    assert fresh_artifact.name in response["permissionDecisionReason"]
+    assert response["permissionDecision"] == ("allow" if mode == "observe" else "deny")
+    if mode == "prompt":
+        assert fresh_artifact.name in response["permissionDecisionReason"]
     assert response["approval_reuse"]["status"] == "rejected"
     assert response["approval_reuse"]["reason_code"] == ("approval_reuse_context_changed_after_claim")
-    assert receipt["policy_decision"] == "block"
+    assert receipt["policy_decision"] == ("allow" if mode == "observe" else "block")
     assert receipt["artifact_hash"] == fresh_hash
     assert receipt["artifact_name"] == fresh_artifact.name
     assert receipt["raw_command_text"] == fresh_arguments["command"]
@@ -309,9 +357,11 @@ def test_copilot_pretool_uses_fresh_provider_after_claim(
     assert inventory["artifact_hash"] == fresh_hash
     assert inventory["artifact_name"] == fresh_artifact.name
     assert inventory["config_path"] == fresh_artifact.config_path
-    assert inventory["last_policy_action"] == "block"
+    assert inventory["last_policy_action"] == ("allow" if mode == "observe" else "block")
+    event_name = "runtime_tool_call_allowed" if mode == "observe" else "runtime_tool_call_blocked"
+    event = store.list_events(limit=1, event_name=event_name)[0]
     assert event["payload"]["artifact_hash"] == fresh_hash
-    assert event["payload"]["policy_action"] == "block"
+    assert event["payload"]["policy_action"] == ("allow" if mode == "observe" else "block")
 
 
 def _hook_args(harness: str, *, json_output: bool) -> argparse.Namespace:
@@ -367,6 +417,7 @@ def test_runtime_hook_reloads_synced_policy_after_atomic_claim(
     workspace = tmp_path / "workspace"
     workspace.mkdir()
     store = GuardStore(guard_home)
+    _provision_test_policy_bundle_anchor(store)
     config = GuardConfig(
         guard_home=guard_home,
         workspace=workspace,
@@ -419,11 +470,7 @@ def test_runtime_hook_reloads_synced_policy_after_atomic_claim(
     def claim_then_sync_block(decision: object, *, now: str | None = None) -> bool:
         claimed = original_claim(decision, now=now)
         if claimed:
-            store.set_sync_payload(
-                "policy",
-                {"defaultAction": "block"},
-                "2026-07-17T00:01:00+00:00",
-            )
+            _activate_signed_block_policy(store)
         return claimed
 
     monkeypatch.setattr(store, "claim_approval_reuse_decision", claim_then_sync_block)
@@ -453,6 +500,7 @@ def test_generic_hook_reloads_synced_policy_after_atomic_claim(
     workspace = tmp_path / "workspace"
     workspace.mkdir()
     store = GuardStore(guard_home)
+    _provision_test_policy_bundle_anchor(store)
     config = GuardConfig(
         guard_home=guard_home,
         workspace=workspace,
@@ -494,11 +542,7 @@ def test_generic_hook_reloads_synced_policy_after_atomic_claim(
     def claim_then_sync_block(decision: object, *, now: str | None = None) -> bool:
         claimed = original_claim(decision, now=now)
         if claimed:
-            store.set_sync_payload(
-                "policy",
-                {"defaultAction": "block"},
-                "2026-07-17T00:01:00+00:00",
-            )
+            _activate_signed_block_policy(store)
         return claimed
 
     monkeypatch.setattr(store, "claim_approval_reuse_decision", claim_then_sync_block)
@@ -546,6 +590,7 @@ def test_copilot_hook_reloads_synced_policy_after_atomic_claim(
         encoding="utf-8",
     )
     store = GuardStore(guard_home)
+    _provision_test_policy_bundle_anchor(store)
     config = GuardConfig(
         guard_home=guard_home,
         workspace=workspace,
@@ -580,11 +625,7 @@ def test_copilot_hook_reloads_synced_policy_after_atomic_claim(
     def claim_then_sync_block(decision: object, *, now: str | None = None) -> bool:
         claimed = original_claim(decision, now=now)
         if claimed:
-            store.set_sync_payload(
-                "policy",
-                {"defaultAction": "block"},
-                "2026-07-17T00:01:00+00:00",
-            )
+            _activate_signed_block_policy(store)
         return claimed
 
     monkeypatch.setattr(store, "claim_approval_reuse_decision", claim_then_sync_block)
@@ -623,6 +664,7 @@ def test_browser_post_wait_revalidation_reloads_synced_policy(
     secret_file = workspace / ".env"
     secret_file.write_text("TOKEN=test-only\n", encoding="utf-8")
     store = GuardStore(guard_home)
+    _provision_test_policy_bundle_anchor(store)
     config = GuardConfig(
         guard_home=guard_home,
         workspace=workspace,
@@ -641,11 +683,7 @@ def test_browser_post_wait_revalidation_reloads_synced_policy(
     monkeypatch.setattr(hook_command, "_review_runtime_artifact_hook", lambda *_args, **_kwargs: None)
 
     def browser_decision(**kwargs: object) -> str:
-        store.set_sync_payload(
-            "policy",
-            {"defaultAction": "block"},
-            "2026-07-17T00:01:00+00:00",
-        )
+        _activate_signed_block_policy(store)
         provider = cast(object, kwargs["fresh_context_provider"])
         assert callable(provider)
         fresh_context = provider()
@@ -671,7 +709,7 @@ def test_browser_post_wait_revalidation_reloads_synced_policy(
     assert store.list_receipts(limit=1)[0]["policy_decision"] == "block"
 
 
-def test_copilot_permission_postclaim_uses_fresh_authority_for_queue_and_evidence(
+def test_copilot_permission_postclaim_uses_fresh_authority_without_observe_queue(
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
@@ -778,10 +816,7 @@ def test_copilot_permission_postclaim_uses_fresh_authority_for_queue_and_evidenc
     authority = decision.post_claim_authority
     receipt = store.list_receipts(limit=1)[0]
     inventory = store.find_inventory_item(fresh_artifact.artifact_id)
-    event = store.list_events(limit=1, event_name="runtime_tool_call_blocked")[0]
-    evaluation = cast(dict[str, object], queue_call["evaluation"])
-    queued_artifact = cast(list[dict[str, object]], evaluation["artifacts"])[0]
-
+    event = store.list_events(limit=1, event_name="runtime_tool_call_allowed")[0]
     assert result == 0
     assert decision.action == "require-reapproval"
     assert authority is not None
@@ -789,37 +824,29 @@ def test_copilot_permission_postclaim_uses_fresh_authority_for_queue_and_evidenc
     assert authority.artifact is fresh_artifact
     assert authority.artifact_hash == fresh_hash
     assert authority.arguments is fresh_arguments
-    assert response["behavior"] == "deny"
-    assert response["interrupt"] is True
-    assert fresh_artifact.name in response["message"]
+    assert response["behavior"] == "allow"
+    assert "interrupt" not in response
     assert response["approval_reuse"]["reason_code"] == "approval_reuse_context_changed_after_claim"
-    assert queue_call["redaction_level"] == "none"
-    assert queued_artifact["artifact_name"] == fresh_artifact.name
-    assert queued_artifact["artifact_hash"] == fresh_hash
-    assert queued_artifact["config_path"] == fresh_artifact.config_path
-    assert queued_artifact["launch_target"] == json.dumps(fresh_arguments, sort_keys=True)
+    assert queue_call == {}
     assert receipt["artifact_name"] == fresh_artifact.name
     assert receipt["artifact_hash"] == fresh_hash
-    assert receipt["policy_decision"] == "require-reapproval"
+    assert receipt["policy_decision"] == "allow"
     assert receipt["raw_command_text"] == fresh_arguments["command"]
     assert inventory is not None
     assert inventory["artifact_name"] == fresh_artifact.name
     assert inventory["artifact_hash"] == fresh_hash
     assert inventory["config_path"] == fresh_artifact.config_path
-    assert inventory["last_policy_action"] == "require-reapproval"
+    assert inventory["last_policy_action"] == "allow"
     assert event["payload"]["artifact_hash"] == fresh_hash
-    assert event["payload"]["policy_action"] == "require-reapproval"
+    assert event["payload"]["policy_action"] == "allow"
 
 
+@pytest.mark.parametrize("flow", ("pretool", "permission"))
 @pytest.mark.parametrize(
-    ("flow", "action"),
-    (
-        ("pretool", "sandbox-required"),
-        ("permission", "sandbox-required"),
-        ("permission", "require-reapproval"),
-    ),
+    "action",
+    ("allow", "warn", "review", "require-reapproval", "sandbox-required", "block"),
 )
-def test_copilot_nonallow_action_is_consistent_across_native_receipt_inventory_and_event(
+def test_copilot_action_is_consistent_across_native_receipt_inventory_and_event(
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,
     flow: str,
@@ -894,21 +921,42 @@ def test_copilot_nonallow_action_is_consistent_across_native_receipt_inventory_a
         )
 
     response = json.loads(output.getvalue())
-    receipt = store.list_receipts(limit=1)[0]
-    inventory = store.find_inventory_item(artifact.artifact_id)
-    event = store.list_events(limit=1, event_name="runtime_tool_call_blocked")[0]
     native_action = response.get("permissionDecision", response.get("behavior"))
 
     assert result == 0
-    assert native_action == "deny"
+    assert native_action == ("allow" if action in {"allow", "warn"} else "deny")
+
+    # A Copilot pre-tool review delegates persistence and queueing to the
+    # subsequent permissionRequest hook. Every path that records the decision
+    # must retain the exact action.
+    if flow == "pretool" and action in {"review", "require-reapproval"}:
+        assert store.list_receipts(limit=1) == []
+        assert store.find_inventory_item(artifact.artifact_id) is None
+        assert store.list_events(limit=1) == []
+        assert queued == []
+        return
+
+    receipt = store.list_receipts(limit=1)[0]
+    inventory = store.find_inventory_item(artifact.artifact_id)
+    event_name = {
+        "allow": "runtime_tool_call_allowed",
+        "warn": "runtime_tool_call_allowed",
+        "review": "runtime_tool_call_review_required",
+        "require-reapproval": "runtime_tool_call_reapproval_required",
+        "sandbox-required": "runtime_tool_call_sandbox_required",
+        "block": "runtime_tool_call_blocked",
+    }[action]
+    event = store.list_events(limit=1, event_name=event_name)[0]
     assert receipt["policy_decision"] == action
     assert receipt["artifact_hash"] == artifact_hash
     assert inventory is not None
     assert inventory["last_policy_action"] == action
     assert inventory["artifact_hash"] == artifact_hash
     assert event["payload"]["policy_action"] == action
+    if action not in {"allow", "warn"}:
+        assert event["payload"]["execution_outcome"] == "not-executed"
     assert event["payload"]["artifact_hash"] == artifact_hash
-    assert bool(queued) is (action == "require-reapproval")
+    assert bool(queued) is (flow == "permission" and action in {"review", "require-reapproval"})
 
 
 def _insert_tampered_broader_block(

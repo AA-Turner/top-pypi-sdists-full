@@ -1,12 +1,10 @@
+import codecs
+import json
 import re
 import sys
 from random import Random
 
-from crosshair.stubs_parser import (
-    _rewrite_with_typing_types,
-    _rewrite_with_union,
-    signature_from_stubs,
-)
+from crosshair.stubs_parser import _rewrite_with_union, signature_from_stubs
 
 
 def test_rewrite_with_union():
@@ -15,14 +13,18 @@ def test_rewrite_with_union():
     assert expect == _rewrite_with_union(test_str)
 
 
-if sys.version_info < (3, 9):
+def test_inherited_method_resolves_from_a_base_class():
+    """typeshed declares getstate on IncrementalDecoder, not on the subclass."""
+    sigs, valid = signature_from_stubs(codecs.BufferedIncrementalDecoder.getstate)
+    assert valid
+    assert [str(s) for s in sigs] == ["(self) -> tuple[bytes, int]"]
 
-    def test_rewrite_with_typing_types():
-        test_str = "list[dict[int, list]]"
-        expect = "typing.List[typing.Dict[int, list]]"
-        glo = dict()
-        assert expect == _rewrite_with_typing_types(test_str, glo)
-        assert "typing" in glo
+
+def test_inherited_method_resolves_across_modules():
+    """JSONDecodeError inherits __reduce__ from builtins.object."""
+    sigs, valid = signature_from_stubs(json.JSONDecodeError.__reduce__)
+    assert valid and len(sigs) == 1
+    assert list(sigs[0].parameters) == ["self"]
 
 
 def test_signature_from_stubs():

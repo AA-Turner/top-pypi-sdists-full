@@ -175,10 +175,10 @@ async def _queue_llm_span_event(run_ctx: RunContext, trace_id: str) -> None:
                 "total_cost": total_cost if total_cost > 0 else None,
             }
 
-        # Calculate duration
+        # Calculate duration. "duration_ns" is the key the ingest mapper reads.
         if run_ctx.start_time:
             duration_ns = int((end_time - run_ctx.start_time).total_seconds() * 1e9)
-            update_payload["duration"] = duration_ns
+            update_payload["duration_ns"] = duration_ns
 
         # Add model provider and framework
         if "provider" in meta:
@@ -1331,9 +1331,8 @@ class AnthropicWrapper:
             # Calculate duration
             if run_ctx.start_time:
                 duration_ns = int((end_time - run_ctx.start_time).total_seconds() * 1e9)
-                update_payload["duration"] = duration_ns
-                update_payload["latency_seconds"] = (end_time - run_ctx.start_time).total_seconds()
                 update_payload["duration_ns"] = duration_ns
+                update_payload["latency_seconds"] = (end_time - run_ctx.start_time).total_seconds()
 
             await aigie._buffer.add(update_payload)
             logger.debug(

@@ -70,7 +70,7 @@ from typing import (
 
 import msgspec
 
-from torch_compiled_graphs.spans import check as check_spans
+from gen_worker._vendor.torchcg.spans import check as check_spans
 
 from . import aot_device_lock, env_seal
 from . import compile_posture
@@ -98,7 +98,7 @@ PACKAGE_ROOT = str(Path(__file__).resolve().parent.parent)
 
 #: The two LOCAL modules that define the parent/child contract: the child's own
 #: entrypoint and this module (the job/report structs). The span partition left
-#: for ``torch_compiled_graphs.spans`` (pgw#1270) and is pinned by the wheel
+#: for ``torchcg.spans`` (pgw#1270) and is pinned by the wheel
 #: rather than digested here — the stray-tree hazard pgw#840 guards against is a
 #: second ``gen_worker`` on the path, not a second TCG; the report carries
 #: ``spans_v`` for the partition's own shape.
@@ -605,7 +605,7 @@ class EntryJob(msgspec.Struct, frozen=True, kw_only=True):
     Three fields died with the round trip and are not coming back, because the
     thing they repaired is not happening: ``program`` (the staged file),
     ``symbol_values`` and ``symbol_labels`` (pgw#998 — the ShapeEnv values
-    ``torch.export``'s save/load loses). See ``torch_compiled_graphs.spans`` for the
+    ``torch.export``'s save/load loses). See ``torchcg.spans`` for the
     matching hole in the span partition.
     """
 
@@ -730,6 +730,12 @@ class EntryReport(msgspec.Struct, frozen=True, kw_only=True):
 
 COMPILED = "compiled"
 REFUSED = "refused"
+
+#: pgw#1309: the two compile-child pid rows. START at `Popen`, FINISH at
+#: collect — before any gate can raise, so a share that refused, OOM'd or was
+#: reaped at its terminus still leaves the pid evidence the pgw#1232 legs read.
+PHASE_CHILD_START = "child:start"
+PHASE_CHILD_FINISH = "child:finish"
 
 EXIT_COMPILED = 0
 EXIT_REFUSED = 2
@@ -1300,9 +1306,14 @@ class EntryCompilePool:
         logger.info(
             "aot-pool: %s (rows[%d::%d]) -> pid %s",
             job.share, job.share_index, job.share_count, proc.pid)
-        return _Running(
+        row = _Running(
             entry=job.share, proc=proc, job=job,
             started=started, stderr_path=stderr_path, spawn_epoch=spawn_epoch)
+        self._emit_child_pids(
+            row, PHASE_CHILD_START,
+            extra=f"rows[{job.share_index}::{job.share_count}] "
+                  f"function={job.function or '?'}")
+        return row
 
     # -- the run ----------------------------------------------------------
 
@@ -1576,6 +1587,36 @@ class EntryCompilePool:
         except Exception:  # pragma: no cover — telemetry never fails a mint
             logger.debug("aot-pool: width emission failed", exc_info=True)
 
+    def _emit_child_pids(
+        self, row: _Running, phase: str, *,
+        extra: str = "", duration_ms: int = 0,
+    ) -> None:
+        """pgw#1309: this compile child's pids, hub-visible.
+
+        ``aot-pool: %s -> pid %s`` proved nothing off a serve pod (pgw#760),
+        so "the compile ran in a child and not on the serving process" — the
+        pgw#1232 legs' whole PID axis — could not be checked without pod logs.
+        ``child_ppid`` and ``serving_pid`` are separate facts on purpose: the
+        first is this process by construction (it called ``Popen``), the second
+        is 0 unless this process DECLARED itself the serving one, so a pool
+        driven from anywhere else cannot silently pass as serving evidence.
+        """
+        try:
+            from . import activity as activity_mod
+            from . import process_role
+
+            activity_mod.emit_event(
+                activity_mod.KIND_COMPILE_CHILD,
+                f"share={row.entry} child_pid={row.proc.pid} "
+                f"child_ppid={os.getpid()} {process_role.facts()}"
+                + (f" {extra}" if extra else ""),
+                phase=phase,
+                family=str(row.job.cfg.family or ""),
+                duration_ms=duration_ms,
+            )
+        except Exception:  # pragma: no cover — telemetry never fails a mint
+            logger.debug("aot-pool: child pid event failed", exc_info=True)
+
     def _emit_ledger(self) -> None:
         """The pool's own typed event. Separate from the mint's roll-up on
         purpose: pool idle is not a mint phase, and a reader who groups them
@@ -1712,6 +1753,15 @@ class EntryCompilePool:
             # that packed every one of its graph classes would be reported as
             # a signal death and its artifacts thrown away.
             code = EXIT_COMPILED if report.status == COMPILED else EXIT_REFUSED
+        # pgw#1309: BEFORE the gates below, every one of which can raise.
+        keys = [str(c.key) for c in (report.classes if report else ())]
+        self._emit_child_pids(
+            row, PHASE_CHILD_FINISH,
+            extra=(
+                f"status={report.status if report else 'no_report'} "
+                f"exit={code} classes={len(keys)} "
+                f"compiled_graph_keys={','.join(keys) or '-'}"),
+            duration_ms=int(round(elapsed * 1000)))
         if report is not None:
             # pgw#877: banked BEFORE any gate can raise, and on the failure
             # path too — pgw#848's rule for the host half applies unchanged
@@ -1911,7 +1961,7 @@ class EntryCompilePool:
                 row.entry, "; ".join(violations))
         spans["child_interp_s"] = spans.get("child_interp_s", 0.0)
         # Parent-side work for THIS entry. Prefixed, and listed in
-        # `torch_compiled_graphs.spans.SUBSPANS`, because it is not inside `compile_s`:
+        # `torchcg.spans.SUBSPANS`, because it is not inside `compile_s`:
         # staging overlaps other children, so summing it into the compile
         # total would invent seconds nobody spent compiling. Its idle FRACTION
         # is `ledger.idle_staging_s`, which is a pool number, not an entry one.

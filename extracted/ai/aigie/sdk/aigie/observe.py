@@ -597,9 +597,11 @@ async def _queue_events(run_ctx: RunContext, parent_ctx: RunContext | None) -> N
         if run_ctx.project_name:
             span_payload["project_name"] = run_ctx.project_name
 
+        # "duration_ns" is the key the ingest mapper reads; "duration" is
+        # dropped on the floor without an error.
         if run_ctx.start_time:
             duration_ns = int((end_time - run_ctx.start_time).total_seconds() * 1e9)
-            span_payload["duration"] = duration_ns
+            span_payload["duration_ns"] = duration_ns
 
         await aigie._buffer.add(span_payload)
 

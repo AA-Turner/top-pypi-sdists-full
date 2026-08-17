@@ -58,6 +58,7 @@ def test_guard_action_envelope_round_trips_to_dict() -> None:
         "mcp_tool": None,
         "package_manager": None,
         "package_name": None,
+        "command_category": None,
         "package_intent_kind": None,
         "package_targets": [],
         "pre_execution_result": None,
@@ -112,6 +113,46 @@ def test_guard_action_envelope_from_dict_rejects_future_schema_version() -> None
     }
 
     with pytest.raises(ValueError, match="schema_version"):
+        GuardActionEnvelope.from_dict(payload)
+
+
+def test_guard_action_envelope_cross_checks_documented_camel_aliases() -> None:
+    payload = GuardActionEnvelope(
+        schema_version=1,
+        action_id="action-alias",
+        harness="codex",
+        event_name="PreToolUse",
+        action_type="shell_command",
+        workspace=None,
+        workspace_hash=None,
+        tool_name="Bash",
+        command="printf ok",
+        prompt_excerpt=None,
+        prompt_text=None,
+        target_paths=(),
+        network_hosts=(),
+        mcp_server=None,
+        mcp_tool=None,
+        package_manager=None,
+        package_name=None,
+        pre_execution_result="warn",
+        script_name=None,
+        raw_payload_redacted={},
+    ).to_dict()
+    payload.update(
+        {
+            "actionId": "action-alias",
+            "actionType": "shell_command",
+            "preExecutionResult": "warn",
+        }
+    )
+
+    restored = GuardActionEnvelope.from_dict(payload)
+    assert restored.action_id == "action-alias"
+    assert restored.pre_execution_result == "warn"
+
+    payload["preExecutionResult"] = "block"
+    with pytest.raises(ValueError, match="must match pre_execution_result"):
         GuardActionEnvelope.from_dict(payload)
 
 
@@ -206,8 +247,7 @@ def test_normalize_codex_pre_tool_bash_payload(tmp_path: Path) -> None:
 
 def test_normalize_codex_apply_patch_as_file_write(tmp_path: Path) -> None:
     patch_path = (
-        "../../../../../private/"
-        "tmp/hol-guard-p01/src/codex_plugin_scanner/guard/runtime/secret_file_requests.py"
+        "../../../../../private/tmp/hol-guard-p01/src/codex_plugin_scanner/guard/runtime/secret_file_requests.py"
     )
     patch = f"""*** Begin Patch
 *** Update File: {patch_path}
@@ -225,6 +265,24 @@ def test_normalize_codex_apply_patch_as_file_write(tmp_path: Path) -> None:
 
     assert envelope.action_type == "file_write"
     assert envelope.target_paths == (patch_path,)
+
+
+def test_normalize_codex_apply_patch_command_extracts_patch_target_paths(tmp_path: Path) -> None:
+    patch = """*** Begin Patch
+*** Add File: docs/patch-notes.md
++Routine patch content.
+*** End Patch"""
+    payload = {
+        "hook_event_name": "PreToolUse",
+        "tool_name": "apply_patch",
+        "tool_input": {"command": patch},
+    }
+
+    envelope = normalize_codex_hook_payload(payload, workspace=tmp_path / "workspace", home_dir=tmp_path)
+
+    assert envelope.action_type == "file_write"
+    assert envelope.command == patch
+    assert envelope.target_paths == ("docs/patch-notes.md",)
 
 
 def test_normalize_codex_prompt_payload_extracts_prompt_excerpt(tmp_path: Path) -> None:

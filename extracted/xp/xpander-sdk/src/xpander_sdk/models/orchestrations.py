@@ -192,7 +192,7 @@ class OrchestrationClassifierNodeLLMSettings(XPanderSharedModel):
 
     Attributes:
         model_provider: The LLM provider to use. Defaults to AmazonBedrock.
-        model_name: Specific model identifier. Defaults to "global.anthropic.claude-sonnet-5".
+        model_name: Specific model identifier. Defaults to "global.anthropic.claude-opus-4-8".
         llm_credentials_key: Key identifier for stored credentials.
         llm_credentials_key_type: Type of credential key storage. Defaults to XPander.
         llm_credentials: Direct credential object if not using stored credentials.
@@ -201,7 +201,7 @@ class OrchestrationClassifierNodeLLMSettings(XPanderSharedModel):
     """
 
     model_provider: Optional[LLMModelProvider] = LLMModelProvider.AmazonBedrock
-    model_name: Optional[str] = "global.anthropic.claude-sonnet-5"
+    model_name: Optional[str] = "global.anthropic.claude-opus-4-8"
     llm_credentials_key: Optional[str] = None
     llm_credentials_key_type: Optional[LLMCredentialsKeyType] = (
         LLMCredentialsKeyType.XPander

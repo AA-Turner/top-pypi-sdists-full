@@ -41,6 +41,7 @@ def structured_output_runnable(
     output_type: type[T],
     *,
     include_raw: Literal[False] = False,
+    **kwargs: Any,
 ) -> Runnable[LanguageModelInput, T]: ...  # pragma: no cover
 
 
@@ -50,6 +51,7 @@ def structured_output_runnable(
     output_type: type[T],
     *,
     include_raw: Literal[True],
+    **kwargs: Any,
 ) -> Runnable[LanguageModelInput, dict[str, Any]]: ...  # pragma: no cover
 
 
@@ -58,6 +60,7 @@ def structured_output_runnable(
     output_type: type[T],
     *,
     include_raw: bool = False,
+    **kwargs: Any,
 ) -> Runnable[LanguageModelInput, T] | Runnable[LanguageModelInput, dict[str, Any]]:
     r"""Build a Runnable that returns validated, structured output, with
     a JSON-parsing fallback.
@@ -110,6 +113,11 @@ def structured_output_runnable(
             ``True``, invoking returns a
             ``{"raw", "parsed", "parsing_error", "used_fallback"}``
             dict and never raises on parse failure.
+        **kwargs: Additional keyword arguments forwarded to
+            ``chat_model.with_structured_output`` (e.g. ``method``,
+            ``strict``), letting callers tune the native
+            structured-output behavior without bypassing this
+            wrapper's JSON-parsing fallback.
 
     Returns:
         A ``Runnable[LanguageModelInput, T]`` if ``include_raw=False``,
@@ -128,7 +136,7 @@ def structured_output_runnable(
 
         ```
     """
-    structured = chat_model.with_structured_output(output_type, include_raw=True)
+    structured = chat_model.with_structured_output(output_type, include_raw=True, **kwargs)
     unwrap = RunnableLambda(
         functools.partial(_unwrap, output_type=output_type, include_raw=include_raw)
     ).with_config(run_name="unwrap_structured_output")

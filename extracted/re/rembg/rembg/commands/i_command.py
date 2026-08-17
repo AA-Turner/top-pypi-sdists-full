@@ -17,7 +17,7 @@ from ..sessions import sessions_names
 @click.option(
     "-m",
     "--model",
-    default="u2net",
+    default="bria-rmbg",
     type=click.Choice(sessions_names),
     show_default=True,
     show_choices=True,
@@ -67,6 +67,20 @@ from ..sessions import sessions_names
     is_flag=True,
     show_default=True,
     help="post process the mask",
+)
+@click.option(
+    "-dc",
+    "--decontaminate",
+    is_flag=True,
+    show_default=True,
+    help="remove the background color fringing left on soft edges",
+)
+@click.option(
+    "-vm",
+    "--vitmatte",
+    is_flag=True,
+    show_default=True,
+    help="refine the edges with ViTMatte, recovering more fine detail than -a",
 )
 @click.option(
     "-bgc",

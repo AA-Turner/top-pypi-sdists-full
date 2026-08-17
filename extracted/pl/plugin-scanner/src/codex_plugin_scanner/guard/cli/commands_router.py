@@ -13,18 +13,23 @@ if TYPE_CHECKING:
 
 
 from ._commands_shared import *
+from .commands_lifecycle_gate import enforce_lifecycle_gate
 from .commands_parser_helpers import *
 
 _EARLY_HANDLERS = {
     "mdm": "_run_guard_mdm_command",
     "command": "_run_guard_command_inspection_command",
+    "pytest-contained": "_run_guard_pytest_contained_command",
+    "verified-read": "_run_guard_verified_read_command",
     "scan": "_run_guard_scan_command",
-    "preflight": "_run_guard_preflight_command",
+    "preflight": "_run_guard_safe_preflight_command",
     "mcp": "_run_guard_mcp_command",
 }
 
 _PRESTORE_HANDLERS = {
+    "daemon": "_run_guard_daemon_command",
     "update": "_run_guard_update_command",
+    "trust": "_run_guard_trust_command",
 }
 
 _COMMON_HANDLERS = {
@@ -45,6 +50,7 @@ _COMMON_HANDLERS = {
     "hermes-mcp-proxy": "_run_guard_hermes_mcp_proxy_command",
     "uninstall": "_run_guard_uninstall_command",
     "package-shims": "_run_guard_package_shims_command",
+    "contained-write": "_run_guard_contained_write_command",
     "run": "_run_guard_run_command",
     "diff": "_run_guard_diff_command",
     "test-eval": "_run_guard_test_eval_command",
@@ -54,7 +60,6 @@ _COMMON_HANDLERS = {
     "aibom": "_run_guard_aibom_command",
     "abom": "_run_guard_abom_command",
     "policies": "_run_guard_policies_command",
-    "trust": "_run_guard_trust_command",
     "settings": "_run_guard_settings_command",
     "exceptions": "_run_guard_exceptions_command",
     "advisories": "_run_guard_advisories_command",
@@ -75,7 +80,6 @@ _COMMON_HANDLERS = {
     "service": "_run_guard_service_command",
     "device": "_run_guard_device_command",
     "commands": "_run_guard_commands_command",
-    "daemon": "_run_guard_daemon_command",
     "hook": "_run_guard_hook_command",
 }
 
@@ -93,6 +97,29 @@ def _normalize_guard_handler_result(result: object) -> int:
     return result if isinstance(result, int) else 1
 
 
+def _invoke_guard_handler(handler: object, args: argparse.Namespace, **kwargs: object) -> int:
+    if not callable(handler):
+        return 1
+    try:
+        result = handler(args, **kwargs)
+    except KeyboardInterrupt:
+        print("Interrupted.", file=sys.stderr)
+        return 130
+    return _normalize_guard_handler_result(result)
+
+
+def _should_prime_policy_integrity(args: argparse.Namespace) -> bool:
+    """Prime local integrity state in the long-lived daemon process."""
+
+    return args.guard_command == "daemon" and bool(getattr(args, "serve", False))
+
+
+def _should_allow_system_keyring(args: argparse.Namespace) -> bool:
+    """Limit macOS Keychain access to explicit foreground account actions."""
+
+    return args.guard_command in {"connect", "disconnect", "login", "remote-pair"}
+
+
 def run_guard_command(
     args: argparse.Namespace,
     *,
@@ -102,8 +129,12 @@ def run_guard_command(
     "Execute a Guard subcommand."
     handler = _resolve_guard_handler(_EARLY_HANDLERS, args.guard_command)
     if callable(handler):
-        result = handler(args, input_text=input_text, output_stream=output_stream)
-        return _normalize_guard_handler_result(result)
+        return _invoke_guard_handler(
+            handler,
+            args,
+            input_text=input_text,
+            output_stream=output_stream,
+        )
 
     home_override = getattr(args, "home", None)
     guard_home = resolve_guard_home(getattr(args, "guard_home", None) or home_override)
@@ -117,11 +148,23 @@ def run_guard_command(
         workspace_dir=workspace,
         guard_home=guard_home,
         executable_overrides=executable_overrides,
+        home_override_explicit=bool(home_override),
+        workspace_override_explicit=bool(getattr(args, "workspace", None)),
     )
+    try:
+        enforce_lifecycle_gate(args, guard_home=guard_home)
+    except ApprovalGateError as error:
+        payload = approval_gate_cli_payload(error)
+        if bool(getattr(args, "json", False)):
+            print(json.dumps(payload, sort_keys=True), file=output_stream or sys.stdout)
+        else:
+            print(f"Error: {error}", file=sys.stderr)
+        return 4
 
     handler = _resolve_guard_handler(_PRESTORE_HANDLERS, args.guard_command)
     if callable(handler):
-        result = handler(
+        return _invoke_guard_handler(
+            handler,
             args,
             guard_home=guard_home,
             workspace=workspace,
@@ -129,12 +172,16 @@ def run_guard_command(
             input_text=input_text,
             output_stream=output_stream,
         )
-        return _normalize_guard_handler_result(result)
 
     source = getattr(args, "source", "default")
     try:
-        store = GuardStore(guard_home, source=source, prime_policy_integrity=args.guard_command != "hook")
-    except ValueError as error:
+        store = GuardStore(
+            guard_home,
+            source=source,
+            prime_policy_integrity=_should_prime_policy_integrity(args),
+            allow_system_keyring=_should_allow_system_keyring(args),
+        )
+    except (TimeoutError, ValueError) as error:
         print(f"Error: {error}", file=sys.stderr)
         return 2
     config = load_guard_config(guard_home, workspace=workspace)
@@ -142,7 +189,8 @@ def run_guard_command(
 
     handler = _resolve_guard_handler(_COMMON_HANDLERS, args.guard_command)
     if callable(handler):
-        result = handler(
+        return _invoke_guard_handler(
+            handler,
             args,
             guard_home=guard_home,
             workspace=workspace,
@@ -152,7 +200,6 @@ def run_guard_command(
             input_text=input_text,
             output_stream=output_stream,
         )
-        return _normalize_guard_handler_result(result)
     return 1
 
 __all__ = [

@@ -253,47 +253,6 @@ def test_with_script_rejects_bad_args():
             xw.WithScript("value", "myscript", args=[value])
 
 
-def test_with_script_normalizes_include_exclude():
-    """The client splits these on "," so lists have to be normalized server-side."""
-    import xlwings as xw
-
-    assert xw.WithScript("v", "s", include=["Sheet1", "Sheet2"]).include == (
-        "Sheet1,Sheet2"
-    )
-    assert xw.WithScript("v", "s", exclude=("A", "B")).exclude == "A,B"
-    assert xw.WithScript("v", "s", include="Sheet1,Sheet2").include == "Sheet1,Sheet2"
-    assert xw.WithScript("v", "s").include == ""
-
-    with pytest.raises(xw.XlwingsError, match="sheet names as strings"):
-        xw.WithScript("v", "s", include=[1, 2])
-    with pytest.raises(xw.XlwingsError, match="must be a string or a list"):
-        xw.WithScript("v", "s", exclude=42)
-
-
-def test_with_script_rejects_include_and_exclude_together():
-    """getBookData() throws on this, but only once the follow-up runs - long after the
-    cell value was delivered successfully."""
-    import xlwings as xw
-
-    with pytest.raises(xw.XlwingsError, match="not both"):
-        xw.WithScript("v", "s", include="A", exclude="B")
-    with pytest.raises(xw.XlwingsError, match="not both"):
-        xw.WithScript("v", "s", include=["A"], exclude=["B"])
-
-
-def test_with_script_rejects_non_boolean_lazy():
-    """A non-bool like "false" is truthy in JavaScript, so it would silently do the
-    opposite of what was written."""
-    import xlwings as xw
-
-    for value in ("false", "", 0, 1, None):
-        with pytest.raises(xw.XlwingsError, match="must be True or False"):
-            xw.WithScript("v", "s", lazy=value)
-
-    assert xw.WithScript("v", "s", lazy=True).lazy is True
-    assert xw.WithScript("v", "s", lazy=False).lazy is False
-
-
 def test_with_script_accepts_callable_or_string():
     import xlwings as xw
 
@@ -315,13 +274,10 @@ def test_with_script_is_not_a_sequence():
 def test_with_script_payload():
     import xlwings as xw
 
-    wrapped = xw.WithScript("v", "myscript", args=[1, "a"], include="Sheet1", lazy=True)
+    wrapped = xw.WithScript("v", "myscript", args=[1, "a"])
     assert wrapped.payload == {
         "script_name": "myscript",
         "args": [1, "a"],
-        "include": "Sheet1",
-        "exclude": "",
-        "lazy": True,
     }
 
 
@@ -343,7 +299,7 @@ def plain(name):
 
 @func
 def wrapped(name):
-    return xw.WithScript(f"Hello {name}!", "hello_args", args=[name], exclude="MySheet")
+    return xw.WithScript(f"Hello {name}!", "hello_args", args=[name])
 """,
     )
 
@@ -357,9 +313,6 @@ def wrapped(name):
     assert result.script == {
         "script_name": "hello_args",
         "args": ["x"],
-        "include": "",
-        "exclude": "MySheet",
-        "lazy": False,
     }
 
 

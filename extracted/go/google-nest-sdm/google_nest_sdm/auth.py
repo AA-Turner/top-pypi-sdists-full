@@ -13,12 +13,12 @@ or refresh to deal with expiration, etc).
 
 from __future__ import annotations
 
+import builtins
 import logging
 from abc import ABC, abstractmethod
 from dataclasses import dataclass, field
-from asyncio import TimeoutError
-from typing import Any
 from http import HTTPStatus
+from typing import Any
 
 import aiohttp
 from aiohttp.client_exceptions import ClientError
@@ -28,9 +28,10 @@ from mashumaro.mixins.json import DataClassJSONMixin
 
 from .exceptions import (
     ApiException,
+    ApiForbiddenException,
     ApiTimeoutException,
     AuthException,
-    ApiForbiddenException,
+    FailedPreconditionException,
     NotFoundException,
 )
 
@@ -128,7 +129,7 @@ class AbstractAuth(ABC):
         if AUTHORIZATION_HEADER not in headers:
             try:
                 access_token = await self.async_get_access_token()
-            except TimeoutError as err:
+            except builtins.TimeoutError as err:
                 raise ApiTimeoutException(
                     f"Timeout requesting API token: {err}"
                 ) from err
@@ -142,7 +143,7 @@ class AbstractAuth(ABC):
             _LOGGER.debug("request[post json]=%s", kwargs["json"])
         try:
             return await self._request(method, url, headers=headers, **kwargs)
-        except TimeoutError as err:
+        except builtins.TimeoutError as err:
             raise ApiTimeoutException(f"Timeout connecting to API: {err}") from err
         except ClientError as err:
             raise ApiException(f"Error connecting to API: {err}") from err
@@ -208,6 +209,8 @@ class AbstractAuth(ABC):
             error_message = f"{err.message} response from API ({resp.status})"
             if error_detail:
                 error_message += f": {error_detail}"
+                if error_detail.status == "FAILED_PRECONDITION":
+                    raise FailedPreconditionException(error_message)
             if err.status == HTTPStatus.FORBIDDEN:
                 raise ApiForbiddenException(error_message)
             if err.status == HTTPStatus.UNAUTHORIZED:

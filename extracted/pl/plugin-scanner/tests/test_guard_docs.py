@@ -21,9 +21,9 @@ def _read_repo_file(relative_path: str) -> str:
     return (REPO_ROOT / relative_path).read_text(encoding="utf-8")
 
 
-def test_explain_install_connect_shares_canonical_command_catalog(capsys) -> None:
+def test_explain_install_connect_shares_canonical_command_catalog(capfd) -> None:
     rc = main(["guard", "explain", "install-connect", "--json"])
-    output = json.loads(capsys.readouterr().out)
+    output = json.loads(capfd.readouterr().out)
 
     assert rc == 0
     assert output["target"] == "install-connect"
@@ -156,7 +156,10 @@ def test_project_metadata_declares_apache_license() -> None:
     pyproject_text = _read_repo_file("pyproject.toml")
     readme_text = _read_repo_file("README.md")
 
-    assert "SPDX-License-Identifier: Apache-2.0" in license_text
+    # The canonical Apache License 2.0 text is kept verbatim (no SPDX banner)
+    # so GitHub classifies the repository license instead of NOASSERTION.
+    assert "Apache License" in license_text
+    assert "Version 2.0, January 2004" in license_text
     pyproject_data = tomllib.loads(pyproject_text)
     assert pyproject_data.get("project", {}).get("license") == "Apache-2.0"
     readme_parts = readme_text.split("## License", 1)

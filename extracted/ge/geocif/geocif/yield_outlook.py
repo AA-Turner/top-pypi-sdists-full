@@ -2342,6 +2342,15 @@ def _generate_diagnostics(df_pred_store, dg, dir_outlook, current_year=None,
         if parser is not None else 18.9
     )
 
+    # [ML] plot_parent_aggregations (default True): parent-level (admin_1 /
+    # national) performance aggregation — scatters, metrics CSVs, national
+    # time series, and per-parent rRMSE%/r² maps. Read once here; the render
+    # call below is per-combo and never fails the run.
+    plot_parent_aggregations = (
+        parser.getboolean("ML", "plot_parent_aggregations", fallback=True)
+        if parser is not None else True
+    )
+
     for (country, crop, model), df in df_pred_store.items():
         if df.empty:
             continue
@@ -2376,6 +2385,26 @@ def _generate_diagnostics(df_pred_store, dg, dir_outlook, current_year=None,
                 forecast_year=current_year, admin_level=admin_level,
                 yield_units=yield_units,
             )
+
+        # Parent-level (admin_1 / national) performance aggregation:
+        # an admin_2 run additionally gets admin_1 + national obs-vs-pred
+        # scatters, metrics CSVs, a national time series, and per-parent
+        # rRMSE%/r² maps; an admin_1 run gets the national set. Gated by
+        # [ML] plot_parent_aggregations (default True) and wrapped so a
+        # failure can never take down the diagnostics stage (this path is
+        # shared by full-ML and reuse_db runs).
+        if plot_parent_aggregations:
+            try:
+                from .viz import aggregation as parent_agg
+                parent_agg.render_parent_aggregations(
+                    df, country, crop, model, dir_outlook, parser,
+                    admin_zone=admin_level, yield_units=yield_units,
+                )
+            except Exception as exc:  # noqa: BLE001
+                logger.warning(
+                    f"Parent-level aggregation failed (non-fatal) for "
+                    f"{country} {crop} {model}: {type(exc).__name__}: {exc}"
+                )
 
         # Feature selection by CID Type across stages
         if db_path is not None:
@@ -3998,6 +4027,9 @@ def run(path_config_files=None, current_year=None, n_years=None, aggregation=Non
             ("XAI (do_xai)",
                 str(parser.getboolean("ML", "do_xai", fallback=False))),
             ("Maps (make_maps)", str(make_maps)),
+            ("Parent aggregations (plot_parent_aggregations)",
+                str(parser.getboolean("ML", "plot_parent_aggregations",
+                                      fallback=True))),
         ]
 
         # Claude narrative status — resolved at startup so the operator

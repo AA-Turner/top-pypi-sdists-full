@@ -22,6 +22,8 @@ from codex_plugin_scanner.guard.cli import commands as commands_module
 from codex_plugin_scanner.guard.config import load_guard_config
 from codex_plugin_scanner.guard.protect import build_protect_payload
 from codex_plugin_scanner.guard.store import GuardStore
+from tests.cloud_exception_bundle_fixtures import build_cloud_exception_policy_bundle
+from tests.policy_bundle_signing_helpers import policy_bundle_test_keyring
 
 
 def _seed_guard_cloud(store, *, workspace_id=None, sync_url=None, token="demo-token", now="2026-05-19T00:00:00Z"):
@@ -419,7 +421,8 @@ def test_supply_chain_posture_reports_protected_degraded_stale_and_next_refresh(
     assert protected_posture["health_status"] == "protected"
     assert protected_posture["bundle"]["next_refresh_at"] == "2026-05-19T12:15:00+00:00"
     assert stale_posture["health_status"] == "stale"
-    assert degraded_posture["health_status"] == "degraded"
+    assert degraded_posture["health_status"] == "local"
+    assert "Guard Cloud is optional" in str(degraded_posture["detail"])
 
 
 def test_supply_chain_posture_reports_package_shim_path_and_unprotected_managers(
@@ -442,6 +445,10 @@ def test_supply_chain_posture_reports_package_shim_path_and_unprotected_managers
         json.dumps({"installed_managers": ["npm", "pnpm"], "shim_dir": str(shim_dir)}, sort_keys=True),
         encoding="utf-8",
     )
+    for manager in ("npm", "pnpm"):
+        real_manager = tmp_path / manager
+        real_manager.write_text("#!/usr/bin/env bash\nexit 0\n", encoding="utf-8")
+        real_manager.chmod(0o755)
     monkeypatch.setenv("PATH", f"{shim_dir}{os.pathsep}{tmp_path}")
 
     posture = local_supply_chain_module.build_local_supply_chain_posture(
@@ -478,6 +485,9 @@ def test_supply_chain_posture_marks_shim_path_missing_from_environment(
         json.dumps({"installed_managers": ["npm"], "shim_dir": str(shim_dir)}, sort_keys=True),
         encoding="utf-8",
     )
+    real_npm = tmp_path / "npm"
+    real_npm.write_text("#!/usr/bin/env bash\nexit 0\n", encoding="utf-8")
+    real_npm.chmod(0o755)
     monkeypatch.setenv("PATH", str(tmp_path))
 
     posture = local_supply_chain_module.build_local_supply_chain_posture(
@@ -729,20 +739,20 @@ def test_runtime_snapshot_marks_supply_chain_policy_as_cloud_managed(tmp_path: P
         packages=[_package(name="minimist", version="1.2.5", default_action="block")],
         now=now,
     )
+    policy_bundle = build_cloud_exception_policy_bundle(workspace_id=WORKSPACE_ID)
     store.set_sync_payload(
-        "team_policy_pack",
-        {
-            "name": "Security team default",
-            "updatedAt": "2026-05-19T11:55:00Z",
-        },
+        "policy_bundle_keyring",
+        policy_bundle_test_keyring(workspace_id=WORKSPACE_ID),
         now,
     )
+    store.set_sync_payload("policy_bundle", policy_bundle, now)
 
     snapshot = build_runtime_snapshot(store=store, approval_center_url="http://127.0.0.1:4874")
 
     assert snapshot["supply_chain"]["policy"]["managed_by_cloud"] is True
-    assert snapshot["supply_chain"]["policy"]["team_policy_active"] is True
-    assert snapshot["supply_chain"]["policy"]["managed_label"] == "Security team default"
+    assert snapshot["supply_chain"]["policy"]["remote_policy_active"] is True
+    assert snapshot["supply_chain"]["policy"]["team_policy_active"] is False
+    assert snapshot["supply_chain"]["policy"]["managed_label"] == "Guard Cloud sync"
 
 
 @pytest.mark.parametrize(
@@ -796,3 +806,60 @@ def test_guard_protect_returns_controlled_execution_error_for_install_subprocess
     assert isinstance(execution, dict)
     assert execution["returncode"] == -1
     assert expected_fragment in str(execution["stderr"]).lower()
+
+
+def test_package_manager_protection_scopes_health_to_detected_managers(
+    monkeypatch: pytest.MonkeyPatch,
+    tmp_path: Path,
+) -> None:
+    supported = (
+        "npm",
+        "npx",
+        "pnpm",
+        "brew",
+        "bun",
+        "bundle",
+        "bunx",
+        "cargo",
+        "composer",
+        "go",
+        "gradle",
+        "mvn",
+        "pipenv",
+        "poetry",
+        "uv",
+        "uvx",
+        "yarn",
+    )
+    monkeypatch.setattr(
+        local_supply_chain_module,
+        "package_shim_supported_managers",
+        lambda: supported,
+    )
+    monkeypatch.setattr(
+        local_supply_chain_module,
+        "package_shim_dashboard_status",
+        lambda _context: {
+            "shim_dir": str(tmp_path / "shims"),
+            "detected_managers": ["npm", "npx", "pnpm"],
+            "installed_managers": ["npm", "npx"],
+            "active_managers": ["npm", "npx"],
+            "protected_managers": ["npm", "npx"],
+            "missing_managers": ["pnpm"],
+            "path_status": "in_path",
+            "path_contains_shim_dir": True,
+            "restart_shell_required": False,
+            "process_path_status": "in_path",
+            "process_restart_required": False,
+            "shell_profile_configured": True,
+            "shell_profile_path": str(tmp_path / ".bashrc"),
+        },
+    )
+
+    protection = local_supply_chain_module._build_package_manager_protection(GuardStore(tmp_path / "guard-home"))
+
+    assert protection["supported_managers"] == list(supported)
+    assert protection["detected_managers"] == ["npm", "npx", "pnpm"]
+    assert protection["protected_managers"] == ["npm", "npx"]
+    assert protection["unprotected_managers"] == ["pnpm"]
+    assert "brew" not in protection["unprotected_managers"]

@@ -2916,6 +2916,15 @@ class OpenClawAdapter(AgentAdapter):
                                 _wc_sr = obj.get("stagedRef") or obj.get("staged_ref")
                                 if _wc_sr is not None:
                                     extra["stagedRef"] = _wc_sr
+                                _wc_kept = (
+                                    obj.get("keptLocalPaths")
+                                    or obj.get("kept_local_paths")
+                                    or obj.get("cloudWorkerKeptLocal")
+                                    or obj.get("cloud_worker_kept_local")
+                                    or []
+                                )
+                                if isinstance(_wc_kept, list) and _wc_kept:
+                                    extra["keptLocalPaths"] = _wc_kept
                                 _wc_path_str = (
                                     ", ".join(_wc_paths)
                                     if isinstance(_wc_paths, list) and _wc_paths
@@ -2924,6 +2933,53 @@ class OpenClawAdapter(AgentAdapter):
                                 content_text = f"Cloud workspace conflict: {_wc_path_str}"
                                 if _wc_res:
                                     content_text += f" — {_wc_res}"
+                            # Canvas dashboard pin state (#4864): harness PR #124044
+                            # surfaces failed pin events; extract pin state and failure
+                            # reason so the dashboard can show them instead of leaving
+                            # failed pins invisible. Covers camelCase + snake_case aliases
+                            # since the harness has used both in adjacent features.
+                            _canvas_pin_state = (
+                                obj.get("canvasPinState")
+                                or obj.get("canvas_pin_state")
+                                or obj.get("pinState")
+                            )
+                            if _canvas_pin_state is not None:
+                                extra["canvasPinState"] = _canvas_pin_state
+                            _canvas_pin_id = (
+                                obj.get("canvasPinId")
+                                or obj.get("canvas_pin_id")
+                                or obj.get("pinId")
+                                or obj.get("dashboardPinId")
+                            )
+                            if _canvas_pin_id is not None:
+                                extra["canvasPinId"] = str(_canvas_pin_id)
+                            _canvas_pin_reason = (
+                                obj.get("canvasPinFailureReason")
+                                or obj.get("pinFailureReason")
+                                or obj.get("canvas_pin_failure_reason")
+                            )
+                            if _canvas_pin_reason is not None:
+                                extra["canvasPinFailureReason"] = _canvas_pin_reason
+                            _canvas_id = (
+                                obj.get("canvasId")
+                                or obj.get("canvas_id")
+                                or obj.get("dashboardId")
+                            )
+                            if _canvas_id is not None:
+                                extra["canvasId"] = str(_canvas_id)
+                            # Construct a readable content_text for canvas.* events so
+                            # the Brain tab and transcript view show a useful label
+                            # instead of an empty row.
+                            _ev_type_str = str(r[1] or "")
+                            if not content_text and _ev_type_str.startswith("canvas."):
+                                if _canvas_pin_state == "failed":
+                                    content_text = "Canvas pin failed"
+                                    if _canvas_pin_id:
+                                        content_text += f" ({_canvas_pin_id})"
+                                    if _canvas_pin_reason:
+                                        content_text += f": {_canvas_pin_reason}"
+                                elif _canvas_pin_state:
+                                    content_text = f"Canvas pin: {_canvas_pin_state}"
                     except Exception:
                         pass
                 # #2794: DB token_count derives from input+output and under-counts
@@ -3431,6 +3487,16 @@ class OpenClawAdapter(AgentAdapter):
                 _wc_sr = obj.get("stagedRef") or obj.get("staged_ref")
                 if _wc_sr is not None:
                     wc_attrs["conflict.staged_ref"] = _wc_sr
+                _wc_kept = (
+                    obj.get("keptLocalPaths")
+                    or obj.get("kept_local_paths")
+                    or obj.get("cloudWorkerKeptLocal")
+                    or obj.get("cloud_worker_kept_local")
+                    or []
+                )
+                if isinstance(_wc_kept, list) and _wc_kept:
+                    wc_attrs["conflict.kept_local"] = _wc_kept
+                    wc_attrs["conflict.kept_local_count"] = len(_wc_kept)
                 spans.append({
                     "span_id": _sid("workspace.conflict", session_id, str(raw_ts)),
                     "trace_id": trace_id,

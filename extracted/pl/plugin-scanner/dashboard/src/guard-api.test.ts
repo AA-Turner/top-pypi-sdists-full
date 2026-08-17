@@ -1,24 +1,36 @@
+import { readFileSync } from "node:fs";
+
 import {
   buildDemoRuntimeSnapshot,
   clearReviewQueue,
+  fetchCommandActivityApi,
   fetchAllPendingRequests,
   fetchApprovalPage,
+  fetchGuardUpdateStatus,
   GuardHarnessActionError,
+  GuardProtectionRepairError,
+  GuardSessionUnavailableError,
   fetchQueueSummary,
-	  fetchResumeStatus,
-	  formatHarnessCommand,
-	  normalizeRuntimeSnapshot,
-	  normalizeApprovalRequest,
+  fetchRuntimeSnapshot,
+  fetchResumeStatus,
+  formatHarnessCommand,
+  normalizeRuntimeSnapshot,
+  normalizeApprovalRequest,
   parseActionEnvelope,
   parseDecisionV2,
   readGuardToken,
+  readRememberedGuardUpdateChannel,
+  runHarnessAction,
   runPackageFirewallAction,
   runPackageSync,
+  setGuardUpdateChannel,
   startPackageFirewallConnect,
-	  runAuditRemediation,
-	  resolveRequestWithQueueResult,
-	  retryResume,
-	} from "./guard-api";
+  runAuditRemediation,
+  repairSupplyChainProtection,
+  resolveRequestWithQueueResult,
+  retryResume,
+} from "./guard-api";
+import { recommendedScopeForAction } from "./approval-scopes";
 import { resolveCloudSyncHealthCopy } from "./runtime-overview";
 import {
   resolveDecisionV2Detail,
@@ -37,6 +49,131 @@ function assert(condition: unknown, message: string): asserts condition {
 
 const snapshot = buildDemoRuntimeSnapshot();
 
+const localIntegrityRepairError = new GuardProtectionRepairError(409, {
+  error: "local_integrity_repair_incomplete",
+  repair_scope: "local_integrity",
+  message: "Guard could not establish a local integrity proof.",
+});
+assert(
+  localIntegrityRepairError.code === "local_integrity_repair_incomplete" &&
+    localIntegrityRepairError.repairScope === "local_integrity",
+  "protection repair preserves the structured local-integrity failure scope",
+);
+
+const missingRuntimeStateSnapshot = normalizeRuntimeSnapshot({
+  ...snapshot,
+  runtime_state: undefined,
+});
+assert(missingRuntimeStateSnapshot.runtime_state === null, "runtime normalizer rejects missing runtime proof");
+assert(
+  missingRuntimeStateSnapshot.headline_state === "setup",
+  "missing runtime proof cannot produce a protected headline"
+);
+
+const malformedRuntimeStateSnapshot = normalizeRuntimeSnapshot({
+  ...snapshot,
+  runtime_state: { session_id: "unproven" },
+});
+assert(malformedRuntimeStateSnapshot.runtime_state === null, "runtime normalizer rejects malformed runtime proof");
+assert(
+  malformedRuntimeStateSnapshot.headline_state === "setup",
+  "malformed runtime proof cannot produce a protected headline"
+);
+
+const semanticallyInvalidRuntimeStateSnapshot = normalizeRuntimeSnapshot({
+  ...snapshot,
+  runtime_state: {
+    session_id: "unproven",
+    daemon_host: "127.0.0.1",
+    daemon_port: 4455,
+    started_at: "not-a-time",
+    last_heartbeat_at: "not-a-time",
+    approval_center_url: "not-a-url",
+  },
+});
+assert(
+  semanticallyInvalidRuntimeStateSnapshot.runtime_state === null,
+  "runtime normalizer rejects invalid timestamps and endpoint proof"
+);
+assert(
+  semanticallyInvalidRuntimeStateSnapshot.headline_state === "setup",
+  "semantically invalid runtime proof cannot produce a protected headline"
+);
+assert(snapshot.runtime_state !== null, "demo snapshot includes valid runtime proof");
+for (const [label, runtimeState] of [
+  [
+    "non-local approval URL",
+    { ...snapshot.runtime_state, approval_center_url: "https://example.test/" },
+  ],
+  [
+    "stale heartbeat",
+    { ...snapshot.runtime_state, last_heartbeat_at: new Date(Date.now() - 60_000).toISOString() },
+  ],
+  [
+    "timezone-naive heartbeat",
+    { ...snapshot.runtime_state, last_heartbeat_at: "2026-07-18T12:00:00" },
+  ],
+] as const) {
+  const normalized = normalizeRuntimeSnapshot({ ...snapshot, runtime_state: runtimeState });
+  assert(normalized.runtime_state === null, `runtime normalizer rejects ${label}`);
+  assert(normalized.headline_state === "setup", `${label} cannot produce a protected headline`);
+}
+
+const ipv6RuntimeStateSnapshot = normalizeRuntimeSnapshot({
+  ...snapshot,
+  runtime_state: {
+    ...snapshot.runtime_state,
+    daemon_host: "::1",
+    approval_center_url: "http://[::1]:4455",
+  },
+});
+assert(ipv6RuntimeStateSnapshot.runtime_state !== null, "runtime normalizer accepts bracketed IPv6 loopback proof");
+assert(
+  ipv6RuntimeStateSnapshot.headline_state !== "setup",
+  "fresh IPv6 loopback proof does not report the runtime offline"
+);
+
+const normalizedAuthoritySnapshot = normalizeRuntimeSnapshot({
+  ...snapshot,
+  latest_receipts: [
+    {
+      ...snapshot.latest_receipts[0],
+      policy_decision: "future-action",
+    },
+  ],
+  inventory: [
+    {
+      artifact_id: "artifact-unknown-action",
+      harness: "codex",
+      artifact_name: "unknown-action",
+      artifact_type: "mcp_server",
+      source_scope: "project",
+      config_path: ".codex/config.toml",
+      publisher: null,
+      origin_url: null,
+      launch_command: null,
+      transport: "stdio",
+      first_seen_at: "2026-07-18T00:00:00Z",
+      last_seen_at: "2026-07-18T00:00:00Z",
+      last_changed_at: null,
+      last_approved_at: null,
+      removed_at: null,
+      present: true,
+      last_policy_action: "future-action",
+      artifact_hash: "sha256-unknown",
+    },
+  ],
+});
+assert(
+  normalizedAuthoritySnapshot.latest_receipts[0].policy_decision === "require-reapproval" &&
+    normalizedAuthoritySnapshot.latest_receipts[0].decision_contract_error ===
+      "authoritative_decision_inconsistent" &&
+    normalizedAuthoritySnapshot.inventory?.[0].last_policy_action === "require-reapproval" &&
+    normalizedAuthoritySnapshot.inventory?.[0].decision_contract_error ===
+      "authoritative_decision_inconsistent",
+  "P45: runtime receipt and inventory actions fail closed through one normalizer",
+);
+
 const partialSupplyChainSnapshot = normalizeRuntimeSnapshot({
   ...snapshot,
   items: null,
@@ -44,6 +181,8 @@ const partialSupplyChainSnapshot = normalizeRuntimeSnapshot({
   supply_chain: {
     package_manager_protection: {
       path_status: "in_path",
+      supported_managers: ["npm", "pnpm", "cargo"],
+      detected_managers: ["npm", "pnpm"],
       protected_managers: ["npm"],
       restart_shell_required: false,
       shell_profile_configured: false,
@@ -53,6 +192,14 @@ const partialSupplyChainSnapshot = normalizeRuntimeSnapshot({
 assert(
   partialSupplyChainSnapshot.supply_chain?.package_manager_protection.protected_managers.length === 1,
   "T761: runtime normalizer preserves valid supply-chain manager arrays"
+);
+assert(
+  partialSupplyChainSnapshot.supply_chain?.package_manager_protection.detected_managers?.join(",") === "npm,pnpm",
+  "T761: runtime normalizer forwards detected package managers"
+);
+assert(
+  partialSupplyChainSnapshot.supply_chain?.package_manager_protection.supported_managers.join(",") === "npm,pnpm,cargo",
+  "T761: runtime normalizer keeps the support matrix separate from detection"
 );
 assert(
   partialSupplyChainSnapshot.supply_chain?.package_manager_protection.unprotected_managers.length === 0,
@@ -137,6 +284,14 @@ assert(
   "T760: harness setup fallback command should quote spaced args"
 );
 
+for (const source of ["bunx", "guard-cli", "package-firewall"]) {
+  const rejected = await runHarnessAction({ harness: source, action: "install", dryRun: false }).then(
+    () => false,
+    (error: unknown) => error instanceof Error && error.message.includes("not a connectable AI app"),
+  );
+  assert(rejected, `${source} must be rejected before the AI-app harness mutation request`);
+}
+
 assert(snapshot.cloud_pairing_state.state === "paired_waiting", "demo snapshot exposes paired waiting state");
 assert(snapshot.cloud_pairing_state.label === snapshot.cloud_state_label, "demo pairing label matches legacy label");
 assert(snapshot.cloud_pairing_state.detail === snapshot.cloud_state_detail, "demo pairing detail matches legacy detail");
@@ -214,8 +369,62 @@ assert(
   parseActionEnvelope({ ...BASE_ENVELOPE, target_paths: undefined }) === null,
   "T070: missing target_paths falls back to null"
 );
+assert(
+  parseActionEnvelope({ ...BASE_ENVELOPE, pre_execution_result: "future-action" }) === null,
+  "P45: unknown pre-execution action invalidates the envelope",
+);
+
+const parsedBlockedEnvelope = parseActionEnvelope({
+  ...BASE_ENVELOPE,
+  package_intent_kind: "install",
+  package_targets: ["left-pad@1.3.0"],
+  pre_execution_result: "block",
+});
+assert(
+  parsedBlockedEnvelope?.pre_execution_result === "block",
+  "P45: exact pre-execution action survives envelope parsing",
+);
+const cloudActionEnvelopeFixture = JSON.parse(
+  readFileSync(new URL("./test-fixtures/cloud-action-envelope.json", import.meta.url), "utf8"),
+) as unknown;
+const parsedCloudActionEnvelope = parseActionEnvelope(cloudActionEnvelopeFixture);
+assert(
+  parsedCloudActionEnvelope?.policy_action === "sandbox-required" &&
+    parsedCloudActionEnvelope.pre_execution_result === "sandbox-required",
+  "P45: the actual Python cloud envelope fixture round-trips through the dashboard parser",
+);
+for (const [key, value] of [
+  ["actionId", "other-action"],
+  ["actionType", "file_read"],
+  ["policyAction", "block"],
+  ["preExecutionResult", "block"],
+] as const) {
+  assert(
+    parseActionEnvelope({ ...(cloudActionEnvelopeFixture as Record<string, unknown>), [key]: value }) === null,
+    `P45: conflicting documented envelope alias ${key} is rejected`,
+  );
+}
+assert(
+  parsedBlockedEnvelope?.package_intent_kind === "install" &&
+    parsedBlockedEnvelope.package_targets?.[0] === "left-pad@1.3.0",
+  "P45: package intent fields survive envelope parsing",
+);
+assert(
+  parseActionEnvelope({ ...BASE_ENVELOPE, package_targets: ["left-pad", 7] }) === null,
+  "P45: malformed package targets invalidate the envelope",
+);
 
 const parsedShell = parseActionEnvelope({ ...BASE_ENVELOPE, action_type: "shell_command", command: "git diff HEAD~1 -- src/" });
+const parsedCategorizedShell = parseActionEnvelope({
+  ...BASE_ENVELOPE,
+  action_type: "shell_command",
+  command: "opaque-wrapper action",
+  command_category: "command.github",
+});
+assert(
+  parsedCategorizedShell?.command_category === "command.github",
+  "T070: command category survives action-envelope normalization",
+);
 assert(parsedShell !== null && parsedShell.action_type === "shell_command", "T070: valid shell_command envelope parses correctly");
 
 const parsedPrompt = parseActionEnvelope({
@@ -320,7 +529,7 @@ const BASE_REQUEST: GuardApprovalRequest = {
   artifact_type: "command",
   artifact_hash: "sha256-shell",
   publisher: null,
-  policy_action: "require-reapproval",
+  policy_action: "block",
   recommended_scope: "artifact",
   changed_fields: ["first_seen"],
   source_scope: "project",
@@ -347,7 +556,98 @@ assert(
   "T071: detail-route approval payloads normalize malformed envelopes before rendering"
 );
 
+const normalizedScopeContract = normalizeApprovalRequest({
+  ...BASE_REQUEST,
+  scope_contract_version: "guard.approval-scopes.v2",
+  scope_contract_digest: "scope-digest",
+  allowed_scopes_by_action: {
+    allow: ["artifact"],
+    block: ["artifact", "global"],
+  },
+  recommended_scope_by_action: { allow: "artifact", block: "artifact" },
+  scope_restrictions: ["broad_allow_requires_positive_proof"],
+  task_capability_eligibility: {
+    eligible: false,
+    reason_codes: ["task_capability_not_enabled"],
+  },
+});
+assert(
+  normalizedScopeContract.allowed_scopes_by_action?.allow.join(",") === "artifact" &&
+    normalizedScopeContract.allowed_scopes_by_action?.block.join(",") === "artifact,global",
+  "T071a: approval scope contracts normalize action-specific scope lists",
+);
+assert(
+  normalizedScopeContract.task_capability_eligibility?.eligible === false,
+  "T071a: task capability eligibility is preserved",
+);
+
+const malformedScopeContract = normalizeApprovalRequest({
+  ...BASE_REQUEST,
+  scope_contract_version: "guard.approval-scopes.v2",
+  scope_contract_digest: "scope-digest",
+  allowed_scopes_by_action: {
+    allow: ["artifact", "invented"],
+    block: "global",
+  },
+  recommended_scope_by_action: { allow: "global", block: "invented" },
+});
+assert(
+  malformedScopeContract.allowed_scopes_by_action?.allow.length === 0 &&
+    malformedScopeContract.allowed_scopes_by_action?.block.length === 0,
+  "T071b: malformed action scope lists fail closed",
+);
+assert(
+  malformedScopeContract.recommended_scope_by_action?.allow === "global" &&
+    malformedScopeContract.recommended_scope_by_action?.block === null,
+  "T071b: malformed recommendations normalize without inventing values",
+);
+assert(
+  recommendedScopeForAction(malformedScopeContract, "allow") === null,
+  "T071b: a recommendation outside the action allow-list stays inert",
+);
+
+const incompleteScopeContract = normalizeApprovalRequest({
+  ...BASE_REQUEST,
+  scope_contract_version: "guard.approval-scopes.v2",
+  scope_contract_digest: null,
+  allowed_scopes_by_action: {
+    allow: ["artifact", "global"],
+    block: ["artifact", "global"],
+  },
+  recommended_scope_by_action: { allow: "global", block: "global" },
+});
+assert(
+  incompleteScopeContract.allowed_scopes_by_action?.allow.length === 0 &&
+    incompleteScopeContract.allowed_scopes_by_action?.block.length === 0,
+  "T071c: incomplete scope contract bindings expose no action scopes",
+);
+assert(
+  incompleteScopeContract.recommended_scope_by_action?.allow === null &&
+    incompleteScopeContract.recommended_scope_by_action?.block === null,
+  "T071c: incomplete scope contract bindings expose no recommendations",
+);
+
+const nullScopeContract = normalizeApprovalRequest({
+  ...BASE_REQUEST,
+  scope_contract_version: null,
+  scope_contract_digest: null,
+  allowed_scopes_by_action: null,
+  recommended_scope_by_action: null,
+  scope_restrictions: null,
+  task_capability_eligibility: null,
+});
+assert(
+  nullScopeContract.scope_contract_version === undefined &&
+    nullScopeContract.scope_contract_digest === undefined &&
+    nullScopeContract.allowed_scopes_by_action === undefined &&
+    nullScopeContract.recommended_scope_by_action === undefined &&
+    nullScopeContract.scope_restrictions === undefined &&
+    nullScopeContract.task_capability_eligibility === undefined,
+  "T071d: null-only scope metadata remains absent instead of rendering empty scope sections",
+);
+
 const BASE_DECISION_V2: GuardDecisionV2 = {
+  guard_action: "block",
   action: "block",
   reason: "Credential file access detected",
   user_title: "Wants to read a credential file",
@@ -380,9 +680,27 @@ assert(parseDecisionV2(null) === null, "T080: null decision_v2_json falls back t
 assert(parseDecisionV2({}) === null, "T080: empty object falls back to null");
 assert(parseDecisionV2("block") === null, "T080: string decision_v2_json falls back to null");
 assert(
+  parseDecisionV2({ ...BASE_DECISION_V2, guard_action: undefined }) === null,
+  "P45: missing exact Guard action invalidates DecisionV2",
+);
+assert(
+  parseDecisionV2({ ...BASE_DECISION_V2, guard_action: "future-action" }) === null,
+  "P45: unknown exact Guard action invalidates DecisionV2",
+);
+assert(
   parseDecisionV2({ ...BASE_DECISION_V2, action: "unknown_action" }) === null,
   "T080: invalid action value falls back to null"
 );
+assert(
+  parseDecisionV2({ ...BASE_DECISION_V2, guard_action: "allow", action: "block" }) === null,
+  "P45: contradictory exact and product DecisionV2 actions are rejected",
+);
+for (const guardAction of ["review", "require-reapproval", "sandbox-required"] as const) {
+  assert(
+    parseDecisionV2({ ...BASE_DECISION_V2, guard_action: guardAction, action: "ask" }) !== null,
+    `P45: ${guardAction} projects exactly to the legacy ask action`,
+  );
+}
 assert(
   parseDecisionV2({ ...BASE_DECISION_V2, confidence: "unsure" }) === null,
   "T080: invalid confidence value falls back to null"
@@ -407,6 +725,7 @@ assert(
 
 const parsedDecisionV2 = parseDecisionV2(BASE_DECISION_V2);
 assert(parsedDecisionV2 !== null, "T080: valid decision_v2 object parses correctly");
+assert(parsedDecisionV2?.guard_action === "block", "P45: parsed DecisionV2 preserves the exact Guard action");
 assert(parsedDecisionV2?.action === "block", "T080: parsed action matches source");
 assert(parsedDecisionV2?.user_title === "Wants to read a credential file", "T080: parsed user_title matches source");
 assert(parsedDecisionV2?.dashboard_primary_detail === "cat ~/.aws/credentials", "T080: parsed dashboard_primary_detail matches source");
@@ -414,6 +733,14 @@ assert(parsedDecisionV2?.confidence === "strong", "T080: parsed confidence match
 assert(parsedDecisionV2?.retry_instruction === null, "T080: null retry_instruction preserved");
 assert(parsedDecisionV2?.signals.length === 1, "T080: signals array length preserved");
 assert(parsedDecisionV2?.signals[0].signal_id === "secret:filesystem:env", "T080: signal_id preserved");
+assert(
+  parseDecisionV2({ ...BASE_DECISION_V2, final_action: "allow" }) === null,
+  "P45: DecisionV2 rejects hidden action-bearing aliases",
+);
+assert(
+  parseActionEnvelope({ ...BASE_ENVELOPE, final_action: "block" }) === null,
+  "P45: typed action envelopes reject hidden action-bearing aliases",
+);
 
 const normalizedWithV2 = normalizeApprovalRequest({ ...BASE_REQUEST, decision_v2_json: BASE_DECISION_V2 });
 assert(normalizedWithV2.decision_v2_json !== null, "T081: valid decision_v2_json normalizes to non-null");
@@ -427,6 +754,164 @@ const normalizedMalformedV2 = normalizeApprovalRequest({
   decision_v2_json: { action: "not-a-real-action" }
 });
 assert(normalizedMalformedV2.decision_v2_json === null, "T081: malformed decision_v2_json normalizes to null");
+assert(
+  normalizedMalformedV2.decision_contract_error === "authoritative_decision_inconsistent",
+  "P45: malformed decision v2 is flagged as a contract error",
+);
+
+const normalizedContradictoryV2 = normalizeApprovalRequest({
+  ...BASE_REQUEST,
+  policy_action: "require-reapproval",
+  decision_v2_json: BASE_DECISION_V2,
+});
+assert(
+  normalizedContradictoryV2.policy_action === "block" &&
+    normalizedContradictoryV2.decision_v2_json === null &&
+    normalizedContradictoryV2.decision_contract_error === "authoritative_decision_inconsistent",
+  "P45: dashboard flags and suppresses copy from contradictory action fields",
+);
+
+const normalizedExactActionContradiction = normalizeApprovalRequest({
+  ...BASE_REQUEST,
+  policy_action: "review",
+  decision_v2_json: {
+    ...BASE_DECISION_V2,
+    guard_action: "require-reapproval",
+    action: "ask",
+  },
+});
+assert(
+  normalizedExactActionContradiction.decision_v2_json === null &&
+    normalizedExactActionContradiction.decision_contract_error === "authoritative_decision_inconsistent",
+  "P45: exact review and reapproval actions cannot hide behind the same legacy ask projection",
+);
+
+for (const [guardAction, productAction] of [
+  ["allow", "allow"],
+  ["warn", "warn"],
+  ["review", "ask"],
+  ["require-reapproval", "ask"],
+  ["sandbox-required", "ask"],
+  ["block", "block"],
+] as const) {
+  const normalized = normalizeApprovalRequest({
+    ...BASE_REQUEST,
+    policy_action: guardAction,
+    decision_v2_json: {
+      ...BASE_DECISION_V2,
+      guard_action: guardAction,
+      action: productAction,
+    },
+  });
+  assert(
+    normalized.decision_v2_json?.guard_action === guardAction && normalized.decision_contract_error === undefined,
+    `P45: exact ${guardAction} DecisionV2 survives normalization`,
+  );
+}
+
+const normalizedUnknownAction = normalizeApprovalRequest({
+  ...BASE_REQUEST,
+  policy_action: "future-action",
+});
+assert(
+  normalizedUnknownAction.policy_action === "require-reapproval" &&
+    normalizedUnknownAction.decision_contract_error === "authoritative_decision_inconsistent",
+  "P45: unknown approval actions fail closed to review",
+);
+
+const normalizedContradictoryEnvelope = normalizeApprovalRequest({
+  ...BASE_REQUEST,
+  policy_action: "require-reapproval",
+  action_envelope_json: { ...BASE_ENVELOPE, pre_execution_result: "block" },
+});
+assert(
+  normalizedContradictoryEnvelope.action_envelope_json === null &&
+    normalizedContradictoryEnvelope.decision_contract_error === "authoritative_decision_inconsistent",
+  "P45: approval normalization suppresses an envelope with contradictory authority",
+);
+
+const normalizedMalformedEnvelope = normalizeApprovalRequest({
+  ...BASE_REQUEST,
+  action_envelope_json: ["not-an-envelope"],
+});
+assert(
+  normalizedMalformedEnvelope.action_envelope_json === null &&
+    normalizedMalformedEnvelope.decision_contract_error === "authoritative_decision_inconsistent",
+  "P45: approval normalization flags a malformed non-null envelope",
+);
+
+const contradictoryReceiptSnapshot = normalizeRuntimeSnapshot({
+  ...snapshot,
+  latest_receipts: [
+    {
+      ...snapshot.latest_receipts[0],
+      policy_decision: "allow",
+      action_envelope_json: { ...BASE_ENVELOPE, pre_execution_result: "block" },
+    },
+  ],
+});
+assert(
+  contradictoryReceiptSnapshot.latest_receipts[0].policy_decision === "block" &&
+    contradictoryReceiptSnapshot.latest_receipts[0].action_envelope_json === null &&
+    contradictoryReceiptSnapshot.latest_receipts[0].decision_contract_error ===
+      "authoritative_decision_inconsistent",
+  "P45: receipt normalization suppresses an envelope with contradictory authority",
+);
+
+const serverFlaggedAllowSnapshot = normalizeRuntimeSnapshot({
+  ...snapshot,
+  latest_receipts: [
+    {
+      ...snapshot.latest_receipts[0],
+      policy_decision: "allow",
+      decision_contract_error: "authoritative_decision_inconsistent",
+    },
+  ],
+});
+assert(
+  serverFlaggedAllowSnapshot.latest_receipts[0].policy_decision === "require-reapproval" &&
+    serverFlaggedAllowSnapshot.latest_receipts[0].decision_contract_error ===
+      "authoritative_decision_inconsistent",
+  "P45: server-flagged receipt contradictions can never render as Allowed",
+);
+
+const {
+  decision_contract_error: _ignoredInventoryContractError,
+  ...legacyAskInventory
+} = normalizedAuthoritySnapshot.inventory![0];
+const legacyAskSnapshot = normalizeRuntimeSnapshot({
+  ...snapshot,
+  latest_receipts: [{ ...snapshot.latest_receipts[0], policy_decision: "ask" }],
+  inventory: [{ ...legacyAskInventory, last_policy_action: "ask" }],
+});
+assert(
+  legacyAskSnapshot.latest_receipts[0].policy_decision === "review" &&
+    legacyAskSnapshot.latest_receipts[0].decision_contract_error === undefined &&
+    legacyAskSnapshot.inventory?.[0].last_policy_action === "review" &&
+    legacyAskSnapshot.inventory?.[0].decision_contract_error === undefined,
+  "P45: legacy ask has one exact review projection across receipt and inventory surfaces",
+);
+
+const compatibleLegacyPackageReceiptSnapshot = normalizeRuntimeSnapshot({
+  ...snapshot,
+  latest_receipts: [
+    {
+      ...snapshot.latest_receipts[0],
+      policy_decision: "allow",
+      action_envelope_json: {
+        package_manager: "npm",
+        package_targets: ["left-pad@1.3.0"],
+        policy_action: "allow",
+        redacted_command: "npm install left-pad@1.3.0",
+      },
+    },
+  ],
+});
+assert(
+  compatibleLegacyPackageReceiptSnapshot.latest_receipts[0].action_envelope_json === null &&
+    compatibleLegacyPackageReceiptSnapshot.latest_receipts[0].decision_contract_error === undefined,
+  "P45: historical package receipt metadata remains compatible without pretending to be a typed envelope",
+);
 
 const normalizedMissingV2 = normalizeApprovalRequest({ ...BASE_REQUEST });
 assert(normalizedMissingV2.decision_v2_json === null, "T081: absent decision_v2_json normalizes to null");
@@ -756,6 +1241,57 @@ assert(
   "L078ad: fetchApprovalPage falls back to sessionStorage when localStorage is unavailable"
 );
 
+installGuardWindow("?guardDaemon=http%3A%2F%2F127.0.0.1%3A4781");
+{
+  const noTokenCalls = installFetchStub({});
+  const approvalPageError = await fetchApprovalPage().then(
+    () => null,
+    (error: unknown) => error
+  );
+  assert(
+    approvalPageError instanceof GuardSessionUnavailableError,
+    "L078ae-no-token: fetchApprovalPage rejects with GuardSessionUnavailableError when no session token is available"
+  );
+  const snapshotError = await fetchRuntimeSnapshot().then(
+    () => null,
+    (error: unknown) => error
+  );
+  assert(
+    snapshotError instanceof GuardSessionUnavailableError,
+    "L078af-no-token: fetchRuntimeSnapshot rejects with GuardSessionUnavailableError when no session token is available"
+  );
+  assert(
+    noTokenCalls.length === 0,
+    "L078ag-no-token: auth-required fetches issue no HTTP requests when the dashboard session token is missing"
+  );
+}
+
+const updateChannelStorage = new Map<string, string>();
+installGuardWindow("?guardDaemon=http%3A%2F%2F127.0.0.1%3A4781", { localStorage: updateChannelStorage });
+installFetchStub({
+  "/v1/update/channel": { release_channel: "alpha" },
+});
+const selectedUpdateChannel = await setGuardUpdateChannel("alpha");
+assert(selectedUpdateChannel.release_channel === "alpha", "L078ae: update channel save returns alpha");
+assert(readRememberedGuardUpdateChannel() === "alpha", "L078af: successful channel save is remembered");
+
+installGuardWindow("?guardDaemon=http%3A%2F%2F127.0.0.1%3A4781", { localStorage: updateChannelStorage });
+installFetchStub({
+  "/v1/update/status": { current_version: "2.2.0a68" },
+});
+const reloadedUpdateChannel = await fetchGuardUpdateStatus();
+assert(
+  reloadedUpdateChannel.release_channel === "alpha",
+  "L078ag: remembered alpha channel survives a reload when status omits the channel",
+);
+
+installFetchStub({
+  "/v1/update/status": { current_version: "2.2.0a68", release_channel: "stable" },
+});
+const authoritativeStableChannel = await fetchGuardUpdateStatus();
+assert(authoritativeStableChannel.release_channel === "stable", "L078ah: daemon status remains authoritative");
+assert(readRememberedGuardUpdateChannel() === "stable", "L078ai: daemon status reconciles remembered channel");
+
 installGuardWindow("?guard-token=token-pending-pages&guardDaemon=http%3A%2F%2F127.0.0.1%3A4781");
 const codexPageItem: GuardApprovalRequest = {
   ...BASE_REQUEST,
@@ -768,6 +1304,10 @@ const claudePageItem: GuardApprovalRequest = {
   harness: "claude-code",
 };
 const pendingPageCalls: RecordedFetch[] = [];
+let releaseSecondPendingPage: (() => void) | undefined;
+const secondPendingPageGate = new Promise<void>((resolve) => {
+  releaseSecondPendingPage = resolve;
+});
 globalThis.fetch = async (input: RequestInfo | URL, init?: RequestInit): Promise<Response> => {
   const url = input instanceof Request ? input.url : String(input);
   pendingPageCalls.push({ url, init });
@@ -789,6 +1329,7 @@ globalThis.fetch = async (input: RequestInfo | URL, init?: RequestInit): Promise
     );
   }
   if (cursor === "cursor-page-2") {
+    await secondPendingPageGate;
     return new Response(
       JSON.stringify({
         items: [claudePageItem],
@@ -803,8 +1344,29 @@ globalThis.fetch = async (input: RequestInfo | URL, init?: RequestInit): Promise
   return new Response(JSON.stringify({ error: "invalid_cursor" }), { status: 400 });
 };
 
-const pendingItems = await fetchAllPendingRequests();
+const progressivePendingPages: number[] = [];
+let publishFirstPendingPage: (() => void) | undefined;
+const firstPendingPagePublished = new Promise<void>((resolve) => {
+  publishFirstPendingPage = resolve;
+});
+const pendingItemsPromise = fetchAllPendingRequests((items) => {
+  progressivePendingPages.push(items.length);
+  if (items.length === 1) {
+    publishFirstPendingPage?.();
+  }
+});
+await firstPendingPagePublished;
+assert(
+  progressivePendingPages.join(",") === "1",
+  "L078b: fetchAllPendingRequests publishes the first page before the next page responds"
+);
+releaseSecondPendingPage?.();
+const pendingItems = await pendingItemsPromise;
 assert(pendingItems.length === 2, "L078b: fetchAllPendingRequests aggregates pending pages");
+assert(
+  progressivePendingPages.join(",") === "1,2",
+  "L078b: fetchAllPendingRequests publishes each accumulated page for progressive rendering"
+);
 assert(
   pendingItems.some((item) => item.harness === "claude-code"),
   "L078b: fetchAllPendingRequests includes later-page harnesses"
@@ -1101,7 +1663,7 @@ const fetchResolveCalls = installFetchStub({
     next_selectable_request_id: "req-next",
     remaining_pending_summaries: [{ ...pageItem, request_id: "req-next" }],
     resolved_duplicate_ids: ["req-dupe"],
-    resolution_summary: "Decision saved. 1 blocked action remains.",
+    resolution_summary: "Decision saved. 1 action is awaiting a decision.",
     retry_hint: "Retry the action in your AI assistant if you approved it.",
     copy: {
       title: "Approved. Retry in chat.",
@@ -1115,7 +1677,13 @@ const resolution = await resolveRequestWithQueueResult({
   action: "allow",
   scope: "artifact",
   workspace: "/workspace",
-  reason: "reviewed"
+  reason: "reviewed",
+  scope_contract_version: "guard.approval-scopes.v2",
+  scope_contract_digest: "scope-digest",
+  mcp_grant_target: "category",
+  mcp_grant_duration: "5h",
+  local_tool_grant_target: "capability",
+  local_tool_grant_duration: "1h",
 });
 const resolveBody = JSON.parse(String(fetchResolveCalls[0].init?.body)) as Record<string, unknown>;
 
@@ -1127,6 +1695,20 @@ assert(
 assert(resolveBody["scope"] === "artifact", "L077: resolveRequestWithQueueResult sends scope");
 assert(resolveBody["workspace"] === "/workspace", "L077: resolveRequestWithQueueResult sends workspace");
 assert(resolveBody["reason"] === "reviewed", "L077: resolveRequestWithQueueResult sends reason");
+assert(
+  resolveBody["scope_contract_version"] === "guard.approval-scopes.v2" &&
+    resolveBody["scope_contract_digest"] === "scope-digest",
+  "L077: resolveRequestWithQueueResult binds the displayed scope contract",
+);
+assert(
+  resolveBody["mcp_grant_target"] === "category" && resolveBody["mcp_grant_duration"] === "5h",
+  "L077: resolveRequestWithQueueResult binds the selected temporary MCP grant",
+);
+assert(
+  resolveBody["local_tool_grant_target"] === "capability" &&
+    resolveBody["local_tool_grant_duration"] === "1h",
+  "L077: resolveRequestWithQueueResult binds the selected trusted local tool grant",
+);
 assert(resolution.remaining_pending_count === 1, "L077: resolveRequestWithQueueResult returns remaining count");
 assert(resolution.next_selectable_request_id === "req-next", "L077: resolveRequestWithQueueResult returns next selectable id");
 assert(resolution.remaining_pending_summaries[0].request_id === "req-next", "L077: resolveRequestWithQueueResult normalizes remaining summaries");
@@ -1434,5 +2016,63 @@ assert(
   headerValue(retryResumeCalls[2].init, "X-Guard-Dashboard-Session") === "fresh-retry-resume-session",
   "L080: retryResume retry uses refreshed dashboard session"
 );
+
+let hostileCommandActivityFetches = 0;
+globalThis.fetch = async (): Promise<Response> => {
+  hostileCommandActivityFetches += 1;
+  return Response.json({});
+};
+let hostileCommandActivityError: unknown;
+try {
+  await fetchCommandActivityApi("https://attacker.example/v1/command-activity");
+} catch (error) {
+  hostileCommandActivityError = error;
+}
+assert(hostileCommandActivityError instanceof Error, "absolute command activity URLs are rejected");
+assert(hostileCommandActivityFetches === 0, "rejected URLs cannot receive the dashboard session token");
+
+hostileCommandActivityError = null;
+try {
+  await fetchCommandActivityApi("/v1/command-activity/../../settings");
+} catch (error) {
+  hostileCommandActivityError = error;
+}
+assert(hostileCommandActivityError instanceof Error, "command activity path traversal is rejected");
+assert(hostileCommandActivityFetches === 0, "path traversal cannot receive the dashboard session token");
+
+installGuardWindow("?guard-token=supply-chain-repair-token&guardDaemon=http%3A%2F%2F127.0.0.1%3A4781");
+globalThis.fetch = async (): Promise<Response> =>
+  Response.json({
+    result: {
+      completed_steps: ["intelligence_sync", "package_shims", "runtime_activation"],
+      failed_steps: [],
+      message: "Supply-chain repair finished.",
+    },
+  });
+const compatibleRepair = await repairSupplyChainProtection();
+assert(compatibleRepair.repaired, "complete legacy repair responses are successful");
+
+globalThis.fetch = async (): Promise<Response> =>
+  Response.json({
+    result: {
+      repaired: false,
+      completed_steps: ["intelligence_sync", "package_shims", "runtime_activation"],
+      failed_steps: [],
+      message: "Supply-chain repair incomplete.",
+    },
+  });
+const explicitlyIncompleteRepair = await repairSupplyChainProtection();
+assert(!explicitlyIncompleteRepair.repaired, "explicit incomplete repair state remains authoritative");
+
+globalThis.fetch = async (): Promise<Response> =>
+  Response.json({
+    result: {
+      completed_steps: ["package_shims", "runtime_activation"],
+      failed_steps: [],
+      message: "Supply-chain repair incomplete.",
+    },
+  });
+const partialLegacyRepair = await repairSupplyChainProtection();
+assert(!partialLegacyRepair.repaired, "partial legacy repair responses remain incomplete");
 
 console.log("guard-api.test.ts: all tests passed");

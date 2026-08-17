@@ -119,7 +119,8 @@ class TestGuardProductFlow:
         assert codex_summary["next_action"] == "install"
         assert codex_summary["approval_flow"]["prompt_channel"] == "native"
         assert codex_summary["approval_flow"]["auto_open_browser"] is False
-        assert "native Codex Bash hooks" in codex_summary["approval_flow"]["summary"]
+        assert "native Codex PreToolUse hooks" in codex_summary["approval_flow"]["summary"]
+        assert "authoritative complete-command boundary" in codex_summary["approval_flow"]["summary"]
         assert "same-chat approvals" in codex_summary["approval_flow"]["summary"]
         assert output["next_steps"][0]["command"] == "hol-guard install codex"
         assert output["next_steps"][1]["command"] == "hol-guard run codex --dry-run"
@@ -181,7 +182,6 @@ args = ["workspace-skill.js", "--changed"]
 
         monkeypatch.setattr("codex_plugin_scanner.guard.cli.commands.sync_receipts", fail_cloud_call)
         monkeypatch.setattr("codex_plugin_scanner.guard.cli.commands.sync_runtime_session", fail_cloud_call)
-        monkeypatch.setattr("codex_plugin_scanner.guard.cli.commands.webbrowser.open", fail_cloud_call)
 
         rc = main(
             [
@@ -335,6 +335,7 @@ args = ["workspace-skill.js", "--changed"]
         assert rc == 0
         assert output["cloud_state"] == "local_only"
         assert output["sync_configured"] is False
+        assert "Guard Cloud is optional" in output["cloud_state_detail"]
         assert output["connect_url"] == "https://hol.org/guard/connect"
         assert output["dashboard_url"] == "https://hol.org/guard"
         assert output["inbox_url"] == "https://hol.org/guard/inbox"
@@ -456,7 +457,7 @@ args = ["workspace-skill.js", "--changed"]
         monkeypatch.setattr(sys, "argv", ["hol-guard"])
 
         with pytest.raises(SystemExit) as excinfo:
-            main(["guard", "--help"])
+            main(["--help"])
 
         output = capsys.readouterr().out
 
@@ -539,7 +540,8 @@ args = ["workspace-skill.js", "--changed"]
 
         assert rc == 0
         assert output["cloud_state"] == "paired_waiting"
-        assert "stays locally protected" in output["cloud_state_detail"]
+        assert "Local Guard remains available" in output["cloud_state_detail"]
+        assert "protected" not in output["cloud_state_detail"].lower()
         assert "needs repair before the first shared proof can land" not in output["cloud_state_detail"]
 
     def test_guard_status_reports_post_sync_reauth_as_local_only(self, tmp_path, capsys):

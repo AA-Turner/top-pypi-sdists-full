@@ -68,6 +68,7 @@ dev = [
     "playwright>=1.40.0",
     "pytest-playwright>=0.4.0",
     "pytest-xdist>=3.0.0",
+    "pytest-split>=0.8.0",
 ]
 examples = [
     "viser[urdf]",
@@ -121,6 +122,8 @@ lint.ignore = [
     "PLR2004",  # Magic value used in comparison.
     "PLR0915",  # Too many statements.
     "PLR0913",  # Too many arguments.
+    "PLR0917",  # Too many positional arguments. (stabilized in newer ruff; same intent as PLR0913 above)
+    "PLW0108",  # Lambda may be unnecessary. (stabilized in newer ruff; flags pre-existing callback-style lambdas)
     "PLC0414",  # Import alias does not rename variable. (this is used for exporting names)
     "PLC0415",  # Import should be at the top-level of a file.
     "PLC1901",  # Use falsey strings.

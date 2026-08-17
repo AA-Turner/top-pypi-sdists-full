@@ -1,8 +1,9 @@
 import collections
+import json
 import os
 from datetime import datetime, timedelta
 from pathlib import Path
-from typing import TYPE_CHECKING, Collection, Iterable, List, Optional, Sequence, Tuple
+from typing import TYPE_CHECKING, Any, Collection, Dict, Iterable, List, Optional, Sequence, Tuple
 
 if TYPE_CHECKING:
     from chalk.features.feature_set import Features
@@ -49,6 +50,7 @@ from chalk.parsed._proto.utils import (
 from chalk.parsed._proto.validation import validate_artifacts
 from chalk.parsed.to_proto import ToProtoConverter
 from chalk.parsed.user_types_to_json import get_lsp_gql
+from chalk.queries.data_quality import check_specs
 from chalk.queries.materialized_feature_view import MATERIALIZED_FEATURE_VIEW_REGISTRY
 from chalk.queries.named_query import NAMED_QUERY_REGISTRY
 from chalk.queries.scheduled_aggregate_backfill import SCHEDULED_AGGREGATE_BACKFILL_REGISTRY, AggregateBackfillTarget
@@ -379,6 +381,11 @@ def export_from_registries(
                 environment_override=cron.environment,
                 dataset_name=cron.dataset_name,
                 write_to=(ProtoOfflineQueryWriteTo(uri=cron.write_to) if cron.write_to is not None else None),
+                # Checks declared with `with_checks(...)`, serialized so the engine can read
+                # them off the query. This is the only way they reach it: the engine builds its
+                # graph from this artifact and never imports this module, so the in-process
+                # registry `_register_with_engine` populates is empty on its side.
+                data_quality_check_specs=[json.dumps(spec) for spec in check_specs({cron.name: cron})],
             )
         )
 
@@ -408,6 +415,13 @@ def export_from_registries(
             AggregateBackfillTarget.OFFLINE: cron_aggregate_backfill_pb.CRON_AGGREGATE_BACKFILL_TARGET_OFFLINE,
         }
         proto_targets = [proto_target_by_storage_target[target] for target in backfill.targets]
+        # environment/num_shards are passed only when set; the proto fields are added in
+        # artifacts.v1.CronAggregateBackfill (Layer 2) and None would raise on older stubs.
+        optional_backfill_fields: Dict[str, Any] = {}
+        if backfill.environment is not None:
+            optional_backfill_fields["environment"] = backfill.environment
+        if backfill.num_shards is not None:
+            optional_backfill_fields["num_shards"] = backfill.num_shards
         cron_aggregate_backfills.append(
             cron_aggregate_backfill_pb.CronAggregateBackfill(
                 name=backfill.name,
@@ -434,9 +448,7 @@ def export_from_registries(
                 ),
                 allow_empty_tiles=backfill.allow_empty_tiles,
                 planner_options=backfill.planner_options,
-                # environment is passed only when set; the proto field is added in
-                # artifacts.v1.CronAggregateBackfill (Layer 2) and None would raise on older stubs.
-                **({"environment": backfill.environment} if backfill.environment is not None else {}),
+                **optional_backfill_fields,
             )
         )
 

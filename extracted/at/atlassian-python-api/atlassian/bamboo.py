@@ -82,7 +82,10 @@ class Bamboo(AtlassianRestAPI):
         if clover_enabled:
             flags.append("cloverEnabled")
         if label:
-            params["label"] = label
+            # Requests serializes a sequence value as repeated query
+            # parameters (``label=one&label=two``), which is the Bamboo REST
+            # API representation for filtering by multiple labels.
+            params["label"] = label if isinstance(label, str) else list(label)
         params.update(kwargs)
         if "elements_key" in kwargs and "element_key" in kwargs:
             return self._get_generator(
@@ -226,6 +229,59 @@ class Bamboo(AtlassianRestAPI):
             params["expand"] = expand
         resource = f"rest/api/latest/plan/{plan_key}"
         return self.get(resource, params=params)
+
+    def get_plan_specs(self, plan_key, package=None, format="YAML"):
+        """Export a plan as Bamboo Specs source code.
+
+        Bamboo does not provide a repositories-only REST endpoint. The
+        response's ``spec.code`` field contains the plan definition, including
+        its ``repositories`` section. ``YAML`` is the most convenient format
+        for repository audits; Bamboo also supports ``JAVA`` on compatible
+        releases.
+
+        :param plan_key: Full plan key, for example ``PROJECT-PLAN``.
+        :param package: Optional Java package name when exporting Java Specs.
+        :param format: Export format, normally ``YAML`` or ``JAVA``.
+        :return: The ``RestPlanSpec`` response containing ``spec.code``.
+        """
+        params = {"format": format}
+        if package is not None:
+            params["package"] = package
+        return self.get(self.resource_url(f"plan/{plan_key}/specs"), params=params)
+
+    def search_linked_repositories(self, search_term=None):
+        """Search globally configured Bamboo linked repositories.
+
+        The public Bamboo REST API can search existing linked repositories but
+        does not create or update their connection configuration. Create those
+        connections in Bamboo administration, then use the returned repository
+        ID with :meth:`link_repository_to_project`.
+
+        :param search_term: Optional repository-name fragment.
+        :return: Bamboo's paged linked-repository response.
+        """
+        params = {}
+        if search_term is not None:
+            params["searchTerm"] = search_term
+        return self.get(self.resource_url("repository"), params=params)
+
+    def get_project_linked_repositories(self, project_key):
+        """Return linked repositories authorized for Bamboo Specs in a project."""
+        return self.get(self.resource_url(f"project/{project_key}/repository"))
+
+    def link_repository_to_project(self, project_key, repository_id):
+        """Authorize an existing linked repository for Bamboo Specs in a project.
+
+        This grants a repository-stored Bamboo Specs repository permission to
+        create or edit plans in ``project_key``. It does not change the
+        repositories checked out by an existing plan; update and apply that
+        plan's Bamboo Specs for plan-level repository changes.
+        """
+        return self.post(self.resource_url(f"project/{project_key}/repository"), data={"id": repository_id})
+
+    def unlink_repository_from_project(self, project_key, repository_id):
+        """Remove a project-level Bamboo Specs repository authorization."""
+        return self.delete(self.resource_url(f"project/{project_key}/repository/{repository_id}"))
 
     def search_plans(self, search_term, fuzzy=True, start_index=0, max_results=25):
         """
@@ -397,6 +453,7 @@ class Bamboo(AtlassianRestAPI):
         start_index=0,
         max_results=25,
         include_all_states=False,
+        build_state=None,
     ):
         """
         Get results as generic method
@@ -408,10 +465,12 @@ class Bamboo(AtlassianRestAPI):
         :param favourite:
         :param clover_enabled:
         :param issue_key:
-        :param label:
+        :param label: A label string or an iterable of labels.
         :param start_index:
         :param max_results:
         :param include_all_states:
+        :param build_state: Optional Bamboo result state, such as
+            ``Successful`` or ``Failed``.
         :return:
         """
         resource = "result"
@@ -429,6 +488,8 @@ class Bamboo(AtlassianRestAPI):
             params["issueKey"] = issue_key
         if include_all_states:
             params["includeAllStates"] = include_all_states
+        if build_state is not None:
+            params["buildstate"] = build_state
         return self.base_list_call(
             resource,
             expand=expand,
@@ -525,6 +586,7 @@ class Bamboo(AtlassianRestAPI):
         start_index=0,
         max_results=25,
         include_all_states=False,
+        build_state=None,
     ):
         """
         Get Plan results
@@ -538,6 +600,8 @@ class Bamboo(AtlassianRestAPI):
         :param start_index:
         :param max_results:
         :param include_all_states:
+        :param build_state: Optional Bamboo result state, such as
+            ``Successful`` or ``Failed``.
         :return:
         """
         return self.results(
@@ -551,7 +615,70 @@ class Bamboo(AtlassianRestAPI):
             start_index=start_index,
             max_results=max_results,
             include_all_states=include_all_states,
+            build_state=build_state,
         )
+
+    def ordered_plan_results(
+        self,
+        project_key,
+        plan_key,
+        order="descending",
+        build_state=None,
+        max_results=25,
+        **kwargs,
+    ):
+        """Return retrieved plan results ordered by completion time.
+
+        Bamboo's result API does not expose a server-side sort parameter. This
+        helper orders the result page client-side by ``buildCompletedTime``.
+        Set ``max_results`` high enough to include the history being compared;
+        this method returns a list rather than the lazy generator returned by
+        :meth:`plan_results`.
+
+        :param order: ``"ascending"`` for oldest first or ``"descending"``
+            for newest first.
+        :param build_state: Optional ``Successful`` or ``Failed`` filter.
+        :param max_results: Number of results Bamboo should return to sort.
+        :return: A list of build results ordered by completion time.
+        """
+        if order not in {"ascending", "descending"}:
+            raise ValueError("order must be 'ascending' or 'descending'")
+
+        results = self.plan_results(
+            project_key,
+            plan_key,
+            build_state=build_state,
+            max_results=max_results,
+            **kwargs,
+        )
+        return sorted(
+            results,
+            key=lambda result: result.get("buildCompletedTime") or "",
+            reverse=order == "descending",
+        )
+
+    def latest_successful_plan_result(self, project_key, plan_key, max_results=25, **kwargs):
+        """Return the newest successful plan result, or ``None`` when absent."""
+        results = self.ordered_plan_results(
+            project_key,
+            plan_key,
+            build_state="Successful",
+            max_results=max_results,
+            **kwargs,
+        )
+        return results[0] if results else None
+
+    def oldest_failed_plan_result(self, project_key, plan_key, max_results=25, **kwargs):
+        """Return the oldest failed plan result, or ``None`` when absent."""
+        results = self.ordered_plan_results(
+            project_key,
+            plan_key,
+            order="ascending",
+            build_state="Failed",
+            max_results=max_results,
+            **kwargs,
+        )
+        return results[0] if results else None
 
     def build_result(
         self,
@@ -653,6 +780,23 @@ class Bamboo(AtlassianRestAPI):
                 params[f"bamboo.variable.{key}"] = value
 
         return self.post(self.resource_url(resource), params=params)
+
+    def queue_build(self, plan_key, params=None):
+        """Add a plan to the Bamboo build queue.
+
+        ``params`` maps directly to Bamboo's queue request parameters. For
+        example, pass ``{"bamboo.variable.release": "1.2.3"}`` to set a
+        custom plan variable. Builds execute all stages by default; provide an
+        explicit ``executeAllStages`` or ``stage`` value to override that
+        behavior. The supplied mapping is never modified.
+
+        :param plan_key: Full plan key, for example ``PROJECT-PLAN``.
+        :param params: Optional queue parameters and custom variables.
+        :return: The queued build response.
+        """
+        queue_params = dict(params or {})
+        queue_params.setdefault("executeAllStages", "true")
+        return self.post(self.resource_url(f"queue/{plan_key}"), params=queue_params)
 
     def stop_build(self, plan_key):
         """
@@ -1202,6 +1346,38 @@ class Bamboo(AtlassianRestAPI):
             self.resource_url(f"agent/{agent_id}/capability"),
             params={"includeShared": include_shared},
         )
+
+    def add_agent_capability(self, agent_id, data):
+        """Add a capability to an agent using Bamboo's capability payload."""
+        return self.post(self.resource_url(f"agent/{agent_id}/capability"), data=data)
+
+    def delete_agent_capability(self, agent_id, capability_key):
+        """Delete one agent capability by its Bamboo capability key."""
+        return self.delete(self.resource_url(f"agent/{agent_id}/capability/{capability_key}"))
+
+    def delete_all_agent_capabilities(self, agent_id):
+        """Delete every capability assigned directly to an agent."""
+        return self.delete(self.resource_url(f"agent/{agent_id}/capability"))
+
+    def get_plan_variables(self, plan_key):
+        """Return variables configured for a plan."""
+        return self.get(self.resource_url(f"plan/{plan_key}/variable"))
+
+    def get_plan_variable(self, plan_key, variable_name):
+        """Return one plan variable by name."""
+        return self.get(self.resource_url(f"plan/{plan_key}/variable/{variable_name}"))
+
+    def create_plan_variable(self, plan_key, data):
+        """Create a plan variable from Bamboo's variable request body."""
+        return self.post(self.resource_url(f"plan/{plan_key}/variable"), data=data)
+
+    def update_plan_variable(self, plan_key, variable_name, data):
+        """Update a plan variable."""
+        return self.put(self.resource_url(f"plan/{plan_key}/variable/{variable_name}"), data=data)
+
+    def delete_plan_variable(self, plan_key, variable_name):
+        """Delete a plan variable."""
+        return self.delete(self.resource_url(f"plan/{plan_key}/variable/{variable_name}"))
 
     def activity(self, busy=None):
         """Return active online agents and their current build activity.

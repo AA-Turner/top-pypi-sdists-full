@@ -1,10 +1,10 @@
 Metadata-Version: 2.4
 Name: google_nest_sdm
-Version: 9.1.2
+Version: 9.2.1
 Summary: Library for the Google Nest SDM API
 Author-email: Allen Porter <allen.porter@gmail.com>
 License-Expression: Apache-2.0
-Project-URL: Source, https://github.com/allenporter/google_nest_sdm
+Project-URL: Source, https://github.com/allenporter/python-google-nest-sdm
 Requires-Python: >=3.13
 Description-Content-Type: text/markdown
 License-File: LICENSE

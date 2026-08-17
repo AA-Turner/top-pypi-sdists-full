@@ -1,4 +1,4 @@
-import { resolveCloudCommandCapabilityCopy, resolveCloudIntelCopy, resolveCloudSyncHealthCopy, resolveProtectionLevelCopy, resolveApprovalCenterHealth, resolveProofStatusCopy, resolvePackageManagerProtectionCopy } from "./runtime-overview";
+import { remediationLine, resolveCloudCommandCapabilityCopy, resolveCloudIntelCopy, resolveCloudSyncHealthCopy, resolveProtectionLevelCopy, resolveApprovalCenterHealth, resolveProofStatusCopy, resolvePackageManagerProtectionCopy } from "./runtime-overview";
 import type { GuardCloudSyncHealth, GuardProofStatus, GuardRuntimeSnapshot, PackageManagerProtection } from "./guard-types";
 
 function assert(condition: boolean, message: string): void {
@@ -148,6 +148,17 @@ assert(healthyApproval.state === "ready", "T738: protected snapshot with URL sho
 assert(healthyApproval.label.toLowerCase().includes("ready"), "T738: ready label should say ready");
 assert(healthyApproval.detail.includes("http://localhost:7392/approval"), "T738: ready detail should include the URL");
 
+const pendingReviewSnapshot: GuardRuntimeSnapshot = {
+  ...baseSnapshot,
+  pending_count: 1,
+  headline_state: "needs_decision",
+  headline_label: "Decision needed",
+  headline_detail: "An action is waiting for a decision in the review queue.",
+};
+const pendingRemediation = remediationLine(pendingReviewSnapshot);
+assert(pendingRemediation.includes("waiting action"), "P45: pending review remains a decision-needed state");
+assert(!pendingRemediation.includes("blocked action"), "P45: pending review is not relabeled as blocked");
+
 const nullRuntimeSnapshot: GuardRuntimeSnapshot = { ...baseSnapshot, runtime_state: null };
 const offlineApproval = resolveApprovalCenterHealth(nullRuntimeSnapshot);
 assert(offlineApproval.state === "stale", "T738: null runtime_state (non-setup) should be stale");
@@ -271,12 +282,22 @@ const restartRequiredProtection: PackageManagerProtection = {
 const restartRequiredCopy = resolvePackageManagerProtectionCopy(restartRequiredProtection);
 assert(restartRequiredCopy.pathTone === "blue", "SC2b: restart_required tone should use blue");
 assert(
-  restartRequiredCopy.pathLabel.toLowerCase().includes("activation"),
-  `SC2b: restart_required label should direct activation — got: "${restartRequiredCopy.pathLabel}"`
+  restartRequiredCopy.pathLabel.toLowerCase().includes("new terminal"),
+  `SC2b: restart_required label should explain the required terminal lifecycle — got: "${restartRequiredCopy.pathLabel}"`
 );
 assert(
-  restartRequiredCopy.pathDetail.toLowerCase().includes("finish activation"),
-  `SC2b: restart_required detail should explain the recovery action — got: "${restartRequiredCopy.pathDetail}"`
+  restartRequiredCopy.pathDetail.toLowerCase().includes("source the matching profile") &&
+    restartRequiredCopy.pathDetail.toLowerCase().includes("only if that app runs package managers"),
+  `SC2b: restart_required detail should explain terminal and AI-app restart scope — got: "${restartRequiredCopy.pathDetail}"`
+);
+
+const unconfiguredProfileCopy = resolvePackageManagerProtectionCopy({
+  ...restartRequiredProtection,
+  shell_profile_configured: false,
+});
+assert(
+  unconfiguredProfileCopy.pathDetail.includes("still needs the shim directory on PATH"),
+  `SC2c: unconfigured profile should explain the remaining PATH requirement — got: "${unconfiguredProfileCopy.pathDetail}"`,
 );
 
 const absentCopy = resolvePackageManagerProtectionCopy(undefined);

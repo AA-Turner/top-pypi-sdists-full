@@ -60,6 +60,7 @@ class APIRoute(str, Enum):
     GetOrInvokeToolByUUID = "/tools/{connector_id}_{tool_id}"
     ExecuteCodeInWorkspace = "/tools/{task_id}/xp-code-executor"
     ResolveDynamicPrompt = "/tools/{agent_id}/dynamic-prompt"
+    ResolveChannelPresence = "/tools/{agent_id}/channel-presence"
 
     # HITL (Human-in-the-Loop)
     HITLRequest = "/hitl/request"

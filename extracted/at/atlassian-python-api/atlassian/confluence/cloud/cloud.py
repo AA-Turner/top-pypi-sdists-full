@@ -11,15 +11,26 @@ import re
 import warnings
 from typing import Any, Dict, List, Optional
 
+from .classification_levels import ClassificationLevelOperations
+from .content_properties import ContentPropertyOperations
 from .databases import DatabaseOperations
 from .folders import FolderOperations
+from .graphql import GraphQLOperations
 from .tasks import TaskOperations
 from .whiteboards import WhiteboardOperations
 
 log = logging.getLogger(__name__)
 
 
-class ConfluenceCloud(WhiteboardOperations, TaskOperations, FolderOperations, DatabaseOperations):
+class ConfluenceCloud(
+    ClassificationLevelOperations,
+    ContentPropertyOperations,
+    GraphQLOperations,
+    WhiteboardOperations,
+    TaskOperations,
+    FolderOperations,
+    DatabaseOperations,
+):
     """
     Confluence Cloud API implementation class
     """
@@ -263,6 +274,33 @@ class ConfluenceCloud(WhiteboardOperations, TaskOperations, FolderOperations, Da
         if cursor is not None:
             params["cursor"] = cursor
         return self.get(self.get_endpoint("page_versions", id=page_id), params=params)
+
+    def iter_page_versions(
+        self,
+        page_id: str,
+        body_format: Optional[str] = None,
+        limit: int = 25,
+        sort: Optional[str] = None,
+    ):
+        """Yield every version of a Confluence Cloud page lazily."""
+        if body_format is not None and body_format not in ("storage", "atlas_doc_format", "view"):
+            raise ValueError("body_format must be 'storage', 'atlas_doc_format', or 'view'")
+        params: Dict[str, Any] = {"limit": limit}
+        if body_format is not None:
+            params["body-format"] = body_format
+        if sort is not None:
+            params["sort"] = sort
+        return self._get_paged(self.get_endpoint("page_versions", id=page_id), params=params)
+
+    def get_all_page_versions(
+        self,
+        page_id: str,
+        body_format: Optional[str] = None,
+        limit: int = 25,
+        sort: Optional[str] = None,
+    ) -> List[Dict[str, Any]]:
+        """Return every version of a Confluence Cloud page as a list."""
+        return list(self.iter_page_versions(page_id, body_format=body_format, limit=limit, sort=sort))
 
     def get_page_version(self, page_id: str, version_number: int) -> Dict[str, Any]:
         """Return details for one Confluence Cloud page version."""
@@ -652,7 +690,7 @@ class ConfluenceCloud(WhiteboardOperations, TaskOperations, FolderOperations, Da
         Args:
             ids: (optional) List of space IDs to filter by
             keys: (optional) List of space keys to filter by
-            _type: (optional) Type of spaces to filter by. Valid values: 'global', 'personal'
+            type: (optional) Type of spaces to filter by. Valid values: 'global', 'personal'
             status: (optional) Status of spaces to filter by. Valid values: 'current', 'archived'
             labels: (optional) List of labels to filter by (matches any)
             sort: (optional) Sort order. Format: [field] or [-field] for descending
@@ -672,10 +710,10 @@ class ConfluenceCloud(WhiteboardOperations, TaskOperations, FolderOperations, Da
 
         # Add optional filters
         if ids:
-            params["id"] = ",".join(ids)
+            params["ids"] = ids
 
         if keys:
-            params["key"] = ",".join(keys)
+            params["keys"] = keys
 
         if type:
             if type not in ("global", "personal"):
@@ -688,7 +726,7 @@ class ConfluenceCloud(WhiteboardOperations, TaskOperations, FolderOperations, Da
             params["status"] = status
 
         if labels:
-            params["label"] = ",".join(labels)
+            params["labels"] = labels
 
         if sort:
             valid_sort_fields = ["id", "-id", "key", "-key", "name", "-name", "type", "-type", "status", "-status"]

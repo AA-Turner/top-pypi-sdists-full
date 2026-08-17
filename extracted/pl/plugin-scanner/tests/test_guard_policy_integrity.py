@@ -7,10 +7,15 @@ import base64
 import hashlib
 import hmac
 import json
+import os
 import pickle
+import signal
 import sqlite3
 import time
+from concurrent.futures import ThreadPoolExecutor
 from dataclasses import dataclass, replace
+from datetime import datetime, timezone
+from functools import partial
 from pathlib import Path
 from typing import cast
 
@@ -18,11 +23,12 @@ import pytest
 
 from codex_plugin_scanner.cli import _resolve_legacy_args, main
 from codex_plugin_scanner.guard import local_trust_contract as local_trust_contract_module
+from codex_plugin_scanner.guard import local_trust_controller as local_trust_controller_module
 from codex_plugin_scanner.guard import policy_integrity as policy_integrity_module
 from codex_plugin_scanner.guard import store as guard_store_module
 from codex_plugin_scanner.guard import store_policy_integrity_runtime as policy_integrity_runtime_module
 from codex_plugin_scanner.guard.cli import commands_dispatch_trust as trust_dispatch_module
-from codex_plugin_scanner.guard.daemon.manager import ApprovalCenterLocator
+from codex_plugin_scanner.guard.daemon.manager import ApprovalCenterLocator, write_guard_daemon_state
 from codex_plugin_scanner.guard.local_trust_contract import (
     LOCAL_TRUST_DEGRADED_REASON_LABELS,
     LOCAL_TRUST_MODES,
@@ -36,6 +42,7 @@ from codex_plugin_scanner.guard.local_trust_contract import (
     POLICY_INTEGRITY_REASON_BACKEND_TIMEOUT,
     POLICY_INTEGRITY_REASON_BACKEND_UNAVAILABLE,
     POLICY_INTEGRITY_REASON_CONTROL_UNAVAILABLE,
+    POLICY_INTEGRITY_REASON_KEY_UNAVAILABLE,
     TrustBackendCorruptResultError,
     TrustBackendProcessFailedError,
     TrustBackendUnavailableError,
@@ -46,7 +53,17 @@ from codex_plugin_scanner.guard.local_trust_contract import (
 )
 from codex_plugin_scanner.guard.models import PolicyDecision
 from codex_plugin_scanner.guard.policy_authority import PolicyAuthorityError
-from codex_plugin_scanner.guard.store import GuardStore, SystemKeyringSecretStore
+from codex_plugin_scanner.guard.policy_bundle_decisions import build_policy_bundle_decisions
+from codex_plugin_scanner.guard.policy_bundle_parser import policy_bundle_acceptance_checkpoint
+from codex_plugin_scanner.guard.store import (
+    EncryptedFileSecretStore,
+    GuardStore,
+    MigratingFallbackSecretStore,
+    SystemKeyringSecretStore,
+)
+from tests.policy_bundle_signing_helpers import policy_bundle_test_keyring, sign_policy_bundle
+
+_POLICY_BUNDLE_WORKSPACE_ID = "workspace-1"
 
 
 @pytest.fixture(autouse=True)
@@ -63,6 +80,80 @@ def _store(tmp_path: Path) -> GuardStore:
     return GuardStore(tmp_path / "guard-home")
 
 
+def _install_signed_exact_policy(
+    store: GuardStore,
+    *,
+    artifact_id: str,
+    action: str = "allow",
+    reason: str = "Authenticated policy-integrity test rule.",
+    now: str = "2026-06-14T00:00:00Z",
+) -> None:
+    bundle_version = f"integrity-{artifact_id.rsplit(':', 1)[-1]}"
+    bundle = sign_policy_bundle(
+        {
+            "contractVersion": "guard-policy-bundle.v1",
+            "bundleVersion": bundle_version,
+            "bundleHash": "",
+            "issuedAt": now,
+            "expiresAt": None,
+            "rolloutState": "enforcing",
+            "policyDefaults": {
+                "mode": "observe",
+                "defaultAction": "allow",
+                "unknownPublisherAction": "allow",
+                "changedHashAction": "allow",
+                "newNetworkDomainAction": "allow",
+                "subprocessAction": "allow",
+                "telemetryEnabled": False,
+                "syncEnabled": True,
+            },
+            "rules": [
+                {
+                    "ruleId": f"integrity-rule-{artifact_id.rsplit(':', 1)[-1]}",
+                    "action": action,
+                    "reason": reason,
+                    "artifactId": artifact_id,
+                    "scope": {
+                        "agents": [],
+                        "devices": [],
+                        "ecosystems": [],
+                        "environments": [],
+                        "harnesses": ["codex"],
+                        "locations": [],
+                    },
+                }
+            ],
+            "cloudExceptions": [],
+            "acknowledgements": [],
+        },
+        workspace_id=_POLICY_BUNDLE_WORKSPACE_ID,
+    )
+    store.set_sync_payload(
+        "oauth_local_credentials",
+        {"workspace_id": _POLICY_BUNDLE_WORKSPACE_ID},
+        now,
+    )
+    device = store.get_device_metadata()
+    decisions = build_policy_bundle_decisions(
+        bundle,
+        device_id=str(device["installation_id"]),
+        device_name=str(device["device_label"]),
+    )
+    assert len(decisions) == 1
+    assert decisions[0].artifact_id == artifact_id
+    store.apply_policy_bundle_authority(
+        decisions,
+        now,
+        policy_bundle=bundle,
+        policy_bundle_keyring=policy_bundle_test_keyring(workspace_id=_POLICY_BUNDLE_WORKSPACE_ID),
+        cloud_exceptions=[],
+        policy_bundle_ack={"bundleVersion": bundle_version, "status": "applied"},
+        policy_bundle_checkpoint=policy_bundle_acceptance_checkpoint(bundle),
+        update_last_good=True,
+        remote_write_authorized=True,
+    )
+
+
 def _enable_macos_native_policy_integrity(
     monkeypatch: pytest.MonkeyPatch,
     install_fake_system_keyring,
@@ -76,8 +167,8 @@ def _enable_macos_native_policy_integrity(
     )
     monkeypatch.setattr(
         SystemKeyringSecretStore,
-        "_get_secret_without_macos_ui",
-        lambda self, secret_id: fake_keyring.get_password(self.service_name, secret_id),
+        "_get_macos_secret_in_isolated_process",
+        lambda self, secret_id, *, timeout_seconds: fake_keyring.get_password(self.service_name, secret_id),
     )
     return fake_keyring
 
@@ -125,20 +216,76 @@ def _write_delayed_nested_trust_marker(marker_path: str) -> None:
     Path(marker_path).write_text("late", encoding="utf-8")
 
 
-def _write_corrupt_trust_result(operation, result_path: str) -> None:
+def _write_delayed_nested_trust_marker_ignoring_term(marker_path: str) -> None:
+    if hasattr(signal, "SIGTERM"):
+        signal.signal(signal.SIGTERM, signal.SIG_IGN)
+    _write_delayed_nested_trust_marker(marker_path)
+
+
+def _protected_trust_result() -> dict[str, str]:
+    return {"mode": "protected"}
+
+
+def _delayed_trust_status(delay_seconds: float) -> TrustStatus:
+    time.sleep(delay_seconds)
+    return _FakeTrustBackend("slow", 1).status()
+
+
+def _delayed_trust_mutation(marker_path: str, delay_seconds: float) -> TrustStatus:
+    time.sleep(delay_seconds)
+    Path(marker_path).write_text("mutated", encoding="utf-8")
+    return _FakeTrustBackend("slow", 1).status()
+
+
+def _delayed_nested_trust_mutation(marker_path: str) -> TrustStatus:
+    context = local_trust_contract_module.multiprocessing.get_context("spawn")
+    process = context.Process(target=_write_delayed_nested_trust_marker_ignoring_term, args=(marker_path,))
+    process.start()
+    time.sleep(2.0)
+    return _FakeTrustBackend("slow", 1).status()
+
+
+def _large_trust_result(payload: str) -> dict[str, str]:
+    return {"mode": "protected", "payload": payload}
+
+
+def _nested_trust_result(marker_path: str) -> dict[str, str]:
+    context = local_trust_contract_module.multiprocessing.get_context("spawn")
+    process = context.Process(target=_write_nested_trust_marker, args=(marker_path,))
+    process.start()
+    process.join(timeout=3.0)
+    return {"mode": "protected", "nested": str(Path(marker_path).exists())}
+
+
+def _trust_result_with_delayed_descendant(marker_path: str) -> dict[str, str]:
+    context = local_trust_contract_module.multiprocessing.get_context("spawn")
+    process = context.Process(target=_write_delayed_nested_trust_marker, args=(marker_path,))
+    process.start()
+    return {"mode": "protected"}
+
+
+def _write_corrupt_trust_result(operation_path: str, ready_path: str, result_path: str) -> None:
+    del operation_path
+    Path(ready_path).touch()
     Path(result_path).write_bytes(b"not a pickle")
 
 
-def _write_malformed_trust_result(operation, result_path: str) -> None:
+def _write_malformed_trust_result(operation_path: str, ready_path: str, result_path: str) -> None:
+    del operation_path
+    Path(ready_path).touch()
     Path(result_path).write_bytes(pickle.dumps({"ok": True}))
 
 
-def _write_list_trust_result(operation, result_path: str) -> None:
+def _write_list_trust_result(operation_path: str, ready_path: str, result_path: str) -> None:
+    del operation_path
+    Path(ready_path).touch()
     Path(result_path).write_bytes(pickle.dumps([True, {"mode": "protected"}]))
 
 
-def _skip_trust_result(operation, result_path: str) -> None:
-    operation()
+def _skip_trust_result(operation_path: str, ready_path: str, result_path: str) -> None:
+    Path(ready_path).touch()
+    del result_path
+    local_trust_contract_module._load_trust_backend_operation(operation_path)()
 
 
 def test_local_trust_contract_exports_stable_status_vocabulary() -> None:
@@ -197,7 +344,7 @@ def test_trust_backend_timeout_returns_degraded_result_without_waiting() -> None
 
     started = time.monotonic()
     result = run_trust_backend_check(
-        lambda: (time.sleep(1.0), _FakeTrustBackend("slow", 1).status())[1],
+        partial(_delayed_trust_status, 1.0),
         timeout_seconds=0.01,
         timeout_result=timeout_result,
         on_error=lambda error: TrustStatus(
@@ -216,11 +363,6 @@ def test_trust_backend_timeout_returns_degraded_result_without_waiting() -> None
 def test_trust_backend_timeout_contains_late_side_effects(tmp_path: Path) -> None:
     marker_path = tmp_path / "late-side-effect"
 
-    def slow_mutation() -> TrustStatus:
-        time.sleep(0.5)
-        marker_path.write_text("mutated", encoding="utf-8")
-        return _FakeTrustBackend("slow", 1).status()
-
     timeout_result = TrustStatus(
         runtime_protection="degraded",
         remembered_rules="disabled_degraded",
@@ -230,7 +372,7 @@ def test_trust_backend_timeout_contains_late_side_effects(tmp_path: Path) -> Non
     )
 
     result = run_trust_backend_check(
-        slow_mutation,
+        partial(_delayed_trust_mutation, str(marker_path), 0.5),
         timeout_seconds=0.01,
         timeout_result=timeout_result,
     )
@@ -243,13 +385,6 @@ def test_trust_backend_timeout_contains_late_side_effects(tmp_path: Path) -> Non
 def test_trust_backend_timeout_kills_nested_helper_process(tmp_path: Path) -> None:
     marker_path = tmp_path / "nested-late-side-effect"
 
-    def slow_nested_mutation() -> TrustStatus:
-        context = local_trust_contract_module.multiprocessing.get_context("fork")
-        process = context.Process(target=_write_delayed_nested_trust_marker, args=(str(marker_path),))
-        process.start()
-        time.sleep(2.0)
-        return _FakeTrustBackend("slow", 1).status()
-
     timeout_result = TrustStatus(
         runtime_protection="degraded",
         remembered_rules="disabled_degraded",
@@ -259,7 +394,7 @@ def test_trust_backend_timeout_kills_nested_helper_process(tmp_path: Path) -> No
     )
 
     result = run_trust_backend_check(
-        slow_nested_mutation,
+        partial(_delayed_nested_trust_mutation, str(marker_path)),
         timeout_seconds=0.05,
         timeout_result=timeout_result,
     )
@@ -269,7 +404,22 @@ def test_trust_backend_timeout_kills_nested_helper_process(tmp_path: Path) -> No
     assert not marker_path.exists()
 
 
-def test_trust_backend_timeout_falls_back_when_process_group_missing(
+@pytest.mark.skipif(os.name != "nt", reason="requires Windows Job Object inheritance")
+def test_completed_windows_trust_worker_job_kills_delayed_descendant(tmp_path: Path) -> None:
+    marker_path = tmp_path / "windows-trust-descendant"
+
+    result = run_trust_backend_check(
+        partial(_trust_result_with_delayed_descendant, str(marker_path)),
+        timeout_seconds=2.0,
+        timeout_result={"mode": "degraded"},
+    )
+    time.sleep(0.8)
+
+    assert result == {"mode": "protected"}
+    assert not marker_path.exists()
+
+
+def test_trust_backend_cleanup_does_not_signal_an_exited_process_group(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     calls: list[str] = []
@@ -289,15 +439,14 @@ def test_trust_backend_timeout_falls_back_when_process_group_missing(
         def kill(self) -> None:
             calls.append("kill")
 
-    def fake_killpg(pid: int, sig: int) -> None:
-        calls.append(f"killpg:{pid}:{sig}")
-        raise ProcessLookupError("process group not ready")
+    def unexpected_killpg(pid: int, sig: int) -> None:
+        raise AssertionError(f"exited process group must not be signaled: {pid}:{sig}")
 
-    monkeypatch.setattr(local_trust_contract_module.os, "killpg", fake_killpg)
+    monkeypatch.setattr(local_trust_contract_module.os, "killpg", unexpected_killpg)
 
     local_trust_contract_module._terminate_trust_backend_process_tree(FakeProcess())
 
-    assert calls == ["killpg:12345:15", "terminate", "join:0.2"]
+    assert calls == []
 
 
 def test_trust_backend_check_handles_corrupt_result_file(
@@ -306,7 +455,7 @@ def test_trust_backend_check_handles_corrupt_result_file(
     monkeypatch.setattr(local_trust_contract_module, "_trust_backend_check_worker", _write_corrupt_trust_result)
 
     result = run_trust_backend_check(
-        lambda: {"mode": "protected"},
+        _protected_trust_result,
         timeout_seconds=1.0,
         timeout_result={"mode": "degraded"},
         on_error=lambda error: {
@@ -329,7 +478,7 @@ def test_trust_backend_check_rejects_malformed_result_payload(
     monkeypatch.setattr(local_trust_contract_module, "_trust_backend_check_worker", _write_malformed_trust_result)
 
     result = run_trust_backend_check(
-        lambda: {"mode": "protected"},
+        _protected_trust_result,
         timeout_seconds=1.0,
         timeout_result={"mode": "degraded"},
         on_error=lambda error: {
@@ -352,7 +501,7 @@ def test_trust_backend_check_rejects_list_result_payload(
     monkeypatch.setattr(local_trust_contract_module, "_trust_backend_check_worker", _write_list_trust_result)
 
     result = run_trust_backend_check(
-        lambda: {"mode": "protected"},
+        _protected_trust_result,
         timeout_seconds=1.0,
         timeout_result={"mode": "degraded"},
         on_error=lambda error: {
@@ -387,7 +536,7 @@ def test_trust_backend_check_handles_result_permission_denied(
     monkeypatch.setattr(local_trust_contract_module, "_load_trust_backend_result", denied_loader)
 
     result = run_trust_backend_check(
-        lambda: {"mode": "protected"},
+        _protected_trust_result,
         timeout_seconds=1.0,
         timeout_result={"mode": "degraded"},
         on_error=lambda error: {
@@ -410,7 +559,7 @@ def test_trust_backend_check_reports_missing_result_with_exit_code(
     monkeypatch.setattr(local_trust_contract_module, "_trust_backend_check_worker", _skip_trust_result)
 
     result = run_trust_backend_check(
-        lambda: {"mode": "protected"},
+        _protected_trust_result,
         timeout_seconds=1.0,
         timeout_result={"mode": "degraded"},
         on_error=lambda error: {"mode": "degraded", "error": str(error)},
@@ -423,7 +572,7 @@ def test_trust_backend_timeout_helper_allows_minimal_fallback_contract() -> None
     timeout_result = {"mode": "degraded"}
 
     result = run_trust_backend_check(
-        lambda: (time.sleep(1.0), {"mode": "protected"})[1],
+        partial(_delayed_trust_status, 1.0),
         timeout_seconds=0.01,
         timeout_result=timeout_result,
     )
@@ -436,7 +585,7 @@ def test_trust_backend_check_drains_large_completed_result_before_timeout() -> N
     large_status = {"mode": "protected", "payload": "x" * 1_000_000}
 
     result = run_trust_backend_check(
-        lambda: large_status,
+        partial(_large_trust_result, large_status["payload"]),
         timeout_seconds=1.0,
         timeout_result=timeout_result,
     )
@@ -444,53 +593,100 @@ def test_trust_backend_check_drains_large_completed_result_before_timeout() -> N
     assert result == large_status
 
 
-def test_trust_backend_check_allows_native_helper_child_process(tmp_path: Path) -> None:
+def test_trust_backend_check_allows_spawned_helper_child_process(tmp_path: Path) -> None:
     marker_path = tmp_path / "nested-helper"
 
-    def operation() -> dict[str, str]:
-        context = local_trust_contract_module.multiprocessing.get_context("fork")
-        process = context.Process(target=_write_nested_trust_marker, args=(str(marker_path),))
-        process.start()
-        process.join(timeout=1.0)
-        return {"mode": "protected", "nested": str(marker_path.exists())}
-
     result = run_trust_backend_check(
-        operation,
-        timeout_seconds=1.0,
+        partial(_nested_trust_result, str(marker_path)),
+        # This verifies nested containment, while concurrent spawn runners need startup headroom.
+        timeout_seconds=4.0,
         timeout_result={"mode": "degraded", "nested": "False"},
     )
 
     assert result == {"mode": "protected", "nested": "True"}
 
 
-def test_trust_backend_check_degrades_without_spawn_when_fork_unavailable(
+def test_trust_backend_check_degrades_when_spawn_unavailable(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     calls: list[str | None] = []
 
     def fake_get_context(method: str | None = None):
         calls.append(method)
-        if method == "fork":
-            raise ValueError("fork unavailable")
-        raise AssertionError("spawn fallback must not be used for passive trust checks")
+        if method == "spawn":
+            raise ValueError("spawn unavailable")
+        raise AssertionError("passive trust checks must only request spawn")
 
     monkeypatch.setattr(local_trust_contract_module.multiprocessing, "get_context", fake_get_context)
 
     result = run_trust_backend_check(
-        lambda: {"mode": "protected"},
+        _protected_trust_result,
         timeout_seconds=1.0,
         timeout_result={"mode": "degraded"},
         on_error=lambda error: {"mode": "degraded", "reason": degraded_reason_for_backend_error(error)},
     )
 
     assert result == {"mode": "degraded", "reason": POLICY_INTEGRITY_REASON_BACKEND_UNAVAILABLE}
-    assert calls == ["fork"]
+    assert calls == ["spawn"]
+
+
+def test_trust_backend_check_uses_spawn_from_concurrent_threads(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    get_context = local_trust_contract_module.multiprocessing.get_context
+    calls: list[str | None] = []
+
+    def recording_get_context(method: str | None = None):
+        calls.append(method)
+        return get_context(method)
+
+    monkeypatch.setattr(local_trust_contract_module.multiprocessing, "get_context", recording_get_context)
+
+    def run_check(_: int) -> dict[str, str]:
+        return run_trust_backend_check(
+            _protected_trust_result,
+            timeout_seconds=2.0,
+            timeout_result={"mode": "degraded"},
+        )
+
+    with ThreadPoolExecutor(max_workers=4) as executor:
+        results = list(executor.map(run_check, range(8)))
+
+    assert results == [{"mode": "protected"}] * 8
+    assert calls == ["spawn"] * 8
+
+
+def test_passive_trust_probe_prefers_authenticated_daemon_degradation(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setattr(
+        local_trust_controller_module,
+        "load_authenticated_daemon_state",
+        lambda guard_home: {
+            "trust_status": {
+                "mode": POLICY_INTEGRITY_MODE_DEGRADED,
+                "runtime_protection": "degraded",
+                "cloud_policies": "setup_unavailable",
+                "backend": "local-vault",
+                "degraded_reasons": [POLICY_INTEGRITY_REASON_KEY_UNAVAILABLE],
+            }
+        },
+    )
+
+    result = local_trust_controller_module._built_in_cached_trust_status(
+        local_trust_controller_module._LocalVaultTrustBackend(guard_home=tmp_path)
+    )
+
+    assert result.runtime_protection == "degraded"
+    assert result.remembered_rules == "disabled_degraded"
+    assert result.degraded_reasons == (POLICY_INTEGRITY_REASON_KEY_UNAVAILABLE,)
 
 
 def test_trust_backend_errors_normalize_to_safe_degraded_reasons() -> None:
     assert degraded_reason_for_backend_error(TimeoutError("slow")) == POLICY_INTEGRITY_REASON_BACKEND_TIMEOUT
     assert (
-        degraded_reason_for_backend_error(TrustBackendUnavailableError("fork unavailable"))
+        degraded_reason_for_backend_error(TrustBackendUnavailableError("spawn unavailable"))
         == POLICY_INTEGRITY_REASON_BACKEND_UNAVAILABLE
     )
     assert (
@@ -575,7 +771,7 @@ def test_policy_integrity_status_includes_trust_status(tmp_path: Path) -> None:
 def test_guard_store_init_does_not_create_policy_integrity_keyring_material(tmp_path: Path) -> None:
     store = _store(tmp_path)
     secret_store = store._policy_integrity_secret_store
-    assert isinstance(secret_store, SystemKeyringSecretStore)
+    assert isinstance(secret_store, MigratingFallbackSecretStore)
 
     assert secret_store.get_secret(store._policy_integrity_key_ref) is None
     assert secret_store.get_secret(store._policy_integrity_control_ref) is None
@@ -851,7 +1047,7 @@ def test_upsert_policy_uses_single_integrity_key_lookup_per_write(
     assert state["key_id"] is None
 
 
-def test_policy_integrity_status_uses_timed_keychain_reads_once_per_secret(
+def test_policy_integrity_status_uses_mirrored_vault_without_keychain_reads(
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
@@ -861,7 +1057,7 @@ def test_policy_integrity_status_uses_timed_keychain_reads_once_per_secret(
         "2026-06-14T00:00:00Z",
     )
     secret_store = store._policy_integrity_secret_store
-    assert isinstance(secret_store, SystemKeyringSecretStore)
+    assert isinstance(secret_store, MigratingFallbackSecretStore)
     key_value = secret_store.get_secret(store._policy_integrity_key_ref)
     control_value = secret_store.get_secret(store._policy_integrity_control_ref)
     assert isinstance(key_value, str) and key_value
@@ -878,14 +1074,7 @@ def test_policy_integrity_status_uses_timed_keychain_reads_once_per_secret(
             return control_value
         raise AssertionError(f"unexpected policy-integrity secret lookup: {secret_id}")
 
-    monkeypatch.setattr(
-        store,
-        "_get_secret_from_store",
-        lambda *_args, **_kwargs: (_ for _ in ()).throw(
-            AssertionError("plain keyring reads should not run for policy integrity")
-        ),
-    )
-    monkeypatch.setattr(secret_store, "get_secret_with_timeout", _count_timed_reads)
+    monkeypatch.setattr(secret_store.primary, "get_secret_with_timeout", _count_timed_reads)
     store._clear_policy_integrity_cache()
 
     first_status = store.get_policy_integrity_status()
@@ -893,16 +1082,13 @@ def test_policy_integrity_status_uses_timed_keychain_reads_once_per_secret(
 
     assert first_status["mode"] == "protected"
     assert second_status["mode"] == "protected"
-    assert timed_reads == [
-        store._policy_integrity_control_ref,
-        store._policy_integrity_key_ref,
-    ]
+    assert timed_reads == []
 
 
 def test_policy_integrity_status_and_verify_do_not_create_keyring_material_on_fresh_store(tmp_path: Path) -> None:
     store = _store(tmp_path)
     secret_store = store._policy_integrity_secret_store
-    assert isinstance(secret_store, SystemKeyringSecretStore)
+    assert isinstance(secret_store, MigratingFallbackSecretStore)
     _delete_policy_integrity_key(store)
     _delete_policy_integrity_control_state(store)
     assert secret_store.get_secret(store._policy_integrity_key_ref) is None
@@ -920,7 +1106,7 @@ def test_policy_integrity_status_and_verify_do_not_create_keyring_material_on_fr
     assert secret_store.get_secret(store._policy_integrity_control_ref) is None
 
 
-def test_policy_integrity_status_uses_native_no_ui_reads_on_macos(
+def test_policy_integrity_status_uses_local_vault_without_keychain_reads_on_macos(
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,
     install_fake_system_keyring,
@@ -932,12 +1118,12 @@ def test_policy_integrity_status_uses_native_no_ui_reads_on_macos(
         "2026-06-14T00:00:00Z",
     )
     secret_store = store._policy_integrity_secret_store
-    assert isinstance(secret_store, SystemKeyringSecretStore)
+    assert isinstance(secret_store, EncryptedFileSecretStore)
     store._clear_policy_integrity_cache()
     monkeypatch.setattr(
-        secret_store,
-        "get_secret",
-        lambda _secret_id: (_ for _ in ()).throw(AssertionError("plain keyring reads should not run")),
+        SystemKeyringSecretStore,
+        "get_secret_with_timeout",
+        lambda *_args, **_kwargs: (_ for _ in ()).throw(AssertionError("Keychain reads must not run")),
     )
 
     status = store.get_policy_integrity_status()
@@ -1212,10 +1398,9 @@ def test_tampered_signed_row_is_ignored_and_event_emitted(tmp_path: Path) -> Non
 
 def test_remote_policy_row_is_honored_without_local_mac(tmp_path: Path) -> None:
     store = _store(tmp_path)
-    store.replace_remote_policies(
-        [_decision(artifact_id="codex:project:remote", artifact_hash="hash-remote", source="cloud-sync")],
-        "2026-06-14T00:00:00Z",
-        remote_write_authorized=True,
+    _install_signed_exact_policy(
+        store,
+        artifact_id="codex:project:remote",
     )
 
     resolved = store.resolve_policy(
@@ -1237,10 +1422,9 @@ def test_remote_policy_integrity_failure_does_not_emit_local_rule_event(
     from codex_plugin_scanner.guard.policy_integrity import PolicyIntegrityVerificationResult
 
     store = _store(tmp_path)
-    store.replace_remote_policies(
-        [_decision(artifact_id="codex:project:remote-tampered", artifact_hash="hash-remote", source="cloud-sync")],
-        "2026-06-14T00:00:00Z",
-        remote_write_authorized=True,
+    _install_signed_exact_policy(
+        store,
+        artifact_id="codex:project:remote-tampered",
     )
     original_result = GuardStore._policy_integrity_result_for_row
 
@@ -1303,6 +1487,22 @@ def test_local_policy_write_cannot_impersonate_remote_policy_source(tmp_path: Pa
         [_decision(artifact_id="codex:project:valid-remote", artifact_hash="hash-valid", source="team-policy")],
         "2026-06-14T00:01:00Z",
         remote_write_authorized=True,
+    )
+
+    assert (
+        store.resolve_policy(
+            "codex",
+            "codex:project:valid-remote",
+            "hash-valid",
+            now="2026-06-14T00:01:30Z",
+        )
+        is None
+    )
+
+    _install_signed_exact_policy(
+        store,
+        artifact_id="codex:project:valid-remote",
+        now="2026-06-14T00:01:45Z",
     )
 
     resolved = store.resolve_policy(
@@ -3103,8 +3303,14 @@ def test_trust_cli_doctor_redacts_secret_like_assignments_in_json_output(
     home_dir = tmp_path / "home"
     original_trust_payload = trust_dispatch_module._trust_status_payload
 
-    def fake_trust_payload(store: GuardStore, *, command: str, backend: str) -> dict[str, object]:
-        payload = original_trust_payload(store, command=command, backend=backend)
+    def fake_trust_payload(
+        store: GuardStore | None,
+        *,
+        guard_home: Path | None = None,
+        command: str,
+        backend: str,
+    ) -> dict[str, object]:
+        payload = original_trust_payload(store, guard_home=guard_home, command=command, backend=backend)
         payload["summary"] = (
             "Guard saw MY_SECRET_TOKEN=super-secret-value and "
             "guard-oauth-local-credentials:8126370c0eb65a02 while checking trust."
@@ -3238,6 +3444,24 @@ def test_trust_cli_explain_reports_protected_local_rule(
     store = GuardStore(home_dir)
     setup = store.setup_policy_integrity(now="2026-06-19T12:00:00Z")
     assert setup["mode"] == "protected"
+    write_guard_daemon_state(
+        home_dir,
+        5474,
+        "trust-explain-token",
+        trust_status=store.get_cached_policy_integrity_state(),
+    )
+    store.upsert_runtime_state(
+        session_id="trust-explain",
+        daemon_host="127.0.0.1",
+        daemon_port=5474,
+        started_at="2026-06-19T12:00:00Z",
+        last_heartbeat_at=datetime.now(timezone.utc).isoformat(),
+    )
+    monkeypatch.setattr(
+        local_trust_controller_module,
+        "load_guard_daemon_url",
+        lambda guard_home: "http://127.0.0.1:5474",
+    )
     store.upsert_policy(_decision(artifact_id="codex:project:local-rule"), "2026-06-19T12:01:00Z")
     decision_id = int(_policy_row(home_dir, artifact_id="codex:project:local-rule")["decision_id"])
 
@@ -3263,6 +3487,24 @@ def test_trust_cli_explain_human_output_uses_trust_renderer(
     _enable_macos_native_policy_integrity(monkeypatch, install_fake_system_keyring)
     store = GuardStore(home_dir)
     store.setup_policy_integrity(now="2026-06-19T12:00:00Z")
+    write_guard_daemon_state(
+        home_dir,
+        5474,
+        "trust-explain-human-token",
+        trust_status=store.get_cached_policy_integrity_state(),
+    )
+    store.upsert_runtime_state(
+        session_id="trust-explain-human",
+        daemon_host="127.0.0.1",
+        daemon_port=5474,
+        started_at="2026-06-19T12:00:00Z",
+        last_heartbeat_at=datetime.now(timezone.utc).isoformat(),
+    )
+    monkeypatch.setattr(
+        local_trust_controller_module,
+        "load_guard_daemon_url",
+        lambda guard_home: "http://127.0.0.1:5474",
+    )
     store.upsert_policy(_decision(artifact_id="codex:project:local-rule-human"), "2026-06-19T12:01:00Z")
     decision_id = int(_policy_row(home_dir, artifact_id="codex:project:local-rule-human")["decision_id"])
 
@@ -3502,28 +3744,28 @@ def test_backup_policy_database_sets_private_mode_when_backup_fails(
     assert calls[-1][1] == 0o600
 
 
-def test_degraded_mode_persistent_local_allow_is_not_authoritative(
+def test_no_keyring_local_vault_keeps_persistent_local_allow_authoritative(
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     monkeypatch.setattr(SystemKeyringSecretStore, "_backend_is_available", classmethod(lambda cls: False))
     store = _store(tmp_path)
     store.upsert_policy(
-        _decision(artifact_id="codex:project:degraded", artifact_hash="hash-degraded"),
+        _decision(artifact_id="codex:project:local-vault", artifact_hash="hash-local-vault"),
         "2026-06-14T00:00:00Z",
     )
 
     resolved = store.resolve_policy(
         "codex",
-        "codex:project:degraded",
-        "hash-degraded",
+        "codex:project:local-vault",
+        "hash-local-vault",
         now="2026-06-14T00:01:00Z",
     )
     verify = store.verify_policy_integrity()
 
-    assert resolved is None
-    assert verify["mode"] == "degraded"
-    assert verify["counts"]["degraded_mode"] == 1
+    assert resolved == "allow"
+    assert verify["mode"] == "protected"
+    assert verify["counts"]["valid"] == 1
 
 
 def test_symlinked_guard_home_forces_degraded_local_policy_authority(tmp_path: Path) -> None:

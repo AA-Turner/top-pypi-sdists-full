@@ -864,7 +864,7 @@ def test_proxy_for_parameterized_generic() -> None:
     with standalone_statespace:
         with NoTracing():
             obj = proxy_for_class(Container[int], "x")
-    assert isinstance(obj.value, SymbolicInt)  # type: ignore[attr-defined]
+    assert isinstance(obj.value, SymbolicInt)
 
 
 def test_proxy_for_multi_typevar_generic() -> None:
@@ -879,8 +879,8 @@ def test_proxy_for_multi_typevar_generic() -> None:
     with standalone_statespace:
         with NoTracing():
             obj = proxy_for_class(Pair[int, str], "x")
-    assert isinstance(obj.first, SymbolicInt)  # type: ignore[attr-defined]
-    assert isinstance(obj.second, LazyIntSymbolicStr)  # type: ignore[attr-defined]
+    assert isinstance(obj.first, SymbolicInt)
+    assert isinstance(obj.second, LazyIntSymbolicStr)
 
 
 def test_proxy_for_class_with_unresolvable_forward_ref() -> None:
@@ -1394,6 +1394,23 @@ def test_is_not_deeply_immutable(o):
 
 def test_crosshair_modules_can_be_reloaded():
     importlib.reload(core_and_libs)
+
+
+def test_max_iterations_zero_does_not_crash():
+    """`max_iterations=0` must not raise NameError in the calltree summary
+    (regression: the debug log referenced the loop variable `i` before the
+    loop ever ran)."""
+
+    def f(x: int) -> int:
+        """
+        post: _ != -1
+        """
+        return x + 1
+
+    opts = AnalysisOptionSet(max_iterations=0)
+    msgs = run_checkables(analyze_function(f, opts))
+    states = {m.state for m in msgs}
+    assert EXEC_ERR not in states
 
 
 def profile():

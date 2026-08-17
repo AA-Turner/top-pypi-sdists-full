@@ -4709,6 +4709,7 @@ class ChalkGRPCClient:
         enable_profiling: bool = False,
         resource_group: str | None = None,
         input_sql: str | None = None,
+        num_shards: int | None = None,
         plan_only: bool = False,
     ) -> AggregateBackfillResponse:
         """Trigger one or more aggregate backfill jobs.
@@ -4741,6 +4742,13 @@ class ChalkGRPCClient:
             Resource group to use for the created backfill jobs.
         input_sql : str, optional
             Chalk SQL query to use to resolve event data. Mutually exclusive with `resolver`.
+        num_shards : int, optional
+            Maximum number of bucket-aligned, time-sharded jobs to split each backfill
+            job's window into. Must be > 1 when provided. The server chooses the actual count (at most this many,
+            based on its per-shard window-width policy) so that all shards stay aligned
+            to the aggregation's bucket grid. Useful when a single job over the full
+            window would run out of memory or disk. Requires a Chalk deployment with
+            job-queue execution enabled; unset preserves the single-job behavior.
         plan_only : bool, optional
             If `True`, validate the request and return the planner's split with cost
             estimates without creating anything. The response's `job` is absent, and
@@ -4758,6 +4766,8 @@ class ChalkGRPCClient:
         """
         if store_offline is True and (lower_bound is None or upper_bound is None):
             raise ValueError("When `store_offline=True`, both `lower_bound` and `upper_bound` must be specified.")
+        if num_shards is not None and num_shards <= 1:
+            raise ValueError("`num_shards` must be > 1 when provided; omit it to run the backfill as a single job.")
 
         request = CreateAggregateBackfillV2Request(
             features=features,
@@ -4774,6 +4784,8 @@ class ChalkGRPCClient:
             request.store_offline = store_offline
         if resource_group is not None:
             request.resource_group = resource_group
+        if num_shards is not None:
+            request.num_shards = num_shards
         # The server rejects allow_empty_tiles without an offline target, and this argument
         # defaults to True, so every default call would fail validation if it were sent
         # verbatim. The flag has no effect off the offline path anyway.
@@ -4789,6 +4801,13 @@ class ChalkGRPCClient:
             raise ChalkCustomException(
                 "This Chalk server does not support plan-only aggregate backfills. Upgrade your "
                 + "Chalk server, or omit `plan_only` to run the backfill.",
+            )
+        # Same for sharding: a server this old would silently run one unsharded job,
+        # which defeats the reason to pass num_shards (avoiding OOM), so fail instead.
+        if num_shards is not None:
+            raise ChalkCustomException(
+                "This Chalk server does not support sharded aggregate backfills. Upgrade your "
+                + "Chalk server, or omit `num_shards` to run the backfill as a single job.",
             )
         warnings.warn(
             "This Chalk server does not support server-side aggregate backfill planning. "

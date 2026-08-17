@@ -11,6 +11,7 @@ from contextlib import suppress
 from dataclasses import dataclass
 from datetime import datetime, timezone
 
+from ..action_lattice import is_action_bearing_key, normalize_guard_action_result
 from ..config import VALID_RECEIPT_REDACTION_LEVELS, load_guard_config
 from ..redaction import redact_sensitive_text, redact_text
 from ..review_contracts import (
@@ -19,6 +20,9 @@ from ..review_contracts import (
     guard_review_oauth_metadata,
 )
 from ..store import GuardStore
+from ..synced_policy import validated_synced_policy_bundle
+from .decisions import AUTHORITATIVE_DECISION_INCONSISTENT
+from .env_wrapper import parse_env_wrapper
 
 LOCAL_REQUEST_PENDING_SNAPSHOT_LIMIT = 125
 LOCAL_REQUEST_RESOLVED_SNAPSHOT_LIMIT = 25
@@ -344,9 +348,9 @@ def _local_request_snapshot_next_cursor(
 
 
 def _resolve_cloud_receipt_redaction_level(store: GuardStore) -> str:
-    payload = store.get_sync_payload("cloud_receipt_redaction_level")
-    if isinstance(payload, dict):
-        level = payload.get("level")
+    policy_bundle = validated_synced_policy_bundle(store)
+    if policy_bundle is not None:
+        level = policy_bundle.get("receiptRedactionLevel")
         if isinstance(level, str) and level in VALID_RECEIPT_REDACTION_LEVELS:
             return level
     try:
@@ -707,49 +711,14 @@ def _env_split_string_token_indexes(
     start: int,
     end: int,
 ) -> list[int]:
-    split_string_indexes: list[int] = []
-    value_options = frozenset({"-C", "-S", "-u", "--chdir", "--split-string", "--unset"})
-    index = start
-    while index < end:
-        value = tokens[index].value
-        if value == "--":
-            return split_string_indexes
-        clustered_split_string = _env_clustered_split_string_payload(value)
-        if clustered_split_string is not None:
-            if not clustered_split_string and index + 1 < end and _source_search_pattern_spans(tokens[index + 1].value):
-                split_string_indexes.append(index + 1)
-            index += 2 if not clustered_split_string else 1
-            continue
-        if value in value_options:
-            if (
-                value in {"-S", "--split-string"}
-                and index + 1 < end
-                and _source_search_pattern_spans(tokens[index + 1].value)
-            ):
-                split_string_indexes.append(index + 1)
-            index += 2
-            continue
-        if value.startswith("--split-string="):
-            split_string = value.removeprefix("--split-string=")
-            if _source_search_pattern_spans(split_string):
-                split_string_indexes.append(index)
-            index += 1
-            continue
-        if value.startswith(("--chdir=", "--unset=")):
-            index += 1
-            continue
-        if value.startswith("-") or _is_shell_environment_assignment(value):
-            index += 1
-            continue
-        return split_string_indexes
-    return split_string_indexes
-
-
-def _env_clustered_split_string_payload(value: str) -> str | None:
-    if not value.startswith("-") or value.startswith("--") or len(value) <= 2:
-        return None
-    split_index = value.find("S", 1)
-    return None if split_index == -1 else value[split_index + 1 :]
+    parsed = parse_env_wrapper([token.value for token in tokens[start:end]])
+    return list(
+        dict.fromkeys(
+            start + expansion.source_index
+            for expansion in parsed.split_expansions
+            if _source_search_pattern_spans(expansion.payload)
+        )
+    )
 
 
 def _source_search_command_index(
@@ -826,10 +795,6 @@ def _skip_nice_prefix_options(
         value = tokens[index].value
         if value == "--":
             return index + 1
-        clustered_split_string = _env_clustered_split_string_payload(value)
-        if clustered_split_string is not None:
-            index += 2 if not clustered_split_string else 1
-            continue
         if value in value_options:
             index += 2
             continue
@@ -902,23 +867,10 @@ def _skip_env_prefix_options(
     start: int,
     end: int,
 ) -> int:
-    value_options = frozenset({"-C", "-S", "-u", "--chdir", "--split-string", "--unset"})
-    index = start
-    while index < end:
-        value = tokens[index].value
-        if value == "--":
-            return index + 1
-        if value in value_options:
-            index += 2
-            continue
-        if value.startswith(("--chdir=", "--split-string=", "--unset=")):
-            index += 1
-            continue
-        if value.startswith("-") or _is_shell_environment_assignment(value):
-            index += 1
-            continue
-        return index
-    return index
+    parsed = parse_env_wrapper([token.value for token in tokens[start:end]])
+    if not parsed.complete or parsed.command_index is None or parsed.split_expansions:
+        return end
+    return start + parsed.command_index
 
 
 def _skip_sudo_prefix_options(
@@ -1117,6 +1069,20 @@ _SENSITIVE_CLOUD_FIELD_MARKERS = (
     "secret",
     "token",
 )
+_DASHBOARD_ACTION_TYPES = frozenset(
+    {
+        "prompt",
+        "shell_command",
+        "file_read",
+        "file_write",
+        "mcp_tool",
+        "package_script",
+        "network_request",
+        "config_change",
+        "browser_action",
+        "harness_start",
+    }
+)
 
 
 def _is_sensitive_cloud_field(field_name: str | None) -> bool:
@@ -1172,6 +1138,20 @@ def _cloud_safe_local_request_payload(
         elif isinstance(value, (int, float, bool)) or value is None:
             payload[key] = value
 
+    policy_action = normalize_guard_action_result(
+        item.get("policy_action"),
+        unknown_action="require-reapproval",
+    )
+    # Older locally persisted review rows can predate ``policy_action``.  They
+    # must remain syncable, but only through the fail-closed compatibility
+    # projection.  Explicit, non-empty unknown values still signal a corrupt
+    # authority contract and are rejected below.
+    raw_policy_action = item.get("policy_action")
+    if not policy_action.recognized and raw_policy_action is not None:
+        raise ValueError(AUTHORITATIVE_DECISION_INCONSISTENT)
+    payload["policy_action"] = policy_action.action
+    payload["policyAction"] = policy_action.action
+
     if payload.get("status") == "expired":
         payload["status"] = "pending"
 
@@ -1191,6 +1171,9 @@ def _cloud_safe_local_request_payload(
         envelope,
         redaction_level=redaction_level,
         reason=envelope_reason,
+        policy_action=policy_action.action,
+        fallback_action_id=_optional_string(item.get("request_id")),
+        fallback_harness=_optional_string(item.get("harness")),
     )
     if safe_envelope is not None:
         payload["action_envelope_json"] = safe_envelope
@@ -1247,16 +1230,38 @@ def _cloud_safe_action_envelope(
     *,
     redaction_level: str,
     reason: str | None = None,
+    policy_action: str,
+    fallback_action_id: str | None = None,
+    fallback_harness: str | None = None,
 ) -> dict[str, object] | None:
     if envelope is None:
         return None
+    allowed_action_fields = {
+        "action_id",
+        "action_type",
+        "policy_action",
+        "pre_execution_result",
+        "actionId",
+        "actionType",
+        "policyAction",
+        "preExecutionResult",
+    }
+    for key in envelope:
+        if is_action_bearing_key(key) and key not in allowed_action_fields:
+            raise ValueError(AUTHORITATIVE_DECISION_INCONSISTENT)
+    action_id_value = _matching_action_envelope_alias(envelope, "action_id", "actionId")
+    action_type_value = _matching_action_envelope_alias(envelope, "action_type", "actionType")
+    policy_action_value = _matching_action_envelope_alias(envelope, "policy_action", "policyAction")
+    pre_execution_value = _matching_action_envelope_alias(
+        envelope,
+        "pre_execution_result",
+        "preExecutionResult",
+    )
     safe: dict[str, object] = {}
     for key in (
         "schema_version",
-        "action_id",
         "harness",
         "event_name",
-        "action_type",
         "workspace_hash",
         "tool_name",
         "mcp_server",
@@ -1273,15 +1278,30 @@ def _cloud_safe_action_envelope(
         elif isinstance(value, (int, float, bool)) or value is None:
             safe[key] = value
 
-    action_type = _first_optional_string(envelope, ("action_type", "actionType"))
+    if isinstance(action_id_value, str) and action_id_value.strip():
+        safe["action_id"] = _bounded_text(action_id_value.strip())
+    if isinstance(action_type_value, str) and action_type_value.strip():
+        safe["action_type"] = _bounded_text(action_type_value.strip())
+
+    for key, raw_action in (
+        ("policy_action", policy_action_value),
+        ("pre_execution_result", pre_execution_value),
+    ):
+        if raw_action is None:
+            continue
+        normalized = normalize_guard_action_result(raw_action, unknown_action="require-reapproval")
+        if not normalized.recognized or normalized.action != policy_action:
+            raise ValueError(AUTHORITATIVE_DECISION_INCONSISTENT)
+        safe[key] = normalized.action
+    safe["policy_action"] = policy_action
+
+    action_type = _optional_string(action_type_value)
     operation = _first_optional_string(envelope, ("operation",))
     if action_type is not None:
         _set_dual_key(safe, "action_type", "actionType", action_type)
     resolved_operation = operation or _operation_for_action_type(action_type)
     if resolved_operation is not None:
         safe["operation"] = _bounded_text(resolved_operation)
-    _add_action_envelope_aliases(safe)
-
     redaction_enabled = redaction_level != "none"
     if redaction_enabled:
         command = envelope.get("command")
@@ -1294,6 +1314,15 @@ def _cloud_safe_action_envelope(
         redacted_reason = reason or _first_optional_string(envelope, ("reason", "pre_execution_result"))
         if redacted_reason is not None:
             safe["reason"] = _bounded_text(redacted_reason)
+        _complete_dashboard_action_envelope(
+            safe,
+            envelope,
+            action_type=action_type,
+            fallback_action_id=fallback_action_id,
+            fallback_harness=fallback_harness,
+            redaction_enabled=True,
+        )
+        _add_action_envelope_aliases(safe)
         return safe or None
 
     if redaction_level == "none":
@@ -1307,8 +1336,74 @@ def _cloud_safe_action_envelope(
             elif isinstance(value, str):
                 safe[key] = _bounded_text(value)
         _preserve_portal_action_contract_fields(safe, envelope)
+        _complete_dashboard_action_envelope(
+            safe,
+            envelope,
+            action_type=action_type,
+            fallback_action_id=fallback_action_id,
+            fallback_harness=fallback_harness,
+            redaction_enabled=False,
+        )
         _add_action_envelope_aliases(safe)
     return safe or None
+
+
+def _matching_action_envelope_alias(
+    envelope: Mapping[str, object],
+    snake_key: str,
+    camel_key: str,
+) -> object:
+    if snake_key in envelope and camel_key in envelope and envelope[snake_key] != envelope[camel_key]:
+        raise ValueError(AUTHORITATIVE_DECISION_INCONSISTENT)
+    return envelope.get(snake_key, envelope.get(camel_key))
+
+
+def _complete_dashboard_action_envelope(
+    safe: dict[str, object],
+    envelope: Mapping[str, object],
+    *,
+    action_type: str | None,
+    fallback_action_id: str | None,
+    fallback_harness: str | None,
+    redaction_enabled: bool,
+) -> None:
+    """Complete supported cloud projections to the dashboard's typed schema."""
+
+    if action_type not in _DASHBOARD_ACTION_TYPES:
+        return
+    if not isinstance(safe.get("schema_version"), int):
+        safe["schema_version"] = 1
+    if not isinstance(safe.get("action_id"), str) or not str(safe["action_id"]).strip():
+        safe["action_id"] = _bounded_text(fallback_action_id or "cloud-review-action")
+    if not isinstance(safe.get("harness"), str) or not str(safe["harness"]).strip():
+        safe["harness"] = _bounded_text(fallback_harness or "guard-cloud")
+    if not isinstance(safe.get("event_name"), str) or not str(safe["event_name"]).strip():
+        safe["event_name"] = "guard_cloud_review"
+    safe["action_type"] = action_type
+
+    nullable_fields = (
+        "workspace",
+        "workspace_hash",
+        "tool_name",
+        "command",
+        "prompt_excerpt",
+        "mcp_server",
+        "mcp_tool",
+        "package_manager",
+        "package_name",
+        "script_name",
+    )
+    for key in nullable_fields:
+        if key not in safe:
+            value = envelope.get(key) if not redaction_enabled else None
+            safe[key] = _bounded_text(_cloud_scrub_text(value)) if isinstance(value, str) else None
+    for key in ("target_paths", "network_hosts"):
+        if not isinstance(safe.get(key), list):
+            safe[key] = []
+    raw_payload = envelope.get("raw_payload_redacted")
+    safe["raw_payload_redacted"] = (
+        _bounded_cloud_value(raw_payload) if not redaction_enabled and isinstance(raw_payload, Mapping) else {}
+    )
 
 
 def _set_dual_key(
@@ -1364,6 +1459,8 @@ def _add_action_envelope_aliases(safe: dict[str, object]) -> None:
         ("schema_version", "schemaVersion"),
         ("action_id", "actionId"),
         ("action_type", "actionType"),
+        ("policy_action", "policyAction"),
+        ("pre_execution_result", "preExecutionResult"),
         ("workspace_hash", "workspaceHash"),
         ("tool_name", "toolName"),
         ("mcp_server", "mcpServer"),

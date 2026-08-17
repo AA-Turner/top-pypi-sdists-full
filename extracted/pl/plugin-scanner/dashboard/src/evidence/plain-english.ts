@@ -6,6 +6,11 @@ import type {
 import { isRiskSignalEvidence } from "../guard-types";
 import { harnessDisplayName, resolveActionEnvelopeDetailText } from "../approval-center-utils";
 import { detectCategory, type ReceiptCategory } from "./categories";
+import {
+  guardActionActivityCopy,
+  guardActionPresentation,
+  normalizeGuardAction,
+} from "../guard-action";
 
 function getArtifactType(receipt: GuardReceipt): string {
   return (receipt.artifact_type ?? "").toLowerCase();
@@ -205,20 +210,26 @@ export function plainEnglishDescription(receipt: GuardReceipt): string {
   const title = resolveActionTitle(receipt);
   const subtitle = resolveActionSubtitle(receipt);
 
-  if (receipt.policy_decision === "allow") {
+  const action = guardActionPresentation(receipt.policy_decision);
+  if (action.disposition === "allowed") {
+    const outcome = action.action === "warn" ? "allowed it with a warning" : "allowed it";
     if (receipt.user_override !== null) {
       return subtitle
-        ? `${app} ${pastTenseVerb(type)} ${title}. ${formatSubtitle(subtitle)} You reviewed and allowed it.`
-        : `${app} ${pastTenseVerb(type)} ${title}. You reviewed and allowed it.`;
+        ? `${app} ${pastTenseVerb(type)} ${title}. ${formatSubtitle(subtitle)} You reviewed and ${outcome}.`
+        : `${app} ${pastTenseVerb(type)} ${title}. You reviewed and ${outcome}.`;
     }
+    const automaticOutcome = action.action === "warn"
+      ? "Guard allowed it automatically with a warning."
+      : "Guard allowed it automatically.";
     return subtitle
-      ? `${app} ${pastTenseVerb(type)} ${title}. ${formatSubtitle(subtitle)} Guard allowed it automatically.`
-      : `${app} ${pastTenseVerb(type)} ${title}. Guard allowed it automatically.`;
+      ? `${app} ${pastTenseVerb(type)} ${title}. ${formatSubtitle(subtitle)} ${automaticOutcome}`
+      : `${app} ${pastTenseVerb(type)} ${title}. ${automaticOutcome}`;
   }
 
+  const enforcementCopy = `${guardActionActivityCopy(action.action, "Guard", "it")}.`;
   return subtitle
-    ? `${app} tried to ${infinitiveVerb(type)} ${title}. Guard stopped it: ${formatSubtitle(subtitle)}`
-    : `${app} tried to ${infinitiveVerb(type)} ${title}. Guard stopped it.`;
+    ? `${app} tried to ${infinitiveVerb(type)} ${title}. ${enforcementCopy} ${formatSubtitle(subtitle)}`
+    : `${app} tried to ${infinitiveVerb(type)} ${title}. ${enforcementCopy}`;
 }
 
 function pastTenseVerb(type: string): string {
@@ -293,11 +304,48 @@ function blockedDescription(category: ReceiptCategory, app: string, name: string
   }
 }
 
+/**
+ * Detect whether an approval request represents a shell command.
+ * Checks the artifact type and action envelope for shell/command signals.
+ */
+function isShellCommandRequest(request: GuardApprovalRequest): boolean {
+  const artifactType = (request.artifact_type ?? "").toLowerCase();
+  const actionType = (request.action_envelope_json?.action_type ?? "").toLowerCase();
+  return (
+    actionType === "shell_command" ||
+    artifactType.includes("shell") ||
+    artifactType.includes("command")
+  );
+}
+
+function isPackageDependencyMutationRequest(request: GuardApprovalRequest): boolean {
+  const envelope = request.action_envelope_json;
+  const command = [envelope?.command, request.raw_command_text, request.launch_target]
+    .find((value) => value?.trim())
+    ?.trim();
+  if (command && /(?:&&|[;|]|\r?\n)/.test(command)) {
+    return false;
+  }
+
+  const intentKind = (envelope?.package_intent_kind ?? "").trim().toLowerCase();
+  if (intentKind === "install" || intentKind === "sync") {
+    return true;
+  }
+
+  if (!command) {
+    return false;
+  }
+
+  return /\b(?:npm|pnpm|yarn|bun|pip|pipx|uv|poetry|brew|cargo|gem|go)\s+(?:add|i|install|remove|uninstall|update|upgrade)\b/i.test(
+    command,
+  );
+}
+
 export function plainEnglishRequestTitle(request: GuardApprovalRequest): string {
   const category = detectCategory({
     ...request,
     timestamp: request.created_at,
-    policy_decision: request.policy_action === "block" ? "block" : "allow",
+    policy_decision: normalizeGuardAction(request.policy_action),
     receipt_id: request.request_id,
   } as unknown as GuardReceipt);
   const app = harnessDisplayName(request.harness);
@@ -317,6 +365,9 @@ export function plainEnglishRequestTitle(request: GuardApprovalRequest): string 
     case "tool-call":
       return `${app} wants to use a tool`;
     default:
+      if (isShellCommandRequest(request)) {
+        return `${app} wants to run a shell command`;
+      }
       return `${app} wants to do something with ${name}`;
   }
 }
@@ -325,7 +376,7 @@ export function whyPaused(request: GuardApprovalRequest): string {
   const category = detectCategory({
     ...request,
     timestamp: request.created_at,
-    policy_decision: request.policy_action === "block" ? "block" : "allow",
+    policy_decision: normalizeGuardAction(request.policy_action),
     receipt_id: request.request_id,
   } as unknown as GuardReceipt);
 
@@ -343,6 +394,12 @@ export function whyPaused(request: GuardApprovalRequest): string {
     case "tool-call":
       return "This uses an outside tool. Guard stops new tools by default.";
     default:
+      if (isPackageDependencyMutationRequest(request)) {
+        return "This package install mutates project dependencies and installed packages. Guard pauses dependency changes so you can review them before running.";
+      }
+      if (isShellCommandRequest(request)) {
+        return "This shell command has parts Guard could not fully inspect. Guard pauses these so you can review before running.";
+      }
       return "Guard paused this so you can review it first.";
   }
 }

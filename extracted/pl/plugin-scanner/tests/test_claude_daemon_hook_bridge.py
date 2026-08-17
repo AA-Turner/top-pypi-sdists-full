@@ -5,9 +5,11 @@ from __future__ import annotations
 import io
 import json
 import os
+import sys
 import threading
+import time
 import urllib.request
-from http.server import BaseHTTPRequestHandler, HTTPServer
+from http.server import BaseHTTPRequestHandler, HTTPServer, ThreadingHTTPServer
 from pathlib import Path
 from typing import ClassVar
 
@@ -82,6 +84,31 @@ class _DaemonHandler(BaseHTTPRequestHandler):
         return
 
 
+class _StreamingDaemonHandler(BaseHTTPRequestHandler):
+    status_code = 200
+
+    def do_POST(self) -> None:
+        length = int(self.headers.get("Content-Length", "0"))
+        _ = self.rfile.read(length)
+        self.send_response(self.status_code)
+        self.send_header("Content-Type", "application/json")
+        self.end_headers()
+        try:
+            for _ in range(50):
+                self.wfile.write(b"{")
+                self.wfile.flush()
+                time.sleep(0.1)
+        except (BrokenPipeError, ConnectionResetError):
+            return
+
+    def log_message(self, fmt: str, *args: object) -> None:
+        return
+
+
+class _StreamingErrorDaemonHandler(_StreamingDaemonHandler):
+    status_code = 503
+
+
 def test_post_to_loopback_daemon_ignores_http_proxy(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
     _CapturingProxyHandler.captured_paths = []
     proxy_server = HTTPServer(("127.0.0.1", 0), _CapturingProxyHandler)
@@ -125,6 +152,35 @@ def test_post_to_loopback_daemon_ignores_http_proxy(monkeypatch: pytest.MonkeyPa
     assert payload["marker"] == _DaemonHandler.response_marker
     assert _CapturingProxyHandler.captured_paths == []
     assert _DaemonHandler.captured_guard_token == auth_token
+
+
+@pytest.mark.parametrize("handler", [_StreamingDaemonHandler, _StreamingErrorDaemonHandler])
+def test_post_to_loopback_daemon_enforces_absolute_streaming_deadline(
+    tmp_path: Path,
+    handler: type[BaseHTTPRequestHandler],
+) -> None:
+    guard_home = tmp_path / "guard-home"
+    guard_home.mkdir(mode=0o700)
+    (guard_home / "daemon-auth-token").write_text("test-token", encoding="utf-8")
+    server = ThreadingHTTPServer(("127.0.0.1", 0), handler)
+    server.daemon_threads = True
+    server_thread = threading.Thread(target=server.serve_forever, daemon=True)
+    server_thread.start()
+    started_at = time.monotonic()
+
+    try:
+        with pytest.raises(TimeoutError, match="absolute deadline"):
+            bridge._post_to_loopback_daemon(
+                f"http://127.0.0.1:{server.server_address[1]}/v1/hooks/claude-code",
+                "{}",
+                state_path=guard_home / "daemon-state.json",
+            )
+    finally:
+        server.shutdown()
+        server.server_close()
+        server_thread.join(timeout=2)
+
+    assert time.monotonic() - started_at < bridge._DAEMON_IO_TIMEOUT_SECONDS + 1
 
 
 def test_main_degrades_when_daemon_returns_malformed_json(
@@ -187,9 +243,230 @@ def test_valid_hook_json_degrades_empty_daemon_body() -> None:
     assert "full HOL Guard approval flow" in payload["systemMessage"]
 
 
+def test_daemon_response_body_is_size_bounded() -> None:
+    class OversizedResponse:
+        def read(self, amt: int = -1) -> bytes:
+            assert amt == bridge._MAX_DAEMON_RESPONSE_BYTES + 1
+            return b"x" * amt
+
+    with pytest.raises(ValueError, match="safe size limit"):
+        bridge._read_bounded_response(OversizedResponse())
+
+
+def test_oversized_hook_input_fails_safe_without_daemon_contact(
+    monkeypatch: pytest.MonkeyPatch,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    monkeypatch.setattr("sys.stdin", io.StringIO("x" * (bridge._MAX_HOOK_INPUT_BYTES + 1)))
+
+    result = bridge.main(
+        state_path="/missing/state.json",
+        fallback_daemon_url="http://127.0.0.1:5474",
+        fallback_command=(sys.executable, "-c", "raise SystemExit(99)"),
+        query="",
+    )
+
+    assert result == 0
+    payload = json.loads(capsys.readouterr().out)
+    assert payload["hookSpecificOutput"]["permissionDecision"] == "ask"
+
+
 def test_bridge_timeouts_stay_under_harness_budget() -> None:
     assert bridge._HARNESS_TIMEOUT_BUDGET_SECONDS == 10
-    assert bridge._HOOK_IO_TIMEOUT_SECONDS == bridge._HARNESS_TIMEOUT_BUDGET_SECONDS - 2
+    assert (
+        2 * bridge._DAEMON_IO_TIMEOUT_SECONDS
+    ) + bridge._RECOVERY_TIMEOUT_SECONDS + bridge._FALLBACK_TIMEOUT_SECONDS < bridge._HARNESS_TIMEOUT_BUDGET_SECONDS
+
+
+def test_main_falls_back_before_scheduling_missing_daemon_recovery(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    attempts = 0
+    recovery_commands: list[tuple[str, ...]] = []
+
+    def fake_post(
+        endpoint: str,
+        data: str,
+        *,
+        state_path: str | Path,
+        deadline: float | None = None,
+    ) -> str:
+        del endpoint, data, state_path, deadline
+        nonlocal attempts
+        attempts += 1
+        raise urllib.error.URLError("daemon unavailable")
+
+    def fake_recover(
+        command: tuple[str, ...],
+        *,
+        deadline: float | None = None,
+        failure_kind: str,
+    ) -> bool:
+        del deadline
+        assert failure_kind == "transport-failure"
+        recovery_commands.append(command)
+        return True
+
+    monkeypatch.setattr(bridge, "_post_to_loopback_daemon", fake_post)
+    monkeypatch.setattr(bridge, "_run_recovery_command", fake_recover)
+    monkeypatch.setattr("sys.stdin", io.StringIO(json.dumps({"hook_event_name": "PreToolUse"})))
+
+    result = bridge.main(
+        state_path=tmp_path / "guard-home" / "daemon-state.json",
+        fallback_daemon_url="http://127.0.0.1:5474",
+        fallback_command=("python3", "-c", "raise SystemExit(99)"),
+        query="guard-home=%2Ftmp",
+    )
+
+    assert result == 0
+    assert attempts == 1
+    assert len(recovery_commands) == 1
+    assert recovery_commands[0][1:3] == ("-I", "-c")
+    assert "schedule_guard_daemon_recovery" in recovery_commands[0][3]
+    assert json.loads(capsys.readouterr().out)["hookSpecificOutput"]["permissionDecision"] == "ask"
+
+
+def test_local_package_review_precedes_daemon_recovery(monkeypatch: pytest.MonkeyPatch) -> None:
+    now = [2.0]
+    call_order: list[str] = []
+    recovery_deadlines: list[float | None] = []
+
+    monkeypatch.setattr(bridge.time, "monotonic", lambda: now[0])
+
+    def fake_recover(
+        command: tuple[str, ...],
+        *,
+        deadline: float | None = None,
+        failure_kind: str,
+    ) -> bool:
+        del command, failure_kind
+        call_order.append("recover")
+        recovery_deadlines.append(deadline)
+        assert deadline is not None
+        now[0] = min(deadline, now[0] + bridge._RECOVERY_TIMEOUT_SECONDS)
+        return True
+
+    def fake_fallback(
+        reason: str,
+        data: str,
+        command: tuple[str, ...],
+        *,
+        deadline: float | None = None,
+    ) -> str:
+        del reason, data, command
+        call_order.append("fallback")
+        assert deadline == 8.0
+        return '{"review":true}'
+
+    monkeypatch.setattr(bridge, "_run_recovery_command", fake_recover)
+    monkeypatch.setattr(bridge, "_run_local_fallback", fake_fallback)
+
+    response = bridge._recover_retry_or_fallback(
+        "daemon unavailable",
+        json.dumps({"hook_event_name": "PreToolUse"}),
+        fallback_command=(
+            sys.executable,
+            "-c",
+            "import time;time.sleep(1.25);print('{\"review\":true}')",
+        ),
+        recovery_command=(sys.executable, "-c", "pass"),
+        deadline=8.0,
+    )
+
+    assert json.loads(response) == {"review": True}
+    assert call_order == ["fallback", "recover"]
+    assert recovery_deadlines == [2.25]
+
+
+def test_recovery_only_restarts_for_transport_auth_and_server_failures() -> None:
+    assert not bridge._daemon_failure_is_recoverable(ValueError("invalid loopback URL"))
+    assert not bridge._daemon_failure_is_recoverable(
+        urllib.error.HTTPError("http://127.0.0.1", 400, "Bad Request", {}, None)
+    )
+    assert bridge._daemon_failure_is_recoverable(
+        urllib.error.HTTPError("http://127.0.0.1", 503, "Unavailable", {}, None)
+    )
+    assert bridge._daemon_failure_is_recoverable(urllib.error.URLError("connection refused"))
+    bounded_http_error = bridge._DaemonHTTPError(503, "worker-captured detail")
+    assert bridge._daemon_failure_is_recoverable(bounded_http_error)
+    assert bridge._daemon_failure_reason(bounded_http_error).endswith("worker-captured detail")
+    assert not bridge._daemon_failure_is_recoverable(
+        bridge._DaemonHTTPError(429, '{"error":"hook_capacity_exhausted"}')
+    )
+    assert not bridge._daemon_failure_is_recoverable(bridge._DaemonHTTPError(503, '{"error":"daemon_overloaded"}'))
+    assert bridge._daemon_failure_kind(bridge._DaemonHTTPError(429, "busy")) == "overload"
+
+
+def test_typed_transient_overload_retries_once_without_recovery_or_fallback(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    attempts = 0
+
+    def fake_post(*_args: object, **_kwargs: object) -> str:
+        nonlocal attempts
+        attempts += 1
+        if attempts == 1:
+            raise bridge._DaemonHTTPError(
+                503,
+                '{"reason_code":"transient_overload","retry_after_ms":25,"estimated_service_ms":100}',
+            )
+        return '{"hookSpecificOutput":{"hookEventName":"PreToolUse","permissionDecision":"allow"}}'
+
+    monkeypatch.setattr(bridge, "_post_to_loopback_daemon", fake_post)
+    monkeypatch.setattr(bridge.time, "sleep", lambda _seconds: None)
+    monkeypatch.setattr("sys.stdin", io.StringIO('{"hook_event_name":"PreToolUse"}'))
+
+    assert (
+        bridge.main(
+            state_path=tmp_path / "guard-home" / "daemon-state.json",
+            fallback_daemon_url="http://127.0.0.1:5474",
+            fallback_command=("should-not-run",),
+            query="guard-home=%2Ftmp",
+        )
+        == 0
+    )
+    assert attempts == 2
+    assert json.loads(capsys.readouterr().out)["hookSpecificOutput"]["permissionDecision"] == "allow"
+    assert bridge._daemon_failure_kind(TimeoutError("deadline")) == "transport-failure"
+    assert bridge._daemon_failure_kind(ValueError("bad state")) == "authenticated-control-plane-failure"
+
+
+@pytest.mark.skipif(os.name == "nt", reason="POSIX process-group assertion")
+def test_fallback_timeout_kills_descendants(tmp_path: Path) -> None:
+    marker = tmp_path / "escaped-child.marker"
+    child = f"import time;from pathlib import Path;time.sleep(.3);Path({str(marker)!r}).write_text('escaped')"
+    parent = f"import subprocess,sys,time;subprocess.Popen([sys.executable,'-c',{child!r}]);time.sleep(10)"
+    data = json.dumps({"hook_event_name": "PreToolUse"})
+
+    response = bridge._run_local_fallback(
+        "daemon unavailable",
+        data,
+        (sys.executable, "-c", parent),
+        deadline=time.monotonic() + 0.05,
+    )
+    time.sleep(0.4)
+
+    assert json.loads(response)["hookSpecificOutput"]["permissionDecision"] == "ask"
+    assert not marker.exists()
+
+
+def test_recovery_command_preserves_custom_home_and_guard_home(tmp_path: Path) -> None:
+    guard_home = tmp_path / "guard home"
+    home_dir = tmp_path / "user home"
+
+    command = bridge._recovery_command(
+        guard_home / "daemon-state.json",
+        f"guard-home={guard_home.as_posix()}&home={home_dir.as_posix()}",
+    )
+
+    assert command[1:3] == ("-I", "-c")
+    assert "schedule_guard_daemon_recovery" in command[3]
+    assert str(guard_home) in command[3]
+    assert str(home_dir) in command[3]
 
 
 def test_loopback_redirect_handler_rejects_remote_redirect() -> None:

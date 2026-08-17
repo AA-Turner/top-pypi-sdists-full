@@ -8,11 +8,18 @@ import {
   QUEUE_CONNECTION_ERROR_HEADLINE,
   QUEUE_CONNECTION_ERROR_INSTRUCTION,
   buildRecommendation,
+  buildRetryAfterApprovalCopy,
+  buildPauseLine,
+  isWatchOnlyObservation,
+  requestResolutionBlockReason,
   scopeLabel,
   buildCodexResumeUx,
   resolveApprovalShareUrl,
+  resolveRequestWorkingDirectory,
 } from "./approval-center-utils";
 import type { GuardActionEnvelope, GuardApprovalRequest, GuardCodexResumeResult } from "./guard-types";
+import { renderToStaticMarkup } from "react-dom/server";
+import { PrimaryActionCard } from "./review-states";
 
 function assert(condition: boolean, message: string): void {
   if (!condition) {
@@ -76,7 +83,8 @@ const shellEnvelope: GuardActionEnvelope = {
 
 const shellRequest: GuardApprovalRequest = {
   ...BASE_REQUEST,
-  action_envelope_json: shellEnvelope
+  workspace: "/workspace/legacy",
+  action_envelope_json: { ...shellEnvelope, workspace: "/workspace/current" }
 };
 
 assert(
@@ -87,6 +95,37 @@ assert(
 assert(
   resolveStoppedCommandText(shellRequest) === "git diff HEAD~1 -- src/",
   "T494: resolveStoppedCommandText returns the envelope command for shell_command item"
+);
+
+assert(
+  resolveRequestWorkingDirectory(shellRequest) === "/workspace/current",
+  "T494: working directory prefers the typed action envelope workspace"
+);
+
+assert(
+  resolveRequestWorkingDirectory({ ...BASE_REQUEST, workspace: "/workspace/legacy" }) === "/workspace/legacy",
+  "T494: working directory falls back to the approval request workspace"
+);
+
+assert(
+  resolveRequestWorkingDirectory({ ...BASE_REQUEST, workspace: "  " }) === null,
+  "T494: working directory omits empty workspace values"
+);
+
+assert(
+  resolveRequestWorkingDirectory({
+    ...BASE_REQUEST,
+    artifact_type: "file_read",
+    workspace: "/workspace/current",
+    action_envelope_json: { ...BASE_ENVELOPE, action_type: "file_read", workspace: "/workspace/current" }
+  }) === null,
+  "T494: working directory stays scoped to executable actions"
+);
+
+const primaryActionMarkup = renderToStaticMarkup(PrimaryActionCard({ item: shellRequest }));
+assert(
+  primaryActionMarkup.includes("Working directory") && primaryActionMarkup.includes("/workspace/current"),
+  "T494: primary action card shows the full working directory next to the stopped command"
 );
 
 const longCommand = "a".repeat(200);
@@ -180,6 +219,26 @@ assert(
   "T481: resolveTerminalLabel returns 'File path' for file_read action type"
 );
 
+const applyPatchEnvelope: GuardActionEnvelope = {
+  ...BASE_ENVELOPE,
+  action_type: "file_write",
+  tool_name: "apply_patch",
+  command: "*** Begin Patch\n*** Update File: src/guard.py\n@@\n+value = 1\n*** End Patch",
+  target_paths: ["src/guard.py"]
+};
+const applyPatchRequest: GuardApprovalRequest = {
+  ...BASE_REQUEST,
+  action_envelope_json: applyPatchEnvelope
+};
+assert(
+  resolveTerminalLabel(applyPatchRequest) === "Patch",
+  "T481: resolveTerminalLabel identifies native apply_patch actions as patches"
+);
+assert(
+  resolveEnvelopeDisplayText(applyPatchEnvelope) === applyPatchEnvelope.command,
+  "T481: resolveEnvelopeDisplayText preserves the redacted patch for native apply_patch actions"
+);
+
 const mcpRequest: GuardApprovalRequest = {
   ...BASE_REQUEST,
   action_envelope_json: { ...BASE_ENVELOPE, action_type: "mcp_tool", mcp_server: "my-server", mcp_tool: "fetch" }
@@ -208,18 +267,18 @@ assert(
 );
 
 assert(
-  resolveTerminalLabel(BASE_REQUEST) === "Stopped command",
-  "T479-T484: resolveTerminalLabel returns 'Stopped command' when no envelope present"
+  resolveTerminalLabel(BASE_REQUEST) === "Command",
+  "P45: pending requests without an envelope use a neutral command label"
 );
 
 assert(
-  EMPTY_QUEUE_TITLE === "No blocked actions",
-  'C5: Empty queue shows friendly copy "No blocked actions"; EMPTY_QUEUE_TITLE constant is correct'
+  EMPTY_QUEUE_TITLE === "Review queue is clear",
+  'C5: Empty queue reports that the review queue is clear'
 );
 
 assert(
-  EMPTY_QUEUE_TITLE.toLowerCase().includes("no blocked"),
-  'C5: Empty queue title does not say "no items"; uses friendly language instead'
+  !EMPTY_QUEUE_TITLE.toLowerCase().includes("blocked"),
+  "P45: Empty review queue does not relabel pending decisions as blocks"
 );
 
 assert(
@@ -245,6 +304,54 @@ assert(
 assert(
   buildRecommendation(BASE_REQUEST).includes("Project approval remembers this same action"),
   "C9: Recommendation explains project approval does not trust new sensitive actions"
+);
+
+const watchOnlyRequest: GuardApprovalRequest = {
+  ...BASE_REQUEST,
+  scanner_evidence: [
+    {
+      source: "observe_mode_inbox",
+      observed_policy_action: "require-reapproval",
+      queued_policy_action: "require-reapproval",
+      authoritative_action: "allow",
+    },
+  ] as unknown as NonNullable<GuardApprovalRequest["scanner_evidence"]>,
+};
+assert(isWatchOnlyObservation(watchOnlyRequest), "Watch-only findings are identified from trusted queue evidence");
+assert(
+  buildPauseLine(watchOnlyRequest).startsWith("Watch only let this action run."),
+  "Watch-only findings never claim the action was paused",
+);
+assert(
+  buildRecommendation(watchOnlyRequest).includes("Save an exact allow"),
+  "Watch-only findings explain how to prevent the same false positive",
+);
+assert(
+  buildRetryAfterApprovalCopy(watchOnlyRequest, "allow").includes("no future rule was saved"),
+  "Watch-only one-time review copy never promises a remembered allow",
+);
+assert(
+  buildRetryAfterApprovalCopy(watchOnlyRequest, "allow", true).includes("allow this exact action next time"),
+  "Watch-only persisted allow copy describes the exact future rule",
+);
+assert(
+  buildRetryAfterApprovalCopy(watchOnlyRequest, "block", true).includes("stop this exact action next time"),
+  "Watch-only persisted block copy describes the exact future rule",
+);
+
+const sandboxRequest: GuardApprovalRequest = { ...BASE_REQUEST, policy_action: "sandbox-required" };
+assert(
+  requestResolutionBlockReason(sandboxRequest)?.includes("cannot bypass") === true &&
+    !buildRecommendation(sandboxRequest).toLowerCase().includes("scope"),
+  "P45: terminal sandbox requests never advertise or enable an approval bypass",
+);
+const inconsistentRequest: GuardApprovalRequest = {
+  ...BASE_REQUEST,
+  decision_contract_error: "authoritative_decision_inconsistent",
+};
+assert(
+  requestResolutionBlockReason(inconsistentRequest)?.includes("cannot be approved") === true,
+  "P45: inconsistent stored authority has explicit non-resolvable UI copy",
 );
 
 assert(

@@ -12,6 +12,7 @@ from dataclasses import dataclass, field, replace
 from pathlib import Path, PureWindowsPath
 from typing import Literal, TypeGuard
 
+from ..action_lattice import is_action_bearing_key
 from ..redaction import redact_text
 from .secret_sensitivity import redacted_secret_path_context
 from .shell_command_wrappers import normalize_transparent_shell_command
@@ -47,6 +48,9 @@ _SCHEMA_VERSION = 1
 _SHELL_TOOL_NAMES = frozenset({"bash", "shell", "sh", "zsh", "terminal", "run_command", "run_terminal_command"})
 _FILE_READ_TOOL_NAMES = frozenset({"read", "read_file", "open_file", "view", "view_file", "cat_file"})
 _FILE_WRITE_TOOL_NAMES = frozenset({"write", "edit", "multiedit", "write_file", "edit_file", "apply_patch"})
+_GROK_FILE_READ_TOOL_NAMES = frozenset({"grep", "glob", "list_dir", "listdir", "list_directory", "read"})
+_GROK_SUBAGENT_TOOL_NAMES = frozenset({"task", "spawn_subagent"})
+_GROK_LIFECYCLE_ENVELOPE_EVENTS = frozenset({"SessionStart", "SubagentStart"})
 _PATH_KEYS = (
     "path",
     "paths",
@@ -63,6 +67,10 @@ _PATH_KEYS = (
     "target_paths",
     "targetPath",
     "targetPaths",
+    "target_directory",
+    "targetDirectory",
+    "directory",
+    "dir",
 )
 _COMMAND_KEYS = (
     "command",
@@ -76,7 +84,7 @@ _COMMAND_KEYS = (
 )
 _EXPLICIT_COMMAND_KEYS = ("command", "cmd", "shell_command", "shellCommand")
 _SEARCH_PATTERN_KEYS = ("pattern", "query", "search", "regex")
-_PATCH_INPUT_KEYS = ("patch", "input")
+_PATCH_INPUT_KEYS = ("patch", "input", "command")
 _PATCH_FILE_HEADER_PATTERN = re.compile(r"^\*\*\* (?:Add|Delete|Update) File: (?P<path>.+)$", re.MULTILINE)
 _SENSITIVE_RAW_KEYS = frozenset(
     {
@@ -161,6 +169,7 @@ class GuardActionEnvelope:
     mcp_tool: str | None
     package_manager: str | None
     package_name: str | None
+    command_category: str | None = None
     package_intent_kind: str | None = None
     package_targets: tuple[str, ...] = ()
     pre_execution_result: str | None = None
@@ -192,6 +201,7 @@ class GuardActionEnvelope:
             "mcp_tool": self.mcp_tool,
             "package_manager": self.package_manager,
             "package_name": self.package_name,
+            "command_category": self.command_category,
             "package_intent_kind": self.package_intent_kind,
             "package_targets": list(self.package_targets),
             "pre_execution_result": self.pre_execution_result,
@@ -208,13 +218,33 @@ class GuardActionEnvelope:
     def from_dict(cls, payload: Mapping[str, object]) -> GuardActionEnvelope:
         """Build an envelope from a persisted payload."""
 
+        for key in payload:
+            if not isinstance(key, str):
+                raise ValueError("Guard action envelope keys must be strings")
+            if is_action_bearing_key(key) and key not in {
+                "action_id",
+                "action_type",
+                "pre_execution_result",
+                "actionId",
+                "actionType",
+                "preExecutionResult",
+                "command_category",
+            }:
+                raise ValueError(f"Guard action envelope contains unknown action-bearing field: {key}")
+        action_id = _matching_aliased_value(payload, "action_id", "actionId")
+        action_type_value = _matching_aliased_value(payload, "action_type", "actionType")
+        pre_execution_result = _matching_aliased_value(
+            payload,
+            "pre_execution_result",
+            "preExecutionResult",
+        )
         schema_version = _required_int(payload, "schema_version")
         if schema_version != _SCHEMA_VERSION:
             raise ValueError(f"Guard action envelope schema_version {schema_version} is not supported.")
-        action_type = _required_action_type(payload.get("action_type"))
+        action_type = _required_action_type(action_type_value)
         return cls(
             schema_version=schema_version,
-            action_id=_string_value(payload.get("action_id")) or "",
+            action_id=_string_value(action_id) or "",
             harness=_required_string(payload, "harness"),
             event_name=_required_string(payload, "event_name"),
             action_type=action_type,
@@ -230,9 +260,10 @@ class GuardActionEnvelope:
             mcp_tool=_string_value(payload.get("mcp_tool")),
             package_manager=_string_value(payload.get("package_manager")),
             package_name=_string_value(payload.get("package_name")),
+            command_category=_string_value(payload.get("command_category")),
             package_intent_kind=_string_value(payload.get("package_intent_kind")),
             package_targets=_string_tuple(payload.get("package_targets")),
-            pre_execution_result=_string_value(payload.get("pre_execution_result")),
+            pre_execution_result=_string_value(pre_execution_result),
             script_name=_string_value(payload.get("script_name")),
             raw_payload_redacted=_dict_value(payload.get("raw_payload_redacted")),
         )
@@ -426,13 +457,23 @@ def normalize_grok_hook_payload(
 
     from ..adapters.grok_hooks import prepare_grok_hook_payload
 
-    return _normalize_action_payload(
+    envelope = _normalize_action_payload(
         prepare_grok_hook_payload(payload),
         harness="grok",
         default_event_name=None,
         workspace=workspace,
         home_dir=home_dir,
     )
+    if envelope.event_name in _GROK_LIFECYCLE_ENVELOPE_EVENTS:
+        return replace(envelope, action_type="config_change")
+    if envelope.event_name != "PreToolUse":
+        return envelope
+    tool_name = (envelope.tool_name or "").lower()
+    if tool_name in _GROK_SUBAGENT_TOOL_NAMES:
+        return replace(envelope, action_type="prompt")
+    if tool_name in _GROK_FILE_READ_TOOL_NAMES:
+        return replace(envelope, action_type="file_read")
+    return envelope
 
 
 def normalize_zcode_hook_payload(
@@ -458,21 +499,86 @@ def normalize_zcode_hook_payload(
     )
 
 
+def _normalize_pi_family_payload(
+    payload: Mapping[str, object],
+    *,
+    harness: str,
+    workspace: Path | str | None = None,
+    home_dir: Path | str | None = None,
+) -> GuardActionEnvelope:
+    """Normalize a Pi-family extension event payload into a typed action envelope."""
+
+    return _normalize_action_payload(
+        payload,
+        harness=harness,
+        default_event_name=None,
+        workspace=workspace,
+        home_dir=home_dir,
+    )
+
+
 def normalize_pi_payload(
     payload: Mapping[str, object],
     *,
     workspace: Path | str | None = None,
     home_dir: Path | str | None = None,
 ) -> GuardActionEnvelope:
-    """Normalize a Pi extension event payload into a typed action envelope."""
+    return _normalize_pi_family_payload(payload, harness="pi", workspace=workspace, home_dir=home_dir)
 
+
+def normalize_omp_payload(
+    payload: Mapping[str, object],
+    *,
+    workspace: Path | str | None = None,
+    home_dir: Path | str | None = None,
+) -> GuardActionEnvelope:
+    return _normalize_pi_family_payload(payload, harness="omp", workspace=workspace, home_dir=home_dir)
+
+
+def normalize_kimi_payload(
+    payload: Mapping[str, object],
+    *,
+    workspace: Path | str | None = None,
+    home_dir: Path | str | None = None,
+) -> GuardActionEnvelope:
+    """Normalize a Kimi Code native-hook payload into a typed action envelope."""
+
+    from ..adapters.kimi_hooks import normalize_kimi_prompt
+
+    normalized_payload = dict(payload)
+    normalized_payload["prompt"] = normalize_kimi_prompt(normalized_payload.get("prompt"))
     return _normalize_action_payload(
-        payload,
-        harness="pi",
+        normalized_payload,
+        harness="kimi",
         default_event_name=None,
         workspace=workspace,
         home_dir=home_dir,
     )
+
+
+_ACTION_PAYLOAD_NORMALIZERS = {
+    "codex": normalize_codex_hook_payload,
+    "claude": normalize_claude_hook_payload,
+    "claude-code": normalize_claude_hook_payload,
+    "opencode": normalize_opencode_payload,
+    "copilot": normalize_copilot_payload,
+    "gemini": normalize_gemini_payload,
+    "hermes": normalize_hermes_payload,
+    "openclaw": normalize_openclaw_payload,
+    "cursor": normalize_cursor_hook_payload,
+    "grok": normalize_grok_hook_payload,
+    "kimi": normalize_kimi_payload,
+    "pi": normalize_pi_payload,
+    "omp": normalize_omp_payload,
+    "zcode": normalize_zcode_hook_payload,
+    "zai": normalize_zcode_hook_payload,
+}
+
+
+def action_envelope_harnesses() -> tuple[str, ...]:
+    """Return every harness name accepted by the shared action-envelope boundary."""
+
+    return tuple(_ACTION_PAYLOAD_NORMALIZERS)
 
 
 def normalize_harness_payload(
@@ -486,22 +592,7 @@ def normalize_harness_payload(
     """Normalize any supported Guard harness payload into a typed action envelope."""
 
     normalized_harness = harness.strip().lower()
-    normalizers = {
-        "codex": normalize_codex_hook_payload,
-        "claude": normalize_claude_hook_payload,
-        "claude-code": normalize_claude_hook_payload,
-        "opencode": normalize_opencode_payload,
-        "copilot": normalize_copilot_payload,
-        "gemini": normalize_gemini_payload,
-        "hermes": normalize_hermes_payload,
-        "openclaw": normalize_openclaw_payload,
-        "cursor": normalize_cursor_hook_payload,
-        "grok": normalize_grok_hook_payload,
-        "pi": normalize_pi_payload,
-        "zcode": normalize_zcode_hook_payload,
-        "zai": normalize_zcode_hook_payload,
-    }
-    normalizer = normalizers.get(normalized_harness)
+    normalizer = _ACTION_PAYLOAD_NORMALIZERS.get(normalized_harness)
     if normalizer is None:
         raise ValueError(f"Unsupported Guard harness for action normalization: {harness}")
     normalized_payload = _payload_with_default_event(payload, event_name)
@@ -615,6 +706,12 @@ def _required_int(payload: Mapping[str, object], key: str) -> int:
     if not isinstance(value, int):
         raise ValueError(f"Guard action envelope missing required integer {key}.")
     return value
+
+
+def _matching_aliased_value(payload: Mapping[str, object], snake_key: str, camel_key: str) -> object:
+    if snake_key in payload and camel_key in payload and payload[snake_key] != payload[camel_key]:
+        raise ValueError(f"Guard action envelope {camel_key} must match {snake_key}.")
+    return payload.get(snake_key, payload.get(camel_key))
 
 
 def _required_string(payload: Mapping[str, object], key: str) -> str:
@@ -754,6 +851,12 @@ def command_text_from_tool_payload(tool_name: object, tool_input: object) -> str
     native_command = _native_tool_command_text(tool_name, tool_input)
     if native_command is not None:
         return native_command
+    normalized_tool = tool_name.strip() if isinstance(tool_name, str) else None
+    mcp_server, _mcp_tool = _mcp_parts(normalized_tool)
+    if mcp_server is not None:
+        # MCP search/query fields are tool data, not shell source. Explicit
+        # command keys above remain eligible for command-risk inspection.
+        return None
     return _command_from_payload(tool_input)
 
 
@@ -1084,6 +1187,7 @@ def _normalized_command(command: str | None) -> str | None:
 __all__ = [
     "GuardActionEnvelope",
     "GuardActionType",
+    "action_envelope_harnesses",
     "normalize_claude_hook_payload",
     "normalize_codex_hook_payload",
     "normalize_copilot_payload",

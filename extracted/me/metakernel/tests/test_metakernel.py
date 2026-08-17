@@ -10,7 +10,7 @@ import pytest
 import zmq
 from traitlets.config import LoggingConfigurable
 
-from metakernel import ExceptionWrapper, MetaKernel
+from metakernel import ExceptionWrapper, Magic, MetaKernel
 from tests.utils import (
     EvalKernel,
     clear_log_text,
@@ -156,6 +156,59 @@ def test_ls_path_complete() -> None:
     assert comp["matches"] == ["ipython/"], comp
 
 
+@pytest.mark.skipif(
+    sys.platform == "win32", reason="path completion format differs on Windows"
+)
+def test_path_complete_trailing_slash() -> None:
+    """Cursor after '/' must not replace the whole line (issue #432)."""
+    kernel = get_kernel()
+    text = "%cd /"
+    comp = asyncio.run(kernel.do_complete(text, len(text)))
+    assert comp["cursor_start"] == comp["cursor_end"] == len(text), comp
+    assert len(comp["matches"]) > 0, "expected filesystem entries under /"
+
+
+@pytest.mark.skipif(
+    sys.platform == "win32", reason="path completion format differs on Windows"
+)
+def test_path_complete_trailing_dash() -> None:
+    """Cursor after '-' in a path must not replace the whole line (issue #432)."""
+    kernel = get_kernel()
+    text = "%ls /tmp/nonexistent-"
+    comp = asyncio.run(kernel.do_complete(text, len(text)))
+    # Even with no matches, cursor_start must not be 0 when there is a path prefix
+    assert comp["cursor_start"] != 0 or comp["matches"] == [], comp
+
+
+def test_magic_complete_trailing_dash() -> None:
+    """Cursor after '--' in magic args must not replace the whole line (issue #432).
+
+    When a magic's get_completions returns matches and the cursor sits after a
+    non-identifier character such as '--', cursor_start must equal cursor_end so
+    that completions are appended at the cursor rather than replacing from position 0.
+    """
+
+    class OptionMagic(Magic):
+        """A magic that offers --opt1 and --opt2 as completions."""
+
+        def line_option_magic(self, arg: str = "") -> None:
+            """A magic with option completions."""
+
+        def get_completions(self, info: dict[str, Any]) -> list[str]:
+            options = ["opt1", "opt2"]
+            return [o for o in options if o.startswith(info["obj"])]
+
+    kernel = get_kernel()
+    kernel.register_magics(OptionMagic)
+
+    # Cursor after '--': obj is empty, magic get_completions returns matches.
+    # cursor_start must equal cursor_end (append at cursor, not replace from 0).
+    text = "%option_magic --"
+    comp = asyncio.run(kernel.do_complete(text, len(text)))
+    assert comp["cursor_start"] == comp["cursor_end"] == len(text), comp
+    assert comp["matches"] == ["opt1", "opt2"], comp
+
+
 def test_history() -> None:
     kernel = get_kernel()
     asyncio.run(kernel.do_execute("!ls", False))
@@ -171,7 +224,7 @@ def test_history() -> None:
     kernel = get_kernel()
     asyncio.run(kernel.do_history(None, None, None))
     assert "!ls" in "".join(kernel.hist_cache)
-    assert "%cd ~"
+    assert "%cd" in "".join(kernel.hist_cache)
 
 
 def test_sticky_magics() -> None:
@@ -478,9 +531,11 @@ class TestMakeSubkernel:
         mock_display = unittest.mock.MagicMock()
         mock_shell = unittest.mock.MagicMock()
         mock_shell.kernel.session = ss.Session()
-        with unittest.mock.patch("IPython.get_ipython", return_value=mock_shell):
-            with unittest.mock.patch("IPython.display.display", mock_display):
-                child.makeSubkernel(parent)
+        with (
+            unittest.mock.patch("IPython.get_ipython", return_value=mock_shell),
+            unittest.mock.patch("IPython.display.display", mock_display),
+        ):
+            child.makeSubkernel(parent)
         assert child.Display is mock_display
 
     def test_with_ipython_sets_send_response_to_shell_response(self) -> None:
@@ -500,7 +555,7 @@ class _FakeApp(LoggingConfigurable):
 def _make_kernel_with_parent(extra_args: list[str]) -> MetaKernel:
     import weakref
 
-    ctx = zmq.Context.instance()
+    ctx: zmq.Context[zmq.Socket[bytes]] = zmq.Context.instance()
     sock = ctx.socket(zmq.PUB)
     parent = _FakeApp()
     parent.extra_args = extra_args  # type: ignore[attr-defined]
@@ -698,9 +753,11 @@ class TestDoShutdown:
         """With restart=True, restart_kernel() and reload_magics() are both called."""
         kernel = get_kernel(EvalKernel)
         kernel.hist_file = ""
-        with unittest.mock.patch.object(kernel, "restart_kernel") as mock_restart:
-            with unittest.mock.patch.object(kernel, "reload_magics") as mock_reload:
-                resp = asyncio.run(kernel.do_shutdown(True))
+        with (
+            unittest.mock.patch.object(kernel, "restart_kernel") as mock_restart,
+            unittest.mock.patch.object(kernel, "reload_magics") as mock_reload,
+        ):
+            resp = asyncio.run(kernel.do_shutdown(True))
         mock_restart.assert_called_once()
         mock_reload.assert_called_once()
         assert resp == {"status": "ok", "restart": True}
