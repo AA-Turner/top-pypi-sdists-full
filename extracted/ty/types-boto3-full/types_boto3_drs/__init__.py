@@ -22,6 +22,10 @@ Usage::
         DrsClient,
         ListExtensibleSourceServersPaginator,
         ListLaunchActionsPaginator,
+        ListRecoveryPlanExecutionStepsPaginator,
+        ListRecoveryPlanExecutionsPaginator,
+        ListRecoveryPlanStepsPaginator,
+        ListRecoveryPlansPaginator,
         ListStagingAccountsPaginator,
     )
 
@@ -38,6 +42,10 @@ Usage::
     describe_source_servers_paginator: DescribeSourceServersPaginator = client.get_paginator("describe_source_servers")
     list_extensible_source_servers_paginator: ListExtensibleSourceServersPaginator = client.get_paginator("list_extensible_source_servers")
     list_launch_actions_paginator: ListLaunchActionsPaginator = client.get_paginator("list_launch_actions")
+    list_recovery_plan_execution_steps_paginator: ListRecoveryPlanExecutionStepsPaginator = client.get_paginator("list_recovery_plan_execution_steps")
+    list_recovery_plan_executions_paginator: ListRecoveryPlanExecutionsPaginator = client.get_paginator("list_recovery_plan_executions")
+    list_recovery_plan_steps_paginator: ListRecoveryPlanStepsPaginator = client.get_paginator("list_recovery_plan_steps")
+    list_recovery_plans_paginator: ListRecoveryPlansPaginator = client.get_paginator("list_recovery_plans")
     list_staging_accounts_paginator: ListStagingAccountsPaginator = client.get_paginator("list_staging_accounts")
     ```
 """
@@ -54,6 +62,10 @@ from .paginator import (
     DescribeSourceServersPaginator,
     ListExtensibleSourceServersPaginator,
     ListLaunchActionsPaginator,
+    ListRecoveryPlanExecutionsPaginator,
+    ListRecoveryPlanExecutionStepsPaginator,
+    ListRecoveryPlansPaginator,
+    ListRecoveryPlanStepsPaginator,
     ListStagingAccountsPaginator,
 )
 
@@ -73,5 +85,9 @@ __all__ = (
     "DrsClient",
     "ListExtensibleSourceServersPaginator",
     "ListLaunchActionsPaginator",
+    "ListRecoveryPlanExecutionStepsPaginator",
+    "ListRecoveryPlanExecutionsPaginator",
+    "ListRecoveryPlanStepsPaginator",
+    "ListRecoveryPlansPaginator",
     "ListStagingAccountsPaginator",
 )

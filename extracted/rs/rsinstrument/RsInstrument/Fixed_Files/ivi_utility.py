@@ -1,6 +1,7 @@
 """Module required by IVI Python driver standard."""
 
-from typing import Tuple, Collection
+from typing import List, Tuple
+
 from ..Internal.Core import Core
 
 
@@ -83,16 +84,22 @@ class IviUtility:
 
     def error_query(self) -> ErrorQueryResult | None:
         """Returns the last error in the instrument's error queue.
-        Returns None if no error is present."""
+        Returns None if no error is present.
+
+        Note: If status-error suppression rules are configured (see status_error_suppression_add_rule()),
+        errors matching those rules are filtered out and will not be returned."""
         err = self._core.io.query_syst_error(include_code=True, enable_log=True)
         if err is None:
             return None
         # noinspection PyTypeChecker
         return ErrorQueryResult(err[0], err[1])
 
-    def error_query_all(self) -> Collection[ErrorQueryResult]:
+    def error_query_all(self) -> List[ErrorQueryResult]:
         """Returns all the errors currently reported in the instrument's error queue.
-          If no error is present, the method returns an empty collection."""
+          If no error is present, the method returns an empty collection.
+
+        Note: If status-error suppression rules are configured (see status_error_suppression_add_rule()),
+        errors matching those rules are filtered out and will not appear in the returned collection."""
         errs = self._core.io.query_all_syst_errors(include_codes=True, enable_log=True)
         if errs is None:
             return []

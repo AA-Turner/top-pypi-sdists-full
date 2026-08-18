@@ -6,7 +6,7 @@
 
 from __future__ import annotations
 
-__version__ = "1.0.0"
+__version__ = "1.1.1"
 
 import asyncio
 from typing import TYPE_CHECKING, Any, TypeVar, overload
@@ -28,6 +28,9 @@ from cwsandbox._loop_manager import _LoopManager
 from cwsandbox._sandbox import Sandbox, SandboxStatus
 from cwsandbox._session import Session
 from cwsandbox._types import (
+    Endpoint,
+    EndpointAuth,
+    EndpointKind,
     FileSystemSnapshot,
     FileSystemSnapshotBucketConfig,
     FileSystemSnapshotBucketMode,
@@ -56,7 +59,10 @@ from cwsandbox.exceptions import (
     AsyncFunctionError,
     CWSandboxAuthenticationError,
     CWSandboxError,
+    CWSandboxValidationError,
     DiscoveryError,
+    DiscoveryValidationError,
+    FieldViolation,
     FunctionError,
     RunnerNotFoundError,
     SandboxCommandTimeoutError,
@@ -75,6 +81,7 @@ from cwsandbox.exceptions import (
     SandboxTerminatedError,
     SandboxTimeoutError,
     SandboxUnavailableError,
+    SandboxValidationError,
     SnapshotBackendThrottledError,
     SnapshotBucketMismatchError,
     SnapshotNotFoundError,
@@ -282,7 +289,13 @@ __all__ = [
     "AsyncFunctionError",
     "CWSandboxAuthenticationError",
     "CWSandboxError",
+    "CWSandboxValidationError",
     "DiscoveryError",
+    "DiscoveryValidationError",
+    "Endpoint",
+    "EndpointAuth",
+    "EndpointKind",
+    "FieldViolation",
     "FileSystemSnapshot",
     "FileSystemSnapshotBucketConfig",
     "FileSystemSnapshotBucketMode",
@@ -329,6 +342,7 @@ __all__ = [
     "SandboxTerminatedError",
     "SandboxTimeoutError",
     "SandboxUnavailableError",
+    "SandboxValidationError",
     "SnapshotBackendThrottledError",
     "SnapshotBucketMismatchError",
     "SnapshotNotFoundError",

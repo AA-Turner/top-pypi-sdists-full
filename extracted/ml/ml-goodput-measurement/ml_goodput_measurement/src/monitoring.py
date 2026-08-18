@@ -11,6 +11,7 @@ import multiprocessing
 from multiprocessing import synchronize
 import os
 import threading
+import time
 
 from ml_goodput_measurement.src import gcp_metrics
 from ml_goodput_measurement.src import goodput
@@ -114,10 +115,23 @@ def _goodput_worker(
   summary_writer = _create_tensorboard_writer(config)
   metrics_sender = _create_gcp_metrics_sender(config)
 
+  last_gcs_sync_time = time.monotonic()
+  gcs_sync_interval = config.get('gcs_sync_interval_seconds', 3600)
+
   while not termination_event.wait(timeout=config['upload_interval']):
     _query_and_upload_goodput_once(
         calculator, summary_writer, metrics_sender, config, pid
     )
+
+    # Periodic GCS backup
+    now = time.monotonic()
+    if now - last_gcs_sync_time >= gcs_sync_interval:
+      try:
+        logger.info('[PID: %s] Syncing timeline cache to GCS...', pid)
+        calculator.sync_to_gcs()
+        last_gcs_sync_time = now
+      except Exception as e:  # pylint: disable=broad-exception-caught
+        logger.warning('[PID: %s] Failed to sync timeline to GCS: %s', pid, e)
 
   if final_flush_event.is_set():
     # The calculator's cache is already warm from the loop above, so this
@@ -347,6 +361,9 @@ def _create_goodput_calculator(config: dict) -> GoodputCalculator:
       job_name=config['job_name'],
       logger_name=config['logger_name'],
       using_pathways=config['pathway_enabled'],
+      gcs_path=config.get('tensorboard_dir'),
+      cache_dir=config.get('cache_dir', '/tmp'),
+      max_logs_retention_period=config.get('max_logs_retention_period'),
   )
 
 
@@ -855,6 +872,9 @@ class GoodputMonitor:
       final_flush_timeout_seconds: (
           float | None
       ) = _PROCESS_TERMINATION_TIMEOUT_SECONDS,
+      gcs_sync_interval_seconds: int = 3600,
+      cache_dir: str = '/tmp',
+      max_logs_retention_period: datetime.timedelta | None = None,
   ):
     """Initializes the GoodputMonitor.
 
@@ -881,17 +901,21 @@ class GoodputMonitor:
       skip_final_flush: Whether to skip the final goodput metrics flush upon
         termination.
       final_flush_timeout_seconds: The maximum time to wait for the final
-        goodput metrics flush (query plus Tensorboard/GCM upload) to
-        complete upon termination. If an uploader process is running, this
-        is used as the join timeout so the worker has time to perform the
-        flush itself using its warm cache before exiting; if no uploader
-        process was ever started, it instead bounds a one-off cold query
-        run by the caller. Defaults to _PROCESS_TERMINATION_TIMEOUT_SECONDS.
-        If the flush does not complete within this timeout, it is abandoned
-        (and the worker, if any, is terminated) so that it does not block
-        workload shutdown (e.g. behind a multi-host termination barrier).
-        Pass None to block until the flush completes (the legacy behavior).
-        Has no effect if skip_final_flush is True.
+        goodput metrics flush (query plus Tensorboard/GCM upload) to complete
+        upon termination. If an uploader process is running, this is used as the
+        join timeout so the worker has time to perform the flush itself using
+        its warm cache before exiting; if no uploader process was ever started,
+        it instead bounds a one-off cold query run by the caller. Defaults to
+        _PROCESS_TERMINATION_TIMEOUT_SECONDS. If the flush does not complete
+        within this timeout, it is abandoned (and the worker, if any, is
+        terminated) so that it does not block workload shutdown (e.g. behind a
+        multi-host termination barrier). Pass None to block until the flush
+        completes (the legacy behavior). Has no effect if skip_final_flush is
+        True.
+      gcs_sync_interval_seconds: The interval to sync the cache to GCS.
+      cache_dir: Local directory to store the cache files.
+      max_logs_retention_period: The maximum retention period for Cloud Logging
+        logs. If not set, defaults to 7 days.
     """
     if not monitoring_enabled:
       logger.info(
@@ -903,10 +927,35 @@ class GoodputMonitor:
     self._skip_final_flush = skip_final_flush
     self._final_flush_timeout_seconds = final_flush_timeout_seconds
 
+    # Environment variable overrides for testing
+    env_sync_interval = os.environ.get('ML_GOODPUT_GCS_SYNC_INTERVAL_SECONDS')
+    if env_sync_interval is not None:
+      try:
+        gcs_sync_interval_seconds = int(env_sync_interval)
+        logger.info(
+            'Overriding GCS sync interval to %d seconds from environment.',
+            gcs_sync_interval_seconds,
+        )
+      except ValueError:
+        logger.warning(
+            'Invalid ML_GOODPUT_GCS_SYNC_INTERVAL_SECONDS: %s',
+            env_sync_interval,
+        )
+
+    env_cache_dir = os.environ.get('ML_GOODPUT_CACHE_DIR')
+    if env_cache_dir is not None:
+      cache_dir = env_cache_dir
+      logger.info(
+          'Overriding cache directory to %s from environment.', cache_dir
+      )
+
     self._goodput_calculator = GoodputCalculator(
         job_name=job_name,
         logger_name=logger_name,
         using_pathways=pathway_enabled,
+        gcs_path=tensorboard_dir,
+        cache_dir=cache_dir,
+        max_logs_retention_period=max_logs_retention_period,
     )
     tensorboard_path = os.path.join(tensorboard_dir, _TENSORBOARD_GCS_SUBDIR)
     self._writer = writer.SummaryWriter(tensorboard_path)
@@ -947,6 +996,9 @@ class GoodputMonitor:
         'gcp_options': gcp_options,
         'rolling_windows': [],
         'calculator_class': GoodputCalculator,
+        'gcs_sync_interval_seconds': gcs_sync_interval_seconds,
+        'cache_dir': cache_dir,
+        'max_logs_retention_period': max_logs_retention_period,
     }
 
     # Process management attributes

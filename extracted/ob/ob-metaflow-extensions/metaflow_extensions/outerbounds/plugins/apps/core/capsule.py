@@ -280,6 +280,13 @@ class CapsuleInput:
         return _settings
 
     @classmethod
+    def _marshal_custom_url_settings(cls, app_config: AppConfig):
+        url_slug = app_config.get_state("url_slug", None)
+        if not url_slug:
+            return {}
+        return {"customUrlGenerationSettings": {"slug": url_slug}}
+
+    @classmethod
     def _port_from_service_url(cls, service_url):
         """The port a `proxy.service_url` points at, or None if it has none.
 
@@ -398,6 +405,7 @@ class CapsuleInput:
             "branch": _branch,
             **_final_info,
             **_capsule_type_config,
+            **cls._marshal_custom_url_settings(app_config),
             **_code_package_config,
             "image": app_config.get_state("image"),
             "resourceIntegrations": [

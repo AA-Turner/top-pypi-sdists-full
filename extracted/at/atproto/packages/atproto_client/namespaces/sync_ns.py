@@ -38,6 +38,160 @@ class AppBskyNamespace(NamespaceBase):
         self.video = AppBskyVideoNamespace(self._client)
 
 
+class AppBskyActorContentvisibilitydeclarationRecord(RecordBase):
+    def get(
+        self, repo: str, rkey: str, cid: t.Optional[str] = None, **kwargs: t.Any
+    ) -> 'models.AppBskyActorContentVisibilityDeclaration.GetRecordResponse':
+        """Get a record.
+
+        Args:
+            repo: The repository (DID).
+            rkey: The record key (TID).
+            cid: The CID of the record.
+            **kwargs: Arbitrary arguments to HTTP request.
+
+        Returns:
+            :obj:`models.AppBskyActorContentVisibilityDeclaration.GetRecordResponse`: Get record response.
+
+        Raises:
+            :class:`atproto.exceptions.AtProtocolError`: Base exception.
+        """
+        params_model = models.ComAtprotoRepoGetRecord.Params(
+            collection='app.bsky.actor.contentVisibilityDeclaration', repo=repo, rkey=rkey, cid=cid
+        )
+        response = self._client.invoke_query(
+            'com.atproto.repo.getRecord', params=params_model, output_encoding='application/json', **kwargs
+        )
+        response_model = get_response_model(response, models.ComAtprotoRepoGetRecord.Response)
+        return models.AppBskyActorContentVisibilityDeclaration.GetRecordResponse(
+            uri=response_model.uri,
+            cid=response_model.cid,
+            value=t.cast('models.AppBskyActorContentVisibilityDeclaration.Record', response_model.value),
+        )
+
+    def list(
+        self,
+        repo: str,
+        cursor: t.Optional[str] = None,
+        limit: t.Optional[int] = None,
+        reverse: t.Optional[bool] = None,
+        **kwargs: t.Any,
+    ) -> 'models.AppBskyActorContentVisibilityDeclaration.ListRecordsResponse':
+        """List a range of records in a collection.
+
+        Args:
+            repo: The repository (DID).
+            cursor: The cursor.
+            limit: The limit.
+            reverse: Whether to reverse the order.
+            **kwargs: Arbitrary arguments to HTTP request.
+
+        Returns:
+            :obj:`models.AppBskyActorContentVisibilityDeclaration.ListRecordsResponse`: List records response.
+
+        Raises:
+            :class:`atproto.exceptions.AtProtocolError`: Base exception.
+        """
+        params_model = models.ComAtprotoRepoListRecords.Params(
+            collection='app.bsky.actor.contentVisibilityDeclaration',
+            repo=repo,
+            cursor=cursor,
+            limit=limit,
+            reverse=reverse,
+        )
+        response = self._client.invoke_query(
+            'com.atproto.repo.listRecords', params=params_model, output_encoding='application/json', **kwargs
+        )
+        response_model = get_response_model(response, models.ComAtprotoRepoListRecords.Response)
+        return models.AppBskyActorContentVisibilityDeclaration.ListRecordsResponse(
+            records={
+                record.uri: t.cast('models.AppBskyActorContentVisibilityDeclaration.Record', record.value)
+                for record in response_model.records
+            },
+            cursor=response_model.cursor,
+        )
+
+    def create(
+        self,
+        repo: str,
+        record: 'models.AppBskyActorContentVisibilityDeclaration.Record',
+        rkey: t.Optional[str] = None,
+        swap_commit: t.Optional[str] = None,
+        validate: t.Optional[bool] = True,
+        **kwargs: t.Any,
+    ) -> 'models.AppBskyActorContentVisibilityDeclaration.CreateRecordResponse':
+        """Create a new record.
+
+        Args:
+            repo: The repository (DID).
+            record: The record.
+            rkey: The record key (TID).
+            swap_commit: The swap commit.
+            validate: Whether to validate the record.
+            **kwargs: Arbitrary arguments to HTTP request.
+
+        Returns:
+            :obj:`models.AppBskyActorContentVisibilityDeclaration.CreateRecordResponse`: Create record response.
+
+        Raises:
+            :class:`atproto.exceptions.AtProtocolError`: Base exception.
+        """
+        data_model = models.ComAtprotoRepoCreateRecord.Data(
+            collection='app.bsky.actor.contentVisibilityDeclaration',
+            repo=repo,
+            record=record,
+            rkey=rkey,
+            swap_commit=swap_commit,
+            validate_=validate,
+        )
+        response = self._client.invoke_procedure(
+            'com.atproto.repo.createRecord',
+            data=data_model,
+            input_encoding='application/json',
+            output_encoding='application/json',
+            **kwargs,
+        )
+        response_model = get_response_model(response, models.ComAtprotoRepoCreateRecord.Response)
+        return models.AppBskyActorContentVisibilityDeclaration.CreateRecordResponse(
+            uri=response_model.uri, cid=response_model.cid
+        )
+
+    def delete(
+        self,
+        repo: str,
+        rkey: str,
+        swap_commit: t.Optional[str] = None,
+        swap_record: t.Optional[str] = None,
+        **kwargs: t.Any,
+    ) -> bool:
+        """Delete a record, or ensure it doesn't exist.
+
+        Args:
+            repo: The repository (DID).
+            rkey: The record key (TID).
+            swap_commit: The swap commit.
+            swap_record: The swap record.
+            **kwargs: Arbitrary arguments to HTTP request.
+
+        Returns:
+            :obj:`bool`: Success status.
+
+        Raises:
+            :class:`atproto.exceptions.AtProtocolError`: Base exception.
+        """
+        data_model = models.ComAtprotoRepoDeleteRecord.Data(
+            collection='app.bsky.actor.contentVisibilityDeclaration',
+            repo=repo,
+            rkey=rkey,
+            swap_commit=swap_commit,
+            swap_record=swap_record,
+        )
+        response = self._client.invoke_procedure(
+            'com.atproto.repo.deleteRecord', data=data_model, input_encoding='application/json', **kwargs
+        )
+        return get_response_model(response, bool)
+
+
 class AppBskyActorProfileRecord(RecordBase):
     def get(
         self, repo: str, rkey: str, cid: t.Optional[str] = None, **kwargs: t.Any
@@ -345,6 +499,7 @@ class AppBskyActorStatusRecord(RecordBase):
 class AppBskyActorNamespace(NamespaceBase):
     def __init__(self, client: 'ClientRaw') -> None:
         super().__init__(client)
+        self.contentVisibilityDeclaration = AppBskyActorContentvisibilitydeclarationRecord(self._client)
         self.profile = AppBskyActorProfileRecord(self._client)
         self.status = AppBskyActorStatusRecord(self._client)
 
@@ -3797,7 +3952,7 @@ class AppBskyGraphNamespace(NamespaceBase):
         params: t.Optional[t.Union[models.AppBskyGraphGetMutes.Params, models.AppBskyGraphGetMutes.ParamsDict]] = None,
         **kwargs: t.Any,
     ) -> 'models.AppBskyGraphGetMutes.Response':
-        """Enumerates accounts that the requesting account (actor) currently has muted. Requires auth.
+        """Enumerates accounts that the requesting account (actor) currently has fully muted. Mutes scoped to specific kinds of content (only reposts, only quote posts) are not included. Responses may contain more items than the requested limit. Requires auth.
 
         Args:
             params: Parameters.
@@ -3961,7 +4116,7 @@ class AppBskyGraphNamespace(NamespaceBase):
     def mute_actor(
         self, data: t.Union[models.AppBskyGraphMuteActor.Data, models.AppBskyGraphMuteActor.DataDict], **kwargs: t.Any
     ) -> bool:
-        """Creates a mute relationship for the specified account. Mutes are private in Bluesky. Requires auth.
+        """Creates a mute relationship for the specified account. If a mute already exists for the account, it is updated in place: the stored scope is replaced with the scope in this request. Mutes are private in Bluesky. Requires auth.
 
         Args:
             data: Input data.
@@ -4052,6 +4207,34 @@ class AppBskyGraphNamespace(NamespaceBase):
             'app.bsky.graph.searchStarterPacks', params=params_model, output_encoding='application/json', **kwargs
         )
         return get_response_model(response, models.AppBskyGraphSearchStarterPacks.Response)
+
+    def search_starter_packs_v2(
+        self,
+        params: t.Union[
+            models.AppBskyGraphSearchStarterPacksV2.Params, models.AppBskyGraphSearchStarterPacksV2.ParamsDict
+        ],
+        **kwargs: t.Any,
+    ) -> 'models.AppBskyGraphSearchStarterPacksV2.Response':
+        """Find starter packs matching search criteria. Does not require auth.
+
+        Args:
+            params: Parameters.
+            **kwargs: Arbitrary arguments to HTTP request.
+
+        Returns:
+            :obj:`models.AppBskyGraphSearchStarterPacksV2.Response`: Output model.
+
+        Raises:
+            :class:`atproto.exceptions.AtProtocolError`: Base exception.
+        """
+        params_model = t.cast(
+            'models.AppBskyGraphSearchStarterPacksV2.Params',
+            get_or_create(params, models.AppBskyGraphSearchStarterPacksV2.Params),
+        )
+        response = self._client.invoke_query(
+            'app.bsky.graph.searchStarterPacksV2', params=params_model, output_encoding='application/json', **kwargs
+        )
+        return get_response_model(response, models.AppBskyGraphSearchStarterPacksV2.Response)
 
     def unmute_actor(
         self,
@@ -5700,6 +5883,64 @@ class AppBskyUnspeccedNamespace(NamespaceBase):
 
 
 class AppBskyVideoNamespace(NamespaceBase):
+    def abort_upload(
+        self,
+        data: t.Union[models.AppBskyVideoAbortUpload.Data, models.AppBskyVideoAbortUpload.DataDict],
+        **kwargs: t.Any,
+    ) -> 'models.AppBskyVideoAbortUpload.Response':
+        """Abort an upload only while it is created, releasing its quota reservation immediately. Terminal sessions are unchanged and return their terminal outcome. A finishing session returns UploadNotReady.
+
+        Args:
+            data: Input data.
+            **kwargs: Arbitrary arguments to HTTP request.
+
+        Returns:
+            :obj:`models.AppBskyVideoAbortUpload.Response`: Output model.
+
+        Raises:
+            :class:`atproto.exceptions.AtProtocolError`: Base exception.
+        """
+        data_model = t.cast(
+            'models.AppBskyVideoAbortUpload.Data', get_or_create(data, models.AppBskyVideoAbortUpload.Data)
+        )
+        response = self._client.invoke_procedure(
+            'app.bsky.video.abortUpload',
+            data=data_model,
+            input_encoding='application/json',
+            output_encoding='application/json',
+            **kwargs,
+        )
+        return get_response_model(response, models.AppBskyVideoAbortUpload.Response)
+
+    def finish_upload(
+        self,
+        data: t.Union[models.AppBskyVideoFinishUpload.Data, models.AppBskyVideoFinishUpload.DataDict],
+        **kwargs: t.Any,
+    ) -> 'models.AppBskyVideoFinishUpload.Response':
+        """Finish an upload. This call is idempotent and safe to retry. On deduplication completedJobId may differ from the input jobId; poll getJobStatus with completedJobId. Probe-based validation failures surface later as JOB_STATE_FAILED from getJobStatus, not as errors from this call.
+
+        Args:
+            data: Input data.
+            **kwargs: Arbitrary arguments to HTTP request.
+
+        Returns:
+            :obj:`models.AppBskyVideoFinishUpload.Response`: Output model.
+
+        Raises:
+            :class:`atproto.exceptions.AtProtocolError`: Base exception.
+        """
+        data_model = t.cast(
+            'models.AppBskyVideoFinishUpload.Data', get_or_create(data, models.AppBskyVideoFinishUpload.Data)
+        )
+        response = self._client.invoke_procedure(
+            'app.bsky.video.finishUpload',
+            data=data_model,
+            input_encoding='application/json',
+            output_encoding='application/json',
+            **kwargs,
+        )
+        return get_response_model(response, models.AppBskyVideoFinishUpload.Response)
+
     def get_job_status(
         self,
         params: t.Union[models.AppBskyVideoGetJobStatus.Params, models.AppBskyVideoGetJobStatus.ParamsDict],
@@ -5741,6 +5982,93 @@ class AppBskyVideoNamespace(NamespaceBase):
             'app.bsky.video.getUploadLimits', output_encoding='application/json', **kwargs
         )
         return get_response_model(response, models.AppBskyVideoGetUploadLimits.Response)
+
+    def get_upload_status(
+        self,
+        params: t.Union[models.AppBskyVideoGetUploadStatus.Params, models.AppBskyVideoGetUploadStatus.ParamsDict],
+        **kwargs: t.Any,
+    ) -> 'models.AppBskyVideoGetUploadStatus.Response':
+        """Get the authoritative status of the upload phase. Terminal states remain readable. completedJobId and jobStatus are present only for completed sessions; failureReason is present only for failed sessions.
+
+        Args:
+            params: Parameters.
+            **kwargs: Arbitrary arguments to HTTP request.
+
+        Returns:
+            :obj:`models.AppBskyVideoGetUploadStatus.Response`: Output model.
+
+        Raises:
+            :class:`atproto.exceptions.AtProtocolError`: Base exception.
+        """
+        params_model = t.cast(
+            'models.AppBskyVideoGetUploadStatus.Params',
+            get_or_create(params, models.AppBskyVideoGetUploadStatus.Params),
+        )
+        response = self._client.invoke_query(
+            'app.bsky.video.getUploadStatus', params=params_model, output_encoding='application/json', **kwargs
+        )
+        return get_response_model(response, models.AppBskyVideoGetUploadStatus.Response)
+
+    def start_upload(
+        self,
+        data: t.Union[models.AppBskyVideoStartUpload.Data, models.AppBskyVideoStartUpload.DataDict],
+        **kwargs: t.Any,
+    ) -> 'models.AppBskyVideoStartUpload.Response':
+        """Start a multipart video upload. The declared size is exact, while optional media properties are advisory and used only for early failure; the authoritative probe runs asynchronously after upload.
+
+        Args:
+            data: Input data.
+            **kwargs: Arbitrary arguments to HTTP request.
+
+        Returns:
+            :obj:`models.AppBskyVideoStartUpload.Response`: Output model.
+
+        Raises:
+            :class:`atproto.exceptions.AtProtocolError`: Base exception.
+        """
+        data_model = t.cast(
+            'models.AppBskyVideoStartUpload.Data', get_or_create(data, models.AppBskyVideoStartUpload.Data)
+        )
+        response = self._client.invoke_procedure(
+            'app.bsky.video.startUpload',
+            data=data_model,
+            input_encoding='application/json',
+            output_encoding='application/json',
+            **kwargs,
+        )
+        return get_response_model(response, models.AppBskyVideoStartUpload.Response)
+
+    def upload_part(
+        self,
+        params: t.Union[models.AppBskyVideoUploadPart.Params, models.AppBskyVideoUploadPart.ParamsDict],
+        data: 'models.AppBskyVideoUploadPart.Data',
+        **kwargs: t.Any,
+    ) -> 'models.AppBskyVideoUploadPart.Response':
+        """Upload one part. Parts are idempotent and may be retried or re-sent while the session is created. Each expected length is derived from the upload size and part size, and Content-Length must match exactly. ETags are never exposed to clients.
+
+        Args:
+            params: Parameters.
+            data: Input data alias.
+            **kwargs: Arbitrary arguments to HTTP request.
+
+        Returns:
+            :obj:`models.AppBskyVideoUploadPart.Response`: Output model.
+
+        Raises:
+            :class:`atproto.exceptions.AtProtocolError`: Base exception.
+        """
+        params_model = t.cast(
+            'models.AppBskyVideoUploadPart.Params', get_or_create(params, models.AppBskyVideoUploadPart.Params)
+        )
+        response = self._client.invoke_procedure(
+            'app.bsky.video.uploadPart',
+            params=params_model,
+            data=data,
+            input_encoding='application/octet-stream',
+            output_encoding='application/json',
+            **kwargs,
+        )
+        return get_response_model(response, models.AppBskyVideoUploadPart.Response)
 
     def upload_video(
         self, data: 'models.AppBskyVideoUploadVideo.Data', **kwargs: t.Any
@@ -9824,6 +10152,231 @@ class InternalBskyActorNamespace(NamespaceBase):
         return get_response_model(response, models.InternalBskyActorGetProfiles.Response)
 
 
+class NetworkNamespace(NamespaceBase):
+    def __init__(self, client: 'ClientRaw') -> None:
+        super().__init__(client)
+        self.bsky = NetworkBskyNamespace(self._client)
+
+
+class NetworkBskyNamespace(NamespaceBase):
+    def __init__(self, client: 'ClientRaw') -> None:
+        super().__init__(client)
+        self.jetstream = NetworkBskyJetstreamNamespace(self._client)
+
+
+class NetworkBskyJetstreamNamespace(NamespaceBase):
+    def get_block(
+        self,
+        params: t.Union[models.NetworkBskyJetstreamGetBlock.Params, models.NetworkBskyJetstreamGetBlock.ParamsDict],
+        **kwargs: t.Any,
+    ) -> 'models.NetworkBskyJetstreamGetBlock.Response':
+        """Download a single block within a sealed segment file by index. Returns the raw zstd-compressed block frame exactly as stored on disk.
+
+        Args:
+            params: Parameters.
+            **kwargs: Arbitrary arguments to HTTP request.
+
+        Returns:
+            :obj:`models.NetworkBskyJetstreamGetBlock.Response`: Output model.
+
+        Raises:
+            :class:`atproto.exceptions.AtProtocolError`: Base exception.
+        """
+        params_model = t.cast(
+            'models.NetworkBskyJetstreamGetBlock.Params',
+            get_or_create(params, models.NetworkBskyJetstreamGetBlock.Params),
+        )
+        response = self._client.invoke_query(
+            'network.bsky.jetstream.getBlock', params=params_model, output_encoding='application/octet-stream', **kwargs
+        )
+        return get_response_model(response, models.NetworkBskyJetstreamGetBlock.Response)
+
+    def get_import_status(
+        self,
+        params: t.Optional[
+            t.Union[
+                models.NetworkBskyJetstreamGetImportStatus.Params, models.NetworkBskyJetstreamGetImportStatus.ParamsDict
+            ]
+        ] = None,
+        **kwargs: t.Any,
+    ) -> 'models.NetworkBskyJetstreamGetImportStatus.Response':
+        """Report the status of a timestamp-import job: lifecycle state, current phase, per-phase progress, and (on completion) the parse/mutation totals. With no job parameter, reports the current or most recent job. Bearer-token gated: without a configured token the endpoint always returns 401.
+
+        Args:
+            params: Parameters.
+            **kwargs: Arbitrary arguments to HTTP request.
+
+        Returns:
+            :obj:`models.NetworkBskyJetstreamGetImportStatus.Response`: Output model.
+
+        Raises:
+            :class:`atproto.exceptions.AtProtocolError`: Base exception.
+        """
+        params_model = t.cast(
+            'models.NetworkBskyJetstreamGetImportStatus.Params',
+            get_or_create(params, models.NetworkBskyJetstreamGetImportStatus.Params),
+        )
+        response = self._client.invoke_query(
+            'network.bsky.jetstream.getImportStatus', params=params_model, output_encoding='application/json', **kwargs
+        )
+        return get_response_model(response, models.NetworkBskyJetstreamGetImportStatus.Response)
+
+    def get_segment(
+        self,
+        params: t.Union[models.NetworkBskyJetstreamGetSegment.Params, models.NetworkBskyJetstreamGetSegment.ParamsDict],
+        **kwargs: t.Any,
+    ) -> 'models.NetworkBskyJetstreamGetSegment.Response':
+        """Download a sealed segment file by name.
+
+        Args:
+            params: Parameters.
+            **kwargs: Arbitrary arguments to HTTP request.
+
+        Returns:
+            :obj:`models.NetworkBskyJetstreamGetSegment.Response`: Output model.
+
+        Raises:
+            :class:`atproto.exceptions.AtProtocolError`: Base exception.
+        """
+        params_model = t.cast(
+            'models.NetworkBskyJetstreamGetSegment.Params',
+            get_or_create(params, models.NetworkBskyJetstreamGetSegment.Params),
+        )
+        response = self._client.invoke_query(
+            'network.bsky.jetstream.getSegment',
+            params=params_model,
+            output_encoding='application/octet-stream',
+            **kwargs,
+        )
+        return get_response_model(response, models.NetworkBskyJetstreamGetSegment.Response)
+
+    def get_zstd_dictionary(
+        self,
+        params: t.Optional[
+            t.Union[
+                models.NetworkBskyJetstreamGetZstdDictionary.Params,
+                models.NetworkBskyJetstreamGetZstdDictionary.ParamsDict,
+            ]
+        ] = None,
+        **kwargs: t.Any,
+    ) -> 'models.NetworkBskyJetstreamGetZstdDictionary.Response':
+        """Download the zstd dictionary used by the network.bsky.jetstream.subscribeEvents stream's optional compression scheme. The dictionary is requested by its zstd dictionary ID (the same ID embedded in every compressed frame's header); a client that wants compressed frames first fetches the server's current dictionary, then opts in on the websocket with zstdDictionary=<id>. The response is a raw zstd structured dictionary (RFC 8878 section 5), immutable for a given ID and CDN-cacheable. Servers may retire old dictionaries after retraining; a client holding a retired ID re-fetches without an id parameter to obtain the current one.
+
+        Args:
+            params: Parameters.
+            **kwargs: Arbitrary arguments to HTTP request.
+
+        Returns:
+            :obj:`models.NetworkBskyJetstreamGetZstdDictionary.Response`: Output model.
+
+        Raises:
+            :class:`atproto.exceptions.AtProtocolError`: Base exception.
+        """
+        params_model = t.cast(
+            'models.NetworkBskyJetstreamGetZstdDictionary.Params',
+            get_or_create(params, models.NetworkBskyJetstreamGetZstdDictionary.Params),
+        )
+        response = self._client.invoke_query(
+            'network.bsky.jetstream.getZstdDictionary',
+            params=params_model,
+            output_encoding='application/octet-stream',
+            **kwargs,
+        )
+        return get_response_model(response, models.NetworkBskyJetstreamGetZstdDictionary.Response)
+
+    def import_timestamps(
+        self,
+        data: t.Union[
+            models.NetworkBskyJetstreamImportTimestamps.Data, models.NetworkBskyJetstreamImportTimestamps.DataDict
+        ],
+        **kwargs: t.Any,
+    ) -> 'models.NetworkBskyJetstreamImportTimestamps.Response':
+        """Submit a timestamp-import job. The referenced CSV is staged server-local out-of-band and named by a path confined to the server's configured import directory (paths escaping it via .. or a symlink are rejected). The job runs asynchronously and shares the segment-rewrite lock with delete-compaction, so only one import runs at a time; a concurrent submit is rejected. Bearer-token gated: without a configured token the endpoint always returns 401.
+
+        Args:
+            data: Input data.
+            **kwargs: Arbitrary arguments to HTTP request.
+
+        Returns:
+            :obj:`models.NetworkBskyJetstreamImportTimestamps.Response`: Output model.
+
+        Raises:
+            :class:`atproto.exceptions.AtProtocolError`: Base exception.
+        """
+        data_model = t.cast(
+            'models.NetworkBskyJetstreamImportTimestamps.Data',
+            get_or_create(data, models.NetworkBskyJetstreamImportTimestamps.Data),
+        )
+        response = self._client.invoke_procedure(
+            'network.bsky.jetstream.importTimestamps',
+            data=data_model,
+            input_encoding='application/json',
+            output_encoding='application/json',
+            **kwargs,
+        )
+        return get_response_model(response, models.NetworkBskyJetstreamImportTimestamps.Response)
+
+    def list_segments(
+        self,
+        params: t.Optional[
+            t.Union[models.NetworkBskyJetstreamListSegments.Params, models.NetworkBskyJetstreamListSegments.ParamsDict]
+        ] = None,
+        **kwargs: t.Any,
+    ) -> 'models.NetworkBskyJetstreamListSegments.Response':
+        """Enumerate sealed segment files available for download, in ascending index order.
+
+        Args:
+            params: Parameters.
+            **kwargs: Arbitrary arguments to HTTP request.
+
+        Returns:
+            :obj:`models.NetworkBskyJetstreamListSegments.Response`: Output model.
+
+        Raises:
+            :class:`atproto.exceptions.AtProtocolError`: Base exception.
+        """
+        params_model = t.cast(
+            'models.NetworkBskyJetstreamListSegments.Params',
+            get_or_create(params, models.NetworkBskyJetstreamListSegments.Params),
+        )
+        response = self._client.invoke_query(
+            'network.bsky.jetstream.listSegments', params=params_model, output_encoding='application/json', **kwargs
+        )
+        return get_response_model(response, models.NetworkBskyJetstreamListSegments.Response)
+
+    def plan_snapshot(
+        self,
+        data: t.Optional[
+            t.Union[models.NetworkBskyJetstreamPlanSnapshot.Data, models.NetworkBskyJetstreamPlanSnapshot.DataDict]
+        ] = None,
+        **kwargs: t.Any,
+    ) -> 'models.NetworkBskyJetstreamPlanSnapshot.Response':
+        """Build a download plan for the desired data pattern. The plan lists whole segments or block ranges that might contain events for the requested kinds, DIDs, and collections.
+
+        Args:
+            data: Input data.
+            **kwargs: Arbitrary arguments to HTTP request.
+
+        Returns:
+            :obj:`models.NetworkBskyJetstreamPlanSnapshot.Response`: Output model.
+
+        Raises:
+            :class:`atproto.exceptions.AtProtocolError`: Base exception.
+        """
+        data_model = t.cast(
+            'models.NetworkBskyJetstreamPlanSnapshot.Data',
+            get_or_create(data, models.NetworkBskyJetstreamPlanSnapshot.Data),
+        )
+        response = self._client.invoke_procedure(
+            'network.bsky.jetstream.planSnapshot',
+            data=data_model,
+            input_encoding='application/json',
+            output_encoding='application/json',
+            **kwargs,
+        )
+        return get_response_model(response, models.NetworkBskyJetstreamPlanSnapshot.Response)
+
+
 class SiteNamespace(NamespaceBase):
     def __init__(self, client: 'ClientRaw') -> None:
         super().__init__(client)
@@ -11245,7 +11798,7 @@ class ToolsOzoneQueueNamespace(NamespaceBase):
         data: t.Union[models.ToolsOzoneQueueCreateQueue.Data, models.ToolsOzoneQueueCreateQueue.DataDict],
         **kwargs: t.Any,
     ) -> 'models.ToolsOzoneQueueCreateQueue.Response':
-        """Create a new moderation queue. Will fail if the queue configuration conflicts with an existing queue.
+        """Create a new moderation queue. A queue can have optional matching criteria that ozone's queue router will use to match reports. A queue with no criteria must have reports assigned to it manually via (1) `modTool.meta.queueId` in `tools.ozone.moderation.emitEvent` or (2) `tools.ozone.report.reassignQueue`.
 
         Args:
             data: Input data.
@@ -11413,7 +11966,7 @@ class ToolsOzoneQueueNamespace(NamespaceBase):
         data: t.Union[models.ToolsOzoneQueueUpdateQueue.Data, models.ToolsOzoneQueueUpdateQueue.DataDict],
         **kwargs: t.Any,
     ) -> 'models.ToolsOzoneQueueUpdateQueue.Response':
-        """Update queue properties. Currently only supports updating the name and enabled status to prevent configuration conflicts.
+        """Update queue properties.
 
         Args:
             data: Input data.
@@ -11468,6 +12021,35 @@ class ToolsOzoneReportNamespace(NamespaceBase):
             **kwargs,
         )
         return get_response_model(response, models.ToolsOzoneReportDefs.AssignmentView)
+
+    def close_reports(
+        self,
+        data: t.Union[models.ToolsOzoneReportCloseReports.Data, models.ToolsOzoneReportCloseReports.DataDict],
+        **kwargs: t.Any,
+    ) -> 'models.ToolsOzoneReportCloseReports.Response':
+        """Close all reports on a subject matching the given criteria. Reports whose current status does not permit a transition to closed are skipped silently. Intended for automated flows that resolve reports without taking action on the subject.
+
+        Args:
+            data: Input data.
+            **kwargs: Arbitrary arguments to HTTP request.
+
+        Returns:
+            :obj:`models.ToolsOzoneReportCloseReports.Response`: Output model.
+
+        Raises:
+            :class:`atproto.exceptions.AtProtocolError`: Base exception.
+        """
+        data_model = t.cast(
+            'models.ToolsOzoneReportCloseReports.Data', get_or_create(data, models.ToolsOzoneReportCloseReports.Data)
+        )
+        response = self._client.invoke_procedure(
+            'tools.ozone.report.closeReports',
+            data=data_model,
+            input_encoding='application/json',
+            output_encoding='application/json',
+            **kwargs,
+        )
+        return get_response_model(response, models.ToolsOzoneReportCloseReports.Response)
 
     def create_activity(
         self,

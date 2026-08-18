@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import argparse
 import hashlib
+import re
 import shlex
 import urllib.parse
 from collections.abc import Iterable, Mapping
@@ -20,6 +21,13 @@ if TYPE_CHECKING:
     from pdm.models.candidates import Candidate
     from pdm.models.session import PDMPyPIClient
     from pdm.project import Project
+
+
+#: A comment starts at a ``#`` that is either at the beginning of the line or
+#: preceded by whitespace, matching pip's own ``COMMENT_RE``. Note that any
+#: whitespace counts, not just a plain space: a tab before the ``#`` is common
+#: in hand-written requirements files.
+_COMMENT_RE = re.compile(r"(^|\s+)#.*$")
 
 
 class RequirementParser:
@@ -49,10 +57,7 @@ class RequirementParser:
 
     def _clean_line(self, line: str) -> str:
         """Strip the surrounding whitespaces and comment from the line"""
-        line = line.strip()
-        if line.startswith("#"):
-            return ""
-        return line.split(" #", 1)[0].strip()
+        return _COMMENT_RE.sub("", line.strip()).strip()
 
     def _parse_line(self, filename: str, line: str) -> None:
         if not line.startswith("-"):
@@ -78,7 +83,14 @@ class RequirementParser:
         if args.editable:
             self.requirements.append(parse_requirement(" ".join(args.editable), True))
         if args.requirement:
-            referenced_requirements = Path(filename).parent.joinpath(args.requirement).as_posix()
+            reference = urllib.parse.urlparse(args.requirement)
+            source = urllib.parse.urlparse(filename)
+            if reference.scheme in ("http", "https", "file"):
+                referenced_requirements = args.requirement
+            elif source.scheme in ("http", "https", "file"):
+                referenced_requirements = urllib.parse.urljoin(filename, args.requirement)
+            else:
+                referenced_requirements = Path(filename).parent.joinpath(args.requirement).as_posix()
             self.parse_file(referenced_requirements)
 
     def parse_lines(self, lines: Iterable[str], filename: str = "<temp file>") -> None:
@@ -120,12 +132,34 @@ def check_fingerprint(project: Project, filename: PathLike) -> bool:
             return False
 
 
+def _split_host_port(netloc: str) -> tuple[str, int | None]:
+    """Split a ``host[:port]`` string into a lowercased host and an optional port.
+
+    ``urlsplit`` is used so that a bracketed IPv6 literal such as ``[::1]:8443``
+    is split on the right colon. An unparsable port is reported as absent rather
+    than raising, so a malformed value can never abort the import.
+    """
+    parsed = urllib.parse.urlsplit(f"//{netloc}")
+    try:
+        port = parsed.port
+    except ValueError:  # pragma: no cover - malformed port, e.g. `host:abc`
+        port = None
+    return (parsed.hostname or "").lower(), port
+
+
 def _is_url_trusted(url: str, trusted_hosts: list[str]) -> bool:
-    parsed = urllib.parse.urlparse(url)
-    netloc, host = parsed.netloc, parsed.hostname
+    """Check whether *url* is covered by one of pip's ``--trusted-host`` values.
+
+    Matching is done on host and port only. The userinfo part of the URL is not
+    compared, so credentials embedded in an index URL don't defeat the match, and
+    a trusted host given without a port matches the URL whatever its port is,
+    which is how pip treats it.
+    """
+    host, port = _split_host_port(urllib.parse.urlparse(url).netloc)
 
     for trusted in trusted_hosts:
-        if trusted in (host, netloc):
+        trusted_host, trusted_port = _split_host_port(trusted)
+        if trusted_host == host and trusted_port in (None, port):
             return True
     return False
 
@@ -239,6 +273,10 @@ def export(
                 raise ValueError(f"Unknown source type: {source_type}")
         lines.append(f"{prefix} {url}\n")
         if source.verify_ssl is False:
-            host = urllib.parse.urlparse(url).hostname
-            lines.append(f"--trusted-host {host}\n")
+            # Keep the port: `--trusted-host example.org` does not cover
+            # `https://example.org:8443/simple` for pip.
+            host, port = _split_host_port(urllib.parse.urlparse(url).netloc)
+            if ":" in host:  # an IPv6 literal has to stay bracketed
+                host = f"[{host}]"
+            lines.append(f"--trusted-host {host}{f':{port}' if port else ''}\n")
     return "".join(lines)

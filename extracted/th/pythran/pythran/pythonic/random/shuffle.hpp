@@ -7,6 +7,7 @@
 #include "pythonic/random/random.hpp"
 #include "pythonic/utils/functor.hpp"
 
+#include <algorithm>
 #include <limits>
 
 PYTHONIC_NS_BEGIN
@@ -29,7 +30,7 @@ namespace random
       {
       }
 
-      typedef unsigned result_type;
+      using result_type = unsigned;
       static constexpr result_type min()
       {
         return 0;

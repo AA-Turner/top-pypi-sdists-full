@@ -1,6 +1,7 @@
 """Module required by IVI Python driver standard."""
 
 from typing import Any
+
 from ..Internal.Core import Core
 
 
@@ -29,18 +30,18 @@ class IviDirectIo:
         """Read a complete response from the instrument as bytes.
         The response message terminator is not included in the bytes object."""
         return self._core.io.read_all_bytes()
- 
+
     def read_string(self) -> str:
         """Read a complete response from the instrument as a string.
         The response message terminator is not included in the string."""
         return self._core.io.read_str(block_check_status=True)
- 
+
     def write_bytes(self, data: bytes) -> None:
         """Write bytes to the instrument followed by the normal message termination sequence.
         For IEEE 488.2 instruments the termination sequence is typically a line feed character with END asserted.
         The bytes must include a complete instrument message. The driver adds the termination sequence."""
         self._core.io.write_raw_bytes(data)
- 
+
     def write_string(self, data: str) -> None:
         """Write a string to the instrument followed by the normal message termination sequence.
         For IEEE 488.2 instruments the termination sequence is typically a line feed character with END asserted.

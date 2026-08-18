@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: AI_WQ_package
-Version: 3.29
+Version: 3.31
 Summary: A python package to support forecast submission, visualisation and evaluation for S2S ML/AI prediction project
 Author-email: Joshua Talib <joshuatalib@ecmwf.int>
 Project-URL: Homepage, https://github.com/joshuatalib/AI_weather_quest

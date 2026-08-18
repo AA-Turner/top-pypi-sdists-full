@@ -24,7 +24,7 @@ except ImportError:  # Needed for setuptools < 59.0
 
 import setuptools
 
-VERSION = "3.7.1"
+VERSION = "4.0.0"
 README_PATH = os.path.abspath(
     os.path.join(os.path.abspath(__file__), os.pardir, 'README.rst')
 )
@@ -39,8 +39,6 @@ with open(README_PATH) as fh:
     long_description = fh.read()
 
 ext_errors = (CCompilerError, ExecError, PlatformError)
-if sys.platform == 'win32':
-    ext_errors += (IOError, ValueError)
 
 
 class BuildFailed(Exception):
@@ -76,6 +74,21 @@ else:
 extra_cflags = os.environ.get('extra_cflags', '').split()
 extra_libs = os.environ.get('extra_libs', '').split()
 
+
+# Use PEP 639 license expression on setuptools >= 77, fall back to the legacy
+# license field and classifier otherwise.
+setuptools_version = tuple(
+    int(x) for x in setuptools.__version__.split('.')[:2]
+)
+if setuptools_version >= (77, 0):
+    license_kwargs = dict(license_expression='Apache-2.0')
+    license_classifiers = []
+else:
+    license_kwargs = dict(license='Apache 2.0')
+    license_classifiers = [
+        'License :: OSI Approved :: Apache Software License',
+    ]
+
 flow_extras_require = ['netaddr', 'pyparsing']
 
 setup_args = dict(
@@ -91,13 +104,13 @@ setup_args = dict(
               'ovs.db', 'ovs.flow', 'ovs.flowviz', 'ovs.flowviz.odp',
               'ovs.flowviz.ofp', 'ovs.unixctl'],
     keywords=['openvswitch', 'ovs', 'OVSDB'],
-    license='Apache 2.0',
+    **license_kwargs,
     classifiers=[
         'Development Status :: 5 - Production/Stable',
         'Topic :: Database :: Front-Ends',
         'Topic :: Software Development :: Libraries :: Python Modules',
         'Topic :: System :: Networking',
-        'License :: OSI Approved :: Apache Software License',
+        *license_classifiers,
         'Programming Language :: Python :: 3',
         'Programming Language :: Python :: 3.7',
     ],
@@ -108,8 +121,7 @@ setup_args = dict(
                                       extra_link_args=extra_libs)],
     cmdclass={'build_ext': try_build_ext},
     install_requires=['sortedcontainers'],
-    extras_require={':sys_platform == "win32"': ['pywin32 >= 1.0'],
-                    'dns': ['unbound'],
+    extras_require={'dns': ['unbound'],
                     'flow': flow_extras_require,
                     'flowviz':
                         [*flow_extras_require, 'click', 'rich', 'graphviz'],

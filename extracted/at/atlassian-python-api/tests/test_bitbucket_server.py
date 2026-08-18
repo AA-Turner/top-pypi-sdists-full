@@ -118,6 +118,27 @@ class TestHookScripts(TestCase):
         with self.assertRaisesRegex(ValueError, "PRE.*POST"):
             self.bitbucket.create_hook_script(b"#!/bin/sh", "Invalid", "PRE_RECEIVE")
 
+
+class TestRepositoryForking(TestCase):
+    def setUp(self):
+        self.bitbucket = Bitbucket("https://bitbucket.example.com", username="admin", password="password")
+
+    @patch.object(Bitbucket, "get_repo", return_value={"forkable": True})
+    def test_get_repo_forkable(self, mock_get_repo):
+        assert self.bitbucket.get_repo_forkable("PRJ", "repo") is True
+        mock_get_repo.assert_called_once_with("PRJ", "repo")
+
+    @patch.object(Bitbucket, "update_repo", return_value={"forkable": False})
+    def test_set_repo_forkable_uses_repository_put_wrapper(self, mock_update_repo):
+        result = self.bitbucket.set_repo_forkable("PRJ", "repo", False)
+
+        assert result == {"forkable": False}
+        mock_update_repo.assert_called_once_with("PRJ", "repo", forkable=False)
+
+    def test_set_repo_forkable_requires_boolean(self):
+        with self.assertRaisesRegex(TypeError, "boolean"):
+            self.bitbucket.set_repo_forkable("PRJ", "repo", "false")
+
     @patch.object(Bitbucket, "put")
     def test_configure_project_hook_script(self, mock_put):
         self.bitbucket.configure_project_hook_script("PROJ", 12, ["repo:refs_changed"])
@@ -133,6 +154,50 @@ class TestHookScripts(TestCase):
         mock_put.assert_called_once_with(
             "rest/api/latest/projects/PROJ/repos/repository/hook-scripts/12", data={"triggerIds": []}
         )
+
+    @patch.object(Bitbucket, "get")
+    def test_get_hook_script(self, mock_get):
+        mock_get.return_value = {"id": 12, "name": "Audit pushes"}
+
+        result = self.bitbucket.get_hook_script(12)
+
+        self.assertEqual(result["id"], 12)
+        mock_get.assert_called_once_with("rest/api/latest/hook-scripts/12")
+
+    @patch.object(Bitbucket, "get")
+    def test_get_hook_script_content_is_not_json(self, mock_get):
+        mock_get.return_value = b"#!/bin/sh\necho hook\n"
+
+        result = self.bitbucket.get_hook_script_content(12)
+
+        self.assertEqual(result, b"#!/bin/sh\necho hook\n")
+        mock_get.assert_called_once_with("rest/api/latest/hook-scripts/12/content", not_json_response=True)
+
+    @patch.object(Bitbucket, "put")
+    def test_update_hook_script_uses_multipart_latest_endpoint(self, mock_put):
+        script = b"#!/bin/sh\necho hook v2\n"
+        mock_put.return_value = {"id": 12}
+
+        result = self.bitbucket.update_hook_script(12, script, "Audit pushes", "POST", "Audit every push")
+
+        self.assertEqual(result, {"id": 12})
+        files = mock_put.call_args.kwargs["files"]
+        self.assertEqual(files["content"], ("hook-script", script, "application/octet-stream"))
+        self.assertEqual(files["name"], (None, "Audit pushes"))
+        self.assertEqual(files["type"], (None, "POST"))
+        self.assertEqual(files["description"], (None, "Audit every push"))
+        self.assertEqual(mock_put.call_args.args[0], "rest/api/latest/hook-scripts/12")
+        self.assertEqual(mock_put.call_args.kwargs["headers"], self.bitbucket.no_check_headers)
+
+    def test_update_hook_script_rejects_unknown_hook_type(self):
+        with self.assertRaisesRegex(ValueError, "PRE.*POST"):
+            self.bitbucket.update_hook_script(12, b"#!/bin/sh", "Invalid", "PRE_RECEIVE")
+
+    @patch.object(Bitbucket, "delete")
+    def test_delete_hook_script(self, mock_delete):
+        self.bitbucket.delete_hook_script(12)
+
+        mock_delete.assert_called_once_with("rest/api/latest/hook-scripts/12")
 
 
 class TestPersonalRepositories(TestCase):

@@ -1,6 +1,7 @@
 import type { Transform } from "sucrase";
 import { ModelEvent } from "@bokehjs/core/bokeh_events";
 import type { StyleSheetLike } from "@bokehjs/core/dom";
+import { DOMView } from "@bokehjs/core/dom_view";
 import type * as p from "@bokehjs/core/properties";
 import type { Attrs } from "@bokehjs/core/types";
 import type { LayoutDOM } from "@bokehjs/models/layouts/layout_dom";
@@ -32,13 +33,30 @@ export declare class ReactiveESMView extends HTMLBoxView {
     _rendered: boolean;
     _stale_children: boolean;
     _mounted: Map<string, Set<string>>;
+    _update_children_chain: Promise<void>;
     initialize(): void;
     lazy_initialize(): Promise<void>;
     stylesheets(): StyleSheetLike[];
     connect_signals(): void;
     disconnect_signals(): void;
     _on_mounted(): void;
-    notify_mount(child: string, id: string, remove: boolean): void;
+    /**
+     * Bokeh walks the whole view tree from `r_after_render`, but ESM components
+     * do not render their children themselves: the children are mounted later,
+     * by the component, once it commits. Recursing into a child that has not
+     * been mounted yet would run `after_render` (and with it style updates,
+     * measurement and layout) on a view that is still detached and therefore
+     * measures 0x0, which permanently poisons anything latching onto its first
+     * measurement. Such children are skipped here and walked when they mount.
+     */
+    r_after_render(): void;
+    /**
+     * Whether Bokeh's render walk may descend into a child view. Views this
+     * component owns are only walkable once mounted; anything else (e.g. a
+     * context menu) is not ours to defer.
+     */
+    protected _is_mountable(child_view: DOMView): boolean;
+    notify_mount(child: string, id: string, remove?: boolean): void;
     on_event(callback: (data: unknown) => void): void;
     remove_on_event(callback: (data: unknown) => void): boolean;
     get_child_view(model: UIElement): UIElementView | undefined;
@@ -58,7 +76,19 @@ export declare class ReactiveESMView extends HTMLBoxView {
     after_resize(): void;
     after_layout(): void;
     protected _lookup_child(child_view: UIElementView): string | null;
+    /**
+     * A children property can trigger more than one update pass for the same
+     * change, e.g. the property change signal and the manual render policy path
+     * in `ReactiveESM.watch`. `build_child_views` is async, so two passes that
+     * overlap both create a view for the same model and only the last one is kept
+     * in `_child_views`; the other is dropped without `remove()`. An orphaned
+     * ReactComponent never mounts, so the promise it handed to `root._await_ready`
+     * is never settled and the root's ready chain stays pending for the rest of
+     * the session, which silently blocks anything waiting on it. Serializing the
+     * passes makes the later one a no-op instead of a competing build.
+     */
     update_children(): Promise<void>;
+    protected _update_children_pass(): Promise<void>;
     on_child_render(child: string, callback: (new_views: UIElementView[]) => void): void;
     remove_on_child_render(child: string, callback?: (new_views: UIElementView[]) => void): void;
 }

@@ -711,37 +711,30 @@ class LaunchContext:
     else:
       yield
 
-  @functools.cached_property
-  def device_collective_metadata(self) -> ir.Value | None:
+  def _collective_metadata(self, idx: int) -> ir.Value | None:
     if self.num_peers <= 1:
       return None
     host_block = self.buffers.owner
     assert isinstance(host_block, ir.Block)
     with ir.InsertionPoint.at_block_begin(host_block):
       ptr_ty = llvm.PointerType.get()
-      metadata_ptr = llvm.load(
-          ptr_ty, utils.getelementptr(self.buffers, [self.num_params], ptr_ty)
+      buffer_ptr = utils.getelementptr(
+          self.buffers, [self.num_params + idx], ptr_ty
       )
+      metadata_ptr = llvm.load(ptr_ty, buffer_ptr)
       metadata_ty = ir.MemRefType.get(
           (get_collective_metadata_size(self.num_params, self.num_peers),),
           ir.IntegerType.get_signless(64),
       )
       return utils.ptr_as_memref(metadata_ptr, metadata_ty)
 
-  @property
-  def host_collective_metadata(self) -> ir.Value | None:
-    if self.device_collective_metadata is None:
-      return None
-    ptr_ty = llvm.PointerType.get()
-    metadata_ty = ir.MemRefType.get(
-      (get_collective_metadata_size(self.num_params, self.num_peers),),
-      ir.IntegerType.get_signless(64),
-    )
+  @functools.cached_property
+  def device_collective_metadata(self) -> ir.Value | None:
+    return self._collective_metadata(0)
 
-    host_metadata_ptr = llvm.load(
-      ptr_ty, utils.getelementptr(self.buffers, [self.num_params + 1], ptr_ty)
-    )
-    return utils.ptr_as_memref(host_metadata_ptr, metadata_ty)
+  @functools.cached_property
+  def host_collective_metadata(self) -> ir.Value | None:
+    return self._collective_metadata(1)
 
   def _alloc_scratch(
       self,
@@ -1040,13 +1033,15 @@ class LaunchContext:
       gmem_transform = (TransposeTransform((*squeezed_dims, *sliced_dims)),
                         *(t.batch(len(squeezed_dims)) for t in gmem_transform))
 
-    slice_shape = tuple(slice_shape)
+    untransformed_slice_shape = tuple(slice_shape)
+    slice_shape = untransformed_slice_shape
     for t in gmem_transform:
       dyn_base_indices = t.transform_index(dyn_base_indices)
       slice_shape = t.transform_shape(slice_shape)
 
     return (
         list(slice_shape),
+        untransformed_slice_shape,
         dyn_base_indices,
         squeezed_dims,
         gather_indices,
@@ -1256,6 +1251,7 @@ class LaunchContext:
     i8 = ir.IntegerType.get_signless(8)
     i16 = ir.IntegerType.get_signless(16)
     i32 = ir.IntegerType.get_signless(32)
+    i64 = ir.IntegerType.get_signless(64)
 
     src_ref_ty = ir.MemRefType(src_ref.type)
     dst_ref_ty = ir.MemRefType(dst_ref.type)
@@ -1287,8 +1283,8 @@ class LaunchContext:
 
     if src_ref_ty.memory_space is None and utils.is_smem_ref(dst_ref_ty):
       gmem_ref, smem_ref = src_ref, dst_ref
-      if barrier is None:
-        raise ValueError("Barriers are required for GMEM -> SMEM copies")
+      if implementation == AsyncCopyImplementation.TMA and barrier is None:
+        raise ValueError("Barriers are required for TMA GMEM -> SMEM copies")
       if arrive is None:
         arrive = True  # Arrive by default
     elif utils.is_smem_ref(src_ref_ty) and dst_ref_ty.memory_space is None:
@@ -1305,6 +1301,7 @@ class LaunchContext:
 
     (
         slice_shape,
+        untransformed_slice_shape,
         dyn_base_indices,
         squeezed_dims,
         gather_indices,
@@ -1321,11 +1318,6 @@ class LaunchContext:
 
     gmem_ref_ty = ir.MemRefType(gmem_ref.type)
     smem_ref_ty = ir.MemRefType(smem_ref.type)
-    # TODO(apaszke): Support squeezed dims for CP_ASYNC.
-    if implementation == AsyncCopyImplementation.CP_ASYNC and squeezed_dims:
-      raise NotImplementedError(
-          "Integer indexing in gmem_slice not supported for CP_ASYNC"
-      )
     # We moved all squeezed dims to the front in _prepare_async_copy.
     assert all(d == 1 for d in slice_shape[:len(squeezed_dims)])
     if slice_shape[len(squeezed_dims):] != smem_ref_ty.shape:
@@ -1360,8 +1352,47 @@ class LaunchContext:
         gep_type = i8  # LLVM has no support for f8.
       else:
         gep_type = element_type
+
+      gmem_strides, _ = gmem_ref_ty.get_strides_and_offset()
+      transformed_strides = gmem_strides
+      for t in gmem_transform:
+        transformed_strides = t.transform_strides(transformed_strides)
+      gmem_offset = utils.dyn_dot(
+          dyn_base_indices, [c(s, index) for s in transformed_strides]
+      )
+      if offset_scale > 1:
+        gmem_offset = arith.divui(gmem_offset, c(offset_scale, index))
+      gmem_offset = arith.index_castui(i64, gmem_offset)
+
+      if squeezed_dims:
+        sliced_dims = [
+            i for i in range(gmem_ref_ty.rank) if i not in squeezed_dims
+        ]
+        if (
+            not gmem_transform
+            and sliced_dims
+            and max(squeezed_dims) > min(sliced_dims)
+        ):
+          raise NotImplementedError(
+              "Untiled CP_ASYNC copy expects the GMEM slice to be contiguous in"
+              " memory, so it only supports squeezing leading dimensions"
+          )
+        # Slice ``gmem_ref`` to drop squeezed dims.
+        gmem_ref = utils.memref_slice(
+            gmem_ref,
+            tuple(
+                0 if i in squeezed_dims else slice(None)
+                for i in range(gmem_ref_ty.rank)
+            ),
+        )
+        gmem_ref_ty = gmem_ref.type
+        gmem_strides = [gmem_strides[i] for i in sliced_dims]
+
       if not gmem_transform:
-        if swizzle is not None:
+        if (
+            swizzle is not None
+            and swizzle != mgpu_dialect.SwizzlingMode.kNoSwizzle
+        ):
           raise NotImplementedError(
               "Swizzle is not supported for untiled CP_ASYNC copies"
           )
@@ -1378,6 +1409,9 @@ class LaunchContext:
         gmem_base_ptr = utils.memref_ptr(gmem_ref)
         gmem_base_ptr = llvm.addrspacecast(
             llvm.PointerType.get(address_space=1), gmem_base_ptr
+        )
+        gmem_base_ptr = utils.getelementptr(
+            gmem_base_ptr, [gmem_offset], gep_type
         )
         smem_base_ptr = utils.memref_ptr(smem_ref)
         bytes_per_transfer = layout.vec_size * element_bitwidth // 8
@@ -1398,12 +1432,12 @@ class LaunchContext:
       else:
         assert swizzle is not None
         swizzle_elems = 8 * swizzle // element_bitwidth
-        if gmem_transform != (TileTransform((8, swizzle_elems)),):
+        tiling = (8, swizzle_elems)
+        if gmem_transform != (TileTransform(tiling),):
           raise NotImplementedError(gmem_transform)
         layout = fa.tiled_copy_smem_gmem_layout(
             *smem_ref_ty.shape[-4:-2], swizzle, element_bitwidth  # pyrefly: ignore[bad-argument-count]
         )
-        gmem_strides = gmem_ref_ty.get_strides_and_offset()[0]
         dst_tiled_strides = [
             arith.constant(i32, s)
             for s in layout.tiling.tile_strides(tuple(gmem_strides))[gmem_ref_ty.rank :]
@@ -1412,10 +1446,17 @@ class LaunchContext:
         warp_offset = utils.dyn_dot(layout.warp_indices(), dst_tiled_strides)
         dyn_offset = arith.addi(lane_offset, warp_offset)
         dyn_offset = arith.divui(dyn_offset, c(offset_scale, i32))
+        dyn_offset = arith.extui(i64, dyn_offset)
+        dyn_offset = arith.addi(dyn_offset, gmem_offset)
         if gmem_ref_ty.rank != 2:
           raise NotImplementedError("Only 2D copies implemented")
+        gmem_slice_shape = tuple(
+            s
+            for i, s in enumerate(untransformed_slice_shape)
+            if i not in squeezed_dims
+        )
         transfers = fa.FragmentedArray.transfer_tiled(
-            smem_ref, swizzle, layout, tuple(gmem_ref_ty.shape), optimized=False
+            smem_ref, swizzle, layout, gmem_slice_shape, optimized=False
         )
         gmem_base_ptr = utils.getelementptr(utils.memref_ptr(gmem_ref), [dyn_offset], gep_type)
         gmem_base_ptr = llvm.addrspacecast(
@@ -1432,18 +1473,20 @@ class LaunchContext:
           constant_offset = sum(i * s for i, s in zip(get_base_idx(), gmem_strides, strict=True))
           gmem_ptr = utils.getelementptr(gmem_base_ptr, [constant_offset // offset_scale], gep_type)
           nvvm.cp_async_shared_global(smem_ptr, gmem_ptr, bytes_per_transfer, cache_modifier)
-      assert barrier is not None
-      # NOTE: Despite its name cp.async.mbarrier.arrive is not an arrival. It
-      # temporarily bumps the pending count (+1 sync, -1 async on completion)
-      # and is overall net-zero. The sole arrival is the ``barrier.arrive``
-      # called by the leader. The warpgroup barrier ensures that all lanes have
-      # committed their copies before that.
-      nvvm.cp_async_mbarrier_arrive(barrier.get_ptr())
-      if arrive:
-        utils.warpgroup_barrier()
-        barrier.arrive(
-            predicate=utils.single_thread_predicate(utils.ThreadSubset.WARPGROUP)
-        )
+      if barrier is None:
+        nvvm.cp_async_commit_group()
+      else:
+        # NOTE: Despite its name cp.async.mbarrier.arrive is not an arrival. It
+        # temporarily bumps the pending count (+1 sync, -1 async on completion)
+        # and is overall net-zero. The sole arrival is the ``barrier.arrive``
+        # called by the leader. The warpgroup barrier ensures that all lanes have
+        # committed their copies before that.
+        nvvm.cp_async_mbarrier_arrive(barrier.get_ptr())
+        if arrive:
+          utils.warpgroup_barrier()
+          barrier.arrive(
+              predicate=utils.single_thread_predicate(utils.ThreadSubset.WARPGROUP)
+          )
       return
 
     assert implementation == AsyncCopyImplementation.TMA
@@ -1534,7 +1577,7 @@ class LaunchContext:
       if smem_ref is not src_ref and arrive:
         assert barrier is not None
         arrive_predicate = utils.single_thread_predicate(utils.ThreadSubset.WARPGROUP)
-        utils.nvvm_mbarrier_arrive_expect_tx(
+        nvvm.mbarrier_arrive_expect_tx(
             barrier.get_ptr(),
             transfer_bytes,
             predicate=arrive_predicate,
@@ -1741,7 +1784,7 @@ class LaunchContext:
         assert barrier is not None
         barrier_ptr = barrier.get_ptr()
         if arrive:
-          utils.nvvm_mbarrier_arrive_expect_tx(
+          nvvm.mbarrier_arrive_expect_tx(
               barrier_ptr, clamped_transfer_bytes, predicate=predicate
           )
         else:
@@ -1799,7 +1842,7 @@ class LaunchContext:
               arith.CmpIPredicate.eq, utils.cluster_idx(collective), c(0, index),
           )
           arrive_predicate = arith.andi(predicate, first_block)
-          utils.nvvm_mbarrier_arrive_expect_tx(
+          nvvm.mbarrier_arrive_expect_tx(
               barrier_ptr, transfer_bytes, predicate=arrive_predicate
           )
         rank = len(slice_shape)
@@ -1832,7 +1875,7 @@ class LaunchContext:
         )
       else:
         if arrive:
-          utils.nvvm_mbarrier_arrive_expect_tx(
+          nvvm.mbarrier_arrive_expect_tx(
               barrier_ptr, transfer_bytes, predicate=predicate
           )
         if collective_size > 1:
@@ -1893,6 +1936,7 @@ class LaunchContext:
     impl =  AsyncCopyImplementation.TMA
     (
         slice_shape,
+        _,
         dyn_base_indices,
         squeezed_dims,
         gather_indices,
@@ -1954,6 +1998,9 @@ class LaunchContext:
     else:
       raise ValueError(f"Unsupported scope: {scope}")
 
+  def await_cp_async_copy(self, allow_groups: int):
+    nvvm.cp_async_wait_group(allow_groups)
+    utils.warpgroup_barrier()
 
   def _ensure_nvshmem_decls(self):
     if self.is_device_collective or self.device_collective_metadata is not None:

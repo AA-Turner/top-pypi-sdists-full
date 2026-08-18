@@ -49,6 +49,7 @@ from jax._src.shard_map import P, _as_manual_mesh, shard_map
 from jax._src.state import discharge as state_discharge
 from jax._src.state import types as state_types
 from jax._src.traceback_util import api_boundary
+from jax._src import xla_metadata
 from jax._src.util import (
     safe_map,
     safe_zip,
@@ -171,10 +172,6 @@ def _pallas_call_to_lojax(
     metadata: FrozenDict[str, str] | None,
     name: str | None,
 ):
-  if any(jax_core.typeof(x).has_qdd for x in hi_args):
-    raise NotImplementedError("pallas_call does not support QDD for inputs")
-  if any(aval.has_qdd for aval in out_avals):
-    raise NotImplementedError("pallas_call does not support QDD for outputs")
   closed_jaxpr = jaxpr
   with grid_mapping.trace_env():
     closed_lo_jaxpr = pe.lower_jaxpr2(closed_jaxpr)
@@ -188,8 +185,7 @@ def _pallas_call_to_lojax(
       )
   avals = [jax_core.typeof(a) for a in hi_args]
   lo_args = [lo_val for aval, x in zip(avals, hi_args)
-             for lo_val in (aval.read_loval(x) if aval.has_qdd
-                            else aval.lower_val(x))]
+             for lo_val in aval.lower_val(x)]
   lo_out_avals = [
       lo_aval
       for aval in out_avals
@@ -709,8 +705,16 @@ def _pallas_call_batching_rule(
   axis_size_is_dynamic = not jax_core.is_constant_dim(axis_size)
   new_grid_dim = pallas_core.dynamic_grid_dim if axis_size_is_dynamic else axis_size
 
+  # The batch dimension is prepended to the grid, so grid_names (if present)
+  # must grow to match. The batch dimension is unnamed.
+  batched_grid_names = (
+      None if grid_mapping.grid_names is None
+      else (None, *grid_mapping.grid_names)
+  )
+
   batched_grid_mapping = grid_mapping.replace(
       grid=(new_grid_dim, *grid_mapping.grid),
+      grid_names=batched_grid_names,
       block_mappings=tuple(batched_block_mappings),
       index_map_avals=tuple(batched_index_map_avals),
       index_map_tree=batched_index_map_tree,
@@ -792,15 +796,19 @@ def _trace_kernel_to_jaxpr(
   fun_with_transforms = primitives.wrap_with_transforms(
       fun, kernel_in_transforms)
 
-  with grid_mapping.trace_env(), config._check_vma(False):
-    with config.mutable_array_checks(False):
-      closed_jaxpr, out_avals = pe.trace_to_jaxpr(
-          fun_with_transforms, kernel_avals,
-          debug_info)
-      consts = closed_jaxpr.consts
-      jaxpr, _ = pe.dce_jaxpr(closed_jaxpr,
-                              used_outputs=[True] * len(closed_jaxpr.outvars),
-                              instantiate=True)
+  with (
+      grid_mapping.trace_env(),
+      config._check_vma(False),
+      config.mutable_array_checks(False),
+      xla_metadata.clear_xla_metadata(),
+  ):
+    closed_jaxpr, out_avals = pe.trace_to_jaxpr(
+        fun_with_transforms, kernel_avals,
+        debug_info)
+    consts = closed_jaxpr.consts
+    jaxpr, _ = pe.dce_jaxpr(closed_jaxpr,
+                            used_outputs=[True] * len(closed_jaxpr.outvars),
+                            instantiate=True)
     if consts:
       consts_avals = [
           aval
@@ -1000,8 +1008,7 @@ jax_core.custom_typechecks[pallas_call_p] = _pallas_call_typecheck_rule
 
 @state_discharge.register_discharge_rule(pallas_call_p)
 def _pallas_call_state_discharge_rule(
-    avals_in,
-    avals_out,
+    ctx,
     *args,
     jaxpr: jax_core.Jaxpr,
     input_output_aliases: tuple[tuple[int, int], ...],
@@ -1015,10 +1022,9 @@ def _pallas_call_state_discharge_rule(
     metadata: FrozenDict[str, str] | None,
     name: str | None,
 ):
-  del avals_out
   assert all(isinstance(v.aval, state.AbstractRef) for v in jaxpr.constvars)
   num_refs = len(jaxpr.constvars)
-  ref_avals, rest_in_avals = split_list(avals_in, [num_refs])
+  ref_avals, rest_in_avals = split_list(ctx.in_avals, [num_refs])
   assert all(isinstance(ref_aval, state.AbstractRef) for ref_aval in ref_avals)
   ref_avals = [
       state.AbstractRef(

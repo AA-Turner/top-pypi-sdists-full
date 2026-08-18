@@ -82,7 +82,7 @@
     __esExport("CustomSelect", customselect_1.CustomSelect);
     var multiselect_1 = require("27b5580835") /* ./multiselect */;
     __esExport("CustomMultiSelect", multiselect_1.CustomMultiSelect);
-    var tabulator_1 = require("b90fc40725") /* ./tabulator */;
+    var tabulator_1 = require("e0501f9786") /* ./tabulator */;
     __esExport("DataTabulator", tabulator_1.DataTabulator);
     var datetime_picker_1 = require("100965d6f3") /* ./datetime_picker */;
     __esExport("DatetimePicker", datetime_picker_1.DatetimePicker);
@@ -94,7 +94,7 @@
     __esExport("DiscretePlayer", discrete_player_1.DiscretePlayer);
     var echarts_1 = require("ec1ecef6a0") /* ./echarts */;
     __esExport("ECharts", echarts_1.ECharts);
-    var feed_1 = require("f9c84aaf3d") /* ./feed */;
+    var feed_1 = require("44a7ecdf96") /* ./feed */;
     __esExport("Feed", feed_1.Feed);
     var file_download_1 = require("84a13dddfb") /* ./file_download */;
     __esExport("FileDownload", file_download_1.FileDownload);
@@ -124,17 +124,17 @@
     __esExport("Player", player_1.Player);
     var plotly_1 = require("59dbae0a77") /* ./plotly */;
     __esExport("PlotlyPlot", plotly_1.PlotlyPlot);
-    var progress_1 = require("b1f4d68596") /* ./progress */;
+    var progress_1 = require("54e5f3767b") /* ./progress */;
     __esExport("Progress", progress_1.Progress);
     var quill_1 = require("a8f2a01dfe") /* ./quill */;
     __esExport("QuillInput", quill_1.QuillInput);
     var radio_button_group_1 = require("25e2d7c208") /* ./radio_button_group */;
     __esExport("RadioButtonGroup", radio_button_group_1.RadioButtonGroup);
-    var react_component_1 = require("93ad10c64c") /* ./react_component */;
+    var react_component_1 = require("a2b691ef16") /* ./react_component */;
     __esExport("ReactComponent", react_component_1.ReactComponent);
     var reactive_html_1 = require("d5752cda5a") /* ./reactive_html */;
     __esExport("ReactiveHTML", reactive_html_1.ReactiveHTML);
-    var reactive_esm_1 = require("74cc5c8ee7") /* ./reactive_esm */;
+    var reactive_esm_1 = require("fb9db49f87") /* ./reactive_esm */;
     __esExport("ReactiveESM", reactive_esm_1.ReactiveESM);
     var singleselect_1 = require("4155401209") /* ./singleselect */;
     __esExport("SingleSelect", singleselect_1.SingleSelect);
@@ -174,7 +174,7 @@
     var _a;
     __esModule();
     const dom_1 = require("@bokehjs/core/dom");
-    const layout_1 = require("dab42e6dad") /* ./layout */;
+    const layout_1 = require("84236c2552") /* ./layout */;
     const util_1 = require("aa07eb54cc") /* ./util */;
     class AcePlotView extends layout_1.HTMLBoxView {
         connect_signals() {
@@ -338,15 +338,51 @@
         });
     })();
 },
-"dab42e6dad": /* models/layout.js */ function _(require, module, exports, __esModule, __esExport) {
+"84236c2552": /* models/layout.js */ function _(require, module, exports, __esModule, __esExport) {
     __esModule();
+    exports.rerender_view = rerender_view;
     exports.set_size = set_size;
     const dom_1 = require("@bokehjs/core/dom");
     const types_1 = require("@bokehjs/core/util/types");
     const assert_1 = require("@bokehjs/core/util/assert");
     const widget_1 = require("@bokehjs/models/widgets/widget");
     const layout_dom_1 = require("@bokehjs/models/layouts/layout_dom");
+    /**
+     * Re-renders a view, including its layout.
+     *
+     * Bokeh's own `rerender` runs the whole render walk before `update_layout`,
+     * which is wrong for anything that is positioned by the layout: `render`
+     * re-parents annotation elements into the canvas layers and it is
+     * `update_layout` that moves them into their side panels. Measuring in
+     * between therefore caches a bbox for the container the element is about to
+     * leave, e.g. a legend measuring the full canvas width instead of its side
+     * panel. `compute_layout` then sizes the panel from that stale bbox and can
+     * squeeze the frame to zero, which poisons everything derived from it (for
+     * tile-based plots, a division by zero width puts NaN into the ranges with no
+     * recovery path). Updating the layout first means `after_render` measures
+     * elements where they will actually live.
+     */
+    function rerender_view(view) {
+        if (view instanceof layout_dom_1.LayoutDOMView) {
+            view.render();
+            view.update_layout();
+            view.r_after_render();
+            view.compute_layout();
+        }
+        else if (view.rerender) {
+            // Can be removed when Bokeh>3.7 (see https://github.com/holoviz/panel/pull/7815)
+            view.rerender();
+        }
+        else {
+            view.render();
+            view.r_after_render();
+        }
+    }
     class PanelMarkupView extends widget_1.WidgetView {
+        constructor() {
+            super(...arguments);
+            this._stylesheets_watcher = null;
+        }
         connect_signals() {
             super.connect_signals();
             const { width, height, min_height, max_height, margin, sizing_mode } = this.model.properties;
@@ -365,35 +401,54 @@
                 });
             }
         }
+        /**
+         * Schedules `style_redraw` for when all applied stylesheets have settled.
+         *
+         * A stylesheet counts as settled once it has loaded *or* failed: views
+         * reveal their container from `style_redraw`, so a stylesheet that never
+         * arrives must not hide them forever. Listeners registered by a previous
+         * call are cancelled, since the elements they watch have been discarded.
+         */
         watch_stylesheets() {
+            this._stylesheets_watcher?.abort();
+            const { signal } = this._stylesheets_watcher = new AbortController();
             this._initialized_stylesheets = new Map();
             for (const stylesheet of this._applied_stylesheets) {
                 // @ts-expect-error: 'el' is protected
                 const style_el = stylesheet.el;
                 if (style_el instanceof HTMLLinkElement) {
-                    this._initialized_stylesheets.set(style_el.href, false);
-                    style_el.addEventListener("load", () => {
+                    // A link served from cache may already have loaded, and `load` does
+                    // not fire again for it, so seed from `sheet` instead of assuming
+                    // every stylesheet is still pending.
+                    this._initialized_stylesheets.set(style_el.href, style_el.sheet != null);
+                    const settled = () => {
                         this._initialized_stylesheets.set(style_el.href, true);
                         if ([...this._initialized_stylesheets.values()].every((v) => v)) {
                             requestAnimationFrame(() => this.style_redraw());
                         }
-                    });
+                    };
+                    style_el.addEventListener("load", settled, { signal });
+                    style_el.addEventListener("error", settled, { signal });
                 }
             }
-            if (this._initialized_stylesheets.size == 0) {
+            if ([...this._initialized_stylesheets.values()].every((v) => v)) {
                 this.style_redraw();
             }
         }
+        /**
+         * Bokeh recreates the stylesheet elements on every update, discarding the
+         * ones `watch_stylesheets` listens on, so the watcher has to be re-armed.
+         * Skipped until the view has armed it itself, as the update triggered from
+         * `super.render()` precedes the creation of `this.container`.
+         */
+        _update_stylesheets() {
+            super._update_stylesheets();
+            if (this._stylesheets_watcher != null) {
+                this.watch_stylesheets();
+            }
+        }
         rerender_(view = null) {
-            // Can be removed when Bokeh>3.7 (see https://github.com/holoviz/panel/pull/7815)
-            view = view == null ? this : view;
-            if (view.rerender) {
-                view.rerender();
-            }
-            else {
-                view.render();
-                view.r_after_render();
-            }
+            rerender_view(view == null ? this : view);
         }
         style_redraw() { }
         has_math_disabled() {
@@ -513,15 +568,7 @@
             set_size(this.el, this.model);
         }
         rerender_(view = null) {
-            // Can be removed when Bokeh>3.7 (see https://github.com/holoviz/panel/pull/7815)
-            view = view == null ? this : view;
-            if (view.rerender) {
-                view.rerender();
-            }
-            else {
-                view.render();
-                view.r_after_render();
-            }
+            rerender_view(view == null ? this : view);
         }
         watch_stylesheets() {
             this._initialized_stylesheets = new Map();
@@ -538,9 +585,9 @@
                     });
                 }
             }
-            if (Object.keys(this._initialized_stylesheets).length === 0) {
-                requestAnimationFrame(() => this.style_redraw());
-            }
+            // Unconditional: subclasses redraw (and reveal themselves) here even when
+            // the stylesheets never load, so this is their only guaranteed redraw.
+            requestAnimationFrame(() => this.style_redraw());
         }
         style_redraw() { }
         get child_models() {
@@ -778,7 +825,7 @@
 "1f663ffe94": /* models/anywidget_component.js */ function _(require, module, exports, __esModule, __esExport) {
     var _a;
     __esModule();
-    const reactive_esm_1 = require("74cc5c8ee7") /* ./reactive_esm */;
+    const reactive_esm_1 = require("fb9db49f87") /* ./reactive_esm */;
     class AnyWidgetModelAdapter {
         constructor(model) {
             this.view = null;
@@ -942,7 +989,7 @@ export default {render}`;
         _a.prototype.default_view = AnyWidgetComponentView;
     })();
 },
-"74cc5c8ee7": /* models/reactive_esm.js */ function _(require, module, exports, __esModule, __esExport) {
+"fb9db49f87": /* models/reactive_esm.js */ function _(require, module, exports, __esModule, __esExport) {
     var _a, _b, _c;
     __esModule();
     exports.model_getter = model_getter;
@@ -959,17 +1006,18 @@ export default {render}`;
         return c > 3 && r && Object.defineProperty(target, key, r), r;
     };
     var ESMEvent_1;
-    const sucrase_1 = require("48024289a4") /* sucrase */;
+    const sucrase_1 = require("28a8b14fda") /* sucrase */;
     const bokeh_events_1 = require("@bokehjs/core/bokeh_events");
     const dom_1 = require("@bokehjs/core/dom");
     const dom_2 = require("@bokehjs/core/dom");
+    const dom_view_1 = require("@bokehjs/core/dom_view");
     const kinds_1 = require("@bokehjs/core/kinds");
     const layout_dom_1 = require("@bokehjs/models/layouts/layout_dom");
     const types_1 = require("@bokehjs/core/util/types");
     const ui_element_1 = require("@bokehjs/models/ui/ui_element");
     const event_to_object_1 = require("a572dba9cd") /* ./event-to-object */;
     const html_1 = require("4c04683fdc") /* ./html */;
-    const layout_1 = require("dab42e6dad") /* ./layout */;
+    const layout_1 = require("84236c2552") /* ./layout */;
     const util_1 = require("aa07eb54cc") /* ./util */;
     const esm_css_1 = tslib_1.__importDefault(require("727a14f76b") /* ../styles/models/esm.css */);
     const MODULE_CACHE = new Map();
@@ -1149,6 +1197,7 @@ export default {render}`;
             this._rendered = false;
             this._stale_children = false;
             this._mounted = new Map();
+            this._update_children_chain = Promise.resolve();
         }
         initialize() {
             super.initialize();
@@ -1207,7 +1256,36 @@ export default {render}`;
             this.model.disconnect_watchers(this);
         }
         _on_mounted() { }
-        notify_mount(child, id, remove) {
+        /**
+         * Bokeh walks the whole view tree from `r_after_render`, but ESM components
+         * do not render their children themselves: the children are mounted later,
+         * by the component, once it commits. Recursing into a child that has not
+         * been mounted yet would run `after_render` (and with it style updates,
+         * measurement and layout) on a view that is still detached and therefore
+         * measures 0x0, which permanently poisons anything latching onto its first
+         * measurement. Such children are skipped here and walked when they mount.
+         */
+        r_after_render() {
+            for (const child_view of this.children_views()) {
+                if (child_view instanceof dom_view_1.DOMView && this._is_mountable(child_view)) {
+                    child_view.r_after_render();
+                }
+            }
+            this.after_render();
+            this._was_built = true;
+        }
+        /**
+         * Whether Bokeh's render walk may descend into a child view. Views this
+         * component owns are only walkable once mounted; anything else (e.g. a
+         * context menu) is not ours to defer.
+         */
+        _is_mountable(child_view) {
+            if (!this._child_views.has(child_view.model)) {
+                return true;
+            }
+            return child_view.el.isConnected;
+        }
+        notify_mount(child, id, remove = false) {
             if (!this._mounted.has(child)) {
                 this._mounted.set(child, new Set());
             }
@@ -1441,7 +1519,23 @@ export default {render}`;
             }
             return null;
         }
+        /**
+         * A children property can trigger more than one update pass for the same
+         * change, e.g. the property change signal and the manual render policy path
+         * in `ReactiveESM.watch`. `build_child_views` is async, so two passes that
+         * overlap both create a view for the same model and only the last one is kept
+         * in `_child_views`; the other is dropped without `remove()`. An orphaned
+         * ReactComponent never mounts, so the promise it handed to `root._await_ready`
+         * is never settled and the root's ready chain stays pending for the rest of
+         * the session, which silently blocks anything waiting on it. Serializing the
+         * passes makes the later one a no-op instead of a competing build.
+         */
         async update_children() {
+            const run = this._update_children_chain.then(() => this._update_children_pass());
+            this._update_children_chain = run.then(() => undefined, () => undefined);
+            return run;
+        }
+        async _update_children_pass() {
             const created_children = new Set(await this.build_child_views());
             const all_views = this.child_views;
             if (this.model.render_policy !== "manual") {
@@ -1869,7 +1963,7 @@ export default {render}`;
         }));
     })();
 },
-"48024289a4": /* sucrase/dist/esm/index.js */ function _(require, module, exports, __esModule, __esExport) {
+"28a8b14fda": /* sucrase/dist/esm/index.js */ function _(require, module, exports, __esModule, __esExport) {
     __esModule();
     exports.getVersion = getVersion;
     exports.transform = transform;
@@ -1889,7 +1983,7 @@ export default {render}`;
     ;
     function getVersion() {
         /* istanbul ignore next */
-        return "3.35.0";
+        return "3.35.1";
     }
     function transform(code, options) {
         (0, Options_1.validateOptions)(options);
@@ -18121,7 +18215,7 @@ ${namesToRegister
     const bokeh_events_1 = require("@bokehjs/core/bokeh_events");
     const object_1 = require("@bokehjs/core/util/object");
     const markup_1 = require("@bokehjs/models/widgets/markup");
-    const layout_1 = require("dab42e6dad") /* ./layout */;
+    const layout_1 = require("84236c2552") /* ./layout */;
     const event_to_object_1 = require("a572dba9cd") /* ./event-to-object */;
     const util_1 = require("aa07eb54cc") /* ./util */;
     const html_css_1 = tslib_1.__importDefault(require("9b8139e439") /* ../styles/models/html.css */);
@@ -18387,7 +18481,7 @@ ${namesToRegister
 "fd59c985b3": /* models/audio.js */ function _(require, module, exports, __esModule, __esExport) {
     var _a;
     __esModule();
-    const layout_1 = require("dab42e6dad") /* ./layout */;
+    const layout_1 = require("84236c2552") /* ./layout */;
     class AudioView extends layout_1.HTMLBoxView {
         initialize() {
             super.initialize();
@@ -19912,7 +20006,7 @@ ${namesToRegister
         _b.prototype.default_view = CustomMultiSelectView;
     })();
 },
-"b90fc40725": /* models/tabulator.js */ function _(require, module, exports, __esModule, __esExport) {
+"e0501f9786": /* models/tabulator.js */ function _(require, module, exports, __esModule, __esExport) {
     var _a, _b, _c, _d;
     __esModule();
     const tslib_1 = require("tslib");
@@ -19928,7 +20022,7 @@ ${namesToRegister
     const debounce_1 = require("99a25e6992") /* debounce */;
     const comm_manager_1 = require("1bec1b1fcc") /* ./comm_manager */;
     const data_1 = require("be689f0377") /* ./data */;
-    const layout_1 = require("dab42e6dad") /* ./layout */;
+    const layout_1 = require("84236c2552") /* ./layout */;
     const util_1 = require("aa07eb54cc") /* ./util */;
     const tabulator_css_1 = tslib_1.__importDefault(require("3d732ff91f") /* ../styles/models/tabulator.css */);
     class TableEditEvent extends bokeh_events_1.ModelEvent {
@@ -20292,8 +20386,8 @@ ${namesToRegister
         }
         connect_signals() {
             super.connect_signals();
-            const { configuration, layout, columns, groupby, visible, download, children, expanded, cell_styles, hidden_columns, page_size, page, max_page, frozen_rows, sorters, theme_classes, } = this.model.properties;
-            this.on_change([configuration, layout, groupby], (0, debounce_1.debounce)(() => {
+            const { configuration, layout, columns, groupby, visible, download, children, expanded, cell_styles, hidden_columns, page_size, page, max_page, frozen_rows, movable_columns, sorters, theme_classes, } = this.model.properties;
+            this.on_change([configuration, layout, groupby, movable_columns], (0, debounce_1.debounce)(() => {
                 this.invalidate_render();
             }, 20, false));
             this.on_change(visible, () => {
@@ -20311,6 +20405,13 @@ ${namesToRegister
             });
             this.on_change(children, () => this.renderChildren());
             this.on_change(expanded, () => {
+                // A view whose render() has not run, or which has been torn down, has no Tabulator
+                // instance. It can still be subscribed to the model, and throwing here aborts the whole
+                // emit chain, so a sibling view that *is* rendered never gets to draw the row content and
+                // the expand click appears to do nothing. Every other handler in this file guards this way.
+                if (this.tabulator == null) {
+                    return;
+                }
                 // The first cell is the cell of the frozen _index column.
                 for (const row of this.tabulator.rowManager.getRows()) {
                     if (row.cells.length > 0) {
@@ -20691,6 +20792,9 @@ ${namesToRegister
                         break;
                     }
                 }
+                if (heights.length === 0) {
+                    return;
+                }
                 if (height < table_height) {
                     page_size = table.children.length;
                     const remaining = table_height - height;
@@ -20758,7 +20862,7 @@ ${namesToRegister
                 ...(0, util_1.transformJsPlaceholders)(this.model.configuration),
                 index: "_index",
                 nestedFieldSeparator: false,
-                movableColumns: false,
+                movableColumns: this.model.movable_columns,
                 selectableRows,
                 columns: this.getColumns(),
                 initialSort: this.sorters,
@@ -21498,6 +21602,7 @@ ${namesToRegister
             indexes: [List(Str), []],
             layout: [exports.TableLayout, "fit_data"],
             max_page: [Float, 0],
+            movable_columns: [Bool, false],
             pagination: [Nullable(Str), null],
             page: [Float, 0],
             page_size: [Nullable(Float), null],
@@ -24560,7 +24665,7 @@ ${namesToRegister
     const column_data_source_1 = require("@bokehjs/models/sources/column_data_source");
     const debounce_1 = require("99a25e6992") /* debounce */;
     const data_1 = require("be689f0377") /* ./data */;
-    const layout_1 = require("dab42e6dad") /* ./layout */;
+    const layout_1 = require("84236c2552") /* ./layout */;
     const lumagl_1 = require("16d69e2b49") /* ./lumagl */;
     const tooltips_1 = require("f8f8ea4284") /* ./tooltips */;
     function extractClasses() {
@@ -26531,7 +26636,7 @@ ${namesToRegister
     const bokeh_events_1 = require("@bokehjs/core/bokeh_events");
     const dom_1 = require("@bokehjs/core/dom");
     const event_to_object_1 = require("a572dba9cd") /* ./event-to-object */;
-    const layout_1 = require("dab42e6dad") /* ./layout */;
+    const layout_1 = require("84236c2552") /* ./layout */;
     const util_1 = require("aa07eb54cc") /* ./util */;
     const mouse_events = [
         "click", "dblclick", "mousedown", "mousemove", "mouseup", "mouseover", "mouseout",
@@ -26775,7 +26880,7 @@ ${namesToRegister
         }));
     })();
 },
-"f9c84aaf3d": /* models/feed.js */ function _(require, module, exports, __esModule, __esExport) {
+"44a7ecdf96": /* models/feed.js */ function _(require, module, exports, __esModule, __esExport) {
     var _a, _b;
     __esModule();
     var __decorate = (this && this.__decorate) || function (decorators, target, key, desc) {
@@ -26830,6 +26935,14 @@ ${namesToRegister
         initialize() {
             super.initialize();
             this._sync = true;
+            // The Feed only clips its children when it is a scroll container, whose css
+            // classes (see _SCROLL_MAPPING) all start with "scroll". Otherwise it grows
+            // to fit its content and an ancestor (e.g. the page) scrolls, so visibility
+            // must be measured against the viewport; rooting on this.el would treat
+            // every rendered child - including the load_buffer - as visible and expand
+            // visible_range until all objects load (#8661).
+            const is_scroll_container = this.model.css_classes.some((cls) => cls.startsWith("scroll"));
+            const root = is_scroll_container ? this.el : null;
             this._intersection_observer = new IntersectionObserver((entries) => {
                 const visible = [...this.model.visible_children];
                 const nodes = this.node_map;
@@ -26856,7 +26969,7 @@ ${namesToRegister
                     this._last_visible = null;
                 }
             }, {
-                root: this.el,
+                root,
                 threshold: 0.01,
             });
         }
@@ -27524,7 +27637,7 @@ ${namesToRegister
     var _a;
     __esModule();
     const dom_1 = require("@bokehjs/core/dom");
-    const layout_1 = require("dab42e6dad") /* ./layout */;
+    const layout_1 = require("84236c2552") /* ./layout */;
     const Jupyter = window.Jupyter;
     class IPyWidgetView extends layout_1.HTMLBoxView {
         initialize() {
@@ -27613,7 +27726,7 @@ ${namesToRegister
     const kinds_1 = require("@bokehjs/core/kinds");
     const markup_1 = require("@bokehjs/models/widgets/markup");
     const json_formatter_js_1 = tslib_1.__importDefault(require("ec9d1ffc2e") /* json-formatter-js */);
-    const layout_1 = require("dab42e6dad") /* ./layout */;
+    const layout_1 = require("84236c2552") /* ./layout */;
     class JSONView extends layout_1.PanelMarkupView {
         connect_signals() {
             super.connect_signals();
@@ -27771,7 +27884,7 @@ ${namesToRegister
     const tslib_1 = require("tslib");
     const dom_1 = require("@bokehjs/core/dom");
     const bokeh_events_1 = require("@bokehjs/core/bokeh_events");
-    const layout_1 = require("dab42e6dad") /* ./layout */;
+    const layout_1 = require("84236c2552") /* ./layout */;
     const jsoneditor_css_1 = tslib_1.__importDefault(require("317a12d360") /* ../styles/models/jsoneditor.css */);
     class JSONEditEvent extends bokeh_events_1.ModelEvent {
         constructor(data) {
@@ -27882,7 +27995,7 @@ ${namesToRegister
     var _a;
     __esModule();
     const markup_1 = require("@bokehjs/models/widgets/markup");
-    const layout_1 = require("dab42e6dad") /* ./layout */;
+    const layout_1 = require("84236c2552") /* ./layout */;
     class KaTeXView extends layout_1.PanelMarkupView {
         connect_signals() {
             super.connect_signals();
@@ -28039,7 +28152,7 @@ ${namesToRegister
     var _a;
     __esModule();
     const markup_1 = require("@bokehjs/models/widgets/markup");
-    const layout_1 = require("dab42e6dad") /* ./layout */;
+    const layout_1 = require("84236c2552") /* ./layout */;
     class MathJaxView extends layout_1.PanelMarkupView {
         connect_signals() {
             super.connect_signals();
@@ -28246,7 +28359,7 @@ ${namesToRegister
     var _a;
     __esModule();
     const markup_1 = require("@bokehjs/models/widgets/markup");
-    const layout_1 = require("dab42e6dad") /* ./layout */;
+    const layout_1 = require("84236c2552") /* ./layout */;
     const html_1 = require("4c04683fdc") /* ./html */;
     class PDFView extends layout_1.PanelMarkupView {
         connect_signals() {
@@ -28310,7 +28423,7 @@ ${namesToRegister
     const bokeh_events_1 = require("@bokehjs/core/bokeh_events");
     const dom_1 = require("@bokehjs/core/dom");
     const column_data_source_1 = require("@bokehjs/models/sources/column_data_source");
-    const layout_1 = require("dab42e6dad") /* ./layout */;
+    const layout_1 = require("84236c2552") /* ./layout */;
     const perspective_css_1 = tslib_1.__importDefault(require("2e2913ea54") /* ../styles/models/perspective.css */);
     const THEMES = {
         "pro-dark": "Pro Dark",
@@ -28647,7 +28760,7 @@ ${namesToRegister
     const eq_1 = require("@bokehjs/core/util/eq");
     const column_data_source_1 = require("@bokehjs/models/sources/column_data_source");
     const debounce_1 = require("99a25e6992") /* debounce */;
-    const layout_1 = require("dab42e6dad") /* ./layout */;
+    const layout_1 = require("84236c2552") /* ./layout */;
     const util_1 = require("aa07eb54cc") /* ./util */;
     const plotly_css_1 = tslib_1.__importDefault(require("3d56c75186") /* ../styles/models/plotly.css */);
     const FORBIDDEN_KEYS = new Set(["__proto__", "prototype", "constructor"]);
@@ -29124,11 +29237,11 @@ ${namesToRegister
     __esModule();
     exports.default = `.js-plotly-plot .plotly,.js-plotly-plot .plotly div{direction:ltr;font-family:'Open Sans', verdana, arial, sans-serif;margin:0;padding:0;}.js-plotly-plot .plotly input,.js-plotly-plot .plotly button{font-family:'Open Sans', verdana, arial, sans-serif;}.js-plotly-plot .plotly input:focus,.js-plotly-plot .plotly button:focus{outline:none;}.js-plotly-plot .plotly a{text-decoration:none;}.js-plotly-plot .plotly a:hover{text-decoration:none;}.js-plotly-plot .plotly .crisp{shape-rendering:crispEdges;}.js-plotly-plot .plotly .user-select-none{-webkit-user-select:none;-moz-user-select:none;-ms-user-select:none;-o-user-select:none;user-select:none;}.js-plotly-plot .plotly svg{overflow:hidden;}.js-plotly-plot .plotly svg a{fill:#447adb;}.js-plotly-plot .plotly svg a:hover{fill:#3c6dc5;}.js-plotly-plot .plotly .main-svg{position:absolute;top:0;left:0;pointer-events:none;}.js-plotly-plot .plotly .main-svg .draglayer{pointer-events:all;}.js-plotly-plot .plotly .cursor-default{cursor:default;}.js-plotly-plot .plotly .cursor-pointer{cursor:pointer;}.js-plotly-plot .plotly .cursor-crosshair{cursor:crosshair;}.js-plotly-plot .plotly .cursor-move{cursor:move;}.js-plotly-plot .plotly .cursor-col-resize{cursor:col-resize;}.js-plotly-plot .plotly .cursor-row-resize{cursor:row-resize;}.js-plotly-plot .plotly .cursor-ns-resize{cursor:ns-resize;}.js-plotly-plot .plotly .cursor-ew-resize{cursor:ew-resize;}.js-plotly-plot .plotly .cursor-sw-resize{cursor:sw-resize;}.js-plotly-plot .plotly .cursor-s-resize{cursor:s-resize;}.js-plotly-plot .plotly .cursor-se-resize{cursor:se-resize;}.js-plotly-plot .plotly .cursor-w-resize{cursor:w-resize;}.js-plotly-plot .plotly .cursor-e-resize{cursor:e-resize;}.js-plotly-plot .plotly .cursor-nw-resize{cursor:nw-resize;}.js-plotly-plot .plotly .cursor-n-resize{cursor:n-resize;}.js-plotly-plot .plotly .cursor-ne-resize{cursor:ne-resize;}.js-plotly-plot .plotly .cursor-grab{cursor:-webkit-grab;cursor:grab;}.js-plotly-plot .plotly .modebar{position:absolute;top:2px;right:2px;}.js-plotly-plot .plotly .ease-bg{-webkit-transition:background-color 0.3s ease 0s;-moz-transition:background-color 0.3s ease 0s;-ms-transition:background-color 0.3s ease 0s;-o-transition:background-color 0.3s ease 0s;transition:background-color 0.3s ease 0s;}.js-plotly-plot .plotly .modebar--hover > :not(.watermark){opacity:0;-webkit-transition:opacity 0.3s ease 0s;-moz-transition:opacity 0.3s ease 0s;-ms-transition:opacity 0.3s ease 0s;-o-transition:opacity 0.3s ease 0s;transition:opacity 0.3s ease 0s;}.js-plotly-plot .plotly:hover .modebar--hover .modebar-group{opacity:1;}.js-plotly-plot .plotly .modebar-group{float:left;display:inline-block;box-sizing:border-box;padding-left:8px;position:relative;vertical-align:middle;white-space:nowrap;}.js-plotly-plot .plotly .modebar-btn{fill:var(--plotly-icon-color);background-color:unset;border:none;position:relative;font-size:16px;padding:3px 4px;height:22px;cursor:pointer;line-height:normal;box-sizing:border-box;}.js-plotly-plot .plotly .modebar-btn.active{fill:var(--plotly-active-icon-color);}.js-plotly-plot .plotly .modebar-btn svg{position:relative;top:2px;}.js-plotly-plot .plotly .modebar.vertical{display:flex;flex-direction:column;flex-wrap:wrap;align-content:flex-end;max-height:100%;}.js-plotly-plot .plotly .modebar.vertical svg{top:-1px;}.js-plotly-plot .plotly .modebar.vertical .modebar-group{display:block;float:none;padding-left:0px;padding-bottom:8px;}.js-plotly-plot .plotly .modebar.vertical .modebar-group .modebar-btn{display:block;text-align:center;}.js-plotly-plot .plotly [data-title]{}.js-plotly-plot .plotly [data-title]:before,.js-plotly-plot .plotly [data-title]:after{position:absolute;-webkit-transform:translate3d(0, 0, 0);-moz-transform:translate3d(0, 0, 0);-ms-transform:translate3d(0, 0, 0);-o-transform:translate3d(0, 0, 0);transform:translate3d(0, 0, 0);display:none;opacity:0;z-index:1001;pointer-events:none;top:110%;right:50%;}.js-plotly-plot .plotly [data-title]:hover:before,.js-plotly-plot .plotly [data-title]:hover:after{display:block;opacity:1;}.js-plotly-plot .plotly [data-title]:before{content:'';position:absolute;background:transparent;border:6px solid transparent;z-index:1002;margin-top:-12px;border-bottom-color:#69738a;margin-right:-6px;}.js-plotly-plot .plotly [data-title]:after{content:attr(data-title);background:#69738a;color:white;padding:8px 10px;font-size:12px;line-height:12px;white-space:nowrap;margin-right:-18px;border-radius:2px;}.js-plotly-plot .plotly .vertical [data-title]:before,.js-plotly-plot .plotly .vertical [data-title]:after{top:0%;right:200%;}.js-plotly-plot .plotly .vertical [data-title]:before{border:6px solid transparent;border-left-color:#69738a;margin-top:8px;margin-right:-30px;}.plotly-notifier{font-family:'Open Sans', verdana, arial, sans-serif;position:fixed;top:50px;right:20px;z-index:10000;font-size:10pt;max-width:180px;}.plotly-notifier p{margin:0;}.plotly-notifier .notifier-note{min-width:180px;max-width:250px;border:1px solid #fff;z-index:3000;margin:0;background-color:#8c97af;background-color:rgba(140, 151, 175, 0.9);color:#fff;padding:10px;overflow-wrap:break-word;word-wrap:break-word;-ms-hyphens:auto;-webkit-hyphens:auto;hyphens:auto;}.plotly-notifier .notifier-close{color:#fff;opacity:0.8;float:right;padding:0 5px;background:none;border:none;font-size:20px;font-weight:bold;line-height:20px;}.plotly-notifier .notifier-close:hover{color:#444;text-decoration:none;cursor:pointer;}`;
 },
-"b1f4d68596": /* models/progress.js */ function _(require, module, exports, __esModule, __esExport) {
+"54e5f3767b": /* models/progress.js */ function _(require, module, exports, __esModule, __esExport) {
     var _a;
     __esModule();
     const dom_1 = require("@bokehjs/core/dom");
-    const layout_1 = require("dab42e6dad") /* ./layout */;
+    const layout_1 = require("84236c2552") /* ./layout */;
     class ProgressView extends layout_1.HTMLBoxView {
         connect_signals() {
             super.connect_signals();
@@ -29141,6 +29254,9 @@ ${namesToRegister
         render() {
             super.render();
             const style = { ...this.model.styles, display: "inline-block" };
+            if (this.model.height != null) {
+                style.height = `${this.model.height}px`;
+            }
             this.progressEl = document.createElement("progress");
             this.setValue();
             this.setMax();
@@ -29208,7 +29324,7 @@ ${namesToRegister
     var _a;
     __esModule();
     const dom_1 = require("@bokehjs/core/dom");
-    const layout_1 = require("dab42e6dad") /* ./layout */;
+    const layout_1 = require("84236c2552") /* ./layout */;
     class QuillInputView extends layout_1.HTMLBoxView {
         connect_signals() {
             super.connect_signals();
@@ -29526,7 +29642,7 @@ ${namesToRegister
         }));
     })();
 },
-"93ad10c64c": /* models/react_component.js */ function _(require, module, exports, __esModule, __esExport) {
+"a2b691ef16": /* models/react_component.js */ function _(require, module, exports, __esModule, __esExport) {
     var _a;
     __esModule();
     const build_views_1 = require("@bokehjs/core/build_views");
@@ -29534,7 +29650,7 @@ ${namesToRegister
     const array_1 = require("@bokehjs/core/util/array");
     const assert_1 = require("@bokehjs/core/util/assert");
     const types_1 = require("@bokehjs/core/util/types");
-    const reactive_esm_1 = require("74cc5c8ee7") /* ./reactive_esm */;
+    const reactive_esm_1 = require("fb9db49f87") /* ./reactive_esm */;
     class HostedStyleSheet extends dom_1.InlineStyleSheet {
         constructor(css, id, persistent = false, host_id = "") {
             super(css, id, persistent);
@@ -29612,7 +29728,7 @@ ${namesToRegister
             return this.model.use_shadow_dom || !(this.parent instanceof ReactComponentView);
         }
         render_esm() {
-            if (this.model.compiled === null || this.model.render_module === null) {
+            if (this.model.compiled === null || this.model.render_module === null || this.container == null) {
                 return;
             }
             this._rendered = false;
@@ -29634,9 +29750,36 @@ ${namesToRegister
                 this._mounted_resolve = resolve;
             });
             this.model.render_module.then((mod) => {
+                if (this.container == null) {
+                    // Nothing will mount, so the ready promise has to be settled here or
+                    // the view never finishes and the document never goes idle.
+                    this._resolve_mounted();
+                    return;
+                }
                 this.react_root = mod.default.render(this.model.id);
+            }).catch((e) => {
+                this._resolve_mounted();
+                throw e;
             });
             this._await_ready(mounted_promise);
+        }
+        render_error(error) {
+            // A component that errored will never mount and so never settles its
+            // promise via `after_rendered`.
+            this._resolve_mounted();
+            super.render_error(error);
+        }
+        /**
+         * Settles the promise handed to `_await_ready` by `render_esm`. Safe to call
+         * more than once; only the first call has an effect.
+         */
+        _resolve_mounted() {
+            const resolve = this._mounted_resolve;
+            if (resolve == null) {
+                return;
+            }
+            this._mounted_resolve = null;
+            resolve();
         }
         on_force_update(cb) {
             this._force_update_callbacks.push(cb);
@@ -29649,13 +29792,13 @@ ${namesToRegister
         remove() {
             this._force_update_callbacks = [];
             this.mounted = false;
+            // A view removed before it mounted still owes a resolution to the promise
+            // handed to `_await_ready`, otherwise the root never reaches idle.
+            this._resolve_mounted();
             if (this.react_root && this.use_shadow_dom) {
                 super.remove();
                 this.react_root.then((root) => root && root.unmount());
-                for (const view of this._scheduled_removals) {
-                    view.remove();
-                }
-                this._scheduled_removals = [];
+                this.flush_scheduled_removals();
             }
             else {
                 this._applied_stylesheets.forEach((stylesheet) => stylesheet.uninstall());
@@ -29666,6 +29809,7 @@ ${namesToRegister
                 this._child_rendered.clear();
                 this._mounted.clear();
             }
+            this.react_root = null;
         }
         get root_view() {
             let root = this;
@@ -29679,21 +29823,40 @@ ${namesToRegister
         }
         _apply_stylesheets(stylesheets) {
             const resolved_stylesheets = stylesheets.map((style) => (0, types_1.isString)(style) ? new dom_1.InlineStyleSheet(style) : style);
-            const styles = this.root_view.shadow_el.querySelectorAll("style");
-            const links = this.root_view.shadow_el.querySelectorAll("link");
+            const root_view = this.root_view;
+            const target = root_view.shadow_el;
+            // When shadow DOM is disabled every component in the tree installs its
+            // stylesheets into the same root, so the existing CSS is indexed once and
+            // looked up by value. Scanning the root per stylesheet made this quadratic
+            // in the number of components times the number of stylesheets each.
+            const installed_css = new Set();
+            const installed_hrefs = new Set();
+            if (!this.use_shadow_dom) {
+                for (const style of target.querySelectorAll("style")) {
+                    installed_css.add(style.textContent);
+                }
+                for (const link of target.querySelectorAll("link")) {
+                    installed_hrefs.add(link.href);
+                }
+            }
             resolved_stylesheets.forEach((stylesheet) => {
                 if (!this.use_shadow_dom) {
-                    if (stylesheet instanceof dom_1.InlineStyleSheet &&
-                        Array.from(styles).some(style => style.innerHTML === stylesheet.css)) {
-                        return;
+                    if (stylesheet instanceof dom_1.InlineStyleSheet) {
+                        if (installed_css.has(stylesheet.css)) {
+                            return;
+                        }
+                        installed_css.add(stylesheet.css);
                     }
-                    if (stylesheet instanceof dom_1.ImportedStyleSheet &&
-                        Array.from(links).some(link => link.href === stylesheet.el.href)) {
-                        return;
+                    else if (stylesheet instanceof dom_1.ImportedStyleSheet) {
+                        const { href } = stylesheet.el;
+                        if (installed_hrefs.has(href)) {
+                            return;
+                        }
+                        installed_hrefs.add(href);
                     }
                 }
                 this._applied_stylesheets.push(stylesheet);
-                stylesheet.install(this.root_view.shadow_el);
+                stylesheet.install(target);
             });
         }
         render() {
@@ -29702,6 +29865,9 @@ ${namesToRegister
             }
             this._force_update_callbacks = [];
             this.mounted = false;
+            // `super.render()` calls `render_esm`, which installs a fresh promise, so
+            // settle any promise the previous render left outstanding first.
+            this._resolve_mounted();
             super.render();
         }
         r_after_render() {
@@ -29744,7 +29910,7 @@ ${namesToRegister
             }
             return created;
         }
-        async update_children() {
+        async _update_children_pass() {
             const created_children = new Set(await this.build_child_views());
             const new_views = new Map();
             for (const child_view of this.child_views) {
@@ -29772,6 +29938,19 @@ ${namesToRegister
                 }
             }
             this._update_children();
+            // Removals are normally drained by the replacement child once it mounts,
+            // but a child that never mounts would leak the old views, so flush any
+            // that are still pending after React has had a chance to commit.
+            setTimeout(() => this.flush_scheduled_removals(), 0);
+        }
+        flush_scheduled_removals() {
+            const removals = this._scheduled_removals;
+            this._scheduled_removals = [];
+            for (const view of removals) {
+                if (!view.is_destroyed) {
+                    view.remove();
+                }
+            }
         }
         _on_mounted() {
             this.invalidate_layout();
@@ -29798,17 +29977,15 @@ ${namesToRegister
             }
             this._rendered = true;
             if (this._mounted_resolve) {
-                const resolve = this._mounted_resolve;
-                this._mounted_resolve = null;
                 const child_ready = [];
                 for (const child_view of this.child_views) {
                     child_ready.push(child_view.ready);
                 }
                 if (child_ready.length > 0) {
-                    Promise.all(child_ready).then(() => resolve());
+                    Promise.all(child_ready).then(() => this._resolve_mounted());
                 }
                 else {
-                    resolve();
+                    this._resolve_mounted();
                 }
             }
             this.finish();
@@ -29887,6 +30064,18 @@ async function render(id) {
       super(props)
       this.render_callback = null
       this.containerRef = React.createRef()
+      // Registers the child as tracked but not yet rendered. React's render
+      // phase has to stay free of side effects, since a render may be
+      // discarded without ever committing, so the flag is only ever flipped
+      // here and from getSnapshotBeforeUpdate.
+      this._mark_stale()
+    }
+
+    _mark_stale() {
+      const view = this.view
+      if (view) {
+        this.props.parent._child_rendered.set(view, false)
+      }
     }
 
     updateElement() {
@@ -29922,15 +30111,13 @@ async function render(id) {
         }
         this.updateElement()
         if (this.use_shadow_dom) {
-          for (const view of this.props.parent._scheduled_removals) { view.remove() }
-          this.props.parent._scheduled_removals = []
+          this.props.parent.flush_scheduled_removals()
           this.props.parent.rerender_(view)
           this.props.parent._child_rendered.set(view, true)
         } else {
           view.patch_container(this.containerRef.current)
           view.model.render_module.then(async (mod) => {
-            for (const view of this.props.parent._scheduled_removals) { view.remove() }
-            this.props.parent._scheduled_removals = []
+            this.props.parent.flush_scheduled_removals()
             this.setState(
               {rendered: await mod.default.render(view.model.id)},
               () => {
@@ -29944,8 +30131,7 @@ async function render(id) {
       }
       this.props.parent.on_child_render(this.props.name, this.render_callback)
       if (view == null) { return }
-      for (const rview of this.props.parent._scheduled_removals) { rview.remove() }
-      this.props.parent._scheduled_removals = []
+      this.props.parent.flush_scheduled_removals()
       if (this.use_shadow_dom) {
         this.updateElement()
         this.props.parent.rerender_(view)
@@ -29970,9 +30156,20 @@ async function render(id) {
       if (this.render_callback) {
         this.props.parent.remove_on_child_render(this.props.name, this.render_callback)
       }
-      if (!this.use_shadow_dom && this.view._mounted.has(this.props.name)) {
-        this.view._mounted.get(this.props.name).delete(this.props.id)
+      // The mount bookkeeping lives on the parent, and the view may already be
+      // gone by the time React unmounts us, so fall back to the model id prop.
+      const id = this.view?.model.id ?? this.props.id
+      if (id != null) {
+        this.props.parent.notify_mount(this.props.name, id, true)
       }
+    }
+
+    getSnapshotBeforeUpdate() {
+      // Commit-phase equivalent of the constructor's registration: the view
+      // this Child renders may have been swapped out, so the incoming one is
+      // registered as stale here rather than during render.
+      this._mark_stale()
+      return null
     }
 
     componentDidUpdate() {
@@ -29983,9 +30180,6 @@ async function render(id) {
 
     render() {
       const child = this.state.rendered
-      if  (this.view) {
-        this.props.parent._child_rendered.set(this.view, false)
-      }
       const class_name = (this.use_shadow_dom ?
         "child-wrapper" : this.view.model.class_name.replace(/([a-z])([A-Z])/g, "$1-$2").toLowerCase()
       )
@@ -30141,6 +30335,9 @@ async function render(id) {
         container.id = view.model.root_node.replace("#", "")
         document.body.append(container)
       }
+    } else if (view.container == null) {
+      view._resolve_mounted()
+      return null
     } else {
       container = view.container
     }
@@ -30148,6 +30345,7 @@ async function render(id) {
     try {
       root.render(rendered)
     } catch(e) {
+      view._resolve_mounted()
       view.render_error(e)
     }
     return root
@@ -30205,7 +30403,7 @@ ${compiled}`;
     const data_1 = require("be689f0377") /* ./data */;
     const event_to_object_1 = require("a572dba9cd") /* ./event-to-object */;
     const html_1 = require("4c04683fdc") /* ./html */;
-    const layout_1 = require("dab42e6dad") /* ./layout */;
+    const layout_1 = require("84236c2552") /* ./layout */;
     const util_1 = require("aa07eb54cc") /* ./util */;
     function serialize_attrs(attrs) {
         const serialized = {};
@@ -31263,7 +31461,7 @@ ${compiled}`;
 "5ac2cab0ab": /* models/speech_to_text.js */ function _(require, module, exports, __esModule, __esExport) {
     var _a;
     __esModule();
-    const layout_1 = require("dab42e6dad") /* ./layout */;
+    const layout_1 = require("84236c2552") /* ./layout */;
     const iconStarted = `<svg xmlns="http://www.w3.org/2000/svg" height="22px" style="vertical-align: middle;" fill="currentColor" class="bi bi-mic" viewBox="0 0 16 16">
   <path fill-rule="evenodd" d="M3.5 6.5A.5.5 0 0 1 4 7v1a4 4 0 0 0 8 0V7a.5.5 0 0 1 1 0v1a5 5 0 0 1-4.5 4.975V15h3a.5.5 0 0 1 0 1h-7a.5.5 0 0 1 0-1h3v-2.025A5 5 0 0 1 3 8V7a.5.5 0 0 1 .5-.5z"/>
   <path fill-rule="evenodd" d="M10 8V3a2 2 0 1 0-4 0v5a2 2 0 1 0 4 0zM8 0a3 3 0 0 0-3 3v5a3 3 0 0 0 6 0V3a3 3 0 0 0-3-3z"/>
@@ -31696,7 +31894,7 @@ ${compiled}`;
     __esModule();
     const dom_1 = require("@bokehjs/core/dom");
     const bokeh_events_1 = require("@bokehjs/core/bokeh_events");
-    const layout_1 = require("dab42e6dad") /* ./layout */;
+    const layout_1 = require("84236c2552") /* ./layout */;
     class KeystrokeEvent extends bokeh_events_1.ModelEvent {
         constructor(key) {
             super();
@@ -31867,7 +32065,7 @@ ${compiled}`;
 "a04eb51988": /* models/text_to_speech.js */ function _(require, module, exports, __esModule, __esExport) {
     var _a;
     __esModule();
-    const layout_1 = require("dab42e6dad") /* ./layout */;
+    const layout_1 = require("84236c2552") /* ./layout */;
     function toVoicesList(voices) {
         const voicesList = [];
         for (const voice of voices) {
@@ -32182,7 +32380,7 @@ ${compiled}`;
 "29d55a28a9": /* models/trend.js */ function _(require, module, exports, __esModule, __esExport) {
     var _a;
     __esModule();
-    const layout_1 = require("dab42e6dad") /* ./layout */;
+    const layout_1 = require("84236c2552") /* ./layout */;
     const build_views_1 = require("@bokehjs/core/build_views");
     const plots_1 = require("@bokehjs/models/plots");
     const glyphs_1 = require("@bokehjs/models/glyphs");
@@ -32406,7 +32604,7 @@ ${compiled}`;
     const bokeh_events_1 = require("@bokehjs/core/bokeh_events");
     const types_1 = require("@bokehjs/core/util/types");
     const layout_dom_1 = require("@bokehjs/models/layouts/layout_dom");
-    const layout_1 = require("dab42e6dad") /* ./layout */;
+    const layout_1 = require("84236c2552") /* ./layout */;
     const debounce_1 = require("99a25e6992") /* debounce */;
     class VegaEvent extends bokeh_events_1.ModelEvent {
         constructor(data) {
@@ -32592,7 +32790,7 @@ ${compiled}`;
     __esModule();
     const tslib_1 = require("tslib");
     const dom_1 = require("@bokehjs/core/dom");
-    const layout_1 = require("dab42e6dad") /* ./layout */;
+    const layout_1 = require("84236c2552") /* ./layout */;
     const video_css_1 = tslib_1.__importDefault(require("dfe21e6f1b") /* ../styles/models/video.css */);
     class VideoView extends layout_1.HTMLBoxView {
         constructor() {
@@ -32757,7 +32955,7 @@ ${compiled}`;
 "f8afc4e661": /* models/videostream.js */ function _(require, module, exports, __esModule, __esExport) {
     var _a;
     __esModule();
-    const layout_1 = require("dab42e6dad") /* ./layout */;
+    const layout_1 = require("84236c2552") /* ./layout */;
     class VideoStreamView extends layout_1.HTMLBoxView {
         constructor() {
             super(...arguments);
@@ -32882,7 +33080,7 @@ ${compiled}`;
     const column_data_source_1 = require("@bokehjs/models/sources/column_data_source");
     const bokeh_events_1 = require("@bokehjs/core/bokeh_events");
     const debounce_1 = require("99a25e6992") /* debounce */;
-    const layout_1 = require("dab42e6dad") /* ./layout */;
+    const layout_1 = require("84236c2552") /* ./layout */;
     class VizzuEvent extends bokeh_events_1.ModelEvent {
         constructor(data) {
             super();
@@ -33155,7 +33353,7 @@ ${compiled}`;
     const object_1 = require("@bokehjs/core/util/object");
     const color_mapper_1 = require("@bokehjs/models/mappers/color_mapper");
     const kinds_1 = require("@bokehjs/core/kinds");
-    const layout_1 = require("dab42e6dad") /* ../layout */;
+    const layout_1 = require("84236c2552") /* ../layout */;
     const util_1 = require("df9946ff52") /* ./util */;
     const vtkcolorbar_1 = require("b1d68776a9") /* ./vtkcolorbar */;
     const vtkaxes_1 = require("0379dcf1cd") /* ./vtkaxes */;
@@ -41373,5 +41571,5 @@ ${compiled}`;
         util_1.vtkns.FullScreenRenderWindowSynchronized = FullScreenRenderWindowSynchronized;
     }
 },
-}, "4e90918c0a", {"index":"4e90918c0a","models/index":"2fe1822b2b","models/ace":"5fa2fb81b3","models/layout":"dab42e6dad","models/util":"aa07eb54cc","models/anywidget_component":"1f663ffe94","models/reactive_esm":"74cc5c8ee7","models/event-to-object":"a572dba9cd","models/html":"4c04683fdc","styles/models/html.css":"9b8139e439","styles/models/esm.css":"727a14f76b","models/audio":"fd59c985b3","models/browser":"5a16cc23e6","models/button":"1db93211cd","models/button_icon":"1738ddeb3a","models/icon":"6c7fbea0ef","models/card":"31556103c8","models/column":"b273e5b2fb","styles/models/card.css":"6342ac8e26","models/checkbox_button_group":"51fbe9e2d0","models/chatarea_input":"27a077673d","models/textarea_input":"b7d595d74a","models/comm_manager":"1bec1b1fcc","models/customselect":"92bbd30bd1","models/multiselect":"27b5580835","models/tabulator":"b90fc40725","models/data":"be689f0377","styles/models/tabulator.css":"3d732ff91f","models/datetime_picker":"100965d6f3","models/datetime_slider":"c97cc0eade","models/deckgl":"d58ba73420","models/lumagl":"16d69e2b49","models/tooltips":"f8f8ea4284","models/discrete_player":"0dca2cd4f6","models/player":"96e805ccb5","models/echarts":"ec1ecef6a0","models/feed":"f9c84aaf3d","models/file_download":"84a13dddfb","models/file_dropper":"8531319d94","styles/models/filedropper.css":"c03dd3c931","models/ipywidget":"8a8089cbf3","models/json":"245cd3cfde","models/jsoneditor":"33e664043e","styles/models/jsoneditor.css":"317a12d360","models/katex":"f672d71a9f","models/location":"9012b81346","models/mathjax":"d889a68424","models/modal":"9a342a6757","styles/models/modal.css":"be4b4352c6","models/pdf":"f87ad1873c","models/perspective":"29a0b0da9a","styles/models/perspective.css":"2e2913ea54","models/plotly":"59dbae0a77","styles/models/plotly.css":"3d56c75186","models/progress":"b1f4d68596","models/quill":"a8f2a01dfe","models/radio_button_group":"25e2d7c208","models/react_component":"93ad10c64c","models/reactive_html":"d5752cda5a","models/singleselect":"4155401209","models/speech_to_text":"5ac2cab0ab","models/state":"92822cb73a","models/tabs":"fffb4344f7","models/terminal":"a961b5ae5e","models/text_input":"8be416b160","models/text_to_speech":"a04eb51988","models/time_picker":"1afcab4e45","models/toggle_icon":"ad985f285e","models/tooltip_icon":"ae3a172647","models/trend":"29d55a28a9","models/vega":"22dbf7c070","models/video":"79dc37b888","styles/models/video.css":"dfe21e6f1b","models/videostream":"f8afc4e661","models/vizzu":"1f7bc1f95b","models/vtk/index":"c51f25e2a7","models/vtk/vtkjs":"ac55912dc1","models/vtk/vtklayout":"b06d05fa3e","models/vtk/util":"df9946ff52","models/vtk/vtkcolorbar":"b1d68776a9","models/vtk/vtkaxes":"0379dcf1cd","models/vtk/vtkvolume":"18592eecef","models/vtk/vtksynchronized":"a4e5946204","models/vtk/panel_fullscreen_renwin_sync":"5e89c7b3eb"}, {});});
+}, "4e90918c0a", {"index":"4e90918c0a","models/index":"2fe1822b2b","models/ace":"5fa2fb81b3","models/layout":"84236c2552","models/util":"aa07eb54cc","models/anywidget_component":"1f663ffe94","models/reactive_esm":"fb9db49f87","models/event-to-object":"a572dba9cd","models/html":"4c04683fdc","styles/models/html.css":"9b8139e439","styles/models/esm.css":"727a14f76b","models/audio":"fd59c985b3","models/browser":"5a16cc23e6","models/button":"1db93211cd","models/button_icon":"1738ddeb3a","models/icon":"6c7fbea0ef","models/card":"31556103c8","models/column":"b273e5b2fb","styles/models/card.css":"6342ac8e26","models/checkbox_button_group":"51fbe9e2d0","models/chatarea_input":"27a077673d","models/textarea_input":"b7d595d74a","models/comm_manager":"1bec1b1fcc","models/customselect":"92bbd30bd1","models/multiselect":"27b5580835","models/tabulator":"e0501f9786","models/data":"be689f0377","styles/models/tabulator.css":"3d732ff91f","models/datetime_picker":"100965d6f3","models/datetime_slider":"c97cc0eade","models/deckgl":"d58ba73420","models/lumagl":"16d69e2b49","models/tooltips":"f8f8ea4284","models/discrete_player":"0dca2cd4f6","models/player":"96e805ccb5","models/echarts":"ec1ecef6a0","models/feed":"44a7ecdf96","models/file_download":"84a13dddfb","models/file_dropper":"8531319d94","styles/models/filedropper.css":"c03dd3c931","models/ipywidget":"8a8089cbf3","models/json":"245cd3cfde","models/jsoneditor":"33e664043e","styles/models/jsoneditor.css":"317a12d360","models/katex":"f672d71a9f","models/location":"9012b81346","models/mathjax":"d889a68424","models/modal":"9a342a6757","styles/models/modal.css":"be4b4352c6","models/pdf":"f87ad1873c","models/perspective":"29a0b0da9a","styles/models/perspective.css":"2e2913ea54","models/plotly":"59dbae0a77","styles/models/plotly.css":"3d56c75186","models/progress":"54e5f3767b","models/quill":"a8f2a01dfe","models/radio_button_group":"25e2d7c208","models/react_component":"a2b691ef16","models/reactive_html":"d5752cda5a","models/singleselect":"4155401209","models/speech_to_text":"5ac2cab0ab","models/state":"92822cb73a","models/tabs":"fffb4344f7","models/terminal":"a961b5ae5e","models/text_input":"8be416b160","models/text_to_speech":"a04eb51988","models/time_picker":"1afcab4e45","models/toggle_icon":"ad985f285e","models/tooltip_icon":"ae3a172647","models/trend":"29d55a28a9","models/vega":"22dbf7c070","models/video":"79dc37b888","styles/models/video.css":"dfe21e6f1b","models/videostream":"f8afc4e661","models/vizzu":"1f7bc1f95b","models/vtk/index":"c51f25e2a7","models/vtk/vtkjs":"ac55912dc1","models/vtk/vtklayout":"b06d05fa3e","models/vtk/util":"df9946ff52","models/vtk/vtkcolorbar":"b1d68776a9","models/vtk/vtkaxes":"0379dcf1cd","models/vtk/vtkvolume":"18592eecef","models/vtk/vtksynchronized":"a4e5946204","models/vtk/panel_fullscreen_renwin_sync":"5e89c7b3eb"}, {});});
 //# sourceMappingURL=panel.js.map

@@ -15,17 +15,20 @@ import urllib.parse as urllib_parse
 
 from pyld import iri_resolver
 from pyld.documentloader.base import DocumentLoader, RemoteDocument
-from pyld.jsonld import JsonLdError, parse_link_header, LINK_HEADER_REL
+from pyld.jsonld import LINK_HEADER_REL, JsonLdError, parse_link_header
 
 
 class RequestsDocumentLoader(DocumentLoader):
     """Remote document loader using Requests."""
 
-    def __init__(self, secure=False, **kwargs):
-        import requests
+    def __init__(self, secure=False, session=None, **kwargs):
+        if session is None:
+            import requests
 
-        self.requests = requests
+            session = requests.Session()
+        self.session = session
         self.secure = secure
+        self.headers = kwargs.pop('headers', None)
         self.kwargs = kwargs
 
     def __call__(self, url, options=None) -> RemoteDocument:
@@ -56,12 +59,12 @@ class RequestsDocumentLoader(DocumentLoader):
                     'the URL\'s scheme is not "https".',
                     'jsonld.InvalidUrl', {'url': url},
                     code='loading document failed')
-            headers = options.get('headers')
+            headers = options.get('headers', self.headers)
             if headers is None:
                 headers = {
                     'Accept': 'application/ld+json, application/json'
                 }
-            response = self.requests.get(url, headers=headers, **self.kwargs)
+            response = self.session.get(url, headers=headers, **self.kwargs)
 
             content_type = response.headers.get('content-type')
             if not content_type:

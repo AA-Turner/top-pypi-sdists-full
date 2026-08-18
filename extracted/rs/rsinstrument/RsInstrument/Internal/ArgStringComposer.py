@@ -9,8 +9,8 @@ from typing import Dict
 
 from .ArgSingle import ArgSingle
 from .ArgStruct import ArgStruct
-from .Utilities import get_plural_string
 from .InstrumentErrors import RsInstrException
+from .Utilities import get_plural_string
 
 
 class SingleComposer:
@@ -204,7 +204,7 @@ def compose_cmd_string_from_struct_args(args: Dict[int, ArgStruct], composer: St
 			if arg.has_value(values_obj):
 				rest.append(arg.name)
 
-		if len(rest):
+		if rest:
 			msg = f"Optional Argument '{args[opt_null_ix].name}' has no value, but the further ones do. " \
 				f"If you skip an optional argument, you have to skip all the ones following it. " \
 				f"Clear the values for the rest of the argument(s):\n{', '.join(rest)}"

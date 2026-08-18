@@ -20,6 +20,11 @@ else:  # pragma: no cover -- backport for Python < 3.12
     from typing_extensions import override
 
 from tomlrt import _inline_ops, _layout_ops
+from tomlrt._comma_comments import (
+    CommaEolView,
+    CommaLeadingBlockView,
+    CommaLeadingView,
+)
 from tomlrt._comments import (
     EolCommentView,
     LeadingBlockView,
@@ -44,11 +49,7 @@ from tomlrt._format import (
     format_inline_root,
     format_subtree,
 )
-from tomlrt._inline_comments import (
-    InlineEolView,
-    InlineLeadingBlockView,
-    InlineLeadingView,
-)
+from tomlrt._inline_comments import _InlineAdapter
 from tomlrt._kind import _Kind
 from tomlrt._paths import validate_path
 from tomlrt._render import render
@@ -177,7 +178,7 @@ class Container(_View, dict[str, Any]):
         multi-line (a single line has nowhere to hold a comment).
         """
         if self._inline:
-            return InlineEolView(self)
+            return CommaEolView(_InlineAdapter(self))
         return EolCommentView(self)
 
     @property
@@ -196,7 +197,7 @@ class Container(_View, dict[str, Any]):
         a single-line table to multi-line.
         """
         if self._inline:
-            return InlineLeadingView(self)
+            return CommaLeadingView(_InlineAdapter(self))
         return LeadingCommentView(self)
 
     @property
@@ -217,7 +218,7 @@ class Container(_View, dict[str, Any]):
         is framing and is not part of the first entry's block.
         """
         if self._inline:
-            return InlineLeadingBlockView(self)
+            return CommaLeadingBlockView(_InlineAdapter(self))
         return LeadingBlockView(self)
 
     @property
@@ -614,6 +615,10 @@ class Container(_View, dict[str, Any]):
     ) -> None:
         """Bind ``key`` for the first time at the document tail."""
         if is_scalar(value):
+            # Deliberately not routed through `append_synth_kv`: that
+            # costs three extra call frames and a duplicated `is_scalar`
+            # test, measured at +6.5% on a scalar insert — the commonest
+            # mutation there is.
             _layout_ops.append_direct_kv(
                 self,
                 key,
@@ -623,14 +628,12 @@ class Container(_View, dict[str, Any]):
             dict.__setitem__(self, key, value)
             return
         if _is_synth_inline(value):
-            cst, decoded = self._synth_local_value(key, value)
-            _layout_ops.append_direct_kv(
+            _layout_ops.append_synth_kv(
                 self,
                 key,
-                cst,
+                value,
                 reinstall_as_dotted=reinstall_as_dotted,
             )
-            dict.__setitem__(self, key, decoded)
             return
         if isinstance(value, AoT):
             self._attach_aot(key, value)
@@ -650,7 +653,7 @@ class Container(_View, dict[str, Any]):
         if src_root is not None and not src_root._is_private:  # noqa: SLF001
             _layout_ops.clone_aot(self, key, value)
             return
-        # Private orphans may still own intact entry_slots from a
+        # Private orphans may still own intact slots from a
         # structural-overwrite detach; clone those to keep per-KV
         # trivia, nested sub-sections, and inter-entry separators.
         # The generic add_aot_entry(rehome=) path rebuilds from dict
@@ -663,7 +666,7 @@ class Container(_View, dict[str, Any]):
         dict.__setitem__(self, key, attached)
         for entry_table in existing_entries:
             owner = entry_table._owner_aot_entry  # noqa: SLF001
-            preserve_cst = owner is not None and bool(owner.entry_slots)
+            preserve_cst = owner is not None and entry_table._header_ref is not None  # noqa: SLF001
             if preserve_cst:
                 # Gathering includes nested AoTs and requires the live view.
                 _layout_ops.clone_aot_entry(
@@ -883,9 +886,19 @@ class Container(_View, dict[str, Any]):
             mixed: list[str] = []
             pure_sections: list[str] = []
             for k in current:
-                if not self._has_leaf(k):
+                has_leaf = False
+                has_header = False
+                for ref in self._index.get(k, ()):
+                    if isinstance(ref.slot, KVSlot):
+                        has_leaf = True
+                    else:
+                        assert isinstance(ref.slot, StructuralHeaderSlot)
+                        has_header = True
+                    if has_leaf and has_header:
+                        break
+                if not has_leaf:
                     pure_sections.append(k)
-                elif self.has_header(k):
+                elif has_header:
                     mixed.append(k)
                 else:
                     pure_leaves.append(k)
@@ -920,18 +933,6 @@ class Container(_View, dict[str, Any]):
                 return True
         return False
 
-    def _has_leaf(self, key: str) -> bool:
-        """Whether ``key``'s block contains a leaf ``key = value`` slot.
-
-        A key can have both a leaf and a sub-section header, in which
-        case both this and `has_header` return True.
-        """
-        refs = self._index.get(key, ())
-        for r in refs:  # noqa: SIM110
-            if isinstance(r.slot, KVSlot):
-                return True
-        return False
-
     @override
     def __ior__(  # type: ignore[override]
         self,
@@ -941,14 +942,12 @@ class Container(_View, dict[str, Any]):
         self.update(other)
         return self
 
+    @override
     def __copy__(self) -> Container:
         # Equivalent to deepcopy: returns an independent detached
         # container preserving nested typed views, so .table() etc.
         # continue to work on the copy.
         return _deep_clone(self)
-
-    def __deepcopy__(self, memo: dict[int, object]) -> Container:
-        return self.__copy__()
 
     # ------------------------------------------------------------------
     # Inline-table dispatch
@@ -1087,13 +1086,13 @@ class Container(_View, dict[str, Any]):
         """Convert an inline-table entry at ``key`` into a section header.
 
         Returns the live view at ``key`` after promotion. Raises
-        ``KeyError`` if the key is missing, or ``TypeError`` if it
+        ``KeyError`` if the key is missing, or `TOMLError` if it
         doesn't refer to an inline-style table.
         """
         cur = self._require_promotable_entry(key, action="inline-table promotion")
         if not _is_inline_table(cur):
             msg = f"{key!r} is not an inline table"
-            raise TypeError(msg)
+            raise TOMLError(msg)
         _check_inline_promotable(cur, key)
         return self._promote_inline_entry(key, cur)
 
@@ -1121,14 +1120,13 @@ class Container(_View, dict[str, Any]):
         """Convert an array-of-inline-tables at ``key`` into an AoT.
 
         Returns the live AoT view at ``key``. Raises ``KeyError`` if the
-        key is missing, ``TypeError`` if it refers to a non-array, or
-        ``TOMLError`` for an empty array or an array with
-        non-inline-table elements.
+        key is missing, or `TOMLError` if it refers to a non-array, an
+        empty array, or an array with non-inline-table elements.
         """
         cur = self._require_promotable_entry(key, action="array-of-tables promotion")
         if not isinstance(cur, Array):
             msg = f"{key!r} is not an array"
-            raise TypeError(msg)
+            raise TOMLError(msg)
         if len(cur) == 0:
             msg = f"cannot promote empty array {key!r}"
             raise TOMLError(msg)
@@ -1540,10 +1538,6 @@ class Document(Container):
 
         return loads(self.render())
 
-    @override
-    def __deepcopy__(self, memo: dict[int, object]) -> Document:
-        return self.__copy__()
-
 
 def _inline_value_has_inner_comments(v: object) -> bool:
     """Return True iff the inline-table value carries inner comments.
@@ -1594,7 +1588,7 @@ def _deep_clone(c: Container) -> Container:
     deepcopy of an inline table returns an inline view) and recurses
     into nested ``Container`` / ``AoT`` values. Render-level formatting
     is not preserved; for byte-exact preservation of an entire document,
-    use ``Document``'s ``__deepcopy__``.
+    use ``Document``'s ``__copy__``.
     """
     out = Table.inline() if c._inline else Table.section()  # noqa: SLF001
     for k, v in c.items():
@@ -1788,7 +1782,7 @@ def _snapshot_for_overlapping_install(parent: Container, key: str, value: Any) -
         return value
     if isinstance(value, AoT):
         return AoT(value.to_list())
-    return Document(data=value.to_dict())
+    return Document(value.to_dict())
 
 
 def _collect_private_roots(value: Any, found: dict[int, Document]) -> None:
@@ -2225,11 +2219,11 @@ def _fill_inline_array(
         # NEXT item's leading; items[0].leading is always empty;
         # post_comma_trivia carries only EOL sections (empty here).
         item = ArrayItem(
-            leading="" if i == 0 else " ",
-            value=sub_cst,
-            trailing="",
-            has_comma=i != last,
-            post_comma_trivia="",
+            "" if i == 0 else " ",
+            sub_cst,
+            "",
+            i != last,
+            "",
         )
         val.items.append(item)
         list.append(arr, sub_dec)

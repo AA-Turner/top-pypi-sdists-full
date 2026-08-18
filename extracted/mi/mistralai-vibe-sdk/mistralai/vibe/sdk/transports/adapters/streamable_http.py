@@ -15,6 +15,11 @@ from starlette.requests import Request
 from starlette.responses import JSONResponse, Response, StreamingResponse
 from starlette.routing import Route
 
+from mistralai.vibe.sdk.agent.execution.resources import (
+    ResourcesScope,
+    bind_execution_scope,
+    stop_execution_scope,
+)
 from mistralai.vibe.sdk.execution_record.patching.json_patch import apply_patches
 from mistralai.vibe.sdk.execution_record.state import TaskState
 
@@ -77,7 +82,13 @@ class StreamableHttpBinding:
         state = TaskState.model_validate(body)
         session_id = str(uuid.uuid4())
 
-        channel = await self._task.run(state)
+        scope = ResourcesScope()
+        try:
+            with bind_execution_scope(scope):
+                channel = await self._task.run(state)
+        except BaseException:
+            await scope.aclose()
+            raise
         self._sessions[session_id] = channel
 
         on_event = self._on_event
@@ -85,16 +96,22 @@ class StreamableHttpBinding:
         async def event_generator() -> AsyncIterator[str]:
             nonlocal state
             try:
-                async for message in channel:
-                    if isinstance(message, TaskStateUpdateEvent) and on_event is not None:
-                        state = apply_patches(state, message.payload.patches)
-                        on_event(state, message)
-                    if event := _serialize_downstream_message_as_sse(message):
-                        yield event
+                with bind_execution_scope(scope):
+                    async for message in channel:
+                        if isinstance(message, TaskStateUpdateEvent) and on_event is not None:
+                            state = apply_patches(state, message.payload.patches)
+                            on_event(state, message)
+                        if event := _serialize_downstream_message_as_sse(message):
+                            with stop_execution_scope():
+                                yield event
             except Exception:
                 logger.exception("http.stream_error")
             finally:
                 self._sessions.pop(session_id, None)
+                try:
+                    await channel.close()
+                finally:
+                    await scope.aclose()
 
         return StreamingResponse(
             content=event_generator(),

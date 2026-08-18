@@ -28,6 +28,7 @@ from jax._src import frozen_dict
 from jax._src import sharding_impls
 from jax._src import state
 from jax._src import tpu_custom_call
+from jax._src import xla_metadata
 from jax._src import flattree as ft
 from jax._src.interpreters import mlir
 from jax._src.interpreters import partial_eval as pe
@@ -69,7 +70,15 @@ def _get_memory_space_from_aval(
     case tpu_core.MemorySpace.VMEM:
       return tpu_custom_call.MemorySpace.VMEM
     case tpu_core.MemorySpace.SMEM:
-      return tpu_custom_call.MemorySpace.SMEM
+      match kernel_type:
+        case tpu_core.CoreType.SC_SCALAR_SUBCORE:
+          return tpu_custom_call.MemorySpace.SC_SCALAR_SMEM
+        case tpu_core.CoreType.SC_VECTOR_SUBCORE:
+          return tpu_custom_call.MemorySpace.SC_VECTOR_SMEM
+        case tpu_core.CoreType.TC:
+          return tpu_custom_call.MemorySpace.SMEM
+        case _:
+          raise ValueError(f"Invalid kernel type for SMEM: {kernel_type}")
     case tpu_core.MemorySpace.SEMAPHORE:
       match kernel_type:
         case tpu_core.CoreType.SC_SCALAR_SUBCORE:
@@ -86,6 +95,16 @@ def _get_memory_space_from_aval(
           return tpu_custom_call.MemorySpace.VMEM
         case _:
           raise ValueError(f"Invalid core type for VMEM: {mesh.core_type}")
+    case pallas_core.CoreMemorySpace(tpu_core.MemorySpace.SMEM, mesh):
+      match mesh.core_type:
+        case tpu_core.CoreType.SC_SCALAR_SUBCORE:
+          return tpu_custom_call.MemorySpace.SC_SCALAR_SMEM
+        case tpu_core.CoreType.SC_VECTOR_SUBCORE:
+          return tpu_custom_call.MemorySpace.SC_VECTOR_SMEM
+        case tpu_core.CoreType.TC:
+          return tpu_custom_call.MemorySpace.SMEM
+        case _:
+          raise ValueError(f"Invalid core type for SMEM: {mesh.core_type}")
     case pallas_core.CoreMemorySpace(tpu_core.MemorySpace.SEMAPHORE, mesh):
       match mesh.core_type:
         case tpu_core.CoreType.SC_SCALAR_SUBCORE:
@@ -408,7 +427,11 @@ def pallas_call_tpu_lowering_rule(
   mlir_ctx = ctx.module_context.context
   tpu.register_dialect(mlir_ctx)
 
-  with mlir_ctx, ir.Location.unknown(mlir_ctx):
+  with (
+      mlir_ctx,
+      ir.Location.unknown(mlir_ctx),
+      xla_metadata.clear_xla_metadata(),
+  ):
     mosaic_module = lowering.lower_jaxpr_to_pipelined_module(
         ctx,
         grid_mapping,
@@ -617,6 +640,21 @@ def mpmd_map_tpu_lowering_rule(
             raise NotImplementedError(
                 "mpmd_map does not support TC kernels yet."
             )
+          if mesh.num_cores > 1:
+            actual_invars = (
+                jaxpr.invars[:-num_scratch]
+                if num_scratch > 0
+                else jaxpr.invars
+            )
+            if any(
+                pallas_core.get_memory_space_aval(v.aval)
+                == tpu_core.MemorySpace.VMEM
+                for v in actual_invars
+            ):
+              raise NotImplementedError(
+                  "TensorCoreMesh does not support VMEM inputs/outputs when there"
+                  " are >1 cores. Use HBM or ANY instead."
+              )
         case (
             tpu_core.CoreType.SC_SCALAR_SUBCORE
             | tpu_core.CoreType.SC_VECTOR_SUBCORE

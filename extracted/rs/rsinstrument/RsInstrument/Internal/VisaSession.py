@@ -1,30 +1,39 @@
 """Visa Session is an extension of the pure VISA providing higher level of methods regardless of the session kind."""
 
+import os.path
+import platform
+import re
+import struct
+import threading
 import time
 import warnings
 from enum import Enum, Flag
-from typing import List, Tuple, Callable, AnyStr, cast
-import os.path
-import re
-import threading
+from typing import AnyStr, Callable, List, Tuple, cast
 
 # noinspection PyPackageRequirements
 import pyvisa
 import pyvisa.constants
 from pyvisa.errors import StatusCode, VisaIOError
 
-from .VisaPluginSocketIo import ResourceManager, SocketIo
 from . import Conversions as Conv
-from .InstrumentErrors import ResourceError, RsInstrException, TimeoutException, StatusException
-from .InstrumentErrors import throw_opc_tout_exception, throw_bin_block_unexp_resp_exception, assert_no_instrument_status_errors
-from .InstrumentErrors import assert_query_has_qmark, assert_cmd_has_no_qmark
-
-from .InstrumentSettings import InstrumentSettings, WaitForOpcMode, OpcSyncQueryMechanism, InstrViClearMode as ViClearMode
+from .InstrumentErrors import (
+	ResourceError,
+	RsInstrException,
+	StatusException,
+	TimeoutException,
+	assert_cmd_has_no_qmark,
+	assert_no_instrument_status_errors,
+	assert_query_has_qmark,
+	throw_bin_block_unexp_resp_exception,
+	throw_opc_tout_exception,
+)
+from .InstrumentSettings import InstrumentSettings, OpcSyncQueryMechanism, WaitForOpcMode
+from .InstrumentSettings import InstrViClearMode as ViClearMode
+from .InstrumentStatusErrorSuppressor import InstrumentStatusErrorSuppressor
 from .StreamReader import StreamReader
 from .StreamWriter import StreamWriter
-from .Utilities import size_to_kb_mb_string, calculate_chunks_count
-import platform
-import struct
+from .Utilities import calculate_chunks_count, size_to_kb_mb_string
+from .VisaPluginSocketIo import ResourceManager, SocketIo
 
 
 class SessionKind(Enum):
@@ -77,6 +86,7 @@ class VisaSession(object):
 		# noinspection PyTypeChecker
 		self._lock: threading.RLock = None  # ty: ignore[invalid-assignment]
 		self._flush_with_tout_tolerance: None | bool = None
+		self._status_error_suppressor: InstrumentStatusErrorSuppressor = InstrumentStatusErrorSuppressor()
 		self.disable_opc_query: bool = settings.disable_opc_query
 		self.last_status = None
 		self.visa_library_name = None
@@ -90,6 +100,8 @@ class VisaSession(object):
 		self.each_cmd_prefix = settings.each_cmd_prefix
 		self.each_cmd_suffix = settings.each_cmd_suffix
 		self.strip_str_trailing_ws = settings.strip_str_trailing_ws
+
+		self.error_queue_loop_max_count = 50
 
 		# Implemented for interface compatibility with VisaSessionSim
 		self.cached_to_stream = False
@@ -327,6 +339,11 @@ class VisaSession(object):
 	def get_lock(self) -> threading.RLock:
 		"""Returns the current RLock object."""
 		return self._lock
+
+	@property
+	def status_error_suppressor(self) -> InstrumentStatusErrorSuppressor:
+		"""Returns the active status error suppressor."""
+		return self._status_error_suppressor
 
 	def lock_resource(self, timeout: int, requested_key: str | bytes | None = None) -> bytes | str | None:
 		"""Locks the instrument to prevent it from communicating with other clients. Returns new shared access key if requested_key is None, otherwise, same value as the requested_key"""
@@ -590,7 +607,22 @@ class VisaSession(object):
 
 	def query_syst_error(self) -> Tuple[int, str] | None:
 		"""Returns one response to the SYSTEM:ERROR? query.
-		The response is a Tuple of (code: int, message: str)"""
+		The response is a Tuple of (code: int, message: str).
+		If no error occurred, None is returned.
+		If the error suppressor is active, and it causes a suppression of the error, the method queries the next error."""
+		res = self._query_syst_error_raw()
+		if self._status_error_suppressor.has_rules():
+			count = 0
+			while res and count < self.error_queue_loop_max_count:
+				if not self._status_error_suppressor.matches_any(res[0], res[1]):
+					return res
+				count += 1
+				res = self._query_syst_error_raw()
+
+		return res
+
+	def _query_syst_error_raw(self) -> Tuple[int, str] | None:
+		"""Internal method that just queries a system error, and returns either None or the tuple(code, message)."""
 		error = self._query_str_no_events('SYST:ERR?')
 		if error.startswith('0,') or error.startswith('+0,'):
 			return None
@@ -605,9 +637,9 @@ class VisaSession(object):
 			if entry is None:
 				break
 			errors.append(entry)
-			if len(errors) > 50:
+			if len(errors) > self.error_queue_loop_max_count:
 				# Safety stop
-				errors.append('query_all_syst_errors - max limit 50 of SYST:ERR? sent.')
+				errors.append(f'query_all_syst_errors - max limit {self.error_queue_loop_max_count} of SYST:ERR? sent.')
 				break
 		if len(errors) == 0:
 			return None
@@ -727,10 +759,11 @@ class VisaSession(object):
 			return
 
 		if ViClearMode.ignore_error in self._viclear_exe_mode:
+			# ignore_error mode: viClear failures are intentionally swallowed here.
 			# noinspection PyBroadException
 			try:
 				self._session.clear()
-			except Exception:
+			except Exception:  # noqa: S110
 				pass
 		else:
 			try:

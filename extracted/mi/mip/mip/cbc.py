@@ -275,8 +275,10 @@ if has_cbc:
       INT_PARAM_CGRAPH                  = 17, /*! Conflict graph: controls if the conflict graph is created or not. 0: off, 1: auto, 2: on 3: fast weaker clique sep */
       INT_PARAM_CLIQUE_MERGING          = 18, /*! Clique merging options: 0: off , 1 auto , 2 before solving LP, 3 after solving LP and pre-processing */
       INT_PARAM_MAX_NODES_NOT_IMPROV_FS = 19, /*! Maximum number of nodes processed without improving best solution, after a feasible solution is found */
+      INT_PARAM_LP_FAST_PREPROCESS      = 20, /*! Fast MILP preprocessing before LP solve. 0: off (default); 1: singleton bounds; 2: milpbt; 3: fixpoint */
+      INT_PARAM_MAX_ITER                = 21, /*! Maximum number of simplex iterations for LP solves. Default INT_MAX (no limit). */
     };
-    #define N_INT_PARAMS 20
+    #define N_INT_PARAMS 22
 
     void Cbc_setIntParam(Cbc_Model *model, enum IntParam which, const int val);
 
@@ -315,11 +317,6 @@ if has_cbc:
     void Cbc_setAllowableFractionGap(Cbc_Model *model,
         double allowedFracionGap);
 
-    double Cbc_getAllowablePercentageGap(Cbc_Model *model);
-
-    void Cbc_setAllowablePercentageGap(Cbc_Model *model,
-        double allowedPercentageGap);
-
     double Cbc_getMaximumSeconds(Cbc_Model *model);
 
     void Cbc_setMaximumSeconds(Cbc_Model *model, double maxSeconds);
@@ -327,6 +324,10 @@ if has_cbc:
     int Cbc_getMaximumNodes(Cbc_Model *model);
 
     void Cbc_setMaximumNodes(Cbc_Model *model, int maxNodes);
+
+    int Cbc_getMaximumIterations(Cbc_Model *model);
+
+    void Cbc_setMaximumIterations(Cbc_Model *model, int maxIterations);
 
     int Cbc_getMaximumSolutions(Cbc_Model *model);
 
@@ -349,8 +350,11 @@ if has_cbc:
       LPM_Dual           = 1,  /*! Dual simplex */
       LPM_Primal         = 2,  /*! Primal simplex */
       LPM_Barrier        = 3,  /*! The barrier algorithm */
-      LPM_BarrierNoCross = 4   /*! Barrier algorithm, not to be followed by crossover */
+      LPM_BarrierNoCross = 4,  /*! Barrier algorithm, not to be followed by crossover */
+      LPM_Racing         = 5,  /*! Opportunistic parallel LP racing (needs >= 2 threads) */
+      LPM_Recommend      = 6   /*! ML-based per-instance LP method recommendation */
     };
+
 
     void
     Cbc_setLPmethod(Cbc_Model *model, enum LPMethod lpm );
@@ -362,6 +366,8 @@ if has_cbc:
     int Cbc_solve(Cbc_Model *model);
 
     int Cbc_solveLinearProgram(Cbc_Model *model);
+
+    int Cbc_resolve(Cbc_Model *model);
 
     /*! Type of cutting plane */
     enum CutType {
@@ -593,6 +599,8 @@ INT_PARAM_ELAPSED_TIME = 16
 INT_PARAM_CGRAPH = 17
 INT_PARAM_CLIQUE_MERGING = 18
 INT_PARAM_MAX_NODES_NOT_IMPROV_FS = 19
+INT_PARAM_LP_FAST_PREPROCESS = 20
+INT_PARAM_MAX_ITER = 21
 
 
 if has_cbc:
@@ -607,6 +615,7 @@ if has_cbc:
 
     Cbc_generateCuts = cbclib.Cbc_generateCuts
     Cbc_solveLinearProgram = cbclib.Cbc_solveLinearProgram
+    Cbc_resolve = cbclib.Cbc_resolve
 
     Cbc_reset = cbclib.Cbc_reset
 
@@ -890,11 +899,18 @@ class SolverCbc(Solver):
     def set_max_nodes(self, max_nodes: int):
         cbclib.Cbc_setMaximumNodes(self._model, max_nodes)
 
+    def get_max_iter(self) -> int:
+        return cbclib.Cbc_getMaximumIterations(self._model)
+
+    def set_max_iter(self, max_iter: int):
+        cbclib.Cbc_setMaximumIterations(self._model, max_iter)
+
     def get_verbose(self) -> int:
         return self.__verbose
 
     def set_verbose(self, verbose: int):
         self.__verbose = verbose
+        cbclib.Cbc_setLogLevel(self._model, 0 if verbose == 0 else verbose)
 
     def var_set_var_type(self, var: "Var", value: str):
         cv = var.var_type
@@ -1004,7 +1020,9 @@ class SolverCbc(Solver):
             strengthenPacking = cbclib.Cbc_strengthenPackingRows
             strengthenPacking(self._model, nr, idxr)
 
-    def optimize(self, relax: bool = False) -> OptimizationStatus:
+    def optimize(
+        self, relax: bool = False, lp_preprocess: bool = False
+    ) -> OptimizationStatus:
         # get name indexes from an osi problem
         def cbc_get_osi_name_indexes(osi_solver) -> Dict[str, int]:
             nameIdx = {}
@@ -1085,14 +1103,14 @@ class SolverCbc(Solver):
                     osi_model, depth, npass
                 )
 
-        if self.__verbose == 0:
-            cbclib.Cbc_setLogLevel(self._model, 0)
-        else:
-            cbclib.Cbc_setLogLevel(self._model, 1)
-
         if relax:
             self.__clear_sol()
-            res = Cbc_solveLinearProgram(self._model)
+            cbclib.Cbc_setIntParam(
+                self._model,
+                INT_PARAM_LP_FAST_PREPROCESS,
+                2 if lp_preprocess else 0,  # 2 = milpbt level
+            )
+            res = Cbc_resolve(self._model)
             if res == 0:
                 self.__x = cbclib.Cbc_getColSolution(self._model)
                 self.__rc = cbclib.Cbc_getReducedCost(self._model)
@@ -1103,10 +1121,24 @@ class SolverCbc(Solver):
                 self.__num_solutions = 1
 
                 return OptimizationStatus.OPTIMAL
+            if res == 1:
+                # Truncated by time or iteration limit; populate whatever is valid.
+                x_ptr = cbclib.Cbc_getColSolution(self._model)
+                if x_ptr != ffi.NULL:
+                    self.__x = x_ptr
+                    self.__rc = cbclib.Cbc_getReducedCost(self._model)
+                    self.__slack = cbclib.Cbc_getRowSlack(self._model)
+                    self.__num_solutions = 1
+                self.__pi = cbclib.Cbc_getRowPrice(self._model)
+                obj = cbclib.Cbc_getObjValue(self._model)
+                if obj < mip.INF:
+                    self.__obj_val = obj + self._objconst
+                    self.__obj_bound = self.__obj_val
+                return OptimizationStatus.TRUNCATED
             if res == 2:
-                return OptimizationStatus.UNBOUNDED
-            if res == 3:
                 return OptimizationStatus.INFEASIBLE
+            if res == 3:
+                return OptimizationStatus.UNBOUNDED
             return OptimizationStatus.ERROR
 
         # adding cut generators
@@ -1140,15 +1172,14 @@ class SolverCbc(Solver):
                 cbc_set_parameter(self, "preprocess", "off")
             elif self.model.preprocess == 1:
                 cbc_set_parameter(self, "preprocess", "sos")
-            if self.__pumpp != DEF_PUMPP:
-                cbc_set_parameter(self, "passf", "{}".format(self.__pumpp))
+            cbclib.Cbc_setIntParam(self._model, INT_PARAM_FPUMP_ITS, self.__pumpp)
 
         if self.emphasis == SearchEmphasis.FEASIBILITY:
-            cbc_set_parameter(self, "passf", "50")
+            cbclib.Cbc_setIntParam(self._model, INT_PARAM_FPUMP_ITS, 50)
             cbc_set_parameter(self, "proximity", "on")
         if self.emphasis == SearchEmphasis.OPTIMALITY:
-            cbc_set_parameter(self, "strong", "10")
-            cbc_set_parameter(self, "trust", "20")
+            cbclib.Cbc_setIntParam(self._model, INT_PARAM_STRONG_BRANCHING, 10)
+            cbclib.Cbc_setIntParam(self._model, INT_PARAM_NUMBER_BEFORE, 20)
             cbc_set_parameter(self, "lagomory", "endonly")
             cbc_set_parameter(self, "latwomir", "endonly")
 
@@ -1160,26 +1191,26 @@ class SolverCbc(Solver):
         if self.model.cuts >= 2:
             cbc_set_parameter(self, "lagomory", "endcleanroot")
             cbc_set_parameter(self, "latwomir", "endcleanroot")
-            cbc_set_parameter(self, "passC", "-25")
+            cbclib.Cbc_setIntParam(self._model, INT_PARAM_CUT_PASS, -25)
         if self.model.cuts >= 3:
-            cbc_set_parameter(self, "passC", "-35")
+            cbclib.Cbc_setIntParam(self._model, INT_PARAM_CUT_PASS, -35)
             cbc_set_parameter(self, "lift", "ifmove")
 
         if self.__threads >= 1:
-            cbc_set_parameter(self, "timeMode", "{}".format("elapsed"))
-            cbc_set_parameter(self, "threads", "{}".format(self.__threads))
+            cbclib.Cbc_setIntParam(self._model, INT_PARAM_THREADS, self.__threads)
         elif self.__threads == -1:
-            cbc_set_parameter(self, "threads", "{}".format(multip.cpu_count()))
+            cbclib.Cbc_setIntParam(self._model, INT_PARAM_THREADS, multip.cpu_count())
 
+        # user-specified cut passes override the cuts-level default
         if self.model.cut_passes != -1:
-            cbc_set_parameter(self, "passc", "{}".format(self.model.cut_passes))
+            cbclib.Cbc_setIntParam(
+                self._model, INT_PARAM_CUT_PASS, self.model.cut_passes
+            )
 
         if self.model.clique == 0:
             cbc_set_parameter(self, "clique", "off")
         elif self.model.clique == 1:
             cbc_set_parameter(self, "clique", "forceon")
-
-        cbc_set_parameter(self, "maxSavedSolutions", "10")
 
         if self.model.store_search_progress_log:
             cbclib.Cbc_addProgrCallback(self._model, cbc_progress_callback, ffi.NULL)
@@ -1203,8 +1234,13 @@ class SolverCbc(Solver):
             cbclib.Cbc_setLPmethod(self._model, cbclib.LPM_Dual)
         elif self.model.lp_method == LP_Method.PRIMAL:
             cbclib.Cbc_setLPmethod(self._model, cbclib.LPM_Primal)
+        elif self.model.lp_method == LP_Method.RACING:
+            cbclib.Cbc_setLPmethod(self._model, cbclib.LPM_Racing)
+        elif self.model.lp_method == LP_Method.RECOMMEND:
+            cbclib.Cbc_setLPmethod(self._model, cbclib.LPM_Recommend)
         else:
             cbclib.Cbc_setLPmethod(self._model, cbclib.LPM_Auto)
+
 
         cbclib.Cbc_setAllowableFractionGap(self._model, self.model.max_mip_gap)
         cbclib.Cbc_setAllowableGap(self._model, self.model.max_mip_gap_abs)
@@ -1221,12 +1257,7 @@ class SolverCbc(Solver):
         )
 
         self.__clear_sol()
-        # Cbc_reset clears previous solve state (required in newer CBC to
-        # avoid stale results when re-solving), but also resets objective
-        # sense, so we save and restore it.
-        _sense = cbclib.Cbc_getObjSense(self._model)
         Cbc_reset(self._model)
-        cbclib.Cbc_setObjSense(self._model, _sense)
         cbclib.Cbc_solve(self._model)
 
         if cbclib.Cbc_isAbandoned(self._model):
@@ -1606,7 +1637,6 @@ class SolverCbc(Solver):
         smaller limits could have been set in a previous iteration"""
 
         if max_time != mip.INF:
-            cbc_set_parameter(self, "timeMode", "elapsed")
             self.set_max_seconds(max_time)
         if max_nodes != mip.INT_MAX:
             self.set_max_nodes(max_nodes)
@@ -1639,7 +1669,8 @@ class SolverCbc(Solver):
         cbclib.Cbc_deleteCols(self._model, len(varsList), idx)
 
     def __del__(self):
-        cbclib.Cbc_deleteModel(self._model)
+        if getattr(self, "_model", None) is not None:
+            cbclib.Cbc_deleteModel(self._model)
 
     def get_problem_name(self) -> str:
         namep = self.__name_space
@@ -1770,7 +1801,7 @@ class SolverOsi(Solver):
         self.__obj_val = None
 
     def __del__(self):
-        if self.owns_solver:
+        if getattr(self, "owns_solver", False):
             cbclib.Osi_deleteSolver(self.osi)
 
     def add_var(

@@ -1,6 +1,6 @@
-Metadata-Version: 2.2
+Metadata-Version: 2.4
 Name: ibm_watson_machine_learning
-Version: 1.0.368
+Version: 1.0.370
 Summary: IBM Watson Machine Learning API Client
 Home-page: https://ibm.github.io/watson-machine-learning-sdk
 Author: IBM
@@ -75,6 +75,7 @@ Dynamic: description-content-type
 Dynamic: home-page
 Dynamic: keywords
 Dynamic: license
+Dynamic: license-file
 Dynamic: provides-extra
 Dynamic: requires-dist
 Dynamic: requires-python

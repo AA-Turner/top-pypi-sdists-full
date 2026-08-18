@@ -97,7 +97,12 @@ def _gh_slug(text: str) -> str:
     """GitHub-style heading slug: lowercase, strip punctuation, spaces→'-', keep CJK."""
     s = text.strip().lower()
     s = re.sub(r"[^\w\s-]", "", s)
-    s = re.sub(r"\s+", "-", s)
+    # Map each whitespace character to its own hyphen (do NOT collapse runs).
+    # GitHub's reference slugger does `.replace(/ /g, '-')` — one hyphen per
+    # space, no collapsing. Removing punctuation can leave adjacent spaces
+    # (e.g. "Foo & Bar" → "foo  bar"); collapsing them produces "foo-bar"
+    # while GitHub generates "foo--bar", breaking intra-doc anchor links.
+    s = re.sub(r"\s", "-", s)
     return s
 
 
@@ -150,6 +155,9 @@ class MarkdownParser(BaseParser):
     # Configuration constants
     DEFAULT_MAX_SECTION_SIZE = 2048  # Maximum tokens per section
     DEFAULT_MIN_SECTION_TOKENS = 512  # Minimum tokens to create a separate section
+    # Worst-case token density used by _estimate_token_count (CJK ~0.7 tok/char).
+    # Used to bound force-split chunk size so it also respects the token budget.
+    MAX_TOKENS_PER_CHAR = 0.7
     MAX_MERGED_FILENAME_LENGTH = 32  # Maximum length for merged section filenames
 
     # Image validation constants
@@ -169,12 +177,15 @@ class MarkdownParser(BaseParser):
         Initialize the enhanced markdown parser.
 
         Args:
-            extract_frontmatter: Whether to extract YAML frontmatter. When None, uses config.
+            extract_frontmatter: Whether to REMOVE YAML frontmatter from the stored
+                document body. Frontmatter is parsed into the parse result metadata
+                either way. Defaults to False (lossless ingestion); when None, uses
+                config.
             config: Parser configuration (uses default if None)
         """
         self.config = config or ParserConfig()
         if extract_frontmatter is None:
-            extract_frontmatter = getattr(self.config, "extract_frontmatter", True)
+            extract_frontmatter = getattr(self.config, "extract_frontmatter", False)
         self.extract_frontmatter = extract_frontmatter
 
         # Compile regex patterns for better performance
@@ -361,11 +372,16 @@ class MarkdownParser(BaseParser):
         meta: Dict[str, Any] = {}
         warnings: List[str] = []
 
-        # Extract frontmatter if present
+        # Frontmatter is ALWAYS parsed into ``meta`` (it drives doc_title below), but
+        # it is only removed from the stored body when explicitly configured.
+        # ``meta`` is transient — it is returned in the parse result and never written
+        # to VikingFS — so stripping by default silently destroyed the frontmatter of
+        # every ingested markdown file with no way to read those fields back.
+        stripped_content, frontmatter = self._extract_frontmatter(content)
+        if frontmatter:
+            meta["frontmatter"] = frontmatter
         if self.extract_frontmatter:
-            content, frontmatter = self._extract_frontmatter(content)
-            if frontmatter:
-                meta["frontmatter"] = frontmatter
+            content = stripped_content
 
         explicit_name = kwargs.get("resource_name")
         if not explicit_name and kwargs.get("source_name"):
@@ -641,8 +657,14 @@ class MarkdownParser(BaseParser):
                         parts.append(current.strip())
                     current = ""
                     current_tokens = 0
-                for i in range(0, len(para), max_chars):
-                    parts.append(para[i : i + max_chars].strip())
+                # Step by the smaller of the char limit and the token-safe
+                # width, so a paragraph that is under max_chars but over
+                # max_size tokens (e.g. dense CJK text) is still split enough
+                # to keep every chunk within the token budget.
+                token_safe_chars = max(1, int(max_size / self.MAX_TOKENS_PER_CHAR))
+                step = min(max_chars, token_safe_chars)
+                for i in range(0, len(para), step):
+                    parts.append(para[i : i + step].strip())
             elif (
                 current_tokens + para_tokens > max_size or len(current) + len(para) + 2 > max_chars
             ) and current:
@@ -1668,4 +1690,4 @@ class MarkdownParser(BaseParser):
         # This provides better coverage for multilingual documents
         cjk_chars = len(re.findall(r"[\u4e00-\u9fff\u3040-\u30ff\uac00-\ud7af]", content))
         other_chars = len(re.findall(r"[^\s]", content)) - cjk_chars
-        return int(cjk_chars * 0.7 + other_chars * 0.3)
+        return int(cjk_chars * self.MAX_TOKENS_PER_CHAR + other_chars * 0.3)

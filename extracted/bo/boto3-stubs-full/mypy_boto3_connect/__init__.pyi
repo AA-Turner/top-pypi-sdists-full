@@ -34,6 +34,7 @@ Usage::
         ListEntitySecurityProfilesPaginator,
         ListEvaluationFormVersionsPaginator,
         ListEvaluationFormsPaginator,
+        ListExtractionDefinitionsPaginator,
         ListFlowAssociationsPaginator,
         ListHoursOfOperationOverridesPaginator,
         ListHoursOfOperationsPaginator,
@@ -123,6 +124,7 @@ Usage::
     list_entity_security_profiles_paginator: ListEntitySecurityProfilesPaginator = client.get_paginator("list_entity_security_profiles")
     list_evaluation_form_versions_paginator: ListEvaluationFormVersionsPaginator = client.get_paginator("list_evaluation_form_versions")
     list_evaluation_forms_paginator: ListEvaluationFormsPaginator = client.get_paginator("list_evaluation_forms")
+    list_extraction_definitions_paginator: ListExtractionDefinitionsPaginator = client.get_paginator("list_extraction_definitions")
     list_flow_associations_paginator: ListFlowAssociationsPaginator = client.get_paginator("list_flow_associations")
     list_hours_of_operation_overrides_paginator: ListHoursOfOperationOverridesPaginator = client.get_paginator("list_hours_of_operation_overrides")
     list_hours_of_operations_paginator: ListHoursOfOperationsPaginator = client.get_paginator("list_hours_of_operations")
@@ -212,6 +214,7 @@ from .paginator import (
     ListEntitySecurityProfilesPaginator,
     ListEvaluationFormsPaginator,
     ListEvaluationFormVersionsPaginator,
+    ListExtractionDefinitionsPaginator,
     ListFlowAssociationsPaginator,
     ListHoursOfOperationOverridesPaginator,
     ListHoursOfOperationsPaginator,
@@ -303,6 +306,7 @@ __all__ = (
     "ListEntitySecurityProfilesPaginator",
     "ListEvaluationFormVersionsPaginator",
     "ListEvaluationFormsPaginator",
+    "ListExtractionDefinitionsPaginator",
     "ListFlowAssociationsPaginator",
     "ListHoursOfOperationOverridesPaginator",
     "ListHoursOfOperationsPaginator",

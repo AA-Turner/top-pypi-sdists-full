@@ -109,13 +109,7 @@ class Init:
             tag_format = self._ask_tag_format(tag)  # confirm & text
             update_changelog_on_bump = self._ask_update_changelog_on_bump()  # confirm
             major_version_zero = self._ask_major_version_zero(version)  # confirm
-            hook_types: list[str] | None = questionary.checkbox(
-                "What types of pre-commit hook you want to install? (Leave blank if you don't want to install)",
-                choices=[
-                    questionary.Choice("commit-msg", checked=False),
-                    questionary.Choice("pre-push", checked=False),
-                ],
-            ).unsafe_ask()
+            hook_types = self._ask_hook_types()
         except KeyboardInterrupt:
             raise InitFailedError("Stopped by user")
 
@@ -128,13 +122,9 @@ class Init:
             ) as config_file:
                 yaml.safe_dump(config_data, stream=config_file)
 
-            if not project_info.is_pre_commit_installed():
-                raise InitFailedError(
-                    "Failed to install pre-commit hook.\n"
-                    "pre-commit is not installed in current environment."
-                )
+            installer = self._ask_hook_installer()
 
-            cmd_args = ["pre-commit", "install"]
+            cmd_args = [installer, "install"]
             for ty in hook_types:
                 cmd_args.extend(["--hook-type", ty])
             c = cmd.run(cmd_args)
@@ -163,6 +153,48 @@ class Init:
         out.write("\nYou can bump the version running:\n")
         out.info("\tcz bump\n")
         out.success("Configuration complete 🚀")
+
+    def _ask_hook_types(self) -> list[str] | None:
+        """Ask which pre-commit hook types to install.
+
+        Skip the question when neither ``pre-commit`` nor ``prek`` is
+        installed, so users who do not use those tools are not prompted.
+        """
+        if not project_info.available_hook_installers():
+            out.info("No pre-commit hook detected, skipping question")
+            return None
+
+        hook_types: list[str] | None = questionary.checkbox(
+            "What types of pre-commit hook you want to install? (Leave blank if you don't want to install)",
+            choices=[
+                questionary.Choice("commit-msg", checked=False),
+                questionary.Choice("pre-push", checked=False),
+            ],
+        ).unsafe_ask()
+        return hook_types
+
+    def _ask_hook_installer(self) -> str:
+        """Choose ``pre-commit`` or ``prek`` when installing Git hooks.
+
+        Detection already accepts either tool, but install used to
+        hard-code ``pre-commit``. Use the only available installer, or
+        ask when both are on PATH.
+        """
+        installers = project_info.available_hook_installers()
+        if not installers:
+            raise InitFailedError(
+                "Failed to install pre-commit hook.\n"
+                "Neither pre-commit nor prek is installed in the current environment."
+            )
+        if len(installers) == 1:
+            return installers[0]
+
+        installer: str = questionary.select(
+            "Which hook installer do you want to use?",
+            choices=installers,
+            style=self.cz.style,
+        ).unsafe_ask()
+        return installer
 
     def _ask_config_path(self) -> Path:
         filename: str = questionary.select(

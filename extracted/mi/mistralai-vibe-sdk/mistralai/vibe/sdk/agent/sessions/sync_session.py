@@ -18,7 +18,7 @@ from mistralai.vibe.sdk.agent.sessions.helpers import IdFactory
 from mistralai.vibe.sdk.agent.tasks.agent_task import AgentTaskConfig
 from mistralai.vibe.sdk.agent.tasks.helpers import AgentTaskFactory
 from mistralai.vibe.sdk.capabilities.registry import ClientToolRegistry
-from mistralai.vibe.sdk.execution_record.state import HistoryEntry, TaskState
+from mistralai.vibe.sdk.execution_record.state import ContentBlock, HistoryEntry, TaskState
 from mistralai.vibe.sdk.observability import ObservabilityAttributes
 from mistralai.vibe.sdk.transports.events import DownstreamMessage, UpstreamMessage
 
@@ -98,7 +98,7 @@ class SyncSession:
         self._check_closed()
         self._async_session.set_config(config)
 
-    def run(self, prompt: str) -> Generator[DownstreamMessage, None, None]:
+    def run(self, prompt: str | list[ContentBlock]) -> Generator[DownstreamMessage, None, None]:
         """Stream protocol task-progress events synchronously."""
         self._check_closed()
         messages: queue.Queue[
@@ -140,7 +140,7 @@ class SyncSession:
                 with contextlib.suppress(Exception):
                     future.result(timeout=5)
 
-    def run_to_completion(self, prompt: str) -> TaskState:
+    def run_to_completion(self, prompt: str | list[ContentBlock]) -> TaskState:
         """Run a single turn and return the final state."""
         self._check_closed()
         return self._run_sync(self._async_session.run_to_completion(prompt))

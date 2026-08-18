@@ -7,16 +7,12 @@
 #include "pythonic/utils/functor.hpp"
 
 #include <algorithm>
+#include <numeric>
 
 PYTHONIC_NS_BEGIN
 
 namespace itertools
 {
-
-  template <class T, class H>
-  permutations_iterator<T, H>::permutations_iterator()
-  {
-  }
 
   template <class T, class H>
   permutations_iterator<T, H>::permutations_iterator(pool_type const &iter, size_t num_elts,
@@ -44,7 +40,7 @@ namespace itertools
   }
 
   template <class T, class H>
-  H permutations_iterator<T, H>::operator*() const
+  typename permutations_iterator<T, H>::value_type permutations_iterator<T, H>::operator*() const
   {
     H res = init_permut_from(_size, (H *)nullptr);
     for (size_t i = 0; i < _size; i++)
@@ -114,11 +110,6 @@ namespace itertools
       else if (other.curr_permut[i] > curr_permut[i])
         return true;
     return false;
-  }
-
-  template <class T, class H>
-  _permutations<T, H>::_permutations()
-  {
   }
 
   template <class T, class H>

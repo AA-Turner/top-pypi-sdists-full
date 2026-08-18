@@ -20,7 +20,7 @@ import matplotlib.pyplot as plt
 from geocif import logger as log
 from geocif import utils as ut
 from geocif import progress
-from .ml import output
+from .ml import output, threads as ml_threads
 from geocif import geocif
 
 plt.style.use("default")
@@ -124,6 +124,53 @@ def gather_pooled_inputs(parser):
 
     return [[project_name, clist, crop, season, model]
             for (crop, season, model), clist in groups.items()]
+
+
+def _init_ml_worker(parallel_mode, total, threads):
+    """
+    Pool worker startup: pin the thread budget BEFORE any model is built,
+    then hand off to the normal progress-bar initializer.
+    """
+    ml_threads.apply_worker_limits(threads)
+    progress.set_worker_mode(parallel_mode, total)
+
+
+def order_inputs_model_major(inputs, model_index=4):
+    """Reorder fold tasks so the model varies slowest.
+
+    gather_inputs nests model innermost, so a year's tasks for every model
+    sit next to each other and the pool dispatches them at the same moment.
+    That defeats the feature-selection cache (geocif/ml/fs_cache.py): the
+    selection is model-independent, but concurrent same-fold tasks all miss
+    and all recompute it.
+
+    Grouping by model instead — every year for model A, then every year for
+    model B — means model B's folds start once model A has already cached
+    their selections. Sorting is stable and models keep their configured
+    order, so only dispatch order changes; imap_unordered already makes
+    completion order arbitrary.
+
+    Args:
+        inputs: list of [project_name, country(s), crop, season, model] items
+        model_index: position of the model name within each item
+
+    Returns:
+        The reordered list, or the input unchanged if it has an unexpected
+        shape (ordering is an optimisation, never a correctness requirement).
+    """
+    try:
+        model_order = []
+        for item in inputs:
+            model = item[model_index]
+            if not isinstance(model, str):
+                return list(inputs)
+            if model not in model_order:
+                model_order.append(model)
+
+        rank = {model: i for i, model in enumerate(model_order)}
+        return sorted(inputs, key=lambda item: rank[item[model_index]])
+    except (IndexError, KeyError, TypeError):
+        return list(inputs)
 
 
 def ensure_statistics_files(inputs, logger, parser):
@@ -261,6 +308,17 @@ def execute_models(inputs, logger, parser, loop_fn=None, desc=None):
         ensure_statistics_files(inputs, logger, parser)
         ensure_db_tables(inputs, logger, parser)
 
+    # Stagger same-fold models so the feature-selection cache can actually
+    # be hit instead of every model racing to compute the same selection.
+    if do_parallel and parser.getboolean("ML", "cache_feature_selection", fallback=True):
+        reordered = order_inputs_model_major(inputs)
+        if reordered != inputs:
+            logger.info(
+                "Dispatching fold tasks model-major so the feature-selection "
+                "cache is shared across models"
+            )
+        inputs = reordered
+
     # Add logger and parser to each element in inputs
     inputs = [item + [logger, parser, idx] for idx, item in enumerate(inputs)]
 
@@ -268,10 +326,29 @@ def execute_models(inputs, logger, parser, loop_fn=None, desc=None):
         fraction_cpus = parser.getfloat("DEFAULT", "fraction_cpus")
         cpu_count = int(mp.cpu_count() * fraction_cpus)
 
+        # Without this every worker's model grabs all cores: 19 workers x 131
+        # threads measured load 940 on a 128-core node and starved the other
+        # jobs sharing it. Override with [ML] threads_per_worker.
+        threads_per_worker = ml_threads.resolve_threads_per_worker(
+            cpu_count, mp.cpu_count(), parser=parser
+        )
+        if threads_per_worker:
+            logger.info(
+                f"Limiting each of the {cpu_count} worker(s) to "
+                f"{threads_per_worker} thread(s) of {mp.cpu_count()} cores "
+                f"({cpu_count * threads_per_worker} total) so models do not "
+                f"oversubscribe the node"
+            )
+        else:
+            logger.info(
+                f"Thread limiting disabled — each of the {cpu_count} worker(s) "
+                f"may use all {mp.cpu_count()} cores"
+            )
+
         with mp.Pool(
             cpu_count,
-            initializer=progress.set_worker_mode,
-            initargs=(True, len(inputs)),
+            initializer=_init_ml_worker,
+            initargs=(True, len(inputs), threads_per_worker),
         ) as pool:
             for _ in tqdm(
                 pool.imap_unordered(loop_fn, inputs),

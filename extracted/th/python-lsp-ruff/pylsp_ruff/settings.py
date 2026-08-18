@@ -33,8 +33,6 @@ class PluginSettings:
 
     target_version: Optional[str] = None
 
-    virtual_documents_dir: Optional[str] = None
-
 
 def to_camel_case(snake_str: str) -> str:
     components = snake_str.split("_")

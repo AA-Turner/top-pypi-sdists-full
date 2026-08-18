@@ -1,3 +1,3 @@
 """Generated at build time. Do not edit or commit."""
 
-BUILD_COMMIT = "fbd5ac3"
+BUILD_COMMIT = "57e15ea"

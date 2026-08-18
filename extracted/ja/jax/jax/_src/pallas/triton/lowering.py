@@ -20,7 +20,7 @@ from collections.abc import Callable, Hashable, Sequence
 import dataclasses
 import functools
 import math
-from typing import Any, TypeVar
+from typing import Any
 
 import jax
 from jax import lax
@@ -54,8 +54,6 @@ from jax._src.util import foreach
 from jax._src.util import split_list
 import jax.numpy as jnp
 import numpy as np
-
-_T = TypeVar("_T")
 
 map, unsafe_map = util.safe_map, map
 zip, unsafe_zip = util.safe_zip, zip
@@ -203,11 +201,11 @@ def _bcast(
   return x, y
 
 
-triton_lowering_rules = {}
+triton_lowering_rules: dict[jax_core.Primitive, Callable[..., Any]] = {}
 
 
-def register_lowering(primitive: jax_core.Primitive) -> Callable[[_T], _T]:
-  def wrapper(fn):
+def register_lowering(primitive: jax_core.Primitive) -> Callable[..., Any]:
+  def wrapper[T: Callable[..., Any]](fn: T) -> T:
     triton_lowering_rules[primitive] = fn
     return fn
   return wrapper
@@ -475,7 +473,7 @@ def lower_fun(
     jaxpr, _ = pe.trace_to_jaxpr(
         fn, in_avals_ft, debug_info=debug_info, requires_low=True
     )
-    out = _closed_call_lowering_rule(ctx, *args, call_jaxpr=jaxpr)
+    out = _eval_jaxpr_lowering_rule(ctx, *args, call_jaxpr=jaxpr)
     return out if multiple_results else out[0]
 
   return f_lowered
@@ -2602,9 +2600,9 @@ def _reshard_lowering_rule(ctx, x, *, dst_sharding, concrete_mesh):
   return x
 
 
-@register_lowering(jax_core.closed_call_p)
+@register_lowering(pe.eval_jaxpr_p)
 @register_lowering(custom_derivatives.custom_jvp_call_p)
-def _closed_call_lowering_rule(
+def _eval_jaxpr_lowering_rule(
     ctx: LoweringRuleContext, *args, call_jaxpr, **_
 ):
   jaxpr, consts = call_jaxpr, call_jaxpr.consts

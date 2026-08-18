@@ -14,30 +14,44 @@ logger = logging.getLogger(__name__)
 
 # try loading the solver library
 ffi = cffi.FFI()
+
+
+def _get_highsbox_libfile():
+    """Return the path to the highsbox HiGHS shared library."""
+    import highsbox
+
+    root = highsbox.highs_dist_dir()
+    platform = sys.platform.lower()
+    if "linux" in platform:
+        return os.path.join(root, "lib", "libhighs.so")
+    elif platform.startswith("win"):
+        return os.path.join(root, "bin", "highs.dll")
+    elif any(platform.startswith(p) for p in ("darwin", "macos")):
+        return os.path.join(root, "lib", "libhighs.dylib")
+    else:
+        raise NotImplementedError(f"{sys.platform} not supported!")
+
+
 try:
-    # first try user-defined path, if given
     ENV_KEY = "PMIP_HIGHS_LIBRARY"
     if ENV_KEY in os.environ:
+        # Explicit path takes priority.
         libfile = os.environ[ENV_KEY]
-        logger.debug("Choosing HiGHS library {libfile} via {ENV_KEY}.")
+        logger.debug(f"Choosing HiGHS library {libfile} via {ENV_KEY}.")
     else:
-        # Try library from highsbox, which is optional dependency.
-        import highsbox
+        # Prefer highspy (official HiGHS package): its _core extension module
+        # contains the full HiGHS C API.  On Linux/macOS all symbols are
+        # visible in the shared library; on Windows only the Python init
+        # symbol is exported from the .pyd, so the C API is not accessible
+        # via dlopen there.  We detect that below and fall back to highsbox.
+        try:
+            import highspy._core as _highs_core
 
-        root = highsbox.highs_dist_dir()
-
-        # Need library matching operating system.
-        # Following: PyOptInterface/src/pyoptinterface/_src/highs.py
-        platform = sys.platform.lower()
-        if "linux" in platform:
-            libfile = os.path.join(root, "lib", "libhighs.so")
-        elif platform.startswith("win"):
-            libfile = os.path.join(root, "bin", "highs.dll")
-        elif any(platform.startswith(p) for p in ("darwin", "macos")):
-            libfile = os.path.join(root, "lib", "libhighs.dylib")
-        else:
-            raise NotImplementedError(f"{sys.platform} not supported!")
-        logger.debug("Choosing HiGHS library {libfile} via highsbox package.")
+            libfile = _highs_core.__file__
+            logger.debug(f"Choosing HiGHS library {libfile} via highspy package.")
+        except ImportError:
+            libfile = _get_highsbox_libfile()
+            logger.debug(f"Choosing HiGHS library {libfile} via highsbox package.")
 
     highslib = ffi.dlopen(libfile)
     has_highs = True
@@ -673,7 +687,40 @@ if has_highs:
     """
     )
 
+    # On Windows, highspy's _core.pyd does not export C symbols (only the
+    # Python init function is exported from a .pyd).  Detect this and
+    # automatically fall back to highsbox, which ships a proper highs.dll.
+    try:
+        _ = highslib.Highs_create
+    except AttributeError:
+        logger.warning(
+            f"HiGHS C API not accessible via {libfile!r} "
+            "(typical on Windows with highspy). "
+            "Falling back to highsbox."
+        )
+        try:
+            libfile = _get_highsbox_libfile()
+            highslib = ffi.dlopen(libfile)
+            _ = highslib.Highs_create  # verify symbols are accessible
+            logger.debug(
+                f"Choosing HiGHS library {libfile} via highsbox package (fallback)."
+            )
+        except Exception as e:
+            logger.error(
+                f"highsbox fallback also failed: {e}. "
+                "HiGHS will not be available. "
+                "Install highsbox (pip install highsbox) for HiGHS support on Windows."
+            )
+            has_highs = False
+
+if has_highs:
     STATUS_ERROR = highslib.kHighsStatusError
+
+# Initial capacities for the pending col/row caches (grows geometrically).
+_CACHE_INITIAL_CAP = 8192  # column / row slots
+_CACHE_INITIAL_NZ_CAP = 32768  # row-NZ slots (4 × col cap)
+_SIZEOF_INT = ffi.sizeof("int")
+_SIZEOF_DOUBLE = ffi.sizeof("double")
 
 
 def check(status):
@@ -687,7 +734,7 @@ class SolverHighs(mip.Solver):
         if not has_highs:
             raise FileNotFoundError(
                 "HiGHS not found. "
-                "Please install the `highsbox` package (pip install mip[highs]), or "
+                "Please install the `highspy` package (pip install mip[highs]), or "
                 "set the `PMIP_HIGHS_LIBRARY` environment variable."
             )
 
@@ -721,9 +768,145 @@ class SolverHighs(mip.Solver):
         }
         self._highs_type_map = {value: key for key, value in self._var_type_map.items()}
 
+        # ── Column / row caches ────────────────────────────────────────────
+        # Pending columns (not yet committed to HiGHS).
+        self._col_committed = 0  # cols actually in HiGHS
+        self._col_fill = 0  # pending cols in cache
+        self._col_cap = _CACHE_INITIAL_CAP
+        self._c_col_lb = ffi.new("double[]", _CACHE_INITIAL_CAP)
+        self._c_col_ub = ffi.new("double[]", _CACHE_INITIAL_CAP)
+        self._c_col_obj = ffi.new("double[]", _CACHE_INITIAL_CAP)
+        self._c_col_int = ffi.new("int[]", _CACHE_INITIAL_CAP)
+        self._col_names: list = []  # (logical_idx, encoded_bytes) pairs
+        self._pending_int_count = 0  # integer vars among pending cols
+
+        # Pending rows (not yet committed to HiGHS).  NZs stored in CSR.
+        self._row_committed = 0
+        self._row_fill = 0
+        self._row_cap = _CACHE_INITIAL_CAP
+        self._c_row_lb = ffi.new("double[]", _CACHE_INITIAL_CAP)
+        self._c_row_ub = ffi.new("double[]", _CACHE_INITIAL_CAP)
+        self._c_row_starts = ffi.new("int[]", _CACHE_INITIAL_CAP)  # NZ start per row
+        self._row_nz_fill = 0
+        self._row_nz_cap = _CACHE_INITIAL_NZ_CAP
+        self._c_row_indices = ffi.new("int[]", _CACHE_INITIAL_NZ_CAP)
+        self._c_row_values = ffi.new("double[]", _CACHE_INITIAL_NZ_CAP)
+        self._row_names: list = []  # (logical_idx, encoded_bytes) pairs
+
+        # Name→index dicts for O(1) lookups without flushing pending cols/rows.
+        # Set to None after remove_vars/remove_constrs/read, which invalidate indices.
+        self._col_name_dict: Optional[dict] = {}
+        self._row_name_dict: Optional[dict] = {}
+
     def __del__(self):
         self._name_buffer = None
-        self._lib.Highs_destroy(self._model)
+        if getattr(self, "_model", None) is not None:
+            self._lib.Highs_destroy(self._model)
+
+    # ── Cache grow / flush helpers ─────────────────────────────────────────
+
+    def _grow_cols(self: "SolverHighs"):
+        new_cap = self._col_cap * 2
+        n = self._col_fill
+        new_lb = ffi.new("double[]", new_cap)
+        new_ub = ffi.new("double[]", new_cap)
+        new_obj = ffi.new("double[]", new_cap)
+        new_int = ffi.new("int[]", new_cap)
+        ffi.memmove(new_lb, self._c_col_lb, n * _SIZEOF_DOUBLE)
+        ffi.memmove(new_ub, self._c_col_ub, n * _SIZEOF_DOUBLE)
+        ffi.memmove(new_obj, self._c_col_obj, n * _SIZEOF_DOUBLE)
+        ffi.memmove(new_int, self._c_col_int, n * _SIZEOF_INT)
+        self._c_col_lb = new_lb
+        self._c_col_ub = new_ub
+        self._c_col_obj = new_obj
+        self._c_col_int = new_int
+        self._col_cap = new_cap
+
+    def _grow_rows(self: "SolverHighs"):
+        new_cap = self._row_cap * 2
+        n = self._row_fill
+        new_lb = ffi.new("double[]", new_cap)
+        new_ub = ffi.new("double[]", new_cap)
+        new_starts = ffi.new("int[]", new_cap)
+        ffi.memmove(new_lb, self._c_row_lb, n * _SIZEOF_DOUBLE)
+        ffi.memmove(new_ub, self._c_row_ub, n * _SIZEOF_DOUBLE)
+        ffi.memmove(new_starts, self._c_row_starts, n * _SIZEOF_INT)
+        self._c_row_lb = new_lb
+        self._c_row_ub = new_ub
+        self._c_row_starts = new_starts
+        self._row_cap = new_cap
+
+    def _grow_row_nz(self: "SolverHighs", needed: int):
+        new_cap = max(self._row_nz_cap * 2, self._row_nz_fill + needed)
+        nz = self._row_nz_fill
+        new_idx = ffi.new("int[]", new_cap)
+        new_val = ffi.new("double[]", new_cap)
+        ffi.memmove(new_idx, self._c_row_indices, nz * _SIZEOF_INT)
+        ffi.memmove(new_val, self._c_row_values, nz * _SIZEOF_DOUBLE)
+        self._c_row_indices = new_idx
+        self._c_row_values = new_val
+        self._row_nz_cap = new_cap
+
+    def _flush_cols(self: "SolverHighs"):
+        n = self._col_fill
+        if n == 0:
+            return
+        check(
+            self._lib.Highs_addCols(
+                self._model,
+                n,
+                self._c_col_obj,
+                self._c_col_lb,
+                self._c_col_ub,
+                0,
+                ffi.NULL,
+                ffi.NULL,
+                ffi.NULL,
+            )
+        )
+        if self._pending_int_count > 0:
+            check(
+                self._lib.Highs_changeColsIntegralityByRange(
+                    self._model,
+                    self._col_committed,
+                    self._col_committed + n - 1,
+                    self._c_col_int,
+                )
+            )
+        for col_idx, name_bytes in self._col_names:
+            check(self._lib.Highs_passColName(self._model, col_idx, name_bytes))
+        self._col_committed += n
+        self._col_fill = 0
+        self._pending_int_count = 0
+        self._col_names.clear()
+
+    def _flush_rows(self: "SolverHighs"):
+        n = self._row_fill
+        if n == 0:
+            return
+        check(
+            self._lib.Highs_addRows(
+                self._model,
+                n,
+                self._c_row_lb,
+                self._c_row_ub,
+                self._row_nz_fill,
+                self._c_row_starts,
+                self._c_row_indices,
+                self._c_row_values,
+            )
+        )
+        for row_idx, name_bytes in self._row_names:
+            self._lib.Highs_passRowName(self._model, row_idx, name_bytes)
+        self._row_committed += n
+        self._row_fill = 0
+        self._row_nz_fill = 0
+        self._row_names.clear()
+
+    def _flush(self: "SolverHighs"):
+        """Commit all pending columns and rows to HiGHS (cols before rows)."""
+        self._flush_cols()
+        self._flush_rows()
 
     def _get_int_info_value(self: "SolverHighs", name: str) -> int:
         value = ffi.new("int*")
@@ -777,6 +960,13 @@ class SolverHighs(mip.Solver):
             self._lib.Highs_setBoolOptionValue(self._model, name.encode("UTF-8"), value)
         )
 
+    def _set_string_option_value(self: "SolverHighs", name: str, value: str):
+        check(
+            self._lib.Highs_setStringOptionValue(
+                self._model, name.encode("UTF-8"), value.encode("UTF-8")
+            )
+        )
+
     def _change_coef(self: "SolverHighs", row: int, col: int, value: float):
         "Overwrite a single coefficient in the matrix."
         check(self._lib.Highs_changeCoeff(self._model, row, col, value))
@@ -803,29 +993,51 @@ class SolverHighs(mip.Solver):
         column: "mip.Column" = None,
         name: str = "",
     ):
-        col: int = self.num_cols()
-        check(self._lib.Highs_addCol(self._model, obj, lb, ub, 0, ffi.NULL, ffi.NULL))
-        if name:
-            check(self._lib.Highs_passColName(self._model, col, name.encode("utf-8")))
-        if var_type != mip.CONTINUOUS:
-            # Note that HiGHS doesn't distinguish binary and integer variables
-            # by type. There is only a boolean flag for "integrality".
-            self._num_int_vars += 1
-            check(
-                self._lib.Highs_changeColIntegrality(
-                    self._model, col, self._lib.kHighsVarTypeInteger
-                )
-            )
+        col = self._col_committed + self._col_fill
 
         if column:
-            # Can't use _set_column here, because the variable is not added to
-            # the mip.Model yet.
-            # self._set_column(col, column)
+            # column references existing constraint indices; flush everything so
+            # all indices are stable in HiGHS, then add via the single-col path.
+            self._flush()
+            check(
+                self._lib.Highs_addCol(self._model, obj, lb, ub, 0, ffi.NULL, ffi.NULL)
+            )
+            if name:
+                check(
+                    self._lib.Highs_passColName(self._model, col, name.encode("utf-8"))
+                )
+                if self._col_name_dict is not None:
+                    self._col_name_dict[name] = col
+            if var_type != mip.CONTINUOUS:
+                self._num_int_vars += 1
+                check(
+                    self._lib.Highs_changeColIntegrality(
+                        self._model, col, self._lib.kHighsVarTypeInteger
+                    )
+                )
             for cons, coef in zip(column.constrs, column.coeffs):
                 self._change_coef(cons.idx, col, coef)
+            self._col_committed += 1
+            return
+
+        # Normal path: buffer the column.
+        if self._col_fill == self._col_cap:
+            self._grow_cols()
+        self._c_col_lb[self._col_fill] = lb
+        self._c_col_ub[self._col_fill] = ub
+        self._c_col_obj[self._col_fill] = obj
+        self._c_col_int[self._col_fill] = self._var_type_map[var_type]
+        self._col_fill += 1
+        if var_type != mip.CONTINUOUS:
+            self._num_int_vars += 1
+            self._pending_int_count += 1
+        if name:
+            self._col_names.append((col, name.encode("utf-8")))
+            if self._col_name_dict is not None:
+                self._col_name_dict[name] = col
 
     def add_constr(self: "SolverHighs", lin_expr: "mip.LinExpr", name: str = ""):
-        row: int = self.num_rows()
+        row = self._row_committed + self._row_fill
 
         # equation expressed as two-sided inequality
         lower = -lin_expr.const
@@ -837,15 +1049,26 @@ class SolverHighs(mip.Solver):
         else:
             assert lin_expr.sense == mip.EQUAL
 
-        num_new_nz = len(lin_expr.expr)
-        index = ffi.new("int[]", [var.idx for var in lin_expr.expr.keys()])
-        value = ffi.new("double[]", [coef for coef in lin_expr.expr.values()])
+        num_nz = len(lin_expr.expr)
 
-        check(
-            self._lib.Highs_addRow(self._model, lower, upper, num_new_nz, index, value)
-        )
+        if self._row_fill == self._row_cap:
+            self._grow_rows()
+        if self._row_nz_fill + num_nz > self._row_nz_cap:
+            self._grow_row_nz(num_nz)
+
+        self._c_row_lb[self._row_fill] = lower
+        self._c_row_ub[self._row_fill] = upper
+        self._c_row_starts[self._row_fill] = self._row_nz_fill
+        for var, coef in lin_expr.expr.items():
+            self._c_row_indices[self._row_nz_fill] = var.idx
+            self._c_row_values[self._row_nz_fill] = coef
+            self._row_nz_fill += 1
+        self._row_fill += 1
+
         if name:
-            self._lib.Highs_passRowName(self._model, row, name.encode("utf-8"))
+            self._row_names.append((row, name.encode("utf-8")))
+            if self._row_name_dict is not None:
+                self._row_name_dict[name] = row
 
     def add_lazy_constr(self: "SolverHighs", lin_expr: "mip.LinExpr"):
         raise NotImplementedError("HiGHS doesn't support lazy constraints!")
@@ -864,6 +1087,7 @@ class SolverHighs(mip.Solver):
         return self._get_double_info_value("mip_dual_bound")
 
     def get_objective(self: "SolverHighs") -> "mip.LinExpr":
+        self._flush()
         n = self.num_cols()
         num_col = ffi.new("int*")
         costs = ffi.new("double[]", n)
@@ -898,6 +1122,7 @@ class SolverHighs(mip.Solver):
         return offset[0]
 
     def _all_cols_continuous(self: "SolverHighs"):
+        self._flush()
         n = self.num_cols()
         self._num_int_vars = 0
         integrality = ffi.new("int[]", [self._lib.kHighsVarTypeContinuous] * n)
@@ -908,6 +1133,7 @@ class SolverHighs(mip.Solver):
         )
 
     def _reset_var_types(self: "SolverHighs", var_types: List[str]):
+        self._flush()
         integrality = ffi.new("int[]", [self._var_type_map[vt] for vt in var_types])
         n = self.num_cols()
         check(
@@ -937,7 +1163,9 @@ class SolverHighs(mip.Solver):
     def optimize(
         self: "SolverHighs",
         relax: bool = False,
+        lp_preprocess: bool = False,
     ) -> "mip.OptimizationStatus":
+        self._flush()
         if relax:
             # Temporarily change variable types.
             # Original types are stored in list var_type.
@@ -946,6 +1174,22 @@ class SolverHighs(mip.Solver):
 
         self.set_mip_gap(self.model.max_mip_gap)
         self.set_mip_gap_abs(self.model.max_mip_gap_abs)
+
+        lpm = self.model.lp_method
+        if lpm == mip.LP_Method.DUAL:
+            self._set_string_option_value("solver", "simplex")
+            self._set_int_option_value("simplex_strategy", 1)
+        elif lpm == mip.LP_Method.PRIMAL:
+            self._set_string_option_value("solver", "simplex")
+            self._set_int_option_value("simplex_strategy", 4)
+        elif lpm == mip.LP_Method.BARRIER:
+            self._set_string_option_value("solver", "ipm")
+            self._set_string_option_value("run_crossover", "on")
+        elif lpm == mip.LP_Method.BARRIERNOCROSS:
+            self._set_string_option_value("solver", "ipm")
+            self._set_string_option_value("run_crossover", "off")
+        else:
+            self._set_string_option_value("solver", "choose")
 
         check(self._lib.Highs_run(self._model))
 
@@ -964,6 +1208,7 @@ class SolverHighs(mip.Solver):
         if opt_status in (
             mip.OptimizationStatus.OPTIMAL,
             mip.OptimizationStatus.FEASIBLE,
+            mip.OptimizationStatus.TRUNCATED,
         ):
             n, m = self.num_cols(), self.num_rows()
             col_value = ffi.new("double[]", n)
@@ -975,8 +1220,10 @@ class SolverHighs(mip.Solver):
                     self._model, col_value, col_dual, row_value, row_dual
                 )
             )
-            self._x = [col_value[j] for j in range(n)]
-            self._rc = [col_dual[j] for j in range(n)]
+
+            if self._has_primal_solution():
+                self._x = [col_value[j] for j in range(n)]
+                self._rc = [col_dual[j] for j in range(n)]
 
             if self._has_dual_solution():
                 self._pi = [row_dual[i] for i in range(m)]
@@ -1021,6 +1268,7 @@ class SolverHighs(mip.Solver):
         check(self._lib.Highs_changeObjectiveSense(self._model, sense_map[sense]))
 
     def set_start(self: "SolverHighs", start: List[Tuple["mip.Var", numbers.Real]]):
+        self._flush()
         # using zeros for unset variables
         nvars = len(self.model.vars)
         cval = ffi.new("double[]", [0.0 for _ in range(nvars)])
@@ -1030,6 +1278,7 @@ class SolverHighs(mip.Solver):
         self._lib.Highs_setSolution(self._model, cval, ffi.NULL, ffi.NULL, ffi.NULL)
 
     def set_objective(self: "SolverHighs", lin_expr: "mip.LinExpr", sense: str = ""):
+        self._flush()
         # first reset old objective (all 0)
         n = self.num_cols()
         costs = ffi.new("double[]", n)  # initialized to 0
@@ -1096,6 +1345,12 @@ class SolverHighs(mip.Solver):
     def set_max_nodes(self: "SolverHighs", max_nodes: int):
         self._set_int_option_value("mip_max_nodes", max_nodes)
 
+    def get_max_iter(self: "SolverHighs") -> int:
+        return self._get_int_option_value("simplex_iteration_limit")
+
+    def set_max_iter(self: "SolverHighs", max_iter: int):
+        self._set_int_option_value("simplex_iteration_limit", max_iter)
+
     def get_max_nodes_same_incumbent(self: "SolverHighs") -> int:
         return self._get_int_option_value("mip_max_stall_nodes")
 
@@ -1106,20 +1361,28 @@ class SolverHighs(mip.Solver):
         self._set_int_option_value("threads", threads)
 
     def write(self: "SolverHighs", file_path: str):
+        self._flush()
         check(self._lib.Highs_writeModel(self._model, file_path.encode("utf-8")))
 
     def read(self: "SolverHighs", file_path: str):
         if file_path.lower().endswith(".bas"):
             raise NotImplementedError("HiGHS does not support bas files")
+        self._flush()
         check(self._lib.Highs_readModel(self._model, file_path.encode("utf-8")))
+        # readModel replaces the model; resync committed counters from HiGHS.
+        self._col_committed = self._lib.Highs_getNumCol(self._model)
+        self._row_committed = self._lib.Highs_getNumRow(self._model)
+        self._col_name_dict = None  # model replaced; old name→index mapping is stale
+        self._row_name_dict = None
 
     def num_cols(self: "SolverHighs") -> int:
-        return self._lib.Highs_getNumCol(self._model)
+        return self._col_committed + self._col_fill
 
     def num_rows(self: "SolverHighs") -> int:
-        return self._lib.Highs_getNumRow(self._model)
+        return self._row_committed + self._row_fill
 
     def num_nz(self: "SolverHighs") -> int:
+        self._flush()
         return self._lib.Highs_getNumNz(self._model)
 
     def num_int(self: "SolverHighs") -> int:
@@ -1158,6 +1421,7 @@ class SolverHighs(mip.Solver):
     # Constraint-related getters/setters
 
     def constr_get_expr(self: "SolverHighs", constr: "mip.Constr") -> "mip.LinExpr":
+        self._flush()
         row = constr.idx
         # Call method twice:
         #  - first, to get the sizes for coefficients,
@@ -1230,6 +1494,7 @@ class SolverHighs(mip.Solver):
     def constr_set_expr(
         self: "SolverHighs", constr: "mip.Constr", value: "mip.LinExpr"
     ) -> "mip.LinExpr":
+        self._flush()
         # We also have to set to 0 all coefficients of the old row, so we
         # fetch that first.
         coeffs = {var: 0.0 for var in constr.expr}
@@ -1242,6 +1507,7 @@ class SolverHighs(mip.Solver):
             self._change_coef(constr.idx, var.idx, coef)
 
     def constr_get_rhs(self: "SolverHighs", idx: int) -> numbers.Real:
+        self._flush()
         # fetch both lower and upper bound
         num_row = ffi.new("int*")
         lower = ffi.new("double[]", 1)
@@ -1271,6 +1537,7 @@ class SolverHighs(mip.Solver):
         return lower[0]
 
     def constr_set_rhs(self: "SolverHighs", idx: int, rhs: numbers.Real):
+        self._flush()
         # first need to figure out which bound to change (lower or upper)
         num_row = ffi.new("int*")
         lower = ffi.new("double[]", 1)
@@ -1302,6 +1569,7 @@ class SolverHighs(mip.Solver):
         check(self._lib.Highs_changeRowBounds(self._model, idx, lb, ub))
 
     def constr_get_name(self: "SolverHighs", idx: int) -> str:
+        self._flush()
         name = self._name_buffer
         check(self._lib.Highs_getRowName(self._model, idx, name))
         return ffi.string(name).decode("utf-8")
@@ -1325,10 +1593,16 @@ class SolverHighs(mip.Solver):
             raise ValueError(f"Invalid constraint sense: {expr.sense}")
 
     def remove_constrs(self: "SolverHighs", constrsList: List[int]):
+        self._flush()
         set_ = ffi.new("int[]", constrsList)
         check(self._lib.Highs_deleteRowsBySet(self._model, len(constrsList), set_))
+        self._row_committed = self._lib.Highs_getNumRow(self._model)
+        self._row_name_dict = None  # indices shift after deletion
 
     def constr_get_index(self: "SolverHighs", name: str) -> int:
+        if self._row_name_dict is not None:
+            return self._row_name_dict.get(name, -1)
+        self._flush()
         idx = ffi.new("int *")
         status = self._lib.Highs_getRowByName(self._model, name.encode("utf-8"), idx)
         if status == STATUS_ERROR:
@@ -1351,6 +1625,7 @@ class SolverHighs(mip.Solver):
         pass
 
     def var_get_lb(self: "SolverHighs", var: "mip.Var") -> numbers.Real:
+        self._flush()
         num_col = ffi.new("int*")
         costs = ffi.new("double[]", 1)
         lower = ffi.new("double[]", 1)
@@ -1374,11 +1649,13 @@ class SolverHighs(mip.Solver):
         return lower[0]
 
     def var_set_lb(self: "SolverHighs", var: "mip.Var", value: numbers.Real):
+        self._flush()
         # can only set both bounds, so we just set the old upper bound
         old_upper = self.var_get_ub(var)
         check(self._lib.Highs_changeColBounds(self._model, var.idx, value, old_upper))
 
     def var_get_ub(self: "SolverHighs", var: "mip.Var") -> numbers.Real:
+        self._flush()
         num_col = ffi.new("int*")
         costs = ffi.new("double[]", 1)
         lower = ffi.new("double[]", 1)
@@ -1402,11 +1679,13 @@ class SolverHighs(mip.Solver):
         return upper[0]
 
     def var_set_ub(self: "SolverHighs", var: "mip.Var", value: numbers.Real):
+        self._flush()
         # can only set both bounds, so we just set the old lower bound
         old_lower = self.var_get_lb(var)
         check(self._lib.Highs_changeColBounds(self._model, var.idx, old_lower, value))
 
     def var_get_obj(self: "SolverHighs", var: "mip.Var") -> numbers.Real:
+        self._flush()
         num_col = ffi.new("int*")
         costs = ffi.new("double[]", 1)
         lower = ffi.new("double[]", 1)
@@ -1430,9 +1709,11 @@ class SolverHighs(mip.Solver):
         return costs[0]
 
     def var_set_obj(self: "SolverHighs", var: "mip.Var", value: numbers.Real):
+        self._flush()
         check(self._lib.Highs_changeColCost(self._model, var.idx, value))
 
     def var_get_var_type(self: "SolverHighs", var: "mip.Var") -> str:
+        self._flush()
         # Highs_getColIntegrality only works if some variable is not continuous.
         # Since we want this method to always work, we need to catch this case first.
         if self._num_int_vars == 0:
@@ -1445,6 +1726,7 @@ class SolverHighs(mip.Solver):
         return self._highs_type_map[var_type[0]]
 
     def var_set_var_type(self: "SolverHighs", var: "mip.Var", value: str):
+        self._flush()
         if value not in self._var_type_map:
             raise ValueError(f"Invalid variable type: {value}")
         prev_var_type = var.var_type
@@ -1460,6 +1742,7 @@ class SolverHighs(mip.Solver):
                 self._num_int_vars += 1
 
     def var_get_column(self: "SolverHighs", var: "mip.Var") -> "mip.Column":
+        self._flush()
         # Call method twice:
         #  - first, to get the sizes for coefficients,
         num_col = ffi.new("int*")
@@ -1522,15 +1805,22 @@ class SolverHighs(mip.Solver):
         raise NotImplementedError("HiGHS doesn't store multiple solutions.")
 
     def var_get_name(self: "SolverHighs", idx: int) -> str:
+        self._flush()
         name = self._name_buffer
         check(self._lib.Highs_getColName(self._model, idx, name))
         return ffi.string(name).decode("utf-8")
 
     def remove_vars(self: "SolverHighs", varsList: List[int]):
+        self._flush()
         set_ = ffi.new("int[]", varsList)
         check(self._lib.Highs_deleteColsBySet(self._model, len(varsList), set_))
+        self._col_committed = self._lib.Highs_getNumCol(self._model)
+        self._col_name_dict = None  # indices shift after deletion
 
     def var_get_index(self: "SolverHighs", name: str) -> int:
+        if self._col_name_dict is not None:
+            return self._col_name_dict.get(name, -1)
+        self._flush()
         idx = ffi.new("int *")
         status = self._lib.Highs_getColByName(self._model, name.encode("utf-8"), idx)
         if status == STATUS_ERROR:
@@ -1561,27 +1851,39 @@ class SolverHighs(mip.Solver):
 
     def get_status(self: "SolverHighs") -> mip.OptimizationStatus:
         OS = mip.OptimizationStatus
+        lib = self._lib
+        highs_status = lib.Highs_getModelStatus(self._model)
+
+        # Time/iteration limit for LP (no integer variables): TRUNCATED.
+        # For MIP, fall through to FEASIBLE/NO_SOLUTION_FOUND below.
+        is_lp = self.num_int() == 0
+        truncated_statuses = (
+            lib.kHighsModelStatusTimeLimit,
+            lib.kHighsModelStatusIterationLimit,
+        )
+        if is_lp and highs_status in truncated_statuses:
+            return OS.TRUNCATED
+
         status_map = {
-            self._lib.kHighsModelStatusNotset: OS.OTHER,
-            self._lib.kHighsModelStatusLoadError: OS.ERROR,
-            self._lib.kHighsModelStatusModelError: OS.ERROR,
-            self._lib.kHighsModelStatusPresolveError: OS.ERROR,
-            self._lib.kHighsModelStatusSolveError: OS.ERROR,
-            self._lib.kHighsModelStatusPostsolveError: OS.ERROR,
-            self._lib.kHighsModelStatusModelEmpty: OS.OTHER,
-            self._lib.kHighsModelStatusOptimal: OS.OPTIMAL,
-            self._lib.kHighsModelStatusInfeasible: OS.INFEASIBLE,
-            self._lib.kHighsModelStatusUnboundedOrInfeasible: OS.UNBOUNDED,
+            lib.kHighsModelStatusNotset: OS.OTHER,
+            lib.kHighsModelStatusLoadError: OS.ERROR,
+            lib.kHighsModelStatusModelError: OS.ERROR,
+            lib.kHighsModelStatusPresolveError: OS.ERROR,
+            lib.kHighsModelStatusSolveError: OS.ERROR,
+            lib.kHighsModelStatusPostsolveError: OS.ERROR,
+            lib.kHighsModelStatusModelEmpty: OS.OTHER,
+            lib.kHighsModelStatusOptimal: OS.OPTIMAL,
+            lib.kHighsModelStatusInfeasible: OS.INFEASIBLE,
+            lib.kHighsModelStatusUnboundedOrInfeasible: OS.UNBOUNDED,
             # ... or should it be INFEASIBLE?
-            self._lib.kHighsModelStatusUnbounded: OS.UNBOUNDED,
-            self._lib.kHighsModelStatusObjectiveBound: None,
-            self._lib.kHighsModelStatusObjectiveTarget: None,
-            self._lib.kHighsModelStatusTimeLimit: None,
-            self._lib.kHighsModelStatusIterationLimit: None,
-            self._lib.kHighsModelStatusUnknown: OS.OTHER,
-            self._lib.kHighsModelStatusSolutionLimit: None,
+            lib.kHighsModelStatusUnbounded: OS.UNBOUNDED,
+            lib.kHighsModelStatusObjectiveBound: None,
+            lib.kHighsModelStatusObjectiveTarget: None,
+            lib.kHighsModelStatusTimeLimit: None,
+            lib.kHighsModelStatusIterationLimit: None,
+            lib.kHighsModelStatusUnknown: None,
+            lib.kHighsModelStatusSolutionLimit: None,
         }
-        highs_status = self._lib.Highs_getModelStatus(self._model)
         status = status_map[highs_status]
         if status is None:
             # depends on solution status

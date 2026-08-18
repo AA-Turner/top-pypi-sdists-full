@@ -1,11 +1,11 @@
 """Builtin tool that invokes a tool on an MCP server."""
 
-import contextlib
 from collections.abc import Iterable, Mapping
 from typing import Any
 
 from pydantic import BaseModel, ConfigDict, SerializeAsAny
 
+from mistralai.vibe.sdk.agent.execution.resources.context import current_execution_scope
 from mistralai.vibe.sdk.capabilities.adapters.local_function import ToolTaskConfig
 from mistralai.vibe.sdk.capabilities.authoring import tool
 from mistralai.vibe.sdk.capabilities.mcp.config import McpConfigBase
@@ -14,6 +14,7 @@ from mistralai.vibe.sdk.capabilities.mcp.initialization import (
     McpInitializationContent,
     McpInitOk,
 )
+from mistralai.vibe.sdk.capabilities.mcp.resource import McpResourceDefinition
 from mistralai.vibe.sdk.execution_record.state import HistoryEntry, StateEntry
 
 __all__ = [
@@ -44,14 +45,10 @@ class McpToolArgs(BaseModel):
     ctx_schema=McpCallToolContext,
 )
 async def mcp_call_tool(ctx: McpCallToolContext, args: McpToolArgs) -> Any:
-    """Open a connection to the MCP server and invoke ``ctx.tool_name``."""
-    adapter = ctx.mcp_config.create_adapter()
-    try:
-        await adapter.setup()
-        return await adapter.invoke_tool(ctx.tool_name, args.model_dump())
-    finally:
-        with contextlib.suppress(Exception):
-            await adapter.teardown()
+    """Invoke the initialized tool name on the scope's shared MCP connection."""
+    adapter = await current_execution_scope().get(McpResourceDefinition(ctx.mcp_config))
+
+    return await adapter.invoke_tool(ctx.tool_name, args.model_dump())
 
 
 def mcp_tool_configs_from_history(

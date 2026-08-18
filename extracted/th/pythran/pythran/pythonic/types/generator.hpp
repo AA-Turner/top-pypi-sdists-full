@@ -4,7 +4,6 @@
 #include "pythonic/include/types/generator.hpp"
 
 #include "pythonic/builtins/StopIteration.hpp"
-#include <iterator>
 
 PYTHONIC_NS_BEGIN
 
@@ -33,7 +32,7 @@ namespace types
   }
 
   template <class T>
-  typename T::result_type generator_iterator<T>::operator*() const
+  typename generator_iterator<T>::value_type generator_iterator<T>::operator*() const
   {
     return *the_generator;
   }

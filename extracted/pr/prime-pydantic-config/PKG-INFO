@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: prime-pydantic-config
-Version: 0.4.2
+Version: 0.4.3
 Summary: Pydantic-driven CLI with TOML/YAML config file support for ML
 Project-URL: Homepage, https://github.com/PrimeIntellect-ai/pydantic-config
 Project-URL: Repository, https://github.com/PrimeIntellect-ai/pydantic-config

@@ -36,7 +36,8 @@ class TestPostUpsolveTenant(unittest.TestCase):
         if include_optional:
             return PostUpsolveTenant(
                 resource_kind = 'platform',
-                resource_id = ''
+                resource_id = '',
+                prefilter_project_id = ''
             )
         else:
             return PostUpsolveTenant(

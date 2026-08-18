@@ -1,1 +1,0 @@
-import"./rolldown-runtime-G-74P12b.js";import{at as e}from"./vendor-primevue-Dd3-YZer.js";var t=`modal`,n=1700,r={mounted(r){e.set(t,r,n)},beforeUnmount(t){e.clear(t)}};export{t as n,r,n as t};

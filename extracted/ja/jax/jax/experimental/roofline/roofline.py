@@ -28,7 +28,7 @@ from jax._src import source_info_util
 from jax._src import traceback_util
 from jax._src import util
 from jax._src.api import make_jaxpr
-from jax._src.interpreters.partial_eval import dce_jaxpr
+from jax._src.interpreters.partial_eval import dce_jaxpr, lower_jaxpr2
 from jax._src.mesh import AbstractMesh, Mesh
 from jax._src.tree_util import broadcast_prefix, tree_flatten, tree_unflatten, tree_map
 from jax._src.util import foreach
@@ -143,6 +143,12 @@ def _roofline_interpreter(
   pin_lhs_in_vmem: bool = False,
   pin_rhs_in_vmem: bool = False,
 ) -> RooflineResult:
+  if jaxpr.is_high:
+    # we interpret the body of a shard_map, so all mesh axes are in scope
+    axes = list(mesh.shape.items()) if mesh is not None else []
+    with core.extend_axis_env_nd(axes):
+      jaxpr = lower_jaxpr2(jaxpr)
+
   name_stack = source_info_util.new_name_stack(util.wrap_name("roofline", f_name))
 
   result = RooflineResult.zeros()

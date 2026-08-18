@@ -3248,6 +3248,49 @@ def test_sort_container_sinks_interleaved_foreign_header() -> None:
     }
 
 
+def test_sort_container_keeps_every_mixed_keys_leaf_ahead_of_every_section() -> None:
+    """A reorder of two mixed keys must not sink a leaf under a header.
+
+    ``b`` and ``c`` each own a dotted leaf *and* a section, so each
+    contributes both a leaf block and a structural block to the reorder,
+    and the two blocks of one key straddle the other key's. Keeping
+    every leaf ahead of every section is the only thing stopping
+    ``c.x = 1`` from being emitted inside ``[t.b.z]``, where a re-parse
+    binds it to ``t.b.z`` rather than to ``t.c``. The logical view would
+    go on claiming otherwise, so the round-trip is what catches it.
+    """
+    doc = tomlrt.loads(
+        td("""
+            [t]
+            c.x = 1
+            b.x = 2
+
+            [t.c.z]
+            k = 3
+
+            [t.b.z]
+            k = 4
+            """)
+    )
+    doc["t"].sort()
+    out = tomlrt.dumps(doc)
+    assert out == td("""
+        [t]
+        b.x = 2
+        c.x = 1
+
+        [t.b.z]
+        k = 4
+
+        [t.c.z]
+        k = 3
+        """)
+    assert _reparses(out) == doc.to_dict()
+    assert doc.to_dict() == {
+        "t": {"b": {"x": 2, "z": {"k": 4}}, "c": {"x": 1, "z": {"k": 3}}},
+    }
+
+
 def test_aot_reverse_moves_leading_comments_with_entries() -> None:
     src = td("""
         # A
@@ -3439,6 +3482,29 @@ def test_aot_slice_replace_before_surviving_entries() -> None:
         """)
 
 
+def test_aot_slice_insert_before_surviving_entries() -> None:
+    doc = tomlrt.loads(
+        td("""
+            [[items]]
+            name = "a"
+
+            [[items]]
+            name = "c"
+            """)
+    )
+    doc.aot("items")[1:1] = [{"name": "b"}]
+    assert tomlrt.dumps(doc) == td("""
+        [[items]]
+        name = "a"
+
+        [[items]]
+        name = "b"
+
+        [[items]]
+        name = "c"
+        """)
+
+
 def test_aot_slice_replace_extended_matching_length() -> None:
     doc = tomlrt.loads(
         td("""
@@ -3540,15 +3606,6 @@ def test_array_imul_negative_clears() -> None:
     xs = doc.array("xs")
     xs *= -3
     assert list(xs) == []
-
-
-def test_array_imul_repeats_items() -> None:
-    doc = tomlrt.loads("xs = [1, 2]\n")
-    xs = doc.array("xs")
-    xs *= 3
-    out = tomlrt.dumps(doc)
-    assert out == "xs = [1, 2, 1, 2, 1, 2]\n"
-    assert _reparses(out) == {"xs": [1, 2, 1, 2, 1, 2]}
 
 
 def test_array_imul_preserves_no_trailing_comma() -> None:
@@ -4251,13 +4308,6 @@ def test_array_get_table_in_range_and_default() -> None:
     assert t is not None
     assert t["a"] == 1
     assert arr.get_table(99) is None
-
-
-def test_array_get_table_raises_typeerror_on_wrong_type() -> None:
-    doc = tomlrt.loads("xs = [1, 2]\n")
-    arr = doc.array("xs")
-    with pytest.raises(TypeError, match="not a Table"):
-        arr.get_table(0)
 
 
 # ---------------------------------------------------------------------------
@@ -8623,7 +8673,7 @@ def test_promote_array_missing_key_raises() -> None:
 
 def test_promote_array_not_an_array_raises() -> None:
     doc = tomlrt.loads("a = 1\n")
-    with pytest.raises(TypeError, match="not an array"):
+    with pytest.raises(tomlrt.TOMLError, match="not an array"):
         doc.promote_array("a")
 
 
@@ -8667,6 +8717,34 @@ def test_promote_array_with_entry_inner_comments_raises() -> None:
     doc = tomlrt.loads(src)
     with pytest.raises(tomlrt.TOMLError, match="inner comments"):
         doc.promote_array("a")
+
+
+def test_promote_refusals_are_all_toml_errors() -> None:
+    """Every wrong-shape refusal from `promote_inline` / `promote_array` is a
+    `TOMLError`, so the handler the errors documentation shows actually
+    catches them. A missing key still raises `KeyError`, mirroring `dict`.
+    """
+    doc = tomlrt.loads(
+        td("""
+        [project]
+        [project.authors]
+        name = "me"
+    """)
+    )
+    with pytest.raises(tomlrt.TOMLError, match="not an inline table"):
+        doc.table("project").promote_inline("authors")
+
+    doc = tomlrt.loads("a = 1\nb = [1, 2]\n")
+    for call in (
+        lambda: doc.promote_inline("a"),
+        lambda: doc.promote_array("a"),
+        lambda: doc.promote_array("b"),
+    ):
+        with pytest.raises(tomlrt.TOMLError):
+            call()
+
+    with pytest.raises(KeyError, match="not in table"):
+        doc.promote_inline("missing")
 
 
 # ---------------------------------------------------------------------------

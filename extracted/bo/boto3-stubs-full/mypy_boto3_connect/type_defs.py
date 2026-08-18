@@ -116,6 +116,7 @@ from .literals import (
     MetricUnitType,
     MonitorCapabilityType,
     MultiSelectQuestionRuleCategoryAutomationConditionType,
+    NotFoundBehaviorTypeType,
     NotificationPriorityType,
     NotificationSourceType,
     NotificationStatusType,
@@ -403,6 +404,8 @@ __all__ = (
     "CreateEmailAddressResponseTypeDef",
     "CreateEvaluationFormRequestTypeDef",
     "CreateEvaluationFormResponseTypeDef",
+    "CreateExtractionDefinitionRequestTypeDef",
+    "CreateExtractionDefinitionResponseTypeDef",
     "CreateHoursOfOperationOverrideRequestTypeDef",
     "CreateHoursOfOperationOverrideResponseTypeDef",
     "CreateHoursOfOperationRequestTypeDef",
@@ -500,6 +503,7 @@ __all__ = (
     "DeleteDataTableRequestTypeDef",
     "DeleteEmailAddressRequestTypeDef",
     "DeleteEvaluationFormRequestTypeDef",
+    "DeleteExtractionDefinitionRequestTypeDef",
     "DeleteHoursOfOperationOverrideRequestTypeDef",
     "DeleteHoursOfOperationRequestTypeDef",
     "DeleteInstanceRequestTypeDef",
@@ -552,6 +556,8 @@ __all__ = (
     "DescribeEmailAddressResponseTypeDef",
     "DescribeEvaluationFormRequestTypeDef",
     "DescribeEvaluationFormResponseTypeDef",
+    "DescribeExtractionDefinitionRequestTypeDef",
+    "DescribeExtractionDefinitionResponseTypeDef",
     "DescribeHoursOfOperationOverrideRequestTypeDef",
     "DescribeHoursOfOperationOverrideResponseTypeDef",
     "DescribeHoursOfOperationRequestTypeDef",
@@ -758,6 +764,14 @@ __all__ = (
     "ExtensionConfigurationTypeDef",
     "ExtensionConfigurationUnionTypeDef",
     "ExternalInvocationConfigurationTypeDef",
+    "ExtractInformationActionDefinitionOutputTypeDef",
+    "ExtractInformationActionDefinitionTypeDef",
+    "ExtractInformationActionDefinitionUnionTypeDef",
+    "ExtractionConfigurationTypeDef",
+    "ExtractionDefinitionDisplayTypeDef",
+    "ExtractionDefinitionNotFoundBehaviorTypeDef",
+    "ExtractionDefinitionSummaryTypeDef",
+    "ExtractionDefinitionTypeDef",
     "FailedBatchAssociationSummaryTypeDef",
     "FailedRequestTypeDef",
     "FieldValueOutputTypeDef",
@@ -926,6 +940,9 @@ __all__ = (
     "ListEvaluationFormsRequestPaginateTypeDef",
     "ListEvaluationFormsRequestTypeDef",
     "ListEvaluationFormsResponseTypeDef",
+    "ListExtractionDefinitionsRequestPaginateTypeDef",
+    "ListExtractionDefinitionsRequestTypeDef",
+    "ListExtractionDefinitionsResponseTypeDef",
     "ListFlowAssociationsRequestPaginateTypeDef",
     "ListFlowAssociationsRequestTypeDef",
     "ListFlowAssociationsResponseTypeDef",
@@ -1253,6 +1270,7 @@ __all__ = (
     "RuleTriggerEventSourceTypeDef",
     "RuleTypeDef",
     "RulesConfigurationTypeDef",
+    "RulesExtractionDefinitionIdentifierTypeDef",
     "RulesSearchCriteriaPaginatorTypeDef",
     "RulesSearchCriteriaTypeDef",
     "RulesSearchFilterTypeDef",
@@ -1501,6 +1519,7 @@ __all__ = (
     "UpdateEmailAddressMetadataResponseTypeDef",
     "UpdateEvaluationFormRequestTypeDef",
     "UpdateEvaluationFormResponseTypeDef",
+    "UpdateExtractionDefinitionRequestTypeDef",
     "UpdateHoursOfOperationOverrideRequestTypeDef",
     "UpdateHoursOfOperationRequestTypeDef",
     "UpdateInstanceAttributeRequestTypeDef",
@@ -2521,6 +2540,10 @@ class EvaluationFormTargetConfigurationTypeDef(TypedDict):
     ContactInteractionType: ContactInteractionTypeType
 
 
+class ExtractionDefinitionDisplayTypeDef(TypedDict):
+    Label: NotRequired[str]
+
+
 class CreateInstanceRequestTypeDef(TypedDict):
     IdentityManagementType: DirectoryTypeType
     InboundCallsEnabled: bool
@@ -2825,6 +2848,11 @@ class DeleteEvaluationFormRequestTypeDef(TypedDict):
     EvaluationFormVersion: NotRequired[int]
 
 
+class DeleteExtractionDefinitionRequestTypeDef(TypedDict):
+    InstanceId: str
+    ExtractionDefinitionId: str
+
+
 class DeleteHoursOfOperationOverrideRequestTypeDef(TypedDict):
     InstanceId: str
     HoursOfOperationId: str
@@ -3026,6 +3054,11 @@ class DescribeEvaluationFormRequestTypeDef(TypedDict):
     InstanceId: str
     EvaluationFormId: str
     EvaluationFormVersion: NotRequired[int]
+
+
+class DescribeExtractionDefinitionRequestTypeDef(TypedDict):
+    InstanceId: str
+    ExtractionDefinitionId: str
 
 
 class DescribeHoursOfOperationOverrideRequestTypeDef(TypedDict):
@@ -3540,6 +3573,24 @@ class ExpiryTypeDef(TypedDict):
     ExpiryTimestamp: NotRequired[datetime]
 
 
+class RulesExtractionDefinitionIdentifierTypeDef(TypedDict):
+    Identifier: str
+
+
+class ExtractionDefinitionNotFoundBehaviorTypeDef(TypedDict):
+    Behavior: NotFoundBehaviorTypeType
+    DefaultValue: NotRequired[str]
+
+
+class ExtractionDefinitionSummaryTypeDef(TypedDict):
+    Name: str
+    ExtractionDefinitionId: str
+    ExtractionDefinitionArn: str
+    CreatedTime: datetime
+    LastUpdatedTime: datetime
+    LastUpdatedBy: str
+
+
 class FieldValueUnionTypeDef(TypedDict):
     BooleanValue: NotRequired[bool]
     DoubleValue: NotRequired[float]
@@ -3912,6 +3963,12 @@ class ListEvaluationFormVersionsRequestTypeDef(TypedDict):
 
 
 class ListEvaluationFormsRequestTypeDef(TypedDict):
+    InstanceId: str
+    MaxResults: NotRequired[int]
+    NextToken: NotRequired[str]
+
+
+class ListExtractionDefinitionsRequestTypeDef(TypedDict):
     InstanceId: str
     MaxResults: NotRequired[int]
     NextToken: NotRequired[str]
@@ -5402,6 +5459,12 @@ class CreateEmailAddressResponseTypeDef(TypedDict):
 class CreateEvaluationFormResponseTypeDef(TypedDict):
     EvaluationFormId: str
     EvaluationFormArn: str
+    ResponseMetadata: ResponseMetadataTypeDef
+
+
+class CreateExtractionDefinitionResponseTypeDef(TypedDict):
+    ExtractionDefinitionArn: str
+    ExtractionDefinitionId: str
     ResponseMetadata: ResponseMetadataTypeDef
 
 
@@ -7271,6 +7334,25 @@ class ListTestCaseExecutionRecordsResponseTypeDef(TypedDict):
     NextToken: NotRequired[str]
 
 
+class ExtractInformationActionDefinitionOutputTypeDef(TypedDict):
+    RulesExtractionDefinitions: list[RulesExtractionDefinitionIdentifierTypeDef]
+
+
+class ExtractInformationActionDefinitionTypeDef(TypedDict):
+    RulesExtractionDefinitions: Sequence[RulesExtractionDefinitionIdentifierTypeDef]
+
+
+class ExtractionConfigurationTypeDef(TypedDict):
+    PromptHint: str
+    NotFoundBehavior: NotRequired[ExtractionDefinitionNotFoundBehaviorTypeDef]
+
+
+class ListExtractionDefinitionsResponseTypeDef(TypedDict):
+    ExtractionDefinitionSummaryList: list[ExtractionDefinitionSummaryTypeDef]
+    ResponseMetadata: ResponseMetadataTypeDef
+    NextToken: NotRequired[str]
+
+
 FieldValueUnionUnionTypeDef = Union[FieldValueUnionTypeDef, FieldValueUnionOutputTypeDef]
 
 
@@ -7402,6 +7484,11 @@ class ListEvaluationFormVersionsRequestPaginateTypeDef(TypedDict):
 
 
 class ListEvaluationFormsRequestPaginateTypeDef(TypedDict):
+    InstanceId: str
+    PaginationConfig: NotRequired[PaginatorConfigTypeDef]
+
+
+class ListExtractionDefinitionsRequestPaginateTypeDef(TypedDict):
     InstanceId: str
     PaginationConfig: NotRequired[PaginatorConfigTypeDef]
 
@@ -8982,6 +9069,41 @@ class EvaluationGenAIAnswerAnalysisDetailsTypeDef(TypedDict):
     PointsOfInterest: NotRequired[list[EvaluationTranscriptPointOfInterestTypeDef]]
 
 
+ExtractInformationActionDefinitionUnionTypeDef = Union[
+    ExtractInformationActionDefinitionTypeDef, ExtractInformationActionDefinitionOutputTypeDef
+]
+
+
+class CreateExtractionDefinitionRequestTypeDef(TypedDict):
+    InstanceId: str
+    Name: str
+    ExtractionConfiguration: ExtractionConfigurationTypeDef
+    ClientToken: NotRequired[str]
+    Display: NotRequired[ExtractionDefinitionDisplayTypeDef]
+    Tags: NotRequired[Mapping[str, str]]
+
+
+class ExtractionDefinitionTypeDef(TypedDict):
+    Name: str
+    ExtractionDefinitionId: str
+    ExtractionDefinitionArn: str
+    ExtractionConfiguration: ExtractionConfigurationTypeDef
+    CreatedTime: datetime
+    LastUpdatedTime: datetime
+    LastUpdatedBy: str
+    Display: NotRequired[ExtractionDefinitionDisplayTypeDef]
+    Tags: NotRequired[dict[str, str]]
+
+
+class UpdateExtractionDefinitionRequestTypeDef(TypedDict):
+    ExtractionDefinitionId: str
+    InstanceId: str
+    Name: str
+    ExtractionConfiguration: ExtractionConfigurationTypeDef
+    ClientToken: NotRequired[str]
+    Display: NotRequired[ExtractionDefinitionDisplayTypeDef]
+
+
 CaseSlaConfigurationTypeDef = TypedDict(
     "CaseSlaConfigurationTypeDef",
     {
@@ -9811,6 +9933,7 @@ class RuleActionOutputTypeDef(TypedDict):
     AssignSlaAction: NotRequired[AssignSlaActionDefinitionOutputTypeDef]
     EndAssociatedTasksAction: NotRequired[dict[str, Any]]
     SubmitAutoEvaluationAction: NotRequired[SubmitAutoEvaluationActionDefinitionTypeDef]
+    ExtractInformationAction: NotRequired[ExtractInformationActionDefinitionOutputTypeDef]
 
 
 class UserSearchCriteriaPaginatorTypeDef(TypedDict):
@@ -9958,6 +10081,11 @@ EvaluationReviewConfigurationUnionTypeDef = Union[
 
 class EvaluationContactLensAnswerAnalysisDetailsTypeDef(TypedDict):
     MatchedRuleCategories: NotRequired[list[EvaluationAutomationRuleCategoryTypeDef]]
+
+
+class DescribeExtractionDefinitionResponseTypeDef(TypedDict):
+    ExtractionDefinition: ExtractionDefinitionTypeDef
+    ResponseMetadata: ResponseMetadataTypeDef
 
 
 CaseSlaConfigurationUnionTypeDef = Union[
@@ -10973,6 +11101,7 @@ class RuleActionTypeDef(TypedDict):
     AssignSlaAction: NotRequired[AssignSlaActionDefinitionUnionTypeDef]
     EndAssociatedTasksAction: NotRequired[Mapping[str, Any]]
     SubmitAutoEvaluationAction: NotRequired[SubmitAutoEvaluationActionDefinitionTypeDef]
+    ExtractInformationAction: NotRequired[ExtractInformationActionDefinitionUnionTypeDef]
 
 
 class EvaluationFormMultiSelectQuestionPropertiesTypeDef(TypedDict):

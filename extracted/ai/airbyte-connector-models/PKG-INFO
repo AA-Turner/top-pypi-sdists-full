@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: airbyte-connector-models
-Version: 0.1.10
+Version: 0.1.11
 Summary: Typed Pydantic models for Airbyte connectors
 Project-URL: Homepage, https://github.com/airbytehq/airbyte-connector-models
 Project-URL: Repository, https://github.com/airbytehq/airbyte-connector-models

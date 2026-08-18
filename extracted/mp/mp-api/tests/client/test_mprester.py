@@ -2,6 +2,7 @@ import importlib
 import itertools
 import os
 import random
+from collections import defaultdict
 from tempfile import NamedTemporaryFile
 
 import numpy as np
@@ -295,6 +296,48 @@ loop_
             MPRestError, match="Please specify fewer elements to query by"
         ):
             mpr.get_entries_in_chemsys([Element.from_Z(1 + i).name for i in range(10)])
+
+    def test_get_entries_in_chemsys_mixed_hull(self, mpr):
+        """Mixed GGA(+U)/r2SCAN entries must all sit on one energy scale (issue #1104).
+
+        The mixing correction served with an entry is referenced to the hull of the single
+        chemical system that entry's thermo doc was built for, so pooling the served entries
+        across subsystems put Cs2TiI6 ~4.6 eV/atom above the hull instead of on it.
+        """
+        entries = mpr.get_entries_in_chemsys("Cs-Ti-I")
+        phase_diagram = PhaseDiagram(entries)
+        host = next(e for e in entries if e.composition.reduced_formula == "Cs2TiI6")
+        assert phase_diagram.get_e_above_hull(host) == pytest.approx(0.0, abs=1e-6)
+
+        # hull distances must match the ones MP serves, and no material may go missing --
+        # both fail if this silently falls through to re-applying the mixing scheme here
+        docs = mpr.materials.thermo.search(
+            chemsys=["H-O"],
+            thermo_types=[ThermoType.GGA_GGA_U_R2SCAN],
+            all_fields=False,
+            fields=["material_id", "energy_above_hull"],
+        )
+        entries = mpr.get_entries_in_chemsys("H-O")
+        phase_diagram = PhaseDiagram(entries)
+        by_mpid = defaultdict(list)
+        for entry in entries:
+            by_mpid[str(entry.data["material_id"])].append(entry)
+        for doc in docs:
+            hull_entries = by_mpid[str(doc.material_id)]
+            assert hull_entries, f"{doc.material_id} missing from the returned entries"
+            # a material can have one entry per run type; the served hull distance is the one
+            # for whichever entry MP blessed
+            assert any(
+                phase_diagram.get_e_above_hull(e)
+                == pytest.approx(doc.energy_above_hull, abs=1e-4)
+                for e in hull_entries
+            )
+
+        # a narrowed query cannot be placed on a common scale, so it must say so
+        with pytest.warns(MPRestWarning, match="common energy scale"):
+            mpr.get_entries_in_chemsys(
+                "Cs-Ti-I", additional_criteria={"is_stable": True}
+            )
 
     @pytest.mark.skipif(
         contribs_client is None,
@@ -684,6 +727,15 @@ loop_
         with pytest.raises(ValueError, match="No available insertion electrode data"):
             _ = mpr.get_oxygen_evolution("mp-2207", "Al")
 
+    @pytest.mark.skipif(
+        os.environ.get("GITHUB_ACTIONS") != "true",
+        reason="Slow - don't want to impede local dev",
+    )
+    @pytest.mark.xfail(
+        raises=requests.exceptions.ConnectionError,
+        reason="upstream known to timeout",
+        strict=False,
+    )
     def test_nomad_integration(self, mpr):
         # No particular reason for this MPID other than that it exists in NOMAD.
         target_mpid = "mp-10018"
@@ -696,31 +748,36 @@ loop_
             ),
         ):
             calc_type_map, nomad_urls = mpr.get_download_info(
-                target_mpid, file_patterns=["some_pattern"]
+                target_mpid,
+                file_patterns=["POSCAR.gz"],
+                calc_types=["GGA Static"],
             )
             assert all(
-                isinstance(entry["task_id"], AlphaID)
+                isinstance(entry["task_id_as_alpha"], AlphaID)
                 and isinstance(entry["calc_type"], CalcType)
                 for entry in calc_type_map[target_mpid]
             )
             assert all(
-                url.startswith("https://nomad-lab.eu/prod/rae/api/raw/query")
-                and "file_pattern=some_pattern" in url
+                url.startswith("https://nomad-lab.eu/prod/v1/api/v1/entries/raw")
+                and "glob_pattern=POSCAR" in url
                 for url in nomad_urls
             )
 
             calc_type_map, nomad_urls = mpr.get_download_info(
-                [MPID(target_mpid)], calc_types=["GGA Deformation"]
+                target_mpid,
+                file_patterns=["POSCAR", "OUTCAR"],
+                calc_types=["GGA Static"],
             )
             assert all(
-                isinstance(entry["task_id"], AlphaID)
-                and entry["calc_type"].value == "GGA Deformation"
+                isinstance(entry["task_id_as_alpha"], AlphaID)
+                and isinstance(entry["calc_type"], CalcType)
                 for entry in calc_type_map[target_mpid]
             )
             assert all(
                 url.startswith(
-                    "https://nomad-lab.eu/prod/rae/api/raw/query?external_id="
+                    "https://nomad-lab.eu/prod/v1/api/v1/entries/raw?json_query="
                 )
+                and "re_pattern=POSCAR%7COUTCAR" in url
                 for url in nomad_urls
             )
 

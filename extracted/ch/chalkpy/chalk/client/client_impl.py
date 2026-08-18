@@ -650,8 +650,32 @@ def _upload_table_parquet(
     headers = {}
     if ".blob.core.windows.net" in url:
         headers["x-ms-blob-type"] = "BlockBlob"
-    resp = requests.put(url, data=written_bytes, headers=headers)
-    resp.raise_for_status()
+
+    def _do_put() -> None:
+        # Rewind before every attempt (including retries) -- a prior failed attempt
+        # may have advanced the buffer's read position.
+        written_bytes.seek(0)
+        resp = requests.put(url, data=written_bytes, headers=headers, timeout=120)
+        resp.raise_for_status()
+
+    # Application-level retry:
+    # Match on exception *type*, not message text: requests.exceptions.ConnectionError
+    # (and friends) don't reliably embed their own class name in str(exc) -- e.g.
+    # str(requests.exceptions.ConnectionError("Connection reset by peer")) is just
+    # "Connection reset by peer", with no "ConnectionError" substring to match on.
+    # SSLError and ProxyError subclass ConnectionError; ConnectTimeout/ReadTimeout
+    # subclass Timeout.
+    _RETRYABLE_UPLOAD_EXCEPTIONS = (
+        requests.exceptions.ConnectionError,
+        requests.exceptions.Timeout,
+        requests.exceptions.ChunkedEncodingError,
+    )
+    retry_call(
+        _do_put,
+        attempts=4,
+        retry_if=lambda exc: isinstance(exc, _RETRYABLE_UPLOAD_EXCEPTIONS),
+        wait=wait_exponential_jitter(initial=1, max_seconds=15),
+    )
 
 
 def _convert_datetime_param(

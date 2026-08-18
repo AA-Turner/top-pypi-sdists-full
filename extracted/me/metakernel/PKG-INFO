@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: metakernel
-Version: 1.0.6
+Version: 1.0.7
 Summary: A Jupyter/IPython Kernel base class in Python
 License-Expression: BSD-3-Clause
 License-File: LICENSE.txt

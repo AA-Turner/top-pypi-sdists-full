@@ -1110,7 +1110,7 @@ _ma_template_coord.occupancy
 _ma_template_coord.label_entity_id
 _ma_template_coord.B_iso_or_equiv
 _ma_template_coord.formal_charge
-1 ATOM 1 C CA ALA 1 A 42 A X XXX 0 1.000 2.000 0.500 9 2.000 1.000
+1 ATOM 1 C CA ALA 1 A 42 A X XXX 0.000 1.000 2.000 0.500 9 2.000 1.000
 1 ATOM 2 O OXT CYS 2 A . A . . 1.000 2.000 3.000 . 9 . .
 #
 """)
@@ -1388,7 +1388,10 @@ _ma_associated_archive_file_details.data_id
         e2._id = 2
         e3 = ihm.Entity([ihm.NonPolymerChemComp('ZN')], description='zinc')
         e3._id = 3
-        system.entities.extend((e1, e2, e3))
+        # Branched entity (ignored)
+        e4 = modelcif.Entity(
+            [ihm.SaccharideChemComp('NAG'), ihm.SaccharideChemComp('FUC')])
+        system.entities.extend((e1, e2, e3, e4))
 
         t2 = modelcif.Template(e2, 'A', model_num=1, transformation=None)
         a1 = modelcif.AsymUnit(e1, 'foo')
@@ -1447,14 +1450,14 @@ _chem_comp.name
 _chem_comp.formula
 _chem_comp.formula_weight
 _chem_comp.ma_provenance
-ALA 'L-peptide linking' ALANINE 'C3 H7 N O2' 89.094 'CCD Core'
+ALA 'L-peptide linking' ALANINE 'C3 H7 N O2' 89.093 'CCD Core'
 C1 non-polymer C1 . . 'CCD Core'
 C2 non-polymer C2 . . 'CCD Core'
 C3 non-polymer C3 . . 'CCD MA'
 C4 non-polymer C4 . . 'CCD local'
-CYS 'L-peptide linking' CYSTEINE 'C3 H7 N O2 S' 121.154 'CCD Core'
+CYS 'L-peptide linking' CYSTEINE 'C3 H7 N O2 S' 121.158 'CCD Core'
 GLY 'peptide linking' GLYCINE 'C2 H5 N O2' 75.067 'CCD Core'
-THR 'L-peptide linking' THREONINE 'C4 H9 N O3' 119.120 'CCD Core'
+THR 'L-peptide linking' THREONINE 'C4 H9 N O3' 119.119 'CCD Core'
 #
 """)
 
@@ -1590,6 +1593,33 @@ _struct_ref_seq_dif.details
 1 1 TRP ? SER 2 'Test mutation'
 #
 """)
+
+    def test_write_branched(self):
+        """Test write() output of branched entity information"""
+        # Tests for individual dumpers are already present in python-ihm;
+        # here we just test to make sure they are being called by write()
+        s = modelcif.System()
+        e = modelcif.Entity(
+            [ihm.SaccharideChemComp('NAG'),
+             ihm.SaccharideChemComp('BMC'),
+             ihm.SaccharideChemComp('FUC')])
+        e.branch_descriptors.append(
+            ihm.BranchDescriptor('bar', type='typ2'))
+        e.branch_links.append(
+            ihm.BranchLink(num1=2, atom_id1='CA', leaving_atom_id1='H1',
+                           num2=3, atom_id2='N', leaving_atom_id2='H2'))
+        s.entities.append(e)
+        asym = modelcif.AsymUnit(e, 'foo')
+        s.asym_units.append(asym)
+
+        fh = StringIO()
+        modelcif.dumper.write(fh, [s])
+        output = fh.getvalue()
+        self.assertIn('_pdbx_entity_branch_list.hetero', output)
+        self.assertIn('_pdbx_entity_branch.type', output)
+        self.assertIn('_pdbx_branch_scheme.entity_id', output)
+        self.assertIn('_pdbx_entity_branch_descriptor.ordinal', output)
+        self.assertIn('_pdbx_entity_branch_link.comp_id_1', output)
 
 
 if __name__ == '__main__':

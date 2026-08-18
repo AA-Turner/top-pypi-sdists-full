@@ -18,8 +18,9 @@ import pprint
 import re  # noqa: F401
 import json
 
-from pydantic import BaseModel, ConfigDict, StrictBool, StrictInt, StrictStr
+from pydantic import BaseModel, ConfigDict, Field, StrictBool, StrictInt, StrictStr
 from typing import Any, ClassVar, Dict, List, Optional
+from uuid import UUID
 from typing import Optional, Set
 from typing_extensions import Self
 
@@ -28,13 +29,14 @@ class Author(BaseModel):
     Author
     """ # noqa: E501
     id: Optional[StrictInt] = None
-    author_id: Optional[StrictInt] = None
+    uuid: Optional[UUID] = Field(default=None, description="Author UUID. Use it to reference the author in other API methods.")
+    author_id: Optional[StrictInt] = Field(default=None, description="Deprecated, use `uuid` instead.")
     entity_type: Optional[StrictStr] = None
     entity_id: Optional[StrictInt] = None
     email: Optional[StrictStr] = None
     name: Optional[StrictStr] = None
     is_active: Optional[StrictBool] = None
-    __properties: ClassVar[List[str]] = ["id", "author_id", "entity_type", "entity_id", "email", "name", "is_active"]
+    __properties: ClassVar[List[str]] = ["id", "uuid", "author_id", "entity_type", "entity_id", "email", "name", "is_active"]
 
     model_config = ConfigDict(
         populate_by_name=True,
@@ -88,6 +90,7 @@ class Author(BaseModel):
 
         _obj = cls.model_validate({
             "id": obj.get("id"),
+            "uuid": obj.get("uuid"),
             "author_id": obj.get("author_id"),
             "entity_type": obj.get("entity_type"),
             "entity_id": obj.get("entity_id"),

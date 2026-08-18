@@ -177,6 +177,28 @@ def remove_pict_groups(rtf_text):
     return "".join(result)
 
 FONTTABLE = re.compile(r"\\f(\d+).*?\\fcharset(\d+).*?([^;]+);")
+FONTTABLE_START = re.compile(r"{[^{}]*\\fonttbl")
+BRACE = re.compile(r"[{}]")
+
+
+def font_table_group(text):
+    """
+    Return the ``{\\fonttbl ...}`` group of the RTF text, or "" if there is none.
+
+    The font table regex is expensive to run against a whole document, so it is
+    only applied to this slice. See issue 71.
+    """
+    start = FONTTABLE_START.search(text)
+    if not start:
+        return ""
+    depth = 1
+    for brace in BRACE.finditer(text, start.end()):
+        depth += 1 if brace.group() == "{" else -1
+        if depth == 0:
+            return text[start.start() : brace.end()]
+    # unbalanced braces, take what is left
+    return text[start.start() :]
+
 
 def rtf_to_text(text, encoding="cp1252", errors="strict"):
     """Converts the rtf text to plain text.
@@ -213,9 +235,11 @@ def rtf_to_text(text, encoding="cp1252", errors="strict"):
     curskip = 0  # Number of ASCII characters left to skip
     hexes = None
     out = ""
+    depth = 0  # Current group nesting level
+    in_document = False  # Whether the outer document group has been entered
 
     # Simplified font table regex
-    fonttbl_matches = FONTTABLE.findall(text)
+    fonttbl_matches = FONTTABLE.findall(font_table_group(text))
     for font_id, fcharset, font_name in fonttbl_matches:
         fonttbl[font_id] = {
             "name": font_name.strip(),
@@ -237,9 +261,12 @@ def rtf_to_text(text, encoding="cp1252", errors="strict"):
             curskip = 0
             if brace == "{":
                 # Push state
+                depth += 1
+                in_document = True
                 stack.append((ucskip, ignorable, suppress_output))
             elif brace == "}":
                 # Pop state
+                depth -= 1
                 if stack:
                     ucskip, ignorable, suppress_output = stack.pop()
                 # sample_3.rtf throws an IndexError because of stack being empty.
@@ -248,6 +275,10 @@ def rtf_to_text(text, encoding="cp1252", errors="strict"):
                 else:
                     ucskip = 0
                     ignorable = True
+                if in_document and depth <= 0:
+                    # The outer document group is closed, anything after it is
+                    # out of band and discarded like Word/WordPad do. See issue 69.
+                    break
         elif char:  # \x (not a letter)
             curskip = 0
             if char in specialchars:

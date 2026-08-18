@@ -7,10 +7,10 @@ from .ArgSingle import ArgSingle
 from .ArgSingleList import ArgSingleList
 from .Conversions import BinFloatFormat, BinIntFormat
 from .Instrument import Instrument
-from .InstrumentSettings import InstrViClearMode, InstrumentSettings, WaitForOpcMode, OpcSyncQueryMechanism
-from .ScpiLogger import LoggingMode
 from .InstrumentErrors import RsInstrException
+from .InstrumentSettings import InstrumentSettings, InstrViClearMode, OpcSyncQueryMechanism, WaitForOpcMode
 from .Properties import Properties
+from .ScpiLogger import LoggingMode
 
 
 class Core(object):
@@ -21,6 +21,9 @@ class Core(object):
 		- Link handlers adding / changing / deleting
 
 		Version history:
+
+		1.115.0 (12.08.2026)
+		- Added boolean flag optimize_opc_execute - used in the execute() user method.
 
 		1.114.0 (21.07.2026)
 		- Fixed compatibility issue with Python 3.10 and 3.11
@@ -282,7 +285,7 @@ class Core(object):
 		"""Initializes new driver session. For cleaner code, use the class methods: \n
 		- Core.from_existing_session() - initializes a new Core with an existing pyvisa session."""
 
-		self.core_version = '1.114.0'
+		self.core_version = '1.115.0'
 		self.resource_name = resource_name
 		self.called_from_driver = called_from_driver
 
@@ -384,8 +387,27 @@ class Core(object):
 		"""Applies settings relevant for the Instrument from the InstrumentSettings structure."""
 		if settings.instrument_status_check is not None:
 			self.io.query_instr_status = settings.instrument_status_check
+
 		if self.simulating and settings.instrument_simulation_idn_string is not None:
 			self.io.idn_string = settings.instrument_simulation_idn_string
+
+	@property
+	def optimize_opc_execute(self) -> bool:
+		"""Sets / returns how the ``execute()`` method interprets a trailing OPC suffix.
+		This flag only takes effect in the ``execute()`` method.
+		- False (default): only a trailing ``;*OPC`` triggers OPC-synchronized execution (``write_with_opc`` / ``query_with_opc``); a trailing ``;*OPC?`` is sent as an ordinary query.
+		- True: in addition to the ``;*OPC``, a trailing ``;*OPC?`` triggers OPC-synchronized execution as well.
+		Same as the ``OptimizeOpcExecute`` init option token. The default after initializing the session is False."""
+		return self._instrumentSettings.optimize_opc_execute
+
+	@optimize_opc_execute.setter
+	def optimize_opc_execute(self, value: bool) -> None:
+		"""Sets / returns how the ``execute()`` method interprets a trailing OPC suffix.
+		This flag only takes effect in the ``execute()`` method.
+		- False (default): only a trailing ``;*OPC`` triggers OPC-synchronized execution (``write_with_opc`` / ``query_with_opc``); a trailing ``;*OPC?`` is sent as an ordinary query.
+		- True: in addition to the ``;*OPC``, a trailing ``;*OPC?`` triggers OPC-synchronized execution as well.
+		Same as the ``OptimizeOpcExecute`` init option token. The default after initializing the session is False."""
+		self._instrumentSettings.optimize_opc_execute = value
 
 	@staticmethod
 	def _apply_global_properties(settings: InstrumentSettings) -> None:

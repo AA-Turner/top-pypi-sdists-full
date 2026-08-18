@@ -3,6 +3,9 @@ import typing as t
 from atproto_client.models.models_loader import make_lazy_accessors
 
 if t.TYPE_CHECKING:
+    from atproto_client.models.app.bsky.actor import (
+        content_visibility_declaration as AppBskyActorContentVisibilityDeclaration,
+    )
     from atproto_client.models.app.bsky.actor import defs as AppBskyActorDefs
     from atproto_client.models.app.bsky.actor import get_preferences as AppBskyActorGetPreferences
     from atproto_client.models.app.bsky.actor import get_profile as AppBskyActorGetProfile
@@ -99,6 +102,7 @@ if t.TYPE_CHECKING:
     from atproto_client.models.app.bsky.graph import mute_actor_list as AppBskyGraphMuteActorList
     from atproto_client.models.app.bsky.graph import mute_thread as AppBskyGraphMuteThread
     from atproto_client.models.app.bsky.graph import search_starter_packs as AppBskyGraphSearchStarterPacks
+    from atproto_client.models.app.bsky.graph import search_starter_packs_v2 as AppBskyGraphSearchStarterPacksV2
     from atproto_client.models.app.bsky.graph import starterpack as AppBskyGraphStarterpack
     from atproto_client.models.app.bsky.graph import unmute_actor as AppBskyGraphUnmuteActor
     from atproto_client.models.app.bsky.graph import unmute_actor_list as AppBskyGraphUnmuteActorList
@@ -191,9 +195,14 @@ if t.TYPE_CHECKING:
     from atproto_client.models.app.bsky.unspecced import (
         search_starter_packs_skeleton as AppBskyUnspeccedSearchStarterPacksSkeleton,
     )
+    from atproto_client.models.app.bsky.video import abort_upload as AppBskyVideoAbortUpload
     from atproto_client.models.app.bsky.video import defs as AppBskyVideoDefs
+    from atproto_client.models.app.bsky.video import finish_upload as AppBskyVideoFinishUpload
     from atproto_client.models.app.bsky.video import get_job_status as AppBskyVideoGetJobStatus
     from atproto_client.models.app.bsky.video import get_upload_limits as AppBskyVideoGetUploadLimits
+    from atproto_client.models.app.bsky.video import get_upload_status as AppBskyVideoGetUploadStatus
+    from atproto_client.models.app.bsky.video import start_upload as AppBskyVideoStartUpload
+    from atproto_client.models.app.bsky.video import upload_part as AppBskyVideoUploadPart
     from atproto_client.models.app.bsky.video import upload_video as AppBskyVideoUploadVideo
     from atproto_client.models.chat.bsky.actor import declaration as ChatBskyActorDeclaration
     from atproto_client.models.chat.bsky.actor import defs as ChatBskyActorDefs
@@ -365,6 +374,16 @@ if t.TYPE_CHECKING:
     )
     from atproto_client.models.com.germnetwork import declaration as ComGermnetworkDeclaration
     from atproto_client.models.internal.bsky.actor import get_profiles as InternalBskyActorGetProfiles
+    from atproto_client.models.network.bsky.jetstream import get_block as NetworkBskyJetstreamGetBlock
+    from atproto_client.models.network.bsky.jetstream import get_import_status as NetworkBskyJetstreamGetImportStatus
+    from atproto_client.models.network.bsky.jetstream import get_segment as NetworkBskyJetstreamGetSegment
+    from atproto_client.models.network.bsky.jetstream import (
+        get_zstd_dictionary as NetworkBskyJetstreamGetZstdDictionary,
+    )
+    from atproto_client.models.network.bsky.jetstream import import_timestamps as NetworkBskyJetstreamImportTimestamps
+    from atproto_client.models.network.bsky.jetstream import list_segments as NetworkBskyJetstreamListSegments
+    from atproto_client.models.network.bsky.jetstream import plan_snapshot as NetworkBskyJetstreamPlanSnapshot
+    from atproto_client.models.network.bsky.jetstream import subscribe_events as NetworkBskyJetstreamSubscribeEvents
     from atproto_client.models.site.standard import document as SiteStandardDocument
     from atproto_client.models.site.standard import publication as SiteStandardPublication
     from atproto_client.models.site.standard.graph import recommend as SiteStandardGraphRecommend
@@ -409,6 +428,7 @@ if t.TYPE_CHECKING:
     from atproto_client.models.tools.ozone.queue import unassign_moderator as ToolsOzoneQueueUnassignModerator
     from atproto_client.models.tools.ozone.queue import update_queue as ToolsOzoneQueueUpdateQueue
     from atproto_client.models.tools.ozone.report import assign_moderator as ToolsOzoneReportAssignModerator
+    from atproto_client.models.tools.ozone.report import close_reports as ToolsOzoneReportCloseReports
     from atproto_client.models.tools.ozone.report import create_activity as ToolsOzoneReportCreateActivity
     from atproto_client.models.tools.ozone.report import defs as ToolsOzoneReportDefs
     from atproto_client.models.tools.ozone.report import get_assignments as ToolsOzoneReportGetAssignments
@@ -472,6 +492,7 @@ __getattr__, __dir__ = make_lazy_accessors(__name__)
 
 
 class _Ids:
+    AppBskyActorContentVisibilityDeclaration: str = 'app.bsky.actor.contentVisibilityDeclaration'
     AppBskyActorDefs: str = 'app.bsky.actor.defs'
     AppBskyActorGetPreferences: str = 'app.bsky.actor.getPreferences'
     AppBskyActorGetProfile: str = 'app.bsky.actor.getProfile'
@@ -564,6 +585,7 @@ class _Ids:
     AppBskyGraphMuteActorList: str = 'app.bsky.graph.muteActorList'
     AppBskyGraphMuteThread: str = 'app.bsky.graph.muteThread'
     AppBskyGraphSearchStarterPacks: str = 'app.bsky.graph.searchStarterPacks'
+    AppBskyGraphSearchStarterPacksV2: str = 'app.bsky.graph.searchStarterPacksV2'
     AppBskyGraphStarterpack: str = 'app.bsky.graph.starterpack'
     AppBskyGraphUnmuteActor: str = 'app.bsky.graph.unmuteActor'
     AppBskyGraphUnmuteActorList: str = 'app.bsky.graph.unmuteActorList'
@@ -620,9 +642,14 @@ class _Ids:
     AppBskyUnspeccedSearchActorsSkeleton: str = 'app.bsky.unspecced.searchActorsSkeleton'
     AppBskyUnspeccedSearchPostsSkeleton: str = 'app.bsky.unspecced.searchPostsSkeleton'
     AppBskyUnspeccedSearchStarterPacksSkeleton: str = 'app.bsky.unspecced.searchStarterPacksSkeleton'
+    AppBskyVideoAbortUpload: str = 'app.bsky.video.abortUpload'
     AppBskyVideoDefs: str = 'app.bsky.video.defs'
+    AppBskyVideoFinishUpload: str = 'app.bsky.video.finishUpload'
     AppBskyVideoGetJobStatus: str = 'app.bsky.video.getJobStatus'
     AppBskyVideoGetUploadLimits: str = 'app.bsky.video.getUploadLimits'
+    AppBskyVideoGetUploadStatus: str = 'app.bsky.video.getUploadStatus'
+    AppBskyVideoStartUpload: str = 'app.bsky.video.startUpload'
+    AppBskyVideoUploadPart: str = 'app.bsky.video.uploadPart'
     AppBskyVideoUploadVideo: str = 'app.bsky.video.uploadVideo'
     ChatBskyActorDeclaration: str = 'chat.bsky.actor.declaration'
     ChatBskyActorDefs: str = 'chat.bsky.actor.defs'
@@ -778,6 +805,14 @@ class _Ids:
     ComAtprotoTempRevokeAccountCredentials: str = 'com.atproto.temp.revokeAccountCredentials'
     ComGermnetworkDeclaration: str = 'com.germnetwork.declaration'
     InternalBskyActorGetProfiles: str = 'internal.bsky.actor.getProfiles'
+    NetworkBskyJetstreamGetBlock: str = 'network.bsky.jetstream.getBlock'
+    NetworkBskyJetstreamGetImportStatus: str = 'network.bsky.jetstream.getImportStatus'
+    NetworkBskyJetstreamGetSegment: str = 'network.bsky.jetstream.getSegment'
+    NetworkBskyJetstreamGetZstdDictionary: str = 'network.bsky.jetstream.getZstdDictionary'
+    NetworkBskyJetstreamImportTimestamps: str = 'network.bsky.jetstream.importTimestamps'
+    NetworkBskyJetstreamListSegments: str = 'network.bsky.jetstream.listSegments'
+    NetworkBskyJetstreamPlanSnapshot: str = 'network.bsky.jetstream.planSnapshot'
+    NetworkBskyJetstreamSubscribeEvents: str = 'network.bsky.jetstream.subscribeEvents'
     SiteStandardDocument: str = 'site.standard.document'
     SiteStandardPublication: str = 'site.standard.publication'
     SiteStandardGraphRecommend: str = 'site.standard.graph.recommend'
@@ -816,6 +851,7 @@ class _Ids:
     ToolsOzoneQueueUnassignModerator: str = 'tools.ozone.queue.unassignModerator'
     ToolsOzoneQueueUpdateQueue: str = 'tools.ozone.queue.updateQueue'
     ToolsOzoneReportAssignModerator: str = 'tools.ozone.report.assignModerator'
+    ToolsOzoneReportCloseReports: str = 'tools.ozone.report.closeReports'
     ToolsOzoneReportCreateActivity: str = 'tools.ozone.report.createActivity'
     ToolsOzoneReportDefs: str = 'tools.ozone.report.defs'
     ToolsOzoneReportGetAssignments: str = 'tools.ozone.report.getAssignments'

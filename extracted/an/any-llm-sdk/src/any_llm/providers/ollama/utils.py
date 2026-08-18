@@ -41,6 +41,21 @@ if TYPE_CHECKING:
     )
 
 
+def _convert_tool_calls(tool_calls: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    """Convert OpenAI tool calls to the shape Ollama expects.
+
+    Ollama takes `arguments` as a mapping, while OpenAI serializes it to a JSON string.
+    """
+    converted = []
+    for tool_call in tool_calls:
+        function = tool_call["function"]
+        arguments = function.get("arguments") or {}
+        if isinstance(arguments, str):
+            arguments = json.loads(arguments) if arguments.strip() else {}
+        converted.append({"function": {"name": function["name"], "arguments": arguments}})
+    return converted
+
+
 def _create_openai_embedding_response_from_ollama(
     ollama_response: EmbedResponse,
 ) -> CreateEmbeddingResponse:
@@ -64,6 +79,17 @@ def _create_openai_embedding_response_from_ollama(
         object="list",
         usage=usage,
     )
+
+
+def _extract_ollama_timing_details(response: OllamaChatResponse) -> dict[str, int]:
+    """Return Ollama timing fields in nanoseconds, omitting the ones the provider did not report."""
+    timing = {
+        "total_duration": response.total_duration,
+        "load_duration": response.load_duration,
+        "prompt_eval_duration": response.prompt_eval_duration,
+        "eval_duration": response.eval_duration,
+    }
+    return {field: value for field, value in timing.items() if value is not None}
 
 
 def _create_openai_chunk_from_ollama_chunk(ollama_chunk: OllamaChatResponse) -> ChatCompletionChunk:
@@ -125,11 +151,15 @@ def _create_openai_chunk_from_ollama_chunk(ollama_chunk: OllamaChatResponse) -> 
     usage = None
     prompt_tokens = ollama_chunk.prompt_eval_count
     completion_tokens = ollama_chunk.eval_count
-    if prompt_tokens or completion_tokens:
-        usage = CompletionUsage(
-            prompt_tokens=prompt_tokens or 0,
-            completion_tokens=completion_tokens or 0,
-            total_tokens=(prompt_tokens or 0) + (completion_tokens or 0),
+    timing_details = _extract_ollama_timing_details(ollama_chunk)
+    if prompt_tokens or completion_tokens or timing_details:
+        usage = CompletionUsage.model_validate(
+            {
+                "prompt_tokens": prompt_tokens or 0,
+                "completion_tokens": completion_tokens or 0,
+                "total_tokens": (prompt_tokens or 0) + (completion_tokens or 0),
+                **timing_details,
+            }
         )
 
     return ChatCompletionChunk(
@@ -158,6 +188,7 @@ def _create_chat_completion_from_ollama_response(response: OllamaChatResponse) -
 
     prompt_tokens = response.prompt_eval_count or 0
     completion_tokens = response.eval_count or 0
+    timing_details = _extract_ollama_timing_details(response)
 
     response_message: OllamaMessage = response.message
     if not response_message or not isinstance(response_message, OllamaMessage):
@@ -202,10 +233,13 @@ def _create_chat_completion_from_ollama_response(response: OllamaChatResponse) -
 
     choice = Choice(index=0, finish_reason=finish_reason, message=message)
 
-    usage = CompletionUsage(
-        prompt_tokens=prompt_tokens,
-        completion_tokens=completion_tokens,
-        total_tokens=prompt_tokens + completion_tokens,
+    usage = CompletionUsage.model_validate(
+        {
+            "prompt_tokens": prompt_tokens,
+            "completion_tokens": completion_tokens,
+            "total_tokens": prompt_tokens + completion_tokens,
+            **timing_details,
+        }
     )
 
     return ChatCompletion(

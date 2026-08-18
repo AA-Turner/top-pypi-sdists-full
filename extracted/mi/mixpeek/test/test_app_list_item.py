@@ -92,7 +92,10 @@ class TestAppListItem(unittest.TestCase):
                     secrets = {
                         'key' : ''
                         }, 
-                    asset_prefix = '', ),
+                    asset_prefix = '', 
+                    api_allow = [
+                        { }
+                        ], ),
                 monitoring_config = mixpeek.models.monitoring_config.MonitoringConfig(
                     enabled = True, 
                     error_boundary_enabled = True, 

@@ -150,16 +150,60 @@ _complex_signature = Union[
 ]
 
 # workaround changes in numpy interaction with getfullargspec
-try:
-    inspect.getfullargspec(numpy.asarray)
-    # if we have a description, honor it
-    extra_numpy_asarray_descr = {}
-except TypeError:
-    extra_numpy_asarray_descr = {'args':('a', 'dtype'),
-                                 'defaults': (None,)}
+_extra_descr = {
+        "asarray": {
+            'args':('a', 'dtype'),
+            'defaults': (None,)
+            },
+        "array": {
+            'args': ('object', 'dtype'),
+            'defaults': (None,),
+            },
+        "arange": {
+            'args':('start', 'stop', 'step', 'dtype'),
+            'defaults':(1, None),
+            },
+        "concatenate": {
+            'args': ('_', 'axis'),
+            'defaults': (0,),
+            },
+        "concat": {
+            'args': ('_', 'axis'),
+            'defaults': (0,),
+            },
+        "empty": {
+            'args': ('shape', 'dtype'),
+            'defaults': ("numpy.float64",),
+        },
+        "empty_like": {
+            'args': ('a', 'dtype'),
+            'defaults': ("numpy.float64",),
+            },
+        "fromiter": {
+            'args': ("iterable", "dtype", "count"),
+            'defaults': (-1,),
+            },
+        "fromfile": {
+            'args': ('file', 'dtype', 'count', "sep", "offset"),
+            'defaults': (None, None, -1, None, 0),
+            },
+        "zeros": {
+            'args': ('shape', 'dtype'),
+            'defaults': ("numpy.float64",),
+        },
+}
 
 
-
+for attr in list(_extra_descr.keys()):
+    try:
+        obj = getattr(numpy, attr)
+        while hasattr(obj, '__wrapped__'):
+            obj = obj.__wrapped__
+        inspect.getfullargspec(obj)
+        # if we have a description, honor it
+        _extra_descr[attr].clear()
+    except (TypeError, AttributeError):
+        ...
 
 
 def update_effects(self, node):
@@ -413,8 +457,10 @@ CLASSES = {
                 Fun[[Dict[T0, T1], T0], T1]
             ],
             return_alias=lambda args: {
-                ast.Subscript(args[0], args[1], ast.Load())
-            }.union({args[2]} if len(args) == 3 else set())
+                ast.Subscript(arg0, arg1, ast.Load())
+                              for arg0 in args[0]
+                              for arg1 in args[1]
+            }.union(args[2] if len(args) == 3 else set())
         ),
         "update": MethodIntr(update_effects),
         "values": ConstMethodIntr(signature=Fun[[Dict[T0, T1]], List[T1]]),
@@ -438,7 +484,6 @@ CLASSES = {
             signature=Fun[[File], int],
         ),
         "isatty": MethodIntr(signature=Fun[[File], bool]),
-        "next": MethodIntr(global_effects=True),
         "read": MethodIntr(
             signature=Union[
                 Fun[[File], str],
@@ -745,6 +790,10 @@ CLASSES = {
         ),
         "ndim": StaticAttributeIntr(signature=Fun[[NDArray[T0, :]], int],
                               return_range=interval.positive_values),
+        "prod": ConstMethodIntr(
+                args=("self", "axis", "dtype", "out"),
+                defaults=(None, None, None),
+        ),
         "reshape": ConstMethodIntr(
             signature=Union[
                 Fun[[NDArray[T0, :], int], NDArray[T1, :]],
@@ -816,6 +865,10 @@ CLASSES = {
                 Fun[[NDArray[complex, :, :, :, :]], Tuple[int, int, int, int]],
             ]
         ),
+        "sum": ConstMethodIntr(
+                args=("self", "axis", "dtype", "out"),
+                defaults=(None, None, None)
+                ),
         "T": AttributeIntr(signature=Fun[[NDArray[T0, :]], NDArray[T0, :]]),
         "tofile": ConstMethodIntr(signature=Fun[[NDArray[T0, :]], str, str], global_effects=True),
         "tostring": ConstMethodIntr(signature=Fun[[NDArray[T0, :]], str]),
@@ -1998,6 +2051,173 @@ _numpy_ternary_op_signature = Union[
          Iterable[Iterable[complex]]], NDArray[complex, :, :]],
 ]
 
+_numpy_concat_signature = Union[
+    # 1D
+    Fun[[Iterable[Iterable[bool]]], NDArray[bool, :]],
+    Fun[[Tuple[Iterable[bool]]], NDArray[bool, :]],
+    Fun[[Tuple[Iterable[bool], int]], NDArray[bool, :]],
+    Fun[[Tuple[Iterable[bool], Iterable[bool]]], NDArray[bool, :]],
+    Fun[[Tuple[Iterable[bool], Iterable[bool], int]],
+        NDArray[bool, :]],
+    Fun[[Tuple[Iterable[bool], Iterable[bool],
+               Iterable[bool]]], NDArray[bool, :]],
+    Fun[[Tuple[Iterable[bool], Iterable[bool],
+               Iterable[bool], int]], NDArray[bool, :]],
+    Fun[[Tuple[Iterable[bool], Iterable[bool], Iterable[
+        bool], Iterable[bool]]], NDArray[bool, :]],
+    Fun[[Tuple[Iterable[bool], Iterable[bool], Iterable[
+        bool], Iterable[bool], int]], NDArray[bool, :]],
+
+    Fun[[Iterable[Iterable[int]]], NDArray[int, :]],
+    Fun[[Tuple[Iterable[int]]], NDArray[int, :]],
+    Fun[[Tuple[Iterable[int], int]], NDArray[int, :]],
+    Fun[[Tuple[Iterable[int], Iterable[int]]], NDArray[int, :]],
+    Fun[[Tuple[Iterable[int], Iterable[int], int]],
+        NDArray[int, :]],
+    Fun[[Tuple[Iterable[int], Iterable[int], Iterable[int]]],
+        NDArray[int, :]],
+    Fun[[Tuple[Iterable[int], Iterable[int],
+               Iterable[int], int]], NDArray[int, :]],
+    Fun[[Tuple[Iterable[int], Iterable[int], Iterable[
+        int], Iterable[int]]], NDArray[int, :]],
+    Fun[[Tuple[Iterable[int], Iterable[int], Iterable[
+        int], Iterable[int], int]], NDArray[int, :]],
+
+    Fun[[Iterable[Iterable[float]]], NDArray[float, :]],
+    Fun[[Tuple[Iterable[float]]], NDArray[float, :]],
+    Fun[[Tuple[Iterable[float], int]], NDArray[float, :]],
+    Fun[[Tuple[Iterable[float], Iterable[float]]],
+        NDArray[float, :]],
+    Fun[[Tuple[Iterable[float], Iterable[float], int]],
+        NDArray[float, :]],
+    Fun[[Tuple[Iterable[float], Iterable[float],
+               Iterable[float]]], NDArray[float, :]],
+    Fun[[Tuple[Iterable[float], Iterable[float],
+               Iterable[float], int]], NDArray[float, :]],
+    Fun[[Tuple[Iterable[float], Iterable[float], Iterable[
+        float], Iterable[float]]], NDArray[float, :]],
+    Fun[[Tuple[Iterable[float], Iterable[float], Iterable[
+        float], Iterable[float], int]], NDArray[float, :]],
+
+    Fun[[Iterable[Iterable[complex]]], NDArray[complex, :]],
+    Fun[[Tuple[Iterable[complex]]], NDArray[complex, :]],
+    Fun[[Tuple[Iterable[complex], int]], NDArray[complex, :]],
+    Fun[[Tuple[Iterable[complex], Iterable[complex]]],
+        NDArray[complex, :]],
+    Fun[[Tuple[Iterable[complex], Iterable[complex], int]],
+        NDArray[complex, :]],
+    Fun[[Tuple[Iterable[complex], Iterable[complex],
+               Iterable[complex]]], NDArray[complex, :]],
+    Fun[[Tuple[Iterable[complex], Iterable[complex],
+               Iterable[complex], int]], NDArray[complex, :]],
+    Fun[[Tuple[Iterable[complex], Iterable[complex], Iterable[
+        complex], Iterable[complex]]], NDArray[complex, :]],
+    Fun[[Tuple[Iterable[complex], Iterable[complex], Iterable[
+        complex], Iterable[complex], int]], NDArray[complex, :]],
+
+    # 2D
+    Fun[[Iterable[Iterable[Iterable[bool]]]], NDArray[bool, :, :]],
+    Fun[[Tuple[Iterable[Iterable[bool]]]], NDArray[bool, :, :]],
+    Fun[[Tuple[Iterable[Iterable[bool]], int]],
+        NDArray[bool, :, :]],
+    Fun[[Tuple[Iterable[Iterable[bool]], Iterable[
+        Iterable[bool]]]], NDArray[bool, :, :]],
+    Fun[[Tuple[Iterable[Iterable[bool]], Iterable[
+        Iterable[bool]], int]], NDArray[bool, :, :]],
+    Fun[[Tuple[Iterable[Iterable[bool]], Iterable[Iterable[bool]],
+               Iterable[Iterable[bool]]]], NDArray[bool, :, :]],
+    Fun[[Tuple[Iterable[Iterable[bool]], Iterable[Iterable[bool]],
+               Iterable[Iterable[bool]], int]],
+        NDArray[bool, :, :]],
+    Fun[[Tuple[Iterable[Iterable[bool]], Iterable[Iterable[bool]],
+               Iterable[Iterable[bool]],
+               Iterable[Iterable[bool]]]],
+        NDArray[bool, :, :]],
+    Fun[[Tuple[Iterable[Iterable[bool]],
+               Iterable[Iterable[bool]],
+               Iterable[Iterable[bool]],
+               Iterable[Iterable[bool]], int]],
+        NDArray[bool, :, :]],
+
+    Fun[[Iterable[Iterable[Iterable[int]]]], NDArray[int, :, :]],
+    Fun[[Tuple[Iterable[Iterable[int]]]], NDArray[int, :, :]],
+    Fun[[Tuple[Iterable[Iterable[int]], int]], NDArray[int, :, :]],
+    Fun[[Tuple[Iterable[Iterable[int]], Iterable[
+        Iterable[int]]]], NDArray[int, :, :]],
+    Fun[[Tuple[Iterable[Iterable[int]], Iterable[
+        Iterable[int]], int]], NDArray[int, :, :]],
+    Fun[[Tuple[Iterable[Iterable[int]], Iterable[Iterable[int]],
+               Iterable[Iterable[int]]]], NDArray[int, :, :]],
+    Fun[[Tuple[Iterable[Iterable[int]], Iterable[Iterable[int]],
+               Iterable[Iterable[int]], int]], NDArray[int, :, :]],
+    Fun[[Tuple[Iterable[Iterable[int]], Iterable[Iterable[int]],
+               Iterable[Iterable[int]], Iterable[Iterable[int]]]],
+        NDArray[int, :, :]],
+    Fun[[Tuple[Iterable[Iterable[int]], Iterable[Iterable[int]],
+               Iterable[Iterable[int]], Iterable[Iterable[int]],
+               int]],
+        NDArray[int, :, :]],
+
+    Fun[[Iterable[Iterable[Iterable[float]]]],
+        NDArray[float, :, :]],
+    Fun[[Tuple[Iterable[Iterable[float]]]], NDArray[float, :, :]],
+    Fun[[Tuple[Iterable[Iterable[float]], int]],
+        NDArray[float, :, :]],
+    Fun[[Tuple[Iterable[Iterable[float]],
+               Iterable[Iterable[float]]]], NDArray[float, :, :]],
+    Fun[[Tuple[Iterable[Iterable[float]],
+               Iterable[Iterable[float]], int]],
+        NDArray[float, :, :]],
+    Fun[[Tuple[Iterable[Iterable[float]],
+               Iterable[Iterable[float]],
+               Iterable[Iterable[float]]]],
+        NDArray[float, :, :]],
+    Fun[[Tuple[Iterable[Iterable[float]],
+               Iterable[Iterable[float]],
+               Iterable[Iterable[float]], int]],
+        NDArray[float, :, :]],
+    Fun[[Tuple[Iterable[Iterable[float]],
+               Iterable[Iterable[float]],
+               Iterable[Iterable[float]],
+               Iterable[Iterable[float]]]], NDArray[float, :, :]],
+    Fun[[Tuple[Iterable[Iterable[float]],
+               Iterable[Iterable[float]],
+               Iterable[Iterable[float]],
+               Iterable[Iterable[float]], int]],
+        NDArray[float, :, :]],
+
+    Fun[[Iterable[Iterable[Iterable[complex]]]],
+        NDArray[complex, :, :]],
+    Fun[[Tuple[Iterable[Iterable[complex]]]],
+        NDArray[complex, :, :]],
+    Fun[[Tuple[Iterable[Iterable[complex]], int]],
+        NDArray[complex, :, :]],
+    Fun[[Tuple[Iterable[Iterable[complex]],
+               Iterable[Iterable[complex]]]],
+        NDArray[complex, :, :]],
+    Fun[[Tuple[Iterable[Iterable[complex]],
+               Iterable[Iterable[complex]], int]],
+        NDArray[complex, :, :]],
+    Fun[[Tuple[Iterable[Iterable[complex]],
+               Iterable[Iterable[complex]],
+               Iterable[Iterable[complex]]]],
+        NDArray[complex, :, :]],
+    Fun[[Tuple[Iterable[Iterable[complex]],
+               Iterable[Iterable[complex]],
+               Iterable[Iterable[complex]], int]],
+        NDArray[complex, :, :]],
+    Fun[[Tuple[Iterable[Iterable[complex]],
+               Iterable[Iterable[complex]],
+               Iterable[Iterable[complex]],
+               Iterable[Iterable[complex]]]],
+        NDArray[complex, :, :]],
+    Fun[[Tuple[Iterable[Iterable[complex]],
+               Iterable[Iterable[complex]],
+               Iterable[Iterable[complex]],
+               Iterable[Iterable[complex]], int]],
+        NDArray[complex, :, :]],
+]
+
 _numpy_int_binary_op_signature = Union[
     # 1d
     Fun[[bool, bool], bool],
@@ -2557,7 +2777,7 @@ MODULES = {
             "abssqr": ConstFunctionIntr(),
             "static_list": ReadOnceFunctionIntr(
                 signature=Fun[[Iterable[T0]], List[T0]],
-                return_alias=lambda args: {args[0]}),
+                return_alias=lambda args: args[0]),
             "is_none": ConstFunctionIntr(),
             "kwonly": ConstFunctionIntr(),
             "len_set": ConstFunctionIntr(signature=Fun[[Iterable[T0]], int]),
@@ -2818,15 +3038,6 @@ MODULES = {
                 Fun[[Iterable[T0], Iterable[T1], Iterable[T2], Iterable[T3]],
                     List[Tuple[T0, T1, T2, T3]]],
             ]
-        ),
-        "False": ConstantIntr(
-            signature=bool,
-            return_range=lambda _: interval.Range(0, 0)
-        ),
-        "None": ConstantIntr(signature=None),
-        "True": ConstantIntr(
-            signature=bool,
-            return_range=lambda _: interval.Range(1, 1)
         ),
     },
     "array": {
@@ -3168,8 +3379,7 @@ MODULES = {
                     NDArray[complex, :]],
             ],
             return_range_content=interval.range_values,
-            args=('start', 'stop', 'step', 'dtype'),
-            defaults=(1, None)
+            **_extra_descr["arange"]
         ),
         "arccos": ConstFunctionIntr(signature=_numpy_unary_op_float_signature),
         "arccosh": ConstFunctionIntr(
@@ -3202,8 +3412,7 @@ MODULES = {
         ),
         "around": ConstFunctionIntr(signature=_numpy_around_signature),
         "array": FunctionIntr(signature=_numpy_array_signature,
-                              args=('object', 'dtype'),
-                              defaults=(None,)),
+                              **_extra_descr["array"]),
         "array2string": ConstFunctionIntr(
             signature=_numpy_array_str_signature),
         "array_equal": ConstFunctionIntr(signature=Fun[[T0, T1], bool]),
@@ -3218,7 +3427,7 @@ MODULES = {
         ),
         "array_str": ConstFunctionIntr(signature=_numpy_array_str_signature),
         "asarray": ReadOnceFunctionIntr(signature=_numpy_array_signature,
-                                        **extra_numpy_asarray_descr),
+                                        **_extra_descr['asarray']),
         "asarray_chkfinite": ConstFunctionIntr(
             signature=_numpy_array_signature),
         "ascontiguousarray": ConstFunctionIntr(
@@ -3412,174 +3621,12 @@ MODULES = {
         "ceil": ConstFunctionIntr(signature=_numpy_float_unary_op_signature),
         "clip": ConstMethodIntr(signature=_numpy_ternary_op_signature),
         "concatenate": ConstFunctionIntr(
-            args=('_', 'axis'),
-            defaults=(0,),
-            signature=Union[
-                # 1D
-                Fun[[Iterable[Iterable[bool]]], NDArray[bool, :]],
-                Fun[[Tuple[Iterable[bool]]], NDArray[bool, :]],
-                Fun[[Tuple[Iterable[bool], int]], NDArray[bool, :]],
-                Fun[[Tuple[Iterable[bool], Iterable[bool]]], NDArray[bool, :]],
-                Fun[[Tuple[Iterable[bool], Iterable[bool], int]],
-                    NDArray[bool, :]],
-                Fun[[Tuple[Iterable[bool], Iterable[bool],
-                           Iterable[bool]]], NDArray[bool, :]],
-                Fun[[Tuple[Iterable[bool], Iterable[bool],
-                           Iterable[bool], int]], NDArray[bool, :]],
-                Fun[[Tuple[Iterable[bool], Iterable[bool], Iterable[
-                    bool], Iterable[bool]]], NDArray[bool, :]],
-                Fun[[Tuple[Iterable[bool], Iterable[bool], Iterable[
-                    bool], Iterable[bool], int]], NDArray[bool, :]],
-
-                Fun[[Iterable[Iterable[int]]], NDArray[int, :]],
-                Fun[[Tuple[Iterable[int]]], NDArray[int, :]],
-                Fun[[Tuple[Iterable[int], int]], NDArray[int, :]],
-                Fun[[Tuple[Iterable[int], Iterable[int]]], NDArray[int, :]],
-                Fun[[Tuple[Iterable[int], Iterable[int], int]],
-                    NDArray[int, :]],
-                Fun[[Tuple[Iterable[int], Iterable[int], Iterable[int]]],
-                    NDArray[int, :]],
-                Fun[[Tuple[Iterable[int], Iterable[int],
-                           Iterable[int], int]], NDArray[int, :]],
-                Fun[[Tuple[Iterable[int], Iterable[int], Iterable[
-                    int], Iterable[int]]], NDArray[int, :]],
-                Fun[[Tuple[Iterable[int], Iterable[int], Iterable[
-                    int], Iterable[int], int]], NDArray[int, :]],
-
-                Fun[[Iterable[Iterable[float]]], NDArray[float, :]],
-                Fun[[Tuple[Iterable[float]]], NDArray[float, :]],
-                Fun[[Tuple[Iterable[float], int]], NDArray[float, :]],
-                Fun[[Tuple[Iterable[float], Iterable[float]]],
-                    NDArray[float, :]],
-                Fun[[Tuple[Iterable[float], Iterable[float], int]],
-                    NDArray[float, :]],
-                Fun[[Tuple[Iterable[float], Iterable[float],
-                           Iterable[float]]], NDArray[float, :]],
-                Fun[[Tuple[Iterable[float], Iterable[float],
-                           Iterable[float], int]], NDArray[float, :]],
-                Fun[[Tuple[Iterable[float], Iterable[float], Iterable[
-                    float], Iterable[float]]], NDArray[float, :]],
-                Fun[[Tuple[Iterable[float], Iterable[float], Iterable[
-                    float], Iterable[float], int]], NDArray[float, :]],
-
-                Fun[[Iterable[Iterable[complex]]], NDArray[complex, :]],
-                Fun[[Tuple[Iterable[complex]]], NDArray[complex, :]],
-                Fun[[Tuple[Iterable[complex], int]], NDArray[complex, :]],
-                Fun[[Tuple[Iterable[complex], Iterable[complex]]],
-                    NDArray[complex, :]],
-                Fun[[Tuple[Iterable[complex], Iterable[complex], int]],
-                    NDArray[complex, :]],
-                Fun[[Tuple[Iterable[complex], Iterable[complex],
-                           Iterable[complex]]], NDArray[complex, :]],
-                Fun[[Tuple[Iterable[complex], Iterable[complex],
-                           Iterable[complex], int]], NDArray[complex, :]],
-                Fun[[Tuple[Iterable[complex], Iterable[complex], Iterable[
-                    complex], Iterable[complex]]], NDArray[complex, :]],
-                Fun[[Tuple[Iterable[complex], Iterable[complex], Iterable[
-                    complex], Iterable[complex], int]], NDArray[complex, :]],
-
-                # 2D
-                Fun[[Iterable[Iterable[Iterable[bool]]]], NDArray[bool, :, :]],
-                Fun[[Tuple[Iterable[Iterable[bool]]]], NDArray[bool, :, :]],
-                Fun[[Tuple[Iterable[Iterable[bool]], int]],
-                    NDArray[bool, :, :]],
-                Fun[[Tuple[Iterable[Iterable[bool]], Iterable[
-                    Iterable[bool]]]], NDArray[bool, :, :]],
-                Fun[[Tuple[Iterable[Iterable[bool]], Iterable[
-                    Iterable[bool]], int]], NDArray[bool, :, :]],
-                Fun[[Tuple[Iterable[Iterable[bool]], Iterable[Iterable[bool]],
-                           Iterable[Iterable[bool]]]], NDArray[bool, :, :]],
-                Fun[[Tuple[Iterable[Iterable[bool]], Iterable[Iterable[bool]],
-                           Iterable[Iterable[bool]], int]],
-                    NDArray[bool, :, :]],
-                Fun[[Tuple[Iterable[Iterable[bool]], Iterable[Iterable[bool]],
-                           Iterable[Iterable[bool]],
-                           Iterable[Iterable[bool]]]],
-                    NDArray[bool, :, :]],
-                Fun[[Tuple[Iterable[Iterable[bool]],
-                           Iterable[Iterable[bool]],
-                           Iterable[Iterable[bool]],
-                           Iterable[Iterable[bool]], int]],
-                    NDArray[bool, :, :]],
-
-                Fun[[Iterable[Iterable[Iterable[int]]]], NDArray[int, :, :]],
-                Fun[[Tuple[Iterable[Iterable[int]]]], NDArray[int, :, :]],
-                Fun[[Tuple[Iterable[Iterable[int]], int]], NDArray[int, :, :]],
-                Fun[[Tuple[Iterable[Iterable[int]], Iterable[
-                    Iterable[int]]]], NDArray[int, :, :]],
-                Fun[[Tuple[Iterable[Iterable[int]], Iterable[
-                    Iterable[int]], int]], NDArray[int, :, :]],
-                Fun[[Tuple[Iterable[Iterable[int]], Iterable[Iterable[int]],
-                           Iterable[Iterable[int]]]], NDArray[int, :, :]],
-                Fun[[Tuple[Iterable[Iterable[int]], Iterable[Iterable[int]],
-                           Iterable[Iterable[int]], int]], NDArray[int, :, :]],
-                Fun[[Tuple[Iterable[Iterable[int]], Iterable[Iterable[int]],
-                           Iterable[Iterable[int]], Iterable[Iterable[int]]]],
-                    NDArray[int, :, :]],
-                Fun[[Tuple[Iterable[Iterable[int]], Iterable[Iterable[int]],
-                           Iterable[Iterable[int]], Iterable[Iterable[int]],
-                           int]],
-                    NDArray[int, :, :]],
-
-                Fun[[Iterable[Iterable[Iterable[float]]]],
-                    NDArray[float, :, :]],
-                Fun[[Tuple[Iterable[Iterable[float]]]], NDArray[float, :, :]],
-                Fun[[Tuple[Iterable[Iterable[float]], int]],
-                    NDArray[float, :, :]],
-                Fun[[Tuple[Iterable[Iterable[float]],
-                           Iterable[Iterable[float]]]], NDArray[float, :, :]],
-                Fun[[Tuple[Iterable[Iterable[float]],
-                           Iterable[Iterable[float]], int]],
-                    NDArray[float, :, :]],
-                Fun[[Tuple[Iterable[Iterable[float]],
-                           Iterable[Iterable[float]],
-                           Iterable[Iterable[float]]]],
-                    NDArray[float, :, :]],
-                Fun[[Tuple[Iterable[Iterable[float]],
-                           Iterable[Iterable[float]],
-                           Iterable[Iterable[float]], int]],
-                    NDArray[float, :, :]],
-                Fun[[Tuple[Iterable[Iterable[float]],
-                           Iterable[Iterable[float]],
-                           Iterable[Iterable[float]],
-                           Iterable[Iterable[float]]]], NDArray[float, :, :]],
-                Fun[[Tuple[Iterable[Iterable[float]],
-                           Iterable[Iterable[float]],
-                           Iterable[Iterable[float]],
-                           Iterable[Iterable[float]], int]],
-                    NDArray[float, :, :]],
-
-                Fun[[Iterable[Iterable[Iterable[complex]]]],
-                    NDArray[complex, :, :]],
-                Fun[[Tuple[Iterable[Iterable[complex]]]],
-                    NDArray[complex, :, :]],
-                Fun[[Tuple[Iterable[Iterable[complex]], int]],
-                    NDArray[complex, :, :]],
-                Fun[[Tuple[Iterable[Iterable[complex]],
-                           Iterable[Iterable[complex]]]],
-                    NDArray[complex, :, :]],
-                Fun[[Tuple[Iterable[Iterable[complex]],
-                           Iterable[Iterable[complex]], int]],
-                    NDArray[complex, :, :]],
-                Fun[[Tuple[Iterable[Iterable[complex]],
-                           Iterable[Iterable[complex]],
-                           Iterable[Iterable[complex]]]],
-                    NDArray[complex, :, :]],
-                Fun[[Tuple[Iterable[Iterable[complex]],
-                           Iterable[Iterable[complex]],
-                           Iterable[Iterable[complex]], int]],
-                    NDArray[complex, :, :]],
-                Fun[[Tuple[Iterable[Iterable[complex]],
-                           Iterable[Iterable[complex]],
-                           Iterable[Iterable[complex]],
-                           Iterable[Iterable[complex]]]],
-                    NDArray[complex, :, :]],
-                Fun[[Tuple[Iterable[Iterable[complex]],
-                           Iterable[Iterable[complex]],
-                           Iterable[Iterable[complex]],
-                           Iterable[Iterable[complex]], int]],
-                    NDArray[complex, :, :]],
-            ]
+            signature=_numpy_concat_signature,
+            **_extra_descr["concatenate"]
+        ),
+        "concat": ConstFunctionIntr(
+            signature=_numpy_concat_signature,
+            **_extra_descr["concat"]
         ),
         "complex64": ConstFunctionIntr(signature=_complex_signature),
         "complex128": ConstFunctionIntr(signature=_complex_signature),
@@ -3714,15 +3761,14 @@ MODULES = {
         "dtype": ClassWithConstConstructor(CLASSES["dtype"]),
         "e": ConstantIntr(),
         "ediff1d": ConstFunctionIntr(),
-        "empty": ConstFunctionIntr(args=('shape', 'dtype'),
-                                   defaults=("numpy.float64",),
+        "empty": ConstFunctionIntr(
                                    signature=_numpy_ones_signature,
                                    global_effects=True, # to avoid folding
+            **_extra_descr["empty"]
                                    ),
         "empty_like": ConstFunctionIntr(
-            args=('a', 'dtype'),
-            defaults=("numpy.float64",),
-            signature=_numpy_ones_like_signature
+            signature=_numpy_ones_like_signature,
+            **_extra_descr["empty_like"]
         ),
         "equal": UFunc(BINARY_UFUNC),
         "exp": ConstFunctionIntr(signature=_numpy_unary_op_float_signature),
@@ -3756,14 +3802,12 @@ MODULES = {
         "frexp": ConstFunctionIntr(),
         "frombuffer": ConstFunctionIntr(),
         "fromfunction": ConstFunctionIntr(),
-        "fromiter": ConstFunctionIntr(args=("iterable", "dtype", "count"),
-                                      defaults=(-1,)),
+        "fromiter": ConstFunctionIntr(**_extra_descr["fromiter"]),
         "fromstring": ConstFunctionIntr(args=('string', 'dtype', 'count',),
                                         kwonlyargs=('sep', 'like'),
                                         defaults=(float, -1, '', None)),
-        "fromfile":  FunctionIntr(args=('file', 'dtype', 'count', "sep", "offset"),
-                                  defaults=(None, None, -1, None, 0),
-                                  global_effects=True),
+        "fromfile":  FunctionIntr(global_effects=True,
+                                  **_extra_descr["fromfile"]),
         "full": ConstFunctionIntr(signature=_numpy_ones_signature),
         "full_like": ConstFunctionIntr(signature=_numpy_ones_like_signature),
         "greater": UFunc(
@@ -3820,7 +3864,9 @@ MODULES = {
         "lexsort": ConstFunctionIntr(),
         "linalg": {
             "norm": FunctionIntr(),
+            "matrix_norm": FunctionIntr(),
             "matrix_power": ConstFunctionIntr(requires_blas=True),
+            "vector_norm": FunctionIntr(),
         },
         "linspace": ConstFunctionIntr(),
         "log": ConstFunctionIntr(),
@@ -3889,7 +3935,8 @@ MODULES = {
             BINARY_UFUNC,
             signature=_numpy_binary_op_signature
         ),
-        "prod": ConstMethodIntr(),
+        "prod": ReadOnceFunctionIntr(
+            signature=_numpy_unary_op_sum_axis_signature),
         "product": ConstFunctionIntr(
             args=("a", "axis", "dtype", "out"),
             defaults=(None, None, None),
@@ -3923,8 +3970,6 @@ MODULES = {
                 **expand_numpy_2_args(args=('df', 'size',))),
             "choice": FunctionIntr(global_effects=True,
                 **expand_numpy_2_args(args=('a', 'size', 'replace', 'p'))),
-            "dirichlet": FunctionIntr(global_effects=True,
-                **expand_numpy_2_args(args=('alpha', 'size',))),
             "exponential": FunctionIntr(global_effects=True,
                 **expand_numpy_2_args(args=('scale', 'size',),
                                       defaults=(1.0, None,))),
@@ -3999,7 +4044,7 @@ MODULES = {
         # shares memory with its argument, but not the type.
         # Use a global effect to prevent the optimizer from removing it.
         "ravel": ConstMethodIntr(
-            #return_alias=lambda args: {args[0]},
+            #return_alias=lambda args: args[0],
             global_effects=True,
         ),
         "real": FunctionIntr(),
@@ -4043,7 +4088,7 @@ MODULES = {
             BINARY_UFUNC,
             signature=_numpy_binary_op_signature,
         ),
-        "sum": ReadOnceMethodIntr(
+        "sum": ReadOnceFunctionIntr(
             signature=_numpy_unary_op_sum_axis_signature),
         "swapaxes": ConstMethodIntr(),
         "short": ConstFunctionIntr(signature=_int_signature),
@@ -4077,10 +4122,8 @@ MODULES = {
         "vdot": ConstMethodIntr(requires_blas=True),
         "vstack": ConstFunctionIntr(),
         "where": ConstFunctionIntr(),
-        "zeros": ConstFunctionIntr(args=('shape', 'dtype'),
-                                   defaults=("numpy.float64",),
-                                   signature=_numpy_ones_signature,
-                                   ),
+        "zeros": ConstFunctionIntr(signature=_numpy_ones_signature,
+                                   **_extra_descr["zeros"]),
         "zeros_like": ConstFunctionIntr(signature=_numpy_ones_like_signature),
     },
     "time": {
@@ -4652,17 +4695,20 @@ def save_arguments(module_name, elements):
 
             # Check if we already have a pythran description for that object
             if signature.args.args:
-                if module_name != ('numpy', 'random'):
+                if module_name == ('numpy', 'random'):
                     # Skip this warning for `numpy.random`, because the
                     # signatures changed in 1.25.x and that may yet be reverted
                     # (see pythran#2139) in 1.25.3 and/or 1.26.x
-                    logger.warning(
-                        "Overriding pythran description with argspec "
-                        "information for: {}".format(
-
-                        ".".join(module_name + (elem,))))
-                else:
                     continue
+                if module_name == ('numpy',) and elem == 'fromstring':
+                    # Skip this warning for `numpy.fromstring`, because the
+                    # signatures changed in 2.5 to deprecate the default sep
+                    continue
+                logger.warning(
+                    "Overriding pythran description with argspec "
+                    "information for: {}".format(
+
+                    ".".join(module_name + (elem,))))
 
             # Avoid use of comprehension to fill "as much args/defaults" as
             # possible
@@ -4690,9 +4736,10 @@ def fill_constants_types(module_name, elements):
         if isinstance(intrinsic, dict):  # Submodule case
             fill_constants_types(module_name + (elem,), intrinsic)
         elif isinstance(intrinsic, ConstantIntr):
-            # use introspection to get the Python constants types
-            cst = getattr(import_module(".".join(module_name)), elem)
-            intrinsic.signature = type(cst)
+            if not hasattr(intrinsic, 'signature'):
+                # use introspection to get the Python constants types
+                cst = getattr(import_module(".".join(module_name)), elem)
+                intrinsic.signature = type(cst)
 
 
 fill_constants_types((), MODULES)
@@ -4751,11 +4798,15 @@ save_function(MODULES, ())
 # {attribute_name : ((full module path), signature)}
 attributes = {}
 
+# {subpackage_name : [((full module path), signature)]}
+subpackages = {}
+
 
 def save_attribute(elements, module_path):
     """ Recursively save attributes with module name and signature. """
     for elem, signature in elements.items():
         if isinstance(signature, dict):  # Submodule case
+            subpackages.setdefault(elem, []).append((module_path, signature,))
             save_attribute(signature, module_path + (elem,))
         elif signature.isattribute():
             assert elem not in attributes  # we need unicity

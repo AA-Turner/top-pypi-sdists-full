@@ -1,17 +1,17 @@
 ######################################################################################################
 #                                 Auto-generated Metaflow stub file                                  #
-# MF version: 2.19.37                                                                                #
-# Generated on 2026-08-11T17:17:32.696558                                                            #
+# MF version: 2.19.38                                                                                #
+# Generated on 2026-08-18T00:36:54.477611                                                            #
 ######################################################################################################
 
 from __future__ import annotations
 
-import enum
 import typing
+import enum
 if typing.TYPE_CHECKING:
-    import enum
-    import typing
     import metaflow.system_context
+    import typing
+    import enum
 
 
 TYPE_CHECKING: bool

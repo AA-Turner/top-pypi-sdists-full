@@ -8,14 +8,12 @@
 #include "pythonic/include/types/ndarray.hpp"
 #include "pythonic/include/utils/functor.hpp"
 
-#include <algorithm>
-
 PYTHONIC_NS_BEGIN
 
 namespace numpy
 {
   template <class E>
-  using var_type = std::conditional_t<std::is_integral<typename E::dtype>::value, double,
+  using var_type = std::conditional_t<std::is_integral_v<typename E::dtype>, double,
                                       decltype(std::real(std::declval<typename E::dtype>()))>;
 
   template <class E>

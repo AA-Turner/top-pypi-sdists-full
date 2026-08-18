@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: atproto
-Version: 0.0.69
+Version: 0.0.70
 Summary: The AT Protocol SDK
 License-Expression: MIT
 License-File: LICENSE
@@ -24,13 +24,14 @@ Classifier: Topic :: Software Development
 Classifier: Topic :: Software Development :: Libraries :: Python Modules
 Classifier: Topic :: Software Development :: Pre-processors
 Requires-Dist: click (>=8.1.3,<9)
-Requires-Dist: cryptography (>=41.0.7,<47)
+Requires-Dist: cryptography (>=41.0.7,<51)
 Requires-Dist: dnspython (>=2.4.0,<3)
 Requires-Dist: httpx (>=0.25.0,<0.29.0)
 Requires-Dist: libipld (>=3.0.1,<4)
 Requires-Dist: pydantic (>=2.7,<3)
 Requires-Dist: typing-extensions (>=4.8.0,<5)
-Requires-Dist: websockets (>=15,<16)
+Requires-Dist: websockets (>=15,<18)
+Requires-Dist: zstandard (>=0.24.0,<0.26.0)
 Project-URL: Documentation, https://atproto.blue
 Project-URL: Homepage, https://atproto.blue
 Project-URL: Repository, https://github.com/MarshalX/atproto
@@ -73,7 +74,7 @@ def main():
     client = Client()
     profile = client.login('my-handle', 'my-password')
     print('Welcome,', profile.display_name)
-    
+
     text = client_utils.TextBuilder().text('Hello World from ').link('Python SDK', 'https://atproto.blue')
     post = client.send_post(text)
     client.like(post.uri, post.cid)
@@ -81,7 +82,6 @@ def main():
 
 if __name__ == '__main__':
     main()
-
 ```
 
 <details>
@@ -102,11 +102,10 @@ async def main():
     post = await client.send_post(text)
     await client.like(post.uri, post.cid)
 
-    
+
 if __name__ == '__main__':
     # use run() for a higher Python version
     asyncio.get_event_loop().run_until_complete(main())
-
 ```
 </details>
 
@@ -197,6 +196,7 @@ The SDK is built upon the following components:
 | `atproto_core`     | Tools to work with NSID, AT URI Schemes, CID, CAR files, and DID Documents. |
 | `atproto_crypto`   | Crypto utils like multibase, signature verification, work with DID keys.    |
 | `atproto_firehose` | Firehose (data streaming) client and models.                                |
+| `atproto_jetstream` | Jetstream v2 (data streaming) client and models.                           |
 | `atproto_identity` | Identity resolvers for DID, Handle, AT Protocol data, signing keys.         |
 | `atproto_lexicon`  | Lexicon parser.                                                             |
 | `atproto_server`   | Server-side utils like JWT.                                                 |

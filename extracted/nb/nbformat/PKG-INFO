@@ -1,6 +1,6 @@
-Metadata-Version: 2.4
+Metadata-Version: 2.5
 Name: nbformat
-Version: 5.11.0
+Version: 5.11.1
 Summary: The Jupyter Notebook format
 Project-URL: Homepage, https://jupyter.org
 Project-URL: Changelog, https://github.com/jupyter/nbformat/blob/main/CHANGELOG.md

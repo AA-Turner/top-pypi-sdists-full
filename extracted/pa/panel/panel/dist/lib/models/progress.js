@@ -14,6 +14,9 @@ export class ProgressView extends HTMLBoxView {
     render() {
         super.render();
         const style = { ...this.model.styles, display: "inline-block" };
+        if (this.model.height != null) {
+            style.height = `${this.model.height}px`;
+        }
         this.progressEl = document.createElement("progress");
         this.setValue();
         this.setMax();

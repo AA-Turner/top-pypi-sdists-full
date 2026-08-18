@@ -44,6 +44,7 @@ from __future__ import annotations
 
 import inspect
 import re
+import typing
 from typing import Any, Callable, Dict, Mapping, Optional, Sequence, Tuple, TypeVar, Union, get_args, overload
 
 import msgspec
@@ -54,8 +55,14 @@ from .export_contract import (
     validate_contract, validate_speed_bar,
 )
 from .formula import RuntimeFormula
+from ..model.runtime import Model
+from ..model.bind import Bind
+from ..model.spec import ModelSpec as FamilySpec
 from .slot import OBJECTIVES, TASKS, D, Slot
 from ..models import execution_lanes as lanespec
+from ..models.tensor_layout_contract import (
+    LayoutRequirements, parse_layout_requirements,
+)
 from ..runtimes.server import ServerHandle
 from .tree import is_introspectable
 
@@ -67,46 +74,12 @@ KINDS = ("inference", "training", "dataset", "conversion", "eval")
 RESERVED_METHODS = frozenset({"setup", "warmup", "shutdown"})
 
 
-# The dotted capability (8.9) is the author-facing unit, the way NVIDIA writes
-# it. `sm_89` is accepted because that is how kernels and error messages spell
-# it; the bare SM code is not — 89 and 8.9 are a silent factor-of-ten apart.
-_MAX_COMPUTE_CAPABILITY = 20.0
-
-
-def _normalize_compute_capability(raw: float | str) -> float:
-    if isinstance(raw, bool):
-        raise ValueError(f"compute_capability must be numeric, got {raw!r}")
-    if isinstance(raw, str):
-        s = raw.strip().lower()
-        if not s:
-            raise ValueError("compute_capability is empty")
-        if s.startswith("sm"):
-            code = s[2:].lstrip("_").strip()
-            if not code.isdigit():
-                raise ValueError(
-                    f"compute_capability {raw!r} is not an SM code (e.g. 'sm_89')")
-            value = int(code) / 10.0
-        else:
-            try:
-                value = float(s)
-            except ValueError:
-                raise ValueError(
-                    f"compute_capability must be numeric, got {raw!r}") from None
-    else:
-        try:
-            value = float(raw)
-        except (TypeError, ValueError):
-            raise ValueError(
-                f"compute_capability must be numeric, got {raw!r}") from None
-    if value != value or value in (float("inf"), float("-inf")):
-        raise ValueError(f"compute_capability must be finite, got {raw!r}")
-    if value <= 0:
-        raise ValueError(f"compute_capability must be positive, got {raw!r}")
-    if value > _MAX_COMPUTE_CAPABILITY:
-        raise ValueError(
-            f"compute_capability {raw!r} looks like a bare SM code — declare the "
-            "dotted capability (8.9, 12.0) or the prefixed code ('sm_89')")
-    return round(value, 1)
+# pgw#1313: `compute_capability` and `ram_gb_hint` are GONE as separate axes.
+# Each was a bespoke axis with its own parser, its own payload key and its own
+# set of hub readers; both fold into `Resources(requires=)`, which speaks the
+# one requirement vocabulary (`models.tensor_layout_contract`). The fold also
+# ends the `ram_gb_hint` misnomer — a field named `_hint` the hub enforced as a
+# pod-create minimum.
 
 
 # The parallel mechanisms the PLATFORM implements, kept in lockstep with the
@@ -138,47 +111,37 @@ class Resources(msgspec.Struct, frozen=True, omit_defaults=True):
     anima declared 8 GB against a 10.6 GiB peak, sdxl declared 20 against a
     proven 9.3 GiB run on a 16 GB A4000.
 
-    ``compute_capability`` is NOT one of them and survives untouched: an sm
-    floor is a statement about which KERNELS exist in our build, not about how
-    big a card is (§2.4 ruling 1).
+    ``requires`` is the FUNCTION scope of the one requirement vocabulary
+    (pgw#1313) — the same grammar and the same terms as
+    ``Slot(layout_requirements={handle: ...})``, for code with no contract to
+    hang a requirement on: trainers, converters, encoders. It exists because
+    training-endpoints has ZERO ``Slot(...)`` model slots (te#209), so its
+    endpoints cannot express a floor any other way::
 
-    ``ram_gb_hint`` (pgw#670) is its HOST-side twin, restored after the v2
-    cut deleted ``ram_gb`` on the reasoning that host RAM is an
-    opportunistic latency tier. For ltx-video-2.3 it was neither
-    opportunistic nor a guess: ie#484 measured 179-301 s mp4-encode and
-    147 s VAE-decode tails on host-starved allocations at IDENTICAL GPU
-    step-ms, ie#492 sized the floor at 64 GB from that failure, and the hub
-    consumed it (pod-create minimum + th#740 read-back-and-reject). Without
-    it a starved allocation DEGRADES SILENTLY — a slow request, not a
-    refused pod — which is exactly what the declaration existed to prevent.
-    It is an ALLOCATION-time ask (the hub's ``min_ram_gb``), never a runtime
-    gate: nothing refuses a request because host RAM is low. That distinction
-    is why it survives th#1867 while every VRAM marker went — the deleted
-    fields were sizing a CARD, which §1.35 rules is never the question. It does not imply ``gpu=True`` — the components are
-    pinned host staging, model-load staging, frame/encoder buffers and
-    page-cache headroom, and a CPU-only encode lane needs them too.
-    Asymmetry note: ``vcpus`` survived the v2 cut and covers the CPU side of
-    the very same encode tail, which is what made the RAM deletion read as
-    accidental rather than principled.
+        Resources(requires="sm89+, vram80g")
+        Resources(requires=LayoutRequirements(
+            minimum="sm80+, vram48g", recommended="sm90+, vram80g, ram64g"))
 
-    ``compute_capability`` (pgw#660) is the HARD GPU-architecture floor,
-    restored after the v2 cut deleted it. The cut's reasoning — "precision
-    per card is the fit ladder's call, never a placement gate" — is right
-    about precision SELECTION and wrong about INCAPABILITY: a producer whose
-    kernel is ``torch._scaled_mm`` cannot run below sm_89 at any precision,
-    on any rung, ever. With no carrier the hub emitted no
-    ``compute_capability`` in ``requirement_payload_json`` and the scheduler
-    placed the fp8 producer on sm_80 A100s (th#1155 six times; te#125
-    again). This is NOT a hint and has no ``_hint`` suffix: the scheduler
-    filters offers on it and refuses to rent below it. th#1867 deleted the
-    VRAM markers and deliberately LEFT this one (§2.4 ruling 1): an sm floor
-    says which kernels exist in our build, which is a statement about our
-    code — a card size is a statement about the card.
-    Declare the DOTTED capability the way NVIDIA writes it — ``8.9``,
-    ``"8.9"``, or ``"sm_89"`` — never the bare SM code. Declaring it implies
-    ``gpu=True``. Declare it ONLY for a genuine incapability; a function that
-    merely runs BETTER on newer silicon declares nothing and lets the ladder
-    choose.
+    The compact form is the MINIMUM. A minimum gates ADMISSION — a
+    config-write check on a pick a human is making — and NEVER execution; a
+    ``recommended`` gates nothing at all, ever (th#1867/th#1720: the hub
+    learned a monotone buy floor from the last recommendation that travelled).
+    Declaring ``min_sm`` or ``min_vram_gb`` implies ``gpu=True``;
+    ``min_host_ram_gb`` does not, and is declarable at ``recommended`` only.
+
+    It SUBSUMES the two axes deleted with it. ``compute_capability`` (pgw#660)
+    was the hard GPU-architecture floor — a producer whose kernel is
+    ``torch._scaled_mm`` cannot run below sm_89 at any precision, on any rung,
+    ever, and with no carrier the scheduler placed the fp8 producer on sm_80
+    A100s (th#1155 six times; te#125 again). That floor survives verbatim as
+    ``min_sm``, in tensorhub's own BARE spelling (89, 100), which is the one
+    wire spelling for the axis on both sides; the dotted 8.9 is gone rather
+    than kept as a second form. ``ram_gb_hint`` (pgw#670, sized at 64 GB from
+    ie#484's 179-301 s host-starved encode tails) survives as
+    ``min_host_ram_gb``, at the recommended level: Paul 2026-07-11 ruled that
+    RunPod GPU pods cannot select or guarantee host RAM, so a host-RAM
+    MINIMUM is unenforceable theater. Unmet, it is a degrade warning, which is
+    what the offload rungs already do.
 
     There is no disk axis. ``min_disk_gb`` (pgw#732) existed for two releases
     and no endpoint in any repo ever declared it — th#1233 sizes a pod's
@@ -218,8 +181,7 @@ class Resources(msgspec.Struct, frozen=True, omit_defaults=True):
     gpu_count: int = 1
     libraries: tuple[str, ...] = ()
     vcpus: int | None = None
-    ram_gb_hint: float | None = None
-    compute_capability: float | str | None = None
+    requires: Any = None
     max_gpu_count: int | None = None
     max_gpus_per_execution_group: int | None = None
     parallel: tuple[str, ...] = ()
@@ -227,32 +189,41 @@ class Resources(msgspec.Struct, frozen=True, omit_defaults=True):
     def manifest_dict(self) -> Dict[str, Any]:
         """The manifest ``resources{}`` projection.
 
-        The declaration and the wire name differ for exactly one field: the
-        builder's host-floor key is ``ram_gb`` (which it maps to the
-        scheduler's ``min_ram_gb``), so ``ram_gb_hint`` is projected under
-        that name. One mapping, in one place, rather than a second spelling
-        for endpoint authors to get wrong.
+        ``requires`` travels as the requirement ROW — declared terms only, per
+        level (``LayoutRequirements.manifest_row``) — under its own key, the
+        same shape the slot scope already emits, and the hub reads it
+        (th#2072).
 
-        th#1867: nothing VRAM-shaped is projected any more. The hub still has
-        a ``min_vram_gb`` fold in ``function_requirements.go`` and a buy-side
-        candidate filter behind it; both are th#1867 S4's to delete, and after
-        this change no manifest reaches them. That absence is NAMED here rather
-        than left to be discovered, because a hub gate reading a key nobody
-        emits is exactly how pgw#660's gate vanished silently the first time.
+        NO compatibility projection is made. The ``compute_capability``
+        back-projection this method carried was unreachable the moment th#2072
+        landed: the hub takes ``requires`` wherever it is present and only
+        falls back to ``compute_capability`` when the vector left the axis
+        undeclared, and this method emitted the projection ONLY when
+        ``min_sm`` was declared — i.e. only when ``requires`` already answered.
+        The hub's remaining arm exists for PUBLISHED wheels (0.119.0 and
+        older) that emit no ``requires`` at all; th#2074 retires it. No wheel
+        built from this source is one of those.
 
-        ``compute_capability`` needs no remap: it is already the key
-        ``internal/builder/function_requirements.go`` parses (scalar or
-        ``{"min": ...}``) into ``FunctionRequirements.ComputeCapabilityMin``.
-        Note ``min_compute_capability`` — v1's author-facing spelling — is
-        typed-REJECTED by the builder (th#1015 ``ErrMinComputeCapabilityRemoved``),
-        so it must never appear on the wire.
+        Two projections are deliberately NOT made, because each would resurrect
+        a floor a ruling removed. ``min_host_ram_gb`` does not become the
+        builder's ``ram_gb`` (a recommendation must never become an
+        allocation minimum — that is th#1720 exactly), and ``min_vram_gb``
+        does not become the builder's ``min_vram_gb`` (th#1867 deleted every
+        VRAM marker on this struct; arming the lane VRAM floor is th#2073's,
+        with the buy-side fail-open closed in the same change).
         """
         raw = msgspec.to_builtins(self)
         out: Dict[str, Any] = dict(raw) if isinstance(raw, dict) else {}
-        ram = out.pop("ram_gb_hint", None)
-        if ram is not None:
-            out["ram_gb"] = ram
+        out.pop("requires", None)
+        requirement = self.requirement()
+        if requirement is not None:
+            out["requires"] = requirement.manifest_row()
         return out
+
+    def requirement(self) -> LayoutRequirements | None:
+        """The parsed function-scope requirement, or None if undeclared."""
+        return self.requires if isinstance(
+            self.requires, LayoutRequirements) else None
 
     def __post_init__(self) -> None:
         force = msgspec.structs.force_setattr
@@ -264,16 +235,20 @@ class Resources(msgspec.Struct, frozen=True, omit_defaults=True):
         if n_gpu <= 0:
             raise ValueError(f"gpu_count must be positive, got {self.gpu_count}")
         force(self, "gpu_count", n_gpu)
-        if self.compute_capability is not None:
-            force(self, "compute_capability",
-                  _normalize_compute_capability(self.compute_capability))
-        if n_gpu > 1 or self.compute_capability is not None:
+        # The FUNCTION scope of the one requirement vocabulary. Normalized
+        # here, at the declaration site, so the traceback names the
+        # `Resources(...)` the author wrote rather than a manifest key.
+        if self.requires is not None:
+            force(self, "requires", parse_layout_requirements(
+                self.requires, where="Resources(requires=)"))
+        requirement = self.requirement()
+        implies_gpu = requirement is not None and bool(
+            requirement.min_terms().min_sm
+            or requirement.min_terms().min_vram_gb
+            or requirement.recommended_terms().min_sm
+            or requirement.recommended_terms().min_vram_gb)
+        if n_gpu > 1 or implies_gpu:
             force(self, "gpu", True)
-        if self.ram_gb_hint is not None:
-            r = float(self.ram_gb_hint)
-            if r <= 0:
-                raise ValueError(f"ram_gb_hint must be positive, got {r}")
-            force(self, "ram_gb_hint", r)
         if self.vcpus is not None:
             c = int(self.vcpus)
             if c <= 0:
@@ -1167,6 +1142,14 @@ class EndpointDecl(msgspec.Struct, frozen=True, kw_only=True):
     # MAY write; the request still says WHERE. The hub mints the
     # worker-capability write grant off this declaration, never off the kind.
     publishes: bool = False
+    # pgw#1332: handler parameter name -> the generated family TYPE bound to it.
+    # The injected VALUE is a fully resolved Model — graph, bound
+    # weights and catalog-stamped tuned values — so two parameters of one family
+    # type are two checkpoints with independent tuning. Declaring it statically
+    # is what lets placement prefetch the weights and verify the VRAM fit before
+    # a request lands; `ModelSpec.instance(ref)` inside a handler is the dynamic
+    # escape hatch, and it is the one parse-don't-validate boundary.
+    families: Mapping[str, "Bind[Any]"] = msgspec.field(default_factory=dict)
 
 
 ATTR = "__gen_worker_endpoint__"
@@ -1228,7 +1211,13 @@ def _handler_params(fn: Callable[..., Any], *, is_method: bool) -> list[inspect.
     return params
 
 
-def _validate_handler_shape(owner: str, fn: Callable[..., Any], *, is_method: bool) -> None:
+def _validate_handler_shape(
+    owner: str,
+    fn: Callable[..., Any],
+    *,
+    is_method: bool,
+    families: frozenset[str] = frozenset(),
+) -> None:
     params = _handler_params(fn, is_method=is_method)
     if len(params) < 2:
         raise TypeError(
@@ -1238,14 +1227,52 @@ def _validate_handler_shape(owner: str, fn: Callable[..., Any], *, is_method: bo
             "prefix non-handler methods with an underscore."
         )
     if is_method and len(params) > 2:
-        raise TypeError(
-            f"@endpoint: {owner} must accept exactly (self, ctx, payload) — "
-            f"got extra params {[p.name for p in params[2:]]}. SDK v2 "
-            "(pgw#647): per-handler model args are rejected; setup(self, "
-            "pipeline, ...) runs once per instance and stores "
-            "self.pipeline — one live instance == one binding set, so the "
-            "runtime routed this request here BECAUSE the bindings match."
-        )
+        # pgw#1332 reopens this, for FAMILIES and nothing else. What SDK v2
+        # rejected was a per-handler MODEL argument: a slot injected per call
+        # made one live instance able to serve bindings it was not routed for,
+        # which is why `setup()` owns model state instead.
+        #
+        # A family instance is the opposite shape and closes the same hole a
+        # different way. It is not a slot, it is not a path, and it is not
+        # decided by the request: the parameter's TYPE is the family, the
+        # decorator's `families=` declares which checkpoints exist, and
+        # placement resolves them before the request lands. Two parameters of
+        # one family type are two checkpoints on purpose — which `setup()`
+        # cannot express at all, because one attribute holds one value.
+        # A parameter clears this two ways, and both are the declaration
+        # speaking rather than a guess: `families=` NAMED it, or its annotation
+        # IS a generated family class. The first is what makes the check work
+        # before type hints resolve (a family class built at runtime, a forward
+        # reference); the second is what catches a family parameter nobody
+        # declared, which `_validate_family_params` then refuses by name.
+        extra = [
+            p.name
+            for p in params[2:]
+            if p.name not in families and not _is_family_param(fn, p.name)
+        ]
+        if extra:
+            raise TypeError(
+                f"@endpoint: {owner} must accept (self, ctx, payload) plus family "
+                f"instances — got extra params {extra}. SDK v2 (pgw#647): per-handler "
+                "MODEL args are rejected; setup(self, pipeline, ...) runs once per "
+                "instance and stores self.pipeline. A family parameter is the one "
+                "exception (pgw#1332): annotate it with a generated family class and "
+                "declare it in @endpoint(families={...})."
+            )
+
+
+def _is_family_param(fn: Callable[..., Any], name: str) -> bool:
+    """Whether ``name`` is annotated with a generated family class.
+
+    Unresolvable hints answer False rather than raising: a forward reference
+    the module cannot resolve yet is a walk-time problem, and refusing the
+    whole endpoint here would make an ordinary import order fatal.
+    """
+    try:
+        hint = typing.get_type_hints(fn).get(name)
+    except Exception:  # noqa: BLE001 - see the docstring
+        return False
+    return isinstance(hint, type) and issubclass(hint, Model)
 
 
 def _reject_producer_generator(owner: str, fn: Callable[..., Any], kind: str) -> None:
@@ -1309,7 +1336,9 @@ def _normalize_models(
     return out_models, out_slots
 
 
-def _find_handler_methods(cls: type) -> list[tuple[str, Callable[..., Any]]]:
+def _find_handler_methods(
+    cls: type, families: frozenset[str] = frozenset()
+) -> list[tuple[str, Callable[..., Any]]]:
     out: list[tuple[str, Callable[..., Any]]] = []
     for attr, member in inspect.getmembers(cls, predicate=inspect.isfunction):
         if attr.startswith("_") or attr in RESERVED_METHODS:
@@ -1321,7 +1350,9 @@ def _find_handler_methods(cls: type) -> list[tuple[str, Callable[..., Any]]]:
             "Define at least one public method taking (self, ctx, payload)."
         )
     for handler_name, handler_fn in out:
-        _validate_handler_shape(f"{cls.__name__}.{handler_name}", handler_fn, is_method=True)
+        _validate_handler_shape(
+            f"{cls.__name__}.{handler_name}", handler_fn, is_method=True, families=families
+        )
     return out
 
 
@@ -1570,6 +1601,139 @@ def _expand_formula_map(
     return dict(formulas)
 
 
+
+def _normalize_families(
+    owner: str, families: Optional[Mapping[str, Any]]
+) -> Dict[str, "Bind[Any]"]:
+    """Parse ``families={...}`` into handler-parameter -> :class:`Bind`.
+
+    A value is either a generated model class or a ``Bind`` wrapping one; both
+    normalize to a ``Bind`` HERE, once, so no downstream reader has to know the
+    mapping value has two shapes (pgw#1346 K3).
+
+    The VALUE is the generated class, which is simultaneously the type a
+    handler parameter is annotated with and the type of the instance it
+    receives (torchcg G12). Passing a DECLARATION (a ``GraphModelSpec``) is
+    refused by name rather than coerced: a declaration is the authoring object
+    and has no typed callables on it, so accepting one would hand a handler
+    something that looks bound and is not.
+    """
+    if not families:
+        return {}
+    if not isinstance(families, Mapping):
+        raise TypeError(
+            f"@endpoint {owner}: families= must be a mapping of handler "
+            f"parameter name -> family type, got {type(families).__name__}"
+        )
+    out: Dict[str, "Bind[Any]"] = {}
+    for raw_name, entry in families.items():
+        name = str(raw_name or "").strip()
+        if not name or not name.isidentifier():
+            raise ValueError(
+                f"@endpoint {owner}: families= key {raw_name!r} must be a handler "
+                "parameter name"
+            )
+        bind = entry if isinstance(entry, Bind) else None
+        value = bind.model if bind is not None else entry
+        if not (isinstance(value, type) and issubclass(value, Model)):
+            if isinstance(value, FamilySpec):
+                raise TypeError(
+                    f"@endpoint {owner}: families[{name!r}] is the DECLARATION of family "
+                    f"{value.name!r}, not its generated type. A declaration has no typed "
+                    "callables on it, so binding one would hand the handler something "
+                    "that looks resolved and is not — bind the class "
+                    "`gen-worker model generate` emits."
+                )
+            raise TypeError(
+                f"@endpoint {owner}: families[{name!r}] must be a generated family class, "
+                f"got {type(value).__name__}"
+            )
+        if not value.FAMILY:
+            raise ValueError(
+                f"@endpoint {owner}: families[{name!r}] = {value.__name__} carries no "
+                "family handle; it is not a generated binding"
+            )
+        out[name] = bind if bind is not None else Bind(model=value)
+    roots = sorted(n for n, b in out.items() if b.root)
+    if len(roots) > 1:
+        raise ValueError(
+            f"@endpoint {owner}: {len(roots)} models are marked root={roots}. Exactly "
+            "one model of a multi-model endpoint is THE root; an ambiguous root is a "
+            "decoration-time error, never a silent pick."
+        )
+    # No "you must mark one" rule, deliberately — and this is where the model
+    # surface is genuinely smaller than the `Slot` one it replaces. A root slot
+    # had to be picked because `ctx.defaults` and `ctx.for_request` resolve
+    # against ONE slot with nothing in the call naming it. A handler names every
+    # model it binds, by parameter, so there is no ambiguity for a root to
+    # settle: `root=` exists only to answer the residual `ctx` questions while
+    # they still exist, and an endpoint binding four models and marking none is
+    # a perfectly determined declaration.
+    return dict(sorted(out.items()))
+
+
+def _validate_family_params(
+    owner: str,
+    fn: Callable[..., Any],
+    families: Mapping[str, "Bind[Any]"],
+    *,
+    is_method: bool,
+) -> None:
+    """Every declared family must be a parameter, and typed as itself.
+
+    Two directions, and both matter. A declared family with no parameter is a
+    prefetch nobody consumes — placement would pull weights for a checkpoint the
+    handler never touches. A parameter ANNOTATED with a family class but not
+    declared is the reverse: nothing prefetches it, and the failure surfaces on
+    a pod as an unbound instance rather than here, at decoration.
+
+    The annotation check is what makes `flux_a: Flux1Dev, flux_b: Flux1Dev` two
+    independent checkpoints rather than a coincidence of naming.
+    """
+    params = {p.name: p for p in _handler_params(fn, is_method=is_method)[2:]}
+    missing = sorted(set(families) - set(params))
+    if missing:
+        raise ValueError(
+            f"@endpoint {owner}: families declares {missing[0]!r} but the handler has no "
+            f"such parameter after (ctx, payload); it has {sorted(params) or 'none'}"
+        )
+    try:
+        hints = typing.get_type_hints(fn)
+    except Exception:  # noqa: BLE001 - unresolvable hints are checked at walk time
+        return
+    # The reverse direction runs even with NO declared families, which is the
+    # case that actually bites: a bare `@endpoint` over a handler that took a
+    # family instance would decorate cleanly and then have nothing prefetch it.
+    for name, row in families.items():
+        declared = row.model
+        annotation = hints.get(name)
+        if annotation is None:
+            raise ValueError(
+                f"@endpoint {owner}: parameter {name!r} binds family "
+                f"{declared.FAMILY!r} and must be annotated `{name}: {declared.__name__}` "
+                "— the family class IS the type of the instance it receives"
+            )
+        if annotation is not declared:
+            raise TypeError(
+                f"@endpoint {owner}: parameter {name!r} is annotated "
+                f"{getattr(annotation, '__name__', annotation)!r} but families binds "
+                f"{declared.__name__}"
+            )
+    for name, hint in hints.items():
+        if (
+            name in params
+            and name not in families
+            and isinstance(hint, type)
+            and issubclass(hint, Model)
+        ):
+            raise ValueError(
+                f"@endpoint {owner}: parameter {name!r} is annotated with family type "
+                f"{hint.__name__} but families= does not declare it. Declare it so "
+                "placement can prefetch its weights, or resolve it inside the handler "
+                f"with {hint.__name__}.instance(<ref>)."
+            )
+
+
 def _decorate_class(
     cls: type,
     *,
@@ -1588,10 +1752,19 @@ def _decorate_class(
     config: Optional[Any] = None,
     env: Optional[Any] = None,
     publishes: bool = False,
+    families: Optional[Mapping[str, Any]] = None,
 ) -> type:
-    handlers = _find_handler_methods(cls)
+    # Families first: a shape check that does not know which parameters are
+    # families would reject them, and a malformed `families=` should say so
+    # rather than surface as a confusing shape error two frames later.
+    family_map = _normalize_families(f"class {cls.__name__!r}", families)
+    handlers = _find_handler_methods(cls, frozenset(family_map))
     for attr, member in handlers:
         _reject_producer_generator(f"{cls.__name__}.{attr}", member, kind)
+    for attr, member in handlers:
+        _validate_family_params(
+            f"class {cls.__name__!r}.{attr}", member, family_map, is_method=True
+        )
     models, slots = _resolve_single_slot(cls, models, slots, handlers)
     _validate_class_models(cls, models, slots)
     _validate_root_slot(cls.__name__, slots)
@@ -1615,6 +1788,7 @@ def _decorate_class(
         config=_validate_config_decl(cls.__name__, config),
         env=_validate_env_decl(cls.__name__, env),
         publishes=bool(publishes),
+        families=family_map,
     )
     setattr(cls, ATTR, decl)
     setattr(cls, "__gen_worker_handlers__", handlers)
@@ -1646,6 +1820,7 @@ def _decorate_function(
     config: Optional[Any] = None,
     env: Optional[Any] = None,
     publishes: bool = False,
+    families: Optional[Mapping[str, Any]] = None,
 ) -> Callable[..., Any]:
     if reentrant:
         raise ValueError(
@@ -1653,8 +1828,14 @@ def _decorate_function(
             "class endpoints only (stateless functions hold no instance "
             "state to single-flight)."
         )
-    _validate_handler_shape(fn.__name__, fn, is_method=False)
+    family_map = _normalize_families(f"function {fn.__name__!r}", families)
+    _validate_handler_shape(
+        fn.__name__, fn, is_method=False, families=frozenset(family_map)
+    )
     _reject_producer_generator(fn.__name__, fn, kind)
+    _validate_family_params(
+        f"function {fn.__name__!r}", fn, family_map, is_method=False
+    )
     if "" in models or "" in slots:
         injected = [p.name for p in _handler_params(fn, is_method=False)[2:]]
         if len(injected) != 1:
@@ -1693,6 +1874,7 @@ def _decorate_function(
         config=_validate_config_decl(fn.__name__, config),
         env=_validate_env_decl(fn.__name__, env),
         publishes=bool(publishes),
+        families=family_map,
     )
     setattr(fn, ATTR, decl)
     return fn
@@ -1720,6 +1902,7 @@ def endpoint(
     config: Optional[Sequence[ConfigParam]] = ...,
     env: Optional[Sequence[str]] = ...,
     publishes: bool = ...,
+    families: Optional[Mapping[str, "type[Model] | Bind[Any]"]] = ...,
 ) -> Callable[[T], T]: ...  # configured @endpoint(...) form
 
 
@@ -1741,6 +1924,7 @@ def endpoint(
     config: Optional[Sequence[ConfigParam]] = None,
     env: Optional[Sequence[str]] = None,
     publishes: bool = False,
+    families: Optional[Mapping[str, "type[Model] | Bind[Any]"]] = None,
 ) -> Any:
     """The one endpoint decorator. See the module docstring for shapes.
 
@@ -1816,7 +2000,7 @@ def endpoint(
                 child_calls=child_calls, reentrant=reentrant,
                 lora_bucket=bucket, warmup=warmup,
                 handles=handles, config=config, env=env,
-                publishes=publishes,
+                publishes=publishes, families=families,
             )
         if inspect.isfunction(obj):
             return _decorate_function(
@@ -1826,7 +2010,7 @@ def endpoint(
                 child_calls=child_calls, reentrant=reentrant,
                 lora_bucket=bucket, warmup=warmup,
                 handles=handles, config=config, env=env,
-                publishes=publishes,
+                publishes=publishes, families=families,
             )
         raise TypeError(
             f"@endpoint requires a function or class, got {type(obj).__name__}"

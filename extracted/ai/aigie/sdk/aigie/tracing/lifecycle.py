@@ -106,9 +106,18 @@ class FrameworkLifecycleBridge(abc.ABC):
         return
 
     def _after_run(
-        self, handler: Any, input: Any, config: dict | None, error: BaseException | None
+        self,
+        handler: Any,
+        input: Any,
+        config: dict | None,
+        error: BaseException | None,
+        result: Any = None,
     ) -> None:
-        """Hook called in the finally block, after _finalize."""
+        """Hook called in the finally block, after _finalize.
+
+        ``result`` is the wrapped call's return value — ``None`` for streaming,
+        which yields chunks instead.
+        """
         return
 
     # ─── Shared setup / teardown ────────────────────────────────────────
@@ -177,12 +186,14 @@ class FrameworkLifecycleBridge(abc.ABC):
         handler: Any | None,
         token: Token | None,
         error: BaseException | None,
+        result: Any = None,
     ) -> None:
+        """Close the run out. Every wrapper funnels through here."""
         if handler is None:
             return
         try:
             self._finalize(framework_handle, config, handler, error)
-            self._after_run(handler, None, config, error)
+            self._after_run(handler, None, config, error, result)
         finally:
             if token is not None:
                 close_ambient(token)
@@ -199,13 +210,16 @@ class FrameworkLifecycleBridge(abc.ABC):
             if handler is None:
                 return original(input, config=config, **kwargs)
             err: Exception | None = None
+            result: Any = None
             try:
-                return original(input, config=config, **kwargs)
+                result = original(input, config=config, **kwargs)
             except Exception as e:
                 err = e
                 raise
+            else:
+                return result
             finally:
-                bridge._teardown(framework_handle, config, handler, token, err)
+                bridge._teardown(framework_handle, config, handler, token, err, result)
 
         return wrapped
 
@@ -221,13 +235,16 @@ class FrameworkLifecycleBridge(abc.ABC):
             if handler is None:
                 return await original(input, config=config, **kwargs)
             err: Exception | None = None
+            result: Any = None
             try:
-                return await original(input, config=config, **kwargs)
+                result = await original(input, config=config, **kwargs)
             except Exception as e:
                 err = e
                 raise
+            else:
+                return result
             finally:
-                bridge._teardown(framework_handle, config, handler, token, err)
+                bridge._teardown(framework_handle, config, handler, token, err, result)
 
         return wrapped
 

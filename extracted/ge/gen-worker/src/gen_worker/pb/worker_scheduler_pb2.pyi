@@ -27,6 +27,7 @@ class DesiredIntentKind(int, metaclass=_enum_type_wrapper.EnumTypeWrapper):
     DESIRED_INTENT_KIND_CONFIG_APPLY: _ClassVar[DesiredIntentKind]
     DESIRED_INTENT_KIND_COMPILE_ADOPT: _ClassVar[DesiredIntentKind]
     DESIRED_INTENT_KIND_DRAIN: _ClassVar[DesiredIntentKind]
+    DESIRED_INTENT_KIND_RUN_JOB: _ClassVar[DesiredIntentKind]
 
 class DesiredIntentCause(int, metaclass=_enum_type_wrapper.EnumTypeWrapper):
     __slots__ = ()
@@ -158,11 +159,11 @@ class WorkerPhase(int, metaclass=_enum_type_wrapper.EnumTypeWrapper):
     WORKER_PHASE_READY: _ClassVar[WorkerPhase]
     WORKER_PHASE_ERROR: _ClassVar[WorkerPhase]
 
-class OutputMode(int, metaclass=_enum_type_wrapper.EnumTypeWrapper):
+class MediaBytes(int, metaclass=_enum_type_wrapper.EnumTypeWrapper):
     __slots__ = ()
-    OUTPUT_MODE_UNSPECIFIED: _ClassVar[OutputMode]
-    OUTPUT_MODE_URL: _ClassVar[OutputMode]
-    OUTPUT_MODE_INLINE: _ClassVar[OutputMode]
+    MEDIA_BYTES_UNSPECIFIED: _ClassVar[MediaBytes]
+    MEDIA_BYTES_URL: _ClassVar[MediaBytes]
+    MEDIA_BYTES_INLINE: _ClassVar[MediaBytes]
 
 class JobStatus(int, metaclass=_enum_type_wrapper.EnumTypeWrapper):
     __slots__ = ()
@@ -208,6 +209,7 @@ DESIRED_INTENT_KIND_FUNCTION_READY: DesiredIntentKind
 DESIRED_INTENT_KIND_CONFIG_APPLY: DesiredIntentKind
 DESIRED_INTENT_KIND_COMPILE_ADOPT: DesiredIntentKind
 DESIRED_INTENT_KIND_DRAIN: DesiredIntentKind
+DESIRED_INTENT_KIND_RUN_JOB: DesiredIntentKind
 DESIRED_INTENT_CAUSE_UNSPECIFIED: DesiredIntentCause
 DESIRED_INTENT_CAUSE_COLD_BOOT: DesiredIntentCause
 DESIRED_INTENT_CAUSE_REQUEST: DesiredIntentCause
@@ -305,9 +307,9 @@ WORKER_PHASE_LOADING_PIPELINES: WorkerPhase
 WORKER_PHASE_WARMING: WorkerPhase
 WORKER_PHASE_READY: WorkerPhase
 WORKER_PHASE_ERROR: WorkerPhase
-OUTPUT_MODE_UNSPECIFIED: OutputMode
-OUTPUT_MODE_URL: OutputMode
-OUTPUT_MODE_INLINE: OutputMode
+MEDIA_BYTES_UNSPECIFIED: MediaBytes
+MEDIA_BYTES_URL: MediaBytes
+MEDIA_BYTES_INLINE: MediaBytes
 JOB_STATUS_UNSPECIFIED: JobStatus
 JOB_STATUS_OK: JobStatus
 JOB_STATUS_INVALID: JobStatus
@@ -403,7 +405,7 @@ class Hello(_message.Message):
     def __init__(self, protocol_version: _Optional[_Union[ProtocolVersion, str]] = ..., worker_id: _Optional[str] = ..., release_id: _Optional[str] = ..., resources: _Optional[_Union[WorkerResources, _Mapping]] = ..., state: _Optional[_Union[StateDelta, _Mapping]] = ..., models: _Optional[_Iterable[_Union[ModelResidency, _Mapping]]] = ..., in_flight: _Optional[_Iterable[_Union[InFlightJob, _Mapping]]] = ..., heartbeat_interval_ms: _Optional[int] = ..., worker_session_id: _Optional[str] = ..., lifecycle_snapshot: _Optional[_Union[LifecycleSnapshot, _Mapping]] = ...) -> None: ...
 
 class WorkerResources(_message.Message):
-    __slots__ = ("gpu_count", "vram_total_bytes", "gpu_name", "gpu_sm", "installed_libs", "image_digest", "git_commit", "instance_id", "host_canary", "torch_version", "gen_worker_version", "driver_version")
+    __slots__ = ("gpu_count", "vram_total_bytes", "gpu_name", "gpu_sm", "installed_libs", "image_digest", "git_commit", "instance_id", "host_canary", "torch_version", "gen_worker_version", "driver_version", "cuda_version")
     GPU_COUNT_FIELD_NUMBER: _ClassVar[int]
     VRAM_TOTAL_BYTES_FIELD_NUMBER: _ClassVar[int]
     GPU_NAME_FIELD_NUMBER: _ClassVar[int]
@@ -416,6 +418,7 @@ class WorkerResources(_message.Message):
     TORCH_VERSION_FIELD_NUMBER: _ClassVar[int]
     GEN_WORKER_VERSION_FIELD_NUMBER: _ClassVar[int]
     DRIVER_VERSION_FIELD_NUMBER: _ClassVar[int]
+    CUDA_VERSION_FIELD_NUMBER: _ClassVar[int]
     gpu_count: int
     vram_total_bytes: int
     gpu_name: str
@@ -428,7 +431,8 @@ class WorkerResources(_message.Message):
     torch_version: str
     gen_worker_version: str
     driver_version: str
-    def __init__(self, gpu_count: _Optional[int] = ..., vram_total_bytes: _Optional[int] = ..., gpu_name: _Optional[str] = ..., gpu_sm: _Optional[str] = ..., installed_libs: _Optional[_Iterable[str]] = ..., image_digest: _Optional[str] = ..., git_commit: _Optional[str] = ..., instance_id: _Optional[str] = ..., host_canary: _Optional[_Union[HostCanary, _Mapping]] = ..., torch_version: _Optional[str] = ..., gen_worker_version: _Optional[str] = ..., driver_version: _Optional[str] = ...) -> None: ...
+    cuda_version: str
+    def __init__(self, gpu_count: _Optional[int] = ..., vram_total_bytes: _Optional[int] = ..., gpu_name: _Optional[str] = ..., gpu_sm: _Optional[str] = ..., installed_libs: _Optional[_Iterable[str]] = ..., image_digest: _Optional[str] = ..., git_commit: _Optional[str] = ..., instance_id: _Optional[str] = ..., host_canary: _Optional[_Union[HostCanary, _Mapping]] = ..., torch_version: _Optional[str] = ..., gen_worker_version: _Optional[str] = ..., driver_version: _Optional[str] = ..., cuda_version: _Optional[str] = ...) -> None: ...
 
 class HardwareUnsuitable(_message.Message):
     __slots__ = ("worker_id", "release_id", "reason_class", "detail", "driver_version", "gpu_name", "torch_version", "torch_cuda_version", "gen_worker_version", "image_digest", "instance_id", "reported_at_unix_ms")
@@ -920,7 +924,7 @@ class CompileTargetBinding(_message.Message):
     def __init__(self, slot: _Optional[str] = ..., ref: _Optional[str] = ..., snapshot_digest: _Optional[str] = ...) -> None: ...
 
 class RunJob(_message.Message):
-    __slots__ = ("request_id", "attempt", "function_name", "input_payload", "timeout_ms", "org", "invoker_id", "capability_token", "output_mode", "compute", "models", "snapshots", "required_compile", "lane", "input_assets", "config_generation", "config_params")
+    __slots__ = ("request_id", "attempt", "function_name", "input_payload", "timeout_ms", "org", "invoker_id", "capability_token", "media_bytes", "compute", "models", "snapshots", "required_compile", "lane", "input_assets", "config_generation", "config_params", "intent_kind", "intent_id", "goal_id", "phase_budget_s")
     class SnapshotsEntry(_message.Message):
         __slots__ = ("key", "value")
         KEY_FIELD_NUMBER: _ClassVar[int]
@@ -936,7 +940,7 @@ class RunJob(_message.Message):
     ORG_FIELD_NUMBER: _ClassVar[int]
     INVOKER_ID_FIELD_NUMBER: _ClassVar[int]
     CAPABILITY_TOKEN_FIELD_NUMBER: _ClassVar[int]
-    OUTPUT_MODE_FIELD_NUMBER: _ClassVar[int]
+    MEDIA_BYTES_FIELD_NUMBER: _ClassVar[int]
     COMPUTE_FIELD_NUMBER: _ClassVar[int]
     MODELS_FIELD_NUMBER: _ClassVar[int]
     SNAPSHOTS_FIELD_NUMBER: _ClassVar[int]
@@ -945,6 +949,10 @@ class RunJob(_message.Message):
     INPUT_ASSETS_FIELD_NUMBER: _ClassVar[int]
     CONFIG_GENERATION_FIELD_NUMBER: _ClassVar[int]
     CONFIG_PARAMS_FIELD_NUMBER: _ClassVar[int]
+    INTENT_KIND_FIELD_NUMBER: _ClassVar[int]
+    INTENT_ID_FIELD_NUMBER: _ClassVar[int]
+    GOAL_ID_FIELD_NUMBER: _ClassVar[int]
+    PHASE_BUDGET_S_FIELD_NUMBER: _ClassVar[int]
     request_id: str
     attempt: int
     function_name: str
@@ -953,7 +961,7 @@ class RunJob(_message.Message):
     org: str
     invoker_id: str
     capability_token: str
-    output_mode: OutputMode
+    media_bytes: MediaBytes
     compute: ResolvedCompute
     models: _containers.RepeatedCompositeFieldContainer[ModelBinding]
     snapshots: _containers.MessageMap[str, Snapshot]
@@ -962,7 +970,11 @@ class RunJob(_message.Message):
     input_assets: _containers.RepeatedCompositeFieldContainer[InputAsset]
     config_generation: int
     config_params: bytes
-    def __init__(self, request_id: _Optional[str] = ..., attempt: _Optional[int] = ..., function_name: _Optional[str] = ..., input_payload: _Optional[bytes] = ..., timeout_ms: _Optional[int] = ..., org: _Optional[str] = ..., invoker_id: _Optional[str] = ..., capability_token: _Optional[str] = ..., output_mode: _Optional[_Union[OutputMode, str]] = ..., compute: _Optional[_Union[ResolvedCompute, _Mapping]] = ..., models: _Optional[_Iterable[_Union[ModelBinding, _Mapping]]] = ..., snapshots: _Optional[_Mapping[str, Snapshot]] = ..., required_compile: _Optional[_Union[RequiredCompileExecution, _Mapping]] = ..., lane: _Optional[str] = ..., input_assets: _Optional[_Iterable[_Union[InputAsset, _Mapping]]] = ..., config_generation: _Optional[int] = ..., config_params: _Optional[bytes] = ...) -> None: ...
+    intent_kind: DesiredIntentKind
+    intent_id: str
+    goal_id: str
+    phase_budget_s: int
+    def __init__(self, request_id: _Optional[str] = ..., attempt: _Optional[int] = ..., function_name: _Optional[str] = ..., input_payload: _Optional[bytes] = ..., timeout_ms: _Optional[int] = ..., org: _Optional[str] = ..., invoker_id: _Optional[str] = ..., capability_token: _Optional[str] = ..., media_bytes: _Optional[_Union[MediaBytes, str]] = ..., compute: _Optional[_Union[ResolvedCompute, _Mapping]] = ..., models: _Optional[_Iterable[_Union[ModelBinding, _Mapping]]] = ..., snapshots: _Optional[_Mapping[str, Snapshot]] = ..., required_compile: _Optional[_Union[RequiredCompileExecution, _Mapping]] = ..., lane: _Optional[str] = ..., input_assets: _Optional[_Iterable[_Union[InputAsset, _Mapping]]] = ..., config_generation: _Optional[int] = ..., config_params: _Optional[bytes] = ..., intent_kind: _Optional[_Union[DesiredIntentKind, str]] = ..., intent_id: _Optional[str] = ..., goal_id: _Optional[str] = ..., phase_budget_s: _Optional[int] = ...) -> None: ...
 
 class InputAsset(_message.Message):
     __slots__ = ("asset_id", "source_ref", "blake3", "size_bytes", "kind", "mime_type")

@@ -1,4 +1,4 @@
-// Copyright 2024 D-Wave Systems Inc.
+// Copyright 2024 D-Wave
 //
 //    Licensed under the Apache License, Version 2.0 (the "License");
 //    you may not use this file except in compliance with the License.
@@ -104,6 +104,28 @@ class DynamicArrayTestingNode : public ArrayOutputMixin<ArrayNode>, public Decis
     void commit(State&) const override;
     void revert(State&) const override;
     void update(State&, int) const override;
+
+    // Overloads required by the DecisionNode ABC *****************************
+
+    // DynamicArrayTestingNode does not implement checkpointing
+    [[noreturn]] void assign_from_checkpoint(
+        State& state,
+        checkpoint_type& checkpoint
+    ) const override {
+        assert(false and "not implemented");
+        unreachable();
+    }
+    [[noreturn]] void assign_from_checkpoint(
+        State& state,
+        checkpoint_type&& checkpoint
+    ) const override {
+        assert(false and "not implemented");
+        unreachable();
+    }
+    [[noreturn]] virtual checkpoint_type checkpoint(State& state) const override {
+        assert(false and "not implemented");
+        unreachable();
+    }
 
     // State mutation methods *************************************************
 

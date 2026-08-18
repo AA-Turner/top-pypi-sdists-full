@@ -202,6 +202,10 @@ class LangChainCallbackBase(LangChainTraceBoundary, BaseCallbackHandler):
         name = state["name"] if state else "chain"
         self._execution.end_span(name=name, status="success", at=datetime.now(timezone.utc))
         self.spans.close_span(run_id=str(run_id), output=outputs)
+        if parent_run_id is None:
+            # The framework's own end-of-run output; the only source a streamed
+            # run has, since its wrapper returns nothing.
+            self.note_root_output(outputs)
         self._note_end(run_id, output=outputs)
 
     def on_chain_error(

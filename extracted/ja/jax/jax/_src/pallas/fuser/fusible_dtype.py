@@ -15,11 +15,11 @@
 """Custom fusible dtypes."""
 
 import abc
+from collections.abc import Callable, Sequence
 import dataclasses
 import functools
 import itertools as it
-from typing import Any, TypeVar
-from collections.abc import Callable, Sequence
+from typing import Any
 
 import jax
 from jax._src import api_util
@@ -27,6 +27,7 @@ from jax._src import core
 from jax._src import custom_derivatives
 from jax._src import dtypes
 from jax._src import flattree as ft
+from jax._src import hijax
 from jax._src import linear_util as lu
 from jax._src import source_info_util
 from jax._src import state
@@ -39,7 +40,6 @@ from jax._src.pallas import mpmd
 from jax._src.pallas import pallas_call
 from jax._src.pallas import primitives as pallas_primitives
 from jax._src.pallas.fuser import block_spec
-from jax._src.pallas.fuser.fusible import fusible_p
 from jax._src.state import discharge as state_discharge
 from jax._src.state import primitives as state_primitives
 from jax._src.util import foreach
@@ -47,7 +47,6 @@ from jax._src.util import foreach
 map, unsafe_map = util.safe_map, map
 zip, unsafe_zip = util.safe_zip, zip
 
-T = TypeVar("T")
 
 _physicalize_rules: dict[core.Primitive, Callable[..., Any]] = {}
 
@@ -197,10 +196,9 @@ def physicalize_jaxpr(jaxpr: core.Jaxpr) -> core.Jaxpr:
       _flat_jaxpr_eval, in_avals_ft, debug_info
   )
   assert not closed_jaxpr.consts
-  new_jaxpr = pe.convert_invars_to_constvars(
-      closed_jaxpr, len(tree_util.tree_leaves(const_avals))
-  )
-  return new_jaxpr
+  # The physicalized consts are the leading invars; callers with const values
+  # in hand can reattach them via with_consts.
+  return closed_jaxpr
 
 
 @dataclasses.dataclass
@@ -381,18 +379,6 @@ def _run_state_rule(ctx: Context, *args, jaxpr, which_linear, is_initialized):
 _physicalize_rules[state_discharge.run_state_p] = _run_state_rule
 
 
-def _core_map_rule(ctx: Context, *args, jaxpr, **params):
-  _assert_no_fusion_types(ctx.avals_in)
-  _assert_no_fusion_types(ctx.avals_out)
-  assert not jaxpr.invars
-  with core.extend_axis_env_nd(params["mesh"].shape.items()):
-    jaxpr = physicalize_jaxpr(jaxpr)
-  return pallas_core.core_map_p.bind(*args, jaxpr=jaxpr, **params)
-
-
-_physicalize_rules[pallas_core.core_map_p] = _core_map_rule
-
-
 def _mpmd_map_rule(ctx: Context, *args, jaxprs, meshes, external_meshes, **params):
   _assert_no_fusion_types(ctx.avals_in)
   _assert_no_fusion_types(ctx.avals_out)
@@ -415,11 +401,8 @@ _physicalize_rules[mpmd.mpmd_map_p] = _mpmd_map_rule
 
 def _run_scoped_rule(ctx: Context, *args, jaxpr, **params):
   _assert_no_fusion_types(ctx.avals_out)
-  jaxpr = physicalize_jaxpr(jaxpr)
   flat_args = tree_util.tree_leaves(args)
-  assert len(flat_args) == len(
-      jaxpr.constvars
-  ), f"Length mismatch: {len(flat_args)=} != {len(jaxpr.constvars)=}"
+  jaxpr = physicalize_jaxpr(jaxpr).with_consts(flat_args)
   return pallas_primitives.run_scoped_p.bind(*flat_args, jaxpr=jaxpr, **params)
 
 
@@ -569,20 +552,12 @@ def _unpack_dtype_eval_rule(ctx: block_spec.KernelEvalContext, *args):
   return aval_in.dtype.unpack_eval_rule(ctx, *args)  # pyrefly: ignore[missing-attribute]
 
 
-def _fusible_physicalize_rule(
-    _, *consts_and_args, jaxpr, num_consts, in_tree, out_tree, func, **params
-):
-  consts, _ = util.split_list(consts_and_args, [num_consts])
-  new_jaxpr = physicalize_closed_jaxpr(jaxpr.with_consts(consts))
-  return fusible_p.bind(
-      *consts_and_args,
-      jaxpr=new_jaxpr,
-      num_consts=num_consts,
-      in_tree=in_tree,
-      out_tree=out_tree,
-      func=func,
-      **params,
-  )
+def _call_hi_primitive_physicalize_rule(ctx, *args, _prim, **params):
+  if hasattr(_prim, "physicalize"):
+    return _prim.physicalize(ctx, *args, **params)
+  return hijax.call_hi_primitive_p.bind(*args, _prim=_prim, **params)
 
 
-_physicalize_rules[fusible_p] = _fusible_physicalize_rule
+_physicalize_rules[hijax.call_hi_primitive_p] = (
+    _call_hi_primitive_physicalize_rule
+)

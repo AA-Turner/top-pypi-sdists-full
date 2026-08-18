@@ -18,6 +18,7 @@ fans out via ``copy_context()`` so each task gets its own span_stack copy.
 from __future__ import annotations
 
 import threading
+from collections import OrderedDict
 from collections.abc import Callable
 from contextvars import ContextVar, Token
 from dataclasses import dataclass, field
@@ -34,9 +35,7 @@ class _AmbientState:
     span_stack: list[str] = field(default_factory=list)
 
 
-_ambient: ContextVar[_AmbientState | None] = ContextVar(
-    "_aigie_trace_state_ambient", default=None
-)
+_ambient: ContextVar[_AmbientState | None] = ContextVar("_aigie_trace_state_ambient", default=None)
 
 
 def open_ambient(*, trace_id: str) -> Token:
@@ -59,12 +58,8 @@ def push_span(span_id: str) -> None:
     """
     state = _ambient.get()
     if state is None:
-        raise RuntimeError(
-            "No active ambient trace_state; call open_ambient(trace_id=...) first"
-        )
-    _ambient.set(
-        _AmbientState(trace_id=state.trace_id, span_stack=state.span_stack + [span_id])
-    )
+        raise RuntimeError("No active ambient trace_state; call open_ambient(trace_id=...) first")
+    _ambient.set(_AmbientState(trace_id=state.trace_id, span_stack=state.span_stack + [span_id]))
 
 
 def pop_span() -> str | None:
@@ -73,9 +68,7 @@ def pop_span() -> str | None:
     if state is None or not state.span_stack:
         return None
     popped = state.span_stack[-1]
-    _ambient.set(
-        _AmbientState(trace_id=state.trace_id, span_stack=state.span_stack[:-1])
-    )
+    _ambient.set(_AmbientState(trace_id=state.trace_id, span_stack=state.span_stack[:-1]))
     return popped
 
 
@@ -156,6 +149,39 @@ def pop_resumable_trace(resume_key: str | None) -> Any | None:
         return None
     with _resume_registry_lock:
         return _resume_registry.pop(resume_key, None)
+
+
+# ─── Surface B2: Traces whose root has closed ────────────────────────────
+#
+# The root span is stamped ``span_id == trace_id``, so a later call that
+# adopts a finished trace and opens its own workflow root writes over that
+# same row — replacing the run's name and output with its own. Recording the
+# close lets a boundary decline to open a second root for a trace that
+# already had one. Bounded: a long-lived process would otherwise accumulate
+# one entry per trace forever.
+
+_ROOT_CLOSED_MAX = 4096
+_root_closed: OrderedDict[str, None] = OrderedDict()
+_root_closed_lock = threading.Lock()
+
+
+def mark_root_closed(trace_id: str | None) -> None:
+    """Record that ``trace_id``'s workflow root has been closed."""
+    if not trace_id:
+        return
+    with _root_closed_lock:
+        _root_closed[trace_id] = None
+        _root_closed.move_to_end(trace_id)
+        while len(_root_closed) > _ROOT_CLOSED_MAX:
+            _root_closed.popitem(last=False)
+
+
+def root_already_closed(trace_id: str | None) -> bool:
+    """True when this trace already had its root closed."""
+    if not trace_id:
+        return False
+    with _root_closed_lock:
+        return trace_id in _root_closed
 
 
 # ─── Surface C: Open-span registry (shutdown-only orphan finalizer) ──────

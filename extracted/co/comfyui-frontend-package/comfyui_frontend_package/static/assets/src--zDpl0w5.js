@@ -1,1 +1,0 @@
-import"./rolldown-runtime-G-74P12b.js";import{Mt as e,Nt as t}from"./vendor-other-DPfw0xWO.js";var n=e({extend:{classGroups:{"font-size":[`text-xxs`,`text-xxxs`],"max-h":[{"max-h":[`none`]}]}}});function cn(...e){return n(t(e))}export{cn as t};

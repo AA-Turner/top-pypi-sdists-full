@@ -38,12 +38,13 @@ class DocumentCreateRequest(BaseModel):
     source_object_id: Optional[StrictStr] = Field(default=None, description="Optional parent object identifier when sourced directly from a bucket.")
     lineage_path: Optional[StrictStr] = Field(default=None, description="Optional materialized lineage path to set during creation.")
     lineage_chain: Optional[List[LineageStep]] = Field(default=None, description="Processing steps from root object to this document. Recommended for decomposition trees.")
+    content_hash: Optional[StrictStr] = Field(default=None, description="Optional SHA256 content hash of the source object. Supplying it on a lineage-preserving import lets a later heal/reprocess recognise the cached derivation potency (LIN-02) and skip recompute instead of re-spending GPU. Stored at _internal.content_hash.")
     document_schema_version: Optional[StrictStr] = Field(default=None, description="Optional document schema version (v1 or v2). If not provided, uses system default.")
     metadata: Optional[Dict[str, Any]] = Field(default=None, description="Optional metadata dictionary for user-defined fields and custom attributes.")
     features: Optional[List[FeatureModel]] = Field(default=None, description="Features to associate with the document")
     vectors: Optional[Dict[str, List[Union[StrictFloat, StrictInt]]]] = Field(default=None, description="Optional pre-computed vectors to store with the document. Keys are vector index names (e.g. 'text_extractor_v1_embedding'), values are float arrays matching the index dimensions.")
     additional_properties: Dict[str, Any] = {}
-    __properties: ClassVar[List[str]] = ["collection_id", "root_object_id", "root_bucket_id", "source_type", "source_collection_id", "source_document_id", "source_object_id", "lineage_path", "lineage_chain", "document_schema_version", "metadata", "features", "vectors"]
+    __properties: ClassVar[List[str]] = ["collection_id", "root_object_id", "root_bucket_id", "source_type", "source_collection_id", "source_document_id", "source_object_id", "lineage_path", "lineage_chain", "content_hash", "document_schema_version", "metadata", "features", "vectors"]
 
     @field_validator('source_type')
     def source_type_validate_enum(cls, value):
@@ -136,6 +137,7 @@ class DocumentCreateRequest(BaseModel):
             "source_object_id": obj.get("source_object_id"),
             "lineage_path": obj.get("lineage_path"),
             "lineage_chain": [LineageStep.from_dict(_item) for _item in obj["lineage_chain"]] if obj.get("lineage_chain") is not None else None,
+            "content_hash": obj.get("content_hash"),
             "document_schema_version": obj.get("document_schema_version"),
             "metadata": obj.get("metadata"),
             "features": [FeatureModel.from_dict(_item) for _item in obj["features"]] if obj.get("features") is not None else None,

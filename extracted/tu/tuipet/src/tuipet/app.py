@@ -150,7 +150,8 @@ class TuiPetApp(ActionsMixin, App):
     """
     # the release-news line (title-screen msg box, first launch per build) --
     # UPDATE THIS WITH EVERY RELEASE that ships something player-visible
-    WHATS_NEW = ("TUIPET IS OPEN SOURCE, AND NOW IT SAYS SO PLAINLY: the license was always MIT, but a note tacked onto the end of the license file stopped GitHub from recognising it, so the page read 'Other' and the project looked closed to anyone who went looking. The code is yours — read it, change it, fork it, publish your own, build something commercial on it, no permission needed. The sprites stay Bandai's and you still bring your own. Underneath, the lobby's column widths lived in three files at once, each with its own private copy; they come from one place now, so the chat box and the player list beside it can never drift apart.")
+    WHATS_NEW = ("THE PLAYER BOX NOW SAYS WHICH KIND OF AWAY SOMEONE IS. Last build gave everyone you have a private thread with a row of their own, online or not, so an unread ✉ from someone who logged off is finally readable — but those rows came out wearing the same dot as a tamer who is playing elsewhere, and the line under the box called them playing too. A column of people who were nowhere read as a busy lobby. A solid dot still means playing elsewhere; a hollow one means offline, nobody home, only the thread. Pick one and it says so.")
+
 
     BINDINGS = [
         # jogress is LOBBY-ONLY (fusion needs a real partner from the

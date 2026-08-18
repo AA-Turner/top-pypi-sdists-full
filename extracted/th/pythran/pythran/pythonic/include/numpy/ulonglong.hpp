@@ -3,7 +3,6 @@
 
 #include "pythonic/include/types/numpy_op_helper.hpp"
 #include "pythonic/include/utils/functor.hpp"
-#include "pythonic/include/utils/meta.hpp"
 #include "pythonic/include/utils/numpy_traits.hpp"
 
 PYTHONIC_NS_BEGIN
@@ -25,5 +24,24 @@ namespace numpy
 #include "pythonic/include/types/numpy_nary_expr.hpp"
 } // namespace numpy
 PYTHONIC_NS_END
+
+#ifdef ENABLE_PYTHON_MODULE
+
+#include "pythonic/python/core.hpp"
+
+PYTHONIC_NS_BEGIN
+
+template <>
+struct to_python<numpy::functor::ulonglong> {
+  static PyObject *convert(numpy::functor::ulonglong const &c);
+};
+
+template <>
+struct from_python<numpy::functor::ulonglong> {
+  static bool is_convertible(PyObject *obj);
+  static numpy::functor::ulonglong convert(PyObject *obj);
+};
+PYTHONIC_NS_END
+#endif
 
 #endif

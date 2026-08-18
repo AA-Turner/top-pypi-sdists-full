@@ -26,7 +26,7 @@ from mistralai.vibe.sdk.observability.conversion import str_to_bool
 
 logger = structlog.get_logger("vibe_sdk.telemetry.datalake")
 
-ERROR_EVENT = "session.telemetry.emit_failed"
+ERROR_EVENT = "telemetry.emit_failed"
 AUTO_CONTEXT_PROPERTY_KEYS = (
     "session_id",
     "conversation_id",

@@ -50,7 +50,7 @@ struct __combined<T0, T1> {
   static F0 get(...);
 
   using type = std::conditional_t<
-      std::is_same<T0, T1>::value, T0,
+      std::is_same_v<T0, T1>, T0,
       decltype(get<T0, T1>(
           std::integral_constant<bool, pythonic::types::is_callable<T0>::value &&
                                            pythonic::types::is_callable<T1>::value>()))>;
@@ -142,7 +142,7 @@ struct __combined<const T0, const T1> : std::add_const<typename __combined<T0, T
 
 template <class T0, class T1>
 struct __combined<const T0 &, const T1 &>
-    : std::add_lvalue_reference<typename std::add_const<typename __combined<T0, T1>::type>::type> {
+    : std::add_lvalue_reference<std::add_const_t<typename __combined<T0, T1>::type>> {
 };
 
 template <class T>

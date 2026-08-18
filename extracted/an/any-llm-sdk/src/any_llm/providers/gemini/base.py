@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import re
 from typing import TYPE_CHECKING, Any, ClassVar, cast
 
 from typing_extensions import override
@@ -37,6 +38,7 @@ try:
         _convert_tool_spec,
         _create_openai_chunk_from_google_chunk,
         _create_openai_embedding_response_from_google,
+        _has_additional_properties,
     )
 except ImportError as e:
     MISSING_PACKAGES_ERROR = e
@@ -67,7 +69,26 @@ REASONING_EFFORT_TO_THINKING_BUDGETS = {
     "xhigh": 32768,
     "max": 32768,
 }
+REASONING_EFFORT_TO_THINKING_LEVELS = {
+    "minimal": types.ThinkingLevel.MINIMAL,
+    "low": types.ThinkingLevel.LOW,
+    "medium": types.ThinkingLevel.MEDIUM,
+    "high": types.ThinkingLevel.HIGH,
+    "xhigh": types.ThinkingLevel.HIGH,
+    "max": types.ThinkingLevel.HIGH,
+}
 _SUPPORTED_BATCH_ENDPOINTS = frozenset({"/v1/chat/completions"})
+_THINKING_LEVEL_MIN_GEMINI_VERSION = (3, 5)
+_GEMINI_VERSION_PATTERN = re.compile(r"(?:^|/)gemini-(\d+)(?:\.(\d+))?")
+
+
+def _uses_thinking_level(model_id: str) -> bool:
+    """Gemini 3.5 and newer reject `thinking_budget` and expect `thinking_level` instead."""
+    match = _GEMINI_VERSION_PATTERN.search(model_id.lower())
+    if match is None:
+        return False
+    major, minor = int(match.group(1)), int(match.group(2) or 0)
+    return (major, minor) >= _THINKING_LEVEL_MIN_GEMINI_VERSION
 
 
 class GoogleProvider(AnyLLM):
@@ -83,6 +104,10 @@ class GoogleProvider(AnyLLM):
     SUPPORTS_LIST_MODELS = True
     SUPPORTS_BATCH = True
     SUPPORTS_RERANK = False
+
+    # The genai SDK carries timeout on http_options (in milliseconds), not as a request keyword,
+    # so it is translated in _convert_completion_params via _merge_timeout_into_http_options.
+    TIMEOUT_SUPPORT = "mapped"
 
     BUILT_IN_TOOLS: ClassVar[list[Any] | None] = [types.Tool]
 
@@ -134,12 +159,18 @@ class GoogleProvider(AnyLLM):
         if params.reasoning_effort != "auto":
             if params.reasoning_effort is None or params.reasoning_effort == "none":
                 kwargs["thinking_config"] = types.ThinkingConfig(include_thoughts=False)
+            elif _uses_thinking_level(params.model_id):
+                kwargs["thinking_config"] = types.ThinkingConfig(
+                    include_thoughts=True, thinking_level=REASONING_EFFORT_TO_THINKING_LEVELS[params.reasoning_effort]
+                )
             else:
                 kwargs["thinking_config"] = types.ThinkingConfig(
                     include_thoughts=True, thinking_budget=REASONING_EFFORT_TO_THINKING_BUDGETS[params.reasoning_effort]
                 )
         if params.seed is not None:
             kwargs["seed"] = params.seed
+        if params.service_tier is not None:
+            kwargs["service_tier"] = params.service_tier
         if params.temperature is not None:
             kwargs["temperature"] = params.temperature
         if params.tools is not None:
@@ -157,12 +188,16 @@ class GoogleProvider(AnyLLM):
         response_format = params.response_format
         if is_structured_output_type(response_format):
             kwargs["response_mime_type"] = "application/json"
-            kwargs["response_schema"] = get_json_schema(response_format)
+            schema = get_json_schema(response_format)
+            if _has_additional_properties(schema):
+                kwargs["response_json_schema"] = schema
+            else:
+                kwargs["response_schema"] = schema
         elif isinstance(response_format, dict):
             response_type = response_format.get("type")
             if response_type == "json_schema":
                 kwargs["response_mime_type"] = "application/json"
-                kwargs["response_schema"] = response_format["json_schema"]["schema"]
+                kwargs["response_json_schema"] = response_format["json_schema"]["schema"]
             elif response_type == "json_object":
                 kwargs["response_mime_type"] = "application/json"
             elif response_type == "text":

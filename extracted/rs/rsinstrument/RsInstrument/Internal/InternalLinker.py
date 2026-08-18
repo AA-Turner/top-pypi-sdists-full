@@ -1,13 +1,13 @@
 """Links a variable from a structure to a callback in the driver."""
 
 from time import time
-from typing import Dict, Callable
+from typing import Callable, Dict
 
+from .ArgLinkedEventArgs import ArgLinkedEventArgs
 from .ArgSingle import ArgSingle
 from .ArgSingleSuppressed import ArgSingleSuppressed
-from .ArgLinkedEventArgs import ArgLinkedEventArgs
-from .Utilities import get_plural_string
 from .InstrumentErrors import RsInstrException
+from .Utilities import get_plural_string
 
 
 class InternalLinker(object):

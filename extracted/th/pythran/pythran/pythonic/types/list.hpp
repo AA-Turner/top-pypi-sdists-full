@@ -263,8 +263,8 @@ namespace types
   template <class InputIterator>
   list<T>::list(InputIterator start, InputIterator stop) : _data()
   {
-    if (std::is_same<typename std::iterator_traits<InputIterator>::iterator_category,
-                     std::random_access_iterator_tag>::value)
+    if (std::is_same_v<typename std::iterator_traits<InputIterator>::iterator_category,
+                       std::random_access_iterator_tag>)
       _data->reserve(std::distance(start, stop));
     else
       _data->reserve(DEFAULT_CAPACITY);
@@ -283,7 +283,7 @@ namespace types
   {
   }
   template <class T>
-  list<T>::list(list<T> &&other) : _data(std::move(other._data))
+  list<T>::list(list<T> &&other) noexcept : _data(std::move(other._data))
   {
   }
   template <class T>
@@ -304,7 +304,7 @@ namespace types
 
   // operators
   template <class T>
-  list<T> &list<T>::operator=(list<T> &&other)
+  list<T> &list<T>::operator=(list<T> &&other) noexcept
   {
     _data = std::move(other._data);
     return *this;
@@ -315,12 +315,6 @@ namespace types
   {
     _data = utils::shared_ref<container_type>{other.size()};
     std::copy(other.begin(), other.end(), begin());
-    return *this;
-  }
-  template <class T>
-  list<T> &list<T>::operator=(list<T> const &other)
-  {
-    _data = other._data;
     return *this;
   }
   template <class T>
@@ -733,7 +727,7 @@ namespace types
   }
   inline empty_list empty_list::operator+(empty_list const &) const
   {
-    return empty_list();
+    return {};
   }
   template <class F>
   std::enable_if_t<!is_numexpr_arg<F>::value, list<typename F::value_type>>
@@ -752,7 +746,7 @@ namespace types
     return list<T>(0);
   }
 
-  inline constexpr long empty_list::size()
+  constexpr long empty_list::size()
   {
     return 0;
   }
@@ -831,7 +825,7 @@ inline PyObject *to_python<typename std::vector<bool>::reference>::convert(
 }
 
 inline PyObject *
-to_python<std::conditional_t<std::is_same<bool, typename std::vector<bool>::const_reference>::value,
+to_python<std::conditional_t<std::is_same_v<bool, typename std::vector<bool>::const_reference>,
                              phantom_type, typename std::vector<bool>::const_reference>>::
     convert(typename std::vector<bool>::const_reference const &v)
 {

@@ -20,9 +20,10 @@ from collections.abc import Callable, Hashable, Sequence
 import contextlib
 import dataclasses
 import enum
+import inspect
 import itertools
 import math
-from typing import Any, Literal, assert_never
+from typing import Any, Literal, assert_never, overload
 
 import jax
 from jax._src import api
@@ -36,6 +37,7 @@ from jax._src import pretty_printer as pp
 from jax._src import state
 from jax._src import tree_util
 from jax._src import util
+from jax._src.interpreters import partial_eval as pe
 from jax._src.lib.mlir import ir
 from jax._src.lib.mlir.dialects import arith as arith_dialect
 from jax._src.lib.mlir.dialects import builtin as builtin_dialect
@@ -59,6 +61,7 @@ from jax.experimental.mosaic.gpu import utils as mgpu_utils
 from jax.experimental.mosaic.gpu.launch_context import AsyncCopyImplementation
 from jax.experimental.mosaic.gpu.launch_context import CopyPartition
 from jax.experimental.mosaic.gpu.launch_context import OOBFillMode
+from jax.experimental.mosaic.gpu.launch_context import TileTransform
 import jax.numpy as jnp
 import numpy as np
 
@@ -93,8 +96,8 @@ print_layout_p.multiple_results = True
 
 
 @print_layout_p.def_effectful_abstract_eval
-def _print_layout_abstract_eval(aval_in, fmt, *_, **params):
-  del aval_in, fmt, params  # Unused.
+def _print_layout_abstract_eval(aval_in, *_, **params):
+  del aval_in, params  # Unused.
   return (), {debugging.debug_effect}
 
 
@@ -105,8 +108,8 @@ def _print_layout_abstract_eval(aval_in, fmt, *_, **params):
 def _print_layout_lowering(
     ctx: lowering.LoweringRuleContext,
     x: mgpu.FragmentedArray | tcgen05.TMEMRef | ir.Value,
-    fmt: str,
     *transforms_leaves,
+    fmt: str,
     transforms_tree
 ):
   if transforms_tree is not None:
@@ -116,27 +119,53 @@ def _print_layout_lowering(
         ctx, ctx.avals_in[0], x, transform_avals,
         transforms_tree.unflatten(transforms_leaves),
     )
+  else:
+    remaining_transforms = []
+  if ctx.module_ctx.lowering_semantics == mgpu.LoweringSemantics.Lane:
+    if (
+        isinstance(x, ir.Value)
+        and isinstance(x.type, ir.MemRefType)
+        and mgpu_utils.is_smem_ref(x)
+    ):
+      swizzle = None
+      inverse_transforms: list[TileTransform] = []
+      for t in remaining_transforms:
+        match t:
+          case gpu_core.UnswizzleRef(s):
+            swizzle = s
+          case gpu_core.UntilingTransform(tiling):
+            inverse_transforms.append(TileTransform(tiling))
+          case _:
+            raise NotImplementedError(f"Unsupported transform: {t}")
+      layout_str = mgpu.dialect_lowering.pprint_transforms(
+          tuple(inverse_transforms[::-1]), swizzle
+      )
+    else:
+      if remaining_transforms:
+        raise NotImplementedError(
+            f"Unsupported transforms {remaining_transforms}."
+        )
+      layout_str = mgpu.dialect_lowering.pprint_layout(x)  # pyrefly: ignore[bad-argument-type]
+    print(fmt.format(layout_str))
+  else:
+    assert isinstance(x, ir.Value)
     if remaining_transforms:
       raise NotImplementedError(
           f"Unsupported transforms {remaining_transforms}."
       )
-  if ctx.module_ctx.lowering_semantics == mgpu.LoweringSemantics.Lane:
-    print(fmt.format(mgpu.dialect_lowering.pprint_layout(x)))  # pyrefly: ignore[bad-argument-type]
-  else:
-    assert isinstance(x, ir.Value)
     mgpu.dialect.print_layout(fmt, x)
   return ()
 
 
 def print_layout(fmt: str, x: jax.typing.ArrayLike | _Ref) -> None:
-  """Prints the layout chosen by Mosaic GPU for a given array or TMEM reference.
+  """Prints the layout chosen by Mosaic GPU for a given array, SMEM, or TMEM reference.
 
   This is evaluated at compile-time and has no incidence on the runtime behavior
   of the program.
 
   Args:
     fmt: The format string to use for printing the layout.
-    x: The array or TMEM reference to print the layout of.
+    x: The array, SMEM, or TMEM reference to print the layout of.
   """
   if isinstance(x, pallas_core.TransformedRef):
     transforms_leaves, transforms_tree = jax.tree.flatten(x.transforms)
@@ -145,8 +174,8 @@ def print_layout(fmt: str, x: jax.typing.ArrayLike | _Ref) -> None:
     transforms_leaves, transforms_tree = [], None
   print_layout_p.bind(
       x,
-      fmt=fmt,
       *transforms_leaves,
+      fmt=fmt,
       transforms_tree=transforms_tree,
   )
 
@@ -159,7 +188,35 @@ copy_smem_to_gmem_p.multiple_results = True
 def _copy_smem_to_gmem_abstract_eval(src, dst, *args, **params):
   _check_ref(src, "src", gpu_core.SMEM)
   _check_ref(dst, "dst", gpu_core.GMEM)
-  del args, params  # Unused.
+  src_transforms_treedef = params["src_transforms_treedef"]
+  dst_transforms_treedef = params["dst_transforms_treedef"]
+  flat_src_transforms, flat_dst_transforms = util.split_list(
+      args,
+      [
+          src_transforms_treedef.num_leaves,
+          dst_transforms_treedef.num_leaves,
+      ],
+  )[:2]
+  src_transforms = src_transforms_treedef.unflatten(flat_src_transforms)
+  dst_transforms = dst_transforms_treedef.unflatten(flat_dst_transforms)
+
+  src_ref = pallas_core.TransformedRef(src, src_transforms)
+  dst_ref = pallas_core.TransformedRef(dst, dst_transforms)
+
+  if src_ref.dtype != dst_ref.dtype:
+    raise ValueError(
+        "Expected dtypes to match but src had type "
+        f"{src_ref.dtype} and dst had type {dst_ref.dtype}"
+    )
+  src_shape = src_ref.shape
+  dst_shape = dst_ref.shape
+
+  if any(s != d for s, d in zip(src_shape, dst_shape, strict=True)):
+    raise ValueError(
+        f"Expected shapes to match, but src has shape {src_shape} and dst has "
+        f"shape {dst_shape}"
+    )
+
   return (), {state.ReadEffect(0), state.WriteEffect(1)}
 
 
@@ -686,11 +743,67 @@ copy_gmem_to_smem_p.multiple_results = True
 
 
 @copy_gmem_to_smem_p.def_effectful_abstract_eval
-def _copy_gmem_to_smem_abstract_eval(src, dst, barrier, *args, **params):
-  del args, params  # Unused.
+def _copy_gmem_to_smem_abstract_eval(src, dst, *args, has_barrier, **params):
   _check_ref(src, "src", gpu_core.GMEM)
   _check_ref(dst, "dst", gpu_core.SMEM)
-  _check_ref(barrier, "barrier", gpu_core.SMEM)
+  if has_barrier:
+    barrier, *args = args
+    _check_ref(barrier, "barrier", gpu_core.SMEM)
+  src_transforms_treedef = params["src_transforms_treedef"]
+  dst_transforms_treedef = params["dst_transforms_treedef"]
+  flat_src_transforms, flat_dst_transforms = util.split_list(
+      args,
+      [
+          src_transforms_treedef.num_leaves,
+          dst_transforms_treedef.num_leaves,
+      ],
+  )[:2]
+  src_transforms = src_transforms_treedef.unflatten(flat_src_transforms)
+  dst_transforms = dst_transforms_treedef.unflatten(flat_dst_transforms)
+
+  src_ref = pallas_core.TransformedRef(src, src_transforms)
+  dst_ref = pallas_core.TransformedRef(dst, dst_transforms)
+
+  if src_ref.dtype != dst_ref.dtype:
+    raise ValueError(
+        "Expected dtypes to match but src had type "
+        f"{src_ref.dtype} and dst had type {dst_ref.dtype}"
+    )
+
+  src_shape = src_ref.shape
+  dst_shape = dst_ref.shape
+
+  leader_tracked = params.get("leader_tracked", None)
+  partition_axis = None
+  if isinstance(leader_tracked, CopyPartition.PARTITIONED):
+    partition_axis = leader_tracked.axis
+
+  collective_axes = params.get("collective_axes", None)
+  axis_size = 1
+  if partition_axis is not None and collective_axes is not None:
+    if isinstance(collective_axes, str):
+      collective_axes = (collective_axes,)
+    axis_size = math.prod(
+        jax_core.get_axis_env().axis_size(axis) for axis in collective_axes
+    )
+
+  expected_src_shape = tuple(
+      d * axis_size if i == partition_axis else d
+      for i, d in enumerate(dst_shape)
+  )
+
+  if src_shape != expected_src_shape:
+    if partition_axis is not None:
+      partitioned_desc = (
+          f"Dim {partition_axis} is partitioned over an axis of size {axis_size}."
+      )
+    else:
+      partitioned_desc = ""
+    raise ValueError(
+        f"Expected source shape to be {expected_src_shape}, but got {src_shape}."
+        f" {partitioned_desc}"
+    )
+
   return (), {state.ReadEffect(0), state.WriteEffect(1)}
 
 
@@ -699,13 +812,20 @@ def _copy_gmem_to_smem_pp_eqn(
     context: jax_core.JaxprPpContext,
     settings: jax_core.JaxprPpSettings,
 ):
-  src, dst, barrier, *flat_args = eqn.invars
+  if eqn.params["has_barrier"]:
+    src, dst, barrier, *flat_args = eqn.invars
+  else:
+    src, dst, *flat_args = eqn.invars
+    barrier = None
   src_transforms_treedef = eqn.params["src_transforms_treedef"]
   dst_transforms_treedef = eqn.params["dst_transforms_treedef"]
   barrier_transforms_treedef = eqn.params["barrier_transforms_treedef"]
   pp_params = {}
   if collective_axes := eqn.params["collective_axes"]:
     pp_params["collective_axes"] = collective_axes
+  if eqn.params["has_user_predicate"]:
+    flat_args, user_predicate = flat_args[:-1], flat_args[-1]
+    pp_params["user_predicate"] = user_predicate.pretty_print(context)
   flat_src_transforms, flat_dst_transforms, flat_barrier_transforms = (
       util.split_list(
           flat_args,
@@ -717,19 +837,25 @@ def _copy_gmem_to_smem_pp_eqn(
   )
   src_transforms = src_transforms_treedef.unflatten(flat_src_transforms)
   dst_transforms = dst_transforms_treedef.unflatten(flat_dst_transforms)
-  barrier_transforms = barrier_transforms_treedef.unflatten(
-      flat_barrier_transforms
-  )
-  return pp.concat([
+  parts = [
       pp.text("copy_gmem_to_smem"),
       jax_core.pp_kv_pairs(pp_params.items(), context, settings),
       pp.text(" "),
       state_primitives.pp_ref_transforms(context, src, src_transforms),
       pp.text(" -> "),
       state_primitives.pp_ref_transforms(context, dst, dst_transforms),
-      pp.text(" using "),
-      state_primitives.pp_ref_transforms(context, barrier, barrier_transforms),
-  ])
+  ]
+  if barrier is not None:
+    barrier_transforms = barrier_transforms_treedef.unflatten(
+        flat_barrier_transforms
+    )
+    parts.extend([
+        pp.text(" using "),
+        state_primitives.pp_ref_transforms(
+            context, barrier, barrier_transforms
+        ),
+    ])
+  return pp.concat(parts)
 
 
 jax_core.pp_eqn_rules[copy_gmem_to_smem_p] = _copy_gmem_to_smem_pp_eqn
@@ -750,19 +876,32 @@ def _copy_gmem_to_smem_lowering(
     ctx: lowering.LoweringRuleContext,
     src,
     dst,
-    barrier,
-    *flat_transforms,
+    *flat_args,
     src_transforms_treedef,
     dst_transforms_treedef,
     barrier_transforms_treedef,
     collective_axes,
     leader_tracked,
     oob_mode,
-    impl,
+    has_barrier,
+    has_user_predicate,
 ):
+  if has_barrier:
+    barrier, *flat_args = flat_args
+    num_non_transform_args = 3  # src, dst, barrier
+  else:
+    barrier = None
+    num_non_transform_args = 2  # src, dst
+  del has_barrier
+  if has_user_predicate:
+    flat_args, user_predicate = flat_args[:-1], flat_args[-1]
+    predicate = lowering._ensure_ir_value(user_predicate, jnp.bool)
+  else:
+    predicate = None
+
   flat_src_transforms, flat_dst_transforms, flat_barrier_transforms = (
       util.split_list(
-          flat_transforms,
+          flat_args,
           [
               src_transforms_treedef.num_leaves,
               dst_transforms_treedef.num_leaves,
@@ -771,7 +910,7 @@ def _copy_gmem_to_smem_lowering(
   )
   flat_src_transforms_avals, flat_dst_transforms_avals, _ = (
       util.split_list(
-          ctx.avals_in[3:],
+          ctx.avals_in[num_non_transform_args:],
           [
               src_transforms_treedef.num_leaves,
               dst_transforms_treedef.num_leaves,
@@ -783,7 +922,6 @@ def _copy_gmem_to_smem_lowering(
   )
   src_ref_aval = ctx.avals_in[0]
   dst_ref_aval = ctx.avals_in[1]
-  barrier_ref_aval = ctx.avals_in[2]
   src_transforms = src_transforms_treedef.unflatten(flat_src_transforms)
   dst_transforms = dst_transforms_treedef.unflatten(flat_dst_transforms)
   handle_transposes = (
@@ -791,7 +929,6 @@ def _copy_gmem_to_smem_lowering(
   )
   assert isinstance(src_ref_aval, state_types.AbstractRef)
   assert isinstance(dst_ref_aval, state_types.AbstractRef)
-  assert isinstance(barrier_ref_aval, state_types.AbstractRef)
 
   dst_transform_avals = dst_transforms_treedef.unflatten(
       flat_dst_transforms_avals)
@@ -804,12 +941,15 @@ def _copy_gmem_to_smem_lowering(
       **_extract_smem_copy_params(dst_ref_aval, dst_transforms),
       **_extract_gmem_copy_params(ctx, src_transforms, src_transform_avals),
   }
-  base_index = _get_barrier_base_index(
-      barrier_ref_aval,
-      barrier_transforms_treedef.unflatten(flat_barrier_transforms),
-  )
-  if base_index is not None:
-    barrier = barrier[base_index]
+  if barrier is not None:
+    barrier_ref_aval = ctx.avals_in[2]
+    assert isinstance(barrier_ref_aval, state_types.AbstractRef)
+    base_index = _get_barrier_base_index(
+        barrier_ref_aval,
+        barrier_transforms_treedef.unflatten(flat_barrier_transforms),
+    )
+    if base_index is not None:
+      barrier = barrier[base_index]
   collective = None
   if collective_axes is not None:
     collective = tuple(
@@ -840,9 +980,51 @@ def _copy_gmem_to_smem_lowering(
           f" cluster size {ctx.launch_ctx.cluster_size}."
       )
 
+  # TMA is only available on Hopper and newer. On older architectures we fall
+  # back to the cp.async implementation.
+  if is_cp_async := mgpu.utils.get_arch().major < 9:
+    if barrier is not None:
+      raise ValueError(
+          "copy_gmem_to_smem with a barrier is only supported Hopper and newer"
+          " GPUs, which use the TMA implementation"
+      )
+    if collective_axes is not None:
+      raise ValueError("Only the TMA implementation supports collective copies")
+    if leader_tracked is not None:
+      raise ValueError(
+          "Only the TMA implementation supports leader_tracked copies"
+      )
+    # cp.async does not predicate out-of-bounds accesses, so the caller has to
+    # guarantee that the copy stays in bounds.
+    if oob_mode != OOBFillMode.PROMISE_IN_BOUNDS:
+      raise ValueError(
+          "The cp.async implementation only supports "
+          "oob_mode=OOBFillMode.PROMISE_IN_BOUNDS"
+      )
+    if has_user_predicate:
+      raise NotImplementedError(
+          "The cp.async implementation does not support user-defined predicates"
+      )
+  else:
+    if oob_mode is None:
+      oob_mode = OOBFillMode.ZEROS
+
+    if barrier is None:
+      raise ValueError(
+          "copy_gmem_to_smem without a barrier is only supported on pre-Hopper"
+          " GPUs, which use the cp.async implementation"
+      )
+
+  i32 = ir.IntegerType.get_signless(32)
   if ctx.module_ctx.lowering_semantics == mgpu.LoweringSemantics.Lane:
-    is_cp_async = impl == "cp_async"
+    if (
+        ctx.module_ctx.primitive_semantics == gpu_core.PrimitiveSemantics.Warpgroup
+        and ctx.module_ctx.auto_barriers
+    ):
+      mgpu.warpgroup_barrier()  # Make sure all reads have completed.
+
     if not is_cp_async:
+      assert barrier is not None
       if bytes % WARPGROUP_SIZE:
         raise NotImplementedError(
             "Only copies transferring a number of bytes divisible by the"
@@ -856,8 +1038,8 @@ def _copy_gmem_to_smem_lowering(
         # arrive with the whole transfer size, while everyone else arrives with 0.
         # But we should continue using this scheme as it's likely to be faster.
         bytes //= WARPGROUP_SIZE
-        if ctx.module_ctx.auto_barriers:
-          mgpu.warpgroup_barrier()  # Make sure all reads have completed.
+        if predicate is not None:
+          bytes = arith_dialect.select(predicate, mgpu.c(bytes, i32), mgpu.c(0, i32))
         if is_leader_tracked_copy:
           first_block = arith_dialect.cmpi(
               arith_dialect.CmpIPredicate.eq,
@@ -874,6 +1056,8 @@ def _copy_gmem_to_smem_lowering(
         # TODO(justinfu): The arrival counts are wrong if called outside of a
         # single warp. Figure out how to guard against this in user code.
         bytes = bytes // WARP_SIZE
+        if predicate is not None:
+          bytes = arith_dialect.select(predicate, mgpu.c(bytes, i32), mgpu.c(0, i32))
         if is_leader_tracked_copy:
           first_block = arith_dialect.cmpi(
               arith_dialect.CmpIPredicate.eq,
@@ -887,15 +1071,23 @@ def _copy_gmem_to_smem_lowering(
           barrier.arrive(arrival_count=3, can_complete=False)
           barrier.arrive_expect_tx(bytes)
 
+    lane_pred = ctx.module_ctx.single_lane_predicate
+    if predicate is not None:
+      predicate = arith_dialect.andi(predicate, lane_pred)
+    else:
+      predicate = lane_pred
+
     predicate_kwarg = (
         {}
         if is_cp_async
-        else dict(predicate=ctx.module_ctx.single_lane_predicate)
+        else dict(predicate=predicate)
     )
     # Gathers are a warpgroup-level collective and can't take a predicate.
     if gmem_slice := copy_params.get("gmem_slice", ()):
       first_idx = gmem_slice[0]
       if isinstance(first_idx, mgpu.FragmentedArray) and first_idx.shape:
+        if has_user_predicate:
+          raise NotImplementedError("Gather/scatter TMA does not support predicates yet.")
         predicate_kwarg = {}
     ctx.launch_ctx.async_copy(
         src_ref=src,
@@ -913,24 +1105,32 @@ def _copy_gmem_to_smem_lowering(
         **copy_params,
         **predicate_kwarg,  # pyrefly: ignore[bad-argument-type]
     )
-    if is_cp_async:
-      barrier.arrive()
     return ()
-  i32 = ir.IntegerType.get_signless(32)
-  if impl == "cp_async":
-    raise NotImplementedError(
-        "cp_async implementation is not supported with Warpgroup lowering"
-    )
-  if "gmem_slice" not in copy_params:
+  if "gmem_slice" not in copy_params or not copy_params["gmem_slice"]:
     slice_lengths = ir.MemRefType(src.type).shape
     indices = [mgpu.utils.c(0, i32)] * len(slice_lengths)
   else:
     indices, slice_lengths = _split_gmem_slice(copy_params["gmem_slice"])
   assert copy_params.get("swizzle") is None
   assert not copy_params.get("gmem_transform")
-  if copy_params.get("gmem_peer_id", None) is not None:
+
+  if is_cp_async:
+    mgpu.dialect.async_load(
+        src,
+        dst,
+        barrier=None,  # pyrefly: ignore[bad-argument-type]
+        indices=indices,
+        slice_lengths=slice_lengths,
+        collective=ir.ArrayAttr.get([]),
+        predicate=predicate,
+        oob_fill_mode=ir.IntegerAttr.get(i32, oob_mode.value),
+    )
+    return ()
+
+  # TODO: Remove when the minimum jaxlib version is 0.11.1
+  if has_user_predicate and not hasattr(mgpu.dialect, "arrive_dyn_expect_tx_supported"):
     raise NotImplementedError(
-        "GMEM refs with peer ids are not supported in warpgroup lowering."
+        "predicate is not supported with Warpgroup lowering in jaxlib < 0.11.1"
     )
   match leader_tracked:
     case CopyPartition.REPLICATED:
@@ -940,6 +1140,7 @@ def _copy_gmem_to_smem_lowering(
     case _:
       leader_tracked_attr = None
 
+  assert barrier is not None
   barrier_ref = barrier.as_barrier_memref()
 
   if is_leader_tracked_copy:
@@ -951,38 +1152,68 @@ def _copy_gmem_to_smem_lowering(
     arrive_ctx = mgpu.when(first_block)
   else:
     arrive_ctx = contextlib.nullcontext()
+
+  # TODO: Remove when the minimum jaxlib version is 0.11.1
+  # keep the conversion of bytes from int into ir.Value
+  if hasattr(mgpu.dialect, "arrive_dyn_expect_tx_supported"):
+    bytes = mgpu.c(bytes, ir.IntegerType.get_signless(32))
+
+  if predicate is not None:
+    # We can not enter this branch with bytes as int
+    # because NotImplementedError is raised earlier for
+    # jaxlib<0.11.1 and predicate is not None
+    assert isinstance(bytes, ir.Value)
+    bytes = arith_dialect.select(predicate, bytes, mgpu.c(0, i32))
+
   with arrive_ctx:
     mgpu.dialect.arrive_expect_tx(barrier_ref, bytes)
+
+  peer_id = copy_params.get("gmem_peer_id")
+  # TODO(bchetioui): Remove once 0.11.1 is the minimum jaxlib version.
+  if "gmem_peer_id" in inspect.signature(mgpu.dialect.async_load).parameters:
+    peer_kwarg = dict(gmem_peer_id=peer_id)
+  else:
+    if peer_id is not None:
+      raise NotImplementedError(
+          "Loading from a remote ref is only supported in jaxlib version "
+          "0.11.1 or higher under Warpgroup lowering semantics"
+      )
+    peer_kwarg = {}
 
   mgpu.dialect.async_load(
       src,
       dst,
-      barrier_ref,
-      indices,
-      slice_lengths,
-      collective=ir.ArrayAttr.get(
+      indices,  # pyrefly: ignore[bad-argument-type]
+      slice_lengths,  # pyrefly: ignore[bad-argument-type]
+      barrier=barrier_ref,  # pyrefly: ignore[bad-keyword-argument]
+      predicate=predicate,
+      collective=ir.ArrayAttr.get(  # pyrefly: ignore[bad-keyword-argument]
           [ir.IntegerAttr.get(i32, axis) for axis in collective or []]
       ),
       leader_tracked=leader_tracked_attr,
-      oob_fill_mode=ir.IntegerAttr.get(i32, oob_mode.value)
+      oob_fill_mode=ir.IntegerAttr.get(i32, oob_mode.value),
+      **peer_kwarg,  # pyrefly: ignore[bad-argument-type]
   )
   return ()
 
 def copy_gmem_to_smem(
     src: _Ref,
     dst: _Ref,
-    barrier: _Ref,
+    barrier: _Ref | None = None,
     *,
-    impl: Literal["tma", "cp_async"] = "tma",
     collective_axes: str | tuple[str, ...] | None = None,
     leader_tracked: CopyPartition | None = None,
     oob_mode: OOBFillMode | None = None,
+    predicate: jax.Array | None = None,
 ) -> None:
   """Asynchronously copies a GMEM reference to a SMEM reference.
 
-  When ``impl="tma"`` and ``collective_axes`` is specified, the copy involves
-  multiple CUDA blocks in the cluster. The value of ``leader_tracked``
-  determines the behavior:
+  The underlying copy implementation is selected automatically based on the
+  target architecture: TMA on Hopper and newer, and ``cp.async`` on
+  older architectures.
+
+  When ``collective_axes`` is specified, the copy involves multiple CUDA blocks
+  in the cluster. The value of ``leader_tracked`` determines the behavior:
 
   * ``None`` (**multicast**): all CUDA blocks sharing the same index along the
     collective axes receive the same data from ``src``.
@@ -1003,24 +1234,33 @@ def copy_gmem_to_smem(
   Args:
     src: The source Ref. Must be in GMEM.
     dst: The destination Ref. Must be in SMEM.
-    barrier: The barrier to use for tracking completion of the copy.
-    impl: The underlying copy implementation to use: ``"cp_async"`` or
-      ``"tma"``. Defaults to ``"tma"``.
+    barrier: The barrier to use for tracking completion of the copy. Required on
+      Hopper and newer GPUs, which use the TMA implementation, and must be
+      omitted on pre-Hopper GPUs, which use the ``cp.async`` implementation.
+      When omitted, completion of the copy has to be awaited with
+      :func:`jax.experimental.pallas.mosaic_gpu.wait_gmem_to_smem` instead of
+      :func:`jax.experimental.pallas.mosaic_gpu.barrier_wait`.
     collective_axes: The collective axes to use for the copy. Only a single
       collective axis is supported when ``leader_tracked`` is specified (but
-      the axis can be composite). Only supported when ``impl="tma"``.
+      the axis can be composite). Only supported with the TMA implementation
+      (Hopper and newer).
     leader_tracked: If specified, only the leader block in the cluster will
       observe the completion of the copy. If
       ``CopyPartition.PARTITIONED(axis)``, performs a partitioned collective
       copy along the given axis. If ``CopyPartition.REPLICATED``, all blocks
-      load the same data. Only supported when ``impl="tma"``.
+      load the same data. Only supported with the TMA implementation (Hopper
+      and newer).
     oob_mode: The optional out-of-bounds fill mode. Can be
       ``OOBFillMode.UNDEFINED``, ``OOBFillMode.PROMISE_IN_BOUNDS`` or
-      ``OOBFillMode.ZEROS``. Only supported when ``impl="tma"``.
+      ``OOBFillMode.ZEROS`` for the TMA implementation, and only
+      ``OOBFillMode.PROMISE_IN_BOUNDS`` for the ``cp.async`` one.
+    predicate: A boolean indicating whether the copy should be performed. If
+      ``None``, the copy is always performed.
 
   See also:
     :func:`jax.experimental.pallas.mosaic_gpu.barrier_arrive`
     :func:`jax.experimental.pallas.mosaic_gpu.barrier_wait`
+    :func:`jax.experimental.pallas.mosaic_gpu.wait_gmem_to_smem`
   """
   src, src_transforms = state_primitives.get_ref_and_transforms(
       src, None, "copy_gmem_to_smem"
@@ -1034,49 +1274,84 @@ def copy_gmem_to_smem(
   flat_dst_transforms, dst_transforms_treedef = tree_util.tree_flatten(
       dst_transforms
   )
-  barrier, barrier_transforms = state_primitives.get_ref_and_transforms(
-      barrier, None, "copy_gmem_to_smem"
-  )
+  has_barrier = barrier is not None
+  if has_barrier:
+    barrier, barrier_transforms = state_primitives.get_ref_and_transforms(
+        barrier, None, "copy_gmem_to_smem"
+    )
+    barrier_operands = [barrier]
+  else:
+    barrier_transforms = []
+    barrier_operands = []
   flat_barrier_transforms, barrier_transforms_treedef = tree_util.tree_flatten(
       barrier_transforms
   )
-  if impl == "cp_async":
-    if collective_axes is not None:
-      raise ValueError(
-          "`collective_axes` is not supported with `impl='cp_async'`"
-      )
-    if leader_tracked is not None:
-      raise ValueError(
-          "`leader_tracked` is not supported with `impl='cp_async'`"
-      )
-    if oob_mode is not None:
-      raise ValueError(
-          "`oob_mode` is not supported with `impl='cp_async'`"
-      )
   if isinstance(collective_axes, str):
     collective_axes = (collective_axes,)
   if leader_tracked is not None and collective_axes is None:
     raise ValueError(
         "`collective_axes` must be specified when `leader_tracked` is set"
     )
-  if impl == "tma" and oob_mode is None:
-    oob_mode = OOBFillMode.ZEROS
   copy_gmem_to_smem_p.bind(
       src,
       dst,
-      barrier,
+      *barrier_operands,
       *flat_src_transforms,
       *flat_dst_transforms,
       *flat_barrier_transforms,
+      *[] if predicate is None else [predicate],
       src_transforms_treedef=src_transforms_treedef,
       dst_transforms_treedef=dst_transforms_treedef,
       barrier_transforms_treedef=barrier_transforms_treedef,
       collective_axes=collective_axes,
       leader_tracked=leader_tracked,
       oob_mode=oob_mode,
-      impl=impl,
+      has_barrier=has_barrier,
+      has_user_predicate=predicate is not None,
   )
   return None
+
+
+wait_gmem_to_smem_p = jax_core.Primitive("wait_gmem_to_smem")
+wait_gmem_to_smem_p.multiple_results = True
+
+
+@wait_gmem_to_smem_p.def_effectful_abstract_eval
+def _wait_gmem_to_smem_abstract_eval(n):
+  del n  # Unused.
+  return (), {gpu_core._memory_effect}
+
+
+@lowering.register_lowering_rule(
+    wait_gmem_to_smem_p, mgpu.LoweringSemantics.Lane)
+@lowering.register_lowering_rule(
+    wait_gmem_to_smem_p, *gpu_core.LANExWARP_SEMANTICS)
+@lowering.register_lowering_rule(
+    wait_gmem_to_smem_p, mgpu.LoweringSemantics.Warpgroup)
+@lowering.register_lowering_rule(
+    wait_gmem_to_smem_p, *gpu_core.WGxWARP_SEMANTICS)
+def _wait_gmem_to_smem_lowering(ctx: lowering.LoweringRuleContext, n):
+  if mgpu.utils.get_arch().major >= 9:
+    raise ValueError(
+        "wait_gmem_to_smem is only supported on pre-Hopper GPUs, which use"
+        " cp.async for GMEM->SMEM copies."
+    )
+  ctx.launch_ctx.await_cp_async_copy(allow_groups=n)
+  return ()
+
+
+def wait_gmem_to_smem(n: int) -> None:
+  """Waits until at most ``n`` ``cp.async`` GMEM->SMEM copies are in flight.
+
+  .. note:: This waiting mechanism is only supported on pre-Hopper GPUs, which
+            use the ``cp.async`` implementation of
+            :func:`jax.experimental.pallas.mosaic_gpu.copy_gmem_to_smem`.
+
+  Args:
+    n: The maximum number of copies allowed to remain in flight.
+  """
+  wait_gmem_to_smem_p.bind(n)
+
 
 async_prefetch_p = jax_core.Primitive("async_prefetch")
 async_prefetch_p.multiple_results = True
@@ -1349,7 +1624,11 @@ def _barrier_test_pp_eqn(
 jax_core.pp_eqn_rules[barrier_test_p] = _barrier_test_pp_eqn
 
 
+@lowering.register_lowering_rule(barrier_test_p, mgpu.LoweringSemantics.Lane)
 @lowering.register_lowering_rule(barrier_test_p, *gpu_core.LANExWARP_SEMANTICS)
+@lowering.register_lowering_rule(
+    barrier_test_p, mgpu.LoweringSemantics.Warpgroup
+)
 @lowering.register_lowering_rule(barrier_test_p, *gpu_core.WGxWARP_SEMANTICS)
 def _barrier_test_lowering(
     ctx: lowering.LoweringRuleContext,
@@ -1363,13 +1642,18 @@ def _barrier_test_lowering(
   orders_tensor_core = getattr(
       barrier_aval.inner_aval.dtype, "orders_tensor_core", False  # pyrefly: ignore[missing-attribute]
   )
+
+  if ctx.module_ctx.primitive_semantics == gpu_core.PrimitiveSemantics.Warp:
+    scope = mgpu_utils.ThreadSubset.WARP
+  else:
+    scope = mgpu_utils.ThreadSubset.WARPGROUP
+
   base_index = _get_barrier_base_index(barrier_aval, transforms)
   if base_index is not None:
     barrier = barrier[base_index]
-  # Ensure that all threads in the warp have converged and will not read
-  # different values from the barrier.
-  mgpu.utils.warp_barrier()
-  wait_complete = barrier.test(orders_tensor_core=orders_tensor_core)
+  wait_complete = barrier.test(
+      orders_tensor_core=orders_tensor_core, scope=scope
+  )
   if ctx.module_ctx.lowering_semantics == mgpu.LoweringSemantics.Warpgroup:
     return wait_complete
   return mgpu.FragmentedArray.splat(wait_complete, shape=(), is_signed=False)
@@ -1649,8 +1933,8 @@ jax_core.pp_eqn_rules[wgmma_ref_p] = _wgmma_ref_pp_eqn
 
 
 @discharge.register_discharge_rule(wgmma_ref_p)
-def _wgmma_ref_discharge(in_avals, out_avals, *args, **kwargs):
-  del in_avals, out_avals
+def _wgmma_ref_discharge(ctx, *args, **kwargs):
+  del ctx
   return (wgmma_p.bind(*args, **kwargs), *([None] * (len(args) - 1))), []
 
 
@@ -1993,8 +2277,8 @@ def _wgmma_accumulator_deref_abstract_eval(acc, **_):
 
 
 @discharge.register_discharge_rule(wgmma_accumulator_deref_p)
-def _wgmma_accumulator_deref_discharge(in_avals, out_avals, acc, *, wait_n):
-  del in_avals, out_avals
+def _wgmma_accumulator_deref_discharge(ctx, acc, *, wait_n):
+  del ctx
   return (None,), wgmma_accumulator_deref_p.bind(acc, wait_n=wait_n)
 
 
@@ -2056,8 +2340,8 @@ def _wgmma_accumulator_store_abstract_eval(acc, val):
 
 
 @discharge.register_discharge_rule(wgmma_accumulator_store_p)
-def _wgmma_accumulator_store_discharge(in_avals, out_avals, acc, val):
-  del in_avals, out_avals
+def _wgmma_accumulator_store_discharge(ctx, acc, val):
+  del ctx
   return (wgmma_accumulator_store_p.bind(acc, val), None), []
 
 
@@ -2992,16 +3276,16 @@ def broadcasted_iota(
   return result
 
 
-@lowering.register_lowering_rule(jax_core.closed_call_p, mgpu.LoweringSemantics.Lane)
-@lowering.register_lowering_rule(jax_core.closed_call_p, mgpu.LoweringSemantics.Warpgroup)
-def _closed_call_lowering_rule(ctx, *args, call_jaxpr: jax_core.Jaxpr):
+@lowering.register_lowering_rule(pe.eval_jaxpr_p, mgpu.LoweringSemantics.Lane)
+@lowering.register_lowering_rule(pe.eval_jaxpr_p, mgpu.LoweringSemantics.Warpgroup)
+def _eval_jaxpr_lowering_rule(ctx, *args, call_jaxpr: jax_core.Jaxpr):
   if call_jaxpr.consts: raise NotImplementedError
   return lowering.lower_jaxpr_to_mosaic_gpu(
       ctx.module_ctx, ctx.launch_ctx, call_jaxpr, args)
 
 
-@lowering._register_resource_estimator(jax_core.closed_call_p)
-def _closed_call_resource_estimator(ctx, *args, call_jaxpr):
+@lowering._register_resource_estimator(pe.eval_jaxpr_p)
+def _eval_jaxpr_resource_estimator(ctx, *args, call_jaxpr):
   del args  # Unused.
   if call_jaxpr.consts: raise NotImplementedError
   return lowering._estimate_resources(ctx, call_jaxpr)
@@ -3207,7 +3491,7 @@ def _inline_mgpu_abstract_eval(
   }
 
 
-@discharge.register_partial_discharge_rule(inline_mgpu_p)
+@discharge.register_discharge_rule(inline_mgpu_p)
 def _inline_mgpu_discharge(*args, **kwargs):
   del args, kwargs
   raise NotImplementedError("inline_mgpu_p does not support discharge.")
@@ -3685,8 +3969,32 @@ def load(
 
 
 async_load_tmem_p = jax_core.Primitive("async_load")
+async_load_tmem_p.multiple_results = True
 
-def async_load_tmem(src: _Ref, *, layout: SomeLayout | None = None) -> jax.Array:
+
+@overload
+def async_load_tmem(
+    src: _Ref, *, layout: SomeLayout | None = ..., reduce: None = ...
+) -> jax.Array:
+  ...
+
+
+@overload
+def async_load_tmem(
+    src: _Ref,
+    *,
+    layout: SomeLayout | None = ...,
+    reduce: Literal["max", "min", "absmax", "absmin"] = ...,
+) -> tuple[jax.Array, jax.Array]:
+  ...
+
+
+def async_load_tmem(
+    src: _Ref,
+    *,
+    layout: SomeLayout | None = None,
+    reduce: Literal["max", "min", "absmax", "absmin"] | None = None,
+) -> jax.Array | tuple[jax.Array, jax.Array]:
   """Performs an asynchronous load from the TMEM array.
 
   The load operation is only partly asynchronous. The returned array can be used
@@ -3710,6 +4018,9 @@ def async_load_tmem(src: _Ref, *, layout: SomeLayout | None = None) -> jax.Array
   Args:
     src: The TMEM reference to load from.
     layout: The optional layout hint to use for the resulting array.
+    reduce: The optional reduction operation to perform on the loaded data. If
+      specified, the function returns an extra array, obtained by reducing the
+      loaded data along the last dimension.
   """
   src, src_transforms = state_primitives.get_ref_and_transforms(
       src, None, "async_load_tmem"
@@ -3717,22 +4028,48 @@ def async_load_tmem(src: _Ref, *, layout: SomeLayout | None = None) -> jax.Array
   flat_src_transforms, src_transforms_treedef = tree_util.tree_flatten(
       src_transforms
   )
-  result = async_load_tmem_p.bind(
-      src, *flat_src_transforms, tree=src_transforms_treedef
+  results = async_load_tmem_p.bind(
+      src, *flat_src_transforms, tree=src_transforms_treedef, reduce=reduce
   )
-  if layout is not None:
-    result = gpu_core.layout_cast(result, layout)
-  return result
+  if reduce is None:
+    [result] = results
+    if layout is not None:
+      result = gpu_core.layout_cast(result, layout)
+    return result
+  else:
+    result, reduced = results
+    if layout is not None:
+      result = gpu_core.layout_cast(result, layout)
+    return result, reduced
+
 
 @async_load_tmem_p.def_effectful_abstract_eval
-def _async_load_tmem_abstract_eval(src, *avals_flat, tree):
+def _async_load_tmem_abstract_eval(
+    src, *avals_flat, tree, reduce: tcgen05.LoadReduceOp | None = None
+):
   if src.memory_space != gpu_core.MemorySpace.TMEM:
     raise ValueError("Async load only supports TMEM refs")
-  return state_primitives._get_abstract_eval(src, *avals_flat, tree=tree)
+  val_aval, effects = state_primitives._get_abstract_eval(
+      src, *avals_flat, tree=tree
+  )
+  if reduce is None:
+    return (val_aval,), effects
+  if val_aval.dtype not in map(jnp.dtype, (jnp.float32, jnp.int32, jnp.uint32)):
+    raise ValueError(
+        f"Unsupported dtype for reduction: {val_aval.dtype}. Only float32, "
+        " int32 and uint32 are supported."
+    )
+  reduced_aval = jax_core.ShapedArray(val_aval.shape[:-1], val_aval.dtype)
+  return (val_aval, reduced_aval), effects
+
 
 @lowering.register_lowering_rule(async_load_tmem_p, mgpu.LoweringSemantics.Lane)
 def _async_load_tmem_lowering_rule(
-    ctx: lowering.LoweringRuleContext, x_ref, *leaves, tree
+    ctx: lowering.LoweringRuleContext,
+    x_ref,
+    *leaves,
+    tree,
+    reduce: Literal["max", "min", "absmax", "absmin"] | None = None,
 ):
   assert isinstance(x_ref, tcgen05.TMEMRef)
   x_aval = ctx.avals_in[0]
@@ -3752,14 +4089,19 @@ def _async_load_tmem_lowering_rule(
   if isinstance(ctx.out_layout_hint, mgpu.TiledLayout):
     layout_hint = ctx.out_layout_hint
   is_signed = mgpu_utils.is_signed(ctx.avals_out[0].dtype)
-  return x_tmem.load(layout=layout_hint, is_signed=is_signed)
+  res = x_tmem.load(layout=layout_hint, is_signed=is_signed, reduce=reduce)
+  return (res,) if reduce is None else res
 
 
 @lowering.register_lowering_rule(
     async_load_tmem_p, mgpu.LoweringSemantics.Warpgroup
 )
 def _async_load_tmem_lowering_rule_wg(
-    ctx: lowering.LoweringRuleContext, x_ref: ir.Value, *leaves, tree
+    ctx: lowering.LoweringRuleContext,
+    x_ref: ir.Value,
+    *leaves,
+    tree,
+    reduce: tcgen05.LoadReduceOp | None = None,
 ):
   assert isinstance(x_ref, ir.Value)
   assert isinstance(x_ref.type, ir.MemRefType)
@@ -3783,7 +4125,25 @@ def _async_load_tmem_lowering_rule_wg(
     raise NotImplementedError(
         f"Unimplemented transforms for TMEM refs. {transforms=}"
     )
-  return mgpu.dialect.async_load_tmem(x_tmem)
+  if reduce is not None:
+    orig_reduce = reduce
+    # Make sure we will interpret the reduction as unsigned, since we erase
+    # signedness.
+    if isinstance(x_aval.dtype, jnp.unsignedinteger) and "abs" not in reduce:
+      reduce = "abs" + reduce  # type: ignore
+    match reduce:
+      case "min":
+        reduce_attr = mgpu.dialect.TMEMLoadReduction.Min  # pyrefly: ignore[missing-attribute]
+      case "max":
+        reduce_attr = mgpu.dialect.TMEMLoadReduction.Max  # pyrefly: ignore[missing-attribute]
+      case "absmin":
+        reduce_attr = mgpu.dialect.TMEMLoadReduction.AbsMin  # pyrefly: ignore[missing-attribute]
+      case "absmax":
+        reduce_attr = mgpu.dialect.TMEMLoadReduction.AbsMax  # pyrefly: ignore[missing-attribute]
+      case _:
+        raise ValueError(f"Unsupported load reduce operation: {orig_reduce}")
+    return tuple(mgpu.dialect.async_load_tmem(x_tmem, reduce=reduce_attr))  # type: ignore
+  return (mgpu.dialect.async_load_tmem(x_tmem),)
 
 
 wait_load_tmem_p = jax_core.Primitive("wait_load_tmem")
@@ -4732,9 +5092,8 @@ def _atomic_store_abstract_eval(*avals_flat, args_tree, atomic_type):
 
 @discharge.register_discharge_rule(atomic_store_p)
 def _atomic_store_discharge_rule(
-    in_avals, out_avals, *args_flat, args_tree, atomic_type: AtomicOpType
+    ctx, *args_flat, args_tree, atomic_type: AtomicOpType
 ):
-  del out_avals
   ref, transforms, val, mask = args_tree.unflatten(args_flat)
   *prev_transforms, idx = transforms
   ref = discharge.transform_array(ref, prev_transforms)
@@ -4776,7 +5135,7 @@ def _atomic_store_discharge_rule(
     x_new = ref.at[idx.indices].set(monoid(out, val))
   else:
     raise NotImplementedError
-  return (x_new,) + (None,) * (len(in_avals) - 1), ()
+  return (x_new,) + (None,) * (len(ctx.in_avals) - 1), ()
 
 
 def _atomic_store(

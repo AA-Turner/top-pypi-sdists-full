@@ -13,6 +13,12 @@ Ladder (auto mode, least-aggressive first):
                   ``enable_model_cpu_offload()``                (~10% slower)
   group_offload : leaf-level group offload with CUDA streams   (~25% slower)
   sequential    : ``enable_sequential_cpu_offload()``          (~50%+ slower)
+  cpu           : the whole pipeline on the host, no device at all (~40x)
+
+``cpu`` is the bottom rung and it EXECUTES (pgw#1315). It is never selected by
+``auto`` — it is where a cardless pod starts and where a reactive descent that
+exhausted every offload rung ends. §1.35 amendment 2: *"even a pod without a
+GPU, heck; we can run it CPU only"*.
 
 Upstream foot-gun: ``enable_sequential_cpu_offload`` must NOT be called on a
 pipeline already moved to CUDA; ``apply_low_vram_config`` moves it back first.
@@ -25,11 +31,14 @@ import logging
 import os
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Any, Dict, Iterable, List, Optional
+from typing import Any, Dict, Iterable, List, Optional, Sequence
 
 import msgspec
 
 from .. import activity as activity_mod
+from .. import measured_posture as posture_mod
+from . import machine_fit
+from ..api.errors import HostRamMoveRefusedError
 from ..component_vocab import component_vocabulary
 from .structure_only import STAMP as _STRUCTURE_ONLY
 import asyncio
@@ -40,10 +49,11 @@ _LOG = logging.getLogger(__name__)
 
 _GIB = 1024 ** 3
 
-Mode = str  # "auto" | "off" | "vae_only" | "model_offload" | "group_offload" | "sequential"
+Mode = str  # "auto" | "off" | "vae_only" | "model_offload" | "group_offload" | "sequential" | "cpu"
 
 _VALID_MODES: tuple[str, ...] = (
     "auto", "off", "vae_only", "model_offload", "group_offload", "sequential",
+    "cpu",
 )
 
 _DEFAULT_MODEL_OFFLOAD_THRESHOLD_GB = 8.0
@@ -128,7 +138,9 @@ GPU_VRAM_OVERHEAD_GB = 1.0
 # walk, one price. This module keeps the probes and the appliers.
 from .rung import (
     PLACEMENT_LADDER,
+    RUN_CPU,
     descend as _descend_rung,
+    price as _rung_price,
     touches_host_ram,
     transition_line,
 )
@@ -1000,14 +1012,37 @@ def _call_if_present(obj: Any, method: str, **kwargs: Any) -> bool:
         return False
 
 
-def _move_pipeline_to_cpu(pipeline: Any) -> None:
+def _to_host(pipeline: Any) -> None:
+    """Move the pipeline to host RAM — best effort, with ONE failure that is
+    not best effort.
+
+    pgw#1315: ``HostRamMoveRefusedError`` used to be swallowed into a DEBUG
+    line, after which ``place_pipeline``'s rollback check resurfaced it as a
+    generic ``RuntimeError("… mixed-device … rollback failed")``. That erased
+    the one case where ``GEN_WORKER_HOST_MOVE_GUARD`` legitimately stops a
+    degrade — it refuses only a move that would SIGKILL the worker anyway — and
+    made it indistinguishable from a bug in our own rollback.
+
+    Every OTHER move failure stays swallowed, deliberately: this is a hygiene
+    step, and ``repair_device_placement`` is what decides whether the pipeline
+    actually came back coherent. Promoting all of them to fatal would turn
+    recoverable descents into refusals.
+    """
     try:
-        if not cuda_ready():
-            return
         if callable(getattr(pipeline, "to", None)):
             pipeline.to("cpu")
+    except HostRamMoveRefusedError:
+        raise
     except Exception as exc:
         _LOG.debug("low_vram: move-to-cpu failed: %s", exc)
+
+
+def _move_pipeline_to_cpu(pipeline: Any) -> None:
+    """Roll a partially-promoted pipeline back to the host. A no-op without
+    CUDA, where nothing was ever promoted off it."""
+    if not cuda_ready():
+        return
+    _to_host(pipeline)
 
 
 def _apply_vae_and_attention(
@@ -1299,7 +1334,13 @@ def place_pipeline(
     """
     log = logger or _LOG
     if not cuda_ready():
-        return {"mode": "cpu"}
+        # pgw#1315: the CPU rung is APPLIED here, not merely described. The
+        # bare `{"mode": "cpu"}` this used to return left `low_vram_mode()`
+        # reading `""` — the ladder's own view of the pipeline was "never
+        # placed", so a later transition could not tell the bottom rung from an
+        # unprepped object. Plan time and the reactive descent now stamp ONE
+        # token.
+        return apply_low_vram_config(pipeline, mode="cpu", logger=log)
     effective = select_auto_mode(pipeline=pipeline) if mode == "auto" else mode
     if mode == "auto":
         effective = _gguf_resident_override(pipeline, effective, log)
@@ -1364,7 +1405,16 @@ def place_pipeline(
             # component graph before the allocator raised. Offload hooks must
             # start from a coherent CPU object; attaching them to that partial
             # move creates the mixed-device fatal seen on live SDXL.
-            _move_pipeline_to_cpu(pipeline)
+            try:
+                _move_pipeline_to_cpu(pipeline)
+            except HostRamMoveRefusedError as refused:
+                # pgw#1315: the guard refusing this rollback and our rollback
+                # being BROKEN are different facts, and the generic
+                # mixed-device error below reported them as the same one. The
+                # guard is correct — it refuses only a move that would SIGKILL
+                # the worker — so its verdict travels, carrying the OOM that
+                # provoked the rollback as its cause.
+                raise refused from exc
             missed = repair_device_placement(pipeline, "cpu")
             if missed:
                 raise RuntimeError(
@@ -1386,6 +1436,140 @@ def place_pipeline(
 #: The phase token every pipeline-level offload activation reports under.
 #: Countable hub-side in `worker_activity_events`.
 OFFLOAD_ENGAGED_PHASE = "cpu_offload_engaged"
+
+#: pgw#1315: the machine is below a lane's DECLARED minimum and it serves
+#: anyway. Same confession home, its own phase token — and the token IS the
+#: machine-readable cause (`measured_posture.REASON_BELOW_DECLARED_MINIMUM`),
+#: so the reason has one spelling on both carriers.
+UNDER_MINIMUM_PHASE = posture_mod.REASON_BELOW_DECLARED_MINIMUM
+
+#: pgw#1339: the invoked function declares a serving contract and the resolved
+#: checkpoint carries no evidence on a declared axis. Same confession home,
+#: its own phase token, for the same reason as the line above.
+UNEVIDENCED_FACTS_PHASE = posture_mod.REASON_SERVING_FACTS_UNEVIDENCED
+
+
+def _confess_serve_degrade(
+    *, phase: str, line: str, detail: str, log: logging.Logger,
+) -> None:
+    """THE seam every degraded-posture confession leaves this pod through.
+
+    Loud line for a human, typed `serve_degrade` event for the hub, derived
+    from the SAME numbers so the two cannot disagree. Never a gate — every
+    caller has already decided to serve. pgw#1312 built this for offload
+    activation and pgw#1315 puts the under-minimum warning through it rather
+    than beside it: a second emitter is a second answer, and the one the hub
+    banks is never the one the operator read.
+    """
+    log.warning(line)
+    activity_mod.emit_event(
+        activity_mod.KIND_SERVE_DEGRADE, detail=detail, phase=phase)
+
+
+def report_under_minimum(
+    shortfalls: "Sequence[machine_fit.Shortfall]",
+    *,
+    scope: str,
+    posture: str,
+    lane: str = "",
+    logger: Optional[logging.Logger] = None,
+) -> str:
+    """This machine is under a DECLARED minimum, and it serves anyway.
+
+    Returns the warning text the caller puts on `ServePlan.warning` (which
+    reaches the hub as `FnDegraded.reason`), having already emitted the typed
+    event — one derivation, two carriers.
+
+    It names the TERM, the declared floor, this machine's measured fact and
+    the posture taken, and it names NO card: th#1867 deleted
+    `FnDegraded.recommended_vram_gb` because the worker's suggestion was the
+    author's own guess handed back, and only the hub knows the catalog.
+    """
+    rows = tuple(shortfalls)
+    if not rows:
+        return ""
+    detail = machine_fit.summarize(rows)
+    # `scope` names the function; each ROW names its own lane (function-scope
+    # rows have none), so the head states the lane the facts PICKED rather
+    # than attributing every shortfall to it.
+    head = (
+        f"running BELOW a declared minimum for {scope}"
+        + (f" (lane picked: `{lane}`)" if lane else "")
+        + f": {detail}. The request still serves at posture `{posture}`; "
+        "this pod is serving DEGRADED and a declared floor is not being met."
+    )
+    _confess_serve_degrade(
+        phase=UNDER_MINIMUM_PHASE,
+        line=transition_line(
+            event="planned", phase="requirements",
+            from_rung="declared_minimum", to_rung=posture, detail=head,
+        ),
+        detail=head,
+        log=logger or _LOG,
+    )
+    return head
+
+
+def report_unevidenced_serving_facts(
+    axes: "Sequence[str]",
+    *,
+    slot: str,
+    scope: str,
+    declared: str,
+    gap: str = "",
+    logger: Optional[logging.Logger] = None,
+) -> str:
+    """A DECLARED serving contract could not be checked, and we serve anyway.
+
+    pgw#1339 / th#2099. Returns the warning text (so a caller may also put it
+    on `ServePlan.warning`), having already emitted the typed event — one
+    derivation, two carriers, exactly as `report_under_minimum` does.
+
+    ``gap`` is the wire-gap sentence from `serving_facts.facts_or_degrade`
+    when NOBODY stamped the facts; empty when the catalog answered and simply
+    had nothing. The two are different jobs for different people, so the
+    confession says which one this is rather than flattening both into
+    "unevidenced".
+
+    The suggestion is aimed at the CATALOG, not at a card: no GPU can supply a
+    training objective, and th#1867's rule against the worker guessing on the
+    hub's behalf applies to this axis too. What would be better here is a
+    classified checkpoint, and only the hub can make one.
+    """
+    named = tuple(str(a) for a in axes if str(a))
+    if not named:
+        return ""
+    # WHAT WOULD BE BETTER, aimed at whoever can actually close THIS gap —
+    # they are different people. A wire gap is ours to fix in the sender; an
+    # unclassified checkpoint is a catalog job. One suggestion for both would
+    # send half of every report to the wrong team.
+    better = (
+        "stamp the serving facts on the binding this pod was sent"
+        if gap else
+        "classify this checkpoint in the hub catalog"
+    )
+    head = (
+        f"serving {scope} with an UNCHECKED serving contract: slot {slot!r} "
+        f"carries no evidence for the declared {', '.join(named)} "
+        f"({declared}). "
+        + (f"{gap} " if gap else
+           "The catalog answered and had nothing to say on "
+           f"{'this axis' if len(named) == 1 else 'these axes'}. ")
+        + "The request still serves — this is a diagnostic, not a gate. "
+        f"WHAT WOULD BE BETTER: {better}, so the declared contract can "
+        "actually be checked; until then the hub's own deploy-time and "
+        "request-time gates are the only ones enforcing it."
+    )
+    _confess_serve_degrade(
+        phase=UNEVIDENCED_FACTS_PHASE,
+        line=transition_line(
+            event="planned", phase="serving_contract",
+            from_rung="declared_contract", to_rung="unchecked", detail=head,
+        ),
+        detail=head,
+        log=logger or _LOG,
+    )
+    return head
 
 
 def _report_offload_engaged(
@@ -1409,14 +1593,14 @@ def _report_offload_engaged(
     """
     needed_gb = estimate_pipeline_size_gb(pipeline)
     free_gb = get_available_vram_gb()
-    log.warning(transition_line(
-        event="engaged", phase="load", from_rung="resident", to_rung=rung,
-        needed_gb=needed_gb, free_gb=free_gb,
-        detail=f"CPU offload ENGAGED ({_applied_summary(applied)}); every "
-               f"forward on this pipeline now moves weights over PCIe",
-    ))
-    activity_mod.emit_event(
-        activity_mod.KIND_SERVE_DEGRADE,
+    _confess_serve_degrade(
+        phase=OFFLOAD_ENGAGED_PHASE,
+        line=transition_line(
+            event="engaged", phase="load", from_rung="resident", to_rung=rung,
+            needed_gb=needed_gb, free_gb=free_gb,
+            detail=f"CPU offload ENGAGED ({_applied_summary(applied)}); every "
+                   f"forward on this pipeline now moves weights over PCIe",
+        ),
         detail=(
             f"pipeline={type(pipeline).__name__}: CPU offload ENGAGED at rung "
             f"`{rung}` ({_applied_summary(applied)}) — ~{needed_gb:.1f} GiB of "
@@ -1425,7 +1609,7 @@ def _report_offload_engaged(
             f"the request still serves; this pod is serving DEGRADED and every "
             f"request on it pays the transfer."
         ),
-        phase=OFFLOAD_ENGAGED_PHASE,
+        log=log,
     )
 
 
@@ -1485,6 +1669,22 @@ def apply_low_vram_config(
         setattr(pipeline, _COZY_MODE_ATTR, "off")
         return applied
 
+    if effective_mode == "cpu":
+        # THE BOTTOM RUNG, AND IT RUNS (pgw#1315). No hook is armed: every
+        # offload rung onloads to a device, and this rung's whole premise is
+        # that there is no usable one — either the pod is cardless or every
+        # rung above OOM'd. The savers still apply, because host RAM is now the
+        # constraint and tiled decode is what keeps a large VAE inside it.
+        _apply_vae_and_attention(pipeline, applied, memory_bound=True)
+        _to_host(pipeline)
+        flush_memory()
+        setattr(pipeline, _COZY_MODE_ATTR, "cpu")
+        # pgw#1312's one confession home. This rung is the LOUDEST degradation
+        # the ladder has — ~40x — so it may not be the one route that reaches a
+        # CPU-touching placement without saying so off the pod.
+        _report_offload_engaged(pipeline, "cpu", applied, log)
+        return applied
+
     _apply_vae_and_attention(
         pipeline, applied, memory_bound=effective_mode != "vae_only"
     )
@@ -1497,8 +1697,21 @@ def apply_low_vram_config(
     cuda_ok = cuda_ready()
 
     if not cuda_ok:
-        setattr(pipeline, _COZY_MODE_ATTR, "vae_only")
-        log.info("low_vram: CUDA unavailable, stopping at vae_only")
+        # An offload rung was asked for on a host with no usable device. Every
+        # such rung onloads to one, so none of them can be armed — but the
+        # honest rung is the BOTTOM one, not `vae_only`. pgw#1315: stamping a
+        # resident flavor here described a placement that was not taken, and
+        # the ladder then read the pipeline as sitting two rungs above where it
+        # actually was.
+        log.warning(
+            "low_vram: %s was requested and no CUDA device is usable; the CPU "
+            "rung serves instead (~%.0fx a native run).",
+            effective_mode, _rung_price(RUN_CPU),
+        )
+        applied["mode"] = "cpu"
+        _to_host(pipeline)
+        setattr(pipeline, _COZY_MODE_ATTR, "cpu")
+        _report_offload_engaged(pipeline, "cpu", applied, log)
         return applied
 
     if offload_to_disk_path is None and _should_auto_disk_offload():

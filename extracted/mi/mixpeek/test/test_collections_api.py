@@ -69,6 +69,13 @@ class TestCollectionsApi(unittest.TestCase):
         """
         pass
 
+    def test_infer_import_schema(self) -> None:
+        """Test case for infer_import_schema
+
+        Infer import schema
+        """
+        pass
+
     def test_list_collections(self) -> None:
         """Test case for list_collections
 
@@ -94,6 +101,13 @@ class TestCollectionsApi(unittest.TestCase):
         """Test case for update_collection
 
         Update Collection
+        """
+        pass
+
+    def test_validate_import_mapping(self) -> None:
+        """Test case for validate_import_mapping
+
+        Validate an import mapping
         """
         pass
 

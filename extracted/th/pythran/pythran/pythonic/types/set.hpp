@@ -15,7 +15,6 @@
 
 #include <algorithm>
 #include <iterator>
-#include <limits>
 #include <set>
 #include <utility>
 
@@ -428,7 +427,7 @@ namespace types
 
   inline empty_set empty_set::operator|(empty_set const &)
   {
-    return empty_set();
+    return {};
   }
 
   template <class T>
@@ -451,7 +450,7 @@ namespace types
 
   inline empty_set empty_set::operator^(empty_set const &)
   {
-    return empty_set();
+    return {};
   }
 
   template <class T>
@@ -473,12 +472,12 @@ namespace types
 
   inline empty_set::iterator empty_set::begin() const
   {
-    return empty_iterator();
+    return {};
   }
 
   inline empty_set::iterator empty_set::end() const
   {
-    return empty_iterator();
+    return {};
   }
 
   template <class V>

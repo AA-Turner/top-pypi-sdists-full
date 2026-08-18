@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: pyan3
-Version: 2.6.2
+Version: 2.7.0
 Summary: Generate approximate call graphs for Python programs
 Keywords: call-graph,static-code-analysis,code-visualization,dependency-analysis
 Author-Email: Juha Jeronen <juha.m.jeronen@gmail.com>
@@ -19,13 +19,14 @@ Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
 Classifier: Programming Language :: Python :: 3.14
+Classifier: Programming Language :: Python :: 3.15
 Classifier: Topic :: Software Development
 Classifier: Topic :: Software Development :: Libraries :: Python Modules
 Project-URL: Homepage, https://github.com/Technologicat/pyan
 Project-URL: Documentation, https://github.com/Technologicat/pyan
 Project-URL: Repository, https://github.com/Technologicat/pyan
 Project-URL: Bug Tracker, https://github.com/Technologicat/pyan/issues
-Requires-Python: >=3.10
+Requires-Python: <3.16,>=3.10
 Requires-Dist: jinja2
 Provides-Extra: sphinx
 Requires-Dist: sphinx; extra == "sphinx"

@@ -90,13 +90,20 @@ def combine_http_headers_kwargs(
     tokens: list[Token], i: int, *, node: ast.Call, headers_keyword: ast.keyword | None
 ) -> None:
     if headers_keyword is not None:
-        existing_headers_idx = find_last_token(tokens, i, node=headers_keyword)
-        existing_headers_needs_comma = (
-            len(cast(ast.Dict, headers_keyword.value).keys) > 0
-        )
+        # Insert converted headers at the start of the existing dict:
+        # existing entries take precedence, matching how Django prefers
+        # headers= over HTTP_ kwargs.
+        headers_dict = cast(ast.Dict, headers_keyword.value)
+        insert_idx = find_first_token(tokens, i, node=headers_dict) + 1
+        if not headers_dict.keys:
+            converted_suffix = ""
+        elif tokens[insert_idx].name == PHYSICAL_NEWLINE:
+            converted_suffix = ","
+        else:
+            converted_suffix = ", "
     else:
-        existing_headers_idx = 0
-        existing_headers_needs_comma = False
+        insert_idx = 0
+        converted_suffix = ""
 
     j = i
     src_fragments = []
@@ -137,10 +144,10 @@ def combine_http_headers_kwargs(
             kwargs_after_first_http_kwarg = True
 
     if headers_keyword is not None:
-        if existing_headers_needs_comma:
-            src_fragments.insert(0, ", ")
+        if converted_suffix:
+            src_fragments.append(converted_suffix)
         insert_op = (
-            existing_headers_idx,
+            insert_idx,
             Insert("".join(src_fragments)),
         )
         operations.insert(bisect(operations, insert_op), insert_op)

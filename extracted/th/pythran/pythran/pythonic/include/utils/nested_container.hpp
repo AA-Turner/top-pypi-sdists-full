@@ -3,7 +3,6 @@
 
 #include "pythonic/include/types/traits.hpp"
 #include "pythonic/include/utils/numpy_traits.hpp"
-#include <limits>
 
 PYTHONIC_NS_BEGIN
 namespace types
@@ -76,7 +75,7 @@ namespace utils
 
   template <class T, class sP>
   struct nested_container_depth<types::ndarray<T, sP>> {
-    static const int value = std::tuple_size<sP>::value;
+    static const int value = std::tuple_size_v<sP>;
   };
 
   /* Get the size of a container, using recursion on inner container if any

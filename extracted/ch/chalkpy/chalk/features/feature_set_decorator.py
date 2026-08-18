@@ -43,14 +43,14 @@ from chalk.features.feature_time import feature_time
 from chalk.features.feature_wrapper import FeatureWrapper, unwrap_feature
 from chalk.features.namespace_context import build_namespaced_name
 from chalk.features.tag import Tags
-from chalk.features.underscore import Underscore
+from chalk.features.underscore import Underscore, is_history_fold_expression
 from chalk.parsed.ast_context import get_project_ast_context
 from chalk.serialization.parsed_annotation import ParsedAnnotation
 from chalk.streams import Windowed
-from chalk.streams._windows import GroupByWindowed, get_name_with_duration
+from chalk.streams._windows import GroupByWindowed, MaterializationWindowConfig, get_name_with_duration
 from chalk.utils import notebook
 from chalk.utils.collections import FrozenOrderedSet, ensure_tuple
-from chalk.utils.duration import Duration, parse_chalk_duration, parse_chalk_duration_s
+from chalk.utils.duration import CHALK_MAX_TIMEDELTA, Duration, parse_chalk_duration, parse_chalk_duration_s
 from chalk.utils.metaprogramming import MISSING, set_new_attribute
 from chalk.utils.string import to_snake_case
 from chalk.stores.online_store_config import OnlineStoreConfig
@@ -2495,6 +2495,36 @@ def _process_class(
     # __setattr__, whose alias maps are otherwise frozen in their closures.
     set_new_attribute(cls=cls, name="__chalk_alias_from_to__", value=alias_from_to)
     set_new_attribute(cls=cls, name="__chalk_additional_inits__", value=additional_inits)
+
+    # `feature(expression=..., materialization=True)` is how an aggregation that is not windowed
+    # asks to be materialized. Resolve it here, where every graph builder sees it -- the project
+    # importer, the engine's per-class fixup, and any direct use of the registry. Resolving it
+    # only at import time would leave the other two with a plain has-many aggregation, which
+    # cannot read back from the materialized state.
+    for f in cls_fields:
+        is_fold = is_history_fold_expression(f.underscore_expression)
+        if f.window_materialization is True:
+            if not is_fold:
+                raise ValueError(
+                    f"'{f.name}' passes `materialization=True`, but its expression is not an"
+                    + " aggregation that can be materialized. Only `history_fold` can today; a"
+                    + " windowed aggregation asks through `windowed(..., materialization={...})`."
+                )
+            # One ever-open bucket per entity: a fold's window is the whole of time, so its
+            # bucket has to span it. This is what `True` means for a non-windowed aggregation --
+            # there is no window duration to derive a bucket from, the way `windowed()` does.
+            f.window_materialization = MaterializationWindowConfig(bucket_duration=CHALK_MAX_TIMEDELTA)
+            materialized_windows.append(f)
+        elif is_fold and f.window_materialization is None:
+            # Folding at query time would mean re-reading an entity's whole history on every
+            # request, which is what materializing exists to avoid, so it is not supported.
+            # Saying so here beats failing later as an ordinary has-many aggregation that cannot
+            # read its own stored state.
+            raise ValueError(
+                f"'{f.name}' is a `history_fold`, which has to be materialized: it folds an"
+                + " entity's whole history, so the state is kept rather than recomputed per query."
+                + " Declare it as `feature(expression=..., materialization=True)`."
+            )
 
     for f in cls_fields:
         assert f.attribute_name is not None

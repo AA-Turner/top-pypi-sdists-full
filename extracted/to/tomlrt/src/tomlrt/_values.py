@@ -29,48 +29,46 @@ if TYPE_CHECKING:
 
 
 @dataclass(slots=True, eq=False)
-class StringValue:
-    lexeme: str  # including quotes
+class ScalarValue:
+    """Base of the five TOML scalar leaves.
+
+    Every scalar re-emits verbatim from the ``lexeme`` it was parsed
+    from -- quotes, radix prefix, digit separators, and case all
+    included -- so the rendering is shared here; each subclass adds
+    only its own decoded ``value`` field, keeping the
+    ``(lexeme, value)`` positional signature and the precise per-type
+    ``value`` annotation.
+    """
+
+    lexeme: str
+
+    def render(self) -> str:
+        return self.lexeme
+
+
+@dataclass(slots=True, eq=False)
+class StringValue(ScalarValue):
     value: str
 
-    def render(self) -> str:
-        return self.lexeme
-
 
 @dataclass(slots=True, eq=False)
-class IntegerValue:
-    lexeme: str
+class IntegerValue(ScalarValue):
     value: int
 
-    def render(self) -> str:
-        return self.lexeme
-
 
 @dataclass(slots=True, eq=False)
-class FloatValue:
-    lexeme: str
+class FloatValue(ScalarValue):
     value: float
 
-    def render(self) -> str:
-        return self.lexeme
-
 
 @dataclass(slots=True, eq=False)
-class BoolValue:
-    lexeme: str  # "true" or "false"
+class BoolValue(ScalarValue):
     value: bool
 
-    def render(self) -> str:
-        return self.lexeme
-
 
 @dataclass(slots=True, eq=False)
-class DateTimeValue:
-    lexeme: str
+class DateTimeValue(ScalarValue):
     value: datetime | date | time
-
-    def render(self) -> str:
-        return self.lexeme
 
 
 # ---------------------------------------------------------------------------
@@ -142,7 +140,8 @@ class CommaItem:
 
     Layout: ``leading value trailing [comma post_comma_trivia]``.
     Shared base of sibling leaves `ArrayItem` and `InlineTableEntry`;
-    use `CommaItem` only at polymorphic call sites.
+    use `CommaItem` only at polymorphic call sites. Fields are
+    positional, for the reason given on `Slot`.
     """
 
     leading: str
@@ -172,11 +171,6 @@ class InlineTableEntry(CommaItem):
 
     The shared trivia/comma machinery lives on `CommaItem`; this leaf
     adds only the key-prefix fields and keyed rendering.
-
-    Its fields are positional, like a `Slot`'s and for the same reason:
-    an entry is built once per parsed ``key = value``, and binding ten
-    fields by keyword costs several times as much as binding them
-    positionally.
     """
 
     key_parts: tuple[KeyPart, ...]
@@ -306,6 +300,13 @@ def item_eol_on_trailing(item: CommaItem) -> bool:
     structural while an EOL comment follows the comma, the post-comma channel
     owns that EOL instead. Deciding it here lets callers read, write, and
     normalise the EOL without rediscovering the distinction.
+
+    `tomlrt._comma_ops.Boundary._eol` selects the same channel by the same
+    rule, over captured lanes rather than a live item, and layers an
+    "is there an EOL at all?" test on top. The two are deliberately not
+    shared: expressing the rule once would mean spelling `Boundary`'s
+    head/above/tail lane split in this module, and this layer is pure data.
+    Change one and you must change the other.
     """
     if item_breaks_before_comma(item):
         trailing_eol, _rest = split_eol_section(item.trailing)

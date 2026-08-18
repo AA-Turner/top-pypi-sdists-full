@@ -18,7 +18,7 @@ import re  # noqa: F401
 import json
 
 from pydantic import BaseModel, ConfigDict, Field, StrictStr
-from typing import Any, ClassVar, Dict, List
+from typing import Any, ClassVar, Dict, List, Optional
 from arthur_client.api_bindings.models.resource_kind import ResourceKind
 from typing import Optional, Set
 from typing_extensions import Self
@@ -29,7 +29,8 @@ class PostUpsolveTenant(BaseModel):
     """ # noqa: E501
     resource_kind: ResourceKind = Field(description="Kind of the resource the user wants a JWT to access data for in Upsolve. Supports model, project, workspace, and policy resource kinds.")
     resource_id: StrictStr = Field(description="ID of the resource.")
-    __properties: ClassVar[List[str]] = ["resource_kind", "resource_id"]
+    prefilter_project_id: Optional[StrictStr] = None
+    __properties: ClassVar[List[str]] = ["resource_kind", "resource_id", "prefilter_project_id"]
 
     model_config = ConfigDict(
         populate_by_name=True,
@@ -70,6 +71,11 @@ class PostUpsolveTenant(BaseModel):
             exclude=excluded_fields,
             exclude_none=True,
         )
+        # set to None if prefilter_project_id (nullable) is None
+        # and model_fields_set contains the field
+        if self.prefilter_project_id is None and "prefilter_project_id" in self.model_fields_set:
+            _dict['prefilter_project_id'] = None
+
         return _dict
 
     @classmethod
@@ -83,7 +89,8 @@ class PostUpsolveTenant(BaseModel):
 
         _obj = cls.model_validate({
             "resource_kind": obj.get("resource_kind"),
-            "resource_id": obj.get("resource_id")
+            "resource_id": obj.get("resource_id"),
+            "prefilter_project_id": obj.get("prefilter_project_id")
         })
         return _obj
 

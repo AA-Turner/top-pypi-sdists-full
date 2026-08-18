@@ -3,7 +3,7 @@
 
 #include "pythonic/include/types/attr.hpp"
 
-#include <limits>
+#include <complex>
 
 PYTHONIC_NS_BEGIN
 

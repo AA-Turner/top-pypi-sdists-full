@@ -57,25 +57,30 @@ class Notification(base.ModelBase):
     indexed_at: string_formats.DateTime  #: Indexed at.
     is_read: bool  #: Is read.
     reason: t.Union[
-        t.Literal['like'],
-        t.Literal['repost'],
-        t.Literal['follow'],
-        t.Literal['mention'],
-        t.Literal['reply'],
-        t.Literal['quote'],
-        t.Literal['starterpack-joined'],
-        t.Literal['verified'],
-        t.Literal['unverified'],
-        t.Literal['like-via-repost'],
-        t.Literal['repost-via-repost'],
-        t.Literal['subscribed-post'],
-        t.Literal['contact-match'],
+        t.Literal[
+            'like',
+            'repost',
+            'follow',
+            'mention',
+            'reply',
+            'quote',
+            'starterpack-joined',
+            'verified',
+            'unverified',
+            'like-via-repost',
+            'repost-via-repost',
+            'subscribed-post',
+            'contact-match',
+        ],
         str,
     ]  #: The reason why this notification was delivered - e.g. your post was liked, or you received a new follower.
     record: 'UnknownType'  #: Record.
     uri: string_formats.AtUri  #: Uri.
     labels: t.Optional[t.List['models.ComAtprotoLabelDefs.Label']] = None  #: Labels.
     reason_subject: t.Optional[string_formats.AtUri] = None  #: Reason subject.
+    starter_pack: t.Optional['models.AppBskyGraphDefs.StarterPackViewBasic'] = (
+        None  #: The starter pack associated with this notification. Present when the notification is for a follow originating from a starter pack.
+    )
 
     py_type: t.Literal['app.bsky.notification.listNotifications#notification'] = Field(
         default='app.bsky.notification.listNotifications#notification', alias='$type', frozen=True

@@ -6,11 +6,12 @@ from pythran.types.conversion import pytype_to_pretty_type
 
 from collections import defaultdict
 from itertools import product, chain
+import inspect
 import re
 import ply.lex as lex
 import ply.yacc as yacc
 
-from pythran.typing import List, Set, Dict, NDArray, Tuple, Pointer, Fun, Type
+from pythran.typing import List, Set, Dict, NDArray, Tuple, Pointer, Fun, Type, Pkg
 from pythran.syntax import PythranSyntaxError
 from pythran.config import cfg
 
@@ -72,6 +73,10 @@ def istransposable(t):
     return all(s.step == 1 for s in t.__args__[1:])
 
 
+class PythranSyntaxErrorWrapper(RuntimeError):
+    def __init__(self, e):
+        self.e = e
+
 class Spec(object):
     '''
     Result of spec parsing.
@@ -80,10 +85,11 @@ class Spec(object):
     ``capsule'' is a mapping from function name to signature
     '''
 
-    def __init__(self, functions, capsules=None, ufuncs=None):
+    def __init__(self, functions, capsules=None, ufuncs=None, pkgs=None):
         self.functions = dict(functions)
         self.capsules = capsules or dict()
         self.ufuncs = ufuncs or dict()
+        self.pkgs = pkgs or dict()
 
         # normalize function signatures
         for fname, signatures in functions.items():
@@ -170,6 +176,7 @@ class SpecParser(object):
         'tuple': 'TUPLE',
         'set': 'SET',
         'dict': 'DICT',
+        'pkg': 'PKG',
         'slice': 'SLICE',
         'str': 'STR',
         'None': 'NONE',
@@ -305,7 +312,18 @@ class SpecParser(object):
                        | type OPT
                        | type COMMA
                        | type COMMA param_types
-                       | type OPT COMMA default_types'''
+                       | type OPT COMMA default_types
+                       | pkg
+                       | pkg COMMA
+                       | pkg COMMA param_types'''
+
+    def p_pkg(self, p):
+        if len(p) == 3:
+            p[0] = Pkg(p[1]),
+        else:
+            raise self.PythranSpecIdentifierError(p[1], p.lexpos(1))
+    p_pkg.__doc__ = '''pkg : IDENTIFIER PKG
+                           | IDENTIFIER'''
 
     def p_default_types(self, p):
         if len(p) == 3:
@@ -357,7 +375,7 @@ class SpecParser(object):
                     if not istransposable(nd):
                         msg = ("Invalid Pythran spec. F order is only valid "
                                "for 2D plain arrays")
-                        self.p_error(p, msg)
+                        raise self.PythranSpecError(msg, self.tokenpos['optorder'])
                 p[0] = tuple(NDArray[nd.__args__[0], -1::, -1::]
                              for nd in p[1])
             else:
@@ -377,7 +395,7 @@ class SpecParser(object):
             p[0] = p[2]
         else:
             msg = "Invalid Pythran spec. Unknown text '{0}'".format(p.value)
-            self.p_error(p, msg)
+            raise self.PythranSpecError(msg, p.lexpos(1))
 
     p_type.__doc__ = '''type : term
                 | array_type opt_order
@@ -401,7 +419,7 @@ class SpecParser(object):
             p[0] = p[1] + p[3]
         else:
             msg = "Invalid Pythran spec. Unknown text '{0}'".format(p.value)
-            self.p_error(p, msg)
+            raise self.PythranSpecError(msg, p.lexpos(1))
 
     p_generic_type.__doc__ = '''generic_type : term
                 | LIST
@@ -416,7 +434,8 @@ class SpecParser(object):
         if len(p) > 1:
             if p[3] not in 'CF':
                 msg = "Invalid Pythran spec. Unknown order '{}'".format(p[3])
-                self.p_error(p, msg)
+                raise self.PythranSpecError(msg, p.lexpos(3))
+            self.tokenpos['optorder'] = p.lexpos(3)
             p[0] = p[3]
         else:
             p[0] = None
@@ -470,29 +489,34 @@ class SpecParser(object):
     def PythranSpecError(self, msg, lexpos=None):
         err = PythranSyntaxError(msg)
         if lexpos is not None:
+            lexpos += 1
             line_start = self.input_text.rfind('\n', 0, lexpos) + 1
             err.offset = lexpos - line_start
             err.lineno = 1 + self.input_text.count('\n', 0, lexpos)
         if self.input_file:
             err.filename = self.input_file
-        return err
+        return PythranSyntaxErrorWrapper(err)
+
+    def PythranSpecIdentifierError(self, identifier, lexpos):
+        alt = {'double': 'float64',
+               'void': 'None',
+               'char': 'int8',
+               'short': 'int16',
+               'long': 'int64',
+               }.get(identifier)
+        if alt:
+            hint = " Did you mean `{}`?".format(alt)
+        else:
+            hint = ''
+        return self.PythranSpecError(
+            "Unsupported identifier `{}` at that point.{}".format(identifier,
+                                                                 hint), lexpos)
 
     def p_error(self, p):
-        if p.type == 'IDENTIFIER':
-            alt = {'double': 'float64',
-                   'void': 'None',
-                   'char': 'int8',
-                   'short': 'int16',
-                   'long': 'int64',
-                   }.get(p.value)
-            if alt:
-                hint = " Did you mean `{}`?".format(alt)
-            else:
-                hint = ''
-            raise self.PythranSpecError(
-                "Unsupported identifier `{}` at that point.{}".format(p.value,
-                                                                     hint),
-                p.lexpos)
+        if p is None:
+            raise self.PythranSpecError("Unterminated export line", 0)
+        elif p.type == 'IDENTIFIER':
+            raise self.PythranSpecIdentifierError(p.value, p.lexpos)
         else:
             raise self.PythranSpecError(
                 "Unexpected token `{}` at that point.".format(p.value),
@@ -500,18 +524,22 @@ class SpecParser(object):
 
     def __init__(self):
         self.lexer = lex.lex(module=self, debug=False)
-        # Do not write the table for better compatibility across ply version
-        self.parser = yacc.yacc(module=self,
-                                debug=False,
-                                write_tables=False)
+
+        yacc_kwargs = {'module': self, 'debug': False}
+        # ply post-3.11 version removed the write_tables parameter
+        if 'write_tables' in inspect.signature(yacc.yacc).parameters:
+            yacc_kwargs['write_tables'] = False
+        self.parser = yacc.yacc(**yacc_kwargs)
 
     def __call__(self, text, input_file=None):
         self.exports = defaultdict(tuple)
         self.native_exports = defaultdict(tuple)
         self.ufunc_exports = defaultdict(tuple)
+        self.pkgs = dict()
         self.export_info = defaultdict(tuple)
         self.input_text = text
         self.input_file = input_file
+        self.tokenpos = {}
 
         lines = []
         in_pythran_export = False
@@ -522,13 +550,13 @@ class SpecParser(object):
             elif in_pythran_export:
                 stripped = line.strip()
                 if stripped.startswith('#'):
-                    lines.append(line.replace('#', ''))
+                    lines.append(line.replace('#', ' '))
                 else:
                     in_pythran_export = not stripped
-                    lines.append('')
+                    lines.append(' ' * len(line))
             else:
                 in_pythran_export &= not line.strip()
-                lines.append('')
+                lines.append(' ' * len(line))
 
         pythran_data = '\n'.join(lines)
         self.parser.parse(pythran_data, lexer=self.lexer, debug=False)
@@ -562,7 +590,18 @@ class SpecParser(object):
                         loc = self.export_info[key][i]
                         raise self.PythranSpecError(msg, loc)
 
-        return Spec(self.exports, self.native_exports, self.ufunc_exports)
+            if any(isinstance(ty, Pkg) for overload in overloads for ty in overload):
+                pkg_signatures = {tuple((i, ty.name) for i, ty in enumerate(overload) if
+                                isinstance(ty, Pkg))
+                               for overload in overloads}
+                if len(pkg_signatures) != 1:
+                    loc = self.export_info[key][-1]
+                    raise self.PythranSpecError(f"export overloads for {key} contains incompatible `pkg` arguments", loc)
+
+                pkg_signature = next(iter(pkg_signatures))
+                self.pkgs[key] = pkg_signature
+
+        return Spec(self.exports, self.native_exports, self.ufunc_exports, self.pkgs)
 
 
 class ExtraSpecParser(SpecParser):
@@ -593,7 +632,10 @@ def signatures_to_string(func_name, signatures):
 
 
 def spec_parser(text):
-    return SpecParser()(text)
+    try:
+        return SpecParser()(text)
+    except PythranSyntaxErrorWrapper as e:
+        raise e.e
 
 
 def parse_pytypes(s):

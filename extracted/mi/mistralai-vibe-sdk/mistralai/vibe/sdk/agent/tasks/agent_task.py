@@ -8,7 +8,15 @@ import json
 from typing import Annotated, Any, ClassVar, Literal
 
 import structlog
-from pydantic import BaseModel, ConfigDict, Field, SerializeAsAny, StringConstraints
+from pydantic import (
+    BaseModel,
+    ConfigDict,
+    Field,
+    SerializeAsAny,
+    StringConstraints,
+    TypeAdapter,
+    ValidationError,
+)
 
 from mistralai.vibe.sdk.agent.execution.compaction import (
     COMPACTION_STREAM_NAME,
@@ -16,6 +24,9 @@ from mistralai.vibe.sdk.agent.execution.compaction import (
     has_compactable_history,
     make_compaction_entry,
     run_compaction,
+)
+from mistralai.vibe.sdk.agent.execution.completion_request_telemetry import (
+    emit_completion_request_sent,
 )
 from mistralai.vibe.sdk.agent.execution.loop import (
     AppendHistoryScope,
@@ -29,6 +40,7 @@ from mistralai.vibe.sdk.agent.execution.loop import (
     StateModule,
     StateSink,
 )
+from mistralai.vibe.sdk.agent.execution.resources import spawn_child_scope
 from mistralai.vibe.sdk.agent.execution.sub_task import (
     CallbackResultReceived,
     CallCallback,
@@ -55,7 +67,9 @@ from mistralai.vibe.sdk.execution_record.patching.json_patch import apply_patche
 from mistralai.vibe.sdk.execution_record.patching.produce import diff
 from mistralai.vibe.sdk.execution_record.state import (
     CompletedOutput,
+    ContentBlock,
     FailedOutput,
+    ImageContentBlock,
     MessageEntry,
     MessageEntryPayload,
     StateEntry,
@@ -64,6 +78,7 @@ from mistralai.vibe.sdk.execution_record.state import (
     TaskResultEntry,
     TaskState,
     TextContentBlock,
+    ThinkingContentBlock,
     content_blocks,
 )
 from mistralai.vibe.sdk.observability import (
@@ -101,6 +116,17 @@ from mistralai.vibe.sdk.transports.events import (
 )
 
 logger = structlog.get_logger()
+_CONTENT_BLOCKS_ADAPTER = TypeAdapter(list[ContentBlock])
+_CONTENT_BLOCK_MODEL_TYPES = (
+    TextContentBlock,
+    ThinkingContentBlock,
+    ImageContentBlock,
+)
+_CONTENT_BLOCK_REQUIRED_FIELDS = {
+    "text": "text",
+    "thinking": "thinking",
+    "image": "image_url",
+}
 
 __all__ = [
     "AgentAction",
@@ -125,6 +151,25 @@ __all__ = [
     "_handle_initialize_mcp",
     "_handle_spawn_subtask",
 ]
+
+
+def _looks_like_content_blocks(value: object) -> bool:
+    if not isinstance(value, list) or not value:
+        return False
+
+    for block in value:
+        if isinstance(block, _CONTENT_BLOCK_MODEL_TYPES):
+            continue
+        if not isinstance(block, dict):
+            return False
+        block_type = block.get("type")
+        if not isinstance(block_type, str):
+            return False
+        required_field = _CONTENT_BLOCK_REQUIRED_FIELDS.get(block_type)
+        if required_field is None or required_field not in block:
+            return False
+    return True
+
 
 # ---------------------------------------------------------------------------
 # Serializable task config
@@ -439,10 +484,18 @@ class AgentModule(StateModule):
                 )
             )
         if state.input is not None:
-            content = json.dumps(state.input) if not isinstance(state.input, str) else state.input
+            if isinstance(state.input, str):
+                user_content = content_blocks(state.input)
+            elif _looks_like_content_blocks(state.input):
+                try:
+                    user_content = _CONTENT_BLOCKS_ADAPTER.validate_python(state.input)
+                except ValidationError:
+                    user_content = content_blocks(json.dumps(state.input))
+            else:
+                user_content = content_blocks(json.dumps(state.input))
             initial_entries.append(
                 MessageEntry(
-                    payload=MessageEntryPayload(role="user", content=content_blocks(content)),
+                    payload=MessageEntryPayload(role="user", content=user_content),
                 )
             )
         if not initial_entries:
@@ -1075,6 +1128,7 @@ async def _handle_call_llm(
         effect.tools,
         metadata=effect.telemetry.metadata,
     )
+    await emit_completion_request_sent(model=effect.completion.model, request=request)
     latest_usage: TokenUsage | None = None
 
     current_state = effect.state
@@ -1228,41 +1282,43 @@ async def _handle_spawn_subtask(
         task = task_from_config(effect.task_config)
     else:
         task = resolvable_tasks[effect.call.payload.name]
-    channel = await task.run(effect.child_state)
-    prefix = f"/history/{effect.result_index}/payload/state"
-    scoped_sink = sink.scoped(FixedHistoryScope(index=effect.result_index))
 
-    local_tasks = resolvable_tasks or {}
-    local_schemas = callback_schemas or {}
+    async with spawn_child_scope(should_raise=False):
+        channel = await task.run(effect.child_state)
+        prefix = f"/history/{effect.result_index}/payload/state"
+        scoped_sink = sink.scoped(FixedHistoryScope(index=effect.result_index))
 
-    parent_state = effect.state
-    child_state = effect.child_state
-    async for message in channel:
-        if isinstance(message, TaskStateUpdateEvent):
-            child_state = apply_patches(child_state, message.payload.patches)
-            rerouted = reroute_patches(message.payload.patches, prefix)
-            parent_state = apply_patches(parent_state, rerouted)
-            await scoped_sink.update(parent_state)
+        local_tasks = resolvable_tasks or {}
+        local_schemas = callback_schemas or {}
 
-        elif isinstance(message, TaskResultEvent):
-            child_state = message.payload.result
-        elif isinstance(message, CallbackCallEvent):
-            await resolve_callback_request(
-                request=message,
-                child_path_segment=effect.call.payload.id,
-                send_result_to_child=channel.send,
-                task_implementations=local_tasks,
-                callback_schemas=local_schemas,
-                bubble_upstream=callback_bridge,
+        parent_state = effect.state
+        child_state = effect.child_state
+        async for message in channel:
+            if isinstance(message, TaskStateUpdateEvent):
+                child_state = apply_patches(child_state, message.payload.patches)
+                rerouted = reroute_patches(message.payload.patches, prefix)
+                parent_state = apply_patches(parent_state, rerouted)
+                await scoped_sink.update(parent_state)
+
+            elif isinstance(message, TaskResultEvent):
+                child_state = message.payload.result
+            elif isinstance(message, CallbackCallEvent):
+                await resolve_callback_request(
+                    request=message,
+                    child_path_segment=effect.call.payload.id,
+                    send_result_to_child=channel.send,
+                    task_implementations=local_tasks,
+                    callback_schemas=local_schemas,
+                    bubble_upstream=callback_bridge,
+                )
+
+        return [
+            SubTaskCompleted(
+                call_id=effect.call.payload.id,
+                final_state=child_state,
+                stream_scope=scoped_sink.scope,
             )
-
-    return [
-        SubTaskCompleted(
-            call_id=effect.call.payload.id,
-            final_state=child_state,
-            stream_scope=scoped_sink.scope,
-        )
-    ]
+        ]
 
 
 async def _handle_call_callback(

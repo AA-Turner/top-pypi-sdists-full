@@ -90,6 +90,20 @@ from .models import loading, lora_lifted, provision
 from .procsplit import broker
 from .request_context._helpers import _decode_unverified_jwt_claims
 from .hostfacts import cuda_ready
+from .serve import mint_seam
+from .serve import role as serve_role
+
+# pgw#1328: the mint lane is reached through `serve.mint_seam` and named
+# nowhere else in this module. Importing `mint_adapter` is what REGISTERS
+# §4.28's eager-capable implementation with the seam, and it happens HERE —
+# in a module that calls the seam — rather than in a process entry, because
+# a registration that depends on some other module having been imported
+# first is an ordering hazard, not a dependency. The branch reads the ONE
+# role answer and adds no second one: an adopt-only process declares its
+# role and installs `serve.guard` before this module is imported, so the
+# import below is what would otherwise kill it on this line.
+if not serve_role.adopt_only():
+    from . import mint_adapter  # noqa: F401  (registers the mint side)
 
 logger = logging.getLogger(__name__)
 
@@ -204,8 +218,25 @@ class ArmIdentity:
 # whole declaration, not about one graph class — so comparing it here would
 # compare a value the child can no longer state against one the parent can,
 # and refuse every handback by construction.
-ARM_ENVIRONMENT_FACTS = ("family", aot_serve.COMPILED_GRAPH_FORMAT_KEY,
-                         "lane", "sm", "env_seal", "toolchain")
+# pgw#1340 / th#2098: `family`, `lane` and `env_seal` LEFT this comparison for
+# the SAME reason `envelope` did one paragraph up, and the sweep that took
+# `envelope` should have taken them. Since pgw#1270 TCG mints every artifact
+# and `torchcg.artifact.validate_metadata` refuses metadata whose field set is
+# not exactly `artifact_meta.cell_metadata_fields()` — which has no `family`, no
+# `weight_lane`/`lora_bucket` and no `env_seal`. So three of the six axes here
+# were read as `None` off every real cell and compared against a live runtime
+# fact: a seam that could only ever refuse.
+#
+# It was not theory. MEASURED on the standing `master` hub (2026-08-17):
+# `aot_entry_arm_failed key_axis_divergence — family: child cell states '',
+# this runtime computed 'sd15'`, 224 rows on sd15 and 28 on ernie across wheels
+# 0.117.0 and 0.118.0. EVERY self-mint that reached the seam, none published,
+# each one paying ~25 minutes of L4 for the compile it then discarded — ~$1.00
+# per burst against 57.7 GPU-seconds of the inference it was meant to speed up.
+#
+# What is left is exactly the three axes TCG keys the artifact ON, which is
+# what makes them the three that can genuinely refuse a foreign cell.
+ARM_ENVIRONMENT_FACTS = (aot_serve.COMPILED_GRAPH_FORMAT_KEY, "sm", "toolchain")
 
 #: The SUBJECT half (pgw#1113): WHAT this obligation compiles, as opposed to
 #: what runtime it compiles on. ``subject`` is the resolved slot identity
@@ -221,8 +252,54 @@ ARM_ENVIRONMENT_FACTS = ("family", aot_serve.COMPILED_GRAPH_FORMAT_KEY,
 #: key, which is the traced computation, is what says the computation matches.
 ARM_SUBJECT_FACTS = ("subject", "targets", "dynamic", "regional")
 
+#: Every fact the obligation states that a CELL never can, and therefore that
+#: nothing compares across the handback boundary (pgw#1340). This is not a
+#: weaker check — it is the same check moved to the side of the boundary that
+#: can perform it. `family`, `lane` and `env_seal` are in the arm TOKEN, and
+#: the token is what splits the pending, the delegated child and the local
+#: store's memo row, so two families or two lanes still never share one mint.
+#: The cell's own `ck1` key is what says the COMPUTATION matches.
+ARM_OBLIGATION_FACTS = ("family", "lane", "env_seal") + ARM_SUBJECT_FACTS
+
 #: Every fact in the token, in report order.
-ARM_FACTS = ARM_ENVIRONMENT_FACTS + ARM_SUBJECT_FACTS
+ARM_FACTS = ARM_ENVIRONMENT_FACTS + ARM_OBLIGATION_FACTS
+
+#: Each arm axis -> the CELL-METADATA fields its child-side derivation reads.
+#: The one table both :func:`arm_axis_divergence` and
+#: :func:`unstateable_arm_axes` consult, so "what this axis is read from" and
+#: "can a cell state it" can never be two answers.
+ARM_AXIS_CELL_SOURCES: Dict[str, Tuple[str, ...]] = {
+    aot_serve.COMPILED_GRAPH_FORMAT_KEY: (aot_serve.COMPILED_GRAPH_FORMAT_KEY,),
+    "sm": ("sm",),
+    "toolchain": ("toolchain",),
+    "family": ("family",),
+    "lane": ("weight_lane", "lora_bucket"),
+    "env_seal": (env_seal.SEAL_KEY,),
+}
+
+
+def unstateable_arm_axes(
+    compared: Sequence[str] = ARM_ENVIRONMENT_FACTS,
+) -> Tuple[str, ...]:
+    """The compared axes a packed cell's metadata CANNOT state — the $0 answer.
+
+    A pure function of two compile-time constants: the axes this seam compares,
+    and TCG's closed artifact vocabulary. So a seam that is unsatisfiable is
+    knowable BEFORE a child process is spawned, before an export, before a
+    single second of inductor — which is the whole of th#2098's second ask.
+    :func:`enable_compiled` refuses the obligation on a non-empty answer; the
+    alternative, measured, is 20-45 minutes of paid GPU per pod per boot ending
+    in `key_axis_divergence` forever.
+
+    An axis with no entry in :data:`ARM_AXIS_CELL_SOURCES` is read as reading
+    the field of its own name — so a NEW axis added without a source entry is
+    checked, never silently admitted.
+    """
+    vocabulary = artifact_meta.cell_metadata_fields()
+    return tuple(
+        axis for axis in compared
+        if not set(ARM_AXIS_CELL_SOURCES.get(axis, (axis,))) <= vocabulary)
+
 
 #: The pipeline attribute carrying the resolved :class:`graph_facts.SlotSubject`
 #: set the executor built this object from (pgw#1113). Stamped beside the
@@ -899,6 +976,7 @@ class CellPublisher:
             repo=repo, family=family, grants=tuple(grants))
 
     def publish(self, family: str, artifact: Path, meta: dict,
+                provenance: local_cell_store.MintProvenance,
                 mint_duration_ms: int = 0) -> str:
         """Publish ONE self-minted compiled graph. Returns the checkpoint id.
 
@@ -916,7 +994,8 @@ class CellPublisher:
         mint at once — :func:`aot_mint.publish` — asks for every token in one
         round trip.
         """
-        entry, sku, gen_worker = intent_entry(family, meta, mint_duration_ms)
+        entry, sku, gen_worker = intent_entry(
+            family, meta, provenance, mint_duration_ms)
         batch = self.publish_intent(
             family, [entry], sku=sku, gen_worker=gen_worker)
         return self.publish_granted(
@@ -1009,13 +1088,20 @@ class CellPublisher:
 
 
 def intent_entry(
-    family: str, meta: dict, mint_duration_ms: int = 0,
+    family: str, meta: dict, provenance: local_cell_store.MintProvenance,
+    mint_duration_ms: int = 0,
 ) -> Tuple[PublishEntry, str, str]:
-    """One artifact's metadata -> its entry plus the two pod axes it declares.
+    """One artifact + its mint provenance -> the entry and the two pod axes.
 
     The pod axes come back separately because they are BATCH-level on the wire:
     ``sku`` and ``gen_worker`` describe the pod, so a caller batching a whole
     mint reads them once and the hub attests them once.
+
+    pgw#1341: they come from ``provenance``, not from the metadata dict and not
+    from this process. They describe the POD THAT MINTED — and
+    :func:`resume_owed_publishes` ships from a later boot, so reading them live
+    would attest a different pod's card and a different wheel's version against
+    somebody else's bytes.
     """
     # pgw#712 (kept under the exact-identity ruling as defense-in-depth): a
     # cell whose metadata carries a foreign adoption provenance must never
@@ -1035,11 +1121,11 @@ def intent_entry(
     return (
         PublishEntry(
             compiled_graph_key=key,
-            identity_axes=_identity_axes(family, meta),
+            identity_axes=_identity_axes(family, meta, provenance),
             mint_duration_ms=max(0, int(mint_duration_ms or 0)),
         ),
-        str(meta.get("sku") or ""),
-        str(meta.get("gen_worker") or ""),
+        provenance.sku,
+        provenance.gen_worker,
     )
 
 
@@ -1113,9 +1199,11 @@ def _recomputed_key(meta: Mapping[str, Any]) -> tcg_identity.CompiledGraphKey:
             "(pgw#1046)") from exc
 
 
-def _identity_axes(family: str, meta: dict) -> Dict[str, str]:
-    """The identity map the hub records for this cell, RECOMPUTED from the
-    artifact's own facts.
+def _identity_axes(
+    family: str, meta: dict, provenance: local_cell_store.MintProvenance,
+) -> Dict[str, str]:
+    """The identity map the hub records for this cell: the artifact's own key
+    axes, plus the MINT's recorded provenance for everything else.
 
     This is not inventory. th#1457's producer builds the worker's
     ``ExecutionSpec`` out of exactly this map: ``ArtifactFromCellRecord`` reads
@@ -1139,6 +1227,17 @@ def _identity_axes(family: str, meta: dict) -> Dict[str, str]:
     ``graph_contract`` names the class SET this entry belongs to (coverage).
     Fusing them is what made adding one aspect ratio re-mint 35 unchanged
     classes.
+
+    pgw#1341 — WHERE EACH HALF COMES FROM, and why it is two sources and not
+    one. The three key axes are recomputed FROM THE ARTIFACT, because the
+    artifact is what the key is about and a cell must corroborate its own
+    identity. Everything else is read from :class:`~.local_cell_store.MintProvenance`,
+    because TCG's closed vocabulary has no field for any of it — this function
+    read ``env_seal``, ``manifest_digest``, ``family`` and ``weight_lane`` off
+    the metadata dict, and since pgw#1270 mints every artifact through TCG,
+    that made the seal check raise for EVERY real cell, unconditionally: a pod
+    that armed its own graph still could not hand it to the fleet, so every pod
+    re-minted what one pod had already compiled.
     """
     key = _recomputed_key(meta)
     stamped = str(meta.get("compiled_graph_key") or "").strip()
@@ -1147,25 +1246,27 @@ def _identity_axes(family: str, meta: dict) -> Dict[str, str]:
             f"compiled_graph_key stamp {stamped} disagrees with the key its recorded "
             f"axes describe ({key.value}); refusing to publish an identity "
             "the artifact does not corroborate")
+    if not provenance.stated:
+        # NARROWED, not deleted (pgw#939: absence is a verdict). The refusal
+        # used to fire on a metadata field no cell can carry — i.e. always.
+        # It now fires on the genuine case it was written for: this machine
+        # holds bytes it cannot say anything about, which is what a publish
+        # under invented axes would hide. The hub's ArtifactFromCellRecord
+        # requires the seal digest and pgw#904's consumer refuses an identity
+        # without it, so a row published here is a cell the fleet can never arm.
+        raise CellPublishRefused(
+            f"this machine recorded no mint provenance for {key.value}; the "
+            "hub's ArtifactIdentity requires the env-seal digest "
+            "(pgw#903/pgw#1046) and a TCG artifact carries none, so the "
+            "publish has nothing to state it from (pgw#1341)")
     axes = {k: str(v) for k, v in key.as_dict().items()}
     # The manifest label — telemetry/coverage, never identity. Empty is
     # HONEST for an entry minted by a pod that has not folded its whole
     # declaration, so it is not a publish refusal.
-    axes[GRAPH_CONTRACT_AXIS] = str(meta.get("manifest_digest") or "").strip()
-    seal = meta.get(env_seal.SEAL_KEY)
-    if not isinstance(seal, dict) or not seal:
-        # The seal left the KEY (pgw#1059 amendment 4) but not the wire: the
-        # hub's ArtifactFromCellRecord requires the entry, and a row without
-        # it is a cell the fleet can never arm — same fail-closed rule as
-        # the axes above.
-        raise CellPublishRefused(
-            "cell records no env_seal block; the hub's ArtifactIdentity "
-            "requires its digest (pgw#903/pgw#1046)")
-    axes[ENV_SEAL_AXIS] = env_seal.seal_digest(seal)
-    axes["family"] = str(meta.get("family") or family or "")
-    axes["lane"] = cc.execution_lane_label(
-        str(meta.get("weight_lane") or ""),
-        int(meta.get("lora_bucket") or 0))
+    axes[GRAPH_CONTRACT_AXIS] = provenance.graph_contract
+    axes[ENV_SEAL_AXIS] = provenance.env_seal
+    axes["family"] = str(family or "")
+    axes["lane"] = provenance.lane
     return axes
 
 
@@ -1224,6 +1325,7 @@ def publishes_in_flight() -> Dict[str, Tuple[str, float]]:
 
 def _publish_async(
     publisher: CellPublisher, family: str, artifact: Path, meta: dict,
+    provenance: local_cell_store.MintProvenance,
     compiled_graph_key_digest: str = "", mint_duration_ms: int = 0,
     arm_token: str = "",
 ) -> threading.Thread:
@@ -1268,7 +1370,7 @@ def _publish_async(
         t0 = time.monotonic()
         try:
             checkpoint_id = publisher.publish(
-                family, artifact, meta, mint_duration_ms)
+                family, artifact, meta, provenance, mint_duration_ms)
         except CellPublishRefused as exc:
             logger.warning("fleet-cells: publish refused (hub decision): %s", exc)
             # pgw#1096/§4.28: the hub has just ASSERTED this hardware's trust
@@ -1374,9 +1476,16 @@ def resume_owed_publishes(
                 "a later boot re-attempts it", cell.key)
             continue
         meta = artifact_meta.try_read_metadata(artifact) or {}
+        # pgw#1341: the MINT's own facts, read back from the sidecar the mint
+        # wrote. This is the boundary the design exists for — a different boot,
+        # a different process, possibly a different pod — so nothing here is
+        # re-derived from the live runtime. A record that states none is
+        # refused by name inside the publish, not published under this
+        # machine's guesses.
         threads.append(_publish_async(
-            publisher, cell.family or str(meta.get("family") or ""),
-            artifact, dict(meta), compiled_graph_key_digest=cell.key,
+            publisher, cell.family,
+            artifact, dict(meta), cell.provenance,
+            compiled_graph_key_digest=cell.key,
             arm_token=cell.arm_token))
     if threads:
         logger.info(
@@ -1730,9 +1839,7 @@ def _arming_policy(
         # here means the executor's call is unchanged, every existing arming
         # double keeps working, and there is exactly one place the decision
         # lives. The parameter stays for tests that need to force either shape.
-        from . import mint_supervisor
-
-        delegate_refusal = mint_supervisor.delegation_refusal()
+        delegate_refusal = mint_seam.supervision().may_delegate()
         delegate = not delegate_refusal
     elif not delegate:
         delegate_refusal = "caller_forced_in_process"
@@ -1884,6 +1991,48 @@ def _arming_policy(
         return _fail_closed(
             pipe, f"self-mint identity computation failed: {exc}", selection_bug,
             phase=EagerPhase.KEY_COMPUTATION_FAILED)
+
+    # pgw#1340 / th#2098 — THE $0 PREFLIGHT, and it is sited here because this
+    # is the last line before anything is spent. Everything below opens a
+    # pending, spawns a child and buys 20-45 minutes of the card this pod is
+    # paying for; the question "can the cell that child returns ever satisfy
+    # the seam that admits it" is answered by two compile-time constants and
+    # costs nothing to ask.
+    #
+    # It is not hypothetical. pgw#1270 moved the artifact vocabulary to TCG and
+    # left three axes in the comparison that no cell can state, and the fleet
+    # paid the full compile to rediscover it on every boot of every pod for two
+    # wheels: 224 `sd15` rows and 28 `ernie` rows of
+    # `aot_entry_arm_failed key_axis_divergence`, zero publishes, ~$1.00 of L4
+    # per burst against 57.7 GPU-seconds of the inference it was accelerating.
+    #
+    # DEGRADE, never fail the worker (§4.33): the pod serves eager, which is
+    # what it was doing anyway — the only thing this removes is the bill.
+    unstateable = unstateable_arm_axes()
+    if unstateable:
+        named = ", ".join(unstateable)
+        logger.error(
+            "fleet-cells: REFUSING to open a self-mint for %s — the handback "
+            "seam compares %s, which a packed cell cannot state (TCG's "
+            "artifact vocabulary is %s). Every mint under this seam would "
+            "compile for 20-45 minutes and then refuse `key_axis_divergence`. "
+            "Serving eager and spending nothing (pgw#1340)",
+            family, named, sorted(artifact_meta.cell_metadata_fields()))
+        if bucket:
+            cc.drop_lora_execution_lane(pipe)
+        activity_mod.emit_event(
+            "self_mint_skipped",
+            f"family={family} arm_key={key} axes={named}: the arm-axis "
+            f"comparison demands {named}, which no packed cell can state — "
+            f"this worker refuses the mint at ARM time rather than paying "
+            f"for a compile that provably cannot arm. Nothing is spent, "
+            f"serving stays eager, and this is a code defect (an axis outside "
+            f"the artifact vocabulary), not a property of this pod or release",
+            phase=EagerPhase.ARM_AXES_UNSTATEABLE,
+        )
+        return ArmOutcome(
+            armed=False, selection_bug=selection_bug,
+            eager_reason=EagerPhase.ARM_AXES_UNSTATEABLE)
 
     # pgw#672: consult the process ledgers BEFORE opening a capture.
     #
@@ -2068,24 +2217,21 @@ def arm_axis_divergence(
     against the traced fact was the attempt-28 phantom divergence
     (pgw#1059). Every compared fact uses the SAME derivation on both sides.
 
-    :data:`ARM_SUBJECT_FACTS` are equally deliberately NOT compared
-    (pgw#1113). A cell records no subject and must not: the key is the traced
-    computation, so one cell legally serves every checkpoint whose graph it
-    is, and demanding the cell restate the checkpoint it was minted from
-    would refuse exactly the reuse the membership axiom exists to allow. The
-    subject splits the obligation on THIS side of the boundary; what crosses
-    it is compared here.
+    :data:`ARM_OBLIGATION_FACTS` are equally deliberately NOT compared
+    (pgw#1113 for the subject half, pgw#1340 for `family`/`lane`/`env_seal`).
+    A cell records no subject and must not: the key is the traced computation,
+    so one cell legally serves every checkpoint whose graph it is, and
+    demanding the cell restate the checkpoint it was minted from would refuse
+    exactly the reuse the membership axiom exists to allow. `family`, `lane`
+    and `env_seal` are not in TCG's artifact vocabulary AT ALL, so comparing
+    them read `None` off every real cell — th#2098, one production burst at a
+    time. The obligation facts split the obligation on THIS side of the
+    boundary; what crosses it is compared here.
     """
     child: Dict[str, str] = {
-        "family": str(meta.get("family") or ""),
         aot_serve.COMPILED_GRAPH_FORMAT_KEY: str(
             meta.get(aot_serve.COMPILED_GRAPH_FORMAT_KEY) or ""),
-        "lane": cc.execution_lane_label(
-            str(meta.get("weight_lane") or ""),
-            int(meta.get("lora_bucket") or 0)),
         "sm": str(meta.get("sm") or ""),
-        "env_seal": env_seal.seal_digest(
-            dict(meta.get(env_seal.SEAL_KEY) or {})),
         "toolchain": tcg_identity.toolchain_axis_digest(
             dict(meta.get("toolchain") or {})),
     }
@@ -2402,6 +2548,7 @@ def arm_from_local_store(
 
 def adopt_delegated_mint(
     pipe: Any, pending: "PendingSelfMint", artifacts: Sequence[Path],
+    manifest: str = "",
 ) -> Optional[SelfMint]:
     """pgw#784: adopt a cell a CHILD PROCESS just built, then publish it.
 
@@ -2420,10 +2567,22 @@ def adopt_delegated_mint(
 
     ``None`` = not adoptable. The caller treats that exactly like a disproven
     candidate (the mint failed, the worker keeps serving).
+
+    ``manifest`` is the mint's declaration-wide contract digest
+    (``aot_mint.MintResult.manifest``). It is a PARAMETER rather than something
+    read back off a cell because a TCG artifact has no field for it — pgw#1341
+    — and the caller is the only object that ever holds it.
     """
     state = pending._state
     if "minted" in state:
         return state["minted"]
+    # pgw#1341: ONE provenance for the whole mint, computed before the first
+    # byte is staged. Every row of one mint shares a family, a lane, a seal, a
+    # card and a wheel by construction, so a per-row derivation could only ever
+    # disagree with itself — and it is written with each row's sidecar so a
+    # crash between rows leaves no cell that cannot say what made it.
+    provenance = mint_provenance(pending, manifest=manifest)
+    state["provenance"] = provenance
 
     rows = [Path(a) for a in artifacts]
     if not rows:
@@ -2455,7 +2614,7 @@ def adopt_delegated_mint(
     # than the set, and a class that refuses is quarantined without touching a
     # sibling that armed.
     _durable_keys: Dict[Path, str] = {
-        row: _stage_durable(pending, row) for row in rows}
+        row: _stage_durable(pending, row, provenance) for row in rows}
     # pgw#1096: ONE gate for every self-produced cell — the child's, and the
     # local store's (§4.28). pgw#999's classification, pgw#1042's pre-arm axis
     # divergence and pgw#805's AOT-only arm all live in `_arm_exported_cell`;
@@ -2660,7 +2819,51 @@ def adopt_delegated_mint(
 # ---------------------------------------------------------------------------
 
 
-def _stage_durable(pending: "PendingSelfMint", artifact: Path) -> str:
+def mint_provenance(
+    pending: "PendingSelfMint", *, manifest: str = "",
+) -> local_cell_store.MintProvenance:
+    """The mint-time facts this cell's publish will need, stated ONCE (pgw#1341).
+
+    Every one of them is knowable HERE — in the parent of the mint, on the pod
+    that owns the card — and by NOBODY later: TCG's closed artifact vocabulary
+    has no field for any of them (:func:`artifact_meta.cell_metadata_fields`),
+    and ``resume_owed_publishes`` runs on a later boot in another process. So
+    this is the one derivation, and its output is written beside the bytes.
+
+    ``env_seal`` and ``lane`` are taken from the pending's OWN arm token rather
+    than recomputed, for the reason pgw#1042 gives about every axis at this
+    seam: two derivations of one fact is how an axis silently becomes two
+    facts. The token already states them, it is what split this obligation from
+    every other, and it was computed before the child was spawned.
+
+    ``manifest`` is the declaration-wide contract digest the mint just folded
+    (``aot_mint.MintResult.manifest``) — the class SET this entry belongs to.
+    Absent is HONEST (a pod that folded no manifest publishes an empty
+    ``graph_contract``, which is coverage telemetry, never identity) and is not
+    a refusal.
+    """
+    facts = pending.arm_key.facts_dict() if pending.arm_key is not None else {}
+    try:
+        sku = str(cc.runtime_key().get("sku") or "")
+    except Exception:  # noqa: BLE001 — a probe failure never fails a mint
+        sku = ""
+    try:
+        version = cc.gen_worker_version()
+    except Exception:  # noqa: BLE001
+        version = ""
+    return local_cell_store.MintProvenance(
+        env_seal=str(facts.get("env_seal") or ""),
+        lane=str(facts.get("lane") or ""),
+        graph_contract=str(manifest or ""),
+        sku=sku,
+        gen_worker=str(version or ""),
+    )
+
+
+def _stage_durable(
+    pending: "PendingSelfMint", artifact: Path,
+    provenance: local_cell_store.MintProvenance,
+) -> str:
     """Write a freshly minted artifact to the local CAS, UNVERIFIED.
 
     Returns the stamped ``ck1`` key the bytes were filed under, or ``""`` when
@@ -2671,7 +2874,9 @@ def _stage_durable(pending: "PendingSelfMint", artifact: Path) -> str:
     Unconditional, on every tier (§1.5). The publish state is decided here and
     only here: a machine with a live sink OWES an upload from this moment,
     which is what makes :func:`resume_owed_publishes` able to finish a
-    transfer the minting process never did.
+    transfer the minting process never did — and pgw#1341 is what makes it able
+    to STATE that transfer's axes: ``provenance`` lands in the same sidecar
+    write as the obligation, so the two can never be separated.
     """
     try:
         key = str((artifact_meta.try_read_metadata(artifact) or {}).get(
@@ -2687,6 +2892,7 @@ def _stage_durable(pending: "PendingSelfMint", artifact: Path) -> str:
         verdict=local_cell_store.VERDICT_UNVERIFIED,
         sink=(local_cell_store.SINK_NONE if sink_absent
               else local_cell_store.SINK_OWED),
+        provenance=provenance,
         cas_root=pending.cache_dir,
     )
     if stored is None:
@@ -2792,6 +2998,10 @@ def publish_self_mint(pending: "PendingSelfMint") -> None:
             # upload a race against the cleanup.
             getattr(state.get("minted"), "artifact", pending.target),
             dict(state.get("meta") or {}),
+            # pgw#1341: THE SAME record the local store holds, so the immediate
+            # publish and a later boot's `resume_owed_publishes` state
+            # byte-identical axes for the same bytes.
+            state.get("provenance") or local_cell_store.MintProvenance(),
             compiled_graph_key_digest=str(
                 getattr(state.get("minted"), "compiled_graph_key", "")
                 or pending.arm_token),
@@ -3076,10 +3286,6 @@ def mint_recipe(
     if blocked:
         return _decline("declaration_blocked", blocker_refusal(family, blocked))
 
-    # CYCLE: aot_mint imports CellPublisher from this module at module scope,
-    # so this direction of the pair must stay deferred.
-    from . import aot_mint
-
     spec = aot_export_spec(pipe, cfg)
     # pgw#850/#879: there is NO lane admission here. The lane this pod serves
     # was chosen by the hub's resolution tree and observed off the composed
@@ -3104,7 +3310,8 @@ def mint_recipe(
     # child, no pod and no compile can resolve it, so spending one to
     # rediscover the sentence is pure waste. Declines only the mint; the
     # pipeline serves eager exactly as it did.
-    decl_gaps = aot_mint.declaration_module_gaps(pipe, spec, decl)
+    decl_gaps = mint_seam.supervision().declaration_module_gaps(
+        pipe, spec, decl)
     if decl_gaps:
         return _decline(
             "declaration_module_mismatch",
@@ -3128,10 +3335,6 @@ def aot_export_spec(pipe: Any, cfg: Any) -> "Any":
     (the class rows, coordinates, dynamic contracts and input bindings) — so
     nothing here is a per-pod guess.
     """
-    # CYCLE: aot_mint imports CellPublisher from this module at module scope,
-    # so this direction of the pair must stay deferred.
-    from . import aot_mint
-
     # pgw#1087: composing the declaration a mint will trace against. Expected
     # to be trivial and never proven so — and if it is not (an endpoint whose
     # `export_declaration()` does real work at compose time), that is exactly
@@ -3140,13 +3343,14 @@ def aot_export_spec(pipe: Any, cfg: Any) -> "Any":
         boot_mod.PHASE_DECLARATION_COMPOSE,
         ref=str(getattr(cfg, "family", "") or ""),
     ) if boot_mod.in_boot() else contextlib.nullcontext():
-        return _aot_export_spec(aot_mint, pipe, cfg)
+        return _aot_export_spec(mint_seam.supervision(), pipe, cfg)
 
 
-def _aot_export_spec(aot_mint: Any, pipe: Any, cfg: Any) -> "Any":
+def _aot_export_spec(mint: Any, pipe: Any, cfg: Any) -> "Any":
     execution_lane = loading.pipeline_weight_lane(pipe)
     bucket = int(getattr(cfg, "lora_bucket", 0) or 0)
-    return aot_mint.ExportSpec(
+    return mint.export_spec(
+        pipe, cfg,
         family=str(getattr(cfg, "family", "") or ""),
         target="",
         weight_lane=execution_lane,

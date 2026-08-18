@@ -10,10 +10,18 @@ Call ``teardown_otel()`` to restore the original methods.
 """
 
 from .patcher import (
-    _OTEL_ENV_MAP as _OTEL_ENV_MAP,
     _ORIGINALS as _ORIGINALS,
+)
+from .patcher import (
+    _OTEL_ENV_MAP as _OTEL_ENV_MAP,
+)
+from .patcher import (
     _apply_env_kwargs as _apply_env_kwargs,
+)
+from .patcher import (
     _patch_method as _patch_method,
+)
+from .patcher import (
     setup_otel,
     teardown_otel,
 )

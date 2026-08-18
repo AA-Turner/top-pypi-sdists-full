@@ -2,9 +2,9 @@
 #define PYTHONIC_BUILTIN_MINMAX_HPP
 
 #include "pythonic/include/builtins/minmax.hpp"
+#include "pythonic/types/combined.hpp"
 
 #include <algorithm>
-#include <utility>
 
 PYTHONIC_NS_BEGIN
 
@@ -30,7 +30,7 @@ namespace builtins
     }
 
     template <class Op, class T0, class T1, class... Types>
-    std::enable_if_t<!std::is_same<T1, types::kwonly>::value,
+    std::enable_if_t<!std::is_same_v<T1, types::kwonly>,
                      typename __combined<T0, T1, Types...>::type>
     minmax(Op const &op, T0 const &t0, T1 const &t1, Types const &...ts)
     {

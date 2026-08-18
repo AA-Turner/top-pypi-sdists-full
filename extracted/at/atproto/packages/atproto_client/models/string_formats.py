@@ -1,15 +1,16 @@
 """AT Protocol string format validation."""
 
 import re
+from collections.abc import Mapping
 from datetime import datetime
 from functools import wraps
-from typing import TYPE_CHECKING, Callable, Mapping, Set, Union, cast
+from typing import TYPE_CHECKING, Annotated, Callable, Union, cast
 from urllib.parse import urlparse
 
 from atproto_core.exceptions import InvalidNsidError
 from atproto_core.nsid import validate_nsid as atproto_core_validate_nsid
 from pydantic import BeforeValidator, Field, ValidationInfo
-from typing_extensions import Annotated, Literal
+from typing_extensions import Literal
 
 if TYPE_CHECKING:
     from pydantic_core import core_schema
@@ -22,7 +23,7 @@ MAX_RECORD_KEY_LENGTH: int = 512
 MAX_URI_LENGTH: int = 8 * 1024
 MIN_CID_LENGTH: int = 8
 TID_LENGTH: int = 13
-INVALID_RECORD_KEYS: Set[str] = {'.', '..'}
+INVALID_RECORD_KEYS: set[str] = {'.', '..'}
 MAX_DID_LENGTH: int = 2048  # Method-specific identifier max length
 MAX_AT_URI_LENGTH: int = 8 * 1024
 
@@ -42,7 +43,7 @@ DID_RE = re.compile(
 )
 LANG_RE = re.compile(r'^(i|[a-z]{2,3})(-[A-Za-z0-9-]+)?$')
 RKEY_RE = re.compile(r'^[A-Za-z0-9._:~-]{1,512}$')
-TID_RE = re.compile(rf'^[2-7a-z]{{{TID_LENGTH}}}$')
+TID_RE = re.compile(rf'^[234567abcdefghij][234567abcdefghijklmnopqrstuvwxyz]{{{TID_LENGTH - 1}}}$')
 CID_RE = re.compile(r'^[A-Za-z0-9+]{8,}$')
 AT_URI_RE = re.compile(
     r'^at://'  # Must start with at://
@@ -424,9 +425,10 @@ def validate_tid(v: str, _: ValidationInfo) -> str:
 
     - Exactly 13 characters
 
-    - Only lowercase letters and numbers 2-7
+    - Only lowercase letters and numbers 2-7 (base32-sortable alphabet)
 
-    - First byte's high bit (0x40) must be 0
+    - First character must be one of 234567abcdefghij so that the 65-bit
+      base32 encoding fits in a 64-bit integer
 
     Args:
         v: The TID to validate (e.g. 3jxtb5w2hkt2m)
@@ -437,7 +439,7 @@ def validate_tid(v: str, _: ValidationInfo) -> str:
     Raises:
         ValueError: If TID format is invalid
     """
-    if not TID_RE.match(v) or (ord(v[0]) & 0x40):
+    if not TID_RE.match(v):
         raise ValueError(f'Invalid TID: must be exactly {TID_LENGTH} lowercase letters/numbers')
     return v
 

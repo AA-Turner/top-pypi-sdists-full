@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: mink
-Version: 1.2.0
+Version: 1.3.0
 Summary: Python inverse kinematics based on MuJoCo
 Keywords: inverse,kinematics,mujoco
 Author-Email: Kevin Zakka <zakka@berkeley.edu>
@@ -14,14 +14,15 @@ Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
+Classifier: Programming Language :: Python :: 3.14
 Classifier: Topic :: Scientific/Engineering
 Project-URL: Source, https://github.com/kevinzakka/mink
 Project-URL: Tracker, https://github.com/kevinzakka/mink/issues
 Project-URL: Changelog, https://github.com/kevinzakka/mink/blob/main/CHANGELOG.md
 Project-URL: Homepage, https://kevinzakka.github.io/mink/
 Project-URL: Documentation, https://kevinzakka.github.io/mink/
-Requires-Python: <3.14,>=3.10
-Requires-Dist: mujoco>=3.8.1
+Requires-Python: >=3.10
+Requires-Dist: mujoco>=3.10.0
 Requires-Dist: qpsolvers[daqp]>=4.12.0
 Requires-Dist: typing_extensions
 Description-Content-Type: text/markdown

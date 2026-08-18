@@ -2,27 +2,30 @@
 
 import re
 import threading
+from datetime import datetime, timedelta
 from enum import Enum
 from multiprocessing.synchronize import RLock
 from typing import Callable, Dict
-from datetime import datetime, timedelta
+
 from pyvisa import VisaIOError
 
-from . import Utilities, Conversions as Conv
-from .InstrumentSettings import InstrumentSettings, OpcSyncQueryMechanism
-from .InstrumentOptions import Options, ParseMode
+from . import Conversions as Conv
+from . import Utilities
 from .ArgSingleSuppressed import ArgSingleSuppressed
 from .ArgStructList import ArgStructList
+from .InstrumentErrors import *
+from .InstrumentOptions import Options, ParseMode
+from .InstrumentSettings import InstrumentSettings, OpcSyncQueryMechanism
+from .InstrumentStatusErrorSuppressor import InstrumentStatusErrorSuppressor
 from .InternalLinker import InternalLinker
 from .IoTransferEventArgs import IoTransferEventArgs
+from .RepeatedCapability import RepeatedCapability
+from .ScpiLogger import ScpiLogger
 from .StreamReader import StreamReader
 from .StreamWriter import StreamWriter
 from .Utilities import size_to_kb_mb_string
-from .VisaSession import VisaSession, EventArgsChunk
+from .VisaSession import EventArgsChunk, VisaSession
 from .VisaSessionSim import VisaSessionSim
-from .RepeatedCapability import RepeatedCapability
-from .ScpiLogger import ScpiLogger
-from .InstrumentErrors import *
 
 
 class Instrument(object):
@@ -684,7 +687,12 @@ class Instrument(object):
 
 	def check_status_always(self, log_ok_result: bool) -> None:
 		"""Internal method. Throws InstrumentStatusException in case of an error in the instrument's error queue.
-		You can specify to log the result, if it was OK (no errors)."""
+		You can specify to log the result, if it was OK (no errors).
+
+		Processing flow:
+		1) Optionally probe ``*STB?`` to decide whether the error queue needs draining.
+		2) Drain current queue entries with ``query_all_syst_errors(enable_log=False)``.
+		3) Raise ``StatusException`` for the remaining entries."""
 		with self._lock:
 			start_time = datetime.now()
 			try:
@@ -1563,6 +1571,11 @@ class Instrument(object):
 		"""Calls the _pre_query_handler if defined. Used in all the base query methods."""
 		if block_callback is False and self._before_query_handler:
 			self._before_query_handler(self, query)
+
+	@property
+	def status_error_suppressor(self) -> InstrumentStatusErrorSuppressor:
+		"""Returns the active status error suppressor."""
+		return self._session.status_error_suppressor
 
 	@property
 	def before_write_handler(self) -> Callable | None:

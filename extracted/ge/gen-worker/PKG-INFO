@@ -1,6 +1,6 @@
 Metadata-Version: 2.5
 Name: gen-worker
-Version: 0.119.0
+Version: 0.125.0
 Summary: A library used to build custom functions in Cozy Creator's serverless function platform.
 Project-URL: Homepage, https://github.com/cozy-creator/python-gen-worker
 Project-URL: Repository, https://github.com/cozy-creator/python-gen-worker
@@ -142,9 +142,10 @@ class Generate:
 ```
 
 `Resources` declares only what the endpoint CANNOT run without (`gpu`,
-`gpu_count`, `libraries`, `strict_vram`, `vcpus`); VRAM requirements are
-MEASURED by the platform's profiling gate, not declared (`vram_gb_hint` is
-an optional first-build placement hint only). Handlers are exactly
+`gpu_count`, `libraries`, `vcpus`) plus `requires=` — the function scope of
+the one requirement vocabulary, `"sm89+, vram80g"` style, minimum and
+recommended. A minimum gates a config WRITE, never execution: the worker runs
+on whatever machine it is handed, degraded and complaining. Handlers are exactly
 `(self, ctx, payload)`; per-request state (sampler, seed, scheduler) lives
 in a `ctx.for_request` view over shared weights — never assigned onto the
 instance.
@@ -157,7 +158,9 @@ fp8-E4M3 storage with per-layer upcast to the compute `dtype` (half the VRAM
 on any card); fp8-stored artifacts get the same treatment automatically.
 Quantization itself is ahead-of-time only — a conversion endpoint produces the
 artifact, never `setup()` (th#1803) — and the `flavor` axis is DELETED
-(§1.32(d), pgw#1148): selection within a tag group is tensor-layout-contract
+(§1.32(d), pgw#1148, finished by pgw#1319: the producer DECLARES a
+`precision_class` and nothing infers one from a label): selection within a tag
+group is tensor-layout-contract
 compatibility, declared per slot as `Slot(layouts=…)` (§1.33, pgw#1143). See
 [docs/endpoint-authoring.md](docs/endpoint-authoring.md).
 
@@ -193,8 +196,9 @@ Full reference: [docs/endpoint-authoring.md](docs/endpoint-authoring.md).
 - Compile envelope (the declared serving region — resolutions, text lengths,
   guidance, batch): `Compile`, `CompileAxis`, `AxisClass`, `DynamicDim`,
   `pad_text_sequence`; per-request views: `ctx.for_request` / `gen_worker.view`
-- Contexts: `RequestContext` (≤15 members), `ConversionContext`,
-  `DatasetContext`, `TrainingContext`
+- Contexts: `RequestContext` (≤15 members) and `JobContext`, the one producer
+  context — every `@job` body and every producer-kind `@endpoint` handler gets
+  it, and what it may write comes from the declaration, not the kind
 - Errors: `ValidationError`, `RetryableError`, `CanceledError`, `FatalError`
 - Streaming: `BatchItemDelta`, `IncrementalTokenDelta`, `Done`, `Error`
 - Value types: `Asset`, `ImageAsset`, `AudioAsset`, `VideoAsset`
@@ -233,6 +237,9 @@ hard-fails if `gen_worker` resolves outside `src/`).
 
 - [docs/endpoint-authoring.md](docs/endpoint-authoring.md) — the `@endpoint`
   reference: bindings, variants, Resources, contexts, streaming, runtimes.
+- [docs/models.md](docs/models.md) — the typed Model SDK: declare a model, bind
+  a resolved instance to a handler parameter, generate typed bindings, run a
+  handler hubless.
 - [docs/local-dev.md](docs/local-dev.md) — the CLI: `run`/`serve`/`invoke`/
   `prefetch`, `field=value` grammar, `--offline`, exit codes.
 - [docs/dockerfile.md](docs/dockerfile.md) — bring-your-own-Dockerfile contract.

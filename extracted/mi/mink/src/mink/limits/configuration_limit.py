@@ -12,7 +12,17 @@ from .limit import Constraint, Limit
 class ConfigurationLimit(Limit):
     """Inequality constraint on joint positions in a robot model.
 
-    Floating base joints are ignored.
+    Floating base joints are ignored. Slide and hinge joints are box-constrained to
+    their range. A limited ball joint is constrained on its total rotation angle,
+    bounded by the second element of its range (the first element is ignored,
+    following MuJoCo semantics).
+
+    .. note::
+
+        The ball joint constraint is a first-order linearization that only bounds
+        motion along the current rotation axis; motion orthogonal to the axis grows
+        the angle at second order. Pair it with a velocity limit on the ball
+        joint's degrees of freedom so that large steps cannot overshoot the limit.
     """
 
     def __init__(
@@ -29,9 +39,9 @@ class ConfigurationLimit(Limit):
                 allowed to move towards the joint limits at each timestep. Values lower
                 ttan 1 are safer but may make the joints move slowly.
             min_distance_from_limits: Offset in meters (slide joints) or radians
-                (hinge joints) to be added to the limits. Positive values decrease the
-                range of motion, negative values increase it (i.e. negative values
-                allow penetration).
+                (hinge and ball joints) to be added to the limits. Positive values
+                decrease the range of motion, negative values increase it (i.e.
+                negative values allow penetration).
         """
         if not 0.0 < gain <= 1.0:
             raise LimitDefinitionError(
@@ -39,6 +49,7 @@ class ConfigurationLimit(Limit):
             )
 
         index_list: list[int] = []  # DoF indices that are limited.
+        ball_jnt_list: list[int] = []  # Limited ball joints, handled separately.
         lower = np.full(model.nq, -mujoco.mjMAXVAL)
         upper = np.full(model.nq, mujoco.mjMAXVAL)
         for jnt in range(model.njnt):
@@ -49,11 +60,32 @@ class ConfigurationLimit(Limit):
             # Skip free joints and joints without limits.
             if jnt_type == mujoco.mjtJoint.mjJNT_FREE or not model.jnt_limited[jnt]:
                 continue
+            # Ball joints bound the rotation angle and are handled separately.
+            if jnt_type == mujoco.mjtJoint.mjJNT_BALL:
+                ball_jnt_list.append(jnt)
+                continue
             lower[padr : padr + qpos_dim] = jnt_range[0] + min_distance_from_limits
             upper[padr : padr + qpos_dim] = jnt_range[1] - min_distance_from_limits
             jnt_dim = dof_width(jnt_type)
             jnt_id = model.jnt_dofadr[jnt]
             index_list.extend(range(jnt_id, jnt_id + jnt_dim))
+
+        self._ball_qposadr = model.jnt_qposadr[ball_jnt_list]
+        self._ball_dofadr = model.jnt_dofadr[ball_jnt_list]
+        self._ball_max_angle = (
+            model.jnt_range[ball_jnt_list, 1] - min_distance_from_limits
+        )
+        if np.any(self._ball_max_angle <= 0.0):
+            raise LimitDefinitionError(
+                f"{self.__class__.__name__} ball joint max rotation angle must be "
+                "positive after subtracting min_distance_from_limits"
+            )
+
+        # Scratch buffers for the ball joint rows.
+        n_ball = len(ball_jnt_list)
+        self._ball_G = np.zeros((n_ball, model.nv))
+        self._ball_h = np.empty(n_ball)
+        self._phi = np.empty(3)
 
         self.indices = np.array(index_list)
         self.indices.setflags(write=False)
@@ -92,33 +124,60 @@ class ConfigurationLimit(Limit):
             :math:`G \Delta q \leq h`, or ``None`` if there is no limit.
         """
         del dt  # Unused.
-        if self.projection_matrix is None:
+        if self.projection_matrix is None and len(self._ball_qposadr) == 0:
             return Constraint()
 
-        # Upper.
-        delta_q_max = np.empty((self.model.nv,))
-        mujoco.mj_differentiatePos(
-            m=self.model,
-            qvel=delta_q_max,
-            dt=1.0,
-            qpos1=configuration.q,
-            qpos2=self.upper,
-        )
+        G_list: list[np.ndarray] = []
+        h_list: list[np.ndarray] = []
+        q = configuration.q
 
-        # Lower.
-        delta_q_min = np.empty((self.model.nv,))
-        mujoco.mj_differentiatePos(
-            m=self.model,
-            qvel=delta_q_min,
-            dt=1.0,
-            # NOTE: mujoco.mj_differentiatePos does `qpos2 - qpos1` so notice the order
-            # swap here compared to above.
-            qpos1=self.lower,
-            qpos2=configuration.q,
-        )
+        if self.projection_matrix is not None:
+            # Upper.
+            delta_q_max = np.empty((self.model.nv,))
+            mujoco.mj_differentiatePos(
+                m=self.model,
+                qvel=delta_q_max,
+                dt=1.0,
+                qpos1=q,
+                qpos2=self.upper,
+            )
 
-        p_min = self.gain * delta_q_min[self.indices]
-        p_max = self.gain * delta_q_max[self.indices]
-        G = np.vstack([self.projection_matrix, -self.projection_matrix])
-        h = np.hstack([p_max, p_min])
-        return Constraint(G=G, h=h)
+            # Lower.
+            delta_q_min = np.empty((self.model.nv,))
+            mujoco.mj_differentiatePos(
+                m=self.model,
+                qvel=delta_q_min,
+                dt=1.0,
+                # NOTE: mujoco.mj_differentiatePos does `qpos2 - qpos1` so notice the
+                # order swap here compared to above.
+                qpos1=self.lower,
+                qpos2=q,
+            )
+
+            p_min = self.gain * delta_q_min[self.indices]
+            p_max = self.gain * delta_q_max[self.indices]
+            G_list.append(self.projection_matrix)
+            G_list.append(-self.projection_matrix)
+            h_list.append(p_max)
+            h_list.append(p_min)
+
+        # Ball joints: a^T dq <= gain * (max_angle - angle) along the rotation axis.
+        phi = self._phi
+        for i, (padr, dadr, max_angle) in enumerate(
+            zip(self._ball_qposadr, self._ball_dofadr, self._ball_max_angle)
+        ):
+            mujoco.mju_quat2Vel(phi, q[padr : padr + 4], 1.0)
+            angle = float(np.linalg.norm(phi))
+            axis = self._ball_G[i, dadr : dadr + 3]
+            # The axis is undefined at the identity; leave the row zero.
+            if angle > 1e-9:
+                axis[:] = phi
+                axis /= angle
+            else:
+                axis[:] = 0.0
+            self._ball_h[i] = self.gain * (max_angle - angle)
+        if len(self._ball_h) > 0:
+            G_list.append(self._ball_G)
+            h_list.append(self._ball_h)
+
+        return Constraint(G=np.vstack(G_list), h=np.hstack(h_list))

@@ -149,6 +149,7 @@ __all__ = (
     "PolicyStatusType",
     "PolicyValidationModeType",
     "PrincipalMatchOperatorType",
+    "ProviderType",
     "RegistryAuthorizerTypeType",
     "RegistryRecordCredentialProviderTypeType",
     "RegistryRecordOAuthGrantTypeType",
@@ -242,7 +243,9 @@ CredentialProviderVendorTypeType = Literal[
     "ZoomOauth2",
 ]
 DatasetSchemaTypeType = Literal[
-    "AGENTCORE_EVALUATION_PREDEFINED_V1", "AGENTCORE_EVALUATION_SIMULATED_V1"
+    "AGENTCORE_EVALUATION_PREDEFINED_V1",
+    "AGENTCORE_EVALUATION_SIMULATED_V1",
+    "GENERIC_EVALUATION_PREDEFINED_V1",
 ]
 DatasetStatusType = Literal[
     "ACTIVE", "CREATE_FAILED", "CREATING", "DELETE_FAILED", "DELETING", "UPDATE_FAILED", "UPDATING"
@@ -256,7 +259,7 @@ EvaluatorLevelType = Literal["SESSION", "TOOL_CALL", "TRACE"]
 EvaluatorStatusType = Literal[
     "ACTIVE", "CREATE_FAILED", "CREATING", "DELETING", "UPDATE_FAILED", "UPDATING"
 ]
-EvaluatorTypeType = Literal["Builtin", "Custom", "CustomCode"]
+EvaluatorTypeType = Literal["Builtin", "Custom", "CustomCode", "CustomDerived", "ThirdParty"]
 ExceptionLevelType = Literal["DEBUG"]
 ExtractionTypeType = Literal["LLM_INFERRED", "STRICTLY_CONSISTENT"]
 FilterOperatorType = Literal[
@@ -405,6 +408,7 @@ PolicyStatusType = Literal[
 ]
 PolicyValidationModeType = Literal["FAIL_ON_ANY_FINDINGS", "IGNORE_ALL_FINDINGS"]
 PrincipalMatchOperatorType = Literal["StringEquals", "StringLike"]
+ProviderType = Literal["AWS", "AutoEval", "Custom", "DeepEval"]
 RegistryAuthorizerTypeType = Literal["AWS_IAM", "CUSTOM_JWT"]
 RegistryRecordCredentialProviderTypeType = Literal["IAM", "OAUTH"]
 RegistryRecordOAuthGrantTypeType = Literal["CLIENT_CREDENTIALS"]

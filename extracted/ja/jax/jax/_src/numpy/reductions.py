@@ -18,7 +18,7 @@ import builtins
 from collections.abc import Callable, Sequence
 import math
 import operator
-from typing import overload, Any, Literal, Union
+from typing import overload, Any, Literal
 
 import numpy as np
 
@@ -48,7 +48,7 @@ export = set_module('jax.numpy')
 _all = builtins.all
 
 
-Axis = Union[int, Sequence[int], None]
+Axis = int | Sequence[int] | None
 
 def _isscalar(element: Any) -> bool:
   m = getattr(element, '__jax_array__', None)
@@ -2572,6 +2572,20 @@ def _quantile(a: Array, q: Array, axis: int | tuple[int, ...] | None,
 
   a_shape = a.shape
   q_orig = q
+
+  if squash_nans and core.definitely_equal(a_shape[axis], 0):
+    # NumPy handles empty nanquantile inputs via nanmean, so q does not
+    # contribute a leading dimension to the result shape.
+    if keepdims and keepdim:
+      result_shape = keepdim
+    else:
+      result_shape = list(a_shape)
+      if keepdims:
+        result_shape[axis] = 1
+      else:
+        result_shape.pop(axis)
+    return lax.full(tuple(result_shape), np.nan, dtype=a.dtype)
+
   if squash_nans:
     a = _where(lax._isnan(a), np.nan, a) # Ensure nans are positive so they sort to the end.
     if weights is not None:
@@ -2740,6 +2754,8 @@ def percentile(a: ArrayLike, q: ArrayLike,
       Values with higher weights contribute more to the percentile calculation.
       The weights array must be broadcastable to the shape of `a` along the specified axis.
       Currently, weighted percentiles are only supported when `method="inverted_cdf"`.
+    out_sharding: optional sharding specification for the output. If not specified,
+      it will be determined automatically by the compiler.
 
   Returns:
     An array containing the specified percentiles along the specified axes.

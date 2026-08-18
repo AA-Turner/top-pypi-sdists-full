@@ -32,8 +32,7 @@ import dataclasses
 import enum
 from functools import partial
 import inspect
-from typing import (Any, Literal, Optional, TypeVar, overload,
-                    cast, TYPE_CHECKING)
+from typing import Any, Literal, overload, cast, TYPE_CHECKING
 import weakref
 
 import numpy as np
@@ -46,7 +45,7 @@ from jax._src.tree_util import (
     tree_map, tree_flatten, tree_unflatten, tree_structure, tree_transpose,
     tree_leaves, Partial, PyTreeDef, keystr, generate_key_paths,
     tree_flatten_with_path, equality_errors_pytreedef, register_pytree_node,
-    register_dataclass, treedef_is_strict_leaf)
+    register_dataclass, treedef_is_strict_leaf, broadcast_prefix)
 from jax._src import config
 from jax._src import core
 from jax._src import dispatch
@@ -93,12 +92,6 @@ AxisName = Hashable
 
 Device = xc.Device
 
-# These TypeVars are used below to express the fact that function types
-# (i.e. call signatures) are invariant under the vmap transformation.
-F = TypeVar("F", bound=Callable)
-T = TypeVar("T")
-U = TypeVar("U")
-
 map, unsafe_map = safe_map, map
 zip, unsafe_zip = safe_zip, zip
 
@@ -143,7 +136,7 @@ def _nan_check_posthook(fun, args, kwargs, output):
       # TODO(emilyaf): Shouldn't need this fallback.
       raise
 
-_post_hook_state = config_ext.Config[Optional[Callable]](
+_post_hook_state = config_ext.Config[Callable | None](
     "post_hook", None, include_in_jit_key=False
 )
 jax_jit.set_post_hook_state(_post_hook_state)
@@ -574,7 +567,15 @@ def _check_scalar(x):
   else:
     if isinstance(aval, ShapedArray):
       if aval.shape != ():
-        raise TypeError(msg(f"had shape: {aval.shape}"))
+        if aval.size == 1:
+          idx = " or output[0]" if aval.ndim == 1 else ""
+          extract = f"extract the scalar with output.reshape(()){idx}, "
+        else:
+          extract = ""
+        hint = (f" To get the gradient, {extract}reduce the output to a "
+                "scalar with output.sum(), or use jax.jacobian to "
+                "differentiate a function with a non-scalar output.")
+        raise TypeError(msg(f"had shape: {aval.shape}") + hint)
     else:
       raise TypeError(msg(f"had abstract value {aval}"))
 
@@ -937,8 +938,8 @@ def _std_basis(pytree):
   flat_basis = jnp.eye(ndim, dtype=dtype)
   axis = 1
   arr_s = [None] * flat_basis.ndim
-  specs = tree_map(lambda l: P(arr_s[:axis], *core.typeof(l).sharding.spec,
-                               arr_s[axis+1:]), pytree)
+  specs = [P(*arr_s[:axis], *core.typeof(l).sharding.spec, *arr_s[axis+1:])
+           for l in leaves]
   out_pytree = _unravel_array_into_pytree(pytree, axis, None, flat_basis, specs)
   out_pytree = tree_map(_insert_pvary, out_pytree, pytree)
   return out_pytree
@@ -999,14 +1000,15 @@ def _split(x, indices, axis):
 
 
 @partial(api_boundary, repro_api_name="jax.vmap")
-def vmap(fun: F,
-         in_axes: int | None | Sequence[Any] = 0,
-         out_axes: Any = 0,
-         axis_name: AxisName | None = None,
-         axis_size: int | None = None,
-         spmd_axis_name: AxisName | tuple[AxisName, ...] | None = None,
-         sum_match: bool = False
-         ) -> F:
+def vmap[F: Callable](
+    fun: F,
+    in_axes: int | None | Sequence[Any] = 0,
+    out_axes: Any = 0,
+    axis_name: AxisName | None = None,
+    axis_size: int | None = None,
+    spmd_axis_name: AxisName | tuple[AxisName, ...] | None = None,
+    sum_match: bool = False
+    ) -> F:
   """Vectorizing map. Creates a function which maps ``fun`` over argument axes.
 
   Args:
@@ -1043,15 +1045,29 @@ def vmap(fun: F,
     out_axes: An integer, None, or (nested) standard Python container
       (tuple/list/dict) thereof indicating where the mapped axis should appear
       in the output. All outputs with a mapped axis must have a non-None
-      ``out_axes`` specification. Axis integers must be in the range ``[-ndim,
-      ndim)`` for each output array, where ``ndim`` is the number of dimensions
-      (axes) of the array returned by the :func:`vmap`-ed function, which is one
-      more than the number of dimensions (axes) of the corresponding array
-      returned by ``fun``.
+      ``out_axes`` specification (but see ``sum_match`` below). Axis integers
+      must be in the range ``[-ndim, ndim)`` for each output array, where
+      ``ndim`` is the number of dimensions (axes) of the array returned by the
+      :func:`vmap`-ed function, which is one more than the number of dimensions
+      (axes) of the corresponding array returned by ``fun``.
     axis_name: Optional, a hashable Python object used to identify the mapped
       axis so that parallel collectives can be applied.
     axis_size: Optional, an integer indicating the size of the axis to be
       mapped. If not provided, the mapped axis size is inferred from arguments.
+    sum_match: Optional, a boolean (default ``False``) changing how outputs
+      with an ``out_axes`` specification of ``None`` are handled. By default,
+      it is an error if such an output varies along the mapped axis. With
+      ``sum_match=True``, such outputs are instead summed over the mapped
+      axis; outputs that do not vary along the mapped axis are returned
+      unchanged, as usual. This is useful in automatic differentiation
+      contexts, because summing over a mapped axis is the transpose of
+      broadcasting along it.
+      For example:
+
+      >>> from jax import vmap
+      >>> import jax.numpy as jnp
+      >>> vmap(lambda x: 2. * x, out_axes=None, sum_match=True)(jnp.arange(3.))
+      Array(6., dtype=float32)
 
   Returns:
     Batched/vectorized version of ``fun`` with arguments that correspond to
@@ -1175,9 +1191,19 @@ def vmap(fun: F,
   def vmap_f(*args, **kwargs):
     nonlocal spmd_axis_name
     if isinstance(in_axes, tuple) and len(in_axes) != len(args):
-      raise ValueError("vmap in_axes must be an int, None, or a tuple of entries corresponding "
-                       "to the positional arguments passed to the function, "
-                       f"but got {len(in_axes)=}, {len(args)=}")
+      msg = ("vmap in_axes must be an int, None, or a tuple of entries "
+             "corresponding to the positional arguments passed to the "
+             f"function, but got {len(in_axes)=}, {len(args)=}.")
+      if kwargs:
+        msg += (" Note that the function was called with keyword arguments "
+                f"{list(kwargs)}, which the entries of a tuple in_axes never "
+                "correspond to: keyword arguments are always mapped along "
+                "their leading axis (axis 0). If that is the intended "
+                "mapping, make in_axes correspond to the positional "
+                "arguments only; otherwise pass the arguments positionally, "
+                "or bind unmapped keyword arguments with functools.partial "
+                "before applying vmap.")
+      raise ValueError(msg)
 
     args_flat, in_tree  = tree_flatten((args, kwargs), is_leaf=batching.is_vmappable)
     dbg = debug_info("vmap", fun, args, kwargs)
@@ -1447,17 +1473,18 @@ def _jvp(fun: Callable, primals, tangents, has_aux=False):
   return out_primals.unflatten(), out_tangents.unflatten(), *aux
 
 @overload
-def linearize(fun: Callable, *primals, has_aux: Literal[False] = False
-              ) -> tuple[Any, Callable]:
+def linearize(fun: Callable, *primals, has_aux: Literal[False] = False,
+              in_nzs: Any = None) -> tuple[Any, Callable]:
   ...
 
 @overload
-def linearize(fun: Callable, *primals, has_aux: Literal[True]
-              ) -> tuple[Any, Callable, Any]:
+def linearize(fun: Callable, *primals, has_aux: Literal[True],
+              in_nzs: Any = None) -> tuple[Any, Callable, Any]:
   ...
 
 @partial(api_boundary, repro_api_name="jax.linearize")
-def linearize(fun: Callable, *primals, has_aux: bool = False
+def linearize(fun: Callable, *primals, has_aux: bool = False,
+              in_nzs: Any = None
               ) -> tuple[Any, Callable] | tuple[Any, Callable, Any]:
   """Produces a linear approximation to ``fun`` using :py:func:`jvp` and partial eval.
 
@@ -1472,6 +1499,12 @@ def linearize(fun: Callable, *primals, has_aux: bool = False
     has_aux: Optional, bool. Indicates whether ``fun`` returns a pair where the first
       element is considered the output of the mathematical function to be linearized,
       and the second is auxiliary data. Default False.
+    in_nzs: Optional, a tuple-tree of bools (see ``in_nzs`` on :func:`jax.vjp`),
+      by default ``None`` meaning all-True. Declares which primal inputs have
+      (possibly) nonzero tangents; a False-marked input's tangent is treated as
+      symbolically zero during linearization. The resulting per-output nonzeros
+      pattern is available as the ``out_nzs`` attribute of the returned
+      linearized function (though not preserved across pytree flattening).
 
   Returns:
     If ``has_aux`` is ``False``, returns a pair where the first element is the value of
@@ -1526,16 +1559,21 @@ def linearize(fun: Callable, *primals, has_aux: bool = False
   """
   check_callable(fun)
   primals_ft = ft.flatten(primals)
-  out_primals_ft, out_known, jaxpr, consts, *maybe_aux = ad.linearize(
-      fun, primals_ft, has_aux=has_aux)
+  in_nzs_flat = None if in_nzs is None else tuptree_flags(
+      in_nzs, primals_ft.tree, 'in_nzs', 'the in_nzs argument to jax.linearize')
+  out_primals_ft, out_zeros, jaxpr, consts, structured_residuals, *maybe_aux = \
+      ad.linearize(fun, primals_ft, has_aux=has_aux, in_nzs=in_nzs_flat)
   in_avals = primals_ft.map(core.typeof)
   out_avals = out_primals_ft.map(core.typeof)
   lifted_jvp = Partial(
-      partial(_lift_linearized, jaxpr, in_avals, out_avals, out_known), consts)
+      partial(_lift_linearized, jaxpr, in_avals, out_avals, out_zeros),
+      consts, structured_residuals)
+  lifted_jvp.out_nzs = tuple(not z for z in out_zeros)  # pyrefly: ignore[missing-attribute]
   return out_primals_ft.unflatten(), lifted_jvp, *maybe_aux
 
 
-def _lift_linearized(jaxpr, in_avals, out_avals, out_known, consts, *tangents):
+def _lift_linearized(jaxpr, in_avals, out_avals, out_zeros, consts,
+                     structured_residuals, *tangents):
   tangents_ft = ft.flatten(tangents)
   if tangents_ft.tree != in_avals.tree:
     raise TypeError(f"expected {in_avals.tree}, got {tangents_ft.tree}")
@@ -1566,10 +1604,11 @@ def _lift_linearized(jaxpr, in_avals, out_avals, out_known, consts, *tangents):
           "the original primal values:\n"
           f"Got tangent aval {tangent_aval} for primal aval {primal_aval} "
           f"but expected {expected_tangent_aval}.{extra_msg}")
-  tangents_out = eval_jaxpr(jaxpr, consts, *tangents_ft)
+  sres_flat = tree_leaves(structured_residuals)
+  tangents_out = eval_jaxpr(jaxpr, consts, *tangents_ft, *sres_flat)
   tangents_out_ = iter(tangents_out)
   full_out = [a2tz(aval).instantiate() if known else next(tangents_out_)
-              for aval, known in zip(out_avals, out_known)]
+              for aval, known in zip(out_avals, out_zeros)]
   assert next(tangents_out_, None) is None
   return out_avals.update(full_out).unflatten()
 
@@ -1580,24 +1619,26 @@ def _temporary_dtype_exception(a, a_) -> bool:
   return False
 
 @overload
-def vjp(fun: Callable[..., T],
-        *primals: Any,
-        has_aux: Literal[False] = False,
-        reduce_axes: Sequence[AxisName] = (),
-        saveable_args: Any = True) -> tuple[T, Callable]:
+def vjp[T](fun: Callable[..., T],
+           *primals: Any,
+           has_aux: Literal[False] = False,
+           reduce_axes: Sequence[AxisName] = (),
+           saveable_args: Any = True,
+           in_nzs: Any = None) -> tuple[T, Callable]:
   ...
 
 @overload
-def vjp(fun: Callable[..., tuple[T, U]], *primals: Any,
-        has_aux: Literal[True],
-        reduce_axes: Sequence[AxisName] = (),
-        saveable_args: Any = True) -> tuple[T, Callable, U]:
+def vjp[T, U](fun: Callable[..., tuple[T, U]], *primals: Any,
+              has_aux: Literal[True],
+              reduce_axes: Sequence[AxisName] = (),
+              saveable_args: Any = True,
+              in_nzs: Any = None) -> tuple[T, Callable, U]:
   ...
 
 @partial(api_boundary, repro_api_name="jax.vjp")
 def vjp(
     fun: Callable, *primals, has_aux: bool = False, reduce_axes=(),
-    saveable_args: Any = True,
+    saveable_args: Any = True, in_nzs: Any = None,
   ) -> tuple[Any, Callable] | tuple[Any, Callable, Any]:
   """Compute a (reverse-mode) vector-Jacobian product of ``fun``.
 
@@ -1615,7 +1656,8 @@ def vjp(
      first element is considered the output of the mathematical function to be
      differentiated and the second element is auxiliary data. Default False.
     saveable_args: Optional, a tuple-tree of bools (i.e. nested tuples with
-      bool leaves), by default the single bool ``True``. Indicates whether
+      bool leaves) or equivalently a pytree prefix of the primals with bool
+      leaves, by default the single bool ``True``. Indicates whether
       each primal argument (or argument sub-pytree, or leaf) may be saved for
       the backward pass. It must form a tree prefix of ``primals`` up to
       pytree node types: tuples are matched against argument containers only
@@ -1626,6 +1668,13 @@ def vjp(
       must restore them (e.g. by assigning to ``vjpfun.args_res``) before
       applying ``vjpfun``. Only argument values saved verbatim are affected;
       residuals computed from the arguments are saved as usual.
+    in_nzs: Optional, a tuple-tree of bools like ``saveable_args``, by default
+      ``None`` meaning all-True. Declares which primal inputs have (possibly)
+      nonzero tangents. Where a False entry applies, that input's tangent is
+      treated as symbolically zero during linearization, which can make more
+      outputs' tangents symbolically zero; the resulting per-output nonzeros
+      pattern is available as the ``out_nzs`` attribute of ``vjpfun``, and
+      ``vjpfun`` returns a zero cotangent for any False-marked input.
 
   Returns:
     If ``has_aux`` is ``False``, returns a ``(primals_out, vjpfun)`` pair, where
@@ -1658,8 +1707,11 @@ def vjp(
   primals_ft = ft.flatten(primals).map(canon)
   primals_ft.map(dispatch.check_arg)
   saveable = _saveable_args_flags(saveable_args, primals_ft.tree)
-  out_primals_ft, out_known, jaxpr, residuals, *maybe_aux = ad.linearize(
-      fun, primals_ft, is_vjp=True, has_aux=has_aux)
+  in_nzs_flat = None if in_nzs is None else tuptree_flags(
+      in_nzs, primals_ft.tree, 'in_nzs', 'the in_nzs argument to jax.vjp')
+  out_primals_ft, out_zeros, jaxpr, residuals, structured_residuals, *maybe_aux = \
+      ad.linearize(fun, primals_ft, is_vjp=True, has_aux=has_aux,
+                   in_nzs=in_nzs_flat)
 
   id_map = {id(x): i for i, x in enumerate(primals_ft)}
   used, opaque_residuals = set(), []
@@ -1669,12 +1721,14 @@ def vjp(
   keep = lambda x, s: ((x if s else NotSaveable()) if id(x) in used else NotNeeded())
   args_res = tuptree_map(keep, primals_ft.tree, primals_ft, saveable)
   out_primal_avals = list(out_primals_ft.map(typeof))
-  f_vjp = VJP(partial(_vjp3_callable, spec, out_known, jaxpr, out_primal_avals),
-              primals_ft.tree, out_primals_ft.tree, list(args_res), opaque_residuals)
+  f_vjp = VJP(partial(_vjp3_callable, spec, out_zeros, jaxpr, out_primal_avals),
+              primals_ft.tree, out_primals_ft.tree, list(args_res),
+              opaque_residuals, structured_residuals)
   return out_primals_ft.unflatten(), f_vjp, *maybe_aux
 
-def _vjp3_callable(spec, out_known, jaxpr, out_primal_avals, in_tree, out_tree,
-                   args_res, opaque_res, *maybe_ct_refs):
+def _vjp3_callable(spec, out_zeros, jaxpr, out_primal_avals, in_tree, out_tree,
+                   args_res, opaque_res, structured_res, want_logs,
+                   *maybe_ct_refs):
   explicit_refs = bool(maybe_ct_refs)
   if explicit_refs:
     maybe_ct_refs_flat, in_tree_ = tree_flatten(maybe_ct_refs)
@@ -1688,10 +1742,12 @@ def _vjp3_callable(spec, out_known, jaxpr, out_primal_avals, in_tree, out_tree,
                       isinstance(args_res_[i.idx], NotSaveable)]:
     _vjp_not_saveable_error(jaxpr, in_tree, not_restored)
   residuals = [args_res_[i.idx] if i.primal else opaque_res[i.idx] for i in spec]
+  arg_invars = jaxpr.invars[len(spec):]  # skip the residual invars
   maybe_accums = [_vjp_accum(jaxpr, in_tree, explicit_refs, idx, v, x)
-                  for idx, (v, x) in enumerate(zip(jaxpr.invars, maybe_ct_refs_flat))]
-  return Partial(partial(_vjp3_bwd, in_tree, out_tree, out_known, jaxpr,
-                         out_primal_avals), residuals, maybe_accums)
+                  for idx, (v, x) in enumerate(unsafe_zip(arg_invars, maybe_ct_refs_flat))]
+  return Partial(partial(_vjp3_bwd, in_tree, out_tree, out_zeros, jaxpr,
+                         out_primal_avals, want_logs), residuals, structured_res,
+                 maybe_accums)
 
 def _vjp_accum(jaxpr, in_tree, explicit_refs, idx, v, x):
   if isinstance(x, ad.GradAccum):
@@ -1779,19 +1835,21 @@ def check_accum(aval, acc):
     raise ValueError(f"Accumulator aval mismatch: expected {aval}, got {acc.aval}")
   return acc
 
-def _vjp3_bwd(in_tree, out_tree, out_known, jaxpr, out_primal_avals, residuals,
-              maybe_accums, out_ct):
+def _vjp3_bwd(in_tree, out_tree, out_zeros, jaxpr, out_primal_avals, want_logs,
+              residuals, structured_res, maybe_accums, out_ct):
   cts_flat, out_tree_ = tree_flatten(out_ct, is_leaf=lambda x: isinstance(x, ad.Zero))
   if out_tree != out_tree_:
     _vjp_ct_tree_error(jaxpr, out_tree, out_tree_)
   _vjp_check_ct_avals(cts_flat, out_primal_avals)
-  cts_flat = [ct for ct, k in zip(cts_flat, out_known) if not k]
-  ad.backward_pass3(jaxpr, True, residuals, maybe_accums, cts_flat)
+  cts_flat = [ct for ct, k in zip(cts_flat, out_zeros) if not k]
+  primals_in = [*maybe_accums, *tree_leaves(structured_res)]
+  logs = ad.backward_pass3(jaxpr, True, residuals, primals_in, cts_flat)
   arg_cts = [x.freeze() if isinstance(x, ad.ValAccum) else
              DidntWant() if isinstance(x, ad.NullAccum) else GradRef()
              for x in maybe_accums]
   arg_cts = map(ad.instantiate_zeros, arg_cts)
-  return tree_unflatten(in_tree, arg_cts)
+  arg_cts = tree_unflatten(in_tree, arg_cts)
+  return (arg_cts, logs) if want_logs else arg_cts
 
 
 @dataclasses.dataclass(frozen=True, slots=True)
@@ -1802,37 +1860,58 @@ class RSpec:
 def tuptree_map(f, treedef, *args):
   return treedef.walk(lambda xs, _: tuple(xs), lambda xs: f(*xs), zip(*args))
 
-def _saveable_args_flags(saveable_args, treedef) -> list[bool]:
+def tuptree_flags(prefix, treedef, name: str, full_name: str) -> list[bool]:
+  """Expand a flags prefix into per-leaf flags for `treedef`.
+
+  The prefix may be a bool, a pytree prefix of `treedef` with bool leaves, or
+  a tuple-tree: made of bools and tuples only, forming a tree prefix of
+  `treedef` up to pytree node types, with tuples matched against containers
+  only by their number of children."""
+  if isinstance(prefix, bool):
+    return [prefix] * treedef.num_leaves
+  try:
+    dummy = treedef.unflatten(list(range(treedef.num_leaves)))
+    flags = broadcast_prefix(prefix, dummy)
+  except ValueError:
+    pass
+  else:
+    if all(isinstance(f, bool) for f in flags):
+      return list(flags)
   ret: list[bool] = []
-  _saveable_args_flags_rec(saveable_args, treedef, (), ret)
+  _tuptree_flags_rec(prefix, treedef, name, full_name, (), ret)
   return ret
 
-def _saveable_args_flags_rec(prefix, td, path, ret):
+def _saveable_args_flags(saveable_args, treedef) -> list[bool]:
+  return tuptree_flags(saveable_args, treedef, 'saveable_args',
+                       'the saveable_args argument to jax.vjp')
+
+def _tuptree_flags_rec(prefix, td, name, full_name, path, ret):
   if isinstance(prefix, bool):
     ret.extend([prefix] * td.num_leaves)
     return
-  where = 'saveable_args' + ''.join(f'[{i}]' for i in path)
+  where = name + ''.join(f'[{i}]' for i in path)
   if not isinstance(prefix, tuple):
     raise ValueError(
-        "the saveable_args argument to jax.vjp must be a tuple-tree of bools "
+        f"{full_name} must be a pytree prefix with bool leaves or a "
+        f"tuple-tree of bools "
         f"(made of bools and tuples only), but {where} is {prefix!r} of type "
         f"{type(prefix).__name__}")
   if treedef_is_strict_leaf(td):
     raise ValueError(
-        "the saveable_args argument to jax.vjp must form a tree prefix of "
-        f"the primal arguments (up to pytree node types), but {where} is a "
-        "tuple while the corresponding part of the arguments is a leaf; use "
+        f"{full_name} must form a tree prefix of "
+        f"the corresponding values (up to pytree node types), but {where} is "
+        "a tuple while the corresponding part of the values is a leaf; use "
         "a single bool there instead")
   td_children = td.children()
   if len(prefix) != len(td_children):
     raise ValueError(
-        "the saveable_args argument to jax.vjp must form a tree prefix of "
-        "the primal arguments (up to pytree node types, so containers need "
-        f"only match in their number of children), but {where} has "
-        f"{len(prefix)} children while the corresponding container in the "
-        f"arguments has {len(td_children)}")
+        f"{full_name} must form a tree prefix of "
+        "the corresponding values (up to pytree node types, so containers "
+        f"need only match in their number of children), but {where} has "
+        f"{len(prefix)} children while the corresponding container has "
+        f"{len(td_children)}")
   for i, (p, td_) in enumerate(zip(prefix, td_children)):
-    _saveable_args_flags_rec(p, td_, (*path, i), ret)
+    _tuptree_flags_rec(p, td_, name, full_name, (*path, i), ret)
 
 def _is_ref(x):
   from jax._src.state.types import AbstractRef
@@ -1938,18 +2017,28 @@ class VJP:
   out_tree: PyTreeDef
   args_res: list[Any]
   opaque_residuals: list[Any]
+  structured_residuals: list[Any]
+  want_logs: bool = False
   jaxpr = property(lambda self: self.fun.args[2])
+  out_nzs = property(lambda self: tuple(not z for z in self.fun.args[1]))
 
   def __call__(self, out_ct, *extra_args):
     if extra_args:
       name, *_ = self.jaxpr.debug_info.func_src_info.split(' ')
       raise TypeError(_vjp_too_many_args(name, len(extra_args) + 1))
     return self.fun(self.in_tree, self.out_tree, self.args_res,
-                    self.opaque_residuals)(out_ct)
+                    self.opaque_residuals, self.structured_residuals,
+                    self.want_logs)(out_ct)
+
+  # Like __call__, but returns a pair (arg_cts, logs), where logs is a dict
+  # merging (with clobber semantics, in backward execution order) the dicts
+  # logged by transpose/vjp_bwd rules. Plain __call__ drops the logs.
+  with_logs = property(lambda self: self.replace(want_logs=True))
 
   def with_refs(self, *maybe_ct_refs):
     return self.fun(self.in_tree, self.out_tree, self.args_res,
-                    self.opaque_residuals, *maybe_ct_refs)
+                    self.opaque_residuals, self.structured_residuals,
+                    self.want_logs, *maybe_ct_refs)
 
   replace = dataclasses.replace
 
@@ -1959,9 +2048,9 @@ class VJP:
 
 register_pytree_node(
     VJP,
-    lambda vjp: ((vjp.args_res, vjp.opaque_residuals),
-                 (vjp.fun, vjp.in_tree, vjp.out_tree)),
-    lambda meta, args_res: VJP(*meta, *args_res))
+    lambda vjp: ((vjp.args_res, vjp.opaque_residuals, vjp.structured_residuals),
+                 (vjp.fun, vjp.in_tree, vjp.out_tree, vjp.want_logs)),
+    lambda meta, args_res: VJP(*meta[:3], *args_res, meta[3]))  # type: ignore
 
 
 @partial(api_boundary, repro_api_name="jax.linear_transpose")
@@ -2010,14 +2099,14 @@ def linear_transpose(fun: Callable, *primals, reduce_axes=()) -> Callable:
                    debug_info=debug_info("linear_transpose", fun, primals, {})),
       in_tree)
   in_avals = [shaped_abstractify(x) for x in primals_flat]
-  in_dtypes = map(lambda a: a.dtype, in_avals)
+  in_dtypes = [a.dtype for a in in_avals if not a.is_high]
 
   in_pvals = map(pe.PartialVal.unknown, in_avals)
   jaxpr, out_pvals, const = pe.trace_to_jaxpr_nounits(flat_fun, in_pvals,
                                                       instantiate=True)
   jaxpr, _ = pe.dce_jaxpr(jaxpr, [True] * len(jaxpr.outvars), True)
   out_avals, _ = unzip2(out_pvals)
-  out_dtypes = map(lambda a: a.dtype, out_avals)
+  out_dtypes = [a.dtype for a in out_avals if not a.is_high]
   if not (all(dtypes.issubdtype(d, np.inexact) for d in in_dtypes + out_dtypes)
           or all(dtypes.issubdtype(d, np.integer)
                  for d in in_dtypes + out_dtypes)):
@@ -2137,12 +2226,8 @@ def make_jaxpr(
       traced = jit(fun, static_argnums=static_argnums).trace(*args, **kwargs)
     # `jit` converts tracers in consts to args but `make_jaxpr` callers expect
     # consts not to be converted.
-    num_consts = traced._num_consts
-    if num_consts:
-      jaxpr = pe.convert_invars_to_constvars(
-          traced.jaxpr, num_consts).with_consts(traced._consts)
-    else:
-      jaxpr = traced.jaxpr
+    jaxpr = (traced.jaxpr.with_consts(traced._consts) if traced._consts
+             else traced.jaxpr)
     if return_shape:
       return jaxpr, traced.out_info
     return jaxpr
@@ -2574,7 +2659,7 @@ def eval_shape(fun: Callable, *args, **kwargs):
 
 
 @partial(api_boundary, repro_api_name="jax.named_call")
-def named_call(
+def named_call[F: Callable](
     fun: F,
     *,
     name: str | None = None,

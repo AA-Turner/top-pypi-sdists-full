@@ -2335,7 +2335,10 @@ class HubConnectivityDataPoint(BaseModel):
 
 
 class HubInstallModeDataPoint(BaseModel):
-    interface_id: str
+    interface_id: str = Field(
+        ...,
+        description="The interface's wire id `<central>-<interface>` (e.g. `ccu1-HmIP-RF`) — the same id space as `HubConnectivityDataPoint.interface_id` and GET /interfaces, so a client can build its per-interface entities from /interfaces and key this value onto them. (The dedicated GET/POST /install-mode/interfaces surface splits the central into a separate field and uses the bare interface name instead.)",
+    )
     enabled: bool
     remaining_s: int = Field(
         ..., description="Seconds left while enabled; 0 when disabled."

@@ -139,22 +139,22 @@ namespace numpy
     template <class T>
     reduce_result_type<Op, E> operator()(E const &expr, T p) const
     {
-      if (utils::no_broadcast_vectorize(expr))
+      if (utils::no_broadcast_ex(expr))
         return _reduce<Op, E::value, types::vectorizer_nobroadcast>{}(expr, p);
       else
         return _reduce<Op, E::value, types::vectorizer>{}(expr, p);
     }
   };
   template <class Op, class E>
-  std::enable_if_t<std::is_scalar<E>::value || types::is_complex<E>::value, E>
-  reduce(E const &expr, types::none_type)
+  std::enable_if_t<std::is_scalar_v<E> || types::is_complex<E>::value, E> reduce(E const &expr,
+                                                                                 types::none_type)
   {
     return expr;
   }
 
   template <class Op, class E>
-  std::enable_if_t<std::is_scalar<E>::value || types::is_complex<E>::value, E>
-  reduce(E const &array, long axis)
+  std::enable_if_t<std::is_scalar_v<E> || types::is_complex<E>::value, E> reduce(E const &array,
+                                                                                 long axis)
   {
     if (axis != 0)
       throw types::ValueError("axis out of bounds");
@@ -167,8 +167,8 @@ namespace numpy
   {
     using rrt = reduce_result_type<Op, E, dtype>;
     bool constexpr is_vectorizable = E::is_vectorizable &&
-                                     !std::is_same<typename E::dtype, bool>::value &&
-                                     std::is_same<rrt, typename E::dtype>::value;
+                                     !std::is_same_v<typename E::dtype, bool> &&
+                                     std::is_same_v<rrt, typename E::dtype>;
     rrt p = utils::neutral<Op, rrt>::value;
     return reduce_helper<Op, E, is_vectorizable>{}(expr, p);
   }
@@ -183,21 +183,28 @@ namespace numpy
   }
 
   template <class Op, class E, class Out>
+  std::enable_if_t<E::value == 1, reduce_result_type<Op, E>>
+  reduce_no_axis_check(E const &array, long axis, types::none_type, Out &&out)
+  {
+    return std::forward<Out>(out) = reduce<Op>(array);
+  }
+
+  template <class Op, class E, class Out>
   std::enable_if_t<E::value == 1, reduce_result_type<Op, E>> reduce(E const &array, long axis,
                                                                     types::none_type, Out &&out)
   {
     if (axis != 0)
       throw types::ValueError("axis out of bounds");
-    return std::forward<Out>(out) = reduce<Op>(array);
+    return reduce_no_axis_check<Op>(array, axis, types::none_type{}, out);
   }
 
   template <class Op, size_t N>
   struct _reduce_axisb {
     template <class E, class F, class EIndices, class FIndices>
-    void operator()(E &&e, F &&f, long axis, EIndices &&e_indices, FIndices &&f_indices)
+    void operator()(E &&e, F &&f, EIndices &&e_indices, FIndices &&f_indices)
     {
       for (long i = 0, n = e.template shape<std::decay_t<E>::value - N>(); i < n; ++i) {
-        _reduce_axisb<Op, N - 1>{}(e, f, axis, std::tuple_cat(e_indices, std::make_tuple(i)),
+        _reduce_axisb<Op, N - 1>{}(e, f, std::tuple_cat(e_indices, std::make_tuple(i)),
                                    std::tuple_cat(f_indices, std::make_tuple(i)));
       }
     }
@@ -212,39 +219,109 @@ namespace numpy
       f.template update<Op>(e.load(std::get<Es>(e_indices)...), (long)std::get<Fs>(f_indices)...);
     }
     template <class E, class F, class EIndices, class FIndices>
-    void operator()(E &&e, F &&f, long axis, EIndices &&e_indices, FIndices &&f_indices)
+    void operator()(E &&e, F &&f, EIndices &&e_indices, FIndices &&f_indices)
     {
       helper(std::forward<E>(e), std::forward<F>(f), e_indices, f_indices,
-             std::make_index_sequence<std::tuple_size<std::decay_t<EIndices>>::value>(),
-             std::make_index_sequence<std::tuple_size<std::decay_t<FIndices>>::value>());
+             std::make_index_sequence<std::tuple_size_v<std::decay_t<EIndices>>>(),
+             std::make_index_sequence<std::tuple_size_v<std::decay_t<FIndices>>>());
     }
   };
 
+  namespace detail
+  {
+    template <class E, class EIndices, size_t... Es>
+    auto loader(E &&e, EIndices &&e_indices, long i, std::index_sequence<Es...>)
+    {
+      return e.load(std::get<Es>(e_indices)..., i);
+    }
+    template <class E, class EIndices>
+    auto loader(E &&e, EIndices &&e_indices, long i)
+    {
+      return loader(std::forward<E>(e), std::forward<EIndices>(e_indices), i,
+                    std::make_index_sequence<std::tuple_size_v<std::decay_t<EIndices>>>());
+    }
+
+    template <class T, class E, class EIndices, size_t... Es>
+    void storer(T acc, E &&e, EIndices &&e_indices, std::index_sequence<Es...>)
+    {
+      e.store(acc, std::get<Es>(e_indices)...);
+    }
+    template <class T, class E, class EIndices>
+    void storer(T acc, E &&e, EIndices &&e_indices)
+    {
+      return storer(acc, std::forward<E>(e), std::forward<EIndices>(e_indices),
+                    std::make_index_sequence<std::tuple_size_v<std::decay_t<EIndices>>>());
+    }
+  } // namespace detail
+
   template <class Op, size_t N>
   struct _reduce_axis {
-    template <class E, class F, class EIndices, class FIndices>
-    void operator()(E &&e, F &&f, long axis, EIndices &&e_indices, FIndices &&f_indices)
+    template <class E, class F, class EIndices>
+    void operator()(E &&e, F &&f, long axis, EIndices &&e_indices)
     {
       if (axis == std::decay_t<E>::value - N) {
         for (long i = 0, n = e.template shape<std::decay_t<E>::value - N>(); i < n; ++i) {
-          _reduce_axisb<Op, N - 1>{}(e, f, axis, std::tuple_cat(e_indices, std::make_tuple(i)),
-                                     std::forward<FIndices>(f_indices));
+          _reduce_axisb<Op, N - 1>{}(e, f, std::tuple_cat(e_indices, std::make_tuple(i)),
+                                     std::forward<EIndices>(e_indices));
         }
       } else {
         for (long i = 0, n = e.template shape<std::decay_t<E>::value - N>(); i < n; ++i) {
-          _reduce_axis<Op, N - 1>{}(e, f, axis, std::tuple_cat(e_indices, std::make_tuple(i)),
-                                    std::tuple_cat(f_indices, std::make_tuple(i)));
+          _reduce_axis<Op, N - 1>{}(e, f, axis, std::tuple_cat(e_indices, std::make_tuple(i)));
+        }
+      }
+    }
+  };
+  template <class Op>
+  struct _reduce_axis<Op, 1> {
+    template <class E, class F, class EIndices>
+    void operator()(E &&e, F &&f, long axis, EIndices &&e_indices)
+    {
+      if (axis == std::decay_t<E>::value - 1) {
+        typename std::decay_t<F>::dtype acc = detail::loader(e, e_indices, 0);
+        for (long i = 1, n = e.template shape<std::decay_t<E>::value - 1>(); i < n; ++i) {
+          Op{}(acc, detail::loader(e, e_indices, i));
+        }
+        detail::storer(acc, std::forward<F>(f), std::forward<EIndices>(e_indices));
+      } else {
+        for (long i = 0, n = e.template shape<std::decay_t<E>::value - 1>(); i < n; ++i) {
+          _reduce_axis<Op, 0>{}(e, f, axis, std::tuple_cat(e_indices, std::make_tuple(i)));
         }
       }
     }
   };
   template <class Op>
   struct _reduce_axis<Op, 0> {
-    template <class E, class F, class EIndices, class FIndices>
-    void operator()(E &&e, F &&f, long axis, EIndices &&e_indices, FIndices &&f_indices)
+    template <class E, class F, class EIndices>
+    void operator()(E &&e, F &&f, long axis, EIndices &&e_indices)
     {
     }
   };
+
+  template <class Op, class E, class Out>
+  std::enable_if_t<E::value != 1, std::decay_t<Out>>
+  reduce_no_axis_check(E const &array, long axis, types::none_type, Out &&out)
+  {
+    if (utils::no_broadcast(array)) {
+      if (axis != E::value - 1)
+        std::fill(out.begin(), out.end(), utils::neutral<Op, typename E::dtype>::value);
+      _reduce_axis<Op, E::value>{}(array, std::forward<Out>(out), axis, std::make_tuple());
+      return std::forward<Out>(out);
+    } else {
+      if (axis == 0) {
+        std::fill(out.begin(), out.end(), utils::neutral<Op, typename E::dtype>::value);
+        return _reduce<Op, 1, types::novectorize /* not on scalars*/>{}(array,
+                                                                        std::forward<Out>(out));
+      } else {
+        auto out_iter = out.begin();
+        std::for_each(array.begin(), array.end(),
+                      [&out_iter, axis](typename E::const_iterator::value_type other) {
+                        reduce_no_axis_check<Op>(other, axis - 1, types::none_type{}, *out_iter);
+                        ++out_iter;
+                      });
+        return std::forward<Out>(out);
+      }
+    }
+  }
 
   template <class Op, class E, class dtype>
   std::enable_if_t<E::value != 1, reduced_type<E, Op, dtype>> reduce(E const &array, long axis,
@@ -259,35 +336,17 @@ namespace numpy
     auto next = std::copy(tmp.begin(), tmp.begin() + axis, shp.begin());
     std::copy(tmp.begin() + axis + 1, tmp.end(), next);
     reduced_type<E, Op, dtype> out{shp, builtins::None};
-    std::fill(out.begin(), out.end(), utils::neutral<Op, typename E::dtype>::value);
-    return reduce<Op>(array, axis, types::none_type{}, out);
+    return reduce_no_axis_check<Op>(array, axis, types::none_type{}, out);
   }
   template <class Op, class E, class Out>
-  std::enable_if_t<E::value != 1, reduced_type<E, Op>> reduce(E const &array, long axis,
-                                                              types::none_type, Out &&out)
+  std::enable_if_t<E::value != 1, std::decay_t<Out>> reduce(E const &array, long axis,
+                                                            types::none_type, Out &&out)
   {
     if (axis < 0)
       axis += E::value;
     if (axis < 0 || size_t(axis) >= E::value)
       throw types::ValueError("axis out of bounds");
-    if (utils::no_broadcast(array)) {
-      std::fill(out.begin(), out.end(), utils::neutral<Op, typename E::dtype>::value);
-      _reduce_axis<Op, E::value>{}(array, std::forward<Out>(out), axis, std::make_tuple(),
-                                   std::make_tuple());
-      return std::forward<Out>(out);
-    } else {
-      if (axis == 0) {
-        std::fill(out.begin(), out.end(), utils::neutral<Op, typename E::dtype>::value);
-        return _reduce<Op, 1, types::novectorize /* not on scalars*/>{}(array,
-                                                                        std::forward<Out>(out));
-      } else {
-        std::transform(array.begin(), array.end(), out.begin(),
-                       [axis](typename E::const_iterator::value_type other) {
-                         return reduce<Op>(other, axis - 1);
-                       });
-        return std::forward<Out>(out);
-      }
-    }
+    return reduce_no_axis_check<Op>(array, axis, types::none_type{}, out);
   }
 } // namespace numpy
 PYTHONIC_NS_END

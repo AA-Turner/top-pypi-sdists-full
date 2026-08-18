@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: pytest-rerunfailures
-Version: 16.5
+Version: 16.6
 Summary: pytest plugin to re-run tests to eliminate flaky failures
 Author-email: Leah Klearman <lklrmn@gmail.com>
 License: MPL-2.0
@@ -161,6 +161,19 @@ would only rerun those errors that does not match with ``AssertionError`` or ``O
 .. code-block:: bash
 
    $ pytest --reruns 5 --rerun-except AssertionError --rerun-except OSError
+
+Exclude test paths from re-runs
+--------------------------------
+
+To exclude a test file or all tests under a directory from re-runs, use the
+``--rerun-exclude-path`` option. Relative paths are interpreted relative to
+pytest's root directory:
+
+.. code-block:: bash
+
+   $ pytest --reruns 3 --rerun-exclude-path docs
+
+The option may be passed multiple times to exclude multiple paths.
 
 Re-run individual failures
 --------------------------
@@ -391,6 +404,25 @@ Changelog
 .. the changes directory, see changes/README.rst for details.
 
 .. towncrier release notes start
+
+16.6 (2026-08-17)
+-----------------
+
+Features
+++++++++
+
+- Add a repeatable ``--rerun-exclude-path`` option to exclude test files or
+  directories from reruns. (`#232
+  <https://github.com/pytest-dev/pytest-rerunfailures/issues/232>`_)
+
+
+Bug Fixes
++++++++++
+
+- Fix a regression in version 16.5 which made ``--pdb`` unusable even when no
+  reruns were configured. (`#342
+  <https://github.com/pytest-dev/pytest-rerunfailures/issues/342>`_)
+
 
 16.5 (2026-08-13)
 -----------------

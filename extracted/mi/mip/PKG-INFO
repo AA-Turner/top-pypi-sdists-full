@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: mip
-Version: 1.17.6
+Version: 2.0.0
 Summary: Python tools for Modeling and Solving Mixed-Integer Linear Programs (MIPs)
 Author-email: "Tulio A.M. Toffolo" <tulio@toffolo.com.br>, "Haroldo G. Santos" <haroldo.santos@gmail.com>
 License: Eclipse Public License - v 2.0
@@ -293,6 +293,7 @@ Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
+Classifier: Programming Language :: Python :: 3.14
 Classifier: Programming Language :: Python :: Implementation :: CPython
 Classifier: Programming Language :: Python :: Implementation :: PyPy
 Classifier: Topic :: Scientific/Engineering :: Mathematics
@@ -300,13 +301,14 @@ Requires-Python: >=3.10
 Description-Content-Type: text/markdown
 License-File: LICENSE
 Requires-Dist: cffi>=1.15
-Requires-Dist: cbcbox>=2.929
+Requires-Dist: cbcbox>=2.935
 Provides-Extra: numpy
 Requires-Dist: numpy<3,>=1.25; extra == "numpy"
 Provides-Extra: gurobi
 Requires-Dist: gurobipy>=10; extra == "gurobi"
 Provides-Extra: highs
-Requires-Dist: highsbox>=1.10.0; extra == "highs"
+Requires-Dist: highspy>=1.9.0; extra == "highs"
+Requires-Dist: highsbox>=1.9.0; sys_platform == "win32" and extra == "highs"
 Provides-Extra: test
 Requires-Dist: pytest<9,>=7.4; extra == "test"
 Requires-Dist: networkx<4,>=2.8.8; extra == "test"

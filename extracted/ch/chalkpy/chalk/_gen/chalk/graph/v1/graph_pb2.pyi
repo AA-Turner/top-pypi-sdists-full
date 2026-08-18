@@ -939,6 +939,8 @@ class WindowAggregation(_message.Message):
         "cache_aggregated_values",
         "aggregate_on_expressions",
         "allow_filter_migration",
+        "fold_step",
+        "fold_initial_value",
     )
     NAMESPACE_FIELD_NUMBER: _ClassVar[int]
     GROUP_BY_FIELD_NUMBER: _ClassVar[int]
@@ -960,6 +962,8 @@ class WindowAggregation(_message.Message):
     CACHE_AGGREGATED_VALUES_FIELD_NUMBER: _ClassVar[int]
     AGGREGATE_ON_EXPRESSIONS_FIELD_NUMBER: _ClassVar[int]
     ALLOW_FILTER_MIGRATION_FIELD_NUMBER: _ClassVar[int]
+    FOLD_STEP_FIELD_NUMBER: _ClassVar[int]
+    FOLD_INITIAL_VALUE_FIELD_NUMBER: _ClassVar[int]
     namespace: str
     group_by: _containers.RepeatedCompositeFieldContainer[FeatureReference]
     bucket_duration: _duration_pb2.Duration
@@ -980,6 +984,8 @@ class WindowAggregation(_message.Message):
     cache_aggregated_values: bool
     aggregate_on_expressions: _containers.RepeatedCompositeFieldContainer[_expression_pb2.LogicalExprNode]
     allow_filter_migration: bool
+    fold_step: _expression_pb2.LogicalExprNode
+    fold_initial_value: _expression_pb2.LogicalExprNode
     def __init__(
         self,
         namespace: _Optional[str] = ...,
@@ -1002,6 +1008,8 @@ class WindowAggregation(_message.Message):
         cache_aggregated_values: bool = ...,
         aggregate_on_expressions: _Optional[_Iterable[_Union[_expression_pb2.LogicalExprNode, _Mapping]]] = ...,
         allow_filter_migration: bool = ...,
+        fold_step: _Optional[_Union[_expression_pb2.LogicalExprNode, _Mapping]] = ...,
+        fold_initial_value: _Optional[_Union[_expression_pb2.LogicalExprNode, _Mapping]] = ...,
     ) -> None: ...
 
 class BackfillTagSet(_message.Message):

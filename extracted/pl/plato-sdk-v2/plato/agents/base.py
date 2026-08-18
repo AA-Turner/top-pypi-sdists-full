@@ -16,6 +16,10 @@ from plato.agents.browser_tooling import (
     AGENT_BROWSER_INSTRUCTIONS,
     AGENT_BROWSER_PATH_EXPORT,
 )
+from plato.agents.computer_use_mcp import (
+    COMPUTER_USE_MCP_INSTRUCTIONS,
+    ComputerUseMcp,
+)
 from plato.agents.config import AgentConfig
 from plato.agents.schema import get_agent_schema
 from plato.runtimes.config import RuntimeConfig
@@ -158,6 +162,30 @@ class BaseAgent(ABC, Generic[ConfigT]):
         if not prompt:
             return AGENT_BROWSER_INSTRUCTIONS
         return f"{prompt}\n\n{AGENT_BROWSER_INSTRUCTIONS}"
+
+    def _append_computer_use_mcp_prompt(self, prompt: str | None) -> str | None:
+        """Append the computer-use MCP block to a system prompt when opted in.
+
+        Returns ``prompt`` unchanged when ``config.computer_use_mcp_enabled``
+        is False. When True, appends the shared block so the model knows the
+        ``computer`` MCP server drives a separate remote Ubuntu desktop VM.
+        """
+        if not self.config.computer_use_mcp_enabled:
+            return prompt
+        if not prompt:
+            return COMPUTER_USE_MCP_INSTRUCTIONS
+        return f"{prompt}\n\n{COMPUTER_USE_MCP_INSTRUCTIONS}"
+
+    async def _start_computer_use_mcp(self):
+        """Boot the local computer-use MCP server when opted in.
+
+        Returns a started ``ComputerUseMcp`` handle (close it in the agent's
+        teardown path), or None when ``computer_use_mcp_enabled`` is off.
+        """
+        handle = ComputerUseMcp.from_config(self.config, logger=self.logger)
+        if handle is not None:
+            await handle.start()
+        return handle
 
     @classmethod
     def reset_commands(cls, workspace_paths: list[str]) -> list[str]:

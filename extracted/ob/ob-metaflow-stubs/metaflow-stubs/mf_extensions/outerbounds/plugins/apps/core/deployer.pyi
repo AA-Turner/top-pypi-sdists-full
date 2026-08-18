@@ -1,7 +1,7 @@
 ######################################################################################################
 #                                 Auto-generated Metaflow stub file                                  #
 # MF version: 2.19.34.1+obcheckpoint(0.2.10);<unk>(<unk>);ob(v1)                                     #
-# Generated on 2026-08-14T20:17:07.928495                                                            #
+# Generated on 2026-08-17T19:44:19.528045                                                            #
 ######################################################################################################
 
 from __future__ import annotations
@@ -9,12 +9,12 @@ from __future__ import annotations
 import typing
 import metaflow
 if typing.TYPE_CHECKING:
-    import metaflow.mf_extensions.outerbounds.plugins.apps.core.config.typed_configs
-    import metaflow.mf_extensions.outerbounds.plugins.apps.core.deployer
     import typing
-    import datetime
     import metaflow.mf_extensions.outerbounds.plugins.apps.core.app_config
+    import metaflow.mf_extensions.outerbounds.plugins.apps.core.config.typed_configs
     import metaflow.mf_extensions.outerbounds.plugins.apps.core._state_machine
+    import metaflow.mf_extensions.outerbounds.plugins.apps.core.deployer
+    import datetime
     import metaflow.mf_extensions.outerbounds.plugins.apps.core.config.unified_config
 
 from .config.typed_configs import TypedCoreConfig as TypedCoreConfig
@@ -329,6 +329,9 @@ class AppDeployer(metaflow.mf_extensions.outerbounds.plugins.apps.core.config.ty
             - service_url (str)
                 The address of a service that already exists, e.g. `my-svc.my-ns.svc.cluster.local:8080`. The scheme is optional and defaults to http, a port must be included if the target isn't on the scheme's default port, and a path may be appended to rewrite requests into a subpath of the target. The address is not checked at deploy time: if it doesn't resolve, the proxy crashloops until it does.
     
+    url_slug : str, optional
+        Names the app's URL instead of having one generated for it: `api-<url_slug>.<your platform domain>`, or `ui-<url_slug>` for an app with browser-only auth. Cannot be combined with `generate_static_url`, which is the other way of deciding the same URL. A slug belongs to a single app across the whole platform deployment, and cannot be changed once an app has one.
+    
     persistence : str, optional
         The persistence mode to deploy the app with.
         [Experimental] May change in the future.
@@ -346,7 +349,7 @@ class AppDeployer(metaflow.mf_extensions.outerbounds.plugins.apps.core.config.ty
         [Experimental] May change in the future.
     
     generate_static_url : bool, optional
-        Generate a static URL for the app based on its name.
+        Generate a static URL for the app based on its name. Cannot be combined with `url_slug`, which names the URL instead.
     
     Examples
     --------
@@ -385,6 +388,21 @@ class AppDeployer(metaflow.mf_extensions.outerbounds.plugins.apps.core.config.ty
         code_package=pkg,
         commands=["python api.py"],
         auth={"type": "API"},
+    )
+    deployed = deployer.deploy()
+    ```
+    
+    Naming the app's URL instead of having one generated for it:
+    
+    ```python
+    deployer = AppDeployer(
+        name="my-api",
+        port=8000,
+        image=baked.image,
+        code_package=pkg,
+        commands=["python api.py"],
+        auth={"type": "API"},
+        url_slug="my-api",  # served at api-my-api.<your platform domain>
     )
     deployed = deployer.deploy()
     ```
@@ -443,7 +461,7 @@ class AppDeployer(metaflow.mf_extensions.outerbounds.plugins.apps.core.config.ty
     deployed.delete()
     ```
     """
-    def __init__(self, name: typing.Union[str, None] = None, port: typing.Union[int, None] = None, description: typing.Union[str, None] = None, app_type: typing.Union[str, None] = None, image: typing.Union[str, None] = None, tags: typing.Union[list, None] = None, secrets: typing.Union[list, None] = None, compute_pools: typing.Union[list, None] = None, environment: typing.Union[dict, None] = None, commands: typing.Union[list, None] = None, resources: typing.Union[metaflow.mf_extensions.outerbounds.plugins.apps.core.config.typed_configs.ResourceConfigDict, None] = None, auth: typing.Union[metaflow.mf_extensions.outerbounds.plugins.apps.core.config.typed_configs.AuthConfigDict, None] = None, replicas: typing.Union[metaflow.mf_extensions.outerbounds.plugins.apps.core.config.typed_configs.ReplicaConfigDict, None] = None, code_package: typing.Union[tuple, None] = None, force_upgrade: typing.Union[bool, None] = None, use_base_image_command: typing.Union[bool, None] = None, skip_code_package: typing.Union[bool, None] = None, capsule_type: typing.Union[str, None] = None, proxy: typing.Union[metaflow.mf_extensions.outerbounds.plugins.apps.core.config.typed_configs.ProxyConfigDict, None] = None, persistence: typing.Union[str, None] = None, project: typing.Union[str, None] = None, branch: typing.Union[str, None] = None, models: typing.Union[list, None] = None, data: typing.Union[list, None] = None, generate_static_url: typing.Union[bool, None] = None, **kwargs):
+    def __init__(self, name: typing.Union[str, None] = None, port: typing.Union[int, None] = None, description: typing.Union[str, None] = None, app_type: typing.Union[str, None] = None, image: typing.Union[str, None] = None, tags: typing.Union[list, None] = None, secrets: typing.Union[list, None] = None, compute_pools: typing.Union[list, None] = None, environment: typing.Union[dict, None] = None, commands: typing.Union[list, None] = None, resources: typing.Union[metaflow.mf_extensions.outerbounds.plugins.apps.core.config.typed_configs.ResourceConfigDict, None] = None, auth: typing.Union[metaflow.mf_extensions.outerbounds.plugins.apps.core.config.typed_configs.AuthConfigDict, None] = None, replicas: typing.Union[metaflow.mf_extensions.outerbounds.plugins.apps.core.config.typed_configs.ReplicaConfigDict, None] = None, code_package: typing.Union[tuple, None] = None, force_upgrade: typing.Union[bool, None] = None, use_base_image_command: typing.Union[bool, None] = None, skip_code_package: typing.Union[bool, None] = None, capsule_type: typing.Union[str, None] = None, proxy: typing.Union[metaflow.mf_extensions.outerbounds.plugins.apps.core.config.typed_configs.ProxyConfigDict, None] = None, url_slug: typing.Union[str, None] = None, persistence: typing.Union[str, None] = None, project: typing.Union[str, None] = None, branch: typing.Union[str, None] = None, models: typing.Union[list, None] = None, data: typing.Union[list, None] = None, generate_static_url: typing.Union[bool, None] = None, **kwargs):
         ...
     @property
     def _deploy_config(self) -> metaflow.mf_extensions.outerbounds.plugins.apps.core.app_config.AppConfig:

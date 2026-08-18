@@ -41,6 +41,10 @@ from temporalio import activity as temporal_activity  # type: ignore[reportMissi
 
 from mistralai.vibe.sdk.agent.execution.compaction import COMPACTION_STREAM_NAME
 from mistralai.vibe.sdk.agent.execution.loop import EffectExecutor, EffectRegistry
+from mistralai.vibe.sdk.agent.execution.resources import (
+    ResourcesScope,
+    bind_execution_scope,
+)
 from mistralai.vibe.sdk.agent.execution.sub_task import (
     CallbackResultReceived,
     CallCallback,
@@ -163,13 +167,19 @@ def _make_activity(
 
             # Periodic heartbeat so Temporal knows the activity is alive
             heartbeat_task = asyncio.create_task(_heartbeat_loop())
+            scope = ResourcesScope()
             try:
-                result: list[Any] = await handler_fn(effect_data, sink)
+                with bind_execution_scope(scope):
+                    result: list[Any] = await handler_fn(effect_data, sink)
             except Exception:
                 logger.exception("activity.failed")
                 raise
             finally:
                 heartbeat_task.cancel()
+                try:
+                    await scope.aclose()
+                except Exception:
+                    logger.exception("activity.scope_finalize_failed")
             logger.debug("activity.done", action_count=len(result))
             return result_model(actions=result)
 
@@ -238,18 +248,26 @@ async def resolve_callback_impl(input: _CallbackImplInput) -> _CallbackImplOutpu
             input=input.request_input,
             output=PendingOutput(),
         )
-        channel = await task.run(state)
-        async for msg in channel:
-            if isinstance(msg, TaskStateUpdateEvent):
-                state = apply_patches(state, msg.payload.patches)
-            elif isinstance(msg, TaskResultEvent):
-                state = msg.payload.result
-            elif isinstance(msg, CallbackCallEvent):
-                logger.warning(
-                    "callback_impl.nested_callback_dropped",
-                    callback_name=msg.payload.name,
-                    callback_id=msg.payload.id,
-                )
+        scope = ResourcesScope()
+        try:
+            with bind_execution_scope(scope):
+                channel = await task.run(state)
+                async for msg in channel:
+                    if isinstance(msg, TaskStateUpdateEvent):
+                        state = apply_patches(state, msg.payload.patches)
+                    elif isinstance(msg, TaskResultEvent):
+                        state = msg.payload.result
+                    elif isinstance(msg, CallbackCallEvent):
+                        logger.warning(
+                            "callback_impl.nested_callback_dropped",
+                            callback_name=msg.payload.name,
+                            callback_id=msg.payload.id,
+                        )
+        finally:
+            try:
+                await scope.aclose()
+            except Exception:
+                logger.exception("callback_impl.scope_finalize_failed")
         logger.info("callback_impl.done")
         return _CallbackImplOutput(state=state.model_dump())
 

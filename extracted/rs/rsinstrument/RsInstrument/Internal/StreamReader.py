@@ -4,8 +4,8 @@ from enum import Enum
 from os import path
 from typing import AnyStr
 
-from .Utilities import size_to_kb_mb_string
 from .InstrumentErrors import RsInstrException
+from .Utilities import size_to_kb_mb_string
 
 
 class Type(Enum):

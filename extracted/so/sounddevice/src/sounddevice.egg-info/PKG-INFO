@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: sounddevice
-Version: 0.5.5
+Version: 0.5.6
 Summary: Play and Record Sound with Python
 Author-email: Matthias Geier <Matthias.Geier@gmail.com>
 License-Expression: MIT

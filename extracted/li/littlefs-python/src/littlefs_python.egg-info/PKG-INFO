@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: littlefs-python
-Version: 0.18.0
+Version: 0.19.0
 Summary: A python wrapper for littlefs
 Home-page: https://github.com/jrast/littlefs-python
 Author: Jürg Rast

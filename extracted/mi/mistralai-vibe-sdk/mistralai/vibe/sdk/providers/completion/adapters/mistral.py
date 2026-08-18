@@ -15,6 +15,7 @@ from mistralai.vibe.sdk.observability.otel.instrumentation import (
     configure_mistral_client_telemetry,
 )
 from mistralai.vibe.sdk.providers.completion import utils
+from mistralai.vibe.sdk.providers.completion.messages import Message
 from mistralai.vibe.sdk.providers.completion.port import CompletionModel
 from mistralai.vibe.sdk.providers.completion.types import (
     CompletionChunk,
@@ -31,6 +32,21 @@ _MISTRAL_USAGE_NESTED_ALIASES = {
     "cached_tokens": ("prompt_tokens_details", "cached_tokens"),
     "reasoning_tokens": ("completion_tokens_details", "reasoning_tokens"),
 }
+
+
+def _dump_messages_for_mistral(messages: list[Message]) -> list[dict[str, Any]]:
+    dumped = [message.model_dump(exclude_none=True) for message in messages]
+    for message in dumped:
+        content = message.get("content")
+        if not isinstance(content, list):
+            continue
+        for part in content:
+            if not isinstance(part, dict) or part.get("type") != "image_url":
+                continue
+            image_url = part.get("image_url")
+            if isinstance(image_url, dict) and isinstance(image_url.get("url"), str):
+                part["image_url"] = image_url["url"]
+    return dumped
 
 
 def _get_mistral_status_code(exc: BaseException) -> int | None:
@@ -120,8 +136,12 @@ class MistralCompletion(CompletionModel):
         self._prompt_cache_key = prompt_cache_key
         self._server_url = server_url
         self._client: Mistral | None = None
-        self.model = model
+        self._model = model
         self.reasoning_effort = reasoning_effort
+
+    @property
+    def model(self) -> str:
+        return self._model
 
     @property
     def client(self) -> "Mistral":
@@ -201,7 +221,7 @@ class MistralCompletion(CompletionModel):
 
     async def complete(self, request: CompletionRequest) -> AsyncIterator[CompletionChunk]:
         """Stream the completion using Mistral API."""
-        messages = [msg.model_dump(exclude_none=True) for msg in request.messages]
+        messages = _dump_messages_for_mistral(request.messages)
         tools = [tool.model_dump() for tool in request.tools] if request.tools else None
 
         logger.debug("mistral_stream_start", model=self.model, n_messages=len(messages))

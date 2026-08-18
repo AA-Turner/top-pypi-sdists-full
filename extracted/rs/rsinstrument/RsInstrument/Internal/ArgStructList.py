@@ -2,8 +2,8 @@
 
 from .ArgStringComposer import StructComposer, compose_cmd_string_from_struct_args
 from .ArgStructStringParser import ArgStructStringParser
-from .StructBase import StructBase
 from .InstrumentErrors import RsInstrException
+from .StructBase import StructBase
 
 
 class ArgStructList(object):
@@ -72,8 +72,7 @@ class ArgStructList(object):
 							f'is not dividable by the summary Period {period} of all the open list arguments:\n' + '\n'.join(['{}'.format(x) for x in open_list_args]))
 					# Go through the arguments and accumulate the list content
 					offset = 0
-					for x in open_list_args:
-						arg = open_list_args[x]
+					for arg in open_list_args.values():
 						parser.to_list_value(arg, False, offset, arg.repetition, period, -1)
 						offset += arg.repetition
 

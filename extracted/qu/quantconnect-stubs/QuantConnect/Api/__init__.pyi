@@ -1490,6 +1490,15 @@ class Backtest(QuantConnect.Api.BasicBacktest):
         ...
 
     @property
+    def server_statistics(self) -> System.Collections.Generic.IDictionary[str, str]:
+        """Server status information, including CPU/RAM usage, ect..."""
+        ...
+
+    @server_statistics.setter
+    def server_statistics(self, value: System.Collections.Generic.IDictionary[str, str]) -> None:
+        ...
+
+    @property
     def research_guide(self) -> QuantConnect.Api.ResearchGuide:
         """A power gauge for backtests, time and parameters to estimate the overfitting risk"""
         ...

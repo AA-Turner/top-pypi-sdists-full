@@ -10,10 +10,13 @@ from typing import Any, Iterator
 try:
     # noinspection PyUnusedImports
     from opentelemetry import metrics as otel_metrics
+
     # noinspection PyUnusedImports
     from opentelemetry import trace as otel_trace
+
     # noinspection PyUnusedImports
     from opentelemetry.metrics import Meter
+
     # noinspection PyUnusedImports
     from opentelemetry.trace import SpanKind, StatusCode
 
@@ -171,7 +174,7 @@ class ScpiInstrumentor:
                     self._latency_histogram.record(
                         elapsed,
                         attributes={
-                            "command": command.split()[0] if command else "",
+                            "command": command.split(maxsplit=1)[0] if command else "",
                             "direction": direction,
                             "firmware_version": firmware_version,
                             "instrument.model": instrument_model,

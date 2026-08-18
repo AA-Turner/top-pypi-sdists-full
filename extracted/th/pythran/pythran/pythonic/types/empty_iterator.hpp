@@ -7,15 +7,6 @@ PYTHONIC_NS_BEGIN
 
 namespace types
 {
-
-  empty_iterator::empty_iterator()
-  {
-  }
-
-  empty_iterator::empty_iterator(empty_iterator const &)
-  {
-  }
-
   inline bool empty_iterator::operator==(empty_iterator const &) const
   {
     return true;
@@ -41,14 +32,13 @@ namespace types
     return *this;
   }
 
-  inline double empty_iterator::operator*() const
+  inline typename empty_iterator::value_type empty_iterator::operator*() const
   {
     return {};
   }
 
   inline void empty_iterator::operator->() const
   {
-    return;
   }
 } // namespace types
 PYTHONIC_NS_END

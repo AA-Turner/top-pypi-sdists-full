@@ -3,41 +3,33 @@ from dataclasses import dataclass, field
 from typing import Literal
 
 import structlog
-from pydantic import BaseModel, ValidationError
+from pydantic import BaseModel
 
 from mistralai.vibe.sdk.agent.tasks.agent_task import AgentTaskConfig
+from mistralai.vibe.sdk.agent.telemetry_events import (
+    EVENT_CONTEXT_KEYS,
+    NEW_SESSION_EVENT,
+    TOOL_CALL_FINISHED_EVENT,
+)
 from mistralai.vibe.sdk.capabilities.adapters.local_function import ToolTaskConfig
 from mistralai.vibe.sdk.capabilities.file_tool_telemetry import builtin_file_metrics
 from mistralai.vibe.sdk.execution_record.state import (
     CompletedOutput,
     HistoryEntry,
-    MessageEntry,
     TaskCallEntry,
     TaskResultEntry,
     TaskState,
 )
-from mistralai.vibe.sdk.observability import COMMON_CONTEXT_KEYS, attributes_from_context
-from mistralai.vibe.sdk.observability.datalake import atrack, track
-from mistralai.vibe.sdk.observability.request_metadata import DEFAULT_CALL_SOURCE
-from mistralai.vibe.sdk.providers.completion.types import COMPLETION_USAGE_ANNOTATION
-from mistralai.vibe.sdk.providers.completion.usage import TokenUsage
+from mistralai.vibe.sdk.observability import attributes_from_context
+from mistralai.vibe.sdk.observability.datalake import ERROR_EVENT, atrack, track
 from mistralai.vibe.sdk.transports.events import CallbackResultEvent, UpstreamMessage
 
 logger = structlog.get_logger()
-ERROR_EVENT = "session.telemetry.emit_failed"
 
 RunMode = Literal["stream", "completion"]
 ToolCallStatus = Literal["success", "failure", "skipped", "running"]
 ToolCompletionSource = Literal["client_tool_callback", "builtin_tool", "custom_tool"]
 
-NEW_SESSION_EVENT = "vibe.new_session"
-REQUEST_SENT_EVENT = "vibe.request_sent"
-TOOL_CALL_FINISHED_EVENT = "vibe.tool_call_finished"
-EVENT_CONTEXT_KEYS: dict[str, tuple[str, ...]] = {
-    NEW_SESSION_EVENT: (*COMMON_CONTEXT_KEYS, "nb_skills", "nb_mcp_servers"),
-    REQUEST_SENT_EVENT: (*COMMON_CONTEXT_KEYS, "run_mode", "task_id"),
-    TOOL_CALL_FINISHED_EVENT: COMMON_CONTEXT_KEYS,
-}
 TOOL_STATUS_TELEMETRY_MAP: dict[str, ToolCallStatus] = {
     "completed": "success",
     "failed": "failure",
@@ -104,28 +96,6 @@ def emit_session_created() -> None:
     track(
         NEW_SESSION_EVENT,
         properties=attributes_from_context(*EVENT_CONTEXT_KEYS[NEW_SESSION_EVENT]),
-    )
-
-
-async def emit_run_started(*, prior_history: list[HistoryEntry]) -> None:
-    usage = _latest_usage(prior_history)
-    context = attributes_from_context(*EVENT_CONTEXT_KEYS[REQUEST_SENT_EVENT])
-    task_id = context.pop("task_id", None)
-    call_source = context.get("call_source", DEFAULT_CALL_SOURCE)
-    await atrack(
-        REQUEST_SENT_EVENT,
-        properties={
-            **context,
-            "nb_context_tokens": usage.context_tokens if usage is not None else None,
-            "nb_input_tokens": usage.input_tokens if usage is not None else None,
-            "nb_output_tokens": usage.output_tokens if usage is not None else None,
-            "nb_context_messages": sum(
-                1 for entry in prior_history if isinstance(entry, MessageEntry)
-            ),
-            "call_source": call_source,
-            "call_type": "main_call",
-            "message_id": task_id,
-        },
     )
 
 
@@ -249,17 +219,3 @@ def _tool_calls_from_history(
 
         tool_calls[entry.payload.id] = (entry, child_task_config)
     return tool_calls
-
-
-def _latest_usage(history: list[HistoryEntry]) -> TokenUsage | None:
-    for entry in reversed(history):
-        if not isinstance(entry, MessageEntry) or entry.payload.role != "assistant":
-            continue
-        usage_dict = (entry.annotations or {}).get(COMPLETION_USAGE_ANNOTATION)
-        if not isinstance(usage_dict, dict):
-            continue
-        try:
-            return TokenUsage.model_validate(usage_dict)
-        except ValidationError:
-            return None
-    return None

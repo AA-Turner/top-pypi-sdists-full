@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: RsInstrument
-Version: 1.126.0
+Version: 1.131.0
 Summary: VISA or Socket Communication Module for Rohde & Schwarz Instruments
 Author: Rohde & Schwarz GmbH & Co. KG
 Maintainer: Rohde & Schwarz GmbH & Co. KG
@@ -23,11 +23,21 @@ Description-Content-Type: text/x-rst
 License-File: LICENSE
 Requires-Dist: pyvisa>=1.13.0
 Requires-Dist: typing-extensions>=4.0.0
+Requires-Dist: defusedxml>=0.7.1
+Provides-Extra: discovery
+Requires-Dist: zeroconf; extra == "discovery"
 Provides-Extra: mcp
 Requires-Dist: fastmcp>=2.14.0; extra == "mcp"
+Requires-Dist: zeroconf; extra == "mcp"
+Requires-Dist: pydantic>=2.0; extra == "mcp"
 Provides-Extra: otel
 Requires-Dist: opentelemetry-api>=1.20.0; extra == "otel"
 Requires-Dist: opentelemetry-sdk>=1.20.0; extra == "otel"
+Provides-Extra: test
+Requires-Dist: pytest>=8.0; extra == "test"
+Requires-Dist: pytest-cov>=5.0; extra == "test"
+Requires-Dist: pytest-timeout>=2.3.1; extra == "test"
+Requires-Dist: pyvisa-py>=0.7.0; extra == "test"
 Provides-Extra: dev
 Requires-Dist: pytest>=8.0; extra == "dev"
 Requires-Dist: pytest-cov>=5.0; extra == "dev"
@@ -40,6 +50,8 @@ Requires-Dist: ruff>=0.9.0; extra == "dev-mcp-otel"
 Requires-Dist: ty>=0.0.1; extra == "dev-mcp-otel"
 Requires-Dist: pyvisa-py>=0.7.0; extra == "dev-mcp-otel"
 Requires-Dist: fastmcp>=2.14.0; extra == "dev-mcp-otel"
+Requires-Dist: zeroconf; extra == "dev-mcp-otel"
+Requires-Dist: pydantic>=2.0; extra == "dev-mcp-otel"
 Requires-Dist: opentelemetry-api>=1.20.0; extra == "dev-mcp-otel"
 Requires-Dist: opentelemetry-sdk>=1.20.0; extra == "dev-mcp-otel"
 Dynamic: license-file
@@ -88,6 +100,27 @@ If you're looking for examples with specific instruments, check out the ones for
 
 Version history:
 ----------------
+
+    Version 1.131.0.128 (13.08.2026)
+        - Added selective status-error suppression. You can now configure rules to suppress known, non-critical instrument errors. New ``RsInstrument`` methods:
+
+            - ``status_error_suppression_add_rule()`` / ``_add_rules()`` - adds rule(s) matching by error code, message regex, or both.
+            - ``status_error_suppression_remove_rule()`` - remove a previously added rule.
+            - ``status_error_suppression_get_rules()`` - return the currently active rules.
+            - ``status_error_suppression_clear_all_rules()`` - remove all rules.
+        - Suppressed errors are also filtered out of ``query_all_errors()`` and ``query_all_errors_with_codes()``.
+        - See the User Manual: `Selective Status-Error Suppression <https://rsinstrument.readthedocs.io/en/latest/Chapter_07_ErrorChecking.html#selectivestatuserrorsuppression>`_
+
+        - Added ``execute()`` method to send uniquely writes, queries, with or without opc sync. See the User Manual: `Universal I/O Execution <https://rsinstrument.readthedocs.io/en/latest/StepByStepGuide.html#universal-i-o-execution>`_
+
+        - Added pull-based instrument discovery with immutable snapshots, optional parallel ``*IDN?``, TTL cache (in-memory or file), and optional LXI/DNS/mDNS enrichment.
+          See the User Manual: `Finding available instruments <https://rsinstrument.readthedocs.io/en/latest/StepByStepGuide.html#finding-available-instruments>`_
+        - MCP server: modular ``RsInstrument.mcp`` package with loadable SCPI write policy (JSON overlay by ``rule_id``), FastMCP elicitation / ``confirm=true``, and expanded confirmation rules.
+        - MCP built-in tools: ``Instrument-Discovery``, ``Instrument-Batch-SCPI`` (OPC for ``*RST``/``*RCL``, drained ``<error-queue>``), model-aware screenshots, ``Instrument-Enable-User-Interaction``, ``Instrument-Save-Recall``, sandboxed ``Instrument-File``, and improved ``Instrument-SCPI-Exists`` matching.
+        - MCP assembly API: ``BuiltinToolSettings`` / ``ToolSpec`` / ``add_builtin_tools`` /
+          ``create_builtin_tool_specs`` / ``merge_tool_specs``; CLI ``--write-rules``,
+          ``--file-root``, ``--instrument-file-root``.
+          See the User Manual: `MCP Server <https://rsinstrument.readthedocs.io/en/latest/StepByStepGuide.html#mcp>`_
 
     Version 1.126.0.125 (21.07.2026)
         - Fixed compatibility issue with Python 3.10 and 3.11

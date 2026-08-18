@@ -2,7 +2,6 @@ import enum
 import importlib.util
 import json
 import logging
-import os
 import re
 import shutil
 import sys
@@ -574,24 +573,6 @@ def run_ruff(
     return stdout.decode()
 
 
-def strip_virtual_documents_path(
-    document_path: str, virtual_documents_dir: Optional[str]
-) -> str:
-    """Strip the virtual documents path from the current document path.
-    Returns the unchanged document_path if virtual_documents_dir is not in the path.
-    """
-    if not virtual_documents_dir:
-        return document_path
-
-    virt_parts = PurePath(virtual_documents_dir).parts
-    parts = PurePath(document_path).parts
-    n = len(virt_parts)
-    for i in range(len(parts) - n + 1):
-        if parts[i : i + n] == virt_parts:
-            return str(PurePath(*parts[:i], *parts[i + n :]))
-    return document_path
-
-
 def build_check_arguments(
     document_path: str,
     settings: PluginSettings,
@@ -633,9 +614,7 @@ def build_check_arguments(
     args.append("--force-exclude")
     # Pass filename to ruff for per-file-ignores, catch unsaved
     if document_path != "":
-        args.append(
-            f"--stdin-filename={strip_virtual_documents_path(document_path, settings.virtual_documents_dir)}"
-        )
+        args.append(f"--stdin-filename={document_path}")
 
     if settings.config:
         args.append(f"--config={settings.config}")
@@ -713,9 +692,7 @@ def build_format_arguments(
     args.append("--force-exclude")
     # Pass filename to ruff for per-file-ignores, catch unsaved
     if document_path != "":
-        args.append(
-            f"--stdin-filename={strip_virtual_documents_path(document_path, settings.virtual_documents_dir)}"
-        )
+        args.append(f"--stdin-filename={document_path}")
 
     if settings.config:
         args.append(f"--config={settings.config}")
@@ -777,11 +754,6 @@ def load_settings(workspace: Workspace, document_path: str) -> PluginSettings:
         workspace.root_path, document_path, ["ruff.toml", ".ruff.toml"]
     )
 
-    if not plugin_settings.virtual_documents_dir:
-        plugin_settings.virtual_documents_dir = os.getenv(
-            "JP_LSP_VIRTUAL_DIR", ".virtual_documents"
-        )
-
     # Check if pyproject is present, ignore user settings if toml exists
     if config_in_pyproject or ruff_toml:
         log.debug("Found existing configuration for ruff, skipping pylsp config.")
@@ -796,7 +768,6 @@ def load_settings(workspace: Workspace, document_path: str) -> PluginSettings:
             format=plugin_settings.format,
             severities=plugin_settings.severities,
             unfixable=plugin_settings.unfixable,
-            virtual_documents_dir=plugin_settings.virtual_documents_dir,
         )
 
     return plugin_settings

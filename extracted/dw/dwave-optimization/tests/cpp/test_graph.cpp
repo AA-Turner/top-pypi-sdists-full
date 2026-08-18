@@ -1,4 +1,4 @@
-// Copyright 2023 D-Wave Systems Inc.
+// Copyright 2023 D-Wave
 //
 //    Licensed under the Apache License, Version 2.0 (the "License");
 //    you may not use this file except in compliance with the License.
@@ -297,6 +297,32 @@ TEST_CASE("Graph::commit(), Graph::descendants(), Graph::propagate(), and Graph:
     }
 }
 
+TEST_CASE("Graph::clear_constraints()") {
+    auto graph = Graph();
+
+    ArrayNode* x_ptr = graph.emplace_node<BinaryNode>();
+    ArrayNode* y_ptr = graph.emplace_node<IntegerNode>();
+    ArrayNode* z_ptr = graph.emplace_node<LogicalNode>(y_ptr);
+
+    graph.add_constraint(x_ptr);
+    graph.add_constraint(z_ptr);
+
+    CHECK_THAT(graph.constraints(), RangeEquals({x_ptr, z_ptr}));
+    // we have not topologically sorted yet
+    CHECK(graph.nodes()[0].get() == x_ptr);
+    CHECK(graph.nodes()[1].get() == y_ptr);
+    CHECK(graph.nodes()[2].get() == z_ptr);
+
+    graph.clear_constraints();
+
+    CHECK(graph.constraints().size() == 0);
+    CHECK(graph.num_constraints() == 0);
+    // the nodes are still there
+    CHECK(graph.nodes()[0].get() == x_ptr);
+    CHECK(graph.nodes()[1].get() == y_ptr);
+    CHECK(graph.nodes()[2].get() == z_ptr);
+}
+
 TEST_CASE("Graph::objective()") {
     GIVEN("A graph") {
         auto graph = Graph();
@@ -315,6 +341,55 @@ TEST_CASE("Graph::objective()") {
                 CHECK(static_cast<const Graph&>(graph).objective() == x_ptr);
             }
         }
+    }
+}
+
+TEST_CASE("Graph::pop_decision()") {
+    GIVEN("A graph with three decisions and an intermediate node") {
+        auto graph = Graph();
+
+        auto* x_ptr = graph.emplace_node<BinaryNode>();
+        auto* y_ptr = graph.emplace_node<IntegerNode>();
+        graph.emplace_node<SetNode>(5);
+
+        auto* a_ptr = graph.emplace_node<AddNode>(x_ptr, y_ptr);
+
+        graph.pop_decision();
+
+        graph.topological_sort();
+
+        CHECK(graph.nodes()[0].get() == x_ptr);
+        CHECK(graph.nodes()[1].get() == y_ptr);
+        CHECK(graph.nodes()[2].get() == a_ptr);
+
+        CHECK(x_ptr->topological_index() == 0);
+        CHECK(y_ptr->topological_index() == 1);
+        CHECK(a_ptr->topological_index() == 2);
+    }
+
+    GIVEN("A graph with an intermediate node added before the last decision") {
+        auto graph = Graph();
+
+        auto* x_ptr = graph.emplace_node<BinaryNode>();
+        auto* y_ptr = graph.emplace_node<IntegerNode>();
+        auto* a_ptr = graph.emplace_node<AddNode>(x_ptr, y_ptr);
+        graph.emplace_node<SetNode>(5);
+
+        graph.pop_decision();
+
+        CHECK(graph.nodes()[0].get() == x_ptr);
+        CHECK(graph.nodes()[1].get() == y_ptr);
+        CHECK(graph.nodes()[2].get() == a_ptr);
+
+        graph.topological_sort();
+
+        CHECK(graph.nodes()[0].get() == x_ptr);
+        CHECK(graph.nodes()[1].get() == y_ptr);
+        CHECK(graph.nodes()[2].get() == a_ptr);
+
+        CHECK(x_ptr->topological_index() == 0);
+        CHECK(y_ptr->topological_index() == 1);
+        CHECK(a_ptr->topological_index() == 2);
     }
 }
 
@@ -444,7 +519,8 @@ TEST_CASE("Graph::remove_unused_nodes()") {
         }
 
         WHEN("We add two successors that are not used in a constraint") {
-            graph.emplace_node<LogicalNode>(graph.emplace_node<AbsoluteNode>(i_ptr));
+            auto* abs_ptr = graph.emplace_node<AbsoluteNode>(i_ptr);
+            auto* logical_ptr = graph.emplace_node<LogicalNode>(abs_ptr);
 
             THEN("remove_unused_nodes() removes them") {
                 ssize_t num_removed = graph.remove_unused_nodes();
@@ -452,6 +528,38 @@ TEST_CASE("Graph::remove_unused_nodes()") {
                 CHECK(graph.num_nodes() == 1);
                 CHECK(i_ptr->topological_index() == 0);
                 CHECK(i_ptr->successors().size() == 0);
+            }
+
+            THEN("remove_unused_nodes({logical_ptr}) keeps both") {
+                auto keep = std::vector<Node*>{logical_ptr};
+
+                WHEN("keep is given as an rvalue") {
+                    ssize_t num_removed = graph.remove_unused_nodes(std::move(keep));
+                    CHECK(num_removed == 0);
+                    CHECK(graph.num_nodes() == 3);
+                }
+
+                WHEN("keep is given as an lvalue") {
+                    ssize_t num_removed = graph.remove_unused_nodes(keep);
+                    CHECK(num_removed == 0);
+                    CHECK(graph.num_nodes() == 3);
+                }
+            }
+
+            THEN("remove_unused_nodes({abs_ptr}) keeps one") {
+                auto keep = std::vector<Node*>{abs_ptr};
+
+                WHEN("keep is given as an rvalue") {
+                    ssize_t num_removed = graph.remove_unused_nodes(std::move(keep));
+                    CHECK(num_removed == 1);
+                    CHECK(graph.num_nodes() == 2);
+                }
+
+                WHEN("keep is given as an lvalue") {
+                    ssize_t num_removed = graph.remove_unused_nodes(keep);
+                    CHECK(num_removed == 1);
+                    CHECK(graph.num_nodes() == 2);
+                }
             }
         }
 
@@ -498,6 +606,62 @@ TEST_CASE("Graph::remove_unused_nodes()") {
                 CHECK(!*d_expired);  // d wasn't removed because it has a listener
             }
         }
+    }
+}
+
+TEST_CASE("Graph::swap_decisions") {
+    GIVEN("A graph with three decisions") {
+        auto graph = Graph();
+
+        DecisionNode* x_ptr = graph.emplace_node<BinaryNode>();
+        DecisionNode* y_ptr = graph.emplace_node<IntegerNode>();
+        DecisionNode* z_ptr = graph.emplace_node<SetNode>(5);
+
+        CHECK_THAT(graph.decisions(), RangeEquals({x_ptr, y_ptr, z_ptr}));
+
+        CHECK(x_ptr->topological_index() == 0);
+        CHECK(y_ptr->topological_index() == 1);
+        CHECK(z_ptr->topological_index() == 2);
+
+        graph.swap_decisions(y_ptr, z_ptr);
+
+        CHECK_THAT(graph.decisions(), RangeEquals({x_ptr, z_ptr, y_ptr}));
+
+        CHECK(x_ptr->topological_index() == 0);
+        CHECK(y_ptr->topological_index() == 2);
+        CHECK(z_ptr->topological_index() == 1);
+
+        graph.topological_sort();
+
+        CHECK(graph.nodes()[0].get() == x_ptr);
+        CHECK(graph.nodes()[1].get() == z_ptr);
+        CHECK(graph.nodes()[2].get() == y_ptr);
+    }
+
+    GIVEN("A graph with an intermediate node added before the last decision") {
+        auto graph = Graph();
+
+        auto* x_ptr = graph.emplace_node<BinaryNode>();
+        auto* y_ptr = graph.emplace_node<IntegerNode>();
+        auto* a_ptr = graph.emplace_node<AddNode>(x_ptr, y_ptr);
+        auto* z_ptr = graph.emplace_node<SetNode>(5);
+
+        CHECK_THAT(graph.decisions(), RangeEquals(std::vector<Node*>{x_ptr, y_ptr, z_ptr}));
+
+        graph.swap_decisions(y_ptr, z_ptr);
+
+        CHECK_THAT(graph.decisions(), RangeEquals(std::vector<Node*>{x_ptr, z_ptr, y_ptr}));
+
+        CHECK(x_ptr->topological_index() == 0);
+        CHECK(y_ptr->topological_index() == 2);
+        CHECK(z_ptr->topological_index() == 1);
+
+        graph.topological_sort();
+
+        CHECK(graph.nodes()[0].get() == x_ptr);
+        CHECK(graph.nodes()[1].get() == z_ptr);
+        CHECK(graph.nodes()[2].get() == y_ptr);
+        CHECK(graph.nodes()[3].get() == a_ptr);
     }
 }
 

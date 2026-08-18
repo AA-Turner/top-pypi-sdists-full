@@ -1,6 +1,6 @@
 [project]
 name = "mistralai-vibe-sdk"
-version = "0.12.1"
+version = "0.13.2"
 description = "Vibe SDK"
 requires-python = ">=3.12"
 readme = "README.md"
@@ -81,8 +81,10 @@ venvPath = "."
 venv = ".venv"
 reportIncompatibleVariableOverride = false
 exclude = [
+    ".venv",
     "examples",
     "documentation/old_vibe_protocol",
+    "harness",
 ]
 
 [tool.mypy]

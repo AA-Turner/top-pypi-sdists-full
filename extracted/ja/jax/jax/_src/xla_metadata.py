@@ -13,6 +13,7 @@
 # limitations under the License.
 
 from collections.abc import Mapping
+import contextlib
 from functools import partial, wraps
 from typing import Any
 
@@ -20,7 +21,6 @@ from jax._src import config
 from jax._src import core
 from jax._src import dispatch
 from jax._src import flattree as ft
-from jax._src import linear_util as lu
 from jax._src import tree_util
 from jax._src import xla_metadata_lib
 from jax._src.api_util import debug_info
@@ -28,7 +28,7 @@ from jax._src.interpreters import ad, batching, mlir, partial_eval as pe
 from jax._src.lib import _jax
 from jax._src.lib.mlir import ir
 from jax._src.lib.mlir.dialects import func as func_dialect
-from jax._src.tree_util import tree_flatten, tree_unflatten
+from jax._src.tree_util import tree_flatten, tree_leaves, tree_unflatten
 from jax._src.util import (safe_map, safe_zip, weakref_lru_cache, unzip2,
                            split_list, subs_list)
 
@@ -94,6 +94,16 @@ class XlaMetadataContextManager:
 
   def __call__(self, f):
     return _XlaMetadataWrapper(f, self)
+
+
+@contextlib.contextmanager
+def clear_xla_metadata():
+  """Internal context manager to temporarily clear ambient XLA metadata."""
+  prev = config.xla_metadata_context_manager.swap_local(None)
+  try:
+    yield
+  finally:
+    config.xla_metadata_context_manager.set_local(prev)
 
 
 def set_xla_metadata(x=None, **kwargs):
@@ -265,7 +275,7 @@ def _canonicalize_ad_metadata(ad_metadata):
         "ad_metadata must be 'same', 'drop', or a dict of metadata, got "
         f"{ad_metadata!r}")
 
-# TODO(yashkatariya): Figure out a way to reuse code with compute_on2_p, fused_p
+# TODO(yashkatariya): Figure out a way to reuse code with compute_on_p, fused_p
 def _xla_metadata_call(fun, metadata, ad_metadata):
   if metadata is not None and not isinstance(metadata, Mapping):
     raise TypeError(f"metadata must be a dict, got {metadata!r}")
@@ -364,8 +374,19 @@ ad.primitive_jvps[xla_metadata_call_p] = _xla_metadata_call_jvp
 
 def _xla_metadata_call_lin(is_vjp, nzs, *primals, jaxpr, xla_metadata,
                            ad_metadata):
-  (primal_jaxpr, num_residuals_out, nzs_out, in_fwd_res,
-   tangent_jaxpr) = ad.linearize_jaxpr(jaxpr, nzs, is_vjp=is_vjp)
+  primal_jaxpr, out_tree, nzs_out, in_fwd_res, tangent_jaxpr = \
+      ad.linearize_jaxpr(jaxpr, nzs, is_vjp=is_vjp)
+  _, ures_avals, sres_avals = out_tree.unpack()
+  num_residuals_out = len(ures_avals) + len(sres_avals)
+  num_primals_out = len(primal_jaxpr.out_avals) - num_residuals_out
+
+  _, in_fwd_ures, in_fwd_sres = split_list(
+      pe._jaxpr_forwarding(primal_jaxpr), [num_primals_out, len(ures_avals)])
+  assert all(f is None for f in in_fwd_ures)
+  in_fwd = [None] * (num_primals_out + len(ures_avals)) + in_fwd_sres
+  primal_jaxpr = pe.prune_closed_jaxpr_outputs(
+      primal_jaxpr, [f is None for f in in_fwd])
+  primal_jaxpr, out_fwd = pe.dedup_jaxpr_outputs(primal_jaxpr, num_primals_out)
 
   tangent_avals_out = [a.to_tangent_aval() for a in jaxpr.out_avals]
   tangent_metadata = _resolve_ad_metadata(xla_metadata, ad_metadata)
@@ -373,11 +394,14 @@ def _xla_metadata_call_lin(is_vjp, nzs, *primals, jaxpr, xla_metadata,
   def _filter_zeros(is_nz_l, l):
     return tuple(x for nz, x in zip(is_nz_l, l) if nz)
 
-  def tangent_fun(residuals, *tangents):
+  def tangent_fun(residuals, structured_residuals, *tangents):
     tangents_nz = _filter_zeros(nzs, tangents)
-    assert len(residuals) + len(tangents_nz) == len(tangent_jaxpr.invars), (
-        len(residuals), len(tangents_nz), len(tangent_jaxpr.invars))
-    nz_outs = xla_metadata_call_p.bind(*residuals, *tangents_nz,
+    sres_flat = tree_leaves(structured_residuals)
+    assert (len(residuals) + len(tangents_nz) + len(sres_flat)
+            == len(tangent_jaxpr.invars)), (
+        len(residuals), len(tangents_nz), len(sres_flat),
+        len(tangent_jaxpr.invars))
+    nz_outs = xla_metadata_call_p.bind(*residuals, *tangents_nz, *sres_flat,
                                        jaxpr=tangent_jaxpr,
                                        xla_metadata=tangent_metadata,
                                        ad_metadata='same')
@@ -390,9 +414,13 @@ def _xla_metadata_call_lin(is_vjp, nzs, *primals, jaxpr, xla_metadata,
   ans = xla_metadata_call_p.bind(*primals, jaxpr=primal_jaxpr,
                                  xla_metadata=xla_metadata,
                                  ad_metadata=ad_metadata)
+  ans = subs_list(out_fwd, ans, ans)
+  ans = subs_list(in_fwd, primals, ans)
   primal_ans, residuals_ans = split_list(ans, [len(ans) - num_residuals_out])
-  residuals_ans = subs_list(in_fwd_res, [*jaxpr.consts, *primals], residuals_ans)
-  return primal_ans, nzs_out, residuals_ans, tangent_fun
+  ures, sres_flat = split_list(residuals_ans, [len(ures_avals)])
+  ures = subs_list(in_fwd_res, [*jaxpr.consts, *primals], ures)
+  sres = sres_avals.update(sres_flat).unflatten()
+  return primal_ans, nzs_out, ures, sres, tangent_fun
 ad.primitive_linearizations[xla_metadata_call_p] = _xla_metadata_call_lin
 
 
@@ -403,14 +431,14 @@ def _transpose_jaxpr(jaxpr, in_tree, in_avals, specs):
     nonlocal out_tree
     primals_ctrefs, cts_in = tree_unflatten(in_tree, in_flat)
     args = ad.unproject_accums(specs, primals_ctrefs)
-    ad.backward_pass3(jaxpr, False, jaxpr.consts, args, cts_in)
+    logs = ad.backward_pass3(jaxpr, False, jaxpr.consts, args, cts_in)
     cts_out = [x.freeze() if isinstance(x, ad.ValAccum) else None for x in args]
-    cts_out, out_tree = tree_flatten(cts_out)
-    return cts_out
+    outs, out_tree = tree_flatten((cts_out, logs))
+    return outs
   dbg = jaxpr.debug_info.with_unknown_names()
-  trans_jaxpr, _, consts = pe.trace_to_jaxpr_dynamic(
-      lu.wrap_init(transposed, debug_info=dbg), in_avals)
-  return trans_jaxpr.with_consts(consts), out_tree
+  trans_jaxpr, _ = pe.trace_to_jaxpr(
+      transposed, ft.flatten_args(*in_avals), dbg)
+  return trans_jaxpr, out_tree
 
 
 def _xla_metadata_call_transpose(cts_in, *args, jaxpr, xla_metadata,
@@ -420,17 +448,33 @@ def _xla_metadata_call_transpose(cts_in, *args, jaxpr, xla_metadata,
   in_avals = [core.typeof(x) for x in in_flat]
   trans_jaxpr, out_tree = _transpose_jaxpr(jaxpr, in_tree, (*in_avals,), specs)
 
-  cts_out = xla_metadata_call_p.bind(
+  outs = xla_metadata_call_p.bind(
       *in_flat, jaxpr=trans_jaxpr,
       xla_metadata=_resolve_ad_metadata(xla_metadata, ad_metadata),
       ad_metadata='same')
 
-  for x, ct in zip(args, tree_unflatten(out_tree, cts_out)):
+  cts_out, logs = tree_unflatten(out_tree, outs)
+  for x, ct in zip(args, cts_out):
     if isinstance(x, ad.ValAccum):
       x.accum(ct)
+  return logs
 
 
 ad.fancy_transposes[xla_metadata_call_p] = _xla_metadata_call_transpose
+
+
+def _xla_metadata_call_to_lojax(*hi_args, jaxpr, xla_metadata, ad_metadata):
+  lo_args_lol = [a.lower_val(x) for a, x in zip(jaxpr.in_avals, hi_args)]
+  lo_args = [x for xs in lo_args_lol for x in xs]
+  in_avals = ft.flatten(([[core.typeof(x) for x in xs] for xs in lo_args_lol],
+                         {}))
+  lo_jaxpr, out_avals = pe.lower_jaxpr(jaxpr, in_avals)
+  all_outs = xla_metadata_call_p.bind(*lo_args, jaxpr=lo_jaxpr,
+                                      xla_metadata=xla_metadata,
+                                      ad_metadata=ad_metadata)
+  lo_outs = out_avals.update(all_outs)
+  return [a.raise_val2(y) for a, y in zip(jaxpr.out_avals, lo_outs.unpack())]
+xla_metadata_call_p.to_lojax = _xla_metadata_call_to_lojax
 
 
 def _xla_metadata_call_partial_eval_custom_params_updater(

@@ -1,2 +1,2 @@
 # Generated automatically -- do not modify!    -*- buffer-read-only: t -*-
-VERSION = "3.7.1"
+VERSION = "4.0.0"

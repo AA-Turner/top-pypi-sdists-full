@@ -4,6 +4,7 @@
 #include "pythonic/include/builtins/filter.hpp"
 
 #include "pythonic/itertools/common.hpp"
+#include "pythonic/types/NoneType.hpp"
 #include "pythonic/utils/functor.hpp"
 #include "pythonic/utils/iterator.hpp"
 
@@ -29,7 +30,7 @@ namespace builtins
     filter_iterator<Operator, List0>::filter_iterator(Operator _op, List0 &_seq)
         : op(_op), iter(_seq.begin()), iter_end(_seq.end())
     {
-      if (iter != iter_end && !test_filter(std::is_same<types::none_type, Operator>()))
+      if (iter != iter_end && !test_filter(std::is_same<types::none_type, Operator>{}))
         next_value();
     }
 
@@ -40,7 +41,8 @@ namespace builtins
     }
 
     template <typename Operator, typename List0>
-    typename List0::value_type filter_iterator<Operator, List0>::operator*() const
+    typename filter_iterator<Operator, List0>::value_type
+    filter_iterator<Operator, List0>::operator*() const
     {
       return *iter;
     }
@@ -56,7 +58,7 @@ namespace builtins
     void filter_iterator<Operator, List0>::next_value()
     {
       while (++iter != iter_end) {
-        if (test_filter(std::is_same<types::none_type, Operator>()))
+        if (test_filter(std::is_same<types::none_type, Operator>{}))
           return;
       }
     }

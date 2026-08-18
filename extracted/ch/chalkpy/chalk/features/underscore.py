@@ -536,13 +536,65 @@ class UnderscoreItem(Underscore):
         )
 
 
+def is_history_fold_expression(expr: "Underscore | None") -> bool:
+    """Whether `expr` is a `history_fold` aggregation.
+
+    `history_fold` is a materialized aggregation whether or not the feature is windowed, so it
+    has to be recognizable cheaply -- before the full aggregation parse, which would raise on
+    the arbitrary expressions that non-windowed features are allowed to carry. It lives here
+    rather than in the importer so the feature-class decorator can register the materialization
+    without importing the importer.
+    """
+    return (
+        isinstance(expr, UnderscoreCall)
+        and isinstance(expr._chalk__parent, UnderscoreAttr)  # pyright: ignore[reportPrivateUsage]
+        and expr._chalk__parent._chalk__attr == "history_fold"  # pyright: ignore[reportPrivateUsage]
+    )
+
+
+def _normalize_lambda_argument(value: Any) -> Any:
+    """Turn a Python function passed into a `history_fold` call into a lambda expression.
+
+    An expression cannot carry a Python callable -- there is no proto form for one -- so a
+    function arriving here is the user spelling a lambda inline, as in the fold step of
+    `_.events[_.embedding].history_fold(function=lambda event, previous: ...)`. That call
+    reaches `UnderscoreCall` directly (unlike the `F.` namespace, which converts such
+    callbacks itself -- see `F.array_reduce`), so the conversion has to happen here or the
+    callable survives into `_to_proto`.
+
+    This is deliberately scoped to `history_fold` call sites only (see the caller). Other
+    method-chained calls whose Python-namespace equivalent (e.g. `F.array_reduce`) still runs
+    its own typed `_underscore_lambda` conversion must NOT be normalized here first: doing so
+    would hand that later conversion an already-built, untyped lambda expression instead of the
+    raw callable it expects to introspect and type.
+
+    The lambda is emitted untyped; parameter types are inferred later by the underscore
+    type-checking pipeline. Only plain functions and methods convert -- notably *not* every
+    `callable()`, since classes and `type`s are callable and are passed as dtype arguments.
+    """
+    if isinstance(value, Underscore) or not (inspect.isfunction(value) or inspect.ismethod(value)):
+        return value
+    # Local import: chalk.functions imports this module, so importing it at module scope cycles.
+    from chalk.functions import _underscore_lambda  # pyright: ignore[reportPrivateUsage]
+
+    return _underscore_lambda(value)
+
+
 class UnderscoreCall(Underscore):
     # _(args, kwargs)
     def __init__(self, parent: Underscore, *args: Any, _chalk__expr_id: Optional[str] = None, **kwargs: Any):
         super().__init__(_chalk__expr_id)
         self._chalk__parent = parent
-        self._chalk__args = args
-        self._chalk__kwargs = kwargs
+        is_history_fold_call = (
+            isinstance(parent, UnderscoreAttr)
+            and parent._chalk__attr == "history_fold"  # pyright: ignore[reportPrivateUsage]
+        )
+        if is_history_fold_call:
+            self._chalk__args = tuple(_normalize_lambda_argument(a) for a in args)
+            self._chalk__kwargs = {k: _normalize_lambda_argument(v) for k, v in kwargs.items()}
+        else:
+            self._chalk__args = args
+            self._chalk__kwargs = kwargs
 
     def __repr__(self):
         args: list[str] = []

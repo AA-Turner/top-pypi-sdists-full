@@ -20,7 +20,7 @@ import functools
 import itertools
 import math
 import threading
-from typing import Any, Literal, TypeVar
+from typing import Any, Literal
 
 import jax
 from jax import lax
@@ -38,7 +38,6 @@ from jax._src.pallas.mosaic import core as mosaic_core
 from jax._src.pallas.mosaic import primitives as mosaic_primitives
 from jax._src.pallas.mosaic import tpu_info
 from jax._src.pallas.mosaic.interpret import shared_memory as memory
-from jax._src.pallas.mosaic.interpret import vector_clock as vc
 from jax._src.pallas.mosaic.interpret.race_detection_state import RaceDetectionState
 from jax._src.pallas.mosaic.interpret.thread_map import thread_map
 import jax._src.pallas.mosaic.interpret.utils as interpret_utils
@@ -703,6 +702,7 @@ def get(
     if src_local_core_id is None:
       src_local_core_id = local_core_id
     assert races is not None
+    assert clock is not None
     races.check_read(
         (src_device_id, src_local_core_id),
         clock,
@@ -796,6 +796,7 @@ def store(
     if src_local_core_id is None:
       src_local_core_id = local_core_id
     assert races is not None
+    assert clock is not None
     races.check_write(
         (src_device_id, src_local_core_id),
         clock,
@@ -872,6 +873,7 @@ def swap(
 
   if shared_memory.detect_races:
     assert races is not None
+    assert clock is not None
     races.check_write(
         (device_id, local_core_id),
         clock,
@@ -905,7 +907,7 @@ class DMA:
   src_sem: memory.Semaphore | None
   dst_sem: memory.Semaphore
   virtual_device_id: int
-  clock: vc.VectorClock
+  clock: memory.SharedMemory.VectorClock
 
   source_info: source_info_util.SourceInfo | None = None
 
@@ -948,7 +950,7 @@ class DMA:
         return
 
       if self.detect_races:
-        vc.inc_vector_clock(self.clock, self.virtual_device_id)
+        self.clock.inc(self.virtual_device_id)
 
       _, self.data = get.__wrapped__(
           None,
@@ -957,14 +959,14 @@ class DMA:
           self.src_memory_space,
           self.src_buffer_id,
           self.src_transforms,
-          clock=vc.copy_vector_clock(self.clock),
+          clock=self.clock.copy() if self.clock is not None else None,
           src_device_id=self.id,
           src_local_core_id=0,
           source_info=self.source_info,
       )
 
       if self.detect_races:
-        vc.inc_vector_clock(self.clock, self.virtual_device_id)
+        self.clock.inc(self.virtual_device_id)
 
       # Signal the send semaphore.
       if self.src_sem is not None:
@@ -995,7 +997,7 @@ class DMA:
       assert self.data is not None
 
       if self.detect_races:
-        vc.inc_vector_clock(self.clock, self.virtual_device_id)
+        self.clock.inc(self.virtual_device_id)
 
       store.__wrapped__(
           None,
@@ -1005,14 +1007,14 @@ class DMA:
           self.dst_buffer_id,
           self.dst_transforms,
           self.data,
-          clock=vc.copy_vector_clock(self.clock),
+          clock=self.clock.copy() if self.clock is not None else None,
           src_device_id=self.id,
           src_local_core_id=0,
           source_info=self.source_info,
       )
 
       if self.detect_races:
-        vc.inc_vector_clock(self.clock, self.virtual_device_id)
+        self.clock.inc(self.virtual_device_id)
 
       self.dst_sem.signal(
           self.data_size, self.dst_global_core_id, clock=self.clock,
@@ -1258,17 +1260,15 @@ def _get_memory_space_and_raise_if_hbm(aval, primitive_name, message=None):
 
 _interpret_impls: dict[jax_core.Primitive, Callable] = {}
 
-T = TypeVar('T', bound=Callable)
 
-
-def register_tpu_interpret_impl(prim: jax_core.Primitive) -> Callable[[T], T]:
+def register_tpu_interpret_impl(prim: jax_core.Primitive) -> Callable[..., Any]:
   """Registers an alternate primitive implementation for TPU Interpret Mode.
 
   User-defined primitives may register a custom Mosaic lowering.  To be able
   to run such a primitive in TPU Interpret Mode, a JAX implementation of the
   primitive must be registered using this function.
   """
-  def decorator(impl: T) -> T:
+  def decorator[T: Callable[..., Any]](impl: T) -> T:
     _interpret_impls[prim] = impl
     return impl
 

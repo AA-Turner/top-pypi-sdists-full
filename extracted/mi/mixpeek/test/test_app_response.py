@@ -94,7 +94,10 @@ class TestAppResponse(unittest.TestCase):
                     secrets = {
                         'key' : ''
                         }, 
-                    asset_prefix = '', ),
+                    asset_prefix = '', 
+                    api_allow = [
+                        { }
+                        ], ),
                 monitoring_config = mixpeek.models.monitoring_config.MonitoringConfig(
                     enabled = True, 
                     error_boundary_enabled = True, 
@@ -290,7 +293,10 @@ class TestAppResponse(unittest.TestCase):
                     secrets = {
                         'key' : ''
                         }, 
-                    asset_prefix = '', ),
+                    asset_prefix = '', 
+                    api_allow = [
+                        { }
+                        ], ),
                 environments = { },
                 created_at = datetime.datetime.strptime('2013-10-20 19:20:30.00', '%Y-%m-%d %H:%M:%S.%f'),
                 updated_at = datetime.datetime.strptime('2013-10-20 19:20:30.00', '%Y-%m-%d %H:%M:%S.%f'),

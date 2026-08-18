@@ -2,7 +2,6 @@
 
 from enum import Enum
 
-
 # Command integer value that signals Default value "DEFAULT"
 VALUE_DEFAULT = -1
 

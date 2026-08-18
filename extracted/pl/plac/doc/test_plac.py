@@ -84,7 +84,8 @@ def check_help(name):
 
         #print (hname)
 
-        expected = fix_today(open(hname + '.help').read()).strip()
+        with open(hname + '.help') as f:
+            expected = fix_today(f.read()).strip()
 
         got = p.format_help().strip()
 

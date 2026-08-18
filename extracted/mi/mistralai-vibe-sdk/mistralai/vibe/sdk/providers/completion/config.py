@@ -203,6 +203,42 @@ class OpenAIResponsesCompletionConfig(CompletionConfigBase):
         )
 
 
+class OllamaCompletionConfig(CompletionConfigBase):
+    """Serializable config for the Ollama native API adapter."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    type: Literal["ollama"] = "ollama"
+    model: str
+    base_url: Annotated[str, StringConstraints(strip_whitespace=True)] = "http://localhost:11434"
+    timeout: Annotated[
+        float,
+        Field(gt=0, description="Ollama HTTP timeout in seconds."),
+    ] = 120.0
+    temperature: (
+        Annotated[
+            float,
+            Field(ge=0, le=2, description="Optional sampling temperature."),
+        ]
+        | None
+    ) = None
+    think: bool | Literal["low", "medium", "high", "max"] | None = None
+
+    def to_completion(self) -> "CompletionModel":
+        """Build the runtime Ollama completion adapter."""
+        from mistralai.vibe.sdk.providers.completion.adapters.ollama import (
+            OllamaCompletion,
+        )
+
+        return OllamaCompletion(
+            model=self.model,
+            base_url=self.base_url,
+            timeout=self.timeout,
+            temperature=self.temperature,
+            think=self.think,
+        )
+
+
 class AnthropicCompletionConfig(CompletionConfigBase):
     """Serializable config for the Anthropic Messages API adapter."""
 
@@ -253,6 +289,7 @@ __all__ = [
     "CompletionConfig",
     "CompletionConfigBase",
     "MistralCompletionConfig",
+    "OllamaCompletionConfig",
     "OpenAICompletionConfig",
     "OpenAIResponsesCompletionConfig",
     "completion_config_from_obj",

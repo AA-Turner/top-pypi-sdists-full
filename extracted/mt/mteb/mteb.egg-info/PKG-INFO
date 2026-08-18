@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: mteb
-Version: 2.19.3
+Version: 2.19.5
 Summary: Massive Text Embedding Benchmark
 Author-email: MTEB Contributors <niklas@huggingface.co>, Kenneth Enevoldsen <kenneth.enevoldsen@cas.au.dk>, Nouamane Tazi <nouamane@huggingface.co>, Nils Reimers <info@nils-reimers.de>
 Maintainer-email: Kenneth Enevoldsen <kenneth.enevoldsen@cas.au.dk>, Roman Solomatin <risolomatin@gmail.com>, Isaac Chung <chungisaac1217@gmail.com>
@@ -199,6 +199,8 @@ Provides-Extra: moca
 Requires-Dist: transformers<4.53,>=4.49.0; extra == "moca"
 Provides-Extra: transformers-v4
 Requires-Dist: transformers<5; extra == "transformers-v4"
+Provides-Extra: transformers-v5
+Requires-Dist: transformers>=5; extra == "transformers-v5"
 Provides-Extra: cosmos-embed1
 Requires-Dist: transformers<5; extra == "cosmos-embed1"
 Requires-Dist: einops>=0.8.0; extra == "cosmos-embed1"

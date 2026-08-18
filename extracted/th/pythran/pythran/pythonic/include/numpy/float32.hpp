@@ -1,9 +1,9 @@
 #ifndef PYTHONIC_INCLUDE_NUMPY_FLOAT32_HPP
 #define PYTHONIC_INCLUDE_NUMPY_FLOAT32_HPP
 
+#include "pythonic/include/types/attr.hpp"
 #include "pythonic/include/types/numpy_op_helper.hpp"
 #include "pythonic/include/utils/functor.hpp"
-#include "pythonic/include/utils/meta.hpp"
 #include "pythonic/include/utils/numpy_traits.hpp"
 
 PYTHONIC_NS_BEGIN
@@ -24,6 +24,12 @@ namespace numpy
 #define NUMPY_NARY_EXTRA_METHOD using type = float;
 #include "pythonic/include/types/numpy_nary_expr.hpp"
 } // namespace numpy
+
+namespace builtins
+{
+  inline numpy::functor::float32 getattr(types::attr::DTYPE, float const &);
+} // namespace builtins
+
 PYTHONIC_NS_END
 
 #ifdef ENABLE_PYTHON_MODULE

@@ -338,17 +338,6 @@ class SparseTrace(core.Trace):
     out_tracers = tuple(SparseTracer(self, spvalue=spvalue) for spvalue in out_spvalues)
     return out_tracers if primitive.multiple_results else out_tracers[0]
 
-  def process_call(self, call_primitive, f: lu.WrappedFun, tracers, params, /):
-    assert False
-    spvalues = tuple(t._spvalue for t in tracers)
-    in_bufs = self.spenv._buffers
-    fun, out_spvalues = sparsify_subtrace(f, self.main, spvalues)
-    if any(params['donated_invars']):
-      raise NotImplementedError("sparsify does not support donated_invars")
-    params = dict(params, donated_invars=tuple(False for buf in in_bufs))
-    _bufs_out = call_primitive.bind(fun, *in_bufs, **params)
-    return [SparseTracer(self, spvalue=spvalue) for spvalue in out_spvalues()]
-
   def process_custom_jvp_call(self, primitive, fun, jvp, tracers, /, *, symbolic_zeros):
     # TODO(jakevdp): handle the jvp here
     del primitive, jvp, symbolic_zeros
@@ -420,8 +409,8 @@ def eval_sparse(
     assert a is not None
     env[var] = a
 
-  safe_map(write_buffer, jaxpr.constvars, consts)
-  safe_map(write, jaxpr.invars, spvalues)
+  safe_map(write_buffer, jaxpr.all_invars[:len(consts)], consts)
+  safe_map(write, jaxpr.all_invars[len(consts):], spvalues)
 
   for eqn in jaxpr.eqns:
     prim = eqn.primitive
@@ -452,21 +441,19 @@ def sparsify_raw(f):
   def wrapped(
       spenv: SparsifyEnv, *spvalues: SparsifyValue, **params: Any
   ) -> tuple[Sequence[SparsifyValue], pytree.PyTreeDef]:
-    spvalues_flat, in_tree = tree_flatten(spvalues, is_leaf=_is_spvalue)
+    spvalues_flat, in_tree = tree_flatten((spvalues, {}), is_leaf=_is_spvalue)
     in_avals_flat = spvalues_to_avals(spenv, spvalues_flat)
-    wrapped_fun, out_tree = flatten_fun_nokwargs(
-        lu.wrap_init(
-            f, params,
-            debug_info=api_util.debug_info("sparsify", f,
-                                           in_tree.unflatten([True] * len(in_avals_flat)),
-                                           {})),
-        in_tree)
-    jaxpr, out_avals_flat, consts = pe.trace_to_jaxpr_dynamic(wrapped_fun, in_avals_flat)
-    result = eval_sparse(jaxpr, consts, spvalues_flat, spenv)
-    if len(out_avals_flat) != len(result):
+    dbg = api_util.debug_info("sparsify", f,
+                              tree_unflatten(in_tree, [True] * len(in_avals_flat))[0],
+                              {})
+    jaxpr, out_avals = pe.trace_to_jaxpr(
+        functools.partial(f, **params),
+        ft.treedef_args_to_ft(in_tree, in_avals_flat), dbg)
+    result = eval_sparse(jaxpr, jaxpr.consts, spvalues_flat, spenv)
+    if len(out_avals) != len(result):
       raise Exception("Internal: eval_sparse does not return expected number of arguments. "
-                      "Got {result} for avals {out_avals_flat}")
-    return result, out_tree()
+                      "Got {result} for avals {out_avals}")
+    return result, out_avals.tree
 
   return wrapped
 
@@ -790,9 +777,9 @@ def _sparsify_jaxpr(spenv: SparsifyEnv,
   args = spvalues_to_arrays(spenv, spvalues)
   args_flat, in_tree = tree_flatten(args)
   avals_flat = [core.typeof(arg) for arg in args_flat]
-  sp_jaxpr, _, consts = pe.trace_to_jaxpr_dynamic(
-      lu.wrap_init(wrapped, debug_info=jaxpr.debug_info.with_unknown_names()), avals_flat)
-  sp_jaxpr = sp_jaxpr.with_consts(consts)
+  sp_jaxpr, _ = pe.trace_to_jaxpr(
+      wrapped, ft.flatten_args(*avals_flat),
+      jaxpr.debug_info.with_unknown_names())
   assert out_tree is not None
   return sp_jaxpr, out_tree
 

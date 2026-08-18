@@ -88,11 +88,11 @@ class IoTransferEventArgs(object):
 		cs_info = size_to_kb_mb_string(self.chunk_size, True) if self.chunk_size else '<N.A.>'
 		ts_info = size_to_kb_mb_string(self.total_size, True) if self.total_size else '<N.A.>'
 		if self.reading:
-			result = f"IoTransferArgs ID {self._transfer_id}: reading {type_info}, {chunk_info} {size_to_kb_mb_string(self.chunk_size, True) if self.chunk_size else '<N.A.>'}, " \
-					f"sum {size_to_kb_mb_string(self.transferred_size, True)} / {size_to_kb_mb_string(self.total_size, True) if self.total_size else '<N.A.>'}{eot}."
+			result = f"IoTransferArgs ID {self._transfer_id}: reading {type_info}, {chunk_info} {cs_info}, " \
+					f"sum {size_to_kb_mb_string(self.transferred_size, True)} / {ts_info}{eot}."
 		else:
-			result = f"IoTransferArgs ID {self._transfer_id}: writing {type_info}, {chunk_info} {size_to_kb_mb_string(self.chunk_size, True) if self.chunk_size else '<N.A.>'}, " \
-						f"sum {size_to_kb_mb_string(self.transferred_size, True)} / {size_to_kb_mb_string(self.total_size, True) if self.total_size else '<N.A.>'}{eot}."
+			result = f"IoTransferArgs ID {self._transfer_id}: writing {type_info}, {chunk_info} {cs_info}, " \
+						f"sum {size_to_kb_mb_string(self.transferred_size, True)} / {ts_info}{eot}."
 		if self.context:
 			result += f' Cmd: {self.context}'
 		return result

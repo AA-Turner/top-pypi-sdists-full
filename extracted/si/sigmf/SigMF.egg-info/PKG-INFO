@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: SigMF
-Version: 1.11.1
+Version: 1.12.0
 Summary: Easily interact with Signal Metadata Format (SigMF) recordings.
 License:                    GNU LESSER GENERAL PUBLIC LICENSE
                                Version 3, 29 June 2007
@@ -179,9 +179,6 @@ Classifier: Development Status :: 5 - Production/Stable
 Classifier: License :: OSI Approved :: GNU Lesser General Public License v3 or later (LGPLv3+)
 Classifier: Operating System :: OS Independent
 Classifier: Programming Language :: Python :: 3
-Classifier: Programming Language :: Python :: 3.7
-Classifier: Programming Language :: Python :: 3.8
-Classifier: Programming Language :: Python :: 3.9
 Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
@@ -189,13 +186,13 @@ Classifier: Programming Language :: Python :: 3.13
 Classifier: Programming Language :: Python :: 3.14
 Classifier: Topic :: Scientific/Engineering
 Classifier: Topic :: Communications :: Ham Radio
-Requires-Python: >=3.7
+Requires-Python: >=3.10
 Description-Content-Type: text/markdown
 Requires-Dist: numpy
 Requires-Dist: jsonschema
 Requires-Dist: defusedxml
 Provides-Extra: test
-Requires-Dist: pylint; extra == "test"
+Requires-Dist: ruff; extra == "test"
 Requires-Dist: pytest; extra == "test"
 Requires-Dist: pytest-cov; extra == "test"
 Requires-Dist: hypothesis; extra == "test"
@@ -209,7 +206,7 @@ Requires-Dist: hypothesis; extra == "test"
 [![PyPI Downloads Shield](https://img.shields.io/pypi/dm/sigmf)](https://pypi.org/project/SigMF/)
 
 The `sigmf` library makes it easy to interact with Signal Metadata Format
-(SigMF) recordings. This library is compatible with Python 3.7-3.14 and is distributed
+(SigMF) recordings. This library is compatible with Python 3.10-3.14 and is distributed
 freely under the terms GNU Lesser GPL v3 License.
 
 This module follows the SigMF specification [html](https://sigmf.org/)/[pdf](https://sigmf.github.io/SigMF/sigmf-spec.pdf) from the [spec repository](https://github.com/sigmf/SigMF).

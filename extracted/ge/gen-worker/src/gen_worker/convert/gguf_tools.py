@@ -10,6 +10,7 @@ import shutil
 import sys
 from pathlib import Path
 
+from ..models.materialized_view import third_party_dir
 from ..subproc import ProcessStalledError, run_process
 
 logger = logging.getLogger(__name__)
@@ -129,7 +130,23 @@ def run_hf_to_gguf_conversion(
     output_path: Path,
     encoding: str,
 ) -> None:
-    cmd = [sys.executable, str(script_path), str(hf_model_dir),
+    # `convert_hf_to_gguf.py` is a SUBPROCESS reading the tree itself, so it
+    # gets real files (pgw#1303's gate).
+    #
+    # pgw#1344 SCOPED WHAT IS LEFT HERE, and it is no longer "the conversion".
+    # The TENSOR plane is native: `convert/gguf_native.py` reads a snapshot
+    # through tensorfs, permutes and casts per tensor, and composes the GGUF
+    # through the store so an unchanged tensor keeps the objects it already
+    # has. What this subprocess still owns is the METADATA block -- a model's
+    # vocabulary, its chat template and its pre-tokenizer identity. That is
+    # deliberate and it is not laziness: reproducing a tokenizer faithfully is
+    # thousands of lines of upstream script that changes weekly, and a GGUF
+    # whose vocabulary this repo GUESSED would load and be quietly wrong --
+    # exactly the silent change pgw#1344 exists to prevent. So the honest state
+    # is one named hatch, fenced by `tests/test_gguf_native_pgw1344.py`, rather
+    # than a second tokenizer nobody can verify.
+    cmd = [sys.executable, str(script_path),
+           str(third_party_dir(hf_model_dir, why="convert_hf_to_gguf.py subprocess")),
            "--outfile", str(output_path), "--outtype", normalize_gguf_encoding(encoding)]
     try:
         returncode = run_process(

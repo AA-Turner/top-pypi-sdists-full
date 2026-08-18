@@ -222,13 +222,21 @@ def rule_on_boot_memo(
     """THE honesty gate (pgw#1271): what the boot memo answered, against what
     this mint TRACED. Returns the disagreement, or ``""``.
 
-    ``boot_key``'s memo path SKIPS THE TRACES and re-folds stored blocks into
-    the ``graph`` axis of every ``cg-key-v1`` this pod goes on to publish — so
-    the memo is a key generator, and the only thing standing between a stale
-    memo and a wrong published key is a comparison against a freshly traced
-    truth. ``boot_key.assert_memo_honest`` is that comparison. It had **zero
-    src/ callers**: it was written, documented as the thing that makes the memo
-    safe to have at all, exported, tested — and never invoked on a fleet pod.
+    The ``cg-keyset-v1`` cache SKIPS THE TRACES and re-folds stored class
+    hashes into the ``graph`` axis of every ``cg-key-v1`` this pod goes on to
+    publish — so the cache is a key generator, and the only thing standing
+    between a stale row and a wrong published key is a comparison against a
+    freshly traced truth. ``keyset.store.assert_honest`` is that comparison. It
+    had **zero src/ callers**: it was written, documented as the thing that
+    makes the cache safe to have at all, exported, tested — and never invoked on
+    a fleet pod.
+
+    pgw#1327 widened what it protects. The same document is now SHIPPED to pods
+    that never trace, so this gate is the fleet's only place where a stated class
+    hash meets a traced one. It rules on this machine's own cache only — a
+    shipped document is a mint-lane artifact, not this pod's claim — but a
+    shipped document is written by this same code path, so a dishonest emission
+    is caught here on the pod that made it.
 
     THIS is the moment, and there is only one: a mint is the single point in a
     pod's life where it holds a traced class set for the same closure the boot
@@ -240,17 +248,18 @@ def rule_on_boot_memo(
     manufacture disagreements:
 
     * a PARTIAL class set. Coverage accretes (pgw#1176), so a mint that packed
-      fewer classes than the declaration has cannot distinguish "the memo holds
+      fewer classes than the declaration has cannot distinguish "the cache holds
       a class we did not trace" from "we have not traced it yet", and
-      ``assert_memo_honest``'s set check would fire on every partial mint.
+      ``assert_honest``'s set check would fire on every partial mint.
     * a mint whose entries carry no keying block — nothing to compare.
 
-    Returns the reason rather than raising: a dishonest memo has already cost
-    what it can cost (the entry is invalidated, the next boot re-traces), and
+    Returns the reason rather than raising: a dishonest cache has already cost
+    what it can cost (the row is invalidated, the next boot re-derives), and
     the artifacts in hand were traced by THIS process and are correct. Killing
     a finished mint over it would turn a self-healing fault into a lost pod.
     """
-    from . import boot_key
+    from . import keyset
+    from .keyset import store as keyset_store
 
     memo_dir = getattr(task.pending, "cache_dir", None)
     if not memo_dir:
@@ -267,13 +276,25 @@ def rule_on_boot_memo(
         blocks[str(row.entry)] = dict(block)
     if len(blocks) != len(entries):
         return ""
-    digest = boot_key.closure_digest(
-        str(getattr(cfg, "family", "") or ""),
-        cfg_spec(cfg),
-        function=str(task.function or ""),
-        slots=dict(task.slots),
-    )
-    return boot_key.assert_memo_honest(Path(memo_dir), digest, blocks)
+    try:
+        digest = keyset.closure_digest(
+            str(getattr(cfg, "family", "") or ""),
+            cfg_spec(cfg),
+            function=str(task.function or ""),
+            slots=dict(task.slots),
+            # pgw#1327: `modules` was OMITTED here while every derivation passes
+            # it, so this gate addressed a closure nothing ever wrote and read an
+            # absent row on every pod — i.e. the honesty comparison that makes a
+            # cached (and now SHIPPED) class hash safe to fold has been returning
+            # "" unconditionally. Same defect class as the zero-caller one
+            # pgw#1271 found, one argument deeper.
+            modules=tuple(task.modules),
+        )
+    except keyset.KeySetError:
+        # This process cannot state its own closure, so it has no cached row to
+        # rule on. Nothing to compare is not a disagreement.
+        return ""
+    return keyset_store.assert_honest(Path(memo_dir), digest, blocks)
 
 
 def _rule_on_boot_memo(
@@ -783,7 +804,12 @@ async def supervise(
             # stages each durable, verifies, arms and stores it in turn, and a
             # class that refuses costs itself.
             minted = fleet_cells.adopt_delegated_mint(
-                task.pipe, pending, [row.artifact for row in result.entries])
+                task.pipe, pending, [row.artifact for row in result.entries],
+                # pgw#1341: the declaration-wide contract digest this mint just
+                # folded. It is the `graph_contract` axis of every row's
+                # publish, no artifact can carry it, and this is the one object
+                # that holds it.
+                manifest=str(result.manifest or ""))
             if minted is not None:
                 return SupervisedResult(
                     status=ADOPTED, minted=minted, attempts=attempts,
@@ -826,10 +852,23 @@ def _mint_phase_table_of(result: Any) -> Dict[str, Any]:
     ``mint_graph_classes`` stamps the same table onto every entry it returns
     (it is the RESULT's view, never the packed envelope's — the artifact
     deliberately carries no wall clocks), so any entry answers.
+
+    pgw#1356: READ OFF THE TYPED FIELD, which is where the writer has always
+    put it. This read ``entry.metadata["mint_phases"]`` — and ``metadata`` is
+    TCG's CLOSED artifact vocabulary, which has no such field and cannot be
+    extended (``test_tcg_mint_parent_pgw1270`` asserts ``"mint_phases" not in
+    survivor.metadata`` by name). So the reader could never find the table,
+    ``phase_table`` fell through to the on-disk snapshot on EVERY successful
+    mint, and the roll-up on the wire announced a completed mint as
+    ``status=in_flight`` — ``in_flight`` being the terminus
+    :func:`aot_mint.write_phase_snapshot` stamps on a beat. Measured on the
+    2026-08-17 A40 mint: 36 of 36 classes ``status=compiled exit=0``, roll-up
+    ``aot_mint_phases in_flight n_entries=0``, and the operator reading it
+    could not tell a finished mint from a killed one.
     """
     for entry in getattr(result, "entries", ()):
-        rows = dict(entry.metadata or {}).get("mint_phases")
-        if isinstance(rows, dict):
+        rows = getattr(entry, "mint_phases", None)
+        if isinstance(rows, dict) and rows:
             return dict(rows)
     return {}
 

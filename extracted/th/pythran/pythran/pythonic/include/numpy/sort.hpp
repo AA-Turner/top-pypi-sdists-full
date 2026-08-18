@@ -1,8 +1,6 @@
 #ifndef PYTHONIC_INCLUDE_NUMPY_SORT_HPP
 #define PYTHONIC_INCLUDE_NUMPY_SORT_HPP
 
-#include <algorithm>
-
 #include "pythonic/include/types/ndarray.hpp"
 #include "pythonic/include/types/str.hpp"
 #include "pythonic/include/utils/functor.hpp"
@@ -22,7 +20,6 @@ namespace numpy
   types::ndarray<typename E::dtype, types::array_tuple<long, E::value>>
   sort(E const &expr, long axis, types::str const &kind);
 
-  NUMPY_EXPR_TO_NDARRAY0_DECL(sort);
   DEFINE_FUNCTOR(pythonic::numpy, sort);
 } // namespace numpy
 PYTHONIC_NS_END

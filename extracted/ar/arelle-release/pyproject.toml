@@ -1,5 +1,5 @@
 [build-system]
-requires = ["setuptools>=82,<84", "wheel>=0.46,<0.48", "setuptools_scm>=10.0,<11.0"]
+requires = ["setuptools>=82,<85", "wheel>=0.46,<0.48", "setuptools_scm>=10.0,<11.0"]
 build-backend = "setuptools.build_meta"
 
 [project]
@@ -326,13 +326,11 @@ exclude = '''(?x)(
 module = [
     'arelle.CntlrComServer',
     'arelle.CntlrProfiler',
-    'arelle.CntlrQuickBooks',
     'arelle.DialogAbout',
     'arelle.DialogFind',
     'arelle.DialogLanguage',
     'arelle.DialogOpenArchive',
     'arelle.DialogURL',
-    'arelle.DialogUserPassword',
     'arelle.rendering.RenderingEvaluator',
     'arelle.rendering.RenderingLayout',
     'arelle.rendering.RenderingResolution',

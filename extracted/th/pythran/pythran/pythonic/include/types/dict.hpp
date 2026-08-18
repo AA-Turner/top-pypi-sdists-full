@@ -14,7 +14,6 @@
 
 #include <algorithm>
 #include <iterator>
-#include <limits>
 #include <unordered_map>
 #include <utility>
 
@@ -124,7 +123,7 @@ namespace types
     using iterator = typename D::item_const_iterator;
     using value_type = typename iterator::value_type;
     D data;
-    dict_items();
+    dict_items() = default;
     dict_items(D const &d);
     iterator begin() const;
     iterator end() const;
@@ -136,7 +135,7 @@ namespace types
     using iterator = typename D::key_const_iterator;
     using value_type = typename iterator::value_type;
     D data;
-    dict_keys();
+    dict_keys() = default;
     dict_keys(D const &d);
     iterator begin() const;
     iterator end() const;
@@ -148,7 +147,7 @@ namespace types
     using iterator = typename D::value_const_iterator;
     using value_type = typename iterator::value_type;
     D data;
-    dict_values();
+    dict_values() = default;
     dict_values(D const &d);
     iterator begin() const;
     iterator end() const;
@@ -250,7 +249,7 @@ namespace types
     using _key_type = std::remove_cv_t<std::remove_reference_t<K>>;
     using _value_type = std::remove_cv_t<std::remove_reference_t<V>>;
     using container_type = std::conditional_t<
-        std::is_same<K, none_type>::value, none_type_map<_value_type>,
+        std::is_same_v<K, none_type>, none_type_map<_value_type>,
         std::unordered_map<_key_type, _value_type, std::hash<_key_type>, std::equal_to<_key_type>,
                            utils::allocator<std::pair<const _key_type, _value_type>>>>;
 

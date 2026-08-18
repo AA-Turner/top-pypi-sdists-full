@@ -1,11 +1,12 @@
 """MCP server initialization."""
 
-import contextlib
 from typing import Literal
 
 from pydantic import BaseModel, Field
 
+from mistralai.vibe.sdk.agent.execution.resources.context import current_execution_scope
 from mistralai.vibe.sdk.capabilities.mcp.config import McpConfigBase
+from mistralai.vibe.sdk.capabilities.mcp.resource import McpResourceDefinition
 from mistralai.vibe.sdk.capabilities.mcp.types import McpToolDescriptor
 
 __all__ = [
@@ -35,11 +36,7 @@ class McpInitializationContent(BaseModel):
 
 
 async def discover_mcp_tools(config: McpConfigBase) -> list[McpToolDescriptor]:
-    """Open an MCP client, list the server's tools, then tear it down."""
-    adapter = config.create_adapter()
-    try:
-        await adapter.setup()
-        return await adapter.list_tools()
-    finally:
-        with contextlib.suppress(Exception):
-            await adapter.teardown()
+    """List the server's tools on the scope's shared MCP connection."""
+    adapter = await current_execution_scope().get(McpResourceDefinition(config))
+
+    return await adapter.list_tools()

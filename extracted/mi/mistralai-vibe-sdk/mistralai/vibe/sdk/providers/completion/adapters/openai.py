@@ -59,8 +59,12 @@ class OpenAICompletion(CompletionModel):
         self._timeout = timeout
         self._temperature = temperature
         self._client = client
-        self.model = model
+        self._model = model
         self.reasoning_effort = reasoning_effort
+
+    @property
+    def model(self) -> str:
+        return self._model
 
     @property
     def client(self) -> httpx.AsyncClient:

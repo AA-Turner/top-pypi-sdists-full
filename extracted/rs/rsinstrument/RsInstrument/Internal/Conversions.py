@@ -3,15 +3,14 @@
 import math
 import struct
 import sys
+from datetime import datetime
 from enum import Enum
 from typing import List, Tuple
 
-from .ScpiEnums import ScpiEnum, enum_spec_prefixes, enum_spec_strings
-from .Properties import Properties
-from datetime import datetime
-
 from . import Utilities
 from .InstrumentErrors import RsInstrException
+from .Properties import Properties
+from .ScpiEnums import ScpiEnum, enum_spec_prefixes, enum_spec_strings
 
 
 class BinFloatFormat(Enum):
@@ -223,9 +222,9 @@ def strip_si_suffix(string: str) -> Tuple[bool, str, float]:
 	"""Tries to find defined suffixes in the text and returns the stripped text and the multiplier as double number.
 	If no known suffix is detected, the method returns false, strippedText=text, multiplier=1.0
 	Example: text='123 MHz' strippedText='123' multiplier=1E6"""
-	for suffix in number_si_suffix.keys():
+	for suffix, multiplier in number_si_suffix.items():
 		if string.endswith(suffix):
-			return True, string[:-len(suffix)].rstrip(), number_si_suffix[suffix]
+			return True, string[:-len(suffix)].rstrip(), multiplier
 	return False, string, 1.0
 
 

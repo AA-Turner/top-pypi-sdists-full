@@ -27,7 +27,7 @@ from geocif import logger as log
 from geocif import utils
 from geocif.progress import pbar as _pbar
 from .cid import definitions as di
-from .ml import correlations, feature_engineering as fe, feature_selection as fs
+from .ml import correlations, feature_engineering as fe, feature_selection as fs, fs_cache
 from .ml import output, spatial_neighbors as sn, stages, stats, trainers, trend, xai
 
 plt.style.use("default")
@@ -4084,7 +4084,11 @@ class Geocif:
                             f"{_tb.format_exc()}"
                         )
 
-            self.feature_names = list(set(self.feature_names))
+            # Order-preserving dedup, NOT list(set(...)): set iteration order
+            # is PYTHONHASHSEED-randomized, so the same run repeated gave a
+            # different column order, which changes gOMP tie-breaking and
+            # makes the feature-selection cache key differ across runs.
+            self.feature_names = list(dict.fromkeys(self.feature_names))
             self.logger.debug(
                 f"[create_feature_names] loop done ({self.country} {self.crop} "
                 f"forecast_season={getattr(self, 'forecast_season', '?')}): "
@@ -4269,12 +4273,50 @@ class Geocif:
                     f"feature_names[:12]={list(self.feature_names)[:12]} "
                     f"df_train.shape={getattr(self.df_train, 'shape', '?')}"
                 )
-            _, _, self.selected_features = fs.select_features(
+            # Feature selection is model-independent: catboost, cubist and
+            # tabpfn each recompute an identical selection for the same
+            # fold/stage/region. Reuse it via a content-addressed disk cache
+            # (fold-model tasks are separate processes, so it must be on
+            # disk). Key = hash(X, y, method), so any change to the data is a
+            # miss rather than a stale hit. Disable with
+            # [ML] cache_feature_selection = False.
+            fs_cache_dir = None
+            if self.parser.getboolean("ML", "cache_feature_selection", fallback=True):
+                fs_cache_dir = fs_cache.cache_dir_for(self.dir_ml)
+
+            # A 'multi' run whose sub-selector died still returns a plausible
+            # partial union. Caching that would re-serve it to every later
+            # model and every re-run (the key is content-addressed, so
+            # re-running reproduces it), so such a result is used but never
+            # persisted.
+            fs_status = {}
+
+            def _compute_selection():
+                _, _, feats = fs.select_features(
+                    X_for_selection,
+                    self.y_train,
+                    method=self.feature_selection,
+                    dir_output=dir_output,
+                    region=region,
+                    status=fs_status
+                )
+                return feats
+
+            self.selected_features, _ = fs_cache.cached_select(
                 X_for_selection,
                 self.y_train,
                 method=self.feature_selection,
-                dir_output=dir_output,
-                region=region
+                cache_dir=fs_cache_dir,
+                compute_fn=_compute_selection,
+                log=self.logger,
+                should_cache=lambda: not fs_status.get("degraded", False),
+                meta={
+                    "country": str(self.country),
+                    "crop": str(self.crop),
+                    "forecast_season": str(getattr(self, "forecast_season", "")),
+                    "stage_id": stage_id_dbg,
+                    "region_id": str(region),
+                },
             )
             # fallback: if selector returned no features, use all
             if not self.selected_features:

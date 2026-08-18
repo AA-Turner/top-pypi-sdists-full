@@ -27,6 +27,7 @@ import struct
 
 from ..capability import HostRamCapacityError, InsufficientHostRamError
 from . import disk_gc, load_progress
+from .materialized_view import third_party_dir
 from .file_layout import (
     MULTI_FILE,
     SINGLE_FILE,
@@ -57,7 +58,7 @@ from .memory import (
     probe_host_ram,
 )
 from .hf_fp8_blockwise import detect_hf_fp8_blockwise, load_hf_fp8_blockwise
-from .safetensors_header import header_len_ok
+from .safetensors_header import header_len_ok, read_header
 from .svdq import detect_svdq_artifact, load_svdq_pipeline
 from ..hostfacts import cuda_ready
 from .w4a4 import (
@@ -164,28 +165,38 @@ def detect_on_disk_dtype(model_path: Path) -> str:
     carry no dtype and mirrored repos use unsuffixed filenames, so without
     this a bf16 snapshot silently loads via diffusers' fp32 default — 2x the
     VRAM. "fp8" marks an fp8-E4M3-stored flavor whose storage precision must
-    be preserved (see :func:`apply_fp8_storage`)."""
+    be preserved (see :func:`apply_fp8_storage`).
+
+    **On a projected tree the answer comes from the MANIFEST, and a tree whose
+    manifest cannot be recovered is a refusal, never a ""** (pgw#1308). A
+    TFSSTUB1 stub carries a body digest and a size and no dtype at all, and
+    its first eight bytes are ASCII magic that ``header_len_ok`` correctly
+    rejects — so on master every weight file was skipped by a ``continue``,
+    ``counts`` stayed empty, and this returned "", i.e. exactly the silent
+    fp32 default the docstring above was written to prevent. The stub failed
+    loudly at the parse site as designed; this caller read the loud failure as
+    "no information". A guarantee about how a read fails constrains nothing
+    about what the caller concludes, so the branch has to live here."""
 
     counts: Dict[str, int] = {}
     try:
-        for p in sorted(Path(model_path).rglob("*.safetensors")):
-            with open(p, "rb") as f:
-                raw = f.read(8)
-                if len(raw) < 8:
-                    continue
-                (n,) = struct.unpack("<Q", raw)
-                if not header_len_ok(n):
-                    continue
-                header = json.loads(f.read(n))
-            for value in header.values():
-                if isinstance(value, dict) and "dtype" in value:
-                    counts[str(value["dtype"])] = counts.get(str(value["dtype"]), 0) + 1
-    except (OSError, ValueError):
+        paths = sorted(Path(model_path).rglob("*.safetensors"))
+    except OSError:
         return ""
+    for p in paths:
+        for value in read_header(p, why=_DTYPE_WHY).values():
+            if isinstance(value, dict) and "dtype" in value:
+                counts[str(value["dtype"])] = counts.get(str(value["dtype"]), 0) + 1
     if not counts:
         return ""
     top = max(counts, key=lambda k: counts[k])
     return _SAFETENSORS_DTYPE_NAMES.get(top, "")
+
+
+_DTYPE_WHY = (
+    "the weight dtype decides whether this model loads in its stored precision "
+    "or via diffusers' fp32 default, at 2x the VRAM"
+)
 
 
 def read_on_disk_quant_config(model_path: Path) -> bool:
@@ -729,14 +740,16 @@ def load_gguf_pipeline(
     denoiser_cls = getattr(importlib.import_module(str(module_name)), str(class_name))
     compute = torch.bfloat16
     denoiser = denoiser_cls.from_single_file(
-        str(gguf_file),
-        config=str(path / component),
+        str(third_party_dir(gguf_file, why="GGUF from_single_file wants a real file")),
+        config=str(third_party_dir(path / component, why="GGUF config dir")),
         quantization_config=GGUFQuantizationConfig(compute_dtype=compute),
         torch_dtype=compute,
     )
     kwargs = dict(components or {})
     kwargs[component] = denoiser
-    pipe = cls.from_pretrained(str(path), torch_dtype=compute, **kwargs)
+    pipe = cls.from_pretrained(
+        str(third_party_dir(path, why="gguf-denoiser sibling parts from_pretrained")),
+        torch_dtype=compute, **kwargs)
     for name in _fp8_text_encoder_components():
         text_encoder = getattr(pipe, name, None)
         if text_encoder is not None and hasattr(text_encoder, "parameters"):
@@ -1411,7 +1424,9 @@ def load_component(
     if torch_dtype is not None and _accepts_kwarg(
             cls.from_pretrained, "torch_dtype"):
         kwargs["torch_dtype"] = torch_dtype
-    return cls.from_pretrained(str(src), **kwargs)
+    return cls.from_pretrained(
+        str(third_party_dir(src, why="contract_loaded_component from_pretrained")),
+        **kwargs)
 
 
 def contract_loaded_component(
@@ -1930,7 +1945,12 @@ def hydrate_modular_pipeline(
         if _weightless_model_dir(src):
             skipped.append(name)
             continue
-        sources[name] = str(src)
+        # A third-party `ComponentSpec.load` reads this path itself, so it
+        # gets real files. THE #1303 CENSUS MISSED THIS SITE: it counted
+        # literal `from_pretrained(dir)` calls, and modular hydration hands
+        # the directory to diffusers through a spec field instead.
+        sources[name] = str(
+            third_party_dir(src, why=f"ComponentSpec.load({name!r})"))
 
     # Re-point the SPECS first: a later bare `pipe.load_components()` (e.g.
     # endpoint-side) must be equally incapable of reaching the index's repo
@@ -2068,14 +2088,11 @@ def hydrate_modular_pipeline(
 
 def _safetensors_data_bytes(p: Path) -> int:
 
-    with open(p, "rb") as f:
-        raw = f.read(8)
-        if len(raw) < 8:
-            return 0
-        (n,) = struct.unpack("<Q", raw)
-        if not header_len_ok(n):
-            return 0
-        header = json.loads(f.read(n))
+    header = read_header(
+        p,
+        why="tensor bytes per component size the VRAM plan; a stub read as "
+            "zero bytes plans a model that is not there",
+    )
     total = 0
     for value in header.values():
         if isinstance(value, dict) and "data_offsets" in value:
@@ -2211,7 +2228,8 @@ def _load_modular_pipeline(
         logger.info(
             "modular slot stages per component onto the device: %s",
             plan.summary())
-    pipe = cls.from_pretrained(path)
+    pipe = cls.from_pretrained(
+        third_party_dir(path, why="modular pipeline shell from_pretrained"))
     if not _is_modular_pipeline(pipe):
         raise ModularHydrationError(
             f"{getattr(cls, '__name__', cls)}.from_pretrained returned "
@@ -2430,7 +2448,9 @@ def load_from_pretrained(
     single = _single_file_checkpoint(Path(path))
     if single is not None and callable(getattr(cls, "from_single_file", None)):
         kwargs.pop("variant", None)
-        pipe = cls.from_single_file(str(single), **kwargs)
+        pipe = cls.from_single_file(
+            str(third_party_dir(single, why="from_single_file wants a real file")),
+            **kwargs)
     else:
         # A part whose dtype opinion is WIDER than the composition's compute
         # dtype must come off disk that way — upcasting a bf16-loaded
@@ -2442,7 +2462,8 @@ def load_from_pretrained(
         if per_component:
             kwargs["torch_dtype"] = per_component
         try:
-            pipe = cls.from_pretrained(path, **kwargs)
+            pipe = cls.from_pretrained(
+                third_party_dir(path, why="pipeline from_pretrained"), **kwargs)
         except (TypeError, ValueError):
             # Not every loader takes variant=/quantization_config= (transformers
             # models, single-file components); retry with the bare essentials.
@@ -2462,7 +2483,8 @@ def load_from_pretrained(
                     "composition's single compute dtype (widened parts will "
                     "load truncated)", path, getattr(cls, "__name__", cls),
                 )
-            pipe = cls.from_pretrained(path, **kwargs)
+            pipe = cls.from_pretrained(
+                third_party_dir(path, why="pipeline from_pretrained"), **kwargs)
 
     unmaterialized = meta_tensors(pipe)
     if unmaterialized:

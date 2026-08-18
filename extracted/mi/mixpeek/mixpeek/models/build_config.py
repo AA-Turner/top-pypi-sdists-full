@@ -20,6 +20,7 @@ import json
 
 from pydantic import BaseModel, ConfigDict, Field, StrictBool, StrictStr, field_validator
 from typing import Any, ClassVar, Dict, List, Optional
+from mixpeek.models.api_allow_rule import ApiAllowRule
 from typing import Optional, Set
 from typing_extensions import Self
 
@@ -33,7 +34,8 @@ class BuildConfig(BaseModel):
     env_vars: Optional[Dict[str, StrictStr]] = Field(default=None, description="Build-time environment variables injected into the app. Set MIXPEEK_API_KEY here to enable the /_api server-side proxy — without it the proxy falls back to the canvas server's default key. NOTE: every key here EXCEPT MIXPEEK_API_KEY is injected into the browser's window.__MIXPEEK__. For third-party secrets that must stay server-side (e.g. SERPAPI_KEY for a /functions/* handler), use ``secrets`` below, not ``env_vars``.")
     secrets: Optional[Dict[str, StrictStr]] = Field(default=None, description="Server-only secrets for the app's /functions/* server-side handlers, exposed to them as ``ctx.env``. NEVER injected into the browser window.__MIXPEEK__ and masked ('***') in API responses. Use for third-party API keys (e.g. SERPAPI_KEY).")
     asset_prefix: Optional[StrictStr] = Field(default=None, description="CDN asset prefix once deployed")
-    __properties: ClassVar[List[str]] = ["entry", "framework", "tailwind", "env_vars", "secrets", "asset_prefix"]
+    api_allow: Optional[List[ApiAllowRule]] = Field(default=None, description="Per-app /api proxy allowlist: rules that WIDEN the deny-by-default fleet allowlist, each {methods, pattern}. Read by the canvas /api proxy (GCA-108). Absent means the fleet default allowlist only. Was silently dropped before because BuildConfig ignored unknown keys (BACKE-3360).")
+    __properties: ClassVar[List[str]] = ["entry", "framework", "tailwind", "env_vars", "secrets", "asset_prefix", "api_allow"]
 
     @field_validator('framework')
     def framework_validate_enum(cls, value):
@@ -84,6 +86,13 @@ class BuildConfig(BaseModel):
             exclude=excluded_fields,
             exclude_none=True,
         )
+        # override the default output from pydantic by calling `to_dict()` of each item in api_allow (list)
+        _items = []
+        if self.api_allow:
+            for _item_api_allow in self.api_allow:
+                if _item_api_allow:
+                    _items.append(_item_api_allow.to_dict())
+            _dict['api_allow'] = _items
         return _dict
 
     @classmethod
@@ -101,7 +110,8 @@ class BuildConfig(BaseModel):
             "tailwind": obj.get("tailwind") if obj.get("tailwind") is not None else True,
             "env_vars": obj.get("env_vars"),
             "secrets": obj.get("secrets"),
-            "asset_prefix": obj.get("asset_prefix")
+            "asset_prefix": obj.get("asset_prefix"),
+            "api_allow": [ApiAllowRule.from_dict(_item) for _item in obj["api_allow"]] if obj.get("api_allow") is not None else None
         })
         return _obj
 

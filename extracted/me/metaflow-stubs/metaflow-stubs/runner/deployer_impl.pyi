@@ -1,15 +1,15 @@
 ######################################################################################################
 #                                 Auto-generated Metaflow stub file                                  #
-# MF version: 2.19.37                                                                                #
-# Generated on 2026-08-11T17:17:32.730361                                                            #
+# MF version: 2.19.38                                                                                #
+# Generated on 2026-08-18T00:36:54.500175                                                            #
 ######################################################################################################
 
 from __future__ import annotations
 
 import typing
 if typing.TYPE_CHECKING:
-    import metaflow.runner.deployer
     import typing
+    import metaflow.runner.deployer
 
 from .subprocess_manager import SubprocessManager as SubprocessManager
 from .utils import get_lower_level_group as get_lower_level_group

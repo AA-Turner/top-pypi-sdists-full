@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: any-llm-sdk
-Version: 1.25.0
+Version: 1.26.0
 License: Apache-2.0
 Project-URL: Documentation, https://docs.mozilla.ai/any-llm/
 Project-URL: Issues, https://github.com/mozilla-ai/any-llm/issues
@@ -26,10 +26,10 @@ Provides-Extra: mistral
 Requires-Dist: mistralai>=2.0.0; extra == "mistral"
 Provides-Extra: anthropic
 Provides-Extra: gemini
-Requires-Dist: google-genai; extra == "gemini"
+Requires-Dist: google-genai>=1.51.0; extra == "gemini"
 Requires-Dist: google-cloud-storage; extra == "gemini"
 Provides-Extra: vertexai
-Requires-Dist: google-genai; extra == "vertexai"
+Requires-Dist: google-genai>=1.51.0; extra == "vertexai"
 Requires-Dist: google-cloud-storage; extra == "vertexai"
 Provides-Extra: vertexaianthropic
 Requires-Dist: anthropic[vertex]>=0.83.0; extra == "vertexaianthropic"
@@ -50,7 +50,7 @@ Requires-Dist: azure-ai-inference; extra == "azure"
 Provides-Extra: watsonx
 Requires-Dist: ibm-watsonx-ai; python_version < "3.14" and extra == "watsonx"
 Provides-Extra: together
-Requires-Dist: together>=1.5.34; extra == "together"
+Requires-Dist: together>=2.0.0; extra == "together"
 Provides-Extra: ollama
 Requires-Dist: ollama>=0.6.0; extra == "ollama"
 Provides-Extra: voyage
@@ -69,7 +69,7 @@ Provides-Extra: deepseek
 Provides-Extra: fireworks
 Provides-Extra: gmi
 Provides-Extra: otari
-Requires-Dist: otari>=0.2.0; extra == "otari"
+Requires-Dist: otari>=0.3.0; extra == "otari"
 Provides-Extra: github
 Provides-Extra: inception
 Provides-Extra: kenari

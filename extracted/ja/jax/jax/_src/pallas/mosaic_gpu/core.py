@@ -24,7 +24,7 @@ import enum
 import functools
 import itertools as it
 import math
-from typing import Any, ClassVar, Literal, Union
+from typing import Any, ClassVar, Literal
 
 import jax
 from jax._src import api
@@ -94,10 +94,9 @@ class CompilerParams:
   Attributes:
     approx_math: If True, the compiler is allowed to use approximate
       implementations of some math operations, e.g. ``exp``. Defaults to False.
-    dimension_semantics: A list of dimension semantics for each grid
-      dimension of the kernel. Either "parallel" for dimensions that can
-      execute in any order, or "sequential" for dimensions that must be
-      executed sequentially.
+    dimension_semantics: A list of dimension semantics for each grid dimension
+      of the kernel. Either "parallel" for dimensions that can execute in any
+      order, or "sequential" for dimensions that must be executed sequentially.
     max_concurrent_steps: The maximum number of sequential stages that are
       active concurrently. Defaults to 1.
     delay_release: The number of steps to wait before reusing the input/output
@@ -105,12 +104,12 @@ class CompilerParams:
       max_concurrent_steps. Generally, you'll want to set it to 1 if you don't
       await the WGMMA in the body.
     unsafe_no_auto_barriers: If True, Pallas will never automatically insert
-      barrier instructions that ensure synchronous semantics of loads and stores.
-      At the moment, the insertion is done conservatively and might regress
-      performance. There are (at least) two conditions that must be satisfied
-      for the use of this flag to be safe. First, no memory region is ever read
-      *and* written to by the same thread (async copies are performed by
-      background threads and do not count towards this rule). Secondly, no
+      barrier instructions that ensure synchronous semantics of loads and
+      stores. At the moment, the insertion is done conservatively and might
+      regress performance. There are (at least) two conditions that must be
+      satisfied for the use of this flag to be safe. First, no memory region is
+      ever read *and* written to by the same thread (async copies are performed
+      by background threads and do not count towards this rule). Secondly, no
       thread ever calls commit_smem(), reads from the committed SMEM and then
       issues an async copy overwriting that region (this is a very artificial
       and highly unlikely scenario).
@@ -121,9 +120,13 @@ class CompilerParams:
       H100 and B200.
     profile_space: The number of profiler events that can be collected in a
       single invocation. It is undefined behavior if a thread collects more
-      events than this.
+      events than this, unless profile_bounds_check is set.
     profile_dir: The directory to which profiling traces will be written to.
-    profile_trace_scope: The scope at which traces are collected (WARP or WARPGROUP).
+    profile_trace_scope: The scope at which traces are collected (WARP or
+      WARPGROUP).
+    profile_bounds_check: If True, profiler events past profile_space are
+      dropped (the trace is truncated) instead of corrupting SMEM, at the cost
+      of a slightly higher per-event profiling overhead.
   """
   approx_math: bool = False
   dimension_semantics: Sequence[DimensionSemantics] | None = None
@@ -133,6 +136,7 @@ class CompilerParams:
   profile_space: int = 0
   profile_dir: str = ""
   profile_trace_scope: TraceScope = TraceScope.WARPGROUP
+  profile_bounds_check: bool = False
   lowering_semantics: mgpu.core.LoweringSemantics = mgpu.core.LoweringSemantics.Warpgroup
 
   def __post_init__(self):
@@ -705,7 +709,7 @@ class RefUnion(GPUMemoryRef):
                             memory_space=self.memory_space)
 
 
-Index = Union[mgpu.DynamicSlice, slice, int, ir.Value]
+Index = mgpu.DynamicSlice | slice | int | ir.Value
 
 
 @dataclasses.dataclass(frozen=True)
@@ -1417,7 +1421,7 @@ class BlockSpec(pallas_core.BlockSpec):
   """
   transforms: Sequence[state_types.Transform] = ()
   delay_release: int = 0
-  collective_axes: tuple[Hashable, ...] = ()
+  collective_axes: tuple[Hashable, ...] | None = None
   oob_fill_mode: OOBFillMode = OOBFillMode.ZEROS
 
   def to_block_mapping(
@@ -1758,51 +1762,6 @@ class WarpMesh(pallas_core.Mesh):
   @contextlib.contextmanager
   def tracing_context(self):
     yield
-
-
-def _gpu_mesh_discharge_rule(
-    in_avals,
-    out_avals,
-    *args,
-    mesh,
-    jaxpr,
-    compiler_params,
-    interpret,
-    debug,
-    cost_estimate,
-    name,
-    metadata,
-):
-  if not isinstance(mesh, Mesh):
-    raise TypeError(f"Mesh must be a `plgpu.Mesh`, got {type(mesh)}")
-  if compiler_params and not isinstance(compiler_params, CompilerParams):
-    raise TypeError(
-        "Compiler params must be a `plgpu.CompilerParams`, got"
-        f" {type(compiler_params)}"
-    )
-  if not compiler_params:
-    compiler_params = CompilerParams()
-  sa_avals = [a for a in in_avals if isinstance(a, jax_core.ShapedArray)]
-  if sa_avals:
-    raise NotImplementedError(
-        f"Cannot close over values in core_map: {sa_avals}"
-    )
-  return pallas_core.default_mesh_discharge_rule(
-      in_avals,
-      out_avals,
-      *args,
-      jaxpr=jaxpr,
-      mesh=mesh,
-      compiler_params=compiler_params,
-      debug=debug,
-      interpret=interpret,
-      cost_estimate=cost_estimate,
-      name=name,
-      metadata=metadata,
-  )
-
-
-pallas_core._core_map_mesh_rules[Mesh] = _gpu_mesh_discharge_rule
 
 
 class MemoryEffect(jax_core.Effect):

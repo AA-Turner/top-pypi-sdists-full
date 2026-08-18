@@ -15,8 +15,13 @@ PYTHONIC_NS_BEGIN
 namespace types
 {
   template <class T>
-  struct broadcasted_iterator
-      : std::iterator<std::random_access_iterator_tag, std::remove_reference_t<T>> {
+  struct broadcasted_iterator {
+    using iterator_category = std::random_access_iterator_tag;
+    using value_type = std::remove_reference_t<T>;
+    using difference_type = std::ptrdiff_t;
+    using pointer = value_type *;
+    using reference = value_type /* no ref */;
+
     T value_;
 
     broadcasted_iterator(T const &value) : value_(value)
@@ -194,7 +199,13 @@ namespace types
 #endif
 
   template <class T>
-  struct const_broadcast_iterator : public std::iterator<std::random_access_iterator_tag, T> {
+  struct const_broadcast_iterator {
+    using iterator_category = std::random_access_iterator_tag;
+    using value_type = T;
+    using difference_type = std::ptrdiff_t;
+    using pointer = value_type *;
+    using reference = value_type /* no ref */;
+
     T value;
     const_broadcast_iterator(T data) : value{data}
     {
@@ -252,10 +263,10 @@ namespace types
 
   template <class T, class B>
   struct broadcast_dtype {
-    using type = std::conditional_t<(std::is_integral<T>::value && std::is_integral<B>::value) ||
-                                        (std::is_floating_point<T>::value &&
-                                         std::is_floating_point<B>::value),
-                                    T, typename __combined<T, B>::type>;
+    using type =
+        std::conditional_t<(std::is_integral_v<T> && std::is_integral_v<B>) ||
+                               (std::is_floating_point_v<T> && std::is_floating_point_v<B>),
+                           T, typename __combined<T, B>::type>;
   };
 #ifndef USE_XSIMD
   template <class T, class B>

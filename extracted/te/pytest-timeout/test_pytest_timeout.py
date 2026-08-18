@@ -5,8 +5,8 @@ import time
 
 import pexpect
 import pytest
-
 from pytest_timeout import PYTEST_FAILURE_MESSAGE
+
 
 MATCH_FAILURE_MESSAGE = f"*Failed: {PYTEST_FAILURE_MESSAGE}*"
 pytest_plugins = "pytester"
@@ -135,7 +135,7 @@ def test_timeout_env(pytester, monkeypatch):
 @pytest.mark.parametrize("scope", ["function", "class", "module", "session"])
 def test_fix_setup(meth, scope, pytester):
     pytester.makepyfile(
-        f"""
+        """
         import time, pytest
 
         class TestFoo:
@@ -146,7 +146,9 @@ def test_fix_setup(meth, scope, pytester):
 
             def test_foo(self, fix):
                 pass
-    """
+    """.format(
+            scope=scope
+        )
     )
     result = pytester.runpytest_subprocess("--timeout=1", f"--timeout-method={meth}")
     assert result.ret > 0
@@ -176,10 +178,9 @@ def test_fix_setup_func_only(pytester):
 
 @pytest.mark.parametrize("meth", [pytest.param("signal", marks=have_sigalrm), "thread"])
 @pytest.mark.parametrize("scope", ["function", "class", "module", "session"])
-@pytest.mark.parametrize("pass_test", [False, True])
-def test_fix_finalizer(meth, scope, pass_test, pytester):
+def test_fix_finalizer(meth, scope, pytester):
     pytester.makepyfile(
-        f"""
+        """
         import time, pytest
 
         class TestFoo:
@@ -193,7 +194,7 @@ def test_fix_finalizer(meth, scope, pass_test, pytester):
                 request.addfinalizer(fin)
 
             def test_foo(self, fix):
-                assert {pass_test}
+                pass
     """
     )
     result = pytester.runpytest_subprocess(
@@ -347,31 +348,6 @@ def test_ini_timeout(pytester):
     assert result.ret
 
 
-@pytest.mark.skipif(
-    pytest.version_tuple < (9, 0),
-    reason="native [tool.pytest] table requires pytest 9",
-)
-def test_pyproject_toml_int_timeout(pytester):
-    pytester.makepyfile(
-        """
-        import time
-
-        def test_foo():
-            time.sleep(2)
-    """
-    )
-    pytester.makepyprojecttoml(
-        """
-        [tool.pytest]
-        timeout = 1
-        session_timeout = 60
-    """
-    )
-    result = pytester.runpytest_subprocess()
-    result.stdout.no_fnmatch_line("INTERNALERROR*")
-    assert result.ret
-
-
 def test_ini_timeout_func_only(pytester):
     pytester.makepyfile(
         """
@@ -466,7 +442,7 @@ def test_marker_help(pytester):
 
 
 @pytest.mark.parametrize(
-    ("debugging_module", "debugging_set_trace"),
+    ["debugging_module", "debugging_set_trace"],
     [
         ("pdb", "set_trace()"),
         pytest.param(
@@ -489,13 +465,15 @@ def test_suppresses_timeout_when_debugger_is_entered(
     pytester, debugging_module, debugging_set_trace
 ):
     p1 = pytester.makepyfile(
-        f"""
+        """
         import pytest, {debugging_module}
 
         @pytest.mark.timeout(1)
         def test_foo():
             {debugging_module}.{debugging_set_trace}
-    """
+    """.format(
+            debugging_module=debugging_module, debugging_set_trace=debugging_set_trace
+        )
     )
     child = pytester.spawn_pytest(str(p1))
     child.expect("test_foo")
@@ -510,7 +488,7 @@ def test_suppresses_timeout_when_debugger_is_entered(
 
 
 @pytest.mark.parametrize(
-    ("debugging_module", "debugging_set_trace"),
+    ["debugging_module", "debugging_set_trace"],
     [
         ("pdb", "set_trace()"),
         pytest.param(
@@ -533,63 +511,17 @@ def test_disable_debugger_detection_flag(
     pytester, debugging_module, debugging_set_trace
 ):
     p1 = pytester.makepyfile(
-        f"""
+        """
         import pytest, {debugging_module}
 
         @pytest.mark.timeout(1)
         def test_foo():
             {debugging_module}.{debugging_set_trace}
-    """
+    """.format(
+            debugging_module=debugging_module, debugging_set_trace=debugging_set_trace
+        )
     )
     child = pytester.spawn_pytest(f"{p1} --timeout-disable-debugger-detection")
-    child.expect("test_foo")
-    time.sleep(1.2)
-    result = child.read().decode().lower()
-    if child.isalive():
-        child.terminate(force=True)
-    assert "timeout (>1.0s)" in result
-    assert "fail" in result
-
-
-@pytest.mark.parametrize(
-    ("debugging_module", "debugging_set_trace"),
-    [
-        ("pdb", "set_trace()"),
-        pytest.param(
-            "ipdb",
-            "set_trace()",
-            marks=pytest.mark.xfail(
-                reason="waiting on https://github.com/pytest-dev/pytest/pull/7207"
-                " to allow proper testing"
-            ),
-        ),
-        pytest.param(
-            "pydevd",
-            "settrace(port=4678)",
-            marks=pytest.mark.xfail(reason="in need of way to setup pydevd server"),
-        ),
-    ],
-)
-@have_spawn
-def test_disable_debugger_detection_ini(
-    pytester, debugging_module, debugging_set_trace
-):
-    pytester.makepyfile(
-        f"""
-        import pytest, {debugging_module}
-
-        @pytest.mark.timeout(1)
-        def test_foo():
-            {debugging_module}.{debugging_set_trace}
-    """
-    )
-    pytester.makeini(
-        """
-        [pytest]
-        timeout_disable_debugger_detection = true
-    """
-    )
-    child = pytester.spawn_pytest(str(pytester.path))
     child.expect("test_foo")
     time.sleep(1.2)
     result = child.read().decode().lower()
@@ -682,9 +614,9 @@ def test_plugin_interface(pytester):
 
 
 def test_session_timeout(pytester):
-    # This is designed to timeout during the first test to ensure
+    # This is designed to timeout during hte first test to ensure 
     # - the first test still runs to completion
-    # - the second test is not started
+    # - the second test is not started 
     pytester.makepyfile(
         """
         import time, pytest
@@ -705,7 +637,7 @@ def test_session_timeout(pytester):
     result = pytester.runpytest_subprocess("--session-timeout", "2")
     result.stdout.fnmatch_lines(["*!! session-timeout: 2.0 sec exceeded !!!*"])
     # This would be 2 passed if the second test was allowed to run
-    result.assert_outcomes(passed=1)
+    result.assert_outcomes(passed=1)  
 
 
 def test_ini_session_timeout(pytester):

@@ -56,6 +56,10 @@ __all__ = (
     "LaunchStatusType",
     "ListExtensibleSourceServersPaginatorName",
     "ListLaunchActionsPaginatorName",
+    "ListRecoveryPlanExecutionStepsPaginatorName",
+    "ListRecoveryPlanExecutionsPaginatorName",
+    "ListRecoveryPlanStepsPaginatorName",
+    "ListRecoveryPlansPaginatorName",
     "ListStagingAccountsPaginatorName",
     "OriginEnvironmentType",
     "PITPolicyRuleUnitsType",
@@ -65,6 +69,11 @@ __all__ = (
     "RecoveryInstanceDataReplicationInitiationStepStatusType",
     "RecoveryInstanceDataReplicationStateType",
     "RecoveryModeType",
+    "RecoveryPlanExecutionModeType",
+    "RecoveryPlanExecutionStatusType",
+    "RecoveryPlanExecutionStepStatusType",
+    "RecoveryPlanServerImpactLevelType",
+    "RecoveryPlanStatusType",
     "RecoveryResultType",
     "RecoverySnapshotsOrderType",
     "RegionName",
@@ -227,6 +236,10 @@ LaunchDispositionType = Literal["STARTED", "STOPPED"]
 LaunchStatusType = Literal["FAILED", "IN_PROGRESS", "LAUNCHED", "PENDING", "TERMINATED"]
 ListExtensibleSourceServersPaginatorName = Literal["list_extensible_source_servers"]
 ListLaunchActionsPaginatorName = Literal["list_launch_actions"]
+ListRecoveryPlanExecutionStepsPaginatorName = Literal["list_recovery_plan_execution_steps"]
+ListRecoveryPlanExecutionsPaginatorName = Literal["list_recovery_plan_executions"]
+ListRecoveryPlanStepsPaginatorName = Literal["list_recovery_plan_steps"]
+ListRecoveryPlansPaginatorName = Literal["list_recovery_plans"]
 ListStagingAccountsPaginatorName = Literal["list_staging_accounts"]
 OriginEnvironmentType = Literal["AWS", "ON_PREMISES"]
 PITPolicyRuleUnitsType = Literal["DAY", "HOUR", "MINUTE"]
@@ -269,6 +282,15 @@ RecoveryInstanceDataReplicationStateType = Literal[
     "STOPPED",
 ]
 RecoveryModeType = Literal["FAST", "OPTIMAL"]
+RecoveryPlanExecutionModeType = Literal["DRILL", "RECOVERY"]
+RecoveryPlanExecutionStatusType = Literal[
+    "CANCELLED", "CANCELLING", "COMPLETED", "CREATED", "FAILED", "IN_PROGRESS"
+]
+RecoveryPlanExecutionStepStatusType = Literal[
+    "COMPLETED", "EXECUTING", "FAILED", "NOT_STARTED", "SKIPPED", "TIMED_OUT", "WAITING"
+]
+RecoveryPlanServerImpactLevelType = Literal["CRITICAL", "OPTIONAL"]
+RecoveryPlanStatusType = Literal["ACTIVE", "INVALID"]
 RecoveryResultType = Literal[
     "ASSOCIATE_FAIL",
     "ASSOCIATE_SUCCESS",
@@ -741,6 +763,10 @@ PaginatorName = Literal[
     "describe_source_servers",
     "list_extensible_source_servers",
     "list_launch_actions",
+    "list_recovery_plan_execution_steps",
+    "list_recovery_plan_executions",
+    "list_recovery_plan_steps",
+    "list_recovery_plans",
     "list_staging_accounts",
 ]
 RegionName = Literal[

@@ -1,7 +1,7 @@
 ######################################################################################################
 #                                 Auto-generated Metaflow stub file                                  #
 # MF version: 2.19.34.1+obcheckpoint(0.2.10);<unk>(<unk>);ob(v1)                                     #
-# Generated on 2026-08-14T20:17:07.902418                                                            #
+# Generated on 2026-08-17T19:44:19.509936                                                            #
 ######################################################################################################
 
 from __future__ import annotations
@@ -9,22 +9,22 @@ from __future__ import annotations
 
 from . import test_unbounded_foreach_decorator as test_unbounded_foreach_decorator
 from .test_unbounded_foreach_decorator import InternalTestUnboundedForeachInput as InternalTestUnboundedForeachInput
-from . import pypi as pypi
+from . import retry_decorator as retry_decorator
 from . import parallel_decorator as parallel_decorator
-from . import cards as cards
-from . import catch_decorator as catch_decorator
 from . import datatools as datatools
 from . import gcp as gcp
 from . import storage_executor as storage_executor
-from . import secrets as secrets
-from . import kubernetes as kubernetes
-from . import resources_decorator as resources_decorator
+from . import cards as cards
 from . import timeout_decorator as timeout_decorator
 from . import aws as aws
+from . import pypi as pypi
+from . import kubernetes as kubernetes
+from . import resources_decorator as resources_decorator
+from . import environment_decorator as environment_decorator
+from . import catch_decorator as catch_decorator
 from . import argo as argo
 from . import frameworks as frameworks
-from . import environment_decorator as environment_decorator
-from . import retry_decorator as retry_decorator
+from . import secrets as secrets
 from . import airflow as airflow
 from . import exit_hook as exit_hook
 from . import events_decorator as events_decorator

@@ -25,6 +25,25 @@ except ImportError:
     _native = None  # type: ignore[assignment]
 
 
+def _resolve_frame_id(
+    model: mujoco.MjModel, frame_name: str | int, frame_type: str
+) -> int:
+    """Validate a frame type and resolve a frame name or id to an id."""
+    if frame_type not in consts.SUPPORTED_FRAMES:
+        raise exceptions.UnsupportedFrame(frame_type, consts.SUPPORTED_FRAMES)
+    if isinstance(frame_name, str):
+        frame_id = mujoco.mj_name2id(
+            model, consts.FRAME_TO_ENUM[frame_type], frame_name
+        )
+        if frame_id == -1:
+            raise exceptions.InvalidFrame(frame_name, frame_type, model)
+        return frame_id
+    frame_id = int(frame_name)
+    if not 0 <= frame_id < getattr(model, consts.FRAME_TO_COUNT_ATTR[frame_type]):
+        raise exceptions.InvalidFrame(frame_id, frame_type, model)
+    return frame_id
+
+
 class Configuration:
     """Encapsulates a model and data for convenient access to kinematic quantities.
 
@@ -61,15 +80,19 @@ class Configuration:
         # Precompute limited joint indices for vectorized check_limits.
         limited = model.jnt_limited.astype(bool)
         limited &= model.jnt_type != mujoco.mjtJoint.mjJNT_FREE
-        self._limited_jnt_ids = np.where(limited)[0]
+        is_ball = model.jnt_type == mujoco.mjtJoint.mjJNT_BALL
+        self._limited_jnt_ids = np.where(limited & ~is_ball)[0]
         self._limited_qposadr = model.jnt_qposadr[self._limited_jnt_ids]
         self._limited_range = model.jnt_range[self._limited_jnt_ids]
+        self._limited_ball_jnt_ids = np.where(limited & is_ball)[0]
+        self._limited_ball_qposadr = model.jnt_qposadr[self._limited_ball_jnt_ids]
+        self._limited_ball_max_angle = model.jnt_range[self._limited_ball_jnt_ids, 1]
 
         # Cached identity matrix for QP assembly.
         self._eye_nv = np.eye(model.nv)
 
         # Cache of resolved frame ids; these are static for a given model.
-        self._frame_id_cache: dict[tuple[str, str], int] = {}
+        self._frame_id_cache: dict[tuple[str | int, str], int] = {}
 
         self.update(q=q)
 
@@ -112,35 +135,56 @@ class Configuration:
             NotWithinConfigurationLimits: If the current configuration is outside
                 the joint limits.
         """
-        if len(self._limited_jnt_ids) == 0:
-            return
-        qvals = self.data.qpos[self._limited_qposadr]
-        violations = (qvals < self._limited_range[:, 0] - tol) | (
-            qvals > self._limited_range[:, 1] + tol
-        )
-        if not violations.any():
-            return
-        if safety_break:
-            idx = int(np.argmax(violations))
-            jnt = int(self._limited_jnt_ids[idx])
-            raise exceptions.NotWithinConfigurationLimits(
-                joint_id=jnt,
-                value=int(qvals[idx]),
-                lower=self._limited_range[idx, 0],
-                upper=self._limited_range[idx, 1],
-                model=self.model,
+        if len(self._limited_jnt_ids) > 0:
+            qvals = self.data.qpos[self._limited_qposadr]
+            violations = (qvals < self._limited_range[:, 0] - tol) | (
+                qvals > self._limited_range[:, 1] + tol
             )
-        for idx in np.where(violations)[0]:
-            jnt = int(self._limited_jnt_ids[idx])
-            qval = qvals[idx]
-            qmin = self._limited_range[idx, 0]
-            qmax = self._limited_range[idx, 1]
+            if violations.any():
+                if safety_break:
+                    idx = int(np.argmax(violations))
+                    jnt = int(self._limited_jnt_ids[idx])
+                    raise exceptions.NotWithinConfigurationLimits(
+                        joint_id=jnt,
+                        value=float(qvals[idx]),
+                        lower=self._limited_range[idx, 0],
+                        upper=self._limited_range[idx, 1],
+                        model=self.model,
+                    )
+                for idx in np.where(violations)[0]:
+                    jnt = int(self._limited_jnt_ids[idx])
+                    qval = qvals[idx]
+                    qmin = self._limited_range[idx, 0]
+                    qmax = self._limited_range[idx, 1]
+                    self._logger.debug(
+                        f"Value {qval:.2f} at joint {jnt} is outside of its limits: "
+                        f"[{qmin:.2f}, {qmax:.2f}]"
+                    )
+
+        # Ball joints are limited on their rotation angle.
+        for jnt, padr, max_angle in zip(
+            self._limited_ball_jnt_ids,
+            self._limited_ball_qposadr,
+            self._limited_ball_max_angle,
+        ):
+            quat = self.data.qpos[padr : padr + 4]
+            angle = 2.0 * np.arctan2(np.linalg.norm(quat[1:]), abs(quat[0]))
+            if angle <= max_angle + tol:
+                continue
+            if safety_break:
+                raise exceptions.NotWithinConfigurationLimits(
+                    joint_id=int(jnt),
+                    value=float(angle),
+                    lower=0.0,
+                    upper=float(max_angle),
+                    model=self.model,
+                )
             self._logger.debug(
-                f"Value {qval:.2f} at joint {jnt} is outside of its limits: "
-                f"[{qmin:.2f}, {qmax:.2f}]"
+                f"Rotation angle {angle:.2f} at ball joint {jnt} exceeds its limit "
+                f"{max_angle:.2f}"
             )
 
-    def get_frame_jacobian(self, frame_name: str, frame_type: str) -> np.ndarray:
+    def get_frame_jacobian(self, frame_name: str | int, frame_type: str) -> np.ndarray:
         r"""Compute the Jacobian matrix of a frame velocity.
 
         Denoting our frame by :math:`B` and the world frame by :math:`W`, the
@@ -152,7 +196,7 @@ class Configuration:
             {}_B v_{WB} = {}_B J_{WB} \dot{q}
 
         Args:
-            frame_name: Name of the frame in the MJCF.
+            frame_name: Name or id of the frame in the MJCF.
             frame_type: Type of frame. Can be a geom, a body or a site.
 
         Returns:
@@ -177,28 +221,17 @@ class Configuration:
 
         return jac
 
-    def _resolve_frame_id(self, frame_name: str, frame_type: str) -> int:
-        """Validate frame type and resolve name to ID (cached; ids are static)."""
+    def _resolve_frame_id(self, frame_name: str | int, frame_type: str) -> int:
+        """Resolve and memoize a frame identifier (ids are static for a model)."""
         key = (frame_name, frame_type)
         cached = self._frame_id_cache.get(key)
-        if cached is not None:
-            return cached
-        if frame_type not in consts.SUPPORTED_FRAMES:
-            raise exceptions.UnsupportedFrame(frame_type, consts.SUPPORTED_FRAMES)
-        frame_id = mujoco.mj_name2id(
-            self.model, consts.FRAME_TO_ENUM[frame_type], frame_name
-        )
-        if frame_id == -1:
-            raise exceptions.InvalidFrame(
-                frame_name=frame_name,
-                frame_type=frame_type,
-                model=self.model,
-            )
-        self._frame_id_cache[key] = frame_id
-        return frame_id
+        if cached is None:
+            cached = _resolve_frame_id(self.model, frame_name, frame_type)
+            self._frame_id_cache[key] = cached
+        return cached
 
     def _get_transform_frame_to_world_wxyz_xyz(
-        self, frame_name: str, frame_type: str
+        self, frame_name: str | int, frame_type: str
     ) -> np.ndarray:
         """Return the raw wxyz_xyz[7] array for a frame pose. Internal use."""
         frame_id = self._resolve_frame_id(frame_name, frame_type)
@@ -211,11 +244,13 @@ class Configuration:
             translation=xpos,
         ).wxyz_xyz
 
-    def get_transform_frame_to_world(self, frame_name: str, frame_type: str) -> SE3:
+    def get_transform_frame_to_world(
+        self, frame_name: str | int, frame_type: str
+    ) -> SE3:
         """Get the pose of a frame at the current configuration.
 
         Args:
-            frame_name: Name of the frame in the MJCF.
+            frame_name: Name or id of the frame in the MJCF.
             frame_type: Type of frame. Can be a geom, a body or a site.
 
         Returns:
@@ -227,9 +262,9 @@ class Configuration:
 
     def _get_transform_wxyz_xyz(
         self,
-        source_name: str,
+        source_name: str | int,
         source_type: str,
-        dest_name: str,
+        dest_name: str | int,
         dest_type: str,
     ) -> np.ndarray:
         """Return the raw wxyz_xyz[7] for a relative transform. Internal use."""
@@ -243,18 +278,18 @@ class Configuration:
 
     def get_transform(
         self,
-        source_name: str,
+        source_name: str | int,
         source_type: str,
-        dest_name: str,
+        dest_name: str | int,
         dest_type: str,
     ) -> SE3:
         """Get the pose of a frame with respect to another frame at the current
         configuration.
 
         Args:
-            source_name: Name of the frame in the MJCF.
+            source_name: Name or id of the frame in the MJCF.
             source_type: Source type of frame. Can be a geom, a body or a site.
-            dest_name: Name of the frame to get the pose in.
+            dest_name: Name or id of the frame to get the pose in.
             dest_type: Dest type of frame. Can be a geom, a body or a site.
 
         Returns:
@@ -297,18 +332,10 @@ class Configuration:
             The joint-space inertia matrix :math:`M(\mathbf{q})`.
         """
         # Run the composite rigid body inertia (CRB) algorithm to populate the joint
-        # space inertia matrix data.M.
+        # space inertia matrix data.M, then densify its symmetric CSR format.
         mujoco.mj_makeM(self.model, self.data)
-        # data.M is stored in a lower-triangular implicitly-symmetric CSR format and
-        # can be converted to a dense symmetric matrix via mujoco.mju_sym2dense.
         M = np.empty((self.nv, self.nv), dtype=np.float64)
-        mujoco.mju_sym2dense(
-            M,
-            self.data.M,
-            self.model.M_rownnz,
-            self.model.M_rowadr,
-            self.model.M_colind,
-        )
+        mujoco.mj_fullM(self.model, self.data, M)
         return M
 
     # Aliases.

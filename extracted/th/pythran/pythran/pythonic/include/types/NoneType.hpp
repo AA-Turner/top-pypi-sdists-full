@@ -3,6 +3,8 @@
 
 #include "pythonic/include/operator_/mod.hpp"
 #include "pythonic/include/types/assignable.hpp"
+#include <cassert>
+#include <cstdint>
 #include <ostream>
 
 PYTHONIC_NS_BEGIN
@@ -13,7 +15,7 @@ namespace types
   static const intptr_t NONE_ID = 0x1331;
 
   struct none_type {
-    none_type();
+    none_type() = default;
     intptr_t id() const;
     bool operator==(none_type) const
     {
@@ -30,7 +32,7 @@ namespace types
     return os << "None";
   }
 
-  template <class T, bool is_fundamental = std::is_fundamental<T>::value>
+  template <class T, bool is_fundamental = std::is_fundamental_v<T>>
   struct none;
 
   /* Type adaptor to simulate an option type
@@ -114,6 +116,8 @@ namespace types
     none();
     none(none_type const &);
     none(T const &data);
+    template<class U, U V, class = std::enable_if<std::is_integral_v<U>>>
+    none(std::integral_constant<U, V> const &data) : none(T(data)) {}
     bool operator==(none_type const &) const;
     template <class O>
     bool operator==(O const &t) const;
@@ -217,7 +221,7 @@ namespace std
 
   template <>
   struct hash<pythonic::types::none_type> {
-    size_t operator()(const pythonic::types::none_type &x) const
+    size_t operator()(const pythonic::types::none_type &) const
     {
       return 0;
     }

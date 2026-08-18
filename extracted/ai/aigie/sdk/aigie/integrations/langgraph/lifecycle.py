@@ -267,11 +267,17 @@ class LangGraphLifecycle(FrameworkLifecycleBridge, CallbackLifecycle):
         )
 
     def _after_run(
-        self, handler: Any, input: Any, config: dict | None, error: BaseException | None
+        self,
+        handler: Any,
+        input: Any,
+        config: dict | None,
+        error: BaseException | None,
+        result: Any = None,
     ) -> None:
         try:
             if not self._is_controlled_pause(error):
-                handler.close_workflow_span(error=error)
+                # A null root output lets a later span fill the gap.
+                handler.close_workflow_span(output=result, error=error)
         finally:
             _dec_thread_counter()
 

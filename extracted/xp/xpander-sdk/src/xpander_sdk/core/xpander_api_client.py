@@ -105,7 +105,7 @@ class APIClient(ABC):
                 json=payload if method in {"POST", "PUT", "PATCH"} else None,
                 params=query,
                 headers=headers,
-                timeout=1200,  # 20 minutes
+                timeout=1500,  # 25 minutes - outlives the platform's 20-minute code-execution budget
             )
 
             response.raise_for_status()

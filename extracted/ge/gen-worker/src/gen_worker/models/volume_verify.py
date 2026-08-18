@@ -41,13 +41,16 @@ from typing import Any, List, Optional, Sequence, Tuple
 
 from gen_worker._vendor.tensorfs import CASRef, DigestMismatch
 
+from . import projection
 from .cozy_snapshot import _norm_rel_path
 
 __all__ = [
     "VerifyReport",
     "VerifyTarget",
     "snapshot_verify_targets",
+    "split_projection_targets",
     "verify_files",
+    "verify_projection",
 ]
 
 _log = logging.getLogger(__name__)
@@ -78,6 +81,11 @@ class VerifyReport:
     # expected is what the caller believed it was checking. When it disagrees
     # with `examined`, the reader is wrong and the verdict is not trustworthy.
     expected: int = 0
+    # Projection artifacts checked structurally rather than by hashing. They
+    # count as REAL work for the vacuity guard: a projected tree legitimately
+    # hashes nothing, and scoring that as "read nothing at all" is what turned
+    # boot verification into an infinite re-download (pgw#1308).
+    projected: int = 0
 
     @property
     def ok(self) -> bool:
@@ -159,6 +167,78 @@ def verify_files(
     _log.info(
         "volume_verify examined=%d/%d hashed=%d bytes=%d bad=%d",
         rep.examined, rep.expected, rep.hashed, rep.bytes_hashed, len(rep.bad),
+    )
+    return rep
+
+
+def split_projection_targets(
+    targets: Sequence[VerifyTarget],
+) -> Tuple[List[VerifyTarget], List[VerifyTarget]]:
+    """Split targets into ``(projection artifacts, files holding real bytes)``.
+
+    A projection artifact is a TFSSTUB1 pointer stub or a symlink into the CAS
+    ``objects/``. Neither holds the bytes its manifest entry names, so hashing
+    it at its path is not a weaker check — it is a check of the wrong thing,
+    and it fails 100% of the time.
+    """
+
+    projected: List[VerifyTarget] = []
+    material: List[VerifyTarget] = []
+    for t in targets:
+        if projection.is_projection_artifact(t.path):
+            projected.append(t)
+        else:
+            material.append(t)
+    return projected, material
+
+
+def verify_projection(targets: Sequence[VerifyTarget]) -> VerifyReport:
+    """Verify projection artifacts against the manifest, WITHOUT hashing.
+
+    This is deliberately not a weakening of the mandatory-hash rule above; it
+    is the same rule applied where the bytes actually are. A projected tree's
+    bytes live in CAS objects that were hashed at ADMISSION (``LocalCAS``
+    commits an object only after its content hashes to its own name), on a
+    store that is always pod-local — a shared volume is a fill SOURCE whose
+    fills cross that same admission check, never the store itself. So the
+    only things a boot can still get wrong are structural, and they are
+    exactly what is checked here:
+
+    * a stub must name its entry's digest and size — the whole content of a
+      stub, so this is complete, not partial;
+    * a symlink must resolve to the object its entry names, and that object
+      must be present.
+
+    Re-hashing the objects instead would re-read every resident model on every
+    boot to re-derive a fact the store already refused to store wrongly.
+
+    What a correct artifact IS lives in :func:`projection.projection_fault`,
+    which the snapshot chokepoint's convergence check reads too. This function
+    owns the report shape and the wire-digest parse; it does not own a second
+    opinion about the rule.
+    """
+
+    rep = VerifyReport(expected=len(targets))
+    for t in targets:
+        label = t.label or t.ref
+        rep.examined += 1
+        try:
+            want = CASRef.parse(t.ref)
+        except ValueError as exc:
+            rep.bad.append(label)
+            rep.findings.append(f"{t.path.name}: unreadable digest {t.ref!r}: {exc}")
+            continue
+        fault = projection.projection_fault(
+            t.path, digest=want.digest, size=t.size
+        )
+        if fault is None:
+            rep.projected += 1
+        else:
+            rep.bad.append(label)
+            rep.findings.append(f"{t.path.name}: {fault}")
+    _log.info(
+        "projection_verify examined=%d/%d projected=%d bad=%d",
+        rep.examined, rep.expected, rep.projected, len(rep.bad),
     )
     return rep
 

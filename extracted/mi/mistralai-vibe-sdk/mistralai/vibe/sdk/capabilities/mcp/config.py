@@ -4,20 +4,23 @@ import builtins
 import hashlib
 import os
 import re
-from typing import Annotated, Any, ClassVar, Literal
+from pathlib import Path
+from typing import TYPE_CHECKING, Annotated, Any, ClassVar, Literal
 
-from mcp import StdioServerParameters
-from mcp.client.stdio import get_default_environment
 from pydantic import BaseModel, ConfigDict, Field, model_validator
 
 from mistralai.vibe.sdk.capabilities.mcp.port import McpPort
 from mistralai.vibe.sdk.utils.types import NonEmptyStr
+
+if TYPE_CHECKING:
+    from mcp import StdioServerParameters
 
 __all__ = [
     "ConnectorMcpConfig",
     "ConnectorMcpDirectTransport",
     "ConnectorMcpSdkTransport",
     "ConnectorMcpTransport",
+    "HttpMcpConfig",
     "McpConfigBase",
     "StdioMcpConfig",
 ]
@@ -27,6 +30,20 @@ DEFAULT_DIRECT_TIMEOUT_MS = 30_000
 DEFAULT_STDIO_TIMEOUT_MS = 30_000
 DEFAULT_CONNECTOR_MCP_PATH_TEMPLATE = "/connectors-gateway/{{connector_id}}/mcp"
 TEMPLATED_VAR_EXPRESSION = re.compile(r"\{\{(\w+)\}\}")
+
+
+def _resolve_scoped_headers(scoped_headers: dict[str, str]) -> dict[str, str]:
+    """Resolve ``{{ENV_VAR}}`` placeholders from the host environment."""
+    resolved: dict[str, str] = {}
+    for header_name, value in scoped_headers.items():
+        env_vars = {
+            name: os.environ.get(name, "").strip()
+            for name in TEMPLATED_VAR_EXPRESSION.findall(value)
+        }
+        resolved[header_name] = TEMPLATED_VAR_EXPRESSION.sub(
+            lambda m, ev=env_vars: ev[m.group(1)], value
+        )
+    return resolved
 
 
 class McpConfigBase(BaseModel):
@@ -88,14 +105,17 @@ class McpConfigBase(BaseModel):
         return hashlib.sha256(self.model_dump_json(exclude_none=False).encode()).hexdigest()
 
 
-class StdioMcpConfig(McpConfigBase, StdioServerParameters):
+class StdioMcpConfig(McpConfigBase):
     """Config of a stdio MCP server (a local subprocess)."""
 
     model_config = ConfigDict(extra="forbid")
 
     type: Literal["stdio"] = "stdio"
-    # Disable the inherited plaintext ``env`` field: secrets must not be stored
-    # in serialized config. Use ``env_key_names`` to project them at launch.
+    command: str
+    args: list[str] = Field(default_factory=list)
+    cwd: str | Path | None = None
+    encoding: str = "utf-8"
+    encoding_error_handler: Literal["strict", "ignore", "replace"] = "strict"
     env: ClassVar[None] = None
     env_key_names: list[str] | None = Field(
         default=None,
@@ -115,7 +135,10 @@ class StdioMcpConfig(McpConfigBase, StdioServerParameters):
         ),
     )
 
-    def to_stdio_parameters(self) -> StdioServerParameters:
+    def to_stdio_parameters(self) -> "StdioServerParameters":
+        from mcp import StdioServerParameters
+        from mcp.client.stdio import get_default_environment
+
         env = None
         if self.env_key_names:
             env = get_default_environment()
@@ -136,6 +159,48 @@ class StdioMcpConfig(McpConfigBase, StdioServerParameters):
         from mistralai.vibe.sdk.capabilities.mcp.adapters.stdio_mcp import StdioMcpAdapter
 
         return StdioMcpAdapter(self)
+
+
+DEFAULT_HTTP_TIMEOUT_MS = 30_000
+DEFAULT_HTTP_SSE_READ_TIMEOUT_MS = 300_000
+
+
+class HttpMcpConfig(McpConfigBase):
+    """Config of an HTTP (Streamable HTTP) MCP server."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    type: Literal["http"] = "http"
+    url: NonEmptyStr
+    scoped_headers: dict[str, str] = Field(
+        default_factory=dict,
+        description=(
+            "Headers sent on every request. A value is either a literal (sent "
+            "verbatim) or a template with '{{ENV_VAR}}' placeholders (e.g. 'Bearer "
+            "{{MISTRAL_API_KEY}}'). Placeholders are read from the host env at "
+            "request time so secrets are never stored in the serialized config."
+        ),
+    )
+    timeout_ms: int = Field(
+        default=DEFAULT_HTTP_TIMEOUT_MS,
+        gt=0,
+        description="Timeout in milliseconds for the MCP handshake and each request.",
+    )
+    sse_read_timeout_ms: int = Field(
+        default=DEFAULT_HTTP_SSE_READ_TIMEOUT_MS,
+        gt=0,
+        description="Timeout in milliseconds for reading SSE streams.",
+    )
+
+    @property
+    def headers(self) -> dict[str, str]:
+        """Resolve header values, substituting ``{{ENV_VAR}}`` placeholders from the host env."""
+        return _resolve_scoped_headers(self.scoped_headers)
+
+    def create_adapter(self) -> McpPort:
+        from mistralai.vibe.sdk.capabilities.mcp.adapters.http_mcp import HttpMcpAdapter
+
+        return HttpMcpAdapter(self)
 
 
 class ConnectorMcpSdkTransport(BaseModel):
@@ -207,18 +272,8 @@ class ConnectorMcpDirectTransport(BaseModel):
 
     @property
     def headers(self) -> dict[str, str]:
-        """Resolve header values, substituting env var names placeholders from the host env."""
-        headers: dict[str, str] = {}
-        for header_name, value in self.scoped_headers.items():
-            env_vars = {
-                name: os.environ.get(name, "").strip()
-                for name in TEMPLATED_VAR_EXPRESSION.findall(value)
-            }
-            headers[header_name] = TEMPLATED_VAR_EXPRESSION.sub(
-                lambda m, resolved=env_vars: resolved[m.group(1)], value
-            )
-
-        return headers
+        """Resolve header values, substituting ``{{ENV_VAR}}`` placeholders from the host env."""
+        return _resolve_scoped_headers(self.scoped_headers)
 
 
 ConnectorMcpTransport = Annotated[

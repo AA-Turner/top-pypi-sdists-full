@@ -2,7 +2,8 @@
 #define PYTHONIC_OPERATOR_OVERLOADS_HPP
 
 #include "pythonic/include/operator_/overloads.hpp"
-#include <limits>
+
+#include <cassert>
 
 #define PYTHONIC_OPERATOR_OVERLOAD_IMPL(type, opname, op, overflow_check)                          \
   inline type opname(type a, type b)                                                               \

@@ -2,12 +2,25 @@
 
 from enum import Enum
 
-from .Conversions import str_to_bool, str_to_int, str_to_int_or_bool, str_to_float, str_to_float_or_bool, str_to_scalar_enum_helper
-from .Conversions import str_to_str_list, str_to_bool_list, str_to_int_list, str_to_int_or_bool_list, str_to_float_list, str_to_float_or_bool_list, str_to_list_enum_helper
-from .Types import DataType
-from .Utilities import trim_str_response
+from .Conversions import (
+	str_to_bool,
+	str_to_bool_list,
+	str_to_float,
+	str_to_float_list,
+	str_to_float_or_bool,
+	str_to_float_or_bool_list,
+	str_to_int,
+	str_to_int_list,
+	str_to_int_or_bool,
+	str_to_int_or_bool_list,
+	str_to_list_enum_helper,
+	str_to_scalar_enum_helper,
+	str_to_str_list,
+)
 from .InstrumentErrors import RsInstrException
 from .ScpiEnums import ScpiEnum
+from .Types import DataType
+from .Utilities import trim_str_response
 
 
 class ConverterFromScpiString:

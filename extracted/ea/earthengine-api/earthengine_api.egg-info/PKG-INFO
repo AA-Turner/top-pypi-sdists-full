@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: earthengine-api
-Version: 1.7.39
+Version: 1.7.40
 Summary: Earth Engine Python API
 Author-email: Google LLC <noreply@google.com>
 License: Apache-2.0
@@ -28,10 +28,10 @@ Requires-Python: >=3.10
 Description-Content-Type: text/markdown
 License-File: LICENSE
 Requires-Dist: google-cloud-storage
-Requires-Dist: google-api-python-client>=2.71.0
-Requires-Dist: google-auth>=2.48.0
-Requires-Dist: google-auth-httplib2>=0.3.1
-Requires-Dist: httplib2<1dev,>=0.30.2
+Requires-Dist: google-api-python-client>=2.113.0
+Requires-Dist: google-auth>=2.55.2
+Requires-Dist: google-auth-httplib2>=0.4.0
+Requires-Dist: httplib2<1dev,>=0.31.2
 Requires-Dist: requests
 Provides-Extra: tests
 Requires-Dist: absl-py; extra == "tests"

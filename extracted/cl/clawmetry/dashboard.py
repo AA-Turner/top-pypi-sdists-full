@@ -326,7 +326,7 @@ def _otlp_service_name_to_agent_type(service_name):
     return slug or "custom"
 
 
-__version__ = "0.12.726"
+__version__ = "0.12.733"
 
 # Extensions (Phase 2): import the plugin host now, but defer the actual
 # load_plugins() call until after the Flask app is created below so we can
@@ -9953,11 +9953,14 @@ def _send_discord_alert(message, severity="warning", title="ClawMetry Alert"):
     _send_webhook_alert(url, payload, payload_type="generic")
 
 
-def _dispatch_alert(title, message, severity="warning", alert_type=None):
+def _dispatch_alert(title, message, severity="warning", alert_type=None, only=None):
     """Dispatch an alert to all configured channels (Slack, Discord, generic webhook).
 
     Respects the global min_severity filter and per-type toggles.
     Called automatically from _fire_alert() so all alerts reach webhook channels.
+    ``only`` (a set of channel ids) restricts the fan-out to those sinks —
+    built-in monitors pass their resolved channel set so the Alerts tab's
+    pills and the actual delivery are the same list.
     """
     if not _severity_passes_filter(severity):
         return
@@ -9967,6 +9970,13 @@ def _dispatch_alert(title, message, severity="warning", alert_type=None):
     generic_url = str(cfg.get("webhook_url", "")).strip()
     slack_url = str(cfg.get("slack_webhook_url", "")).strip()
     discord_url = str(cfg.get("discord_webhook_url", "")).strip()
+    if only is not None:
+        if "webhook" not in only:
+            generic_url = ""
+        if "slack" not in only:
+            slack_url = ""
+        if "discord" not in only:
+            discord_url = ""
 
     if generic_url:
         payload = {
@@ -9998,10 +10008,161 @@ def _dispatch_configured_webhooks(alert_type, payload):
         _send_webhook_alert(discord_url, payload, payload_type="discord")
 
 
-def _fire_alert(rule_id, alert_type, message, channels=None, severity="warning"):
-    """Fire an alert with cooldown check and dispatch to configured webhook channels."""
+# ── Built-in monitor delivery ──────────────────────────────────────────────
+#
+# Founder 2026-08-17: the Alerts tab showed every always-on monitor with an
+# "In-app · telegram" pill on a node where Telegram was never configured.
+# The pills came from a hardcoded ``channels=["banner", "telegram"]`` on each
+# ``_fire_alert`` call site; delivery then read Telegram creds from a store
+# the Notifications tab never writes and fell back to an undefined gateway
+# helper — so "telegram" delivered nothing and the pill was a fabrication.
+#
+# One resolver now answers "where does this monitor deliver?" for BOTH the
+# Alerts tab (``/api/alerts/builtins``) and ``_fire_alert``. A channel is
+# offered only when this process can actually deliver to it right now, so
+# what the tab shows and what fires cannot drift. Operators can also mute a
+# monitor or pin its channels; prefs live in ~/.clawmetry so they survive
+# upgrades and are not tied to an OpenClaw install.
+_BUILTIN_MONITOR_PREFS_FILE = os.path.expanduser("~/.clawmetry/builtin_monitors.json")
+_BUILTIN_CHANNEL_META = {
+    # In-app is the floor: it is always deliverable and never removable
+    # (to silence a monitor you disable it, not strip its last channel).
+    "banner":   ("In-app",   "Red banner + bell in this dashboard"),
+    "telegram": ("Telegram", "Direct Bot API message"),
+    "slack":    ("Slack",    "Incoming webhook"),
+    "discord":  ("Discord",  "Channel webhook"),
+    "webhook":  ("Webhook",  "POST JSON to your endpoint"),
+}
+
+
+def _builtin_alert_types():
+    try:
+        from routes.alerts import BUILTIN_MONITORS
+        return {m["alert_type"] for m in BUILTIN_MONITORS}
+    except Exception:
+        return set()
+
+
+def _telegram_creds():
+    """(bot_token, chat_id) from either store.
+
+    Legacy budget config (SQLite) came first; the Notifications tab writes
+    the alert-channels file. Delivery must honour both or a user who
+    "connected" Telegram in the tab still gets nothing.
+    """
+    for loader in (_load_alerts_webhook_config, _get_budget_config):
+        try:
+            cfg = loader()
+            tok = str(cfg.get("telegram_bot_token", "") or "").strip()
+            cid = str(cfg.get("telegram_chat_id", "") or "").strip()
+            if tok and cid:
+                return tok, cid
+        except Exception:
+            continue
+    return "", ""
+
+
+def _builtin_channels_available():
+    """Channels a built-in monitor CAN deliver to from this process right now.
+
+    Never advertises a destination that has no working sender behind it:
+    email / phone / WhatsApp are cloud-delivered and have no local sender,
+    so they are absent here even when creds are saved.
+    """
+    out = [{"id": "banner", "label": "In-app",
+            "detail": _BUILTIN_CHANNEL_META["banner"][1], "configured": True}]
+    tok, cid = _telegram_creds()
+    if tok and cid:
+        out.append({"id": "telegram", "label": "Telegram",
+                    "detail": f"Bot API to chat {cid[-4:].rjust(len(cid), '*')}",
+                    "configured": True})
+    try:
+        cfg = _load_alerts_webhook_config()
+    except Exception:
+        cfg = {}
+    for cid_, key in (("slack", "slack_webhook_url"),
+                      ("discord", "discord_webhook_url"),
+                      ("webhook", "webhook_url")):
+        if str(cfg.get(key, "") or "").strip():
+            lbl, det = _BUILTIN_CHANNEL_META[cid_]
+            out.append({"id": cid_, "label": lbl, "detail": det, "configured": True})
+    return out
+
+
+def _load_builtin_monitor_prefs():
+    try:
+        with open(_BUILTIN_MONITOR_PREFS_FILE) as f:
+            data = json.load(f)
+        return data if isinstance(data, dict) else {}
+    except Exception:
+        return {}
+
+
+def _save_builtin_monitor_pref(alert_type, enabled=None, channels=None):
+    """Persist one monitor's prefs. ``channels=None`` keeps the current
+    value; ``channels=[]`` or a list pins them; the string ``"auto"`` clears
+    the pin (back to every available channel)."""
+    prefs = _load_builtin_monitor_prefs()
+    cur = dict(prefs.get(alert_type) or {})
+    if enabled is not None:
+        cur["enabled"] = bool(enabled)
+    if channels == "auto":
+        cur.pop("channels", None)
+    elif isinstance(channels, list):
+        known = set(_BUILTIN_CHANNEL_META)
+        cur["channels"] = sorted({str(c) for c in channels if str(c) in known} | {"banner"})
+    prefs[alert_type] = cur
+    os.makedirs(os.path.dirname(_BUILTIN_MONITOR_PREFS_FILE), exist_ok=True)
+    tmp = _BUILTIN_MONITOR_PREFS_FILE + ".tmp"
+    with open(tmp, "w") as f:
+        json.dump(prefs, f, indent=2)
+    os.replace(tmp, _BUILTIN_MONITOR_PREFS_FILE)
+    return cur
+
+
+def _resolve_builtin_delivery(alert_type):
+    """The single answer for "is this monitor on, and where does it go?".
+
+    Returns ``{"enabled", "channels", "mode"}`` where ``channels`` is the
+    exact list ``_fire_alert`` will deliver to: pinned channels intersected
+    with what is deliverable now (a pinned-but-unconfigured channel is
+    dropped, not shown), or every available channel in ``auto`` mode.
+    """
+    prefs = _load_builtin_monitor_prefs().get(alert_type) or {}
+    available = [c["id"] for c in _builtin_channels_available()]
+    pinned = prefs.get("channels")
+    if isinstance(pinned, list):
+        chans = [c for c in available if c in pinned or c == "banner"]
+        mode = "custom"
+    else:
+        chans, mode = list(available), "auto"
+    return {"enabled": bool(prefs.get("enabled", True)),
+            "channels": chans, "mode": mode}
+
+
+def _fire_alert(rule_id, alert_type, message, channels=None, severity="warning",
+                builtin=None):
+    """Fire an alert with cooldown check and dispatch to configured webhook channels.
+
+    ``builtin`` — True: route through the built-in monitor resolver (mute +
+    channel prefs); False: a user rule, deliver exactly ``channels``; None:
+    auto — built-in iff ``alert_type`` is one of the always-on monitors.
+    """
     global _budget_alert_cooldowns
     now = time.time()
+
+    if builtin is None:
+        builtin = alert_type in _builtin_alert_types()
+    only_sinks = None
+    if builtin:
+        try:
+            resolved = _resolve_builtin_delivery(alert_type)
+        except Exception:
+            resolved = {"enabled": True, "channels": ["banner"], "mode": "auto"}
+        if not resolved["enabled"]:
+            return  # muted by the operator — no history, no banner, no fan-out
+        channels = resolved["channels"]
+        only_sinks = set(channels)
 
     # Check cooldown (default 30 min for budget alerts)
     cooldown_sec = 1800
@@ -10050,51 +10211,47 @@ def _fire_alert(rule_id, alert_type, message, channels=None, severity="warning")
     except Exception:
         pass
 
-    # Always dispatch to configured alert channels (Slack / Discord / generic webhook)
+    # Dispatch to configured alert channels (Slack / Discord / generic webhook).
+    # Built-in monitors pass their resolved channel set so a sink the operator
+    # unpinned is not fanned out to; user rules keep the legacy fan-out.
     _dispatch_alert(
         title=f"ClawMetry Alert [{alert_type}]",
         message=message,
         severity=severity,
         alert_type=alert_type,
+        only=only_sinks,
     )
 
 
 def _send_telegram_alert(message):
-    """Send alert via direct Telegram API (preferred) or gateway fallback."""
-    try:
-        cfg = _get_budget_config()
-        token = str(cfg.get("telegram_bot_token", "")).strip()
-        chat_id = str(cfg.get("telegram_chat_id", "")).strip()
-        if token and chat_id:
-            import urllib.request
+    """Send alert via the direct Telegram Bot API.
 
-            url = f"https://api.telegram.org/bot{token}/sendMessage"
-            payload = json.dumps(
-                {
-                    "chat_id": chat_id,
-                    "text": f"[ClawMetry Alert] {message}",
-                    "parse_mode": "Markdown",
-                }
-            ).encode()
-            req = urllib.request.Request(
-                url,
-                data=payload,
-                headers={"Content-Type": "application/json"},
-            )
-            urllib.request.urlopen(req, timeout=10)
-            return
+    Creds come from either store (see ``_telegram_creds``). With none
+    configured this is a no-op — the old "gateway fallback" called a helper
+    that was never defined, so it silently delivered nothing anyway.
+    """
+    token, chat_id = _telegram_creds()
+    if not (token and chat_id):
+        return
+    try:
+        import urllib.request
+
+        url = f"https://api.telegram.org/bot{token}/sendMessage"
+        payload = json.dumps(
+            {
+                "chat_id": chat_id,
+                "text": f"[ClawMetry Alert] {message}",
+                "parse_mode": "Markdown",
+            }
+        ).encode()
+        req = urllib.request.Request(
+            url,
+            data=payload,
+            headers={"Content-Type": "application/json"},
+        )
+        urllib.request.urlopen(req, timeout=10)
     except Exception as e:
         print(f"Warning: Direct Telegram alert failed: {e}")
-    try:
-        _gw_invoke(
-            "message",
-            {
-                "action": "send",
-                "message": f"[ClawMetry Alert] {message}",
-            },
-        )
-    except Exception:
-        pass
 
 
 # PagerDuty and OpsGenie integration constants. The actual payload
@@ -15759,22 +15916,134 @@ for _sig in _THREAT_SIGNATURES:
     ]
 
 
-def _scan_events_for_threats(events):
-    """Scan brain-history events against threat signatures. Returns list of threat matches."""
+# Action labels a signature's ``tool_types`` may declare. These come from the
+# LEGACY JSONL parser's ``tool_to_type()`` (routes/brain.py) and predate the
+# DuckDB-first read path.
+_THREAT_ACTION_TYPES = frozenset(
+    {"EXEC", "READ", "WRITE", "BROWSER", "SEARCH", "MSG", "SPAWN", "TOOL"}
+)
+
+# Rows that are agent *speech*, not agent *action*. Running action signatures
+# over these is how you flag the model for merely discussing ``~/.ssh/id_rsa``.
+# Content-borne risk (PII, injection, leaked keys) is the content scanners'
+# job — see ``_scan_content_for_policy_events``.
+_THREAT_NON_ACTION_TYPES = frozenset(
+    {"MESSAGE", "THINKING", "USER", "ASSISTANT", "SUMMARY", "COMPACT", "SYSTEM"}
+)
+
+# Tool-CALL rows as the DuckDB fast path emits them (routes/brain.py's
+# ``evt_type = event_type.upper()``). Only the call is an agent ACTION.
+#
+# TOOL_RESULT is deliberately absent, and so is ERROR (which routes/brain.py
+# derives from a failed TOOL_RESULT). A result is data the agent RECEIVED, not
+# something it did, and results are big free-text blobs — a page of docs, web
+# search output, a source file. Scanning them for action patterns produced
+# nothing but noise: live on a real node, all four hits were TOOL_RESULT rows
+# and all four were false positives (a Devin CLI docs page and a geocoding
+# result matched "browser reaching an admin panel"; a Python source file
+# matched "credential file access" at CRITICAL). Content-borne risk in results
+# is the policy scanners' job — see ``_scan_content_for_policy_events``.
+_THREAT_TOOL_TYPES = frozenset({"TOOL_CALL", "TOOL.CALL", "TOOL_USE"})
+
+# Returned data, not agent action. Excluded for the reason above.
+_THREAT_RESULT_TYPES = frozenset({"TOOL_RESULT", "TOOL.RESULT", "ERROR"})
+
+
+def _threat_tool_name_to_action(name):
+    """Map a tool NAME to a legacy action label. Mirrors routes/brain.py's
+    ``tool_to_type`` so both taxonomies agree on what 'EXEC' means."""
+    tn = str(name or "").lower()
+    if tn == "exec" or "shell" in tn or "bash" in tn or tn == "process":
+        return "EXEC"
+    if "read" in tn or "grep" in tn or "glob" in tn:
+        return "READ"
+    if "write" in tn or "edit" in tn:
+        return "WRITE"
+    if "browser" in tn or "canvas" in tn or "image" in tn:
+        return "BROWSER"
+    if "web_search" in tn or "web_fetch" in tn or "search" in tn or "fetch" in tn:
+        return "SEARCH"
+    if "subagent" in tn or "spawn" in tn or "task" in tn:
+        return "SPAWN"
+    return "TOOL"
+
+
+def _threat_action_types(ev):
+    """Which action labels an event should be matched against.
+
+    The signature table gates on the legacy ``EXEC/READ/WRITE/...`` vocabulary,
+    but since the DuckDB-first migration brain rows arrive as
+    ``TOOL_CALL/TOOL_RESULT/MESSAGE/THINKING/ERROR``. The two vocabularies do
+    not intersect, so every event fell through every signature and the scanner
+    could never report a threat (it was structurally pinned at 0). This bridges
+    them: legacy labels pass through, speech rows are excluded, and a tool row
+    with no tool NAME is matched against every signature — the store keeps the
+    tool INPUT in ``detail`` but not which tool produced it, and the signature
+    regexes are specific enough (``/dev/tcp/``, ``.ssh/id_rsa``) to carry the
+    precision on their own.
+    """
+    ev_type = str(ev.get("type") or "").upper()
+    if not ev_type:
+        return frozenset()
+    if ev_type in _THREAT_ACTION_TYPES:
+        return frozenset({ev_type})
+    if ev_type in _THREAT_NON_ACTION_TYPES or ev_type in _THREAT_RESULT_TYPES:
+        return frozenset()
+    if ev_type in _THREAT_TOOL_TYPES:
+        name = ev.get("tool") or ev.get("toolName") or ev.get("name")
+        if name:
+            return frozenset({_threat_tool_name_to_action(name)})
+        return _THREAT_ACTION_TYPES
+    # CHANNEL.*, NUMBAT_FINDING, daemon rows, anything else we don't recognise
+    # as an agent action: leave alone rather than guess.
+    return frozenset()
+
+
+def _threat_event_session(ev):
+    """Session id for a brain event across both read paths.
+
+    The legacy parser used ``source``; the DuckDB fast path emits ``sessionId``
+    (full) plus ``src`` (truncated to 32 chars). Reading only ``source`` meant
+    every event reported the empty string, so a node with five active sessions
+    reported ``sessions_scanned: 1``.
+    """
+    return str(
+        ev.get("sessionId") or ev.get("source") or ev.get("src") or ""
+    )
+
+
+def _threat_session_runtime(session_id):
+    """``claude_code:1bfbb30f-...`` → ``claude_code``. Bare ids → ""."""
+    sid = str(session_id or "")
+    return sid.split(":", 1)[0] if ":" in sid else ""
+
+
+def _scan_events_for_threats(events, runtime=None):
+    """Scan brain-history events against threat signatures. Returns list of threat matches.
+
+    ``runtime`` scopes the scan to one agent runtime (per FLYWHEEL §1c —
+    a number shown under the runtime switcher must belong to that runtime).
+    """
     threats = []
     sessions_seen = set()
     sessions_with_threats = set()
+    want_runtime = str(runtime or "").strip().lower()
 
     for ev in events:
-        source = ev.get("source", "")
+        source = _threat_event_session(ev)
+        if want_runtime and _threat_session_runtime(source).lower() != want_runtime:
+            continue
         sessions_seen.add(source)
-        ev_type = ev.get("type", "")
+        action_types = _threat_action_types(ev)
+        if not action_types:
+            continue
+        ev_type = str(ev.get("type") or "")
         detail = ev.get("detail", "")
         if not detail:
             continue
 
         for sig in _THREAT_SIGNATURES:
-            if ev_type not in sig["tool_types"]:
+            if not action_types.intersection(sig["tool_types"]):
                 continue
             for compiled in sig["_compiled"]:
                 if compiled.search(detail):
@@ -15789,6 +16058,8 @@ def _scan_events_for_threats(events):
                             "session": ev.get("sourceLabel", source),
                             "source": source,
                             "event_type": ev_type,
+                            "engine": "builtin",
+                            "runtime": _threat_session_runtime(source),
                         }
                     )
                     break  # One match per signature per event

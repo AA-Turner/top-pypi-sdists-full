@@ -12,6 +12,11 @@ from pydantic import JsonValue
 
 import mistralai.vibe.sdk.agent.sessions.observability as session_observability
 from mistralai.vibe.sdk.agent.config import AgentConfig
+from mistralai.vibe.sdk.agent.execution.resources import (
+    ResourcesScope,
+    bind_execution_scope,
+    stop_execution_scope,
+)
 from mistralai.vibe.sdk.agent.sessions.helpers import IdFactory, default_id_factory
 from mistralai.vibe.sdk.agent.sessions.observability import RunMode
 from mistralai.vibe.sdk.agent.tasks.agent_task import AgentTaskConfig
@@ -20,10 +25,12 @@ from mistralai.vibe.sdk.capabilities.builtins.skill_tool import configured_skill
 from mistralai.vibe.sdk.capabilities.registry import ClientToolRegistry
 from mistralai.vibe.sdk.execution_record.patching.json_patch import apply_patches
 from mistralai.vibe.sdk.execution_record.state import (
+    ContentBlock,
     HistoryEntry,
     MessageEntry,
     MessageEntryPayload,
     PendingOutput,
+    TaskResultEntry,
     TaskState,
     content_blocks,
 )
@@ -80,6 +87,8 @@ class AsyncSession:
         self._observability_attributes = validate_observability_attributes(observability_attributes)
         self._client_tool_registry = client_tool_registry or ClientToolRegistry()
         self._channel: Channel | None = None
+        self._resources_scope = ResourcesScope()
+        self._closed = False
         self._run_in_progress = False
         self._task_config_stale = False
         self._tool_calls = session_observability.ToolCallTelemetryState()
@@ -98,7 +107,7 @@ class AsyncSession:
     def history(self) -> list[HistoryEntry]:
         return list(self._history)
 
-    def _build_state(self, prompt: str) -> TaskState:
+    def _build_state(self, prompt: str | list[ContentBlock]) -> TaskState:
         """Build TaskState for the next turn from current history + new prompt."""
         task_id = self._id_factory()
 
@@ -110,9 +119,25 @@ class AsyncSession:
         if self._task_config_stale:
             history = self._reconcile_history_with_task_config(history)
 
-        history.append(
-            MessageEntry(payload=MessageEntryPayload(role="user", content=content_blocks(prompt)))
+        # Skip the user-message append when resuming mid-turn after a tool result (empty prompt
+        # from a continue-as-new resume): the LLM expects [tool_call, tool_result] directly,
+        # not an empty user message injected before the next assistant turn. Reconcile can empty a
+        # single-system-message history, so guard history[-1] to keep the original append behavior.
+        has_pending_user_message = (
+            bool(history)
+            and isinstance(history[-1], MessageEntry)
+            and history[-1].payload.role == "user"
+            and not prompt
         )
+        should_append_user_message = (
+            prompt or not history or not isinstance(history[-1], TaskResultEntry)
+        )
+        if not has_pending_user_message and should_append_user_message:
+            history.append(
+                MessageEntry(
+                    payload=MessageEntryPayload(role="user", content=content_blocks(prompt))
+                )
+            )
         return TaskState(id=task_id, input=prompt, history=history)
 
     def _reconcile_history_with_task_config(
@@ -149,8 +174,12 @@ class AsyncSession:
 
         return history
 
-    async def run(self, prompt: str) -> AsyncGenerator[DownstreamMessage, None]:
+    async def run(
+        self,
+        prompt: str | list[ContentBlock],
+    ) -> AsyncGenerator[DownstreamMessage, None]:
         """Stream protocol task-progress events for a single turn."""
+        self._check_closed()
         if self._run_in_progress:
             raise RuntimeError("Session run already in progress")
 
@@ -159,9 +188,7 @@ class AsyncSession:
             prior_history = list(self._history)
             self._tool_calls.record_existing_results(prior_history, self._task_config)
             state = self._build_state(prompt)
-            async with self._run_telemetry(
-                mode="stream", current_state=lambda: state, prior_history=prior_history
-            ):
+            async with self._run_telemetry(mode="stream", current_state=lambda: state):
                 async for message, next_state in self._run_task(state):
                     state = next_state
                     yield message
@@ -170,6 +197,7 @@ class AsyncSession:
 
     async def send_message(self, message: UpstreamMessage) -> None:
         """Send an upstream message to the active run."""
+        self._check_closed()
         if self._channel is None:
             raise RuntimeError("No active session run")
         await self._channel.send(message)
@@ -179,8 +207,9 @@ class AsyncSession:
                 tool_calls=self._tool_calls,
             )
 
-    async def run_to_completion(self, prompt: str) -> TaskState:
+    async def run_to_completion(self, prompt: str | list[ContentBlock]) -> TaskState:
         """Run a single turn and return the final state."""
+        self._check_closed()
         if self._run_in_progress:
             raise RuntimeError("Session run already in progress")
 
@@ -189,9 +218,7 @@ class AsyncSession:
             prior_history = list(self._history)
             self._tool_calls.record_existing_results(prior_history, self._task_config)
             state = self._build_state(prompt)
-            async with self._run_telemetry(
-                mode="completion", current_state=lambda: state, prior_history=prior_history
-            ):
+            async with self._run_telemetry(mode="completion", current_state=lambda: state):
                 async for message, next_state in self._run_task(state):
                     if isinstance(message, CallbackCallEvent):
                         raise RuntimeError(
@@ -206,6 +233,7 @@ class AsyncSession:
 
     def fork(self, *, conversation_id: str | None = None) -> "AsyncSession":
         """Create a new session branching from the current history."""
+        self._check_closed()
         history = list(self._history)
         if self._task_config_stale:
             history = self._reconcile_history_with_task_config(history)
@@ -221,10 +249,35 @@ class AsyncSession:
         )
 
     async def close(self) -> None:
-        """Release resources held by the session (no-op for async sessions)."""
+        """Release resources held by the session."""
+        if self._closed:
+            return
+        self._closed = True
+
+        channel = self._channel
+        self._channel = None
+        if channel is not None:
+            try:
+                await channel.close()
+            except Exception:
+                logger.warning(
+                    "session.async.close.channel_close_failed",
+                    session_id=self.session_id,
+                    exc_info=True,
+                )
+
+        try:
+            await self._resources_scope.aclose()
+        except Exception:
+            logger.warning(
+                "session.async.close.scope_finalize_failed",
+                session_id=self.session_id,
+                exc_info=True,
+            )
 
     def set_config(self, config: AgentConfig) -> None:
         """Replace the SDK config used for future turns in this session."""
+        self._check_closed()
         if self._run_in_progress:
             raise RuntimeError("Cannot update config while a run is in progress")
 
@@ -241,52 +294,83 @@ class AsyncSession:
         self, state: TaskState
     ) -> AsyncGenerator[tuple[DownstreamMessage, TaskState], None]:
         """Run a task state through the underlying channel and track state updates."""
-        channel = await self._task.run(state)
-        self._channel = channel
+        await self._reset_resources_if_config_stale()
 
-        try:
-            async for message in channel:
-                if isinstance(message, TaskStateUpdateEvent):
-                    state = apply_patches(state, message.payload.patches)
-                    self._store_history(state)
-                    await session_observability.emit_history_tool_calls_finished(
-                        task_state=state,
-                        task_config=self._task_config,
-                        tool_calls=self._tool_calls,
-                    )
-                    yield message, state
-                    continue
+        with bind_execution_scope(self._resources_scope):
+            channel = await self._task.run(state)
 
-                if isinstance(message, TaskResultEvent):
-                    state = message.payload.result
-                    self._store_history(state)
-                    await session_observability.emit_history_tool_calls_finished(
-                        task_state=state,
-                        task_config=self._task_config,
-                        tool_calls=self._tool_calls,
-                    )
-                    yield message, state
-                    continue
+            # Preventing a race condition where the channel is already closed.
+            if self._closed:
+                await channel.close()
+                return
 
-                if isinstance(message, CallbackCallEvent):
-                    self._tool_calls.record_started(message.payload.id)
-                    if self._client_tool_registry.can_handle(message):
-                        await self._client_tool_registry.handle_event(self, message)
+            self._channel = channel
+
+            try:
+                async for message in channel:
+                    if isinstance(message, TaskStateUpdateEvent):
+                        state = apply_patches(state, message.payload.patches)
+                        self._store_history(state)
+                        await session_observability.emit_history_tool_calls_finished(
+                            task_state=state,
+                            task_config=self._task_config,
+                            tool_calls=self._tool_calls,
+                        )
+                        with stop_execution_scope():
+                            yield message, state
                         continue
 
-                    yield message, state
-                    continue
+                    if isinstance(message, TaskResultEvent):
+                        state = message.payload.result
+                        self._store_history(state)
+                        await session_observability.emit_history_tool_calls_finished(
+                            task_state=state,
+                            task_config=self._task_config,
+                            tool_calls=self._tool_calls,
+                        )
+                        with stop_execution_scope():
+                            yield message, state
+                        continue
 
-                logger.warning(
-                    "session.async.unknown_downstream_message",
-                    message_type=type(message).__name__,
-                    session_id=self.session_id,
-                    task_id=state.id,
-                )
-                yield cast(DownstreamMessage, message), state
-        finally:
-            self._channel = None
-            await channel.close()
+                    if isinstance(message, CallbackCallEvent):
+                        self._tool_calls.record_started(message.payload.id)
+                        if self._client_tool_registry.can_handle(message):
+                            with stop_execution_scope():
+                                await self._client_tool_registry.handle_event(self, message)
+                            continue
+
+                        with stop_execution_scope():
+                            yield message, state
+                        continue
+
+                    logger.warning(
+                        "session.async.unknown_downstream_message",
+                        message_type=type(message).__name__,
+                        session_id=self.session_id,
+                        task_id=state.id,
+                    )
+                    with stop_execution_scope():
+                        yield cast(DownstreamMessage, message), state
+            finally:
+                self._channel = None
+                await channel.close()
+
+    async def _reset_resources_if_config_stale(self) -> None:
+        """Finalize and replace the session scope after a config change."""
+        if not self._task_config_stale:
+            return
+
+        old = self._resources_scope
+        try:
+            self._resources_scope = ResourcesScope()
+
+            await old.aclose()
+        except Exception:
+            logger.warning(
+                "session.async.resource_scope_reset_failed",
+                session_id=self.session_id,
+                exc_info=True,
+            )
 
     @asynccontextmanager
     async def _run_telemetry(
@@ -294,7 +378,6 @@ class AsyncSession:
         *,
         mode: RunMode,
         current_state: Callable[[], TaskState],
-        prior_history: list[HistoryEntry],
     ) -> AsyncGenerator[None, None]:
         state = current_state()
         started_at = time.monotonic()
@@ -312,7 +395,6 @@ class AsyncSession:
             ) as span,
         ):
             try:
-                await session_observability.emit_run_started(prior_history=prior_history)
                 yield
 
                 state = current_state()
@@ -393,7 +475,12 @@ class AsyncSession:
         self._history = list(state.history)
         self._task_config_stale = False
 
+    def _check_closed(self) -> None:
+        if self._closed:
+            raise RuntimeError("Session is closed")
+
     async def __aenter__(self) -> "AsyncSession":
+        self._check_closed()
         return self
 
     async def __aexit__(

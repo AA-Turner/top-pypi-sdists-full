@@ -1,6 +1,8 @@
 #ifndef PYTHONIC_INCLUDE_TYPES_NDITERATOR_HPP
 #define PYTHONIC_INCLUDE_TYPES_NDITERATOR_HPP
 
+#include "pythonic/include/types/traits.hpp"
+
 #include <iterator>
 
 #ifdef USE_XSIMD
@@ -40,9 +42,13 @@ namespace types
   /* Iterator over whatever provides a fast(long) method to access its element
    */
   template <class E>
-  struct nditerator
-      : public std::iterator<std::random_access_iterator_tag,
-                             std::remove_reference_t<decltype(std::declval<E &>().fast(0))>> {
+  struct nditerator {
+    using iterator_category = std::random_access_iterator_tag;
+    using value_type = std::remove_reference_t<decltype(std::declval<E &>().fast(0))>;
+    using difference_type = std::ptrdiff_t;
+    using pointer = value_type *;
+    using reference = value_type /* no ref */;
+
     E &data;
     long index;
     nditerator(E &data, long index);
@@ -69,9 +75,14 @@ namespace types
    * element
    */
   template <class E>
-  struct const_nditerator
-      : public std::iterator<std::random_access_iterator_tag,
-                             std::remove_reference_t<decltype(std::declval<E &>().fast(0))>> {
+  struct const_nditerator {
+
+    using iterator_category = std::random_access_iterator_tag;
+    using value_type = std::remove_reference_t<decltype(std::declval<E &>().fast(0))>;
+    using difference_type = std::ptrdiff_t;
+    using pointer = value_type *;
+    using reference = value_type &;
+
     E const &data;
     long index;
     const_nditerator(E const &data, long index);
@@ -94,8 +105,13 @@ namespace types
   };
 #ifdef USE_XSIMD
   template <class E>
-  struct const_simd_nditerator
-      : public std::iterator<std::random_access_iterator_tag, xsimd::batch<typename E::dtype>> {
+  struct const_simd_nditerator {
+
+    using iterator_category = std::random_access_iterator_tag;
+    using value_type = xsimd::batch<typename E::dtype>;
+    using difference_type = std::ptrdiff_t;
+    using pointer = value_type *;
+    using reference = value_type &;
 
     using vector_type = typename xsimd::batch<typename E::dtype>;
     typename E::dtype const *data;

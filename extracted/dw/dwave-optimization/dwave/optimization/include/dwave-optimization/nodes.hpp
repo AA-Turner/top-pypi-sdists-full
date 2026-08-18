@@ -1,4 +1,4 @@
-// Copyright 2023 D-Wave Systems Inc.
+// Copyright 2023 D-Wave
 //
 //    Licensed under the Apache License, Version 2.0 (the "License");
 //    you may not use this file except in compliance with the License.
@@ -28,5 +28,6 @@
 #include "dwave-optimization/nodes/numbers.hpp"
 #include "dwave-optimization/nodes/quadratic_model.hpp"
 #include "dwave-optimization/nodes/reduce.hpp"
+#include "dwave-optimization/nodes/set_routines.hpp"
 #include "dwave-optimization/nodes/testing.hpp"
 #include "dwave-optimization/nodes/unaryop.hpp"

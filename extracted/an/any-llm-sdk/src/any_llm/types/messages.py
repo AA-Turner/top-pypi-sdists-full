@@ -111,6 +111,9 @@ ContentBlock = MessageContentBlock
 
 
 class MessageResponse(AnthropicMessage):
+    request_id: str | None = None
+    """Provider request identifier, when exposed by the transport."""
+
     container: BetaContainer | None = None  # type: ignore[assignment]
     content: list[MessageContentBlock]  # type: ignore[assignment]
     stop_reason: StopReason | None = None  # type: ignore[assignment]
@@ -214,6 +217,9 @@ class MessagesParams(BaseModel):
 
     prompt_cache_key: str | None = None
     """A key to use when reading from or writing to a provider's prompt cache."""
+
+    service_tier: str | None = None
+    """The service tier to use for this request."""
 
     context_management: dict[str, Any] | None = None
     """Anthropic context management configuration"""

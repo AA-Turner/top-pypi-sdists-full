@@ -2,6 +2,7 @@
 
 from mistralai.vibe.sdk.providers.completion.adapters.anthropic import AnthropicCompletion
 from mistralai.vibe.sdk.providers.completion.adapters.mistral import MistralCompletion
+from mistralai.vibe.sdk.providers.completion.adapters.ollama import OllamaCompletion
 from mistralai.vibe.sdk.providers.completion.adapters.openai import OpenAICompletion
 from mistralai.vibe.sdk.providers.completion.adapters.openai_responses import (
     OpenAIResponsesCompletion,
@@ -10,6 +11,7 @@ from mistralai.vibe.sdk.providers.completion.adapters.openai_responses import (
 __all__ = [
     "AnthropicCompletion",
     "MistralCompletion",
+    "OllamaCompletion",
     "OpenAICompletion",
     "OpenAIResponsesCompletion",
 ]

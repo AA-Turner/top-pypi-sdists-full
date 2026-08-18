@@ -45,7 +45,10 @@ class TestBuildConfig(unittest.TestCase):
                 secrets = {
                     'key' : ''
                     },
-                asset_prefix = ''
+                asset_prefix = '',
+                api_allow = [
+                    { }
+                    ]
             )
         else:
             return BuildConfig(

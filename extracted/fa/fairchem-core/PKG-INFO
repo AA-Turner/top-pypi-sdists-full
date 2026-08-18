@@ -1,12 +1,12 @@
-Metadata-Version: 2.4
+Metadata-Version: 2.5
 Name: fairchem-core
-Version: 2.21.0
+Version: 2.22.0
 Summary: Machine learning models for chemistry and materials science by the FAIR Chemistry team
 Project-URL: repository, https://github.com/facebookresearch/fairchem
 Project-URL: home, https://opencatalystproject.org/
 Project-URL: documentation, https://fair-chem.github.io/
 License: MIT License
-Requires-Python: <3.14,>=3.11
+Requires-Python: <3.15,>=3.11
 Requires-Dist: ase-db-backends>=0.10.0
 Requires-Dist: ase>=3.26.0
 Requires-Dist: clusterscope==0.0.18
@@ -23,9 +23,9 @@ Requires-Dist: ray[serve]>=2.53.0
 Requires-Dist: requests
 Requires-Dist: scipy>=1.15.0
 Requires-Dist: setuptools<81.0.0
-Requires-Dist: submitit
+Requires-Dist: submitit>=1.5.4
 Requires-Dist: torchtnt
-Requires-Dist: torch~=2.8.0
+Requires-Dist: torch~=2.13.0
 Requires-Dist: tqdm
 Requires-Dist: wandb
 Requires-Dist: websockets

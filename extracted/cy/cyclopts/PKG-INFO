@@ -1,6 +1,6 @@
-Metadata-Version: 2.4
+Metadata-Version: 2.5
 Name: cyclopts
-Version: 4.22.5
+Version: 4.23.0
 Summary: Intuitive, easy CLIs based on type hints.
 Project-URL: Homepage, https://github.com/BrianPugh/cyclopts
 Project-URL: Repository, https://github.com/BrianPugh/cyclopts

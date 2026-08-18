@@ -46,7 +46,18 @@ class TestBYOUpsertRequest(unittest.TestCase):
                                 ]
                             }, 
                         payload = { }, 
-                        metadata = { }, )
+                        metadata = { }, 
+                        source_type = 'bucket', 
+                        root_object_id = '', 
+                        root_bucket_id = '', 
+                        source_object_id = '', 
+                        source_document_id = '', 
+                        source_collection_id = '', 
+                        lineage_path = '', 
+                        lineage_chain = [
+                            { }
+                            ], 
+                        content_hash = '', )
                     ],
                 options = mixpeek.models.upsert_options.UpsertOptions(
                     write_token = True, 
@@ -63,7 +74,18 @@ class TestBYOUpsertRequest(unittest.TestCase):
                                 ]
                             }, 
                         payload = { }, 
-                        metadata = { }, )
+                        metadata = { }, 
+                        source_type = 'bucket', 
+                        root_object_id = '', 
+                        root_bucket_id = '', 
+                        source_object_id = '', 
+                        source_document_id = '', 
+                        source_collection_id = '', 
+                        lineage_path = '', 
+                        lineage_chain = [
+                            { }
+                            ], 
+                        content_hash = '', )
                     ],
         )
         """

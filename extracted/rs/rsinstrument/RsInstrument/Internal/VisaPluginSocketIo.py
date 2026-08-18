@@ -1,15 +1,15 @@
 """See the docstring for the SocketIo class."""
 
-import socket
 import re
+import socket
 from contextlib import contextmanager
 from typing import Any, Iterator
-
-from .InstrumentErrors import RsInstrException
 
 # noinspection PyPackageRequirements
 import pyvisa
 import pyvisa.constants
+
+from .InstrumentErrors import RsInstrException
 
 
 class SocketIo:

@@ -15200,33 +15200,35 @@ class HTTPServiceDomain(AbstractModel):
 
     def __init__(self):
         r"""
-        :param _Domain: 域名
+        :param _Domain: <p>域名</p>
         :type Domain: str
-        :param _DomainType: 域名类型。 HTTPSERVICE: HTTP访问服务，CBR: 云托管服务，ANYSERVICE: 任意服务，AI_AGENT: AI agent，VM: 主机，INTEGRATION_CALLBACK: 集成回调
+        :param _DomainType: <p>域名类型。 HTTPSERVICE: HTTP访问服务，CBR: 云托管服务，ANYSERVICE: 任意服务，AI_AGENT: AI agent，VM: 主机，INTEGRATION_CALLBACK: 集成回调</p>
         :type DomainType: str
-        :param _AccessType: 绑定类型。默认DIRECT。DIRECT: 直连到HTTP访问服务， CDN: 接入云开发CDN，CUSTOM: 自定义接入类型（其他CDN或者WAF）
+        :param _AccessType: <p>绑定类型。默认DIRECT。DIRECT: 直连到HTTP访问服务， CDN: 接入云开发CDN，CUSTOM: 自定义接入类型（其他CDN或者WAF）</p>
         :type AccessType: str
-        :param _CertId: 证书ID。当前账户下SSL平台的证书ID
+        :param _CertId: <p>证书ID。当前账户下SSL平台的证书ID</p>
         :type CertId: str
-        :param _Protocol: 协议类型。默认HTTP_AND_HTTPS。HTTP_AND_HTTPS: 同时开启http和https，HTTP_TO_HTTPS: http重定向成https，HTTPS_TO_HTTP: https重定向成http。如果未配置证书无法访问https或者进行重定向
+        :param _Protocol: <p>协议类型。默认HTTP_AND_HTTPS。HTTP_AND_HTTPS: 同时开启http和https，HTTP_TO_HTTPS: http重定向成https，HTTPS_TO_HTTP: https重定向成http。如果未配置证书无法访问https或者进行重定向</p>
         :type Protocol: str
-        :param _Cname: 配置DNS解析的CNAME。根据AccessType返回不同的CNAME值。
+        :param _Cname: <p>配置DNS解析的CNAME。根据AccessType返回不同的CNAME值。</p>
         :type Cname: str
-        :param _IsDefault: 是否是默认域名
+        :param _IsDefault: <p>是否是默认域名</p>
         :type IsDefault: bool
-        :param _Enable: 域名开启状态
+        :param _Enable: <p>域名开启状态</p>
         :type Enable: bool
-        :param _Status: 状态。PROCESSING、FAIL，SUCCESS。
+        :param _Status: <p>状态。</p><p>枚举值：</p><ul><li>PROCESSING： 处理中</li><li>FAIL： 失败</li><li>EO_PENDING_VERIFICATION： 待验证edgeone归属权</li><li>SUCCESS： 成功</li></ul>
         :type Status: str
-        :param _DNSStatus: DNS解析状态。OK： 解析正常，INVALID：解析不正确，域名未解析到当前Cname域名。
+        :param _DNSStatus: <p>DNS解析状态</p><p>枚举值：</p><ul><li>OK： 正常，命中目标 cname</li><li>EMPTY： 解析为空，域名尚未配置 CNAME 或未生效</li><li>INVALID： 异常，解析到其他非目标地址</li></ul>
         :type DNSStatus: str
-        :param _Routes: HTTP访问服务路由信息
+        :param _PlatformCnameDNSStatus: <p>是否CNAME到平台任一网关入口，默认接入/CDN/EO，不含CustomCname</p><p>枚举值：</p><ul><li>EMPTY： 解析为空</li><li>OK： 命中</li><li>INVALID：  解析到其他非目标地址</li></ul>
+        :type PlatformCnameDNSStatus: str
+        :param _Routes: <p>HTTP访问服务路由信息</p>
         :type Routes: list of HTTPServiceRoute
-        :param _Extension: 扩展字段，内部包含headers处理等
+        :param _Extension: <p>扩展字段，内部包含headers处理等</p>
         :type Extension: :class:`tencentcloud.tcb.v20180608.models.HTTPServiceExtension`
-        :param _CreateTime: 域名创建时间
+        :param _CreateTime: <p>域名创建时间，格式  YYYY-MM-DDTHH:mm:ss±HH:mm，时区为 UTC+8</p>
         :type CreateTime: str
-        :param _UpdateTime: 域名更新时间
+        :param _UpdateTime: <p>域名更新时间，格式  YYYY-MM-DDTHH:mm:ss±HH:mm，时区为 UTC+8</p>
         :type UpdateTime: str
         """
         self._Domain = None
@@ -15239,6 +15241,7 @@ class HTTPServiceDomain(AbstractModel):
         self._Enable = None
         self._Status = None
         self._DNSStatus = None
+        self._PlatformCnameDNSStatus = None
         self._Routes = None
         self._Extension = None
         self._CreateTime = None
@@ -15246,7 +15249,7 @@ class HTTPServiceDomain(AbstractModel):
 
     @property
     def Domain(self):
-        r"""域名
+        r"""<p>域名</p>
         :rtype: str
         """
         return self._Domain
@@ -15257,7 +15260,7 @@ class HTTPServiceDomain(AbstractModel):
 
     @property
     def DomainType(self):
-        r"""域名类型。 HTTPSERVICE: HTTP访问服务，CBR: 云托管服务，ANYSERVICE: 任意服务，AI_AGENT: AI agent，VM: 主机，INTEGRATION_CALLBACK: 集成回调
+        r"""<p>域名类型。 HTTPSERVICE: HTTP访问服务，CBR: 云托管服务，ANYSERVICE: 任意服务，AI_AGENT: AI agent，VM: 主机，INTEGRATION_CALLBACK: 集成回调</p>
         :rtype: str
         """
         return self._DomainType
@@ -15268,7 +15271,7 @@ class HTTPServiceDomain(AbstractModel):
 
     @property
     def AccessType(self):
-        r"""绑定类型。默认DIRECT。DIRECT: 直连到HTTP访问服务， CDN: 接入云开发CDN，CUSTOM: 自定义接入类型（其他CDN或者WAF）
+        r"""<p>绑定类型。默认DIRECT。DIRECT: 直连到HTTP访问服务， CDN: 接入云开发CDN，CUSTOM: 自定义接入类型（其他CDN或者WAF）</p>
         :rtype: str
         """
         return self._AccessType
@@ -15279,7 +15282,7 @@ class HTTPServiceDomain(AbstractModel):
 
     @property
     def CertId(self):
-        r"""证书ID。当前账户下SSL平台的证书ID
+        r"""<p>证书ID。当前账户下SSL平台的证书ID</p>
         :rtype: str
         """
         return self._CertId
@@ -15290,7 +15293,7 @@ class HTTPServiceDomain(AbstractModel):
 
     @property
     def Protocol(self):
-        r"""协议类型。默认HTTP_AND_HTTPS。HTTP_AND_HTTPS: 同时开启http和https，HTTP_TO_HTTPS: http重定向成https，HTTPS_TO_HTTP: https重定向成http。如果未配置证书无法访问https或者进行重定向
+        r"""<p>协议类型。默认HTTP_AND_HTTPS。HTTP_AND_HTTPS: 同时开启http和https，HTTP_TO_HTTPS: http重定向成https，HTTPS_TO_HTTP: https重定向成http。如果未配置证书无法访问https或者进行重定向</p>
         :rtype: str
         """
         return self._Protocol
@@ -15301,7 +15304,7 @@ class HTTPServiceDomain(AbstractModel):
 
     @property
     def Cname(self):
-        r"""配置DNS解析的CNAME。根据AccessType返回不同的CNAME值。
+        r"""<p>配置DNS解析的CNAME。根据AccessType返回不同的CNAME值。</p>
         :rtype: str
         """
         return self._Cname
@@ -15312,7 +15315,7 @@ class HTTPServiceDomain(AbstractModel):
 
     @property
     def IsDefault(self):
-        r"""是否是默认域名
+        r"""<p>是否是默认域名</p>
         :rtype: bool
         """
         return self._IsDefault
@@ -15323,7 +15326,7 @@ class HTTPServiceDomain(AbstractModel):
 
     @property
     def Enable(self):
-        r"""域名开启状态
+        r"""<p>域名开启状态</p>
         :rtype: bool
         """
         return self._Enable
@@ -15334,7 +15337,7 @@ class HTTPServiceDomain(AbstractModel):
 
     @property
     def Status(self):
-        r"""状态。PROCESSING、FAIL，SUCCESS。
+        r"""<p>状态。</p><p>枚举值：</p><ul><li>PROCESSING： 处理中</li><li>FAIL： 失败</li><li>EO_PENDING_VERIFICATION： 待验证edgeone归属权</li><li>SUCCESS： 成功</li></ul>
         :rtype: str
         """
         return self._Status
@@ -15345,7 +15348,7 @@ class HTTPServiceDomain(AbstractModel):
 
     @property
     def DNSStatus(self):
-        r"""DNS解析状态。OK： 解析正常，INVALID：解析不正确，域名未解析到当前Cname域名。
+        r"""<p>DNS解析状态</p><p>枚举值：</p><ul><li>OK： 正常，命中目标 cname</li><li>EMPTY： 解析为空，域名尚未配置 CNAME 或未生效</li><li>INVALID： 异常，解析到其他非目标地址</li></ul>
         :rtype: str
         """
         return self._DNSStatus
@@ -15355,8 +15358,19 @@ class HTTPServiceDomain(AbstractModel):
         self._DNSStatus = DNSStatus
 
     @property
+    def PlatformCnameDNSStatus(self):
+        r"""<p>是否CNAME到平台任一网关入口，默认接入/CDN/EO，不含CustomCname</p><p>枚举值：</p><ul><li>EMPTY： 解析为空</li><li>OK： 命中</li><li>INVALID：  解析到其他非目标地址</li></ul>
+        :rtype: str
+        """
+        return self._PlatformCnameDNSStatus
+
+    @PlatformCnameDNSStatus.setter
+    def PlatformCnameDNSStatus(self, PlatformCnameDNSStatus):
+        self._PlatformCnameDNSStatus = PlatformCnameDNSStatus
+
+    @property
     def Routes(self):
-        r"""HTTP访问服务路由信息
+        r"""<p>HTTP访问服务路由信息</p>
         :rtype: list of HTTPServiceRoute
         """
         return self._Routes
@@ -15367,7 +15381,7 @@ class HTTPServiceDomain(AbstractModel):
 
     @property
     def Extension(self):
-        r"""扩展字段，内部包含headers处理等
+        r"""<p>扩展字段，内部包含headers处理等</p>
         :rtype: :class:`tencentcloud.tcb.v20180608.models.HTTPServiceExtension`
         """
         return self._Extension
@@ -15378,7 +15392,7 @@ class HTTPServiceDomain(AbstractModel):
 
     @property
     def CreateTime(self):
-        r"""域名创建时间
+        r"""<p>域名创建时间，格式  YYYY-MM-DDTHH:mm:ss±HH:mm，时区为 UTC+8</p>
         :rtype: str
         """
         return self._CreateTime
@@ -15389,7 +15403,7 @@ class HTTPServiceDomain(AbstractModel):
 
     @property
     def UpdateTime(self):
-        r"""域名更新时间
+        r"""<p>域名更新时间，格式  YYYY-MM-DDTHH:mm:ss±HH:mm，时区为 UTC+8</p>
         :rtype: str
         """
         return self._UpdateTime
@@ -15410,6 +15424,7 @@ class HTTPServiceDomain(AbstractModel):
         self._Enable = params.get("Enable")
         self._Status = params.get("Status")
         self._DNSStatus = params.get("DNSStatus")
+        self._PlatformCnameDNSStatus = params.get("PlatformCnameDNSStatus")
         if params.get("Routes") is not None:
             self._Routes = []
             for item in params.get("Routes"):
@@ -15868,29 +15883,29 @@ class HTTPServiceRoute(AbstractModel):
 
     def __init__(self):
         r"""
-        :param _Path: 路径
+        :param _Path: <p>路径</p>
         :type Path: str
-        :param _PathRewrite: 路径重写
+        :param _PathRewrite: <p>路径重写规则</p>
         :type PathRewrite: :class:`tencentcloud.tcb.v20180608.models.HTTPServicePathRewrite`
-        :param _UpstreamResourceType: 上游服务类型。SCF: 云函数，CBR: 云托管，STATIC_STORE: 静态托管，WEB_SCF: WEB云函数，LH: Lighthouse
+        :param _UpstreamResourceType: <p>上游服务类型。SCF: 云函数，CBR: 云托管，STATIC_STORE: 静态托管，WEB_SCF: WEB云函数，LH: Lighthouse</p>
         :type UpstreamResourceType: str
-        :param _UpstreamResourceName: 上游服务名
+        :param _UpstreamResourceName: <p>上游服务名</p>
         :type UpstreamResourceName: str
-        :param _EnableSafeDomain: 是否开启安全域名
+        :param _EnableSafeDomain: <p>是否开启安全域名</p>
         :type EnableSafeDomain: bool
-        :param _EnableAuth: 是否开启身份认证
+        :param _EnableAuth: <p>是否开启身份认证</p>
         :type EnableAuth: bool
-        :param _EnablePathTransmission: 是否开启路径透传
+        :param _EnablePathTransmission: <p>是否开启路径透传</p>
         :type EnablePathTransmission: bool
-        :param _QPSPolicy: QPS限频策略
+        :param _QPSPolicy: <p>QPS限频策略</p>
         :type QPSPolicy: :class:`tencentcloud.tcb.v20180608.models.HTTPServiceRouteQPSPolicy`
-        :param _Enable: 是否开启路由
+        :param _Enable: <p>是否开启路由</p>
         :type Enable: bool
-        :param _Extension: 扩展字段，内部包含headers处理等
+        :param _Extension: <p>扩展字段，内部包含headers处理等</p>
         :type Extension: :class:`tencentcloud.tcb.v20180608.models.HTTPServiceExtension`
-        :param _CreateTime: 路由创建时间
+        :param _CreateTime: <p>路由创建时间，格式  YYYY-MM-DDTHH:mm:ss±HH:mm，时区为 UTC+8</p>
         :type CreateTime: str
-        :param _UpdateTime: 路由更新时间
+        :param _UpdateTime: <p>路由更新时间，格式  YYYY-MM-DDTHH:mm:ss±HH:mm，时区为 UTC+8</p>
         :type UpdateTime: str
         """
         self._Path = None
@@ -15908,7 +15923,7 @@ class HTTPServiceRoute(AbstractModel):
 
     @property
     def Path(self):
-        r"""路径
+        r"""<p>路径</p>
         :rtype: str
         """
         return self._Path
@@ -15919,7 +15934,7 @@ class HTTPServiceRoute(AbstractModel):
 
     @property
     def PathRewrite(self):
-        r"""路径重写
+        r"""<p>路径重写规则</p>
         :rtype: :class:`tencentcloud.tcb.v20180608.models.HTTPServicePathRewrite`
         """
         return self._PathRewrite
@@ -15930,7 +15945,7 @@ class HTTPServiceRoute(AbstractModel):
 
     @property
     def UpstreamResourceType(self):
-        r"""上游服务类型。SCF: 云函数，CBR: 云托管，STATIC_STORE: 静态托管，WEB_SCF: WEB云函数，LH: Lighthouse
+        r"""<p>上游服务类型。SCF: 云函数，CBR: 云托管，STATIC_STORE: 静态托管，WEB_SCF: WEB云函数，LH: Lighthouse</p>
         :rtype: str
         """
         return self._UpstreamResourceType
@@ -15941,7 +15956,7 @@ class HTTPServiceRoute(AbstractModel):
 
     @property
     def UpstreamResourceName(self):
-        r"""上游服务名
+        r"""<p>上游服务名</p>
         :rtype: str
         """
         return self._UpstreamResourceName
@@ -15952,7 +15967,7 @@ class HTTPServiceRoute(AbstractModel):
 
     @property
     def EnableSafeDomain(self):
-        r"""是否开启安全域名
+        r"""<p>是否开启安全域名</p>
         :rtype: bool
         """
         return self._EnableSafeDomain
@@ -15963,7 +15978,7 @@ class HTTPServiceRoute(AbstractModel):
 
     @property
     def EnableAuth(self):
-        r"""是否开启身份认证
+        r"""<p>是否开启身份认证</p>
         :rtype: bool
         """
         return self._EnableAuth
@@ -15974,7 +15989,7 @@ class HTTPServiceRoute(AbstractModel):
 
     @property
     def EnablePathTransmission(self):
-        r"""是否开启路径透传
+        r"""<p>是否开启路径透传</p>
         :rtype: bool
         """
         return self._EnablePathTransmission
@@ -15985,7 +16000,7 @@ class HTTPServiceRoute(AbstractModel):
 
     @property
     def QPSPolicy(self):
-        r"""QPS限频策略
+        r"""<p>QPS限频策略</p>
         :rtype: :class:`tencentcloud.tcb.v20180608.models.HTTPServiceRouteQPSPolicy`
         """
         return self._QPSPolicy
@@ -15996,7 +16011,7 @@ class HTTPServiceRoute(AbstractModel):
 
     @property
     def Enable(self):
-        r"""是否开启路由
+        r"""<p>是否开启路由</p>
         :rtype: bool
         """
         return self._Enable
@@ -16007,7 +16022,7 @@ class HTTPServiceRoute(AbstractModel):
 
     @property
     def Extension(self):
-        r"""扩展字段，内部包含headers处理等
+        r"""<p>扩展字段，内部包含headers处理等</p>
         :rtype: :class:`tencentcloud.tcb.v20180608.models.HTTPServiceExtension`
         """
         return self._Extension
@@ -16018,7 +16033,7 @@ class HTTPServiceRoute(AbstractModel):
 
     @property
     def CreateTime(self):
-        r"""路由创建时间
+        r"""<p>路由创建时间，格式  YYYY-MM-DDTHH:mm:ss±HH:mm，时区为 UTC+8</p>
         :rtype: str
         """
         return self._CreateTime
@@ -16029,7 +16044,7 @@ class HTTPServiceRoute(AbstractModel):
 
     @property
     def UpdateTime(self):
-        r"""路由更新时间
+        r"""<p>路由更新时间，格式  YYYY-MM-DDTHH:mm:ss±HH:mm，时区为 UTC+8</p>
         :rtype: str
         """
         return self._UpdateTime

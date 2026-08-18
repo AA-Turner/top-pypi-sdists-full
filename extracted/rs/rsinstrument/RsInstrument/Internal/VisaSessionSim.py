@@ -1,9 +1,10 @@
 """VisaSession for simulated sessions."""
 
 import threading
-from typing import Callable, Dict, AnyStr
+from typing import AnyStr, Callable, Dict
 
 from .InstrumentErrors import RsInstrException
+from .InstrumentStatusErrorSuppressor import InstrumentStatusErrorSuppressor
 from .StreamReader import StreamReader
 from .StreamWriter import StreamWriter
 
@@ -19,6 +20,7 @@ class VisaSessionSim(object):
 		self._data_chunk_size: int | None = None
 		# noinspection PyTypeChecker
 		self._lock: threading.RLock = None  # ty: ignore[invalid-assignment]
+		self._status_error_suppressor: InstrumentStatusErrorSuppressor = InstrumentStatusErrorSuppressor()
 		self._active = True
 
 		# Event handlers
@@ -66,6 +68,11 @@ class VisaSessionSim(object):
 	def get_lock(self) -> threading.RLock:
 		"""Returns the current RLock object."""
 		return self._lock
+
+	@property
+	def status_error_suppressor(self) -> InstrumentStatusErrorSuppressor:
+		"""Returns the active status error suppressor."""
+		return self._status_error_suppressor
 
 	def _update_cmd_vals_cache(self, cmd: str, param: AnyStr | None = None) -> None:
 		"""Parses out the parameter from the command and stores/updates them in the cache."""

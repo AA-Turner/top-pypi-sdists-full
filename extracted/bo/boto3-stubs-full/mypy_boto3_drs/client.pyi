@@ -37,15 +37,25 @@ from .paginator import (
     DescribeSourceServersPaginator,
     ListExtensibleSourceServersPaginator,
     ListLaunchActionsPaginator,
+    ListRecoveryPlanExecutionsPaginator,
+    ListRecoveryPlanExecutionStepsPaginator,
+    ListRecoveryPlansPaginator,
+    ListRecoveryPlanStepsPaginator,
     ListStagingAccountsPaginator,
 )
 from .type_defs import (
     AssociateSourceNetworkStackRequestTypeDef,
     AssociateSourceNetworkStackResponseTypeDef,
+    CancelRecoveryPlanExecutionRequestTypeDef,
+    CancelRecoveryPlanExecutionResponseTypeDef,
     CreateExtendedSourceServerRequestTypeDef,
     CreateExtendedSourceServerResponseTypeDef,
     CreateLaunchConfigurationTemplateRequestTypeDef,
     CreateLaunchConfigurationTemplateResponseTypeDef,
+    CreateRecoveryPlanRequestTypeDef,
+    CreateRecoveryPlanResponseTypeDef,
+    CreateRecoveryPlanStepRequestTypeDef,
+    CreateRecoveryPlanStepResponseTypeDef,
     CreateReplicationConfigurationTemplateRequestTypeDef,
     CreateSourceNetworkRequestTypeDef,
     CreateSourceNetworkResponseTypeDef,
@@ -53,6 +63,12 @@ from .type_defs import (
     DeleteLaunchActionRequestTypeDef,
     DeleteLaunchConfigurationTemplateRequestTypeDef,
     DeleteRecoveryInstanceRequestTypeDef,
+    DeleteRecoveryPlanExecutionRequestTypeDef,
+    DeleteRecoveryPlanExecutionResponseTypeDef,
+    DeleteRecoveryPlanRequestTypeDef,
+    DeleteRecoveryPlanResponseTypeDef,
+    DeleteRecoveryPlanStepRequestTypeDef,
+    DeleteRecoveryPlanStepResponseTypeDef,
     DeleteReplicationConfigurationTemplateRequestTypeDef,
     DeleteSourceNetworkRequestTypeDef,
     DeleteSourceServerRequestTypeDef,
@@ -80,26 +96,48 @@ from .type_defs import (
     GetFailbackReplicationConfigurationRequestTypeDef,
     GetFailbackReplicationConfigurationResponseTypeDef,
     GetLaunchConfigurationRequestTypeDef,
+    GetRecoveryPlanExecutionRequestTypeDef,
+    GetRecoveryPlanExecutionResponseTypeDef,
+    GetRecoveryPlanExecutionStepRequestTypeDef,
+    GetRecoveryPlanExecutionStepResponseTypeDef,
+    GetRecoveryPlanRequestTypeDef,
+    GetRecoveryPlanResponseTypeDef,
+    GetRecoveryPlanStepRequestTypeDef,
+    GetRecoveryPlanStepResponseTypeDef,
     GetReplicationConfigurationRequestTypeDef,
     LaunchConfigurationTypeDef,
     ListExtensibleSourceServersRequestTypeDef,
     ListExtensibleSourceServersResponseTypeDef,
     ListLaunchActionsRequestTypeDef,
     ListLaunchActionsResponseTypeDef,
+    ListRecoveryPlanExecutionsRequestTypeDef,
+    ListRecoveryPlanExecutionsResponseTypeDef,
+    ListRecoveryPlanExecutionStepsRequestTypeDef,
+    ListRecoveryPlanExecutionStepsResponseTypeDef,
+    ListRecoveryPlansRequestTypeDef,
+    ListRecoveryPlansResponseTypeDef,
+    ListRecoveryPlanStepsRequestTypeDef,
+    ListRecoveryPlanStepsResponseTypeDef,
     ListStagingAccountsRequestTypeDef,
     ListStagingAccountsResponseTypeDef,
     ListTagsForResourceRequestTypeDef,
     ListTagsForResourceResponseTypeDef,
     PutLaunchActionRequestTypeDef,
     PutLaunchActionResponseTypeDef,
+    ReorderRecoveryPlanStepsRequestTypeDef,
+    ReorderRecoveryPlanStepsResponseTypeDef,
     ReplicationConfigurationTemplateResponseTypeDef,
     ReplicationConfigurationTypeDef,
     RetryDataReplicationRequestTypeDef,
+    RetryRecoveryPlanExecutionStepRequestTypeDef,
+    RetryRecoveryPlanExecutionStepResponseTypeDef,
     ReverseReplicationRequestTypeDef,
     ReverseReplicationResponseTypeDef,
     SourceServerResponseTypeDef,
     StartFailbackLaunchRequestTypeDef,
     StartFailbackLaunchResponseTypeDef,
+    StartRecoveryPlanExecutionRequestTypeDef,
+    StartRecoveryPlanExecutionResponseTypeDef,
     StartRecoveryRequestTypeDef,
     StartRecoveryResponseTypeDef,
     StartReplicationRequestTypeDef,
@@ -121,6 +159,12 @@ from .type_defs import (
     UpdateLaunchConfigurationRequestTypeDef,
     UpdateLaunchConfigurationTemplateRequestTypeDef,
     UpdateLaunchConfigurationTemplateResponseTypeDef,
+    UpdateRecoveryPlanExecutionStepRequestTypeDef,
+    UpdateRecoveryPlanExecutionStepResponseTypeDef,
+    UpdateRecoveryPlanRequestTypeDef,
+    UpdateRecoveryPlanResponseTypeDef,
+    UpdateRecoveryPlanStepRequestTypeDef,
+    UpdateRecoveryPlanStepResponseTypeDef,
     UpdateReplicationConfigurationRequestTypeDef,
     UpdateReplicationConfigurationTemplateRequestTypeDef,
 )
@@ -189,6 +233,16 @@ class DrsClient(BaseClient):
         [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_drs/client/#associate_source_network_stack)
         """
 
+    def cancel_recovery_plan_execution(
+        self, **kwargs: Unpack[CancelRecoveryPlanExecutionRequestTypeDef]
+    ) -> CancelRecoveryPlanExecutionResponseTypeDef:
+        """
+        Cancels an in-progress Recovery Plan execution.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/drs/client/cancel_recovery_plan_execution.html)
+        [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_drs/client/#cancel_recovery_plan_execution)
+        """
+
     def create_extended_source_server(
         self, **kwargs: Unpack[CreateExtendedSourceServerRequestTypeDef]
     ) -> CreateExtendedSourceServerResponseTypeDef:
@@ -208,6 +262,26 @@ class DrsClient(BaseClient):
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/drs/client/create_launch_configuration_template.html)
         [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_drs/client/#create_launch_configuration_template)
+        """
+
+    def create_recovery_plan(
+        self, **kwargs: Unpack[CreateRecoveryPlanRequestTypeDef]
+    ) -> CreateRecoveryPlanResponseTypeDef:
+        """
+        Creates a Recovery Plan to orchestrate multi-server disaster recovery.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/drs/client/create_recovery_plan.html)
+        [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_drs/client/#create_recovery_plan)
+        """
+
+    def create_recovery_plan_step(
+        self, **kwargs: Unpack[CreateRecoveryPlanStepRequestTypeDef]
+    ) -> CreateRecoveryPlanStepResponseTypeDef:
+        """
+        Creates a step in a Recovery Plan.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/drs/client/create_recovery_plan_step.html)
+        [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_drs/client/#create_recovery_plan_step)
         """
 
     def create_replication_configuration_template(
@@ -266,6 +340,36 @@ class DrsClient(BaseClient):
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/drs/client/delete_recovery_instance.html)
         [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_drs/client/#delete_recovery_instance)
+        """
+
+    def delete_recovery_plan(
+        self, **kwargs: Unpack[DeleteRecoveryPlanRequestTypeDef]
+    ) -> DeleteRecoveryPlanResponseTypeDef:
+        """
+        Deletes a Recovery Plan.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/drs/client/delete_recovery_plan.html)
+        [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_drs/client/#delete_recovery_plan)
+        """
+
+    def delete_recovery_plan_execution(
+        self, **kwargs: Unpack[DeleteRecoveryPlanExecutionRequestTypeDef]
+    ) -> DeleteRecoveryPlanExecutionResponseTypeDef:
+        """
+        Deletes a Recovery Plan execution record.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/drs/client/delete_recovery_plan_execution.html)
+        [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_drs/client/#delete_recovery_plan_execution)
+        """
+
+    def delete_recovery_plan_step(
+        self, **kwargs: Unpack[DeleteRecoveryPlanStepRequestTypeDef]
+    ) -> DeleteRecoveryPlanStepResponseTypeDef:
+        """
+        Deletes a step from a Recovery Plan.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/drs/client/delete_recovery_plan_step.html)
+        [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_drs/client/#delete_recovery_plan_step)
         """
 
     def delete_replication_configuration_template(
@@ -429,6 +533,46 @@ class DrsClient(BaseClient):
         [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_drs/client/#get_launch_configuration)
         """
 
+    def get_recovery_plan(
+        self, **kwargs: Unpack[GetRecoveryPlanRequestTypeDef]
+    ) -> GetRecoveryPlanResponseTypeDef:
+        """
+        Gets a Recovery Plan by ARN.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/drs/client/get_recovery_plan.html)
+        [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_drs/client/#get_recovery_plan)
+        """
+
+    def get_recovery_plan_execution(
+        self, **kwargs: Unpack[GetRecoveryPlanExecutionRequestTypeDef]
+    ) -> GetRecoveryPlanExecutionResponseTypeDef:
+        """
+        Gets the details of a Recovery Plan execution.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/drs/client/get_recovery_plan_execution.html)
+        [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_drs/client/#get_recovery_plan_execution)
+        """
+
+    def get_recovery_plan_execution_step(
+        self, **kwargs: Unpack[GetRecoveryPlanExecutionStepRequestTypeDef]
+    ) -> GetRecoveryPlanExecutionStepResponseTypeDef:
+        """
+        Gets the details of a step within a Recovery Plan execution.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/drs/client/get_recovery_plan_execution_step.html)
+        [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_drs/client/#get_recovery_plan_execution_step)
+        """
+
+    def get_recovery_plan_step(
+        self, **kwargs: Unpack[GetRecoveryPlanStepRequestTypeDef]
+    ) -> GetRecoveryPlanStepResponseTypeDef:
+        """
+        Gets a Recovery Plan step by ARN.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/drs/client/get_recovery_plan_step.html)
+        [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_drs/client/#get_recovery_plan_step)
+        """
+
     def get_replication_configuration(
         self, **kwargs: Unpack[GetReplicationConfigurationRequestTypeDef]
     ) -> ReplicationConfigurationTypeDef:
@@ -468,6 +612,46 @@ class DrsClient(BaseClient):
         [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_drs/client/#list_launch_actions)
         """
 
+    def list_recovery_plan_execution_steps(
+        self, **kwargs: Unpack[ListRecoveryPlanExecutionStepsRequestTypeDef]
+    ) -> ListRecoveryPlanExecutionStepsResponseTypeDef:
+        """
+        Lists all steps within a Recovery Plan execution.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/drs/client/list_recovery_plan_execution_steps.html)
+        [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_drs/client/#list_recovery_plan_execution_steps)
+        """
+
+    def list_recovery_plan_executions(
+        self, **kwargs: Unpack[ListRecoveryPlanExecutionsRequestTypeDef]
+    ) -> ListRecoveryPlanExecutionsResponseTypeDef:
+        """
+        Lists executions of Recovery Plans, optionally filtered by plan or status.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/drs/client/list_recovery_plan_executions.html)
+        [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_drs/client/#list_recovery_plan_executions)
+        """
+
+    def list_recovery_plan_steps(
+        self, **kwargs: Unpack[ListRecoveryPlanStepsRequestTypeDef]
+    ) -> ListRecoveryPlanStepsResponseTypeDef:
+        """
+        Lists all steps in a Recovery Plan.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/drs/client/list_recovery_plan_steps.html)
+        [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_drs/client/#list_recovery_plan_steps)
+        """
+
+    def list_recovery_plans(
+        self, **kwargs: Unpack[ListRecoveryPlansRequestTypeDef]
+    ) -> ListRecoveryPlansResponseTypeDef:
+        """
+        Lists all Recovery Plans in the account.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/drs/client/list_recovery_plans.html)
+        [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_drs/client/#list_recovery_plans)
+        """
+
     def list_staging_accounts(
         self, **kwargs: Unpack[ListStagingAccountsRequestTypeDef]
     ) -> ListStagingAccountsResponseTypeDef:
@@ -498,6 +682,16 @@ class DrsClient(BaseClient):
         [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_drs/client/#put_launch_action)
         """
 
+    def reorder_recovery_plan_steps(
+        self, **kwargs: Unpack[ReorderRecoveryPlanStepsRequestTypeDef]
+    ) -> ReorderRecoveryPlanStepsResponseTypeDef:
+        """
+        Reorders steps in a Recovery Plan.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/drs/client/reorder_recovery_plan_steps.html)
+        [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_drs/client/#reorder_recovery_plan_steps)
+        """
+
     def retry_data_replication(
         self, **kwargs: Unpack[RetryDataReplicationRequestTypeDef]
     ) -> SourceServerResponseTypeDef:
@@ -506,6 +700,16 @@ class DrsClient(BaseClient):
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/drs/client/retry_data_replication.html)
         [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_drs/client/#retry_data_replication)
+        """
+
+    def retry_recovery_plan_execution_step(
+        self, **kwargs: Unpack[RetryRecoveryPlanExecutionStepRequestTypeDef]
+    ) -> RetryRecoveryPlanExecutionStepResponseTypeDef:
+        """
+        Retries a failed <code>SERVER</code> type execution step.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/drs/client/retry_recovery_plan_execution_step.html)
+        [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_drs/client/#retry_recovery_plan_execution_step)
         """
 
     def reverse_replication(
@@ -538,6 +742,17 @@ class DrsClient(BaseClient):
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/drs/client/start_recovery.html)
         [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_drs/client/#start_recovery)
+        """
+
+    def start_recovery_plan_execution(
+        self, **kwargs: Unpack[StartRecoveryPlanExecutionRequestTypeDef]
+    ) -> StartRecoveryPlanExecutionResponseTypeDef:
+        """
+        Starts executing a Recovery Plan in <code>DRILL</code> or <code>RECOVERY</code>
+        mode.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/drs/client/start_recovery_plan_execution.html)
+        [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_drs/client/#start_recovery_plan_execution)
         """
 
     def start_replication(
@@ -666,6 +881,36 @@ class DrsClient(BaseClient):
         [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_drs/client/#update_launch_configuration_template)
         """
 
+    def update_recovery_plan(
+        self, **kwargs: Unpack[UpdateRecoveryPlanRequestTypeDef]
+    ) -> UpdateRecoveryPlanResponseTypeDef:
+        """
+        Updates a Recovery Plan's name or description.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/drs/client/update_recovery_plan.html)
+        [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_drs/client/#update_recovery_plan)
+        """
+
+    def update_recovery_plan_execution_step(
+        self, **kwargs: Unpack[UpdateRecoveryPlanExecutionStepRequestTypeDef]
+    ) -> UpdateRecoveryPlanExecutionStepResponseTypeDef:
+        """
+        Updates an execution step.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/drs/client/update_recovery_plan_execution_step.html)
+        [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_drs/client/#update_recovery_plan_execution_step)
+        """
+
+    def update_recovery_plan_step(
+        self, **kwargs: Unpack[UpdateRecoveryPlanStepRequestTypeDef]
+    ) -> UpdateRecoveryPlanStepResponseTypeDef:
+        """
+        Updates a Recovery Plan step's name or configuration.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/drs/client/update_recovery_plan_step.html)
+        [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_drs/client/#update_recovery_plan_step)
+        """
+
     def update_replication_configuration(
         self, **kwargs: Unpack[UpdateReplicationConfigurationRequestTypeDef]
     ) -> ReplicationConfigurationTypeDef:
@@ -789,6 +1034,50 @@ class DrsClient(BaseClient):
     def get_paginator(  # type: ignore[override]
         self, operation_name: Literal["list_launch_actions"]
     ) -> ListLaunchActionsPaginator:
+        """
+        Create a paginator for an operation.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/drs/client/get_paginator.html)
+        [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_drs/client/#get_paginator)
+        """
+
+    @overload  # type: ignore[override]
+    def get_paginator(  # type: ignore[override]
+        self, operation_name: Literal["list_recovery_plan_execution_steps"]
+    ) -> ListRecoveryPlanExecutionStepsPaginator:
+        """
+        Create a paginator for an operation.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/drs/client/get_paginator.html)
+        [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_drs/client/#get_paginator)
+        """
+
+    @overload  # type: ignore[override]
+    def get_paginator(  # type: ignore[override]
+        self, operation_name: Literal["list_recovery_plan_executions"]
+    ) -> ListRecoveryPlanExecutionsPaginator:
+        """
+        Create a paginator for an operation.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/drs/client/get_paginator.html)
+        [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_drs/client/#get_paginator)
+        """
+
+    @overload  # type: ignore[override]
+    def get_paginator(  # type: ignore[override]
+        self, operation_name: Literal["list_recovery_plan_steps"]
+    ) -> ListRecoveryPlanStepsPaginator:
+        """
+        Create a paginator for an operation.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/drs/client/get_paginator.html)
+        [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_drs/client/#get_paginator)
+        """
+
+    @overload  # type: ignore[override]
+    def get_paginator(  # type: ignore[override]
+        self, operation_name: Literal["list_recovery_plans"]
+    ) -> ListRecoveryPlansPaginator:
         """
         Create a paginator for an operation.
 

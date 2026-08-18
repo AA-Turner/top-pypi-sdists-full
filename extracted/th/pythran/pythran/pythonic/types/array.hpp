@@ -6,6 +6,7 @@
 
 #include "pythonic/builtins/len.hpp"
 #include "pythonic/types/bool.hpp"
+#include "pythonic/types/list.hpp"
 #include "pythonic/types/slice.hpp"
 #include "pythonic/types/tuple.hpp"
 #include "pythonic/utils/allocate.hpp"
@@ -252,8 +253,8 @@ namespace types
   template <class InputIterator>
   array<T>::array(InputIterator start, InputIterator stop) : _data()
   {
-    if (std::is_same<typename std::iterator_traits<InputIterator>::iterator_category,
-                     std::random_access_iterator_tag>::value)
+    if (std::is_same_v<typename std::iterator_traits<InputIterator>::iterator_category,
+                       std::random_access_iterator_tag>)
       _data->reserve(std::distance(start, stop));
     else
       _data->reserve(DEFAULT_CAPACITY);
@@ -264,7 +265,7 @@ namespace types
   {
   }
   template <class T>
-  array<T>::array(array<T> &&other) : _data(std::move(other._data))
+  array<T>::array(array<T> &&other) noexcept : _data(std::move(other._data))
   {
   }
   template <class T>
@@ -285,7 +286,7 @@ namespace types
 
   // operators
   template <class T>
-  array<T> &array<T>::operator=(array<T> &&other)
+  array<T> &array<T>::operator=(array<T> &&other) noexcept
   {
     _data = std::move(other._data);
     return *this;
@@ -296,12 +297,6 @@ namespace types
   {
     _data = utils::shared_ref<container_type>{other.size()};
     std::copy(other.begin(), other.end(), begin());
-    return *this;
-  }
-  template <class T>
-  array<T> &array<T>::operator=(array<T> const &other)
-  {
-    _data = other._data;
     return *this;
   }
   template <class T>

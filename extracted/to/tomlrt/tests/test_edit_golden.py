@@ -3300,24 +3300,6 @@ def test_promote_sole_body_line_separates_from_parent_header() -> None:
     assert _reparses(out) == {"q": {"x": [{"a": 1}]}}
 
 
-def test_promote_array_rejects_empty_array() -> None:
-    doc = tomlrt.loads("a = []\n")
-    with pytest.raises(tomlrt.TOMLError, match="empty array"):
-        doc.promote_array("a")
-
-
-def test_promote_array_rejects_non_table_elements() -> None:
-    doc = tomlrt.loads("a = [1, 2]\n")
-    with pytest.raises(tomlrt.TOMLError, match="non-inline-table"):
-        doc.promote_array("a")
-
-
-def test_promote_array_rejects_non_array() -> None:
-    doc = tomlrt.loads("a = 1\n")
-    with pytest.raises(TypeError, match="not an array"):
-        doc.promote_array("a")
-
-
 def test_promote_inline_rejects_non_inline_for_present_keys() -> None:
     """When ``key`` is present but isn't a simple inline-table KV, the
     user should see a clear "nothing to promote" message, not a bare
@@ -3330,27 +3312,27 @@ def test_promote_inline_rejects_non_inline_for_present_keys() -> None:
     ]:
         doc = tomlrt.loads(src)
         assert target in doc["a"]
-        with pytest.raises(TypeError, match="not an inline table"):
+        with pytest.raises(tomlrt.TOMLError, match="not an inline table"):
             doc["a"].promote_inline(target)
 
 
 def test_promote_inline_on_already_promoted_section_raises() -> None:
     """Promotion is not idempotent: re-promoting a key that is now a
-    section table raises ``TypeError`` rather than returning it unchanged.
+    section table raises `TOMLError` rather than returning it unchanged.
     """
     doc = tomlrt.loads("a = {b = 1}\n")
     doc.promote_inline("a")
-    with pytest.raises(TypeError, match="not an inline table"):
+    with pytest.raises(tomlrt.TOMLError, match="not an inline table"):
         doc.promote_inline("a")
 
 
 def test_promote_array_on_already_promoted_aot_raises() -> None:
     """Promotion is not idempotent: re-promoting a key that is now an AoT
-    raises ``TypeError`` rather than returning it unchanged.
+    raises `TOMLError` rather than returning it unchanged.
     """
     doc = tomlrt.loads("[[a]]\nb = 1\n")
     assert isinstance(doc["a"], tomlrt.AoT)
-    with pytest.raises(TypeError, match="not an array"):
+    with pytest.raises(tomlrt.TOMLError, match="not an array"):
         doc.promote_array("a")
 
 
@@ -3362,7 +3344,7 @@ def test_promote_array_rejects_non_array_for_present_keys() -> None:
     ]:
         doc = tomlrt.loads(src)
         assert target in doc["a"]
-        with pytest.raises(TypeError, match="not an array"):
+        with pytest.raises(tomlrt.TOMLError, match="not an array"):
             doc["a"].promote_array(target)
 
 
@@ -3647,18 +3629,6 @@ def test_install_aot_dotted_path() -> None:
         [[tool.poetry.source]]
         name = "private"
         """)
-
-
-def test_install_section_rejects_empty_path() -> None:
-    doc = tomlrt.loads("")
-    with pytest.raises(ValueError, match="must not be empty"):
-        doc.install("", Table.section())
-
-
-def test_install_section_rejects_empty_segment() -> None:
-    doc = tomlrt.loads("")
-    with pytest.raises(ValueError, match="empty segment"):
-        doc.install("tool..poetry", Table.section())
 
 
 def test_install_scalar_at_dotted_path() -> None:

@@ -49,6 +49,9 @@ from jax._src.pallas.mosaic_gpu.helpers import nd_loop as nd_loop
 from jax._src.pallas.mosaic_gpu.helpers import NDLoopInfo as NDLoopInfo
 from jax._src.pallas.mosaic_gpu.helpers import planar_snake as planar_snake
 from jax._src.pallas.mosaic_gpu.helpers import warp_map as warp_map
+from jax._src.pallas.mosaic_gpu.interpret.params import force_gpu_interpret_mode as force_gpu_interpret_mode
+from jax._src.pallas.mosaic_gpu.interpret.params import InterpretGPUParams as InterpretGPUParams
+from jax._src.pallas.mosaic_gpu.interpret.params import set_gpu_interpret_mode as set_gpu_interpret_mode
 from jax._src.pallas.mosaic_gpu.pipeline import emit_pipeline as emit_pipeline
 from jax._src.pallas.mosaic_gpu.pipeline import emit_pipeline_warp_specialized as emit_pipeline_warp_specialized
 from jax._src.pallas.mosaic_gpu.pipeline import PipelinePipeline as PipelinePipeline
@@ -94,6 +97,7 @@ from jax._src.pallas.mosaic_gpu.primitives import ShapeDtypeStruct as ShapeDtype
 from jax._src.pallas.mosaic_gpu.primitives import tcgen05_commit_arrive as tcgen05_commit_arrive
 from jax._src.pallas.mosaic_gpu.primitives import tcgen05_mma as tcgen05_mma
 from jax._src.pallas.mosaic_gpu.primitives import try_cluster_cancel as try_cluster_cancel
+from jax._src.pallas.mosaic_gpu.primitives import wait_gmem_to_smem as wait_gmem_to_smem
 from jax._src.pallas.mosaic_gpu.primitives import wait_load_tmem as wait_load_tmem
 from jax._src.pallas.mosaic_gpu.primitives import wait_smem_to_gmem as wait_smem_to_gmem
 from jax._src.pallas.mosaic_gpu.primitives import wgmma as wgmma

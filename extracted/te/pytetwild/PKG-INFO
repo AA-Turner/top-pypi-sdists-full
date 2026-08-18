@@ -1,6 +1,6 @@
 Metadata-Version: 2.1
 Name: pytetwild
-Version: 0.4.1
+Version: 0.4.2
 Summary: Python wrapper of fTetWild
 Author-Email: Alex Kaszynski <akascap@gmail.com>
 Classifier: Development Status :: 3 - Alpha
@@ -22,7 +22,7 @@ Requires-Dist: pyvista; extra == "all"
 Provides-Extra: tests
 Requires-Dist: pytest; extra == "tests"
 Requires-Dist: pytest-timeout; extra == "tests"
-Requires-Dist: pyvista; extra == "tests"
+Requires-Dist: pyvista>=0.48; extra == "tests"
 Requires-Dist: scipy<1.17.0; extra == "tests"
 Requires-Dist: meshio; extra == "tests"
 Provides-Extra: dev

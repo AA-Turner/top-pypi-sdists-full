@@ -9,6 +9,9 @@ from typing import Any, Literal
 
 from pydantic import BaseModel
 
+from mistralai.vibe.sdk.agent.execution.completion_request_telemetry import (
+    emit_completion_request_sent,
+)
 from mistralai.vibe.sdk.execution_record.snapshots import make_snapshot_entry
 from mistralai.vibe.sdk.execution_record.state import (
     MessageEntry,
@@ -139,6 +142,7 @@ async def compact_conversation(
         metadata=request_metadata,
         request_kind=COMPLETION_REQUEST_KIND_COMPACTION,
     )
+    await emit_completion_request_sent(model=completion.model, request=request)
     current_state = request_state
     latest_usage: TokenUsage | None = None
 

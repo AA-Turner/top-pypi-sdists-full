@@ -119,6 +119,17 @@ TaskUpdateEventData = Union[
 ]
 
 
+def _is_json_payload(message: str) -> bool:
+    """True when the message is a JSON object/array, i.e. machine input rather than a written turn."""
+    text = (message or "").lstrip()
+    if not text or text[0] not in "{[":
+        return False
+    try:
+        return isinstance(json.loads(message), (dict, list))
+    except (json.JSONDecodeError, ValueError):
+        return False
+
+
 def _prepare_pdfs(
     items: List[Any], caps: Any, allow_text: bool, text_budget: Optional[int] = None
 ) -> List[Tuple[Any, Any]]:
@@ -773,7 +784,7 @@ class Task(XPanderSharedModel):
 
         return results
 
-    def to_message(self, retry_count: int = 0) -> str:
+    def to_message(self, retry_count: int = 0, with_timestamp: bool = True) -> str:
         """
         Converts the input data into a formatted message string.
 
@@ -786,6 +797,8 @@ class Task(XPanderSharedModel):
 
         Args:
             retry_count (int): The current retry attempt number (0 = first execution).
+            with_timestamp (bool): Append the per-message UTC stamp. Pass False when the
+                message is consumed as data rather than read by a model.
 
         Returns:
             str: A formatted message string including text and/or file names.
@@ -858,10 +871,12 @@ class Task(XPanderSharedModel):
                     )
 
         # Minute-accurate complement to the hour-coarsened prefix clock; pinned to created_at so recomposition renders byte-identically.
-        sent_at = self.created_at or datetime.now(timezone.utc)
-        if sent_at.tzinfo is not None:
-            sent_at = sent_at.astimezone(timezone.utc)
-        message += f"\n\nMessage timestamp (UTC): {sent_at.strftime('%Y-%m-%d %H:%M')}"
+        # A JSON payload is machine input a workflow parses, so it stays byte-exact.
+        if with_timestamp and not _is_json_payload(message):
+            sent_at = self.created_at or datetime.now(timezone.utc)
+            if sent_at.tzinfo is not None:
+                sent_at = sent_at.astimezone(timezone.utc)
+            message += f"\n\nMessage timestamp (UTC): {sent_at.strftime('%Y-%m-%d %H:%M')}"
 
         return message
 

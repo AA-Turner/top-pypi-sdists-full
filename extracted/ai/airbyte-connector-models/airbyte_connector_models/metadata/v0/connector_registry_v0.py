@@ -1072,13 +1072,39 @@ class ConnectorRegistryV0ConnectorRegistrySourceDefinition1GeneratedFieldsReleas
         ConnectorRegistryV0ConnectorRegistrySourceDefinition1GeneratedFieldsReleaseInfoPrAuthorType
         | None,
         Field(
-            description="Whether the pull request author is a human user, a bot, or unknown. Bot and unknown authors must never be contacted as a human owner of the release. Unknown means that the author could not be determined."
+            description="Whether the pull request author is a human user, a bot, or unknown, as reported by GitHub. This is raw author metadata, not an ownership verdict: read attributed_to_kind to learn who is accountable for the release. Unknown means that the author could not be determined."
+        ),
+    ] = None
+    pr_author_association: Annotated[
+        str | None,
+        Field(
+            description="The GitHub author association of the pull request author, such as MEMBER, OWNER, COLLABORATOR, or CONTRIBUTOR. MEMBER, OWNER, and COLLABORATOR identify an Airbyte maintainer; CONTRIBUTOR identifies a community author who is not accountable for the release."
+        ),
+    ] = None
+    pr_merged_by_login: Annotated[
+        str | None,
+        Field(
+            description="The GitHub login of the account that merged the releasing pull request. Null for prereleases, which are published from an unmerged branch."
+        ),
+    ] = None
+    pr_merged_by_type: Annotated[
+        ConnectorRegistryV0ConnectorRegistrySourceDefinition1GeneratedFieldsReleaseInfoPrMergedByType
+        | None,
+        Field(
+            description="Whether the account that merged the pull request is a human user, a bot, or unknown, as reported by GitHub. A human merger is a maintainer by construction, since merging into airbytehq/airbyte requires write access."
         ),
     ] = None
     attributed_to: Annotated[
         str | None,
         Field(
-            description="The party the release is attributed to, which may differ from the pull request author."
+            description="The identity accountable for this release, which may differ from the pull request author. Never a community contributor: a community-authored release is attributed to the maintainer who merged it, or to nobody. Null whenever attributed_to_kind is `other`, and non-null for `maintainer` and `bot` -- `other` is precisely the case where no identity may be named, so the two fields always agree."
+        ),
+    ] = None
+    attributed_to_kind: Annotated[
+        ConnectorRegistryV0ConnectorRegistrySourceDefinition1GeneratedFieldsReleaseInfoAttributedToKind
+        | None,
+        Field(
+            description="What kind of identity attributed_to holds, and the field to route escalations on. `maintainer` is a human with write access to airbytehq/airbyte and is the only kind that may be contacted as the owner of the release. `bot` names an automated account for the record but must never be contacted. `other` covers community-authored and unattributable releases, which have no named owner and belong to the oncall rotation, and always carries a null attributed_to."
         ),
     ] = None
     merge_commit_sha: Annotated[
@@ -1103,11 +1129,35 @@ class ConnectorRegistryV0ConnectorRegistrySourceDefinition1GeneratedFieldsReleas
     ]
 
 
+class ConnectorRegistryV0ConnectorRegistrySourceDefinition1GeneratedFieldsReleaseInfoAttributedToKind(
+    Enum
+):
+    """
+    What kind of identity attributed_to holds, and the field to route escalations on. `maintainer` is a human with write access to airbytehq/airbyte and is the only kind that may be contacted as the owner of the release. `bot` names an automated account for the record but must never be contacted. `other` covers community-authored and unattributable releases, which have no named owner and belong to the oncall rotation, and always carries a null attributed_to.
+    """
+
+    maintainer = "maintainer"
+    bot = "bot"
+    other = "other"
+
+
 class ConnectorRegistryV0ConnectorRegistrySourceDefinition1GeneratedFieldsReleaseInfoPrAuthorType(
     Enum
 ):
     """
-    Whether the pull request author is a human user, a bot, or unknown. Bot and unknown authors must never be contacted as a human owner of the release. Unknown means that the author could not be determined.
+    Whether the pull request author is a human user, a bot, or unknown, as reported by GitHub. This is raw author metadata, not an ownership verdict: read attributed_to_kind to learn who is accountable for the release. Unknown means that the author could not be determined.
+    """
+
+    user = "User"
+    bot = "Bot"
+    unknown = "Unknown"
+
+
+class ConnectorRegistryV0ConnectorRegistrySourceDefinition1GeneratedFieldsReleaseInfoPrMergedByType(
+    Enum
+):
+    """
+    Whether the account that merged the pull request is a human user, a bot, or unknown, as reported by GitHub. A human merger is a maintainer by construction, since merging into airbytehq/airbyte requires write access.
     """
 
     user = "User"
@@ -1517,13 +1567,39 @@ class ConnectorRegistryV0ConnectorRegistrySourceDefinitionGeneratedFieldsRelease
         ConnectorRegistryV0ConnectorRegistrySourceDefinitionGeneratedFieldsReleaseInfoPrAuthorType
         | None,
         Field(
-            description="Whether the pull request author is a human user, a bot, or unknown. Bot and unknown authors must never be contacted as a human owner of the release. Unknown means that the author could not be determined."
+            description="Whether the pull request author is a human user, a bot, or unknown, as reported by GitHub. This is raw author metadata, not an ownership verdict: read attributed_to_kind to learn who is accountable for the release. Unknown means that the author could not be determined."
+        ),
+    ] = None
+    pr_author_association: Annotated[
+        str | None,
+        Field(
+            description="The GitHub author association of the pull request author, such as MEMBER, OWNER, COLLABORATOR, or CONTRIBUTOR. MEMBER, OWNER, and COLLABORATOR identify an Airbyte maintainer; CONTRIBUTOR identifies a community author who is not accountable for the release."
+        ),
+    ] = None
+    pr_merged_by_login: Annotated[
+        str | None,
+        Field(
+            description="The GitHub login of the account that merged the releasing pull request. Null for prereleases, which are published from an unmerged branch."
+        ),
+    ] = None
+    pr_merged_by_type: Annotated[
+        ConnectorRegistryV0ConnectorRegistrySourceDefinitionGeneratedFieldsReleaseInfoPrMergedByType
+        | None,
+        Field(
+            description="Whether the account that merged the pull request is a human user, a bot, or unknown, as reported by GitHub. A human merger is a maintainer by construction, since merging into airbytehq/airbyte requires write access."
         ),
     ] = None
     attributed_to: Annotated[
         str | None,
         Field(
-            description="The party the release is attributed to, which may differ from the pull request author."
+            description="The identity accountable for this release, which may differ from the pull request author. Never a community contributor: a community-authored release is attributed to the maintainer who merged it, or to nobody. Null whenever attributed_to_kind is `other`, and non-null for `maintainer` and `bot` -- `other` is precisely the case where no identity may be named, so the two fields always agree."
+        ),
+    ] = None
+    attributed_to_kind: Annotated[
+        ConnectorRegistryV0ConnectorRegistrySourceDefinitionGeneratedFieldsReleaseInfoAttributedToKind
+        | None,
+        Field(
+            description="What kind of identity attributed_to holds, and the field to route escalations on. `maintainer` is a human with write access to airbytehq/airbyte and is the only kind that may be contacted as the owner of the release. `bot` names an automated account for the record but must never be contacted. `other` covers community-authored and unattributable releases, which have no named owner and belong to the oncall rotation, and always carries a null attributed_to."
         ),
     ] = None
     merge_commit_sha: Annotated[
@@ -1548,11 +1624,35 @@ class ConnectorRegistryV0ConnectorRegistrySourceDefinitionGeneratedFieldsRelease
     ]
 
 
+class ConnectorRegistryV0ConnectorRegistrySourceDefinitionGeneratedFieldsReleaseInfoAttributedToKind(
+    Enum
+):
+    """
+    What kind of identity attributed_to holds, and the field to route escalations on. `maintainer` is a human with write access to airbytehq/airbyte and is the only kind that may be contacted as the owner of the release. `bot` names an automated account for the record but must never be contacted. `other` covers community-authored and unattributable releases, which have no named owner and belong to the oncall rotation, and always carries a null attributed_to.
+    """
+
+    maintainer = "maintainer"
+    bot = "bot"
+    other = "other"
+
+
 class ConnectorRegistryV0ConnectorRegistrySourceDefinitionGeneratedFieldsReleaseInfoPrAuthorType(
     Enum
 ):
     """
-    Whether the pull request author is a human user, a bot, or unknown. Bot and unknown authors must never be contacted as a human owner of the release. Unknown means that the author could not be determined.
+    Whether the pull request author is a human user, a bot, or unknown, as reported by GitHub. This is raw author metadata, not an ownership verdict: read attributed_to_kind to learn who is accountable for the release. Unknown means that the author could not be determined.
+    """
+
+    user = "User"
+    bot = "Bot"
+    unknown = "Unknown"
+
+
+class ConnectorRegistryV0ConnectorRegistrySourceDefinitionGeneratedFieldsReleaseInfoPrMergedByType(
+    Enum
+):
+    """
+    Whether the account that merged the pull request is a human user, a bot, or unknown, as reported by GitHub. A human merger is a maintainer by construction, since merging into airbytehq/airbyte requires write access.
     """
 
     user = "User"
@@ -1729,13 +1829,37 @@ class ConnectorRegistryV0GeneratedFieldsReleaseInfo(BaseModel):
     pr_author_type: Annotated[
         ConnectorRegistryV0GeneratedFieldsReleaseInfoPrAuthorType | None,
         Field(
-            description="Whether the pull request author is a human user, a bot, or unknown. Bot and unknown authors must never be contacted as a human owner of the release. Unknown means that the author could not be determined."
+            description="Whether the pull request author is a human user, a bot, or unknown, as reported by GitHub. This is raw author metadata, not an ownership verdict: read attributed_to_kind to learn who is accountable for the release. Unknown means that the author could not be determined."
+        ),
+    ] = None
+    pr_author_association: Annotated[
+        str | None,
+        Field(
+            description="The GitHub author association of the pull request author, such as MEMBER, OWNER, COLLABORATOR, or CONTRIBUTOR. MEMBER, OWNER, and COLLABORATOR identify an Airbyte maintainer; CONTRIBUTOR identifies a community author who is not accountable for the release."
+        ),
+    ] = None
+    pr_merged_by_login: Annotated[
+        str | None,
+        Field(
+            description="The GitHub login of the account that merged the releasing pull request. Null for prereleases, which are published from an unmerged branch."
+        ),
+    ] = None
+    pr_merged_by_type: Annotated[
+        ConnectorRegistryV0GeneratedFieldsReleaseInfoPrMergedByType | None,
+        Field(
+            description="Whether the account that merged the pull request is a human user, a bot, or unknown, as reported by GitHub. A human merger is a maintainer by construction, since merging into airbytehq/airbyte requires write access."
         ),
     ] = None
     attributed_to: Annotated[
         str | None,
         Field(
-            description="The party the release is attributed to, which may differ from the pull request author."
+            description="The identity accountable for this release, which may differ from the pull request author. Never a community contributor: a community-authored release is attributed to the maintainer who merged it, or to nobody. Null whenever attributed_to_kind is `other`, and non-null for `maintainer` and `bot` -- `other` is precisely the case where no identity may be named, so the two fields always agree."
+        ),
+    ] = None
+    attributed_to_kind: Annotated[
+        ConnectorRegistryV0GeneratedFieldsReleaseInfoAttributedToKind | None,
+        Field(
+            description="What kind of identity attributed_to holds, and the field to route escalations on. `maintainer` is a human with write access to airbytehq/airbyte and is the only kind that may be contacted as the owner of the release. `bot` names an automated account for the record but must never be contacted. `other` covers community-authored and unattributable releases, which have no named owner and belong to the oncall rotation, and always carries a null attributed_to."
         ),
     ] = None
     merge_commit_sha: Annotated[
@@ -1760,9 +1884,29 @@ class ConnectorRegistryV0GeneratedFieldsReleaseInfo(BaseModel):
     ]
 
 
+class ConnectorRegistryV0GeneratedFieldsReleaseInfoAttributedToKind(Enum):
+    """
+    What kind of identity attributed_to holds, and the field to route escalations on. `maintainer` is a human with write access to airbytehq/airbyte and is the only kind that may be contacted as the owner of the release. `bot` names an automated account for the record but must never be contacted. `other` covers community-authored and unattributable releases, which have no named owner and belong to the oncall rotation, and always carries a null attributed_to.
+    """
+
+    maintainer = "maintainer"
+    bot = "bot"
+    other = "other"
+
+
 class ConnectorRegistryV0GeneratedFieldsReleaseInfoPrAuthorType(Enum):
     """
-    Whether the pull request author is a human user, a bot, or unknown. Bot and unknown authors must never be contacted as a human owner of the release. Unknown means that the author could not be determined.
+    Whether the pull request author is a human user, a bot, or unknown, as reported by GitHub. This is raw author metadata, not an ownership verdict: read attributed_to_kind to learn who is accountable for the release. Unknown means that the author could not be determined.
+    """
+
+    user = "User"
+    bot = "Bot"
+    unknown = "Unknown"
+
+
+class ConnectorRegistryV0GeneratedFieldsReleaseInfoPrMergedByType(Enum):
+    """
+    Whether the account that merged the pull request is a human user, a bot, or unknown, as reported by GitHub. A human merger is a maintainer by construction, since merging into airbytehq/airbyte requires write access.
     """
 
     user = "User"

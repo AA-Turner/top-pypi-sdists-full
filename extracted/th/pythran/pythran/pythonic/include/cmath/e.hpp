@@ -4,13 +4,11 @@
 #include "pythonic/include/types/complex.hpp"
 #include "pythonic/utils/functor.hpp"
 
-#include <cmath>
-
 PYTHONIC_NS_BEGIN
 
 namespace cmath
 {
-  double constexpr e = std::exp(1);
+  double constexpr e = 2.71828182845904523536;
 }
 PYTHONIC_NS_END
 

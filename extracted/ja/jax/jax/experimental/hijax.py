@@ -19,11 +19,9 @@ from jax._src.ad_util import (
 )
 from jax._src.core import (
     AbstractValue as AbstractValue,
-    AvalQDD as AvalQDD,
     ShapedArray as ShapedArray,
     aval_method as aval_method,
     aval_property as aval_property,
-    AvalMutableQDD as AvalMutableQDD,
 )
 from jax._src.interpreters.ad import (
     GradAccum as GradAccum,
@@ -41,16 +39,12 @@ from jax._src.hijax import (
     HiPspec as HiPspec,
     HiType as HiType,
     MappingSpec as MappingSpec,
-    MutableHiType as MutableHiType,
     VJPHiPrimitive as VJPHiPrimitive,
-    apply_derived_linearization as apply_derived_linearization,
     jvp_from_lin as jvp_from_lin,
     linearize_from_jvp as linearize_from_jvp,
     register_hitype as register_hitype,
-    transpose_jvp as transpose_jvp,
-    transpose_linearized as transpose_linearized,
-    vjp_fwd_from_jvp as vjp_fwd_from_jvp,
-    vjp_fwd_from_lin as vjp_fwd_from_lin,
+    vjp_from_jvp as vjp_from_jvp,
+    vjp_from_lin as vjp_from_lin,
 )
 from jax._src.state import (
     AbstractRef as AbstractRef,

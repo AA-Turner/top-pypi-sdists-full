@@ -1,6 +1,9 @@
-import multiprocessing, subprocess, random, time
+import subprocess, random, time
 import plac
 from ishelve2 import ShelveInterface
+import multiprocessing as mp
+
+multiprocessing = mp.get_context("fork")
 
 i = plac.Interpreter(ShelveInterface(configfile=None))
 

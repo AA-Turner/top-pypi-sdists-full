@@ -8,9 +8,7 @@
 #include "pythonic/include/types/str.hpp"
 #include "pythonic/include/utils/shared_ref.hpp"
 
-#include <fstream>
 #include <iterator>
-#include <string>
 
 PYTHONIC_NS_BEGIN
 
@@ -18,8 +16,13 @@ namespace types
 {
   class file;
 
-  struct file_iterator : std::iterator<std::forward_iterator_tag, types::str, ptrdiff_t,
-                                       types::str *, types::str /* no ref */> {
+  struct file_iterator {
+    using iterator_category = std::forward_iterator_tag;
+    using value_type = types::str;
+    using difference_type = std::ptrdiff_t;
+    using pointer = value_type *;
+    using reference = value_type /* no ref */;
+
   private:
     file *f;
     mutable bool set;
@@ -27,15 +30,13 @@ namespace types
     long position;
 
   public:
-    using value_type = types::str;
-
     file_iterator(file &ref);
     file_iterator();
     bool operator==(file_iterator const &f2) const;
     bool operator!=(file_iterator const &f2) const;
     bool operator<(file_iterator const &f2) const;
     file_iterator &operator++();
-    types::str operator*() const;
+    value_type operator*() const;
   };
 
   struct _file {

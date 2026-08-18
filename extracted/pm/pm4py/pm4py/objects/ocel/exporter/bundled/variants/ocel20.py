@@ -369,7 +369,7 @@ def apply(ocel: OCEL, target_path: str, parameters: Optional[Dict[Any, Any]] = N
     changed_field = exec_utils.get_param_value(Parameters.CHANGED_FIELD, parameters, ocel.changed_field)
 
     events = ocel.events.copy()
-    objects = ocel.objects.copy()
+    objects = ocel.objects.copy().reset_index(drop=True)
     relations = ocel.relations.copy()
     o2o = ocel.o2o.copy()
     changes = ocel.object_changes.copy()
@@ -398,6 +398,7 @@ def apply(ocel: OCEL, target_path: str, parameters: Optional[Dict[Any, Any]] = N
     ]
     event_id_set = set(event_ids)
     object_type_by_id = dict(zip(object_ids, objects[object_type].tolist()))
+    object_index_by_id = dict(zip(object_ids, objects.index))
 
     event_attribute_columns = _attribute_columns(
         events, [event_id, event_activity, event_timestamp]
@@ -435,8 +436,24 @@ def apply(ocel: OCEL, target_path: str, parameters: Optional[Dict[Any, Any]] = N
         normalized_timestamp = _timestamp(
             record.get(event_timestamp), "object-change timestamp"
         )
-        key = (oid, normalized_timestamp.value, field)
         value = clean_dataframes.normalize_value(record.get(field))
+        if normalized_timestamp.value == 0:
+            # time-0 assignments are initial values and live in the object table only
+            if field not in objects.columns:
+                objects[field] = None
+                object_attribute_columns.append(field)
+            row_index = object_index_by_id[oid]
+            existing = objects.at[row_index, field]
+            if not _is_null(existing) and not _values_equal(
+                clean_dataframes.normalize_value(existing), value
+            ):
+                raise ValueError(
+                    "Object '%s' has conflicting time-0 values for attribute '%s'."
+                    % (oid, field)
+                )
+            objects.at[row_index, field] = value
+            continue
+        key = (oid, normalized_timestamp.value, field)
         if key in change_keys:
             if not _values_equal(change_keys[key], value):
                 raise ValueError("Object attribute has conflicting values at one timestamp.")

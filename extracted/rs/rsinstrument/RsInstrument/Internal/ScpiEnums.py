@@ -2,6 +2,7 @@
 
 from enum import Enum
 from typing import List
+
 from .Utilities import trim_str_response
 
 enum_spec_prefixes = {'_minus': '-', '_plus': '+', '_': ''}
@@ -119,11 +120,11 @@ class ScpiEnum:
         self._members_special = []
         for i in range(len(self.members)):
             mem = self.members[i]
-            for key in enum_spec_prefixes:
+            for key, prefix in enum_spec_prefixes.items():
                 if mem.startswith(key):
-                    mem = enum_spec_prefixes[key] + mem[len(key):]
-            for key in enum_spec_strings:
-                mem = mem.replace(key, enum_spec_strings[key])
+                    mem = prefix + mem[len(key):]
+            for key, replacement in enum_spec_strings.items():
+                mem = mem.replace(key, replacement)
             self._members_special.append(mem)
 
     def _init_stripped_quotes(self) -> None:

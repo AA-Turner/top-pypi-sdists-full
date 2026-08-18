@@ -168,6 +168,16 @@ KIND_APPLIED_ATTENTION = "applied_attention"
 # (`boot_adopt.REASONS`, countable hub-side); `detail` names family, function,
 # derived key and the sentence; `duration_ms` is the derivation's own wall.
 KIND_BOOT_ADOPT = "boot_adopt"
+# pgw#1328: the ADOPT-ONLY role's answer where an eager-capable pod would have
+# served eager and minted (§4.28). It is the only thing that role produces on a
+# miss, so it must be readable off-pod or the role is unobservable. `phase` is
+# the `serve.refusal.MissKind` token (countable, closed, and each one carries a
+# ROUTE/REFUSE disposition decided once in `serve.refusal.DISPOSITIONS`);
+# `detail` names the function, family, derived key, the tcg#37 selection
+# outcome and the ranked candidate classes that missed. Deliberately NOT a
+# `serve_degrade` phase: nothing degraded — the pod answered completely and the
+# fleet is expected to act on it.
+KIND_ADOPT_REFUSED = "adopt_refused"
 # pgw#1271: the boot-key MEMO honesty verdict, ruled at the one moment a pod
 # holds both halves — what the memo answered at boot, and what this mint just
 # traced. `boot_key`'s memo path SKIPS THE TRACES and produces the `graph` axis
@@ -221,6 +231,33 @@ KIND_COMPILE_CHILD = "compile_child"
 # `postmortem.write_boot_record`, both pod-local, so "no compile under the
 # serving PID" was unassertable off-pod even with the child rows above.
 KIND_PROCESS_ROLE = "process_role"
+# pgw#1351: ONE snapshot pull, rolled up at completion — what the pod actually
+# TRANSFERRED, against what the snapshot weighs. e2e#1892 tried to measure
+# warm-boot dedup across three pods and could not: nothing on this channel
+# reported wire bytes, and `tree on disk` is identical on a pod that fetched
+# everything and a pod that fetched nothing. Its own KIND because the question
+# is a RATIO over one pull — `fetched_bytes` against `tree_bytes`, with
+# `resident_objects` as the evidence — and folding it into a boot or download
+# activity would put the numerator and the denominator in different rows.
+# `detail` carries the counts as `k=v` (see `snapshot_pull.py`); no
+# ActivityUpdate field holds them and the th#1839 route serves `detail`
+# verbatim, so this needs no hub change.
+KIND_SNAPSHOT_PULL = "snapshot_pull"
+# pgw#1355: the COLD BOOT's own decomposition — per-stage spans carrying
+# start/end offsets from OS process start, plus one terminal roll-up. Its own
+# KIND because it is the only row that answers "where did this pod's cold start
+# go" without a join: e2e#1892 assembled an 877 s cold serve out of FOUR event
+# kinds by hand (request-row timestamps, `worker_boot_phases` load spans,
+# `boot_adopt.duration_ms`, `compute_ms`/`finalize_ms`), and the largest stage
+# of all — pgw#1353's 805 s key-set derive — had no span on any channel.
+# `phase=stage:<name>` is one span, `phase=ready` the roll-up carrying the
+# packed table; `duration_ms` is that stage's wall, and the roll-up's is
+# wall-to-ready. The stage vocabulary is CLOSED (`boot_stages.Stage`) because a
+# renderer in another repo binds to these tokens. `detail` is the same `k=v`
+# grammar `snapshot_pull` uses, served verbatim by the th#1839 route, so this
+# needs no hub schema change. See `boot_stages.py` for why the total is a UNION
+# and never a sum.
+KIND_BOOT_STAGES = "boot_stages"
 # th#1322: the roll-up phase both mint routes report their TOTAL under. A
 # reader groups on (kind, phase) and must never sum a roll-up together with
 # its own children.

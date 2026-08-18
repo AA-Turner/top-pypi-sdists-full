@@ -14,7 +14,7 @@ import httpx
 import structlog
 
 from mistralai.vibe.sdk.providers.completion import utils
-from mistralai.vibe.sdk.providers.completion.messages import Message
+from mistralai.vibe.sdk.providers.completion.messages import Message, text_content_for_provider
 from mistralai.vibe.sdk.providers.completion.port import CompletionModel
 from mistralai.vibe.sdk.providers.completion.types import (
     CompletionChunk,
@@ -71,12 +71,13 @@ class AnthropicMapper:
         converted: list[dict[str, Any]] = []
 
         for msg in messages:
+            content = text_content_for_provider("Anthropic Messages", msg.content)
             match msg.role:
                 case "system":
-                    if msg.content:
-                        system_parts.append(msg.content)
+                    if content:
+                        system_parts.append(content)
                 case "user":
-                    converted.append({"role": "user", "content": msg.content or ""})
+                    converted.append({"role": "user", "content": content or ""})
                 case "assistant":
                     converted.append(self._convert_assistant_message(msg))
                 case "tool":
@@ -87,8 +88,9 @@ class AnthropicMapper:
 
     def _convert_assistant_message(self, msg: Message) -> dict[str, Any]:
         content: list[dict[str, Any]] = []
-        if msg.content:
-            content.append({"type": "text", "text": msg.content})
+        text_content = text_content_for_provider("Anthropic Messages", msg.content)
+        if text_content:
+            content.append({"type": "text", "text": text_content})
         for tc in msg.tool_calls or []:
             try:
                 tool_input = json.loads(tc.function.arguments or "{}")
@@ -108,7 +110,7 @@ class AnthropicMapper:
         tool_result = {
             "type": "tool_result",
             "tool_use_id": _sanitize_tool_call_id(msg.tool_call_id),
-            "content": msg.content or "",
+            "content": text_content_for_provider("Anthropic Messages", msg.content) or "",
         }
 
         if not converted or converted[-1]["role"] != "user":
@@ -157,9 +159,13 @@ class AnthropicCompletion(CompletionModel):
         self._timeout = timeout
         self._client = client
         self._mapper = AnthropicMapper()
-        self.model = model
+        self._model = model
         self.max_tokens = max_tokens
         self.thinking = thinking
+
+    @property
+    def model(self) -> str:
+        return self._model
 
     @property
     def client(self) -> httpx.AsyncClient:

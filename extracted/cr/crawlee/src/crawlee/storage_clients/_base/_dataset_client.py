@@ -7,8 +7,6 @@ from typing import TYPE_CHECKING
 if TYPE_CHECKING:
     from collections.abc import AsyncIterator, Mapping
 
-    from typing_extensions import TypeIs
-
     from crawlee._types import JsonSerializable
     from crawlee.storage_clients.models import DatasetItemsListPage, DatasetMetadata
 
@@ -98,5 +96,12 @@ class DatasetClient(ABC):
     @staticmethod
     def _is_sequence_of_items(
         data: Sequence[Mapping[str, JsonSerializable]] | Mapping[str, JsonSerializable],
-    ) -> TypeIs[Sequence[Mapping[str, JsonSerializable]]]:
+    ) -> bool:
+        """Tell whether the `push_data` payload is a sequence of items rather than a single item.
+
+        No `push_data` implementation in this repository uses this helper - it is inlined there instead. It stays
+        on the base class because the Apify SDK up to 4.0.1 calls it from `ApifyDatasetClient.push_data`, so
+        removing it breaks every Actor that resolves such an SDK version against this package. Drop it in the
+        next major version, once those SDK versions are out of the supported range.
+        """
         return isinstance(data, Sequence)

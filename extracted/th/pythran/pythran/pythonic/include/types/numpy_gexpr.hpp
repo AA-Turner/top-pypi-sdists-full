@@ -2,8 +2,8 @@
 #define PYTHONIC_INCLUDE_TYPES_NUMPY_GEXPR_HPP
 
 #include "pythonic/include/types/numpy_iexpr.hpp"
+#include "pythonic/include/types/tuple.hpp"
 #include "pythonic/include/utils/array_helper.hpp"
-#include "pythonic/include/utils/meta.hpp"
 
 PYTHONIC_NS_BEGIN
 
@@ -109,14 +109,14 @@ namespace types
   struct extended_slice<0> {
     template <class E, class... S>
     auto operator()(E &&expr, long const &s0, S const &...s)
-        -> std::enable_if_t<utils::all_of<std::is_integral<S>::value...>::value,
+        -> std::enable_if_t<(std::is_integral_v<S> && ...),
                             decltype(std::forward<E>(expr)[types::make_tuple(s0, s...)])>
     {
       return std::forward<E>(expr)[types::make_tuple(s0, s...)];
     }
     template <class E, class... S>
     auto operator()(E &&expr, long const &s0, S const &...s)
-        -> std::enable_if_t<!utils::all_of<std::is_integral<S>::value...>::value,
+        -> std::enable_if_t<!(std::is_integral_v<S> && ...),
                             decltype(std::forward<E>(expr)[s0](s...))>
     {
       return std::forward<E>(expr)[s0](s...);
@@ -221,10 +221,9 @@ namespace types
 
     template <class T, class Ts>
     auto tuple_push_head(T const &val, Ts const &vals)
-        -> decltype(tuple_push_head(val, vals,
-                                    std::make_index_sequence<std::tuple_size<Ts>::value>()))
+        -> decltype(tuple_push_head(val, vals, std::make_index_sequence<std::tuple_size_v<Ts>>()))
     {
-      return tuple_push_head(val, vals, std::make_index_sequence<std::tuple_size<Ts>::value>());
+      return tuple_push_head(val, vals, std::make_index_sequence<std::tuple_size_v<Ts>>());
     }
 
     // this struct is specialized for every type combination && takes care of
@@ -242,8 +241,7 @@ namespace types
     struct merge_gexpr<std::tuple<T0...>, std::tuple<>> {
       template <size_t I, class S>
       std::tuple<T0...> run(S const &, std::tuple<T0...> const &t0, std::tuple<>);
-      static_assert(utils::all_of<std::is_same<T0, normalize_t<T0>>::value...>::value,
-                    "all slices are normalized");
+      static_assert((std::is_same_v<T0, normalize_t<T0>> && ...), "all slices are normalized");
     };
 
     template <class... T1>
@@ -265,10 +263,9 @@ namespace types
             merge_gexpr<std::tuple<T0...>, std::tuple<T1...>>{}.template run<I + 1>(
                 s, tuple_tail(t0), tuple_tail(t1)));
       }
-      static_assert(
-          std::is_same<decltype(std::declval<S0>() * std::declval<S1>()),
-                       normalize_t<decltype(std::declval<S0>() * std::declval<S1>())>>::value,
-          "all slices are normalized");
+      static_assert(std::is_same_v<decltype(std::declval<S0>() * std::declval<S1>()),
+                                   normalize_t<decltype(std::declval<S0>() * std::declval<S1>())>>,
+                    "all slices are normalized");
     };
 
     template <class... T1>
@@ -461,7 +458,7 @@ namespace types
 
   template <class Op, class... Args>
   struct may_overlap_gexpr<numpy_expr<Op, Args...>>
-      : utils::any_of<may_overlap_gexpr<Args>::value...> {
+      : std::bool_constant<(may_overlap_gexpr<Args>::value || ...)> {
   };
 
   template <class OpS, class pS, class... S>
@@ -517,11 +514,9 @@ namespace types
    */
   template <class Arg, class... S>
   struct numpy_gexpr {
-    static_assert(utils::all_of<std::is_same<S, normalize_t<S>>::value...>::value,
-                  "all slices are normalized");
-    static_assert(
-        utils::all_of<(std::is_same<S, long>::value || is_normalized_slice<S>::value)...>::value,
-        "all slices are valid");
+    static_assert((std::is_same_v<S, normalize_t<S>> && ...), "all slices are normalized");
+    static_assert(((std::is_same_v<S, long> || is_normalized_slice<S>::value) && ...),
+                  "all slices are valid");
     static_assert(std::decay_t<Arg>::value >= sizeof...(S), "slicing respects array shape");
 
     // numpy_gexpr is a wrapper for extended sliced array around a numpy
@@ -533,8 +528,7 @@ namespace types
     // through the S... template
     // && compacted values as we know that first S is a slice.
 
-    static_assert(utils::all_of<std::is_same<S, std::decay_t<S>>::value...>::value,
-                  "no modifiers on slices");
+    static_assert((std::is_same_v<S, std::decay_t<S>> && ...), "no modifiers on slices");
 
     using dtype = typename std::remove_reference_t<Arg>::dtype;
     static constexpr size_t value = std::remove_reference_t<Arg>::value - count_long<S...>::value;
@@ -547,17 +541,14 @@ namespace types
     // 1. Arg is an ndarray (this is too strict)
     // 2. the size of the gexpr is lower than the dim of arg, || it's the
     // same, but the last slice is contiguous
-    static const bool is_vectorizable =
-        std::remove_reference_t<Arg>::is_vectorizable &&
-        (sizeof...(S) < std::remove_reference_t<Arg>::value ||
-         std::is_same<cstride_normalized_slice<1>, last_slice_t>::value);
-    static const bool is_flat =
-        std::remove_reference_t<Arg>::is_flat && value == 1 &&
-        utils::all_of<std::is_same<cstride_normalized_slice<1>, S>::value...>::value;
-    static const bool is_strided =
-        std::remove_reference_t<Arg>::is_strided ||
-        (((sizeof...(S) - count_long<S...>::value) == value) &&
-         !std::is_same<cstride_normalized_slice<1>, last_slice_t>::value);
+    static const bool is_vectorizable = std::remove_reference_t<Arg>::is_vectorizable &&
+                                        (sizeof...(S) < std::remove_reference_t<Arg>::value ||
+                                         std::is_same_v<cstride_normalized_slice<1>, last_slice_t>);
+    static const bool is_flat = std::remove_reference_t<Arg>::is_flat && value == 1 &&
+                                (std::is_same_v<cstride_normalized_slice<1>, S> && ...);
+    static const bool is_strided = std::remove_reference_t<Arg>::is_strided ||
+                                   (((sizeof...(S) - count_long<S...>::value) == value) &&
+                                    !std::is_same_v<cstride_normalized_slice<1>, last_slice_t>);
 
     using value_type =
         std::decay_t<decltype(numpy_iexpr_helper<value>::get(std::declval<numpy_gexpr>(), 1))>;
@@ -603,9 +594,8 @@ namespace types
     numpy_gexpr(numpy_gexpr const &) = default;
     numpy_gexpr(numpy_gexpr &&) = default;
 
-    template <class Argp> // ! using the default one, to make it possible to
-    // accept reference && non reference version of
-    // Argp
+    template <class Argp> // not using the default one, to make it possible to
+    // accept reference and non reference version of Argp
     numpy_gexpr(numpy_gexpr<Argp, S...> const &other);
 
     template <size_t J, class Slice>
@@ -748,8 +738,7 @@ namespace types
     void store(E elt, Indices... indices)
     {
       static_assert(is_dtype<E>::value, "valid store");
-      *(buffer + noffset<value>{}(*this, array_tuple<long, value>{{indices...}})) =
-          static_cast<E>(elt);
+      *(buffer + noffset<value>{}(*this, array_tuple<long, value>{{indices...}})) = elt;
     }
     template <class... Indices>
     dtype load(Indices... indices) const
@@ -760,8 +749,7 @@ namespace types
     void update(E elt, Indices... indices) const
     {
       static_assert(is_dtype<E>::value, "valid store");
-      Op{}(*(buffer + noffset<value>{}(*this, array_tuple<long, value>{{indices...}})),
-           static_cast<E>(elt));
+      Op{}(*(buffer + noffset<value>{}(*this, array_tuple<long, value>{{indices...}})), elt);
     }
 
 #ifdef USE_XSIMD
@@ -800,7 +788,7 @@ namespace types
 
     template <class F> // indexing through an array of indices -- a view
     std::enable_if_t<is_numexpr_arg<F>::value && !is_array_index<F>::value &&
-                         !std::is_same<bool, typename F::dtype>::value,
+                         !std::is_same_v<bool, typename F::dtype>,
                      numpy_vexpr<numpy_gexpr, F>>
     operator[](F const &filter) const
     {
@@ -808,7 +796,7 @@ namespace types
     }
     template <class F> // indexing through an array of indices -- a view
     std::enable_if_t<is_numexpr_arg<F>::value && !is_array_index<F>::value &&
-                         !std::is_same<bool, typename F::dtype>::value,
+                         !std::is_same_v<bool, typename F::dtype>,
                      numpy_vexpr<numpy_gexpr, F>>
     fast(F const &filter) const
     {
@@ -816,12 +804,12 @@ namespace types
     }
 
     template <class F>
-    std::enable_if_t<is_numexpr_arg<F>::value && std::is_same<bool, typename F::dtype>::value,
+    std::enable_if_t<is_numexpr_arg<F>::value && std::is_same_v<bool, typename F::dtype>,
                      numpy_vexpr<numpy_gexpr, ndarray<long, pshape<long>>>>
     fast(F const &filter) const;
 
     template <class F>
-    std::enable_if_t<is_numexpr_arg<F>::value && std::is_same<bool, typename F::dtype>::value,
+    std::enable_if_t<is_numexpr_arg<F>::value && std::is_same_v<bool, typename F::dtype>,
                      numpy_vexpr<numpy_gexpr, ndarray<long, pshape<long>>>>
     operator[](F const &filter) const;
     auto operator[](long i) const -> decltype(this->fast(i));

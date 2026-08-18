@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: ciris-server
-Version: 0.5.176
+Version: 0.5.177
 License-File: LICENSE
 Summary: The fabric node — the federation's headless cohabitation runtime (registry + lens [+ node] over one shared substrate), as the abi3 wheel CIRISAgent consumes. agent = fabric node + brain.
 Author-email: Eric Moore <eric@ciris.ai>

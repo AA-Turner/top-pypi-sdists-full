@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: django-leaflet
-Version: 0.33.0
+Version: 0.34.0
 Summary: A Django map widget using Leaflet
 Author-email: Mathieu Leplatre <mathieu.leplatre@makina-corpus.com>
 Maintainer-email: Gagaro <gagaro42@gmail.com>

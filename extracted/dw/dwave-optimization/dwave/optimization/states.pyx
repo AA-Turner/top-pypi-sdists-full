@@ -17,13 +17,9 @@ import tempfile
 import weakref
 import zipfile
 
-cimport cpython.buffer
-
 from libcpp.utility cimport move
 
-from dwave.optimization.libcpp.array cimport Array as cppArray
-from dwave.optimization.model cimport ArraySymbol, _Graph
-from dwave.optimization.model import Model
+from dwave.optimization.model cimport _Graph
 from dwave.optimization.utilities import _file_object_arg
 
 __all__ = ["States"]
@@ -87,15 +83,13 @@ cdef class States:
         :attr:`~dwave.optimization.model.Model.states`
     """
     def __init__(self, model):
-        if not isinstance(model, Model):
-            raise TypeError("model must be an instance of Model")
         self._model_ref = weakref.ref(model)
 
     def __len__(self):
         """The number of model states."""
         return self.size()
 
-    cdef void attach_states(self, vector[cppState] states) noexcept:
+    cdef void attach_states(self, vector[State] states) noexcept:
         """Attach the given states.
 
         Note:
@@ -135,7 +129,7 @@ cdef class States:
         """
         self.detach_states()
 
-    cdef vector[cppState] detach_states(self):
+    cdef vector[State] detach_states(self):
         """Move the current C++ states into a returned vector.
 
         Leaves the model's states empty.
@@ -149,7 +143,7 @@ cdef class States:
         self.resolve()
         # move should impliclty leave the states in a valid state, but
         # just to be super explicit we swap with an empty vector first
-        cdef vector[cppState] states
+        cdef vector[State] states
         self._states.swap(states)
         return move(states)
 
@@ -459,7 +453,7 @@ cdef class States:
                 version=version,
             )
 
-    cdef _Graph _model(self):
+    def _model(self):
         """Get a ref-counted Model object."""
         cdef _Graph m = self._model_ref()
         if m is None:
@@ -600,65 +594,3 @@ cdef class States:
 
         file.seek(0)
         return file
-
-
-cdef class StateView:
-    def __init__(self, ArraySymbol symbol, Py_ssize_t index):
-        self.symbol = symbol
-        self.index = index
-
-        # we're assuming this object is being created because we want to access
-        # the state, so let's go ahead and create the state if it's not already
-        # there
-        cdef States states = symbol.model.states  # for Cython access
-        
-        states.resolve()
-        symbol.model._graph.recursive_initialize(states._states.at(index), symbol.node_ptr)
-
-    def __getbuffer__(self, Py_buffer *buffer, int flags):
-        # todo: inspect/respect/test flags
-        self.symbol.model.states.resolve()
-
-        # We never export a writeable array
-        if flags & cpython.buffer.PyBUF_WRITABLE == cpython.buffer.PyBUF_WRITABLE:
-            raise BufferError(f"{type(self).__name__} cannot export a writeable buffer")
-
-        # The remaining flags are accurate to the information we export, but over-zealous.
-        # We could, for instance, check whether we're contiguous and in that case not raise
-        # an error.
-        # But for now, we *always* expose strides, format, and we never assume that we're
-        # contiguous.
-        # Luckily, NumPy and memoryview always ask for everything so it doesn't really matter.
-        # If there is a compelling use case we can add more information.
-        if flags & cpython.buffer.PyBUF_STRIDES != cpython.buffer.PyBUF_STRIDES:
-            raise BufferError(f"{type(self).__name__} always returns stride information")
-        if flags & cpython.buffer.PyBUF_FORMAT != cpython.buffer.PyBUF_FORMAT:
-            raise BufferError(f"{type(self).__name__} always sets the format field")
-        if (flags & cpython.buffer.PyBUF_ANY_CONTIGUOUS == cpython.buffer.PyBUF_ANY_CONTIGUOUS or
-                flags & cpython.buffer.PyBUF_C_CONTIGUOUS == cpython.buffer.PyBUF_C_CONTIGUOUS or
-                flags & cpython.buffer.PyBUF_F_CONTIGUOUS == cpython.buffer.PyBUF_F_CONTIGUOUS):
-            raise BufferError(f"{type(self).__name__} is not necessarily contiguous")
-
-        cdef States states = self.symbol.model.states  # for Cython access
-
-        cdef cppArray* ptr = self.symbol.array_ptr
-
-        buffer.buf = <void*>(ptr.buff(states._states.at(self.index)))
-        buffer.format = <char*>(ptr.format().c_str())
-        buffer.internal = NULL
-        buffer.itemsize = ptr.itemsize()
-        buffer.len = ptr.len(states._states.at(self.index))
-        buffer.ndim = ptr.ndim()
-        buffer.obj = self
-        buffer.readonly = 1
-        buffer.shape = <Py_ssize_t*>(ptr.shape(states._states.at(self.index)).data())
-        buffer.strides = <Py_ssize_t*>(ptr.strides().data())
-        buffer.suboffsets = NULL
-
-        states._view_count += 1
-
-    def __releasebuffer__(self, Py_buffer *buffer):
-        self.symbol.model.states._view_count -= 1
-
-    cdef readonly Py_ssize_t index  # which state we're accessing
-    cdef readonly ArraySymbol symbol

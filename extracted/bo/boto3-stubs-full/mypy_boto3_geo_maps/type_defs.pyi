@@ -27,6 +27,8 @@ from .literals import (
     LabelSizeType,
     MapFeatureModeType,
     MapStyleType,
+    PoiCategoryType,
+    PoiDensityType,
     ScaleBarUnitType,
     StaticMapStyleType,
     TerrainType,
@@ -102,6 +104,8 @@ class GetStyleDescriptorRequestTypeDef(TypedDict):
     Traffic: NotRequired[TrafficType]
     TravelModes: NotRequired[Sequence[TravelModeType]]
     Buildings: NotRequired[Literal["Buildings3D"]]
+    PoiDensity: NotRequired[PoiDensityType]
+    PoiCategories: NotRequired[Sequence[PoiCategoryType]]
     Key: NotRequired[str]
 
 class GetTileRequestTypeDef(TypedDict):

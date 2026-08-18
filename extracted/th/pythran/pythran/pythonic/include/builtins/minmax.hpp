@@ -2,7 +2,7 @@
 #define PYTHONIC_INCLUDE_BUILTIN_MINMAX_HPP
 
 #include "pythonic/include/builtins/pythran/kwonly.hpp"
-#include <utility>
+#include "pythonic/include/types/combined.hpp"
 
 PYTHONIC_NS_BEGIN
 
@@ -17,7 +17,7 @@ namespace builtins
     typename std::decay_t<T>::value_type minmax(Op const &, T &&t, types::kwonly, F key);
 
     template <class Op, class T0, class T1, class... Types>
-    std::enable_if_t<!std::is_same<T1, types::kwonly>::value,
+    std::enable_if_t<!std::is_same_v<T1, types::kwonly>,
                      typename __combined<T0, T1, Types...>::type>
     minmax(Op const &, T0 const &, T1 const &, Types const &...);
   } // namespace details

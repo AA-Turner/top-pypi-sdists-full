@@ -24,6 +24,7 @@ import type {
   SearchOptions,
   TaskListOptions,
   TreeOptions,
+  UpdateSessionConfigOptions,
   UpdateWatchOptions,
   WaitOptions,
   WriteOptions,
@@ -536,27 +537,38 @@ export class OpenVikingClient {
   /** Rebuild indexes for a URI. */
   reindex(
     uri: string,
-    options: { mode?: string; wait?: boolean; dryRun?: boolean } = {},
+    options: {
+      mode?: string;
+      wait?: boolean;
+      dryRun?: boolean;
+      tags?: string[];
+      tagMode?: "replace" | "append";
+    } = {},
   ): Promise<JsonObject> {
     return this.request("POST", "/api/v1/content/reindex", {
-      body: {
+      body: compact({
         uri: normalizeURI(uri),
         mode: options.mode ?? "vectors_only",
         wait: options.wait ?? true,
         dry_run: options.dryRun ?? false,
-      },
+        tags: options.tags,
+        tag_mode: options.tags === undefined ? undefined : options.tagMode ?? "replace",
+      }),
     });
   }
 
   /** Create a session. */
   createSession(options: CreateSessionOptions = {}): Promise<JsonObject> {
+    const body = compact({
+      session_id: options.sessionId,
+      memory_policy: options.memoryPolicy,
+      memory_extraction_config: options.memoryExtractionConfig,
+      telemetry: options.telemetry,
+    });
+    if ("autoCommitPolicy" in options)
+      body.auto_commit_policy = options.autoCommitPolicy ?? null;
     return this.request("POST", "/api/v1/sessions", {
-      body: compact({
-        session_id: options.sessionId,
-        memory_policy: options.memoryPolicy,
-        auto_commit_policy: options.autoCommitPolicy,
-        telemetry: options.telemetry,
-      }),
+      body,
     });
   }
   /** List sessions visible to the caller. */
@@ -568,6 +580,25 @@ export class OpenVikingClient {
     return this.request("GET", `/api/v1/sessions/${pathPart(sessionId)}`, {
       query: { auto_create: autoCreate || undefined },
     });
+  }
+  /** Update mutable session memory extraction settings. */
+  updateSessionConfig(
+    sessionId: string,
+    options: UpdateSessionConfigOptions,
+  ): Promise<JsonObject> {
+    const body = compact({
+      memory_extraction_config: options.memoryExtractionConfig,
+      telemetry: options.telemetry,
+    });
+    if ("autoCommitPolicy" in options)
+      body.auto_commit_policy = options.autoCommitPolicy ?? null;
+    return this.request(
+      "PATCH",
+      `/api/v1/sessions/${pathPart(sessionId)}/config`,
+      {
+        body,
+      },
+    );
   }
   /** Test whether a session exists. */
   async sessionExists(sessionId: string): Promise<boolean> {
@@ -659,11 +690,19 @@ export class OpenVikingClient {
     sessionId: string,
     keepRecentCount = 0,
     telemetry?: unknown,
+    eventTags?: string[],
   ): Promise<JsonObject> {
     return this.request(
       "POST",
       `/api/v1/sessions/${pathPart(sessionId)}/commit`,
-      { body: compact({ keep_recent_count: keepRecentCount, telemetry }) },
+      {
+        body: compact({
+          keep_recent_count: keepRecentCount,
+          telemetry,
+          extraction_metadata:
+            eventTags === undefined ? undefined : { event: { tags: eventTags } },
+        }),
+      },
     );
   }
   /** Export a resource subtree to a local OVPack file. */

@@ -1,11 +1,11 @@
 """Utilities extending the driver for methods provided with RsInstrument."""
 
-from typing import List, Tuple
 import threading
+from typing import List, Tuple
 
-from ..Internal.Core import Core
-from ..Internal.ContextManagers import InstrErrorSuppressor, VisaTimeoutSuppressor
 from ..Internal import Conversions as Conv
+from ..Internal.ContextManagers import InstrErrorSuppressor, VisaTimeoutSuppressor
+from ..Internal.Core import Core
 from ..Internal.ScpiLogger import ScpiLogger
 
 
@@ -138,14 +138,20 @@ class Utilities:
 		"""Queries and clears all the errors from the instrument's error queue.
 		The method returns list of strings as error messages. If no error is detected, the return value is None.
 		The process is: querying 'SYSTem:ERRor?' in a loop until the error queue is empty.
-		If you want to include the error codes, call the query_all_errors_with_codes()"""
+		If you want to include the error codes, call the query_all_errors_with_codes()
+
+		Note: If status-error suppression rules are configured (see status_error_suppression_add_rule()),
+		errors matching those rules are filtered out and will not appear in the returned list."""
 		# noinspection PyTypeChecker
 		return self._core.io.query_all_syst_errors(include_codes=False)
 
 	def query_all_errors_with_codes(self) -> List[Tuple[int, str]] | None:
 		"""Queries and clears all the errors from the instrument's error queue.
 		The method returns list of tuples (code: int, message: str). If no error is detected, the return value is None.
-		The process is: querying 'SYSTem:ERRor?' in a loop until the error queue is empty."""
+		The process is: querying 'SYSTem:ERRor?' in a loop until the error queue is empty.
+
+		Note: If status-error suppression rules are configured (see status_error_suppression_add_rule()),
+		errors matching those rules are filtered out and will not appear in the returned list."""
 		# noinspection PyTypeChecker
 		return self._core.io.query_all_syst_errors(include_codes=True)
 

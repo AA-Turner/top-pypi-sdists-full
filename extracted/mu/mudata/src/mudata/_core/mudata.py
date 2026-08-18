@@ -2,9 +2,9 @@ from __future__ import annotations
 
 import warnings
 from collections import Counter, abc
-from collections.abc import ItemsView, Iterable, Mapping, MutableMapping, Sequence, ValuesView
+from collections.abc import ItemsView, Mapping, MutableMapping, Sequence, ValuesView
 from contextlib import suppress
-from copy import deepcopy
+from copy import copy, deepcopy
 from functools import reduce
 from hashlib import sha1
 from itertools import chain, combinations
@@ -17,15 +17,14 @@ from typing import TYPE_CHECKING, Any, Literal
 import numpy as np
 import pandas as pd
 from anndata import AnnData
-from anndata._core.aligned_mapping import AxisArraysBase
+from anndata._core.aligned_mapping import AlignedView, AxisArrays, AxisArraysBase, PairwiseArrays
 from anndata._core.views import DataFrameView
 from anndata.utils import convert_to_dict
 from scverse_misc import Deprecation, deprecated
 
-from .compat import AlignedView, AxisArrays, PairwiseArrays
-from .config import OPTIONS
 from .file_backing import AnnDataFileManager, MuDataFileManager
 from .repr import MUDATA_CSS, block_matrix, details_block_table
+from .settings import settings
 from .utils import (
     MetadataColumn,
     _make_index_unique,
@@ -184,8 +183,7 @@ class MuData:
             # Initialize an empty MuData object
             pass
         elif isinstance(data, abc.Mapping):
-            for k, v in data.items():
-                self._mod[k] = v
+            self._mod.update(data)
         elif isinstance(data, AnnData):
             # Get the list of modalities
             if "feature_types" in data.var.columns:
@@ -207,62 +205,25 @@ class MuData:
 
         self._check_duplicated_names()
 
-        # When creating from a dictionary with _init_from_dict_
-        if len(kwargs) > 0:
-            # Get global observations
-            self._obs = kwargs.get("obs", None)
-            if isinstance(self._obs, abc.Mapping) or self._obs is None:
-                self._obs = pd.DataFrame(self._obs)
-
-            # Get global variables
-            self._var = kwargs.get("var", None)
-            if isinstance(self._var, abc.Mapping) or self._var is None:
-                self._var = pd.DataFrame(self._var)
-
-            # Ensure no keys are missing
-            for key in ("obsm", "varm", "obsp", "varp", "obsmap", "varmap"):
-                kwargs[key] = kwargs.get(key) or {}
-
-            # Map each attribute to its class and axis value
-            attr_to_axis_arrays = {
-                "obsm": (AxisArrays, 0),
-                "varm": (AxisArrays, 1),
-                "obsp": (PairwiseArrays, 0),
-                "varp": (PairwiseArrays, 1),
-                "obsmap": (ModalityMapAxisArrays, 0),
-                "varmap": (ModalityMapAxisArrays, 1),
-            }
-
-            # Initialise each attribute
-            for attr, (cls, axis) in attr_to_axis_arrays.items():
-                setattr(self, f"_{attr}", cls(self, axis=axis, store=kwargs[attr]))
-
-            self._axis = kwargs.get("axis") or 0
-
-            # Restore proper .obs and .var
-            self.update()
-
-            self._uns = kwargs.get("uns") or {}
-
-            return
-
         # Initialize global observations
-        self._obs = pd.DataFrame()
+        self._obs = pd.DataFrame(kwargs.get("obs"))
 
         # Initialize global variables
-        self._var = pd.DataFrame()
+        self._var = pd.DataFrame(kwargs.get("var"))
 
         # Make obs map for each modality
-        self._obsm = AxisArrays(self, axis=0, store={})
-        self._obsp = PairwiseArrays(self, axis=0, store={})
-        self._obsmap = ModalityMapAxisArrays(self, axis=0, store={})
+        self._obsm = AxisArrays(self, axis=0, store=convert_to_dict(kwargs.get("obsm")))
+        self._obsp = PairwiseArrays(self, axis=0, store=convert_to_dict(kwargs.get("obsp")))
+        self._obsmap = ModalityMapAxisArrays(self, axis=0, store=convert_to_dict(kwargs.get("obsmap")))
 
         # Make var map for each modality
-        self._varm = AxisArrays(self, axis=1, store={})
-        self._varp = PairwiseArrays(self, axis=1, store={})
-        self._varmap = ModalityMapAxisArrays(self, axis=1, store={})
+        self._varm = AxisArrays(self, axis=1, store=convert_to_dict(kwargs.get("varm")))
+        self._varp = PairwiseArrays(self, axis=1, store=convert_to_dict(kwargs.get("varp")))
+        self._varmap = ModalityMapAxisArrays(self, axis=1, store=convert_to_dict(kwargs.get("varmap")))
 
-        self._axis = 0
+        self._uns = convert_to_dict(kwargs.get("uns", {}))
+
+        self._axis = kwargs.get("axis", 0)
 
         # Only call update() if there are modalities
         self.update()
@@ -348,7 +309,7 @@ class MuData:
         self._is_view = True
         self.file = mudata_ref.file
         self._axis = mudata_ref._axis
-        self._uns = mudata_ref._uns
+        self._uns = copy(mudata_ref._uns)
         self._oidx = obsidx
         self._vidx = varidx
 
@@ -370,44 +331,6 @@ class MuData:
         self._varmap = ModalityMapAxisArrays(self, axis=1, store=convert_to_dict(data.varmap))
         self._uns = data._uns
         self._axis = data._axis
-
-    @classmethod
-    def _init_from_dict_(
-        cls,
-        mod: Mapping[str, Mapping | AnnData] | None = None,
-        obs: pd.DataFrame | Mapping[str, Iterable[Any]] | None = None,
-        var: pd.DataFrame | Mapping[str, Iterable[Any]] | None = None,
-        uns: Mapping[str, Any] | None = None,
-        obsm: np.ndarray | Mapping[str, Sequence[Any]] | None = None,
-        varm: np.ndarray | Mapping[str, Sequence[Any]] | None = None,
-        obsp: np.ndarray | Mapping[str, Sequence[Any]] | None = None,
-        varp: np.ndarray | Mapping[str, Sequence[Any]] | None = None,
-        obsmap: Mapping[str, Sequence[int]] | None = None,
-        varmap: Mapping[str, Sequence[int]] | None = None,
-        axis: Literal[0, 1] = 0,
-    ):
-        return cls(
-            data={
-                k: (
-                    v
-                    if isinstance(v, AnnData) or isinstance(v, MuData)
-                    else MuData(**v)
-                    if "mod" in v
-                    else AnnData(**v)
-                )
-                for k, v in mod.items()
-            },
-            obs=obs,
-            var=var,
-            uns=uns,
-            obsm=obsm,
-            varm=varm,
-            obsp=obsp,
-            varp=varp,
-            obsmap=obsmap,
-            varmap=varmap,
-            axis=axis,
-        )
 
     def _check_duplicated_attr_names(self, attr: str):
         if any(not getattr(self._mod[mod_i], attr + "_names").astype(str).is_unique for mod_i in self._mod):
@@ -487,18 +410,18 @@ class MuData:
             mod = {}
             for k, v in self._mod.items():
                 mod[k] = v.copy()
-            return self._init_from_dict_(
-                mod,
-                self.obs.copy(),
-                self.var.copy(),
-                deepcopy(self.uns),  # this should always be an empty dict
-                self.obsm.copy(),
-                self.varm.copy(),
-                self.obsp.copy(),
-                self.varp.copy(),
-                self.obsmap.copy(),
-                self.varmap.copy(),
-                self.axis,
+            return __class__(
+                data=mod,
+                obs=self.obs.copy(),
+                var=self.var.copy(),
+                uns=deepcopy(self.uns),  # this should always be an empty dict
+                obsm=self.obsm.copy(),
+                varm=self.varm.copy(),
+                obsp=self.obsp.copy(),
+                varp=self.varp.copy(),
+                obsmap=self.obsmap.copy(),
+                varmap=self.varmap.copy(),
+                axis=self.axis,
             )
         else:
             if filename is None:
@@ -561,8 +484,17 @@ class MuData:
         with suppress(ImportError):
             from anndata.acc import AdRef, MapAcc, RefAcc
 
-            if isinstance(key, AdRef | RefAcc | MapAcc):
+            from ..acc import ModAcc, MultiModAcc, _ModalityMapAcc, _ModalityMixin
+
+            if isinstance(key, ModAcc | _ModalityMapAcc):
+                return key.isin(self)
+            elif isinstance(key, _ModalityMixin):
+                return key in self.mod[key.mod]
+            elif isinstance(key, MultiModAcc):
+                return bool(self.mod)
+            elif isinstance(key, AdRef | RefAcc | MapAcc):
                 return AnnData.__contains__(self, key)
+
         raise TypeError(f"Unexpected key {key!r}.")
 
     @property
@@ -598,21 +530,6 @@ class MuData:
         - are there intersecting obs_names/var_names between modalities?
         - have obs_names/var_names of modalities changed?
         """
-        if OPTIONS["pull_on_update"] is None:
-            warnings.warn(
-                "From 0.4 .update() will not pull obs/var columns from individual modalities by default anymore. "
-                "Set mudata.set_options(pull_on_update=False) to adopt the new behaviour, which will become the default. "
-                "Use new pull_obs/pull_var and push_obs/push_var methods for more flexibility.",
-                FutureWarning,
-                stacklevel=2,
-            )
-
-            join_common = False
-            if "join_common" in kwargs:
-                join_common = kwargs.pop("join_common")
-            self._update_attr_legacy(attr, axis, join_common, **kwargs)
-            return
-
         # No _attrhash when upon read
         # No _attrhash in mudata < 0.2.0
         _attrhash = f"_{attr}hash"
@@ -624,6 +541,7 @@ class MuData:
 
         data_global = getattr(self, attr)
         prev_index = data_global.index
+        prev_index_name = prev_index.name
 
         attr_duplicated = not data_global.index.is_unique or self._check_duplicated_attr_names(attr)
         attr_intersecting = self._check_intersecting_attr_names(attr)
@@ -636,7 +554,9 @@ class MuData:
         attrmap = getattr(self, f"_{attr}map")
 
         dfs = [
-            getattr(a, attr).loc[:, []].assign(**{f"{m}:{rowcol}": np.arange(getattr(a, attr).shape[0])})
+            getattr(a, attr)
+            .loc[:, []]
+            .assign(**{f"{m}:{rowcol}": lambda x: pd.Series(np.arange(x.shape[0]), index=x.index).convert_dtypes()})
             for m, a in self._mod.items()
         ]
 
@@ -649,7 +569,7 @@ class MuData:
             # we could use a pandas.array, which has missing values support, but then we get an Exception upon hdf5 write
             # also, this is compatible to Muon.jl
             col = data_mod[colname] + 1
-            col.replace(np.nan, 0, inplace=True)
+            col.replace(pd.NA, 0, inplace=True)
             data_mod[colname] = col.astype(np.uint32)
             return colname
 
@@ -667,14 +587,14 @@ class MuData:
             nonlocal index_order, can_update
             index_order = data_global.index.get_indexer(data_mod.index)
             can_update = (
-                new_idx.shape[0] == 0  # noqa: F821   filtered or reordered
-                or kept_idx.shape[0] == data_global.shape[0]  # noqa: F821     new rows only
+                new_idx.shape[0] == 0  # filtered or reordered
+                or kept_idx.shape[0] == data_global.shape[0]  # new rows only
                 or data_mod.shape[0]
                 == data_global.shape[
                     0
                 ]  # renamed (since new_idx.shape[0] > 0 and kept_idx.shape[0] < data_global.shape[0])
                 or (
-                    axis == self.axis and axis != -1 and data_mod.shape[0] > data_global.shape[0]
+                    axis != self.axis and axis != -1 and data_mod.shape[0] > data_global.shape[0]
                 )  # new modality added and concacenated
             )
 
@@ -684,9 +604,8 @@ class MuData:
         # Main case: no duplicates and no intersection if the axis is not shared
         if not attr_duplicated:
             # Shared axis
-            data_mod = pd.concat(
-                dfs, join="outer", axis=1 if axis == (1 - self._axis) or self._axis == -1 else 0, sort=False
-            )
+            data_mod = pd.concat(dfs, join="outer", axis=1 if axis == self._axis or self._axis == -1 else 0, sort=False)
+            data_mod.index.name = prev_index_name
             for mod in self._mod.keys():
                 fix_attrmap_col(data_mod, mod, rowcol)
 
@@ -708,9 +627,7 @@ class MuData:
         #
         else:
             dfs = [_make_index_unique(df, force=True) for df in dfs]
-            data_mod = pd.concat(
-                dfs, join="outer", axis=1 if axis == (1 - self._axis) or self._axis == -1 else 0, sort=False
-            )
+            data_mod = pd.concat(dfs, join="outer", axis=1 if axis == self._axis or self._axis == -1 else 0, sort=False)
 
             data_mod = _restore_index(data_mod)
             data_mod.index.set_names(rowcol, inplace=True)
@@ -756,8 +673,7 @@ class MuData:
 
             data_mod.reset_index(level=list(range(1, data_mod.index.nlevels)), inplace=True)
             data_global.reset_index(level=list(range(1, data_global.index.nlevels)), inplace=True)
-            data_mod.index.set_names(None, inplace=True)
-            data_global.index.set_names(None, inplace=True)
+            data_mod.index.set_names(prev_index_name, inplace=True)
 
         # get adata positions and remove columns from the data frame
         mdict = {}
@@ -786,22 +702,37 @@ class MuData:
 
         if index_order is not None:
             if can_update:
+                update_mask = index_order == -1
+                need_missing = update_mask.sum() > 0
                 for mx_key, mx in attrm.items():
                     if mx_key not in self._mod.keys():  # not a modality name
                         if isinstance(mx, pd.DataFrame):
                             mx = mx.iloc[index_order, :]
-                            mx.iloc[index_order == -1, :] = pd.NA
+                            if need_missing:
+                                mx.iloc[update_mask, :] = pd.NA
                             mx.index = data_mod.index
                         else:
                             mx = mx[index_order]
-                            mx[index_order == -1] = np.nan
+                            if need_missing:
+                                if issubclass(mx.dtype.type, np.floating):
+                                    mx[update_mask] = np.nan
+                                else:
+                                    mx = np.ma.MaskedArray(
+                                        mx,
+                                        mask=np.broadcast_to(
+                                            np.expand_dims(update_mask, axis=tuple(range(1, mx.ndim))), mx.shape
+                                        ),
+                                    )
                         attrm[mx_key] = mx
 
                 # Update .obsp/.varp (size might have changed)
                 for mx_key, mx in attrp.items():
                     mx = mx[index_order[:, None], index_order[None, :]]
-                    mx[index_order == -1, :] = -1
-                    mx[:, index_order == -1] = -1
+
+                    if need_missing:
+                        fill_value = np.nan if issubclass(mx.dtype.type, np.floating) else -1
+                        mx[update_mask, :] = fill_value
+                        mx[:, update_mask] = fill_value
                     attrp[mx_key] = mx
             else:
                 raise NotImplementedError(
@@ -820,415 +751,8 @@ class MuData:
                     sha1(np.ascontiguousarray(getattr(mod, attr).columns.values)).hexdigest(),
                 )
 
-        if OPTIONS["pull_on_update"]:
+        if settings.pull_on_update:
             self._pull_attr(attr, **kwargs)
-
-    def _update_attr_legacy(
-        self,
-        attr: str,
-        axis: int,
-        join_common: bool = False,
-        **kwargs,  # for _pull_attr()
-    ):
-        """
-        Update global observations/variables with observations/variables for each modality.
-
-        This method will be removed in the next versions. See _update_attr() instead.
-        """
-        prev_index = getattr(self, attr).index
-
-        # No _attrhash when upon read
-        # No _attrhash in mudata < 0.2.0
-        _attrhash = f"_{attr}hash"
-        attr_changed = self._check_changed_attr_names(attr, columns=True)
-
-        attr_duplicated = self._check_duplicated_attr_names(attr)
-        attr_intersecting = self._check_intersecting_attr_names(attr)
-
-        if attr_duplicated:
-            warnings.warn(
-                f"{attr}_names are not unique. To make them unique, call `.{attr}_names_make_unique`.", stacklevel=2
-            )
-            if self._axis == -1:
-                warnings.warn(
-                    f"Behaviour is not defined with axis=-1, {attr}_names need to be made unique first.", stacklevel=2
-                )
-
-        if not any(attr_changed):
-            # Nothing to update
-            return
-
-        # Check if the are same obs_names/var_names in different modalities
-        # If there are, join_common=True request can not be satisfied
-        if join_common:
-            if attr_intersecting:
-                warnings.warn(
-                    f"Cannot join columns with the same name because {attr}_names are intersecting.", stacklevel=2
-                )
-                join_common = False
-
-        # Figure out which global columns exist
-        columns_global = getattr(self, attr).columns[
-            list(
-                map(
-                    all,
-                    zip(
-                        *[
-                            [
-                                not col.startswith(mod + ":")
-                                or col[col.startswith(mod + ":") and len(mod + ":") :]
-                                not in getattr(self._mod[mod], attr).columns
-                                for col in getattr(self, attr).columns
-                            ]
-                            for mod in self._mod
-                        ],
-                        strict=False,
-                    ),
-                )
-            )
-        ]
-
-        # Keep data from global .obs/.var columns
-        data_global = getattr(self, attr).loc[:, columns_global]
-
-        # Generate unique colnames
-        (rowcol,) = self._find_unique_colnames(attr, 1)
-
-        attrm = getattr(self, attr + "m")
-        attrp = getattr(self, attr + "p")
-        attrmap = getattr(self, f"_{attr}map")
-
-        if join_common:
-            # If all modalities have a column with the same name, it is not global
-            columns_common = reduce(
-                lambda a, b: a.intersection(b), [getattr(self._mod[mod], attr).columns for mod in self._mod]
-            )
-            data_global = data_global.loc[:, [c not in columns_common for c in data_global.columns]]
-
-        # TODO: take advantage when attr_changed[0] == False — only new columns to be added
-
-        #
-        # Join modality .obs/.var tables
-        #
-        # Main case: no duplicates and no intersection if the axis is not shared
-        #
-        if not attr_duplicated:
-            # Shared axis
-            if axis == (1 - self._axis) or self._axis == -1:
-                # We assume attr_intersecting and can't join_common
-                data_mod = try_convert_dataframe_to_numpy_dtypes(
-                    pd.concat(
-                        [
-                            getattr(a, attr)
-                            .assign(**{rowcol: np.arange(getattr(a, attr).shape[0])})
-                            .add_prefix(m + ":")
-                            .convert_dtypes()
-                            for m, a in self._mod.items()
-                        ],
-                        join="outer",
-                        axis=1,
-                        sort=False,
-                    )
-                )
-            else:
-                if join_common:
-                    # We checked above that attr_names are guaranteed to be unique and thus are safe to be used for joins
-                    data_mod = pd.concat(
-                        [
-                            getattr(a, attr)
-                            .drop(columns_common, axis=1)
-                            .assign(**{rowcol: np.arange(getattr(a, attr).shape[0])})
-                            .add_prefix(m + ":")
-                            .convert_dtypes()
-                            for m, a in self._mod.items()
-                        ],
-                        join="outer",
-                        axis=0,
-                        sort=False,
-                    )
-                    data_common = pd.concat(
-                        [getattr(a, attr)[columns_common].convert_dtypes() for m, a in self._mod.items()],
-                        join="outer",
-                        axis=0,
-                        sort=False,
-                    )
-
-                    data_mod = try_convert_dataframe_to_numpy_dtypes(data_mod.join(data_common, how="left", sort=False))
-                    data_common = try_convert_dataframe_to_numpy_dtypes(data_common)
-
-                    # this occurs when join_common=True and we already have a global data frame, e.g. after reading from H5MU
-                    sharedcols = data_mod.columns.intersection(data_global.columns)
-                    data_global.rename(columns={col: f"global:{col}" for col in sharedcols}, inplace=True)
-                else:
-                    data_mod = try_convert_dataframe_to_numpy_dtypes(
-                        pd.concat(
-                            [
-                                getattr(a, attr)
-                                .assign(**{rowcol: np.arange(getattr(a, attr).shape[0])})
-                                .add_prefix(m + ":")
-                                .convert_dtypes()
-                                for m, a in self._mod.items()
-                            ],
-                            join="outer",
-                            axis=0,
-                            sort=False,
-                        )
-                    )
-
-            for mod in self._mod.keys():
-                colname = mod + ":" + rowcol
-                # use 0 as special value for missing
-                # we could use a pandas.array, which has missing values support, but then we get an Exception upon hdf5 write
-                # also, this is compatible to Muon.jl
-                col = data_mod[colname] + 1
-                col.replace(np.nan, 0, inplace=True)
-                data_mod[colname] = col.astype(np.uint32)
-
-            if len(data_global.columns) > 0:
-                # TODO: if there were intersecting attrnames between modalities,
-                #       this will increase the size of the index
-                # Should we use attrmap to figure the index out?
-                #
-                if not attr_intersecting:
-                    data_mod = data_mod.join(data_global, how="left", sort=False)
-                else:
-                    # In order to preserve the order of the index, instead,
-                    # perform a join based on (index, cumcount) pairs.
-                    col_index, col_cumcount = self._find_unique_colnames(attr, 2)
-                    data_mod = data_mod.rename_axis(col_index, axis=0).reset_index()
-                    data_mod[col_cumcount] = data_mod.groupby(col_index).cumcount()
-                    data_global = data_global.rename_axis(col_index, axis=0).reset_index()
-                    data_global[col_cumcount] = data_global.reset_index().groupby(col_index).cumcount()
-                    data_mod = data_mod.merge(data_global, on=[col_index, col_cumcount], how="left", sort=False)
-                    # Restore the index and remove the helper column
-                    data_mod = data_mod.set_index(col_index).rename_axis(None, axis=0)
-                    del data_mod[col_cumcount]
-                    data_global = data_global.set_index(col_index).rename_axis(None, axis=0)
-                    del data_global[col_cumcount]
-
-        #
-        # General case: with duplicates and/or intersections
-        #
-        else:
-            if join_common:
-                dfs = [
-                    _make_index_unique(
-                        getattr(a, attr)
-                        .drop(columns_common, axis=1)
-                        .assign(**{rowcol: np.arange(getattr(a, attr).shape[0])})
-                        .add_prefix(m + ":"),
-                        force=True,
-                    ).convert_dtypes()
-                    for m, a in self._mod.items()
-                ]
-
-                # Here, attr_names are guaranteed to be unique and are safe to be used for joins
-                data_mod = pd.concat(dfs, join="outer", axis=axis, sort=False)
-
-                data_common = pd.concat(
-                    [
-                        _make_index_unique(getattr(a, attr)[columns_common], force=True).convert_dtypes()
-                        for m, a in self._mod.items()
-                    ],
-                    join="outer",
-                    axis=0,
-                    sort=False,
-                )
-
-                data_mod = try_convert_dataframe_to_numpy_dtypes(data_mod.join(data_common, how="left", sort=False))
-                data_common = try_convert_dataframe_to_numpy_dtypes(data_common)
-            else:
-                dfs = [
-                    _make_index_unique(
-                        getattr(a, attr).assign(**{rowcol: np.arange(getattr(a, attr).shape[0])}).add_prefix(m + ":"),
-                        force=True,
-                    )
-                    for m, a in self._mod.items()
-                ]
-                data_mod = pd.concat(dfs, join="outer", axis=axis, sort=False)
-
-            # pd.concat wrecks the ordering when doing an outer join with a MultiIndex and different data frame shapes
-            if axis == 1:
-                newidx = (
-                    reduce(lambda x, y: x.union(y, sort=False), (df.index for df in dfs))
-                    .to_frame()
-                    .reset_index(level=1, drop=True)
-                )
-                globalidx = data_global.index.get_level_values(0)
-                mask = globalidx.isin(newidx.iloc[:, 0])
-                if len(mask) > 0:
-                    negativemask = ~newidx.index.get_level_values(0).isin(globalidx)
-                    newidx = pd.MultiIndex.from_frame(
-                        pd.concat([newidx.loc[globalidx[mask], :], newidx.iloc[negativemask, :]], axis=0)
-                    )
-                data_mod = data_mod.reindex(newidx, copy=False)
-
-            # this occurs when join_common=True and we already have a global data frame, e.g. after reading from HDF5
-            if join_common:
-                sharedcols = data_mod.columns.intersection(data_global.columns)
-                data_global.rename(columns={col: f"global:{col}" for col in sharedcols}, inplace=True)
-
-            data_mod = _restore_index(data_mod)
-            data_mod.index.set_names(rowcol, inplace=True)
-            data_global.index.set_names(rowcol, inplace=True)
-            for mod, amod in self._mod.items():
-                colname = mod + ":" + rowcol
-                # use 0 as special value for missing
-                # we could use a pandas.array, which has missing values support, but then we get an Exception upon hdf5 write
-                # also, this is compatible to Muon.jl
-                col = data_mod.loc[:, colname] + 1
-                col.replace(np.nan, 0, inplace=True)
-                col = col.astype(np.uint32)
-                data_mod.loc[:, colname] = col
-                data_mod.set_index(colname, append=True, inplace=True)
-                if mod in attrmap and np.sum(attrmap[mod] > 0) == getattr(amod, attr).shape[0]:
-                    data_global.set_index(attrmap[mod].ravel(), append=True, inplace=True)
-                    data_global.index.set_names(colname, level=-1, inplace=True)
-
-            if len(data_global) > 0:
-                if not data_global.index.is_unique:
-                    warnings.warn(
-                        f"{attr}_names is not unique, global {attr} is present, and {attr}map is empty. The update() is not well-defined, verify if global {attr} map to the correct modality-specific {attr}.",
-                        stacklevel=2,
-                    )
-                    data_mod.reset_index(data_mod.index.names.difference(data_global.index.names), inplace=True)
-                    data_mod = _make_index_unique(data_mod, force=True)
-                    data_global = _make_index_unique(data_global, force=True)
-                data_mod = data_mod.join(data_global, how="left", sort=False)
-            data_mod.reset_index(level=list(range(1, data_mod.index.nlevels)), inplace=True)
-            data_mod.index.set_names(None, inplace=True)
-
-        if join_common:
-            for col in sharedcols:
-                gcol = f"global:{col}"
-                if data_mod[col].equals(data_mod[gcol]):
-                    data_mod.drop(columns=gcol, inplace=True)
-                else:
-                    warnings.warn(
-                        f"Column {col} was present in {attr} but is also a common column in all modalities, and their contents differ. {attr}.{col} was renamed to {attr}.{gcol}.",
-                        stacklevel=2,
-                    )
-
-        # get adata positions and remove columns from the data frame
-        mdict = {}
-        for m in self._mod.keys():
-            colname = m + ":" + rowcol
-            mdict[m] = data_mod[colname].to_numpy()
-            data_mod.drop(colname, axis=1, inplace=True)
-
-        # Add data from global .obs/.var columns # This might reduce the size of .obs/.var if observations/variables were removed
-        setattr(
-            # Original index is present in data_global
-            self,
-            "_" + attr,
-            data_mod,
-        )
-
-        # Update .obsm/.varm
-        # this needs to be after setting _obs/_var due to dimension checking in the aligned mapping
-        attrmap.clear()
-        attrmap.update(mdict)
-        for mod, mapping in mdict.items():
-            attrm[mod] = mapping > 0
-
-        now_index = getattr(self, attr).index
-
-        if len(prev_index) == 0:
-            # New object
-            pass
-        elif now_index.equals(prev_index):
-            # Index is the same
-            pass
-        else:
-            keep_index = prev_index.isin(now_index)
-            new_index = ~now_index.isin(prev_index)
-
-            if new_index.sum() == 0 or (
-                keep_index.sum() + new_index.sum() == len(now_index) and len(now_index) > len(prev_index)
-            ):
-                # Another length (filtered) or new modality added
-                # Update .obsm/.varm (size might have changed)
-                # NOTE: .get_index doesn't work with duplicated indices
-                if any(prev_index.duplicated()):
-                    # Assume the relative order of duplicates hasn't changed
-                    # NOTE: .get_loc() for each element is too slow
-                    # We will rename duplicated in prev_index and now_index
-                    # in order to use .get_indexer
-                    # index_order = [
-                    #    prev_index.get_loc(i) if i in prev_index else -1 for i in now_index
-                    # ]
-                    prev_values = prev_index.values.copy()
-                    now_values = now_index.values.copy()
-                    for value in prev_index[np.where(prev_index.duplicated())[0]]:
-                        v_now = np.where(now_index == value)[0]
-                        v_prev = np.where(prev_index.get_loc(value))[0]
-                        for i in range(min(len(v_now), len(v_prev))):
-                            prev_values[v_prev[i]] = f"{str(value)}-{i}"
-                            now_values[v_now[i]] = f"{str(value)}-{i}"
-
-                    prev_index = pd.Index(prev_values)
-                    now_index = pd.Index(now_values)
-
-                index_order = prev_index.get_indexer(now_index)
-
-                for mx_key in attrm.keys():
-                    if mx_key not in self._mod.keys():  # not a modality name
-                        attrm[mx_key] = attrm[mx_key][index_order]
-                        attrm[mx_key][index_order == -1] = np.nan
-
-                # Update .obsp/.varp (size might have changed)
-                for mx_key in attrp.keys():
-                    attrp[mx_key] = attrp[mx_key][index_order, :][:, index_order]
-                    attrp[mx_key][index_order == -1, :] = -1
-                    attrp[mx_key][:, index_order == -1] = -1
-
-            elif len(now_index) == len(prev_index):
-                # Renamed since new_index.sum() != 0
-                # We have to assume the order hasn't changed
-                pass
-
-            else:
-                raise NotImplementedError(
-                    f"{attr}_names seem to have been renamed and filtered at the same time. "
-                    "There is no way to restore the order. MuData object has to be re-created from these modalities:\n"
-                    "  mdata1 = MuData(mdata.mod)"
-                )
-
-        # Write _attrhash
-        if attr_changed:
-            if not hasattr(self, _attrhash):
-                setattr(self, _attrhash, {})
-            for m, mod in self._mod.items():
-                getattr(self, _attrhash)[m] = (
-                    sha1(np.ascontiguousarray(getattr(mod, attr).index.values)).hexdigest(),
-                    sha1(np.ascontiguousarray(getattr(mod, attr).columns.values)).hexdigest(),
-                )
-
-    def _shrink_attr(self, attr: str, inplace=True) -> pd.DataFrame:
-        """Remove observations/variables for each modality from the global observations/variables table."""
-        # Figure out which global columns exist
-        columns_global = list(
-            map(
-                all,
-                zip(
-                    *([not col.startswith(mod + ":") for col in getattr(self, attr).columns] for mod in self._mod),
-                    strict=False,
-                ),
-            )
-        )
-        # Make sure modname-prefix columns exist in modalities,
-        # keep them in place if they don't
-        for mod in self._mod:
-            for i, col in enumerate(getattr(self, attr).columns):
-                if col.startswith(mod + ":"):
-                    mcol = col[len(mod) + 1 :]
-                    if mcol not in getattr(self._mod[mod], attr).columns:
-                        columns_global[i] = True
-        # Only keep data from global .obs/.var columns
-        newdf = getattr(self, attr).loc[:, columns_global]
-        if inplace:
-            setattr(self, attr, newdf)
-        return newdf
 
     @property
     def n_mod(self) -> int:
@@ -1313,13 +837,9 @@ class MuData:
         return self._attr_vector(key, "obs")
 
     def update_obs(self):
-        """Update :attr:`obs` indices of the object with the data from all the modalities.
-
-        .. note::
-           From v0.4, it will not pull columns from modalities by default.
-        """
+        """Update :attr:`obs` indices of the object with the data from all the modalities."""
         join_common = self.axis == 1
-        self._update_attr("obs", axis=1, join_common=join_common)
+        self._update_attr("obs", axis=0, join_common=join_common)
 
     def _names_make_unique(self, attr: Literal["obs", "var"]):
         axis = 0 if attr == "obs" else 1
@@ -1328,9 +848,6 @@ class MuData:
                 f"This operation is only supported on MuData objects with `axis={1 - axis}`. This MuData has `axis={self.axis}`."
             )
         namesattr = f"{attr}_names"
-        mod_sum = np.sum([a.shape[axis] for a in self._mod.values()])
-        if mod_sum != self.shape[axis]:
-            self._update_attr(attr, axis=1 - axis)
 
         for mod in self._mod.values():
             mod_make_unique = getattr(mod, f"{attr}_names_make_unique")
@@ -1356,12 +873,16 @@ class MuData:
                             setattr(mod, namesattr, m + ":" + getattr(mod, namesattr).astype(str))
                         raise StopIteration()  # break out of both loops
 
-        attrval = getattr(self, attr)
+        mod_sum = np.sum([a.shape[axis] for a in self._mod.values()])
+        if mod_sum != self.shape[axis]:
+            self._update_attr(attr, axis=axis)  # global names set by update
+        else:
+            attrval = getattr(self, attr)
 
-        # self._set_names replaces the names of each modality. Unnecessary here, since the names are coming directly from the modalities
-        attrval.index = pd.Index([], name=attrval.index.name).append(
-            [getattr(mod, namesattr) for mod in self._mod.values()]
-        )
+            # self._set_names replaces the names of each modality. Unnecessary here, since the names are coming directly from the modalities
+            attrval.index = pd.Index([], name=attrval.index.name).append(
+                [getattr(mod, namesattr) for mod in self._mod.values()]
+            )
 
     def obs_names_make_unique(self):
         """
@@ -1388,7 +909,7 @@ class MuData:
         else:
             mod_shape_sum = reduce(lambda x, y: x.union(y), (getattr(a, attr).index for a in self._mod.values())).size
         if mod_shape_sum != self.shape[axis]:
-            self._update_attr(attr, axis=1 - axis)
+            self._update_attr(attr, axis=axis)
 
         if len(names) != self.shape[axis]:
             raise ValueError(
@@ -1407,7 +928,7 @@ class MuData:
             newnames[modmap[mask] - 1] = names[mask]
             setattr(mod, f"{attr}_names", newnames)
 
-        self._update_attr(attr, axis=1 - axis)
+        self._update_attr(attr, axis=axis)
 
     @property
     def obs_names(self) -> pd.Index:
@@ -1462,13 +983,9 @@ class MuData:
         return self._attr_vector(key, "var")
 
     def update_var(self):
-        """Update :attr:`var` indices of the object with the data from all the modalities.
-
-        .. note::
-           From v0.4, it will not pull columns from modalities by default.
-        """
+        """Update :attr:`var` indices of the object with the data from all the modalities."""
         join_common = self.axis == 0
-        self._update_attr("var", axis=0, join_common=join_common)
+        self._update_attr("var", axis=1, join_common=join_common)
 
     def var_names_make_unique(self):
         """
@@ -1642,11 +1159,7 @@ class MuData:
         return list(self._uns.keys())
 
     def update(self):
-        """Update both :attr:`obs` and :attr:`var` indices of the object with the data from all the modalities.
-
-        .. note::
-           From v0.4, it will not pull columns from modalities by default.
-        """
+        """Update both :attr:`obs` and :attr:`var` indices of the object with the data from all the modalities."""
         if len(self._mod) > 0:
             self.update_var()
             self.update_obs()
@@ -2349,14 +1862,12 @@ class MuData:
         010 - expand .mod slots
         001 - expand slots for each modality
         """
-        # Return text representation if set in options
-        if OPTIONS["display_style"] == "text":
-            from html import escape
-
-            return f"<pre>{escape(repr(self))}</pre>"
+        # fall back to text representation if set in options
+        if settings.display_style == "text":
+            return None
 
         if expand is None:
-            expand = OPTIONS["display_html_expand"]
+            expand = settings.display_html_expand
 
         # General object properties
         header = "<span>MuData object <span class='hl-dim'>{} obs &times; {} var in {} modalit{}</span></span>".format(

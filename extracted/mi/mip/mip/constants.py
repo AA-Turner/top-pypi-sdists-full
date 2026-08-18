@@ -139,6 +139,10 @@ class OptimizationStatus(Enum):
     determine if the problem is infeasible or unbounded due to application
     of dual reductions (when active) during presolve."""
 
+    TRUNCATED = 9
+    """The LP solve was truncated by a time or iteration limit. A partial
+    primal solution (if primal feasible) and/or a dual bound may be available."""
+
     OTHER = 10000
 
 
@@ -173,6 +177,19 @@ class LP_Method(Enum):
 
     BARRIERNOCROSS = 4
     """The barrier algorithm without performing crossover"""
+
+    RACING = 5
+    """CBC-specific: opportunistic parallel LP racing. Multiple LP method
+    configurations (dual simplex, primal with Idiot crash, primal with
+    Sprint) run in parallel threads and the first to reach optimality wins.
+    Requires at least 2 threads (see :meth:`Model.threads`); with fewer
+    threads it silently degrades to :attr:`RECOMMEND`. Ignored by HiGHS and
+    Gurobi."""
+
+    RECOMMEND = 6
+    """CBC-specific: ML-based per-instance recommendation of a single LP
+    method/configuration, using a classifier trained on instance features.
+    Runs sequentially. Ignored by HiGHS and Gurobi."""
 
 
 class ConstraintPriority(Enum):

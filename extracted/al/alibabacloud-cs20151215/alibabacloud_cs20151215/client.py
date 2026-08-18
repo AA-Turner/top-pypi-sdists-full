@@ -2039,6 +2039,98 @@ class Client(OpenApiClient):
         headers = {}
         return await self.create_kubernetes_trigger_with_options_async(request, headers, runtime)
 
+    def create_node_pool_component_instances_with_options(
+        self,
+        cluster_id: str,
+        nodepool_id: str,
+        request: main_models.CreateNodePoolComponentInstancesRequest,
+        headers: Dict[str, str],
+        runtime: RuntimeOptions,
+    ) -> main_models.CreateNodePoolComponentInstancesResponse:
+        request.validate()
+        body = {}
+        if not DaraCore.is_null(request.components):
+            body['components'] = request.components
+        if not DaraCore.is_null(request.node_names):
+            body['node_names'] = request.node_names
+        if not DaraCore.is_null(request.rolling_policy):
+            body['rolling_policy'] = request.rolling_policy
+        req = open_api_util_models.OpenApiRequest(
+            headers = headers,
+            body = Utils.parse_to_map(body)
+        )
+        params = open_api_util_models.Params(
+            action = 'CreateNodePoolComponentInstances',
+            version = '2015-12-15',
+            protocol = 'HTTPS',
+            pathname = f'/clusters/{DaraURL.percent_encode(cluster_id)}/nodepools/{DaraURL.percent_encode(nodepool_id)}/component_instances',
+            method = 'POST',
+            auth_type = 'AK',
+            style = 'ROA',
+            req_body_type = 'json',
+            body_type = 'json'
+        )
+        return DaraCore.from_map(
+            main_models.CreateNodePoolComponentInstancesResponse(),
+            self.call_api(params, req, runtime)
+        )
+
+    async def create_node_pool_component_instances_with_options_async(
+        self,
+        cluster_id: str,
+        nodepool_id: str,
+        request: main_models.CreateNodePoolComponentInstancesRequest,
+        headers: Dict[str, str],
+        runtime: RuntimeOptions,
+    ) -> main_models.CreateNodePoolComponentInstancesResponse:
+        request.validate()
+        body = {}
+        if not DaraCore.is_null(request.components):
+            body['components'] = request.components
+        if not DaraCore.is_null(request.node_names):
+            body['node_names'] = request.node_names
+        if not DaraCore.is_null(request.rolling_policy):
+            body['rolling_policy'] = request.rolling_policy
+        req = open_api_util_models.OpenApiRequest(
+            headers = headers,
+            body = Utils.parse_to_map(body)
+        )
+        params = open_api_util_models.Params(
+            action = 'CreateNodePoolComponentInstances',
+            version = '2015-12-15',
+            protocol = 'HTTPS',
+            pathname = f'/clusters/{DaraURL.percent_encode(cluster_id)}/nodepools/{DaraURL.percent_encode(nodepool_id)}/component_instances',
+            method = 'POST',
+            auth_type = 'AK',
+            style = 'ROA',
+            req_body_type = 'json',
+            body_type = 'json'
+        )
+        return DaraCore.from_map(
+            main_models.CreateNodePoolComponentInstancesResponse(),
+            await self.call_api_async(params, req, runtime)
+        )
+
+    def create_node_pool_component_instances(
+        self,
+        cluster_id: str,
+        nodepool_id: str,
+        request: main_models.CreateNodePoolComponentInstancesRequest,
+    ) -> main_models.CreateNodePoolComponentInstancesResponse:
+        runtime = RuntimeOptions()
+        headers = {}
+        return self.create_node_pool_component_instances_with_options(cluster_id, nodepool_id, request, headers, runtime)
+
+    async def create_node_pool_component_instances_async(
+        self,
+        cluster_id: str,
+        nodepool_id: str,
+        request: main_models.CreateNodePoolComponentInstancesRequest,
+    ) -> main_models.CreateNodePoolComponentInstancesResponse:
+        runtime = RuntimeOptions()
+        headers = {}
+        return await self.create_node_pool_component_instances_with_options_async(cluster_id, nodepool_id, request, headers, runtime)
+
     def create_template_with_options(
         self,
         request: main_models.CreateTemplateRequest,
@@ -2868,6 +2960,118 @@ class Client(OpenApiClient):
         runtime = RuntimeOptions()
         headers = {}
         return await self.delete_kubernetes_trigger_with_options_async(id, headers, runtime)
+
+    def delete_node_pool_component_instance_with_options(
+        self,
+        cluster_id: str,
+        nodepool_id: str,
+        name: str,
+        tmp_req: main_models.DeleteNodePoolComponentInstanceRequest,
+        headers: Dict[str, str],
+        runtime: RuntimeOptions,
+    ) -> main_models.DeleteNodePoolComponentInstanceResponse:
+        tmp_req.validate()
+        request = main_models.DeleteNodePoolComponentInstanceShrinkRequest()
+        Utils.convert(tmp_req, request)
+        if not DaraCore.is_null(tmp_req.node_names):
+            request.node_names_shrink = Utils.array_to_string_with_specified_style(tmp_req.node_names, 'node_names', 'json')
+        query = {}
+        if not DaraCore.is_null(request.batch_interval):
+            query['batch_interval'] = request.batch_interval
+        if not DaraCore.is_null(request.max_failed_nodes):
+            query['max_failed_nodes'] = request.max_failed_nodes
+        if not DaraCore.is_null(request.max_parallelism):
+            query['max_parallelism'] = request.max_parallelism
+        if not DaraCore.is_null(request.node_names_shrink):
+            query['node_names'] = request.node_names_shrink
+        if not DaraCore.is_null(request.pause_policy):
+            query['pause_policy'] = request.pause_policy
+        req = open_api_util_models.OpenApiRequest(
+            headers = headers,
+            query = Utils.query(query)
+        )
+        params = open_api_util_models.Params(
+            action = 'DeleteNodePoolComponentInstance',
+            version = '2015-12-15',
+            protocol = 'HTTPS',
+            pathname = f'/clusters/{DaraURL.percent_encode(cluster_id)}/nodepools/{DaraURL.percent_encode(nodepool_id)}/component_instances/{DaraURL.percent_encode(name)}',
+            method = 'DELETE',
+            auth_type = 'AK',
+            style = 'ROA',
+            req_body_type = 'json',
+            body_type = 'json'
+        )
+        return DaraCore.from_map(
+            main_models.DeleteNodePoolComponentInstanceResponse(),
+            self.call_api(params, req, runtime)
+        )
+
+    async def delete_node_pool_component_instance_with_options_async(
+        self,
+        cluster_id: str,
+        nodepool_id: str,
+        name: str,
+        tmp_req: main_models.DeleteNodePoolComponentInstanceRequest,
+        headers: Dict[str, str],
+        runtime: RuntimeOptions,
+    ) -> main_models.DeleteNodePoolComponentInstanceResponse:
+        tmp_req.validate()
+        request = main_models.DeleteNodePoolComponentInstanceShrinkRequest()
+        Utils.convert(tmp_req, request)
+        if not DaraCore.is_null(tmp_req.node_names):
+            request.node_names_shrink = Utils.array_to_string_with_specified_style(tmp_req.node_names, 'node_names', 'json')
+        query = {}
+        if not DaraCore.is_null(request.batch_interval):
+            query['batch_interval'] = request.batch_interval
+        if not DaraCore.is_null(request.max_failed_nodes):
+            query['max_failed_nodes'] = request.max_failed_nodes
+        if not DaraCore.is_null(request.max_parallelism):
+            query['max_parallelism'] = request.max_parallelism
+        if not DaraCore.is_null(request.node_names_shrink):
+            query['node_names'] = request.node_names_shrink
+        if not DaraCore.is_null(request.pause_policy):
+            query['pause_policy'] = request.pause_policy
+        req = open_api_util_models.OpenApiRequest(
+            headers = headers,
+            query = Utils.query(query)
+        )
+        params = open_api_util_models.Params(
+            action = 'DeleteNodePoolComponentInstance',
+            version = '2015-12-15',
+            protocol = 'HTTPS',
+            pathname = f'/clusters/{DaraURL.percent_encode(cluster_id)}/nodepools/{DaraURL.percent_encode(nodepool_id)}/component_instances/{DaraURL.percent_encode(name)}',
+            method = 'DELETE',
+            auth_type = 'AK',
+            style = 'ROA',
+            req_body_type = 'json',
+            body_type = 'json'
+        )
+        return DaraCore.from_map(
+            main_models.DeleteNodePoolComponentInstanceResponse(),
+            await self.call_api_async(params, req, runtime)
+        )
+
+    def delete_node_pool_component_instance(
+        self,
+        cluster_id: str,
+        nodepool_id: str,
+        name: str,
+        request: main_models.DeleteNodePoolComponentInstanceRequest,
+    ) -> main_models.DeleteNodePoolComponentInstanceResponse:
+        runtime = RuntimeOptions()
+        headers = {}
+        return self.delete_node_pool_component_instance_with_options(cluster_id, nodepool_id, name, request, headers, runtime)
+
+    async def delete_node_pool_component_instance_async(
+        self,
+        cluster_id: str,
+        nodepool_id: str,
+        name: str,
+        request: main_models.DeleteNodePoolComponentInstanceRequest,
+    ) -> main_models.DeleteNodePoolComponentInstanceResponse:
+        runtime = RuntimeOptions()
+        headers = {}
+        return await self.delete_node_pool_component_instance_with_options_async(cluster_id, nodepool_id, name, request, headers, runtime)
 
     def delete_policy_instance_with_options(
         self,
@@ -8285,6 +8489,206 @@ class Client(OpenApiClient):
         headers = {}
         return await self.list_cluster_kubeconfig_states_with_options_async(cluster_id, request, headers, runtime)
 
+    def list_node_pool_component_instances_with_options(
+        self,
+        cluster_id: str,
+        nodepool_id: str,
+        request: main_models.ListNodePoolComponentInstancesRequest,
+        headers: Dict[str, str],
+        runtime: RuntimeOptions,
+    ) -> main_models.ListNodePoolComponentInstancesResponse:
+        request.validate()
+        query = {}
+        if not DaraCore.is_null(request.max_results):
+            query['max_results'] = request.max_results
+        if not DaraCore.is_null(request.next_token):
+            query['next_token'] = request.next_token
+        req = open_api_util_models.OpenApiRequest(
+            headers = headers,
+            query = Utils.query(query)
+        )
+        params = open_api_util_models.Params(
+            action = 'ListNodePoolComponentInstances',
+            version = '2015-12-15',
+            protocol = 'HTTPS',
+            pathname = f'/clusters/{DaraURL.percent_encode(cluster_id)}/nodepools/{DaraURL.percent_encode(nodepool_id)}/component_instances',
+            method = 'GET',
+            auth_type = 'AK',
+            style = 'ROA',
+            req_body_type = 'json',
+            body_type = 'json'
+        )
+        return DaraCore.from_map(
+            main_models.ListNodePoolComponentInstancesResponse(),
+            self.call_api(params, req, runtime)
+        )
+
+    async def list_node_pool_component_instances_with_options_async(
+        self,
+        cluster_id: str,
+        nodepool_id: str,
+        request: main_models.ListNodePoolComponentInstancesRequest,
+        headers: Dict[str, str],
+        runtime: RuntimeOptions,
+    ) -> main_models.ListNodePoolComponentInstancesResponse:
+        request.validate()
+        query = {}
+        if not DaraCore.is_null(request.max_results):
+            query['max_results'] = request.max_results
+        if not DaraCore.is_null(request.next_token):
+            query['next_token'] = request.next_token
+        req = open_api_util_models.OpenApiRequest(
+            headers = headers,
+            query = Utils.query(query)
+        )
+        params = open_api_util_models.Params(
+            action = 'ListNodePoolComponentInstances',
+            version = '2015-12-15',
+            protocol = 'HTTPS',
+            pathname = f'/clusters/{DaraURL.percent_encode(cluster_id)}/nodepools/{DaraURL.percent_encode(nodepool_id)}/component_instances',
+            method = 'GET',
+            auth_type = 'AK',
+            style = 'ROA',
+            req_body_type = 'json',
+            body_type = 'json'
+        )
+        return DaraCore.from_map(
+            main_models.ListNodePoolComponentInstancesResponse(),
+            await self.call_api_async(params, req, runtime)
+        )
+
+    def list_node_pool_component_instances(
+        self,
+        cluster_id: str,
+        nodepool_id: str,
+        request: main_models.ListNodePoolComponentInstancesRequest,
+    ) -> main_models.ListNodePoolComponentInstancesResponse:
+        runtime = RuntimeOptions()
+        headers = {}
+        return self.list_node_pool_component_instances_with_options(cluster_id, nodepool_id, request, headers, runtime)
+
+    async def list_node_pool_component_instances_async(
+        self,
+        cluster_id: str,
+        nodepool_id: str,
+        request: main_models.ListNodePoolComponentInstancesRequest,
+    ) -> main_models.ListNodePoolComponentInstancesResponse:
+        runtime = RuntimeOptions()
+        headers = {}
+        return await self.list_node_pool_component_instances_with_options_async(cluster_id, nodepool_id, request, headers, runtime)
+
+    def list_node_pool_components_with_options(
+        self,
+        cluster_id: str,
+        tmp_req: main_models.ListNodePoolComponentsRequest,
+        headers: Dict[str, str],
+        runtime: RuntimeOptions,
+    ) -> main_models.ListNodePoolComponentsResponse:
+        tmp_req.validate()
+        request = main_models.ListNodePoolComponentsShrinkRequest()
+        Utils.convert(tmp_req, request)
+        if not DaraCore.is_null(tmp_req.instance_types):
+            request.instance_types_shrink = Utils.array_to_string_with_specified_style(tmp_req.instance_types, 'instance_types', 'json')
+        query = {}
+        if not DaraCore.is_null(request.image_id):
+            query['image_id'] = request.image_id
+        if not DaraCore.is_null(request.image_type):
+            query['image_type'] = request.image_type
+        if not DaraCore.is_null(request.instance_types_shrink):
+            query['instance_types'] = request.instance_types_shrink
+        if not DaraCore.is_null(request.max_results):
+            query['max_results'] = request.max_results
+        if not DaraCore.is_null(request.next_token):
+            query['next_token'] = request.next_token
+        if not DaraCore.is_null(request.nodepool_id):
+            query['nodepool_id'] = request.nodepool_id
+        if not DaraCore.is_null(request.nodepool_type):
+            query['nodepool_type'] = request.nodepool_type
+        req = open_api_util_models.OpenApiRequest(
+            headers = headers,
+            query = Utils.query(query)
+        )
+        params = open_api_util_models.Params(
+            action = 'ListNodePoolComponents',
+            version = '2015-12-15',
+            protocol = 'HTTPS',
+            pathname = f'/clusters/{DaraURL.percent_encode(cluster_id)}/nodepool_components',
+            method = 'GET',
+            auth_type = 'AK',
+            style = 'ROA',
+            req_body_type = 'json',
+            body_type = 'json'
+        )
+        return DaraCore.from_map(
+            main_models.ListNodePoolComponentsResponse(),
+            self.call_api(params, req, runtime)
+        )
+
+    async def list_node_pool_components_with_options_async(
+        self,
+        cluster_id: str,
+        tmp_req: main_models.ListNodePoolComponentsRequest,
+        headers: Dict[str, str],
+        runtime: RuntimeOptions,
+    ) -> main_models.ListNodePoolComponentsResponse:
+        tmp_req.validate()
+        request = main_models.ListNodePoolComponentsShrinkRequest()
+        Utils.convert(tmp_req, request)
+        if not DaraCore.is_null(tmp_req.instance_types):
+            request.instance_types_shrink = Utils.array_to_string_with_specified_style(tmp_req.instance_types, 'instance_types', 'json')
+        query = {}
+        if not DaraCore.is_null(request.image_id):
+            query['image_id'] = request.image_id
+        if not DaraCore.is_null(request.image_type):
+            query['image_type'] = request.image_type
+        if not DaraCore.is_null(request.instance_types_shrink):
+            query['instance_types'] = request.instance_types_shrink
+        if not DaraCore.is_null(request.max_results):
+            query['max_results'] = request.max_results
+        if not DaraCore.is_null(request.next_token):
+            query['next_token'] = request.next_token
+        if not DaraCore.is_null(request.nodepool_id):
+            query['nodepool_id'] = request.nodepool_id
+        if not DaraCore.is_null(request.nodepool_type):
+            query['nodepool_type'] = request.nodepool_type
+        req = open_api_util_models.OpenApiRequest(
+            headers = headers,
+            query = Utils.query(query)
+        )
+        params = open_api_util_models.Params(
+            action = 'ListNodePoolComponents',
+            version = '2015-12-15',
+            protocol = 'HTTPS',
+            pathname = f'/clusters/{DaraURL.percent_encode(cluster_id)}/nodepool_components',
+            method = 'GET',
+            auth_type = 'AK',
+            style = 'ROA',
+            req_body_type = 'json',
+            body_type = 'json'
+        )
+        return DaraCore.from_map(
+            main_models.ListNodePoolComponentsResponse(),
+            await self.call_api_async(params, req, runtime)
+        )
+
+    def list_node_pool_components(
+        self,
+        cluster_id: str,
+        request: main_models.ListNodePoolComponentsRequest,
+    ) -> main_models.ListNodePoolComponentsResponse:
+        runtime = RuntimeOptions()
+        headers = {}
+        return self.list_node_pool_components_with_options(cluster_id, request, headers, runtime)
+
+    async def list_node_pool_components_async(
+        self,
+        cluster_id: str,
+        request: main_models.ListNodePoolComponentsRequest,
+    ) -> main_models.ListNodePoolComponentsResponse:
+        runtime = RuntimeOptions()
+        headers = {}
+        return await self.list_node_pool_components_with_options_async(cluster_id, request, headers, runtime)
+
     def list_operation_plans_with_options(
         self,
         request: main_models.ListOperationPlansRequest,
@@ -11978,6 +12382,110 @@ class Client(OpenApiClient):
         runtime = RuntimeOptions()
         headers = {}
         return await self.update_node_pool_component_with_options_async(cluster_id, nodepool_id, request, headers, runtime)
+
+    def update_node_pool_component_instance_with_options(
+        self,
+        cluster_id: str,
+        nodepool_id: str,
+        name: str,
+        request: main_models.UpdateNodePoolComponentInstanceRequest,
+        headers: Dict[str, str],
+        runtime: RuntimeOptions,
+    ) -> main_models.UpdateNodePoolComponentInstanceResponse:
+        request.validate()
+        body = {}
+        if not DaraCore.is_null(request.config):
+            body['config'] = request.config
+        if not DaraCore.is_null(request.disable_rolling):
+            body['disable_rolling'] = request.disable_rolling
+        if not DaraCore.is_null(request.node_names):
+            body['node_names'] = request.node_names
+        if not DaraCore.is_null(request.rolling_policy):
+            body['rolling_policy'] = request.rolling_policy
+        if not DaraCore.is_null(request.version):
+            body['version'] = request.version
+        req = open_api_util_models.OpenApiRequest(
+            headers = headers,
+            body = Utils.parse_to_map(body)
+        )
+        params = open_api_util_models.Params(
+            action = 'UpdateNodePoolComponentInstance',
+            version = '2015-12-15',
+            protocol = 'HTTPS',
+            pathname = f'/clusters/{DaraURL.percent_encode(cluster_id)}/nodepools/{DaraURL.percent_encode(nodepool_id)}/component_instances/{DaraURL.percent_encode(name)}',
+            method = 'PUT',
+            auth_type = 'AK',
+            style = 'ROA',
+            req_body_type = 'json',
+            body_type = 'json'
+        )
+        return DaraCore.from_map(
+            main_models.UpdateNodePoolComponentInstanceResponse(),
+            self.call_api(params, req, runtime)
+        )
+
+    async def update_node_pool_component_instance_with_options_async(
+        self,
+        cluster_id: str,
+        nodepool_id: str,
+        name: str,
+        request: main_models.UpdateNodePoolComponentInstanceRequest,
+        headers: Dict[str, str],
+        runtime: RuntimeOptions,
+    ) -> main_models.UpdateNodePoolComponentInstanceResponse:
+        request.validate()
+        body = {}
+        if not DaraCore.is_null(request.config):
+            body['config'] = request.config
+        if not DaraCore.is_null(request.disable_rolling):
+            body['disable_rolling'] = request.disable_rolling
+        if not DaraCore.is_null(request.node_names):
+            body['node_names'] = request.node_names
+        if not DaraCore.is_null(request.rolling_policy):
+            body['rolling_policy'] = request.rolling_policy
+        if not DaraCore.is_null(request.version):
+            body['version'] = request.version
+        req = open_api_util_models.OpenApiRequest(
+            headers = headers,
+            body = Utils.parse_to_map(body)
+        )
+        params = open_api_util_models.Params(
+            action = 'UpdateNodePoolComponentInstance',
+            version = '2015-12-15',
+            protocol = 'HTTPS',
+            pathname = f'/clusters/{DaraURL.percent_encode(cluster_id)}/nodepools/{DaraURL.percent_encode(nodepool_id)}/component_instances/{DaraURL.percent_encode(name)}',
+            method = 'PUT',
+            auth_type = 'AK',
+            style = 'ROA',
+            req_body_type = 'json',
+            body_type = 'json'
+        )
+        return DaraCore.from_map(
+            main_models.UpdateNodePoolComponentInstanceResponse(),
+            await self.call_api_async(params, req, runtime)
+        )
+
+    def update_node_pool_component_instance(
+        self,
+        cluster_id: str,
+        nodepool_id: str,
+        name: str,
+        request: main_models.UpdateNodePoolComponentInstanceRequest,
+    ) -> main_models.UpdateNodePoolComponentInstanceResponse:
+        runtime = RuntimeOptions()
+        headers = {}
+        return self.update_node_pool_component_instance_with_options(cluster_id, nodepool_id, name, request, headers, runtime)
+
+    async def update_node_pool_component_instance_async(
+        self,
+        cluster_id: str,
+        nodepool_id: str,
+        name: str,
+        request: main_models.UpdateNodePoolComponentInstanceRequest,
+    ) -> main_models.UpdateNodePoolComponentInstanceResponse:
+        runtime = RuntimeOptions()
+        headers = {}
+        return await self.update_node_pool_component_instance_with_options_async(cluster_id, nodepool_id, name, request, headers, runtime)
 
     def update_resources_delete_protection_with_options(
         self,

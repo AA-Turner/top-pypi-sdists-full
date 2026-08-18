@@ -1,27 +1,26 @@
 Metadata-Version: 2.4
 Name: avro
-Version: 1.12.1
+Version: 1.12.2
 Summary: Avro is a serialization and RPC framework.
-Home-page: https://avro.apache.org/
-Author: Apache Avro
-Author-email: dev@avro.apache.org
-License: Apache License 2.0
+Author-email: Apache Avro <dev@avro.apache.org>
+Project-URL: Homepage, https://avro.apache.org/
+Project-URL: Documentation, https://avro.apache.org/docs/1.12.0/api/py/html/
+Project-URL: Repository, https://github.com/apache/avro.git
+Project-URL: Issues, https://github.com/apache/avro/issues
 Keywords: avro,serialization,rpc
 Classifier: License :: OSI Approved :: Apache Software License
-Classifier: Programming Language :: Python :: 3.9
 Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
+Classifier: Programming Language :: Python :: 3.14
 Classifier: Development Status :: 5 - Production/Stable
-Requires-Python: >=3.9
+Requires-Python: >=3.10
 Description-Content-Type: text/markdown
-License-File: avro/LICENSE
 Provides-Extra: snappy
 Requires-Dist: python-snappy; extra == "snappy"
 Provides-Extra: zstandard
 Requires-Dist: zstandard; extra == "zstandard"
-Dynamic: license-file
 
 ## Apache Avro™
 

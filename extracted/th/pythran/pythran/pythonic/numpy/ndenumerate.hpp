@@ -3,17 +3,15 @@
 
 #include "pythonic/include/numpy/ndenumerate.hpp"
 
+#include "pythonic/types/ndarray.hpp"
+#include "pythonic/types/tuple.hpp"
 #include "pythonic/utils/functor.hpp"
+#include "pythonic/utils/numpy_conversion.hpp"
 
 PYTHONIC_NS_BEGIN
 
 namespace numpy
 {
-  template <class E>
-  ndenumerate_iterator<E>::ndenumerate_iterator()
-  {
-  }
-
   template <class E>
   ndenumerate_iterator<E>::ndenumerate_iterator(E const &expr, long first)
       : index(first), expr(expr), iter(expr.buffer)
@@ -21,8 +19,7 @@ namespace numpy
   }
 
   template <class E>
-  std::tuple<types::array_tuple<long, E::value>, typename E::dtype>
-  ndenumerate_iterator<E>::operator*() const
+  typename ndenumerate_iterator<E>::value_type ndenumerate_iterator<E>::operator*() const
   {
     types::array_tuple<long, E::value> out;
     auto shape = sutils::getshape(expr);
@@ -65,11 +62,6 @@ namespace numpy
   long ndenumerate_iterator<E>::operator-(ndenumerate_iterator<E> const &other) const
   {
     return index - other.index;
-  }
-
-  template <class E>
-  _ndenumerate<E>::_ndenumerate()
-  {
   }
 
   template <class E>

@@ -1,4 +1,4 @@
-// Copyright 2023 D-Wave Systems Inc.
+// Copyright 2023 D-Wave
 //
 //    Licensed under the Apache License, Version 2.0 (the "License");
 //    you may not use this file except in compliance with the License.
@@ -56,6 +56,9 @@ class Graph {
 
     /// Add a constraint node.
     void add_constraint(ArrayNode* constraint_ptr);
+
+    /// Remove all constraints. Does not remove the nodes that encode those constraints.
+    void clear_constraints();
 
     /// Call commit on every `Node` in the `Graph`.
     void commit(State& state) const;
@@ -135,6 +138,10 @@ class Graph {
     ArrayNode* objective() noexcept { return objective_ptr_; }
     const ArrayNode* objective() const noexcept { return objective_ptr_; }
 
+    /// Remove the last decision. Must not have any successors or the behavior
+    /// is undefined.
+    void pop_decision();
+
     /// Call propagate on every `Node` in the `Graph`.
     void propagate(State& state) const;
 
@@ -150,6 +157,11 @@ class Graph {
         std::vector<const Node*> sources,
         std::function<bool(const Graph&, State&)> accept = [](const Graph&, State&) { return true; }
     ) const;
+
+    /// Propagate any pending changes to all nodes in the graph and commit them.
+    void propose(State& state) const;
+    // dev note: the name is a bit funny in this case, but we essentially want
+    // an overload for a "default" `sources` and `accept`.
 
     /// Initialize the state of the given node and all predecessors recursively.
     static void recursive_initialize(State& state, const Node* ptr);
@@ -175,11 +187,19 @@ class Graph {
     /// * It is not a decision.
     /// * It is not an ancestor of the objective.
     /// * It is not an ancestor of a constraint.
+    /// * It is not in the ``keep`` list provided as an argument.
     /// * It has no "listeners" on its expired_ptr. Set ``ignore_listeners`` to
     ///   ``true`` to disable this condition.
     ///
     /// Returns the number of nodes removed from the graph.
     ssize_t remove_unused_nodes(bool ignore_listeners = false);
+    ssize_t remove_unused_nodes(std::span<Node*> keep, bool ignore_listeners = false);
+    ssize_t remove_unused_nodes(
+        std::ranges::contiguous_range auto&& keep,
+        bool ignore_listeners = false
+    ) {
+        return remove_unused_nodes(std::span<Node*>(keep), ignore_listeners);
+    }
 
     /// Call revert on every `Node` in the `Graph`.
     void revert(State& state) const;
@@ -195,6 +215,9 @@ class Graph {
     /// Specify the objective node. Must be an array with a single element.
     /// To unset the objective provide nullptr.
     void set_objective(ArrayNode* objective_ptr);
+
+    /// Swap the topological indices of the two given decision nodes.
+    void swap_decisions(DecisionNode* x_ptr, DecisionNode* y_ptr);
 
     /// Sort the nodes topologically. This "locks" the model in that nodes cannot
     /// be added to a topologically sorted model without invalidating the topological
@@ -340,12 +363,13 @@ class Node {
     /// Nodes are printable
     friend std::ostream& operator<<(std::ostream& os, const Node& node);
 
-    friend void Graph::topological_sort();
-    friend void Graph::reset_topological_sort();
     template <class NodeType, class... Args>
     friend NodeType* Graph::emplace_node(Args&&...);
     friend ssize_t Graph::remove_redundant_nodes(bool, double);
-    friend ssize_t Graph::remove_unused_nodes(bool);
+    friend ssize_t Graph::remove_unused_nodes(std::span<Node*>, bool);
+    friend void Graph::reset_topological_sort();
+    friend void Graph::swap_decisions(DecisionNode* x_ptr, DecisionNode* y_ptr);
+    friend void Graph::topological_sort();
 
  protected:
     // For use by non-dynamic node constructors.
@@ -455,6 +479,13 @@ NodeType* Graph::emplace_node(Args&&... args) {
 class ArrayNode : public Array, public virtual Node {};
 class DecisionNode : public Decision, public virtual Node {
  public:
+    /// Set the current state to match the one at the time the given checkpoint was created.
+    virtual void assign_from_checkpoint(State& state, checkpoint_type& checkpoint) const = 0;
+    virtual void assign_from_checkpoint(State& state, checkpoint_type&& checkpoint) const = 0;
+
+    /// Get a checkpoint, an IOU that can be used to return the node to its current state.
+    virtual checkpoint_type checkpoint(State& state) const = 0;
+
     /// Decision nodes by definition do not have a deterministic state.
     bool deterministic_state() const final { return false; }
 

@@ -35,6 +35,7 @@ from chalk.features.underscore import (
     UnderscoreFunction,
     UnderscoreItem,
     UnderscoreRoot,
+    is_history_fold_expression,
 )
 from chalk.gitignore.helper import IgnoreConfig, get_default_combined_ignore_config
 from chalk.parsed.ast_context import set_project_ast_context
@@ -49,8 +50,9 @@ from chalk.parsed.duplicate_input_gql import (
 from chalk.sql import SQLSourceGroup
 from chalk.sql._internal.sql_file_resolver import get_sql_file_resolvers, get_sql_file_resolvers_from_paths
 from chalk.sql._internal.sql_source import BaseSQLSource
+from chalk.streams._windows import MaterializationWindowConfig
 from chalk.utils.collections import FrozenOrderedSet, ensure_tuple
-from chalk.utils.duration import parse_chalk_duration_s, timedelta_to_duration
+from chalk.utils.duration import CHALK_MAX_TIMEDELTA, parse_chalk_duration_s, timedelta_to_duration
 from chalk.utils.import_utils import py_path_to_module
 from chalk.utils.log_with_context import get_logger
 from chalk.utils.paths import get_directory_root
@@ -93,6 +95,7 @@ supported_aggs = (
     "array_agg",
     "count",
     "cpc_sketch",
+    "history_fold",
     "kurtosis",
     "min_by_n",
     "max_by_n",
@@ -194,6 +197,10 @@ def _check_types(
         "set_union",
         "vector_sum",
         "vector_mean",
+        # The fold step is an arbitrary user expression, so the only thing that constrains the
+        # aggregated column's type is the lambda itself -- checked where the lambda is typed,
+        # not here.
+        "history_fold",
     }:
         _validate_types(
             annotation=joined_annotation,
@@ -419,6 +426,44 @@ def _parse_agg_function_call(
                     f"expecting 'bool' type argument for '{kwarg_name}', but received arg of type '{type(kwarg_value)}'"
                 )
         # `opts` stays empty
+    elif aggregation == "history_fold":
+        if len(call_expr._chalk__args) > 0:
+            raise ChalkParseError("should not have any positional arguments")
+        allowed_kwargs = {"backfill_order", "function", "initial_value"}
+        provided_kwargs = call_expr._chalk__kwargs.keys()
+        missing_kwargs = allowed_kwargs - provided_kwargs
+        if missing_kwargs:
+            raise ChalkParseError(
+                f"missing required keyword arguments for 'history_fold': {', '.join(sorted(missing_kwargs))}"
+            )
+        unexpected_kwargs = provided_kwargs - allowed_kwargs
+        if unexpected_kwargs:
+            raise ChalkParseError(
+                f"unexpected keyword arguments for 'history_fold': {', '.join(sorted(unexpected_kwargs))}"
+            )
+        fold_function = call_expr._chalk__kwargs["function"]
+        # A callable is converted to a lambda expression by `UnderscoreCall`, so anything
+        # still un-converted here was never a function in the first place.
+        if not isinstance(fold_function, UnderscoreFunction) or fold_function._chalk__function_name != "lambda":
+            raise ChalkParseError(
+                "expecting 'function' to be a two-argument callable, like `lambda event, previous: event + previous`"
+            )
+        # A lambda expression is (name, type) per parameter followed by the body, so an
+        # odd length whose halved remainder is 2 is exactly a two-parameter lambda.
+        fold_parameter_count = (len(fold_function._chalk__args) - 1) // 2
+        if fold_parameter_count != 2:
+            raise ChalkParseError(
+                f"expecting 'function' to take exactly two arguments (event, previous), but it takes {fold_parameter_count}"
+            )
+        # `backfill_order` orders the fold, so it is lifted into the materialization's columns
+        # the same way `by` is for min_by_n/max_by_n.
+        additional_features.append(
+            _parse_simple_feature_ref("backfill_order", call_expr._chalk__kwargs["backfill_order"])
+        )
+        # `function` and `initial_value` deliberately stay in the underscore expression rather
+        # than in `aggregation_kwargs`: neither is a scalar that round-trips through the proto's
+        # kwargs map, and both are needed only when the fold runs -- the same split skewness
+        # uses for `bias`/`fisher`. `opts` therefore stays empty.
     elif len(call_expr._chalk__args) > 0 or len(call_expr._chalk__kwargs) > 0:
         raise ChalkParseError("should not have any arguments or keyword arguments")
 
@@ -565,6 +610,23 @@ def run_post_import_fixups():
                     or lsp_error_builder.property_range(feature_name=f.attribute_name),
                     code="42",
                 )
+
+        # `__chalk_features_raw__` rather than `.features`: the latter resolves type hints for
+        # the whole class, which fails for classes whose forward references are only resolvable
+        # in their defining scope. Detecting a `history_fold` needs the expression tree only.
+        for f in fsb.__chalk_features_raw__:
+            # `feature(expression=..., materialization=True)` reaches here as a plain scalar
+            # feature rather than through `windowed(..., materialization=...)`. Register it as a
+            # materialized window before the loop below parses them, so it takes exactly the same
+            # path as every other materialized aggregation from here on.
+            #
+            # Normally the class decorator has already resolved `True` into a config, so this only
+            # fires for a feature set built without it. The two have to agree, which is why both
+            # spell the ever-open bucket the same way.
+            if f.window_materialization is not True:
+                continue
+            f.window_materialization = MaterializationWindowConfig(bucket_duration=CHALK_MAX_TIMEDELTA)
+            fsb.__chalk_materialized_windows__.append(f)
 
         for f in fsb.__chalk_materialized_windows__:
             # Fix up materialized windows without group by
@@ -881,9 +943,25 @@ def clean_filters(joined_class: Type[Features], filters: list[UnderscoreFunction
 
 
 def parse_windowed_materialization(f: Feature) -> WindowConfigResolved | None:
-    if f.window_duration is None:
+    is_history_fold = is_history_fold_expression(f.underscore_expression)
+    if f.window_duration is None and not is_history_fold:
         return None
+    # A `history_fold` feature is a plain scalar -- the user never writes `windowed(...)` -- but it
+    # still materializes as one ever-open bucket per entity. Give it the all-time window that
+    # `windowed("all", materialization=True)` would produce, so downstream sees an ordinary
+    # single-bucket materialization. `f.window_duration` itself stays None on purpose: setting it
+    # would make the feature claim to be a windowed *pseudofeature*, which drives FQN-suffix
+    # stripping in `window_stem` and drops the feature from generated stubs.
+    window_duration = f.window_duration if f.window_duration is not None else int(CHALK_MAX_TIMEDELTA.total_seconds())
     parsed_agg = _parse_agg_function_call(f.underscore_expression)
+    # The fold's step and seed live in the expression rather than in `aggregation_kwargs`:
+    # neither is a scalar the proto's kwargs can carry, and both matter only when the fold runs.
+    # Lifting them onto the resolved config is what lets the planner build the aggregation.
+    fold_kwargs = (
+        f.underscore_expression._chalk__kwargs  # pyright: ignore[reportPrivateUsage]
+        if is_history_fold and isinstance(f.underscore_expression, UnderscoreCall)
+        else {}
+    )
     aggregation = parsed_agg.aggregation
     getitem_expression = parsed_agg.operand
     aggregation_kwargs = parsed_agg.aggregation_kwargs
@@ -999,7 +1077,7 @@ def parse_windowed_materialization(f: Feature) -> WindowConfigResolved | None:
     parsed_filters = clean_filters(joined_class, filters)
     bucket_start = datetime.fromtimestamp(0, tz=timezone.utc)
     if f.window_materialization is True:
-        bucket_duration = timedelta(seconds=f.window_duration)
+        bucket_duration = timedelta(seconds=window_duration)
     else:
         bucket_duration = f.window_materialization.get("bucket_duration", None)
         assert bucket_duration is None or isinstance(bucket_duration, timedelta)
@@ -1008,12 +1086,12 @@ def parse_windowed_materialization(f: Feature) -> WindowConfigResolved | None:
             assert isinstance(bd, timedelta)
             for value in ensure_tuple(values):
                 assert isinstance(value, timedelta)
-                if int(value.total_seconds()) == f.window_duration:
+                if int(value.total_seconds()) == window_duration:
                     if found and bucket_duration is not None:
                         raise ChalkParseError(
                             (
                                 "Multiple bucket durations found for the windowed feature "
-                                f"{f.fqn}['{timedelta_to_duration(f.window_duration)}']: "
+                                f"{f.fqn}['{timedelta_to_duration(window_duration)}']: "
                                 f"{timedelta_to_duration(bd)} and {timedelta_to_duration(bucket_duration)}"
                             )
                         )
@@ -1026,12 +1104,12 @@ def parse_windowed_materialization(f: Feature) -> WindowConfigResolved | None:
             assert isinstance(bs, datetime)
             for value in ensure_tuple(values):
                 assert isinstance(value, timedelta)
-                if int(value.total_seconds()) == f.window_duration:
+                if int(value.total_seconds()) == window_duration:
                     if found:
                         raise ChalkParseError(
                             (
                                 "Multiple bucket starts found for the windowed feature "
-                                f"{f.fqn}['{timedelta_to_duration(f.window_duration)}']: "
+                                f"{f.fqn}['{timedelta_to_duration(window_duration)}']: "
                                 f"{bs.isoformat()} and {bucket_start.isoformat()}"
                             )
                         )
@@ -1040,7 +1118,7 @@ def parse_windowed_materialization(f: Feature) -> WindowConfigResolved | None:
 
         if bucket_duration is None:
             raise ChalkParseError(
-                f"No bucket duration was found for the window {timedelta_to_duration(f.window_duration)}"
+                f"No bucket duration was found for the window {timedelta_to_duration(window_duration)}"
             )
 
     if bucket_start.tzinfo is None:
@@ -1073,6 +1151,8 @@ def parse_windowed_materialization(f: Feature) -> WindowConfigResolved | None:
         backfill_tags=(
             f.window_materialization.get("backfill_tags", None) if isinstance(f.window_materialization, dict) else None
         ),
+        fold_step=fold_kwargs.get("function"),
+        fold_initial_value=fold_kwargs.get("initial_value"),
         backfill_lookback_duration_seconds=(
             _try_parse_duration(
                 "backfill_lookback_duration",

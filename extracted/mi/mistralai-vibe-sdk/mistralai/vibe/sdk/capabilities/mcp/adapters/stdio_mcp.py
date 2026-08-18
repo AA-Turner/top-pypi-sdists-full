@@ -27,9 +27,10 @@ class StdioMcpAdapter(McpAdapterBase[StdioMcpConfig]):
 
     def __init__(self, config: StdioMcpConfig) -> None:
         super().__init__(config)
-        self._stack: contextlib.AsyncExitStack | None = None
         self._session: ClientSession | None = None
         self._lifecycle_lock = asyncio.Lock()
+        self._owner_task: asyncio.Task[None] | None = None
+        self._shutdown: asyncio.Event | None = None
 
     @cached_property
     def _params(self) -> StdioServerParameters:
@@ -54,16 +55,52 @@ class StdioMcpAdapter(McpAdapterBase[StdioMcpConfig]):
         async with self._lifecycle_lock:
             if self._session is not None:
                 return
-            stack = contextlib.AsyncExitStack()
+            ready: asyncio.Future[None] = asyncio.get_running_loop().create_future()
+            self._shutdown = asyncio.Event()
+            self._owner_task = asyncio.create_task(self._run(ready, self._shutdown))
             try:
-                read, write = await stack.enter_async_context(stdio_client(self._params))
-                session = await stack.enter_async_context(ClientSession(read, write))
-                await asyncio.wait_for(session.initialize(), timeout=self._timeout_s)
+                await ready
             except BaseException:
-                await stack.aclose()
+                self._owner_task.cancel()
+
+                with contextlib.suppress(BaseException):
+                    await self._owner_task
+                self._owner_task = None
+                self._shutdown = None
                 raise
-            self._stack = stack
-            self._session = session
+
+    async def _run(self, ready: asyncio.Future[None], shutdown: asyncio.Event) -> None:
+        """Own the connection: enter the anyio contexts, serve, then exit them here."""
+        stack = contextlib.AsyncExitStack()
+        try:
+            read, write = await stack.enter_async_context(stdio_client(self._params))
+            session = await stack.enter_async_context(ClientSession(read, write))
+            await asyncio.wait_for(session.initialize(), timeout=self._timeout_s)
+        except BaseException as exc:
+            try:
+                await stack.aclose()
+            except Exception:
+                logger.warning(
+                    "mcp.setup.cleanup_failed",
+                    mcp_server_key=self.server_key,
+                    **self._log_context,
+                    exc_info=True,
+                )
+            finally:
+                # Make sure a failed cleanup does not block the future resolution.
+                if not ready.done():
+                    ready.set_exception(exc)
+            return
+
+        self._session = session
+
+        if not ready.done():
+            ready.set_result(None)
+        try:
+            await shutdown.wait()
+        finally:
+            self._session = None
+            await stack.aclose()
 
     @property
     def _log_context(self) -> dict[str, Any]:
@@ -72,17 +109,12 @@ class StdioMcpAdapter(McpAdapterBase[StdioMcpConfig]):
     async def list_tools(self) -> list[McpToolDescriptor]:
         """List tools advertised by the MCP server."""
         session = self.session
-        raw_tools: list[Any] = []
-        cursor = None
-        while True:
-            result = await asyncio.wait_for(
+        raw_tools = await self._collect_paged_tools(
+            lambda cursor: asyncio.wait_for(
                 session.list_tools(params=PaginatedRequestParams(cursor=cursor)),
                 timeout=self._timeout_s,
             )
-            raw_tools.extend(result.tools)
-            cursor = result.nextCursor
-            if cursor is None:
-                break
+        )
         return self._normalize_tools(raw_tools)
 
     async def invoke_tool(self, tool_name: str, arguments: dict[str, Any]) -> CallToolResult:
@@ -94,12 +126,15 @@ class StdioMcpAdapter(McpAdapterBase[StdioMcpConfig]):
     async def teardown(self) -> None:
         """Tear down the MCP server and clean up resources."""
         async with self._lifecycle_lock:
-            stack, self._stack = self._stack, None
+            owner_task, self._owner_task = self._owner_task, None
+            shutdown, self._shutdown = self._shutdown, None
             self._session = None
-            if not stack:
+            if owner_task is None:
                 return
+            if shutdown is not None:
+                shutdown.set()
             try:
-                await stack.aclose()
+                await owner_task
             except Exception as exc:
                 logger.warning(
                     "mcp.teardown.failed",

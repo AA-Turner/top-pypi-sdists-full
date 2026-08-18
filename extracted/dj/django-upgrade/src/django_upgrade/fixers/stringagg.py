@@ -16,7 +16,7 @@ from tokenize_rt import Offset, Token
 
 from django_upgrade.ast import ast_start_offset, is_rewritable_import_from
 from django_upgrade.data import Fixer, State, TokenFunc
-from django_upgrade.tokens import update_import_modules
+from django_upgrade.tokens import find_last_token, insert, update_import_modules
 
 fixer = Fixer(
     __name__,
@@ -51,6 +51,27 @@ def visit_ImportFrom(
             ast_start_offset(node),
             partial(rewrite_import_from, node=node, module=module),
         )
+
+
+@fixer.register(ast.Name)
+def visit_Name(
+    state: State,
+    node: ast.Name,
+    parents: tuple[ast.AST, ...],
+) -> Iterable[tuple[Offset, TokenFunc]]:
+    if node.id == "StringAgg" and (
+        node.id in state.from_imports["django.contrib.postgres.aggregates"]
+        or node.id in state.from_imports["django.contrib.postgres.aggregates.general"]
+    ):
+        parent = parents[-1]
+        if not (isinstance(parent, ast.Call) and parent.func is node):
+            # Bare reference, such as an alias assignment or base class.
+            # django.db.models.StringAgg handles plain string delimiters
+            # differently, so we cannot be sure moving the import is safe.
+            module = parents[0]
+            assert isinstance(module, ast.Module)
+            do_rewrite[module] = False
+    return ()
 
 
 @fixer.register(ast.Call)
@@ -102,6 +123,8 @@ def visit_Call(
                 partial(
                     wrap_delimiter,
                     wrap=wrap,
+                    node=delimiter,
+                    module=module,
                 ),
             )
         elif (
@@ -127,5 +150,12 @@ def rewrite_import_from(
     )
 
 
-def wrap_delimiter(tokens: list[Token], i: int, *, wrap: str) -> None:
-    tokens[i] = tokens[i]._replace(src=f"{wrap}(" + tokens[i].src + ")")
+def wrap_delimiter(
+    tokens: list[Token], i: int, *, wrap: str, node: ast.expr, module: ast.Module
+) -> None:
+    if do_rewrite.get(module) is not True:
+        return
+
+    end = find_last_token(tokens, i, node=node)
+    insert(tokens, end + 1, new_src=")")
+    insert(tokens, i, new_src=f"{wrap}(")

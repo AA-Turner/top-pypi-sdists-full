@@ -8,7 +8,7 @@ absolute paths, since the workspace path differs between world and agent.
 """
 
 from plato.tools.definition import ToolDefinition, get_workspace, set_workspace
-from plato.tools.mcp import write_mcp_config
+from plato.tools.mcp import EnvMcpUrl, McpRemoteServer, write_mcp_config
 from plato.tools.request_context import ToolRequestContext, get_request_context
 from plato.tools.server import ToolServer
 
@@ -20,4 +20,6 @@ __all__ = [
     "get_workspace",
     "set_workspace",
     "write_mcp_config",
+    "EnvMcpUrl",
+    "McpRemoteServer",
 ]

@@ -5,7 +5,7 @@
 #include "pythonic/include/types/raw_array.hpp"
 #include "pythonic/utils/allocate.hpp"
 
-#include <sstream>
+#include <cstdio>
 
 PYTHONIC_NS_BEGIN
 
@@ -24,9 +24,10 @@ namespace types
   raw_array<T>::raw_array(size_t n) : data(utils::allocate<T>(n)), external(false)
   {
     if (!data) {
-      std::ostringstream oss;
-      oss << "unable to allocate " << n << " bytes";
-      throw types::MemoryError(oss.str());
+      static const char fmt[] = "unable to allocate %zu bytes";
+      char msg[sizeof(fmt) + 3 * sizeof(size_t)];
+      sprintf(msg, fmt, n);
+      throw types::MemoryError(msg);
     }
   }
 
@@ -36,7 +37,7 @@ namespace types
   }
 
   template <class T>
-  raw_array<T>::raw_array(raw_array<T> &&d) : data(d.data), external(d.external)
+  raw_array<T>::raw_array(raw_array<T> &&d) noexcept : data(d.data), external(d.external)
   {
     d.data = nullptr;
   }

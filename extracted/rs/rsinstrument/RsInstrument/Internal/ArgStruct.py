@@ -2,8 +2,8 @@
 
 from .ConverterFromScpiString import ConverterFromScpiString
 from .ConverterToScpiString import ConverterToScpiString
-from .Types import DataType
 from .InstrumentErrors import RsInstrException
+from .Types import DataType
 
 
 class ArgStruct(object):

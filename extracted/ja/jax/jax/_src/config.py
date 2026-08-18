@@ -23,7 +23,7 @@ import itertools
 import logging
 import os
 import sys
-from typing import Any, Generic, NoReturn, Optional, Protocol, TypeVar, cast
+from typing import Any, NoReturn, Protocol, TypeVar, cast
 from typing import TYPE_CHECKING
 
 from jax._src import logging_config
@@ -37,30 +37,6 @@ config_ext = _jax.config
 logger = logging.getLogger(__name__)
 
 _T = TypeVar('_T')
-_ET = TypeVar('_ET', bound=enum.Enum)
-_F = TypeVar('_F', bound=Callable[..., Any])
-
-class EffortLevel(enum.Enum):
-  """Effort level enum, mirroring the XLA effort options."""
-
-  UNKNOWN = 0
-  O0 = 9
-  O1 = 19
-  O2 = 29
-  O3 = 39
-
-  @classmethod
-  def _missing_(cls, value: object) -> EffortLevel | None:
-    return _effort_from_string.get(value)
-
-
-_effort_from_string: dict[Any, EffortLevel] = {
-    'UNKNOWN': EffortLevel.UNKNOWN,
-    'O0': EffortLevel.O0,
-    'O1': EffortLevel.O1,
-    'O2': EffortLevel.O2,
-    'O3': EffortLevel.O3,
-}
 
 
 def bool_env(varname: str, default: bool) -> bool:
@@ -88,7 +64,7 @@ def int_env(varname: str, default: int) -> int:
   return int(os.getenv(varname, str(default)))
 
 
-class ValueHolder(Protocol[_T]):
+class ValueHolder[ValueType](Protocol):
   """A holder for a configuration value.
 
   There are two kinds of value holders: ``Flag``, which is assigned exactly
@@ -96,9 +72,9 @@ class ValueHolder(Protocol[_T]):
   within a thread via a context manager.
   """
 
-  value: _T
+  value: ValueType
 
-  def _set(self, value: _T) -> None: ...
+  def _set(self, value: ValueType) -> None: ...
 
 
 class Config:
@@ -310,7 +286,7 @@ class State(config_ext.Config[_T]):
     update_global_hook(self.get_global())
 
 
-class StateContextManager:
+class StateContextManager[FuncType: Callable[..., Any]]:
   __slots__ = ['state', 'new_val', 'prev']
 
   def __init__(self, state, new_val):
@@ -341,14 +317,14 @@ class StateContextManager:
       if self.prev is config_ext.unset:
         self.state._update_thread_local_hook(None)
       else:
-        self.state._update_thread_local_hook(cast(Optional[Any], self.prev))
+        self.state._update_thread_local_hook(cast(Any | None, self.prev))
 
-  def __call__(self, func: _F) -> _F:
+  def __call__(self, func: FuncType) -> FuncType:
     @functools.wraps(func)
     def wrapper(*args, **kwargs):
       with StateContextManager(self.state, self.new_val):
         return func(*args, **kwargs)
-    return cast(_F, wrapper)
+    return cast(FuncType, wrapper)
 
 
 UPGRADE_BOOL_HELP = (
@@ -445,6 +421,43 @@ def bool_state(
 
   s = State[bool](
       name, default, help, update_global_hook=update_global_hook,
+      update_thread_local_hook=update_thread_local_hook,
+      extra_description=extra_description, default_context_manager_value=True,
+      parser=parser, include_in_jit_key=include_in_jit_key,
+      include_in_trace_context=include_in_trace_context)
+  config.add_option(name, s, bool, meta_args=[], meta_kwargs={"help": help})
+  setattr(Config, name, property(lambda _: s.value))
+  return s
+
+def optional_bool_state(
+    name: str,
+    default: bool | None,
+    help: str,
+    *,
+    update_global_hook: Callable[[bool], None] | None = None,
+    update_thread_local_hook: Callable[[bool | None], None] | None = None,
+    upgrade: bool = False,
+    extra_description: str = '',
+    include_in_jit_key: bool = False,
+    include_in_trace_context: bool = False,
+    validator: Callable[[str], None] | None = None):
+  if default is not None and not isinstance(default, bool):
+    raise TypeError(f"Default value must be of type bool, got {default} "
+                    f"of type {getattr(type(default), '__name__', type(default))}")
+  default = None if default is None else bool_env(name.upper(), default)
+  name = name.lower()
+  if upgrade:
+    help += ' ' + UPGRADE_BOOL_HELP
+    extra_description += UPGRADE_BOOL_EXTRA_DESC
+  config._contextmanager_flags.add(name)
+
+  def parser(val):
+    if validator is not None:
+      validator(val)
+    return None if val is None else bool(val)
+
+  s = State[bool | None](
+      name, default, help, update_global_hook=update_global_hook,  # type: ignore
       update_thread_local_hook=update_thread_local_hook,
       extra_description=extra_description, default_context_manager_value=True,
       parser=parser, include_in_jit_key=include_in_jit_key,
@@ -581,18 +594,18 @@ def optional_enum_state(
   return s
 
 
-def enum_class_state(
+def enum_class_state[EnumType: enum.Enum](
     name: str,
-    enum_class: type[_ET],
-    default: _ET,
+    enum_class: type[EnumType],
+    default: EnumType,
     help: str,
     *,
-    update_global_hook: Callable[[_ET], None] | None = None,
-    update_thread_local_hook: Callable[[_ET | None], None] | None = None,
+    update_global_hook: Callable[[EnumType], None] | None = None,
+    update_thread_local_hook: Callable[[EnumType | None], None] | None = None,
     include_in_jit_key: bool = False,
     include_in_trace_context: bool = False,
-    extra_validator: Callable[[_ET], None] | None = None,
-) -> State[_ET]:
+    extra_validator: Callable[[EnumType], None] | None = None,
+) -> State[EnumType]:
   """Set up thread-local state and return a contextmanager for managing it.
 
   See docstring for ``bool_state``.
@@ -641,7 +654,7 @@ def enum_class_state(
       extra_validator(new_val)
     return new_val
 
-  s = State[_ET](
+  s = State[EnumType](
       name,
       default,
       help,
@@ -907,15 +920,15 @@ def string_or_object_state(
   return s
 
 
-class Flag(Generic[_T]):
+class Flag[ValueType]:
 
   __slots__ = ("_name", "value", "_update_hook")
 
   _name: str
-  value: _T
+  value: ValueType
   _update_hook: Callable[[Any], None] | None
 
-  def __init__(self, name: str, default: _T,
+  def __init__(self, name: str, default: ValueType,
                update_hook: Callable[[Any], None] | None = None):
     self._name = name
     self._update_hook = update_hook
@@ -927,7 +940,7 @@ class Flag(Generic[_T]):
         "(did you mean to use '{0}.value' instead?)".format(
             type(self).__name__))
 
-  def _set(self, value: _T) -> None:
+  def _set(self, value: ValueType) -> None:
     self.value = value
     if self._update_hook is not None:
       self._update_hook(value)
@@ -1127,6 +1140,19 @@ export_ignore_forward_compatibility = bool_state(
     )
 )
 
+export_deserialize_expired_versions = bool_state(
+    name='jax_export_deserialize_expired_versions',
+    default=bool_env('JAX_EXPORT_DESERIALIZE_EXPIRED_VERSIONS', False),
+    help=(
+        'Whether to allow deserialization of expired versions of JAX exports.'
+        'If you turn this on, you may see obscure downstream errors in JAX or '
+        'the compiler and runtime. Furthermore, you accept the fact that the '
+        'behavior of the deserialized model may change at any time. '
+        'Read carefully '
+        'https://docs.jax.dev/en/latest/export/export.html#compatibility-guarantees.'
+    )
+)
+
 jax_platforms = optional_string_state(
     name='jax_platforms',
     default=None,
@@ -1171,6 +1197,21 @@ debug_key_reuse = bool_state(
     include_in_trace_context=True,
     include_in_jit_key=True)
 
+use_hlo_logistic_lowering = optional_bool_state(
+    name='jax_use_hlo_logistic_lowering',
+    default=None,
+    help=(
+        'Uses `hlo.logistic` during lowering of logistic_p on TPUs. There are 3'
+        ' valid values:\n'
+        '  `None` - JAX chooses (Uses `hlo.logistic` for TPU gen >= 8 else uses '
+        '           current lowering)\n'
+        '  `True` - use `hlo.logistic`\n'
+        '  `False` - use the current lowering of logistic_p.'
+    ),
+    include_in_trace_context=True,
+    include_in_jit_key=True,
+)
+
 check_tracer_leaks = bool_state(
     name='jax_check_tracer_leaks',
     default=False,
@@ -1211,6 +1252,18 @@ captured_constants_report_frames = int_state(
           'to generate the report.'
     )
 )
+
+raise_on_ppermute_sort_diff = bool_state(
+    name='jax_raise_on_ppermute_sort_diff',
+    default=True,
+    help=(
+        'Raises an error if ppermute axis_name are not in the same order as the'
+        ' mesh axis_names because it leads to wrong answers.'
+    ),
+    include_in_jit_key=True,
+    include_in_trace_context=True,
+)
+
 
 debug_leaked_clients_on_clear_backends = bool_state(
     name='jax_debug_leaked_clients_on_clear_backends',
@@ -1289,6 +1342,25 @@ custom_vjp3 = bool_state(
     default=False,
     upgrade=True,
     help='If True, embrace the future of custom autodiff rules.',
+    include_in_jit_key=True,
+    include_in_trace_context=True,
+)
+
+custom_jvp3 = bool_state(
+    name='jax_custom_jvp3',
+    default=False,
+    upgrade=True,
+    help='If True, embrace the future of custom autodiff rules.',
+    include_in_jit_key=True,
+    include_in_trace_context=True,
+)
+
+remat_barrier_no_cotangents = bool_state(
+    name='jax_remat_barrier_no_cotangents',
+    default=False,
+    upgrade=True,
+    help=('If True, embrace the future of remat CSE-prevention barriers, '
+          'which do not pin cotangents.'),
     include_in_jit_key=True,
     include_in_trace_context=True,
 )
@@ -1883,12 +1955,6 @@ mutable_array_checks = bool_state(
     help='Enable error checks for mutable arrays that rule out aliasing.',
     include_in_trace_context=True)
 
-refs_to_pins = bool_state(
-    name='jax_refs_to_pins',
-    default=False,
-    upgrade=True,
-    help='Lower refs to pinned buffers in HLO.')
-
 # TODO(mattjj, yashkatariya): remove once we land box plumbing
 disable_bwd_checks = bool_state(
     name='jax_disable_bwd_checks',
@@ -2191,18 +2257,6 @@ gpu_use_magma = enum_state(
         'See the documentation for lax.linalg.eig for more details about how '
         'to use this feature.'
     ),
-)
-
-exec_time_optimization_effort = float_state(
-    name='jax_exec_time_optimization_effort',
-    default=0.0,
-    help='Effort for minimizing execution time (higher means more effort), valid range [-1.0, 1.0].'
-)
-
-memory_fitting_effort = float_state(
-    name='jax_memory_fitting_effort',
-    default=0.0,
-    help='Effort for minimizing memory usage (higher means more effort), valid range [-1.0, 1.0].'
 )
 
 optimization_level = enum_state(

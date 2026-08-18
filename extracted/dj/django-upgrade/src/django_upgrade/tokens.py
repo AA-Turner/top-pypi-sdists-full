@@ -4,7 +4,7 @@ import ast
 import re
 from collections import defaultdict
 
-from tokenize_rt import NON_CODING_TOKENS, UNIMPORTANT_WS, Token, tokens_to_src
+from tokenize_rt import NON_CODING_TOKENS, UNIMPORTANT_WS, Token
 
 # Token name aliases
 CODE = "CODE"  # Token name meaning 'replaced by us'
@@ -147,8 +147,12 @@ def parse_call_args(
             stack.append(i)
         elif token.src == BRACES[tokens[stack[-1]].src]:
             stack.pop()
-            # if we're at the end, append that argument
-            if not stack and tokens_to_src(tokens[arg_start:i]).strip():
+            # if we're at the end, append that argument, unless it contains
+            # no code tokens, e.g. only a comment
+            if not stack and any(
+                tokens[k].name not in CALL_ARGUMENT_PREFIX_TOKENS
+                for k in range(arg_start, i)
+            ):
                 args.append((arg_start, i))
 
         i += 1
@@ -397,7 +401,7 @@ def find_node(
         j += 1
     if tokens[j + 1].name == COMMENT:
         j += 1
-    if tokens[j + 1].name == LOGICAL_NEWLINE:  # pragma: no branch
+    if tokens[j + 1].name == LOGICAL_NEWLINE:
         j += 1
     i, _ = extract_indent(tokens, i)
     return (i, j)
@@ -410,6 +414,29 @@ def erase_node(
     Erase all tokens corresponding to the given node.
     """
     i, j = find_node(tokens, i, node=node)
+    if tokens[j + 1].name == OP and tokens[j + 1].src == ";":
+        # Another statement follows on the same line. Erase up to and
+        # including the semicolon and any following whitespace, keeping any
+        # indent for the following statement.
+        j += 1
+        if tokens[j + 1].name == UNIMPORTANT_WS:
+            j += 1
+        if tokens[i].name in (INDENT, UNIMPORTANT_WS):
+            i += 1
+    elif tokens[i - 1].name == OP and tokens[i - 1].src == ";":
+        # A previous statement sits on the same line. Blank out the
+        # semicolon and any whitespace before it, and keep the trailing
+        # newline and any comment. Blanking rather than erasing avoids
+        # invalidating token indices before the erased node.
+        tokens[i - 1] = tokens[i - 1]._replace(src="")
+        if tokens[i - 2].name == UNIMPORTANT_WS:
+            tokens[i - 2] = tokens[i - 2]._replace(src="")
+        if tokens[j].name == LOGICAL_NEWLINE:  # pragma: no branch
+            j -= 1
+        if tokens[j].name == COMMENT:
+            j -= 1
+        if tokens[j].name == UNIMPORTANT_WS:
+            j -= 1
     del tokens[i : j + 1]
 
 
@@ -430,17 +457,26 @@ def erase_def(
     i: int,
     *,
     node: ast.AsyncFunctionDef | ast.FunctionDef | ast.ClassDef,
+    needs_pass: bool = False,
 ) -> None:
     """
     Erase a decorated function or class definition entirely, including all
-    decorators.
+    decorators. If needs_pass is set, replace it with a 'pass' statement
+    instead, to keep the surrounding block non-empty.
     """
     _, j = find_node(tokens, i, node=node)
     i = reverse_find(tokens, i, name=OP, src="@")
+    if tokens[i - 1].name in (INDENT, UNIMPORTANT_WS):
+        indent = tokens[i - 1].src
+    else:
+        indent = ""
     i = reverse_consume(tokens, i, name=INDENT)
     i = reverse_consume(tokens, i, name=UNIMPORTANT_WS)
     i = reverse_consume(tokens, i, name=PHYSICAL_NEWLINE)
-    del tokens[i : j + 1]
+    if needs_pass:
+        tokens[i : j + 1] = [Token(CODE, f"{indent}pass\n")]
+    else:
+        del tokens[i : j + 1]
 
 
 def find_and_replace_name(tokens: list[Token], i: int, *, name: str, new: str) -> None:
@@ -525,7 +561,11 @@ def update_import_names(
             continue
 
         new_name = name_map[alias.name]
-        if new_name == "" or new_name in existing_unaliased_names:
+        if new_name == "" or (
+            # Only deduplicate unaliased imports: an aliased import binds the
+            # alias, so it must be renamed, not erased.
+            alias.asname is None and new_name in existing_unaliased_names
+        ):
             # Erase
             start_idx = find(tokens, j, name=NAME, src=alias.name)
 

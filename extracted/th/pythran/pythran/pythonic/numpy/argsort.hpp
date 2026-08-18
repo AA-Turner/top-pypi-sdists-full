@@ -3,6 +3,8 @@
 
 #include "pythonic/include/numpy/argsort.hpp"
 #include "pythonic/numpy/ndarray/sort.hpp"
+#include "pythonic/types/ndarray.hpp"
+#include "pythonic/utils/functor.hpp"
 
 PYTHONIC_NS_BEGIN
 
@@ -19,7 +21,7 @@ namespace numpy
   template <class T, class pS, class Sorter>
   types::ndarray<long, pS> _argsort(types::ndarray<T, pS> const &a, long axis, Sorter sorter)
   {
-    constexpr auto N = std::tuple_size<pS>::value;
+    constexpr auto N = std::tuple_size_v<pS>;
     if (axis < 0)
       axis += N;
 

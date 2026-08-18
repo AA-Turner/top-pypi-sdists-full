@@ -20,7 +20,7 @@ from collections.abc import Callable, Iterable, Mapping, Sequence
 import contextlib
 import functools
 import itertools as it
-from typing import Any, Hashable, TypeVar, cast
+from typing import Any, Hashable
 from collections.abc import Generator
 
 from jax._src import api
@@ -34,6 +34,7 @@ from jax._src import state
 from jax._src import flattree as ft
 from jax._src import tree_util
 from jax._src import util
+from jax._src import xla_metadata
 from jax._src.mesh import get_abstract_mesh
 from jax._src.frozen_dict import FrozenDict
 from jax._src.interpreters import batching
@@ -43,8 +44,6 @@ from jax._src.pallas import core as pallas_core
 from jax._src.pallas import pallas_call
 from jax._src.state import discharge as state_discharge
 from jax._src.typing import Array
-
-_T = TypeVar("_T")
 
 
 def get_super_mesh_shape(
@@ -71,6 +70,7 @@ def mpmd_map_tracing_context(
       mesh.tracing_context(),
       jax_core.extend_axis_env_nd(super_mesh_shape.items()),
       config._check_vma(False),
+      xla_metadata.clear_xla_metadata(),
   ):
     yield
 
@@ -153,6 +153,15 @@ def _mpmd_map_abstract_eval(
       in_avals[outin_aliases[out_idx]] if out_idx in outin_aliases else a
       for out_idx, a in enumerate(out_avals)
   ]
+  # Avoid returning avals with Pallas memory spaces to the outside world.
+  out_avals = tuple(
+      a.update(memory_space=jax_core.MemorySpace.Device)
+      if isinstance(a, jax_core.ShapedArray)
+      and a.memory_space is not None
+      and not isinstance(a.memory_space, jax_core.MemorySpace)
+      else a
+      for a in out_avals
+  )
   return out_avals, effs
 
 
@@ -168,9 +177,18 @@ def _mpmd_map_typecheck_rule(
 jax_core.custom_typechecks[mpmd_map_p] = _mpmd_map_typecheck_rule
 
 
+def _default_memory_space(meshes: Sequence[pallas_core.Mesh]):
+  defaults = {mesh.default_memory_space for mesh in meshes}
+  if len(defaults) != 1:
+    raise ValueError(
+        "Multiple meshes with different default memory spaces are not"
+        " supported."
+    )
+  return defaults.pop()
+
+
 def _mpmd_map_discharge_rule(
-    avals_in: Sequence[jax_core.AbstractValue],
-    avals_out: Sequence[jax_core.AbstractValue],
+    ctx,
     *args: Any,
     jaxprs,
     meshes,
@@ -192,14 +210,30 @@ def _mpmd_map_discharge_rule(
       if isinstance(eff, (state.WriteEffect, state.AccumEffect)):
         write_index = invar_idx[eff.input]
         if (
-            write_index < len(avals_in) and
-            isinstance(avals_in[write_index], state.AbstractRef)
+            write_index < len(ctx.in_avals) and
+            isinstance(ctx.in_avals[write_index], state.AbstractRef)
         ):
           write_indices.add(write_index)
 
+  default_memory_space = _default_memory_space(meshes)
+  in_memory_spaces = [
+      pallas_core.get_memory_space_aval(aval) for aval in ctx.in_avals
+  ]
+  in_memory_spaces = [
+      default_memory_space if m is None else m for m in in_memory_spaces
+  ]
+  args = tuple(
+      pallas_core.with_memory_space_constraint_p.bind(
+          arg, memory_space=memory_space
+      )
+      if memory_space is not default_memory_space
+      else arg
+      for arg, memory_space in zip(args, in_memory_spaces)
+  )
+
   write_indices = sorted(write_indices)
-  num_in = len(avals_in)
-  num_out_orig = len(avals_out)
+  num_in = len(ctx.in_avals)
+  num_out_orig = len(ctx.out_avals)
   num_out_new = len(write_indices)
 
   new_jaxprs = []
@@ -221,7 +255,7 @@ def _mpmd_map_discharge_rule(
     in_avals_trace, orig_out_avals_trace, scratch_avals_trace = util.split_list(
         all_in_avals, [num_in, num_out_orig]
     )
-    new_out_avals_trace = [avals_in[i] for i in write_indices]
+    new_out_avals_trace = [ctx.in_avals[i] for i in write_indices]
     tracing_avals = (
         in_avals_trace
         + orig_out_avals_trace
@@ -241,8 +275,15 @@ def _mpmd_map_discharge_rule(
     with mpmd_map_tracing_context(mesh, all_meshes):
       new_jaxprs.append(_rewrite_to_include_new_outputs(jaxpr))
 
-  new_out_avals = [avals_in[i].inner_aval for i in write_indices]  # pyrefly: ignore[missing-attribute]
-  updated_out_avals = list(avals_out) + new_out_avals
+  new_out_avals = [
+      state_discharge.discharged_aval(
+          ctx.in_avals[i],
+          discharge=True,
+          strip_memory_space=True,
+      )
+      for i in write_indices
+  ]
+  updated_out_avals = list(ctx.out_avals) + new_out_avals
 
   new_aliases = dict(input_output_aliases)
   for out_idx, in_idx in enumerate(write_indices):
@@ -265,7 +306,7 @@ def _mpmd_map_discharge_rule(
 
   # Split the results into original outputs and updated refs.
   ans, updated_refs = util.split_list(res, [num_out_orig])
-  new_invals = [None] * len(avals_in)
+  new_invals = [None] * len(ctx.in_avals)
   for out_idx, in_idx in enumerate(write_indices):
     new_invals[in_idx] = updated_refs[out_idx]
 
@@ -417,15 +458,10 @@ def _mpmd_map_to_lojax(
     **params,
 ):
   in_avals = [jax_core.typeof(a) for a in hi_args]
-  if any(aval.has_qdd for aval in in_avals):
-    raise NotImplementedError("mpmd_map does not support QDD for inputs")
-  if any(aval.has_qdd for aval in out_avals):
-    raise NotImplementedError("mpmd_map does not support QDD for outputs")
-
   lo_args = [
       lo_val
       for aval, x in zip(in_avals, hi_args)
-      for lo_val in (aval.read_loval(x) if aval.has_qdd else aval.lower_val(x))
+      for lo_val in aval.lower_val(x)
   ]
 
   lo_out_avals = [lo_aval for aval in out_avals for lo_aval in aval.lo_ty()]
@@ -609,6 +645,16 @@ def _mpmd_map_fallback_lowering(
   )
 
 
+def _mpmd_map_mgpu_lowering(ctx: mlir.LoweringRuleContext, *in_nodes, **params):
+  try:
+    from jax._src.pallas.mosaic_gpu import pallas_call_registration  # pyrefly: ignore[missing-import]
+  except ImportError:
+    raise pallas_call._unsupported_lowering_error("cuda")
+  return pallas_call_registration.mpmd_map_mgpu_lowering_rule(
+      ctx, *in_nodes, **params
+  )
+
+
 @functools.partial(mlir.register_lowering, mpmd_map_p)
 def _mpmd_map_lowering(ctx: mlir.LoweringRuleContext, *in_nodes, **params):
   platforms = ctx.module_context.platforms
@@ -618,6 +664,8 @@ def _mpmd_map_lowering(ctx: mlir.LoweringRuleContext, *in_nodes, **params):
     )
   [platform] = platforms
   match platform:
+    case "cuda" if config.jax_pallas_use_mosaic_gpu.value:
+      return _mpmd_map_mgpu_lowering(ctx, *in_nodes, **params)
     case "cpu" | "cuda" | "rocm":
       return _mpmd_map_fallback_lowering(ctx, *in_nodes, **params)
     case "tpu":
@@ -638,7 +686,7 @@ def mpmd_map(
     cost_estimate: pallas_core.CostEstimate | None = None,
     name: str | None = None,
     metadata: dict[str, str] | None = None,
-) -> Callable[..., _T]:
+) -> Callable[..., Any]:
   interpret = (
       config.pallas_tpu_interpret_mode_context_manager.value or interpret
   )
@@ -659,19 +707,15 @@ def mpmd_map(
 def _aval_to_ref_aval(
     aval: Any,
     meshes: Sequence[pallas_core.Mesh],
-) -> state.AbstractRef:
+) -> state.AbstractRef | state.TransformedRef:
   match aval:
     case state.AbstractRef():
       return aval
+    case state.TransformedRef():
+      return aval
     case jax_core.ShapedArray(memory_space=memory_space):
       if memory_space == jax_core.MemorySpace.Device:
-        defaults = {mesh.default_memory_space for mesh in meshes}
-        if len(defaults) != 1:
-          raise ValueError(
-              "Multiple meshes with different default memory spaces are not"
-              " supported."
-          )
-        memory_space = list(defaults)[0]
+        memory_space = _default_memory_space(meshes)
       return state.AbstractRef(aval, memory_space=memory_space)
     case jax_core.AbstractValue():
       return state.AbstractRef(aval, memory_space=None)
@@ -700,9 +744,10 @@ def _error_if_non_ref_consts(consts, debug_info):
         jax_core.pp_aval(aval, ctx) for aval in non_scalar_consts_avals
     )
     raise ValueError(
-        "The kernel function in the mpmd_map"
-        f" {debug_info.func_src_info} captures non-Ref constants"
-        f" [{pp_consts_avals}]. You should pass them as inputs."
+        "The kernel function in mpmd_map"
+        f" {debug_info.func_src_info} captures non-scalar array constants"
+        f" [{pp_consts_avals}]. You can only close over scalars and Refs;"
+        " arrays must be passed as explicit inputs."
     )
 
 
@@ -808,7 +853,7 @@ def _mpmd_map(
     cost_estimate: pallas_core.CostEstimate | None = None,
     name: str | None = None,
     metadata: dict[str, str] | None = None,
-) -> Callable[..., _T]:
+) -> Callable[..., Any]:
   """Like ``pallas_call``, but MPMD and without pipelining."""
   if not meshes_and_fns:
     raise ValueError("At least one mesh/function pair is required")
@@ -826,9 +871,8 @@ def _mpmd_map(
   )
 
   def wrapper(*args):
-    flat_args_with_paths, in_tree = tree_util.tree_flatten_with_path(args)
-    in_paths, flat_args = util.unzip2(flat_args_with_paths)
-    del in_paths
+    flat_args_ft = ft.flatten(args)
+    flat_args, in_tree = flat_args_ft.vals, flat_args_ft.tree
 
     seen_ref_ids = set()
     for arg in flat_args:
@@ -900,9 +944,12 @@ def _mpmd_map(
       kernel_arg_avals.extend(unflat_scratch_types)
       kernel_kwarg_avals = {}
 
+    # Wrap kernel_arg_avals and kernel_kwarg_avals into Refs except
+    # TransformedRefs to allowed their transform data be passed as scalar args.
     unflat_kernel_avals = tree_util.tree_map(
         functools.partial(_aval_to_ref_aval, meshes=meshes),
         (kernel_arg_avals, kernel_kwarg_avals),
+        is_leaf=lambda x: isinstance(x, state.TransformedRef),
     )
     in_avals_ft = ft.flatten(unflat_kernel_avals)
     flat_kernel_avals = list(in_avals_ft.vals)
@@ -978,4 +1025,4 @@ def _mpmd_map(
       )
     return out_tree.unflatten(flat_outs)
 
-  return cast(Callable[..., _T], wrapper)
+  return wrapper

@@ -82,9 +82,23 @@ def retarget_newlines(t: str, target: str) -> str:
     return flat if target == "\n" else flat.replace("\n", target)
 
 
+def newline_at(t: str, nl: int) -> str:
+    r"""The flavour of the line terminator whose ``"\n"`` is ``t[nl]``.
+
+    Sliced, not indexed: a newline at position zero must not wrap round
+    and sample the last character of ``t``.
+    """
+    return "\r\n" if t[nl - 1 : nl] == "\r" else "\n"
+
+
+def strip_trailing_ws(t: str) -> str:
+    """``t`` without its trailing inline-whitespace run."""
+    return t.rstrip(_WS)
+
+
 def trailing_ws(t: str) -> str:
     """The trailing inline-whitespace run of ``t`` (possibly empty)."""
-    return t[len(t.rstrip(_WS)) :]
+    return t[len(strip_trailing_ws(t)) :]
 
 
 def leading_ws(t: str) -> str:
@@ -151,7 +165,7 @@ def restamp_bracket_pad_for_first(ft: str) -> tuple[str, str]:
         return ft, ft
     head, tail = ft[: last_nl + 1], ft[last_nl + 1 :]
     value_indent = leading_ws(tail) or indent_from_trivia(ft) or "    "
-    newline = "\r\n" if ft[last_nl - 1 : last_nl] == "\r" else "\n"
+    newline = newline_at(ft, last_nl)
     return head + value_indent, newline
 
 
@@ -167,7 +181,7 @@ def strip_trailing_indent(header_trivia: str, final_trivia: str) -> tuple[str, s
     """
     if "#" not in header_trivia:
         return header_trivia.rstrip(" \t\r\n"), final_trivia
-    header_trivia = header_trivia.rstrip(_WS)
+    header_trivia = strip_trailing_ws(header_trivia)
     # Drop final_trivia's leading newline if the comment's terminator
     # newline already produces a line break before `]` / `}`.
     if header_trivia.endswith("\n") and final_trivia.startswith(("\n", "\r\n")):
@@ -240,6 +254,7 @@ __all__ = [
     "leading_break",
     "leading_has_blank_line",
     "leading_ws",
+    "newline_at",
     "restamp_bracket_pad_for_first",
     "retarget_eol_newline",
     "retarget_newlines",
@@ -249,5 +264,6 @@ __all__ = [
     "split_line",
     "split_lines",
     "strip_trailing_indent",
+    "strip_trailing_ws",
     "trailing_ws",
 ]

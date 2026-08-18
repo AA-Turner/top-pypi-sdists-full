@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: ormar-utils
-Version: 0.2.0
+Version: 0.2.1
 Classifier: Development Status :: 4 - Beta
 Classifier: Programming Language :: Rust
 Classifier: Programming Language :: Python :: Implementation :: CPython

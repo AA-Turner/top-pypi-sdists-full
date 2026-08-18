@@ -1,6 +1,6 @@
 Metadata-Version: 2.5
 Name: tomlrt
-Version: 2.2.2
+Version: 2.2.3
 Summary: A format-preserving TOML reader and writer for Python.
 Project-URL: Changelog, https://github.com/dimbleby/tomlrt/blob/main/CHANGELOG.md
 Project-URL: Documentation, https://dimbleby.github.io/tomlrt/

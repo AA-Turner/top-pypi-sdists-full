@@ -33,7 +33,6 @@ from jax._src.pallas.mosaic_gpu.interpret.params import InterpretGPUParams
 from jax._src.state import types as state_types
 from jax._src.typing import Array
 from jax._src.util import (safe_zip, split_list)
-from jax.experimental.pallas import mosaic_gpu as plgpu
 
 
 def get_races() -> gpu_callbacks.RaceDetectionState:
@@ -59,13 +58,13 @@ def _get_grid_bounds(grid_mapping: pallas_core.GridMapping) -> tuple[int, ...]:
 
 
 def _get_grid_and_cluster_dims_and_num_threads(
-    grid_mapping: pallas_core.GridMapping, mesh: plgpu.Mesh | None
+    grid_mapping: pallas_core.GridMapping, mesh: mosaic_gpu_core.Mesh | None
 ) -> tuple[tuple[int, ...], tuple[int, ...], int]:
   if not mesh:
     num_threads = 1
     cluster_dims = ()
     grid_dims = _get_grid_bounds(grid_mapping)
-  elif isinstance(mesh, plgpu.Mesh):
+  elif isinstance(mesh, mosaic_gpu_core.Mesh):
     num_threads = int(mesh.num_threads or 1)
     cluster_dims = tuple(mesh.cluster) if mesh.cluster is not None else ()
     grid_dims = tuple(mesh.grid)
@@ -101,7 +100,7 @@ def _allocate_buffers_for_inputs(
         # are not sempahores, barriers etc.) are placed in `GMEM`. These arrays
         # (or slices thereof) may need to be copied into `SMEM` before executing
         # the kernel.
-        memory_space_id=gpu_callbacks.get_memory_space_idx(
+        memory_space_id=memory.get_memory_space_idx(
             mosaic_gpu_core.MemorySpace.GMEM
         ),
     )
@@ -173,7 +172,7 @@ def _allocate_buffers_for_outputs(
           # are not sempahores, barriers etc.) are placed in `GMEM`. Results
           # from executing the kernel (or slices thereof) may need to be copied
           # from `SMEM` into the `GMEM` output buffers that are allocated here.
-          memory_space_id=gpu_callbacks.get_memory_space_idx(
+          memory_space_id=memory.get_memory_space_idx(
               mosaic_gpu_core.MemorySpace.GMEM
           ),
           initial_ref_count=num_threads,
@@ -226,7 +225,7 @@ def _get_kernel_buffers(
       token, req = gpu_callbacks.call_make_allocation_request_array(
           token=token,
           compute_unit=device,
-          memory_space_id=gpu_callbacks.get_memory_space_idx(aval.memory_space),
+          memory_space_id=memory.get_memory_space_idx(aval.memory_space),
           initial_ref_count=num_threads,
       )
       if transforms:
@@ -363,7 +362,7 @@ def interpret_pallas_call(
     debug: bool,
     input_output_aliases: tuple[tuple[int, int], ...],
     grid_mapping: pallas_core.GridMapping,
-    mesh: plgpu.Mesh | None,
+    mesh: mosaic_gpu_core.Mesh | None,
     compiler_params: Mapping[str, Any],
     cost_estimate: pallas_core.CostEstimate,
     out_avals: tuple[jax_core.AbstractValue, ...],
@@ -551,6 +550,11 @@ def interpret_pallas_call(
         token,
         grid_coords,
         use_ordered_callback=True,
+    )
+    token = callback.io_callback(
+        functools.partial(gpu_callbacks.cluster_finished),
+        gpu_callbacks.TOKEN_SHAPE_DTYPE,
+        token=token,
     )
     return token
     # TODO(nrink): Determine if any synchronization between the vector clocks is

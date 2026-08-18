@@ -1,4 +1,4 @@
-# Copyright 2024 D-Wave Inc.
+# Copyright 2024 D-Wave
 #
 #    Licensed under the Apache License, Version 2.0 (the "License");
 #    you may not use this file except in compliance with the License.
@@ -14,15 +14,14 @@
 
 from __future__ import annotations
 
-import collections
+import collections.abc
 import functools
 import numbers
 import typing
 
 import numpy as np
-import numpy.typing
 
-from dwave.optimization._model import _broadcast_shapes, ArraySymbol, Symbol
+from dwave.optimization._model import ArraySymbol, Symbol, _broadcast_shapes
 from dwave.optimization.model import Model
 from dwave.optimization.symbols import (
     Add,
@@ -38,6 +37,7 @@ from dwave.optimization.symbols import (
     Exp,
     Expit,
     Extract,
+    IsDisjointCover,
     IsIn,
     LessEqual,
     LinearProgram,
@@ -72,8 +72,7 @@ from dwave.optimization.symbols import (
     Where,
     Xor,
 )
-from dwave.optimization.typing import ArraySymbolLike
-
+from dwave.optimization.typing import ArraySymbolLike, ShapeLike
 
 __all__ = [
     "absolute",
@@ -95,6 +94,7 @@ __all__ = [
     "expit",
     "extract",
     "hstack",
+    "is_disjoint_cover",
     "isin",
     "less_equal",
     "linprog",
@@ -130,10 +130,10 @@ __all__ = [
 def _binaryop(
     binaryop: type,
     naryop: type | None = None,
-):
-    def decorator(f):
+) -> collections.abc.Callable[..., collections.abc.Callable[..., ArraySymbol]]:
+    def decorator(f: collections.abc.Callable[..., ArraySymbol]) -> collections.abc.Callable[..., ArraySymbol]:
         @functools.wraps(f)
-        def wrapper(*args, **kwargs):
+        def wrapper(*args: ArraySymbol, **kwargs: ArraySymbol) -> ArraySymbol:
             # First let's make sure we have the correct number of arguments for our function
             if len(args) < 2:
                 raise TypeError(f"{f.__name__}() missing 2 required positional arguments")
@@ -217,7 +217,7 @@ See Also:
 
 
 @_binaryop(binaryop=Add, naryop=NaryAdd)
-def add(x1: ArraySymbolLike, x2: ArraySymbolLike, *xi: ArraySymbolLike) -> Add | NaryAdd:
+def add(x1: ArraySymbolLike, x2: ArraySymbolLike, *xi: ArraySymbolLike) -> ArraySymbol:
     r"""Sum element-wise two or more symbols and arrays.
 
     Equivalently, you can use the ``+`` operator (e.g., :code:`i + j`).
@@ -253,7 +253,7 @@ def add(x1: ArraySymbolLike, x2: ArraySymbolLike, *xi: ArraySymbolLike) -> Add |
 
         >>> model = Model()
         >>> i = model.integer(2)
-        >>> i_plus_array = i + [5, -3]     # equivalently: i_plus_array = add(i, [5, -3])
+        >>> i_plus_array = i + [5, -3]  # equivalently: i_plus_array = add(i, [5, -3])
 
     See Also:
         :class:`~dwave.optimization.symbols.Add`,
@@ -267,10 +267,11 @@ def add(x1: ArraySymbolLike, x2: ArraySymbolLike, *xi: ArraySymbolLike) -> Add |
     raise RuntimeError("implemented by the _binaryop() decorator")
 
 
-def arange(start: typing.Union[int, ArraySymbol, None] = None,
-           stop: typing.Union[int, ArraySymbol, None] = None,
-           step: typing.Union[int, ArraySymbol, None] = None,
-           ) -> ArraySymbol:
+def arange(
+    start: int | ArraySymbol | None = None,
+    stop: int | ArraySymbol | None = None,
+    step: int | ArraySymbol | None = None,
+) -> ArraySymbol:
     """Evenly space values within an interval.
 
     Args:
@@ -552,7 +553,7 @@ def atleast_2d(*arrays):
     return tuple(result)
 
 
-def broadcast_shapes(*shapes: int | tuple[int, ...]) -> tuple[int, ...]:
+def broadcast_shapes(*shapes: ShapeLike) -> tuple[int, ...]:
     """Calculate the broadcast shape.
 
     You can set a value of :math:`-1` for a dimension to calculate the broadcast
@@ -662,7 +663,7 @@ def broadcast_symbols(*args: ArraySymbol) -> tuple[ArraySymbol, ...]:
     return tuple(broadcast_to(x, shape) for x in args)
 
 
-def broadcast_to(x: ArraySymbol, shape: tuple[int, ...] | int) -> ArraySymbol:
+def broadcast_to(x: ArraySymbol, shape: ShapeLike) -> ArraySymbol:
     """Broadcast an array symbol to a new shape.
 
     For
@@ -731,7 +732,12 @@ def broadcast_to(x: ArraySymbol, shape: tuple[int, ...] | int) -> ArraySymbol:
     return BroadcastTo(x, shape)
 
 
-def bspline(x: ArraySymbol, k: int, t: list, c: list) -> ArraySymbol:
+def bspline(
+    x: ArraySymbol,
+    k: int,
+    t: np.typing.ArrayLike,
+    c: np.typing.ArrayLike,
+) -> ArraySymbol:
     """Return B-spline values for a symbol.
 
     Args:
@@ -765,9 +771,10 @@ def bspline(x: ArraySymbol, k: int, t: list, c: list) -> ArraySymbol:
     return BSpline(x, k, t, c)
 
 
-def concatenate(arrays: typing.Sequence[ArraySymbol],
-                axis: int = 0,
-                ) -> ArraySymbol:
+def concatenate(
+    arrays: collections.abc.Sequence[ArraySymbol],
+    axis: int = 0,
+) -> ArraySymbol:
     """Concatenate one or more symbols across an axis.
 
     Args:
@@ -978,6 +985,7 @@ def exp(x: ArraySymbol) -> Exp:
     """
     return Exp(x)
 
+
 def expit(x: ArraySymbol) -> Expit:
     """Calculate element-wise the logistic sigmoid of a symbol.
 
@@ -1110,6 +1118,52 @@ def hstack(arrays: collections.abc.Sequence[ArraySymbol]) -> ArraySymbol:
         return concatenate(arrays, 1)
 
 
+def is_disjoint_cover(subsets: list[ArraySymbol], *, primary_set_size: int | None = None) -> IsDisjointCover:
+    """Return whether the symbols are disjoint, set-like, and cover a set of integers.
+
+    Determines whether a collection of array symbols is disjoint and the union equals a fixed set.
+
+    Args:
+        subsets: List of array symbols to test whether they are disjoint and cover the primary set
+        primary_set_size: Number of elements in the primary set: {0, 1, ..., primary_set_size - 1}.
+            Must be non-negative. If `None`, primary set size is inferred from the common, finite,
+            nonnegative maximum value of the arrays.
+
+    Returns:
+        A scalar boolean-valued array symbol indicating whether the subsets are a disjoint cover
+
+    Examples:
+        >>> from dwave.optimization.model import Model
+        >>> from dwave.optimization.mathematical import is_disjoint_cover
+        ...
+        >>> model = Model()
+        >>> model.states.resize(1)
+        >>> subsets = []
+        >>> subsets.append(model.constant([0, 1]))
+        >>> subsets.append(model.constant([2, 3, 4]))
+        >>> subsets.append(model.constant([]))
+        >>> is_disjoint = is_disjoint_cover(subsets, primary_set_size=5)
+        >>> with model.lock():
+        ...     print(is_disjoint.state(0))
+        1.0
+
+    See Also:
+        :class:`~dwave.optimization.symbols.IsDisjointCover`: Generated symbol
+
+        :func:`.isin`
+
+    .. versionadded:: 0.7.3
+    """
+    if primary_set_size is None:
+        primary_set_size = int(subsets[0].info().max) + 1
+        if not np.isfinite(primary_set_size) or primary_set_size <= 0:
+            raise ValueError("Cannot infer primary set size from subsets")
+        for subset in subsets[1:]:
+            if int(subset.info().max) != primary_set_size - 1:
+                raise ValueError("Cannot infer primary set size from subsets")
+    return IsDisjointCover(subsets, primary_set_size)
+
+
 def isin(element: ArraySymbol, test_elements: ArraySymbol) -> IsIn:
     """Return which values of one array symbol are in another.
 
@@ -1233,17 +1287,17 @@ def less_equal(x1: ArraySymbolLike, x2: ArraySymbolLike) -> LessEqual:
 
 
 def linprog(
-        c: ArraySymbol,
-        A_ub: None | ArraySymbol = None,  # alias for A
-        b_ub: None | ArraySymbol = None,
-        A_eq: None | ArraySymbol = None,
-        b_eq: None | ArraySymbol = None,
-        *,  # the args up until here match SciPy's linprog() which accepts them positionally
-        b_lb: None | ArraySymbol = None,
-        A: None | ArraySymbol = None,
-        lb: None | ArraySymbol = None,
-        ub: None | ArraySymbol = None,
-        ) -> LPResult:
+    c: ArraySymbol,
+    A_ub: None | ArraySymbolLike = None,  # alias for A
+    b_ub: None | ArraySymbolLike = None,
+    A_eq: None | ArraySymbolLike = None,
+    b_eq: None | ArraySymbolLike = None,
+    *,  # the args up until here match SciPy's linprog() which accepts them positionally
+    b_lb: None | ArraySymbolLike = None,
+    A: None | ArraySymbolLike = None,
+    lb: None | ArraySymbolLike = None,
+    ub: None | ArraySymbolLike = None,
+) -> LPResult:
     r"""Solve a :term:`linear program`.
 
     Linear programs solve problems of the form:
@@ -1314,13 +1368,25 @@ def linprog(
         :func:`~scipy.optimize.linprog`: :doc:`SciPy <scipy:index>` function
 
     .. versionadded:: 0.6.0
+    .. versionchanged:: 0.7.3
+        Starting in version `0.7.3`, if SciPy is installed then it will be used
+        to calculate the outputs of the linear program.
     """
+    # Handle the A/A_ub alias.
     if A is not None and A_ub is not None:
         raise ValueError("can provide A or A_ub, but not both")
     elif A_ub is not None:
         A = A_ub
 
-    return LPResult(LinearProgram(c, b_lb, A, b_ub, A_eq, b_eq, lb, ub))
+    # Transform array-likes into ArraySymbols
+    inputs = dict(c=c, b_lb=b_lb, A=A, b_ub=b_ub, A_eq=A_eq, b_eq=b_eq, lb=lb, ub=ub)
+    inputs = dict((k, v) for (k, v) in inputs.items() if v is not None)  # filter out the Nones
+    keys = list(inputs)
+    values = as_array_symbols(*(inputs[k] for k in keys))  # these should now all be ArraySymbols
+    kwargs = dict(zip(keys, values))
+
+    # Finally, create the symbol and return a structure that's similar to SciPy's OptimizeResult
+    return LPResult(LinearProgram(**kwargs))
 
 
 def log(x: ArraySymbol) -> Log:
@@ -1714,7 +1780,7 @@ def minimum(
     x1: ArraySymbolLike,
     x2: ArraySymbolLike,
     *xi: ArraySymbolLike,
-) -> Minimum | NaryMinimum:
+) -> ArraySymbol:
     r"""Return an element-wise minimum of two or more symbols and arrays.
 
     Args:
@@ -1822,7 +1888,7 @@ def multiply(
     x1: ArraySymbolLike,
     x2: ArraySymbolLike,
     *xi: ArraySymbolLike,
-) -> Multiply | NaryMultiply:
+) -> ArraySymbol:
     r"""Multiply element-wise two or more symbols and arrays.
 
     Equivalently, you can use the ``*`` operator (e.g., :code:`i * j`).
@@ -1936,9 +2002,9 @@ def put(array: ArraySymbol, indices: ArraySymbol, values: ArraySymbol) -> Put:
 
 
 def resize(
-        array: ArraySymbol,
-        shape: typing.Union[int, collections.abc.Sequence[int]],
-        fill_value: None | float = None,
+    array: ArraySymbol,
+    shape: ShapeLike,
+    fill_value: None | float = None,
 ) -> Resize:
     """Resize a symbol to a specified shape.
 
@@ -2016,8 +2082,8 @@ def rint(x: ArraySymbol) -> Rint:
 
 def roll(
     array: ArraySymbol,
-    shift: ArraySymbol | tuple[int, ...] | int,
-    axis: None | tuple[int, ...] | int = None,
+    shift: ArraySymbol | ShapeLike,
+    axis: None | ShapeLike = None,
 ) -> Roll:
     """Roll an array symbol's elements along an axis.
 
@@ -2128,7 +2194,7 @@ def safe_divide(x1: ArraySymbolLike, x2: ArraySymbolLike) -> SafeDivide:
     raise RuntimeError("implemented by the _binaryop() decorator")
 
 
-def sin(x) -> Sin:
+def sin(x: ArraySymbol) -> Sin:
     """Calculate element-wise the trigonometric sine of a symbol.
 
     Args:
@@ -2361,7 +2427,7 @@ def subtract(x1: ArraySymbolLike, x2: ArraySymbolLike) -> Subtract:
     raise RuntimeError("implemented by the _binaryop() decorator")
 
 
-def tanh(x) -> Tanh:
+def tanh(x: ArraySymbol) -> Tanh:
     """Calculate element-wise the trigonometric hyperbolic tangent of a symbol.
 
     Args:

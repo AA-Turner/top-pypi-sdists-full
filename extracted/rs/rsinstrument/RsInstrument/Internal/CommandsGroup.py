@@ -2,9 +2,11 @@
 
 from enum import Enum
 from typing import List
+
 from .Core import Core
-from .RepeatedCapability import RepeatedCapability as RepCap, CMD_VALUE_SKIP_HEADER
 from .InstrumentErrors import DriverValueError
+from .RepeatedCapability import CMD_VALUE_SKIP_HEADER
+from .RepeatedCapability import RepeatedCapability as RepCap
 
 
 class CommandsGroup:

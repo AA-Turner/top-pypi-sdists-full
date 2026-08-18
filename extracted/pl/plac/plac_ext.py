@@ -12,12 +12,13 @@ import subprocess
 import argparse
 import itertools
 import traceback
-import multiprocessing
+import multiprocessing as mp
 import signal
 import threading
 import plac_core
 
 version = sys.version_info[:2]
+multiprocessing = mp.get_context("fork")
 
 if version < (3, 5):
     from imp import load_source

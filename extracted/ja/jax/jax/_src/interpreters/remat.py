@@ -57,11 +57,14 @@ def remat_transform(policy, f, *args, custom_vjp_rules):
     jaxpr, res = jaxpr_trace.to_jaxpr(list(out_tracer_ft), dbg, src)
     in_tree, out_tree = args_ft.tree, out_ft.tree
     del trace, in_tracers, out_tracer_ft
-  def f_rem(res, *args):
-    args_flat = tree_leaves_checked(in_tree, args)
-    out_flat = core.eval_jaxpr(jaxpr, res, *args_flat)
-    return tree_unflatten(out_tree, out_flat)
-  return out_ft.unflatten(), Partial(f_rem, map(reduce_precision, res))
+  rem = Partial(partial(_f_rem, jaxpr, in_tree, out_tree),
+                map(reduce_precision, res))
+  return out_ft.unflatten(), rem
+
+def _f_rem(jaxpr, in_tree, out_tree, res, *args):
+  args_flat = tree_leaves_checked(in_tree, args)
+  out_flat = core.eval_jaxpr(jaxpr, res, *args_flat)
+  return tree_unflatten(out_tree, out_flat)
 
 class RematTracer(core.Tracer['RematTrace']):
   _trace: RematTrace
@@ -110,10 +113,6 @@ class RematTrace(core.Trace):
       return map(partial(RematTracer, self), out_primal, out_primal2)
     else:
       return RematTracer(self, out_primal, out_primal2)
-
-  def process_call(self, call_primitive, f, tracers, params):
-    in_vals, in_vals2 = unzip2(map(self.to_val_tracer_pair, tracers))
-    raise NotImplementedError  # TODO remat_subtrace...
 
   def process_custom_jvp_call(self, prim, fun, jvp, tracers, /, *, symbolic_zeros):
     in_vals, in_vals2 = unzip2(map(self.to_val_tracer_pair, tracers))
@@ -195,7 +194,7 @@ def _remat_jaxpr(jaxpr, policy, custom_vjp_rules, allow_fwds):
   def new_arg(a):
     return RematTracer(trace, fwd_trace.new_arg(a, src), rem_trace.new_arg(a, src))  # noqa: F821
 
-  tracers = map(new_arg, jaxpr.in_aval_qdds)
+  tracers = map(new_arg, jaxpr.in_avals)
   with core.set_current_trace(trace, check_leaks=True):
     ans = core.eval_jaxpr(jaxpr, jaxpr.consts, *tracers)
     out_primals, out_rem = unzip2(map(trace.to_val_tracer_pair, ans))
@@ -219,4 +218,4 @@ def _remat_jaxpr(jaxpr, policy, custom_vjp_rules, allow_fwds):
       [*out_primals, *rem_consts], dbg.with_unknown_names(), src)
   fwd_trace.invalidate()
 
-  return fwd_jaxpr_, rem_jaxpr, fwds
+  return fwd_jaxpr_.with_consts(fwd_consts), rem_jaxpr, fwds

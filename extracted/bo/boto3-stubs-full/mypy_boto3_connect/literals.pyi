@@ -139,6 +139,7 @@ __all__ = (
     "ListEntitySecurityProfilesPaginatorName",
     "ListEvaluationFormVersionsPaginatorName",
     "ListEvaluationFormsPaginatorName",
+    "ListExtractionDefinitionsPaginatorName",
     "ListFlowAssociationResourceTypeType",
     "ListFlowAssociationsPaginatorName",
     "ListHoursOfOperationOverridesPaginatorName",
@@ -193,6 +194,7 @@ __all__ = (
     "MonitorCapabilityType",
     "MultiSelectQuestionRuleCategoryAutomationConditionType",
     "NextContactTypeType",
+    "NotFoundBehaviorTypeType",
     "NotificationContentTypeType",
     "NotificationDeliveryTypeType",
     "NotificationPriorityType",
@@ -311,6 +313,7 @@ ActionTypeType = Literal[
     "CREATE_CASE",
     "CREATE_TASK",
     "END_ASSOCIATED_TASKS",
+    "EXTRACT_INFORMATION",
     "GENERATE_EVENTBRIDGE_EVENT",
     "SEND_NOTIFICATION",
     "SUBMIT_AUTO_EVALUATION",
@@ -472,6 +475,8 @@ EvaluationSuggestedAnswerStatusType = Literal["FAILED", "IN_PROGRESS", "SUCCEEDE
 EvaluationTranscriptTypeType = Literal["RAW", "REDACTED"]
 EvaluationTypeType = Literal["CALIBRATION", "STANDARD"]
 EventSourceNameType = Literal[
+    "OnAfterCallWorkAvailable",
+    "OnAfterChatWorkAvailable",
     "OnAlertUpdate",
     "OnCaseCreate",
     "OnCaseUpdate",
@@ -646,6 +651,7 @@ ListDefaultVocabulariesPaginatorName = Literal["list_default_vocabularies"]
 ListEntitySecurityProfilesPaginatorName = Literal["list_entity_security_profiles"]
 ListEvaluationFormVersionsPaginatorName = Literal["list_evaluation_form_versions"]
 ListEvaluationFormsPaginatorName = Literal["list_evaluation_forms"]
+ListExtractionDefinitionsPaginatorName = Literal["list_extraction_definitions"]
 ListFlowAssociationResourceTypeType = Literal[
     "ANALYTICS_CONNECTOR",
     "INBOUND_EMAIL",
@@ -727,6 +733,7 @@ MetricUnitType = Literal["DOUBLE", "INTEGER", "PERCENT", "SECONDS"]
 MonitorCapabilityType = Literal["BARGE", "SILENT_MONITOR"]
 MultiSelectQuestionRuleCategoryAutomationConditionType = Literal["NOT_PRESENT", "PRESENT"]
 NextContactTypeType = Literal["QUICK_CONNECT"]
+NotFoundBehaviorTypeType = Literal["OMIT", "USE_DEFAULT_VALUE"]
 NotificationContentTypeType = Literal["PLAIN_TEXT"]
 NotificationDeliveryTypeType = Literal["EMAIL"]
 NotificationPriorityType = Literal["HIGH", "LOW", "URGENT"]
@@ -1644,6 +1651,7 @@ PaginatorName = Literal[
     "list_entity_security_profiles",
     "list_evaluation_form_versions",
     "list_evaluation_forms",
+    "list_extraction_definitions",
     "list_flow_associations",
     "list_hours_of_operation_overrides",
     "list_hours_of_operations",

@@ -1,6 +1,7 @@
 #ifndef PYTHONIC_INCLUDE_TYPES_COMPLEX_HPP
 #define PYTHONIC_INCLUDE_TYPES_COMPLEX_HPP
 
+#include "pythonic/include/types/attr.hpp"
 #include <complex>
 
 #if defined(_OPENMP)
@@ -29,12 +30,10 @@ namespace std
 {
 
   template <class T, class S>
-  using complex_broadcast_t =
-      std::enable_if_t<std::is_scalar<S>::value && !std::is_same<T, S>::value,
-                       std::complex<std::common_type_t<T, S>>>;
+  using complex_broadcast_t = std::enable_if_t<std::is_scalar_v<S> && !std::is_same_v<T, S>,
+                                               std::complex<std::common_type_t<T, S>>>;
   template <class T, class S>
-  using complex_bool_t =
-      std::enable_if_t<std::is_scalar<S>::value && !std::is_same<T, S>::value, bool>;
+  using complex_bool_t = std::enable_if_t<std::is_scalar_v<S> && !std::is_same_v<T, S>, bool>;
 
   template <class T, class S>
   complex_broadcast_t<T, S> operator+(std::complex<T> self, S other);
@@ -91,9 +90,6 @@ namespace builtins
   T getattr(types::attr::REAL, std::complex<T> const &self);
   template <class T>
   T getattr(types::attr::IMAG, std::complex<T> const &self);
-  numpy::functor::complex64 getattr(types::attr::DTYPE, std::complex<float> const &self);
-  numpy::functor::complex128 getattr(types::attr::DTYPE, std::complex<double> const &self);
-  numpy::functor::complex256 getattr(types::attr::DTYPE, std::complex<long double> const &self);
 } // namespace builtins
 PYTHONIC_NS_END
 

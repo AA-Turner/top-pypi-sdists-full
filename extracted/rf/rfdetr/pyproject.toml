@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "rfdetr"
-version = "1.9.2"
+version = "1.9.3"
 description = "RF-DETR"
 readme = "README.md"
 authors = [
@@ -384,9 +384,7 @@ overrides = [
   # Modules with pre-existing type errors — ignored until incrementally fixed.
   { module = [
     "rfdetr",
-    "rfdetr._namespace",
     "rfdetr.config",
-    "rfdetr.datasets._develop",
     "rfdetr.datasets.coco",
     "rfdetr.datasets.synthetic",
     "rfdetr.datasets.transforms",

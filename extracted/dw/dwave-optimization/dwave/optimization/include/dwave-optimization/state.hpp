@@ -1,4 +1,4 @@
-// Copyright 2023 D-Wave Systems Inc.
+// Copyright 2023 D-Wave
 //
 //    Licensed under the Apache License, Version 2.0 (the "License");
 //    you may not use this file except in compliance with the License.
@@ -35,5 +35,18 @@ struct NodeStateData {
 };
 
 using State = typename std::vector<std::unique_ptr<NodeStateData>>;
+
+/// A generic base class for node checkpoints.
+struct NodeStateCheckpoint {
+    NodeStateCheckpoint() = default;
+    NodeStateCheckpoint(const NodeStateCheckpoint&) = delete;
+    NodeStateCheckpoint(NodeStateCheckpoint&&) = delete;
+    NodeStateCheckpoint& operator=(const NodeStateCheckpoint&) = delete;
+    NodeStateCheckpoint& operator=(NodeStateCheckpoint&&) = delete;
+
+    virtual ~NodeStateCheckpoint() = default;
+};
+
+using checkpoint_type = std::unique_ptr<NodeStateCheckpoint>;
 
 }  // namespace dwave::optimization

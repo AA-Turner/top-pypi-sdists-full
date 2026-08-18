@@ -23,7 +23,7 @@ import enum
 import functools
 import itertools
 import math
-from typing import Any, Literal, Union
+from typing import Any, Literal
 
 import jax
 from jax import core as jax_core
@@ -80,13 +80,13 @@ PARALLEL = tpu_core.PARALLEL
 ARBITRARY = tpu_core.ARBITRARY
 SemaphoreType = tpu_core.SemaphoreType
 SemaphoreTuple = jax.Array
-ArrayRef = Union[REF, jax.Array]
+ArrayRef = REF | jax.Array
 Tiling = tpu_info.Tiling
 
 GridIndices = tuple[jax.Array, ...]
-CondVal = Union[jax.Array, bool]
-PipelineBlockSpecs = Union[Sequence[pallas_core.BlockSpec], Any]
-PipelineRefs = Union[Sequence[REF], Any]
+CondVal = jax.Array | bool
+PipelineBlockSpecs = Sequence[pallas_core.BlockSpec] | Any
+PipelineRefs = Sequence[REF] | Any
 
 is_transformed_ref = lambda x: isinstance(x, state.TransformedRef)
 
@@ -126,11 +126,13 @@ def _create_bounded_slice(slice_start: jax.Array | int,
   if tiling is None:
     return ds(slice_start, slice_size)
 
-  # If we are out of bound, we need to round the slice size down to the nearest
-  # multiple of the tiling.
+  # If we are out of bounds, we need to clamp the slice size to the remaining
+  # elements in the dimension. In all cases, we must round the size up to the
+  # nearest multiple of the tiling.
   is_oob = slice_start + slice_size > dim_size
   remaining = dim_size - slice_start
-  rounded_size = jnp.where(is_oob, align_to(remaining, tiling), slice_size)
+  rounded_size = jnp.where(is_oob, remaining, slice_size)
+  rounded_size = align_to(rounded_size, tiling)
   rounded_size = multiple_of(rounded_size, tiling)
   return ds(slice_start, rounded_size)
 
@@ -802,7 +804,7 @@ class BufferedRef(BufferedRefBase):
     return self
 
   def compute_slice(self, grid_indices):
-    """Compute DMA slice from grid indices."""
+    """Compute the indexers for the window at given grid indices."""
     indices = self.compute_index(*grid_indices)
     assert self.block_shape is not None
     assert len(self.block_shape) == len(indices)
@@ -812,14 +814,12 @@ class BufferedRef(BufferedRefBase):
         case None | Squeezed():
           # Dimension is squeezed out so we don't do anything.
           indexer.append(idx)
-        case Element():
-          raise ValueError(
-              "Element block dimensions are not supported."
-          )
-        case BoundedSlice():
-          raise ValueError(
-              "BoundedSlice block dimensions are not supported."
-          )
+        case Element(block_size, padding=padding):
+          if padding != (0, 0):
+            raise ValueError(f"Element with {padding=} is not supported.")
+          indexer.append(ds(idx, block_size))
+        case BoundedSlice(block_size):
+          indexer.append(ds(idx.start, block_size))
         case Blocked(block_size):
           indexer.append(ds(idx * block_size, block_size))
         case int():
@@ -2104,9 +2104,6 @@ def emit_pipeline(
 
 emit_pipeline_p = core.Primitive("emit_pipeline")
 emit_pipeline_p.multiple_results = True
-# TODO(rdyro): This primitive requires both memory pipeline and core grid
-# information which the caching doesn't support yet.
-_uncacheable_primitives.add(emit_pipeline_p)
 
 @emit_pipeline_p.def_effectful_abstract_eval
 def _emit_pipeline_effectful_abstract_eval(
@@ -2225,6 +2222,40 @@ def _pipeline_body_effectful_abstract_eval(
 # information which the caching doesn't support yet.
 _uncacheable_primitives.add(pipeline_body_p)
 _uncacheable_primitives.add(emit_pipeline_p)
+
+def _emit_pipeline_physicalize_rule(
+    ctx, *args_flat, body_jaxpr: core.Jaxpr, args_tree, grid_mapping, refs_tree,
+    **params
+):
+  from jax._src.pallas.fuser.fusible_dtype import physicalize_closed_jaxpr  # pyrefly: ignore[missing-import]
+  del ctx
+  all_args: EmitPipelinePrimitiveArgs = args_tree.unflatten(args_flat)
+  with grid_mapping.trace_env():
+    new_closed = physicalize_closed_jaxpr(
+        core.ClosedJaxpr(body_jaxpr, all_args.body_consts)
+    )
+  new_args = EmitPipelinePrimitiveArgs(
+      all_index_map_consts=all_args.all_index_map_consts,
+      dynamic_grid_spec=all_args.dynamic_grid_spec,
+      core_id=all_args.core_id,
+      body_consts=tuple(new_closed.consts),
+      refs_flat=all_args.refs_flat,
+  )
+  new_args_flat, new_args_tree = tracing_registry.flatten(new_args)
+  return emit_pipeline_p.bind(*new_args_flat,
+                              body_jaxpr=new_closed.jaxpr,
+                              grid_mapping=grid_mapping,
+                              args_tree=new_args_tree,
+                              refs_tree=refs_tree,
+                              **params)
+
+try:
+  from jax._src.pallas.fuser import fusible_dtype  # pyrefly: ignore[missing-import]
+  fusible_dtype._physicalize_rules[emit_pipeline_p] = (
+      _emit_pipeline_physicalize_rule)
+except ImportError:
+  pass
+
 
 @register_lowering_rule(pipeline_body_p, kernel_types=[*tpu_core.CoreType])
 def _pipeline_body_lowering_rule(
@@ -2374,8 +2405,7 @@ def _emit_pipeline_lowering_rule(
   grid_names = ctx.lowering_context.grid_names
   if grid_names is None:
     grid_names = (None,) * len(ctx.lowering_context.grid_sizes)
-  grid_names = (tuple(None for i, _ in enumerate(grid_sizes)
-                      if i not in grid_mapping.vmapped_dims)
+  grid_names = (tuple(None for _ in grid_sizes)
                 + (tuple(grid_names or ())))
   user_grid_indices = (tuple(g for i, g in enumerate(grid_indices)
                              if i not in grid_mapping.vmapped_dims)
@@ -2392,16 +2422,10 @@ def _emit_pipeline_lowering_rule(
   )
 
   assert len(jaxpr.invars) == len(lowering_context.block_shapes)
-  valid_grid_sizes = tuple(d for i, d in enumerate(lowering_context.grid_sizes)
-                           if i not in grid_mapping.vmapped_dims)
-  assert len(valid_grid_sizes) == len(lowering_context.grid_names)
+  assert len(lowering_context.grid_sizes) == len(lowering_context.grid_names)
   return jaxpr_subcomp(lowering_context, jaxpr, *args_flat)
 
 def _emit_pipeline_is_high(*avals, body_jaxpr, grid_mapping, args_tree, **_):
-  all_args: EmitPipelinePrimitiveArgs = args_tree.unflatten(avals)
-  refs_avals = [jax.typeof(x) if not isinstance(x, core.AbstractValue) else x
-                for x in all_args.refs_flat]
-
   # Check that the index_maps jaxpr or consts are not high.
   if (any(bm.index_map_jaxpr.is_high for bm in grid_mapping.block_mappings)
       or any(any(c.is_high for c in bm.index_map_jaxpr.consts)
@@ -2410,7 +2434,6 @@ def _emit_pipeline_is_high(*avals, body_jaxpr, grid_mapping, args_tree, **_):
                               f" currently supported. Got {grid_mapping=}")
 
   return (body_jaxpr.is_high
-          or any(aval.has_qdd for aval in refs_avals)
           or any(bm.transformed_block_aval.inner_aval.is_high
                  for bm in grid_mapping.block_mappings))
 
@@ -2428,7 +2451,7 @@ def _emit_pipeline_to_lojax(
   refs_avals = [jax.typeof(x) for x in all_args.refs_flat]
   lo_flat_refs, new_refs_tree = tracing_registry.flatten(
       refs_tree.unflatten(
-          [aval.read_loval(x) if aval.has_qdd else aval.lower_val(x)
+          [aval.lower_val(x)
            for aval, x in zip(refs_avals, all_args.refs_flat)]
       ),
       is_transformed_ref,
@@ -2444,7 +2467,7 @@ def _emit_pipeline_to_lojax(
   new_args_flat, new_args_tree = tracing_registry.flatten(new_prim_args)
   return emit_pipeline_p.bind(
       *new_args_flat,
-      body_jaxpr=closed_lo_jaxpr.jaxpr,
+      body_jaxpr=closed_lo_jaxpr,
       grid_mapping=grid_mapping.to_lojax(),
       args_tree=new_args_tree,
       refs_tree=new_refs_tree,

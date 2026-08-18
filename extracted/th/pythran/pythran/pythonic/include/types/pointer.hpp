@@ -1,6 +1,8 @@
 #ifndef PYTHONIC_INCLUDE_TYPES_POINTER_HPP
 #define PYTHONIC_INCLUDE_TYPES_POINTER_HPP
 
+#include <tuple>
+
 PYTHONIC_NS_BEGIN
 
 namespace types
@@ -35,7 +37,7 @@ namespace std
 
   template <size_t I, class T>
   struct tuple_element<I, pythonic::types::pointer<T>> {
-    typedef typename pythonic::types::pointer<T>::value_type type;
+    using type = typename pythonic::types::pointer<T>::value_type;
   };
 } // namespace std
 

@@ -1,4 +1,4 @@
-// Copyright 2023 D-Wave Systems Inc.
+// Copyright 2023 D-Wave
 //
 //    Licensed under the Apache License, Version 2.0 (the "License");
 //    you may not use this file except in compliance with the License.
@@ -346,6 +346,9 @@ struct Update {
 
     // Return true if the update does nothing - that is old and value are the same.
     bool identity() const { return null() || old == value; }
+
+    // Return the update that would undo the current update
+    Update inverse() const { return Update(index, value, old); }
 
     // Use NaN to represent the "nothing" value used in placements/removals
     static constexpr double nothing = std::numeric_limits<double>::signaling_NaN();

@@ -144,17 +144,17 @@ class Focus(Experiment):
         zoom_factor_z = Z / signals_AO_truncated.shape[0]
         zoom_factor_x = X / signals_AO_truncated.shape[1]
 
-        signals_AO_truncated = signals_AO_truncated - np.min(signals_AO_truncated,axis=0,keepdims=True)
-
         raw_recon = zoom(signals_AO_truncated, (zoom_factor_z, zoom_factor_x), order=1)
 
-        raw_recon = (raw_recon - np.min(raw_recon)) / (np.max(raw_recon) - np.min(raw_recon) + 1e-9)
+        # raw_recon = (raw_recon - np.min(raw_recon)) / (np.max(raw_recon) - np.min(raw_recon) + 1e-9)
 
         if not isFiltered:
             print("[AOT-biomaps] Returning raw reconstruction without filtering.")
             return raw_recon
         print("[AOT-biomaps] Applying filtering to the reconstructed image.")
 
+        raw_recon = raw_recon - np.min(raw_recon,axis=0,keepdims=True) # used as a DC and really low frequencies filter
+        
         c0 = np.min(self.medium.kmedium.sound_speed)
         
         f_US = self.params.acoustic['f_US']

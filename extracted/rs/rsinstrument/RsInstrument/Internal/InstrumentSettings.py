@@ -1,12 +1,11 @@
 """See the docstring for the InstrumentSettings class."""
 
-from enum import Enum
-from enum import Flag
+from enum import Enum, Flag
 from re import search
 from typing import List
 
-from . import InstrumentOptions as Opts
 from . import Conversions as Conv
+from . import InstrumentOptions as Opts
 from .ScpiLogger import LoggingMode
 from .Utilities import parse_token_to_key_and_value, trim_str_response
 
@@ -106,6 +105,7 @@ class InstrumentSettings(object):
 		self.each_cmd_as_query = False
 		self.instr_status_check = False
 		self.disable_opc_query = False
+		self.optimize_opc_execute = False
 
 		self.visa_select = None
 		self._last_settings = None
@@ -330,6 +330,10 @@ class InstrumentSettings(object):
 		value = self._get_driversetup_item('DisableOpcQuery')
 		if value:
 			self.disable_opc_query = Conv.str_to_bool(value)
+
+		value = self._get_driversetup_item('OptimizeOpcExecute')
+		if value:
+			self.optimize_opc_execute = Conv.str_to_bool(value)
 
 		# LoggingMode
 		value = self._get_driversetup_item('LoggingMode')

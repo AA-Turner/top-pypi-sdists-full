@@ -69,6 +69,7 @@ class SkeletonTrend(base.ModelBase):
     started_at: string_formats.DateTime  #: Started at.
     topic: str  #: Topic.
     category: t.Optional[str] = None  #: Category.
+    description: t.Optional[str] = None  #: Description.
     status: t.Optional[t.Union[t.Literal['hot'], str]] = None  #: Status.
 
     py_type: t.Literal['app.bsky.unspecced.defs#skeletonTrend'] = Field(
@@ -86,6 +87,7 @@ class TrendView(base.ModelBase):
     started_at: string_formats.DateTime  #: Started at.
     topic: str  #: Topic.
     category: t.Optional[str] = None  #: Category.
+    description: t.Optional[str] = None  #: Description.
     status: t.Optional[t.Union[t.Literal['hot'], str]] = None  #: Status.
 
     py_type: t.Literal['app.bsky.unspecced.defs#trendView'] = Field(
@@ -100,8 +102,14 @@ class ThreadItemPost(base.ModelBase):
     more_parents: bool  #: This post has more parents that were not present in the response. This is just a boolean, without the number of parents.
     more_replies: int  #: This post has more replies that were not present in the response. This is a numeric value, which is best-effort and might not be accurate.
     muted_by_viewer: bool  #: This is by an account muted by the viewer requesting it.
-    op_thread: bool  #: This post is part of a contiguous thread by the OP from the thread root. Many different OP threads can happen in the same thread.
+    op_thread: bool  #: This post is part of a contiguous thread by the OP from the thread root. Sub-threads by OP deeper in the tree are not considered an OP thread.
     post: 'models.AppBskyFeedDefs.PostView'  #: Post.
+    op_thread_post_count: t.Optional[int] = (
+        None  #: The total number of posts in the contiguous OP thread that this post belongs to. Only present when this post is part of the OP thread (see `opThread`).
+    )
+    op_thread_post_index: t.Optional[int] = (
+        None  #: The 1-indexed position of this post within the contiguous OP thread. Only present when this post is part of the OP thread (see `opThread`).
+    )
 
     py_type: t.Literal['app.bsky.unspecced.defs#threadItemPost'] = Field(
         default='app.bsky.unspecced.defs#threadItemPost', alias='$type', frozen=True
@@ -138,7 +146,7 @@ class AgeAssuranceState(base.ModelBase):
     """Definition model for :obj:`app.bsky.unspecced.defs`. The computed state of the age assurance process, returned to the user in question on certain authenticated requests."""
 
     status: t.Union[
-        t.Literal['unknown'], t.Literal['pending'], t.Literal['assured'], t.Literal['blocked'], str
+        t.Literal['unknown', 'pending', 'assured', 'blocked'], str
     ]  #: The status of the age assurance process.
     last_initiated_at: t.Optional[string_formats.DateTime] = None  #: The timestamp when this state was last updated.
 
@@ -152,9 +160,7 @@ class AgeAssuranceEvent(base.ModelBase):
 
     attempt_id: str  #: The unique identifier for this instance of the age assurance flow, in UUID format.
     created_at: string_formats.DateTime  #: The date and time of this write operation.
-    status: t.Union[
-        t.Literal['unknown'], t.Literal['pending'], t.Literal['assured'], str
-    ]  #: The status of the age assurance process.
+    status: t.Union[t.Literal['unknown', 'pending', 'assured'], str]  #: The status of the age assurance process.
     complete_ip: t.Optional[str] = None  #: The IP address used when completing the AA flow.
     complete_ua: t.Optional[str] = None  #: The user agent used when completing the AA flow.
     email: t.Optional[str] = None  #: The email used for AA.

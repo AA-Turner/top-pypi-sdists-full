@@ -21,6 +21,9 @@ const DEFAULT_CONFIG = {
   // it has to be switchable from the client that pays the latency.
   recallQueryExpansion: "auto",
   enabled: true,
+  mcp: {
+    enabled: true,
+  },
   timeoutMs: 30000,
   runtime: {
     dataDir: "",
@@ -42,7 +45,7 @@ const DEFAULT_CONFIG = {
   captureMode: "semantic",
   captureMaxLength: 24000,
   captureAssistantTurns: true,
-  captureToolMaxChars: 2000,
+  captureToolMaxChars: 1000000,
   commitTokenThreshold: 20000,
   commitKeepRecentCount: 10,
   profileTokenBudget: 10000,
@@ -120,6 +123,12 @@ function applyLegacyConnection(config, fileConfig) {
 
 function applyBehaviorConfig(config, fileConfig = {}) {
   if (fileConfig.enabled !== undefined) config.enabled = fileConfig.enabled !== false
+  const mcp = fileConfig.mcp && typeof fileConfig.mcp === "object" ? fileConfig.mcp : {}
+  config.mcp = {
+    ...DEFAULT_CONFIG.mcp,
+    ...mcp,
+    enabled: mcp.enabled !== false,
+  }
   if (fileConfig.timeoutMs !== undefined) config.timeoutMs = fileConfig.timeoutMs
   config.runtime = {
     ...DEFAULT_CONFIG.runtime,
@@ -252,7 +261,7 @@ function normalizeConfig(config) {
   config.recallPeerScope = config.recallPeerScope === "actor" ? "actor" : "all"
   config.recallQueryExpansion = config.recallQueryExpansion === "off" ? "off" : "auto"
   config.captureMaxLength = Math.max(200, Math.min(100000, Math.round(Number(config.captureMaxLength) || 24000)))
-  config.captureToolMaxChars = Math.max(200, Math.min(20000, Math.round(Number(config.captureToolMaxChars) || 2000)))
+  config.captureToolMaxChars = Math.max(200, Math.min(1000000, Math.round(Number(config.captureToolMaxChars) || 1000000)))
   config.commitTokenThreshold = Math.max(1000, Math.round(Number(config.commitTokenThreshold) || 20000))
   const rawCommitKeepRecentCount = config.commitKeepRecentCount
   const commitKeepRecentCount = rawCommitKeepRecentCount == null ||

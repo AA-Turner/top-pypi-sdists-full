@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: crawlee
-Version: 1.9.1
+Version: 1.9.2
 Summary: Crawlee for Python
 Keywords: apify,automation,chrome,crawlee,crawler,headless,scraper,scraping
 Author: Apify Technologies s.r.o.
@@ -20,7 +20,7 @@ Classifier: Topic :: Software Development :: Libraries
 Requires-Dist: async-timeout>=5.0.1
 Requires-Dist: cachetools>=5.5.0
 Requires-Dist: colorama>=0.4.0
-Requires-Dist: impit>=0.8.0
+Requires-Dist: impit>=0.13.2
 Requires-Dist: more-itertools>=10.2.0
 Requires-Dist: protego>=0.5.0
 Requires-Dist: psutil>=6.0.0
@@ -68,7 +68,7 @@ Requires-Dist: sqlalchemy[asyncio]>=2.0.0,<3.0.0 ; extra == 'sql-postgres'
 Requires-Dist: asyncpg>=0.24.0 ; extra == 'sql-postgres'
 Requires-Dist: sqlalchemy[asyncio]>=2.0.0,<3.0.0 ; extra == 'sql-sqlite'
 Requires-Dist: aiosqlite>=0.21.0 ; extra == 'sql-sqlite'
-Requires-Dist: stagehand>=3.19.5 ; extra == 'stagehand'
+Requires-Dist: stagehand>=3.19.5,<4.0.0 ; extra == 'stagehand'
 Requires-Dist: playwright>=1.27.0 ; extra == 'stagehand'
 Requires-Dist: apify-fingerprint-datapoints>=0.0.2 ; extra == 'stagehand'
 Requires-Dist: browserforge>=1.2.3 ; extra == 'stagehand'

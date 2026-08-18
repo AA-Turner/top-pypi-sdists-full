@@ -15,7 +15,7 @@
 """  # noqa: E501
 
 
-__version__ = "1.3.366"
+__version__ = "1.3.375"
 
 # Define package exports
 __all__ = [
@@ -165,6 +165,7 @@ __all__ = [
     "AnnotationResponse",
     "AnnotationStatsResponse",
     "AnthropicModel",
+    "ApiAllowRule",
     "ApiAnalyticsBucketsModelsTimeRange",
     "ApiAnalyticsClustersModelsFailureAnalysisResponse",
     "ApiAnalyticsClustersModelsTimeRange",
@@ -552,6 +553,7 @@ __all__ = [
     "FieldConfig",
     "FieldFormatOptions",
     "FieldFormatType",
+    "FieldMapping",
     "FieldMappingEntry",
     "FieldPassthrough",
     "FieldPerformanceMetrics",
@@ -612,6 +614,7 @@ __all__ = [
     "IconikConfig",
     "IconikCredentials",
     "ImageExtractorParams",
+    "ImportMapping",
     "IndexConfiguration",
     "IndexRecommendation",
     "IndexRecommendationsResponse",
@@ -619,6 +622,7 @@ __all__ = [
     "IndexSuggestionsResponse",
     "InferConfigRequest",
     "InferConfigResponse",
+    "InferredField",
     "InfraEventType",
     "InfrastructureDetail",
     "InfrastructureSummaryResponse",
@@ -762,6 +766,10 @@ __all__ = [
     "LogicalOperatorOutput",
     "LogicalOperatorOutputANDInner",
     "ManifestSchemaDiscovery",
+    "MappingTarget",
+    "MappingValidationError",
+    "MappingValidationRequest",
+    "MappingValidationResult",
     "MappingsValue",
     "MarkAsReadRequest",
     "MarkdownContent",
@@ -980,6 +988,8 @@ __all__ = [
     "ScaffoldSampleCollection",
     "ScaffoldSampleDataResponse",
     "ScalingConfig",
+    "SchemaInferenceRequest",
+    "SchemaInferenceResult",
     "SchemaMappingInput",
     "SchemaMappingOutput",
     "SchemaSyncRequest",
@@ -1061,6 +1071,7 @@ __all__ = [
     "SourceConfigOutput",
     "SourceDetails",
     "SourceEnrichmentConfig",
+    "SourceField",
     "SourceFiltersInput",
     "SourceFiltersOutput",
     "SourceType",
@@ -1501,6 +1512,7 @@ from mixpeek.models.and_inner import AndInner as AndInner
 from mixpeek.models.annotation_response import AnnotationResponse as AnnotationResponse
 from mixpeek.models.annotation_stats_response import AnnotationStatsResponse as AnnotationStatsResponse
 from mixpeek.models.anthropic_model import AnthropicModel as AnthropicModel
+from mixpeek.models.api_allow_rule import ApiAllowRule as ApiAllowRule
 from mixpeek.models.api_analytics_buckets_models_time_range import ApiAnalyticsBucketsModelsTimeRange as ApiAnalyticsBucketsModelsTimeRange
 from mixpeek.models.api_analytics_clusters_models_failure_analysis_response import ApiAnalyticsClustersModelsFailureAnalysisResponse as ApiAnalyticsClustersModelsFailureAnalysisResponse
 from mixpeek.models.api_analytics_clusters_models_time_range import ApiAnalyticsClustersModelsTimeRange as ApiAnalyticsClustersModelsTimeRange
@@ -1888,6 +1900,7 @@ from mixpeek.models.featured_gallery_config_output import FeaturedGalleryConfigO
 from mixpeek.models.field_config import FieldConfig as FieldConfig
 from mixpeek.models.field_format_options import FieldFormatOptions as FieldFormatOptions
 from mixpeek.models.field_format_type import FieldFormatType as FieldFormatType
+from mixpeek.models.field_mapping import FieldMapping as FieldMapping
 from mixpeek.models.field_mapping_entry import FieldMappingEntry as FieldMappingEntry
 from mixpeek.models.field_passthrough import FieldPassthrough as FieldPassthrough
 from mixpeek.models.field_performance_metrics import FieldPerformanceMetrics as FieldPerformanceMetrics
@@ -1948,6 +1961,7 @@ from mixpeek.models.hierarchy_inference_strategy import HierarchyInferenceStrate
 from mixpeek.models.iconik_config import IconikConfig as IconikConfig
 from mixpeek.models.iconik_credentials import IconikCredentials as IconikCredentials
 from mixpeek.models.image_extractor_params import ImageExtractorParams as ImageExtractorParams
+from mixpeek.models.import_mapping import ImportMapping as ImportMapping
 from mixpeek.models.index_configuration import IndexConfiguration as IndexConfiguration
 from mixpeek.models.index_recommendation import IndexRecommendation as IndexRecommendation
 from mixpeek.models.index_recommendations_response import IndexRecommendationsResponse as IndexRecommendationsResponse
@@ -1955,6 +1969,7 @@ from mixpeek.models.index_suggestion import IndexSuggestion as IndexSuggestion
 from mixpeek.models.index_suggestions_response import IndexSuggestionsResponse as IndexSuggestionsResponse
 from mixpeek.models.infer_config_request import InferConfigRequest as InferConfigRequest
 from mixpeek.models.infer_config_response import InferConfigResponse as InferConfigResponse
+from mixpeek.models.inferred_field import InferredField as InferredField
 from mixpeek.models.infra_event_type import InfraEventType as InfraEventType
 from mixpeek.models.infrastructure_detail import InfrastructureDetail as InfrastructureDetail
 from mixpeek.models.infrastructure_summary_response import InfrastructureSummaryResponse as InfrastructureSummaryResponse
@@ -2098,6 +2113,10 @@ from mixpeek.models.logical_operator_input_and_inner import LogicalOperatorInput
 from mixpeek.models.logical_operator_output import LogicalOperatorOutput as LogicalOperatorOutput
 from mixpeek.models.logical_operator_output_and_inner import LogicalOperatorOutputANDInner as LogicalOperatorOutputANDInner
 from mixpeek.models.manifest_schema_discovery import ManifestSchemaDiscovery as ManifestSchemaDiscovery
+from mixpeek.models.mapping_target import MappingTarget as MappingTarget
+from mixpeek.models.mapping_validation_error import MappingValidationError as MappingValidationError
+from mixpeek.models.mapping_validation_request import MappingValidationRequest as MappingValidationRequest
+from mixpeek.models.mapping_validation_result import MappingValidationResult as MappingValidationResult
 from mixpeek.models.mappings_value import MappingsValue as MappingsValue
 from mixpeek.models.mark_as_read_request import MarkAsReadRequest as MarkAsReadRequest
 from mixpeek.models.markdown_content import MarkdownContent as MarkdownContent
@@ -2316,6 +2335,8 @@ from mixpeek.models.scaffold_manifest_response import ScaffoldManifestResponse a
 from mixpeek.models.scaffold_sample_collection import ScaffoldSampleCollection as ScaffoldSampleCollection
 from mixpeek.models.scaffold_sample_data_response import ScaffoldSampleDataResponse as ScaffoldSampleDataResponse
 from mixpeek.models.scaling_config import ScalingConfig as ScalingConfig
+from mixpeek.models.schema_inference_request import SchemaInferenceRequest as SchemaInferenceRequest
+from mixpeek.models.schema_inference_result import SchemaInferenceResult as SchemaInferenceResult
 from mixpeek.models.schema_mapping_input import SchemaMappingInput as SchemaMappingInput
 from mixpeek.models.schema_mapping_output import SchemaMappingOutput as SchemaMappingOutput
 from mixpeek.models.schema_sync_request import SchemaSyncRequest as SchemaSyncRequest
@@ -2397,6 +2418,7 @@ from mixpeek.models.source_config_input import SourceConfigInput as SourceConfig
 from mixpeek.models.source_config_output import SourceConfigOutput as SourceConfigOutput
 from mixpeek.models.source_details import SourceDetails as SourceDetails
 from mixpeek.models.source_enrichment_config import SourceEnrichmentConfig as SourceEnrichmentConfig
+from mixpeek.models.source_field import SourceField as SourceField
 from mixpeek.models.source_filters_input import SourceFiltersInput as SourceFiltersInput
 from mixpeek.models.source_filters_output import SourceFiltersOutput as SourceFiltersOutput
 from mixpeek.models.source_type import SourceType as SourceType

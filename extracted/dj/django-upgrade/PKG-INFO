@@ -1,14 +1,12 @@
 Metadata-Version: 2.4
 Name: django-upgrade
-Version: 1.31.1
+Version: 1.32.0
 Summary: Automatically upgrade your Django project code.
+Keywords: Django
+Author: Adam Johnson
 Author-email: Adam Johnson <me@adamj.eu>
 License-Expression: MIT
-Project-URL: Changelog, https://django-upgrade.readthedocs.io/en/latest/changelog.html
-Project-URL: Documentation, https://django-upgrade.readthedocs.io/
-Project-URL: Funding, https://adamj.eu/books/
-Project-URL: Repository, https://github.com/adamchainz/django-upgrade
-Keywords: Django
+License-File: LICENSE
 Classifier: Development Status :: 5 - Production/Stable
 Classifier: Framework :: Django :: 2.2
 Classifier: Framework :: Django :: 3.0
@@ -30,12 +28,15 @@ Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
 Classifier: Programming Language :: Python :: 3.14
+Classifier: Programming Language :: Python :: 3.15
 Classifier: Typing :: Typed
-Requires-Python: >=3.10
-Description-Content-Type: text/x-rst
-License-File: LICENSE
 Requires-Dist: tokenize-rt>=4.1
-Dynamic: license-file
+Requires-Python: >=3.10
+Project-URL: Changelog, https://django-upgrade.readthedocs.io/en/latest/changelog.html
+Project-URL: Documentation, https://django-upgrade.readthedocs.io/
+Project-URL: Funding, https://adamj.eu/books/
+Project-URL: Repository, https://github.com/adamchainz/django-upgrade
+Description-Content-Type: text/x-rst
 
 ==============
 django-upgrade

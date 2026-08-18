@@ -18,7 +18,7 @@ import pprint
 import re  # noqa: F401
 import json
 
-from pydantic import BaseModel, ConfigDict, Field, StrictFloat, StrictInt, StrictStr
+from pydantic import BaseModel, ConfigDict, Field, StrictFloat, StrictInt, StrictStr, field_validator
 from typing import Any, ClassVar, Dict, List, Optional, Union
 from typing import Optional, Set
 from typing_extensions import Self
@@ -31,7 +31,26 @@ class BYODocument(BaseModel):
     vectors: Dict[str, List[Union[StrictFloat, StrictInt]]] = Field(description="Named vectors as a map of vector_name -> embedding values. Example: {\"text-embedding\": [0.1, 0.2, ...], \"image-embedding\": [0.3, ...]}")
     payload: Optional[Dict[str, Any]] = Field(default=None, description="Arbitrary JSON payload stored alongside the vectors.")
     metadata: Optional[Dict[str, Any]] = Field(default=None, description="Document metadata stored in _internal.metadata. Filterable via attribute queries.")
-    __properties: ClassVar[List[str]] = ["document_id", "vectors", "payload", "metadata"]
+    source_type: Optional[StrictStr] = Field(default=None, description="Immediate-parent type. Defaults to 'direct_upsert' when omitted. Set 'bucket'/'collection' to import a document carrying real lineage.")
+    root_object_id: Optional[StrictStr] = Field(default=None, description="Root object id (decomposition-tree root). All documents derived from the same source object share it.")
+    root_bucket_id: Optional[StrictStr] = Field(default=None, description="Bucket id holding the root object.")
+    source_object_id: Optional[StrictStr] = Field(default=None, description="Immediate parent object id when source_type='bucket'.")
+    source_document_id: Optional[StrictStr] = Field(default=None, description="Immediate parent document id when source_type='collection'.")
+    source_collection_id: Optional[StrictStr] = Field(default=None, description="Immediate parent collection id when source_type='collection'.")
+    lineage_path: Optional[StrictStr] = Field(default=None, description="Materialized lineage path (e.g. 'bkt_123/col_456/col_789').")
+    lineage_chain: Optional[List[Dict[str, Any]]] = Field(default=None, description="Ordered processing steps from root object to this document; each step carries collection_id, feature_extractor_id, document_id, timestamp.")
+    content_hash: Optional[StrictStr] = Field(default=None, description="SHA256 content hash of the source object. Supplying it lets a later heal/reprocess recognise the cached derivation potency (LIN-02) and skip recompute. Stored at _internal.content_hash.")
+    __properties: ClassVar[List[str]] = ["document_id", "vectors", "payload", "metadata", "source_type", "root_object_id", "root_bucket_id", "source_object_id", "source_document_id", "source_collection_id", "lineage_path", "lineage_chain", "content_hash"]
+
+    @field_validator('source_type')
+    def source_type_validate_enum(cls, value):
+        """Validates the enum"""
+        if value is None:
+            return value
+
+        if value not in set(['bucket', 'collection', 'direct_upsert']):
+            raise ValueError("must be one of enum values ('bucket', 'collection', 'direct_upsert')")
+        return value
 
     model_config = ConfigDict(
         populate_by_name=True,
@@ -87,7 +106,16 @@ class BYODocument(BaseModel):
             "document_id": obj.get("document_id"),
             "vectors": obj.get("vectors"),
             "payload": obj.get("payload"),
-            "metadata": obj.get("metadata")
+            "metadata": obj.get("metadata"),
+            "source_type": obj.get("source_type"),
+            "root_object_id": obj.get("root_object_id"),
+            "root_bucket_id": obj.get("root_bucket_id"),
+            "source_object_id": obj.get("source_object_id"),
+            "source_document_id": obj.get("source_document_id"),
+            "source_collection_id": obj.get("source_collection_id"),
+            "lineage_path": obj.get("lineage_path"),
+            "lineage_chain": obj.get("lineage_chain"),
+            "content_hash": obj.get("content_hash")
         })
         return _obj
 

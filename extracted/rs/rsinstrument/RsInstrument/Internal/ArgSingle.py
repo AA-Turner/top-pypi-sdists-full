@@ -3,7 +3,6 @@
 from .ConverterFromScpiString import ConverterFromScpiString
 from .ConverterToScpiString import ConverterToScpiString
 from .InstrumentErrors import RsInstrException
-
 from .Types import DataType
 
 

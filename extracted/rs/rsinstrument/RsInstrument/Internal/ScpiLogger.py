@@ -1,16 +1,16 @@
 """Interface for SCPI communication logging."""
-import socket
-from enum import Enum
-from datetime import datetime
 import re
+import socket
 import string
-from typing import List, Dict
+from datetime import datetime
+from enum import Enum
 from textwrap import wrap
+from typing import Dict, List
 
-from .Utilities import get_plural_string, shorten_string_middle, escape_nonprintable_chars, size_to_kb_mb_string, calculate_chunks_count
-from .InstrumentErrors import RsInstrException
-from .Conversions import list_to_csv_str, convert_ts_to_datetime, get_timedelta_string, get_timestamp_string, get_timedelta_fixed_string
+from .Conversions import convert_ts_to_datetime, get_timedelta_fixed_string, get_timedelta_string, get_timestamp_string, list_to_csv_str
 from .GlobalData import GlobalData
+from .InstrumentErrors import RsInstrException
+from .Utilities import calculate_chunks_count, escape_nonprintable_chars, get_plural_string, shorten_string_middle, size_to_kb_mb_string
 
 
 class LoggingMode(Enum):

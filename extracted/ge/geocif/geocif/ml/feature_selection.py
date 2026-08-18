@@ -12,6 +12,7 @@ from pathlib import Path
 import pandas as pd
 
 from .gomp import gomp_select
+from . import threads as ml_threads
 
 logger = logging.getLogger(__name__)
 
@@ -48,7 +49,8 @@ def select_features(
     threshold_nan=0.2,
     threshold_unique=0.6,
     dir_output=".",
-    region=None
+    region=None,
+    status=None
 ):
     """
     Feature-selection wrapper supporting many methods plus a new 'multi' option.
@@ -69,6 +71,12 @@ def select_features(
         Drop columns with > threshold_nan proportion of NaNs
     threshold_unique : float
         (Reserved for future use)
+    status : dict, optional
+        Populated in place when the selection completed but was degraded —
+        currently when a sub-selector of ``multi`` raised and its picks are
+        missing from the union. Sets ``status["degraded"] = True`` and
+        appends to ``status["failed_methods"]``. Callers use this to avoid
+        persisting a transiently bad result (see geocif/ml/fs_cache.py).
 
     Returns
     -------
@@ -123,6 +131,12 @@ def select_features(
             except Exception as e:
                 logger.warning(f"[multi] {sub_m} failed: {e}")
                 feats = []
+                # The union below silently becomes a partial union. Flag it
+                # so callers (notably the feature-selection cache) can tell a
+                # transiently degraded result from a clean one.
+                if status is not None:
+                    status["degraded"] = True
+                    status.setdefault("failed_methods", []).append(sub_m)
 
             selections[sub_m] = set(feats)
             counter.update(feats)
@@ -194,7 +208,8 @@ def select_features(
             ) from exc
         from sklearn.model_selection import cross_val_score
 
-        model = CatBoostRegressor(n_estimators=500, verbose=0, use_best_model=False)
+        model = CatBoostRegressor(n_estimators=500, verbose=0, use_best_model=False,
+                                  thread_count=ml_threads.thread_count(-1))
         model.fit(X_clean, y)
         explainer = FastTreeExplainer(model)
         shap_values = explainer.shap_values(X_clean)
@@ -206,10 +221,11 @@ def select_features(
 
         def eval_n(N):
             top = shap_df["feature"].head(N)
-            sel = CatBoostRegressor(n_estimators=500, random_state=42, verbose=0)
+            sel = CatBoostRegressor(n_estimators=500, random_state=42, verbose=0,
+                                    thread_count=ml_threads.thread_count(-1))
             scores = cross_val_score(sel, X_clean[top], y,
                                      cv=5, scoring="neg_mean_squared_error",
-                                     n_jobs=-1)
+                                     n_jobs=ml_threads.thread_count(-1))
             return np.mean(scores)
 
         nrange = [5,10,15,20,25,30]
@@ -368,7 +384,8 @@ def select_features(
         import arfs.feature_selection.allrelevant as arfsgroot
         from catboost import CatBoostRegressor
 
-        model = CatBoostRegressor(n_estimators=350, verbose=0, use_best_model=False)
+        model = CatBoostRegressor(n_estimators=350, verbose=0, use_best_model=False,
+                                  thread_count=ml_threads.thread_count(-1))
         sel = arfsgroot.Leshy(
             model,
             n_estimators="auto",
@@ -397,7 +414,8 @@ def select_features(
             ) from exc
         from catboost import CatBoostRegressor
         sel = PowerShap(
-            model=CatBoostRegressor(n_estimators=500, verbose=0),
+            model=CatBoostRegressor(n_estimators=500, verbose=0,
+                                    thread_count=ml_threads.thread_count(-1)),
             power_alpha=0.05,
         )
         sel.fit(X_clean, y)
@@ -418,6 +436,7 @@ def select_features(
             "random_seed": 42,
             "verbose": False,
         }
+        params.setdefault("thread_count", ml_threads.thread_count(-1))
         model = CatBoostRegressor(**params)
         sel = BorutaShap(model=model, importance_measure="shap", classification=False)
         sel.fit(X=X_clean, y=y, n_trials=100, sample=False,

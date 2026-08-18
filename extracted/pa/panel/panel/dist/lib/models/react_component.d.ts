@@ -27,6 +27,12 @@ export declare class ReactComponentView extends ReactiveESMView {
     initialize(): void;
     get use_shadow_dom(): boolean;
     render_esm(): void;
+    render_error(error: SyntaxError): void;
+    /**
+     * Settles the promise handed to `_await_ready` by `render_esm`. Safe to call
+     * more than once; only the first call has an effect.
+     */
+    _resolve_mounted(): void;
     on_force_update(cb: () => void): void;
     force_update(): void;
     remove(): void;
@@ -36,7 +42,8 @@ export declare class ReactComponentView extends ReactiveESMView {
     r_after_render(): void;
     _update_layout(): void;
     build_child_views(): Promise<UIElementView[]>;
-    update_children(): Promise<void>;
+    protected _update_children_pass(): Promise<void>;
+    flush_scheduled_removals(): void;
     _on_mounted(): void;
     has_finished(): boolean;
     patch_container(container: HTMLDivElement): void;

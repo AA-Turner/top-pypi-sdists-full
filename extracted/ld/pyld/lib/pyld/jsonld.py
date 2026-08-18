@@ -18,6 +18,7 @@ JSON-LD.
 
 import copy
 import json
+import math
 import re
 import sys
 import uuid
@@ -35,15 +36,38 @@ from c14n.Canonicalize import canonicalize
 from pyld.__about__ import __copyright__, __license__, __version__
 from pyld.canon import URDNA2015, URGNA2012, UnknownFormatError
 from pyld.identifier_issuer import IdentifierIssuer
-from pyld.nquads import ParserError, parse_nquads, serialize_nquad, serialize_nquads
+from pyld.nquads import (
+    ParserError,
+    parse_nquads,
+    serialize_nquad,
+    serialize_nquads,
+)
 
 from .context_resolver import ContextResolver
 from .iri_resolver import resolve, unresolve
+from .options import (
+    CompactOptions,
+    Context,
+    ExpandOptions,
+    FlattenOptions,
+    FrameOptions,
+    FromRdfOptions,
+    NormalizeOptions,
+    ToRdfOptions,
+)
 
 __all__ = [
     '__copyright__',
     '__license__',
     '__version__',
+    'CompactOptions',
+    'Context',
+    'ExpandOptions',
+    'FlattenOptions',
+    'FrameOptions',
+    'FromRdfOptions',
+    'NormalizeOptions',
+    'ToRdfOptions',
     'compact',
     'expand',
     'flatten',
@@ -150,47 +174,30 @@ def noop(*args, **kwargs):
     return None
 
 
-def compact(input_, ctx, options=None):
+def compact(input_, ctx: Context, options: CompactOptions | None = None):
     """
     Performs JSON-LD compaction.
 
     :param input_: the JSON-LD input to compact.
     :param ctx: the JSON-LD context to compact with.
-    :param [options]: the options to use.
-      [base] the base IRI to use.
-      [compactArrays] True to compact arrays to single values when
-        appropriate, False not to (default: True).
-      [graph] True to always output a top-level graph (default: False).
-      [expandContext] a context to expand with.
-      [extractAllScripts] True to extract all JSON-LD script elements
-        from HTML, False to extract just the first
-        (default: False).
-      [processingMode] Either 'json-ld-1.0' or 'json-ld-1.1',
-        defaults to 'json-ld-1.1'.
-      [documentLoader(url, options)] the document loader
-        (default: _default_document_loader).
+    :param options: optional processing options; see Options below.
 
     :return: the compacted JSON-LD output.
     """
     return JsonLdProcessor().compact(input_, ctx, options)
 
 
-def expand(input_, options=None, on_property_dropped: OnPropertyDropped = noop):
+def expand(
+    input_,
+    options: ExpandOptions | None = None,
+    on_property_dropped: OnPropertyDropped = noop,
+):
     """
     Performs JSON-LD expansion.
 
     :param input_: the JSON-LD input to expand.
-    :param [options]: the options to use.
-      [base] the base IRI to use.
-      [expandContext] a context to expand with.
-      [extractAllScripts] True to extract all JSON-LD script elements
-        from HTML, False to extract just the first
-        (default: False).
-      [processingMode] Either 'json-ld-1.0' or 'json-ld-1.1',
-        defaults to 'json-ld-1.1'.
-      [documentLoader(url, options)] the document loader
-        (default: _default_document_loader).
-    :param [on_property_dropped]: handler called on every ignored property.
+    :param options: optional processing options; see Options below.
+    :param on_property_dropped: handler called on every ignored property.
 
     :return: the expanded JSON-LD output.
     """
@@ -199,51 +206,26 @@ def expand(input_, options=None, on_property_dropped: OnPropertyDropped = noop):
     )
 
 
-def flatten(input_, ctx=None, options=None):
+def flatten(input_, ctx: Context | None = None, options: FlattenOptions | None = None):
     """
     Performs JSON-LD flattening.
 
     :param input_: the JSON-LD input to flatten.
     :param ctx: the JSON-LD context to compact with (default: None).
-    :param [options]: the options to use.
-      [base] the base IRI to use.
-      [expandContext] a context to expand with.
-      [extractAllScripts] True to extract all JSON-LD script elements
-        from HTML, False to extract just the first
-        (default: True).
-      [processingMode] Either 'json-ld-1.0' or 'json-ld-1.1',
-        (default: 'json-ld-1.1').
-      [documentLoader(url, options)] the document loader
-        (default: _default_document_loader).
+    :param options: optional processing options; see Options below.
 
     :return: the flattened JSON-LD output.
     """
     return JsonLdProcessor().flatten(input_, ctx, options)
 
 
-def frame(input_, frame, options=None):
+def frame(input_, frame, options: FrameOptions | None = None):
     """
     Performs JSON-LD framing.
 
     :param input_: the JSON-LD input to frame.
     :param frame: the JSON-LD frame to use.
-    :param [options]: the options to use.
-      [base] the base IRI to use.
-      [expandContext] a context to expand with.
-      [extractAllScripts] True to extract all JSON-LD script elements
-        from HTML, False to extract just the first
-        (default: False).
-      [embed] default @embed flag: '@last', '@always', '@never', '@link'
-        (default: '@last').
-      [explicit] default @explicit flag (default: False).
-      [omitDefault] default @omitDefault flag (default: False).
-      [processingMode] Either 'json-ld-1.0' or 'json-ld-1.1',
-        defaults to 'json-ld-1.1'.
-      [pruneBlankNodeIdentifiers] remove unnecessary blank node identifiers
-        (default: True)
-      [requireAll] default @requireAll flag (default: False).
-      [documentLoader(url, options)] the document loader
-        (default: _default_document_loader).
+    :param options: optional processing options; see Options below.
 
     :return: the framed JSON-LD output.
     """
@@ -258,7 +240,7 @@ def link(input_, ctx, options=None):
 
     :param input_: the JSON-LD document to link.
     :param ctx: the JSON-LD context to apply or None.
-    :param [options]: the options to use.
+    :param options: the options to use.
       [base] the base IRI to use.
       [expandContext] a context to expand with.
       [extractAllScripts] True to extract all JSON-LD script elements
@@ -280,73 +262,39 @@ def link(input_, ctx, options=None):
     return frame(input_, frame_, options)
 
 
-def normalize(input_, options=None):
+def normalize(input_, options: NormalizeOptions | None = None):
     """
     Performs RDF dataset normalization on the given input. The input is
     JSON-LD unless the 'inputFormat' option is used. The output is an RDF
-    dataset unless the 'format' option is used'.
+    dataset unless the 'format' option is used.
 
     :param input_: the JSON-LD input to normalize.
-    :param [options]: the options to use.
-      [algorithm] the algorithm to use: `URDNA2015` or `URGNA2012`
-        (default: `URGNA2012`).
-      [base] the base IRI to use.
-      [inputFormat] the format if input is not JSON-LD:
-        'application/n-quads' for N-Quads.
-      [format] the format if output is a string:
-        'application/n-quads' for N-Quads.
-      [extractAllScripts] True to extract all JSON-LD script elements
-        from HTML, False to extract just the first
-        (default: False).
-      [processingMode] Either 'json-ld-1.0' or 'json-ld-1.1',
-        defaults to 'json-ld-1.1'.
-      [documentLoader(url, options)] the document loader
-        (default: _default_document_loader).
+    :param options: optional processing options; see Options below.
 
     :return: the normalized output.
     """
     return JsonLdProcessor().normalize(input_, options)
 
 
-def from_rdf(input_, options=None):
+def from_rdf(input_, options: FromRdfOptions | None = None):
     """
     Converts an RDF dataset to JSON-LD.
 
     :param input_: a serialized string of RDF in a format specified
       by the format option or an RDF dataset to convert.
-    :param [options]: the options to use:
-      [format] the format if input is a string:
-        'application/n-quads' for N-Quads (default: 'application/n-quads').
-      [useRdfType] True to use rdf:type, False to use @type (default: False).
-      [useNativeTypes] True to convert XSD types into native types
-        (boolean, integer, double), False not to (default: True).
-      [rdfDirection] Either 'i18n-datatype' or 'compound-literal'
-        is supported. (default: None)
+    :param options: optional processing options; see Options below.
 
     :return: the JSON-LD output.
     """
     return JsonLdProcessor().from_rdf(input_, options)
 
 
-def to_rdf(input_, options=None):
+def to_rdf(input_, options: ToRdfOptions | None = None):
     """
     Outputs the RDF dataset found in the given JSON-LD object.
 
     :param input_: the JSON-LD input.
-    :param [options]: the options to use.
-      [base] the base IRI to use.
-      [format] the format to use to output a string:
-        'application/n-quads' for N-Quads.
-      [produceGeneralizedRdf] true to output generalized RDF, false
-        to produce only standard RDF (default: false).
-      [extractAllScripts] True to extract all JSON-LD script elements
-        from HTML, False to extract just the first
-        (default: True).
-      [processingMode] Either 'json-ld-1.0' or 'json-ld-1.1',
-        defaults to 'json-ld-1.1'.
-      [documentLoader(url, options)] the document loader
-        (default: _default_document_loader).
-      [rdfDirection] Only 'i18n-datatype' supported.
+    :param options: optional processing options; see Options below.
 
     :return: the resulting RDF dataset (or a serialization of it).
     """
@@ -1226,7 +1174,7 @@ class JsonLdProcessor:
         :param subject: the subject to add the value to.
         :param property: the property that relates the value to the subject.
         :param value: the value to add.
-        :param [options]: the options to use:
+        :param options: the options to use:
           [propertyIsArray] True if the property is always
             an array, False if not (default: False).
           [valueIsArray] True if the value to be added should be preserved as
@@ -1306,7 +1254,7 @@ class JsonLdProcessor:
         :param subject: the subject.
         :param property: the property that relates the value to the subject.
         :param value: the value to remove.
-        :param [options]: the options to use:
+        :param options: the options to use:
           [propertyIsArray]: True if the property is always an array,
             False if not (default: False).
         """
@@ -2207,6 +2155,22 @@ class JsonLdProcessor:
                     code='invalid value object',
                 )
 
+            if '@type' in rval:
+                if not options.get('isFrame') and any(
+                    self._expand_iri(active_ctx, key, vocab=True) == '@type'
+                    and _is_array(value)
+                    for key, value in element.items()
+                ):
+                    raise JsonLdError(
+                        'Invalid JSON-LD syntax; an element containing "@value" '
+                        'must have a string or null value for "@type".',
+                        'jsonld.SyntaxError',
+                        {'element': rval},
+                        code='invalid typed value',
+                    )
+                if rval['@type'] is None:
+                    del rval['@type']
+
             values = JsonLdProcessor.get_values(rval, '@value')
             types = JsonLdProcessor.get_values(rval, '@type')
 
@@ -2246,8 +2210,17 @@ class JsonLdProcessor:
                     code='invalid typed value',
                 )
         # convert @type to an array
-        elif '@type' in rval and not _is_array(rval['@type']):
-            rval['@type'] = [rval['@type']]
+        elif '@type' in rval:
+            if rval['@type'] is None:
+                raise JsonLdError(
+                    'Invalid JSON-LD syntax; "@type" value must be a string, '
+                    'an array of strings, or an empty object.',
+                    'jsonld.SyntaxError',
+                    {'value': None},
+                    code='invalid type value',
+                )
+            if not _is_array(rval['@type']):
+                rval['@type'] = [rval['@type']]
         # handle @set and @list
         elif '@set' in rval or '@list' in rval:
             if count > 1 and not (count == 2 and '@index' in rval):
@@ -2393,15 +2366,12 @@ class JsonLdProcessor:
                             code='invalid @id value',
                         )
 
-                expanded_values = []
-                for v in JsonLdProcessor.arrayify(value):
-                    expanded_values.append(
-                        v
-                        if _is_object(v)
-                        else self._expand_iri(
-                            active_ctx, v, base=options.get('base', '')
-                        )
-                    )
+                expanded_values = [
+                    v
+                    if _is_object(v)
+                    else self._expand_iri(active_ctx, v, base=options.get('base', ''))
+                    for v in JsonLdProcessor.arrayify(value)
+                ]
 
                 JsonLdProcessor.add_value(
                     expanded_parent,
@@ -2412,13 +2382,19 @@ class JsonLdProcessor:
                 continue
 
             if expanded_property == '@type':
+                if value is None:
+                    JsonLdProcessor.add_value(
+                        expanded_parent,
+                        '@type',
+                        None,
+                        {'propertyIsArray': options['isFrame']},
+                    )
+                    continue
                 if _is_object(value):
                     # if framing, can be a default object, but need to expand
                     # key to determine that
-                    new_value = {}
-                    for k, v in value.items():
-                        ek = self._expand_iri(type_scoped_ctx, k, vocab=True)
-                        ev = [
+                    value = {
+                        self._expand_iri(type_scoped_ctx, k, vocab=True): [
                             self._expand_iri(
                                 type_scoped_ctx,
                                 vv,
@@ -2427,20 +2403,19 @@ class JsonLdProcessor:
                             )
                             for vv in JsonLdProcessor.arrayify(v)
                         ]
-                        new_value[ek] = ev
-                    value = new_value
+                        for k, v in value.items()
+                    }
                 else:
                     value = JsonLdProcessor.arrayify(value)
                 _validate_type_value(value, options.get('isFrame'))
-                expanded_values = []
-                for v in JsonLdProcessor.arrayify(value):
-                    expanded_values.append(
-                        self._expand_iri(
-                            type_scoped_ctx, v, vocab=True, base=options.get('base', '')
-                        )
-                        if _is_string(v)
-                        else v
+                expanded_values = [
+                    self._expand_iri(
+                        type_scoped_ctx, v, vocab=True, base=options.get('base', '')
                     )
+                    if _is_string(v)
+                    else v
+                    for v in JsonLdProcessor.arrayify(value)
+                ]
                 JsonLdProcessor.add_value(
                     expanded_parent,
                     '@type',
@@ -2514,9 +2489,10 @@ class JsonLdProcessor:
                         code='invalid language-tagged string',
                     )
                 # ensure language value is lowercase
-                expanded_values = []
-                for v in JsonLdProcessor.arrayify(value):
-                    expanded_values.append(v.lower() if _is_string(v) else v)
+                expanded_values = [
+                    v.lower() if _is_string(v) else v
+                    for v in JsonLdProcessor.arrayify(value)
+                ]
                 JsonLdProcessor.add_value(
                     expanded_parent,
                     '@language',
@@ -2535,14 +2511,13 @@ class JsonLdProcessor:
                         code='invalid base direction',
                     )
                 value = JsonLdProcessor.arrayify(value)
-                for dir in value:
-                    if _is_string(dir) and dir != 'ltr' and dir != 'rtl':
-                        raise JsonLdError(
-                            'Invalid JSON-LD syntax; "@direction" must be "ltr" or "rtl".',
-                            'jsonld.SyntaxError',
-                            {'value': value},
-                            code='invalid base direction',
-                        )
+                if any(_is_string(dir) and dir not in ('ltr', 'rtl') for dir in value):
+                    raise JsonLdError(
+                        'Invalid JSON-LD syntax; "@direction" must be "ltr" or "rtl".',
+                        'jsonld.SyntaxError',
+                        {'value': value},
+                        code='invalid base direction',
+                    )
                 JsonLdProcessor.add_value(
                     expanded_parent,
                     '@direction',
@@ -2637,7 +2612,6 @@ class JsonLdProcessor:
                 expanded_value = self._expand_language_map(term_ctx, value, direction)
             # handle index container (skip if value is not an object)
             elif '@index' in container and _is_object(value):
-                as_graph = '@graph' in container
                 index_key = JsonLdProcessor.get_context_value(term_ctx, key, '@index')
                 if index_key is None:
                     index_key = '@index'
@@ -2647,12 +2621,17 @@ class JsonLdProcessor:
                         active_ctx, index_key, vocab=options.get('base', '')
                     )
                 expanded_value = self._expand_index_map(
-                    term_ctx, key, value, index_key, as_graph, property_index, options
+                    term_ctx,
+                    key,
+                    value,
+                    index_key,
+                    '@graph' in container,
+                    property_index,
+                    options,
                 )
             elif '@id' in container and _is_object(value):
-                as_graph = '@graph' in container
                 expanded_value = self._expand_index_map(
-                    term_ctx, key, value, '@id', as_graph, None, options
+                    term_ctx, key, value, '@id', '@graph' in container, None, options
                 )
             elif '@type' in container and _is_object(value):
                 expanded_value = self._expand_index_map(
@@ -2749,23 +2728,22 @@ class JsonLdProcessor:
 
         # @value must not be an object or an array (unless framing)
         # or if @type is @json
-        if '@value' in expanded_parent:
-            if expanded_parent.get('@type') == '@json' and self._processing_mode(
-                active_ctx, 1.1
-            ):
-                # allow any value, to be verified when the object
-                # is fully expanded and the @type is @json.
-                pass
-            elif (
-                _is_object(unexpanded_value) or _is_array(unexpanded_value)
-            ) and not options['isFrame']:
-                raise JsonLdError(
-                    'Invalid JSON-LD syntax; @value" value must not be an '
-                    'object or an array.',
-                    'jsonld.SyntaxError',
-                    {'value': unexpanded_value},
-                    code='invalid value object value',
-                )
+        if (
+            '@value' in expanded_parent
+            and not (
+                expanded_parent.get('@type') == '@json'
+                and self._processing_mode(active_ctx, 1.1)
+            )
+            and (_is_object(unexpanded_value) or _is_array(unexpanded_value))
+            and not options['isFrame']
+        ):
+            raise JsonLdError(
+                'Invalid JSON-LD syntax; @value" value must not be an '
+                'object or an array.',
+                'jsonld.SyntaxError',
+                {'value': unexpanded_value},
+                code='invalid value object value',
+            )
 
         # Nested values merge into the current node, but their term and type
         # scoped contexts must still be prepared as if expanding a node object.
@@ -2784,11 +2762,10 @@ class JsonLdProcessor:
                     term_ctx, nv, options
                 )
 
-                if [
-                    k
-                    for k, v in nv.items()
-                    if self._expand_iri(active_ctx, k, vocab=True) == '@value'
-                ]:
+                if any(
+                    self._expand_iri(active_ctx, k, vocab=True) == '@value'
+                    for k in nv
+                ):
                     raise JsonLdError(
                         'Invalid JSON-LD syntax; nested value must be a node object.',
                         'jsonld.SyntaxError',
@@ -2821,7 +2798,19 @@ class JsonLdProcessor:
         # Local contexts on the nested node apply before looking for @type,
         # just like they do for an ordinary node object.
         if '@context' in element:
-            active_ctx = self._process_context(active_ctx, element['@context'], options)
+            local_ctx = element['@context']
+            if (
+                _is_object(local_ctx)
+                and len(local_ctx) == 1
+                and '@context' in local_ctx
+            ):
+                raise JsonLdError(
+                    'Invalid JSON-LD syntax; keywords cannot be overridden.',
+                    'jsonld.SyntaxError',
+                    {'context': local_ctx, 'term': '@context'},
+                    code='keyword redefinition',
+                )
+            active_ctx = self._process_context(active_ctx, local_ctx, options)
 
         # Set the type-scoped context to the context on input, for use later
         type_scoped_ctx = active_ctx
@@ -3872,9 +3861,7 @@ class JsonLdProcessor:
                     predicate['value'] = property
 
                     # convert list, value or node object to triple
-                    object = self._object_to_rdf(
-                        item, issuer, triples, options.get('rdfDirection')
-                    )
+                    object = self._object_to_rdf(item, issuer, triples, options)
                     # skip None objects (they are relative IRIs)
                     if object is not None:
                         triples.append(
@@ -3886,7 +3873,7 @@ class JsonLdProcessor:
                         )
         return triples
 
-    def _list_to_rdf(self, list_, issuer, triples, rdf_direction):
+    def _list_to_rdf(self, list_, issuer, triples, options):
         """
         Converts a @list value into a linked list of blank node RDF triples
         (and RDF collection).
@@ -3894,7 +3881,7 @@ class JsonLdProcessor:
         :param list_: the @list value.
         :param issuer: the IdentifierIssuer for issuing blank node identifiers.
         :param triples: the array of triples to append to.
-        :param rdf_direction: for creating datatyped literals.
+        :param options: the RDF serialization options.
 
         :return: the head of the list
         """
@@ -3908,7 +3895,7 @@ class JsonLdProcessor:
         subject = result
 
         for item in list_:
-            object = self._object_to_rdf(item, issuer, triples, rdf_direction)
+            object = self._object_to_rdf(item, issuer, triples, options)
             next = {'type': 'blank node', 'value': issuer.get_id()}
             triples.append({'subject': subject, 'predicate': first, 'object': object})
             triples.append({'subject': subject, 'predicate': rest, 'object': next})
@@ -3917,13 +3904,13 @@ class JsonLdProcessor:
 
         # tail of list
         if last:
-            object = self._object_to_rdf(last, issuer, triples, rdf_direction)
+            object = self._object_to_rdf(last, issuer, triples, options)
             triples.append({'subject': subject, 'predicate': first, 'object': object})
             triples.append({'subject': subject, 'predicate': rest, 'object': nil})
 
         return result
 
-    def _object_to_rdf(self, item, issuer, triples, rdf_direction):
+    def _object_to_rdf(self, item, issuer, triples, options):
         """
         Converts a JSON-LD value object to an RDF literal or a JSON-LD string
         or node object to an RDF resource.
@@ -3931,7 +3918,7 @@ class JsonLdProcessor:
         :param item: the JSON-LD value or node object.
         :param issuer: the IdentifierIssuer for issuing blank node identifiers.
         :param triples: the array of triples to append list entries to.
-        :param rdf_direction: for creating directional literals.
+        :param options: the RDF serialization options.
 
         :return: the RDF literal or RDF resource.
         """
@@ -3941,6 +3928,7 @@ class JsonLdProcessor:
             object['type'] = 'literal'
             value = item['@value']
             datatype = item.get('@type')
+            rdf_direction = options.get('rdfDirection')
 
             # convert to XSD datatypes as appropriate
             if datatype == '@json':
@@ -3970,8 +3958,15 @@ class JsonLdProcessor:
                     object['value'] = _canonicalize_double(float_value)
                     object['datatype'] = XSD_DOUBLE
                     return object
+            elif (
+                options['processingMode'] == 'json-ld-1.1'
+                and _is_integer(value)
+                and abs(value) >= 1e21
+            ):
+                object['value'] = _canonicalize_double(value)
+                object['datatype'] = datatype or XSD_DOUBLE
             elif _is_integer(value):
-                object['value'] = str(value)
+                object['value'] = str(int(value))
                 object['datatype'] = datatype or XSD_INTEGER
             elif rdf_direction == 'compound-literal' and '@direction' in item:
                 object['type'] = 'blank node'
@@ -4026,7 +4021,7 @@ class JsonLdProcessor:
                 object['datatype'] = datatype or XSD_STRING
         # convert list object to RDF
         elif _is_list(item):
-            list_ = self._list_to_rdf(item['@list'], issuer, triples, rdf_direction)
+            list_ = self._list_to_rdf(item['@list'], issuer, triples, options)
             object['value'] = list_['value']
             object['type'] = list_['type']
         # convert string/node object to RDF
@@ -4084,19 +4079,24 @@ class JsonLdProcessor:
 
             # use native types for certain xsd types
             if use_native_types:
+                converted = False
                 if type_ == XSD_BOOLEAN:
-                    if rval['@value'] == 'true':
+                    if rval['@value'] in ['true', '1']:
                         rval['@value'] = True
-                    elif rval['@value'] == 'false':
+                        converted = True
+                    elif rval['@value'] in ['false', '0']:
                         rval['@value'] = False
-                elif _is_numeric(rval['@value']):
-                    if type_ == XSD_INTEGER:
-                        if rval['@value'].isdigit():
-                            rval['@value'] = int(rval['@value'])
-                    elif type_ == XSD_DOUBLE:
-                        rval['@value'] = float(rval['@value'])
+                        converted = True
+                elif type_ == XSD_INTEGER and re.match(r'^[+-]?\d+$', rval['@value']):
+                    rval['@value'] = int(rval['@value'])
+                    converted = True
+                elif type_ == XSD_DOUBLE and _is_numeric(rval['@value']):
+                    value = float(rval['@value'])
+                    if math.isfinite(value):
+                        rval['@value'] = value
+                        converted = True
                 # do not add native type
-                if type_ not in [XSD_BOOLEAN, XSD_INTEGER, XSD_DOUBLE, XSD_STRING]:
+                if not converted and type_ != XSD_STRING:
                     rval['@type'] = type_
             elif rdf_direction == 'i18n-datatype' and type_.startswith(
                 'https://www.w3.org/ns/i18n#'
@@ -5748,7 +5748,10 @@ class JsonLdProcessor:
                 mapping['_prefix'] = (
                     _simple_term
                     and not mapping['_term_has_colon']
-                    and bool(re.match(r'.*[:/\?#\[\]@]$', id_))
+                    and (
+                        id_.startswith('_:')
+                        or bool(re.match(r'.*[:/\?#\[\]@]$', id_))
+                    )
                 )
         if '@id' not in mapping:
             # see if the term has a prefix
@@ -6378,7 +6381,7 @@ def _is_integer(v):
 
     :return: True if the value is an Integer, False if not.
     """
-    return isinstance(v, Integral)
+    return isinstance(v, Integral) or (isinstance(v, Real) and float(v).is_integer())
 
 
 def _is_double(v):
@@ -6389,12 +6392,12 @@ def _is_double(v):
 
     :return: True if the value is a Double, False if not.
     """
-    return not isinstance(v, Integral) and isinstance(v, Real)
+    return not isinstance(v, Integral) and isinstance(v, Real) and not float(v).is_integer()
 
 
 def _canonicalize_double(value: float) -> str:
     """Convert a float value to canonical lexical form of `xsd:double`."""
-    return re.sub(r'(\d)0*E\+?0*(\d)', r'\1E\2', (f'{value:1.15E}'))
+    return re.sub(r'(\d)0*E\+?(-)?0*(\d)', r'\1E\2\3', (f'{value:1.15E}'))
 
 
 def _is_numeric(v):
@@ -6408,7 +6411,7 @@ def _is_numeric(v):
     try:
         float(v)
         return True
-    except ValueError:
+    except (TypeError, ValueError):
         return False
 
 

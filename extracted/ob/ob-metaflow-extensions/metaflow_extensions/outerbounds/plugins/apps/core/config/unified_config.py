@@ -916,6 +916,36 @@ class BasicAppValidations:
         )
 
     @staticmethod
+    def url_slug(url_slug):
+        # An empty slug means "generate a URL for me", which is what the platform
+        # reads it as too, and what `CapsuleInput` sends by leaving the field out.
+        if not url_slug:
+            return True
+        # These mirror the validations the platform applies to the slug, so that a
+        # bad one is reported here instead of coming back as an API error.
+        regex = r"^[a-z0-9]([-a-z0-9]*[a-z0-9])?$"
+        # The slug becomes one DNS label, so it gets that 63 character limit less
+        # the longest prefix the platform prepends to it (`api-`).
+        max_length = 59
+        # Every URL the platform generates for itself starts with `c-`.
+        reserved_prefix = "c-"
+
+        validator = BasicValidations(CoreConfig, "url_slug")
+        validator.length_validation(max_length, url_slug)
+        validator.regex_validation(regex, url_slug)
+        if url_slug.startswith(reserved_prefix):
+            raise ConfigValidationFailedException(
+                field_name="url_slug",
+                field_info=CoreConfig._get_field(CoreConfig, "url_slug"),  # type: ignore
+                current_value=url_slug,
+                message=(
+                    "url_slug cannot start with `%s`, that prefix is reserved for "
+                    "generated URLs." % reserved_prefix
+                ),
+            )
+        return True
+
+    @staticmethod
     def port_required(core_config: "CoreConfig") -> bool:
         # A Proxy capsule pointing at an existing service carries the port in the
         # service URL, so it has no port of its own.
@@ -951,6 +981,26 @@ class BasicAppValidations:
                 ),
             )
         return True
+
+    @staticmethod
+    def url_generation_agreement(core_config: "CoreConfig"):
+        """An app's URL is either named by `url_slug` or generated from its name."""
+        # Both are checked for truthiness rather than for being set: defaults are
+        # applied after validation, so `generate_static_url` is None here until
+        # somebody asks for it, and an explicit False is the same as not asking.
+        if not (core_config.url_slug and core_config.generate_static_url):
+            return True
+        raise ConfigValidationFailedException(
+            field_name="url_slug",
+            field_info=CoreConfig._get_field(CoreConfig, "url_slug"),  # type: ignore
+            current_value=core_config.url_slug,
+            message=(
+                "url_slug and generate_static_url cannot both be set, since they are "
+                "two ways of deciding the same URL. Drop generate_static_url to be "
+                "served at the URL `url_slug` names, or drop url_slug to have one "
+                "generated from the app name."
+            ),
+        )
 
 
 class CoreConfig(metaclass=ConfigMeta):
@@ -1272,6 +1322,26 @@ How to read this schema:
         ),
     )
 
+    # ------- URL generation -------------
+
+    url_slug = ConfigField(
+        cli_meta=CLIOption(
+            name="url_slug",
+            cli_option_str="--url-slug",
+        ),
+        validation_fn=BasicAppValidations.url_slug,
+        field_type=str,
+        help=(
+            "Names the app's URL instead of having one generated for it: "
+            "`api-<url_slug>.<your platform domain>`, or `ui-<url_slug>` for an app with "
+            "browser-only auth. Cannot be combined with `generate_static_url`, which is "
+            "the other way of deciding the same URL. A slug belongs to a single app "
+            "across the whole platform deployment, and cannot be changed once an app "
+            "has one."
+        ),
+        example="my-app",
+    )
+
     # ------- Experimental -------------
     # These options get treated in the `..experimental` module.
     # If we move any option as a first class citizen then we need to move
@@ -1330,7 +1400,10 @@ How to read this schema:
             is_flag=True,
         ),
         field_type=bool,
-        help="Generate a static URL for the app based on its name.",
+        help=(
+            "Generate a static URL for the app based on its name. Cannot be combined "
+            "with `url_slug`, which names the URL instead."
+        ),
         default=False,
     )
     # ------- /Experimental -------------
@@ -1382,6 +1455,7 @@ How to read this schema:
         # Validations that span more than one field cannot live on a single
         # ConfigField, so they are run here.
         BasicAppValidations.proxy_agreement(self)
+        BasicAppValidations.url_generation_agreement(self)
 
     @commit_owner_names_across_tree
     def commit(self):

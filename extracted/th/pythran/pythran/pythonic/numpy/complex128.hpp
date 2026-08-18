@@ -3,9 +3,9 @@
 
 #include "pythonic/include/numpy/complex128.hpp"
 
+#include "pythonic/types/complex.hpp"
 #include "pythonic/types/numpy_op_helper.hpp"
 #include "pythonic/utils/functor.hpp"
-#include "pythonic/utils/meta.hpp"
 #include "pythonic/utils/numpy_traits.hpp"
 
 PYTHONIC_NS_BEGIN
@@ -31,6 +31,15 @@ namespace numpy
 #define NUMPY_NARY_FUNC_SYM details::complex128
 #include "pythonic/types/numpy_nary_expr.hpp"
 } // namespace numpy
+
+namespace builtins
+{
+  inline numpy::functor::complex128 getattr(types::attr::DTYPE, std::complex<double> const &)
+  {
+    return {};
+  }
+} // namespace builtins
+
 PYTHONIC_NS_END
 #ifdef ENABLE_PYTHON_MODULE
 

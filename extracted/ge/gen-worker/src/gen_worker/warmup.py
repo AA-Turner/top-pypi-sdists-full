@@ -87,13 +87,15 @@ from typing import (
 
 import msgspec
 
-from . import dispatch
+from . import dispatch, serving_facts
 from .api.compile_axis import PayloadAxis
 from .api.decorators import EndpointDecl, NoWarmup
 from .api.errors import IllegalCombination
 from .api.types import Asset, AudioAsset, ImageAsset, VideoAsset
 import inspect
-from .api.slot import resolve_slot, serving_contract_governs_slot
+from .api.slot import (
+    resolve_slot, serving_contract_governs_slot, unevidenced_axes,
+)
 from .api.binding import wire_ref
 from .request_context import RequestContext
 
@@ -857,6 +859,16 @@ def resolved_slots_kwargs(
     metadata, so every slot resolves from the spec's own declaration. That is
     what makes this reachable from the delegated mint child, which has the
     spec and no job.
+
+    pgw#1333: the SERVING FACTS come from this dispatch's order when there is
+    one and from ``spec.slot_facts`` otherwise — and those are the SAME value,
+    because ``executor._dispatched_spec`` folds the order's facts into the
+    spec by the same statement that folds in its ref. Before, they came from
+    the orders alone, so the WARM shape (``slots=None``) resolved every
+    governed slot with objective ``""`` and refused every mint and every boot
+    adoption of every function declaring a serving contract, on any catalog
+    data. A slot with no entry on either side has no EVIDENCE and says so by
+    name; it does not pretend the catalog answered "nothing".
     """
     if not spec.slots:
         return {
@@ -872,15 +884,6 @@ def resolved_slots_kwargs(
         name: tuple(a.inference_defaults for a in advs if a.inference_defaults)
         for name, advs in dict(adapters or {}).items()
     }
-    # The resolved checkpoint's stamped objective/distilled facts ride the
-    # binding; the per-function declaration is the backstop (the hub gates
-    # checkpoint<->function compatibility at deploy/dispatch).
-    objectives = {
-        name: so.objective for name, so in slot_orders.items()}
-    distilled_facts = {
-        name: so.distilled for name, so in slot_orders.items()}
-    distilled_statuses = {
-        name: so.distilled_status for name, so in slot_orders.items()}
     resolved: Dict[str, Any] = {}
     errors: Dict[str, str] = {}
     # A FIXED slot's ref is the RELEASE's own declaration, so its resolution
@@ -898,6 +901,61 @@ def resolved_slots_kwargs(
             function_has_selectable_slot=has_selectable,
         )
         try:
+            # The catalog's answer for this slot. A slot no declaration
+            # CHECKS resolves neutrally when there is no answer — nothing
+            # reads the facts, so a gap costs nothing and warning would emit
+            # noise for every family that declares no serving contract. A
+            # slot a declaration DOES check confesses BY NAME when nothing
+            # answered — and then serves (pgw#1339).
+            order = slot_orders.get(name)
+            evidence = (
+                order.facts if order is not None
+                else spec.slot_facts.get(
+                    name,
+                    serving_facts.FactsUnavailable(
+                        owed_by="this spec was never bound to a dispatch or a "
+                                "desired instance"),
+                )
+            )
+            # An UNBOUND slot has no ref, and "which checkpoint" precedes
+            # "what is that checkpoint": pgw#969's sentence must survive, and
+            # complaining about missing facts for a slot nothing bound at all
+            # names the second-order gap.
+            checked = (
+                spec.models.get(name) is not None
+                and governed
+                and (spec.objectives is not None or spec.distilled is not None)
+            )
+            declared_contract = (f"function {spec.name!r} declares "
+                                 f"objectives={spec.objectives!r} "
+                                 f"distilled={spec.distilled!r}")
+            gap = ""
+            if checked:
+                facts, gap = serving_facts.facts_or_degrade(
+                    evidence, slot=name, what=declared_contract)
+            elif isinstance(evidence, serving_facts.ServingFacts):
+                facts = evidence
+            else:
+                facts = serving_facts.ServingFacts()
+            # pgw#1339: a DECLARED axis with no evidence is confessed and
+            # served, never refused. Computed before the resolve so the
+            # confession happens even though the resolve no longer raises.
+            if checked:
+                missing = unevidenced_axes(
+                    objective=facts.objective,
+                    distilled_status=facts.distilled_status,
+                    allowed_objectives=spec.objectives,
+                    allowed_distilled=spec.distilled,
+                )
+                if missing:
+                    # Local import: `models.memory` owns the ONE
+                    # `serve_degrade` seam, and `warmup` must not take its
+                    # module graph at import time.
+                    from .models import memory as memory_mod
+
+                    memory_mod.report_unevidenced_serving_facts(
+                        missing, slot=name, scope=str(spec.name),
+                        declared=declared_contract, gap=gap)
             resolved[name] = resolve_slot(
                 name, slot,
                 ref=spec.models.get(name),
@@ -905,9 +963,9 @@ def resolved_slots_kwargs(
                 family=spec.slot_family.get(name, ""),
                 raw_metadata_json=raw_defaults.get(name, ""),
                 lora_metadata_json=lora_defaults.get(name, ()),
-                objective=objectives.get(name, ""),
-                distilled=distilled_facts.get(name, False),
-                distilled_status=distilled_statuses.get(name, ""),
+                objective=facts.objective,
+                distilled=facts.distilled,
+                distilled_status=facts.distilled_status,
                 allowed_objectives=spec.objectives if governed else None,
                 allowed_distilled=spec.distilled if governed else None,
             )

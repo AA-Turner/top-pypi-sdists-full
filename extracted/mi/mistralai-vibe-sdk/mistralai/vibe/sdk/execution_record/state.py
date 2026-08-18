@@ -93,7 +93,20 @@ class ThinkingContentBlock(BaseModel):
     thinking: str = ""
 
 
-ContentBlock = TextContentBlock | ThinkingContentBlock
+class ImageContentBlock(BaseModel):
+    """Image content block.
+
+    ``image_url`` is an http(s) URL or a base64 ``data:image/...;base64,...``
+    data URI. Carried through history so a turn's inline image survives to the
+    completion-request projection, where it is emitted as a native multimodal
+    ``image_url`` part instead of being flattened to text.
+    """
+
+    type: Literal["image"] = "image"
+    image_url: str = ""
+
+
+ContentBlock = TextContentBlock | ThinkingContentBlock | ImageContentBlock
 
 
 def content_blocks(value: str | list[ContentBlock] | None) -> list[ContentBlock]:
@@ -106,7 +119,11 @@ def content_blocks(value: str | list[ContentBlock] | None) -> list[ContentBlock]
 
 
 def content_text(value: str | list[ContentBlock] | None) -> str:
-    """Flatten ACP content blocks into plain text."""
+    """Flatten ACP content blocks into plain text.
+
+    Image blocks have no text form; they are skipped here and surfaced as native
+    multimodal parts by the completion-request projection.
+    """
     if value is None:
         return ""
     if isinstance(value, str):
@@ -304,6 +321,7 @@ __all__ = [
     "ContentBlock",
     "TextContentBlock",
     "ThinkingContentBlock",
+    "ImageContentBlock",
     "JsonValue",
     "content_blocks",
     "content_text",

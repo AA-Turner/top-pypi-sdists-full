@@ -116,7 +116,7 @@ class AnacondaModelClient:
         """
         params = {"limit": limit}
         params.update(filters)
-        return self._get("/models", params=params)["result"]["data"]
+        return self._get("/models", params=params)["result"]["data"] or []
 
     def get_model(self, model_name):
         """
@@ -127,7 +127,7 @@ class AnacondaModelClient:
         LookupError
             If the model is not found.
         """
-        models = self.list_models(name=model_name, limit=5)
+        models = self.list_models(name=model_name, limit=5) or []
         for m in models:
             if m["name"] == model_name:
                 return m

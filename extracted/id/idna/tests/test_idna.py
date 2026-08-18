@@ -1,5 +1,3 @@
-#!/usr/bin/env python
-
 import unittest
 import warnings
 
@@ -140,7 +138,6 @@ class IDNATests(unittest.TestCase):
 
         # RFC 5893 Rule 2
         self.assertTrue(idna.check_bidi(r + al))
-        self.assertTrue(idna.check_bidi(r + al))
         self.assertTrue(idna.check_bidi(r + an))
         self.assertTrue(idna.check_bidi(r + en))
         self.assertTrue(idna.check_bidi(r + es + al))
@@ -189,6 +186,7 @@ class IDNATests(unittest.TestCase):
         self.assertTrue(idna.check_initial_combiner(a))
         self.assertTrue(idna.check_initial_combiner(a + m))
         self.assertRaises(idna.IDNAError, idna.check_initial_combiner, m + a)
+        self.assertTrue(idna.check_initial_combiner(""))
 
     def test_check_hyphen_ok(self):
         self.assertTrue(idna.check_hyphen_ok("abc"))
@@ -196,6 +194,8 @@ class IDNATests(unittest.TestCase):
         self.assertRaises(idna.IDNAError, idna.check_hyphen_ok, "aa--")
         self.assertRaises(idna.IDNAError, idna.check_hyphen_ok, "a-")
         self.assertRaises(idna.IDNAError, idna.check_hyphen_ok, "-a")
+        self.assertRaises(idna.IDNAError, idna.check_hyphen_ok, "-")
+        self.assertTrue(idna.check_hyphen_ok(""))
 
     def test_valid_contextj(self):
         zwnj = "\u200c"
@@ -212,6 +212,36 @@ class IDNATests(unittest.TestCase):
         self.assertFalse(idna.valid_contextj(zwj, 0))
         self.assertFalse(idna.valid_contextj(latin + zwj, 1))  # No preceding Virama
         self.assertTrue(idna.valid_contextj(virama + zwj, 1))  # Preceding Virama
+
+    def test_check_label_contextj_violation(self):
+        zwnj = "\u200c"
+        zwj = "\u200d"
+        virama = "\u094d"
+        latin = "\u0061"
+
+        for joiner in (zwnj, zwj):
+            with self.assertRaises(idna.InvalidCodepointContext) as context:
+                idna.check_label(latin + joiner + latin)
+            self.assertIn("not allowed at position 2", str(context.exception))
+            self.assertRaises(idna.InvalidCodepointContext, idna.encode, latin + joiner + latin)
+
+        # Valid joiner contexts are still accepted
+        idna.check_label(latin + virama + zwj + latin)
+        idna.check_label(latin + virama + zwnj + latin)
+
+    def test_check_label_contextj_unknown_codepoint(self):
+        # An adjacent codepoint unknown to unicodedata (e.g. in a
+        # newer Unicode version than the Python build supports) must still
+        # surface as an IDNAError. Need to mock this to test.
+        from unittest import mock
+
+        with (
+            mock.patch("idna.core._combining_class", side_effect=ValueError("Unknown character in unicodedata")),
+            self.assertRaises(idna.IDNAError) as context,
+        ):
+            idna.check_label("\u0061\u200d\u0061")
+        self.assertNotIsInstance(context.exception, idna.InvalidCodepointContext)
+        self.assertIn("Unknown codepoint adjacent to joiner", str(context.exception))
 
     def test_valid_contexto(self):
         latin = "\u0061"
@@ -334,6 +364,18 @@ class IDNATests(unittest.TestCase):
             self.assertTrue(issubclass(w[0].category, DeprecationWarning))
             self.assertIn("transitional", str(w[0].message).lower())
 
+    def test_uts46_remap_transitional_deprecation_warning(self):
+        with warnings.catch_warnings(record=True) as w:
+            warnings.simplefilter("always")
+            idna.uts46_remap("example.com", transitional=True)
+            self.assertEqual(len(w), 1)
+            self.assertTrue(issubclass(w[0].category, DeprecationWarning))
+            self.assertIn("transitional", str(w[0].message).lower())
+        with warnings.catch_warnings(record=True) as w:
+            warnings.simplefilter("always")
+            idna.uts46_remap("example.com")
+            self.assertEqual(len(w), 0)
+
     def test_encode_no_transitional_no_warning(self):
         with warnings.catch_warnings(record=True) as w:
             warnings.simplefilter("always")
@@ -348,6 +390,136 @@ class IDNATests(unittest.TestCase):
         for value in (42, None, 1.5, ["a", "b"], {"a": 1}):
             self.assertRaises(idna.IDNAError, idna.encode, value)
             self.assertRaises(idna.IDNAError, idna.decode, value)
+
+    def test_uts46_remap(self):
+        remap = idna.uts46_remap
+        # Empty and unchanged input, including the no-copy path for a
+        # non-ASCII string that needs no mapping.
+        self.assertEqual(remap(""), "")
+        self.assertEqual(remap("\u0431\u0443\u043a\u0432\u044b"), "\u0431\u0443\u043a\u0432\u044b")
+        # Mapped (M) characters interleaved with runs of valid ones: case
+        # folding, fullwidth forms, and the alternative label separators.
+        self.assertEqual(remap("\u0411\u0443\u041a\u0432\u042b"), "\u0431\u0443\u043a\u0432\u044b")
+        self.assertEqual(remap("ab\uff23\uff24ef"), "abcdef")
+        self.assertEqual(remap("a\u3002b\uff0ec\uff61d"), "a.b.c.d")
+        # Ignored (I) characters are dropped, wherever they fall.
+        self.assertEqual(remap("\u00ada\u00adb\u00ad"), "ab")
+        # Deviation (D) characters are kept. Transitional processing, which
+        # mapped them, is deprecated in UTS #46 and the flag has no effect.
+        self.assertEqual(remap("a\u00dfb"), "a\u00dfb")
+        self.assertEqual(remap("a\u03c2b"), "a\u03c2b")
+        self.assertEqual(remap("a\u200cb"), "a\u200cb")
+        with warnings.catch_warnings():
+            warnings.simplefilter("ignore", DeprecationWarning)
+            self.assertEqual(remap("a\u00dfb", transitional=True), "a\u00dfb")
+            self.assertEqual(remap("a\u03c2b", transitional=True), "a\u03c2b")
+            self.assertEqual(remap("a\u200cb", transitional=True), "a\u200cb")
+            self.assertEqual(remap("\u1e9e", transitional=True), "\u00df")
+        # Output is NFC even when the input is not.
+        self.assertEqual(remap("e\u0301"), "\u00e9")
+        # Disallowed (X) characters raise, reporting the 1-based position in
+        # the input.
+        with self.assertRaises(idna.InvalidCodepoint) as cm:
+            remap("ab\ufffdc")
+        self.assertIn("position 3", str(cm.exception))
+        self.assertRaises(idna.IDNAError, remap, "a" * 1025)
+
+    def test_uts46_remap_ascii(self):
+        # uts46_remap() takes a shortcut for pure-ASCII input on the basis
+        # that the only ASCII mapping in UTS #46 is upper- to lowercase and
+        # every other ASCII codepoint has status V. Pin that against the
+        # table so a future table change cannot silently invalidate it.
+        from idna.uts46data import uts46_replacements, uts46_statuses
+
+        for cp in range(128):
+            char = chr(cp)
+            if "A" <= char <= "Z":
+                self.assertEqual(chr(uts46_statuses[cp]), "M", char)
+                self.assertEqual(uts46_replacements[cp], char.lower(), char)
+            else:
+                self.assertEqual(chr(uts46_statuses[cp]), "V", char)
+                self.assertIsNone(uts46_replacements[cp], char)
+        for std3_rules in (True, False):
+            self.assertEqual(idna.uts46_remap("WWW.Example.COM", std3_rules=std3_rules), "www.example.com")
+        self.assertEqual(idna.uts46_remap("a-b_c d~", std3_rules=False), "a-b_c d~")
+        self.assertRaises(idna.InvalidCodepoint, idna.uts46_remap, "a-b_c d~", std3_rules=True)
+        self.assertRaises(idna.IDNAError, idna.uts46_remap, "A" * 1025)
+
+    def test_uts46_remap_std3(self):
+        # UTS #46 §4.1: with UseSTD3ASCIIRules, an ASCII character in the
+        # mapped output must be a lowercase letter, digit or hyphen (or the
+        # label separator). The offending codepoint and position reported are
+        # those of the *input* character, including when the ASCII character
+        # was produced by a mapping.
+        remap = idna.uts46_remap
+        for domain, expected, cp, position in (
+            ("a_b", "a_b", "U+005F", 2),  # ASCII fast path
+            ("A B", "a b", "U+0020", 2),
+            ("a/b.c", "a/b.c", "U+002F", 2),
+            ("a\uff01b", "a!b", "U+FF01", 2),  # fullwidth ! maps to !
+            ("\u00a0x", " x", "U+00A0", 1),  # NBSP maps to space
+            ("a\u2100b", "aa/cb", "U+2100", 2),  # ACCOUNT OF maps to a/c
+            ("a\u03b2_", "a\u03b2_", "U+005F", 3),  # in a run after a non-ASCII char
+            ("\u03b2\u0391a~", "\u03b2\u03b1a~", "U+007E", 4),  # in the tail run
+            ("~\u0391", "~\u03b1", "U+007E", 1),  # in a run before a mapped char
+        ):
+            with self.subTest(domain=domain):
+                self.assertEqual(remap(domain, std3_rules=False), expected)
+                with self.assertRaises(idna.InvalidCodepoint) as cm:
+                    remap(domain, std3_rules=True)
+                self.assertEqual(str(cm.exception), f"Codepoint {cp} not allowed at position {position} in {domain!r}")
+        # Letters, digits, hyphens and label separators (including the ones
+        # mapped to U+002E) are fine either way.
+        for domain, expected in (
+            ("a-b.c9", "a-b.c9"),
+            ("XN--80AK6AA92E.COM", "xn--80ak6aa92e.com"),
+            ("\u0431\uff0e\u0432\u3002\u0433\uff61", "\u0431.\u0432.\u0433."),
+            ("\uff21\uff22\uff23", "abc"),
+        ):
+            for std3_rules in (True, False):
+                self.assertEqual(remap(domain, std3_rules=std3_rules), expected)
+        # encode() forwards the flag (default off): with it on the mapping
+        # step rejects the character; with it off the character survives
+        # mapping and is only rejected later by IDNA 2008 label validation.
+        with self.assertRaises(idna.InvalidCodepoint) as cm:
+            idna.encode("a_b", uts46=True, std3_rules=True)
+        self.assertEqual(str(cm.exception), "Codepoint U+005F not allowed at position 2 in 'a_b'")
+        with self.assertRaises(idna.InvalidCodepoint) as cm:
+            idna.encode("a_b", uts46=True)
+        self.assertEqual(str(cm.exception), "Codepoint U+005F at position 2 of 'a_b' not allowed")
+        self.assertEqual(idna.encode("a\u00adb", uts46=True, std3_rules=True), b"ab")
+
+    def test_bytes_input_errors_are_idnaerror(self):
+        # bytes given to the label helpers must fail with IDNAError, not leak
+        # UnicodeDecodeError: check_label() decodes bytes as UTF-8, ulabel()
+        # treats bytes as ASCII.
+        self.assertRaises(idna.IDNAError, idna.check_label, b"\xff")
+        self.assertRaises(idna.IDNAError, idna.ulabel, b"\xff")
+        self.assertRaises(idna.IDNAError, idna.ulabel, b"\xc3\x9f")  # valid UTF-8 for U+00DF, still not ASCII
+        self.assertRaises(idna.IDNAError, idna.ulabel, bytearray(b"xn--\xff"))
+        self.assertEqual(idna.ulabel(b"xn--e1afmkfd"), "\u043f\u0440\u0438\u043c\u0435\u0440")
+
+    def test_non_canonical_alabel(self):
+        # RFC 5891 §5.3: an A-label must re-encode to itself. "xn---bbk" is
+        # a non-canonical Punycode spelling of "xn--bbk" (RFC 3492 permits
+        # a delimiter before an empty basic-code-point run, so both decode
+        # to the same U-label); accepting it would let two different
+        # wire-format names display identically.
+        self.assertEqual(idna.ulabel("xn--bbk"), "\u307e")
+        self.assertEqual(idna.encode("xn--bbk"), b"xn--bbk")
+        for label in ("xn---bbk", b"xn---bbk", "XN---BBK"):
+            with self.subTest(label=label):
+                with self.assertRaises(idna.IDNAError) as ctx:
+                    idna.ulabel(label)
+                self.assertEqual(ctx.exception.code, "non_canonical_alabel")
+        self.assertRaises(idna.IDNAError, idna.alabel, "xn---bbk")
+        self.assertRaises(idna.IDNAError, idna.encode, "xn---bbk.example")
+        self.assertRaises(idna.IDNAError, idna.decode, "xn---bbk.example")
+        # display decoding keeps the wire form rather than the misleading U-label
+        self.assertEqual(idna.decode("XN---BBK.example", display=True), "xn---bbk.example")
+        # ASCII case in the input is not a canonicality violation
+        self.assertEqual(idna.ulabel("XN--MNCHEN-3YA"), "m\xfcnchen")
+        self.assertEqual(idna.ulabel("xn--Mnchen-3ya"), "m\xfcnchen")
 
     def test_decode_display(self):
         # A label whose Punycode decode succeeds but contains disallowed
@@ -403,6 +575,18 @@ class IDNATests(unittest.TestCase):
             idna.decode(b"a.b.c.xn--pokxncvks", display=True),
             "a.b.c.xn--pokxncvks",
         )
+
+
+class UnicodeVersionTests(unittest.TestCase):
+    def test_unicode_version_is_exported_and_consistent(self):
+        import idna.idnadata
+        import idna.uts46data
+
+        self.assertIn("unicode_version", idna.__all__)
+        self.assertRegex(idna.unicode_version, r"^\d+\.\d+\.\d+$")
+        # The two generated tables must always be regenerated together.
+        self.assertEqual(idna.unicode_version, idna.idnadata.__version__)
+        self.assertEqual(idna.unicode_version, idna.uts46data.__version__)
 
 
 if __name__ == "__main__":

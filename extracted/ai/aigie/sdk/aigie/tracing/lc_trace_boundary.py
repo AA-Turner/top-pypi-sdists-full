@@ -22,7 +22,9 @@ from aigie.tracing.trace_state import (
     close_ambient,
     current_trace_id,
     is_inside_traced_run,
+    mark_root_closed,
     open_ambient,
+    root_already_closed,
 )
 from aigie.tracing.workflow_root import WorkflowRoot
 
@@ -89,13 +91,22 @@ class LangChainTraceBoundary:
         if set_workflow_name:
             self._workflow_name = name or self._workflow_name
         # In-function import breaks the tracing → auto_instrument → client cycle.
-        from aigie.auto_instrument.trace import get_or_create_trace_sync
+        from aigie.auto_instrument.trace import get_current_trace, get_or_create_trace_sync
 
+        # A trace that is already current will be adopted rather than minted.
+        adopted = get_current_trace() is not None
         trace = get_or_create_trace_sync(
             name=self._workflow_name,
             metadata={"framework": self.framework_name, "type": self.framework_name},
         )
         if trace is None:  # not initialized / zero-retention
+            self._suppressed = True
+            return True
+        if adopted and root_already_closed(str(trace.id)):
+            # Joined a finished run's trace. A root opened here is stamped
+            # span_id == trace_id, so it overwrites that run's name and output
+            # with this call's. Provider-level instrumentation still records
+            # the call itself.
             self._suppressed = True
             return True
         self._root_run_id = str(run_id)
@@ -175,8 +186,26 @@ class LangChainTraceBoundary:
             error_message=str(error) if status == "error" else None,
         )
         root = getattr(self, "_workflow_root", None)
-        if root is not None:
+        if root is None:
+            return
+        mark_root_closed(getattr(self, "_trace_id", None) or current_trace_id())
+        # Omitting a null output lets WorkflowRoot fall back to note_root_output.
+        if output is None:
+            root.close(error=error, status=status, metadata_updates=metadata_updates)
+        else:
             root.close(output=output, error=error, status=status, metadata_updates=metadata_updates)
+
+    def note_root_output(self, value: Any) -> None:
+        """Record the framework's own final output for the run.
+
+        A streamed run yields chunks and returns nothing for the wrapper to
+        carry, but LangGraph still reports the final state on the root-level
+        ``on_chain_end``. Used only as a fallback — an entrypoint return value
+        wins.
+        """
+        root = getattr(self, "_workflow_root", None)
+        if root is not None:
+            root.note_output(value)
 
     def _root_metadata_updates(self, status: str) -> dict[str, Any]:
         metadata: dict[str, Any] = {

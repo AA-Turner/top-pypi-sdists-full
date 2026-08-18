@@ -3,8 +3,6 @@
 
 #include "pythonic/include/types/str.hpp"
 
-#include "pythonic/types/tuple.hpp"
-
 #include "pythonic/types/assignable.hpp"
 #include "pythonic/utils/functor.hpp"
 #include "pythonic/utils/int_.hpp"
@@ -249,9 +247,6 @@ namespace types
   }
 
   /// str implementation
-  inline str::str() : data()
-  {
-  }
 
   inline str::str(std::string const &s) : data(s)
   {
@@ -564,20 +559,20 @@ namespace types
 
   inline str operator+(str const &self, str const &other)
   {
-    return str(self.chars() + other.chars());
+    return {self.chars() + other.chars()};
   }
   inline str operator+(chr const &self, chr const &other)
   {
     char tmp[2] = {self.c, other.c};
-    return str(&tmp[0], 2);
+    return {&tmp[0], 2};
   }
   inline str operator+(chr const &self, str const &other)
   {
-    return str(self.c + other.chars());
+    return {self.c + other.chars()};
   }
   inline str operator+(str const &self, chr const &other)
   {
-    return str(self.chars() + other.c);
+    return {self.chars() + other.c};
   }
 
   template <size_t N>
@@ -638,7 +633,7 @@ namespace types
   inline str operator*(str const &s, long n)
   {
     if (n <= 0)
-      return str();
+      return {};
     str other;
     other.resize(s.size() * n);
     auto where = other.chars().begin();
@@ -655,7 +650,7 @@ namespace types
   inline str operator*(chr const &s, long n)
   {
     if (n <= 0)
-      return str();
+      return {};
     str other;
     other.resize(n);
     std::fill(other.chars().begin(), other.chars().end(), s.c);

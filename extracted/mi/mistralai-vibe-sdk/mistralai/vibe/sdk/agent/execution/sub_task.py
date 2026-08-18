@@ -21,6 +21,7 @@ from typing import Any
 from pydantic import BaseModel, SerializeAsAny
 
 from mistralai.vibe.sdk.agent.execution.loop import HistoryScope
+from mistralai.vibe.sdk.agent.execution.resources import spawn_child_scope
 from mistralai.vibe.sdk.agent.tasks.core import StatefulTask, Task, TaskCallback
 from mistralai.vibe.sdk.agent.tasks.runtime import TaskConfigBase
 from mistralai.vibe.sdk.execution_record.snapshots import seed_child_state
@@ -186,22 +187,24 @@ async def resolve_callback_request(
             input=request.payload.input,
             output=PendingOutput(),
         )
-        impl_channel = await impl.run(cb_state)
-        async for impl_msg in impl_channel:
-            if isinstance(impl_msg, TaskStateUpdateEvent):
-                cb_state = apply_patches(cb_state, impl_msg.payload.patches)
-            elif isinstance(impl_msg, TaskResultEvent):
-                cb_state = impl_msg.payload.result
-            elif isinstance(impl_msg, CallbackCallEvent):
-                # Nested callbacks from callback implementations are not
-                # supported. The config-time check in AgentTask.__init__
-                # prevents this, but guard at runtime too.
-                msg = (
-                    f"Callback implementation '{name}' emitted a nested "
-                    f"callback request '{impl_msg.payload.name}' which cannot be "
-                    f"resolved. Nested callbacks are not supported."
-                )
-                raise RuntimeError(msg)
+
+        async with spawn_child_scope(should_raise=False):
+            impl_channel = await impl.run(cb_state)
+            async for impl_msg in impl_channel:
+                if isinstance(impl_msg, TaskStateUpdateEvent):
+                    cb_state = apply_patches(cb_state, impl_msg.payload.patches)
+                elif isinstance(impl_msg, TaskResultEvent):
+                    cb_state = impl_msg.payload.result
+                elif isinstance(impl_msg, CallbackCallEvent):
+                    # Nested callbacks from callback implementations are not
+                    # supported. The config-time check in AgentTask.__init__
+                    # prevents this, but guard at runtime too.
+                    msg = (
+                        f"Callback implementation '{name}' emitted a nested "
+                        f"callback request '{impl_msg.payload.name}' which cannot be "
+                        f"resolved. Nested callbacks are not supported."
+                    )
+                    raise RuntimeError(msg)
         await send_result_to_child(
             CallbackResultEvent(
                 payload=CallbackResultPayload(

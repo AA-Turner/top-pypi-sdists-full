@@ -17,9 +17,6 @@
 
 #include <cstdio>
 #include <cstring>
-#include <fstream>
-#include <iterator>
-#include <string>
 
 #ifdef _WIN32
 #include <io.h>
@@ -58,12 +55,12 @@ namespace types
   /// file implementation
 
   // Constructors
-  inline file::file() : file_iterator(), data(utils::no_memory())
+  inline file::file() : data(utils::no_memory())
   {
   }
 
   inline file::file(types::str const &filename, types::str const &strmode)
-      : file_iterator(), data(utils::no_memory()), mode(strmode), name(filename), newlines('\n')
+      : data(utils::no_memory()), mode(strmode), name(filename), newlines('\n')
   {
     open(filename, strmode);
     if (mode.find_first_of("r+") != -1)
@@ -158,7 +155,7 @@ namespace types
     if (mode.find_first_of("r+") == -1)
       throw IOError("File not open for reading");
     if (size == 0 || (feof(**data) && mode.find_first_of("ra") == -1))
-      return types::str();
+      return {};
     long curr_pos = tell();
     seek(0, SEEK_END);
     size = size < 0 ? tell() - curr_pos : size;
@@ -266,12 +263,12 @@ namespace types
   // Like in :
   // for line in open("myfile"):
   //     print line
-  inline file_iterator::file_iterator(file &ref) : f(&ref), set(false), curr(), position(ref.tell())
+  inline file_iterator::file_iterator(file &ref) : f(&ref), set(false), position(ref.tell())
   {
   }
 
   inline file_iterator::file_iterator()
-      : f(nullptr), set(false), curr(), position(std::numeric_limits<long>::max()) {};
+      : f(nullptr), set(false), position(std::numeric_limits<long>::max()) {};
 
   inline bool file_iterator::operator==(file_iterator const &f2) const
   {
@@ -301,7 +298,7 @@ namespace types
     return *this;
   }
 
-  inline types::str file_iterator::operator*() const
+  inline file_iterator::value_type file_iterator::operator*() const
   {
     if (!set) {
       curr = f->readline();

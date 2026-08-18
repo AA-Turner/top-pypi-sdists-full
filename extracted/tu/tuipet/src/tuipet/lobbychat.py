@@ -33,6 +33,13 @@ ROSTW = 12              # the player box beside it
 BODY = 8                # chat rows visible at once
 CHAT_MAX = 400          # server MAX_CHAT: the local input buffer stops here too
 
+# The id an OFFLINE thread-partner carries.  They aren't on the server's
+# roster, so they have no connection id -- but they still need a roster row,
+# because that row is the only door into a saved conversation (see _others).
+# The server reads a pm's `to_name` whenever the id misses, which is exactly
+# what this id does, so a message still sends (and queues) to them.
+OFFLINE_ID = -1
+
 # The room's default footer lines (menu audit 2026-07-21: the open-room line
 # ended in a BARE "· ESC" — the 2026-07-07 fit-fix had dropped its word, and
 # on Joel's live screen it read as a run-off).  WHOLE WORDS ONLY, <= 38 cells;
@@ -107,6 +114,13 @@ class ChatMixin:
                 if self.state is not None and not self.state.connected:
                     # the lobby twin's queued note (QOL sweep 2026-07-23)
                     self.status = "Offline — queued, sends on reconnect."
+                elif self.state is not None and not any(
+                        p.get("name") == self.dm_peer[1] for p in self.state.roster):
+                    # THEY'RE away, not us.  The server stores the pm and hands
+                    # it over on their next login, but the thread only shows our
+                    # own echo -- without this line a reply into an empty room
+                    # reads as a message that went nowhere.
+                    self.status = f"✉ queued — {self.dm_peer[1]} is offline."
             self.buf = ""
             return None
         if k == "up":
@@ -254,11 +268,18 @@ class ChatMixin:
             if ridx < len(others):
                 pl = others[ridx]
                 cur = ridx == sel
-                ghost = not pl.get("live", True)     # playing, not in the room
+                # THREE tiers of presence, three marks (Joel 2026-08-18: the
+                # offline rows came out wearing the ghost's dot, so a column of
+                # people who were nowhere read as a column of people playing).
+                # A solid dot is a ghost -- app open, elsewhere.  A HOLLOW one
+                # is offline: nobody home, only the thread.
+                away = pl.get("id") == OFFLINE_ID    # not connected at all
+                ghost = not pl.get("live", True)     # app open, not in the room
                 nm = pl["name"]
                 unread = bool(s) and nm in s.unread
                 blk = bool(s) and nm in s.blocked
-                mark = "✉" if unread else ("✕" if blk else ("·" if ghost else ""))
+                mark = ("✉" if unread else "✕" if blk
+                        else "°" if away else "·" if ghost else "")
                 sty = SEL if cur else (INK_B if unread else (DIM if (ghost or blk) else INK))
                 # a worn honor stars the roster entry -- the room sees who's
                 # titled at a glance; an entry too long for the column
@@ -306,6 +327,11 @@ class ChatMixin:
                 # V thread / M quick-send: one PM feature, one name (the DM
                 # label retired 2026-07-29, "call it all pm")
                 acts = "[B]attle [J]og [V/M] PM [X]block [ESC]"
+            elif pid == OFFLINE_ID:
+                # a thread-only row: say OFFLINE, not "not in lobby" (which is
+                # the ghost's state, app open elsewhere).  No [P]ing -- there's
+                # no app there to nudge; the PM queues server-side instead.
+                acts = "offline — [V/M] PM [X]block [ESC]"
             else:
                 acts = "not in lobby — [P]ing [V/M] PM [X]block [ESC]"
             full = f"{who}:  {acts}"
@@ -331,7 +357,12 @@ class ChatMixin:
                         tail = " — Enter to act"
                         line = marquee(f"{p['name']}: {blurb}", w - len(tail), mq) + tail
                 else:
+                    # "is playing" is the GHOST's line and was being said over
+                    # offline rows too -- the pick line has to name the state
+                    # the row is actually in, or the roster reads as a full
+                    # lobby (Joel 2026-08-18)
+                    verb = "is offline" if p.get("id") == OFFLINE_ID else "is playing"
                     tail = " — Enter to msg"
-                    line = marquee(f"{p['name']} is playing", w - len(tail), mq) + tail
+                    line = marquee(f"{p['name']} {verb}", w - len(tail), mq) + tail
             t.append(line[:w], style=DIM)
         return t

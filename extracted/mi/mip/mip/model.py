@@ -249,6 +249,37 @@ class Model:
         """
         return self.vars.add(name, lb, ub, obj, var_type, column)
 
+    def add_vars(
+        self: "Model",
+        n: int,
+        name: str = "",
+        lb: numbers.Real = 0.0,
+        ub: numbers.Real = mip.INF,
+        obj: numbers.Real = 0.0,
+        var_type: str = mip.CONTINUOUS,
+    ) -> List["mip.Var"]:
+        """Creates *n* variables at once, returning a list of :class:`~mip.Var`.
+
+        This is a faster alternative to calling :meth:`add_var` in a loop when
+        all variables share the same bounds, objective coefficient and type.
+
+        Args:
+            n (int): number of variables to create
+            name (str): optional name prefix; variables will be named
+                ``name_0``, ``name_1``, …, ``name_{n-1}`` when provided
+            lb (numbers.Real): lower bound (default 0)
+            ub (numbers.Real): upper bound (default infinity)
+            obj (numbers.Real): objective coefficient (default 0)
+            var_type (str): CONTINUOUS, BINARY or INTEGER
+
+        Example::
+
+            x = m.add_vars(n * n, var_type=BINARY)
+
+        :rtype: List[mip.Var]
+        """
+        return self.vars.add_vars(n, name, lb, ub, obj, var_type)
+
     def add_var_tensor(
         self: "Model", shape: Tuple[int, ...], name: str, **kwargs
     ) -> mip.LinExprTensor:
@@ -388,6 +419,7 @@ class Model:
         """
         # creating a new solver instance
         sense = self.sense
+        verbose = self.solver.get_verbose()
 
         if self.solver_name.upper() in ["GRB", "GUROBI"]:
             import mip.gurobi
@@ -417,6 +449,9 @@ class Model:
         # list of constraints and variables
         self.constrs = mip.ConstrList(self)
         self.vars = mip.VarList(self)
+
+        # restore verbose (solver is recreated above with default log level 1)
+        self.solver.set_verbose(verbose)
 
         # initializing additional control variables
         self.__cuts = 1
@@ -569,6 +604,7 @@ class Model:
         max_seconds_same_incumbent: numbers.Real = mip.INF,
         max_nodes_same_incumbent: int = mip.INT_MAX,
         relax: bool = False,
+        lp_preprocess: bool = False,
     ) -> mip.OptimizationStatus:
         """Optimizes current model
 
@@ -592,6 +628,13 @@ class Model:
             relax (bool): if true only the linear programming relaxation will
                 be solved, i.e. integrality constraints will be temporarily
                 discarded.
+            lp_preprocess (bool): when solving the LP relaxation (relax=True),
+                apply fast combinatorial bound-tightening (knapsack-based) before
+                the LP solve. Disabled by default to preserve the pure LP
+                relaxation. When enabled, bounds may be tightened beyond the LP
+                relaxation, which is useful in custom B&B node-solving loops but
+                means the solution is no longer the unmodified LP relaxation.
+                Only supported by the CBC backend; ignored by other solvers.
 
         Returns:
             optimization status, which can be OPTIMAL(0), ERROR(-1),
@@ -622,7 +665,7 @@ class Model:
             max_nodes_same_incumbent,
         )
 
-        self._status = self.solver.optimize(relax)
+        self._status = self.solver.optimize(relax, lp_preprocess)
         # has a solution
         if (
             self._status
@@ -783,6 +826,7 @@ class Model:
             mip.OptimizationStatus.OPTIMAL,
             mip.OptimizationStatus.FEASIBLE,
             mip.OptimizationStatus.NO_SOLUTION_FOUND,
+            mip.OptimizationStatus.TRUNCATED,
         ]:
             return None
 
@@ -1316,6 +1360,15 @@ class Model:
         self.solver.set_max_nodes(max_nodes)
 
     @property
+    def max_iter(self: "Model") -> int:
+        """maximum number of simplex iterations for LP solves (default: no limit)"""
+        return self.solver.get_max_iter()
+
+    @max_iter.setter
+    def max_iter(self: "Model", max_iter: int):
+        self.solver.set_max_iter(max_iter)
+
+    @property
     def max_solutions(self: "Model") -> int:
         """solution limit, search will be stopped when :code:`max_solutions`
         were found"""
@@ -1566,7 +1619,10 @@ def xsum(terms) -> "mip.LinExpr":
     """
     result = mip.LinExpr()
     for term in terms:
-        result.add_term(term)
+        if isinstance(term, mip.Var):
+            result.add_var(term)
+        else:
+            result.add_term(term)
     return result
 
 

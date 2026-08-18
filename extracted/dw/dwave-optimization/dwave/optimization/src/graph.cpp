@@ -1,4 +1,4 @@
-// Copyright 2023 D-Wave Systems Inc.
+// Copyright 2023 D-Wave
 //
 //    Licensed under the Apache License, Version 2.0 (the "License");
 //    you may not use this file except in compliance with the License.
@@ -47,6 +47,8 @@ void Graph::add_constraint(ArrayNode* constraint_ptr) {
 
     constraints_.emplace_back(constraint_ptr);
 }
+
+void Graph::clear_constraints() { constraints_.clear(); }
 
 void Graph::commit(State& state) const {
     std::ranges::for_each(nodes(), [&state](const auto& ptr) { ptr->commit(state); });
@@ -157,6 +159,40 @@ void Graph::initialize_state(State& state) {
     static_cast<const Graph*>(this)->initialize_state(state);
 }
 
+void Graph::pop_decision() {
+    assert(not topologically_sorted_ and "cannot pop a decision from a locked model");
+    assert(not decisions_.empty() and "need at least one decision");
+
+    // Get a pointer to the node we want to remove
+    const Node* target_ptr = decisions_.back();
+
+    [[maybe_unused]] auto is_target = [&target_ptr](const auto* ptr) {
+        return static_cast<const Node*>(ptr) == target_ptr;
+    };
+
+    // Make sure the last decision is unused
+    assert(target_ptr->successors().empty() and "cannot remove a decision with successors");
+    assert(not is_target(objective_ptr_) and "cannot remove the objective");
+    assert(std::ranges::none_of(constraints_, is_target) and "cannot remove a constraint");
+
+    // Ok, stop tracking our target in the decisions_ list
+    decisions_.pop_back();
+
+    // Should never have the same decision twice and decisions are not inputs/constants
+    assert(std::ranges::none_of(decisions_, is_target));
+    assert(std::ranges::none_of(inputs_, is_target));
+    assert(std::ranges::none_of(constants_, is_target));
+
+    // Finally, we need to remove it from our node list. We do the swap and pop trick
+    // because we're not topologically sorted so it's OK for us to mess with the node order
+    auto it = std::find_if(nodes_.begin(), nodes_.end(), [&target_ptr](const auto& uptr) {
+        return uptr.get() == target_ptr;
+    });
+    assert(it != nodes_.end());  // our target must be in there somewhere
+    std::swap(*it, nodes_.back());
+    nodes_.pop_back();
+}
+
 void Graph::propagate(State& state) const {
     std::ranges::for_each(nodes(), [&state](const auto& ptr) { ptr->propagate(state); });
 }
@@ -194,6 +230,11 @@ void Graph::propose(
     } else {
         revert(state, changed);
     }
+}
+
+void Graph::propose(State& state) const {
+    propagate(state);
+    commit(state);
 }
 
 void Graph::recursive_initialize(State& state, const Node* ptr) {
@@ -264,20 +305,20 @@ ssize_t Graph::remove_redundant_nodes(bool ignore_listeners, double time_limit_s
     // already done.
     // They are arbitrary values, but we steer away from -1 because that's used to
     // indicate unsorted
-    constexpr ssize_t seen = -2;  // already checked for duplicates
-    constexpr ssize_t drop = -3;  // marked for deletion
+    constexpr ssize_t SEEN = -2;  // already checked for duplicates
+    constexpr ssize_t DROP = -3;  // marked for deletion
 
     // The actions that we always want to do before returning, whether it's because
     // we hit the time limit or because we have no more work to do.
     auto cleanup = [&]() -> ssize_t {
         // we should only ever have swapped the objective_ptr
-        assert(objective_ptr_ == nullptr or objective_ptr_->topological_index() != drop);
+        assert(objective_ptr_ == nullptr or objective_ptr_->topological_index() != DROP);
 
         // Whether a node was dropped
-        auto dropped = [&drop, &ignore_listeners](const auto& ptr) {
+        auto dropped = [&DROP, &ignore_listeners](const auto& ptr) {
             if (not ignore_listeners and ptr->num_listeners() > 0) return false;
-            assert(ptr->topological_index_ != drop or ptr->successors_.empty());
-            return ptr->topological_index() == drop;
+            assert(ptr->topological_index_ != DROP or ptr->successors_.empty());
+            return ptr->topological_index() == DROP;
         };
 
         // Go through our "special" nodes and drop anything
@@ -286,7 +327,7 @@ ssize_t Graph::remove_redundant_nodes(bool ignore_listeners, double time_limit_s
         std::erase_if(constants_, dropped);
 
         std::erase_if(constraints_, dropped);
-        assert(objective_ptr_ == nullptr or objective_ptr_->topological_index_ != drop);
+        assert(objective_ptr_ == nullptr or objective_ptr_->topological_index_ != DROP);
 
         // This is the step that actually deallocates the node
         for (auto& uptr : nodes_) {
@@ -324,7 +365,7 @@ ssize_t Graph::remove_redundant_nodes(bool ignore_listeners, double time_limit_s
         to_ptr->take_successors(*from_ptr);
 
         // Mark from for dropping
-        from_ptr->topological_index_ = drop;
+        from_ptr->topological_index_ = DROP;
 
         // We also want to fix the objective if relevant
         if (objective_ptr_ != nullptr and static_cast<Node*>(objective_ptr_) == from_ptr) {
@@ -343,10 +384,10 @@ ssize_t Graph::remove_redundant_nodes(bool ignore_listeners, double time_limit_s
     // The first set of nodes we're worried about are the constants - the only
     // class of root node that can have redundancy
     for (ssize_t i = 0, num_constants = constants_.size(); i < num_constants; ++i) {
-        if (constants_[i]->topological_index_ == drop) continue;
+        if (constants_[i]->topological_index_ == DROP) continue;
 
         for (ssize_t j = i + 1; j < num_constants; ++j) {
-            if (constants_[j]->topological_index_ == drop) continue;
+            if (constants_[j]->topological_index_ == DROP) continue;
 
             // the topological indices of our constants should not yet be touched
             // and because they are added in order, they should always be ascending
@@ -364,7 +405,7 @@ ssize_t Graph::remove_redundant_nodes(bool ignore_listeners, double time_limit_s
             transfer(constants_[j], constants_[i]);
         }
 
-        constants_[i]->topological_index_ = seen;
+        constants_[i]->topological_index_ = SEEN;
     }
 
     // For each node, we check pairwise among all of its successors.
@@ -404,14 +445,19 @@ ssize_t Graph::remove_redundant_nodes(bool ignore_listeners, double time_limit_s
 
             // Ok, we've checked i against everything, so if we didn't drop it
             // we can mark it as seen
-            if (successors[i]->topological_index_ >= 0) successors[i]->topological_index_ = seen;
+            if (successors[i]->topological_index_ >= 0) successors[i]->topological_index_ = SEEN;
         }
     }
 
     return cleanup();
 }
 
+
 ssize_t Graph::remove_unused_nodes(bool ignore_listeners) {
+    return remove_unused_nodes({}, ignore_listeners);
+}
+
+ssize_t Graph::remove_unused_nodes(std::span<Node*> keep, bool ignore_listeners) {
     if (topologically_sorted_) throw std::logic_error("cannot remove nodes from a locked model");
 
     // Establish a topological ordering. We'll use the fact that the node list
@@ -419,8 +465,8 @@ ssize_t Graph::remove_unused_nodes(bool ignore_listeners) {
     topological_sort();
 
     // Specifically we'll be marking the nodes with either
-    constexpr ssize_t keep = -2;  // always keep
-    constexpr ssize_t drop = -3;  // to be dropped
+    constexpr ssize_t KEEP = -2;  // always keep
+    constexpr ssize_t DROP = -3;  // to be dropped
 
     // We'll use this later to calculate how many nodes we removed
     const ssize_t num_nodes = this->num_nodes();
@@ -430,30 +476,33 @@ ssize_t Graph::remove_unused_nodes(bool ignore_listeners) {
     // nodes.
 
     // First up our roots - specifically the decisions are always kept.
-    for (auto* ptr : decisions_) ptr->topological_index_ = keep;
+    for (auto* ptr : decisions_) ptr->topological_index_ = KEEP;
 
     // Constants and Inputs are allowed to be removed
 
     // Next up our important leaves.
-    for (auto* ptr : constraints_) ptr->topological_index_ = keep;
-    if (objective_ptr_) objective_ptr_->topological_index_ = keep;
+    for (auto* ptr : constraints_) ptr->topological_index_ = KEEP;
+    if (objective_ptr_) objective_ptr_->topological_index_ = KEEP;
 
     // Some nodes are just not allowed to be removed for other reasons
     for (auto& uptr : nodes_) {
-        if (not uptr->removable_()) uptr->topological_index_ = keep;
+        if (not uptr->removable_()) uptr->topological_index_ = KEEP;
     }
+
+    // And of course, any node that the user has explicitly told us we must keep
+    for (auto* ptr : keep) ptr->topological_index_ = KEEP;
 
     // Also, any nodes that have a listener, that is a node is holding a Node::expired_ptr()
     if (not ignore_listeners) {
         for (auto& uptr : nodes_) {
-            if (uptr->num_listeners() > 0) uptr->topological_index_ = keep;
+            if (uptr->num_listeners() > 0) uptr->topological_index_ = KEEP;
         }
     }
 
     // Having established what we're keeping, time to mark stuff for removal!
 
     for (auto& uptr : nodes_ | std::views::reverse) {
-        if (uptr->topological_index_ == keep) continue;  // we marked these to keep
+        if (uptr->topological_index_ == KEEP) continue;  // we marked these to keep
         if (uptr->successors().size() > 0) continue;  // this node is used by other nodes
 
         // We have a node with no successors and that we haven't marked it as important.
@@ -466,17 +515,17 @@ ssize_t Graph::remove_unused_nodes(bool ignore_listeners) {
             assert(num_removed > 0);
         }
 
-        uptr->topological_index_ = drop;
+        uptr->topological_index_ = DROP;
     }
 
     // Now let's start actually dropping stuff
-    auto dropped = [&drop](const auto& ptr) { return ptr->topological_index_ == drop; };
+    auto dropped = [&DROP](const auto& ptr) { return ptr->topological_index_ == DROP; };
 
     assert(std::ranges::none_of(decisions_, dropped));
     std::erase_if(inputs_, dropped);
     std::erase_if(constants_, dropped);
 
-    assert(objective_ptr_ == nullptr or objective_ptr_->topological_index_ != drop);
+    assert(objective_ptr_ == nullptr or objective_ptr_->topological_index_ != DROP);
     assert(std::ranges::none_of(constraints_, dropped));
 
     // Traverse the nodes_ one last time, this is what actualy deallocates the nodes.
@@ -543,6 +592,25 @@ void Graph::set_objective(ArrayNode* objective_ptr) {
         throw std::invalid_argument("objective must have a single output");
     }
     this->objective_ptr_ = objective_ptr;
+}
+
+void Graph::swap_decisions(DecisionNode* x_ptr, DecisionNode* y_ptr) {
+    assert(not topologically_sorted_ and "cannot swap decisions in a locked model");
+
+    if (x_ptr == y_ptr) return;  // nothing to do
+
+    ssize_t& x_idx = x_ptr->topological_index_; 
+    ssize_t& y_idx = y_ptr->topological_index_;
+
+    assert(0 <= x_idx and static_cast<size_t>(x_idx) < decisions_.size());
+    assert(0 <= y_idx and static_cast<size_t>(y_idx) < decisions_.size());
+
+    assert(decisions_[x_idx] == x_ptr);
+    assert(decisions_[y_idx] == y_ptr);
+
+    using std::swap;  // ADL shouldn't matter here, but a good habit nonetheless
+    swap(decisions_[x_idx], decisions_[y_idx]);
+    swap(x_idx, y_idx);
 }
 
 void Graph::topological_sort() {

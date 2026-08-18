@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: striprtf
-Version: 0.0.32
+Version: 0.0.33
 Summary: A simple library to convert rtf to text
 Project-URL: Homepage, https://github.com/joshy/striprtf
 Project-URL: Repository, https://github.com/joshy/striprtf.git

@@ -61,7 +61,7 @@ class LibraryChecker(BaseSingleton):
             pass
 
         installed_pkgs = importlib.metadata.distributions()
-        pkg_list = sorted([f"{str(i.name).lower()}=={i.version}" for i in installed_pkgs])
+        pkg_list = sorted(["%s==%s" % (i.name.lower(), i.version) for i in installed_pkgs])
         for name in lib_names:
             for pkg in pkg_list:
                 if name in str(pkg):

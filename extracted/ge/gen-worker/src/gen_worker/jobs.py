@@ -84,6 +84,11 @@ class JobOutcome:
     data: whoever drives this dispatch must not reuse the process for a second
     job. It is a field rather than a comment so the caller either honours it or
     visibly ignores it.
+
+    ``exception`` carries the failure OBJECT, not just its name, because the
+    infra-vs-body split the scheduler makes is a TYPE question and the worker
+    already owns one classifier for it (``executor._map_exception``). Rebuilding
+    that decision from ``error_type`` prose would be a second home for it.
     """
 
     job_name: str
@@ -93,6 +98,7 @@ class JobOutcome:
     failure: str = ""
     error_type: str = ""
     recycle_child: bool = True
+    exception: Optional[BaseException] = None
 
 
 class ProgressWatch:
@@ -210,12 +216,13 @@ def _outcome(spec: JobSpec, dispatch: JobDispatch, result: bytes) -> JobOutcome:
 def _failure(spec: JobSpec, dispatch: JobDispatch, exc: BaseException) -> JobOutcome:
     return JobOutcome(
         job_name=spec.name, job_id=dispatch.job_id, status="failed",
-        failure=str(exc), error_type=type(exc).__name__,
+        failure=str(exc), error_type=type(exc).__name__, exception=exc,
     )
 
 
 def _stamp_declaration(spec: JobSpec, ctx: Any) -> None:
-    """Project the job's OWN ``publishes`` declaration onto its context.
+    """Project the job's OWN ``publishes``/``emits_media`` declarations onto
+    its context.
 
     The ``JobSpec`` is the one home for the declaration — it comes from the
     decorator and rides the manifest row the hub mints the write grant off.
@@ -229,7 +236,8 @@ def _stamp_declaration(spec: JobSpec, ctx: Any) -> None:
     The opposite direction is a REFUSAL, not a silent downgrade: a caller
     claiming publish authority for a job whose release never declared it is
     asserting an authority the hub did not mint a grant for, and quietly
-    clearing the flag would hide that.
+    clearing the flag would hide that. ``emits_media`` is the same rule on the
+    ``upload_media`` grant.
     """
     if bool(getattr(ctx, "_publishes", False)) and not spec.publishes:
         raise ValueError(
@@ -239,6 +247,14 @@ def _stamp_declaration(spec: JobSpec, ctx: Any) -> None:
             "the claim could only fail later and further from its cause."
         )
     ctx._publishes = bool(spec.publishes)
+    if getattr(ctx, "_emits_media", None) and not spec.emits_media:
+        raise ValueError(
+            f"job {spec.name!r}: the context was built with emits_media=True "
+            "but the job declares emits_media=False. The declaration is the "
+            "release's, not the caller's — the hub minted no upload_media "
+            "grant for this job."
+        )
+    ctx._emits_media = bool(spec.emits_media)
 
 
 def execute_job(

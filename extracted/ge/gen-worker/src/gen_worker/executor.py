@@ -36,6 +36,7 @@ from . import boot_phases as boot_mod
 from . import cell_adopt
 from . import dispatch
 from . import handler_proof
+from . import procsplit
 from .procsplit import broker as procsplit_broker
 from . import cpu_budget
 from . import measured_posture as posture_mod
@@ -44,6 +45,7 @@ from . import settings_authority
 from . import process_role
 from . import progress as progress_mod
 from . import serve_posture
+from . import serving_facts
 from . import serving_mode as serving_mode_mod
 from . import warmup
 from . import worker_credential
@@ -128,9 +130,11 @@ from .topology import (
 from .pb import worker_scheduler_pb2 as pb
 from .redact import sanitize as _sanitize
 from .models.store import ModelStore, _ResidencyIdentity
-from .registry import EndpointSpec
+from . import jobs as jobs_mod
+from .jobs import DEFAULT_PHASE_BUDGET_S, JobDispatch, JobOutcome, execute_job
+from .registry import EndpointSpec, JobSpec
 from .runtime_config import ConfigStore, extract_job_config
-from .stage_timing import stage_ms_for_metrics
+from .stage_timing import ms_from_seconds, stage_ms_for_metrics
 
 #: pgw#848 item 1: cadence for the publish-durability wait. A POLL interval,
 #: not a deadline — nothing here decides when a publish has taken too long;
@@ -149,6 +153,10 @@ import inspect as _inspect
 import struct as _struct
 from .models.refs import parse_model_ref
 from . import compile_cache
+# pgw#1331: the marker READERS live beside the marker's definition in
+# `compile_facts`, which imports nothing above `hostfacts`. Read from there,
+# not through `compile_cache`'s re-export, so the fact and its home agree.
+from . import compile_facts
 from .models.loading import (
     is_modular_pipeline_class,
     plan_streamed_hydration,
@@ -158,6 +166,7 @@ from .preload import Preloader
 from .api.binding import rebind_pick
 from . import hostfacts
 from .models.hub_policy import TensorhubWorkerCapabilities
+from .models import machine_fit
 from .models.serve_fit import (RUN_FP8_STORAGE,
                                    RUN_OFFLOAD, plan_serve)
 from . import postmortem
@@ -181,14 +190,33 @@ from . import fleet_cells
 from . import aot_serve, numerics_ladder, shape_growth
 from . import fleet_cells as fleet_cells_mod
 from . import hot_swap
-from . import mint_supervisor
+from .serve import boot_miss as serve_boot_miss
+from .serve import mint_seam
+from .serve import refusal as serve_refusal
+from .serve import role as serve_role
+
+# pgw#1328: the mint lane is reached through `serve.mint_seam` and named
+# nowhere else in this module. Importing `mint_adapter` is what REGISTERS
+# §4.28's eager-capable implementation with the seam, and it happens HERE —
+# in a module that calls the seam — rather than in a process entry, because
+# a registration that depends on some other module having been imported
+# first is an ordering hazard, not a dependency. The branch reads the ONE
+# role answer and adds no second one: an adopt-only process declares its
+# role and installs `serve.guard` before this module is imported, so the
+# import below is what would otherwise kill it on this line.
+if not serve_role.adopt_only():
+    from . import mint_adapter  # noqa: F401  (registers the mint side)
 from .hostfacts import cuda_ready
 
-# pgw#1294: the three producer contexts MERGED into JobContext, so every
-# producer kind resolves to the same class under three names until th#2052
-# deletes the names. The map stays explicit rather than collapsing to one
-# entry — the KINDS are still distinct declarations and one of them (eval)
-# deliberately publishes nothing.
+# pgw#1294 MERGED the three producer contexts into JobContext; pgw#1306 deleted
+# the three names, so this map is now the whole truth: producer -> JobContext,
+# inference -> RequestContext, and nothing in between. It stays a map rather
+# than `kind != "inference"` because the KINDS are still distinct wire
+# declarations and an unknown one must not be promoted to a producer by a
+# negation. What it does NOT do any more is decide write authority: a body may
+# write because its @job/@endpoint declaration says `publishes=True`, and the
+# hub mints the grant off that declaration. `eval` is the illustration — same
+# class, same surface, and the hub refuses its repo writes.
 _CONTEXT_BY_KIND: Dict[str, type] = {
     "inference": RequestContext,
     "conversion": JobContext,
@@ -408,6 +436,13 @@ _ALL_COMPONENTS = _AllComponents()
 _resolve_slots_kwargs = warmup.resolved_slots_kwargs
 _spec_root_slot = warmup.spec_root_slot
 
+#: A setup slot that reached ``_setup_locked_inner`` with no order at all —
+#: a hub-less local boot, or a code ``default_checkpoint``. Nothing asked a
+#: catalog, and the sentence says exactly that.
+_UNBOUND_SLOT_FACTS = serving_facts.FactsUnavailable(
+    owed_by="nothing resolved this slot against a catalog (no dispatch order "
+            "and no desired-instance binding reached this setup)")
+
 
 def _hub_binding_for_wire_ref(ref: str) -> ModelRef:
     """A tensorhub-source binding for a hub-named wire ref (pgw#532).
@@ -478,6 +513,18 @@ def _map_exception(exc: BaseException) -> Tuple["pb.JobStatus", str]:
         return pb.JOB_STATUS_INVALID, _sanitize(str(exc) or "invalid input")
     if isinstance(exc, RetryableError):
         return pb.JOB_STATUS_RETRYABLE, _sanitize(str(exc) or "retryable error")
+    if isinstance(exc, serve_refusal.AdoptOnlyRefused):
+        # pgw#1328: an ADOPT-ONLY pod's miss, and its ROUTE/REFUSE disposition
+        # is the whole point of the value — it was decided once, in
+        # `serve.refusal.DISPOSITIONS`, by the site that knew whether another
+        # pod could serve this. RETRYABLE is the hub's cue to place the work
+        # elsewhere; FATAL says re-placing it buys a second identical failure.
+        # The phase token LEADS the detail so the refusal groups by a stable
+        # word rather than by prose, the way HubPublishError's code does.
+        refused = exc.refusal
+        return (
+            pb.JOB_STATUS_RETRYABLE if refused.routable else pb.JOB_STATUS_FATAL,
+            _sanitize(f"{refused.phase}: {refused.wire_detail()}")[:512])
     if isinstance(exc, ArtifactTransferError) and getattr(exc, "retryable", False):
         return pb.JOB_STATUS_RETRYABLE, _sanitize(str(exc) or "artifact transfer failed")
     if isinstance(exc, HubPublishError):
@@ -1315,6 +1362,10 @@ class _Job:
     request_id: str
     attempt: int
     spec: Optional[EndpointSpec]
+    # pgw#1324: exactly one of `spec` / `job_spec` is set. A dispatch is one
+    # shape or the other, and the head that admitted it already knows which —
+    # so nothing downstream has to re-derive it from a name.
+    job_spec: Optional[JobSpec] = None
     intent_id: str = ""
     ctx: Optional[RequestContext] = None
     task: Optional[asyncio.Task] = None
@@ -1633,8 +1684,35 @@ class Executor:
         store: Optional[ModelStore] = None,
         gpu_slots: Optional[int] = None,
         topology: Optional[ExecutionTopology] = None,
+        jobs: Optional[List[JobSpec]] = None,
     ) -> None:
         self.specs: Dict[str, EndpointSpec] = {s.name: s for s in specs}
+        # pgw#1324: the OTHER publishable shape this release declares. Two
+        # tables and ONE dispatch head; th#2052's `RunJob.intent_kind` now says
+        # which table a dispatch means (pgw#1336). Named `job_specs` because
+        # `self.jobs` already means the IN-FLIGHT dispatch map on this class.
+        self.job_specs: Dict[str, JobSpec] = {j.name: j for j in (jobs or [])}
+        collisions = sorted(set(self.specs) & set(self.job_specs))
+        if collisions:
+            # pgw#1336 RULING — KEPT, on a NEW justification, and the old one
+            # is retired rather than left standing. It used to say a dispatch
+            # "names a function and nothing else", so a doubled name was
+            # unresolvable. That is now FALSE: `intent_kind` resolves it, and
+            # the head above reads exactly one table per kind.
+            #
+            # It stays because DISPATCH is not the only resolver. The published
+            # manifest carries `functions` and `jobs` side by side, the catalog
+            # and every submit surface address both BY NAME, and
+            # `gen-worker job <name>` has no intent kind to consult. A doubled
+            # name is ambiguous everywhere except the one place th#2052 fixed.
+            # This is publish hygiene now, not a dispatch-resolution necessity
+            # — cheap, boot-time, and the release can still be fixed here.
+            raise ValueError(
+                f"{collisions} declared as BOTH an @endpoint and a @job in one "
+                f"release: a release publishes ONE name space and every submit "
+                f"surface but the dispatch frame resolves by name alone, so one "
+                f"name cannot mean two things. Rename one."
+            )
         self._send = send
         self._settings = settings
         self.store = store or ModelStore(send)
@@ -1861,15 +1939,36 @@ class Executor:
             detail=f"prepare function {spec.name}",
         )
 
-    def _job_intent(self, request_id: str, attempt: int, function_name: str) -> str:
+    def _dispatch_intent(self, run: "pb.RunJob") -> str:
+        """The lifecycle carrier this dispatch reports against.
+
+        pgw#1336 / th#2052 — **the RunJob compat minter is gone.** A JOB
+        dispatch carries the hub's own ``intent_id``/``goal_id`` and is
+        adopted; there is no worker-local id in that path any more, and a job
+        frame that arrives without one is refused rather than papered over
+        (:meth:`IntentRegistry.adopt_dispatch_intent` raises).
+
+        A SERVED REQUEST still mints a worker-local ``compat-job-*`` carrier,
+        and that is not a leftover: this protocol has no intent kind for a
+        served request and deliberately never had one — a request is what an
+        intent gets BLOCKED on (``IntentState.blocker_request``), not an intent
+        itself. th#2052 gave the JOB half a carrier and left this half exactly
+        as it was, so this half stays.
+        """
         registry = self.intent_registry
         if registry is None:
             return ""
+        if int(run.intent_kind) == pb.DESIRED_INTENT_KIND_RUN_JOB:
+            return registry.adopt_dispatch_intent(
+                str(run.intent_id or ""),
+                str(run.goal_id or ""),
+                detail=f"run job {run.request_id} attempt {int(run.attempt)}",
+            )
         return registry.ensure_local_intent(
             "job",
-            f"{request_id}\0{attempt}",
-            function_name=function_name,
-            detail=f"run request {request_id} attempt {attempt}",
+            f"{run.request_id}\0{int(run.attempt)}",
+            function_name=str(run.function_name or ""),
+            detail=f"run request {run.request_id} attempt {int(run.attempt)}",
         )
 
     def _intent_transition(
@@ -2221,6 +2320,12 @@ class Executor:
             torch_version=facts.torch_version,
             installed_libs=list(libs),
         )
+        # pgw#1315: THE machine, measured once for every function this gate
+        # plans. `vram_gb` is the card's TOTAL — a requirement compared
+        # against free VRAM would pass or fail depending on who else was
+        # loading, and moments are the rung walk's input, not a floor's.
+        machine = machine_fit.measure_machine_facts(
+            caps, vram_gb=total_vram_gb)
         # pgw#676: per-pod native-crash streaks (SIGSEGV & friends recorded
         # by the supervisor/boot-record post-mortem). A function that keeps
         # killing the PROCESS on this card is refused here — loudly, typed —
@@ -2311,8 +2416,17 @@ class Executor:
             # Serve-time plan. th#1867: this no longer asks a size question —
             # `plan_serve` returns non-serveable ONLY for the two gates that
             # name our own code.
-            primary = next(iter(spec.models.values()), None)
-            plan = plan_serve(r, caps, free_vram_gb, binding=primary)
+            # pgw#1315 deliverable 4: the lanes THIS release binds for the
+            # function are its primary model slot's accepted contract handles,
+            # and the machine's facts pick among them. The slot's set order
+            # carries no preference (§1.33 point 2), so `select_lane`'s
+            # tie-break is determinism and not a ranking — the author's ladder
+            # is the one authority on preference and it lives hub-side.
+            primary_slot = next(iter(spec.models), "")
+            primary = spec.models.get(primary_slot)
+            lanes = machine_fit.lane_candidates(spec.slots.get(primary_slot))
+            plan = plan_serve(r, caps, free_vram_gb, binding=primary,
+                              lanes=lanes, facts=machine, scope=name)
             self.serve_plans[name] = plan
             self._gate_serve_plans[name] = plan
             if not plan.serveable:
@@ -2498,7 +2612,14 @@ class Executor:
                 # The rung ASKED FOR, when a descent moved off it. Absent on a
                 # proactive selection: nothing was asked, the fit decided.
                 wanted=str(placed.get("requested_mode") or ""),
+                # pgw#1315: a PROACTIVE cpu placement is `no_cuda` — there was
+                # no card to be short of. The separate `if mode == "cpu"` block
+                # that used to say so appended SECOND, and appends are
+                # idempotent per (name, component), so it was dropped in favour
+                # of a `vram_shortfall` that never happened. Silence is the
+                # pattern: the dead arm read as coverage.
                 reason=(posture_mod.REASON_CUDA_OOM if reactive
+                        else posture_mod.REASON_NO_CUDA if mode == "cpu"
                         else posture_mod.REASON_VRAM_SHORTFALL))
         if mode == "vae_only":
             # Resident, but NOT the same run: slicing changes the traced decode
@@ -2507,10 +2628,6 @@ class Executor:
             ledger.technique(
                 posture_mod.TECHNIQUE_VAE_SLICING, component="vae",
                 reason=posture_mod.REASON_VRAM_SHORTFALL)
-        if mode == "cpu":
-            ledger.technique(
-                posture_mod.TECHNIQUE_CPU, component=str(ref or ""),
-                reason=posture_mod.REASON_NO_CUDA)
         needed_gb = float(placed.get("fit_needed_gb") or 0.0)
         if needed_gb > 0.0:
             ledger.shortfall(posture_mod.ResourceShortfall.from_gb(
@@ -2605,8 +2722,8 @@ class Executor:
         # arm names no artifact by construction (pgw#1010), so that gate
         # returns early for exactly the lane this defect lives on — and the
         # graph-broken pod would keep reporting an empty `fallback_reason`.
-        broke = compile_cache.graph_break_reason(target.pipeline)
-        out_of_range = compile_cache.declared_range_refusal(target.pipeline)
+        broke = compile_facts.graph_break_reason(target.pipeline)
+        out_of_range = compile_facts.declared_range_refusal(target.pipeline)
         if broke:
             self._note_eager_posture(
                 rec, cell_adopt.EagerPhase.GRAPH_BREAK.value,
@@ -2902,9 +3019,9 @@ class Executor:
         falls through to the generic `uncompiled`. This reads the reason
         straight off the pipeline's own failure signal instead.
         """
-        broke = compile_cache.graph_break_reason(pipeline)
-        out_of_range = compile_cache.declared_range_refusal(pipeline)
-        reason = compile_cache.degrade_reason(pipeline)
+        broke = compile_facts.graph_break_reason(pipeline)
+        out_of_range = compile_facts.declared_range_refusal(pipeline)
+        reason = compile_facts.degrade_reason(pipeline)
         if broke:
             self._note_eager_posture(
                 rec, cell_adopt.EagerPhase.GRAPH_BREAK.value,
@@ -2949,7 +3066,7 @@ class Executor:
             f"{type(p).__name__} armed={compile_cache.is_compile_armed(p)} "
             f"targets_resolve="
             f"{compile_cache.has_compile_target(p, spec.compile_cell())} "
-            f"degrade={compile_cache.degrade_reason(p) or '-'}"
+            f"degrade={compile_facts.degrade_reason(p) or '-'}"
             for p in orphans
         )
         logger.error(
@@ -3859,14 +3976,24 @@ class Executor:
         re-runs for the pick and setup-held state (``self.pipeline``) stays
         coherent per checkpoint while the LRU machinery evicts whole
         instances. Function-shaped (``cls=None``) specs rebind too — their
-        slots inject via ``_handler_kwargs``, which reads ``spec.models``."""
+        slots inject via ``_handler_kwargs``, which reads ``spec.models``.
+
+        pgw#1333: an order's SERVING FACTS are folded in by the same loop that
+        folds in its ref, into ``spec.slot_facts``. They used to be dropped
+        here, and the drop was invisible because the only consumer that
+        noticed was a CHILD process, which re-derived them from a hardcoded
+        ``None`` and got ``""``."""
         if not spec.slots:
             return spec
         run_refs = {
             slot: so.ref for slot, so in slots.items() if slot and so.ref
         }
+        facts = dict(spec.slot_facts)
         effective = dict(spec.models)
         for slot, decl in spec.slots.items():
+            order = slots.get(slot)
+            if order is not None:
+                facts[slot] = order.facts
             if decl.optional and not run_refs.get(slot, ""):
                 # Unbound optional slot: the deploy chose not to serve this
                 # lane, and the deploy decides (th#980/ie#524) — a code
@@ -3878,9 +4005,9 @@ class Executor:
                 effective.pop(slot, None)
                 continue
             effective[slot] = self._bound_slot(spec, slot, run_refs.get(slot, ""))
-        if effective == spec.models:
+        if effective == spec.models and facts == spec.slot_facts:
             return spec
-        return dc_replace(spec, models=effective)
+        return dc_replace(spec, models=effective, slot_facts=facts)
 
     def _effective_config(
         self, spec: EndpointSpec,
@@ -3974,7 +4101,7 @@ class Executor:
         # identically to a never-installed one. Live, because a degrade can
         # land after boot on a target whose guard callback was never bound.
         for target in rec.compile_targets.values():
-            if compile_cache.degrade_reason(target.pipeline):
+            if compile_facts.degrade_reason(target.pipeline):
                 return cell_adopt.EagerPhase.COMPILED_DEGRADED.value
         if not any(
             s.compile is not None and s.compile.family for s in rec.specs
@@ -4256,7 +4383,17 @@ class Executor:
                 f"{sorted(spec.models)!r}); got {sorted(bindings)!r}"
             )
 
-        orders = {m.slot: dispatch.SlotOrder(ref=m.ref) for m in remapped}
+        # pgw#1333: the DesiredInstance bindings carry the same
+        # `ModelBinding` fields the dispatch path stamps, and this path read
+        # exactly one of them. It reads all of them now; `owed_by` names the
+        # hub because a wholly zero-valued triple from THIS sender is (today)
+        # the boot gap, and proto3 scalars have no presence to tell it from a
+        # genuinely unclassified row.
+        orders = {
+            m.slot: dispatch.order_from_binding(
+                m, ref=m.ref, owed_by=dispatch.BOOT_SENDER_OWES)
+            for m in remapped
+        }
         effective = self._dispatched_spec(spec, orders)
         mismatched = {
             slot: wire_ref(effective.models[slot])
@@ -4574,7 +4711,24 @@ class Executor:
             # trying to shrink and which nothing measured. Distinct from
             # `first_request_servable`, which additionally requires the hub to
             # have been told (a worker the hub cannot reach is not servable).
-            boot_mod.mark_once(boot_mod.PHASE_EAGER_READY, function=spec.name)
+            if boot_mod.mark_once(
+                    boot_mod.PHASE_EAGER_READY, function=spec.name):
+                # pgw#1355: THE cold-boot report, emitted at the one instant
+                # that is actually "ready". Deliberately NOT at
+                # `first_request_servable`, which lifecycle marks when a
+                # StateDelta advertises a function — on this eager-first boot
+                # that happens before the model is loaded at all, and pgw#1353
+                # measured the consequence: 871 s of silence between the two,
+                # filled entirely by a key-set derive that no channel reported.
+                # Ready means "could have answered a request", so the wall this
+                # ships is the number Paul asked for.
+                from . import boot_stages
+
+                # No `family=` here on purpose: the executor knows the endpoint
+                # function, not the compiled-graph family. The family reaches
+                # the roll-up from the KEYSET stage, which is the thing that
+                # actually learned it.
+                boot_stages.emit()
             bg = rec.background_mint
             if bg is not None and bg.task is None:
                 # pgw#671 eager-first boot: READY is advertised now (eager
@@ -4926,7 +5080,8 @@ class Executor:
                 )
                 for obj in objects
             }
-            handler_kwargs = await self._handler_kwargs(wj.spec, snapshots or {})
+            handler_kwargs = await self._handler_kwargs(
+                wj.spec, snapshots or {}, warm=True)
             t0 = time.monotonic()
             with tempfile.TemporaryDirectory(prefix="gw-warmup-") as tmp:
                 try:
@@ -5358,7 +5513,12 @@ class Executor:
                 ref, snap, binding=binding)
             slot_identities[slot] = materialized.identity
             resolved_slots[slot] = MintSlot(
-                ref=binding, path=str(materialized.path))
+                ref=binding, path=str(materialized.path),
+                # pgw#1333: the third half of ONE resolution. A slot whose
+                # facts the parent never received says so by name here rather
+                # than defaulting to a blank objective the child would read
+                # as "the catalog classified this checkpoint as nothing".
+                facts=spec.slot_facts.get(slot, _UNBOUND_SLOT_FACTS))
         paths: Dict[str, str] = {
             slot: res.path for slot, res in resolved_slots.items()}
         topology_eager = self._eager_only_reason()
@@ -5451,6 +5611,18 @@ class Executor:
                             o.adoption for o in resolved[1:]
                             if o.adoption is not None)))
                 compile_selection = arm.selection
+            elif serve_role.adopt_only():
+                # pgw#1328: §4.28's answer to a miss — serve eager, mint in
+                # the background — is not available to this role, so the miss
+                # becomes the pod's ANSWER. `serve.boot_miss` maps every
+                # `boot_adopt` reason to refuse-or-route (total, no default),
+                # `report` puts it on the wire, and `_map_exception` turns the
+                # disposition into the job status the hub places on.
+                raise serve_refusal.report(
+                    serve_boot_miss.refusal_for(adopt)
+                    or serve_refusal.AdoptOnlyRefusal(
+                        kind=serve_refusal.MissKind.ARTIFACT_MISS,
+                        function=str(spec.name or ""))).error()
         elif arm is None and spec.compile is not None:
             # pgw#1116: a compiled family that boots WITHOUT asking is a fact
             # somebody has to be able to read. This is the only branch where
@@ -5467,6 +5639,16 @@ class Executor:
                 eager_only,
                 family=str(getattr(spec.compile, "family", "") or ""),
                 function=str(spec.name or ""))
+            if serve_role.adopt_only():
+                # The same posture, read by a role that has no eager tier to
+                # fall back into: a pod that may not arm cannot serve a
+                # compiled family at all, and another pod without that posture
+                # can — which is why ARM_FORBIDDEN routes rather than refuses.
+                raise serve_refusal.report(serve_refusal.AdoptOnlyRefusal(
+                    kind=serve_refusal.MissKind.ARM_FORBIDDEN,
+                    function=str(spec.name or ""),
+                    family=str(getattr(spec.compile, "family", "") or ""),
+                    detail=eager_only)).error()
         # Loads serialize: concurrent setups would cross-contaminate each
         # other's allocator deltas and place_pipeline's free-VRAM reads.
         async with self._intent_lock(
@@ -7768,6 +7950,16 @@ class Executor:
           lane. A delegated pending's eager tier is the untouched pipeline
           itself; the router question belongs only to an in-process capture,
           whose eager-while-compiling routing is what a router performs."""
+        if serve_role.adopt_only():
+            # pgw#1328: this role never defers a mint because it never has one
+            # to defer. A pending self-mint here means the arm path opened an
+            # obligation the seam should have refused (`NoMint.may_delegate`),
+            # so the premise of the role is already broken — say so where it
+            # happened rather than serving on and discovering it at publish.
+            if inj.pending_self_mints:
+                raise mint_seam.mint_forbidden(
+                    "an eager-first background mint", function=spec.name)
+            return False
         if not inj.pending_self_mints:
             return False
         if spec.cls is not None and callable(getattr(spec.cls, "warmup", None)):
@@ -8264,8 +8456,9 @@ class Executor:
         for pids in holders.values():
             pending = bg.pendings[pids[0]]
             pipe = bg.pipes[pids[0]]
-            result = await mint_supervisor.supervise(
-                mint_supervisor.MintTask(
+            mint = mint_seam.supervision()
+            result = await mint.supervise(
+                mint.make_task(
                     pending=pending,
                     pipe=pipe,
                     function=spec.name,
@@ -8286,7 +8479,7 @@ class Executor:
                     handler_proof=handler_proof.provenance(spec.name),
                 ),
                 act=act, abandon=bg.abandon)
-            if result.status == mint_supervisor.ABANDONED:
+            if mint.abandoned(result.status):
                 raise _MintAbandoned()
             minted = result.minted
             if not result.ok or minted is None:
@@ -8458,6 +8651,24 @@ class Executor:
         work_root = Path(
             self.store._cache_dir or Path.home() / ".cache" / "gen-worker"
         ) / "boot-key" / (spec.name or "endpoint")
+        # pgw#1327: the key set is DATA first. `derive` is the mint-lane
+        # fallback and it is INJECTED, never imported by `boot_adopt` — the
+        # import is local to this call so the serve-role extraction (pgw#1328)
+        # cuts HERE, at one line, rather than inside the adopt path. An
+        # adopt-only pod injects nothing and its key-set miss is a typed
+        # refusal.
+        #
+        # pgw#1328 is where that becomes real, and it is ONE branch: the
+        # adopt-only role imports no tracer, so `serve.guard`'s blocker is
+        # never even consulted here — the promise is kept by the code and only
+        # ENFORCED by the blocker. Deliberately NOT an env knob, which would be
+        # a second answer to "may this pod compile" beside the role the worker
+        # already declares (`serve.role`, refining `process_role`, pgw#1309).
+        deriver: Optional[boot_adopt.KeyDeriver] = None
+        if not serve_role.adopt_only():
+            from . import boot_key
+
+            deriver = boot_key.derive
         return boot_adopt.attempt(
             function=spec.name,
             modules=_mint_modules(spec),
@@ -8465,6 +8676,7 @@ class Executor:
             slots=slots,
             declared_hint=declared_hint,
             work_root=work_root,
+            derive=deriver,
             # The memo lives beside the cell cache and OUTLIVES one boot on a
             # pod with a volume — which is the whole point (§4.28's
             # compile-once-run-forever promise for cozy-local reads the same
@@ -8748,25 +8960,40 @@ class Executor:
         """The LEGACY wire head. Dies whole with ``RunJob`` at th#1457's cut:
         it and the ``_legacy_order`` projection it schedules are the only
         frames on the dispatch path that read ``pb.RunJob``."""
-        job = await self._admit_dispatch(
-            run.request_id, int(run.attempt), run.function_name)
+        job = await self._admit_dispatch(run)
         if job is None:
             return
+        # pgw#1324: the fork. A JOB skips the whole serving apparatus — no
+        # instance, no setup, no lanes, no compile cell, because a `@job`
+        # declares none of them — and goes straight to the one run-once
+        # harness. Both arms keep the pgw#738 never-silent supervision.
+        runner: Callable[[], Awaitable[None]] = (
+            functools.partial(self._run_job_dispatch, job, run)
+            if job.job_spec is not None
+            else functools.partial(
+                self._run_job, job, functools.partial(self._legacy_order, job, run))
+        )
         job.task = asyncio.create_task(
-            self._supervise_job(
-                job, functools.partial(self._legacy_order, job, run)),
-            name=f"job-{run.request_id}")
+            self._supervise_job(job, runner), name=f"job-{run.request_id}")
         # pgw#674: the serving set may have changed — re-derive what to
         # stage next while this job computes.
         self.preloader.poke()
 
-    async def _admit_dispatch(
-        self, request_id: str, attempt: int, function_name: str,
-    ) -> Optional[_Job]:
-        """Shared admission preamble for both wire heads: retransmit re-ack,
-        stale-attempt supersede, serve-goal/drain/function gates. Returns the
-        admitted job with ``JobAccepted`` sent, or ``None`` when this
-        dispatch was answered (re-acked or refused) here."""
+    async def _admit_dispatch(self, run: "pb.RunJob") -> Optional[_Job]:
+        """The admission preamble: retransmit re-ack, stale-attempt supersede,
+        serve-goal/drain/routing gates. Returns the admitted job with
+        ``JobAccepted`` sent, or ``None`` when this dispatch was answered
+        (re-acked or refused) here.
+
+        pgw#1336 / th#2052 — **this takes the FRAME, not three fields off it.**
+        The routing decision now reads ``intent_kind``, which is the whole
+        point of the field: a dispatch SAYS whether it is a job or a served
+        request instead of leaving the worker to infer it from which inventory
+        the name happens to be in.
+        """
+        request_id = str(run.request_id)
+        attempt = int(run.attempt)
+        function_name = str(run.function_name)
         key = (request_id, attempt)
         existing = self.jobs.get(key)
         if existing is not None and not existing.superseded:
@@ -8791,7 +9018,7 @@ class Executor:
                     job.exec_task.cancel()
                 self._arm_cancel_unwind_watch(job)
 
-        intent_id = self._job_intent(request_id, attempt, function_name)
+        intent_id = self._dispatch_intent(run)
         if not worker_goals.current().serve_admitted():
             # pgw#930 (§1.17): this pod holds no SERVE goal. It is not a mode
             # check — a pod holding BOTH a serve and a mint goal passes here,
@@ -8837,19 +9064,51 @@ class Executor:
                 safe_message="worker draining",
             )
             return None
-        spec = self.specs.get(function_name)
-        if spec is None:
+        # pgw#1336 / th#2052: ONE head, TWO tables, and THE FRAME PICKS. When
+        # pgw#1324 wrote this the wire carried no intent kind, so the name was
+        # the whole routing key and the head had to try both inventories in
+        # turn. `intent_kind` now says which harness this dispatch is for, so
+        # each kind reads exactly ONE table and a name in the other one is a
+        # refusal that says so — a job dispatched to a release where that name
+        # is an endpoint is a hub/release disagreement, and running the
+        # endpoint instead would answer it with the wrong semantics.
+        is_job_dispatch = int(run.intent_kind) == pb.DESIRED_INTENT_KIND_RUN_JOB
+        spec = None if is_job_dispatch else self.specs.get(function_name)
+        job_spec = self.job_specs.get(function_name) if is_job_dispatch else None
+        if spec is None and job_spec is None:
+            declared = (
+                f"jobs {sorted(self.job_specs) or '[]'}"
+                if is_job_dispatch
+                else f"endpoints {sorted(self.specs) or '[]'}"
+            )
+            crossed = (
+                function_name in (self.specs if is_job_dispatch else self.job_specs)
+            )
+            detail = (
+                f"unknown {'job' if is_job_dispatch else 'function'} "
+                f"{function_name!r} — this release serves {declared}"
+            )
+            if crossed:
+                # Distinguishable on purpose: "declared, but as the other
+                # shape" is a different fault from "not declared at all", and
+                # a submitter reading the first message would rename a name
+                # that is perfectly correct.
+                detail = (
+                    f"{function_name!r} is declared in this release as "
+                    f"{'an @endpoint' if is_job_dispatch else 'a @job'}, but "
+                    f"the dispatch asked for "
+                    f"{'a @job' if is_job_dispatch else 'an @endpoint'} "
+                    f"(intent_kind={int(run.intent_kind)})"
+                )
             self._intent_transition(
                 intent_id,
                 pb.LIFECYCLE_INTENT_STATUS_FAILED,
                 pb.LIFECYCLE_INTENT_STAGE_VALIDATING,
-                detail=f"unknown function {function_name!r}",
+                detail=detail,
             )
             await self._send_result(
-                request_id,
-                attempt,
-                pb.JOB_STATUS_INVALID,
-                safe_message=f"unknown function {function_name!r}",
+                request_id, attempt, pb.JOB_STATUS_INVALID,
+                safe_message=detail[:512],
             )
             return None
         if function_name in self.unavailable:
@@ -8872,6 +9131,7 @@ class Executor:
             request_id=request_id,
             attempt=attempt,
             spec=spec,
+            job_spec=job_spec,
             intent_id=intent_id,
         )
         self.jobs[key] = job
@@ -8912,13 +9172,10 @@ class Executor:
         for b in run.models:
             if not b.slot:
                 continue
-            slots[b.slot] = dispatch.SlotOrder(
-                ref=str(b.ref or "").strip(),
-                inference_defaults=str(b.inference_defaults or ""),
-                objective=str(b.objective or ""),
-                distilled=bool(b.distilled),
-                distilled_status=str(b.distilled_status or ""),
-            )
+            # The dispatch path is the sender that STAMPS: a zero-valued
+            # triple here is the catalog's answer, not a wire gap, so no
+            # `owed_by` (pgw#1333).
+            slots[b.slot] = dispatch.order_from_binding(b)
             if b.loras:
                 adapters[b.slot] = tuple(
                     dispatch.AdapterOrder(
@@ -8963,7 +9220,7 @@ class Executor:
             org=str(run.org or ""),
             invoker_id=str(run.invoker_id or ""),
             capability_token=str(run.capability_token or ""),
-            inline_output=run.output_mode == pb.OUTPUT_MODE_INLINE,
+            inline_output=run.media_bytes == pb.MEDIA_BYTES_INLINE,
             accelerator=str(compute.accelerator) if compute is not None else "",
             gpu_index=int(compute.gpu_index) if compute is not None else 0,
             lane_report=str(run.lane or ""),
@@ -9364,7 +9621,7 @@ class Executor:
     # ---- job execution -----------------------------------------------------
 
     async def _supervise_job(
-        self, job: _Job, make_order: Callable[[], Awaitable[_JobOrder]],
+        self, job: _Job, runner: Callable[[], Awaitable[None]],
     ) -> None:
         """pgw#738 never-silent guarantee: a job task that ends WITHOUT having
         reported terminal state is reaped into one.
@@ -9375,12 +9632,14 @@ class Executor:
         escape from ``_run_job``'s own handlers lands here, as does a plain
         return that somehow skipped ``_finish``.
 
-        ``make_order`` is the wire head's projection (pgw#904): everything
-        from here down reads the neutral ``_JobOrder``, never a wire message.
+        ``runner`` is the admitted dispatch's own execution — the serving path
+        (whose head projects the wire message into a neutral ``_JobOrder``,
+        pgw#904) or, for a `@job`, the run-once harness. The never-silent
+        guarantee is the same guarantee for both shapes.
         """
         escaped: Optional[BaseException] = None
         try:
-            await self._run_job(job, make_order)
+            await runner()
         except asyncio.CancelledError:
             # Worker shutdown / explicit task cancellation. The stream drop is
             # itself a terminal signal to the hub and the loop is going away,
@@ -9426,6 +9685,292 @@ class Executor:
                     f"running: {detail}"
                 ),
             )
+
+    # ---- pgw#1324: the run-once JOB path -----------------------------------
+
+    async def _run_job_dispatch(self, job: _Job, run: pb.RunJob) -> None:
+        """Execute ONE dispatched ``@job`` and report its terminal outcome.
+
+        The whole difference from the serving path is what a job DOESN'T have:
+        no instance, no ``setup()``, no execution lanes, no compile cell, no
+        slots — a ``JobSpec`` declares none of them, so resolving any of them
+        here would be inventing a contract the decorator does not offer. What
+        it does have is the same admission, the same context surface, the same
+        progress/result envelopes and the same exception classifier, because a
+        job and a request are two harnesses over one body (th#2049 charter,
+        constraint 1) and two classifiers would eventually disagree.
+
+        Everything that decides anything lives in ``jobs.execute_job``: the
+        declaration stamp, the schema decode, the progress watch and the
+        run-once contract. This method is the seam that hands it a dispatch.
+        """
+        spec = job.job_spec
+        assert spec is not None
+        outcome: Optional[JobOutcome] = None
+        try:
+            self._intent_transition(
+                job.intent_id,
+                pb.LIFECYCLE_INTENT_STATUS_RUNNING,
+                pb.LIFECYCLE_INTENT_STAGE_VALIDATING,
+            )
+            try:
+                ctx = await self._build_job_context(job, run, spec)
+                dispatch = JobDispatch(
+                    job_name=spec.name,
+                    payload=bytes(run.input_payload),
+                    # The job UUID: th#2050 puts it in `request_id` because a
+                    # job rides the request message. One id, not two.
+                    job_id=str(run.request_id),
+                    attempt=int(run.attempt),
+                    # RECORDED, never armed here — the wall cap is hub-issued
+                    # through the provider API, and a pod-side timer would be a
+                    # second home for one guarantee (jobs.JobDispatch).
+                    deadline_s=(
+                        float(run.timeout_ms) / 1000.0
+                        if int(run.timeout_ms or 0) > 0 else None),
+                    org=str(run.org or ""),
+                    invoker_id=str(run.invoker_id or ""),
+                    capability_token=str(run.capability_token or ""),
+                    # th#2052 / pgw#1336: the OPERATOR's position-advance
+                    # budget, when the dispatch states one. The hub's liveness
+                    # sweep kills on this same number, so a stated budget
+                    # REPLACES the wheel's compiled default and the two ends
+                    # stop answering "is this job advancing?" differently. 0 =
+                    # no instruction (a hub that has not set
+                    # `jobs.progress_budget_s`), which keeps the default. The
+                    # hub remains the kill authority either way.
+                    phase_budget_s=(
+                        float(run.phase_budget_s)
+                        if int(run.phase_budget_s or 0) > 0
+                        else DEFAULT_PHASE_BUDGET_S
+                    ),
+                )
+                outcome = await self._execute_job_body(job, spec, dispatch, ctx)
+            except (asyncio.CancelledError, CanceledError):
+                await self._finish(
+                    job, pb.JOB_STATUS_CANCELED, safe_message="canceled")
+                return
+            except Exception as exc:
+                # Everything BEFORE the body: context build, input
+                # materialization, schema decode. Classified by the same
+                # `_map_exception` a request uses, so the hub's infra-vs-body
+                # retry split reads one vocabulary.
+                status, message = _map_exception(exc)
+                logger.exception("job %s failed before its body ran", spec.name)
+                await self._finish(job, status, safe_message=message)
+                return
+            await self._finish_job_outcome(job, outcome)
+        finally:
+            self._recycle_after_job(job, outcome)
+
+    async def _build_job_context(
+        self, job: _Job, run: pb.RunJob, spec: JobSpec,
+    ) -> JobContext:
+        """The context a job body receives, built ONCE and stamped by
+        ``execute_job``.
+
+        ``publishes``/``emits_media`` are deliberately NOT passed: the
+        declaration is the RELEASE's, ``_stamp_declaration`` is its one
+        projection site, and a head that also set them would be a second home
+        for the same fact — the shape that lets a job hold a valid capability
+        token and still be refused by its own SDK.
+
+        ``kind="job"`` and not a producer kind: the kind-implies-publish escape
+        hatch (`_KIND_IMPLIES_PUBLISH`) exists for pre-declaration endpoints,
+        and a job that inherited it would never reach its own typed refusal.
+        """
+        payload_view = self._job_payload_view(spec, run.input_payload)
+        destination_info = _reserved_repo_info(payload_view, "destination")
+        execution_hints: Dict[str, Any] = {"kind": "job"}
+        dest_repo = _producer_destination_repo(payload_view, destination_info)
+        if dest_repo:
+            # th#2068 rewrote this to the run's scratch repo on the WIRE, so the
+            # repo the job writes to and the repo its token authorizes are one
+            # value rather than two that agree by convention.
+            execution_hints["destination_repo"] = dest_repo
+        dest_release = str(destination_info.get("release") or "").strip()
+        if dest_release:
+            execution_hints["destination_release"] = dest_release
+        ctx = JobContext(
+            request_id=str(run.request_id),
+            job_id=_capability_job_id(run.capability_token),
+            emitter=self._make_ctx_emitter(job),
+            owner=str(run.org or "") or None,
+            invoker_id=str(run.invoker_id or "") or None,
+            file_api_base_url=self.file_base_url or None,
+            worker_capability_token=str(run.capability_token or "") or None,
+            execution_hints=execution_hints,
+            source_info=_reserved_repo_info(payload_view, "source"),
+            destination_info=destination_info,
+            text_encoder_info=_reserved_repo_info(payload_view, "text_encoder"),
+            candidate_info=_reserved_repo_info(payload_view, "candidate"),
+            resume_from_info=_reserved_repo_info(payload_view, "resume_from"),
+            hf_token=getattr(self._settings, "hf_token", "") or "",
+        )
+        job.ctx = ctx
+        if job.cancel_requested:
+            ctx._cancel()
+        await self._materialize_job_inputs(ctx, job, run, payload_view)
+        return ctx
+
+    def _job_payload_view(self, spec: JobSpec, payload: bytes) -> Any:
+        """The dispatch payload decoded against the job's PUBLISHED schema.
+
+        Decoded here as well as inside ``execute_job`` because the reserved
+        repo fields decide what the context is built with, and the context has
+        to exist before the body runs. Same decoder, same schema, so the two
+        reads cannot disagree — and a schema violation surfaces here, typed,
+        before any weight is fetched.
+        """
+        return jobs_mod.decode_payload(spec, payload)
+
+    async def _materialize_job_inputs(
+        self, ctx: JobContext, job: _Job, run: pb.RunJob, payload: Any,
+    ) -> None:
+        """Reserved repos, datasets and request media, exactly as the producer
+        serving path materializes them.
+
+        ⚠️ th#2052 DEPENDENCY, recorded rather than papered over: the job
+        dispatch carries no ``snapshots`` map, so these refs resolve WITHOUT a
+        pinned digest (``snapshots.get(ref)`` is None). The read grants are
+        minted from the payload's reserved bindings hub-side (th#2068), so the
+        fetch is authorized; what is missing is the digest pin, which needs a
+        field on the job dispatch the wire does not carry today.
+        """
+        await _to_thread_complete(
+            materialize_input_assets,
+            payload,
+            str(run.request_id),
+            attempt=int(run.attempt),
+            manifest=manifest_from_run_job(run.input_assets),
+            file_base_url=self.file_base_url or "",
+            capability_token=str(run.capability_token or ""),
+            cancel_check=lambda: ctx.cancelled,
+        )
+        ctx.raise_if_cancelled("canceled")
+        snapshots: Dict[WireRef, pb.Snapshot] = {}
+        for field_name, setter in (
+            ("source", None),
+            ("text_encoder", ctx._set_text_encoder_path),
+            ("candidate", ctx._set_candidate_path),
+            ("resume_from", ctx._set_resume_from_path),
+        ):
+            info = _reserved_repo_info(payload, field_name)
+            if info:
+                await self._materialize_source(
+                    ctx, info, snapshots,
+                    set_path=setter, field_name=field_name)
+        await self._materialize_datasets(ctx, payload)
+        ctx.raise_if_cancelled("canceled")
+
+    async def _execute_job_body(
+        self, job: _Job, spec: JobSpec, dispatch: JobDispatch, ctx: JobContext,
+    ) -> JobOutcome:
+        """Run the body under the run-once harness, holding a card only if the
+        job declared it needs one.
+
+        The GPU-vs-plan rung, as behaviour: ``Resources(gpu=True)`` takes this
+        group's permit for the whole run; a ``plan-*`` job declaring only
+        ``vcpus`` takes none, so the $0 planning half of fail-fast-before-
+        renting never queues behind a card it does not use.
+        """
+        gpu_permit: Optional[asyncio.Semaphore] = None
+        permit_token: Optional[int] = None
+        if spec.needs_gpu:
+            gpu_permit = self._gpu_permit_for_group(current_device_group())
+            await self._intent_await(
+                job.intent_id,
+                gpu_permit.acquire(),
+                operation=f"GPU permit for job {dispatch.job_id}",
+                status=pb.LIFECYCLE_INTENT_STATUS_WAITING,
+                stage=pb.LIFECYCLE_INTENT_STAGE_WAIT_GPU_SLOT,
+                reason=pb.LIFECYCLE_WAIT_REASON_GPU_SLOT,
+            )
+            permit_token = self._permits.take(
+                gpu_permit, f"job {dispatch.job_id}")
+        try:
+            job.executing = True
+            self._intent_transition(
+                job.intent_id,
+                pb.LIFECYCLE_INTENT_STATUS_RUNNING,
+                pb.LIFECYCLE_INTENT_STAGE_READY,
+                detail="executing",
+            )
+            logger.info(
+                "job %s dispatched: name=%s gpu=%s deadline_s=%s publishes=%s "
+                "emits_media=%s", dispatch.job_id, spec.name, spec.needs_gpu,
+                dispatch.deadline_s, spec.publishes, spec.emits_media)
+            # The body is a plain function: run it OFF the loop so a job that
+            # computes for hours does not starve the stream the parent holds.
+            return typing.cast(JobOutcome, await _to_thread_complete(
+                execute_job, dispatch, jobs={spec.name: spec}, ctx=ctx))
+        finally:
+            job.handler_thread_done.set()
+            job.executing = False
+            if gpu_permit is not None:
+                if permit_token is not None:
+                    self._permits.drop(gpu_permit, permit_token)
+                gpu_permit.release()
+
+    async def _finish_job_outcome(self, job: _Job, outcome: JobOutcome) -> None:
+        """One ``JobOutcome`` -> one terminal ``JobResult``."""
+        ctx = job.ctx
+        if outcome.status == "succeeded":
+            inline: Optional[bytes] = outcome.result
+            blob_ref: Optional[str] = None
+            if ctx is not None:
+                inline, blob_ref = await self._deliver_result_bytes(
+                    ctx, job.request_id, outcome.result)
+            await self._finish(
+                job, pb.JOB_STATUS_OK, inline=inline, blob_ref=blob_ref)
+            return
+        exc = outcome.exception
+        # The infra-vs-body split is made from the TYPE, never from prose: the
+        # hub retries infra faults and treats a body failure as terminal, so a
+        # RuntimeError from a recipe must not buy a second GPU boot.
+        status, message = (
+            _map_exception(exc) if exc is not None
+            else (pb.JOB_STATUS_FATAL,
+                  _sanitize(outcome.failure or "job failed")))
+        await self._finish(job, status, safe_message=message)
+
+    def _recycle_after_job(self, job: _Job, outcome: Optional[JobOutcome]) -> None:
+        """Honour ``JobOutcome.recycle_child``: leave, so the next job starts
+        on a process that has never imported this one's world.
+
+        "Nothing survives in-process between jobs by contract" is the whole
+        run-once lifecycle, and this is the only place that can enforce it —
+        the executor IS the compute child (procsplit), so the child leaving is
+        the parent forking a fresh one. A dispatch that died before producing
+        an outcome recycles too: it still ran this release's import and
+        materialization side effects in this process.
+        """
+        if outcome is not None and not outcome.recycle_child:
+            logger.info(
+                "job %s asked NOT to recycle its child; keeping the process",
+                job.request_id)
+            return
+        others = [k for k in self.in_flight_keys()
+                  if k != (job.request_id, job.attempt)]
+        if others:
+            # v1 is one job per pod at a time. If that ever stops being true,
+            # recycling here would kill somebody else's in-flight work.
+            logger.warning(
+                "job %s finished but %d other dispatch(es) are in flight; "
+                "skipping the run-once recycle", job.request_id, len(others))
+            return
+        if not procsplit.is_compute_child():
+            # `gen-worker serve` and library use have no control parent to
+            # respawn this process. Exiting there is a dead pod, not a fresh
+            # child, so the contract is REPORTED rather than executed.
+            logger.info(
+                "job %s finished; run-once recycle not executed (no control "
+                "parent in this process)", job.request_id)
+            return
+        logger.info(
+            "job %s finished; recycling this compute child (run-once "
+            "lifecycle)", job.request_id)
+        self._process_exit(procsplit.EXIT_JOB_RECYCLE)
 
     async def _run_job(
         self, job: _Job, make_order: Callable[[], Awaitable[_JobOrder]],
@@ -9745,7 +10290,8 @@ class Executor:
                 effective_config,
                 snapshot=invocation_snapshot,
             )
-            kwargs = await self._handler_kwargs(spec, snapshots)
+            kwargs = await self._handler_kwargs(
+                spec, snapshots, order.slots, order.adapters)
             adapters = await self._prepare_adapters(order.adapters, spec, snapshots)
             ctx.raise_if_cancelled("canceled")
         except (asyncio.CancelledError, CanceledError):
@@ -9768,7 +10314,7 @@ class Executor:
             await self._finish(job, status, safe_message=msg)
             return
 
-        queue_ms = int((time.monotonic() - job.admitted_at) * 1000)
+        queue_ms = ms_from_seconds(time.monotonic() - job.admitted_at)
         lease: Optional[_GpuSlotLease] = None
         started = time.monotonic()
         alloc_at_start = 0
@@ -10038,10 +10584,12 @@ class Executor:
                 if released_at is not None:
                     # gw#516 typed split of runtime_ms: how long the GPU slot
                     # was actually held vs the slotless finalize tail.
-                    metrics.slot_held_ms = max(
-                        0, int((released_at - started) * 1000))
-                    metrics.finalize_wall_ms = max(
-                        0, int((handler_done - released_at) * 1000))
+                    # pgw#1349: the SAME quantizer the stage map uses. These two
+                    # bracket stages the map also reports, so a second rounding
+                    # rule here makes a contained stage out-round its container.
+                    metrics.slot_held_ms = ms_from_seconds(released_at - started)
+                    metrics.finalize_wall_ms = ms_from_seconds(
+                        handler_done - released_at)
                 if released_at is not None and handler_done > released_at:
                     # The encode/upload tail ran slotless, overlapping the next
                     # request. `handoff` says who ended the GPU phase: the
@@ -10163,10 +10711,25 @@ class Executor:
             await asyncio.to_thread(resolve, ref)
 
     async def _handler_kwargs(
-        self, spec: EndpointSpec, snapshots: Dict[WireRef, pb.Snapshot]
+        self,
+        spec: EndpointSpec,
+        snapshots: Dict[WireRef, pb.Snapshot],
+        slots: Optional[Mapping[str, dispatch.SlotOrder]] = None,
+        adapters: Optional[Mapping[str, Tuple[dispatch.AdapterOrder, ...]]] = None,
+        warm: bool = False,
     ) -> Dict[str, Any]:
         """Per-call model injection: handler parameters (after ctx, payload)
-        whose names match model slots receive the local snapshot path."""
+        whose names match model slots receive the local snapshot path, and
+        parameters bound to a declared MODEL receive a resolved instance.
+
+        pgw#1346: the second half is what makes the typed SDK servable. It is
+        built PER CALL rather than once at setup, because a `Model` value
+        carries this request's checkpoint ref and that checkpoint's tuned
+        values — two requests on one warm pod can name two checkpoints, and an
+        instance cached across them would serve the first one's tuning forever.
+        Only the cheap half is per-call: the weights are whatever residency
+        already holds, reached through `Runner.component`.
+        """
         try:
             sig = typing.get_type_hints(spec.method)
         except Exception:
@@ -10185,7 +10748,63 @@ class Executor:
             ref = wire_ref(binding)
             path = await self.store.ensure_local(ref, snapshots.get(ref), binding=binding)
             kwargs[name] = Path(path) if sig.get(name) is Path else str(path)
+        kwargs.update(
+            self._model_instance_kwargs(spec, slots or {}, adapters or {}, warm=warm))
         return kwargs
+
+    def _model_instance_kwargs(
+        self,
+        spec: EndpointSpec,
+        slots: Mapping[str, dispatch.SlotOrder],
+        adapters: Mapping[str, Tuple[dispatch.AdapterOrder, ...]],
+        warm: bool = False,
+    ) -> Dict[str, Any]:
+        """One resolved `Model` per declared model parameter (pgw#1346).
+
+        The three inputs each come from the ONE place that already owns them,
+        rather than being re-derived here:
+
+        * the ref and the catalog-stamped tuned values from this dispatch's
+          ``SlotOrder`` — the same wire fields `ctx.defaults` reads, so a model
+          instance and the retiring context surface cannot disagree about what
+          the hub said;
+        * the weight-bearing modules from ``_slot_pipeline``, which is already
+          the single answer to "what did this slot load", including the
+          th#980 component-override case where the residency handle is a
+          ModuleDict and the pipeline identity is held separately;
+        * the armed compiled runners from the adoption seam, when the pod has
+          any. Absent, the instance is eager-only and every typed call runs the
+          eager module — which is the honest state on a pod that has not armed,
+          not a degradation to report.
+        """
+
+        if not spec.families:
+            return {}
+        from .model.residency import instances_for
+
+        refs: Dict[str, str] = {}
+        stamped: Dict[str, str] = {}
+        lora_stamped: Dict[str, tuple[str, ...]] = {}
+        trees: Dict[str, Any] = {}
+        for name in spec.families:
+            order = slots.get(name)
+            if order is not None:
+                refs[name] = order.ref
+                stamped[name] = order.inference_defaults
+            elif name in spec.models:
+                # Hub-less (`gen-worker run`, hermetic tests): the declaration's
+                # own bootstrap ref is the only resolution source, exactly as it
+                # is for every other slot on that path.
+                refs[name] = str(wire_ref(spec.models[name]))
+            lora_stamped[name] = tuple(
+                a.inference_defaults for a in adapters.get(name, ())
+                if a.inference_defaults
+            )
+            trees[name] = self._slot_pipeline(spec, name)
+        return dict(instances_for(
+            spec.families, refs=refs, trees=trees,
+            stamped=stamped, lora_stamped=lora_stamped, skip_unresolved=warm,
+        ))
 
     async def _prepare_adapters(
         self,
@@ -10440,12 +11059,18 @@ class Executor:
         if refused:
             transitions = []
         for ref, from_mode, to_mode, needed_gb in transitions:
+            # pgw#1315: the rung's OWN wire projection. The tail's `offload`
+            # token was hardcoded here, so a descent onto the CPU rung reached
+            # the hub as `ran="offload"` — a wrong measurement, not a coarse
+            # one, on the field the hub matches exactly.
+            run_mode = rungspec.run_mode_of(to_mode) or RUN_OFFLOAD
             self._record_rung_transition(
                 spec, ref=ref, phase="inference",
                 from_rung=from_mode or "resident", to_rung=to_mode,
-                run_mode=RUN_OFFLOAD, needed_gb=needed_gb,
+                run_mode=run_mode, needed_gb=needed_gb,
                 detail=f"CUDA OOM mid-inference ({type(exc).__name__}); "
-                       "quarantining this instance for a clean offloaded reload",
+                       f"quarantining this instance for a clean reload onto "
+                       f"the {to_mode} rung",
             )
         flush_memory()
         rec = self._classes.get(spec.instance_key)
@@ -10469,29 +11094,33 @@ class Executor:
             # proactive fit ladder deleted (an estimate deciding placement
             # before anything is measured — §4.33), this reactive walk is the
             # only ladder, so falling off its bottom must be a typed, visible
-            # refusal naming OUR code — never a silent slide into a rung
-            # nothing can run, which would convert a loud estimate-error into a
-            # quiet execution-error.
+            # event naming OUR code.
+            #
+            # pgw#1315 left exactly ONE floor to report. `cpu` EXECUTES now, so
+            # the walk no longer stops above it and there is no longer any rung
+            # this build declines to run. Reaching here means the pipeline is
+            # already standing on the bottom rung — a CUDA OOM on a pipeline
+            # that is not on the card is host-side pressure, and no further
+            # placement change can answer it.
             floors = {
                 rungspec.descent_floor(low_vram_mode(obj))
                 for obj in (self._slot_pipeline(spec, slot) for slot in spec.models)
                 if obj is not None
             }
             floors.discard(None)
-            if rungspec.FLOOR_CPU_RUNG_UNEXECUTABLE in floors:
+            if rungspec.FLOOR_LADDER_EXHAUSTED in floors:
                 activity_mod.emit_event(
                     activity_mod.KIND_SERVE_DEGRADE,
                     detail=(
-                        f"fn={spec.name}: the placement ladder descended to its "
-                        f"last executable rung (sequential) and the next one is "
-                        f"`cpu`, which THIS BUILD CANNOT EXECUTE — the reactive "
-                        f"walk treats it as plan-time only (pgw#1212). This is a "
-                        f"limitation of our worker, not of the card: §1.35 "
-                        f"requires every model to run on every device, CPU "
-                        f"included. The request returns retryable and the hub "
-                        f"re-places it."
+                        f"fn={spec.name}: the placement ladder is already on its "
+                        f"bottom rung (`cpu` — the whole pipeline is host "
+                        f"resident and serving there), so there is no lower "
+                        f"placement to descend to. The request returns retryable "
+                        f"and the hub re-places it. This names OUR ladder, not "
+                        f"the card: §1.35 requires every model to run on every "
+                        f"device, and on this one it already is."
                     ),
-                    phase=rungspec.FLOOR_CPU_RUNG_UNEXECUTABLE,
+                    phase=rungspec.FLOOR_LADDER_EXHAUSTED,
                 )
             logger.warning(transition_line(
                 event="engaged", fn=spec.name, phase="inference",
@@ -10869,7 +11498,15 @@ class Executor:
                 "deferred outputs reached serialization un-drained for %s — "
                 "materializing inline", request_id)
             await asyncio.to_thread(ctx._drain_deferred_outputs)
-        data = msgspec.msgpack.encode(output)
+        return await self._deliver_result_bytes(
+            ctx, request_id, msgspec.msgpack.encode(output))
+
+    async def _deliver_result_bytes(
+        self, ctx: RequestContext, request_id: str, data: bytes
+    ) -> Tuple[Optional[bytes], Optional[str]]:
+        """Encoded result -> (inline, blob_ref). Shared by the serving path
+        and the `@job` path (pgw#1324): one size threshold and one envelope
+        upload, so a job's return value is delivered exactly as a request's."""
         if len(data) <= INLINE_RESULT_MAX_BYTES:
             return data, None
         try:
@@ -10906,7 +11543,7 @@ class Executor:
         runtime_terms: "Optional[Dict[str, float]]" = None,
         peak_vram_bytes: "Optional[int]" = None,
     ) -> pb.JobMetrics:
-        runtime_ms = int((time.monotonic() - started) * 1000)
+        runtime_ms = ms_from_seconds(time.monotonic() - started)
         # rss_at_end_bytes (pgw#513): instantaneous RSS, honestly named — the
         # OS gives no per-process peak-RSS reset, so this is NOT a per-job
         # peak (unlike peak_vram_bytes below, reset at handler start).

@@ -6936,6 +6936,57 @@ def nth_bucket_end(value: Underscore, bucket_duration: str, n: int, initial_buck
 ########################################################################################################################
 
 
+def onnx_run(
+    observation: Underscore,
+    state: Underscore,
+    *,
+    model: str,
+) -> Underscore:
+    """
+    Run one step of a recurrent ONNX model: `new_state = graph(state, observation)`.
+
+    The model must take exactly two float32 inputs named `state` and `observation`, and return a
+    single output whose width matches `state`. Gated recurrences (GRU, LSTM) are as valid as
+    linear ones -- nothing inspects the graph.
+
+    This is designed to be the step of a `history_fold`, which is what lets an embedding be
+    updated incrementally from a stream rather than recomputed from the whole history.
+
+    Parameters
+    ----------
+    observation
+        The incoming event's vector.
+    state
+        The running state to advance.
+    model
+        Path to the ONNX model, as mounted by the model registry.
+
+    Examples
+    --------
+    >>> import chalk.functions as F
+    >>> from chalk.features import features, feature, DataFrame, Vector, _
+    >>> @features
+    ... class Event:
+    ...     id: int
+    ...     user_id: "User.id"
+    ...     embedding: Vector[256]
+    ...     ts: datetime
+    >>> @features
+    ... class User:
+    ...     id: int
+    ...     events: DataFrame[Event]
+    ...     user_embedding: Vector[256] = feature(
+    ...         expression=_.events[_.embedding,].history_fold(
+    ...             backfill_order=_.ts,
+    ...             function=lambda event, previous: F.onnx_run(event, previous, model="/models/gru.onnx"),
+    ...             initial_value=[0.0] * 256,
+    ...         ),
+    ...         materialization=True,
+    ...     )
+    """
+    return UnderscoreFunction.with_f_dot_repr("onnx_run", observation, state, model)
+
+
 def inference(
     model: ModelVersion,
     inputs: list[Underscore | Any] | Underscore,
@@ -8463,6 +8514,7 @@ __all__ = (
     "ntile",
     "nth_bucket_end",
     "nth_bucket_start",
+    "onnx_run",
     "openai_complete",
     "over",
     "parse_datetime",

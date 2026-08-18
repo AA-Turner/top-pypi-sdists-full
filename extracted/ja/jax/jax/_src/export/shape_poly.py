@@ -28,7 +28,7 @@ import io
 import copy
 import operator as op
 import tokenize
-from typing import Any, SupportsIndex, TypeAlias, TypeGuard, Union, overload
+from typing import Any, SupportsIndex, TypeAlias, TypeGuard, overload
 import warnings
 
 import numpy as np
@@ -46,7 +46,6 @@ from jax._src import typing
 from jax._src import util
 
 
-DimSize: TypeAlias = Union["_DimExpr", int]
 TfVal = Any
 DimVarEnv = dict[str, typing.Array]
 DType = Any
@@ -977,6 +976,9 @@ def cmp_sequence(s1, s2, elem_cmp) -> int:
   return 0
 
 
+DimSize: TypeAlias = _DimExpr | int
+
+
 class SymbolicScope:
   """Identifies a scope for symbolic expressions.
 
@@ -1494,8 +1496,8 @@ def symbolic_args_specs(
   return args_tree.unflatten(args_specs_flat)
 
 def shape_and_dtype_jax_array(a) -> tuple[Sequence[int | None], DType]:
-  """Returns the shape and dtype of a jax.Array or a j"""
-  if isinstance(a, api.ShapeDtypeStruct):
+  """Returns the shape and dtype of a jax.Array or a jax.ShapeDtypeStruct."""
+  if hasattr(a, "shape") and hasattr(a, "dtype"):
     return a.shape, a.dtype
   aval = core.typeof(a)
   return aval.shape, aval.dtype

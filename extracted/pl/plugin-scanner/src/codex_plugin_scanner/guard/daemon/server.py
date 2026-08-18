@@ -12,7 +12,6 @@ import math
 import mimetypes
 import os
 import platform
-import queue
 import secrets
 import socket
 import sqlite3
@@ -21,7 +20,7 @@ import tempfile
 import threading
 import time
 import uuid
-from collections.abc import Callable, Mapping
+from collections.abc import Mapping
 from contextlib import suppress
 from datetime import datetime, timezone
 from http.server import BaseHTTPRequestHandler, HTTPServer
@@ -250,6 +249,7 @@ from .manager import (
     repair_approval_center_locator,
     write_guard_daemon_state,
 )
+from .request_executor import BoundedRequestExecutor as _BoundedRequestExecutor
 from .runtime_heartbeat import RuntimeHeartbeatWriter
 from .runtime_hook_deadline import RuntimeHookDeadline
 from .runtime_hook_evidence_writer import RuntimeHookEvidenceWriter
@@ -384,80 +384,6 @@ def _runtime_hook_remaining_hint(payload: dict[str, object]) -> float:
 _PEER_DISCONNECT_ERRORS = (BrokenPipeError, ConnectionResetError, ConnectionAbortedError)
 
 
-_TransportWorkItem: TypeAlias = tuple[socket.socket, tuple[str, int]]
-
-
-class _BoundedRequestExecutor:
-    def __init__(
-        self,
-        *,
-        name: str,
-        workers: int,
-        queue_limit: int,
-        run: Callable[[socket.socket, tuple[str, int]], None],
-        discard: Callable[[socket.socket], None],
-    ) -> None:
-        self._queue: queue.Queue[_TransportWorkItem | None] = queue.Queue(maxsize=queue_limit)
-        self._run = run
-        self._discard = discard
-        self._stopped = threading.Event()
-        self._lifecycle_lock = threading.Lock()
-        self._threads = [
-            threading.Thread(
-                target=self._worker,
-                daemon=True,
-                name=f"guard-http-{name}-{index + 1}",
-            )
-            for index in range(workers)
-        ]
-        for thread in self._threads:
-            thread.start()
-
-    @property
-    def threads(self) -> tuple[threading.Thread, ...]:
-        return tuple(self._threads)
-
-    def submit(self, request: socket.socket, client_address: tuple[str, int]) -> bool:
-        with self._lifecycle_lock:
-            if self._stopped.is_set():
-                return False
-            try:
-                self._queue.put_nowait((request, client_address))
-            except queue.Full:
-                return False
-        return True
-
-    def shutdown(self, *, timeout_seconds: float) -> bool:
-        with self._lifecycle_lock:
-            if not self._stopped.is_set():
-                self._stopped.set()
-                while True:
-                    try:
-                        item = self._queue.get_nowait()
-                    except queue.Empty:
-                        break
-                    if item is not None:
-                        self._discard(item[0])
-                    self._queue.task_done()
-                for _ in self._threads:
-                    self._queue.put_nowait(None)
-        deadline = time.monotonic() + timeout_seconds
-        for thread in self._threads:
-            if thread is not threading.current_thread():
-                thread.join(timeout=max(0.0, deadline - time.monotonic()))
-        return all(not thread.is_alive() for thread in self._threads)
-
-    def _worker(self) -> None:
-        while True:
-            item = self._queue.get()
-            try:
-                if item is None:
-                    return
-                self._run(*item)
-            finally:
-                self._queue.task_done()
-
-
 class _GuardDaemonHttpServer(HTTPServer):
     request_queue_size = _MAX_CONCURRENT_DAEMON_CONNECTIONS
 
@@ -558,7 +484,9 @@ class _GuardDaemonHttpServer(HTTPServer):
         shutdown_started: threading.Event,
         diagnostics: DaemonDiagnostics,
     ) -> None:
-        super().__init__(server_address, handler_class)
+        # TCPServer calls server_close() when bind/activation fails. Treat the
+        # request executors as already stopped until their construction finishes.
+        self.request_executors_stopped = True
         self.store = store
         self.runtime = GuardSurfaceRuntime(store)
         self.auth_token = auth_token
@@ -630,30 +558,43 @@ class _GuardDaemonHttpServer(HTTPServer):
             retry_interval_seconds=0.05,
         )
         self.store.set_policy_integrity_state_listener(self.publish_trust_state)
+        self.runtime_hook_evidence_writer = RuntimeHookEvidenceWriter(store=store)
+        self._initialize_request_services()
+        self.request_executors_stopped = False
+        super().__init__(server_address, handler_class)
+
+    def _initialize_request_services(self) -> None:
         from .hook_worker import HookWorker
 
-        self.runtime_hook_evidence_writer = RuntimeHookEvidenceWriter(store=store)
-        self.hook_worker = HookWorker(store=store, activity_writer=self.runtime_hook_evidence_writer)
-        self.approval_attention = ApprovalAttentionCoordinator(
-            store=store,
-            runtime=self.runtime,
-            opener=open_browser_url,
-        )
-        self.request_executors_stopped = False
-        self.general_request_executor = _BoundedRequestExecutor(
-            name="general",
-            workers=_MAX_CONCURRENT_DAEMON_REQUESTS,
-            queue_limit=_MAX_CONCURRENT_DAEMON_CONNECTIONS,
-            run=self._process_request_worker,
-            discard=self._discard_request,
-        )
-        self.control_request_executor = _BoundedRequestExecutor(
-            name="control",
-            workers=_MAX_CONCURRENT_DAEMON_CONTROL_REQUESTS,
-            queue_limit=_MAX_CONCURRENT_DAEMON_CONNECTIONS,
-            run=self._process_request_worker,
-            discard=self._discard_request,
-        )
+        try:
+            self.hook_worker = HookWorker(store=self.store, activity_writer=self.runtime_hook_evidence_writer)
+            self.approval_attention = ApprovalAttentionCoordinator(
+                store=self.store,
+                runtime=self.runtime,
+                opener=open_browser_url,
+            )
+            self.general_request_executor = _BoundedRequestExecutor(
+                name="general",
+                workers=_MAX_CONCURRENT_DAEMON_REQUESTS,
+                queue_limit=_MAX_CONCURRENT_DAEMON_CONNECTIONS,
+                run=self._process_request_worker,
+                discard=self._discard_request,
+            )
+            self.control_request_executor = _BoundedRequestExecutor(
+                name="control",
+                workers=_MAX_CONCURRENT_DAEMON_CONTROL_REQUESTS,
+                queue_limit=_MAX_CONCURRENT_DAEMON_CONNECTIONS,
+                run=self._process_request_worker,
+                discard=self._discard_request,
+            )
+        except BaseException:
+            for executor_name in ("control_request_executor", "general_request_executor"):
+                executor = getattr(self, executor_name, None)
+                if executor is not None:
+                    _ = executor.shutdown(timeout_seconds=1.0)
+            _ = self.runtime_hook_evidence_writer.stop(timeout_seconds=1.0)
+            _ = self.hook_process_runner.close_contained()
+            raise
 
     def process_request(self, request: object, client_address: tuple[str, int]) -> None:
         request_socket = cast(socket.socket, request)
@@ -1910,41 +1851,81 @@ def _finalize_daemon_guard_connect_payload(
     return payload
 
 
+_PROTECTION_REPAIR_PROBE_COMMAND = "git status --porcelain=v1"
+
+
 def _repair_command_activity_persistence_health(store: GuardStore) -> None:
-    shadow_evaluation = evaluate_command("git push origin release/2.1 --force")
-    shadow_proposal = baseline_command_shadow_proposal(shadow_evaluation)
+    evaluation = evaluate_command(_PROTECTION_REPAIR_PROBE_COMMAND)
     occurred_at = datetime.now(timezone.utc)
+    activity_id = f"activity:protection-repair-probe:{uuid.uuid4().hex}"
+    decision_reason = ActivityDecisionReason.EXTENSION_MATCH if evaluation.matches else ActivityDecisionReason.NO_MATCH
     evidence = build_pre_hook_evidence(
-        shadow_evaluation,
+        evaluation,
         CommandActivityDecisionFacts(
             policy_action="allow",
-            decision_reason_code=ActivityDecisionReason.EXTENSION_MATCH,
+            decision_reason_code=decision_reason,
             prompted=False,
             approval_reuse_status=ActivityApprovalReuseStatus.NOT_APPLICABLE,
             receipt_id=None,
         ),
-        activity_id="activity:protection-repair-probe",
+        activity_id=activity_id,
         occurred_at=occurred_at,
         harness="codex",
         request_correlation=None,
     )
-    shadow = build_command_shadow_observation(
-        shadow_evaluation,
-        authoritative_action="allow",
-        proposal=shadow_proposal,
-        activity_id="activity:protection-repair-probe",
-        occurred_at=occurred_at,
-        control=CommandShadowControl(
-            enabled=True,
-            kill_switch=False,
-            release_cohorts=frozenset({CommandShadowCohort.BASELINE}),
-            disabled_cohorts=frozenset(),
-            sample_basis_points=10_000,
-        ),
+    shadow = None
+    shadow_evaluation_succeeded = True
+    try:
+        shadow = build_command_shadow_observation(
+            evaluation,
+            authoritative_action="allow",
+            proposal=baseline_command_shadow_proposal(evaluation),
+            activity_id=activity_id,
+            occurred_at=occurred_at,
+            control=CommandShadowControl(
+                enabled=True,
+                kill_switch=False,
+                release_cohorts=frozenset({CommandShadowCohort.BASELINE}),
+                disabled_cohorts=frozenset(),
+                sample_basis_points=10_000,
+            ),
+        )
+    except (RuntimeError, TypeError, ValueError):
+        shadow = None
+        shadow_evaluation_succeeded = False
+    store.probe_command_activity_persistence(
+        evidence,
+        shadow=shadow,
+        shadow_evaluation_succeeded=shadow_evaluation_succeeded,
     )
-    if shadow is None:
-        raise RuntimeError("command shadow repair probe was not selected")
-    store.probe_command_activity_persistence(evidence, shadow=shadow)
+
+
+def _repair_failing_managed_harness_hooks(store: GuardStore) -> list[str]:
+    from ..approvals import _live_hook_verification
+
+    installs = store.list_managed_installs()
+    context = HarnessContext(
+        home_dir=Path.home().resolve(),
+        workspace_dir=None,
+        guard_home=store.guard_home,
+    )
+    verified = _live_hook_verification(installs, store)
+    failed: list[str] = []
+    for install in installs:
+        harness = install.get("harness")
+        if not isinstance(harness, str) or install.get("active") is not True:
+            continue
+        if verified.get(harness) is True:
+            continue
+        try:
+            apply_managed_install("install", harness, False, context, store, None, _now())
+        except (OSError, RuntimeError, TypeError, ValueError):
+            failed.append(harness)
+            continue
+        refreshed = store.get_managed_install(harness)
+        if refreshed is None or _live_hook_verification([refreshed], store).get(harness) is not True:
+            failed.append(harness)
+    return failed
 
 
 class _GuardDaemonHandler(BaseHTTPRequestHandler):
@@ -4776,39 +4757,54 @@ class _GuardDaemonHandler(BaseHTTPRequestHandler):
             reason_count = len(degraded_reasons) if isinstance(degraded_reasons, list) else 0
             repaired_check_ids = ["policy_engine", "rule_packs", "tamper_checks"]
             pending_check_ids: list[str] = []
-            if check_id == "all" and repaired:
-                failed_check_ids: list[str] = []
+            failed_check_ids: list[str] = []
+            if check_id == "all":
                 try:
-                    containment_health = self._containment_health_payload(force_refresh=True)
-                    refreshed_signals = containment_health_signals(
-                        containment_health,
-                        now=datetime.now(timezone.utc),
-                    )
-                    for containment_check_id in (
-                        "decision_plane_compatibility",
-                        "containment_compatibility",
-                        "sandbox",
-                    ):
-                        if refreshed_signals[containment_check_id].status is ProtectionCheckStatus.PASS:
-                            repaired_check_ids.append(containment_check_id)
-                        else:
-                            failed_check_ids.append(containment_check_id)
+                    hook_failures = _repair_failing_managed_harness_hooks(store)
                 except (OSError, RuntimeError, TypeError, ValueError, sqlite3.Error):
-                    failed_check_ids.extend(["decision_plane_compatibility", "containment_compatibility", "sandbox"])
-                try:
-                    config = load_guard_config(store.guard_home)
-                    _repair_command_activity_persistence_health(store)
-                    store.maintain_command_activity(
-                        now=datetime.now(timezone.utc),
-                        detail_retain_days=config.evidence_retain_days,
-                    )
-                    evidence_health = store.get_command_activity_persistence_health()
-                    if evidence_health.active_error_count > 0:
+                    hook_failures = ["harness_hooks"]
+                has_active_hooks = any(
+                    isinstance(install.get("harness"), str) and install.get("active") is True
+                    for install in store.list_managed_installs()
+                )
+                if hook_failures:
+                    failed_check_ids.append("harness_hooks")
+                elif has_active_hooks:
+                    repaired_check_ids.append("harness_hooks")
+                if repaired:
+                    try:
+                        containment_health = self._containment_health_payload(force_refresh=True)
+                        refreshed_signals = containment_health_signals(
+                            containment_health,
+                            now=datetime.now(timezone.utc),
+                        )
+                        for containment_check_id in (
+                            "decision_plane_compatibility",
+                            "containment_compatibility",
+                            "sandbox",
+                        ):
+                            if refreshed_signals[containment_check_id].status is ProtectionCheckStatus.PASS:
+                                repaired_check_ids.append(containment_check_id)
+                            else:
+                                failed_check_ids.append(containment_check_id)
+                    except (OSError, RuntimeError, TypeError, ValueError, sqlite3.Error):
+                        failed_check_ids.extend(
+                            ["decision_plane_compatibility", "containment_compatibility", "sandbox"]
+                        )
+                    try:
+                        config = load_guard_config(store.guard_home)
+                        _repair_command_activity_persistence_health(store)
+                        store.maintain_command_activity(
+                            now=datetime.now(timezone.utc),
+                            detail_retain_days=config.evidence_retain_days,
+                        )
+                        evidence_health = store.get_command_activity_persistence_health()
+                        if evidence_health.active_error_count > 0:
+                            failed_check_ids.append("decision_stream")
+                        else:
+                            repaired_check_ids.append("decision_stream")
+                    except (OSError, RuntimeError, TypeError, ValueError, sqlite3.Error):
                         failed_check_ids.append("decision_stream")
-                    else:
-                        repaired_check_ids.append("decision_stream")
-                except (OSError, RuntimeError, TypeError, ValueError):
-                    failed_check_ids.append("decision_stream")
                 if failed_check_ids or pending_check_ids:
                     self._write_json(
                         {
@@ -4867,6 +4863,7 @@ class _GuardDaemonHandler(BaseHTTPRequestHandler):
             self._write_json(
                 {
                     "repaired": repaired,
+                    "repair_scope": "local_integrity",
                     "check_ids": ["decision_stream"],
                     "message": (
                         "Command evidence is healthy."
@@ -7663,21 +7660,26 @@ class GuardDaemonServer:
         self._shutdown_started = threading.Event()
         self._finish_service_lock = threading.Lock()
         self._owner_lock: BinaryIO | None = None
-        self._server = _GuardDaemonHttpServer(
-            (host, port),
-            _GuardDaemonHandler,
-            store=store,
-            auth_token=load_guard_daemon_auth_token(store.guard_home) or uuid.uuid4().hex,
-            runtime_host=host,
-            runtime_session_id=uuid.uuid4().hex,
-            runtime_started_at=_now(),
-            idle_timeout_seconds=_guard_daemon_idle_timeout_seconds(
-                store.guard_home,
-                idle_timeout_seconds=idle_timeout_seconds,
-            ),
-            shutdown_started=self._shutdown_started,
-            diagnostics=self._diagnostics,
-        )
+        try:
+            self._server = _GuardDaemonHttpServer(
+                (host, port),
+                _GuardDaemonHandler,
+                store=store,
+                auth_token=load_guard_daemon_auth_token(store.guard_home) or uuid.uuid4().hex,
+                runtime_host=host,
+                runtime_session_id=uuid.uuid4().hex,
+                runtime_started_at=_now(),
+                idle_timeout_seconds=_guard_daemon_idle_timeout_seconds(
+                    store.guard_home,
+                    idle_timeout_seconds=idle_timeout_seconds,
+                ),
+                shutdown_started=self._shutdown_started,
+                diagnostics=self._diagnostics,
+            )
+        except BaseException:
+            self._diagnostics.record_exception("daemon_initialization_failed")
+            self._diagnostics.close(timeout_seconds=0.5)
+            raise
         self.port = self._server.daemon_port()
         self._bundle_refresh_backoff_seconds = bundle_refresh_backoff_seconds
         self._bundle_refresh_interval_seconds = bundle_refresh_interval_seconds

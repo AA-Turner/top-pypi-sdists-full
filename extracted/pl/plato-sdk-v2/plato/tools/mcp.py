@@ -41,6 +41,45 @@ McpUrl = str | EnvMcpUrl
 McpUrlAdapter: TypeAdapter[McpUrl] = TypeAdapter(McpUrl)
 
 
+class McpRemoteServer(BaseModel):
+    """One named remote HTTP MCP server attached to an agent.
+
+    Shared across harnesses (claude-code, codex, opencode, …) so world configs
+    stay portable. ``url`` is either a literal endpoint or an ``{env, path,
+    port}`` alias the WORLD resolves to a booted sim's connect URL before the
+    agent parses its config.
+
+    Auth is portable via ``headers`` (e.g. ``{"Authorization": "Bearer
+    <token>"}``). Claude Code and OpenCode write those as request headers;
+    Codex maps them to ``http_headers`` in config.toml. ``bearer_token_env_var``
+    is a Codex-only alternative that names an env var Codex reads for a bearer
+    token — ignored by other harnesses, and only works if that env var is
+    actually set on the Codex process.
+    """
+
+    url: str | EnvMcpUrl = Field(
+        description="Literal HTTP MCP endpoint URL, or an {env, path} alias the "
+        "world resolves to a booted sim's connect URL at launch",
+    )
+    headers: dict[str, str] | None = Field(
+        default=None,
+        description="Static request headers (e.g. {'Authorization': 'Bearer <token>'})",
+    )
+    timeout_ms: int | None = Field(
+        default=None,
+        description="Request timeout in milliseconds. Harness-specific defaults apply when unset.",
+    )
+    bearer_token_env_var: str | None = Field(
+        default=None,
+        description=(
+            "Codex-only: env var name holding a bearer token. Prefer `headers` "
+            "for portable auth-gated MCP; Codex maps those to http_headers. "
+            "This field is ignored unless the named env var is set on the "
+            "Codex process."
+        ),
+    )
+
+
 def scoped_mcp_url(
     remote_url: str,
     *,
@@ -62,7 +101,7 @@ def write_mcp_config(
     *,
     remote_url: str | None = None,
     remote_name: str = "datagen",
-    remote_servers: dict[str, dict[str, Any]] | None = None,
+    remote_servers: dict[str, McpRemoteServer | dict[str, Any]] | None = None,
 ) -> Path | None:
     """Write a .mcp.json for world-hosted HTTP MCP servers.
 
@@ -71,9 +110,9 @@ def write_mcp_config(
         remote_url: HTTP MCP server URL for the legacy single-server case.
         remote_name: Name key for ``remote_url`` in mcpServers.
         remote_servers: Additional named HTTP servers, keyed by server name.
-            Each value may carry ``url`` (required), ``headers`` (static request
-            headers such as ``{"Authorization": "Bearer <token>"}``), and
-            ``timeout_ms``. Merged after ``remote_url`` (same-named entries win).
+            Each value is a :class:`McpRemoteServer` or a dict with ``url``
+            (required), ``headers``, and ``timeout_ms``. Merged after
+            ``remote_url`` (same-named entries win).
 
     Returns:
         Path to .mcp.json when at least one server is configured, otherwise None.
@@ -89,7 +128,8 @@ def write_mcp_config(
         logger.info("MCP server: %s (http) -> %s", remote_name, remote_url)
 
     for name, server in (remote_servers or {}).items():
-        url = server.get("url")
+        dumped: dict[str, Any] = server.model_dump(exclude_none=True) if isinstance(server, McpRemoteServer) else server
+        url = dumped.get("url")
         if not url:
             continue
         if not isinstance(url, str):
@@ -102,9 +142,9 @@ def write_mcp_config(
         entry: dict[str, Any] = {
             "type": "http",
             "url": url,
-            "timeout": int(server.get("timeout_ms") or _MCP_HTTP_TIMEOUT_MS),
+            "timeout": int(dumped.get("timeout_ms") or _MCP_HTTP_TIMEOUT_MS),
         }
-        headers = server.get("headers")
+        headers = dumped.get("headers")
         if headers:
             entry["headers"] = dict(headers)
         servers[name] = entry

@@ -6,14 +6,15 @@
 #include "pythonic/builtins/ValueError.hpp"
 
 #include "pythonic/operator_/iadd.hpp"
+#include "pythonic/operator_/iand.hpp"
 #include "pythonic/operator_/idiv.hpp"
 #include "pythonic/operator_/imul.hpp"
 #include "pythonic/operator_/ior.hpp"
 #include "pythonic/operator_/isub.hpp"
 #include "pythonic/operator_/ixor.hpp"
 #include "pythonic/types/numpy_iexpr.hpp"
+#include "pythonic/types/tuple.hpp"
 #include "pythonic/utils/allocate.hpp"
-#include "pythonic/utils/meta.hpp"
 
 PYTHONIC_NS_BEGIN
 
@@ -28,6 +29,17 @@ namespace numpy
 
 namespace types
 {
+  inline bool has_negative_step(long const &s)
+  {
+    return false;
+  }
+
+  template <class S>
+  inline bool has_negative_step(S const &s)
+  {
+    return (s.step) < 0;
+  }
+
   template <class S0, class S1>
   bool slices_may_overlap(S0 const &s0, S1 const &s1)
   {
@@ -45,6 +57,11 @@ namespace types
   bool slices_may_overlap(long const &i, S const &s)
   {
     return s.lower <= i && i < s.upper;
+  }
+
+  inline bool slices_may_overlap(long const &s0, long const &s1)
+  {
+    return s0 == s1;
   }
 
   template <class T>
@@ -121,27 +138,69 @@ namespace types
     return false;
   }
   template <class Arg, class E1, class... S>
-  std::enable_if_t<std::is_scalar<E1>::value, bool> may_overlap(numpy_gexpr<Arg, S...> const &gexpr,
-                                                                E1 const &)
+  std::enable_if_t<std::is_scalar_v<E1>, bool> may_overlap(numpy_gexpr<Arg, S...> const &gexpr,
+                                                           E1 const &)
   {
     return false;
+  }
+
+  template <class E0, class E1>
+  bool any_slices_may_overlap(E0 const &gexpr, E1 const &expr, std::index_sequence<>)
+  {
+    return false;
+  }
+
+  template <class E0, class E1, size_t I, size_t... Is>
+  bool any_slices_may_overlap(E0 const &gexpr, E1 const &expr, std::index_sequence<I, Is...>)
+  {
+    return slices_may_overlap(std::get<I>(gexpr.slices), std::get<I>(expr.slices)) ||
+           any_slices_may_overlap(gexpr, expr, std::index_sequence<Is...>());
+  }
+
+  template <class E0>
+  bool any_trailing_slices_may_overlap(E0 const &gexpr, std::index_sequence<>)
+  {
+    return false;
+  }
+
+  template <class E0, size_t I, size_t... Is>
+  bool any_trailing_slices_may_overlap(E0 const &gexpr, std::index_sequence<I, Is...>)
+  {
+    return has_negative_step(std::get<I>(gexpr.slices)) ||
+           any_trailing_slices_may_overlap(gexpr, std::index_sequence<Is...>());
+  }
+
+  template <size_t I, size_t... Is>
+  constexpr std::index_sequence<(I + Is)...> add_to_sequence(std::index_sequence<Is...>)
+  {
+    return {};
+  }
+
+  template <size_t I, size_t IMin>
+  constexpr auto make_tail_index_sequence()
+  {
+    return add_to_sequence<IMin>(std::make_index_sequence<I - IMin>());
   }
 
   template <class T, class pS, class Tp, class pSp, class E0, class E1>
   bool may_gexpr_overlap(E0 const &gexpr, E1 const &expr)
   {
-    if (!std::is_same<T, Tp>::value) {
+    if (!std::is_same_v<T, Tp>) {
       return false;
     }
-    if (std::tuple_size<pS>::value != std::tuple_size<pSp>::value) {
+    if (std::tuple_size_v<pS> != std::tuple_size_v<pSp>) {
       return false;
     }
     if (gexpr.arg.id() != expr.arg.id()) {
       return false;
     }
-    if (!slices_may_overlap(std::get<0>(gexpr.slices), std::get<0>(expr.slices)))
-      return false;
-    return true;
+
+    constexpr auto gexpr_slice_size = std::tuple_size_v<decltype(gexpr.slices)>;
+    constexpr auto expr_slice_size = std::tuple_size_v<decltype(expr.slices)>;
+    constexpr auto min_slice_size = std::min(gexpr_slice_size, expr_slice_size);
+    return any_slices_may_overlap(gexpr, expr, std::make_index_sequence<min_slice_size>()) ||
+           any_trailing_slices_may_overlap(
+               gexpr, make_tail_index_sequence<gexpr_slice_size, min_slice_size>());
   }
   template <class T, class pS, class Tp, class pSp, class... S, class... Sp>
   bool may_overlap(numpy_gexpr<ndarray<T, pS> const &, S...> const &gexpr,
@@ -305,15 +364,14 @@ namespace types
 
   template <class Arg, class... S>
   template <class Argp> // not using the default one, to make it possible to
-  // accept reference && non reference version of Argp
+  // accept reference and non reference version of Argp
   numpy_gexpr<Arg, S...>::numpy_gexpr(numpy_gexpr<Argp, S...> const &other)
-      : arg(other.arg), slices(other.slices), _shape(other._shape), buffer(other.buffer),
-        _strides(other._strides)
+      : arg(const_cast<std::decay_t<Argp> &>(other.arg)), slices(other.slices),
+        _shape(other._shape), buffer(other.buffer), _strides(other._strides)
   {
-    static_assert(
-        std::is_same<typename returnable<Arg>::type, typename returnable<Argp>::type>::value,
-        "this constructor is only here to adapt reference / non "
-        "reference type, nothing else");
+    static_assert(std::is_same_v<typename returnable<Arg>::type, typename returnable<Argp>::type>,
+                  "this constructor is only here to adapt reference / non "
+                  "reference type, nothing else");
     assert(buffer);
   }
 
@@ -410,7 +468,7 @@ namespace types
      */
     assert(buffer);
     constexpr bool vectorize = is_vectorizable &&
-                               std::is_same<dtype, typename dtype_of<E>::type>::value &&
+                               std::is_same_v<dtype, typename dtype_of<E>::type> &&
                                is_vectorizable_array<E>::value;
     if (may_overlap(*this, expr)) {
       return utils::broadcast_copy<numpy_gexpr &, ndarray<typename E::dtype, typename E::shape_t>,
@@ -436,7 +494,7 @@ namespace types
   numpy_gexpr<Arg, S...> &numpy_gexpr<Arg, S...>::_copy_restrict(E const &expr)
   {
     constexpr bool vectorize = is_vectorizable &&
-                               std::is_same<dtype, typename dtype_of<E>::type>::value &&
+                               std::is_same_v<dtype, typename dtype_of<E>::type> &&
                                is_vectorizable_array<E>::value;
     assert(buffer);
     return utils::broadcast_copy<numpy_gexpr &, E, value, (int)value - (int)utils::dim_of<E>::value,
@@ -491,15 +549,14 @@ namespace types
   std::enable_if_t<!may_overlap_gexpr<E>::value, numpy_gexpr<Arg, S...> &>
   numpy_gexpr<Arg, S...>::update_(E const &expr)
   {
-    using BExpr = std::conditional_t<std::is_scalar<E>::value, broadcast<E, dtype>, E const &>;
+    using BExpr = std::conditional_t<std::is_scalar_v<E>, broadcast<E, dtype>, E const &>;
     BExpr bexpr = expr;
     // 100% sure there's no overlap
     return utils::broadcast_update < Op, numpy_gexpr &, BExpr, value,
-           value - (std::is_scalar<E>::value + utils::dim_of<E>::value),
+           value - (std::is_scalar_v<E> + utils::dim_of<E>::value),
            is_vectorizable &&
                types::is_vectorizable<std::remove_cv_t<std::remove_reference_t<BExpr>>>::value &&
-               std::is_same<dtype, typename dtype_of<std::decay_t<BExpr>>::type>::value >
-                   (*this, bexpr);
+               std::is_same_v<dtype, typename dtype_of<std::decay_t<BExpr>>::type> > (*this, bexpr);
   }
 
   template <class Arg, class... S>
@@ -507,23 +564,23 @@ namespace types
   std::enable_if_t<may_overlap_gexpr<E>::value, numpy_gexpr<Arg, S...> &>
   numpy_gexpr<Arg, S...>::update_(E const &expr)
   {
-    using BExpr = std::conditional_t<std::is_scalar<E>::value, broadcast<E, dtype>, E const &>;
+    using BExpr = std::conditional_t<std::is_scalar_v<E>, broadcast<E, dtype>, E const &>;
     BExpr bexpr = expr;
 
     if (may_overlap(*this, expr)) {
       using NBExpr = ndarray<typename std::remove_reference_t<BExpr>::dtype,
                              typename std::remove_reference_t<BExpr>::shape_t>;
       return utils::broadcast_update < Op, numpy_gexpr &, NBExpr, value,
-             value - (std::is_scalar<E>::value + utils::dim_of<E>::value),
+             value - (std::is_scalar_v<E> + utils::dim_of<E>::value),
              is_vectorizable && types::is_vectorizable<E>::value &&
-                 std::is_same<dtype, typename std::decay_t<BExpr>::dtype>::value >
+                 std::is_same_v<dtype, typename std::decay_t<BExpr>::dtype> >
                      (*this, NBExpr(bexpr));
     } else {
       // 100% sure there's no overlap
       return utils::broadcast_update < Op, numpy_gexpr &, BExpr, value,
-             value - (std::is_scalar<E>::value + utils::dim_of<E>::value),
+             value - (std::is_scalar_v<E> + utils::dim_of<E>::value),
              is_vectorizable && types::is_vectorizable<E>::value &&
-                 std::is_same<dtype, typename std::decay_t<BExpr>::dtype>::value > (*this, bexpr);
+                 std::is_same_v<dtype, typename std::decay_t<BExpr>::dtype> > (*this, bexpr);
     }
   }
 
@@ -726,7 +783,7 @@ namespace types
 
   template <class Arg, class... S>
   template <class F>
-  std::enable_if_t<is_numexpr_arg<F>::value && std::is_same<bool, typename F::dtype>::value,
+  std::enable_if_t<is_numexpr_arg<F>::value && std::is_same_v<bool, typename F::dtype>,
                    numpy_vexpr<numpy_gexpr<Arg, S...>, ndarray<long, pshape<long>>>>
   numpy_gexpr<Arg, S...>::fast(F const &filter) const
   {
@@ -743,7 +800,7 @@ namespace types
 
   template <class Arg, class... S>
   template <class F>
-  std::enable_if_t<is_numexpr_arg<F>::value && std::is_same<bool, typename F::dtype>::value,
+  std::enable_if_t<is_numexpr_arg<F>::value && std::is_same_v<bool, typename F::dtype>,
                    numpy_vexpr<numpy_gexpr<Arg, S...>, ndarray<long, pshape<long>>>>
   numpy_gexpr<Arg, S...>::operator[](F const &filter) const
   {

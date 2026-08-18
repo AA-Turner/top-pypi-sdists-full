@@ -14,7 +14,6 @@
 
 from __future__ import annotations
 
-from typing import Union
 
 import numpy as np
 from jax._src.dtypes import iinfo, issubdtype
@@ -24,12 +23,12 @@ from jax._src.lib import xla_client as xc
 
 Shape = tuple[int, ...]
 
+
 class AutoLayoutSingleton:
-
   def __repr__(self):
-    return "AUTO"
-
+    return "AutoLayout"
 AutoLayout = AutoLayoutSingleton()
+
 
 class Layout:
   major_to_minor: tuple[int, ...]
@@ -101,8 +100,8 @@ class Layout:
           f' Got major_to_minor={self.major_to_minor} and shape={aval_shape}')
 
 
-LayoutOptions = Union[Layout, None, AutoLayoutSingleton]
-ShardingOptions = Union[Sharding, None]
+LayoutOptions = Layout | None | AutoLayoutSingleton
+ShardingOptions = Sharding | None
 
 
 class Format:

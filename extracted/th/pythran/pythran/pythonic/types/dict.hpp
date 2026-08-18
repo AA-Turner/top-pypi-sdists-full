@@ -6,6 +6,7 @@
 #include "pythonic/builtins/KeyError.hpp"
 #include "pythonic/builtins/None.hpp"
 #include "pythonic/types/empty_iterator.hpp"
+#include "pythonic/types/list.hpp"
 #include "pythonic/types/tuple.hpp"
 #include "pythonic/utils/iterator.hpp"
 #include "pythonic/utils/reserve.hpp"
@@ -13,7 +14,6 @@
 
 #include <algorithm>
 #include <iterator>
-#include <limits>
 #include <utility>
 
 PYTHONIC_NS_BEGIN
@@ -58,11 +58,6 @@ namespace types
   }
 
   template <class D>
-  dict_items<D>::dict_items()
-  {
-  }
-
-  template <class D>
   dict_items<D>::dict_items(D const &d) : data(d)
   {
   }
@@ -86,11 +81,6 @@ namespace types
   }
 
   template <class D>
-  dict_keys<D>::dict_keys()
-  {
-  }
-
-  template <class D>
   dict_keys<D>::dict_keys(D const &d) : data(d)
   {
   }
@@ -111,11 +101,6 @@ namespace types
   long dict_keys<D>::size() const
   {
     return data.size();
-  }
-
-  template <class D>
-  dict_values<D>::dict_values()
-  {
   }
 
   template <class D>
@@ -471,7 +456,7 @@ namespace types
 
   inline empty_dict empty_dict::operator+(empty_dict const &)
   {
-    return empty_dict();
+    return {};
   }
 
   inline empty_dict::operator bool() const
@@ -481,12 +466,12 @@ namespace types
 
   inline typename empty_dict::iterator empty_dict::begin() const
   {
-    return empty_iterator();
+    return {};
   }
 
   inline typename empty_dict::iterator empty_dict::end() const
   {
-    return empty_iterator();
+    return {};
   }
 
   template <class V>

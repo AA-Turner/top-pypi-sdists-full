@@ -40,7 +40,6 @@ from jax._src.interpreters import mlir
 from jax._src.lax import control_flow
 from jax._src.lax import lax
 from jax._src.lax import utils as lax_utils
-from jax._src.lax.lax import _float, _complex, _int
 from jax._src.lib import cuda_versions
 from jax._src.lib import gpu_linalg
 from jax._src.lib import gpu_solver
@@ -51,6 +50,13 @@ from jax._src.lib.mlir.dialects import chlo
 from jax._src.lib.mlir.dialects import hlo
 from jax._src.partition_spec import PartitionSpec as P
 from jax._src.typing import Array, ArrayLike
+
+
+_int = {np.integer}
+_float = {np.float32, np.float64}
+_any_float = {np.floating}
+_complex = {np.complex64, np.complex128}
+_any_complex = {np.complexfloating}
 
 
 def initialize_lapack():
@@ -736,7 +742,8 @@ def tridiagonal_solve(dl: Array, d: Array, du: Array, b: Array, *,
 
 # Primitive registration helper functions
 
-_platform_prefix_map = {"cpu": "cpu", "cuda": "cu", "rocm": "hip"}
+_platform_prefix_map = {"cpu": "cpu", "cuda": "cu", "rocm": "hip",
+                        "oneapi": "oneapi"}
 
 def register_cpu_gpu_lowering(
     prim, lowering_rule, supported_platforms=("cpu", "cuda", "rocm")
@@ -917,7 +924,7 @@ ad.primitive_jvps[cholesky_p] = _cholesky_jvp_rule
 mlir.register_lowering(cholesky_p, _cholesky_lowering)
 mlir.register_lowering(cholesky_p, _cholesky_cpu_lowering, platform="cpu")
 register_cpu_gpu_lowering(cholesky_p, _cholesky_gpu_lowering,
-                          supported_platforms=("cuda", "rocm"))
+                          supported_platforms=("cuda", "rocm", "oneapi"))
 
 
 # Cholesky update
@@ -1793,7 +1800,8 @@ register_cpu_gpu_lowering(lu_p, _lu_cpu_gpu_lowering)
 def lu_solve(lu: ArrayLike, permutation: ArrayLike, b: ArrayLike,
              trans: int = 0) -> Array:
   """LU solve with broadcasting."""
-  return _lu_solve(lu, permutation, b, trans)
+  return _lu_solve(lax.asarray(lu), lax.asarray(permutation), lax.asarray(b),
+                   trans)
 
 
 def _lu_solve_core(lu: Array, permutation: Array, b: Array, trans: int) -> Array:
@@ -2823,7 +2831,7 @@ def _tri_solve_sharding(a, b, *, left_side, lower, transpose_a, conjugate_a,
   return a.sharding.update(spec=P(*batch_spec, *out_spec))
 
 triangular_solve_p = linalg_primitive(
-    _triangular_solve_dtype_rule, (_float | _complex, _float | _complex),
+    _triangular_solve_dtype_rule, (_any_float | _any_complex, _any_float | _any_complex),
     (2, 2), _triangular_solve_shape_rule, "triangular_solve",
     sharding_rule=_tri_solve_sharding)
 ad.defjvp2(triangular_solve_p,

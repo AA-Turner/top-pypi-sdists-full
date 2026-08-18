@@ -4,10 +4,11 @@ import json
 import tempfile
 from unittest.mock import patch, MagicMock, mock_open
 from sling import (
-    Replication, ReplicationStream, Pipeline, Task, Source, Target, 
-    Mode, TaskOptions, cli
+    Replication, ReplicationStream, Pipeline, Task, Source, Target,
+    Mode, TaskOptions, cli, Sling, MergeStrategy, SlotLevel, Format,
+    ColumnCasing, Encoding, IsolationLevel
 )
-from sling.options import SourceOptions, TargetOptions
+from sling.options import SourceOptions, TargetOptions, CDCOptions
 from sling.hooks import *
 
 class TestMode:
@@ -15,10 +16,12 @@ class TestMode:
     
     def test_mode_values(self):
         assert Mode.FULL_REFRESH.value == "full-refresh"
-        assert Mode.INCREMENTAL.value == "incremental" 
+        assert Mode.INCREMENTAL.value == "incremental"
         assert Mode.TRUNCATE.value == "truncate"
         assert Mode.SNAPSHOT.value == "snapshot"
         assert Mode.BACKFILL.value == "backfill"
+        assert Mode.DEFINITION_ONLY.value == "definition-only"
+        assert Mode.CHANGE_CAPTURE.value == "change-capture"
 
 class TestSource:
     """Test the Source class"""
@@ -1085,3 +1088,298 @@ def test_run_methods(mock_exec):
     )
     output = pipeline.run(return_output=True)
     assert "testing now" in output
+
+class TestCDCOptions:
+    """Test the CDCOptions class and change-capture mode"""
+
+    def test_cdc_options_initialization(self):
+        opts = CDCOptions(
+            snapshot_start="beginning",
+            snapshot_chunk_size=50000,
+            snapshot_run_duration="30m",
+            run_max_events=2000,
+            run_max_duration="5m",
+            soft_delete=True,
+            retry_attempts=5,
+            retry_delay="10s",
+            replay_from="0/1A2B3C4D",
+            slot_level=SlotLevel.SHARED,
+            change_feed="my_publication",
+        )
+
+        assert opts.snapshot_start == "beginning"
+        assert opts.snapshot_chunk_size == 50000
+        assert opts.snapshot_run_duration == "30m"
+        assert opts.run_max_events == 2000
+        assert opts.run_max_duration == "5m"
+        assert opts.soft_delete is True
+        assert opts.retry_attempts == 5
+        assert opts.retry_delay == "10s"
+        assert opts.replay_from == "0/1A2B3C4D"
+        assert opts.slot_level == SlotLevel.SHARED
+        assert opts.change_feed == "my_publication"
+
+    def test_cdc_options_defaults_are_unset(self):
+        """Unset options must not be sent, so Sling applies its own defaults"""
+        opts = CDCOptions()
+        assert opts.to_dict() == {}
+
+    def test_cdc_options_to_dict_keeps_only_set_fields(self):
+        opts = CDCOptions(soft_delete=False, run_max_events=100)
+        assert opts.to_dict() == {"soft_delete": False, "run_max_events": 100}
+
+    def test_slot_level_values(self):
+        assert SlotLevel.STREAM.value == "stream"
+        assert SlotLevel.SHARED.value == "shared"
+
+    def test_merge_strategy_cdc_values(self):
+        assert MergeStrategy.CHANGE_CAPTURE.value == "change_capture"
+        assert MergeStrategy.CHANGE_CAPTURE_SOFT.value == "change_capture_soft"
+        assert MergeStrategy.HISTORY_INSERT.value == "history_insert"
+
+    def test_replication_stream_with_cdc_options(self):
+        stream = ReplicationStream(
+            mode=Mode.CHANGE_CAPTURE,
+            object="main.users",
+            change_capture_options={"soft_delete": True, "slot_level": "shared"},
+        )
+
+        assert isinstance(stream.change_capture_options, CDCOptions)
+        assert stream.change_capture_options.soft_delete is True
+        assert stream.change_capture_options.slot_level == "shared"
+
+    def test_replication_stream_without_cdc_options(self):
+        """Streams which do not use CDC must keep the attribute empty"""
+        stream = ReplicationStream(mode=Mode.FULL_REFRESH)
+        assert stream.change_capture_options is None
+
+    def test_replication_cdc_json_serialization(self):
+        replication = Replication(
+            source="MY_PG",
+            target="MY_SF",
+            defaults=ReplicationStream(
+                mode=Mode.CHANGE_CAPTURE,
+                change_capture_options=CDCOptions(
+                    slot_level=SlotLevel.SHARED, run_max_events=2000
+                ),
+            ),
+            streams={
+                "public.users": ReplicationStream(
+                    object="raw.users",
+                    change_capture_options=CDCOptions(soft_delete=True),
+                ),
+                "public.orders": ReplicationStream(object="raw.orders"),
+            },
+        )
+
+        replication._prep_cmd()
+        with open(replication.temp_file) as file:
+            config = json.load(file)
+
+        # defaults carry the CDC options, with the enum as its string value
+        defaults = config["defaults"]
+        assert defaults["mode"] == "change-capture"
+        assert defaults["change_capture_options"] == {
+            "run_max_events": 2000,
+            "slot_level": "shared",
+        }
+
+        # a stream sets only its own override; Sling merges the defaults
+        users = config["streams"]["public.users"]
+        assert users["change_capture_options"] == {"soft_delete": True}
+
+        # a stream without CDC options stays null, which Sling reads as unset
+        assert config["streams"]["public.orders"]["change_capture_options"] is None
+
+        os.remove(replication.temp_file)
+
+    def test_sling_class_cdc_options_command(self):
+        sling = Sling(
+            src_conn="MY_PG",
+            src_stream="public.users",
+            tgt_conn="MY_SF",
+            tgt_object="raw.users",
+            mode=Mode.CHANGE_CAPTURE,
+            cdc_options=CDCOptions(soft_delete=True, run_max_duration="5m"),
+        )
+        cmd = sling._build_command()
+
+        assert "-m" in cmd
+        assert cmd[cmd.index("-m") + 1] == "change-capture"
+
+        assert "--cdc-options" in cmd
+        payload = json.loads(cmd[cmd.index("--cdc-options") + 1])
+        assert payload == {"soft_delete": True, "run_max_duration": "5m"}
+
+    def test_sling_class_cdc_options_dict(self):
+        sling = Sling(
+            src_conn="MY_PG",
+            src_stream="public.users",
+            tgt_conn="MY_SF",
+            tgt_object="raw.users",
+            mode="change-capture",
+            cdc_options={"snapshot_start": "beginning", "retry_attempts": 5},
+        )
+        cmd = sling._build_command()
+
+        payload = json.loads(cmd[cmd.index("--cdc-options") + 1])
+        assert payload == {"snapshot_start": "beginning", "retry_attempts": 5}
+
+    def test_sling_class_without_cdc_options(self):
+        sling = Sling(src_conn="MY_PG", src_stream="t", tgt_conn="MY_SF", tgt_object="t")
+        assert "--cdc-options" not in sling._build_command()
+
+
+class TestOptionParity:
+    """Test the options and enums which mirror the sling-cli config"""
+
+    def test_source_options_new_fields(self):
+        opts = SourceOptions(
+            skip_lines=2,
+            escape="\\",
+            quote='"',
+            jq=".data[]",
+            chunk_count=4,
+            chunk_expr="id % 4",
+            encoding=Encoding.UTF8_BOM,
+        )
+        assert opts.skip_lines == 2
+        assert opts.escape == "\\"
+        assert opts.quote == '"'
+        assert opts.jq == ".data[]"
+        assert opts.chunk_count == 4
+        assert opts.chunk_expr == "id % 4"
+        assert opts.encoding == Encoding.UTF8_BOM
+
+    def test_source_options_no_trim_space(self):
+        """trim_space is a transform, not a source option"""
+        with pytest.raises(TypeError):
+            SourceOptions(trim_space=True)
+
+    def test_target_options_new_fields(self):
+        opts = TargetOptions(
+            batch_max_duration="30s",
+            encoding=Encoding.UTF8,
+            direct_insert=True,
+            isolation_level=IsolationLevel.READ_COMMITTED,
+            column_casing=ColumnCasing.SNAKE,
+        )
+        assert opts.batch_max_duration == "30s"
+        assert opts.encoding == Encoding.UTF8
+        assert opts.direct_insert is True
+        assert opts.isolation_level == IsolationLevel.READ_COMMITTED
+        assert opts.column_casing == ColumnCasing.SNAKE
+
+    def test_format_new_values(self):
+        assert Format.ICEBERG.value == "iceberg"
+        assert Format.DELTA.value == "delta"
+        assert Format.GEOJSON.value == "geojson"
+
+    def test_column_casing_values(self):
+        assert ColumnCasing.SOURCE.value == "source"
+        assert ColumnCasing.SNAKE.value == "snake"
+        assert ColumnCasing.CAMEL.value == "camel"
+
+    def test_isolation_level_values(self):
+        assert IsolationLevel.READ_COMMITTED.value == "read_committed"
+        assert IsolationLevel.SERIALIZABLE.value == "serializable"
+
+    def test_replication_stream_single(self):
+        stream = ReplicationStream(object="out.csv", single=True)
+        assert stream.single is True
+
+    def test_source_options_serialization(self):
+        sling = Sling(
+            src_stream="file:///tmp/f.csv",
+            src_options=SourceOptions(skip_lines=2, quote='"'),
+        )
+        cmd = sling._build_command()
+        payload = json.loads(cmd[cmd.index("--src-options") + 1])
+        assert payload["skip_lines"] == 2
+        assert payload["quote"] == '"'
+
+
+class TestHookParity:
+    """Test the hook classes which mirror the sling-cli hook types"""
+
+    def test_new_hook_types(self):
+        assert HookSet(key="k", value=1).get_type() == "set"
+        assert HookRoutine(routine="r").get_type() == "routine"
+        assert HookBuild(build="./dbt").get_type() == "build"
+
+    def test_hook_store_is_legacy_alias_of_set(self):
+        """store and set share a Go struct; store keeps the legacy type string"""
+        assert issubclass(HookStore, HookSet)
+        assert HookStore(key="k", value=1).get_type() == "store"
+
+    def test_hook_set_map_form(self):
+        d = HookSet(map={"a": 1, "b": 2}).to_dict()
+        assert d == {"type": "set", "map": {"a": 1, "b": 2}}
+
+    def test_hook_query_new_fields(self):
+        d = HookQuery(
+            connection="pg", query="select 1",
+            transaction="tx1", operation="merge", params={"a": 1},
+        ).to_dict()
+        assert d["transaction"] == "tx1"
+        assert d["operation"] == "merge"
+        assert d["params"] == {"a": 1}
+
+    def test_hook_http_new_fields(self):
+        d = HookHTTP(
+            url="https://x.com", timeout=30, auth={"type": "bearer"},
+            write_to="out.json", proxy="http://proxy:8080",
+        ).to_dict()
+        assert d["timeout"] == 30
+        assert d["auth"] == {"type": "bearer"}
+        assert d["write_to"] == "out.json"
+        assert d["proxy"] == "http://proxy:8080"
+
+    def test_hook_check_success_fields(self):
+        d = HookCheck(check="1 == 1", success_goto="step_x", success_message="ok").to_dict()
+        assert d["success_goto"] == "step_x"
+        assert d["success_message"] == "ok"
+
+    def test_hook_command_new_fields(self):
+        d = HookCommand(command="echo hi", timeout=30, ssh_conn="my_ssh").to_dict()
+        assert d["timeout"] == 30
+        assert d["ssh_conn"] == "my_ssh"
+        assert d["command"] == "echo hi"
+
+    def test_hook_group_new_fields(self):
+        d = HookGroup(steps=[HookLog(log="x")], params={"p": 1}, concurrency=3).to_dict()
+        assert d["params"] == {"p": 1}
+        assert d["concurrency"] == 3
+
+    def test_hook_list_into(self):
+        assert HookList(location="s3/path", into="files").to_dict()["into"] == "files"
+
+    def test_hook_log_log_field(self):
+        assert HookLog(log="hello").to_dict()["log"] == "hello"
+
+    def test_hook_inspect_uses_object_not_path(self):
+        """Go's HookInspect has `object`; `path` was a no-op"""
+        d = HookInspect(location="file:///tmp/f.csv", object="obj").to_dict()
+        assert d["object"] == "obj"
+        assert "path" not in d
+
+    def test_hook_copy_uses_single_file_not_recursive(self):
+        """Go's HookCopy has `single_file`; `recursive` was a no-op"""
+        d = HookCopy(from_="a", to="b", single_file=True).to_dict()
+        assert d["single_file"] is True
+        assert d["from"] == "a"
+        assert "recursive" not in d
+
+    def test_hook_replication_inline(self):
+        d = HookReplication(replication={"source": "pg", "target": "sf"}).to_dict()
+        assert d["replication"] == {"source": "pg", "target": "sf"}
+
+    def test_hook_build_range_rename(self):
+        d = HookBuild(build="./dbt", range_param="2024-01-01,2024-02-01").to_dict()
+        assert d["range"] == "2024-01-01,2024-02-01"
+        assert "range_param" not in d
+
+    def test_step_aliases_exist(self):
+        assert StepSet is HookSet
+        assert StepRoutine is HookRoutine
+        assert StepBuild is HookBuild

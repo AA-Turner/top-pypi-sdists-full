@@ -217,6 +217,12 @@ class WindowConfigResolved:
     backfill_tags: list[list[str]] | None
     cache_aggregated_values: bool
     allow_filter_migration: bool
+    fold_step: Any = None
+    """The step of a `history_fold`: an expression of two arguments, `(event, previous) -> state`.
+    Unlike every other aggregation the step is not implied by `aggregation`, so it has to travel
+    with the resolved config rather than being reconstructed downstream."""
+    fold_initial_value: Any = None
+    """The state a `history_fold` starts from before any event is applied."""
 
 
 class Feature(Generic[_TPrim, _TRich]):
@@ -1957,6 +1963,7 @@ def feature(
     store_offline: bool = True,
     versions: Optional[Dict[int, _TRich]] = None,
     typ: Optional[Type[_TRich]] = None,
+    materialization: Optional[Literal[True]] = None,
 ) -> _TRich:
     """Add metadata and configuration to a feature.
 
@@ -2237,6 +2244,25 @@ def feature(
     ...         version=2, default_version=2
     ...     )
     """
+    if materialization is not None:
+        # `True` is the only thing that can be meant here. A windowed aggregation configures its
+        # buckets through `windowed(..., materialization={...})`; the aggregations that reach
+        # `feature()` -- `history_fold` today -- keep exactly one ever-open bucket per entity, so
+        # there is no bucket duration to choose and a config would only be misleading.
+        if materialization is not True:
+            raise ValueError(
+                "`materialization` accepts only `True`, and got "
+                + f"{materialization!r}. An aggregation configured here keeps one ever-open bucket"
+                + " per entity, so there are no buckets to size. To configure a windowed"
+                + " aggregation's buckets, pass `materialization={...}` to `windowed(...)` instead."
+            )
+        if expression is None and underscore is None:
+            raise ValueError(
+                "`materialization=True` needs an `expression` to materialize, but this feature has"
+                + " none. It belongs on a feature defined by an aggregation over a has-many, such"
+                + " as `feature(expression=_.events[_.x].history_fold(...), materialization=True)`."
+            )
+
     if versions is not None:
         frame = inspect.currentframe()
         assert frame is not None
@@ -2313,6 +2339,7 @@ def feature(
                 ]
             ),
             default=default,
+            window_materialization=materialization,
             underscore_expression=expression if expression is not None else underscore,
             offline_underscore_expression=offline_expression,
             offline_ttl=offline_ttl,

@@ -10,6 +10,7 @@ from mistralai.vibe.sdk.execution_record.state import (
     CompletedOutput,
     FailedOutput,
     HistoryEntry,
+    ImageContentBlock,
     MessageEntry,
     StateEntry,
     TaskCallEntry,
@@ -20,7 +21,11 @@ from mistralai.vibe.sdk.execution_record.state import (
 from mistralai.vibe.sdk.execution_record.utils import model_context_projection
 from mistralai.vibe.sdk.providers.completion.messages import (
     FunctionCall,
+    ImageURL,
+    ImageURLMessageContentChunk,
     Message,
+    MessageContentChunk,
+    TextMessageContentChunk,
     ToolCall,
 )
 from mistralai.vibe.sdk.providers.completion.types import (
@@ -81,14 +86,15 @@ def build_completion_request_from_state(
                 continue
 
             role = entry.payload.role
-            content = content_text(entry.payload.content)
+            content = _message_content(entry)
 
             if role == "system":
-                messages.append(Message(role="system", content=content))
+                messages.append(Message(role="system", content=content_text(entry.payload.content)))
             elif role == "user":
                 messages.append(Message(role="user", content=content))
             elif role == "assistant":
-                msg = Message(role="assistant", content=content or None)
+                text_content = content_text(entry.payload.content)
+                msg = Message(role="assistant", content=text_content or None)
                 tool_calls = _collect_assistant_tool_calls(history, index)
                 if tool_calls:
                     msg.tool_calls = [
@@ -131,6 +137,24 @@ def build_completion_request_from_state(
         metadata=metadata,
         request_kind=request_kind,
     )
+
+
+def _message_content(entry: MessageEntry) -> str | list[MessageContentChunk] | None:
+    chunks: list[MessageContentChunk] = []
+    for block in entry.payload.content:
+        match block:
+            case ImageContentBlock(image_url=image_url):
+                chunks.append(ImageURLMessageContentChunk(image_url=ImageURL(url=image_url)))
+            case _:
+                text = content_text([block])
+                if text:
+                    chunks.append(TextMessageContentChunk(text=text))
+
+    if not chunks:
+        return None
+    if len(chunks) == 1 and isinstance(chunks[0], TextMessageContentChunk):
+        return chunks[0].text
+    return chunks
 
 
 def _completion_projection(history: list[HistoryEntry]) -> _CompletionProjection:

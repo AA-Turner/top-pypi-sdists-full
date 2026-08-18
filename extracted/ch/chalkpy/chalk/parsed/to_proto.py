@@ -1111,7 +1111,14 @@ class ToProtoConverter:
                 offline_ttl_duration=timedelta_to_proto_duration(parse_chalk_duration(f.offline_ttl)),
                 window_info=(
                     pb.WindowInfo(
-                        duration=seconds_to_proto_duration(f.window_duration),
+                        # A materialized aggregation on a non-windowed feature (`history_fold`)
+                        # has no window duration of its own: its window is the whole of time, which
+                        # is exactly its single ever-open bucket.
+                        duration=seconds_to_proto_duration(
+                            f.window_duration
+                            if f.window_duration is not None
+                            else (wmp.bucket_duration_seconds if wmp is not None else 0)
+                        ),
                         aggregation=(
                             pb.WindowAggregation(
                                 namespace=wmp.namespace,
@@ -1121,6 +1128,18 @@ class ToProtoConverter:
                                 aggregation=wmp.aggregation,
                                 aggregate_on=aggregate_on_features[0] if aggregate_on_features else None,
                                 aggregate_on_features=aggregate_on_features,
+                                # A history_fold's step and seed: unlike every other aggregation
+                                # the step is arbitrary, so it has to travel with the rule.
+                                fold_step=(
+                                    ToProtoConverter.convert_underscore(wmp.fold_step)
+                                    if wmp.fold_step is not None
+                                    else None
+                                ),
+                                fold_initial_value=(
+                                    convert_value_to_proto_expr(wmp.fold_initial_value)
+                                    if wmp.fold_initial_value is not None
+                                    else None
+                                ),
                                 arrow_type=PrimitiveFeatureConverter.convert_pa_dtype_to_proto_dtype(wmp.pyarrow_dtype),
                                 filters=[cls.convert_filter(f) for f in wmp.filters],
                                 backfill_lookback_duration=(
@@ -1158,7 +1177,7 @@ class ToProtoConverter:
                             else None
                         ),
                     )
-                    if f.window_duration is not None
+                    if f.window_duration is not None or wmp is not None
                     else None
                 ),
                 # The protos are nullable; the type hint is wrong

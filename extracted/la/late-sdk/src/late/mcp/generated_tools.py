@@ -1289,6 +1289,49 @@ def register_generated_tools(mcp, _get_client):
         except Exception as e:
             return f"Error: {e}"
 
+    @mcp.tool(
+        annotations=ToolAnnotations(
+            title="Get Bluesky account settings",
+            readOnlyHint=True,
+            destructiveHint=False,
+            openWorldHint=False,
+        )
+    )
+    def accounts_get_bluesky_settings(account_id: str) -> str:
+        """Get Bluesky account settings
+
+        Args:
+            account_id: (required)"""
+        client = _get_client()
+        try:
+            response = client.accounts.get_bluesky_settings(account_id=account_id)
+            return _format_response(response)
+        except Exception as e:
+            return f"Error: {e}"
+
+    @mcp.tool(
+        annotations=ToolAnnotations(
+            title="Update Bluesky account settings",
+            readOnlyHint=False,
+            destructiveHint=True,
+            openWorldHint=True,
+        )
+    )
+    def accounts_update_bluesky_settings(account_id: str, default_langs: str) -> str:
+        """Update Bluesky account settings
+
+        Args:
+            account_id: (required)
+            default_langs: (required)"""
+        client = _get_client()
+        try:
+            response = client.accounts.update_bluesky_settings(
+                account_id=account_id, default_langs=default_langs
+            )
+            return _format_response(response)
+        except Exception as e:
+            return f"Error: {e}"
+
     # AD_ACCOUNTS
 
     @mcp.tool(
@@ -3105,6 +3148,7 @@ def register_generated_tools(mcp, _get_client):
         budget_amount: float | None = None,
         budget_type: str | None = None,
         status: str | None = None,
+        campaign_status: str | None = None,
         budget_level: str = "adset",
         currency: str | None = None,
         headline: str | None = None,
@@ -3211,6 +3255,7 @@ def register_generated_tools(mcp, _get_client):
                 budget_amount: Budget in WHOLE currency units (USD: 50 = $50.00), NOT cents — Meta's own Marketing API takes this same number in minor units, so it is an easy and expensive mix-up. Required on legacy + multi-creative shapes. Inherited on attach. OpenAI Ads requires a $1 minimum (its budget is lifetime-only, see budgetType).
                 budget_type: Required on legacy + multi-creative shapes. Inherited on attach. OpenAI Ads accepts lifetime only (no daily-budget concept on the platform); sending daily returns 422. OpenAI Ads lifetime budgets require `endDate` to give the lifetime cap a spend window.
                 status: Meta and TikTok. Publish state of the created entities. Omitted or ACTIVE publishes live (default, back-compat); PAUSED creates them paused so you can review before they spend. On Meta the pause is held on the campaign this call creates, leaving the ad set and ad switched on, so a single PUT /v1/ads/campaigns/{campaignId}/status with `active` brings the whole thing live. It is held at every level instead when the pause cannot rely on the campaign: `existingCampaignId` (that campaign may be running and is never touched) or `campaignStatus: ACTIVE`. On TikTok the whole campaign > ad group > ad hierarchy stays paused.
+                campaign_status: Meta only. Overrides `status` for the campaign level alone, so you can create a live campaign whose ad set and ad stay paused, or the reverse. Omitted, it follows `status`.
                 budget_level: Meta only. Where the budget lives, which selects the Meta budget model:
           - `adset` (default): ABO (Ad-set Budget Optimization). The budget is set on the
             ad set. This is the back-compatible behaviour — omit this field to keep it.
@@ -3577,6 +3622,7 @@ def register_generated_tools(mcp, _get_client):
                 budget_amount=budget_amount,
                 budget_type=budget_type,
                 status=status,
+                campaign_status=campaign_status,
                 budget_level=budget_level,
                 currency=currency,
                 headline=headline,
@@ -6299,7 +6345,7 @@ def register_generated_tools(mcp, _get_client):
 
         Args:
             broadcast_id: (required)
-            contact_ids: Specific contact IDs to add
+            contact_ids: Specific contact IDs to add. Zernio contact ids (24-character hex), as returned by the list-contacts endpoint. A platform identifier such as a WhatsApp wa_id is rejected with 400; use phones for raw numbers.
             phones: Raw phone numbers (auto-creates contacts). Useful for WhatsApp/Telegram manual entry
             use_segment: Auto-populate from broadcast segment filters"""
         client = _get_client()
@@ -11270,7 +11316,7 @@ def register_generated_tools(mcp, _get_client):
                 conversation_id: The conversation ID (id field from list conversations endpoint). This is the platform-specific conversation identifier, not an internal database ID. (required)
                 account_id: Social account ID (required)
                 limit: Number of messages to return per page. Default 100, max 100.
-                cursor: Opaque pagination cursor. Pass `pagination.nextCursor` from a prior response.
+                cursor: Opaque pagination cursor. Pass `pagination.nextCursor` from a prior response verbatim: a cursor we cannot parse returns 400 rather than silently restarting from the first page.
                 sort_order: Order of returned messages. Default `asc` (oldest first, chat style).
         Twitter, Instagram, Telegram, WhatsApp and Reddit honor this order
         across cursor pages. For Facebook and Bluesky, only intra-page

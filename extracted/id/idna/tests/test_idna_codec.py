@@ -1,5 +1,3 @@
-#!/usr/bin/env python
-
 import codecs
 import io
 import unittest
@@ -7,6 +5,14 @@ import unittest
 import idna.codec
 
 CODEC_NAME = "idna2008"
+
+# (decoded, encoded) pairs derived from CPython's Lib/test/test_codecs.py
+INCREMENTAL_TESTS = (
+    ("python.org", b"python.org"),
+    ("python.org.", b"python.org."),
+    ("pyth\xf6n.org", b"xn--pythn-mua.org"),
+    ("pyth\xf6n.org.", b"xn--pythn-mua.org."),
+)
 
 
 class IDNACodecTests(unittest.TestCase):
@@ -31,6 +37,14 @@ class IDNACodecTests(unittest.TestCase):
     def testIndirectEncode(self):
         self.idnatests.test_encode(encode=lambda obj: obj.encode(CODEC_NAME), skip_bytes=True)
 
+    def testIncrementalDecoderNonASCII(self):
+        # Non-ASCII bytes must surface as IDNAError, as they do from
+        # idna.decode() and the one-shot codec, not as UnicodeDecodeError.
+        decoder = codecs.getincrementaldecoder(CODEC_NAME)()
+        self.assertRaises(idna.IDNAError, decoder.decode, b"\x80")
+        self.assertRaises(idna.IDNAError, decoder.decode, b"\xc3\x9f", True)
+        self.assertRaises(idna.IDNAError, b"\x80".decode, CODEC_NAME)
+
     def testStreamReader(self):
         def decode(obj):
             if isinstance(obj, str):
@@ -52,16 +66,7 @@ class IDNACodecTests(unittest.TestCase):
         return self.idnatests.test_encode(encode=encode)
 
     def testIncrementalDecoder(self):
-        # Tests derived from Python standard library test/test_codecs.py
-
-        incremental_tests = (
-            ("python.org", b"python.org"),
-            ("python.org.", b"python.org."),
-            ("pyth\xf6n.org", b"xn--pythn-mua.org"),
-            ("pyth\xf6n.org.", b"xn--pythn-mua.org."),
-        )
-
-        for decoded, encoded in incremental_tests:
+        for decoded, encoded in INCREMENTAL_TESTS:
             self.assertEqual(
                 "".join(codecs.iterdecode((bytes([c]) for c in encoded), CODEC_NAME)),
                 decoded,
@@ -100,15 +105,7 @@ class IDNACodecTests(unittest.TestCase):
         self.assertEqual(decoder.decode(b"", True), "")
 
     def testIncrementalEncoder(self):
-        # Tests derived from Python standard library test/test_codecs.py
-
-        incremental_tests = (
-            ("python.org", b"python.org"),
-            ("python.org.", b"python.org."),
-            ("pyth\xf6n.org", b"xn--pythn-mua.org"),
-            ("pyth\xf6n.org.", b"xn--pythn-mua.org."),
-        )
-        for decoded, encoded in incremental_tests:
+        for decoded, encoded in INCREMENTAL_TESTS:
             self.assertEqual(b"".join(codecs.iterencode(decoded, CODEC_NAME)), encoded)
 
         encoder = codecs.getincrementalencoder(CODEC_NAME)()

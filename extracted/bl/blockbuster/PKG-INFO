@@ -1,6 +1,6 @@
-Metadata-Version: 2.4
+Metadata-Version: 2.5
 Name: blockbuster
-Version: 1.5.26
+Version: 1.5.27
 Summary: Utility to detect blocking calls in the async event loop
 Project-URL: Repository, https://github.com/cbornet/blockbuster.git
 Project-URL: Issues, https://github.com/cbornet/blockbuster/issues
@@ -16,6 +16,7 @@ Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
+Classifier: Programming Language :: Python :: 3.14
 Classifier: Topic :: Software Development :: Build Tools
 Requires-Python: >=3.8
 Requires-Dist: forbiddenfruit>=0.1.4; implementation_name == 'cpython'
@@ -102,10 +103,12 @@ import time
 from blockbuster import BlockBuster, BlockingError, blockbuster_ctx
 from typing import Iterator
 
+
 @pytest.fixture(autouse=True)
 def blockbuster() -> Iterator[BlockBuster]:
     with blockbuster_ctx() as bb:
         yield bb
+
 
 async def test_time_sleep() -> None:
     with pytest.raises(BlockingError, match="sleep"):
@@ -207,7 +210,9 @@ from blockbuster import BlockBuster, BlockBusterFunction
 import mymodule
 
 blockbuster = BlockBuster()
-blockbuster.functions["my_module.my_function"] = BlockBusterFunction(my_module, "my_function")
+blockbuster.functions["my_module.my_function"] = BlockBusterFunction(
+    my_module, "my_function"
+)
 blockbuster.activate()
 ```
 
@@ -218,7 +223,9 @@ from blockbuster import blockbuster_ctx, BlockBusterFunction
 import mymodule
 
 with blockbuster_ctx() as blockbuster:
-    blockbuster.functions["my_module.my_function"] = BlockBusterFunction(my_module, "my_function")
+    blockbuster.functions["my_module.my_function"] = BlockBusterFunction(
+        my_module, "my_function"
+    )
     blockbuster.functions["my_module.my_function"].activate()
 ```
 

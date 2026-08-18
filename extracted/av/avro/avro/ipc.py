@@ -322,7 +322,7 @@ class Responder:
             else:
                 writers_schema = local_message.errors
                 self.write_error(writers_schema, error, buffer_encoder)
-        except schema.AvroException as e:
+        except avro.errors.AvroException as e:
             error = avro.errors.AvroRemoteException(str(e))
             buffer_encoder = avro.io.BinaryEncoder(io.BytesIO())
             META_WRITER.write(response_metadata, buffer_encoder)
@@ -405,14 +405,14 @@ class FramedReader:
                 return b"".join(message)
             while buffer.tell() < buffer_length:
                 chunk = self.reader.read(buffer_length - buffer.tell())
-                if chunk == "":
+                if chunk == b"":
                     raise avro.errors.ConnectionClosedException("Reader read 0 bytes.")
                 buffer.write(chunk)
             message.append(buffer.getvalue())
 
     def _read_buffer_length(self):
         read = self.reader.read(BUFFER_HEADER_LENGTH)
-        if read == "":
+        if read == b"":
             raise avro.errors.ConnectionClosedException("Reader read 0 bytes.")
         return BIG_ENDIAN_INT_STRUCT.unpack(read)[0]
 

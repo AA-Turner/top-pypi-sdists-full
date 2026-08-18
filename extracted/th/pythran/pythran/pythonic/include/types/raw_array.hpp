@@ -1,6 +1,8 @@
 #ifndef PYTHONIC_INCLUDE_TYPES_RAW_ARRAY_HPP
 #define PYTHONIC_INCLUDE_TYPES_RAW_ARRAY_HPP
 
+#include <cstddef>
+
 PYTHONIC_NS_BEGIN
 
 namespace types
@@ -25,7 +27,7 @@ namespace types
     raw_array();
     raw_array(size_t n);
     raw_array(T *d, ownership o);
-    raw_array(raw_array<T> &&d);
+    raw_array(raw_array<T> &&d) noexcept;
     void forget();
 
     ~raw_array();

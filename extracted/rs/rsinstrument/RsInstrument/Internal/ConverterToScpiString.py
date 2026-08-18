@@ -2,9 +2,9 @@
 
 from enum import Enum
 
-from .Conversions import list_to_csv_quoted_str, value_to_quoted_str, list_to_csv_str, value_to_str, enum_list_to_str, enum_scalar_to_str, enum_ext_scalar_to_str, enum_ext_list_to_str
-from .Types import DataType
+from .Conversions import enum_ext_list_to_str, enum_ext_scalar_to_str, enum_list_to_str, enum_scalar_to_str, list_to_csv_quoted_str, list_to_csv_str, value_to_quoted_str, value_to_str
 from .InstrumentErrors import RsInstrException
+from .Types import DataType
 
 
 def value_to_scpi_string(data, data_type: DataType) -> str:

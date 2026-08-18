@@ -339,6 +339,13 @@ properties:
         mutation_behavior: union
         cli_option: --proxy-service-url
     mutation_behavior: union
+  url_slug:
+    description: |-
+      Names the app's URL instead of having one generated for it: `api-<url_slug>.<your platform domain>`, or `ui-<url_slug>` for an app with browser-only auth. Cannot be combined with `generate_static_url`, which is the other way of deciding the same URL. A slug belongs to a single app across the whole platform deployment, and cannot be changed once an app has one. (validation applied)
+    type: string
+    example: my-app
+    mutation_behavior: union
+    cli_option: --url-slug
   persistence:
     description: The persistence mode to deploy the app with. (validation applied)
     type: string
@@ -383,7 +390,8 @@ properties:
     experimental: true
     mutation_behavior: union
   generate_static_url:
-    description: Generate a static URL for the app based on its name.
+    description: |-
+      Generate a static URL for the app based on its name. Cannot be combined with `url_slug`, which names the URL instead.
     type: boolean
     default: false
     mutation_behavior: union

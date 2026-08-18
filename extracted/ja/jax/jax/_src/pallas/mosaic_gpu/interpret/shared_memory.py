@@ -15,22 +15,41 @@
 from __future__ import annotations
 
 import collections
+import contextlib
 import dataclasses
+import itertools
 import logging
 import math
 import threading
-from typing import Protocol, Literal, Self
+import types
+from typing import Literal, Protocol, Self
 
 import jax
 from jax import numpy as jnp
 from jax._src import source_info_util
+from jax._src.pallas import core as pallas_core
 from jax._src.pallas.mosaic.interpret import shared_memory as memory
 from jax._src.pallas.mosaic.interpret import utils as interpret_utils
-from jax._src.pallas.mosaic.interpret import vector_clock as vc
+from jax._src.pallas.mosaic.interpret import vector_clock
+from jax._src.pallas.mosaic_gpu import core as mosaic_gpu_core
 from jax._src.pallas.mosaic_gpu.interpret import params as params
 import numpy as np
 
 logger = logging.getLogger(__name__)
+
+
+IDX_BY_GPU_MEMORY_SPACE: collections.abc.Mapping[
+    mosaic_gpu_core.MemorySpace, int
+]
+IDX_BY_GPU_MEMORY_SPACE = types.MappingProxyType(
+    {v: i for i, v in enumerate(mosaic_gpu_core.MemorySpace)}
+)
+
+
+def get_memory_space_idx(space: mosaic_gpu_core.MemorySpace) -> int:
+  if space is pallas_core.MemorySpace.DEFAULT:
+    return IDX_BY_GPU_MEMORY_SPACE[mosaic_gpu_core.MemorySpace.SMEM]
+  return IDX_BY_GPU_MEMORY_SPACE[space]
 
 
 def _to_int(x):
@@ -78,6 +97,17 @@ class MeshLocation:
     self.thread_id = _to_int(thread_id)
     self.warp_id = _to_int(warp_id) if warp_id is not None else None
 
+  def __hash__(self) -> int:
+    return hash(
+        (
+            self.device_coords,
+            self.cluster_coords,
+            self.block_coords,
+            self.thread_id,
+            self.warp_id,
+        )
+    )
+
 
 @jax.tree_util.register_dataclass
 @dataclasses.dataclass(init=False)
@@ -97,7 +127,7 @@ class Device:
 
 @jax.tree_util.register_dataclass
 @dataclasses.dataclass(init=False)
-class Warpgroup(Device):
+class Warpgroup:
   """
   A physical warpgroup in GPU interpret mode with flattened IDs.
 
@@ -105,6 +135,7 @@ class Warpgroup(Device):
   will run concurrently on different CPU threads. Since we don't run multiple
   clusters concurrently, cluster_id will always be 0.
   """
+  device_id: int
   cluster_id: int
   block_id: int
   warpgroup_id: int
@@ -116,10 +147,19 @@ class Warpgroup(Device):
       block_id: int | jax.Array,
       warpgroup_id: int | jax.Array,
   ):
-    super().__init__(device_id=device_id)
+    self.device_id = _to_int(device_id)
     self.cluster_id = _to_int(cluster_id)
     self.block_id = _to_int(block_id)
     self.warpgroup_id = _to_int(warpgroup_id)
+
+  def warp(self, warp_id: int) -> Warp:
+    return Warp(
+        device_id=self.device_id,
+        cluster_id=self.cluster_id,
+        block_id=self.block_id,
+        warpgroup_id=self.warpgroup_id,
+        warp_id=warp_id,
+    )
 
   def __repr__(self) -> str:
     return (
@@ -133,8 +173,12 @@ class Warpgroup(Device):
 
 @jax.tree_util.register_dataclass
 @dataclasses.dataclass(init=False)
-class Warp(Warpgroup):
+class Warp:
   """A physical warp in GPU interpret mode with flattened IDs"""
+  device_id: int
+  cluster_id: int
+  block_id: int
+  warpgroup_id: int
   warp_id: int
 
   def __init__(
@@ -145,18 +189,24 @@ class Warp(Warpgroup):
       warpgroup_id: int | jax.Array,
       warp_id: int | jax.Array,
   ):
-    super().__init__(
-        device_id=device_id,
-        cluster_id=cluster_id,
-        block_id=block_id,
-        warpgroup_id=warpgroup_id,
-    )
+    self.device_id = _to_int(device_id)
+    self.cluster_id = _to_int(cluster_id)
+    self.block_id = _to_int(block_id)
+    self.warpgroup_id = _to_int(warpgroup_id)
     self.warp_id = _to_int(warp_id)
+
+  def warpgroup(self) -> Warpgroup:
+    return Warpgroup(
+        device_id=self.device_id,
+        cluster_id=self.cluster_id,
+        block_id=self.block_id,
+        warpgroup_id=self.warpgroup_id,
+    )
 
   def __repr__(self) -> str:
     return (
         f"Warp(device_id={self.device_id}, cluster_id={self.cluster_id},"
-        f" block_id={self.block_id}, warpgroup_id={self.warpgroup_id})"
+        f" block_id={self.block_id}, warpgroup_id={self.warpgroup_id}"
         f" warp_id={self.warp_id})"
     )
 
@@ -196,274 +246,6 @@ class GPULoggingInfo(interpret_utils.LoggingInfo):
     return f"Mesh location: {self.mesh_location}, Thread: {self.thread}"
 
 
-class Barrier(memory.Allocation):
-
-  # A `Barrier` is very similar to a `Semaphore` (as defined in
-  # `shared_memory.py`). Two key differences are:
-  #   - A `Barrier` is allocated with a fixed `num_arrivals`, whereas for a
-  #     `Semaphore` a thread/core waiting on the `Semaphore` can freely choose
-  #     which value the `Semaphore` must have for the waiting to complete (in
-  #     this thread/on this core).
-  #   - Unlike a `Semaphore`, a `Barrier` cannot be used to signal threads/cores
-  #     on arbitrary devices (in a mesh). The `Barrier` _lives_ in `SMEM` on one
-  #     (GPU) device, and can therefore be arrived at or waited on only by the
-  #     threads that are running on this device.
-  # As a consequence of the second point, a `Barrier` stores only a single
-  # vector clock, which is updated when threads arrive at the `Barrier`. When
-  # a thread completes waiting on the `Barrier` the thread's vector clock is
-  # updated with the clock value at which the `Barrier` was last arrived at.
-  #
-  # Internally the implementation of a `Barrier` relies on a condition variable
-  # `self.cv`. Waiting on a `Barrier` is internally implemented as waiting on
-  # the condition variable (until a barrier arrival has been completed). To
-  # complement this, when a thread arrives at a `Barrier`, we notify all threads
-  # that are currently waiting by notifying `self.cv` internally. We also use
-  # the lock on `self.cv` to protect internal state of the `Barrier` that can be
-  # modified by multiple threads. Internal state that can be modified by
-  # multiple threads must then also only be read under the protection of the
-  # lock on `self.cv`. Attributes that are protected in this way must only be
-  # read or modified while holding the lock on `self.cv`. The attributes this
-  # applies to are annoted with comments "Protected by `self.cv`'s lock" below.
-  def __init__(
-      self,
-      shared_memory: GPUSharedMemory,
-      *,
-      num_pallas_threads_per_block: int,
-      ref_count: int,
-      num_arrivals: int,
-      enable_logging: bool = False,
-  ):
-    self.shared_memory = shared_memory
-    self.ref_count: int = ref_count  # Protected by `self.cv`'s lock.
-    self.num_pallas_threads_per_block: int = num_pallas_threads_per_block
-    self.num_arrivals: int = num_arrivals  # Protected by `self.cv`'s lock.
-    self.arrivals_count: int = 0  # Protected by `self.cv`'s lock.
-    self.enable_logging: bool = enable_logging
-
-    # The next phase of the barrier that will complete.
-    #
-    # NOTE: the underlying hardware uses a single bit to track only the polarity
-    # of the barrier. We track the full phase number in order to catch violations
-    # of Pallas-specific invariants:
-    # 1. A thread that waits on any phase must wait on all phases.
-    # 2. At least one thread must observe each barrier completion.
-    self.phase: int = 0  # Protected by `self.cv`'s lock.
-    # Last observed phase by each thread. Note that not every thread has to
-    # participate in the barrier, and we don't know ahead of time which ones
-    # will, so we lazily initialize this dict the first time a thread waits on
-    # the barrier.
-    self.last_observed_phase_by_thread: dict[Thread, int] = (
-        {}
-    )  # Protected by `self.cv`'s lock.
-
-    # Invariant: We allow the lock on `self.cv` to be acquired and held in a
-    # scope where `self.shared_memory.lock` is already held, but *not* the other
-    # way around. The reasons for this are:
-    #   - From code that holds `self.shared_memory.lock` we need to able to call
-    #     methods of `Barrier` that then acquire the lock on `self.cv`
-    #     internally (to modify internal state of `self` in a thread-safe way).
-    #     This is needed, for example, when `self.shared_memory` deallocates a
-    #     barrier (or at least decreases a barrier's ref count).
-    #   - If we allowed the scopes during which `self.shared_memory.lock` and
-    #     `self.cv` are both held to be nested in both ways, this can lead to
-    #     deadlock.
-    self.cv = threading.Condition()
-
-    if self.shared_memory.detect_races:
-      self.clock: vc.VectorClock | None = None  # Protected by `self.cv`'s lock.
-      self.smem_commit_clock: vc.VectorClock | None = (
-          None  # Protected by `self.cv`'s lock.
-      )
-
-  def __repr__(self) -> str:
-    return (
-        f"Barrier(num_arrivals={self.num_arrivals},"
-        f" arrivals_count={self.arrivals_count})"
-    )
-
-  def _log(self, message: str):
-    # Log every line separately to make sure `absl.logging` adds the correct
-    # prefix (i.e. I*** <time> ... <source.py>:<line_number>) to each line in
-    # `message`. This should not lead to mangled output within the logging for
-    # `self` since the lock on `self.cv` is expected to be held whenever this
-    # method is called. However, nothing keeps logged output from being
-    # interleaved with logging from other barriers or from the global
-    # `SharedMemory` object.
-    for msg in message.split("\n"):
-      logger.info(msg)
-
-  @property
-  def detect_races(self) -> bool:
-    return self.shared_memory.detect_races
-
-  def has_zero_ref_count(self) -> bool:
-    with self.cv:
-      return self.ref_count == 0
-
-  def deallocate(self):
-    """Deallocates the `Barrier`."""
-    with self.cv:
-      self.ref_count -= 1
-      if self.ref_count > 0:
-        return
-
-      if self.arrivals_count != 0:
-        raise ValueError(
-            f"Barrier deallocated with {self.arrivals_count} arrivals pending."
-        )
-
-      for tid, x in self.last_observed_phase_by_thread.items():
-        if x != self.phase:
-          raise ValueError(
-              f"Thread {tid} only observed barrier up to phase {x-1}, but"
-              f" barrier completed up to phase {self.phase - 1}."
-          )
-
-  def arrive(
-      self,
-      *,
-      clock: vc.VectorClock | None = None,
-      smem_commit_clock: vc.VectorClock | None = None,
-      logging_info: GPULoggingInfo | None = None,
-  ):
-    with self.cv:
-      self.arrivals_count += 1
-      if self.arrivals_count == self.num_arrivals:
-        if self.enable_logging and logging_info is not None:
-          self._log(
-              logging_info.format(
-                  f"Barrier {id(self)} has completed phase {self.phase}.",
-                  line_prefix="`arrive`",
-              )
-          )
-
-        self.phase += 1
-        self.arrivals_count = 0
-
-        if self.phase == 2 and len(self.last_observed_phase_by_thread) == 0:
-          raise ValueError(
-              "Barrier completed phase 1, but no threads observed phase 0."
-          )
-
-        for (
-            i,
-            last_observed_phase,
-        ) in self.last_observed_phase_by_thread.items():
-          if last_observed_phase < self.phase - 2:
-            raise ValueError(
-                f"Thread {i} only observed barrier up to phase"
-                f" {last_observed_phase}, but barrier completed up to phase"
-                f" {self.phase - 1}, meaning thread {i} missed observing phase"
-                f" {last_observed_phase + 1}."
-            )
-
-      if self.detect_races:
-        assert clock is not None
-        if self.clock is None:
-          self.clock = vc.copy_vector_clock(clock)
-        else:
-          vc.update_vector_clock(self.clock, clock)
-
-        assert smem_commit_clock is not None
-        if self.smem_commit_clock is None:
-          self.smem_commit_clock = vc.copy_vector_clock(smem_commit_clock)
-        else:
-          vc.update_vector_clock(self.smem_commit_clock, smem_commit_clock)
-
-      self.cv.notify_all()
-
-  def wait(
-      self,
-      thread: Thread,
-      logging_info: GPULoggingInfo | None = None,
-  ):
-
-    with self.cv:
-      last_observed_phase = self.last_observed_phase_by_thread.get(
-          thread, None
-      )
-
-      # Since not all threads in a block may use the barrier, we must lazily
-      # initialize the `last_observed_phase_by_thread` array the first time each
-      # thread participates in the barrier.
-      if last_observed_phase is None:
-        if self.phase > 1:
-          raise ValueError(
-              f"Thread {thread} is waiting at barrier {id(self)} for"
-              " the first time, but barrier is already at phase"
-              f" {self.phase}. Any thread that participates in the barrier must"
-              " do so in all phases."
-          )
-        last_observed_phase = 0
-
-      # Suppose our last observed phase was phase `p`...
-      if last_observed_phase <= self.phase - 2:
-        # Case 1: the next phase to complete is `p+3` or more, meaning we missed
-        # our chance to observe phase `p+1` and must raise an error.
-        raise ValueError(
-            f"Thread {thread} is awaiting phase"
-            f" {last_observed_phase + 1}, but barrier is already at phase"
-            f" {self.phase}, which violates the invariant that threads must"
-            " observe each barrier completion before any arrivals in the next"
-            " phase."
-        )
-      elif last_observed_phase == self.phase - 1:
-        # Case 2: the next phase to complete is `p+2`, so we're attempting to observe
-        # phase `p+1`, which has completed already, and can proceed immediately.
-        pass
-      elif last_observed_phase == self.phase:
-        # Case 3: we're attempting to observe phase `p+1`, which has not completed yet.
-        # We must wait.
-        while last_observed_phase == self.phase:
-          if self.enable_logging and logging_info is not None:
-            self._log(
-                logging_info.format(
-                    f"Waiting for barrier {id(self)} to reach phase"
-                    f" {self.phase}.",
-                    line_prefix="`wait`",
-                )
-            )
-          self.cv.wait()
-
-        if self.enable_logging and logging_info is not None:
-          self._log(
-              logging_info.format(
-                  f"Thread {thread}: Finished"
-                  f" waiting for phase {self.phase-1} of barrier {id(self)}.",
-                  line_prefix="`wait`",
-              )
-          )
-        # It's possible for us to wake up and find that the barrier has
-        # completed multiple phases while we slept. This is fine: if it caused
-        # us to miss a phase we'll catch it the next time we wait or on deallocation.
-      else:
-        assert False, "Unreachable"
-
-      self.last_observed_phase_by_thread[thread] = last_observed_phase + 1
-
-      # Read `self.clock` while still holding the lock on `self.cv`. (If race
-      # detection is enabled, the clock is needed below to update a vector clock
-      # that is managed by `self.shared_memory`.)
-      clock = self.clock if self.detect_races else None
-      smem_commit_clock = self.smem_commit_clock if self.detect_races else None
-
-    # Note that this block cannot be nested under the `with self.cv` block
-    # immediately above since this would violate the invariant that
-    # `self.shared_memory.lock` *cannot* be acquired when `self.cv`'s lock is
-    # already held. (See the documentation of `self.cv` above.)
-    if self.detect_races:
-      assert clock is not None
-      assert smem_commit_clock is not None
-      with self.shared_memory.lock:
-        vc.update_vector_clock(
-            self.shared_memory.clocks[thread], clock
-        )
-        vc.update_vector_clock(
-            self.shared_memory.smem_commit_clocks[thread],
-            smem_commit_clock,
-        )
-
-
 @dataclasses.dataclass(frozen=True, kw_only=True)
 class HostAllocationRequest:
   """Request for an allocation on a device/thread and in a memory space."""
@@ -492,6 +274,19 @@ class HostAllocationRequest:
         self.thread_id,
         self.initial_ref_count,
     ))
+
+  def __eq__(self, other: object) -> bool:
+    return isinstance(other, HostAllocationRequest) and (
+        self.memory_space_id,
+        self.device_id,
+        self.block_id,
+        self.thread_id,
+    ) == (
+        other.memory_space_id,
+        other.device_id,
+        other.block_id,
+        other.thread_id,
+    )
 
   @classmethod
   def shape_and_dtype(cls) -> jax.ShapeDtypeStruct:
@@ -523,6 +318,13 @@ class HostAllocationKey(HostAllocationRequest):
 
   buffer_id: int
 
+  def __eq__(self, other: object) -> bool:
+    return (
+        isinstance(other, HostAllocationKey)
+        and super().__eq__(other)
+        and self.buffer_id == other.buffer_id
+    )
+
   def __iter__(self):
     # Note that implementing `__iter__` here affects the bahviour of the
     # `as_array` and `as_jax_array` methods of the base class. This is intended.
@@ -530,193 +332,117 @@ class HostAllocationKey(HostAllocationRequest):
     yield self.buffer_id
 
 
-class AsyncTask(Protocol):
-  """Async task to be run on some non-main thread (e.g. TMA or TensorCore)"""
+class AsyncTask[T](Protocol):
+  """Async task to be run on some non-main thread (e.g. TMA or TensorCore)
 
-  def __call__(self, tma_thread_id: int) -> None:
-    """Execute the async task on the given thread."""
+  These tasks are asynchronous only from the programmers perspective: their
+  memory effects happen as soon as the task is created, but later operations
+  will not see the updated vector clocks (and will therefore race) unless they
+  observe the task's completion.
+  """
+
+  def __call__(self, tma_thread_id: int) -> T:
+    """Execute the async task on the given thread.
+
+    This is a pseudo-thread that exists to provide a position in the vector
+    clock
+    """
     ...
 
 
-class ClusterBarrier(memory.Allocation):
+class PipelineableAsyncTask(Protocol):
+  """An async task that can form a pipeline with another task.
 
-  def __init__(
+  Like `AsyncTask`, these tasks affect memory immediately but must be observed
+  to see the updated vector clocks.
+  """
+
+  def forms_pipeline(self, parent: PipelineableAsyncTask) -> bool:
+    """Returns whether this task forms a pipeline with the given parent task.
+
+    If task B forms a pipeline with task A, then A's effects will be visible
+    when B executes, even if A has not been otherwise awaited.
+    Additionally, if a thread observes the completion of B, it also transitively
+    observes the completion of A.
+    It is assumed that both tasks are visible to each other (e.g. executed by
+    the same thread or by two different threads who have synchronized).
+    """
+    ...
+
+  def __call__(
       self,
-      shared_memory: GPUSharedMemory,
-      *,
-      axes_dims: tuple[int, ...],
-      is_axis_collective: tuple[bool, ...],
-      ref_count: int,
-      num_arrivals: int,
-      enable_logging: bool = False,
-  ):
-    """Initializes the ClusterBarrier.
+      pipeline_clock: GpuClockBundle | None,
+      tma_thread_id: int,
+  ) -> GpuClockBundle | None:
+    """Execute the async task on the given pseudo-thread, potentially pipelined
+    with another previously initiated task.
 
     Args:
-      shared_memory: The GPUSharedMemory instance managing this cluster barrier.
-      axes_dims: The dimensions of the cluster axes and the final thread-block
-        axis.
-      is_axis_collective: Whether each of the cluster axes (or the final
-        thread-block axis) is collective.
-      ref_count: The initial reference count of the cluster barrier. This is
-        typically the number of CPU threads among which the cluster barrier is
-        shared.
-      num_arrivals: Number of arrivals expected per thread block.
-      enable_logging: Whether to enable logging of cluster barrier operations.
+      pipeline_clock: The combiend clock of all parent tasks, or None if this
+      task does not have a parent or race detection is not enabled.
+      tma_thread_id: The ID of the TMA thread to use for this task.
+
+    Returns the resulting clocks, or None if race detection is not enabled.
     """
-    self.axes_dims = axes_dims
-    self.is_axis_collective = is_axis_collective
-    self.ref_count = ref_count  # protected by `self.lock`
-    self.num_arrivals = num_arrivals
-    self.enable_logging = enable_logging
-
-    self.lock = threading.Lock()
-
-    assert not is_axis_collective[-1]
-
-    # The number of blocks along the cluster axes; equals the number of
-    # 'normal' `Barrier`s we need to allocate (in `self.barriers`, see below) to
-    # implement this `ClusterBarrier`.
-    num_blocks_in_cluster = math.prod(axes_dims[:-1])
-
-    num_blocks_for_arrival = 1 + sum(
-        axis_dim - 1
-        for axis_dim, is_collective in zip(
-            axes_dims[:-1], is_axis_collective[:-1], strict=True
-        )
-        if is_collective
-    )
-
-    # Protected by `self.lock` (to avoid races between accessing and
-    # deallocating barriers).
-    self.barriers = [
-        Barrier(
-            shared_memory,
-            num_pallas_threads_per_block=axes_dims[-1],
-            # This `ClusterBarrier` is considered the only reference for each of
-            # the underlying barriers.
-            ref_count=1,
-            num_arrivals=num_arrivals * num_blocks_for_arrival,
-            enable_logging=enable_logging,
-        )
-        for _ in range(num_blocks_in_cluster)
-    ]
-
-  def _log(self, message: str):
-    # Log every line separately to make sure `absl.logging` adds the correct
-    # prefix (i.e. I*** <time> ... <source.py>:<line_number>) to each line in
-    # `message`. This should not lead to mangled output within the logging for
-    # `self` since the lock on `self.lock` is expected to be held whenever this
-    # method is called. However, nothing keeps logged output from being
-    # interleaved with logging from other (cluster) barriers or from the global
-    # `SharedMemory` object.
-    for msg in message.split("\n"):
-      logging.info(msg)
-
-  def has_zero_ref_count(self) -> bool:
-    with self.lock:
-      return self.ref_count == 0
-
-  def arrive(
-      self,
-      *,
-      mesh_location: MeshLocation,
-      thread: Thread,
-      clock: vc.VectorClock | None = None,
-      smem_commit_clock: vc.VectorClock | None = None,
-      logging_info: GPULoggingInfo | None = None,
-  ):
-    if self.enable_logging and logging_info is not None:
-      with self.lock:
-        self._log(
-            logging_info.format(
-                f"Arriving at cluster barrier {id(self)}",
-                line_prefix="`arrive`",
-            )
-        )
-
-    # Arrive at the barrier for the block that `thread` belongs to. Note that
-    # this is the barrier for the block whose coordinate do *not* differ (along
-    # any collective axis) from `block_coords`.
-    with self.lock:
-      barrier = self.barriers[thread.block_id]
-    barrier.arrive(
-        clock=clock,
-        smem_commit_clock=smem_commit_clock,
-        logging_info=logging_info,
-    )
-
-    # Arrive at the barriers for those blocks whose coordinates differ from
-    # `block_coords` along *exactly one* collective axis.
-    for i, (axis_dim, is_collective) in enumerate(
-        zip(
-            self.axes_dims[:-1],
-            self.is_axis_collective[:-1],
-            strict=True,
-        )
-    ):
-      if not is_collective:
-        continue
-
-      for j in range(axis_dim):
-        if j == mesh_location.block_coords[i]:
-          # The barrier for the block with coordinates identical to
-          # `block_coords` has already been arrived at above.
-          continue
-
-        block_coords_to_arrive_at = list(mesh_location.block_coords)
-        # Note that (because of the `if ... continue` above) we have
-        # `j != block_coords[i]` here.
-        block_coords_to_arrive_at[i] = j
-        barrier_index = np.ravel_multi_index(
-            block_coords_to_arrive_at, self.axes_dims[:-1]
-        )
-        with self.lock:
-          barrier = self.barriers[barrier_index]
-        barrier.arrive(
-            clock=clock,
-            smem_commit_clock=smem_commit_clock,
-            logging_info=logging_info,
-        )
-
-  def wait(
-      self,
-      thread: Thread,
-      logging_info: GPULoggingInfo | None = None,
-  ):
-    if self.enable_logging and logging_info is not None:
-      with self.lock:
-        self._log(
-            logging_info.format(
-                f"Waiting for cluster barrier {id(self)}",
-                line_prefix="`wait`",
-            )
-        )
-
-    with self.lock:
-      barrier = self.barriers[thread.block_id]
-
-    barrier.wait(thread, logging_info)
-
-  def deallocate(self):
-    """Deallocates the `ClusterBarrier`."""
-    with self.lock:
-      self.ref_count -= 1
-      if self.ref_count > 0:
-        return
-
-      for barrier in self.barriers:
-        barrier.deallocate()
+    ...
 
 
-class GPUSharedMemory(memory.GenericSharedMemory[HostAllocationKey, Thread]):
+@dataclasses.dataclass(frozen=True)
+class CompletedPipelineableTask:
+  id: int
+  parents: tuple[CompletedPipelineableTask, ...]
+  result_clock: GpuClockBundle | None
+  initiating_thread: Thread
+  tma_thread_id: int
+  task: PipelineableAsyncTask
+
+  def __hash__(self) -> int:
+    return hash(self.id)
+
+
+class GpuClockBundle(vector_clock.VectorClockProto):
+  # The clock for access from the generic proxy
+  generic_clock: vector_clock.NpVectorClock
+  # The clock for access to SMEM from the async proxy
+  async_smem_clock: vector_clock.NpVectorClock
+
+  def __init__(self, size: int):
+    self.generic_clock = vector_clock.NpVectorClock(size)
+    self.async_smem_clock = vector_clock.NpVectorClock(size)
+
+  def copy(self) -> Self:
+    new = self.__new__(self.__class__)
+    new.generic_clock = self.generic_clock.copy()
+    new.async_smem_clock = self.async_smem_clock.copy()
+    return new
+
+  def update(self, other: Self) -> None:
+    self.generic_clock.update(other.generic_clock)
+    self.async_smem_clock.update(other.async_smem_clock)
+
+  def inc(self, position: int) -> None:
+    self.generic_clock.inc(position)
+    self.async_smem_clock.inc(position)
+
+  def commit_smem(self) -> None:
+    self.async_smem_clock.update(self.generic_clock)
+
+
+class GPUSharedMemory(
+    memory.GenericSharedMemory[HostAllocationKey, Thread, GpuClockBundle]
+):
 
   # TODO(paulbib): Is there a way to assert these match the base class?
   MemKey = HostAllocationKey
   ThreadKey = Thread
+  VectorClock = GpuClockBundle
 
-  # All Pallas threads that are concurrently executed by interpret mode.
-  all_concurrent_threads: frozenset[ThreadKey]
+  # All Pallas threads that are concurrently executed by interpret mode, mapped
+  # to their position in the vector clock.
+  # Note that this includes both warpgroup-level threads, and their 4 warp-level
+  # thread counterparts, even though only the warpgroup- or warp-version of a
+  # thread can be executed at once.
+  all_concurrent_threads: dict[ThreadKey, int]
 
   num_blocks_per_cluster: int
 
@@ -730,14 +456,25 @@ class GPUSharedMemory(memory.GenericSharedMemory[HostAllocationKey, Thread]):
   # visually distinguish REGS IDs from other IDs.
   next_regs_id: dict[ThreadKey, int]
 
-  # Vector clocks used for tracking the logical time of the last observed call
-  # to `commit_smem` for each thread.
-  smem_commit_clocks: dict[ThreadKey, vc.VectorClock]
-
   # For each thread, a queue of clocks used for the read/write side of pending
   # smem_to_gmem transfers.
-  pending_smem_to_gmem_read_clocks: dict[ThreadKey, collections.deque[vc.VectorClock]]
-  pending_smem_to_gmem_write_clocks: dict[ThreadKey, collections.deque[vc.VectorClock]]
+  pending_smem_to_gmem_read_clocks: dict[ThreadKey, collections.deque[VectorClock]]
+  pending_smem_to_gmem_write_clocks: dict[ThreadKey, collections.deque[VectorClock]]
+
+  # For each thread, the set of pipelineable async tasks that are visible to it.
+  # When a task is first executed it is only visible to the thread that initiated
+  # it. If two threads synchronize (e.g. via a barrier), the consumer thread
+  # gains visibility to the producer's pipelineable tasks.
+  pipelineable_async_tasks: dict[Thread, set[CompletedPipelineableTask]]
+  next_pipelineable_task_id: int
+
+  # Clocks resulting from tcgen05 MMA or copy operations for each thread.
+  # These are never cleared, as any call to commit_arrive observes all prior
+  # tensor core operation completions.
+  tcgen05_completion_clocks: dict[Thread, GpuClockBundle]
+
+  pending_tmem_stores: dict[Thread, VectorClock]
+  pending_tmem_loads: dict[Thread, VectorClock]
 
   def __init__(
       self,
@@ -755,13 +492,23 @@ class GPUSharedMemory(memory.GenericSharedMemory[HostAllocationKey, Thread]):
       num_blocks_per_cluster: int,
       num_tma_threads_per_device: int,
   ):
-    self.all_concurrent_threads = frozenset(
-        Warpgroup(device, cluster, block, warpgroup)
-        for device in range(num_devices)
-        for cluster in [0]
-        for block in range(num_blocks_per_cluster)
-        for warpgroup in range(num_threads_per_block)
-    )
+    # The insertion order here doesn't matter besides determining how we map
+    # each thread to a vector clock position.
+    all_concurrent_threads: list[self.ThreadKey] = []
+    for device, block, warpgroup in itertools.product(
+        range(num_devices),
+        range(num_blocks_per_cluster),
+        range(num_threads_per_block),
+    ):
+      all_concurrent_threads.append(Warpgroup(device, 0, block, warpgroup))
+      # Insert the warp-level version of a thread (for core_map with a WarpMesh)
+      # alongside the warpgroup-level version.
+      for warp in range(mosaic_gpu_core.WarpMesh._NUM_WARPS_PER_WARPGROUP):
+        all_concurrent_threads.append(Warp(device, 0, block, warpgroup, warp))
+    self.all_concurrent_threads = {
+        thread: i for i, thread in enumerate(all_concurrent_threads)
+    }
+    del all_concurrent_threads
 
     self.num_tma_threads = num_devices * num_tma_threads_per_device
 
@@ -780,12 +527,8 @@ class GPUSharedMemory(memory.GenericSharedMemory[HostAllocationKey, Thread]):
     # Note that the cluster id does not appear since we do not execute multiple
     # clusters concurrently.
     vector_clock_size = len(self.all_concurrent_threads) + self.num_tma_threads
-    clocks: dict[Thread, np.ndarray] = {
-        thread: vc.make_vector_clock(vector_clock_size)
-        for thread in self.all_concurrent_threads
-    }
-    self.smem_commit_clocks = {
-        thread: vc.make_vector_clock(vector_clock_size)
+    clocks = {
+        thread: self.VectorClock(vector_clock_size)
         for thread in self.all_concurrent_threads
     }
 
@@ -810,33 +553,37 @@ class GPUSharedMemory(memory.GenericSharedMemory[HostAllocationKey, Thread]):
       )
 
     self.num_blocks_per_cluster = num_blocks_per_cluster
-    self.next_tma_thread_id = 0
     self.num_pallas_threads_per_block = num_threads_per_block
-    self.next_regs_id = collections.defaultdict(lambda: -100)
-    self.pending_smem_to_gmem_read_clocks = {
-        thread: collections.deque()
-        for thread in self.all_concurrent_threads
-    }
-    self.pending_smem_to_gmem_write_clocks = {
-        thread: collections.deque()
-        for thread in self.all_concurrent_threads
-    }
+    self.reset_per_cluster_state()
+
+  def reset_per_cluster_state(self):
+    """Resets the per-cluster state of the shared memory."""
+    with self.lock:
+      self.next_tma_thread_id = 0
+      self.next_regs_id = collections.defaultdict(lambda: -100)
+      self.clocks = {
+          thread: self.VectorClock(self.vector_clock_size)
+          for thread in self.all_concurrent_threads
+      }
+
+      self.pending_smem_to_gmem_read_clocks = {
+          thread: collections.deque()
+          for thread in self.all_concurrent_threads
+      }
+      self.pending_smem_to_gmem_write_clocks = {
+          thread: collections.deque()
+          for thread in self.all_concurrent_threads
+      }
+      self.pipelineable_async_tasks = collections.defaultdict(set)
+      self.next_pipelineable_task_id = 0
+      self.tcgen05_completion_clocks = collections.defaultdict(
+          lambda: self.VectorClock(self.vector_clock_size)
+      )
+      self.pending_tmem_stores = {}
+      self.pending_tmem_loads = {}
 
   def thread_to_vc_position(self, thread: ThreadKey) -> int:
-    if isinstance(thread, Warpgroup):
-      # see comment in __init__ for explanation of this mapping
-      return (
-          thread.device_id * self.num_blocks_per_cluster * self.num_pallas_threads_per_block
-          + thread.block_id * self.num_pallas_threads_per_block
-          + thread.warpgroup_id
-      )
-    elif isinstance(thread, Warp):
-      raise NotImplementedError(
-          "Warp-level thread keys are not supported for GPU kernel"
-          " interpretation yet."
-      )
-    else:
-      raise ValueError(f"Unsupported thread type: {type(thread)}")
+    return self.all_concurrent_threads[thread]
 
   def get_next_tma_thread_id(self) -> int:
     with self.lock:
@@ -858,6 +605,7 @@ class GPUSharedMemory(memory.GenericSharedMemory[HostAllocationKey, Thread]):
       key: MemKey,
       ref_count: int,
       num_arrivals: int,
+      orders_tensor_core: bool,
       logging_info: GPULoggingInfo | None = None,
   ):
     """Allocates a barrier with the given key unless it already exists."""
@@ -868,6 +616,7 @@ class GPUSharedMemory(memory.GenericSharedMemory[HostAllocationKey, Thread]):
             num_pallas_threads_per_block=self.num_pallas_threads_per_block,
             ref_count=ref_count,
             num_arrivals=num_arrivals,
+            orders_tensor_core=orders_tensor_core,
             enable_logging=(
                 self.logging_mode is not None
                 and params.LoggingMode.BARRIER in self.logging_mode
@@ -885,8 +634,8 @@ class GPUSharedMemory(memory.GenericSharedMemory[HostAllocationKey, Thread]):
           )
 
   def get_barrier_and_increment_clock(
-        self, key: MemKey, thread: ThreadKey
-  ) -> tuple[Barrier | ClusterBarrier, vc.VectorClock | None]:
+      self, key: MemKey, thread: ThreadKey
+  ) -> tuple[Barrier | ClusterBarrier, VectorClock | None]:
     clock = None
     with self.lock:
       if self.detect_races:
@@ -1028,33 +777,77 @@ class GPUSharedMemory(memory.GenericSharedMemory[HostAllocationKey, Thread]):
           alloc, ClusterBarrier
       ), f"Cluster barrier remains allocated at key `{key}`."
 
-  def update_smem_commit_clock(self, thread: ThreadKey):
-    """Sets the smem commit clock for the given core to its current clock."""
-    if not self.detect_races:
-      return
-    with self.lock:
-      vc.update_vector_clock(
-          self.smem_commit_clocks[thread], self.clocks[thread]
-      )
+  def incr_clock(
+      self, thread: ThreadKey, take_lock: bool = True
+  ) -> VectorClock:
+    """Increments a thread's own index within its generic clock by one."""
+    with self.lock if take_lock else contextlib.nullcontext():
+      pos = self.thread_to_vc_position(thread)
+      self.clocks[thread].generic_clock.inc(pos)
+      return self.clocks[thread].copy()
 
-  def get_smem_commit_clock(self, thread: ThreadKey) -> vc.VectorClock | None:
+  def commit_smem(self, thread: ThreadKey):
+    """Sets the async smem clock for the given thread to its current generic clock."""
+    if self.detect_races:
+      with self.lock:
+        self.clocks[thread].commit_smem()
+
+  def get_clock(self, thread: ThreadKey) -> VectorClock | None:
     if not self.detect_races:
       return None
     with self.lock:
-      return vc.copy_vector_clock(self.smem_commit_clocks[thread])
+      return self.clocks[thread].copy()
 
-  def execute_async_task(self, task: AsyncTask, thread: ThreadKey):
-    """Executes an async task immediately (intiated by the given thread)."""
-    self.incr_clock(thread)
-
+  def execute_pipelineable_async_task(
+      self, task: PipelineableAsyncTask, initiating_thread: Thread
+  ) -> None:
     tma_thread_id = self.get_next_tma_thread_id()
-    task(tma_thread_id)
+    with self.lock:
+      # TODO(paulbib): since we never get rid of old tasks, this list grows
+      # without bound and the scan has quadratic complexity. We can fix this
+      # by maintaining an index.
+      parents = [
+          other_task
+          for other_task in self.pipelineable_async_tasks[initiating_thread]
+          if task.forms_pipeline(other_task.task)
+      ]
+      if self.detect_races and len(parents) > 0:
+        parent_clock = parents[0].result_clock
+        assert parent_clock is not None
+        parent_clock = parent_clock.copy()
+        for parent in parents[1:]:
+          assert parent.result_clock is not None
+          parent_clock.update(parent.result_clock)
+      else:
+        parent_clock = None
+
+    result_clock = task(parent_clock, tma_thread_id)
+    with self.lock:
+      id = self.next_pipelineable_task_id
+      self.next_pipelineable_task_id += 1
+      self.pipelineable_async_tasks[initiating_thread].add(
+          CompletedPipelineableTask(
+              id,
+              tuple(parents),
+              result_clock,
+              initiating_thread,
+              tma_thread_id,
+              task,
+          )
+      )
+      if self.detect_races:
+        assert result_clock is not None
+        self.tcgen05_completion_clocks[initiating_thread].update(result_clock)
+
+  def execute_async_task[T](self, task: AsyncTask[T]) -> T:
+    tma_thread_id = self.get_next_tma_thread_id()
+    return task(tma_thread_id)
 
   def add_copy_smem_to_gmem_clocks(
       self,
       thread: ThreadKey,
-      read_clock: vc.VectorClock,
-      write_clock: vc.VectorClock,
+      read_clock: VectorClock,
+      write_clock: VectorClock,
   ):
     """Records read and write clocks for a completed copy from SMEM to GMEM."""
     with self.lock:
@@ -1067,25 +860,64 @@ class GPUSharedMemory(memory.GenericSharedMemory[HostAllocationKey, Thread]):
       self, thread: ThreadKey, n: int, wait_read_only: bool
   ):
     """Ensures no more than n SMEM to GMEM copies are outstanding."""
-    # TODO(paulbib): if copies were actually async, they would be run here.
     with self.lock:
       self.incr_clock(thread, take_lock=False)
       while len(self.pending_smem_to_gmem_read_clocks[thread]) > n:
-        vc.update_vector_clock(
-            self.clocks[thread],
-            self.pending_smem_to_gmem_read_clocks[thread].popleft(),
+        self.clocks[thread].update(
+            self.pending_smem_to_gmem_read_clocks[thread].popleft()
         )
 
       if not wait_read_only:
         while len(self.pending_smem_to_gmem_write_clocks[thread]) > n:
-          vc.update_vector_clock(
-              self.clocks[thread],
-              self.pending_smem_to_gmem_write_clocks[
-                  thread
-              ].popleft(),
+          self.clocks[thread].update(
+              self.pending_smem_to_gmem_write_clocks[thread].popleft()
           )
 
-  def kernel_thread_finished(self, thread: ThreadKey):
+  def get_tcgen05_async_clock(self, thread: ThreadKey) -> None | GpuClockBundle:
+    """Returns the vector clock for completed TCGen05 async ops."""
+    if self.detect_races:
+      with self.lock:
+        return self.tcgen05_completion_clocks[thread]
+    else:
+      return None
+
+  def add_store_tmem_clock(self, thread: ThreadKey, clock: VectorClock) -> None:
+    """Records the vector clock for a completed store to TMEM."""
+    if self.detect_races:
+      with self.lock:
+        if thread not in self.pending_tmem_stores:
+          self.pending_tmem_stores[thread] = clock
+        else:
+          self.pending_tmem_stores[thread].update(clock)
+
+  def add_load_tmem_clock(self, thread: ThreadKey, clock: VectorClock) -> None:
+    """Records vector clock for a completed load from TMEM."""
+    if self.detect_races:
+      with self.lock:
+        if thread not in self.pending_tmem_loads:
+          self.pending_tmem_loads[thread] = clock
+        else:
+          self.pending_tmem_loads[thread].update(clock)
+
+  def wait_tmem_stores(self, thread: ThreadKey) -> None:
+    """Awaits all outstanding stores to TMEM."""
+    if self.detect_races:
+      with self.lock:
+        self.incr_clock(thread, take_lock=False)
+        if thread in self.pending_tmem_stores:
+          self.clocks[thread].update(self.pending_tmem_stores[thread])
+          del self.pending_tmem_stores[thread]
+
+  def wait_tmem_loads(self, thread: ThreadKey) -> None:
+    """Awaits all outstanding loads from TMEM."""
+    if self.detect_races:
+      with self.lock:
+        self.incr_clock(thread, take_lock=False)
+        if thread in self.pending_tmem_loads:
+          self.clocks[thread].update(self.pending_tmem_loads[thread])
+          del self.pending_tmem_loads[thread]
+
+  def kernel_thread_finished(self, thread: ThreadKey) -> None:
     """Called when a thread completes execution of a kernel."""
     with self.lock:
       if self.detect_races:
@@ -1097,6 +929,7 @@ class GPUSharedMemory(memory.GenericSharedMemory[HostAllocationKey, Thread]):
               "Not all copy_smem_to_gmem read-side operations completed before"
               f" kernel finished on thread {thread}."
           )
+        # TODO(paulbib): add check that tmem loads and stores have completed.
 
   def concurrent_threads(self, device: Device) -> list[Thread]:
     """Returns all concurrent threads on the given device."""
@@ -1109,3 +942,506 @@ class GPUSharedMemory(memory.GenericSharedMemory[HostAllocationKey, Thread]):
   def update_clocks_for_device_barrier(self, device: Device):
     """Synchronizes the vector clocks for the cores on the given device."""
     self.update_clocks(self.concurrent_threads(device))
+
+  def update_clock(self, source: ThreadKey, dest: ThreadKey):
+    """Joins the source and dest clocks, and assigns the result to dest."""
+    if not self.detect_races:
+      return
+    with self.lock:
+      self.clocks[dest].update(self.clocks[source])
+
+
+class Barrier(memory.Allocation):
+
+  VectorClock = GPUSharedMemory.VectorClock
+
+  # A `Barrier` is very similar to a `Semaphore` (as defined in
+  # `shared_memory.py`). Two key differences are:
+  #   - A `Barrier` is allocated with a fixed `num_arrivals`, whereas for a
+  #     `Semaphore` a thread/core waiting on the `Semaphore` can freely choose
+  #     which value the `Semaphore` must have for the waiting to complete (in
+  #     this thread/on this core).
+  #   - Unlike a `Semaphore`, a `Barrier` cannot be used to signal threads/cores
+  #     on arbitrary devices (in a mesh). The `Barrier` _lives_ in `SMEM` on one
+  #     (GPU) device, and can therefore be arrived at or waited on only by the
+  #     threads that are running on this device.
+  # As a consequence of the second point, a `Barrier` stores only a single
+  # vector clock, which is updated when threads arrive at the `Barrier`. When
+  # a thread completes waiting on the `Barrier` the thread's vector clock is
+  # updated with the clock value at which the `Barrier` was last arrived at.
+  #
+  # Internally the implementation of a `Barrier` relies on a condition variable
+  # `self.cv`. Waiting on a `Barrier` is internally implemented as waiting on
+  # the condition variable (until a barrier arrival has been completed). To
+  # complement this, when a thread arrives at a `Barrier`, we notify all threads
+  # that are currently waiting by notifying `self.cv` internally. We also use
+  # the lock on `self.cv` to protect internal state of the `Barrier` that can be
+  # modified by multiple threads. Internal state that can be modified by
+  # multiple threads must then also only be read under the protection of the
+  # lock on `self.cv`. Attributes that are protected in this way must only be
+  # read or modified while holding the lock on `self.cv`. The attributes this
+  # applies to are annoted with comments "Protected by `self.cv`'s lock" below.
+  def __init__(
+      self,
+      shared_memory: GPUSharedMemory,
+      *,
+      num_pallas_threads_per_block: int,
+      ref_count: int,
+      num_arrivals: int,
+      orders_tensor_core: bool,
+      enable_logging: bool = False,
+  ):
+    self.shared_memory = shared_memory
+    self.ref_count: int = ref_count  # Protected by `self.cv`'s lock.
+    self.num_pallas_threads_per_block: int = num_pallas_threads_per_block
+    self.num_arrivals: int = num_arrivals  # Protected by `self.cv`'s lock.
+    # We track orders_tensor_core here, but we do not match its full semantics.
+    # The only thing it is used for is making sure that MMAs that provide a
+    # barrier to arrive on use a barrier with orders_tensor_core=True.
+    # A fully complete system would also use orders_tensor_core=False to not make
+    # tensor core ops visible across threads, but we don't do that yet.
+    self.orders_tensor_core: bool = orders_tensor_core
+    self.arrivals_count: int = 0  # Protected by `self.cv`'s lock.
+    self.enable_logging: bool = enable_logging
+
+    # The next phase of the barrier that will complete.
+    #
+    # NOTE: the underlying hardware uses a single bit to track only the polarity
+    # of the barrier. We track the full phase number in order to catch violations
+    # of Pallas-specific invariants:
+    # 1. A thread that waits on any phase must wait on all phases.
+    # 2. At least one thread must observe each barrier completion.
+    self.phase: int = 0  # Protected by `self.cv`'s lock.
+    # Last observed phase by each thread. Note that not every thread has to
+    # participate in the barrier, and we don't know ahead of time which ones
+    # will, so we lazily initialize this dict the first time a thread waits on
+    # the barrier.
+    self.last_observed_phase_by_thread: dict[Thread, int] = (
+        {}
+    )  # Protected by `self.cv`'s lock.
+
+    # Invariant: We allow the lock on `self.cv` to be acquired and held in a
+    # scope where `self.shared_memory.lock` is already held, but *not* the other
+    # way around. The reasons for this are:
+    #   - From code that holds `self.shared_memory.lock` we need to able to call
+    #     methods of `Barrier` that then acquire the lock on `self.cv`
+    #     internally (to modify internal state of `self` in a thread-safe way).
+    #     This is needed, for example, when `self.shared_memory` deallocates a
+    #     barrier (or at least decreases a barrier's ref count).
+    #   - If we allowed the scopes during which `self.shared_memory.lock` and
+    #     `self.cv` are both held to be nested in both ways, this can lead to
+    #     deadlock.
+    self.cv = threading.Condition()
+
+    # Arriving and waiting at a barrier can allow other threads to see your
+    # tensor core tasks and pipeline with them, so we track the tasks of any
+    # thread that arrives at the barrier.
+    self.pipelineable_async_tasks: set[CompletedPipelineableTask] = set()
+
+    if self.shared_memory.detect_races:
+      self.clock: self.VectorClock | None = (
+          None  # Protected by `self.cv`'s lock.
+      )
+
+  def __repr__(self) -> str:
+    return (
+        f"Barrier(num_arrivals={self.num_arrivals},"
+        f" arrivals_count={self.arrivals_count})"
+    )
+
+  def _log(self, message: str):
+    # Log every line separately to make sure `absl.logging` adds the correct
+    # prefix (i.e. I*** <time> ... <source.py>:<line_number>) to each line in
+    # `message`. This should not lead to mangled output within the logging for
+    # `self` since the lock on `self.cv` is expected to be held whenever this
+    # method is called. However, nothing keeps logged output from being
+    # interleaved with logging from other barriers or from the global
+    # `SharedMemory` object.
+    for msg in message.split("\n"):
+      logger.info(msg)
+
+  @property
+  def detect_races(self) -> bool:
+    return self.shared_memory.detect_races
+
+  def has_zero_ref_count(self) -> bool:
+    with self.cv:
+      return self.ref_count == 0
+
+  def deallocate(self):
+    """Deallocates the `Barrier`."""
+    with self.cv:
+      self.ref_count -= 1
+      if self.ref_count > 0:
+        return
+
+      if self.arrivals_count != 0:
+        raise ValueError(
+            f"Barrier deallocated with {self.arrivals_count} arrivals pending."
+        )
+
+      for tid, x in self.last_observed_phase_by_thread.items():
+        if x != self.phase:
+          raise ValueError(
+              f"When barrier {id(self)} was deallocated, thread {tid} had only"
+              f" observed barrier up to phase {x-1}, but barrier completed"
+              f" up to phase {self.phase - 1}."
+          )
+
+  def arrive(
+      self,
+      thread: Thread | None,
+      clock: VectorClock | None = None,
+      logging_info: GPULoggingInfo | None = None,
+  ):
+    pipelineable_async_tasks = None
+    if thread is not None:
+      with self.shared_memory.lock:
+        # copy the set (not the elements) so we can release the lock
+        pipelineable_async_tasks = set(
+            self.shared_memory.pipelineable_async_tasks[thread]
+        )
+    with self.cv:
+      if pipelineable_async_tasks is not None:
+        self.pipelineable_async_tasks |= pipelineable_async_tasks
+      self.arrivals_count += 1
+      if self.arrivals_count == self.num_arrivals:
+        if self.enable_logging and logging_info is not None:
+          self._log(
+              logging_info.format(
+                  f"Barrier {id(self)} has completed phase {self.phase}.",
+                  line_prefix="`arrive`",
+              )
+          )
+        self.phase += 1
+        self.arrivals_count = 0
+
+        if self.phase == 2 and len(self.last_observed_phase_by_thread) == 0:
+          raise ValueError(
+              "Barrier completed phase 1, but no threads observed phase 0."
+          )
+
+        for (
+            i,
+            last_observed_phase,
+        ) in self.last_observed_phase_by_thread.items():
+          if last_observed_phase < self.phase - 2:
+            raise ValueError(
+                f"Thread {i} only observed barrier up to phase"
+                f" {last_observed_phase}, but barrier completed up to phase"
+                f" {self.phase - 1}, meaning thread {i} missed observing phase"
+                f" {last_observed_phase + 1}."
+            )
+        self.cv.notify_all()
+
+      if self.detect_races:
+        assert clock is not None
+        if self.clock is None:
+          self.clock = clock.copy()
+        else:
+          self.clock.update(clock)
+
+  def wait(
+      self,
+      thread: Thread,
+      logging_info: GPULoggingInfo | None = None,
+  ):
+
+    with self.cv:
+      last_observed_phase = self.last_observed_phase_by_thread.get(
+          thread, None
+      )
+      if isinstance(thread, Warp) and last_observed_phase is None:
+        # warps inherit phase observations from their parent warpgroup
+        last_observed_phase = self.last_observed_phase_by_thread.get(
+            thread.warpgroup(), None
+        )
+
+      # Since not all threads in a block may use the barrier, we must lazily
+      # initialize the `last_observed_phase_by_thread` array the first time each
+      # thread participates in the barrier.
+      if last_observed_phase is None:
+        if self.phase > 1:
+          raise ValueError(
+              f"Thread {thread} is waiting at barrier {id(self)} for"
+              " the first time, but barrier is already at phase"
+              f" {self.phase}. Any thread that participates in the barrier must"
+              " do so in all phases."
+          )
+        last_observed_phase = 0
+
+      if isinstance(thread, Warpgroup):
+        active_warps = [
+            (i, self.last_observed_phase_by_thread[thread.warp(i)])
+            for i in range(mosaic_gpu_core.WarpMesh._NUM_WARPS_PER_WARPGROUP)
+            if thread.warp(i) in self.last_observed_phase_by_thread
+        ]
+        if len(active_warps) != 0:
+          if len(active_warps) != mosaic_gpu_core.WarpMesh._NUM_WARPS_PER_WARPGROUP:
+            raise ValueError(
+                f"Warpgroup-thread {thread} is waiting at barrier {id(self)},"
+                f" but only {len(active_warps)} of its constituent warps have"
+                " participated in the barrier previously. If a"
+                " warpgroup-thread participates in the barrier, either all or"
+                " none of its constituent warps must have participated"
+                " previously."
+            )
+
+          observed_phases = [phase for _, phase in active_warps]
+          if not all(x == observed_phases[0] for x in observed_phases):
+            raise ValueError(
+                f"Warpgroup-thread {thread} is waiting at barrier {id(self)},"
+                " but its constituent warps have previously observed different"
+                f" phases: {observed_phases}."
+            )
+
+      # Suppose our last observed phase was phase `p`...
+      if last_observed_phase <= self.phase - 2:
+        # Case 1: the next phase to complete is `p+3` or more, meaning we missed
+        # our chance to observe phase `p+1` and must raise an error.
+        raise ValueError(
+            f"Thread {thread} is awaiting phase"
+            f" {last_observed_phase + 1}, but barrier is already at phase"
+            f" {self.phase}, which violates the invariant that threads must"
+            " observe each barrier completion before any arrivals in the next"
+            " phase."
+        )
+      elif last_observed_phase == self.phase - 1:
+        # Case 2: the next phase to complete is `p+2`, so we're attempting to observe
+        # phase `p+1`, which has completed already, and can proceed immediately.
+        pass
+      elif last_observed_phase == self.phase:
+        # Case 3: we're attempting to observe phase `p+1`, which has not completed yet.
+        # We must wait.
+        while last_observed_phase == self.phase:
+          if self.enable_logging and logging_info is not None:
+            self._log(
+                logging_info.format(
+                    f"Waiting for barrier {id(self)} to reach phase"
+                    f" {self.phase}.",
+                    line_prefix="`wait`",
+                )
+            )
+          self.cv.wait()
+
+        if self.enable_logging and logging_info is not None:
+          self._log(
+              logging_info.format(
+                  f"Thread {thread}: Finished"
+                  f" waiting for phase {self.phase-1} of barrier {id(self)}.",
+                  line_prefix="`wait`",
+              )
+          )
+        # It's possible for us to wake up and find that the barrier has
+        # completed multiple phases while we slept. This is fine: if it caused
+        # us to miss a phase we'll catch it the next time we wait or on deallocation.
+      else:
+        assert False, "Unreachable"
+
+      # We need to update this thread's observed phase, as well as
+      # 1) its constituent warps, if a warpgroup thread
+      # 2) its parent warpgroup, if a warp thread
+      self.last_observed_phase_by_thread[thread] = last_observed_phase + 1
+      if isinstance(thread, Warpgroup):
+        for i in range(mosaic_gpu_core.WarpMesh._NUM_WARPS_PER_WARPGROUP):
+          self.last_observed_phase_by_thread[thread.warp(i)] = (
+              last_observed_phase + 1
+          )
+      if isinstance(thread, Warp):
+        warpgroup = thread.warpgroup()
+        warp_observed_phases = [
+            self.last_observed_phase_by_thread[warpgroup.warp(i)]
+            for i in range(mosaic_gpu_core.WarpMesh._NUM_WARPS_PER_WARPGROUP)
+            if warpgroup.warp(i) in self.last_observed_phase_by_thread
+        ]
+        if len(warp_observed_phases) == mosaic_gpu_core.WarpMesh._NUM_WARPS_PER_WARPGROUP:
+          observed_phase = min(warp_observed_phases)
+          self.last_observed_phase_by_thread[warpgroup] = observed_phase
+
+      # Read `self.clock` while still holding the lock on `self.cv`. (If race
+      # detection is enabled, the clock is needed below to update a vector clock
+      # that is managed by `self.shared_memory`.)
+      clock = self.clock if self.detect_races else None
+
+      # Ensure that threads that wait on the barrier can see tensor core
+      # operations (outstanding or complete) from threads that arrived at the
+      # barrier.
+      pipelineable_async_tasks = set(self.pipelineable_async_tasks)
+
+    # Note that this block cannot be nested under the `with self.cv` block
+    # immediately above since this would violate the invariant that
+    # `self.shared_memory.lock` *cannot* be acquired when `self.cv`'s lock is
+    # already held. (See the documentation of `self.cv` above.)
+    with self.shared_memory.lock:
+      self.shared_memory.pipelineable_async_tasks[
+          thread
+      ] |= pipelineable_async_tasks
+
+      if self.detect_races:
+        assert clock is not None
+        self.shared_memory.clocks[thread].update(clock)
+
+
+class ClusterBarrier(memory.Allocation):
+
+  VectorClock = GPUSharedMemory.VectorClock
+
+  def __init__(
+      self,
+      shared_memory: GPUSharedMemory,
+      *,
+      axes_dims: tuple[int, ...],
+      is_axis_collective: tuple[bool, ...],
+      ref_count: int,
+      num_arrivals: int,
+      enable_logging: bool = False,
+  ):
+    """Initializes the ClusterBarrier.
+
+    Args:
+      shared_memory: The GPUSharedMemory instance managing this cluster barrier.
+      axes_dims: The dimensions of the cluster axes and the final thread-block
+        axis.
+      is_axis_collective: Whether each of the cluster axes (or the final
+        thread-block axis) is collective.
+      ref_count: The initial reference count of the cluster barrier. This is
+        typically the number of CPU threads among which the cluster barrier is
+        shared.
+      num_arrivals: Number of arrivals expected per thread block.
+      enable_logging: Whether to enable logging of cluster barrier operations.
+    """
+    self.axes_dims = axes_dims
+    self.is_axis_collective = is_axis_collective
+    self.ref_count = ref_count  # protected by `self.lock`
+    self.num_arrivals = num_arrivals
+    self.enable_logging = enable_logging
+
+    self.lock = threading.Lock()
+
+    assert not is_axis_collective[-1]
+
+    # The number of blocks along the cluster axes; equals the number of
+    # 'normal' `Barrier`s we need to allocate (in `self.barriers`, see below) to
+    # implement this `ClusterBarrier`.
+    num_blocks_in_cluster = math.prod(axes_dims[:-1])
+
+    num_blocks_for_arrival = 1 + sum(
+        axis_dim - 1
+        for axis_dim, is_collective in zip(
+            axes_dims[:-1], is_axis_collective[:-1], strict=True
+        )
+        if is_collective
+    )
+
+    # Protected by `self.lock` (to avoid races between accessing and
+    # deallocating barriers).
+    self.barriers = [
+        Barrier(
+            shared_memory,
+            num_pallas_threads_per_block=axes_dims[-1],
+            # This `ClusterBarrier` is considered the only reference for each of
+            # the underlying barriers.
+            ref_count=1,
+            num_arrivals=num_arrivals * num_blocks_for_arrival,
+            orders_tensor_core=False,
+            enable_logging=enable_logging,
+        )
+        for _ in range(num_blocks_in_cluster)
+    ]
+
+  def _log(self, message: str):
+    # Log every line separately to make sure `absl.logging` adds the correct
+    # prefix (i.e. I*** <time> ... <source.py>:<line_number>) to each line in
+    # `message`. This should not lead to mangled output within the logging for
+    # `self` since the lock on `self.lock` is expected to be held whenever this
+    # method is called. However, nothing keeps logged output from being
+    # interleaved with logging from other (cluster) barriers or from the global
+    # `SharedMemory` object.
+    for msg in message.split("\n"):
+      logging.info(msg)
+
+  def has_zero_ref_count(self) -> bool:
+    with self.lock:
+      return self.ref_count == 0
+
+  def arrive(
+      self,
+      *,
+      mesh_location: MeshLocation,
+      thread: Thread,
+      clock: VectorClock | None = None,
+      logging_info: GPULoggingInfo | None = None,
+  ):
+    if self.enable_logging and logging_info is not None:
+      with self.lock:
+        self._log(
+            logging_info.format(
+                f"Arriving at cluster barrier {id(self)}",
+                line_prefix="`arrive`",
+            )
+        )
+
+    # Arrive at the barrier for the block that `thread` belongs to. Note that
+    # this is the barrier for the block whose coordinate do *not* differ (along
+    # any collective axis) from `block_coords`.
+    with self.lock:
+      barrier = self.barriers[thread.block_id]
+    barrier.arrive(thread, clock, logging_info)
+
+    # Arrive at the barriers for those blocks whose coordinates differ from
+    # `block_coords` along *exactly one* collective axis.
+    for i, (axis_dim, is_collective) in enumerate(
+        zip(
+            self.axes_dims[:-1],
+            self.is_axis_collective[:-1],
+            strict=True,
+        )
+    ):
+      if not is_collective:
+        continue
+
+      for j in range(axis_dim):
+        if j == mesh_location.block_coords[i]:
+          # The barrier for the block with coordinates identical to
+          # `block_coords` has already been arrived at above.
+          continue
+
+        block_coords_to_arrive_at = list(mesh_location.block_coords)
+        # Note that (because of the `if ... continue` above) we have
+        # `j != block_coords[i]` here.
+        block_coords_to_arrive_at[i] = j
+        barrier_index = np.ravel_multi_index(
+            block_coords_to_arrive_at, self.axes_dims[:-1]
+        )
+        with self.lock:
+          barrier = self.barriers[barrier_index]
+        barrier.arrive(thread, clock, logging_info)
+
+  def wait(
+      self,
+      thread: Thread,
+      logging_info: GPULoggingInfo | None = None,
+  ):
+    if self.enable_logging and logging_info is not None:
+      with self.lock:
+        self._log(
+            logging_info.format(
+                f"Waiting for cluster barrier {id(self)}",
+                line_prefix="`wait`",
+            )
+        )
+
+    with self.lock:
+      barrier = self.barriers[thread.block_id]
+
+    barrier.wait(thread, logging_info)
+
+  def deallocate(self):
+    """Deallocates the `ClusterBarrier`."""
+    with self.lock:
+      self.ref_count -= 1
+      if self.ref_count > 0:
+        return
+
+      for barrier in self.barriers:
+        barrier.deallocate()

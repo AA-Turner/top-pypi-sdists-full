@@ -16,11 +16,13 @@ from typing import TYPE_CHECKING, Any, TypeVar
 from tomlrt._trivia import (
     leading_break,
     leading_ws,
+    newline_at,
     restamp_bracket_pad_for_first,
     split_above_block,
     split_eol_section,
     split_lines,
     strip_trailing_indent,
+    strip_trailing_ws,
     trailing_ws,
 )
 from tomlrt._values import (
@@ -121,11 +123,14 @@ class Boundary:
         if i == 0:
             following = cv.header_trivia
             start = _first_newline_end(following) or len(following)
+            # Positional ``has_comma`` / ``is_head``: the busiest
+            # boundary in an inline-array edit.
             return cls(
                 _Lane(),
                 "",
                 _Lane.capture(following, start),
-                is_head=True,
+                False,  # noqa: FBT003
+                True,  # noqa: FBT003
             )
         pred = items[i - 1]
         following = cv.final_trivia if i == len(items) else items[i].leading
@@ -140,7 +145,7 @@ class Boundary:
             _Lane.capture(pred.trailing, before_start),
             pred.post_comma_trivia,
             _Lane.capture(following, following_start),
-            has_comma=pred.has_comma,
+            pred.has_comma,
         )
 
     def copy(self) -> Boundary:
@@ -148,8 +153,8 @@ class Boundary:
             self.before.copy(),
             self.after,
             self.following.copy(),
-            has_comma=self.has_comma,
-            is_head=self.is_head,
+            self.has_comma,
+            self.is_head,
         )
 
     def restore(self, cv: CommaValue[Any], i: int) -> None:
@@ -185,6 +190,13 @@ class Boundary:
         )
 
     def _eol(self) -> tuple[int | None, str]:
+        """The lane owning the row-attached EOL, and its payload.
+
+        Lane 0 is the predecessor's ``trailing``, lane 1 its
+        ``post_comma_trivia``; ``None`` means no EOL is present at all.
+        The channel choice mirrors `tomlrt._values.item_eol_on_trailing`
+        -- see there for why the rule is spelled out in both places.
+        """
         before = self.before.join()
         if self.break_before_comma:
             eol, _rest = split_eol_section(before)
@@ -253,10 +265,11 @@ class Boundary:
         if block:
             # A lane whose row is still open has to break for the block;
             # whatever followed then leads a row of its own, so its old
-            # intra-row pad gives way to the value indent.
+            # intra-row pad gives way to the value indent -- and the pad
+            # the break now terminates would be trailing whitespace.
             promotes = not upstream and "\n" not in head
             if promotes:
-                head += nl
+                head = strip_trailing_ws(head) + nl
             if promotes or not tail:
                 tail = indent
         target.head = head
@@ -510,7 +523,7 @@ def _pre_comma_break(item: CommaItem) -> str:
     """
     t = item.trailing
     i = t.find("\n")
-    return ("\r\n" if t[i - 1 : i] == "\r" else "\n") + trailing_ws(t)
+    return newline_at(t, i) + trailing_ws(t)
 
 
 def detect_style(value: ArrayValue | InlineTableValue) -> CommaStyle:
@@ -535,11 +548,11 @@ def detect_style(value: ArrayValue | InlineTableValue) -> CommaStyle:
     pad_ft, _above_ft = split_above_block(value.final_trivia)
     trailing_post = pad_ft or value.final_trivia
     return CommaStyle(
-        is_multiline=is_multiline,
-        inter_separator=inter_sep,
-        trailing_comma=trailing_comma,
-        trailing_post=trailing_post,
-        pre_comma_break=_pre_comma_break(leader) if leader else "",
+        is_multiline,
+        inter_sep,
+        trailing_comma,
+        trailing_post,
+        _pre_comma_break(leader) if leader else "",
     )
 
 
@@ -573,7 +586,7 @@ def _value_newline(value: CommaValue[Any]) -> str:
     """
     run = next(run for run in _row_runs(value) if "\n" in run)
     i = run.index("\n")
-    return "\r\n" if run[i - 1 : i] == "\r" else "\n"
+    return newline_at(run, i)
 
 
 def _value_indent(value: CommaValue[Any]) -> str:

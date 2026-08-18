@@ -17,7 +17,7 @@ from collections.abc import Callable, Sequence
 import dataclasses
 import functools
 import itertools as it
-from typing import TypeVar, Any, Union
+from typing import TypeVar, Any
 
 import numpy as np
 
@@ -69,10 +69,10 @@ traceback_util.register_exclusion(__file__)
 map, unsafe_map = safe_map, map
 zip, unsafe_zip = safe_zip, zip
 
-Bool = Union[bool, Array]
-Int = Union[int, Array]
+Bool = bool | Array
+Int = int | Array
 ErrorCategory = type['JaxException']
-Payload = list[Union[np.ndarray, Array]]
+Payload = list[np.ndarray | Array]
 PyTreeDef = jtu.PyTreeDef
 Out = TypeVar('Out')
 
@@ -360,7 +360,7 @@ def default_checkify_rule(primitive: core.Primitive, error: Error,
 
   # call_jaxpr handling
   call_jaxpr = params.pop('call_jaxpr')
-  if isinstance(call_jaxpr, core.Jaxpr):  # handle closed_call_p
+  if isinstance(call_jaxpr, core.Jaxpr):  # jaxpr with attached consts
     jaxpr, consts = call_jaxpr, call_jaxpr.consts
   else:
     jaxpr, consts = call_jaxpr, ()
@@ -666,6 +666,10 @@ def div_error_check(error, enabled_errors, x, y):
     error = assert_func(error, any_zero, DivisionByZeroError(get_traceback()))
   return nan_error_check(lax.div_p, error, enabled_errors, x, y)
 error_checks[lax.div_p] = div_error_check
+
+def eval_jaxpr_error_check(error, enabled_errors, *invals, call_jaxpr, **_):
+  return checkify_jaxpr(call_jaxpr, enabled_errors, error, *invals)
+error_checks[pe.eval_jaxpr_p] = eval_jaxpr_error_check
 
 def oob_payload(oob_mask, indices, dims_map, operand_shape):
   # Get first OOB index, axis and axis size so it can be added to the error msg.
@@ -1113,8 +1117,10 @@ def custom_vjp_call_rule(in_err, enabled_errors, *in_vals,
   # TODO(necula): the fwd result_paths are not quite the same as fun_jaxpr
   checkified_fwd_wrapped = lu.wrap_init(checkified_fwd,
                                         debug_info=fwd_jaxpr_thunk.debug_info)
-  bwd_ = lu.wrap_init(lambda *args: (*(None,)*num_errs, *bwd.call_wrapped(*args)),
-                      debug_info=bwd.debug_info)
+  def bwd_with_errs(*args):
+    cts, logs = bwd.call_wrapped(*args)  # flat bwd returns a (cts, logs) pair
+    return (*(None,) * num_errs, *cts), logs
+  bwd_ = lu.wrap_init(bwd_with_errs, debug_info=bwd.debug_info)
   checkified_fwd_wrapped, fwd_out_tree = flatten_fun_output(checkified_fwd_wrapped)
   all_outs = custom_derivatives.custom_vjp_call_p.bind(
       *err_vals, *in_vals, out_trees=out_trees, symbolic_zeros=symbolic_zeros,

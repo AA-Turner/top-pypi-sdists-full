@@ -16,13 +16,11 @@ if t.TYPE_CHECKING:
     from atproto_client import models
 from atproto_client.models import base
 
-ConvoKind = t.Union[t.Literal['direct'], t.Literal['group'], str]  #: Convo kind
+ConvoKind = t.Union[t.Literal['direct', 'group'], str]  #: Convo kind
 
-ConvoLockStatus = t.Union[
-    t.Literal['unlocked'], t.Literal['locked'], t.Literal['locked-permanently'], str
-]  #: Convo lock status
+ConvoLockStatus = t.Union[t.Literal['unlocked', 'locked', 'locked-permanently'], str]  #: Convo lock status
 
-ConvoStatus = t.Union[t.Literal['request'], t.Literal['accepted'], str]  #: Convo status
+ConvoStatus = t.Union[t.Literal['request', 'accepted'], str]  #: Convo status
 
 
 class ConvoRef(base.ModelBase):
@@ -395,7 +393,7 @@ class GroupConvo(base.ModelBase):
     lock_status_moderation_override: bool  #: Whether the lock status is being forced by a moderation override (account inactivation or convo takedown) rather than the owner's own setting.
     member_count: int  #: The total number of members in the group conversation.
     member_limit: int  #: The maximum number of members allowed in the group conversation.
-    name: str = Field(max_length=1280)  #: The display name of the group conversation.
+    name: str = Field(max_length=500)  #: The display name of the group conversation.
     join_link: t.Optional['models.ChatBskyGroupDefs.JoinLinkView'] = None  #: Join link.
     join_request_count: t.Optional[int] = (
         None  #: The total number of pending join requests for the group conversation. Only present for the owner. Capped at 21.

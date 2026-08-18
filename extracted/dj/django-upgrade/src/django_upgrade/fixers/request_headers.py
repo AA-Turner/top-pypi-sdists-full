@@ -31,14 +31,15 @@ def visit_Subscript(
 ) -> Iterable[tuple[Offset, TokenFunc]]:
     if (
         is_request_or_self_request_meta(node.value)
-        and not isinstance(parents[-1], ast.Delete)
-        and not (isinstance(parents[-1], ast.Assign) and node in parents[-1].targets)
+        and isinstance(node.ctx, ast.Load)
         and (meta_name := extract_constant(node.slice)) is not None
         and (header_name := get_header_name(meta_name)) is not None
     ):
         yield (
             ast_start_offset(node),
-            partial(rewrite_header_access, header_name=header_name),
+            partial(
+                rewrite_header_access, meta_name=meta_name, header_name=header_name
+            ),
         )
 
 
@@ -59,7 +60,9 @@ def visit_Call(
     ):
         yield (
             ast_start_offset(node),
-            partial(rewrite_header_access, header_name=header_name),
+            partial(
+                rewrite_header_access, meta_name=meta_name, header_name=header_name
+            ),
         )
 
 
@@ -80,7 +83,11 @@ def visit_Compare(
     ):
         yield (
             ast_start_offset(node),
-            partial(rewrite_in_statement, header_name=header_name),
+            partial(
+                rewrite_in_statement,
+                meta_name=node.left.value,
+                header_name=header_name,
+            ),
         )
 
 
@@ -118,16 +125,27 @@ def get_header_name(meta_name: str) -> str | None:
     return "-".join(x for x in name.lower().split("_"))
 
 
-def rewrite_header_access(tokens: list[Token], i: int, *, header_name: str) -> None:
+def rewrite_header_access(
+    tokens: list[Token], i: int, *, meta_name: str, header_name: str
+) -> None:
     meta_idx = find(tokens, i, name=NAME, src="META")
-    replace(tokens, meta_idx, src="headers")
     str_idx = find(tokens, meta_idx, name=STRING)
+    if ast.literal_eval(tokens[str_idx].src) != meta_name:
+        # Implicitly concatenated string, cannot rewrite one token
+        return
+    replace(tokens, meta_idx, src="headers")
     header_src = str_repr_matching(header_name, match_quotes=tokens[str_idx].src)
     replace(tokens, str_idx, src=header_src)
 
 
-def rewrite_in_statement(tokens: list[Token], i: int, *, header_name: str) -> None:
-    header_src = str_repr_matching(header_name, match_quotes=tokens[i].src)
-    replace(tokens, i, src=header_src)
-    meta_idx = find(tokens, i, name=NAME, src="META")
+def rewrite_in_statement(
+    tokens: list[Token], i: int, *, meta_name: str, header_name: str
+) -> None:
+    str_idx = find(tokens, i, name=STRING)
+    if ast.literal_eval(tokens[str_idx].src) != meta_name:
+        # Implicitly concatenated string, cannot rewrite one token
+        return
+    header_src = str_repr_matching(header_name, match_quotes=tokens[str_idx].src)
+    replace(tokens, str_idx, src=header_src)
+    meta_idx = find(tokens, str_idx, name=NAME, src="META")
     replace(tokens, meta_idx, src="headers")

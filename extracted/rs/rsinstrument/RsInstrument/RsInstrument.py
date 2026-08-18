@@ -1,26 +1,32 @@
 """Root class for remote-controlling instrument with SCPI commands."""
-
 import threading
-from typing import List, Tuple, ClassVar
 from datetime import datetime, timedelta
+from typing import ClassVar, Iterable, List, Tuple
+
+from RsInstrument.Internal.InstrumentSettings import OpcSyncQueryMechanism
 
 from .Fixed_Files.Events import Events
 from .Fixed_Files.ivi_direct_io import IviDirectIo
 from .Fixed_Files.ivi_utility import IviUtility
-from .Internal.Core import Core
-from .Internal.Conversions import BinFloatFormat, BinIntFormat
-from RsInstrument.Internal.InstrumentSettings import OpcSyncQueryMechanism
 from .Internal import Conversions as Conv
-from .Internal.VisaSession import VisaSession
+from .Internal.ContextManagers import InstrErrorSuppressor, VisaTimeoutSuppressor
+from .Internal.Conversions import BinFloatFormat, BinIntFormat
+from .Internal.Core import Core
+from .Internal.Discovery import DiscoverySnapshot, run_discovery
+from .Internal.GlobalData import GlobalData
+from .Internal.InstrumentStatusErrorSuppressor import (
+	InstrumentStatusErrorRule,
+	RawSuppressionRule,
+)
+from .Internal.ScpiCommandExecutor import ScpiCommandExecutor
 from .Internal.ScpiLogger import ScpiLogger
 from .Internal.Utilities import trim_str_response
-from .Internal.GlobalData import GlobalData
-from .Internal.ContextManagers import InstrErrorSuppressor, VisaTimeoutSuppressor
+from .Internal.VisaSession import VisaSession
 
 
 class RsInstrument:
 	"""Root class for remote-controlling instrument with SCPI commands."""
-	_driver_version_const = '1.126.0.125'
+	_driver_version_const = '1.131.0.128'
 	_driver_options_const = "SupportedInstrModels = All Rohde & Schwarz Instruments, SupportedIdnPatterns = Rohde\\s*(-|&)\\s*Schwarz/Hameg/ZES ZIMMER, SimulationIdnString = Rohde&Schwarz*SimulationDevice*100001*" + _driver_version_const
 	# noinspection PyClassVar
 	_global_logging_relative_timestamp: ClassVar[datetime | None] = None
@@ -70,6 +76,7 @@ class RsInstrument:
 			- ``FirstCmds = *CLS`` - first command(s) to sent after init. Separated more commands/queries with ';;'. Default: ``(empty)``
 			- ``EachCmdPrefix = lf`` - this prefix is added to the beginning of each command sent to the instrument. Default: ``(empty)``
 			- ``EachCmdSuffix = cr`` - this suffix is added to the end of each command sent to the instrument. Default: ``(empty)``
+			- ``OptimizeOpcExecute = True`` - Only takes effect in the RsInstrument.execute() method. By default (False), the suffix ';*OPC' triggers the _with_opc execution. If set to true, also the ';*OPC?' suffix behaves the same way.
 			- ``StripStringTrailingWhitespaces = True`` - use it to strip white spaces from string query responses. Default: ``False``
 			- ``LoggingMode = On`` - sets the logging status right from the start. Possible values: On | Off | Error. Default: ``Off``
 			- ``LoggingName = 'MyDevice'`` - sets the name to represent the session in the log entries. Default: ``<resource_name>``
@@ -193,6 +200,31 @@ class RsInstrument:
 		# noinspection PyTypeChecker
 		return resources
 
+	@staticmethod
+	def discovery(
+		expression: str = '?*::INSTR',
+		visa_select: str | None = None,
+		identify: bool = False,
+		identify_timeout_ms: int = 3000,
+	) -> DiscoverySnapshot:
+		"""Discover instruments visible to VISA.
+
+		Opens a fresh ResourceManager, calls list_resources, optionally
+		identifies each instrument via ``*IDN?`` in parallel worker threads.
+
+		:param expression: VISA resource expression filter.
+		:param visa_select: VISA implementation selector (e.g. 'rs', 'ni', '@py').
+		:param identify: If True, open each resource briefly and query ``*IDN?``.
+		:param identify_timeout_ms: Timeout per instrument for ``*IDN?`` query.
+		:return: Immutable DiscoverySnapshot with all found instruments.
+		"""
+		return run_discovery(
+			expression=expression,
+			visa_select=visa_select,
+			identify=identify,
+			identify_timeout_ms=identify_timeout_ms,
+		)
+
 	def get_session_handle(self):
 		"""Returns the underlying pyvisa session"""
 		return self._core.get_session_handle()
@@ -287,6 +319,50 @@ class RsInstrument:
 		The default state after initializing the session is ON."""
 		self._core.io.query_instr_status = value
 
+	def status_error_suppression_clear_all_rules(self) -> None:
+		"""Clears the status-error suppression rules - all instrument errors are reported."""
+		self._core.io.status_error_suppressor.clear_rules()
+
+	def status_error_suppression_get_rules(self) -> list[InstrumentStatusErrorRule]:
+		"""Returns the status-error suppression rules used by automatic status checks,
+		or ``query_all_errors`` / ``query_all_errors_with_codes``. """
+		return self._core.io.status_error_suppressor.rules
+
+	def status_error_suppression_add_rule(self, rule: RawSuppressionRule) -> InstrumentStatusErrorRule:
+		"""Adds one suppression rule and returns the created rule object.
+
+		The ``rule`` argument can be one of the following:
+
+		- ``(code, pattern)`` tuple: suppress only when the error code equals ``code`` AND the message matches ``pattern`` (logical AND).
+		- ``pattern`` (``str`` or ``re.Pattern``): suppress by message only, for any error code.
+		- ``code`` (``int``): suppress by error code only, for any message.
+		- an already-built :class:`InstrumentStatusErrorRule`: stored as-is.
+
+		A ``pattern`` is either a regex source string or an already-compiled ``re.Pattern``.
+		Message matching uses ``re.search()``, so the pattern only has to be found *somewhere* in the message, not match it in full.
+
+		Rules are de-duplicated by value: adding a rule that is equal to one already
+		in the list (same code and/or same pattern source string and flags) does not
+		create a second entry, and the existing/normalized rule is returned.
+
+		:param rule: The rule definition, in any of the forms listed above.
+		:return: The normalized :class:`InstrumentStatusErrorRule` that was added
+			(or the equal one already present). Keep this reference to remove the
+			rule later with :meth:`status_error_suppression_remove_rule`.
+		:raises TypeError: If ``rule`` (or a tuple's code/pattern) has an unsupported type.
+		:raises ValueError: If a tuple rule does not have exactly two elements.
+		"""
+		return self._core.io.status_error_suppressor.add_rule(rule)
+
+	def status_error_suppression_add_rules(self, rules: Iterable[RawSuppressionRule]) -> None:
+		"""Same as the ``status_error_suppression_add_rule()``, but the parameter is a collection of rules."""
+		self._core.io.status_error_suppressor.add_rules(rules)
+
+	def status_error_suppression_remove_rule(self, rule: InstrumentStatusErrorRule) -> bool:
+		"""Removes the entered rule from the error suppression list.
+		Returns true, if the rule existed in the list."""
+		return self._core.io.status_error_suppressor.remove_rule(rule)
+
 	def check_status(self) -> None:
 		"""Throws InstrumentStatusException in case of an error in the instrument's error queue.
 		The status checking is performed always, independent of the property 'instrument_status_checking'.
@@ -345,14 +421,20 @@ class RsInstrument:
 		"""Queries and clears all the errors from the instrument's error queue.
 		The method returns list of strings as error messages. If no error is detected, the return value is None.
 		The process is: querying 'SYSTem:ERRor?' in a loop until the error queue is empty.
-		If you want to include the error codes, call the query_all_errors_with_codes()"""
+		If you want to include the error codes, call the query_all_errors_with_codes()
+
+		Note: If status-error suppression rules are configured (see status_error_suppression_add_rule()),
+		errors matching those rules are filtered out and will not appear in the returned list."""
 		# noinspection PyTypeChecker
 		return self._core.io.query_all_syst_errors(include_codes=False)
 
 	def query_all_errors_with_codes(self) -> List[Tuple[int, str]] | None:
 		"""Queries and clears all the errors from the instrument's error queue.
 		The method returns list of tuples (code: int, message: str). If no error is detected, the return value is None.
-		The process is: querying 'SYSTem:ERRor?' in a loop until the error queue is empty."""
+		The process is: querying 'SYSTem:ERRor?' in a loop until the error queue is empty.
+
+		Note: If status-error suppression rules are configured (see status_error_suppression_add_rule()),
+		errors matching those rules are filtered out and will not appear in the returned list."""
 		# noinspection PyTypeChecker
 		return self._core.io.query_all_syst_errors(include_codes=True)
 
@@ -571,6 +653,54 @@ class RsInstrument:
 		The response is trimmed of any trailing LF characters and has no length limit.
 		If you do not provide timeout, the method uses current opc_timeout."""
 		return self._core.io.query_str_with_opc(query, timeout)
+
+	def execute(self, command: str) -> str | None:
+		"""Executes a single SCPI command string, auto-dispatching to the matching I/O method.
+
+		The command is stripped of surrounding whitespace and routed to one of
+		``write`` / ``query`` / ``write_with_opc`` / ``query_with_opc`` based on:
+
+		- whether the (sent) command contains ``?`` -> query, otherwise -> write, and
+		- an optional trailing OPC synchronization suffix, interpreted according to the ``optimize_opc_execute`` property.
+
+		Handling of the trailing OPC suffix:
+
+		- ``optimize_opc_execute = False`` (default): a trailing ``;*OPC`` requests OPC-synchronized execution (``write_with_opc`` / ``query_with_opc``) and is
+			stripped from the command. A trailing ``;*OPC?`` is kept and the whole string is sent as an ordinary query.
+		- ``optimize_opc_execute = True``: a trailing ``;*OPC?`` or ``;*OPC`` requests OPC-synchronized execution instead; it is stripped and the base command is run OPC-synchronized.
+
+		Examples with the default ``optimize_opc_execute = False``:
+
+		- ``execute('*IDN?')`` -> ``query('*IDN?')`` -> response string
+		- ``execute('*RST')`` -> ``write('*RST')`` -> ``None``
+		- ``execute('INIT;*OPC')`` -> ``write_with_opc('INIT')`` -> ``None``
+		- ``execute('READ?;*OPC')`` -> ``query_with_opc('READ?')`` -> response string
+		- ``execute('READ?;*OPC?')`` -> ``query('READ?;*OPC?')`` -> response string
+
+		:param command: SCPI command string, optionally ending with an OPC synchronization
+			suffix (``;*OPC`` or ``;*OPC?``, see above).
+		:return: Query response as ``str`` when the command to send contains ``?``;
+			``None`` for write commands.
+		"""
+		return ScpiCommandExecutor(self, command, self.optimize_opc_execute).execute()
+
+	@property
+	def optimize_opc_execute(self) -> bool:
+		"""Sets / returns how the ``execute()`` method interprets a trailing OPC suffix.
+		This flag only takes effect in the ``execute()`` method.
+		- False (default): only a trailing ``;*OPC`` triggers OPC-synchronized execution (``write_with_opc`` / ``query_with_opc``); a trailing ``;*OPC?`` is sent as an ordinary query.
+		- True: in addition to the ``;*OPC``, a trailing ``;*OPC?`` triggers OPC-synchronized execution as well.
+		Same as the ``OptimizeOpcExecute`` init option token. The default after initializing the session is False."""
+		return self._core.optimize_opc_execute
+
+	@optimize_opc_execute.setter
+	def optimize_opc_execute(self, value: bool) -> None:
+		"""Sets / returns how the ``execute()`` method interprets a trailing OPC suffix.
+		This flag only takes effect in the ``execute()`` method.
+		- False (default): only a trailing ``;*OPC`` triggers OPC-synchronized execution (``write_with_opc`` / ``query_with_opc``); a trailing ``;*OPC?`` is sent as an ordinary query.
+		- True: in addition to the ``;*OPC``, a trailing ``;*OPC?`` triggers OPC-synchronized execution as well.
+		Same as the ``OptimizeOpcExecute`` init option token. The default after initializing the session is False."""
+		self._core.optimize_opc_execute = value
 
 	def query_str_list_with_opc(self, query: str, timeout: int | None = None, remove_blank_response: bool = False) -> List[str]:
 		"""Sends a OPC-synced query and reads response from the instrument as csv-list.

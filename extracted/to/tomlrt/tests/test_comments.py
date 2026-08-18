@@ -516,7 +516,7 @@ def test_inline_promotion_inserts_after_parent_block() -> None:
 
 def test_promote_non_inline_raises() -> None:
     doc = tomlrt.loads("a = 1\n")
-    with pytest.raises(TypeError, match="not an inline table"):
+    with pytest.raises(tomlrt.TOMLError, match="not an inline table"):
         doc.promote_inline("a")
 
 
@@ -1694,10 +1694,11 @@ def test_array_comments_out_of_range_raises() -> None:
 def test_array_eol_setitem_out_of_range_does_not_promote_to_multiline() -> None:
     """A failed EOL assignment must not promote a single-line array.
 
-    Regression: ``ArrayEolView.__setitem__`` called ``_ensure_multiline``
-    before validating the index, so an out-of-range key raised
-    ``KeyError`` *but* still left the array reformatted into multi-line
-    form — a silent round-trip break behind a failed operation.
+    Regression: the array EOL view's ``__setitem__`` called
+    ``_ensure_multiline`` before validating the index, so an
+    out-of-range key raised ``KeyError`` *but* still left the array
+    reformatted into multi-line form — a silent round-trip break behind
+    a failed operation.
     """
     doc = tomlrt.loads("xs = [1, 2]\n")
     arr = doc.array("xs")
@@ -1829,18 +1830,6 @@ def test_array_table_returns_nested_inline_table() -> None:
     tbl = doc.array("xs").table(0)
     assert isinstance(tbl, tomlrt.Table)
     assert tbl["a"] == 1
-
-
-def test_array_array_wrong_kind_raises_typeerror() -> None:
-    doc = tomlrt.loads("xs = [1, 2]\n")
-    with pytest.raises(TypeError, match="not an Array"):
-        doc.array("xs").array(0)
-
-
-def test_array_table_wrong_kind_raises_typeerror() -> None:
-    doc = tomlrt.loads("xs = [1, 2]\n")
-    with pytest.raises(TypeError, match="not a Table"):
-        doc.array("xs").table(0)
 
 
 def test_table_typed_dotted_descent_through_non_table_raises() -> None:
@@ -2135,12 +2124,6 @@ def test_preamble_round_trips_through_reparse() -> None:
     doc.epilogue = ("z",)
     rendered = tomlrt.dumps(doc)
     assert tomlrt.dumps(tomlrt.loads(rendered)) == rendered
-
-
-def test_preamble_rejects_embedded_newline() -> None:
-    doc = tomlrt.loads("")
-    with pytest.raises(ValueError, match="line terminator"):
-        doc.preamble = ("a\nb",)
 
 
 # ---------------------------------------------------------------------------
@@ -3056,18 +3039,6 @@ def test_leading_block_on_kv_round_trips_above_blank() -> None:
     doc = tomlrt.loads(src)
     assert doc.leading_block["y"] == (None, "orphan", None, "attached")
     assert doc.leading_comments["y"] == ("attached",)
-
-
-def test_leading_block_setitem_round_trips_orphan_and_attached() -> None:
-    doc = tomlrt.loads("x = 1\ny = 2\n")
-    doc.leading_block["y"] = ("orphan", None, "attached")
-    assert tomlrt.dumps(doc) == td("""
-        x = 1
-        # orphan
-
-        # attached
-        y = 2
-        """)
 
 
 def test_leading_block_preserves_indent_on_nested_key() -> None:
@@ -4697,6 +4668,55 @@ def test_inline_insert_trailing_ws_after_comma_no_blank_line() -> None:
         }
         """,
     ).replace("@", " ")
+
+
+def test_array_above_comment_on_first_item_no_trailing_ws_after_bracket() -> None:
+    # The opening bracket's pad is intra-row whitespace ("[ 1,"). Stamping an
+    # above-item comment on item 0 makes that pad the row terminator, so the
+    # whitespace it swallows must not linger as trailing whitespace after "[".
+    doc = tomlrt.loads(
+        td(
+            """
+            a = [ 1,
+                  2 ]
+            """,
+        ),
+    )
+    doc.array("a").leading_comments[0] = ("z",)
+    assert tomlrt.dumps(doc) == td(
+        """
+        a = [
+              # z
+              1,
+              2 ]
+        """,
+    )
+    assert reparses(tomlrt.dumps(doc)) == {"a": [1, 2]}
+
+
+def test_array_sort_carrying_comment_to_head_no_trailing_ws_after_bracket() -> None:
+    # Reordering carries an item's above-comment with it, so sorting can move
+    # one onto the head boundary and break the opening bracket's row. That
+    # break must not leave the bracket's old intra-row pad behind either.
+    doc = tomlrt.loads(
+        td(
+            """
+            a = [ 2,
+                  # c
+                  1 ]
+            """,
+        ),
+    )
+    doc.array("a").sort()
+    assert tomlrt.dumps(doc) == td(
+        """
+        a = [
+              # c
+              1,
+              2 ]
+        """,
+    )
+    assert reparses(tomlrt.dumps(doc)) == {"a": [1, 2]}
 
 
 def test_array_mutation_preserves_blank_before_bracket_with_trailing_ws() -> None:

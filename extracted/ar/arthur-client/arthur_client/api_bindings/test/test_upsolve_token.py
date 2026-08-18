@@ -35,11 +35,15 @@ class TestUpsolveToken(unittest.TestCase):
         model = UpsolveToken()
         if include_optional:
             return UpsolveToken(
-                token = ''
+                token = '',
+                application_count = 56,
+                total_application_count = 56
             )
         else:
             return UpsolveToken(
                 token = '',
+                application_count = 56,
+                total_application_count = 56,
         )
         """
 

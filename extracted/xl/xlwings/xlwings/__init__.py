@@ -5,7 +5,7 @@ import os
 import sys
 from typing import TYPE_CHECKING, Annotated, Any, Callable, TypeVar, overload
 
-__version__ = "0.36.16"
+__version__ = "0.36.17"
 
 # TypeVar for the CachedObject[T] type alias (defined after the ObjectHandle class).
 _CachedT = TypeVar("_CachedT")
@@ -119,6 +119,11 @@ class WithScript:
     wrapper. ``script`` is either the custom script function itself or its name as a
     string. ``args`` are passed on to the script and must be JSON-serializable.
 
+    Passing the function object is preferred over the string: it records the defining
+    module alongside the name, which lets runtimes that spread scripts over multiple
+    modules (xlwings Lite) resolve the script unambiguously. With a bare string they can
+    only search by name, which is ambiguous if two modules define the same script name.
+
     The script runs at the next calculation boundary after the custom function returns
     (or, on hosts below ExcelApi 1.8, on a best-effort basis right after it returns, with
     no guarantee that the cell value has been committed). A custom function may not write
@@ -148,7 +153,15 @@ class WithScript:
                 f"WithScript: 'args' must be JSON-serializable: {e}"
             ) from None
         self.value = value
-        self.script_name = script if isinstance(script, str) else script.__name__
+        if isinstance(script, str):
+            self.script_name = script
+            self.script_module = None
+        else:
+            self.script_name = script.__name__
+            # Only meaningful to runtimes that host scripts in more than one module.
+            # May be absent on exotic callables (partials, some decorators), hence the
+            # getattr default - the name alone still resolves in the single-module case.
+            self.script_module = getattr(script, "__module__", None)
         self.args = args
 
     @property
@@ -157,6 +170,7 @@ class WithScript:
         separately as the (converted) cell value."""
         return {
             "script_name": self.script_name,
+            "script_module": self.script_module,
             "args": self.args,
         }
 
@@ -267,6 +281,20 @@ try:
     __pro__ = True
 except (ImportError, LicenseError, AttributeError):
     __pro__ = False
+
+try:
+    # The Caller type hint for custom functions. Imported here (rather than only from
+    # xlwings.server) so it's available as xw.Caller, like the other custom-function
+    # types above. Importing it also registers it as an injectable typehint.
+    from .pro.caller import Caller  # noqa: F401
+
+    # Unlike the other names in __all__, Caller lives under pro/ and is therefore
+    # license-gated: importing it runs LicenseHandler.validate_license("pro"). Only
+    # advertise it once it's actually bound, or `from xlwings import *` would raise
+    # AttributeError on an install without a valid PRO license.
+    __all__ += ("Caller",)
+except (ImportError, LicenseError, AttributeError):
+    pass
 
 try:
     # Separately handled in case the Rust extension is missing

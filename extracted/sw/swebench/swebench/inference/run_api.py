@@ -22,6 +22,7 @@ from tenacity import (
 )
 from datasets import load_dataset, load_from_disk
 from swebench.inference.make_datasets.utils import extract_diff
+from swebench.inference.usage import usage_to_dict
 from argparse import ArgumentParser
 import logging
 
@@ -234,6 +235,11 @@ def openai_inference(
             completion = response.choices[0].message.content
             total_cost += cost
             print(f"Total Cost: {total_cost:.2f}")
+            output_dict["usage"] = usage_to_dict(
+                response.usage,
+                input_tokens_field="prompt_tokens",
+                output_tokens_field="completion_tokens",
+            )
             output_dict["full_output"] = completion
             output_dict["model_patch"] = extract_diff(completion)
             print(json.dumps(output_dict), file=f, flush=True)
@@ -347,8 +353,9 @@ def anthropic_inference(
     print(f"Using Anthropic key {'*' * max(0, len(api_key) - 5) + api_key[-5:]}")
     anthropic = Anthropic(api_key=api_key)
     test_dataset = test_dataset.filter(
-        lambda x: claude_tokenize(x["text"], anthropic)
-        <= MODEL_LIMITS[model_name_or_path],
+        lambda x: (
+            claude_tokenize(x["text"], anthropic) <= MODEL_LIMITS[model_name_or_path]
+        ),
         desc="Filtering",
         load_from_cache_file=False,
     )
@@ -396,6 +403,11 @@ def anthropic_inference(
                 output_dict["full_output"] = completion.content[0].text
             else:
                 output_dict["full_output"] = completion.completion
+            output_dict["usage"] = usage_to_dict(
+                getattr(completion, "usage", None),
+                input_tokens_field="input_tokens",
+                output_tokens_field="output_tokens",
+            )
             output_dict["model_patch"] = extract_diff(output_dict["full_output"])
             print(json.dumps(output_dict), file=f, flush=True)
             if max_cost is not None and total_cost >= max_cost:

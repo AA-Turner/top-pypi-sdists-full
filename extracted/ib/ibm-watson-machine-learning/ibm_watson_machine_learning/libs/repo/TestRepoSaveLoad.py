@@ -96,9 +96,9 @@ def is_valid_tf_archive(gz_file):
         return False
 
 
-service_path = "http://ibm-watson-ml-fvt.stage1.mybluemix.net"
-user = "0847e2f0-de37-4ef7-b32b-cc28ef00c009"
-password = "c9b1be92-7eed-40c1-9d5b-387725436c83"
+service_path = ""
+user = ""
+password = ""
 
 # Generate mltoken and store it in MLRepositoryClient > MLRepositoryApi > MLApiClient
 ml_repository_client = MLRepositoryClient(service_path)

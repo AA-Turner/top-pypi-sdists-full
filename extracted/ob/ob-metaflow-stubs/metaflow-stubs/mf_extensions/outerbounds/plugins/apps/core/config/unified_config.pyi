@@ -1,7 +1,7 @@
 ######################################################################################################
 #                                 Auto-generated Metaflow stub file                                  #
 # MF version: 2.19.34.1+obcheckpoint(0.2.10);<unk>(<unk>);ob(v1)                                     #
-# Generated on 2026-08-14T20:17:07.930267                                                            #
+# Generated on 2026-08-17T19:44:19.529473                                                            #
 ######################################################################################################
 
 from __future__ import annotations
@@ -9,9 +9,9 @@ from __future__ import annotations
 import typing
 import metaflow
 if typing.TYPE_CHECKING:
-    import metaflow.mf_extensions.outerbounds.plugins.apps.core.config.config_utils
     import metaflow.mf_extensions.outerbounds.plugins.apps.core.config.unified_config
     import typing
+    import metaflow.mf_extensions.outerbounds.plugins.apps.core.config.config_utils
 
 from .config_utils import ConfigFieldContext as ConfigFieldContext
 from .config_utils import ConfigField as ConfigField
@@ -257,12 +257,21 @@ class BasicAppValidations(object, metaclass=type):
     def capsule_type(capsule_type):
         ...
     @staticmethod
+    def url_slug(url_slug):
+        ...
+    @staticmethod
     def port_required(core_config: CoreConfig) -> bool:
         ...
     @staticmethod
     def proxy_agreement(core_config: CoreConfig):
         """
         Proxy settings belong to a Proxy capsule and nothing else.
+        """
+        ...
+    @staticmethod
+    def url_generation_agreement(core_config: CoreConfig):
+        """
+        An app's URL is either named by `url_slug` or generated from its name.
         """
         ...
     ...

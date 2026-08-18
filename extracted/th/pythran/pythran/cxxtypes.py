@@ -76,7 +76,7 @@ typename std::remove_reference_t<str>::iterator>::value_type>
 pythonic::types::attr::REAL{}, std::declval<complex>()))
 
     >>> builder.ReturnType(builder.NamedType('math::cos'), f_ty)
-    std::result_of_t<math::cos(float)>
+    std::invoke_result_t<math::cos, float>
 
     >>> t = builder.TupleType(i_ty, builder.NamedType('str'))
     >>> builder.ElementType(1, t)
@@ -266,6 +266,21 @@ pythonic::types::attr::REAL{}, std::declval<complex>()))
                 ty = ctx(self.of)
                 return f"std::integral_constant<{ty}, {str(self.index).lower()}>"
 
+        class PkgType(Type):
+            """
+            A type to hold package name
+            """
+            def __init__(self, name):
+                super(PkgType, self).__init__(name=name)
+
+            def generate(self, _):
+                return f'pythonic::types::pkg::{self.name}'
+
+        class PkgRefType(PkgType):
+            """
+            A type to hold reference to package name
+            """
+
         class ArgumentType(Type):
             """
             A type to hold function arguments
@@ -395,7 +410,7 @@ pythonic::types::attr::REAL{}, std::declval<complex>()))
                 # the return type of a constructor is obvious
                 cg = ctx(self.ftype)
                 args = [ctx(arg) for arg in self.args]
-                return f'std::result_of_t<{cg}({", ".join(args)})>'
+                return f'std::invoke_result_t<{cg}{" ".join(f", {arg}" for arg in args)}>'
 
         class ElementType(Type):
             '''

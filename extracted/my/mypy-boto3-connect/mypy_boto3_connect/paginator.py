@@ -34,6 +34,7 @@ Usage::
         ListEntitySecurityProfilesPaginator,
         ListEvaluationFormVersionsPaginator,
         ListEvaluationFormsPaginator,
+        ListExtractionDefinitionsPaginator,
         ListFlowAssociationsPaginator,
         ListHoursOfOperationOverridesPaginator,
         ListHoursOfOperationsPaginator,
@@ -123,6 +124,7 @@ Usage::
     list_entity_security_profiles_paginator: ListEntitySecurityProfilesPaginator = client.get_paginator("list_entity_security_profiles")
     list_evaluation_form_versions_paginator: ListEvaluationFormVersionsPaginator = client.get_paginator("list_evaluation_form_versions")
     list_evaluation_forms_paginator: ListEvaluationFormsPaginator = client.get_paginator("list_evaluation_forms")
+    list_extraction_definitions_paginator: ListExtractionDefinitionsPaginator = client.get_paginator("list_extraction_definitions")
     list_flow_associations_paginator: ListFlowAssociationsPaginator = client.get_paginator("list_flow_associations")
     list_hours_of_operation_overrides_paginator: ListHoursOfOperationOverridesPaginator = client.get_paginator("list_hours_of_operation_overrides")
     list_hours_of_operations_paginator: ListHoursOfOperationsPaginator = client.get_paginator("list_hours_of_operations")
@@ -240,6 +242,8 @@ from .type_defs import (
     ListEvaluationFormsResponseTypeDef,
     ListEvaluationFormVersionsRequestPaginateTypeDef,
     ListEvaluationFormVersionsResponseTypeDef,
+    ListExtractionDefinitionsRequestPaginateTypeDef,
+    ListExtractionDefinitionsResponseTypeDef,
     ListFlowAssociationsRequestPaginateTypeDef,
     ListFlowAssociationsResponseTypeDef,
     ListHoursOfOperationOverridesRequestPaginateTypeDef,
@@ -395,6 +399,7 @@ __all__ = (
     "ListEntitySecurityProfilesPaginator",
     "ListEvaluationFormVersionsPaginator",
     "ListEvaluationFormsPaginator",
+    "ListExtractionDefinitionsPaginator",
     "ListFlowAssociationsPaginator",
     "ListHoursOfOperationOverridesPaginator",
     "ListHoursOfOperationsPaginator",
@@ -925,6 +930,27 @@ class ListEvaluationFormsPaginator(_ListEvaluationFormsPaginatorBase):
         """
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/connect/paginator/ListEvaluationForms.html#Connect.Paginator.ListEvaluationForms.paginate)
         [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_connect/paginators/#listevaluationformspaginator)
+        """
+
+
+if TYPE_CHECKING:
+    _ListExtractionDefinitionsPaginatorBase = Paginator[ListExtractionDefinitionsResponseTypeDef]
+else:
+    _ListExtractionDefinitionsPaginatorBase = Paginator  # type: ignore[assignment]
+
+
+class ListExtractionDefinitionsPaginator(_ListExtractionDefinitionsPaginatorBase):
+    """
+    [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/connect/paginator/ListExtractionDefinitions.html#Connect.Paginator.ListExtractionDefinitions)
+    [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_connect/paginators/#listextractiondefinitionspaginator)
+    """
+
+    def paginate(  # type: ignore[override]
+        self, **kwargs: Unpack[ListExtractionDefinitionsRequestPaginateTypeDef]
+    ) -> PageIterator[ListExtractionDefinitionsResponseTypeDef]:
+        """
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/connect/paginator/ListExtractionDefinitions.html#Connect.Paginator.ListExtractionDefinitions.paginate)
+        [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_connect/paginators/#listextractiondefinitionspaginator)
         """
 
 

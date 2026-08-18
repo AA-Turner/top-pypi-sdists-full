@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: commitizen
-Version: 4.17.0
+Version: 4.17.1
 Summary: Python commitizen client tool
 Keywords: commitizen,conventional,commits,git
 Author: Santiago Fraire
@@ -348,11 +348,6 @@ After installation, you can verify the completion is working by:
 3. You should see a list of available commands
 
 For more detailed information about argcomplete configuration and troubleshooting, visit the [argcomplete documentation](https://kislyuk.github.io/argcomplete/).
-
-## Star History
-
-[![Star History Chart](https://api.star-history.com/svg?repos=commitizen-tools/commitizen)](https://star-history.com/#commitizen-tools/commitizen)
-
 
 ## Sponsors
 

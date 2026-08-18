@@ -1,6 +1,6 @@
 [project]
 name = "atproto"
-dynamic = ["dependencies"]
+dynamic = []
 description = "The AT Protocol SDK"
 authors = [
     {name = "Ilya (Marshal)", email = "ilya@marshal.dev"}
@@ -26,7 +26,18 @@ classifiers = [
     "Topic :: Software Development :: Libraries :: Python Modules",
     "Topic :: Software Development :: Pre-processors",
 ]
-version = "0.0.69"
+dependencies = [
+    "httpx>=0.25.0,<0.29.0",
+    "typing-extensions>=4.8.0,<5",
+    "click>=8.1.3,<9",
+    "websockets>=15,<18",
+    "pydantic>=2.7,<3",
+    "libipld>=3.0.1,<4",
+    "dnspython>=2.4.0,<3",
+    "cryptography>=41.0.7,<51",
+    "zstandard (>=0.24.0,<0.26.0)",
+]
+version = "0.0.70"
 
 [project.scripts]
 atp = "atproto_cli:atproto_cli"
@@ -40,8 +51,31 @@ changes = "https://github.com/MarshalX/atproto/blob/main/CHANGES.md"
 issues = "https://github.com/MarshalX/atproto/issues"
 sponsoring = "https://github.com/sponsors/MarshalX"
 
+[dependency-groups]
+dev = [
+    "ruff==0.16.3",
+    # mypy itself requires Python 3.10+ to run; it still type checks our 3.9 target.
+    "mypy==2.3.1; python_version >= '3.10'",
+    "pyright==1.1.411",
+]
+docs = [
+    "sphinx==7.1.2", # newer sphinx works incorrectly with autodoc-pydantic
+    "myst-parser==3.0.1",
+    "furo==2025.9.25",
+    "autodoc-pydantic==2.2.0",
+    "sphinx-copybutton==0.5.2",
+    "sphinx-favicon==1.0.1",
+    "sphinxext-opengraph==0.13.0",
+    "sphinxcontrib-googleanalytics==0.5",
+]
+test = [
+    "pytest>=8.4.2,<9",
+    "pytest-asyncio>=1.2.0",
+    "coverage==7.6.1",
+]
+
 [tool.poetry]
-requires-poetry = ">=2.0"
+requires-poetry = ">=2.3"
 packages = [
     { include = "atproto", from = "packages" },
     { include = "atproto_cli", from = "packages" },
@@ -51,39 +85,10 @@ packages = [
     { include = "atproto_crypto", from = "packages" },
     { include = "atproto_firehose", from = "packages" },
     { include = "atproto_identity", from = "packages" },
+    { include = "atproto_jetstream", from = "packages" },
     { include = "atproto_lexicon", from = "packages" },
     { include = "atproto_server", from = "packages" },
 ]
-
-[tool.poetry.dependencies]
-httpx = ">=0.25.0,<0.29.0"
-typing-extensions = ">=4.8.0,<5"
-click = ">=8.1.3,<9"
-websockets = ">=15,<16"
-pydantic = ">=2.7,<3"
-libipld = ">=3.0.1,<4"
-dnspython = ">=2.4.0,<3"
-cryptography = ">=41.0.7,<47"
-
-[tool.poetry.group.dev.dependencies]
-ruff = "0.14.1"
-mypy = "1.18.2"
-pyright = "1.1.406"
-
-[tool.poetry.group.docs.dependencies]
-sphinx = "7.1.2" # newer sphinx works incorrectly with autodoc-pydantic
-myst-parser = "3.0.1"
-furo = "2025.9.25"
-autodoc-pydantic = "2.2.0"
-sphinx-copybutton = "0.5.2"
-sphinx-favicon = "1.0.1"
-sphinxext-opengraph = "0.13.0"
-sphinxcontrib-googleanalytics = "0.5"
-
-[tool.poetry.group.test.dependencies]
-pytest = ">=8.4.2,<9"
-pytest-asyncio = ">=1.2.0"
-coverage = "7.6.1"
 
 [tool.poetry-dynamic-versioning]
 # poetry self add "poetry-dynamic-versioning[plugin]"
@@ -152,6 +157,12 @@ ignore = [
     "D213", # we are using the first line for summary
     "D406", "D407", # we are using google style docstring
     "S101", # allow asserting; we are using it for type checks
+    # Pydantic resolves annotations at runtime; PEP 563 lazy annotations break model building
+    # on forward refs that are not importable at runtime. Not worth it for a Pydantic-heavy SDK.
+    "FA100", "FA102",
+    # TODO(MarshalX) enable together with UP007/UP045 once Python 3.9 support is dropped.
+    # Doing it now gives a half-migrated style (t.Optional[list[str]]) across the whole codegen output.
+    "UP006",
 ]
 
 [tool.ruff.lint.per-file-ignores]

@@ -1,25 +1,26 @@
 """Quota request metadata built from ambient SDK context."""
 
+from collections.abc import Mapping
+from contextlib import suppress
 from functools import cache
-from importlib.metadata import PackageNotFoundError, version
-from typing import Any, Literal
+from importlib.metadata import version
+from typing import Any, Literal, get_args
 
-import structlog
-from pydantic import AliasChoices, BaseModel, ConfigDict, Field, ValidationError
+from pydantic import AliasChoices, BaseModel, ConfigDict, Field, model_validator
 
 from mistralai.vibe.sdk.observability.context import attributes_from_context
 
 TelemetryCallType = Literal["main_call", "secondary_call"]
+CALL_TYPES = get_args(TelemetryCallType)
+DEFAULT_CALL_TYPE: TelemetryCallType = "main_call"
 DEFAULT_CALL_SOURCE = "vibe_code"
-logger = structlog.get_logger()
 
 
 @cache
 def _sdk_agent_version() -> str | None:
-    try:
+    with suppress(Exception):
         return version("mistralai-vibe-sdk")
-    except PackageNotFoundError:
-        return None
+    return None
 
 
 class RequestMetadata(BaseModel):
@@ -34,49 +35,34 @@ class RequestMetadata(BaseModel):
     client_version: str | None = None
     session_id: str | None = None
     conversation_id: str | None = None
+    correlation_id: str | None = None
     parent_session_id: str | None = None
     user_id: str | None = None
     workspace_id: str | None = None
     customer_id: str | None = None
-    call_type: TelemetryCallType
+    call_type: TelemetryCallType | None = None
     call_source: str = DEFAULT_CALL_SOURCE
     message_id: str | None = None
 
+    @model_validator(mode="before")
+    @classmethod
+    def _normalize_values(cls, values: Any) -> dict[str, Any]:
+        if not isinstance(values, Mapping):
+            return {}
+
+        metadata = {
+            key: value
+            for key, value in values.items()
+            if key in cls.model_fields and isinstance(value, str)
+        }
+        if "agent_entrypoint" not in metadata and isinstance(values.get("entrypoint"), str):
+            metadata["agent_entrypoint"] = values["entrypoint"]
+        if metadata.get("call_type") not in CALL_TYPES:
+            metadata["call_type"] = DEFAULT_CALL_TYPE
+        metadata.setdefault("call_source", DEFAULT_CALL_SOURCE)
+        return metadata
+
     @classmethod
     def build_from_context(cls) -> dict[str, Any]:
-        context = attributes_from_context("entrypoint", *cls.model_fields)
-        values = {key: value for key, value in context.items() if isinstance(value, str)}
-        if "agent_entrypoint" in values:
-            values.pop("entrypoint", None)
-
-        try:
-            return cls.model_validate(values).model_dump(exclude_none=True)
-        except ValidationError as exc:
-            invalid_fields = set(_validation_error_fields(exc))
-            logger.warning(
-                "request_metadata.invalid",
-                fields=sorted(invalid_fields),
-                error_types=_validation_error_types(exc),
-            )
-            metadata = {
-                key: values[key]
-                for key in cls.model_fields
-                if key in values and key not in invalid_fields
-            }
-            if "entrypoint" in values:
-                metadata.setdefault("agent_entrypoint", values["entrypoint"])
-            if (
-                "agent_version" not in metadata
-                and (agent_version := _sdk_agent_version()) is not None
-            ):
-                metadata["agent_version"] = agent_version
-            metadata["call_source"] = values.get("call_source", DEFAULT_CALL_SOURCE)
-            return metadata
-
-
-def _validation_error_fields(exc: ValidationError) -> list[str]:
-    return sorted({str(error["loc"][0]) for error in exc.errors() if error["loc"]})
-
-
-def _validation_error_types(exc: ValidationError) -> list[str]:
-    return sorted({str(error["type"]) for error in exc.errors()})
+        context: dict[str, Any] = dict(attributes_from_context("entrypoint", *cls.model_fields))
+        return cls(**context).model_dump(exclude_none=True)

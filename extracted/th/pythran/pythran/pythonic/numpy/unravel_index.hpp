@@ -3,6 +3,7 @@
 
 #include "pythonic/builtins/ValueError.hpp"
 #include "pythonic/include/numpy/unravel_index.hpp"
+#include "pythonic/types/ndarray.hpp"
 
 PYTHONIC_NS_BEGIN
 
@@ -25,10 +26,10 @@ namespace numpy
   } // namespace
 
   template <class E, class S>
-  std::enable_if_t<std::is_scalar<E>::value, types::array_tuple<long, std::tuple_size<S>::value>>
+  std::enable_if_t<std::is_scalar_v<E>, types::array_tuple<long, std::tuple_size_v<S>>>
   unravel_index(E const &expr, S const &shape, types::str const &order)
   {
-    types::array_tuple<long, std::tuple_size<S>::value> ret;
+    types::array_tuple<long, std::tuple_size_v<S>> ret;
     if (order[0] == "C") {
       _unravel_index(expr, shape.rbegin(), shape.rend(), ret.rbegin());
     } else if (order[0] == "F") {

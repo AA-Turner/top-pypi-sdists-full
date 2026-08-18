@@ -9,6 +9,7 @@ import httpx
 import structlog
 
 from mistralai.vibe.sdk.providers.completion import utils
+from mistralai.vibe.sdk.providers.completion.messages import text_content_for_provider
 from mistralai.vibe.sdk.providers.completion.port import CompletionModel
 from mistralai.vibe.sdk.providers.completion.types import (
     CompletionChunk,
@@ -57,9 +58,13 @@ class OpenAIResponsesCompletion(CompletionModel):
         self._timeout = timeout
         self._temperature = temperature
         self._client = client
-        self.model = model
+        self._model = model
         self.reasoning_effort = reasoning_effort
         self.reasoning_summary = reasoning_summary
+
+    @property
+    def model(self) -> str:
+        return self._model
 
     @property
     def client(self) -> httpx.AsyncClient:
@@ -186,17 +191,19 @@ class OpenAIResponsesCompletion(CompletionModel):
         input_items: list[dict[str, Any]] = []
         for message in request.messages:
             if message.role == "tool":
+                output = text_content_for_provider("OpenAI Responses", message.content) or ""
                 input_items.append(
                     {
                         "type": "function_call_output",
                         "call_id": message.tool_call_id or "",
-                        "output": message.content or "",
+                        "output": output,
                     }
                 )
             elif message.role == "assistant":
-                if message.content is not None:
+                text_content = text_content_for_provider("OpenAI Responses", message.content)
+                if text_content is not None:
                     input_items.append(
-                        {"type": "message", "role": "assistant", "content": message.content}
+                        {"type": "message", "role": "assistant", "content": text_content}
                     )
                 for tool_call in message.tool_calls or []:
                     input_items.append(
@@ -210,8 +217,9 @@ class OpenAIResponsesCompletion(CompletionModel):
                 if message.content is None and not message.tool_calls:
                     input_items.append({"type": "message", "role": "assistant", "content": ""})
             else:
+                text_content = text_content_for_provider("OpenAI Responses", message.content)
                 input_items.append(
-                    {"type": "message", "role": message.role, "content": message.content or ""}
+                    {"type": "message", "role": message.role, "content": text_content or ""}
                 )
 
         payload: dict[str, Any] = {

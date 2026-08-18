@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: PyLD
-Version: 3.1.0
+Version: 3.2.0
 Summary: Python implementation of the JSON-LD API
 Home-page: https://github.com/digitalbazaar/pyld
 Author: Digital Bazaar
@@ -24,6 +24,8 @@ Provides-Extra: requests
 Requires-Dist: requests; extra == "requests"
 Provides-Extra: aiohttp
 Requires-Dist: aiohttp; extra == "aiohttp"
+Provides-Extra: requests-cache
+Requires-Dist: requests-cache>=1.3; extra == "requests-cache"
 Provides-Extra: cachetools
 Requires-Dist: cachetools; extra == "cachetools"
 Provides-Extra: frozendict
@@ -258,7 +260,7 @@ attempt to use a locally cached version of contexts (see
 [§ Cache JSON-LD Contexts](https://w3c.github.io/json-ld-bp/#cache-json-ld-contexts)).
 Refresh the bundled copies with `make download-bundled-contexts`.
 
-### Customizing the ContextLoader
+### Customizing the ContextResolver
 
 You can customize the way contexts are loaded and cached by passing an instance
 of `ContextResolver`. The following example implements a loader with a prefilled

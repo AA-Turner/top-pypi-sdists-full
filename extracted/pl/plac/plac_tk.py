@@ -3,11 +3,13 @@ import os
 import sys
 if sys.version_info < (3,):
     import Queue as queue
+    from Tkinter import Tk
+    from ScrolledText import ScrolledText
 else:
     import queue
+    from tkinter import Tk
+    from tkinter.scrolledtext import ScrolledText
 import plac_core
-from Tkinter import Tk
-from ScrolledText import ScrolledText
 from plac_ext import Monitor, TerminatedProcess
 
 

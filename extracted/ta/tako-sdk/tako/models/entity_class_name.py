@@ -63,6 +63,7 @@ class EntityClassName(str, Enum):
     NAICS_INDUSTRIES = 'NAICS Industries'
     BLS_INDUSTRIES = 'BLS Industries'
     PSC_CATEGORIES = 'PSC Categories'
+    PURCHASE_CATEGORIES = 'Purchase Categories'
     FEDERAL_CONTRACTORS = 'Federal Contractors'
     FEDERAL_AGENCIES = 'Federal Agencies'
     FEDERAL_SUBAGENCIES = 'Federal Subagencies'

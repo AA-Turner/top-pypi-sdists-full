@@ -1,7 +1,7 @@
 ######################################################################################################
 #                                 Auto-generated Metaflow stub file                                  #
 # MF version: 2.19.34.1+obcheckpoint(0.2.10);<unk>(<unk>);ob(v1)                                     #
-# Generated on 2026-08-14T20:17:07.900525                                                            #
+# Generated on 2026-08-17T19:44:19.508792                                                            #
 ######################################################################################################
 
 from __future__ import annotations
@@ -9,8 +9,8 @@ from __future__ import annotations
 import enum
 import typing
 if typing.TYPE_CHECKING:
-    import metaflow.system_context
     import enum
+    import metaflow.system_context
     import typing
 
 

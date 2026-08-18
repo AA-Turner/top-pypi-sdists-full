@@ -1,8 +1,8 @@
 Metadata-Version: 2.4
 Name: yalexs-ble
-Version: 4.0.0
+Version: 4.0.4
 Summary: Bluetooth control of Yale and August locks
-License-Expression: GPL-3.0-only
+License-Expression: Apache-2.0
 License-File: LICENSE
 Author: J. Nick Koston
 Author-email: nick@koston.org
@@ -20,7 +20,7 @@ Classifier: Topic :: Software Development :: Libraries
 Requires-Dist: async-interrupt (>=1.1.1)
 Requires-Dist: async-timeout (>=3.0.0) ; python_version < "3.11"
 Requires-Dist: bleak (>=3.0.2)
-Requires-Dist: bleak-retry-connector (>=4.6.1)
+Requires-Dist: bleak-retry-connector (>=4.6.3)
 Requires-Dist: cryptography (>=48.0.1)
 Requires-Dist: lru-dict (>=1.1.4)
 Project-URL: Bug Tracker, https://github.com/bdraco/yalexs-ble/issues

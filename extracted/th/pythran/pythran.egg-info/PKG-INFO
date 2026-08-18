@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: pythran
-Version: 0.18.1
+Version: 0.19.0
 Summary: Ahead of Time compiler for numeric kernels
 Author-email: Serge Guelton <serge.guelton@telecom-bretagne.eu>
 License: Copyright (c) 2012, HPC Project and Serge Guelton
@@ -50,12 +50,14 @@ Classifier: Topic :: Software Development :: Code Generators
 Requires-Python: >=3.7
 Description-Content-Type: text/x-rst
 License-File: LICENSE
+License-File: LICENSEn
 License-File: AUTHORS
 Requires-Dist: ply>=3.4
-Requires-Dist: setuptools
-Requires-Dist: gast~=0.6.0
+Requires-Dist: setuptools<60; python_version < "3.12"
+Requires-Dist: setuptools; python_version >= "3.12"
+Requires-Dist: gast~=0.7.0
 Requires-Dist: numpy
-Requires-Dist: beniget~=0.4.0
+Requires-Dist: beniget~=0.5.0
 Provides-Extra: doc
 Requires-Dist: numpy; extra == "doc"
 Requires-Dist: nbsphinx; extra == "doc"

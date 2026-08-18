@@ -1,5 +1,9 @@
 from __future__ import with_statement
-from Tkinter import *
+import sys
+if sys.version_info < (3,):
+    from Tkinter import *
+else:
+    from tkinter import *
 from importer3 import FakeImporter
 
 def taskwidget(root, task, tick=500):

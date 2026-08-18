@@ -209,6 +209,10 @@ class AsyncScoringStateAsyncScoringState(TypedDict):
     function_ids: Sequence[Any]
     skip_logging: NotRequired[bool | None]
     triggered_functions: NotRequired[Mapping[str, Any] | None]
+    last_triggered_xact_id: NotRequired[str | float | None]
+    """
+    The xact_id of the last non-score change to this row (excludes scorer score merges)
+    """
 
 
 class AsyncScoringStateAsyncScoringState1(TypedDict):
@@ -224,23 +228,6 @@ AutomationStatus: TypeAlias = Literal['active', 'paused']
 """
 Whether the automation is active or paused.
 """
-
-
-class PreprocessorPreprocessor(TypedDict):
-    type: Literal['function']
-    id: str
-    version: NotRequired[str | None]
-    """
-    The version of the function
-    """
-
-
-class PreprocessorPreprocessor2(TypedDict):
-    pass
-
-
-class PreprocessorPreprocessor3(PreprocessorPreprocessor, PreprocessorPreprocessor2):
-    pass
 
 
 class BatchedFacetDataFacet(TypedDict):
@@ -807,7 +794,7 @@ class ExternalAttachmentReference(TypedDict):
     """
 
 
-class Preprocessor1Preprocessor1(TypedDict):
+class FacetPreprocessorIdFacetPreprocessorId(TypedDict):
     type: Literal['function']
     id: str
     version: NotRequired[str | None]
@@ -816,14 +803,12 @@ class Preprocessor1Preprocessor1(TypedDict):
     """
 
 
-class Preprocessor1Preprocessor12(TypedDict):
-    pass
-
-
-class Preprocessor1Preprocessor13(
-    Preprocessor1Preprocessor1, Preprocessor1Preprocessor12
-):
-    pass
+class FacetPreprocessorIdFacetPreprocessorId2(TypedDict):
+    type: Literal['inline']
+    code: str
+    """
+    The complete JavaScript preprocessor implementation, including its handler.
+    """
 
 
 class FunctionOrigin(TypedDict):
@@ -1657,7 +1642,7 @@ PreprocessorSavedFunctionId: TypeAlias = (
     | None
 )
 """
-For prompt-backed scorers: the preprocessor function to use for trace template variables. Set to null to disable preprocessing. If omitted, the traced project's default preprocessor will be used, falling back to the global 'thread' preprocessor.
+For prompt-backed functions: the preprocessor function to use for trace template variables. Set to null to disable preprocessing. If omitted, the traced project's default preprocessor will be used, falling back to the global 'thread' preprocessor.
 """
 
 
@@ -1669,6 +1654,10 @@ class ProjectAutomationConfigAction(TypedDict):
     url: str
     """
     The webhook URL to send the request to
+    """
+    formatting_prompt: NotRequired[str | None]
+    """
+    Instructions for Loop to format content sent to this destination
     """
 
 
@@ -1689,6 +1678,10 @@ class ProjectAutomationConfigAction1(TypedDict):
     """
     Custom message template for the alert
     """
+    formatting_prompt: NotRequired[str | None]
+    """
+    Instructions for Loop to format content sent to this destination
+    """
 
 
 class ProjectAutomationConfig(TypedDict):
@@ -1696,6 +1689,7 @@ class ProjectAutomationConfig(TypedDict):
     """
     The type of automation.
     """
+    status: NotRequired[AutomationStatus | None]
     btql_filter: str
     """
     BTQL filter to identify rows for the automation rule
@@ -1787,6 +1781,10 @@ class ProjectAutomationConfig4Action(TypedDict):
     """
     The webhook URL to send the request to
     """
+    formatting_prompt: NotRequired[str | None]
+    """
+    Instructions for Loop to format content sent to this destination
+    """
 
 
 class ProjectAutomationConfig4Action1(TypedDict):
@@ -1806,6 +1804,10 @@ class ProjectAutomationConfig4Action1(TypedDict):
     """
     Custom message template for the alert
     """
+    formatting_prompt: NotRequired[str | None]
+    """
+    Instructions for Loop to format content sent to this destination
+    """
 
 
 class ProjectAutomationConfig4(TypedDict):
@@ -1813,6 +1815,7 @@ class ProjectAutomationConfig4(TypedDict):
     """
     The type of automation.
     """
+    status: NotRequired[AutomationStatus | None]
     environment_filter: NotRequired[Sequence[str] | None]
     """
     Optional list of environment slugs to filter by
@@ -1820,6 +1823,43 @@ class ProjectAutomationConfig4(TypedDict):
     action: ProjectAutomationConfig4Action | ProjectAutomationConfig4Action1
     """
     The action to take when the automation rule is triggered
+    """
+
+
+class ProjectGroup(TypedDict):
+    id: str
+    """
+    Unique identifier for the project group
+    """
+    org_id: str
+    """
+    Unique id for the organization that the project group belongs under
+
+    It is forbidden to change the org after creating a project group
+    """
+    user_id: NotRequired[str | None]
+    """
+    Identifies the user who created the project group
+    """
+    created: NotRequired[str | None]
+    """
+    Date of project group creation
+    """
+    name: str
+    """
+    Name of the project group
+    """
+    description: NotRequired[str | None]
+    """
+    Textual description of the project group
+    """
+    deleted_at: NotRequired[str | None]
+    """
+    Date of project group deletion, or null if the project group is still active
+    """
+    member_projects: Sequence[str]
+    """
+    Sorted ids of active projects in this project group
     """
 
 
@@ -2245,6 +2285,10 @@ class RunEvalData2(TypedDict):
     data: Sequence[Any]
 
 
+class RunEvalData3(TypedDict):
+    experiment_name: str
+
+
 class TaskTask(TypedDict):
     function_id: str
     """
@@ -2606,6 +2650,10 @@ class TopicDigestAutomationConfigAction(TypedDict):
     """
     Custom message template for the alert
     """
+    formatting_prompt: NotRequired[str | None]
+    """
+    Instructions for Loop to format content sent to this destination
+    """
 
 
 class TopicDigestAutomationConfig(TypedDict):
@@ -2630,6 +2678,42 @@ class TopicDigestAutomationConfig(TypedDict):
     """
     Optional topic map function IDs to include in the digest
     """
+
+
+class SourceFacetFunctionSourceFacetFunction(TypedDict):
+    type: Literal['function']
+    id: str
+    version: NotRequired[str | None]
+    """
+    The version of the function
+    """
+
+
+class SourceFacetFunctionSourceFacetFunction1(TypedDict):
+    type: Literal['global']
+    name: str
+    function_type: NotRequired[FunctionTypeEnum | None]
+
+
+class SourceFacetFunctionSourceFacetFunction2(TypedDict):
+    pass
+
+
+class SourceFacetFunctionSourceFacetFunction3(
+    SourceFacetFunctionSourceFacetFunction, SourceFacetFunctionSourceFacetFunction2
+):
+    pass
+
+
+class SourceFacetFunctionSourceFacetFunction4(
+    SourceFacetFunctionSourceFacetFunction1, SourceFacetFunctionSourceFacetFunction2
+):
+    pass
+
+
+SourceFacetFunction: TypeAlias = (
+    SourceFacetFunctionSourceFacetFunction3 | SourceFacetFunctionSourceFacetFunction4
+)
 
 
 class Function1Function1(TypedDict):
@@ -2671,7 +2755,7 @@ class TopicMapFunctionAutomation(TypedDict):
 
 
 class TopicMapGenerationSettings(TypedDict):
-    algorithm: Literal['hdbscan', 'kmeans']
+    algorithm: Literal['hdbscan', 'kmeans', 'community']
     dimension_reduction: Literal['umap', 'pca', 'none']
     sample_size: NotRequired[int | None]
     n_clusters: NotRequired[int | None]
@@ -2947,6 +3031,30 @@ class WindowedAutomationConfigWindow(TypedDict):
     """
 
 
+class WindowedAutomationConfigLoop(TypedDict):
+    prompt: str
+    """
+    Instructions for the Loop agent
+    """
+    include_trigger_input: NotRequired[bool | None]
+    """
+    Whether to include the automation trigger payload as input
+    """
+    agent_slug: str
+    """
+    The Loop agent to run
+    """
+    auto_approve_tools: NotRequired[Sequence[str] | None]
+    """
+    Write tools that may run without interactive approval
+    """
+    harness: NotRequired[Literal['native', 'codex', 'claude-code'] | None]
+    model: NotRequired[str | None]
+    reasoning_effort: NotRequired[
+        Literal['none', 'minimal', 'low', 'medium', 'high', 'xhigh', 'max']
+    ]
+
+
 class WindowedAutomationConfigActions(TypedDict):
     type: Literal['webhook']
     """
@@ -2955,6 +3063,10 @@ class WindowedAutomationConfigActions(TypedDict):
     url: str
     """
     The webhook URL to send the request to
+    """
+    formatting_prompt: NotRequired[str | None]
+    """
+    Instructions for Loop to format content sent to this destination
     """
 
 
@@ -2975,6 +3087,10 @@ class WindowedAutomationConfigActions1(TypedDict):
     """
     Custom message template for the alert
     """
+    formatting_prompt: NotRequired[str | None]
+    """
+    Instructions for Loop to format content sent to this destination
+    """
 
 
 class WindowedAutomationConfig(TypedDict):
@@ -2982,17 +3098,25 @@ class WindowedAutomationConfig(TypedDict):
     """
     The type of automation.
     """
+    product_origin: NotRequired[Literal['patterns'] | None]
+    """
+    The product surface that created and manages the automation
+    """
     status: NotRequired[AutomationStatus | None]
     threshold: NotRequired[WindowedAutomationConfigThreshold | None]
     """
     Optional calculation and lifecycle policy that gate scheduled delivery
     """
     window: WindowedAutomationConfigWindow
-    actions: Sequence[
-        WindowedAutomationConfigActions | WindowedAutomationConfigActions1
+    loop: NotRequired[WindowedAutomationConfigLoop | None]
+    """
+    Optional Loop agent to run for each triggered window
+    """
+    actions: NotRequired[
+        Sequence[WindowedAutomationConfigActions | WindowedAutomationConfigActions1]
     ]
     """
-    The delivery actions to run on each schedule or threshold lifecycle transition
+    Delivery actions exposed to Loop as tools, or run directly when Loop is not configured
     """
 
 
@@ -3095,19 +3219,6 @@ class AttachmentStatus(TypedDict):
     """
     Describes the error encountered while uploading.
     """
-
-
-class PreprocessorPreprocessor1(TypedDict):
-    type: Literal['global']
-    name: str
-    function_type: NotRequired[FunctionTypeEnum | None]
-
-
-class PreprocessorPreprocessor4(PreprocessorPreprocessor1, PreprocessorPreprocessor2):
-    pass
-
-
-Preprocessor: TypeAlias = PreprocessorPreprocessor3 | PreprocessorPreprocessor4
 
 
 ChatCompletionContentPart: TypeAlias = (
@@ -3319,40 +3430,21 @@ ExtendedSavedFunctionId: TypeAlias = (
 )
 
 
-class Preprocessor1Preprocessor11(TypedDict):
+class FacetPreprocessorIdFacetPreprocessorId1(TypedDict):
     type: Literal['global']
     name: str
     function_type: NotRequired[FunctionTypeEnum | None]
 
 
-class Preprocessor1Preprocessor14(
-    Preprocessor1Preprocessor11, Preprocessor1Preprocessor12
-):
-    pass
-
-
-Preprocessor1: TypeAlias = Preprocessor1Preprocessor13 | Preprocessor1Preprocessor14
-
-
-class FacetData(TypedDict):
-    type: Literal['facet']
-    preprocessor: NotRequired[Preprocessor1 | None]
-    prompt: str
-    """
-    The prompt to use for LLM extraction. The preprocessed text will be provided as context.
-    """
-    model: NotRequired[str | None]
-    """
-    The model to use for facet extraction
-    """
-    embedding_model: NotRequired[str | None]
-    """
-    The embedding model to use for vectorizing facet results.
-    """
-    no_match_pattern: NotRequired[str | None]
-    """
-    Regex pattern to identify outputs that do not match the facet. If the output matches, the facet will be saved as 'no_match'
-    """
+FacetPreprocessorId: TypeAlias = (
+    FacetPreprocessorIdFacetPreprocessorId
+    | FacetPreprocessorIdFacetPreprocessorId1
+    | FacetPreprocessorIdFacetPreprocessorId2
+    | None
+)
+"""
+The saved, global, or inline preprocessor to use for facet extraction. If not provided, the project default preprocessor will be used, falling back to the global 'thread' preprocessor.
+"""
 
 
 class FunctionDataFunctionData3(TypedDict):
@@ -3500,6 +3592,7 @@ ModelParams: TypeAlias = (
 
 
 class OnlineScoreConfig(TypedDict):
+    status: NotRequired[AutomationStatus | None]
     sampling_rate: float
     """
     The sampling rate for online scoring
@@ -3755,7 +3848,7 @@ class TopicAutomationConfig(TypedDict):
     """
     scope: NotRequired[SpanScope | TraceScope | GroupScope | None]
     """
-    Execution scope for topic automation. Defaults to span-level execution.
+    Execution scope for topic automation.
     """
     data_scope: NotRequired[TopicAutomationDataScope | None]
     btql_filter: NotRequired[str | None]
@@ -3782,8 +3875,9 @@ class TopicMapData(TypedDict):
     type: Literal['topic_map']
     source_facet: str
     """
-    The facet field name to use as input for classification
+    Materialized facet field name used when source_facet_function is absent
     """
+    source_facet_function: NotRequired[SourceFacetFunction | None]
     embedding_model: str
     """
     The embedding model to use for embedding facet values
@@ -3842,7 +3936,7 @@ class BatchedFacetDataTopicMap(TypedDict):
 
 class BatchedFacetData(TypedDict):
     type: Literal['batched_facet']
-    preprocessor: NotRequired[Preprocessor | None]
+    preprocessor: NotRequired[FacetPreprocessorId | None]
     facets: Sequence[BatchedFacetDataFacet]
     topic_maps: NotRequired[Mapping[str, Sequence[BatchedFacetDataTopicMap]] | None]
     """
@@ -3944,6 +4038,27 @@ class ExperimentEvent(TypedDict):
     classifications: NotRequired[Mapping[str, Any] | None]
     """
     Classifications for this event (dictionary from classification name to items)
+    """
+
+
+class FacetData(TypedDict):
+    type: Literal['facet']
+    preprocessor: NotRequired[FacetPreprocessorId | None]
+    prompt: str
+    """
+    The prompt to use for LLM extraction. The preprocessed text will be provided as context.
+    """
+    model: NotRequired[str | None]
+    """
+    The model to use for facet extraction
+    """
+    embedding_model: NotRequired[str | None]
+    """
+    The embedding model to use for vectorizing facet results.
+    """
+    no_match_pattern: NotRequired[str | None]
+    """
+    Regex pattern to identify outputs that do not match the facet. If the output matches, the facet will be saved as 'no_match'
     """
 
 
@@ -4244,9 +4359,17 @@ class View(TypedDict):
     """
     Name of the view
     """
+    description: NotRequired[str | None]
+    """
+    Textual description of the view
+    """
     created: NotRequired[str | None]
     """
     Date of view creation
+    """
+    updated_at: NotRequired[str | None]
+    """
+    Date of last view update
     """
     view_data: NotRequired[ViewData | None]
     options: NotRequired[ViewOptions | None]
@@ -4398,7 +4521,7 @@ class RunEval(TypedDict):
     """
     Unique identifier for the project to run the eval in
     """
-    data: RunEvalData | RunEvalData1 | RunEvalData2
+    data: RunEvalData | RunEvalData1 | RunEvalData2 | RunEvalData3
     """
     The dataset to use
     """

@@ -62,6 +62,8 @@ class ShellCallItemTypedDict(TypedDict):
     action: ShellCallItemActionTypedDict
     call_id: str
     type: ShellCallItemType
+    arguments: NotRequired[Nullable[str]]
+    r"""The raw tool-call arguments string as emitted by the model. Echo back unchanged when replaying history; used verbatim to preserve provider prompt-cache prefixes."""
     environment: NotRequired[Any]
     id: NotRequired[Nullable[str]]
     status: NotRequired[Nullable[ToolCallStatus]]
@@ -76,6 +78,9 @@ class ShellCallItem(BaseModel):
 
     type: ShellCallItemType
 
+    arguments: OptionalNullable[str] = UNSET
+    r"""The raw tool-call arguments string as emitted by the model. Echo back unchanged when replaying history; used verbatim to preserve provider prompt-cache prefixes."""
+
     environment: Optional[Any] = None
 
     id: OptionalNullable[str] = UNSET
@@ -84,8 +89,8 @@ class ShellCallItem(BaseModel):
 
     @model_serializer(mode="wrap")
     def serialize_model(self, handler):
-        optional_fields = set(["environment", "id", "status"])
-        nullable_fields = set(["id", "status"])
+        optional_fields = set(["arguments", "environment", "id", "status"])
+        nullable_fields = set(["arguments", "id", "status"])
         serialized = handler(self)
         m = {}
 

@@ -12,12 +12,12 @@ classifiers = [
 dependencies = [
     "orjson>=3.9",
     "mashumaro>=3.14",
-    "unidecode==1.4.0",
+    "anyascii==0.3.3",
 ]
 description = "Music Assistant Base Models"
 readme = "README.md"
 requires-python = ">=3.11"
-version = "1.1.188"
+version = "1.1.190"
 
 [project.license]
 text = "Apache-2.0"
@@ -27,7 +27,7 @@ test = [
     "codespell==2.4.3",
     "isort==8.0.1",
     "mypy==2.3.0",
-    "pre-commit==4.6.1",
+    "pre-commit==4.6.2",
     "pre-commit-hooks==6.0.0",
     "pytest==9.1.1",
     "pytest-cov==7.1.0",

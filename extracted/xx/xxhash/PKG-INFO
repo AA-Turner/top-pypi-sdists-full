@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: xxhash
-Version: 4.0.0
+Version: 4.0.1
 Summary: Python binding for xxHash
 Home-page: https://github.com/ifduyue/python-xxhash
 Author: Yue Du
@@ -123,7 +123,7 @@ the module properties ``VERSION`` AND ``XXHASH_VERSION`` respectively.
 
     >>> import xxhash
     >>> xxhash.VERSION
-    '4.0.0'
+    '4.0.1'
     >>> xxhash.XXHASH_VERSION
     '0.8.3'
 
@@ -346,13 +346,25 @@ Licensed under `BSD 2-Clause License <http://opensource.org/licenses/BSD-2-Claus
 CHANGELOG
 -----------
 
+v4.0.1 2026-08-17
+~~~~~~~~~~~~~~~~~
+
+- Clean up ``_parse_init_args`` keyword handling so the defensive check
+  for a duplicate ``data`` keyword raises a proper error message
+- Add ``_xxhash`` module docstring
+
+
 v4.0.0 2026-08-12
 ~~~~~~~~~~~~~~~~~
 
 - **Breaking change**: Drop support for Python 3.8, require Python >= 3.9
 - **Breaking change**: Remove deprecated ``xxhash.VERSION_TUPLE``
 - **Breaking change**: The ``input`` keyword argument is renamed to ``data``
-  across constructors, ``update()``, and one-shot functions
+  in constructors and one-shot functions. ``update()`` additionally gains a
+  ``data`` keyword argument (it accepted no keyword arguments before).
+- **Breaking change**: ``str`` input is no longer accepted and raises
+  ``TypeError: Strings must be encoded before hashing``; encode to
+  ``bytes`` before hashing
 - Upgrade xxHash from v0.8.2 to v0.8.3. Note: on GCC/Clang source builds
   that target AVX2 (e.g. ``-march=x86-64-v3``), upstream v0.8.3
   autovectorizes ``XXH64_update()`` and makes the xxh64 streaming path
@@ -360,7 +372,9 @@ v4.0.0 2026-08-12
   are unaffected. Source builds can work around it by adding
   ``-fno-tree-vectorize`` to the compiler flags.
 - Add per-object locking for thread safety, with sub-interpreter and
-  free-threaded (no-GIL) Python support
+  free-threaded (no-GIL) Python support. The GIL is now released only
+  while hashing inputs larger than 64 KiB; previously ``update()``
+  released it unconditionally and one-shot functions always held it.
 - Speed up hash constructors by switching them to ``tp_vectorcall``.
 - Build pyodide wasm32 wheels
 - Add s390x big-endian test job

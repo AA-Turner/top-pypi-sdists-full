@@ -92,12 +92,22 @@ HK_UPDATE_COALESCE_SECONDS = 0.025
 MANUAL_UPDATE_COALESCE_SECONDS = 0.05
 
 # BLE connection parameters for always-connected mode (battery saving)
-# After the initial sync, we switch to slow intervals to conserve battery.
+# After the initial sync, we switch to a low duty cycle to conserve battery.
 # Values are in BLE units: intervals in 1.25ms, timeout in 10ms.
-SLOW_MIN_INTERVAL = 800  # 1000ms
-SLOW_MAX_INTERVAL = 800  # 1000ms
-SLOW_LATENCY = 0
-SLOW_TIMEOUT = 600  # 6000ms
+#
+# The idle duty cycle is set by peripheral latency, not by the interval: the
+# lock may skip up to SLOW_LATENCY connection events, so it wakes about every
+# (1 + SLOW_LATENCY) * interval = 510ms. Keeping the interval short means the
+# lock drops latency and drains its notifications at the base interval as soon
+# as it has something to send. Pinning min == max at a long interval instead
+# (1000ms) makes notification delivery, which is acknowledgement gated at one
+# frame per two connection events, take ~2s per frame; a lock operation's
+# three-frame reply then needs >6s to drain and the next command is issued
+# while the previous operation's frames are still arriving.
+SLOW_MIN_INTERVAL = 24  # 30ms
+SLOW_MAX_INTERVAL = 24  # 30ms
+SLOW_LATENCY = 16  # up to 16 skipped connection events (510ms)
+SLOW_TIMEOUT = 600  # 6000ms (spec minimum here is (1 + 16) * 30ms * 2 = 1020ms)
 
 # How long to wait to query the lock after an operation to make sure its not jammed
 POST_OPERATION_SYNC_TIME = 10.00
@@ -163,6 +173,10 @@ NO_BATTERY_SUPPORT_MODELS = {
 }
 
 AUTO_LOCK_DEFAULT_DURATION = 90
+
+# Statuses reported during calibration (0x01) and polarity discovery (0x06),
+# setup conditions that end at the lock by hand.
+SETUP_CONDITION_STATUSES = {LockStatus.UNKNOWN_01, LockStatus.UNKNOWN_06}
 
 
 def operation_lock(func: WrapFuncType) -> WrapFuncType:
@@ -856,25 +870,39 @@ class PushLock:
         original_lock_status = lock_state.lock
         changes: dict[str, Any] = {}
         for state in states:
-            state_type = type(state)
-            self._seen_this_session.add(state_type)
+            if isinstance(state, BatteryState) and state.voltage <= 3.0:
+                # A refused reading must not stand as seen, so _poll_battery
+                # can ask again; the cooldown paces that next ask.
+                self._seen_this_session.discard(BatteryState)
+                self._earliest_battery_attempt_time = (
+                    time.monotonic() + BATTERY_TIMEOUT_COOLDOWN
+                )
+                _LOGGER.warning(
+                    "%s: Battery voltage is impossible: %s; "
+                    "not asking again for %d seconds",
+                    self.name,
+                    state.voltage,
+                    BATTERY_TIMEOUT_COOLDOWN,
+                )
+                continue
+            self._seen_this_session.add(type(state))
             if isinstance(state, AuthState):
                 if lock_state.auth != state:
                     changes["auth"] = state
             elif isinstance(state, LockStatus):
                 if lock_state.lock != state:
+                    if state in SETUP_CONDITION_STATUSES:
+                        _LOGGER.warning(
+                            "%s: Lock reports %s, a setup condition that ends "
+                            "at the lock by hand",
+                            self.name,
+                            state,
+                        )
                     changes["lock"] = state
             elif isinstance(state, DoorStatus):
                 if lock_state.door != state:
                     changes["door"] = state
             elif isinstance(state, BatteryState):
-                if state.voltage <= 3.0:
-                    _LOGGER.debug(
-                        "%s: Battery voltage is impossible: %s",
-                        self.name,
-                        state.voltage,
-                    )
-                    continue
                 if lock_state.battery != state:
                     changes["battery"] = state
             elif isinstance(state, AutoLockState):
@@ -908,6 +936,16 @@ class PushLock:
 
         self._callback_state(lock_state)
 
+    def _record_auth_success(self) -> None:
+        """Record a successful round trip with the lock.
+
+        Nothing else produces AuthState(successful=True); the latch in the
+        retry decorator is the only producer of the failure, so both reach the
+        consumer through _update_any_state, which drops a repeat.
+        """
+        _AUTH_FAILURE_HISTORY.auth_success(self.address)
+        self._update_any_state([AuthState(successful=True)])
+
     async def update(self) -> None:
         """Request that status be updated."""
         _LOGGER.debug("%s: Starting manual update", self.name)
@@ -921,16 +959,14 @@ class PushLock:
         await self._update()
         _LOGGER.debug("%s: Finished validate", self.name)
 
-    async def _poll_battery(
-        self, lock: Lock, state: LockState
-    ) -> tuple[LockState, bool]:
-        """Poll battery if needed: periodic refresh, timeout cooldown, errors.
+    async def _poll_battery(self, lock: Lock) -> bool:
+        """Poll battery if needed: periodic refresh, cooldown, errors.
 
         Battery state requires a poll of the lock to update. In always_connected mode
         _seen_this_session never clears, so once the refresh deadline passes
         BatteryState is evicted to force a re-poll -- but only after the cooldown gate.
 
-        Returns tuple of (updated_state, made_request).
+        Returns True if the lock was asked, whether or not it answered.
         """
         assert self._lock_info is not None  # nosec
         if self._lock_info.model in NO_BATTERY_SUPPORT_MODELS:
@@ -939,18 +975,18 @@ class PushLock:
                 self.name,
                 self._lock_info.model,
             )
-            return state, False
+            return False
 
         now = time.monotonic()
-        # Skip while in cooldown after a prior battery timeout.
+        # Skip while in cooldown, after a read the lock did not answer or a
+        # reading that was thrown away.
         if now < self._earliest_battery_attempt_time:
             _LOGGER.debug(
-                "%s: Skipping battery request due to recent timeout "
-                "(cooldown until %.1fs)",
+                "%s: Skipping battery request; not asking again for %d seconds",
                 self.name,
                 self._earliest_battery_attempt_time - now,
             )
-            return state, False
+            return False
 
         # Periodic refresh: evict BatteryState once its deadline has passed.
         if (
@@ -960,16 +996,11 @@ class PushLock:
         ):
             self._seen_this_session.discard(BatteryState)
         if BatteryState in self._seen_this_session:
-            return state, False
+            return False
 
         try:
-            battery_state = await lock.battery()
-            _AUTH_FAILURE_HISTORY.auth_success(self.address)
-            state = replace(
-                state, battery=battery_state, auth=AuthState(successful=True)
-            )
-            # Success: disable cooldown and schedule the next refresh.
-            self._earliest_battery_attempt_time = NEVER_TIME
+            await lock.battery()
+            self._record_auth_success()
             self._next_battery_refresh_time = now + BATTERY_REFRESH_INTERVAL
         except TimeoutError as err:
             _LOGGER.info(
@@ -988,7 +1019,7 @@ class PushLock:
                 err,
             )
 
-        return state, True
+        return True
 
     async def _probe_lock_info(self, lock: Lock) -> LockInfo:
         """Probe the lock for info, falling back to defaults on failure."""
@@ -1114,8 +1145,14 @@ class PushLock:
 
     @operation_lock
     @retry_bluetooth_connection_error
-    async def _update(self) -> LockState:
-        """Update the lock state."""
+    async def _update(self) -> None:
+        """Update the lock state.
+
+        Returns nothing. Every value this cycle asks for is applied as the
+        lock's answering frame arrives, so a returned state would be a second
+        reading, taken later than the one the callback already delivered. A
+        caller takes the state from the callback or from the properties.
+        """
         has_lock_info = self._lock_info is not None
 
         _LOGGER.debug(
@@ -1124,14 +1161,12 @@ class PushLock:
         lock = await self._ensure_connected()
         if not self._lock_info:
             self._lock_info = await self._probe_lock_info(lock)
-        state = self._get_current_state()
-        made_request = False
 
+        # The reads below are issued here, and _update_any_state processes each
+        # answer, so the returned values are not used.
         # Asking for battery first seems to reduce the chance of the lock
         # getting into a bad state.
-        state, battery_requested = await self._poll_battery(lock, state)
-        if battery_requested:
-            made_request = True
+        made_request = await self._poll_battery(lock)
 
         if (
             DoorStatus not in self._seen_this_session
@@ -1139,14 +1174,12 @@ class PushLock:
             and self._lock_info.door_sense
         ):
             made_request = True
-            door_status = await lock.door_status()
-            _AUTH_FAILURE_HISTORY.auth_success(self.address)
-            state = replace(state, door=door_status, auth=AuthState(successful=True))
+            await lock.door_status()
+            self._record_auth_success()
 
         if await self._read_auto_lock_setting(lock):
             made_request = True
-            _AUTH_FAILURE_HISTORY.auth_success(self.address)
-            state = replace(state, auth=AuthState(successful=True))
+            self._record_auth_success()
 
         # Only ask for the lock status if we haven't seen
         # it this session since notify callbacks will happen
@@ -1159,49 +1192,14 @@ class PushLock:
             not made_request and self._always_connected
         ):
             made_request = True
-            lock_status = await lock.lock_status()
-            _AUTH_FAILURE_HISTORY.auth_success(self.address)
-            state = replace(state, lock=lock_status, auth=AuthState(successful=True))
+            await lock.lock_status()
+            self._record_auth_success()
 
         _LOGGER.debug("%s: Finished update", self.name)
 
-        # Prevent regression to UNKNOWN when notify callbacks updated state
-        # during awaited operations in this update cycle.
-        # Only overwrite lock/door if this update actually fetched a value.
-        cached_state = self._get_current_state()
-        if state.lock == LockStatus.UNKNOWN and cached_state.lock != LockStatus.UNKNOWN:
-            state = replace(state, lock=cached_state.lock)
-        if state.door == DoorStatus.UNKNOWN and cached_state.door != DoorStatus.UNKNOWN:
-            state = replace(state, door=cached_state.door)
-
-        # Auto-lock is owned by the notify path: the 0xBB settings responses
-        # (read and write) publish it mid-update, while the poll's own return
-        # value is the acknowledgment constant and is discarded above. Always
-        # carry the cached value forward so this wholesale application cannot
-        # clobber a value published during the cycle.
-        state = replace(
-            state,
-            auto_lock=cached_state.auto_lock,
-            auto_lock_prev=cached_state.auto_lock_prev,
-        )
-
-        self._callback_state(state)
-
-        if state.battery and state.battery.voltage <= 3.0:
-            _LOGGER.debug(
-                "%s: Battery voltage is impossible: %s",
-                self.name,
-                state.battery.voltage,
-            )
-            # If the battery voltage is impossible, reconnect.
-            await self._execute_forced_disconnect("impossible battery voltage")
-
-        if state.lock in (LockStatus.UNKNOWN_01, LockStatus.UNKNOWN_06):
-            _LOGGER.debug("%s: Lock is in an unknown state: %s", self.name, state.lock)
-            # If the lock is in a bad state, reconnect.
-            await self._execute_forced_disconnect(
-                f"lock is in unknown state: {state.lock}"
-            )
+        current = self._get_current_state()
+        # Notify consumers that the update is complete, even if nothing changed.
+        self._callback_state(current)
 
         if not has_lock_info:
             # On first update free up the connection
@@ -1219,7 +1217,6 @@ class PushLock:
         if made_request:
             self._last_operation_complete_time = time.monotonic()
             self._reschedule_next_keep_alive()
-        return state
 
     async def _set_slow_connection_params(self, lock: Lock) -> None:
         """Set slow BLE connection parameters to conserve battery."""
@@ -1288,25 +1285,42 @@ class PushLock:
         self.set_advertisement_data(ad)
         next_update = 0.0
         mfr_data = ad.manufacturer_data
-        if APPLE_MFR_ID in mfr_data:
-            first_byte = mfr_data[APPLE_MFR_ID][0]
+        # An empty payload is skipped rather than indexed: the advertisement is
+        # radio input and its length is not ours to assume. Each refusal is
+        # logged at debug — not INFO like the notify gate — because
+        # advertisements repeat every few seconds, so a chronic condition
+        # would flood any stronger level; debug keeps it diagnosable.
+        if apple_data := mfr_data.get(APPLE_MFR_ID):
+            first_byte = apple_data[0]
             if first_byte == HAP_FIRST_BYTE:
-                hk_state = get_homekit_state_num(mfr_data[APPLE_MFR_ID])
-                # Sometimes the yale data is glued on to the end of the HomeKit data
-                # but in that case it seems wrong so we don't process it
-                #
-                # if len(mfr_data[APPLE_MFR_ID]) > 20 and YALE_MFR_ID not in mfr_data:
-                # mfr_data[YALE_MFR_ID] = mfr_data[APPLE_MFR_ID][20:]
-                if self._last_hk_state == -1:
-                    # We haven't seen a HomeKit state yet so we schedule an update
-                    next_update = FIRST_UPDATE_COALESCE_SECONDS
-                elif hk_state != self._last_hk_state:
-                    next_update = HK_UPDATE_COALESCE_SECONDS
-                self._last_hk_state = hk_state
+                if (hk_state := get_homekit_state_num(apple_data)) is None:
+                    _LOGGER.debug(
+                        "%s: %d-byte HomeKit advertisement ends before its"
+                        " state record; skipped",
+                        self.name,
+                        len(apple_data),
+                    )
+                else:
+                    # Sometimes the yale data is glued on to the end of the
+                    # HomeKit data but in that case it seems wrong so we
+                    # don't process it
+                    #
+                    # if len(mfr_data[APPLE_MFR_ID]) > 20
+                    #     and YALE_MFR_ID not in mfr_data:
+                    # mfr_data[YALE_MFR_ID] = mfr_data[APPLE_MFR_ID][20:]
+                    if self._last_hk_state == -1:
+                        # We haven't seen a HomeKit state yet so we schedule
+                        # an update
+                        next_update = FIRST_UPDATE_COALESCE_SECONDS
+                    elif hk_state != self._last_hk_state:
+                        next_update = HK_UPDATE_COALESCE_SECONDS
+                    self._last_hk_state = hk_state
             elif first_byte == HAP_ENCRYPTED_FIRST_BYTE:
                 # Encrypted data, we don't know how to decrypt it
                 # but we know its a state change so we schedule an update
                 next_update = HK_UPDATE_COALESCE_SECONDS
+        elif APPLE_MFR_ID in mfr_data:
+            _LOGGER.debug("%s: Empty HomeKit advertisement payload; skipped", self.name)
         # Yale YALE_MFR_ID advertisements come in two formats:
         # - 1-byte: lock state toggle (0/1), used for change detection
         # - 18-byte: 2 header bytes + the lock's 16-byte cloud ID (the
@@ -1317,10 +1331,11 @@ class PushLock:
         # static 0x00 header of the 18-byte format causes repeated
         # connections if it differs from the 1-byte value.
         is_first_advertisement = self._last_adv_value == -1
-        if YALE_MFR_ID in mfr_data and (
-            len(mfr_data[YALE_MFR_ID]) == 1 or is_first_advertisement
+        # As above, an empty payload is skipped rather than indexed.
+        if (yale_data := mfr_data.get(YALE_MFR_ID)) and (
+            len(yale_data) == 1 or is_first_advertisement
         ):
-            current_value = mfr_data[YALE_MFR_ID][0]
+            current_value = yale_data[0]
             if not next_update:
                 if is_first_advertisement:
                     # We haven't seen a valid value yet so we schedule an update
@@ -1331,6 +1346,8 @@ class PushLock:
                 ):
                     next_update = ADV_UPDATE_COALESCE_SECONDS
             self._last_adv_value = current_value
+        elif YALE_MFR_ID in mfr_data and not mfr_data[YALE_MFR_ID]:
+            _LOGGER.debug("%s: Empty Yale advertisement payload; skipped", self.name)
         if adv_debug_enabled:
             scheduled_update = None
             if self._cancel_deferred_update:
@@ -1527,7 +1544,19 @@ class PushLock:
             _LOGGER.exception("%s: Unknown error updating", self.name)
 
 
-def get_homekit_state_num(data: bytes) -> int:
-    """Get the homekit state number from the manufacturer data."""
-    _acid, gsn, _cn, _cv = struct.unpack("<HHBB", data[9:15])
+# The HomeKit state record inside the advertisement payload: acid, the global
+# state number, cn, cv, starting at byte 9.
+_HAP_STATE_RECORD = struct.Struct("<HHBB")
+_HAP_STATE_RECORD_OFFSET = 9
+
+
+def get_homekit_state_num(data: bytes) -> int | None:
+    """Get the homekit state number from the manufacturer data.
+
+    Returns None when the payload ends before the record does: the
+    advertisement is radio input and its length is not ours to assume.
+    """
+    if len(data) < _HAP_STATE_RECORD_OFFSET + _HAP_STATE_RECORD.size:
+        return None
+    _acid, gsn, _cn, _cv = _HAP_STATE_RECORD.unpack_from(data, _HAP_STATE_RECORD_OFFSET)
     return gsn

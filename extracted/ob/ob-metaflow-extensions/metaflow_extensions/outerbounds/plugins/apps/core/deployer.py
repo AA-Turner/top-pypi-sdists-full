@@ -467,6 +467,21 @@ class AppDeployer(TypedCoreConfig):
     deployed = deployer.deploy()
     ```
 
+    Naming the app's URL instead of having one generated for it:
+
+    ```python
+    deployer = AppDeployer(
+        name="my-api",
+        port=8000,
+        image=baked.image,
+        code_package=pkg,
+        commands=["python api.py"],
+        auth={"type": "API"},
+        url_slug="my-api",  # served at api-my-api.<your platform domain>
+    )
+    deployed = deployer.deploy()
+    ```
+
     Deployment with environment variables and secrets:
 
     ```python

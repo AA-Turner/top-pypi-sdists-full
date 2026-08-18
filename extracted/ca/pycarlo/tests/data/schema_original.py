@@ -14098,8 +14098,8 @@ class GetToolCallOverviewInput(sgqlc.types.Input):
     """
 
     filters = sgqlc.types.Field("TraceFiltersInput", graphql_name="filters")
-    """Optional filters to refine results (model, workflow, task, or
-    conversation at span level)
+    """Optional filters to refine results (model, workflow and task at
+    span level; conversation resolves whole traces)
     """
 
     segment_filter = sgqlc.types.Field("TraceSegmentFilterInput", graphql_name="segmentFilter")
@@ -14170,8 +14170,8 @@ class GetToolCallTimeSeriesInput(sgqlc.types.Input):
     """
 
     filters = sgqlc.types.Field("TraceFiltersInput", graphql_name="filters")
-    """Optional filters to refine results (model, workflow, task, or
-    conversation at span level)
+    """Optional filters to refine results (model, workflow and task at
+    span level; conversation resolves whole traces)
     """
 
     segment_filter = sgqlc.types.Field("TraceSegmentFilterInput", graphql_name="segmentFilter")
@@ -14220,8 +14220,8 @@ class GetTopToolsInput(sgqlc.types.Input):
     """Maximum number of tools to return, ranked by call count"""
 
     filters = sgqlc.types.Field("TraceFiltersInput", graphql_name="filters")
-    """Optional filters to refine results (model, workflow, task, or
-    conversation at span level)
+    """Optional filters to refine results (model, workflow and task at
+    span level; conversation resolves whole traces)
     """
 
     segment_filter = sgqlc.types.Field("TraceSegmentFilterInput", graphql_name="segmentFilter")
@@ -42383,6 +42383,25 @@ class LineageNodeTypeStats(sgqlc.types.Type):
         sgqlc.types.list_of(LineageNodeTypeStat), graphql_name="nodeTypeStats"
     )
     """Stats for node types"""
+
+
+class LineageSalesforceDataCloudJobAttributes(sgqlc.types.Type):
+    __schema__ = schema
+    __field_names__ = ("object_type", "display_name", "mcon", "status", "last_run_finished_at")
+    object_type = sgqlc.types.Field(String, graphql_name="objectType")
+    """Salesforce Data Cloud object type (e.g. "Data Stream")"""
+
+    display_name = sgqlc.types.Field(String, graphql_name="displayName")
+    """Job name"""
+
+    mcon = sgqlc.types.Field(String, graphql_name="mcon")
+    """Job MCON"""
+
+    status = sgqlc.types.Field(String, graphql_name="status")
+    """Status of most recent job execution"""
+
+    last_run_finished_at = sgqlc.types.Field(DateTime, graphql_name="lastRunFinishedAt")
+    """Timestamp of the most recent job execution's completion"""
 
 
 class LineageSources(sgqlc.types.Type):
@@ -72241,6 +72260,55 @@ class PiiScanFindingReview(sgqlc.types.Type):
     """When the finding was restored, if applicable."""
 
 
+class PiiScanFindingSampleRows(sgqlc.types.Type):
+    """Live sample rows matching a PII scan finding. Values are not
+    stored.
+    """
+
+    __schema__ = schema
+    __field_names__ = (
+        "columns",
+        "rows",
+        "query",
+        "has_error",
+        "error",
+        "sampling_disabled",
+        "sampling_restricted",
+    )
+    columns = sgqlc.types.Field(
+        sgqlc.types.non_null(sgqlc.types.list_of(sgqlc.types.non_null(String))),
+        graphql_name="columns",
+    )
+
+    rows = sgqlc.types.Field(
+        sgqlc.types.non_null(
+            sgqlc.types.list_of(sgqlc.types.non_null(sgqlc.types.list_of(String)))
+        ),
+        graphql_name="rows",
+    )
+
+    query = sgqlc.types.Field(String, graphql_name="query")
+    """The executed SQL query."""
+
+    has_error = sgqlc.types.Field(sgqlc.types.non_null(Boolean), graphql_name="hasError")
+    """Whether the warehouse sampling query returned an error."""
+
+    error = sgqlc.types.Field(String, graphql_name="error")
+    """Warehouse sampling error, when available."""
+
+    sampling_disabled = sgqlc.types.Field(
+        sgqlc.types.non_null(Boolean), graphql_name="samplingDisabled"
+    )
+    """Whether sample rows are unavailable because data sampling is
+    disabled.
+    """
+
+    sampling_restricted = sgqlc.types.Field(
+        sgqlc.types.non_null(Boolean), graphql_name="samplingRestricted"
+    )
+    """Whether warehouse data sampling restrictions are configured."""
+
+
 class PiiScanFindingsSummary(sgqlc.types.Type):
     """Latest nonzero PII scan findings for a PII bulk monitor"""
 
@@ -73538,6 +73606,7 @@ class Query(sgqlc.types.Type):
         "get_pii_scan_findings",
         "get_pii_scan_inventory",
         "get_pii_warehouse_tag_summary",
+        "get_pii_scan_finding_sample_rows",
         "get_pii_scan_inventory_export_csv",
         "bulk_monitor",
         "bulk_monitors",
@@ -77153,6 +77222,52 @@ class Query(sgqlc.types.Type):
     * `asset_selection` (`AssetSelectionInput`): Optional monitor
       asset selection. When provided, tag existence is checked only on
       fields belonging to matching tables.
+    """
+
+    get_pii_scan_finding_sample_rows = sgqlc.types.Field(
+        sgqlc.types.non_null(PiiScanFindingSampleRows),
+        graphql_name="getPiiScanFindingSampleRows",
+        args=sgqlc.types.ArgDict(
+            (
+                (
+                    "warehouse_uuid",
+                    sgqlc.types.Arg(
+                        sgqlc.types.non_null(UUID), graphql_name="warehouseUuid", default=None
+                    ),
+                ),
+                (
+                    "full_table_id",
+                    sgqlc.types.Arg(
+                        sgqlc.types.non_null(String), graphql_name="fullTableId", default=None
+                    ),
+                ),
+                (
+                    "field_key",
+                    sgqlc.types.Arg(
+                        sgqlc.types.non_null(String), graphql_name="fieldKey", default=None
+                    ),
+                ),
+                (
+                    "pii_type",
+                    sgqlc.types.Arg(
+                        sgqlc.types.non_null(String), graphql_name="piiType", default=None
+                    ),
+                ),
+                ("limit", sgqlc.types.Arg(Int, graphql_name="limit", default=5)),
+            )
+        ),
+    )
+    """(experimental) Live-load a small sample of values matching a PII
+    scan finding. Sample values are returned to the caller and are not
+    stored.
+
+    Arguments:
+
+    * `warehouse_uuid` (`UUID!`)None
+    * `full_table_id` (`String!`)None
+    * `field_key` (`String!`)None
+    * `pii_type` (`String!`)None
+    * `limit` (`Int`)None (default: `5`)
     """
 
     get_pii_scan_inventory_export_csv = sgqlc.types.Field(
@@ -91466,9 +91581,7 @@ class Query(sgqlc.types.Type):
       100, capped at 500).
     * `offset` (`Int`): Offset into the match list. Default 0.
     * `domain_types` (`[DomainType!]`): Domain types to include.
-      Defaults to metadata-only. Include `AGENTIC` to also match
-      agentic domains — every deduped tag matches every agentic domain
-      the caller has access to.
+      Defaults to metadata-only.
     * `domain_uuid` (`UUID`): Restrict the search to a single domain.
       The caller must have access to this domain; passing an
       inaccessible UUID returns an authorization error. When omitted,
@@ -122050,6 +122163,7 @@ class LineageJobAttributes(sgqlc.types.Union):
         LineageAzureDataFactoryJobAttributes,
         LineageFivetranJobAttributes,
         LineageMulesoftJobAttributes,
+        LineageSalesforceDataCloudJobAttributes,
     )
 
 

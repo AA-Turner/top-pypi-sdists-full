@@ -15,6 +15,7 @@
 """Module for Pallas:TPU-specific JAX primitives and functions."""
 from __future__ import annotations
 
+from collections.abc import Sequence
 import dataclasses
 import logging
 from typing import Any
@@ -23,18 +24,20 @@ import jax
 from jax._src import core as jax_core
 from jax._src import dtypes
 from jax._src import effects
+from jax._src import flattree as ft
 from jax._src import pretty_printer as pp
-from jax._src.random import prng as jax_prng
 from jax._src import random as jax_random
 from jax._src import state
-from jax._src import flattree as ft
 from jax._src import tree_util
 from jax._src import util
 from jax._src.interpreters import batching
 from jax._src.interpreters import mlir
+from jax._src.lax import convolution
+from jax._src.lax import lax
 from jax._src.pallas import core as pl_core
 from jax._src.pallas import primitives
 from jax._src.pallas.mosaic import core as tpu_core
+from jax._src.random import prng as jax_prng
 from jax._src.state import discharge as state_discharge
 from jax._src.state import indexing
 from jax._src.state import primitives as sp
@@ -230,7 +233,7 @@ class AsyncCopyDescriptor:
     flat_args, tree = self._get_args_and_tree()
     dma_wait_p.bind(
         *flat_args, tree=tree, device_id_type=self.device_id_type,
-        insert_dummy_device=False,
+        insert_dummy_device=False, is_wait_send=False
     )
 
   def wait_send(self):
@@ -238,14 +241,15 @@ class AsyncCopyDescriptor:
     if not self.is_remote:
       raise ValueError("Cannot `wait_send` on a local copy.")
     # We swap src and dst since by default dma_wait_p waits on the dst_sem
-    # As a clean up, maybe we could modify the primitive to have a
-    # `wait_on_send` bool.
+    # TODO(rdyro): Update the lowering to use `is_wait_send` instead of
+    # swapping src and dst.
     flat_args, tree = self._get_args_and_tree(
         swap_src_and_dst=True,
     )
     dma_wait_p.bind(
         *flat_args, tree=tree, device_id_type=self.device_id_type,
         insert_dummy_device=self.is_remote,
+        is_wait_send=True,
     )
 
 
@@ -269,14 +273,25 @@ def _get_dma_effects(
     src_sem_aval,
     device_id_aval,
     device_id_type,
+    *,
+    is_wait_send: bool = False,
 ):
   n_src_transforms = len(_dma_tree_leaves(src_ref_aval))
   n_dst_transforms = len(_dma_tree_leaves(dst_ref_aval))
   n_dst_sem_transforms = len(_dma_tree_leaves(dst_sem_aval))
   dst_sem_index = n_src_transforms + n_dst_transforms
+  # TODO(rdyro): We swap read vs write effects when dma_wait is bound via
+  # `wait_send`. `wait_send` swaps the src and dst args when binding dma_wait_p.
+  # Consider handling this in a cleaner way.
+  if is_wait_send:
+    src_ref_effect = state.WriteEffect(0)
+    dst_ref_effect = state.ReadEffect(n_src_transforms)
+  else:
+    src_ref_effect = state.ReadEffect(0)
+    dst_ref_effect = state.WriteEffect(n_src_transforms)
   effs: set[jax_core.Effect] = {
-      state.ReadEffect(0),  # Read from src ref
-      state.WriteEffect(n_src_transforms),  # Write to dst ref
+      src_ref_effect,
+      dst_ref_effect,
       state.WriteEffect(dst_sem_index),  # Write to dst sem
   }
   if src_sem_aval is not None:
@@ -386,8 +401,8 @@ def _dma_start_pp_eqn(eqn: jax_core.JaxprEqn,
 jax_core.pp_eqn_rules[dma_start_p] = _dma_start_pp_eqn
 
 
-def dma_start_partial_discharge_rule(
-    should_discharge, in_avals, out_avals, *args, tree, device_id_type,
+def dma_start_discharge_rule(
+    ctx, *args, tree, device_id_type,
     priority, add
 ):
   # Note: we ignore the DMA priority in discharge rules.
@@ -402,12 +417,11 @@ def dma_start_partial_discharge_rule(
   src_sem, src_sem_transforms = _get_ref_and_transforms(src_sem)
 
   src_ref_aval, dst_ref_aval, dst_sem_aval, src_sem_aval, _ = _dma_unflatten(
-      tree, in_avals
+      tree, ctx.in_avals
   )
-  del out_avals
 
   _, dst_discharge, dst_sem_discharge, *maybe_src_sem_discharge = (
-      _dma_unflatten(tree, should_discharge)
+      _dma_unflatten(tree, ctx.should_discharge)
   )
   dst_discharge = _get_ref(dst_discharge)
   dst_sem_discharge = _get_ref(dst_sem_discharge)
@@ -533,7 +547,7 @@ def dma_start_partial_discharge_rule(
     new_vals += (None,) * num_src_sem_transforms
     new_vals += (None,)  # device_id
   assert (len(new_vals) ==
-          len(in_avals)), f"{len(new_vals), new_vals} != {len(in_avals)}"
+          len(ctx.in_avals)), f"{len(new_vals), new_vals} != {len(ctx.in_avals)}"
 
   # If we didn't discharge everything we could we should keep writes
   # to the references that are left over.
@@ -547,7 +561,7 @@ def dma_start_partial_discharge_rule(
   return new_vals, []
 
 
-state_discharge.register_partial_discharge_rule(dma_start_p)(dma_start_partial_discharge_rule)
+state_discharge.register_discharge_rule(dma_start_p)(dma_start_discharge_rule)
 
 
 dma_wait_p = jax_core.Primitive('dma_wait')
@@ -555,8 +569,9 @@ dma_wait_p.multiple_results = True
 
 dma_wait_p.is_high = _dma_is_high
 
-def _dma_wait_to_lojax(*args, tree, device_id_type, insert_dummy_device: bool):
-  del insert_dummy_device
+def _dma_wait_to_lojax(*args, tree, device_id_type, insert_dummy_device: bool,
+                       is_wait_send: bool):
+  del insert_dummy_device, is_wait_send
   src_ref, dst_ref, dst_sem, src_sem, device_id = _dma_unflatten(tree, args)
   src_ref_aval = jax_core.typeof(_get_ref(src_ref))
   dst_ref_aval = jax_core.typeof(_get_ref(dst_ref))
@@ -581,7 +596,9 @@ def _dma_wait_to_lojax(*args, tree, device_id_type, insert_dummy_device: bool):
 dma_wait_p.to_lojax = _dma_wait_to_lojax
 
 @dma_wait_p.def_effectful_abstract_eval
-def _dma_wait_abstract_eval(*args, tree, device_id_type, insert_dummy_device: bool):
+def _dma_wait_abstract_eval(
+    *args, tree, device_id_type, insert_dummy_device: bool, is_wait_send: bool
+):
   src_ref_aval, dst_ref_aval, dst_sem_aval, src_sem_aval, device_id_aval = (
       _dma_unflatten(tree, args)
   )
@@ -605,6 +622,7 @@ def _dma_wait_abstract_eval(*args, tree, device_id_type, insert_dummy_device: bo
       src_sem_aval,
       device_id_aval,
       device_id_type,
+      is_wait_send=is_wait_send,
   )
 
 def _dma_wait_pp_eqn(eqn: jax_core.JaxprEqn,
@@ -625,30 +643,29 @@ def _dma_wait_pp_eqn(eqn: jax_core.JaxprEqn,
 jax_core.pp_eqn_rules[dma_wait_p] = _dma_wait_pp_eqn
 
 
-def dma_wait_partial_discharge_rule(
-    should_discharge,
-    in_avals,
-    out_avals,
+def dma_wait_discharge_rule(
+    ctx,
     *args,
     tree,
     device_id_type,
     insert_dummy_device: bool,
+    is_wait_send: bool = False,
 ):
   # TODO(b/370563115): perform ref update in dma_wait discharge rule instead of dma_start
-  del out_avals, device_id_type, insert_dummy_device
+  del device_id_type, insert_dummy_device, is_wait_send
   _, dst_ref, dst_sem, _, _ = _dma_unflatten(tree, args)
   dst_ref, dst_ref_transforms = _get_ref_and_transforms(dst_ref)
   dst_sem, dst_sem_transforms = _get_ref_and_transforms(dst_sem)
   src_ref_aval, dst_ref_aval, dst_sem_aval, src_sem_aval, device_id_aval = (
-      _dma_unflatten(tree, in_avals)
+      _dma_unflatten(tree, ctx.in_avals)
   )
 
   # The only one we can discharge is the dst semaphore. The provided
   # buffers are only specified for their types and not their value so
   # it's completely irrelevant for us here if they are discharged.
-  should_discharge_unflattened = _dma_unflatten(tree, should_discharge)
+  should_discharge_unflattened = _dma_unflatten(tree, ctx.should_discharge)
   if not _get_ref(should_discharge_unflattened[2]):
-    return (None,) * len(in_avals), []
+    return (None,) * len(ctx.in_avals), []
 
   num_sem_transforms = len(_dma_tree_leaves(dst_sem_aval)) - 1
   num_src_transform_vals = len(_dma_tree_leaves(src_ref_aval)) - 1
@@ -671,7 +688,7 @@ def dma_wait_partial_discharge_rule(
   new_vals += (None,) * len(tree_util.tree_leaves(src_sem_aval))  # src_sem
   new_vals += (None,) * len(tree_util.tree_leaves(device_id_aval)) # device_id
   return new_vals, []
-state_discharge.register_partial_discharge_rule(dma_wait_p)(dma_wait_partial_discharge_rule)
+state_discharge.register_discharge_rule(dma_wait_p)(dma_wait_discharge_rule)
 
 def _get_ref_and_transforms(ref):
   if isinstance(ref, state.TransformedRef):
@@ -1300,3 +1317,232 @@ def _matmul_pop_abstract_eval(*, shape, dtype, **_):
         f"Only float32 and int32 accumulators are supported, got {dtype}"
     )
   return jax_core.ShapedArray(shape, dtype), {mxu_effect}
+
+
+matmul_lhs_fifo_p = jax_core.Primitive("matmul_lhs_fifo")
+matmul_lhs_fifo_p.multiple_results = True
+
+
+def matmul_lhs_fifo(
+    lhs: jax.Array,
+    mxu_index: int,
+    *,
+    load_staged_rhs: int | None = None,
+) -> None:
+  """Performs a matrix multiplication in the chosen MXU on platforms with a result FIFO.
+
+  If ``load_staged_rhs`` is not None, the previously pushed RHS will be loaded
+  from the given staging register _before_ the matrix multiplication begins.
+  The results of the multiplication are enqueued to the result FIFO.
+
+  ```.. warning::
+  This operation can result in a hardware error if the result FIFO is full.
+  In such a case, the `matmul_pop_fifo` op should be used to dequeue results
+  before additional `matmul_lhs_fifo` ops are issued. Additionally, the kernel
+  must not leave any data in the result FIFO upon exit.
+  ```
+
+  Args:
+    lhs: The left-hand side operand. Must be M x K for M divisible by the number
+      of sublanes multiplied by datatype packing and K divisible by
+      :data:`jax.experimental.pallas.tpu.TPUInfo.mxu_column_size` for the target
+      TPU (obtained from `get_tpu_info`).
+    mxu_index: The MXU to use.
+    load_staged_rhs: The index of the staging register to load the RHS from. If
+      None, the RHS is not loaded from staging and the matmul will reuse the
+      existing one.
+  """
+  if load_staged_rhs is not None and not isinstance(load_staged_rhs, int):
+    raise TypeError("load_staged_rhs must be an integer or None.")
+  matmul_lhs_fifo_p.bind(
+      lhs,
+      mxu_index=mxu_index,
+      load_staged_rhs=load_staged_rhs,
+  )
+
+
+@matmul_lhs_fifo_p.def_effectful_abstract_eval
+def _matmul_lhs_fifo_abstract_eval(lhs: jax.Array, **_):
+  del lhs  # Unused.
+  return [], {mxu_effect}
+
+
+matmul_pop_fifo_p = jax_core.Primitive("matmul_pop_fifo")
+
+
+def matmul_pop_fifo(
+    shape: tuple[int, int],
+    dtype: jax.typing.DTypeLike,
+    mxu_index: int,
+) -> jax.Array:
+  """Pops the result of a matrix multiplication from the result FIFO of the chosen MXU.
+
+  If the result is not ready yet (the MXU is still busy), the operation blocks.
+
+  ```.. warning::
+  This operation can result in a hardware error if the result FIFO is empty and
+  there are no `matmul_lhs_fifo` ops in-flight. The kernel must not leave any
+  data in the result FIFO upon exit.
+  ```
+
+  Args:
+    shape: The shape of the result.
+    dtype: The dtype of the result.
+    mxu_index: The MXU to use.
+  """
+  return matmul_pop_fifo_p.bind(
+      shape=shape,
+      mxu_index=mxu_index,
+      dtype=jnp.dtype(dtype),
+  )
+
+
+@matmul_pop_fifo_p.def_effectful_abstract_eval
+def _matmul_pop_fifo_abstract_eval(*, shape, dtype, **_):
+  if dtype not in [jnp.float32, jnp.int32]:
+    raise ValueError(
+        f"Only float32 and int32 results are supported, got {dtype}"
+    )
+  return jax_core.ShapedArray(shape, dtype), {mxu_effect}
+
+
+conv_p = jax_core.Primitive("conv")
+
+
+def conv(
+    lhs: jax.Array,
+    rhs: jax.Array,
+    acc: jax.Array | None = None,
+    *,
+    dimension_numbers: tuple[str, str, str] | convolution.ConvDimensionNumbers,
+    window_strides: Sequence[int] | None = None,
+    padding: str | Sequence[tuple[int, int]] | None = None,
+    lhs_dilation: Sequence[int] | None = None,
+    rhs_dilation: Sequence[int] | None = None,
+    window_reversal: Sequence[bool] | None = None,
+    feature_group_count: int = 1,
+    batch_group_count: int = 1,
+    precision: lax.PrecisionLike = None,
+    preferred_element_type: DTypeLike | None = None,
+) -> jax.Array:
+  """General N-D convolution operator for TPU Mosaic Pallas kernels.
+
+  Args:
+    lhs: Input activation array with batch, feature, and spatial dimensions.
+    rhs: Kernel/filter weight array with input-feature, output-feature, and
+      spatial dimensions.
+    acc: Optional initial accumulator array whose shape and dtype match the
+      convolution output. If None, an all-zero accumulator is allocated.
+    dimension_numbers: Either a tuple of 3 strings (e.g. `("NHWC", "HWIO",
+      "NHWC")`) or a `ConvDimensionNumbers` object specifying the dimension
+      roles for `lhs`, `rhs`, and output.
+    window_strides: Strides for the spatial dimensions. Defaults to 1 for all
+      spatial dimensions.
+    padding: Either a padding string (`"SAME"`, `"VALID"`) or a sequence of
+      `(low_pad, high_pad)` pairs for each spatial dimension. Defaults to 0.
+    lhs_dilation: Dilation rate applied to the input activations. Defaults to 1.
+    rhs_dilation: Dilation rate applied to the kernel weights (atrous rate).
+      Defaults to 1.
+    window_reversal: Boolean sequence indicating whether to reverse the kernel
+      window along each spatial dimension.
+    feature_group_count: Number of feature groups for grouped convolution.
+      Defaults to 1.
+    batch_group_count: Number of batch groups for grouped convolution. Defaults
+      to 1.
+    precision: Computation precision level (e.g. `Precision.DEFAULT`,
+      `Precision.HIGH`, `Precision.HIGHEST`).
+    preferred_element_type: Optional preferred element type for intermediate
+      accumulation and output.
+
+  Returns:
+    Result of the convolution operation as a jax.Array.
+  """
+  if isinstance(dimension_numbers, tuple):
+    dimension_numbers = convolution.conv_dimension_numbers(
+        lhs.shape, rhs.shape, dimension_numbers
+    )
+  num_spatial = len(dimension_numbers.lhs_spec) - 2
+  if window_strides is None:
+    window_strides = (1,) * num_spatial
+  if lhs_dilation is None:
+    lhs_dilation = (1,) * num_spatial
+  if rhs_dilation is None:
+    rhs_dilation = (1,) * num_spatial
+  if isinstance(padding, str):
+    lhs_perm, rhs_perm, _ = dimension_numbers
+    rhs_shape = [rhs.shape[i] for i in rhs_perm[2:]]
+    effective_rhs_shape = [
+        jax_core.dilate_dim(k, r) for k, r in zip(rhs_shape, rhs_dilation)
+    ]
+    lhs_spatial = [lhs.shape[i] for i in lhs_perm[2:]]
+    padding = tuple(
+        lax.padtype_to_pads(
+            lhs_spatial, effective_rhs_shape, window_strides, padding
+        )
+    )
+  elif padding is None:
+    padding = ((0, 0),) * num_spatial
+  else:
+    padding = tuple(padding)
+
+  args = (lhs, rhs) if acc is None else (lhs, rhs, acc)
+  return conv_p.bind(
+      *args,
+      dimension_numbers=dimension_numbers,
+      window_strides=window_strides,
+      padding=padding,
+      lhs_dilation=lhs_dilation,
+      rhs_dilation=rhs_dilation,
+      window_reversal=window_reversal,
+      feature_group_count=feature_group_count,
+      batch_group_count=batch_group_count,
+      precision=precision,
+      preferred_element_type=preferred_element_type,
+  )
+
+
+@conv_p.def_abstract_eval
+def _conv_abstract_eval(
+    *args,
+    dimension_numbers,
+    window_strides=None,
+    padding=None,
+    lhs_dilation=None,
+    rhs_dilation=None,
+    window_reversal=None,
+    feature_group_count: int = 1,
+    batch_group_count: int = 1,
+    precision=None,
+    preferred_element_type=None,
+):
+  lhs, rhs = args[0], args[1]
+  acc = args[2] if len(args) > 2 else None
+  if acc is not None:
+    return jax_core.ShapedArray(acc.shape, acc.dtype)
+
+  if isinstance(dimension_numbers, tuple):
+    dimension_numbers = convolution.conv_dimension_numbers(
+        lhs.shape, rhs.shape, dimension_numbers
+    )
+  num_spatial = len(dimension_numbers.lhs_spec) - 2
+  if window_strides is None:
+    window_strides = (1,) * num_spatial
+  if padding is None:
+    padding = ((0, 0),) * num_spatial
+  if lhs_dilation is None:
+    lhs_dilation = (1,) * num_spatial
+  if rhs_dilation is None:
+    rhs_dilation = (1,) * num_spatial
+  out_shape = convolution._conv_general_dilated_shape_rule(
+      lhs,
+      rhs,
+      window_strides=window_strides,
+      padding=padding,
+      lhs_dilation=lhs_dilation,
+      rhs_dilation=rhs_dilation,
+      dimension_numbers=dimension_numbers,
+      feature_group_count=feature_group_count,
+      batch_group_count=batch_group_count,
+  )
+  out_dtype = preferred_element_type or lhs.dtype
+  return jax_core.ShapedArray(out_shape, out_dtype)

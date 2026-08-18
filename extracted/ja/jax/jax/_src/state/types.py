@@ -20,7 +20,7 @@ import dataclasses
 import functools
 import math
 import operator
-from typing import Any, cast, Protocol, Union
+from typing import Any, cast, Protocol
 
 from jax._src import ad_util
 from jax._src import core
@@ -82,7 +82,7 @@ effects.custom_derivatives_allowed_effects.add_type(core.InternalMutableArrayEff
 effects.partial_eval_kept_effects.add_type(RefEffect)
 effects.remat_allowed_effects.add_type(RefEffect)
 
-StateEffect = Union[ReadEffect, WriteEffect, AccumEffect]
+StateEffect = ReadEffect | WriteEffect | AccumEffect
 
 
 # ## Transforms
@@ -464,12 +464,9 @@ class AbstractRef(core.AbstractValue):
     return self.inner_aval.is_high
 
   def lo_ty(self):
-    return [
-        AbstractRef(x, memory_space=self.memory_space)
-        for x in self.inner_aval.lo_ty()
-    ]
+    return [self.update(inner_aval=x) for x in self.inner_aval.lo_ty()]
 
-  def lower_val(self, ref):
+  def lower_val(self, ref, /):
     if not self.is_high:
       return [ref]
     return self.inner_aval.lower_val(ref._refs)  # pyrefly: ignore[missing-attribute]

@@ -9,14 +9,14 @@ classifiers = [
 ]
 dependencies = [
     "aiohttp>=3.8.6",
-    "music_assistant_models==1.1.186",
+    "music_assistant_models==1.1.189",
     "orjson>=3.9",
 ]
 description = "Music Assistant Client"
 name = "music_assistant_client"
 readme = "README.md"
 requires-python = ">=3.12"
-version = "v1.5.0"
+version = "v1.5.1"
 
 [project.license]
 text = "Apache-2.0"
@@ -26,11 +26,16 @@ test = [
     "codespell==2.4.3",
     "isort==8.0.1",
     "mypy==2.3.0",
-    "pre-commit==4.6.1",
+    "pre-commit==4.6.2",
     "pre-commit-hooks==6.0.0",
     "tomli==2.4.1",
     "ruff==0.15.10",
 ]
+
+[project.urls]
+Homepage = "https://www.music-assistant.io"
+"Issue Tracker" = "https://github.com/music-assistant/support/issues"
+Repository = "https://github.com/music-assistant/client"
 
 [tool.setuptools]
 include-package-data = true

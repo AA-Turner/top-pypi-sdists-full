@@ -138,6 +138,7 @@ export declare namespace DataTabulator {
         indexes: p.Property<string[]>;
         layout: p.Property<typeof TableLayout["__type__"]>;
         max_page: p.Property<number>;
+        movable_columns: p.Property<boolean>;
         page: p.Property<number>;
         page_size: p.Property<number | null>;
         pagination: p.Property<string | null>;

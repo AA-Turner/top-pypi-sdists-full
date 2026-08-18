@@ -17,7 +17,7 @@ import pprint
 import re  # noqa: F401
 import json
 
-from pydantic import BaseModel, ConfigDict, Field, StrictStr
+from pydantic import BaseModel, ConfigDict, Field, StrictInt, StrictStr
 from typing import Any, ClassVar, Dict, List
 from typing import Optional, Set
 from typing_extensions import Self
@@ -27,7 +27,9 @@ class UpsolveToken(BaseModel):
     UpsolveToken
     """ # noqa: E501
     token: StrictStr = Field(description="JWT for use with Upsolve API.")
-    __properties: ClassVar[List[str]] = ["token"]
+    application_count: StrictInt = Field(description="Number of applications included in this token's prefilters.")
+    total_application_count: StrictInt = Field(description="Total applications the caller can access in this scope, before the ARTHUR_UPSOLVE_MAX_DASHBOARD_APPLICATIONS cap is applied. Greater than application_count when the dashboard is showing a truncated view.")
+    __properties: ClassVar[List[str]] = ["token", "application_count", "total_application_count"]
 
     model_config = ConfigDict(
         populate_by_name=True,
@@ -80,7 +82,9 @@ class UpsolveToken(BaseModel):
             return cls.model_validate(obj)
 
         _obj = cls.model_validate({
-            "token": obj.get("token")
+            "token": obj.get("token"),
+            "application_count": obj.get("application_count"),
+            "total_application_count": obj.get("total_application_count")
         })
         return _obj
 

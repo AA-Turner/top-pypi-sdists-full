@@ -13,7 +13,9 @@ import traceback
 
 from dataclasses import dataclass
 from pathlib import Path
-from swebench.harness.docker_build import setup_logger
+from swebench.logger import setup_logger
+
+
 from swebench.harness.reporting import make_run_report
 from swebench.harness.utils import EvaluationError
 from typing import cast
@@ -34,7 +36,8 @@ from swebench.harness.constants import (
     RUN_EVALUATION_LOG_DIR,
 )
 from swebench.harness.grading import get_eval_report
-from swebench.harness.test_spec.test_spec import make_test_spec, TestSpec
+from swebench.types import TestSpec
+from swebench.harness.utils import make_test_spec
 
 
 @dataclass
@@ -158,6 +161,9 @@ class ModalSandboxRuntime:
 
     @staticmethod
     def get_instance_image(test_spec: TestSpec) -> modal.Image:
+        # TODO: setup_env_script and install_repo_script are not part of the
+        # current TestSpec dataclass.  This method needs to be updated to work
+        # with pre-built images or to source these scripts from elsewhere.
         env_script = test_spec.setup_env_script
         # add trusted host flag for Modal's PyPI mirror
         env_script = env_script.replace(
@@ -310,8 +316,10 @@ def run_instance_modal(
         # pylint hack
         if "pylint" in test_spec.instance_id:
             run_command += " && PYTHONPATH="
-        # increase recursion limit for testing
-        run_command += " && python3 -c 'import sys; sys.setrecursionlimit(10000)'"
+        # a `python3 -c 'sys.setrecursionlimit(...)'` step used to sit here, meaning to
+        # give the tests more stack. It set the limit in its own process and exited, so
+        # the eval script below never saw it -- it only looked like the local runs
+        # differed from Modal. Removed rather than left as decoration.
         # run eval script
         run_command += " && /bin/bash /root/eval.sh"
         test_output, returncode = runner.exec(run_command)
@@ -407,7 +415,7 @@ def run_instances_modal(
         run_id (str): Run ID
         timeout (int): Timeout for running tests
     """
-    test_specs = list(map(make_test_spec, instances))
+    test_specs = [make_test_spec(inst) for inst in instances]
 
     with modal.enable_output():
         with app.run():

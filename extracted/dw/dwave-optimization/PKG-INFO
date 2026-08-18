@@ -1,8 +1,8 @@
 Metadata-Version: 2.4
 Name: dwave-optimization
-Version: 0.7.2
+Version: 0.7.3
 Summary: Enables the formulation of nonlinear models for industrial optimization problems.
-Author-Email: "D-Wave Inc." <tools@dwavesys.com>
+Author-Email: D-Wave <tools@dwavesys.com>
 License-Expression: Apache-2.0
 License-File: LICENSE
 Classifier: Operating System :: Microsoft :: Windows
@@ -16,16 +16,19 @@ Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
 Classifier: Programming Language :: Python :: 3.14
+Classifier: Programming Language :: Python :: 3.15
 Classifier: Programming Language :: Python :: 3 :: Only
 Classifier: Programming Language :: Python :: Implementation :: CPython
 Project-URL: Changelog, https://github.com/dwavesystems/dwave-optimization/releases
 Project-URL: Documentation, https://docs.dwavequantum.com
 Project-URL: Source Code, https://github.com/dwavesystems/dwave-optimization
 Requires-Python: >=3.10
-Requires-Dist: numpy>=1.21.3
+Requires-Dist: numpy>=2
 Provides-Extra: all
-Requires-Dist: dimod>=0.12.0; extra == "all"
+Requires-Dist: dimod>=0.12.16; extra == "all"
+Requires-Dist: networkx>=3.2; extra == "all"
 Requires-Dist: scikit-learn>=1.6.0; extra == "all"
+Requires-Dist: scipy>=1.13.0; extra == "all"
 Description-Content-Type: text/x-rst
 
 .. image:: https://img.shields.io/pypi/v/dwave-optimization.svg?style=svg

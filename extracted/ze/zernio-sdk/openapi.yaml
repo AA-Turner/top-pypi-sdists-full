@@ -1394,7 +1394,7 @@ components:
             views: { type: integer }
             reach: { type: integer }
             impressions: { type: integer }
-            engagementRate: { type: number }
+            engagementRate: { type: number, description: 'Percentage, rounded to 2 decimals. Same definition as PostAnalytics.engagementRate: (likes + comments + shares + saves) / (impressions or reach or views) * 100, where the denominator is the first of the three that is non-zero. Clicks and follows are never counted.' }
             lastUpdated: { type: string, format: date-time, description: When these metrics were last refreshed }
     ErrorResponse:
       type: object
@@ -4202,6 +4202,8 @@ components:
             endedAt: { type: string, format: date-time }
             durationSeconds: { type: integer }
             endReason: { type: string, enum: [hangup, no_answer, rejected, error] }
+            hangupCause: { type: [string, "null"], description: "Raw carrier hangup cause behind endReason (e.g. normal_clearing, call_rejected, not_found). Null when the carrier reported none." }
+            sipHangupCause: { type: [string, "null"], description: "SIP response code that ended the call when SIP-signalled (e.g. '403', '486', '603'). endReason collapses all three to 'rejected', so this is what separates a refused destination from a busy line. Null on non-SIP legs." }
             recordingUrl: { type: string }
             recordingExpiresAt: { type: string, format: date-time }
             billing:
@@ -5011,7 +5013,7 @@ components:
         carouselCards:
           type: array
           minItems: 2
-          maxItems: 5
+          maxItems: 10
           description: >
             Renders the post as a multi-link carousel (organic Page post). When set, mediaItems
             must be provided with the same length and all items must be images (no videos).
@@ -5913,6 +5915,21 @@ components:
     BlueskyPlatformData:
       type: object
       properties:
+        langs:
+          type: array
+          minItems: 1
+          maxItems: 3
+          items:
+            type: string
+          example: ["pt", "en"]
+          description: >
+            Language(s) of the post text as 1-3 BCP-47 codes (e.g. "pt", "en-US"), written to the
+            post record's langs field. Bluesky feed generators filter on this field, so posts
+            without it never appear in language-scoped feeds. Can only be set at creation
+            (Bluesky has no post editing). When threadItems is used, every item in the thread
+            carries the same langs. When omitted, the account's default (set via
+            PATCH /v1/accounts/{accountId}/bluesky-settings) applies; with no default either,
+            the field is absent from the record.
         threadItems:
           type: array
           description: >
@@ -5930,7 +5947,7 @@ components:
                 items:
                   $ref: '#/components/schemas/MediaItem'
       description: |
-        Bluesky post settings. Supports text posts with up to 4 images or a single video. threadItems creates a reply chain (Bluesky thread). Images exceeding 1MB are automatically compressed. Alt text supported via mediaItem properties.
+        Bluesky post settings. Supports text posts with up to 4 images or a single video. threadItems creates a reply chain (Bluesky thread). Images exceeding 1MB are automatically compressed. Alt text supported via mediaItem properties. Use langs to tag post language for feed-generator filtering.
 
     DiscordPlatformData:
       type: object
@@ -6689,7 +6706,7 @@ components:
         igReelsAvgWatchTime: { type: integer, example: 0, description: 'Instagram Reels only: average watch time per play, in milliseconds. 0 for non-Reels media and other platforms.' }
         igReelsVideoViewTotalTime: { type: integer, example: 0, description: 'Instagram Reels only: total watch time including replays, in milliseconds. 0 for non-Reels media and other platforms.' }
         videoDurationSeconds: { type: [integer, "null"], example: 30, description: 'Video length in seconds. Currently Instagram Reels only; combine with igReelsAvgWatchTime (ms) to estimate retention. Null when unknown (other platforms, non-video media, or when Instagram does not expose the media URL, e.g. reels with copyrighted audio).' }
-        engagementRate: { type: number, example: 0 }
+        engagementRate: { type: number, example: 6.59, description: 'Percentage, rounded to 2 decimals: (likes + comments + shares + saves) / (impressions or reach or views) * 100. Clicks and follows are never counted. The denominator is the FIRST of impressions, reach, views that is non-zero, so it is not the same basis on every post: a post with impressions divides by impressions, one without falls back to reach, then to views. If you need a single consistent basis (e.g. interactions / reach), compute it from the raw fields above. The engagementRate on the LinkedIn account endpoints is a different formula.' }
         lastUpdated: { type: string, format: date-time }
     PlatformAnalytics:
       type: object
@@ -6842,7 +6859,7 @@ components:
             shares: { type: integer, description: Total reshares across all posts }
             saves: { type: integer, description: Total times posts were saved (personal accounts only) }
             sends: { type: integer, description: Total times posts were sent via LinkedIn messaging (personal accounts only) }
-            engagementRate: { type: number, description: Overall engagement rate as percentage }
+            engagementRate: { type: number, description: 'Overall engagement rate, as a percentage rounded to 2 decimals: (reactions + comments + shares + saves + sends) / impressions * 100. Clicks are not counted, and there is no fallback denominator, so this is 0 whenever impressions is 0. This is NOT the same formula as PostAnalytics.engagementRate on GET /v1/analytics.' }
         note: { type: string }
         lastUpdated: { type: string, format: date-time }
     LinkedInAggregateAnalyticsDailyResponse:
@@ -7888,6 +7905,7 @@ components:
             imageUrl: { type: string, description: Alternative image URL }
             videoId: { type: [string, "null"], description: "Meta video ID for VIDEO-type ads. Null for non-video ads. Callers that need an embeddable MP4 can call GET /{videoId}?fields=source with the page access token." }
             videoUrl: { type: [string, "null"], description: "Public Facebook watch URL for VIDEO-type ads (https://www.facebook.com/watch/?v={videoId}). Null for non-video ads." }
+            creativeId: { type: [string, "null"], description: "Meta ad creative id backing this ad. Reusable via existingCreativeId on POST /v1/ads/create." }
             objectType: { type: string, description: "Meta creative object_type (e.g. SHARE, VIDEO, PRIVACY_CHECK_FAIL, POST_DELETED). Use this to render state-aware previews — when Meta moderation strips image/video fields, only thumbnailUrl at 64x64 is available." }
             objectStoryId: { type: [string, "null"], description: "Meta creative `object_story_id` (the SHARE reference). Frequently absent — Meta omits it for SHARE creatives. Use effectiveObjectStoryId instead." }
             effectiveObjectStoryId: { type: [string, "null"], description: "Meta `effective_object_story_id` — `{pageId}_{postId}` of the Facebook post the ad's engagement (comments) lives on. Pass to GET /v1/ads?effectiveObjectStoryId= to map a Business-Manager-visible post back to this ad; GET /v1/ads/{adId}/comments resolves comments against it." }
@@ -13815,7 +13833,7 @@ paths:
               facebookCarousel:
                 summary: Facebook multi-link carousel post
                 description: |
-                  Posts a 2-5 card carousel where each image has its own click-through link
+                  Posts a 2-10 card carousel where each image has its own click-through link
                   and optional headline. mediaItems and carouselCards must have the same
                   length, in the same order. Images only (no video cards).
                 value:
@@ -20793,7 +20811,7 @@ paths:
                       sends: { type: integer, description: Times the post was sent via LinkedIn messaging (personal accounts only; 0 for organization accounts) }
                       clicks: { type: integer, description: Clicks on the post (organization accounts only) }
                       views: { type: integer, description: Video views (video posts only) }
-                      engagementRate: { type: number, description: Engagement rate as percentage }
+                      engagementRate: { type: number, description: 'Engagement rate, as a percentage rounded to 2 decimals: (likes + comments + shares + clicks + saves + sends) / impressions * 100. Unlike PostAnalytics.engagementRate on GET /v1/analytics, this one DOES count clicks and has no fallback denominator, so it is 0 whenever impressions is 0. For organization accounts the value is the rate LinkedIn returns, not one computed here.' }
                   lastUpdated: { type: string, format: date-time }
               example:
                 accountId: "64abc123def456"
@@ -22300,6 +22318,65 @@ paths:
               properties:
                 defaultUsername: { type: string, maxLength: 80, description: 'Author name shown on posts. Empty string clears it.' }
                 defaultIconUrl: { type: string, description: 'Author avatar image URL. Empty string clears it.' }
+      responses:
+        '200':
+          description: Updated settings
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '404': { description: Account not found }
+
+  /v1/accounts/{accountId}/bluesky-settings:
+    get:
+      x-resource-group: "accounts"
+      operationId: getBlueskySettings
+      tags: [Accounts]
+      summary: Get Bluesky account settings
+      description: 'Returns the account''s default post languages (defaultLangs), applied at publish time whenever a post''s platformSpecificData.langs is absent. Null when no default is set.'
+      parameters:
+        - name: accountId
+          in: path
+          required: true
+          schema: { type: string }
+      responses:
+        '200':
+          description: Bluesky account settings
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  defaultLangs:
+                    type: [array, "null"]
+                    items: { type: string }
+                    example: ["pt"]
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '404': { description: Account not found }
+    patch:
+      x-resource-group: "accounts"
+      operationId: updateBlueskySettings
+      tags: [Accounts]
+      summary: Update Bluesky account settings
+      description: 'Set or clear the account''s default post languages. 1-3 BCP-47 codes (e.g. "pt", "en-US"), the same validation as per-post langs; explicit null clears the default. Per-post platformSpecificData.langs always overrides this default. Applies to posts published after the change; already-published posts cannot be retagged (Bluesky has no post edit).'
+      parameters:
+        - name: accountId
+          in: path
+          required: true
+          schema: { type: string }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [defaultLangs]
+              properties:
+                defaultLangs:
+                  type: [array, "null"]
+                  minItems: 1
+                  maxItems: 3
+                  items: { type: string }
+                  example: ["pt"]
       responses:
         '200':
           description: Updated settings
@@ -25133,7 +25210,7 @@ paths:
           in: query
           required: false
           schema: { type: string }
-          description: Opaque pagination cursor. Pass `pagination.nextCursor` from a prior response.
+          description: 'Opaque pagination cursor. Pass `pagination.nextCursor` from a prior response verbatim: a cursor we cannot parse returns 400 rather than silently restarting from the first page.'
         - name: sortOrder
           in: query
           required: false
@@ -25272,6 +25349,7 @@ paths:
                             and for inbound interactive taps `interactiveType` / `interactiveId`.
                           additionalProperties: true
                   lastUpdated: { type: string, format: date-time }
+        '400': { $ref: '#/components/responses/BadRequest' }
         '401': { $ref: '#/components/responses/Unauthorized' }
         '403':
           description: Inbox addon required
@@ -32198,6 +32276,7 @@ paths:
                                   label: { type: string }
                                   value: { type: string }
                                   documentId: { type: string, description: 'Present on document rows — the Telnyx document id. GET /v1/whatsapp/phone-numbers/kyc/document/{documentId} streams it (auth-scoped, inline PDF).' }
+                  pendingReview: { type: boolean, description: 'true when this account already has a number for this country in regulatory review (status pending_regulatory). Scope is the whole account across all profiles, and the country only (any number type), so it is not a per-end-client signal on a multi-tenant setup. Informational only: it never blocks a submission, and several same-country numbers may sit in review at once. For a per-end-client view, call GET /v1/phone-numbers with `profileId` and `status=pending_regulatory`; that view also lists numbers declined in the last 30 days.' }
         '400': { description: Country not available }
         '401': { $ref: '#/components/responses/Unauthorized' }
     post:
@@ -33186,6 +33265,7 @@ paths:
                                   label: { type: string }
                                   value: { type: string }
                                   documentId: { type: string, description: 'Present on document rows — the Telnyx document id. GET /v1/whatsapp/phone-numbers/kyc/document/{documentId} streams it (auth-scoped, inline PDF).' }
+                  pendingReview: { type: boolean, description: 'true when this account already has a number for this country in regulatory review (status pending_regulatory). Scope is the whole account across all profiles, and the country only (any number type), so it is not a per-end-client signal on a multi-tenant setup. Informational only: it never blocks a submission, and several same-country numbers may sit in review at once. For a per-end-client view, call GET /v1/phone-numbers with `profileId` and `status=pending_regulatory`; that view also lists numbers declined in the last 30 days.' }
         '400': { description: Country not available }
         '401': { $ref: '#/components/responses/Unauthorized' }
     post:
@@ -36147,7 +36227,7 @@ paths:
                         contactId: { type: string }
                         channelId: { type: string }
                         platformIdentifier: { type: string }
-                        contactName: { type: string }
+                        contactName: { type: [string, "null"] }
                         status: { type: string, enum: [pending, sent, delivered, read, failed] }
                         messageId: { type: string }
                         error: { type: string }
@@ -36182,7 +36262,7 @@ paths:
             schema:
               type: object
               properties:
-                contactIds: { type: array, items: { type: string }, description: Specific contact IDs to add }
+                contactIds: { type: array, items: { type: string }, description: 'Specific contact IDs to add. Zernio contact ids (24-character hex), as returned by the list-contacts endpoint. A platform identifier such as a WhatsApp wa_id is rejected with 400; use phones for raw numbers.' }
                 phones: { type: array, items: { type: string }, maxItems: 20000, description: Raw phone numbers (auto-creates contacts). Useful for WhatsApp/Telegram manual entry }
                 useSegment: { type: boolean, description: Auto-populate from broadcast segment filters }
       responses:
@@ -37131,10 +37211,10 @@ paths:
                         contactName: { type: string }
                         currentStepIndex: { type: integer }
                         status: { type: string, enum: [active, completed, exited, paused] }
-                        exitReason: { type: string }
-                        nextStepAt: { type: string, format: date-time }
+                        exitReason: { type: [string, "null"] }
+                        nextStepAt: { type: [string, "null"], format: date-time }
                         stepsSent: { type: integer }
-                        lastStepSentAt: { type: string, format: date-time }
+                        lastStepSentAt: { type: [string, "null"], format: date-time }
                         createdAt: { type: string, format: date-time }
                   pagination:
                     type: object
@@ -41320,6 +41400,10 @@ paths:
                   type: string
                   enum: [ACTIVE, PAUSED]
                   description: "Meta and TikTok. Publish state of the created entities. Omitted or ACTIVE publishes live (default, back-compat); PAUSED creates them paused so you can review before they spend. On Meta the pause is held on the campaign this call creates, leaving the ad set and ad switched on, so a single PUT /v1/ads/campaigns/{campaignId}/status with `active` brings the whole thing live. It is held at every level instead when the pause cannot rely on the campaign: `existingCampaignId` (that campaign may be running and is never touched) or `campaignStatus: ACTIVE`. On TikTok the whole campaign > ad group > ad hierarchy stays paused."
+                campaignStatus:
+                  type: string
+                  enum: [ACTIVE, PAUSED]
+                  description: "Meta only. Overrides `status` for the campaign level alone, so you can create a live campaign whose ad set and ad stay paused, or the reverse. Omitted, it follows `status`."
                 budgetLevel:
                   type: string
                   enum: [adset, campaign]

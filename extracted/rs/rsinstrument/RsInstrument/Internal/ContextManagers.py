@@ -1,9 +1,11 @@
 """Context managers for common SCPI tasks."""
 
-from .Instrument import Instrument
-from .InstrumentErrors import assert_no_instrument_status_errors, TimeoutException, StatusException
 from typing import List, Tuple
+
 from pyvisa import VisaIOError
+
+from .Instrument import Instrument
+from .InstrumentErrors import StatusException, TimeoutException, assert_no_instrument_status_errors
 
 
 class InstrErrorSuppressor:

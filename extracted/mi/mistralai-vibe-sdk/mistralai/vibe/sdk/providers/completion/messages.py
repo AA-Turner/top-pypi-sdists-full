@@ -9,6 +9,23 @@ from typing import Literal
 from pydantic import BaseModel
 
 
+class TextMessageContentChunk(BaseModel):
+    type: Literal["text"] = "text"
+    text: str
+
+
+class ImageURLMessageContentChunk(BaseModel):
+    type: Literal["image_url"] = "image_url"
+    image_url: "ImageURL"
+
+
+class ImageURL(BaseModel):
+    url: str
+
+
+type MessageContentChunk = TextMessageContentChunk | ImageURLMessageContentChunk
+
+
 class FunctionCall(BaseModel):
     """A function call within a tool call."""
 
@@ -31,9 +48,26 @@ class Message(BaseModel):
     """
 
     role: Literal["system", "user", "assistant", "tool"]
-    content: str | None = None
+    content: str | list[MessageContentChunk] | None = None
     tool_calls: list[ToolCall] | None = None
     tool_call_id: str | None = None
 
 
-__all__ = ["FunctionCall", "Message", "ToolCall"]
+def text_content_for_provider(
+    provider: str, content: str | list[MessageContentChunk] | None
+) -> str | None:
+    if isinstance(content, list):
+        raise ValueError(f"{provider} does not support multimodal message content")
+    return content
+
+
+__all__ = [
+    "FunctionCall",
+    "ImageURL",
+    "ImageURLMessageContentChunk",
+    "Message",
+    "MessageContentChunk",
+    "TextMessageContentChunk",
+    "ToolCall",
+    "text_content_for_provider",
+]

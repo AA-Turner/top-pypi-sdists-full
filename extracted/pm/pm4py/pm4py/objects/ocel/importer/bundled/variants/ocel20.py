@@ -493,6 +493,11 @@ def apply(file_path: str, parameters: Optional[Dict[Any, Any]] = None) -> OCEL:
             field = record[changed_field]
             if field not in attribute_names:
                 raise ValueError("Object-change field '%s' is not declared." % field)
+            if pd.Timestamp(record[event_timestamp]).value == 0:
+                raise ValueError(
+                    "Object-change tables cannot contain assignments at the UNIX epoch; "
+                    "initial values belong in the object table."
+                )
             if pd.isna(record.get(field)):
                 raise ValueError("Object-change row for '%s' has no changed value." % oid)
             if any(

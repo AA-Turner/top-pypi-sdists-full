@@ -5,6 +5,7 @@ import pandas as pd
 import optuna
 from catboost import CatBoostRegressor
 from geocif.progress import pbar as _pbar
+from . import threads as ml_threads
 
 
 class BassRegressor:
@@ -219,8 +220,12 @@ def optimized_model(
                     "verbose": False,
                 }
 
-                # Fit the optuna model
-                optuna_model = CatBoostRegressor(**params, cat_features=cat_features)
+                # Fit the optuna model. CatBoost has its own thread pool and
+                # ignores OMP_NUM_THREADS, so the per-worker budget has to be
+                # passed explicitly (-1 = all cores, its own default).
+                cb_params = dict(params)
+                cb_params.setdefault("thread_count", ml_threads.thread_count(-1))
+                optuna_model = CatBoostRegressor(**cb_params, cat_features=cat_features)
             else:
                 raise NotImplementedError
 
@@ -279,7 +284,11 @@ def optimized_model(
 
     # Model Initialization & Training
     if model_name == "catboost":
-        model = CatBoostRegressor(**hyperparams, cat_features=cat_features)
+        # Copy so the per-worker thread budget (an environment detail) never
+        # leaks into the hyperparameters recorded in the results DB.
+        cb_params = dict(hyperparams)
+        cb_params.setdefault("thread_count", ml_threads.thread_count(-1))
+        model = CatBoostRegressor(**cb_params, cat_features=cat_features)
     else:
         raise NotImplementedError
 
@@ -727,7 +736,11 @@ def auto_train(
                 def __getattr__(self, name):
                     return getattr(self._m, name)
 
-            model = _ExtraTreesNumeric(n_estimators=500, n_jobs=-1, random_state=seed)
+            model = _ExtraTreesNumeric(
+                n_estimators=500,
+                n_jobs=ml_threads.thread_count(-1),
+                random_state=seed,
+            )
 
         elif model_name.startswith("gam"):
             # Placeholder — real term construction and the single gridsearch

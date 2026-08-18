@@ -4,13 +4,11 @@
 #include "pythonic/include/types/float.hpp"
 
 #include "pythonic/types/attr.hpp"
-#include <cstddef>
 
 #ifdef ENABLE_PYTHON_MODULE
 
 #include "numpy/arrayscalars.h"
 #include "pythonic/python/core.hpp"
-#include <iostream>
 
 PYTHONIC_NS_BEGIN
 

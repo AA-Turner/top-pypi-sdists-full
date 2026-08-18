@@ -22,6 +22,7 @@ from jax._src import core
 from jax._src import effects as effects_lib
 from jax._src import flattree as ft
 from jax._src import tree_util
+from jax._src import util
 from jax._src.interpreters import partial_eval as pe
 from jax._src.state import discharge as state_discharge
 from jax._src.state import types as state_types
@@ -214,8 +215,8 @@ def discharge_state(
                  if keep])
     used_consts = [True] * len(jaxpr.constvars)
     used_inputs = used_consts + [True] * len(jaxpr.invars)
-  discharged_jaxpr = pe.convert_invars_to_constvars(
-      discharged_jaxpr, sum(used_consts))
+  discharged_jaxpr = discharged_jaxpr.with_consts(
+      [c for c, used in zip(jaxpr.consts, used_consts) if used])
 
   # adjust indices given used_inputs, so we can compute output_input_aliases
   new_input_idx = list(itertools.accumulate(used_inputs, initial=-1))[1:]
@@ -228,3 +229,11 @@ def discharge_state(
       ref_input_idxs, write_idxs, output_input_aliases
   )
   return discharged_jaxpr, used_consts, output_input_aliases
+
+
+@util.weakref_lru_cache
+def jaxpr_all_prims(jaxpr: core.Jaxpr) -> set[core.Primitive]:
+  prims = {eqn.primitive for eqn in jaxpr.eqns}
+  for subjaxpr in core.subjaxprs(jaxpr):
+    prims |= jaxpr_all_prims(subjaxpr)
+  return prims

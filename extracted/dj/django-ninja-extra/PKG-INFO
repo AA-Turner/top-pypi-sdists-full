@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: django-ninja-extra
-Version: 0.31.6
+Version: 0.31.7
 Summary: Django Ninja Extra - Class Based Utility and more for Django Ninja(Fast Django REST framework)
 Home-page: https://github.com/eadwinCode/django-ninja-extra
 Author: Ezeudoh Tochukwu
@@ -40,7 +40,7 @@ Classifier: Topic :: Internet :: WWW/HTTP :: HTTP Servers
 Classifier: Topic :: Internet :: WWW/HTTP
 License-File: LICENSE
 Requires-Dist: Django >= 2.2
-Requires-Dist: django-ninja >= 1.6.0
+Requires-Dist: django-ninja >= 1.6.3
 Requires-Dist: injector >= 0.19.0
 Requires-Dist: asgiref
 Requires-Dist: contextlib2

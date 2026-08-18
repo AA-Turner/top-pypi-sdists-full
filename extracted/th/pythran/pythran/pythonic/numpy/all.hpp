@@ -8,6 +8,8 @@
 #include "pythonic/types/ndarray.hpp"
 #include "pythonic/utils/functor.hpp"
 
+#include <numeric>
+
 PYTHONIC_NS_BEGIN
 
 namespace numpy
@@ -35,16 +37,15 @@ namespace numpy
   }
 
   template <class E>
-  std::enable_if_t<std::is_scalar<E>::value || types::is_complex<E>::value, bool>
-  all(E const &expr, types::none_type)
+  std::enable_if_t<std::is_scalar_v<E> || types::is_complex<E>::value, bool> all(E const &expr,
+                                                                                 types::none_type)
   {
     return expr;
   }
 
   template <class E>
   auto all(E const &array, long axis)
-      -> std::enable_if_t<std::is_scalar<E>::value || types::is_complex<E>::value,
-                          decltype(all(array))>
+      -> std::enable_if_t<std::is_scalar_v<E> || types::is_complex<E>::value, decltype(all(array))>
   {
     if (axis != 0)
       throw types::ValueError("axis out of bounds");
@@ -65,7 +66,7 @@ namespace numpy
   all(E const &array, long axis)
   {
     constexpr long N = E::value;
-    typedef typename E::dtype T;
+    using T = typename E::dtype;
     if (axis < 0 || axis >= long(N))
       throw types::ValueError("axis out of bounds");
     if (axis == 0) {

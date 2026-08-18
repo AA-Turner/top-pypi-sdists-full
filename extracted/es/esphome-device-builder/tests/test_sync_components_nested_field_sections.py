@@ -10,10 +10,10 @@ from script.sync_components import (  # type: ignore[import-not-found]
     _OUTPUT_BODIES_DIR,
     _annotate_constraint_descriptions,
     _apply_nested_field_sections,
+    _docs_site_slug,
     _enumerate_mdx_field_sections,
     _extract_mdx_field_descriptions,
     _match_section_to_node,
-    _slugify_heading,
 )
 
 
@@ -70,9 +70,9 @@ def _section(name):
     return next(s for s in _enumerate_mdx_field_sections(_MDX) if s["heading"] == name)
 
 
-def test_slugify_and_dedup() -> None:
-    assert _slugify_heading("Advanced Configuration") == "advanced-configuration"
-    assert _slugify_heading("`mqtt.publish` Action") == "mqtt-publish-action"
+def test_docs_site_slug_and_dedup() -> None:
+    assert _docs_site_slug("Advanced Configuration") == "advanced-configuration"
+    assert _docs_site_slug("`mqtt.publish` Action") == "mqtt-publish-action"
     slugs = [s["slug"] for s in _enumerate_mdx_field_sections(_MDX)]
     # Three "Configuration variables" headings → deduped in document order.
     assert "configuration-variables" in slugs
@@ -311,10 +311,12 @@ def test_apply_recurses_into_deeper_nodes() -> None:
     assert all((c.get("description") or "").strip() for c in deep)
 
 
-def test_slugify_heading_edge_cases() -> None:
-    assert _slugify_heading("Advanced   Configuration!") == "advanced-configuration"
-    assert _slugify_heading("  Leading & trailing --") == "leading-trailing"
-    assert _slugify_heading("`code` / mixed.punct") == "code-mixed-punct"
+def test_docs_site_slug_edge_cases() -> None:
+    # github-slugger semantics: spaces dash one-for-one, specials deleted,
+    # nothing collapsed or stripped.
+    assert _docs_site_slug("Advanced   Configuration!") == "advanced---configuration"
+    assert _docs_site_slug("Leading & trailing --") == "leading--trailing---"
+    assert _docs_site_slug("`code` / mixed.punct") == "code--mixed-punct"
 
 
 def test_extract_mdx_field_descriptions_reads_top_level_section() -> None:

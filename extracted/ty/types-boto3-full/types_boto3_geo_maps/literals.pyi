@@ -29,6 +29,8 @@ __all__ = (
     "LocationServiceMapsV2ServiceName",
     "MapFeatureModeType",
     "MapStyleType",
+    "PoiCategoryType",
+    "PoiDensityType",
     "ResourceServiceName",
     "ScaleBarUnitType",
     "ServiceName",
@@ -46,6 +48,18 @@ ContourDensityType = Literal["High", "Low", "Medium"]
 LabelSizeType = Literal["Large", "Small"]
 MapFeatureModeType = Literal["Disabled", "Enabled"]
 MapStyleType = Literal["Hybrid", "Monochrome", "Satellite", "Standard"]
+PoiCategoryType = Literal[
+    "Accommodations",
+    "BusinessAndServices",
+    "Entertainment",
+    "FacilitiesAndBuildings",
+    "FoodAndDrink",
+    "LeisureAndOutdoor",
+    "Shopping",
+    "SightsAndMuseums",
+    "Transportation",
+]
+PoiDensityType = Literal["Default", "Dense", "Off", "Sparse", "VeryDense", "VerySparse"]
 ScaleBarUnitType = Literal["Kilometers", "KilometersMiles", "Miles", "MilesKilometers"]
 StaticMapStyleType = Literal["Satellite", "Standard"]
 TerrainType = Literal["Hillshade", "Terrain3D"]

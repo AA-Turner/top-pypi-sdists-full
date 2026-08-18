@@ -8,7 +8,7 @@ build-backend = "pdm.backend"
 name = "pyan3"
 dynamic = []
 description = "Generate approximate call graphs for Python programs"
-requires-python = ">=3.10"
+requires-python = ">=3.10,<3.16"
 license = "GPL-2.0-or-later"
 license-files = [
     "LICENSE.md",
@@ -36,13 +36,14 @@ classifiers = [
     "Programming Language :: Python :: 3.12",
     "Programming Language :: Python :: 3.13",
     "Programming Language :: Python :: 3.14",
+    "Programming Language :: Python :: 3.15",
     "Topic :: Software Development",
     "Topic :: Software Development :: Libraries :: Python Modules",
 ]
 dependencies = [
     "jinja2",
 ]
-version = "2.6.2"
+version = "2.7.0"
 
 [project.readme]
 file = "README.md"
@@ -148,6 +149,7 @@ exclude = [
     "site-packages",
     "venv",
     "tests/test_code_312",
+    "tests/test_code_315",
 ]
 
 [tool.ruff.lint]

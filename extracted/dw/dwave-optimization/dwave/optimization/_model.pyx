@@ -1,4 +1,4 @@
-# Copyright 2024 D-Wave Inc.
+# Copyright 2024 D-Wave
 #
 #    Licensed under the Apache License, Version 2.0 (the "License");
 #    you may not use this file except in compliance with the License.
@@ -15,21 +15,20 @@
 import collections.abc
 import dataclasses
 import fractions
-import functools
 import itertools
 import json
 import numbers
-import operator
 import struct
 import zipfile
 
 import numpy as np
 
-from cpython cimport Py_buffer
+from cpython.memoryview cimport PyMemoryView_FromBuffer
+from cpython.pycapsule cimport PyCapsule_GetPointer, PyCapsule_New
 from cpython.ref cimport PyObject
 from cython.operator cimport dereference as deref, preincrement as inc
 from cython.operator cimport typeid
-from libcpp cimport bool
+from libc.string cimport memset
 from libcpp.memory cimport make_shared
 from libcpp.span cimport span
 from libcpp.typeindex cimport type_index
@@ -40,10 +39,8 @@ from libcpp.vector cimport vector
 import dwave.optimization.mathematical
 
 from dwave.optimization.libcpp cimport dynamic_cast_ptr
-from dwave.optimization.libcpp.array cimport Array as cppArray, broadcast_shapes as cppbroadcast_shapes
-from dwave.optimization.libcpp.graph cimport DecisionNode as cppDecisionNode
+from dwave.optimization.libcpp.array cimport broadcast_shapes
 from dwave.optimization.states cimport States
-from dwave.optimization.states import StateView
 from dwave.optimization.utilities import (
     _file_object_arg,
     _lock,
@@ -78,7 +75,7 @@ cdef void _register(object cls, const type_info& typeinfo):
     _cpp_type_to_python[type_index(typeinfo)] = <PyObject*>(cls)
 
 
-cdef object symbol_from_ptr(_Graph model, cppNode* node_ptr):
+cdef object symbol_from_ptr(_Graph model, Node* node_ptr):
     """Create a Python/Cython symbol from a C++ Node*."""
 
     # If it's null, either after the cast of just as given, then we can't get a symbol from it
@@ -91,10 +88,14 @@ cdef object symbol_from_ptr(_Graph model, cppNode* node_ptr):
         # IndexError would be returned by .at()
         raise RuntimeError("given pointer cannot be cast to a known node type") from None
 
-    # In order to get nice polymorphism, it's much easier to pass the dispatch
-    # through Python, so we construct a generic Symbol holding the pointer and then
-    # construct the specific symbol from it.
-    return cls._from_symbol(Symbol.from_ptr(model, node_ptr))
+    # We'll use a PyCapsule to pass a node pointer through the Python layer so
+    # that we can let `cls` determine the type.
+
+    # Even though PyCapsule_New returns a PyObject*, Cython automatically makes
+    # it an object (with appropriate refcounting) so that's nice.
+    cap = PyCapsule_New(node_ptr, 'Node*', NULL)
+
+    return cls._from_ptr(model, cap)
 
 
 cdef class _Graph:
@@ -106,11 +107,11 @@ cdef class _Graph:
     def __cinit__(self):
         self._lock_count = 0
 
-        self._owning_ptr = make_shared[cppGraph]()
+        self._owning_ptr = make_shared[Graph]()
         self._graph = self._owning_ptr.get()
 
     @staticmethod
-    cdef _Graph from_shared_ptr(shared_ptr[cppGraph] ptr):
+    cdef _Graph from_shared_ptr(shared_ptr[Graph] ptr):
         cdef _Graph model = _Graph.__new__(_Graph)
 
         model._owning_ptr = ptr
@@ -1123,7 +1124,7 @@ cdef class Symbol:
         cls = type(self)
         return f"<{cls.__module__}.{cls.__qualname__} at {self.id():#x}>"
 
-    cdef void initialize_node(self, _Graph model, cppNode* node_ptr) noexcept:
+    cdef void initialize_node(self, _Graph model, Node* node_ptr) noexcept:
         self.model = model
 
         self.node_ptr = node_ptr
@@ -1179,7 +1180,7 @@ cdef class Symbol:
         return deref(self.expired_ptr)
 
     @staticmethod
-    cdef Symbol from_ptr(_Graph model, cppNode* ptr):
+    cdef Symbol from_ptr(_Graph model, Node* ptr):
         """Construct a Symbol from a C++ Node pointer.
 
         There are times when a Node* needs to be passed through the Python layer
@@ -1195,17 +1196,11 @@ cdef class Symbol:
         return obj
 
     @classmethod
-    def _from_symbol(cls, Symbol symbol):
-        # Disallow lateral casts or demotions.
-        # This is to prevent, say, an Add to be constructed from a Subtract
-        # There are ways around it, but this method is private anyway so it
-        # should be enough of a discouragement and for safety.
-        if not issubclass(cls, type(symbol)):
-            raise TypeError(f"cannot construct a {cls.__name__} from a {type(symbol).__name__}")
-
-        cdef Symbol obj = cls.__new__(cls)
-        obj.initialize_node(symbol.model, symbol.node_ptr)
-        return obj
+    def _from_ptr(cls, model, capsule):
+        """Create a Symbol from a Python capsule containing a Node pointer."""
+        cdef Symbol sym = cls.__new__(cls)
+        sym.initialize_node(model, <Node*>(PyCapsule_GetPointer(capsule, 'Node*')))
+        return sym
 
     @classmethod
     def _from_zipfile(cls, zf, directory, _Graph model, predecessors):
@@ -1368,8 +1363,8 @@ cdef class Symbol:
         See Also:
             :meth:`.iter_successors`
         """
-        cdef vector[cppNode*].const_iterator it = self.node_ptr.predecessors().begin()
-        cdef vector[cppNode*].const_iterator end = self.node_ptr.predecessors().end()
+        cdef vector[Node*].const_iterator it = self.node_ptr.predecessors().begin()
+        cdef vector[Node*].const_iterator end = self.node_ptr.predecessors().end()
         while it != end:
             yield symbol_from_ptr(self.model, deref(it))
             inc(it)
@@ -1403,8 +1398,8 @@ cdef class Symbol:
         See Also:
             :meth:`.iter_predecessors`
         """
-        cdef vector[cppNode.SuccessorView].const_iterator it = self.node_ptr.successors().begin()
-        cdef vector[cppNode.SuccessorView].const_iterator end = self.node_ptr.successors().end()
+        cdef vector[Node.SuccessorView].const_iterator it = self.node_ptr.successors().begin()
+        cdef vector[Node.SuccessorView].const_iterator end = self.node_ptr.successors().end()
         while it != end:
             yield symbol_from_ptr(self.model, deref(it).ptr)
             inc(it)
@@ -1617,7 +1612,7 @@ class ArraySizeInfo:
         sizeinfo = symbol.array_ptr.sizeinfo()
 
         if sizeinfo.array_ptr:
-            symbol = symbol_from_ptr(symbol.model, <cppArrayNode*>sizeinfo.array_ptr)
+            symbol = symbol_from_ptr(symbol.model, <ArrayNode*>sizeinfo.array_ptr)
         else:
             symbol = None
 
@@ -1676,28 +1671,19 @@ cdef class ArraySymbol(Symbol):
         # via their subclasses.
         raise ValueError("ArraySymbols cannot be constructed directly")
 
-    cdef void initialize_arraynode(self, _Graph model, cppArrayNode* array_ptr) noexcept:
+    cdef void initialize_arraynode(self, _Graph model, ArrayNode* array_ptr) noexcept:
         self.array_ptr = array_ptr
         self.initialize_node(model, array_ptr)
 
     @classmethod
-    def _from_symbol(cls, Symbol symbol):
-        """Construct an ArraySymbol from another Symbol."""
-        # Disallow lateral casts or demotions.
-        # This is to prevent, say, an Add to be constructed from a Subtract
-        # There are ways around it, but this method is private anyway so it
-        # should be enough of a discouragement and for safety.
-        if not issubclass(cls, type(symbol)):
-            raise TypeError(f"cannot construct a {cls.__name__} from a {type(symbol).__name__}")
+    def _from_ptr(cls, model, capsule):
+        cdef ArraySymbol sym = super()._from_ptr(model, capsule)
 
-        # Now try to "promote" the type and raise an error if that fails.
-        cdef cppArrayNode* ptr = dynamic_cast_ptr[cppArrayNode](symbol.node_ptr)
-        if not ptr:
-            raise TypeError(f"given symbol cannot construct a {cls.__name__}")
+        sym.array_ptr = dynamic_cast_ptr[ArrayNode](sym.node_ptr)
+        if not sym.array_ptr:
+            raise TypeError(f"given pointer cannot construct an ArrayNode")
 
-        cdef ArraySymbol obj = cls.__new__(cls)
-        obj.initialize_arraynode(symbol.model, ptr)
-        return obj
+        return sym
 
     # Opt ArraySymbol out of default interoperability with NumPy ufuncs. We then
     # add explicit support with our various __<op>__() and __r<op>__ methods.
@@ -2505,7 +2491,47 @@ cdef class ArraySymbol(Symbol):
             raise TypeError("the state of an intermediate variable cannot be accessed without "
                             "locking the model first. See model.lock().")
 
-        return np.array(StateView(self, index), copy=copy)
+        # Make sure there is a state to access
+        cdef States states = self.model.states
+        states.resolve()
+        self.model._graph.recursive_initialize(states._states.at(index), self.node_ptr)
+
+        # Create a Py_buffer that we can use to construct our memoryview
+        cdef Py_buffer view
+
+        # Cython makes it hard to set view.obj to NULL, so we do it this way.
+        memset(&view, 0, sizeof(view))
+
+        view.buf = <void*>(self.array_ptr.buff(states._states.at(index)))
+        view.format = <char*>(self.array_ptr.format().c_str())
+        view.internal = NULL
+        view.itemsize = self.array_ptr.itemsize()
+        view.len = self.array_ptr.len(states._states.at(index))
+        view.ndim = self.array_ptr.ndim()
+        # view.obj = NULL  # See above
+        view.readonly = 1
+        view.shape = <Py_ssize_t*>(self.array_ptr.shape(states._states.at(index)).data())
+        view.strides = <Py_ssize_t*>(self.array_ptr.strides().data())
+        view.suboffsets = NULL
+
+        # Sometimes empty arrays have their buffer set to NULL which
+        # PyMemoryView_FromBuffer() does not like. So in that case we just
+        # make an empty array directly.
+        # Also, be aware the the format here is NumPy type string which is not
+        # exactly the same thing as a struct format string. But luckily is the
+        # same for all of the dtypes we care about.
+        if view.buf == NULL:
+            if view.len:
+                raise RuntimeError("Array had an unexpected shape")
+            shape = self.array_ptr.shape(states._states.at(index))
+            return np.empty(tuple(shape[i] for i in range(shape.size())), dtype=view.format)
+
+        # Now create a memoryview object. This, naturally, holds a view to memory
+        # that may be deallocated at any time, so we make a copy before returning.
+        cdef object mv = PyMemoryView_FromBuffer(&view)
+
+        return np.asarray(mv, copy=True)
+
 
     def _states_from_zipfile(self, zf, *, num_states, version):
 
@@ -2682,4 +2708,4 @@ cdef class ArraySymbol(Symbol):
 
 def _broadcast_shapes(vector[Py_ssize_t] lhs, vector[Py_ssize_t] rhs):
     """Broadcast the input shapes into a single shape or throw an error if they are incompatible."""
-    return tuple(cppbroadcast_shapes(span[Py_ssize_t](lhs), span[Py_ssize_t](rhs)))
+    return tuple(broadcast_shapes(span[Py_ssize_t](lhs), span[Py_ssize_t](rhs)))

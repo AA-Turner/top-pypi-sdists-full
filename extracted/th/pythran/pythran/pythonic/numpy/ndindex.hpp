@@ -3,6 +3,7 @@
 
 #include "pythonic/include/numpy/ndindex.hpp"
 
+#include "pythonic/types/tuple.hpp"
 #include "pythonic/utils/functor.hpp"
 
 #include <numeric>
@@ -12,18 +13,13 @@ PYTHONIC_NS_BEGIN
 namespace numpy
 {
   template <size_t N>
-  ndindex_iterator<N>::ndindex_iterator()
-  {
-  }
-
-  template <size_t N>
   ndindex_iterator<N>::ndindex_iterator(types::array_tuple<long, N> const &shape, long first)
       : index(first), shape(shape)
   {
   }
 
   template <size_t N>
-  types::array_tuple<long, N> ndindex_iterator<N>::operator*() const
+  typename ndindex_iterator<N>::value_type ndindex_iterator<N>::operator*() const
   {
     types::array_tuple<long, N> out;
     long mult = 1;
@@ -65,11 +61,6 @@ namespace numpy
   long ndindex_iterator<N>::operator-(ndindex_iterator<N> const &other) const
   {
     return index - other.index;
-  }
-
-  template <size_t N>
-  _ndindex<N>::_ndindex()
-  {
   }
 
   template <size_t N>

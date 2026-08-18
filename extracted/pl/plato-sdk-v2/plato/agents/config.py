@@ -24,6 +24,7 @@ from pydantic_settings import BaseSettings, SettingsConfigDict
 
 from plato.agents.schema import get_agent_config_schema, get_field_secrets
 from plato.markers import Secret
+from plato.tools.mcp import EnvMcpUrl
 
 
 class AgentConfig(BaseSettings):
@@ -58,6 +59,24 @@ class AgentConfig(BaseSettings):
     to its shell PATH. Defaults ``False`` so no behavior change for agents that
     don't want browser tooling — worlds must explicitly set this on the agent
     config when they want the model to use ``agent-browser``."""
+
+    computer_use_mcp_enabled: bool = False
+    """Opt-in flag: when True, the agent runtime starts a local MCP server
+    exposing computer-use tools (screenshot, click, type_text, key, scroll,
+    drag, bash, ...) that drive a REMOTE ubuntu-vm desktop, attaches it to the
+    agent's MCP config, and injects a short system-prompt block describing it.
+    Requires ``computer_use_vm_url``. The tools never target the agent VM
+    itself — MCP computer use is remote-desktop only."""
+
+    computer_use_vm_url: str | EnvMcpUrl | None = None
+    """Remote ubuntu-vm desktop the computer-use MCP tools drive. Either the
+    literal desktop_agent HTTP base URL (the ``{job_id}--9000.connect.plato.so``
+    connect-gateway form), or an ``{env: <alias>}`` reference the world resolves
+    to the booted sim's desktop URL at launch (same pattern as ``mcp_servers``
+    env aliases). Worlds that boot an ubuntu-vm env (e.g. cua-benchmark) also
+    inject it automatically when unset. Required when
+    ``computer_use_mcp_enabled`` is True; an alias that no world resolves fails
+    loudly at agent startup."""
 
     @classmethod
     def get_field_secrets(cls) -> dict[str, Secret]:

@@ -1,5 +1,6 @@
 import shutil
 from argparse import Namespace
+from textwrap import dedent
 
 import pytest
 
@@ -65,6 +66,60 @@ def test_convert_requirements_file(project, is_dev):
     )
 
 
+@pytest.mark.parametrize(
+    "line, expected",
+    [
+        ("requests==2.31.0\t# tab before comment", "requests==2.31.0"),
+        ("requests==2.31.0 # space before comment", "requests==2.31.0"),
+        ("requests==2.31.0\x0c# formfeed before comment", "requests==2.31.0"),
+        ("requests==2.31.0   \t  # mixed whitespace", "requests==2.31.0"),
+        ("# a whole-line comment", ""),
+        ("   \t# an indented whole-line comment", ""),
+        # A `#` not preceded by whitespace is part of the requirement, e.g. a URL fragment
+        (
+            "git+https://github.com/test-root/demo.git#egg=demo",
+            "git+https://github.com/test-root/demo.git#egg=demo",
+        ),
+    ],
+)
+def test_requirements_clean_line_strips_comments(line, expected):
+    parser = requirements.RequirementParser(None)
+    assert parser._clean_line(line) == expected
+
+
+def test_convert_requirements_file_with_tab_before_comment(project):
+    req_file = project.root.joinpath("reqs.txt")
+    req_file.write_text("webassets==2.0\t# a tab-separated comment\n", encoding="utf-8")
+    result, _ = requirements.convert(project, str(req_file), ns())
+
+    assert result["dependencies"] == ["webassets==2.0"]
+
+
+@pytest.mark.parametrize(
+    "reference,expected_url",
+    [
+        ("child.txt", "https://example.com/base/child.txt"),
+        ("../child.txt", "https://example.com/child.txt"),
+        ("https://other.example/child.txt", "https://other.example/child.txt"),
+    ],
+)
+def test_remote_requirements_resolve_nested_reference(mocker, reference, expected_url):
+    session = mocker.Mock()
+    session.get.side_effect = [
+        mocker.Mock(is_error=False, text=f"-r {reference}"),
+        mocker.Mock(is_error=False, text="webassets==2.0"),
+    ]
+    parser = requirements.RequirementParser(session)
+
+    parser.parse_file("https://example.com/base/requirements.txt")
+
+    assert [call.args[0] for call in session.get.call_args_list] == [
+        "https://example.com/base/requirements.txt",
+        expected_url,
+    ]
+    assert [req.as_line() for req in parser.requirements] == ["webassets==2.0"]
+
+
 def test_convert_requirements_file_without_name(project, vcs):
     req_file = project.root.joinpath("reqs.txt")
     project.root.joinpath("reqs.txt").write_text("git+https://github.com/test-root/demo.git\n")
@@ -98,6 +153,85 @@ def test_build_uv_pyproject_toml_with_workspace(project):
     assert data["tool"]["uv"]["workspace"]["members"] == ["packages/*"]
     assert data["tool"]["uv"]["sources"]["foo"] == {"workspace": True}
     assert data["tool"]["uv"]["sources"]["bar"] == {"workspace": True}
+
+
+def test_build_uv_files_without_project_name_and_version(project):
+    """uv requires project.name/version, so a placeholder is filled in for applications
+    that declare neither. See issue #3421.
+    """
+    from pdm.formats.uv import PLACEHOLDER_NAME, PLACEHOLDER_VERSION
+
+    del project.pyproject.metadata["name"]
+    del project.pyproject.metadata["version"]
+    project.pyproject.write()
+
+    locked_repo = LockedRepository({}, project.sources, project.environment)
+    with uv_file_builder(project, ">=3.10", [], locked_repo) as builder:
+        pyproject_path = builder.build_pyproject_toml()
+        with pyproject_path.open("rb") as fp:
+            pyproject_data = tomllib.load(fp)
+        lock_path = builder.build_uv_lock()
+        with lock_path.open("rb") as fp:
+            lock_data = tomllib.load(fp)
+
+    # uv refuses to parse a pyproject.toml whose [project] table lacks either key
+    assert pyproject_data["project"].get("name") == PLACEHOLDER_NAME
+    assert pyproject_data["project"].get("version") == PLACEHOLDER_VERSION
+    roots = [p for p in lock_data["package"] if p["name"] == PLACEHOLDER_NAME]
+    assert len(roots) == 1
+    assert roots[0]["version"] == PLACEHOLDER_VERSION
+    assert roots[0]["source"] == {"virtual": "."}
+
+
+def test_build_uv_lock_root_entry_groups_dependencies(project):
+    """The root entry carries the requirements, split between `dependencies` and
+    `optional-dependencies` by group. Covers the loop the placeholder fix de-indented."""
+    from pdm.formats.uv import PLACEHOLDER_NAME
+    from pdm.models.candidates import Candidate
+    from pdm.models.repositories import Package
+
+    del project.pyproject.metadata["name"]
+    project.pyproject.write()
+
+    locked_repo = LockedRepository({}, project.sources, project.environment)
+    reqs = []
+    for name, groups in [("first", ["default"]), ("second", ["tui"]), ("third", [])]:
+        req = parse_requirement(name)
+        req.groups = groups
+        reqs.append(req)
+        locked_repo.add_package(Package(Candidate(req, name=name, version="1.0"), [], ""))
+
+    # not in the locked repository, so _make_dependency returns None and it is skipped
+    unlocked = parse_requirement("nowhere")
+    unlocked.groups = ["default"]
+    reqs.append(unlocked)
+
+    with uv_file_builder(project, ">=3.10", reqs, locked_repo) as builder:
+        lock_path = builder.build_uv_lock()
+        with lock_path.open("rb") as fp:
+            lock_data = tomllib.load(fp)
+
+    root = next(p for p in lock_data["package"] if p["name"] == PLACEHOLDER_NAME)
+    assert [d["name"] for d in root["dependencies"]] == ["first"]
+    assert [d["name"] for d in root["optional-dependencies"]["tui"]] == ["second"]
+    # `third` belongs to no group and `nowhere` is not locked, so neither is listed
+    listed = {d["name"] for d in root["dependencies"]}
+    assert "third" not in listed and "nowhere" not in listed
+
+
+def test_build_uv_pyproject_toml_keeps_dynamic_version(project):
+    project.pyproject.metadata["dynamic"] = ["version"]
+    del project.pyproject.metadata["version"]
+    project.pyproject.write()
+
+    locked_repo = LockedRepository({}, project.sources, project.environment)
+    with uv_file_builder(project, ">=3.10", [], locked_repo) as builder:
+        path = builder.build_pyproject_toml()
+        with path.open("rb") as fp:
+            data = tomllib.load(fp)
+
+    assert "version" not in data["project"]
+    assert data["project"]["dynamic"] == ["version"]
 
 
 def test_build_uv_lock_with_local_path_wheel(project):
@@ -158,8 +292,8 @@ def test_convert_poetry(project):
     assert result["license"] == {"text": "MIT"}
     assert "repository" in result["urls"]
     assert result["requires-python"] == "!=3.0.*,!=3.1.*,!=3.2.*,!=3.3.*,<4.0,>=2.7"
-    assert 'cleo<1.0.0,>=0.7.6; python_version ~= "2.7"' in result["dependencies"]
-    assert 'cachecontrol[filecache]<1.0.0,>=0.12.4; python_version ~= "3.4"' in result["dependencies"]
+    assert 'cleo<0.8.0,>=0.7.6; python_version ~= "2.7"' in result["dependencies"]
+    assert 'cachecontrol[filecache]<0.13.0,>=0.12.4; python_version ~= "3.4"' in result["dependencies"]
     assert "babel==2.9.0" in result["dependencies"]
     assert "mysql" in result["optional-dependencies"]
     assert "psycopg2<3.0,>=2.7" in result["optional-dependencies"]["pgsql"]
@@ -180,6 +314,30 @@ def test_convert_poetry_optional_dependency_in_multiple_extras(project):
     assert result["optional-dependencies"]["mysql"] == ["mysqlclient<2.0,>=1.3"]
     assert result["optional-dependencies"]["pgsql"] == ["psycopg2<3.0,>=2.7"]
     assert result["optional-dependencies"]["all"] == ["psycopg2<3.0,>=2.7", "mysqlclient<2.0,>=1.3"]
+
+
+@pytest.mark.parametrize(
+    "constraint,expected",
+    [
+        # Poetry's caret keeps the leftmost non-zero component unchanged.
+        ("^1.2.3", "<2.0.0,>=1.2.3"),
+        ("^1.2", "<2.0,>=1.2"),
+        ("^1", "<2,>=1"),
+        ("^0.2.3", "<0.3.0,>=0.2.3"),
+        ("^0.0.3", "<0.0.4,>=0.0.3"),
+        ("^0.0", "<0.1,>=0.0"),
+        ("^0", "<1,>=0"),
+    ],
+)
+def test_convert_poetry_caret_constraint(project, constraint, expected):
+    pyproject = project.root / "pyproject.toml"
+    pyproject.write_text(
+        f'[tool.poetry]\nname = "demo"\nversion = "0.1.0"\n[tool.poetry.dependencies]\nfoo = "{constraint}"\n',
+        encoding="utf-8",
+    )
+    result, _ = poetry.convert(project, pyproject, ns())
+
+    assert result["dependencies"] == [f"foo{expected}"]
 
 
 def test_convert_poetry_12(project):
@@ -315,6 +473,60 @@ def test_export_find_links(project, monkeypatch):
     assert result.strip().splitlines()[-1] == f"--find-links {url}"
 
 
+@pytest.mark.parametrize(
+    "url,trusted_host",
+    [
+        # A port in the trusted host must not be lost when matching.
+        ("https://mirror.example.org:8443/simple", "mirror.example.org:8443"),
+        # Credentials in the index URL are not part of the host.
+        ("https://user:pw@mirror.example.org:8443/simple", "mirror.example.org:8443"),
+        ("https://user@mirror.example.org/simple", "mirror.example.org"),
+        # A trusted host without a port matches whatever port the URL uses.
+        ("https://mirror.example.org:8443/simple", "mirror.example.org"),
+        # Host comparison is case-insensitive.
+        ("https://Mirror.Example.ORG/simple", "mirror.example.org"),
+        # IPv6 literals stay bracketed.
+        ("https://[::1]:8443/simple", "[::1]:8443"),
+    ],
+)
+def test_import_requirements_trusted_host(project, tmp_path, url, trusted_host):
+    req_file = tmp_path / "requirements.txt"
+    req_file.write_text(f"--index-url {url}\n--trusted-host {trusted_host}\n", encoding="utf-8")
+    _, settings = requirements.convert(project, req_file, ns())
+    assert settings["source"] == [{"name": "pypi", "url": url, "verify_ssl": False}]
+
+
+@pytest.mark.parametrize(
+    "url,trusted_host",
+    [
+        ("https://mirror.example.org:8443/simple", "mirror.example.org:8443"),
+        ("https://user:pw@mirror.example.org:8443/simple", "mirror.example.org:8443"),
+        ("https://mirror.example.org/simple", "mirror.example.org"),
+        ("https://[::1]:8443/simple", "[::1]:8443"),
+    ],
+)
+def test_export_trusted_host_keeps_port(project, url, trusted_host):
+    project.pyproject.settings["source"] = [{"url": url, "name": "pypi", "verify_ssl": False}]
+    result = requirements.export(project, [], ns())
+    assert result.strip().splitlines()[-1] == f"--trusted-host {trusted_host}"
+
+
+@pytest.mark.parametrize(
+    "url,trusted_host",
+    [
+        # A different port is not covered by the trusted host.
+        ("https://mirror.example.org:8443/simple", "mirror.example.org:9999"),
+        ("https://mirror.example.org/simple", "mirror.example.org:8443"),
+        ("https://other.example.org:8443/simple", "mirror.example.org:8443"),
+    ],
+)
+def test_import_requirements_untrusted_host(project, tmp_path, url, trusted_host):
+    req_file = tmp_path / "requirements.txt"
+    req_file.write_text(f"--index-url {url}\n--trusted-host {trusted_host}\n", encoding="utf-8")
+    _, settings = requirements.convert(project, req_file, ns())
+    assert settings["source"] == [{"name": "pypi", "url": url, "verify_ssl": True}]
+
+
 def test_export_replace_project_root(project):
     artifact = FIXTURES / "artifacts/first-2.0.2-py2.py3-none-any.whl"
     shutil.copy2(artifact, project.root)
@@ -388,3 +600,45 @@ def test_export_from_pylock_not_empty(core, pdm):
     # Should contain expected packages
     output = result.stdout
     assert any(pkg in output for pkg in ["chardet", "idna"]), "Expected at least some packages in output"
+
+
+def test_parse_uv_lock_drops_the_placeholder_root(project):
+    """A project with no name gets a placeholder in the generated pyproject.toml,
+    so uv writes the root entry under that name. It must not become a dependency."""
+    from pdm.formats.uv import PLACEHOLDER_NAME
+    from pdm.resolver.uv import UvResolver
+
+    project.pyproject._data.get("project", {}).pop("name", None)
+    lock_path = project.root / "uv.lock"
+    lock_path.write_text(
+        dedent(
+            f"""
+            version = 1
+            requires-python = ">=3.8"
+
+            [[package]]
+            name = "{PLACEHOLDER_NAME}"
+            version = "0.0.0"
+            source = {{ virtual = "." }}
+
+            [[package]]
+            name = "packaging"
+            version = "24.0"
+            source = {{ registry = "https://pypi.org/simple" }}
+            sdist = {{ url = "https://example.invalid/packaging-24.0.tar.gz", hash = "sha256:abc" }}
+            """
+        ).strip(),
+        encoding="utf-8",
+    )
+
+    resolver = UvResolver(
+        project.environment,
+        requirements=[],
+        target=project.environment.spec,
+        update_strategy="all",
+        strategies=set(),
+    )
+    resolution = resolver._parse_uv_lock(lock_path)
+
+    names = {p.candidate.name for p in resolution.packages}
+    assert names == {"packaging"}, f"the placeholder root leaked into the resolution: {names}"

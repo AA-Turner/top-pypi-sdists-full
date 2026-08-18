@@ -1,4 +1,4 @@
-# Copyright 2024 D-Wave Systems Inc.
+# Copyright 2024 D-Wave
 #
 #    Licensed under the Apache License, Version 2.0 (the "License");
 #    you may not use this file except in compliance with the License.
@@ -394,6 +394,7 @@ class TestModel(unittest.TestCase):
             # only the decision is kept
             self.assertEqual(num_removed, 2)
             self.assertEqual(model.num_symbols(), 1)
+
 
         with self.subTest("disjoint lists"):
             model = Model()

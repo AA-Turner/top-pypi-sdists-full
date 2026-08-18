@@ -1,7 +1,7 @@
 import builtins
 import warnings
 from collections.abc import Iterator, Sequence
-from enum import Enum
+from enum import StrEnum
 from pathlib import Path
 from typing import TYPE_CHECKING
 
@@ -51,7 +51,7 @@ SYNTAX_THME = "monokai"
 SYNTAX_BACKGROUND = "black"
 
 
-class Format(str, Enum):
+class Format(StrEnum):
     """Valid manifest file formats."""
 
     yaml = "yaml"
@@ -59,7 +59,7 @@ class Format(str, Enum):
     toml = "toml"
 
 
-class ListFormat(str, Enum):
+class ListFormat(StrEnum):
     """Valid out formats for `npe2 list`."""
 
     table = "table"
@@ -237,6 +237,7 @@ def _make_rows(pm_dict: dict, normed_fields: Sequence[str]) -> Iterator[list]:
 def list_(
     fields: str = typer.Option(
         "name,version,npe2,contributions",
+        "--fields",
         help="Comma seperated list of fields to include in the output."
         "Names may contain dots, indicating nested manifest fields "
         "(`contributions.readers`). Fields names prefixed with `!` will be "

@@ -7,10 +7,17 @@ dispatch, eager fallback, sticky de-arm, shape-growth reporting and live
 serve-state introspection.
 
 An arm resolves and creates a runner at the same destination, binds the
-resident module tensors, and only then mutates the live module. Each compiled
-graph class is independently visible through :func:`entry_states`; no
-worker-owned archive, extraction tree, package loader or compatibility store
-exists here.
+constant table, and only then mutates any live state. Each compiled graph
+class is independently visible through :func:`entry_states`; no worker-owned
+archive, extraction tree, package loader or compatibility store exists here.
+
+pgw#1329: there are TWO constant sources and they share everything else.
+:func:`arm_compiled_graph` reads a resident eager module, which is why the
+pipeline had to be loaded before anything compiled could serve;
+:func:`arm_compiled_graph_from_store` reads the store by manifest FQN, with
+no ``nn.Module`` on the path at all. Loading the eager pipeline is therefore
+a POLICY choice (eager fallback, the mint's own proofs), not a precondition
+of compiled serving.
 """
 
 from __future__ import annotations
@@ -19,7 +26,7 @@ import logging
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import (
-    Any, Callable, Dict, List, Mapping, Optional, Sequence, Tuple,
+    Any, Callable, Dict, List, Mapping, Optional, Protocol, Sequence, Tuple,
 )
 
 from gen_worker._vendor.torchcg import (
@@ -33,12 +40,18 @@ from gen_worker._vendor.torchcg import (
     is_compiled_graph_key,
 )
 
+from gen_worker._vendor.torchcg import selection as tcg_selection
+
 from . import activity as activity_mod
+from . import aot_constants
 from . import aot_identity
 from . import local_cell_store
 from .cell_adopt import AdoptOutcome
 from . import serve_posture
 from . import shape_growth
+from .serve import role as serve_role
+from .serve import refusal as serve_refusal
+from .serve import selection as serve_selection
 from .compile_cache import (
     AdoptError,
     CompiledExecutionLaneUnavailableError,
@@ -67,8 +80,10 @@ RECAST_EVENT = "aot_input_recast"
 #: (``torch._inductor.codegen.aoti_runtime``'s ALIGNMENT). An input whose
 #: ``data_ptr()`` is not a multiple of this — diffusers hands the denoiser
 #: ``timesteps[i]``, a scalar VIEW at an odd element offset — makes the
-#: runner clone it per call. Not a knob: it is the compiler's constant.
-AOTI_ALIGNMENT = 16
+#: runner clone it per call. Not a knob: it is the compiler's constant — and
+#: since tcg#37 it is the CONTRACT's constant, stated once in
+#: ``ingress_selection_v1`` and read here rather than re-typed.
+AOTI_ALIGNMENT = tcg_selection.AOTI_ALIGNMENT
 #: THE compiled-graph artifact metadata/package version. v1 = ONE graph class
 #: per artifact: TCG metadata carries one ``graph_class`` block, never an
 #: ``entries`` map.
@@ -313,8 +328,12 @@ def excluded_inputs_present(
 #: integer. bfloat16 and float16 are deliberately NOT targets: bf16 has 8
 #: mantissa bits and would round timestep 999 to 1000, which is a numeric
 #: change, not a normalization.
-RECAST_TARGETS = ("float32", "float64")
-_INTEGER_DTYPES = ("int8", "int16", "int32", "int64", "uint8")
+#: tcg#37 owns both halves of this domain (``ingress_selection_v1``'s
+#: ``normalizations.recast``), and ``FeedNormalization.__post_init__`` refuses
+#: a target outside it — so a copy here could only ever drift away from the
+#: rule that is actually enforced.
+RECAST_TARGETS = tcg_selection.RECAST_TARGETS
+_INTEGER_DTYPES = tcg_selection.RECAST_SOURCES
 
 
 def recast_gap(spec: CallInput, value: Any) -> str:
@@ -475,19 +494,14 @@ def aligned_feeds(
 #: LAST, so an entry that matches every declared dimension sorts to the front
 #: of a refusal listing whatever its remaining complaint is. The rungs are
 #: ordinal only — nothing reads their absolute values.
+#:
+#: tcg#37 PUBLISHED this table (``ingress_selection_v1``, total over a closed
+#: ``MissReason`` enum with no default member, checked at import). It is read
+#: from there, spelled with ``str`` keys because this module's own miss reasons
+#: are strings: two copies of a ranking rule is how a second serve host and
+#: this one silently disagree about which class was closest.
 MISS_RUNGS: Mapping[str, int] = {
-    # The call fits this graph's shape and disagrees about one scalar fact.
-    "dtype_mismatch": 1,
-    "input_not_tensor": 2,
-    # A branch/adapter routing disagreement: same shape family, wrong class.
-    "input_excluded": 3,
-    # Shape disagreements — the call does not fit this graph at all.
-    "static_dim_mismatch": 4,
-    "range_violation": 4,
-    "symbol_inconsistent": 4,
-    "rank_mismatch": 5,
-    # The call does not even carry the input; nothing else was measurable.
-    "input_missing": 6,
+    reason.value: rung for reason, rung in tcg_selection.MISS_RUNGS.items()
 }
 _MISS_RUNG_DEFAULT = 9
 #: How many non-closest entries a refusal names individually before it
@@ -516,6 +530,13 @@ class IngressMiss:
 
 
 def _rung(reason: str) -> int:
+    """The contract's rung for a reason, or the floor for a worker-only one.
+
+    ``realign_unavailable`` and ``feed_arity_mismatch`` are HOST refusals with
+    no contract row (tcg#37 models the decision, not the buffers), so the
+    default survives — but it now applies only to reasons the contract
+    deliberately does not carry, instead of to anything unrecognized.
+    """
     return MISS_RUNGS.get(reason, _MISS_RUNG_DEFAULT)
 
 
@@ -767,9 +788,26 @@ class TCGEntryRunner:
 EntryRunner = TCGEntryRunner
 
 
+class _MissLike(Protocol):
+    """What the refusal SENTENCE needs off a miss, whoever produced it.
+
+    ``ingress_report`` yields this module's :class:`IngressMiss`; the tcg#37
+    selection yields ``torchcg.selection.IngressMiss``, whose ``reason`` is a
+    ``StrEnum`` over the identical tokens. Naming the two fields the wording
+    reads is what lets one renderer serve both without either type importing
+    the other.
+    """
+
+    @property
+    def reason(self) -> str: ...
+
+    @property
+    def detail(self) -> str: ...
+
+
 def no_entry_detail(
     tried: int,
-    missed: Sequence[Tuple[Tuple[int, ...], str, Tuple[IngressMiss, ...]]],
+    missed: Sequence[Tuple[Tuple[int, ...], str, Tuple[_MissLike, ...]]],
 ) -> str:
     """The ``no_entry_admits`` sentence, CLOSEST ENTRY FIRST (pgw#1074).
 
@@ -924,50 +962,84 @@ class EntryDispatch:
             names.extend(runner.declared_fqns())
         return tuple(sorted(set(names)))
 
+    def choose(
+        self, args: Sequence[Any], kwargs: Mapping[str, Any],
+    ) -> "serve_selection.EntryChoice[EntryRunner]":
+        """Rank the ARMED entries against this call through tcg#37.
+
+        The verdict is a VALUE, not an exception: the eager-capable host
+        renders it as :class:`IngressContractError` and falls back, and the
+        adopt-only role renders the same walk as a typed refusal
+        (:mod:`gen_worker.serve.refusal`) because it has no eager tier to fall
+        back to. One walk, two languages.
+        """
+        return serve_selection.choose(
+            [serve_selection.Candidate(name=name, ingress=runner.contract,
+                                       runner=runner)
+             for name, runner in self.runners],
+            args, dict(kwargs))
+
+    def refusal(
+        self, choice: "serve_selection.EntryChoice[EntryRunner]",
+        *, family: str = "", function: str = "", compiled_graph_key: str = "",
+    ) -> serve_refusal.AdoptOnlyRefusal:
+        """The adopt-only refusal a non-admitting choice means.
+
+        ``pending`` is the worker-side fact tcg#37 deliberately does not model
+        (*"selection never asks why a class is absent, unarmed or pending a
+        compile"*), and it is what separates a terminal defect from a placement
+        one: on an adopt-only pod nothing is going to compile the missing
+        class, so an unarmed declared class is somebody else's work, not a
+        refusal of the request's shape.
+        """
+        return serve_refusal.from_selection(
+            choice.outcome, choice.selection.ranked, choice.selection.ambiguous,
+            function=function, family=family,
+            compiled_graph_key=compiled_graph_key, unarmed=self.pending)
+
     def select(
         self, args: Sequence[Any], kwargs: Mapping[str, Any],
     ) -> Tuple[str, EntryRunner]:
-        admitted: List[Tuple[str, EntryRunner]] = []
-        missed: List[Tuple[str, EntryRunner]] = []
-        for name, runner in self.runners:
-            misses, _symbols = ingress_report(
-                runner.contract, args, kwargs, first_only=True)
-            if misses:
-                missed.append((name, runner))
-                continue
-            admitted.append((name, runner))
-        if not admitted:
-            # Only now is the exhaustive walk worth its cost: the call is
-            # already headed for the eager fallback, and the sentence it
-            # leaves behind is the whole diagnosis anyone will ever get.
-            ranked = [
-                (miss_distance(rep), name, rep) for name, rep in (
-                    (name, ingress_report(runner.contract, args, kwargs)[0])
-                    for name, runner in missed)]
-            pending = self.pending
-            if pending:
-                # pgw#1176: under accretion the commonest reason nothing
-                # admits a call is that its class has not been compiled YET.
-                # That is not a shape gap and must not be reported as one —
-                # the growth path would submit a class the declaration
-                # already contains.
-                raise IngressContractError(
-                    "entry_pending_compile",
-                    f"no ARMED entry admits this call ({len(self.runners)} "
-                    f"armed, {len(pending)} declared classes still pending "
-                    f"compile) — served EAGER while the background compile "
-                    f"reaches them: {list(pending)[:4]!r}. "
-                    + no_entry_detail(len(self.runners), ranked))
-            raise IngressContractError(
-                "no_entry_admits", no_entry_detail(len(self.runners), ranked))
-        if len(admitted) > 1:
-            names = sorted(name for name, _ in admitted)
+        """The eager-capable rendering of :meth:`choose`.
+
+        Raises exactly the three reasons it always did, with exactly the same
+        wording — the sentence is worker policy and tcg#37 says so outright
+        (*"a second host renders its own refusals in its own language"*). What
+        changed underneath is that the ranking, the admission rule and the rung
+        table now come from ``ingress_selection_v1`` instead of from this file.
+        """
+        choice = self.choose(args, kwargs)
+        selection = choice.selection
+        if choice.admitted and choice.runner is not None:
+            return selection.selected, choice.runner
+        if selection.outcome is tcg_selection.SelectionOutcome.CLASS_AMBIGUOUS:
+            names = sorted(selection.ambiguous)
             raise IngressContractError(
                 "entry_ambiguous",
-                f"{len(admitted)} entries admit this call ({names[:6]!r}) — "
+                f"{len(names)} entries admit this call ({names[:6]!r}) — "
                 f"the declaration does not discriminate these graph classes "
                 f"by ingress contract")
-        return admitted[0]
+        # A total miss. The exhaustive ranking is already in the selection —
+        # tcg#37 computes it ONLY on the refusal path, so the hot path still
+        # pays for one early-exit walk and not two.
+        ranked = [
+            (tuple(report.distance), report.name, tuple(report.misses))
+            for report in selection.ranked]
+        pending = self.pending
+        if pending:
+            # pgw#1176: under accretion the commonest reason nothing admits a
+            # call is that its class has not been compiled YET. That is not a
+            # shape gap and must not be reported as one — the growth path
+            # would submit a class the declaration already contains.
+            raise IngressContractError(
+                "entry_pending_compile",
+                f"no ARMED entry admits this call ({len(self.runners)} "
+                f"armed, {len(pending)} declared classes still pending "
+                f"compile) — served EAGER while the background compile "
+                f"reaches them: {list(pending)[:4]!r}. "
+                + no_entry_detail(len(self.runners), ranked))
+        raise IngressContractError(
+            "no_entry_admits", no_entry_detail(len(self.runners), ranked))
 
     def __call__(self, *args: Any, **kwargs: Any) -> Any:
         name, runner = self.select(args, kwargs)
@@ -1279,6 +1351,21 @@ def wrap_module(
                 phase=exc.reason,
             )
             report_ingress_refusal(state, exc.reason, str(exc))
+            if serve_role.adopt_only():
+                # pgw#1328: this role has no eager answer. Every line above
+                # still runs — the refusal is counted, evented and attributed
+                # exactly as it is on an eager-capable pod, because an
+                # adopt-only pod's telemetry must be READABLE beside the
+                # fleet's, not a separate dialect — and then it refuses
+                # instead of falling through to `original`.
+                raise serve_refusal.report(serve_refusal.AdoptOnlyRefusal(
+                    kind=serve_refusal.MissKind.CLASS_UNARMED
+                    if exc.reason == "entry_pending_compile"
+                    else serve_refusal.MissKind.NO_CLASS_ADMITS,
+                    function=label, family=str(meta.get("family") or ""),
+                    compiled_graph_key=str(
+                        meta.get("compiled_graph_key") or ""),
+                    detail=str(exc)[:400])).error() from exc
             if exc.reason == "entry_pending_compile":
                 # pgw#1176: the class IS declared; the background compile has
                 # not reached it. Submitting a shape gap here would ask the
@@ -1470,21 +1557,34 @@ def _tcg_destination(cache_dir: Optional[Path], compiled_graph_key: str) -> Path
     return root / "compiled-graph-runtime" / compiled_graph_key
 
 
-def arm_compiled_graph(
-    pipeline: Any,
-    cfg: Any,
-    compiled_graph_key: str,
-    cache_dir: Optional[Path] = None,
-    *,
-    declared: Sequence[str] = (),
-) -> Dict[str, Any]:
-    """Resolve, bind, then register one exact TCG graph class.
+@dataclass(frozen=True)
+class ResolvedGraphClass:
+    """One exact key, resolved and loaded, before any constant source is asked.
+
+    Everything both arms share. The two arms differ ONLY in where the
+    ``state_dict`` constants come from, so this half is written once: a
+    resolve that models the artifact differently from the arm is the
+    pgw#816/#822 class, one level up from the constant table.
+    """
+
+    key: str
+    runner: CompiledGraphRunner
+    metadata: Dict[str, Any]
+    graph_class: Mapping[str, Any]
+    graph: Mapping[str, Any]
+    name: str
+    target: str
+
+
+def _resolve_graph_class(
+    compiled_graph_key: str, cache_dir: Optional[Path]
+) -> ResolvedGraphClass:
+    """Resolve one exact key and validate its declared graph class.
 
     TCG is the only artifact/store authority. The first resolve establishes
     the immutable extraction directory and admitted metadata; ``runner`` is
     asked for the same key and the same directory, so its internal resolve
-    verifies/reuses that extraction instead of creating a second one. No live
-    module or dispatch state changes until TCG's exact constant bind succeeds.
+    verifies/reuses that extraction instead of creating a second one.
     """
 
     key = str(compiled_graph_key or "").strip()
@@ -1539,6 +1639,41 @@ def arm_compiled_graph(
         raise AdoptError(
             "contract_invalid", "TCG graph_class must name both graph class and target"
         )
+    return ResolvedGraphClass(
+        key=key,
+        runner=runner,
+        metadata=metadata,
+        graph_class=graph_class,
+        graph=graph,
+        name=name,
+        target=target,
+    )
+
+
+def arm_compiled_graph(
+    pipeline: Any,
+    cfg: Any,
+    compiled_graph_key: str,
+    cache_dir: Optional[Path] = None,
+    *,
+    declared: Sequence[str] = (),
+) -> Dict[str, Any]:
+    """Resolve, bind, then register one exact TCG graph class.
+
+    The MODULE-SOURCED arm: the live eager module supplies the constant
+    table, so the whole pipeline must be resident. That is a POLICY choice
+    (eager fallback, the mint's own parity proofs), not a property of
+    compiled serving — :func:`arm_compiled_graph_from_store` is the same arm
+    with the store as the constant source and no module at all.
+
+    No live module or dispatch state changes until TCG's exact constant bind
+    succeeds.
+    """
+
+    resolved = _resolve_graph_class(compiled_graph_key, cache_dir)
+    key, runner = resolved.key, resolved.runner
+    metadata, graph_class = resolved.metadata, resolved.graph_class
+    graph, name, target = resolved.graph, resolved.name, resolved.target
 
     family = str(getattr(cfg, "family", "") or "")
     module, attr = _target_owner(pipeline, target)
@@ -1597,6 +1732,187 @@ def arm_compiled_graph(
     return serve_meta
 
 
+@dataclass(frozen=True)
+class StoreArmedGraph:
+    """One graph class armed with NO module anywhere on the path.
+
+    The record is deliberately split along the family/instance line
+    (pgw#1326, §4.27). ``key``/``graph_class``/``target`` are CLASS-level and
+    checkpoint-free — the same three for every fine-tune sharing one ``.so``.
+    ``weight_set`` and ``constants`` are INSTANCE-level: which checkpoint this
+    binding is of, and the tensors it bound. Two of these over one ``key``
+    with different ``weight_set``s are two instances of one family, which is
+    the shape a resident-module arm could not state at all.
+
+    ``constants`` is held because TCG installs the constant pointers
+    ``user_managed``: the tensors must outlive the runner, and with no module
+    to own them this record is that owner. Dropping it frees the weights out
+    from under a live AOTI container.
+    """
+
+    key: str
+    graph_class: str
+    target: str
+    family: str
+    weight_set: aot_constants.WeightSetRef
+    runner: TCGEntryRunner
+    dispatch: EntryDispatch
+    meta: Dict[str, Any]
+    constants: Dict[str, Any]
+
+    def __call__(self, *args: Any, **kwargs: Any) -> Any:
+        """Route one call through the ordinary ingress dispatch.
+
+        There is no module to wrap, so this record IS the call site. The
+        selection, the contract refusals and the per-entry counters are the
+        same ones a wrapped module gets — nothing about serving is special
+        because the constants came from the store.
+
+        **This is the arm with NO eager tier** (pgw#1329: no ``nn.Module``, no
+        diffusers, anywhere on the path), so a miss here cannot degrade to
+        "serve this request eager" the way a wrapped module's can. It produces
+        pgw#1328's typed refusal instead, carrying tcg#37's ranking — which is
+        the whole reason the selection returns a value before it becomes an
+        exception.
+        """
+
+        choice = self.dispatch.choose(args, dict(kwargs))
+        if choice.admitted and choice.runner is not None:
+            self.dispatch.last_selected = choice.name
+            return choice.runner(*args, **kwargs)
+        raise serve_refusal.report(self.dispatch.refusal(
+            choice, family=self.family, function=self.target,
+            compiled_graph_key=self.key)).error()
+
+    def entry_states(self) -> Dict[str, Dict[str, Any]]:
+        """What this pod actually serves, in the SAME vocabulary as a
+        module-armed class (pgw#1176 §1.4). A store-armed entry that the hub
+        could not see would be a pod advertising less than it serves, which is
+        the same defect as advertising more."""
+
+        return dispatch_states(self.target, self.dispatch)
+
+    def disarm(self, reason: str) -> bool:
+        """De-arm this graph class, sticky for the boot (§4.31).
+
+        The store arm's half of :func:`disarm_entry`. It drops the entry and
+        NOT the constants: the runner's installed pointers are ``user_managed``
+        and the container is still loaded, so freeing the tensors here would
+        turn a de-arm into a use-after-free."""
+
+        return self.dispatch.remove(self.graph_class, str(reason))
+
+
+def arm_compiled_graph_from_store(
+    cfg: Any,
+    compiled_graph_key: str,
+    store: aot_constants.ConstantStore,
+    *,
+    device: str,
+    cache_dir: Optional[Path] = None,
+    declared: Sequence[str] = (),
+) -> StoreArmedGraph:
+    """Arm one exact graph class from STORE bytes, by manifest FQN.
+
+    The same resolve, the same ingress contract and the same
+    ``CompiledGraphRunner.bind`` as :func:`arm_compiled_graph` — with the
+    constant table read out of the store the artifact's manifest names,
+    instead of out of a resident ``nn.Module``. No ``nn.Module`` and no
+    diffusers class is constructed, imported or touched on this path, which
+    is what lets an adopt-only serve host (pgw#1328) exist at all.
+
+    Order is the contract:
+
+    1. resolve the exact key (quarantine, admission, graph-class validation);
+    2. parse the declared constant table as a versioned, typed manifest;
+    3. check the WHOLE table against the store's headers — a refusal here
+       has allocated no device memory and registered no entry;
+    4. read the constants onto ``device`` and bind;
+    5. only then register the entry.
+
+    A store miss therefore costs a header read. It cannot cost a
+    half-populated constant table on a runner that ``bind`` has already
+    marked failed and un-bindable.
+    """
+
+    resolved = _resolve_graph_class(compiled_graph_key, cache_dir)
+    family = str(getattr(cfg, "family", "") or "")
+    target_device = str(device or "").strip()
+    if not target_device:
+        raise AdoptError(
+            "device_missing",
+            f"graph class {resolved.name!r}: a store-sourced arm has no module to "
+            f"take a device from, so the caller must name one",
+        )
+
+    manifest = aot_constants.parse_constant_manifest(
+        resolved.graph_class,
+        compiled_graph_format=resolved.metadata.get(COMPILED_GRAPH_FORMAT_KEY),
+    )
+    plan = aot_constants.plan_store_constants(manifest, store)
+    contract = CallIngress.from_graph(resolved.graph)
+    try:
+        constants = aot_constants.realize_store_constants(
+            plan, store, device=target_device
+        )
+    except Exception as exc:
+        # §4.33 / pgw#1175: the ATTEMPT is the headroom gate, and its verdict
+        # has to be the SAME token whichever half of the attempt ran out of
+        # device memory. TCG classifies an OOM inside `bind`; nothing
+        # classified one inside the READ, and the store arm allocates the
+        # whole constant table there — so without this, the one arm that does
+        # its allocating before `bind` is the one arm whose OOM reaches
+        # `provision.arm_aot` as an unclassified crash instead of a typed
+        # `insufficient_adopt_vram` miss that leaves the pod serving eager.
+        if not is_cuda_oom(exc):
+            raise
+        raise AdoptError(
+            ADOPT_OOM_REASON,
+            f"graph class {resolved.name!r}: reading {len(plan)} store-sourced "
+            f"constant(s) onto {target_device} exhausted device memory "
+            f"({type(exc).__name__}: {exc})",
+        ) from exc
+    try:
+        resolved.runner.bind(constants, device=target_device)
+    except ConstantBindingError as exc:
+        reason = ADOPT_OOM_REASON if exc.reason == "out_of_memory" else exc.reason
+        raise AdoptError(reason, f"graph class {resolved.name!r}: {exc}") from exc
+
+    dispatch = EntryDispatch(declared=tuple(str(item) for item in declared))
+    entry_runner = TCGEntryRunner(
+        resolved.runner, contract, resolved.target, resolved.name, family
+    )
+    dispatch.add(resolved.name, entry_runner)
+    serve_meta: Dict[str, Any] = {
+        **resolved.metadata,
+        "family": family,
+        "compiled_graph_key": resolved.key,
+        "constant_source": "store",
+        "weight_set": str(plan.weight_set),
+    }
+    logger.info(
+        "aot-serve: armed TCG graph class %s on %s from the store "
+        "(%d constants, %d store-sourced, weight_set=%s, key=%s)",
+        resolved.name,
+        resolved.target,
+        len(resolved.runner.declared_fqns),
+        len(plan),
+        plan.weight_set,
+        resolved.key,
+    )
+    return StoreArmedGraph(
+        key=resolved.key,
+        graph_class=resolved.name,
+        target=resolved.target,
+        family=family,
+        weight_set=plan.weight_set,
+        runner=entry_runner,
+        dispatch=dispatch,
+        meta=serve_meta,
+        constants=constants,
+    )
+
+
 def disarm_entry(pipeline: Any, name: str, reason: str) -> bool:
     """De-arm ONE graph class, sticky for the boot. True when it was armed.
 
@@ -1623,6 +1939,27 @@ def disarm_entry(pipeline: Any, name: str, reason: str) -> bool:
     return dropped
 
 
+def dispatch_states(target: str, dispatch: EntryDispatch) -> Dict[str, Dict[str, Any]]:
+    """One dispatch's per-entry serve state, in THE vocabulary.
+
+    Written once because there are now two arms and the state a pod reports
+    must not depend on which one ran. Two spellings of one verdict is the
+    pgw#1247 class, and here it would be worse than cosmetic: the hub's
+    per-entry events are built from this, so a second vocabulary is a pod
+    whose store-armed classes are invisible to the fleet.
+    """
+
+    out: Dict[str, Dict[str, Any]] = {}
+    for name, runner in dispatch.runners:
+        out[name] = {
+            "state": "armed", "target": target, "calls": int(runner.calls)}
+    for name, why in dispatch.de_armed.items():
+        out[name] = {"state": "de_armed", "target": target, "reason": why}
+    for name in dispatch.pending:
+        out[name] = {"state": "pending", "target": target}
+    return out
+
+
 def entry_states(pipeline: Any) -> Dict[str, Dict[str, Any]]:
     """Per-entry SERVE STATE — what this pod actually serves, per graph class.
 
@@ -1630,6 +1967,11 @@ def entry_states(pipeline: Any) -> Dict[str, Dict[str, Any]]:
     ``armed`` / ``de_armed(reason)`` / ``pending`` — so there is no unit left
     that can advertise more than it serves. This is the record the per-entry
     hub events (§1.7) are built from.
+
+    This is the MODULE-armed half: it reads the pipeline marker. A
+    store-armed class has no pipeline to hang a marker on and reports through
+    :meth:`StoreArmedGraph.entry_states`, which returns the same vocabulary
+    from the same builder.
     """
     marker = getattr(pipeline, _MARKER_ATTR, None) or {}
     out: Dict[str, Dict[str, Any]] = {}
@@ -1637,13 +1979,7 @@ def entry_states(pipeline: Any) -> Dict[str, Dict[str, Any]]:
         dispatch = _dispatch_for(marker, target)
         if dispatch is None:
             continue
-        for name, runner in dispatch.runners:
-            out[name] = {
-                "state": "armed", "target": target, "calls": int(runner.calls)}
-        for name, why in dispatch.de_armed.items():
-            out[name] = {"state": "de_armed", "target": target, "reason": why}
-        for name in dispatch.pending:
-            out[name] = {"state": "pending", "target": target}
+        out.update(dispatch_states(str(target), dispatch))
     return out
 
 

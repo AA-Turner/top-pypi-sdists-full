@@ -49,6 +49,7 @@ from .paginator import (
     ListEntitySecurityProfilesPaginator,
     ListEvaluationFormsPaginator,
     ListEvaluationFormVersionsPaginator,
+    ListExtractionDefinitionsPaginator,
     ListFlowAssociationsPaginator,
     ListHoursOfOperationOverridesPaginator,
     ListHoursOfOperationsPaginator,
@@ -186,6 +187,8 @@ from .type_defs import (
     CreateEmailAddressResponseTypeDef,
     CreateEvaluationFormRequestTypeDef,
     CreateEvaluationFormResponseTypeDef,
+    CreateExtractionDefinitionRequestTypeDef,
+    CreateExtractionDefinitionResponseTypeDef,
     CreateHoursOfOperationOverrideRequestTypeDef,
     CreateHoursOfOperationOverrideResponseTypeDef,
     CreateHoursOfOperationRequestTypeDef,
@@ -253,6 +256,7 @@ from .type_defs import (
     DeleteDataTableRequestTypeDef,
     DeleteEmailAddressRequestTypeDef,
     DeleteEvaluationFormRequestTypeDef,
+    DeleteExtractionDefinitionRequestTypeDef,
     DeleteHoursOfOperationOverrideRequestTypeDef,
     DeleteHoursOfOperationRequestTypeDef,
     DeleteInstanceRequestTypeDef,
@@ -305,6 +309,8 @@ from .type_defs import (
     DescribeEmailAddressResponseTypeDef,
     DescribeEvaluationFormRequestTypeDef,
     DescribeEvaluationFormResponseTypeDef,
+    DescribeExtractionDefinitionRequestTypeDef,
+    DescribeExtractionDefinitionResponseTypeDef,
     DescribeHoursOfOperationOverrideRequestTypeDef,
     DescribeHoursOfOperationOverrideResponseTypeDef,
     DescribeHoursOfOperationRequestTypeDef,
@@ -455,6 +461,8 @@ from .type_defs import (
     ListEvaluationFormsResponseTypeDef,
     ListEvaluationFormVersionsRequestTypeDef,
     ListEvaluationFormVersionsResponseTypeDef,
+    ListExtractionDefinitionsRequestTypeDef,
+    ListExtractionDefinitionsResponseTypeDef,
     ListFlowAssociationsRequestTypeDef,
     ListFlowAssociationsResponseTypeDef,
     ListHoursOfOperationOverridesRequestTypeDef,
@@ -688,6 +696,7 @@ from .type_defs import (
     UpdateEmailAddressMetadataResponseTypeDef,
     UpdateEvaluationFormRequestTypeDef,
     UpdateEvaluationFormResponseTypeDef,
+    UpdateExtractionDefinitionRequestTypeDef,
     UpdateHoursOfOperationOverrideRequestTypeDef,
     UpdateHoursOfOperationRequestTypeDef,
     UpdateInstanceAttributeRequestTypeDef,
@@ -1279,6 +1288,16 @@ class ConnectClient(BaseClient):
         [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_connect/client/#create_evaluation_form)
         """
 
+    def create_extraction_definition(
+        self, **kwargs: Unpack[CreateExtractionDefinitionRequestTypeDef]
+    ) -> CreateExtractionDefinitionResponseTypeDef:
+        """
+        Creates an extraction definition in the specified Connect Customer instance.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/connect/client/create_extraction_definition.html)
+        [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_connect/client/#create_extraction_definition)
+        """
+
     def create_hours_of_operation(
         self, **kwargs: Unpack[CreateHoursOfOperationRequestTypeDef]
     ) -> CreateHoursOfOperationResponseTypeDef:
@@ -1681,6 +1700,16 @@ class ConnectClient(BaseClient):
         [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_connect/client/#delete_evaluation_form)
         """
 
+    def delete_extraction_definition(
+        self, **kwargs: Unpack[DeleteExtractionDefinitionRequestTypeDef]
+    ) -> dict[str, Any]:
+        """
+        Deletes an extraction definition from the specified Connect Customer instance.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/connect/client/delete_extraction_definition.html)
+        [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_connect/client/#delete_extraction_definition)
+        """
+
     def delete_hours_of_operation(
         self, **kwargs: Unpack[DeleteHoursOfOperationRequestTypeDef]
     ) -> EmptyResponseMetadataTypeDef:
@@ -2065,6 +2094,16 @@ class ConnectClient(BaseClient):
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/connect/client/describe_evaluation_form.html)
         [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_connect/client/#describe_evaluation_form)
+        """
+
+    def describe_extraction_definition(
+        self, **kwargs: Unpack[DescribeExtractionDefinitionRequestTypeDef]
+    ) -> DescribeExtractionDefinitionResponseTypeDef:
+        """
+        Describes an extraction definition in the specified Connect Customer instance.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/connect/client/describe_extraction_definition.html)
+        [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_connect/client/#describe_extraction_definition)
         """
 
     def describe_hours_of_operation(
@@ -2928,6 +2967,16 @@ class ConnectClient(BaseClient):
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/connect/client/list_evaluation_forms.html)
         [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_connect/client/#list_evaluation_forms)
+        """
+
+    def list_extraction_definitions(
+        self, **kwargs: Unpack[ListExtractionDefinitionsRequestTypeDef]
+    ) -> ListExtractionDefinitionsResponseTypeDef:
+        """
+        Lists extraction definitions in the specified Connect Customer instance.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/connect/client/list_extraction_definitions.html)
+        [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_connect/client/#list_extraction_definitions)
         """
 
     def list_flow_associations(
@@ -4295,6 +4344,16 @@ class ConnectClient(BaseClient):
         [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_connect/client/#update_evaluation_form)
         """
 
+    def update_extraction_definition(
+        self, **kwargs: Unpack[UpdateExtractionDefinitionRequestTypeDef]
+    ) -> dict[str, Any]:
+        """
+        Updates an extraction definition in the specified Connect Customer instance.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/connect/client/update_extraction_definition.html)
+        [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_connect/client/#update_extraction_definition)
+        """
+
     def update_hours_of_operation(
         self, **kwargs: Unpack[UpdateHoursOfOperationRequestTypeDef]
     ) -> EmptyResponseMetadataTypeDef:
@@ -5016,6 +5075,17 @@ class ConnectClient(BaseClient):
     def get_paginator(  # type: ignore[override]
         self, operation_name: Literal["list_evaluation_forms"]
     ) -> ListEvaluationFormsPaginator:
+        """
+        Create a paginator for an operation.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/connect/client/get_paginator.html)
+        [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_connect/client/#get_paginator)
+        """
+
+    @overload  # type: ignore[override]
+    def get_paginator(  # type: ignore[override]
+        self, operation_name: Literal["list_extraction_definitions"]
+    ) -> ListExtractionDefinitionsPaginator:
         """
         Create a paginator for an operation.
 

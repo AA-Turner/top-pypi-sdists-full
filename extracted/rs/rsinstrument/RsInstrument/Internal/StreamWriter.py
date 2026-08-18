@@ -3,8 +3,8 @@
 from enum import Flag
 from io import BytesIO, StringIO
 
-from .Utilities import size_to_kb_mb_string
 from .InstrumentErrors import RsInstrException
+from .Utilities import size_to_kb_mb_string
 
 
 class Type(Flag):

@@ -169,6 +169,9 @@ class TypedCoreConfig:
             - service_url (str)
                 The address of a service that already exists, e.g. `my-svc.my-ns.svc.cluster.local:8080`. The scheme is optional and defaults to http, a port must be included if the target isn't on the scheme's default port, and a path may be appended to rewrite requests into a subpath of the target. The address is not checked at deploy time: if it doesn't resolve, the proxy crashloops until it does.
 
+    url_slug : str, optional
+        Names the app's URL instead of having one generated for it: `api-<url_slug>.<your platform domain>`, or `ui-<url_slug>` for an app with browser-only auth. Cannot be combined with `generate_static_url`, which is the other way of deciding the same URL. A slug belongs to a single app across the whole platform deployment, and cannot be changed once an app has one.
+
     persistence : str, optional
         The persistence mode to deploy the app with.
         [Experimental] May change in the future.
@@ -186,7 +189,7 @@ class TypedCoreConfig:
         [Experimental] May change in the future.
 
     generate_static_url : bool, optional
-        Generate a static URL for the app based on its name.
+        Generate a static URL for the app based on its name. Cannot be combined with `url_slug`, which names the URL instead.
     """
 
     def __init__(
@@ -210,6 +213,7 @@ class TypedCoreConfig:
         skip_code_package: Optional[bool] = None,
         capsule_type: Optional[str] = None,
         proxy: Optional[ProxyConfigDict] = None,
+        url_slug: Optional[str] = None,
         persistence: Optional[str] = None,
         project: Optional[str] = None,
         branch: Optional[str] = None,
@@ -238,6 +242,7 @@ class TypedCoreConfig:
             "skip_code_package": skip_code_package,
             "capsule_type": capsule_type,
             "proxy": proxy,
+            "url_slug": url_slug,
             "persistence": persistence,
             "project": project,
             "branch": branch,

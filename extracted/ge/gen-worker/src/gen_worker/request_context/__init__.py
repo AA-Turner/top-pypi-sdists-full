@@ -313,6 +313,7 @@ class RequestContext(Generic[D]):
         root_slot: str = "",
         boot_warmup: bool = False,
         publishes: bool = False,
+        emits_media: Optional[bool] = None,
     ) -> None:
         self._request_id = str(request_id or "").strip()
         self._job_id = str(job_id or "").strip() or None
@@ -331,6 +332,11 @@ class RequestContext(Generic[D]):
         # authority; this declaration is the one justification. Stamped from
         # the spec at dispatch.
         self._publishes = bool(publishes)
+        # th#2069: the media sibling, and JOBS ONLY. None = not job-scoped (an
+        # endpoint, whose product IS media); False = a job that declared none,
+        # for which the hub minted no `upload_media` grant. Stamped from the
+        # spec at dispatch, like `publishes`.
+        self._emits_media = emits_media if emits_media is None else bool(emits_media)
         # Monotonic progress POSITION per phase (pgw#1294). Liveness for a job
         # is position ADVANCE within a phase budget — never pulse, never
         # duration — so a position that goes backwards is a lying instrument
@@ -1131,6 +1137,27 @@ class RequestContext(Generic[D]):
         at launch — grants remain the WHOLE write authority."""
         return self._publishes
 
+    @property
+    def emits_media(self) -> bool:
+        """This function MAY write media.
+
+        True for every endpoint (media is the product) and for a job that
+        declared ``emits_media=True``; False only for a job that declared
+        none, whose token carries no ``upload_media`` grant."""
+        return self._emits_media is not False
+
+    def _require_media_declaration(self, surface: str) -> None:
+        """Refuse a media write to a job that declared none.
+
+        Typed, and BEFORE a byte moves — the hub minted no `upload_media`
+        grant, so this is the same refusal arriving at the call site.
+        """
+        if self._emits_media is not False:
+            return
+        from ..api.errors import MediaNotDeclaredError
+
+        raise MediaNotDeclaredError(surface)
+
     #: Producer KINDS that still imply write authority. TRANSITIONAL: th#2052
     #: cuts it, at which point the declaration is the only justification and
     #: this tuple (and the branch reading it) is deleted whole. Until then a
@@ -1253,7 +1280,7 @@ class RequestContext(Generic[D]):
     _SAVE_BYTES_INLINE_THRESHOLD = 4 * 1024 * 1024
 
     def save_bytes(self, ref: str, data: bytes) -> Asset:
-        return self._save_bytes(ref, data, allow_inline=True)
+        return self._save_bytes(ref, data, allow_inline=True, media=True)
 
     def _save_result_envelope(self, ref: str, data: bytes) -> Asset:
         """Store the RESULT ENVELOPE blob, always as a real upload.
@@ -1264,9 +1291,15 @@ class RequestContext(Generic[D]):
         `Prefer: bytes=inline` hint is about MEDIA and must not reach here, or
         a `blob_ref` names a blob that was never uploaded.
         """
-        return self._save_bytes(ref, data, allow_inline=False)
+        return self._save_bytes(ref, data, allow_inline=False, media=False)
 
-    def _save_bytes(self, ref: str, data: bytes, *, allow_inline: bool) -> Asset:
+    def _save_bytes(
+        self, ref: str, data: bytes, *, allow_inline: bool, media: bool = True,
+    ) -> Asset:
+        # `media=False` is the result envelope: worker->orchestrator transport,
+        # not a client-visible output, so it rides no media grant.
+        if media:
+            self._require_media_declaration("save_bytes")
         if not isinstance(data, (bytes, bytearray)):
             raise TypeError("save_bytes expects bytes")
         data = bytes(data)
@@ -1513,6 +1546,7 @@ class RequestContext(Generic[D]):
         return self._save_file_inner(ref, src, create=create)
 
     def _save_file_inner(self, ref: str, src: str, *, create: bool = False) -> Asset:
+        self._require_media_declaration("save_file")
         size = int(os.path.getsize(src))
         _enforce_output_file_size_limit(size)
 
@@ -1580,8 +1614,8 @@ class RequestContext(Generic[D]):
 
 
 class _PublisherMixin:
-    """Producer-contract helpers shared by ConversionContext, DatasetContext
-    and TrainingContext: blob fetch by digest and ``materialize_blob``.
+    """Producer-contract helpers for ``JobContext``: blob fetch by digest and
+    ``materialize_blob``.
     Always combined with ``RequestContext`` via multiple inheritance (so
     ``self`` has ``_file_api_base_url`` / ``_owner`` /
     ``_get_worker_capability_token``).
@@ -2125,9 +2159,12 @@ class JobContext(_PublisherMixin, RequestContext[GenerationDefaults]):
     ``@endpoint`` and priced, with zero body edits. It is enforced by a test
     that registers one body both ways and runs it under both harnesses.
 
-    This class is the MERGE of what used to be three sibling contexts —
-    ``ConversionContext`` + ``TrainingContext`` + ``DatasetContext``, which are
-    now thin aliases of it and die at th#2052. It carries:
+    This class is the MERGE of what used to be three sibling contexts, one per
+    producer KIND (pgw#1294 merged them, pgw#1306 deleted the names). It is now
+    the ONLY producer context: no kind selects a different class, because no
+    kind decides what a body may write — the ``@job``/``@endpoint`` declaration
+    does (``publishes`` / ``emits_media``), and the hub mints the write grant
+    off that declaration. It carries:
 
     * the publisher surface from ``_PublisherMixin`` — ``save_checkpoint`` /
       ``open_checkpoint_stream`` (and ``gen_worker.convert.publish_flavors``),
@@ -2273,11 +2310,13 @@ class JobContext(_PublisherMixin, RequestContext[GenerationDefaults]):
         self._emit_event("request.training_metric", payload)
 
 
-# The three producer contexts MERGED into JobContext (pgw#1294): they were
-# already the same class plus one helper each, and one surface is what makes a
-# body portable between @job and @endpoint. THIN ALIASES, deliberately and
-# temporarily — th#2052 re-authors the last producer endpoints as jobs and
-# deletes these three names whole. Nothing new should reference them.
-ConversionContext = JobContext
-DatasetContext = JobContext
-TrainingContext = JobContext
+# pgw#1306: `ConversionContext` / `DatasetContext` / `TrainingContext` are GONE.
+# pgw#1294 merged them into JobContext and left the three names as thin aliases
+# with a sentence naming th#2052 as executioner; th#2052 is a tensorhub commit
+# and cannot delete Python, so this is where the sentence is carried out. The
+# names never crossed a wire — `kind` is an author declaration read from local
+# source (`@endpoint(kind=...)`, validated against a closed set in
+# `discovery/validation.py`), and `execution_hints["kind"]` is outbound-only —
+# so there is no retired shape to refuse, only a name to stop exporting.
+# `tests/test_producer_context_cut_pgw1306.py` is the text fence that keeps it
+# out.

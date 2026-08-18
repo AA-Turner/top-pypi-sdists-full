@@ -92,6 +92,52 @@ class TestExpand:
         assert got == []
         assert dropped_keys == {"fooo"}
 
+    def test_value_object_type_array_fails(self):
+        """
+        Value objects must not allow array values for @type during expansion.
+        """
+        input = {
+            "@context": {"ex": "http://example.com/"},
+            "ex:prop": {"@value": "value", "@type": ["ex:a", "ex:b"]},
+        }
+
+        with pytest.raises(jsonld.JsonLdError) as exc:
+            jsonld.expand(input)
+
+        assert exc.value.code == 'invalid typed value'
+
+    def test_value_object_type_null_expands(self):
+        """
+        Value objects with @type set to null should expand without @type.
+        """
+        input = {
+            "@context": {"ex": "http://example.com/"},
+            "ex:prop": {"@value": "value", "@type": None},
+        }
+
+        assert jsonld.expand(input) == [
+            {"http://example.com/prop": [{"@value": "value"}]}
+        ]
+
+    def test_context_keyword_redefinition_fails(self):
+        """
+        A local context must not define @context as a term.
+        """
+        input = {
+            "@context": {
+                "@context": {
+                    "p": "ex:p",
+                },
+            },
+            "@id": "ex:1",
+            "p": "value",
+        }
+
+        with pytest.raises(jsonld.JsonLdError) as exc:
+            jsonld.expand(input)
+
+        assert exc.value.code == 'keyword redefinition'
+
     def test_dropped_keys_complex(self):
         """
         Complex example with keys not in the context should correctly store
@@ -209,6 +255,28 @@ class TestExpand:
                 '@type': ['https://schema.org/WebContent'],
             }
         ]
+
+    # Issue 143
+    def test_expand_with_base_from_context(self):
+        """Expand with set or not should rely upon @base inside its @context."""
+
+        input = {
+            "@context": {
+                "name": "https://www.exmaple.com/name",
+                "@base": "https://www.example.com/",
+            },
+            "@id": "c/123",
+            "name": "alice",
+        }
+        expected = [
+            {
+                "@id": "https://www.example.com/c/123",
+                "https://www.exmaple.com/name": [{"@value": "alice"}],
+            }
+        ]
+        assert jsonld.expand(input, options={'base': ''}) == expected
+        assert jsonld.expand(input) == expected
+        assert jsonld.expand(input, options={'base': 'abc'}) == expected
 
     def _make_context(self, num_terms):
         """Build a context with `num_terms` @type:@vocab terms sharing a scoped context."""
@@ -470,6 +538,36 @@ class TestExpand:
         ]
 
         expanded = jsonld.expand(input)
+        assert expanded == expected
+
+    def test_expand_stringifies_datetime_date_values(self):
+        """
+        Non-JSON scalar objects such as datetime.date should get stringified.
+        """
+        from datetime import date
+
+        expanded = jsonld.expand({
+            '@context': {'@vocab': 'https://schema.org/'},
+            '@id': 'https://example.blog/post',
+            'publicationDate': date(2021, 1, 11),
+        })
+
+        assert expanded == [{
+            '@id': 'https://example.blog/post',
+            'https://schema.org/publicationDate': [{'@value': '2021-01-11'}],
+        }]
+
+    # Issue 167
+    def test_blank_node_prefixes(self):
+        """
+        Blank nodes as prefix should be used in IRI expansion.
+        """
+        input = {"@context": {"t": "_:b"}, "@type": "t:x"}
+
+        expected = [{"@type": ["_:bx"]}]
+
+        expanded = jsonld.expand(input)
+
         assert expanded == expected
 
 
@@ -871,6 +969,35 @@ class TestToRdf:
         result = jsonld.to_rdf(input)
         assert result == expected
 
+    def test_large_integer_to_rdf_double_conversion_processing_mode(self):
+        """
+        In json-ld-1.1 processing mode, large integers should be emitted as xsd:double,
+        while in json-ld-1.0 processing mode, they should be kept as xsd:integer.
+        """
+        input = {
+            '@id': 'http://example.com/s',
+            'http://example.com/p': 1000000000000000000000,
+        }
+
+        nquads = jsonld.to_rdf(input, options={'format': 'application/n-quads'})
+        assert nquads == (
+            '<http://example.com/s> <http://example.com/p> '
+            '"1.0E21"^^<http://www.w3.org/2001/XMLSchema#double> .\n'
+        )
+
+        nquads = jsonld.to_rdf(
+            input,
+            options={
+                'format': 'application/n-quads',
+                'processingMode': 'json-ld-1.0',
+            },
+        )
+        assert nquads == (
+            '<http://example.com/s> <http://example.com/p> '
+            '"1000000000000000000000"'
+            '^^<http://www.w3.org/2001/XMLSchema#integer> .\n'
+        )
+
     def test_compound_literal_direction_without_language(self):
         """
         Values with @direction should become compound literals during to_rdf
@@ -979,6 +1106,29 @@ _:b0 <http://purl.org/dc/terms/title> "Chapter 1: Jonathan Harker's Journal" .
         nquads = jsonld.to_rdf(input, options={'format': 'application/n-quads'})
         assert nquads == expected
 
+    # Issue 177
+    def test_fractional(self):
+        """
+        Number with 0 fractional part should parse to an xsd:integer
+        """
+        input = { "ex:value": 42.0 }
+
+        expected = '_:b0 <ex:value> "42"^^<http://www.w3.org/2001/XMLSchema#integer> .\n'
+
+        nquads = jsonld.to_rdf(input, options={'format': 'application/n-quads'})
+        assert nquads == expected
+
+    # Issue 175
+    def test_truncate_zeros_with_negative_exponent_numbers(self):
+        """
+        Numeric values with negative exponent should truncate zeros
+        """
+        input = { "ex:value": 0.97 }
+
+        expected = '_:b0 <ex:value> "9.7E-1"^^<http://www.w3.org/2001/XMLSchema#double> .\n'
+
+        nquads = jsonld.to_rdf(input, options={'format': 'application/n-quads'})
+        assert nquads == expected
 
 class TestFromRDF:
     def test_compound_literal_direction_without_language(self):

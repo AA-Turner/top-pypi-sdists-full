@@ -1,24 +1,30 @@
 #ifndef PYTHONIC_INCLUDE_NUMPY_NDENUMERATE_HPP
 #define PYTHONIC_INCLUDE_NUMPY_NDENUMERATE_HPP
 
+#include "pythonic/include/types/tuple.hpp"
 #include "pythonic/include/utils/functor.hpp"
+#include "pythonic/include/utils/numpy_conversion.hpp"
 
 PYTHONIC_NS_BEGIN
 
 namespace numpy
 {
   template <class E>
-  struct ndenumerate_iterator
-      : std::iterator<std::random_access_iterator_tag,
-                      std::tuple<types::array_tuple<long, E::value>, typename E::dtype>> {
+  struct ndenumerate_iterator {
+    using iterator_category = std::random_access_iterator_tag;
+    using value_type = std::tuple<types::array_tuple<long, E::value>, typename E::dtype>;
+    using difference_type = std::ptrdiff_t;
+    using pointer = value_type *;
+    using reference = value_type /* no ref */;
+
     long index;
     E const &expr;
     typename E::dtype *iter;
 
-    ndenumerate_iterator();
+    ndenumerate_iterator() = default;
     ndenumerate_iterator(E const &expr, long first);
 
-    std::tuple<types::array_tuple<long, E::value>, typename E::dtype> operator*() const;
+    value_type operator*() const;
 
     ndenumerate_iterator &operator++();
     ndenumerate_iterator &operator+=(long n);
@@ -37,7 +43,7 @@ namespace numpy
     E expr; // we need to keep one ref over the enumerated sequence alive
     iterator end_iter;
 
-    _ndenumerate();
+    _ndenumerate() = default;
     _ndenumerate(E const &expr);
     iterator &begin();
     iterator const &begin() const;

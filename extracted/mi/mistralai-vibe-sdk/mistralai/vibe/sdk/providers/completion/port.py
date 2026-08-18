@@ -24,6 +24,11 @@ class CompletionModel(Protocol):
     They know nothing about events.
     """
 
+    @property
+    def model(self) -> str:
+        """Model name used by this completion adapter."""
+        ...
+
     def complete(self, request: CompletionRequest) -> AsyncIterator[CompletionChunk]:
         """Stream the completion as chunks.
 

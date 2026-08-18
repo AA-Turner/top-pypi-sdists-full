@@ -90,11 +90,16 @@ def _validate_reference_part(value: Any, name: str) -> str:
         )
     if not value:
         raise ValueError("OCEL2 CSV %s values cannot be empty." % name)
-    if any(char in value for char in ("/", "#", "{")):
-        raise ValueError(
-            "OCEL2 CSV %s values cannot contain '/', '#', or '{'." % name
-        )
     return value
+
+
+def _escape_reference_part(value: str) -> str:
+    return (
+        value.replace("\\", "\\\\")
+        .replace("/", "\\/")
+        .replace("#", "\\#")
+        .replace("{", "\\{")
+    )
 
 
 def _validate_json_attribute_value(value: Any):
@@ -124,9 +129,11 @@ def _json_dumps(attrs: Dict[str, Any]) -> str:
 
 
 def _format_reference(object_id: Any, qualifier: Any = None, attrs: Optional[Dict[str, Any]] = None) -> str:
-    value = _validate_reference_part(object_id, "object id")
+    value = _escape_reference_part(_validate_reference_part(object_id, "object id"))
     if not _is_null(qualifier) and str(qualifier) != "":
-        value += "#" + _validate_reference_part(qualifier, "qualifier")
+        value += "#" + _escape_reference_part(
+            _validate_reference_part(qualifier, "qualifier")
+        )
     if attrs:
         value += _json_dumps(attrs)
     return value

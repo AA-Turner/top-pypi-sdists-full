@@ -1,7 +1,6 @@
 #ifndef PYTHONIC_INCLUDE_NUMPY_TRANSPOSE_HPP
 #define PYTHONIC_INCLUDE_NUMPY_TRANSPOSE_HPP
 
-#include "pythonic/include/types/ndarray.hpp"
 #include "pythonic/include/types/numpy_expr.hpp"
 #include "pythonic/include/utils/functor.hpp"
 #include "pythonic/include/utils/nested_container.hpp"
@@ -9,40 +8,36 @@
 
 PYTHONIC_NS_BEGIN
 
+namespace types
+{
+  template <class E>
+  struct numpy_texpr;
+  template <class T, class pS>
+  struct ndarray;
+} // namespace types
+
 namespace numpy
 {
 
   template <class E>
-  types::numpy_texpr<types::broadcasted<E>> transpose(types::broadcasted<E> const &arr)
-  {
-    return {arr};
-  }
+  types::numpy_texpr<types::broadcasted<E>> transpose(types::broadcasted<E> const &arr);
 
   template <class E>
-  E transpose(types::numpy_texpr<E> const &arr)
-  {
-    return arr.arg;
-  }
+  E transpose(types::numpy_texpr<E> const &arr);
 
   template <class E>
-  std::enable_if_t<E::value == 2, types::numpy_texpr<E>> transpose(E const &arr)
-  {
-    return {arr};
-  }
+  std::enable_if_t<E::value == 2, types::numpy_texpr<E>> transpose(E const &arr);
 
   template <class E>
-  std::enable_if_t<E::value == 1, E> transpose(E const &arr)
-  {
-    return arr;
-  }
+  std::enable_if_t<E::value == 1, E> transpose(E const &arr);
 
   template <class T, class pS>
-  std::enable_if_t<(std::tuple_size<pS>::value > 2),
-                   types::ndarray<T, types::array_tuple<long, std::tuple_size<pS>::value>>>
+  std::enable_if_t<(std::tuple_size_v<pS> > 2),
+                   types::ndarray<T, types::array_tuple<long, std::tuple_size_v<pS>>>>
   transpose(types::ndarray<T, pS> const &a);
 
   template <class T, class pS, size_t M>
-  types::ndarray<T, types::array_tuple<long, std::tuple_size<pS>::value>>
+  types::ndarray<T, types::array_tuple<long, std::tuple_size_v<pS>>>
   transpose(types::ndarray<T, pS> const &a, types::array_tuple<long, M> const &t);
 
   template <class T, class pS, class... Args>

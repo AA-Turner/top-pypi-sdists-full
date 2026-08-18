@@ -19,13 +19,11 @@ from warnings import warn
 import anndata as ad
 import h5py
 from anndata import AnnData
-from anndata._io.h5ad import _read_raw
-from anndata._io.h5ad import read_dataframe as read_h5ad_dataframe
-from anndata._io.specs.registry import read_elem, write_elem
 from anndata.compat import _read_attr
+from anndata.experimental import read_dispatched
+from anndata.io import read_elem, write_elem
 from scipy import sparse
 
-from .config import OPTIONS
 from .file_backing import AnnDataFileManager, MuDataFileManager
 from .mudata import ModDict, MuData
 
@@ -43,22 +41,8 @@ def _is_openfile(obj) -> bool:
 def _write_h5mu(file: h5py.File, mdata: MuData, write_data=True, **kwargs):
     from .. import __anndataversion__, __mudataversion__, __version__
 
-    write_elem(
-        file,
-        "obs",
-        mdata.strings_to_categoricals(
-            mdata._shrink_attr("obs", inplace=False).copy() if OPTIONS["pull_on_update"] is None else mdata.obs.copy()
-        ),
-        dataset_kwargs=kwargs,
-    )
-    write_elem(
-        file,
-        "var",
-        mdata.strings_to_categoricals(
-            mdata._shrink_attr("var", inplace=False).copy() if OPTIONS["pull_on_update"] is None else mdata.var.copy()
-        ),
-        dataset_kwargs=kwargs,
-    )
+    write_elem(file, "obs", mdata.strings_to_categoricals(mdata.obs.copy()), dataset_kwargs=kwargs)
+    write_elem(file, "var", mdata.strings_to_categoricals(mdata.var.copy()), dataset_kwargs=kwargs)
     write_elem(file, "obsm", dict(mdata.obsm), dataset_kwargs=kwargs)
     write_elem(file, "varm", dict(mdata.varm), dataset_kwargs=kwargs)
     write_elem(file, "obsp", dict(mdata.obsp), dataset_kwargs=kwargs)
@@ -82,10 +66,12 @@ def _write_h5mu(file: h5py.File, mdata: MuData, write_data=True, **kwargs):
         if write_data or not adata.isbacked:
             write_elem(group, "X", adata.X, dataset_kwargs=kwargs)
         if adata.raw is not None:
-            if not adata.isbacked:
+            if not adata.isbacked or write_data:
                 write_elem(group, "raw", adata.raw, dataset_kwargs=kwargs)
             else:
                 rawgrp = group.require_group("raw")
+                rawgrp.attrs["encoding-type"] = "anndata"
+                rawgrp.attrs["encoding-version"] = __anndataversion__
                 write_elem(rawgrp, "var", adata.raw.var, dataset_kwargs=kwargs)
                 write_elem(rawgrp, "varm", dict(adata.raw.varm), dataset_kwargs=kwargs)
 
@@ -160,26 +146,8 @@ def write_zarr(
             # zarr_format is not supported in this version of zarr
             file = zarr.open(store, mode="w")
         mdata = data
-        write_elem(
-            file,
-            "obs",
-            mdata.strings_to_categoricals(
-                mdata._shrink_attr("obs", inplace=False).copy()
-                if OPTIONS["pull_on_update"] is None
-                else mdata.obs.copy()
-            ),
-            dataset_kwargs=kwargs,
-        )
-        write_elem(
-            file,
-            "var",
-            mdata.strings_to_categoricals(
-                mdata._shrink_attr("var", inplace=False).copy()
-                if OPTIONS["pull_on_update"] is None
-                else mdata.var.copy()
-            ),
-            dataset_kwargs=kwargs,
-        )
+        write_elem(file, "obs", mdata.strings_to_categoricals(mdata.obs.copy()), dataset_kwargs=kwargs)
+        write_elem(file, "var", mdata.strings_to_categoricals(mdata.var.copy()), dataset_kwargs=kwargs)
         write_elem(file, "obsm", dict(mdata.obsm), dataset_kwargs=kwargs)
         write_elem(file, "varm", dict(mdata.varm), dataset_kwargs=kwargs)
         write_elem(file, "obsp", dict(mdata.obsp), dataset_kwargs=kwargs)
@@ -200,7 +168,7 @@ def write_zarr(
             if adata.raw is not None:
                 adata.strings_to_categoricals(adata.raw.var)
 
-            if write_data or not adata.isbacked:
+            if write_data:
                 if chunks is not None and not isinstance(adata.X, sparse.spmatrix):
                     write_elem(group, "X", adata.X, dataset_kwargs=dict(chunks=chunks, **kwargs))
                 else:
@@ -210,6 +178,8 @@ def write_zarr(
                     write_elem(group, "raw", adata.raw, dataset_kwargs=kwargs)
                 else:
                     rawgrp = group.require_group("raw")
+                    rawgrp.attrs["encoding-type"] = "anndata"
+                    rawgrp.attrs["encoding-version"] = __anndataversion__
                     write_elem(rawgrp, "var", adata.raw.var, dataset_kwargs=kwargs)
                     write_elem(rawgrp, "varm", dict(adata.raw.varm), dataset_kwargs=kwargs)
 
@@ -399,7 +369,7 @@ def write(filename: str | PathLike, data: MuData | AnnData):
 
 
 def read_h5mu(
-    filename: str | PathLike | io.IOBase | fsspec.OpenFile, backed: Literal["r", "r+"] | bool | None = None
+    filename: str | PathLike | io.IOBase | fsspec.core.OpenFile, backed: Literal["r", "r+"] | bool | None = None
 ) -> MuData:
     """Read an `.h5mu`-formatted HDF5 file.
 
@@ -444,8 +414,6 @@ def read_h5mu(
                     )
                 d = {}
                 for k in f.keys():
-                    if k in ["obs", "var"]:
-                        d[k] = read_h5ad_dataframe(f[k])
                     if k == "mod":
                         mods = ModDict()
                         gmods = f[k]
@@ -459,7 +427,7 @@ def read_h5mu(
                         if mod_order is not None and all(m in gmods for m in mod_order):
                             mods = {k: mods[k] for k in mod_order}
 
-                        d[k] = mods
+                        d["data"] = mods
                     else:
                         d[k] = read_elem(f[k])
 
@@ -471,7 +439,7 @@ def read_h5mu(
             else:
                 raise
 
-    mu = MuData._init_from_dict_(**d)
+    mu = MuData(**d)
     mu.file = manager
     return mu
 
@@ -485,25 +453,18 @@ def read_zarr(store: str | PathLike | MutableMapping | zarr.Group | zarr.abc.sto
         The file name or a Zarr store.
     """
     import zarr
-    from anndata._io.zarr import read_dataframe as read_zarr_dataframe
-
-    if isinstance(store, Path):
-        store = str(store)
 
     f = zarr.open(store, mode="r")
     d = {}
     if "mod" not in f.keys():
         return ad.read_zarr(store)
 
-    manager = MuDataFileManager()
     for k in f.keys():
-        if k in {"obs", "var"}:
-            d[k] = read_zarr_dataframe(f[k])
         if k == "mod":
             mods = {}
             gmods = f[k]
             for m in gmods.keys():
-                mods[m] = _read_zarr_mod(gmods[m], manager)
+                mods[m] = read_elem(gmods[m])
 
             mod_order = None
             if "mod-order" in gmods.attrs:
@@ -511,67 +472,45 @@ def read_zarr(store: str | PathLike | MutableMapping | zarr.Group | zarr.abc.sto
             if mod_order is not None and all(m in gmods for m in mod_order):
                 mods = {k: mods[k] for k in mod_order}
 
-            d[k] = mods
+            d["data"] = mods
         else:  # Base case
             d[k] = read_elem(f[k])
+    if "axis" in f.attrs:
+        d["axis"] = f.attrs["axis"]
 
-    mu = MuData._init_from_dict_(**d)
-    mu.file = manager
+    mu = MuData(**d)
+    mu.file = MuDataFileManager()
 
     return mu
 
 
-def _read_zarr_mod(g: zarr.Group, manager: MuDataFileManager = None, backed: bool = False) -> dict:
-    from anndata._io.zarr import _read_legacy_raw
-    from anndata._io.zarr import read_dataframe as read_zarr_dataframe
+def _read_h5mu_mod(g: h5py.Group, manager: MuDataFileManager = None, backed: bool = False) -> AnnData:
+    modname = Path(g.name).name
+    Xpath = g.name + "/X"
+    rawpath = g.name + "/raw"
+    rawXpath = rawpath + "/X"
 
-    d = {}
+    def ad_callback(func, elem_name, elem, iospec):
+        if not backed or elem_name not in (Xpath, rawpath):
+            return func(elem)
 
-    for k in g.keys():
-        if k in ("obs", "var"):
-            d[k] = read_zarr_dataframe(g[k])
-        elif k == "X":
-            X = g["X"]
-            if not backed:
-                d["X"] = read_elem(X)
-        elif k != "raw":
-            d[k] = read_elem(g[k])
-    adata = AnnData(**d)
+    def raw_callback(func, elem_name, elem, iospec):
+        if not backed or elem_name != rawXpath:
+            return func(elem)
+
+    ad = read_dispatched(g, callback=ad_callback)
     if manager is not None:
-        adata.file = AnnDataFileManager(adata, Path(g.name).name, manager)
+        ad.file = AnnDataFileManager(ad, modname, manager)
 
-    raw = _read_legacy_raw(
-        g, d.get("raw"), read_zarr_dataframe, read_elem, attrs=("var", "varm") if backed else ("var", "varm", "X")
-    )
-    if raw:
-        adata._raw = ad.Raw(adata, **raw)
-    return adata
-
-
-def _read_h5mu_mod(g: h5py.Group, manager: MuDataFileManager = None, backed: bool = False) -> dict:
-    d = {}
-
-    for k in g.keys():
-        if k in ("obs", "var"):
-            d[k] = read_h5ad_dataframe(g[k])
-        elif k == "X":
-            X = g["X"]
-            if not backed:
-                d["X"] = read_elem(X)
-        elif k != "raw":
-            d[k] = read_elem(g[k])
-    adata = AnnData(**d)
-    if manager is not None:
-        adata.file = AnnDataFileManager(adata, Path(g.name).name, manager)
-
-    raw = _read_raw(g, attrs=("var", "varm") if backed else ("var", "varm", "X"))
-    if raw:
-        adata._raw = ad.Raw(adata, **raw)
-    return adata
+    if "raw" in g:
+        ad.raw = read_dispatched(g["raw"], callback=raw_callback)
+    return ad
 
 
 def read_h5ad(
-    filename: str | PathLike | io.IOBase | fsspec.OpenFile, mod: str | None, backed: Literal["r", "r+"] | bool = False
+    filename: str | PathLike | io.IOBase | fsspec.core.OpenFile,
+    mod: str | None,
+    backed: Literal["r", "r+"] | bool = False,
 ) -> AnnData:
     """Read a modality from inside a .h5mu file or from a standalone .h5ad file (mod=None).
 
@@ -617,7 +556,7 @@ def read_h5ad(
 read_anndata = read_h5ad
 
 
-def read(filename: str | PathLike | io.IOBase | fsspec.OpenFile, **kwargs) -> MuData | AnnData:
+def read(filename: str | PathLike | io.IOBase | fsspec.core.OpenFile, **kwargs) -> MuData | AnnData:
     """Read an `.h5mu` formatted HDF5 file or a single modality inside it.
 
     This function is designed to enhance I/O ease of use.
@@ -648,7 +587,7 @@ def read(filename: str | PathLike | io.IOBase | fsspec.OpenFile, **kwargs) -> Mu
     """
     if isinstance(filename, io.IOBase):
         raise TypeError(
-            "Use format-specific functions (read_h5mu, read_zarr) to read from opened files or provide an fsspec.OpenFile instance."
+            "Use format-specific functions (read_h5mu, read_zarr) to read from opened files or provide an fsspec.core.OpenFile instance."
         )
     elif _is_openfile(filename):
         fname = filename.path

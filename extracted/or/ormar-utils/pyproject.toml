@@ -4,7 +4,7 @@ build-backend = "maturin"
 
 [project]
 name = "ormar-utils"
-version = "0.2.0"
+version = "0.2.1"
 description = "Rust-accelerated utility functions for the ormar ORM"
 readme = "README.md"
 license = { text = "MIT" }
@@ -37,7 +37,7 @@ features = ["pyo3/extension-module"]
 
 [tool.poetry]
 name = "ormar-utils"
-version = "0.2.0"
+version = "0.2.1"
 description = "Rust-accelerated utility functions for the ormar ORM"
 authors = ["Radosław Drążkiewicz <collerek@gmail.com>"]
 package-mode = false

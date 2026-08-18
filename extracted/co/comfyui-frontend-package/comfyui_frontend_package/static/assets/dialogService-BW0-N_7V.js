@@ -1,0 +1,1 @@
+import{ar as e}from"./settingStore-CCoqU-hD.js";export{e as useDialogService};

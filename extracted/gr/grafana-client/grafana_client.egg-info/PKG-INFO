@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: grafana-client
-Version: 5.1.0
+Version: 5.1.1
 Summary: A client library for accessing the Grafana HTTP API, written in Python
 Home-page: https://github.com/grafana-toolbox/grafana-client
 Author: Andrew Prokhorenkov
@@ -59,7 +59,7 @@ Description-Content-Type: text/markdown
 License-File: LICENSE
 Requires-Dist: niquests<4,>=3.4.0
 Requires-Dist: importlib-metadata; python_version <= "3.7"
-Requires-Dist: verlib2<0.4
+Requires-Dist: verlib2<26.3
 Provides-Extra: test
 Requires-Dist: parameterized<1,>=0.8; extra == "test"
 Requires-Dist: coverage[toml]<8; extra == "test"
@@ -74,7 +74,7 @@ Requires-Dist: pip-review<2; extra == "develop"
 Requires-Dist: ruff<0.16; python_version >= "3.7" and extra == "develop"
 Provides-Extra: release
 Requires-Dist: build<2; extra == "release"
-Requires-Dist: twine<7; extra == "release"
+Requires-Dist: twine<8; extra == "release"
 Dynamic: license-file
 
 # grafana-client
@@ -118,17 +118,18 @@ samples.
 from grafana_client import GrafanaApi
 
 # Connect to Grafana API endpoint using the `GrafanaApi` class
-grafana = GrafanaApi.from_url(
-    "https://username:password@daq.example.org/grafana/")
+grafana = GrafanaApi.from_url("https://username:password@daq.example.org/grafana/")
 
 # Create user
-user = grafana.admin.create_user({
-    "name": "User",
-    "email": "user@example.org",
-    "login": "user",
-    "password": "userpassword",
-    "OrgId": 1,
-})
+user = grafana.admin.create_user(
+    {
+        "name": "User",
+        "email": "user@example.org",
+        "login": "user",
+        "password": "userpassword",
+        "OrgId": 1,
+    }
+)
 
 # Change user password
 user = grafana.admin.change_user_password(2, "newpassword")
@@ -143,15 +144,13 @@ user = grafana.users.find_user("test@example.org")
 grafana.teams.add_team_member(2, user["id"])
 
 # Create or update a dashboard
-grafana.dashboard.update_dashboard(
-    dashboard={"dashboard": {...}, "folderId": 0, "overwrite": True})
+grafana.dashboard.update_dashboard(dashboard={"dashboard": {...}, "folderId": 0, "overwrite": True})
 
 # Delete a dashboard by UID
 grafana.dashboard.delete_dashboard(dashboard_uid="foobar")
 
 # Create organization
-grafana.organization.create_organization(
-    organization={"name": "new_organization"})
+grafana.organization.create_organization(organization={"name": "new_organization"})
 ```
 
 #### Asynchronous
@@ -163,21 +162,25 @@ need to properly handle coroutines (async/await).
 import asyncio
 from grafana_client import AsyncGrafanaApi
 
+
 async def main():
     # Connect to Grafana API endpoint using the `GrafanaApi` class
     grafana = AsyncGrafanaApi.from_url("https://username:password@daq.example.org/grafana/")
 
     # Create user
-    user = await grafana.admin.create_user({
-        "name": "User",
-        "email": "user@example.org",
-        "login": "user",
-        "password": "userpassword",
-        "OrgId": 1,
-    })
+    user = await grafana.admin.create_user(
+        {
+            "name": "User",
+            "email": "user@example.org",
+            "login": "user",
+            "password": "userpassword",
+            "OrgId": 1,
+        }
+    )
 
     # Change user password
     user = await grafana.admin.change_user_password(2, "newpassword")
+
 
 asyncio.run(main())
 ```
@@ -223,10 +226,7 @@ grafana = GrafanaApi.from_url(
 grafana = GrafanaApi.from_url(
     url="https://username:password@daq.example.org/grafana/",
 )
-grafana = GrafanaApi.from_url(
-    url="https://daq.example.org/grafana/",
-    credential=("username", "password")
-)
+grafana = GrafanaApi.from_url(url="https://daq.example.org/grafana/", credential=("username", "password"))
 
 # 4. Use HTTP Header authentication.
 grafana = GrafanaApi.from_url(

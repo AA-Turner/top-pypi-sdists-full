@@ -1,6 +1,9 @@
 """
 gunicorn_h1c - Fast HTTP/1.1 parser for Gunicorn
 
+SPDX-License-Identifier: MIT
+Copyright 2026 Benoit Chesneau
+
 This package provides high-performance HTTP/1.1 parsing using
 picohttpparser with SIMD optimizations (SSE4.2 on x86, NEON on ARM).
 
@@ -25,7 +28,7 @@ Usage:
     print(req.has_chunked)    # False
 """
 
-__version__ = "0.6.5"
+__version__ = "0.6.6"
 __all__ = [
     # Basic parser
     "parse_request",

@@ -1,10 +1,12 @@
 #ifndef PYTHONIC_NUMPY_STACK_HPP
 #define PYTHONIC_NUMPY_STACK_HPP
 
+#include <pythonic/include/numpy/stack.hpp>
+
 #include "pythonic/builtins/ValueError.hpp"
 #include "pythonic/builtins/len.hpp"
-#include <pythonic/include/numpy/stack.hpp>
 #include <pythonic/numpy/concatenate.hpp>
+#include <pythonic/types/ndarray.hpp>
 
 PYTHONIC_NS_BEGIN
 
@@ -19,8 +21,8 @@ namespace numpy
     if (builtins::len(args) == 0)
       throw pythonic::types::ValueError("need at least one array to stack");
     auto shape = sutils::getshape(args[0]);
-    constexpr long N = std::tuple_size<decltype(shape)>::value; // The length of the shape
-                                                                // array.
+    constexpr long N = std::tuple_size_v<decltype(shape)>; // The length of the shape
+                                                           // array.
     auto values = sutils::array(shape); // You can't do shape[i] but you can do shape.array()[i]
     types::array_tuple<long, N + 1> new_shape; // A new array that's 1 element longer than shape.
     // Insert a "0" at the position indicated by axis.

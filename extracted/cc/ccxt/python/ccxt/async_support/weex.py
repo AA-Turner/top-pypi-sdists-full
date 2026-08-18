@@ -7,8 +7,7 @@ from ccxt.async_support.base.exchange import Exchange
 from ccxt.abstract.weex import ImplicitAPI
 import asyncio
 import hashlib
-from ccxt.base.types import Any, Balances, Currencies, Currency, CurrencyInterface, Int, LastPrice, LastPrices, LedgerEntry, Leverage, Leverages, MarginMode, MarginModes, MarginModification, Market, Num, Order, OrderBook, OrderSide, OrderType, Position, PositionModeInfo, Status, Str, Strings, Ticker, Tickers, FundingRate, FundingRates, Trade, TradingFeeInterface, TransferEntry
-from typing import List
+from ccxt.base.types import Balances, Currencies, Currency, CurrencyInterface, Int, LastPrice, LastPrices, LedgerEntry, Leverage, Leverages, MarginMode, MarginModes, MarginModification, Market, Num, Order, OrderBook, OrderSide, OrderType, Position, PositionModeInfo, Status, Str, Strings, Ticker, Tickers, FundingRate, FundingRates, Trade, TradingFeeInterface, TransferEntry
 from ccxt.base.errors import ExchangeError
 from ccxt.base.errors import AuthenticationError
 from ccxt.base.errors import PermissionDenied
@@ -26,7 +25,7 @@ from ccxt.base.precise import Precise
 
 class weex(Exchange, ImplicitAPI):
 
-    def describe(self) -> Any:
+    def describe(self) -> object:
         return self.deep_extend(super(weex, self).describe(), {
             'id': 'weex',
             'name': 'Weex',
@@ -73,7 +72,7 @@ class weex(Exchange, ImplicitAPI):
                 'createTakeProfitOrder': True,
                 'createTrailingAmountOrder': False,
                 'createTrailingPercentOrder': False,
-                'createTriggerOrder': False,
+                'createTriggerOrder': True,
                 'deposit': False,
                 'editOrder': False,
                 'editOrders': False,
@@ -630,7 +629,7 @@ class weex(Exchange, ImplicitAPI):
                     'sandbox': True,
                     'createOrder': {
                         'marginMode': True,
-                        'triggerPrice': False,
+                        'triggerPrice': True,
                         'triggerPriceType': None,
                         'triggerDirection': False,
                         'stopLossPrice': True,
@@ -937,7 +936,7 @@ class weex(Exchange, ImplicitAPI):
             'networks': networks,
         })
 
-    async def fetch_markets(self, params={}) -> List[Market]:
+    async def fetch_markets(self, params={}) -> list[Market]:
         """
         retrieves data on all markets for exchagne
 
@@ -1338,7 +1337,7 @@ class weex(Exchange, ImplicitAPI):
         #
         return self.parse_last_prices(response, symbols)
 
-    def parse_last_price(self, entry: Any, market: Market = None) -> LastPrice:
+    def parse_last_price(self, entry: object, market: Market = None) -> LastPrice:
         #
         #     {
         #         "symbol": "ETHUSDT",
@@ -1471,7 +1470,7 @@ class weex(Exchange, ImplicitAPI):
         orderbook['nonce'] = self.safe_integer(response, 'lastUpdateId')
         return orderbook
 
-    async def fetch_ohlcv(self, symbol: str, timeframe: str = '1m', since: Int = None, limit: Int = None, params={}) -> List[list]:
+    async def fetch_ohlcv(self, symbol: str, timeframe: str = '1m', since: Int = None, limit: Int = None, params={}) -> list[list]:
         """
         fetches historical candlestick data containing the open, high, low, and close price, and the volume of a market
 
@@ -1497,7 +1496,7 @@ class weex(Exchange, ImplicitAPI):
         else:
             return await self.fetch_contract_ohlcv(symbol, timeframe, since, limit, params)
 
-    async def fetch_spot_ohlcv(self, symbol: str, timeframe: str = '1m', since: Int = None, limit: Int = None, params={}) -> List[list]:
+    async def fetch_spot_ohlcv(self, symbol: str, timeframe: str = '1m', since: Int = None, limit: Int = None, params={}) -> list[list]:
         """
  @ignore
         helper method for fetchOHLCV
@@ -1521,7 +1520,7 @@ class weex(Exchange, ImplicitAPI):
         response = await self.publicGetApiV3MarketKlines(self.extend(request, params))
         return self.parse_ohlcvs(self.to_array(response), market, timeframe, since, limit)
 
-    async def fetch_contract_ohlcv(self, symbol: str, timeframe: str = '1m', since: Int = None, limit: Int = None, params={}) -> List[list]:
+    async def fetch_contract_ohlcv(self, symbol: str, timeframe: str = '1m', since: Int = None, limit: Int = None, params={}) -> list[list]:
         """
  @ignore
         helper method for fetchOHLCV
@@ -1597,7 +1596,7 @@ class weex(Exchange, ImplicitAPI):
                 response = await self.contractGetCapiV3MarketKlines(self.extend(request, params))
         return self.parse_ohlcvs(self.to_array(response), market, timeframe, since, limit)
 
-    def parse_ohlcv(self, ohlcv: Any, market: Market = None) -> list:
+    def parse_ohlcv(self, ohlcv: object, market: Market = None) -> list:
         return [
             self.safe_integer(ohlcv, 0),
             self.safe_number(ohlcv, 1),
@@ -1607,7 +1606,7 @@ class weex(Exchange, ImplicitAPI):
             self.safe_number(ohlcv, 5),
         ]
 
-    async def fetch_trades(self, symbol: str, since: Int = None, limit: Int = None, params={}) -> List[Trade]:
+    async def fetch_trades(self, symbol: str, since: Int = None, limit: Int = None, params={}) -> list[Trade]:
         """
         get the list of most recent trades for a particular symbol
 
@@ -1767,7 +1766,7 @@ class weex(Exchange, ImplicitAPI):
         response = await self.contractGetCapiV3MarketOpenInterest(self.extend(request, params))
         return self.parse_open_interest(response, market)
 
-    def parse_open_interest(self, interest: Any, market: Market = None):
+    def parse_open_interest(self, interest: object, market: Market = None):
         #
         #     {
         #         "symbol": "ETHUSDT",
@@ -1826,7 +1825,7 @@ class weex(Exchange, ImplicitAPI):
         #
         return self.parse_funding_rates(response, symbols)
 
-    def parse_funding_rate(self, contract: Any, market: Market = None) -> FundingRate:
+    def parse_funding_rate(self, contract: object, market: Market = None) -> FundingRate:
         marketId = self.safe_string(contract, 'symbol')
         symbol = self.safe_symbol(marketId, market, None, 'swap')
         timestamp = self.safe_integer(contract, 'time')
@@ -1886,7 +1885,7 @@ class weex(Exchange, ImplicitAPI):
         response = await self.contractGetCapiV3MarketFundingRate(self.extend(request, params))
         return self.parse_funding_rate_histories(response, market, since, limit)
 
-    def parse_funding_rate_history(self, contract: Any, market: Market = None):
+    def parse_funding_rate_history(self, contract: object, market: Market = None):
         #
         #     {
         #         "symbol": "ETHUSDT",
@@ -1973,7 +1972,7 @@ class weex(Exchange, ImplicitAPI):
                 response = await self.contractPrivateGetCapiV3AccountBalance(params)
         return self.parse_balance(response)
 
-    def parse_balance(self, response: Any) -> Balances:
+    def parse_balance(self, response: object) -> Balances:
         result = {
             'info': response,
         }
@@ -1993,7 +1992,7 @@ class weex(Exchange, ImplicitAPI):
                 result[code] = account
         return self.safe_balance(result)
 
-    async def fetch_transfers(self, code: Str = None, since: Int = None, limit: Int = None, params={}) -> List[TransferEntry]:
+    async def fetch_transfers(self, code: Str = None, since: Int = None, limit: Int = None, params={}) -> list[TransferEntry]:
         """
         fetch a history of internal transfers made on an account
 
@@ -2166,17 +2165,20 @@ class weex(Exchange, ImplicitAPI):
         :param dict [params]: extra parameters specific to the exchange API endpoint
         :param str [params.clientOrderId]: client order id
         :param dict [params.takeProfit]: *takeProfit object in params* containing the triggerPrice at which the attached take profit order will be triggered and the triggerPriceType
-        :param float [params.takeProfit.triggerPrice]: The price at which the take profit order will be triggered
+        :param float [params.takeProfit.triggerPrice]: The price at which the take profit order will be triggered, takeProfit.stopPrice is supported alias
         :param str [params.takeProfit.triggerPriceType]: The type of the trigger price for the take profit order, either 'last' or 'mark'(default is 'last')
+        :param float [params.takeProfit.price]: not supported, the attached take profit always executes at market price
         :param dict [params.stopLoss]: *stopLoss object in params* containing the triggerPrice at which the attached stop loss order will be triggered and the triggerPriceType
-        :param float [params.stopLoss.triggerPrice]: The price at which the stop loss order will be triggered
+        :param float [params.stopLoss.triggerPrice]: The price at which the stop loss order will be triggered, stopLoss.stopPrice is supported alias
         :param str [params.stopLoss.triggerPriceType]: The type of the trigger price for the stop loss order, either 'last' or 'mark'(default is 'last')
-        :param float [params.stopLossPrice]: price to trigger stop-loss orders
+        :param float [params.stopLoss.price]: not supported, the attached stop loss always executes at market price
+        :param float [params.stopLossPrice]: price to trigger a standalone stop-loss order on an open position, the price argument is used execution price for limit orders
         :param str [params.stopLossPriceType]: The type of the trigger price for the stop loss order, either 'last' or 'mark'(default is 'last')
-        :param float [params.takeProfitPrice]: price to trigger take-profit orders
+        :param float [params.takeProfitPrice]: price to trigger a standalone take-profit order on an open position, the price argument is used execution price for limit orders
         :param str [params.takeProfitPriceType]: The type of the trigger price for the take profit order, either 'last' or 'mark'(default is 'last')
+        :param float [params.triggerPrice]: the price at which a trigger(entry conditional) order is triggered, cannot be used together with stopLossPrice or takeProfitPrice
         :param bool [params.reduceOnly]: A mark to reduce the position size only. Set to False by default. Need to set the position size when reduceOnly is True.
-        :param str [params.timeInForce]: GTC, IOC, or FOK(default is GTC for limit orders)
+        :param str [params.timeInForce]: GTC, IOC, or FOK(default is GTC for limit orders, not supported for trigger orders)
         :returns dict: an `order structure <https://docs.ccxt.com/?id=order-structure>`
         """
         if self.markets is None:
@@ -2216,10 +2218,11 @@ class weex(Exchange, ImplicitAPI):
         if not isMarketOrder:
             request['price'] = self.price_to_precision(symbol, price)
         triggerPrice, stopLossPrice, takeProfitPrice, query = self.handle_trigger_prices_and_params(symbol, params)
-        if triggerPrice is not None:
-            raise NotSupported(self.id + ' createOrder() does not support the triggerPrice parameter')
+        isTrigger = (triggerPrice is not None)
         isStopLoss = (stopLossPrice is not None)
         isTakeProfit = (takeProfitPrice is not None)
+        if isTrigger and (isStopLoss or isTakeProfit):
+            raise BadRequest(self.id + ' createOrder() cannot use the triggerPrice parameter together with the stopLossPrice or takeProfitPrice parameters')
         reduceOnly = self.safe_bool(query, 'reduceOnly')
         if isStopLoss or isTakeProfit:
             reduceOnly = True
@@ -2235,13 +2238,43 @@ class weex(Exchange, ImplicitAPI):
         hasTakeProfit = (takeProfit is not None)
         stopLoss = self.safe_dict(params, 'stopLoss')
         hasStopLoss = (stopLoss is not None)
+        # the exchange accepts but silently ignores execution prices for attached take profit / stop loss, they always execute at market price
+        if hasTakeProfit and (self.safe_number(takeProfit, 'price') is not None):
+            raise NotSupported(self.id + ' createOrder() does not support the price field inside the takeProfit params, the attached take profit executes at market price')
+        if hasStopLoss and (self.safe_number(stopLoss, 'price') is not None):
+            raise NotSupported(self.id + ' createOrder() does not support the price field inside the stopLoss params, the attached stop loss executes at market price')
         timeInForce = self.safe_string(params, 'timeInForce')
         clientOrderId = self.safe_string(params, 'clientOrderId')
         if clientOrderId is None:
             partner = self.safe_string(params, 'partner', 'b-WEEX111125')
             clientOrderId = partner + '-' + self.uuid22()
         callerMethodName = self.safe_string(params, 'callerMethodName')
-        if isStopLoss or isTakeProfit:
+        if isTrigger:
+            # entry conditional order, triggers a regular order when the trigger price is reached
+            if callerMethodName == 'createOrders':
+                raise NotSupported(self.id + ' createOrders() does not support trigger orders')
+            if timeInForce is not None:
+                raise BadRequest(self.id + ' createOrder() cannot use the timeInForce parameter with trigger orders')
+            request['clientAlgoId'] = clientOrderId
+            params['triggerPrice'] = self.price_to_precision(symbol, triggerPrice)
+            if isMarketOrder:
+                params['type'] = 'STOP_MARKET'
+            else:
+                params['type'] = 'STOP'
+            # conditional orders attach take profit / stop loss through the preset* fields instead of tpTriggerPrice/slTriggerPrice
+            if hasStopLoss:
+                stopLossTriggerPrice = self.safe_number_2(stopLoss, 'triggerPrice', 'stopPrice')
+                request['presetStopLossPrice'] = self.price_to_precision(symbol, stopLossTriggerPrice)
+                stopLossPriceType = self.safe_string(stopLoss, 'triggerPriceType')
+                if stopLossPriceType is not None:
+                    params['SlWorkingType'] = self.encode_trigger_price_type(stopLossPriceType)
+            if hasTakeProfit:
+                takeProfitTriggerPrice = self.safe_number_2(takeProfit, 'triggerPrice', 'stopPrice')
+                request['presetTakeProfitPrice'] = self.price_to_precision(symbol, takeProfitTriggerPrice)
+                takeProfitPriceType = self.safe_string(takeProfit, 'triggerPriceType')
+                if takeProfitPriceType is not None:
+                    params['TpWorkingType'] = self.encode_trigger_price_type(takeProfitPriceType)
+        elif isStopLoss or isTakeProfit:
             if callerMethodName == 'createOrders':
                 raise NotSupported(self.id + ' createOrders() does not support stop loss and take profit orders')
             if timeInForce is not None:
@@ -2276,13 +2309,13 @@ class weex(Exchange, ImplicitAPI):
                 request['timeInForce'] = 'GTC'
             request['newClientOrderId'] = clientOrderId
             if hasStopLoss:
-                stopLossTriggerPrice = self.safe_number(stopLoss, 'triggerPrice')
+                stopLossTriggerPrice = self.safe_number_2(stopLoss, 'triggerPrice', 'stopPrice')
                 request['slTriggerPrice'] = self.price_to_precision(symbol, stopLossTriggerPrice)
                 stopLossPriceType = self.safe_string(stopLoss, 'triggerPriceType')
                 if stopLossPriceType is not None:
                     params['SlWorkingType'] = self.encode_trigger_price_type(stopLossPriceType)
             if hasTakeProfit:
-                takeProfitTriggerPrice = self.safe_number(takeProfit, 'triggerPrice')
+                takeProfitTriggerPrice = self.safe_number_2(takeProfit, 'triggerPrice', 'stopPrice')
                 request['tpTriggerPrice'] = self.price_to_precision(symbol, takeProfitTriggerPrice)
                 takeProfitPriceType = self.safe_string(takeProfit, 'triggerPriceType')
                 if takeProfitPriceType is not None:
@@ -2395,7 +2428,7 @@ class weex(Exchange, ImplicitAPI):
         }
         return self.parse_orders(response, market, None, None, extendedParams)
 
-    async def cancel_orders(self, ids: List[str], symbol: Str = None, params={}):
+    async def cancel_orders(self, ids: list[str], symbol: Str = None, params={}):
         """
         cancel multiple orders
 
@@ -2503,7 +2536,7 @@ class weex(Exchange, ImplicitAPI):
             raise NullResponse(self.id + ' parseOrder() returned empty response')
         return self.parse_order(response, market)
 
-    async def fetch_open_orders(self, symbol: Str = None, since: Int = None, limit: Int = None, params={}) -> List[Order]:
+    async def fetch_open_orders(self, symbol: Str = None, since: Int = None, limit: Int = None, params={}) -> list[Order]:
         """
 
         https://www.weex.com/api-doc/spot/orderApi/UnfinishedOrders  # spot
@@ -2632,7 +2665,7 @@ class weex(Exchange, ImplicitAPI):
         }
         return self.parse_orders(response, market, since, limit, extendedParams)
 
-    async def fetch_closed_orders(self, symbol: Str = None, since: Int = None, limit: Int = None, params={}) -> List[Order]:
+    async def fetch_closed_orders(self, symbol: Str = None, since: Int = None, limit: Int = None, params={}) -> list[Order]:
         """
         fetches information on multiple closed orders made by the user
 
@@ -2664,7 +2697,7 @@ class weex(Exchange, ImplicitAPI):
             orders = await self.fetch_canceled_and_closed_orders(symbol, since, limit, params)
         return self.filter_by(orders, 'status', 'closed')
 
-    async def fetch_canceled_orders(self, symbol: Str = None, since: Int = None, limit: Int = None, params={}) -> List[Order]:
+    async def fetch_canceled_orders(self, symbol: Str = None, since: Int = None, limit: Int = None, params={}) -> list[Order]:
         """
         fetches information on multiple canceled orders made by the user
 
@@ -2696,7 +2729,7 @@ class weex(Exchange, ImplicitAPI):
             orders = await self.fetch_canceled_and_closed_orders(symbol, since, limit, params)
         return self.filter_by(orders, 'status', 'canceled')
 
-    async def fetch_orders(self, symbol: Str = None, since: Int = None, limit: Int = None, params={}) -> List[Order]:
+    async def fetch_orders(self, symbol: Str = None, since: Int = None, limit: Int = None, params={}) -> list[Order]:
         """
         fetches information on multiple spot orders made by the user
 
@@ -2753,7 +2786,7 @@ class weex(Exchange, ImplicitAPI):
         #
         return self.parse_orders(response, market, since, limit)
 
-    async def fetch_canceled_and_closed_orders(self, symbol: Str = None, since: Int = None, limit: Int = None, params={}) -> List[Order]:
+    async def fetch_canceled_and_closed_orders(self, symbol: Str = None, since: Int = None, limit: Int = None, params={}) -> list[Order]:
         """
         fetches information on multiple closed and canceled orders made by the user
 
@@ -2934,15 +2967,24 @@ class weex(Exchange, ImplicitAPI):
             marketType = 'spot' if (positionSide is None) else 'swap'
             market = self.safe_market(marketId, None, None, marketType)
         timestamp = self.safe_integer_n(order, ['transactTime', 'time', 'createTime'])
-        rawStatus = self.safe_string_lower(order, 'status')
+        rawStatus = self.safe_string_lower_2(order, 'status', 'algoStatus')  # algo(trigger) order payloads carry algoStatus instead of status
         triggerPrice = self.omit_zero(self.safe_string_2(order, 'triggerPrice', 'stopPrice'))
         rawType = self.safe_string_upper_2(order, 'type', 'orderType')
+        isReduceOnly = self.safe_bool(order, 'reduceOnly')
+        # entry conditional orders reuse the STOP/TAKE_PROFIT types with reduceOnly set to False, their trigger price is not a stop loss / take profit price
+        # a missing reduceOnly counts-only to keep the legacy mapping for responses that omit the field
+        isEntryTrigger = not (self.safe_bool(order, 'reduceOnly', True))
         takeProfitPrice = None
         stopLossPrice = None
-        if rawType == 'TAKE_PROFIT_MARKET' or rawType == 'TAKE_PROFIT':
-            takeProfitPrice = triggerPrice
-        elif rawType == 'STOP_LOSS' or rawType == 'STOP' or rawType == 'STOP_MARKET':
-            stopLossPrice = triggerPrice
+        if not isEntryTrigger:
+            if rawType == 'TAKE_PROFIT_MARKET' or rawType == 'TAKE_PROFIT':
+                takeProfitPrice = triggerPrice
+            elif rawType == 'STOP_LOSS' or rawType == 'STOP' or rawType == 'STOP_MARKET':
+                stopLossPrice = triggerPrice
+        if takeProfitPrice is None:
+            takeProfitPrice = self.omit_zero(self.safe_string(order, 'tpTriggerPrice'))  # attached take profit of a regular or conditional order
+        if stopLossPrice is None:
+            stopLossPrice = self.omit_zero(self.safe_string(order, 'slTriggerPrice'))  # attached stop loss of a regular or conditional order
         return self.safe_order({
             'id': self.safe_string_n(order, ['orderId', 'algoId', 'successOrderId']),
             'clientOrderId': self.safe_string_n(order, ['clientOrderId', 'origClientOrderId', 'clientAlgoId']),
@@ -2950,7 +2992,7 @@ class weex(Exchange, ImplicitAPI):
             'type': self.parse_order_type(rawType),
             'timeInForce': self.safe_string(order, 'timeInForce'),
             'postOnly': None,
-            'reduceOnly': self.safe_bool(order, 'reduceOnly'),
+            'reduceOnly': isReduceOnly,
             'side': self.safe_string_lower(order, 'side'),
             'amount': self.safe_string_2(order, 'origQty', 'quantity'),
             'price': self.safe_string(order, 'price'),
@@ -3032,7 +3074,7 @@ class weex(Exchange, ImplicitAPI):
         }
         return await self.fetch_my_trades(symbol, since, limit, self.extend(request, params))
 
-    async def fetch_my_trades(self, symbol: Str = None, since: Int = None, limit: Int = None, params={}) -> List[Trade]:
+    async def fetch_my_trades(self, symbol: Str = None, since: Int = None, limit: Int = None, params={}) -> list[Trade]:
         """
 
         https://www.weex.com/api-doc/spot/orderApi/TransactionDetails  # spot
@@ -3115,7 +3157,7 @@ class weex(Exchange, ImplicitAPI):
             responseList = self.to_array(response)
         return self.parse_trades(responseList, market, since, limit)
 
-    async def fetch_ledger(self, code: Str = None, since: Int = None, limit: Int = None, params={}) -> List[LedgerEntry]:
+    async def fetch_ledger(self, code: Str = None, since: Int = None, limit: Int = None, params={}) -> list[LedgerEntry]:
         """
         fetch the history of changes, actions done by the user or operations that altered the balance of the user
 
@@ -3276,7 +3318,7 @@ class weex(Exchange, ImplicitAPI):
         }
         return self.safe_string(types, type, type)
 
-    async def fetch_positions(self, symbols: Strings = None, params={}) -> List[Position]:
+    async def fetch_positions(self, symbols: Strings = None, params={}) -> list[Position]:
         """
         fetch all open positions
 
@@ -3311,7 +3353,7 @@ class weex(Exchange, ImplicitAPI):
         positions = await self.fetch_positions_for_symbol(symbol, params)
         return self.safe_dict(positions, 0)
 
-    async def fetch_positions_for_symbol(self, symbol: str, params={}) -> List[Position]:
+    async def fetch_positions_for_symbol(self, symbol: str, params={}) -> list[Position]:
         """
         fetch open positions for a single market
 
@@ -3450,7 +3492,7 @@ class weex(Exchange, ImplicitAPI):
             'info': position,
         })
 
-    async def close_all_positions(self, params={}) -> List[Position]:
+    async def close_all_positions(self, params={}) -> list[Position]:
         """
         closes all open positions for a market type
 
@@ -3789,7 +3831,7 @@ class weex(Exchange, ImplicitAPI):
         }
         return await self.contractPrivatePostCapiV3AccountMarginType(self.extend(request, params))
 
-    async def modify_margin_helper(self, symbol: str, amount: Any, type: Any, params={}) -> MarginModification:
+    async def modify_margin_helper(self, symbol: str, amount: object, type: object, params={}) -> MarginModification:
         if self.markets is None:
             await self.load_markets()
         isolatedPositionId = self.safe_string_n(params, ['positionId', 'id', 'isolatedPositionId'])
@@ -3896,7 +3938,7 @@ class weex(Exchange, ImplicitAPI):
         super(weex, self).set_sandbox_mode(enable)
         self.options['sandboxMode'] = enable
 
-    def sign(self, path: Any, api: Any = 'public', method='GET', params={}, headers: dict = None, body: Str = None):
+    def sign(self, path: object, api: object = 'public', method='GET', params={}, headers: dict = None, body: Str = None):
         endpoint = self.implode_params(path, params)
         query = self.omit(params, self.extract_params(path))
         isBatch = (path.find('batch') >= 0)
@@ -3930,7 +3972,7 @@ class weex(Exchange, ImplicitAPI):
         url = self.urls['api'][api] + '/' + endpoint
         return {'url': url, 'method': method, 'body': body, 'headers': headers}
 
-    def handle_errors(self, code: int, reason: str, url: str, method: str, headers: dict, body: str, response: Any, requestHeaders: Any, requestBody: Any):
+    def handle_errors(self, code: int, reason: str, url: str, method: str, headers: dict, body: str, response: object, requestHeaders: object, requestBody: object):
         #
         #     {
         #         "code": -1140,

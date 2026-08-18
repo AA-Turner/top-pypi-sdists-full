@@ -1,10 +1,8 @@
-Metadata-Version: 2.4
+Metadata-Version: 2.5
 Name: django-ninja
-Version: 1.6.2
+Version: 1.6.3
 Summary: Django Ninja - Fast Django REST framework
-Home-page: https://django-ninja.dev
-Author: Vitaliy Kucheryaviy
-Author-email: ppr.vitaly@gmail.com
+Author-email: Vitaliy Kucheryaviy <ppr.vitaly@gmail.com>
 Requires-Python: >=3.7
 Description-Content-Type: text/markdown
 Classifier: Intended Audience :: Information Technology
@@ -39,11 +37,12 @@ Classifier: Framework :: Django :: 5.0
 Classifier: Framework :: Django :: 5.1
 Classifier: Framework :: Django :: 5.2
 Classifier: Framework :: Django :: 6.0
+Classifier: Framework :: Django :: 6.1
 Classifier: Framework :: AsyncIO
 Classifier: Topic :: Internet :: WWW/HTTP :: HTTP Servers
 Classifier: Topic :: Internet :: WWW/HTTP
 License-File: LICENSE
-Requires-Dist: Django >=3.1, <6.1
+Requires-Dist: Django >=3.1
 Requires-Dist: pydantic >=2.0,<3.0.0
 Requires-Dist: pre-commit ; extra == "dev"
 Requires-Dist: mkdocs ; extra == "doc"
@@ -59,10 +58,12 @@ Requires-Dist: mypy==1.7.1 ; extra == "test"
 Requires-Dist: ruff==0.5.7 ; extra == "test"
 Requires-Dist: django-stubs ; extra == "test"
 Project-URL: Documentation, https://django-ninja.dev
+Project-URL: Homepage, https://django-ninja.dev
 Project-URL: Repository, https://github.com/vitalik/django-ninja
 Provides-Extra: dev
 Provides-Extra: doc
 Provides-Extra: test
+Import-Name: ninja
 
 <a href="https://github.com/vitalik/django-ninja/issues/383"><img width="814" alt="SCR-20230123-m1t" src="https://user-images.githubusercontent.com/95222/214056666-585c0479-c122-4cb3-add4-b8844088ccdd.png"></a>
 

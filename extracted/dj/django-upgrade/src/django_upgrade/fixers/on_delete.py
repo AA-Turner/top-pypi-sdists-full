@@ -86,9 +86,11 @@ def visit_Call(
         )
         and len(node.args) < 2
         and not any(isinstance(arg, ast.Starred) for arg in node.args)
-        and all(kw.arg != "on_delete" for kw in node.keywords)
+        # ** unpacking may contain on_delete
+        and all(kw.arg is not None and kw.arg != "on_delete" for kw in node.keywords)
     ):
-        should_update_import[state] = not models_imported
+        if not models_imported:
+            should_update_import[state] = True
         yield (
             ast_start_offset(node),
             partial(

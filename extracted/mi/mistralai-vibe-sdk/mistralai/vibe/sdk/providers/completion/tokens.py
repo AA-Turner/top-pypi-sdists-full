@@ -10,7 +10,12 @@ from mistralai.vibe.sdk.execution_record.state import MessageEntry, TaskState
 from mistralai.vibe.sdk.providers.completion.bridge import (
     build_completion_request_from_state,
 )
-from mistralai.vibe.sdk.providers.completion.messages import Message
+from mistralai.vibe.sdk.providers.completion.messages import (
+    ImageURLMessageContentChunk,
+    Message,
+    MessageContentChunk,
+    TextMessageContentChunk,
+)
 from mistralai.vibe.sdk.providers.completion.types import (
     AGENT_COMPACTION_SENTINEL_TYPE,
     COMPLETION_USAGE_ANNOTATION,
@@ -23,6 +28,9 @@ __all__ = [
     "estimate_context_tokens",
     "latest_compaction_sentinel_index",
 ]
+
+_IMAGE_CHUNK_TOKEN_ESTIMATE = 256
+_IMAGE_REFERENCE_TOKEN_CAP = 64
 
 
 def estimate_completion_request_tokens(request: CompletionRequest) -> int:
@@ -65,7 +73,9 @@ def estimate_context_tokens(
 
 
 def _estimate_message_tokens(message: Message) -> int:
-    token_count = 4 + _estimate_text_tokens(message.role) + _estimate_text_tokens(message.content)
+    token_count = (
+        4 + _estimate_text_tokens(message.role) + _estimate_content_tokens(message.content)
+    )
     if message.tool_call_id:
         token_count += _estimate_text_tokens(message.tool_call_id)
     if message.tool_calls:
@@ -88,6 +98,21 @@ def _estimate_text_tokens(text: str | None) -> int:
     if not text:
         return 0
     return max(1, math.ceil(len(text) / 4))
+
+
+def _estimate_content_tokens(content: str | list[MessageContentChunk] | None) -> int:
+    if content is None or isinstance(content, str):
+        return _estimate_text_tokens(content)
+
+    token_count = 0
+    for chunk in content:
+        match chunk:
+            case TextMessageContentChunk(text=text):
+                token_count += _estimate_text_tokens(text)
+            case ImageURLMessageContentChunk(image_url=image_url):
+                token_count += _IMAGE_CHUNK_TOKEN_ESTIMATE
+                token_count += min(_estimate_text_tokens(image_url.url), _IMAGE_REFERENCE_TOKEN_CAP)
+    return token_count
 
 
 def latest_compaction_sentinel_index(state: TaskState) -> int:

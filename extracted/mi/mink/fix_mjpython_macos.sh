@@ -29,8 +29,10 @@ if [[ ! -f "$DYLIB_PATH" ]]; then
     exit 1
 fi
 
-# Create the symlink.
+# Create the symlinks. Older uv python builds (<= 3.13) resolve libpython via
+# .venv/lib/; the 3.14 build switched to @rpath and resolves via the venv root.
 mkdir -p "$VENV_DIR/lib"
 ln -sf "$DYLIB_PATH" "$VENV_DIR/lib/$DYLIB_NAME"
+ln -sf "$DYLIB_PATH" "$VENV_DIR/$DYLIB_NAME"
 
-echo "Created symlink: $VENV_DIR/lib/$DYLIB_NAME -> $DYLIB_PATH"
+echo "Created symlinks: $VENV_DIR/{lib/,}$DYLIB_NAME -> $DYLIB_PATH"

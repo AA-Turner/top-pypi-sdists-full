@@ -1,18 +1,18 @@
 ######################################################################################################
 #                                 Auto-generated Metaflow stub file                                  #
 # MF version: 2.19.34.1+obcheckpoint(0.2.10);<unk>(<unk>);ob(v1)                                     #
-# Generated on 2026-08-14T20:17:07.930979                                                            #
+# Generated on 2026-08-17T19:44:19.530033                                                            #
 ######################################################################################################
 
 from __future__ import annotations
 
-import importlib
-import typing
 import abc
+import typing
+import importlib
 if typing.TYPE_CHECKING:
-    import importlib.metadata
     import os
     import abc
+    import importlib.metadata
 
 
 TYPE_CHECKING: bool

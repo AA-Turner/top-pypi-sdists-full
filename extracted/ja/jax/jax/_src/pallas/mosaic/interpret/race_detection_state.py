@@ -87,7 +87,12 @@ class RaceDetectionState[ThreadKey]:
   races_found: bool = False
 
   def check_read(
-      self, thread: ThreadKey, clock, buffer_key, rnge, source_info=None
+      self,
+      thread: ThreadKey,
+      clock: vc.NpVectorClock,
+      buffer_key,
+      rnge,
+      source_info=None,
   ):
     if source_info is not None:
       user_frame = source_info_util.summarize(source_info)
@@ -108,7 +113,7 @@ class RaceDetectionState[ThreadKey]:
           write_range,
           write_frame,
       ) = writes[i]
-      if vc.ordered(write_clock, clock):
+      if write_clock.ordered(clock):
         continue
       if not _ranges_overlap(rnge, write_range):
         continue
@@ -125,7 +130,12 @@ class RaceDetectionState[ThreadKey]:
       return
 
   def check_write(
-      self, thread: ThreadKey, clock, buffer_key, rnge, source_info=None
+      self,
+      thread: ThreadKey,
+      clock: vc.NpVectorClock,
+      buffer_key,
+      rnge,
+      source_info=None,
   ):
     if source_info is not None:
       user_frame = source_info_util.summarize(source_info)
@@ -149,7 +159,7 @@ class RaceDetectionState[ThreadKey]:
           write_range,
           write_frame,
       ) = writes[i]
-      if vc.ordered(write_clock, clock):
+      if write_clock.ordered(clock):
         continue
       if not _ranges_overlap(rnge, write_range):
         continue
@@ -169,7 +179,7 @@ class RaceDetectionState[ThreadKey]:
       read_thread, read_clock, read_range, read_frame = (
           reads[i]
       )
-      if vc.ordered(read_clock, clock):
+      if read_clock.ordered(clock):
         continue
       if not _ranges_overlap(rnge, read_range):
         continue

@@ -1,22 +1,20 @@
 Metadata-Version: 2.4
 Name: ovs
-Version: 3.7.1
+Version: 4.0.0
 Summary: Open vSwitch library
 Home-page: http://www.openvswitch.org/
 Author: Open vSwitch
 Author-email: dev@openvswitch.org
-License: Apache 2.0
+License-Expression: Apache-2.0
 Keywords: openvswitch,ovs,OVSDB
 Classifier: Development Status :: 5 - Production/Stable
 Classifier: Topic :: Database :: Front-Ends
 Classifier: Topic :: Software Development :: Libraries :: Python Modules
 Classifier: Topic :: System :: Networking
-Classifier: License :: OSI Approved :: Apache Software License
 Classifier: Programming Language :: Python :: 3
 Classifier: Programming Language :: Python :: 3.7
 Description-Content-Type: text/x-rst
 Requires-Dist: sortedcontainers
-Requires-Dist: pywin32>=1.0; sys_platform == "win32"
 Provides-Extra: dns
 Requires-Dist: unbound; extra == "dns"
 Provides-Extra: flow
@@ -35,7 +33,7 @@ Dynamic: description
 Dynamic: description-content-type
 Dynamic: home-page
 Dynamic: keywords
-Dynamic: license
+Dynamic: license-expression
 Dynamic: provides-extra
 Dynamic: requires-dist
 Dynamic: summary

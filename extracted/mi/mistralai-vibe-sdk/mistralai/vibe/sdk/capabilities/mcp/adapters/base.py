@@ -1,6 +1,6 @@
 """Shared implementation details for MCP capability adapters."""
 
-from collections.abc import Iterable
+from collections.abc import Awaitable, Callable, Iterable
 from typing import Any
 
 import structlog
@@ -10,6 +10,8 @@ from mistralai.vibe.sdk.capabilities.mcp.config import McpConfigBase
 from mistralai.vibe.sdk.capabilities.mcp.types import McpToolDescriptor
 
 logger = structlog.get_logger()
+
+_MAX_PAGINATION_PAGES = 100
 
 
 class McpAdapterBase[ConfigT: McpConfigBase]:
@@ -27,6 +29,22 @@ class McpAdapterBase[ConfigT: McpConfigBase]:
     def _log_context(self) -> dict[str, Any]:
         """Extra structured-log fields identifying this adapter's server."""
         return {}
+
+    @staticmethod
+    async def _collect_paged_tools(
+        fetch_page: Callable[[str | None], Awaitable[Any]],
+        max_pages: int = _MAX_PAGINATION_PAGES,
+    ) -> list[Any]:
+        """Exhaust a paginated list_tools sequence, guarding against runaway loops."""
+        raw_tools: list[Any] = []
+        cursor = None
+        for _ in range(max_pages):
+            result = await fetch_page(cursor)
+            raw_tools.extend(result.tools)
+            cursor = result.nextCursor
+            if cursor is None:
+                break
+        return raw_tools
 
     def _normalize_tools(self, raw_tools: Iterable[Any]) -> list[McpToolDescriptor]:
         """Convert raw MCP tool payloads into internal tool descriptors."""

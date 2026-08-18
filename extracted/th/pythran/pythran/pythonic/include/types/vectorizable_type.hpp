@@ -1,6 +1,11 @@
 #ifndef PYTHONIC_INCLUDE_TYPES_VECTORIZABLE_TYPE_HPP
 #define PYTHONIC_INCLUDE_TYPES_VECTORIZABLE_TYPE_HPP
 
+#include "pythonic/include/types/traits.hpp"
+
+#include <type_traits>
+#include <utility>
+
 PYTHONIC_NS_BEGIN
 namespace types
 {
@@ -41,9 +46,9 @@ namespace types
 
   template <class T>
   struct is_vectorizable_dtype {
-    static const bool value = is_dtype<T>::value && !std::is_same<T, bool>::value &&
-                              !std::is_same<T, long double>::value &&
-                              !std::is_same<T, std::complex<long double>>::value;
+    static const bool value = is_dtype<T>::value && !std::is_same_v<T, bool> &&
+                              !std::is_same_v<T, long double> &&
+                              !std::is_same_v<T, std::complex<long double>>;
   };
 
   /* trait to check if is T is an array-like type that supports vectorization

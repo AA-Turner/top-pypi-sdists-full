@@ -1,6 +1,6 @@
-Metadata-Version: 2.4
+Metadata-Version: 2.5
 Name: mudata
-Version: 0.3.10
+Version: 0.4.1
 Summary: Multimodal data
 Project-URL: Documentation, https://mudata.readthedocs.io/
 Project-URL: Homepage, https://muon.scverse.org
@@ -42,19 +42,17 @@ Classifier: Intended Audience :: Science/Research
 Classifier: License :: OSI Approved :: BSD License
 Classifier: Operating System :: OS Independent
 Classifier: Programming Language :: Python :: 3 :: Only
-Classifier: Programming Language :: Python :: 3.10
-Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
 Classifier: Programming Language :: Python :: 3.14
 Classifier: Topic :: Scientific/Engineering :: Bio-Informatics
-Requires-Python: >=3.10
-Requires-Dist: anndata>=0.10.8
+Requires-Python: >=3.12
+Requires-Dist: anndata>=0.11
 Requires-Dist: h5py
 Requires-Dist: numpy
 Requires-Dist: pandas>=1.4
 Requires-Dist: scipy
-Requires-Dist: scverse-misc<=0.1.1,>=0.0.3
+Requires-Dist: scverse-misc[settings]>=0.1.1
 Requires-Dist: session-info2
 Provides-Extra: io
 Requires-Dist: fsspec; extra == 'io'

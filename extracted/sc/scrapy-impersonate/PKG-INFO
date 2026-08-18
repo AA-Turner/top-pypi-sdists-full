@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: scrapy-impersonate
-Version: 1.8.0
+Version: 1.8.1
 Summary: Scrapy download handler that can impersonate browser fingerprints
 Home-page: https://github.com/jxlil/scrapy-impersonate
 Author: Jalil SA (jxlil)
@@ -15,7 +15,7 @@ Requires-Python: >=3.10
 Description-Content-Type: text/markdown
 License-File: LICENSE
 Requires-Dist: curl-cffi>=0.15.0
-Requires-Dist: scrapy>=2.13.4
+Requires-Dist: scrapy>=2.14.0
 Dynamic: author
 Dynamic: classifier
 Dynamic: description

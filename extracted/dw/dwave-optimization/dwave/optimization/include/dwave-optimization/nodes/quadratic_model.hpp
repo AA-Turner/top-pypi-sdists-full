@@ -1,4 +1,4 @@
-// Copyright 2024 D-Wave Systems Inc.
+// Copyright 2024 D-Wave
 //
 //    Licensed under the Apache License, Version 2.0 (the "License");
 //    you may not use this file except in compliance with the License.
@@ -101,6 +101,10 @@ class QuadraticModelNode : public ScalarOutputMixin<EqualityMixin<ArrayNode>> {
     QuadraticModel* get_quadratic_model();
 
  private:
+    // Redundant, because we could dynamic_cast each time from predecessors(),
+    // but this is more performant
+    const ArrayNode* array_ptr_;
+
     QuadraticModel quadratic_model_;
 };
 

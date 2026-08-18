@@ -37,6 +37,7 @@ class RawSessionsClient:
         include_sub_sessions: typing.Optional[bool] = None,
         include_task_sessions: typing.Optional[bool] = None,
         aop_asset_id: typing.Optional[str] = None,
+        workspace_id: typing.Optional[str] = None,
         trigger_type: typing.Optional[typing.Sequence[str]] = None,
         created_after: typing.Optional[dt.datetime] = None,
         created_before: typing.Optional[dt.datetime] = None,
@@ -47,7 +48,7 @@ class RawSessionsClient:
         request_options: typing.Optional[RequestOptions] = None,
     ) -> SyncPager[SessionOut]:
         """
-        Retrieve a paginated list of agent sessions (conversations) with optional title search, state filtering, source channel filtering, date range filtering, and sorting. By default, AOP/workflow runs and branched sub-sessions are excluded.
+        Retrieve a paginated list of agent sessions (conversations) with optional title search, state filtering, source channel filtering, date range filtering, and sorting. By default, AOP/workflow runs and branched sub-sessions are excluded, and only sessions in the caller's current workspace are visible — pass `workspace_id` to list sessions in another workspace the caller belongs to.
 
         Parameters
         ----------
@@ -74,6 +75,9 @@ class RawSessionsClient:
 
         aop_asset_id : typing.Optional[str]
             Only include task sessions originating from this AOP asset identifier
+
+        workspace_id : typing.Optional[str]
+            Workspace to list sessions from. Defaults to the caller's current workspace; any other workspace the caller is a member of can be requested explicitly.
 
         trigger_type : typing.Optional[typing.Sequence[str]]
             Trigger type(s) to filter by (e.g. 'schedule', 'api', 'email'). Repeat the parameter or pass a comma-separated list.
@@ -118,6 +122,7 @@ class RawSessionsClient:
                 "include_sub_sessions": include_sub_sessions,
                 "include_task_sessions": include_task_sessions,
                 "aop_asset_id": aop_asset_id,
+                "workspace_id": workspace_id,
                 "trigger_type": trigger_type,
                 "created_after": serialize_datetime(created_after) if created_after is not None else None,
                 "created_before": serialize_datetime(created_before) if created_before is not None else None,
@@ -148,6 +153,7 @@ class RawSessionsClient:
                     include_sub_sessions=include_sub_sessions,
                     include_task_sessions=include_task_sessions,
                     aop_asset_id=aop_asset_id,
+                    workspace_id=workspace_id,
                     trigger_type=trigger_type,
                     created_after=created_after,
                     created_before=created_before,
@@ -348,6 +354,7 @@ class AsyncRawSessionsClient:
         include_sub_sessions: typing.Optional[bool] = None,
         include_task_sessions: typing.Optional[bool] = None,
         aop_asset_id: typing.Optional[str] = None,
+        workspace_id: typing.Optional[str] = None,
         trigger_type: typing.Optional[typing.Sequence[str]] = None,
         created_after: typing.Optional[dt.datetime] = None,
         created_before: typing.Optional[dt.datetime] = None,
@@ -358,7 +365,7 @@ class AsyncRawSessionsClient:
         request_options: typing.Optional[RequestOptions] = None,
     ) -> AsyncPager[SessionOut]:
         """
-        Retrieve a paginated list of agent sessions (conversations) with optional title search, state filtering, source channel filtering, date range filtering, and sorting. By default, AOP/workflow runs and branched sub-sessions are excluded.
+        Retrieve a paginated list of agent sessions (conversations) with optional title search, state filtering, source channel filtering, date range filtering, and sorting. By default, AOP/workflow runs and branched sub-sessions are excluded, and only sessions in the caller's current workspace are visible — pass `workspace_id` to list sessions in another workspace the caller belongs to.
 
         Parameters
         ----------
@@ -385,6 +392,9 @@ class AsyncRawSessionsClient:
 
         aop_asset_id : typing.Optional[str]
             Only include task sessions originating from this AOP asset identifier
+
+        workspace_id : typing.Optional[str]
+            Workspace to list sessions from. Defaults to the caller's current workspace; any other workspace the caller is a member of can be requested explicitly.
 
         trigger_type : typing.Optional[typing.Sequence[str]]
             Trigger type(s) to filter by (e.g. 'schedule', 'api', 'email'). Repeat the parameter or pass a comma-separated list.
@@ -429,6 +439,7 @@ class AsyncRawSessionsClient:
                 "include_sub_sessions": include_sub_sessions,
                 "include_task_sessions": include_task_sessions,
                 "aop_asset_id": aop_asset_id,
+                "workspace_id": workspace_id,
                 "trigger_type": trigger_type,
                 "created_after": serialize_datetime(created_after) if created_after is not None else None,
                 "created_before": serialize_datetime(created_before) if created_before is not None else None,
@@ -461,6 +472,7 @@ class AsyncRawSessionsClient:
                         include_sub_sessions=include_sub_sessions,
                         include_task_sessions=include_task_sessions,
                         aop_asset_id=aop_asset_id,
+                        workspace_id=workspace_id,
                         trigger_type=trigger_type,
                         created_after=created_after,
                         created_before=created_before,

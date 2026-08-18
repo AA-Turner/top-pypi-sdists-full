@@ -608,9 +608,9 @@ class BaseTable(ReactiveData, Widget):
             elif op == 'like':
                 filters.append(col.str.contains(val, case=False, regex=False))
             elif op == 'starts':
-                filters.append(col.str.startsWith(val))
+                filters.append(col.str.lower().str.startswith(val.lower()))
             elif op == 'ends':
-                filters.append(col.str.endsWith(val))
+                filters.append(col.str.lower().str.endswith(val.lower()))
             elif op == 'keywords':
                 match_all = filt_def.get(col_name, {}).get('matchAll', False)
                 sep = filt_def.get(col_name, {}).get('separator', ' ')
@@ -1263,6 +1263,9 @@ class Tabulator(BaseTable):
     hidden_columns = param.List(default=[], item_type=str, nested_refs=True, doc="""
         List of columns to hide.""")  # type: ignore[assignment, ty:invalid-assignment]
 
+    movable_columns = param.Boolean(default=False, doc="""
+        Whether columns can be reordered by dragging their headers.""")
+
     layout: t.Literal[
         'fit_data', 'fit_data_fill', 'fit_data_stretch', 'fit_data_table',
         'fit_columns',
@@ -1400,7 +1403,6 @@ class Tabulator(BaseTable):
         self._explicit_pagination = 'pagination' in params
         self._on_edit_callbacks = []
         self._on_click_callbacks = {}
-        self._old_value = None
         super().__init__(value=value, **params)
         self._configuration = configuration
         self.param.watch(self._update_children, self._content_params)
@@ -1539,10 +1541,6 @@ class Tabulator(BaseTable):
         # the new data and old data wrong. This extension replicates the
         # front-end filtering - if need be - to be able to correctly make the
         # comparison and update the data held by the backend.
-
-        # It also makes a copy of the value dataframe, to use it to obtain
-        # the old value in a table-edit event.
-        self._old_value = self.value.copy()
 
         import pandas as pd
         df = pd.DataFrame(data)

@@ -2,7 +2,7 @@
 
 
 from time import localtime, strftime
-from typing import Callable, Any
+from typing import Any, Callable
 
 from ..Internal.ArgLinkedEventArgs import ArgLinkedEventArgs
 from ..Internal.Core import Core

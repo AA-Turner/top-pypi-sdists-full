@@ -79,7 +79,7 @@ def artificial_shared_memory_limit(limit):
         _SMEM_SIZE_BOUND = old_limit
 
 # This tracks the latest Mosaic GPU IR version with a monthly delay.
-FWD_COMPAT_IR_VERSION = 2
+FWD_COMPAT_IR_VERSION = 6
 
 c = utils.c  # This is too common to fully qualify.
 
@@ -923,6 +923,12 @@ def _lower_as_gpu_kernel(
   try:
     module.operation.verify()
   except ir.MLIRError as e:
+    try:
+      new_error = error.mlir_error_to_verification_error(e)
+    except:
+      new_error = None
+    if new_error is None:
+      raise
     raise error.mlir_error_to_verification_error(e) from e
 
   assert launch_ctx is not None
@@ -965,6 +971,54 @@ def _declare_runtime_functions():
   )
 
 
+def lower_mgpu_module(
+    module: ir.Module,
+    launch_ctx: launch_context.LaunchContext,
+    lowering_semantics: LoweringSemantics,
+    *,
+    auto_barriers: bool = True,
+) -> None:
+  if lowering_semantics == LoweringSemantics.Warpgroup:
+    # TODO(bchetioui): Remove this once minimum jaxlib version is 0.11.1.
+    if hasattr(dialect, "get_or_set_dump_options"):
+      dump_options = dialect.get_or_set_dump_options(module)
+    else:
+      dump_options = None
+
+    # We need to run a pass that removes dead-code for which layout inference
+    # does not work.
+    pm = mlir.passmanager.PassManager.parse("builtin.module(canonicalize,cse)", module.context)
+    pm.run(module.operation)
+
+    # Run Python lowering passes. The remaining passes will be run in C++ in
+    # jax/jaxlib/mosaic/gpu/custom_call.cc
+    if dump_options is not None and dump_options.mlir_passes:
+      utils.dump_to_file_or_stdout(
+          str(module),
+          f"{dump_options.module_basename}.before_layout_inference.txt",
+          dump_options.dump_path
+      )
+
+    layout_inference.infer_layout(module, arch=_infer_arch())
+
+    if dump_options is not None and dump_options.mlir_passes:
+      utils.dump_to_file_or_stdout(
+          str(module),
+          f"{dump_options.module_basename}.after_layout_inference.txt",
+          dump_options.dump_path
+      )
+
+    dialect_lowering.lower_mgpu_dialect(
+        module, launch_ctx, auto_barriers=auto_barriers
+    )
+
+  launch_ctx.scratch.finalize_size()
+  try:
+    module.operation.verify()
+  except ir.MLIRError as e:
+    raise error.mlir_error_to_verification_error(e) from e
+
+
 def _kernel_to_module(
     body,
     grid: tuple[int, int, int],
@@ -1003,22 +1057,7 @@ def _kernel_to_module(
       )
   )
 
-  if thread_semantics == LoweringSemantics.Warpgroup and dialect is not None:
-    # We need to run a pass that removes dead-code for which layout inference
-    # does not work.
-    pm = mlir.passmanager.PassManager.parse("builtin.module(canonicalize,cse)", module.context)
-    pm.run(module.operation)
-
-    # Run Python lowering passes. The remaining passes will be run in C++ in
-    # jax/jaxlib/mosaic/gpu/custom_call.cc
-    layout_inference.infer_layout(module, arch=_infer_arch())
-    dialect_lowering.lower_mgpu_dialect(module, launch_ctx)
-
-  launch_ctx.scratch.finalize_size()
-  try:
-    module.operation.verify()
-  except ir.MLIRError as e:
-    raise error.mlir_error_to_verification_error(e) from e
+  lower_mgpu_module(module, launch_ctx, thread_semantics)
 
   return (
       module,
@@ -1171,7 +1210,7 @@ def _compile_as_torch_gpu_kernel(module_asm: bytes):
   else:
     dll = ctypes.CDLL(cuda_plugin._get_library_path())
   compile_func = dll.MosaicGpuCompile
-  compile_func.argtypes = [ctypes.c_void_p]
+  compile_func.argtypes = [ctypes.c_char_p, ctypes.c_int]
   compile_func.restype = ctypes.POINTER(ctypes.c_void_p)
   unload_func = dll.MosaicGpuUnload
   unload_func.argtypes = [compile_func.restype]
@@ -1180,23 +1219,17 @@ def _compile_as_torch_gpu_kernel(module_asm: bytes):
   compiled = compile_func(ctypes.c_char_p(module_asm), ctypes.c_int(len(module_asm)))
   if not compiled:
     raise RuntimeError("Failed to compile the module")
-  ctx, launch_ptr = compiled[0], compiled[1]
-  ctx_ptr_ptr = ctypes.pointer(ctypes.c_void_p(ctx))
-  launch_c = ctypes.CFUNCTYPE(None, ctypes.c_void_p)(launch_ptr)
+  function, launch_ptr = compiled[0], compiled[1]
+  launch_c = ctypes.CFUNCTYPE(
+      None, ctypes.c_void_p, ctypes.c_void_p, ctypes.POINTER(ctypes.c_void_p)
+  )(launch_ptr)
 
   def launch(arg_ptrs, device):
-    # Allocate another buffer for args of the host-side program. This is sadly
-    # the default MLIR calling convention.
-    launch_args_ptr = (ctypes.POINTER(ctypes.c_void_p) * 3)()
-    launch_args_ptr[0] = ctx_ptr_ptr
-    launch_args_ptr[1] = ctypes.pointer(
-        torch.cuda.default_stream(device)._as_parameter_
+    launch_c(
+        function,
+        torch.cuda.default_stream(device)._as_parameter_,
+        arg_ptrs,
     )
-    launch_args_ptr[2] = ctypes.cast(
-        ctypes.pointer(ctypes.pointer(arg_ptrs)),
-        ctypes.POINTER(ctypes.c_void_p),
-    )
-    launch_c(launch_args_ptr)
 
   return launch, functools.partial(unload_func, compiled)
 

@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: zwave-js-server-python
-Version: 0.73.0
+Version: 0.73.1
 Summary: Python wrapper for zwave-js-server
 Author-email: Home Assistant Team <hello@home-assistant.io>
 License-Expression: Apache-2.0

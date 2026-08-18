@@ -23,7 +23,7 @@ from functools import partial
 import itertools as it
 import logging
 import math
-from typing import Any, NamedTuple, Union
+from typing import Any, NamedTuple
 
 from jax._src import api
 from jax._src import array
@@ -49,7 +49,7 @@ from jax._src.core import ShapedArray
 from jax._src.interpreters import mlir
 from jax._src.interpreters import partial_eval as pe
 from jax._src.layout import AutoLayoutSingleton, Format, Layout
-from jax._src.lib import _jax, jaxlib_extension_version
+from jax._src.lib import _jax
 from jax._src.lib import xla_client as xc
 from jax._src.lib.mlir import ir
 from jax._src.mesh import (AbstractMesh, Mesh, get_abstract_mesh,
@@ -72,7 +72,7 @@ zip, unsafe_zip = safe_zip, zip
 
 logger = logging.getLogger(__name__)
 
-Index = Union[int, slice, tuple[Union[int, slice], ...]]
+Index = int | slice | tuple[int | slice, ...]
 PyTreeDef = tree_util.PyTreeDef
 
 MeshAxisName = sharding_impls.MeshAxisName
@@ -185,7 +185,7 @@ def _shard_np_array(xs, shardings, layouts, copy_semantics):
     if layout is not None:
       results.append(api.device_put(x, Format(layout, sharding)))
     else:
-      if jaxlib_extension_version >= 475 and config.use_cpp_shard_args.value:
+      if config.use_cpp_shard_args.value:
         results.append(None)
         batch_xs.append(x)  # Accumulate arguments to `_jax.shard_args`
         batch_shardings.append(sharding)
@@ -534,9 +534,9 @@ def manual_proto(
 
 
 ShardingInfo = tuple[
-    Union[JSharding, UnspecifiedValue],
+    JSharding | UnspecifiedValue,
     stages.MismatchType,
-    Union[Any, None],  # Any is dispatch.SourceInfo to avoid circular imports
+    Any | None,  # Any is dispatch.SourceInfo to avoid circular imports
 ]
 
 
@@ -616,7 +616,7 @@ def _get_and_check_device_assignment(
   else:
     return backend, None, abstract_mesh.size
 
-MaybeSharding = Union[JSharding, UnspecifiedValue]
+MaybeSharding = JSharding | UnspecifiedValue
 
 
 def prune_unused_inputs(
@@ -855,7 +855,7 @@ def get_out_layouts_via_propagation(closed_jaxpr: core.Jaxpr
   return tuple(safe_map(read, jaxpr.outvars))
 
 
-MaybeLayout = Sequence[Union[Layout, AutoLayoutSingleton, None]]
+MaybeLayout = Sequence[Layout | AutoLayoutSingleton | None]
 
 
 class AllArgsInfo(NamedTuple):
@@ -1014,11 +1014,8 @@ def lower_sharding_computation(
   else:
     const_args = []
 
-  # If layout is propagated, then set the out_layout in the top module to AUTO
-  # so that XLA can override the entry_computation_layout. The propagated
-  # layout will be set via a custom call.
   out_layouts_via_prop = get_out_layouts_via_propagation(closed_jaxpr)
-  out_layouts = tuple(Layout.AUTO if p is not None else o
+  out_layouts = tuple(p if p is not None and o is None else o
                       for o, p in safe_zip(out_layouts, out_layouts_via_prop))
 
   assert len(out_shardings) == len(out_layouts) == len(global_out_avals), (

@@ -122,6 +122,16 @@ def pytest_addoption(parser):
         "of regexes to match",
     )
     group._addoption(
+        "--rerun-exclude-path",
+        action="append",
+        dest="rerun_exclude_path",
+        type=str,
+        default=None,
+        help="If passed, do not rerun tests in the path provided. "
+        "Pass this flag multiple times to accumulate a list of paths "
+        "to exclude",
+    )
+    group._addoption(
         "--reruns-mode",
         action="store",
         dest="reruns_mode",
@@ -168,6 +178,16 @@ def pytest_addoption(parser):
     )
 
 
+def _get_global_reruns(config):
+    reruns = config.getvalue("reruns")
+    if reruns is not None:
+        return reruns
+
+    with suppress(TypeError, ValueError):
+        reruns = int(config.getini("reruns"))
+    return reruns
+
+
 # making sure the options make sense
 # should run before / at the beginning of pytest_cmdline_main
 def check_options(config):
@@ -177,24 +197,14 @@ def check_options(config):
         and config.option.max_suite_reruns < 0
     ):
         raise pytest.UsageError("--max-suite-reruns must be >= 0")
-    if not val("collectonly") and config.option.reruns != 0:
+    reruns = config.getvalue("force_reruns") or _get_global_reruns(config)
+    if not val("collectonly") and reruns:
         if config.option.usepdb:  # a core option
             raise pytest.UsageError("--reruns incompatible with --pdb")
 
 
 def _get_marker(item):
     return item.get_closest_marker("flaky")
-
-
-def _get_global_reruns(item):
-    reruns = item.session.config.getvalue("reruns")
-    if reruns is not None:
-        return reruns
-
-    reruns = None
-    with suppress(TypeError, ValueError):
-        reruns = int(item.session.config.getini("reruns"))
-    return reruns
 
 
 def get_reruns_count(item):
@@ -215,12 +225,12 @@ def get_reruns_count(item):
             marker_reruns = 1
 
         if item.session.config.getvalue("reruns_mode") == "append":
-            global_reruns = _get_global_reruns(item)
+            global_reruns = _get_global_reruns(item.session.config)
             if global_reruns is not None:
                 return marker_reruns + global_reruns
         return marker_reruns
 
-    return _get_global_reruns(item)
+    return _get_global_reruns(item.session.config)
 
 
 def get_reruns_delay(item):
@@ -847,6 +857,14 @@ def _restore_suspended_finalizers(item):
     suspended_finalizers.clear()
 
 
+def _is_rerun_path_excluded(item):
+    excluded_paths = item.config.getoption("rerun_exclude_path") or []
+    return any(
+        item.path.is_relative_to(item.config.rootpath / excluded_path)
+        for excluded_path in excluded_paths
+    )
+
+
 def pytest_runtest_teardown(item, nextitem):
     reruns = get_reruns_count(item)
     if reruns is None:
@@ -918,11 +936,20 @@ def pytest_runtest_protocol(item, nextitem):
     Note: when teardown fails, two reports are generated for the case, one for
     the test case and the other for the teardown error.
     """
+    if _is_rerun_path_excluded(item):
+        return
+
     reruns = get_reruns_count(item)
     if reruns is None:
         # global setting is not specified, and this test is not marked with
         # flaky
         return
+
+    if reruns and item.session.config.option.usepdb:
+        # the global options are already rejected in check_options(); this
+        # catches reruns requested via the flaky marker, which are only
+        # known once the item is available
+        raise pytest.UsageError("--reruns incompatible with --pdb")
 
     delay = get_reruns_delay(item)
     delay_backoff_factor = get_reruns_delay_backoff_factor(item)

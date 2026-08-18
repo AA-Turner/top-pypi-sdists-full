@@ -17,6 +17,7 @@ import hashlib
 import json
 import logging
 import time
+from collections.abc import Mapping
 from typing import Any
 
 import httpx
@@ -227,7 +228,7 @@ class UnifiedTokenVerifier(TokenVerifier):
                 scopes = scope_string.split() if scope_string else []
                 access_token = AccessToken(
                     token=token,
-                    client_id=userinfo.get("client_id", ""),
+                    client_id=self._client_id_from_claims(userinfo),
                     scopes=scopes,
                     expires_at=int(expiry),
                     resource=username,
@@ -564,6 +565,35 @@ class UnifiedTokenVerifier(TokenVerifier):
         return "." in token and token.count(".") == 2
 
     @staticmethod
+    def _client_id_from_claims(claims: Mapping[str, Any]) -> str:
+        """The client identity of a *verified* payload.
+
+        Two spellings are in the wild and an IdP generally stamps only one.
+        RFC 9068 (JWT access tokens) puts it in ``client_id`` — that is what the
+        Nextcloud ``oidc`` app emits. Keycloak, Authentik and the rest of the
+        OIDC-Core lineage use ``azp`` (authorized party) instead and never emit
+        ``client_id`` at all.
+
+        Reading only ``client_id`` therefore made every token from an external
+        IdP look like it had no client, so ``ALLOWED_MGMT_CLIENT`` refused it no
+        matter how it was configured (cbcoutinho/astrolabe#324).
+
+        ``aud`` is deliberately NOT consulted here, unlike in
+        :meth:`_claimed_client_id`, which only feeds a log line. The audience
+        says who a token is *for*, not who asked for it; treating it as an
+        identity would let any token minted for an allowlisted audience pass the
+        allowlist regardless of which client obtained it.
+
+        Returns "" when neither claim is a non-empty string — the same
+        fail-closed value the allowlist already rejects.
+        """
+        for key in ("client_id", "azp"):
+            value = claims.get(key)
+            if isinstance(value, str) and value:
+                return value
+        return ""
+
+    @staticmethod
     def _claimed_client_id(token: str) -> str | None:
         """Read the client_id a token *claims*, without verifying anything.
 
@@ -611,7 +641,9 @@ class UnifiedTokenVerifier(TokenVerifier):
     # took the default, which put the single most total failure mode in the
     # system (no validator configured at all) on the *client's* side of the
     # split, contradicting the documented contract.
-    _OUR_FAULT_REASONS = frozenset({"not_configured", "network_error", "unknown"})
+    _OUR_FAULT_REASONS = frozenset(
+        {"not_configured", "network_error", "no_signing_keys", "unknown"}
+    )
 
     def _reject(
         self,
@@ -793,6 +825,26 @@ class UnifiedTokenVerifier(TokenVerifier):
         except jwt.InvalidTokenError as e:
             # Covers signature failures, malformed tokens and bad `iat`.
             return self._note(chain, "jwt", "bad_signature", token, str(e))
+        except jwt.PyJWKSetError as e:
+            # The JWKS was fetched and parsed fine but carries no usable signing
+            # key, so every JWT is unverifiable. That is an IdP/operator
+            # misconfiguration, not an outage and not a bad token — most often
+            # a provider left on symmetric (HS256) signing, which serves an
+            # empty key set: Authentik and Keycloak both publish JWKS keys only
+            # for asymmetric signing keys.
+            #
+            # Separate from PyJWKClientError below because PyJWKSetError is NOT
+            # a subclass of it (both derive straight from PyJWTError), so it
+            # otherwise fell through to the generic handler and surfaced as
+            # "unknown" — indistinguishable from a real internal bug, and the
+            # operator got a bare 401 with the cause only in our logs.
+            return self._note(
+                chain,
+                "jwt",
+                "no_signing_keys",
+                token,
+                f"{e} (JWKS: {getattr(self.jwks_client, 'uri', 'unknown')})",
+            )
         except jwt.PyJWKClientError as e:
             # Fetching the signing key failed — the JWKS endpoint is down, slow
             # or unreachable. Nothing is wrong with the caller's token. This is
@@ -1062,7 +1114,7 @@ class UnifiedTokenVerifier(TokenVerifier):
 
         return AccessToken(
             token=token,
-            client_id=payload.get("client_id", ""),
+            client_id=self._client_id_from_claims(payload),
             scopes=scopes,
             expires_at=exp,
             resource=username,  # Store username in resource field (RFC 8707)
@@ -1097,7 +1149,7 @@ class UnifiedTokenVerifier(TokenVerifier):
 
         return AccessToken(
             token=token,
-            client_id=userinfo.get("client_id", ""),
+            client_id=self._client_id_from_claims(userinfo),
             scopes=scopes,
             expires_at=int(expiry),
             resource=username,

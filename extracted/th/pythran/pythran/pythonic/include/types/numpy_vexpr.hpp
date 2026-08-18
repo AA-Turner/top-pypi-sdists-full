@@ -2,6 +2,8 @@
 #define PYTHONIC_INCLUDE_TYPES_NUMPY_VEXPR_HPP
 
 #include "pythonic/include/types/nditerator.hpp"
+#include "pythonic/include/types/numpy_op_helper.hpp"
+#include "pythonic/include/types/tuple.hpp"
 
 PYTHONIC_NS_BEGIN
 
@@ -54,6 +56,14 @@ namespace types
         return view_.template shape<0>();
       else
         return data_.template shape<I>();
+    }
+    template <size_t I>
+    long strides() const
+    {
+      if (I == 0)
+        return view_.template strides<0>();
+      else
+        return data_.template strides<I>();
     }
 
     iterator begin();
@@ -113,26 +123,26 @@ namespace types
 
     /* element filtering */
     template <class E> // indexing through an array of boolean -- a mask
-    std::enable_if_t<is_numexpr_arg<E>::value && std::is_same<bool, typename E::dtype>::value &&
+    std::enable_if_t<is_numexpr_arg<E>::value && std::is_same_v<bool, typename E::dtype> &&
                          !is_pod_array<F>::value,
                      numpy_vexpr<numpy_vexpr, ndarray<long, pshape<long>>>>
     fast(E const &filter) const;
 
     template <class E> // indexing through an array of boolean -- a mask
     std::enable_if_t<!is_slice<E>::value && is_numexpr_arg<E>::value &&
-                         std::is_same<bool, typename E::dtype>::value && !is_pod_array<F>::value,
+                         std::is_same_v<bool, typename E::dtype> && !is_pod_array<F>::value,
                      numpy_vexpr<numpy_vexpr, ndarray<long, pshape<long>>>>
     operator[](E const &filter) const;
 
     template <class E> // indexing through an array of indices -- a view
     std::enable_if_t<is_numexpr_arg<E>::value && !is_array_index<E>::value &&
-                         !std::is_same<bool, typename E::dtype>::value && !is_pod_array<F>::value,
+                         !std::is_same_v<bool, typename E::dtype> && !is_pod_array<F>::value,
                      numpy_vexpr<numpy_vexpr, E>>
     operator[](E const &filter) const;
 
     template <class E> // indexing through an array of indices -- a view
     std::enable_if_t<is_numexpr_arg<E>::value && !is_array_index<E>::value &&
-                         !std::is_same<bool, typename E::dtype>::value && !is_pod_array<F>::value,
+                         !std::is_same_v<bool, typename E::dtype> && !is_pod_array<F>::value,
                      numpy_vexpr<numpy_vexpr, E>>
     fast(E const &filter) const;
 
@@ -184,6 +194,14 @@ struct __combined<pythonic::types::numpy_vexpr<E, F>, pythonic::types::ndarray<T
 template <class E, class F, class T, class pS>
 struct __combined<pythonic::types::ndarray<T, pS>, pythonic::types::numpy_vexpr<E, F>> {
   using type = pythonic::types::ndarray<T, pS>;
+};
+
+template <class E, class F, class Arg, class... S>
+struct __combined<pythonic::types::numpy_vexpr<E, F>, pythonic::types::numpy_gexpr<Arg, S...>> {
+  using type = pythonic::types::ndarray<
+      typename __combined<typename pythonic::types::numpy_vexpr<E, F>::dtype,
+                          typename pythonic::types::numpy_gexpr<Arg, S...>::dtype>::type,
+      pythonic::types::array_tuple<long, pythonic::types::numpy_vexpr<E, F>::value>>;
 };
 
 #endif

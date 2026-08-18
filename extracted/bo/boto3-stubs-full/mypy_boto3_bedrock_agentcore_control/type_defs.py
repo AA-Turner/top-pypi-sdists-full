@@ -99,6 +99,7 @@ from .literals import (
     PolicyStatusType,
     PolicyValidationModeType,
     PrincipalMatchOperatorType,
+    ProviderType,
     RegistryAuthorizerTypeType,
     RegistryRecordCredentialProviderTypeType,
     RegistryRecordStatusType,
@@ -366,6 +367,8 @@ __all__ = (
     "DeleteRegistryResponseTypeDef",
     "DeleteResourcePolicyRequestTypeDef",
     "DeleteWorkloadIdentityRequestTypeDef",
+    "DerivedEvaluatorConfigOutputTypeDef",
+    "DerivedEvaluatorConfigTypeDef",
     "DescriptorsTypeDef",
     "EbsVolumeConfigurationTypeDef",
     "Ec2ConfigurationOutputTypeDef",
@@ -1836,6 +1839,7 @@ class EvaluatorSummaryTypeDef(TypedDict):
     createdAt: datetime
     updatedAt: datetime
     description: NotRequired[str]
+    provider: NotRequired[ProviderType]
     level: NotRequired[EvaluatorLevelType]
     lockedForModification: NotRequired[bool]
     kmsKeyArn: NotRequired[str]
@@ -5849,10 +5853,20 @@ HarnessGatewayOutboundAuthUnionTypeDef = Union[
 Oauth2DiscoveryUnionTypeDef = Union[Oauth2DiscoveryTypeDef, Oauth2DiscoveryOutputTypeDef]
 
 
+class DerivedEvaluatorConfigOutputTypeDef(TypedDict):
+    baseEvaluatorId: str
+    modelConfig: EvaluatorModelConfigOutputTypeDef
+
+
 class LlmAsAJudgeEvaluatorConfigOutputTypeDef(TypedDict):
     instructions: str
     ratingScale: RatingScaleOutputTypeDef
     modelConfig: EvaluatorModelConfigOutputTypeDef
+
+
+class DerivedEvaluatorConfigTypeDef(TypedDict):
+    baseEvaluatorId: str
+    modelConfig: EvaluatorModelConfigTypeDef
 
 
 class LlmAsAJudgeEvaluatorConfigTypeDef(TypedDict):
@@ -6065,11 +6079,13 @@ class HarnessAgentCoreGatewayConfigTypeDef(TypedDict):
 class EvaluatorConfigOutputTypeDef(TypedDict):
     llmAsAJudge: NotRequired[LlmAsAJudgeEvaluatorConfigOutputTypeDef]
     codeBased: NotRequired[CodeBasedEvaluatorConfigTypeDef]
+    derived: NotRequired[DerivedEvaluatorConfigOutputTypeDef]
 
 
 class EvaluatorConfigTypeDef(TypedDict):
     llmAsAJudge: NotRequired[LlmAsAJudgeEvaluatorConfigTypeDef]
     codeBased: NotRequired[CodeBasedEvaluatorConfigTypeDef]
+    derived: NotRequired[DerivedEvaluatorConfigTypeDef]
 
 
 class AuthorizerConfigurationOutputTypeDef(TypedDict):
@@ -6253,6 +6269,8 @@ class GetEvaluatorResponseTypeDef(TypedDict):
     evaluatorName: str
     description: str
     evaluatorConfig: EvaluatorConfigOutputTypeDef
+    evaluatorType: EvaluatorTypeType
+    provider: ProviderType
     level: EvaluatorLevelType
     status: EvaluatorStatusType
     createdAt: datetime

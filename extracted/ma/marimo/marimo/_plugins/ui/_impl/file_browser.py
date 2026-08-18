@@ -66,6 +66,85 @@ def _normalize_selection_mode(
     )
 
 
+def _normalize_values(
+    value: str | Path | Sequence[str | Path] | None,
+    *,
+    multiple: bool,
+) -> Sequence[str | Path]:
+    """Normalize the file browser's default values to a sequence."""
+    if value is None:
+        values: Sequence[str | Path] = ()
+    elif isinstance(value, Sequence) and not isinstance(value, str):
+        values = value
+    else:
+        values = (value,)
+
+    if not multiple and len(values) > 1:
+        raise ValueError(
+            "File browser with multiple=False cannot have more than one "
+            "default value."
+        )
+
+    return values
+
+
+def _common_parent(paths: Sequence[Path]) -> Path:
+    """Return the nearest directory containing all paths.
+
+    When paths are on different drives (Windows) or have no common parent,
+    returns the root directory of the first path.
+    """
+    candidate = paths[0].parent
+    while (
+        any(candidate not in path.parents for path in paths)
+        and candidate != candidate.parent
+    ):
+        candidate = candidate.parent
+    return candidate
+
+
+def _is_path_within(path: Path, parent: Path) -> bool:
+    """Return whether `path` resolves within `parent`."""
+
+    def resolve_existing(candidate: Path) -> Path:
+        try:
+            return candidate.resolve(strict=True)
+        except TypeError:
+            # Some Path subclasses do not accept pathlib's `strict` argument.
+            resolved = candidate.resolve()
+            if not resolved.exists():
+                raise FileNotFoundError(resolved) from None
+            return resolved
+
+    try:
+        resolved_path = resolve_existing(path)
+        resolved_parent = resolve_existing(parent)
+        if not is_cloudpath(resolved_path):
+            resolved_path = Path(resolved_path)
+            resolved_parent = Path(resolved_parent)
+        resolved_path.relative_to(resolved_parent)
+    except (ValueError, RuntimeError, OSError):
+        return False
+    return True
+
+
+_WARNED_DEFAULT_ROOT = False
+
+
+def _warn_default_root_once(root: Path) -> None:
+    """Warn once when a restricted file browser uses the default cwd."""
+    global _WARNED_DEFAULT_ROOT
+    if _WARNED_DEFAULT_ROOT:
+        return
+    _WARNED_DEFAULT_ROOT = True
+    LOGGER.warning(
+        "file_browser has no explicit initial_path; navigation is limited to "
+        "the working directory (%s). Pass initial_path to declare which "
+        "directory can be browsed.",
+        root,
+    )
+
+
 @dataclass
 class ListDirectoryArgs:
     path: str
@@ -158,8 +237,9 @@ class file_browser(
             files.
 
     Args:
-        initial_path (Union[str, Path, AnyPath], optional): Starting directory. Defaults to current
-            working directory.
+        initial_path (Union[str, Path, AnyPath], optional): Starting directory.
+            Defaults to the common parent directory of `value`, when provided,
+            or the current working directory otherwise.
             If a string, it will be interpreted as a local path.
             If a Path, it will be interpreted as a local path.
             If a CloudPath (from cloudpathlib), such as S3Path, GCSPath, or AzurePath,
@@ -181,7 +261,9 @@ class file_browser(
         multiple (bool, optional): If True, allow the user to select multiple
             files. Defaults to True.
         restrict_navigation (bool, optional): If True, prevent the user from
-            navigating any level above the given path. Defaults to False.
+            navigating any level above the given path. Defaults to True. Setting
+            this to False in an app served with `marimo run` allows app viewers
+            to browse any path readable by the server process.
         value (str | Path | Sequence[str | Path], optional): File or directory
             path, or sequence of paths, selected by default. Defaults to None.
         ignore_empty_dirs (bool, optional): If True, hide directories that contain
@@ -207,7 +289,7 @@ class file_browser(
         selection_mode: Literal["file", "directory", "all"]
         | Sequence[Literal["file", "directory"]] = "file",
         multiple: bool = True,
-        restrict_navigation: bool = False,
+        restrict_navigation: bool = True,
         value: str | Path | Sequence[str | Path] | None = None,
         *,
         filter: str | re.Pattern[str] | Callable[[Path], bool] | None = None,  # noqa: A002
@@ -219,16 +301,59 @@ class file_browser(
     ) -> None:
         self._selection_mode = _normalize_selection_mode(selection_mode)
 
-        # Save the Path class of the initial path
+        values = _normalize_values(value, multiple=multiple)
+        initial_path_provided = bool(initial_path)
+        self._restrict_navigation = restrict_navigation
+
+        # Save the Path class and client used to construct paths
+        path_source = values[0] if values else initial_path
         self._path_cls: type[Path]
-        if isinstance(initial_path, str):
+        if isinstance(path_source, str):
             self._path_cls = Path
         else:
-            self._path_cls = initial_path.__class__
+            self._path_cls = path_source.__class__
+        self._path_kwargs: dict[str, Any] = {}
+        if hasattr(path_source, "client"):
+            self._path_kwargs["client"] = path_source.client  # type: ignore
+
+        selected_paths: list[Path] = []
+        initial_value: list[TypedFileBrowserFileInfo] = []
+        for selected_value in values:
+            selected_path = self._create_path(
+                normalize_path(self._create_path(selected_value))
+            )
+            if not selected_path.exists():
+                raise ValueError(
+                    f"Default value {selected_path} does not exist."
+                )
+            is_directory = selected_path.is_dir()
+            kind = "directory" if is_directory else "file"
+            if kind not in self._selection_mode:
+                raise ValueError(
+                    f"Default value {selected_path} is a {kind}, but "
+                    f"selection_mode {self._selection_mode} does not allow it."
+                )
+            selected_paths.append(selected_path)
+            initial_value.append(
+                TypedFileBrowserFileInfo(
+                    id=str(selected_path),
+                    path=str(selected_path),
+                    name=selected_path.name,
+                    is_directory=is_directory,
+                )
+            )
+
+        uses_default_root = not initial_path_provided and (
+            not selected_paths or restrict_navigation
+        )
 
         # Make a Path object
         if not initial_path:
-            initial_path = Path.cwd()
+            initial_path = (
+                _common_parent(selected_paths)
+                if selected_paths and not restrict_navigation
+                else Path.cwd()
+            )
         elif isinstance(initial_path, str):
             initial_path = Path(initial_path)
         self._initial_path = initial_path
@@ -243,6 +368,14 @@ class file_browser(
                 f"Initial path {initial_path} is not a directory."
             )
 
+        if self._restrict_navigation:
+            for selected_path in selected_paths:
+                if not _is_path_within(selected_path, self._initial_path):
+                    raise ValueError(
+                        f"Default value {selected_path} is outside the "
+                        f"restricted initial path {self._initial_path}."
+                    )
+
         # Normalize filetypes: ensure lowercase and dot prefix for case-insensitive matching
         if filetypes:
             normalized_filetypes = set()
@@ -255,7 +388,8 @@ class file_browser(
             self._filetypes = normalized_filetypes
         else:
             self._filetypes = set()
-        self._restrict_navigation = restrict_navigation
+        if self._restrict_navigation and uses_default_root:
+            _warn_default_root_once(self._initial_path)
         self._ignore_empty_dirs = ignore_empty_dirs
 
         if filter is None:
@@ -286,40 +420,6 @@ class file_browser(
         else:
             (wire_selection_mode,) = self._selection_mode
 
-        if value is None:
-            values: Sequence[str | Path] = ()
-        elif isinstance(value, Sequence) and not isinstance(value, str):
-            values = value
-        else:
-            values = (value,)
-
-        if not multiple and len(values) > 1:
-            raise ValueError(
-                "File browser with multiple=False cannot have more than one "
-                "default value."
-            )
-
-        initial_value: list[TypedFileBrowserFileInfo] = []
-        for selected_value in values:
-            selected_path = self._create_path(
-                normalize_path(self._create_path(selected_value))
-            )
-            is_directory = selected_path.is_dir()
-            kind = "directory" if is_directory else "file"
-            if kind not in self._selection_mode:
-                raise ValueError(
-                    f"Default value {selected_path} is a {kind}, but "
-                    f"selection_mode {self._selection_mode} does not allow it."
-                )
-            initial_value.append(
-                TypedFileBrowserFileInfo(
-                    id=str(selected_path),
-                    path=str(selected_path),
-                    name=selected_path.name,
-                    is_directory=is_directory,
-                )
-            )
-
         super().__init__(
             component_name=file_browser._name,
             initial_value=initial_value,
@@ -329,7 +429,7 @@ class file_browser(
                 "selection-mode": wire_selection_mode,
                 "filetypes": filetypes if filetypes is not None else [],
                 "multiple": multiple,
-                "restrict-navigation": restrict_navigation,
+                "restrict-navigation": self._restrict_navigation,
             },
             functions=(
                 Function(
@@ -343,14 +443,7 @@ class file_browser(
 
     def _create_path(self, path_str: str | Path) -> Path:
         """Create a path object with the same class and client as the initial path."""
-        kwargs: dict[str, Any] = {}
-
-        # If we have a client on the initial path, pass it to the path constructor
-        # This covers the case when the initial path is a CloudPath with a client
-        if hasattr(self._initial_path, "client"):
-            kwargs["client"] = self._initial_path.client  # type: ignore
-
-        path = self._path_cls(path_str, **kwargs)
+        path = self._path_cls(path_str, **self._path_kwargs)
         return path
 
     def _passes_filter(self, file: Path) -> bool:
@@ -438,15 +531,10 @@ class file_browser(
         path = self._create_path(args.path)
 
         if self._restrict_navigation:
-            try:
-                path.resolve(strict=True).relative_to(
-                    self._initial_path.resolve()
-                )
-            # NB. RuntimeError vs OSError depends on the version of python.
-            except (ValueError, RuntimeError, OSError):
+            if not _is_path_within(path, self._initial_path):
                 raise RuntimeError(
                     "Navigation is restricted; navigating outside the initial path is not allowed."
-                ) from None
+                )
         folders: list[TypedFileBrowserFileInfo] = []
         files: list[TypedFileBrowserFileInfo] = []
 
