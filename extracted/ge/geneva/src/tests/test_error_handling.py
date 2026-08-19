@@ -370,8 +370,9 @@ def test_error_handling_config_defaults() -> None:
     assert config.log_retry_attempts is False
 
 
-def test_skip_rows_validation_rejects_recordbatch_udf() -> None:
-    """Test that SKIP_ROWS validation detects RecordBatch UDFs"""
+def test_skip_rows_validation_accepts_recordbatch_udf() -> None:
+    """SKIP_ROWS now supports RecordBatch UDFs: batches are applied whole and
+    bisected on failure, so no arg type needs to be rejected."""
     from geneva.apply.task import BackfillUDFTask
 
     @udf(
@@ -383,12 +384,8 @@ def test_skip_rows_validation_rejects_recordbatch_udf() -> None:
     def recordbatch_udf(batch: pa.RecordBatch) -> pa.Array:
         return pa.array([1] * len(batch))
 
-    # Create a task to test validation
     task = BackfillUDFTask(udfs={"b": recordbatch_udf})
-
-    # Should raise ValueError during validation
-    with pytest.raises(ValueError, match="SKIP_ROWS.*RecordBatch"):
-        recordbatch_udf.error_handling.validate_compatibility(task)
+    recordbatch_udf.error_handling.validate_compatibility(task)  # must not raise
 
 
 def test_skip_rows_skips_failing_rows_and_logs_errors(

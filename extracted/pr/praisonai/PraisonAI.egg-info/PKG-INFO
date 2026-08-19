@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: PraisonAI
-Version: 4.6.163
+Version: 4.6.164
 Summary: PraisonAI is an AI Agents Framework with Self Reflection. PraisonAI application combines PraisonAI Agents, AutoGen, and CrewAI into a low-code solution for building and managing multi-agent LLM systems, focusing on simplicity, customisation, and efficient human-agent collaboration.
 Author: Mervin Praison
 License: MIT
@@ -11,14 +11,14 @@ Description-Content-Type: text/markdown
 Requires-Dist: rich>=13.7
 Requires-Dist: markdown>=3.5
 Requires-Dist: pyparsing>=3.0.0
-Requires-Dist: praisonaiagents>=1.6.167
-Requires-Dist: praisonai-code>=0.0.63
-Requires-Dist: praisonai-bot>=0.0.48
-Requires-Dist: praisonai-train>=0.0.18
-Requires-Dist: praisonai-browser>=0.0.14
-Requires-Dist: praisonai-mcp>=0.0.14
-Requires-Dist: praisonai-sandbox>=0.0.12
-Requires-Dist: praisonai-deploy>=0.0.7
+Requires-Dist: praisonaiagents>=1.6.168
+Requires-Dist: praisonai-code>=0.0.64
+Requires-Dist: praisonai-bot>=0.0.49
+Requires-Dist: praisonai-train>=0.0.19
+Requires-Dist: praisonai-browser>=0.0.15
+Requires-Dist: praisonai-mcp>=0.0.15
+Requires-Dist: praisonai-sandbox>=0.0.13
+Requires-Dist: praisonai-deploy>=0.0.8
 Requires-Dist: python-dotenv>=0.19.0
 Requires-Dist: litellm<2,>=1.83.14
 Requires-Dist: PyYAML>=6.0
@@ -402,7 +402,6 @@ from praisonaiagents import Agent, ExecutionConfig
 agent = Agent(
     instructions="Fix the failing tests.",
     execution=ExecutionConfig(max_iter=30, max_budget=0.50, on_budget_exceeded="stop"),
-    reflection=True,               # completion check — the agent grades its own answer
     autonomy=True,                 # required to drive the loop with run_autonomous()
 )
 result = agent.run_autonomous("Refactor the auth module", max_iterations=5)

@@ -743,6 +743,11 @@ class FlakyCheckpointStore(CheckpointStore):
     def __getitem__(self, item: str) -> pa.RecordBatch:
         return self._inner[item]
 
+    def read_range(self, key: str, start: int, num_rows: int) -> pa.RecordBatch:
+        # Keep GEN-780 writer recovery on the inner store's true bounded-read
+        # path; the base-class fallback would materialize the whole checkpoint.
+        return self._inner.read_range(key, start, num_rows)
+
     def uri(self) -> str:
         return self._inner.uri()
 

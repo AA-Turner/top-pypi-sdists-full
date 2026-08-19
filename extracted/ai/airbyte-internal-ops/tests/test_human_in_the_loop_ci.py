@@ -21,7 +21,9 @@ from airbyte_ops_mcp.mcp.human_in_the_loop import (
     _NEWSLETTER_CHANNELS,
     RequestType,
     escalate_to_human,
+    lookup_person,
 )
+from airbyte_ops_mcp.slack_api import SlackUsergroup
 
 SESSION_URL = "https://app.devin.ai/sessions/abc123def456"
 DETAIL_URL = "https://github.com/airbytehq/airbyte/pull/123"
@@ -554,9 +556,226 @@ def test_classify_person_id(identifier: str, expected_classification: str) -> No
 
 
 @pytest.mark.unit
-def test_normalize_person_id_preserves_slack_usergroup_id() -> None:
-    """normalize_person_id trims but does not alter a Slack usergroup ID."""
-    assert normalize_person_id("  S0BKR63VAN5  ") == "S0BKR63VAN5"
+@pytest.mark.parametrize(
+    "identifier, expected",
+    [
+        pytest.param(
+            "  S0BKR63VAN5  ",
+            "S0BKR63VAN5",
+            id="trim-usergroup-id",
+        ),
+        pytest.param(
+            "<!subteam^S0BKR63VAN5>",
+            "S0BKR63VAN5",
+            id="bare-subteam-mention",
+        ),
+        pytest.param(
+            "<!subteam^S0BKR63VAN5|@oc-internal-ai>",
+            "S0BKR63VAN5",
+            id="labeled-subteam-mention",
+        ),
+        pytest.param("<@U05AKF1BCC9>", "U05AKF1BCC9", id="user-mention"),
+        pytest.param("U05AKF1BCC9", "U05AKF1BCC9", id="plain-user-id"),
+    ],
+)
+def test_normalize_person_id(identifier: str, expected: str) -> None:
+    """normalize_person_id trims IDs and unwraps pasted Slack mentions."""
+    assert normalize_person_id(identifier) == expected
+
+
+@pytest.mark.unit
+@patch("airbyte_ops_mcp.slack_posting.lookup_slack_usergroup")
+def test_resolve_to_slack_id_person_beats_usergroup(
+    mock_lookup: MagicMock,
+) -> None:
+    """Roster matches take precedence over Slack usergroup matches."""
+    mock_lookup.return_value = [
+        MagicMock(id="S0BKR63VAN5", handle="aaronsteers", name="AJ")
+    ]
+    roster = [{"github_handle": "aaronsteers", "slack_id": "U05AKF1BCC9"}]
+
+    assert _resolve_to_slack_id("aaronsteers", roster) == "U05AKF1BCC9"
+    mock_lookup.assert_not_called()
+
+
+@pytest.mark.unit
+@pytest.mark.parametrize(
+    "identifier, roster, allow_usergroup, slack_token, lookup_groups, lookup_error, expected, expected_call",
+    [
+        pytest.param(
+            "@oc-internal-ai",
+            [],
+            False,
+            None,
+            [SlackUsergroup("S1", "oc-internal-ai", "Internal AI", "", 1)],
+            None,
+            None,
+            None,
+            id="fallback-disabled",
+        ),
+        pytest.param(
+            "@OC-INTERNAL-AI",
+            [],
+            True,
+            None,
+            [SlackUsergroup("S1", "oc-internal-ai", "Internal AI", "", 1)],
+            None,
+            "S1",
+            "OC-INTERNAL-AI",
+            id="exact-handle-match",
+        ),
+        pytest.param(
+            "Internal AI",
+            [],
+            True,
+            None,
+            [
+                SlackUsergroup("S1", "oc-internal-ai", "Internal AI", "", 1),
+                SlackUsergroup("S2", "other", "Internal AI", "", 1),
+            ],
+            None,
+            None,
+            "Internal AI",
+            id="ambiguous-name-match",
+        ),
+        pytest.param(
+            "@OC-INTERNAL-AI",
+            [],
+            True,
+            None,
+            [SlackUsergroup("S1", "oc-internal-ai-extra", "Other", "", 1)],
+            None,
+            None,
+            "OC-INTERNAL-AI",
+            id="partial-only-handle-match",
+        ),
+        pytest.param(
+            "@OC-INTERNAL-AI",
+            [],
+            True,
+            None,
+            [],
+            None,
+            None,
+            "OC-INTERNAL-AI",
+            id="no-group-match",
+        ),
+        pytest.param(
+            "@oc-internal-ai",
+            [],
+            True,
+            None,
+            None,
+            RuntimeError("missing_scope"),
+            None,
+            "oc-internal-ai",
+            id="lookup-error",
+        ),
+        pytest.param(
+            "aj@airbyte.io",
+            [],
+            True,
+            None,
+            None,
+            None,
+            None,
+            None,
+            id="email-skips-lookup",
+        ),
+        pytest.param(
+            "@oc-internal-ai",
+            [],
+            True,
+            "xoxb-test",
+            [SlackUsergroup("S1", "oc-internal-ai", "Internal AI", "", 1)],
+            None,
+            "S1",
+            "oc-internal-ai",
+            id="forwards-token",
+        ),
+    ],
+)
+@patch("airbyte_ops_mcp.slack_posting.lookup_slack_usergroup")
+def test_resolve_to_slack_id_usergroup_resolution(
+    mock_lookup: MagicMock,
+    identifier: str,
+    roster: list[dict[str, str | int | None]],
+    allow_usergroup: bool,
+    slack_token: str | None,
+    lookup_groups: list[SlackUsergroup] | None,
+    lookup_error: Exception | None,
+    expected: str | None,
+    expected_call: str | None,
+) -> None:
+    """Usergroup resolution is gated, exact, resilient, and token-aware."""
+    if lookup_error is not None:
+        mock_lookup.side_effect = lookup_error
+    else:
+        mock_lookup.return_value = lookup_groups
+
+    assert (
+        _resolve_to_slack_id(
+            identifier,
+            roster,
+            allow_usergroup=allow_usergroup,
+            slack_token=slack_token,
+        )
+        == expected
+    )
+    if expected_call is None:
+        mock_lookup.assert_not_called()
+    else:
+        mock_lookup.assert_called_once_with(expected_call, token=slack_token)
+
+
+@pytest.mark.unit
+@pytest.mark.parametrize(
+    "lookup_groups, lookup_error, expected_matches, expected_total, expected_usergroups",
+    [
+        pytest.param(
+            [SlackUsergroup("S0BKR63VAN5", "oc-internal-ai", "Internal AI", "", 3)],
+            None,
+            [],
+            0,
+            ["S0BKR63VAN5"],
+            id="returns-usergroups",
+        ),
+        pytest.param(
+            None,
+            RuntimeError("missing_scope"),
+            [],
+            0,
+            [],
+            id="swallows-lookup-error",
+        ),
+    ],
+)
+@patch("airbyte_ops_mcp.mcp.human_in_the_loop.find_slack_usergroups")
+@patch("airbyte_ops_mcp.mcp.human_in_the_loop.search_roster")
+@patch("airbyte_ops_mcp.mcp.human_in_the_loop.fetch_roster")
+def test_lookup_person_usergroup_matches(
+    mock_fetch: MagicMock,
+    mock_search: MagicMock,
+    mock_groups: MagicMock,
+    lookup_groups: list[SlackUsergroup] | None,
+    lookup_error: Exception | None,
+    expected_matches: list,
+    expected_total: int,
+    expected_usergroups: list[str],
+) -> None:
+    """lookup_person separates people from resilient usergroup matches."""
+    mock_fetch.return_value = []
+    mock_search.return_value = []
+    if lookup_error is not None:
+        mock_groups.side_effect = lookup_error
+    else:
+        mock_groups.return_value = lookup_groups
+
+    result = lookup_person("oc-internal-ai")
+
+    assert result.matches == expected_matches
+    assert result.total_matches == expected_total
+    assert [group.id for group in result.usergroup_matches] == expected_usergroups
 
 
 @pytest.mark.unit

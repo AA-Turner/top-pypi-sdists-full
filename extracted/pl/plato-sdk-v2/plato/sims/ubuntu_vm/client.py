@@ -42,8 +42,8 @@ DESKTOP_AGENT_PORT = 9000
 CDP_PORT = 9224
 
 # Pattern: https://{job_id}--{port}.{gateway} where {gateway} is a connect
-# gateway (connect.plato.so, amazon.connect.plato.so, ...) or a sims gateway
-# (sims.plato.so, amazon.sims.plato.so, ...).
+# gateway (connect.plato.so, fakedomain.connect.plato.so, ...) or a sims gateway
+# (sims.plato.so, fakedomain.sims.plato.so, ...).
 _JOB_ID_RE = re.compile(r"https?://([a-f0-9-]+?)(?:--\d+)?\..*(?:connect|sims)\.plato\.so")
 
 
@@ -63,7 +63,7 @@ def _base_url_from_job_id(job_id: str, port: int = DESKTOP_AGENT_PORT, gateway_h
     """Build a desktop-agent base URL from a job ID and port for the given gateway host.
 
     ``gateway_host`` defaults to the prod ``connect.plato.so`` gateway. Pass a
-    per-deployment host (e.g. ``amazon.connect.plato.so``) to target another
+    per-deployment host (e.g. ``fakedomain.connect.plato.so``) to target another
     deployment — see :func:`_deployment_connect_gateway` — or a sims gateway
     (``sims.plato.so``) to use the legacy redirect/cookie routing.
     """
@@ -87,7 +87,7 @@ def _gateway_from_base_url(base_url: str) -> str:
 
     Preserves whatever gateway the client's base URL already targets — the
     connect gateway (prod ``connect.plato.so`` or per-deployment hosts like
-    ``amazon.connect.plato.so``) or a legacy sims gateway — so CDP/liveview
+    ``fakedomain.connect.plato.so``) or a legacy sims gateway — so CDP/liveview
     URLs follow the same path. Falls back to the prod connect gateway when the
     host can't be parsed.
     """
@@ -125,7 +125,7 @@ def _deployment_connect_gateway(api_base_url: str | None) -> str:
     """Map an API base URL (PLATO_BASE_URL) to its connect gateway host.
 
     ``https://plato.so`` -> ``connect.plato.so``;
-    ``https://amazon.plato.so`` -> ``amazon.connect.plato.so``. Defaults to
+    ``https://fakedomain.plato.so`` -> ``fakedomain.connect.plato.so``. Defaults to
     prod ``connect.plato.so`` when the deployment can't be determined.
 
     The connect gateway routes ``{job}--{port}`` hostnames directly to the VM

@@ -93,6 +93,8 @@ class RolloutSummary(BaseModel):
     advance_tier: str = ""
     advance_pct: str = ""
     promote_rollout_id: str = ""
+    pause_rollout_id: str = ""
+    is_paused: bool = False
     state: str = ""
     state_display: str = ""
     needs_review: bool = False
@@ -385,6 +387,7 @@ class ConnectorVersionManagerPageState(OpsPageState, OrgLookupModalState):
     rollout_action_result: str = ""
     rollout_action_success: bool = False
     rollout_target_percentage: str = ""
+    pause_reason: str = ""
     selected_rollout: RolloutSelection = Field(default_factory=RolloutSelection)
 
     # Yank version state

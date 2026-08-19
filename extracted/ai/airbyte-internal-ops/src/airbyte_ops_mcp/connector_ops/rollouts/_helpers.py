@@ -22,7 +22,9 @@ from airbyte_ops_mcp.cloud_admin.registry_lookup import (
 from airbyte_ops_mcp.connector_ops.rollouts.constants import (
     MAX_SOAK_TIME,
     MIN_SOAK_TIME,
+    ROLLOUT_FAILURE_COUNT_FLOOR,
     ROLLOUT_FAILURE_COUNT_THRESHOLD,
+    ROLLOUT_FAILURE_PERCENT_THRESHOLD,
     SOAKED_SIGNAL_COUNT_THRESHOLD,
     SOAKED_SIGNAL_PERCENT_THRESHOLD,
     RolloutStrategy,
@@ -265,7 +267,20 @@ class HealthGateResult:
     actors_with_successful_syncs: int = 0
     signal_percent: float = 0.0
     failure_count: int = 0
+    failed_actor_count: int = 0
+    actors_with_sync_signal: int = 0
+    failure_percent: float = 0.0
     should_rollback: bool = False
+
+
+def _failed_sync_count(actor_stats: dict) -> int:
+    """Return an actor's failed sync count, tolerating camelCase or snake_case."""
+    return actor_stats.get("numFailed") or actor_stats.get("num_failed") or 0
+
+
+def _succeeded_sync_count(actor_stats: dict) -> int:
+    """Return an actor's successful sync count, tolerating camelCase or snake_case."""
+    return actor_stats.get("numSucceeded") or actor_stats.get("num_succeeded") or 0
 
 
 def check_health_gate(
@@ -275,13 +290,16 @@ def check_health_gate(
 ) -> HealthGateResult:
     """Evaluate health gate for a rollout at 100%.
 
-    Uses a 5-threshold model:
+    Uses a 5-threshold model, evaluated in this order:
 
-    1. **MIN_SOAK_TIME** - Never promote before this elapsed time.
-    2. **MAX_SOAK_TIME** - If signal data is not collected by this time,
+    1. **ROLLOUT_FAILURE_PERCENT_THRESHOLD** / **ROLLOUT_FAILURE_COUNT_THRESHOLD** -
+       If this fraction of the actors that reported syncs is failing, *or* this
+       many distinct actors are failing outright — and at least
+       `ROLLOUT_FAILURE_COUNT_FLOOR` distinct actors are failing — trigger
+       pause/rollback. Checked first, independent of timing.
+    2. **MIN_SOAK_TIME** - Never promote before this elapsed time.
+    3. **MAX_SOAK_TIME** - If signal data is not collected by this time,
        promote anyway (force progression).
-    3. **ROLLOUT_FAILURE_COUNT_THRESHOLD** - If this many failures are
-       observed, trigger pause/rollback.
     4. **SOAKED_SIGNAL_COUNT_THRESHOLD** - Minimum number of actors with
        successful syncs (success signal, unrelated to failures).
     5. **SOAKED_SIGNAL_PERCENT_THRESHOLD** - Minimum fraction of pinned
@@ -332,56 +350,97 @@ def check_health_gate(
     )
     syncs_map = data.get("syncs", {})
 
+    actor_stats_list = list(syncs_map.values())
     actors_with_successful_syncs = sum(
-        1
-        for actor_stats in syncs_map.values()
-        if (actor_stats.get("numSucceeded") or actor_stats.get("num_succeeded") or 0)
-        > 0
+        1 for actor_stats in actor_stats_list if _succeeded_sync_count(actor_stats) > 0
     )
     total_failed = sum(
-        (actor_stats.get("numFailed") or actor_stats.get("num_failed") or 0)
-        for actor_stats in syncs_map.values()
+        _failed_sync_count(actor_stats) for actor_stats in actor_stats_list
+    )
+    failed_actor_count = sum(
+        1 for actor_stats in actor_stats_list if _failed_sync_count(actor_stats) > 0
+    )
+    actors_with_sync_signal = sum(
+        1
+        for actor_stats in actor_stats_list
+        if _succeeded_sync_count(actor_stats) + _failed_sync_count(actor_stats) > 0
+    )
+    failure_percent = (
+        failed_actor_count / actors_with_sync_signal
+        if actors_with_sync_signal > 0
+        else 0.0
     )
     signal_percent = (
         actors_with_successful_syncs / num_pinned if num_pinned > 0 else 0.0
     )
+    failure_summary = (
+        f"failures: {total_failed} "
+        f"({failed_actor_count}/{actors_with_sync_signal} connectors, "
+        f"{failure_percent:.1%})"
+        if actors_with_sync_signal > 0
+        else "failures: no sync signal reported yet"
+    )
 
-    # --- Gate: failure threshold (checked first, independent of timing) ---
-    failure_threshold = ROLLOUT_FAILURE_COUNT_THRESHOLD[strategy_key]
-    if total_failed >= failure_threshold:
+    def _result(
+        *,
+        passed: bool,
+        reason: str,
+        should_rollback: bool = False,
+    ) -> HealthGateResult:
+        """Build a `HealthGateResult` carrying the observed sync metrics."""
         return HealthGateResult(
-            passed=False,
-            should_rollback=True,
-            reason=(
-                f"Failure threshold hit: {total_failed} failures "
-                f"(threshold={failure_threshold}). Pause/rollback recommended."
-            ),
+            passed=passed,
+            reason=reason,
+            should_rollback=should_rollback,
             soak_elapsed_seconds=elapsed_seconds,
             actors_with_successful_syncs=actors_with_successful_syncs,
             signal_percent=signal_percent,
             failure_count=total_failed,
+            failed_actor_count=failed_actor_count,
+            actors_with_sync_signal=actors_with_sync_signal,
+            failure_percent=failure_percent,
+        )
+
+    # --- Gate: failure rate or absolute count (checked first, independent of
+    # timing). Either threshold can trip the gate, but only above the floor. ---
+    failure_percent_threshold = ROLLOUT_FAILURE_PERCENT_THRESHOLD[strategy_key]
+    failure_count_floor = ROLLOUT_FAILURE_COUNT_FLOOR[strategy_key]
+    failure_count_threshold = ROLLOUT_FAILURE_COUNT_THRESHOLD[strategy_key]
+    percent_tripped = failure_percent >= failure_percent_threshold
+    count_tripped = failed_actor_count >= failure_count_threshold
+    if failed_actor_count >= failure_count_floor and (percent_tripped or count_tripped):
+        tripped_by = (
+            f"{failure_percent:.1%} >= {failure_percent_threshold:.0%}"
+            if percent_tripped
+            else f"count >= {failure_count_threshold}"
+        )
+        return _result(
+            passed=False,
+            should_rollback=True,
+            reason=(
+                f"Failure threshold hit: {failed_actor_count} of "
+                f"{actors_with_sync_signal} connectors failing "
+                f"({tripped_by}, floor={failure_count_floor}). "
+                f"Pause/rollback recommended."
+            ),
         )
 
     # --- Gate: MIN_SOAK_TIME (never promote before this) ---
     min_soak = MIN_SOAK_TIME[strategy_key]
     if elapsed_seconds < min_soak:
         remaining = min_soak - elapsed_seconds
-        return HealthGateResult(
+        return _result(
             passed=False,
             reason=(
                 f"Min soak time not met: {elapsed_seconds:.0f}s elapsed, "
                 f"{min_soak}s required ({remaining:.0f}s remaining)"
             ),
-            soak_elapsed_seconds=elapsed_seconds,
-            actors_with_successful_syncs=actors_with_successful_syncs,
-            signal_percent=signal_percent,
-            failure_count=total_failed,
         )
 
     # --- Gate: MAX_SOAK_TIME (force progression if exceeded) ---
     max_soak = MAX_SOAK_TIME[strategy_key]
     if elapsed_seconds >= max_soak:
-        return HealthGateResult(
+        return _result(
             passed=True,
             reason=(
                 f"Max soak time exceeded ({elapsed_seconds:.0f}s >= {max_soak}s): "
@@ -389,10 +448,6 @@ def check_health_gate(
                 f"Signal: {actors_with_successful_syncs} actors, "
                 f"{signal_percent:.1%} coverage"
             ),
-            soak_elapsed_seconds=elapsed_seconds,
-            actors_with_successful_syncs=actors_with_successful_syncs,
-            signal_percent=signal_percent,
-            failure_count=total_failed,
         )
 
     # --- Gates: signal count AND signal percent (both must pass) ---
@@ -403,18 +458,14 @@ def check_health_gate(
     percent_met = signal_percent >= percent_threshold
 
     if count_met and percent_met:
-        return HealthGateResult(
+        return _result(
             passed=True,
             reason=(
                 f"Signal thresholds met: "
                 f"{actors_with_successful_syncs} actors (>= {count_threshold}), "
                 f"{signal_percent:.1%} coverage (>= {percent_threshold:.0%}). "
-                f"Soak: {elapsed_seconds:.0f}s, failures: {total_failed}"
+                f"Soak: {elapsed_seconds:.0f}s, {failure_summary}"
             ),
-            soak_elapsed_seconds=elapsed_seconds,
-            actors_with_successful_syncs=actors_with_successful_syncs,
-            signal_percent=signal_percent,
-            failure_count=total_failed,
         )
 
     # Not enough signal yet, still within max soak window
@@ -424,16 +475,12 @@ def check_health_gate(
     if not percent_met:
         missing_parts.append(f"percent={signal_percent:.1%}/{percent_threshold:.0%}")
 
-    return HealthGateResult(
+    return _result(
         passed=False,
         reason=(
             f"Insufficient signal: {', '.join(missing_parts)}. "
-            f"Soak: {elapsed_seconds:.0f}s/{max_soak}s, failures: {total_failed}"
+            f"Soak: {elapsed_seconds:.0f}s/{max_soak}s, {failure_summary}"
         ),
-        soak_elapsed_seconds=elapsed_seconds,
-        actors_with_successful_syncs=actors_with_successful_syncs,
-        signal_percent=signal_percent,
-        failure_count=total_failed,
     )
 
 

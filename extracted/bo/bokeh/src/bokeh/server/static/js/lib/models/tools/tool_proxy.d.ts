@@ -24,7 +24,7 @@ export declare class ToolProxy<T extends Tool> extends Model {
     properties: ToolProxy.Props<T>;
     __view_type__: ToolView;
     constructor(attrs?: Partial<ToolProxy.Attrs<T>>);
-    do: Signal0<this>;
+    readonly do: Signal0<this>;
     /**
      * Returns the first real tool this proxy maintains.
      */
@@ -40,7 +40,6 @@ export declare class ToolProxy<T extends Tool> extends Model {
     get computed_icon(): IconLike | undefined;
     get toggleable(): boolean;
     get group(): string | boolean;
-    initialize(): void;
     connect_signals(): void;
     doit(): void;
     set_active(): void;

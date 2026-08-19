@@ -2119,6 +2119,14 @@ impl<'a> LintContext<'a> {
         ParsedListBlocks::new(&self.list_blocks, &self.lines)
     }
 
+    /// The item lines of `block` grouped into the lists they form, one group
+    /// per list as CommonMark nests them, in source order, so siblings can be
+    /// compared without the nested items that sit between them.
+    #[must_use]
+    pub fn list_block_item_groups(&self, block: &ListBlock) -> Vec<Vec<usize>> {
+        list_blocks::item_lines_by_list(self.content, &self.lines, block)
+    }
+
     /// Whether the document contains any parsed list items.
     #[must_use]
     pub fn has_list_items(&self) -> bool {

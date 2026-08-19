@@ -1,6 +1,6 @@
-Metadata-Version: 2.4
+Metadata-Version: 2.5
 Name: jupyter_ai_persona_manager
-Version: 0.1.2
+Version: 0.1.3
 Summary: The core manager & registry for AI personas in Jupyter AI
 Project-URL: Homepage, https://github.com/jupyter-ai-contrib/jupyter-ai-persona-manager
 Project-URL: Bug Tracker, https://github.com/jupyter-ai-contrib/jupyter-ai-persona-manager/issues

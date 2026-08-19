@@ -15,7 +15,7 @@ import logging
 import os
 import time
 from http import HTTPStatus
-from typing import Callable, Dict, List, NamedTuple, Optional, Type
+from typing import Any, Callable, Dict, List, NamedTuple, Optional, Type
 
 import requests
 from requests import RequestException
@@ -24,7 +24,11 @@ from ...api_objects.model import ModelStatusConfiguration
 from ...batch_utils import MessageBatch, MessageBatchItem, ParametersBatch
 from ...connection import RestApiClient, RestServerConnection
 from ...connection.connection_url_helpers import upload_thumbnail_url
-from ...exceptions import CometRestApiException, FileUploadThrottledException
+from ...exceptions import (
+    AssetIsImmutableException,
+    CometRestApiException,
+    FileUploadThrottledException,
+)
 from ...file_upload_manager import FileUploadManager
 from ...logging_messages import (
     ARTIFACT_REMOTE_ASSETS_BATCH_SENDING_REST_ERROR,
@@ -65,6 +69,7 @@ from ...logging_messages import (
     REGISTER_FAILED_DUE_TO_UPLOADS_FAILED,
     REMOTE_MODEL_MESSAGE_SENDING_ERROR,
     STANDARD_OUTPUT_SENDING_ERROR,
+    STREAMER_FAILED_TO_CALL_MESSAGE_CALLBACK_WARNING,
     STREAMER_FAILED_TO_REMOVE_TMP_FILE_COPY_WARNING,
     SYSTEM_DETAILS_MSG_SENDING_ERROR,
     SYSTEM_INFO_MESSAGE_SENDING_ERROR,
@@ -346,6 +351,11 @@ class OnlineMessageHandler(BaseMessageHandler):
                     connection_error=True,
                     failure_reason=str(response),
                 )
+            elif isinstance(response, AssetIsImmutableException):
+                # The message did reach the backend, which refused to store the asset. The
+                # asset-level failure is reported to message_callback below, but the message
+                # itself is complete: replaying it would only be rejected again.
+                self._on_messages_sent_completed([message_id])
             elif isinstance(response, FileUploadThrottledException):
                 # Handle HTTP 429 (Too Many Requests) for file uploads
                 reset_at = calculate_reset_at_from_response(response.response, LOGGER)
@@ -376,27 +386,49 @@ class OnlineMessageHandler(BaseMessageHandler):
                 # Don't call _on_messages_sent_completed since this will be retried
                 return
 
-        if message_callback is None:
-            callback = lambda response: _callback(response)  # noqa: E731
-        else:
-            callback = lambda response: (  # noqa: E731
-                _callback(response),
-                message_callback(response),
+        def callback(response):
+            self._complete_then_call(
+                lambda: _callback(response), message_callback, response
             )
 
         return callback
 
+    def _complete_then_call(
+        self,
+        complete: Callable[[], None],
+        message_callback: Optional[Callable],
+        response: Any,
+    ) -> None:
+        """Completes the message, then runs ``message_callback``.
+
+        ``message_callback`` carries the model synchronization completion, so it must run
+        even when completing the message itself raises, otherwise its waiters stay blocked
+        until they time out. When completion already failed, a failure of
+        ``message_callback`` is logged rather than raised, so that it does not mask the
+        original error."""
+        try:
+            complete()
+        except BaseException:
+            if message_callback is not None:
+                try:
+                    message_callback(response)
+                except Exception:
+                    LOGGER.warning(
+                        STREAMER_FAILED_TO_CALL_MESSAGE_CALLBACK_WARNING, exc_info=True
+                    )
+            raise
+
+        if message_callback is not None:
+            message_callback(response)
+
     def _on_upload_success_callback(
         self, message_id: int, message_callback: Optional[Callable] = None
     ):
-        if message_callback is None:
-            callback = lambda response: self._on_messages_sent_completed(  # noqa: E731
-                [message_id]
-            )
-        else:
-            callback = lambda response: (  # noqa: E731
-                self._on_messages_sent_completed([message_id]),
-                message_callback(response),
+        def callback(response):
+            self._complete_then_call(
+                lambda: self._on_messages_sent_completed([message_id]),
+                message_callback,
+                response,
             )
 
         return callback

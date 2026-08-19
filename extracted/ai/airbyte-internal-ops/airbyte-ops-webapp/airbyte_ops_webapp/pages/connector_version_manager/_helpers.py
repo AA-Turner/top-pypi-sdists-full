@@ -251,12 +251,13 @@ _ARROW = "\u21b3"
 
 # Status glyphs for a tier's rollout stage — shape + color so an operator can
 # scan tier state at a glance without reading the numbers.
-_STATUS_NOT_STARTED = ("\u2796", "Not started")
-_STATUS_CLOSED = ("\u2796", "Closed")
-_STATUS_IN_PROGRESS = ("\U0001f535", "In progress")  # blue circle
-_STATUS_ATTENTION = ("\u26a0\ufe0f", "Attention")
-_STATUS_COMPLETE = ("\u2611\ufe0f", "Complete")
-_STATUS_PAUSED = ("\u23f8\ufe0f", "Paused")  # pause glyph
+_STATUS_NOT_STARTED = ("➖", "Not started")
+_STATUS_CLOSED = ("➖", "Closed")
+_STATUS_IN_PROGRESS = ("🔵", "In progress")
+_STATUS_ATTENTION = ("⚠️", "Attention")
+_STATUS_COMPLETE = ("☑️", "Complete")
+_STATUS_PAUSED = ("⏸️", "Paused")
+_STATUS_EMPTY = ("⊘", "Empty")  # no customers to roll out to
 
 # Rollout `state` values that mean the stage exists but has not begun pinning —
 # treated as "not started" so a not-yet-running tier never looks live.
@@ -323,7 +324,8 @@ def tier_rollout_status(
       begun pinning (`initialized` / `pending`).
     - `⏸️ Paused` — the rollout is paused without a failure-threshold hold.
     - `⚠️ Attention` — the rollout failed or crossed its failure threshold.
-    - `☑️ Complete` — the rollout succeeded or was intentionally skipped as empty.
+    - `⊘ Empty` — the tier had no customers to roll out to.
+    - `☑️ Complete` — the rollout succeeded.
     - `🔵 In progress` — the rollout is still rolling out.
     """
     normalized = (state or "").strip().lower()
@@ -340,9 +342,9 @@ def tier_rollout_status(
         normalized == "canceled" and FAILURE_THRESHOLD_EXCEEDED_MARKER in reasons
     ):
         return _STATUS_ATTENTION
-    if normalized == "succeeded" or (
-        normalized == "canceled" and NO_OP_EMPTY_TIER_MARKER in reasons
-    ):
+    if normalized == "canceled" and NO_OP_EMPTY_TIER_MARKER in reasons:
+        return _STATUS_EMPTY
+    if normalized == "succeeded":
         return _STATUS_COMPLETE
     if normalized == "canceled":
         return _STATUS_CLOSED
@@ -623,12 +625,13 @@ def progressive_rollout_rows() -> list[dict[str, Any]]:
             _STATUS_IN_PROGRESS,
             _STATUS_COMPLETE,
             _STATUS_CLOSED,
+            _STATUS_EMPTY,
         }
         for tier_index_value, (display_tier, stage_value) in enumerate(
             _CARD_TIER_STAGES
         ):
             status = tier_statuses[stage_value]
-            if status == _STATUS_ATTENTION:
+            if status in (_STATUS_ATTENTION, _STATUS_PAUSED, _STATUS_EMPTY):
                 tier_displays[f"{display_tier.value.lower()}_display"] = status[0]
                 continue
             later_started = any(
@@ -1365,6 +1368,8 @@ def build_rollout_summary(
         "advance_tier": highest_tier_value,
         "advance_pct": str(highest_rollout.get("current_target_rollout_pct", "0")),
         "promote_rollout_id": highest_rollout.get("rollout_id", ""),
+        "pause_rollout_id": highest_rollout.get("rollout_id", ""),
+        "is_paused": (highest_state or "").strip().lower() == "paused",
         "state": highest_state,
         "state_display": highest_state.replace("_", " ").title()
         if highest_state

@@ -193,12 +193,15 @@ def struct_blob_encoded_table(
 
 
 class FakeQueue:
-    """Minimal Ray checkpoint queue stand-in for deferred carry-forward tests."""
+    """Minimal Ray checkpoint queue stand-in for deferred carry-forward tests.
 
-    def __init__(self, items: list[tuple[int, str]]) -> None:
-        self._items = list(items) + [(-1, "")]  # in-band seal sentinel
+    Items are ``(offset, key, num_rows)`` payloads, followed by a seal sentinel.
+    """
 
-    def get(self) -> tuple[int, str]:
+    def __init__(self, items: list[tuple[int, str, int]]) -> None:
+        self._items = list(items) + [(-1, "", 0)]  # in-band seal sentinel
+
+    def get(self) -> tuple[int, str, int]:
         return self._items.pop(0)
 
 

@@ -33,7 +33,7 @@ dependencies = [
     "requests>=2.32.4,<3",
     "python-dateutil>=2.9.0.post0",
 ]
-version = "2.15.2"
+version = "2.16.0"
 
 [project.license]
 text = "MIT"

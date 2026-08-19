@@ -2005,7 +2005,11 @@ def pause_connector_rollout(
     client_secret: str | None = None,
     bearer_token: str | None = None,
 ) -> dict[str, Any]:
-    """Pause a connector rollout while retaining its existing pins.
+    """Post the rollout's `manual_pause` endpoint, retaining its existing pins.
+
+    This is a direct endpoint call. Callers pausing a rollout as an operation should
+    use `connector_ops.rollouts.state_transitions.pause_rollout`, which owns the rules
+    that surround the transition.
 
     Args:
         docker_repository: The docker repository.
@@ -2076,6 +2080,63 @@ def pause_connector_rollout(
             extra_context={"rollout_id": rollout_id, "payload": payload},
         )
     return response.json()
+
+
+def get_connector_rollout(
+    rollout_id: str,
+    config_api_root: str,
+    client_id: str | None = None,
+    client_secret: str | None = None,
+    bearer_token: str | None = None,
+) -> dict[str, Any]:
+    """Get a connector rollout by ID.
+
+    Args:
+        rollout_id: The rollout ID.
+        config_api_root: The Config API root URL.
+        client_id: The Airbyte Cloud client ID.
+        client_secret: The Airbyte Cloud client secret.
+        bearer_token: A pre-existing bearer token.
+
+    Returns:
+        The rollout record, i.e. the `data` object of the API response.
+
+    Raises:
+        PyAirbyteInputError: If the API request fails or the rollout is not found.
+    """
+    access_token = _get_access_token(
+        client_id=client_id,
+        client_secret=client_secret,
+        bearer_token=bearer_token,
+        config_api_root=config_api_root,
+    )
+    endpoint = f"{config_api_root}/connector_rollout/get"
+    response = requests.post(
+        endpoint,
+        json={"id": rollout_id},
+        headers=config_api_headers(access_token),
+        timeout=60,
+    )
+    if response.status_code == 404:
+        raise PyAirbyteInputError(
+            message=f"Rollout not found: {rollout_id}",
+            context={
+                "rollout_id": rollout_id,
+                "endpoint": endpoint,
+                "status_code": response.status_code,
+                "response": response.text,
+            },
+        )
+    if response.status_code != 200:
+        _raise_config_api_error(
+            response,
+            operation="get connector rollout",
+            endpoint=endpoint,
+            extra_context={"rollout_id": rollout_id},
+        )
+
+    rollout: dict[str, Any] = response.json().get("data", {})
+    return rollout
 
 
 def get_actor_sync_info(

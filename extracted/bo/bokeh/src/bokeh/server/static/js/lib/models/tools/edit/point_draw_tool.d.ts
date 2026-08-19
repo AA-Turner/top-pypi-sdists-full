@@ -28,7 +28,7 @@ export declare class PointDrawTool extends EditTool {
     constructor(attrs?: Partial<PointDrawTool.Attrs>);
     tool_name: string;
     tool_icon: string;
-    event_type: ("tap" | "pan" | "move")[];
+    event_type: ("move" | "pan" | "tap")[];
     default_order: number;
 }
 //# sourceMappingURL=point_draw_tool.d.ts.map

@@ -15,7 +15,7 @@ import typing
 import warnings
 from array import array
 from collections.abc import Callable, Iterator
-from types import NoneType, UnionType
+from types import CodeType, NoneType, UnionType
 from typing import (
     TYPE_CHECKING,
     Annotated,
@@ -59,6 +59,168 @@ _ATTRS_FACTORY_TYPE = type(attrs.Factory(lambda: None))
 BACKFILL_SELECTED = "__geneva_backfill_selected"
 
 _ColumnsT = TypeVar("_ColumnsT")
+
+
+class _CodeIdentityError(Exception):
+    """Raised internally when a callable's code identity cannot be derived."""
+
+
+def _const_repr(const: Any) -> str:
+    """Return a stable textual encoding of a code-object constant.
+
+    ``repr`` is deterministic for the scalar/tuple constants the compiler emits,
+    but unordered for ``set``/``frozenset`` literals, so those are sorted first.
+    """
+    if isinstance(const, (set, frozenset)):
+        inner = ",".join(sorted(_const_repr(item) for item in const))
+        return f"{type(const).__name__}({{{inner}}})"
+    return repr(const)
+
+
+def _update_code_digest(hasher: Any, code: CodeType) -> None:
+    """Fold a code object's bytecode, names, and constants into ``hasher``.
+
+    Nested code objects (inner functions, lambdas, comprehensions) live in
+    ``co_consts`` and are recursed into so edits to inner bodies are captured.
+    """
+    hasher.update(code.co_code)
+    hasher.update(repr(code.co_names).encode())
+    hasher.update(repr(code.co_varnames).encode())
+    for const in code.co_consts:
+        if isinstance(const, CodeType):
+            hasher.update(b"<code>")
+            _update_code_digest(hasher, const)
+        else:
+            hasher.update(_const_repr(const).encode())
+
+
+def _fold_value(hasher: Any, value: Any) -> None:
+    """Best-effort deterministic fold of a picklable value into ``hasher``.
+
+    Falls back to a by-reference type marker for values that cannot be pickled,
+    so hashing never raises on an unusual bound argument or instance attribute.
+    """
+    try:
+        hasher.update(pickle.dumps(value))
+    except Exception:
+        hasher.update(f"<byref:{type(value).__name__}>".encode())
+
+
+def _update_function_digest(hasher: Any, func: Any, seen: set[int]) -> None:
+    """Fold a plain function/method's code identity into ``hasher``.
+
+    Combines the code object, ``__qualname__``/``__module__`` for
+    disambiguation, and closure cell contents (guarded). ``seen`` tracks the
+    ids of callables already folded so self-referential closures (a factory
+    returning a function that closes over itself) do not recurse forever.
+    Raises ``_CodeIdentityError`` when the callable exposes no code object.
+    """
+    fid = id(func)
+    if fid in seen:
+        hasher.update(b"<cycle>")
+        return
+    seen.add(fid)
+    code = getattr(func, "__code__", None)
+    if not isinstance(code, CodeType):
+        raise _CodeIdentityError
+    hasher.update(str(getattr(func, "__qualname__", "")).encode())
+    hasher.update(str(getattr(func, "__module__", "")).encode())
+    _update_code_digest(hasher, code)
+    for cell in getattr(func, "__closure__", None) or ():
+        try:
+            contents = cell.cell_contents
+        except ValueError:
+            hasher.update(b"<empty-cell>")
+            continue
+        if inspect.isfunction(contents):
+            with contextlib.suppress(_CodeIdentityError):
+                _update_function_digest(hasher, contents, seen)
+                continue
+        _fold_value(hasher, contents)
+
+
+def _update_callable_code_digest(hasher: Any, target: Any, seen: set[int]) -> None:
+    """Fold a callable's code identity into ``hasher``.
+
+    Unwraps ``functools.partial`` (folding in bound args/keywords) and
+    ``functools.wraps``/``__wrapped__`` chains, then digests the code of a plain
+    function/method or, for a callable instance, its ``__call__`` method plus
+    the instance ``__dict__``. ``seen`` is threaded into the function digest so
+    self-referential closures terminate. Raises ``_CodeIdentityError`` when no
+    code identity can be derived (e.g. built-in callables).
+    """
+    if isinstance(target, functools.partial):
+        hasher.update(b"<partial>")
+        _fold_value(hasher, target.args)
+        _fold_value(hasher, tuple(sorted(target.keywords.items())))
+        _update_callable_code_digest(hasher, target.func, seen)
+        return
+
+    unwrapped = target
+    with contextlib.suppress(Exception):
+        unwrapped = inspect.unwrap(target)
+    if unwrapped is not target:
+        _update_callable_code_digest(hasher, unwrapped, seen)
+        return
+
+    if inspect.isfunction(target) or inspect.ismethod(target):
+        _update_function_digest(hasher, target, seen)
+        return
+
+    # Callable instance: hash its __call__ code identity plus instance state.
+    call = inspect.getattr_static(type(target), "__call__", None)
+    if inspect.isfunction(call):
+        _update_function_digest(hasher, call, seen)
+        _fold_value(hasher, getattr(target, "__dict__", {}))
+        return
+
+    raise _CodeIdentityError
+
+
+def _func_version_hash(func: Callable) -> str:
+    """Hash a callable's code identity for use as an auto-generated version.
+
+    Two complementary digests are folded together so the version changes
+    whenever behaviour changes:
+
+    * A code-identity walk of the callable's own code object -- bytecode,
+      constants (recursing into nested code objects), names, and closure
+      contents. cloudpickle serializes module-importable callables *by
+      reference* (module + qualname only), so this walk is what makes an edit
+      to a module-defined UDF body change the version.
+    * cloudpickle's own by-value bytes, which capture referenced globals,
+      bound-instance/``__self__`` state, decorator/wrapper closures, and
+      ``__slots__`` values that the code walk alone cannot see. This is
+      best-effort: callables that reference unpicklable module-level state
+      (e.g. a ``threading.Lock``) simply contribute no by-value bytes.
+
+    Falls back to a by-reference type marker (with a warning) only when neither
+    digest can be derived (e.g. an opaque built-in callable).
+    """
+    hasher = hashlib.md5()
+    contributed = False
+
+    # By-value fingerprint: sensitive to closure/instance/global state. Skipped
+    # when the callable references unpicklable state (contributed stays False).
+    with contextlib.suppress(Exception):
+        hasher.update(pickle.dumps(func))
+        contributed = True
+
+    # Code-identity walk: sensitive to body edits even under pickle-by-reference.
+    with contextlib.suppress(_CodeIdentityError):
+        _update_callable_code_digest(hasher, func, set())
+        contributed = True
+
+    if not contributed:
+        warnings.warn(
+            f"Could not resolve a stable version for {func!r}; its "
+            "auto-generated version may not change when the code is edited. "
+            "Pass an explicit version to guarantee checkpoint invalidation.",
+            UserWarning,
+            stacklevel=5,
+        )
+        hasher.update(f"<byref:{type(func).__name__}>".encode())
+    return hasher.hexdigest()
 
 
 class Columns(Generic[_ColumnsT]):
@@ -534,9 +696,7 @@ class UDF(Callable[[pa.RecordBatch], pa.Array]):  # type: ignore
 
         # Set default version
         if not self.version:
-            hasher = hashlib.md5()
-            hasher.update(pickle.dumps(self.func))
-            self.version = hasher.hexdigest()
+            self.version = _func_version_hash(self.func)
 
         # Normalize override
         if not self._checkpoint_key_override:
@@ -1257,11 +1417,14 @@ def udf(
         - A factory function: retry_transient(), retry_all(), skip_on_error()
         - A list of matchers: [Retry(...), Skip(...), Fail(...)]
 
-        Scalar UDF backfill also exposes fatal worker-loss exceptions such as
-        ``FatalWorkerTransientError``. By default, transient fatal worker loss
-        is retried up to 3 task-level attempts. If you explicitly match
-        ``FatalWorkerTransientError`` in ``on_error``, your matcher overrides
-        that default.
+        UDF backfill also exposes fatal worker-loss exceptions such as
+        ``FatalWorkerExitError`` and ``FatalWorkerTransientError``. By default,
+        fatal worker errors are retried up to 3 total attempts, then bisected
+        until only failing rows are written as NULL. Native crashes
+        skip retry but still use row isolation; OOM and deterministic integrity
+        failures keep their specialized behavior. An explicit matching
+        ``on_error`` policy overrides the default for that error type. Ordinary
+        UDF exceptions retain their existing fail-fast default.
 
         Examples
         --------
@@ -1994,9 +2157,7 @@ class UDTF:
 
         # Set default version from hash of function
         if not self.version:
-            hasher = hashlib.md5()
-            hasher.update(pickle.dumps(self.func))
-            self.version = hasher.hexdigest()
+            self.version = _func_version_hash(self.func)
 
     def execute(self, source: Any) -> "Iterator[pa.RecordBatch]":
         """Execute the UDTF, yielding record batches.
@@ -2457,11 +2618,7 @@ class Chunker:
             self.input_columns = [p for p in sig.parameters if p != "__source_row_id"]
 
         if not self.version:
-            hasher = hashlib.md5()
-            import geneva.cloudpickle as cloudpickle
-
-            hasher.update(cloudpickle.dumps(self.func))
-            self.version = hasher.hexdigest()
+            self.version = _func_version_hash(self.func)
 
     def execute_on_record_batch(self, record_batch: pa.RecordBatch) -> pa.RecordBatch:
         """Execute the scalar UDTF on a record batch, expanding rows 1:N.

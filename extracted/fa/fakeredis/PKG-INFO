@@ -1,6 +1,6 @@
-Metadata-Version: 2.4
+Metadata-Version: 2.5
 Name: fakeredis
-Version: 2.37.0
+Version: 2.37.1
 Summary: Python implementation of redis API, can be used for testing purposes.
 Project-URL: Homepage, https://github.com/cunla/fakeredis-py
 Project-URL: Repository, https://github.com/cunla/fakeredis-py
@@ -18,7 +18,6 @@ Classifier: Intended Audience :: Developers
 Classifier: License :: OSI Approved :: BSD License
 Classifier: Operating System :: OS Independent
 Classifier: Programming Language :: Python
-Classifier: Programming Language :: Python :: 3.9
 Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
@@ -26,10 +25,8 @@ Classifier: Programming Language :: Python :: 3.13
 Classifier: Programming Language :: Python :: 3.14
 Classifier: Programming Language :: Python :: 3.15
 Classifier: Topic :: Software Development :: Libraries :: Python Modules
-Requires-Python: >=3.7
-Requires-Dist: redis<7.2; python_version < '3.10'
-Requires-Dist: redis>=4.3; python_version > '3.8'
-Requires-Dist: redis>=4; python_version < '3.8'
+Requires-Python: >=3.8
+Requires-Dist: redis>=4.3
 Requires-Dist: sortedcontainers>=2
 Requires-Dist: typing-extensions>=4.7; python_version < '3.11'
 Provides-Extra: bf
@@ -43,7 +40,7 @@ Requires-Dist: lupa>=2.1; extra == 'lua'
 Provides-Extra: probabilistic
 Requires-Dist: pyprobables>=0.6; extra == 'probabilistic'
 Provides-Extra: valkey
-Requires-Dist: valkey>=6; (python_version >= '3.8') and extra == 'valkey'
+Requires-Dist: valkey>=6; extra == 'valkey'
 Provides-Extra: vectorset
 Requires-Dist: jsonpath-ng>=1.6; (python_version >= '3.11') and extra == 'vectorset'
 Requires-Dist: numpy>=2.4.0; (python_version >= '3.11') and extra == 'vectorset'
@@ -136,6 +133,7 @@ r2.get("greeting")  # b'hello' — same underlying data
 ```python
 import fakeredis
 
+
 async def main():
     r = fakeredis.FakeAsyncRedis()
     await r.set("foo", "bar")
@@ -157,9 +155,11 @@ r = fakeredis.FakeStrictRedis(server_type="valkey")
 import pytest
 import fakeredis
 
+
 @pytest.fixture
 def redis_client():
     return fakeredis.FakeStrictRedis()
+
 
 def test_cache_set(redis_client):
     redis_client.set("user:1", "alice")

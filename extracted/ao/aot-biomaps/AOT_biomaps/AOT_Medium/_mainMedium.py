@@ -17,7 +17,6 @@ class Medium(ABC):
     
     def __init__(self, params):
         self.params = params
-        self.medium = None
         self.factorX = None
         self.factorZ = None
         self.factorT = None

@@ -722,6 +722,88 @@ def test_finalize_rollout_annotations_use_user_email(
     ]
 
 
+_ROLLOUT_IDENTITY_KWARGS = {
+    "docker_repository": "airbyte/source-github",
+    "docker_image_tag": "1.10.0-rc.1",
+    "actor_definition_id": "connector-id",
+    "rollout_id": "rollout-123",
+    "updated_by": "user-uuid",
+    "config_api_root": "https://config.example",
+    "bearer_token": None,
+}
+
+
+@pytest.mark.parametrize(
+    "action,tool_kwargs,expected_call,expected_message",
+    [
+        pytest.param(
+            "pause_rollout",
+            {"paused_reason": "  Sync failures on TIER_2  "},
+            {**_ROLLOUT_IDENTITY_KWARGS, "paused_reason": "Sync failures on TIER_2"},
+            "Successfully paused rollout",
+            id="pause_trims_and_forwards_reason",
+        ),
+        pytest.param(
+            "pause_rollout",
+            {"paused_reason": "   "},
+            None,
+            "reason is required",
+            id="pause_without_a_reason_is_rejected",
+        ),
+        pytest.param(
+            "unpause_rollout",
+            {},
+            _ROLLOUT_IDENTITY_KWARGS,
+            "Successfully unpaused rollout",
+            id="unpause_needs_no_reason_or_percentage",
+        ),
+    ],
+)
+def test_pause_and_unpause_tools_forward_the_rollout_identity(
+    monkeypatch: pytest.MonkeyPatch,
+    action: str,
+    tool_kwargs: dict[str, str],
+    expected_call: dict[str, object] | None,
+    expected_message: str,
+) -> None:
+    """Both actions resolve the rollout's identity themselves, and never a percentage."""
+    calls: list[dict[str, object]] = []
+
+    class StubAdapter:
+        config_api_root = "https://config.example"
+
+    def record_unpause(**kwargs: object) -> tuple[int, dict[str, object]]:
+        calls.append(kwargs)
+        return 20, {}
+
+    monkeypatch.setattr(tools_module, "get_adapter", lambda *_args: StubAdapter())
+    monkeypatch.setattr(tools_module, "_resolve_updated_by", lambda **_: "user-uuid")
+    monkeypatch.setattr(
+        tools_module.state_transitions,
+        "pause_rollout",
+        lambda **kwargs: calls.append(kwargs),
+    )
+    monkeypatch.setattr(
+        tools_module.state_transitions, "unpause_rollout", record_unpause
+    )
+
+    result = getattr(tools_module, action)(
+        rollout_id="rollout-123",
+        connector_id="connector-id",
+        docker_repository="airbyte/source-github",
+        docker_image_tag="1.10.0-rc.1",
+        user_email="ops@example.com",
+        **tool_kwargs,
+    )
+
+    assert result.rollout_action_success is (expected_call is not None)
+    assert expected_message in result.rollout_action_result
+    assert calls == ([] if expected_call is None else [expected_call])
+    if expected_call is not None:
+        assert "%" not in result.rollout_action_result
+        assert "may take a few seconds" in result.rollout_action_result
+
+
 def test_load_connector_version_context_sets_promotion_pending_detail(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
@@ -1403,8 +1485,8 @@ def test_progressive_rollout_rows_include_terminal_sibling_tier(
     row = helpers_module.progressive_rollout_rows()[0]
 
     assert row["tier_2_display"] == "⚠️"
-    assert row["tier_1_display"] == "\u2796"
-    assert row["tier_0_display"] == "\u2796"
+    assert row["tier_1_display"] == "➖"
+    assert row["tier_0_display"] == "➖"
 
 
 @pytest.mark.parametrize(
@@ -1412,7 +1494,7 @@ def test_progressive_rollout_rows_include_terminal_sibling_tier(
     [
         pytest.param(
             (("TIER_0", "initialized", ""),),
-            ("\u2796", "\u2796", "\u2796"),
+            ("➖", "➖", "➖"),
             id="amazon-seller-partner-untargeted-initialized",
         ),
         pytest.param(
@@ -1420,7 +1502,7 @@ def test_progressive_rollout_rows_include_terminal_sibling_tier(
                 ("TIER_2", "canceled", "Failure threshold exceeded: 2 failures"),
                 ("TIER_1", "workflow_started", ""),
             ),
-            ("⚠️", "🔵", "\u2796"),
+            ("⚠️", "🔵", "➖"),
             id="clickhouse-failed-tier-two-running-tier-one",
         ),
         pytest.param(
@@ -1428,8 +1510,24 @@ def test_progressive_rollout_rows_include_terminal_sibling_tier(
                 ("TIER_2", "paused", "Failure threshold exceeded: 2 failures"),
                 ("TIER_1", "workflow_started", ""),
             ),
-            ("⚠️", "🔵", "\u2796"),
+            ("⚠️", "🔵", "➖"),
             id="paused-failed-tier-two-running-tier-one",
+        ),
+        pytest.param(
+            (
+                ("TIER_2", "paused", ""),
+                ("TIER_1", "succeeded", ""),
+            ),
+            ("⏸️", "☑️", "➖"),
+            id="operator-paused-tier-two-completed-tier-one",
+        ),
+        pytest.param(
+            (
+                ("TIER_2", "in_progress", ""),
+                ("TIER_1", "canceled", "[No-op.] Nothing to do: no eligible actors"),
+            ),
+            ("☑️", "⊘", "➖"),
+            id="empty-tier-one-running-tier-two",
         ),
         pytest.param(
             (("TIER_2", "in_progress", ""), ("TIER_0", "workflow_started", "")),
@@ -1441,7 +1539,7 @@ def test_progressive_rollout_rows_include_terminal_sibling_tier(
                 ("TIER_2", "canceled", "Failure threshold exceeded: 2 failures"),
                 ("TIER_0", "initialized", ""),
             ),
-            ("⚠️", "\u2796", "\u2796"),
+            ("⚠️", "➖", "➖"),
             id="salesforce-failed-tier-two-untargeted-initialized",
         ),
         pytest.param(
@@ -1449,7 +1547,7 @@ def test_progressive_rollout_rows_include_terminal_sibling_tier(
                 ("TIER_2", "canceled", "Failure threshold exceeded: 2 failures"),
                 ("TIER_0", "initialized", ""),
             ),
-            ("⚠️", "\u2796", "\u2796"),
+            ("⚠️", "➖", "➖"),
             id="snowflake-failed-tier-two-untargeted-initialized",
         ),
         pytest.param(
@@ -1573,15 +1671,17 @@ def test_connector_version_manager_tool_calls_have_error_handlers(
         "search_orgs_workspaces",
         "load_org_pin_versions",
         "load_org_pins",
-        # Rollout actions: advance, promote next stage, promote GA, cancel,
-        # re-drive finalize
+        # Rollout actions: advance, pause, promote next stage, promote GA,
+        # re-drive finalize, unpause (paused rollouts only)
         "advance_rollout",
         "load_connector_context",
         "promote_to_next_stage",
         "load_connector_context",
         "finalize_rollout",
         "load_connector_context",
-        "finalize_rollout",
+        "pause_rollout",
+        "load_connector_context",
+        "unpause_rollout",
         "load_connector_context",
         "finalize_rollout",
         "load_connector_context",
@@ -2627,11 +2727,11 @@ def test_format_ratio_pct_rounds_and_handles_edges() -> None:
     ("kwargs", "expected"),
     [
         pytest.param(
-            {"has_rollout": False, "state": ""}, ("\u2796", "Not started"), id="missing"
+            {"has_rollout": False, "state": ""}, ("➖", "Not started"), id="missing"
         ),
         pytest.param(
             {"has_rollout": True, "state": "initialized"},
-            ("\u2796", "Not started"),
+            ("➖", "Not started"),
             id="initialized",
         ),
         pytest.param(
@@ -2658,7 +2758,7 @@ def test_format_ratio_pct_rounds_and_handles_edges() -> None:
                 "state": "canceled",
                 "error_msg": "[No-op.] Nothing to do",
             },
-            ("☑️", "Complete"),
+            ("⊘", "Empty"),
             id="canceled_empty_tier",
         ),
         pytest.param(
@@ -2681,12 +2781,12 @@ def test_format_ratio_pct_rounds_and_handles_edges() -> None:
                 "state": "canceled",
                 "failed_reason": "not_highest_candidate",
             },
-            ("\u2796", "Closed"),
+            ("➖", "Closed"),
             id="canceled_superseded",
         ),
         pytest.param(
             {"has_rollout": True, "state": "canceled", "failed_reason": "already_ga"},
-            ("\u2796", "Closed"),
+            ("➖", "Closed"),
             id="canceled_already_ga",
         ),
         pytest.param(
@@ -2695,12 +2795,12 @@ def test_format_ratio_pct_rounds_and_handles_edges() -> None:
                 "state": "canceled",
                 "error_msg": "User canceled rollout",
             },
-            ("\u2796", "Closed"),
+            ("➖", "Closed"),
             id="canceled_user_cancel",
         ),
         pytest.param(
             {"has_rollout": True, "state": "canceled", "error_msg": "Rollout expired"},
-            ("\u2796", "Closed"),
+            ("➖", "Closed"),
             id="canceled_expired",
         ),
         pytest.param(

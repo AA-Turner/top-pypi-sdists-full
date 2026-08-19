@@ -2,6 +2,7 @@
 # SPDX-FileCopyrightText: Copyright The Geneva Authors
 
 import logging
+from importlib.metadata import version as distribution_version
 from typing import Any
 
 import ray
@@ -19,6 +20,11 @@ _LOG = logging.getLogger(__name__)
 # Default timeout for ray.get() calls in integration tests (seconds)
 RAY_GET_TIMEOUT = 90
 RAY_GET_RETRIES = 4
+
+
+def installed_distribution_requirement(distribution: str) -> str:
+    """Return an exact pip requirement for the driver's installed version."""
+    return f"{distribution}=={distribution_version(distribution)}"
 
 
 def ray_get_with_retry(

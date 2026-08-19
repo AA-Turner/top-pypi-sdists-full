@@ -5,7 +5,7 @@ import type { ColumnarDataSource } from "../sources/columnar_data_source";
 import type { Index as DataIndex } from "../../core/util/templating";
 import type * as p from "../../core/properties";
 import type { Dict, PlainObject } from "../../core/types";
-export declare const Formatter: import("../../core/kinds").Kinds.Or<["raw" | "basic" | "numeral" | "printf" | "datetime", CustomJS, CustomJSHover]>;
+export declare const Formatter: import("../../core/kinds").Kinds.Or<["basic" | "datetime" | "numeral" | "printf" | "raw", CustomJS, CustomJSHover]>;
 export type Formatter = typeof Formatter["__type__"];
 export type Formatters = Dict<Formatter>;
 export declare abstract class PlaceholderView extends DOMElementView {

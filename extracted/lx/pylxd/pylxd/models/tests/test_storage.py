@@ -14,8 +14,7 @@
 
 import json
 import re
-import unittest
-from unittest import mock
+from unittest import TestCase, mock
 
 import requests_mock
 
@@ -257,29 +256,121 @@ class TestStorageVolume(testing.PyLXDTestCase):
         testing.add_api_extension_helper(self, ["storage"])
         a_storage_pool = models.StoragePool(self.client, name="lxd")
         a_volume = a_storage_pool.volumes.get("custom", "cu1")
-        put_object = {"config": {"size": 1}}
+        put_object = {"config": {"size": "1048576"}}  # 1 MiB in bytes
         a_volume.put(put_object)
+        # Verify the PUT request was made with the expected payload
+        req = self.last_matching_request(
+            "PUT",
+            "http://pylxd.test/1.0/storage-pools/lxd/volumes/custom/cu1",
+        )
+        put_body = json.loads(req.text)
+        self.assertEqual(put_body["config"]["size"], "1048576")
 
     def test_patch(self):
         testing.add_api_extension_helper(self, ["storage"])
         a_storage_pool = models.StoragePool(self.client, name="lxd")
         a_volume = a_storage_pool.volumes.get("custom", "cu1")
-        patch_object = {"config": {"size": 1}}
+        patch_object = {"config": {"size": "1048576"}}  # 1 MiB in bytes
         with mock.patch.object(self.client, "assert_has_api_extension"):
             a_volume.patch(patch_object)
+        # Verify the PATCH request was made with the expected payload
+        req = self.last_matching_request(
+            "PATCH",
+            "http://pylxd.test/1.0/storage-pools/lxd/volumes/custom/cu1",
+        )
+        patch_body = json.loads(req.text)
+        self.assertEqual(patch_body["config"]["size"], "1048576")
 
     def test_save(self):
         testing.add_api_extension_helper(self, ["storage"])
         a_storage_pool = models.StoragePool(self.client, name="lxd")
         a_volume = a_storage_pool.volumes.get("custom", "cu1")
-        a_volume.config = {"size": 2}
+        a_volume.config = {"size": "2097152"}  # 2 MiB in bytes
         a_volume.save()
+        # Verify the PUT request was made with the expected payload
+        req = self.last_matching_request(
+            "PUT",
+            "http://pylxd.test/1.0/storage-pools/lxd/volumes/custom/cu1",
+        )
+        put_body = json.loads(req.text)
+        self.assertEqual(put_body["config"]["size"], "2097152")
 
     def test_delete(self):
         testing.add_api_extension_helper(self, ["storage"])
         a_storage_pool = models.StoragePool(self.client, name="lxd")
         a_volume = a_storage_pool.volumes.get("custom", "cu1")
         a_volume.delete()
+        # Verify the DELETE request was made
+        self.last_matching_request(
+            "DELETE",
+            "http://pylxd.test/1.0/storage-pools/lxd/volumes/custom/cu1",
+        )
+
+        # After deletion, GET should return 404
+        def volume_not_found(request, context):
+            context.status_code = 404
+            return json.dumps(
+                {"type": "error", "error": "Not found", "error_code": 404}
+            )
+
+        self.add_rule(
+            {
+                "text": volume_not_found,
+                "method": "GET",
+                "url": r"^http://pylxd.test/1.0/storage-pools/lxd/volumes/custom/cu1$",
+            }
+        )
+        with self.assertRaises(exceptions.NotFound):
+            a_storage_pool.volumes.get("custom", "cu1")
+
+    def test_eq_same_name_type_pool(self):
+        """Two volumes with same name, type, and pool (no project) are equal."""
+        testing.add_api_extension_helper(self, ["storage"])
+        pool = models.StoragePool(self.client, name="lxd")
+        a = models.StorageVolume(
+            self.client, name="cu1", type="custom", storage_pool=pool
+        )
+        b = models.StorageVolume(
+            self.client, name="cu1", type="custom", storage_pool=pool
+        )
+        self.assertEqual(a, b)
+
+    def test_eq_different_project(self):
+        """Two volumes with same name/type/pool but different projects differ."""
+        testing.add_api_extension_helper(self, ["storage"])
+        pool = models.StoragePool(self.client, name="lxd")
+        a = models.StorageVolume(
+            self.client, name="cu1", type="custom", storage_pool=pool, project="p1"
+        )
+        b = models.StorageVolume(
+            self.client, name="cu1", type="custom", storage_pool=pool, project="p2"
+        )
+        self.assertNotEqual(a, b)
+
+    def test_eq_does_not_trigger_sync(self):
+        """__eq__ must not call sync() when project is unset."""
+        testing.add_api_extension_helper(self, ["storage"])
+        pool = models.StoragePool(self.client, name="lxd")
+        a = models.StorageVolume(
+            self.client, name="cu1", type="custom", storage_pool=pool
+        )
+        b = models.StorageVolume(
+            self.client, name="cu1", type="custom", storage_pool=pool
+        )
+        with mock.patch.object(models.StorageVolume, "sync") as mock_sync:
+            result = a == b
+            self.assertTrue(result)
+            mock_sync.assert_not_called()
+
+    def test_eq_with_unrelated_type_returns_not_implemented(self):
+        """StorageVolume.__eq__ should return NotImplemented for unrelated types."""
+        testing.add_api_extension_helper(self, ["storage"])
+        pool = models.StoragePool(self.client, name="lxd")
+        a = models.StorageVolume(
+            self.client, name="cu1", type="custom", storage_pool=pool
+        )
+        # Direct __eq__ call should return NotImplemented for unrelated types
+        self.assertIs(a.__eq__(42), NotImplemented)
 
 
 class TestStoragePoolAsync(testing.PyLXDTestCase):
@@ -495,7 +586,7 @@ class TestStoragePoolAsync(testing.PyLXDTestCase):
             mock_wait.assert_not_called()
 
 
-class TestStoragePoolOperationsExtension(unittest.TestCase):
+class TestStoragePoolOperationsExtension(TestCase):
     """Tests for storage_and_network_operations extension on StoragePool.
 
     Uses requests_mock directly (no mock_services wrapper) to verify that
@@ -715,3 +806,66 @@ class TestStorageVolumeSnapshotAsync(testing.PyLXDTestCase):
 
         self.mock_wait.assert_called_once_with("/1.0/operations/snapshot-rename-op")
         self.assertEqual("new-snapshot", snapshot.name)
+
+
+class TestStorageVolumeSnapshotEquality(TestCase):
+    """Tests for StorageVolumeSnapshot equality semantics."""
+
+    def setUp(self):
+        """Set up test fixtures."""
+        self.client = mock.Mock()
+        self.storage_pool = models.StoragePool(self.client, name="test-pool")
+        self.volume = models.StorageVolume(
+            self.client,
+            name="test-volume",
+            type="custom",
+            storage_pool=self.storage_pool,
+        )
+
+    def test_equal_snapshots_same_name_and_volume(self):
+        """Two snapshots with same name and volume are equal."""
+        snap1 = models.StorageVolumeSnapshot(
+            self.client, name="snap1", volume=self.volume
+        )
+        snap2 = models.StorageVolumeSnapshot(
+            self.client, name="snap1", volume=self.volume
+        )
+
+        self.assertEqual(snap1, snap2)
+
+    def test_unequal_snapshots_different_name(self):
+        """Two snapshots with different names are not equal."""
+        snap1 = models.StorageVolumeSnapshot(
+            self.client, name="snap1", volume=self.volume
+        )
+        snap2 = models.StorageVolumeSnapshot(
+            self.client, name="snap2", volume=self.volume
+        )
+
+        self.assertNotEqual(snap1, snap2)
+
+    def test_unequal_snapshots_different_volume(self):
+        """Two snapshots with different volumes are not equal."""
+        volume2 = models.StorageVolume(
+            self.client,
+            name="test-volume-2",
+            type="custom",
+            storage_pool=self.storage_pool,
+        )
+        snap1 = models.StorageVolumeSnapshot(
+            self.client, name="snap1", volume=self.volume
+        )
+        snap2 = models.StorageVolumeSnapshot(self.client, name="snap1", volume=volume2)
+
+        self.assertNotEqual(snap1, snap2)
+
+    def test_not_equal_to_unrelated_type(self):
+        """StorageVolumeSnapshot compared to other types returns NotImplemented."""
+        snap = models.StorageVolumeSnapshot(
+            self.client, name="snap1", volume=self.volume
+        )
+
+        # Comparison with other types should return NotImplemented (which makes != True)
+        self.assertNotEqual(snap, "string")
+        self.assertNotEqual(snap, 123)
+        self.assertNotEqual(snap, None)

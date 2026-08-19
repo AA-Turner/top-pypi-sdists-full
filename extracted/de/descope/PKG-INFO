@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: descope
-Version: 2.11.2
+Version: 2.12.0
 Summary: Descope Python SDK
 Author: Descope
 Author-email: Descope <info@descope.com>
@@ -734,6 +734,11 @@ descope_client.mgmt.user.invite(
 # You can override the project's User Invitation Redirect URL with this parameter
     invite_url="invite.me"
 )
+
+# NOTE: `invite` only controls whether an invitation message is sent - it does NOT
+# change the user's status. A newly invited user starts out in the "invited" status,
+# not "enabled". If your use case requires the user to be active immediately, set
+# `status="enabled"` explicitly via `create`/`patch`, or call `activate()` afterwards.
 
 # Batch invite
 descope_client.mgmt.user.invite_batch(

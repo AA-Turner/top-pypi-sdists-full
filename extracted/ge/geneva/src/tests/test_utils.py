@@ -162,6 +162,46 @@ def test_does_not_retry_non_retryable_lance_runtime_error(monkeypatch) -> None:
     assert sleep_calls == []
 
 
+def test_retries_lance_namespace_throttle_error(monkeypatch) -> None:  # noqa: ANN001
+    """Typed namespace throttle errors are bare Exceptions the OSError/
+    ValueError retry set misses, so retry_lance must catch them explicitly."""
+    from lance_namespace.errors import ServiceUnavailableError
+
+    attempts = {"count": 0}
+    sleep_calls = []
+
+    def flaky() -> str:
+        attempts["count"] += 1
+        if attempts["count"] < 3:
+            raise ServiceUnavailableError("service unavailable")
+        return "ok"
+
+    monkeypatch.setattr(random, "uniform", lambda a, b: 0)
+    monkeypatch.setattr(time, "sleep", lambda s: sleep_calls.append(s))
+
+    assert retry_lance(flaky)() == "ok"
+    assert attempts["count"] == 3
+    assert len(sleep_calls) == 2
+
+
+def test_does_not_retry_table_not_found(monkeypatch) -> None:  # noqa: ANN001
+    """TableNotFoundError stays non-retryable in retry_lance; its transient
+    handling lives only in the checkpoint session-open wrapper."""
+    from lance_namespace.errors import TableNotFoundError
+
+    sleep_calls = []
+    monkeypatch.setattr(time, "sleep", lambda s: sleep_calls.append(s))
+
+    @retry_lance
+    def raises_not_found() -> None:
+        raise TableNotFoundError("Table not found: table id 'tbl'")
+
+    with pytest.raises(TableNotFoundError):
+        raises_not_found()
+
+    assert sleep_calls == []
+
+
 # Tests for deep_merge
 
 

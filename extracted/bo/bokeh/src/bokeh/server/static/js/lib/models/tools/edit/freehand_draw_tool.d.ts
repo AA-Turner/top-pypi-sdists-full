@@ -27,7 +27,7 @@ export declare class FreehandDrawTool extends EditTool {
     constructor(attrs?: Partial<FreehandDrawTool.Attrs>);
     tool_name: string;
     tool_icon: string;
-    event_type: ("tap" | "pan")[];
+    event_type: ("pan" | "tap")[];
     default_order: number;
 }
 //# sourceMappingURL=freehand_draw_tool.d.ts.map

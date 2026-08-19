@@ -54,6 +54,26 @@ def _get_element_box(page: Any, selector: str, timeout: float = 30000) -> Option
         return None
 
 
+_SCROLL_JS = (
+    "(() => { const e = document.scrollingElement || document.documentElement;"
+    " return { y: window.scrollY, maxY: Math.max(0, e.scrollHeight - e.clientHeight) }; })()"
+)
+
+
+def _read_scroll_state(page: Any) -> dict:
+    """Current vertical scroll offset and the maximum scrollable offset."""
+    world = getattr(page, "_stealth_world", None)
+    if world is not None:
+        try:
+            return world.evaluate(_SCROLL_JS)
+        except Exception:
+            pass
+    try:
+        return page.evaluate(_SCROLL_JS)
+    except Exception:
+        return {"y": 0, "maxY": 0}
+
+
 def _smooth_wheel(raw: RawMouse, delta: int, cfg: HumanConfig) -> None:
     """Send one logical scroll as a burst of small wheel events (like real inertia)."""
     abs_d = abs(delta)
@@ -112,6 +132,16 @@ def human_scroll_into_view(
 
     if _is_in_viewport(box, viewport_height, cfg):
         return box, cursor_x, cursor_y, False
+
+    # Already fully visible but off-center, with the page pinned at the boundary
+    # in the needed direction: scrolling can't help, so don't waste the budget.
+    fully_visible = box["y"] >= 0 and box["y"] + box["height"] <= viewport_height
+    if fully_visible:
+        zone_mid = viewport_height * (cfg.scroll_target_zone[0] + cfg.scroll_target_zone[1]) / 2
+        need_up = box["y"] + box["height"] / 2 < zone_mid
+        scroll = _read_scroll_state(page)
+        if (scroll["y"] <= 0) if need_up else (scroll["y"] >= scroll["maxY"]):
+            return box, cursor_x, cursor_y, False
 
     # Move cursor into scroll area
     scroll_area_x = round(viewport_width * rand(0.3, 0.7))

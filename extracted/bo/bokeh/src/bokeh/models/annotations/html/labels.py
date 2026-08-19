@@ -13,6 +13,8 @@
 #-----------------------------------------------------------------------------
 from __future__ import annotations
 
+# pyright: reportAbstractUsage=false, reportArgumentType=false
+
 import logging # isort:skip
 log = logging.getLogger(__name__)
 
@@ -298,10 +300,10 @@ class HTMLTitle(HTMLTextAnnotation):
     Offset the text by a number of pixels (can be positive or negative). Shifts the text in
     different directions based on the location of the title:
 
-        * above: shifts title right
-        * right: shifts title down
-        * below: shifts title right
-        * left: shifts title up
+    * above: shifts title right
+    * right: shifts title down
+    * below: shifts title right
+    * left: shifts title up
 
     """)
 

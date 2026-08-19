@@ -68,7 +68,7 @@ export declare class TextBox extends GraphicsBox {
     constructor({ text }: {
         text: string;
     });
-    infer_text_height(): "cap" | "ascent_descent";
+    infer_text_height(): "ascent_descent" | "cap";
     _text_line(fmetrics: FontMetrics): {
         height: number;
         ascent: number;

@@ -1,5 +1,6 @@
 import os
 import logging
+import re
 import icclim
 import numpy as np
 import pandas as pd
@@ -72,13 +73,150 @@ _READ_CATEGORY_COLS = frozenset({
 # 3,111 county levels even in a frame filtered to a handful of regions.
 
 
-def _read_input_csv(path: Union[str, Path]) -> pd.DataFrame:
-    """Read a merged input CSV (crop_t*/crop_p*) with category dtypes and
-    display-column drops."""
+# Columns kept at float64. Coordinates are matched/joined on rather than
+# aggregated, so they stay exact; everything else is EO measurement data whose
+# own precision is far coarser than float32.
+_READ_FLOAT64_COLS = frozenset({"lat", "lon", "latitude", "longitude"})
+
+
+#: rows per chunk when reading with a region filter — big enough that the
+#: per-chunk overhead is irrelevant, small enough that the parse transient
+#: stays a fraction of the full-file peak (13.2 GB on usa_admin2 soybean).
+_READ_CHUNK_ROWS = 2_000_000
+
+#: raw region column, in preference order (pre-standardize_dataframe names)
+_REGION_COL_CANDIDATES = ("region", "adm2_name", "adm1_name")
+
+
+def country_from_file_name(file_name):
+    """``united_states_of_america_soybean_s1.csv`` -> ``united_states_of_america``.
+
+    ``self.country`` is only populated by ``get_unique_country_name()`` AFTER
+    the CSV has been read, but the run_regions filter has to resolve its config
+    BEFORE the read (it filters during it). Deriving the country from the file
+    name is the only source available at that point — an empty country silently
+    falls through to [DEFAULT] and disables the filter, which is exactly the bug
+    this fixes (1,759 counties written instead of 1,004).
+    """
+    try:
+        crop, season = utils.get_crop_season(file_name)
+        stem = Path(str(file_name)).stem
+        suffix = f"_{crop}_s{season}"
+        if crop and stem.endswith(suffix):
+            return stem[: -len(suffix)]
+    except Exception:
+        pass
+    return ""
+
+
+def cid_run_region_selection(parser, country_key, crop, log=None):
+    """Region names to restrict CID generation to, or None for all regions.
+
+    Gated by ``filter_cids_to_run_regions`` (per-country section, inheriting
+    [DEFAULT]; default OFF) because it couples the generated CID files to
+    ``run_regions``: once filtered, adding a state later means regenerating
+    that state's CIDs. The selection itself is parsed by
+    ``ml.stats.parse_run_regions`` — the same function the ML frame filter
+    uses, so the two cannot read the same config differently.
+
+    Returns normalized names (lower-case, underscores -> spaces), matching
+    ``ml.stats._norm_region_name``.
+    """
+    from geocif.ml import stats as ml_stats
+
+    log = log or logger
+
+    def option(name):
+        for section in (country_key, "DEFAULT"):
+            if section and parser.has_option(section, name):
+                value = parser.get(section, name)
+                if value is not None and str(value).strip():
+                    return str(value).strip()
+        return ""
+
+    enabled = str(option("filter_cids_to_run_regions")).lower() in ("true", "1", "yes", "on")
+    if not enabled:
+        return None
+
+    names = ml_stats.parse_run_regions(option("run_regions"), crop=crop, log=log)
+    if not names:
+        return None
+    return {ml_stats._norm_region_name(n) for n in names}
+
+
+def _region_keep_mask(regions: pd.Series, selection) -> pd.Series:
+    """True where a region is selected, or is a child of a selected parent.
+
+    Regions at admin_2 are ``state_county`` composites, so an admin_1
+    selection ("illinois") keeps every ``illinois <county>``. Matching is done
+    on normalized names with a single vectorized regex rather than one
+    ``startswith`` pass per selected name.
+    """
+    from geocif.ml import stats as ml_stats
+
+    normalized = ml_stats._norm_region_series(regions)
+    pattern = "^(?:" + "|".join(re.escape(name) for name in sorted(selection)) + ")(?: |$)"
+    return normalized.str.match(pattern, na=False)
+
+
+def _read_input_csv(path: Union[str, Path], keep_regions=None) -> pd.DataFrame:
+    """Read a merged input CSV (crop_t*/crop_p*) with category dtypes,
+    float32 EO values and display-column drops.
+
+    EO values are read as float32: measured on the usa_admin2 soybean input
+    (7.6 GB, 28.4 M rows) the frame is 20.2 GB at pandas defaults, 5.3 GB with
+    category dtypes, and 2.2 GB with float32 on top. The precision cost is
+    ~6e-8 relative on real CID values (float32 carries ~7.2 significant
+    decimal digits) — four-plus orders of magnitude below the precision of the
+    satellite inputs the indices are derived from, and far below the ~9
+    decimals these values are currently written out with. Coordinates are
+    exempt (see _READ_FLOAT64_COLS).
+
+    dtypes are resolved from a small probe read and passed to the full read,
+    so the frame is never materialised at float64 and then downcast.
+    """
     header = pd.read_csv(path, nrows=0)
     keep = [c for c in header.columns if c not in _READ_DROP_COLS]
     dtypes = {c: "category" for c in keep if c in _READ_CATEGORY_COLS}
-    return pd.read_csv(path, usecols=keep, dtype=dtypes)
+
+    probe = pd.read_csv(path, usecols=keep, nrows=5000)
+    for column in probe.columns:
+        if column in dtypes or column in _READ_FLOAT64_COLS:
+            continue
+        if pd.api.types.is_float_dtype(probe[column]):
+            dtypes[column] = "float32"
+    del probe
+
+    region_col = next((c for c in _REGION_COL_CANDIDATES if c in keep), None)
+    if not keep_regions or region_col is None:
+        return pd.read_csv(path, usecols=keep, dtype=dtypes)
+
+    # Filter DURING the read: dropping rows afterwards would still pay the
+    # full-file parse transient, which is what actually bounds how many
+    # workers fit on the node.
+    parts = []
+    for chunk in pd.read_csv(path, usecols=keep, dtype=dtypes,
+                             chunksize=_READ_CHUNK_ROWS):
+        mask = _region_keep_mask(chunk[region_col], keep_regions)
+        if mask.any():
+            parts.append(chunk.loc[mask])
+
+    if not parts:
+        logger.warning(
+            f"region filter kept 0 rows from {Path(path).name} — check "
+            f"run_regions against the region names in the input"
+        )
+        return pd.read_csv(path, usecols=keep, dtype=dtypes, nrows=0)
+
+    out = pd.concat(parts, ignore_index=True)
+    del parts
+    # Concatenating categoricals whose category sets differ degrades them to
+    # object dtype, which would undo the whole point of reading them as
+    # category. Restore it on the (now much smaller) frame.
+    for column in _READ_CATEGORY_COLS:
+        if column in out.columns and not isinstance(out[column].dtype, pd.CategoricalDtype):
+            out[column] = out[column].astype("category")
+    return out
 
 
 def filter_frame_to_yield_regions(df, parser, admin_zone, country_key, crop):
@@ -829,8 +967,29 @@ class CIDs:
         Returns:
             pd.DataFrame: The standardized input DataFrame.
         """
+        # Restrict to run_regions at READ time when the project opted in, so
+        # neither the parse transient nor the cached frame ever holds regions
+        # this project will not model (usa_admin2: 2038 -> 919 counties).
         try:
-            df = _read_input_csv(self.file_path)
+            keep_regions = cid_run_region_selection(
+                self.parser,
+                # NOT self.country — it is still "" until the CSV is read.
+                self.country or country_from_file_name(self.file_name),
+                self.crop or utils.get_crop_season(self.file_name)[0],
+            )
+        except Exception as e:
+            logger.warning(f"run_regions CID filter skipped: {type(e).__name__}: {e}")
+            keep_regions = None
+
+        try:
+            df = _read_input_csv(self.file_path, keep_regions=keep_regions)
+            if keep_regions:
+                logger.info(
+                    f"CID region filter: {Path(self.file_path).name} restricted to "
+                    f"{len(keep_regions)} selected parent region(s) -> "
+                    f"{df['region'].nunique() if 'region' in df.columns else '?'} regions, "
+                    f"{len(df):,} rows"
+                )
         except FileNotFoundError:
             logger.error(f"File not found: {self.file_path}")
             return pd.DataFrame()
@@ -2098,6 +2257,13 @@ def process_task(args: ProcessTaskArgs) -> tuple:
     # Per-process cache: read + preprocess CSV once per file per worker
     file_key = str(args.file_path)
     if file_key not in _preprocess_cache:
+        # Keep only the CURRENT file's frame. Tasks are dispatched grouped by
+        # file (indices_runner builds them file -> year -> region), so a worker
+        # needs one at a time — but this dict was never evicted, so after the
+        # maize->soybean boundary every worker held BOTH preprocessed frames
+        # for the rest of the run, doubling per-worker RSS. Clearing first also
+        # frees the old frame before the new one is built, so peak stays at one.
+        _preprocess_cache.clear()
         obj_tmp = CIDs(parser=args.parser, process_type=args.process_type,
                        file_path=args.file_path, file_name=args.file_name,
                        admin_zone=args.admin_zone, method=args.method,

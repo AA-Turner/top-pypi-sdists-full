@@ -1,6 +1,6 @@
-"""pgw#809: compile a cell's entries K-wide instead of one at a time.
+"""pgw#809: compile a compiled graph's entries K-wide instead of one at a time.
 
-A pgw#758 cell is N independent graph-class entries; an sdxl cell is 18.
+A pgw#758 compiled graph is N independent graph-class entries; an sdxl compiled graph is 18.
 ``aot_mint`` exports them from the live pipeline (serial by construction —
 one pipeline, one card, and the branch arm is toggled once for the whole
 branchless group) and then AOTI-compiles each one at ~420 s. The compiles
@@ -48,10 +48,10 @@ what stops being possible when there is one program.
 
 What this does NOT change
 -------------------------
-Cell identity. Parallelism is not sealed (pgw#757 established
+Compiled graph identity. Parallelism is not sealed (pgw#757 established
 ``compile_threads`` as non-identity by the same argument, and the digest check
 is re-run here): the pool changes WHEN entries compile, never what they
-compile. Assembly is ordered by ENTRY NAME, not completion, so a cell minted
+compile. Assembly is ordered by ENTRY NAME, not completion, so a compiled graph minted
 at K=4 is byte-identical to one minted at K=1.
 """
 
@@ -63,7 +63,7 @@ import signal
 import subprocess
 import sys
 import time
-from dataclasses import dataclass
+from dataclasses import dataclass, field as dataclass_field
 from pathlib import Path
 from typing import (
     Any, Callable, Dict, List, Mapping, Optional, Sequence, Tuple)
@@ -92,6 +92,20 @@ ENTRY_CHILD_MODULE = "gen_worker.aot_compile_child"
 #: Report file each entry child writes before exiting.
 ENTRY_REPORT_NAME = "report.json"
 
+#: pgw#1371: per-class progress the child STREAMS while it works. A share is
+#: up to 36/K classes at 156-509 s each, and the report above lands once, at
+#: the end — so on the two 2026-08-18 fleet pods a pool 46 minutes into real
+#: compile work rolled up as `pool_busy_s 0 / n_entries 0` and was read as
+#: "the pool never dispatches" (pgw#1371's blocking-defect header; disproved
+#: against pod zco8e1bx0t1jgk, which completed the identical 36-class shape at
+#: 0.9989 efficiency in 3608 s). The child therefore writes one row per packed
+#: class into ``<slot>/classes/NNN.json`` the moment the artifact is on disk,
+#: and a position file at every phase boundary; the parent harvests both every
+#: poll. Progress rows are TELEMETRY AND LIVENESS EVIDENCE, never identity:
+#: the report stays the share's terminus and the artifact stays the atom.
+CLASS_ROW_DIRNAME = "classes"
+POSITION_NAME = "position.json"
+
 #: pgw#840: the directory that must be on the child's path for
 #: ``-m gen_worker.aot_compile_child`` to mean THIS gen_worker.
 PACKAGE_ROOT = str(Path(__file__).resolve().parent.parent)
@@ -113,7 +127,7 @@ def _code_digest() -> str:
     can legitimately be a different one — a ``PYTHONPATH`` entry, a ``gen_worker``
     in the cwd, a second checkout, a stale wheel in the interpreter's
     site-packages, or the same tree edited between the parent's import and the
-    child's spawn. The child then compiles the very files the cell publishes
+    child's spawn. The child then compiles the very files the compiled graph publishes
     with code the parent never ran, and the parent believes the report.
 
     Taken at import (not at read time) on purpose: a tree edited mid-run must
@@ -326,7 +340,7 @@ class PoolWidth:
     @property
     def underwidth(self) -> int:
         """Workers the pod would have run had the binding constraint not
-        bound — 0 when K is already the most this cell can use."""
+        bound — 0 when K is already the most this compiled graph can use."""
         return max(0, min(self.entries, self.ceiling) - self.workers)
 
     def facts(self) -> Dict[str, Any]:
@@ -457,9 +471,9 @@ def entry_workers(
     child that genuinely runs out of device memory dies in its own process and
     is classified there — the attempt is the signal, and it costs ~2 minutes.
 
-    ``device_lock=False`` FORCES K=1 on a GPU cell: without torch's
+    ``device_lock=False`` FORCES K=1 on a GPU compiled graph: without torch's
     ``set_gpu_benchmark_lock_context`` hook the pool cannot stop two entries
-    benchmarking at once, and a cell whose kernel configs were chosen under
+    benchmarking at once, and a compiled graph whose kernel configs were chosen under
     self-inflicted contention publishes under an unchanged key. Refusing to
     widen is the only safe answer. This is a CORRECTNESS bound on the artifact
     and has nothing to do with capacity — it is why the card is still asked
@@ -468,7 +482,7 @@ def entry_workers(
     pgw#842: every bound records the READING behind it (:class:`CpuFacts`,
     :class:`MemoryFacts`) and the returned width names the constraint that
     actually bound. K is the mint's only multiplicative lever — two mints of
-    one cell differed 5-vs-3 with nothing recorded to say why — so an
+    one compiled graph differed 5-vs-3 with nothing recorded to say why — so an
     unexplained K is a defect in itself.
 
     §4.30 / pgw#1137: both bounds are posture-aware. The ``goals`` above answer
@@ -483,7 +497,7 @@ def entry_workers(
     # §4.28 / pgw#1092: both of this policy's reserves are UNCONDITIONAL. They
     # used to be relaxed to zero on a pod holding no serve goal, and §4.28
     # deleted that pod class: the only mint left is the one a SERVING pod runs
-    # in the background on a cell miss (pgw#784), so there is always a tenant
+    # in the background on a compiled graph miss (pgw#784), so there is always a tenant
     # to protect. `SERVING_HEADROOM_CPUS` keeps cores for an eager forward and
     # a heartbeat; `ENTRY_RSS_RESERVE_BYTES` keeps host RAM so a request
     # arriving mid-mint does not meet the OOM killer.
@@ -561,7 +575,7 @@ def entry_workers(
             reason=(
                 "serial: this torch has no GPU-benchmark lock hook, so a wide "
                 "pool would let entries benchmark against each other and bake "
-                "contention-chosen kernel configs into a cell whose key would "
+                "contention-chosen kernel configs into a compiled graph whose key would "
                 "not move"))
     binding = min(
         (cpu_workers, "cpu"), (mem_workers, "host-memory"),
@@ -625,11 +639,22 @@ class EntryJob(msgspec.Struct, frozen=True, kw_only=True):
     share: str = ""
     share_index: int = 0
     share_count: int = 1
+    #: pgw#1371 holes-only: the ORDERED graph-class names this mint exists to
+    #: produce — the HOLES, i.e. the classes with no artifact for this pod's
+    #: (lane x sm) anywhere the caller could see (store, boot adopt, disk).
+    #: Empty means "the whole declaration" (the pre-holes behaviour, and the
+    #: full-miss case). A child intersects its share with this list BEFORE the
+    #: ``have_classes`` filter, and reports how many of its share's rows were
+    #: targeted so the parent can prove hole coverage without ever enumerating
+    #: the class names itself. Names that match nothing in the declaration are
+    #: reported loudly (a stale hole list) and never fail the mint — coverage
+    #: accretes, and a short holes mint is a smaller mint, not a short publish.
+    hole_classes: Tuple[str, ...] = ()
     #: pgw#1215 step 4: declared graph classes this pod ALREADY HAS as packed
     #: artifacts, from an earlier attempt of the same mint. A child skips them
     #: before it exports — not after, and not at pack time — so a retry pays
     #: neither the trace nor the compile for work that is already on disk.
-    #: This is the whole of what the deleted ``mint_delegate.build_cell``
+    #: This is the whole of what the deleted ``mint_delegate.build_compiled_graph``
     #: retry loop got wrong: it re-ran every attempt in a FRESH ``child-N``
     #: directory, so attempt 2 of a 36-class mint re-paid 35 finished classes
     #: to retry one. Named by CLASS, because that is what a child can match
@@ -680,6 +705,12 @@ class EntryReport(msgspec.Struct, frozen=True, kw_only=True):
     #: without the parent ever enumerating it (``boot_key``'s rule, same
     #: sharding).
     declared_classes: int = 0
+    #: pgw#1371 holes-only: how many of THIS SHARE's rows matched the job's
+    #: ``hole_classes`` (counted before the ``have_classes`` filter). -1 when
+    #: the job named no holes — absent evidence, not zero. The parent sums
+    #: these across shares to prove the holes were covered, the same way
+    #: ``declared_classes`` proves the whole set.
+    targeted_classes: int = -1
     detail: str = ""
     elapsed_s: float = 0.0
     peak_rss_bytes: int = 0
@@ -808,6 +839,16 @@ class _Running:
     #: than the child exiting under its own power. The exit code is then the
     #: parent's signal and says nothing about the compile — read the report.
     reaped_at_terminus: bool = False
+    #: pgw#1371: what this share has STREAMED so far — one row per class the
+    #: child packed, harvested live off ``<slot>/classes/``. The report at the
+    #: share's terminus remains authoritative; these exist so a mint that dies
+    #: mid-share still names what landed, and so the silence window judges
+    #: progress toward the GOAL rather than only CPU heat.
+    classes_landed: List[PackedGraphClass] = dataclass_field(
+        default_factory=list)
+    #: The child's last position beat (verbatim file content) and when the
+    #: parent saw it change.
+    position: str = ""
 
 
 @dataclass
@@ -865,6 +906,18 @@ class PoolLedger:
     #: which is the pass every CHILD used to pay.
     seal_seed_s: float = 0.0
     entries: int = 0
+    #: pgw#1371: graph classes the children have streamed as PACKED, live.
+    #: ``busy_s`` above counts only REAPED shares — on the 2026-08-18 fleet
+    #: pods that read a 46-minute, ~full-utilization pool as `pool_busy_s 0 /
+    #: pool_efficiency 0.0` because no 18-class share had reached its report
+    #: yet. This counts the goal instead of the reap.
+    classes_landed: int = 0
+    #: pgw#1371: CPU seconds the live children's process trees were OBSERVED
+    #: to burn (high-water per share, summed at the terminus). It is the
+    #: number that distinguishes "the pool did nothing" from "the pool was
+    #: torn down mid-flight" on a roll-up whose busy_s is 0 — exactly the
+    #: mis-read pgw#1371's blocking-defect header was.
+    child_cpu_s: float = 0.0
     @property
     def idle_s(self) -> float:
         return round(
@@ -893,6 +946,8 @@ class PoolLedger:
             "pool_entries": int(self.entries),
             "pool_workers": int(self.workers),
             "pool_workers_initial": int(self.workers_initial),
+            "pool_classes_landed": int(self.classes_landed),
+            "pool_child_cpu_s": round(self.child_cpu_s, 1),
         }
 
 
@@ -927,7 +982,7 @@ def child_env(
       mean "whatever gen_worker this interpreter resolves": the cwd first, then
       any inherited ``PYTHONPATH``, then site-packages. On a box with more than
       one checkout that is a coin flip, and the child that wins compiles the
-      files the cell publishes. Pinning the root makes the child the parent's
+      files the compiled graph publishes. Pinning the root makes the child the parent's
       OWN code by construction; ``PYTHONSAFEPATH`` removes the cwd, which would
       otherwise still outrank it. The digest check in ``_collect`` is the
       backstop that proves it rather than assuming it.
@@ -952,7 +1007,7 @@ def _terminate_group(proc: subprocess.Popen, *, grace_s: float = _KILL_GRACE_S) 
     The GROUP, not the process: an entry child spawns inductor's own compile
     workers and g++ underneath it, and a pool that killed only the direct
     children would leave orphan cc1plus processes burning a serving pod's CPU
-    against a cell nobody will adopt. Every child is started with
+    against a compiled graph nobody will adopt. Every child is started with
     ``start_new_session=True`` precisely so this call has a group to aim at.
     """
     if proc.poll() is not None:
@@ -1014,6 +1069,13 @@ def arm_parent_death_signal() -> bool:
 def _read_report(path: Path) -> Optional[EntryReport]:
     try:
         return msgspec.json.decode(path.read_bytes(), type=EntryReport)
+    except (OSError, msgspec.DecodeError, msgspec.ValidationError):
+        return None
+
+
+def _read_class_row(path: Path) -> Optional[PackedGraphClass]:
+    try:
+        return msgspec.json.decode(path.read_bytes(), type=PackedGraphClass)
     except (OSError, msgspec.DecodeError, msgspec.ValidationError):
         return None
 
@@ -1205,7 +1267,7 @@ class EntryCompilePool:
         self.peak_device_bytes = 0
         #: pgw#1205: the same reading, kept PER ENTRY instead of collapsed.
         #: `peak_device_bytes` above answers "how big was the biggest compile"
-        #: — one number for a whole cell, which is the wrong granularity for
+        #: — one number for a whole compiled graph, which is the wrong granularity for
         #: the only question anyone asks of it ("what does THIS graph class
         #: cost a card"). Both survive: the max is what the existing phase-table
         #: field publishes, and these rows are what gets banked with their
@@ -1228,13 +1290,30 @@ class EntryCompilePool:
         #: pgw#1215: share -> the graph classes a REFUSING child had already
         #: packed before it refused. They exist on disk; recording them is how
         #: "this share produced nothing" and "this share produced most of a
-        #: cell and then hit one bad class" stop reading the same.
+        #: compiled graph and then hit one bad class" stop reading the same.
         self.refused_classes: Dict[str, List[PackedGraphClass]] = {}
         #: pgw#1215: graph class -> that class's OWN `export_s`/`compile_s`
         #: and inductor phase split, as the child measured them. The pool's
         #: other tables are per SHARE, and a share is several classes — the
         #: only granularity anybody asks about a compile is the class.
+        #: pgw#1371: fed LIVE from the children's streamed per-class rows as
+        #: well as from reaped reports, so the phase snapshot a killed mint
+        #: leaves behind names what actually landed instead of `n_entries=0`.
         self.class_spans: Dict[str, Dict[str, float]] = {}
+        #: pgw#1371: per-class landing callback for the CURRENT `compile()`
+        #: run, and the last per-share tree-CPU sample — the ledger's
+        #: `child_cpu_s` at the terminus.
+        self._on_class: Optional[Callable[[str, int, int], None]] = None
+        self._share_cpu_s: Dict[str, float] = {}
+        #: pgw#1371: the full-row landing callback (`on_row`), fired EXACTLY
+        #: ONCE per packed class — from the live harvest when the child
+        #: streams, from the report otherwise — so the supervisor's
+        #: per-class adopt/publish can never double-adopt one class.
+        self._on_row: Optional[Callable[[PackedGraphClass], None]] = None
+        self._rows_fired: set[str] = set()
+        #: share -> how many of its rows matched the job's hole list
+        #: (``EntryReport.targeted_classes``); -1 = the child reported none.
+        self.entry_targeted: Dict[str, int] = {}
         # pgw#830: parent-side per-share spans (writing the job + spawn) and
         # the pool-level idle split. Kept separate from `entry_phases` because
         # they are NOT inside `compile_s`: they happen in the parent while
@@ -1323,6 +1402,8 @@ class EntryCompilePool:
     def compile(
         self, template: EntryJob,
         *, on_share: Optional[Callable[[str, int, int], None]] = None,
+        on_class: Optional[Callable[[str, int, int], None]] = None,
+        on_row: Optional[Callable[[PackedGraphClass], None]] = None,
         should_abandon: Optional[Callable[[], bool]] = None,
     ) -> Dict[str, PackedGraphClass]:
         """Dispatch this mint's declared classes K-wide and collect what the
@@ -1345,6 +1426,22 @@ class EntryCompilePool:
         reporting is best-effort by construction: a raising callback must never
         cost the mint the classes it already has.
 
+        ``on_class(name, landed, goal)`` (pgw#1371) fires as each GRAPH CLASS
+        lands — harvested live from the child's streamed rows, ``goal`` being
+        ``width.entries`` (the classes this attempt set out to mint). A share
+        is up to 36/K classes and reports once, so per-share progress on the
+        fleet meant the first beat arrived ~an hour in; per-class beats are
+        what keep the hub's stall rule honest for the whole mint.
+
+        ``on_row(packed)`` (pgw#1371) is the same landing with the FULL row —
+        name, key, artifact path, envelope — fired EXACTLY ONCE per class
+        whichever way it arrives (live stream, or the report of a child too
+        old to stream). It is the seam the supervisor's per-class
+        adopt-and-publish hangs off: the artifact is on disk when this fires,
+        so a mint killed later has still banked every class this reported.
+        Best-effort like every callback here — a raising sink is logged and
+        never costs the mint.
+
         ``should_abandon()`` (pgw#1215 step 4) is polled in the same drain loop
         and raises :class:`EntryCompileAbandoned`, so the ``finally`` below
         group-kills every live child. The supervisor drives this pool from a
@@ -1366,6 +1463,8 @@ class EntryCompilePool:
         # named line (`seal_seed_s`) and never inside the capacity identity.
         self._seed_seal_memo()
         self.ledger.entries = width
+        self._on_class = on_class
+        self._on_row = on_row
 
         def _cb(name: str) -> None:
             if on_share is not None:
@@ -1408,8 +1507,8 @@ class EntryCompilePool:
                     raise EntryCompileAbandoned(
                         f"the supervisor abandoned this mint with "
                         f"{len(running)} of {width} share(s) still compiling; "
-                        f"{len(done)} graph class(es) are already packed and "
-                        f"stay on disk")
+                        f"{max(len(done), self.ledger.classes_landed)} graph "
+                        f"class(es) are already packed and stay on disk")
                 finished = self._reap(running)
                 if finished is None:
                     time.sleep(_POLL_S)
@@ -1449,11 +1548,24 @@ class EntryCompilePool:
                 charge("idle_other_s", width - len(running))
             if failure is not None:
                 raise failure
-            self._assert_shares_whole(
-                declared, done, width, have=len(template.have_classes))
+            if template.hole_classes:
+                self._assert_holes_covered(template, done, width)
+            else:
+                self._assert_shares_whole(
+                    declared, done, width, have=len(template.have_classes))
         finally:
             self.ledger.wall_s = round(time.monotonic() - pool_t0, 3)
             self.ledger.busy_s = round(sum(self.entry_seconds.values()), 3)
+            # pgw#1371: one last harvest, then close the observed-CPU line.
+            # Ordered BEFORE the group kills below, so classes packed in the
+            # children's final seconds are named rather than lost, and the
+            # ledger of a torn-down pool says what its children were doing.
+            for row in running:
+                try:
+                    self._harvest_progress(row)
+                except Exception:  # noqa: BLE001 — telemetry never fails a mint
+                    logger.debug("aot-pool: final harvest failed", exc_info=True)
+            self.ledger.child_cpu_s = sum(self._share_cpu_s.values())
             # Closed at the LIVE width for the final interval, then rounded —
             # `charge` has been accumulating it all along (see there).
             charge("idle_other_s", 0)
@@ -1478,7 +1590,7 @@ class EntryCompilePool:
         same declared count and the union has exactly that many rows. Without
         this a child whose share came back empty — a stale declaration, a
         shard-index bug, a family whose fork differs per child — publishes a
-        SHORT cell that verifies, arms, and is missing a class.
+        SHORT compiled graph that verifies, arms, and is missing a class.
 
         ``have`` (pgw#1215 step 4) is how many classes the children were told
         to SKIP because this pod already holds their artifacts. They are part
@@ -1508,7 +1620,67 @@ class EntryCompilePool:
                 + (f"beside {have} already held " if have else "")
                 + f"but every child reported {want} declared — "
                 f"rows[i::{width}] did not partition the declaration and this "
-                f"cell would be short")
+                f"compiled graph would be short")
+
+    def _assert_holes_covered(
+        self, template: EntryJob, done: Mapping[str, Any], width: int,
+    ) -> None:
+        """The holes-only twin of :meth:`_assert_shares_whole` (pgw#1371).
+
+        A holes mint packs ``(declaration ∩ holes) − have``, and the parent
+        can enumerate neither the declaration nor its intersection with the
+        holes — only the children can, and each reports how many of its
+        share's rows the hole list matched (``targeted_classes``, counted
+        before the ``have`` filter). Summing those across a partition of the
+        declaration IS the intersection's size, so the proof is::
+
+            len(done) == sum(targeted) − |have ∩ holes|
+
+        A hole name that matched NOTHING (the sum falls short of the hole
+        list) is a stale hole list — loud, wire-visible, and deliberately not
+        fatal: coverage accretes, and a smaller mint than asked for is a
+        smaller mint, not a short publish. A child that cannot report its
+        targeted count at all is refused — without it there is no evidence
+        the holes were covered rather than silently dropped.
+        """
+        missing = [
+            share for share, count in
+            ((s, self.entry_targeted.get(s, -1)) for s in self.entry_targeted)
+            if count < 0]
+        if len(self.entry_targeted) < width or missing:
+            raise EntryCompileFailed(
+                "pool",
+                f"this mint named {len(template.hole_classes)} hole(s) but "
+                f"{len(missing) or width - len(self.entry_targeted)} of "
+                f"{width} compile child(ren) reported no targeted count — "
+                f"there is no evidence the holes were covered rather than "
+                f"silently dropped")
+        targeted = sum(max(0, int(v)) for v in self.entry_targeted.values())
+        skipped = len(set(template.have_classes) & set(template.hole_classes))
+        if len(done) != targeted - skipped:
+            raise EntryCompileFailed(
+                "pool",
+                f"the {width} share(s) packed {len(done)} graph class(es) "
+                f"but their shares matched {targeted} of the "
+                f"{len(template.hole_classes)} named hole(s)"
+                + (f" ({skipped} already held)" if skipped else "")
+                + " — the hole shares do not reconcile and some named class "
+                  "is missing")
+        stale = len(set(template.hole_classes)) - targeted
+        if stale > 0:
+            detail = (
+                f"{stale} of {len(set(template.hole_classes))} named hole(s) "
+                f"matched NO declared graph class on any child's pipeline — "
+                f"the hole list is stale against this declaration; the "
+                f"{len(done)} matched class(es) minted normally")
+            logger.warning("aot-pool: %s", detail)
+            try:
+                from . import activity as activity_mod
+
+                activity_mod.emit_event(
+                    activity_mod.KIND_AOT_MINT, detail, phase="stale_holes")
+            except Exception:  # pragma: no cover — telemetry never fails a mint
+                logger.debug("aot-pool: stale-hole event failed", exc_info=True)
 
     def _seed_seal_memo(self) -> None:
         """pgw#832: write the parent's toolchain digests where every entry
@@ -1651,6 +1823,11 @@ class EntryCompilePool:
             row.peak_rss_bytes = max(
                 row.peak_rss_bytes, _peak_rss_bytes(row.proc))
             self.peak_rss_bytes = max(self.peak_rss_bytes, row.peak_rss_bytes)
+            # pgw#1371: harvest the child's streamed per-class rows and its
+            # position beat BEFORE the exit/report/liveness checks — landed
+            # classes are the pool's progress toward its goal, and they are
+            # evidence for the silence window below.
+            progressed = self._harvest_progress(row)
             if row.proc.poll() is not None:
                 return row
             # pgw#1243: A CHILD'S TERMINUS IS ITS REPORT, NOT ITS EXIT.
@@ -1658,7 +1835,7 @@ class EntryCompilePool:
             # and returns; everything after is interpreter teardown, and a
             # process that has just traced and AOTI-compiled has plenty that
             # can hang there — a non-daemon thread, a subproc pool, CUDA. Two
-            # production mints packed and reported an entire cell and then sat
+            # production mints packed and reported an entire compiled graph and then sat
             # in `finalize` for 78.9 and 62 minutes while the tier above them
             # waited on an exit that never came. Everything this pool needs is
             # in the report; the corpse is not part of the contract.
@@ -1670,10 +1847,83 @@ class EntryCompilePool:
                 row.reaped_at_terminus = True
                 _terminate_group(row.proc)
                 return row
-            self._judge_entry_liveness(row)
+            self._judge_entry_liveness(row, progressed=progressed)
         return None
 
-    def _judge_entry_liveness(self, row: _Running) -> None:
+    def _harvest_progress(self, row: _Running) -> bool:
+        """Read what this share has STREAMED since the last poll (pgw#1371).
+
+        Two files, both written by the child and both best-effort: one row per
+        packed class under ``<slot>/classes/``, and a position beat rewritten
+        at every phase boundary. Harvesting them is what turns "a share
+        reports once, at the end" into live per-class truth: ``class_spans``
+        (and through it every phase snapshot and aborted table), the ledger's
+        ``classes_landed``, and the ``on_class`` beat all advance the moment
+        an artifact is on disk. Returns whether anything advanced, which the
+        silence window counts as progress — a class landing IS the goal.
+        """
+        advanced = False
+        slot = Path(row.job.report).parent
+        rows_dir = slot / CLASS_ROW_DIRNAME
+        try:
+            names = sorted(
+                p for p in rows_dir.iterdir() if p.suffix == ".json")
+        except OSError:
+            names = []
+        for path in names[len(row.classes_landed):]:
+            packed = _read_class_row(path)
+            if packed is None:
+                # A row mid-write; the next poll gets it. Stop rather than
+                # skip so the count stays aligned with the sorted order.
+                break
+            row.classes_landed.append(packed)
+            if packed.name not in self.class_spans:
+                self.ledger.classes_landed += 1
+            self.class_spans[packed.name] = dict(packed.spans or {})
+            advanced = True
+            logger.info(
+                "aot-pool: %s landed graph class %s live (%d landed pool-wide)",
+                row.entry, packed.name, self.ledger.classes_landed)
+            if self._on_class is not None:
+                try:
+                    self._on_class(
+                        packed.name, self.ledger.classes_landed,
+                        int(self.width.entries))
+                except Exception:  # noqa: BLE001 — telemetry never fails a mint
+                    logger.debug(
+                        "entry-pool class callback failed", exc_info=True)
+            self._fire_row(packed)
+        try:
+            position = (slot / POSITION_NAME).read_text()
+        except OSError:
+            position = ""
+        if position and position != row.position:
+            row.position = position
+            advanced = True
+        return advanced
+
+    def _fire_row(self, packed: PackedGraphClass) -> None:
+        """Deliver one packed class to ``on_row`` EXACTLY ONCE (pgw#1371).
+
+        Deduplicated by class name across both arrival routes — the live
+        stream and the share report — because the sink is the supervisor's
+        per-class adopt/publish, and adopting one class twice would arm and
+        upload the same bytes twice.
+        """
+        if self._on_row is None or packed.name in self._rows_fired:
+            return
+        self._rows_fired.add(packed.name)
+        try:
+            self._on_row(packed)
+        except Exception:  # noqa: BLE001 — a sink never fails a mint
+            logger.warning(
+                "aot-pool: on_row sink failed for %s; the class stays packed "
+                "on disk and the terminus adopt still sees it",
+                packed.name, exc_info=True)
+
+    def _judge_entry_liveness(
+        self, row: _Running, *, progressed: bool = False,
+    ) -> None:
         """Condemn a share that has stopped making MEASURED progress.
 
         pgw#1243. Until this existed the drain loop had no give-up test at
@@ -1682,20 +1932,31 @@ class EntryCompilePool:
         supervisor watched this whole process tree — and pgw#1215 step 4
         deleted that tier without moving the watch down with it.
 
-        Progress is MEASURED (process-tree CPU plus bytes written), never a
-        clock and never a frame the child could print while wedged, and the two
-        signals keep separate high-water marks so a quiet one cannot cancel a
-        moving one (pgw#964). A child inside a forty-minute `aot_compile`
-        advances this every poll and is never touched.
+        Progress is MEASURED, never a clock, and the signals keep separate
+        high-water marks so a quiet one cannot cancel a moving one (pgw#964):
+        process-tree CPU, bytes written, and — pgw#1371 — the share's OWN
+        streamed evidence (``progressed``: a class landing on disk, or the
+        child's position beat moving). The last two are the goal-anchored
+        half: they are what let a torn-down mint be read as "mid-flight, N
+        classes landed" instead of the `pool_busy_s 0` that the 2026-08-18
+        fleet pods rolled up. A child inside a forty-minute `aot_compile`
+        advances the CPU axis every poll and is never touched.
         """
         if row.window is None:
             row.window = SilenceWindow(self.entry_silence_window_s)
         cpu = _tree_cpu_seconds(row.proc.pid)
         mib = _dir_mib(Path(row.job.work))
-        advanced = False
+        advanced = bool(progressed)
         if cpu is not None and (
                 row.cpu_s is None or cpu - row.cpu_s >= _ENTRY_EVIDENCE_EPS):
             row.cpu_s, advanced = cpu, True
+        if cpu is not None:
+            # The ledger's observed-CPU line (pgw#1371): a high-water sample
+            # per share, kept even for a share that is later condemned or
+            # torn down — it is the number that says what the pool was doing
+            # when busy_s reads 0.
+            self._share_cpu_s[row.entry] = max(
+                self._share_cpu_s.get(row.entry, 0.0), float(cpu))
         if mib is not None and (
                 row.work_mib is None
                 or mib - row.work_mib >= _ENTRY_EVIDENCE_EPS):
@@ -1715,7 +1976,11 @@ class EntryCompilePool:
             f"{'unreadable' if row.cpu_s is None else f'{row.cpu_s:.1f}s'} "
             f"and its work dir "
             f"{'unreadable' if row.work_mib is None else f'{row.work_mib:.1f}MiB'} "
-            f"are both flat. It is wedged, not compiling; this build FAILS and "
+            f"are both flat, no graph class landed and its position beat is "
+            f"silent ({len(row.classes_landed)} class(es) landed before the "
+            f"silence; last position "
+            f"{row.position.strip()[:120] or '<none>'}). It is wedged, not "
+            f"compiling; this build FAILS and "
             f"this worker keeps serving eager",
             peak_rss_bytes=row.peak_rss_bytes)
 
@@ -1781,6 +2046,11 @@ class EntryCompilePool:
         # here, per child, would refuse the legitimate case and give the
         # illegitimate one the wrong name.
         if code == EXIT_COMPILED and report is not None:
+            # pgw#1371: the ledger's landed count is reconciled against the
+            # report, so a child too old to stream rows (or a report carrying
+            # classes a poll never saw) still counts every class exactly once.
+            self.ledger.classes_landed += sum(
+                1 for c in report.classes if c.name not in self.class_spans)
             if report.peak_rss_bytes:
                 self.peak_rss_bytes = max(
                     self.peak_rss_bytes, int(report.peak_rss_bytes))
@@ -1796,6 +2066,9 @@ class EntryCompilePool:
                     f"out_dir {row.job.out_dir!r} is not visible to this "
                     f"process")
             self.entry_declared[row.entry] = int(report.declared_classes or 0)
+            self.entry_targeted[row.entry] = int(report.targeted_classes)
+            for packed in report.classes:
+                self._fire_row(packed)
             self.entry_phases[row.entry] = self._close_entry_partition(
                 row, report, elapsed=elapsed, reap_epoch=reap_epoch)
             self.entry_overlays[row.entry] = dict(report.overlays or {})
@@ -1815,12 +2088,23 @@ class EntryCompilePool:
         # the raise for pgw#848's reason — the attempt that FAILED is exactly
         # the attempt the next one has to size against — and `refused_classes`
         # names what exists so a caller is never told the share produced
-        # nothing when it produced most of a cell.
+        # nothing when it produced most of a compiled graph.
         if report is not None and report.classes:
+            self.ledger.classes_landed += sum(
+                1 for c in report.classes if c.name not in self.class_spans)
             for packed in report.classes:
                 self.class_spans[packed.name] = dict(packed.spans or {})
+                # A share that refused at class k still PACKED k-1 classes,
+                # and each is a durable artifact the per-class sink may adopt.
+                self._fire_row(packed)
             self.refused_classes[row.entry] = list(report.classes)
             self.entry_declared[row.entry] = int(report.declared_classes or 0)
+        elif report is None and row.classes_landed:
+            # pgw#1371: a share that died without a report still STREAMED the
+            # classes it packed, and they are on disk — name them exactly as a
+            # refusing report's are named, so "this share produced nothing"
+            # and "this share died on class k of n" stop reading the same.
+            self.refused_classes[row.entry] = list(row.classes_landed)
         detail = report.detail if report is not None else ""
         if not detail:
             detail = _stderr_tail(row.stderr_path)
@@ -1862,7 +2146,7 @@ class EntryCompilePool:
           shape as "the OOM killer far more often than a compiler bug" since
           pgw#809; one retry at a narrower K is the right response to a
           "far more often", and a wrong guess costs one retry rather than a
-          permanently unmintable cell.
+          permanently unmintable compiled graph.
 
         A child that wrote a report classified ITSELF and is believed: a
         named refusal is deterministic no matter how it exited.
@@ -1881,7 +2165,7 @@ class EntryCompilePool:
         """pgw#840: the child that compiled this entry must BE the parent.
 
         Not a telemetry check. The child produces the loose files
-        ``package_aoti`` packs and the cell publishes, while every gate runs in
+        ``package_aoti`` packs and the compiled graph publishes, while every gate runs in
         the parent against the parent's program — an assignment that is only
         sound while both are the same code. A skewed child was invisible: it
         compiled successfully, returned files that exist, and differed only in
@@ -1893,7 +2177,7 @@ class EntryCompilePool:
         the child was not from that tree.
 
         Refused, not warned: an artifact compiled by unknown code must not be
-        packed into a cell whose identity claims the parent's.
+        packed into a compiled graph whose identity claims the parent's.
         """
         if not CODE_DIGEST:
             return  # no source to compare (zipimport) — cannot prove either way
@@ -1909,7 +2193,7 @@ class EntryCompilePool:
             f"whatever the interpreter's path yields (a second checkout, an "
             f"inherited PYTHONPATH, a stale wheel, or this tree edited between "
             f"the parent's import and this spawn), and that child compiled the "
-            f"files this cell would publish while every gate ran against the "
+            f"files this compiled graph would publish while every gate ran against the "
             f"parent's program")
 
     def _close_entry_partition(
@@ -2005,8 +2289,10 @@ def _exit_note(code: Optional[int]) -> str:
 
 
 __all__ = [
+    "CLASS_ROW_DIRNAME",
     "CODE_DIGEST",
     "COMPILED",
+    "POSITION_NAME",
     "CPUS_PER_ENTRY_WORKER",
     "DEFAULT_ENTRY_PEAK_RSS_BYTES",
     "ENTRY_CHILD_MODULE",

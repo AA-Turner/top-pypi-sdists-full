@@ -30,6 +30,8 @@ from geneva.debug.error_store import (
     make_error_record_from_exception,
 )
 from geneva.debug.logger import ErrorLogger
+from geneva.transformer import BACKFILL_SELECTED
+from geneva.utils import make_null_array
 
 _LOG = logging.getLogger(__name__)
 
@@ -64,24 +66,6 @@ def build_retry_kwargs(retry_config, reraise: bool | None = None) -> dict:
 def extract_table_name(table_uri: str) -> str:
     """Extract table name from URI"""
     return table_uri.split("/")[-1].replace(".lance", "")
-
-
-def create_result_batch(
-    results: list,
-    row_addr: pa.Array,
-    col_name: str,
-    output_type: pa.DataType,
-    field_metadata: dict,
-) -> pa.RecordBatch:
-    """Create result RecordBatch with row addresses"""
-    result_array = pa.array(results, type=output_type)
-    schema = pa.schema(
-        [
-            pa.field(col_name, output_type, metadata=field_metadata),
-            pa.field("_rowaddr", pa.uint64()),
-        ]
-    )
-    return pa.record_batch([result_array, row_addr], schema=schema)
 
 
 def get_error_handling_config(map_task: MapTask) -> ErrorHandlingConfig | None:
@@ -504,72 +488,141 @@ class BatchRetryStrategy(BatchStrategy):
 
 
 class SkipRowsStrategy(BatchStrategy):
-    """Process rows individually, skip failures, return partial results"""
+    """Apply the batch whole; on failure, bisect to isolate and skip the
+    failing rows.
+
+    A healthy batch is one vectorized ``map_task.apply``; one bad row costs
+    O(log batch_size) re-executions. Rows co-batched with a failure re-execute
+    on the successful halves -- UDFs are assumed idempotent, as with
+    checkpoint resume.
+    """
 
     def apply(self, batch: pa.RecordBatch) -> tuple[pa.RecordBatch, list[Any], int]:
-        """Apply row-by-row, collecting results and errors"""
+        """Apply the batch whole; bisect only on failure."""
         if not isinstance(self.map_task, BackfillUDFTask):
             # Fall back to normal apply for non-UDF tasks
             return (self.map_task.apply(batch), [], 0)
 
         # Blob-encoded columns yield list[dict] instead of RecordBatch.
         # Delegate to the map_task which already handles both shapes.
-        # TODO(#782): implement per-row iteration for list[dict] to
-        #  preserve SKIP_ROWS isolation semantics (whole-batch fallback).
+        # TODO(#782): implement bisection for list[dict] to preserve
+        #  SKIP_ROWS isolation semantics (whole-batch fallback).
         if isinstance(batch, list):
             return (self.map_task.apply(batch), [], 0)
 
-        col_name, udf = next(iter(self.map_task.udfs.items()))
+        try:
+            return (self.map_task.apply(batch), [], 0)
+        except Exception as e:
+            _LOG.warning(
+                f"Batch {self.ctx.seq} ({len(batch)} rows) failed: {e}; "
+                "bisecting to isolate the failing rows"
+            )
+            return self._apply_bisect(batch)
 
-        # Process each row, collecting results and errors
-        results = []
-        error_records = []
+    def _apply_bisect(
+        self, batch: pa.RecordBatch
+    ) -> tuple[pa.RecordBatch, list[Any], int]:
+        """Resolve segments left-to-right off a stack, seeded with the failed
+        batch's halves: failing multi-row segments split in half; a failing
+        single row becomes an all-null row (retry + error record first).
+
+        Segment results are concatenated as-is, so multi-column (unpacked)
+        outputs and sparse results (``defer_carry_forward`` emits only
+        WHERE-matched rows) pass through unchanged.
+        """
+        assert isinstance(self.map_task, BackfillUDFTask)  # guaranteed by apply()
+        col_name, udf = next(iter(self.map_task.udfs.items()))
+        output_schema = pa.schema(
+            [
+                *self.map_task._output_fields(col_name, udf),
+                pa.field("_rowaddr", pa.uint64()),
+            ]
+        )
+
+        # Unmatched rows are absent from sparse output; skip their leaves.
+        sparse_mask = None
+        if (
+            self.map_task.defer_carry_forward
+            and BACKFILL_SELECTED in batch.schema.names
+        ):
+            sparse_mask = batch[BACKFILL_SELECTED].to_pylist()
+
+        pieces: list[pa.RecordBatch] = []
+        error_records: list[Any] = []
         skip_count = 0
 
-        for row_idx in range(len(batch)):
-            row_batch = batch.slice(row_idx, 1)
-            row_address_value = batch["_rowaddr"][row_idx].as_py()
+        # Seed with the halves: apply() already saw the full batch fail.
+        n = len(batch)
+        half = n // 2
+        if n > 1:
+            # (offset, length); right pushed first so left resolves first
+            stack: list[tuple[int, int]] = [(half, n - half), (0, half)]
+        else:
+            stack = [(0, 1)] if n == 1 else []
+        while stack:
+            offset, length = stack.pop()
+            segment = batch.slice(offset, length)
 
-            if row_address_value is None:
-                _LOG.warning(f"Row {row_idx} has null _rowaddr, skipping")
-                results.append(None)
-                skip_count += 1
+            if length > 1:
+                try:
+                    pieces.append(self.map_task.apply(segment))
+                except Exception:
+                    half = length // 2
+                    stack.append((offset + half, length - half))
+                    stack.append((offset, half))
                 continue
 
-            row_address = int(row_address_value)
+            row_address_value = batch["_rowaddr"][offset].as_py()
+            if row_address_value is None:
+                _LOG.warning(f"Row {offset} has null _rowaddr, skipping")
+                pieces.append(self._null_row(output_schema, None))
+                skip_count += 1
+                continue
+            if sparse_mask is not None and not sparse_mask[offset]:
+                continue
 
-            # Process single row (with retry if configured)
-            result_value, error_record = self._process_row(
-                row_batch, row_address, col_name
+            piece, error_record, failed = self._process_row(
+                segment, int(row_address_value), output_schema
             )
-
-            results.append(result_value)
+            pieces.append(piece)
             if error_record is not None:
                 error_records.append(error_record)
-                skip_count += 1
-            elif result_value is None:
-                # Row was skipped but no error record (log_errors=False)
+            if failed:
                 skip_count += 1
 
-        # Create result batch
-        result_batch = create_result_batch(
-            results=results,
-            row_addr=batch["_rowaddr"],
-            col_name=col_name,
-            output_type=udf.data_type,
-            field_metadata=udf.field_metadata,
+        table = (
+            pa.Table.from_batches(pieces, schema=output_schema)
+            if pieces
+            else output_schema.empty_table()
+        )
+        batches = table.combine_chunks().to_batches()
+        result_batch = (
+            batches[0]
+            if batches
+            else pa.RecordBatch.from_pylist([], schema=output_schema)
         )
 
         return (result_batch, error_records, skip_count)
 
+    @staticmethod
+    def _null_row(output_schema: pa.Schema, row_address: int | None) -> pa.RecordBatch:
+        """A one-row batch with every output column null (skipped row)."""
+        arrays = [make_null_array(1, field.type) for field in list(output_schema)[:-1]]
+        arrays.append(pa.array([row_address], type=pa.uint64()))
+        return pa.record_batch(arrays, schema=output_schema)
+
     def _process_row(
-        self, row_batch: pa.RecordBatch, row_address: int, col_name: str
-    ) -> tuple[Any, Any]:
-        """Process a single row, with retry if configured"""
+        self,
+        row_batch: pa.RecordBatch,
+        row_address: int,
+        output_schema: pa.Schema,
+    ) -> tuple[pa.RecordBatch, Any, bool]:
+        """Process a single row, with retry if configured; a row that still
+        fails comes back as (all-null row, error record, failed=True)."""
         if self._should_retry():
-            return self._process_row_with_retry(row_batch, row_address, col_name)
+            return self._process_row_with_retry(row_batch, row_address, output_schema)
         else:
-            return self._process_row_once(row_batch, row_address, col_name)
+            return self._process_row_once(row_batch, row_address, output_schema)
 
     def _should_retry(self) -> bool:
         """Check if row-level retry is configured"""
@@ -579,13 +632,14 @@ class SkipRowsStrategy(BatchStrategy):
         return max_attempts > 1
 
     def _process_row_once(
-        self, row_batch: pa.RecordBatch, row_address: int, col_name: str
-    ) -> tuple[Any, Any]:
+        self,
+        row_batch: pa.RecordBatch,
+        row_address: int,
+        output_schema: pa.Schema,
+    ) -> tuple[pa.RecordBatch, Any, bool]:
         """Process row without retry"""
         try:
-            result_batch = self.map_task.apply(row_batch)
-            result_value = result_batch[col_name][0].as_py()
-            return (result_value, None)
+            return (self.map_task.apply(row_batch), None, False)
         except Exception as e:
             error_record = None
             if self.ctx.error_config and self.ctx.error_config.log_errors:
@@ -599,11 +653,14 @@ class SkipRowsStrategy(BatchStrategy):
             _LOG.warning(
                 f"Skipping row {row_address} in batch {self.ctx.seq} due to error: {e}"
             )
-            return (None, error_record)
+            return (self._null_row(output_schema, row_address), error_record, True)
 
     def _process_row_with_retry(
-        self, row_batch: pa.RecordBatch, row_address: int, col_name: str
-    ) -> tuple[Any, Any]:
+        self,
+        row_batch: pa.RecordBatch,
+        row_address: int,
+        output_schema: pa.Schema,
+    ) -> tuple[pa.RecordBatch, Any, bool]:
         """Process row with retry logic"""
         if not self.ctx.error_config or not self.ctx.error_config.retry_config:
             raise ValueError("_process_row_with_retry requires retry_config")
@@ -618,7 +675,6 @@ class SkipRowsStrategy(BatchStrategy):
                 with attempt:
                     try:
                         result_batch = self.map_task.apply(row_batch)
-                        result_value = result_batch[col_name][0].as_py()
 
                         # Log successful retry if configured
                         if (
@@ -631,7 +687,7 @@ class SkipRowsStrategy(BatchStrategy):
                                 f"for row {row_address}"
                             )
 
-                        return (result_value, None)
+                        return (result_batch, None, False)
 
                     except Exception as e:
                         last_exception = e
@@ -658,7 +714,7 @@ class SkipRowsStrategy(BatchStrategy):
                     max_attempts=max_attempts,
                 )
 
-            return (None, error_record)
+            return (self._null_row(output_schema, row_address), error_record, True)
 
-        # Fallback: should never reach here with reraise=True
-        return (None, None)
+        # Unreachable with reraise=True; keep the schema-shaped fallback.
+        return (self._null_row(output_schema, row_address), None, True)

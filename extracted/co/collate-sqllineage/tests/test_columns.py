@@ -1539,7 +1539,6 @@ def test_alias_with_casing():
                 TestColumnQualifierTuple("Actual_Pickup_Departure", "trg_tbl"),
             ),
         ],
-        test_sqlparse=False,
     )
 
 
@@ -1568,7 +1567,6 @@ def test_ctes_with_join():
                 TestColumnQualifierTuple("x", "random_table"),
             ),
         ],
-        test_sqlparse=False,
     )
 
 
@@ -1599,7 +1597,6 @@ FROM schema1.source_table vst"""
                 TestColumnQualifierTuple("col2", "target_table"),
             ),
         ],
-        test_sqlparse=False,
     )
 
     # Test with JOIN - multiple tables with different alias casings
@@ -1619,7 +1616,6 @@ JOIN schema1.table2 vtst ON vst.id = vtst.id"""
                 TestColumnQualifierTuple("col2", "target_table"),
             ),
         ],
-        test_sqlparse=False,
     )
 
     # Test mixed casing - some uppercase, some lowercase references
@@ -1642,7 +1638,6 @@ FROM schema1.source_table vst"""
                 TestColumnQualifierTuple("col3", "target_table"),
             ),
         ],
-        test_sqlparse=False,
     )
 
 
@@ -1710,4 +1705,103 @@ FROM (SELECT * FROM x) AS x"""
     assert_column_lineage_equal(
         sql,
         [],
+    )
+
+
+def test_update_from_with_alias():
+    sql = """UPDATE dbo.t_tgt
+SET val = s.label
+FROM dbo.src s
+WHERE t_tgt.id = s.id"""
+    assert_column_lineage_equal(
+        sql,
+        [
+            (
+                TestColumnQualifierTuple("label", "dbo.src"),
+                TestColumnQualifierTuple("val", "dbo.t_tgt"),
+            )
+        ],
+        dialect="tsql",
+    )
+
+
+def test_update_set_multiple_columns_from_join():
+    sql = """UPDATE dbo.t_tgt
+SET c1 = s.a, c2 = s.b
+FROM dbo.src s
+WHERE t_tgt.id = s.id"""
+    assert_column_lineage_equal(
+        sql,
+        [
+            (
+                TestColumnQualifierTuple("a", "dbo.src"),
+                TestColumnQualifierTuple("c1", "dbo.t_tgt"),
+            ),
+            (
+                TestColumnQualifierTuple("b", "dbo.src"),
+                TestColumnQualifierTuple("c2", "dbo.t_tgt"),
+            ),
+        ],
+        dialect="tsql",
+    )
+
+
+def test_update_set_scalar_subquery():
+    sql = """UPDATE raw.a
+SET total = (SELECT SUM(b.amt) FROM raw.b WHERE b.id = a.id)"""
+    assert_column_lineage_equal(
+        sql,
+        [
+            (
+                TestColumnQualifierTuple("amt", "raw.b"),
+                TestColumnQualifierTuple("total", "raw.a"),
+            )
+        ],
+        dialect="oracle",
+        # SqlFluff's oracle grammar cannot parse a scalar subquery on the right hand
+        # side of a SET assignment, and SqlParse cannot resolve the subquery alias,
+        # so only SqlGlot resolves this shape.
+        test_sqlfluff=False,
+        test_sqlparse=False,
+    )
+
+
+def test_merge_into_with_aliased_qualified_source():
+    sql = """MERGE INTO dbo.t_merge AS tgt
+USING dbo.src1 AS src ON tgt.id = src.id
+WHEN MATCHED THEN UPDATE SET tgt.val = src.val
+WHEN NOT MATCHED THEN INSERT (id, val) VALUES (src.id, src.val)"""
+    assert_column_lineage_equal(
+        sql,
+        [
+            (
+                TestColumnQualifierTuple("id", "dbo.src1"),
+                TestColumnQualifierTuple("id", "dbo.t_merge"),
+            ),
+            (
+                TestColumnQualifierTuple("val", "dbo.src1"),
+                TestColumnQualifierTuple("val", "dbo.t_merge"),
+            ),
+        ],
+        dialect="tsql",
+    )
+
+
+def test_merge_into_with_subquery_source():
+    sql = """MERGE INTO p.d.tgt
+USING (SELECT id, val FROM p.d.src_b) s ON tgt.id = s.id
+WHEN NOT MATCHED THEN INSERT (id, val) VALUES (s.id, s.val)"""
+    assert_column_lineage_equal(
+        sql,
+        [
+            (
+                TestColumnQualifierTuple("id", "p.d.src_b"),
+                TestColumnQualifierTuple("id", "p.d.tgt"),
+            ),
+            (
+                TestColumnQualifierTuple("val", "p.d.src_b"),
+                TestColumnQualifierTuple("val", "p.d.tgt"),
+            ),
+        ],
+        dialect="bigquery",
     )

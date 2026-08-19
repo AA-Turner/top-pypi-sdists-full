@@ -23,6 +23,10 @@ from geneva.apply.error_handling import (
     get_error_handling_config,
     make_skip_budget_tracker,
 )
+from geneva.apply.memory import (
+    BatchTrimCounter,
+    get_applier_memory_trim_interval,
+)
 from geneva.apply.task import MapTask, ReadTask
 from geneva.apply.utils import _iter_with_next_duration
 from geneva.debug.logger import ErrorLogger
@@ -30,13 +34,60 @@ from geneva.errors import FatalWorkerCrashError
 
 _LOG = logging.getLogger(__name__)
 
-# Cadence for polling a pool future's readiness while draining results.
+# --- Dead-worker detection -------------------------------------------------
+#
+# ``multiprocess.Pool`` silently reaps and replaces a worker that dies
+# mid-task, and the dead task's future never completes (bpo-22393), so an
+# unbounded wait on it wedges the applier forever. The stall timeout is what
+# bounds it: results are consumed strictly FIFO, so a head future still
+# unretired after it means the applier has stopped making progress, and
+# ``_await_head_ready`` escalates.
+#
+# Note the narrowness of that. ``_await_head_ready`` waits only on ``futs[0]``
+# and ``last_progress`` advances only when a head is consumed, so the bound
+# shows that no *head* was retired -- not that the pool produced nothing.
+# Younger futures may well have completed behind an orphaned head. What
+# follows for calibration: the timeout has to clear the longest healthy single
+# batch, not the longest gap between completions. Set under that, it condemns
+# a slow-but-fine head, which the policy below then bisects and null-fills.
+#
+# It is deliberately the *only* signal. Two faster ones have been tried, and
+# both mistook healthy work for a death:
+#
+#  - Completion order (#869). ``apply_async`` hands tasks out in order but
+#    they finish in whatever order the work takes, so with several workers a
+#    younger batch completing first is routine on a healthy pool and says
+#    nothing about liveness (GEN-857).
+#  - Pool membership. A PID missing from the private ``_pool`` list does prove
+#    a worker died, but not *which* task it held -- or that it held one at
+#    all, since a worker can be killed while idle or just after publishing a
+#    result. Nothing in the pool records task-to-worker ownership, and the
+#    parent only samples membership once a head is already slow, so the loss
+#    cannot be tied to the batch being waited on. Any bound built on it ends
+#    up charging a healthy slow batch for an unrelated death.
+#
+# They failed the same way, so the bar is worth stating: a false positive is
+# not a retry. Absent a user policy that matches it, ``FatalWorkerCrashError``
+# reaches ``_default_worker_loss_policy`` (``runners/ray/pipeline.py``), which
+# resolves it to ``Skip``: the task is bisected and rows that keep failing are
+# left null while the job reports DONE. See
+# ``test_multiprocess_child_crash_isolates_only_failed_row``. Condemning a
+# healthy batch therefore costs data, so a signal has to show the pool
+# *cannot* produce it -- slowness is not enough.
+#
+# A fast path needs the worker to record which task it picked up before
+# running it (GEN-857 follow-up); a crash-aware executor
+# (``ProcessPoolExecutor`` raises ``BrokenProcessPool`` here) is the other
+# option noted in #869.
+
+# Cadence for re-checking the stall bound while blocked on a result. Not a
+# latency floor: ``_await_head_ready`` blocks on the future's own event, so a
+# result is picked up as soon as it lands.
 _POOL_POLL_INTERVAL_S = 1.0
 
-# Default bound, in seconds, after which a non-completing pool future is treated
-# as a dead worker. ``multiprocess.Pool`` silently replaces a worker that dies
-# mid-task, but the orphaned task's future never completes (bpo-22393), so a
-# bounded wait is the only way to surface it. Override with
+# Bound after which a head future that has not been retired is treated as
+# orphaned. Any override has to stay above the longest healthy batch, since a
+# head slower than this is condemned. Set with
 # ``GENEVA_APPLIER_WORKER_STALL_TIMEOUT_S``.
 _DEFAULT_WORKER_STALL_TIMEOUT_S = 600.0
 _WORKER_STALL_TIMEOUT_ENV = "GENEVA_APPLIER_WORKER_STALL_TIMEOUT_S"
@@ -55,6 +106,21 @@ _LIST_DICT_MARKER = b"\x00GLIST\x00"
 
 # Cache for resolved extension types so we only do the lazy import once.
 _KNOWN_EXT_TYPES: dict[str, pa.ExtensionType] = {}
+
+# Per-process batch counter driving the periodic allocator trim. Module-level
+# rather than applier-owned because the applier instance never reaches a pool
+# worker — workers receive only a pickled MapTask and a batch buffer — so each
+# process keeps its own copy.
+_WORKER_TRIM_COUNTER = BatchTrimCounter()
+
+
+def _worker_trim_memory() -> None:
+    """Release allocator arenas in this worker every N batches.
+
+    Called on entry, when the previous batch's Arrow and UDF buffers have
+    already been dropped but glibc may still be holding their pages.
+    """
+    _WORKER_TRIM_COUNTER.record_batch(get_applier_memory_trim_interval())
 
 
 def _get_extension_type(
@@ -282,6 +348,7 @@ def _apply_with_stream_buf(
     """
     Apply a function to a record batch using a stream buffer.
     """
+    _worker_trim_memory()
     try:
         func = cloudpickle.loads(apply)
         out_buf = io.BytesIO()
@@ -313,6 +380,12 @@ class MultiProcessBatchApplier(BatchApplier):
     read_io_time_ms: int = attrs.field(default=0, init=False)
     skip_count: int = attrs.field(default=0, init=False)
     total_rows: int = attrs.field(default=0, init=False)
+    # The parent still churns scan batches and IPC buffers even though the UDF
+    # runs in the pool; workers trim themselves in _worker_trim_memory. Spans
+    # ReadTasks by design, so it is not cleared by reset_run_state — the parent
+    # is the only process here that outlives a task, since pool workers are
+    # recreated per run and return their arenas to the OS on exit.
+    trim_counter: BatchTrimCounter = attrs.field(factory=BatchTrimCounter, init=False)
 
     def reset_run_state(self) -> None:
         self.udf_processing_time_ms = 0
@@ -373,6 +446,7 @@ class MultiProcessBatchApplier(BatchApplier):
                 (result_batch_bytes, error_records_bytes)
                 Both are serialized for return to main process
         """
+        _worker_trim_memory()
         try:
             # Safe: deserializing trusted data from parent process
             map_task = cloudpickle.loads(map_task_bytes)
@@ -450,36 +524,26 @@ class MultiProcessBatchApplier(BatchApplier):
         last_progress: float,
         stall_timeout_s: float,
     ) -> None:
-        """Block until ``futs[0]`` is ready, or raise if its worker died.
+        """Block until ``futs[0]`` is ready, or raise once the head stalls.
 
-        ``multiprocess.Pool`` silently reaps and replaces a worker that dies
-        mid-task, so polling child exitcodes can't see it; the orphaned task's
-        future simply never completes (bpo-22393). Detect that two ways:
-
-        - **Out-of-order completion:** a strictly-later future is ready while
-          the head is not — the head's worker died and a replacement already
-          drained newer work.
-        - **Stall backstop:** no future has completed within
-          ``stall_timeout_s`` (covers the case where the orphan is the last
-          future, with no younger sibling to flag it).
-
-        In either case the pool is unrecoverable for this future, so raise
-        ``FatalWorkerCrashError`` and let the Ray layer escalate / retry
-        instead of wedging forever.
+        Applies the stall bound described under *Dead-worker detection* at the
+        top of this module. *last_progress* is when a head was last retired,
+        not when a batch last completed, so exceeding the bound means this
+        future is not arriving: raise ``FatalWorkerCrashError`` and let the Ray
+        layer act on it instead of wedging forever.
         """
-        while not futs[0].ready():
-            if any(f.ready() for f in futs[1:]):
-                raise FatalWorkerCrashError(
-                    f"multiprocess worker died mid-task (job {self.job_id}): "
-                    "a later batch completed before the in-flight batch "
-                    "returned"
-                )
+        while True:
+            # Blocks on the future's own event, so a ready result returns
+            # immediately; the timeout only sets the stall-check cadence.
+            futs[0].wait(timeout=_POOL_POLL_INTERVAL_S)
+            if futs[0].ready():
+                return
+
             if time.monotonic() - last_progress > stall_timeout_s:
                 raise FatalWorkerCrashError(
-                    f"multiprocess worker stalled (job {self.job_id}): no "
-                    f"batch completed in {stall_timeout_s:.0f}s"
+                    f"multiprocess worker stalled (job {self.job_id}): the "
+                    f"in-flight batch has not returned in {stall_timeout_s:.0f}s"
                 )
-            time.sleep(_POOL_POLL_INTERVAL_S)
 
     def _process_future_result(
         self,
@@ -549,14 +613,15 @@ class MultiProcessBatchApplier(BatchApplier):
             should_log_errors = None  # Track from first batch's context
 
             stall_timeout_s = self._worker_stall_timeout_s()
+            memory_trim_interval = get_applier_memory_trim_interval()
 
             def _run_with_backpressure():  # noqa: ANN202
                 nonlocal should_log_errors
                 futs = []
                 ctxs = []
                 batch_sizes = []  # Track batch sizes for skip counting
-                # Time of the last completed batch; drives dead-worker detection
-                # in _await_head_ready.
+                # Time of the last completed batch; drives the stall bound in
+                # _await_head_ready.
                 last_progress = time.monotonic()
 
                 batch_iter = read_task.to_batches(batch_size=map_task.batch_size())
@@ -632,6 +697,7 @@ class MultiProcessBatchApplier(BatchApplier):
                         if skip_tracker is not None and batch_size > 0:
                             skip_tracker.record_batch(batch_size, skip_count)
                         yield result
+                        self.trim_counter.record_batch(memory_trim_interval)
 
                 while futs:
                     self._await_head_ready(futs, last_progress, stall_timeout_s)
@@ -650,6 +716,7 @@ class MultiProcessBatchApplier(BatchApplier):
                     if skip_tracker is not None and batch_size > 0:
                         skip_tracker.record_batch(batch_size, skip_count)
                     yield result
+                    self.trim_counter.record_batch(memory_trim_interval)
 
             yielded = False
             try:

@@ -26,9 +26,16 @@ from lancedb.util import get_uri_scheme
 from overrides import override
 from yarl import URL
 
+from geneva._namespace_client import with_geneva_user_agent
 from geneva.checkpoint import CheckpointStore
 from geneva.cluster import GenevaClusterType
 from geneva.config import ConfigBase
+from geneva.credentials import (
+    refresh_storage_options as refresh_storage_options,
+)
+from geneva.credentials import (
+    revend_storage_options as revend_storage_options,
+)
 from geneva.namespace_properties import is_sensitive_namespace_property
 from geneva.packager import DockerUDFPackager, UDFPackager
 from geneva.packager.autodetect import upload_local_env
@@ -156,6 +163,7 @@ class NamespaceConfig:
             else self.namespace_client_properties
         )
         assert props is not None
+        props = with_geneva_user_agent(self.namespace_client_impl, props)
         return namespace_connect(self.namespace_client_impl, props)
 
     def for_worker(self) -> "NamespaceConfig":
@@ -309,6 +317,17 @@ def open_lance_dataset(
         storage_options,
         has_namespace_client=ns_client is not None,
     )
+    # Vended credentials snapshotted at plan time expire on long-running jobs;
+    # re-vend fresh ones before opening so worker reads don't sign S3 requests
+    # with an expired token. No-op for static / non-namespace credentials.
+    if table_id is not None:
+        storage_options = refresh_storage_options(
+            storage_options,
+            table_id=table_id,
+            namespace_client=ns_client,
+            namespace_config=namespace_config,
+            use_worker_props=use_worker_props,
+        )
     if ns_client is not None and table_id is not None:
         kwargs: dict[str, Any] = {
             "namespace_client": ns_client,
@@ -500,10 +519,21 @@ class Connection(DBConnection):
         return str(root) if root else None
 
     def _supports_stable_row_ids_on_create(self) -> bool:
-        return (
-            self.namespace_client_impl is None
-            or self._directory_namespace_root_uri() is not None
-        )
+        """Whether ``create_table`` can enable stable row IDs on this backend.
+
+        True everywhere. ``_connect`` always resolves to a
+        ``LanceNamespaceDBConnection``, which reads
+        ``new_table_enable_stable_row_ids`` out of the per-request storage
+        options and performs the Lance write client-side; a directory namespace
+        gets there via the root-table detour in
+        ``_create_directory_namespace_root_table``.
+
+        This used to return False for ``rest`` namespaces -- i.e. every
+        enterprise deployment -- which silently created materialized-view tables
+        without stable row IDs. Stable row IDs are write-time only, so those
+        tables could not be repaired afterwards (GEN-839).
+        """
+        return True
 
     def _create_directory_namespace_root_table(
         self,
@@ -721,7 +751,6 @@ class Connection(DBConnection):
             namespace = namespace_path
 
         namespace = namespace if namespace is not None else []
-
         tbl = NativeTable(
             self,
             name,
@@ -756,21 +785,18 @@ class Connection(DBConnection):
             # Lazy import: geneva.query imports geneva.db at module load.
             from geneva.query import open_read_dataset
 
-            fragments = list(open_read_dataset(table).get_fragments())  # type: ignore[arg-type]
+            dataset = open_read_dataset(table)  # type: ignore[arg-type]
         except Exception as e:
             _LOG.debug(
                 f"Could not check stable row ID status for existing table '{name}': {e}"
             )
             return
 
-        if not fragments:
-            _LOG.warning(
-                f"Table '{name}' exists but is empty - cannot verify "
-                f"if stable row IDs are enabled."
-            )
-            return
-
-        if not has_stable_row_ids(fragments):
+        # The manifest carries the flag, so this is answerable even when the
+        # table currently has no fragments -- either brand new, or every row
+        # deleted. The fragment-based check could not tell those apart from a
+        # table that genuinely lacks stable row IDs, and skipped validation.
+        if not dataset_uses_stable_row_ids(dataset):
             raise ValueError(
                 f"Cannot open table '{name}' with exist_ok=True: "
                 f"table exists but does not have stable row IDs enabled.\n\n"
@@ -832,11 +858,16 @@ class Connection(DBConnection):
         from .table import NativeTable
 
         # Handle new_table_enable_stable_row_ids validation and normalization
-        # Accept both string "true" and boolean True for user convenience
+        # Accept both strings and booleans for user convenience; lancedb
+        # requires storage_options values to be strings, and parses them with
+        # Rust's str::parse::<bool>(), which only accepts exactly "true"/"false".
+        # So case-fold strings here: str(True) == "True" would otherwise fall
+        # through both branches and reach lancedb as an unparseable value.
         if storage_options:
             enable_stable = storage_options.get("new_table_enable_stable_row_ids")
+            if isinstance(enable_stable, str):
+                enable_stable = enable_stable.lower()
             if enable_stable in ("true", True, 1):
-                # Normalize to string "true" for lancedb
                 storage_options = dict(storage_options)
                 storage_options["new_table_enable_stable_row_ids"] = "true"
 
@@ -849,6 +880,9 @@ class Connection(DBConnection):
                         namespace_path=kwargs.get("namespace_path")
                         or kwargs.get("namespace"),
                     )
+            elif enable_stable in ("false", False, 0):
+                storage_options = dict(storage_options)
+                storage_options["new_table_enable_stable_row_ids"] = "false"
 
         if self._host_override:
             # in OSS, exist_ok is a separate param, but in phalanx it is set as "mode"
@@ -1812,6 +1846,7 @@ class Connection(DBConnection):
     def use_remote_dispatch(self) -> bool:
         return self.is_remote_uri() and not self._executor_mode
 
+    @override
     def get_job(self, job_id: str) -> "JobRecord":
         """Get a job record by ID.
 
@@ -1823,6 +1858,7 @@ class Connection(DBConnection):
             raise ValueError(f"Job {job_id} not found")
         return results[0]
 
+    @override
     def list_jobs(
         self,
         table_name: str | None = None,
@@ -2037,6 +2073,10 @@ def connect(
             "_geneva_uploads directory."
         )
 
+    # Whether the caller explicitly passed region=, captured before _pre_connect
+    # backfills it from config / the "us-east-1" default.
+    explicit_region = region
+
     (
         api_key,
         host_override,
@@ -2060,6 +2100,11 @@ def connect(
 
     if host_override:
         _LOG.info(f"Using host_override: {host_override}")
+
+    # If region set, override AWS_REGION / AWS_DEFAULT_REGION from the environment
+    if explicit_region is not None:
+        storage_options = dict(storage_options or {})
+        storage_options.setdefault("aws_region", explicit_region)
 
     if storage_options and namespace_client_impl == "dir":
         namespace_props = dict(namespace_client_properties or {})

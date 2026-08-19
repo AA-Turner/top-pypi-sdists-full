@@ -95,6 +95,7 @@ class RunnerOverride:
         original_generate_runtime_model_context: t.Callable[
             [ManifestNode, RuntimeConfig, Manifest], t.Dict[str, t.Any]
         ],
+        original_build_test_run_result: t.Optional[t.Callable] = None,
         telemetry_dispatcher: TelemetryDispatcher | None = None,
         query_cache_client: QueryCacheGrpcClient | None = None,
     ) -> None:
@@ -102,6 +103,7 @@ class RunnerOverride:
         self._original_run_with_hooks = original_run_with_hooks
         self._original_microbatch_execute = original_microbatch_execute
         self._original_generate_runtime_model_context = original_generate_runtime_model_context
+        self._original_build_test_run_result = original_build_test_run_result
         self._query_cache_client = query_cache_client
         self._run_cache: RunCache | None = None
         self._run_cache_lock = threading.Lock()
@@ -109,7 +111,42 @@ class RunnerOverride:
         self._telemetry_dispatcher = telemetry_dispatcher
         self._session: t.Optional[SessionManager] = None
         self._org_info: t.Optional[Org] = None
+        self._runtime_config: RuntimeConfig | None = None
         events.register_callback("runner-override-end-of-run-message", self._on_event)
+
+    def set_runtime_config(self, config: RuntimeConfig) -> None:
+        """Set the runtime config early so it's available for selector creation."""
+        self._runtime_config = config
+
+    def build_test_run_result_override(
+        self, runner: TestRunner, test: t.Any, result: t.Any
+    ) -> RunResult:
+        """Attach a State decision ID and mark cached passing data tests as reused."""
+        if self._original_build_test_run_result is None:
+            raise RuntimeError("Test result override is not configured")
+
+        run_result = self._original_build_test_run_result(runner, test, result)
+        if self._run_cache is None:
+            return run_result
+
+        self._run_cache.attach_state_decision_id(t.cast(ManifestNode, run_result.node), run_result)
+        if str(run_result.status) != "pass":
+            return run_result
+
+        try:
+            message = (run_result.adapter_response or {}).get("_message") or ""
+            if not message.startswith(NO_OP_STATUS):
+                return run_result
+            reused_status = self._run_cache._cache_hit_run_status()  # noqa: SLF001
+            if reused_status is not RunStatus.Success:
+                run_result.status = reused_status
+        except Exception as e:
+            events.fire_warn_event_with_cache_bypass(
+                "build_test_run_result: dbt State failed for node {}:\n{}",
+                getattr(run_result.node, "unique_id", "unknown"),
+                str(e),
+            )
+        return run_result
 
     def run_with_hooks_override(self, runner: ModelRunner, manifest: Manifest) -> RunResult:
         """Attach a State decision ID to dbt Core's final per-node result."""
@@ -124,6 +161,39 @@ class RunnerOverride:
             self._run_cache.attach_state_decision_id(t.cast(ManifestNode, result.node), result)
         return result
 
+    def create_state_selector_override(
+        self,
+        manifest: Manifest,
+        previous_state: t.Any,
+        arguments: t.List[str],
+        original_selector: t.Callable[..., t.Any],
+        **kwargs: t.Any,
+    ) -> t.Any:
+        """Create a state selector configured for the current dbt invocation.
+
+        If dbt-state cannot initialize its selector dependencies, return dbt's
+        built-in selector so node selection can continue normally.
+        """
+        from dbt_state.selector import StateSelector
+
+        try:
+            if self._runtime_config is None:
+                raise RuntimeError("Runtime config is not available")
+            run_cache_config = RunCacheConfig.from_runtime_config(self._runtime_config)
+            client = self._get_or_create_client(run_cache_config)
+            return StateSelector(
+                manifest=manifest,
+                previous_state=previous_state,
+                arguments=arguments,
+                runtime_config=self._runtime_config,
+                run_cache_config=run_cache_config,
+                query_cache_client=client,
+                **kwargs,
+            )
+        except Exception as e:
+            events.fire_debug_event("Failed to set up selector context: {}", str(e))
+            return original_selector(manifest, previous_state, arguments, **kwargs)
+
     def defer_to_manifest_override(self, task: GraphRunnableTask) -> None:
         """Sets defer_relation on unselected manifest nodes to enable dbt's native deferral."""
         manifest = task.manifest
@@ -136,6 +206,7 @@ class RunnerOverride:
             return
 
         run_cache.prewarm_connections()
+        run_cache.resolve_state_deferred_relations()
 
         any_deferred = False
         for unique_id, node in manifest.nodes.items():
@@ -392,7 +463,7 @@ class RunnerOverride:
         """Override for printing test results to include NO-OP status."""
         try:
             model = t.cast(ManifestNode, result.node)
-            if self._run_cache is not None:
+            if self._run_cache is not None and self._original_build_test_run_result is None:
                 self._run_cache.attach_state_decision_id(model, result)
             kwargs: t.Dict[str, t.Any] = {}
             try:
@@ -672,7 +743,7 @@ class LogTestResult(DbtLogTestResult):
         if self.status == "error":
             info = "ERROR"
             style = red
-        elif self.status == "pass":
+        elif self.status in ("reused", "pass"):
             info = "PASS"
             style = green
         elif self.status == "warn":

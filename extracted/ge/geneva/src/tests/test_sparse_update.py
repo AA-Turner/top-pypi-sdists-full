@@ -11,7 +11,7 @@ directly, with no cluster.
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Any
 
 import lance
 import pyarrow as pa
@@ -279,8 +279,10 @@ def test_target_base_for_range_selection() -> None:
             return self._bp
 
     class _DS:
-        def __init__(self, bp: dict) -> None:
+        def __init__(self, bp: dict, uri: str | None = None) -> None:
             self._ds = _Inner(bp)
+            if uri is not None:
+                self.uri = uri
 
     ds5 = _DS(
         {
@@ -329,6 +331,31 @@ def test_target_base_for_range_selection() -> None:
     )
     assert _target_base_for_range(root_layout, [0]) == "base_1"
 
+    # A shallow clone exposes its source as an unnamed root-layout base (id=0
+    # for a single-base source, max+1 for a multi-base one). It is readable but
+    # not a sparse-write target: writing there creates a source object while
+    # the clone commit records the file as clone-primary.
+    clone_source = _DS(
+        {0: _Base(0, None, "abfss://c@source.dfs.core.windows.net/source", root=True)},
+        uri="abfss://c@clone.dfs.core.windows.net/clone",
+    )
+    assert _target_base_for_range(clone_source, [0]) is None
+
+    # A clone of a MULTI-base source re-exposes the source's registered bases
+    # verbatim (byte-identical to native ones) alongside the source-root marker;
+    # none is a safe target, so the whole range routes to the clone root.
+    mb_clone = _DS(
+        {
+            1: _Base(1, "base_1", "abfss://c@a1.dfs.core.windows.net/x"),
+            2: _Base(2, "base_2", "abfss://c@a2.dfs.core.windows.net/x"),
+            4: _Base(
+                4, None, "abfss://c@source.dfs.core.windows.net/source", root=True
+            ),
+        },
+        uri="abfss://c@clone.dfs.core.windows.net/clone",
+    )
+    assert all(_target_base_for_range(mb_clone, [a]) is None for a in range(10))
+
 
 def test_sparse_update_spreads_replacements_across_bases(tmp_path: Path) -> None:
     # The fix: sparse replacement fragments must be routed to the registered
@@ -370,6 +397,54 @@ def test_sparse_update_targets_root_layout_bases(tmp_path: Path) -> None:
                 assert df.base_id in registered  # a base, not root (None)
                 used.add(df.base_id)
     assert len(used) > 1
+
+
+@pytest.mark.parametrize("multibase_source", [False, True])
+def test_sparse_update_on_shallow_clone_stays_in_clone(
+    tmp_path: Path, multibase_source: bool
+) -> None:
+    # Regression (100M DSV 2.1 repair): a shallow clone's manifest re-exposes
+    # SOURCE storage as bases -- the source root as an unnamed root-layout base
+    # and, for a multi-base source, the source's registered bases verbatim.
+    # Routing a replacement write there records a clone-primary file that
+    # physically lives under the source prefix -> dangling path (BlobNotFound)
+    # or a cross-account write into the source table.
+    if multibase_source:
+        src = _build_multibase_lance(tmp_path, rows=300, per_frag=100, null_every=10)
+    else:
+        src = _build_lance(
+            str(tmp_path / "src.lance"), rows=300, per_frag=100, null_every=10
+        )
+    clone_root = str(tmp_path / "clone.lance")
+    clone = src.shallow_clone(clone_root, reference=src.version)
+
+    def source_files() -> set:
+        # Every file outside the clone tree: source root, source bases, manifests.
+        return {
+            p
+            for p in tmp_path.rglob("*")
+            if p.is_file() and not str(p).startswith(clone_root)
+        }
+
+    before = source_files()
+    res = sparse_update_range(
+        clone,
+        [f.fragment_id for f in clone.get_fragments()],
+        _fill,
+        "v IS NULL",
+        "v",
+        1_000,
+    )
+    assert res.new_fragments
+    # Clone-primary placement: no base_id, nothing new anywhere in source storage.
+    assert all(df.base_id is None for fm in res.new_fragments for df in fm.files)
+    mgr = SparseCommitManager(clone, lance_field_id(clone, "v"))
+    mgr.ingest_range(res)
+    mgr.flush()
+    assert source_files() == before, "sparse repair wrote into the source table"
+    out = lance.dataset(clone_root)
+    assert out.count_rows() == 300
+    assert out.scanner(filter="v IS NULL").to_table().num_rows == 0
 
 
 def test_sparse_update_single_base_appends_to_root(tmp_path: Path) -> None:
@@ -675,6 +750,15 @@ def _boom(x: int) -> int:  # noqa: ANN001
     raise ValueError("boom")
 
 
+@udf(data_type=pa.int64())
+def _oom_above_two_rows(x: pa.Array) -> pa.Array:
+    from geneva.errors import FatalWorkerOOMError
+
+    if len(x) > 2:
+        raise FatalWorkerOOMError(f"soft sparse worker OOM for {len(x)} rows")
+    return pa.array([value.as_py() * 2 for value in x], type=pa.int64())
+
+
 def _fragmented(db, n: int, per_frag: int) -> Table:  # noqa: ANN001
     """A geneva table of n rows in n/per_frag fragments with an all-NULL UDF column
     ``doubled`` (a freshly added column, so `doubled IS NULL` matches every row)."""
@@ -691,9 +775,423 @@ def _fragmented(db, n: int, per_frag: int) -> Table:  # noqa: ANN001
     return tbl
 
 
+def _patch_scripted_sparse_pool(
+    monkeypatch: pytest.MonkeyPatch,
+    script: Any,
+) -> list[Any]:
+    """Replace Ray actors with deterministic, in-process sparse task waves."""
+    from geneva.runners.ray import sparse_pipeline
+
+    pools: list[Any] = []
+
+    class _UnusedActor:
+        @staticmethod
+        def remote(_udf: Any) -> object:
+            return object()
+
+    class _ScriptedPool:
+        def __init__(
+            self,
+            _actor_factory: Any,
+            num_actors: int,
+            *,
+            job_tracker: Any = None,
+            resubmit_on_actor_failure: bool = True,
+        ) -> None:
+            self.index = len(pools)
+            self.num_actors = num_actors
+            self.job_tracker = job_tracker
+            self.resubmit_on_actor_failure = resubmit_on_actor_failure
+            self.tasks: list[Any] = []
+            self.shutdown_called = False
+            pools.append(self)
+
+        def map_unordered(self, _fn: Any, values: Any) -> Any:
+            self.tasks = list(values)
+            yield from script(self.index, self.tasks)
+
+        def shutdown(self) -> None:
+            self.shutdown_called = True
+
+    monkeypatch.setattr(sparse_pipeline, "_make_sparse_actor", lambda: _UnusedActor)
+    monkeypatch.setattr(sparse_pipeline, "ActorPool", _ScriptedPool)
+    return pools
+
+
+def _execute_sparse_task(task: Any, task_udf: Any) -> Any:
+    run_ds = task.table_ref_for_read().open().to_lance()
+    return sparse_update_range(
+        run_ds,
+        task.frag_ids,
+        task_udf,
+        task.where,
+        task.output_column,
+        task.batch_rows,
+    )
+
+
+def _oom_pool_error(task: Any) -> Exception:
+    from geneva.runners.ray.actor_pool import (
+        ActorLostError,
+        ActorPoolTaskError,
+        ActorStateSnapshot,
+    )
+
+    cause = ActorLostError(
+        snapshot=ActorStateSnapshot(
+            actor_id="sparse-oom-actor",
+            state="DEAD",
+            death_cause={
+                "oomContext": {
+                    "errorMessage": "Task failed due to OOM",
+                    "failImmediately": True,
+                }
+            },
+            node_id="live-node",
+        ),
+        task=task,
+    )
+    return ActorPoolTaskError(task=task, cause=cause)
+
+
+def _transient_pool_error(task: Any) -> Exception:
+    from geneva.runners.ray.actor_pool import (
+        ActorLostError,
+        ActorPoolTaskError,
+        ActorStateSnapshot,
+    )
+
+    cause = ActorLostError(
+        snapshot=ActorStateSnapshot(
+            actor_id="sparse-lost-node-actor",
+            state="DEAD",
+            death_cause={
+                "actorDiedErrorContext": {
+                    "reason": "NODE_DIED",
+                    "nodeDeathInfo": {"reason": "UNEXPECTED_TERMINATION"},
+                }
+            },
+            death_reason="NODE_DIED",
+            node_id="lost-node",
+        ),
+        task=task,
+    )
+    return ActorPoolTaskError(task=task, cause=cause)
+
+
 # --------------------------------------------------------------------------
 # distributed driver -- correctness, amplification, chunked commits, failure
 # --------------------------------------------------------------------------
+
+
+def test_run_ray_sparse_oom_recovery_strictly_shrinks_batch_on_fresh_actor(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    from geneva.runners.ray import sparse_pipeline
+
+    db = connect(str(tmp_path))
+    tbl = _fragmented(db, n=8, per_frag=8)
+    seen: list[tuple[tuple[int, ...], int]] = []
+
+    def script(_pool_index: int, tasks: list[Any]) -> Any:
+        assert len(tasks) == 1
+        task = tasks[0]
+        seen.append((tuple(task.frag_ids), task.batch_rows))
+        if task.batch_rows == 8:
+            from geneva.runners.sparse_update import RangeSparseResult
+
+            yield RangeSparseResult(
+                [],
+                0,
+                [],
+                [],
+                [],
+                error="nested sparse worker OOM",
+                source_frag_ids=task.frag_ids,
+                fatal_worker_oom=True,
+            )
+        elif task.batch_rows > 2:
+            raise _oom_pool_error(task)
+        else:
+            yield _execute_sparse_task(task, _double)
+
+    pools = _patch_scripted_sparse_pool(monkeypatch, script)
+    monkeypatch.setattr(
+        sparse_pipeline, "_estimate_batch_rows", lambda *_args, **_kwargs: 8
+    )
+
+    result = sparse_pipeline.run_ray_sparse_update(
+        tbl.get_reference(),
+        _double,
+        "doubled IS NULL",
+        "doubled",
+        concurrency=1,
+    )
+
+    assert seen == [((0,), 8), ((0,), 4), ((0,), 2)]
+    assert len(pools) == 3
+    assert all(pool.shutdown_called for pool in pools)
+    assert all(pool.resubmit_on_actor_failure is False for pool in pools)
+    assert all(pool.job_tracker is None for pool in pools)
+    assert result.rows_matched == 8
+    assert lance.dataset(tbl.to_lance().uri).count_rows() == 8
+
+
+def test_run_ray_sparse_oom_recovery_reuses_committed_range_once(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    from geneva.runners.ray import sparse_pipeline
+
+    db = connect(str(tmp_path))
+    tbl = _fragmented(db, n=4_000, per_frag=1_000)
+    uri = tbl.to_lance().uri
+    base_version = tbl.to_lance().version
+    submitted: list[list[tuple[int, ...]]] = []
+
+    def script(pool_index: int, tasks: list[Any]) -> Any:
+        submitted.append([tuple(task.frag_ids) for task in tasks])
+        if pool_index == 0:
+            assert [task.frag_ids for task in tasks] == [[0, 1], [2, 3]]
+            yield _execute_sparse_task(tasks[0], _double)
+            # The driver consumes and commits this result before requesting the
+            # generator's next item, where the second range reports OOM.
+            assert lance.dataset(uri).version == base_version + 1
+            raise _oom_pool_error(tasks[1])
+        for task in tasks:
+            yield _execute_sparse_task(task, _double)
+
+    pools = _patch_scripted_sparse_pool(monkeypatch, script)
+
+    result = sparse_pipeline.run_ray_sparse_update(
+        tbl.get_reference(),
+        _double,
+        "doubled IS NULL",
+        "doubled",
+        concurrency=2,
+        commit_granularity=2,
+    )
+
+    assert submitted == [[(0, 1), (2, 3)], [(2,), (3,)]]
+    assert len(pools) == 2
+    assert all(pool.shutdown_called for pool in pools)
+    assert all(pool.resubmit_on_actor_failure is False for pool in pools)
+    assert result.rows_matched == 4_000
+    assert result.fragments_touched == 4
+    assert result.committed_version == base_version + 2
+    out = lance.dataset(uri).to_table(columns=["id", "doubled"])
+    assert out.num_rows == 4_000
+    assert len(set(out.column("id").to_pylist())) == 4_000
+    assert out.column("doubled").null_count == 0
+
+
+def test_run_ray_sparse_fatal_abort_flushes_buffered_successes(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    from geneva.runners.ray import sparse_pipeline
+    from geneva.runners.ray.actor_pool import ActorPoolTaskError
+
+    db = connect(str(tmp_path))
+    tbl = _fragmented(db, n=4_000, per_frag=1_000)
+    uri = tbl.to_lance().uri
+    base_version = tbl.to_lance().version
+
+    def script(_pool_index: int, tasks: list[Any]) -> Any:
+        assert [task.frag_ids for task in tasks] == [[0, 1], [2, 3]]
+        yield _execute_sparse_task(tasks[0], _double)
+        # Only fragment 0 matched, so its result is still below the two-fragment
+        # commit threshold when the later actor failure aborts this round.
+        assert lance.dataset(uri).version == base_version
+        raise ActorPoolTaskError(
+            task=tasks[1],
+            cause=RuntimeError("fatal sparse actor failure"),
+        )
+
+    pools = _patch_scripted_sparse_pool(monkeypatch, script)
+
+    with pytest.raises(ActorPoolTaskError):
+        sparse_pipeline.run_ray_sparse_update(
+            tbl.get_reference(),
+            _double,
+            "doubled IS NULL AND x < 1000",
+            "doubled",
+            concurrency=2,
+            commit_granularity=2,
+        )
+
+    assert len(pools) == 1
+    assert pools[0].shutdown_called
+    out = lance.dataset(uri)
+    assert out.version == base_version + 1
+    assert out.count_rows() == 4_000
+    assert out.scanner(filter="doubled IS NULL AND x < 1000").count_rows() == 0
+    assert out.scanner(filter="doubled IS NULL").count_rows() == 3_000
+
+
+def test_run_ray_sparse_irreducible_oom_is_bounded_without_jobtracker(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    from geneva.errors import FatalWorkerOOMError
+    from geneva.runners.ray import sparse_pipeline
+    from geneva.runners.ray.oom_recovery_budget import (
+        OOMRecoveryBudgetConfig,
+        OOMRecoveryBudgetTracker,
+    )
+
+    db = connect(str(tmp_path))
+    tbl = _fragmented(db, n=1, per_frag=1)
+    base_version = tbl.to_lance().version
+    attempts: list[tuple[tuple[int, ...], int]] = []
+
+    def script(_pool_index: int, tasks: list[Any]) -> Any:
+        assert len(tasks) == 1
+        task = tasks[0]
+        attempts.append((tuple(task.frag_ids), task.batch_rows))
+        raise _oom_pool_error(task)
+        yield  # pragma: no cover - make this a generator
+
+    pools = _patch_scripted_sparse_pool(monkeypatch, script)
+    monkeypatch.setattr(
+        sparse_pipeline, "_estimate_batch_rows", lambda *_args, **_kwargs: 1
+    )
+    budget = OOMRecoveryBudgetTracker(
+        config=OOMRecoveryBudgetConfig(
+            enabled=True,
+            max_total_oom_recoveries=10,
+            max_same_range_oom_recoveries=1,
+        )
+    )
+    monkeypatch.setattr(
+        OOMRecoveryBudgetTracker,
+        "from_config",
+        classmethod(lambda _cls: budget),
+    )
+
+    with pytest.raises(FatalWorkerOOMError, match="OOM recovery budget exceeded"):
+        sparse_pipeline.run_ray_sparse_update(
+            tbl.get_reference(),
+            _double,
+            "doubled IS NULL",
+            "doubled",
+            concurrency=1,
+            job_tracker=None,
+        )
+
+    assert attempts == [((0,), 1), ((0,), 1)]
+    assert budget.total_oom_recoveries == 2
+    assert len(pools) == 2
+    assert all(pool.shutdown_called for pool in pools)
+    assert all(pool.job_tracker is None for pool in pools)
+    assert tbl.to_lance().version == base_version
+
+
+def test_run_ray_sparse_transient_actor_loss_retries_same_work(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    from geneva.runners.ray import sparse_pipeline
+
+    db = connect(str(tmp_path))
+    tbl = _fragmented(db, n=8, per_frag=8)
+    attempts: list[tuple[tuple[int, ...], int]] = []
+
+    def script(pool_index: int, tasks: list[Any]) -> Any:
+        assert len(tasks) == 1
+        task = tasks[0]
+        attempts.append((tuple(task.frag_ids), task.batch_rows))
+        if pool_index == 0:
+            raise _transient_pool_error(task)
+        yield _execute_sparse_task(task, _double)
+
+    pools = _patch_scripted_sparse_pool(monkeypatch, script)
+    monkeypatch.setattr(
+        sparse_pipeline, "_estimate_batch_rows", lambda *_args, **_kwargs: 8
+    )
+
+    result = sparse_pipeline.run_ray_sparse_update(
+        tbl.get_reference(),
+        _double,
+        "doubled IS NULL",
+        "doubled",
+        concurrency=1,
+    )
+
+    assert attempts == [((0,), 8), ((0,), 8)]
+    assert len(pools) == 2
+    assert all(pool.shutdown_called for pool in pools)
+    assert result.rows_matched == 8
+
+
+def test_run_ray_sparse_repeated_transient_loss_respects_stall_deadline(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    from geneva.runners.ray import sparse_pipeline
+
+    db = connect(str(tmp_path))
+    tbl = _fragmented(db, n=8, per_frag=8)
+    attempts: list[tuple[tuple[int, ...], int]] = []
+    clock = iter([0.0, 0.5, 1.1])
+
+    def script(pool_index: int, tasks: list[Any]) -> Any:
+        assert len(tasks) == 1
+        task = tasks[0]
+        attempts.append((tuple(task.frag_ids), task.batch_rows))
+        if pool_index < 2:
+            raise _transient_pool_error(task)
+        yield _execute_sparse_task(task, _double)
+
+    pools = _patch_scripted_sparse_pool(monkeypatch, script)
+    monkeypatch.setattr(
+        sparse_pipeline, "_estimate_batch_rows", lambda *_args, **_kwargs: 8
+    )
+    monkeypatch.setattr(sparse_pipeline, "_MAP_STALL_TIMEOUT_S", 1.0)
+    monkeypatch.setattr(sparse_pipeline, "monotonic", lambda: next(clock))
+
+    with pytest.raises(TimeoutError, match="Sparse ActorPool stalled"):
+        sparse_pipeline.run_ray_sparse_update(
+            tbl.get_reference(),
+            _double,
+            "doubled IS NULL",
+            "doubled",
+            concurrency=1,
+        )
+
+    assert attempts == [((0,), 8), ((0,), 8)]
+    assert len(pools) == 2
+    assert all(pool.shutdown_called for pool in pools)
+
+
+@pytest.mark.ray
+def test_run_ray_sparse_recovers_typed_actor_oom_end_to_end(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    local_ray_context: None,  # noqa: ARG001
+) -> None:
+    from geneva.runners.ray import sparse_pipeline
+
+    db = connect(str(tmp_path))
+    tbl = _fragmented(db, n=8, per_frag=8)
+    monkeypatch.setattr(
+        sparse_pipeline, "_estimate_batch_rows", lambda *_args, **_kwargs: 8
+    )
+
+    result = sparse_pipeline.run_ray_sparse_update(
+        tbl.get_reference(),
+        _oom_above_two_rows,
+        "doubled IS NULL",
+        "doubled",
+        concurrency=1,
+        job_tracker=None,
+    )
+
+    out = lance.dataset(tbl.to_lance().uri).to_table(columns=["id", "doubled"])
+    assert result.rows_matched == 8
+    assert out.num_rows == 8
+    assert out.column("doubled").to_pylist() == [i * 2 for i in range(8)]
 
 
 @pytest.mark.ray

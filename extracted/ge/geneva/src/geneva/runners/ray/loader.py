@@ -26,6 +26,10 @@ from geneva.apply.error_handling import (
     get_error_handling_config,
     make_skip_budget_tracker,
 )
+from geneva.apply.memory import (
+    get_applier_memory_trim_interval,
+    release_unused_process_memory,
+)
 from geneva.apply.task import MapTask, ReadTask
 from geneva.debug.logger import ErrorLogger
 from geneva.utils.sequence_queue import SequenceQueue
@@ -132,6 +136,32 @@ class CollocatedPipelinedApplier(BatchApplier):
         map_task: MapTask,
         error_logger: ErrorLogger,
     ) -> Iterator[pa.RecordBatch]:
+        """Apply ``map_task`` over ``read_task``, trimming once the pipeline
+        frame is gone.
+
+        The trim sits here rather than in ``_run_pipeline``'s ``finally``
+        because that frame still binds the last input batch, the in-flight
+        queue item and the reorder queue. Exhausting the inner generator —
+        or closing it, when the consumer abandons the iteration — clears
+        those locals first, so the trim sees the task's scan and preprocess
+        buffers as dead rather than merely enqueued. That is the whole point
+        for a task shorter than the trim interval, where this is the only
+        trim it gets, and for adaptive slices, which pin a parent batch
+        larger than the slice itself.
+        """
+        memory_trim_interval = get_applier_memory_trim_interval()
+        try:
+            yield from self._run_pipeline(read_task, map_task, error_logger)
+        finally:
+            if memory_trim_interval > 0:
+                release_unused_process_memory()
+
+    def _run_pipeline(
+        self,
+        read_task: ReadTask,
+        map_task: MapTask,
+        error_logger: ErrorLogger,
+    ) -> Iterator[pa.RecordBatch]:
         self.reset_run_state()
         has_preprocess = map_task.has_preprocess()
 
@@ -204,13 +234,7 @@ class CollocatedPipelinedApplier(BatchApplier):
                     return True
             return False
 
-        # Workaround for the per-FFI-hop heap leak (GEN-473): small scan
-        # batch sizes leak hundreds of MB per ScanTask. 4096 is the
-        # smallest size where the lancedb wrapper releases. Big batches
-        # are forwarded as-is — slicing back to batch_size would just pin
-        # the parent buffer alive for the lifetime of the slowest slice.
-        scan_batch_min = 4096
-        scan_batch_size = max(batch_size, scan_batch_min)
+        memory_trim_interval = get_applier_memory_trim_interval()
 
         def _reader_thread() -> None:
             """Pull batches from Lance, tag each with a monotonic
@@ -221,7 +245,7 @@ class CollocatedPipelinedApplier(BatchApplier):
             seq_no = 0
             batch_iter = None
             try:
-                batch_iter = read_task.to_batches(batch_size=scan_batch_size)
+                batch_iter = read_task.to_batches(batch_size=batch_size)
                 while not stop_event.is_set():
                     with reserve_prefetch_slot() as slot:
                         if not slot.acquired:
@@ -237,6 +261,13 @@ class CollocatedPipelinedApplier(BatchApplier):
                         slot.transfer_to_downstream()
                         local_read_ms += read_ms
                         seq_no += 1
+                    # Scan buffers freed after a batch moves downstream can
+                    # stay parked in glibc arenas. Trim on the same interval
+                    # the simple applier uses; doing it here rather than on
+                    # the main thread keeps the stall off the UDF / GPU
+                    # stage, which is the pipeline's bottleneck.
+                    if memory_trim_interval > 0 and seq_no % memory_trim_interval == 0:
+                        release_unused_process_memory()
             except BaseException as e:  # noqa: BLE001
                 _LOG.warning(
                     "Reader thread error (propagating via queue): %s",
@@ -379,6 +410,16 @@ class CollocatedPipelinedApplier(BatchApplier):
                     "leaving as daemon"
                 )
             self.read_io_time_ms += reader_metrics["read_io_time_ms"]
+            # The reader has joined, every prefetch slot is released and both
+            # queues are drained, so the only scan buffers still reachable are
+            # this frame's own locals. ``run`` trims once those go away too.
+            #
+            # A task that fails still leaves one batch live at that trim:
+            # the raising frame — the UDF's, or the scan generator's — is
+            # pinned by the exception's ``__traceback__``, and it holds the
+            # batch. Clearing this frame's locals does not reach it. The
+            # batch is freed when the error is handled upstream, so the cost
+            # is one batch's arena on a failing task until the next trim.
 
     def shutdown(self) -> None:
         """No-op. All thread state is owned by ``run`` and torn down in

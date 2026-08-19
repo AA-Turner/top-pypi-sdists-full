@@ -1,7 +1,7 @@
 use crate::{location::LocationKind, name, symbols::Name};
 use squawk_syntax::{
     SyntaxKind, SyntaxNode,
-    ast::{self, AstNode},
+    ast::{self, AstNode, LitKind},
 };
 
 #[derive(Debug, Clone, Copy)]
@@ -45,6 +45,7 @@ pub(crate) enum NameRefClass {
     PolicyColumn,
     PolicyQualifiedColumnTable,
     PreparedStatement,
+    PreparedTransaction,
     PrivilegeColumn,
     PrivilegeObjectTable,
     Procedure,
@@ -267,16 +268,14 @@ fn classify_ddl_function_option_value(ty_node: &SyntaxNode) -> Option<NameRefCla
         return Some(NameRefClass::Function);
     }
     if ast::CreateTextSearchConfiguration::can_cast(ddl_node.kind()) {
-        if attr_name.0.as_str() == "parser" {
+        if attr_name == "parser" {
             return Some(NameRefClass::TextSearchParser);
         }
-        if attr_name.0.as_str() == "copy" {
+        if attr_name == "copy" {
             return Some(NameRefClass::TextSearchConfiguration);
         }
     }
-    if ast::CreateTextSearchDictionary::can_cast(ddl_node.kind())
-        && attr_name.0.as_str() == "template"
-    {
+    if ast::CreateTextSearchDictionary::can_cast(ddl_node.kind()) && attr_name == "template" {
         return Some(NameRefClass::TextSearchTemplate);
     }
     None
@@ -291,7 +290,7 @@ fn is_search_path(config_parameter: Option<ast::ConfigParameterRef>) -> bool {
         return false;
     }
     path.segment()
-        .is_some_and(|name_ref| Name::from_node(&name_ref).0.as_str() == "search_path")
+        .is_some_and(|name_ref| Name::from_node(&name_ref) == "search_path")
 }
 
 fn is_rule_old_new_ref(name_ref: &impl ast::NameLike) -> bool {
@@ -324,22 +323,14 @@ fn classify_call_expr_name_ref(
                 .call_expr()
                 .is_some_and(|execute_call| execute_call.syntax() == call_expr.syntax())
         {
-            return Some(if create_trigger.procedure_token().is_some() {
-                NameRefClass::Procedure
-            } else {
-                NameRefClass::Function
-            });
+            return Some(NameRefClass::Function);
         }
         if let Some(create_event_trigger) = ast::CreateEventTrigger::cast(ancestor.clone())
             && create_event_trigger
                 .call_expr()
                 .is_some_and(|execute_call| execute_call.syntax() == call_expr.syntax())
         {
-            return Some(if create_event_trigger.procedure_token().is_some() {
-                NameRefClass::Procedure
-            } else {
-                NameRefClass::Function
-            });
+            return Some(NameRefClass::Function);
         }
         if ast::Select::can_cast(ancestor.kind())
             || ast::SelectInto::can_cast(ancestor.kind())
@@ -390,15 +381,7 @@ fn classify_object_column_path(node: &SyntaxNode) -> Option<NameRefClass> {
 }
 
 pub(crate) fn classify_config_value_name(node: &SyntaxNode) -> Option<NameRefClass> {
-    let parent = node.parent()?;
-    let config_parameter = if let Some(set_config) = ast::SetConfig::cast(parent.clone()) {
-        set_config.config_parameter_ref()
-    } else if let Some(set_config_param) = ast::SetConfigParam::cast(parent) {
-        set_config_param.config_parameter_ref()
-    } else {
-        return None;
-    };
-    if is_search_path(config_parameter) {
+    if is_search_path_config_value(node) {
         Some(NameRefClass::Schema)
     } else {
         None
@@ -410,23 +393,68 @@ pub(crate) fn classify_literal(node: &SyntaxNode) -> Option<NameRefClass> {
     if ast::SetSchemaValue::can_cast(parent.kind()) {
         return Some(NameRefClass::Schema);
     }
-    if let Some(set_config) = ast::SetConfig::cast(parent.clone())
-        && is_search_path(set_config.config_parameter_ref())
-        && set_config
-            .config_values()
-            .any(|config_value| config_value.syntax() == node)
-    {
-        return Some(NameRefClass::Schema);
+    if is_prepared_transaction_id(node) {
+        return Some(NameRefClass::PreparedTransaction);
     }
-    if let Some(set_config_param) = ast::SetConfigParam::cast(parent)
-        && is_search_path(set_config_param.config_parameter_ref())
-        && set_config_param
-            .literals()
-            .any(|literal| literal.syntax() == node)
-    {
+    if is_search_path_config_value(node) {
         return Some(NameRefClass::Schema);
     }
     None
+}
+
+// commit prepared 'foo' | rollback prepared 'foo'
+fn is_prepared_transaction_id(node: &SyntaxNode) -> bool {
+    let Some(literal) = ast::Literal::cast(node.clone()) else {
+        return false;
+    };
+    if !matches!(
+        literal.kind(),
+        Some(
+            LitKind::String(_)
+                | LitKind::BitString(_)
+                | LitKind::ByteString(_)
+                | LitKind::EscString(_)
+                | LitKind::NationalString(_)
+                | LitKind::UnicodeEscString(_)
+                | LitKind::DollarQuotedString(_)
+        )
+    ) {
+        return false;
+    }
+    let Some(parent) = node.parent() else {
+        return false;
+    };
+    if let Some(commit) = ast::Commit::cast(parent.clone()) {
+        commit.prepared_token().is_some()
+    } else if let Some(rollback) = ast::Rollback::cast(parent) {
+        rollback.prepared_token().is_some()
+    } else {
+        false
+    }
+}
+
+// set search_path to ...
+fn is_search_path_config_value(node: &SyntaxNode) -> bool {
+    let Some(to_config_value) = node.parent().and_then(ast::ToConfigValue::cast) else {
+        return false;
+    };
+    if !to_config_value
+        .config_values()
+        .any(|config_value| config_value.syntax() == node)
+    {
+        return false;
+    }
+    let Some(parent) = to_config_value.syntax().parent() else {
+        return false;
+    };
+    let config_parameter = if let Some(set_config) = ast::SetConfig::cast(parent.clone()) {
+        set_config.config_parameter_ref()
+    } else if let Some(set_config_param) = ast::SetConfigParam::cast(parent) {
+        set_config_param.config_parameter_ref()
+    } else {
+        return false;
+    };
+    is_search_path(config_parameter)
 }
 
 pub(crate) fn classify_name_ref(node: &SyntaxNode) -> Option<NameRefClass> {
@@ -1092,9 +1120,7 @@ fn is_grouping_or_distinct_el(node: &SyntaxNode) -> bool {
     node.ancestors()
         .skip(1)
         .find(|n| !ast::ParenExpr::can_cast(n.kind()) && !ast::TupleExpr::can_cast(n.kind()))
-        .is_some_and(|n| {
-            ast::GroupBy::can_cast(n.kind()) || ast::DistinctClause::can_cast(n.kind())
-        })
+        .is_some_and(|n| ast::GroupBy::can_cast(n.kind()) || ast::DistinctOn::can_cast(n.kind()))
 }
 
 fn classify_privilege_object(privilege_objects: &ast::PrivilegeObjects) -> Option<NameRefClass> {
@@ -1113,10 +1139,12 @@ pub(crate) fn classify_def_node(def_node: &SyntaxNode) -> Option<LocationKind> {
         if let Some(class) = classify_object_definition(ancestor.kind()) {
             return Some(class);
         }
-        if ast::Column::can_cast(ancestor.kind()) || ast::AliasColumn::can_cast(ancestor.kind()) {
+        if ast::Column::can_cast(ancestor.kind()) || ast::ColumnDef::can_cast(ancestor.kind()) {
             in_column = true;
         }
-        if ast::ColumnList::can_cast(ancestor.kind()) {
+        if ast::ColumnList::can_cast(ancestor.kind())
+            || ast::ColumnDefList::can_cast(ancestor.kind())
+        {
             in_column_list = true;
         }
         if ast::Param::can_cast(ancestor.kind()) {
@@ -1156,7 +1184,7 @@ pub(crate) fn classify_def_node(def_node: &SyntaxNode) -> Option<LocationKind> {
             || ast::OptionalAsAlias::can_cast(ancestor.kind())
             || ast::RequiredAsAlias::can_cast(ancestor.kind())
         {
-            if in_column {
+            if in_column || in_column_list {
                 return Some(LocationKind::Column);
             }
             return Some(LocationKind::Table);

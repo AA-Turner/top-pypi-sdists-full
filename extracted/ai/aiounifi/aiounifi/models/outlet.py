@@ -1,7 +1,16 @@
 """Device outlet implementation."""
 
+import enum
+
 from .api import ApiItem
 from .device import TypedDeviceOutletTable
+
+
+class OutletCapability(enum.IntFlag):
+    """Outlet capabilities."""
+
+    RELAY = 1
+    METERING = 2
 
 
 class Outlet(ApiItem):
@@ -25,7 +34,11 @@ class Outlet(ApiItem):
 
         Not reported by USP-PDU-Pro, see caps.
         """
-        return self.raw.get("has_relay")
+        if (has_relay := self.raw.get("has_relay")) is not None:
+            return has_relay
+        if (caps := self.caps) is not None:
+            return bool(caps & OutletCapability.RELAY)
+        return None
 
     @property
     def relay_state(self) -> bool:
@@ -46,7 +59,11 @@ class Outlet(ApiItem):
         Reported false by UP1 and UP6 which does not have power metering.
         Not reported by by USP-PDU-Pro, see caps.
         """
-        return self.raw.get("has_metering")
+        if (has_metering := self.raw.get("has_metering")) is not None:
+            return has_metering
+        if (caps := self.caps) is not None:
+            return bool(caps & OutletCapability.METERING)
+        return None
 
     @property
     def caps(self) -> int | None:
@@ -58,22 +75,22 @@ class Outlet(ApiItem):
         return self.raw.get("outlet_caps")
 
     @property
-    def voltage(self) -> str | None:
+    def voltage(self) -> str | float | None:
         """Voltage draw of outlet."""
         return self.raw.get("outlet_voltage")
 
     @property
-    def current(self) -> str | None:
+    def current(self) -> str | float | None:
         """Usage of outlet."""
         return self.raw.get("outlet_current")
 
     @property
-    def power(self) -> str | None:
+    def power(self) -> str | float | None:
         """Power consumption of the outlet."""
         return self.raw.get("outlet_power")
 
     @property
-    def power_factor(self) -> str | None:
+    def power_factor(self) -> str | float | None:
         """Power factor."""
         return self.raw.get("outlet_power_factor")
 

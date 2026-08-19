@@ -919,7 +919,7 @@ M2tsKlvType = Literal["NONE", "PASSTHROUGH"]
 M2tsNielsenId3BehaviorType = Literal["NO_PASSTHROUGH", "PASSTHROUGH"]
 M2tsPcrControlType = Literal["CONFIGURED_PCR_PERIOD", "PCR_EVERY_PES_PACKET"]
 M2tsRateModeType = Literal["CBR", "VBR"]
-M2tsScte35ControlType = Literal["NONE", "PASSTHROUGH"]
+M2tsScte35ControlType = Literal["NONE", "PASSTHROUGH", "SCTE_35_WITHOUT_IDR"]
 M2tsSegmentationMarkersType = Literal[
     "EBP", "EBP_LEGACY", "NONE", "PSI_SEGSTART", "RAI_ADAPT", "RAI_SEGSTART"
 ]
@@ -1048,7 +1048,7 @@ Scte35SegmentationCancelIndicatorType = Literal[
 Scte35SegmentationScopeType = Literal["ALL_OUTPUT_GROUPS", "SCTE35_ENABLED_OUTPUT_GROUPS"]
 Scte35SpliceInsertNoRegionalBlackoutBehaviorType = Literal["FOLLOW", "IGNORE"]
 Scte35SpliceInsertWebDeliveryAllowedBehaviorType = Literal["FOLLOW", "IGNORE"]
-Scte35TypeType = Literal["NONE", "SCTE_35_WITHOUT_SEGMENTATION"]
+Scte35TypeType = Literal["NONE", "SCTE_35_WITHOUT_IDR", "SCTE_35_WITHOUT_SEGMENTATION"]
 Scte35WebDeliveryAllowedFlagType = Literal["WEB_DELIVERY_ALLOWED", "WEB_DELIVERY_NOT_ALLOWED"]
 SdiSourceModeType = Literal["INTERLEAVE", "QUADRANT"]
 SdiSourceStateType = Literal["DELETED", "IDLE", "IN_USE"]
@@ -1140,6 +1140,7 @@ MediaLiveServiceName = Literal["medialive"]
 ServiceName = Literal[
     "accessanalyzer",
     "account",
+    "account-access",
     "acm",
     "acm-pca",
     "agent-registry",

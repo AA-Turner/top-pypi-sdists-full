@@ -17,6 +17,7 @@ from anyscale.commands.output_format import OutputFormat
 from anyscale.commands.util import AnyscaleCommand
 from anyscale.controllers.auth_controller import AuthController
 from anyscale.shared_anyscale_utils.conf import ANYSCALE_HOST
+from anyscale.utils.rate_limit_retry_util import build_rate_limit_retry
 
 
 log = BlockLogger()
@@ -26,6 +27,7 @@ def get_unauthenticated_openapi_client():
     conf = openapi_client.Configuration(host=ANYSCALE_HOST)
     conf.proxy = os.environ.get("https_proxy")
     conf.connection_pool_maxsize = 100
+    conf.retries = build_rate_limit_retry()
     return openapi_client.DefaultApi(ApiClientWrapperInternal(conf))
 
 

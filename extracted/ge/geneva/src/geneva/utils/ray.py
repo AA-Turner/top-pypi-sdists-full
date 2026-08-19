@@ -13,6 +13,46 @@ CPU_ONLY_NODE = "cpu-only"
 # This is set on KubeRay head nodes and can be detected via ray.cluster_resources()
 GENEVA_AUTOSCALING_RESOURCE = "geneva_autoscaling"
 
+# Custom resource advertised only by the KubeRay head pod. Pipeline
+# driver tasks request a fractional unit of this so Ray's scheduler
+# pins them to the head rather than letting them land on worker pods
+# alongside UDF actors (where an actor OOM kills the colocated driver
+# as cgroup collateral).
+GENEVA_RAY_HEAD = "geneva_ray_head"
+
+
+def head_pin_options() -> dict:
+    """Return ``.options(...)`` kwargs that pin a Ray task or actor to
+    the head pod, when the cluster advertises ``GENEVA_RAY_HEAD``.
+
+    On a kuberay-managed cluster the head pod advertises this resource
+    via ``rayStartParams`` (see ``raycluster.py``). Pinned tasks set
+    ``num_cpus=0`` (required because the head is started with
+    ``rayStartParams.num-cpus="0"`` to keep regular tasks off it) and
+    request a fractional unit of ``GENEVA_RAY_HEAD`` so Ray's
+    scheduler constrains placement to the head node.
+
+    On a Ray cluster that doesn't advertise the resource (e.g. a
+    plain local ``ray.init()`` used in unit tests), this returns an
+    empty dict so callers degrade gracefully -- the task lands
+    wherever Ray's default scheduler picks.
+    """
+    import ray
+
+    if not ray.is_initialized():
+        return {}
+    try:
+        cluster_resources = ray.cluster_resources()
+    except Exception:
+        return {}
+    if GENEVA_RAY_HEAD not in cluster_resources:
+        return {}
+    return {
+        "num_cpus": 0,
+        "resources": {GENEVA_RAY_HEAD: 0.001},
+    }
+
+
 DEFAULT_MAX_WORKER_REPLICAS = 100
 
 

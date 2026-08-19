@@ -1,6 +1,12 @@
 import { InputWidget, InputWidgetView } from "./input_widget";
 import type { StyleSheetLike } from "../../core/dom";
 import * as p from "../../core/properties";
+import { PropertyBundleEvent } from "../../core/bokeh_events";
+export declare class FileInputChange extends PropertyBundleEvent<FileInput, "value" | "filename" | "mime_type"> {
+    get value(): string | string[];
+    get filename(): string | string[];
+    get mime_type(): string | string[];
+}
 export declare class FileInputView extends InputWidgetView {
     model: FileInput;
     input_el: HTMLInputElement;

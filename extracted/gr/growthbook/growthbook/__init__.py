@@ -1,5 +1,7 @@
 from .growthbook import *
 
+from .common_types import AbstractAsyncStickyBucketService
+
 from .growthbook_client import (
     GrowthBookClient,
     EnhancedFeatureRepository,
@@ -18,5 +20,5 @@ from .plugins import (
 )
 
 # x-release-please-start-version
-__version__ = "2.3.1"
+__version__ = "2.4.0"
 # x-release-please-end

@@ -1,48 +1,105 @@
 name: CI
 on:
   push:
-    branches: [main]
-    tags: ["v*"]
+    branches:
+      - main
   pull_request:
-    branches: [main]
-  schedule:
-    - cron: "15 22 * * *"
+    branches:
+      - "**"
   workflow_dispatch: {} # support manual runs
 permissions:
   contents: read
 jobs:
   ci:
     name: CI
-    runs-on: ubuntu-latest
+    runs-on: ${{ matrix.runner }}
     strategy:
       fail-fast: false
       matrix:
-        python-version: ["3.10", "3.11", "3.12", "3.13", "3.14"]
+        runner:
+          - ubuntu-24.04
+          - macos-15
+          - windows-2025
+        python-version: ["3.10", "3.11", "3.12", "3.13", "3.14", "3.14t"]
         resolution: ["highest", "lowest-direct"]
     env:
       # Shared env variables for all the tests
       UV_RESOLUTION: "${{ matrix.resolution }}"
     steps:
-      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
-      - uses: actions/setup-go@4a3601121dd01d1626a1e23e37211e3254c1c06c # v6.4.0
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          submodules: recursive
+      - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
         with:
           go-version: stable
-          # We use this to install `buf`, and the `buf` version is controlled by the Makefile.
-          cache-dependency-path: Makefile
-      - uses: astral-sh/setup-uv@08807647e7069bb48b6ef5acd8ec9567f424441b # v8.1.0
+          # We use this to install certain tools defined in poe tasks
+          cache-dependency-path: poe_tasks.toml
+      - uses: mozilla-actions/sccache-action@fc920bf0ec8de6ee65d409111f7ec508035751ba # v0.0.11
+      - uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: .sccache
+          key: sccache-${{ matrix.runner }}-${{ github.sha }}
+          restore-keys: sccache-${{ matrix.runner }}-
+      - name: Enable sccache
+        shell: bash
+        run: |
+          echo "SCCACHE_DIR=${{ github.workspace }}/.sccache" >> $GITHUB_ENV
+          echo "SCCACHE_CACHE_SIZE=250M" >> $GITHUB_ENV
+          echo "RUSTC_WRAPPER=sccache" >> $GITHUB_ENV
+      - name: Setup rust
+        run: rustup update
+      - uses: astral-sh/setup-uv@20cfd1bf945f4377ade1205e4dbc17946fc9a30d # v10.0.1
         with:
           python-version: ${{ matrix.python-version }}
-      - run: make install
-      - run: make lint
-      - run: make format
-      # When running with matrix.resolution == lowest-direct, we expect uv.lock to change, but we don't want that file checked in.
-      - if: matrix.resolution == 'highest'
-        run: make checkgenerate
+      - run: uv sync
+      - run: uv run poe test
+
+      # Ensure tests pass without optional dependencies. Issues would come from eager imports, so we go ahead
+      # and run the single conformance test only to keep this step lightweight and give high coverage.
+      - run: |
+          uv sync --no-dev
+          uv run --no-dev --group dev-required pytest -k test_conformance
+
+  # Confirm the sdist can be built with a default CI environment.
+  sdist:
+    # Slow so skip on PR
+    if: github.event_name != 'pull_request'
+    runs-on: ${{ matrix.runner }}
+    strategy:
+      fail-fast: false
+      matrix:
+        runner:
+          - ubuntu-24.04
+          - macos-15
+          - macos-15-intel
+          - windows-2025
+          - windows-11-arm
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          submodules: recursive
+      - uses: astral-sh/setup-uv@20cfd1bf945f4377ade1205e4dbc17946fc9a30d # v10.0.1
+      # uv build first generates the sdist and then builds a wheel from it isolated from the repo.
+      # So it is enough to verify the sdist is usable.
+      - run: uv build
+
+  lint:
+    runs-on: ubuntu-24.04
+    env:
+      # We don't need the built extension for linting
+      UV_NO_PROJECT: "true"
+      PROTOVALIDATE_SKIP_CPP: "true"
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - name: Setup rust
+        run: rustup update
+      - uses: astral-sh/setup-uv@20cfd1bf945f4377ade1205e4dbc17946fc9a30d # v10.0.1
+        with:
+          python-version: ${{ matrix.python-version }}
+      - run: uv sync --locked
+      - run: uv run poe lint
+      - run: uv run poe format
+      - run: uv run poe generate
         env:
           BUF_TOKEN: ${{ secrets.BUF_TOKEN }}
-      - run: make test
-        env:
-          BUF_TOKEN: ${{ secrets.BUF_TOKEN }}
-      - run: make conformance
-        env:
-          BUF_TOKEN: ${{ secrets.BUF_TOKEN }}
+      - run: uv run poe diffcheck

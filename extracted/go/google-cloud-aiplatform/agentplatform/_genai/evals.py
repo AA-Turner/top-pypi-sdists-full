@@ -272,6 +272,20 @@ def _DeleteEvaluationMetricParameters_to_vertex(
     return to_object
 
 
+def _DeleteEvaluationSetParameters_to_vertex(
+    from_object: Union[dict[str, Any], object],
+    parent_object: Optional[dict[str, Any]] = None,
+) -> dict[str, Any]:
+    to_object: dict[str, Any] = {}
+    if getv(from_object, ["name"]) is not None:
+        setv(to_object, ["_url", "name"], getv(from_object, ["name"]))
+
+    if getv(from_object, ["config"]) is not None:
+        setv(to_object, ["config"], getv(from_object, ["config"]))
+
+    return to_object
+
+
 def _EvaluateInstancesRequestParameters_to_vertex(
     from_object: Union[dict[str, Any], object],
     parent_object: Optional[dict[str, Any]] = None,
@@ -866,6 +880,32 @@ def _GetEvaluationSetParameters_to_vertex(
     return to_object
 
 
+def _ImportEvaluationSetParameters_to_vertex(
+    from_object: Union[dict[str, Any], object],
+    parent_object: Optional[dict[str, Any]] = None,
+) -> dict[str, Any]:
+    to_object: dict[str, Any] = {}
+    if getv(from_object, ["evaluation_set"]) is not None:
+        setv(to_object, ["evaluationSet"], getv(from_object, ["evaluation_set"]))
+
+    if getv(from_object, ["gcs_destination"]) is not None:
+        setv(to_object, ["gcsDestination"], getv(from_object, ["gcs_destination"]))
+
+    if getv(from_object, ["gcs_source"]) is not None:
+        setv(to_object, ["gcsSource"], getv(from_object, ["gcs_source"]))
+
+    if getv(from_object, ["inline_source"]) is not None:
+        setv(to_object, ["inlineSource"], getv(from_object, ["inline_source"]))
+
+    if getv(from_object, ["cloud_trace_source"]) is not None:
+        setv(to_object, ["cloudTraceSource"], getv(from_object, ["cloud_trace_source"]))
+
+    if getv(from_object, ["config"]) is not None:
+        setv(to_object, ["config"], getv(from_object, ["config"]))
+
+    return to_object
+
+
 def _ListEvaluationExperimentsConfig_to_vertex(
     from_object: Union[dict[str, Any], object],
     parent_object: Optional[dict[str, Any]] = None,
@@ -961,6 +1001,44 @@ def _ListEvaluationMetricsResponse_from_vertex(
                 _EvaluationMetric_from_vertex(item, to_object)
                 for item in getv(from_object, ["evaluationMetrics"])
             ],
+        )
+
+    return to_object
+
+
+def _ListEvaluationSetsConfig_to_vertex(
+    from_object: Union[dict[str, Any], object],
+    parent_object: Optional[dict[str, Any]] = None,
+) -> dict[str, Any]:
+    to_object: dict[str, Any] = {}
+
+    if getv(from_object, ["page_size"]) is not None:
+        setv(parent_object, ["_query", "pageSize"], getv(from_object, ["page_size"]))
+
+    if getv(from_object, ["page_token"]) is not None:
+        setv(parent_object, ["_query", "pageToken"], getv(from_object, ["page_token"]))
+
+    if getv(from_object, ["filter"]) is not None:
+        setv(parent_object, ["_query", "filter"], getv(from_object, ["filter"]))
+
+    if getv(from_object, ["order_by"]) is not None:
+        setv(parent_object, ["_query", "orderBy"], getv(from_object, ["order_by"]))
+
+    return to_object
+
+
+def _ListEvaluationSetsParameters_to_vertex(
+    from_object: Union[dict[str, Any], object],
+    parent_object: Optional[dict[str, Any]] = None,
+) -> dict[str, Any]:
+    to_object: dict[str, Any] = {}
+    if getv(from_object, ["config"]) is not None:
+        setv(
+            to_object,
+            ["config"],
+            _ListEvaluationSetsConfig_to_vertex(
+                getv(from_object, ["config"]), to_object
+            ),
         )
 
     return to_object
@@ -1750,6 +1828,78 @@ class Evals(_api_module.BaseModule):
         self._api_client._verify_response(return_value)
         return return_value
 
+    def _delete_evaluation_set(
+        self,
+        *,
+        name: str,
+        config: Optional[types.DeleteEvaluationSetConfigOrDict] = None,
+    ) -> types.DeleteEvaluationSetOperation:
+        """
+        Deletes an EvaluationSet.
+        """
+
+        parameter_model = types._DeleteEvaluationSetParameters(
+            name=name,
+            config=config,
+        )
+
+        request_url_dict: Optional[dict[str, str]]
+        if not self._api_client.vertexai:
+            raise ValueError(
+                "This method is only supported in Gemini Enterprise Agent Platform mode, not in Gemini Developer API mode."
+            )
+        else:
+            request_dict = _DeleteEvaluationSetParameters_to_vertex(parameter_model)
+            request_url_dict = request_dict.get("_url")
+            if request_url_dict:
+                path = "evaluationSets/{name}".format_map(request_url_dict)
+            else:
+                path = "evaluationSets/{name}"
+
+        query_params = request_dict.get("_query")
+        if query_params:
+            path = f"{path}?{urlencode(query_params)}"
+        # TODO: remove the hack that pops config.
+        request_dict.pop("config", None)
+
+        http_options: Optional[types.HttpOptions] = None
+        if (
+            parameter_model.config is not None
+            and parameter_model.config.http_options is not None
+        ):
+            http_options = parameter_model.config.http_options
+
+        request_dict = _common.convert_to_dict(request_dict)
+        request_dict = _common.encode_unserializable_types(request_dict)
+
+        response = self._api_client.request("delete", path, request_dict, http_options)
+
+        response_dict = {} if not response.body else json.loads(response.body)
+
+        return_value = types.DeleteEvaluationSetOperation._from_response(
+            response=response_dict,
+            kwargs=(
+                {
+                    "config": {
+                        "response_schema": getattr(
+                            parameter_model.config, "response_schema", None
+                        ),
+                        "response_json_schema": getattr(
+                            parameter_model.config, "response_json_schema", None
+                        ),
+                        "include_all_fields": getattr(
+                            parameter_model.config, "include_all_fields", None
+                        ),
+                    }
+                }
+                if getattr(parameter_model, "config", None)
+                else {}
+            ),
+        )
+
+        self._api_client._verify_response(return_value)
+        return return_value
+
     def _evaluate_instances(
         self,
         *,
@@ -2470,6 +2620,86 @@ class Evals(_api_module.BaseModule):
         self._api_client._verify_response(return_value)
         return return_value
 
+    def _import_evaluation_set(
+        self,
+        *,
+        evaluation_set: types.EvaluationSetOrDict,
+        gcs_destination: genai_types.GcsDestinationOrDict,
+        gcs_source: Optional[types.EvaluationSetGcsSourceOrDict] = None,
+        inline_source: Optional[types.EvaluationSetInlineSourceOrDict] = None,
+        cloud_trace_source: Optional[types.EvaluationSetCloudTraceSourceOrDict] = None,
+        config: Optional[types.ImportEvaluationSetConfigOrDict] = None,
+    ) -> types.ImportEvaluationSetOperation:
+        """
+        Imports data into an EvaluationSet.
+        """
+
+        parameter_model = types._ImportEvaluationSetParameters(
+            evaluation_set=evaluation_set,
+            gcs_destination=gcs_destination,
+            gcs_source=gcs_source,
+            inline_source=inline_source,
+            cloud_trace_source=cloud_trace_source,
+            config=config,
+        )
+
+        request_url_dict: Optional[dict[str, str]]
+        if not self._api_client.vertexai:
+            raise ValueError(
+                "This method is only supported in Gemini Enterprise Agent Platform mode, not in Gemini Developer API mode."
+            )
+        else:
+            request_dict = _ImportEvaluationSetParameters_to_vertex(parameter_model)
+            request_url_dict = request_dict.get("_url")
+            if request_url_dict:
+                path = "evaluationSets:import".format_map(request_url_dict)
+            else:
+                path = "evaluationSets:import"
+
+        query_params = request_dict.get("_query")
+        if query_params:
+            path = f"{path}?{urlencode(query_params)}"
+        # TODO: remove the hack that pops config.
+        request_dict.pop("config", None)
+
+        http_options: Optional[types.HttpOptions] = None
+        if (
+            parameter_model.config is not None
+            and parameter_model.config.http_options is not None
+        ):
+            http_options = parameter_model.config.http_options
+
+        request_dict = _common.convert_to_dict(request_dict)
+        request_dict = _common.encode_unserializable_types(request_dict)
+
+        response = self._api_client.request("post", path, request_dict, http_options)
+
+        response_dict = {} if not response.body else json.loads(response.body)
+
+        return_value = types.ImportEvaluationSetOperation._from_response(
+            response=response_dict,
+            kwargs=(
+                {
+                    "config": {
+                        "response_schema": getattr(
+                            parameter_model.config, "response_schema", None
+                        ),
+                        "response_json_schema": getattr(
+                            parameter_model.config, "response_json_schema", None
+                        ),
+                        "include_all_fields": getattr(
+                            parameter_model.config, "include_all_fields", None
+                        ),
+                    }
+                }
+                if getattr(parameter_model, "config", None)
+                else {}
+            ),
+        )
+
+        self._api_client._verify_response(return_value)
+        return return_value
+
     def list_evaluation_experiments(
         self, *, config: Optional[types.ListEvaluationExperimentsConfigOrDict] = None
     ) -> types.ListEvaluationExperimentsResponse:
@@ -2605,6 +2835,74 @@ class Evals(_api_module.BaseModule):
             response_dict = _ListEvaluationMetricsResponse_from_vertex(response_dict)
 
         return_value = types.ListEvaluationMetricsResponse._from_response(
+            response=response_dict,
+            kwargs=(
+                {
+                    "config": {
+                        "response_schema": getattr(
+                            parameter_model.config, "response_schema", None
+                        ),
+                        "response_json_schema": getattr(
+                            parameter_model.config, "response_json_schema", None
+                        ),
+                        "include_all_fields": getattr(
+                            parameter_model.config, "include_all_fields", None
+                        ),
+                    }
+                }
+                if getattr(parameter_model, "config", None)
+                else {}
+            ),
+        )
+
+        self._api_client._verify_response(return_value)
+        return return_value
+
+    def _list_evaluation_sets(
+        self, *, config: Optional[types.ListEvaluationSetsConfigOrDict] = None
+    ) -> types.ListEvaluationSetsResponse:
+        """
+        Lists EvaluationSets.
+        """
+
+        parameter_model = types._ListEvaluationSetsParameters(
+            config=config,
+        )
+
+        request_url_dict: Optional[dict[str, str]]
+        if not self._api_client.vertexai:
+            raise ValueError(
+                "This method is only supported in Gemini Enterprise Agent Platform mode, not in Gemini Developer API mode."
+            )
+        else:
+            request_dict = _ListEvaluationSetsParameters_to_vertex(parameter_model)
+            request_url_dict = request_dict.get("_url")
+            if request_url_dict:
+                path = "evaluationSets".format_map(request_url_dict)
+            else:
+                path = "evaluationSets"
+
+        query_params = request_dict.get("_query")
+        if query_params:
+            path = f"{path}?{urlencode(query_params)}"
+        # TODO: remove the hack that pops config.
+        request_dict.pop("config", None)
+
+        http_options: Optional[types.HttpOptions] = None
+        if (
+            parameter_model.config is not None
+            and parameter_model.config.http_options is not None
+        ):
+            http_options = parameter_model.config.http_options
+
+        request_dict = _common.convert_to_dict(request_dict)
+        request_dict = _common.encode_unserializable_types(request_dict)
+
+        response = self._api_client.request("get", path, request_dict, http_options)
+
+        response_dict = {} if not response.body else json.loads(response.body)
+
+        return_value = types.ListEvaluationSetsResponse._from_response(
             response=response_dict,
             kwargs=(
                 {
@@ -3404,6 +3702,10 @@ class Evals(_api_module.BaseModule):
 
         if isinstance(dataset, types.EvaluationDataset):
             _evals_utils._validate_dataset_agent_data(dataset, inference_configs)
+        # Validate metrics are supported for Managed Agent evaluation.
+        # Pass metrics directly; _validate_managed_agent_metrics handles both
+        # EvaluationRunMetric (.metric field) and Metric (.name field).
+        _evals_common._validate_managed_agent_metrics(agent, metrics)
         resolved_dataset = _evals_common._resolve_dataset(
             self._api_client, dataset, dest, parsed_agent_info
         )
@@ -3579,6 +3881,121 @@ class Evals(_api_module.BaseModule):
             config=config,
         )
         return result
+
+    def list_evaluation_sets(
+        self,
+        *,
+        filter: Optional[str] = None,
+        order_by: Optional[str] = None,
+        config: Optional[types.ListEvaluationSetsConfigOrDict] = None,
+    ) -> types.ListEvaluationSetsResponse:
+        """Lists EvaluationSets.
+
+        Args:
+          filter: An expression for filtering the results of the request. For
+            field names both snake_case and camelCase are supported. For more
+            information about filter syntax, see
+            `AIP-160 <https://google.aip.dev/160>`_.
+            Example: ``'display_name="my_dataset"'``.
+          order_by: A comma-separated list of fields to order by, sorted in
+            ascending order by default. Use ``desc`` after a field name for
+            descending. Example: ``"create_time desc"``.
+          config: Optional configuration for the list operation, including
+            pagination (``page_size``, ``page_token``), ``filter``, and
+            ``order_by``. Top-level ``filter`` and ``order_by`` arguments
+            take precedence over values set in ``config``.
+
+        Returns:
+          The list evaluation sets response.
+        """
+        if config is None:
+            config = types.ListEvaluationSetsConfig()
+        if isinstance(config, dict):
+            config = types.ListEvaluationSetsConfig.model_validate(config)
+        if filter is not None:
+            config.filter = filter
+        if order_by is not None:
+            config.order_by = order_by
+        return self._list_evaluation_sets(
+            config=config,
+        )
+
+    def delete_evaluation_set(
+        self,
+        *,
+        name: str,
+        config: Optional[types.DeleteEvaluationSetConfigOrDict] = None,
+    ) -> None:
+        """Deletes an EvaluationSet.
+
+        This initiates the deletion and returns once the request is accepted; it
+        does not block until the long-running delete operation completes.
+
+        Args:
+          name: The resource name of the EvaluationSet to delete. Format:
+            `projects/{project}/locations/{location}/evaluationSets/{evaluation_set}`
+          config: The optional configuration for the delete operation.
+        """
+        if not name:
+            raise ValueError("name cannot be empty.")
+        if name.startswith("projects/"):
+            name = name.split("/")[-1]
+        self._delete_evaluation_set(name=name, config=config)
+
+    def import_evaluation_set(
+        self,
+        *,
+        evaluation_set: types.EvaluationSetOrDict,
+        gcs_destination: genai_types.GcsDestinationOrDict,
+        gcs_source: Optional[types.EvaluationSetGcsSourceOrDict] = None,
+        inline_source: Optional[types.EvaluationSetInlineSourceOrDict] = None,
+        cloud_trace_source: Optional[types.EvaluationSetCloudTraceSourceOrDict] = None,
+        config: Optional[types.ImportEvaluationSetConfigOrDict] = None,
+    ) -> types.ImportEvaluationSetOperation:
+        """Imports data into an EvaluationSet.
+
+        This is a long-running operation that imports data from a source (such as
+        OpenTelemetry traces) into a managed EvaluationSet.
+
+        Args:
+          evaluation_set: The EvaluationSet to create. Used to specify
+            ``display_name`` and ``metadata``. The ``evaluation_items`` field is
+            ignored and populated by the import process.
+          gcs_destination: The Cloud Storage location where the resulting
+            EvaluationItem payloads will be stored.
+          gcs_source: The Cloud Storage source of the input data. Exactly one of
+            ``gcs_source``, ``inline_source``, or ``cloud_trace_source`` must be
+            provided.
+          inline_source: The inline source for small payloads (< 4MB). Exactly one
+            of ``gcs_source``, ``inline_source``, or ``cloud_trace_source`` must be
+            provided.
+          cloud_trace_source: The Cloud Trace source for loading traces directly
+            from Cloud Trace. Exactly one of ``gcs_source``, ``inline_source``, or
+            ``cloud_trace_source`` must be provided.
+          config: The optional configuration for the import operation.
+
+        Returns:
+          The long-running operation for the import.
+        """
+        if (
+            sum(
+                source is not None
+                for source in (gcs_source, inline_source, cloud_trace_source)
+            )
+            != 1
+        ):
+            raise ValueError(
+                "Exactly one of gcs_source, inline_source, or cloud_trace_source"
+                " must be provided."
+            )
+        return self._import_evaluation_set(
+            evaluation_set=evaluation_set,
+            gcs_destination=gcs_destination,
+            gcs_source=gcs_source,
+            inline_source=inline_source,
+            cloud_trace_source=cloud_trace_source,
+            config=config,
+        )
 
     def generate_conversation_scenarios(
         self,
@@ -4418,6 +4835,80 @@ class AsyncEvals(_api_module.BaseModule):
         self._api_client._verify_response(return_value)
         return return_value
 
+    async def _delete_evaluation_set(
+        self,
+        *,
+        name: str,
+        config: Optional[types.DeleteEvaluationSetConfigOrDict] = None,
+    ) -> types.DeleteEvaluationSetOperation:
+        """
+        Deletes an EvaluationSet.
+        """
+
+        parameter_model = types._DeleteEvaluationSetParameters(
+            name=name,
+            config=config,
+        )
+
+        request_url_dict: Optional[dict[str, str]]
+        if not self._api_client.vertexai:
+            raise ValueError(
+                "This method is only supported in Gemini Enterprise Agent Platform mode, not in Gemini Developer API mode."
+            )
+        else:
+            request_dict = _DeleteEvaluationSetParameters_to_vertex(parameter_model)
+            request_url_dict = request_dict.get("_url")
+            if request_url_dict:
+                path = "evaluationSets/{name}".format_map(request_url_dict)
+            else:
+                path = "evaluationSets/{name}"
+
+        query_params = request_dict.get("_query")
+        if query_params:
+            path = f"{path}?{urlencode(query_params)}"
+        # TODO: remove the hack that pops config.
+        request_dict.pop("config", None)
+
+        http_options: Optional[types.HttpOptions] = None
+        if (
+            parameter_model.config is not None
+            and parameter_model.config.http_options is not None
+        ):
+            http_options = parameter_model.config.http_options
+
+        request_dict = _common.convert_to_dict(request_dict)
+        request_dict = _common.encode_unserializable_types(request_dict)
+
+        response = await self._api_client.async_request(
+            "delete", path, request_dict, http_options
+        )
+
+        response_dict = {} if not response.body else json.loads(response.body)
+
+        return_value = types.DeleteEvaluationSetOperation._from_response(
+            response=response_dict,
+            kwargs=(
+                {
+                    "config": {
+                        "response_schema": getattr(
+                            parameter_model.config, "response_schema", None
+                        ),
+                        "response_json_schema": getattr(
+                            parameter_model.config, "response_json_schema", None
+                        ),
+                        "include_all_fields": getattr(
+                            parameter_model.config, "include_all_fields", None
+                        ),
+                    }
+                }
+                if getattr(parameter_model, "config", None)
+                else {}
+            ),
+        )
+
+        self._api_client._verify_response(return_value)
+        return return_value
+
     async def _evaluate_instances(
         self,
         *,
@@ -5156,6 +5647,88 @@ class AsyncEvals(_api_module.BaseModule):
         self._api_client._verify_response(return_value)
         return return_value
 
+    async def _import_evaluation_set(
+        self,
+        *,
+        evaluation_set: types.EvaluationSetOrDict,
+        gcs_destination: genai_types.GcsDestinationOrDict,
+        gcs_source: Optional[types.EvaluationSetGcsSourceOrDict] = None,
+        inline_source: Optional[types.EvaluationSetInlineSourceOrDict] = None,
+        cloud_trace_source: Optional[types.EvaluationSetCloudTraceSourceOrDict] = None,
+        config: Optional[types.ImportEvaluationSetConfigOrDict] = None,
+    ) -> types.ImportEvaluationSetOperation:
+        """
+        Imports data into an EvaluationSet.
+        """
+
+        parameter_model = types._ImportEvaluationSetParameters(
+            evaluation_set=evaluation_set,
+            gcs_destination=gcs_destination,
+            gcs_source=gcs_source,
+            inline_source=inline_source,
+            cloud_trace_source=cloud_trace_source,
+            config=config,
+        )
+
+        request_url_dict: Optional[dict[str, str]]
+        if not self._api_client.vertexai:
+            raise ValueError(
+                "This method is only supported in Gemini Enterprise Agent Platform mode, not in Gemini Developer API mode."
+            )
+        else:
+            request_dict = _ImportEvaluationSetParameters_to_vertex(parameter_model)
+            request_url_dict = request_dict.get("_url")
+            if request_url_dict:
+                path = "evaluationSets:import".format_map(request_url_dict)
+            else:
+                path = "evaluationSets:import"
+
+        query_params = request_dict.get("_query")
+        if query_params:
+            path = f"{path}?{urlencode(query_params)}"
+        # TODO: remove the hack that pops config.
+        request_dict.pop("config", None)
+
+        http_options: Optional[types.HttpOptions] = None
+        if (
+            parameter_model.config is not None
+            and parameter_model.config.http_options is not None
+        ):
+            http_options = parameter_model.config.http_options
+
+        request_dict = _common.convert_to_dict(request_dict)
+        request_dict = _common.encode_unserializable_types(request_dict)
+
+        response = await self._api_client.async_request(
+            "post", path, request_dict, http_options
+        )
+
+        response_dict = {} if not response.body else json.loads(response.body)
+
+        return_value = types.ImportEvaluationSetOperation._from_response(
+            response=response_dict,
+            kwargs=(
+                {
+                    "config": {
+                        "response_schema": getattr(
+                            parameter_model.config, "response_schema", None
+                        ),
+                        "response_json_schema": getattr(
+                            parameter_model.config, "response_json_schema", None
+                        ),
+                        "include_all_fields": getattr(
+                            parameter_model.config, "include_all_fields", None
+                        ),
+                    }
+                }
+                if getattr(parameter_model, "config", None)
+                else {}
+            ),
+        )
+
+        self._api_client._verify_response(return_value)
+        return return_value
+
     async def list_evaluation_experiments(
         self, *, config: Optional[types.ListEvaluationExperimentsConfigOrDict] = None
     ) -> types.ListEvaluationExperimentsResponse:
@@ -5295,6 +5868,76 @@ class AsyncEvals(_api_module.BaseModule):
             response_dict = _ListEvaluationMetricsResponse_from_vertex(response_dict)
 
         return_value = types.ListEvaluationMetricsResponse._from_response(
+            response=response_dict,
+            kwargs=(
+                {
+                    "config": {
+                        "response_schema": getattr(
+                            parameter_model.config, "response_schema", None
+                        ),
+                        "response_json_schema": getattr(
+                            parameter_model.config, "response_json_schema", None
+                        ),
+                        "include_all_fields": getattr(
+                            parameter_model.config, "include_all_fields", None
+                        ),
+                    }
+                }
+                if getattr(parameter_model, "config", None)
+                else {}
+            ),
+        )
+
+        self._api_client._verify_response(return_value)
+        return return_value
+
+    async def _list_evaluation_sets(
+        self, *, config: Optional[types.ListEvaluationSetsConfigOrDict] = None
+    ) -> types.ListEvaluationSetsResponse:
+        """
+        Lists EvaluationSets.
+        """
+
+        parameter_model = types._ListEvaluationSetsParameters(
+            config=config,
+        )
+
+        request_url_dict: Optional[dict[str, str]]
+        if not self._api_client.vertexai:
+            raise ValueError(
+                "This method is only supported in Gemini Enterprise Agent Platform mode, not in Gemini Developer API mode."
+            )
+        else:
+            request_dict = _ListEvaluationSetsParameters_to_vertex(parameter_model)
+            request_url_dict = request_dict.get("_url")
+            if request_url_dict:
+                path = "evaluationSets".format_map(request_url_dict)
+            else:
+                path = "evaluationSets"
+
+        query_params = request_dict.get("_query")
+        if query_params:
+            path = f"{path}?{urlencode(query_params)}"
+        # TODO: remove the hack that pops config.
+        request_dict.pop("config", None)
+
+        http_options: Optional[types.HttpOptions] = None
+        if (
+            parameter_model.config is not None
+            and parameter_model.config.http_options is not None
+        ):
+            http_options = parameter_model.config.http_options
+
+        request_dict = _common.convert_to_dict(request_dict)
+        request_dict = _common.encode_unserializable_types(request_dict)
+
+        response = await self._api_client.async_request(
+            "get", path, request_dict, http_options
+        )
+
+        response_dict = {} if not response.body else json.loads(response.body)
+
+        return_value = types.ListEvaluationSetsResponse._from_response(
             response=response_dict,
             kwargs=(
                 {
@@ -5699,6 +6342,10 @@ class AsyncEvals(_api_module.BaseModule):
 
         if isinstance(dataset, types.EvaluationDataset):
             _evals_utils._validate_dataset_agent_data(dataset, inference_configs)
+        # Validate metrics are supported for Managed Agent evaluation.
+        # Pass metrics directly; _validate_managed_agent_metrics handles both
+        # EvaluationRunMetric (.metric field) and Metric (.name field).
+        _evals_common._validate_managed_agent_metrics(agent, metrics)
         resolved_dataset = _evals_common._resolve_dataset(
             self._api_client, dataset, dest, parsed_agent_info
         )
@@ -5876,6 +6523,122 @@ class AsyncEvals(_api_module.BaseModule):
             evaluation_items=evaluation_items,
             display_name=display_name,
             encryption_spec=encryption_spec,
+            config=config,
+        )
+        return result
+
+    async def list_evaluation_sets(
+        self,
+        *,
+        filter: Optional[str] = None,
+        order_by: Optional[str] = None,
+        config: Optional[types.ListEvaluationSetsConfigOrDict] = None,
+    ) -> types.ListEvaluationSetsResponse:
+        """Lists EvaluationSets.
+
+        Args:
+          filter: An expression for filtering the results of the request. For
+            field names both snake_case and camelCase are supported. For more
+            information about filter syntax, see
+            `AIP-160 <https://google.aip.dev/160>`_.
+            Example: ``'display_name="my_dataset"'``.
+          order_by: A comma-separated list of fields to order by, sorted in
+            ascending order by default. Use ``desc`` after a field name for
+            descending. Example: ``"create_time desc"``.
+          config: Optional configuration for the list operation, including
+            pagination (``page_size``, ``page_token``), ``filter``, and
+            ``order_by``. Top-level ``filter`` and ``order_by`` arguments
+            take precedence over values set in ``config``.
+
+        Returns:
+          The list evaluation sets response.
+        """
+        if config is None:
+            config = types.ListEvaluationSetsConfig()
+        if isinstance(config, dict):
+            config = types.ListEvaluationSetsConfig.model_validate(config)
+        if filter is not None:
+            config.filter = filter
+        if order_by is not None:
+            config.order_by = order_by
+        return await self._list_evaluation_sets(
+            config=config,
+        )
+
+    async def delete_evaluation_set(
+        self,
+        *,
+        name: str,
+        config: Optional[types.DeleteEvaluationSetConfigOrDict] = None,
+    ) -> None:
+        """Deletes an EvaluationSet.
+
+        This initiates the deletion and returns once the request is accepted; it
+        does not block until the long-running delete operation completes.
+
+        Args:
+          name: The resource name of the EvaluationSet to delete. Format:
+            `projects/{project}/locations/{location}/evaluationSets/{evaluation_set}`
+          config: The optional configuration for the delete operation.
+        """
+        if not name:
+            raise ValueError("name cannot be empty.")
+        if name.startswith("projects/"):
+            name = name.split("/")[-1]
+        await self._delete_evaluation_set(name=name, config=config)
+
+    async def import_evaluation_set(
+        self,
+        *,
+        evaluation_set: types.EvaluationSetOrDict,
+        gcs_destination: genai_types.GcsDestinationOrDict,
+        gcs_source: Optional[types.EvaluationSetGcsSourceOrDict] = None,
+        inline_source: Optional[types.EvaluationSetInlineSourceOrDict] = None,
+        cloud_trace_source: Optional[types.EvaluationSetCloudTraceSourceOrDict] = None,
+        config: Optional[types.ImportEvaluationSetConfigOrDict] = None,
+    ) -> types.ImportEvaluationSetOperation:
+        """Imports data into an EvaluationSet.
+
+        This is a long-running operation that imports data from a source (such as
+        OpenTelemetry traces) into a managed EvaluationSet.
+
+        Args:
+          evaluation_set: The EvaluationSet to create. Used to specify
+            ``display_name`` and ``metadata``. The ``evaluation_items`` field is
+            ignored and populated by the import process.
+          gcs_destination: The Cloud Storage location where the resulting
+            EvaluationItem payloads will be stored.
+          gcs_source: The Cloud Storage source of the input data. Exactly one of
+            ``gcs_source``, ``inline_source``, or ``cloud_trace_source`` must be
+            provided.
+          inline_source: The inline source for small payloads (< 4MB). Exactly one
+            of ``gcs_source``, ``inline_source``, or ``cloud_trace_source`` must be
+            provided.
+          cloud_trace_source: The Cloud Trace source for loading traces directly
+            from Cloud Trace. Exactly one of ``gcs_source``, ``inline_source``, or
+            ``cloud_trace_source`` must be provided.
+          config: The optional configuration for the import operation.
+
+        Returns:
+          The long-running operation for the import.
+        """
+        if (
+            sum(
+                source is not None
+                for source in (gcs_source, inline_source, cloud_trace_source)
+            )
+            != 1
+        ):
+            raise ValueError(
+                "Exactly one of gcs_source, inline_source, or cloud_trace_source"
+                " must be provided."
+            )
+        result = await self._import_evaluation_set(
+            evaluation_set=evaluation_set,
+            gcs_destination=gcs_destination,
+            gcs_source=gcs_source,
+            inline_source=inline_source,
+            cloud_trace_source=cloud_trace_source,
             config=config,
         )
         return result

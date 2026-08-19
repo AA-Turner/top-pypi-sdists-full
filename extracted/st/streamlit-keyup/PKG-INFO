@@ -1,6 +1,6 @@
-Metadata-Version: 2.1
+Metadata-Version: 2.4
 Name: streamlit-keyup
-Version: 0.3.0
+Version: 0.4.0
 Summary: Text input that renders on keyup
 Home-page: https://github.com/blackary/streamlit-keyup
 Author: Zachary Blackwood
@@ -10,6 +10,15 @@ Description-Content-Type: text/markdown
 License-File: LICENSE
 Requires-Dist: streamlit>=1.2
 Requires-Dist: jinja2
+Dynamic: author
+Dynamic: author-email
+Dynamic: description
+Dynamic: description-content-type
+Dynamic: home-page
+Dynamic: license-file
+Dynamic: requires-dist
+Dynamic: requires-python
+Dynamic: summary
 
 # streamlit-keyup
 

@@ -8,7 +8,7 @@ from collections import OrderedDict
 from collections.abc import Iterator, Mapping
 from dataclasses import dataclass
 from datetime import timedelta
-from typing import TYPE_CHECKING, Any, cast
+from typing import TYPE_CHECKING, Any, TypeAlias, cast
 
 import pyarrow as pa
 from lancedb.query import (
@@ -18,17 +18,17 @@ from lancedb.query import (
     _scanner_kwargs_for_query,
     _scanner_to_pandas,
     _scanner_to_table,
-    flatten_columns,
 )
 from lancedb.rerankers.base import Reranker
-from lancedb.table import BlobMode
+from lancedb.types import BlobMode
+from lancedb.util import flatten_columns
 from numpy.random import default_rng
 from pydantic import BaseModel
 
 # Self / override is not available in python 3.10
 from typing_extensions import Self, override  # noqa: UP035
 
-from geneva.db import Connection, has_stable_row_ids
+from geneva.db import Connection, dataset_uses_stable_row_ids
 from geneva.packager import UDFPackager, UDFSpec
 from geneva.transformer import BACKFILL_SELECTED, UDF
 from geneva.utils.arrow import batch_add_column
@@ -37,6 +37,11 @@ from geneva.utils.schema import canonical_field_paths, resolve_arrow_field_path
 if TYPE_CHECKING:
     import pandas as pd
     from lancedb.expr import Expr
+
+    # The shapes lancedb accepts for ``Query.columns``.
+    QueryColumns: TypeAlias = (
+        list[str] | list[tuple[str, str | Expr]] | dict[str, str | Expr] | None
+    )
 
 _INTERNAL_ROW_ID_SCAN_BATCH_SIZE = 4096
 _VIRTUAL_COLUMN_META_FLAG = "virtual_column"
@@ -56,10 +61,26 @@ def _expr_to_str(expr: "str | Expr") -> str:
     return expr.to_sql()
 
 
+def normalize_query_columns(
+    columns: "QueryColumns",
+) -> "list[str] | dict[str, str | Expr] | None":
+    """Collapse lancedb's ordered ``[(alias, expr)]`` projection into a dict.
+
+    ``Query.columns`` also accepts a list of ``(alias, expr)`` pairs; geneva's
+    projection handling only understands the plain-name list and the dict form.
+    Dict insertion order preserves the requested projection order.
+    """
+    if isinstance(columns, list) and columns and not isinstance(columns[0], str):
+        pairs = cast("list[tuple[str, str | Expr]]", columns)
+        return dict(pairs)
+    return cast("list[str] | dict[str, str | Expr] | None", columns)
+
+
 def _columns_to_str_dict(
-    columns: "list[str] | dict[str, str | Expr] | None",
+    columns: "QueryColumns",
 ) -> list[str] | dict[str, str] | None:
     """Convert columns dict with Expr values to str values for lance API."""
+    columns = normalize_query_columns(columns)
     if columns is None or isinstance(columns, list):
         return columns
     return {k: _expr_to_str(v) for k, v in columns.items()}
@@ -163,6 +184,68 @@ def clear_read_dataset_cache() -> None:
         _read_dataset_cache.clear()
 
 
+def _direct_open_uri(table: "Table") -> str | None:
+    """Physical URI when ``table`` is eligible for a direct (non-namespace) open.
+
+    Namespace-backed datasets re-resolve the table through the namespace during
+    scan IO; on a plain dir namespace that round-trip vends nothing and its
+    transient failures kill scans (GEN-758). Only plain ``dir`` namespaces with
+    no credential vending and no branch checkout qualify; anything else,
+    including any error while checking, returns ``None``.
+    """
+    try:
+        ns_config = getattr(getattr(table, "_conn", None), "_ns_config", None)
+        if ns_config is None or ns_config.namespace_client_impl != "dir":
+            return None
+        props = ns_config.namespace_client_properties or {}
+        for key in props:
+            key_lower = key.lower()
+            if key_lower.startswith("credential_vendor.") or (
+                key_lower == "vend_input_storage_options"
+            ):
+                return None
+        ltbl = getattr(table, "_ltbl", None)
+        current_branch = getattr(ltbl, "current_branch", None)
+        if callable(current_branch) and current_branch() is not None:
+            return None
+        return table.uri
+    except Exception:
+        return None
+
+
+def _open_dataset_for_read(table: "Table", version: int | None) -> "LanceDataset":
+    """Open ``table`` for reading, preferring a direct physical-URI open.
+
+    Direct opens install no dynamic storage-options provider, so scan IO never
+    re-resolves the table through the namespace (GEN-758). Ineligible tables
+    and failed direct opens use the namespace-backed ``to_lance()`` open.
+    """
+    uri = _direct_open_uri(table)
+    if uri is not None:
+        import lance
+
+        try:
+            pinned = version if version is not None else table.version
+            storage_options = {
+                **(getattr(table._conn, "_storage_options", None) or {}),
+                **(getattr(table, "_storage_options", None) or {}),
+            } or None
+            return lance.dataset(uri, version=pinned, storage_options=storage_options)
+        except Exception:
+            _LOG.warning(
+                "Direct read open failed for %s (version=%s); falling back to "
+                "the namespace-backed open",
+                uri,
+                version,
+                exc_info=True,
+            )
+    # to_lance: fresh — namespace-backed open for ineligible tables / fallback
+    dataset = table.to_lance()
+    if version is not None and getattr(dataset, "version", None) != version:
+        dataset = dataset.checkout_version(version)
+    return dataset
+
+
 def open_read_dataset(table: "Table", version: int | None = None) -> "LanceDataset":
     """Return a process-cached read-only ``LanceDataset`` for ``table``.
 
@@ -177,14 +260,13 @@ def open_read_dataset(table: "Table", version: int | None = None) -> "LanceDatas
     cache on each commit (~one reopen per fragment at scale). Pinning to the
     snapshot version the caller already knows keeps the entry valid for the whole
     backfill window (GEN-574).
+
+    Eligible dir-namespace tables are opened directly by physical URI
+    (GEN-758); see ``_direct_open_uri``.
     """
     capacity = _read_dataset_cache_capacity()
     if capacity <= 0:
-        # to_lance: fresh — caching disabled, open per call
-        dataset = table.to_lance()
-        if version is not None and getattr(dataset, "version", None) != version:
-            dataset = dataset.checkout_version(version)
-        return dataset
+        return _open_dataset_for_read(table, version)
 
     key = (
         table.uri,
@@ -204,9 +286,7 @@ def open_read_dataset(table: "Table", version: int | None = None) -> "LanceDatas
 
     # Miss: open outside the lock; a rare concurrent miss just opens twice
     # (harmless). Publish and evict to capacity under the lock.
-    dataset = table.to_lance()  # to_lance: fresh — this IS the cache-fill open
-    if version is not None and getattr(dataset, "version", None) != version:
-        dataset = dataset.checkout_version(version)
+    dataset = _open_dataset_for_read(table, version)
     with _read_dataset_cache_lock:
         _read_dataset_cache[key] = dataset
         _read_dataset_cache.move_to_end(key)
@@ -493,8 +573,9 @@ class GenevaQueryBuilder(LanceEmptyQueryBuilder):
 
         # TODO: Add from_query_object to lancedb.  For now, this will work
         # for simple (non-vector, non-fts) queries.
-        if query.base.columns is not None:
-            result.select(query.base.columns)
+        base_columns = normalize_query_columns(query.base.columns)
+        if base_columns is not None:
+            result.select(base_columns)
         if query.base.filter:
             result.where(query.base.filter)
         if query.base.limit:
@@ -562,6 +643,7 @@ class GenevaQueryBuilder(LanceEmptyQueryBuilder):
         schema = self._table._ltbl.schema
 
         base_query = super().to_query_object()
+        base_query.columns = normalize_query_columns(base_query.columns)
 
         if base_query.columns is not None:
             if isinstance(base_query.columns, list):
@@ -601,7 +683,10 @@ class GenevaQueryBuilder(LanceEmptyQueryBuilder):
             fields += [pa.field("_rowid", pa.uint64())]
 
         if include_metacols and self._with_row_address:
-            fields += [pa.field("_rowaddr", pa.int64())]
+            # uint64 to match what Lance emits, and every other declaration of
+            # this metacolumn in Geneva (apply/task.py, runners/ray/writer.py,
+            # apply/error_handling.py).
+            fields += [pa.field("_rowaddr", pa.uint64())]
 
         return pa.schema(fields)
 
@@ -637,6 +722,7 @@ class GenevaQueryBuilder(LanceEmptyQueryBuilder):
         nested_blob = _has_nested_blob(list(schema_no_meta))
 
         base_query = super().to_query_object()
+        base_query.columns = normalize_query_columns(base_query.columns)
         orig_filter = base_query.filter
 
         # Enforce row_id if we need blobs or where-as-column
@@ -732,9 +818,12 @@ class GenevaQueryBuilder(LanceEmptyQueryBuilder):
                         filter=orig_filter,
                         fragments=[frag],
                         # This scan only builds the membership set for
-                        # BACKFILL_SELECTED. It does not shape emitted
-                        # batches, so keep it above the small-batch FFI leak
-                        # floor even when callers request tiny output batches.
+                        # BACKFILL_SELECTED; it does not shape emitted batches,
+                        # and it projects a single 8-byte column, so a whole
+                        # batch is ~32 KB regardless. Keep it coarse so a
+                        # caller asking for tiny output batches doesn't turn a
+                        # trivial id scan into thousands of scanner round
+                        # trips.
                         batch_size=max(
                             batch_size or 0,
                             _INTERNAL_ROW_ID_SCAN_BATCH_SIZE,
@@ -965,7 +1054,11 @@ class GenevaQueryBuilder(LanceEmptyQueryBuilder):
                 "materialized view."
             )
 
-        source_has_stable_row_ids = has_stable_row_ids(fragments)
+        # Read the manifest, not the fragments. On the zero-fragment tables
+        # where the two disagree this line is unreachable (rejected above), so
+        # it is consistency with the exist_ok validator rather than a behaviour
+        # change; the SRID-G06/G07 checks deliberately pin only the validator.
+        source_has_stable_row_ids = dataset_uses_stable_row_ids(source_lance_ds)
 
         if not source_has_stable_row_ids:
             warnings.warn(
@@ -1066,10 +1159,9 @@ class GenevaQueryBuilder(LanceEmptyQueryBuilder):
             names=["__source_row_id", "__is_set"],
         )
 
-        # Create the MV table with system-backed schema.
-        #
-        # REST namespace backends do not surface stable-row-ID create options yet.
-        # Direct-storage directory namespaces use Connection's root-table workaround.
+        # Create the MV table with system-backed schema. Every backend honours
+        # the stable-row-ID create option today (GEN-839); see
+        # _supports_stable_row_ids_on_create for how each one gets there.
         storage_options: dict[str, str] = {}
         if conn._supports_stable_row_ids_on_create():
             storage_options["new_table_enable_stable_row_ids"] = "true"

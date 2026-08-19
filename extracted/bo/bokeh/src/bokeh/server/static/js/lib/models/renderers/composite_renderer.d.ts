@@ -1,7 +1,7 @@
 import { Renderer, RendererView } from "./renderer";
 import { UIElement } from "../ui/ui_element";
 import { DOMNode } from "../dom/dom_node";
-import type { ViewStorage, BuildResult, View, ViewOf } from "../../core/build_views";
+import type { ViewStorage, BuildResult, ChildView, ViewOf } from "../../core/build_views";
 import type * as p from "../../core/properties";
 import type { Context2d } from "../../core/util/canvas";
 export declare const ElementLike: import("../../core/kinds").Kinds.Or<[UIElement, DOMNode]>;
@@ -10,9 +10,11 @@ export declare abstract class CompositeRendererView extends RendererView {
     model: CompositeRenderer;
     protected readonly _renderer_views: ViewStorage<Renderer>;
     get renderer_views(): ViewOf<Renderer>[];
+    protected _computed_renderer_views: ViewOf<Renderer>[];
     protected readonly _element_views: ViewStorage<ElementLike>;
     get element_views(): ViewOf<ElementLike>[];
-    children_views(): View[];
+    protected _computed_element_views: ViewOf<ElementLike>[];
+    children_views(): ChildView[];
     lazy_initialize(): Promise<void>;
     protected readonly _computed_renderers: Renderer[];
     get computed_renderers(): Renderer[];
@@ -25,7 +27,6 @@ export declare abstract class CompositeRendererView extends RendererView {
     protected _update_renderers(): Promise<void>;
     protected _update_elements(): Promise<void>;
     render(): void;
-    remove(): void;
     connect_signals(): void;
     paint(ctx: Context2d): void;
     has_finished(): boolean;

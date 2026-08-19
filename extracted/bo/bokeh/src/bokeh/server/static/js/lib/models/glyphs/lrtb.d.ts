@@ -22,7 +22,7 @@ export interface LRTBView extends LRTB.Data {
 export declare abstract class LRTBView extends GlyphView {
     model: LRTB;
     visuals: LRTB.Visuals;
-    load_glglyph(): Promise<typeof import("./webgl/lrtb").LRTBGL>;
+    load_glglyph(): Promise<typeof import("../../all/main").LRTBGL>;
     get_anchor_point(anchor: Anchor, i: number, _spt: [number, number]): XY | null;
     protected _set_data(indices: number[] | null): void;
     protected abstract _lrtb(i: number): LRTBRect;

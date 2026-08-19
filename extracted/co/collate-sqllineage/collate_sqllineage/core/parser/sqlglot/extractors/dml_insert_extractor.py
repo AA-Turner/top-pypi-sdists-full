@@ -1,4 +1,4 @@
-from typing import List, Optional, Tuple, Union
+from typing import Dict, List, Optional, Tuple, Union
 
 import networkx as nx
 from sqlglot import exp
@@ -68,6 +68,7 @@ class DmlInsertExtractor(LineageHolderExtractor, SourceHandlerMixin):
         using_alias: Optional[str],
         using_sq: Optional[SubQuery],
         holder: SqlGlotSubQueryLineageHolder,
+        alias_mapping: Dict[str, Union[DataFunction, Location, Path, Table, SubQuery]],
     ) -> Column:
         """Resolve column parent (Table or SubQuery) for MERGE statements."""
         col = SqlGlotColumn.of(col_node)
@@ -85,8 +86,13 @@ class DmlInsertExtractor(LineageHolderExtractor, SourceHandlerMixin):
                 col.parent = using_sq
             return found or col
 
-        # Regular table
-        col.parent = Table(table_name)
+        # Regular table: resolve the qualifier against the statement's source tables
+        # so an alias like `src` maps to its real table `dbo.src1` instead of a
+        # default-schema placeholder.
+        resolved = alias_mapping.get(table_name) or alias_mapping.get(
+            table_name.lower()
+        )
+        col.parent = resolved or Table(table_name)
         return col
 
     def _add_column_lineage_edges(
@@ -125,6 +131,46 @@ class DmlInsertExtractor(LineageHolderExtractor, SourceHandlerMixin):
                 new_node, dst if dst != old_node else new_node, **data
             )
 
+    @staticmethod
+    def _resolve_update_target_from_table(
+        statement: Expression,
+    ) -> Optional[exp.Table]:
+        """
+        In `UPDATE alias SET ... FROM real_table alias ...` (T-SQL, Postgres) the
+        target is written as the alias of a table declared in the FROM clause. The
+        target then resolves to that real table, and the table is the write target
+        rather than a source. Returns the FROM table that is the target, or None
+        when the target is a table in its own right.
+        """
+        resolved = None
+        target = statement.this
+        if (
+            isinstance(statement, exp.Update)
+            and isinstance(target, exp.Table)
+            and not target.db
+            and not target.catalog
+            and target.args.get("alias") is None
+        ):
+            from_exp = statement.args.get("from_")
+            from_table = from_exp.this if from_exp else None
+            if isinstance(from_table, exp.Table):
+                candidates = [from_table]
+                for join in from_table.args.get("joins") or []:
+                    if isinstance(join, exp.Join) and isinstance(join.this, exp.Table):
+                        candidates.append(join.this)
+                for candidate in candidates:
+                    # Match the target only against an explicit alias, never the
+                    # table's own name, so a self-join source is not misread as the
+                    # target.
+                    if (
+                        candidate.alias
+                        and candidate.alias != candidate.name
+                        and target.name == candidate.alias
+                    ):
+                        resolved = candidate
+                        break
+        return resolved
+
     def extract(
         self,
         statement: Expression,
@@ -158,6 +204,7 @@ class DmlInsertExtractor(LineageHolderExtractor, SourceHandlerMixin):
         if isinstance(statement, (exp.Insert, exp.Update, exp.Delete, exp.Merge)):
             target_table = statement.this
             target_table_obj = None
+            update_target_from_table = self._resolve_update_target_from_table(statement)
             if target_table and isinstance(target_table, exp.Table):
                 # Handle Hive's "DELETE FROM TABLE tablename" syntax
                 # where TABLE is a keyword and tablename is parsed as an alias
@@ -172,7 +219,10 @@ class DmlInsertExtractor(LineageHolderExtractor, SourceHandlerMixin):
                     # The test expects no lineage for "DELETE FROM TABLE tab1"
                     pass
                 else:
-                    target_table_obj = SqlGlotTable.of(target_table)
+                    if update_target_from_table is not None:
+                        target_table_obj = SqlGlotTable.of(update_target_from_table)
+                    else:
+                        target_table_obj = SqlGlotTable.of(target_table)
                     holder.add_write(target_table_obj)
 
                     # Extract JOINs from target table (e.g., MySQL: UPDATE tab1 JOIN tab2 ...)
@@ -318,19 +368,53 @@ class DmlInsertExtractor(LineageHolderExtractor, SourceHandlerMixin):
                             for table in select_holder.read:
                                 holder.add_read(table)
 
+            # Tables referenced only inside a WHERE subquery are still sources.
+            if isinstance(statement, exp.Update):
+                where_exp = statement.args.get("where")
+                if where_exp is not None:
+                    for table in where_exp.find_all(exp.Table):
+                        holder.add_read(SqlGlotTable.of(table))
+
             from_exp = statement.args.get("from_")
             if from_exp and from_exp.this:
                 table = from_exp.this
                 if isinstance(table, exp.Table):
-                    holder.add_read(SqlGlotTable.of(table))
+                    if table is not update_target_from_table:
+                        holder.add_read(SqlGlotTable.of(table))
                     # Extract JOINs from FROM clause
                     joins = table.args.get("joins")
                     if joins:
                         for join in joins:
                             if isinstance(join, exp.Join):
                                 join_table = join.this
-                                if isinstance(join_table, exp.Table):
+                                if (
+                                    isinstance(join_table, exp.Table)
+                                    and join_table is not update_target_from_table
+                                ):
                                     holder.add_read(SqlGlotTable.of(join_table))
+
+            # Column lineage for a plain UPDATE. Each `SET target = expr` assignment is
+            # treated as a projection `expr AS target` and resolved through the same
+            # alias mapping the SELECT extractor uses, so source columns land on their
+            # real tables instead of a default-schema alias.
+            if isinstance(statement, exp.Update):
+                alias_mapping = self.get_alias_mapping_from_table_group(
+                    list(holder.read), holder
+                )
+                for set_expr in statement.args.get("expressions", []):
+                    if not (
+                        isinstance(set_expr, exp.EQ)
+                        and isinstance(set_expr.this, exp.Column)
+                    ):
+                        continue
+                    projection = exp.alias_(
+                        set_expr.expression.copy(), set_expr.this.name
+                    )
+                    target_column = SqlGlotColumn.of(projection)
+                    if target_table_obj is not None:
+                        target_column.parent = target_table_obj
+                    for source_column in target_column.to_source_columns(alias_mapping):
+                        holder.add_column_lineage(source_column, target_column)
 
             if isinstance(statement, exp.Merge):
                 # Extract USING clause
@@ -420,6 +504,9 @@ class DmlInsertExtractor(LineageHolderExtractor, SourceHandlerMixin):
                 # Extract column lineage from WHEN MATCHED / WHEN NOT MATCHED clauses
                 # Only for simple table references, not subquery aliases
                 whens = statement.args.get("whens")
+                merge_alias_mapping = self.get_alias_mapping_from_table_group(
+                    list(holder.read), holder
+                )
                 if whens and hasattr(whens, "expressions"):
                     for when_clause in whens.expressions:
                         if not isinstance(when_clause, exp.When):
@@ -470,6 +557,7 @@ class DmlInsertExtractor(LineageHolderExtractor, SourceHandlerMixin):
                                                 using_subquery_alias,
                                                 using_subquery_obj,
                                                 holder,
+                                                merge_alias_mapping,
                                             )
                                             self._add_column_lineage_edges(
                                                 holder, source_col, target_col
@@ -520,6 +608,7 @@ class DmlInsertExtractor(LineageHolderExtractor, SourceHandlerMixin):
                                         using_subquery_alias,
                                         using_subquery_obj,
                                         holder,
+                                        merge_alias_mapping,
                                     )
                                     self._add_column_lineage_edges(
                                         holder, source_col, target_col

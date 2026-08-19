@@ -27,6 +27,7 @@ from airbyte_ops_mcp.github_actions import (
     trigger_workflow_dispatch,
 )
 from airbyte_ops_mcp.github_api import resolve_ci_trigger_github_token
+from airbyte_ops_mcp.slack_api import unwrap_slack_identifier
 
 logger = logging.getLogger(__name__)
 
@@ -57,7 +58,7 @@ def classify_person_id(identifier: str) -> str:
         One of `"github_handle"`, `"slack_id"`, `"slack_usergroup_id"`, or
         `"email"`.
     """
-    identifier = identifier.strip()
+    identifier = unwrap_slack_identifier(identifier)
     if identifier.startswith("@"):
         return "github_handle"
     if _SLACK_USERGROUP_ID_PATTERN.match(identifier):
@@ -80,6 +81,8 @@ def validate_person_id(identifier: str) -> None:
     - Slack user ID matching `U` + uppercase alphanumeric (e.g. `U05AKF1BCC9`)
     - Slack usergroup ID matching `S` + uppercase alphanumeric
       (e.g. `S0BKR63VAN5`)
+    - Pasted Slack user mention (e.g. `<@U05AKF1BCC9>`)
+    - Pasted Slack usergroup mention (e.g. `<!subteam^S0BKR63VAN5|@oc-internal-ai>`)
     - Email address ending in `@airbyte.io` (e.g. `aj@airbyte.io`)
 
     A bare string without `@` prefix that does not match the Slack ID or
@@ -92,7 +95,7 @@ def validate_person_id(identifier: str) -> None:
     Raises:
         ValueError: If the identifier does not match any recognized format.
     """
-    stripped = identifier.strip()
+    stripped = unwrap_slack_identifier(identifier)
     if not stripped:
         raise ValueError("Identifier is empty.")
 
@@ -164,7 +167,7 @@ def normalize_person_id(identifier: str) -> str:
     Returns:
         Normalized identifier string.
     """
-    identifier = identifier.strip()
+    identifier = unwrap_slack_identifier(identifier)
     if identifier.startswith("@"):
         return identifier[1:]
     return identifier

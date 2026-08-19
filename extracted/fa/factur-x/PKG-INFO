@@ -1,6 +1,6 @@
-Metadata-Version: 2.4
+Metadata-Version: 2.5
 Name: factur-x
-Version: 6.7
+Version: 6.8
 Summary: Factur-X and Order-X: electronic invoicing and ordering standards
 Project-URL: Homepage, https://github.com/akretion/factur-x
 Project-URL: Source, https://github.com/akretion/factur-x
@@ -194,6 +194,10 @@ Contributors
 
 Changelog
 =========
+
+* Version 6.8 dated 2026-08-18:
+
+  * Add support for Incoterm in UBL and Factur-x XML generation. Contribution by Nicolas Jeudy.
 
 * Version 6.7 dated 2026-08-08:
 

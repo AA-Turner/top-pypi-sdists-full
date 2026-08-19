@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: cloud-sql-python-connector
-Version: 1.21.0
+Version: 1.22.0
 Summary: Google Cloud SQL Python Connector library
 Author-email: Google LLC <googleapis-packages@google.com>
 License-Expression: Apache-2.0
@@ -37,6 +37,8 @@ Provides-Extra: pytds
 Requires-Dist: python-tds>=1.15.0; extra == "pytds"
 Provides-Extra: asyncpg
 Requires-Dist: asyncpg>=0.30.0; extra == "asyncpg"
+Provides-Extra: psycopg
+Requires-Dist: psycopg>=3.1.0; extra == "psycopg"
 Dynamic: license-file
 
 <p align="center">
@@ -82,7 +84,8 @@ providing the following benefits:
 The Cloud SQL Python Connector is a package to be used alongside a database driver.
 Currently supported drivers are:
  - [`pymysql`](https://github.com/PyMySQL/PyMySQL) (MySQL)
- - [`pg8000`](https://github.com/tlocke/pg8000) (PostgreSQL)
+ - [`pg8000`](https://codeberg.org/tlocke/pg8000) (PostgreSQL)
+ - [`psycopg`](https://github.com/psycopg/psycopg) (PostgreSQL)
  - [`asyncpg`](https://github.com/MagicStack/asyncpg) (PostgreSQL)
  - [`pytds`](https://github.com/denisenkom/pytds) (SQL Server)
 
@@ -97,11 +100,15 @@ based on your database dialect.
 pip install "cloud-sql-python-connector[pymysql]"
 ```
 ### Postgres
-There are two different database drivers that are supported for the Postgres dialect:
+There are three different database drivers that are supported for the Postgres dialect:
 
 #### pg8000
 ```
 pip install "cloud-sql-python-connector[pg8000]"
+```
+#### psycopg
+```
+pip install "cloud-sql-python-connector[psycopg]"
 ```
 #### asyncpg
 ```
@@ -173,6 +180,18 @@ pool = sqlalchemy.create_engine(
     creator=lambda: connector.connect(
         "project:region:instance",
         "pymysql",
+        user="my-user",
+        password="my-password",
+        db="my-db-name"
+    ),
+)
+
+# Or with Postgres (psycopg):
+pool = sqlalchemy.create_engine(
+    "postgresql+psycopg://",
+    creator=lambda: connector.connect(
+        "project:region:instance",
+        "psycopg",
         user="my-user",
         password="my-password",
         db="my-db-name"

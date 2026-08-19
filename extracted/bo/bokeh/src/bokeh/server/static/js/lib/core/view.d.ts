@@ -12,6 +12,7 @@ import { ViewManager, ViewQuery } from "./view_manager";
 import type { Equatable, Comparator } from "./util/eq";
 import { equals } from "./util/eq";
 export type ViewOf<T extends HasProps> = T["__view_type__"];
+export type ChildView = View | null | undefined;
 export type SerializableState = {
     type: string;
     bbox?: BBox;
@@ -31,6 +32,7 @@ type TransitiveOpts = {
 };
 export declare abstract class View implements ISignalable, Equatable {
     readonly removed: Signal0<this>;
+    private readonly _abort_controller;
     readonly model: HasProps;
     readonly parent: View | null;
     readonly root: View;
@@ -44,6 +46,19 @@ export declare abstract class View implements ISignalable, Equatable {
     constructor(options: View.Options);
     initialize(): void;
     lazy_initialize(): Promise<void>;
+    /**
+     * An `AbortSignal` that is aborted when this view is removed.
+     *
+     * Pass it as `{signal: this.abort_signal}` to `addEventListener()` when
+     * subscribing to an event target that outlives this view (e.g. `document`,
+     * `window` or `visualViewport`). Such a target retains the listener, and
+     * through its closure this view and its model, for the lifetime of the page.
+     *
+     * Don't use it for listeners on elements this view owns. Those are released
+     * with the element itself, and registering an abort algorithm for them only
+     * adds a reference from this view to DOM it would otherwise let go of.
+     */
+    protected get abort_signal(): AbortSignal;
     protected _destroyed: boolean;
     remove(): void;
     get is_destroyed(): boolean;
@@ -51,7 +66,7 @@ export declare abstract class View implements ISignalable, Equatable {
     [equals](that: this, _cmp: Comparator): boolean;
     /** @deprecated use children_views */
     children(): IterViews;
-    children_views(): View[];
+    children_views(): ChildView[];
     protected _has_finished: boolean;
     mark_finished(): void;
     /**

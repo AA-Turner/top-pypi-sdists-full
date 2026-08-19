@@ -26,6 +26,7 @@ import sys
 import tempfile
 from collections.abc import Callable
 from pathlib import Path
+from typing import Any
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 import ray_shim  # noqa: E402
@@ -38,20 +39,20 @@ from geneva_faults import (  # noqa: E402
     CheckpointFaultPolicy,
     FlakyCommitter,
     FlakyFragmentFileWriter,
-    FlakyTableWriter,
     InterleavingCommitter,
     by_op_name,
     flaky_checkpoint_wrap,
 )
 
-from geneva import connect, udf  # noqa: E402
+from geneva import connect, fail_fast, udf  # noqa: E402
 from geneva.checkpoint import using_checkpoint_store_wrap  # noqa: E402
-from geneva.committer import using_committer  # noqa: E402
+from geneva.committer import LanceCommitter, using_committer  # noqa: E402
 from geneva.db import Connection  # noqa: E402
 from geneva.debug.error_store import skip_on_error  # noqa: E402
+from geneva.errors import ShortFragmentWriteError  # noqa: E402
 from geneva.fragment_writer import using_fragment_file_writer  # noqa: E402
+from geneva.runners.ray.writer import FragmentWriteFailedError  # noqa: E402
 from geneva.table import Table  # noqa: E402
-from geneva.table_writer import LanceTableWriter, using_table_writer  # noqa: E402
 
 ray_shim.stub_geneva_cluster_polling()
 
@@ -77,7 +78,7 @@ def _completion_marker(source: Table) -> dict | None:
     return None
 
 
-@udf(data_type=pa.int64())
+@udf(data_type=pa.int64(), on_error=fail_fast())
 def _double(value: int) -> int:
     return value * 2
 
@@ -252,9 +253,10 @@ def scenario_resume_heals() -> int:
 
 
 def scenario_mv_refresh_lost_append() -> int:
-    """Drop the MV refresh's row-landing append (Table.add of placeholder rows): the
-    refresh must NOT report success while leaving the view silently incomplete. Faults
-    the Table.add -> _ltbl.add write layer, which the committer cannot reach."""
+    """Drop the MV refresh's row-landing write -- the atomic Append commit of the
+    populated fragments the workers wrote -- the refresh must NOT report success
+    while leaving the view silently incomplete. The append goes through the
+    committer seam."""
     tmp = tempfile.mkdtemp(prefix="wd_mv_refresh_")
     try:
         db = connect(tmp)
@@ -266,9 +268,19 @@ def scenario_mv_refresh_lost_append() -> int:
         src.add(_block(0))
         src.add(_block(1))  # +6 rows the next refresh must land
 
-        flaky = FlakyTableWriter(ops={"add"}, drop_at={1})
+        # Only fault the view's own commits: job-history and other tables also
+        # commit through the committer seam.
+        class _DropMvAppend(FlakyCommitter):
+            def commit(
+                self, dataset_or_uri: Any, operation: Any, **kw: Any
+            ) -> lance.LanceDataset:
+                if "m.lance" not in str(dataset_or_uri):
+                    return self.inner.commit(dataset_or_uri, operation, **kw)
+                return super().commit(dataset_or_uri, operation, **kw)
+
+        flaky = _DropMvAppend(match=by_op_name("Append"), drop_at={1})
         raised: Exception | None = None
-        with using_table_writer(flaky):
+        with using_committer(flaky):
             try:
                 mv.refresh(_admission_check=False)
             except Exception as e:  # noqa: BLE001 -- we WANT to know if it raised
@@ -276,12 +288,15 @@ def scenario_mv_refresh_lost_append() -> int:
         src_rows = src.count_rows()
         mv_rows = mv.to_arrow().num_rows
         outcome = f"raised {type(raised).__name__}" if raised else "reported success"
-        print(f"adds seen    : {flaky.calls}   dropped: {flaky.dropped}")
+        print(f"appends seen : {flaky.calls}   dropped: {flaky.dropped}")
         print(f"refresh      : {outcome}")
         print(f"MV rows      : {mv_rows} / source {src_rows}")
 
         if not flaky.dropped:
-            print("INCONCLUSIVE: no add was dropped -- the table writer was not run.")
+            print(
+                "INCONCLUSIVE: no Append commit was dropped -- the committer "
+                "was not run."
+            )
             return 1
         if raised is not None:
             print(
@@ -310,12 +325,12 @@ def scenario_mv_refresh_lost_append() -> int:
 
 
 def scenario_mv_refresh_exposes_placeholders() -> int:
-    """A healthy MV refresh is not atomic to a reader: it commits placeholder rows
-    (view columns NULL, ``__is_set=False``) at an intermediate version, then fills them
-    with a later ``DataReplacement``. ``__is_set`` is written False but never flipped on
-    fill and never filtered on read, so a reader at the intermediate version cannot tell
-    placeholder NULLs from genuine ones. No fault injected: captures the post-append
-    version and reads the MV there. Transient -- a serving-consistency gap, not loss."""
+    """A reader at the refresh's intermediate (post-append) version must never see
+    rows whose view columns are NULL: a projection MV appends its new rows fully
+    populated instead of committing ``__is_set=False`` placeholders filled by a later
+    ``DataReplacement``. No fault injected: captures the post-append-commit version
+    and reads the MV there. A regression re-exposes placeholder NULLs a reader
+    cannot tell from genuine ones (``__is_set`` never flipped or filtered)."""
     tmp = tempfile.mkdtemp(prefix="wd_mv_placeholder_")
     try:
         db = connect(tmp)
@@ -326,25 +341,30 @@ def scenario_mv_refresh_exposes_placeholders() -> int:
         mv.refresh(_admission_check=False)  # populate 4
         src.add(_block(0))  # +3 rows the next refresh must land
 
-        # Pass-through writer that records the post-add version of m.lance.
+        # Pass-through committer that records the post-append version of
+        # m.lance (the populated fragments the workers wrote land via one
+        # atomic Append commit).
         captured: dict[str, object] = {}
 
-        class _CaptureWriter(LanceTableWriter):
-            def add(self, ltbl: object, *a: object, **k: object) -> object:
-                r = super().add(ltbl, *a, **k)
-                uri = str(getattr(ltbl, "uri", "") or "")
-                if "m.lance" in uri:
-                    captured["uri"] = uri
-                    captured["version"] = lance.dataset(uri).version
-                return r
+        class _CaptureAppendCommitter(LanceCommitter):
+            def commit(
+                self, dataset_or_uri: Any, operation: Any, **kw: Any
+            ) -> lance.LanceDataset:
+                ds = super().commit(dataset_or_uri, operation, **kw)
+                if type(operation).__name__ == "Append" and "m.lance" in str(
+                    dataset_or_uri
+                ):
+                    captured["uri"] = str(dataset_or_uri)
+                    captured["version"] = ds.version
+                return ds
 
-        with using_table_writer(_CaptureWriter()):
+        with using_committer(_CaptureAppendCommitter()):
             mv.refresh(_admission_check=False)
 
         uri = captured.get("uri")
         mid_version = captured.get("version")
         if not isinstance(uri, str) or not isinstance(mid_version, int):
-            print("INCONCLUSIVE: never captured the placeholder-append version.")
+            print("INCONCLUSIVE: never captured the populated-append version.")
             return 1
 
         final = lance.dataset(uri)
@@ -396,6 +416,133 @@ def scenario_mv_refresh_exposes_placeholders() -> int:
         shutil.rmtree(tmp, ignore_errors=True)
 
 
+def scenario_mv_refresh_mixed_view_exposes_placeholders() -> int:
+    """A MIXED view (a projected column plus a per-column UDF column) must not expose
+    rows whose PROJECTED column is NULL at the refresh's intermediate (post-append)
+    version: the projected values are available up front, so the append lands them
+    populated while OMITTING the UDF column entirely (no data file for its field id,
+    so the fill pass still computes it). The UDF column being NULL mid-refresh is NOT
+    a failure -- its values genuinely do not exist until the fill pass. No fault
+    injected: captures the post-append-commit version and reads the MV there. A
+    regression puts
+    the append back on the all-NULL placeholder path, leaking projected NULLs a
+    reader cannot tell from genuine ones (``__is_set`` is never flipped on fill or
+    filtered on read)."""
+    tmp = tempfile.mkdtemp(prefix="wd_mv_mixed_placeholder_")
+    try:
+        db = connect(tmp)
+        src = db.create_table(
+            "s", _initial(), storage_options={"new_table_enable_stable_row_ids": "true"}
+        )
+        mv = (
+            src.search(None)
+            .select({"id": "id", "doubled": _double})
+            .create_materialized_view(db, "m")
+        )
+        mv.refresh(_admission_check=False)  # populate 4
+        src.add(_block(0))  # +3 rows the next refresh must land
+
+        # Pass-through committer that records the post-append version of
+        # m.lance (the populated fragments the workers wrote land via one
+        # atomic Append commit).
+        captured: dict[str, object] = {}
+
+        class _CaptureAppendCommitter(LanceCommitter):
+            def commit(
+                self, dataset_or_uri: Any, operation: Any, **kw: Any
+            ) -> lance.LanceDataset:
+                ds = super().commit(dataset_or_uri, operation, **kw)
+                if type(operation).__name__ == "Append" and "m.lance" in str(
+                    dataset_or_uri
+                ):
+                    captured["uri"] = str(dataset_or_uri)
+                    captured["version"] = ds.version
+                return ds
+
+        with using_committer(_CaptureAppendCommitter()):
+            mv.refresh(_admission_check=False)
+
+        uri = captured.get("uri")
+        mid_version = captured.get("version")
+        if not isinstance(uri, str) or not isinstance(mid_version, int):
+            print("INCONCLUSIVE: never captured the populated-append version.")
+            return 1
+
+        final = lance.dataset(uri)
+        mid = lance.dataset(uri, version=mid_version)
+        mt = mid.to_table()
+        ft = final.to_table()
+        mid_ids = mt["id"].to_pylist()
+        mid_udf = mt["doubled"].to_pylist()
+        mid_isset = mt["__is_set"].to_pylist()
+        final_ids = ft["id"].to_pylist()
+        final_udf = ft["doubled"].to_pylist()
+        final_isset = ft["__is_set"].to_pylist()
+        leaked = [i for i, v in enumerate(mid_ids) if v is None]
+
+        print(f"versions     : placeholder@{mid_version} -> final@{final.version}")
+        print(f"mid   id     : {mid_ids}")
+        print(f"mid   doubled: {mid_udf}")
+        print(f"mid   __is_set: {mid_isset}")
+        print(f"final id     : {final_ids}")
+        print(f"final doubled: {final_udf}")
+        print(f"final __is_set: {final_isset}")
+        print(f"leaked NULL projected rows @ mid: {len(leaked)} of {mt.num_rows}")
+
+        # End-to-end fill check, enforced BEFORE any PASS below: the FINAL
+        # version must hold every expected row with its UDF column computed
+        # (doubled == value * 2 == id * 20 for this scenario's data).
+        expected_ids = [1, 2, 3, 4, 100, 101, 102]
+        final_complete = (
+            None not in final_ids
+            and sorted(final_ids) == expected_ids
+            and all(d == i * 20 for i, d in zip(final_ids, final_udf, strict=True))
+        )
+        if not final_complete:
+            print(
+                f"FAIL: the FINAL version is wrong or incomplete: "
+                f"ids={final_ids} doubled={final_udf} (expected ids "
+                f"{expected_ids} with doubled == id * 20)."
+            )
+            return 1
+
+        if mid_version >= final.version:
+            print("PASS: no separate intermediate version -- the refresh is atomic.")
+            return 0
+        if not leaked:
+            print(
+                "PASS: the intermediate version exposes no NULL projected columns "
+                "(the UDF column may legitimately stay NULL until the fill pass)."
+            )
+            return 0
+        if any(v is None for v in final_ids):
+            print(
+                "FAIL (worse bug): the FINAL version still has NULL projected rows -- "
+                "not even transient (persistent placeholder loss)."
+            )
+            return 1
+        # __is_set never True at either version, so a reader cannot use it to exclude
+        # placeholders.
+        if any(mid_isset) or any(final_isset):
+            print(
+                "PASS: __is_set is True somewhere -- a reader can use it to exclude "
+                "placeholders (a usable gate)."
+            )
+            return 0
+        print(
+            f"\nFAIL (bug present): the mixed view's refresh exposed {len(leaked)} "
+            f"rows with the PROJECTED column NULL at intermediate version "
+            f"{mid_version}; the UDF column put the whole append on the all-NULL "
+            f"placeholder path even though the projected values were available up "
+            f"front. __is_set is uniformly False (never flipped, never filtered), so "
+            f"a reader has no signal to exclude them. Final version {final.version} "
+            f"is complete."
+        )
+        return 1
+    finally:
+        shutil.rmtree(tmp, ignore_errors=True)
+
+
 def scenario_graceful_degradation_false_success() -> int:
     """Fail one fragment's data-file WRITE (inside the writer actor), not a commit: the
     backfill must NOT report success while that fragment's rows stay NULL. Exercises the
@@ -441,6 +588,75 @@ def scenario_graceful_degradation_false_success() -> int:
             f"degradation)."
         )
         return 1
+    finally:
+        shutil.rmtree(tmp, ignore_errors=True)
+
+
+def scenario_short_fragment_write_fails_loud() -> int:
+    """Truncate one fragment's data-file WRITE (a SHORT write, not a full failure):
+    the backfill must FAIL LOUD rather than commit a short data file that makes the
+    table unreadable (a corrupt false success).
+
+    A short fragment file holds fewer rows than the fragment manifest claims, so lance
+    errors on every later read. Geneva now checks that a fragment writes exactly the
+    rows it was handed (the aligned physical layout, or the direct-write input batch)
+    and raises ShortFragmentWriteError before the short file is recorded or committed --
+    so the table stays READABLE and a re-run heals the column, instead of the previous
+    corrupt-and-unreadable table."""
+    tmp = tempfile.mkdtemp(prefix="wd_short_frag_")
+    try:
+        db = connect(tmp)
+        source = _make_source(db)
+
+        flaky = FlakyFragmentFileWriter(short_at={1}, short_rows=1)
+        raised: Exception | None = None
+        with using_fragment_file_writer(flaky):
+            try:
+                _backfill(source)
+            except Exception as e:  # noqa: BLE001 -- we WANT to know if it raised
+                raised = e
+
+        read_err = ""
+        try:
+            _rows(source)
+            readable = True
+        except Exception as e:  # noqa: BLE001 -- an unreadable table is the bug we fixed
+            readable = False
+            read_err = str(e)[:160]
+
+        outcome = f"raised {type(raised).__name__}" if raised else "reported success"
+        print(f"writes seen  : {flaky.calls}   shorted: {flaky.shorted}")
+        print(f"backfill     : {outcome}")
+        print(f"table        : {'READABLE' if readable else 'UNREADABLE'}")
+        if raised is not None:
+            print(f"error        : {str(raised)[:200]}")
+
+        if not flaky.shorted:
+            print("FAIL: no fragment write was shorted -- the writer seam was not hit.")
+            return 1
+        if raised is None:
+            print(
+                "REGRESSED: the backfill reported success despite a short write -- the "
+                "completeness guard did not fire."
+            )
+            return 1
+        if not isinstance(raised, (ShortFragmentWriteError, FragmentWriteFailedError)):
+            print(
+                f"WRONG ERROR: expected ShortFragmentWriteError / "
+                f"FragmentWriteFailedError, got {type(raised).__name__}."
+            )
+            return 1
+        if not readable:
+            print(
+                f"NOT FULLY FIXED: failed loud but the table is still unreadable "
+                f"({read_err}) -- a short artifact reached the commit."
+            )
+            return 1
+        print(
+            "\nPASS: a short fragment write failed loud (no short file committed); the "
+            "table stays readable, so a re-run heals the column."
+        )
+        return 0
     finally:
         shutil.rmtree(tmp, ignore_errors=True)
 
@@ -804,10 +1020,15 @@ def scenario_applier_death_fails_loud() -> int:
 def scenario_applier_death_skip_budget_bypass() -> int:
     """An applier death under ``skip_on_error(max_skip_count=0)`` must NOT report
     success -- a ZERO skip budget means any skipped row fails the job. The fatal-task
-    null-checkpoint path charges ``skipped_stats['null_checkpoints']`` but never
-    ``skip_tracker.record_batch``, so a worker-death NULL bypasses the budget and the
-    job reports done with the dead task's rows NULL. The bug violates the invariant, so
-    this exits non-zero (its pytest case is xfail)."""
+    null-checkpoint path charges the synthesized NULL rows against the skip-budget
+    tracker BEFORE persisting the null checkpoint, so a zero or exceeded budget fails
+    loud instead of silently committing the dead task's rows as NULL, and the rejected
+    skip leaves nothing durable behind. Phase 2 clears the death fault and retries the
+    same backfill: the null checkpoint's key is deterministic across attempts, so an
+    orphaned null checkpoint from the failed attempt would be consumed as legitimate
+    cached results -- bypassing the applier AND the skip accounting -- and the retry
+    would silently commit the dead rows as NULL. The retry must complete with ZERO
+    NULL rows."""
     tmp = tempfile.mkdtemp(prefix="wd_applier_death_skip_")
     try:
         db = connect(tmp)
@@ -831,21 +1052,60 @@ def scenario_applier_death_skip_budget_bypass() -> int:
         if not policy.fired:
             print("INCONCLUSIVE: the applier death never fired (no ApplierActor.run).")
             return 1
-        if raised is not None:
+        if raised is None:
+            if not gap:
+                print("PASS: no NULL gap -- the death healed within the run.")
+                return 0
             print(
-                f"PASS: the job failed LOUD ({type(raised).__name__}) -- the zero skip "
-                "budget held; the worker-death rows were not silently skipped."
+                f"\nFAIL (bug present): backfill reported SUCCESS with {len(gap)} of "
+                f"{len(rows)} rows silently NULL despite a ZERO skip budget -- the "
+                "worker-death null-checkpoint bypassed the skip-budget charge."
             )
-            return 0
-        if not gap:
-            print("PASS: no NULL gap -- the death healed within the run.")
-            return 0
+            return 1
         print(
-            f"\nFAIL (bug present): backfill reported SUCCESS with {len(gap)} of "
-            f"{len(rows)} rows silently NULL despite a ZERO skip budget -- the "
-            "worker-death null-checkpoint bypassed the skip-budget charge."
+            f"phase 1 PASS  : the job failed LOUD ({type(raised).__name__}) -- the "
+            "zero skip budget held; the worker-death rows were not silently skipped."
         )
-        return 1
+
+        # Phase 2: the death fault is cleared (the using_actor_death context exited);
+        # retry the SAME backfill. An orphaned null checkpoint persisted by the
+        # rejected skip would be loaded here as cached results under its
+        # deterministic key, so any NULL surviving the clean retry means the failed
+        # attempt poisoned the checkpoint store.
+        retry_raised: Exception | None = None
+        try:
+            _backfill(source)
+        except Exception as e:  # noqa: BLE001 -- we WANT to know if it raised
+            retry_raised = e
+        rows2 = _rows(source)
+        gap2 = _nulls(rows2)
+        outcome2 = (
+            f"raised {type(retry_raised).__name__}"
+            if retry_raised
+            else "reported success"
+        )
+        print(f"clean retry   : {outcome2}")
+        print(f"retry nulls   : {len(gap2)} of {len(rows2)} -> {[r[0] for r in gap2]}")
+
+        if retry_raised is not None:
+            print(
+                f"FAIL: the clean retry died ({type(retry_raised).__name__}) -- with "
+                "the injected death cleared it must complete."
+            )
+            return 1
+        if gap2:
+            print(
+                f"\nFAIL (bug present): the clean retry reported success with "
+                f"{len(gap2)} of {len(rows2)} rows NULL -- the failed attempt left an "
+                "orphaned null checkpoint that the retry consumed as cached results, "
+                "bypassing the applier and the skip accounting."
+            )
+            return 1
+        print(
+            "\nHELD: the zero-budget death failed LOUD and left no poisoned null "
+            "checkpoint -- the clean retry recomputed every row (0 NULLs)."
+        )
+        return 0
     finally:
         shutil.rmtree(tmp, ignore_errors=True)
 
@@ -915,7 +1175,11 @@ SCENARIOS: dict[str, Callable[[], int]] = {
     "resume-heals": scenario_resume_heals,
     "mv-refresh-lost-append": scenario_mv_refresh_lost_append,
     "mv-refresh-exposes-placeholders": scenario_mv_refresh_exposes_placeholders,
+    "mv-refresh-mixed-view-exposes-placeholders": (
+        scenario_mv_refresh_mixed_view_exposes_placeholders
+    ),
     "graceful-degradation": scenario_graceful_degradation_false_success,
+    "short-fragment-write-fails-loud": scenario_short_fragment_write_fails_loud,
     "checkpoint-loss-recovers": scenario_checkpoint_loss_recovers,
     "schema-change-recomputes": scenario_schema_change_recomputes,
     "source-change-not-silently-stale": scenario_source_change_not_silently_stale,

@@ -1,5 +1,5 @@
 import type * as p from "../../../core/properties";
-import type { Column, RowMetadata } from "@bokeh/slickgrid";
+import type { Column, ItemMetadata, SlickGroup as Group } from "slickgrid";
 import type { Item } from "./definitions";
 import { TableDataProvider, DataTableView, DataTable } from "./data_table";
 import { ColumnDataSource } from "../../sources/column_data_source";
@@ -19,11 +19,7 @@ export interface GroupingInfo extends GroupingInfo.Attrs {
 export declare class GroupingInfo extends Model {
     properties: GroupingInfo.Props;
     constructor(attrs?: Partial<GroupingInfo.Attrs>);
-    get comparer(): (a: {
-        value: number;
-    }, b: {
-        value: number;
-    }) => number;
+    get comparer(): (a: Group, b: Group) => number;
 }
 export declare class DataCubeProvider extends TableDataProvider {
     readonly columns: Column<Item>[];
@@ -42,8 +38,8 @@ export declare class DataCubeProvider extends TableDataProvider {
     private flattenedGroupedRows;
     refresh(): void;
     getLength(): number;
-    getItem(i: number): Item;
-    getItemMetadata(i: number): RowMetadata<Item>;
+    getItem<T extends Item>(i: number): T;
+    getItemMetadata(i: number): ItemMetadata;
     collapseGroup(grouping_key: string): void;
     expandGroup(grouping_key: string): void;
 }

@@ -1,6 +1,6 @@
 Metadata-Version: 2.5
 Name: langchain-aws
-Version: 1.7.1
+Version: 1.7.2
 Summary: An integration package connecting AWS and LangChain
 Project-URL: Source Code, https://github.com/langchain-ai/langchain-aws/tree/main/libs/aws
 Project-URL: Repository, https://github.com/langchain-ai/langchain-aws
@@ -12,11 +12,13 @@ Requires-Dist: langchain-core>=1.4.7
 Requires-Dist: numpy<3,>=1.0.0
 Requires-Dist: pydantic<3,>=2.10.6
 Provides-Extra: anthropic
-Requires-Dist: anthropic[bedrock]; extra == 'anthropic'
+Requires-Dist: anthropic[bedrock]>=0.95.0; extra == 'anthropic'
+Requires-Dist: aws-bedrock-token-generator>=1.1.0; extra == 'anthropic'
 Requires-Dist: langchain-anthropic; extra == 'anthropic'
 Provides-Extra: nova-sonic
 Requires-Dist: aws-sdk-bedrock-runtime; (python_version >= '3.12') and extra == 'nova-sonic'
 Provides-Extra: openai
+Requires-Dist: aws-bedrock-token-generator>=1.1.0; extra == 'openai'
 Requires-Dist: langchain-openai>=1.0.0; extra == 'openai'
 Requires-Dist: openai>=1.106.0; extra == 'openai'
 Provides-Extra: tools

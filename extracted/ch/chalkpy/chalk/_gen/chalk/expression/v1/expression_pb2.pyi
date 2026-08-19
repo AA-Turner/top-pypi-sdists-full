@@ -682,6 +682,7 @@ class RichArgument(_message.Message):
         "flat_expr_value",
         "canonical_proto_value",
         "custom_python_value",
+        "blocking_fn_v2_value",
         "list_value",
         "unordered_dict_value",
     )
@@ -693,6 +694,7 @@ class RichArgument(_message.Message):
     FLAT_EXPR_VALUE_FIELD_NUMBER: _ClassVar[int]
     CANONICAL_PROTO_VALUE_FIELD_NUMBER: _ClassVar[int]
     CUSTOM_PYTHON_VALUE_FIELD_NUMBER: _ClassVar[int]
+    BLOCKING_FN_V2_VALUE_FIELD_NUMBER: _ClassVar[int]
     LIST_VALUE_FIELD_NUMBER: _ClassVar[int]
     UNORDERED_DICT_VALUE_FIELD_NUMBER: _ClassVar[int]
     primitive_value: _primitive_pb2.Primitive
@@ -703,6 +705,7 @@ class RichArgument(_message.Message):
     flat_expr_value: FlatLogicalExpr
     canonical_proto_value: _any_pb2.Any
     custom_python_value: CustomPython
+    blocking_fn_v2_value: BlockingFunctionV2
     list_value: RichArgumentList
     unordered_dict_value: RichArgumentUnorderedDict
     def __init__(
@@ -715,6 +718,7 @@ class RichArgument(_message.Message):
         flat_expr_value: _Optional[_Union[FlatLogicalExpr, _Mapping]] = ...,
         canonical_proto_value: _Optional[_Union[_any_pb2.Any, _Mapping]] = ...,
         custom_python_value: _Optional[_Union[CustomPython, _Mapping]] = ...,
+        blocking_fn_v2_value: _Optional[_Union[BlockingFunctionV2, _Mapping]] = ...,
         list_value: _Optional[_Union[RichArgumentList, _Mapping]] = ...,
         unordered_dict_value: _Optional[_Union[RichArgumentUnorderedDict, _Mapping]] = ...,
     ) -> None: ...

@@ -465,9 +465,12 @@ describe("patchPage frame patching", () => {
     patchPage(page as any, cfg, cursor as any);
     await page.goto("https://example.com");
 
-    expect(page.on).toHaveBeenCalledTimes(1);
-    const [eventName, handler] = page.on.mock.calls[0];
-    expect(eventName).toBe("frameattached");
+    // Two listeners are wired once: frameattached (patch dynamic frames) and
+    // framenavigated (invalidate the isolated world — #507).
+    expect(page.on).toHaveBeenCalledTimes(2);
+    const attachedCall = page.on.mock.calls.find((c: any[]) => c[0] === "frameattached");
+    expect(attachedCall).toBeDefined();
+    const handler = attachedCall[1];
 
     const attachedFrame = buildMockFrame();
     const originalClick = attachedFrame.click;
@@ -478,6 +481,29 @@ describe("patchPage frame patching", () => {
     expect((attachedFrame as any)._humanPatched).toBe(true);
     expect(patchedClick).not.toBe(originalClick);
     expect(attachedFrame.click).toBe(patchedClick);
+  });
+
+  it("invalidates the isolated world on main-frame navigation, not subframes (#507)", async () => {
+    const { patchPage } = await import("../src/human/index.js");
+
+    const mainFrame = { ...buildMockFrame(), childFrames: vi.fn(() => []) };
+    const page = buildMockPage({ mainFrameReturn: mainFrame });
+    const cfg = resolveConfig("default");
+    const cursor = { x: 0, y: 0, initialized: false };
+    patchPage(page as any, cfg, cursor as any);
+
+    const invalidateSpy = vi.spyOn((page as any)._stealth, "invalidate");
+    const navCall = page.on.mock.calls.find((c: any[]) => c[0] === "framenavigated");
+    expect(navCall).toBeDefined();
+    const handler = navCall[1];
+
+    // subframe navigation -> no invalidation
+    handler(buildMockFrame());
+    expect(invalidateSpy).not.toHaveBeenCalled();
+
+    // main-frame navigation -> invalidate
+    handler(page.mainFrame());
+    expect(invalidateSpy).toHaveBeenCalledTimes(1);
   });
 
   it("uses frame.locator for frame.click instead of page.click", async () => {
@@ -521,6 +547,31 @@ describe("patchPage frame patching", () => {
     // must NOT fall through to the frame-scoped locator (the pre-fix leak path)
     expect(mainFrame.locator).not.toHaveBeenCalled();
   });
+
+  it("selectOption does not infinitely recurse through the patched main frame (regression)", async () => {
+    // page.selectOption re-dispatches to the patched main frame; originals must
+    // bind to the frame's native method or humanSelectOptionFn loops forever.
+    const { patchPage } = await import("../src/human/index.js");
+
+    const nativeSelect = vi.fn(async () => ["b"]);
+    const mainFrame = { ...buildMockFrame(), childFrames: vi.fn(() => []), selectOption: nativeSelect };
+    const page = buildMockPage({ mainFrameReturn: mainFrame });
+
+    // Mimic Playwright: the page's own selectOption delegates to the main frame's,
+    // with a depth guard so a regression throws instead of hanging the test.
+    let depth = 0;
+    page.selectOption = (sel: string, val: any, opts: any) => {
+      if (++depth > 5) throw new Error("RECURSION: selectOption re-dispatched to itself");
+      return page.mainFrame().selectOption(sel, val, opts);
+    };
+
+    const cfg = resolveConfig("default", { mouse_min_steps: 1, mouse_max_steps: 1 });
+    patchPage(page as any, cfg, { x: 0, y: 0, initialized: true } as any);
+
+    await expect((page as any).selectOption("#s", "b", { timeout: 2000 })).resolves.toBeDefined();
+    expect(nativeSelect).toHaveBeenCalledTimes(1);
+    expect(depth).toBe(0); // the delegating page.selectOption was never re-entered
+  }, 30000);
 
   it.each([
     ["type", async (frame: any) => frame.type("input.email", "@")],
@@ -1518,6 +1569,50 @@ describe("humanScrollIntoView", () => {
     const getBox = async () => boxes[Math.min(i++, boxes.length - 1)];
 
     await humanScrollIntoView(page, raw, getBox, 0, 0, cfg);
+    expect(raw.wheel).toHaveBeenCalled();
+  }, 15000);
+
+  it("bails without scrolling when a fully-visible element is above the zone and the page is at the top (regression)", async () => {
+    const { humanScrollIntoView } = await import("../src/human/scroll.js");
+    const cfg = resolveConfig("default");
+
+    // viewport 720 -> zone [144, 576]; element top=50 is above the zone but fully visible.
+    const page: any = {
+      viewportSize: () => ({ width: 1280, height: 720 }),
+      evaluate: vi.fn(async () => ({ y: 0, maxY: 2000 })), // scrolled to the very top
+    };
+    const raw = {
+      move: vi.fn(async () => { }), down: vi.fn(async () => { }),
+      up: vi.fn(async () => { }), wheel: vi.fn(async () => { }),
+    };
+    const topBox = { x: 200, y: 50, width: 50, height: 30 };
+
+    const result = await humanScrollIntoView(page, raw, async () => topBox, 0, 0, cfg);
+
+    expect(result.didScroll).toBe(false);
+    expect(raw.wheel).not.toHaveBeenCalled();
+  });
+
+  it("still scrolls a fully-visible above-zone element when the page CAN scroll up (no over-bail)", async () => {
+    const { humanScrollIntoView } = await import("../src/human/scroll.js");
+    const cfg = resolveConfig("default", {
+      scroll_overshoot_chance: 0,
+      scroll_pre_move_delay: [0, 1], scroll_pause_fast: [0, 1],
+      scroll_pause_slow: [0, 1], scroll_settle_delay: [0, 1],
+    });
+
+    const page: any = {
+      viewportSize: () => ({ width: 1280, height: 720 }),
+      evaluate: vi.fn(async () => ({ y: 500, maxY: 2000 })), // room to scroll up
+    };
+    const raw = {
+      move: vi.fn(async () => { }), down: vi.fn(async () => { }),
+      up: vi.fn(async () => { }), wheel: vi.fn(async () => { }),
+    };
+    const topBox = { x: 200, y: 50, width: 50, height: 30 };
+
+    await humanScrollIntoView(page, raw, async () => topBox, 0, 0, cfg);
+
     expect(raw.wheel).toHaveBeenCalled();
   }, 15000);
 });

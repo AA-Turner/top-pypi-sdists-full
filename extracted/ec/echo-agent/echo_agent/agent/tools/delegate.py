@@ -16,7 +16,7 @@ from typing import Any
 from loguru import logger
 
 from echo_agent.agent.multi_agent.audit import DispatchAuditLog
-from echo_agent.agent.multi_agent.models import WorkerProfile, WorkerResult
+from echo_agent.agent.multi_agent.models import WorkerProfile, WorkerResult, WorkerToolOutcome
 from echo_agent.agent.multi_agent.registry import WorkerRegistry
 from echo_agent.agent.multi_agent.runtime import WorkerExecutor
 from echo_agent.agent.tools.base import Tool, ToolExecutionContext, ToolResult
@@ -67,20 +67,40 @@ def build_worker_tool_executor(
     workers) so both honour the exact same approval/containment contract.
     """
 
-    async def _execute(tool_name: str, tool_call: ToolCallRequest, index: int) -> str:
+    async def _execute(tool_name: str, tool_call: ToolCallRequest, index: int) -> WorkerToolOutcome:
         if tool_name not in allowed_tools:
-            return f"Error: Tool '{tool_name}' is not available for this worker."
+            return WorkerToolOutcome(
+                text=f"Error: Tool '{tool_name}' is not available for this worker.",
+                success=False,
+            )
 
+        # Gate the worker's call on the SAME facts as the turn that dispatched it.
+        # This used to pass channel="" and event=None, which the gate read as a
+        # local human-at-the-keyboard session (""  is in _INTERACTIVE_CHANNELS):
+        # a worker's exec auto-approved on cli_auto_approve even when the parent
+        # call arrived from telegram and would itself have needed consent, and a
+        # scheduled job's worker looked interactive rather than unattended. The
+        # dispatch is gated too (delegate/spawn are EXEC-tier), but a worker must
+        # not be able to reach further than whoever dispatched it.
+        #
+        # nested=True tells the gate no keyboard is behind this call, so the
+        # interactive shortcuts do not apply regardless of the channel string.
         approval_check = await approval_gate.check(
             tool_name,
             tool_call.arguments,
             parent_ctx.user_id if parent_ctx else "",
-            channel="",
+            channel=parent_ctx.channel if parent_ctx else "",
             event=None,
             running=True,
+            unattended=bool(parent_ctx.unattended) if parent_ctx else False,
+            cron_authorized=bool(parent_ctx.cron_authorized) if parent_ctx else False,
+            nested=True,
         )
         if approval_check.denial:
-            return f"Error: {approval_check.denial.error or approval_check.denial.text}"
+            return WorkerToolOutcome(
+                text=f"Error: {approval_check.denial.error or approval_check.denial.text}",
+                success=False,
+            )
 
         from echo_agent.agent.tools.base import build_idempotency_key
         trace_id = parent_ctx.trace_id if parent_ctx else uuid.uuid4().hex[:12]
@@ -96,13 +116,23 @@ def build_worker_tool_executor(
             parent_execution_id=f"worker:{tool_name}:{depth}",
             credentials=credentials.get_for_tool(tool_name) if credentials else {},
             approved_actions=approval_check.approved_actions,
+            approval_source=approval_check.approval_source,
             allowed_tools=frozenset(allowed_tools),
+            # Carry the origin and trust facts down, so a tool that itself
+            # consults them (or a deeper nesting level) sees the dispatching
+            # turn's context rather than a blank one.
+            channel=parent_ctx.channel if parent_ctx else "",
+            chat_id=parent_ctx.chat_id if parent_ctx else "",
+            unattended=bool(parent_ctx.unattended) if parent_ctx else False,
+            cron_authorized=bool(parent_ctx.cron_authorized) if parent_ctx else False,
         )
         result = await tool_registry.execute(tool_name, tool_call.arguments, worker_ctx)
         text = result.text
         if len(text) > _MAX_TOOL_RESULT_CHARS:
             text = text[:_MAX_TOOL_RESULT_CHARS] + "\n...(truncated)"
-        return text
+        # Carry success through instead of collapsing to text: the worker loop
+        # uses it to stop burning iterations on a tool that keeps failing.
+        return WorkerToolOutcome(text=text, success=bool(getattr(result, "success", True)))
 
     return _execute
 
@@ -453,7 +483,13 @@ class SpawnTool(Tool):
     async def _run_background(self, task_id: str, task: str, context: str, ctx: ToolExecutionContext | None) -> None:
         try:
             result = await self._execute_worker(task_id, task, context, ctx)
-            logger.info("Background task {} completed: {}", task_id, result[:100])
+            # Collapse newlines: a multi-line result (a failed worker appends its
+            # error on its own line) otherwise spills past the timestamped first
+            # line and reads like stray un-logged stderr output.
+            logger.info(
+                "Background task {} completed: {}",
+                task_id, " ".join(result.split())[:300],
+            )
             await self._announce(task_id, result, ctx)
         except Exception as e:
             logger.error("Background task {} failed: {}", task_id, e)

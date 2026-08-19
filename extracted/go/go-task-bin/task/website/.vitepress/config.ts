@@ -1,7 +1,8 @@
 import { defineConfig, HeadConfig } from 'vitepress';
 import githubLinksPlugin from './plugins/github-links';
-import { readFileSync } from 'fs';
+import { readdirSync, readFileSync } from 'fs';
 import { resolve } from 'path';
+import matter from 'gray-matter';
 import { tabsMarkdownPlugin } from 'vitepress-plugin-tabs';
 import {
   groupIconMdPlugin,
@@ -13,17 +14,67 @@ import { adopters } from './adopters.ts';
 import { taskDescription, taskName, ogUrl, ogImage } from './meta.ts';
 import { fileURLToPath, URL } from 'node:url';
 import llmstxt from 'vitepress-plugin-llms';
+import { sidebar as nextSidebar } from './sidebar/next.ts';
+import { sidebar as latestSidebar } from './sidebar/latest.ts';
 
 const version = readFileSync(
   resolve(__dirname, '../../internal/version/version.txt'),
   'utf8'
 ).trim();
 
+// Which channel to build. `src/next` is written for the upcoming release and
+// serves next.taskfile.dev; `src/latest` is its copy at the released version
+// and serves taskfile.dev. Both mount at the same URLs, so taskfile.dev never
+// documents or announces a feature that is not in the released binary.
+// cmd/release owns the other half of this: it promotes one over the other.
+const isLatest = process.env.DOCS_CHANNEL === 'latest';
+const channel = isLatest ? 'latest' : 'next';
+const other = isLatest ? 'next' : 'latest';
+
+const docsSidebar = isLatest ? latestSidebar : nextSidebar;
+
+// Builds the "/blog/" sidebar from each blog post's frontmatter.
+function buildBlogSidebar() {
+  const blogDir = resolve(__dirname, `../src/${channel}/blog`);
+  const posts = readdirSync(blogDir)
+    .filter((file) => file.endsWith('.md') && file !== 'index.md')
+    .map((file) => {
+      const { data: frontmatter } = matter(
+        readFileSync(resolve(blogDir, file), 'utf8')
+      );
+      return {
+        slug: file.replace(/\.md$/, ''),
+        title: frontmatter.sidebarTitle ?? frontmatter.title,
+        date: new Date(frontmatter.date)
+      };
+    })
+    .sort((a, b) => b.date.getTime() - a.date.getTime());
+
+  const byYear = new Map<number, { text: string; link: string }[]>();
+  for (const post of posts) {
+    const year = post.date.getFullYear();
+    if (!byYear.has(year)) byYear.set(year, []);
+    byYear.get(year)!.push({ text: post.title, link: `/blog/${post.slug}` });
+  }
+
+  return [...byYear.entries()]
+    .sort((a, b) => b[0] - a[0])
+    .map(([year, items]) => ({
+      text: String(year),
+      collapsed: false,
+      items
+    }));
+}
+
+// Ports are the ones the dev tasks bind to; keep them in sync with
+// website/Taskfile.yml. DOCS_LOCAL is set by those tasks alone, so a build can
+// never end up shipping localhost URLs.
+const localPorts = { latest: 3002, next: 3001 };
 const urlVersion =
-  process.env.NODE_ENV === 'development'
+  process.env.DOCS_LOCAL === '1'
     ? {
-        current: 'https://taskfile.dev/',
-        next: 'http://localhost:3002/'
+        current: `http://localhost:${localPorts.latest}/`,
+        next: `http://localhost:${localPorts.next}/`
       }
     : {
         current: 'https://taskfile.dev/',
@@ -218,6 +269,8 @@ export default defineConfig({
   },
   srcDir: 'src',
   cleanUrls: true,
+  srcExclude: [`${other}/**`],
+  rewrites: { [`${channel}/:path*`]: ':path*' },
   markdown: {
     config: (md) => {
       md.use(githubLinksPlugin, {
@@ -235,11 +288,12 @@ export default defineConfig({
           'index.md',
           'team.md',
           'donate.md',
-          'docs/styleguide.md',
-          'docs/contributing.md',
-          'docs/releasing.md',
-          'docs/changelog.md',
-          'blog/*'
+          // Matched against source paths, which `rewrites` does not touch.
+          `${channel}/docs/styleguide.md`,
+          `${channel}/docs/contributing.md`,
+          `${channel}/docs/releasing.md`,
+          `${channel}/docs/changelog.md`,
+          `${channel}/blog/*`
         ]
       }),
       groupIconVitePlugin({
@@ -261,6 +315,12 @@ export default defineConfig({
           find: /^.*\/VPTeamMembersItem\.vue$/,
           replacement: fileURLToPath(
             new URL('./components/VPTeamMembersItem.vue', import.meta.url)
+          )
+        },
+        {
+          find: /^.*\/VPSponsorsGrid\.vue$/,
+          replacement: fileURLToPath(
+            new URL('./components/VPSponsorsGrid.vue', import.meta.url)
           )
         }
       ]
@@ -292,17 +352,24 @@ export default defineConfig({
       { text: 'Donate', link: '/donate' },
       { text: 'Team', link: '/team' },
       {
-        text: process.env.NODE_ENV === 'development' ? 'Next' : `v${version}`,
+        text: isLatest ? `v${version}` : 'Next',
         items: [
           {
             items: [
+              // Absolute links, so VitePress would treat them as external and
+              // open them in a new tab. Switching channels is navigation, not a
+              // detour off the site.
               {
                 text: `v${version}`,
-                link: urlVersion.current
+                link: urlVersion.current,
+                target: '_self',
+                noIcon: true
               },
               {
                 text: 'Next',
-                link: urlVersion.next
+                link: urlVersion.next,
+                target: '_self',
+                noIcon: true
               }
             ]
           }
@@ -311,181 +378,8 @@ export default defineConfig({
     ],
 
     sidebar: {
-      '/blog/': [
-        {
-          text: '2026',
-          collapsed: false,
-          items: [
-            {
-              text: 'go tool task',
-              link: '/blog/go-tool-task'
-              },
-            {
-              text: 'New "if:" Control and Variable Prompt',
-              link: '/blog/if-and-variable-prompt'
-            }
-          ]
-        },
-        {
-          text: '2025',
-          collapsed: false,
-          items: [
-            {
-              text: 'Built-in Core Utilities',
-              link: '/blog/windows-core-utils'
-            }
-          ]
-        },
-        {
-          text: '2024',
-          collapsed: false,
-          items: [
-            {
-              text: 'Any Variables',
-              link: '/blog/any-variables'
-            }
-          ]
-        },
-        {
-          text: '2023',
-          collapsed: false,
-          items: [
-            {
-              text: 'Introducing Experiments',
-              link: '/blog/task-in-2023'
-            }
-          ]
-        }
-      ],
-      '/': [
-        {
-          text: 'Installation',
-          link: '/docs/installation'
-        },
-        {
-          text: 'Getting Started',
-          link: '/docs/getting-started'
-        },
-        {
-          text: 'Guide',
-          link: '/docs/guide'
-        },
-        {
-          text: 'Reference',
-          collapsed: true,
-          items: [
-            {
-              text: 'Taskfile Schema',
-              link: '/docs/reference/schema'
-            },
-            {
-              text: 'Environment',
-              link: '/docs/reference/environment'
-            },
-            {
-              text: 'Configuration',
-              link: '/docs/reference/config'
-            },
-            {
-              text: 'CLI',
-              link: '/docs/reference/cli'
-            },
-            {
-              text: 'Templating',
-              link: '/docs/reference/templating'
-            },
-            {
-              text: 'Package API',
-              link: '/docs/reference/package'
-            }
-          ]
-        },
-        {
-          text: 'Experiments',
-          collapsed: true,
-          link: '/docs/experiments/',
-          items: [
-            {
-              text: 'Env Precedence (#1038)',
-              link: '/docs/experiments/env-precedence'
-            },
-            {
-              text: 'Gentle Force (#1200)',
-              link: '/docs/experiments/gentle-force'
-            },
-            {
-              text: 'Remote Taskfiles (#1317)',
-              link: '/docs/experiments/remote-taskfiles'
-            }
-          ]
-        },
-        {
-          text: 'Deprecations',
-          collapsed: true,
-          link: '/docs/deprecations/',
-          items: [
-            {
-              text: 'Completion Scripts',
-              link: '/docs/deprecations/completion-scripts'
-            },
-            {
-              text: 'Template Functions',
-              link: '/docs/deprecations/template-functions'
-            },
-            {
-              text: 'Version 2 Schema (#1197)',
-              link: '/docs/deprecations/version-2-schema'
-            }
-          ]
-        },
-        {
-          text: 'Taskfile Versions',
-          link: '/docs/taskfile-versions'
-        },
-        {
-          text: 'Integrations',
-          link: '/docs/integrations'
-        },
-        {
-          text: 'Community',
-          link: '/docs/community'
-        },
-        {
-          text: 'Style Guide',
-          link: '/docs/styleguide'
-        },
-        {
-          text: 'Contributing',
-          link: '/docs/contributing'
-        },
-        {
-          text: 'Releasing',
-          link: '/docs/releasing'
-        },
-        {
-          text: 'Security',
-          collapsed: true,
-          link: '/docs/security/',
-          items: [
-            {
-              text: 'Incident Response Plan',
-              link: '/docs/security/incident-response-plan'
-            },
-            {
-              text: 'Threat Model',
-              link: '/docs/security/threat-model'
-            }
-          ]
-        },
-        {
-          text: 'Changelog',
-          link: '/docs/changelog'
-        },
-        {
-          text: 'FAQ',
-          link: '/docs/faq'
-        }
-      ],
+      '/blog/': buildBlogSidebar(),
+      '/': docsSidebar,
       // Hacky to disable sidebar for these pages
       '/donate': [],
       '/team': [],
@@ -502,7 +396,13 @@ export default defineConfig({
 
     editLink: {
       text: 'Edit this page on GitHub',
-      pattern: 'https://github.com/go-task/task/edit/main/website/src/:path'
+      // Docs are always edited in `src/next`, even when the latest channel
+      // serves them from `src/latest/docs`.
+      // Serialized with toString() and evaluated in the browser, so it must not
+      // reference anything from this module. Both channels are edited in
+      // src/next, so strip whichever prefix the page was built from.
+      pattern: ({ filePath }) =>
+        `https://github.com/go-task/task/edit/main/website/src/next/${filePath.replace(/^(next|latest)\//, '')}`
     },
 
     footer: {

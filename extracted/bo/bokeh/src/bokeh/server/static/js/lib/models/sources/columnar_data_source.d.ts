@@ -24,13 +24,12 @@ export declare abstract class ColumnarDataSource extends DataSource {
     properties: ColumnarDataSource.Props;
     data: Data;
     get_array<T>(key: string): T[];
-    _select: Signal0<this>;
-    inspect: Signal<[GlyphRenderer, {
+    readonly _select: Signal0<this>;
+    readonly inspect: Signal<[GlyphRenderer, {
         geometry: Geometry;
     }], this>;
     readonly selection_manager: SelectionManager;
     constructor(attrs?: Partial<ColumnarDataSource.Attrs>);
-    initialize(): void;
     get inferred_defaults(): Map<string, unknown>;
     get<T = unknown>(name: string): Arrayable<T>;
     set(name: string, column: Arrayable<unknown>): void;

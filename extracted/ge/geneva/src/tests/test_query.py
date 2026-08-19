@@ -10,7 +10,12 @@ from lance.blob import BlobFile
 
 from geneva import connect
 from geneva.packager import DockerUDFPackager, UDFSpec
-from geneva.query import GenevaQuery, GenevaQueryBuilder, _has_nested_blob
+from geneva.query import (
+    GenevaQuery,
+    GenevaQueryBuilder,
+    _has_nested_blob,
+    normalize_query_columns,
+)
 from geneva.transformer import UDF, udf
 
 
@@ -150,6 +155,51 @@ def test_udf_projection_without_selected_input(tmp_path: Path) -> None:
     results = query.to_arrow()
 
     assert results == pa.table({"b": [2, 3, 4]})
+
+
+def test_normalize_query_columns() -> None:
+    """Pair-list projections collapse to a dict; other shapes pass through."""
+    assert normalize_query_columns(None) is None
+    assert normalize_query_columns([]) == []
+    assert normalize_query_columns(["a", "b"]) == ["a", "b"]
+    assert normalize_query_columns({"out": "a + 1"}) == {"out": "a + 1"}
+
+    # lancedb's ordered (alias, expr) form -- order is preserved.
+    assert normalize_query_columns([("out", "a + 1"), ("b", "b")]) == {
+        "out": "a + 1",
+        "b": "b",
+    }
+
+
+def test_has_projected_columns_normalizes_the_pair_list_shape() -> None:
+    """A UDF-only view must not look like it has projected columns.
+
+    Walked unnormalized, the ordered ``[(alias, expr)]`` shape yields *tuples*,
+    which can never equal a UDF output name -- so every pair-list view would
+    report projected columns and take the populated-append path instead of the
+    placeholder one.
+    """
+    from types import SimpleNamespace
+
+    from geneva.runners.ray.pipeline import _has_projected_columns
+
+    def query(columns) -> SimpleNamespace:  # noqa: ANN001
+        return SimpleNamespace(base=SimpleNamespace(columns=columns))
+
+    udf_outputs = {"out"}
+
+    # No explicit select projects every source column.
+    assert _has_projected_columns(query(None), udf_outputs)
+
+    # UDF-only, in each of the three shapes.
+    assert not _has_projected_columns(query(["out"]), udf_outputs)
+    assert not _has_projected_columns(query({"out": "a + 1"}), udf_outputs)
+    assert not _has_projected_columns(query([("out", "a + 1")]), udf_outputs)
+
+    # Mixed: a projected column alongside the UDF output.
+    assert _has_projected_columns(query(["out", "a"]), udf_outputs)
+    assert _has_projected_columns(query({"out": "a + 1", "a": "a"}), udf_outputs)
+    assert _has_projected_columns(query([("out", "a + 1"), ("a", "a")]), udf_outputs)
 
 
 def test_has_nested_blob() -> None:

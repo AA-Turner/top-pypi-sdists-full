@@ -30,6 +30,7 @@ from anyscale.commands.output_format import (
     warn_deprecated_flag,
 )
 from anyscale.commands.util import AnyscaleCommand
+from anyscale.errors import UserError
 from anyscale.project.models import (
     CreateProjectCollaborator,
     CreateProjectCollaborators,
@@ -155,7 +156,13 @@ def project_cli() -> None:
     cls=AnyscaleCommand,
 )
 @click.option(
-    "--id", "-i", type=str, required=True, help="ID of the project.",
+    "--project-id",
+    "--id",
+    "-i",
+    "id",
+    type=str,
+    required=True,
+    help="ID of the project.",
 )
 @click.option(
     OUTPUT_FLAG,
@@ -204,7 +211,11 @@ def get(id: str, output_format: str, json: bool = False):  # noqa: A002
         "--json": {
             "status": ReleaseStatus.DEPRECATED,
             "deprecation_info": {"message": "Use -o json instead."},
-        }
+        },
+        "--cloud": {
+            "status": ReleaseStatus.DEPRECATED,
+            "deprecation_info": {"message": "Use --cloud-id instead."},
+        },
     },
     examples=[
         CommandExample(
@@ -239,7 +250,10 @@ def get(id: str, output_format: str, json: bool = False):  # noqa: A002
     "--creator", "-u", type=str, help="The ID of a creator to filter projects.",
 )
 @click.option(
-    "--cloud", "-c", type=str, help="The ID of a parent cloud to filter projects.",
+    "--cloud-id", "cloud", type=str, help="ID of a parent cloud to filter projects."
+)
+@click.option(
+    "--cloud", "-c", "cloud", type=str, help="Deprecated alias for --cloud-id."
 )
 @click.option(
     "--include-defaults/--exclude-defaults",
@@ -382,10 +396,16 @@ def list(  # noqa: A001, PLR0913
     status=ReleaseStatus.GA,
     since="0.0.0",
     output_formats=[OutputFormat.TEXT],
+    option_docs={
+        "--cloud": {
+            "status": ReleaseStatus.DEPRECATED,
+            "deprecation_info": {"message": "Use --cloud-id instead."},
+        },
+    },
     examples=[
         CommandExample(
             description="Create a project in a cloud.",
-            command="anyscale project create -n my-project -c cld_abc123",
+            command="anyscale project create -n my-project --cloud-id cld_abc123",
             output_raw=command_examples.PROJECT_CREATE_EXAMPLE,
         ),
     ],
@@ -400,7 +420,14 @@ def list(  # noqa: A001, PLR0913
     "--name", "-n", type=str, required=True, help="Name of the project.",
 )
 @click.option(
-    "--cloud", "-c", type=str, required=True, help="Parent cloud ID for the project.",
+    "--cloud-id",
+    "cloud",
+    type=str,
+    required=True,
+    help="ID of the parent cloud for the project.",
+)
+@click.option(
+    "--cloud", "-c", "cloud", type=str, help="Deprecated alias for --cloud-id."
 )
 @click.option(
     "--description", "-d", type=str, help="Description of the project.",
@@ -451,7 +478,13 @@ def create(
     cls=AnyscaleCommand,
 )
 @click.option(
-    "--id", "-i", type=str, required=True, help="ID of the project to delete.",
+    "--project-id",
+    "--id",
+    "-i",
+    "id",
+    type=str,
+    required=True,
+    help="ID of the project to delete.",
 )
 def delete(id: str):  # noqa: A002
     try:
@@ -471,12 +504,16 @@ def delete(id: str):  # noqa: A002
         "--json": {
             "status": ReleaseStatus.DEPRECATED,
             "deprecation_info": {"message": "Use -o json instead."},
-        }
+        },
+        "--cloud": {
+            "status": ReleaseStatus.DEPRECATED,
+            "deprecation_info": {"message": "Use --cloud-id instead."},
+        },
     },
     examples=[
         CommandExample(
             description="Get the default project of a cloud.",
-            command="anyscale project get-default -c cld_abc123",
+            command="anyscale project get-default --cloud-id cld_abc123",
             output_raw=command_examples.PROJECT_GET_DEFAULT_EXAMPLE,
             # Serialized form of the Project model (what --json and -o emit).
             output_instance={
@@ -502,7 +539,14 @@ def delete(id: str):  # noqa: A002
     cls=AnyscaleCommand,
 )
 @click.option(
-    "--cloud", "-c", type=str, required=True, help="Parent cloud ID for the project.",
+    "--cloud-id",
+    "cloud",
+    type=str,
+    required=True,
+    help="ID of the parent cloud for the project.",
+)
+@click.option(
+    "--cloud", "-c", "cloud", type=str, help="Deprecated alias for --cloud-id."
 )
 @click.option(
     OUTPUT_FLAG,
@@ -591,8 +635,9 @@ def add_collaborators(cloud: str, project: str, users_file: str) -> None:
             ],
         )
     except ValueError as e:
-        log.error(f"Error adding collaborators to project: {e}")
-        return
+        raise UserError(
+            f"Error adding collaborators to project: {e}", legacy_exit_code=0
+        ) from None
 
     log.info(
         f"Successfully added {len(collaborators.collaborators)} collaborators to project {project}."

@@ -26,7 +26,7 @@ from google.protobuf import timestamp_pb2 as google_dot_protobuf_dot_timestamp__
 from sentry_protos.billing.v1.common.v1 import address_pb2 as sentry__protos_dot_billing_dot_v1_dot_common_dot_v1_dot_address__pb2
 
 
-DESCRIPTOR = _descriptor_pool.Default().AddSerializedFile(b'\n;sentry_protos/billing/v1/services/contract/v1/invoice.proto\x12-sentry_protos.billing.v1.services.contract.v1\x1a\x1fgoogle/protobuf/timestamp.proto\x1a\x30sentry_protos/billing/v1/common/v1/address.proto\"m\n\x0fInvoiceLineItem\x12\x14\n\x0c\x61mount_cents\x18\x01 \x01(\x03\x12\x18\n\x0b\x64\x65scription\x18\x02 \x01(\tH\x00\x88\x01\x01\x12\x11\n\x04type\x18\x03 \x01(\tH\x01\x88\x01\x01\x42\x0e\n\x0c_descriptionB\x07\n\x05_type\"\x85\x03\n\x07Invoice\x12\x12\n\ninvoice_id\x18\x01 \x01(\x04\x12R\n\nline_items\x18\x02 \x03(\x0b\x32>.sentry_protos.billing.v1.services.contract.v1.InvoiceLineItem\x12\x15\n\ramount_billed\x18\x03 \x01(\x04\x12\x17\n\x0forganization_id\x18\x04 \x01(\x04\x12\x0c\n\x04paid\x18\x05 \x01(\x08\x12.\n\ndate_added\x18\x06 \x01(\x0b\x32\x1a.google.protobuf.Timestamp\x12\x0c\n\x04guid\x18\x07 \x01(\t\x12\x15\n\rneeds_charged\x18\x08 \x01(\x08\x12<\n\x07\x61\x64\x64ress\x18\t \x01(\x0b\x32+.sentry_protos.billing.v1.common.v1.Address\x12\x17\n\ntax_number\x18\n \x01(\tH\x00\x88\x01\x01\x12\x19\n\x11is_reverse_charge\x18\x0b \x01(\x08\x42\r\n\x0b_tax_numberb\x06proto3')
+DESCRIPTOR = _descriptor_pool.Default().AddSerializedFile(b'\n;sentry_protos/billing/v1/services/contract/v1/invoice.proto\x12-sentry_protos.billing.v1.services.contract.v1\x1a\x1fgoogle/protobuf/timestamp.proto\x1a\x30sentry_protos/billing/v1/common/v1/address.proto\"m\n\x0fInvoiceLineItem\x12\x14\n\x0c\x61mount_cents\x18\x01 \x01(\x03\x12\x18\n\x0b\x64\x65scription\x18\x02 \x01(\tH\x00\x88\x01\x01\x12\x11\n\x04type\x18\x03 \x01(\tH\x01\x88\x01\x01\x42\x0e\n\x0c_descriptionB\x07\n\x05_type\"\xc1\x03\n\x07Invoice\x12\x12\n\ninvoice_id\x18\x01 \x01(\x04\x12R\n\nline_items\x18\x02 \x03(\x0b\x32>.sentry_protos.billing.v1.services.contract.v1.InvoiceLineItem\x12\x15\n\ramount_billed\x18\x03 \x01(\x04\x12\x17\n\x0forganization_id\x18\x04 \x01(\x04\x12\x0c\n\x04paid\x18\x05 \x01(\x08\x12.\n\ndate_added\x18\x06 \x01(\x0b\x32\x1a.google.protobuf.Timestamp\x12\x0c\n\x04guid\x18\x07 \x01(\t\x12\x15\n\rneeds_charged\x18\x08 \x01(\x08\x12<\n\x07\x61\x64\x64ress\x18\t \x01(\x0b\x32+.sentry_protos.billing.v1.common.v1.Address\x12\x17\n\ntax_number\x18\n \x01(\tH\x00\x88\x01\x01\x12\x19\n\x11is_reverse_charge\x18\x0b \x01(\x08\x12!\n\x14tax_transaction_code\x18\x0c \x01(\tH\x01\x88\x01\x01\x42\r\n\x0b_tax_numberB\x17\n\x15_tax_transaction_codeb\x06proto3')
 
 _globals = globals()
 _builder.BuildMessageAndEnumDescriptors(DESCRIPTOR, _globals)
@@ -36,5 +36,5 @@ if not _descriptor._USE_C_DESCRIPTORS:
   _globals['_INVOICELINEITEM']._serialized_start=193
   _globals['_INVOICELINEITEM']._serialized_end=302
   _globals['_INVOICE']._serialized_start=305
-  _globals['_INVOICE']._serialized_end=694
+  _globals['_INVOICE']._serialized_end=754
 # @@protoc_insertion_point(module_scope)

@@ -62,7 +62,12 @@ def register_management_routes(app: web.Application, prefix: str, server: Gatewa
     app.router.add_post(f"{prefix}/knowledge/rebuild", knowledge_api.rebuild)
     app.router.add_post(f"{prefix}/knowledge/upload", knowledge_api.upload)
     app.router.add_get(f"{prefix}/knowledge/documents", knowledge_api.list_documents)
-    app.router.add_delete(f"{prefix}/knowledge/documents/{{path}}", knowledge_api.delete_document)
+    # Tail-match the document path: list_documents returns paths relative to
+    # docs_dir, so nested docs come back as "sub/doc.md". A single-segment
+    # {path} could never match those — yarl decodes %2F back to "/" before
+    # routing, so the encoded form fell through to the SPA catch-all (GET only)
+    # and every nested delete answered 405. {path:.+} accepts both forms.
+    app.router.add_delete(f"{prefix}/knowledge/documents/{{path:.+}}", knowledge_api.delete_document)
 
     app.router.add_post(f"{prefix}/chat/attachments", chat_attachment_api.upload)
 
@@ -77,6 +82,7 @@ def register_management_routes(app: web.Application, prefix: str, server: Gatewa
     app.router.add_put(f"{prefix}/tasks/{{id}}", tasks_api.update_task)
     app.router.add_delete(f"{prefix}/tasks/{{id}}", tasks_api.delete_task)
     app.router.add_post(f"{prefix}/tasks/{{id}}/transition", tasks_api.transition_task)
+    app.router.add_post(f"{prefix}/tasks/{{id}}/retry", tasks_api.retry_task)
 
     app.router.add_get(f"{prefix}/sessions", sessions_api.list_sessions)
     app.router.add_get(f"{prefix}/sessions/{{key}}/history", sessions_api.get_history)

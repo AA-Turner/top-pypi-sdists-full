@@ -23,6 +23,7 @@ MESSAGES = {
     },
     "banner": {
         "title": "Echo Agent 配置向导",
+        "mode": "setup",
         "subtitle": "配置 Echo Agent 运行环境。",
         "exit_hint": "可随时按 Ctrl+C 退出。",
     },
@@ -300,6 +301,8 @@ MESSAGES = {
         "perm_ok": "审批模式：{mode}",
         "sandbox_ok": "沙箱：{backend}",
         "gateway_on": "Gateway 监听于 {host}:{port}",
+        "gateway_enabled_not_running": "Gateway 已启用但未运行",
+        "gateway_not_running_hint": "echo-agent gateway start",
         "gateway_off": "Gateway 未启用",
         "memory_ok": "长期记忆已启用",
         "memory_off": "长期记忆未启用",
@@ -327,8 +330,44 @@ MESSAGES = {
         "first_run_skip_hint": "可稍后运行 'echo-agent setup' 完成配置。",
         "section_saved": "{label} 配置已保存到 {path}",
         "next_steps": "下一步：",
-        "next_run": "  echo-agent             — 启动 Agent（CLI 对话及已启用的渠道）",
+        "next_run": "  echo-agent             — 前台启动 Agent（与常驻服务互斥，勿同时运行）",
         "next_setup": "  echo-agent setup       — 再次运行向导",
         "next_status": "  echo-agent status      — 查看当前配置",
+    },
+    "startup": {
+        "header": "启动网关",
+        "running": "网关已在 {host}:{port} 运行 — 现在可用 echo-agent cli 接入。",
+        "restart_needed": "配置已更改，执行 echo-agent gateway restart 后生效。",
+        "not_running": "网关未运行 — 执行 echo-agent gateway start 启动。",
+        "not_installed_hint": "网关未运行，且尚未注册为后台服务 — "
+                              "执行 echo-agent gateway install 注册并启动。",
+        "ask_start": "现在启动后台服务？",
+        "ask_install": "把网关注册为后台服务并启动？（开机自启、崩溃自动拉起）",
+        "starting": "正在启动服务…",
+        "start_ok": "服务已启动，网关监听于 {host}:{port}。现在可用 echo-agent cli 接入。",
+        "start_timeout": "服务已启动，但 {seconds} 秒内端口仍无响应。",
+        "start_failed": "启动服务失败。",
+        "start_timeout_hint": "查看原因：echo-agent gateway logs",
+        "install_failed": "注册服务失败。可稍后重试：echo-agent gateway install",
+        "declined": "已跳过。需要时执行：echo-agent gateway install",
+        "declined_start": "已跳过。需要时执行：echo-agent gateway start",
+        "linger_warn": "退出登录后用户级服务会停止。",
+        "linger_fix": "让它跨登录会话持续运行：sudo loginctl enable-linger {user}",
+        "no_manager": "本机没有可用的服务管理器，无法注册后台服务。",
+        "no_manager_wsl": "WSL2 可开启 systemd：编辑 /etc/wsl.conf 加入 [boot] 与 systemd=true，"
+                          "执行 wsl --shutdown 重启后再运行 echo-agent gateway install。",
+        "no_manager_tmux": "或用 tmux 保持前台进程：tmux new -s echo-agent 'echo-agent gateway'",
+        "disabled": "配置中 gateway.enabled=false：echo-agent cli 无法连接"
+                    "（微信 / QQ 等渠道不依赖网关，仍正常工作）。",
+        "disabled_fix": "需要 echo-agent cli 时：echo-agent setup gateway",
+        "unstartable": "当前配置无法启动：监听地址是 {host}（非本机回环）却没有配置任何"
+                       "访问令牌，网关会拒绝以未认证状态对外暴露，每次启动都会失败。",
+        "unstartable_fix": "二选一：把 gateway.host 改回 127.0.0.1（仅本机使用），"
+                           "或配置 gateway.auth.apiTokens 后重新执行 echo-agent setup gateway。",
+    },
+    "dashboard": {
+        "ask_build": "现在构建完整 Dashboard？（首次约需几分钟；跳过则先用内置简化页）",
+        "declined": "已跳过。需要时运行：echo-agent dashboard build",
+        "building": "正在构建 Dashboard（首次含依赖安装，可能需要几分钟）…",
     },
 }

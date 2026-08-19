@@ -124,10 +124,10 @@ class TypedDeviceOutletTable(TypedDict):
     has_metering: NotRequired[bool]
     name: str
     outlet_caps: int
-    outlet_voltage: NotRequired[str]
-    outlet_current: NotRequired[str]
-    outlet_power: NotRequired[str]
-    outlet_power_factor: NotRequired[str]
+    outlet_voltage: NotRequired[str | float]
+    outlet_current: NotRequired[str | float]
+    outlet_power: NotRequired[str | float]
+    outlet_power_factor: NotRequired[str | float]
     relay_state: bool
 
 
@@ -601,6 +601,7 @@ class DeviceType(enum.StrEnum):
     DREAM_MACHINE = "udm"
     SECURITY_GATEWAY = "ugw"
     PHONE = "uph"
+    SMART_POWER = "usp"
     SWITCH = "usw"
     NEXTGEN_GATEWAY = "uxg"
 

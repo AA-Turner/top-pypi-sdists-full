@@ -24,14 +24,15 @@ def test_release_unused_process_memory_calls_cleanup_hooks(
         def malloc_trim(self, value: int) -> None:
             calls.append(f"malloc_trim:{value}")
 
-    monkeypatch.setattr(memory.gc, "collect", lambda: calls.append("gc"))
+    monkeypatch.setattr(memory.gc, "collect", lambda gen: calls.append(f"gc:{gen}"))
     monkeypatch.setattr(memory.pa, "default_memory_pool", lambda: _Pool())
     monkeypatch.setattr(memory.sys, "platform", "linux")
     monkeypatch.setattr(memory.ctypes, "CDLL", lambda _name: _LibC())
 
     memory.release_unused_process_memory()
 
-    assert calls == ["gc", "arrow", "malloc_trim:0"]
+    # Young generations only: a full collect costs far more than it recovers.
+    assert calls == ["gc:1", "arrow", "malloc_trim:0"]
 
 
 def test_release_unused_process_memory_skips_malloc_trim_off_linux(
@@ -46,14 +47,14 @@ def test_release_unused_process_memory_skips_malloc_trim_off_linux(
     def _unexpected_cdll(_name: str) -> Any:
         raise AssertionError("malloc_trim should not be loaded off Linux")
 
-    monkeypatch.setattr(memory.gc, "collect", lambda: calls.append("gc"))
+    monkeypatch.setattr(memory.gc, "collect", lambda gen: calls.append(f"gc:{gen}"))
     monkeypatch.setattr(memory.pa, "default_memory_pool", lambda: _Pool())
     monkeypatch.setattr(memory.sys, "platform", "darwin")
     monkeypatch.setattr(memory.ctypes, "CDLL", _unexpected_cdll)
 
     memory.release_unused_process_memory()
 
-    assert calls == ["gc", "arrow"]
+    assert calls == ["gc:1", "arrow"]
 
 
 def test_release_unused_process_memory_swallows_cleanup_failures(
@@ -67,8 +68,8 @@ def test_release_unused_process_memory_swallows_cleanup_failures(
         def malloc_trim(self, value: int) -> None:
             raise RuntimeError(f"malloc_trim failed: {value}")
 
-    def _fail_gc() -> None:
-        raise RuntimeError("gc failed")
+    def _fail_gc(gen: int) -> None:
+        raise RuntimeError(f"gc failed: {gen}")
 
     monkeypatch.setattr(memory.gc, "collect", _fail_gc)
     monkeypatch.setattr(memory.pa, "default_memory_pool", lambda: _Pool())

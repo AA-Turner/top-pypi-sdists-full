@@ -36,8 +36,33 @@ class PyLXDTestCase(unittest.TestCase):
         for rule in rules:
             self.add_rule(rule)
 
+    def last_matching_request(self, method, url):
+        """Return the last request matching *method* and *url*, or fail the test.
+
+        Parameters:
+            method (str): The expected HTTP method (for example, ``"GET"``).
+            url (str): The expected full request URL to match.
+        """
+        matching = [
+            r
+            for r in self.requests_mock.request_history
+            if r.method == method and r.url == url
+        ]
+        self.assertTrue(matching, f"No {method} request to {url} found")
+        return matching[-1]
+
 
 def add_api_extension_helper(obj, extensions):
+    """Add a mocked API extensions response and refresh cached host metadata.
+
+    Parameters:
+        obj: Test helper object that provides ``add_rule`` and ``client``.
+        extensions: Iterable of API extension names to expose in ``metadata``.
+
+    Side effects:
+        - Registers a new mock ``GET /1.0`` rule on ``obj``.
+        - Updates ``obj.client.host_info`` from ``obj.client.api.get()``.
+    """
     obj.add_rule(
         {
             "text": json.dumps(
@@ -46,7 +71,7 @@ def add_api_extension_helper(obj, extensions):
                     "metadata": {
                         "auth": "trusted",
                         "environment": {
-                            "certificate": "an-pem-cert",
+                            "certificate": "a-pem-cert",
                         },
                         "api_extensions": extensions,
                     },
@@ -56,5 +81,5 @@ def add_api_extension_helper(obj, extensions):
             "url": r"^http://pylxd.test/1.0$",
         }
     )
-    # Update hostinfo
+    # Update host_info
     obj.client.host_info = obj.client.api.get().json()["metadata"]

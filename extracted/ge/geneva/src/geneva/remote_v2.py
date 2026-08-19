@@ -6,11 +6,14 @@
 from __future__ import annotations
 
 import contextlib
+import logging
 import time
 from typing import Any
 
 from geneva.jobs.remote import RemoteJob  # noqa: TC001 — used at runtime
 from geneva.table import JobFuture
+
+_LOG = logging.getLogger(__name__)
 
 
 class RemoteJobFuture(JobFuture):
@@ -24,6 +27,11 @@ class RemoteJobFuture(JobFuture):
     def __init__(self, remote_job: RemoteJob) -> None:
         super().__init__(job_id=remote_job.job_id)
         self._remote_job = remote_job
+        # Log the id here, at dispatch, so it is surfaced when the job starts.
+        # The sync backfill/load-columns drivers poll done()/status() and only
+        # call result() once the job is already terminal, so a start log inside
+        # result() would fire too late to reattach to a still-running job.
+        _LOG.info("Started remote job %s", remote_job.job_id)
         # Lazily-created progress renderer, shared between status() live ticks
         # (driven by a sync backfill/refresh loop) and the blocking result()
         # poll, so the bars are never drawn twice.

@@ -5,6 +5,7 @@ import type { Align } from "../../core/enums";
 import type { SizingPolicy } from "../../core/layout";
 import type { ViewOf } from "../../core/view";
 import type { StyleSheetLike } from "../../core/dom";
+import type { ChildView } from "../../core/build_views";
 import { InlineStyleSheet } from "../../core/dom";
 import { CanvasLayer } from "../../core/util/canvas";
 import type { XY } from "../../core/util/bbox";
@@ -32,6 +33,7 @@ export declare abstract class UIElementView extends StyledElementView {
     protected _update_bbox(): boolean;
     protected _resize_observer: ResizeObserver;
     protected _context_menu: ViewOf<Menu> | null;
+    children_views(): ChildView[];
     /**
      * Allows to provide a context dependent menu when `UIElement.context_menu` is `"auto"`.
      */

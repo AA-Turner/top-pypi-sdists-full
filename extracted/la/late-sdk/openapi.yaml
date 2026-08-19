@@ -2784,6 +2784,9 @@ components:
                   type: string
                 picture:
                   type: [string, "null"]
+                isOwnAccount:
+                  type: boolean
+                  description: 'True when this comment was authored by the connected account itself (Meta re-delivers the account''s own replies as comments events). Populated on the Instagram and Facebook realtime webhooks only; absent means not evaluated, never "not the account".'
                 instagramProfile:
                   type: object
                   description: |
@@ -3807,6 +3810,16 @@ components:
                 details:
                   type: string
                   description: Meta's human-readable error detail string.
+            noRenderableContent:
+              type: boolean
+              description: |
+                Instagram / Facebook Messenger only. Set when the message
+                carries nothing an integrator can render (a `template`
+                attachment with no text and no parseable content, or Meta's
+                own `is_unsupported` flag). Sibling of `unsupported` above
+                (WhatsApp only, carries Meta's error code/title/details): this
+                field has no error envelope, just the boolean. Absence means
+                "not flagged", never "checked and renderable".
         timestamp:
           type: string
           format: date-time
@@ -4726,8 +4739,8 @@ components:
           description: Human-readable error message when status is failed. Contains platform-specific error details explaining why the publish failed.
         errorCategory:
           type: string
-          enum: [auth_expired, user_content, user_abuse, account_issue, platform_rejected, platform_error, system_error, unknown]
-          description: "Error category for programmatic handling: auth_expired (token expired/revoked), user_content (wrong format/too long), user_abuse (rate limits/spam), account_issue (config problems), platform_rejected (policy violation), platform_error (5xx/maintenance), system_error (Zernio infra), unknown"
+          enum: [auth_expired, user_content, user_abuse, account_issue, platform_rejected, platform_error, platform_rate_limit, quota_exhausted, system_error, unknown]
+          description: "Error category for programmatic handling: auth_expired (token expired/revoked), user_content (wrong format/too long), user_abuse (rate limits/spam), account_issue (config problems), platform_rejected (policy violation), platform_error (5xx/maintenance), platform_rate_limit (platform throttling, retried automatically), quota_exhausted (shared daily API quota empty, resumes at the platform's reset), system_error (Zernio infra), unknown"
         errorSource:
           type: string
           enum: [user, platform, system]
@@ -24731,6 +24744,15 @@ paths:
                     already categorized at creation). Utility messages only; marketing
                     content is not allowed under this category. Accepted on the JSON
                     body only, not on multipart requests.
+                linkPreview:
+                  type: boolean
+                  default: true
+                  description: >-
+                    WhatsApp only. Set false to send the Direct Send (category: 'utility')
+                    text message without a link-preview thumbnail for the first URL in the
+                    text. Defaults to true, which is how every WhatsApp text has been sent
+                    to date. Does not apply to template sends. Accepted on the JSON body
+                    only, not on multipart requests.
                 templateLanguage:
                   type: string
                   description: WhatsApp only. Template language code (e.g. en_US).
@@ -25418,6 +25440,14 @@ paths:
                     Utility messages only; marketing content is not allowed under
                     this category. Accepted on the JSON body only, not on multipart
                     requests.
+                linkPreview:
+                  type: boolean
+                  default: true
+                  description: >-
+                    WhatsApp only. Set false to send the message without a link-preview
+                    thumbnail for the first URL in the text. Defaults to true, which is how
+                    every WhatsApp text has been sent to date. Ignored on other platforms.
+                    Accepted on the JSON body only, not on multipart requests.
                 attachmentType:
                   type: string
                   enum: [image, video, audio, file]
@@ -32314,7 +32344,7 @@ paths:
               properties:
                 profileId: { type: string }
                 country: { type: string }
-                submissionId: { type: string, description: Idempotency token for this submission attempt. A retry/double-submit with the same token returns the same number; omit and each call creates a new number. }
+                submissionId: { type: string, description: 'Idempotency token for this submission attempt. Once the number has been ordered, a retry with the same token returns that same number instead of ordering another. A submission that fails before the number is ordered releases the token, so you can correct your details and re-submit with it. Omit it and every call provisions a new number.' }
                 quantity: { type: integer, minimum: 1, maximum: 5, default: 1, description: 'Provision several same-country numbers from one submission (1-5). The single verification covers all of them; each number is billed only when it activates. Numbers that fail to order are skipped (best-effort). With `areaCode`, a quantity above that area''s live stock is rejected with a 400.' }
                 reuse: { type: boolean, description: Reuse a prior approved verification for this country (skips document/field collection; places the order immediately). }
                 reuseOptionId: { type: string, description: 'Which reusable verification to use (GET reusable.options[].id). The unambiguous selection key. Omitted = the approved default. No match = 409.' }
@@ -33307,7 +33337,7 @@ paths:
               properties:
                 profileId: { type: string }
                 country: { type: string }
-                submissionId: { type: string, description: Idempotency token for this submission attempt. A retry/double-submit with the same token returns the same number; omit and each call creates a new number. }
+                submissionId: { type: string, description: 'Idempotency token for this submission attempt. Once the number has been ordered, a retry with the same token returns that same number instead of ordering another. A submission that fails before the number is ordered releases the token, so you can correct your details and re-submit with it. Omit it and every call provisions a new number.' }
                 quantity: { type: integer, minimum: 1, maximum: 5, default: 1, description: 'Provision several same-country numbers from one submission (1-5). The single verification covers all of them; each number is billed only when it activates. Numbers that fail to order are skipped (best-effort). With `areaCode`, a quantity above that area''s live stock is rejected with a 400.' }
                 reuse: { type: boolean, description: Reuse a prior approved verification for this country (skips document/field collection; places the order immediately). }
                 reuseOptionId: { type: string, description: 'Which reusable verification to use (GET reusable.options[].id). The unambiguous selection key. Omitted = the approved default. No match = 409.' }

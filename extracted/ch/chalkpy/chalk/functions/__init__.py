@@ -4795,6 +4795,46 @@ def array_transform(
     )
 
 
+def array_adjacent_difference(
+    arr: Underscore,
+    item_type: Optional[Union[pa.DataType, type]] = None,
+) -> Underscore:
+    """Returns the difference between each pair of adjacent array items.
+
+    Parameters
+    ----------
+    arr
+        The input array.
+    item_type
+        Optional type of items in the input array. When omitted, Chalk infers the callback input type.
+
+    Examples
+    --------
+    >>> import chalk.functions as F
+    >>> from chalk.features import _, features
+    >>> @features
+    ... class Metrics:
+    ...     id: str
+    ...     values: list[int]
+    ...     changes: list[int] = F.array_adjacent_difference(_.values)
+    """
+
+    if item_type is not None and not isinstance(item_type, pa.DataType):
+        item_type = rich_to_pyarrow(
+            item_type,
+            name="array_adjacent_difference.item_type",
+            respect_nullability=False,
+        )
+
+    length = greatest(cardinality(arr) - 1, 0)
+    return UnderscoreFunction(
+        "zip_with",
+        slice(arr, 0, length),
+        slice(arr, 1, length),
+        _underscore_lambda(lambda previous, current: current - previous, parameter_types=[item_type, item_type]),
+    )
+
+
 def array_reduce(
     arr: Underscore,
     initial_value: Underscore | Any,
@@ -8318,6 +8358,7 @@ __all__ = (
     "abs",
     "acos",
     "array_agg",
+    "array_adjacent_difference",
     "get_server_context",
     "array_add",
     "array_average",

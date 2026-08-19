@@ -5,7 +5,7 @@ import type * as p from "../../core/properties";
 import { Orientation } from "../../core/enums";
 declare const ProgressMode: import("../../core/kinds").Kinds.Enum<"determinate" | "indeterminate">;
 type ProgressMode = typeof ProgressMode["__type__"];
-declare const LabelLocation: import("../../core/kinds").Kinds.Enum<"none" | "inline">;
+declare const LabelLocation: import("../../core/kinds").Kinds.Enum<"inline" | "none">;
 type LabelLocation = typeof LabelLocation["__type__"];
 export declare class ProgressView extends IndicatorView {
     model: Progress;

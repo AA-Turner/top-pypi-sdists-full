@@ -20,6 +20,7 @@ from geneva.runners.ray.compare_env import (
     compare_ray_environments,
     get_comparison_result,
 )
+from integ_tests.utils import installed_distribution_requirement
 
 _LOG = logging.getLogger(__name__)
 
@@ -77,8 +78,8 @@ def cluster_context(
         .worker_image(img)
         .upload_site_packages()
         .add_pip("pyarrow>=16.0.0")
-        .add_pip("pylance>=6.0.0b1")
-        .add_pip("lancedb>=0.31.0b9")
+        .add_pip(installed_distribution_requirement("pylance"))
+        .add_pip(installed_distribution_requirement("lancedb"))
         .build()
     )
 

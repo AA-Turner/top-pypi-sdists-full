@@ -31,7 +31,25 @@ export declare abstract class BaseMarkerGL extends BaseGLGlyph {
     protected readonly _hatch_weights: Float32Buffer;
     protected readonly _hatch_rgba: NormalizedUint8Buffer;
     protected static readonly missing_point = -10000;
-    marker_props(main_gl_glyph: BaseMarkerGL): {
+    /**
+     * Selects appropriate geometry buffers for rendering a marker glyph.
+     *
+     * This method implements smart buffer selection to support property overrides in derived
+     * glyphs (hover_glyph, selection_glyph, muted_glyph). For each geometry property, it
+     * checks if the derived glyph has populated its own buffer; if so, that buffer is used,
+     * otherwise it falls back to the main glyph's buffer.
+     *
+     * This pattern enables zero-overhead overrides: derived glyphs that don't override
+     * properties simply reuse main glyph buffers, while overrides are handled via lazy
+     * buffer creation detected by length checks.
+     *
+     * @param derived_gl - The glyph being rendered (may be main or derived glyph)
+     * @param main_gl_glyph - The main glyph (used as fallback for unpopulated buffers)
+     * @returns Object with buffer references for width, height, angle, aux, and border_radius
+     *
+     * Note: border_radius always uses main glyph buffer (overrides not supported)
+     */
+    marker_props(derived_gl: BaseMarkerGL, main_gl_glyph: BaseMarkerGL): {
         width: Float32Buffer;
         height: Float32Buffer;
         angle: Float32Buffer;

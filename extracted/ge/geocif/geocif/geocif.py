@@ -1644,45 +1644,11 @@ class Geocif:
         crop currently being run. A malformed value never raises: it is
         logged and treated as unset.
         """
-        raw = self._config_option("run_regions")
-        if not raw:
-            return None
-
-        try:
-            selection = ast.literal_eval(raw)
-        except (ValueError, SyntaxError) as exc:
-            self.logger.warning(
-                f"Failed to parse run_regions ({raw!r}) for {self.country}: "
-                f"{exc}. Ignoring — running all regions."
-            )
-            return None
-
-        if isinstance(selection, dict):
-            crop_key = str(getattr(self, "crop", "")).strip().lower().replace(" ", "_")
-            by_crop = {
-                str(k).strip().lower().replace(" ", "_"): v
-                for k, v in selection.items()
-            }
-            if crop_key not in by_crop:
-                self.logger.info(
-                    f"run_regions has no entry for crop '{self.crop}' — "
-                    f"running all regions for {self.country}/{self.crop}"
-                )
-                return None
-            selection = by_crop[crop_key]
-
-        if isinstance(selection, str):
-            selection = [selection]
-        if not isinstance(selection, (list, tuple, set)):
-            self.logger.warning(
-                f"run_regions for {self.country} must be a list or a "
-                f"{{crop: list}} dict, got {type(selection).__name__} — "
-                f"ignoring, running all regions."
-            )
-            return None
-
-        names = [str(name).strip() for name in selection if str(name).strip()]
-        return names or None
+        return stats.parse_run_regions(
+            self._config_option("run_regions"),
+            crop=getattr(self, "crop", None),
+            log=self.logger,
+        )
 
     def _filter_to_selected_regions(self, df: pd.DataFrame) -> pd.DataFrame:
         """Restrict the ML frame to the user-selected regions (``run_regions``).
@@ -3894,9 +3860,29 @@ class Geocif:
         try:
             df_src = pd.read_csv(src, engine="pyarrow", usecols=["region", column])
         except (ValueError, KeyError) as e:
+            # Do NOT just say "re-run geomerge": geoextract/geomerge read
+            # countries.txt, never geocif.txt, so a dataset listed only in
+            # geocif.txt's eo_model is never extracted and no amount of
+            # re-merging will produce its columns. Diagnose that case, since
+            # the old wording sent a ~9h extract+merge chain after data that
+            # could not appear (usa_admin2 soilgrids, 2026-08-18).
+            source = di.STATIC_COLUMN_SOURCE.get(column)
+            if source:
+                # geocif's own parser includes geocif.txt, so it cannot see what
+                # the extract side was configured with — name the trap instead
+                # of guessing.
+                hint = (
+                    f"It comes from the '{source}' dataset. Re-running geomerge "
+                    f"alone will NOT add it unless '{source}' is in eo_model in "
+                    f"countries.txt — geoextract/geomerge read countries.txt, "
+                    f"NOT geocif.txt, so a dataset listed only in geocif.txt is "
+                    f"never extracted. Check countries.txt, then re-run "
+                    f"geoextract + geomerge."
+                )
+            else:
+                hint = "re-run geomerge to populate."
             self.logger.warning(
-                f"crop_t0 static read: {src.name} lacks '{column}' ({e}); "
-                f"re-run geomerge to populate."
+                f"crop_t0 static read: {src.name} lacks '{column}' ({e}). {hint}"
             )
             return {}
 

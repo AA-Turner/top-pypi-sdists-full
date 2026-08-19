@@ -1,11 +1,11 @@
 import { ActionTool, ActionToolView } from "./action_tool";
 import type * as p from "../../../core/properties";
 import type { DialogView } from "../../ui/dialog";
-import type { View } from "../../../core/build_views";
+import type { ChildView } from "../../../core/build_views";
 export declare class ExamineToolView extends ActionToolView {
     model: ExamineTool;
     dialog: DialogView;
-    children_views(): View[];
+    children_views(): ChildView[];
     lazy_initialize(): Promise<void>;
     connect_signals(): void;
     doit(): void;

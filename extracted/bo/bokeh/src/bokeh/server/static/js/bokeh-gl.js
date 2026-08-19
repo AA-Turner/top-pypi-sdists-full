@@ -30,7 +30,7 @@
  * THE POSSIBILITY OF SUCH DAMAGE.
  */
 (function(root, factory) {
-  factory(root["Bokeh"], "3.9.2");
+  factory(root["Bokeh"], "3.10.0");
 })(this, function(Bokeh, version) {
   let define;
   return (function(modules, entry, aliases, externals) {
@@ -42,47 +42,51 @@
     }
   })
 ({
-570: /* models/glyphs/webgl/main.js */ function _(require, module, exports, __esModule, __esExport) {
+639: /* models/glyphs/webgl/main.js */ function _(require, module, exports, __esModule, __esExport) {
     __esModule();
-    require(571) /* ./index */;
+    require(640) /* ./index */;
 },
-571: /* models/glyphs/webgl/index.js */ function _(require, module, exports, __esModule, __esExport) {
+640: /* models/glyphs/webgl/index.js */ function _(require, module, exports, __esModule, __esExport) {
     __esModule();
     const tslib_1 = require(1) /* tslib */;
-    var regl_wrap_1 = require(572) /* ./regl_wrap */;
+    var regl_wrap_1 = require(641) /* ./regl_wrap */;
     __esExport("get_regl", regl_wrap_1.get_regl);
-    tslib_1.__exportStar(require(584) /* ./annular_wedge */, exports);
-    tslib_1.__exportStar(require(591) /* ./annulus */, exports);
-    tslib_1.__exportStar(require(592) /* ./base_line */, exports);
-    tslib_1.__exportStar(require(587) /* ./base_marker */, exports);
-    tslib_1.__exportStar(require(593) /* ./circle */, exports);
-    tslib_1.__exportStar(require(595) /* ./hex_tile */, exports);
-    tslib_1.__exportStar(require(596) /* ./image */, exports);
-    tslib_1.__exportStar(require(597) /* ./line_gl */, exports);
-    tslib_1.__exportStar(require(599) /* ./lrtb */, exports);
-    tslib_1.__exportStar(require(600) /* ./multi_line */, exports);
-    tslib_1.__exportStar(require(601) /* ./multi_marker */, exports);
-    tslib_1.__exportStar(require(602) /* ./ngon */, exports);
-    tslib_1.__exportStar(require(603) /* ./rect */, exports);
-    tslib_1.__exportStar(require(598) /* ./single_line */, exports);
-    tslib_1.__exportStar(require(586) /* ./single_marker */, exports);
-    tslib_1.__exportStar(require(604) /* ./step */, exports);
-    tslib_1.__exportStar(require(605) /* ./wedge */, exports);
+    tslib_1.__exportStar(require(655) /* ./annular_wedge */, exports);
+    tslib_1.__exportStar(require(662) /* ./annulus */, exports);
+    tslib_1.__exportStar(require(663) /* ./base_line */, exports);
+    tslib_1.__exportStar(require(658) /* ./base_marker */, exports);
+    tslib_1.__exportStar(require(664) /* ./circle */, exports);
+    tslib_1.__exportStar(require(666) /* ./hex_tile */, exports);
+    tslib_1.__exportStar(require(667) /* ./image */, exports);
+    tslib_1.__exportStar(require(668) /* ./line_gl */, exports);
+    tslib_1.__exportStar(require(670) /* ./lrtb */, exports);
+    tslib_1.__exportStar(require(671) /* ./multi_line */, exports);
+    tslib_1.__exportStar(require(672) /* ./patch */, exports);
+    tslib_1.__exportStar(require(675) /* ./patches */, exports);
+    tslib_1.__exportStar(require(676) /* ./multi_marker */, exports);
+    tslib_1.__exportStar(require(677) /* ./ngon */, exports);
+    tslib_1.__exportStar(require(678) /* ./rect */, exports);
+    tslib_1.__exportStar(require(669) /* ./single_line */, exports);
+    tslib_1.__exportStar(require(657) /* ./single_marker */, exports);
+    tslib_1.__exportStar(require(679) /* ./step */, exports);
+    tslib_1.__exportStar(require(680) /* ./wedge */, exports);
 },
-572: /* models/glyphs/webgl/regl_wrap.js */ function _(require, module, exports, __esModule, __esExport) {
+641: /* models/glyphs/webgl/regl_wrap.js */ function _(require, module, exports, __esModule, __esExport) {
     __esModule();
     exports.get_regl = get_regl;
     const tslib_1 = require(1) /* tslib */;
-    const regl_1 = tslib_1.__importDefault(require(573) /* regl */);
-    const dash_cache_1 = require(574) /* ./dash_cache */;
-    const accumulate_vert_1 = tslib_1.__importDefault(require(576) /* ./accumulate.vert */);
-    const accumulate_frag_1 = tslib_1.__importDefault(require(577) /* ./accumulate.frag */);
-    const image_vert_1 = tslib_1.__importDefault(require(578) /* ./image.vert */);
-    const image_frag_1 = tslib_1.__importDefault(require(579) /* ./image.frag */);
-    const regl_line_vert_1 = tslib_1.__importDefault(require(580) /* ./regl_line.vert */);
-    const regl_line_frag_1 = tslib_1.__importDefault(require(581) /* ./regl_line.frag */);
-    const marker_vert_1 = tslib_1.__importDefault(require(582) /* ./marker.vert */);
-    const marker_frag_1 = tslib_1.__importDefault(require(583) /* ./marker.frag */);
+    const regl_1 = tslib_1.__importDefault(require(642) /* regl */);
+    const dash_cache_1 = require(643) /* ./dash_cache */;
+    const accumulate_vert_1 = tslib_1.__importDefault(require(645) /* ./accumulate.vert */);
+    const accumulate_frag_1 = tslib_1.__importDefault(require(646) /* ./accumulate.frag */);
+    const image_vert_1 = tslib_1.__importDefault(require(647) /* ./image.vert */);
+    const image_frag_1 = tslib_1.__importDefault(require(648) /* ./image.frag */);
+    const regl_line_vert_1 = tslib_1.__importDefault(require(649) /* ./regl_line.vert */);
+    const regl_line_frag_1 = tslib_1.__importDefault(require(650) /* ./regl_line.frag */);
+    const marker_vert_1 = tslib_1.__importDefault(require(651) /* ./marker.vert */);
+    const marker_frag_1 = tslib_1.__importDefault(require(652) /* ./marker.frag */);
+    const polygon_vert_1 = tslib_1.__importDefault(require(653) /* ./polygon.vert */);
+    const polygon_frag_1 = tslib_1.__importDefault(require(654) /* ./polygon.frag */);
     // All access to regl is performed via the get_regl() function that returns a
     // ReglWrapper object.  This ensures that regl is correctly initialised before
     // it is used, and is only initialised once.
@@ -94,15 +98,37 @@
         return regl_wrapper;
     }
     class ReglWrapper {
+        _regl;
+        _regl_available;
+        _dash_cache;
+        // Drawing functions.
+        _accumulate;
+        _image;
+        _solid_line;
+        _dashed_line;
+        _polygon;
+        _polygon_hatch;
+        _marker_no_hatch_map = new Map();
+        _marker_hatch_map = new Map();
+        // Static Buffers/Elements
+        _line_geometry;
+        _line_triangles;
+        _rect_geometry;
+        _rect_triangles;
+        // WebGL state variables.
+        _scissor;
+        _viewport;
+        // WebGL framebuffer used to accumulate glyph rendering before single blit to Canvas.
+        _framebuffer;
+        _framebuffer_texture;
         constructor(gl) {
-            this._marker_no_hatch_map = new Map();
-            this._marker_hatch_map = new Map();
             try {
                 this._regl = (0, regl_1.default)({
                     gl,
                     extensions: [
                         "ANGLE_instanced_arrays",
                         "EXT_blend_minmax",
+                        "OES_element_index_uint",
                     ],
                 });
                 this._regl_available = true;
@@ -135,6 +161,10 @@
         // Create and return ReGL Buffer.
         buffer(options) {
             return this._regl.buffer(options);
+        }
+        // Create and return ReGL Elements.
+        elements(options) {
+            return this._regl.elements(options);
         }
         clear(width, height) {
             this._viewport = { x: 0, y: 0, width, height };
@@ -206,6 +236,18 @@
             }
             return this._image;
         }
+        polygon() {
+            if (this._polygon == null) {
+                this._polygon = regl_polygon(this._regl);
+            }
+            return this._polygon;
+        }
+        polygon_hatch() {
+            if (this._polygon_hatch == null) {
+                this._polygon_hatch = regl_polygon_hatch(this._regl);
+            }
+            return this._polygon_hatch;
+        }
         marker_no_hatch(marker_type) {
             let func = this._marker_no_hatch_map.get(marker_type);
             if (func == null) {
@@ -230,7 +272,6 @@
         }
     }
     exports.ReglWrapper = ReglWrapper;
-    ReglWrapper.__name__ = "ReglWrapper";
     function regl_accumulate(regl, geometry, triangles) {
         const config = {
             vert: accumulate_vert_1.default,
@@ -473,6 +514,104 @@ ${regl_line_frag_1.default}
         };
         return regl(config);
     }
+    function regl_polygon(regl) {
+        const config = {
+            vert: polygon_vert_1.default,
+            frag: polygon_frag_1.default,
+            attributes: {
+                a_position(_, props) {
+                    return props.positions.to_per_vertex_config();
+                },
+                a_fill_color(_, props) {
+                    return props.fill_color.to_per_vertex_config();
+                },
+                a_edge_distance(_, props) {
+                    return props.edge_distance.to_per_vertex_config();
+                },
+            },
+            uniforms: {
+                u_canvas_size: regl.prop("canvas_size"),
+                u_antialias: regl.prop("antialias"),
+            },
+            elements: regl.prop("elements"),
+            count: regl.prop("count"),
+            offset: regl.prop("offset"),
+            blend: {
+                enable: true,
+                func: {
+                    srcRGB: "one",
+                    srcAlpha: "one",
+                    dstRGB: "one minus src alpha",
+                    dstAlpha: "one minus src alpha",
+                },
+            },
+            depth: { enable: false },
+            scissor: {
+                enable: true,
+                box: regl.prop("scissor"),
+            },
+            viewport: regl.prop("viewport"),
+        };
+        return regl(config);
+    }
+    function regl_polygon_hatch(regl) {
+        const config = {
+            vert: `\
+#define HATCH
+${polygon_vert_1.default}
+`,
+            frag: `\
+#define HATCH
+${polygon_frag_1.default}
+`,
+            attributes: {
+                a_position(_, props) {
+                    return props.positions.to_per_vertex_config();
+                },
+                a_fill_color(_, props) {
+                    return props.fill_color.to_per_vertex_config();
+                },
+                a_edge_distance(_, props) {
+                    return props.edge_distance.to_per_vertex_config();
+                },
+                a_hatch_pattern(_, props) {
+                    return props.hatch_pattern.to_per_vertex_config();
+                },
+                a_hatch_scale(_, props) {
+                    return props.hatch_scale.to_per_vertex_config();
+                },
+                a_hatch_weight(_, props) {
+                    return props.hatch_weight.to_per_vertex_config();
+                },
+                a_hatch_color(_, props) {
+                    return props.hatch_color.to_per_vertex_config();
+                },
+            },
+            uniforms: {
+                u_canvas_size: regl.prop("canvas_size"),
+                u_antialias: regl.prop("antialias"),
+            },
+            elements: regl.prop("elements"),
+            count: regl.prop("count"),
+            offset: regl.prop("offset"),
+            blend: {
+                enable: true,
+                func: {
+                    srcRGB: "one",
+                    srcAlpha: "one",
+                    dstRGB: "one minus src alpha",
+                    dstAlpha: "one minus src alpha",
+                },
+            },
+            depth: { enable: false },
+            scissor: {
+                enable: true,
+                box: regl.prop("scissor"),
+            },
+            viewport: regl.prop("viewport"),
+        };
+        return regl(config);
+    }
     function regl_marker(regl, marker_type, vert_defs = [], frag_defs = [], attributes) {
         const vert_prefix = vert_defs.map((def) => `#define ${def}`).join("\n");
         const frag_prefix = frag_defs.map((def) => `#define ${def}`).join("\n");
@@ -573,7 +712,7 @@ ${marker_frag_1.default}
         return regl_marker(regl, marker_type, ["HATCH"], ["HATCH"], hatch_attributes);
     }
 },
-573: /* regl/dist/regl.js */ function _(require, module, exports, __esModule, __esExport) {
+642: /* regl/dist/regl.js */ function _(require, module, exports, __esModule, __esExport) {
     (function (global, factory) {
         typeof exports === 'object' && typeof module !== 'undefined' ? module.exports = factory() :
             typeof define === 'function' && define.amd ? define(factory) :
@@ -711,8 +850,32 @@ ${marker_frag_1.default}
             this.line = lineNumber;
             this.message = message;
         }
-        function guessCommand() { return "unknown"; }
-        function guessCallSite() { return "unknown"; }
+        function guessCommand() {
+            var error = new Error();
+            var stack = (error.stack || error).toString();
+            var pat = /compileProcedure.*\n\s*at.*\((.*)\)/.exec(stack);
+            if (pat) {
+                return pat[1];
+            }
+            var pat2 = /compileProcedure.*\n\s*at\s+(.*)(\n|$)/.exec(stack);
+            if (pat2) {
+                return pat2[1];
+            }
+            return 'unknown';
+        }
+        function guessCallSite() {
+            var error = new Error();
+            var stack = (error.stack || error).toString();
+            var pat = /at REGLCommand.*\n\s+at.*\((.*)\)/.exec(stack);
+            if (pat) {
+                return pat[1];
+            }
+            var pat2 = /at REGLCommand.*\n\s+at\s+(.*)\n/.exec(stack);
+            if (pat2) {
+                return pat2[1];
+            }
+            return 'unknown';
+        }
         function parseSource(source, command) {
             var lines = source.split('\n');
             var lineNumber = 1;
@@ -9238,17 +9401,33 @@ ${marker_frag_1.default}
         return wrapREGL;
     })));
 },
-574: /* models/glyphs/webgl/dash_cache.js */ function _(require, module, exports, __esModule, __esExport) {
+643: /* models/glyphs/webgl/dash_cache.js */ function _(require, module, exports, __esModule, __esExport) {
     __esModule();
-    const math_1 = require(575) /* ./utils/math */;
+    exports.normalize_dash_pattern = normalize_dash_pattern;
+    const math_1 = require(644) /* ./utils/math */;
+    const logging_1 = require(11) /* ../../../core/logging */;
     const array_1 = require(10) /* ../../../core/util/array */;
-    const arrayable_1 = require(13) /* ../../../core/util/arrayable */;
+    const arrayable_1 = require(14) /* ../../../core/util/arrayable */;
+    function normalize_dash_pattern(pattern) {
+        for (const value of pattern) {
+            if (!Number.isInteger(value) || value < 0) {
+                logging_1.logger.warn(`invalid line dash pattern: ${pattern.join(",")}`);
+                return [];
+            }
+        }
+        if (pattern.length % 2 == 1) {
+            pattern = (0, array_1.concat)([pattern, pattern]);
+        }
+        return (0, arrayable_1.sum)(pattern) == 0 ? [] : pattern;
+    }
     /*
      * DashCache creates and stores webgl resources for dashes that can be reused
      * for different webgl lines.  Dash represented by pattern which is a list of
      * an even number of integers.
      */
     class DashCache {
+        _regl; // Needed to create textures.
+        _map;
         constructor(regl) {
             this._regl = regl;
             this._map = new Map();
@@ -9385,9 +9564,8 @@ ${marker_frag_1.default}
         }
     }
     exports.DashCache = DashCache;
-    DashCache.__name__ = "DashCache";
 },
-575: /* models/glyphs/webgl/utils/math.js */ function _(require, module, exports, __esModule, __esExport) {
+644: /* models/glyphs/webgl/utils/math.js */ function _(require, module, exports, __esModule, __esExport) {
     __esModule();
     exports.gcd = gcd;
     exports.is_pow_2 = is_pow_2;
@@ -9423,31 +9601,31 @@ ${marker_frag_1.default}
         return (v & (v - 1)) == 0 && v != 0;
     }
 },
-576: /* models/glyphs/webgl/accumulate.vert.js */ function _(require, module, exports, __esModule, __esExport) {
+645: /* models/glyphs/webgl/accumulate.vert.js */ function _(require, module, exports, __esModule, __esExport) {
     __esModule();
     const shader = `
 precision mediump float;attribute vec2 a_position;varying vec2 v_tex_coords;void main(){gl_Position=vec4(a_position.x,a_position.y,0.,1.);v_tex_coords=0.5*(1.+a_position);}`;
     exports.default = shader;
 },
-577: /* models/glyphs/webgl/accumulate.frag.js */ function _(require, module, exports, __esModule, __esExport) {
+646: /* models/glyphs/webgl/accumulate.frag.js */ function _(require, module, exports, __esModule, __esExport) {
     __esModule();
     const shader = `
 precision mediump float;uniform sampler2D u_framebuffer_tex;varying vec2 v_tex_coords;void main(){gl_FragColor=texture2D(u_framebuffer_tex,v_tex_coords);}`;
     exports.default = shader;
 },
-578: /* models/glyphs/webgl/image.vert.js */ function _(require, module, exports, __esModule, __esExport) {
+647: /* models/glyphs/webgl/image.vert.js */ function _(require, module, exports, __esModule, __esExport) {
     __esModule();
     const shader = `
 precision mediump float;attribute vec2 a_position;attribute vec4 a_bounds;uniform vec2 u_canvas_size;varying vec2 v_tex_coords;void main(){v_tex_coords=vec2(a_position.x<0.?0.:1.,a_position.y<0.?0.:1.);float x=a_position.x<0.?a_bounds[0]:a_bounds[2];float y=a_position.y<0.?a_bounds[1]:a_bounds[3];vec2 xy=vec2(x,y);vec2 pos=xy+0.5;pos/=u_canvas_size;gl_Position=vec4(2.*pos.x-1.,1.-2.*pos.y,0.,1.);}`;
     exports.default = shader;
 },
-579: /* models/glyphs/webgl/image.frag.js */ function _(require, module, exports, __esModule, __esExport) {
+648: /* models/glyphs/webgl/image.frag.js */ function _(require, module, exports, __esModule, __esExport) {
     __esModule();
     const shader = `
 precision mediump float;uniform sampler2D u_tex;uniform float u_global_alpha;varying vec2 v_tex_coords;void main(){vec4 color=texture2D(u_tex,v_tex_coords);float alpha=color.a*u_global_alpha;gl_FragColor=vec4(color.rgb*alpha,alpha);}`;
     exports.default = shader;
 },
-580: /* models/glyphs/webgl/regl_line.vert.js */ function _(require, module, exports, __esModule, __esExport) {
+649: /* models/glyphs/webgl/regl_line.vert.js */ function _(require, module, exports, __esModule, __esExport) {
     __esModule();
     const shader = `
 precision mediump float;const int butt_cap=0;const int round_cap=1;const int square_cap=2;const int miter_join=0;const int round_join=1;const int bevel_join=2;attribute vec2 a_position;attribute vec2 a_point_prev;attribute vec2 a_point_start;attribute vec2 a_point_end;attribute vec2 a_point_next;attribute float a_show_prev;attribute float a_show_curr;attribute float a_show_next;attribute float a_linewidth;attribute vec4 a_line_color;attribute float a_line_cap;attribute float a_line_join;
@@ -9466,7 +9644,7 @@ v_length_so_far=a_length_so_far;v_dash_tex_info=a_dash_tex_info;v_dash_scale=a_d
 }`;
     exports.default = shader;
 },
-581: /* models/glyphs/webgl/regl_line.frag.js */ function _(require, module, exports, __esModule, __esExport) {
+650: /* models/glyphs/webgl/regl_line.frag.js */ function _(require, module, exports, __esModule, __esExport) {
     __esModule();
     const shader = `
 precision mediump float;const int butt_cap=0;const int round_cap=1;const int square_cap=2;const int miter_join=0;const int round_join=1;const int bevel_join=2;uniform float u_antialias;
@@ -9489,7 +9667,7 @@ if(v_dash_tex_info.x>=0.){dist=dash_distance(v_coords.x);vec2 prev_coords=rotati
 alpha=v_line_color.a*alpha;gl_FragColor=vec4(v_line_color.rgb*alpha,alpha);}`;
     exports.default = shader;
 },
-582: /* models/glyphs/webgl/marker.vert.js */ function _(require, module, exports, __esModule, __esExport) {
+651: /* models/glyphs/webgl/marker.vert.js */ function _(require, module, exports, __esModule, __esExport) {
     __esModule();
     const shader = `
 precision mediump float;attribute vec2 a_position;attribute vec2 a_center;attribute float a_width;attribute float a_height;attribute float a_angle;attribute float a_aux;attribute float a_linewidth;attribute vec4 a_line_color;attribute vec4 a_fill_color;attribute float a_line_cap;attribute float a_line_join;attribute float a_show;
@@ -9582,7 +9760,7 @@ v_hatch_coords=pos-0.5;
 pos+=0.5;pos/=u_canvas_size;gl_Position=vec4(2.*pos.x-1.,1.-2.*pos.y,0.,1.);}`;
     exports.default = shader;
 },
-583: /* models/glyphs/webgl/marker.frag.js */ function _(require, module, exports, __esModule, __esExport) {
+652: /* models/glyphs/webgl/marker.frag.js */ function _(require, module, exports, __esModule, __esExport) {
     __esModule();
     const shader = `
 precision mediump float;const float SQRT2=sqrt(2.);const float SQRT3=sqrt(3.);const float PI=3.14159265358979323846;const int butt_cap=0;const int round_cap=1;const int square_cap=2;const int miter_join=0;const int round_join=1;const int bevel_join=2;
@@ -9761,10 +9939,43 @@ line_frac=max(line_frac,line_fraction(one_y(v_coords,line_cap,0.5*v_size.x)));
 if(line_frac>0.){vec4 line_color=fractional_color(v_line_color,line_frac);color=blend_colors(line_color,color);}gl_FragColor=color;}`;
     exports.default = shader;
 },
-584: /* models/glyphs/webgl/annular_wedge.js */ function _(require, module, exports, __esModule, __esExport) {
+653: /* models/glyphs/webgl/polygon.vert.js */ function _(require, module, exports, __esModule, __esExport) {
     __esModule();
-    const sxsy_1 = require(585) /* ./sxsy */;
+    const shader = `
+precision mediump float;attribute vec2 a_position;attribute vec4 a_fill_color;attribute float a_edge_distance;
+#ifdef HATCH
+attribute float a_hatch_pattern;attribute float a_hatch_scale;attribute float a_hatch_weight;attribute vec4 a_hatch_color;
+#endif
+uniform vec2 u_canvas_size;varying vec4 v_fill_color;varying float v_edge_distance;
+#ifdef HATCH
+varying float v_hatch_pattern;varying float v_hatch_scale;varying float v_hatch_weight;varying vec4 v_hatch_color;varying vec2 v_hatch_coords;
+#endif
+void main(){v_fill_color=a_fill_color;v_edge_distance=a_edge_distance;
+#ifdef HATCH
+v_hatch_pattern=a_hatch_pattern;v_hatch_scale=a_hatch_scale;v_hatch_weight=a_hatch_weight;v_hatch_color=a_hatch_color;v_hatch_coords=a_position;
+#endif
+vec2 pos=a_position+0.5;pos/=u_canvas_size;gl_Position=vec4(2.*pos.x-1.,1.-2.*pos.y,0.,1.);}`;
+    exports.default = shader;
+},
+654: /* models/glyphs/webgl/polygon.frag.js */ function _(require, module, exports, __esModule, __esExport) {
+    __esModule();
+    const shader = `
+precision mediump float;uniform float u_antialias;varying vec4 v_fill_color;varying float v_edge_distance;
+#ifdef HATCH
+const float SQRT2=sqrt(2.);const float SQRT3=sqrt(3.);const float PI=3.14159265358979323846;const int hatch_dot=1;const int hatch_ring=2;const int hatch_horizontal_line=3;const int hatch_vertical_line=4;const int hatch_cross=5;const int hatch_horizontal_dash=6;const int hatch_vertical_dash=7;const int hatch_spiral=8;const int hatch_right_diagonal_line=9;const int hatch_left_diagonal_line=10;const int hatch_diagonal_cross=11;const int hatch_right_diagonal_dash=12;const int hatch_left_diagonal_dash=13;const int hatch_horizontal_wave=14;const int hatch_vertical_wave=15;const int hatch_criss_cross=16;varying float v_hatch_pattern;varying float v_hatch_scale;varying float v_hatch_weight;varying vec4 v_hatch_color;varying vec2 v_hatch_coords;float distance_to_fraction(in float dist){return 1.-smoothstep(-0.5*u_antialias,0.5*u_antialias,dist);}vec4 fractional_color(in vec4 color,in float fraction){color.a*=fraction;color.rgb*=color.a;return color;}vec4 blend_colors(in vec4 src,in vec4 dest){return(1.-src.a)*dest+src;}float wrap(in float x){return fract(x)-0.5;}vec2 wrap(in vec2 xy){return fract(xy)-0.5;}float hatch_fraction(in vec2 coords,in int hatch_pattern){float scale=v_hatch_scale;coords=coords/scale;float halfwidth=0.5*v_hatch_weight/scale;float dist=u_antialias;if(hatch_pattern==hatch_dot){const float dot_radius=0.25;dist=length(wrap(coords))-dot_radius;}else if(hatch_pattern==hatch_ring){const float ring_radius=0.25;dist=abs(length(wrap(coords))-ring_radius)-halfwidth;}else if(hatch_pattern==hatch_horizontal_line){dist=abs(wrap(coords.y))-halfwidth;}else if(hatch_pattern==hatch_vertical_line){dist=abs(wrap(coords.x))-halfwidth;}else if(hatch_pattern==hatch_cross){dist=min(abs(wrap(coords.x)),abs(wrap(coords.y)))-halfwidth;}else if(hatch_pattern==hatch_horizontal_dash){const float halflength=0.25;dist=max(abs(wrap(coords.y)),abs(wrap(coords.x)+0.25)-halflength)-halfwidth;}else if(hatch_pattern==hatch_vertical_dash){const float halflength=0.25;dist=max(abs(wrap(coords.x)),abs(wrap(coords.y)+0.25)-halflength)-halfwidth;}else if(hatch_pattern==hatch_spiral){vec2 wrap2=wrap(coords);float angle=wrap(atan(wrap2.y,wrap2.x)/(2.*PI));const float dr=PI/15.;float radius=length(wrap2);float frac=fract((radius-dr*angle)/dr);dist=dr*(abs(frac-0.5));dist=min(dist,radius)-halfwidth;}else if(hatch_pattern==hatch_right_diagonal_line){dist=abs(wrap(2.*coords.x+coords.y))/sqrt(5.)-halfwidth;}else if(hatch_pattern==hatch_left_diagonal_line){dist=abs(wrap(2.*coords.x-coords.y))/sqrt(5.)-halfwidth;}else if(hatch_pattern==hatch_diagonal_cross){coords=vec2(coords.x+coords.y+0.5,coords.x-coords.y+0.5);dist=min(abs(wrap(coords.x)),abs(wrap(coords.y)))/SQRT2-halfwidth;}else if(hatch_pattern==hatch_right_diagonal_dash){float across=coords.x+coords.y+0.5;dist=abs(wrap(across))/SQRT2;across=floor(across);float along=wrap(0.5*(coords.x-coords.y+across));const float halflength=0.25;along=abs(along)-halflength;dist=max(dist,along)-halfwidth;}else if(hatch_pattern==hatch_left_diagonal_dash){float across=coords.x-coords.y+0.5;dist=abs(wrap(across))/SQRT2;across=floor(across);float along=wrap(0.5*(coords.x+coords.y+across));const float halflength=0.25;along=abs(along)-halflength;dist=max(dist,along)-halfwidth;}else if(hatch_pattern==hatch_horizontal_wave){float wrapx=wrap(coords.x);float wrapy=wrap(coords.y-0.25+abs(wrapx));dist=abs(wrapy)/SQRT2-halfwidth;}else if(hatch_pattern==hatch_vertical_wave){float wrapy=wrap(coords.y);float wrapx=wrap(coords.x-0.25+abs(wrapy));dist=abs(wrapx)/SQRT2-halfwidth;}else if(hatch_pattern==hatch_criss_cross){float plus=min(abs(wrap(coords.x)),abs(wrap(coords.y)));coords=vec2(coords.x+coords.y+0.5,coords.x-coords.y+0.5);float X=min(abs(wrap(coords.x)),abs(wrap(coords.y)))/SQRT2;dist=min(plus,X)-halfwidth;}return distance_to_fraction(dist*scale);}
+#endif
+void main(){vec4 color=v_fill_color;color=vec4(color.rgb*color.a,color.a);
+#ifdef HATCH
+int hatch_pattern=int(v_hatch_pattern+0.5);if(hatch_pattern>0){float hatch_frac=hatch_fraction(v_hatch_coords,hatch_pattern);vec4 hatch_color=fractional_color(v_hatch_color,hatch_frac);color=blend_colors(hatch_color,color);}
+#endif
+float edge_alpha=smoothstep(0.,u_antialias,v_edge_distance);color*=edge_alpha;gl_FragColor=color;}`;
+    exports.default = shader;
+},
+655: /* models/glyphs/webgl/annular_wedge.js */ function _(require, module, exports, __esModule, __esExport) {
+    __esModule();
+    const sxsy_1 = require(656) /* ./sxsy */;
     class AnnularWedgeGL extends sxsy_1.SXSYGlyphGL {
+        glyph;
         constructor(regl_wrapper, glyph) {
             super(regl_wrapper, glyph);
             this.glyph = glyph;
@@ -9799,13 +10010,13 @@ if(line_frac>0.){vec4 line_color=fractional_color(v_line_color,line_frac);color=
         }
     }
     exports.AnnularWedgeGL = AnnularWedgeGL;
-    AnnularWedgeGL.__name__ = "AnnularWedgeGL";
 },
-585: /* models/glyphs/webgl/sxsy.js */ function _(require, module, exports, __esModule, __esExport) {
+656: /* models/glyphs/webgl/sxsy.js */ function _(require, module, exports, __esModule, __esExport) {
     __esModule();
-    const single_marker_1 = require(586) /* ./single_marker */;
-    const webgl_utils_1 = require(590) /* ./webgl_utils */;
+    const single_marker_1 = require(657) /* ./single_marker */;
+    const webgl_utils_1 = require(661) /* ./webgl_utils */;
     class SXSYGlyphGL extends single_marker_1.SingleMarkerGL {
+        glyph;
         constructor(regl_wrapper, glyph) {
             super(regl_wrapper, glyph);
             this.glyph = glyph;
@@ -9818,12 +10029,12 @@ if(line_frac>0.){vec4 line_color=fractional_color(v_line_color,line_frac);color=
         }
     }
     exports.SXSYGlyphGL = SXSYGlyphGL;
-    SXSYGlyphGL.__name__ = "SXSYGlyphGL";
 },
-586: /* models/glyphs/webgl/single_marker.js */ function _(require, module, exports, __esModule, __esExport) {
+657: /* models/glyphs/webgl/single_marker.js */ function _(require, module, exports, __esModule, __esExport) {
     __esModule();
-    const base_marker_1 = require(587) /* ./base_marker */;
+    const base_marker_1 = require(658) /* ./base_marker */;
     class SingleMarkerGL extends base_marker_1.BaseMarkerGL {
+        glyph;
         constructor(regl_wrapper, glyph) {
             super(regl_wrapper, glyph);
             this.glyph = glyph;
@@ -9839,6 +10050,11 @@ if(line_frac>0.){vec4 line_color=fractional_color(v_line_color,line_frac);color=
                 main_gl_glyph.set_data();
                 main_gl_glyph.data_changed = false;
                 main_gl_glyph.data_mapped = false;
+            }
+            // Update derived glyph data if it has overrides
+            if (this !== main_gl_glyph && this.data_changed) {
+                this.set_data(); // Populate derived buffers
+                this.data_changed = false;
             }
             if (this.visuals_changed) {
                 this._set_visuals();
@@ -9865,53 +10081,75 @@ if(line_frac>0.){vec4 line_color=fractional_color(v_line_color,line_frac);color=
         }
     }
     exports.SingleMarkerGL = SingleMarkerGL;
-    SingleMarkerGL.__name__ = "SingleMarkerGL";
 },
-587: /* models/glyphs/webgl/base_marker.js */ function _(require, module, exports, __esModule, __esExport) {
+658: /* models/glyphs/webgl/base_marker.js */ function _(require, module, exports, __esModule, __esExport) {
     __esModule();
-    const base_1 = require(588) /* ./base */;
-    const buffer_1 = require(589) /* ./buffer */;
-    const webgl_utils_1 = require(590) /* ./webgl_utils */;
+    const base_1 = require(659) /* ./base */;
+    const buffer_1 = require(660) /* ./buffer */;
+    const webgl_utils_1 = require(661) /* ./webgl_utils */;
     // Abstract base class for markers. All markers share the same GLSL, except for
     // one function in the fragment shader that defines the marker geometry and is
     // enabled through a #define.
     class BaseMarkerGL extends base_1.BaseGLGlyph {
-        constructor() {
-            super(...arguments);
-            this._antialias = 1.5;
-            // data properties
-            this._centers = new buffer_1.Float32Buffer(this.regl_wrapper);
-            this._widths = new buffer_1.Float32Buffer(this.regl_wrapper);
-            this._heights = new buffer_1.Float32Buffer(this.regl_wrapper);
-            this._angles = new buffer_1.Float32Buffer(this.regl_wrapper);
-            this._auxs = new buffer_1.Float32Buffer(this.regl_wrapper);
-            // used by RectGL
-            this._border_radius = [0.0, 0.0, 0.0, 0.0];
-            this._border_radius_nonzero = false;
-            // indices properties
-            this._show = new buffer_1.Uint8Buffer(this.regl_wrapper);
-            this._show_all = false;
-            // visual properties
-            this._linewidths = new buffer_1.Float32Buffer(this.regl_wrapper);
-            this._line_caps = new buffer_1.Uint8Buffer(this.regl_wrapper);
-            this._line_joins = new buffer_1.Uint8Buffer(this.regl_wrapper);
-            this._line_rgba = new buffer_1.NormalizedUint8Buffer(this.regl_wrapper, 4);
-            this._fill_rgba = new buffer_1.NormalizedUint8Buffer(this.regl_wrapper, 4);
-            // Only needed if have hatch pattern, either all or none of the buffers are set.
-            this._have_hatch = false;
-            this._hatch_patterns = new buffer_1.Uint8Buffer(this.regl_wrapper);
-            this._hatch_scales = new buffer_1.Float32Buffer(this.regl_wrapper);
-            this._hatch_weights = new buffer_1.Float32Buffer(this.regl_wrapper);
-            this._hatch_rgba = new buffer_1.NormalizedUint8Buffer(this.regl_wrapper, 4);
-            this._did_set_once = false;
-        }
-        marker_props(main_gl_glyph) {
+        _antialias = 1.5;
+        // data properties
+        _centers = new buffer_1.Float32Buffer(this.regl_wrapper);
+        _widths = new buffer_1.Float32Buffer(this.regl_wrapper);
+        _heights = new buffer_1.Float32Buffer(this.regl_wrapper);
+        _angles = new buffer_1.Float32Buffer(this.regl_wrapper);
+        _auxs = new buffer_1.Float32Buffer(this.regl_wrapper);
+        // used by RectGL
+        _border_radius = [0.0, 0.0, 0.0, 0.0];
+        _border_radius_nonzero = false;
+        // indices properties
+        _show = new buffer_1.Uint8Buffer(this.regl_wrapper);
+        _show_all = false;
+        // visual properties
+        _linewidths = new buffer_1.Float32Buffer(this.regl_wrapper);
+        _line_caps = new buffer_1.Uint8Buffer(this.regl_wrapper);
+        _line_joins = new buffer_1.Uint8Buffer(this.regl_wrapper);
+        _line_rgba = new buffer_1.NormalizedUint8Buffer(this.regl_wrapper, 4);
+        _fill_rgba = new buffer_1.NormalizedUint8Buffer(this.regl_wrapper, 4);
+        // Only needed if have hatch pattern, either all or none of the buffers are set.
+        _have_hatch = false;
+        _hatch_patterns = new buffer_1.Uint8Buffer(this.regl_wrapper);
+        _hatch_scales = new buffer_1.Float32Buffer(this.regl_wrapper);
+        _hatch_weights = new buffer_1.Float32Buffer(this.regl_wrapper);
+        _hatch_rgba = new buffer_1.NormalizedUint8Buffer(this.regl_wrapper, 4);
+        // Avoiding use of nan or inf to represent missing data in webgl as shaders may
+        // have reduced floating point precision. So here using a large-ish negative
+        // value instead.
+        static missing_point = -10000;
+        /**
+         * Selects appropriate geometry buffers for rendering a marker glyph.
+         *
+         * This method implements smart buffer selection to support property overrides in derived
+         * glyphs (hover_glyph, selection_glyph, muted_glyph). For each geometry property, it
+         * checks if the derived glyph has populated its own buffer; if so, that buffer is used,
+         * otherwise it falls back to the main glyph's buffer.
+         *
+         * This pattern enables zero-overhead overrides: derived glyphs that don't override
+         * properties simply reuse main glyph buffers, while overrides are handled via lazy
+         * buffer creation detected by length checks.
+         *
+         * @param derived_gl - The glyph being rendered (may be main or derived glyph)
+         * @param main_gl_glyph - The main glyph (used as fallback for unpopulated buffers)
+         * @returns Object with buffer references for width, height, angle, aux, and border_radius
+         *
+         * Note: border_radius always uses main glyph buffer (overrides not supported)
+         */
+        marker_props(derived_gl, main_gl_glyph) {
+            // Smart selection: use derived buffer if populated, else main buffer
+            const use_derived_width = derived_gl !== main_gl_glyph && derived_gl._widths.length > 0;
+            const use_derived_height = derived_gl !== main_gl_glyph && derived_gl._heights.length > 0;
+            const use_derived_angle = derived_gl !== main_gl_glyph && derived_gl._angles.length > 0;
+            const use_derived_aux = derived_gl !== main_gl_glyph && derived_gl._auxs.length > 0;
             return {
-                width: main_gl_glyph._widths,
-                height: main_gl_glyph._heights,
-                angle: main_gl_glyph._angles,
-                aux: main_gl_glyph._auxs,
-                border_radius: main_gl_glyph._border_radius,
+                width: use_derived_width ? derived_gl._widths : main_gl_glyph._widths,
+                height: use_derived_height ? derived_gl._heights : main_gl_glyph._heights,
+                angle: use_derived_angle ? derived_gl._angles : main_gl_glyph._angles,
+                aux: use_derived_aux ? derived_gl._auxs : main_gl_glyph._auxs,
+                border_radius: main_gl_glyph._border_radius, // Always from main (overrides not supported)
             };
         }
         get line_props() {
@@ -9944,8 +10182,8 @@ if(line_frac>0.){vec4 line_color=fractional_color(v_line_color,line_frac);color=
                 nmarkers: main_gl_glyph.nvertices,
                 antialias: this._antialias / transform.pixel_ratio,
                 show: this._show,
-                center: main_gl_glyph._centers,
-                ...this.marker_props(main_gl_glyph),
+                center: main_gl_glyph._centers, // Always from main (position overrides not supported)
+                ...this.marker_props(this, main_gl_glyph),
                 ...this.line_props,
                 ...this.fill_props,
             };
@@ -9959,6 +10197,7 @@ if(line_frac>0.){vec4 line_color=fractional_color(v_line_color,line_frac);color=
                 draw(props_no_hatch);
             }
         }
+        _did_set_once = false;
         set_data() {
             if (!this._did_set_once) {
                 this._did_set_once = true;
@@ -9984,21 +10223,18 @@ if(line_frac>0.){vec4 line_color=fractional_color(v_line_color,line_frac);color=
         }
     }
     exports.BaseMarkerGL = BaseMarkerGL;
-    BaseMarkerGL.__name__ = "BaseMarkerGL";
-    // Avoiding use of nan or inf to represent missing data in webgl as shaders may
-    // have reduced floating point precision. So here using a large-ish negative
-    // value instead.
-    BaseMarkerGL.missing_point = -10000;
 },
-588: /* models/glyphs/webgl/base.js */ function _(require, module, exports, __esModule, __esExport) {
+659: /* models/glyphs/webgl/base.js */ function _(require, module, exports, __esModule, __esExport) {
     __esModule();
     class BaseGLGlyph {
+        regl_wrapper;
+        glyph;
+        nvertices = 0;
+        size_changed = false;
+        data_changed = false;
+        data_mapped = false;
+        visuals_changed = false;
         constructor(regl_wrapper, glyph) {
-            this.nvertices = 0;
-            this.size_changed = false;
-            this.data_changed = false;
-            this.data_mapped = false;
-            this.visuals_changed = false;
             this.regl_wrapper = regl_wrapper;
             this.glyph = glyph;
         }
@@ -10031,16 +10267,23 @@ if(line_frac>0.){vec4 line_color=fractional_color(v_line_color,line_frac);color=
         }
     }
     exports.BaseGLGlyph = BaseGLGlyph;
-    BaseGLGlyph.__name__ = "BaseGLGlyph";
 },
-589: /* models/glyphs/webgl/buffer.js */ function _(require, module, exports, __esModule, __esExport) {
+660: /* models/glyphs/webgl/buffer.js */ function _(require, module, exports, __esModule, __esExport) {
     __esModule();
-    const webgl_utils_1 = require(590) /* ./webgl_utils */;
-    const assert_1 = require(12) /* ../../../core/util/assert */;
+    exports.expand_to_per_vertex = expand_to_per_vertex;
+    const webgl_utils_1 = require(661) /* ./webgl_utils */;
+    const assert_1 = require(13) /* ../../../core/util/assert */;
     const color_1 = require(23) /* ../../../core/util/color */;
     // Arrays are sent to GPU using ReGL Buffer objects.  CPU-side arrays used to
     // update the Buffers are also kept for reuse to avoid unnecessary reallocation.
     class WrappedBuffer {
+        regl_wrapper;
+        buffer;
+        array;
+        is_scalar;
+        // Number of buffer elements per rendered primitive, e.g. for RGBA buffers this is 4
+        // as a single color is 4 x uint8 = 32-bit in total.
+        elements_per_primitive;
         constructor(regl_wrapper, elements_per_primitive = 1) {
             this.regl_wrapper = regl_wrapper;
             this.is_scalar = true;
@@ -10064,6 +10307,9 @@ if(line_frac>0.){vec4 line_color=fractional_color(v_line_color,line_frac);color=
         }
         get length() {
             return this.array != null ? this.array.length : 0;
+        }
+        get is_scalar_value() {
+            return this.is_scalar;
         }
         set_from_array(numbers) {
             const len = numbers.length;
@@ -10091,6 +10337,16 @@ if(line_frac>0.){vec4 line_color=fractional_color(v_line_color,line_frac);color=
         // important attributes for this are the offset (in bytes) into the buffer
         // and the divisor, which is the number of instances rendered before the
         // offset is advanced to the next buffer element.
+        // For non-instanced (polygon/elements) rendering where all attributes
+        // must have divisor 0 and data is expanded to per-vertex.
+        to_per_vertex_config() {
+            return {
+                buffer: this.buffer,
+                divisor: 0,
+                normalized: this.is_normalized(),
+                offset: 0,
+            };
+        }
         // to_attribute_config() is used for the common case of a single render call
         // per buffer with visual properties that are either scalar or vector.
         // Visual properties of scatter markers are an good example, and scalar_divisor
@@ -10117,6 +10373,22 @@ if(line_frac>0.){vec4 line_color=fractional_color(v_line_color,line_frac);color=
                 offset: this.is_scalar ? 0 : offset_vector * this.bytes_per_element() * this.elements_per_primitive,
             };
         }
+        // Extract the ith item (of `components` elements) from this buffer into `dst`,
+        // marking `dst` as scalar.  If this buffer is already scalar, returns `this`
+        // unchanged and `dst` is not touched.
+        extract_at(i, components, dst) {
+            if (this.is_scalar) {
+                return this;
+            }
+            const src_arr = this.get_array();
+            const dst_arr = dst.get_sized_array(components);
+            const off = i * components;
+            for (let c = 0; c < components; c++) {
+                dst_arr[c] = src_arr[off + c];
+            }
+            dst.update(true);
+            return dst;
+        }
         // Update ReGL buffer with data contained in array in preparation for passing
         // it to the GPU.  This function must be called after get_sized_array().
         update(is_scalar = false) {
@@ -10135,7 +10407,6 @@ if(line_frac>0.){vec4 line_color=fractional_color(v_line_color,line_frac);color=
             this.is_scalar = is_scalar;
         }
     }
-    WrappedBuffer.__name__ = "WrappedBuffer";
     class Float32Buffer extends WrappedBuffer {
         bytes_per_element() {
             return Float32Array.BYTES_PER_ELEMENT;
@@ -10145,7 +10416,6 @@ if(line_frac>0.){vec4 line_color=fractional_color(v_line_color,line_frac);color=
         }
     }
     exports.Float32Buffer = Float32Buffer;
-    Float32Buffer.__name__ = "Float32Buffer";
     class Uint8Buffer extends WrappedBuffer {
         bytes_per_element() {
             return Uint8Array.BYTES_PER_ELEMENT;
@@ -10204,7 +10474,6 @@ if(line_frac>0.){vec4 line_color=fractional_color(v_line_color,line_frac);color=
         }
     }
     exports.Uint8Buffer = Uint8Buffer;
-    Uint8Buffer.__name__ = "Uint8Buffer";
     // Normalized refers to optional WebGL behaviour of automatically converting
     // Uint8 values that are passed to shaders into floats in the range 0 to 1.
     class NormalizedUint8Buffer extends Uint8Buffer {
@@ -10213,9 +10482,29 @@ if(line_frac>0.){vec4 line_color=fractional_color(v_line_color,line_frac);color=
         }
     }
     exports.NormalizedUint8Buffer = NormalizedUint8Buffer;
-    NormalizedUint8Buffer.__name__ = "NormalizedUint8Buffer";
+    // Expand a scalar or per-item source buffer to per-vertex in the destination buffer.
+    // Used for non-instanced polygon rendering where all attributes need divisor 0.
+    // components is the number of elements per item (e.g. 4 for RGBA).
+    function expand_to_per_vertex(src, dst, vertex_counts, components) {
+        const src_arr = src.get_array();
+        let total = 0;
+        for (const c of vertex_counts) {
+            total += c;
+        }
+        const dst_arr = dst.get_sized_array(total * components);
+        let offset = 0;
+        for (let i = 0; i < vertex_counts.length; i++) {
+            const src_offset = src.is_scalar_value ? 0 : i * components;
+            for (let j = 0; j < vertex_counts[i]; j++) {
+                for (let c = 0; c < components; c++) {
+                    dst_arr[offset++] = src_arr[src_offset + c];
+                }
+            }
+        }
+        dst.update();
+    }
 },
-590: /* models/glyphs/webgl/webgl_utils.js */ function _(require, module, exports, __esModule, __esExport) {
+661: /* models/glyphs/webgl/webgl_utils.js */ function _(require, module, exports, __esModule, __esExport) {
     __esModule();
     exports.interleave = interleave;
     exports.hatch_pattern_to_index = hatch_pattern_to_index;
@@ -10291,10 +10580,11 @@ if(line_frac>0.){vec4 line_color=fractional_color(v_line_color,line_frac);color=
         }
     }
 },
-591: /* models/glyphs/webgl/annulus.js */ function _(require, module, exports, __esModule, __esExport) {
+662: /* models/glyphs/webgl/annulus.js */ function _(require, module, exports, __esModule, __esExport) {
     __esModule();
-    const sxsy_1 = require(585) /* ./sxsy */;
+    const sxsy_1 = require(656) /* ./sxsy */;
     class AnnulusGL extends sxsy_1.SXSYGlyphGL {
+        glyph;
         constructor(regl_wrapper, glyph) {
             super(regl_wrapper, glyph);
             this.glyph = glyph;
@@ -10320,25 +10610,33 @@ if(line_frac>0.){vec4 line_color=fractional_color(v_line_color,line_frac);color=
         }
     }
     exports.AnnulusGL = AnnulusGL;
-    AnnulusGL.__name__ = "AnnulusGL";
 },
-592: /* models/glyphs/webgl/base_line.js */ function _(require, module, exports, __esModule, __esExport) {
+663: /* models/glyphs/webgl/base_line.js */ function _(require, module, exports, __esModule, __esExport) {
     __esModule();
-    const base_1 = require(588) /* ./base */;
-    const buffer_1 = require(589) /* ./buffer */;
+    const base_1 = require(659) /* ./base */;
+    const buffer_1 = require(660) /* ./buffer */;
     const line_1 = require(100) /* ../../../core/visuals/line */;
     class BaseLineGL extends base_1.BaseGLGlyph {
+        glyph;
+        _antialias = 1.5; // Make this larger to test antialiasing at edges.
+        _miter_limit = 10.0; // Threshold for miters to be replaced by bevels.
+        // data properties
+        _points;
+        _show; // Applies to segments not points.
+        // visual properties
+        _linewidth = new buffer_1.Float32Buffer(this.regl_wrapper);
+        _line_color = new buffer_1.NormalizedUint8Buffer(this.regl_wrapper, 4);
+        _line_cap = new buffer_1.Uint8Buffer(this.regl_wrapper);
+        _line_join = new buffer_1.Uint8Buffer(this.regl_wrapper);
+        _is_dashed = false;
+        // visual properties that are only used if line is dashed.
+        _length_so_far; // Depends on both data and visuals.
+        _dash_tex = [];
+        _dash_tex_info;
+        _dash_scale;
+        _dash_offset;
         constructor(regl_wrapper, glyph) {
             super(regl_wrapper, glyph);
-            this._antialias = 1.5; // Make this larger to test antialiasing at edges.
-            this._miter_limit = 10.0; // Threshold for miters to be replaced by bevels.
-            // visual properties
-            this._linewidth = new buffer_1.Float32Buffer(this.regl_wrapper);
-            this._line_color = new buffer_1.NormalizedUint8Buffer(this.regl_wrapper, 4);
-            this._line_cap = new buffer_1.Uint8Buffer(this.regl_wrapper);
-            this._line_join = new buffer_1.Uint8Buffer(this.regl_wrapper);
-            this._is_dashed = false;
-            this._dash_tex = [];
             this.glyph = glyph;
         }
         _draw_single(main_gl_glyph, transform, line_offset, point_offset, nsegments, framebuffer, show = null) {
@@ -10481,12 +10779,12 @@ if(line_frac>0.){vec4 line_color=fractional_color(v_line_color,line_frac);color=
         }
     }
     exports.BaseLineGL = BaseLineGL;
-    BaseLineGL.__name__ = "BaseLineGL";
 },
-593: /* models/glyphs/webgl/circle.js */ function _(require, module, exports, __esModule, __esExport) {
+664: /* models/glyphs/webgl/circle.js */ function _(require, module, exports, __esModule, __esExport) {
     __esModule();
-    const radial_1 = require(594) /* ./radial */;
+    const radial_1 = require(665) /* ./radial */;
     class CircleGL extends radial_1.RadialGL {
+        glyph;
         constructor(regl_wrapper, glyph) {
             super(regl_wrapper, glyph);
             this.glyph = glyph;
@@ -10500,13 +10798,13 @@ if(line_frac>0.){vec4 line_color=fractional_color(v_line_color,line_frac);color=
         }
     }
     exports.CircleGL = CircleGL;
-    CircleGL.__name__ = "CircleGL";
 },
-594: /* models/glyphs/webgl/radial.js */ function _(require, module, exports, __esModule, __esExport) {
+665: /* models/glyphs/webgl/radial.js */ function _(require, module, exports, __esModule, __esExport) {
     __esModule();
-    const sxsy_1 = require(585) /* ./sxsy */;
-    const arrayable_1 = require(13) /* ../../../core/util/arrayable */;
+    const sxsy_1 = require(656) /* ./sxsy */;
+    const arrayable_1 = require(14) /* ../../../core/util/arrayable */;
     class RadialGL extends sxsy_1.SXSYGlyphGL {
+        glyph;
         constructor(regl_wrapper, glyph) {
             super(regl_wrapper, glyph);
             this.glyph = glyph;
@@ -10528,12 +10826,12 @@ if(line_frac>0.){vec4 line_color=fractional_color(v_line_color,line_frac);color=
         }
     }
     exports.RadialGL = RadialGL;
-    RadialGL.__name__ = "RadialGL";
 },
-595: /* models/glyphs/webgl/hex_tile.js */ function _(require, module, exports, __esModule, __esExport) {
+666: /* models/glyphs/webgl/hex_tile.js */ function _(require, module, exports, __esModule, __esExport) {
     __esModule();
-    const sxsy_1 = require(585) /* ./sxsy */;
+    const sxsy_1 = require(656) /* ./sxsy */;
     class HexTileGL extends sxsy_1.SXSYGlyphGL {
+        glyph;
         constructor(regl_wrapper, glyph) {
             super(regl_wrapper, glyph);
             this.glyph = glyph;
@@ -10560,21 +10858,21 @@ if(line_frac>0.){vec4 line_color=fractional_color(v_line_color,line_frac);color=
         }
     }
     exports.HexTileGL = HexTileGL;
-    HexTileGL.__name__ = "HexTileGL";
 },
-596: /* models/glyphs/webgl/image.js */ function _(require, module, exports, __esModule, __esExport) {
+667: /* models/glyphs/webgl/image.js */ function _(require, module, exports, __esModule, __esExport) {
     __esModule();
-    const base_1 = require(588) /* ./base */;
-    const buffer_1 = require(589) /* ./buffer */;
-    const assert_1 = require(12) /* ../../../core/util/assert */;
+    const base_1 = require(659) /* ./base */;
+    const buffer_1 = require(660) /* ./buffer */;
+    const assert_1 = require(13) /* ../../../core/util/assert */;
     class ImageGL extends base_1.BaseGLGlyph {
+        glyph;
+        // data properties
+        _tex = [];
+        _bounds = [];
+        // image_changed is separate from data_changed as it can occur through changed colormapping.
+        _image_changed = false;
         constructor(regl_wrapper, glyph) {
             super(regl_wrapper, glyph);
-            // data properties
-            this._tex = [];
-            this._bounds = [];
-            // image_changed is separate from data_changed as it can occur through changed colormapping.
-            this._image_changed = false;
             this.glyph = glyph;
         }
         draw(indices, main_glyph, transform) {
@@ -10672,13 +10970,13 @@ if(line_frac>0.){vec4 line_color=fractional_color(v_line_color,line_frac);color=
         }
     }
     exports.ImageGL = ImageGL;
-    ImageGL.__name__ = "ImageGL";
 },
-597: /* models/glyphs/webgl/line_gl.js */ function _(require, module, exports, __esModule, __esExport) {
+668: /* models/glyphs/webgl/line_gl.js */ function _(require, module, exports, __esModule, __esExport) {
     __esModule();
-    const buffer_1 = require(589) /* ./buffer */;
-    const single_line_1 = require(598) /* ./single_line */;
+    const buffer_1 = require(660) /* ./buffer */;
+    const single_line_1 = require(669) /* ./single_line */;
     class LineGL extends single_line_1.SingleLineGL {
+        glyph;
         constructor(regl_wrapper, glyph) {
             super(regl_wrapper, glyph);
             this.glyph = glyph;
@@ -10743,13 +11041,13 @@ if(line_frac>0.){vec4 line_color=fractional_color(v_line_color,line_frac);color=
         }
     }
     exports.LineGL = LineGL;
-    LineGL.__name__ = "LineGL";
 },
-598: /* models/glyphs/webgl/single_line.js */ function _(require, module, exports, __esModule, __esExport) {
+669: /* models/glyphs/webgl/single_line.js */ function _(require, module, exports, __esModule, __esExport) {
     __esModule();
-    const base_line_1 = require(592) /* ./base_line */;
-    const buffer_1 = require(589) /* ./buffer */;
+    const base_line_1 = require(663) /* ./base_line */;
+    const buffer_1 = require(660) /* ./buffer */;
     class SingleLineGL extends base_line_1.BaseLineGL {
+        glyph;
         constructor(regl_wrapper, glyph) {
             super(regl_wrapper, glyph);
             this.glyph = glyph;
@@ -10810,13 +11108,13 @@ if(line_frac>0.){vec4 line_color=fractional_color(v_line_color,line_frac);color=
         }
     }
     exports.SingleLineGL = SingleLineGL;
-    SingleLineGL.__name__ = "SingleLineGL";
 },
-599: /* models/glyphs/webgl/lrtb.js */ function _(require, module, exports, __esModule, __esExport) {
+670: /* models/glyphs/webgl/lrtb.js */ function _(require, module, exports, __esModule, __esExport) {
     __esModule();
-    const single_marker_1 = require(586) /* ./single_marker */;
+    const single_marker_1 = require(657) /* ./single_marker */;
     const { abs } = Math;
     class LRTBGL extends single_marker_1.SingleMarkerGL {
+        glyph;
         constructor(regl_wrapper, glyph) {
             super(regl_wrapper, glyph);
             this.glyph = glyph;
@@ -10869,13 +11167,13 @@ if(line_frac>0.){vec4 line_color=fractional_color(v_line_color,line_frac);color=
         }
     }
     exports.LRTBGL = LRTBGL;
-    LRTBGL.__name__ = "LRTBGL";
 },
-600: /* models/glyphs/webgl/multi_line.js */ function _(require, module, exports, __esModule, __esExport) {
+671: /* models/glyphs/webgl/multi_line.js */ function _(require, module, exports, __esModule, __esExport) {
     __esModule();
-    const base_line_1 = require(592) /* ./base_line */;
-    const buffer_1 = require(589) /* ./buffer */;
+    const base_line_1 = require(663) /* ./base_line */;
+    const buffer_1 = require(660) /* ./buffer */;
     class MultiLineGL extends base_line_1.BaseLineGL {
+        glyph;
         constructor(regl_wrapper, glyph) {
             super(regl_wrapper, glyph);
             this.glyph = glyph;
@@ -11009,14 +11307,1821 @@ if(line_frac>0.){vec4 line_color=fractional_color(v_line_color,line_frac);color=
         }
     }
     exports.MultiLineGL = MultiLineGL;
-    MultiLineGL.__name__ = "MultiLineGL";
 },
-601: /* models/glyphs/webgl/multi_marker.js */ function _(require, module, exports, __esModule, __esExport) {
+672: /* models/glyphs/webgl/patch.js */ function _(require, module, exports, __esModule, __esExport) {
     __esModule();
-    const base_marker_1 = require(587) /* ./base_marker */;
-    const webgl_utils_1 = require(590) /* ./webgl_utils */;
+    const tslib_1 = require(1) /* tslib */;
+    const base_1 = require(659) /* ./base */;
+    const buffer_1 = require(660) /* ./buffer */;
+    const line_1 = require(100) /* ../../../core/visuals/line */;
+    const dash_cache_1 = require(643) /* ./dash_cache */;
+    const polygon_1 = require(673) /* ../../../core/util/polygon */;
+    const earcut_1 = tslib_1.__importDefault(require(674) /* earcut */);
+    class PatchGL extends base_1.BaseGLGlyph {
+        glyph;
+        // Fill buffers
+        _positions;
+        _edge_distance;
+        _elements = null;
+        // Per-vertex visual buffers for polygon fill (divisor 0)
+        _pv_fill_color = new buffer_1.NormalizedUint8Buffer(this.regl_wrapper, 4);
+        _pv_hatch_patterns = new buffer_1.Uint8Buffer(this.regl_wrapper);
+        _pv_hatch_scales = new buffer_1.Float32Buffer(this.regl_wrapper);
+        _pv_hatch_weights = new buffer_1.Float32Buffer(this.regl_wrapper);
+        _pv_hatch_rgba = new buffer_1.NormalizedUint8Buffer(this.regl_wrapper, 4);
+        // Source visual buffers (scalar, from _set_visuals)
+        _fill_color = new buffer_1.NormalizedUint8Buffer(this.regl_wrapper, 4);
+        _have_hatch = false;
+        _hatch_patterns = new buffer_1.Uint8Buffer(this.regl_wrapper);
+        _hatch_scales = new buffer_1.Float32Buffer(this.regl_wrapper);
+        _hatch_weights = new buffer_1.Float32Buffer(this.regl_wrapper);
+        _hatch_rgba = new buffer_1.NormalizedUint8Buffer(this.regl_wrapper, 4);
+        // Stroke upload buffers (reuse line infrastructure)
+        _line_points_buf;
+        _line_show_buf;
+        _linewidth = new buffer_1.Float32Buffer(this.regl_wrapper);
+        _line_color = new buffer_1.NormalizedUint8Buffer(this.regl_wrapper, 4);
+        _line_cap = new buffer_1.Uint8Buffer(this.regl_wrapper);
+        _line_join = new buffer_1.Uint8Buffer(this.regl_wrapper);
+        // Dash state
+        _is_dashed = false;
+        _length_so_far_buf;
+        _dash_tex = [];
+        _dash_tex_info;
+        _dash_scale;
+        _dash_offset;
+        _triangle_count = 0;
+        _nvertices = 0;
+        _ring_data = [];
+        _pv_dirty = true;
+        _topology;
+        constructor(regl_wrapper, glyph) {
+            super(regl_wrapper, glyph);
+            this.glyph = glyph;
+        }
+        draw(_indices, main_glyph, transform) {
+            const main_patch = main_glyph;
+            const main_gl = main_patch.glglyph;
+            const derived_data_changed = this !== main_gl && this.data_changed;
+            if (this.visuals_changed) {
+                this._set_visuals();
+                this.visuals_changed = false;
+                this._pv_dirty = true;
+            }
+            const data_changed = main_gl.data_changed;
+            const data_changed_or_mapped = data_changed || main_gl.data_mapped;
+            if (data_changed_or_mapped) {
+                main_gl._set_data(data_changed);
+                main_gl.data_changed = false;
+                main_gl.data_mapped = false;
+                this._pv_dirty ||= data_changed || derived_data_changed;
+            }
+            if (this !== main_gl && (this.data_changed || this.data_mapped)) {
+                this.data_changed = false;
+                this.data_mapped = false;
+                this._pv_dirty = true;
+            }
+            if (main_gl._triangle_count == 0 && main_gl._ring_data.length == 0) {
+                return;
+            }
+            // Expand visual buffers to per-vertex when visuals or data changed
+            if (this._pv_dirty && main_gl._nvertices > 0) {
+                const vertex_counts = [main_gl._nvertices];
+                (0, buffer_1.expand_to_per_vertex)(this._fill_color, this._pv_fill_color, vertex_counts, 4);
+                if (this._have_hatch) {
+                    (0, buffer_1.expand_to_per_vertex)(this._hatch_patterns, this._pv_hatch_patterns, vertex_counts, 1);
+                    (0, buffer_1.expand_to_per_vertex)(this._hatch_scales, this._pv_hatch_scales, vertex_counts, 1);
+                    (0, buffer_1.expand_to_per_vertex)(this._hatch_weights, this._pv_hatch_weights, vertex_counts, 1);
+                    (0, buffer_1.expand_to_per_vertex)(this._hatch_rgba, this._pv_hatch_rgba, vertex_counts, 4);
+                }
+                this._pv_dirty = false;
+            }
+            const { width, height } = transform;
+            const canvas_size = [width, height];
+            // Fill pass
+            if (main_gl._triangle_count > 0 && main_gl._elements != null) {
+                const fill_visuals = this.glyph.visuals.fill;
+                if (fill_visuals.doit) {
+                    if (this._have_hatch) {
+                        this.regl_wrapper.polygon_hatch()({
+                            scissor: this.regl_wrapper.scissor,
+                            viewport: this.regl_wrapper.viewport,
+                            canvas_size,
+                            positions: main_gl._positions,
+                            fill_color: this._pv_fill_color,
+                            edge_distance: main_gl._edge_distance,
+                            elements: main_gl._elements,
+                            count: main_gl._triangle_count * 3,
+                            offset: 0,
+                            antialias: polygon_1.POLYGON_AA_WIDTH / transform.pixel_ratio,
+                            hatch_pattern: this._pv_hatch_patterns,
+                            hatch_scale: this._pv_hatch_scales,
+                            hatch_weight: this._pv_hatch_weights,
+                            hatch_color: this._pv_hatch_rgba,
+                        });
+                    }
+                    else {
+                        this.regl_wrapper.polygon()({
+                            scissor: this.regl_wrapper.scissor,
+                            viewport: this.regl_wrapper.viewport,
+                            canvas_size,
+                            positions: main_gl._positions,
+                            fill_color: this._pv_fill_color,
+                            edge_distance: main_gl._edge_distance,
+                            elements: main_gl._elements,
+                            count: main_gl._triangle_count * 3,
+                            offset: 0,
+                            antialias: polygon_1.POLYGON_AA_WIDTH / transform.pixel_ratio,
+                        });
+                    }
+                }
+            }
+            // Stroke pass - draw each ring outline separately
+            if (main_gl._ring_data.length > 0) {
+                const line_visuals = this.glyph.visuals.line;
+                if (line_visuals.doit) {
+                    for (const ring of main_gl._ring_data) {
+                        if (ring.nline < 2) {
+                            continue;
+                        }
+                        const nsegments = ring.nline - 1;
+                        const [framebuffer, tex] = this.regl_wrapper.framebuffer_and_texture;
+                        this.regl_wrapper.clear_framebuffer(framebuffer);
+                        // Upload ring data
+                        if (this._line_points_buf == null) {
+                            this._line_points_buf = new buffer_1.Float32Buffer(this.regl_wrapper);
+                        }
+                        const pts = this._line_points_buf.get_sized_array(ring.points.length);
+                        pts.set(ring.points);
+                        this._line_points_buf.update();
+                        if (this._line_show_buf == null) {
+                            this._line_show_buf = new buffer_1.Uint8Buffer(this.regl_wrapper);
+                        }
+                        const shw = this._line_show_buf.get_sized_array(ring.show.length);
+                        shw.set(ring.show);
+                        this._line_show_buf.update();
+                        if (this._is_dashed) {
+                            if (this._length_so_far_buf == null) {
+                                this._length_so_far_buf = new buffer_1.Float32Buffer(this.regl_wrapper);
+                            }
+                            const lsf = this._length_so_far_buf.get_sized_array(ring.length_so_far.length);
+                            lsf.set(ring.length_so_far);
+                            this._length_so_far_buf.update();
+                        }
+                        const solid_props = {
+                            scissor: this.regl_wrapper.scissor,
+                            viewport: this.regl_wrapper.viewport,
+                            canvas_size,
+                            antialias: 1.5 / transform.pixel_ratio,
+                            miter_limit: 10.0,
+                            points: this._line_points_buf,
+                            show: this._line_show_buf,
+                            nsegments,
+                            linewidth: this._linewidth,
+                            line_color: this._line_color,
+                            line_cap: this._line_cap,
+                            line_join: this._line_join,
+                            framebuffer,
+                            point_offset: 0,
+                            line_offset: 0,
+                        };
+                        if (this._is_dashed && this._dash_tex[0] != null) {
+                            const dashed_props = {
+                                ...solid_props,
+                                length_so_far: this._length_so_far_buf,
+                                dash_tex: this._dash_tex[0],
+                                dash_tex_info: this._dash_tex_info,
+                                dash_scale: this._dash_scale,
+                                dash_offset: this._dash_offset,
+                            };
+                            this.regl_wrapper.dashed_line()(dashed_props);
+                        }
+                        else {
+                            this.regl_wrapper.solid_line()(solid_props);
+                        }
+                        const accumulate_props = {
+                            scissor: this.regl_wrapper.scissor,
+                            viewport: this.regl_wrapper.viewport,
+                            framebuffer_tex: tex,
+                        };
+                        this.regl_wrapper.accumulate()(accumulate_props);
+                    }
+                }
+            }
+        }
+        _set_data(data_changed = true) {
+            const { sx, sy } = this.glyph;
+            const rings = (0, polygon_1.split_rings)(sx, sy);
+            if (rings.length > 0) {
+                const topology_invalid = this._topology == null || this._topology.some(({ ring_indices }) => ring_indices.some((i) => i >= rings.length));
+                const topology_changed = data_changed || topology_invalid;
+                if (topology_changed) {
+                    const groups = (0, polygon_1.classify_rings)(rings);
+                    this._topology = groups.map(({ flat_coords, rings: group_rings }) => {
+                        const ring_indices = group_rings.map((ring) => rings.indexOf(ring));
+                        const hole_indices = [];
+                        let offset = 0;
+                        for (let r = 0; r < group_rings.length; r++) {
+                            if (r > 0) {
+                                hole_indices.push(offset);
+                            }
+                            offset += group_rings[r].length / 2;
+                        }
+                        const tri_indices = (0, earcut_1.default)(flat_coords, hole_indices.length > 0 ? hole_indices : undefined, 2);
+                        return { ring_indices, tri_indices };
+                    });
+                }
+                let total_nvertices = 0;
+                let total_ntriangles = 0;
+                let total_coords = 0;
+                let total_elements = 0;
+                // Triangulate each group independently
+                const group_geoms = [];
+                for (const { ring_indices, tri_indices } of this._topology) {
+                    const group_rings = ring_indices.map((i) => rings[i]);
+                    const flat_coords = group_rings.flat();
+                    const geom = (0, polygon_1.generate_skirt_geometry)(flat_coords, group_rings, tri_indices, polygon_1.POLYGON_AA_WIDTH);
+                    group_geoms.push(geom);
+                    total_nvertices += geom.nvertices;
+                    total_ntriangles += geom.ntriangles;
+                    total_coords += geom.positions.length;
+                    total_elements += geom.indices.length;
+                }
+                this._triangle_count = total_ntriangles;
+                this._nvertices = total_nvertices;
+                // Merge all group geometries into single buffers
+                if (this._positions == null) {
+                    this._positions = new buffer_1.Float32Buffer(this.regl_wrapper, 2);
+                }
+                const pos_array = this._positions.get_sized_array(total_coords);
+                if (this._edge_distance == null) {
+                    this._edge_distance = new buffer_1.Float32Buffer(this.regl_wrapper);
+                }
+                const ed_array = this._edge_distance.get_sized_array(total_nvertices);
+                const elem_array = topology_changed || this._elements == null ? new Uint32Array(total_elements) : null;
+                let pos_offset = 0;
+                let ed_offset = 0;
+                let elem_offset = 0;
+                let vertex_offset = 0;
+                for (const geom of group_geoms) {
+                    pos_array.set(geom.positions, pos_offset);
+                    pos_offset += geom.positions.length;
+                    ed_array.set(geom.edge_distance, ed_offset);
+                    ed_offset += geom.edge_distance.length;
+                    if (elem_array != null) {
+                        for (let j = 0; j < geom.indices.length; j++) {
+                            elem_array[elem_offset + j] = geom.indices[j] + vertex_offset;
+                        }
+                    }
+                    elem_offset += geom.indices.length;
+                    vertex_offset += geom.nvertices;
+                }
+                this._positions.update();
+                this._edge_distance.update();
+                // Element topology is data-space invariant, so retain it across mapping.
+                if (elem_array != null) {
+                    this._elements?.destroy();
+                    this._elements = this.regl_wrapper.elements({
+                        usage: "static",
+                        primitive: "triangles",
+                        data: elem_array,
+                        type: "uint32",
+                    });
+                }
+                // Build line data for all rings (outer boundary + holes + disjoint)
+                this._ring_data = [];
+                for (const ring of rings) {
+                    const data = (0, polygon_1.build_line_from_ring)(ring);
+                    if (data.nline > 0) {
+                        this._ring_data.push(data);
+                    }
+                }
+            }
+            else {
+                if (data_changed) {
+                    this._elements?.destroy();
+                    this._elements = null;
+                    this._topology = [];
+                }
+                this._triangle_count = 0;
+                this._nvertices = 0;
+                this._ring_data = [];
+            }
+        }
+        _set_visuals() {
+            const fill_visuals = this.glyph.visuals.fill;
+            this._fill_color.set_from_color(fill_visuals.fill_color, fill_visuals.fill_alpha);
+            const line_visuals = this.glyph.visuals.line;
+            this._line_color.set_from_color(line_visuals.line_color, line_visuals.line_alpha);
+            this._linewidth.set_from_prop(line_visuals.line_width);
+            this._line_cap.set_from_line_cap(line_visuals.line_cap);
+            this._line_join.set_from_line_join(line_visuals.line_join);
+            // Dash detection
+            const { line_dash } = line_visuals;
+            const arr = (0, dash_cache_1.normalize_dash_pattern)((0, line_1.resolve_line_dash)(line_dash.get(0)));
+            this._is_dashed = arr.length != 0;
+            this._dash_tex = [];
+            if (this._is_dashed) {
+                if (this._dash_offset == null) {
+                    this._dash_offset = new buffer_1.Float32Buffer(this.regl_wrapper);
+                }
+                this._dash_offset.set_from_prop(line_visuals.line_dash_offset);
+                if (this._dash_tex_info == null) {
+                    this._dash_tex_info = new buffer_1.Float32Buffer(this.regl_wrapper, 4);
+                }
+                const dash_tex_info = this._dash_tex_info.get_sized_array(4);
+                if (this._dash_scale == null) {
+                    this._dash_scale = new buffer_1.Float32Buffer(this.regl_wrapper);
+                }
+                const dash_scale = this._dash_scale.get_sized_array(1);
+                const [tex_info, tex, scale] = this.regl_wrapper.get_dash(arr);
+                this._dash_tex.push(tex);
+                for (let j = 0; j < 4; j++) {
+                    dash_tex_info[j] = tex_info[j];
+                }
+                dash_scale[0] = scale;
+                // Patch is always scalar (single glyph).
+                this._dash_tex_info.update(true);
+                this._dash_scale.update(true);
+            }
+            const hatch_visuals = this.glyph.visuals.hatch;
+            this._have_hatch = hatch_visuals.doit;
+            if (this._have_hatch) {
+                this._hatch_patterns.set_from_hatch_pattern(hatch_visuals.hatch_pattern);
+                this._hatch_scales.set_from_prop(hatch_visuals.hatch_scale);
+                this._hatch_weights.set_from_prop(hatch_visuals.hatch_weight);
+                this._hatch_rgba.set_from_color(hatch_visuals.hatch_color, hatch_visuals.hatch_alpha);
+            }
+        }
+    }
+    exports.PatchGL = PatchGL;
+},
+673: /* core/util/polygon.js */ function _(require, module, exports, __esModule, __esExport) {
+    __esModule();
+    exports.split_rings = split_rings;
+    exports.generate_skirt_geometry = generate_skirt_geometry;
+    exports.point_in_ring = point_in_ring;
+    exports.classify_rings = classify_rings;
+    exports.build_line_from_ring = build_line_from_ring;
+    // Shared utilities for polygon rendering (Patch, Patches glyphs).
+    /** Width of the anti-aliasing skirt in CSS pixels. Must match the
+     *  `antialias` uniform passed to the polygon shader so that the
+     *  smoothstep fade range equals the skirt geometry extent. */
+    exports.POLYGON_AA_WIDTH = 0.75;
+    /** Split x/y coordinate arrays on non-finite values into rings (sub-paths).
+     *  Each ring is a flat array of interleaved [x0, y0, x1, y1, ...] values. */
+    function split_rings(sx, sy) {
+        const n = Math.min(sx.length, sy.length);
+        const rings = [];
+        let current_ring = [];
+        for (let i = 0; i < n; i++) {
+            const x = sx[i];
+            const y = sy[i];
+            if (!isFinite(x + y)) {
+                if (current_ring.length > 0) {
+                    rings.push(current_ring);
+                    current_ring = [];
+                }
+            }
+            else {
+                current_ring.push(x, y);
+            }
+        }
+        if (current_ring.length > 0) {
+            rings.push(current_ring);
+        }
+        return rings;
+    }
+    /** Compute the signed area of a ring (shoelace formula).
+     *  Positive for counter-clockwise, negative for clockwise. */
+    function signed_area_2(ring) {
+        const n = ring.length / 2;
+        let area = 0;
+        for (let i = 0; i < n; i++) {
+            const j = (i + 1) % n;
+            area += ring[i * 2] * ring[j * 2 + 1] - ring[j * 2] * ring[i * 2 + 1];
+        }
+        return area;
+    }
+    /** Generate expanded geometry with an anti-aliasing skirt around polygon boundaries.
+     *
+     *  The skirt approach adds a thin fringe of extra triangles around each polygon
+     *  boundary edge. Interior (earcut) vertices get `edge_distance = antialias_width`
+     *  (fully opaque). Skirt outer vertices get `edge_distance = 0.0` (fully
+     *  transparent). The GPU linearly interpolates across the skirt, producing a
+     *  smooth alpha gradient for anti-aliased polygon edges. Ordinarily the skirt
+     *  straddles the mathematical boundary. Rings with subpixel segments instead
+     *  keep their triangulated vertices fixed and place the entire fade outwards,
+     *  because moving those vertices can invalidate skinny earcut triangles.
+     *
+     *  @param flat_coords      Interleaved [x0,y0,...] screen-pixel coordinates.
+     *  @param rings            Ring arrays as returned by {@link split_rings}.
+     *  @param tri_indices      Earcut triangle indices into flat_coords.
+     *  @param antialias_width  Width of the AA skirt in CSS pixels.
+     *  @returns SkirtGeometry with combined positions, edge distances, and indices.
+     */
+    function generate_skirt_geometry(flat_coords, rings, tri_indices, antialias_width) {
+        const n_original = flat_coords.length / 2;
+        const n_earcut_tris = tri_indices.length / 3;
+        if (n_original < 3 || n_earcut_tris == 0) {
+            return {
+                positions: new Float32Array(flat_coords.length),
+                edge_distance: new Float32Array(n_original).fill(antialias_width),
+                indices: new Uint32Array(tri_indices),
+                nvertices: n_original,
+                ntriangles: n_earcut_tris,
+            };
+        }
+        // Count boundary vertices (= boundary edges) across all rings
+        let n_boundary = 0;
+        for (const ring of rings) {
+            n_boundary += ring.length / 2;
+        }
+        const n_total_verts = n_original + n_boundary;
+        const n_skirt_tris = 2 * n_boundary;
+        const n_total_tris = n_earcut_tris + n_skirt_tris;
+        const positions = new Float32Array(n_total_verts * 2);
+        const edge_distance = new Float32Array(n_total_verts);
+        const indices = new Uint32Array(n_total_tris * 3);
+        // 1. Copy original vertices, set edge_distance = antialias_width
+        for (let i = 0; i < flat_coords.length; i++) {
+            positions[i] = flat_coords[i];
+        }
+        edge_distance.fill(antialias_width, 0, n_original);
+        // 2. Copy earcut indices
+        for (let i = 0; i < tri_indices.length; i++) {
+            indices[i] = tri_indices[i];
+        }
+        // 3. Generate skirt vertices and triangles
+        let skirt_vert_idx = n_original;
+        let skirt_tri_idx = n_earcut_tris * 3;
+        let ring_offset = 0; // global vertex index offset for current ring
+        for (let ring_idx = 0; ring_idx < rings.length; ring_idx++) {
+            const ring = rings[ring_idx];
+            const npts = ring.length / 2;
+            if (npts < 2) {
+                ring_offset += npts;
+                continue;
+            }
+            // Determine normal direction based on ring role:
+            // Ring 0 (outer): expand outward
+            // Ring 1+ (holes): expand into the hole
+            const area = signed_area_2(ring);
+            // For CCW (positive area) outer ring, right-hand perpendicular points outward
+            // For holes, we flip
+            const normal_sign = ring_idx == 0 ? Math.sign(area) : -Math.sign(area);
+            // If area is zero (degenerate ring), skip skirt for this ring
+            if (normal_sign == 0) {
+                // Still create degenerate skirt vertices at the same position
+                for (let i = 0; i < npts; i++) {
+                    const vx = flat_coords[(ring_offset + i) * 2];
+                    const vy = flat_coords[(ring_offset + i) * 2 + 1];
+                    positions[skirt_vert_idx * 2] = vx;
+                    positions[skirt_vert_idx * 2 + 1] = vy;
+                    edge_distance[skirt_vert_idx] = 0;
+                    // Still emit skirt triangles (they'll be degenerate/zero-area)
+                    const a_inner = ring_offset + i;
+                    const b_inner = ring_offset + (i + 1) % npts;
+                    const skirt_base = skirt_vert_idx - i; // base of this ring's skirt vertices
+                    const a_out = skirt_base + i;
+                    const b_out = skirt_base + (i + 1) % npts;
+                    indices[skirt_tri_idx++] = a_inner;
+                    indices[skirt_tri_idx++] = b_inner;
+                    indices[skirt_tri_idx++] = b_out;
+                    indices[skirt_tri_idx++] = a_inner;
+                    indices[skirt_tri_idx++] = b_out;
+                    indices[skirt_tri_idx++] = a_out;
+                    skirt_vert_idx++;
+                }
+                ring_offset += npts;
+                continue;
+            }
+            // Compute per-edge outward normals
+            const normals = new Float64Array(npts * 2);
+            for (let i = 0; i < npts; i++) {
+                const j = (i + 1) % npts;
+                const ex = ring[j * 2] - ring[i * 2];
+                const ey = ring[j * 2 + 1] - ring[i * 2 + 1];
+                const len = Math.sqrt(ex * ex + ey * ey);
+                if (len < 1e-10) {
+                    // Zero-length edge: normal will be zero, handled below
+                    normals[i * 2] = 0;
+                    normals[i * 2 + 1] = 0;
+                }
+                else {
+                    // Right-hand perpendicular: (ey, -ex) for CCW, then multiply by normal_sign
+                    normals[i * 2] = normal_sign * ey / len;
+                    normals[i * 2 + 1] = normal_sign * (-ex) / len;
+                }
+            }
+            // Record the base index for this ring's skirt vertices
+            const skirt_base = skirt_vert_idx;
+            // Clamp the inward shift so that it doesn't collapse small or narrow
+            // polygons. We use the approximate "inradius" (area / perimeter) to
+            // estimate how far inward we can safely shift without inverting the
+            // earcut triangulation. Rings with subpixel boundary detail need a
+            // stronger fallback: keep their triangulated vertices fixed and place the
+            // entire AA fade outside. Applying that fallback only to subpixel rings
+            // preserves centered AA on ordinary adjacent polygons, avoiding overlap
+            // seams between their semi-transparent fills.
+            let perimeter = 0;
+            let min_edge_length = Infinity;
+            for (let i = 0; i < npts; i++) {
+                const j = (i + 1) % npts;
+                const ex = ring[j * 2] - ring[i * 2];
+                const ey = ring[j * 2 + 1] - ring[i * 2 + 1];
+                const length = Math.sqrt(ex * ex + ey * ey);
+                perimeter += length;
+                min_edge_length = Math.min(min_edge_length, length);
+            }
+            const abs_area = Math.abs(area);
+            const inradius = perimeter > 0 ? abs_area / perimeter : 0;
+            const half_aa = Math.min(0.5 * antialias_width, 0.25 * inradius);
+            const preserve_topology = min_edge_length < antialias_width;
+            for (let i = 0; i < npts; i++) {
+                const prev_edge = (i - 1 + npts) % npts;
+                const curr_edge = i;
+                const n0x = normals[prev_edge * 2];
+                const n0y = normals[prev_edge * 2 + 1];
+                const n1x = normals[curr_edge * 2];
+                const n1y = normals[curr_edge * 2 + 1];
+                const n0_zero = (n0x == 0 && n0y == 0);
+                const n1_zero = (n1x == 0 && n1y == 0);
+                // Compute unit miter direction (dx, dy) and inverse-cosine scale
+                let dx, dy, inv_cos;
+                if (n0_zero && n1_zero) {
+                    dx = 0;
+                    dy = 0;
+                    inv_cos = 1;
+                }
+                else if (n0_zero) {
+                    dx = n1x;
+                    dy = n1y;
+                    inv_cos = 1;
+                }
+                else if (n1_zero) {
+                    dx = n0x;
+                    dy = n0y;
+                    inv_cos = 1;
+                }
+                else {
+                    let bx = n0x + n1x;
+                    let by = n0y + n1y;
+                    const blen = Math.sqrt(bx * bx + by * by);
+                    if (blen < 1e-10) {
+                        // Normals point in opposite directions (180° turn)
+                        dx = n0x;
+                        dy = n0y;
+                        inv_cos = 1;
+                    }
+                    else {
+                        bx /= blen;
+                        by /= blen;
+                        const cos_half = bx * n0x + by * n0y;
+                        const clamped_cos = Math.max(cos_half, 0.1);
+                        inv_cos = 1.0 / clamped_cos;
+                        dx = bx;
+                        dy = by;
+                    }
+                }
+                const inner_offset = (preserve_topology ? 0 : half_aa) * inv_cos;
+                const outer_offset = (preserve_topology ? antialias_width : half_aa) * inv_cos;
+                const vx = flat_coords[(ring_offset + i) * 2];
+                const vy = flat_coords[(ring_offset + i) * 2 + 1];
+                positions[(ring_offset + i) * 2] = vx - dx * inner_offset;
+                positions[(ring_offset + i) * 2 + 1] = vy - dy * inner_offset;
+                positions[skirt_vert_idx * 2] = vx + dx * outer_offset;
+                positions[skirt_vert_idx * 2 + 1] = vy + dy * outer_offset;
+                edge_distance[skirt_vert_idx] = 0;
+                skirt_vert_idx++;
+            }
+            // Emit skirt triangles for each boundary edge
+            for (let i = 0; i < npts; i++) {
+                const j = (i + 1) % npts;
+                const a_inner = ring_offset + i;
+                const b_inner = ring_offset + j;
+                const a_outer = skirt_base + i;
+                const b_outer = skirt_base + j;
+                // Two triangles per edge: (A_inner, B_inner, B_outer) and (A_inner, B_outer, A_outer)
+                indices[skirt_tri_idx++] = a_inner;
+                indices[skirt_tri_idx++] = b_inner;
+                indices[skirt_tri_idx++] = b_outer;
+                indices[skirt_tri_idx++] = a_inner;
+                indices[skirt_tri_idx++] = b_outer;
+                indices[skirt_tri_idx++] = a_outer;
+            }
+            ring_offset += npts;
+        }
+        return {
+            positions,
+            edge_distance,
+            indices,
+            nvertices: n_total_verts,
+            ntriangles: n_total_tris,
+        };
+    }
+    /** Test whether point (px, py) is inside a ring of interleaved [x0,y0,...] coords.
+     *  Uses ray-casting algorithm. */
+    function point_in_ring(px, py, ring) {
+        const n = ring.length / 2;
+        let inside = false;
+        for (let i = 0, j = n - 1; i < n; j = i++) {
+            const xi = ring[i * 2], yi = ring[i * 2 + 1];
+            const xj = ring[j * 2], yj = ring[j * 2 + 1];
+            if (((yi > py) != (yj > py)) && (px < (xj - xi) * (py - yi) / (yj - yi) + xi)) {
+                inside = !inside;
+            }
+        }
+        return inside;
+    }
+    function ring_bounds(ring) {
+        let x0 = Infinity;
+        let y0 = Infinity;
+        let x1 = -Infinity;
+        let y1 = -Infinity;
+        for (let i = 0; i < ring.length; i += 2) {
+            const x = ring[i];
+            const y = ring[i + 1];
+            x0 = Math.min(x0, x);
+            y0 = Math.min(y0, y);
+            x1 = Math.max(x1, x);
+            y1 = Math.max(y1, y);
+        }
+        return { x0, y0, x1, y1 };
+    }
+    function bounds_contain(outer, inner) {
+        return outer.x0 <= inner.x0 && outer.y0 <= inner.y0 &&
+            outer.x1 >= inner.x1 && outer.y1 >= inner.y1;
+    }
+    /** Classify split rings according to the even-odd fill rule.
+     *  Each even-depth ring starts a triangulation group and its direct odd-depth
+     *  children are holes. Nested islands therefore become independent groups,
+     *  and disjoint rings can themselves contain holes. Ring orientation and
+     *  input ordering do not affect classification. */
+    function classify_rings(rings) {
+        const n = rings.length;
+        if (n == 0) {
+            return [];
+        }
+        const areas = rings.map((ring) => Math.abs(signed_area_2(ring)));
+        const bounds = rings.map(ring_bounds);
+        const parents = new Int32Array(n).fill(-1);
+        const order = Array.from({ length: n }, (_, i) => i);
+        order.sort((i, j) => areas[i] - areas[j]);
+        for (let k = 0; k < n; k++) {
+            const i = order[k];
+            const ring = rings[i];
+            if (ring.length < 2) {
+                continue;
+            }
+            for (let l = k + 1; l < n; l++) {
+                const j = order[l];
+                if (areas[j] <= areas[i] || !bounds_contain(bounds[j], bounds[i])) {
+                    continue;
+                }
+                if (point_in_ring(ring[0], ring[1], rings[j])) {
+                    parents[i] = j;
+                    break;
+                }
+            }
+        }
+        const depths = new Int32Array(n).fill(-1);
+        const depth_of = (i) => {
+            const known = depths[i];
+            if (known >= 0) {
+                return known;
+            }
+            const parent = parents[i];
+            return depths[i] = parent == -1 ? 0 : depth_of(parent) + 1;
+        };
+        const children = Array.from({ length: n }, () => new Array());
+        for (let i = 0; i < n; i++) {
+            const parent = parents[i];
+            if (parent != -1) {
+                children[parent].push(i);
+            }
+        }
+        const groups = [];
+        for (let i = 0; i < n; i++) {
+            if (depth_of(i) % 2 != 0) {
+                continue;
+            }
+            const group_rings = [rings[i], ...children[i].map((j) => rings[j])];
+            groups.push({
+                rings: group_rings,
+                flat_coords: group_rings.flat(),
+            });
+        }
+        return groups;
+    }
+    /** Build line rendering data from a flat ring [x0,y0,x1,y1,...].
+     *  Produces points with guard vertices, show flags, and
+     *  cumulative segment lengths (always computed so that any glyph view
+     *  e.g. selection or hover can render dashed if needed). */
+    function build_line_from_ring(ring) {
+        const npoints = ring.length / 2;
+        if (npoints < 2) {
+            return {
+                points: new Float32Array(0),
+                show: new Uint8Array(0),
+                nline: 0,
+                length_so_far: new Float32Array(0),
+            };
+        }
+        const is_closed = (npoints > 2 &&
+            ring[0] == ring[(npoints - 1) * 2] &&
+            ring[1] == ring[(npoints - 1) * 2 + 1]);
+        // For implicitly closed polygons, add a closing point to draw the final edge
+        const nline = is_closed ? npoints : npoints + 1;
+        const points = new Float32Array((nline + 2) * 2);
+        for (let i = 0; i < npoints; i++) {
+            points[(i + 1) * 2] = ring[i * 2];
+            points[(i + 1) * 2 + 1] = ring[i * 2 + 1];
+        }
+        if (!is_closed) {
+            // Add closing point (repeat first vertex)
+            points[(npoints + 1) * 2] = ring[0];
+            points[(npoints + 1) * 2 + 1] = ring[1];
+        }
+        // Guard points for proper line joins at the closing vertex
+        if (is_closed) {
+            points[0] = points[(npoints - 1) * 2];
+            points[1] = points[(npoints - 1) * 2 + 1];
+            points[(nline + 1) * 2] = points[4];
+            points[(nline + 1) * 2 + 1] = points[5];
+        }
+        else {
+            // guard0 = last unique point (before closing vertex)
+            points[0] = points[npoints * 2];
+            points[1] = points[npoints * 2 + 1];
+            // guard_end = second point (after closing vertex)
+            points[(nline + 1) * 2] = points[4];
+            points[(nline + 1) * 2 + 1] = points[5];
+        }
+        const show = new Uint8Array(nline + 1);
+        show.fill(1);
+        // Always compute length_so_far so that any glyph view (selection, hover)
+        // can render dashed lines even if the main glyph is solid.
+        const nsegments = nline - 1;
+        const length_so_far = new Float32Array(nsegments);
+        let length = 0.0;
+        for (let i = 0; i < nsegments; i++) {
+            length_so_far[i] = length;
+            if (show[i + 1] == 1) {
+                length += Math.sqrt((points[2 * i + 4] - points[2 * i + 2]) ** 2 +
+                    (points[2 * i + 5] - points[2 * i + 3]) ** 2);
+            }
+            else {
+                length = 0.0;
+            }
+        }
+        return { points, show, nline, length_so_far };
+    }
+},
+674: /* earcut/src/earcut.js */ function _(require, module, exports, __esModule, __esExport) {
+    __esModule();
+    exports.default = earcut;
+    exports.deviation = deviation;
+    exports.flatten = flatten;
+    function earcut(data, holeIndices, dim = 2) {
+        const hasHoles = holeIndices && holeIndices.length;
+        const outerLen = hasHoles ? holeIndices[0] * dim : data.length;
+        let outerNode = linkedList(data, 0, outerLen, dim, true);
+        const triangles = [];
+        if (!outerNode || outerNode.next === outerNode.prev)
+            return triangles;
+        let minX, minY, invSize;
+        if (hasHoles)
+            outerNode = eliminateHoles(data, holeIndices, outerNode, dim);
+        // if the shape is not too simple, we'll use z-order curve hash later; calculate polygon bbox
+        if (data.length > 80 * dim) {
+            minX = data[0];
+            minY = data[1];
+            let maxX = minX;
+            let maxY = minY;
+            for (let i = dim; i < outerLen; i += dim) {
+                const x = data[i];
+                const y = data[i + 1];
+                if (x < minX)
+                    minX = x;
+                if (y < minY)
+                    minY = y;
+                if (x > maxX)
+                    maxX = x;
+                if (y > maxY)
+                    maxY = y;
+            }
+            // minX, minY and invSize are later used to transform coords into integers for z-order calculation
+            invSize = Math.max(maxX - minX, maxY - minY);
+            invSize = invSize !== 0 ? 32767 / invSize : 0;
+        }
+        earcutLinked(outerNode, triangles, dim, minX, minY, invSize, 0);
+        return triangles;
+    }
+    // create a circular doubly linked list from polygon points in the specified winding order
+    function linkedList(data, start, end, dim, clockwise) {
+        let last;
+        if (clockwise === (signedArea(data, start, end, dim) > 0)) {
+            for (let i = start; i < end; i += dim)
+                last = insertNode(i / dim | 0, data[i], data[i + 1], last);
+        }
+        else {
+            for (let i = end - dim; i >= start; i -= dim)
+                last = insertNode(i / dim | 0, data[i], data[i + 1], last);
+        }
+        if (last && equals(last, last.next)) {
+            removeNode(last);
+            last = last.next;
+        }
+        return last;
+    }
+    // eliminate colinear or duplicate points
+    function filterPoints(start, end) {
+        if (!start)
+            return start;
+        if (!end)
+            end = start;
+        let p = start, again;
+        do {
+            again = false;
+            if (!p.steiner && (equals(p, p.next) || area(p.prev, p, p.next) === 0)) {
+                removeNode(p);
+                p = end = p.prev;
+                if (p === p.next)
+                    break;
+                again = true;
+            }
+            else {
+                p = p.next;
+            }
+        } while (again || p !== end);
+        return end;
+    }
+    // main ear slicing loop which triangulates a polygon (given as a linked list)
+    function earcutLinked(ear, triangles, dim, minX, minY, invSize, pass) {
+        if (!ear)
+            return;
+        // interlink polygon nodes in z-order
+        if (!pass && invSize)
+            indexCurve(ear, minX, minY, invSize);
+        let stop = ear;
+        // iterate through ears, slicing them one by one
+        while (ear.prev !== ear.next) {
+            const prev = ear.prev;
+            const next = ear.next;
+            if (invSize ? isEarHashed(ear, minX, minY, invSize) : isEar(ear)) {
+                triangles.push(prev.i, ear.i, next.i); // cut off the triangle
+                removeNode(ear);
+                // skipping the next vertex leads to less sliver triangles
+                ear = next.next;
+                stop = next.next;
+                continue;
+            }
+            ear = next;
+            // if we looped through the whole remaining polygon and can't find any more ears
+            if (ear === stop) {
+                // try filtering points and slicing again
+                if (!pass) {
+                    earcutLinked(filterPoints(ear), triangles, dim, minX, minY, invSize, 1);
+                    // if this didn't work, try curing all small self-intersections locally
+                }
+                else if (pass === 1) {
+                    ear = cureLocalIntersections(filterPoints(ear), triangles);
+                    earcutLinked(ear, triangles, dim, minX, minY, invSize, 2);
+                    // as a last resort, try splitting the remaining polygon into two
+                }
+                else if (pass === 2) {
+                    splitEarcut(ear, triangles, dim, minX, minY, invSize);
+                }
+                break;
+            }
+        }
+    }
+    // check whether a polygon node forms a valid ear with adjacent nodes
+    function isEar(ear) {
+        const a = ear.prev, b = ear, c = ear.next;
+        if (area(a, b, c) >= 0)
+            return false; // reflex, can't be an ear
+        // now make sure we don't have other points inside the potential ear
+        const ax = a.x, bx = b.x, cx = c.x, ay = a.y, by = b.y, cy = c.y;
+        // triangle bbox
+        const x0 = Math.min(ax, bx, cx), y0 = Math.min(ay, by, cy), x1 = Math.max(ax, bx, cx), y1 = Math.max(ay, by, cy);
+        let p = c.next;
+        while (p !== a) {
+            if (p.x >= x0 && p.x <= x1 && p.y >= y0 && p.y <= y1 &&
+                pointInTriangleExceptFirst(ax, ay, bx, by, cx, cy, p.x, p.y) &&
+                area(p.prev, p, p.next) >= 0)
+                return false;
+            p = p.next;
+        }
+        return true;
+    }
+    function isEarHashed(ear, minX, minY, invSize) {
+        const a = ear.prev, b = ear, c = ear.next;
+        if (area(a, b, c) >= 0)
+            return false; // reflex, can't be an ear
+        const ax = a.x, bx = b.x, cx = c.x, ay = a.y, by = b.y, cy = c.y;
+        // triangle bbox
+        const x0 = Math.min(ax, bx, cx), y0 = Math.min(ay, by, cy), x1 = Math.max(ax, bx, cx), y1 = Math.max(ay, by, cy);
+        // z-order range for the current triangle bbox;
+        const minZ = zOrder(x0, y0, minX, minY, invSize), maxZ = zOrder(x1, y1, minX, minY, invSize);
+        let p = ear.prevZ, n = ear.nextZ;
+        // look for points inside the triangle in both directions
+        while (p && p.z >= minZ && n && n.z <= maxZ) {
+            if (p.x >= x0 && p.x <= x1 && p.y >= y0 && p.y <= y1 && p !== a && p !== c &&
+                pointInTriangleExceptFirst(ax, ay, bx, by, cx, cy, p.x, p.y) && area(p.prev, p, p.next) >= 0)
+                return false;
+            p = p.prevZ;
+            if (n.x >= x0 && n.x <= x1 && n.y >= y0 && n.y <= y1 && n !== a && n !== c &&
+                pointInTriangleExceptFirst(ax, ay, bx, by, cx, cy, n.x, n.y) && area(n.prev, n, n.next) >= 0)
+                return false;
+            n = n.nextZ;
+        }
+        // look for remaining points in decreasing z-order
+        while (p && p.z >= minZ) {
+            if (p.x >= x0 && p.x <= x1 && p.y >= y0 && p.y <= y1 && p !== a && p !== c &&
+                pointInTriangleExceptFirst(ax, ay, bx, by, cx, cy, p.x, p.y) && area(p.prev, p, p.next) >= 0)
+                return false;
+            p = p.prevZ;
+        }
+        // look for remaining points in increasing z-order
+        while (n && n.z <= maxZ) {
+            if (n.x >= x0 && n.x <= x1 && n.y >= y0 && n.y <= y1 && n !== a && n !== c &&
+                pointInTriangleExceptFirst(ax, ay, bx, by, cx, cy, n.x, n.y) && area(n.prev, n, n.next) >= 0)
+                return false;
+            n = n.nextZ;
+        }
+        return true;
+    }
+    // go through all polygon nodes and cure small local self-intersections
+    function cureLocalIntersections(start, triangles) {
+        let p = start;
+        do {
+            const a = p.prev, b = p.next.next;
+            if (!equals(a, b) && intersects(a, p, p.next, b) && locallyInside(a, b) && locallyInside(b, a)) {
+                triangles.push(a.i, p.i, b.i);
+                // remove two nodes involved
+                removeNode(p);
+                removeNode(p.next);
+                p = start = b;
+            }
+            p = p.next;
+        } while (p !== start);
+        return filterPoints(p);
+    }
+    // try splitting polygon into two and triangulate them independently
+    function splitEarcut(start, triangles, dim, minX, minY, invSize) {
+        // look for a valid diagonal that divides the polygon into two
+        let a = start;
+        do {
+            let b = a.next.next;
+            while (b !== a.prev) {
+                if (a.i !== b.i && isValidDiagonal(a, b)) {
+                    // split the polygon in two by the diagonal
+                    let c = splitPolygon(a, b);
+                    // filter colinear points around the cuts
+                    a = filterPoints(a, a.next);
+                    c = filterPoints(c, c.next);
+                    // run earcut on each half
+                    earcutLinked(a, triangles, dim, minX, minY, invSize, 0);
+                    earcutLinked(c, triangles, dim, minX, minY, invSize, 0);
+                    return;
+                }
+                b = b.next;
+            }
+            a = a.next;
+        } while (a !== start);
+    }
+    // link every hole into the outer loop, producing a single-ring polygon without holes
+    function eliminateHoles(data, holeIndices, outerNode, dim) {
+        const queue = [];
+        for (let i = 0, len = holeIndices.length; i < len; i++) {
+            const start = holeIndices[i] * dim;
+            const end = i < len - 1 ? holeIndices[i + 1] * dim : data.length;
+            const list = linkedList(data, start, end, dim, false);
+            if (list === list.next)
+                list.steiner = true;
+            queue.push(getLeftmost(list));
+        }
+        queue.sort(compareXYSlope);
+        // process holes from left to right
+        for (let i = 0; i < queue.length; i++) {
+            outerNode = eliminateHole(queue[i], outerNode);
+        }
+        return outerNode;
+    }
+    function compareXYSlope(a, b) {
+        let result = a.x - b.x;
+        // when the left-most point of 2 holes meet at a vertex, sort the holes counterclockwise so that when we find
+        // the bridge to the outer shell is always the point that they meet at.
+        if (result === 0) {
+            result = a.y - b.y;
+            if (result === 0) {
+                const aSlope = (a.next.y - a.y) / (a.next.x - a.x);
+                const bSlope = (b.next.y - b.y) / (b.next.x - b.x);
+                result = aSlope - bSlope;
+            }
+        }
+        return result;
+    }
+    // find a bridge between vertices that connects hole with an outer ring and link it
+    function eliminateHole(hole, outerNode) {
+        const bridge = findHoleBridge(hole, outerNode);
+        if (!bridge) {
+            return outerNode;
+        }
+        const bridgeReverse = splitPolygon(bridge, hole);
+        // filter collinear points around the cuts
+        filterPoints(bridgeReverse, bridgeReverse.next);
+        return filterPoints(bridge, bridge.next);
+    }
+    // David Eberly's algorithm for finding a bridge between hole and outer polygon
+    function findHoleBridge(hole, outerNode) {
+        let p = outerNode;
+        const hx = hole.x;
+        const hy = hole.y;
+        let qx = -Infinity;
+        let m;
+        // find a segment intersected by a ray from the hole's leftmost point to the left;
+        // segment's endpoint with lesser x will be potential connection point
+        // unless they intersect at a vertex, then choose the vertex
+        if (equals(hole, p))
+            return p;
+        do {
+            if (equals(hole, p.next))
+                return p.next;
+            else if (hy <= p.y && hy >= p.next.y && p.next.y !== p.y) {
+                const x = p.x + (hy - p.y) * (p.next.x - p.x) / (p.next.y - p.y);
+                if (x <= hx && x > qx) {
+                    qx = x;
+                    m = p.x < p.next.x ? p : p.next;
+                    if (x === hx)
+                        return m; // hole touches outer segment; pick leftmost endpoint
+                }
+            }
+            p = p.next;
+        } while (p !== outerNode);
+        if (!m)
+            return null;
+        // look for points inside the triangle of hole point, segment intersection and endpoint;
+        // if there are no points found, we have a valid connection;
+        // otherwise choose the point of the minimum angle with the ray as connection point
+        const stop = m;
+        const mx = m.x;
+        const my = m.y;
+        let tanMin = Infinity;
+        p = m;
+        do {
+            if (hx >= p.x && p.x >= mx && hx !== p.x &&
+                pointInTriangle(hy < my ? hx : qx, hy, mx, my, hy < my ? qx : hx, hy, p.x, p.y)) {
+                const tan = Math.abs(hy - p.y) / (hx - p.x); // tangential
+                if (locallyInside(p, hole) &&
+                    (tan < tanMin || (tan === tanMin && (p.x > m.x || (p.x === m.x && sectorContainsSector(m, p)))))) {
+                    m = p;
+                    tanMin = tan;
+                }
+            }
+            p = p.next;
+        } while (p !== stop);
+        return m;
+    }
+    // whether sector in vertex m contains sector in vertex p in the same coordinates
+    function sectorContainsSector(m, p) {
+        return area(m.prev, m, p.prev) < 0 && area(p.next, m, m.next) < 0;
+    }
+    // interlink polygon nodes in z-order
+    function indexCurve(start, minX, minY, invSize) {
+        let p = start;
+        do {
+            if (p.z === 0)
+                p.z = zOrder(p.x, p.y, minX, minY, invSize);
+            p.prevZ = p.prev;
+            p.nextZ = p.next;
+            p = p.next;
+        } while (p !== start);
+        p.prevZ.nextZ = null;
+        p.prevZ = null;
+        sortLinked(p);
+    }
+    // Simon Tatham's linked list merge sort algorithm
+    // http://www.chiark.greenend.org.uk/~sgtatham/algorithms/listsort.html
+    function sortLinked(list) {
+        let numMerges;
+        let inSize = 1;
+        do {
+            let p = list;
+            let e;
+            list = null;
+            let tail = null;
+            numMerges = 0;
+            while (p) {
+                numMerges++;
+                let q = p;
+                let pSize = 0;
+                for (let i = 0; i < inSize; i++) {
+                    pSize++;
+                    q = q.nextZ;
+                    if (!q)
+                        break;
+                }
+                let qSize = inSize;
+                while (pSize > 0 || (qSize > 0 && q)) {
+                    if (pSize !== 0 && (qSize === 0 || !q || p.z <= q.z)) {
+                        e = p;
+                        p = p.nextZ;
+                        pSize--;
+                    }
+                    else {
+                        e = q;
+                        q = q.nextZ;
+                        qSize--;
+                    }
+                    if (tail)
+                        tail.nextZ = e;
+                    else
+                        list = e;
+                    e.prevZ = tail;
+                    tail = e;
+                }
+                p = q;
+            }
+            tail.nextZ = null;
+            inSize *= 2;
+        } while (numMerges > 1);
+        return list;
+    }
+    // z-order of a point given coords and inverse of the longer side of data bbox
+    function zOrder(x, y, minX, minY, invSize) {
+        // coords are transformed into non-negative 15-bit integer range
+        x = (x - minX) * invSize | 0;
+        y = (y - minY) * invSize | 0;
+        x = (x | (x << 8)) & 0x00FF00FF;
+        x = (x | (x << 4)) & 0x0F0F0F0F;
+        x = (x | (x << 2)) & 0x33333333;
+        x = (x | (x << 1)) & 0x55555555;
+        y = (y | (y << 8)) & 0x00FF00FF;
+        y = (y | (y << 4)) & 0x0F0F0F0F;
+        y = (y | (y << 2)) & 0x33333333;
+        y = (y | (y << 1)) & 0x55555555;
+        return x | (y << 1);
+    }
+    // find the leftmost node of a polygon ring
+    function getLeftmost(start) {
+        let p = start, leftmost = start;
+        do {
+            if (p.x < leftmost.x || (p.x === leftmost.x && p.y < leftmost.y))
+                leftmost = p;
+            p = p.next;
+        } while (p !== start);
+        return leftmost;
+    }
+    // check if a point lies within a convex triangle
+    function pointInTriangle(ax, ay, bx, by, cx, cy, px, py) {
+        return (cx - px) * (ay - py) >= (ax - px) * (cy - py) &&
+            (ax - px) * (by - py) >= (bx - px) * (ay - py) &&
+            (bx - px) * (cy - py) >= (cx - px) * (by - py);
+    }
+    // check if a point lies within a convex triangle but false if its equal to the first point of the triangle
+    function pointInTriangleExceptFirst(ax, ay, bx, by, cx, cy, px, py) {
+        return !(ax === px && ay === py) && pointInTriangle(ax, ay, bx, by, cx, cy, px, py);
+    }
+    // check if a diagonal between two polygon nodes is valid (lies in polygon interior)
+    function isValidDiagonal(a, b) {
+        return a.next.i !== b.i && a.prev.i !== b.i && !intersectsPolygon(a, b) && // doesn't intersect other edges
+            (locallyInside(a, b) && locallyInside(b, a) && middleInside(a, b) && // locally visible
+                (area(a.prev, a, b.prev) || area(a, b.prev, b)) || // does not create opposite-facing sectors
+                equals(a, b) && area(a.prev, a, a.next) > 0 && area(b.prev, b, b.next) > 0); // special zero-length case
+    }
+    // signed area of a triangle
+    function area(p, q, r) {
+        return (q.y - p.y) * (r.x - q.x) - (q.x - p.x) * (r.y - q.y);
+    }
+    // check if two points are equal
+    function equals(p1, p2) {
+        return p1.x === p2.x && p1.y === p2.y;
+    }
+    // check if two segments intersect
+    function intersects(p1, q1, p2, q2) {
+        const o1 = sign(area(p1, q1, p2));
+        const o2 = sign(area(p1, q1, q2));
+        const o3 = sign(area(p2, q2, p1));
+        const o4 = sign(area(p2, q2, q1));
+        if (o1 !== o2 && o3 !== o4)
+            return true; // general case
+        if (o1 === 0 && onSegment(p1, p2, q1))
+            return true; // p1, q1 and p2 are collinear and p2 lies on p1q1
+        if (o2 === 0 && onSegment(p1, q2, q1))
+            return true; // p1, q1 and q2 are collinear and q2 lies on p1q1
+        if (o3 === 0 && onSegment(p2, p1, q2))
+            return true; // p2, q2 and p1 are collinear and p1 lies on p2q2
+        if (o4 === 0 && onSegment(p2, q1, q2))
+            return true; // p2, q2 and q1 are collinear and q1 lies on p2q2
+        return false;
+    }
+    // for collinear points p, q, r, check if point q lies on segment pr
+    function onSegment(p, q, r) {
+        return q.x <= Math.max(p.x, r.x) && q.x >= Math.min(p.x, r.x) && q.y <= Math.max(p.y, r.y) && q.y >= Math.min(p.y, r.y);
+    }
+    function sign(num) {
+        return num > 0 ? 1 : num < 0 ? -1 : 0;
+    }
+    // check if a polygon diagonal intersects any polygon segments
+    function intersectsPolygon(a, b) {
+        let p = a;
+        do {
+            if (p.i !== a.i && p.next.i !== a.i && p.i !== b.i && p.next.i !== b.i &&
+                intersects(p, p.next, a, b))
+                return true;
+            p = p.next;
+        } while (p !== a);
+        return false;
+    }
+    // check if a polygon diagonal is locally inside the polygon
+    function locallyInside(a, b) {
+        return area(a.prev, a, a.next) < 0 ?
+            area(a, b, a.next) >= 0 && area(a, a.prev, b) >= 0 :
+            area(a, b, a.prev) < 0 || area(a, a.next, b) < 0;
+    }
+    // check if the middle point of a polygon diagonal is inside the polygon
+    function middleInside(a, b) {
+        let p = a;
+        let inside = false;
+        const px = (a.x + b.x) / 2;
+        const py = (a.y + b.y) / 2;
+        do {
+            if (((p.y > py) !== (p.next.y > py)) && p.next.y !== p.y &&
+                (px < (p.next.x - p.x) * (py - p.y) / (p.next.y - p.y) + p.x))
+                inside = !inside;
+            p = p.next;
+        } while (p !== a);
+        return inside;
+    }
+    // link two polygon vertices with a bridge; if the vertices belong to the same ring, it splits polygon into two;
+    // if one belongs to the outer ring and another to a hole, it merges it into a single ring
+    function splitPolygon(a, b) {
+        const a2 = createNode(a.i, a.x, a.y), b2 = createNode(b.i, b.x, b.y), an = a.next, bp = b.prev;
+        a.next = b;
+        b.prev = a;
+        a2.next = an;
+        an.prev = a2;
+        b2.next = a2;
+        a2.prev = b2;
+        bp.next = b2;
+        b2.prev = bp;
+        return b2;
+    }
+    // create a node and optionally link it with previous one (in a circular doubly linked list)
+    function insertNode(i, x, y, last) {
+        const p = createNode(i, x, y);
+        if (!last) {
+            p.prev = p;
+            p.next = p;
+        }
+        else {
+            p.next = last.next;
+            p.prev = last;
+            last.next.prev = p;
+            last.next = p;
+        }
+        return p;
+    }
+    function removeNode(p) {
+        p.next.prev = p.prev;
+        p.prev.next = p.next;
+        if (p.prevZ)
+            p.prevZ.nextZ = p.nextZ;
+        if (p.nextZ)
+            p.nextZ.prevZ = p.prevZ;
+    }
+    function createNode(i, x, y) {
+        return {
+            i, // vertex index in coordinates array
+            x, y, // vertex coordinates
+            prev: null, // previous and next vertex nodes in a polygon ring
+            next: null,
+            z: 0, // z-order curve value
+            prevZ: null, // previous and next nodes in z-order
+            nextZ: null,
+            steiner: false // indicates whether this is a steiner point
+        };
+    }
+    // return a percentage difference between the polygon area and its triangulation area;
+    // used to verify correctness of triangulation
+    function deviation(data, holeIndices, dim, triangles) {
+        const hasHoles = holeIndices && holeIndices.length;
+        const outerLen = hasHoles ? holeIndices[0] * dim : data.length;
+        let polygonArea = Math.abs(signedArea(data, 0, outerLen, dim));
+        if (hasHoles) {
+            for (let i = 0, len = holeIndices.length; i < len; i++) {
+                const start = holeIndices[i] * dim;
+                const end = i < len - 1 ? holeIndices[i + 1] * dim : data.length;
+                polygonArea -= Math.abs(signedArea(data, start, end, dim));
+            }
+        }
+        let trianglesArea = 0;
+        for (let i = 0; i < triangles.length; i += 3) {
+            const a = triangles[i] * dim;
+            const b = triangles[i + 1] * dim;
+            const c = triangles[i + 2] * dim;
+            trianglesArea += Math.abs((data[a] - data[c]) * (data[b + 1] - data[a + 1]) -
+                (data[a] - data[b]) * (data[c + 1] - data[a + 1]));
+        }
+        return polygonArea === 0 && trianglesArea === 0 ? 0 :
+            Math.abs((trianglesArea - polygonArea) / polygonArea);
+    }
+    function signedArea(data, start, end, dim) {
+        let sum = 0;
+        for (let i = start, j = end - dim; i < end; i += dim) {
+            sum += (data[j] - data[i]) * (data[i + 1] + data[j + 1]);
+            j = i;
+        }
+        return sum;
+    }
+    // turn a polygon in a multi-dimensional array form (e.g. as in GeoJSON) into a form Earcut accepts
+    function flatten(data) {
+        const vertices = [];
+        const holes = [];
+        const dimensions = data[0][0].length;
+        let holeIndex = 0;
+        let prevLen = 0;
+        for (const ring of data) {
+            for (const p of ring) {
+                for (let d = 0; d < dimensions; d++)
+                    vertices.push(p[d]);
+            }
+            if (prevLen) {
+                holeIndex += prevLen;
+                holes.push(holeIndex);
+            }
+            prevLen = ring.length;
+        }
+        return { vertices, holes, dimensions };
+    }
+},
+675: /* models/glyphs/webgl/patches.js */ function _(require, module, exports, __esModule, __esExport) {
+    __esModule();
+    const tslib_1 = require(1) /* tslib */;
+    const base_1 = require(659) /* ./base */;
+    const buffer_1 = require(660) /* ./buffer */;
+    const line_1 = require(100) /* ../../../core/visuals/line */;
+    const dash_cache_1 = require(643) /* ./dash_cache */;
+    const polygon_1 = require(673) /* ../../../core/util/polygon */;
+    const earcut_1 = tslib_1.__importDefault(require(674) /* earcut */);
+    class PatchesGL extends base_1.BaseGLGlyph {
+        glyph;
+        // Fill buffers
+        _positions;
+        _edge_distance;
+        _elements = null;
+        _total_element_count = 0;
+        // Per-vertex visual buffers for polygon fill (divisor 0)
+        _pv_fill_color = new buffer_1.NormalizedUint8Buffer(this.regl_wrapper, 4);
+        _pv_hatch_patterns = new buffer_1.Uint8Buffer(this.regl_wrapper);
+        _pv_hatch_scales = new buffer_1.Float32Buffer(this.regl_wrapper);
+        _pv_hatch_weights = new buffer_1.Float32Buffer(this.regl_wrapper);
+        _pv_hatch_rgba = new buffer_1.NormalizedUint8Buffer(this.regl_wrapper, 4);
+        // Source visual buffers (scalar or per-polygon, from _set_visuals)
+        _fill_color = new buffer_1.NormalizedUint8Buffer(this.regl_wrapper, 4);
+        _have_hatch = false;
+        _hatch_patterns = new buffer_1.Uint8Buffer(this.regl_wrapper);
+        _hatch_scales = new buffer_1.Float32Buffer(this.regl_wrapper);
+        _hatch_weights = new buffer_1.Float32Buffer(this.regl_wrapper);
+        _hatch_rgba = new buffer_1.NormalizedUint8Buffer(this.regl_wrapper, 4);
+        // Stroke buffers
+        _line_points_buf;
+        _line_show_buf;
+        _length_so_far_buf;
+        _linewidth = new buffer_1.Float32Buffer(this.regl_wrapper);
+        _line_color = new buffer_1.NormalizedUint8Buffer(this.regl_wrapper, 4);
+        _line_cap = new buffer_1.Uint8Buffer(this.regl_wrapper);
+        _line_join = new buffer_1.Uint8Buffer(this.regl_wrapper);
+        // Dash state
+        _is_dashed = false;
+        _dash_tex = [];
+        _dash_tex_info;
+        _dash_scale;
+        _dash_offset;
+        // Per-polygon scalar draw buffers for stroke rendering.
+        // Since geometry is re-uploaded per ring (line_offset = 0), per-polygon
+        // vector visual properties are extracted into these scalar buffers.
+        _draw_lw;
+        _draw_lc;
+        _draw_lcap;
+        _draw_ljoin;
+        _draw_dti;
+        _draw_ds;
+        _draw_do;
+        _poly_data;
+        _pv_dirty = true;
+        _topology;
+        _elements_signature = "";
+        constructor(regl_wrapper, glyph) {
+            super(regl_wrapper, glyph);
+            this.glyph = glyph;
+        }
+        // Issues one fill draw call per selected polygon and one stroke draw call
+        // per ring per selected polygon. This matches the MultiLineGL pattern and
+        // is necessary for correct selection/hover rendering, but may become a
+        // bottleneck for plots with very many polygons.
+        draw(indices, main_glyph, transform) {
+            const main_patches = main_glyph;
+            const main_gl = main_patches.glglyph;
+            const derived_data_changed = this !== main_gl && this.data_changed;
+            if (this.visuals_changed) {
+                this._set_visuals();
+                this.visuals_changed = false;
+                this._pv_dirty = true;
+            }
+            const data_changed = main_gl.data_changed;
+            const data_changed_or_mapped = data_changed || main_gl.data_mapped;
+            if (data_changed_or_mapped) {
+                main_gl._set_data(data_changed);
+                main_gl.data_changed = false;
+                main_gl.data_mapped = false;
+                this._pv_dirty ||= data_changed || derived_data_changed;
+            }
+            if (this !== main_gl && (this.data_changed || this.data_mapped)) {
+                this.data_changed = false;
+                this.data_mapped = false;
+                this._pv_dirty = true;
+            }
+            if (main_gl._poly_data == null) {
+                return;
+            }
+            const { width, height } = transform;
+            const canvas_size = [width, height];
+            const poly_data = main_gl._poly_data;
+            // Expand visual buffers to per-vertex when visuals or data changed
+            if (this._pv_dirty && poly_data.fill_nvertices.length > 0) {
+                const vertex_counts = poly_data.fill_nvertices;
+                (0, buffer_1.expand_to_per_vertex)(this._fill_color, this._pv_fill_color, vertex_counts, 4);
+                if (this._have_hatch) {
+                    (0, buffer_1.expand_to_per_vertex)(this._hatch_patterns, this._pv_hatch_patterns, vertex_counts, 1);
+                    (0, buffer_1.expand_to_per_vertex)(this._hatch_scales, this._pv_hatch_scales, vertex_counts, 1);
+                    (0, buffer_1.expand_to_per_vertex)(this._hatch_weights, this._pv_hatch_weights, vertex_counts, 1);
+                    (0, buffer_1.expand_to_per_vertex)(this._hatch_rgba, this._pv_hatch_rgba, vertex_counts, 4);
+                }
+                this._pv_dirty = false;
+            }
+            // Fill pass - draw each polygon separately to respect selection indices
+            const fill_visuals = this.glyph.visuals.fill;
+            if (fill_visuals.doit && main_gl._elements != null && main_gl._total_element_count > 0) {
+                for (const i of indices) {
+                    if (i >= poly_data.fill_element_counts.length) {
+                        continue;
+                    }
+                    const count = poly_data.fill_element_counts[i];
+                    if (count == 0) {
+                        continue;
+                    }
+                    const offset = poly_data.fill_element_offsets[i];
+                    if (this._have_hatch) {
+                        this.regl_wrapper.polygon_hatch()({
+                            scissor: this.regl_wrapper.scissor,
+                            viewport: this.regl_wrapper.viewport,
+                            canvas_size,
+                            positions: main_gl._positions,
+                            fill_color: this._pv_fill_color,
+                            edge_distance: main_gl._edge_distance,
+                            elements: main_gl._elements,
+                            count,
+                            offset,
+                            antialias: polygon_1.POLYGON_AA_WIDTH / transform.pixel_ratio,
+                            hatch_pattern: this._pv_hatch_patterns,
+                            hatch_scale: this._pv_hatch_scales,
+                            hatch_weight: this._pv_hatch_weights,
+                            hatch_color: this._pv_hatch_rgba,
+                        });
+                    }
+                    else {
+                        this.regl_wrapper.polygon()({
+                            scissor: this.regl_wrapper.scissor,
+                            viewport: this.regl_wrapper.viewport,
+                            canvas_size,
+                            positions: main_gl._positions,
+                            fill_color: this._pv_fill_color,
+                            edge_distance: main_gl._edge_distance,
+                            elements: main_gl._elements,
+                            count,
+                            offset,
+                            antialias: polygon_1.POLYGON_AA_WIDTH / transform.pixel_ratio,
+                        });
+                    }
+                }
+            }
+            // Stroke pass - draw each ring outline separately.
+            // Geometry (points, show, length_so_far) is re-uploaded per ring, so
+            // point_offset and line_offset are always 0. Per-polygon vector visual
+            // properties are extracted into scalar draw buffers for each polygon.
+            const line_visuals = this.glyph.visuals.line;
+            if (line_visuals.doit) {
+                for (const i of indices) {
+                    if (i >= poly_data.line_rings.length) {
+                        continue;
+                    }
+                    // Extract per-polygon visual values into scalar buffers
+                    const linewidth = this._linewidth.extract_at(i, 1, this._draw_lw ??= new buffer_1.Float32Buffer(this.regl_wrapper));
+                    const line_color = this._line_color.extract_at(i, 4, this._draw_lc ??= new buffer_1.NormalizedUint8Buffer(this.regl_wrapper, 4));
+                    const line_cap = this._line_cap.extract_at(i, 1, this._draw_lcap ??= new buffer_1.Uint8Buffer(this.regl_wrapper));
+                    const line_join = this._line_join.extract_at(i, 1, this._draw_ljoin ??= new buffer_1.Uint8Buffer(this.regl_wrapper));
+                    let dash_tex_info;
+                    let dash_scale;
+                    let dash_offset;
+                    const dash_i = Math.min(i, this._dash_tex.length - 1);
+                    if (this._is_dashed && this._dash_tex[dash_i] != null) {
+                        dash_tex_info = this._dash_tex_info.extract_at(i, 4, this._draw_dti ??= new buffer_1.Float32Buffer(this.regl_wrapper, 4));
+                        dash_scale = this._dash_scale.extract_at(i, 1, this._draw_ds ??= new buffer_1.Float32Buffer(this.regl_wrapper));
+                        dash_offset = this._dash_offset.extract_at(i, 1, this._draw_do ??= new buffer_1.Float32Buffer(this.regl_wrapper));
+                    }
+                    const rings = poly_data.line_rings[i];
+                    for (const ring of rings) {
+                        if (ring.nline < 2) {
+                            continue;
+                        }
+                        const nsegments = ring.nline - 1;
+                        const [framebuffer, tex] = this.regl_wrapper.framebuffer_and_texture;
+                        this.regl_wrapper.clear_framebuffer(framebuffer);
+                        // Upload this ring's line data
+                        if (this._line_points_buf == null) {
+                            this._line_points_buf = new buffer_1.Float32Buffer(this.regl_wrapper);
+                        }
+                        const pts_array = this._line_points_buf.get_sized_array(ring.points.length);
+                        pts_array.set(ring.points);
+                        this._line_points_buf.update();
+                        if (this._line_show_buf == null) {
+                            this._line_show_buf = new buffer_1.Uint8Buffer(this.regl_wrapper);
+                        }
+                        const shw_array = this._line_show_buf.get_sized_array(ring.show.length);
+                        shw_array.set(ring.show);
+                        this._line_show_buf.update();
+                        const solid_props = {
+                            scissor: this.regl_wrapper.scissor,
+                            viewport: this.regl_wrapper.viewport,
+                            canvas_size,
+                            antialias: 1.5 / transform.pixel_ratio,
+                            miter_limit: 10.0,
+                            points: this._line_points_buf,
+                            show: this._line_show_buf,
+                            nsegments,
+                            linewidth,
+                            line_color,
+                            line_cap,
+                            line_join,
+                            framebuffer,
+                            point_offset: 0,
+                            line_offset: 0,
+                        };
+                        if (this._is_dashed && dash_tex_info != null) {
+                            // Upload length_so_far for this ring
+                            if (this._length_so_far_buf == null) {
+                                this._length_so_far_buf = new buffer_1.Float32Buffer(this.regl_wrapper);
+                            }
+                            const lsf_array = this._length_so_far_buf.get_sized_array(ring.length_so_far.length);
+                            lsf_array.set(ring.length_so_far);
+                            this._length_so_far_buf.update();
+                            const dashed_props = {
+                                ...solid_props,
+                                length_so_far: this._length_so_far_buf,
+                                dash_tex: this._dash_tex[dash_i],
+                                dash_tex_info,
+                                dash_scale: dash_scale,
+                                dash_offset: dash_offset,
+                            };
+                            this.regl_wrapper.dashed_line()(dashed_props);
+                        }
+                        else {
+                            this.regl_wrapper.solid_line()(solid_props);
+                        }
+                        const accumulate_props = {
+                            scissor: this.regl_wrapper.scissor,
+                            viewport: this.regl_wrapper.viewport,
+                            framebuffer_tex: tex,
+                        };
+                        this.regl_wrapper.accumulate()(accumulate_props);
+                    }
+                }
+            }
+        }
+        _set_data(data_changed = true) {
+            const { sxs, sys } = this.glyph;
+            const npoly = this.glyph.data_size;
+            const topology_changed = data_changed || this._topology == null || this._topology.length != npoly;
+            let elements_changed = topology_changed;
+            if (topology_changed) {
+                this._topology = new Array(npoly).fill(null);
+            }
+            const per_poly = new Array(npoly);
+            const fill_nvertices = new Array(npoly);
+            const fill_element_offsets = new Array(npoly);
+            const fill_element_counts = new Array(npoly);
+            const line_rings = new Array(npoly);
+            const active_topology = [];
+            let total_coords = 0;
+            let total_elements = 0;
+            for (let i = 0; i < npoly; i++) {
+                const sx = sxs.get(i);
+                const sy = sys.get(i);
+                const rings = (0, polygon_1.split_rings)(sx, sy);
+                line_rings[i] = [];
+                if (rings.length > 0) {
+                    let topology = this._topology[i];
+                    if (topology_changed || topology == null || topology.some(({ ring_indices }) => ring_indices.some((index) => index >= rings.length))) {
+                        elements_changed = true;
+                        const groups = (0, polygon_1.classify_rings)(rings);
+                        topology = groups.map(({ flat_coords, rings: group_rings }) => {
+                            const ring_indices = group_rings.map((ring) => rings.indexOf(ring));
+                            const hole_indices = [];
+                            let offset = 0;
+                            for (let r = 0; r < group_rings.length; r++) {
+                                if (r > 0) {
+                                    hole_indices.push(offset);
+                                }
+                                offset += group_rings[r].length / 2;
+                            }
+                            const tri_indices = (0, earcut_1.default)(flat_coords, hole_indices.length > 0 ? hole_indices : undefined, 2);
+                            return { ring_indices, tri_indices };
+                        });
+                        this._topology[i] = topology;
+                    }
+                    active_topology.push(topology.map(({ tri_indices }) => tri_indices.length).join(","));
+                    const group_results = [];
+                    let poly_nvertices = 0;
+                    let poly_elements = 0;
+                    for (const { ring_indices, tri_indices } of topology) {
+                        const group_rings = ring_indices.map((index) => rings[index]);
+                        const flat_coords = group_rings.flat();
+                        const geom = (0, polygon_1.generate_skirt_geometry)(flat_coords, group_rings, tri_indices, polygon_1.POLYGON_AA_WIDTH);
+                        group_results.push({ geom, rings: group_rings });
+                        poly_nvertices += geom.nvertices;
+                        poly_elements += geom.indices.length;
+                    }
+                    per_poly[i] = { groups: group_results, all_rings: rings };
+                    fill_nvertices[i] = poly_nvertices;
+                    fill_element_offsets[i] = total_elements;
+                    fill_element_counts[i] = poly_elements;
+                    total_coords += poly_nvertices * 2;
+                    total_elements += poly_elements;
+                }
+                else {
+                    active_topology.push("");
+                    if (data_changed) {
+                        this._topology[i] = null;
+                    }
+                    per_poly[i] = null;
+                    fill_nvertices[i] = 0;
+                    fill_element_offsets[i] = total_elements;
+                    fill_element_counts[i] = 0;
+                }
+            }
+            // Pass 2: copy per-polygon results directly into destination buffers.
+            const total_vertices = total_coords / 2;
+            if (this._positions == null) {
+                this._positions = new buffer_1.Float32Buffer(this.regl_wrapper, 2);
+            }
+            const pos_array = this._positions.get_sized_array(total_coords);
+            if (this._edge_distance == null) {
+                this._edge_distance = new buffer_1.Float32Buffer(this.regl_wrapper);
+            }
+            const ed_array = this._edge_distance.get_sized_array(total_vertices);
+            const elements_signature = active_topology.join(";");
+            elements_changed ||= elements_signature != this._elements_signature;
+            const elem_array = elements_changed || this._elements == null ? new Uint32Array(total_elements) : null;
+            let pos_offset = 0;
+            let ed_offset = 0;
+            let elem_offset = 0;
+            let vertex_offset = 0;
+            for (let i = 0; i < npoly; i++) {
+                const result = per_poly[i];
+                if (result == null) {
+                    continue;
+                }
+                const { groups, all_rings } = result;
+                for (const { geom } of groups) {
+                    pos_array.set(geom.positions, pos_offset);
+                    pos_offset += geom.positions.length;
+                    ed_array.set(geom.edge_distance, ed_offset);
+                    ed_offset += geom.edge_distance.length;
+                    // Offset indices by vertex_offset for merged buffer
+                    if (elem_array != null) {
+                        for (let j = 0; j < geom.indices.length; j++) {
+                            elem_array[elem_offset + j] = geom.indices[j] + vertex_offset;
+                        }
+                    }
+                    elem_offset += geom.indices.length;
+                    vertex_offset += geom.nvertices;
+                }
+                // Build line data for all rings (outer boundary + holes + disjoint)
+                const ring_line_data = [];
+                for (const ring of all_rings) {
+                    const data = (0, polygon_1.build_line_from_ring)(ring);
+                    if (data.nline > 0) {
+                        ring_line_data.push(data);
+                    }
+                }
+                line_rings[i] = ring_line_data;
+            }
+            this._poly_data = {
+                line_rings,
+                fill_nvertices,
+                fill_element_offsets,
+                fill_element_counts,
+            };
+            this._positions.update();
+            this._edge_distance.update();
+            // Upload merged element buffer
+            this._total_element_count = total_elements;
+            if (elem_array != null) {
+                this._elements?.destroy();
+                if (total_elements > 0) {
+                    this._elements = this.regl_wrapper.elements({
+                        usage: "static",
+                        primitive: "triangles",
+                        data: elem_array,
+                        type: "uint32",
+                    });
+                }
+                else {
+                    this._elements = null;
+                }
+            }
+            this._elements_signature = elements_signature;
+        }
+        _set_visuals() {
+            const fill_visuals = this.glyph.visuals.fill;
+            this._fill_color.set_from_color(fill_visuals.fill_color, fill_visuals.fill_alpha);
+            const line_visuals = this.glyph.visuals.line;
+            this._line_color.set_from_color(line_visuals.line_color, line_visuals.line_alpha);
+            this._linewidth.set_from_prop(line_visuals.line_width);
+            this._line_cap.set_from_line_cap(line_visuals.line_cap);
+            this._line_join.set_from_line_join(line_visuals.line_join);
+            // Dash detection
+            const { line_dash } = line_visuals;
+            const n = line_dash.is_Scalar() ? 1 : line_dash.length;
+            const patterns = new Array(n);
+            this._is_dashed = false;
+            for (let i = 0; i < n; i++) {
+                const pattern = (0, dash_cache_1.normalize_dash_pattern)((0, line_1.resolve_line_dash)(line_dash.get(i)));
+                patterns[i] = pattern;
+                this._is_dashed ||= pattern.length != 0;
+            }
+            this._dash_tex = [];
+            if (this._is_dashed) {
+                if (this._dash_offset == null) {
+                    this._dash_offset = new buffer_1.Float32Buffer(this.regl_wrapper);
+                }
+                this._dash_offset.set_from_prop(line_visuals.line_dash_offset);
+                if (this._dash_tex_info == null) {
+                    this._dash_tex_info = new buffer_1.Float32Buffer(this.regl_wrapper, 4);
+                }
+                const dash_tex_info = this._dash_tex_info.get_sized_array(4 * n);
+                if (this._dash_scale == null) {
+                    this._dash_scale = new buffer_1.Float32Buffer(this.regl_wrapper);
+                }
+                const dash_scale = this._dash_scale.get_sized_array(n);
+                for (let i = 0; i < n; i++) {
+                    const arr = patterns[i];
+                    if (arr.length > 0) {
+                        const [tex_info, tex, scale] = this.regl_wrapper.get_dash(arr);
+                        this._dash_tex.push(tex);
+                        for (let j = 0; j < 4; j++) {
+                            dash_tex_info[4 * i + j] = tex_info[j];
+                        }
+                        dash_scale[i] = scale;
+                    }
+                    else {
+                        this._dash_tex.push(null);
+                        dash_tex_info.fill(0, 4 * i, 4 * (i + 1));
+                        dash_scale[i] = 0;
+                    }
+                }
+                // Mark scalar so that to_attribute_config_nested always uses offset 0,
+                // consistent with line_offset: 0 in the draw call.
+                const dash_is_scalar = line_dash.is_Scalar();
+                this._dash_tex_info.update(dash_is_scalar);
+                this._dash_scale.update(dash_is_scalar);
+            }
+            const hatch_visuals = this.glyph.visuals.hatch;
+            this._have_hatch = hatch_visuals.doit;
+            if (this._have_hatch) {
+                this._hatch_patterns.set_from_hatch_pattern(hatch_visuals.hatch_pattern);
+                this._hatch_scales.set_from_prop(hatch_visuals.hatch_scale);
+                this._hatch_weights.set_from_prop(hatch_visuals.hatch_weight);
+                this._hatch_rgba.set_from_color(hatch_visuals.hatch_color, hatch_visuals.hatch_alpha);
+            }
+        }
+    }
+    exports.PatchesGL = PatchesGL;
+},
+676: /* models/glyphs/webgl/multi_marker.js */ function _(require, module, exports, __esModule, __esExport) {
+    __esModule();
+    const base_marker_1 = require(658) /* ./base_marker */;
+    const webgl_utils_1 = require(661) /* ./webgl_utils */;
     const enums_1 = require(21) /* ../../../core/enums */;
     class MultiMarkerGL extends base_marker_1.BaseMarkerGL {
+        glyph;
+        // data properties, either all or none are set.
+        _marker_types;
+        _unique_marker_types;
         constructor(regl_wrapper, glyph) {
             super(regl_wrapper, glyph);
             this.glyph = glyph;
@@ -11029,6 +13134,11 @@ if(line_frac>0.){vec4 line_color=fractional_color(v_line_color,line_frac);color=
                 main_gl_glyph.data_changed = false;
                 main_gl_glyph.data_mapped = false;
             }
+            // NOTE: Multi-marker does NOT support derived glyph data updates
+            // because marker type metadata cannot be correctly populated from derived glyphs.
+            // Size overrides for multi-marker scatter plots are not supported in this implementation.
+            // This is a fundamental limitation: changing marker sizes requires knowing which markers
+            // to render, which depends on marker types that must come from the main glyph.
             if (this.visuals_changed) {
                 this._set_visuals();
                 this.visuals_changed = false;
@@ -11071,13 +13181,18 @@ if(line_frac>0.){vec4 line_color=fractional_color(v_line_color,line_frac);color=
         }
         _set_data() {
             const nmarkers = this.nvertices;
+            // Always update positions, sizes, and angles (for streaming updates)
             const centers_array = this._centers.get_sized_array(2 * nmarkers);
             (0, webgl_utils_1.interleave)(this.glyph.sx, this.glyph.sy, nmarkers, base_marker_1.BaseMarkerGL.missing_point, centers_array);
             this._centers.update();
             this._widths.set_from_prop(this.glyph.size);
             this._angles.set_from_prop(this.glyph.angle);
-            this._marker_types = this.glyph.marker;
-            this._unique_marker_types = this._marker_types.unique().filter((marker) => enums_1.MarkerType.valid(marker));
+            // Marker types are only set once during main glyph initialization
+            // (prevents derived glyphs from overriding marker type metadata)
+            if (this._marker_types == null) {
+                this._marker_types = this.glyph.marker;
+                this._unique_marker_types = this._marker_types.unique().filter((marker) => enums_1.MarkerType.valid(marker));
+            }
         }
         _set_once() {
             super._set_once();
@@ -11086,12 +13201,12 @@ if(line_frac>0.){vec4 line_color=fractional_color(v_line_color,line_frac);color=
         }
     }
     exports.MultiMarkerGL = MultiMarkerGL;
-    MultiMarkerGL.__name__ = "MultiMarkerGL";
 },
-602: /* models/glyphs/webgl/ngon.js */ function _(require, module, exports, __esModule, __esExport) {
+677: /* models/glyphs/webgl/ngon.js */ function _(require, module, exports, __esModule, __esExport) {
     __esModule();
-    const radial_1 = require(594) /* ./radial */;
+    const radial_1 = require(665) /* ./radial */;
     class NgonGL extends radial_1.RadialGL {
+        glyph;
         constructor(regl_wrapper, glyph) {
             super(regl_wrapper, glyph);
             this.glyph = glyph;
@@ -11106,12 +13221,12 @@ if(line_frac>0.){vec4 line_color=fractional_color(v_line_color,line_frac);color=
         }
     }
     exports.NgonGL = NgonGL;
-    NgonGL.__name__ = "NgonGL";
 },
-603: /* models/glyphs/webgl/rect.js */ function _(require, module, exports, __esModule, __esExport) {
+678: /* models/glyphs/webgl/rect.js */ function _(require, module, exports, __esModule, __esExport) {
     __esModule();
-    const sxsy_1 = require(585) /* ./sxsy */;
+    const sxsy_1 = require(656) /* ./sxsy */;
     class RectGL extends sxsy_1.SXSYGlyphGL {
+        glyph;
         constructor(regl_wrapper, glyph) {
             super(regl_wrapper, glyph);
             this.glyph = glyph;
@@ -11134,14 +13249,14 @@ if(line_frac>0.){vec4 line_color=fractional_color(v_line_color,line_frac);color=
         }
     }
     exports.RectGL = RectGL;
-    RectGL.__name__ = "RectGL";
 },
-604: /* models/glyphs/webgl/step.js */ function _(require, module, exports, __esModule, __esExport) {
+679: /* models/glyphs/webgl/step.js */ function _(require, module, exports, __esModule, __esExport) {
     __esModule();
-    const buffer_1 = require(589) /* ./buffer */;
-    const single_line_1 = require(598) /* ./single_line */;
-    const assert_1 = require(12) /* ../../../core/util/assert */;
+    const buffer_1 = require(660) /* ./buffer */;
+    const single_line_1 = require(669) /* ./single_line */;
+    const assert_1 = require(13) /* ../../../core/util/assert */;
     class StepGL extends single_line_1.SingleLineGL {
+        glyph;
         constructor(regl_wrapper, glyph) {
             super(regl_wrapper, glyph);
             this.glyph = glyph;
@@ -11275,12 +13390,12 @@ if(line_frac>0.){vec4 line_color=fractional_color(v_line_color,line_frac);color=
         }
     }
     exports.StepGL = StepGL;
-    StepGL.__name__ = "StepGL";
 },
-605: /* models/glyphs/webgl/wedge.js */ function _(require, module, exports, __esModule, __esExport) {
+680: /* models/glyphs/webgl/wedge.js */ function _(require, module, exports, __esModule, __esExport) {
     __esModule();
-    const sxsy_1 = require(585) /* ./sxsy */;
+    const sxsy_1 = require(656) /* ./sxsy */;
     class WedgeGL extends sxsy_1.SXSYGlyphGL {
+        glyph;
         constructor(regl_wrapper, glyph) {
             super(regl_wrapper, glyph);
             this.glyph = glyph;
@@ -11315,7 +13430,6 @@ if(line_frac>0.){vec4 line_color=fractional_color(v_line_color,line_frac);color=
         }
     }
     exports.WedgeGL = WedgeGL;
-    WedgeGL.__name__ = "WedgeGL";
 },
-}, 570, {"models/glyphs/webgl/main":570,"models/glyphs/webgl/index":571,"models/glyphs/webgl/regl_wrap":572,"models/glyphs/webgl/dash_cache":574,"models/glyphs/webgl/utils/math":575,"models/glyphs/webgl/accumulate.vert":576,"models/glyphs/webgl/accumulate.frag":577,"models/glyphs/webgl/image.vert":578,"models/glyphs/webgl/image.frag":579,"models/glyphs/webgl/regl_line.vert":580,"models/glyphs/webgl/regl_line.frag":581,"models/glyphs/webgl/marker.vert":582,"models/glyphs/webgl/marker.frag":583,"models/glyphs/webgl/annular_wedge":584,"models/glyphs/webgl/sxsy":585,"models/glyphs/webgl/single_marker":586,"models/glyphs/webgl/base_marker":587,"models/glyphs/webgl/base":588,"models/glyphs/webgl/buffer":589,"models/glyphs/webgl/webgl_utils":590,"models/glyphs/webgl/annulus":591,"models/glyphs/webgl/base_line":592,"models/glyphs/webgl/circle":593,"models/glyphs/webgl/radial":594,"models/glyphs/webgl/hex_tile":595,"models/glyphs/webgl/image":596,"models/glyphs/webgl/line_gl":597,"models/glyphs/webgl/single_line":598,"models/glyphs/webgl/lrtb":599,"models/glyphs/webgl/multi_line":600,"models/glyphs/webgl/multi_marker":601,"models/glyphs/webgl/ngon":602,"models/glyphs/webgl/rect":603,"models/glyphs/webgl/step":604,"models/glyphs/webgl/wedge":605}, {});});
+}, 639, {"models/glyphs/webgl/main":639,"models/glyphs/webgl/index":640,"models/glyphs/webgl/regl_wrap":641,"models/glyphs/webgl/dash_cache":643,"models/glyphs/webgl/utils/math":644,"models/glyphs/webgl/accumulate.vert":645,"models/glyphs/webgl/accumulate.frag":646,"models/glyphs/webgl/image.vert":647,"models/glyphs/webgl/image.frag":648,"models/glyphs/webgl/regl_line.vert":649,"models/glyphs/webgl/regl_line.frag":650,"models/glyphs/webgl/marker.vert":651,"models/glyphs/webgl/marker.frag":652,"models/glyphs/webgl/polygon.vert":653,"models/glyphs/webgl/polygon.frag":654,"models/glyphs/webgl/annular_wedge":655,"models/glyphs/webgl/sxsy":656,"models/glyphs/webgl/single_marker":657,"models/glyphs/webgl/base_marker":658,"models/glyphs/webgl/base":659,"models/glyphs/webgl/buffer":660,"models/glyphs/webgl/webgl_utils":661,"models/glyphs/webgl/annulus":662,"models/glyphs/webgl/base_line":663,"models/glyphs/webgl/circle":664,"models/glyphs/webgl/radial":665,"models/glyphs/webgl/hex_tile":666,"models/glyphs/webgl/image":667,"models/glyphs/webgl/line_gl":668,"models/glyphs/webgl/single_line":669,"models/glyphs/webgl/lrtb":670,"models/glyphs/webgl/multi_line":671,"models/glyphs/webgl/patch":672,"core/util/polygon":673,"models/glyphs/webgl/patches":675,"models/glyphs/webgl/multi_marker":676,"models/glyphs/webgl/ngon":677,"models/glyphs/webgl/rect":678,"models/glyphs/webgl/step":679,"models/glyphs/webgl/wedge":680}, {});});
 //# sourceMappingURL=bokeh-gl.js.map

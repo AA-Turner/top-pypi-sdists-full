@@ -1348,6 +1348,7 @@ class WorkspacePropertiesOutputTypeDef(TypedDict):
     Protocols: NotRequired[list[ProtocolType]]
     OperatingSystemName: NotRequired[OperatingSystemNameType]
     GlobalAccelerator: NotRequired[GlobalAcceleratorForWorkSpaceTypeDef]
+    NestedVirtualizationEnabled: NotRequired[bool]
 
 class WorkspacePropertiesTypeDef(TypedDict):
     RunningMode: NotRequired[RunningModeType]
@@ -1358,6 +1359,7 @@ class WorkspacePropertiesTypeDef(TypedDict):
     Protocols: NotRequired[Sequence[ProtocolType]]
     OperatingSystemName: NotRequired[OperatingSystemNameType]
     GlobalAccelerator: NotRequired[GlobalAcceleratorForWorkSpaceTypeDef]
+    NestedVirtualizationEnabled: NotRequired[bool]
 
 class RegisterWorkspaceDirectoryRequestTypeDef(TypedDict):
     DirectoryId: NotRequired[str]

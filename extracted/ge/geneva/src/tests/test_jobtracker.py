@@ -6,10 +6,11 @@ import tempfile
 import uuid
 from datetime import timezone
 from pathlib import Path
-from typing import Any
+from typing import Any, cast
 
 import pytest
 import ray
+from ray.util.state import get_actor
 
 from geneva.db import connect
 from geneva.jobs.jobs import (
@@ -17,8 +18,14 @@ from geneva.jobs.jobs import (
     JobMetric,
     JobRecord,
     JobStateManager,
+    JobStatus,
 )
-from geneva.runners.ray.jobtracker import _JobTracker, job_tracker_options
+from geneva.runners.ray.jobtracker import (
+    JobTrackerConfig,
+    _JobTracker,
+    job_tracker_options,
+)
+from geneva.runners.ray.raycluster import RayCluster
 from geneva.table import TableReference
 
 pytestmark = pytest.mark.ray
@@ -73,8 +80,17 @@ async def table_reference(temp_db_path) -> TableReference:
 
 
 @pytest.fixture
-async def async_db_connection(temp_db_path) -> Any:
-    """Create an async LanceDB connection."""
+async def async_db_connection(temp_db_path, jobs_table) -> Any:
+    """Create an async LanceDB connection.
+
+    Depends on ``jobs_table`` so the ``__system`` table (and the
+    dir-namespace ``__manifest``) exists before this connection opens.
+    Since pylance 9.0.0b16 (lance-format/lance#7687) a dir-namespace
+    connection probes ``__manifest`` once at build and treats absence as
+    permanent, so child-namespace reads fail on a connection opened
+    against an empty root — production always creates the jobs table
+    before opening this connection.
+    """
     table_ref = TableReference(
         table_id=["test_table"],
         version=None,
@@ -93,9 +109,26 @@ def test_jobtracker_creation(table_reference) -> None:
     job_id = str(uuid.uuid4())
 
     # Create JobTracker instance (without Ray remote for testing)
-    tracker = job_tracker_options().remote(job_id, table_reference)
+    tracker = job_tracker_options().remote(job_id, table_reference, enable_saves=False)
 
-    tracker.get_all.remote()
+    ray.get(tracker.get_all.remote())
+
+
+def test_large_hydration_timeout_is_ray_compatible() -> None:
+    """A huge actor deadline never enters Ray's timeout conversion path."""
+    config = JobTrackerConfig(hydration_timeout_secs=1e308)
+    tracker = job_tracker_options().remote(
+        "large-timeout",
+        None,
+        enable_saves=False,
+        hydration_timeout_secs=config.hydration_timeout_secs,
+    )
+    ray.get(tracker.mark_job_done.remote())
+
+    done, pending_ref = RayCluster._poll_tracker_done(tracker, timeout=5.0)
+
+    assert done is True
+    assert pending_ref is None
 
 
 def test_jobtracker_batch_increment(table_reference) -> None:
@@ -290,14 +323,199 @@ async def test_full_workflow_with_db(temp_db_path, db_connection) -> None:
     # Verify metrics updated in database
     jobs = job_manager.get(job_id)
     assert len(jobs) == 1
-    stored_metrics = jobs[0].metrics
-    assert len(stored_metrics) == 1
+    stored_metrics = {m.name: m for m in jobs[0].metrics}
 
-    metric_data = stored_metrics[0]
-    assert metric_data.name == "download"
+    metric_data = stored_metrics["download"]
     assert metric_data.n == 1000
     assert metric_data.total == 1000
     assert metric_data.done is True
+
+    # rows_skipped_on_error is seeded at 0 from tracker construction and
+    # persisted alongside the job's other metrics.
+    skipped = stored_metrics["rows_skipped_on_error"]
+    assert skipped.n == 0
+    assert skipped.total == 0
+    assert skipped.done is False
+
+
+@pytest.mark.asyncio
+async def test_jobtracker_rehydrates_persisted_metrics(
+    temp_db_path, db_connection
+) -> None:
+    job_id = str(uuid.uuid4())
+    job_manager = JobStateManager(db_connection)
+    job_manager.launch("test_table", "test_column", job_id=job_id)
+    table_ref = TableReference(
+        table_id=["test_table"], version=None, db_uri=str(temp_db_path)
+    )
+
+    first = _JobTracker(job_id=job_id, table_ref=table_ref)
+    await first.set_total("processed", 10)
+    await first.set_desc("processed", "Rows processed")
+    await first.set("processed", 4)
+    assert await first.flush() is True
+
+    restarted = _JobTracker(job_id=job_id, table_ref=table_ref)
+    metrics = await restarted.get_all()
+
+    assert metrics["processed"] == {
+        "n": 4,
+        "total": 10,
+        "done": False,
+        "desc": "Rows processed",
+    }
+
+
+@pytest.mark.asyncio
+async def test_rehydrated_metrics_survive_next_full_save(
+    temp_db_path, db_connection
+) -> None:
+    job_id = str(uuid.uuid4())
+    job_manager = JobStateManager(db_connection)
+    job_manager.launch("test_table", "test_column", job_id=job_id)
+    table_ref = TableReference(
+        table_id=["test_table"], version=None, db_uri=str(temp_db_path)
+    )
+
+    first = _JobTracker(job_id=job_id, table_ref=table_ref)
+    await first.set("before_restart", 7)
+    assert await first.flush() is True
+
+    restarted = _JobTracker(job_id=job_id, table_ref=table_ref)
+    await restarted.set("after_restart", 3)
+    assert await restarted.flush() is True
+
+    stored = job_manager.get(job_id)[0]
+    metrics = {metric.name: metric.n for metric in stored.metrics or []}
+    assert metrics["before_restart"] == 7
+    assert metrics["after_restart"] == 3
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize(
+    ("status", "expected"),
+    [
+        (JobStatus.RUNNING, False),
+        (JobStatus.DONE, True),
+        (JobStatus.FAILED, True),
+        (JobStatus.CANCELLED, True),
+    ],
+)
+async def test_jobtracker_recovers_terminal_status(
+    temp_db_path, db_connection, status: JobStatus, expected: bool
+) -> None:
+    job_id = str(uuid.uuid4())
+    job_manager = JobStateManager(db_connection)
+    job_manager.launch("test_table", "test_column", job_id=job_id)
+    job_manager._set_status(job_id, status)
+    table_ref = TableReference(
+        table_id=["test_table"], version=None, db_uri=str(temp_db_path)
+    )
+
+    restarted = _JobTracker(job_id=job_id, table_ref=table_ref)
+
+    assert await restarted.is_job_done() is expected
+
+
+@pytest.mark.asyncio
+async def test_rehydration_restores_rows_finalized(temp_db_path, db_connection) -> None:
+    job_id = str(uuid.uuid4())
+    job_manager = JobStateManager(db_connection)
+    job_manager.launch("test_table", "test_column", job_id=job_id)
+    table_ref = TableReference(
+        table_id=["test_table"], version=None, db_uri=str(temp_db_path)
+    )
+
+    first = _JobTracker(job_id=job_id, table_ref=table_ref)
+    await first.finalize_rows(11, 11, 11)
+
+    restarted = _JobTracker(job_id=job_id, table_ref=table_ref)
+    await restarted.increment("rows_committed", 5)
+    metrics = await restarted.get_all()
+
+    assert metrics["rows_checkpointed"]["n"] == 11
+    assert metrics["rows_ready_for_commit"]["n"] == 11
+    assert metrics["rows_committed"]["n"] == 11
+
+
+@pytest.mark.asyncio
+async def test_ray_actor_restart_rehydrates_metrics_and_status(
+    temp_db_path, db_connection
+) -> None:
+    job_id = str(uuid.uuid4())
+    job_manager = JobStateManager(db_connection)
+    job_manager.launch("test_table", "test_column", job_id=job_id)
+    table_ref = TableReference(
+        table_id=["test_table"], version=None, db_uri=str(temp_db_path)
+    )
+    tracker = job_tracker_options(max_restarts=1, max_task_retries=0).remote(
+        job_id, table_ref
+    )
+    actor_id = tracker._actor_id.hex()
+
+    try:
+        await tracker.set.remote("before_restart", 9)
+        assert await tracker.flush.remote() is True
+        job_manager._set_status(job_id, JobStatus.DONE)
+
+        ray.kill(tracker, no_restart=False)
+
+        for _ in range(100):
+            state = get_actor(actor_id)
+            if state is not None and state.num_restarts >= 1 and state.state == "ALIVE":
+                break
+            await asyncio.sleep(0.05)
+        else:
+            pytest.fail("JobTracker actor did not become available after restart")
+
+        metrics = await tracker.get_all.remote()
+        assert metrics["before_restart"]["n"] == 9
+        assert await tracker.is_job_done.remote() is True
+    finally:
+        with contextlib.suppress(Exception):
+            ray.kill(tracker, no_restart=True)
+
+
+@pytest.mark.asyncio
+async def test_is_job_done_refreshes_durable_status(
+    temp_db_path, db_connection
+) -> None:
+    job_id = str(uuid.uuid4())
+    job_manager = JobStateManager(db_connection)
+    job_manager.launch("test_table", "test_column", job_id=job_id)
+    table_ref = TableReference(
+        table_id=["test_table"], version=None, db_uri=str(temp_db_path)
+    )
+    tracker = _JobTracker(job_id=job_id, table_ref=table_ref)
+
+    assert await tracker.is_job_done() is False
+    job_manager._set_status(job_id, JobStatus.FAILED)
+
+    assert await tracker.is_job_done() is True
+
+
+@pytest.mark.asyncio
+async def test_rows_skipped_metric_seeded_at_zero_on_construction() -> None:
+    """rows_skipped_on_error is materialized at 0 when a tracker is created."""
+    table_ref = TableReference(
+        table_id=["test_table"], version=None, db_uri="memory://"
+    )
+    tracker = _JobTracker(job_id="j", table_ref=table_ref, enable_saves=False)
+
+    # Present at 0 immediately, before any row is processed.
+    assert tracker.metrics["rows_skipped_on_error"] == {
+        "n": 0,
+        "total": 0,
+        "done": False,
+        "desc": "Rows skipped on error",
+    }
+
+    # Later skips accumulate on top of the seeded entry; a zero delta is a
+    # no-op that leaves it at 0.
+    await tracker.batch_increment({"rows_skipped_on_error": 0})
+    assert tracker.metrics["rows_skipped_on_error"]["n"] == 0
+    await tracker.batch_increment({"rows_skipped_on_error": 3})
+    assert tracker.metrics["rows_skipped_on_error"]["n"] == 3
 
 
 @pytest.mark.asyncio
@@ -476,9 +694,13 @@ class _BlockingTracker(_JobTracker):
         self.calls: list[dict] = []
         self.save_started = asyncio.Event()
         self.release = asyncio.Event()
+        self._hydrated = True
 
-    async def _save_metrics(self, _metrics: dict[str, dict]) -> None:  # type: ignore[override]
-        self.calls.append(dict(_metrics))
+    async def _save_metrics(  # type: ignore[override]
+        self, _metrics: dict[str, dict] | None = None
+    ) -> None:
+        metrics = self._snapshot_metrics() if _metrics is None else _metrics
+        self.calls.append(dict(metrics))
         self.save_started.set()
         await self.release.wait()
 
@@ -488,10 +710,208 @@ class _FailingTracker(_JobTracker):
 
     def _arm(self) -> None:
         self.attempts = 0
+        self._hydrated = True
 
-    async def _save_metrics(self, _metrics: dict[str, dict]) -> None:  # type: ignore[override]
+    async def _save_metrics(  # type: ignore[override]
+        self, _metrics: dict[str, dict] | None = None
+    ) -> None:
         self.attempts += 1
         raise RuntimeError("boom")
+
+
+class _HydrationFailingTracker(_JobTracker):
+    async def _load_persisted_state(self) -> tuple[dict[str, dict], Any | None]:
+        self._db = cast("Any", object())
+        self._jobs_table = cast("Any", object())
+        raise RuntimeError("hydrate failed")
+
+
+class _TransientHydrationTracker(_JobTracker):
+    calls: int = 0
+
+    async def _load_persisted_state(self) -> tuple[dict[str, dict], Any | None]:
+        self.calls += 1
+        if self.calls == 1:
+            self._db = cast("Any", object())
+            self._jobs_table = cast("Any", object())
+            raise RuntimeError("transient hydrate failure")
+        return {
+            "persisted": {"n": 4, "total": 5, "done": False, "desc": "old"}
+        }, JobStatus.RUNNING.value
+
+
+class _BlockingHydrationTracker(_JobTracker):
+    def _arm(self) -> None:
+        self.load_started = asyncio.Event()
+        self.release_load = asyncio.Event()
+
+    async def _load_persisted_state(self) -> tuple[dict[str, dict], Any | None]:
+        self.load_started.set()
+        await self.release_load.wait()
+        return {}, JobStatus.RUNNING.value
+
+
+class _VersionSkewHydrationTracker(_JobTracker):
+    async def _load_persisted_state(self) -> tuple[dict[str, dict], Any | None]:
+        raise AttributeError("missing metrics column")
+
+
+class _CapturingWriteTracker(_JobTracker):
+    def _arm(self) -> None:
+        self._hydrated = True
+        self.writes: list[dict[str, dict]] = []
+
+    async def _write_metrics(self, metrics: dict[str, dict]) -> None:
+        self.writes.append({name: dict(metric) for name, metric in metrics.items()})
+
+
+class _BlockingWriteTracker(_JobTracker):
+    def _arm(self) -> None:
+        self._hydrated = True
+        self.write_started = asyncio.Event()
+        self.release_write = asyncio.Event()
+        self.writes: list[dict[str, dict]] = []
+
+    async def _write_metrics(self, metrics: dict[str, dict]) -> None:
+        self.writes.append({name: dict(metric) for name, metric in metrics.items()})
+        if len(self.writes) == 1:
+            self.write_started.set()
+            await self.release_write.wait()
+
+
+class _FakeJobsTable:
+    uri = "memory://geneva_jobs"
+
+
+class _BlockingJobsTableConnection:
+    def __init__(self) -> None:
+        self.open_calls = 0
+        self.open_started = asyncio.Event()
+        self.release_open = asyncio.Event()
+        self.table = _FakeJobsTable()
+
+    async def open_table(
+        self, table_name: str, *, namespace_path: list[str]
+    ) -> _FakeJobsTable:
+        assert table_name == GENEVA_JOBS_TABLE_NAME
+        assert namespace_path
+        self.open_calls += 1
+        self.open_started.set()
+        await self.release_open.wait()
+        return self.table
+
+
+@pytest.mark.asyncio
+async def test_jobs_table_initialization_is_single_flight(table_reference) -> None:
+    tracker = _JobTracker(job_id="j", table_ref=table_reference)
+    connection = _BlockingJobsTableConnection()
+    tracker._db = cast("Any", connection)
+
+    first = asyncio.create_task(tracker._get_jobs_table())
+    await asyncio.wait_for(connection.open_started.wait(), timeout=2.0)
+    second = asyncio.create_task(tracker._get_jobs_table())
+    await asyncio.sleep(0)
+
+    connection.release_open.set()
+    first_table, second_table = await asyncio.wait_for(
+        asyncio.gather(first, second), timeout=2.0
+    )
+
+    assert connection.open_calls == 1
+    assert first_table is connection.table
+    assert second_table is connection.table
+
+
+@pytest.mark.asyncio
+async def test_hydration_failure_never_saves_seed_only_snapshot(
+    table_reference,
+) -> None:
+    tracker = _HydrationFailingTracker(job_id="j", table_ref=table_reference)
+
+    with pytest.raises(RuntimeError, match="hydrate failed"):
+        await tracker.set("new_metric", 1)
+
+    assert tracker._hydrated is False
+    assert tracker._save_task is None
+    assert "new_metric" not in tracker.metrics
+    assert tracker._db is None
+    assert tracker._jobs_table is None
+
+
+@pytest.mark.asyncio
+async def test_hydration_retries_with_fresh_db_handles(table_reference) -> None:
+    tracker = _TransientHydrationTracker(job_id="j", table_ref=table_reference)
+
+    with pytest.raises(RuntimeError, match="transient hydrate failure"):
+        await tracker.get_all()
+
+    assert tracker._db is None
+    assert tracker._jobs_table is None
+    metrics = await tracker.get_all()
+    assert metrics["persisted"]["n"] == 4
+    assert tracker.calls == 2
+
+
+@pytest.mark.asyncio
+async def test_flush_timeout_includes_hydration(table_reference) -> None:
+    tracker = _BlockingHydrationTracker(job_id="j", table_ref=table_reference)
+    tracker._arm()
+    start = asyncio.get_running_loop().time()
+
+    assert await tracker.flush(timeout=0.05) is False
+
+    assert asyncio.get_running_loop().time() - start < 0.5
+    assert tracker.load_started.is_set()
+    assert tracker._hydrated is False
+
+
+@pytest.mark.asyncio
+async def test_version_skew_disables_persistence_without_blocking_metrics(
+    table_reference,
+) -> None:
+    tracker = _VersionSkewHydrationTracker(job_id="j", table_ref=table_reference)
+
+    await tracker.set("new_metric", 3)
+
+    assert tracker.enable_saves is False
+    assert tracker.metrics["new_metric"]["n"] == 3
+    assert tracker._save_task is None
+    assert await tracker.flush() is True
+
+
+@pytest.mark.asyncio
+async def test_save_snapshot_is_taken_after_acquiring_lock(table_reference) -> None:
+    tracker = _CapturingWriteTracker(job_id="j", table_ref=table_reference)
+    tracker._arm()
+    tracker.metrics["m"] = {"n": 1, "total": 10, "done": False, "desc": "m"}
+
+    await tracker._save_lock.acquire()
+    save_task = asyncio.create_task(tracker._save_metrics())
+    await asyncio.sleep(0)
+    tracker.metrics["m"]["n"] = 2
+    tracker._save_lock.release()
+    await save_task
+
+    assert tracker.writes[-1]["m"]["n"] == 2
+
+
+@pytest.mark.asyncio
+async def test_flush_wins_over_in_flight_background_save(table_reference) -> None:
+    tracker = _BlockingWriteTracker(job_id="j", table_ref=table_reference)
+    tracker._arm()
+
+    await tracker.set_total("m", 10)
+    await asyncio.wait_for(tracker.write_started.wait(), timeout=2.0)
+    await tracker.set("m", 10)
+    flush_task = asyncio.create_task(tracker.flush(timeout=2.0))
+    await asyncio.sleep(0)
+
+    tracker.release_write.set()
+    assert await flush_task is True
+
+    assert tracker.writes[-1]["m"]["n"] == 10
+    assert tracker._save_task is None
+    assert tracker._save_pending is False
 
 
 @pytest.mark.asyncio

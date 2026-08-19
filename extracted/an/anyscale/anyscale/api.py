@@ -5,7 +5,6 @@ import socket
 import sys
 from typing import Any, Optional
 
-import click
 from urllib3.connection import HTTPConnection
 import wrapt
 
@@ -13,6 +12,7 @@ from anyscale.cli_logger import BlockLogger
 from anyscale.client import openapi_client
 from anyscale.client.openapi_client.api.default_api import DefaultApi
 from anyscale.client.openapi_client.rest import ApiException as ApiExceptionInternal
+from anyscale.errors import from_http_status
 from anyscale.sdk import anyscale_client
 from anyscale.sdk.anyscale_client.api.default_api import DefaultApi as AnyscaleApi
 from anyscale.sdk.anyscale_client.rest import ApiException as ApiExceptionExternal
@@ -80,10 +80,16 @@ def format_api_exception(
     if os.environ.get("ANYSCALE_DEBUG") == "1" or raise_structured_exception:
         raise e
     else:
-        raise click.ClickException(
+        headers = getattr(e, "headers", None)
+        trace_id = None
+        if headers:
+            trace_id = headers._container.get("x-trace-id", None)  # noqa: SLF001
+
+        raise from_http_status(
+            e.status,
             f"API Exception ({e.status}) from {method} {resource_path} \n"
             f"Reason: {e.reason}\nHTTP response body: {e.body}\n"
-            f"Trace ID: {e.headers._container.get('x-trace-id', None)}"  # noqa: SLF001
+            f"Trace ID: {trace_id}",
         )
 
 

@@ -216,7 +216,7 @@ class Runner:
     #: Empty means "this runner has no eager equivalent" — a legitimate state
     #: for a runner that only ever exists as a compiled graph class. Such a
     #: runner simply does not appear in the eager backing, and a call to it
-    #: with no armed cell refuses by name rather than running the wrong thing.
+    #: with no armed compiled graph refuses by name rather than running the wrong thing.
     component: str = ""
 
     def __post_init__(self) -> None:
@@ -575,12 +575,11 @@ class ModelSpec:
     def _register(self) -> None:
         """Publish this family's tuned schema(s) under its own name.
 
-        The registration the retired ``@family("sdxl")`` decorator used to do,
-        moved onto the object that owns the schema. The registry itself is
-        unchanged — tensorhub still validates repo metadata against the
-        exported JSON Schema and ``gen-worker families export-schemas`` still
-        finds it — but a family can no longer be registered by a struct that
-        does not belong to one, which is the collision Paul ruled on.
+        Registration lives on the object that OWNS the schema, so a family cannot
+        be registered by a struct that does not belong to one — the collision Paul
+        ruled on. The registry is otherwise unchanged: tensorhub validates repo
+        metadata against the exported JSON Schema and
+        ``gen-worker families export-schemas`` finds it.
         """
 
         if self.tuned is None:

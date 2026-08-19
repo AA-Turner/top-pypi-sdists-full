@@ -2,7 +2,7 @@ import { BaseColorBar, BaseColorBarView } from "./base_color_bar";
 import type { Range } from "../ranges";
 import type { GlyphRendererView } from "../renderers/glyph_renderer";
 import { GlyphRenderer } from "../renderers/glyph_renderer";
-import type { View } from "../../core/build_views";
+import type { ChildView } from "../../core/build_views";
 import type * as p from "../../core/properties";
 import type { BBox } from "../../core/util/bbox";
 import type { Context2d } from "../../core/util/canvas";
@@ -10,9 +10,8 @@ export declare class ContourColorBarView extends BaseColorBarView {
     model: ContourColorBar;
     protected _fill_view: GlyphRendererView;
     protected _line_view: GlyphRendererView;
-    children_views(): View[];
+    children_views(): ChildView[];
     lazy_initialize(): Promise<void>;
-    remove(): void;
     _create_major_range(): Range;
     protected _paint_colors(ctx: Context2d, bbox: BBox): void;
 }

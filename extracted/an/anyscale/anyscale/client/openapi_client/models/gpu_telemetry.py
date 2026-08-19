@@ -39,6 +39,7 @@ class GpuTelemetry(object):
         'pci_bus_id': 'str',
         'driver_version': 'str',
         'state': 'GpuState',
+        'last_reported_at': 'int',
         'utilization_pct': 'float',
         'fb_used_mib': 'int',
         'fb_free_mib': 'int',
@@ -67,6 +68,7 @@ class GpuTelemetry(object):
         'pci_bus_id': 'pci_bus_id',
         'driver_version': 'driver_version',
         'state': 'state',
+        'last_reported_at': 'last_reported_at',
         'utilization_pct': 'utilization_pct',
         'fb_used_mib': 'fb_used_mib',
         'fb_free_mib': 'fb_free_mib',
@@ -88,7 +90,7 @@ class GpuTelemetry(object):
         'workload': 'workload'
     }
 
-    def __init__(self, gpu_index=None, uuid=None, gpu_model=None, pci_bus_id=None, driver_version=None, state=None, utilization_pct=None, fb_used_mib=None, fb_free_mib=None, fb_total_mib=None, gpu_temp_c=None, memory_temp_c=None, power_usage_w=None, power_limit_w=None, sm_clock_mhz=None, mem_clock_mhz=None, ecc_sbe_total=None, ecc_dbe_total=None, ecc_sbe_aggregate_total=None, ecc_dbe_aggregate_total=None, correctable_remapped_rows=None, uncorrectable_remapped_rows=None, nvlink_replay_count=None, xids=None, workload=None, local_vars_configuration=None):  # noqa: E501
+    def __init__(self, gpu_index=None, uuid=None, gpu_model=None, pci_bus_id=None, driver_version=None, state=None, last_reported_at=None, utilization_pct=None, fb_used_mib=None, fb_free_mib=None, fb_total_mib=None, gpu_temp_c=None, memory_temp_c=None, power_usage_w=None, power_limit_w=None, sm_clock_mhz=None, mem_clock_mhz=None, ecc_sbe_total=None, ecc_dbe_total=None, ecc_sbe_aggregate_total=None, ecc_dbe_aggregate_total=None, correctable_remapped_rows=None, uncorrectable_remapped_rows=None, nvlink_replay_count=None, xids=None, workload=None, local_vars_configuration=None):  # noqa: E501
         """GpuTelemetry - a model defined in OpenAPI"""  # noqa: E501
         if local_vars_configuration is None:
             local_vars_configuration = Configuration()
@@ -100,6 +102,7 @@ class GpuTelemetry(object):
         self._pci_bus_id = None
         self._driver_version = None
         self._state = None
+        self._last_reported_at = None
         self._utilization_pct = None
         self._fb_used_mib = None
         self._fb_free_mib = None
@@ -130,6 +133,8 @@ class GpuTelemetry(object):
         if driver_version is not None:
             self.driver_version = driver_version
         self.state = state
+        if last_reported_at is not None:
+            self.last_reported_at = last_reported_at
         if utilization_pct is not None:
             self.utilization_pct = utilization_pct
         if fb_used_mib is not None:
@@ -292,7 +297,7 @@ class GpuTelemetry(object):
     def state(self):
         """Gets the state of this GpuTelemetry.  # noqa: E501
 
-        Derived GPU state: unhealthy if an XID error is active, allocated if a workload is running on the GPU, idle otherwise.  # noqa: E501
+        Derived GPU state: offline if the GPU's node stopped reporting metrics (look-back snapshots only), unhealthy if an XID error is active, allocated if a workload is running on the GPU, idle otherwise. An offline GPU keeps its last-known telemetry and XIDs.  # noqa: E501
 
         :return: The state of this GpuTelemetry.  # noqa: E501
         :rtype: GpuState
@@ -303,7 +308,7 @@ class GpuTelemetry(object):
     def state(self, state):
         """Sets the state of this GpuTelemetry.
 
-        Derived GPU state: unhealthy if an XID error is active, allocated if a workload is running on the GPU, idle otherwise.  # noqa: E501
+        Derived GPU state: offline if the GPU's node stopped reporting metrics (look-back snapshots only), unhealthy if an XID error is active, allocated if a workload is running on the GPU, idle otherwise. An offline GPU keeps its last-known telemetry and XIDs.  # noqa: E501
 
         :param state: The state of this GpuTelemetry.  # noqa: E501
         :type: GpuState
@@ -312,6 +317,29 @@ class GpuTelemetry(object):
             raise ValueError("Invalid value for `state`, must not be `None`")  # noqa: E501
 
         self._state = state
+
+    @property
+    def last_reported_at(self):
+        """Gets the last_reported_at of this GpuTelemetry.  # noqa: E501
+
+        Unix timestamp of the GPU's last metric report, to about a minute of precision. Only set on look-back snapshots; null on live ones. On an offline GPU this is roughly when its node died, and every telemetry value is from that moment rather than live.  # noqa: E501
+
+        :return: The last_reported_at of this GpuTelemetry.  # noqa: E501
+        :rtype: int
+        """
+        return self._last_reported_at
+
+    @last_reported_at.setter
+    def last_reported_at(self, last_reported_at):
+        """Sets the last_reported_at of this GpuTelemetry.
+
+        Unix timestamp of the GPU's last metric report, to about a minute of precision. Only set on look-back snapshots; null on live ones. On an offline GPU this is roughly when its node died, and every telemetry value is from that moment rather than live.  # noqa: E501
+
+        :param last_reported_at: The last_reported_at of this GpuTelemetry.  # noqa: E501
+        :type: int
+        """
+
+        self._last_reported_at = last_reported_at
 
     @property
     def utilization_pct(self):

@@ -56,6 +56,7 @@ from anyscale.commands.user_group_commands import user_group_cli
 from anyscale.commands.util import AnyscaleCommand
 from anyscale.commands.workspace_commands_v2 import workspace_cli as workspace_cli_v2
 import anyscale.conf
+from anyscale.errors import handle_uncaught_exception
 import anyscale.telemetry  # IMPORTANT: auto-patches click instrumentation on import
 from anyscale.utils.cli_version_check_util import log_warning_if_version_needs_upgrade
 
@@ -233,7 +234,16 @@ ALIASES = {
 
 
 def main() -> Any:
-    return cli()
+    """Run the CLI and turn any uncaught exception into a clean error.
+
+    Click handles ClickException and Abort itself, and SystemExit derives from
+    BaseException. This handler therefore sees only the exceptions that would
+    print a traceback.
+    """
+    try:
+        return cli()
+    except Exception as e:  # noqa: BLE001
+        handle_uncaught_exception(e)
 
 
 if __name__ == "__main__":

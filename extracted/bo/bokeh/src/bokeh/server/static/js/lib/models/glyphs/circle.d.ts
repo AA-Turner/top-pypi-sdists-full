@@ -8,7 +8,7 @@ export interface CircleView extends Circle.Data {
 export declare class CircleView extends RadialGlyphView {
     model: Circle;
     visuals: Circle.Visuals;
-    load_glglyph(): Promise<typeof import("./webgl/circle").CircleGL>;
+    load_glglyph(): Promise<typeof import("../../all/main").CircleGL>;
     protected _paint(ctx: Context2d, indices: number[], data?: Partial<Circle.Data>): void;
     protected _hit_point(geometry: PointGeometry): Selection;
     protected _hit_span(geometry: SpanGeometry): Selection;

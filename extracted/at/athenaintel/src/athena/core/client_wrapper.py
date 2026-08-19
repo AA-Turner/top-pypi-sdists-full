@@ -22,10 +22,10 @@ class BaseClientWrapper:
 
     def get_headers(self) -> typing.Dict[str, str]:
         headers: typing.Dict[str, str] = {
-            "User-Agent": "athenaintel/0.1.2225",
+            "User-Agent": "athenaintel/0.1.2226",
             "X-Fern-Language": "Python",
             "X-Fern-SDK-Name": "athenaintel",
-            "X-Fern-SDK-Version": "0.1.2225",
+            "X-Fern-SDK-Version": "0.1.2226",
             **(self.get_custom_headers() or {}),
         }
         headers["X-API-KEY"] = self.api_key

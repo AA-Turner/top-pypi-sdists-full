@@ -78,6 +78,10 @@ from omnigent.spec.types import AgentSpec
 
 _logger = logging.getLogger("omnigent.runner.app")
 
+#: Root of the installed ``omnigent`` package, for locating packaged assets
+#: (e.g. ``onboarding/agent/skills/``) independently of this module's depth.
+_OMNIGENT_PACKAGE_DIR = Path(__file__).resolve().parent.parent.parent
+
 _NATIVE_TERMINAL_START_FAILED_CODE = "native_terminal_start_failed"
 _REPL_TERMINAL_NAME = "tui"
 _REPL_TERMINAL_SESSION_KEY = "main"
@@ -268,9 +272,32 @@ def _register_auto_forwarder_task(session_id: str, task: asyncio.Task[object]) -
     _AUTO_FORWARDER_TASKS[session_id] = task
 
     def _evict(done_task: asyncio.Task[object]) -> None:
-        """Drop the registry entry unless a successor already replaced it."""
+        """Drop the registry entry unless a successor already replaced it; log the exit."""
         if _AUTO_FORWARDER_TASKS.get(session_id) is done_task:
             del _AUTO_FORWARDER_TASKS[session_id]
+        # Obituary: a stopped forwarder takes mirroring, status and the busy
+        # signal with it, so no exit path may be silent. ``exception()`` also
+        # retrieves the failure (no "Task exception was never retrieved").
+        if done_task.cancelled():
+            _logger.info(
+                "Transcript forwarder task %s cancelled; session=%s",
+                done_task.get_name(),
+                session_id,
+            )
+        elif (exc := done_task.exception()) is not None:
+            _logger.error(
+                "Transcript forwarder task %s died; session mirroring is down "
+                "until the terminal is recreated; session=%s",
+                done_task.get_name(),
+                session_id,
+                exc_info=exc,
+            )
+        else:
+            _logger.warning(
+                "Transcript forwarder task %s returned; session mirroring has stopped; session=%s",
+                done_task.get_name(),
+                session_id,
+            )
 
     task.add_done_callback(_evict)
 
@@ -2131,20 +2158,22 @@ async def _auto_create_pi_terminal(
             resolve_pi_native_provider,
         )
 
-        # Thread the agent spec's pinned model (``executor.model``) into the
-        # resolved provider so the generated ``models.json`` — and the
-        # appended ``--model`` arg (see ``pi_native_provider_launch``) — select
-        # it, reaching parity with claude-native / cursor-native. ``None``
-        # (no model declared) keeps the provider's default model.
-        # model_override (set by /model or sys_session_create's model arg)
-        # takes precedence over the spec's pinned executor.model.
+        # Provider-qualified picker values select one of the models rendered
+        # from the provider configured through ``omni setup``.
         spec_model = launch_config.model_override or _pi_native_model_from_spec(agent_spec)
         provider = resolve_pi_native_provider(model=spec_model)
         if provider is not None:
-            cred_env, cred_args = pi_native_provider_launch(bridge_dir / "pi-agent", provider)
+            cred_env, cred_args = pi_native_provider_launch(
+                bridge_dir / "pi-agent",
+                provider,
+                selection=spec_model,
+            )
             pi_env.update(cred_env)
             pi_args.extend(cred_args)
-            credential_warning = provider.credential_warning
+            # An unroutable model leaves Pi unable to select it, which looks
+            # like a silent hang; prefer that notice over the credential one
+            # since it names the model the user actually picked.
+            credential_warning = provider.unroutable_model_warning() or provider.credential_warning
     # Inherit the agent's os_env so its sandbox (e.g. ``type: none``),
     # egress_rules and env_passthrough are honoured. Without ``sandbox`` here
     # and ``parent_os_env`` below, launch_required_terminal falls back to
@@ -3731,7 +3760,10 @@ async def _auto_create_codex_terminal(
     # synthesis can stamp session_meta.model_provider with the provider
     # this launch actually routes through.
     default_model = launch_config.model_override or _codex_native_model_from_spec(agent_spec)
-    _codex_launch = resolve_native_codex_launch(model=default_model)
+    # Thread the spec so its executor.auth / legacy profile win over
+    # machine-level config, parity with the in-process harness (#2744).
+    _launch_spec = agent_spec.spec if isinstance(agent_spec, ResolvedSpec) else agent_spec
+    _codex_launch = resolve_native_codex_launch(model=default_model, spec=_launch_spec)
     _session_meta_provider = codex_session_meta_model_provider(_codex_launch)
     from omnigent.inner.codex_executor import _find_codex_cli
 
@@ -4300,9 +4332,11 @@ async def _codex_discover_thread_and_forward(
         # would resume fresh. Best-effort: a transient Omnigent failure here still
         # leaves chat streaming working — only fork-history carry-over
         # degrades.
+        from omnigent.cli_auth import open_server_client
+
         try:
-            async with httpx.AsyncClient(
-                base_url=server_url,
+            async with open_server_client(
+                server_url,
                 headers=headers,
                 auth=_RunnerDatabricksAuth(auth_factory),
                 timeout=httpx.Timeout(10.0),
@@ -4524,7 +4558,6 @@ async def _auto_create_antigravity_terminal(
         agy_home_dir,
         clear_bridge_state,
         ensure_agy_feedback_survey_disabled,
-        ensure_agy_onboarding_complete,
         prepare_bridge_dir,
         seed_isolated_agy_home,
         write_bridge_state,
@@ -4595,11 +4628,11 @@ async def _auto_create_antigravity_terminal(
     # conversation id (the cold-start mints it below) instead of a prior run's.
     clear_bridge_state(bridge_dir)
 
-    # Pre-accept agy's first-run onboarding wizard (HOME-global) before launch:
-    # a host-spawned agy terminal has no TTY to answer it and would hang with a
-    # blank web UI. Mirrors the ``ensure_claude_workspace_trusted`` seed on the
-    # Claude auto-create path. Idempotent; offloaded to a thread (file I/O).
-    await asyncio.to_thread(ensure_agy_onboarding_complete)
+    # agy's first-run onboarding wizard would hang a host-spawned terminal (no TTY
+    # to answer it, blank web UI). Its completion marker is pre-accepted below by
+    # ``seed_isolated_agy_home``, in the isolated dir agy reads under
+    # ``--gemini_dir``; seeding the real ``~/.gemini`` marker as well would write
+    # the user's tree for a file this launch never reads.
 
     argv, env_overrides = build_agy_launch(
         conversation_id=external_session_id if resume else None,
@@ -4885,6 +4918,43 @@ async def _agy_cold_start_poll_sleep(seconds: float) -> None:
     await asyncio.sleep(seconds)
 
 
+# How long to wait for agy to write a cold-started conversation into this
+# session's Gemini dir before judging it foreign. agy creates the db as part of
+# ``StartCascade`` (observed same-second), so this only absorbs filesystem lag.
+_AGY_CASCADE_OWNERSHIP_GRACE_S = 3.0
+_AGY_CASCADE_OWNERSHIP_POLL_S = 0.25
+
+
+async def _agy_cascade_is_locally_owned(bridge_dir: Path, cascade_id: str) -> bool:
+    """
+    Whether *cascade_id* belongs to the agy running under THIS bridge dir.
+
+    agy stores each conversation as
+    ``<gemini_dir>/antigravity-cli/conversations/<id>.db``, and a ``StartCascade``
+    lands in the store of whichever agy answered the port — so the presence of
+    that file in OUR Gemini dir is the ownership proof the cold-start cannot get
+    any other way (no conversation exists yet to check by id).
+
+    Polls up to :data:`_AGY_CASCADE_OWNERSHIP_GRACE_S` so ordinary filesystem lag
+    is not mistaken for foreign ownership.
+
+    :param bridge_dir: This session's native Antigravity bridge directory.
+    :param cascade_id: The conversation id just created by ``StartCascade``.
+    :returns: ``True`` when the conversation db exists in this session's Gemini
+        dir within the grace window.
+    """
+    from omnigent.antigravity_native_bridge import agy_gemini_dir
+
+    db = agy_gemini_dir(bridge_dir) / "antigravity-cli" / "conversations" / f"{cascade_id}.db"
+    deadline = time.monotonic() + _AGY_CASCADE_OWNERSHIP_GRACE_S
+    while True:
+        if await asyncio.to_thread(db.is_file):
+            return True
+        if time.monotonic() >= deadline:
+            return False
+        await _agy_cold_start_poll_sleep(_AGY_CASCADE_OWNERSHIP_POLL_S)
+
+
 async def _cold_start_agy_conversation(
     bridge_dir: Path,
     session_id: str,
@@ -5015,6 +5085,23 @@ async def _cold_start_agy_conversation(
             port,
             session_id,
             exc_info=True,
+        )
+        return None
+    # Confirm the cascade landed in THIS session's Gemini dir before adopting it.
+    # ``StartCascade`` against a foreign agy succeeds and returns an id, but that
+    # agy writes the conversation into its OWN ``--gemini_dir`` — persisting the
+    # id would durably cross-bind this session (the reader mirrors another
+    # session's conversation while our agy is orphaned). Belt-and-braces behind
+    # the port scoping in ``resolve_cold_start_agy_rpc_port``.
+    if not await _agy_cascade_is_locally_owned(bridge_dir, cascade_id):
+        _logger.warning(
+            "Antigravity cold-start: conversation %s created on port %s is NOT in this "
+            "session's Gemini dir — StartCascade hit a FOREIGN agy. Discarding it and "
+            "leaving the placeholder for session %s; the reader will bind our agy's own "
+            "conversation once a turn creates it.",
+            cascade_id,
+            port,
+            session_id,
         )
         return None
     # Persist the real id (replacing the ``agy_conv_*`` placeholder) so
@@ -5552,6 +5639,30 @@ def _publish_terminal_pending(
     )
 
 
+def _measured_prefix_bytes(transcript_path: Path) -> int | None:
+    """
+    Measure a just-written resume transcript so the forwarder can skip exactly it.
+
+    Taken before Claude launches, while the file holds only the synthesized
+    prefix. ``None`` on any read failure, which leaves the forwarder on its
+    live end-offset fallback.
+
+    :param transcript_path: Resume transcript this launch wrote, e.g.
+        ``Path("~/.claude/projects/-Users-me-repo/<sid>.jsonl")``.
+    :returns: File size in bytes, or ``None`` when it cannot be measured.
+    """
+    try:
+        return transcript_path.stat().st_size
+    except OSError:
+        _logger.warning(
+            "Could not measure synthesized Claude resume transcript; "
+            "forwarder will seed from the live transcript end; transcript=%s",
+            transcript_path,
+            exc_info=True,
+        )
+        return None
+
+
 def _native_terminal_start_error_payload(exc: BaseException, runtime_name: str) -> dict[str, str]:
     """
     Build the structured error payload for a native terminal start failure.
@@ -5696,10 +5807,14 @@ def _ensure_orchestrator_skills_in_bundle(
     target_dir = bundle_dir / "skills" / skill_name
     if target_dir.exists():
         return
-    source = (
-        Path(__file__).resolve().parent.parent / "onboarding" / "agent" / "skills" / skill_name
-    )
+    # Anchored on the package root, not a ``.parent`` count off this file:
+    # moving this module deeper must not silently break the source path.
+    source = _OMNIGENT_PACKAGE_DIR / "onboarding" / "agent" / "skills" / skill_name
     if not source.is_dir():
+        _logger.debug(
+            "Orchestrator skill source %s is not a directory; skipping injection",
+            source,
+        )
         return
     try:
         target_dir.parent.mkdir(parents=True, exist_ok=True)
@@ -6046,7 +6161,17 @@ async def _auto_create_claude_terminal(
     )
 
     _pre_wipe_claude_sid = _read_csid_pre_wipe(_bridge_dir_for_bridge_id(bridge_id))
-    bridge_dir = prepare_bridge_dir(session_id, bridge_id=bridge_id, workspace=Path(workspace))
+    # Resolved once here and reused below (env_spec) so the bridge's own
+    # sys_os_* tools and the terminal process see the same sandbox — the
+    # agent's declared os_env.sandbox, already overridden by any
+    # enforce_sandbox/force_sandbox policy verdict upstream.
+    agent_os_env = _agent_os_env_from_spec(agent_spec)
+    bridge_dir = prepare_bridge_dir(
+        session_id,
+        bridge_id=bridge_id,
+        workspace=Path(workspace),
+        sandbox=(agent_os_env.sandbox if agent_os_env is not None else None),
+    )
     # Cancel any surviving forwarder BEFORE wiping its cursor/seen state, else it
     # re-posts with fresh dedup state alongside the forwarder spawned below.
     await _cancel_auto_forwarder_task(session_id)
@@ -6130,6 +6255,12 @@ async def _auto_create_claude_terminal(
     # transcript that doesn't exist. See
     # designs/NATIVE_RUNNER_SERVER_LAUNCH.md.
     resume_external_session_id: str | None = None
+    # Byte length of the resume transcript this launch synthesized, measured
+    # BEFORE Claude starts. The forwarder seeds its cursor from this rather than
+    # from a live end-offset: resolving the transcript path needs Claude's first
+    # hook, and the executor's prompt inject waits on the same boot, so a
+    # ``stat`` taken later routinely skips the freshly-injected message.
+    resume_prefix_bytes: int | None = None
     if server_client is not None and session_external_id is not None:
         from omnigent.claude_native import _ensure_local_claude_resume_transcript
 
@@ -6142,6 +6273,7 @@ async def _auto_create_claude_terminal(
             )
             if _transcript is not None:
                 resume_external_session_id = session_external_id
+                resume_prefix_bytes = _measured_prefix_bytes(_transcript)
         except Exception:  # noqa: BLE001 — best-effort; launch fresh on failure
             _logger.warning(
                 "Could not synthesize Claude resume transcript for %s; launching without --resume",
@@ -6188,6 +6320,7 @@ async def _auto_create_claude_terminal(
         if _cloned is not None:
             # Resume our OWN clone (plain --resume, no --fork-session).
             resume_external_session_id = our_uuid
+            resume_prefix_bytes = _measured_prefix_bytes(_cloned)
             # Record the assigned id now so Omnigent reflects the clone's own
             # Claude session immediately, and a later relaunch resumes it
             # via the normal cold-resume path (this branch is gated on
@@ -6250,6 +6383,7 @@ async def _auto_create_claude_terminal(
         )
         if _built is not None:
             resume_external_session_id = our_uuid
+            resume_prefix_bytes = _measured_prefix_bytes(_built)
             # Record the assigned id so Omnigent reflects the clone's own Claude
             # session and a later relaunch resumes it via the cold-resume
             # path above. Best-effort, mirroring the clone branch.
@@ -6424,7 +6558,8 @@ async def _auto_create_claude_terminal(
     # egress_rules and env_passthrough are honoured. Without ``sandbox`` here
     # and ``parent_os_env`` below, launch_terminal falls back to
     # _default_sandbox_for_platform (linux_bwrap), overriding the YAML config.
-    agent_os_env = _agent_os_env_from_spec(agent_spec)
+    # ``agent_os_env`` was already resolved above for ``prepare_bridge_dir``,
+    # so the terminal process and the bridge's sys_os_* tools agree.
     env_spec = TerminalEnvSpec(
         os_env=OSEnvSpec(
             type="caller_process",
@@ -6562,6 +6697,7 @@ async def _auto_create_claude_terminal(
                 bridge_dir=bridge_dir,
                 agent_name="claude-native-ui",
                 start_at_end=resume_external_session_id is not None,
+                start_at_offset=resume_prefix_bytes,
                 auth=_runner_auth,
             )
         finally:
@@ -7639,6 +7775,98 @@ def _unwrap_resolved_spec(entry: object) -> Any:  # type: ignore[explicit-any]
     return entry.spec if isinstance(entry, ResolvedSpec) else entry
 
 
+def _is_safe_bundle_segment(segment: Any) -> bool:
+    """Return whether *segment* is a single, relative path component.
+
+    Component check, not substring rejection: a directory legitimately
+    named ``review..worker`` is one component and stays valid, while
+    ``..``, ``a/b`` and absolute paths do not.
+    """
+    if not isinstance(segment, str) or not segment or segment in (".", ".."):
+        return False
+    try:
+        candidate = Path(segment)
+    except (TypeError, ValueError):
+        return False
+    return candidate.parts == (segment,) and not candidate.is_absolute()
+
+
+def _sub_agent_bundle_segments(root: Any, child: Any) -> list[str] | None:
+    """Identity-walk *child* up to *root*, collecting its bundle dir names.
+
+    Returns ``None`` when the child is not reachable from the root by
+    identity (synthetic / in-memory specs such as ``__web_researcher``)
+    or when any hop lacks a usable ``source_rel_dir``.
+    """
+    parents: dict[int, Any] = {}
+    stack: list[Any] = [root]
+    while stack:
+        node = stack.pop()
+        for sub in getattr(node, "sub_agents", None) or []:
+            parents[id(sub)] = node
+            stack.append(sub)
+    segments: list[str] = []
+    current = child
+    while current is not root:
+        parent = parents.get(id(current))
+        if parent is None:
+            return None
+        segment = getattr(current, "source_rel_dir", None)
+        if not _is_safe_bundle_segment(segment):
+            return None
+        segments.append(str(segment))
+        current = parent
+    segments.reverse()
+    return segments
+
+
+def _sub_agent_bundle_workdir(parent_entry: Any, parent_spec: Any, child_spec: Any) -> Path | None:
+    """Compose ``<parent workdir>/agents/<dir>`` per hop down to *child_spec*."""
+    parent_workdir = _resolved_spec_workdir(parent_entry)
+    if parent_workdir is None:
+        return None
+    segments = _sub_agent_bundle_segments(parent_spec, child_spec)
+    if segments is None:
+        return None
+    workdir = parent_workdir
+    for segment in segments:
+        workdir = workdir / "agents" / segment
+    return workdir if workdir.is_dir() else None
+
+
+def _resolve_sub_agent_spec_entry(parent_entry: Any, sub_agent_name: str) -> ResolvedSpec | None:
+    """Resolve a sub-agent by name into a spec entry rooted at its own bundle dir.
+
+    The returned entry is always wrapped so downstream workdir lookups see
+    the child's own directory (or ``None``) — never the parent's bundle
+    root, which would expose the parent's skills and local tools to the
+    child.
+
+    :param parent_entry: Parent spec, bare or wrapped in ``ResolvedSpec``.
+    :param sub_agent_name: Name of the sub-agent to resolve.
+    :returns: The wrapped child entry, or ``None`` when the name does not
+        resolve.
+    """
+    from omnigent.runtime.workflow import _find_spec_by_name
+
+    parent_spec = _unwrap_resolved_spec(parent_entry)
+    child_spec = _find_spec_by_name(parent_spec, sub_agent_name)
+    if child_spec is None:
+        # Callers in runtime/workflow.py keep the parent spec on a lookup
+        # miss, which boots the child as a clone of the parent. Unsafe, but
+        # pre-existing and out of scope here — tracked separately.
+        _logger.warning(
+            "Sub-agent %r not found under spec %r; no workdir resolved",
+            sub_agent_name,
+            getattr(parent_spec, "name", None),
+        )
+        return None
+    return ResolvedSpec(
+        spec=child_spec,
+        workdir=_sub_agent_bundle_workdir(parent_entry, parent_spec, child_spec),
+    )
+
+
 def _forward_harness_response(resp: httpx.Response) -> Response:
     """Relay a non-streaming harness response through FastAPI."""
     if resp.status_code in _NO_BODY_STATUS_CODES:
@@ -7665,7 +7893,20 @@ def _resolved_workdir_for_spec(
     fallback: Path | None,
 ) -> Path | None:
     """Return the bundle workdir for a possibly wrapped spec entry."""
-    return _resolved_spec_workdir(spec) or fallback
+    if isinstance(spec, ResolvedSpec):
+        return spec.workdir
+    return fallback
+
+
+def _rewrap_like(previous: object, spec: AgentSpec, workdir: Path | None) -> Any:  # type: ignore[explicit-any]
+    """Re-wrap *spec* iff *previous* was wrapped, preserving a ``None`` workdir.
+
+    A wrapped entry has a verdict on its bundle dir — including a sub-agent's
+    ``None`` — and re-widening that to the runner workspace is the leak. A spec
+    that never carried bundle information stays bare so it keeps the workspace
+    fallback ordinary top-level sessions rely on.
+    """
+    return ResolvedSpec(spec=spec, workdir=workdir) if isinstance(previous, ResolvedSpec) else spec
 
 
 def _is_spec_local_native_python_tool(

@@ -23,6 +23,7 @@ MESSAGES = {
     },
     "banner": {
         "title": "Echo Agent Setup Wizard",
+        "mode": "setup",
         "subtitle": "Configure your Echo Agent installation.",
         "exit_hint": "Press Ctrl+C at any time to exit.",
     },
@@ -302,6 +303,8 @@ MESSAGES = {
         "perm_ok": "approval mode: {mode}",
         "sandbox_ok": "sandbox: {backend}",
         "gateway_on": "gateway listening on {host}:{port}",
+        "gateway_enabled_not_running": "Gateway enabled but not running",
+        "gateway_not_running_hint": "echo-agent gateway start",
         "gateway_off": "gateway disabled",
         "memory_ok": "memory enabled",
         "memory_off": "memory disabled",
@@ -329,8 +332,45 @@ MESSAGES = {
         "first_run_skip_hint": "Run 'echo-agent setup' later to configure.",
         "section_saved": "{label} configuration saved to {path}",
         "next_steps": "Next steps:",
-        "next_run": "  echo-agent             — start the agent (CLI chat and enabled channels)",
+        "next_run": "  echo-agent             — run the agent in the foreground (mutually exclusive with the background service)",
         "next_setup": "  echo-agent setup       — re-run the wizard",
         "next_status": "  echo-agent status      — show current configuration",
+    },
+    "startup": {
+        "header": "Start the gateway",
+        "running": "The gateway is running on {host}:{port} — attach with: echo-agent cli",
+        "restart_needed": "Configuration changed. Run `echo-agent gateway restart` to apply it.",
+        "not_running": "The gateway is not running — start it with: echo-agent gateway start",
+        "not_installed_hint": "The gateway is not running and is not registered as a service yet — "
+                              "register and start it with: echo-agent gateway install",
+        "ask_start": "Start the background service now?",
+        "ask_install": "Register the gateway as a background service and start it? (auto-start on login, restart on crash)",
+        "starting": "Starting the service...",
+        "start_ok": "Service started, gateway listening on {host}:{port}. Attach with: echo-agent cli",
+        "start_timeout": "The service was started, but the port did not respond within {seconds}s.",
+        "start_failed": "Could not start the service.",
+        "start_timeout_hint": "Find out why: echo-agent gateway logs",
+        "install_failed": "Service registration failed. Retry later with: echo-agent gateway install",
+        "declined": "Skipped. Run `echo-agent gateway install` when you need it.",
+        "declined_start": "Skipped. Run `echo-agent gateway start` when you need it.",
+        "linger_warn": "A user-scope service stops when you log out.",
+        "linger_fix": "To keep it running across logouts: sudo loginctl enable-linger {user}",
+        "no_manager": "No usable service manager here, so the gateway cannot be registered as a service.",
+        "no_manager_wsl": "On WSL2 you can enable systemd: add [boot] and systemd=true to /etc/wsl.conf, "
+                          "run `wsl --shutdown`, then `echo-agent gateway install`.",
+        "no_manager_tmux": "Or keep it in the foreground with tmux: tmux new -s echo-agent 'echo-agent gateway'",
+        "disabled": "gateway.enabled=false in the config: echo-agent cli cannot connect "
+                    "(WeChat / QQ and other channels do not depend on the gateway and keep working).",
+        "disabled_fix": "To use echo-agent cli: echo-agent setup gateway",
+        "unstartable": "This config cannot start: the bind address is {host} (not loopback) "
+                       "but no access token is configured, so the gateway refuses to expose "
+                       "itself unauthenticated and every start will fail.",
+        "unstartable_fix": "Pick one: set gateway.host back to 127.0.0.1 (local use only), "
+                           "or configure gateway.auth.apiTokens and rerun `echo-agent setup gateway`.",
+    },
+    "dashboard": {
+        "ask_build": "Build the full Dashboard now? (a few minutes on first run; skipping uses the built-in simplified page)",
+        "declined": "Skipped. Run `echo-agent dashboard build` when you want it.",
+        "building": "Building the Dashboard (first run includes dependency install; this can take a few minutes)...",
     },
 }

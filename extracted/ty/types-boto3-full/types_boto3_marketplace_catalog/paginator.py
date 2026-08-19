@@ -12,6 +12,8 @@ Usage::
 
     from types_boto3_marketplace_catalog.client import MarketplaceCatalogClient
     from types_boto3_marketplace_catalog.paginator import (
+        DescribeAssessmentPaginator,
+        ListAssessmentsPaginator,
         ListChangeSetsPaginator,
         ListEntitiesPaginator,
     )
@@ -19,6 +21,8 @@ Usage::
     session = Session()
     client: MarketplaceCatalogClient = session.client("marketplace-catalog")
 
+    describe_assessment_paginator: DescribeAssessmentPaginator = client.get_paginator("describe_assessment")
+    list_assessments_paginator: ListAssessmentsPaginator = client.get_paginator("list_assessments")
     list_change_sets_paginator: ListChangeSetsPaginator = client.get_paginator("list_change_sets")
     list_entities_paginator: ListEntitiesPaginator = client.get_paginator("list_entities")
     ```
@@ -32,6 +36,10 @@ from typing import TYPE_CHECKING
 from botocore.paginate import PageIterator, Paginator
 
 from .type_defs import (
+    DescribeAssessmentRequestPaginateTypeDef,
+    DescribeAssessmentResponseTypeDef,
+    ListAssessmentsRequestPaginateTypeDef,
+    ListAssessmentsResponseTypeDef,
     ListChangeSetsRequestPaginateTypeDef,
     ListChangeSetsResponseTypeDef,
     ListEntitiesRequestPaginateTypeDef,
@@ -44,7 +52,54 @@ else:
     from typing_extensions import Unpack
 
 
-__all__ = ("ListChangeSetsPaginator", "ListEntitiesPaginator")
+__all__ = (
+    "DescribeAssessmentPaginator",
+    "ListAssessmentsPaginator",
+    "ListChangeSetsPaginator",
+    "ListEntitiesPaginator",
+)
+
+
+if TYPE_CHECKING:
+    _DescribeAssessmentPaginatorBase = Paginator[DescribeAssessmentResponseTypeDef]
+else:
+    _DescribeAssessmentPaginatorBase = Paginator  # type: ignore[assignment]
+
+
+class DescribeAssessmentPaginator(_DescribeAssessmentPaginatorBase):
+    """
+    [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/marketplace-catalog/paginator/DescribeAssessment.html#MarketplaceCatalog.Paginator.DescribeAssessment)
+    [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_marketplace_catalog/paginators/#describeassessmentpaginator)
+    """
+
+    def paginate(  # type: ignore[override]
+        self, **kwargs: Unpack[DescribeAssessmentRequestPaginateTypeDef]
+    ) -> PageIterator[DescribeAssessmentResponseTypeDef]:
+        """
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/marketplace-catalog/paginator/DescribeAssessment.html#MarketplaceCatalog.Paginator.DescribeAssessment.paginate)
+        [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_marketplace_catalog/paginators/#describeassessmentpaginator)
+        """
+
+
+if TYPE_CHECKING:
+    _ListAssessmentsPaginatorBase = Paginator[ListAssessmentsResponseTypeDef]
+else:
+    _ListAssessmentsPaginatorBase = Paginator  # type: ignore[assignment]
+
+
+class ListAssessmentsPaginator(_ListAssessmentsPaginatorBase):
+    """
+    [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/marketplace-catalog/paginator/ListAssessments.html#MarketplaceCatalog.Paginator.ListAssessments)
+    [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_marketplace_catalog/paginators/#listassessmentspaginator)
+    """
+
+    def paginate(  # type: ignore[override]
+        self, **kwargs: Unpack[ListAssessmentsRequestPaginateTypeDef]
+    ) -> PageIterator[ListAssessmentsResponseTypeDef]:
+        """
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/marketplace-catalog/paginator/ListAssessments.html#MarketplaceCatalog.Paginator.ListAssessments.paginate)
+        [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_marketplace_catalog/paginators/#listassessmentspaginator)
+        """
 
 
 if TYPE_CHECKING:

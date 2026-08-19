@@ -29,7 +29,7 @@ from .._dbos_config import (
 )
 from .._docker_pg_helper import start_docker_pg, stop_docker_pg
 from .._logger import dbos_logger, init_logger
-from .._sys_db import SystemDatabase
+from .._sys_db import DEFAULT_RENAME_BATCH_SIZE, SystemDatabase
 from .._utils import GlobalParams
 from ..cli._github_init import create_template_from_github
 from ._template_init import copy_template, get_project_name, get_templates_directory
@@ -47,9 +47,9 @@ class OrderedGroup(click.Group):
         return list(self.commands)
 
 
-def _get_db_url(
+def _resolve_db_urls(
     *, system_database_url: Optional[str], application_database_url: Optional[str]
-) -> Tuple[str, str | None]:
+) -> Optional[Tuple[str, str | None]]:
     """
     Get the database URL to use for the DBOS application.
     Order of precedence:
@@ -59,6 +59,8 @@ def _get_db_url(
 
     Otherwise fallback to the same SQLite Postgres URL than the DBOS library.
     Note that for the latter to be possible, a configuration file must have been found, with an application name set.
+
+    Returns None if no URL can be resolved.
     """
     dbos_logger.setLevel(logging.WARNING)  # The CLI should not emit INFO logs
     if os.environ.get("DBOS__CLOUD") == "true":
@@ -86,11 +88,24 @@ def _get_db_url(
                 default_url = f"sqlite:///{_app_db_name}.sqlite"
                 return default_url, None
         except (FileNotFoundError, OSError):
-            click.echo(
-                f"Error: Missing database URL: please set it using CLI flags or your dbos-config.yaml file.",
-                err=True,
-            )
-            raise click.exceptions.Exit(code=1)
+            return None
+
+
+def _get_db_url(
+    *, system_database_url: Optional[str], application_database_url: Optional[str]
+) -> Tuple[str, str | None]:
+    """Like _resolve_db_urls, but exits when no database URL can be resolved."""
+    urls = _resolve_db_urls(
+        system_database_url=system_database_url,
+        application_database_url=application_database_url,
+    )
+    if urls is None:
+        click.echo(
+            f"Error: Missing database URL: please set it using CLI flags or your dbos-config.yaml file.",
+            err=True,
+        )
+        raise click.exceptions.Exit(code=1)
+    return urls
 
 
 @click.group(
@@ -303,10 +318,6 @@ def migrate(
     print_migrations: Optional[str],
     print_user_role: bool,
 ) -> None:
-    system_database_url, application_database_url = _get_db_url(
-        system_database_url=system_database_url,
-        application_database_url=application_database_url,
-    )
     if schema is None:
         schema = "dbos"
 
@@ -320,8 +331,14 @@ def migrate(
             click.echo("--print-user-role requires --app-role", err=True)
             raise click.exceptions.Exit(code=1)
         if print_migrations is not None:
-            print_dbos_migrations(
+            # Print modes never connect, so a missing database URL is fine: it
+            # only leaves the URL out of the header comment.
+            urls = _resolve_db_urls(
                 system_database_url=system_database_url,
+                application_database_url=application_database_url,
+            )
+            print_dbos_migrations(
+                urls[0] if urls is not None else None,
                 schema=schema,
                 migration=print_migrations,
             )
@@ -329,6 +346,11 @@ def migrate(
             assert application_role is not None
             print_dbos_user_role_sql(schema=schema, role_name=application_role)
         return
+
+    system_database_url, application_database_url = _get_db_url(
+        system_database_url=system_database_url,
+        application_database_url=application_database_url,
+    )
 
     # Emit INFO logs from migrations
     init_logger()
@@ -407,6 +429,91 @@ def reset(
         return
 
 
+@app.command(
+    name="rename-application",
+    help="Re-own a system database's rows after an application is renamed",
+)
+@click.option("-y", "--yes", is_flag=True, help="Skip confirmation prompt")
+@click.option(
+    "--sys-db-url", "-s", "system_database_url", help="Your DBOS system database URL"
+)
+@click.option(
+    "--from",
+    "-f",
+    "old_name",
+    help="The application's previous name. Omit to only adopt unclaimed rows.",
+)
+@click.option(
+    "--to",
+    "-t",
+    "new_name",
+    required=True,
+    help="The application that ends up owning the rows",
+)
+@click.option(
+    "--adopt-unclaimed-rows",
+    is_flag=True,
+    help="Also take rows no application owns (application_name=NULL)",
+)
+@click.option(
+    "--batch-size",
+    type=int,
+    default=DEFAULT_RENAME_BATCH_SIZE,
+    help="Workflows and steps re-owned per transaction",
+)
+@click.option(
+    "--schema",
+    default="dbos",
+    help='Schema name for DBOS system tables. Defaults to "dbos".',
+)
+def rename_application(
+    yes: bool,
+    system_database_url: Optional[str],
+    old_name: Optional[str],
+    new_name: str,
+    adopt_unclaimed_rows: bool,
+    batch_size: int,
+    schema: Optional[str],
+) -> None:
+    sources = []
+    if old_name:
+        sources.append(f"'{old_name}'s rows")
+    if adopt_unclaimed_rows:
+        sources.append("rows no application owns")
+    if not sources:
+        raise click.UsageError(
+            "Nothing to re-own: pass --from, --adopt-unclaimed-rows, or both."
+        )
+    if not yes:
+        confirm = click.confirm(
+            f"This command re-owns {' and '.join(sources)} in your DBOS system "
+            f"database as '{new_name}'. Stop the application being renamed before "
+            "running this. Are you sure you want to proceed?"
+        )
+        if not confirm:
+            click.echo("Operation cancelled.")
+            raise click.exceptions.Exit()
+    system_database_url, _ = _get_db_url(
+        system_database_url=system_database_url, application_database_url=None
+    )
+    client = DBOSClient(
+        system_database_url=system_database_url, dbos_system_schema=schema
+    )
+    try:
+        moved = client.rename_application(
+            old_name,
+            new_name,
+            batch_size=batch_size,
+            adopt_unclaimed_rows=adopt_unclaimed_rows,
+        )
+        print(json.dumps(moved, indent=2))
+    except click.exceptions.Exit:
+        raise
+    except Exception as e:
+        click.echo(f"Error renaming application: {str(e)}", err=True)
+        raise click.exceptions.Exit(code=1)
+
+
 @workflow.command(name="list", help="List workflows for your application")
 @click.option(
     "--db-url",
@@ -441,6 +548,11 @@ def reset(
 )
 @click.option("--name", "-n", help="Retrieve workflows with this name")
 @click.option(
+    "--application-name",
+    "-a",
+    help="Retrieve workflows owned by this application",
+)
+@click.option(
     "--sort-desc",
     "-d",
     is_flag=True,
@@ -462,6 +574,7 @@ def list_workflows(
     status: Optional[str],
     application_version: Optional[str],
     name: Optional[str],
+    application_name: Optional[str],
     sort_desc: bool,
     offset: Optional[int],
     schema: Optional[str],
@@ -485,6 +598,7 @@ def list_workflows(
         status=status,
         app_version=application_version,
         name=name,
+        application_name=application_name,
     )
     print(json.dumps([w.__dict__ for w in workflows], cls=DefaultEncoder))
 
@@ -718,6 +832,11 @@ def fork(
 @click.option("--queue-name", "-q", help="Retrieve functions on this queue")
 @click.option("--name", "-n", help="Retrieve functions on this queue")
 @click.option(
+    "--application-name",
+    "-a",
+    help="Retrieve functions owned by this application",
+)
+@click.option(
     "--sort-desc",
     "-d",
     is_flag=True,
@@ -738,6 +857,7 @@ def list_queue(
     status: Optional[str],
     queue_name: Optional[str],
     name: Optional[str],
+    application_name: Optional[str],
     sort_desc: bool,
     offset: Optional[int],
     schema: Optional[str],
@@ -760,6 +880,7 @@ def list_queue(
         queue_name=queue_name,
         status=status,
         name=name,
+        application_name=application_name,
     )
     print(json.dumps([w.__dict__ for w in workflows], cls=DefaultEncoder))
 

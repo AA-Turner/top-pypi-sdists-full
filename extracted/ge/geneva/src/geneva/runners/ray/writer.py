@@ -8,21 +8,27 @@ import time
 import urllib
 import urllib.parse
 import uuid
-from collections.abc import Iterator
+from collections.abc import Callable, Iterator
 from typing import Any, Optional, cast
 
 import attrs
 import lance
 import lance.file
 import pyarrow as pa
+import pyarrow.compute as pc
 import ray
 import ray.actor
 import ray.util.queue
 from yarl import URL
 
 from geneva.apply.memory import release_unused_process_memory
-from geneva.checkpoint import CheckpointStore
+from geneva.checkpoint import (
+    CheckpointStore,
+    read_checkpoint_num_rows,
+    strip_checkpoint_num_rows,
+)
 from geneva.db import NamespaceConfig, _directory_namespace_storage_properties
+from geneva.errors import CheckpointCoverageError, ShortFragmentWriteError
 from geneva.fragment_writer import get_fragment_file_writer
 from geneva.utils import (
     get_null_value_for_type,
@@ -48,6 +54,14 @@ DEFAULT_CARRY_FORWARD_TRANCHE_ROWS = int(
 )
 
 
+class FragmentWriteFailedError(RuntimeError):
+    """One or more fragments failed to write and the job must not report success.
+
+    The healthy fragments' commits are preserved and the failed fragments'
+    checkpoints survive, so a re-run picks up where this job left off.
+    """
+
+
 @attrs.define(frozen=True)
 class FragmentWriteResult:
     frag_id: int
@@ -62,6 +76,22 @@ class FragmentWriteResult:
     checkpoint_read_ms: int = 0
     avg_batch_num_rows: int = 0
     avg_batch_size: int = 0
+
+
+@attrs.define(frozen=True)
+class WriterProgress:
+    """Monotonic liveness snapshot served by ``FragmentWriter.progress()``.
+
+    ``seq`` bumps on every unit of work (checkpoint read, batch written); the
+    drain loop treats a frozen ``seq`` (not an unresolved write future) as
+    the stall signal.
+    """
+
+    seq: int = 0
+    phase: str = "init"  # "start" | "sort" | "write" | "finalize"
+    checkpoints_read: int = 0
+    batches_out: int = 0
+    rows_out: int = 0
 
 
 def _record_batch_size_bytes(batch: pa.RecordBatch) -> int:
@@ -226,9 +256,165 @@ class _PendingCheckpoint:
     ``pa.RecordBatch`` so out-of-order arrivals don't pin GBs of UDF
     output in memory while waiting for the next-expected position.
     The data is fetched from the store at pop time.
+
+    ``expected_rows`` is the producer's recorded ``MapBatchCheckpoint.num_rows``
+    (the materialized physical row count); the read-back is validated against it
+    to catch a short/truncated checkpoint file. ``-1`` means the producer count
+    was not threaded through the queue (e.g. partial-recovery re-ingest); the
+    validation then falls back to the count stamped in the batch's schema
+    metadata, or is skipped for a legacy unstamped checkpoint.
     """
 
     key: str
+    expected_rows: int = -1
+
+
+def _validate_checkpoint_rows(
+    store: CheckpointStore, key: str, batch: pa.RecordBatch, expected_rows: int
+) -> None:
+    """Reject a short/truncated checkpoint file read back from the store.
+
+    The producer records the materialized row count for each batch checkpoint. If
+    the read-back batch holds fewer rows the file was only partially written, and
+    null-filling the missing tail would silently persist NULLs. Delete the poisoned
+    key so a resume recomputes the batch instead of re-reading the short file, then
+    raise so the fragment write fails loudly.
+
+    When ``expected_rows`` is ``-1`` the producer count is unknown; fall back to
+    the count stamped in the batch's schema metadata (written by the producer, and
+    preserved by slice/round-trip even when the file landed short). A legacy
+    checkpoint with neither count cannot be validated and is accepted as-is.
+    """
+    _validate_checkpoint_row_count(
+        store,
+        key,
+        actual_rows=batch.num_rows,
+        expected_rows=expected_rows,
+        metadata_batch=batch,
+    )
+
+
+def _validate_checkpoint_row_count(
+    store: CheckpointStore,
+    key: str,
+    *,
+    actual_rows: int,
+    expected_rows: int,
+    metadata_batch: pa.RecordBatch | None,
+) -> None:
+    """Validate an aggregate row count after one or more bounded reads."""
+    if expected_rows < 0 and metadata_batch is not None:
+        stamped = read_checkpoint_num_rows(metadata_batch)
+        if stamped is not None:
+            expected_rows = stamped
+    if expected_rows < 0 or actual_rows == expected_rows:
+        return
+    try:
+        store.delete(key)
+    except Exception:
+        _LOG.exception("Failed to invalidate short checkpoint %s", key)
+    raise ValueError(
+        f"checkpoint {key} holds {actual_rows} rows, expected {expected_rows}; "
+        "the checkpoint file is short/truncated and has been invalidated so a "
+        "resume recomputes it"
+    )
+
+
+def _read_checkpoint_batches(
+    store: CheckpointStore,
+    key: str,
+    expected_rows: int,
+    *,
+    max_rows_per_batch: int | None,
+    _on_read: Callable[[pa.RecordBatch, int, bool, bool], None] | None = None,
+) -> Iterator[pa.RecordBatch]:
+    """Read one checkpoint, optionally as true bounded Lance ranges.
+
+    A recovered writer supplies ``max_rows_per_batch``. In that mode this must
+    use :meth:`CheckpointStore.read_range` rather than loading the full batch and
+    slicing it: Arrow slices retain the original backing buffers and therefore do
+    not reduce the writer's resident working set.
+    """
+    if max_rows_per_batch is None:
+        read_start = time.perf_counter()
+        batch = store[key]
+        elapsed_ms = int((time.perf_counter() - read_start) * 1000)
+        _validate_checkpoint_rows(store, key, batch, expected_rows)
+        if _on_read is not None:
+            _on_read(batch, elapsed_ms, True, True)
+        yield batch
+        return
+
+    if max_rows_per_batch <= 0:
+        raise ValueError("max_rows_per_batch must be positive")
+
+    offset = 0
+    first_batch: pa.RecordBatch | None = None
+    while True:
+        read_start = time.perf_counter()
+        batch = store.read_range(key, offset, max_rows_per_batch)
+        elapsed_ms = int((time.perf_counter() - read_start) * 1000)
+        if first_batch is None:
+            first_batch = batch
+        # Preserve the schema-bearing empty batch for a genuine zero-row
+        # checkpoint. An empty tail read is only a termination signal.
+        if batch.num_rows == 0:
+            if _on_read is not None:
+                _on_read(batch, elapsed_ms, offset == 0, offset == 0)
+            if offset == 0:
+                yield batch
+            break
+
+        if _on_read is not None:
+            _on_read(batch, elapsed_ms, True, offset == 0)
+        yield batch
+        offset += batch.num_rows
+
+        stamped_rows = (
+            read_checkpoint_num_rows(first_batch) if first_batch is not None else None
+        )
+        target_rows = expected_rows if expected_rows >= 0 else stamped_rows
+        if target_rows is not None and offset >= target_rows:
+            if offset == target_rows and batch.num_rows == max_rows_per_batch:
+                # Exact tranche boundaries need an EOF probe. Otherwise a
+                # checkpoint with an unexpected extra tail (for example 7 rows
+                # with expected=6 and cap=3) would be silently accepted after
+                # reading only the expected prefix. Count an invalid tail with
+                # bounded reads, but never yield it to the fragment writer.
+                while True:
+                    probe_start = time.perf_counter()
+                    probe = store.read_range(key, offset, max_rows_per_batch)
+                    probe_ms = int((time.perf_counter() - probe_start) * 1000)
+                    if _on_read is not None:
+                        _on_read(probe, probe_ms, False, False)
+                    if probe.num_rows == 0:
+                        break
+                    offset += probe.num_rows
+                    if probe.num_rows < max_rows_per_batch:
+                        break
+            break
+        if batch.num_rows < max_rows_per_batch:
+            break
+
+    _validate_checkpoint_row_count(
+        store,
+        key,
+        actual_rows=offset,
+        expected_rows=expected_rows,
+        metadata_batch=first_batch,
+    )
+
+
+def _bump_checkpoint_read_progress(
+    progress: Callable[..., None] | None, *, first_read: bool
+) -> None:
+    """Advance liveness per range read but count each checkpoint only once."""
+    if progress is None:
+        return
+    if first_read:
+        progress("sort", checkpoints_read=1)
+    else:
+        progress("sort")
 
 
 def _buffer_and_sort_batches(
@@ -240,7 +426,10 @@ def _buffer_and_sort_batches(
     *,
     _timing: dict[str, int] | None = None,
     _batch_stats: dict[str, int] | None = None,
+    _progress: Callable[..., None] | None = None,
     keys_only: bool = False,
+    expect_full_coverage: bool = False,
+    max_rows_per_batch: int | None = None,
 ) -> Iterator[pa.RecordBatch | _PendingCheckpoint]:
     """
     buffer batches from the queue, which is yields a tuple of
@@ -268,6 +457,15 @@ def _buffer_and_sort_batches(
     pile up under multi-applier workloads.  Legacy/malformed keys
     without the suffix fall back to the eager-read path so we can
     learn ``stored.num_rows`` for ``SequenceQueue`` accounting.
+
+    ``expect_full_coverage``: every row must be covered by a checkpoint
+    span by seal time, so a coverage gap raises
+    :class:`CheckpointCoverageError` instead of silently null-filling
+    rows whose UDF output was dropped upstream (GEN-744 follow-up). The
+    backfill pipeline always satisfies this — WHERE filters are applied
+    as a selection column, so checkpoint spans tile every task window —
+    and ``FragmentWriter.write`` passes True. The flag-off gap filling
+    is kept for direct callers that feed partial coverage on purpose.
     """
     queue_wait_ms = 0
     checkpoint_read_ms = 0
@@ -299,7 +497,9 @@ def _buffer_and_sort_batches(
                 if item[0] < 0:  # in-band seal sentinel
                     sealed = True
                     break
-                yield _PendingCheckpoint(item[1])
+                if _progress is not None:
+                    _progress("sort")
+                yield _PendingCheckpoint(item[1], item[2])
         finally:
             if _timing is not None:
                 _timing["queue_wait_ms"] += int(queue_wait_ms)
@@ -311,14 +511,33 @@ def _buffer_and_sort_batches(
     )
     sealed = False
 
-    def _materialize(item: pa.RecordBatch | _PendingCheckpoint) -> pa.RecordBatch:
+    def _note_checkpoint_read(
+        batch: pa.RecordBatch,
+        elapsed_ms: int,
+        contributes_batch: bool,
+        first_read: bool,
+    ) -> None:
         nonlocal checkpoint_read_ms
+        checkpoint_read_ms += elapsed_ms
+        _bump_checkpoint_read_progress(_progress, first_read=first_read)
+        if contributes_batch and _batch_stats is not None:
+            _batch_stats["num_batches"] += 1
+            _batch_stats["total_rows"] += int(batch.num_rows)
+            _batch_stats["total_bytes"] += _record_batch_size_bytes(batch)
+
+    def _materialize(
+        item: pa.RecordBatch | _PendingCheckpoint,
+    ) -> Iterator[pa.RecordBatch]:
         if isinstance(item, _PendingCheckpoint):
-            read_start = time.perf_counter()
-            data = store[item.key]
-            checkpoint_read_ms += int((time.perf_counter() - read_start) * 1000)
-            return data
-        return item
+            yield from _read_checkpoint_batches(
+                store,
+                item.key,
+                item.expected_rows,
+                max_rows_per_batch=max_rows_per_batch,
+                _on_read=_note_checkpoint_read,
+            )
+        else:
+            yield item
 
     try:
         while accumulation_queue.next_position() < num_rows:
@@ -333,6 +552,10 @@ def _buffer_and_sort_batches(
                     if gap_end is None:
                         gap_end = num_rows
                     gap_end = min(int(gap_end), int(num_rows))
+                    if gap_end > gap_start and expect_full_coverage:
+                        raise CheckpointCoverageError(
+                            frag_id, gap_start=gap_start, gap_end=gap_end
+                        )
                     if gap_end > gap_start:
                         fill_start = (frag_id << 32) | gap_start
                         fill_end = (frag_id << 32) | gap_end
@@ -341,7 +564,7 @@ def _buffer_and_sort_batches(
                         break
                 try:
                     wait_start = time.perf_counter()
-                    batch: tuple[int, str] = queue.get()
+                    batch: tuple[int, str, int] = queue.get()
                     queue_wait_ms += int((time.perf_counter() - wait_start) * 1000)
                 except (
                     ray.exceptions.ActorDiedError,  # type: ignore[attr-defined]
@@ -358,8 +581,11 @@ def _buffer_and_sort_batches(
                 if batch[0] < 0:
                     sealed = True
                     continue
+                if _progress is not None:
+                    _progress("sort")
 
                 checkpoint_key = batch[1]
+                expected_rows = batch[2]
                 next_expected = accumulation_queue.next_position()
                 if batch[0] < next_expected:
                     # Identifies the producer of duplicate/overlapping
@@ -397,7 +623,17 @@ def _buffer_and_sort_batches(
                     # batch_stats counters that need stored.num_rows /
                     # batch bytes are deferred to materialize-at-pop too.
                     accumulation_queue.put(
-                        batch[0], span, _PendingCheckpoint(checkpoint_key)
+                        batch[0],
+                        span,
+                        _PendingCheckpoint(checkpoint_key, expected_rows),
+                    )
+                elif max_rows_per_batch is not None and expected_rows >= 0:
+                    # Recovery can also bound legacy keys when the producer's
+                    # materialized row count provides SequenceQueue accounting.
+                    accumulation_queue.put(
+                        batch[0],
+                        expected_rows,
+                        _PendingCheckpoint(checkpoint_key, expected_rows),
                     )
                 else:
                     # Legacy/malformed key: must read eagerly so we can
@@ -405,6 +641,11 @@ def _buffer_and_sort_batches(
                     read_start = time.perf_counter()
                     stored = store[checkpoint_key]
                     checkpoint_read_ms += int((time.perf_counter() - read_start) * 1000)
+                    _validate_checkpoint_rows(
+                        store, checkpoint_key, stored, expected_rows
+                    )
+                    if _progress is not None:
+                        _progress("sort", checkpoints_read=1)
                     if _batch_stats is not None:
                         _batch_stats["num_batches"] += 1
                         _batch_stats["total_rows"] += int(stored.num_rows)
@@ -417,14 +658,7 @@ def _buffer_and_sort_batches(
                 pending = accumulation_queue.pop()
                 if pending is None:
                     continue
-                materialized = _materialize(pending)
-                if isinstance(pending, _PendingCheckpoint) and _batch_stats is not None:
-                    _batch_stats["num_batches"] += 1
-                    _batch_stats["total_rows"] += int(materialized.num_rows)
-                    _batch_stats["total_bytes"] += _record_batch_size_bytes(
-                        materialized
-                    )
-                yield materialized
+                yield from _materialize(pending)
     finally:
         if _timing is not None:
             _timing["queue_wait_ms"] += int(queue_wait_ms)
@@ -464,6 +698,48 @@ def _make_filler_batch(
     }
     data_dict["_rowaddr"] = rowaddr_arr
     return pa.RecordBatch.from_pydict(data_dict, schema=schema)
+
+
+def _make_filler_batches(
+    fill_start: int,
+    fill_end: int,
+    schema: pa.Schema,
+    max_rows_per_batch: int | None,
+) -> Iterator[pa.RecordBatch]:
+    """Yield a filler range without exceeding the recovered writer row cap."""
+    if max_rows_per_batch is None:
+        yield _make_filler_batch(fill_start, fill_end, schema)
+        return
+    if max_rows_per_batch <= 0:
+        raise ValueError("max_rows_per_batch must be positive")
+    cursor = fill_start
+    while cursor < fill_end:
+        chunk_end = min(fill_end, cursor + max_rows_per_batch)
+        yield _make_filler_batch(cursor, chunk_end, schema)
+        cursor = chunk_end
+
+
+def _split_batch_by_physical_span(
+    batch: pa.RecordBatch,
+    max_rows_per_batch: int | None,
+) -> Iterator[pa.RecordBatch]:
+    """Split before gap filling so one sparse batch cannot expand past the cap."""
+    if max_rows_per_batch is None or batch.num_rows <= 1:
+        yield batch
+        return
+    if max_rows_per_batch <= 0:
+        raise ValueError("max_rows_per_batch must be positive")
+
+    rowaddrs = cast("list[int]", batch["_rowaddr"].to_pylist())
+    begin = 0
+    span_start = rowaddrs[0]
+    for pos in range(1, batch.num_rows):
+        if rowaddrs[pos] - span_start + 1 <= max_rows_per_batch:
+            continue
+        yield batch.slice(begin, pos - begin)
+        begin = pos
+        span_start = rowaddrs[pos]
+    yield batch.slice(begin)
 
 
 def _filter_columns_to_schema(
@@ -538,6 +814,9 @@ def write_fragment_file(
     batches_to_write = (
         _filter_columns_to_schema(batches, column_names) if filter_columns else batches
     )
+    # Strip the resume-only row-count stamp so it doesn't leak into the committed
+    # fragment's file schema (the writer derives that schema from these batches).
+    batches_to_write = (strip_checkpoint_num_rows(b) for b in batches_to_write)
     peekable_batches = more_itertools.peekable(batches_to_write)
 
     if data_file_name is None:
@@ -598,11 +877,15 @@ def write_fragment_file(
         writer_cm.__exit__(*exc_info)
         writer_write_ms += int((time.perf_counter() - t1) * 1000)
         # Release allocator drift accumulated across this fragment's batches.
-        # Long-lived writer processes touch many fragments back-to-back, and
-        # Arrow's mempool + libc's malloc retain freed pages without explicit
-        # trim. Per-fragment is the natural unit: small enough that one
-        # fragment's drift can't grow unbounded, large enough that the trim's
-        # arena walk cost is amortized over a real chunk of work.
+        # Arrow's mempool and libc's malloc retain freed pages without an
+        # explicit trim, and a fragment's batches can strand a lot of them.
+        #
+        # This bounds RSS *within* a fragment, not across many: a
+        # FragmentWriter actor is spawned per fragment and killed when its
+        # session shuts down (``pipeline.py`` ``_session_for_frag`` /
+        # ``ray.kill``), so drift the trim misses is reclaimed by the OS when
+        # the actor dies. Appliers are the long-lived side — they serve every
+        # ReadTask of a job, which is why their trim counter is applier-owned.
         release_unused_process_memory()
 
     dsv_major, dsv_minor = parse_data_storage_version(data_storage_version)
@@ -624,6 +907,8 @@ def _align_batches_to_physical_layout(
     batches: Iterator[pa.RecordBatch],
     *,
     _timing: dict[str, int] | None = None,
+    expect_full_coverage: bool = False,
+    max_rows_per_batch: int | None = None,
 ) -> Iterator[pa.RecordBatch]:
     """
     This aligns the batches to the physical rows layout.
@@ -632,6 +917,15 @@ def _align_batches_to_physical_layout(
     index values and None values for the other columns.  It will also fill the _rowaddr
     gaps between batches with the _rowaddr index values and None values for the other
     cols.
+
+    ``expect_full_coverage``: every live row must arrive from upstream, so
+    dropped output raises instead of committing nulls. On fragments without
+    deletes (``num_physical_rows == num_logical_rows``) any filler is
+    immediately fatal. On fragments with deletion vectors filler is
+    legitimate for deleted rows, so the guard is a row-count invariant
+    instead: the stream must deliver exactly ``num_logical_rows`` real
+    (non-filler, non-trimmed-duplicate) rows, i.e. filler covers only the
+    ``num_physical_rows - num_logical_rows`` deleted slots.
     """
 
     if num_logical_rows > num_physical_rows:
@@ -639,12 +933,36 @@ def _align_batches_to_physical_layout(
             "Logical rows should be greater than or equal to physical rows"
         )
 
+    fail_on_fill = expect_full_coverage and num_physical_rows == num_logical_rows
+    real_rows_total = 0
+
     next_batch_rowaddr = 0
 
     schema = None
 
     align_ms = 0
-    it = iter(batches)
+
+    def _timed_fill(
+        fill_start: int, fill_end: int, fill_schema: pa.Schema
+    ) -> Iterator[pa.RecordBatch]:
+        nonlocal align_ms
+        fillers = iter(
+            _make_filler_batches(fill_start, fill_end, fill_schema, max_rows_per_batch)
+        )
+        while True:
+            t_fill = time.perf_counter()
+            try:
+                filler = next(fillers)
+            except StopIteration:
+                return
+            align_ms += int((time.perf_counter() - t_fill) * 1000)
+            yield filler
+
+    it = (
+        bounded
+        for raw in batches
+        for bounded in _split_batch_by_physical_span(raw, max_rows_per_batch)
+    )
     while True:
         try:
             raw_batch = next(it)
@@ -653,6 +971,26 @@ def _align_batches_to_physical_layout(
 
         t0 = time.perf_counter()
         batch = _fill_rowaddr_gaps(raw_batch)
+        if fail_on_fill and batch.num_rows != raw_batch.num_rows:
+            gap_start = int(raw_batch["_rowaddr"][0].as_py()) & 0xFFFFFFFF
+            gap_end = int(raw_batch["_rowaddr"][-1].as_py()) & 0xFFFFFFFF
+            raise CheckpointCoverageError(frag_id, gap_start=gap_start, gap_end=gap_end)
+        if expect_full_coverage:
+            # Real rows this batch contributes: upstream rows minus any
+            # already-written prefix the trim below will drop.
+            raw_first = int(raw_batch["_rowaddr"][0].as_py()) & 0xFFFFFFFF
+            if raw_first >= next_batch_rowaddr:
+                real_rows_total += raw_batch.num_rows
+            else:
+                local = pc.bit_wise_and(
+                    raw_batch["_rowaddr"], pa.scalar(0xFFFFFFFF, type=pa.uint64())
+                )
+                kept = pc.sum(
+                    pc.greater_equal(
+                        local, pa.scalar(next_batch_rowaddr, type=pa.uint64())
+                    ).cast(pa.int64())
+                ).as_py()
+                real_rows_total += int(kept or 0)
         t1 = time.perf_counter()
         # skim the schema from the stream
         # we expect at least one batch, otherwise the whole fragment has been
@@ -681,13 +1019,16 @@ def _align_batches_to_physical_layout(
             batch = batch.slice(skip)
             incoming_local_rowaddr = next_batch_rowaddr
         if incoming_local_rowaddr != next_batch_rowaddr:
+            if fail_on_fill:
+                raise CheckpointCoverageError(
+                    frag_id,
+                    gap_start=next_batch_rowaddr,
+                    gap_end=incoming_local_rowaddr,
+                )
             # global row id has frag_id in high bits
             fill_start = frag_id << 32 | next_batch_rowaddr
             fill_end = frag_id << 32 | incoming_local_rowaddr
-            t_fill = time.perf_counter()
-            filler = _make_filler_batch(fill_start, fill_end, schema)
-            align_ms += int((time.perf_counter() - t_fill) * 1000)
-            yield filler
+            yield from _timed_fill(fill_start, fill_end, schema)
             next_batch_rowaddr = incoming_local_rowaddr
 
         align_ms += int((t1 - t0) * 1000)
@@ -697,19 +1038,35 @@ def _align_batches_to_physical_layout(
     if schema is None:
         raise ValueError("No batches found")
 
+    if expect_full_coverage and real_rows_total != num_logical_rows:
+        raise CheckpointCoverageError(
+            frag_id,
+            detail=(
+                f"Fragment {frag_id} received {real_rows_total} output row(s) "
+                f"for {num_logical_rows} live row(s); refusing to null-fill "
+                "the difference. Re-run the backfill to compute the missing "
+                "rows."
+            ),
+        )
+
     # fill the rest of the rows at the end
     if next_batch_rowaddr < num_physical_rows:
+        if fail_on_fill:
+            raise CheckpointCoverageError(
+                frag_id,
+                gap_start=next_batch_rowaddr,
+                gap_end=num_physical_rows,
+            )
         fill_start = frag_id << 32 | next_batch_rowaddr
         fill_end = frag_id << 32 | num_physical_rows
-        t0 = time.perf_counter()
-        yield _make_filler_batch(fill_start, fill_end, schema)
-        align_ms += int((time.perf_counter() - t0) * 1000)
+        yield from _timed_fill(fill_start, fill_end, schema)
 
     if _timing is not None:
         _timing["align_ms"] += int(align_ms)
 
 
-@ray.remote(num_cpus=1)  # type: ignore[misc]
+# max_concurrency=2: write() runs on one thread, the progress() probe on the other.
+@ray.remote(num_cpus=1, max_concurrency=2)  # type: ignore[misc]
 @attrs.define
 class FragmentWriter:  # pyright: ignore[reportRedeclaration]
     uri: str
@@ -777,8 +1134,22 @@ class FragmentWriter:  # pyright: ignore[reportRedeclaration]
     struct_blob_decomp: tuple[Any, ...] | None = None
     blob_read_strategy: str | None = None
     blob_read_buffer_size: int | None = None
+    # GEN-780: set only after a classified writer OOM. This is a row-based
+    # working-set boundary, not an estimator: checkpoint files are range-read,
+    # carry-forward is streamed, and aligned/filler batches honor the same cap.
+    max_rows_per_batch: int | None = attrs.field(
+        default=None,
+        validator=attrs.validators.optional(attrs.validators.gt(0)),
+    )
 
     _store: CheckpointStore = attrs.field(init=False)
+    # Written by write(), read by the probe thread: a lone reference swap of a
+    # frozen snapshot is race-free under the GIL, so no lock is needed.
+    _latest_progress: WriterProgress = attrs.field(init=False, factory=WriterProgress)
+
+    def progress(self) -> WriterProgress:
+        """Liveness snapshot; served concurrently while ``write()`` runs."""
+        return self._latest_progress
 
     def __repr__(self) -> str:
         """Crash-safe repr Ray uses as the per-line log prefix.
@@ -861,7 +1232,6 @@ class FragmentWriter:  # pyright: ignore[reportRedeclaration]
             try:
                 yield from range_blob_batches(
                     dataset=dataset,
-                    dataset_uri=self.uri,
                     columns=columns,
                     frag_id=self.fragment_id,
                     offset=0,
@@ -926,6 +1296,7 @@ class FragmentWriter:  # pyright: ignore[reportRedeclaration]
         num_logical_rows: int,
         tranche_rows: int,
         _timing: dict[str, int] | None = None,
+        _progress: Callable[..., None] | None = None,
     ) -> Iterator[pa.RecordBatch]:
         """Overlay the WHERE-matched output onto a stream of the OLD output column.
 
@@ -937,7 +1308,6 @@ class FragmentWriter:  # pyright: ignore[reportRedeclaration]
         Yields the live (logical) rows in physical-rowaddr order; the caller
         aligns to the physical layout (which fills any deleted-row gaps).
         """
-        import functools
         import itertools
 
         from geneva.db import open_lance_dataset
@@ -957,12 +1327,24 @@ class FragmentWriter:  # pyright: ignore[reportRedeclaration]
         )
         cols = [c for c in self.column_names if c != "_rowaddr"]
         old_stream = self._old_column_stream(dataset, cols, tranche_rows)
+        max_rows_per_batch = getattr(self, "max_rows_per_batch", None)
 
         # Collect the matched checkpoint references (keys only — no data read) and
         # build one lazy cursor per file, ordered/activated by the peeked key
         # range. 0-row and all-unmatched fragments simply yield no cursors, so the
         # merge becomes a pass-through of the old column.
         cursors: list[_RunCursor] = []
+
+        def _note_checkpoint_read(
+            _batch: pa.RecordBatch,
+            elapsed_ms: int,
+            _contributes_batch: bool,
+            first_read: bool,
+        ) -> None:
+            if _timing is not None:
+                _timing["checkpoint_read_ms"] += elapsed_ms
+            _bump_checkpoint_read_progress(_progress, first_read=first_read)
+
         for ref in _buffer_and_sort_batches(
             num_logical_rows,
             self.fragment_id,
@@ -970,6 +1352,7 @@ class FragmentWriter:  # pyright: ignore[reportRedeclaration]
             self._store,
             self.checkpoint_keys,
             _timing=_timing,
+            _progress=_progress,
             keys_only=True,
         ):
             assert isinstance(ref, _PendingCheckpoint)
@@ -977,7 +1360,13 @@ class FragmentWriter:  # pyright: ignore[reportRedeclaration]
             cursors.append(
                 _RunCursor(
                     start if start is not None else 0,
-                    functools.partial(self._store.__getitem__, ref.key),
+                    _read_checkpoint_batches(
+                        self._store,
+                        ref.key,
+                        ref.expected_rows,
+                        max_rows_per_batch=max_rows_per_batch,
+                        _on_read=_note_checkpoint_read,
+                    ),
                 )
             )
 
@@ -1069,6 +1458,20 @@ class FragmentWriter:  # pyright: ignore[reportRedeclaration]
         assert field_ids is not None
         assert column_indices is not None
 
+        progress_seq = 0
+        progress_counters = {"checkpoints_read": 0, "batches_out": 0, "rows_out": 0}
+
+        def _bump(phase: str, **deltas: int) -> None:
+            nonlocal progress_seq
+            progress_seq += 1
+            for key, delta in deltas.items():
+                progress_counters[key] += delta
+            self._latest_progress = WriterProgress(
+                seq=progress_seq, phase=phase, **progress_counters
+            )
+
+        _bump("start")
+
         # we always write files that physically align with the fragment
         timings: dict[str, int] = {
             "align_ms": 0,
@@ -1080,6 +1483,7 @@ class FragmentWriter:  # pyright: ignore[reportRedeclaration]
             "total_rows": 0,
             "total_bytes": 0,
         }
+        max_rows_per_batch = getattr(self, "max_rows_per_batch", None)
         # For deferred carry-forward the checkpoints hold only
         # the WHERE-matched rows; fill the unmatched rows by streaming the OLD
         # output column instead of null. The merge consumes the matched
@@ -1089,13 +1493,28 @@ class FragmentWriter:  # pyright: ignore[reportRedeclaration]
         # physical layout below (filling deleted-row gaps with nulls), so this
         # works for fragments with deletes too.
         if self.defer_carry_forward and self.where is not None:
+            carry_forward_tranche_rows = DEFAULT_CARRY_FORWARD_TRANCHE_ROWS
+            if max_rows_per_batch is not None:
+                carry_forward_tranche_rows = min(
+                    carry_forward_tranche_rows, max_rows_per_batch
+                )
             it = self._carry_forward_merge(
                 num_logical_rows=num_logical_rows,
-                tranche_rows=DEFAULT_CARRY_FORWARD_TRANCHE_ROWS,
+                tranche_rows=carry_forward_tranche_rows,
                 _timing=timings,
+                _progress=_bump,
             )
         else:
             # Non-keys_only never yields _PendingCheckpoint; narrow for the writer.
+            #
+            # expect_full_coverage holds for this path even with a WHERE
+            # filter: backfill scans apply the filter as a selection column
+            # (``with_where_as_bool_column``), so completed tasks emit
+            # checkpoints whose ``_range-`` spans tile the whole task window
+            # (zero-match tasks synthesize completion checkpoints). A gap at
+            # seal therefore always means dropped checkpoints — null-filling
+            # it would silently lose UDF output (and, with a filter,
+            # overwrite carried-forward values).
             it = cast(
                 "Iterator[pa.RecordBatch]",
                 _buffer_and_sort_batches(
@@ -1106,15 +1525,25 @@ class FragmentWriter:  # pyright: ignore[reportRedeclaration]
                     self.checkpoint_keys,
                     _timing=timings,
                     _batch_stats=batch_stats,
+                    _progress=_bump,
+                    expect_full_coverage=True,
+                    max_rows_per_batch=max_rows_per_batch,
                 ),
             )
 
+        # Full coverage holds for both sources feeding the alignment: the
+        # checkpoint-materialization path (see the expect_full_coverage note
+        # above) and the deferred carry-forward merge, which yields every
+        # live row by construction (matched rows from checkpoints, the rest
+        # carried forward from the old column).
         it = _align_batches_to_physical_layout(
             num_physical_rows,
             num_logical_rows,
             self.fragment_id,
             it,
             _timing=timings,
+            expect_full_coverage=True,
+            max_rows_per_batch=max_rows_per_batch,
         )
 
         # Filter batches to only include columns in the target schema.
@@ -1122,6 +1551,18 @@ class FragmentWriter:  # pyright: ignore[reportRedeclaration]
         # materialized view (e.g., if source has [id, title, width] but view
         # only selects [title], this removes id and width).
         it = _filter_columns_to_schema(it, self.column_names)
+
+        def _instrumented(
+            batches: Iterator[pa.RecordBatch],
+        ) -> Iterator[pa.RecordBatch]:
+            # Bump after yield so it counts batches the writer consumed, not
+            # produced (the footer flush after "finalize" emits no more bumps).
+            for batch in batches:
+                yield batch
+                _bump("write", batches_out=1, rows_out=batch.num_rows)
+            _bump("finalize")
+
+        it = _instrumented(it)
         new_datafile, written, writer_write_ms = get_fragment_file_writer().write(
             write_fragment_file,
             self.uri,
@@ -1150,6 +1591,17 @@ class FragmentWriter:  # pyright: ignore[reportRedeclaration]
                 }
             ),
         )
+
+        # The aligned stream fills to the physical layout, so a complete write emits
+        # exactly num_physical_rows. Fewer is a short write -- committing it makes the
+        # table unreadable (row count disagrees with the manifest). Fail loud before the
+        # fragment is recorded.
+        if num_physical_rows is not None and written != num_physical_rows:
+            raise ShortFragmentWriteError(
+                f"fragment {self.fragment_id}: wrote {written} rows but the aligned "
+                f"physical layout has {num_physical_rows}; refusing to commit a short "
+                f"data file"
+            )
 
         align_ms = int(timings.get("align_ms", 0) or 0)
         queue_wait_ms = int(timings.get("queue_wait_ms", 0) or 0)

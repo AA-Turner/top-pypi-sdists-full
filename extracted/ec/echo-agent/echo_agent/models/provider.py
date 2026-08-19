@@ -19,6 +19,14 @@ from loguru import logger
 
 StreamDeltaCallback = Callable[[str], Awaitable[None] | None]
 
+# Reasoning deltas travel on their own callback rather than being multiplexed
+# onto on_delta with a tag. The two streams have different destinations (answer
+# body vs. collapsible thinking trace) and, critically, different retraction
+# rules: a buffered answer draft is discarded when the turn turns out to be a
+# tool call, while the reasoning that led to that tool call is still true and
+# stays on screen. One channel would force every consumer to re-split them.
+StreamReasoningCallback = Callable[[str], Awaitable[None] | None]
+
 
 class StreamingUnsupported(Exception):
     """Raised by providers that do not implement native streaming.
@@ -129,6 +137,36 @@ class LLMProvider(ABC):
         wrapper (its class always overrides embed to proxy)."""
         return type(self).embed is not LLMProvider.embed
 
+    async def aclose(self) -> None:
+        """Release the underlying SDK client, in the loop that owns its sockets.
+
+        Short-lived providers (setup's model verification, one-off probes) are
+        built outside a loop and used inside a single ``asyncio.run``. Without
+        this, the httpx.AsyncClient survives the run with pooled connections
+        still bound to the now-closed loop, and the SDK's ``__del__`` later
+        schedules ``aclose()`` on whatever loop happens to be running (the
+        setup wizard's prompt_toolkit loop) — which tears down transports of a
+        dead loop and raises "Event loop is closed" out of a task nobody
+        awaits. Closing here sets the client's ``is_closed`` flag, so that
+        ``__del__`` becomes a no-op.
+
+        Best-effort and idempotent: providers whose client has no async close
+        (Gemini's module handle, boto3) fall through silently. Long-lived
+        providers owned by the app don't need to call this.
+        """
+        client = getattr(self, "_client", None)
+        if client is None:
+            return
+        closer = getattr(client, "close", None) or getattr(client, "aclose", None)
+        if closer is None:
+            return
+        try:
+            result = closer()
+            if asyncio.iscoroutine(result) or isinstance(result, Awaitable):
+                await result
+        except Exception as e:  # pragma: no cover - teardown must never surface
+            logger.debug("Provider client close failed (ignored): {}", e)
+
     async def chat_stream(
         self,
         messages: list[dict[str, Any]],
@@ -136,10 +174,16 @@ class LLMProvider(ABC):
         model: str | None = None,
         tool_choice: str | dict | None = None,
         on_delta: StreamDeltaCallback | None = None,
+        on_reasoning: StreamReasoningCallback | None = None,
         **kwargs: Any,
     ) -> LLMResponse:
         """Providers must override this with native streaming. The base
-        class refuses rather than faking a stream by buffering chat()."""
+        class refuses rather than faking a stream by buffering chat().
+
+        ``on_reasoning`` is optional for implementers: a provider that exposes no
+        reasoning deltas simply never calls it, and the caller still gets the
+        whole trace from ``LLMResponse.reasoning_content`` at the end.
+        """
         raise StreamingUnsupported(f"{type(self).__name__} does not support streaming")
 
     def _classify_error_text(self, error_text: str) -> str:
@@ -256,21 +300,43 @@ class LLMProvider(ABC):
         model: str | None = None,
         tool_choice: str | dict | None = None,
         on_delta: StreamDeltaCallback | None = None,
+        on_reasoning: StreamReasoningCallback | None = None,
+        draft_policy: str | None = None,
         **kwargs: Any,
     ) -> LLMResponse:
         emitted = False
         timeout = self._stream_timeout
-        # When tools are offered, the model may stream a "pre-tool" preamble
-        # ("let me check ...") and then return tool_calls instead of a final
-        # answer. Streaming that preamble to the user and then replacing it with
-        # the real answer from a later iteration shows divergent text. So while
-        # tools are in play we BUFFER deltas instead of emitting them, and only
-        # release them once we know the response is a terminal answer (no
-        # tool_calls). Tool-bearing turns are not ones the user watches stream
-        # token-by-token, so the buffered release (full text at end) is an
-        # acceptable trade for not leaking a contradictory draft.
-        buffering = tools is not None
+        # A tool-bearing call may stream a "pre-tool" preamble ("let me check
+        # ...") and then return tool_calls instead of a final answer. Whether
+        # that draft may be shown is NOT ours to decide: it depends on the
+        # channel (can it retract/redraw what was already sent?), which only the
+        # caller knows. So the caller passes draft_policy:
+        #
+        #   "buffer" — hold deltas until we know the turn is a terminal answer,
+        #              then release; drop them if it turned out to be a tool
+        #              call. Safe for send-only channels. Costs realtime feel.
+        #   "stream" — emit deltas as they arrive; the caller is responsible for
+        #              retracting the draft if tool_calls come back.
+        #
+        # Default when unset: "buffer" for tool-bearing calls, "stream"
+        # otherwise — the historical behaviour, kept so existing callers and
+        # send-only channels stay safe by default.
+        if draft_policy is None:
+            draft_policy = "buffer" if tools is not None else "stream"
+        buffering = draft_policy == "buffer" and tools is not None
         buffered: list[str] = []
+        # Reasoning is never buffered, but a retry must not replay it: after a
+        # transient failure the next attempt thinks from the top, and forwarding
+        # that would append a second, near-identical trace onto the one already on
+        # screen. Reasoning is a side channel, so keeping the first attempt's is
+        # the honest option — the returned response's reasoning_content still
+        # carries the winning attempt's full text for anything that needs it.
+        reasoning_open = True
+
+        async def wrapped_reasoning(delta: str) -> None:
+            if not delta or not reasoning_open:
+                return
+            await _invoke_stream_callback(on_reasoning, delta)
 
         async def wrapped(delta: str) -> None:
             nonlocal emitted
@@ -311,12 +377,15 @@ class LLMProvider(ABC):
                 model=model,
                 tool_choice=tool_choice,
                 on_delta=wrapped,
+                on_reasoning=wrapped_reasoning if on_reasoning is not None else None,
                 **kwargs,
             )
 
         for attempt, base_delay in enumerate(self._retry_delays()):
             emitted = False
             buffered.clear()
+            # Closed for every attempt after the first — see reasoning_open.
+            reasoning_open = attempt == 0
             try:
                 response = await asyncio.wait_for(_stream_call(), timeout=timeout)
             except StreamingUnsupported:
@@ -337,6 +406,10 @@ class LLMProvider(ABC):
                 if response.finish_reason != "error":
                     if not emitted and not buffered and self._is_empty_success(response):
                         logger.warning("LLM stream returned empty content on finish=stop, retrying once")
+                        # Same rule as the outer retry: this second call thinks
+                        # from the top, and the first call's reasoning is already
+                        # on screen even though its (empty) answer was not.
+                        reasoning_open = False
                         try:
                             retry = await asyncio.wait_for(_stream_call(), timeout=timeout)
                         except asyncio.CancelledError:

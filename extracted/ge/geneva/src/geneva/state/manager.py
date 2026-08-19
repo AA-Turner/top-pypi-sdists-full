@@ -76,7 +76,12 @@ class BaseManager(ABC):
         -------
             The Lance table instance
         """
-        if checkout_latest and _force_reopen_for_consistency():
+        # Re-open (which re-vends fresh credentials) when forced for
+        # consistency, OR when the cached handle's vended credentials are near
+        # expiry
+        if (checkout_latest and _force_reopen_for_consistency()) or (
+            self._vended_credentials_expiring()
+        ):
             try:
                 fresh = self.db.open_table(
                     self._table_name,
@@ -101,6 +106,37 @@ class BaseManager(ABC):
             # ensure strongly consistent reads
             t.checkout_latest()
         return t
+
+    def _vended_credentials_expiring(self) -> bool:
+        """True when the cached handle's vended S3 credentials are near expiry.
+
+        No-op (``False``) for static credentials / tables that carry no
+        ``expires_at_millis``; shared with the worker table cache so every
+        long-lived handle uses the same expiry policy.
+        """
+        from geneva.credentials import table_handle_credentials_expiring
+
+        return table_handle_credentials_expiring(self.table)
+
+    def _refresh_credentials_on_error(self) -> None:
+        """Re-open the system table so the next op re-vends fresh S3 creds.
+
+        Invoked by ``@retry_lance`` when an operation fails with an
+        expired-credential S3 error; re-opening goes through the namespace
+        client, which vends a fresh token. Best-effort — a failed re-open leaves
+        the cached handle in place for the retry's own error handling.
+        """
+        try:
+            self.table = self.db.open_table(
+                self._table_name,
+                namespace_path=self._namespace,
+            )
+        except Exception:
+            _LOG.warning(
+                "BaseManager credential re-open failed for %s",
+                self._table_name,
+                exc_info=True,
+            )
 
 
 def _force_reopen_for_consistency() -> bool:

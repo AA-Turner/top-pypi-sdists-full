@@ -6,9 +6,9 @@ import sqlalchemy as sa
 from sqlalchemy import event
 from sqlalchemy.exc import DBAPIError
 
-from dbos._migration import sqlite_migrations
+from dbos._migration import get_sqlite_migration_versions, sqlite_migrations
 
-from ._error import DBOSException
+from ._error import DBOSException, DBOSInitializationError
 from ._logger import dbos_logger
 from ._sys_db import SystemDatabase
 
@@ -78,37 +78,60 @@ class SQLiteSystemDatabase(SystemDatabase):
                 ).fetchone()
                 last_applied = version_result[0] if version_result else 0
 
-            # Apply migrations starting from the next version
-            for i, migration_sql in enumerate(sqlite_migrations, 1):
-                if i <= last_applied:
-                    continue
-
-                # Execute the migration
-                dbos_logger.info(
-                    f"Applying DBOS SQLite system database schema migration {i}"
-                )
-
-                # SQLite only allows one statement at a time, so split by semicolon
-                statements = [
-                    stmt.strip() for stmt in migration_sql.split(";") if stmt.strip()
-                ]
-                for statement in statements:
-                    conn.execute(sa.text(statement))
-
-                # Update the single row with the new version
+            def record_version(version: int) -> None:
                 if last_applied == 0:
                     conn.execute(
                         sa.text(
                             "INSERT INTO dbos_migrations (version) VALUES (:version)"
                         ),
-                        {"version": i},
+                        {"version": version},
                     )
                 else:
                     conn.execute(
                         sa.text("UPDATE dbos_migrations SET version = :version"),
-                        {"version": i},
+                        {"version": version},
                     )
+
+            # Apply migrations starting from the next version
+            for i, migration_sql in enumerate(sqlite_migrations, 1):
+                if i <= last_applied:
+                    continue
+
+                # SQLite only allows one statement at a time, so split by semicolon
+                statements = [
+                    stmt.strip() for stmt in migration_sql.split(";") if stmt.strip()
+                ]
+                # Renumbering left long runs of empty migrations; skip them entirely.
+                if not statements:
+                    continue
+
+                dbos_logger.info(
+                    f"Applying DBOS SQLite system database schema migration {i}"
+                )
+                for statement in statements:
+                    conn.execute(sa.text(statement))
+
+                record_version(i)
                 last_applied = i
+
+            # Empty migrations at the end still count as applied; record them in one write.
+            if len(sqlite_migrations) > last_applied:
+                record_version(len(sqlite_migrations))
+
+    def verify_migrations(self) -> None:
+        """Check the system database is migrated, creating and changing nothing."""
+        # Connecting to a missing SQLite file creates it, so check the path first.
+        database_path = self.engine.url.database
+        if database_path is not None and database_path != ":memory:":
+            if not os.path.exists(database_path):
+                raise DBOSInitializationError(
+                    f"System database file {database_path} does not exist. This process is "
+                    f"configured with run_migrations disabled, so it will not create it: either "
+                    f"create and migrate the system database out of band (`dbos migrate`) or "
+                    f"launch with run_migrations enabled."
+                )
+        current_version, latest_version = get_sqlite_migration_versions(self.engine)
+        self._assert_migration_version(current_version, latest_version)
 
     def _cleanup_connections(self) -> None:
         # SQLite doesn't require special connection cleanup
@@ -133,8 +156,43 @@ class SQLiteSystemDatabase(SystemDatabase):
         return "FOREIGN KEY constraint failed" in str(dbapi_error.orig)
 
     @staticmethod
-    def _reset_system_database(database_url: str) -> None:
-        """Reset the SQLite system database by deleting the database file."""
+    def _truncate_system_database(database_url: str, db_path: str) -> None:
+        """Empty every DBOS table in the system database, leaving the file intact.
+
+        dbos_migrations is spared: clearing it would re-run applied migrations."""
+        if not os.path.exists(db_path):
+            dbos_logger.info(f"SQLite database file does not exist: {db_path}")
+            return
+        engine = sa.create_engine(database_url)
+
+        @event.listens_for(engine, "connect")
+        def set_sqlite_immediate(dbapi_conn: Any, connection_record: Any) -> None:
+            # As _create_engine does, so a competing writer is waited out rather than
+            # failing at sqlite3's 5s default. Foreign keys stay off: see below.
+            dbapi_conn.isolation_level = "IMMEDIATE"
+            dbapi_conn.execute("PRAGMA busy_timeout=30000")
+
+        try:
+            with engine.begin() as conn:
+                tables = [
+                    table
+                    for table in conn.execute(
+                        sa.text("SELECT name FROM sqlite_master WHERE type='table'")
+                    ).scalars()
+                    if table != "dbos_migrations" and not table.startswith("sqlite_")
+                ]
+                # SQLite has no TRUNCATE; foreign keys are off here, so order is free.
+                for table in tables:
+                    conn.execute(sa.text(f'DELETE FROM "{table}"'))
+        except Exception as e:
+            # Best effort, as the Postgres path is: a locked file must not fail the caller.
+            dbos_logger.warning(f"Could not empty system database {db_path}: {e}")
+        finally:
+            engine.dispose()
+
+    @staticmethod
+    def _reset_system_database(database_url: str, *, truncate: bool = False) -> None:
+        """Reset the SQLite system database by deleting the file, or by emptying its tables."""
 
         # Parse the SQLite database URL to get the file path
         url = sa.make_url(database_url)
@@ -142,6 +200,10 @@ class SQLiteSystemDatabase(SystemDatabase):
 
         if db_path is None:
             raise ValueError(f"System database path not found in URL {url}")
+
+        if truncate:
+            SQLiteSystemDatabase._truncate_system_database(database_url, db_path)
+            return
 
         try:
             if os.path.exists(db_path):

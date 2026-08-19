@@ -156,7 +156,13 @@ from .query import (  # noqa
     Tag,
 )
 from .semantic_version import SemanticVersion
-from .utils import compress_git_patch, merge_url, read_git_patch_zip, valid_ui_tabs
+from .utils import (
+    bounded_repr,
+    compress_git_patch,
+    merge_url,
+    read_git_patch_zip,
+    valid_ui_tabs,
+)
 from .validation.curve_data_validator import CurveDataValidator
 from .validation.tag_validator import TagsValidator, TagValidator
 
@@ -3736,7 +3742,9 @@ class APIExperiment(CommonExperiment):
             param_dict = flatten_op_result.flattened
             if flatten_op_result.max_depth_limit_reached:
                 LOGGER.warning(
-                    LOG_PARAMS_MAX_DEPTH_REACHED, param_dict, PARAMETERS_MAX_DEPTH
+                    LOG_PARAMS_MAX_DEPTH_REACHED,
+                    bounded_repr(param_dict),
+                    PARAMETERS_MAX_DEPTH,
                 )
             if flatten_op_result.has_nested_dictionary():
                 self.log_other("hasNestedParams", True)
@@ -3876,9 +3884,8 @@ class APIExperiment(CommonExperiment):
         dic = flatten_op_result.flattened
         if flatten_op_result.max_depth_limit_reached:
             LOGGER.warning(
-                logging.WARNING,
                 LOG_METRICS_MAX_DEPTH_REACHED,
-                metric_dict,
+                bounded_repr(metric_dict),
                 METRICS_MAX_DEPTH,
             )
 

@@ -16,7 +16,7 @@
 from collections.abc import Callable
 import dataclasses
 import functools
-from typing import Any, TypeVar
+from typing import Any
 
 from absl.testing import absltest
 from absl.testing import parameterized
@@ -41,13 +41,13 @@ hp.settings.register_profile(
     derandomize=True,
     deadline=None,
     max_examples=15,
-    print_blob=True,
-    verbosity=hp.Verbosity.verbose,
+    print_blob=False,
+    verbosity=hp.Verbosity.normal,
 )
 hp.settings.load_profile(name="deterministic")
 
 partial = functools.partial
-Draw = TypeVar("Draw", bound=Callable[[hps.SearchStrategy[Any]], Any])
+type Draw = hps.DrawFn
 
 
 @dataclasses.dataclass
@@ -71,7 +71,7 @@ def segment_ids_strategy(draw, seq_len: int) -> base.SegmentIds:
     if end - start < 2:
       end = start + 2
     ids_array[start:end] = i
-  return base.SegmentIds(ids_array, ids_array)
+  return base.SegmentIds(jnp.asarray(ids_array), jnp.asarray(ids_array))
 
 
 def seed_strategy() -> hps.SearchStrategy[int]:
@@ -456,12 +456,23 @@ class SplashAttentionTest(test_utils.SplashAttentionTestCase):
       else:
         make_mask_fn = splash.make_dynamic_splash_mha
 
+    q_heads_per_kv_head = model_config.num_q_heads // model_config.num_kv_heads
+    if (
+        sinks is None
+        and use_max_logit_estimate is None
+        and q_heads_per_kv_head % 2 == 0
+    ):
+      num_stacked_q_heads = 2
+    else:
+      num_stacked_q_heads = 1
+
     config = dataclasses.replace(
         config,
         fuse_reciprocal=fuse_reciprocal,
         attn_logits_soft_cap=attn_logits_soft_cap,
         use_base2_exp=use_base2_exp,
         interpret=self.INTERPRET,
+        num_stacked_q_heads=num_stacked_q_heads,
     )
 
     max_logit_value, max_val = None, 30.0
@@ -653,6 +664,79 @@ class SplashAttentionTest(test_utils.SplashAttentionTestCase):
     self._assert_allclose(dv, dv_ref, atol=dv_atol, rtol=3e-2)
     if use_sinks:
       self._assert_allclose(dsinks, dsinks_ref, atol=4e-3, rtol=6e-3)
+
+  @parameterized.product(
+      mode=("forward", "backward"),
+      qk_diag_grid=(2, 4),
+      head_dim_qk=(128, 192),
+  )
+  def test_qk_diag_skip_bit_exact(self, mode, qk_diag_grid, head_dim_qk):
+    """`qk_diag_skip` must be BIT-EXACT vs the stock (`qk_diag_skip=False`) path.
+
+    The skip fills `mask_value` on fully-masked (kv > q) diagonal sub-tiles, which the
+    softmax's `jnp.where` overwrites — so the output is identical for any `qk_diag_grid`.
+    Covers forward `O` and backward `dQ/dK/dV` on a causal mask with square, power-of-2
+    blocks, at two head dims (incl. the DS-v3 192/128 shape).
+    """
+    seq_len, num_heads, block = 512, 2, 256
+    k1, k2, k3, k4 = random.split(random.key(0), 4)
+    q = (random.normal(k1, (num_heads, seq_len, head_dim_qk)) * 0.5).astype(jnp.bfloat16)
+    k = (random.normal(k2, (num_heads, seq_len, head_dim_qk)) * 0.5).astype(jnp.bfloat16)
+    v = (random.normal(k3, (num_heads, seq_len, 128)) * 0.5).astype(jnp.bfloat16)
+    do = (random.normal(k4, (num_heads, seq_len, 128)) * 0.5).astype(jnp.bfloat16)
+    mask = mask_lib.CausalMask(shape=(seq_len, seq_len))
+
+    def build(qk_diag_skip):
+      config = splash.SplashConfig(
+          block_q=block, block_kv=block, block_kv_compute=block,
+          block_q_dkv=block, block_kv_dkv=block, block_kv_dkv_compute=block,
+          use_fused_bwd_kernel=True, residual_checkpoint_name="context",
+          qk_diag_skip=qk_diag_skip, qk_diag_grid=qk_diag_grid,
+          interpret=self.INTERPRET,
+      )
+      attn = splash.make_splash_mha_single_device(mask, config=config)
+      if mode == "forward":
+        return jax.jit(lambda q, k, v: attn(q, k, v))
+
+      def bwd(q, k, v, do):
+        _, vjp = jax.vjp(lambda q, k, v: attn(q, k, v), q, k, v)
+        return vjp(do)
+
+      return jax.jit(bwd)
+
+    args = (q, k, v) if mode == "forward" else (q, k, v, do)
+    ref = jax.tree.leaves(build(False)(*args))
+    opt = jax.tree.leaves(build(True)(*args))
+    for r, o in zip(ref, opt):
+      # Bit-exact: the skip removes matmul work but must not change a single bit.
+      np.testing.assert_array_equal(np.asarray(o), np.asarray(r))
+
+  def test_qk_diag_skip_preconditions_raise(self):
+    """`qk_diag_skip` must fail loud (never silently corrupt) on unsupported configs."""
+    block = 256
+    square = dict(
+        block_q=block, block_kv=block, block_kv_compute=block,
+        block_q_dkv=block, block_kv_dkv=block, block_kv_dkv_compute=block,
+        use_fused_bwd_kernel=True, residual_checkpoint_name="context",
+        interpret=self.INTERPRET,
+    )
+    # Non-square forward blocks -> raises in SplashConfig.__post_init__.
+    with self.assertRaisesRegex(ValueError, "square forward blocks"):
+      splash.SplashConfig(
+          **{**square, "block_kv": block // 2, "block_kv_compute": block // 2},
+          qk_diag_skip=True,
+      )
+    # Non-power-of-2 grid -> raises in __post_init__.
+    with self.assertRaisesRegex(ValueError, "power of 2"):
+      splash.SplashConfig(**square, qk_diag_skip=True, qk_diag_grid=3)
+    # Non-causal mask -> raises in make_splash_mha (the skip assumes kv > q is masked).
+    seq_len = 512
+    config = splash.SplashConfig(**square, qk_diag_skip=True)
+    local = mask_lib.LocalMask(
+        shape=(seq_len, seq_len), window_size=(128, 0), offset=0
+    )
+    with self.assertRaisesRegex(ValueError, "CausalMask"):
+      splash.make_splash_mha_single_device(local, config=config)
 
 
 if __name__ == "__main__":

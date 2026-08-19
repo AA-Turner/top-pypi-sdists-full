@@ -6,7 +6,7 @@ microlib_name = f"flytekitplugins-{PLUGIN_NAME}"
 
 plugin_requires = ["ray[default]", "flytekit>1.14.5", "flyteidl>=1.16.7"]
 
-__version__ = "1.16.27"
+__version__ = "1.16.28"
 
 setup(
     title="Ray",

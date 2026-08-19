@@ -2,6 +2,7 @@ package task_test
 
 import (
 	"bytes"
+	"context"
 	"fmt"
 	"io"
 	"io/fs"
@@ -653,6 +654,81 @@ func TestStatusChecksumMissingGenerated(t *testing.T) { // nolint:paralleltest /
 	require.NoError(t, err, "generated.txt should be recreated after third run")
 }
 
+// The injected fingerprint variable follows the method the up-to-date check
+// uses, including when that method comes from the Taskfile level.
+func TestFingerprintVarMethod(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		name         string
+		dir          string
+		executorOpts []task.ExecutorOption
+		wantErr      string
+		assertOutput func(t *testing.T, output string)
+	}{
+		{
+			name: "TIMESTAMP is injected when the method is inherited from the Taskfile",
+			dir:  "testdata/method_taskfile_timestamp",
+			assertOutput: func(t *testing.T, output string) {
+				t.Helper()
+				// An unresolved variable renders as an empty string, so this
+				// has to match an actual timestamp, not just the prefix.
+				assert.Regexp(t, `ts=\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}`, output)
+			},
+		},
+		{
+			name: "no variable is injected when the effective method is none",
+			dir:  "testdata/method_taskfile_none",
+			assertOutput: func(t *testing.T, output string) {
+				t.Helper()
+				assert.Contains(t, output, "cs=\n")
+			},
+		},
+		{
+			name:         "an invalid method doesn't fail a run that skips fingerprinting",
+			dir:          "testdata/method_invalid",
+			executorOpts: []task.ExecutorOption{task.WithForce(true)},
+			assertOutput: func(t *testing.T, output string) {
+				t.Helper()
+				assert.Contains(t, output, "cs=[]\n")
+			},
+		},
+		{
+			name:    "an invalid method is still reported by the up-to-date check",
+			dir:     "testdata/method_invalid",
+			wantErr: `task: invalid method "checksums"`,
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+
+			_ = os.RemoveAll(filepathext.SmartJoin(tt.dir, ".task"))
+
+			var buff bytes.Buffer
+			opts := append([]task.ExecutorOption{
+				task.WithDir(tt.dir),
+				task.WithStdout(&buff),
+				task.WithStderr(&buff),
+				task.WithTempDir(task.TempDir{
+					Remote:      filepathext.SmartJoin(tt.dir, ".task"),
+					Fingerprint: filepathext.SmartJoin(tt.dir, ".task"),
+				}),
+			}, tt.executorOpts...)
+			e := task.NewExecutor(opts...)
+			require.NoError(t, e.Setup())
+
+			err := e.Run(t.Context(), &task.Call{Task: "build"})
+			if tt.wantErr != "" {
+				require.ErrorContains(t, err, tt.wantErr)
+				return
+			}
+			require.NoError(t, err)
+			tt.assertOutput(t, buff.String())
+		})
+	}
+}
+
 func writeFile(t *testing.T, dir, name, content string) {
 	t.Helper()
 	require.NoError(t, os.WriteFile(filepathext.SmartJoin(dir, name), []byte(content), 0o644))
@@ -681,6 +757,12 @@ type gitignoreSeq struct {
 func (s gitignoreSeq) run(t *testing.T) {
 	t.Helper()
 	cleanup := func() {
+		// The fixture manages its own .git marker so that gitignore filtering
+		// resolves a repo root regardless of the build source: an in-tree
+		// checkout would otherwise inherit the go-task .git, but a GitHub
+		// source tarball has none, which would silently disable filtering and
+		// break the golden fixtures.
+		_ = os.RemoveAll(filepathext.SmartJoin(s.dir, ".git"))
 		_ = os.RemoveAll(filepathext.SmartJoin(s.dir, ".task"))
 		for name := range s.create {
 			_ = os.Remove(filepathext.SmartJoin(s.dir, name))
@@ -694,6 +776,7 @@ func (s gitignoreSeq) run(t *testing.T) {
 	}
 	cleanup()
 	t.Cleanup(cleanup)
+	require.NoError(t, os.MkdirAll(filepathext.SmartJoin(s.dir, ".git"), 0o755))
 	for name, content := range s.create {
 		writeFile(t, s.dir, name, content)
 	}
@@ -952,6 +1035,44 @@ func TestTaskIgnoreErrors(t *testing.T) {
 	require.Error(t, e.Run(t.Context(), &task.Call{Task: "cmd-should-fail"}))
 }
 
+func TestIgnoreErrorsOnTimeout(t *testing.T) {
+	t.Parallel()
+
+	const dir = "testdata/ignore_errors"
+	tests := []struct {
+		name        string
+		task        string
+		expectError bool
+	}{
+		{name: "ignored at task level", task: "task-timeout-should-pass"},
+		{name: "ignored at command level", task: "cmd-timeout-should-pass"},
+		{name: "not ignored", task: "cmd-timeout-should-fail", expectError: true},
+	}
+
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			t.Parallel()
+
+			var buff bytes.Buffer
+			e := task.NewExecutor(
+				task.WithDir(dir),
+				task.WithStdout(&buff),
+				task.WithStderr(&buff),
+			)
+			require.NoError(t, e.Setup())
+
+			err := e.Run(t.Context(), &task.Call{Task: test.task})
+			if test.expectError {
+				require.Error(t, err)
+				assert.NotContains(t, buff.String(), "reached the end")
+				return
+			}
+			require.NoError(t, err)
+			assert.Contains(t, buff.String(), "reached the end")
+		})
+	}
+}
+
 func TestExpand(t *testing.T) {
 	t.Parallel()
 
@@ -1073,8 +1194,6 @@ func TestIncludesMultiLevel(t *testing.T) {
 }
 
 func TestIncludesRemote(t *testing.T) {
-	enableExperimentForTest(t, &experiments.RemoteTaskfiles, 1)
-
 	dir := "testdata/includes_remote"
 	os.RemoveAll(filepath.Join(dir, ".task", "remote"))
 
@@ -1277,8 +1396,6 @@ func TestIncludesEmptyMain(t *testing.T) {
 }
 
 func TestIncludesHttp(t *testing.T) {
-	enableExperimentForTest(t, &experiments.RemoteTaskfiles, 1)
-
 	dir, err := filepath.Abs("testdata/includes_http")
 	require.NoError(t, err)
 
@@ -1635,6 +1752,25 @@ func TestIncludesWithExclude(t *testing.T) {
 	require.Error(t, err)
 	buff.Reset()
 
+	err = e.Run(t.Context(), &task.Call{Task: "included:foo:child"})
+	require.NoError(t, err)
+	assert.Equal(t, "foo:child\n", buff.String())
+	buff.Reset()
+
+	err = e.Run(t.Context(), &task.Call{Task: "included:namespace"})
+	require.NoError(t, err)
+	assert.Equal(t, "namespace\n", buff.String())
+	buff.Reset()
+
+	err = e.Run(t.Context(), &task.Call{Task: "included:namespace:one"})
+	require.Error(t, err)
+	buff.Reset()
+
+	err = e.Run(t.Context(), &task.Call{Task: "included:namespace-other:one"})
+	require.NoError(t, err)
+	assert.Equal(t, "namespace-other:one\n", buff.String())
+	buff.Reset()
+
 	err = e.Run(t.Context(), &task.Call{Task: "bar"})
 	require.Error(t, err)
 	buff.Reset()
@@ -1642,6 +1778,20 @@ func TestIncludesWithExclude(t *testing.T) {
 	err = e.Run(t.Context(), &task.Call{Task: "foo"})
 	require.NoError(t, err)
 	assert.Equal(t, "foo\n", buff.String())
+	buff.Reset()
+
+	err = e.Run(t.Context(), &task.Call{Task: "namespace"})
+	require.NoError(t, err)
+	assert.Equal(t, "namespace\n", buff.String())
+	buff.Reset()
+
+	err = e.Run(t.Context(), &task.Call{Task: "namespace:two"})
+	require.Error(t, err)
+	buff.Reset()
+
+	err = e.Run(t.Context(), &task.Call{Task: "namespace-other:one"})
+	require.NoError(t, err)
+	assert.Equal(t, "namespace-other:one\n", buff.String())
 }
 
 func TestIncludedTaskfileVarMerging(t *testing.T) {
@@ -2227,6 +2377,54 @@ func TestRunOnceSharedDeps(t *testing.T) {
 	assert.Contains(t, buff.String(), `task: [service-b:build] echo "build b"`)
 }
 
+func TestRunOnceSharedFailurePropagates(t *testing.T) {
+	t.Parallel()
+
+	const dir = "testdata/run_once_failure"
+
+	var buff bytes.Buffer
+	e := task.NewExecutor(
+		task.WithDir(dir),
+		task.WithStdout(&buff),
+		task.WithStderr(&buff),
+	)
+	require.NoError(t, e.Setup())
+
+	err := e.Run(t.Context(), &task.Call{Task: "default"})
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), `Failed to run task "shared"`)
+	assert.NotContains(t, buff.String(), "should not be reached")
+	// The shared task still ran only once, which is the point of run: once.
+	assert.Equal(t, 1, strings.Count(buff.String(), "shared ran"))
+}
+
+func TestRunOnceJoinerHonorsItsOwnTimeout(t *testing.T) {
+	t.Parallel()
+
+	const dir = "testdata/run_once_timeout"
+
+	// The two deps run concurrently, so they need a buffer they can share.
+	var buff SyncBuffer
+	e := task.NewExecutor(
+		task.WithDir(dir),
+		task.WithStdout(&buff),
+		task.WithStderr(&buff),
+	)
+	require.NoError(t, e.Setup())
+
+	start := time.Now()
+	err := e.Run(t.Context(), &task.Call{Task: "default"})
+	require.Error(t, err)
+	// The joiner used to wait on the shared execution alone, ignoring its own
+	// timeout for as long as that execution took.
+	assert.Less(t, time.Since(start), 5*time.Second)
+
+	var timeoutErr *errors.TaskTimeoutError
+	require.ErrorAs(t, err, &timeoutErr)
+	assert.Equal(t, "joiner", timeoutErr.TaskName)
+	assert.NotContains(t, buff.buf.String(), "should not be reached")
+}
+
 func TestRunWhenChanged(t *testing.T) {
 	t.Parallel()
 
@@ -2280,6 +2478,27 @@ task-1 ran successfully
 	assert.Contains(t, buff.String(), "child task deferred value-from-parent")
 }
 
+func TestDeferredTaskTimeout(t *testing.T) {
+	t.Parallel()
+
+	const dir = "testdata/deferred"
+	var buff bytes.Buffer
+	e := task.NewExecutor(
+		task.WithDir(dir),
+		task.WithStdout(&buff),
+		task.WithStderr(&buff),
+		task.WithVerbose(true),
+	)
+	require.NoError(t, e.Setup())
+
+	start := time.Now()
+	require.NoError(t, e.Run(t.Context(), &task.Call{Task: "parent-with-timeout"}))
+	assert.Less(t, time.Since(start), 500*time.Millisecond)
+	assert.Contains(t, buff.String(), "parent completed")
+	assert.NotContains(t, buff.String(), "\ncleanup completed\n")
+	assert.Contains(t, buff.String(), "ignored error in deferred cmd")
+}
+
 func TestExitCodeZero(t *testing.T) {
 	t.Parallel()
 
@@ -2310,6 +2529,27 @@ func TestExitCodeOne(t *testing.T) {
 
 	require.Error(t, e.Run(t.Context(), &task.Call{Task: "exit-one"}))
 	assert.Equal(t, "FOO=bar - DYNAMIC_FOO=bar - EXIT_CODE=1", strings.TrimSpace(buff.String()))
+}
+
+func TestExitCodeTimeout(t *testing.T) {
+	t.Parallel()
+
+	const dir = "testdata/exit_code"
+	var buff bytes.Buffer
+	e := task.NewExecutor(
+		task.WithDir(dir),
+		task.WithStdout(&buff),
+		task.WithStderr(&buff),
+	)
+	require.NoError(t, e.Setup())
+
+	err := e.Run(t.Context(), &task.Call{Task: "exit-timeout"})
+	require.Error(t, err)
+	assert.Equal(t, "EXIT_CODE=124", strings.TrimSpace(buff.String()))
+
+	var runErr *errors.TaskRunError
+	require.ErrorAs(t, err, &runErr)
+	assert.Equal(t, errors.TimeoutExitCode, runErr.TaskExitCode())
 }
 
 func TestIgnoreNilElements(t *testing.T) {
@@ -2512,6 +2752,175 @@ func TestErrorCode(t *testing.T) {
 			taskRunErr, ok := err.(*errors.TaskRunError)
 			assert.True(t, ok, "cannot cast returned error to *task.TaskRunError")
 			assert.Equal(t, test.expected, taskRunErr.TaskExitCode(), "unexpected exit code from task")
+		})
+	}
+}
+
+func TestCommandTimeout(t *testing.T) {
+	t.Parallel()
+
+	const dir = "testdata/timeout"
+	tests := []struct {
+		name          string
+		task          string
+		expectError   bool
+		errorContains string
+	}{
+		{
+			name:          "timeout exceeded",
+			task:          "timeout-exceeded",
+			expectError:   true,
+			errorContains: "timeout exceeded",
+		},
+		{
+			name:        "timeout not exceeded",
+			task:        "timeout-not-exceeded",
+			expectError: false,
+		},
+		{
+			name:        "no timeout",
+			task:        "no-timeout",
+			expectError: false,
+		},
+		{
+			name:          "multiple commands with timeout",
+			task:          "multiple-cmds-timeout",
+			expectError:   true,
+			errorContains: "timeout exceeded",
+		},
+	}
+
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			t.Parallel()
+
+			var buff bytes.Buffer
+			e := task.NewExecutor(
+				task.WithDir(dir),
+				task.WithStdout(&buff),
+				task.WithStderr(&buff),
+			)
+			require.NoError(t, e.Setup())
+
+			err := e.Run(t.Context(), &task.Call{Task: test.task})
+			if test.expectError {
+				require.Error(t, err)
+				assert.Contains(t, err.Error(), test.errorContains)
+			} else {
+				require.NoError(t, err)
+			}
+		})
+	}
+}
+
+func TestDepTimeout(t *testing.T) {
+	t.Parallel()
+
+	const dir = "testdata/dep_timeout"
+
+	t.Run("timeout exceeded", func(t *testing.T) {
+		t.Parallel()
+
+		var buff SyncBuffer
+		e := task.NewExecutor(
+			task.WithDir(dir),
+			task.WithStdout(&buff),
+			task.WithStderr(&buff),
+		)
+		require.NoError(t, e.Setup())
+
+		start := time.Now()
+		err := e.Run(t.Context(), &task.Call{Task: "timeout-exceeded"})
+		require.Error(t, err)
+		assert.Less(t, time.Since(start), 5*time.Second)
+
+		var timeoutErr *errors.TaskTimeoutError
+		require.ErrorAs(t, err, &timeoutErr)
+		assert.Equal(t, "slow", timeoutErr.TaskName)
+		assert.NotContains(t, buff.buf.String(), "should not be reached")
+	})
+
+	t.Run("timeout not exceeded", func(t *testing.T) {
+		t.Parallel()
+
+		var buff SyncBuffer
+		e := task.NewExecutor(
+			task.WithDir(dir),
+			task.WithStdout(&buff),
+			task.WithStderr(&buff),
+		)
+		require.NoError(t, e.Setup())
+
+		require.NoError(t, e.Run(t.Context(), &task.Call{Task: "timeout-not-exceeded"}))
+		assert.Contains(t, buff.buf.String(), "reached the end")
+	})
+}
+
+func TestCommandTimeoutBoundsIfCondition(t *testing.T) {
+	t.Parallel()
+
+	var buff bytes.Buffer
+	e := task.NewExecutor(
+		task.WithDir("testdata/timeout"),
+		task.WithStdout(&buff),
+		task.WithStderr(&buff),
+	)
+	require.NoError(t, e.Setup())
+
+	start := time.Now()
+	err := e.Run(t.Context(), &task.Call{Task: "slow-if-condition"})
+	require.Error(t, err)
+	assert.Less(t, time.Since(start), 5*time.Second)
+
+	var timeoutErr *errors.TaskTimeoutError
+	require.ErrorAs(t, err, &timeoutErr)
+	// A condition that times out fails the command, it does not skip it.
+	assert.NotContains(t, buff.String(), "condition was met")
+}
+
+func TestCommandTimeoutAttribution(t *testing.T) {
+	t.Parallel()
+
+	const dir = "testdata/timeout"
+	tests := []struct {
+		name        string
+		task        string
+		notContains string
+	}{
+		{
+			name:        "a command declaring no timeout is not blamed for one",
+			task:        "inherited-timeout",
+			notContains: "(0s)",
+		},
+		{
+			name:        "a command is not blamed for a timeout it never reached",
+			task:        "larger-child-timeout",
+			notContains: "10m",
+		},
+	}
+
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			t.Parallel()
+
+			e := task.NewExecutor(
+				task.WithDir(dir),
+				task.WithStdout(io.Discard),
+				task.WithStderr(io.Discard),
+			)
+			require.NoError(t, e.Setup())
+
+			err := e.Run(t.Context(), &task.Call{Task: test.task})
+			require.Error(t, err)
+			assert.Contains(t, err.Error(), "command timeout exceeded (500ms)")
+			assert.NotContains(t, err.Error(), test.notContains)
+
+			var timeoutErr *errors.TaskTimeoutError
+			require.ErrorAs(t, err, &timeoutErr)
+			assert.Equal(t, test.task, timeoutErr.TaskName)
+
+			// --watch swallows context errors; a timeout must not look like one.
+			assert.False(t, errors.Is(err, context.DeadlineExceeded))
 		})
 	}
 }

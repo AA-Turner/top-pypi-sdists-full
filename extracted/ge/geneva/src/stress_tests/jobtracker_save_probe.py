@@ -29,6 +29,11 @@ class InjectedSaveJobTracker(_JobTracker):
         self._inj_delay = delay_s
         self._inj_fail = fail
         self._inj_attempts = 0
+        # This probe replaces the persistence boundary with _write_metrics and
+        # intentionally has no system DB. Hydration is covered separately by
+        # JobTracker unit tests; mark the synthetic tracker ready so this test
+        # continues to isolate mailbox responsiveness under save pressure.
+        self._hydrated = True
 
     async def _write_metrics(self, _metrics: dict[str, dict]) -> None:  # type: ignore[override]
         self._inj_attempts = getattr(self, "_inj_attempts", 0) + 1

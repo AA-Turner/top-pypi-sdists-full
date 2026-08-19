@@ -16,7 +16,7 @@ from ..model import Model
 from .glyph import Glyph
 from .renderers import GlyphRenderer
 
-ImplicitTarget = Literal["viewport", "canvas", "plot", "frame", "parent"]
+type ImplicitTarget = Literal["viewport", "canvas", "plot", "frame", "parent"]
 
 @dataclass
 class BoxNodes:
@@ -83,9 +83,9 @@ class XY(Coordinate):
 @dataclass
 class Indexed(Coordinate):
 
-    index: int
+    index: int = ...
 
-    renderer: GlyphRenderer[Glyph]
+    renderer: GlyphRenderer[Glyph] = ...
 
 @dataclass
 class Node(Coordinate):

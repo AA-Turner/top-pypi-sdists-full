@@ -146,12 +146,24 @@ def test_alter_table_swap_partition(dialect: str):
 # note the table-level lineage works, only column-level lineage breaks for sqlparse
 def test_create_as_with_parenthesis_around_select_statement():
     sql = "CREATE TABLE tab1 AS (SELECT * FROM tab2)"
-    assert_table_lineage_equal(sql, {"tab2"}, {"tab1"}, test_sqlparse=False)
+    assert_table_lineage_equal(
+        sql,
+        {"tab2"},
+        {"tab1"},
+        # Graph: Parsers create different graph structures (table lineage is correct)
+        skip_graph_check=True,
+    )
 
 
 def test_create_as_with_parenthesis_around_both():
     sql = "CREATE TABLE tab1 AS (SELECT * FROM (tab2))"
-    assert_table_lineage_equal(sql, {"tab2"}, {"tab1"}, test_sqlparse=False)
+    assert_table_lineage_equal(
+        sql,
+        {"tab2"},
+        {"tab1"},
+        # Graph: Parsers create different graph structures (table lineage is correct)
+        skip_graph_check=True,
+    )
 
 
 def test_cte_inside_bracket_of_insert():
@@ -238,7 +250,6 @@ def test_insert_into_with_columns():
         "INSERT INTO tab1 (col1, col2) SELECT * FROM tab2;",
         {"tab2"},
         {"tab1"},
-        test_sqlparse=False,
     )
 
 
@@ -247,13 +258,13 @@ def test_insert_into_with_columns_and_select_union():
         "INSERT INTO tab1 (col1, col2) SELECT * FROM tab2 UNION SELECT * FROM tab3",
         {"tab2", "tab3"},
         {"tab1"},
-        test_sqlparse=False,
     )
     assert_table_lineage_equal(
         "INSERT INTO tab1 (col1, col2) (SELECT * FROM tab2 UNION SELECT * FROM tab3)",
         {"tab2", "tab3"},
         {"tab1"},
-        test_sqlparse=False,
+        # Graph: Parsers create different graph structures (table lineage is correct)
+        skip_graph_check=True,
     )
 
 

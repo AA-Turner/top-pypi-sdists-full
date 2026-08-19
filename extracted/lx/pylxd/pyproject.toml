@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "pylxd"
-version = "2.4.1"
+version = "2.4.2"
 description = "Python library for interacting with the LXD REST API"
 readme = { file = "README.rst", content-type = "text/x-rst" }
 requires-python = ">=3.10"
@@ -66,6 +66,13 @@ non_interactive = true
 warn_return_any = true
 warn_unused_configs = true
 
+[tool.check-manifest]
+ignore = [
+    ".git-blame-ignore-revs",
+    ".readthedocs.yml",
+    "contrib_testing/**",
+]
+
 [tool.tox]
 requires = ["tox>=4.21"]
 env_list = [
@@ -80,7 +87,7 @@ env_list = [
 skipsdist = true
 
 [tool.tox.env.lint]
-deps = ".[format]"
+deps = [".[format]", "check-manifest"]
 commands = [
     [
         "black",
@@ -98,11 +105,17 @@ commands = [
         "flake8",
         "{toxinidir}",
     ],
+    [
+        "check-manifest",
+        "{toxinidir}",
+    ],
 ]
 
 [tool.tox.env.unit]
-use_develop = true
-set_env = { "PYLXD_WARNINGS" = "none" }
+# Ensure tests run with default warning behaviour unless individual tests
+# override it. Set to an empty string so code paths that consult
+# `PYLXD_WARNINGS` still emit warnings by default.
+set_env = { "PYLXD_WARNINGS" = "" }
 deps = ".[testing]"
 commands = [
     [
@@ -129,6 +142,15 @@ commands = [
     ],
 ]
 
+[tool.tox.env.release]
+deps = [".[release]", "check-manifest"]
+commands = [
+    ["check-manifest", "{toxinidir}"],
+    ["{envpython}", "-c", "import shutil; shutil.rmtree('dist', ignore_errors=True)"],  # equivalent to rm -rf dist/
+    ["{envpython}", "-m", "build"],
+    ["twine", "check", "--strict", "dist/*"],
+]
+
 [tool.tox.env.format]
 deps = ".[format]"
 commands = [["isort", "{toxinidir}"], ["black", "{toxinidir}"]]
@@ -139,8 +161,17 @@ deps = ".[testing]"
 commands = [["pytest", "integration", { replace = "posargs", extend = true }]]
 
 [tool.tox.env.integration-in-lxd]
+allowlist_externals = ["{toxinidir}/integration/run-integration-tests-in-lxd"]
 commands = [["{toxinidir}/integration/run-integration-tests-in-lxd"]]
 
 [tool.tox.env.doc]
 deps = ".[doc]"
 commands = [["{envpython}", "-m", "sphinx", "-a", "doc/source", "doc/build"]]
+
+[tool.pytest.ini_options]
+filterwarnings = [
+    # Hide the known pylxd runtime warning about unknown "unsupportedbypylxd" attributes so
+    # pytest doesn't print them in the summary while tests that explicitly
+    # assert those warnings using `assertWarns` still work.
+    "ignore:Attempted to set unknown attribute \"unsupportedbypylxd\" on instance of \"Instance\":UserWarning:^pylxd.models",
+]

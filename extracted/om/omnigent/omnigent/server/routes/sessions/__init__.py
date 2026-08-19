@@ -286,6 +286,7 @@ from omnigent.server.routes._sessions.common import (
     _SNAPSHOT_RUNNER_TIMEOUT_S as _SNAPSHOT_RUNNER_TIMEOUT_S,
     _STOP_RUNNER_RESULT_TIMEOUT_S as _STOP_RUNNER_RESULT_TIMEOUT_S,
     _STOP_SESSION_TYPE as _STOP_SESSION_TYPE,
+    _RETRY_SESSION_TYPE as _RETRY_SESSION_TYPE,
     _SUBAGENT_FORWARD_RECONNECT_WAIT_S as _SUBAGENT_FORWARD_RECONNECT_WAIT_S,
     _TERMINAL_RESPONSE_EVENT_TYPES as _TERMINAL_RESPONSE_EVENT_TYPES,
     _TURN_ACTOR_LABEL as _TURN_ACTOR_LABEL,
@@ -485,6 +486,7 @@ from omnigent.server.routes._sessions.helpers import (
     _relay_persist as _relay_persist,
     _relay_persist_error_once as _relay_persist_error_once,
     _remove_session_worktree_best_effort as _remove_session_worktree_best_effort,
+    _repl_terminal_ui_labels as _repl_terminal_ui_labels,
     _replace_text_in_message_body as _replace_text_in_message_body,
     _require_collaboration_mode_forward as _require_collaboration_mode_forward,
     _require_cost_control_label_authority as _require_cost_control_label_authority,
@@ -592,6 +594,7 @@ from omnigent.server.routes._sessions.helpers import (
 # Higher-layer orchestration flows (runner relay, session-event dispatch,
 # native-terminal launch, MCP tool calls) live in _sessions.orchestration.
 from omnigent.server.routes._sessions.orchestration import (
+    RUNNER_DISCONNECT_GRACE_S as RUNNER_DISCONNECT_GRACE_S,
     _accumulate_session_usage as _accumulate_session_usage,
     _best_effort_stop as _best_effort_stop,
     _bind_and_launch_managed_runner as _bind_and_launch_managed_runner,
@@ -640,6 +643,7 @@ from omnigent.server.routes._sessions.orchestration import (
     _resolve_elicitation as _resolve_elicitation,
     _run_managed_launch as _run_managed_launch,
     _run_managed_wake as _run_managed_wake,
+    _runner_reject_detail as _runner_reject_detail,
     _schedule_deferred_elicitation_clear as _schedule_deferred_elicitation_clear,
     _spawn_native_approval_popup_forward as _spawn_native_approval_popup_forward,
     _spawn_native_blocked_notice_forward as _spawn_native_blocked_notice_forward,

@@ -59,6 +59,120 @@ def _stable_namespace_properties(
     return tuple(sorted(stable_properties)) or None
 
 
+def _live_row_ids(dataset: Any, row_ids: list[int]) -> set[int]:
+    """Return the subset of ``row_ids`` still live in ``dataset``.
+
+    Fallback for an ADDRESS-domain source only -- see ``take_columns_with_rowid``
+    for why a stable-row-id source never pays for this. Chunked so the ``IN``
+    list stays a reasonable size on large requests.
+    """
+    live: set[int] = set()
+    chunk = 10_000
+    for start in range(0, len(row_ids), chunk):
+        batch = row_ids[start : start + chunk]
+        if not batch:
+            continue
+        predicate = "_rowid IN ({})".format(",".join(str(int(r)) for r in batch))
+        found = dataset.to_table(columns=[], with_row_id=True, filter=predicate)
+        live.update(found["_rowid"].to_pylist())
+    return live
+
+
+def take_columns_with_rowid(
+    columns: list[str] | dict[str, str],
+) -> tuple[list[str] | dict[str, str], bool]:
+    """Add ``_rowid`` to a take projection so a short take names its survivors.
+
+    ``_take_rows`` does not report WHICH requested ids it dropped, and asking
+    the source afterwards costs a full filtered scan of it. Projecting
+    ``_rowid`` alongside the data columns carries that answer back attached to
+    the rows themselves, so the short path costs nothing extra.
+
+    Only safe on a stable-row-id source: on an address-domain one Lance refuses
+    a take that projects row addresses across deleted rows ("A take operation
+    that includes row addresses must not target deleted rows"), which is
+    precisely the short take we need to diagnose. That source falls back to
+    ``_live_row_ids``.
+
+    Returns the projection to use, and whether ``_rowid`` was added here -- in
+    which case it must be dropped again before the batch reaches the writer.
+    """
+    if isinstance(columns, dict):
+        if "_rowid" in columns:
+            return columns, False
+        return {"_rowid": "_rowid", **columns}, True
+    if "_rowid" in columns:
+        return columns, False
+    return ["_rowid", *columns], True
+
+
+def align_dst_row_addrs(
+    row_ids: list[int],
+    taken_rows: int,
+    dst_row_addrs: "pa.Array | pa.ChunkedArray",
+    *,
+    taken_row_ids: "pa.Array | pa.ChunkedArray | None" = None,
+    dataset: Any = None,
+) -> "pa.Array | pa.ChunkedArray":
+    """Line destination row addresses up with the rows a take actually returned.
+
+    ``_take_rows`` preserves request order, so ``dst_row_addrs[i]`` is normally
+    the address for result row ``i`` and this is a no-op.
+
+    A take comes back SHORT when a source row was deleted between materialized
+    view placeholder creation and this read. The dropped id can be anywhere in
+    the request and the result does not say which one went missing, so trimming
+    the tail off ``dst_row_addrs`` shifts every value after the hole onto its
+    predecessor's physical slot -- silently wrong, and the surviving row's own
+    slot then gets gap-filled with NULL.
+
+    Instead, keep only the addresses of the ids that came back, in request
+    order. Duplicate ids -- a chunker view stores one ``__source_row_id`` per
+    chunk -- survive or drop as a group, so membership is enough to place them.
+
+    Args:
+        taken_row_ids: the take's own ``_rowid`` column, when it was projected
+            via ``take_columns_with_rowid``. Free, and the preferred source.
+        dataset: address-domain fallback, scanned only if ``taken_row_ids`` is
+            unavailable AND the take came back short.
+
+    Raises:
+        ValueError: if the live-id count still disagrees with the take, rather
+            than writing values to rows that may not be theirs.
+    """
+    if taken_rows == len(dst_row_addrs):
+        return dst_row_addrs
+
+    if taken_row_ids is not None:
+        live = set(taken_row_ids.to_pylist())
+    elif dataset is not None:
+        live = _live_row_ids(dataset, row_ids)
+    else:
+        raise ValueError(
+            "Cannot align materialized view rows: source returned "
+            f"{taken_rows} rows for {len(row_ids)} requested ids, and neither "
+            "the take's _rowid column nor the source dataset was supplied to "
+            "identify the survivors. Refusing to write values to potentially "
+            "incorrect rows."
+        )
+
+    keep = [i for i, rid in enumerate(row_ids) if rid in live]
+    if len(keep) != taken_rows:
+        raise ValueError(
+            f"Cannot align materialized view rows: source returned "
+            f"{taken_rows} rows for {len(row_ids)} requested ids, but "
+            f"{len(keep)} of those ids are still live. Refusing to write "
+            "values to potentially incorrect rows."
+        )
+    _LOG.warning(
+        "CopyTask: %d of %d source rows disappeared before the read; "
+        "realigning destination addresses by row id",
+        len(row_ids) - len(keep),
+        len(row_ids),
+    )
+    return dst_row_addrs.take(pa.array(keep, type=pa.int64()))
+
+
 def _table_ref_identity(table_ref: TableReference) -> tuple:
     ns = table_ref.namespace_config
     namespace_client_properties = _stable_namespace_properties(
@@ -172,7 +286,6 @@ class ScanTask(ReadTask):
             try:
                 yield from range_blob_batches(
                     table=tbl,
-                    dataset_uri=self.uri,
                     columns=self.columns,
                     frag_id=self.frag_id,
                     offset=self.offset,
@@ -298,6 +411,7 @@ class CopyTask(ReadTask):
     def to_batches(
         self, *, batch_size=DEFAULT_CHECKPOINT_ROWS
     ) -> Iterator[pa.RecordBatch]:
+        from geneva.db import dataset_uses_stable_row_ids
         from geneva.query import open_read_dataset
 
         dst_tbl = self._dst_table if self._dst_table is not None else self.dst.open()
@@ -338,13 +452,27 @@ class CopyTask(ReadTask):
             f"CopyTask: frag_id={self.frag_id}, offset={self.offset}, "
             f"limit={self.limit}, row_ids={row_ids}"
         )
-        table = src_table_lance._take_rows(row_ids, columns=self.columns)
+        # Project _rowid alongside the data columns so that a SHORT take (a source
+        # row deleted since the placeholder was created) says which ids survived,
+        # rather than costing a second filtered scan of the source to find out.
+        # Not safe on an address-domain source -- see take_columns_with_rowid.
+        take_columns: list[str] | dict[str, str] = self.columns
+        added_rowid = False
+        if dataset_uses_stable_row_ids(src_table_lance):
+            take_columns, added_rowid = take_columns_with_rowid(self.columns)
+
+        table = src_table_lance._take_rows(row_ids, columns=take_columns)
         _LOG.info(f"CopyTask: Fetched {table.num_rows} rows from source")
 
-        # _take_rows preserves row_ids order, so dst_row_addrs[i] is the physical
-        # address of table row i. Slice defensively if fewer rows came back.
-        if table.num_rows != len(dst_row_addrs):
-            dst_row_addrs = dst_row_addrs.slice(0, table.num_rows)
+        dst_row_addrs = align_dst_row_addrs(
+            row_ids,
+            table.num_rows,
+            dst_row_addrs,
+            taken_row_ids=(table["_rowid"] if "_rowid" in table.schema.names else None),
+            dataset=src_table_lance,
+        )
+        if added_rowid:
+            table = table.drop_columns(["_rowid"])
         table = table.add_column(table.num_columns, "_rowaddr", dst_row_addrs)
 
         max_chunksize = (

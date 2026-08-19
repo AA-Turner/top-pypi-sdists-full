@@ -65,6 +65,7 @@ class Invoice(google.protobuf.message.Message):
     ADDRESS_FIELD_NUMBER: builtins.int
     TAX_NUMBER_FIELD_NUMBER: builtins.int
     IS_REVERSE_CHARGE_FIELD_NUMBER: builtins.int
+    TAX_TRANSACTION_CODE_FIELD_NUMBER: builtins.int
     invoice_id: builtins.int
     amount_billed: builtins.int
     """Not just a sum of line items since there may be credit applied"""
@@ -76,6 +77,11 @@ class Invoice(google.protobuf.message.Message):
     """The customer's tax registration number (e.g. VAT ID)"""
     is_reverse_charge: builtins.bool
     """Whether the tax provider placed the invoice under reverse charge."""
+    tax_transaction_code: builtins.str
+    """Reference to the tax document the provider filed for this invoice.
+    Unset until the invoice's tax transaction is persisted with the
+    provider; reversals are recorded against it.
+    """
     @property
     def line_items(self) -> google.protobuf.internal.containers.RepeatedCompositeFieldContainer[global___InvoiceLineItem]: ...
     @property
@@ -96,9 +102,13 @@ class Invoice(google.protobuf.message.Message):
         address: sentry_protos.billing.v1.common.v1.address_pb2.Address | None = ...,
         tax_number: builtins.str | None = ...,
         is_reverse_charge: builtins.bool = ...,
+        tax_transaction_code: builtins.str | None = ...,
     ) -> None: ...
-    def HasField(self, field_name: typing.Literal["_tax_number", b"_tax_number", "address", b"address", "date_added", b"date_added", "tax_number", b"tax_number"]) -> builtins.bool: ...
-    def ClearField(self, field_name: typing.Literal["_tax_number", b"_tax_number", "address", b"address", "amount_billed", b"amount_billed", "date_added", b"date_added", "guid", b"guid", "invoice_id", b"invoice_id", "is_reverse_charge", b"is_reverse_charge", "line_items", b"line_items", "needs_charged", b"needs_charged", "organization_id", b"organization_id", "paid", b"paid", "tax_number", b"tax_number"]) -> None: ...
+    def HasField(self, field_name: typing.Literal["_tax_number", b"_tax_number", "_tax_transaction_code", b"_tax_transaction_code", "address", b"address", "date_added", b"date_added", "tax_number", b"tax_number", "tax_transaction_code", b"tax_transaction_code"]) -> builtins.bool: ...
+    def ClearField(self, field_name: typing.Literal["_tax_number", b"_tax_number", "_tax_transaction_code", b"_tax_transaction_code", "address", b"address", "amount_billed", b"amount_billed", "date_added", b"date_added", "guid", b"guid", "invoice_id", b"invoice_id", "is_reverse_charge", b"is_reverse_charge", "line_items", b"line_items", "needs_charged", b"needs_charged", "organization_id", b"organization_id", "paid", b"paid", "tax_number", b"tax_number", "tax_transaction_code", b"tax_transaction_code"]) -> None: ...
+    @typing.overload
     def WhichOneof(self, oneof_group: typing.Literal["_tax_number", b"_tax_number"]) -> typing.Literal["tax_number"] | None: ...
+    @typing.overload
+    def WhichOneof(self, oneof_group: typing.Literal["_tax_transaction_code", b"_tax_transaction_code"]) -> typing.Literal["tax_transaction_code"] | None: ...
 
 global___Invoice = Invoice

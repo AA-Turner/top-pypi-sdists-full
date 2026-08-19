@@ -25,6 +25,5 @@ export interface SingleIntervalTicker extends SingleIntervalTicker.Attrs {
 export declare class SingleIntervalTicker extends BaseSingleIntervalTicker {
     properties: SingleIntervalTicker.Props;
     constructor(attrs?: Partial<SingleIntervalTicker.Attrs>);
-    interval: number;
 }
 //# sourceMappingURL=single_interval_ticker.d.ts.map

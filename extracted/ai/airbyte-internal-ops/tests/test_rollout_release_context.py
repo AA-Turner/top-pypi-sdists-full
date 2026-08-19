@@ -61,6 +61,7 @@ def _result(
                     pr_number=42,
                     pr_url="https://github.com/airbytehq/airbyte/pull/42",
                     attributed_to="engineer",
+                    attributed_to_kind="maintainer",
                     source="publish",
                 )
             ),
@@ -74,6 +75,7 @@ def _result(
                 attribution=ReleaseAttribution(
                     pr_number=42,
                     attributed_to="unknown-engineer",
+                    attributed_to_kind="maintainer",
                     source="publish",
                 )
             ),
@@ -88,27 +90,31 @@ def _result(
                     pr_number=42,
                     pr_author_login="release-bot[bot]",
                     pr_author_type="Bot",
+                    attributed_to="release-bot[bot]",
+                    attributed_to_kind="bot",
                     source="publish",
                 )
             ),
             "release-bot[bot]",
-            ("Release author: `release-bot[bot]`",),
-            ("<@",),
-            id="bot_never_mentioned",
+            ("Released by: `release-bot[bot]` (automated account)",),
+            ("<@", "Release contact"),
+            id="bot_named_but_never_mentioned",
         ),
         pytest.param(
             _result(
                 attribution=ReleaseAttribution(
                     pr_number=42,
-                    pr_author_login="human-author",
+                    pr_url="https://github.com/airbytehq/airbyte/pull/42",
+                    pr_author_login="community-author",
                     pr_author_type="User",
+                    pr_author_association="CONTRIBUTOR",
                     source="publish",
                 )
             ),
-            "human-author",
-            ("Release author: `human-author`",),
-            ("<@",),
-            id="human_without_attribution",
+            "community-author",
+            ("PR 42",),
+            ("community-author", "Release contact", "<@"),
+            id="community_author_is_never_named",
         ),
         pytest.param(
             _result(status="error", lookup_path="none", error="GCS unavailable"),
@@ -142,9 +148,9 @@ def test_release_context_scenarios(
     )
 
     for text in expected:
-        assert text in context
+        assert text in context.text
     for text in absent:
-        assert text not in context
+        assert text not in context.text
     assert captured["store"] == RegistryStore.parse("coral:dev")
 
 
@@ -178,3 +184,34 @@ def test_alert_is_sent_when_attribution_lookup_fails(monkeypatch) -> None:
     assert autopilot._send_failure_threshold_hitl(_rollout(), "1.2.3", _gate())
     assert "Release PR" not in sent["message"]
     assert "Rollout paused" in sent["message"]
+    assert sent["target_person"] == autopilot._AUTOPILOT_ESCALATION_FALLBACK
+    assert sent["cc_persons"] == []
+
+
+def test_alert_targets_the_resolved_release_contact(monkeypatch) -> None:
+    monkeypatch.setattr(
+        autopilot,
+        "lookup_release_attribution",
+        lambda *args, **kwargs: _result(
+            attribution=ReleaseAttribution(
+                pr_number=42,
+                pr_author_login="community-author",
+                pr_author_type="User",
+                pr_author_association="CONTRIBUTOR",
+                pr_merged_by_login="airbyte-engineer",
+                attributed_to="airbyte-engineer",
+                attributed_to_kind="maintainer",
+                source="publish",
+            )
+        ),
+    )
+    monkeypatch.setattr(
+        autopilot, "format_github_login_contact", lambda login: f"<@{login}>"
+    )
+    sent: dict[str, Any] = {}
+    monkeypatch.setattr(autopilot, "send_hitl_notification", sent.update)
+
+    assert autopilot._send_failure_threshold_hitl(_rollout(), "1.2.3", _gate())
+    assert sent["target_person"] == "@airbyte-engineer"
+    assert sent["cc_persons"] == [autopilot._AUTOPILOT_ESCALATION_FALLBACK]
+    assert "Release contact: <@airbyte-engineer>" in sent["message"]

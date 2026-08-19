@@ -437,6 +437,33 @@ def _gmt_available():
     return _GMT_OK
 
 
+#: Above this many polygons, per-region name labels stop being readable and
+#: become a solid smear — usa_admin2 draws ~1,000 counties. Admin-1 maps
+#: (~50 states) stay well under it, so they keep their labels.
+_ANNOTATE_MAX_REGIONS = 200
+
+
+def effective_annotate_regions(annotate_regions, n_regions, logged=set()):
+    """Whether region NAME labels should actually be drawn.
+
+    ``annotate_regions`` is commonly inherited from ``[DEFAULT]`` rather than
+    set per project, so a county-scale run silently asks for a label on every
+    one of ~1,000 counties. Suppress it above _ANNOTATE_MAX_REGIONS: the
+    decision is made on the polygon count actually being drawn, so it holds for
+    any project at fine granularity regardless of how its admin level is named.
+    """
+    if not annotate_regions or n_regions <= _ANNOTATE_MAX_REGIONS:
+        return bool(annotate_regions)
+    if "warned" not in logged:
+        logged.add("warned")
+        logging.getLogger(__name__).info(
+            f"annotate_regions is on but the map has {n_regions} regions "
+            f"(> {_ANNOTATE_MAX_REGIONS}) — suppressing per-region name labels, "
+            f"which would be unreadable at this granularity"
+        )
+    return False
+
+
 def _plot_map_pygmt(
     attribute_df, df, dict_lup, merge_col, name_country, name_col,
     dir_out, fname, title, label, vmin, vmax, cmap, series,
@@ -540,7 +567,14 @@ def _plot_map_pygmt(
         "projection": _gmt_projection_for(name_country),
         "title": title or "", "label": label or "",
         "do_borders": bool(do_borders),
-        "annotate": bool((annotate_regions or annotate_values) and "_label" in gdf.columns),
+        "annotate": bool(
+            (effective_annotate_regions(annotate_regions, len(gdf)) or annotate_values)
+            and "_label" in gdf.columns
+        ),
+        # Draw admin_1 (state/province) boundaries so individual units are
+        # separable when the choropleth itself is drawn at admin_2. Slim, and
+        # only above the ~county-count threshold where it is actually needed.
+        "admin1_borders": len(gdf) > _ANNOTATE_MAX_REGIONS,
         "colorbar": cbar,
     }
 
@@ -676,9 +710,12 @@ def plot_map(
         df, attribute_df, merge_col, name_col, series, vmin, vmax,
         classify_by, continuous_colorbar, cmap, fixed_range,
     )
+    # Same rule as the pygmt backend: per-region name labels are unreadable
+    # once there are more polygons than _ANNOTATE_MAX_REGIONS (county scale).
     _draw_regions(
         ax, df_comb, merge_col, name_col, series, dict_lup, use_key,
-        cmap, norm, alpha_feature, do_borders, annotate_regions,
+        cmap, norm, alpha_feature, do_borders,
+        effective_annotate_regions(annotate_regions, len(df_comb)),
         annotate_region_column, annotate_values, value_fmt,
     )
 

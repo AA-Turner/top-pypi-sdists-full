@@ -83,6 +83,7 @@ import ray
 
 import geneva
 from geneva import udf
+from geneva.runners.ray.oom_recovery_budget import OOMRecoveryBudgetConfig
 
 if TYPE_CHECKING:
     from pathlib import Path
@@ -494,9 +495,9 @@ def test_writer_survives_buffering_workload(
     meaningful. Without a cap, the test passes trivially because the
     host has spare RAM.
 
-    Writer auto-restart is disabled (``MAX_WRITER_RESTARTS=0``) so
-    the test fails loudly if the writer ever does OOM rather than
-    silently recovering.
+    Ordinary writer restart and GEN-780 OOM recovery are both disabled so
+    the test fails loudly if the writer ever does OOM rather than silently
+    recovering.
 
     Two distinct failure modes must not be conflated:
 
@@ -519,7 +520,17 @@ def test_writer_survives_buffering_workload(
         "RAY_min_memory_free_bytes",
         os.environ.get("GENEVA_TEST_RAY_MIN_FREE_BYTES", str(2 * 1024**3)),
     )
+    # A pool subprocess reaped by the OOM-killer orphans its future
+    # (bpo-22393); the stall bound is what surfaces it. Shorten the 600s
+    # default so an applier-side crash is retried promptly rather than
+    # burning the job's wall clock -- see _is_applier_subprocess_crash.
+    monkeypatch.setenv("GENEVA_APPLIER_WORKER_STALL_TIMEOUT_S", "60")
     monkeypatch.setattr(_pipeline_mod, "MAX_WRITER_RESTARTS", 0)
+    monkeypatch.setattr(
+        OOMRecoveryBudgetConfig,
+        "get",
+        classmethod(lambda _cls: OOMRecoveryBudgetConfig(enabled=False)),
+    )
 
     ray.init(num_cpus=8, _memory=4 * 1024**3, ignore_reinit_error=True)
     try:

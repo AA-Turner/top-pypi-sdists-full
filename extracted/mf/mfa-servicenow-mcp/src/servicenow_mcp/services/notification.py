@@ -32,7 +32,8 @@ TEMPLATE_TABLE = "sysevent_email_template"
 CATEGORY_TABLE = "sys_notification_category"
 
 _NOTIF_META = (
-    "sys_id,subject,collection,event_name,condition,category,template,active,weight,"
+    "sys_id,name,subject,collection,event_name,condition,category,template,active,weight,"
+    "action_insert,action_update,send_self,"
     "recipient_users,recipient_groups,recipient_fields,message_html,message_text,"
     "from,reply_to,sys_scope,sys_updated_on"
 )
@@ -40,12 +41,16 @@ _TEMPLATE_META = "sys_id,name,subject,collection,message_html,message_text,sys_s
 
 # Python kwarg -> ServiceNow field name, where they differ ("from" is reserved).
 _NOTIF_UPDATE_FIELDS = (
+    "name",
     "collection",
     "event_name",
     "condition",
     "category",
     "template",
     "active",
+    "action_insert",
+    "action_update",
+    "send_self",
     "weight",
     "recipient_users",
     "recipient_groups",
@@ -103,6 +108,7 @@ def _resolve_ref(
 def _notif_row(r: Dict[str, Any]) -> Dict[str, Any]:
     return {
         "sys_id": r.get("sys_id"),
+        "name": r.get("name"),
         "subject": r.get("subject"),
         "collection": r.get("collection"),
         "event_name": r.get("event_name"),
@@ -110,6 +116,9 @@ def _notif_row(r: Dict[str, Any]) -> Dict[str, Any]:
         "category": _dv(r.get("category")),
         "template": _dv(r.get("template")),
         "active": _dv(r.get("active")) == "true",
+        "action_insert": _dv(r.get("action_insert")) == "true",
+        "action_update": _dv(r.get("action_update")) == "true",
+        "send_self": _dv(r.get("send_self")) == "true",
         "weight": r.get("weight"),
         "recipient_users": r.get("recipient_users"),
         "recipient_groups": r.get("recipient_groups"),
@@ -194,7 +203,7 @@ def list_notifications(
     if active is not None:
         parts.append(f"active={str(active).lower()}")
     if query:
-        parts.append(f"subjectLIKE{query}")
+        parts.append(f"nameLIKE{query}^ORsubjectLIKE{query}")
     query_string = "^".join(parts)
 
     if count_only:
@@ -270,8 +279,9 @@ def create_notification(
         invalidate_query_cache(table=NOTIF_TABLE)
         return {
             "success": True,
-            "message": f"Created notification: {result.get('subject') or result.get('sys_id')}",
+            "message": f"Created notification: {result.get('name') or result.get('subject') or result.get('sys_id')}",
             "sys_id": result.get("sys_id"),
+            "name": result.get("name"),
             "subject": result.get("subject"),
         }
     except Exception as e:
@@ -305,7 +315,7 @@ def update_notification(
     if not body:
         return {
             "success": True,
-            "message": f"No changes to update for notification: {existing['notification'].get('subject')}",
+            "message": f"No changes to update for notification: {existing['notification'].get('name') or existing['notification'].get('subject')}",
             "sys_id": sys_id,
         }
 
@@ -316,7 +326,7 @@ def update_notification(
             table=NOTIF_TABLE,
             sys_id=sys_id,
             proposed=body,
-            identifier_fields=["subject", "collection", "event_name"],
+            identifier_fields=["name", "subject", "collection", "event_name"],
         )
 
     url = f"{config.instance_url}/api/now/table/{NOTIF_TABLE}/{sys_id}"
@@ -330,8 +340,9 @@ def update_notification(
         invalidate_query_cache(table=NOTIF_TABLE)
         return {
             "success": True,
-            "message": f"Updated notification: {result.get('subject') or sys_id}",
+            "message": f"Updated notification: {result.get('name') or result.get('subject') or sys_id}",
             "sys_id": result.get("sys_id"),
+            "name": result.get("name"),
             "subject": result.get("subject"),
         }
     except Exception as e:

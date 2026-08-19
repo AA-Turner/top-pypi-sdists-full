@@ -1,8 +1,8 @@
 [project]
 name = "protovalidate"
+version = "2.0.0"
 description = "Protocol Buffer Validation for Python"
 readme = "README.md"
-# Keep our minimum version synced with ./.python-version.
 requires-python = ">=3.10"
 license = "Apache-2.0"
 license-files = ["LICENSE"]
@@ -17,52 +17,86 @@ classifiers = [
   "Typing :: Typed",
 ]
 dependencies = [
-  "cel-python>=0.5",
-  "google-re2>=1",
-  # We need at least this version, which started publishing wheels for Python 3.13.
-  # Ref: https://github.com/google/re2/issues/516
-  "google-re2>=1.1.20250722; python_version == '3.13'",
-  # We need at least this version, which started publishing wheels for Python 3.14.
-  # Ref: https://github.com/google/re2/issues/580
-  "google-re2>=1.1.20251105; python_version == '3.14'",
-  # 1.1 started supporting 3.12.
-  "google-re2>=1.1; python_version == '3.12'",
-  "protobuf>=5",
-  # We need at least this version, which fixed Python 3.14 compatibility (tp_new metaclass issue).
-  # The fix was never backported to the 5.x series.
-  # Ref: https://github.com/protocolbuffers/protobuf/pull/20594
-  "protobuf>=6.31.0; python_version >= '3.14'",
+  "protobuf-py>=0.2.0",
 ]
-dynamic = ["version"]
 
 [project.urls]
 Documentation = "https://protovalidate.com"
-Homepage = "https://github.com/bufbuild/protovalidate-python"
-Issues = "https://github.com/bufbuild/protovalidate-python/issues"
-Source = "https://github.com/bufbuild/protovalidate-python"
+Homepage = "https://github.com/bufbuild/protovalidate-py"
+Issues = "https://github.com/bufbuild/protovalidate-py/issues"
+Source = "https://github.com/bufbuild/protovalidate-py"
 
 [dependency-groups]
+# We ensure all dependencies are installed by default so IDE works properly for development.
 dev = [
-  "google-re2-stubs>=0.1.1",
-  "mypy>=1.17.1",
-  "pytest>=9.0.2",
-  "ruff>=0.12.0",
-  "tombi>=0.9.12",
-  "types-protobuf>=5.29.1.20250315",
+  { include-group = "dev-optional" },
+  { include-group = "dev-required" },
 ]
 
+# All dependencies required for CI and development, including running baseline tests.
+dev-required = [
+  "buf-bin==1.72.0",
+  "fix-protobuf-imports==0.1.7",
+  "license-header==0.0.1",
+  "maturin==1.14.1",
+  "poethepoet==0.48.0",
+  "pydantic==2.13.4",
+  "pytest==9.1.1",
+  "pytest-benchmark==5.2.3",
+  "ruff==0.16.3",
+  "tombi==1.4.1",
+  "ty==0.0.72",
+  "types-protobuf==6.32.1.20260221",
+]
+
+# Optional dependencies, used for development of optional features. We run tests without
+# these installed to ensure missing optional dependencies does not introduce breakage.
+# Unlike most dev dependencies, we don't pin to allow testing old and new
+# versions.
+dev-optional = [
+  "protobuf>=6.31.0",
+]
+docs = ["mkdocstrings-python==2.0.6", "zensical==0.0.55"]
+
 [build-system]
-requires = ["hatch-vcs", "hatchling"]
-build-backend = "hatchling.build"
+requires = ["maturin>=1.12,<2.0"]
+build-backend = "maturin"
 
-[tool.hatch.version]
-source = "vcs"
-raw-options = { fallback_version = "0.0.0" }
+## License headers
+[tool.licenseheader]
+copyright-holder = "Buf Technologies, Inc."
+year-range = "2023-2026"
+ignore = [
+  ".github",
+  "buf.yaml",
+  "buf.gen.yaml",
+  "test/conformance/nonconforming.yaml",
+  "**/third_party/**",
+]
 
-[tool.mypy]
-mypy_path = "gen"
+[tool.maturin]
+# A submodule keeps its own .git directory, which is not part of the source.
+exclude = [
+  { path = "crates/**/.git/**/*", format = "sdist" },
+  { path = "crates/**/.git", format = "sdist" },
+]
+features = ["pyo3/extension-module", "pyo3/abi3-py310"]
+# The C++ sources are submodules, so they are picked up from the working tree
+# rather than from `git ls-files`, which stops at a submodule boundary.
+include = [
+  { path = "crates/**/*", format = "sdist" },
+  { path = "build.rs", format = "sdist" },
+  { path = "Cargo.lock", format = "sdist" },
+]
+module-name = "protovalidate._protovalidate"
+# Mixed project: Rust in src/, the Python package alongside it.
+python-source = "."
 
 [tool.pytest]
+addopts = [
+  "--benchmark-disable",
+  "--benchmark-group-by=func,param:_id",
+]
 # Turn all warnings into errors,
 # except DeprecationWarnings (which we knowingly tolerate due to using old `protobuf` APIs).
 filterwarnings = ["error", "ignore::DeprecationWarning"]
@@ -71,53 +105,98 @@ strict = true
 testpaths = ["test"]
 
 [tool.ruff]
-line-length = 120
-lint.select = [
-  "A",
-  "ARG",
-  "B",
-  "C",
-  "DTZ",
-  "E",
-  "EM",
-  "F",
-  "FBT",
-  "I",
-  "ICN",
-  "N",
-  "PLC",
-  "PLE",
-  "PLR",
-  "PLW",
+target-version = "py310"
+exclude = ["*_pb2.py", "*_pb2.pyi", "third_party"]
+
+[tool.ruff.format]
+skip-magic-trailing-comma = true
+docstring-code-format = true
+
+[tool.ruff.lint]
+typing-extensions = false
+select = ["ALL"]
+ignore = [
+  # Rules recommended to ignore when using ruff formatting
+  # https://docs.astral.sh/ruff/formatter/#conflicting-lint-rules
+  "W191",
+  "E111",
+  "E114",
+  "E117",
+  "E501",
+  "D206",
+  "D300",
   "Q",
-  "RUF",
-  "S",
-  "T",
-  "TID",
-  "UP",
-  "W",
-  "YTT",
-]
-lint.ignore = [
-  # Ignore complexity
-  "C901",
-  "PLR0911",
-  "PLR0912",
-  "PLR0913",
-  "PLR0915",
-  # Ignore magic values - in this library, most are obvious in context.
-  "PLR2004",
-]
+  "COM812",
+  "COM819",
 
-[tool.ruff.lint.isort]
-known-first-party = ["protovalidate", "buf"]
+  "TRY003",  # Avoid specifying long messages outside the exception class
+  "SLF001",  # Private member accessed
+  "ANN401",  # Dynamically typed expressions (typing.Any) are disallowed
+  "PLR2004",  # Magic value used in comparison - not helpful to name obvious constants
+  # Complexity rules: humans reviewing code can judge whether complexity is justified.
+  "C901",  # McCabe complexity
+  "PLR0911",  # Too many return statements
+  "PLR0912",  # Too many branches
+  "PLR0913",  # Too many arguments in function definition
+  "PLR0914",  # Too many local variables
+  "PLR0915",  # Too many statements
+  "PLR0916",  # Too many boolean expressions
+  "PLR0917",  # Too many positional arguments
+  "PLR1702",  # Too many nested blocks
 
-[tool.ruff.lint.flake8-tidy-imports]
-ban-relative-imports = "all"
+  # TODO rules
+  "TD",
+  "FIX002",  # Line contains TODO, consider resolving the issue
+]
 
 [tool.ruff.lint.per-file-ignores]
-# Tests can use assertions.
-"test/**/*" = ["S101"]
+"**/test/**/*.py" = [
+  # missing docstrings; unnecessary in tests.
+  "D1",
 
-[tool.ty.environment]
-extra-paths = ["gen"]
+  "INP001",  # File is part of an implicit namespace package
+
+  "FBT001",  # boolean positional args are fine in tests
+  "FBT002",  # boolean default positional args are fine in tests
+  "FBT003",  # boolean positional values are fine in tests
+  "S101",  # assert is expected in tests
+]
+"**/scripts/*.py" = [
+  "D1",  # missing docstrings; unnecessary in scripts.
+  "T201",  # print is the user interface of a CLI script
+  "S603",  # subprocess with list args and no shell is the tool-running pattern
+  "S607",  # bazel and git are expected on PATH, not at a fixed location
+]
+"protovalidate/_protovalidate.pyi" = [
+  # Generated by `poe generate-stub`. The docstrings come from the Rust doc
+  # comments and are the point of generating the stub.
+  "PYI021",
+]
+
+[tool.ruff.lint.flake8-type-checking]
+# Pydantic resolves annotations at runtime, so their imports can't be deferred.
+runtime-evaluated-base-classes = ["pydantic.BaseModel"]
+
+[tool.ruff.lint.isort]
+required-imports = ["from __future__ import annotations"]
+combine-as-imports = true
+known-third-party = []
+split-on-trailing-comma = false
+
+[tool.ruff.lint.pydocstyle]
+convention = "google"
+
+[tool.tombi]
+files.exclude = [
+  "**/third_party/**",
+]
+
+[tool.uv]
+cache-keys = [
+  { file = "pyproject.toml" },
+  { file = "Cargo.toml" },
+  { file = "Cargo.lock" },
+  { file = "build.rs" },
+  { file = "src/**" },
+  { file = "crates/**" },
+]

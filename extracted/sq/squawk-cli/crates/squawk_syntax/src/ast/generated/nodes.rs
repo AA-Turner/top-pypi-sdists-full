@@ -60,6 +60,28 @@ impl AccessMethodRef {
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
+pub struct AccessMethodTypeIndex {
+    pub(crate) syntax: SyntaxNode,
+}
+impl AccessMethodTypeIndex {
+    #[inline]
+    pub fn index_token(&self) -> Option<SyntaxToken> {
+        support::token(&self.syntax, SyntaxKind::INDEX_KW)
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
+pub struct AccessMethodTypeTable {
+    pub(crate) syntax: SyntaxNode,
+}
+impl AccessMethodTypeTable {
+    #[inline]
+    pub fn table_token(&self) -> Option<SyntaxToken> {
+        support::token(&self.syntax, SyntaxKind::TABLE_KW)
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub struct AccessShare {
     pub(crate) syntax: SyntaxNode,
 }
@@ -80,10 +102,6 @@ pub struct AddAttribute {
 }
 impl AddAttribute {
     #[inline]
-    pub fn cascade(&self) -> Option<Cascade> {
-        support::child(&self.syntax)
-    }
-    #[inline]
     pub fn collate(&self) -> Option<Collate> {
         support::child(&self.syntax)
     }
@@ -92,7 +110,7 @@ impl AddAttribute {
         support::child(&self.syntax)
     }
     #[inline]
-    pub fn restrict(&self) -> Option<Restrict> {
+    pub fn drop_behavior(&self) -> Option<DropBehavior> {
         support::child(&self.syntax)
     }
     #[inline]
@@ -114,6 +132,10 @@ pub struct AddColumn {
     pub(crate) syntax: SyntaxNode,
 }
 impl AddColumn {
+    #[inline]
+    pub fn alter_option_list(&self) -> Option<AlterOptionList> {
+        support::child(&self.syntax)
+    }
     #[inline]
     pub fn collate(&self) -> Option<Collate> {
         support::child(&self.syntax)
@@ -154,39 +176,22 @@ impl AddConstraint {
         support::child(&self.syntax)
     }
     #[inline]
-    pub fn deferrable_constraint_option(&self) -> Option<DeferrableConstraintOption> {
+    pub fn add_token(&self) -> Option<SyntaxToken> {
+        support::token(&self.syntax, SyntaxKind::ADD_KW)
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
+pub struct AddForeignOption {
+    pub(crate) syntax: SyntaxNode,
+}
+impl AddForeignOption {
+    #[inline]
+    pub fn foreign_option_name(&self) -> Option<ForeignOptionName> {
         support::child(&self.syntax)
     }
     #[inline]
-    pub fn enforced(&self) -> Option<Enforced> {
-        support::child(&self.syntax)
-    }
-    #[inline]
-    pub fn initially_deferred_constraint_option(
-        &self,
-    ) -> Option<InitiallyDeferredConstraintOption> {
-        support::child(&self.syntax)
-    }
-    #[inline]
-    pub fn initially_immediate_constraint_option(
-        &self,
-    ) -> Option<InitiallyImmediateConstraintOption> {
-        support::child(&self.syntax)
-    }
-    #[inline]
-    pub fn no_inherit(&self) -> Option<NoInherit> {
-        support::child(&self.syntax)
-    }
-    #[inline]
-    pub fn not_deferrable_constraint_option(&self) -> Option<NotDeferrableConstraintOption> {
-        support::child(&self.syntax)
-    }
-    #[inline]
-    pub fn not_enforced(&self) -> Option<NotEnforced> {
-        support::child(&self.syntax)
-    }
-    #[inline]
-    pub fn not_valid(&self) -> Option<NotValid> {
+    pub fn literal(&self) -> Option<Literal> {
         support::child(&self.syntax)
     }
     #[inline]
@@ -201,6 +206,10 @@ pub struct AddGenerated {
 }
 impl AddGenerated {
     #[inline]
+    pub fn generated_when(&self) -> Option<GeneratedWhen> {
+        support::child(&self.syntax)
+    }
+    #[inline]
     pub fn sequence_option_list(&self) -> Option<SequenceOptionList> {
         support::child(&self.syntax)
     }
@@ -209,20 +218,8 @@ impl AddGenerated {
         support::token(&self.syntax, SyntaxKind::ADD_KW)
     }
     #[inline]
-    pub fn always_token(&self) -> Option<SyntaxToken> {
-        support::token(&self.syntax, SyntaxKind::ALWAYS_KW)
-    }
-    #[inline]
     pub fn as_token(&self) -> Option<SyntaxToken> {
         support::token(&self.syntax, SyntaxKind::AS_KW)
-    }
-    #[inline]
-    pub fn by_token(&self) -> Option<SyntaxToken> {
-        support::token(&self.syntax, SyntaxKind::BY_KW)
-    }
-    #[inline]
-    pub fn default_token(&self) -> Option<SyntaxToken> {
-        support::token(&self.syntax, SyntaxKind::DEFAULT_KW)
     }
     #[inline]
     pub fn generated_token(&self) -> Option<SyntaxToken> {
@@ -309,12 +306,12 @@ pub struct AddPublication {
 }
 impl AddPublication {
     #[inline]
-    pub fn attribute_list(&self) -> Option<AttributeList> {
-        support::child(&self.syntax)
-    }
-    #[inline]
     pub fn publication_refs(&self) -> AstChildren<PublicationRef> {
         support::children(&self.syntax)
+    }
+    #[inline]
+    pub fn with_params(&self) -> Option<WithParams> {
+        support::child(&self.syntax)
     }
     #[inline]
     pub fn add_token(&self) -> Option<SyntaxToken> {
@@ -323,10 +320,6 @@ impl AddPublication {
     #[inline]
     pub fn publication_token(&self) -> Option<SyntaxToken> {
         support::token(&self.syntax, SyntaxKind::PUBLICATION_KW)
-    }
-    #[inline]
-    pub fn with_token(&self) -> Option<SyntaxToken> {
-        support::token(&self.syntax, SyntaxKind::WITH_KW)
     }
 }
 
@@ -409,14 +402,6 @@ impl AddVertexEdgeLabelProperties {
         support::child(&self.syntax)
     }
     #[inline]
-    pub fn l_paren_token(&self) -> Option<SyntaxToken> {
-        support::token(&self.syntax, SyntaxKind::L_PAREN)
-    }
-    #[inline]
-    pub fn r_paren_token(&self) -> Option<SyntaxToken> {
-        support::token(&self.syntax, SyntaxKind::R_PAREN)
-    }
-    #[inline]
     pub fn add_token(&self) -> Option<SyntaxToken> {
         support::token(&self.syntax, SyntaxKind::ADD_KW)
     }
@@ -470,6 +455,25 @@ impl AddVertexEdgeTables {
     #[inline]
     pub fn add_token(&self) -> Option<SyntaxToken> {
         support::token(&self.syntax, SyntaxKind::ADD_KW)
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
+pub struct AdminOptionFor {
+    pub(crate) syntax: SyntaxNode,
+}
+impl AdminOptionFor {
+    #[inline]
+    pub fn admin_token(&self) -> Option<SyntaxToken> {
+        support::token(&self.syntax, SyntaxKind::ADMIN_KW)
+    }
+    #[inline]
+    pub fn for_token(&self) -> Option<SyntaxToken> {
+        support::token(&self.syntax, SyntaxKind::FOR_KW)
+    }
+    #[inline]
+    pub fn option_token(&self) -> Option<SyntaxToken> {
+        support::token(&self.syntax, SyntaxKind::OPTION_KW)
     }
 }
 
@@ -534,44 +538,6 @@ impl AggregateRenameTo {
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
-pub struct AliasColumn {
-    pub(crate) syntax: SyntaxNode,
-}
-impl AliasColumn {
-    #[inline]
-    pub fn collate(&self) -> Option<Collate> {
-        support::child(&self.syntax)
-    }
-    #[inline]
-    pub fn name(&self) -> Option<ColumnName> {
-        support::child(&self.syntax)
-    }
-    #[inline]
-    pub fn ty(&self) -> Option<Type> {
-        support::child(&self.syntax)
-    }
-}
-
-#[derive(Debug, Clone, PartialEq, Eq, Hash)]
-pub struct AliasColumnList {
-    pub(crate) syntax: SyntaxNode,
-}
-impl AliasColumnList {
-    #[inline]
-    pub fn alias_columns(&self) -> AstChildren<AliasColumn> {
-        support::children(&self.syntax)
-    }
-    #[inline]
-    pub fn l_paren_token(&self) -> Option<SyntaxToken> {
-        support::token(&self.syntax, SyntaxKind::L_PAREN)
-    }
-    #[inline]
-    pub fn r_paren_token(&self) -> Option<SyntaxToken> {
-        support::token(&self.syntax, SyntaxKind::R_PAREN)
-    }
-}
-
-#[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub struct All {
     pub(crate) syntax: SyntaxNode,
 }
@@ -615,6 +581,10 @@ pub struct AllInTablespace {
 }
 impl AllInTablespace {
     #[inline]
+    pub fn nowait(&self) -> Option<Nowait> {
+        support::child(&self.syntax)
+    }
+    #[inline]
     pub fn owned_by_roles(&self) -> Option<OwnedByRoles> {
         support::child(&self.syntax)
     }
@@ -633,10 +603,6 @@ impl AllInTablespace {
     #[inline]
     pub fn in_token(&self) -> Option<SyntaxToken> {
         support::token(&self.syntax, SyntaxKind::IN_KW)
-    }
-    #[inline]
-    pub fn nowait_token(&self) -> Option<SyntaxToken> {
-        support::token(&self.syntax, SyntaxKind::NOWAIT_KW)
     }
     #[inline]
     pub fn tablespace_token(&self) -> Option<SyntaxToken> {
@@ -683,6 +649,36 @@ impl AllProperties {
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
+pub struct AllPublicationSequences {
+    pub(crate) syntax: SyntaxNode,
+}
+impl AllPublicationSequences {
+    #[inline]
+    pub fn all_token(&self) -> Option<SyntaxToken> {
+        support::token(&self.syntax, SyntaxKind::ALL_KW)
+    }
+    #[inline]
+    pub fn sequences_token(&self) -> Option<SyntaxToken> {
+        support::token(&self.syntax, SyntaxKind::SEQUENCES_KW)
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
+pub struct AllPublicationTables {
+    pub(crate) syntax: SyntaxNode,
+}
+impl AllPublicationTables {
+    #[inline]
+    pub fn all_token(&self) -> Option<SyntaxToken> {
+        support::token(&self.syntax, SyntaxKind::ALL_KW)
+    }
+    #[inline]
+    pub fn tables_token(&self) -> Option<SyntaxToken> {
+        support::token(&self.syntax, SyntaxKind::TABLES_KW)
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub struct AlterAggregate {
     pub(crate) syntax: SyntaxNode,
 }
@@ -715,10 +711,6 @@ pub struct AlterAttribute {
 }
 impl AlterAttribute {
     #[inline]
-    pub fn cascade(&self) -> Option<Cascade> {
-        support::child(&self.syntax)
-    }
-    #[inline]
     pub fn collate(&self) -> Option<Collate> {
         support::child(&self.syntax)
     }
@@ -727,7 +719,7 @@ impl AlterAttribute {
         support::child(&self.syntax)
     }
     #[inline]
-    pub fn restrict(&self) -> Option<Restrict> {
+    pub fn drop_behavior(&self) -> Option<DropBehavior> {
         support::child(&self.syntax)
     }
     #[inline]
@@ -909,12 +901,12 @@ impl AlterDefaultPrivileges {
         support::child(&self.syntax)
     }
     #[inline]
-    pub fn role_ref_list(&self) -> Option<RoleRefList> {
+    pub fn for_roles(&self) -> Option<ForRoles> {
         support::child(&self.syntax)
     }
     #[inline]
-    pub fn schema_refs(&self) -> AstChildren<SchemaRef> {
-        support::children(&self.syntax)
+    pub fn in_schemas(&self) -> Option<InSchemas> {
+        support::child(&self.syntax)
     }
     #[inline]
     pub fn semicolon_token(&self) -> Option<SyntaxToken> {
@@ -929,28 +921,8 @@ impl AlterDefaultPrivileges {
         support::token(&self.syntax, SyntaxKind::DEFAULT_KW)
     }
     #[inline]
-    pub fn for_token(&self) -> Option<SyntaxToken> {
-        support::token(&self.syntax, SyntaxKind::FOR_KW)
-    }
-    #[inline]
-    pub fn in_token(&self) -> Option<SyntaxToken> {
-        support::token(&self.syntax, SyntaxKind::IN_KW)
-    }
-    #[inline]
     pub fn privileges_token(&self) -> Option<SyntaxToken> {
         support::token(&self.syntax, SyntaxKind::PRIVILEGES_KW)
-    }
-    #[inline]
-    pub fn role_token(&self) -> Option<SyntaxToken> {
-        support::token(&self.syntax, SyntaxKind::ROLE_KW)
-    }
-    #[inline]
-    pub fn schema_token(&self) -> Option<SyntaxToken> {
-        support::token(&self.syntax, SyntaxKind::SCHEMA_KW)
-    }
-    #[inline]
-    pub fn user_token(&self) -> Option<SyntaxToken> {
-        support::token(&self.syntax, SyntaxKind::USER_KW)
     }
 }
 
@@ -1075,16 +1047,8 @@ pub struct AlterExtensionUpdate {
 }
 impl AlterExtensionUpdate {
     #[inline]
-    pub fn literal(&self) -> Option<Literal> {
+    pub fn update_to(&self) -> Option<UpdateTo> {
         support::child(&self.syntax)
-    }
-    #[inline]
-    pub fn ident_token(&self) -> Option<SyntaxToken> {
-        support::token(&self.syntax, SyntaxKind::IDENT)
-    }
-    #[inline]
-    pub fn to_token(&self) -> Option<SyntaxToken> {
-        support::token(&self.syntax, SyntaxKind::TO_KW)
     }
     #[inline]
     pub fn update_token(&self) -> Option<SyntaxToken> {
@@ -1280,6 +1244,10 @@ impl AlterLanguage {
     pub fn language_token(&self) -> Option<SyntaxToken> {
         support::token(&self.syntax, SyntaxKind::LANGUAGE_KW)
     }
+    #[inline]
+    pub fn procedural_token(&self) -> Option<SyntaxToken> {
+        support::token(&self.syntax, SyntaxKind::PROCEDURAL_KW)
+    }
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
@@ -1327,7 +1295,7 @@ pub struct AlterMapping {
 }
 impl AlterMapping {
     #[inline]
-    pub fn text_search_dictionary_ref(&self) -> Option<TextSearchDictionaryRef> {
+    pub fn replace_dictionary(&self) -> Option<ReplaceDictionary> {
         support::child(&self.syntax)
     }
     #[inline]
@@ -1349,10 +1317,6 @@ impl AlterMapping {
     #[inline]
     pub fn mapping_token(&self) -> Option<SyntaxToken> {
         support::token(&self.syntax, SyntaxKind::MAPPING_KW)
-    }
-    #[inline]
-    pub fn replace_token(&self) -> Option<SyntaxToken> {
-        support::token(&self.syntax, SyntaxKind::REPLACE_KW)
     }
     #[inline]
     pub fn with_token(&self) -> Option<SyntaxToken> {
@@ -1497,33 +1461,6 @@ impl AlterOperatorFamily {
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
-pub struct AlterOption {
-    pub(crate) syntax: SyntaxNode,
-}
-impl AlterOption {
-    #[inline]
-    pub fn foreign_option_name(&self) -> Option<ForeignOptionName> {
-        support::child(&self.syntax)
-    }
-    #[inline]
-    pub fn literal(&self) -> Option<Literal> {
-        support::child(&self.syntax)
-    }
-    #[inline]
-    pub fn add_token(&self) -> Option<SyntaxToken> {
-        support::token(&self.syntax, SyntaxKind::ADD_KW)
-    }
-    #[inline]
-    pub fn drop_token(&self) -> Option<SyntaxToken> {
-        support::token(&self.syntax, SyntaxKind::DROP_KW)
-    }
-    #[inline]
-    pub fn set_token(&self) -> Option<SyntaxToken> {
-        support::token(&self.syntax, SyntaxKind::SET_KW)
-    }
-}
-
-#[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub struct AlterOptionList {
     pub(crate) syntax: SyntaxNode,
 }
@@ -1583,7 +1520,7 @@ pub struct AlterPolicyTo {
 }
 impl AlterPolicyTo {
     #[inline]
-    pub fn role_ref_list(&self) -> Option<RoleRefList> {
+    pub fn policy_roles(&self) -> Option<PolicyRoles> {
         support::child(&self.syntax)
     }
     #[inline]
@@ -1593,10 +1530,6 @@ impl AlterPolicyTo {
     #[inline]
     pub fn with_check_expr_clause(&self) -> Option<WithCheckExprClause> {
         support::child(&self.syntax)
-    }
-    #[inline]
-    pub fn to_token(&self) -> Option<SyntaxToken> {
-        support::token(&self.syntax, SyntaxKind::TO_KW)
     }
 }
 
@@ -1889,16 +1822,20 @@ impl AlterSetStatistics {
         support::child(&self.syntax)
     }
     #[inline]
+    pub fn set_options(&self) -> Option<SetOptions> {
+        support::child(&self.syntax)
+    }
+    #[inline]
+    pub fn set_statistics(&self) -> Option<SetStatistics> {
+        support::child(&self.syntax)
+    }
+    #[inline]
+    pub fn alter_token(&self) -> Option<SyntaxToken> {
+        support::token(&self.syntax, SyntaxKind::ALTER_KW)
+    }
+    #[inline]
     pub fn column_token(&self) -> Option<SyntaxToken> {
         support::token(&self.syntax, SyntaxKind::COLUMN_KW)
-    }
-    #[inline]
-    pub fn set_token(&self) -> Option<SyntaxToken> {
-        support::token(&self.syntax, SyntaxKind::SET_KW)
-    }
-    #[inline]
-    pub fn statistics_token(&self) -> Option<SyntaxToken> {
-        support::token(&self.syntax, SyntaxKind::STATISTICS_KW)
     }
 }
 
@@ -2299,7 +2236,7 @@ impl AlterUserMapping {
         support::child(&self.syntax)
     }
     #[inline]
-    pub fn server_name(&self) -> Option<ServerName> {
+    pub fn server_clause(&self) -> Option<ServerClause> {
         support::child(&self.syntax)
     }
     #[inline]
@@ -2404,15 +2341,11 @@ pub struct AlterViewColumn {
 }
 impl AlterViewColumn {
     #[inline]
-    pub fn drop_default(&self) -> Option<DropDefault> {
+    pub fn alter_view_column_action(&self) -> Option<AlterViewColumnAction> {
         support::child(&self.syntax)
     }
     #[inline]
     pub fn name(&self) -> Option<ColumnNameRef> {
-        support::child(&self.syntax)
-    }
-    #[inline]
-    pub fn set_default(&self) -> Option<SetDefault> {
         support::child(&self.syntax)
     }
     #[inline]
@@ -2453,6 +2386,40 @@ impl Analyze {
     #[inline]
     pub fn verbose_token(&self) -> Option<SyntaxToken> {
         support::token(&self.syntax, SyntaxKind::VERBOSE_KW)
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
+pub struct AndChain {
+    pub(crate) syntax: SyntaxNode,
+}
+impl AndChain {
+    #[inline]
+    pub fn and_token(&self) -> Option<SyntaxToken> {
+        support::token(&self.syntax, SyntaxKind::AND_KW)
+    }
+    #[inline]
+    pub fn chain_token(&self) -> Option<SyntaxToken> {
+        support::token(&self.syntax, SyntaxKind::CHAIN_KW)
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
+pub struct AndNoChain {
+    pub(crate) syntax: SyntaxNode,
+}
+impl AndNoChain {
+    #[inline]
+    pub fn and_token(&self) -> Option<SyntaxToken> {
+        support::token(&self.syntax, SyntaxKind::AND_KW)
+    }
+    #[inline]
+    pub fn chain_token(&self) -> Option<SyntaxToken> {
+        support::token(&self.syntax, SyntaxKind::CHAIN_KW)
+    }
+    #[inline]
+    pub fn no_token(&self) -> Option<SyntaxToken> {
+        support::token(&self.syntax, SyntaxKind::NO_KW)
     }
 }
 
@@ -2512,6 +2479,10 @@ pub struct ArgList {
 }
 impl ArgList {
     #[inline]
+    pub fn all_or_distinct(&self) -> Option<AllOrDistinct> {
+        support::child(&self.syntax)
+    }
+    #[inline]
     pub fn args(&self) -> AstChildren<Arg> {
         support::children(&self.syntax)
     }
@@ -2526,14 +2497,6 @@ impl ArgList {
     #[inline]
     pub fn star_token(&self) -> Option<SyntaxToken> {
         support::token(&self.syntax, SyntaxKind::STAR)
-    }
-    #[inline]
-    pub fn all_token(&self) -> Option<SyntaxToken> {
-        support::token(&self.syntax, SyntaxKind::ALL_KW)
-    }
-    #[inline]
-    pub fn distinct_token(&self) -> Option<SyntaxToken> {
-        support::token(&self.syntax, SyntaxKind::DISTINCT_KW)
     }
 }
 
@@ -2600,29 +2563,58 @@ impl ArrayType {
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
+pub struct AsAssignment {
+    pub(crate) syntax: SyntaxNode,
+}
+impl AsAssignment {
+    #[inline]
+    pub fn as_token(&self) -> Option<SyntaxToken> {
+        support::token(&self.syntax, SyntaxKind::AS_KW)
+    }
+    #[inline]
+    pub fn assignment_token(&self) -> Option<SyntaxToken> {
+        support::token(&self.syntax, SyntaxKind::ASSIGNMENT_KW)
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
+pub struct AsDefinition {
+    pub(crate) syntax: SyntaxNode,
+}
+impl AsDefinition {
+    #[inline]
+    pub fn literal(&self) -> Option<Literal> {
+        support::child(&self.syntax)
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub struct AsFuncOption {
     pub(crate) syntax: SyntaxNode,
 }
 impl AsFuncOption {
     #[inline]
-    pub fn definition(&self) -> Option<Literal> {
+    pub fn as_func_target(&self) -> Option<AsFuncTarget> {
         support::child(&self.syntax)
-    }
-    #[inline]
-    pub fn link_symbol(&self) -> Option<Literal> {
-        support::child(&self.syntax)
-    }
-    #[inline]
-    pub fn obj_file(&self) -> Option<Literal> {
-        support::child(&self.syntax)
-    }
-    #[inline]
-    pub fn comma_token(&self) -> Option<SyntaxToken> {
-        support::token(&self.syntax, SyntaxKind::COMMA)
     }
     #[inline]
     pub fn as_token(&self) -> Option<SyntaxToken> {
         support::token(&self.syntax, SyntaxKind::AS_KW)
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
+pub struct AsImplicit {
+    pub(crate) syntax: SyntaxNode,
+}
+impl AsImplicit {
+    #[inline]
+    pub fn as_token(&self) -> Option<SyntaxToken> {
+        support::token(&self.syntax, SyntaxKind::AS_KW)
+    }
+    #[inline]
+    pub fn implicit_token(&self) -> Option<SyntaxToken> {
+        support::token(&self.syntax, SyntaxKind::IMPLICIT_KW)
     }
 }
 
@@ -2642,6 +2634,17 @@ impl AsName {
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
+pub struct AsObjFile {
+    pub(crate) syntax: SyntaxNode,
+}
+impl AsObjFile {
+    #[inline]
+    pub fn comma_token(&self) -> Option<SyntaxToken> {
+        support::token(&self.syntax, SyntaxKind::COMMA)
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub struct AsPolicyType {
     pub(crate) syntax: SyntaxNode,
 }
@@ -2653,6 +2656,28 @@ impl AsPolicyType {
     #[inline]
     pub fn ident_token(&self) -> Option<SyntaxToken> {
         support::token(&self.syntax, SyntaxKind::IDENT)
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
+pub struct Asensitive {
+    pub(crate) syntax: SyntaxNode,
+}
+impl Asensitive {
+    #[inline]
+    pub fn asensitive_token(&self) -> Option<SyntaxToken> {
+        support::token(&self.syntax, SyntaxKind::ASENSITIVE_KW)
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
+pub struct Asymmetric {
+    pub(crate) syntax: SyntaxNode,
+}
+impl Asymmetric {
+    #[inline]
+    pub fn asymmetric_token(&self) -> Option<SyntaxToken> {
+        support::token(&self.syntax, SyntaxKind::ASYMMETRIC_KW)
     }
 }
 
@@ -2955,12 +2980,12 @@ pub struct BetweenExpr {
 }
 impl BetweenExpr {
     #[inline]
-    pub fn and_token(&self) -> Option<SyntaxToken> {
-        support::token(&self.syntax, SyntaxKind::AND_KW)
+    pub fn between_symmetry(&self) -> Option<BetweenSymmetry> {
+        support::child(&self.syntax)
     }
     #[inline]
-    pub fn asymmetric_token(&self) -> Option<SyntaxToken> {
-        support::token(&self.syntax, SyntaxKind::ASYMMETRIC_KW)
+    pub fn and_token(&self) -> Option<SyntaxToken> {
+        support::token(&self.syntax, SyntaxKind::AND_KW)
     }
     #[inline]
     pub fn between_token(&self) -> Option<SyntaxToken> {
@@ -2969,10 +2994,6 @@ impl BetweenExpr {
     #[inline]
     pub fn not_token(&self) -> Option<SyntaxToken> {
         support::token(&self.syntax, SyntaxKind::NOT_KW)
-    }
-    #[inline]
-    pub fn symmetric_token(&self) -> Option<SyntaxToken> {
-        support::token(&self.syntax, SyntaxKind::SYMMETRIC_KW)
     }
 }
 
@@ -3013,6 +3034,36 @@ impl BitType {
     #[inline]
     pub fn varying_token(&self) -> Option<SyntaxToken> {
         support::token(&self.syntax, SyntaxKind::VARYING_KW)
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
+pub struct BreadthFirst {
+    pub(crate) syntax: SyntaxNode,
+}
+impl BreadthFirst {
+    #[inline]
+    pub fn breadth_token(&self) -> Option<SyntaxToken> {
+        support::token(&self.syntax, SyntaxKind::BREADTH_KW)
+    }
+    #[inline]
+    pub fn first_token(&self) -> Option<SyntaxToken> {
+        support::token(&self.syntax, SyntaxKind::FIRST_KW)
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
+pub struct ByTarget {
+    pub(crate) syntax: SyntaxNode,
+}
+impl ByTarget {
+    #[inline]
+    pub fn by_token(&self) -> Option<SyntaxToken> {
+        support::token(&self.syntax, SyntaxKind::BY_KW)
+    }
+    #[inline]
+    pub fn target_token(&self) -> Option<SyntaxToken> {
+        support::token(&self.syntax, SyntaxKind::TARGET_KW)
     }
 }
 
@@ -3217,6 +3268,17 @@ impl Cascade {
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
+pub struct CascadedCheckOption {
+    pub(crate) syntax: SyntaxNode,
+}
+impl CascadedCheckOption {
+    #[inline]
+    pub fn cascaded_token(&self) -> Option<SyntaxToken> {
+        support::token(&self.syntax, SyntaxKind::CASCADED_KW)
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub struct CaseExpr {
     pub(crate) syntax: SyntaxNode,
 }
@@ -3376,11 +3438,11 @@ impl CheckConstraint {
         support::child(&self.syntax)
     }
     #[inline]
-    pub fn expr(&self) -> Option<Expr> {
-        support::child(&self.syntax)
+    pub fn constraint_options(&self) -> AstChildren<ConstraintOption> {
+        support::children(&self.syntax)
     }
     #[inline]
-    pub fn no_inherit(&self) -> Option<NoInherit> {
+    pub fn expr(&self) -> Option<Expr> {
         support::child(&self.syntax)
     }
     #[inline]
@@ -3702,6 +3764,10 @@ pub struct Column {
 }
 impl Column {
     #[inline]
+    pub fn alter_option_list(&self) -> Option<AlterOptionList> {
+        support::child(&self.syntax)
+    }
+    #[inline]
     pub fn collate(&self) -> Option<Collate> {
         support::child(&self.syntax)
     }
@@ -3714,35 +3780,7 @@ impl Column {
         support::children(&self.syntax)
     }
     #[inline]
-    pub fn deferrable_constraint_option(&self) -> Option<DeferrableConstraintOption> {
-        support::child(&self.syntax)
-    }
-    #[inline]
-    pub fn enforced(&self) -> Option<Enforced> {
-        support::child(&self.syntax)
-    }
-    #[inline]
-    pub fn initially_deferred_constraint_option(
-        &self,
-    ) -> Option<InitiallyDeferredConstraintOption> {
-        support::child(&self.syntax)
-    }
-    #[inline]
-    pub fn initially_immediate_constraint_option(
-        &self,
-    ) -> Option<InitiallyImmediateConstraintOption> {
-        support::child(&self.syntax)
-    }
-    #[inline]
     pub fn name(&self) -> Option<ColumnName> {
-        support::child(&self.syntax)
-    }
-    #[inline]
-    pub fn not_deferrable_constraint_option(&self) -> Option<NotDeferrableConstraintOption> {
-        support::child(&self.syntax)
-    }
-    #[inline]
-    pub fn not_enforced(&self) -> Option<NotEnforced> {
         support::child(&self.syntax)
     }
     #[inline]
@@ -3756,6 +3794,44 @@ impl Column {
     #[inline]
     pub fn with_options(&self) -> Option<WithOptions> {
         support::child(&self.syntax)
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
+pub struct ColumnDef {
+    pub(crate) syntax: SyntaxNode,
+}
+impl ColumnDef {
+    #[inline]
+    pub fn collate(&self) -> Option<Collate> {
+        support::child(&self.syntax)
+    }
+    #[inline]
+    pub fn name(&self) -> Option<ColumnName> {
+        support::child(&self.syntax)
+    }
+    #[inline]
+    pub fn ty(&self) -> Option<Type> {
+        support::child(&self.syntax)
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
+pub struct ColumnDefList {
+    pub(crate) syntax: SyntaxNode,
+}
+impl ColumnDefList {
+    #[inline]
+    pub fn column_defs(&self) -> AstChildren<ColumnDef> {
+        support::children(&self.syntax)
+    }
+    #[inline]
+    pub fn l_paren_token(&self) -> Option<SyntaxToken> {
+        support::token(&self.syntax, SyntaxKind::L_PAREN)
+    }
+    #[inline]
+    pub fn r_paren_token(&self) -> Option<SyntaxToken> {
+        support::token(&self.syntax, SyntaxKind::R_PAREN)
     }
 }
 
@@ -3894,6 +3970,10 @@ pub struct Commit {
 }
 impl Commit {
     #[inline]
+    pub fn chain_clause(&self) -> Option<ChainClause> {
+        support::child(&self.syntax)
+    }
+    #[inline]
     pub fn literal(&self) -> Option<Literal> {
         support::child(&self.syntax)
     }
@@ -3902,24 +3982,12 @@ impl Commit {
         support::token(&self.syntax, SyntaxKind::SEMICOLON)
     }
     #[inline]
-    pub fn and_token(&self) -> Option<SyntaxToken> {
-        support::token(&self.syntax, SyntaxKind::AND_KW)
-    }
-    #[inline]
-    pub fn chain_token(&self) -> Option<SyntaxToken> {
-        support::token(&self.syntax, SyntaxKind::CHAIN_KW)
-    }
-    #[inline]
     pub fn commit_token(&self) -> Option<SyntaxToken> {
         support::token(&self.syntax, SyntaxKind::COMMIT_KW)
     }
     #[inline]
     pub fn end_token(&self) -> Option<SyntaxToken> {
         support::token(&self.syntax, SyntaxKind::END_KW)
-    }
-    #[inline]
-    pub fn no_token(&self) -> Option<SyntaxToken> {
-        support::token(&self.syntax, SyntaxKind::NO_KW)
     }
     #[inline]
     pub fn prepared_token(&self) -> Option<SyntaxToken> {
@@ -4038,26 +4106,6 @@ impl CompoundSelect {
     #[inline]
     pub fn semicolon_token(&self) -> Option<SyntaxToken> {
         support::token(&self.syntax, SyntaxKind::SEMICOLON)
-    }
-    #[inline]
-    pub fn all_token(&self) -> Option<SyntaxToken> {
-        support::token(&self.syntax, SyntaxKind::ALL_KW)
-    }
-    #[inline]
-    pub fn distinct_token(&self) -> Option<SyntaxToken> {
-        support::token(&self.syntax, SyntaxKind::DISTINCT_KW)
-    }
-    #[inline]
-    pub fn except_token(&self) -> Option<SyntaxToken> {
-        support::token(&self.syntax, SyntaxKind::EXCEPT_KW)
-    }
-    #[inline]
-    pub fn intersect_token(&self) -> Option<SyntaxToken> {
-        support::token(&self.syntax, SyntaxKind::INTERSECT_KW)
-    }
-    #[inline]
-    pub fn union_token(&self) -> Option<SyntaxToken> {
-        support::token(&self.syntax, SyntaxKind::UNION_KW)
     }
 }
 
@@ -4247,6 +4295,21 @@ impl ConflictOnIndex {
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
+pub struct ConnectionClause {
+    pub(crate) syntax: SyntaxNode,
+}
+impl ConnectionClause {
+    #[inline]
+    pub fn literal(&self) -> Option<Literal> {
+        support::child(&self.syntax)
+    }
+    #[inline]
+    pub fn connection_token(&self) -> Option<SyntaxToken> {
+        support::token(&self.syntax, SyntaxKind::CONNECTION_KW)
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub struct ConstraintColumnRefList {
     pub(crate) syntax: SyntaxNode,
 }
@@ -4398,6 +4461,21 @@ impl ConstraintNameRef {
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
+pub struct ContinueIdentity {
+    pub(crate) syntax: SyntaxNode,
+}
+impl ContinueIdentity {
+    #[inline]
+    pub fn continue_token(&self) -> Option<SyntaxToken> {
+        support::token(&self.syntax, SyntaxKind::CONTINUE_KW)
+    }
+    #[inline]
+    pub fn identity_token(&self) -> Option<SyntaxToken> {
+        support::token(&self.syntax, SyntaxKind::IDENTITY_KW)
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub struct Conversion {
     pub(crate) syntax: SyntaxNode,
 }
@@ -4444,7 +4522,7 @@ pub struct Copy {
 }
 impl Copy {
     #[inline]
-    pub fn copy_from(&self) -> Option<CopyFrom> {
+    pub fn copy_direction(&self) -> Option<CopyDirection> {
         support::child(&self.syntax)
     }
     #[inline]
@@ -4461,10 +4539,6 @@ impl Copy {
     }
     #[inline]
     pub fn copy_table(&self) -> Option<CopyTable> {
-        support::child(&self.syntax)
-    }
-    #[inline]
-    pub fn copy_to(&self) -> Option<CopyTo> {
         support::child(&self.syntax)
     }
     #[inline]
@@ -4491,24 +4565,12 @@ pub struct CopyFrom {
 }
 impl CopyFrom {
     #[inline]
-    pub fn literal(&self) -> Option<Literal> {
+    pub fn copy_source(&self) -> Option<CopySource> {
         support::child(&self.syntax)
     }
     #[inline]
     pub fn from_token(&self) -> Option<SyntaxToken> {
         support::token(&self.syntax, SyntaxKind::FROM_KW)
-    }
-    #[inline]
-    pub fn program_token(&self) -> Option<SyntaxToken> {
-        support::token(&self.syntax, SyntaxKind::PROGRAM_KW)
-    }
-    #[inline]
-    pub fn stdin_token(&self) -> Option<SyntaxToken> {
-        support::token(&self.syntax, SyntaxKind::STDIN_KW)
-    }
-    #[inline]
-    pub fn stdout_token(&self) -> Option<SyntaxToken> {
-        support::token(&self.syntax, SyntaxKind::STDOUT_KW)
     }
 }
 
@@ -4520,6 +4582,10 @@ impl CopyLegacyOption {
     #[inline]
     pub fn column_name_refs(&self) -> AstChildren<ColumnNameRef> {
         support::children(&self.syntax)
+    }
+    #[inline]
+    pub fn copy_force_kind(&self) -> Option<CopyForceKind> {
+        support::child(&self.syntax)
     }
     #[inline]
     pub fn literal(&self) -> Option<Literal> {
@@ -4570,10 +4636,6 @@ impl CopyLegacyOption {
         support::token(&self.syntax, SyntaxKind::JSON_KW)
     }
     #[inline]
-    pub fn not_token(&self) -> Option<SyntaxToken> {
-        support::token(&self.syntax, SyntaxKind::NOT_KW)
-    }
-    #[inline]
     pub fn null_token(&self) -> Option<SyntaxToken> {
         support::token(&self.syntax, SyntaxKind::NULL_KW)
     }
@@ -4589,36 +4651,23 @@ pub struct CopyOption {
 }
 impl CopyOption {
     #[inline]
-    pub fn copy_option_list(&self) -> Option<CopyOptionList> {
+    pub fn copy_option_key(&self) -> Option<CopyOptionKey> {
         support::child(&self.syntax)
     }
     #[inline]
-    pub fn copy_option_name(&self) -> Option<CopyOptionName> {
+    pub fn copy_option_value(&self) -> Option<CopyOptionValue> {
         support::child(&self.syntax)
     }
-    #[inline]
-    pub fn literal(&self) -> Option<Literal> {
-        support::child(&self.syntax)
-    }
-    #[inline]
-    pub fn star_token(&self) -> Option<SyntaxToken> {
-        support::token(&self.syntax, SyntaxKind::STAR)
-    }
-    #[inline]
-    pub fn default_token(&self) -> Option<SyntaxToken> {
-        support::token(&self.syntax, SyntaxKind::DEFAULT_KW)
-    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
+pub struct CopyOptionKey {
+    pub(crate) syntax: SyntaxNode,
+}
+impl CopyOptionKey {
     #[inline]
     pub fn ident_token(&self) -> Option<SyntaxToken> {
         support::token(&self.syntax, SyntaxKind::IDENT)
-    }
-    #[inline]
-    pub fn off_token(&self) -> Option<SyntaxToken> {
-        support::token(&self.syntax, SyntaxKind::OFF_KW)
-    }
-    #[inline]
-    pub fn on_token(&self) -> Option<SyntaxToken> {
-        support::token(&self.syntax, SyntaxKind::ON_KW)
     }
 }
 
@@ -4642,13 +4691,63 @@ impl CopyOptionList {
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
-pub struct CopyOptionName {
+pub struct CopyOptionValue {
     pub(crate) syntax: SyntaxNode,
 }
-impl CopyOptionName {
+impl CopyOptionValue {
+    #[inline]
+    pub fn copy_option_list(&self) -> Option<CopyOptionList> {
+        support::child(&self.syntax)
+    }
+    #[inline]
+    pub fn copy_option_value_name(&self) -> Option<CopyOptionValueName> {
+        support::child(&self.syntax)
+    }
+    #[inline]
+    pub fn expr(&self) -> Option<Expr> {
+        support::child(&self.syntax)
+    }
+    #[inline]
+    pub fn star_token(&self) -> Option<SyntaxToken> {
+        support::token(&self.syntax, SyntaxKind::STAR)
+    }
+    #[inline]
+    pub fn default_token(&self) -> Option<SyntaxToken> {
+        support::token(&self.syntax, SyntaxKind::DEFAULT_KW)
+    }
+    #[inline]
+    pub fn off_token(&self) -> Option<SyntaxToken> {
+        support::token(&self.syntax, SyntaxKind::OFF_KW)
+    }
+    #[inline]
+    pub fn on_token(&self) -> Option<SyntaxToken> {
+        support::token(&self.syntax, SyntaxKind::ON_KW)
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
+pub struct CopyOptionValueName {
+    pub(crate) syntax: SyntaxNode,
+}
+impl CopyOptionValueName {
     #[inline]
     pub fn ident_token(&self) -> Option<SyntaxToken> {
         support::token(&self.syntax, SyntaxKind::IDENT)
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
+pub struct CopyProgram {
+    pub(crate) syntax: SyntaxNode,
+}
+impl CopyProgram {
+    #[inline]
+    pub fn literal(&self) -> Option<Literal> {
+        support::child(&self.syntax)
+    }
+    #[inline]
+    pub fn program_token(&self) -> Option<SyntaxToken> {
+        support::token(&self.syntax, SyntaxKind::PROGRAM_KW)
     }
 }
 
@@ -4668,6 +4767,28 @@ impl CopyQuery {
     #[inline]
     pub fn r_paren_token(&self) -> Option<SyntaxToken> {
         support::token(&self.syntax, SyntaxKind::R_PAREN)
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
+pub struct CopyStdin {
+    pub(crate) syntax: SyntaxNode,
+}
+impl CopyStdin {
+    #[inline]
+    pub fn stdin_token(&self) -> Option<SyntaxToken> {
+        support::token(&self.syntax, SyntaxKind::STDIN_KW)
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
+pub struct CopyStdout {
+    pub(crate) syntax: SyntaxNode,
+}
+impl CopyStdout {
+    #[inline]
+    pub fn stdout_token(&self) -> Option<SyntaxToken> {
+        support::token(&self.syntax, SyntaxKind::STDOUT_KW)
     }
 }
 
@@ -4696,16 +4817,8 @@ pub struct CopyTo {
 }
 impl CopyTo {
     #[inline]
-    pub fn literal(&self) -> Option<Literal> {
+    pub fn copy_target(&self) -> Option<CopyTarget> {
         support::child(&self.syntax)
-    }
-    #[inline]
-    pub fn program_token(&self) -> Option<SyntaxToken> {
-        support::token(&self.syntax, SyntaxKind::PROGRAM_KW)
-    }
-    #[inline]
-    pub fn stdout_token(&self) -> Option<SyntaxToken> {
-        support::token(&self.syntax, SyntaxKind::STDOUT_KW)
     }
     #[inline]
     pub fn to_token(&self) -> Option<SyntaxToken> {
@@ -4738,6 +4851,10 @@ impl CreateAccessMethod {
         support::child(&self.syntax)
     }
     #[inline]
+    pub fn access_method_type(&self) -> Option<AccessMethodType> {
+        support::child(&self.syntax)
+    }
+    #[inline]
     pub fn handler_clause(&self) -> Option<HandlerClause> {
         support::child(&self.syntax)
     }
@@ -4754,16 +4871,8 @@ impl CreateAccessMethod {
         support::token(&self.syntax, SyntaxKind::CREATE_KW)
     }
     #[inline]
-    pub fn index_token(&self) -> Option<SyntaxToken> {
-        support::token(&self.syntax, SyntaxKind::INDEX_KW)
-    }
-    #[inline]
     pub fn method_token(&self) -> Option<SyntaxToken> {
         support::token(&self.syntax, SyntaxKind::METHOD_KW)
-    }
-    #[inline]
-    pub fn table_token(&self) -> Option<SyntaxToken> {
-        support::token(&self.syntax, SyntaxKind::TABLE_KW)
     }
     #[inline]
     pub fn type_token(&self) -> Option<SyntaxToken> {
@@ -4812,32 +4921,20 @@ pub struct CreateCast {
 }
 impl CreateCast {
     #[inline]
+    pub fn cast_context(&self) -> Option<CastContext> {
+        support::child(&self.syntax)
+    }
+    #[inline]
+    pub fn cast_method(&self) -> Option<CastMethod> {
+        support::child(&self.syntax)
+    }
+    #[inline]
     pub fn cast_sig(&self) -> Option<CastSig> {
-        support::child(&self.syntax)
-    }
-    #[inline]
-    pub fn with_function(&self) -> Option<WithFunction> {
-        support::child(&self.syntax)
-    }
-    #[inline]
-    pub fn with_inout(&self) -> Option<WithInout> {
-        support::child(&self.syntax)
-    }
-    #[inline]
-    pub fn without_function(&self) -> Option<WithoutFunction> {
         support::child(&self.syntax)
     }
     #[inline]
     pub fn semicolon_token(&self) -> Option<SyntaxToken> {
         support::token(&self.syntax, SyntaxKind::SEMICOLON)
-    }
-    #[inline]
-    pub fn as_token(&self) -> Option<SyntaxToken> {
-        support::token(&self.syntax, SyntaxKind::AS_KW)
-    }
-    #[inline]
-    pub fn assignment_token(&self) -> Option<SyntaxToken> {
-        support::token(&self.syntax, SyntaxKind::ASSIGNMENT_KW)
     }
     #[inline]
     pub fn cast_token(&self) -> Option<SyntaxToken> {
@@ -4847,10 +4944,6 @@ impl CreateCast {
     pub fn create_token(&self) -> Option<SyntaxToken> {
         support::token(&self.syntax, SyntaxKind::CREATE_KW)
     }
-    #[inline]
-    pub fn implicit_token(&self) -> Option<SyntaxToken> {
-        support::token(&self.syntax, SyntaxKind::IMPLICIT_KW)
-    }
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
@@ -4859,15 +4952,11 @@ pub struct CreateCollation {
 }
 impl CreateCollation {
     #[inline]
-    pub fn attribute_list(&self) -> Option<AttributeList> {
-        support::child(&self.syntax)
-    }
-    #[inline]
     pub fn collation(&self) -> Option<Collation> {
         support::child(&self.syntax)
     }
     #[inline]
-    pub fn collation_from(&self) -> Option<CollationFrom> {
+    pub fn definition(&self) -> Option<CreateCollationDefinition> {
         support::child(&self.syntax)
     }
     #[inline]
@@ -4899,10 +4988,6 @@ impl CreateConversion {
     }
     #[inline]
     pub fn function_name_ref(&self) -> Option<FunctionNameRef> {
-        support::child(&self.syntax)
-    }
-    #[inline]
-    pub fn literal(&self) -> Option<Literal> {
         support::child(&self.syntax)
     }
     #[inline]
@@ -5066,15 +5151,15 @@ impl CreateExtension {
         support::child(&self.syntax)
     }
     #[inline]
+    pub fn extension_schema(&self) -> Option<ExtensionSchema> {
+        support::child(&self.syntax)
+    }
+    #[inline]
+    pub fn extension_version_clause(&self) -> Option<ExtensionVersionClause> {
+        support::child(&self.syntax)
+    }
+    #[inline]
     pub fn if_not_exists(&self) -> Option<IfNotExists> {
-        support::child(&self.syntax)
-    }
-    #[inline]
-    pub fn literal(&self) -> Option<Literal> {
-        support::child(&self.syntax)
-    }
-    #[inline]
-    pub fn schema_ref(&self) -> Option<SchemaRef> {
         support::child(&self.syntax)
     }
     #[inline]
@@ -5092,18 +5177,6 @@ impl CreateExtension {
     #[inline]
     pub fn extension_token(&self) -> Option<SyntaxToken> {
         support::token(&self.syntax, SyntaxKind::EXTENSION_KW)
-    }
-    #[inline]
-    pub fn ident_token(&self) -> Option<SyntaxToken> {
-        support::token(&self.syntax, SyntaxKind::IDENT)
-    }
-    #[inline]
-    pub fn schema_token(&self) -> Option<SyntaxToken> {
-        support::token(&self.syntax, SyntaxKind::SCHEMA_KW)
-    }
-    #[inline]
-    pub fn version_token(&self) -> Option<SyntaxToken> {
-        support::token(&self.syntax, SyntaxKind::VERSION_KW)
     }
     #[inline]
     pub fn with_token(&self) -> Option<SyntaxToken> {
@@ -5176,7 +5249,7 @@ impl CreateForeignTable {
         support::child(&self.syntax)
     }
     #[inline]
-    pub fn server_name(&self) -> Option<ServerName> {
+    pub fn server_clause(&self) -> Option<ServerClause> {
         support::child(&self.syntax)
     }
     #[inline]
@@ -5289,11 +5362,7 @@ impl CreateIndex {
         support::child(&self.syntax)
     }
     #[inline]
-    pub fn nulls_distinct(&self) -> Option<NullsDistinct> {
-        support::child(&self.syntax)
-    }
-    #[inline]
-    pub fn nulls_not_distinct(&self) -> Option<NullsNotDistinct> {
+    pub fn nulls_distinct_option(&self) -> Option<NullsDistinctOption> {
         support::child(&self.syntax)
     }
     #[inline]
@@ -5352,7 +5421,11 @@ pub struct CreateLanguage {
 }
 impl CreateLanguage {
     #[inline]
-    pub fn function_name_ref(&self) -> Option<FunctionNameRef> {
+    pub fn handler_clause(&self) -> Option<HandlerClause> {
+        support::child(&self.syntax)
+    }
+    #[inline]
+    pub fn inline_clause(&self) -> Option<InlineClause> {
         support::child(&self.syntax)
     }
     #[inline]
@@ -5364,20 +5437,16 @@ impl CreateLanguage {
         support::child(&self.syntax)
     }
     #[inline]
+    pub fn validator_clause(&self) -> Option<ValidatorClause> {
+        support::child(&self.syntax)
+    }
+    #[inline]
     pub fn semicolon_token(&self) -> Option<SyntaxToken> {
         support::token(&self.syntax, SyntaxKind::SEMICOLON)
     }
     #[inline]
     pub fn create_token(&self) -> Option<SyntaxToken> {
         support::token(&self.syntax, SyntaxKind::CREATE_KW)
-    }
-    #[inline]
-    pub fn handler_token(&self) -> Option<SyntaxToken> {
-        support::token(&self.syntax, SyntaxKind::HANDLER_KW)
-    }
-    #[inline]
-    pub fn inline_token(&self) -> Option<SyntaxToken> {
-        support::token(&self.syntax, SyntaxKind::INLINE_KW)
     }
     #[inline]
     pub fn language_token(&self) -> Option<SyntaxToken> {
@@ -5391,10 +5460,6 @@ impl CreateLanguage {
     pub fn trusted_token(&self) -> Option<SyntaxToken> {
         support::token(&self.syntax, SyntaxKind::TRUSTED_KW)
     }
-    #[inline]
-    pub fn validator_token(&self) -> Option<SyntaxToken> {
-        support::token(&self.syntax, SyntaxKind::VALIDATOR_KW)
-    }
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
@@ -5404,6 +5469,10 @@ pub struct CreateMaterializedView {
 impl CreateMaterializedView {
     #[inline]
     pub fn column_list(&self) -> Option<ColumnList> {
+        support::child(&self.syntax)
+    }
+    #[inline]
+    pub fn data_option(&self) -> Option<DataOption> {
         support::child(&self.syntax)
     }
     #[inline]
@@ -5424,14 +5493,6 @@ impl CreateMaterializedView {
     }
     #[inline]
     pub fn view(&self) -> Option<View> {
-        support::child(&self.syntax)
-    }
-    #[inline]
-    pub fn with_data(&self) -> Option<WithData> {
-        support::child(&self.syntax)
-    }
-    #[inline]
-    pub fn with_no_data(&self) -> Option<WithNoData> {
         support::child(&self.syntax)
     }
     #[inline]
@@ -5595,7 +5656,11 @@ impl CreatePolicy {
         support::child(&self.syntax)
     }
     #[inline]
-    pub fn role_ref_list(&self) -> Option<RoleRefList> {
+    pub fn policy_command(&self) -> Option<PolicyCommand> {
+        support::child(&self.syntax)
+    }
+    #[inline]
+    pub fn policy_roles(&self) -> Option<PolicyRoles> {
         support::child(&self.syntax)
     }
     #[inline]
@@ -5611,40 +5676,12 @@ impl CreatePolicy {
         support::token(&self.syntax, SyntaxKind::SEMICOLON)
     }
     #[inline]
-    pub fn all_token(&self) -> Option<SyntaxToken> {
-        support::token(&self.syntax, SyntaxKind::ALL_KW)
-    }
-    #[inline]
     pub fn create_token(&self) -> Option<SyntaxToken> {
         support::token(&self.syntax, SyntaxKind::CREATE_KW)
     }
     #[inline]
-    pub fn delete_token(&self) -> Option<SyntaxToken> {
-        support::token(&self.syntax, SyntaxKind::DELETE_KW)
-    }
-    #[inline]
-    pub fn for_token(&self) -> Option<SyntaxToken> {
-        support::token(&self.syntax, SyntaxKind::FOR_KW)
-    }
-    #[inline]
-    pub fn insert_token(&self) -> Option<SyntaxToken> {
-        support::token(&self.syntax, SyntaxKind::INSERT_KW)
-    }
-    #[inline]
     pub fn policy_token(&self) -> Option<SyntaxToken> {
         support::token(&self.syntax, SyntaxKind::POLICY_KW)
-    }
-    #[inline]
-    pub fn select_token(&self) -> Option<SyntaxToken> {
-        support::token(&self.syntax, SyntaxKind::SELECT_KW)
-    }
-    #[inline]
-    pub fn to_token(&self) -> Option<SyntaxToken> {
-        support::token(&self.syntax, SyntaxKind::TO_KW)
-    }
-    #[inline]
-    pub fn update_token(&self) -> Option<SyntaxToken> {
-        support::token(&self.syntax, SyntaxKind::UPDATE_KW)
     }
 }
 
@@ -5728,16 +5765,12 @@ pub struct CreatePublication {
 }
 impl CreatePublication {
     #[inline]
-    pub fn for_all_publication_objects(&self) -> Option<ForAllPublicationObjects> {
-        support::child(&self.syntax)
-    }
-    #[inline]
     pub fn publication(&self) -> Option<Publication> {
         support::child(&self.syntax)
     }
     #[inline]
-    pub fn publication_objects(&self) -> AstChildren<PublicationObject> {
-        support::children(&self.syntax)
+    pub fn publication_for_clause(&self) -> Option<PublicationForClause> {
+        support::child(&self.syntax)
     }
     #[inline]
     pub fn with_params(&self) -> Option<WithParams> {
@@ -5750,10 +5783,6 @@ impl CreatePublication {
     #[inline]
     pub fn create_token(&self) -> Option<SyntaxToken> {
         support::token(&self.syntax, SyntaxKind::CREATE_KW)
-    }
-    #[inline]
-    pub fn for_token(&self) -> Option<SyntaxToken> {
-        support::token(&self.syntax, SyntaxKind::FOR_KW)
     }
     #[inline]
     pub fn publication_token(&self) -> Option<SyntaxToken> {
@@ -5911,11 +5940,15 @@ impl CreateServer {
         support::child(&self.syntax)
     }
     #[inline]
-    pub fn literal(&self) -> Option<Literal> {
+    pub fn server(&self) -> Option<Server> {
         support::child(&self.syntax)
     }
     #[inline]
-    pub fn server(&self) -> Option<Server> {
+    pub fn server_type(&self) -> Option<ServerType> {
+        support::child(&self.syntax)
+    }
+    #[inline]
+    pub fn server_version(&self) -> Option<ServerVersion> {
         support::child(&self.syntax)
     }
     #[inline]
@@ -5939,14 +5972,6 @@ impl CreateServer {
         support::token(&self.syntax, SyntaxKind::SERVER_KW)
     }
     #[inline]
-    pub fn type_token(&self) -> Option<SyntaxToken> {
-        support::token(&self.syntax, SyntaxKind::TYPE_KW)
-    }
-    #[inline]
-    pub fn version_token(&self) -> Option<SyntaxToken> {
-        support::token(&self.syntax, SyntaxKind::VERSION_KW)
-    }
-    #[inline]
     pub fn wrapper_token(&self) -> Option<SyntaxToken> {
         support::token(&self.syntax, SyntaxKind::WRAPPER_KW)
     }
@@ -5957,10 +5982,6 @@ pub struct CreateStatistics {
     pub(crate) syntax: SyntaxNode,
 }
 impl CreateStatistics {
-    #[inline]
-    pub fn exprs(&self) -> AstChildren<Expr> {
-        support::children(&self.syntax)
-    }
     #[inline]
     pub fn from_table(&self) -> Option<FromTable> {
         support::child(&self.syntax)
@@ -5978,16 +5999,16 @@ impl CreateStatistics {
         support::child(&self.syntax)
     }
     #[inline]
+    pub fn statistics_on_clause(&self) -> Option<StatisticsOnClause> {
+        support::child(&self.syntax)
+    }
+    #[inline]
     pub fn semicolon_token(&self) -> Option<SyntaxToken> {
         support::token(&self.syntax, SyntaxKind::SEMICOLON)
     }
     #[inline]
     pub fn create_token(&self) -> Option<SyntaxToken> {
         support::token(&self.syntax, SyntaxKind::CREATE_KW)
-    }
-    #[inline]
-    pub fn on_token(&self) -> Option<SyntaxToken> {
-        support::token(&self.syntax, SyntaxKind::ON_KW)
     }
     #[inline]
     pub fn statistics_token(&self) -> Option<SyntaxToken> {
@@ -6001,15 +6022,11 @@ pub struct CreateSubscription {
 }
 impl CreateSubscription {
     #[inline]
-    pub fn literal(&self) -> Option<Literal> {
-        support::child(&self.syntax)
-    }
-    #[inline]
     pub fn publication_refs(&self) -> AstChildren<PublicationRef> {
         support::children(&self.syntax)
     }
     #[inline]
-    pub fn server_ref(&self) -> Option<ServerRef> {
+    pub fn source(&self) -> Option<SubscriptionSource> {
         support::child(&self.syntax)
     }
     #[inline]
@@ -6025,20 +6042,12 @@ impl CreateSubscription {
         support::token(&self.syntax, SyntaxKind::SEMICOLON)
     }
     #[inline]
-    pub fn connection_token(&self) -> Option<SyntaxToken> {
-        support::token(&self.syntax, SyntaxKind::CONNECTION_KW)
-    }
-    #[inline]
     pub fn create_token(&self) -> Option<SyntaxToken> {
         support::token(&self.syntax, SyntaxKind::CREATE_KW)
     }
     #[inline]
     pub fn publication_token(&self) -> Option<SyntaxToken> {
         support::token(&self.syntax, SyntaxKind::PUBLICATION_KW)
-    }
-    #[inline]
-    pub fn server_token(&self) -> Option<SyntaxToken> {
-        support::token(&self.syntax, SyntaxKind::SERVER_KW)
     }
     #[inline]
     pub fn subscription_token(&self) -> Option<SyntaxToken> {
@@ -6092,19 +6101,15 @@ impl CreateTable {
         support::child(&self.syntax)
     }
     #[inline]
+    pub fn table_params(&self) -> Option<TableParams> {
+        support::child(&self.syntax)
+    }
+    #[inline]
     pub fn tablespace_clause(&self) -> Option<TablespaceClause> {
         support::child(&self.syntax)
     }
     #[inline]
     pub fn using_method(&self) -> Option<UsingMethod> {
-        support::child(&self.syntax)
-    }
-    #[inline]
-    pub fn with_params(&self) -> Option<WithParams> {
-        support::child(&self.syntax)
-    }
-    #[inline]
-    pub fn without_oids(&self) -> Option<WithoutOids> {
         support::child(&self.syntax)
     }
     #[inline]
@@ -6126,6 +6131,10 @@ pub struct CreateTableAs {
     pub(crate) syntax: SyntaxNode,
 }
 impl CreateTableAs {
+    #[inline]
+    pub fn data_option(&self) -> Option<DataOption> {
+        support::child(&self.syntax)
+    }
     #[inline]
     pub fn if_not_exists(&self) -> Option<IfNotExists> {
         support::child(&self.syntax)
@@ -6151,27 +6160,15 @@ impl CreateTableAs {
         support::child(&self.syntax)
     }
     #[inline]
+    pub fn table_params(&self) -> Option<TableParams> {
+        support::child(&self.syntax)
+    }
+    #[inline]
     pub fn tablespace_clause(&self) -> Option<TablespaceClause> {
         support::child(&self.syntax)
     }
     #[inline]
     pub fn using_method(&self) -> Option<UsingMethod> {
-        support::child(&self.syntax)
-    }
-    #[inline]
-    pub fn with_data(&self) -> Option<WithData> {
-        support::child(&self.syntax)
-    }
-    #[inline]
-    pub fn with_no_data(&self) -> Option<WithNoData> {
-        support::child(&self.syntax)
-    }
-    #[inline]
-    pub fn with_params(&self) -> Option<WithParams> {
-        support::child(&self.syntax)
-    }
-    #[inline]
-    pub fn without_oids(&self) -> Option<WithoutOids> {
         support::child(&self.syntax)
     }
     #[inline]
@@ -6202,11 +6199,11 @@ impl CreateTablespace {
         support::child(&self.syntax)
     }
     #[inline]
-    pub fn role_ref(&self) -> Option<RoleRef> {
+    pub fn tablespace(&self) -> Option<Tablespace> {
         support::child(&self.syntax)
     }
     #[inline]
-    pub fn tablespace(&self) -> Option<Tablespace> {
+    pub fn tablespace_owner(&self) -> Option<TablespaceOwner> {
         support::child(&self.syntax)
     }
     #[inline]
@@ -6224,10 +6221,6 @@ impl CreateTablespace {
     #[inline]
     pub fn location_token(&self) -> Option<SyntaxToken> {
         support::token(&self.syntax, SyntaxKind::LOCATION_KW)
-    }
-    #[inline]
-    pub fn owner_token(&self) -> Option<SyntaxToken> {
-        support::token(&self.syntax, SyntaxKind::OWNER_KW)
     }
     #[inline]
     pub fn tablespace_token(&self) -> Option<SyntaxToken> {
@@ -6381,10 +6374,6 @@ pub struct CreateTransform {
 }
 impl CreateTransform {
     #[inline]
-    pub fn from_func(&self) -> Option<TransformFromFunc> {
-        support::child(&self.syntax)
-    }
-    #[inline]
     pub fn language_ref(&self) -> Option<LanguageRef> {
         support::child(&self.syntax)
     }
@@ -6393,8 +6382,8 @@ impl CreateTransform {
         support::child(&self.syntax)
     }
     #[inline]
-    pub fn to_func(&self) -> Option<TransformToFunc> {
-        support::child(&self.syntax)
+    pub fn transform_funcs(&self) -> AstChildren<TransformFunc> {
+        support::children(&self.syntax)
     }
     #[inline]
     pub fn ty(&self) -> Option<Type> {
@@ -6407,10 +6396,6 @@ impl CreateTransform {
     #[inline]
     pub fn r_paren_token(&self) -> Option<SyntaxToken> {
         support::token(&self.syntax, SyntaxKind::R_PAREN)
-    }
-    #[inline]
-    pub fn comma_token(&self) -> Option<SyntaxToken> {
-        support::token(&self.syntax, SyntaxKind::COMMA)
     }
     #[inline]
     pub fn semicolon_token(&self) -> Option<SyntaxToken> {
@@ -6492,6 +6477,10 @@ impl CreateTrigger {
         support::child(&self.syntax)
     }
     #[inline]
+    pub fn trigger_level(&self) -> Option<TriggerLevel> {
+        support::child(&self.syntax)
+    }
+    #[inline]
     pub fn when_condition(&self) -> Option<WhenCondition> {
         support::child(&self.syntax)
     }
@@ -6508,16 +6497,8 @@ impl CreateTrigger {
         support::token(&self.syntax, SyntaxKind::CREATE_KW)
     }
     #[inline]
-    pub fn each_token(&self) -> Option<SyntaxToken> {
-        support::token(&self.syntax, SyntaxKind::EACH_KW)
-    }
-    #[inline]
     pub fn execute_token(&self) -> Option<SyntaxToken> {
         support::token(&self.syntax, SyntaxKind::EXECUTE_KW)
-    }
-    #[inline]
-    pub fn for_token(&self) -> Option<SyntaxToken> {
-        support::token(&self.syntax, SyntaxKind::FOR_KW)
     }
     #[inline]
     pub fn function_token(&self) -> Option<SyntaxToken> {
@@ -6526,14 +6507,6 @@ impl CreateTrigger {
     #[inline]
     pub fn procedure_token(&self) -> Option<SyntaxToken> {
         support::token(&self.syntax, SyntaxKind::PROCEDURE_KW)
-    }
-    #[inline]
-    pub fn row_token(&self) -> Option<SyntaxToken> {
-        support::token(&self.syntax, SyntaxKind::ROW_KW)
-    }
-    #[inline]
-    pub fn statement_token(&self) -> Option<SyntaxToken> {
-        support::token(&self.syntax, SyntaxKind::STATEMENT_KW)
     }
     #[inline]
     pub fn trigger_token(&self) -> Option<SyntaxToken> {
@@ -6613,7 +6586,7 @@ impl CreateUserMapping {
         support::child(&self.syntax)
     }
     #[inline]
-    pub fn server_name(&self) -> Option<ServerName> {
+    pub fn server_clause(&self) -> Option<ServerClause> {
         support::child(&self.syntax)
     }
     #[inline]
@@ -6664,6 +6637,10 @@ impl CreateView {
         support::child(&self.syntax)
     }
     #[inline]
+    pub fn with_check_option(&self) -> Option<WithCheckOption> {
+        support::child(&self.syntax)
+    }
+    #[inline]
     pub fn with_params(&self) -> Option<WithParams> {
         support::child(&self.syntax)
     }
@@ -6676,24 +6653,8 @@ impl CreateView {
         support::token(&self.syntax, SyntaxKind::AS_KW)
     }
     #[inline]
-    pub fn cascaded_token(&self) -> Option<SyntaxToken> {
-        support::token(&self.syntax, SyntaxKind::CASCADED_KW)
-    }
-    #[inline]
-    pub fn check_token(&self) -> Option<SyntaxToken> {
-        support::token(&self.syntax, SyntaxKind::CHECK_KW)
-    }
-    #[inline]
     pub fn create_token(&self) -> Option<SyntaxToken> {
         support::token(&self.syntax, SyntaxKind::CREATE_KW)
-    }
-    #[inline]
-    pub fn local_token(&self) -> Option<SyntaxToken> {
-        support::token(&self.syntax, SyntaxKind::LOCAL_KW)
-    }
-    #[inline]
-    pub fn option_token(&self) -> Option<SyntaxToken> {
-        support::token(&self.syntax, SyntaxKind::OPTION_KW)
     }
     #[inline]
     pub fn recursive_token(&self) -> Option<SyntaxToken> {
@@ -6702,10 +6663,6 @@ impl CreateView {
     #[inline]
     pub fn view_token(&self) -> Option<SyntaxToken> {
         support::token(&self.syntax, SyntaxKind::VIEW_KW)
-    }
-    #[inline]
-    pub fn with_token(&self) -> Option<SyntaxToken> {
-        support::token(&self.syntax, SyntaxKind::WITH_KW)
     }
 }
 
@@ -7193,16 +7150,24 @@ impl Declare {
         support::child(&self.syntax)
     }
     #[inline]
+    pub fn cursor_hold(&self) -> Option<CursorHold> {
+        support::child(&self.syntax)
+    }
+    #[inline]
+    pub fn cursor_scroll(&self) -> Option<CursorScroll> {
+        support::child(&self.syntax)
+    }
+    #[inline]
+    pub fn cursor_sensitivity(&self) -> Option<CursorSensitivity> {
+        support::child(&self.syntax)
+    }
+    #[inline]
     pub fn query(&self) -> Option<SelectVariant> {
         support::child(&self.syntax)
     }
     #[inline]
     pub fn semicolon_token(&self) -> Option<SyntaxToken> {
         support::token(&self.syntax, SyntaxKind::SEMICOLON)
-    }
-    #[inline]
-    pub fn asensitive_token(&self) -> Option<SyntaxToken> {
-        support::token(&self.syntax, SyntaxKind::ASENSITIVE_KW)
     }
     #[inline]
     pub fn binary_token(&self) -> Option<SyntaxToken> {
@@ -7220,30 +7185,6 @@ impl Declare {
     pub fn for_token(&self) -> Option<SyntaxToken> {
         support::token(&self.syntax, SyntaxKind::FOR_KW)
     }
-    #[inline]
-    pub fn hold_token(&self) -> Option<SyntaxToken> {
-        support::token(&self.syntax, SyntaxKind::HOLD_KW)
-    }
-    #[inline]
-    pub fn insensitive_token(&self) -> Option<SyntaxToken> {
-        support::token(&self.syntax, SyntaxKind::INSENSITIVE_KW)
-    }
-    #[inline]
-    pub fn no_token(&self) -> Option<SyntaxToken> {
-        support::token(&self.syntax, SyntaxKind::NO_KW)
-    }
-    #[inline]
-    pub fn scroll_token(&self) -> Option<SyntaxToken> {
-        support::token(&self.syntax, SyntaxKind::SCROLL_KW)
-    }
-    #[inline]
-    pub fn with_token(&self) -> Option<SyntaxToken> {
-        support::token(&self.syntax, SyntaxKind::WITH_KW)
-    }
-    #[inline]
-    pub fn without_token(&self) -> Option<SyntaxToken> {
-        support::token(&self.syntax, SyntaxKind::WITHOUT_KW)
-    }
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
@@ -7256,12 +7197,46 @@ impl DefaultConstraint {
         support::child(&self.syntax)
     }
     #[inline]
+    pub fn constraint_options(&self) -> AstChildren<ConstraintOption> {
+        support::children(&self.syntax)
+    }
+    #[inline]
     pub fn expr(&self) -> Option<Expr> {
         support::child(&self.syntax)
     }
     #[inline]
     pub fn default_token(&self) -> Option<SyntaxToken> {
         support::token(&self.syntax, SyntaxKind::DEFAULT_KW)
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
+pub struct DefaultLabel {
+    pub(crate) syntax: SyntaxNode,
+}
+impl DefaultLabel {
+    #[inline]
+    pub fn default_token(&self) -> Option<SyntaxToken> {
+        support::token(&self.syntax, SyntaxKind::DEFAULT_KW)
+    }
+    #[inline]
+    pub fn label_token(&self) -> Option<SyntaxToken> {
+        support::token(&self.syntax, SyntaxKind::LABEL_KW)
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
+pub struct DefaultValues {
+    pub(crate) syntax: SyntaxNode,
+}
+impl DefaultValues {
+    #[inline]
+    pub fn default_token(&self) -> Option<SyntaxToken> {
+        support::token(&self.syntax, SyntaxKind::DEFAULT_KW)
+    }
+    #[inline]
+    pub fn values_token(&self) -> Option<SyntaxToken> {
+        support::token(&self.syntax, SyntaxKind::VALUES_KW)
     }
 }
 
@@ -7284,6 +7259,17 @@ impl DeferrableConstraintOption {
     #[inline]
     pub fn deferrable_token(&self) -> Option<SyntaxToken> {
         support::token(&self.syntax, SyntaxKind::DEFERRABLE_KW)
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
+pub struct Deferred {
+    pub(crate) syntax: SyntaxNode,
+}
+impl Deferred {
+    #[inline]
+    pub fn deferred_token(&self) -> Option<SyntaxToken> {
+        support::token(&self.syntax, SyntaxKind::DEFERRED_KW)
     }
 }
 
@@ -7313,11 +7299,7 @@ impl Delete {
         support::child(&self.syntax)
     }
     #[inline]
-    pub fn where_clause(&self) -> Option<WhereClause> {
-        support::child(&self.syntax)
-    }
-    #[inline]
-    pub fn where_current_of(&self) -> Option<WhereCurrentOf> {
+    pub fn where_clause_or_current_of(&self) -> Option<WhereClauseOrCurrentOf> {
         support::child(&self.syntax)
     }
     #[inline]
@@ -7377,6 +7359,21 @@ impl DependsOnExtension {
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
+pub struct DepthFirst {
+    pub(crate) syntax: SyntaxNode,
+}
+impl DepthFirst {
+    #[inline]
+    pub fn depth_token(&self) -> Option<SyntaxToken> {
+        support::token(&self.syntax, SyntaxKind::DEPTH_KW)
+    }
+    #[inline]
+    pub fn first_token(&self) -> Option<SyntaxToken> {
+        support::token(&self.syntax, SyntaxKind::FIRST_KW)
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub struct DestVertexTable {
     pub(crate) syntax: SyntaxNode,
 }
@@ -7404,25 +7401,43 @@ impl DestVertexTable {
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
+pub struct DetachConcurrently {
+    pub(crate) syntax: SyntaxNode,
+}
+impl DetachConcurrently {
+    #[inline]
+    pub fn concurrently_token(&self) -> Option<SyntaxToken> {
+        support::token(&self.syntax, SyntaxKind::CONCURRENTLY_KW)
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
+pub struct DetachFinalize {
+    pub(crate) syntax: SyntaxNode,
+}
+impl DetachFinalize {
+    #[inline]
+    pub fn finalize_token(&self) -> Option<SyntaxToken> {
+        support::token(&self.syntax, SyntaxKind::FINALIZE_KW)
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub struct DetachPartition {
     pub(crate) syntax: SyntaxNode,
 }
 impl DetachPartition {
     #[inline]
+    pub fn detach_partition_option(&self) -> Option<DetachPartitionOption> {
+        support::child(&self.syntax)
+    }
+    #[inline]
     pub fn table_name_ref(&self) -> Option<TableNameRef> {
         support::child(&self.syntax)
     }
     #[inline]
-    pub fn concurrently_token(&self) -> Option<SyntaxToken> {
-        support::token(&self.syntax, SyntaxKind::CONCURRENTLY_KW)
-    }
-    #[inline]
     pub fn detach_token(&self) -> Option<SyntaxToken> {
         support::token(&self.syntax, SyntaxKind::DETACH_KW)
-    }
-    #[inline]
-    pub fn finalize_token(&self) -> Option<SyntaxToken> {
-        support::token(&self.syntax, SyntaxKind::FINALIZE_KW)
     }
     #[inline]
     pub fn partition_token(&self) -> Option<SyntaxToken> {
@@ -7500,12 +7515,8 @@ pub struct DisableTrigger {
 }
 impl DisableTrigger {
     #[inline]
-    pub fn trigger_ref(&self) -> Option<TriggerRef> {
+    pub fn trigger_target(&self) -> Option<TriggerTarget> {
         support::child(&self.syntax)
-    }
-    #[inline]
-    pub fn all_token(&self) -> Option<SyntaxToken> {
-        support::token(&self.syntax, SyntaxKind::ALL_KW)
     }
     #[inline]
     pub fn disable_token(&self) -> Option<SyntaxToken> {
@@ -7515,10 +7526,6 @@ impl DisableTrigger {
     pub fn trigger_token(&self) -> Option<SyntaxToken> {
         support::token(&self.syntax, SyntaxKind::TRIGGER_KW)
     }
-    #[inline]
-    pub fn user_token(&self) -> Option<SyntaxToken> {
-        support::token(&self.syntax, SyntaxKind::USER_KW)
-    }
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
@@ -7527,25 +7534,57 @@ pub struct Discard {
 }
 impl Discard {
     #[inline]
-    pub fn semicolon_token(&self) -> Option<SyntaxToken> {
-        support::token(&self.syntax, SyntaxKind::SEMICOLON)
+    pub fn discard_target(&self) -> Option<DiscardTarget> {
+        support::child(&self.syntax)
     }
     #[inline]
-    pub fn all_token(&self) -> Option<SyntaxToken> {
-        support::token(&self.syntax, SyntaxKind::ALL_KW)
+    pub fn semicolon_token(&self) -> Option<SyntaxToken> {
+        support::token(&self.syntax, SyntaxKind::SEMICOLON)
     }
     #[inline]
     pub fn discard_token(&self) -> Option<SyntaxToken> {
         support::token(&self.syntax, SyntaxKind::DISCARD_KW)
     }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
+pub struct DiscardAll {
+    pub(crate) syntax: SyntaxNode,
+}
+impl DiscardAll {
+    #[inline]
+    pub fn all_token(&self) -> Option<SyntaxToken> {
+        support::token(&self.syntax, SyntaxKind::ALL_KW)
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
+pub struct DiscardPlans {
+    pub(crate) syntax: SyntaxNode,
+}
+impl DiscardPlans {
     #[inline]
     pub fn plans_token(&self) -> Option<SyntaxToken> {
         support::token(&self.syntax, SyntaxKind::PLANS_KW)
     }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
+pub struct DiscardSequences {
+    pub(crate) syntax: SyntaxNode,
+}
+impl DiscardSequences {
     #[inline]
     pub fn sequences_token(&self) -> Option<SyntaxToken> {
         support::token(&self.syntax, SyntaxKind::SEQUENCES_KW)
     }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
+pub struct DiscardTemp {
+    pub(crate) syntax: SyntaxNode,
+}
+impl DiscardTemp {
     #[inline]
     pub fn temp_token(&self) -> Option<SyntaxToken> {
         support::token(&self.syntax, SyntaxKind::TEMP_KW)
@@ -7557,10 +7596,36 @@ impl Discard {
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
+pub struct Distinct {
+    pub(crate) syntax: SyntaxNode,
+}
+impl Distinct {
+    #[inline]
+    pub fn distinct_token(&self) -> Option<SyntaxToken> {
+        support::token(&self.syntax, SyntaxKind::DISTINCT_KW)
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub struct DistinctClause {
     pub(crate) syntax: SyntaxNode,
 }
 impl DistinctClause {
+    #[inline]
+    pub fn distinct_on(&self) -> Option<DistinctOn> {
+        support::child(&self.syntax)
+    }
+    #[inline]
+    pub fn distinct_token(&self) -> Option<SyntaxToken> {
+        support::token(&self.syntax, SyntaxKind::DISTINCT_KW)
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
+pub struct DistinctOn {
+    pub(crate) syntax: SyntaxNode,
+}
+impl DistinctOn {
     #[inline]
     pub fn exprs(&self) -> AstChildren<Expr> {
         support::children(&self.syntax)
@@ -7574,10 +7639,6 @@ impl DistinctClause {
         support::token(&self.syntax, SyntaxKind::R_PAREN)
     }
     #[inline]
-    pub fn distinct_token(&self) -> Option<SyntaxToken> {
-        support::token(&self.syntax, SyntaxKind::DISTINCT_KW)
-    }
-    #[inline]
     pub fn on_token(&self) -> Option<SyntaxToken> {
         support::token(&self.syntax, SyntaxKind::ON_KW)
     }
@@ -7589,11 +7650,11 @@ pub struct Do {
 }
 impl Do {
     #[inline]
-    pub fn language_ref(&self) -> Option<LanguageRef> {
+    pub fn body(&self) -> Option<Literal> {
         support::child(&self.syntax)
     }
     #[inline]
-    pub fn literal(&self) -> Option<Literal> {
+    pub fn do_language(&self) -> Option<DoLanguage> {
         support::child(&self.syntax)
     }
     #[inline]
@@ -7603,6 +7664,21 @@ impl Do {
     #[inline]
     pub fn do_token(&self) -> Option<SyntaxToken> {
         support::token(&self.syntax, SyntaxKind::DO_KW)
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
+pub struct DoLanguage {
+    pub(crate) syntax: SyntaxNode,
+}
+impl DoLanguage {
+    #[inline]
+    pub fn language_ref(&self) -> Option<LanguageRef> {
+        support::child(&self.syntax)
+    }
+    #[inline]
+    pub fn literal(&self) -> Option<Literal> {
+        support::child(&self.syntax)
     }
     #[inline]
     pub fn language_token(&self) -> Option<SyntaxToken> {
@@ -7691,6 +7767,10 @@ impl DropAccessMethod {
         support::child(&self.syntax)
     }
     #[inline]
+    pub fn drop_behavior(&self) -> Option<DropBehavior> {
+        support::child(&self.syntax)
+    }
+    #[inline]
     pub fn if_exists(&self) -> Option<IfExists> {
         support::child(&self.syntax)
     }
@@ -7703,20 +7783,12 @@ impl DropAccessMethod {
         support::token(&self.syntax, SyntaxKind::ACCESS_KW)
     }
     #[inline]
-    pub fn cascade_token(&self) -> Option<SyntaxToken> {
-        support::token(&self.syntax, SyntaxKind::CASCADE_KW)
-    }
-    #[inline]
     pub fn drop_token(&self) -> Option<SyntaxToken> {
         support::token(&self.syntax, SyntaxKind::DROP_KW)
     }
     #[inline]
     pub fn method_token(&self) -> Option<SyntaxToken> {
         support::token(&self.syntax, SyntaxKind::METHOD_KW)
-    }
-    #[inline]
-    pub fn restrict_token(&self) -> Option<SyntaxToken> {
-        support::token(&self.syntax, SyntaxKind::RESTRICT_KW)
     }
 }
 
@@ -7728,6 +7800,10 @@ impl DropAggregate {
     #[inline]
     pub fn aggregates(&self) -> AstChildren<Aggregate> {
         support::children(&self.syntax)
+    }
+    #[inline]
+    pub fn drop_behavior(&self) -> Option<DropBehavior> {
+        support::child(&self.syntax)
     }
     #[inline]
     pub fn if_exists(&self) -> Option<IfExists> {
@@ -7742,16 +7818,8 @@ impl DropAggregate {
         support::token(&self.syntax, SyntaxKind::AGGREGATE_KW)
     }
     #[inline]
-    pub fn cascade_token(&self) -> Option<SyntaxToken> {
-        support::token(&self.syntax, SyntaxKind::CASCADE_KW)
-    }
-    #[inline]
     pub fn drop_token(&self) -> Option<SyntaxToken> {
         support::token(&self.syntax, SyntaxKind::DROP_KW)
-    }
-    #[inline]
-    pub fn restrict_token(&self) -> Option<SyntaxToken> {
-        support::token(&self.syntax, SyntaxKind::RESTRICT_KW)
     }
 }
 
@@ -7761,19 +7829,15 @@ pub struct DropAttribute {
 }
 impl DropAttribute {
     #[inline]
-    pub fn cascade(&self) -> Option<Cascade> {
-        support::child(&self.syntax)
-    }
-    #[inline]
     pub fn composite_field_ref(&self) -> Option<CompositeFieldRef> {
         support::child(&self.syntax)
     }
     #[inline]
-    pub fn if_exists(&self) -> Option<IfExists> {
+    pub fn drop_behavior(&self) -> Option<DropBehavior> {
         support::child(&self.syntax)
     }
     #[inline]
-    pub fn restrict(&self) -> Option<Restrict> {
+    pub fn if_exists(&self) -> Option<IfExists> {
         support::child(&self.syntax)
     }
     #[inline]
@@ -7796,6 +7860,10 @@ impl DropCast {
         support::child(&self.syntax)
     }
     #[inline]
+    pub fn drop_behavior(&self) -> Option<DropBehavior> {
+        support::child(&self.syntax)
+    }
+    #[inline]
     pub fn if_exists(&self) -> Option<IfExists> {
         support::child(&self.syntax)
     }
@@ -7804,20 +7872,12 @@ impl DropCast {
         support::token(&self.syntax, SyntaxKind::SEMICOLON)
     }
     #[inline]
-    pub fn cascade_token(&self) -> Option<SyntaxToken> {
-        support::token(&self.syntax, SyntaxKind::CASCADE_KW)
-    }
-    #[inline]
     pub fn cast_token(&self) -> Option<SyntaxToken> {
         support::token(&self.syntax, SyntaxKind::CAST_KW)
     }
     #[inline]
     pub fn drop_token(&self) -> Option<SyntaxToken> {
         support::token(&self.syntax, SyntaxKind::DROP_KW)
-    }
-    #[inline]
-    pub fn restrict_token(&self) -> Option<SyntaxToken> {
-        support::token(&self.syntax, SyntaxKind::RESTRICT_KW)
     }
 }
 
@@ -7831,6 +7891,10 @@ impl DropCollation {
         support::children(&self.syntax)
     }
     #[inline]
+    pub fn drop_behavior(&self) -> Option<DropBehavior> {
+        support::child(&self.syntax)
+    }
+    #[inline]
     pub fn if_exists(&self) -> Option<IfExists> {
         support::child(&self.syntax)
     }
@@ -7839,20 +7903,12 @@ impl DropCollation {
         support::token(&self.syntax, SyntaxKind::SEMICOLON)
     }
     #[inline]
-    pub fn cascade_token(&self) -> Option<SyntaxToken> {
-        support::token(&self.syntax, SyntaxKind::CASCADE_KW)
-    }
-    #[inline]
     pub fn collation_token(&self) -> Option<SyntaxToken> {
         support::token(&self.syntax, SyntaxKind::COLLATION_KW)
     }
     #[inline]
     pub fn drop_token(&self) -> Option<SyntaxToken> {
         support::token(&self.syntax, SyntaxKind::DROP_KW)
-    }
-    #[inline]
-    pub fn restrict_token(&self) -> Option<SyntaxToken> {
-        support::token(&self.syntax, SyntaxKind::RESTRICT_KW)
     }
 }
 
@@ -7866,12 +7922,12 @@ impl DropColumn {
         support::child(&self.syntax)
     }
     #[inline]
-    pub fn if_exists(&self) -> Option<IfExists> {
+    pub fn drop_behavior(&self) -> Option<DropBehavior> {
         support::child(&self.syntax)
     }
     #[inline]
-    pub fn cascade_token(&self) -> Option<SyntaxToken> {
-        support::token(&self.syntax, SyntaxKind::CASCADE_KW)
+    pub fn if_exists(&self) -> Option<IfExists> {
+        support::child(&self.syntax)
     }
     #[inline]
     pub fn column_token(&self) -> Option<SyntaxToken> {
@@ -7880,10 +7936,6 @@ impl DropColumn {
     #[inline]
     pub fn drop_token(&self) -> Option<SyntaxToken> {
         support::token(&self.syntax, SyntaxKind::DROP_KW)
-    }
-    #[inline]
-    pub fn restrict_token(&self) -> Option<SyntaxToken> {
-        support::token(&self.syntax, SyntaxKind::RESTRICT_KW)
     }
 }
 
@@ -7897,12 +7949,12 @@ impl DropConstraint {
         support::child(&self.syntax)
     }
     #[inline]
-    pub fn if_exists(&self) -> Option<IfExists> {
+    pub fn drop_behavior(&self) -> Option<DropBehavior> {
         support::child(&self.syntax)
     }
     #[inline]
-    pub fn cascade_token(&self) -> Option<SyntaxToken> {
-        support::token(&self.syntax, SyntaxKind::CASCADE_KW)
+    pub fn if_exists(&self) -> Option<IfExists> {
+        support::child(&self.syntax)
     }
     #[inline]
     pub fn constraint_token(&self) -> Option<SyntaxToken> {
@@ -7911,10 +7963,6 @@ impl DropConstraint {
     #[inline]
     pub fn drop_token(&self) -> Option<SyntaxToken> {
         support::token(&self.syntax, SyntaxKind::DROP_KW)
-    }
-    #[inline]
-    pub fn restrict_token(&self) -> Option<SyntaxToken> {
-        support::token(&self.syntax, SyntaxKind::RESTRICT_KW)
     }
 }
 
@@ -7928,6 +7976,10 @@ impl DropConversion {
         support::child(&self.syntax)
     }
     #[inline]
+    pub fn drop_behavior(&self) -> Option<DropBehavior> {
+        support::child(&self.syntax)
+    }
+    #[inline]
     pub fn if_exists(&self) -> Option<IfExists> {
         support::child(&self.syntax)
     }
@@ -7936,20 +7988,12 @@ impl DropConversion {
         support::token(&self.syntax, SyntaxKind::SEMICOLON)
     }
     #[inline]
-    pub fn cascade_token(&self) -> Option<SyntaxToken> {
-        support::token(&self.syntax, SyntaxKind::CASCADE_KW)
-    }
-    #[inline]
     pub fn conversion_token(&self) -> Option<SyntaxToken> {
         support::token(&self.syntax, SyntaxKind::CONVERSION_KW)
     }
     #[inline]
     pub fn drop_token(&self) -> Option<SyntaxToken> {
         support::token(&self.syntax, SyntaxKind::DROP_KW)
-    }
-    #[inline]
-    pub fn restrict_token(&self) -> Option<SyntaxToken> {
-        support::token(&self.syntax, SyntaxKind::RESTRICT_KW)
     }
 }
 
@@ -7960,6 +8004,10 @@ pub struct DropDatabase {
 impl DropDatabase {
     #[inline]
     pub fn database_ref(&self) -> Option<DatabaseRef> {
+        support::child(&self.syntax)
+    }
+    #[inline]
+    pub fn drop_database_force_clause(&self) -> Option<DropDatabaseForceClause> {
         support::child(&self.syntax)
     }
     #[inline]
@@ -7977,6 +8025,29 @@ impl DropDatabase {
     #[inline]
     pub fn drop_token(&self) -> Option<SyntaxToken> {
         support::token(&self.syntax, SyntaxKind::DROP_KW)
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
+pub struct DropDatabaseForceClause {
+    pub(crate) syntax: SyntaxNode,
+}
+impl DropDatabaseForceClause {
+    #[inline]
+    pub fn forces(&self) -> AstChildren<Force> {
+        support::children(&self.syntax)
+    }
+    #[inline]
+    pub fn l_paren_token(&self) -> Option<SyntaxToken> {
+        support::token(&self.syntax, SyntaxKind::L_PAREN)
+    }
+    #[inline]
+    pub fn r_paren_token(&self) -> Option<SyntaxToken> {
+        support::token(&self.syntax, SyntaxKind::R_PAREN)
+    }
+    #[inline]
+    pub fn with_token(&self) -> Option<SyntaxToken> {
+        support::token(&self.syntax, SyntaxKind::WITH_KW)
     }
 }
 
@@ -8005,16 +8076,16 @@ impl DropDomain {
         support::children(&self.syntax)
     }
     #[inline]
+    pub fn drop_behavior(&self) -> Option<DropBehavior> {
+        support::child(&self.syntax)
+    }
+    #[inline]
     pub fn if_exists(&self) -> Option<IfExists> {
         support::child(&self.syntax)
     }
     #[inline]
     pub fn semicolon_token(&self) -> Option<SyntaxToken> {
         support::token(&self.syntax, SyntaxKind::SEMICOLON)
-    }
-    #[inline]
-    pub fn cascade_token(&self) -> Option<SyntaxToken> {
-        support::token(&self.syntax, SyntaxKind::CASCADE_KW)
     }
     #[inline]
     pub fn domain_token(&self) -> Option<SyntaxToken> {
@@ -8024,10 +8095,6 @@ impl DropDomain {
     pub fn drop_token(&self) -> Option<SyntaxToken> {
         support::token(&self.syntax, SyntaxKind::DROP_KW)
     }
-    #[inline]
-    pub fn restrict_token(&self) -> Option<SyntaxToken> {
-        support::token(&self.syntax, SyntaxKind::RESTRICT_KW)
-    }
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
@@ -8035,6 +8102,10 @@ pub struct DropEdgeTables {
     pub(crate) syntax: SyntaxNode,
 }
 impl DropEdgeTables {
+    #[inline]
+    pub fn drop_behavior(&self) -> Option<DropBehavior> {
+        support::child(&self.syntax)
+    }
     #[inline]
     pub fn element_table_refs(&self) -> AstChildren<ElementTableRef> {
         support::children(&self.syntax)
@@ -8046,10 +8117,6 @@ impl DropEdgeTables {
     #[inline]
     pub fn r_paren_token(&self) -> Option<SyntaxToken> {
         support::token(&self.syntax, SyntaxKind::R_PAREN)
-    }
-    #[inline]
-    pub fn cascade_token(&self) -> Option<SyntaxToken> {
-        support::token(&self.syntax, SyntaxKind::CASCADE_KW)
     }
     #[inline]
     pub fn drop_token(&self) -> Option<SyntaxToken> {
@@ -8064,10 +8131,6 @@ impl DropEdgeTables {
         support::token(&self.syntax, SyntaxKind::RELATIONSHIP_KW)
     }
     #[inline]
-    pub fn restrict_token(&self) -> Option<SyntaxToken> {
-        support::token(&self.syntax, SyntaxKind::RESTRICT_KW)
-    }
-    #[inline]
     pub fn tables_token(&self) -> Option<SyntaxToken> {
         support::token(&self.syntax, SyntaxKind::TABLES_KW)
     }
@@ -8078,6 +8141,10 @@ pub struct DropEventTrigger {
     pub(crate) syntax: SyntaxNode,
 }
 impl DropEventTrigger {
+    #[inline]
+    pub fn drop_behavior(&self) -> Option<DropBehavior> {
+        support::child(&self.syntax)
+    }
     #[inline]
     pub fn event_trigger_ref(&self) -> Option<EventTriggerRef> {
         support::child(&self.syntax)
@@ -8091,20 +8158,12 @@ impl DropEventTrigger {
         support::token(&self.syntax, SyntaxKind::SEMICOLON)
     }
     #[inline]
-    pub fn cascade_token(&self) -> Option<SyntaxToken> {
-        support::token(&self.syntax, SyntaxKind::CASCADE_KW)
-    }
-    #[inline]
     pub fn drop_token(&self) -> Option<SyntaxToken> {
         support::token(&self.syntax, SyntaxKind::DROP_KW)
     }
     #[inline]
     pub fn event_token(&self) -> Option<SyntaxToken> {
         support::token(&self.syntax, SyntaxKind::EVENT_KW)
-    }
-    #[inline]
-    pub fn restrict_token(&self) -> Option<SyntaxToken> {
-        support::token(&self.syntax, SyntaxKind::RESTRICT_KW)
     }
     #[inline]
     pub fn trigger_token(&self) -> Option<SyntaxToken> {
@@ -8137,6 +8196,10 @@ pub struct DropExtension {
 }
 impl DropExtension {
     #[inline]
+    pub fn drop_behavior(&self) -> Option<DropBehavior> {
+        support::child(&self.syntax)
+    }
+    #[inline]
     pub fn extension_refs(&self) -> AstChildren<ExtensionRef> {
         support::children(&self.syntax)
     }
@@ -8149,20 +8212,12 @@ impl DropExtension {
         support::token(&self.syntax, SyntaxKind::SEMICOLON)
     }
     #[inline]
-    pub fn cascade_token(&self) -> Option<SyntaxToken> {
-        support::token(&self.syntax, SyntaxKind::CASCADE_KW)
-    }
-    #[inline]
     pub fn drop_token(&self) -> Option<SyntaxToken> {
         support::token(&self.syntax, SyntaxKind::DROP_KW)
     }
     #[inline]
     pub fn extension_token(&self) -> Option<SyntaxToken> {
         support::token(&self.syntax, SyntaxKind::EXTENSION_KW)
-    }
-    #[inline]
-    pub fn restrict_token(&self) -> Option<SyntaxToken> {
-        support::token(&self.syntax, SyntaxKind::RESTRICT_KW)
     }
 }
 
@@ -8171,6 +8226,10 @@ pub struct DropForeignDataWrapper {
     pub(crate) syntax: SyntaxNode,
 }
 impl DropForeignDataWrapper {
+    #[inline]
+    pub fn drop_behavior(&self) -> Option<DropBehavior> {
+        support::child(&self.syntax)
+    }
     #[inline]
     pub fn foreign_data_wrapper_refs(&self) -> AstChildren<ForeignDataWrapperRef> {
         support::children(&self.syntax)
@@ -8182,10 +8241,6 @@ impl DropForeignDataWrapper {
     #[inline]
     pub fn semicolon_token(&self) -> Option<SyntaxToken> {
         support::token(&self.syntax, SyntaxKind::SEMICOLON)
-    }
-    #[inline]
-    pub fn cascade_token(&self) -> Option<SyntaxToken> {
-        support::token(&self.syntax, SyntaxKind::CASCADE_KW)
     }
     #[inline]
     pub fn data_token(&self) -> Option<SyntaxToken> {
@@ -8200,12 +8255,23 @@ impl DropForeignDataWrapper {
         support::token(&self.syntax, SyntaxKind::FOREIGN_KW)
     }
     #[inline]
-    pub fn restrict_token(&self) -> Option<SyntaxToken> {
-        support::token(&self.syntax, SyntaxKind::RESTRICT_KW)
-    }
-    #[inline]
     pub fn wrapper_token(&self) -> Option<SyntaxToken> {
         support::token(&self.syntax, SyntaxKind::WRAPPER_KW)
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
+pub struct DropForeignOption {
+    pub(crate) syntax: SyntaxNode,
+}
+impl DropForeignOption {
+    #[inline]
+    pub fn foreign_option_name(&self) -> Option<ForeignOptionName> {
+        support::child(&self.syntax)
+    }
+    #[inline]
+    pub fn drop_token(&self) -> Option<SyntaxToken> {
+        support::token(&self.syntax, SyntaxKind::DROP_KW)
     }
 }
 
@@ -8214,6 +8280,10 @@ pub struct DropForeignTable {
     pub(crate) syntax: SyntaxNode,
 }
 impl DropForeignTable {
+    #[inline]
+    pub fn drop_behavior(&self) -> Option<DropBehavior> {
+        support::child(&self.syntax)
+    }
     #[inline]
     pub fn if_exists(&self) -> Option<IfExists> {
         support::child(&self.syntax)
@@ -8227,20 +8297,12 @@ impl DropForeignTable {
         support::token(&self.syntax, SyntaxKind::SEMICOLON)
     }
     #[inline]
-    pub fn cascade_token(&self) -> Option<SyntaxToken> {
-        support::token(&self.syntax, SyntaxKind::CASCADE_KW)
-    }
-    #[inline]
     pub fn drop_token(&self) -> Option<SyntaxToken> {
         support::token(&self.syntax, SyntaxKind::DROP_KW)
     }
     #[inline]
     pub fn foreign_token(&self) -> Option<SyntaxToken> {
         support::token(&self.syntax, SyntaxKind::FOREIGN_KW)
-    }
-    #[inline]
-    pub fn restrict_token(&self) -> Option<SyntaxToken> {
-        support::token(&self.syntax, SyntaxKind::RESTRICT_KW)
     }
     #[inline]
     pub fn table_token(&self) -> Option<SyntaxToken> {
@@ -8254,6 +8316,10 @@ pub struct DropFunction {
 }
 impl DropFunction {
     #[inline]
+    pub fn drop_behavior(&self) -> Option<DropBehavior> {
+        support::child(&self.syntax)
+    }
+    #[inline]
     pub fn function_sig_list(&self) -> Option<FunctionSigList> {
         support::child(&self.syntax)
     }
@@ -8266,20 +8332,12 @@ impl DropFunction {
         support::token(&self.syntax, SyntaxKind::SEMICOLON)
     }
     #[inline]
-    pub fn cascade_token(&self) -> Option<SyntaxToken> {
-        support::token(&self.syntax, SyntaxKind::CASCADE_KW)
-    }
-    #[inline]
     pub fn drop_token(&self) -> Option<SyntaxToken> {
         support::token(&self.syntax, SyntaxKind::DROP_KW)
     }
     #[inline]
     pub fn function_token(&self) -> Option<SyntaxToken> {
         support::token(&self.syntax, SyntaxKind::FUNCTION_KW)
-    }
-    #[inline]
-    pub fn restrict_token(&self) -> Option<SyntaxToken> {
-        support::token(&self.syntax, SyntaxKind::RESTRICT_KW)
     }
 }
 
@@ -8335,6 +8393,10 @@ pub struct DropIndex {
 }
 impl DropIndex {
     #[inline]
+    pub fn drop_behavior(&self) -> Option<DropBehavior> {
+        support::child(&self.syntax)
+    }
+    #[inline]
     pub fn if_exists(&self) -> Option<IfExists> {
         support::child(&self.syntax)
     }
@@ -8345,10 +8407,6 @@ impl DropIndex {
     #[inline]
     pub fn semicolon_token(&self) -> Option<SyntaxToken> {
         support::token(&self.syntax, SyntaxKind::SEMICOLON)
-    }
-    #[inline]
-    pub fn cascade_token(&self) -> Option<SyntaxToken> {
-        support::token(&self.syntax, SyntaxKind::CASCADE_KW)
     }
     #[inline]
     pub fn concurrently_token(&self) -> Option<SyntaxToken> {
@@ -8362,10 +8420,6 @@ impl DropIndex {
     pub fn index_token(&self) -> Option<SyntaxToken> {
         support::token(&self.syntax, SyntaxKind::INDEX_KW)
     }
-    #[inline]
-    pub fn restrict_token(&self) -> Option<SyntaxToken> {
-        support::token(&self.syntax, SyntaxKind::RESTRICT_KW)
-    }
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
@@ -8373,6 +8427,10 @@ pub struct DropLanguage {
     pub(crate) syntax: SyntaxNode,
 }
 impl DropLanguage {
+    #[inline]
+    pub fn drop_behavior(&self) -> Option<DropBehavior> {
+        support::child(&self.syntax)
+    }
     #[inline]
     pub fn if_exists(&self) -> Option<IfExists> {
         support::child(&self.syntax)
@@ -8386,10 +8444,6 @@ impl DropLanguage {
         support::token(&self.syntax, SyntaxKind::SEMICOLON)
     }
     #[inline]
-    pub fn cascade_token(&self) -> Option<SyntaxToken> {
-        support::token(&self.syntax, SyntaxKind::CASCADE_KW)
-    }
-    #[inline]
     pub fn drop_token(&self) -> Option<SyntaxToken> {
         support::token(&self.syntax, SyntaxKind::DROP_KW)
     }
@@ -8400,10 +8454,6 @@ impl DropLanguage {
     #[inline]
     pub fn procedural_token(&self) -> Option<SyntaxToken> {
         support::token(&self.syntax, SyntaxKind::PROCEDURAL_KW)
-    }
-    #[inline]
-    pub fn restrict_token(&self) -> Option<SyntaxToken> {
-        support::token(&self.syntax, SyntaxKind::RESTRICT_KW)
     }
 }
 
@@ -8440,6 +8490,10 @@ pub struct DropMaterializedView {
 }
 impl DropMaterializedView {
     #[inline]
+    pub fn drop_behavior(&self) -> Option<DropBehavior> {
+        support::child(&self.syntax)
+    }
+    #[inline]
     pub fn if_exists(&self) -> Option<IfExists> {
         support::child(&self.syntax)
     }
@@ -8452,20 +8506,12 @@ impl DropMaterializedView {
         support::token(&self.syntax, SyntaxKind::SEMICOLON)
     }
     #[inline]
-    pub fn cascade_token(&self) -> Option<SyntaxToken> {
-        support::token(&self.syntax, SyntaxKind::CASCADE_KW)
-    }
-    #[inline]
     pub fn drop_token(&self) -> Option<SyntaxToken> {
         support::token(&self.syntax, SyntaxKind::DROP_KW)
     }
     #[inline]
     pub fn materialized_token(&self) -> Option<SyntaxToken> {
         support::token(&self.syntax, SyntaxKind::MATERIALIZED_KW)
-    }
-    #[inline]
-    pub fn restrict_token(&self) -> Option<SyntaxToken> {
-        support::token(&self.syntax, SyntaxKind::RESTRICT_KW)
     }
     #[inline]
     pub fn view_token(&self) -> Option<SyntaxToken> {
@@ -8562,6 +8608,10 @@ pub struct DropOperator {
 }
 impl DropOperator {
     #[inline]
+    pub fn drop_behavior(&self) -> Option<DropBehavior> {
+        support::child(&self.syntax)
+    }
+    #[inline]
     pub fn if_exists(&self) -> Option<IfExists> {
         support::child(&self.syntax)
     }
@@ -8574,20 +8624,12 @@ impl DropOperator {
         support::token(&self.syntax, SyntaxKind::SEMICOLON)
     }
     #[inline]
-    pub fn cascade_token(&self) -> Option<SyntaxToken> {
-        support::token(&self.syntax, SyntaxKind::CASCADE_KW)
-    }
-    #[inline]
     pub fn drop_token(&self) -> Option<SyntaxToken> {
         support::token(&self.syntax, SyntaxKind::DROP_KW)
     }
     #[inline]
     pub fn operator_token(&self) -> Option<SyntaxToken> {
         support::token(&self.syntax, SyntaxKind::OPERATOR_KW)
-    }
-    #[inline]
-    pub fn restrict_token(&self) -> Option<SyntaxToken> {
-        support::token(&self.syntax, SyntaxKind::RESTRICT_KW)
     }
 }
 
@@ -8596,6 +8638,10 @@ pub struct DropOperatorClass {
     pub(crate) syntax: SyntaxNode,
 }
 impl DropOperatorClass {
+    #[inline]
+    pub fn drop_behavior(&self) -> Option<DropBehavior> {
+        support::child(&self.syntax)
+    }
     #[inline]
     pub fn if_exists(&self) -> Option<IfExists> {
         support::child(&self.syntax)
@@ -8613,10 +8659,6 @@ impl DropOperatorClass {
         support::token(&self.syntax, SyntaxKind::SEMICOLON)
     }
     #[inline]
-    pub fn cascade_token(&self) -> Option<SyntaxToken> {
-        support::token(&self.syntax, SyntaxKind::CASCADE_KW)
-    }
-    #[inline]
     pub fn class_token(&self) -> Option<SyntaxToken> {
         support::token(&self.syntax, SyntaxKind::CLASS_KW)
     }
@@ -8628,10 +8670,6 @@ impl DropOperatorClass {
     pub fn operator_token(&self) -> Option<SyntaxToken> {
         support::token(&self.syntax, SyntaxKind::OPERATOR_KW)
     }
-    #[inline]
-    pub fn restrict_token(&self) -> Option<SyntaxToken> {
-        support::token(&self.syntax, SyntaxKind::RESTRICT_KW)
-    }
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
@@ -8639,6 +8677,10 @@ pub struct DropOperatorFamily {
     pub(crate) syntax: SyntaxNode,
 }
 impl DropOperatorFamily {
+    #[inline]
+    pub fn drop_behavior(&self) -> Option<DropBehavior> {
+        support::child(&self.syntax)
+    }
     #[inline]
     pub fn if_exists(&self) -> Option<IfExists> {
         support::child(&self.syntax)
@@ -8656,10 +8698,6 @@ impl DropOperatorFamily {
         support::token(&self.syntax, SyntaxKind::SEMICOLON)
     }
     #[inline]
-    pub fn cascade_token(&self) -> Option<SyntaxToken> {
-        support::token(&self.syntax, SyntaxKind::CASCADE_KW)
-    }
-    #[inline]
     pub fn drop_token(&self) -> Option<SyntaxToken> {
         support::token(&self.syntax, SyntaxKind::DROP_KW)
     }
@@ -8671,10 +8709,6 @@ impl DropOperatorFamily {
     pub fn operator_token(&self) -> Option<SyntaxToken> {
         support::token(&self.syntax, SyntaxKind::OPERATOR_KW)
     }
-    #[inline]
-    pub fn restrict_token(&self) -> Option<SyntaxToken> {
-        support::token(&self.syntax, SyntaxKind::RESTRICT_KW)
-    }
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
@@ -8682,6 +8716,10 @@ pub struct DropOwned {
     pub(crate) syntax: SyntaxNode,
 }
 impl DropOwned {
+    #[inline]
+    pub fn drop_behavior(&self) -> Option<DropBehavior> {
+        support::child(&self.syntax)
+    }
     #[inline]
     pub fn role_ref_list(&self) -> Option<RoleRefList> {
         support::child(&self.syntax)
@@ -8695,20 +8733,12 @@ impl DropOwned {
         support::token(&self.syntax, SyntaxKind::BY_KW)
     }
     #[inline]
-    pub fn cascade_token(&self) -> Option<SyntaxToken> {
-        support::token(&self.syntax, SyntaxKind::CASCADE_KW)
-    }
-    #[inline]
     pub fn drop_token(&self) -> Option<SyntaxToken> {
         support::token(&self.syntax, SyntaxKind::DROP_KW)
     }
     #[inline]
     pub fn owned_token(&self) -> Option<SyntaxToken> {
         support::token(&self.syntax, SyntaxKind::OWNED_KW)
-    }
-    #[inline]
-    pub fn restrict_token(&self) -> Option<SyntaxToken> {
-        support::token(&self.syntax, SyntaxKind::RESTRICT_KW)
     }
 }
 
@@ -8717,6 +8747,10 @@ pub struct DropPolicy {
     pub(crate) syntax: SyntaxNode,
 }
 impl DropPolicy {
+    #[inline]
+    pub fn drop_behavior(&self) -> Option<DropBehavior> {
+        support::child(&self.syntax)
+    }
     #[inline]
     pub fn if_exists(&self) -> Option<IfExists> {
         support::child(&self.syntax)
@@ -8734,20 +8768,12 @@ impl DropPolicy {
         support::token(&self.syntax, SyntaxKind::SEMICOLON)
     }
     #[inline]
-    pub fn cascade_token(&self) -> Option<SyntaxToken> {
-        support::token(&self.syntax, SyntaxKind::CASCADE_KW)
-    }
-    #[inline]
     pub fn drop_token(&self) -> Option<SyntaxToken> {
         support::token(&self.syntax, SyntaxKind::DROP_KW)
     }
     #[inline]
     pub fn policy_token(&self) -> Option<SyntaxToken> {
         support::token(&self.syntax, SyntaxKind::POLICY_KW)
-    }
-    #[inline]
-    pub fn restrict_token(&self) -> Option<SyntaxToken> {
-        support::token(&self.syntax, SyntaxKind::RESTRICT_KW)
     }
 }
 
@@ -8756,6 +8782,10 @@ pub struct DropProcedure {
     pub(crate) syntax: SyntaxNode,
 }
 impl DropProcedure {
+    #[inline]
+    pub fn drop_behavior(&self) -> Option<DropBehavior> {
+        support::child(&self.syntax)
+    }
     #[inline]
     pub fn if_exists(&self) -> Option<IfExists> {
         support::child(&self.syntax)
@@ -8769,20 +8799,12 @@ impl DropProcedure {
         support::token(&self.syntax, SyntaxKind::SEMICOLON)
     }
     #[inline]
-    pub fn cascade_token(&self) -> Option<SyntaxToken> {
-        support::token(&self.syntax, SyntaxKind::CASCADE_KW)
-    }
-    #[inline]
     pub fn drop_token(&self) -> Option<SyntaxToken> {
         support::token(&self.syntax, SyntaxKind::DROP_KW)
     }
     #[inline]
     pub fn procedure_token(&self) -> Option<SyntaxToken> {
         support::token(&self.syntax, SyntaxKind::PROCEDURE_KW)
-    }
-    #[inline]
-    pub fn restrict_token(&self) -> Option<SyntaxToken> {
-        support::token(&self.syntax, SyntaxKind::RESTRICT_KW)
     }
 }
 
@@ -8791,6 +8813,10 @@ pub struct DropPropertyGraph {
     pub(crate) syntax: SyntaxNode,
 }
 impl DropPropertyGraph {
+    #[inline]
+    pub fn drop_behavior(&self) -> Option<DropBehavior> {
+        support::child(&self.syntax)
+    }
     #[inline]
     pub fn if_exists(&self) -> Option<IfExists> {
         support::child(&self.syntax)
@@ -8804,10 +8830,6 @@ impl DropPropertyGraph {
         support::token(&self.syntax, SyntaxKind::SEMICOLON)
     }
     #[inline]
-    pub fn cascade_token(&self) -> Option<SyntaxToken> {
-        support::token(&self.syntax, SyntaxKind::CASCADE_KW)
-    }
-    #[inline]
     pub fn drop_token(&self) -> Option<SyntaxToken> {
         support::token(&self.syntax, SyntaxKind::DROP_KW)
     }
@@ -8819,10 +8841,6 @@ impl DropPropertyGraph {
     pub fn property_token(&self) -> Option<SyntaxToken> {
         support::token(&self.syntax, SyntaxKind::PROPERTY_KW)
     }
-    #[inline]
-    pub fn restrict_token(&self) -> Option<SyntaxToken> {
-        support::token(&self.syntax, SyntaxKind::RESTRICT_KW)
-    }
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
@@ -8830,6 +8848,10 @@ pub struct DropPublication {
     pub(crate) syntax: SyntaxNode,
 }
 impl DropPublication {
+    #[inline]
+    pub fn drop_behavior(&self) -> Option<DropBehavior> {
+        support::child(&self.syntax)
+    }
     #[inline]
     pub fn if_exists(&self) -> Option<IfExists> {
         support::child(&self.syntax)
@@ -8843,20 +8865,12 @@ impl DropPublication {
         support::token(&self.syntax, SyntaxKind::SEMICOLON)
     }
     #[inline]
-    pub fn cascade_token(&self) -> Option<SyntaxToken> {
-        support::token(&self.syntax, SyntaxKind::CASCADE_KW)
-    }
-    #[inline]
     pub fn drop_token(&self) -> Option<SyntaxToken> {
         support::token(&self.syntax, SyntaxKind::DROP_KW)
     }
     #[inline]
     pub fn publication_token(&self) -> Option<SyntaxToken> {
         support::token(&self.syntax, SyntaxKind::PUBLICATION_KW)
-    }
-    #[inline]
-    pub fn restrict_token(&self) -> Option<SyntaxToken> {
-        support::token(&self.syntax, SyntaxKind::RESTRICT_KW)
     }
 }
 
@@ -8908,6 +8922,10 @@ pub struct DropRoutine {
 }
 impl DropRoutine {
     #[inline]
+    pub fn drop_behavior(&self) -> Option<DropBehavior> {
+        support::child(&self.syntax)
+    }
+    #[inline]
     pub fn if_exists(&self) -> Option<IfExists> {
         support::child(&self.syntax)
     }
@@ -8920,16 +8938,8 @@ impl DropRoutine {
         support::token(&self.syntax, SyntaxKind::SEMICOLON)
     }
     #[inline]
-    pub fn cascade_token(&self) -> Option<SyntaxToken> {
-        support::token(&self.syntax, SyntaxKind::CASCADE_KW)
-    }
-    #[inline]
     pub fn drop_token(&self) -> Option<SyntaxToken> {
         support::token(&self.syntax, SyntaxKind::DROP_KW)
-    }
-    #[inline]
-    pub fn restrict_token(&self) -> Option<SyntaxToken> {
-        support::token(&self.syntax, SyntaxKind::RESTRICT_KW)
     }
     #[inline]
     pub fn routine_token(&self) -> Option<SyntaxToken> {
@@ -8942,6 +8952,10 @@ pub struct DropRule {
     pub(crate) syntax: SyntaxNode,
 }
 impl DropRule {
+    #[inline]
+    pub fn drop_behavior(&self) -> Option<DropBehavior> {
+        support::child(&self.syntax)
+    }
     #[inline]
     pub fn if_exists(&self) -> Option<IfExists> {
         support::child(&self.syntax)
@@ -8959,16 +8973,8 @@ impl DropRule {
         support::token(&self.syntax, SyntaxKind::SEMICOLON)
     }
     #[inline]
-    pub fn cascade_token(&self) -> Option<SyntaxToken> {
-        support::token(&self.syntax, SyntaxKind::CASCADE_KW)
-    }
-    #[inline]
     pub fn drop_token(&self) -> Option<SyntaxToken> {
         support::token(&self.syntax, SyntaxKind::DROP_KW)
-    }
-    #[inline]
-    pub fn restrict_token(&self) -> Option<SyntaxToken> {
-        support::token(&self.syntax, SyntaxKind::RESTRICT_KW)
     }
     #[inline]
     pub fn rule_token(&self) -> Option<SyntaxToken> {
@@ -8982,6 +8988,10 @@ pub struct DropSchema {
 }
 impl DropSchema {
     #[inline]
+    pub fn drop_behavior(&self) -> Option<DropBehavior> {
+        support::child(&self.syntax)
+    }
+    #[inline]
     pub fn if_exists(&self) -> Option<IfExists> {
         support::child(&self.syntax)
     }
@@ -8994,16 +9004,8 @@ impl DropSchema {
         support::token(&self.syntax, SyntaxKind::SEMICOLON)
     }
     #[inline]
-    pub fn cascade_token(&self) -> Option<SyntaxToken> {
-        support::token(&self.syntax, SyntaxKind::CASCADE_KW)
-    }
-    #[inline]
     pub fn drop_token(&self) -> Option<SyntaxToken> {
         support::token(&self.syntax, SyntaxKind::DROP_KW)
-    }
-    #[inline]
-    pub fn restrict_token(&self) -> Option<SyntaxToken> {
-        support::token(&self.syntax, SyntaxKind::RESTRICT_KW)
     }
     #[inline]
     pub fn schema_token(&self) -> Option<SyntaxToken> {
@@ -9017,6 +9019,10 @@ pub struct DropSequence {
 }
 impl DropSequence {
     #[inline]
+    pub fn drop_behavior(&self) -> Option<DropBehavior> {
+        support::child(&self.syntax)
+    }
+    #[inline]
     pub fn if_exists(&self) -> Option<IfExists> {
         support::child(&self.syntax)
     }
@@ -9029,16 +9035,8 @@ impl DropSequence {
         support::token(&self.syntax, SyntaxKind::SEMICOLON)
     }
     #[inline]
-    pub fn cascade_token(&self) -> Option<SyntaxToken> {
-        support::token(&self.syntax, SyntaxKind::CASCADE_KW)
-    }
-    #[inline]
     pub fn drop_token(&self) -> Option<SyntaxToken> {
         support::token(&self.syntax, SyntaxKind::DROP_KW)
-    }
-    #[inline]
-    pub fn restrict_token(&self) -> Option<SyntaxToken> {
-        support::token(&self.syntax, SyntaxKind::RESTRICT_KW)
     }
     #[inline]
     pub fn sequence_token(&self) -> Option<SyntaxToken> {
@@ -9052,6 +9050,10 @@ pub struct DropServer {
 }
 impl DropServer {
     #[inline]
+    pub fn drop_behavior(&self) -> Option<DropBehavior> {
+        support::child(&self.syntax)
+    }
+    #[inline]
     pub fn if_exists(&self) -> Option<IfExists> {
         support::child(&self.syntax)
     }
@@ -9064,16 +9066,8 @@ impl DropServer {
         support::token(&self.syntax, SyntaxKind::SEMICOLON)
     }
     #[inline]
-    pub fn cascade_token(&self) -> Option<SyntaxToken> {
-        support::token(&self.syntax, SyntaxKind::CASCADE_KW)
-    }
-    #[inline]
     pub fn drop_token(&self) -> Option<SyntaxToken> {
         support::token(&self.syntax, SyntaxKind::DROP_KW)
-    }
-    #[inline]
-    pub fn restrict_token(&self) -> Option<SyntaxToken> {
-        support::token(&self.syntax, SyntaxKind::RESTRICT_KW)
     }
     #[inline]
     pub fn server_token(&self) -> Option<SyntaxToken> {
@@ -9087,6 +9081,10 @@ pub struct DropStatistics {
 }
 impl DropStatistics {
     #[inline]
+    pub fn drop_behavior(&self) -> Option<DropBehavior> {
+        support::child(&self.syntax)
+    }
+    #[inline]
     pub fn if_exists(&self) -> Option<IfExists> {
         support::child(&self.syntax)
     }
@@ -9099,16 +9097,8 @@ impl DropStatistics {
         support::token(&self.syntax, SyntaxKind::SEMICOLON)
     }
     #[inline]
-    pub fn cascade_token(&self) -> Option<SyntaxToken> {
-        support::token(&self.syntax, SyntaxKind::CASCADE_KW)
-    }
-    #[inline]
     pub fn drop_token(&self) -> Option<SyntaxToken> {
         support::token(&self.syntax, SyntaxKind::DROP_KW)
-    }
-    #[inline]
-    pub fn restrict_token(&self) -> Option<SyntaxToken> {
-        support::token(&self.syntax, SyntaxKind::RESTRICT_KW)
     }
     #[inline]
     pub fn statistics_token(&self) -> Option<SyntaxToken> {
@@ -9122,6 +9112,10 @@ pub struct DropSubscription {
 }
 impl DropSubscription {
     #[inline]
+    pub fn drop_behavior(&self) -> Option<DropBehavior> {
+        support::child(&self.syntax)
+    }
+    #[inline]
     pub fn if_exists(&self) -> Option<IfExists> {
         support::child(&self.syntax)
     }
@@ -9134,16 +9128,8 @@ impl DropSubscription {
         support::token(&self.syntax, SyntaxKind::SEMICOLON)
     }
     #[inline]
-    pub fn cascade_token(&self) -> Option<SyntaxToken> {
-        support::token(&self.syntax, SyntaxKind::CASCADE_KW)
-    }
-    #[inline]
     pub fn drop_token(&self) -> Option<SyntaxToken> {
         support::token(&self.syntax, SyntaxKind::DROP_KW)
-    }
-    #[inline]
-    pub fn restrict_token(&self) -> Option<SyntaxToken> {
-        support::token(&self.syntax, SyntaxKind::RESTRICT_KW)
     }
     #[inline]
     pub fn subscription_token(&self) -> Option<SyntaxToken> {
@@ -9157,12 +9143,12 @@ pub struct DropSubscriptionPublication {
 }
 impl DropSubscriptionPublication {
     #[inline]
-    pub fn attribute_list(&self) -> Option<AttributeList> {
-        support::child(&self.syntax)
-    }
-    #[inline]
     pub fn publication_refs(&self) -> AstChildren<PublicationRef> {
         support::children(&self.syntax)
+    }
+    #[inline]
+    pub fn with_params(&self) -> Option<WithParams> {
+        support::child(&self.syntax)
     }
     #[inline]
     pub fn drop_token(&self) -> Option<SyntaxToken> {
@@ -9172,10 +9158,6 @@ impl DropSubscriptionPublication {
     pub fn publication_token(&self) -> Option<SyntaxToken> {
         support::token(&self.syntax, SyntaxKind::PUBLICATION_KW)
     }
-    #[inline]
-    pub fn with_token(&self) -> Option<SyntaxToken> {
-        support::token(&self.syntax, SyntaxKind::WITH_KW)
-    }
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
@@ -9183,6 +9165,10 @@ pub struct DropTable {
     pub(crate) syntax: SyntaxNode,
 }
 impl DropTable {
+    #[inline]
+    pub fn drop_behavior(&self) -> Option<DropBehavior> {
+        support::child(&self.syntax)
+    }
     #[inline]
     pub fn if_exists(&self) -> Option<IfExists> {
         support::child(&self.syntax)
@@ -9196,16 +9182,8 @@ impl DropTable {
         support::token(&self.syntax, SyntaxKind::SEMICOLON)
     }
     #[inline]
-    pub fn cascade_token(&self) -> Option<SyntaxToken> {
-        support::token(&self.syntax, SyntaxKind::CASCADE_KW)
-    }
-    #[inline]
     pub fn drop_token(&self) -> Option<SyntaxToken> {
         support::token(&self.syntax, SyntaxKind::DROP_KW)
-    }
-    #[inline]
-    pub fn restrict_token(&self) -> Option<SyntaxToken> {
-        support::token(&self.syntax, SyntaxKind::RESTRICT_KW)
     }
     #[inline]
     pub fn table_token(&self) -> Option<SyntaxToken> {
@@ -9246,6 +9224,10 @@ pub struct DropTextSearchConfig {
 }
 impl DropTextSearchConfig {
     #[inline]
+    pub fn drop_behavior(&self) -> Option<DropBehavior> {
+        support::child(&self.syntax)
+    }
+    #[inline]
     pub fn if_exists(&self) -> Option<IfExists> {
         support::child(&self.syntax)
     }
@@ -9258,20 +9240,12 @@ impl DropTextSearchConfig {
         support::token(&self.syntax, SyntaxKind::SEMICOLON)
     }
     #[inline]
-    pub fn cascade_token(&self) -> Option<SyntaxToken> {
-        support::token(&self.syntax, SyntaxKind::CASCADE_KW)
-    }
-    #[inline]
     pub fn configuration_token(&self) -> Option<SyntaxToken> {
         support::token(&self.syntax, SyntaxKind::CONFIGURATION_KW)
     }
     #[inline]
     pub fn drop_token(&self) -> Option<SyntaxToken> {
         support::token(&self.syntax, SyntaxKind::DROP_KW)
-    }
-    #[inline]
-    pub fn restrict_token(&self) -> Option<SyntaxToken> {
-        support::token(&self.syntax, SyntaxKind::RESTRICT_KW)
     }
     #[inline]
     pub fn search_token(&self) -> Option<SyntaxToken> {
@@ -9289,6 +9263,10 @@ pub struct DropTextSearchDict {
 }
 impl DropTextSearchDict {
     #[inline]
+    pub fn drop_behavior(&self) -> Option<DropBehavior> {
+        support::child(&self.syntax)
+    }
+    #[inline]
     pub fn if_exists(&self) -> Option<IfExists> {
         support::child(&self.syntax)
     }
@@ -9301,20 +9279,12 @@ impl DropTextSearchDict {
         support::token(&self.syntax, SyntaxKind::SEMICOLON)
     }
     #[inline]
-    pub fn cascade_token(&self) -> Option<SyntaxToken> {
-        support::token(&self.syntax, SyntaxKind::CASCADE_KW)
-    }
-    #[inline]
     pub fn dictionary_token(&self) -> Option<SyntaxToken> {
         support::token(&self.syntax, SyntaxKind::DICTIONARY_KW)
     }
     #[inline]
     pub fn drop_token(&self) -> Option<SyntaxToken> {
         support::token(&self.syntax, SyntaxKind::DROP_KW)
-    }
-    #[inline]
-    pub fn restrict_token(&self) -> Option<SyntaxToken> {
-        support::token(&self.syntax, SyntaxKind::RESTRICT_KW)
     }
     #[inline]
     pub fn search_token(&self) -> Option<SyntaxToken> {
@@ -9332,6 +9302,10 @@ pub struct DropTextSearchParser {
 }
 impl DropTextSearchParser {
     #[inline]
+    pub fn drop_behavior(&self) -> Option<DropBehavior> {
+        support::child(&self.syntax)
+    }
+    #[inline]
     pub fn if_exists(&self) -> Option<IfExists> {
         support::child(&self.syntax)
     }
@@ -9344,20 +9318,12 @@ impl DropTextSearchParser {
         support::token(&self.syntax, SyntaxKind::SEMICOLON)
     }
     #[inline]
-    pub fn cascade_token(&self) -> Option<SyntaxToken> {
-        support::token(&self.syntax, SyntaxKind::CASCADE_KW)
-    }
-    #[inline]
     pub fn drop_token(&self) -> Option<SyntaxToken> {
         support::token(&self.syntax, SyntaxKind::DROP_KW)
     }
     #[inline]
     pub fn parser_token(&self) -> Option<SyntaxToken> {
         support::token(&self.syntax, SyntaxKind::PARSER_KW)
-    }
-    #[inline]
-    pub fn restrict_token(&self) -> Option<SyntaxToken> {
-        support::token(&self.syntax, SyntaxKind::RESTRICT_KW)
     }
     #[inline]
     pub fn search_token(&self) -> Option<SyntaxToken> {
@@ -9375,6 +9341,10 @@ pub struct DropTextSearchTemplate {
 }
 impl DropTextSearchTemplate {
     #[inline]
+    pub fn drop_behavior(&self) -> Option<DropBehavior> {
+        support::child(&self.syntax)
+    }
+    #[inline]
     pub fn if_exists(&self) -> Option<IfExists> {
         support::child(&self.syntax)
     }
@@ -9387,16 +9357,8 @@ impl DropTextSearchTemplate {
         support::token(&self.syntax, SyntaxKind::SEMICOLON)
     }
     #[inline]
-    pub fn cascade_token(&self) -> Option<SyntaxToken> {
-        support::token(&self.syntax, SyntaxKind::CASCADE_KW)
-    }
-    #[inline]
     pub fn drop_token(&self) -> Option<SyntaxToken> {
         support::token(&self.syntax, SyntaxKind::DROP_KW)
-    }
-    #[inline]
-    pub fn restrict_token(&self) -> Option<SyntaxToken> {
-        support::token(&self.syntax, SyntaxKind::RESTRICT_KW)
     }
     #[inline]
     pub fn search_token(&self) -> Option<SyntaxToken> {
@@ -9418,6 +9380,10 @@ pub struct DropTransform {
 }
 impl DropTransform {
     #[inline]
+    pub fn drop_behavior(&self) -> Option<DropBehavior> {
+        support::child(&self.syntax)
+    }
+    #[inline]
     pub fn if_exists(&self) -> Option<IfExists> {
         support::child(&self.syntax)
     }
@@ -9434,10 +9400,6 @@ impl DropTransform {
         support::token(&self.syntax, SyntaxKind::SEMICOLON)
     }
     #[inline]
-    pub fn cascade_token(&self) -> Option<SyntaxToken> {
-        support::token(&self.syntax, SyntaxKind::CASCADE_KW)
-    }
-    #[inline]
     pub fn drop_token(&self) -> Option<SyntaxToken> {
         support::token(&self.syntax, SyntaxKind::DROP_KW)
     }
@@ -9450,10 +9412,6 @@ impl DropTransform {
         support::token(&self.syntax, SyntaxKind::LANGUAGE_KW)
     }
     #[inline]
-    pub fn restrict_token(&self) -> Option<SyntaxToken> {
-        support::token(&self.syntax, SyntaxKind::RESTRICT_KW)
-    }
-    #[inline]
     pub fn transform_token(&self) -> Option<SyntaxToken> {
         support::token(&self.syntax, SyntaxKind::TRANSFORM_KW)
     }
@@ -9464,6 +9422,10 @@ pub struct DropTrigger {
     pub(crate) syntax: SyntaxNode,
 }
 impl DropTrigger {
+    #[inline]
+    pub fn drop_behavior(&self) -> Option<DropBehavior> {
+        support::child(&self.syntax)
+    }
     #[inline]
     pub fn if_exists(&self) -> Option<IfExists> {
         support::child(&self.syntax)
@@ -9481,16 +9443,8 @@ impl DropTrigger {
         support::token(&self.syntax, SyntaxKind::SEMICOLON)
     }
     #[inline]
-    pub fn cascade_token(&self) -> Option<SyntaxToken> {
-        support::token(&self.syntax, SyntaxKind::CASCADE_KW)
-    }
-    #[inline]
     pub fn drop_token(&self) -> Option<SyntaxToken> {
         support::token(&self.syntax, SyntaxKind::DROP_KW)
-    }
-    #[inline]
-    pub fn restrict_token(&self) -> Option<SyntaxToken> {
-        support::token(&self.syntax, SyntaxKind::RESTRICT_KW)
     }
     #[inline]
     pub fn trigger_token(&self) -> Option<SyntaxToken> {
@@ -9504,6 +9458,10 @@ pub struct DropType {
 }
 impl DropType {
     #[inline]
+    pub fn drop_behavior(&self) -> Option<DropBehavior> {
+        support::child(&self.syntax)
+    }
+    #[inline]
     pub fn if_exists(&self) -> Option<IfExists> {
         support::child(&self.syntax)
     }
@@ -9516,16 +9474,8 @@ impl DropType {
         support::token(&self.syntax, SyntaxKind::SEMICOLON)
     }
     #[inline]
-    pub fn cascade_token(&self) -> Option<SyntaxToken> {
-        support::token(&self.syntax, SyntaxKind::CASCADE_KW)
-    }
-    #[inline]
     pub fn drop_token(&self) -> Option<SyntaxToken> {
         support::token(&self.syntax, SyntaxKind::DROP_KW)
-    }
-    #[inline]
-    pub fn restrict_token(&self) -> Option<SyntaxToken> {
-        support::token(&self.syntax, SyntaxKind::RESTRICT_KW)
     }
     #[inline]
     pub fn type_token(&self) -> Option<SyntaxToken> {
@@ -9574,7 +9524,7 @@ impl DropUserMapping {
         support::child(&self.syntax)
     }
     #[inline]
-    pub fn server_name(&self) -> Option<ServerName> {
+    pub fn server_clause(&self) -> Option<ServerClause> {
         support::child(&self.syntax)
     }
     #[inline]
@@ -9624,6 +9574,10 @@ pub struct DropVertexEdgeLabel {
 }
 impl DropVertexEdgeLabel {
     #[inline]
+    pub fn drop_behavior(&self) -> Option<DropBehavior> {
+        support::child(&self.syntax)
+    }
+    #[inline]
     pub fn element_table_ref(&self) -> Option<ElementTableRef> {
         support::child(&self.syntax)
     }
@@ -9634,10 +9588,6 @@ impl DropVertexEdgeLabel {
     #[inline]
     pub fn alter_token(&self) -> Option<SyntaxToken> {
         support::token(&self.syntax, SyntaxKind::ALTER_KW)
-    }
-    #[inline]
-    pub fn cascade_token(&self) -> Option<SyntaxToken> {
-        support::token(&self.syntax, SyntaxKind::CASCADE_KW)
     }
     #[inline]
     pub fn drop_token(&self) -> Option<SyntaxToken> {
@@ -9660,10 +9610,6 @@ impl DropVertexEdgeLabel {
         support::token(&self.syntax, SyntaxKind::RELATIONSHIP_KW)
     }
     #[inline]
-    pub fn restrict_token(&self) -> Option<SyntaxToken> {
-        support::token(&self.syntax, SyntaxKind::RESTRICT_KW)
-    }
-    #[inline]
     pub fn table_token(&self) -> Option<SyntaxToken> {
         support::token(&self.syntax, SyntaxKind::TABLE_KW)
     }
@@ -9678,6 +9624,10 @@ pub struct DropVertexEdgeLabelProperties {
     pub(crate) syntax: SyntaxNode,
 }
 impl DropVertexEdgeLabelProperties {
+    #[inline]
+    pub fn drop_behavior(&self) -> Option<DropBehavior> {
+        support::child(&self.syntax)
+    }
     #[inline]
     pub fn element_table_ref(&self) -> Option<ElementTableRef> {
         support::child(&self.syntax)
@@ -9701,10 +9651,6 @@ impl DropVertexEdgeLabelProperties {
     #[inline]
     pub fn alter_token(&self) -> Option<SyntaxToken> {
         support::token(&self.syntax, SyntaxKind::ALTER_KW)
-    }
-    #[inline]
-    pub fn cascade_token(&self) -> Option<SyntaxToken> {
-        support::token(&self.syntax, SyntaxKind::CASCADE_KW)
     }
     #[inline]
     pub fn drop_token(&self) -> Option<SyntaxToken> {
@@ -9731,10 +9677,6 @@ impl DropVertexEdgeLabelProperties {
         support::token(&self.syntax, SyntaxKind::RELATIONSHIP_KW)
     }
     #[inline]
-    pub fn restrict_token(&self) -> Option<SyntaxToken> {
-        support::token(&self.syntax, SyntaxKind::RESTRICT_KW)
-    }
-    #[inline]
     pub fn table_token(&self) -> Option<SyntaxToken> {
         support::token(&self.syntax, SyntaxKind::TABLE_KW)
     }
@@ -9750,6 +9692,10 @@ pub struct DropVertexTables {
 }
 impl DropVertexTables {
     #[inline]
+    pub fn drop_behavior(&self) -> Option<DropBehavior> {
+        support::child(&self.syntax)
+    }
+    #[inline]
     pub fn element_table_refs(&self) -> AstChildren<ElementTableRef> {
         support::children(&self.syntax)
     }
@@ -9762,20 +9708,12 @@ impl DropVertexTables {
         support::token(&self.syntax, SyntaxKind::R_PAREN)
     }
     #[inline]
-    pub fn cascade_token(&self) -> Option<SyntaxToken> {
-        support::token(&self.syntax, SyntaxKind::CASCADE_KW)
-    }
-    #[inline]
     pub fn drop_token(&self) -> Option<SyntaxToken> {
         support::token(&self.syntax, SyntaxKind::DROP_KW)
     }
     #[inline]
     pub fn node_token(&self) -> Option<SyntaxToken> {
         support::token(&self.syntax, SyntaxKind::NODE_KW)
-    }
-    #[inline]
-    pub fn restrict_token(&self) -> Option<SyntaxToken> {
-        support::token(&self.syntax, SyntaxKind::RESTRICT_KW)
     }
     #[inline]
     pub fn tables_token(&self) -> Option<SyntaxToken> {
@@ -9793,6 +9731,10 @@ pub struct DropView {
 }
 impl DropView {
     #[inline]
+    pub fn drop_behavior(&self) -> Option<DropBehavior> {
+        support::child(&self.syntax)
+    }
+    #[inline]
     pub fn if_exists(&self) -> Option<IfExists> {
         support::child(&self.syntax)
     }
@@ -9805,16 +9747,8 @@ impl DropView {
         support::token(&self.syntax, SyntaxKind::SEMICOLON)
     }
     #[inline]
-    pub fn cascade_token(&self) -> Option<SyntaxToken> {
-        support::token(&self.syntax, SyntaxKind::CASCADE_KW)
-    }
-    #[inline]
     pub fn drop_token(&self) -> Option<SyntaxToken> {
         support::token(&self.syntax, SyntaxKind::DROP_KW)
-    }
-    #[inline]
-    pub fn restrict_token(&self) -> Option<SyntaxToken> {
-        support::token(&self.syntax, SyntaxKind::RESTRICT_KW)
     }
     #[inline]
     pub fn view_token(&self) -> Option<SyntaxToken> {
@@ -9929,15 +9863,15 @@ pub struct EdgeTableDef {
 }
 impl EdgeTableDef {
     #[inline]
-    pub fn alias(&self) -> Option<ElementTableAlias> {
-        support::child(&self.syntax)
-    }
-    #[inline]
-    pub fn column_ref_list(&self) -> Option<ColumnRefList> {
-        support::child(&self.syntax)
-    }
-    #[inline]
     pub fn dest_vertex_table(&self) -> Option<DestVertexTable> {
+        support::child(&self.syntax)
+    }
+    #[inline]
+    pub fn element_table_alias_clause(&self) -> Option<ElementTableAliasClause> {
+        support::child(&self.syntax)
+    }
+    #[inline]
+    pub fn element_table_key_clause(&self) -> Option<ElementTableKeyClause> {
         support::child(&self.syntax)
     }
     #[inline]
@@ -9951,14 +9885,6 @@ impl EdgeTableDef {
     #[inline]
     pub fn table_name_ref(&self) -> Option<TableNameRef> {
         support::child(&self.syntax)
-    }
-    #[inline]
-    pub fn as_token(&self) -> Option<SyntaxToken> {
-        support::token(&self.syntax, SyntaxKind::AS_KW)
-    }
-    #[inline]
-    pub fn key_token(&self) -> Option<SyntaxToken> {
-        support::token(&self.syntax, SyntaxKind::KEY_KW)
     }
 }
 
@@ -10001,6 +9927,36 @@ impl ElementTableAlias {
     #[inline]
     pub fn ident_token(&self) -> Option<SyntaxToken> {
         support::token(&self.syntax, SyntaxKind::IDENT)
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
+pub struct ElementTableAliasClause {
+    pub(crate) syntax: SyntaxNode,
+}
+impl ElementTableAliasClause {
+    #[inline]
+    pub fn alias(&self) -> Option<ElementTableAlias> {
+        support::child(&self.syntax)
+    }
+    #[inline]
+    pub fn as_token(&self) -> Option<SyntaxToken> {
+        support::token(&self.syntax, SyntaxKind::AS_KW)
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
+pub struct ElementTableKeyClause {
+    pub(crate) syntax: SyntaxNode,
+}
+impl ElementTableKeyClause {
+    #[inline]
+    pub fn column_ref_list(&self) -> Option<ColumnRefList> {
+        support::child(&self.syntax)
+    }
+    #[inline]
+    pub fn key_token(&self) -> Option<SyntaxToken> {
+        support::token(&self.syntax, SyntaxKind::KEY_KW)
     }
 }
 
@@ -10255,12 +10211,8 @@ pub struct EnableTrigger {
 }
 impl EnableTrigger {
     #[inline]
-    pub fn trigger_ref(&self) -> Option<TriggerRef> {
+    pub fn trigger_target(&self) -> Option<TriggerTarget> {
         support::child(&self.syntax)
-    }
-    #[inline]
-    pub fn all_token(&self) -> Option<SyntaxToken> {
-        support::token(&self.syntax, SyntaxKind::ALL_KW)
     }
     #[inline]
     pub fn enable_token(&self) -> Option<SyntaxToken> {
@@ -10269,10 +10221,6 @@ impl EnableTrigger {
     #[inline]
     pub fn trigger_token(&self) -> Option<SyntaxToken> {
         support::token(&self.syntax, SyntaxKind::TRIGGER_KW)
-    }
-    #[inline]
-    pub fn user_token(&self) -> Option<SyntaxToken> {
-        support::token(&self.syntax, SyntaxKind::USER_KW)
     }
 }
 
@@ -10412,6 +10360,21 @@ impl EventTriggerWhenClause {
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
+pub struct Except {
+    pub(crate) syntax: SyntaxNode,
+}
+impl Except {
+    #[inline]
+    pub fn all_or_distinct(&self) -> Option<AllOrDistinct> {
+        support::child(&self.syntax)
+    }
+    #[inline]
+    pub fn except_token(&self) -> Option<SyntaxToken> {
+        support::token(&self.syntax, SyntaxKind::EXCEPT_KW)
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub struct ExceptTableClause {
     pub(crate) syntax: SyntaxNode,
 }
@@ -10463,6 +10426,14 @@ impl ExceptTables {
         support::children(&self.syntax)
     }
     #[inline]
+    pub fn l_paren_token(&self) -> Option<SyntaxToken> {
+        support::token(&self.syntax, SyntaxKind::L_PAREN)
+    }
+    #[inline]
+    pub fn r_paren_token(&self) -> Option<SyntaxToken> {
+        support::token(&self.syntax, SyntaxKind::R_PAREN)
+    }
+    #[inline]
     pub fn except_token(&self) -> Option<SyntaxToken> {
         support::token(&self.syntax, SyntaxKind::EXCEPT_KW)
     }
@@ -10492,6 +10463,10 @@ impl ExcludeConstraint {
     #[inline]
     pub fn constraint_name_clause(&self) -> Option<ConstraintNameClause> {
         support::child(&self.syntax)
+    }
+    #[inline]
+    pub fn constraint_options(&self) -> AstChildren<ConstraintOption> {
+        support::children(&self.syntax)
     }
     #[inline]
     pub fn where_condition_clause(&self) -> Option<WhereConditionClause> {
@@ -10585,7 +10560,7 @@ pub struct Explain {
 }
 impl Explain {
     #[inline]
-    pub fn explain_option_list(&self) -> Option<ExplainOptionList> {
+    pub fn explain_mode(&self) -> Option<ExplainMode> {
         support::child(&self.syntax)
     }
     #[inline]
@@ -10597,20 +10572,27 @@ impl Explain {
         support::token(&self.syntax, SyntaxKind::SEMICOLON)
     }
     #[inline]
+    pub fn explain_token(&self) -> Option<SyntaxToken> {
+        support::token(&self.syntax, SyntaxKind::EXPLAIN_KW)
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
+pub struct ExplainAnalyze {
+    pub(crate) syntax: SyntaxNode,
+}
+impl ExplainAnalyze {
+    #[inline]
+    pub fn explain_verbose(&self) -> Option<ExplainVerbose> {
+        support::child(&self.syntax)
+    }
+    #[inline]
     pub fn analyse_token(&self) -> Option<SyntaxToken> {
         support::token(&self.syntax, SyntaxKind::ANALYSE_KW)
     }
     #[inline]
     pub fn analyze_token(&self) -> Option<SyntaxToken> {
         support::token(&self.syntax, SyntaxKind::ANALYZE_KW)
-    }
-    #[inline]
-    pub fn explain_token(&self) -> Option<SyntaxToken> {
-        support::token(&self.syntax, SyntaxKind::EXPLAIN_KW)
-    }
-    #[inline]
-    pub fn verbose_token(&self) -> Option<SyntaxToken> {
-        support::token(&self.syntax, SyntaxKind::VERBOSE_KW)
     }
 }
 
@@ -10665,7 +10647,7 @@ pub struct ExplainOptionValue {
 }
 impl ExplainOptionValue {
     #[inline]
-    pub fn literal(&self) -> Option<Literal> {
+    pub fn expr(&self) -> Option<Expr> {
         support::child(&self.syntax)
     }
     #[inline]
@@ -10703,6 +10685,17 @@ impl ExplainOptionValue {
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
+pub struct ExplainVerbose {
+    pub(crate) syntax: SyntaxNode,
+}
+impl ExplainVerbose {
+    #[inline]
+    pub fn verbose_token(&self) -> Option<SyntaxToken> {
+        support::token(&self.syntax, SyntaxKind::VERBOSE_KW)
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub struct ExprAsColumnName {
     pub(crate) syntax: SyntaxNode,
 }
@@ -10729,6 +10722,14 @@ impl ExprAsColumnNameList {
     #[inline]
     pub fn expr_as_column_names(&self) -> AstChildren<ExprAsColumnName> {
         support::children(&self.syntax)
+    }
+    #[inline]
+    pub fn l_paren_token(&self) -> Option<SyntaxToken> {
+        support::token(&self.syntax, SyntaxKind::L_PAREN)
+    }
+    #[inline]
+    pub fn r_paren_token(&self) -> Option<SyntaxToken> {
+        support::token(&self.syntax, SyntaxKind::R_PAREN)
     }
 }
 
@@ -10760,6 +10761,14 @@ impl ExprAsElementTagList {
     pub fn expr_as_element_tags(&self) -> AstChildren<ExprAsElementTag> {
         support::children(&self.syntax)
     }
+    #[inline]
+    pub fn l_paren_token(&self) -> Option<SyntaxToken> {
+        support::token(&self.syntax, SyntaxKind::L_PAREN)
+    }
+    #[inline]
+    pub fn r_paren_token(&self) -> Option<SyntaxToken> {
+        support::token(&self.syntax, SyntaxKind::R_PAREN)
+    }
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
@@ -10790,6 +10799,14 @@ impl ExprAsPropertyNameList {
     pub fn expr_as_property_names(&self) -> AstChildren<ExprAsPropertyName> {
         support::children(&self.syntax)
     }
+    #[inline]
+    pub fn l_paren_token(&self) -> Option<SyntaxToken> {
+        support::token(&self.syntax, SyntaxKind::L_PAREN)
+    }
+    #[inline]
+    pub fn r_paren_token(&self) -> Option<SyntaxToken> {
+        support::token(&self.syntax, SyntaxKind::R_PAREN)
+    }
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
@@ -10819,6 +10836,14 @@ impl ExprAsXmlAttrList {
     #[inline]
     pub fn expr_as_xml_attrs(&self) -> AstChildren<ExprAsXmlAttr> {
         support::children(&self.syntax)
+    }
+    #[inline]
+    pub fn l_paren_token(&self) -> Option<SyntaxToken> {
+        support::token(&self.syntax, SyntaxKind::L_PAREN)
+    }
+    #[inline]
+    pub fn r_paren_token(&self) -> Option<SyntaxToken> {
+        support::token(&self.syntax, SyntaxKind::R_PAREN)
     }
 }
 
@@ -10909,33 +10934,69 @@ impl ExtensionRef {
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
-pub struct ExtractFn {
+pub struct ExtensionSchema {
     pub(crate) syntax: SyntaxNode,
 }
-impl ExtractFn {
+impl ExtensionSchema {
     #[inline]
-    pub fn expr(&self) -> Option<Expr> {
+    pub fn schema_ref(&self) -> Option<SchemaRef> {
         support::child(&self.syntax)
     }
     #[inline]
-    pub fn l_paren_token(&self) -> Option<SyntaxToken> {
-        support::token(&self.syntax, SyntaxKind::L_PAREN)
+    pub fn schema_token(&self) -> Option<SyntaxToken> {
+        support::token(&self.syntax, SyntaxKind::SCHEMA_KW)
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
+pub struct ExtensionVersion {
+    pub(crate) syntax: SyntaxNode,
+}
+impl ExtensionVersion {
+    #[inline]
+    pub fn ident_token(&self) -> Option<SyntaxToken> {
+        support::token(&self.syntax, SyntaxKind::IDENT)
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
+pub struct ExtensionVersionClause {
+    pub(crate) syntax: SyntaxNode,
+}
+impl ExtensionVersionClause {
+    #[inline]
+    pub fn extension_version(&self) -> Option<ExtensionVersion> {
+        support::child(&self.syntax)
     }
     #[inline]
-    pub fn r_paren_token(&self) -> Option<SyntaxToken> {
-        support::token(&self.syntax, SyntaxKind::R_PAREN)
+    pub fn literal(&self) -> Option<Literal> {
+        support::child(&self.syntax)
     }
+    #[inline]
+    pub fn version_token(&self) -> Option<SyntaxToken> {
+        support::token(&self.syntax, SyntaxKind::VERSION_KW)
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
+pub struct ExtractFieldLiteral {
+    pub(crate) syntax: SyntaxNode,
+}
+impl ExtractFieldLiteral {
+    #[inline]
+    pub fn literal(&self) -> Option<Literal> {
+        support::child(&self.syntax)
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
+pub struct ExtractFieldName {
+    pub(crate) syntax: SyntaxNode,
+}
+impl ExtractFieldName {
     #[inline]
     pub fn day_token(&self) -> Option<SyntaxToken> {
         support::token(&self.syntax, SyntaxKind::DAY_KW)
-    }
-    #[inline]
-    pub fn extract_token(&self) -> Option<SyntaxToken> {
-        support::token(&self.syntax, SyntaxKind::EXTRACT_KW)
-    }
-    #[inline]
-    pub fn from_token(&self) -> Option<SyntaxToken> {
-        support::token(&self.syntax, SyntaxKind::FROM_KW)
     }
     #[inline]
     pub fn hour_token(&self) -> Option<SyntaxToken> {
@@ -10958,12 +11019,39 @@ impl ExtractFn {
         support::token(&self.syntax, SyntaxKind::SECOND_KW)
     }
     #[inline]
-    pub fn string_token(&self) -> Option<SyntaxToken> {
-        support::token(&self.syntax, SyntaxKind::STRING_KW)
-    }
-    #[inline]
     pub fn year_token(&self) -> Option<SyntaxToken> {
         support::token(&self.syntax, SyntaxKind::YEAR_KW)
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
+pub struct ExtractFn {
+    pub(crate) syntax: SyntaxNode,
+}
+impl ExtractFn {
+    #[inline]
+    pub fn expr(&self) -> Option<Expr> {
+        support::child(&self.syntax)
+    }
+    #[inline]
+    pub fn extract_field(&self) -> Option<ExtractField> {
+        support::child(&self.syntax)
+    }
+    #[inline]
+    pub fn l_paren_token(&self) -> Option<SyntaxToken> {
+        support::token(&self.syntax, SyntaxKind::L_PAREN)
+    }
+    #[inline]
+    pub fn r_paren_token(&self) -> Option<SyntaxToken> {
+        support::token(&self.syntax, SyntaxKind::R_PAREN)
+    }
+    #[inline]
+    pub fn extract_token(&self) -> Option<SyntaxToken> {
+        support::token(&self.syntax, SyntaxKind::EXTRACT_KW)
+    }
+    #[inline]
+    pub fn from_token(&self) -> Option<SyntaxToken> {
+        support::token(&self.syntax, SyntaxKind::FROM_KW)
     }
 }
 
@@ -11034,6 +11122,10 @@ impl FetchClause {
         support::child(&self.syntax)
     }
     #[inline]
+    pub fn fetch_quantity(&self) -> Option<FetchQuantity> {
+        support::child(&self.syntax)
+    }
+    #[inline]
     pub fn fetch_token(&self) -> Option<SyntaxToken> {
         support::token(&self.syntax, SyntaxKind::FETCH_KW)
     }
@@ -11046,10 +11138,6 @@ impl FetchClause {
         support::token(&self.syntax, SyntaxKind::NEXT_KW)
     }
     #[inline]
-    pub fn only_token(&self) -> Option<SyntaxToken> {
-        support::token(&self.syntax, SyntaxKind::ONLY_KW)
-    }
-    #[inline]
     pub fn row_token(&self) -> Option<SyntaxToken> {
         support::token(&self.syntax, SyntaxKind::ROW_KW)
     }
@@ -11057,13 +11145,16 @@ impl FetchClause {
     pub fn rows_token(&self) -> Option<SyntaxToken> {
         support::token(&self.syntax, SyntaxKind::ROWS_KW)
     }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
+pub struct FetchOnly {
+    pub(crate) syntax: SyntaxNode,
+}
+impl FetchOnly {
     #[inline]
-    pub fn ties_token(&self) -> Option<SyntaxToken> {
-        support::token(&self.syntax, SyntaxKind::TIES_KW)
-    }
-    #[inline]
-    pub fn with_token(&self) -> Option<SyntaxToken> {
-        support::token(&self.syntax, SyntaxKind::WITH_KW)
+    pub fn only_token(&self) -> Option<SyntaxToken> {
+        support::token(&self.syntax, SyntaxKind::ONLY_KW)
     }
 }
 
@@ -11145,20 +11236,54 @@ pub struct ForAllPublicationObjects {
 }
 impl ForAllPublicationObjects {
     #[inline]
+    pub fn all_publication_objects(&self) -> AstChildren<AllPublicationObject> {
+        support::children(&self.syntax)
+    }
+    #[inline]
     pub fn except_table_clause(&self) -> Option<ExceptTableClause> {
         support::child(&self.syntax)
     }
     #[inline]
-    pub fn all_token(&self) -> Option<SyntaxToken> {
-        support::token(&self.syntax, SyntaxKind::ALL_KW)
+    pub fn for_token(&self) -> Option<SyntaxToken> {
+        support::token(&self.syntax, SyntaxKind::FOR_KW)
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
+pub struct ForEachRow {
+    pub(crate) syntax: SyntaxNode,
+}
+impl ForEachRow {
+    #[inline]
+    pub fn each_token(&self) -> Option<SyntaxToken> {
+        support::token(&self.syntax, SyntaxKind::EACH_KW)
     }
     #[inline]
-    pub fn sequences_token(&self) -> Option<SyntaxToken> {
-        support::token(&self.syntax, SyntaxKind::SEQUENCES_KW)
+    pub fn for_token(&self) -> Option<SyntaxToken> {
+        support::token(&self.syntax, SyntaxKind::FOR_KW)
     }
     #[inline]
-    pub fn tables_token(&self) -> Option<SyntaxToken> {
-        support::token(&self.syntax, SyntaxKind::TABLES_KW)
+    pub fn row_token(&self) -> Option<SyntaxToken> {
+        support::token(&self.syntax, SyntaxKind::ROW_KW)
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
+pub struct ForEachStatement {
+    pub(crate) syntax: SyntaxNode,
+}
+impl ForEachStatement {
+    #[inline]
+    pub fn each_token(&self) -> Option<SyntaxToken> {
+        support::token(&self.syntax, SyntaxKind::EACH_KW)
+    }
+    #[inline]
+    pub fn for_token(&self) -> Option<SyntaxToken> {
+        support::token(&self.syntax, SyntaxKind::FOR_KW)
+    }
+    #[inline]
+    pub fn statement_token(&self) -> Option<SyntaxToken> {
+        support::token(&self.syntax, SyntaxKind::STATEMENT_KW)
     }
 }
 
@@ -11206,24 +11331,12 @@ impl ForPortionOf {
         support::child(&self.syntax)
     }
     #[inline]
-    pub fn expr(&self) -> Option<Expr> {
+    pub fn range(&self) -> Option<PortionTarget> {
         support::child(&self.syntax)
-    }
-    #[inline]
-    pub fn l_paren_token(&self) -> Option<SyntaxToken> {
-        support::token(&self.syntax, SyntaxKind::L_PAREN)
-    }
-    #[inline]
-    pub fn r_paren_token(&self) -> Option<SyntaxToken> {
-        support::token(&self.syntax, SyntaxKind::R_PAREN)
     }
     #[inline]
     pub fn for_token(&self) -> Option<SyntaxToken> {
         support::token(&self.syntax, SyntaxKind::FOR_KW)
-    }
-    #[inline]
-    pub fn from_token(&self) -> Option<SyntaxToken> {
-        support::token(&self.syntax, SyntaxKind::FROM_KW)
     }
     #[inline]
     pub fn of_token(&self) -> Option<SyntaxToken> {
@@ -11232,10 +11345,6 @@ impl ForPortionOf {
     #[inline]
     pub fn portion_token(&self) -> Option<SyntaxToken> {
         support::token(&self.syntax, SyntaxKind::PORTION_KW)
-    }
-    #[inline]
-    pub fn to_token(&self) -> Option<SyntaxToken> {
-        support::token(&self.syntax, SyntaxKind::TO_KW)
     }
 }
 
@@ -11259,6 +11368,44 @@ impl ForProvider {
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
+pub struct ForPublicationObjects {
+    pub(crate) syntax: SyntaxNode,
+}
+impl ForPublicationObjects {
+    #[inline]
+    pub fn publication_objects(&self) -> AstChildren<PublicationObject> {
+        support::children(&self.syntax)
+    }
+    #[inline]
+    pub fn for_token(&self) -> Option<SyntaxToken> {
+        support::token(&self.syntax, SyntaxKind::FOR_KW)
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
+pub struct ForRoles {
+    pub(crate) syntax: SyntaxNode,
+}
+impl ForRoles {
+    #[inline]
+    pub fn role_ref_list(&self) -> Option<RoleRefList> {
+        support::child(&self.syntax)
+    }
+    #[inline]
+    pub fn for_token(&self) -> Option<SyntaxToken> {
+        support::token(&self.syntax, SyntaxKind::FOR_KW)
+    }
+    #[inline]
+    pub fn role_token(&self) -> Option<SyntaxToken> {
+        support::token(&self.syntax, SyntaxKind::ROLE_KW)
+    }
+    #[inline]
+    pub fn user_token(&self) -> Option<SyntaxToken> {
+        support::token(&self.syntax, SyntaxKind::USER_KW)
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub struct ForShare {
     pub(crate) syntax: SyntaxNode,
 }
@@ -11277,6 +11424,54 @@ impl ForUpdate {
     #[inline]
     pub fn update_token(&self) -> Option<SyntaxToken> {
         support::token(&self.syntax, SyntaxKind::UPDATE_KW)
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
+pub struct Force {
+    pub(crate) syntax: SyntaxNode,
+}
+impl Force {
+    #[inline]
+    pub fn force_token(&self) -> Option<SyntaxToken> {
+        support::token(&self.syntax, SyntaxKind::FORCE_KW)
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
+pub struct ForceNotNull {
+    pub(crate) syntax: SyntaxNode,
+}
+impl ForceNotNull {
+    #[inline]
+    pub fn not_token(&self) -> Option<SyntaxToken> {
+        support::token(&self.syntax, SyntaxKind::NOT_KW)
+    }
+    #[inline]
+    pub fn null_token(&self) -> Option<SyntaxToken> {
+        support::token(&self.syntax, SyntaxKind::NULL_KW)
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
+pub struct ForceNull {
+    pub(crate) syntax: SyntaxNode,
+}
+impl ForceNull {
+    #[inline]
+    pub fn null_token(&self) -> Option<SyntaxToken> {
+        support::token(&self.syntax, SyntaxKind::NULL_KW)
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
+pub struct ForceQuote {
+    pub(crate) syntax: SyntaxNode,
+}
+impl ForceQuote {
+    #[inline]
+    pub fn quote_token(&self) -> Option<SyntaxToken> {
+        support::token(&self.syntax, SyntaxKind::QUOTE_KW)
     }
 }
 
@@ -11377,6 +11572,10 @@ impl ForeignKeyConstraint {
         support::child(&self.syntax)
     }
     #[inline]
+    pub fn constraint_options(&self) -> AstChildren<ConstraintOption> {
+        support::children(&self.syntax)
+    }
+    #[inline]
     pub fn match_type(&self) -> Option<MatchType> {
         support::child(&self.syntax)
     }
@@ -11457,28 +11656,16 @@ pub struct FrameClause {
 }
 impl FrameClause {
     #[inline]
-    pub fn frame_between(&self) -> Option<FrameBetween> {
-        support::child(&self.syntax)
-    }
-    #[inline]
-    pub fn frame_bound(&self) -> Option<FrameBound> {
-        support::child(&self.syntax)
-    }
-    #[inline]
     pub fn frame_exclude(&self) -> Option<FrameExclude> {
         support::child(&self.syntax)
     }
     #[inline]
-    pub fn groups_token(&self) -> Option<SyntaxToken> {
-        support::token(&self.syntax, SyntaxKind::GROUPS_KW)
+    pub fn frame_extent(&self) -> Option<FrameExtent> {
+        support::child(&self.syntax)
     }
     #[inline]
-    pub fn range_token(&self) -> Option<SyntaxToken> {
-        support::token(&self.syntax, SyntaxKind::RANGE_KW)
-    }
-    #[inline]
-    pub fn rows_token(&self) -> Option<SyntaxToken> {
-        support::token(&self.syntax, SyntaxKind::ROWS_KW)
+    pub fn frame_units(&self) -> Option<FrameUnits> {
+        support::child(&self.syntax)
     }
 }
 
@@ -11488,19 +11675,7 @@ pub struct FrameExclude {
 }
 impl FrameExclude {
     #[inline]
-    pub fn current_row(&self) -> Option<CurrentRow> {
-        support::child(&self.syntax)
-    }
-    #[inline]
-    pub fn group(&self) -> Option<Group> {
-        support::child(&self.syntax)
-    }
-    #[inline]
-    pub fn no_others(&self) -> Option<NoOthers> {
-        support::child(&self.syntax)
-    }
-    #[inline]
-    pub fn ties(&self) -> Option<Ties> {
+    pub fn frame_exclude_target(&self) -> Option<FrameExcludeTarget> {
         support::child(&self.syntax)
     }
     #[inline]
@@ -11510,12 +11685,45 @@ impl FrameExclude {
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
+pub struct FrameGroups {
+    pub(crate) syntax: SyntaxNode,
+}
+impl FrameGroups {
+    #[inline]
+    pub fn groups_token(&self) -> Option<SyntaxToken> {
+        support::token(&self.syntax, SyntaxKind::GROUPS_KW)
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
+pub struct FrameRange {
+    pub(crate) syntax: SyntaxNode,
+}
+impl FrameRange {
+    #[inline]
+    pub fn range_token(&self) -> Option<SyntaxToken> {
+        support::token(&self.syntax, SyntaxKind::RANGE_KW)
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
+pub struct FrameRows {
+    pub(crate) syntax: SyntaxNode,
+}
+impl FrameRows {
+    #[inline]
+    pub fn rows_token(&self) -> Option<SyntaxToken> {
+        support::token(&self.syntax, SyntaxKind::ROWS_KW)
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub struct FromAlias {
     pub(crate) syntax: SyntaxNode,
 }
 impl FromAlias {
     #[inline]
-    pub fn column_list(&self) -> Option<AliasColumnList> {
+    pub fn columns(&self) -> Option<FromAliasColumns> {
         support::child(&self.syntax)
     }
     #[inline]
@@ -11540,6 +11748,21 @@ impl FromClause {
     #[inline]
     pub fn join_exprs(&self) -> AstChildren<JoinExpr> {
         support::children(&self.syntax)
+    }
+    #[inline]
+    pub fn from_token(&self) -> Option<SyntaxToken> {
+        support::token(&self.syntax, SyntaxKind::FROM_KW)
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
+pub struct FromCurrent {
+    pub(crate) syntax: SyntaxNode,
+}
+impl FromCurrent {
+    #[inline]
+    pub fn current_token(&self) -> Option<SyntaxToken> {
+        support::token(&self.syntax, SyntaxKind::CURRENT_KW)
     }
     #[inline]
     pub fn from_token(&self) -> Option<SyntaxToken> {
@@ -11587,16 +11810,12 @@ impl FunctionFromItem {
         support::child(&self.syntax)
     }
     #[inline]
+    pub fn with_ordinality(&self) -> Option<WithOrdinality> {
+        support::child(&self.syntax)
+    }
+    #[inline]
     pub fn lateral_token(&self) -> Option<SyntaxToken> {
         support::token(&self.syntax, SyntaxKind::LATERAL_KW)
-    }
-    #[inline]
-    pub fn ordinality_token(&self) -> Option<SyntaxToken> {
-        support::token(&self.syntax, SyntaxKind::ORDINALITY_KW)
-    }
-    #[inline]
-    pub fn with_token(&self) -> Option<SyntaxToken> {
-        support::token(&self.syntax, SyntaxKind::WITH_KW)
     }
 }
 
@@ -11668,6 +11887,32 @@ impl FunctionSigList {
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
+pub struct GeneratedAlways {
+    pub(crate) syntax: SyntaxNode,
+}
+impl GeneratedAlways {
+    #[inline]
+    pub fn always_token(&self) -> Option<SyntaxToken> {
+        support::token(&self.syntax, SyntaxKind::ALWAYS_KW)
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
+pub struct GeneratedByDefault {
+    pub(crate) syntax: SyntaxNode,
+}
+impl GeneratedByDefault {
+    #[inline]
+    pub fn by_token(&self) -> Option<SyntaxToken> {
+        support::token(&self.syntax, SyntaxKind::BY_KW)
+    }
+    #[inline]
+    pub fn default_token(&self) -> Option<SyntaxToken> {
+        support::token(&self.syntax, SyntaxKind::DEFAULT_KW)
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub struct GeneratedConstraint {
     pub(crate) syntax: SyntaxNode,
 }
@@ -11677,11 +11922,11 @@ impl GeneratedConstraint {
         support::child(&self.syntax)
     }
     #[inline]
-    pub fn generated_identity(&self) -> Option<GeneratedIdentity> {
-        support::child(&self.syntax)
+    pub fn constraint_options(&self) -> AstChildren<ConstraintOption> {
+        support::children(&self.syntax)
     }
     #[inline]
-    pub fn generated_stored(&self) -> Option<GeneratedStored> {
+    pub fn generated_as(&self) -> Option<GeneratedAs> {
         support::child(&self.syntax)
     }
     #[inline]
@@ -11696,24 +11941,16 @@ pub struct GeneratedIdentity {
 }
 impl GeneratedIdentity {
     #[inline]
+    pub fn generated_when(&self) -> Option<GeneratedWhen> {
+        support::child(&self.syntax)
+    }
+    #[inline]
     pub fn sequence_option_list(&self) -> Option<SequenceOptionList> {
         support::child(&self.syntax)
     }
     #[inline]
-    pub fn always_token(&self) -> Option<SyntaxToken> {
-        support::token(&self.syntax, SyntaxKind::ALWAYS_KW)
-    }
-    #[inline]
     pub fn as_token(&self) -> Option<SyntaxToken> {
         support::token(&self.syntax, SyntaxKind::AS_KW)
-    }
-    #[inline]
-    pub fn by_token(&self) -> Option<SyntaxToken> {
-        support::token(&self.syntax, SyntaxKind::BY_KW)
-    }
-    #[inline]
-    pub fn default_token(&self) -> Option<SyntaxToken> {
-        support::token(&self.syntax, SyntaxKind::DEFAULT_KW)
     }
     #[inline]
     pub fn identity_token(&self) -> Option<SyntaxToken> {
@@ -11731,6 +11968,14 @@ impl GeneratedStored {
         support::child(&self.syntax)
     }
     #[inline]
+    pub fn generated_kind(&self) -> Option<GeneratedKind> {
+        support::child(&self.syntax)
+    }
+    #[inline]
+    pub fn generated_when(&self) -> Option<GeneratedWhen> {
+        support::child(&self.syntax)
+    }
+    #[inline]
     pub fn l_paren_token(&self) -> Option<SyntaxToken> {
         support::token(&self.syntax, SyntaxKind::L_PAREN)
     }
@@ -11739,28 +11984,8 @@ impl GeneratedStored {
         support::token(&self.syntax, SyntaxKind::R_PAREN)
     }
     #[inline]
-    pub fn always_token(&self) -> Option<SyntaxToken> {
-        support::token(&self.syntax, SyntaxKind::ALWAYS_KW)
-    }
-    #[inline]
     pub fn as_token(&self) -> Option<SyntaxToken> {
         support::token(&self.syntax, SyntaxKind::AS_KW)
-    }
-    #[inline]
-    pub fn by_token(&self) -> Option<SyntaxToken> {
-        support::token(&self.syntax, SyntaxKind::BY_KW)
-    }
-    #[inline]
-    pub fn default_token(&self) -> Option<SyntaxToken> {
-        support::token(&self.syntax, SyntaxKind::DEFAULT_KW)
-    }
-    #[inline]
-    pub fn stored_token(&self) -> Option<SyntaxToken> {
-        support::token(&self.syntax, SyntaxKind::STORED_KW)
-    }
-    #[inline]
-    pub fn virtual_token(&self) -> Option<SyntaxToken> {
-        support::token(&self.syntax, SyntaxKind::VIRTUAL_KW)
     }
 }
 
@@ -11770,23 +11995,19 @@ pub struct Grant {
 }
 impl Grant {
     #[inline]
-    pub fn all_privileges(&self) -> Option<AllPrivileges> {
-        support::child(&self.syntax)
-    }
-    #[inline]
     pub fn grant_with_clause(&self) -> Option<GrantWithClause> {
         support::child(&self.syntax)
     }
     #[inline]
-    pub fn privilege_objects(&self) -> Option<PrivilegeObjects> {
+    pub fn granted_by_clause(&self) -> Option<GrantedByClause> {
         support::child(&self.syntax)
     }
     #[inline]
-    pub fn revoke_command_list(&self) -> Option<RevokeCommandList> {
+    pub fn on_privilege_objects_clause(&self) -> Option<OnPrivilegeObjectsClause> {
         support::child(&self.syntax)
     }
     #[inline]
-    pub fn role_ref(&self) -> Option<RoleRef> {
+    pub fn privileges(&self) -> Option<Privileges> {
         support::child(&self.syntax)
     }
     #[inline]
@@ -11798,20 +12019,8 @@ impl Grant {
         support::token(&self.syntax, SyntaxKind::SEMICOLON)
     }
     #[inline]
-    pub fn by_token(&self) -> Option<SyntaxToken> {
-        support::token(&self.syntax, SyntaxKind::BY_KW)
-    }
-    #[inline]
     pub fn grant_token(&self) -> Option<SyntaxToken> {
         support::token(&self.syntax, SyntaxKind::GRANT_KW)
-    }
-    #[inline]
-    pub fn granted_token(&self) -> Option<SyntaxToken> {
-        support::token(&self.syntax, SyntaxKind::GRANTED_KW)
-    }
-    #[inline]
-    pub fn on_token(&self) -> Option<SyntaxToken> {
-        support::token(&self.syntax, SyntaxKind::ON_KW)
     }
     #[inline]
     pub fn to_token(&self) -> Option<SyntaxToken> {
@@ -11824,6 +12033,10 @@ pub struct GrantDefaultPrivileges {
     pub(crate) syntax: SyntaxNode,
 }
 impl GrantDefaultPrivileges {
+    #[inline]
+    pub fn grant_with_clause(&self) -> Option<GrantWithClause> {
+        support::child(&self.syntax)
+    }
     #[inline]
     pub fn privilege_target(&self) -> Option<PrivilegeTarget> {
         support::child(&self.syntax)
@@ -11845,16 +12058,42 @@ impl GrantDefaultPrivileges {
         support::token(&self.syntax, SyntaxKind::ON_KW)
     }
     #[inline]
-    pub fn option_token(&self) -> Option<SyntaxToken> {
-        support::token(&self.syntax, SyntaxKind::OPTION_KW)
-    }
-    #[inline]
     pub fn to_token(&self) -> Option<SyntaxToken> {
         support::token(&self.syntax, SyntaxKind::TO_KW)
     }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
+pub struct GrantOption {
+    pub(crate) syntax: SyntaxNode,
+}
+impl GrantOption {
     #[inline]
-    pub fn with_token(&self) -> Option<SyntaxToken> {
-        support::token(&self.syntax, SyntaxKind::WITH_KW)
+    pub fn grant_token(&self) -> Option<SyntaxToken> {
+        support::token(&self.syntax, SyntaxKind::GRANT_KW)
+    }
+    #[inline]
+    pub fn option_token(&self) -> Option<SyntaxToken> {
+        support::token(&self.syntax, SyntaxKind::OPTION_KW)
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
+pub struct GrantOptionFor {
+    pub(crate) syntax: SyntaxNode,
+}
+impl GrantOptionFor {
+    #[inline]
+    pub fn for_token(&self) -> Option<SyntaxToken> {
+        support::token(&self.syntax, SyntaxKind::FOR_KW)
+    }
+    #[inline]
+    pub fn grant_token(&self) -> Option<SyntaxToken> {
+        support::token(&self.syntax, SyntaxKind::GRANT_KW)
+    }
+    #[inline]
+    pub fn option_token(&self) -> Option<SyntaxToken> {
+        support::token(&self.syntax, SyntaxKind::OPTION_KW)
     }
 }
 
@@ -11909,20 +12148,35 @@ pub struct GrantWithClause {
 }
 impl GrantWithClause {
     #[inline]
+    pub fn grant_option(&self) -> Option<GrantOption> {
+        support::child(&self.syntax)
+    }
+    #[inline]
     pub fn grant_role_option_list(&self) -> Option<GrantRoleOptionList> {
         support::child(&self.syntax)
     }
     #[inline]
-    pub fn grant_token(&self) -> Option<SyntaxToken> {
-        support::token(&self.syntax, SyntaxKind::GRANT_KW)
-    }
-    #[inline]
-    pub fn option_token(&self) -> Option<SyntaxToken> {
-        support::token(&self.syntax, SyntaxKind::OPTION_KW)
-    }
-    #[inline]
     pub fn with_token(&self) -> Option<SyntaxToken> {
         support::token(&self.syntax, SyntaxKind::WITH_KW)
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
+pub struct GrantedByClause {
+    pub(crate) syntax: SyntaxNode,
+}
+impl GrantedByClause {
+    #[inline]
+    pub fn role_ref(&self) -> Option<RoleRef> {
+        support::child(&self.syntax)
+    }
+    #[inline]
+    pub fn by_token(&self) -> Option<SyntaxToken> {
+        support::token(&self.syntax, SyntaxKind::BY_KW)
+    }
+    #[inline]
+    pub fn granted_token(&self) -> Option<SyntaxToken> {
+        support::token(&self.syntax, SyntaxKind::GRANTED_KW)
     }
 }
 
@@ -11932,7 +12186,11 @@ pub struct GraphPatternQualifier {
 }
 impl GraphPatternQualifier {
     #[inline]
-    pub fn literal(&self) -> Option<Literal> {
+    pub fn max(&self) -> Option<QualifierMax> {
+        support::child(&self.syntax)
+    }
+    #[inline]
+    pub fn min(&self) -> Option<QualifierMin> {
         support::child(&self.syntax)
     }
     #[inline]
@@ -12028,20 +12286,16 @@ pub struct GroupByClause {
 }
 impl GroupByClause {
     #[inline]
+    pub fn all_or_distinct(&self) -> Option<AllOrDistinct> {
+        support::child(&self.syntax)
+    }
+    #[inline]
     pub fn group_by_list(&self) -> Option<GroupByList> {
         support::child(&self.syntax)
     }
     #[inline]
-    pub fn all_token(&self) -> Option<SyntaxToken> {
-        support::token(&self.syntax, SyntaxKind::ALL_KW)
-    }
-    #[inline]
     pub fn by_token(&self) -> Option<SyntaxToken> {
         support::token(&self.syntax, SyntaxKind::BY_KW)
-    }
-    #[inline]
-    pub fn distinct_token(&self) -> Option<SyntaxToken> {
-        support::token(&self.syntax, SyntaxKind::DISTINCT_KW)
     }
     #[inline]
     pub fn group_token(&self) -> Option<SyntaxToken> {
@@ -12239,6 +12493,28 @@ impl IgnoreNulls {
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
+pub struct Immediate {
+    pub(crate) syntax: SyntaxNode,
+}
+impl Immediate {
+    #[inline]
+    pub fn immediate_token(&self) -> Option<SyntaxToken> {
+        support::token(&self.syntax, SyntaxKind::IMMEDIATE_KW)
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
+pub struct Immutable {
+    pub(crate) syntax: SyntaxNode,
+}
+impl Immutable {
+    #[inline]
+    pub fn immutable_token(&self) -> Option<SyntaxToken> {
+        support::token(&self.syntax, SyntaxKind::IMMUTABLE_KW)
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub struct ImportForeignSchema {
     pub(crate) syntax: SyntaxNode,
 }
@@ -12248,7 +12524,7 @@ impl ImportForeignSchema {
         support::child(&self.syntax)
     }
     #[inline]
-    pub fn except_tables(&self) -> Option<ExceptTables> {
+    pub fn import_table_filter(&self) -> Option<ImportTableFilter> {
         support::child(&self.syntax)
     }
     #[inline]
@@ -12256,15 +12532,11 @@ impl ImportForeignSchema {
         support::child(&self.syntax)
     }
     #[inline]
-    pub fn limit_to_tables(&self) -> Option<LimitToTables> {
-        support::child(&self.syntax)
-    }
-    #[inline]
     pub fn schema_ref(&self) -> Option<SchemaRef> {
         support::child(&self.syntax)
     }
     #[inline]
-    pub fn server_name(&self) -> Option<ServerName> {
+    pub fn server_clause(&self) -> Option<ServerClause> {
         support::child(&self.syntax)
     }
     #[inline]
@@ -12309,6 +12581,25 @@ impl InDatabase {
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
+pub struct InSchemas {
+    pub(crate) syntax: SyntaxNode,
+}
+impl InSchemas {
+    #[inline]
+    pub fn schema_refs(&self) -> AstChildren<SchemaRef> {
+        support::children(&self.syntax)
+    }
+    #[inline]
+    pub fn in_token(&self) -> Option<SyntaxToken> {
+        support::token(&self.syntax, SyntaxKind::IN_KW)
+    }
+    #[inline]
+    pub fn schema_token(&self) -> Option<SyntaxToken> {
+        support::token(&self.syntax, SyntaxKind::SCHEMA_KW)
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub struct IncludingProperty {
     pub(crate) syntax: SyntaxNode,
 }
@@ -12320,6 +12611,17 @@ impl IncludingProperty {
     #[inline]
     pub fn including_token(&self) -> Option<SyntaxToken> {
         support::token(&self.syntax, SyntaxKind::INCLUDING_KW)
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
+pub struct Indent {
+    pub(crate) syntax: SyntaxNode,
+}
+impl Indent {
+    #[inline]
+    pub fn indent_token(&self) -> Option<SyntaxToken> {
+        support::token(&self.syntax, SyntaxKind::INDENT_KW)
     }
 }
 
@@ -12397,11 +12699,7 @@ impl IndexParameters {
         support::child(&self.syntax)
     }
     #[inline]
-    pub fn nulls_distinct(&self) -> Option<NullsDistinct> {
-        support::child(&self.syntax)
-    }
-    #[inline]
-    pub fn nulls_not_distinct(&self) -> Option<NullsNotDistinct> {
+    pub fn nulls_distinct_option(&self) -> Option<NullsDistinctOption> {
         support::child(&self.syntax)
     }
     #[inline]
@@ -12448,6 +12746,25 @@ impl Inherit {
     #[inline]
     pub fn inherit_token(&self) -> Option<SyntaxToken> {
         support::token(&self.syntax, SyntaxKind::INHERIT_KW)
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
+pub struct InheritOptionFor {
+    pub(crate) syntax: SyntaxNode,
+}
+impl InheritOptionFor {
+    #[inline]
+    pub fn for_token(&self) -> Option<SyntaxToken> {
+        support::token(&self.syntax, SyntaxKind::FOR_KW)
+    }
+    #[inline]
+    pub fn inherit_token(&self) -> Option<SyntaxToken> {
+        support::token(&self.syntax, SyntaxKind::INHERIT_KW)
+    }
+    #[inline]
+    pub fn option_token(&self) -> Option<SyntaxToken> {
+        support::token(&self.syntax, SyntaxKind::OPTION_KW)
     }
 }
 
@@ -12520,6 +12837,32 @@ impl InitiallyImmediateConstraintOption {
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
+pub struct InlineClause {
+    pub(crate) syntax: SyntaxNode,
+}
+impl InlineClause {
+    #[inline]
+    pub fn function_name_ref(&self) -> Option<FunctionNameRef> {
+        support::child(&self.syntax)
+    }
+    #[inline]
+    pub fn inline_token(&self) -> Option<SyntaxToken> {
+        support::token(&self.syntax, SyntaxKind::INLINE_KW)
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
+pub struct Insensitive {
+    pub(crate) syntax: SyntaxNode,
+}
+impl Insensitive {
+    #[inline]
+    pub fn insensitive_token(&self) -> Option<SyntaxToken> {
+        support::token(&self.syntax, SyntaxKind::INSENSITIVE_KW)
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub struct Insert {
     pub(crate) syntax: SyntaxNode,
 }
@@ -12533,7 +12876,15 @@ impl Insert {
         support::child(&self.syntax)
     }
     #[inline]
+    pub fn insert_source(&self) -> Option<InsertSource> {
+        support::child(&self.syntax)
+    }
+    #[inline]
     pub fn on_conflict_clause(&self) -> Option<OnConflictClause> {
+        support::child(&self.syntax)
+    }
+    #[inline]
+    pub fn overriding_clause(&self) -> Option<OverridingClause> {
         support::child(&self.syntax)
     }
     #[inline]
@@ -12545,20 +12896,12 @@ impl Insert {
         support::child(&self.syntax)
     }
     #[inline]
-    pub fn select_variant(&self) -> Option<SelectVariant> {
-        support::child(&self.syntax)
-    }
-    #[inline]
     pub fn with_clause(&self) -> Option<WithClause> {
         support::child(&self.syntax)
     }
     #[inline]
     pub fn semicolon_token(&self) -> Option<SyntaxToken> {
         support::token(&self.syntax, SyntaxKind::SEMICOLON)
-    }
-    #[inline]
-    pub fn default_token(&self) -> Option<SyntaxToken> {
-        support::token(&self.syntax, SyntaxKind::DEFAULT_KW)
     }
     #[inline]
     pub fn insert_token(&self) -> Option<SyntaxToken> {
@@ -12568,25 +12911,20 @@ impl Insert {
     pub fn into_token(&self) -> Option<SyntaxToken> {
         support::token(&self.syntax, SyntaxKind::INTO_KW)
     }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
+pub struct Intersect {
+    pub(crate) syntax: SyntaxNode,
+}
+impl Intersect {
     #[inline]
-    pub fn overriding_token(&self) -> Option<SyntaxToken> {
-        support::token(&self.syntax, SyntaxKind::OVERRIDING_KW)
+    pub fn all_or_distinct(&self) -> Option<AllOrDistinct> {
+        support::child(&self.syntax)
     }
     #[inline]
-    pub fn system_token(&self) -> Option<SyntaxToken> {
-        support::token(&self.syntax, SyntaxKind::SYSTEM_KW)
-    }
-    #[inline]
-    pub fn user_token(&self) -> Option<SyntaxToken> {
-        support::token(&self.syntax, SyntaxKind::USER_KW)
-    }
-    #[inline]
-    pub fn value_token(&self) -> Option<SyntaxToken> {
-        support::token(&self.syntax, SyntaxKind::VALUE_KW)
-    }
-    #[inline]
-    pub fn values_token(&self) -> Option<SyntaxToken> {
-        support::token(&self.syntax, SyntaxKind::VALUES_KW)
+    pub fn intersect_token(&self) -> Option<SyntaxToken> {
+        support::token(&self.syntax, SyntaxKind::INTERSECT_KW)
     }
 }
 
@@ -13049,15 +13387,11 @@ impl Join {
         support::child(&self.syntax)
     }
     #[inline]
+    pub fn join_condition(&self) -> Option<JoinCondition> {
+        support::child(&self.syntax)
+    }
+    #[inline]
     pub fn join_type(&self) -> Option<JoinType> {
-        support::child(&self.syntax)
-    }
-    #[inline]
-    pub fn on_clause(&self) -> Option<OnClause> {
-        support::child(&self.syntax)
-    }
-    #[inline]
-    pub fn using_clause(&self) -> Option<JoinUsingClause> {
         support::child(&self.syntax)
     }
     #[inline]
@@ -13466,7 +13800,11 @@ pub struct JsonFn {
 }
 impl JsonFn {
     #[inline]
-    pub fn json_expr_format(&self) -> Option<JsonExprFormat> {
+    pub fn expr(&self) -> Option<Expr> {
+        support::child(&self.syntax)
+    }
+    #[inline]
+    pub fn json_format_clause(&self) -> Option<JsonFormatClause> {
         support::child(&self.syntax)
     }
     #[inline]
@@ -13584,6 +13922,10 @@ pub struct JsonObjectFn {
     pub(crate) syntax: SyntaxNode,
 }
 impl JsonObjectFn {
+    #[inline]
+    pub fn exprs(&self) -> AstChildren<Expr> {
+        support::children(&self.syntax)
+    }
     #[inline]
     pub fn json_key_values(&self) -> AstChildren<JsonKeyValue> {
         support::children(&self.syntax)
@@ -13713,6 +14055,21 @@ impl JsonPathName {
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
+pub struct JsonPathNameClause {
+    pub(crate) syntax: SyntaxNode,
+}
+impl JsonPathNameClause {
+    #[inline]
+    pub fn json_path_name(&self) -> Option<JsonPathName> {
+        support::child(&self.syntax)
+    }
+    #[inline]
+    pub fn as_token(&self) -> Option<SyntaxToken> {
+        support::token(&self.syntax, SyntaxKind::AS_KW)
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub struct JsonPathNameRef {
     pub(crate) syntax: SyntaxNode,
 }
@@ -13784,28 +14141,12 @@ pub struct JsonQuotesClause {
 }
 impl JsonQuotesClause {
     #[inline]
-    pub fn keep_token(&self) -> Option<SyntaxToken> {
-        support::token(&self.syntax, SyntaxKind::KEEP_KW)
+    pub fn on_scalar_string(&self) -> Option<OnScalarString> {
+        support::child(&self.syntax)
     }
     #[inline]
-    pub fn omit_token(&self) -> Option<SyntaxToken> {
-        support::token(&self.syntax, SyntaxKind::OMIT_KW)
-    }
-    #[inline]
-    pub fn on_token(&self) -> Option<SyntaxToken> {
-        support::token(&self.syntax, SyntaxKind::ON_KW)
-    }
-    #[inline]
-    pub fn quotes_token(&self) -> Option<SyntaxToken> {
-        support::token(&self.syntax, SyntaxKind::QUOTES_KW)
-    }
-    #[inline]
-    pub fn scalar_token(&self) -> Option<SyntaxToken> {
-        support::token(&self.syntax, SyntaxKind::SCALAR_KW)
-    }
-    #[inline]
-    pub fn string_token(&self) -> Option<SyntaxToken> {
-        support::token(&self.syntax, SyntaxKind::STRING_KW)
+    pub fn quotes_behavior(&self) -> Option<QuotesBehavior> {
+        support::child(&self.syntax)
     }
 }
 
@@ -13814,6 +14155,10 @@ pub struct JsonReturningClause {
     pub(crate) syntax: SyntaxNode,
 }
 impl JsonReturningClause {
+    #[inline]
+    pub fn json_format_clause(&self) -> Option<JsonFormatClause> {
+        support::child(&self.syntax)
+    }
     #[inline]
     pub fn ty(&self) -> Option<Type> {
         support::child(&self.syntax)
@@ -13915,7 +14260,7 @@ impl JsonTable {
         support::child(&self.syntax)
     }
     #[inline]
-    pub fn json_path_name(&self) -> Option<JsonPathName> {
+    pub fn json_path_name_clause(&self) -> Option<JsonPathNameClause> {
         support::child(&self.syntax)
     }
     #[inline]
@@ -13939,87 +14284,8 @@ impl JsonTable {
         support::token(&self.syntax, SyntaxKind::COMMA)
     }
     #[inline]
-    pub fn as_token(&self) -> Option<SyntaxToken> {
-        support::token(&self.syntax, SyntaxKind::AS_KW)
-    }
-    #[inline]
     pub fn json_table_token(&self) -> Option<SyntaxToken> {
         support::token(&self.syntax, SyntaxKind::JSON_TABLE_KW)
-    }
-}
-
-#[derive(Debug, Clone, PartialEq, Eq, Hash)]
-pub struct JsonTableColumn {
-    pub(crate) syntax: SyntaxNode,
-}
-impl JsonTableColumn {
-    #[inline]
-    pub fn column_name(&self) -> Option<ColumnName> {
-        support::child(&self.syntax)
-    }
-    #[inline]
-    pub fn expr(&self) -> Option<Expr> {
-        support::child(&self.syntax)
-    }
-    #[inline]
-    pub fn json_format_clause(&self) -> Option<JsonFormatClause> {
-        support::child(&self.syntax)
-    }
-    #[inline]
-    pub fn json_on_empty_clause(&self) -> Option<JsonOnEmptyClause> {
-        support::child(&self.syntax)
-    }
-    #[inline]
-    pub fn json_on_error_clause(&self) -> Option<JsonOnErrorClause> {
-        support::child(&self.syntax)
-    }
-    #[inline]
-    pub fn json_path_clause(&self) -> Option<JsonPathClause> {
-        support::child(&self.syntax)
-    }
-    #[inline]
-    pub fn json_path_name(&self) -> Option<JsonPathName> {
-        support::child(&self.syntax)
-    }
-    #[inline]
-    pub fn json_quotes_clause(&self) -> Option<JsonQuotesClause> {
-        support::child(&self.syntax)
-    }
-    #[inline]
-    pub fn json_table_column_list(&self) -> Option<JsonTableColumnList> {
-        support::child(&self.syntax)
-    }
-    #[inline]
-    pub fn json_wrapper_behavior_clause(&self) -> Option<JsonWrapperBehaviorClause> {
-        support::child(&self.syntax)
-    }
-    #[inline]
-    pub fn ty(&self) -> Option<Type> {
-        support::child(&self.syntax)
-    }
-    #[inline]
-    pub fn as_token(&self) -> Option<SyntaxToken> {
-        support::token(&self.syntax, SyntaxKind::AS_KW)
-    }
-    #[inline]
-    pub fn exists_token(&self) -> Option<SyntaxToken> {
-        support::token(&self.syntax, SyntaxKind::EXISTS_KW)
-    }
-    #[inline]
-    pub fn for_token(&self) -> Option<SyntaxToken> {
-        support::token(&self.syntax, SyntaxKind::FOR_KW)
-    }
-    #[inline]
-    pub fn nested_token(&self) -> Option<SyntaxToken> {
-        support::token(&self.syntax, SyntaxKind::NESTED_KW)
-    }
-    #[inline]
-    pub fn ordinality_token(&self) -> Option<SyntaxToken> {
-        support::token(&self.syntax, SyntaxKind::ORDINALITY_KW)
-    }
-    #[inline]
-    pub fn path_token(&self) -> Option<SyntaxToken> {
-        support::token(&self.syntax, SyntaxKind::PATH_KW)
     }
 }
 
@@ -14047,6 +14313,33 @@ impl JsonTableColumnList {
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
+pub struct JsonTableExistsColumn {
+    pub(crate) syntax: SyntaxNode,
+}
+impl JsonTableExistsColumn {
+    #[inline]
+    pub fn column_name(&self) -> Option<ColumnName> {
+        support::child(&self.syntax)
+    }
+    #[inline]
+    pub fn json_on_error_clause(&self) -> Option<JsonOnErrorClause> {
+        support::child(&self.syntax)
+    }
+    #[inline]
+    pub fn json_path_clause(&self) -> Option<JsonPathClause> {
+        support::child(&self.syntax)
+    }
+    #[inline]
+    pub fn ty(&self) -> Option<Type> {
+        support::child(&self.syntax)
+    }
+    #[inline]
+    pub fn exists_token(&self) -> Option<SyntaxToken> {
+        support::token(&self.syntax, SyntaxKind::EXISTS_KW)
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub struct JsonTableFromItem {
     pub(crate) syntax: SyntaxNode,
 }
@@ -14066,25 +14359,59 @@ impl JsonTableFromItem {
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
+pub struct JsonTableNestedColumn {
+    pub(crate) syntax: SyntaxNode,
+}
+impl JsonTableNestedColumn {
+    #[inline]
+    pub fn expr(&self) -> Option<Expr> {
+        support::child(&self.syntax)
+    }
+    #[inline]
+    pub fn json_path_name_clause(&self) -> Option<JsonPathNameClause> {
+        support::child(&self.syntax)
+    }
+    #[inline]
+    pub fn json_table_column_list(&self) -> Option<JsonTableColumnList> {
+        support::child(&self.syntax)
+    }
+    #[inline]
+    pub fn nested_token(&self) -> Option<SyntaxToken> {
+        support::token(&self.syntax, SyntaxKind::NESTED_KW)
+    }
+    #[inline]
+    pub fn path_token(&self) -> Option<SyntaxToken> {
+        support::token(&self.syntax, SyntaxKind::PATH_KW)
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
+pub struct JsonTableOrdinalityColumn {
+    pub(crate) syntax: SyntaxNode,
+}
+impl JsonTableOrdinalityColumn {
+    #[inline]
+    pub fn column_name(&self) -> Option<ColumnName> {
+        support::child(&self.syntax)
+    }
+    #[inline]
+    pub fn for_token(&self) -> Option<SyntaxToken> {
+        support::token(&self.syntax, SyntaxKind::FOR_KW)
+    }
+    #[inline]
+    pub fn ordinality_token(&self) -> Option<SyntaxToken> {
+        support::token(&self.syntax, SyntaxKind::ORDINALITY_KW)
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub struct JsonTablePlanChoice {
     pub(crate) syntax: SyntaxNode,
 }
 impl JsonTablePlanChoice {
     #[inline]
-    pub fn cross_token(&self) -> Option<SyntaxToken> {
-        support::token(&self.syntax, SyntaxKind::CROSS_KW)
-    }
-    #[inline]
-    pub fn inner_token(&self) -> Option<SyntaxToken> {
-        support::token(&self.syntax, SyntaxKind::INNER_KW)
-    }
-    #[inline]
-    pub fn outer_token(&self) -> Option<SyntaxToken> {
-        support::token(&self.syntax, SyntaxKind::OUTER_KW)
-    }
-    #[inline]
-    pub fn union_token(&self) -> Option<SyntaxToken> {
-        support::token(&self.syntax, SyntaxKind::UNION_KW)
+    pub fn json_table_plan_operator(&self) -> Option<JsonTablePlanOperator> {
+        support::child(&self.syntax)
     }
 }
 
@@ -14120,25 +14447,92 @@ impl JsonTablePlanClause {
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
+pub struct JsonTablePlanCross {
+    pub(crate) syntax: SyntaxNode,
+}
+impl JsonTablePlanCross {
+    #[inline]
+    pub fn cross_token(&self) -> Option<SyntaxToken> {
+        support::token(&self.syntax, SyntaxKind::CROSS_KW)
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
+pub struct JsonTablePlanInner {
+    pub(crate) syntax: SyntaxNode,
+}
+impl JsonTablePlanInner {
+    #[inline]
+    pub fn inner_token(&self) -> Option<SyntaxToken> {
+        support::token(&self.syntax, SyntaxKind::INNER_KW)
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub struct JsonTablePlanJoin {
     pub(crate) syntax: SyntaxNode,
 }
 impl JsonTablePlanJoin {
     #[inline]
-    pub fn cross_token(&self) -> Option<SyntaxToken> {
-        support::token(&self.syntax, SyntaxKind::CROSS_KW)
+    pub fn json_table_plan_operator(&self) -> Option<JsonTablePlanOperator> {
+        support::child(&self.syntax)
     }
-    #[inline]
-    pub fn inner_token(&self) -> Option<SyntaxToken> {
-        support::token(&self.syntax, SyntaxKind::INNER_KW)
-    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
+pub struct JsonTablePlanOuter {
+    pub(crate) syntax: SyntaxNode,
+}
+impl JsonTablePlanOuter {
     #[inline]
     pub fn outer_token(&self) -> Option<SyntaxToken> {
         support::token(&self.syntax, SyntaxKind::OUTER_KW)
     }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
+pub struct JsonTablePlanUnion {
+    pub(crate) syntax: SyntaxNode,
+}
+impl JsonTablePlanUnion {
     #[inline]
     pub fn union_token(&self) -> Option<SyntaxToken> {
         support::token(&self.syntax, SyntaxKind::UNION_KW)
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
+pub struct JsonTableValueColumn {
+    pub(crate) syntax: SyntaxNode,
+}
+impl JsonTableValueColumn {
+    #[inline]
+    pub fn column_name(&self) -> Option<ColumnName> {
+        support::child(&self.syntax)
+    }
+    #[inline]
+    pub fn json_format_clause(&self) -> Option<JsonFormatClause> {
+        support::child(&self.syntax)
+    }
+    #[inline]
+    pub fn json_path_clause(&self) -> Option<JsonPathClause> {
+        support::child(&self.syntax)
+    }
+    #[inline]
+    pub fn json_quotes_clause(&self) -> Option<JsonQuotesClause> {
+        support::child(&self.syntax)
+    }
+    #[inline]
+    pub fn json_table_value_behavior(&self) -> Option<JsonTableValueBehavior> {
+        support::child(&self.syntax)
+    }
+    #[inline]
+    pub fn json_wrapper_behavior_clause(&self) -> Option<JsonWrapperBehaviorClause> {
+        support::child(&self.syntax)
+    }
+    #[inline]
+    pub fn ty(&self) -> Option<Type> {
+        support::child(&self.syntax)
     }
 }
 
@@ -14319,6 +14713,21 @@ impl JsonWithoutWrapper {
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
+pub struct KeepQuotes {
+    pub(crate) syntax: SyntaxNode,
+}
+impl KeepQuotes {
+    #[inline]
+    pub fn keep_token(&self) -> Option<SyntaxToken> {
+        support::token(&self.syntax, SyntaxKind::KEEP_KW)
+    }
+    #[inline]
+    pub fn quotes_token(&self) -> Option<SyntaxToken> {
+        support::token(&self.syntax, SyntaxKind::QUOTES_KW)
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub struct Label {
     pub(crate) syntax: SyntaxNode,
 }
@@ -14339,16 +14748,8 @@ impl LabelAndProperties {
         support::child(&self.syntax)
     }
     #[inline]
-    pub fn label(&self) -> Option<Label> {
+    pub fn label_spec(&self) -> Option<LabelSpec> {
         support::child(&self.syntax)
-    }
-    #[inline]
-    pub fn default_token(&self) -> Option<SyntaxToken> {
-        support::token(&self.syntax, SyntaxKind::DEFAULT_KW)
-    }
-    #[inline]
-    pub fn label_token(&self) -> Option<SyntaxToken> {
-        support::token(&self.syntax, SyntaxKind::LABEL_KW)
     }
 }
 
@@ -14481,12 +14882,8 @@ pub struct LimitClause {
 }
 impl LimitClause {
     #[inline]
-    pub fn expr(&self) -> Option<Expr> {
+    pub fn limit_value(&self) -> Option<LimitValue> {
         support::child(&self.syntax)
-    }
-    #[inline]
-    pub fn all_token(&self) -> Option<SyntaxToken> {
-        support::token(&self.syntax, SyntaxKind::ALL_KW)
     }
     #[inline]
     pub fn limit_token(&self) -> Option<SyntaxToken> {
@@ -14502,6 +14899,14 @@ impl LimitToTables {
     #[inline]
     pub fn remote_table_name_refs(&self) -> AstChildren<RemoteTableNameRef> {
         support::children(&self.syntax)
+    }
+    #[inline]
+    pub fn l_paren_token(&self) -> Option<SyntaxToken> {
+        support::token(&self.syntax, SyntaxKind::L_PAREN)
+    }
+    #[inline]
+    pub fn r_paren_token(&self) -> Option<SyntaxToken> {
+        support::token(&self.syntax, SyntaxKind::R_PAREN)
     }
     #[inline]
     pub fn limit_token(&self) -> Option<SyntaxToken> {
@@ -14558,12 +14963,38 @@ impl Load {
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
+pub struct LocalCheckOption {
+    pub(crate) syntax: SyntaxNode,
+}
+impl LocalCheckOption {
+    #[inline]
+    pub fn local_token(&self) -> Option<SyntaxToken> {
+        support::token(&self.syntax, SyntaxKind::LOCAL_KW)
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
+pub struct LocalScope {
+    pub(crate) syntax: SyntaxNode,
+}
+impl LocalScope {
+    #[inline]
+    pub fn local_token(&self) -> Option<SyntaxToken> {
+        support::token(&self.syntax, SyntaxKind::LOCAL_KW)
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub struct Lock {
     pub(crate) syntax: SyntaxNode,
 }
 impl Lock {
     #[inline]
-    pub fn lock_mode(&self) -> Option<LockMode> {
+    pub fn lock_mode_clause(&self) -> Option<LockModeClause> {
+        support::child(&self.syntax)
+    }
+    #[inline]
+    pub fn nowait(&self) -> Option<Nowait> {
         support::child(&self.syntax)
     }
     #[inline]
@@ -14575,24 +15006,31 @@ impl Lock {
         support::token(&self.syntax, SyntaxKind::SEMICOLON)
     }
     #[inline]
-    pub fn in_token(&self) -> Option<SyntaxToken> {
-        support::token(&self.syntax, SyntaxKind::IN_KW)
-    }
-    #[inline]
     pub fn lock_token(&self) -> Option<SyntaxToken> {
         support::token(&self.syntax, SyntaxKind::LOCK_KW)
     }
     #[inline]
-    pub fn mode_token(&self) -> Option<SyntaxToken> {
-        support::token(&self.syntax, SyntaxKind::MODE_KW)
-    }
-    #[inline]
-    pub fn nowait_token(&self) -> Option<SyntaxToken> {
-        support::token(&self.syntax, SyntaxKind::NOWAIT_KW)
-    }
-    #[inline]
     pub fn table_token(&self) -> Option<SyntaxToken> {
         support::token(&self.syntax, SyntaxKind::TABLE_KW)
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
+pub struct LockModeClause {
+    pub(crate) syntax: SyntaxNode,
+}
+impl LockModeClause {
+    #[inline]
+    pub fn lock_mode(&self) -> Option<LockMode> {
+        support::child(&self.syntax)
+    }
+    #[inline]
+    pub fn in_token(&self) -> Option<SyntaxToken> {
+        support::token(&self.syntax, SyntaxKind::IN_KW)
+    }
+    #[inline]
+    pub fn mode_token(&self) -> Option<SyntaxToken> {
+        support::token(&self.syntax, SyntaxKind::MODE_KW)
     }
 }
 
@@ -14602,44 +15040,35 @@ pub struct LockingClause {
 }
 impl LockingClause {
     #[inline]
-    pub fn exprs(&self) -> AstChildren<Expr> {
-        support::children(&self.syntax)
-    }
-    #[inline]
-    pub fn for_key_share(&self) -> Option<ForKeyShare> {
+    pub fn lock_strength(&self) -> Option<LockStrength> {
         support::child(&self.syntax)
     }
     #[inline]
-    pub fn for_no_key_update(&self) -> Option<ForNoKeyUpdate> {
+    pub fn lock_wait(&self) -> Option<LockWait> {
         support::child(&self.syntax)
     }
     #[inline]
-    pub fn for_share(&self) -> Option<ForShare> {
-        support::child(&self.syntax)
-    }
-    #[inline]
-    pub fn for_update(&self) -> Option<ForUpdate> {
+    pub fn locking_of(&self) -> Option<LockingOf> {
         support::child(&self.syntax)
     }
     #[inline]
     pub fn for_token(&self) -> Option<SyntaxToken> {
         support::token(&self.syntax, SyntaxKind::FOR_KW)
     }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
+pub struct LockingOf {
+    pub(crate) syntax: SyntaxNode,
+}
+impl LockingOf {
     #[inline]
-    pub fn locked_token(&self) -> Option<SyntaxToken> {
-        support::token(&self.syntax, SyntaxKind::LOCKED_KW)
-    }
-    #[inline]
-    pub fn nowait_token(&self) -> Option<SyntaxToken> {
-        support::token(&self.syntax, SyntaxKind::NOWAIT_KW)
+    pub fn exprs(&self) -> AstChildren<Expr> {
+        support::children(&self.syntax)
     }
     #[inline]
     pub fn of_token(&self) -> Option<SyntaxToken> {
         support::token(&self.syntax, SyntaxKind::OF_KW)
-    }
-    #[inline]
-    pub fn skip_token(&self) -> Option<SyntaxToken> {
-        support::token(&self.syntax, SyntaxKind::SKIP_KW)
     }
 }
 
@@ -14758,6 +15187,21 @@ impl Merge {
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
+pub struct MergeCondition {
+    pub(crate) syntax: SyntaxNode,
+}
+impl MergeCondition {
+    #[inline]
+    pub fn expr(&self) -> Option<Expr> {
+        support::child(&self.syntax)
+    }
+    #[inline]
+    pub fn and_token(&self) -> Option<SyntaxToken> {
+        support::token(&self.syntax, SyntaxKind::AND_KW)
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub struct MergeDelete {
     pub(crate) syntax: SyntaxNode,
 }
@@ -14793,32 +15237,20 @@ impl MergeInsert {
         support::child(&self.syntax)
     }
     #[inline]
+    pub fn default_values(&self) -> Option<DefaultValues> {
+        support::child(&self.syntax)
+    }
+    #[inline]
+    pub fn overriding_clause(&self) -> Option<OverridingClause> {
+        support::child(&self.syntax)
+    }
+    #[inline]
     pub fn values(&self) -> Option<Values> {
         support::child(&self.syntax)
     }
     #[inline]
-    pub fn default_token(&self) -> Option<SyntaxToken> {
-        support::token(&self.syntax, SyntaxKind::DEFAULT_KW)
-    }
-    #[inline]
     pub fn insert_token(&self) -> Option<SyntaxToken> {
         support::token(&self.syntax, SyntaxKind::INSERT_KW)
-    }
-    #[inline]
-    pub fn overriding_token(&self) -> Option<SyntaxToken> {
-        support::token(&self.syntax, SyntaxKind::OVERRIDING_KW)
-    }
-    #[inline]
-    pub fn system_token(&self) -> Option<SyntaxToken> {
-        support::token(&self.syntax, SyntaxKind::SYSTEM_KW)
-    }
-    #[inline]
-    pub fn user_token(&self) -> Option<SyntaxToken> {
-        support::token(&self.syntax, SyntaxKind::USER_KW)
-    }
-    #[inline]
-    pub fn values_token(&self) -> Option<SyntaxToken> {
-        support::token(&self.syntax, SyntaxKind::VALUES_KW)
     }
 }
 
@@ -14874,16 +15306,12 @@ pub struct MergeWhenMatched {
 }
 impl MergeWhenMatched {
     #[inline]
-    pub fn expr(&self) -> Option<Expr> {
-        support::child(&self.syntax)
-    }
-    #[inline]
     pub fn merge_action(&self) -> Option<MergeAction> {
         support::child(&self.syntax)
     }
     #[inline]
-    pub fn and_token(&self) -> Option<SyntaxToken> {
-        support::token(&self.syntax, SyntaxKind::AND_KW)
+    pub fn merge_condition(&self) -> Option<MergeCondition> {
+        support::child(&self.syntax)
     }
     #[inline]
     pub fn matched_token(&self) -> Option<SyntaxToken> {
@@ -14905,16 +15333,12 @@ pub struct MergeWhenNotMatchedSource {
 }
 impl MergeWhenNotMatchedSource {
     #[inline]
-    pub fn expr(&self) -> Option<Expr> {
-        support::child(&self.syntax)
-    }
-    #[inline]
     pub fn merge_action(&self) -> Option<MergeAction> {
         support::child(&self.syntax)
     }
     #[inline]
-    pub fn and_token(&self) -> Option<SyntaxToken> {
-        support::token(&self.syntax, SyntaxKind::AND_KW)
+    pub fn merge_condition(&self) -> Option<MergeCondition> {
+        support::child(&self.syntax)
     }
     #[inline]
     pub fn by_token(&self) -> Option<SyntaxToken> {
@@ -14948,7 +15372,7 @@ pub struct MergeWhenNotMatchedTarget {
 }
 impl MergeWhenNotMatchedTarget {
     #[inline]
-    pub fn expr(&self) -> Option<Expr> {
+    pub fn by_target(&self) -> Option<ByTarget> {
         support::child(&self.syntax)
     }
     #[inline]
@@ -14956,12 +15380,8 @@ impl MergeWhenNotMatchedTarget {
         support::child(&self.syntax)
     }
     #[inline]
-    pub fn and_token(&self) -> Option<SyntaxToken> {
-        support::token(&self.syntax, SyntaxKind::AND_KW)
-    }
-    #[inline]
-    pub fn by_token(&self) -> Option<SyntaxToken> {
-        support::token(&self.syntax, SyntaxKind::BY_KW)
+    pub fn merge_condition(&self) -> Option<MergeCondition> {
+        support::child(&self.syntax)
     }
     #[inline]
     pub fn matched_token(&self) -> Option<SyntaxToken> {
@@ -14970,10 +15390,6 @@ impl MergeWhenNotMatchedTarget {
     #[inline]
     pub fn not_token(&self) -> Option<SyntaxToken> {
         support::token(&self.syntax, SyntaxKind::NOT_KW)
-    }
-    #[inline]
-    pub fn target_token(&self) -> Option<SyntaxToken> {
-        support::token(&self.syntax, SyntaxKind::TARGET_KW)
     }
     #[inline]
     pub fn then_token(&self) -> Option<SyntaxToken> {
@@ -15051,6 +15467,21 @@ impl NamedArg {
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
+pub struct NamedLabel {
+    pub(crate) syntax: SyntaxNode,
+}
+impl NamedLabel {
+    #[inline]
+    pub fn label(&self) -> Option<Label> {
+        support::child(&self.syntax)
+    }
+    #[inline]
+    pub fn label_token(&self) -> Option<SyntaxToken> {
+        support::token(&self.syntax, SyntaxKind::LABEL_KW)
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub struct NamedSchema {
     pub(crate) syntax: SyntaxNode,
 }
@@ -15096,6 +15527,29 @@ impl Neqb {
     #[inline]
     pub fn r_angle_token(&self) -> Option<SyntaxToken> {
         support::token(&self.syntax, SyntaxKind::R_ANGLE)
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
+pub struct NewTable {
+    pub(crate) syntax: SyntaxNode,
+}
+impl NewTable {
+    #[inline]
+    pub fn transition_relation_name(&self) -> Option<TransitionRelationName> {
+        support::child(&self.syntax)
+    }
+    #[inline]
+    pub fn as_token(&self) -> Option<SyntaxToken> {
+        support::token(&self.syntax, SyntaxKind::AS_KW)
+    }
+    #[inline]
+    pub fn new_token(&self) -> Option<SyntaxToken> {
+        support::token(&self.syntax, SyntaxKind::NEW_KW)
+    }
+    #[inline]
+    pub fn table_token(&self) -> Option<SyntaxToken> {
+        support::token(&self.syntax, SyntaxKind::TABLE_KW)
     }
 }
 
@@ -15180,6 +15634,21 @@ impl NoForceRls {
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
+pub struct NoIndent {
+    pub(crate) syntax: SyntaxNode,
+}
+impl NoIndent {
+    #[inline]
+    pub fn indent_token(&self) -> Option<SyntaxToken> {
+        support::token(&self.syntax, SyntaxKind::INDENT_KW)
+    }
+    #[inline]
+    pub fn no_token(&self) -> Option<SyntaxToken> {
+        support::token(&self.syntax, SyntaxKind::NO_KW)
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub struct NoInherit {
     pub(crate) syntax: SyntaxNode,
 }
@@ -15240,6 +15709,21 @@ impl NoProperties {
     #[inline]
     pub fn properties_token(&self) -> Option<SyntaxToken> {
         support::token(&self.syntax, SyntaxKind::PROPERTIES_KW)
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
+pub struct NoScroll {
+    pub(crate) syntax: SyntaxNode,
+}
+impl NoScroll {
+    #[inline]
+    pub fn no_token(&self) -> Option<SyntaxToken> {
+        support::token(&self.syntax, SyntaxKind::NO_KW)
+    }
+    #[inline]
+    pub fn scroll_token(&self) -> Option<SyntaxToken> {
+        support::token(&self.syntax, SyntaxKind::SCROLL_KW)
     }
 }
 
@@ -15392,8 +15876,8 @@ impl NotNullConstraint {
         support::child(&self.syntax)
     }
     #[inline]
-    pub fn no_inherit(&self) -> Option<NoInherit> {
-        support::child(&self.syntax)
+    pub fn constraint_options(&self) -> AstChildren<ConstraintOption> {
+        support::children(&self.syntax)
     }
     #[inline]
     pub fn not_token(&self) -> Option<SyntaxToken> {
@@ -15493,6 +15977,17 @@ impl Notify {
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
+pub struct Nowait {
+    pub(crate) syntax: SyntaxNode,
+}
+impl Nowait {
+    #[inline]
+    pub fn nowait_token(&self) -> Option<SyntaxToken> {
+        support::token(&self.syntax, SyntaxKind::NOWAIT_KW)
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub struct NullConstraint {
     pub(crate) syntax: SyntaxNode,
 }
@@ -15500,6 +15995,10 @@ impl NullConstraint {
     #[inline]
     pub fn constraint_name_clause(&self) -> Option<ConstraintNameClause> {
         support::child(&self.syntax)
+    }
+    #[inline]
+    pub fn constraint_options(&self) -> AstChildren<ConstraintOption> {
+        support::children(&self.syntax)
     }
     #[inline]
     pub fn null_token(&self) -> Option<SyntaxToken> {
@@ -15896,10 +16395,6 @@ pub struct ObjectOperator {
 impl ObjectOperator {
     #[inline]
     pub fn op(&self) -> Option<Op> {
-        support::child(&self.syntax)
-    }
-    #[inline]
-    pub fn ty(&self) -> Option<Type> {
         support::child(&self.syntax)
     }
     #[inline]
@@ -16407,6 +16902,44 @@ impl OffsetClause {
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
+pub struct OldTable {
+    pub(crate) syntax: SyntaxNode,
+}
+impl OldTable {
+    #[inline]
+    pub fn transition_relation_name(&self) -> Option<TransitionRelationName> {
+        support::child(&self.syntax)
+    }
+    #[inline]
+    pub fn as_token(&self) -> Option<SyntaxToken> {
+        support::token(&self.syntax, SyntaxKind::AS_KW)
+    }
+    #[inline]
+    pub fn old_token(&self) -> Option<SyntaxToken> {
+        support::token(&self.syntax, SyntaxKind::OLD_KW)
+    }
+    #[inline]
+    pub fn table_token(&self) -> Option<SyntaxToken> {
+        support::token(&self.syntax, SyntaxKind::TABLE_KW)
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
+pub struct OmitQuotes {
+    pub(crate) syntax: SyntaxNode,
+}
+impl OmitQuotes {
+    #[inline]
+    pub fn omit_token(&self) -> Option<SyntaxToken> {
+        support::token(&self.syntax, SyntaxKind::OMIT_KW)
+    }
+    #[inline]
+    pub fn quotes_token(&self) -> Option<SyntaxToken> {
+        support::token(&self.syntax, SyntaxKind::QUOTES_KW)
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub struct OnClause {
     pub(crate) syntax: SyntaxNode,
 }
@@ -16498,6 +17031,21 @@ impl OnPath {
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
+pub struct OnPrivilegeObjectsClause {
+    pub(crate) syntax: SyntaxNode,
+}
+impl OnPrivilegeObjectsClause {
+    #[inline]
+    pub fn privilege_objects(&self) -> Option<PrivilegeObjects> {
+        support::child(&self.syntax)
+    }
+    #[inline]
+    pub fn on_token(&self) -> Option<SyntaxToken> {
+        support::token(&self.syntax, SyntaxKind::ON_KW)
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub struct OnRelation {
     pub(crate) syntax: SyntaxNode,
 }
@@ -16509,6 +17057,25 @@ impl OnRelation {
     #[inline]
     pub fn on_token(&self) -> Option<SyntaxToken> {
         support::token(&self.syntax, SyntaxKind::ON_KW)
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
+pub struct OnScalarString {
+    pub(crate) syntax: SyntaxNode,
+}
+impl OnScalarString {
+    #[inline]
+    pub fn on_token(&self) -> Option<SyntaxToken> {
+        support::token(&self.syntax, SyntaxKind::ON_KW)
+    }
+    #[inline]
+    pub fn scalar_token(&self) -> Option<SyntaxToken> {
+        support::token(&self.syntax, SyntaxKind::SCALAR_KW)
+    }
+    #[inline]
+    pub fn string_token(&self) -> Option<SyntaxToken> {
+        support::token(&self.syntax, SyntaxKind::STRING_KW)
     }
 }
 
@@ -16762,6 +17329,44 @@ impl Op {
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
+pub struct OpClassForOrderBy {
+    pub(crate) syntax: SyntaxNode,
+}
+impl OpClassForOrderBy {
+    #[inline]
+    pub fn op_family_ref(&self) -> Option<OpFamilyRef> {
+        support::child(&self.syntax)
+    }
+    #[inline]
+    pub fn by_token(&self) -> Option<SyntaxToken> {
+        support::token(&self.syntax, SyntaxKind::BY_KW)
+    }
+    #[inline]
+    pub fn for_token(&self) -> Option<SyntaxToken> {
+        support::token(&self.syntax, SyntaxKind::FOR_KW)
+    }
+    #[inline]
+    pub fn order_token(&self) -> Option<SyntaxToken> {
+        support::token(&self.syntax, SyntaxKind::ORDER_KW)
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
+pub struct OpClassForSearch {
+    pub(crate) syntax: SyntaxNode,
+}
+impl OpClassForSearch {
+    #[inline]
+    pub fn for_token(&self) -> Option<SyntaxToken> {
+        support::token(&self.syntax, SyntaxKind::FOR_KW)
+    }
+    #[inline]
+    pub fn search_token(&self) -> Option<SyntaxToken> {
+        support::token(&self.syntax, SyntaxKind::SEARCH_KW)
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub struct OpClassName {
     pub(crate) syntax: SyntaxNode,
 }
@@ -16809,11 +17414,7 @@ impl OpClassOptionOperator {
         support::child(&self.syntax)
     }
     #[inline]
-    pub fn op_family_ref(&self) -> Option<OpFamilyRef> {
-        support::child(&self.syntax)
-    }
-    #[inline]
-    pub fn ty(&self) -> Option<Type> {
+    pub fn op_class_purpose(&self) -> Option<OpClassPurpose> {
         support::child(&self.syntax)
     }
     #[inline]
@@ -16829,24 +17430,8 @@ impl OpClassOptionOperator {
         support::token(&self.syntax, SyntaxKind::COMMA)
     }
     #[inline]
-    pub fn by_token(&self) -> Option<SyntaxToken> {
-        support::token(&self.syntax, SyntaxKind::BY_KW)
-    }
-    #[inline]
-    pub fn for_token(&self) -> Option<SyntaxToken> {
-        support::token(&self.syntax, SyntaxKind::FOR_KW)
-    }
-    #[inline]
     pub fn operator_token(&self) -> Option<SyntaxToken> {
         support::token(&self.syntax, SyntaxKind::OPERATOR_KW)
-    }
-    #[inline]
-    pub fn order_token(&self) -> Option<SyntaxToken> {
-        support::token(&self.syntax, SyntaxKind::ORDER_KW)
-    }
-    #[inline]
-    pub fn search_token(&self) -> Option<SyntaxToken> {
-        support::token(&self.syntax, SyntaxKind::SEARCH_KW)
     }
 }
 
@@ -17180,12 +17765,23 @@ pub struct OptionItem {
 }
 impl OptionItem {
     #[inline]
-    pub fn expr(&self) -> Option<Expr> {
+    pub fn option_item_key(&self) -> Option<OptionItemKey> {
         support::child(&self.syntax)
     }
     #[inline]
-    pub fn default_token(&self) -> Option<SyntaxToken> {
-        support::token(&self.syntax, SyntaxKind::DEFAULT_KW)
+    pub fn option_item_value(&self) -> Option<OptionItemValue> {
+        support::child(&self.syntax)
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
+pub struct OptionItemKey {
+    pub(crate) syntax: SyntaxNode,
+}
+impl OptionItemKey {
+    #[inline]
+    pub fn ident_token(&self) -> Option<SyntaxToken> {
+        support::token(&self.syntax, SyntaxKind::IDENT)
     }
 }
 
@@ -17205,6 +17801,36 @@ impl OptionItemList {
     #[inline]
     pub fn r_paren_token(&self) -> Option<SyntaxToken> {
         support::token(&self.syntax, SyntaxKind::R_PAREN)
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
+pub struct OptionItemValue {
+    pub(crate) syntax: SyntaxNode,
+}
+impl OptionItemValue {
+    #[inline]
+    pub fn expr(&self) -> Option<Expr> {
+        support::child(&self.syntax)
+    }
+    #[inline]
+    pub fn option_item_value_name(&self) -> Option<OptionItemValueName> {
+        support::child(&self.syntax)
+    }
+    #[inline]
+    pub fn default_token(&self) -> Option<SyntaxToken> {
+        support::token(&self.syntax, SyntaxKind::DEFAULT_KW)
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
+pub struct OptionItemValueName {
+    pub(crate) syntax: SyntaxNode,
+}
+impl OptionItemValueName {
+    #[inline]
+    pub fn ident_token(&self) -> Option<SyntaxToken> {
+        support::token(&self.syntax, SyntaxKind::IDENT)
     }
 }
 
@@ -17371,16 +17997,12 @@ pub struct OptionOwnedBy {
 }
 impl OptionOwnedBy {
     #[inline]
-    pub fn name(&self) -> Option<QualifiedColumnNameRef> {
+    pub fn owned_by_target(&self) -> Option<OwnedByTarget> {
         support::child(&self.syntax)
     }
     #[inline]
     pub fn by_token(&self) -> Option<SyntaxToken> {
         support::token(&self.syntax, SyntaxKind::BY_KW)
-    }
-    #[inline]
-    pub fn none_token(&self) -> Option<SyntaxToken> {
-        support::token(&self.syntax, SyntaxKind::NONE_KW)
     }
     #[inline]
     pub fn owned_token(&self) -> Option<SyntaxToken> {
@@ -17541,9 +18163,20 @@ pub struct OverClause {
 }
 impl OverClause {
     #[inline]
-    pub fn window_ref(&self) -> Option<WindowRef> {
+    pub fn over_target(&self) -> Option<OverTarget> {
         support::child(&self.syntax)
     }
+    #[inline]
+    pub fn over_token(&self) -> Option<SyntaxToken> {
+        support::token(&self.syntax, SyntaxKind::OVER_KW)
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
+pub struct OverWindowSpec {
+    pub(crate) syntax: SyntaxNode,
+}
+impl OverWindowSpec {
     #[inline]
     pub fn window_spec(&self) -> Option<WindowSpec> {
         support::child(&self.syntax)
@@ -17556,9 +18189,16 @@ impl OverClause {
     pub fn r_paren_token(&self) -> Option<SyntaxToken> {
         support::token(&self.syntax, SyntaxKind::R_PAREN)
     }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
+pub struct OverlayExprs {
+    pub(crate) syntax: SyntaxNode,
+}
+impl OverlayExprs {
     #[inline]
-    pub fn over_token(&self) -> Option<SyntaxToken> {
-        support::token(&self.syntax, SyntaxKind::OVER_KW)
+    pub fn overlay_exprs(&self) -> AstChildren<OverlayExpr> {
+        support::children(&self.syntax)
     }
 }
 
@@ -17568,12 +18208,8 @@ pub struct OverlayFn {
 }
 impl OverlayFn {
     #[inline]
-    pub fn expr(&self) -> Option<Expr> {
+    pub fn overlay_args(&self) -> Option<OverlayArgs> {
         support::child(&self.syntax)
-    }
-    #[inline]
-    pub fn exprs(&self) -> AstChildren<Expr> {
-        support::children(&self.syntax)
     }
     #[inline]
     pub fn l_paren_token(&self) -> Option<SyntaxToken> {
@@ -17584,6 +18220,17 @@ impl OverlayFn {
         support::token(&self.syntax, SyntaxKind::R_PAREN)
     }
     #[inline]
+    pub fn overlay_token(&self) -> Option<SyntaxToken> {
+        support::token(&self.syntax, SyntaxKind::OVERLAY_KW)
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
+pub struct OverlayPlacing {
+    pub(crate) syntax: SyntaxNode,
+}
+impl OverlayPlacing {
+    #[inline]
     pub fn for_token(&self) -> Option<SyntaxToken> {
         support::token(&self.syntax, SyntaxKind::FOR_KW)
     }
@@ -17592,12 +18239,57 @@ impl OverlayFn {
         support::token(&self.syntax, SyntaxKind::FROM_KW)
     }
     #[inline]
-    pub fn overlay_token(&self) -> Option<SyntaxToken> {
-        support::token(&self.syntax, SyntaxKind::OVERLAY_KW)
-    }
-    #[inline]
     pub fn placing_token(&self) -> Option<SyntaxToken> {
         support::token(&self.syntax, SyntaxKind::PLACING_KW)
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
+pub struct OverridingSystemValue {
+    pub(crate) syntax: SyntaxNode,
+}
+impl OverridingSystemValue {
+    #[inline]
+    pub fn overriding_token(&self) -> Option<SyntaxToken> {
+        support::token(&self.syntax, SyntaxKind::OVERRIDING_KW)
+    }
+    #[inline]
+    pub fn system_token(&self) -> Option<SyntaxToken> {
+        support::token(&self.syntax, SyntaxKind::SYSTEM_KW)
+    }
+    #[inline]
+    pub fn value_token(&self) -> Option<SyntaxToken> {
+        support::token(&self.syntax, SyntaxKind::VALUE_KW)
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
+pub struct OverridingUserValue {
+    pub(crate) syntax: SyntaxNode,
+}
+impl OverridingUserValue {
+    #[inline]
+    pub fn overriding_token(&self) -> Option<SyntaxToken> {
+        support::token(&self.syntax, SyntaxKind::OVERRIDING_KW)
+    }
+    #[inline]
+    pub fn user_token(&self) -> Option<SyntaxToken> {
+        support::token(&self.syntax, SyntaxKind::USER_KW)
+    }
+    #[inline]
+    pub fn value_token(&self) -> Option<SyntaxToken> {
+        support::token(&self.syntax, SyntaxKind::VALUE_KW)
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
+pub struct OwnedByNone {
+    pub(crate) syntax: SyntaxNode,
+}
+impl OwnedByNone {
+    #[inline]
+    pub fn none_token(&self) -> Option<SyntaxToken> {
+        support::token(&self.syntax, SyntaxKind::NONE_KW)
     }
 }
 
@@ -17735,6 +18427,26 @@ impl ParamList {
     pub fn params(&self) -> AstChildren<Param> {
         support::children(&self.syntax)
     }
+    #[inline]
+    pub fn l_paren_token(&self) -> Option<SyntaxToken> {
+        support::token(&self.syntax, SyntaxKind::L_PAREN)
+    }
+    #[inline]
+    pub fn r_paren_token(&self) -> Option<SyntaxToken> {
+        support::token(&self.syntax, SyntaxKind::R_PAREN)
+    }
+    #[inline]
+    pub fn star_token(&self) -> Option<SyntaxToken> {
+        support::token(&self.syntax, SyntaxKind::STAR)
+    }
+    #[inline]
+    pub fn by_token(&self) -> Option<SyntaxToken> {
+        support::token(&self.syntax, SyntaxKind::BY_KW)
+    }
+    #[inline]
+    pub fn order_token(&self) -> Option<SyntaxToken> {
+        support::token(&self.syntax, SyntaxKind::ORDER_KW)
+    }
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
@@ -17787,6 +18499,10 @@ pub struct ParenExpr {
 }
 impl ParenExpr {
     #[inline]
+    pub fn compound_select(&self) -> Option<CompoundSelect> {
+        support::child(&self.syntax)
+    }
+    #[inline]
     pub fn expr(&self) -> Option<Expr> {
         support::child(&self.syntax)
     }
@@ -17800,6 +18516,14 @@ impl ParenExpr {
     }
     #[inline]
     pub fn select(&self) -> Option<Select> {
+        support::child(&self.syntax)
+    }
+    #[inline]
+    pub fn table(&self) -> Option<Table> {
+        support::child(&self.syntax)
+    }
+    #[inline]
+    pub fn values(&self) -> Option<Values> {
         support::child(&self.syntax)
     }
     #[inline]
@@ -17886,6 +18610,26 @@ pub struct ParenSelect {
     pub(crate) syntax: SyntaxNode,
 }
 impl ParenSelect {
+    #[inline]
+    pub fn fetch_clause(&self) -> Option<FetchClause> {
+        support::child(&self.syntax)
+    }
+    #[inline]
+    pub fn limit_clause(&self) -> Option<LimitClause> {
+        support::child(&self.syntax)
+    }
+    #[inline]
+    pub fn locking_clauses(&self) -> AstChildren<LockingClause> {
+        support::children(&self.syntax)
+    }
+    #[inline]
+    pub fn offset_clause(&self) -> Option<OffsetClause> {
+        support::child(&self.syntax)
+    }
+    #[inline]
+    pub fn order_by_clause(&self) -> Option<OrderByClause> {
+        support::child(&self.syntax)
+    }
     #[inline]
     pub fn select(&self) -> Option<SelectVariant> {
         support::child(&self.syntax)
@@ -17986,18 +18730,6 @@ pub struct PartitionForValuesFrom {
 }
 impl PartitionForValuesFrom {
     #[inline]
-    pub fn exprs(&self) -> AstChildren<Expr> {
-        support::children(&self.syntax)
-    }
-    #[inline]
-    pub fn l_paren_token(&self) -> Option<SyntaxToken> {
-        support::token(&self.syntax, SyntaxKind::L_PAREN)
-    }
-    #[inline]
-    pub fn r_paren_token(&self) -> Option<SyntaxToken> {
-        support::token(&self.syntax, SyntaxKind::R_PAREN)
-    }
-    #[inline]
     pub fn for_token(&self) -> Option<SyntaxToken> {
         support::token(&self.syntax, SyntaxKind::FOR_KW)
     }
@@ -18052,7 +18784,11 @@ pub struct PartitionForValuesWith {
 }
 impl PartitionForValuesWith {
     #[inline]
-    pub fn literal(&self) -> Option<Literal> {
+    pub fn modulus(&self) -> Option<PartitionModulus> {
+        support::child(&self.syntax)
+    }
+    #[inline]
+    pub fn remainder(&self) -> Option<PartitionRemainder> {
         support::child(&self.syntax)
     }
     #[inline]
@@ -18072,16 +18808,31 @@ impl PartitionForValuesWith {
         support::token(&self.syntax, SyntaxKind::FOR_KW)
     }
     #[inline]
-    pub fn ident_token(&self) -> Option<SyntaxToken> {
-        support::token(&self.syntax, SyntaxKind::IDENT)
-    }
-    #[inline]
     pub fn values_token(&self) -> Option<SyntaxToken> {
         support::token(&self.syntax, SyntaxKind::VALUES_KW)
     }
     #[inline]
     pub fn with_token(&self) -> Option<SyntaxToken> {
         support::token(&self.syntax, SyntaxKind::WITH_KW)
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
+pub struct PartitionFromValues {
+    pub(crate) syntax: SyntaxNode,
+}
+impl PartitionFromValues {
+    #[inline]
+    pub fn exprs(&self) -> AstChildren<Expr> {
+        support::children(&self.syntax)
+    }
+    #[inline]
+    pub fn l_paren_token(&self) -> Option<SyntaxToken> {
+        support::token(&self.syntax, SyntaxKind::L_PAREN)
+    }
+    #[inline]
+    pub fn r_paren_token(&self) -> Option<SyntaxToken> {
+        support::token(&self.syntax, SyntaxKind::R_PAREN)
     }
 }
 
@@ -18103,11 +18854,7 @@ impl PartitionItem {
         support::child(&self.syntax)
     }
     #[inline]
-    pub fn nulls_first(&self) -> Option<NullsFirst> {
-        support::child(&self.syntax)
-    }
-    #[inline]
-    pub fn nulls_last(&self) -> Option<NullsLast> {
+    pub fn nulls_order(&self) -> Option<NullsOrder> {
         support::child(&self.syntax)
     }
     #[inline]
@@ -18115,15 +18862,7 @@ impl PartitionItem {
         support::child(&self.syntax)
     }
     #[inline]
-    pub fn sort_asc(&self) -> Option<SortAsc> {
-        support::child(&self.syntax)
-    }
-    #[inline]
-    pub fn sort_desc(&self) -> Option<SortDesc> {
-        support::child(&self.syntax)
-    }
-    #[inline]
-    pub fn sort_using(&self) -> Option<SortUsing> {
+    pub fn sort_order(&self) -> Option<SortOrder> {
         support::child(&self.syntax)
     }
 }
@@ -18167,6 +18906,21 @@ impl PartitionList {
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
+pub struct PartitionModulus {
+    pub(crate) syntax: SyntaxNode,
+}
+impl PartitionModulus {
+    #[inline]
+    pub fn int_number_token(&self) -> Option<SyntaxToken> {
+        support::token(&self.syntax, SyntaxKind::INT_NUMBER)
+    }
+    #[inline]
+    pub fn ident_token(&self) -> Option<SyntaxToken> {
+        support::token(&self.syntax, SyntaxKind::IDENT)
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub struct PartitionOf {
     pub(crate) syntax: SyntaxNode,
 }
@@ -18186,6 +18940,21 @@ impl PartitionOf {
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
+pub struct PartitionRemainder {
+    pub(crate) syntax: SyntaxNode,
+}
+impl PartitionRemainder {
+    #[inline]
+    pub fn int_number_token(&self) -> Option<SyntaxToken> {
+        support::token(&self.syntax, SyntaxKind::INT_NUMBER)
+    }
+    #[inline]
+    pub fn ident_token(&self) -> Option<SyntaxToken> {
+        support::token(&self.syntax, SyntaxKind::IDENT)
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub struct PartitionStrategy {
     pub(crate) syntax: SyntaxNode,
 }
@@ -18197,6 +18966,25 @@ impl PartitionStrategy {
     #[inline]
     pub fn range_token(&self) -> Option<SyntaxToken> {
         support::token(&self.syntax, SyntaxKind::RANGE_KW)
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
+pub struct PartitionToValues {
+    pub(crate) syntax: SyntaxNode,
+}
+impl PartitionToValues {
+    #[inline]
+    pub fn exprs(&self) -> AstChildren<Expr> {
+        support::children(&self.syntax)
+    }
+    #[inline]
+    pub fn l_paren_token(&self) -> Option<SyntaxToken> {
+        support::token(&self.syntax, SyntaxKind::L_PAREN)
+    }
+    #[inline]
+    pub fn r_paren_token(&self) -> Option<SyntaxToken> {
+        support::token(&self.syntax, SyntaxKind::R_PAREN)
     }
 }
 
@@ -18381,6 +19169,76 @@ impl Policy {
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
+pub struct PolicyCommand {
+    pub(crate) syntax: SyntaxNode,
+}
+impl PolicyCommand {
+    #[inline]
+    pub fn command(&self) -> Option<PolicyCommandKind> {
+        support::child(&self.syntax)
+    }
+    #[inline]
+    pub fn for_token(&self) -> Option<SyntaxToken> {
+        support::token(&self.syntax, SyntaxKind::FOR_KW)
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
+pub struct PolicyCommandAll {
+    pub(crate) syntax: SyntaxNode,
+}
+impl PolicyCommandAll {
+    #[inline]
+    pub fn all_token(&self) -> Option<SyntaxToken> {
+        support::token(&self.syntax, SyntaxKind::ALL_KW)
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
+pub struct PolicyCommandDelete {
+    pub(crate) syntax: SyntaxNode,
+}
+impl PolicyCommandDelete {
+    #[inline]
+    pub fn delete_token(&self) -> Option<SyntaxToken> {
+        support::token(&self.syntax, SyntaxKind::DELETE_KW)
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
+pub struct PolicyCommandInsert {
+    pub(crate) syntax: SyntaxNode,
+}
+impl PolicyCommandInsert {
+    #[inline]
+    pub fn insert_token(&self) -> Option<SyntaxToken> {
+        support::token(&self.syntax, SyntaxKind::INSERT_KW)
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
+pub struct PolicyCommandSelect {
+    pub(crate) syntax: SyntaxNode,
+}
+impl PolicyCommandSelect {
+    #[inline]
+    pub fn select_token(&self) -> Option<SyntaxToken> {
+        support::token(&self.syntax, SyntaxKind::SELECT_KW)
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
+pub struct PolicyCommandUpdate {
+    pub(crate) syntax: SyntaxNode,
+}
+impl PolicyCommandUpdate {
+    #[inline]
+    pub fn update_token(&self) -> Option<SyntaxToken> {
+        support::token(&self.syntax, SyntaxKind::UPDATE_KW)
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub struct PolicyRef {
     pub(crate) syntax: SyntaxNode,
 }
@@ -18411,14 +19269,59 @@ impl PolicyRenameTo {
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
-pub struct PositionFn {
+pub struct PolicyRoles {
     pub(crate) syntax: SyntaxNode,
 }
-impl PositionFn {
+impl PolicyRoles {
+    #[inline]
+    pub fn role_ref_list(&self) -> Option<RoleRefList> {
+        support::child(&self.syntax)
+    }
+    #[inline]
+    pub fn to_token(&self) -> Option<SyntaxToken> {
+        support::token(&self.syntax, SyntaxKind::TO_KW)
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
+pub struct PortionFromTo {
+    pub(crate) syntax: SyntaxNode,
+}
+impl PortionFromTo {
+    #[inline]
+    pub fn from_token(&self) -> Option<SyntaxToken> {
+        support::token(&self.syntax, SyntaxKind::FROM_KW)
+    }
+    #[inline]
+    pub fn to_token(&self) -> Option<SyntaxToken> {
+        support::token(&self.syntax, SyntaxKind::TO_KW)
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
+pub struct PortionRange {
+    pub(crate) syntax: SyntaxNode,
+}
+impl PortionRange {
     #[inline]
     pub fn expr(&self) -> Option<Expr> {
         support::child(&self.syntax)
     }
+    #[inline]
+    pub fn l_paren_token(&self) -> Option<SyntaxToken> {
+        support::token(&self.syntax, SyntaxKind::L_PAREN)
+    }
+    #[inline]
+    pub fn r_paren_token(&self) -> Option<SyntaxToken> {
+        support::token(&self.syntax, SyntaxKind::R_PAREN)
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
+pub struct PositionFn {
+    pub(crate) syntax: SyntaxNode,
+}
+impl PositionFn {
     #[inline]
     pub fn l_paren_token(&self) -> Option<SyntaxToken> {
         support::token(&self.syntax, SyntaxKind::L_PAREN)
@@ -18551,6 +19454,21 @@ impl PreserveRows {
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
+pub struct PreserveWhitespace {
+    pub(crate) syntax: SyntaxNode,
+}
+impl PreserveWhitespace {
+    #[inline]
+    pub fn preserve_token(&self) -> Option<SyntaxToken> {
+        support::token(&self.syntax, SyntaxKind::PRESERVE_KW)
+    }
+    #[inline]
+    pub fn whitespace_token(&self) -> Option<SyntaxToken> {
+        support::token(&self.syntax, SyntaxKind::WHITESPACE_KW)
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub struct PrimaryKeyConstraint {
     pub(crate) syntax: SyntaxNode,
 }
@@ -18560,11 +19478,15 @@ impl PrimaryKeyConstraint {
         support::child(&self.syntax)
     }
     #[inline]
+    pub fn constraint_options(&self) -> AstChildren<ConstraintOption> {
+        support::children(&self.syntax)
+    }
+    #[inline]
     pub fn index_parameters(&self) -> Option<IndexParameters> {
         support::child(&self.syntax)
     }
     #[inline]
-    pub fn using_index(&self) -> Option<UsingIndex> {
+    pub fn using_index(&self) -> Option<UsingIndexName> {
         support::child(&self.syntax)
     }
     #[inline]
@@ -19076,29 +19998,6 @@ impl PrivilegeType {
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
-pub struct Privileges {
-    pub(crate) syntax: SyntaxNode,
-}
-impl Privileges {
-    #[inline]
-    pub fn column_ref_list(&self) -> Option<ColumnRefList> {
-        support::child(&self.syntax)
-    }
-    #[inline]
-    pub fn revoke_command_list(&self) -> Option<RevokeCommandList> {
-        support::child(&self.syntax)
-    }
-    #[inline]
-    pub fn all_token(&self) -> Option<SyntaxToken> {
-        support::token(&self.syntax, SyntaxKind::ALL_KW)
-    }
-    #[inline]
-    pub fn privileges_token(&self) -> Option<SyntaxToken> {
-        support::token(&self.syntax, SyntaxKind::PRIVILEGES_KW)
-    }
-}
-
-#[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub struct ProcedureName {
     pub(crate) syntax: SyntaxNode,
 }
@@ -19173,14 +20072,6 @@ impl Properties {
     #[inline]
     pub fn expr_as_property_name_list(&self) -> Option<ExprAsPropertyNameList> {
         support::child(&self.syntax)
-    }
-    #[inline]
-    pub fn l_paren_token(&self) -> Option<SyntaxToken> {
-        support::token(&self.syntax, SyntaxKind::L_PAREN)
-    }
-    #[inline]
-    pub fn r_paren_token(&self) -> Option<SyntaxToken> {
-        support::token(&self.syntax, SyntaxKind::R_PAREN)
     }
     #[inline]
     pub fn properties_token(&self) -> Option<SyntaxToken> {
@@ -19495,6 +20386,28 @@ impl QualifiedColumnNameRef {
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
+pub struct QualifierMax {
+    pub(crate) syntax: SyntaxNode,
+}
+impl QualifierMax {
+    #[inline]
+    pub fn literal(&self) -> Option<Literal> {
+        support::child(&self.syntax)
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
+pub struct QualifierMin {
+    pub(crate) syntax: SyntaxNode,
+}
+impl QualifierMin {
+    #[inline]
+    pub fn literal(&self) -> Option<Literal> {
+        support::child(&self.syntax)
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub struct RangeType {
     pub(crate) syntax: SyntaxNode,
 }
@@ -19595,14 +20508,6 @@ pub struct Reassign {
 }
 impl Reassign {
     #[inline]
-    pub fn new_roles(&self) -> Option<RoleRefList> {
-        support::child(&self.syntax)
-    }
-    #[inline]
-    pub fn old_roles(&self) -> Option<RoleRefList> {
-        support::child(&self.syntax)
-    }
-    #[inline]
     pub fn semicolon_token(&self) -> Option<SyntaxToken> {
         support::token(&self.syntax, SyntaxKind::SEMICOLON)
     }
@@ -19636,6 +20541,10 @@ impl ReferencesConstraint {
     #[inline]
     pub fn constraint_name_clause(&self) -> Option<ConstraintNameClause> {
         support::child(&self.syntax)
+    }
+    #[inline]
+    pub fn constraint_options(&self) -> AstChildren<ConstraintOption> {
+        support::children(&self.syntax)
     }
     #[inline]
     pub fn match_type(&self) -> Option<MatchType> {
@@ -19702,47 +20611,16 @@ impl Referencing {
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
-pub struct ReferencingTable {
-    pub(crate) syntax: SyntaxNode,
-}
-impl ReferencingTable {
-    #[inline]
-    pub fn transition_relation_name(&self) -> Option<TransitionRelationName> {
-        support::child(&self.syntax)
-    }
-    #[inline]
-    pub fn as_token(&self) -> Option<SyntaxToken> {
-        support::token(&self.syntax, SyntaxKind::AS_KW)
-    }
-    #[inline]
-    pub fn new_token(&self) -> Option<SyntaxToken> {
-        support::token(&self.syntax, SyntaxKind::NEW_KW)
-    }
-    #[inline]
-    pub fn old_token(&self) -> Option<SyntaxToken> {
-        support::token(&self.syntax, SyntaxKind::OLD_KW)
-    }
-    #[inline]
-    pub fn table_token(&self) -> Option<SyntaxToken> {
-        support::token(&self.syntax, SyntaxKind::TABLE_KW)
-    }
-}
-
-#[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub struct Refresh {
     pub(crate) syntax: SyntaxNode,
 }
 impl Refresh {
     #[inline]
+    pub fn data_option(&self) -> Option<DataOption> {
+        support::child(&self.syntax)
+    }
+    #[inline]
     pub fn view_ref(&self) -> Option<ViewRef> {
-        support::child(&self.syntax)
-    }
-    #[inline]
-    pub fn with_data(&self) -> Option<WithData> {
-        support::child(&self.syntax)
-    }
-    #[inline]
-    pub fn with_no_data(&self) -> Option<WithNoData> {
         support::child(&self.syntax)
     }
     #[inline]
@@ -19792,7 +20670,7 @@ pub struct RefreshPublication {
 }
 impl RefreshPublication {
     #[inline]
-    pub fn attribute_list(&self) -> Option<AttributeList> {
+    pub fn with_params(&self) -> Option<WithParams> {
         support::child(&self.syntax)
     }
     #[inline]
@@ -19802,10 +20680,6 @@ impl RefreshPublication {
     #[inline]
     pub fn refresh_token(&self) -> Option<SyntaxToken> {
         support::token(&self.syntax, SyntaxKind::REFRESH_KW)
-    }
-    #[inline]
-    pub fn with_token(&self) -> Option<SyntaxToken> {
-        support::token(&self.syntax, SyntaxKind::WITH_KW)
     }
 }
 
@@ -20161,10 +21035,6 @@ pub struct RenameAttribute {
 }
 impl RenameAttribute {
     #[inline]
-    pub fn cascade(&self) -> Option<Cascade> {
-        support::child(&self.syntax)
-    }
-    #[inline]
     pub fn composite_field(&self) -> Option<CompositeField> {
         support::child(&self.syntax)
     }
@@ -20173,7 +21043,7 @@ impl RenameAttribute {
         support::child(&self.syntax)
     }
     #[inline]
-    pub fn restrict(&self) -> Option<Restrict> {
+    pub fn drop_behavior(&self) -> Option<DropBehavior> {
         support::child(&self.syntax)
     }
     #[inline]
@@ -20269,10 +21139,6 @@ pub struct Repack {
 }
 impl Repack {
     #[inline]
-    pub fn index_ref(&self) -> Option<IndexRef> {
-        support::child(&self.syntax)
-    }
-    #[inline]
     pub fn option_item_list(&self) -> Option<OptionItemList> {
         support::child(&self.syntax)
     }
@@ -20281,20 +21147,16 @@ impl Repack {
         support::child(&self.syntax)
     }
     #[inline]
+    pub fn using_index(&self) -> Option<UsingIndex> {
+        support::child(&self.syntax)
+    }
+    #[inline]
     pub fn semicolon_token(&self) -> Option<SyntaxToken> {
         support::token(&self.syntax, SyntaxKind::SEMICOLON)
     }
     #[inline]
-    pub fn index_token(&self) -> Option<SyntaxToken> {
-        support::token(&self.syntax, SyntaxKind::INDEX_KW)
-    }
-    #[inline]
     pub fn repack_token(&self) -> Option<SyntaxToken> {
         support::token(&self.syntax, SyntaxKind::REPACK_KW)
-    }
-    #[inline]
-    pub fn using_token(&self) -> Option<SyntaxToken> {
-        support::token(&self.syntax, SyntaxKind::USING_KW)
     }
 }
 
@@ -20345,41 +21207,69 @@ impl RepeatableRead {
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
+pub struct ReplaceDictionary {
+    pub(crate) syntax: SyntaxNode,
+}
+impl ReplaceDictionary {
+    #[inline]
+    pub fn replace_token(&self) -> Option<SyntaxToken> {
+        support::token(&self.syntax, SyntaxKind::REPLACE_KW)
+    }
+    #[inline]
+    pub fn with_token(&self) -> Option<SyntaxToken> {
+        support::token(&self.syntax, SyntaxKind::WITH_KW)
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub struct ReplicaIdentity {
     pub(crate) syntax: SyntaxNode,
 }
 impl ReplicaIdentity {
     #[inline]
-    pub fn index_ref(&self) -> Option<IndexRef> {
+    pub fn replica_identity_option(&self) -> Option<ReplicaIdentityOption> {
         support::child(&self.syntax)
-    }
-    #[inline]
-    pub fn default_token(&self) -> Option<SyntaxToken> {
-        support::token(&self.syntax, SyntaxKind::DEFAULT_KW)
-    }
-    #[inline]
-    pub fn full_token(&self) -> Option<SyntaxToken> {
-        support::token(&self.syntax, SyntaxKind::FULL_KW)
     }
     #[inline]
     pub fn identity_token(&self) -> Option<SyntaxToken> {
         support::token(&self.syntax, SyntaxKind::IDENTITY_KW)
     }
     #[inline]
-    pub fn index_token(&self) -> Option<SyntaxToken> {
-        support::token(&self.syntax, SyntaxKind::INDEX_KW)
-    }
-    #[inline]
-    pub fn nothing_token(&self) -> Option<SyntaxToken> {
-        support::token(&self.syntax, SyntaxKind::NOTHING_KW)
-    }
-    #[inline]
     pub fn replica_token(&self) -> Option<SyntaxToken> {
         support::token(&self.syntax, SyntaxKind::REPLICA_KW)
     }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
+pub struct ReplicaIdentityDefault {
+    pub(crate) syntax: SyntaxNode,
+}
+impl ReplicaIdentityDefault {
     #[inline]
-    pub fn using_token(&self) -> Option<SyntaxToken> {
-        support::token(&self.syntax, SyntaxKind::USING_KW)
+    pub fn default_token(&self) -> Option<SyntaxToken> {
+        support::token(&self.syntax, SyntaxKind::DEFAULT_KW)
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
+pub struct ReplicaIdentityFull {
+    pub(crate) syntax: SyntaxNode,
+}
+impl ReplicaIdentityFull {
+    #[inline]
+    pub fn full_token(&self) -> Option<SyntaxToken> {
+        support::token(&self.syntax, SyntaxKind::FULL_KW)
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
+pub struct ReplicaIdentityNothing {
+    pub(crate) syntax: SyntaxNode,
+}
+impl ReplicaIdentityNothing {
+    #[inline]
+    pub fn nothing_token(&self) -> Option<SyntaxToken> {
+        support::token(&self.syntax, SyntaxKind::NOTHING_KW)
     }
 }
 
@@ -20581,6 +21471,21 @@ impl Restart {
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
+pub struct RestartIdentity {
+    pub(crate) syntax: SyntaxNode,
+}
+impl RestartIdentity {
+    #[inline]
+    pub fn identity_token(&self) -> Option<SyntaxToken> {
+        support::token(&self.syntax, SyntaxKind::IDENTITY_KW)
+    }
+    #[inline]
+    pub fn restart_token(&self) -> Option<SyntaxToken> {
+        support::token(&self.syntax, SyntaxKind::RESTART_KW)
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub struct Restrict {
     pub(crate) syntax: SyntaxNode,
 }
@@ -20653,10 +21558,10 @@ impl ReturningClause {
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
-pub struct ReturningOption {
+pub struct ReturningNew {
     pub(crate) syntax: SyntaxNode,
 }
-impl ReturningOption {
+impl ReturningNew {
     #[inline]
     pub fn name(&self) -> Option<TableAlias> {
         support::child(&self.syntax)
@@ -20668,6 +21573,21 @@ impl ReturningOption {
     #[inline]
     pub fn new_token(&self) -> Option<SyntaxToken> {
         support::token(&self.syntax, SyntaxKind::NEW_KW)
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
+pub struct ReturningOld {
+    pub(crate) syntax: SyntaxNode,
+}
+impl ReturningOld {
+    #[inline]
+    pub fn name(&self) -> Option<TableAlias> {
+        support::child(&self.syntax)
+    }
+    #[inline]
+    pub fn as_token(&self) -> Option<SyntaxToken> {
+        support::token(&self.syntax, SyntaxKind::AS_KW)
     }
     #[inline]
     pub fn old_token(&self) -> Option<SyntaxToken> {
@@ -20727,7 +21647,15 @@ pub struct Revoke {
 }
 impl Revoke {
     #[inline]
-    pub fn privilege_objects(&self) -> Option<PrivilegeObjects> {
+    pub fn drop_behavior(&self) -> Option<DropBehavior> {
+        support::child(&self.syntax)
+    }
+    #[inline]
+    pub fn granted_by_clause(&self) -> Option<GrantedByClause> {
+        support::child(&self.syntax)
+    }
+    #[inline]
+    pub fn on_privilege_objects_clause(&self) -> Option<OnPrivilegeObjectsClause> {
         support::child(&self.syntax)
     }
     #[inline]
@@ -20735,7 +21663,7 @@ impl Revoke {
         support::child(&self.syntax)
     }
     #[inline]
-    pub fn role_ref(&self) -> Option<RoleRef> {
+    pub fn revoke_option_for(&self) -> Option<RevokeOptionFor> {
         support::child(&self.syntax)
     }
     #[inline]
@@ -20747,56 +21675,12 @@ impl Revoke {
         support::token(&self.syntax, SyntaxKind::SEMICOLON)
     }
     #[inline]
-    pub fn admin_token(&self) -> Option<SyntaxToken> {
-        support::token(&self.syntax, SyntaxKind::ADMIN_KW)
-    }
-    #[inline]
-    pub fn by_token(&self) -> Option<SyntaxToken> {
-        support::token(&self.syntax, SyntaxKind::BY_KW)
-    }
-    #[inline]
-    pub fn cascade_token(&self) -> Option<SyntaxToken> {
-        support::token(&self.syntax, SyntaxKind::CASCADE_KW)
-    }
-    #[inline]
-    pub fn for_token(&self) -> Option<SyntaxToken> {
-        support::token(&self.syntax, SyntaxKind::FOR_KW)
-    }
-    #[inline]
     pub fn from_token(&self) -> Option<SyntaxToken> {
         support::token(&self.syntax, SyntaxKind::FROM_KW)
     }
     #[inline]
-    pub fn grant_token(&self) -> Option<SyntaxToken> {
-        support::token(&self.syntax, SyntaxKind::GRANT_KW)
-    }
-    #[inline]
-    pub fn granted_token(&self) -> Option<SyntaxToken> {
-        support::token(&self.syntax, SyntaxKind::GRANTED_KW)
-    }
-    #[inline]
-    pub fn inherit_token(&self) -> Option<SyntaxToken> {
-        support::token(&self.syntax, SyntaxKind::INHERIT_KW)
-    }
-    #[inline]
-    pub fn on_token(&self) -> Option<SyntaxToken> {
-        support::token(&self.syntax, SyntaxKind::ON_KW)
-    }
-    #[inline]
-    pub fn option_token(&self) -> Option<SyntaxToken> {
-        support::token(&self.syntax, SyntaxKind::OPTION_KW)
-    }
-    #[inline]
-    pub fn restrict_token(&self) -> Option<SyntaxToken> {
-        support::token(&self.syntax, SyntaxKind::RESTRICT_KW)
-    }
-    #[inline]
     pub fn revoke_token(&self) -> Option<SyntaxToken> {
         support::token(&self.syntax, SyntaxKind::REVOKE_KW)
-    }
-    #[inline]
-    pub fn set_token(&self) -> Option<SyntaxToken> {
-        support::token(&self.syntax, SyntaxKind::SET_KW)
     }
 }
 
@@ -20892,6 +21776,14 @@ pub struct RevokeDefaultPrivileges {
 }
 impl RevokeDefaultPrivileges {
     #[inline]
+    pub fn drop_behavior(&self) -> Option<DropBehavior> {
+        support::child(&self.syntax)
+    }
+    #[inline]
+    pub fn grant_option_for(&self) -> Option<GrantOptionFor> {
+        support::child(&self.syntax)
+    }
+    #[inline]
     pub fn privilege_target(&self) -> Option<PrivilegeTarget> {
         support::child(&self.syntax)
     }
@@ -20904,32 +21796,12 @@ impl RevokeDefaultPrivileges {
         support::child(&self.syntax)
     }
     #[inline]
-    pub fn cascade_token(&self) -> Option<SyntaxToken> {
-        support::token(&self.syntax, SyntaxKind::CASCADE_KW)
-    }
-    #[inline]
-    pub fn for_token(&self) -> Option<SyntaxToken> {
-        support::token(&self.syntax, SyntaxKind::FOR_KW)
-    }
-    #[inline]
     pub fn from_token(&self) -> Option<SyntaxToken> {
         support::token(&self.syntax, SyntaxKind::FROM_KW)
     }
     #[inline]
-    pub fn grant_token(&self) -> Option<SyntaxToken> {
-        support::token(&self.syntax, SyntaxKind::GRANT_KW)
-    }
-    #[inline]
     pub fn on_token(&self) -> Option<SyntaxToken> {
         support::token(&self.syntax, SyntaxKind::ON_KW)
-    }
-    #[inline]
-    pub fn option_token(&self) -> Option<SyntaxToken> {
-        support::token(&self.syntax, SyntaxKind::OPTION_KW)
-    }
-    #[inline]
-    pub fn restrict_token(&self) -> Option<SyntaxToken> {
-        support::token(&self.syntax, SyntaxKind::RESTRICT_KW)
     }
     #[inline]
     pub fn revoke_token(&self) -> Option<SyntaxToken> {
@@ -21238,6 +22110,10 @@ pub struct Rollback {
 }
 impl Rollback {
     #[inline]
+    pub fn chain_clause(&self) -> Option<ChainClause> {
+        support::child(&self.syntax)
+    }
+    #[inline]
     pub fn literal(&self) -> Option<Literal> {
         support::child(&self.syntax)
     }
@@ -21252,18 +22128,6 @@ impl Rollback {
     #[inline]
     pub fn abort_token(&self) -> Option<SyntaxToken> {
         support::token(&self.syntax, SyntaxKind::ABORT_KW)
-    }
-    #[inline]
-    pub fn and_token(&self) -> Option<SyntaxToken> {
-        support::token(&self.syntax, SyntaxKind::AND_KW)
-    }
-    #[inline]
-    pub fn chain_token(&self) -> Option<SyntaxToken> {
-        support::token(&self.syntax, SyntaxKind::CHAIN_KW)
-    }
-    #[inline]
-    pub fn no_token(&self) -> Option<SyntaxToken> {
-        support::token(&self.syntax, SyntaxKind::NO_KW)
     }
     #[inline]
     pub fn prepared_token(&self) -> Option<SyntaxToken> {
@@ -21367,6 +22231,14 @@ impl Row {
     pub fn exprs(&self) -> AstChildren<Expr> {
         support::children(&self.syntax)
     }
+    #[inline]
+    pub fn l_paren_token(&self) -> Option<SyntaxToken> {
+        support::token(&self.syntax, SyntaxKind::L_PAREN)
+    }
+    #[inline]
+    pub fn r_paren_token(&self) -> Option<SyntaxToken> {
+        support::token(&self.syntax, SyntaxKind::R_PAREN)
+    }
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
@@ -21411,6 +22283,25 @@ impl RowShare {
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
+pub struct RowsFromArg {
+    pub(crate) syntax: SyntaxNode,
+}
+impl RowsFromArg {
+    #[inline]
+    pub fn call_expr(&self) -> Option<CallExpr> {
+        support::child(&self.syntax)
+    }
+    #[inline]
+    pub fn column_def_list(&self) -> Option<ColumnDefList> {
+        support::child(&self.syntax)
+    }
+    #[inline]
+    pub fn as_token(&self) -> Option<SyntaxToken> {
+        support::token(&self.syntax, SyntaxKind::AS_KW)
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub struct RowsFromItem {
     pub(crate) syntax: SyntaxNode,
 }
@@ -21420,8 +22311,12 @@ impl RowsFromItem {
         support::child(&self.syntax)
     }
     #[inline]
-    pub fn call_exprs(&self) -> AstChildren<CallExpr> {
+    pub fn rows_from_args(&self) -> AstChildren<RowsFromArg> {
         support::children(&self.syntax)
+    }
+    #[inline]
+    pub fn with_ordinality(&self) -> Option<WithOrdinality> {
+        support::child(&self.syntax)
     }
     #[inline]
     pub fn l_paren_token(&self) -> Option<SyntaxToken> {
@@ -21440,16 +22335,8 @@ impl RowsFromItem {
         support::token(&self.syntax, SyntaxKind::LATERAL_KW)
     }
     #[inline]
-    pub fn ordinality_token(&self) -> Option<SyntaxToken> {
-        support::token(&self.syntax, SyntaxKind::ORDINALITY_KW)
-    }
-    #[inline]
     pub fn rows_token(&self) -> Option<SyntaxToken> {
         support::token(&self.syntax, SyntaxKind::ROWS_KW)
-    }
-    #[inline]
-    pub fn with_token(&self) -> Option<SyntaxToken> {
-        support::token(&self.syntax, SyntaxKind::WITH_KW)
     }
 }
 
@@ -21688,6 +22575,17 @@ impl SchemaRenameTo {
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
+pub struct Scroll {
+    pub(crate) syntax: SyntaxNode,
+}
+impl Scroll {
+    #[inline]
+    pub fn scroll_token(&self) -> Option<SyntaxToken> {
+        support::token(&self.syntax, SyntaxKind::SCROLL_KW)
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub struct SearchClause {
     pub(crate) syntax: SyntaxNode,
 }
@@ -21697,24 +22595,16 @@ impl SearchClause {
         support::child(&self.syntax)
     }
     #[inline]
+    pub fn search_order(&self) -> Option<SearchOrder> {
+        support::child(&self.syntax)
+    }
+    #[inline]
     pub fn set_column(&self) -> Option<SearchSetColumn> {
         support::child(&self.syntax)
     }
     #[inline]
-    pub fn breadth_token(&self) -> Option<SyntaxToken> {
-        support::token(&self.syntax, SyntaxKind::BREADTH_KW)
-    }
-    #[inline]
     pub fn by_token(&self) -> Option<SyntaxToken> {
         support::token(&self.syntax, SyntaxKind::BY_KW)
-    }
-    #[inline]
-    pub fn depth_token(&self) -> Option<SyntaxToken> {
-        support::token(&self.syntax, SyntaxKind::DEPTH_KW)
-    }
-    #[inline]
-    pub fn first_token(&self) -> Option<SyntaxToken> {
-        support::token(&self.syntax, SyntaxKind::FIRST_KW)
     }
     #[inline]
     pub fn search_token(&self) -> Option<SyntaxToken> {
@@ -21749,13 +22639,32 @@ impl SearchSetColumn {
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
-pub struct SecurityFuncOption {
+pub struct SecurityDefinerFuncOption {
     pub(crate) syntax: SyntaxNode,
 }
-impl SecurityFuncOption {
+impl SecurityDefinerFuncOption {
     #[inline]
     pub fn definer_token(&self) -> Option<SyntaxToken> {
         support::token(&self.syntax, SyntaxKind::DEFINER_KW)
+    }
+    #[inline]
+    pub fn external_token(&self) -> Option<SyntaxToken> {
+        support::token(&self.syntax, SyntaxKind::EXTERNAL_KW)
+    }
+    #[inline]
+    pub fn security_token(&self) -> Option<SyntaxToken> {
+        support::token(&self.syntax, SyntaxKind::SECURITY_KW)
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
+pub struct SecurityInvokerFuncOption {
+    pub(crate) syntax: SyntaxNode,
+}
+impl SecurityInvokerFuncOption {
+    #[inline]
+    pub fn external_token(&self) -> Option<SyntaxToken> {
+        support::token(&self.syntax, SyntaxKind::EXTERNAL_KW)
     }
     #[inline]
     pub fn invoker_token(&self) -> Option<SyntaxToken> {
@@ -21890,16 +22799,12 @@ pub struct SelectClause {
 }
 impl SelectClause {
     #[inline]
-    pub fn distinct_clause(&self) -> Option<DistinctClause> {
+    pub fn select_quantifier(&self) -> Option<SelectQuantifier> {
         support::child(&self.syntax)
     }
     #[inline]
     pub fn target_list(&self) -> Option<TargetList> {
         support::child(&self.syntax)
-    }
-    #[inline]
-    pub fn all_token(&self) -> Option<SyntaxToken> {
-        support::token(&self.syntax, SyntaxKind::ALL_KW)
     }
     #[inline]
     pub fn select_token(&self) -> Option<SyntaxToken> {
@@ -22061,10 +22966,10 @@ impl Server {
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
-pub struct ServerName {
+pub struct ServerClause {
     pub(crate) syntax: SyntaxNode,
 }
-impl ServerName {
+impl ServerClause {
     #[inline]
     pub fn server_ref(&self) -> Option<ServerRef> {
         support::child(&self.syntax)
@@ -22102,6 +23007,36 @@ impl ServerRenameTo {
     #[inline]
     pub fn to_token(&self) -> Option<SyntaxToken> {
         support::token(&self.syntax, SyntaxKind::TO_KW)
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
+pub struct ServerType {
+    pub(crate) syntax: SyntaxNode,
+}
+impl ServerType {
+    #[inline]
+    pub fn literal(&self) -> Option<Literal> {
+        support::child(&self.syntax)
+    }
+    #[inline]
+    pub fn type_token(&self) -> Option<SyntaxToken> {
+        support::token(&self.syntax, SyntaxKind::TYPE_KW)
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
+pub struct ServerVersion {
+    pub(crate) syntax: SyntaxNode,
+}
+impl ServerVersion {
+    #[inline]
+    pub fn literal(&self) -> Option<Literal> {
+        support::child(&self.syntax)
+    }
+    #[inline]
+    pub fn version_token(&self) -> Option<SyntaxToken> {
+        support::token(&self.syntax, SyntaxKind::VERSION_KW)
     }
 }
 
@@ -22148,10 +23083,25 @@ impl SessionCharacteristics {
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
+pub struct SessionScope {
+    pub(crate) syntax: SyntaxNode,
+}
+impl SessionScope {
+    #[inline]
+    pub fn session_token(&self) -> Option<SyntaxToken> {
+        support::token(&self.syntax, SyntaxKind::SESSION_KW)
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub struct Set {
     pub(crate) syntax: SyntaxNode,
 }
 impl Set {
+    #[inline]
+    pub fn set_scope(&self) -> Option<SetScope> {
+        support::child(&self.syntax)
+    }
     #[inline]
     pub fn set_target(&self) -> Option<SetTarget> {
         support::child(&self.syntax)
@@ -22159,14 +23109,6 @@ impl Set {
     #[inline]
     pub fn semicolon_token(&self) -> Option<SyntaxToken> {
         support::token(&self.syntax, SyntaxKind::SEMICOLON)
-    }
-    #[inline]
-    pub fn local_token(&self) -> Option<SyntaxToken> {
-        support::token(&self.syntax, SyntaxKind::LOCAL_KW)
-    }
-    #[inline]
-    pub fn session_token(&self) -> Option<SyntaxToken> {
-        support::token(&self.syntax, SyntaxKind::SESSION_KW)
     }
     #[inline]
     pub fn set_token(&self) -> Option<SyntaxToken> {
@@ -22188,6 +23130,10 @@ impl SetAccessMethod {
         support::token(&self.syntax, SyntaxKind::ACCESS_KW)
     }
     #[inline]
+    pub fn default_token(&self) -> Option<SyntaxToken> {
+        support::token(&self.syntax, SyntaxKind::DEFAULT_KW)
+    }
+    #[inline]
     pub fn method_token(&self) -> Option<SyntaxToken> {
         support::token(&self.syntax, SyntaxKind::METHOD_KW)
     }
@@ -22198,29 +23144,21 @@ impl SetAccessMethod {
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
-pub struct SetAllPublicationObjects {
+pub struct SetAllPublicationObjectList {
     pub(crate) syntax: SyntaxNode,
 }
-impl SetAllPublicationObjects {
+impl SetAllPublicationObjectList {
+    #[inline]
+    pub fn all_publication_objects(&self) -> AstChildren<AllPublicationObject> {
+        support::children(&self.syntax)
+    }
     #[inline]
     pub fn except_table_clause(&self) -> Option<ExceptTableClause> {
         support::child(&self.syntax)
     }
     #[inline]
-    pub fn all_token(&self) -> Option<SyntaxToken> {
-        support::token(&self.syntax, SyntaxKind::ALL_KW)
-    }
-    #[inline]
-    pub fn sequences_token(&self) -> Option<SyntaxToken> {
-        support::token(&self.syntax, SyntaxKind::SEQUENCES_KW)
-    }
-    #[inline]
     pub fn set_token(&self) -> Option<SyntaxToken> {
         support::token(&self.syntax, SyntaxKind::SET_KW)
-    }
-    #[inline]
-    pub fn tables_token(&self) -> Option<SyntaxToken> {
-        support::token(&self.syntax, SyntaxKind::TABLES_KW)
     }
 }
 
@@ -22290,32 +23228,12 @@ pub struct SetConfig {
 }
 impl SetConfig {
     #[inline]
-    pub fn config_parameter_ref(&self) -> Option<ConfigParameterRef> {
+    pub fn config_assignment(&self) -> Option<ConfigAssignment> {
         support::child(&self.syntax)
     }
     #[inline]
-    pub fn config_values(&self) -> AstChildren<ConfigValue> {
-        support::children(&self.syntax)
-    }
-    #[inline]
-    pub fn eq_token(&self) -> Option<SyntaxToken> {
-        support::token(&self.syntax, SyntaxKind::EQ)
-    }
-    #[inline]
-    pub fn current_token(&self) -> Option<SyntaxToken> {
-        support::token(&self.syntax, SyntaxKind::CURRENT_KW)
-    }
-    #[inline]
-    pub fn default_token(&self) -> Option<SyntaxToken> {
-        support::token(&self.syntax, SyntaxKind::DEFAULT_KW)
-    }
-    #[inline]
-    pub fn from_token(&self) -> Option<SyntaxToken> {
-        support::token(&self.syntax, SyntaxKind::FROM_KW)
-    }
-    #[inline]
-    pub fn to_token(&self) -> Option<SyntaxToken> {
-        support::token(&self.syntax, SyntaxKind::TO_KW)
+    pub fn config_parameter_ref(&self) -> Option<ConfigParameterRef> {
+        support::child(&self.syntax)
     }
 }
 
@@ -22325,59 +23243,16 @@ pub struct SetConfigParam {
 }
 impl SetConfigParam {
     #[inline]
+    pub fn config_assignment(&self) -> Option<ConfigAssignment> {
+        support::child(&self.syntax)
+    }
+    #[inline]
     pub fn config_parameter_ref(&self) -> Option<ConfigParameterRef> {
         support::child(&self.syntax)
     }
     #[inline]
-    pub fn config_value_names(&self) -> AstChildren<ConfigValueName> {
-        support::children(&self.syntax)
-    }
-    #[inline]
-    pub fn literals(&self) -> AstChildren<Literal> {
-        support::children(&self.syntax)
-    }
-    #[inline]
-    pub fn eq_token(&self) -> Option<SyntaxToken> {
-        support::token(&self.syntax, SyntaxKind::EQ)
-    }
-    #[inline]
-    pub fn current_token(&self) -> Option<SyntaxToken> {
-        support::token(&self.syntax, SyntaxKind::CURRENT_KW)
-    }
-    #[inline]
-    pub fn default_token(&self) -> Option<SyntaxToken> {
-        support::token(&self.syntax, SyntaxKind::DEFAULT_KW)
-    }
-    #[inline]
-    pub fn from_token(&self) -> Option<SyntaxToken> {
-        support::token(&self.syntax, SyntaxKind::FROM_KW)
-    }
-    #[inline]
-    pub fn null_token(&self) -> Option<SyntaxToken> {
-        support::token(&self.syntax, SyntaxKind::NULL_KW)
-    }
-    #[inline]
     pub fn set_token(&self) -> Option<SyntaxToken> {
         support::token(&self.syntax, SyntaxKind::SET_KW)
-    }
-    #[inline]
-    pub fn to_token(&self) -> Option<SyntaxToken> {
-        support::token(&self.syntax, SyntaxKind::TO_KW)
-    }
-}
-
-#[derive(Debug, Clone, PartialEq, Eq, Hash)]
-pub struct SetConnection {
-    pub(crate) syntax: SyntaxNode,
-}
-impl SetConnection {
-    #[inline]
-    pub fn literal(&self) -> Option<Literal> {
-        support::child(&self.syntax)
-    }
-    #[inline]
-    pub fn connection_token(&self) -> Option<SyntaxToken> {
-        support::token(&self.syntax, SyntaxKind::CONNECTION_KW)
     }
 }
 
@@ -22391,6 +23266,10 @@ impl SetConstraints {
         support::children(&self.syntax)
     }
     #[inline]
+    pub fn constraint_timing(&self) -> Option<ConstraintTiming> {
+        support::child(&self.syntax)
+    }
+    #[inline]
     pub fn semicolon_token(&self) -> Option<SyntaxToken> {
         support::token(&self.syntax, SyntaxKind::SEMICOLON)
     }
@@ -22401,14 +23280,6 @@ impl SetConstraints {
     #[inline]
     pub fn constraints_token(&self) -> Option<SyntaxToken> {
         support::token(&self.syntax, SyntaxKind::CONSTRAINTS_KW)
-    }
-    #[inline]
-    pub fn deferred_token(&self) -> Option<SyntaxToken> {
-        support::token(&self.syntax, SyntaxKind::DEFERRED_KW)
-    }
-    #[inline]
-    pub fn immediate_token(&self) -> Option<SyntaxToken> {
-        support::token(&self.syntax, SyntaxKind::IMMEDIATE_KW)
     }
     #[inline]
     pub fn set_token(&self) -> Option<SyntaxToken> {
@@ -22502,8 +23373,39 @@ impl SetExpression {
         support::child(&self.syntax)
     }
     #[inline]
+    pub fn l_paren_token(&self) -> Option<SyntaxToken> {
+        support::token(&self.syntax, SyntaxKind::L_PAREN)
+    }
+    #[inline]
+    pub fn r_paren_token(&self) -> Option<SyntaxToken> {
+        support::token(&self.syntax, SyntaxKind::R_PAREN)
+    }
+    #[inline]
+    pub fn as_token(&self) -> Option<SyntaxToken> {
+        support::token(&self.syntax, SyntaxKind::AS_KW)
+    }
+    #[inline]
     pub fn expression_token(&self) -> Option<SyntaxToken> {
         support::token(&self.syntax, SyntaxKind::EXPRESSION_KW)
+    }
+    #[inline]
+    pub fn set_token(&self) -> Option<SyntaxToken> {
+        support::token(&self.syntax, SyntaxKind::SET_KW)
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
+pub struct SetForeignOption {
+    pub(crate) syntax: SyntaxNode,
+}
+impl SetForeignOption {
+    #[inline]
+    pub fn foreign_option_name(&self) -> Option<ForeignOptionName> {
+        support::child(&self.syntax)
+    }
+    #[inline]
+    pub fn literal(&self) -> Option<Literal> {
+        support::child(&self.syntax)
     }
     #[inline]
     pub fn set_token(&self) -> Option<SyntaxToken> {
@@ -22528,16 +23430,8 @@ pub struct SetGenerated {
 }
 impl SetGenerated {
     #[inline]
-    pub fn always_token(&self) -> Option<SyntaxToken> {
-        support::token(&self.syntax, SyntaxKind::ALWAYS_KW)
-    }
-    #[inline]
-    pub fn by_token(&self) -> Option<SyntaxToken> {
-        support::token(&self.syntax, SyntaxKind::BY_KW)
-    }
-    #[inline]
-    pub fn default_token(&self) -> Option<SyntaxToken> {
-        support::token(&self.syntax, SyntaxKind::DEFAULT_KW)
+    pub fn generated_when(&self) -> Option<GeneratedWhen> {
+        support::child(&self.syntax)
     }
     #[inline]
     pub fn generated_token(&self) -> Option<SyntaxToken> {
@@ -22555,12 +23449,8 @@ pub struct SetGeneratedOptions {
 }
 impl SetGeneratedOptions {
     #[inline]
-    pub fn generated_token(&self) -> Option<SyntaxToken> {
-        support::token(&self.syntax, SyntaxKind::GENERATED_KW)
-    }
-    #[inline]
-    pub fn set_token(&self) -> Option<SyntaxToken> {
-        support::token(&self.syntax, SyntaxKind::SET_KW)
+    pub fn set_generated_options(&self) -> AstChildren<SetGeneratedOption> {
+        support::children(&self.syntax)
     }
 }
 
@@ -22641,6 +23531,25 @@ impl SetNullColumns {
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
+pub struct SetOptionFor {
+    pub(crate) syntax: SyntaxNode,
+}
+impl SetOptionFor {
+    #[inline]
+    pub fn for_token(&self) -> Option<SyntaxToken> {
+        support::token(&self.syntax, SyntaxKind::FOR_KW)
+    }
+    #[inline]
+    pub fn option_token(&self) -> Option<SyntaxToken> {
+        support::token(&self.syntax, SyntaxKind::OPTION_KW)
+    }
+    #[inline]
+    pub fn set_token(&self) -> Option<SyntaxToken> {
+        support::token(&self.syntax, SyntaxKind::SET_KW)
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub struct SetOptions {
     pub(crate) syntax: SyntaxNode,
 }
@@ -22680,12 +23589,12 @@ pub struct SetPublication {
 }
 impl SetPublication {
     #[inline]
-    pub fn attribute_list(&self) -> Option<AttributeList> {
-        support::child(&self.syntax)
-    }
-    #[inline]
     pub fn publication_refs(&self) -> AstChildren<PublicationRef> {
         support::children(&self.syntax)
+    }
+    #[inline]
+    pub fn with_params(&self) -> Option<WithParams> {
+        support::child(&self.syntax)
     }
     #[inline]
     pub fn publication_token(&self) -> Option<SyntaxToken> {
@@ -22694,10 +23603,6 @@ impl SetPublication {
     #[inline]
     pub fn set_token(&self) -> Option<SyntaxToken> {
         support::token(&self.syntax, SyntaxKind::SET_KW)
-    }
-    #[inline]
-    pub fn with_token(&self) -> Option<SyntaxToken> {
-        support::token(&self.syntax, SyntaxKind::WITH_KW)
     }
 }
 
@@ -22722,7 +23627,11 @@ pub struct SetRole {
 }
 impl SetRole {
     #[inline]
-    pub fn role_ref(&self) -> Option<RoleRef> {
+    pub fn set_role_target(&self) -> Option<SetRoleTarget> {
+        support::child(&self.syntax)
+    }
+    #[inline]
+    pub fn set_scope(&self) -> Option<SetScope> {
         support::child(&self.syntax)
     }
     #[inline]
@@ -22730,24 +23639,23 @@ impl SetRole {
         support::token(&self.syntax, SyntaxKind::SEMICOLON)
     }
     #[inline]
-    pub fn local_token(&self) -> Option<SyntaxToken> {
-        support::token(&self.syntax, SyntaxKind::LOCAL_KW)
-    }
-    #[inline]
-    pub fn none_token(&self) -> Option<SyntaxToken> {
-        support::token(&self.syntax, SyntaxKind::NONE_KW)
-    }
-    #[inline]
     pub fn role_token(&self) -> Option<SyntaxToken> {
         support::token(&self.syntax, SyntaxKind::ROLE_KW)
     }
     #[inline]
-    pub fn session_token(&self) -> Option<SyntaxToken> {
-        support::token(&self.syntax, SyntaxKind::SESSION_KW)
-    }
-    #[inline]
     pub fn set_token(&self) -> Option<SyntaxToken> {
         support::token(&self.syntax, SyntaxKind::SET_KW)
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
+pub struct SetRoleNone {
+    pub(crate) syntax: SyntaxNode,
+}
+impl SetRoleNone {
+    #[inline]
+    pub fn none_token(&self) -> Option<SyntaxToken> {
+        support::token(&self.syntax, SyntaxKind::NONE_KW)
     }
 }
 
@@ -22801,31 +23709,16 @@ impl SetSequenceOption {
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
-pub struct SetServer {
-    pub(crate) syntax: SyntaxNode,
-}
-impl SetServer {
-    #[inline]
-    pub fn server_ref(&self) -> Option<ServerRef> {
-        support::child(&self.syntax)
-    }
-    #[inline]
-    pub fn server_token(&self) -> Option<SyntaxToken> {
-        support::token(&self.syntax, SyntaxKind::SERVER_KW)
-    }
-}
-
-#[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub struct SetSessionAuth {
     pub(crate) syntax: SyntaxNode,
 }
 impl SetSessionAuth {
     #[inline]
-    pub fn literal(&self) -> Option<Literal> {
+    pub fn set_scope(&self) -> Option<SetScope> {
         support::child(&self.syntax)
     }
     #[inline]
-    pub fn role_ref(&self) -> Option<RoleRef> {
+    pub fn set_session_auth_target(&self) -> Option<SetSessionAuthTarget> {
         support::child(&self.syntax)
     }
     #[inline]
@@ -22837,20 +23730,23 @@ impl SetSessionAuth {
         support::token(&self.syntax, SyntaxKind::AUTHORIZATION_KW)
     }
     #[inline]
-    pub fn default_token(&self) -> Option<SyntaxToken> {
-        support::token(&self.syntax, SyntaxKind::DEFAULT_KW)
-    }
-    #[inline]
-    pub fn local_token(&self) -> Option<SyntaxToken> {
-        support::token(&self.syntax, SyntaxKind::LOCAL_KW)
-    }
-    #[inline]
     pub fn session_token(&self) -> Option<SyntaxToken> {
         support::token(&self.syntax, SyntaxKind::SESSION_KW)
     }
     #[inline]
     pub fn set_token(&self) -> Option<SyntaxToken> {
         support::token(&self.syntax, SyntaxKind::SET_KW)
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
+pub struct SetSessionAuthDefault {
+    pub(crate) syntax: SyntaxNode,
+}
+impl SetSessionAuthDefault {
+    #[inline]
+    pub fn default_token(&self) -> Option<SyntaxToken> {
+        support::token(&self.syntax, SyntaxKind::DEFAULT_KW)
     }
 }
 
@@ -22879,7 +23775,7 @@ pub struct SetStatistics {
 }
 impl SetStatistics {
     #[inline]
-    pub fn literal(&self) -> Option<Literal> {
+    pub fn expr(&self) -> Option<Expr> {
         support::child(&self.syntax)
     }
     #[inline]
@@ -22998,8 +23894,16 @@ impl SetType {
         support::child(&self.syntax)
     }
     #[inline]
+    pub fn expr(&self) -> Option<Expr> {
+        support::child(&self.syntax)
+    }
+    #[inline]
     pub fn ty(&self) -> Option<Type> {
         support::child(&self.syntax)
+    }
+    #[inline]
+    pub fn data_token(&self) -> Option<SyntaxToken> {
+        support::token(&self.syntax, SyntaxKind::DATA_KW)
     }
     #[inline]
     pub fn set_token(&self) -> Option<SyntaxToken> {
@@ -23008,6 +23912,10 @@ impl SetType {
     #[inline]
     pub fn type_token(&self) -> Option<SyntaxToken> {
         support::token(&self.syntax, SyntaxKind::TYPE_KW)
+    }
+    #[inline]
+    pub fn using_token(&self) -> Option<SyntaxToken> {
+        support::token(&self.syntax, SyntaxKind::USING_KW)
     }
 }
 
@@ -23023,21 +23931,6 @@ impl SetUnlogged {
     #[inline]
     pub fn unlogged_token(&self) -> Option<SyntaxToken> {
         support::token(&self.syntax, SyntaxKind::UNLOGGED_KW)
-    }
-}
-
-#[derive(Debug, Clone, PartialEq, Eq, Hash)]
-pub struct SetVersion {
-    pub(crate) syntax: SyntaxNode,
-}
-impl SetVersion {
-    #[inline]
-    pub fn literal(&self) -> Option<Literal> {
-        support::child(&self.syntax)
-    }
-    #[inline]
-    pub fn version_token(&self) -> Option<SyntaxToken> {
-        support::token(&self.syntax, SyntaxKind::VERSION_KW)
     }
 }
 
@@ -23085,12 +23978,8 @@ pub struct SetXmlOption {
 }
 impl SetXmlOption {
     #[inline]
-    pub fn content_token(&self) -> Option<SyntaxToken> {
-        support::token(&self.syntax, SyntaxKind::CONTENT_KW)
-    }
-    #[inline]
-    pub fn document_token(&self) -> Option<SyntaxToken> {
-        support::token(&self.syntax, SyntaxKind::DOCUMENT_KW)
+    pub fn xml_document_or_content(&self) -> Option<XmlDocumentOrContent> {
+        support::child(&self.syntax)
     }
     #[inline]
     pub fn option_token(&self) -> Option<SyntaxToken> {
@@ -23182,6 +24071,21 @@ impl SimilarTo {
     #[inline]
     pub fn to_token(&self) -> Option<SyntaxToken> {
         support::token(&self.syntax, SyntaxKind::TO_KW)
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
+pub struct SkipLocked {
+    pub(crate) syntax: SyntaxNode,
+}
+impl SkipLocked {
+    #[inline]
+    pub fn locked_token(&self) -> Option<SyntaxToken> {
+        support::token(&self.syntax, SyntaxKind::LOCKED_KW)
+    }
+    #[inline]
+    pub fn skip_token(&self) -> Option<SyntaxToken> {
+        support::token(&self.syntax, SyntaxKind::SKIP_KW)
     }
 }
 
@@ -23286,23 +24190,11 @@ impl SortBy {
         support::child(&self.syntax)
     }
     #[inline]
-    pub fn nulls_first(&self) -> Option<NullsFirst> {
+    pub fn nulls_order(&self) -> Option<NullsOrder> {
         support::child(&self.syntax)
     }
     #[inline]
-    pub fn nulls_last(&self) -> Option<NullsLast> {
-        support::child(&self.syntax)
-    }
-    #[inline]
-    pub fn sort_asc(&self) -> Option<SortAsc> {
-        support::child(&self.syntax)
-    }
-    #[inline]
-    pub fn sort_desc(&self) -> Option<SortDesc> {
-        support::child(&self.syntax)
-    }
-    #[inline]
-    pub fn sort_using(&self) -> Option<SortUsing> {
+    pub fn sort_order(&self) -> Option<SortOrder> {
         support::child(&self.syntax)
     }
 }
@@ -23406,6 +24298,78 @@ impl SplitPartition {
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
+pub struct Stable {
+    pub(crate) syntax: SyntaxNode,
+}
+impl Stable {
+    #[inline]
+    pub fn stable_token(&self) -> Option<SyntaxToken> {
+        support::token(&self.syntax, SyntaxKind::STABLE_KW)
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
+pub struct StandaloneNo {
+    pub(crate) syntax: SyntaxNode,
+}
+impl StandaloneNo {
+    #[inline]
+    pub fn comma_token(&self) -> Option<SyntaxToken> {
+        support::token(&self.syntax, SyntaxKind::COMMA)
+    }
+    #[inline]
+    pub fn no_token(&self) -> Option<SyntaxToken> {
+        support::token(&self.syntax, SyntaxKind::NO_KW)
+    }
+    #[inline]
+    pub fn standalone_token(&self) -> Option<SyntaxToken> {
+        support::token(&self.syntax, SyntaxKind::STANDALONE_KW)
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
+pub struct StandaloneNoValue {
+    pub(crate) syntax: SyntaxNode,
+}
+impl StandaloneNoValue {
+    #[inline]
+    pub fn comma_token(&self) -> Option<SyntaxToken> {
+        support::token(&self.syntax, SyntaxKind::COMMA)
+    }
+    #[inline]
+    pub fn no_token(&self) -> Option<SyntaxToken> {
+        support::token(&self.syntax, SyntaxKind::NO_KW)
+    }
+    #[inline]
+    pub fn standalone_token(&self) -> Option<SyntaxToken> {
+        support::token(&self.syntax, SyntaxKind::STANDALONE_KW)
+    }
+    #[inline]
+    pub fn value_token(&self) -> Option<SyntaxToken> {
+        support::token(&self.syntax, SyntaxKind::VALUE_KW)
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
+pub struct StandaloneYes {
+    pub(crate) syntax: SyntaxNode,
+}
+impl StandaloneYes {
+    #[inline]
+    pub fn comma_token(&self) -> Option<SyntaxToken> {
+        support::token(&self.syntax, SyntaxKind::COMMA)
+    }
+    #[inline]
+    pub fn standalone_token(&self) -> Option<SyntaxToken> {
+        support::token(&self.syntax, SyntaxKind::STANDALONE_KW)
+    }
+    #[inline]
+    pub fn yes_token(&self) -> Option<SyntaxToken> {
+        support::token(&self.syntax, SyntaxKind::YES_KW)
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub struct StatTypes {
     pub(crate) syntax: SyntaxNode,
 }
@@ -23443,6 +24407,21 @@ impl StatisticsKind {
     #[inline]
     pub fn ident_token(&self) -> Option<SyntaxToken> {
         support::token(&self.syntax, SyntaxKind::IDENT)
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
+pub struct StatisticsOnClause {
+    pub(crate) syntax: SyntaxNode,
+}
+impl StatisticsOnClause {
+    #[inline]
+    pub fn exprs(&self) -> AstChildren<Expr> {
+        support::children(&self.syntax)
+    }
+    #[inline]
+    pub fn on_token(&self) -> Option<SyntaxToken> {
+        support::token(&self.syntax, SyntaxKind::ON_KW)
     }
 }
 
@@ -23511,6 +24490,17 @@ impl StorageMode {
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
+pub struct Stored {
+    pub(crate) syntax: SyntaxNode,
+}
+impl Stored {
+    #[inline]
+    pub fn stored_token(&self) -> Option<SyntaxToken> {
+        support::token(&self.syntax, SyntaxKind::STORED_KW)
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub struct StrictFuncOption {
     pub(crate) syntax: SyntaxNode,
 }
@@ -23518,6 +24508,21 @@ impl StrictFuncOption {
     #[inline]
     pub fn strict_token(&self) -> Option<SyntaxToken> {
         support::token(&self.syntax, SyntaxKind::STRICT_KW)
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
+pub struct StripWhitespace {
+    pub(crate) syntax: SyntaxNode,
+}
+impl StripWhitespace {
+    #[inline]
+    pub fn strip_token(&self) -> Option<SyntaxToken> {
+        support::token(&self.syntax, SyntaxKind::STRIP_KW)
+    }
+    #[inline]
+    pub fn whitespace_token(&self) -> Option<SyntaxToken> {
+        support::token(&self.syntax, SyntaxKind::WHITESPACE_KW)
     }
 }
 
@@ -23563,17 +24568,24 @@ impl SubscriptionRenameTo {
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
+pub struct SubstringExprs {
+    pub(crate) syntax: SyntaxNode,
+}
+impl SubstringExprs {
+    #[inline]
+    pub fn exprs(&self) -> AstChildren<Expr> {
+        support::children(&self.syntax)
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub struct SubstringFn {
     pub(crate) syntax: SyntaxNode,
 }
 impl SubstringFn {
     #[inline]
-    pub fn expr(&self) -> Option<Expr> {
+    pub fn substring_args(&self) -> Option<SubstringArgs> {
         support::child(&self.syntax)
-    }
-    #[inline]
-    pub fn exprs(&self) -> AstChildren<Expr> {
-        support::children(&self.syntax)
     }
     #[inline]
     pub fn l_paren_token(&self) -> Option<SyntaxToken> {
@@ -23584,6 +24596,21 @@ impl SubstringFn {
         support::token(&self.syntax, SyntaxKind::R_PAREN)
     }
     #[inline]
+    pub fn substring_token(&self) -> Option<SyntaxToken> {
+        support::token(&self.syntax, SyntaxKind::SUBSTRING_KW)
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
+pub struct SubstringForFrom {
+    pub(crate) syntax: SyntaxNode,
+}
+impl SubstringForFrom {
+    #[inline]
+    pub fn expr(&self) -> Option<Expr> {
+        support::child(&self.syntax)
+    }
+    #[inline]
     pub fn for_token(&self) -> Option<SyntaxToken> {
         support::token(&self.syntax, SyntaxKind::FOR_KW)
     }
@@ -23591,13 +24618,43 @@ impl SubstringFn {
     pub fn from_token(&self) -> Option<SyntaxToken> {
         support::token(&self.syntax, SyntaxKind::FROM_KW)
     }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
+pub struct SubstringFromFor {
+    pub(crate) syntax: SyntaxNode,
+}
+impl SubstringFromFor {
+    #[inline]
+    pub fn expr(&self) -> Option<Expr> {
+        support::child(&self.syntax)
+    }
+    #[inline]
+    pub fn for_token(&self) -> Option<SyntaxToken> {
+        support::token(&self.syntax, SyntaxKind::FOR_KW)
+    }
+    #[inline]
+    pub fn from_token(&self) -> Option<SyntaxToken> {
+        support::token(&self.syntax, SyntaxKind::FROM_KW)
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
+pub struct SubstringSimilarEscape {
+    pub(crate) syntax: SyntaxNode,
+}
+impl SubstringSimilarEscape {
+    #[inline]
+    pub fn expr(&self) -> Option<Expr> {
+        support::child(&self.syntax)
+    }
+    #[inline]
+    pub fn escape_token(&self) -> Option<SyntaxToken> {
+        support::token(&self.syntax, SyntaxKind::ESCAPE_KW)
+    }
     #[inline]
     pub fn similar_token(&self) -> Option<SyntaxToken> {
         support::token(&self.syntax, SyntaxKind::SIMILAR_KW)
-    }
-    #[inline]
-    pub fn substring_token(&self) -> Option<SyntaxToken> {
-        support::token(&self.syntax, SyntaxKind::SUBSTRING_KW)
     }
 }
 
@@ -23613,6 +24670,17 @@ impl SupportFuncOption {
     #[inline]
     pub fn support_token(&self) -> Option<SyntaxToken> {
         support::token(&self.syntax, SyntaxKind::SUPPORT_KW)
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
+pub struct Symmetric {
+    pub(crate) syntax: SyntaxNode,
+}
+impl Symmetric {
+    #[inline]
+    pub fn symmetric_token(&self) -> Option<SyntaxToken> {
+        support::token(&self.syntax, SyntaxKind::SYMMETRIC_KW)
     }
 }
 
@@ -23855,6 +24923,21 @@ impl TablespaceClause {
     #[inline]
     pub fn tablespace_token(&self) -> Option<SyntaxToken> {
         support::token(&self.syntax, SyntaxKind::TABLESPACE_KW)
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
+pub struct TablespaceOwner {
+    pub(crate) syntax: SyntaxNode,
+}
+impl TablespaceOwner {
+    #[inline]
+    pub fn role_ref(&self) -> Option<RoleRef> {
+        support::child(&self.syntax)
+    }
+    #[inline]
+    pub fn owner_token(&self) -> Option<SyntaxToken> {
+        support::token(&self.syntax, SyntaxKind::OWNER_KW)
     }
 }
 
@@ -24215,6 +25298,33 @@ impl TimingInsteadOf {
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
+pub struct ToConfigValue {
+    pub(crate) syntax: SyntaxNode,
+}
+impl ToConfigValue {
+    #[inline]
+    pub fn config_values(&self) -> AstChildren<ConfigValue> {
+        support::children(&self.syntax)
+    }
+    #[inline]
+    pub fn eq_token(&self) -> Option<SyntaxToken> {
+        support::token(&self.syntax, SyntaxKind::EQ)
+    }
+    #[inline]
+    pub fn default_token(&self) -> Option<SyntaxToken> {
+        support::token(&self.syntax, SyntaxKind::DEFAULT_KW)
+    }
+    #[inline]
+    pub fn null_token(&self) -> Option<SyntaxToken> {
+        support::token(&self.syntax, SyntaxKind::NULL_KW)
+    }
+    #[inline]
+    pub fn to_token(&self) -> Option<SyntaxToken> {
+        support::token(&self.syntax, SyntaxKind::TO_KW)
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub struct TransactionIsolationLevel {
     pub(crate) syntax: SyntaxNode,
 }
@@ -24279,6 +25389,25 @@ impl TransactionSnapshot {
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
+pub struct TransformForType {
+    pub(crate) syntax: SyntaxNode,
+}
+impl TransformForType {
+    #[inline]
+    pub fn ty(&self) -> Option<Type> {
+        support::child(&self.syntax)
+    }
+    #[inline]
+    pub fn for_token(&self) -> Option<SyntaxToken> {
+        support::token(&self.syntax, SyntaxKind::FOR_KW)
+    }
+    #[inline]
+    pub fn type_token(&self) -> Option<SyntaxToken> {
+        support::token(&self.syntax, SyntaxKind::TYPE_KW)
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub struct TransformFromFunc {
     pub(crate) syntax: SyntaxNode,
 }
@@ -24311,7 +25440,7 @@ pub struct TransformFuncOption {
 }
 impl TransformFuncOption {
     #[inline]
-    pub fn types(&self) -> AstChildren<Type> {
+    pub fn transform_for_types(&self) -> AstChildren<TransformForType> {
         support::children(&self.syntax)
     }
     #[inline]
@@ -24463,10 +25592,21 @@ impl TriggerRenameTo {
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
-pub struct TrimFn {
+pub struct TrimBoth {
     pub(crate) syntax: SyntaxNode,
 }
-impl TrimFn {
+impl TrimBoth {
+    #[inline]
+    pub fn both_token(&self) -> Option<SyntaxToken> {
+        support::token(&self.syntax, SyntaxKind::BOTH_KW)
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
+pub struct TrimExprFrom {
+    pub(crate) syntax: SyntaxNode,
+}
+impl TrimExprFrom {
     #[inline]
     pub fn expr(&self) -> Option<Expr> {
         support::child(&self.syntax)
@@ -24474,6 +25614,36 @@ impl TrimFn {
     #[inline]
     pub fn exprs(&self) -> AstChildren<Expr> {
         support::children(&self.syntax)
+    }
+    #[inline]
+    pub fn from_token(&self) -> Option<SyntaxToken> {
+        support::token(&self.syntax, SyntaxKind::FROM_KW)
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
+pub struct TrimExprs {
+    pub(crate) syntax: SyntaxNode,
+}
+impl TrimExprs {
+    #[inline]
+    pub fn exprs(&self) -> AstChildren<Expr> {
+        support::children(&self.syntax)
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
+pub struct TrimFn {
+    pub(crate) syntax: SyntaxNode,
+}
+impl TrimFn {
+    #[inline]
+    pub fn trim_args(&self) -> Option<TrimArgs> {
+        support::child(&self.syntax)
+    }
+    #[inline]
+    pub fn trim_side(&self) -> Option<TrimSide> {
+        support::child(&self.syntax)
     }
     #[inline]
     pub fn l_paren_token(&self) -> Option<SyntaxToken> {
@@ -24484,24 +25654,45 @@ impl TrimFn {
         support::token(&self.syntax, SyntaxKind::R_PAREN)
     }
     #[inline]
-    pub fn both_token(&self) -> Option<SyntaxToken> {
-        support::token(&self.syntax, SyntaxKind::BOTH_KW)
+    pub fn trim_token(&self) -> Option<SyntaxToken> {
+        support::token(&self.syntax, SyntaxKind::TRIM_KW)
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
+pub struct TrimFrom {
+    pub(crate) syntax: SyntaxNode,
+}
+impl TrimFrom {
+    #[inline]
+    pub fn exprs(&self) -> AstChildren<Expr> {
+        support::children(&self.syntax)
     }
     #[inline]
     pub fn from_token(&self) -> Option<SyntaxToken> {
         support::token(&self.syntax, SyntaxKind::FROM_KW)
     }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
+pub struct TrimLeading {
+    pub(crate) syntax: SyntaxNode,
+}
+impl TrimLeading {
     #[inline]
     pub fn leading_token(&self) -> Option<SyntaxToken> {
         support::token(&self.syntax, SyntaxKind::LEADING_KW)
     }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
+pub struct TrimTrailing {
+    pub(crate) syntax: SyntaxNode,
+}
+impl TrimTrailing {
     #[inline]
     pub fn trailing_token(&self) -> Option<SyntaxToken> {
         support::token(&self.syntax, SyntaxKind::TRAILING_KW)
-    }
-    #[inline]
-    pub fn trim_token(&self) -> Option<SyntaxToken> {
-        support::token(&self.syntax, SyntaxKind::TRIM_KW)
     }
 }
 
@@ -24511,32 +25702,20 @@ pub struct Truncate {
 }
 impl Truncate {
     #[inline]
+    pub fn drop_behavior(&self) -> Option<DropBehavior> {
+        support::child(&self.syntax)
+    }
+    #[inline]
+    pub fn identity_action(&self) -> Option<IdentityAction> {
+        support::child(&self.syntax)
+    }
+    #[inline]
     pub fn table_list(&self) -> Option<TableList> {
         support::child(&self.syntax)
     }
     #[inline]
     pub fn semicolon_token(&self) -> Option<SyntaxToken> {
         support::token(&self.syntax, SyntaxKind::SEMICOLON)
-    }
-    #[inline]
-    pub fn cascade_token(&self) -> Option<SyntaxToken> {
-        support::token(&self.syntax, SyntaxKind::CASCADE_KW)
-    }
-    #[inline]
-    pub fn continue_token(&self) -> Option<SyntaxToken> {
-        support::token(&self.syntax, SyntaxKind::CONTINUE_KW)
-    }
-    #[inline]
-    pub fn identity_token(&self) -> Option<SyntaxToken> {
-        support::token(&self.syntax, SyntaxKind::IDENTITY_KW)
-    }
-    #[inline]
-    pub fn restart_token(&self) -> Option<SyntaxToken> {
-        support::token(&self.syntax, SyntaxKind::RESTART_KW)
-    }
-    #[inline]
-    pub fn restrict_token(&self) -> Option<SyntaxToken> {
-        support::token(&self.syntax, SyntaxKind::RESTRICT_KW)
     }
     #[inline]
     pub fn table_token(&self) -> Option<SyntaxToken> {
@@ -24554,6 +25733,10 @@ pub struct TupleExpr {
 }
 impl TupleExpr {
     #[inline]
+    pub fn expr(&self) -> Option<Expr> {
+        support::child(&self.syntax)
+    }
+    #[inline]
     pub fn exprs(&self) -> AstChildren<Expr> {
         support::children(&self.syntax)
     }
@@ -24564,6 +25747,14 @@ impl TupleExpr {
     #[inline]
     pub fn r_paren_token(&self) -> Option<SyntaxToken> {
         support::token(&self.syntax, SyntaxKind::R_PAREN)
+    }
+    #[inline]
+    pub fn comma_token(&self) -> Option<SyntaxToken> {
+        support::token(&self.syntax, SyntaxKind::COMMA)
+    }
+    #[inline]
+    pub fn row_token(&self) -> Option<SyntaxToken> {
+        support::token(&self.syntax, SyntaxKind::ROW_KW)
     }
 }
 
@@ -24662,6 +25853,21 @@ impl UnicodeNormalForm {
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
+pub struct Union {
+    pub(crate) syntax: SyntaxNode,
+}
+impl Union {
+    #[inline]
+    pub fn all_or_distinct(&self) -> Option<AllOrDistinct> {
+        support::child(&self.syntax)
+    }
+    #[inline]
+    pub fn union_token(&self) -> Option<SyntaxToken> {
+        support::token(&self.syntax, SyntaxKind::UNION_KW)
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub struct UniqueConstraint {
     pub(crate) syntax: SyntaxNode,
 }
@@ -24671,11 +25877,15 @@ impl UniqueConstraint {
         support::child(&self.syntax)
     }
     #[inline]
+    pub fn constraint_options(&self) -> AstChildren<ConstraintOption> {
+        support::children(&self.syntax)
+    }
+    #[inline]
     pub fn index_parameters(&self) -> Option<IndexParameters> {
         support::child(&self.syntax)
     }
     #[inline]
-    pub fn using_index(&self) -> Option<UsingIndex> {
+    pub fn using_index(&self) -> Option<UsingIndexName> {
         support::child(&self.syntax)
     }
     #[inline]
@@ -24748,11 +25958,7 @@ impl Update {
         support::child(&self.syntax)
     }
     #[inline]
-    pub fn where_clause(&self) -> Option<WhereClause> {
-        support::child(&self.syntax)
-    }
-    #[inline]
-    pub fn where_current_of(&self) -> Option<WhereCurrentOf> {
+    pub fn where_clause_or_current_of(&self) -> Option<WhereClauseOrCurrentOf> {
         support::child(&self.syntax)
     }
     #[inline]
@@ -24766,6 +25972,36 @@ impl Update {
     #[inline]
     pub fn update_token(&self) -> Option<SyntaxToken> {
         support::token(&self.syntax, SyntaxKind::UPDATE_KW)
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
+pub struct UpdateTo {
+    pub(crate) syntax: SyntaxNode,
+}
+impl UpdateTo {
+    #[inline]
+    pub fn extension_version(&self) -> Option<ExtensionVersion> {
+        support::child(&self.syntax)
+    }
+    #[inline]
+    pub fn literal(&self) -> Option<Literal> {
+        support::child(&self.syntax)
+    }
+    #[inline]
+    pub fn to_token(&self) -> Option<SyntaxToken> {
+        support::token(&self.syntax, SyntaxKind::TO_KW)
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
+pub struct User {
+    pub(crate) syntax: SyntaxNode,
+}
+impl User {
+    #[inline]
+    pub fn user_token(&self) -> Option<SyntaxToken> {
+        support::token(&self.syntax, SyntaxKind::USER_KW)
     }
 }
 
@@ -24812,6 +26048,25 @@ pub struct UsingIndex {
     pub(crate) syntax: SyntaxNode,
 }
 impl UsingIndex {
+    #[inline]
+    pub fn index_ref(&self) -> Option<IndexRef> {
+        support::child(&self.syntax)
+    }
+    #[inline]
+    pub fn index_token(&self) -> Option<SyntaxToken> {
+        support::token(&self.syntax, SyntaxKind::INDEX_KW)
+    }
+    #[inline]
+    pub fn using_token(&self) -> Option<SyntaxToken> {
+        support::token(&self.syntax, SyntaxKind::USING_KW)
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
+pub struct UsingIndexName {
+    pub(crate) syntax: SyntaxNode,
+}
+impl UsingIndexName {
     #[inline]
     pub fn index_ref(&self) -> Option<IndexRef> {
         support::child(&self.syntax)
@@ -24954,7 +26209,7 @@ pub struct VacuumOptionValue {
 }
 impl VacuumOptionValue {
     #[inline]
-    pub fn literal(&self) -> Option<Literal> {
+    pub fn expr(&self) -> Option<Expr> {
         support::child(&self.syntax)
     }
     #[inline]
@@ -25002,6 +26257,21 @@ impl ValidateConstraint {
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
+pub struct ValidatorClause {
+    pub(crate) syntax: SyntaxNode,
+}
+impl ValidatorClause {
+    #[inline]
+    pub fn function_name_ref(&self) -> Option<FunctionNameRef> {
+        support::child(&self.syntax)
+    }
+    #[inline]
+    pub fn validator_token(&self) -> Option<SyntaxToken> {
+        support::token(&self.syntax, SyntaxKind::VALIDATOR_KW)
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub struct Values {
     pub(crate) syntax: SyntaxNode,
 }
@@ -25013,6 +26283,10 @@ impl Values {
     #[inline]
     pub fn limit_clause(&self) -> Option<LimitClause> {
         support::child(&self.syntax)
+    }
+    #[inline]
+    pub fn locking_clauses(&self) -> AstChildren<LockingClause> {
+        support::children(&self.syntax)
     }
     #[inline]
     pub fn offset_clause(&self) -> Option<OffsetClause> {
@@ -25103,11 +26377,11 @@ pub struct VertexTableDef {
 }
 impl VertexTableDef {
     #[inline]
-    pub fn alias(&self) -> Option<ElementTableAlias> {
+    pub fn element_table_alias_clause(&self) -> Option<ElementTableAliasClause> {
         support::child(&self.syntax)
     }
     #[inline]
-    pub fn column_ref_list(&self) -> Option<ColumnRefList> {
+    pub fn element_table_key_clause(&self) -> Option<ElementTableKeyClause> {
         support::child(&self.syntax)
     }
     #[inline]
@@ -25117,14 +26391,6 @@ impl VertexTableDef {
     #[inline]
     pub fn table_name_ref(&self) -> Option<TableNameRef> {
         support::child(&self.syntax)
-    }
-    #[inline]
-    pub fn as_token(&self) -> Option<SyntaxToken> {
-        support::token(&self.syntax, SyntaxKind::AS_KW)
-    }
-    #[inline]
-    pub fn key_token(&self) -> Option<SyntaxToken> {
-        support::token(&self.syntax, SyntaxKind::KEY_KW)
     }
 }
 
@@ -25212,18 +26478,21 @@ impl ViewRenameTo {
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
-pub struct VolatilityFuncOption {
+pub struct Virtual {
     pub(crate) syntax: SyntaxNode,
 }
-impl VolatilityFuncOption {
+impl Virtual {
     #[inline]
-    pub fn immutable_token(&self) -> Option<SyntaxToken> {
-        support::token(&self.syntax, SyntaxKind::IMMUTABLE_KW)
+    pub fn virtual_token(&self) -> Option<SyntaxToken> {
+        support::token(&self.syntax, SyntaxKind::VIRTUAL_KW)
     }
-    #[inline]
-    pub fn stable_token(&self) -> Option<SyntaxToken> {
-        support::token(&self.syntax, SyntaxKind::STABLE_KW)
-    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
+pub struct Volatile {
+    pub(crate) syntax: SyntaxNode,
+}
+impl Volatile {
     #[inline]
     pub fn volatile_token(&self) -> Option<SyntaxToken> {
         support::token(&self.syntax, SyntaxKind::VOLATILE_KW)
@@ -25470,6 +26739,29 @@ impl WithCheckExprClause {
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
+pub struct WithCheckOption {
+    pub(crate) syntax: SyntaxNode,
+}
+impl WithCheckOption {
+    #[inline]
+    pub fn check_option_level(&self) -> Option<CheckOptionLevel> {
+        support::child(&self.syntax)
+    }
+    #[inline]
+    pub fn check_token(&self) -> Option<SyntaxToken> {
+        support::token(&self.syntax, SyntaxKind::CHECK_KW)
+    }
+    #[inline]
+    pub fn option_token(&self) -> Option<SyntaxToken> {
+        support::token(&self.syntax, SyntaxKind::OPTION_KW)
+    }
+    #[inline]
+    pub fn with_token(&self) -> Option<SyntaxToken> {
+        support::token(&self.syntax, SyntaxKind::WITH_KW)
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub struct WithClause {
     pub(crate) syntax: SyntaxNode,
 }
@@ -25515,6 +26807,21 @@ impl WithFunction {
     #[inline]
     pub fn function_token(&self) -> Option<SyntaxToken> {
         support::token(&self.syntax, SyntaxKind::FUNCTION_KW)
+    }
+    #[inline]
+    pub fn with_token(&self) -> Option<SyntaxToken> {
+        support::token(&self.syntax, SyntaxKind::WITH_KW)
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
+pub struct WithHold {
+    pub(crate) syntax: SyntaxNode,
+}
+impl WithHold {
+    #[inline]
+    pub fn hold_token(&self) -> Option<SyntaxToken> {
+        support::token(&self.syntax, SyntaxKind::HOLD_KW)
     }
     #[inline]
     pub fn with_token(&self) -> Option<SyntaxToken> {
@@ -25572,6 +26879,21 @@ impl WithOptions {
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
+pub struct WithOrdinality {
+    pub(crate) syntax: SyntaxNode,
+}
+impl WithOrdinality {
+    #[inline]
+    pub fn ordinality_token(&self) -> Option<SyntaxToken> {
+        support::token(&self.syntax, SyntaxKind::ORDINALITY_KW)
+    }
+    #[inline]
+    pub fn with_token(&self) -> Option<SyntaxToken> {
+        support::token(&self.syntax, SyntaxKind::WITH_KW)
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub struct WithParams {
     pub(crate) syntax: SyntaxNode,
 }
@@ -25600,15 +26922,11 @@ impl WithTable {
         support::child(&self.syntax)
     }
     #[inline]
-    pub fn materialized(&self) -> Option<Materialized> {
+    pub fn materialized_option(&self) -> Option<MaterializedOption> {
         support::child(&self.syntax)
     }
     #[inline]
     pub fn name(&self) -> Option<CteName> {
-        support::child(&self.syntax)
-    }
-    #[inline]
-    pub fn not_materialized(&self) -> Option<NotMaterialized> {
         support::child(&self.syntax)
     }
     #[inline]
@@ -25630,6 +26948,21 @@ impl WithTable {
     #[inline]
     pub fn as_token(&self) -> Option<SyntaxToken> {
         support::token(&self.syntax, SyntaxKind::AS_KW)
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
+pub struct WithTies {
+    pub(crate) syntax: SyntaxNode,
+}
+impl WithTies {
+    #[inline]
+    pub fn ties_token(&self) -> Option<SyntaxToken> {
+        support::token(&self.syntax, SyntaxKind::TIES_KW)
+    }
+    #[inline]
+    pub fn with_token(&self) -> Option<SyntaxToken> {
+        support::token(&self.syntax, SyntaxKind::WITH_KW)
     }
 }
 
@@ -25687,6 +27020,21 @@ impl WithoutFunction {
     #[inline]
     pub fn function_token(&self) -> Option<SyntaxToken> {
         support::token(&self.syntax, SyntaxKind::FUNCTION_KW)
+    }
+    #[inline]
+    pub fn without_token(&self) -> Option<SyntaxToken> {
+        support::token(&self.syntax, SyntaxKind::WITHOUT_KW)
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
+pub struct WithoutHold {
+    pub(crate) syntax: SyntaxNode,
+}
+impl WithoutHold {
+    #[inline]
+    pub fn hold_token(&self) -> Option<SyntaxToken> {
+        support::token(&self.syntax, SyntaxKind::HOLD_KW)
     }
     #[inline]
     pub fn without_token(&self) -> Option<SyntaxToken> {
@@ -25770,6 +27118,28 @@ impl XmlColumnOptionList {
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
+pub struct XmlContent {
+    pub(crate) syntax: SyntaxNode,
+}
+impl XmlContent {
+    #[inline]
+    pub fn content_token(&self) -> Option<SyntaxToken> {
+        support::token(&self.syntax, SyntaxKind::CONTENT_KW)
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
+pub struct XmlDocument {
+    pub(crate) syntax: SyntaxNode,
+}
+impl XmlDocument {
+    #[inline]
+    pub fn document_token(&self) -> Option<SyntaxToken> {
+        support::token(&self.syntax, SyntaxKind::DOCUMENT_KW)
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub struct XmlElementFn {
     pub(crate) syntax: SyntaxNode,
 }
@@ -25818,11 +27188,7 @@ pub struct XmlExistsFn {
 }
 impl XmlExistsFn {
     #[inline]
-    pub fn expr(&self) -> Option<Expr> {
-        support::child(&self.syntax)
-    }
-    #[inline]
-    pub fn xml_passing_mech(&self) -> Option<XmlPassingMech> {
+    pub fn xml_row_passing_clause(&self) -> Option<XmlRowPassingClause> {
         support::child(&self.syntax)
     }
     #[inline]
@@ -25832,10 +27198,6 @@ impl XmlExistsFn {
     #[inline]
     pub fn r_paren_token(&self) -> Option<SyntaxToken> {
         support::token(&self.syntax, SyntaxKind::R_PAREN)
-    }
-    #[inline]
-    pub fn passing_token(&self) -> Option<SyntaxToken> {
-        support::token(&self.syntax, SyntaxKind::PASSING_KW)
     }
     #[inline]
     pub fn xmlexists_token(&self) -> Option<SyntaxToken> {
@@ -25851,14 +27213,6 @@ impl XmlForestFn {
     #[inline]
     pub fn expr_as_element_tag_list(&self) -> Option<ExprAsElementTagList> {
         support::child(&self.syntax)
-    }
-    #[inline]
-    pub fn l_paren_token(&self) -> Option<SyntaxToken> {
-        support::token(&self.syntax, SyntaxKind::L_PAREN)
-    }
-    #[inline]
-    pub fn r_paren_token(&self) -> Option<SyntaxToken> {
-        support::token(&self.syntax, SyntaxKind::R_PAREN)
     }
     #[inline]
     pub fn xmlforest_token(&self) -> Option<SyntaxToken> {
@@ -25929,6 +27283,14 @@ impl XmlParseFn {
         support::child(&self.syntax)
     }
     #[inline]
+    pub fn xml_document_or_content(&self) -> Option<XmlDocumentOrContent> {
+        support::child(&self.syntax)
+    }
+    #[inline]
+    pub fn xml_whitespace(&self) -> Option<XmlWhitespace> {
+        support::child(&self.syntax)
+    }
+    #[inline]
     pub fn l_paren_token(&self) -> Option<SyntaxToken> {
         support::token(&self.syntax, SyntaxKind::L_PAREN)
     }
@@ -25937,28 +27299,23 @@ impl XmlParseFn {
         support::token(&self.syntax, SyntaxKind::R_PAREN)
     }
     #[inline]
-    pub fn content_token(&self) -> Option<SyntaxToken> {
-        support::token(&self.syntax, SyntaxKind::CONTENT_KW)
-    }
-    #[inline]
-    pub fn document_token(&self) -> Option<SyntaxToken> {
-        support::token(&self.syntax, SyntaxKind::DOCUMENT_KW)
-    }
-    #[inline]
-    pub fn preserve_token(&self) -> Option<SyntaxToken> {
-        support::token(&self.syntax, SyntaxKind::PRESERVE_KW)
-    }
-    #[inline]
-    pub fn strip_token(&self) -> Option<SyntaxToken> {
-        support::token(&self.syntax, SyntaxKind::STRIP_KW)
-    }
-    #[inline]
-    pub fn whitespace_token(&self) -> Option<SyntaxToken> {
-        support::token(&self.syntax, SyntaxKind::WHITESPACE_KW)
-    }
-    #[inline]
     pub fn xmlparse_token(&self) -> Option<SyntaxToken> {
         support::token(&self.syntax, SyntaxKind::XMLPARSE_KW)
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
+pub struct XmlPassingDoc {
+    pub(crate) syntax: SyntaxNode,
+}
+impl XmlPassingDoc {
+    #[inline]
+    pub fn expr(&self) -> Option<Expr> {
+        support::child(&self.syntax)
+    }
+    #[inline]
+    pub fn xml_passing_mech(&self) -> Option<XmlPassingMech> {
+        support::child(&self.syntax)
     }
 }
 
@@ -26044,6 +27401,14 @@ impl XmlRootFn {
         support::child(&self.syntax)
     }
     #[inline]
+    pub fn xml_root_version(&self) -> Option<XmlRootVersion> {
+        support::child(&self.syntax)
+    }
+    #[inline]
+    pub fn xml_standalone(&self) -> Option<XmlStandalone> {
+        support::child(&self.syntax)
+    }
+    #[inline]
     pub fn l_paren_token(&self) -> Option<SyntaxToken> {
         support::token(&self.syntax, SyntaxKind::L_PAREN)
     }
@@ -26056,28 +27421,8 @@ impl XmlRootFn {
         support::token(&self.syntax, SyntaxKind::COMMA)
     }
     #[inline]
-    pub fn no_token(&self) -> Option<SyntaxToken> {
-        support::token(&self.syntax, SyntaxKind::NO_KW)
-    }
-    #[inline]
-    pub fn standalone_token(&self) -> Option<SyntaxToken> {
-        support::token(&self.syntax, SyntaxKind::STANDALONE_KW)
-    }
-    #[inline]
-    pub fn value_token(&self) -> Option<SyntaxToken> {
-        support::token(&self.syntax, SyntaxKind::VALUE_KW)
-    }
-    #[inline]
-    pub fn version_token(&self) -> Option<SyntaxToken> {
-        support::token(&self.syntax, SyntaxKind::VERSION_KW)
-    }
-    #[inline]
     pub fn xmlroot_token(&self) -> Option<SyntaxToken> {
         support::token(&self.syntax, SyntaxKind::XMLROOT_KW)
-    }
-    #[inline]
-    pub fn yes_token(&self) -> Option<SyntaxToken> {
-        support::token(&self.syntax, SyntaxKind::YES_KW)
     }
 }
 
@@ -26087,7 +27432,11 @@ pub struct XmlRowPassingClause {
 }
 impl XmlRowPassingClause {
     #[inline]
-    pub fn expr(&self) -> Option<Expr> {
+    pub fn row(&self) -> Option<Expr> {
+        support::child(&self.syntax)
+    }
+    #[inline]
+    pub fn xml_passing_doc(&self) -> Option<XmlPassingDoc> {
         support::child(&self.syntax)
     }
     #[inline]
@@ -26114,6 +27463,14 @@ impl XmlSerializeFn {
         support::child(&self.syntax)
     }
     #[inline]
+    pub fn xml_document_or_content(&self) -> Option<XmlDocumentOrContent> {
+        support::child(&self.syntax)
+    }
+    #[inline]
+    pub fn xml_indent(&self) -> Option<XmlIndent> {
+        support::child(&self.syntax)
+    }
+    #[inline]
     pub fn l_paren_token(&self) -> Option<SyntaxToken> {
         support::token(&self.syntax, SyntaxKind::L_PAREN)
     }
@@ -26124,22 +27481,6 @@ impl XmlSerializeFn {
     #[inline]
     pub fn as_token(&self) -> Option<SyntaxToken> {
         support::token(&self.syntax, SyntaxKind::AS_KW)
-    }
-    #[inline]
-    pub fn content_token(&self) -> Option<SyntaxToken> {
-        support::token(&self.syntax, SyntaxKind::CONTENT_KW)
-    }
-    #[inline]
-    pub fn document_token(&self) -> Option<SyntaxToken> {
-        support::token(&self.syntax, SyntaxKind::DOCUMENT_KW)
-    }
-    #[inline]
-    pub fn indent_token(&self) -> Option<SyntaxToken> {
-        support::token(&self.syntax, SyntaxKind::INDENT_KW)
-    }
-    #[inline]
-    pub fn no_token(&self) -> Option<SyntaxToken> {
-        support::token(&self.syntax, SyntaxKind::NO_KW)
     }
     #[inline]
     pub fn xmlserialize_token(&self) -> Option<SyntaxToken> {
@@ -26248,10 +27589,62 @@ impl XmlTableFromItem {
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
+pub struct XmlVersionExpr {
+    pub(crate) syntax: SyntaxNode,
+}
+impl XmlVersionExpr {
+    #[inline]
+    pub fn expr(&self) -> Option<Expr> {
+        support::child(&self.syntax)
+    }
+    #[inline]
+    pub fn version_token(&self) -> Option<SyntaxToken> {
+        support::token(&self.syntax, SyntaxKind::VERSION_KW)
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
+pub struct XmlVersionNoValue {
+    pub(crate) syntax: SyntaxNode,
+}
+impl XmlVersionNoValue {
+    #[inline]
+    pub fn no_token(&self) -> Option<SyntaxToken> {
+        support::token(&self.syntax, SyntaxKind::NO_KW)
+    }
+    #[inline]
+    pub fn value_token(&self) -> Option<SyntaxToken> {
+        support::token(&self.syntax, SyntaxKind::VALUE_KW)
+    }
+    #[inline]
+    pub fn version_token(&self) -> Option<SyntaxToken> {
+        support::token(&self.syntax, SyntaxKind::VERSION_KW)
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
+pub enum AccessMethodType {
+    AccessMethodTypeIndex(AccessMethodTypeIndex),
+    AccessMethodTypeTable(AccessMethodTypeTable),
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub enum Accessor {
     FieldAccessor(FieldAccessor),
     IndexAccessor(IndexAccessor),
     SliceAccessor(SliceAccessor),
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
+pub enum AllOrDistinct {
+    All(All),
+    Distinct(Distinct),
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
+pub enum AllPublicationObject {
+    AllPublicationSequences(AllPublicationSequences),
+    AllPublicationTables(AllPublicationTables),
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
@@ -26427,6 +27820,13 @@ pub enum AlterOperatorFamilyAction {
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
+pub enum AlterOption {
+    AddForeignOption(AddForeignOption),
+    DropForeignOption(DropForeignOption),
+    SetForeignOption(SetForeignOption),
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub enum AlterPolicyAction {
     AlterPolicyTo(AlterPolicyTo),
     PolicyRenameTo(PolicyRenameTo),
@@ -26462,7 +27862,7 @@ pub enum AlterPublicationAction {
     DropPublicationObjects(DropPublicationObjects),
     OwnerTo(OwnerTo),
     PublicationRenameTo(PublicationRenameTo),
-    SetAllPublicationObjects(SetAllPublicationObjects),
+    SetAllPublicationObjectList(SetAllPublicationObjectList),
     SetOptions(SetOptions),
     SetPublicationObjects(SetPublicationObjects),
 }
@@ -26506,7 +27906,7 @@ pub enum AlterServerAction {
     AlterOptionList(AlterOptionList),
     OwnerTo(OwnerTo),
     ServerRenameTo(ServerRenameTo),
-    SetVersion(SetVersion),
+    ServerVersion(ServerVersion),
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
@@ -26520,15 +27920,15 @@ pub enum AlterStatisticsAction {
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub enum AlterSubscriptionAction {
     AddPublication(AddPublication),
+    ConnectionClause(ConnectionClause),
     DisableSubscription(DisableSubscription),
     DropSubscriptionPublication(DropSubscriptionPublication),
     EnableSubscription(EnableSubscription),
     OwnerTo(OwnerTo),
     RefreshPublication(RefreshPublication),
-    SetConnection(SetConnection),
+    ServerClause(ServerClause),
     SetOptions(SetOptions),
     SetPublication(SetPublication),
-    SetServer(SetServer),
     SkipSubscription(SkipSubscription),
     SubscriptionRenameTo(SubscriptionRenameTo),
 }
@@ -26670,6 +28070,12 @@ pub enum AlterViewAction {
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
+pub enum AlterViewColumnAction {
+    DropDefault(DropDefault),
+    SetDefault(SetDefault),
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub enum AnyName {
     AccessMethod(AccessMethod),
     AccessMethodRef(AccessMethodRef),
@@ -26684,7 +28090,8 @@ pub enum AnyName {
     CompositeFieldRef(CompositeFieldRef),
     ConfigValueName(ConfigValueName),
     ConstraintName(ConstraintName),
-    CopyOptionName(CopyOptionName),
+    CopyOptionKey(CopyOptionKey),
+    CopyOptionValueName(CopyOptionValueName),
     CteName(CteName),
     Cursor(Cursor),
     CursorRef(CursorRef),
@@ -26698,6 +28105,7 @@ pub enum AnyName {
     ExplainOptionName(ExplainOptionName),
     Extension(Extension),
     ExtensionRef(ExtensionRef),
+    ExtensionVersion(ExtensionVersion),
     ForeignDataWrapper(ForeignDataWrapper),
     ForeignDataWrapperRef(ForeignDataWrapperRef),
     ForeignOptionName(ForeignOptionName),
@@ -26710,6 +28118,8 @@ pub enum AnyName {
     Language(Language),
     LanguageRef(LanguageRef),
     NameRef(NameRef),
+    OptionItemKey(OptionItemKey),
+    OptionItemValueName(OptionItemValueName),
     ParamName(ParamName),
     ParamNameRef(ParamNameRef),
     PathSegment(PathSegment),
@@ -26788,9 +28198,46 @@ pub enum AnyNameRef {
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
+pub enum AsFuncTarget {
+    AsDefinition(AsDefinition),
+    AsObjFile(AsObjFile),
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub enum BeginFuncOption {
     ReturnFuncOption(ReturnFuncOption),
     Stmt(Stmt),
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
+pub enum BetweenSymmetry {
+    Asymmetric(Asymmetric),
+    Symmetric(Symmetric),
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
+pub enum CastContext {
+    AsAssignment(AsAssignment),
+    AsImplicit(AsImplicit),
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
+pub enum CastMethod {
+    WithFunction(WithFunction),
+    WithInout(WithInout),
+    WithoutFunction(WithoutFunction),
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
+pub enum ChainClause {
+    AndChain(AndChain),
+    AndNoChain(AndNoChain),
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
+pub enum CheckOptionLevel {
+    CascadedCheckOption(CascadedCheckOption),
+    LocalCheckOption(LocalCheckOption),
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
@@ -26854,6 +28301,19 @@ pub enum CommentObject {
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
+pub enum CompoundOp {
+    Except(Except),
+    Intersect(Intersect),
+    Union(Union),
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
+pub enum ConfigAssignment {
+    FromCurrent(FromCurrent),
+    ToConfigValue(ToConfigValue),
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub enum ConfigValue {
     ConfigValueName(ConfigValueName),
     Literal(Literal),
@@ -26876,6 +28336,7 @@ pub enum ConflictTarget {
 pub enum Constraint {
     CheckConstraint(CheckConstraint),
     DefaultConstraint(DefaultConstraint),
+    ExcludeConstraint(ExcludeConstraint),
     ForeignKeyConstraint(ForeignKeyConstraint),
     GeneratedConstraint(GeneratedConstraint),
     NotNullConstraint(NotNullConstraint),
@@ -26883,6 +28344,57 @@ pub enum Constraint {
     PrimaryKeyConstraint(PrimaryKeyConstraint),
     ReferencesConstraint(ReferencesConstraint),
     UniqueConstraint(UniqueConstraint),
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
+pub enum ConstraintOption {
+    DeferrableConstraintOption(DeferrableConstraintOption),
+    Enforced(Enforced),
+    Inherit(Inherit),
+    InitiallyDeferredConstraintOption(InitiallyDeferredConstraintOption),
+    InitiallyImmediateConstraintOption(InitiallyImmediateConstraintOption),
+    NoInherit(NoInherit),
+    NotDeferrableConstraintOption(NotDeferrableConstraintOption),
+    NotEnforced(NotEnforced),
+    NotValid(NotValid),
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
+pub enum ConstraintTiming {
+    Deferred(Deferred),
+    Immediate(Immediate),
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
+pub enum CopyDirection {
+    CopyFrom(CopyFrom),
+    CopyTo(CopyTo),
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
+pub enum CopyForceKind {
+    ForceNotNull(ForceNotNull),
+    ForceNull(ForceNull),
+    ForceQuote(ForceQuote),
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
+pub enum CopySource {
+    CopyProgram(CopyProgram),
+    CopyStdin(CopyStdin),
+    CopyStdout(CopyStdout),
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
+pub enum CopyTarget {
+    CopyProgram(CopyProgram),
+    CopyStdout(CopyStdout),
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
+pub enum CreateCollationDefinition {
+    AttributeList(AttributeList),
+    CollationFrom(CollationFrom),
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
@@ -26920,6 +28432,30 @@ pub enum CursorAction {
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
+pub enum CursorHold {
+    WithHold(WithHold),
+    WithoutHold(WithoutHold),
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
+pub enum CursorScroll {
+    NoScroll(NoScroll),
+    Scroll(Scroll),
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
+pub enum CursorSensitivity {
+    Asensitive(Asensitive),
+    Insensitive(Insensitive),
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
+pub enum DataOption {
+    WithData(WithData),
+    WithNoData(WithNoData),
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub enum DatabaseOption {
     DatabaseOptionConnectionLimit(DatabaseOptionConnectionLimit),
     DatabaseOptionEncoding(DatabaseOptionEncoding),
@@ -26927,6 +28463,26 @@ pub enum DatabaseOption {
     DatabaseOptionOwner(DatabaseOptionOwner),
     DatabaseOptionTablespace(DatabaseOptionTablespace),
     DatabaseOptionTemplate(DatabaseOptionTemplate),
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
+pub enum DetachPartitionOption {
+    DetachConcurrently(DetachConcurrently),
+    DetachFinalize(DetachFinalize),
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
+pub enum DiscardTarget {
+    DiscardAll(DiscardAll),
+    DiscardPlans(DiscardPlans),
+    DiscardSequences(DiscardSequences),
+    DiscardTemp(DiscardTemp),
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
+pub enum DropBehavior {
+    Cascade(Cascade),
+    Restrict(Restrict),
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
@@ -26946,6 +28502,13 @@ pub enum ElementTableProperties {
     AllProperties(AllProperties),
     NoProperties(NoProperties),
     Properties(Properties),
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
+pub enum ExplainMode {
+    ExplainAnalyze(ExplainAnalyze),
+    ExplainOptionList(ExplainOptionList),
+    ExplainVerbose(ExplainVerbose),
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
@@ -27027,6 +28590,12 @@ pub enum ExtensionMemberObject {
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
+pub enum ExtractField {
+    ExtractFieldLiteral(ExtractFieldLiteral),
+    ExtractFieldName(ExtractFieldName),
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub enum FdwOption {
     OptionAlterOptionList(OptionAlterOptionList),
     OptionConnection(OptionConnection),
@@ -27038,12 +28607,45 @@ pub enum FdwOption {
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
+pub enum FetchQuantity {
+    FetchOnly(FetchOnly),
+    WithTies(WithTies),
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub enum FrameBound {
     CurrentRow(CurrentRow),
     ExprFollowing(ExprFollowing),
     ExprPreceding(ExprPreceding),
     UnboundedFollowing(UnboundedFollowing),
     UnboundedPreceding(UnboundedPreceding),
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
+pub enum FrameExcludeTarget {
+    CurrentRow(CurrentRow),
+    Group(Group),
+    NoOthers(NoOthers),
+    Ties(Ties),
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
+pub enum FrameExtent {
+    FrameBetween(FrameBetween),
+    FrameBound(FrameBound),
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
+pub enum FrameUnits {
+    FrameGroups(FrameGroups),
+    FrameRange(FrameRange),
+    FrameRows(FrameRows),
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
+pub enum FromAliasColumns {
+    ColumnDefList(ColumnDefList),
+    ColumnList(ColumnList),
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
@@ -27072,13 +28674,32 @@ pub enum FuncOption {
     ReturnFuncOption(ReturnFuncOption),
     ReturnsNullOnNullInputFuncOption(ReturnsNullOnNullInputFuncOption),
     RowsFuncOption(RowsFuncOption),
-    SecurityFuncOption(SecurityFuncOption),
+    SecurityDefinerFuncOption(SecurityDefinerFuncOption),
+    SecurityInvokerFuncOption(SecurityInvokerFuncOption),
     SetFuncOption(SetFuncOption),
     StrictFuncOption(StrictFuncOption),
     SupportFuncOption(SupportFuncOption),
     TransformFuncOption(TransformFuncOption),
-    VolatilityFuncOption(VolatilityFuncOption),
     WindowFuncOption(WindowFuncOption),
+    VolatilityFuncOption(VolatilityFuncOption),
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
+pub enum GeneratedAs {
+    GeneratedIdentity(GeneratedIdentity),
+    GeneratedStored(GeneratedStored),
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
+pub enum GeneratedKind {
+    Stored(Stored),
+    Virtual(Virtual),
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
+pub enum GeneratedWhen {
+    GeneratedAlways(GeneratedAlways),
+    GeneratedByDefault(GeneratedByDefault),
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
@@ -27098,6 +28719,30 @@ pub enum HasParamList {
     FunctionSig(FunctionSig),
     ProcedureSig(ProcedureSig),
     RoutineSig(RoutineSig),
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
+pub enum IdentityAction {
+    ContinueIdentity(ContinueIdentity),
+    RestartIdentity(RestartIdentity),
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
+pub enum ImportTableFilter {
+    ExceptTables(ExceptTables),
+    LimitToTables(LimitToTables),
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
+pub enum InsertSource {
+    DefaultValues(DefaultValues),
+    SelectVariant(SelectVariant),
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
+pub enum JoinCondition {
+    JoinUsingClause(JoinUsingClause),
+    OnClause(OnClause),
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
@@ -27134,11 +28779,33 @@ pub enum JsonNullClause {
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
+pub enum JsonTableColumn {
+    JsonTableExistsColumn(JsonTableExistsColumn),
+    JsonTableNestedColumn(JsonTableNestedColumn),
+    JsonTableOrdinalityColumn(JsonTableOrdinalityColumn),
+    JsonTableValueColumn(JsonTableValueColumn),
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub enum JsonTablePlan {
     JsonPathNameRef(JsonPathNameRef),
     JsonTablePlanChoice(JsonTablePlanChoice),
     JsonTablePlanJoin(JsonTablePlanJoin),
     ParenJsonTablePlan(ParenJsonTablePlan),
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
+pub enum JsonTablePlanOperator {
+    JsonTablePlanCross(JsonTablePlanCross),
+    JsonTablePlanInner(JsonTablePlanInner),
+    JsonTablePlanOuter(JsonTablePlanOuter),
+    JsonTablePlanUnion(JsonTablePlanUnion),
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
+pub enum JsonTableValueBehavior {
+    JsonOnEmptyClause(JsonOnEmptyClause),
+    JsonOnErrorClause(JsonOnErrorClause),
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
@@ -27149,9 +28816,21 @@ pub enum JsonWrapperBehaviorClause {
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
+pub enum LabelSpec {
+    DefaultLabel(DefaultLabel),
+    NamedLabel(NamedLabel),
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub enum LikeOption {
     ExcludingProperty(ExcludingProperty),
     IncludingProperty(IncludingProperty),
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
+pub enum LimitValue {
+    All(All),
+    Expr(Expr),
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
@@ -27167,10 +28846,30 @@ pub enum LockMode {
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
+pub enum LockStrength {
+    ForKeyShare(ForKeyShare),
+    ForNoKeyUpdate(ForNoKeyUpdate),
+    ForShare(ForShare),
+    ForUpdate(ForUpdate),
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
+pub enum LockWait {
+    Nowait(Nowait),
+    SkipLocked(SkipLocked),
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub enum MatchType {
     MatchFull(MatchFull),
     MatchPartial(MatchPartial),
     MatchSimple(MatchSimple),
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
+pub enum MaterializedOption {
+    Materialized(Materialized),
+    NotMaterialized(NotMaterialized),
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
@@ -27195,6 +28894,18 @@ pub enum NullTreatment {
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
+pub enum NullsDistinctOption {
+    NullsDistinct(NullsDistinct),
+    NullsNotDistinct(NullsNotDistinct),
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
+pub enum NullsOrder {
+    NullsFirst(NullsFirst),
+    NullsLast(NullsLast),
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub enum OnCommitAction {
     DeleteRows(DeleteRows),
     Drop(Drop),
@@ -27206,6 +28917,42 @@ pub enum OpClassOption {
     OpClassOptionFunction(OpClassOptionFunction),
     OpClassOptionOperator(OpClassOptionOperator),
     OpClassOptionStorage(OpClassOptionStorage),
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
+pub enum OpClassPurpose {
+    OpClassForOrderBy(OpClassForOrderBy),
+    OpClassForSearch(OpClassForSearch),
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
+pub enum OverTarget {
+    OverWindowSpec(OverWindowSpec),
+    WindowRef(WindowRef),
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
+pub enum OverlayArgs {
+    OverlayExprs(OverlayExprs),
+    OverlayPlacing(OverlayPlacing),
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
+pub enum OverlayExpr {
+    NamedArg(NamedArg),
+    Expr(Expr),
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
+pub enum OverridingClause {
+    OverridingSystemValue(OverridingSystemValue),
+    OverridingUserValue(OverridingUserValue),
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
+pub enum OwnedByTarget {
+    OwnedByNone(OwnedByNone),
+    QualifiedColumnNameRef(QualifiedColumnNameRef),
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
@@ -27237,6 +28984,21 @@ pub enum PathPrimary {
 pub enum Persistence {
     Temp(Temp),
     Unlogged(Unlogged),
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
+pub enum PolicyCommandKind {
+    PolicyCommandAll(PolicyCommandAll),
+    PolicyCommandDelete(PolicyCommandDelete),
+    PolicyCommandInsert(PolicyCommandInsert),
+    PolicyCommandSelect(PolicyCommandSelect),
+    PolicyCommandUpdate(PolicyCommandUpdate),
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
+pub enum PortionTarget {
+    PortionFromTo(PortionFromTo),
+    PortionRange(PortionRange),
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
@@ -27290,10 +29052,28 @@ pub enum PrivilegeTarget {
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
+pub enum Privileges {
+    AllPrivileges(AllPrivileges),
+    RevokeCommandList(RevokeCommandList),
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
+pub enum PublicationForClause {
+    ForAllPublicationObjects(ForAllPublicationObjects),
+    ForPublicationObjects(ForPublicationObjects),
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub enum PublicationObject {
     PublicationObjectCurrentSchema(PublicationObjectCurrentSchema),
     PublicationObjectTable(PublicationObjectTable),
     PublicationObjectTablesInSchema(PublicationObjectTablesInSchema),
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
+pub enum QuotesBehavior {
+    KeepQuotes(KeepQuotes),
+    OmitQuotes(OmitQuotes),
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
@@ -27303,6 +29083,12 @@ pub enum RefAction {
     Restrict(Restrict),
     SetDefaultColumns(SetDefaultColumns),
     SetNullColumns(SetNullColumns),
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
+pub enum ReferencingTable {
+    NewTable(NewTable),
+    OldTable(OldTable),
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
@@ -27322,11 +29108,33 @@ pub enum ReindexTarget {
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
+pub enum ReplicaIdentityOption {
+    ReplicaIdentityDefault(ReplicaIdentityDefault),
+    ReplicaIdentityFull(ReplicaIdentityFull),
+    ReplicaIdentityNothing(ReplicaIdentityNothing),
+    UsingIndexName(UsingIndexName),
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub enum ResetTarget {
     All(All),
     ConfigParameterRef(ConfigParameterRef),
     ResetTimeZone(ResetTimeZone),
     ResetTransactionIsolation(ResetTransactionIsolation),
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
+pub enum ReturningOption {
+    ReturningNew(ReturningNew),
+    ReturningOld(ReturningOld),
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
+pub enum RevokeOptionFor {
+    AdminOptionFor(AdminOptionFor),
+    GrantOptionFor(GrantOptionFor),
+    InheritOptionFor(InheritOptionFor),
+    SetOptionFor(SetOptionFor),
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
@@ -27372,6 +29180,12 @@ pub enum SchemaElement {
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
+pub enum SearchOrder {
+    BreadthFirst(BreadthFirst),
+    DepthFirst(DepthFirst),
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub enum SecurityLabelObject {
     ObjectAggregate(ObjectAggregate),
     ObjectColumn(ObjectColumn),
@@ -27394,6 +29208,12 @@ pub enum SecurityLabelObject {
     ObjectTablespace(ObjectTablespace),
     ObjectType(ObjectType),
     ObjectView(ObjectView),
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
+pub enum SelectQuantifier {
+    All(All),
+    DistinctClause(DistinctClause),
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
@@ -27432,6 +29252,33 @@ pub enum SetColumn {
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
+pub enum SetGeneratedOption {
+    Restart(Restart),
+    SetGenerated(SetGenerated),
+    SetSequenceOption(SetSequenceOption),
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
+pub enum SetRoleTarget {
+    Literal(Literal),
+    RoleRef(RoleRef),
+    SetRoleNone(SetRoleNone),
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
+pub enum SetScope {
+    LocalScope(LocalScope),
+    SessionScope(SessionScope),
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
+pub enum SetSessionAuthTarget {
+    Literal(Literal),
+    RoleRef(RoleRef),
+    SetSessionAuthDefault(SetSessionAuthDefault),
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub enum SetTarget {
     SetCatalog(SetCatalog),
     SetConfig(SetConfig),
@@ -27447,6 +29294,13 @@ pub enum ShowAction {
     SessionAuthorization(SessionAuthorization),
     TimeZone(TimeZone),
     TransactionIsolationLevel(TransactionIsolationLevel),
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
+pub enum SortOrder {
+    SortAsc(SortAsc),
+    SortDesc(SortDesc),
+    SortUsing(SortUsing),
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
@@ -27502,6 +29356,7 @@ pub enum Stmt {
     Cluster(Cluster),
     CommentOn(CommentOn),
     Commit(Commit),
+    CompoundSelect(CompoundSelect),
     Copy(Copy),
     CreateAccessMethod(CreateAccessMethod),
     CreateAggregate(CreateAggregate),
@@ -27640,6 +29495,20 @@ pub enum Stmt {
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
+pub enum SubscriptionSource {
+    ConnectionClause(ConnectionClause),
+    ServerClause(ServerClause),
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
+pub enum SubstringArgs {
+    SubstringExprs(SubstringExprs),
+    SubstringForFrom(SubstringForFrom),
+    SubstringFromFor(SubstringFromFor),
+    SubstringSimilarEscape(SubstringSimilarEscape),
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub enum TableArg {
     Column(Column),
     LikeClause(LikeClause),
@@ -27653,6 +29522,12 @@ pub enum TableConstraint {
     ForeignKeyConstraint(ForeignKeyConstraint),
     PrimaryKeyConstraint(PrimaryKeyConstraint),
     UniqueConstraint(UniqueConstraint),
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
+pub enum TableParams {
+    WithParams(WithParams),
+    WithoutOids(WithoutOids),
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
@@ -27695,11 +29570,44 @@ pub enum TransactionMode {
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
+pub enum TransformFunc {
+    TransformFromFunc(TransformFromFunc),
+    TransformToFunc(TransformToFunc),
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub enum TriggerEvent {
     TriggerEventDelete(TriggerEventDelete),
     TriggerEventInsert(TriggerEventInsert),
     TriggerEventTruncate(TriggerEventTruncate),
     TriggerEventUpdate(TriggerEventUpdate),
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
+pub enum TriggerLevel {
+    ForEachRow(ForEachRow),
+    ForEachStatement(ForEachStatement),
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
+pub enum TriggerTarget {
+    All(All),
+    TriggerRef(TriggerRef),
+    User(User),
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
+pub enum TrimArgs {
+    TrimExprFrom(TrimExprFrom),
+    TrimExprs(TrimExprs),
+    TrimFrom(TrimFrom),
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
+pub enum TrimSide {
+    TrimBoth(TrimBoth),
+    TrimLeading(TrimLeading),
+    TrimTrailing(TrimTrailing),
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
@@ -27719,6 +29627,19 @@ pub enum Type {
 pub enum ValuePosition {
     AfterValue(AfterValue),
     BeforeValue(BeforeValue),
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
+pub enum VolatilityFuncOption {
+    Immutable(Immutable),
+    Stable(Stable),
+    Volatile(Volatile),
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
+pub enum WhereClauseOrCurrentOf {
+    WhereClause(WhereClause),
+    WhereCurrentOf(WhereCurrentOf),
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
@@ -27744,9 +29665,40 @@ pub enum XmlColumnOption {
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
+pub enum XmlDocumentOrContent {
+    XmlContent(XmlContent),
+    XmlDocument(XmlDocument),
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
+pub enum XmlIndent {
+    Indent(Indent),
+    NoIndent(NoIndent),
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub enum XmlPassingMech {
     XmlPassingMechByRef(XmlPassingMechByRef),
     XmlPassingMechByValue(XmlPassingMechByValue),
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
+pub enum XmlRootVersion {
+    XmlVersionExpr(XmlVersionExpr),
+    XmlVersionNoValue(XmlVersionNoValue),
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
+pub enum XmlStandalone {
+    StandaloneNo(StandaloneNo),
+    StandaloneNoValue(StandaloneNoValue),
+    StandaloneYes(StandaloneYes),
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
+pub enum XmlWhitespace {
+    PreserveWhitespace(PreserveWhitespace),
+    StripWhitespace(StripWhitespace),
 }
 impl AstNode for Absolute {
     #[inline]
@@ -27820,6 +29772,42 @@ impl AstNode for AccessMethodRef {
         &self.syntax
     }
 }
+impl AstNode for AccessMethodTypeIndex {
+    #[inline]
+    fn can_cast(kind: SyntaxKind) -> bool {
+        kind == SyntaxKind::ACCESS_METHOD_TYPE_INDEX
+    }
+    #[inline]
+    fn cast(syntax: SyntaxNode) -> Option<Self> {
+        if Self::can_cast(syntax.kind()) {
+            Some(Self { syntax })
+        } else {
+            None
+        }
+    }
+    #[inline]
+    fn syntax(&self) -> &SyntaxNode {
+        &self.syntax
+    }
+}
+impl AstNode for AccessMethodTypeTable {
+    #[inline]
+    fn can_cast(kind: SyntaxKind) -> bool {
+        kind == SyntaxKind::ACCESS_METHOD_TYPE_TABLE
+    }
+    #[inline]
+    fn cast(syntax: SyntaxNode) -> Option<Self> {
+        if Self::can_cast(syntax.kind()) {
+            Some(Self { syntax })
+        } else {
+            None
+        }
+    }
+    #[inline]
+    fn syntax(&self) -> &SyntaxNode {
+        &self.syntax
+    }
+}
 impl AstNode for AccessShare {
     #[inline]
     fn can_cast(kind: SyntaxKind) -> bool {
@@ -27878,6 +29866,24 @@ impl AstNode for AddConstraint {
     #[inline]
     fn can_cast(kind: SyntaxKind) -> bool {
         kind == SyntaxKind::ADD_CONSTRAINT
+    }
+    #[inline]
+    fn cast(syntax: SyntaxNode) -> Option<Self> {
+        if Self::can_cast(syntax.kind()) {
+            Some(Self { syntax })
+        } else {
+            None
+        }
+    }
+    #[inline]
+    fn syntax(&self) -> &SyntaxNode {
+        &self.syntax
+    }
+}
+impl AstNode for AddForeignOption {
+    #[inline]
+    fn can_cast(kind: SyntaxKind) -> bool {
+        kind == SyntaxKind::ADD_FOREIGN_OPTION
     }
     #[inline]
     fn cast(syntax: SyntaxNode) -> Option<Self> {
@@ -28072,6 +30078,24 @@ impl AstNode for AddVertexEdgeTables {
         &self.syntax
     }
 }
+impl AstNode for AdminOptionFor {
+    #[inline]
+    fn can_cast(kind: SyntaxKind) -> bool {
+        kind == SyntaxKind::ADMIN_OPTION_FOR
+    }
+    #[inline]
+    fn cast(syntax: SyntaxNode) -> Option<Self> {
+        if Self::can_cast(syntax.kind()) {
+            Some(Self { syntax })
+        } else {
+            None
+        }
+    }
+    #[inline]
+    fn syntax(&self) -> &SyntaxNode {
+        &self.syntax
+    }
+}
 impl AstNode for AfterValue {
     #[inline]
     fn can_cast(kind: SyntaxKind) -> bool {
@@ -28130,42 +30154,6 @@ impl AstNode for AggregateRenameTo {
     #[inline]
     fn can_cast(kind: SyntaxKind) -> bool {
         kind == SyntaxKind::AGGREGATE_RENAME_TO
-    }
-    #[inline]
-    fn cast(syntax: SyntaxNode) -> Option<Self> {
-        if Self::can_cast(syntax.kind()) {
-            Some(Self { syntax })
-        } else {
-            None
-        }
-    }
-    #[inline]
-    fn syntax(&self) -> &SyntaxNode {
-        &self.syntax
-    }
-}
-impl AstNode for AliasColumn {
-    #[inline]
-    fn can_cast(kind: SyntaxKind) -> bool {
-        kind == SyntaxKind::ALIAS_COLUMN
-    }
-    #[inline]
-    fn cast(syntax: SyntaxNode) -> Option<Self> {
-        if Self::can_cast(syntax.kind()) {
-            Some(Self { syntax })
-        } else {
-            None
-        }
-    }
-    #[inline]
-    fn syntax(&self) -> &SyntaxNode {
-        &self.syntax
-    }
-}
-impl AstNode for AliasColumnList {
-    #[inline]
-    fn can_cast(kind: SyntaxKind) -> bool {
-        kind == SyntaxKind::ALIAS_COLUMN_LIST
     }
     #[inline]
     fn cast(syntax: SyntaxNode) -> Option<Self> {
@@ -28256,6 +30244,42 @@ impl AstNode for AllProperties {
     #[inline]
     fn can_cast(kind: SyntaxKind) -> bool {
         kind == SyntaxKind::ALL_PROPERTIES
+    }
+    #[inline]
+    fn cast(syntax: SyntaxNode) -> Option<Self> {
+        if Self::can_cast(syntax.kind()) {
+            Some(Self { syntax })
+        } else {
+            None
+        }
+    }
+    #[inline]
+    fn syntax(&self) -> &SyntaxNode {
+        &self.syntax
+    }
+}
+impl AstNode for AllPublicationSequences {
+    #[inline]
+    fn can_cast(kind: SyntaxKind) -> bool {
+        kind == SyntaxKind::ALL_PUBLICATION_SEQUENCES
+    }
+    #[inline]
+    fn cast(syntax: SyntaxNode) -> Option<Self> {
+        if Self::can_cast(syntax.kind()) {
+            Some(Self { syntax })
+        } else {
+            None
+        }
+    }
+    #[inline]
+    fn syntax(&self) -> &SyntaxNode {
+        &self.syntax
+    }
+}
+impl AstNode for AllPublicationTables {
+    #[inline]
+    fn can_cast(kind: SyntaxKind) -> bool {
+        kind == SyntaxKind::ALL_PUBLICATION_TABLES
     }
     #[inline]
     fn cast(syntax: SyntaxNode) -> Option<Self> {
@@ -28724,24 +30748,6 @@ impl AstNode for AlterOperatorFamily {
     #[inline]
     fn can_cast(kind: SyntaxKind) -> bool {
         kind == SyntaxKind::ALTER_OPERATOR_FAMILY
-    }
-    #[inline]
-    fn cast(syntax: SyntaxNode) -> Option<Self> {
-        if Self::can_cast(syntax.kind()) {
-            Some(Self { syntax })
-        } else {
-            None
-        }
-    }
-    #[inline]
-    fn syntax(&self) -> &SyntaxNode {
-        &self.syntax
-    }
-}
-impl AstNode for AlterOption {
-    #[inline]
-    fn can_cast(kind: SyntaxKind) -> bool {
-        kind == SyntaxKind::ALTER_OPTION
     }
     #[inline]
     fn cast(syntax: SyntaxNode) -> Option<Self> {
@@ -29314,6 +31320,42 @@ impl AstNode for Analyze {
         &self.syntax
     }
 }
+impl AstNode for AndChain {
+    #[inline]
+    fn can_cast(kind: SyntaxKind) -> bool {
+        kind == SyntaxKind::AND_CHAIN
+    }
+    #[inline]
+    fn cast(syntax: SyntaxNode) -> Option<Self> {
+        if Self::can_cast(syntax.kind()) {
+            Some(Self { syntax })
+        } else {
+            None
+        }
+    }
+    #[inline]
+    fn syntax(&self) -> &SyntaxNode {
+        &self.syntax
+    }
+}
+impl AstNode for AndNoChain {
+    #[inline]
+    fn can_cast(kind: SyntaxKind) -> bool {
+        kind == SyntaxKind::AND_NO_CHAIN
+    }
+    #[inline]
+    fn cast(syntax: SyntaxNode) -> Option<Self> {
+        if Self::can_cast(syntax.kind()) {
+            Some(Self { syntax })
+        } else {
+            None
+        }
+    }
+    #[inline]
+    fn syntax(&self) -> &SyntaxNode {
+        &self.syntax
+    }
+}
 impl AstNode for AnyFn {
     #[inline]
     fn can_cast(kind: SyntaxKind) -> bool {
@@ -29404,10 +31446,64 @@ impl AstNode for ArrayType {
         &self.syntax
     }
 }
+impl AstNode for AsAssignment {
+    #[inline]
+    fn can_cast(kind: SyntaxKind) -> bool {
+        kind == SyntaxKind::AS_ASSIGNMENT
+    }
+    #[inline]
+    fn cast(syntax: SyntaxNode) -> Option<Self> {
+        if Self::can_cast(syntax.kind()) {
+            Some(Self { syntax })
+        } else {
+            None
+        }
+    }
+    #[inline]
+    fn syntax(&self) -> &SyntaxNode {
+        &self.syntax
+    }
+}
+impl AstNode for AsDefinition {
+    #[inline]
+    fn can_cast(kind: SyntaxKind) -> bool {
+        kind == SyntaxKind::AS_DEFINITION
+    }
+    #[inline]
+    fn cast(syntax: SyntaxNode) -> Option<Self> {
+        if Self::can_cast(syntax.kind()) {
+            Some(Self { syntax })
+        } else {
+            None
+        }
+    }
+    #[inline]
+    fn syntax(&self) -> &SyntaxNode {
+        &self.syntax
+    }
+}
 impl AstNode for AsFuncOption {
     #[inline]
     fn can_cast(kind: SyntaxKind) -> bool {
         kind == SyntaxKind::AS_FUNC_OPTION
+    }
+    #[inline]
+    fn cast(syntax: SyntaxNode) -> Option<Self> {
+        if Self::can_cast(syntax.kind()) {
+            Some(Self { syntax })
+        } else {
+            None
+        }
+    }
+    #[inline]
+    fn syntax(&self) -> &SyntaxNode {
+        &self.syntax
+    }
+}
+impl AstNode for AsImplicit {
+    #[inline]
+    fn can_cast(kind: SyntaxKind) -> bool {
+        kind == SyntaxKind::AS_IMPLICIT
     }
     #[inline]
     fn cast(syntax: SyntaxNode) -> Option<Self> {
@@ -29440,10 +31536,64 @@ impl AstNode for AsName {
         &self.syntax
     }
 }
+impl AstNode for AsObjFile {
+    #[inline]
+    fn can_cast(kind: SyntaxKind) -> bool {
+        kind == SyntaxKind::AS_OBJ_FILE
+    }
+    #[inline]
+    fn cast(syntax: SyntaxNode) -> Option<Self> {
+        if Self::can_cast(syntax.kind()) {
+            Some(Self { syntax })
+        } else {
+            None
+        }
+    }
+    #[inline]
+    fn syntax(&self) -> &SyntaxNode {
+        &self.syntax
+    }
+}
 impl AstNode for AsPolicyType {
     #[inline]
     fn can_cast(kind: SyntaxKind) -> bool {
         kind == SyntaxKind::AS_POLICY_TYPE
+    }
+    #[inline]
+    fn cast(syntax: SyntaxNode) -> Option<Self> {
+        if Self::can_cast(syntax.kind()) {
+            Some(Self { syntax })
+        } else {
+            None
+        }
+    }
+    #[inline]
+    fn syntax(&self) -> &SyntaxNode {
+        &self.syntax
+    }
+}
+impl AstNode for Asensitive {
+    #[inline]
+    fn can_cast(kind: SyntaxKind) -> bool {
+        kind == SyntaxKind::ASENSITIVE
+    }
+    #[inline]
+    fn cast(syntax: SyntaxNode) -> Option<Self> {
+        if Self::can_cast(syntax.kind()) {
+            Some(Self { syntax })
+        } else {
+            None
+        }
+    }
+    #[inline]
+    fn syntax(&self) -> &SyntaxNode {
+        &self.syntax
+    }
+}
+impl AstNode for Asymmetric {
+    #[inline]
+    fn can_cast(kind: SyntaxKind) -> bool {
+        kind == SyntaxKind::ASYMMETRIC
     }
     #[inline]
     fn cast(syntax: SyntaxNode) -> Option<Self> {
@@ -29800,6 +31950,42 @@ impl AstNode for BitType {
         &self.syntax
     }
 }
+impl AstNode for BreadthFirst {
+    #[inline]
+    fn can_cast(kind: SyntaxKind) -> bool {
+        kind == SyntaxKind::BREADTH_FIRST
+    }
+    #[inline]
+    fn cast(syntax: SyntaxNode) -> Option<Self> {
+        if Self::can_cast(syntax.kind()) {
+            Some(Self { syntax })
+        } else {
+            None
+        }
+    }
+    #[inline]
+    fn syntax(&self) -> &SyntaxNode {
+        &self.syntax
+    }
+}
+impl AstNode for ByTarget {
+    #[inline]
+    fn can_cast(kind: SyntaxKind) -> bool {
+        kind == SyntaxKind::BY_TARGET
+    }
+    #[inline]
+    fn cast(syntax: SyntaxNode) -> Option<Self> {
+        if Self::can_cast(syntax.kind()) {
+            Some(Self { syntax })
+        } else {
+            None
+        }
+    }
+    #[inline]
+    fn syntax(&self) -> &SyntaxNode {
+        &self.syntax
+    }
+}
 impl AstNode for Call {
     #[inline]
     fn can_cast(kind: SyntaxKind) -> bool {
@@ -29858,6 +32044,24 @@ impl AstNode for Cascade {
     #[inline]
     fn can_cast(kind: SyntaxKind) -> bool {
         kind == SyntaxKind::CASCADE
+    }
+    #[inline]
+    fn cast(syntax: SyntaxNode) -> Option<Self> {
+        if Self::can_cast(syntax.kind()) {
+            Some(Self { syntax })
+        } else {
+            None
+        }
+    }
+    #[inline]
+    fn syntax(&self) -> &SyntaxNode {
+        &self.syntax
+    }
+}
+impl AstNode for CascadedCheckOption {
+    #[inline]
+    fn can_cast(kind: SyntaxKind) -> bool {
+        kind == SyntaxKind::CASCADED_CHECK_OPTION
     }
     #[inline]
     fn cast(syntax: SyntaxNode) -> Option<Self> {
@@ -30322,6 +32526,42 @@ impl AstNode for Column {
         &self.syntax
     }
 }
+impl AstNode for ColumnDef {
+    #[inline]
+    fn can_cast(kind: SyntaxKind) -> bool {
+        kind == SyntaxKind::COLUMN_DEF
+    }
+    #[inline]
+    fn cast(syntax: SyntaxNode) -> Option<Self> {
+        if Self::can_cast(syntax.kind()) {
+            Some(Self { syntax })
+        } else {
+            None
+        }
+    }
+    #[inline]
+    fn syntax(&self) -> &SyntaxNode {
+        &self.syntax
+    }
+}
+impl AstNode for ColumnDefList {
+    #[inline]
+    fn can_cast(kind: SyntaxKind) -> bool {
+        kind == SyntaxKind::COLUMN_DEF_LIST
+    }
+    #[inline]
+    fn cast(syntax: SyntaxNode) -> Option<Self> {
+        if Self::can_cast(syntax.kind()) {
+            Some(Self { syntax })
+        } else {
+            None
+        }
+    }
+    #[inline]
+    fn syntax(&self) -> &SyntaxNode {
+        &self.syntax
+    }
+}
 impl AstNode for ColumnList {
     #[inline]
     fn can_cast(kind: SyntaxKind) -> bool {
@@ -30772,6 +33012,24 @@ impl AstNode for ConflictOnIndex {
         &self.syntax
     }
 }
+impl AstNode for ConnectionClause {
+    #[inline]
+    fn can_cast(kind: SyntaxKind) -> bool {
+        kind == SyntaxKind::CONNECTION_CLAUSE
+    }
+    #[inline]
+    fn cast(syntax: SyntaxNode) -> Option<Self> {
+        if Self::can_cast(syntax.kind()) {
+            Some(Self { syntax })
+        } else {
+            None
+        }
+    }
+    #[inline]
+    fn syntax(&self) -> &SyntaxNode {
+        &self.syntax
+    }
+}
 impl AstNode for ConstraintColumnRefList {
     #[inline]
     fn can_cast(kind: SyntaxKind) -> bool {
@@ -30934,6 +33192,24 @@ impl AstNode for ConstraintNameRef {
         &self.syntax
     }
 }
+impl AstNode for ContinueIdentity {
+    #[inline]
+    fn can_cast(kind: SyntaxKind) -> bool {
+        kind == SyntaxKind::CONTINUE_IDENTITY
+    }
+    #[inline]
+    fn cast(syntax: SyntaxNode) -> Option<Self> {
+        if Self::can_cast(syntax.kind()) {
+            Some(Self { syntax })
+        } else {
+            None
+        }
+    }
+    #[inline]
+    fn syntax(&self) -> &SyntaxNode {
+        &self.syntax
+    }
+}
 impl AstNode for Conversion {
     #[inline]
     fn can_cast(kind: SyntaxKind) -> bool {
@@ -31060,6 +33336,24 @@ impl AstNode for CopyOption {
         &self.syntax
     }
 }
+impl AstNode for CopyOptionKey {
+    #[inline]
+    fn can_cast(kind: SyntaxKind) -> bool {
+        kind == SyntaxKind::COPY_OPTION_KEY
+    }
+    #[inline]
+    fn cast(syntax: SyntaxNode) -> Option<Self> {
+        if Self::can_cast(syntax.kind()) {
+            Some(Self { syntax })
+        } else {
+            None
+        }
+    }
+    #[inline]
+    fn syntax(&self) -> &SyntaxNode {
+        &self.syntax
+    }
+}
 impl AstNode for CopyOptionList {
     #[inline]
     fn can_cast(kind: SyntaxKind) -> bool {
@@ -31078,10 +33372,46 @@ impl AstNode for CopyOptionList {
         &self.syntax
     }
 }
-impl AstNode for CopyOptionName {
+impl AstNode for CopyOptionValue {
     #[inline]
     fn can_cast(kind: SyntaxKind) -> bool {
-        kind == SyntaxKind::COPY_OPTION_NAME
+        kind == SyntaxKind::COPY_OPTION_VALUE
+    }
+    #[inline]
+    fn cast(syntax: SyntaxNode) -> Option<Self> {
+        if Self::can_cast(syntax.kind()) {
+            Some(Self { syntax })
+        } else {
+            None
+        }
+    }
+    #[inline]
+    fn syntax(&self) -> &SyntaxNode {
+        &self.syntax
+    }
+}
+impl AstNode for CopyOptionValueName {
+    #[inline]
+    fn can_cast(kind: SyntaxKind) -> bool {
+        kind == SyntaxKind::COPY_OPTION_VALUE_NAME
+    }
+    #[inline]
+    fn cast(syntax: SyntaxNode) -> Option<Self> {
+        if Self::can_cast(syntax.kind()) {
+            Some(Self { syntax })
+        } else {
+            None
+        }
+    }
+    #[inline]
+    fn syntax(&self) -> &SyntaxNode {
+        &self.syntax
+    }
+}
+impl AstNode for CopyProgram {
+    #[inline]
+    fn can_cast(kind: SyntaxKind) -> bool {
+        kind == SyntaxKind::COPY_PROGRAM
     }
     #[inline]
     fn cast(syntax: SyntaxNode) -> Option<Self> {
@@ -31100,6 +33430,42 @@ impl AstNode for CopyQuery {
     #[inline]
     fn can_cast(kind: SyntaxKind) -> bool {
         kind == SyntaxKind::COPY_QUERY
+    }
+    #[inline]
+    fn cast(syntax: SyntaxNode) -> Option<Self> {
+        if Self::can_cast(syntax.kind()) {
+            Some(Self { syntax })
+        } else {
+            None
+        }
+    }
+    #[inline]
+    fn syntax(&self) -> &SyntaxNode {
+        &self.syntax
+    }
+}
+impl AstNode for CopyStdin {
+    #[inline]
+    fn can_cast(kind: SyntaxKind) -> bool {
+        kind == SyntaxKind::COPY_STDIN
+    }
+    #[inline]
+    fn cast(syntax: SyntaxNode) -> Option<Self> {
+        if Self::can_cast(syntax.kind()) {
+            Some(Self { syntax })
+        } else {
+            None
+        }
+    }
+    #[inline]
+    fn syntax(&self) -> &SyntaxNode {
+        &self.syntax
+    }
+}
+impl AstNode for CopyStdout {
+    #[inline]
+    fn can_cast(kind: SyntaxKind) -> bool {
+        kind == SyntaxKind::COPY_STDOUT
     }
     #[inline]
     fn cast(syntax: SyntaxNode) -> Option<Self> {
@@ -32374,6 +34740,42 @@ impl AstNode for DefaultConstraint {
         &self.syntax
     }
 }
+impl AstNode for DefaultLabel {
+    #[inline]
+    fn can_cast(kind: SyntaxKind) -> bool {
+        kind == SyntaxKind::DEFAULT_LABEL
+    }
+    #[inline]
+    fn cast(syntax: SyntaxNode) -> Option<Self> {
+        if Self::can_cast(syntax.kind()) {
+            Some(Self { syntax })
+        } else {
+            None
+        }
+    }
+    #[inline]
+    fn syntax(&self) -> &SyntaxNode {
+        &self.syntax
+    }
+}
+impl AstNode for DefaultValues {
+    #[inline]
+    fn can_cast(kind: SyntaxKind) -> bool {
+        kind == SyntaxKind::DEFAULT_VALUES
+    }
+    #[inline]
+    fn cast(syntax: SyntaxNode) -> Option<Self> {
+        if Self::can_cast(syntax.kind()) {
+            Some(Self { syntax })
+        } else {
+            None
+        }
+    }
+    #[inline]
+    fn syntax(&self) -> &SyntaxNode {
+        &self.syntax
+    }
+}
 impl AstNode for Deferrable {
     #[inline]
     fn can_cast(kind: SyntaxKind) -> bool {
@@ -32396,6 +34798,24 @@ impl AstNode for DeferrableConstraintOption {
     #[inline]
     fn can_cast(kind: SyntaxKind) -> bool {
         kind == SyntaxKind::DEFERRABLE_CONSTRAINT_OPTION
+    }
+    #[inline]
+    fn cast(syntax: SyntaxNode) -> Option<Self> {
+        if Self::can_cast(syntax.kind()) {
+            Some(Self { syntax })
+        } else {
+            None
+        }
+    }
+    #[inline]
+    fn syntax(&self) -> &SyntaxNode {
+        &self.syntax
+    }
+}
+impl AstNode for Deferred {
+    #[inline]
+    fn can_cast(kind: SyntaxKind) -> bool {
+        kind == SyntaxKind::DEFERRED
     }
     #[inline]
     fn cast(syntax: SyntaxNode) -> Option<Self> {
@@ -32464,10 +34884,64 @@ impl AstNode for DependsOnExtension {
         &self.syntax
     }
 }
+impl AstNode for DepthFirst {
+    #[inline]
+    fn can_cast(kind: SyntaxKind) -> bool {
+        kind == SyntaxKind::DEPTH_FIRST
+    }
+    #[inline]
+    fn cast(syntax: SyntaxNode) -> Option<Self> {
+        if Self::can_cast(syntax.kind()) {
+            Some(Self { syntax })
+        } else {
+            None
+        }
+    }
+    #[inline]
+    fn syntax(&self) -> &SyntaxNode {
+        &self.syntax
+    }
+}
 impl AstNode for DestVertexTable {
     #[inline]
     fn can_cast(kind: SyntaxKind) -> bool {
         kind == SyntaxKind::DEST_VERTEX_TABLE
+    }
+    #[inline]
+    fn cast(syntax: SyntaxNode) -> Option<Self> {
+        if Self::can_cast(syntax.kind()) {
+            Some(Self { syntax })
+        } else {
+            None
+        }
+    }
+    #[inline]
+    fn syntax(&self) -> &SyntaxNode {
+        &self.syntax
+    }
+}
+impl AstNode for DetachConcurrently {
+    #[inline]
+    fn can_cast(kind: SyntaxKind) -> bool {
+        kind == SyntaxKind::DETACH_CONCURRENTLY
+    }
+    #[inline]
+    fn cast(syntax: SyntaxNode) -> Option<Self> {
+        if Self::can_cast(syntax.kind()) {
+            Some(Self { syntax })
+        } else {
+            None
+        }
+    }
+    #[inline]
+    fn syntax(&self) -> &SyntaxNode {
+        &self.syntax
+    }
+}
+impl AstNode for DetachFinalize {
+    #[inline]
+    fn can_cast(kind: SyntaxKind) -> bool {
+        kind == SyntaxKind::DETACH_FINALIZE
     }
     #[inline]
     fn cast(syntax: SyntaxNode) -> Option<Self> {
@@ -32608,6 +35082,96 @@ impl AstNode for Discard {
         &self.syntax
     }
 }
+impl AstNode for DiscardAll {
+    #[inline]
+    fn can_cast(kind: SyntaxKind) -> bool {
+        kind == SyntaxKind::DISCARD_ALL
+    }
+    #[inline]
+    fn cast(syntax: SyntaxNode) -> Option<Self> {
+        if Self::can_cast(syntax.kind()) {
+            Some(Self { syntax })
+        } else {
+            None
+        }
+    }
+    #[inline]
+    fn syntax(&self) -> &SyntaxNode {
+        &self.syntax
+    }
+}
+impl AstNode for DiscardPlans {
+    #[inline]
+    fn can_cast(kind: SyntaxKind) -> bool {
+        kind == SyntaxKind::DISCARD_PLANS
+    }
+    #[inline]
+    fn cast(syntax: SyntaxNode) -> Option<Self> {
+        if Self::can_cast(syntax.kind()) {
+            Some(Self { syntax })
+        } else {
+            None
+        }
+    }
+    #[inline]
+    fn syntax(&self) -> &SyntaxNode {
+        &self.syntax
+    }
+}
+impl AstNode for DiscardSequences {
+    #[inline]
+    fn can_cast(kind: SyntaxKind) -> bool {
+        kind == SyntaxKind::DISCARD_SEQUENCES
+    }
+    #[inline]
+    fn cast(syntax: SyntaxNode) -> Option<Self> {
+        if Self::can_cast(syntax.kind()) {
+            Some(Self { syntax })
+        } else {
+            None
+        }
+    }
+    #[inline]
+    fn syntax(&self) -> &SyntaxNode {
+        &self.syntax
+    }
+}
+impl AstNode for DiscardTemp {
+    #[inline]
+    fn can_cast(kind: SyntaxKind) -> bool {
+        kind == SyntaxKind::DISCARD_TEMP
+    }
+    #[inline]
+    fn cast(syntax: SyntaxNode) -> Option<Self> {
+        if Self::can_cast(syntax.kind()) {
+            Some(Self { syntax })
+        } else {
+            None
+        }
+    }
+    #[inline]
+    fn syntax(&self) -> &SyntaxNode {
+        &self.syntax
+    }
+}
+impl AstNode for Distinct {
+    #[inline]
+    fn can_cast(kind: SyntaxKind) -> bool {
+        kind == SyntaxKind::DISTINCT
+    }
+    #[inline]
+    fn cast(syntax: SyntaxNode) -> Option<Self> {
+        if Self::can_cast(syntax.kind()) {
+            Some(Self { syntax })
+        } else {
+            None
+        }
+    }
+    #[inline]
+    fn syntax(&self) -> &SyntaxNode {
+        &self.syntax
+    }
+}
 impl AstNode for DistinctClause {
     #[inline]
     fn can_cast(kind: SyntaxKind) -> bool {
@@ -32626,10 +35190,46 @@ impl AstNode for DistinctClause {
         &self.syntax
     }
 }
+impl AstNode for DistinctOn {
+    #[inline]
+    fn can_cast(kind: SyntaxKind) -> bool {
+        kind == SyntaxKind::DISTINCT_ON
+    }
+    #[inline]
+    fn cast(syntax: SyntaxNode) -> Option<Self> {
+        if Self::can_cast(syntax.kind()) {
+            Some(Self { syntax })
+        } else {
+            None
+        }
+    }
+    #[inline]
+    fn syntax(&self) -> &SyntaxNode {
+        &self.syntax
+    }
+}
 impl AstNode for Do {
     #[inline]
     fn can_cast(kind: SyntaxKind) -> bool {
         kind == SyntaxKind::DO
+    }
+    #[inline]
+    fn cast(syntax: SyntaxNode) -> Option<Self> {
+        if Self::can_cast(syntax.kind()) {
+            Some(Self { syntax })
+        } else {
+            None
+        }
+    }
+    #[inline]
+    fn syntax(&self) -> &SyntaxNode {
+        &self.syntax
+    }
+}
+impl AstNode for DoLanguage {
+    #[inline]
+    fn can_cast(kind: SyntaxKind) -> bool {
+        kind == SyntaxKind::DO_LANGUAGE
     }
     #[inline]
     fn cast(syntax: SyntaxNode) -> Option<Self> {
@@ -32896,6 +35496,24 @@ impl AstNode for DropDatabase {
         &self.syntax
     }
 }
+impl AstNode for DropDatabaseForceClause {
+    #[inline]
+    fn can_cast(kind: SyntaxKind) -> bool {
+        kind == SyntaxKind::DROP_DATABASE_FORCE_CLAUSE
+    }
+    #[inline]
+    fn cast(syntax: SyntaxNode) -> Option<Self> {
+        if Self::can_cast(syntax.kind()) {
+            Some(Self { syntax })
+        } else {
+            None
+        }
+    }
+    #[inline]
+    fn syntax(&self) -> &SyntaxNode {
+        &self.syntax
+    }
+}
 impl AstNode for DropDefault {
     #[inline]
     fn can_cast(kind: SyntaxKind) -> bool {
@@ -33008,6 +35626,24 @@ impl AstNode for DropForeignDataWrapper {
     #[inline]
     fn can_cast(kind: SyntaxKind) -> bool {
         kind == SyntaxKind::DROP_FOREIGN_DATA_WRAPPER
+    }
+    #[inline]
+    fn cast(syntax: SyntaxNode) -> Option<Self> {
+        if Self::can_cast(syntax.kind()) {
+            Some(Self { syntax })
+        } else {
+            None
+        }
+    }
+    #[inline]
+    fn syntax(&self) -> &SyntaxNode {
+        &self.syntax
+    }
+}
+impl AstNode for DropForeignOption {
+    #[inline]
+    fn can_cast(kind: SyntaxKind) -> bool {
+        kind == SyntaxKind::DROP_FOREIGN_OPTION
     }
     #[inline]
     fn cast(syntax: SyntaxNode) -> Option<Self> {
@@ -33976,6 +36612,42 @@ impl AstNode for ElementTableAlias {
         &self.syntax
     }
 }
+impl AstNode for ElementTableAliasClause {
+    #[inline]
+    fn can_cast(kind: SyntaxKind) -> bool {
+        kind == SyntaxKind::ELEMENT_TABLE_ALIAS_CLAUSE
+    }
+    #[inline]
+    fn cast(syntax: SyntaxNode) -> Option<Self> {
+        if Self::can_cast(syntax.kind()) {
+            Some(Self { syntax })
+        } else {
+            None
+        }
+    }
+    #[inline]
+    fn syntax(&self) -> &SyntaxNode {
+        &self.syntax
+    }
+}
+impl AstNode for ElementTableKeyClause {
+    #[inline]
+    fn can_cast(kind: SyntaxKind) -> bool {
+        kind == SyntaxKind::ELEMENT_TABLE_KEY_CLAUSE
+    }
+    #[inline]
+    fn cast(syntax: SyntaxNode) -> Option<Self> {
+        if Self::can_cast(syntax.kind()) {
+            Some(Self { syntax })
+        } else {
+            None
+        }
+    }
+    #[inline]
+    fn syntax(&self) -> &SyntaxNode {
+        &self.syntax
+    }
+}
 impl AstNode for ElementTableRef {
     #[inline]
     fn can_cast(kind: SyntaxKind) -> bool {
@@ -34426,6 +37098,24 @@ impl AstNode for EventTriggerWhenClause {
         &self.syntax
     }
 }
+impl AstNode for Except {
+    #[inline]
+    fn can_cast(kind: SyntaxKind) -> bool {
+        kind == SyntaxKind::EXCEPT
+    }
+    #[inline]
+    fn cast(syntax: SyntaxNode) -> Option<Self> {
+        if Self::can_cast(syntax.kind()) {
+            Some(Self { syntax })
+        } else {
+            None
+        }
+    }
+    #[inline]
+    fn syntax(&self) -> &SyntaxNode {
+        &self.syntax
+    }
+}
 impl AstNode for ExceptTableClause {
     #[inline]
     fn can_cast(kind: SyntaxKind) -> bool {
@@ -34588,6 +37278,24 @@ impl AstNode for Explain {
         &self.syntax
     }
 }
+impl AstNode for ExplainAnalyze {
+    #[inline]
+    fn can_cast(kind: SyntaxKind) -> bool {
+        kind == SyntaxKind::EXPLAIN_ANALYZE
+    }
+    #[inline]
+    fn cast(syntax: SyntaxNode) -> Option<Self> {
+        if Self::can_cast(syntax.kind()) {
+            Some(Self { syntax })
+        } else {
+            None
+        }
+    }
+    #[inline]
+    fn syntax(&self) -> &SyntaxNode {
+        &self.syntax
+    }
+}
 impl AstNode for ExplainOption {
     #[inline]
     fn can_cast(kind: SyntaxKind) -> bool {
@@ -34646,6 +37354,24 @@ impl AstNode for ExplainOptionValue {
     #[inline]
     fn can_cast(kind: SyntaxKind) -> bool {
         kind == SyntaxKind::EXPLAIN_OPTION_VALUE
+    }
+    #[inline]
+    fn cast(syntax: SyntaxNode) -> Option<Self> {
+        if Self::can_cast(syntax.kind()) {
+            Some(Self { syntax })
+        } else {
+            None
+        }
+    }
+    #[inline]
+    fn syntax(&self) -> &SyntaxNode {
+        &self.syntax
+    }
+}
+impl AstNode for ExplainVerbose {
+    #[inline]
+    fn can_cast(kind: SyntaxKind) -> bool {
+        kind == SyntaxKind::EXPLAIN_VERBOSE
     }
     #[inline]
     fn cast(syntax: SyntaxNode) -> Option<Self> {
@@ -34912,6 +37638,96 @@ impl AstNode for ExtensionRef {
         &self.syntax
     }
 }
+impl AstNode for ExtensionSchema {
+    #[inline]
+    fn can_cast(kind: SyntaxKind) -> bool {
+        kind == SyntaxKind::EXTENSION_SCHEMA
+    }
+    #[inline]
+    fn cast(syntax: SyntaxNode) -> Option<Self> {
+        if Self::can_cast(syntax.kind()) {
+            Some(Self { syntax })
+        } else {
+            None
+        }
+    }
+    #[inline]
+    fn syntax(&self) -> &SyntaxNode {
+        &self.syntax
+    }
+}
+impl AstNode for ExtensionVersion {
+    #[inline]
+    fn can_cast(kind: SyntaxKind) -> bool {
+        kind == SyntaxKind::EXTENSION_VERSION
+    }
+    #[inline]
+    fn cast(syntax: SyntaxNode) -> Option<Self> {
+        if Self::can_cast(syntax.kind()) {
+            Some(Self { syntax })
+        } else {
+            None
+        }
+    }
+    #[inline]
+    fn syntax(&self) -> &SyntaxNode {
+        &self.syntax
+    }
+}
+impl AstNode for ExtensionVersionClause {
+    #[inline]
+    fn can_cast(kind: SyntaxKind) -> bool {
+        kind == SyntaxKind::EXTENSION_VERSION_CLAUSE
+    }
+    #[inline]
+    fn cast(syntax: SyntaxNode) -> Option<Self> {
+        if Self::can_cast(syntax.kind()) {
+            Some(Self { syntax })
+        } else {
+            None
+        }
+    }
+    #[inline]
+    fn syntax(&self) -> &SyntaxNode {
+        &self.syntax
+    }
+}
+impl AstNode for ExtractFieldLiteral {
+    #[inline]
+    fn can_cast(kind: SyntaxKind) -> bool {
+        kind == SyntaxKind::EXTRACT_FIELD_LITERAL
+    }
+    #[inline]
+    fn cast(syntax: SyntaxNode) -> Option<Self> {
+        if Self::can_cast(syntax.kind()) {
+            Some(Self { syntax })
+        } else {
+            None
+        }
+    }
+    #[inline]
+    fn syntax(&self) -> &SyntaxNode {
+        &self.syntax
+    }
+}
+impl AstNode for ExtractFieldName {
+    #[inline]
+    fn can_cast(kind: SyntaxKind) -> bool {
+        kind == SyntaxKind::EXTRACT_FIELD_NAME
+    }
+    #[inline]
+    fn cast(syntax: SyntaxNode) -> Option<Self> {
+        if Self::can_cast(syntax.kind()) {
+            Some(Self { syntax })
+        } else {
+            None
+        }
+    }
+    #[inline]
+    fn syntax(&self) -> &SyntaxNode {
+        &self.syntax
+    }
+}
 impl AstNode for ExtractFn {
     #[inline]
     fn can_cast(kind: SyntaxKind) -> bool {
@@ -34988,6 +37804,24 @@ impl AstNode for FetchClause {
     #[inline]
     fn can_cast(kind: SyntaxKind) -> bool {
         kind == SyntaxKind::FETCH_CLAUSE
+    }
+    #[inline]
+    fn cast(syntax: SyntaxNode) -> Option<Self> {
+        if Self::can_cast(syntax.kind()) {
+            Some(Self { syntax })
+        } else {
+            None
+        }
+    }
+    #[inline]
+    fn syntax(&self) -> &SyntaxNode {
+        &self.syntax
+    }
+}
+impl AstNode for FetchOnly {
+    #[inline]
+    fn can_cast(kind: SyntaxKind) -> bool {
+        kind == SyntaxKind::FETCH_ONLY
     }
     #[inline]
     fn cast(syntax: SyntaxNode) -> Option<Self> {
@@ -35092,6 +37926,42 @@ impl AstNode for ForAllPublicationObjects {
         &self.syntax
     }
 }
+impl AstNode for ForEachRow {
+    #[inline]
+    fn can_cast(kind: SyntaxKind) -> bool {
+        kind == SyntaxKind::FOR_EACH_ROW
+    }
+    #[inline]
+    fn cast(syntax: SyntaxNode) -> Option<Self> {
+        if Self::can_cast(syntax.kind()) {
+            Some(Self { syntax })
+        } else {
+            None
+        }
+    }
+    #[inline]
+    fn syntax(&self) -> &SyntaxNode {
+        &self.syntax
+    }
+}
+impl AstNode for ForEachStatement {
+    #[inline]
+    fn can_cast(kind: SyntaxKind) -> bool {
+        kind == SyntaxKind::FOR_EACH_STATEMENT
+    }
+    #[inline]
+    fn cast(syntax: SyntaxNode) -> Option<Self> {
+        if Self::can_cast(syntax.kind()) {
+            Some(Self { syntax })
+        } else {
+            None
+        }
+    }
+    #[inline]
+    fn syntax(&self) -> &SyntaxNode {
+        &self.syntax
+    }
+}
 impl AstNode for ForKeyShare {
     #[inline]
     fn can_cast(kind: SyntaxKind) -> bool {
@@ -35164,6 +38034,42 @@ impl AstNode for ForProvider {
         &self.syntax
     }
 }
+impl AstNode for ForPublicationObjects {
+    #[inline]
+    fn can_cast(kind: SyntaxKind) -> bool {
+        kind == SyntaxKind::FOR_PUBLICATION_OBJECTS
+    }
+    #[inline]
+    fn cast(syntax: SyntaxNode) -> Option<Self> {
+        if Self::can_cast(syntax.kind()) {
+            Some(Self { syntax })
+        } else {
+            None
+        }
+    }
+    #[inline]
+    fn syntax(&self) -> &SyntaxNode {
+        &self.syntax
+    }
+}
+impl AstNode for ForRoles {
+    #[inline]
+    fn can_cast(kind: SyntaxKind) -> bool {
+        kind == SyntaxKind::FOR_ROLES
+    }
+    #[inline]
+    fn cast(syntax: SyntaxNode) -> Option<Self> {
+        if Self::can_cast(syntax.kind()) {
+            Some(Self { syntax })
+        } else {
+            None
+        }
+    }
+    #[inline]
+    fn syntax(&self) -> &SyntaxNode {
+        &self.syntax
+    }
+}
 impl AstNode for ForShare {
     #[inline]
     fn can_cast(kind: SyntaxKind) -> bool {
@@ -35186,6 +38092,78 @@ impl AstNode for ForUpdate {
     #[inline]
     fn can_cast(kind: SyntaxKind) -> bool {
         kind == SyntaxKind::FOR_UPDATE
+    }
+    #[inline]
+    fn cast(syntax: SyntaxNode) -> Option<Self> {
+        if Self::can_cast(syntax.kind()) {
+            Some(Self { syntax })
+        } else {
+            None
+        }
+    }
+    #[inline]
+    fn syntax(&self) -> &SyntaxNode {
+        &self.syntax
+    }
+}
+impl AstNode for Force {
+    #[inline]
+    fn can_cast(kind: SyntaxKind) -> bool {
+        kind == SyntaxKind::FORCE
+    }
+    #[inline]
+    fn cast(syntax: SyntaxNode) -> Option<Self> {
+        if Self::can_cast(syntax.kind()) {
+            Some(Self { syntax })
+        } else {
+            None
+        }
+    }
+    #[inline]
+    fn syntax(&self) -> &SyntaxNode {
+        &self.syntax
+    }
+}
+impl AstNode for ForceNotNull {
+    #[inline]
+    fn can_cast(kind: SyntaxKind) -> bool {
+        kind == SyntaxKind::FORCE_NOT_NULL
+    }
+    #[inline]
+    fn cast(syntax: SyntaxNode) -> Option<Self> {
+        if Self::can_cast(syntax.kind()) {
+            Some(Self { syntax })
+        } else {
+            None
+        }
+    }
+    #[inline]
+    fn syntax(&self) -> &SyntaxNode {
+        &self.syntax
+    }
+}
+impl AstNode for ForceNull {
+    #[inline]
+    fn can_cast(kind: SyntaxKind) -> bool {
+        kind == SyntaxKind::FORCE_NULL
+    }
+    #[inline]
+    fn cast(syntax: SyntaxNode) -> Option<Self> {
+        if Self::can_cast(syntax.kind()) {
+            Some(Self { syntax })
+        } else {
+            None
+        }
+    }
+    #[inline]
+    fn syntax(&self) -> &SyntaxNode {
+        &self.syntax
+    }
+}
+impl AstNode for ForceQuote {
+    #[inline]
+    fn can_cast(kind: SyntaxKind) -> bool {
+        kind == SyntaxKind::FORCE_QUOTE
     }
     #[inline]
     fn cast(syntax: SyntaxNode) -> Option<Self> {
@@ -35398,6 +38376,60 @@ impl AstNode for FrameExclude {
         &self.syntax
     }
 }
+impl AstNode for FrameGroups {
+    #[inline]
+    fn can_cast(kind: SyntaxKind) -> bool {
+        kind == SyntaxKind::FRAME_GROUPS
+    }
+    #[inline]
+    fn cast(syntax: SyntaxNode) -> Option<Self> {
+        if Self::can_cast(syntax.kind()) {
+            Some(Self { syntax })
+        } else {
+            None
+        }
+    }
+    #[inline]
+    fn syntax(&self) -> &SyntaxNode {
+        &self.syntax
+    }
+}
+impl AstNode for FrameRange {
+    #[inline]
+    fn can_cast(kind: SyntaxKind) -> bool {
+        kind == SyntaxKind::FRAME_RANGE
+    }
+    #[inline]
+    fn cast(syntax: SyntaxNode) -> Option<Self> {
+        if Self::can_cast(syntax.kind()) {
+            Some(Self { syntax })
+        } else {
+            None
+        }
+    }
+    #[inline]
+    fn syntax(&self) -> &SyntaxNode {
+        &self.syntax
+    }
+}
+impl AstNode for FrameRows {
+    #[inline]
+    fn can_cast(kind: SyntaxKind) -> bool {
+        kind == SyntaxKind::FRAME_ROWS
+    }
+    #[inline]
+    fn cast(syntax: SyntaxNode) -> Option<Self> {
+        if Self::can_cast(syntax.kind()) {
+            Some(Self { syntax })
+        } else {
+            None
+        }
+    }
+    #[inline]
+    fn syntax(&self) -> &SyntaxNode {
+        &self.syntax
+    }
+}
 impl AstNode for FromAlias {
     #[inline]
     fn can_cast(kind: SyntaxKind) -> bool {
@@ -35420,6 +38452,24 @@ impl AstNode for FromClause {
     #[inline]
     fn can_cast(kind: SyntaxKind) -> bool {
         kind == SyntaxKind::FROM_CLAUSE
+    }
+    #[inline]
+    fn cast(syntax: SyntaxNode) -> Option<Self> {
+        if Self::can_cast(syntax.kind()) {
+            Some(Self { syntax })
+        } else {
+            None
+        }
+    }
+    #[inline]
+    fn syntax(&self) -> &SyntaxNode {
+        &self.syntax
+    }
+}
+impl AstNode for FromCurrent {
+    #[inline]
+    fn can_cast(kind: SyntaxKind) -> bool {
+        kind == SyntaxKind::FROM_CURRENT
     }
     #[inline]
     fn cast(syntax: SyntaxNode) -> Option<Self> {
@@ -35578,6 +38628,42 @@ impl AstNode for FunctionSigList {
         &self.syntax
     }
 }
+impl AstNode for GeneratedAlways {
+    #[inline]
+    fn can_cast(kind: SyntaxKind) -> bool {
+        kind == SyntaxKind::GENERATED_ALWAYS
+    }
+    #[inline]
+    fn cast(syntax: SyntaxNode) -> Option<Self> {
+        if Self::can_cast(syntax.kind()) {
+            Some(Self { syntax })
+        } else {
+            None
+        }
+    }
+    #[inline]
+    fn syntax(&self) -> &SyntaxNode {
+        &self.syntax
+    }
+}
+impl AstNode for GeneratedByDefault {
+    #[inline]
+    fn can_cast(kind: SyntaxKind) -> bool {
+        kind == SyntaxKind::GENERATED_BY_DEFAULT
+    }
+    #[inline]
+    fn cast(syntax: SyntaxNode) -> Option<Self> {
+        if Self::can_cast(syntax.kind()) {
+            Some(Self { syntax })
+        } else {
+            None
+        }
+    }
+    #[inline]
+    fn syntax(&self) -> &SyntaxNode {
+        &self.syntax
+    }
+}
 impl AstNode for GeneratedConstraint {
     #[inline]
     fn can_cast(kind: SyntaxKind) -> bool {
@@ -35668,6 +38754,42 @@ impl AstNode for GrantDefaultPrivileges {
         &self.syntax
     }
 }
+impl AstNode for GrantOption {
+    #[inline]
+    fn can_cast(kind: SyntaxKind) -> bool {
+        kind == SyntaxKind::GRANT_OPTION
+    }
+    #[inline]
+    fn cast(syntax: SyntaxNode) -> Option<Self> {
+        if Self::can_cast(syntax.kind()) {
+            Some(Self { syntax })
+        } else {
+            None
+        }
+    }
+    #[inline]
+    fn syntax(&self) -> &SyntaxNode {
+        &self.syntax
+    }
+}
+impl AstNode for GrantOptionFor {
+    #[inline]
+    fn can_cast(kind: SyntaxKind) -> bool {
+        kind == SyntaxKind::GRANT_OPTION_FOR
+    }
+    #[inline]
+    fn cast(syntax: SyntaxNode) -> Option<Self> {
+        if Self::can_cast(syntax.kind()) {
+            Some(Self { syntax })
+        } else {
+            None
+        }
+    }
+    #[inline]
+    fn syntax(&self) -> &SyntaxNode {
+        &self.syntax
+    }
+}
 impl AstNode for GrantRoleOption {
     #[inline]
     fn can_cast(kind: SyntaxKind) -> bool {
@@ -35726,6 +38848,24 @@ impl AstNode for GrantWithClause {
     #[inline]
     fn can_cast(kind: SyntaxKind) -> bool {
         kind == SyntaxKind::GRANT_WITH_CLAUSE
+    }
+    #[inline]
+    fn cast(syntax: SyntaxNode) -> Option<Self> {
+        if Self::can_cast(syntax.kind()) {
+            Some(Self { syntax })
+        } else {
+            None
+        }
+    }
+    #[inline]
+    fn syntax(&self) -> &SyntaxNode {
+        &self.syntax
+    }
+}
+impl AstNode for GrantedByClause {
+    #[inline]
+    fn can_cast(kind: SyntaxKind) -> bool {
+        kind == SyntaxKind::GRANTED_BY_CLAUSE
     }
     #[inline]
     fn cast(syntax: SyntaxNode) -> Option<Self> {
@@ -36028,6 +39168,42 @@ impl AstNode for IgnoreNulls {
         &self.syntax
     }
 }
+impl AstNode for Immediate {
+    #[inline]
+    fn can_cast(kind: SyntaxKind) -> bool {
+        kind == SyntaxKind::IMMEDIATE
+    }
+    #[inline]
+    fn cast(syntax: SyntaxNode) -> Option<Self> {
+        if Self::can_cast(syntax.kind()) {
+            Some(Self { syntax })
+        } else {
+            None
+        }
+    }
+    #[inline]
+    fn syntax(&self) -> &SyntaxNode {
+        &self.syntax
+    }
+}
+impl AstNode for Immutable {
+    #[inline]
+    fn can_cast(kind: SyntaxKind) -> bool {
+        kind == SyntaxKind::IMMUTABLE
+    }
+    #[inline]
+    fn cast(syntax: SyntaxNode) -> Option<Self> {
+        if Self::can_cast(syntax.kind()) {
+            Some(Self { syntax })
+        } else {
+            None
+        }
+    }
+    #[inline]
+    fn syntax(&self) -> &SyntaxNode {
+        &self.syntax
+    }
+}
 impl AstNode for ImportForeignSchema {
     #[inline]
     fn can_cast(kind: SyntaxKind) -> bool {
@@ -36064,10 +39240,46 @@ impl AstNode for InDatabase {
         &self.syntax
     }
 }
+impl AstNode for InSchemas {
+    #[inline]
+    fn can_cast(kind: SyntaxKind) -> bool {
+        kind == SyntaxKind::IN_SCHEMAS
+    }
+    #[inline]
+    fn cast(syntax: SyntaxNode) -> Option<Self> {
+        if Self::can_cast(syntax.kind()) {
+            Some(Self { syntax })
+        } else {
+            None
+        }
+    }
+    #[inline]
+    fn syntax(&self) -> &SyntaxNode {
+        &self.syntax
+    }
+}
 impl AstNode for IncludingProperty {
     #[inline]
     fn can_cast(kind: SyntaxKind) -> bool {
         kind == SyntaxKind::INCLUDING_PROPERTY
+    }
+    #[inline]
+    fn cast(syntax: SyntaxNode) -> Option<Self> {
+        if Self::can_cast(syntax.kind()) {
+            Some(Self { syntax })
+        } else {
+            None
+        }
+    }
+    #[inline]
+    fn syntax(&self) -> &SyntaxNode {
+        &self.syntax
+    }
+}
+impl AstNode for Indent {
+    #[inline]
+    fn can_cast(kind: SyntaxKind) -> bool {
+        kind == SyntaxKind::INDENT
     }
     #[inline]
     fn cast(syntax: SyntaxNode) -> Option<Self> {
@@ -36226,6 +39438,24 @@ impl AstNode for Inherit {
         &self.syntax
     }
 }
+impl AstNode for InheritOptionFor {
+    #[inline]
+    fn can_cast(kind: SyntaxKind) -> bool {
+        kind == SyntaxKind::INHERIT_OPTION_FOR
+    }
+    #[inline]
+    fn cast(syntax: SyntaxNode) -> Option<Self> {
+        if Self::can_cast(syntax.kind()) {
+            Some(Self { syntax })
+        } else {
+            None
+        }
+    }
+    #[inline]
+    fn syntax(&self) -> &SyntaxNode {
+        &self.syntax
+    }
+}
 impl AstNode for InheritTable {
     #[inline]
     fn can_cast(kind: SyntaxKind) -> bool {
@@ -36298,10 +39528,64 @@ impl AstNode for InitiallyImmediateConstraintOption {
         &self.syntax
     }
 }
+impl AstNode for InlineClause {
+    #[inline]
+    fn can_cast(kind: SyntaxKind) -> bool {
+        kind == SyntaxKind::INLINE_CLAUSE
+    }
+    #[inline]
+    fn cast(syntax: SyntaxNode) -> Option<Self> {
+        if Self::can_cast(syntax.kind()) {
+            Some(Self { syntax })
+        } else {
+            None
+        }
+    }
+    #[inline]
+    fn syntax(&self) -> &SyntaxNode {
+        &self.syntax
+    }
+}
+impl AstNode for Insensitive {
+    #[inline]
+    fn can_cast(kind: SyntaxKind) -> bool {
+        kind == SyntaxKind::INSENSITIVE
+    }
+    #[inline]
+    fn cast(syntax: SyntaxNode) -> Option<Self> {
+        if Self::can_cast(syntax.kind()) {
+            Some(Self { syntax })
+        } else {
+            None
+        }
+    }
+    #[inline]
+    fn syntax(&self) -> &SyntaxNode {
+        &self.syntax
+    }
+}
 impl AstNode for Insert {
     #[inline]
     fn can_cast(kind: SyntaxKind) -> bool {
         kind == SyntaxKind::INSERT
+    }
+    #[inline]
+    fn cast(syntax: SyntaxNode) -> Option<Self> {
+        if Self::can_cast(syntax.kind()) {
+            Some(Self { syntax })
+        } else {
+            None
+        }
+    }
+    #[inline]
+    fn syntax(&self) -> &SyntaxNode {
+        &self.syntax
+    }
+}
+impl AstNode for Intersect {
+    #[inline]
+    fn can_cast(kind: SyntaxKind) -> bool {
+        kind == SyntaxKind::INTERSECT
     }
     #[inline]
     fn cast(syntax: SyntaxNode) -> Option<Self> {
@@ -37288,6 +40572,24 @@ impl AstNode for JsonPathName {
         &self.syntax
     }
 }
+impl AstNode for JsonPathNameClause {
+    #[inline]
+    fn can_cast(kind: SyntaxKind) -> bool {
+        kind == SyntaxKind::JSON_PATH_NAME_CLAUSE
+    }
+    #[inline]
+    fn cast(syntax: SyntaxNode) -> Option<Self> {
+        if Self::can_cast(syntax.kind()) {
+            Some(Self { syntax })
+        } else {
+            None
+        }
+    }
+    #[inline]
+    fn syntax(&self) -> &SyntaxNode {
+        &self.syntax
+    }
+}
 impl AstNode for JsonPathNameRef {
     #[inline]
     fn can_cast(kind: SyntaxKind) -> bool {
@@ -37432,24 +40734,6 @@ impl AstNode for JsonTable {
         &self.syntax
     }
 }
-impl AstNode for JsonTableColumn {
-    #[inline]
-    fn can_cast(kind: SyntaxKind) -> bool {
-        kind == SyntaxKind::JSON_TABLE_COLUMN
-    }
-    #[inline]
-    fn cast(syntax: SyntaxNode) -> Option<Self> {
-        if Self::can_cast(syntax.kind()) {
-            Some(Self { syntax })
-        } else {
-            None
-        }
-    }
-    #[inline]
-    fn syntax(&self) -> &SyntaxNode {
-        &self.syntax
-    }
-}
 impl AstNode for JsonTableColumnList {
     #[inline]
     fn can_cast(kind: SyntaxKind) -> bool {
@@ -37468,10 +40752,64 @@ impl AstNode for JsonTableColumnList {
         &self.syntax
     }
 }
+impl AstNode for JsonTableExistsColumn {
+    #[inline]
+    fn can_cast(kind: SyntaxKind) -> bool {
+        kind == SyntaxKind::JSON_TABLE_EXISTS_COLUMN
+    }
+    #[inline]
+    fn cast(syntax: SyntaxNode) -> Option<Self> {
+        if Self::can_cast(syntax.kind()) {
+            Some(Self { syntax })
+        } else {
+            None
+        }
+    }
+    #[inline]
+    fn syntax(&self) -> &SyntaxNode {
+        &self.syntax
+    }
+}
 impl AstNode for JsonTableFromItem {
     #[inline]
     fn can_cast(kind: SyntaxKind) -> bool {
         kind == SyntaxKind::JSON_TABLE_FROM_ITEM
+    }
+    #[inline]
+    fn cast(syntax: SyntaxNode) -> Option<Self> {
+        if Self::can_cast(syntax.kind()) {
+            Some(Self { syntax })
+        } else {
+            None
+        }
+    }
+    #[inline]
+    fn syntax(&self) -> &SyntaxNode {
+        &self.syntax
+    }
+}
+impl AstNode for JsonTableNestedColumn {
+    #[inline]
+    fn can_cast(kind: SyntaxKind) -> bool {
+        kind == SyntaxKind::JSON_TABLE_NESTED_COLUMN
+    }
+    #[inline]
+    fn cast(syntax: SyntaxNode) -> Option<Self> {
+        if Self::can_cast(syntax.kind()) {
+            Some(Self { syntax })
+        } else {
+            None
+        }
+    }
+    #[inline]
+    fn syntax(&self) -> &SyntaxNode {
+        &self.syntax
+    }
+}
+impl AstNode for JsonTableOrdinalityColumn {
+    #[inline]
+    fn can_cast(kind: SyntaxKind) -> bool {
+        kind == SyntaxKind::JSON_TABLE_ORDINALITY_COLUMN
     }
     #[inline]
     fn cast(syntax: SyntaxNode) -> Option<Self> {
@@ -37522,10 +40860,100 @@ impl AstNode for JsonTablePlanClause {
         &self.syntax
     }
 }
+impl AstNode for JsonTablePlanCross {
+    #[inline]
+    fn can_cast(kind: SyntaxKind) -> bool {
+        kind == SyntaxKind::JSON_TABLE_PLAN_CROSS
+    }
+    #[inline]
+    fn cast(syntax: SyntaxNode) -> Option<Self> {
+        if Self::can_cast(syntax.kind()) {
+            Some(Self { syntax })
+        } else {
+            None
+        }
+    }
+    #[inline]
+    fn syntax(&self) -> &SyntaxNode {
+        &self.syntax
+    }
+}
+impl AstNode for JsonTablePlanInner {
+    #[inline]
+    fn can_cast(kind: SyntaxKind) -> bool {
+        kind == SyntaxKind::JSON_TABLE_PLAN_INNER
+    }
+    #[inline]
+    fn cast(syntax: SyntaxNode) -> Option<Self> {
+        if Self::can_cast(syntax.kind()) {
+            Some(Self { syntax })
+        } else {
+            None
+        }
+    }
+    #[inline]
+    fn syntax(&self) -> &SyntaxNode {
+        &self.syntax
+    }
+}
 impl AstNode for JsonTablePlanJoin {
     #[inline]
     fn can_cast(kind: SyntaxKind) -> bool {
         kind == SyntaxKind::JSON_TABLE_PLAN_JOIN
+    }
+    #[inline]
+    fn cast(syntax: SyntaxNode) -> Option<Self> {
+        if Self::can_cast(syntax.kind()) {
+            Some(Self { syntax })
+        } else {
+            None
+        }
+    }
+    #[inline]
+    fn syntax(&self) -> &SyntaxNode {
+        &self.syntax
+    }
+}
+impl AstNode for JsonTablePlanOuter {
+    #[inline]
+    fn can_cast(kind: SyntaxKind) -> bool {
+        kind == SyntaxKind::JSON_TABLE_PLAN_OUTER
+    }
+    #[inline]
+    fn cast(syntax: SyntaxNode) -> Option<Self> {
+        if Self::can_cast(syntax.kind()) {
+            Some(Self { syntax })
+        } else {
+            None
+        }
+    }
+    #[inline]
+    fn syntax(&self) -> &SyntaxNode {
+        &self.syntax
+    }
+}
+impl AstNode for JsonTablePlanUnion {
+    #[inline]
+    fn can_cast(kind: SyntaxKind) -> bool {
+        kind == SyntaxKind::JSON_TABLE_PLAN_UNION
+    }
+    #[inline]
+    fn cast(syntax: SyntaxNode) -> Option<Self> {
+        if Self::can_cast(syntax.kind()) {
+            Some(Self { syntax })
+        } else {
+            None
+        }
+    }
+    #[inline]
+    fn syntax(&self) -> &SyntaxNode {
+        &self.syntax
+    }
+}
+impl AstNode for JsonTableValueColumn {
+    #[inline]
+    fn can_cast(kind: SyntaxKind) -> bool {
+        kind == SyntaxKind::JSON_TABLE_VALUE_COLUMN
     }
     #[inline]
     fn cast(syntax: SyntaxNode) -> Option<Self> {
@@ -37670,6 +41098,24 @@ impl AstNode for JsonWithoutWrapper {
     #[inline]
     fn can_cast(kind: SyntaxKind) -> bool {
         kind == SyntaxKind::JSON_WITHOUT_WRAPPER
+    }
+    #[inline]
+    fn cast(syntax: SyntaxNode) -> Option<Self> {
+        if Self::can_cast(syntax.kind()) {
+            Some(Self { syntax })
+        } else {
+            None
+        }
+    }
+    #[inline]
+    fn syntax(&self) -> &SyntaxNode {
+        &self.syntax
+    }
+}
+impl AstNode for KeepQuotes {
+    #[inline]
+    fn can_cast(kind: SyntaxKind) -> bool {
+        kind == SyntaxKind::KEEP_QUOTES
     }
     #[inline]
     fn cast(syntax: SyntaxNode) -> Option<Self> {
@@ -37972,6 +41418,42 @@ impl AstNode for Load {
         &self.syntax
     }
 }
+impl AstNode for LocalCheckOption {
+    #[inline]
+    fn can_cast(kind: SyntaxKind) -> bool {
+        kind == SyntaxKind::LOCAL_CHECK_OPTION
+    }
+    #[inline]
+    fn cast(syntax: SyntaxNode) -> Option<Self> {
+        if Self::can_cast(syntax.kind()) {
+            Some(Self { syntax })
+        } else {
+            None
+        }
+    }
+    #[inline]
+    fn syntax(&self) -> &SyntaxNode {
+        &self.syntax
+    }
+}
+impl AstNode for LocalScope {
+    #[inline]
+    fn can_cast(kind: SyntaxKind) -> bool {
+        kind == SyntaxKind::LOCAL_SCOPE
+    }
+    #[inline]
+    fn cast(syntax: SyntaxNode) -> Option<Self> {
+        if Self::can_cast(syntax.kind()) {
+            Some(Self { syntax })
+        } else {
+            None
+        }
+    }
+    #[inline]
+    fn syntax(&self) -> &SyntaxNode {
+        &self.syntax
+    }
+}
 impl AstNode for Lock {
     #[inline]
     fn can_cast(kind: SyntaxKind) -> bool {
@@ -37990,10 +41472,46 @@ impl AstNode for Lock {
         &self.syntax
     }
 }
+impl AstNode for LockModeClause {
+    #[inline]
+    fn can_cast(kind: SyntaxKind) -> bool {
+        kind == SyntaxKind::LOCK_MODE_CLAUSE
+    }
+    #[inline]
+    fn cast(syntax: SyntaxNode) -> Option<Self> {
+        if Self::can_cast(syntax.kind()) {
+            Some(Self { syntax })
+        } else {
+            None
+        }
+    }
+    #[inline]
+    fn syntax(&self) -> &SyntaxNode {
+        &self.syntax
+    }
+}
 impl AstNode for LockingClause {
     #[inline]
     fn can_cast(kind: SyntaxKind) -> bool {
         kind == SyntaxKind::LOCKING_CLAUSE
+    }
+    #[inline]
+    fn cast(syntax: SyntaxNode) -> Option<Self> {
+        if Self::can_cast(syntax.kind()) {
+            Some(Self { syntax })
+        } else {
+            None
+        }
+    }
+    #[inline]
+    fn syntax(&self) -> &SyntaxNode {
+        &self.syntax
+    }
+}
+impl AstNode for LockingOf {
+    #[inline]
+    fn can_cast(kind: SyntaxKind) -> bool {
+        kind == SyntaxKind::LOCKING_OF
     }
     #[inline]
     fn cast(syntax: SyntaxNode) -> Option<Self> {
@@ -38102,6 +41620,24 @@ impl AstNode for Merge {
     #[inline]
     fn can_cast(kind: SyntaxKind) -> bool {
         kind == SyntaxKind::MERGE
+    }
+    #[inline]
+    fn cast(syntax: SyntaxNode) -> Option<Self> {
+        if Self::can_cast(syntax.kind()) {
+            Some(Self { syntax })
+        } else {
+            None
+        }
+    }
+    #[inline]
+    fn syntax(&self) -> &SyntaxNode {
+        &self.syntax
+    }
+}
+impl AstNode for MergeCondition {
+    #[inline]
+    fn can_cast(kind: SyntaxKind) -> bool {
+        kind == SyntaxKind::MERGE_CONDITION
     }
     #[inline]
     fn cast(syntax: SyntaxNode) -> Option<Self> {
@@ -38314,6 +41850,24 @@ impl AstNode for NamedArg {
         &self.syntax
     }
 }
+impl AstNode for NamedLabel {
+    #[inline]
+    fn can_cast(kind: SyntaxKind) -> bool {
+        kind == SyntaxKind::NAMED_LABEL
+    }
+    #[inline]
+    fn cast(syntax: SyntaxNode) -> Option<Self> {
+        if Self::can_cast(syntax.kind()) {
+            Some(Self { syntax })
+        } else {
+            None
+        }
+    }
+    #[inline]
+    fn syntax(&self) -> &SyntaxNode {
+        &self.syntax
+    }
+}
 impl AstNode for NamedSchema {
     #[inline]
     fn can_cast(kind: SyntaxKind) -> bool {
@@ -38354,6 +41908,24 @@ impl AstNode for Neqb {
     #[inline]
     fn can_cast(kind: SyntaxKind) -> bool {
         kind == SyntaxKind::NEQB
+    }
+    #[inline]
+    fn cast(syntax: SyntaxNode) -> Option<Self> {
+        if Self::can_cast(syntax.kind()) {
+            Some(Self { syntax })
+        } else {
+            None
+        }
+    }
+    #[inline]
+    fn syntax(&self) -> &SyntaxNode {
+        &self.syntax
+    }
+}
+impl AstNode for NewTable {
+    #[inline]
+    fn can_cast(kind: SyntaxKind) -> bool {
+        kind == SyntaxKind::NEW_TABLE
     }
     #[inline]
     fn cast(syntax: SyntaxNode) -> Option<Self> {
@@ -38440,6 +42012,24 @@ impl AstNode for NoForceRls {
         &self.syntax
     }
 }
+impl AstNode for NoIndent {
+    #[inline]
+    fn can_cast(kind: SyntaxKind) -> bool {
+        kind == SyntaxKind::NO_INDENT
+    }
+    #[inline]
+    fn cast(syntax: SyntaxNode) -> Option<Self> {
+        if Self::can_cast(syntax.kind()) {
+            Some(Self { syntax })
+        } else {
+            None
+        }
+    }
+    #[inline]
+    fn syntax(&self) -> &SyntaxNode {
+        &self.syntax
+    }
+}
 impl AstNode for NoInherit {
     #[inline]
     fn can_cast(kind: SyntaxKind) -> bool {
@@ -38498,6 +42088,24 @@ impl AstNode for NoProperties {
     #[inline]
     fn can_cast(kind: SyntaxKind) -> bool {
         kind == SyntaxKind::NO_PROPERTIES
+    }
+    #[inline]
+    fn cast(syntax: SyntaxNode) -> Option<Self> {
+        if Self::can_cast(syntax.kind()) {
+            Some(Self { syntax })
+        } else {
+            None
+        }
+    }
+    #[inline]
+    fn syntax(&self) -> &SyntaxNode {
+        &self.syntax
+    }
+}
+impl AstNode for NoScroll {
+    #[inline]
+    fn can_cast(kind: SyntaxKind) -> bool {
+        kind == SyntaxKind::NO_SCROLL
     }
     #[inline]
     fn cast(syntax: SyntaxNode) -> Option<Self> {
@@ -38768,6 +42376,24 @@ impl AstNode for Notify {
     #[inline]
     fn can_cast(kind: SyntaxKind) -> bool {
         kind == SyntaxKind::NOTIFY
+    }
+    #[inline]
+    fn cast(syntax: SyntaxNode) -> Option<Self> {
+        if Self::can_cast(syntax.kind()) {
+            Some(Self { syntax })
+        } else {
+            None
+        }
+    }
+    #[inline]
+    fn syntax(&self) -> &SyntaxNode {
+        &self.syntax
+    }
+}
+impl AstNode for Nowait {
+    #[inline]
+    fn can_cast(kind: SyntaxKind) -> bool {
+        kind == SyntaxKind::NOWAIT
     }
     #[inline]
     fn cast(syntax: SyntaxNode) -> Option<Self> {
@@ -39682,6 +43308,42 @@ impl AstNode for OffsetClause {
         &self.syntax
     }
 }
+impl AstNode for OldTable {
+    #[inline]
+    fn can_cast(kind: SyntaxKind) -> bool {
+        kind == SyntaxKind::OLD_TABLE
+    }
+    #[inline]
+    fn cast(syntax: SyntaxNode) -> Option<Self> {
+        if Self::can_cast(syntax.kind()) {
+            Some(Self { syntax })
+        } else {
+            None
+        }
+    }
+    #[inline]
+    fn syntax(&self) -> &SyntaxNode {
+        &self.syntax
+    }
+}
+impl AstNode for OmitQuotes {
+    #[inline]
+    fn can_cast(kind: SyntaxKind) -> bool {
+        kind == SyntaxKind::OMIT_QUOTES
+    }
+    #[inline]
+    fn cast(syntax: SyntaxNode) -> Option<Self> {
+        if Self::can_cast(syntax.kind()) {
+            Some(Self { syntax })
+        } else {
+            None
+        }
+    }
+    #[inline]
+    fn syntax(&self) -> &SyntaxNode {
+        &self.syntax
+    }
+}
 impl AstNode for OnClause {
     #[inline]
     fn can_cast(kind: SyntaxKind) -> bool {
@@ -39772,10 +43434,46 @@ impl AstNode for OnPath {
         &self.syntax
     }
 }
+impl AstNode for OnPrivilegeObjectsClause {
+    #[inline]
+    fn can_cast(kind: SyntaxKind) -> bool {
+        kind == SyntaxKind::ON_PRIVILEGE_OBJECTS_CLAUSE
+    }
+    #[inline]
+    fn cast(syntax: SyntaxNode) -> Option<Self> {
+        if Self::can_cast(syntax.kind()) {
+            Some(Self { syntax })
+        } else {
+            None
+        }
+    }
+    #[inline]
+    fn syntax(&self) -> &SyntaxNode {
+        &self.syntax
+    }
+}
 impl AstNode for OnRelation {
     #[inline]
     fn can_cast(kind: SyntaxKind) -> bool {
         kind == SyntaxKind::ON_RELATION
+    }
+    #[inline]
+    fn cast(syntax: SyntaxNode) -> Option<Self> {
+        if Self::can_cast(syntax.kind()) {
+            Some(Self { syntax })
+        } else {
+            None
+        }
+    }
+    #[inline]
+    fn syntax(&self) -> &SyntaxNode {
+        &self.syntax
+    }
+}
+impl AstNode for OnScalarString {
+    #[inline]
+    fn can_cast(kind: SyntaxKind) -> bool {
+        kind == SyntaxKind::ON_SCALAR_STRING
     }
     #[inline]
     fn cast(syntax: SyntaxNode) -> Option<Self> {
@@ -39830,6 +43528,42 @@ impl AstNode for Op {
     #[inline]
     fn can_cast(kind: SyntaxKind) -> bool {
         kind == SyntaxKind::OP
+    }
+    #[inline]
+    fn cast(syntax: SyntaxNode) -> Option<Self> {
+        if Self::can_cast(syntax.kind()) {
+            Some(Self { syntax })
+        } else {
+            None
+        }
+    }
+    #[inline]
+    fn syntax(&self) -> &SyntaxNode {
+        &self.syntax
+    }
+}
+impl AstNode for OpClassForOrderBy {
+    #[inline]
+    fn can_cast(kind: SyntaxKind) -> bool {
+        kind == SyntaxKind::OP_CLASS_FOR_ORDER_BY
+    }
+    #[inline]
+    fn cast(syntax: SyntaxNode) -> Option<Self> {
+        if Self::can_cast(syntax.kind()) {
+            Some(Self { syntax })
+        } else {
+            None
+        }
+    }
+    #[inline]
+    fn syntax(&self) -> &SyntaxNode {
+        &self.syntax
+    }
+}
+impl AstNode for OpClassForSearch {
+    #[inline]
+    fn can_cast(kind: SyntaxKind) -> bool {
+        kind == SyntaxKind::OP_CLASS_FOR_SEARCH
     }
     #[inline]
     fn cast(syntax: SyntaxNode) -> Option<Self> {
@@ -40276,10 +44010,64 @@ impl AstNode for OptionItem {
         &self.syntax
     }
 }
+impl AstNode for OptionItemKey {
+    #[inline]
+    fn can_cast(kind: SyntaxKind) -> bool {
+        kind == SyntaxKind::OPTION_ITEM_KEY
+    }
+    #[inline]
+    fn cast(syntax: SyntaxNode) -> Option<Self> {
+        if Self::can_cast(syntax.kind()) {
+            Some(Self { syntax })
+        } else {
+            None
+        }
+    }
+    #[inline]
+    fn syntax(&self) -> &SyntaxNode {
+        &self.syntax
+    }
+}
 impl AstNode for OptionItemList {
     #[inline]
     fn can_cast(kind: SyntaxKind) -> bool {
         kind == SyntaxKind::OPTION_ITEM_LIST
+    }
+    #[inline]
+    fn cast(syntax: SyntaxNode) -> Option<Self> {
+        if Self::can_cast(syntax.kind()) {
+            Some(Self { syntax })
+        } else {
+            None
+        }
+    }
+    #[inline]
+    fn syntax(&self) -> &SyntaxNode {
+        &self.syntax
+    }
+}
+impl AstNode for OptionItemValue {
+    #[inline]
+    fn can_cast(kind: SyntaxKind) -> bool {
+        kind == SyntaxKind::OPTION_ITEM_VALUE
+    }
+    #[inline]
+    fn cast(syntax: SyntaxNode) -> Option<Self> {
+        if Self::can_cast(syntax.kind()) {
+            Some(Self { syntax })
+        } else {
+            None
+        }
+    }
+    #[inline]
+    fn syntax(&self) -> &SyntaxNode {
+        &self.syntax
+    }
+}
+impl AstNode for OptionItemValueName {
+    #[inline]
+    fn can_cast(kind: SyntaxKind) -> bool {
+        kind == SyntaxKind::OPTION_ITEM_VALUE_NAME
     }
     #[inline]
     fn cast(syntax: SyntaxNode) -> Option<Self> {
@@ -40690,10 +44478,118 @@ impl AstNode for OverClause {
         &self.syntax
     }
 }
+impl AstNode for OverWindowSpec {
+    #[inline]
+    fn can_cast(kind: SyntaxKind) -> bool {
+        kind == SyntaxKind::OVER_WINDOW_SPEC
+    }
+    #[inline]
+    fn cast(syntax: SyntaxNode) -> Option<Self> {
+        if Self::can_cast(syntax.kind()) {
+            Some(Self { syntax })
+        } else {
+            None
+        }
+    }
+    #[inline]
+    fn syntax(&self) -> &SyntaxNode {
+        &self.syntax
+    }
+}
+impl AstNode for OverlayExprs {
+    #[inline]
+    fn can_cast(kind: SyntaxKind) -> bool {
+        kind == SyntaxKind::OVERLAY_EXPRS
+    }
+    #[inline]
+    fn cast(syntax: SyntaxNode) -> Option<Self> {
+        if Self::can_cast(syntax.kind()) {
+            Some(Self { syntax })
+        } else {
+            None
+        }
+    }
+    #[inline]
+    fn syntax(&self) -> &SyntaxNode {
+        &self.syntax
+    }
+}
 impl AstNode for OverlayFn {
     #[inline]
     fn can_cast(kind: SyntaxKind) -> bool {
         kind == SyntaxKind::OVERLAY_FN
+    }
+    #[inline]
+    fn cast(syntax: SyntaxNode) -> Option<Self> {
+        if Self::can_cast(syntax.kind()) {
+            Some(Self { syntax })
+        } else {
+            None
+        }
+    }
+    #[inline]
+    fn syntax(&self) -> &SyntaxNode {
+        &self.syntax
+    }
+}
+impl AstNode for OverlayPlacing {
+    #[inline]
+    fn can_cast(kind: SyntaxKind) -> bool {
+        kind == SyntaxKind::OVERLAY_PLACING
+    }
+    #[inline]
+    fn cast(syntax: SyntaxNode) -> Option<Self> {
+        if Self::can_cast(syntax.kind()) {
+            Some(Self { syntax })
+        } else {
+            None
+        }
+    }
+    #[inline]
+    fn syntax(&self) -> &SyntaxNode {
+        &self.syntax
+    }
+}
+impl AstNode for OverridingSystemValue {
+    #[inline]
+    fn can_cast(kind: SyntaxKind) -> bool {
+        kind == SyntaxKind::OVERRIDING_SYSTEM_VALUE
+    }
+    #[inline]
+    fn cast(syntax: SyntaxNode) -> Option<Self> {
+        if Self::can_cast(syntax.kind()) {
+            Some(Self { syntax })
+        } else {
+            None
+        }
+    }
+    #[inline]
+    fn syntax(&self) -> &SyntaxNode {
+        &self.syntax
+    }
+}
+impl AstNode for OverridingUserValue {
+    #[inline]
+    fn can_cast(kind: SyntaxKind) -> bool {
+        kind == SyntaxKind::OVERRIDING_USER_VALUE
+    }
+    #[inline]
+    fn cast(syntax: SyntaxNode) -> Option<Self> {
+        if Self::can_cast(syntax.kind()) {
+            Some(Self { syntax })
+        } else {
+            None
+        }
+    }
+    #[inline]
+    fn syntax(&self) -> &SyntaxNode {
+        &self.syntax
+    }
+}
+impl AstNode for OwnedByNone {
+    #[inline]
+    fn can_cast(kind: SyntaxKind) -> bool {
+        kind == SyntaxKind::OWNED_BY_NONE
     }
     #[inline]
     fn cast(syntax: SyntaxNode) -> Option<Self> {
@@ -41140,6 +45036,24 @@ impl AstNode for PartitionForValuesWith {
         &self.syntax
     }
 }
+impl AstNode for PartitionFromValues {
+    #[inline]
+    fn can_cast(kind: SyntaxKind) -> bool {
+        kind == SyntaxKind::PARTITION_FROM_VALUES
+    }
+    #[inline]
+    fn cast(syntax: SyntaxNode) -> Option<Self> {
+        if Self::can_cast(syntax.kind()) {
+            Some(Self { syntax })
+        } else {
+            None
+        }
+    }
+    #[inline]
+    fn syntax(&self) -> &SyntaxNode {
+        &self.syntax
+    }
+}
 impl AstNode for PartitionItem {
     #[inline]
     fn can_cast(kind: SyntaxKind) -> bool {
@@ -41194,6 +45108,24 @@ impl AstNode for PartitionList {
         &self.syntax
     }
 }
+impl AstNode for PartitionModulus {
+    #[inline]
+    fn can_cast(kind: SyntaxKind) -> bool {
+        kind == SyntaxKind::PARTITION_MODULUS
+    }
+    #[inline]
+    fn cast(syntax: SyntaxNode) -> Option<Self> {
+        if Self::can_cast(syntax.kind()) {
+            Some(Self { syntax })
+        } else {
+            None
+        }
+    }
+    #[inline]
+    fn syntax(&self) -> &SyntaxNode {
+        &self.syntax
+    }
+}
 impl AstNode for PartitionOf {
     #[inline]
     fn can_cast(kind: SyntaxKind) -> bool {
@@ -41212,10 +45144,46 @@ impl AstNode for PartitionOf {
         &self.syntax
     }
 }
+impl AstNode for PartitionRemainder {
+    #[inline]
+    fn can_cast(kind: SyntaxKind) -> bool {
+        kind == SyntaxKind::PARTITION_REMAINDER
+    }
+    #[inline]
+    fn cast(syntax: SyntaxNode) -> Option<Self> {
+        if Self::can_cast(syntax.kind()) {
+            Some(Self { syntax })
+        } else {
+            None
+        }
+    }
+    #[inline]
+    fn syntax(&self) -> &SyntaxNode {
+        &self.syntax
+    }
+}
 impl AstNode for PartitionStrategy {
     #[inline]
     fn can_cast(kind: SyntaxKind) -> bool {
         kind == SyntaxKind::PARTITION_STRATEGY
+    }
+    #[inline]
+    fn cast(syntax: SyntaxNode) -> Option<Self> {
+        if Self::can_cast(syntax.kind()) {
+            Some(Self { syntax })
+        } else {
+            None
+        }
+    }
+    #[inline]
+    fn syntax(&self) -> &SyntaxNode {
+        &self.syntax
+    }
+}
+impl AstNode for PartitionToValues {
+    #[inline]
+    fn can_cast(kind: SyntaxKind) -> bool {
+        kind == SyntaxKind::PARTITION_TO_VALUES
     }
     #[inline]
     fn cast(syntax: SyntaxNode) -> Option<Self> {
@@ -41446,6 +45414,114 @@ impl AstNode for Policy {
         &self.syntax
     }
 }
+impl AstNode for PolicyCommand {
+    #[inline]
+    fn can_cast(kind: SyntaxKind) -> bool {
+        kind == SyntaxKind::POLICY_COMMAND
+    }
+    #[inline]
+    fn cast(syntax: SyntaxNode) -> Option<Self> {
+        if Self::can_cast(syntax.kind()) {
+            Some(Self { syntax })
+        } else {
+            None
+        }
+    }
+    #[inline]
+    fn syntax(&self) -> &SyntaxNode {
+        &self.syntax
+    }
+}
+impl AstNode for PolicyCommandAll {
+    #[inline]
+    fn can_cast(kind: SyntaxKind) -> bool {
+        kind == SyntaxKind::POLICY_COMMAND_ALL
+    }
+    #[inline]
+    fn cast(syntax: SyntaxNode) -> Option<Self> {
+        if Self::can_cast(syntax.kind()) {
+            Some(Self { syntax })
+        } else {
+            None
+        }
+    }
+    #[inline]
+    fn syntax(&self) -> &SyntaxNode {
+        &self.syntax
+    }
+}
+impl AstNode for PolicyCommandDelete {
+    #[inline]
+    fn can_cast(kind: SyntaxKind) -> bool {
+        kind == SyntaxKind::POLICY_COMMAND_DELETE
+    }
+    #[inline]
+    fn cast(syntax: SyntaxNode) -> Option<Self> {
+        if Self::can_cast(syntax.kind()) {
+            Some(Self { syntax })
+        } else {
+            None
+        }
+    }
+    #[inline]
+    fn syntax(&self) -> &SyntaxNode {
+        &self.syntax
+    }
+}
+impl AstNode for PolicyCommandInsert {
+    #[inline]
+    fn can_cast(kind: SyntaxKind) -> bool {
+        kind == SyntaxKind::POLICY_COMMAND_INSERT
+    }
+    #[inline]
+    fn cast(syntax: SyntaxNode) -> Option<Self> {
+        if Self::can_cast(syntax.kind()) {
+            Some(Self { syntax })
+        } else {
+            None
+        }
+    }
+    #[inline]
+    fn syntax(&self) -> &SyntaxNode {
+        &self.syntax
+    }
+}
+impl AstNode for PolicyCommandSelect {
+    #[inline]
+    fn can_cast(kind: SyntaxKind) -> bool {
+        kind == SyntaxKind::POLICY_COMMAND_SELECT
+    }
+    #[inline]
+    fn cast(syntax: SyntaxNode) -> Option<Self> {
+        if Self::can_cast(syntax.kind()) {
+            Some(Self { syntax })
+        } else {
+            None
+        }
+    }
+    #[inline]
+    fn syntax(&self) -> &SyntaxNode {
+        &self.syntax
+    }
+}
+impl AstNode for PolicyCommandUpdate {
+    #[inline]
+    fn can_cast(kind: SyntaxKind) -> bool {
+        kind == SyntaxKind::POLICY_COMMAND_UPDATE
+    }
+    #[inline]
+    fn cast(syntax: SyntaxNode) -> Option<Self> {
+        if Self::can_cast(syntax.kind()) {
+            Some(Self { syntax })
+        } else {
+            None
+        }
+    }
+    #[inline]
+    fn syntax(&self) -> &SyntaxNode {
+        &self.syntax
+    }
+}
 impl AstNode for PolicyRef {
     #[inline]
     fn can_cast(kind: SyntaxKind) -> bool {
@@ -41468,6 +45544,60 @@ impl AstNode for PolicyRenameTo {
     #[inline]
     fn can_cast(kind: SyntaxKind) -> bool {
         kind == SyntaxKind::POLICY_RENAME_TO
+    }
+    #[inline]
+    fn cast(syntax: SyntaxNode) -> Option<Self> {
+        if Self::can_cast(syntax.kind()) {
+            Some(Self { syntax })
+        } else {
+            None
+        }
+    }
+    #[inline]
+    fn syntax(&self) -> &SyntaxNode {
+        &self.syntax
+    }
+}
+impl AstNode for PolicyRoles {
+    #[inline]
+    fn can_cast(kind: SyntaxKind) -> bool {
+        kind == SyntaxKind::POLICY_ROLES
+    }
+    #[inline]
+    fn cast(syntax: SyntaxNode) -> Option<Self> {
+        if Self::can_cast(syntax.kind()) {
+            Some(Self { syntax })
+        } else {
+            None
+        }
+    }
+    #[inline]
+    fn syntax(&self) -> &SyntaxNode {
+        &self.syntax
+    }
+}
+impl AstNode for PortionFromTo {
+    #[inline]
+    fn can_cast(kind: SyntaxKind) -> bool {
+        kind == SyntaxKind::PORTION_FROM_TO
+    }
+    #[inline]
+    fn cast(syntax: SyntaxNode) -> Option<Self> {
+        if Self::can_cast(syntax.kind()) {
+            Some(Self { syntax })
+        } else {
+            None
+        }
+    }
+    #[inline]
+    fn syntax(&self) -> &SyntaxNode {
+        &self.syntax
+    }
+}
+impl AstNode for PortionRange {
+    #[inline]
+    fn can_cast(kind: SyntaxKind) -> bool {
+        kind == SyntaxKind::PORTION_RANGE
     }
     #[inline]
     fn cast(syntax: SyntaxNode) -> Option<Self> {
@@ -41612,6 +45742,24 @@ impl AstNode for PreserveRows {
     #[inline]
     fn can_cast(kind: SyntaxKind) -> bool {
         kind == SyntaxKind::PRESERVE_ROWS
+    }
+    #[inline]
+    fn cast(syntax: SyntaxNode) -> Option<Self> {
+        if Self::can_cast(syntax.kind()) {
+            Some(Self { syntax })
+        } else {
+            None
+        }
+    }
+    #[inline]
+    fn syntax(&self) -> &SyntaxNode {
+        &self.syntax
+    }
+}
+impl AstNode for PreserveWhitespace {
+    #[inline]
+    fn can_cast(kind: SyntaxKind) -> bool {
+        kind == SyntaxKind::PRESERVE_WHITESPACE
     }
     #[inline]
     fn cast(syntax: SyntaxNode) -> Option<Self> {
@@ -42184,24 +46332,6 @@ impl AstNode for PrivilegeType {
         &self.syntax
     }
 }
-impl AstNode for Privileges {
-    #[inline]
-    fn can_cast(kind: SyntaxKind) -> bool {
-        kind == SyntaxKind::PRIVILEGES
-    }
-    #[inline]
-    fn cast(syntax: SyntaxNode) -> Option<Self> {
-        if Self::can_cast(syntax.kind()) {
-            Some(Self { syntax })
-        } else {
-            None
-        }
-    }
-    #[inline]
-    fn syntax(&self) -> &SyntaxNode {
-        &self.syntax
-    }
-}
 impl AstNode for ProcedureName {
     #[inline]
     fn can_cast(kind: SyntaxKind) -> bool {
@@ -42706,6 +46836,42 @@ impl AstNode for QualifiedColumnNameRef {
         &self.syntax
     }
 }
+impl AstNode for QualifierMax {
+    #[inline]
+    fn can_cast(kind: SyntaxKind) -> bool {
+        kind == SyntaxKind::QUALIFIER_MAX
+    }
+    #[inline]
+    fn cast(syntax: SyntaxNode) -> Option<Self> {
+        if Self::can_cast(syntax.kind()) {
+            Some(Self { syntax })
+        } else {
+            None
+        }
+    }
+    #[inline]
+    fn syntax(&self) -> &SyntaxNode {
+        &self.syntax
+    }
+}
+impl AstNode for QualifierMin {
+    #[inline]
+    fn can_cast(kind: SyntaxKind) -> bool {
+        kind == SyntaxKind::QUALIFIER_MIN
+    }
+    #[inline]
+    fn cast(syntax: SyntaxNode) -> Option<Self> {
+        if Self::can_cast(syntax.kind()) {
+            Some(Self { syntax })
+        } else {
+            None
+        }
+    }
+    #[inline]
+    fn syntax(&self) -> &SyntaxNode {
+        &self.syntax
+    }
+}
 impl AstNode for RangeType {
     #[inline]
     fn can_cast(kind: SyntaxKind) -> bool {
@@ -42854,24 +47020,6 @@ impl AstNode for Referencing {
     #[inline]
     fn can_cast(kind: SyntaxKind) -> bool {
         kind == SyntaxKind::REFERENCING
-    }
-    #[inline]
-    fn cast(syntax: SyntaxNode) -> Option<Self> {
-        if Self::can_cast(syntax.kind()) {
-            Some(Self { syntax })
-        } else {
-            None
-        }
-    }
-    #[inline]
-    fn syntax(&self) -> &SyntaxNode {
-        &self.syntax
-    }
-}
-impl AstNode for ReferencingTable {
-    #[inline]
-    fn can_cast(kind: SyntaxKind) -> bool {
-        kind == SyntaxKind::REFERENCING_TABLE
     }
     #[inline]
     fn cast(syntax: SyntaxNode) -> Option<Self> {
@@ -43390,10 +47538,82 @@ impl AstNode for RepeatableRead {
         &self.syntax
     }
 }
+impl AstNode for ReplaceDictionary {
+    #[inline]
+    fn can_cast(kind: SyntaxKind) -> bool {
+        kind == SyntaxKind::REPLACE_DICTIONARY
+    }
+    #[inline]
+    fn cast(syntax: SyntaxNode) -> Option<Self> {
+        if Self::can_cast(syntax.kind()) {
+            Some(Self { syntax })
+        } else {
+            None
+        }
+    }
+    #[inline]
+    fn syntax(&self) -> &SyntaxNode {
+        &self.syntax
+    }
+}
 impl AstNode for ReplicaIdentity {
     #[inline]
     fn can_cast(kind: SyntaxKind) -> bool {
         kind == SyntaxKind::REPLICA_IDENTITY
+    }
+    #[inline]
+    fn cast(syntax: SyntaxNode) -> Option<Self> {
+        if Self::can_cast(syntax.kind()) {
+            Some(Self { syntax })
+        } else {
+            None
+        }
+    }
+    #[inline]
+    fn syntax(&self) -> &SyntaxNode {
+        &self.syntax
+    }
+}
+impl AstNode for ReplicaIdentityDefault {
+    #[inline]
+    fn can_cast(kind: SyntaxKind) -> bool {
+        kind == SyntaxKind::REPLICA_IDENTITY_DEFAULT
+    }
+    #[inline]
+    fn cast(syntax: SyntaxNode) -> Option<Self> {
+        if Self::can_cast(syntax.kind()) {
+            Some(Self { syntax })
+        } else {
+            None
+        }
+    }
+    #[inline]
+    fn syntax(&self) -> &SyntaxNode {
+        &self.syntax
+    }
+}
+impl AstNode for ReplicaIdentityFull {
+    #[inline]
+    fn can_cast(kind: SyntaxKind) -> bool {
+        kind == SyntaxKind::REPLICA_IDENTITY_FULL
+    }
+    #[inline]
+    fn cast(syntax: SyntaxNode) -> Option<Self> {
+        if Self::can_cast(syntax.kind()) {
+            Some(Self { syntax })
+        } else {
+            None
+        }
+    }
+    #[inline]
+    fn syntax(&self) -> &SyntaxNode {
+        &self.syntax
+    }
+}
+impl AstNode for ReplicaIdentityNothing {
+    #[inline]
+    fn can_cast(kind: SyntaxKind) -> bool {
+        kind == SyntaxKind::REPLICA_IDENTITY_NOTHING
     }
     #[inline]
     fn cast(syntax: SyntaxNode) -> Option<Self> {
@@ -43606,6 +47826,24 @@ impl AstNode for Restart {
         &self.syntax
     }
 }
+impl AstNode for RestartIdentity {
+    #[inline]
+    fn can_cast(kind: SyntaxKind) -> bool {
+        kind == SyntaxKind::RESTART_IDENTITY
+    }
+    #[inline]
+    fn cast(syntax: SyntaxNode) -> Option<Self> {
+        if Self::can_cast(syntax.kind()) {
+            Some(Self { syntax })
+        } else {
+            None
+        }
+    }
+    #[inline]
+    fn syntax(&self) -> &SyntaxNode {
+        &self.syntax
+    }
+}
 impl AstNode for Restrict {
     #[inline]
     fn can_cast(kind: SyntaxKind) -> bool {
@@ -43678,10 +47916,28 @@ impl AstNode for ReturningClause {
         &self.syntax
     }
 }
-impl AstNode for ReturningOption {
+impl AstNode for ReturningNew {
     #[inline]
     fn can_cast(kind: SyntaxKind) -> bool {
-        kind == SyntaxKind::RETURNING_OPTION
+        kind == SyntaxKind::RETURNING_NEW
+    }
+    #[inline]
+    fn cast(syntax: SyntaxNode) -> Option<Self> {
+        if Self::can_cast(syntax.kind()) {
+            Some(Self { syntax })
+        } else {
+            None
+        }
+    }
+    #[inline]
+    fn syntax(&self) -> &SyntaxNode {
+        &self.syntax
+    }
+}
+impl AstNode for ReturningOld {
+    #[inline]
+    fn can_cast(kind: SyntaxKind) -> bool {
+        kind == SyntaxKind::RETURNING_OLD
     }
     #[inline]
     fn cast(syntax: SyntaxNode) -> Option<Self> {
@@ -44290,6 +48546,24 @@ impl AstNode for RowShare {
         &self.syntax
     }
 }
+impl AstNode for RowsFromArg {
+    #[inline]
+    fn can_cast(kind: SyntaxKind) -> bool {
+        kind == SyntaxKind::ROWS_FROM_ARG
+    }
+    #[inline]
+    fn cast(syntax: SyntaxNode) -> Option<Self> {
+        if Self::can_cast(syntax.kind()) {
+            Some(Self { syntax })
+        } else {
+            None
+        }
+    }
+    #[inline]
+    fn syntax(&self) -> &SyntaxNode {
+        &self.syntax
+    }
+}
 impl AstNode for RowsFromItem {
     #[inline]
     fn can_cast(kind: SyntaxKind) -> bool {
@@ -44560,6 +48834,24 @@ impl AstNode for SchemaRenameTo {
         &self.syntax
     }
 }
+impl AstNode for Scroll {
+    #[inline]
+    fn can_cast(kind: SyntaxKind) -> bool {
+        kind == SyntaxKind::SCROLL
+    }
+    #[inline]
+    fn cast(syntax: SyntaxNode) -> Option<Self> {
+        if Self::can_cast(syntax.kind()) {
+            Some(Self { syntax })
+        } else {
+            None
+        }
+    }
+    #[inline]
+    fn syntax(&self) -> &SyntaxNode {
+        &self.syntax
+    }
+}
 impl AstNode for SearchClause {
     #[inline]
     fn can_cast(kind: SyntaxKind) -> bool {
@@ -44614,10 +48906,28 @@ impl AstNode for SearchSetColumn {
         &self.syntax
     }
 }
-impl AstNode for SecurityFuncOption {
+impl AstNode for SecurityDefinerFuncOption {
     #[inline]
     fn can_cast(kind: SyntaxKind) -> bool {
-        kind == SyntaxKind::SECURITY_FUNC_OPTION
+        kind == SyntaxKind::SECURITY_DEFINER_FUNC_OPTION
+    }
+    #[inline]
+    fn cast(syntax: SyntaxNode) -> Option<Self> {
+        if Self::can_cast(syntax.kind()) {
+            Some(Self { syntax })
+        } else {
+            None
+        }
+    }
+    #[inline]
+    fn syntax(&self) -> &SyntaxNode {
+        &self.syntax
+    }
+}
+impl AstNode for SecurityInvokerFuncOption {
+    #[inline]
+    fn can_cast(kind: SyntaxKind) -> bool {
+        kind == SyntaxKind::SECURITY_INVOKER_FUNC_OPTION
     }
     #[inline]
     fn cast(syntax: SyntaxNode) -> Option<Self> {
@@ -44830,10 +49140,10 @@ impl AstNode for Server {
         &self.syntax
     }
 }
-impl AstNode for ServerName {
+impl AstNode for ServerClause {
     #[inline]
     fn can_cast(kind: SyntaxKind) -> bool {
-        kind == SyntaxKind::SERVER_NAME
+        kind == SyntaxKind::SERVER_CLAUSE
     }
     #[inline]
     fn cast(syntax: SyntaxNode) -> Option<Self> {
@@ -44884,6 +49194,42 @@ impl AstNode for ServerRenameTo {
         &self.syntax
     }
 }
+impl AstNode for ServerType {
+    #[inline]
+    fn can_cast(kind: SyntaxKind) -> bool {
+        kind == SyntaxKind::SERVER_TYPE
+    }
+    #[inline]
+    fn cast(syntax: SyntaxNode) -> Option<Self> {
+        if Self::can_cast(syntax.kind()) {
+            Some(Self { syntax })
+        } else {
+            None
+        }
+    }
+    #[inline]
+    fn syntax(&self) -> &SyntaxNode {
+        &self.syntax
+    }
+}
+impl AstNode for ServerVersion {
+    #[inline]
+    fn can_cast(kind: SyntaxKind) -> bool {
+        kind == SyntaxKind::SERVER_VERSION
+    }
+    #[inline]
+    fn cast(syntax: SyntaxNode) -> Option<Self> {
+        if Self::can_cast(syntax.kind()) {
+            Some(Self { syntax })
+        } else {
+            None
+        }
+    }
+    #[inline]
+    fn syntax(&self) -> &SyntaxNode {
+        &self.syntax
+    }
+}
 impl AstNode for SessionAuthorization {
     #[inline]
     fn can_cast(kind: SyntaxKind) -> bool {
@@ -44906,6 +49252,24 @@ impl AstNode for SessionCharacteristics {
     #[inline]
     fn can_cast(kind: SyntaxKind) -> bool {
         kind == SyntaxKind::SESSION_CHARACTERISTICS
+    }
+    #[inline]
+    fn cast(syntax: SyntaxNode) -> Option<Self> {
+        if Self::can_cast(syntax.kind()) {
+            Some(Self { syntax })
+        } else {
+            None
+        }
+    }
+    #[inline]
+    fn syntax(&self) -> &SyntaxNode {
+        &self.syntax
+    }
+}
+impl AstNode for SessionScope {
+    #[inline]
+    fn can_cast(kind: SyntaxKind) -> bool {
+        kind == SyntaxKind::SESSION_SCOPE
     }
     #[inline]
     fn cast(syntax: SyntaxNode) -> Option<Self> {
@@ -44956,10 +49320,10 @@ impl AstNode for SetAccessMethod {
         &self.syntax
     }
 }
-impl AstNode for SetAllPublicationObjects {
+impl AstNode for SetAllPublicationObjectList {
     #[inline]
     fn can_cast(kind: SyntaxKind) -> bool {
-        kind == SyntaxKind::SET_ALL_PUBLICATION_OBJECTS
+        kind == SyntaxKind::SET_ALL_PUBLICATION_OBJECT_LIST
     }
     #[inline]
     fn cast(syntax: SyntaxNode) -> Option<Self> {
@@ -45082,24 +49446,6 @@ impl AstNode for SetConfigParam {
         &self.syntax
     }
 }
-impl AstNode for SetConnection {
-    #[inline]
-    fn can_cast(kind: SyntaxKind) -> bool {
-        kind == SyntaxKind::SET_CONNECTION
-    }
-    #[inline]
-    fn cast(syntax: SyntaxNode) -> Option<Self> {
-        if Self::can_cast(syntax.kind()) {
-            Some(Self { syntax })
-        } else {
-            None
-        }
-    }
-    #[inline]
-    fn syntax(&self) -> &SyntaxNode {
-        &self.syntax
-    }
-}
 impl AstNode for SetConstraints {
     #[inline]
     fn can_cast(kind: SyntaxKind) -> bool {
@@ -45194,6 +49540,24 @@ impl AstNode for SetExpression {
     #[inline]
     fn can_cast(kind: SyntaxKind) -> bool {
         kind == SyntaxKind::SET_EXPRESSION
+    }
+    #[inline]
+    fn cast(syntax: SyntaxNode) -> Option<Self> {
+        if Self::can_cast(syntax.kind()) {
+            Some(Self { syntax })
+        } else {
+            None
+        }
+    }
+    #[inline]
+    fn syntax(&self) -> &SyntaxNode {
+        &self.syntax
+    }
+}
+impl AstNode for SetForeignOption {
+    #[inline]
+    fn can_cast(kind: SyntaxKind) -> bool {
+        kind == SyntaxKind::SET_FOREIGN_OPTION
     }
     #[inline]
     fn cast(syntax: SyntaxNode) -> Option<Self> {
@@ -45334,6 +49698,24 @@ impl AstNode for SetNullColumns {
         &self.syntax
     }
 }
+impl AstNode for SetOptionFor {
+    #[inline]
+    fn can_cast(kind: SyntaxKind) -> bool {
+        kind == SyntaxKind::SET_OPTION_FOR
+    }
+    #[inline]
+    fn cast(syntax: SyntaxNode) -> Option<Self> {
+        if Self::can_cast(syntax.kind()) {
+            Some(Self { syntax })
+        } else {
+            None
+        }
+    }
+    #[inline]
+    fn syntax(&self) -> &SyntaxNode {
+        &self.syntax
+    }
+}
 impl AstNode for SetOptions {
     #[inline]
     fn can_cast(kind: SyntaxKind) -> bool {
@@ -45424,6 +49806,24 @@ impl AstNode for SetRole {
         &self.syntax
     }
 }
+impl AstNode for SetRoleNone {
+    #[inline]
+    fn can_cast(kind: SyntaxKind) -> bool {
+        kind == SyntaxKind::SET_ROLE_NONE
+    }
+    #[inline]
+    fn cast(syntax: SyntaxNode) -> Option<Self> {
+        if Self::can_cast(syntax.kind()) {
+            Some(Self { syntax })
+        } else {
+            None
+        }
+    }
+    #[inline]
+    fn syntax(&self) -> &SyntaxNode {
+        &self.syntax
+    }
+}
 impl AstNode for SetSchema {
     #[inline]
     fn can_cast(kind: SyntaxKind) -> bool {
@@ -45478,10 +49878,10 @@ impl AstNode for SetSequenceOption {
         &self.syntax
     }
 }
-impl AstNode for SetServer {
+impl AstNode for SetSessionAuth {
     #[inline]
     fn can_cast(kind: SyntaxKind) -> bool {
-        kind == SyntaxKind::SET_SERVER
+        kind == SyntaxKind::SET_SESSION_AUTH
     }
     #[inline]
     fn cast(syntax: SyntaxNode) -> Option<Self> {
@@ -45496,10 +49896,10 @@ impl AstNode for SetServer {
         &self.syntax
     }
 }
-impl AstNode for SetSessionAuth {
+impl AstNode for SetSessionAuthDefault {
     #[inline]
     fn can_cast(kind: SyntaxKind) -> bool {
-        kind == SyntaxKind::SET_SESSION_AUTH
+        kind == SyntaxKind::SET_SESSION_AUTH_DEFAULT
     }
     #[inline]
     fn cast(syntax: SyntaxNode) -> Option<Self> {
@@ -45658,24 +50058,6 @@ impl AstNode for SetUnlogged {
         &self.syntax
     }
 }
-impl AstNode for SetVersion {
-    #[inline]
-    fn can_cast(kind: SyntaxKind) -> bool {
-        kind == SyntaxKind::SET_VERSION
-    }
-    #[inline]
-    fn cast(syntax: SyntaxNode) -> Option<Self> {
-        if Self::can_cast(syntax.kind()) {
-            Some(Self { syntax })
-        } else {
-            None
-        }
-    }
-    #[inline]
-    fn syntax(&self) -> &SyntaxNode {
-        &self.syntax
-    }
-}
 impl AstNode for SetWithoutCluster {
     #[inline]
     fn can_cast(kind: SyntaxKind) -> bool {
@@ -45806,6 +50188,24 @@ impl AstNode for SimilarTo {
     #[inline]
     fn can_cast(kind: SyntaxKind) -> bool {
         kind == SyntaxKind::SIMILAR_TO
+    }
+    #[inline]
+    fn cast(syntax: SyntaxNode) -> Option<Self> {
+        if Self::can_cast(syntax.kind()) {
+            Some(Self { syntax })
+        } else {
+            None
+        }
+    }
+    #[inline]
+    fn syntax(&self) -> &SyntaxNode {
+        &self.syntax
+    }
+}
+impl AstNode for SkipLocked {
+    #[inline]
+    fn can_cast(kind: SyntaxKind) -> bool {
+        kind == SyntaxKind::SKIP_LOCKED
     }
     #[inline]
     fn cast(syntax: SyntaxNode) -> Option<Self> {
@@ -46036,6 +50436,78 @@ impl AstNode for SplitPartition {
         &self.syntax
     }
 }
+impl AstNode for Stable {
+    #[inline]
+    fn can_cast(kind: SyntaxKind) -> bool {
+        kind == SyntaxKind::STABLE
+    }
+    #[inline]
+    fn cast(syntax: SyntaxNode) -> Option<Self> {
+        if Self::can_cast(syntax.kind()) {
+            Some(Self { syntax })
+        } else {
+            None
+        }
+    }
+    #[inline]
+    fn syntax(&self) -> &SyntaxNode {
+        &self.syntax
+    }
+}
+impl AstNode for StandaloneNo {
+    #[inline]
+    fn can_cast(kind: SyntaxKind) -> bool {
+        kind == SyntaxKind::STANDALONE_NO
+    }
+    #[inline]
+    fn cast(syntax: SyntaxNode) -> Option<Self> {
+        if Self::can_cast(syntax.kind()) {
+            Some(Self { syntax })
+        } else {
+            None
+        }
+    }
+    #[inline]
+    fn syntax(&self) -> &SyntaxNode {
+        &self.syntax
+    }
+}
+impl AstNode for StandaloneNoValue {
+    #[inline]
+    fn can_cast(kind: SyntaxKind) -> bool {
+        kind == SyntaxKind::STANDALONE_NO_VALUE
+    }
+    #[inline]
+    fn cast(syntax: SyntaxNode) -> Option<Self> {
+        if Self::can_cast(syntax.kind()) {
+            Some(Self { syntax })
+        } else {
+            None
+        }
+    }
+    #[inline]
+    fn syntax(&self) -> &SyntaxNode {
+        &self.syntax
+    }
+}
+impl AstNode for StandaloneYes {
+    #[inline]
+    fn can_cast(kind: SyntaxKind) -> bool {
+        kind == SyntaxKind::STANDALONE_YES
+    }
+    #[inline]
+    fn cast(syntax: SyntaxNode) -> Option<Self> {
+        if Self::can_cast(syntax.kind()) {
+            Some(Self { syntax })
+        } else {
+            None
+        }
+    }
+    #[inline]
+    fn syntax(&self) -> &SyntaxNode {
+        &self.syntax
+    }
+}
 impl AstNode for StatTypes {
     #[inline]
     fn can_cast(kind: SyntaxKind) -> bool {
@@ -46076,6 +50548,24 @@ impl AstNode for StatisticsKind {
     #[inline]
     fn can_cast(kind: SyntaxKind) -> bool {
         kind == SyntaxKind::STATISTICS_KIND
+    }
+    #[inline]
+    fn cast(syntax: SyntaxNode) -> Option<Self> {
+        if Self::can_cast(syntax.kind()) {
+            Some(Self { syntax })
+        } else {
+            None
+        }
+    }
+    #[inline]
+    fn syntax(&self) -> &SyntaxNode {
+        &self.syntax
+    }
+}
+impl AstNode for StatisticsOnClause {
+    #[inline]
+    fn can_cast(kind: SyntaxKind) -> bool {
+        kind == SyntaxKind::STATISTICS_ON_CLAUSE
     }
     #[inline]
     fn cast(syntax: SyntaxNode) -> Option<Self> {
@@ -46162,10 +50652,46 @@ impl AstNode for StorageMode {
         &self.syntax
     }
 }
+impl AstNode for Stored {
+    #[inline]
+    fn can_cast(kind: SyntaxKind) -> bool {
+        kind == SyntaxKind::STORED
+    }
+    #[inline]
+    fn cast(syntax: SyntaxNode) -> Option<Self> {
+        if Self::can_cast(syntax.kind()) {
+            Some(Self { syntax })
+        } else {
+            None
+        }
+    }
+    #[inline]
+    fn syntax(&self) -> &SyntaxNode {
+        &self.syntax
+    }
+}
 impl AstNode for StrictFuncOption {
     #[inline]
     fn can_cast(kind: SyntaxKind) -> bool {
         kind == SyntaxKind::STRICT_FUNC_OPTION
+    }
+    #[inline]
+    fn cast(syntax: SyntaxNode) -> Option<Self> {
+        if Self::can_cast(syntax.kind()) {
+            Some(Self { syntax })
+        } else {
+            None
+        }
+    }
+    #[inline]
+    fn syntax(&self) -> &SyntaxNode {
+        &self.syntax
+    }
+}
+impl AstNode for StripWhitespace {
+    #[inline]
+    fn can_cast(kind: SyntaxKind) -> bool {
+        kind == SyntaxKind::STRIP_WHITESPACE
     }
     #[inline]
     fn cast(syntax: SyntaxNode) -> Option<Self> {
@@ -46234,6 +50760,24 @@ impl AstNode for SubscriptionRenameTo {
         &self.syntax
     }
 }
+impl AstNode for SubstringExprs {
+    #[inline]
+    fn can_cast(kind: SyntaxKind) -> bool {
+        kind == SyntaxKind::SUBSTRING_EXPRS
+    }
+    #[inline]
+    fn cast(syntax: SyntaxNode) -> Option<Self> {
+        if Self::can_cast(syntax.kind()) {
+            Some(Self { syntax })
+        } else {
+            None
+        }
+    }
+    #[inline]
+    fn syntax(&self) -> &SyntaxNode {
+        &self.syntax
+    }
+}
 impl AstNode for SubstringFn {
     #[inline]
     fn can_cast(kind: SyntaxKind) -> bool {
@@ -46252,10 +50796,82 @@ impl AstNode for SubstringFn {
         &self.syntax
     }
 }
+impl AstNode for SubstringForFrom {
+    #[inline]
+    fn can_cast(kind: SyntaxKind) -> bool {
+        kind == SyntaxKind::SUBSTRING_FOR_FROM
+    }
+    #[inline]
+    fn cast(syntax: SyntaxNode) -> Option<Self> {
+        if Self::can_cast(syntax.kind()) {
+            Some(Self { syntax })
+        } else {
+            None
+        }
+    }
+    #[inline]
+    fn syntax(&self) -> &SyntaxNode {
+        &self.syntax
+    }
+}
+impl AstNode for SubstringFromFor {
+    #[inline]
+    fn can_cast(kind: SyntaxKind) -> bool {
+        kind == SyntaxKind::SUBSTRING_FROM_FOR
+    }
+    #[inline]
+    fn cast(syntax: SyntaxNode) -> Option<Self> {
+        if Self::can_cast(syntax.kind()) {
+            Some(Self { syntax })
+        } else {
+            None
+        }
+    }
+    #[inline]
+    fn syntax(&self) -> &SyntaxNode {
+        &self.syntax
+    }
+}
+impl AstNode for SubstringSimilarEscape {
+    #[inline]
+    fn can_cast(kind: SyntaxKind) -> bool {
+        kind == SyntaxKind::SUBSTRING_SIMILAR_ESCAPE
+    }
+    #[inline]
+    fn cast(syntax: SyntaxNode) -> Option<Self> {
+        if Self::can_cast(syntax.kind()) {
+            Some(Self { syntax })
+        } else {
+            None
+        }
+    }
+    #[inline]
+    fn syntax(&self) -> &SyntaxNode {
+        &self.syntax
+    }
+}
 impl AstNode for SupportFuncOption {
     #[inline]
     fn can_cast(kind: SyntaxKind) -> bool {
         kind == SyntaxKind::SUPPORT_FUNC_OPTION
+    }
+    #[inline]
+    fn cast(syntax: SyntaxNode) -> Option<Self> {
+        if Self::can_cast(syntax.kind()) {
+            Some(Self { syntax })
+        } else {
+            None
+        }
+    }
+    #[inline]
+    fn syntax(&self) -> &SyntaxNode {
+        &self.syntax
+    }
+}
+impl AstNode for Symmetric {
+    #[inline]
+    fn can_cast(kind: SyntaxKind) -> bool {
+        kind == SyntaxKind::SYMMETRIC
     }
     #[inline]
     fn cast(syntax: SyntaxNode) -> Option<Self> {
@@ -46508,6 +51124,24 @@ impl AstNode for TablespaceClause {
     #[inline]
     fn can_cast(kind: SyntaxKind) -> bool {
         kind == SyntaxKind::TABLESPACE_CLAUSE
+    }
+    #[inline]
+    fn cast(syntax: SyntaxNode) -> Option<Self> {
+        if Self::can_cast(syntax.kind()) {
+            Some(Self { syntax })
+        } else {
+            None
+        }
+    }
+    #[inline]
+    fn syntax(&self) -> &SyntaxNode {
+        &self.syntax
+    }
+}
+impl AstNode for TablespaceOwner {
+    #[inline]
+    fn can_cast(kind: SyntaxKind) -> bool {
+        kind == SyntaxKind::TABLESPACE_OWNER
     }
     #[inline]
     fn cast(syntax: SyntaxNode) -> Option<Self> {
@@ -46954,6 +51588,24 @@ impl AstNode for TimingInsteadOf {
         &self.syntax
     }
 }
+impl AstNode for ToConfigValue {
+    #[inline]
+    fn can_cast(kind: SyntaxKind) -> bool {
+        kind == SyntaxKind::TO_CONFIG_VALUE
+    }
+    #[inline]
+    fn cast(syntax: SyntaxNode) -> Option<Self> {
+        if Self::can_cast(syntax.kind()) {
+            Some(Self { syntax })
+        } else {
+            None
+        }
+    }
+    #[inline]
+    fn syntax(&self) -> &SyntaxNode {
+        &self.syntax
+    }
+}
 impl AstNode for TransactionIsolationLevel {
     #[inline]
     fn can_cast(kind: SyntaxKind) -> bool {
@@ -47012,6 +51664,24 @@ impl AstNode for TransactionSnapshot {
     #[inline]
     fn can_cast(kind: SyntaxKind) -> bool {
         kind == SyntaxKind::TRANSACTION_SNAPSHOT
+    }
+    #[inline]
+    fn cast(syntax: SyntaxNode) -> Option<Self> {
+        if Self::can_cast(syntax.kind()) {
+            Some(Self { syntax })
+        } else {
+            None
+        }
+    }
+    #[inline]
+    fn syntax(&self) -> &SyntaxNode {
+        &self.syntax
+    }
+}
+impl AstNode for TransformForType {
+    #[inline]
+    fn can_cast(kind: SyntaxKind) -> bool {
+        kind == SyntaxKind::TRANSFORM_FOR_TYPE
     }
     #[inline]
     fn cast(syntax: SyntaxNode) -> Option<Self> {
@@ -47242,10 +51912,118 @@ impl AstNode for TriggerRenameTo {
         &self.syntax
     }
 }
+impl AstNode for TrimBoth {
+    #[inline]
+    fn can_cast(kind: SyntaxKind) -> bool {
+        kind == SyntaxKind::TRIM_BOTH
+    }
+    #[inline]
+    fn cast(syntax: SyntaxNode) -> Option<Self> {
+        if Self::can_cast(syntax.kind()) {
+            Some(Self { syntax })
+        } else {
+            None
+        }
+    }
+    #[inline]
+    fn syntax(&self) -> &SyntaxNode {
+        &self.syntax
+    }
+}
+impl AstNode for TrimExprFrom {
+    #[inline]
+    fn can_cast(kind: SyntaxKind) -> bool {
+        kind == SyntaxKind::TRIM_EXPR_FROM
+    }
+    #[inline]
+    fn cast(syntax: SyntaxNode) -> Option<Self> {
+        if Self::can_cast(syntax.kind()) {
+            Some(Self { syntax })
+        } else {
+            None
+        }
+    }
+    #[inline]
+    fn syntax(&self) -> &SyntaxNode {
+        &self.syntax
+    }
+}
+impl AstNode for TrimExprs {
+    #[inline]
+    fn can_cast(kind: SyntaxKind) -> bool {
+        kind == SyntaxKind::TRIM_EXPRS
+    }
+    #[inline]
+    fn cast(syntax: SyntaxNode) -> Option<Self> {
+        if Self::can_cast(syntax.kind()) {
+            Some(Self { syntax })
+        } else {
+            None
+        }
+    }
+    #[inline]
+    fn syntax(&self) -> &SyntaxNode {
+        &self.syntax
+    }
+}
 impl AstNode for TrimFn {
     #[inline]
     fn can_cast(kind: SyntaxKind) -> bool {
         kind == SyntaxKind::TRIM_FN
+    }
+    #[inline]
+    fn cast(syntax: SyntaxNode) -> Option<Self> {
+        if Self::can_cast(syntax.kind()) {
+            Some(Self { syntax })
+        } else {
+            None
+        }
+    }
+    #[inline]
+    fn syntax(&self) -> &SyntaxNode {
+        &self.syntax
+    }
+}
+impl AstNode for TrimFrom {
+    #[inline]
+    fn can_cast(kind: SyntaxKind) -> bool {
+        kind == SyntaxKind::TRIM_FROM
+    }
+    #[inline]
+    fn cast(syntax: SyntaxNode) -> Option<Self> {
+        if Self::can_cast(syntax.kind()) {
+            Some(Self { syntax })
+        } else {
+            None
+        }
+    }
+    #[inline]
+    fn syntax(&self) -> &SyntaxNode {
+        &self.syntax
+    }
+}
+impl AstNode for TrimLeading {
+    #[inline]
+    fn can_cast(kind: SyntaxKind) -> bool {
+        kind == SyntaxKind::TRIM_LEADING
+    }
+    #[inline]
+    fn cast(syntax: SyntaxNode) -> Option<Self> {
+        if Self::can_cast(syntax.kind()) {
+            Some(Self { syntax })
+        } else {
+            None
+        }
+    }
+    #[inline]
+    fn syntax(&self) -> &SyntaxNode {
+        &self.syntax
+    }
+}
+impl AstNode for TrimTrailing {
+    #[inline]
+    fn can_cast(kind: SyntaxKind) -> bool {
+        kind == SyntaxKind::TRIM_TRAILING
     }
     #[inline]
     fn cast(syntax: SyntaxNode) -> Option<Self> {
@@ -47404,6 +52182,24 @@ impl AstNode for UnicodeNormalForm {
         &self.syntax
     }
 }
+impl AstNode for Union {
+    #[inline]
+    fn can_cast(kind: SyntaxKind) -> bool {
+        kind == SyntaxKind::UNION
+    }
+    #[inline]
+    fn cast(syntax: SyntaxNode) -> Option<Self> {
+        if Self::can_cast(syntax.kind()) {
+            Some(Self { syntax })
+        } else {
+            None
+        }
+    }
+    #[inline]
+    fn syntax(&self) -> &SyntaxNode {
+        &self.syntax
+    }
+}
 impl AstNode for UniqueConstraint {
     #[inline]
     fn can_cast(kind: SyntaxKind) -> bool {
@@ -47476,6 +52272,42 @@ impl AstNode for Update {
         &self.syntax
     }
 }
+impl AstNode for UpdateTo {
+    #[inline]
+    fn can_cast(kind: SyntaxKind) -> bool {
+        kind == SyntaxKind::UPDATE_TO
+    }
+    #[inline]
+    fn cast(syntax: SyntaxNode) -> Option<Self> {
+        if Self::can_cast(syntax.kind()) {
+            Some(Self { syntax })
+        } else {
+            None
+        }
+    }
+    #[inline]
+    fn syntax(&self) -> &SyntaxNode {
+        &self.syntax
+    }
+}
+impl AstNode for User {
+    #[inline]
+    fn can_cast(kind: SyntaxKind) -> bool {
+        kind == SyntaxKind::USER
+    }
+    #[inline]
+    fn cast(syntax: SyntaxNode) -> Option<Self> {
+        if Self::can_cast(syntax.kind()) {
+            Some(Self { syntax })
+        } else {
+            None
+        }
+    }
+    #[inline]
+    fn syntax(&self) -> &SyntaxNode {
+        &self.syntax
+    }
+}
 impl AstNode for UsingClause {
     #[inline]
     fn can_cast(kind: SyntaxKind) -> bool {
@@ -47516,6 +52348,24 @@ impl AstNode for UsingIndex {
     #[inline]
     fn can_cast(kind: SyntaxKind) -> bool {
         kind == SyntaxKind::USING_INDEX
+    }
+    #[inline]
+    fn cast(syntax: SyntaxNode) -> Option<Self> {
+        if Self::can_cast(syntax.kind()) {
+            Some(Self { syntax })
+        } else {
+            None
+        }
+    }
+    #[inline]
+    fn syntax(&self) -> &SyntaxNode {
+        &self.syntax
+    }
+}
+impl AstNode for UsingIndexName {
+    #[inline]
+    fn can_cast(kind: SyntaxKind) -> bool {
+        kind == SyntaxKind::USING_INDEX_NAME
     }
     #[inline]
     fn cast(syntax: SyntaxNode) -> Option<Self> {
@@ -47678,6 +52528,24 @@ impl AstNode for ValidateConstraint {
     #[inline]
     fn can_cast(kind: SyntaxKind) -> bool {
         kind == SyntaxKind::VALIDATE_CONSTRAINT
+    }
+    #[inline]
+    fn cast(syntax: SyntaxNode) -> Option<Self> {
+        if Self::can_cast(syntax.kind()) {
+            Some(Self { syntax })
+        } else {
+            None
+        }
+    }
+    #[inline]
+    fn syntax(&self) -> &SyntaxNode {
+        &self.syntax
+    }
+}
+impl AstNode for ValidatorClause {
+    #[inline]
+    fn can_cast(kind: SyntaxKind) -> bool {
+        kind == SyntaxKind::VALIDATOR_CLAUSE
     }
     #[inline]
     fn cast(syntax: SyntaxNode) -> Option<Self> {
@@ -47872,10 +52740,28 @@ impl AstNode for ViewRenameTo {
         &self.syntax
     }
 }
-impl AstNode for VolatilityFuncOption {
+impl AstNode for Virtual {
     #[inline]
     fn can_cast(kind: SyntaxKind) -> bool {
-        kind == SyntaxKind::VOLATILITY_FUNC_OPTION
+        kind == SyntaxKind::VIRTUAL
+    }
+    #[inline]
+    fn cast(syntax: SyntaxNode) -> Option<Self> {
+        if Self::can_cast(syntax.kind()) {
+            Some(Self { syntax })
+        } else {
+            None
+        }
+    }
+    #[inline]
+    fn syntax(&self) -> &SyntaxNode {
+        &self.syntax
+    }
+}
+impl AstNode for Volatile {
+    #[inline]
+    fn can_cast(kind: SyntaxKind) -> bool {
+        kind == SyntaxKind::VOLATILE
     }
     #[inline]
     fn cast(syntax: SyntaxNode) -> Option<Self> {
@@ -48124,6 +53010,24 @@ impl AstNode for WithCheckExprClause {
         &self.syntax
     }
 }
+impl AstNode for WithCheckOption {
+    #[inline]
+    fn can_cast(kind: SyntaxKind) -> bool {
+        kind == SyntaxKind::WITH_CHECK_OPTION
+    }
+    #[inline]
+    fn cast(syntax: SyntaxNode) -> Option<Self> {
+        if Self::can_cast(syntax.kind()) {
+            Some(Self { syntax })
+        } else {
+            None
+        }
+    }
+    #[inline]
+    fn syntax(&self) -> &SyntaxNode {
+        &self.syntax
+    }
+}
 impl AstNode for WithClause {
     #[inline]
     fn can_cast(kind: SyntaxKind) -> bool {
@@ -48164,6 +53068,24 @@ impl AstNode for WithFunction {
     #[inline]
     fn can_cast(kind: SyntaxKind) -> bool {
         kind == SyntaxKind::WITH_FUNCTION
+    }
+    #[inline]
+    fn cast(syntax: SyntaxNode) -> Option<Self> {
+        if Self::can_cast(syntax.kind()) {
+            Some(Self { syntax })
+        } else {
+            None
+        }
+    }
+    #[inline]
+    fn syntax(&self) -> &SyntaxNode {
+        &self.syntax
+    }
+}
+impl AstNode for WithHold {
+    #[inline]
+    fn can_cast(kind: SyntaxKind) -> bool {
+        kind == SyntaxKind::WITH_HOLD
     }
     #[inline]
     fn cast(syntax: SyntaxNode) -> Option<Self> {
@@ -48232,6 +53154,24 @@ impl AstNode for WithOptions {
         &self.syntax
     }
 }
+impl AstNode for WithOrdinality {
+    #[inline]
+    fn can_cast(kind: SyntaxKind) -> bool {
+        kind == SyntaxKind::WITH_ORDINALITY
+    }
+    #[inline]
+    fn cast(syntax: SyntaxNode) -> Option<Self> {
+        if Self::can_cast(syntax.kind()) {
+            Some(Self { syntax })
+        } else {
+            None
+        }
+    }
+    #[inline]
+    fn syntax(&self) -> &SyntaxNode {
+        &self.syntax
+    }
+}
 impl AstNode for WithParams {
     #[inline]
     fn can_cast(kind: SyntaxKind) -> bool {
@@ -48254,6 +53194,24 @@ impl AstNode for WithTable {
     #[inline]
     fn can_cast(kind: SyntaxKind) -> bool {
         kind == SyntaxKind::WITH_TABLE
+    }
+    #[inline]
+    fn cast(syntax: SyntaxNode) -> Option<Self> {
+        if Self::can_cast(syntax.kind()) {
+            Some(Self { syntax })
+        } else {
+            None
+        }
+    }
+    #[inline]
+    fn syntax(&self) -> &SyntaxNode {
+        &self.syntax
+    }
+}
+impl AstNode for WithTies {
+    #[inline]
+    fn can_cast(kind: SyntaxKind) -> bool {
+        kind == SyntaxKind::WITH_TIES
     }
     #[inline]
     fn cast(syntax: SyntaxNode) -> Option<Self> {
@@ -48308,6 +53266,24 @@ impl AstNode for WithoutFunction {
     #[inline]
     fn can_cast(kind: SyntaxKind) -> bool {
         kind == SyntaxKind::WITHOUT_FUNCTION
+    }
+    #[inline]
+    fn cast(syntax: SyntaxNode) -> Option<Self> {
+        if Self::can_cast(syntax.kind()) {
+            Some(Self { syntax })
+        } else {
+            None
+        }
+    }
+    #[inline]
+    fn syntax(&self) -> &SyntaxNode {
+        &self.syntax
+    }
+}
+impl AstNode for WithoutHold {
+    #[inline]
+    fn can_cast(kind: SyntaxKind) -> bool {
+        kind == SyntaxKind::WITHOUT_HOLD
     }
     #[inline]
     fn cast(syntax: SyntaxNode) -> Option<Self> {
@@ -48398,6 +53374,42 @@ impl AstNode for XmlColumnOptionList {
     #[inline]
     fn can_cast(kind: SyntaxKind) -> bool {
         kind == SyntaxKind::XML_COLUMN_OPTION_LIST
+    }
+    #[inline]
+    fn cast(syntax: SyntaxNode) -> Option<Self> {
+        if Self::can_cast(syntax.kind()) {
+            Some(Self { syntax })
+        } else {
+            None
+        }
+    }
+    #[inline]
+    fn syntax(&self) -> &SyntaxNode {
+        &self.syntax
+    }
+}
+impl AstNode for XmlContent {
+    #[inline]
+    fn can_cast(kind: SyntaxKind) -> bool {
+        kind == SyntaxKind::XML_CONTENT
+    }
+    #[inline]
+    fn cast(syntax: SyntaxNode) -> Option<Self> {
+        if Self::can_cast(syntax.kind()) {
+            Some(Self { syntax })
+        } else {
+            None
+        }
+    }
+    #[inline]
+    fn syntax(&self) -> &SyntaxNode {
+        &self.syntax
+    }
+}
+impl AstNode for XmlDocument {
+    #[inline]
+    fn can_cast(kind: SyntaxKind) -> bool {
+        kind == SyntaxKind::XML_DOCUMENT
     }
     #[inline]
     fn cast(syntax: SyntaxNode) -> Option<Self> {
@@ -48524,6 +53536,24 @@ impl AstNode for XmlParseFn {
     #[inline]
     fn can_cast(kind: SyntaxKind) -> bool {
         kind == SyntaxKind::XML_PARSE_FN
+    }
+    #[inline]
+    fn cast(syntax: SyntaxNode) -> Option<Self> {
+        if Self::can_cast(syntax.kind()) {
+            Some(Self { syntax })
+        } else {
+            None
+        }
+    }
+    #[inline]
+    fn syntax(&self) -> &SyntaxNode {
+        &self.syntax
+    }
+}
+impl AstNode for XmlPassingDoc {
+    #[inline]
+    fn can_cast(kind: SyntaxKind) -> bool {
+        kind == SyntaxKind::XML_PASSING_DOC
     }
     #[inline]
     fn cast(syntax: SyntaxNode) -> Option<Self> {
@@ -48736,6 +53766,85 @@ impl AstNode for XmlTableFromItem {
         &self.syntax
     }
 }
+impl AstNode for XmlVersionExpr {
+    #[inline]
+    fn can_cast(kind: SyntaxKind) -> bool {
+        kind == SyntaxKind::XML_VERSION_EXPR
+    }
+    #[inline]
+    fn cast(syntax: SyntaxNode) -> Option<Self> {
+        if Self::can_cast(syntax.kind()) {
+            Some(Self { syntax })
+        } else {
+            None
+        }
+    }
+    #[inline]
+    fn syntax(&self) -> &SyntaxNode {
+        &self.syntax
+    }
+}
+impl AstNode for XmlVersionNoValue {
+    #[inline]
+    fn can_cast(kind: SyntaxKind) -> bool {
+        kind == SyntaxKind::XML_VERSION_NO_VALUE
+    }
+    #[inline]
+    fn cast(syntax: SyntaxNode) -> Option<Self> {
+        if Self::can_cast(syntax.kind()) {
+            Some(Self { syntax })
+        } else {
+            None
+        }
+    }
+    #[inline]
+    fn syntax(&self) -> &SyntaxNode {
+        &self.syntax
+    }
+}
+impl AstNode for AccessMethodType {
+    #[inline]
+    fn can_cast(kind: SyntaxKind) -> bool {
+        matches!(
+            kind,
+            SyntaxKind::ACCESS_METHOD_TYPE_INDEX | SyntaxKind::ACCESS_METHOD_TYPE_TABLE
+        )
+    }
+    #[inline]
+    fn cast(syntax: SyntaxNode) -> Option<Self> {
+        let res = match syntax.kind() {
+            SyntaxKind::ACCESS_METHOD_TYPE_INDEX => {
+                AccessMethodType::AccessMethodTypeIndex(AccessMethodTypeIndex { syntax })
+            }
+            SyntaxKind::ACCESS_METHOD_TYPE_TABLE => {
+                AccessMethodType::AccessMethodTypeTable(AccessMethodTypeTable { syntax })
+            }
+            _ => {
+                return None;
+            }
+        };
+        Some(res)
+    }
+    #[inline]
+    fn syntax(&self) -> &SyntaxNode {
+        match self {
+            AccessMethodType::AccessMethodTypeIndex(it) => &it.syntax,
+            AccessMethodType::AccessMethodTypeTable(it) => &it.syntax,
+        }
+    }
+}
+impl From<AccessMethodTypeIndex> for AccessMethodType {
+    #[inline]
+    fn from(node: AccessMethodTypeIndex) -> AccessMethodType {
+        AccessMethodType::AccessMethodTypeIndex(node)
+    }
+}
+impl From<AccessMethodTypeTable> for AccessMethodType {
+    #[inline]
+    fn from(node: AccessMethodTypeTable) -> AccessMethodType {
+        AccessMethodType::AccessMethodTypeTable(node)
+    }
+}
 impl AstNode for Accessor {
     #[inline]
     fn can_cast(kind: SyntaxKind) -> bool {
@@ -48781,6 +53890,85 @@ impl From<SliceAccessor> for Accessor {
     #[inline]
     fn from(node: SliceAccessor) -> Accessor {
         Accessor::SliceAccessor(node)
+    }
+}
+impl AstNode for AllOrDistinct {
+    #[inline]
+    fn can_cast(kind: SyntaxKind) -> bool {
+        matches!(kind, SyntaxKind::ALL | SyntaxKind::DISTINCT)
+    }
+    #[inline]
+    fn cast(syntax: SyntaxNode) -> Option<Self> {
+        let res = match syntax.kind() {
+            SyntaxKind::ALL => AllOrDistinct::All(All { syntax }),
+            SyntaxKind::DISTINCT => AllOrDistinct::Distinct(Distinct { syntax }),
+            _ => {
+                return None;
+            }
+        };
+        Some(res)
+    }
+    #[inline]
+    fn syntax(&self) -> &SyntaxNode {
+        match self {
+            AllOrDistinct::All(it) => &it.syntax,
+            AllOrDistinct::Distinct(it) => &it.syntax,
+        }
+    }
+}
+impl From<All> for AllOrDistinct {
+    #[inline]
+    fn from(node: All) -> AllOrDistinct {
+        AllOrDistinct::All(node)
+    }
+}
+impl From<Distinct> for AllOrDistinct {
+    #[inline]
+    fn from(node: Distinct) -> AllOrDistinct {
+        AllOrDistinct::Distinct(node)
+    }
+}
+impl AstNode for AllPublicationObject {
+    #[inline]
+    fn can_cast(kind: SyntaxKind) -> bool {
+        matches!(
+            kind,
+            SyntaxKind::ALL_PUBLICATION_SEQUENCES | SyntaxKind::ALL_PUBLICATION_TABLES
+        )
+    }
+    #[inline]
+    fn cast(syntax: SyntaxNode) -> Option<Self> {
+        let res = match syntax.kind() {
+            SyntaxKind::ALL_PUBLICATION_SEQUENCES => {
+                AllPublicationObject::AllPublicationSequences(AllPublicationSequences { syntax })
+            }
+            SyntaxKind::ALL_PUBLICATION_TABLES => {
+                AllPublicationObject::AllPublicationTables(AllPublicationTables { syntax })
+            }
+            _ => {
+                return None;
+            }
+        };
+        Some(res)
+    }
+    #[inline]
+    fn syntax(&self) -> &SyntaxNode {
+        match self {
+            AllPublicationObject::AllPublicationSequences(it) => &it.syntax,
+            AllPublicationObject::AllPublicationTables(it) => &it.syntax,
+        }
+    }
+}
+impl From<AllPublicationSequences> for AllPublicationObject {
+    #[inline]
+    fn from(node: AllPublicationSequences) -> AllPublicationObject {
+        AllPublicationObject::AllPublicationSequences(node)
+    }
+}
+impl From<AllPublicationTables> for AllPublicationObject {
+    #[inline]
+    fn from(node: AllPublicationTables) -> AllPublicationObject {
+        AllPublicationObject::AllPublicationTables(node)
     }
 }
 impl AstNode for AlterAggregateAction {
@@ -49927,7 +55115,7 @@ impl AstNode for AlterMaterializedViewAction {
                 | SyntaxKind::RENAME_COLUMN
                 | SyntaxKind::SET_SCHEMA
                 | SyntaxKind::VIEW_RENAME_TO
-        )
+        ) || AlterTableAction::can_cast(kind)
     }
     #[inline]
     fn cast(syntax: SyntaxNode) -> Option<Self> {
@@ -50163,6 +55351,61 @@ impl From<SetSchema> for AlterOperatorFamilyAction {
     #[inline]
     fn from(node: SetSchema) -> AlterOperatorFamilyAction {
         AlterOperatorFamilyAction::SetSchema(node)
+    }
+}
+impl AstNode for AlterOption {
+    #[inline]
+    fn can_cast(kind: SyntaxKind) -> bool {
+        matches!(
+            kind,
+            SyntaxKind::ADD_FOREIGN_OPTION
+                | SyntaxKind::DROP_FOREIGN_OPTION
+                | SyntaxKind::SET_FOREIGN_OPTION
+        )
+    }
+    #[inline]
+    fn cast(syntax: SyntaxNode) -> Option<Self> {
+        let res = match syntax.kind() {
+            SyntaxKind::ADD_FOREIGN_OPTION => {
+                AlterOption::AddForeignOption(AddForeignOption { syntax })
+            }
+            SyntaxKind::DROP_FOREIGN_OPTION => {
+                AlterOption::DropForeignOption(DropForeignOption { syntax })
+            }
+            SyntaxKind::SET_FOREIGN_OPTION => {
+                AlterOption::SetForeignOption(SetForeignOption { syntax })
+            }
+            _ => {
+                return None;
+            }
+        };
+        Some(res)
+    }
+    #[inline]
+    fn syntax(&self) -> &SyntaxNode {
+        match self {
+            AlterOption::AddForeignOption(it) => &it.syntax,
+            AlterOption::DropForeignOption(it) => &it.syntax,
+            AlterOption::SetForeignOption(it) => &it.syntax,
+        }
+    }
+}
+impl From<AddForeignOption> for AlterOption {
+    #[inline]
+    fn from(node: AddForeignOption) -> AlterOption {
+        AlterOption::AddForeignOption(node)
+    }
+}
+impl From<DropForeignOption> for AlterOption {
+    #[inline]
+    fn from(node: DropForeignOption) -> AlterOption {
+        AlterOption::DropForeignOption(node)
+    }
+}
+impl From<SetForeignOption> for AlterOption {
+    #[inline]
+    fn from(node: SetForeignOption) -> AlterOption {
+        AlterOption::SetForeignOption(node)
     }
 }
 impl AstNode for AlterPolicyAction {
@@ -50433,7 +55676,7 @@ impl AstNode for AlterPublicationAction {
                 | SyntaxKind::DROP_PUBLICATION_OBJECTS
                 | SyntaxKind::OWNER_TO
                 | SyntaxKind::PUBLICATION_RENAME_TO
-                | SyntaxKind::SET_ALL_PUBLICATION_OBJECTS
+                | SyntaxKind::SET_ALL_PUBLICATION_OBJECT_LIST
                 | SyntaxKind::SET_OPTIONS
                 | SyntaxKind::SET_PUBLICATION_OBJECTS
         )
@@ -50451,8 +55694,8 @@ impl AstNode for AlterPublicationAction {
             SyntaxKind::PUBLICATION_RENAME_TO => {
                 AlterPublicationAction::PublicationRenameTo(PublicationRenameTo { syntax })
             }
-            SyntaxKind::SET_ALL_PUBLICATION_OBJECTS => {
-                AlterPublicationAction::SetAllPublicationObjects(SetAllPublicationObjects {
+            SyntaxKind::SET_ALL_PUBLICATION_OBJECT_LIST => {
+                AlterPublicationAction::SetAllPublicationObjectList(SetAllPublicationObjectList {
                     syntax,
                 })
             }
@@ -50473,7 +55716,7 @@ impl AstNode for AlterPublicationAction {
             AlterPublicationAction::DropPublicationObjects(it) => &it.syntax,
             AlterPublicationAction::OwnerTo(it) => &it.syntax,
             AlterPublicationAction::PublicationRenameTo(it) => &it.syntax,
-            AlterPublicationAction::SetAllPublicationObjects(it) => &it.syntax,
+            AlterPublicationAction::SetAllPublicationObjectList(it) => &it.syntax,
             AlterPublicationAction::SetOptions(it) => &it.syntax,
             AlterPublicationAction::SetPublicationObjects(it) => &it.syntax,
         }
@@ -50503,10 +55746,10 @@ impl From<PublicationRenameTo> for AlterPublicationAction {
         AlterPublicationAction::PublicationRenameTo(node)
     }
 }
-impl From<SetAllPublicationObjects> for AlterPublicationAction {
+impl From<SetAllPublicationObjectList> for AlterPublicationAction {
     #[inline]
-    fn from(node: SetAllPublicationObjects) -> AlterPublicationAction {
-        AlterPublicationAction::SetAllPublicationObjects(node)
+    fn from(node: SetAllPublicationObjectList) -> AlterPublicationAction {
+        AlterPublicationAction::SetAllPublicationObjectList(node)
     }
 }
 impl From<SetOptions> for AlterPublicationAction {
@@ -50717,7 +55960,7 @@ impl AstNode for AlterSequenceAction {
                 | SyntaxKind::SET_LOGGED
                 | SyntaxKind::SET_SCHEMA
                 | SyntaxKind::SET_UNLOGGED
-        )
+        ) || SequenceOption::can_cast(kind)
     }
     #[inline]
     fn cast(syntax: SyntaxNode) -> Option<Self> {
@@ -50788,7 +56031,7 @@ impl AstNode for AlterServerAction {
             SyntaxKind::ALTER_OPTION_LIST
                 | SyntaxKind::OWNER_TO
                 | SyntaxKind::SERVER_RENAME_TO
-                | SyntaxKind::SET_VERSION
+                | SyntaxKind::SERVER_VERSION
         )
     }
     #[inline]
@@ -50801,7 +56044,9 @@ impl AstNode for AlterServerAction {
             SyntaxKind::SERVER_RENAME_TO => {
                 AlterServerAction::ServerRenameTo(ServerRenameTo { syntax })
             }
-            SyntaxKind::SET_VERSION => AlterServerAction::SetVersion(SetVersion { syntax }),
+            SyntaxKind::SERVER_VERSION => {
+                AlterServerAction::ServerVersion(ServerVersion { syntax })
+            }
             _ => {
                 return None;
             }
@@ -50814,7 +56059,7 @@ impl AstNode for AlterServerAction {
             AlterServerAction::AlterOptionList(it) => &it.syntax,
             AlterServerAction::OwnerTo(it) => &it.syntax,
             AlterServerAction::ServerRenameTo(it) => &it.syntax,
-            AlterServerAction::SetVersion(it) => &it.syntax,
+            AlterServerAction::ServerVersion(it) => &it.syntax,
         }
     }
 }
@@ -50836,10 +56081,10 @@ impl From<ServerRenameTo> for AlterServerAction {
         AlterServerAction::ServerRenameTo(node)
     }
 }
-impl From<SetVersion> for AlterServerAction {
+impl From<ServerVersion> for AlterServerAction {
     #[inline]
-    fn from(node: SetVersion) -> AlterServerAction {
-        AlterServerAction::SetVersion(node)
+    fn from(node: ServerVersion) -> AlterServerAction {
+        AlterServerAction::ServerVersion(node)
     }
 }
 impl AstNode for AlterStatisticsAction {
@@ -50910,15 +56155,15 @@ impl AstNode for AlterSubscriptionAction {
         matches!(
             kind,
             SyntaxKind::ADD_PUBLICATION
+                | SyntaxKind::CONNECTION_CLAUSE
                 | SyntaxKind::DISABLE_SUBSCRIPTION
                 | SyntaxKind::DROP_SUBSCRIPTION_PUBLICATION
                 | SyntaxKind::ENABLE_SUBSCRIPTION
                 | SyntaxKind::OWNER_TO
                 | SyntaxKind::REFRESH_PUBLICATION
-                | SyntaxKind::SET_CONNECTION
+                | SyntaxKind::SERVER_CLAUSE
                 | SyntaxKind::SET_OPTIONS
                 | SyntaxKind::SET_PUBLICATION
-                | SyntaxKind::SET_SERVER
                 | SyntaxKind::SKIP_SUBSCRIPTION
                 | SyntaxKind::SUBSCRIPTION_RENAME_TO
         )
@@ -50928,6 +56173,9 @@ impl AstNode for AlterSubscriptionAction {
         let res = match syntax.kind() {
             SyntaxKind::ADD_PUBLICATION => {
                 AlterSubscriptionAction::AddPublication(AddPublication { syntax })
+            }
+            SyntaxKind::CONNECTION_CLAUSE => {
+                AlterSubscriptionAction::ConnectionClause(ConnectionClause { syntax })
             }
             SyntaxKind::DISABLE_SUBSCRIPTION => {
                 AlterSubscriptionAction::DisableSubscription(DisableSubscription { syntax })
@@ -50944,14 +56192,13 @@ impl AstNode for AlterSubscriptionAction {
             SyntaxKind::REFRESH_PUBLICATION => {
                 AlterSubscriptionAction::RefreshPublication(RefreshPublication { syntax })
             }
-            SyntaxKind::SET_CONNECTION => {
-                AlterSubscriptionAction::SetConnection(SetConnection { syntax })
+            SyntaxKind::SERVER_CLAUSE => {
+                AlterSubscriptionAction::ServerClause(ServerClause { syntax })
             }
             SyntaxKind::SET_OPTIONS => AlterSubscriptionAction::SetOptions(SetOptions { syntax }),
             SyntaxKind::SET_PUBLICATION => {
                 AlterSubscriptionAction::SetPublication(SetPublication { syntax })
             }
-            SyntaxKind::SET_SERVER => AlterSubscriptionAction::SetServer(SetServer { syntax }),
             SyntaxKind::SKIP_SUBSCRIPTION => {
                 AlterSubscriptionAction::SkipSubscription(SkipSubscription { syntax })
             }
@@ -50968,15 +56215,15 @@ impl AstNode for AlterSubscriptionAction {
     fn syntax(&self) -> &SyntaxNode {
         match self {
             AlterSubscriptionAction::AddPublication(it) => &it.syntax,
+            AlterSubscriptionAction::ConnectionClause(it) => &it.syntax,
             AlterSubscriptionAction::DisableSubscription(it) => &it.syntax,
             AlterSubscriptionAction::DropSubscriptionPublication(it) => &it.syntax,
             AlterSubscriptionAction::EnableSubscription(it) => &it.syntax,
             AlterSubscriptionAction::OwnerTo(it) => &it.syntax,
             AlterSubscriptionAction::RefreshPublication(it) => &it.syntax,
-            AlterSubscriptionAction::SetConnection(it) => &it.syntax,
+            AlterSubscriptionAction::ServerClause(it) => &it.syntax,
             AlterSubscriptionAction::SetOptions(it) => &it.syntax,
             AlterSubscriptionAction::SetPublication(it) => &it.syntax,
-            AlterSubscriptionAction::SetServer(it) => &it.syntax,
             AlterSubscriptionAction::SkipSubscription(it) => &it.syntax,
             AlterSubscriptionAction::SubscriptionRenameTo(it) => &it.syntax,
         }
@@ -50986,6 +56233,12 @@ impl From<AddPublication> for AlterSubscriptionAction {
     #[inline]
     fn from(node: AddPublication) -> AlterSubscriptionAction {
         AlterSubscriptionAction::AddPublication(node)
+    }
+}
+impl From<ConnectionClause> for AlterSubscriptionAction {
+    #[inline]
+    fn from(node: ConnectionClause) -> AlterSubscriptionAction {
+        AlterSubscriptionAction::ConnectionClause(node)
     }
 }
 impl From<DisableSubscription> for AlterSubscriptionAction {
@@ -51018,10 +56271,10 @@ impl From<RefreshPublication> for AlterSubscriptionAction {
         AlterSubscriptionAction::RefreshPublication(node)
     }
 }
-impl From<SetConnection> for AlterSubscriptionAction {
+impl From<ServerClause> for AlterSubscriptionAction {
     #[inline]
-    fn from(node: SetConnection) -> AlterSubscriptionAction {
-        AlterSubscriptionAction::SetConnection(node)
+    fn from(node: ServerClause) -> AlterSubscriptionAction {
+        AlterSubscriptionAction::ServerClause(node)
     }
 }
 impl From<SetOptions> for AlterSubscriptionAction {
@@ -51034,12 +56287,6 @@ impl From<SetPublication> for AlterSubscriptionAction {
     #[inline]
     fn from(node: SetPublication) -> AlterSubscriptionAction {
         AlterSubscriptionAction::SetPublication(node)
-    }
-}
-impl From<SetServer> for AlterSubscriptionAction {
-    #[inline]
-    fn from(node: SetServer) -> AlterSubscriptionAction {
-        AlterSubscriptionAction::SetServer(node)
     }
 }
 impl From<SkipSubscription> for AlterSubscriptionAction {
@@ -52209,6 +57456,42 @@ impl From<ViewRenameTo> for AlterViewAction {
         AlterViewAction::ViewRenameTo(node)
     }
 }
+impl AstNode for AlterViewColumnAction {
+    #[inline]
+    fn can_cast(kind: SyntaxKind) -> bool {
+        matches!(kind, SyntaxKind::DROP_DEFAULT | SyntaxKind::SET_DEFAULT)
+    }
+    #[inline]
+    fn cast(syntax: SyntaxNode) -> Option<Self> {
+        let res = match syntax.kind() {
+            SyntaxKind::DROP_DEFAULT => AlterViewColumnAction::DropDefault(DropDefault { syntax }),
+            SyntaxKind::SET_DEFAULT => AlterViewColumnAction::SetDefault(SetDefault { syntax }),
+            _ => {
+                return None;
+            }
+        };
+        Some(res)
+    }
+    #[inline]
+    fn syntax(&self) -> &SyntaxNode {
+        match self {
+            AlterViewColumnAction::DropDefault(it) => &it.syntax,
+            AlterViewColumnAction::SetDefault(it) => &it.syntax,
+        }
+    }
+}
+impl From<DropDefault> for AlterViewColumnAction {
+    #[inline]
+    fn from(node: DropDefault) -> AlterViewColumnAction {
+        AlterViewColumnAction::DropDefault(node)
+    }
+}
+impl From<SetDefault> for AlterViewColumnAction {
+    #[inline]
+    fn from(node: SetDefault) -> AlterViewColumnAction {
+        AlterViewColumnAction::SetDefault(node)
+    }
+}
 impl AstNode for AnyName {
     #[inline]
     fn can_cast(kind: SyntaxKind) -> bool {
@@ -52227,7 +57510,8 @@ impl AstNode for AnyName {
                 | SyntaxKind::COMPOSITE_FIELD_REF
                 | SyntaxKind::CONFIG_VALUE_NAME
                 | SyntaxKind::CONSTRAINT_NAME
-                | SyntaxKind::COPY_OPTION_NAME
+                | SyntaxKind::COPY_OPTION_KEY
+                | SyntaxKind::COPY_OPTION_VALUE_NAME
                 | SyntaxKind::CTE_NAME
                 | SyntaxKind::CURSOR
                 | SyntaxKind::CURSOR_REF
@@ -52241,6 +57525,7 @@ impl AstNode for AnyName {
                 | SyntaxKind::EXPLAIN_OPTION_NAME
                 | SyntaxKind::EXTENSION
                 | SyntaxKind::EXTENSION_REF
+                | SyntaxKind::EXTENSION_VERSION
                 | SyntaxKind::FOREIGN_DATA_WRAPPER
                 | SyntaxKind::FOREIGN_DATA_WRAPPER_REF
                 | SyntaxKind::FOREIGN_OPTION_NAME
@@ -52253,6 +57538,8 @@ impl AstNode for AnyName {
                 | SyntaxKind::LANGUAGE
                 | SyntaxKind::LANGUAGE_REF
                 | SyntaxKind::NAME_REF
+                | SyntaxKind::OPTION_ITEM_KEY
+                | SyntaxKind::OPTION_ITEM_VALUE_NAME
                 | SyntaxKind::PARAM_NAME
                 | SyntaxKind::PARAM_NAME_REF
                 | SyntaxKind::PATH_SEGMENT
@@ -52316,7 +57603,10 @@ impl AstNode for AnyName {
             }
             SyntaxKind::CONFIG_VALUE_NAME => AnyName::ConfigValueName(ConfigValueName { syntax }),
             SyntaxKind::CONSTRAINT_NAME => AnyName::ConstraintName(ConstraintName { syntax }),
-            SyntaxKind::COPY_OPTION_NAME => AnyName::CopyOptionName(CopyOptionName { syntax }),
+            SyntaxKind::COPY_OPTION_KEY => AnyName::CopyOptionKey(CopyOptionKey { syntax }),
+            SyntaxKind::COPY_OPTION_VALUE_NAME => {
+                AnyName::CopyOptionValueName(CopyOptionValueName { syntax })
+            }
             SyntaxKind::CTE_NAME => AnyName::CteName(CteName { syntax }),
             SyntaxKind::CURSOR => AnyName::Cursor(Cursor { syntax }),
             SyntaxKind::CURSOR_REF => AnyName::CursorRef(CursorRef { syntax }),
@@ -52334,6 +57624,7 @@ impl AstNode for AnyName {
             }
             SyntaxKind::EXTENSION => AnyName::Extension(Extension { syntax }),
             SyntaxKind::EXTENSION_REF => AnyName::ExtensionRef(ExtensionRef { syntax }),
+            SyntaxKind::EXTENSION_VERSION => AnyName::ExtensionVersion(ExtensionVersion { syntax }),
             SyntaxKind::FOREIGN_DATA_WRAPPER => {
                 AnyName::ForeignDataWrapper(ForeignDataWrapper { syntax })
             }
@@ -52356,6 +57647,10 @@ impl AstNode for AnyName {
             SyntaxKind::LANGUAGE => AnyName::Language(Language { syntax }),
             SyntaxKind::LANGUAGE_REF => AnyName::LanguageRef(LanguageRef { syntax }),
             SyntaxKind::NAME_REF => AnyName::NameRef(NameRef { syntax }),
+            SyntaxKind::OPTION_ITEM_KEY => AnyName::OptionItemKey(OptionItemKey { syntax }),
+            SyntaxKind::OPTION_ITEM_VALUE_NAME => {
+                AnyName::OptionItemValueName(OptionItemValueName { syntax })
+            }
             SyntaxKind::PARAM_NAME => AnyName::ParamName(ParamName { syntax }),
             SyntaxKind::PARAM_NAME_REF => AnyName::ParamNameRef(ParamNameRef { syntax }),
             SyntaxKind::PATH_SEGMENT => AnyName::PathSegment(PathSegment { syntax }),
@@ -52431,7 +57726,8 @@ impl AstNode for AnyName {
             AnyName::CompositeFieldRef(it) => &it.syntax,
             AnyName::ConfigValueName(it) => &it.syntax,
             AnyName::ConstraintName(it) => &it.syntax,
-            AnyName::CopyOptionName(it) => &it.syntax,
+            AnyName::CopyOptionKey(it) => &it.syntax,
+            AnyName::CopyOptionValueName(it) => &it.syntax,
             AnyName::CteName(it) => &it.syntax,
             AnyName::Cursor(it) => &it.syntax,
             AnyName::CursorRef(it) => &it.syntax,
@@ -52445,6 +57741,7 @@ impl AstNode for AnyName {
             AnyName::ExplainOptionName(it) => &it.syntax,
             AnyName::Extension(it) => &it.syntax,
             AnyName::ExtensionRef(it) => &it.syntax,
+            AnyName::ExtensionVersion(it) => &it.syntax,
             AnyName::ForeignDataWrapper(it) => &it.syntax,
             AnyName::ForeignDataWrapperRef(it) => &it.syntax,
             AnyName::ForeignOptionName(it) => &it.syntax,
@@ -52457,6 +57754,8 @@ impl AstNode for AnyName {
             AnyName::Language(it) => &it.syntax,
             AnyName::LanguageRef(it) => &it.syntax,
             AnyName::NameRef(it) => &it.syntax,
+            AnyName::OptionItemKey(it) => &it.syntax,
+            AnyName::OptionItemValueName(it) => &it.syntax,
             AnyName::ParamName(it) => &it.syntax,
             AnyName::ParamNameRef(it) => &it.syntax,
             AnyName::PathSegment(it) => &it.syntax,
@@ -52577,10 +57876,16 @@ impl From<ConstraintName> for AnyName {
         AnyName::ConstraintName(node)
     }
 }
-impl From<CopyOptionName> for AnyName {
+impl From<CopyOptionKey> for AnyName {
     #[inline]
-    fn from(node: CopyOptionName) -> AnyName {
-        AnyName::CopyOptionName(node)
+    fn from(node: CopyOptionKey) -> AnyName {
+        AnyName::CopyOptionKey(node)
+    }
+}
+impl From<CopyOptionValueName> for AnyName {
+    #[inline]
+    fn from(node: CopyOptionValueName) -> AnyName {
+        AnyName::CopyOptionValueName(node)
     }
 }
 impl From<CteName> for AnyName {
@@ -52661,6 +57966,12 @@ impl From<ExtensionRef> for AnyName {
         AnyName::ExtensionRef(node)
     }
 }
+impl From<ExtensionVersion> for AnyName {
+    #[inline]
+    fn from(node: ExtensionVersion) -> AnyName {
+        AnyName::ExtensionVersion(node)
+    }
+}
 impl From<ForeignDataWrapper> for AnyName {
     #[inline]
     fn from(node: ForeignDataWrapper) -> AnyName {
@@ -52731,6 +58042,18 @@ impl From<NameRef> for AnyName {
     #[inline]
     fn from(node: NameRef) -> AnyName {
         AnyName::NameRef(node)
+    }
+}
+impl From<OptionItemKey> for AnyName {
+    #[inline]
+    fn from(node: OptionItemKey) -> AnyName {
+        AnyName::OptionItemKey(node)
+    }
+}
+impl From<OptionItemValueName> for AnyName {
+    #[inline]
+    fn from(node: OptionItemValueName) -> AnyName {
+        AnyName::OptionItemValueName(node)
     }
 }
 impl From<ParamName> for AnyName {
@@ -53297,10 +58620,46 @@ impl From<WindowRef> for AnyNameRef {
         AnyNameRef::WindowRef(node)
     }
 }
+impl AstNode for AsFuncTarget {
+    #[inline]
+    fn can_cast(kind: SyntaxKind) -> bool {
+        matches!(kind, SyntaxKind::AS_DEFINITION | SyntaxKind::AS_OBJ_FILE)
+    }
+    #[inline]
+    fn cast(syntax: SyntaxNode) -> Option<Self> {
+        let res = match syntax.kind() {
+            SyntaxKind::AS_DEFINITION => AsFuncTarget::AsDefinition(AsDefinition { syntax }),
+            SyntaxKind::AS_OBJ_FILE => AsFuncTarget::AsObjFile(AsObjFile { syntax }),
+            _ => {
+                return None;
+            }
+        };
+        Some(res)
+    }
+    #[inline]
+    fn syntax(&self) -> &SyntaxNode {
+        match self {
+            AsFuncTarget::AsDefinition(it) => &it.syntax,
+            AsFuncTarget::AsObjFile(it) => &it.syntax,
+        }
+    }
+}
+impl From<AsDefinition> for AsFuncTarget {
+    #[inline]
+    fn from(node: AsDefinition) -> AsFuncTarget {
+        AsFuncTarget::AsDefinition(node)
+    }
+}
+impl From<AsObjFile> for AsFuncTarget {
+    #[inline]
+    fn from(node: AsObjFile) -> AsFuncTarget {
+        AsFuncTarget::AsObjFile(node)
+    }
+}
 impl AstNode for BeginFuncOption {
     #[inline]
     fn can_cast(kind: SyntaxKind) -> bool {
-        matches!(kind, SyntaxKind::RETURN_FUNC_OPTION)
+        matches!(kind, SyntaxKind::RETURN_FUNC_OPTION) || Stmt::can_cast(kind)
     }
     #[inline]
     fn cast(syntax: SyntaxNode) -> Option<Self> {
@@ -53329,6 +58688,204 @@ impl From<ReturnFuncOption> for BeginFuncOption {
     #[inline]
     fn from(node: ReturnFuncOption) -> BeginFuncOption {
         BeginFuncOption::ReturnFuncOption(node)
+    }
+}
+impl AstNode for BetweenSymmetry {
+    #[inline]
+    fn can_cast(kind: SyntaxKind) -> bool {
+        matches!(kind, SyntaxKind::ASYMMETRIC | SyntaxKind::SYMMETRIC)
+    }
+    #[inline]
+    fn cast(syntax: SyntaxNode) -> Option<Self> {
+        let res = match syntax.kind() {
+            SyntaxKind::ASYMMETRIC => BetweenSymmetry::Asymmetric(Asymmetric { syntax }),
+            SyntaxKind::SYMMETRIC => BetweenSymmetry::Symmetric(Symmetric { syntax }),
+            _ => {
+                return None;
+            }
+        };
+        Some(res)
+    }
+    #[inline]
+    fn syntax(&self) -> &SyntaxNode {
+        match self {
+            BetweenSymmetry::Asymmetric(it) => &it.syntax,
+            BetweenSymmetry::Symmetric(it) => &it.syntax,
+        }
+    }
+}
+impl From<Asymmetric> for BetweenSymmetry {
+    #[inline]
+    fn from(node: Asymmetric) -> BetweenSymmetry {
+        BetweenSymmetry::Asymmetric(node)
+    }
+}
+impl From<Symmetric> for BetweenSymmetry {
+    #[inline]
+    fn from(node: Symmetric) -> BetweenSymmetry {
+        BetweenSymmetry::Symmetric(node)
+    }
+}
+impl AstNode for CastContext {
+    #[inline]
+    fn can_cast(kind: SyntaxKind) -> bool {
+        matches!(kind, SyntaxKind::AS_ASSIGNMENT | SyntaxKind::AS_IMPLICIT)
+    }
+    #[inline]
+    fn cast(syntax: SyntaxNode) -> Option<Self> {
+        let res = match syntax.kind() {
+            SyntaxKind::AS_ASSIGNMENT => CastContext::AsAssignment(AsAssignment { syntax }),
+            SyntaxKind::AS_IMPLICIT => CastContext::AsImplicit(AsImplicit { syntax }),
+            _ => {
+                return None;
+            }
+        };
+        Some(res)
+    }
+    #[inline]
+    fn syntax(&self) -> &SyntaxNode {
+        match self {
+            CastContext::AsAssignment(it) => &it.syntax,
+            CastContext::AsImplicit(it) => &it.syntax,
+        }
+    }
+}
+impl From<AsAssignment> for CastContext {
+    #[inline]
+    fn from(node: AsAssignment) -> CastContext {
+        CastContext::AsAssignment(node)
+    }
+}
+impl From<AsImplicit> for CastContext {
+    #[inline]
+    fn from(node: AsImplicit) -> CastContext {
+        CastContext::AsImplicit(node)
+    }
+}
+impl AstNode for CastMethod {
+    #[inline]
+    fn can_cast(kind: SyntaxKind) -> bool {
+        matches!(
+            kind,
+            SyntaxKind::WITH_FUNCTION | SyntaxKind::WITH_INOUT | SyntaxKind::WITHOUT_FUNCTION
+        )
+    }
+    #[inline]
+    fn cast(syntax: SyntaxNode) -> Option<Self> {
+        let res = match syntax.kind() {
+            SyntaxKind::WITH_FUNCTION => CastMethod::WithFunction(WithFunction { syntax }),
+            SyntaxKind::WITH_INOUT => CastMethod::WithInout(WithInout { syntax }),
+            SyntaxKind::WITHOUT_FUNCTION => CastMethod::WithoutFunction(WithoutFunction { syntax }),
+            _ => {
+                return None;
+            }
+        };
+        Some(res)
+    }
+    #[inline]
+    fn syntax(&self) -> &SyntaxNode {
+        match self {
+            CastMethod::WithFunction(it) => &it.syntax,
+            CastMethod::WithInout(it) => &it.syntax,
+            CastMethod::WithoutFunction(it) => &it.syntax,
+        }
+    }
+}
+impl From<WithFunction> for CastMethod {
+    #[inline]
+    fn from(node: WithFunction) -> CastMethod {
+        CastMethod::WithFunction(node)
+    }
+}
+impl From<WithInout> for CastMethod {
+    #[inline]
+    fn from(node: WithInout) -> CastMethod {
+        CastMethod::WithInout(node)
+    }
+}
+impl From<WithoutFunction> for CastMethod {
+    #[inline]
+    fn from(node: WithoutFunction) -> CastMethod {
+        CastMethod::WithoutFunction(node)
+    }
+}
+impl AstNode for ChainClause {
+    #[inline]
+    fn can_cast(kind: SyntaxKind) -> bool {
+        matches!(kind, SyntaxKind::AND_CHAIN | SyntaxKind::AND_NO_CHAIN)
+    }
+    #[inline]
+    fn cast(syntax: SyntaxNode) -> Option<Self> {
+        let res = match syntax.kind() {
+            SyntaxKind::AND_CHAIN => ChainClause::AndChain(AndChain { syntax }),
+            SyntaxKind::AND_NO_CHAIN => ChainClause::AndNoChain(AndNoChain { syntax }),
+            _ => {
+                return None;
+            }
+        };
+        Some(res)
+    }
+    #[inline]
+    fn syntax(&self) -> &SyntaxNode {
+        match self {
+            ChainClause::AndChain(it) => &it.syntax,
+            ChainClause::AndNoChain(it) => &it.syntax,
+        }
+    }
+}
+impl From<AndChain> for ChainClause {
+    #[inline]
+    fn from(node: AndChain) -> ChainClause {
+        ChainClause::AndChain(node)
+    }
+}
+impl From<AndNoChain> for ChainClause {
+    #[inline]
+    fn from(node: AndNoChain) -> ChainClause {
+        ChainClause::AndNoChain(node)
+    }
+}
+impl AstNode for CheckOptionLevel {
+    #[inline]
+    fn can_cast(kind: SyntaxKind) -> bool {
+        matches!(
+            kind,
+            SyntaxKind::CASCADED_CHECK_OPTION | SyntaxKind::LOCAL_CHECK_OPTION
+        )
+    }
+    #[inline]
+    fn cast(syntax: SyntaxNode) -> Option<Self> {
+        let res = match syntax.kind() {
+            SyntaxKind::CASCADED_CHECK_OPTION => {
+                CheckOptionLevel::CascadedCheckOption(CascadedCheckOption { syntax })
+            }
+            SyntaxKind::LOCAL_CHECK_OPTION => {
+                CheckOptionLevel::LocalCheckOption(LocalCheckOption { syntax })
+            }
+            _ => {
+                return None;
+            }
+        };
+        Some(res)
+    }
+    #[inline]
+    fn syntax(&self) -> &SyntaxNode {
+        match self {
+            CheckOptionLevel::CascadedCheckOption(it) => &it.syntax,
+            CheckOptionLevel::LocalCheckOption(it) => &it.syntax,
+        }
+    }
+}
+impl From<CascadedCheckOption> for CheckOptionLevel {
+    #[inline]
+    fn from(node: CascadedCheckOption) -> CheckOptionLevel {
+        CheckOptionLevel::CascadedCheckOption(node)
+    }
+}
+impl From<LocalCheckOption> for CheckOptionLevel {
+    #[inline]
+    fn from(node: LocalCheckOption) -> CheckOptionLevel {
+        CheckOptionLevel::LocalCheckOption(node)
     }
 }
 impl AstNode for ColumnConstraint {
@@ -53909,6 +59466,91 @@ impl From<ObjectView> for CommentObject {
         CommentObject::ObjectView(node)
     }
 }
+impl AstNode for CompoundOp {
+    #[inline]
+    fn can_cast(kind: SyntaxKind) -> bool {
+        matches!(
+            kind,
+            SyntaxKind::EXCEPT | SyntaxKind::INTERSECT | SyntaxKind::UNION
+        )
+    }
+    #[inline]
+    fn cast(syntax: SyntaxNode) -> Option<Self> {
+        let res = match syntax.kind() {
+            SyntaxKind::EXCEPT => CompoundOp::Except(Except { syntax }),
+            SyntaxKind::INTERSECT => CompoundOp::Intersect(Intersect { syntax }),
+            SyntaxKind::UNION => CompoundOp::Union(Union { syntax }),
+            _ => {
+                return None;
+            }
+        };
+        Some(res)
+    }
+    #[inline]
+    fn syntax(&self) -> &SyntaxNode {
+        match self {
+            CompoundOp::Except(it) => &it.syntax,
+            CompoundOp::Intersect(it) => &it.syntax,
+            CompoundOp::Union(it) => &it.syntax,
+        }
+    }
+}
+impl From<Except> for CompoundOp {
+    #[inline]
+    fn from(node: Except) -> CompoundOp {
+        CompoundOp::Except(node)
+    }
+}
+impl From<Intersect> for CompoundOp {
+    #[inline]
+    fn from(node: Intersect) -> CompoundOp {
+        CompoundOp::Intersect(node)
+    }
+}
+impl From<Union> for CompoundOp {
+    #[inline]
+    fn from(node: Union) -> CompoundOp {
+        CompoundOp::Union(node)
+    }
+}
+impl AstNode for ConfigAssignment {
+    #[inline]
+    fn can_cast(kind: SyntaxKind) -> bool {
+        matches!(kind, SyntaxKind::FROM_CURRENT | SyntaxKind::TO_CONFIG_VALUE)
+    }
+    #[inline]
+    fn cast(syntax: SyntaxNode) -> Option<Self> {
+        let res = match syntax.kind() {
+            SyntaxKind::FROM_CURRENT => ConfigAssignment::FromCurrent(FromCurrent { syntax }),
+            SyntaxKind::TO_CONFIG_VALUE => {
+                ConfigAssignment::ToConfigValue(ToConfigValue { syntax })
+            }
+            _ => {
+                return None;
+            }
+        };
+        Some(res)
+    }
+    #[inline]
+    fn syntax(&self) -> &SyntaxNode {
+        match self {
+            ConfigAssignment::FromCurrent(it) => &it.syntax,
+            ConfigAssignment::ToConfigValue(it) => &it.syntax,
+        }
+    }
+}
+impl From<FromCurrent> for ConfigAssignment {
+    #[inline]
+    fn from(node: FromCurrent) -> ConfigAssignment {
+        ConfigAssignment::FromCurrent(node)
+    }
+}
+impl From<ToConfigValue> for ConfigAssignment {
+    #[inline]
+    fn from(node: ToConfigValue) -> ConfigAssignment {
+        ConfigAssignment::ToConfigValue(node)
+    }
+}
 impl AstNode for ConfigValue {
     #[inline]
     fn can_cast(kind: SyntaxKind) -> bool {
@@ -54052,6 +59694,7 @@ impl AstNode for Constraint {
             kind,
             SyntaxKind::CHECK_CONSTRAINT
                 | SyntaxKind::DEFAULT_CONSTRAINT
+                | SyntaxKind::EXCLUDE_CONSTRAINT
                 | SyntaxKind::FOREIGN_KEY_CONSTRAINT
                 | SyntaxKind::GENERATED_CONSTRAINT
                 | SyntaxKind::NOT_NULL_CONSTRAINT
@@ -54067,6 +59710,9 @@ impl AstNode for Constraint {
             SyntaxKind::CHECK_CONSTRAINT => Constraint::CheckConstraint(CheckConstraint { syntax }),
             SyntaxKind::DEFAULT_CONSTRAINT => {
                 Constraint::DefaultConstraint(DefaultConstraint { syntax })
+            }
+            SyntaxKind::EXCLUDE_CONSTRAINT => {
+                Constraint::ExcludeConstraint(ExcludeConstraint { syntax })
             }
             SyntaxKind::FOREIGN_KEY_CONSTRAINT => {
                 Constraint::ForeignKeyConstraint(ForeignKeyConstraint { syntax })
@@ -54098,6 +59744,7 @@ impl AstNode for Constraint {
         match self {
             Constraint::CheckConstraint(it) => &it.syntax,
             Constraint::DefaultConstraint(it) => &it.syntax,
+            Constraint::ExcludeConstraint(it) => &it.syntax,
             Constraint::ForeignKeyConstraint(it) => &it.syntax,
             Constraint::GeneratedConstraint(it) => &it.syntax,
             Constraint::NotNullConstraint(it) => &it.syntax,
@@ -54118,6 +59765,12 @@ impl From<DefaultConstraint> for Constraint {
     #[inline]
     fn from(node: DefaultConstraint) -> Constraint {
         Constraint::DefaultConstraint(node)
+    }
+}
+impl From<ExcludeConstraint> for Constraint {
+    #[inline]
+    fn from(node: ExcludeConstraint) -> Constraint {
+        Constraint::ExcludeConstraint(node)
     }
 }
 impl From<ForeignKeyConstraint> for Constraint {
@@ -54160,6 +59813,368 @@ impl From<UniqueConstraint> for Constraint {
     #[inline]
     fn from(node: UniqueConstraint) -> Constraint {
         Constraint::UniqueConstraint(node)
+    }
+}
+impl AstNode for ConstraintOption {
+    #[inline]
+    fn can_cast(kind: SyntaxKind) -> bool {
+        matches!(
+            kind,
+            SyntaxKind::DEFERRABLE_CONSTRAINT_OPTION
+                | SyntaxKind::ENFORCED
+                | SyntaxKind::INHERIT
+                | SyntaxKind::INITIALLY_DEFERRED_CONSTRAINT_OPTION
+                | SyntaxKind::INITIALLY_IMMEDIATE_CONSTRAINT_OPTION
+                | SyntaxKind::NO_INHERIT
+                | SyntaxKind::NOT_DEFERRABLE_CONSTRAINT_OPTION
+                | SyntaxKind::NOT_ENFORCED
+                | SyntaxKind::NOT_VALID
+        )
+    }
+    #[inline]
+    fn cast(syntax: SyntaxNode) -> Option<Self> {
+        let res = match syntax.kind() {
+            SyntaxKind::DEFERRABLE_CONSTRAINT_OPTION => {
+                ConstraintOption::DeferrableConstraintOption(DeferrableConstraintOption { syntax })
+            }
+            SyntaxKind::ENFORCED => ConstraintOption::Enforced(Enforced { syntax }),
+            SyntaxKind::INHERIT => ConstraintOption::Inherit(Inherit { syntax }),
+            SyntaxKind::INITIALLY_DEFERRED_CONSTRAINT_OPTION => {
+                ConstraintOption::InitiallyDeferredConstraintOption(
+                    InitiallyDeferredConstraintOption { syntax },
+                )
+            }
+            SyntaxKind::INITIALLY_IMMEDIATE_CONSTRAINT_OPTION => {
+                ConstraintOption::InitiallyImmediateConstraintOption(
+                    InitiallyImmediateConstraintOption { syntax },
+                )
+            }
+            SyntaxKind::NO_INHERIT => ConstraintOption::NoInherit(NoInherit { syntax }),
+            SyntaxKind::NOT_DEFERRABLE_CONSTRAINT_OPTION => {
+                ConstraintOption::NotDeferrableConstraintOption(NotDeferrableConstraintOption {
+                    syntax,
+                })
+            }
+            SyntaxKind::NOT_ENFORCED => ConstraintOption::NotEnforced(NotEnforced { syntax }),
+            SyntaxKind::NOT_VALID => ConstraintOption::NotValid(NotValid { syntax }),
+            _ => {
+                return None;
+            }
+        };
+        Some(res)
+    }
+    #[inline]
+    fn syntax(&self) -> &SyntaxNode {
+        match self {
+            ConstraintOption::DeferrableConstraintOption(it) => &it.syntax,
+            ConstraintOption::Enforced(it) => &it.syntax,
+            ConstraintOption::Inherit(it) => &it.syntax,
+            ConstraintOption::InitiallyDeferredConstraintOption(it) => &it.syntax,
+            ConstraintOption::InitiallyImmediateConstraintOption(it) => &it.syntax,
+            ConstraintOption::NoInherit(it) => &it.syntax,
+            ConstraintOption::NotDeferrableConstraintOption(it) => &it.syntax,
+            ConstraintOption::NotEnforced(it) => &it.syntax,
+            ConstraintOption::NotValid(it) => &it.syntax,
+        }
+    }
+}
+impl From<DeferrableConstraintOption> for ConstraintOption {
+    #[inline]
+    fn from(node: DeferrableConstraintOption) -> ConstraintOption {
+        ConstraintOption::DeferrableConstraintOption(node)
+    }
+}
+impl From<Enforced> for ConstraintOption {
+    #[inline]
+    fn from(node: Enforced) -> ConstraintOption {
+        ConstraintOption::Enforced(node)
+    }
+}
+impl From<Inherit> for ConstraintOption {
+    #[inline]
+    fn from(node: Inherit) -> ConstraintOption {
+        ConstraintOption::Inherit(node)
+    }
+}
+impl From<InitiallyDeferredConstraintOption> for ConstraintOption {
+    #[inline]
+    fn from(node: InitiallyDeferredConstraintOption) -> ConstraintOption {
+        ConstraintOption::InitiallyDeferredConstraintOption(node)
+    }
+}
+impl From<InitiallyImmediateConstraintOption> for ConstraintOption {
+    #[inline]
+    fn from(node: InitiallyImmediateConstraintOption) -> ConstraintOption {
+        ConstraintOption::InitiallyImmediateConstraintOption(node)
+    }
+}
+impl From<NoInherit> for ConstraintOption {
+    #[inline]
+    fn from(node: NoInherit) -> ConstraintOption {
+        ConstraintOption::NoInherit(node)
+    }
+}
+impl From<NotDeferrableConstraintOption> for ConstraintOption {
+    #[inline]
+    fn from(node: NotDeferrableConstraintOption) -> ConstraintOption {
+        ConstraintOption::NotDeferrableConstraintOption(node)
+    }
+}
+impl From<NotEnforced> for ConstraintOption {
+    #[inline]
+    fn from(node: NotEnforced) -> ConstraintOption {
+        ConstraintOption::NotEnforced(node)
+    }
+}
+impl From<NotValid> for ConstraintOption {
+    #[inline]
+    fn from(node: NotValid) -> ConstraintOption {
+        ConstraintOption::NotValid(node)
+    }
+}
+impl AstNode for ConstraintTiming {
+    #[inline]
+    fn can_cast(kind: SyntaxKind) -> bool {
+        matches!(kind, SyntaxKind::DEFERRED | SyntaxKind::IMMEDIATE)
+    }
+    #[inline]
+    fn cast(syntax: SyntaxNode) -> Option<Self> {
+        let res = match syntax.kind() {
+            SyntaxKind::DEFERRED => ConstraintTiming::Deferred(Deferred { syntax }),
+            SyntaxKind::IMMEDIATE => ConstraintTiming::Immediate(Immediate { syntax }),
+            _ => {
+                return None;
+            }
+        };
+        Some(res)
+    }
+    #[inline]
+    fn syntax(&self) -> &SyntaxNode {
+        match self {
+            ConstraintTiming::Deferred(it) => &it.syntax,
+            ConstraintTiming::Immediate(it) => &it.syntax,
+        }
+    }
+}
+impl From<Deferred> for ConstraintTiming {
+    #[inline]
+    fn from(node: Deferred) -> ConstraintTiming {
+        ConstraintTiming::Deferred(node)
+    }
+}
+impl From<Immediate> for ConstraintTiming {
+    #[inline]
+    fn from(node: Immediate) -> ConstraintTiming {
+        ConstraintTiming::Immediate(node)
+    }
+}
+impl AstNode for CopyDirection {
+    #[inline]
+    fn can_cast(kind: SyntaxKind) -> bool {
+        matches!(kind, SyntaxKind::COPY_FROM | SyntaxKind::COPY_TO)
+    }
+    #[inline]
+    fn cast(syntax: SyntaxNode) -> Option<Self> {
+        let res = match syntax.kind() {
+            SyntaxKind::COPY_FROM => CopyDirection::CopyFrom(CopyFrom { syntax }),
+            SyntaxKind::COPY_TO => CopyDirection::CopyTo(CopyTo { syntax }),
+            _ => {
+                return None;
+            }
+        };
+        Some(res)
+    }
+    #[inline]
+    fn syntax(&self) -> &SyntaxNode {
+        match self {
+            CopyDirection::CopyFrom(it) => &it.syntax,
+            CopyDirection::CopyTo(it) => &it.syntax,
+        }
+    }
+}
+impl From<CopyFrom> for CopyDirection {
+    #[inline]
+    fn from(node: CopyFrom) -> CopyDirection {
+        CopyDirection::CopyFrom(node)
+    }
+}
+impl From<CopyTo> for CopyDirection {
+    #[inline]
+    fn from(node: CopyTo) -> CopyDirection {
+        CopyDirection::CopyTo(node)
+    }
+}
+impl AstNode for CopyForceKind {
+    #[inline]
+    fn can_cast(kind: SyntaxKind) -> bool {
+        matches!(
+            kind,
+            SyntaxKind::FORCE_NOT_NULL | SyntaxKind::FORCE_NULL | SyntaxKind::FORCE_QUOTE
+        )
+    }
+    #[inline]
+    fn cast(syntax: SyntaxNode) -> Option<Self> {
+        let res = match syntax.kind() {
+            SyntaxKind::FORCE_NOT_NULL => CopyForceKind::ForceNotNull(ForceNotNull { syntax }),
+            SyntaxKind::FORCE_NULL => CopyForceKind::ForceNull(ForceNull { syntax }),
+            SyntaxKind::FORCE_QUOTE => CopyForceKind::ForceQuote(ForceQuote { syntax }),
+            _ => {
+                return None;
+            }
+        };
+        Some(res)
+    }
+    #[inline]
+    fn syntax(&self) -> &SyntaxNode {
+        match self {
+            CopyForceKind::ForceNotNull(it) => &it.syntax,
+            CopyForceKind::ForceNull(it) => &it.syntax,
+            CopyForceKind::ForceQuote(it) => &it.syntax,
+        }
+    }
+}
+impl From<ForceNotNull> for CopyForceKind {
+    #[inline]
+    fn from(node: ForceNotNull) -> CopyForceKind {
+        CopyForceKind::ForceNotNull(node)
+    }
+}
+impl From<ForceNull> for CopyForceKind {
+    #[inline]
+    fn from(node: ForceNull) -> CopyForceKind {
+        CopyForceKind::ForceNull(node)
+    }
+}
+impl From<ForceQuote> for CopyForceKind {
+    #[inline]
+    fn from(node: ForceQuote) -> CopyForceKind {
+        CopyForceKind::ForceQuote(node)
+    }
+}
+impl AstNode for CopySource {
+    #[inline]
+    fn can_cast(kind: SyntaxKind) -> bool {
+        matches!(
+            kind,
+            SyntaxKind::COPY_PROGRAM | SyntaxKind::COPY_STDIN | SyntaxKind::COPY_STDOUT
+        )
+    }
+    #[inline]
+    fn cast(syntax: SyntaxNode) -> Option<Self> {
+        let res = match syntax.kind() {
+            SyntaxKind::COPY_PROGRAM => CopySource::CopyProgram(CopyProgram { syntax }),
+            SyntaxKind::COPY_STDIN => CopySource::CopyStdin(CopyStdin { syntax }),
+            SyntaxKind::COPY_STDOUT => CopySource::CopyStdout(CopyStdout { syntax }),
+            _ => {
+                return None;
+            }
+        };
+        Some(res)
+    }
+    #[inline]
+    fn syntax(&self) -> &SyntaxNode {
+        match self {
+            CopySource::CopyProgram(it) => &it.syntax,
+            CopySource::CopyStdin(it) => &it.syntax,
+            CopySource::CopyStdout(it) => &it.syntax,
+        }
+    }
+}
+impl From<CopyProgram> for CopySource {
+    #[inline]
+    fn from(node: CopyProgram) -> CopySource {
+        CopySource::CopyProgram(node)
+    }
+}
+impl From<CopyStdin> for CopySource {
+    #[inline]
+    fn from(node: CopyStdin) -> CopySource {
+        CopySource::CopyStdin(node)
+    }
+}
+impl From<CopyStdout> for CopySource {
+    #[inline]
+    fn from(node: CopyStdout) -> CopySource {
+        CopySource::CopyStdout(node)
+    }
+}
+impl AstNode for CopyTarget {
+    #[inline]
+    fn can_cast(kind: SyntaxKind) -> bool {
+        matches!(kind, SyntaxKind::COPY_PROGRAM | SyntaxKind::COPY_STDOUT)
+    }
+    #[inline]
+    fn cast(syntax: SyntaxNode) -> Option<Self> {
+        let res = match syntax.kind() {
+            SyntaxKind::COPY_PROGRAM => CopyTarget::CopyProgram(CopyProgram { syntax }),
+            SyntaxKind::COPY_STDOUT => CopyTarget::CopyStdout(CopyStdout { syntax }),
+            _ => {
+                return None;
+            }
+        };
+        Some(res)
+    }
+    #[inline]
+    fn syntax(&self) -> &SyntaxNode {
+        match self {
+            CopyTarget::CopyProgram(it) => &it.syntax,
+            CopyTarget::CopyStdout(it) => &it.syntax,
+        }
+    }
+}
+impl From<CopyProgram> for CopyTarget {
+    #[inline]
+    fn from(node: CopyProgram) -> CopyTarget {
+        CopyTarget::CopyProgram(node)
+    }
+}
+impl From<CopyStdout> for CopyTarget {
+    #[inline]
+    fn from(node: CopyStdout) -> CopyTarget {
+        CopyTarget::CopyStdout(node)
+    }
+}
+impl AstNode for CreateCollationDefinition {
+    #[inline]
+    fn can_cast(kind: SyntaxKind) -> bool {
+        matches!(
+            kind,
+            SyntaxKind::ATTRIBUTE_LIST | SyntaxKind::COLLATION_FROM
+        )
+    }
+    #[inline]
+    fn cast(syntax: SyntaxNode) -> Option<Self> {
+        let res = match syntax.kind() {
+            SyntaxKind::ATTRIBUTE_LIST => {
+                CreateCollationDefinition::AttributeList(AttributeList { syntax })
+            }
+            SyntaxKind::COLLATION_FROM => {
+                CreateCollationDefinition::CollationFrom(CollationFrom { syntax })
+            }
+            _ => {
+                return None;
+            }
+        };
+        Some(res)
+    }
+    #[inline]
+    fn syntax(&self) -> &SyntaxNode {
+        match self {
+            CreateCollationDefinition::AttributeList(it) => &it.syntax,
+            CreateCollationDefinition::CollationFrom(it) => &it.syntax,
+        }
+    }
+}
+impl From<AttributeList> for CreateCollationDefinition {
+    #[inline]
+    fn from(node: AttributeList) -> CreateCollationDefinition {
+        CreateCollationDefinition::AttributeList(node)
+    }
+}
+impl From<CollationFrom> for CreateCollationDefinition {
+    #[inline]
+    fn from(node: CollationFrom) -> CreateCollationDefinition {
+        CreateCollationDefinition::CollationFrom(node)
     }
 }
 impl AstNode for CreateSchemaTarget {
@@ -54206,7 +60221,7 @@ impl From<NamedSchema> for CreateSchemaTarget {
 impl AstNode for CreateTableAsQuery {
     #[inline]
     fn can_cast(kind: SyntaxKind) -> bool {
-        matches!(kind, SyntaxKind::EXECUTE)
+        matches!(kind, SyntaxKind::EXECUTE) || SelectVariant::can_cast(kind)
     }
     #[inline]
     fn cast(syntax: SyntaxNode) -> Option<Self> {
@@ -54307,7 +60322,7 @@ impl AstNode for CursorAction {
                 | SyntaxKind::NEXT
                 | SyntaxKind::PRIOR
                 | SyntaxKind::RELATIVE
-        )
+        ) || Expr::can_cast(kind)
     }
     #[inline]
     fn cast(syntax: SyntaxNode) -> Option<Self> {
@@ -54400,6 +60415,150 @@ impl From<Relative> for CursorAction {
         CursorAction::Relative(node)
     }
 }
+impl AstNode for CursorHold {
+    #[inline]
+    fn can_cast(kind: SyntaxKind) -> bool {
+        matches!(kind, SyntaxKind::WITH_HOLD | SyntaxKind::WITHOUT_HOLD)
+    }
+    #[inline]
+    fn cast(syntax: SyntaxNode) -> Option<Self> {
+        let res = match syntax.kind() {
+            SyntaxKind::WITH_HOLD => CursorHold::WithHold(WithHold { syntax }),
+            SyntaxKind::WITHOUT_HOLD => CursorHold::WithoutHold(WithoutHold { syntax }),
+            _ => {
+                return None;
+            }
+        };
+        Some(res)
+    }
+    #[inline]
+    fn syntax(&self) -> &SyntaxNode {
+        match self {
+            CursorHold::WithHold(it) => &it.syntax,
+            CursorHold::WithoutHold(it) => &it.syntax,
+        }
+    }
+}
+impl From<WithHold> for CursorHold {
+    #[inline]
+    fn from(node: WithHold) -> CursorHold {
+        CursorHold::WithHold(node)
+    }
+}
+impl From<WithoutHold> for CursorHold {
+    #[inline]
+    fn from(node: WithoutHold) -> CursorHold {
+        CursorHold::WithoutHold(node)
+    }
+}
+impl AstNode for CursorScroll {
+    #[inline]
+    fn can_cast(kind: SyntaxKind) -> bool {
+        matches!(kind, SyntaxKind::NO_SCROLL | SyntaxKind::SCROLL)
+    }
+    #[inline]
+    fn cast(syntax: SyntaxNode) -> Option<Self> {
+        let res = match syntax.kind() {
+            SyntaxKind::NO_SCROLL => CursorScroll::NoScroll(NoScroll { syntax }),
+            SyntaxKind::SCROLL => CursorScroll::Scroll(Scroll { syntax }),
+            _ => {
+                return None;
+            }
+        };
+        Some(res)
+    }
+    #[inline]
+    fn syntax(&self) -> &SyntaxNode {
+        match self {
+            CursorScroll::NoScroll(it) => &it.syntax,
+            CursorScroll::Scroll(it) => &it.syntax,
+        }
+    }
+}
+impl From<NoScroll> for CursorScroll {
+    #[inline]
+    fn from(node: NoScroll) -> CursorScroll {
+        CursorScroll::NoScroll(node)
+    }
+}
+impl From<Scroll> for CursorScroll {
+    #[inline]
+    fn from(node: Scroll) -> CursorScroll {
+        CursorScroll::Scroll(node)
+    }
+}
+impl AstNode for CursorSensitivity {
+    #[inline]
+    fn can_cast(kind: SyntaxKind) -> bool {
+        matches!(kind, SyntaxKind::ASENSITIVE | SyntaxKind::INSENSITIVE)
+    }
+    #[inline]
+    fn cast(syntax: SyntaxNode) -> Option<Self> {
+        let res = match syntax.kind() {
+            SyntaxKind::ASENSITIVE => CursorSensitivity::Asensitive(Asensitive { syntax }),
+            SyntaxKind::INSENSITIVE => CursorSensitivity::Insensitive(Insensitive { syntax }),
+            _ => {
+                return None;
+            }
+        };
+        Some(res)
+    }
+    #[inline]
+    fn syntax(&self) -> &SyntaxNode {
+        match self {
+            CursorSensitivity::Asensitive(it) => &it.syntax,
+            CursorSensitivity::Insensitive(it) => &it.syntax,
+        }
+    }
+}
+impl From<Asensitive> for CursorSensitivity {
+    #[inline]
+    fn from(node: Asensitive) -> CursorSensitivity {
+        CursorSensitivity::Asensitive(node)
+    }
+}
+impl From<Insensitive> for CursorSensitivity {
+    #[inline]
+    fn from(node: Insensitive) -> CursorSensitivity {
+        CursorSensitivity::Insensitive(node)
+    }
+}
+impl AstNode for DataOption {
+    #[inline]
+    fn can_cast(kind: SyntaxKind) -> bool {
+        matches!(kind, SyntaxKind::WITH_DATA | SyntaxKind::WITH_NO_DATA)
+    }
+    #[inline]
+    fn cast(syntax: SyntaxNode) -> Option<Self> {
+        let res = match syntax.kind() {
+            SyntaxKind::WITH_DATA => DataOption::WithData(WithData { syntax }),
+            SyntaxKind::WITH_NO_DATA => DataOption::WithNoData(WithNoData { syntax }),
+            _ => {
+                return None;
+            }
+        };
+        Some(res)
+    }
+    #[inline]
+    fn syntax(&self) -> &SyntaxNode {
+        match self {
+            DataOption::WithData(it) => &it.syntax,
+            DataOption::WithNoData(it) => &it.syntax,
+        }
+    }
+}
+impl From<WithData> for DataOption {
+    #[inline]
+    fn from(node: WithData) -> DataOption {
+        DataOption::WithData(node)
+    }
+}
+impl From<WithNoData> for DataOption {
+    #[inline]
+    fn from(node: WithNoData) -> DataOption {
+        DataOption::WithNoData(node)
+    }
+}
 impl AstNode for DatabaseOption {
     #[inline]
     fn can_cast(kind: SyntaxKind) -> bool {
@@ -54490,6 +60649,145 @@ impl From<DatabaseOptionTemplate> for DatabaseOption {
         DatabaseOption::DatabaseOptionTemplate(node)
     }
 }
+impl AstNode for DetachPartitionOption {
+    #[inline]
+    fn can_cast(kind: SyntaxKind) -> bool {
+        matches!(
+            kind,
+            SyntaxKind::DETACH_CONCURRENTLY | SyntaxKind::DETACH_FINALIZE
+        )
+    }
+    #[inline]
+    fn cast(syntax: SyntaxNode) -> Option<Self> {
+        let res = match syntax.kind() {
+            SyntaxKind::DETACH_CONCURRENTLY => {
+                DetachPartitionOption::DetachConcurrently(DetachConcurrently { syntax })
+            }
+            SyntaxKind::DETACH_FINALIZE => {
+                DetachPartitionOption::DetachFinalize(DetachFinalize { syntax })
+            }
+            _ => {
+                return None;
+            }
+        };
+        Some(res)
+    }
+    #[inline]
+    fn syntax(&self) -> &SyntaxNode {
+        match self {
+            DetachPartitionOption::DetachConcurrently(it) => &it.syntax,
+            DetachPartitionOption::DetachFinalize(it) => &it.syntax,
+        }
+    }
+}
+impl From<DetachConcurrently> for DetachPartitionOption {
+    #[inline]
+    fn from(node: DetachConcurrently) -> DetachPartitionOption {
+        DetachPartitionOption::DetachConcurrently(node)
+    }
+}
+impl From<DetachFinalize> for DetachPartitionOption {
+    #[inline]
+    fn from(node: DetachFinalize) -> DetachPartitionOption {
+        DetachPartitionOption::DetachFinalize(node)
+    }
+}
+impl AstNode for DiscardTarget {
+    #[inline]
+    fn can_cast(kind: SyntaxKind) -> bool {
+        matches!(
+            kind,
+            SyntaxKind::DISCARD_ALL
+                | SyntaxKind::DISCARD_PLANS
+                | SyntaxKind::DISCARD_SEQUENCES
+                | SyntaxKind::DISCARD_TEMP
+        )
+    }
+    #[inline]
+    fn cast(syntax: SyntaxNode) -> Option<Self> {
+        let res = match syntax.kind() {
+            SyntaxKind::DISCARD_ALL => DiscardTarget::DiscardAll(DiscardAll { syntax }),
+            SyntaxKind::DISCARD_PLANS => DiscardTarget::DiscardPlans(DiscardPlans { syntax }),
+            SyntaxKind::DISCARD_SEQUENCES => {
+                DiscardTarget::DiscardSequences(DiscardSequences { syntax })
+            }
+            SyntaxKind::DISCARD_TEMP => DiscardTarget::DiscardTemp(DiscardTemp { syntax }),
+            _ => {
+                return None;
+            }
+        };
+        Some(res)
+    }
+    #[inline]
+    fn syntax(&self) -> &SyntaxNode {
+        match self {
+            DiscardTarget::DiscardAll(it) => &it.syntax,
+            DiscardTarget::DiscardPlans(it) => &it.syntax,
+            DiscardTarget::DiscardSequences(it) => &it.syntax,
+            DiscardTarget::DiscardTemp(it) => &it.syntax,
+        }
+    }
+}
+impl From<DiscardAll> for DiscardTarget {
+    #[inline]
+    fn from(node: DiscardAll) -> DiscardTarget {
+        DiscardTarget::DiscardAll(node)
+    }
+}
+impl From<DiscardPlans> for DiscardTarget {
+    #[inline]
+    fn from(node: DiscardPlans) -> DiscardTarget {
+        DiscardTarget::DiscardPlans(node)
+    }
+}
+impl From<DiscardSequences> for DiscardTarget {
+    #[inline]
+    fn from(node: DiscardSequences) -> DiscardTarget {
+        DiscardTarget::DiscardSequences(node)
+    }
+}
+impl From<DiscardTemp> for DiscardTarget {
+    #[inline]
+    fn from(node: DiscardTemp) -> DiscardTarget {
+        DiscardTarget::DiscardTemp(node)
+    }
+}
+impl AstNode for DropBehavior {
+    #[inline]
+    fn can_cast(kind: SyntaxKind) -> bool {
+        matches!(kind, SyntaxKind::CASCADE | SyntaxKind::RESTRICT)
+    }
+    #[inline]
+    fn cast(syntax: SyntaxNode) -> Option<Self> {
+        let res = match syntax.kind() {
+            SyntaxKind::CASCADE => DropBehavior::Cascade(Cascade { syntax }),
+            SyntaxKind::RESTRICT => DropBehavior::Restrict(Restrict { syntax }),
+            _ => {
+                return None;
+            }
+        };
+        Some(res)
+    }
+    #[inline]
+    fn syntax(&self) -> &SyntaxNode {
+        match self {
+            DropBehavior::Cascade(it) => &it.syntax,
+            DropBehavior::Restrict(it) => &it.syntax,
+        }
+    }
+}
+impl From<Cascade> for DropBehavior {
+    #[inline]
+    fn from(node: Cascade) -> DropBehavior {
+        DropBehavior::Cascade(node)
+    }
+}
+impl From<Restrict> for DropBehavior {
+    #[inline]
+    fn from(node: Restrict) -> DropBehavior {
+        DropBehavior::Restrict(node)
+    }
+}
 impl AstNode for DropOpClassOption {
     #[inline]
     fn can_cast(kind: SyntaxKind) -> bool {
@@ -54537,6 +60835,7 @@ impl AstNode for ElementTableLabelAndProperties {
     #[inline]
     fn can_cast(kind: SyntaxKind) -> bool {
         matches!(kind, SyntaxKind::LABEL_AND_PROPERTIES_LIST)
+            || ElementTableProperties::can_cast(kind)
     }
     #[inline]
     fn cast(syntax: SyntaxNode) -> Option<Self> {
@@ -54620,6 +60919,57 @@ impl From<Properties> for ElementTableProperties {
     #[inline]
     fn from(node: Properties) -> ElementTableProperties {
         ElementTableProperties::Properties(node)
+    }
+}
+impl AstNode for ExplainMode {
+    #[inline]
+    fn can_cast(kind: SyntaxKind) -> bool {
+        matches!(
+            kind,
+            SyntaxKind::EXPLAIN_ANALYZE
+                | SyntaxKind::EXPLAIN_OPTION_LIST
+                | SyntaxKind::EXPLAIN_VERBOSE
+        )
+    }
+    #[inline]
+    fn cast(syntax: SyntaxNode) -> Option<Self> {
+        let res = match syntax.kind() {
+            SyntaxKind::EXPLAIN_ANALYZE => ExplainMode::ExplainAnalyze(ExplainAnalyze { syntax }),
+            SyntaxKind::EXPLAIN_OPTION_LIST => {
+                ExplainMode::ExplainOptionList(ExplainOptionList { syntax })
+            }
+            SyntaxKind::EXPLAIN_VERBOSE => ExplainMode::ExplainVerbose(ExplainVerbose { syntax }),
+            _ => {
+                return None;
+            }
+        };
+        Some(res)
+    }
+    #[inline]
+    fn syntax(&self) -> &SyntaxNode {
+        match self {
+            ExplainMode::ExplainAnalyze(it) => &it.syntax,
+            ExplainMode::ExplainOptionList(it) => &it.syntax,
+            ExplainMode::ExplainVerbose(it) => &it.syntax,
+        }
+    }
+}
+impl From<ExplainAnalyze> for ExplainMode {
+    #[inline]
+    fn from(node: ExplainAnalyze) -> ExplainMode {
+        ExplainMode::ExplainAnalyze(node)
+    }
+}
+impl From<ExplainOptionList> for ExplainMode {
+    #[inline]
+    fn from(node: ExplainOptionList) -> ExplainMode {
+        ExplainMode::ExplainOptionList(node)
+    }
+}
+impl From<ExplainVerbose> for ExplainMode {
+    #[inline]
+    fn from(node: ExplainVerbose) -> ExplainMode {
+        ExplainMode::ExplainVerbose(node)
     }
 }
 impl AstNode for ExplainStmt {
@@ -55344,6 +61694,49 @@ impl From<ObjectView> for ExtensionMemberObject {
         ExtensionMemberObject::ObjectView(node)
     }
 }
+impl AstNode for ExtractField {
+    #[inline]
+    fn can_cast(kind: SyntaxKind) -> bool {
+        matches!(
+            kind,
+            SyntaxKind::EXTRACT_FIELD_LITERAL | SyntaxKind::EXTRACT_FIELD_NAME
+        )
+    }
+    #[inline]
+    fn cast(syntax: SyntaxNode) -> Option<Self> {
+        let res = match syntax.kind() {
+            SyntaxKind::EXTRACT_FIELD_LITERAL => {
+                ExtractField::ExtractFieldLiteral(ExtractFieldLiteral { syntax })
+            }
+            SyntaxKind::EXTRACT_FIELD_NAME => {
+                ExtractField::ExtractFieldName(ExtractFieldName { syntax })
+            }
+            _ => {
+                return None;
+            }
+        };
+        Some(res)
+    }
+    #[inline]
+    fn syntax(&self) -> &SyntaxNode {
+        match self {
+            ExtractField::ExtractFieldLiteral(it) => &it.syntax,
+            ExtractField::ExtractFieldName(it) => &it.syntax,
+        }
+    }
+}
+impl From<ExtractFieldLiteral> for ExtractField {
+    #[inline]
+    fn from(node: ExtractFieldLiteral) -> ExtractField {
+        ExtractField::ExtractFieldLiteral(node)
+    }
+}
+impl From<ExtractFieldName> for ExtractField {
+    #[inline]
+    fn from(node: ExtractFieldName) -> ExtractField {
+        ExtractField::ExtractFieldName(node)
+    }
+}
 impl AstNode for FdwOption {
     #[inline]
     fn can_cast(kind: SyntaxKind) -> bool {
@@ -55437,6 +61830,42 @@ impl From<OptionValidator> for FdwOption {
         FdwOption::OptionValidator(node)
     }
 }
+impl AstNode for FetchQuantity {
+    #[inline]
+    fn can_cast(kind: SyntaxKind) -> bool {
+        matches!(kind, SyntaxKind::FETCH_ONLY | SyntaxKind::WITH_TIES)
+    }
+    #[inline]
+    fn cast(syntax: SyntaxNode) -> Option<Self> {
+        let res = match syntax.kind() {
+            SyntaxKind::FETCH_ONLY => FetchQuantity::FetchOnly(FetchOnly { syntax }),
+            SyntaxKind::WITH_TIES => FetchQuantity::WithTies(WithTies { syntax }),
+            _ => {
+                return None;
+            }
+        };
+        Some(res)
+    }
+    #[inline]
+    fn syntax(&self) -> &SyntaxNode {
+        match self {
+            FetchQuantity::FetchOnly(it) => &it.syntax,
+            FetchQuantity::WithTies(it) => &it.syntax,
+        }
+    }
+}
+impl From<FetchOnly> for FetchQuantity {
+    #[inline]
+    fn from(node: FetchOnly) -> FetchQuantity {
+        FetchQuantity::FetchOnly(node)
+    }
+}
+impl From<WithTies> for FetchQuantity {
+    #[inline]
+    fn from(node: WithTies) -> FetchQuantity {
+        FetchQuantity::WithTies(node)
+    }
+}
 impl AstNode for FrameBound {
     #[inline]
     fn can_cast(kind: SyntaxKind) -> bool {
@@ -55506,6 +61935,178 @@ impl From<UnboundedPreceding> for FrameBound {
     #[inline]
     fn from(node: UnboundedPreceding) -> FrameBound {
         FrameBound::UnboundedPreceding(node)
+    }
+}
+impl AstNode for FrameExcludeTarget {
+    #[inline]
+    fn can_cast(kind: SyntaxKind) -> bool {
+        matches!(
+            kind,
+            SyntaxKind::CURRENT_ROW | SyntaxKind::GROUP | SyntaxKind::NO_OTHERS | SyntaxKind::TIES
+        )
+    }
+    #[inline]
+    fn cast(syntax: SyntaxNode) -> Option<Self> {
+        let res = match syntax.kind() {
+            SyntaxKind::CURRENT_ROW => FrameExcludeTarget::CurrentRow(CurrentRow { syntax }),
+            SyntaxKind::GROUP => FrameExcludeTarget::Group(Group { syntax }),
+            SyntaxKind::NO_OTHERS => FrameExcludeTarget::NoOthers(NoOthers { syntax }),
+            SyntaxKind::TIES => FrameExcludeTarget::Ties(Ties { syntax }),
+            _ => {
+                return None;
+            }
+        };
+        Some(res)
+    }
+    #[inline]
+    fn syntax(&self) -> &SyntaxNode {
+        match self {
+            FrameExcludeTarget::CurrentRow(it) => &it.syntax,
+            FrameExcludeTarget::Group(it) => &it.syntax,
+            FrameExcludeTarget::NoOthers(it) => &it.syntax,
+            FrameExcludeTarget::Ties(it) => &it.syntax,
+        }
+    }
+}
+impl From<CurrentRow> for FrameExcludeTarget {
+    #[inline]
+    fn from(node: CurrentRow) -> FrameExcludeTarget {
+        FrameExcludeTarget::CurrentRow(node)
+    }
+}
+impl From<Group> for FrameExcludeTarget {
+    #[inline]
+    fn from(node: Group) -> FrameExcludeTarget {
+        FrameExcludeTarget::Group(node)
+    }
+}
+impl From<NoOthers> for FrameExcludeTarget {
+    #[inline]
+    fn from(node: NoOthers) -> FrameExcludeTarget {
+        FrameExcludeTarget::NoOthers(node)
+    }
+}
+impl From<Ties> for FrameExcludeTarget {
+    #[inline]
+    fn from(node: Ties) -> FrameExcludeTarget {
+        FrameExcludeTarget::Ties(node)
+    }
+}
+impl AstNode for FrameExtent {
+    #[inline]
+    fn can_cast(kind: SyntaxKind) -> bool {
+        matches!(kind, SyntaxKind::FRAME_BETWEEN) || FrameBound::can_cast(kind)
+    }
+    #[inline]
+    fn cast(syntax: SyntaxNode) -> Option<Self> {
+        let res = match syntax.kind() {
+            SyntaxKind::FRAME_BETWEEN => FrameExtent::FrameBetween(FrameBetween { syntax }),
+            _ => {
+                if let Some(result) = FrameBound::cast(syntax) {
+                    return Some(FrameExtent::FrameBound(result));
+                }
+                return None;
+            }
+        };
+        Some(res)
+    }
+    #[inline]
+    fn syntax(&self) -> &SyntaxNode {
+        match self {
+            FrameExtent::FrameBetween(it) => &it.syntax,
+            FrameExtent::FrameBound(it) => it.syntax(),
+        }
+    }
+}
+impl From<FrameBetween> for FrameExtent {
+    #[inline]
+    fn from(node: FrameBetween) -> FrameExtent {
+        FrameExtent::FrameBetween(node)
+    }
+}
+impl AstNode for FrameUnits {
+    #[inline]
+    fn can_cast(kind: SyntaxKind) -> bool {
+        matches!(
+            kind,
+            SyntaxKind::FRAME_GROUPS | SyntaxKind::FRAME_RANGE | SyntaxKind::FRAME_ROWS
+        )
+    }
+    #[inline]
+    fn cast(syntax: SyntaxNode) -> Option<Self> {
+        let res = match syntax.kind() {
+            SyntaxKind::FRAME_GROUPS => FrameUnits::FrameGroups(FrameGroups { syntax }),
+            SyntaxKind::FRAME_RANGE => FrameUnits::FrameRange(FrameRange { syntax }),
+            SyntaxKind::FRAME_ROWS => FrameUnits::FrameRows(FrameRows { syntax }),
+            _ => {
+                return None;
+            }
+        };
+        Some(res)
+    }
+    #[inline]
+    fn syntax(&self) -> &SyntaxNode {
+        match self {
+            FrameUnits::FrameGroups(it) => &it.syntax,
+            FrameUnits::FrameRange(it) => &it.syntax,
+            FrameUnits::FrameRows(it) => &it.syntax,
+        }
+    }
+}
+impl From<FrameGroups> for FrameUnits {
+    #[inline]
+    fn from(node: FrameGroups) -> FrameUnits {
+        FrameUnits::FrameGroups(node)
+    }
+}
+impl From<FrameRange> for FrameUnits {
+    #[inline]
+    fn from(node: FrameRange) -> FrameUnits {
+        FrameUnits::FrameRange(node)
+    }
+}
+impl From<FrameRows> for FrameUnits {
+    #[inline]
+    fn from(node: FrameRows) -> FrameUnits {
+        FrameUnits::FrameRows(node)
+    }
+}
+impl AstNode for FromAliasColumns {
+    #[inline]
+    fn can_cast(kind: SyntaxKind) -> bool {
+        matches!(kind, SyntaxKind::COLUMN_DEF_LIST | SyntaxKind::COLUMN_LIST)
+    }
+    #[inline]
+    fn cast(syntax: SyntaxNode) -> Option<Self> {
+        let res = match syntax.kind() {
+            SyntaxKind::COLUMN_DEF_LIST => {
+                FromAliasColumns::ColumnDefList(ColumnDefList { syntax })
+            }
+            SyntaxKind::COLUMN_LIST => FromAliasColumns::ColumnList(ColumnList { syntax }),
+            _ => {
+                return None;
+            }
+        };
+        Some(res)
+    }
+    #[inline]
+    fn syntax(&self) -> &SyntaxNode {
+        match self {
+            FromAliasColumns::ColumnDefList(it) => &it.syntax,
+            FromAliasColumns::ColumnList(it) => &it.syntax,
+        }
+    }
+}
+impl From<ColumnDefList> for FromAliasColumns {
+    #[inline]
+    fn from(node: ColumnDefList) -> FromAliasColumns {
+        FromAliasColumns::ColumnDefList(node)
+    }
+}
+impl From<ColumnList> for FromAliasColumns {
+    #[inline]
+    fn from(node: ColumnList) -> FromAliasColumns {
+        FromAliasColumns::ColumnList(node)
     }
 }
 impl AstNode for FromItem {
@@ -55629,14 +62230,14 @@ impl AstNode for FuncOption {
                 | SyntaxKind::RETURN_FUNC_OPTION
                 | SyntaxKind::RETURNS_NULL_ON_NULL_INPUT_FUNC_OPTION
                 | SyntaxKind::ROWS_FUNC_OPTION
-                | SyntaxKind::SECURITY_FUNC_OPTION
+                | SyntaxKind::SECURITY_DEFINER_FUNC_OPTION
+                | SyntaxKind::SECURITY_INVOKER_FUNC_OPTION
                 | SyntaxKind::SET_FUNC_OPTION
                 | SyntaxKind::STRICT_FUNC_OPTION
                 | SyntaxKind::SUPPORT_FUNC_OPTION
                 | SyntaxKind::TRANSFORM_FUNC_OPTION
-                | SyntaxKind::VOLATILITY_FUNC_OPTION
                 | SyntaxKind::WINDOW_FUNC_OPTION
-        )
+        ) || VolatilityFuncOption::can_cast(kind)
     }
     #[inline]
     fn cast(syntax: SyntaxNode) -> Option<Self> {
@@ -55673,8 +62274,11 @@ impl AstNode for FuncOption {
                 })
             }
             SyntaxKind::ROWS_FUNC_OPTION => FuncOption::RowsFuncOption(RowsFuncOption { syntax }),
-            SyntaxKind::SECURITY_FUNC_OPTION => {
-                FuncOption::SecurityFuncOption(SecurityFuncOption { syntax })
+            SyntaxKind::SECURITY_DEFINER_FUNC_OPTION => {
+                FuncOption::SecurityDefinerFuncOption(SecurityDefinerFuncOption { syntax })
+            }
+            SyntaxKind::SECURITY_INVOKER_FUNC_OPTION => {
+                FuncOption::SecurityInvokerFuncOption(SecurityInvokerFuncOption { syntax })
             }
             SyntaxKind::SET_FUNC_OPTION => FuncOption::SetFuncOption(SetFuncOption { syntax }),
             SyntaxKind::STRICT_FUNC_OPTION => {
@@ -55686,13 +62290,13 @@ impl AstNode for FuncOption {
             SyntaxKind::TRANSFORM_FUNC_OPTION => {
                 FuncOption::TransformFuncOption(TransformFuncOption { syntax })
             }
-            SyntaxKind::VOLATILITY_FUNC_OPTION => {
-                FuncOption::VolatilityFuncOption(VolatilityFuncOption { syntax })
-            }
             SyntaxKind::WINDOW_FUNC_OPTION => {
                 FuncOption::WindowFuncOption(WindowFuncOption { syntax })
             }
             _ => {
+                if let Some(result) = VolatilityFuncOption::cast(syntax) {
+                    return Some(FuncOption::VolatilityFuncOption(result));
+                }
                 return None;
             }
         };
@@ -55713,13 +62317,14 @@ impl AstNode for FuncOption {
             FuncOption::ReturnFuncOption(it) => &it.syntax,
             FuncOption::ReturnsNullOnNullInputFuncOption(it) => &it.syntax,
             FuncOption::RowsFuncOption(it) => &it.syntax,
-            FuncOption::SecurityFuncOption(it) => &it.syntax,
+            FuncOption::SecurityDefinerFuncOption(it) => &it.syntax,
+            FuncOption::SecurityInvokerFuncOption(it) => &it.syntax,
             FuncOption::SetFuncOption(it) => &it.syntax,
             FuncOption::StrictFuncOption(it) => &it.syntax,
             FuncOption::SupportFuncOption(it) => &it.syntax,
             FuncOption::TransformFuncOption(it) => &it.syntax,
-            FuncOption::VolatilityFuncOption(it) => &it.syntax,
             FuncOption::WindowFuncOption(it) => &it.syntax,
+            FuncOption::VolatilityFuncOption(it) => it.syntax(),
         }
     }
 }
@@ -55795,10 +62400,16 @@ impl From<RowsFuncOption> for FuncOption {
         FuncOption::RowsFuncOption(node)
     }
 }
-impl From<SecurityFuncOption> for FuncOption {
+impl From<SecurityDefinerFuncOption> for FuncOption {
     #[inline]
-    fn from(node: SecurityFuncOption) -> FuncOption {
-        FuncOption::SecurityFuncOption(node)
+    fn from(node: SecurityDefinerFuncOption) -> FuncOption {
+        FuncOption::SecurityDefinerFuncOption(node)
+    }
+}
+impl From<SecurityInvokerFuncOption> for FuncOption {
+    #[inline]
+    fn from(node: SecurityInvokerFuncOption) -> FuncOption {
+        FuncOption::SecurityInvokerFuncOption(node)
     }
 }
 impl From<SetFuncOption> for FuncOption {
@@ -55825,16 +62436,132 @@ impl From<TransformFuncOption> for FuncOption {
         FuncOption::TransformFuncOption(node)
     }
 }
-impl From<VolatilityFuncOption> for FuncOption {
-    #[inline]
-    fn from(node: VolatilityFuncOption) -> FuncOption {
-        FuncOption::VolatilityFuncOption(node)
-    }
-}
 impl From<WindowFuncOption> for FuncOption {
     #[inline]
     fn from(node: WindowFuncOption) -> FuncOption {
         FuncOption::WindowFuncOption(node)
+    }
+}
+impl AstNode for GeneratedAs {
+    #[inline]
+    fn can_cast(kind: SyntaxKind) -> bool {
+        matches!(
+            kind,
+            SyntaxKind::GENERATED_IDENTITY | SyntaxKind::GENERATED_STORED
+        )
+    }
+    #[inline]
+    fn cast(syntax: SyntaxNode) -> Option<Self> {
+        let res = match syntax.kind() {
+            SyntaxKind::GENERATED_IDENTITY => {
+                GeneratedAs::GeneratedIdentity(GeneratedIdentity { syntax })
+            }
+            SyntaxKind::GENERATED_STORED => {
+                GeneratedAs::GeneratedStored(GeneratedStored { syntax })
+            }
+            _ => {
+                return None;
+            }
+        };
+        Some(res)
+    }
+    #[inline]
+    fn syntax(&self) -> &SyntaxNode {
+        match self {
+            GeneratedAs::GeneratedIdentity(it) => &it.syntax,
+            GeneratedAs::GeneratedStored(it) => &it.syntax,
+        }
+    }
+}
+impl From<GeneratedIdentity> for GeneratedAs {
+    #[inline]
+    fn from(node: GeneratedIdentity) -> GeneratedAs {
+        GeneratedAs::GeneratedIdentity(node)
+    }
+}
+impl From<GeneratedStored> for GeneratedAs {
+    #[inline]
+    fn from(node: GeneratedStored) -> GeneratedAs {
+        GeneratedAs::GeneratedStored(node)
+    }
+}
+impl AstNode for GeneratedKind {
+    #[inline]
+    fn can_cast(kind: SyntaxKind) -> bool {
+        matches!(kind, SyntaxKind::STORED | SyntaxKind::VIRTUAL)
+    }
+    #[inline]
+    fn cast(syntax: SyntaxNode) -> Option<Self> {
+        let res = match syntax.kind() {
+            SyntaxKind::STORED => GeneratedKind::Stored(Stored { syntax }),
+            SyntaxKind::VIRTUAL => GeneratedKind::Virtual(Virtual { syntax }),
+            _ => {
+                return None;
+            }
+        };
+        Some(res)
+    }
+    #[inline]
+    fn syntax(&self) -> &SyntaxNode {
+        match self {
+            GeneratedKind::Stored(it) => &it.syntax,
+            GeneratedKind::Virtual(it) => &it.syntax,
+        }
+    }
+}
+impl From<Stored> for GeneratedKind {
+    #[inline]
+    fn from(node: Stored) -> GeneratedKind {
+        GeneratedKind::Stored(node)
+    }
+}
+impl From<Virtual> for GeneratedKind {
+    #[inline]
+    fn from(node: Virtual) -> GeneratedKind {
+        GeneratedKind::Virtual(node)
+    }
+}
+impl AstNode for GeneratedWhen {
+    #[inline]
+    fn can_cast(kind: SyntaxKind) -> bool {
+        matches!(
+            kind,
+            SyntaxKind::GENERATED_ALWAYS | SyntaxKind::GENERATED_BY_DEFAULT
+        )
+    }
+    #[inline]
+    fn cast(syntax: SyntaxNode) -> Option<Self> {
+        let res = match syntax.kind() {
+            SyntaxKind::GENERATED_ALWAYS => {
+                GeneratedWhen::GeneratedAlways(GeneratedAlways { syntax })
+            }
+            SyntaxKind::GENERATED_BY_DEFAULT => {
+                GeneratedWhen::GeneratedByDefault(GeneratedByDefault { syntax })
+            }
+            _ => {
+                return None;
+            }
+        };
+        Some(res)
+    }
+    #[inline]
+    fn syntax(&self) -> &SyntaxNode {
+        match self {
+            GeneratedWhen::GeneratedAlways(it) => &it.syntax,
+            GeneratedWhen::GeneratedByDefault(it) => &it.syntax,
+        }
+    }
+}
+impl From<GeneratedAlways> for GeneratedWhen {
+    #[inline]
+    fn from(node: GeneratedAlways) -> GeneratedWhen {
+        GeneratedWhen::GeneratedAlways(node)
+    }
+}
+impl From<GeneratedByDefault> for GeneratedWhen {
+    #[inline]
+    fn from(node: GeneratedByDefault) -> GeneratedWhen {
+        GeneratedWhen::GeneratedByDefault(node)
     }
 }
 impl AstNode for GroupBy {
@@ -55982,6 +62709,160 @@ impl From<RoutineSig> for HasParamList {
     #[inline]
     fn from(node: RoutineSig) -> HasParamList {
         HasParamList::RoutineSig(node)
+    }
+}
+impl AstNode for IdentityAction {
+    #[inline]
+    fn can_cast(kind: SyntaxKind) -> bool {
+        matches!(
+            kind,
+            SyntaxKind::CONTINUE_IDENTITY | SyntaxKind::RESTART_IDENTITY
+        )
+    }
+    #[inline]
+    fn cast(syntax: SyntaxNode) -> Option<Self> {
+        let res = match syntax.kind() {
+            SyntaxKind::CONTINUE_IDENTITY => {
+                IdentityAction::ContinueIdentity(ContinueIdentity { syntax })
+            }
+            SyntaxKind::RESTART_IDENTITY => {
+                IdentityAction::RestartIdentity(RestartIdentity { syntax })
+            }
+            _ => {
+                return None;
+            }
+        };
+        Some(res)
+    }
+    #[inline]
+    fn syntax(&self) -> &SyntaxNode {
+        match self {
+            IdentityAction::ContinueIdentity(it) => &it.syntax,
+            IdentityAction::RestartIdentity(it) => &it.syntax,
+        }
+    }
+}
+impl From<ContinueIdentity> for IdentityAction {
+    #[inline]
+    fn from(node: ContinueIdentity) -> IdentityAction {
+        IdentityAction::ContinueIdentity(node)
+    }
+}
+impl From<RestartIdentity> for IdentityAction {
+    #[inline]
+    fn from(node: RestartIdentity) -> IdentityAction {
+        IdentityAction::RestartIdentity(node)
+    }
+}
+impl AstNode for ImportTableFilter {
+    #[inline]
+    fn can_cast(kind: SyntaxKind) -> bool {
+        matches!(
+            kind,
+            SyntaxKind::EXCEPT_TABLES | SyntaxKind::LIMIT_TO_TABLES
+        )
+    }
+    #[inline]
+    fn cast(syntax: SyntaxNode) -> Option<Self> {
+        let res = match syntax.kind() {
+            SyntaxKind::EXCEPT_TABLES => ImportTableFilter::ExceptTables(ExceptTables { syntax }),
+            SyntaxKind::LIMIT_TO_TABLES => {
+                ImportTableFilter::LimitToTables(LimitToTables { syntax })
+            }
+            _ => {
+                return None;
+            }
+        };
+        Some(res)
+    }
+    #[inline]
+    fn syntax(&self) -> &SyntaxNode {
+        match self {
+            ImportTableFilter::ExceptTables(it) => &it.syntax,
+            ImportTableFilter::LimitToTables(it) => &it.syntax,
+        }
+    }
+}
+impl From<ExceptTables> for ImportTableFilter {
+    #[inline]
+    fn from(node: ExceptTables) -> ImportTableFilter {
+        ImportTableFilter::ExceptTables(node)
+    }
+}
+impl From<LimitToTables> for ImportTableFilter {
+    #[inline]
+    fn from(node: LimitToTables) -> ImportTableFilter {
+        ImportTableFilter::LimitToTables(node)
+    }
+}
+impl AstNode for InsertSource {
+    #[inline]
+    fn can_cast(kind: SyntaxKind) -> bool {
+        matches!(kind, SyntaxKind::DEFAULT_VALUES) || SelectVariant::can_cast(kind)
+    }
+    #[inline]
+    fn cast(syntax: SyntaxNode) -> Option<Self> {
+        let res = match syntax.kind() {
+            SyntaxKind::DEFAULT_VALUES => InsertSource::DefaultValues(DefaultValues { syntax }),
+            _ => {
+                if let Some(result) = SelectVariant::cast(syntax) {
+                    return Some(InsertSource::SelectVariant(result));
+                }
+                return None;
+            }
+        };
+        Some(res)
+    }
+    #[inline]
+    fn syntax(&self) -> &SyntaxNode {
+        match self {
+            InsertSource::DefaultValues(it) => &it.syntax,
+            InsertSource::SelectVariant(it) => it.syntax(),
+        }
+    }
+}
+impl From<DefaultValues> for InsertSource {
+    #[inline]
+    fn from(node: DefaultValues) -> InsertSource {
+        InsertSource::DefaultValues(node)
+    }
+}
+impl AstNode for JoinCondition {
+    #[inline]
+    fn can_cast(kind: SyntaxKind) -> bool {
+        matches!(kind, SyntaxKind::JOIN_USING_CLAUSE | SyntaxKind::ON_CLAUSE)
+    }
+    #[inline]
+    fn cast(syntax: SyntaxNode) -> Option<Self> {
+        let res = match syntax.kind() {
+            SyntaxKind::JOIN_USING_CLAUSE => {
+                JoinCondition::JoinUsingClause(JoinUsingClause { syntax })
+            }
+            SyntaxKind::ON_CLAUSE => JoinCondition::OnClause(OnClause { syntax }),
+            _ => {
+                return None;
+            }
+        };
+        Some(res)
+    }
+    #[inline]
+    fn syntax(&self) -> &SyntaxNode {
+        match self {
+            JoinCondition::JoinUsingClause(it) => &it.syntax,
+            JoinCondition::OnClause(it) => &it.syntax,
+        }
+    }
+}
+impl From<JoinUsingClause> for JoinCondition {
+    #[inline]
+    fn from(node: JoinUsingClause) -> JoinCondition {
+        JoinCondition::JoinUsingClause(node)
+    }
+}
+impl From<OnClause> for JoinCondition {
+    #[inline]
+    fn from(node: OnClause) -> JoinCondition {
+        JoinCondition::OnClause(node)
     }
 }
 impl AstNode for JoinType {
@@ -56247,6 +63128,72 @@ impl From<JsonNullOnNull> for JsonNullClause {
         JsonNullClause::JsonNullOnNull(node)
     }
 }
+impl AstNode for JsonTableColumn {
+    #[inline]
+    fn can_cast(kind: SyntaxKind) -> bool {
+        matches!(
+            kind,
+            SyntaxKind::JSON_TABLE_EXISTS_COLUMN
+                | SyntaxKind::JSON_TABLE_NESTED_COLUMN
+                | SyntaxKind::JSON_TABLE_ORDINALITY_COLUMN
+                | SyntaxKind::JSON_TABLE_VALUE_COLUMN
+        )
+    }
+    #[inline]
+    fn cast(syntax: SyntaxNode) -> Option<Self> {
+        let res = match syntax.kind() {
+            SyntaxKind::JSON_TABLE_EXISTS_COLUMN => {
+                JsonTableColumn::JsonTableExistsColumn(JsonTableExistsColumn { syntax })
+            }
+            SyntaxKind::JSON_TABLE_NESTED_COLUMN => {
+                JsonTableColumn::JsonTableNestedColumn(JsonTableNestedColumn { syntax })
+            }
+            SyntaxKind::JSON_TABLE_ORDINALITY_COLUMN => {
+                JsonTableColumn::JsonTableOrdinalityColumn(JsonTableOrdinalityColumn { syntax })
+            }
+            SyntaxKind::JSON_TABLE_VALUE_COLUMN => {
+                JsonTableColumn::JsonTableValueColumn(JsonTableValueColumn { syntax })
+            }
+            _ => {
+                return None;
+            }
+        };
+        Some(res)
+    }
+    #[inline]
+    fn syntax(&self) -> &SyntaxNode {
+        match self {
+            JsonTableColumn::JsonTableExistsColumn(it) => &it.syntax,
+            JsonTableColumn::JsonTableNestedColumn(it) => &it.syntax,
+            JsonTableColumn::JsonTableOrdinalityColumn(it) => &it.syntax,
+            JsonTableColumn::JsonTableValueColumn(it) => &it.syntax,
+        }
+    }
+}
+impl From<JsonTableExistsColumn> for JsonTableColumn {
+    #[inline]
+    fn from(node: JsonTableExistsColumn) -> JsonTableColumn {
+        JsonTableColumn::JsonTableExistsColumn(node)
+    }
+}
+impl From<JsonTableNestedColumn> for JsonTableColumn {
+    #[inline]
+    fn from(node: JsonTableNestedColumn) -> JsonTableColumn {
+        JsonTableColumn::JsonTableNestedColumn(node)
+    }
+}
+impl From<JsonTableOrdinalityColumn> for JsonTableColumn {
+    #[inline]
+    fn from(node: JsonTableOrdinalityColumn) -> JsonTableColumn {
+        JsonTableColumn::JsonTableOrdinalityColumn(node)
+    }
+}
+impl From<JsonTableValueColumn> for JsonTableColumn {
+    #[inline]
+    fn from(node: JsonTableValueColumn) -> JsonTableColumn {
+        JsonTableColumn::JsonTableValueColumn(node)
+    }
+}
 impl AstNode for JsonTablePlan {
     #[inline]
     fn can_cast(kind: SyntaxKind) -> bool {
@@ -56313,6 +63260,115 @@ impl From<ParenJsonTablePlan> for JsonTablePlan {
         JsonTablePlan::ParenJsonTablePlan(node)
     }
 }
+impl AstNode for JsonTablePlanOperator {
+    #[inline]
+    fn can_cast(kind: SyntaxKind) -> bool {
+        matches!(
+            kind,
+            SyntaxKind::JSON_TABLE_PLAN_CROSS
+                | SyntaxKind::JSON_TABLE_PLAN_INNER
+                | SyntaxKind::JSON_TABLE_PLAN_OUTER
+                | SyntaxKind::JSON_TABLE_PLAN_UNION
+        )
+    }
+    #[inline]
+    fn cast(syntax: SyntaxNode) -> Option<Self> {
+        let res = match syntax.kind() {
+            SyntaxKind::JSON_TABLE_PLAN_CROSS => {
+                JsonTablePlanOperator::JsonTablePlanCross(JsonTablePlanCross { syntax })
+            }
+            SyntaxKind::JSON_TABLE_PLAN_INNER => {
+                JsonTablePlanOperator::JsonTablePlanInner(JsonTablePlanInner { syntax })
+            }
+            SyntaxKind::JSON_TABLE_PLAN_OUTER => {
+                JsonTablePlanOperator::JsonTablePlanOuter(JsonTablePlanOuter { syntax })
+            }
+            SyntaxKind::JSON_TABLE_PLAN_UNION => {
+                JsonTablePlanOperator::JsonTablePlanUnion(JsonTablePlanUnion { syntax })
+            }
+            _ => {
+                return None;
+            }
+        };
+        Some(res)
+    }
+    #[inline]
+    fn syntax(&self) -> &SyntaxNode {
+        match self {
+            JsonTablePlanOperator::JsonTablePlanCross(it) => &it.syntax,
+            JsonTablePlanOperator::JsonTablePlanInner(it) => &it.syntax,
+            JsonTablePlanOperator::JsonTablePlanOuter(it) => &it.syntax,
+            JsonTablePlanOperator::JsonTablePlanUnion(it) => &it.syntax,
+        }
+    }
+}
+impl From<JsonTablePlanCross> for JsonTablePlanOperator {
+    #[inline]
+    fn from(node: JsonTablePlanCross) -> JsonTablePlanOperator {
+        JsonTablePlanOperator::JsonTablePlanCross(node)
+    }
+}
+impl From<JsonTablePlanInner> for JsonTablePlanOperator {
+    #[inline]
+    fn from(node: JsonTablePlanInner) -> JsonTablePlanOperator {
+        JsonTablePlanOperator::JsonTablePlanInner(node)
+    }
+}
+impl From<JsonTablePlanOuter> for JsonTablePlanOperator {
+    #[inline]
+    fn from(node: JsonTablePlanOuter) -> JsonTablePlanOperator {
+        JsonTablePlanOperator::JsonTablePlanOuter(node)
+    }
+}
+impl From<JsonTablePlanUnion> for JsonTablePlanOperator {
+    #[inline]
+    fn from(node: JsonTablePlanUnion) -> JsonTablePlanOperator {
+        JsonTablePlanOperator::JsonTablePlanUnion(node)
+    }
+}
+impl AstNode for JsonTableValueBehavior {
+    #[inline]
+    fn can_cast(kind: SyntaxKind) -> bool {
+        matches!(
+            kind,
+            SyntaxKind::JSON_ON_EMPTY_CLAUSE | SyntaxKind::JSON_ON_ERROR_CLAUSE
+        )
+    }
+    #[inline]
+    fn cast(syntax: SyntaxNode) -> Option<Self> {
+        let res = match syntax.kind() {
+            SyntaxKind::JSON_ON_EMPTY_CLAUSE => {
+                JsonTableValueBehavior::JsonOnEmptyClause(JsonOnEmptyClause { syntax })
+            }
+            SyntaxKind::JSON_ON_ERROR_CLAUSE => {
+                JsonTableValueBehavior::JsonOnErrorClause(JsonOnErrorClause { syntax })
+            }
+            _ => {
+                return None;
+            }
+        };
+        Some(res)
+    }
+    #[inline]
+    fn syntax(&self) -> &SyntaxNode {
+        match self {
+            JsonTableValueBehavior::JsonOnEmptyClause(it) => &it.syntax,
+            JsonTableValueBehavior::JsonOnErrorClause(it) => &it.syntax,
+        }
+    }
+}
+impl From<JsonOnEmptyClause> for JsonTableValueBehavior {
+    #[inline]
+    fn from(node: JsonOnEmptyClause) -> JsonTableValueBehavior {
+        JsonTableValueBehavior::JsonOnEmptyClause(node)
+    }
+}
+impl From<JsonOnErrorClause> for JsonTableValueBehavior {
+    #[inline]
+    fn from(node: JsonOnErrorClause) -> JsonTableValueBehavior {
+        JsonTableValueBehavior::JsonOnErrorClause(node)
+    }
+}
 impl AstNode for JsonWrapperBehaviorClause {
     #[inline]
     fn can_cast(kind: SyntaxKind) -> bool {
@@ -56372,6 +63428,42 @@ impl From<JsonWithoutWrapper> for JsonWrapperBehaviorClause {
         JsonWrapperBehaviorClause::JsonWithoutWrapper(node)
     }
 }
+impl AstNode for LabelSpec {
+    #[inline]
+    fn can_cast(kind: SyntaxKind) -> bool {
+        matches!(kind, SyntaxKind::DEFAULT_LABEL | SyntaxKind::NAMED_LABEL)
+    }
+    #[inline]
+    fn cast(syntax: SyntaxNode) -> Option<Self> {
+        let res = match syntax.kind() {
+            SyntaxKind::DEFAULT_LABEL => LabelSpec::DefaultLabel(DefaultLabel { syntax }),
+            SyntaxKind::NAMED_LABEL => LabelSpec::NamedLabel(NamedLabel { syntax }),
+            _ => {
+                return None;
+            }
+        };
+        Some(res)
+    }
+    #[inline]
+    fn syntax(&self) -> &SyntaxNode {
+        match self {
+            LabelSpec::DefaultLabel(it) => &it.syntax,
+            LabelSpec::NamedLabel(it) => &it.syntax,
+        }
+    }
+}
+impl From<DefaultLabel> for LabelSpec {
+    #[inline]
+    fn from(node: DefaultLabel) -> LabelSpec {
+        LabelSpec::DefaultLabel(node)
+    }
+}
+impl From<NamedLabel> for LabelSpec {
+    #[inline]
+    fn from(node: NamedLabel) -> LabelSpec {
+        LabelSpec::NamedLabel(node)
+    }
+}
 impl AstNode for LikeOption {
     #[inline]
     fn can_cast(kind: SyntaxKind) -> bool {
@@ -56413,6 +63505,38 @@ impl From<IncludingProperty> for LikeOption {
     #[inline]
     fn from(node: IncludingProperty) -> LikeOption {
         LikeOption::IncludingProperty(node)
+    }
+}
+impl AstNode for LimitValue {
+    #[inline]
+    fn can_cast(kind: SyntaxKind) -> bool {
+        matches!(kind, SyntaxKind::ALL) || Expr::can_cast(kind)
+    }
+    #[inline]
+    fn cast(syntax: SyntaxNode) -> Option<Self> {
+        let res = match syntax.kind() {
+            SyntaxKind::ALL => LimitValue::All(All { syntax }),
+            _ => {
+                if let Some(result) = Expr::cast(syntax) {
+                    return Some(LimitValue::Expr(result));
+                }
+                return None;
+            }
+        };
+        Some(res)
+    }
+    #[inline]
+    fn syntax(&self) -> &SyntaxNode {
+        match self {
+            LimitValue::All(it) => &it.syntax,
+            LimitValue::Expr(it) => it.syntax(),
+        }
+    }
+}
+impl From<All> for LimitValue {
+    #[inline]
+    fn from(node: All) -> LimitValue {
+        LimitValue::All(node)
     }
 }
 impl AstNode for LockMode {
@@ -56513,6 +63637,102 @@ impl From<ShareUpdateExclusive> for LockMode {
         LockMode::ShareUpdateExclusive(node)
     }
 }
+impl AstNode for LockStrength {
+    #[inline]
+    fn can_cast(kind: SyntaxKind) -> bool {
+        matches!(
+            kind,
+            SyntaxKind::FOR_KEY_SHARE
+                | SyntaxKind::FOR_NO_KEY_UPDATE
+                | SyntaxKind::FOR_SHARE
+                | SyntaxKind::FOR_UPDATE
+        )
+    }
+    #[inline]
+    fn cast(syntax: SyntaxNode) -> Option<Self> {
+        let res = match syntax.kind() {
+            SyntaxKind::FOR_KEY_SHARE => LockStrength::ForKeyShare(ForKeyShare { syntax }),
+            SyntaxKind::FOR_NO_KEY_UPDATE => {
+                LockStrength::ForNoKeyUpdate(ForNoKeyUpdate { syntax })
+            }
+            SyntaxKind::FOR_SHARE => LockStrength::ForShare(ForShare { syntax }),
+            SyntaxKind::FOR_UPDATE => LockStrength::ForUpdate(ForUpdate { syntax }),
+            _ => {
+                return None;
+            }
+        };
+        Some(res)
+    }
+    #[inline]
+    fn syntax(&self) -> &SyntaxNode {
+        match self {
+            LockStrength::ForKeyShare(it) => &it.syntax,
+            LockStrength::ForNoKeyUpdate(it) => &it.syntax,
+            LockStrength::ForShare(it) => &it.syntax,
+            LockStrength::ForUpdate(it) => &it.syntax,
+        }
+    }
+}
+impl From<ForKeyShare> for LockStrength {
+    #[inline]
+    fn from(node: ForKeyShare) -> LockStrength {
+        LockStrength::ForKeyShare(node)
+    }
+}
+impl From<ForNoKeyUpdate> for LockStrength {
+    #[inline]
+    fn from(node: ForNoKeyUpdate) -> LockStrength {
+        LockStrength::ForNoKeyUpdate(node)
+    }
+}
+impl From<ForShare> for LockStrength {
+    #[inline]
+    fn from(node: ForShare) -> LockStrength {
+        LockStrength::ForShare(node)
+    }
+}
+impl From<ForUpdate> for LockStrength {
+    #[inline]
+    fn from(node: ForUpdate) -> LockStrength {
+        LockStrength::ForUpdate(node)
+    }
+}
+impl AstNode for LockWait {
+    #[inline]
+    fn can_cast(kind: SyntaxKind) -> bool {
+        matches!(kind, SyntaxKind::NOWAIT | SyntaxKind::SKIP_LOCKED)
+    }
+    #[inline]
+    fn cast(syntax: SyntaxNode) -> Option<Self> {
+        let res = match syntax.kind() {
+            SyntaxKind::NOWAIT => LockWait::Nowait(Nowait { syntax }),
+            SyntaxKind::SKIP_LOCKED => LockWait::SkipLocked(SkipLocked { syntax }),
+            _ => {
+                return None;
+            }
+        };
+        Some(res)
+    }
+    #[inline]
+    fn syntax(&self) -> &SyntaxNode {
+        match self {
+            LockWait::Nowait(it) => &it.syntax,
+            LockWait::SkipLocked(it) => &it.syntax,
+        }
+    }
+}
+impl From<Nowait> for LockWait {
+    #[inline]
+    fn from(node: Nowait) -> LockWait {
+        LockWait::Nowait(node)
+    }
+}
+impl From<SkipLocked> for LockWait {
+    #[inline]
+    fn from(node: SkipLocked) -> LockWait {
+        LockWait::SkipLocked(node)
+    }
+}
 impl AstNode for MatchType {
     #[inline]
     fn can_cast(kind: SyntaxKind) -> bool {
@@ -56558,6 +63778,47 @@ impl From<MatchSimple> for MatchType {
     #[inline]
     fn from(node: MatchSimple) -> MatchType {
         MatchType::MatchSimple(node)
+    }
+}
+impl AstNode for MaterializedOption {
+    #[inline]
+    fn can_cast(kind: SyntaxKind) -> bool {
+        matches!(
+            kind,
+            SyntaxKind::MATERIALIZED | SyntaxKind::NOT_MATERIALIZED
+        )
+    }
+    #[inline]
+    fn cast(syntax: SyntaxNode) -> Option<Self> {
+        let res = match syntax.kind() {
+            SyntaxKind::MATERIALIZED => MaterializedOption::Materialized(Materialized { syntax }),
+            SyntaxKind::NOT_MATERIALIZED => {
+                MaterializedOption::NotMaterialized(NotMaterialized { syntax })
+            }
+            _ => {
+                return None;
+            }
+        };
+        Some(res)
+    }
+    #[inline]
+    fn syntax(&self) -> &SyntaxNode {
+        match self {
+            MaterializedOption::Materialized(it) => &it.syntax,
+            MaterializedOption::NotMaterialized(it) => &it.syntax,
+        }
+    }
+}
+impl From<Materialized> for MaterializedOption {
+    #[inline]
+    fn from(node: Materialized) -> MaterializedOption {
+        MaterializedOption::Materialized(node)
+    }
+}
+impl From<NotMaterialized> for MaterializedOption {
+    #[inline]
+    fn from(node: NotMaterialized) -> MaterializedOption {
+        MaterializedOption::NotMaterialized(node)
     }
 }
 impl AstNode for MergeAction {
@@ -56709,6 +63970,85 @@ impl From<RespectNulls> for NullTreatment {
         NullTreatment::RespectNulls(node)
     }
 }
+impl AstNode for NullsDistinctOption {
+    #[inline]
+    fn can_cast(kind: SyntaxKind) -> bool {
+        matches!(
+            kind,
+            SyntaxKind::NULLS_DISTINCT | SyntaxKind::NULLS_NOT_DISTINCT
+        )
+    }
+    #[inline]
+    fn cast(syntax: SyntaxNode) -> Option<Self> {
+        let res = match syntax.kind() {
+            SyntaxKind::NULLS_DISTINCT => {
+                NullsDistinctOption::NullsDistinct(NullsDistinct { syntax })
+            }
+            SyntaxKind::NULLS_NOT_DISTINCT => {
+                NullsDistinctOption::NullsNotDistinct(NullsNotDistinct { syntax })
+            }
+            _ => {
+                return None;
+            }
+        };
+        Some(res)
+    }
+    #[inline]
+    fn syntax(&self) -> &SyntaxNode {
+        match self {
+            NullsDistinctOption::NullsDistinct(it) => &it.syntax,
+            NullsDistinctOption::NullsNotDistinct(it) => &it.syntax,
+        }
+    }
+}
+impl From<NullsDistinct> for NullsDistinctOption {
+    #[inline]
+    fn from(node: NullsDistinct) -> NullsDistinctOption {
+        NullsDistinctOption::NullsDistinct(node)
+    }
+}
+impl From<NullsNotDistinct> for NullsDistinctOption {
+    #[inline]
+    fn from(node: NullsNotDistinct) -> NullsDistinctOption {
+        NullsDistinctOption::NullsNotDistinct(node)
+    }
+}
+impl AstNode for NullsOrder {
+    #[inline]
+    fn can_cast(kind: SyntaxKind) -> bool {
+        matches!(kind, SyntaxKind::NULLS_FIRST | SyntaxKind::NULLS_LAST)
+    }
+    #[inline]
+    fn cast(syntax: SyntaxNode) -> Option<Self> {
+        let res = match syntax.kind() {
+            SyntaxKind::NULLS_FIRST => NullsOrder::NullsFirst(NullsFirst { syntax }),
+            SyntaxKind::NULLS_LAST => NullsOrder::NullsLast(NullsLast { syntax }),
+            _ => {
+                return None;
+            }
+        };
+        Some(res)
+    }
+    #[inline]
+    fn syntax(&self) -> &SyntaxNode {
+        match self {
+            NullsOrder::NullsFirst(it) => &it.syntax,
+            NullsOrder::NullsLast(it) => &it.syntax,
+        }
+    }
+}
+impl From<NullsFirst> for NullsOrder {
+    #[inline]
+    fn from(node: NullsFirst) -> NullsOrder {
+        NullsOrder::NullsFirst(node)
+    }
+}
+impl From<NullsLast> for NullsOrder {
+    #[inline]
+    fn from(node: NullsLast) -> NullsOrder {
+        NullsOrder::NullsLast(node)
+    }
+}
 impl AstNode for OnCommitAction {
     #[inline]
     fn can_cast(kind: SyntaxKind) -> bool {
@@ -56809,6 +64149,240 @@ impl From<OpClassOptionStorage> for OpClassOption {
     #[inline]
     fn from(node: OpClassOptionStorage) -> OpClassOption {
         OpClassOption::OpClassOptionStorage(node)
+    }
+}
+impl AstNode for OpClassPurpose {
+    #[inline]
+    fn can_cast(kind: SyntaxKind) -> bool {
+        matches!(
+            kind,
+            SyntaxKind::OP_CLASS_FOR_ORDER_BY | SyntaxKind::OP_CLASS_FOR_SEARCH
+        )
+    }
+    #[inline]
+    fn cast(syntax: SyntaxNode) -> Option<Self> {
+        let res = match syntax.kind() {
+            SyntaxKind::OP_CLASS_FOR_ORDER_BY => {
+                OpClassPurpose::OpClassForOrderBy(OpClassForOrderBy { syntax })
+            }
+            SyntaxKind::OP_CLASS_FOR_SEARCH => {
+                OpClassPurpose::OpClassForSearch(OpClassForSearch { syntax })
+            }
+            _ => {
+                return None;
+            }
+        };
+        Some(res)
+    }
+    #[inline]
+    fn syntax(&self) -> &SyntaxNode {
+        match self {
+            OpClassPurpose::OpClassForOrderBy(it) => &it.syntax,
+            OpClassPurpose::OpClassForSearch(it) => &it.syntax,
+        }
+    }
+}
+impl From<OpClassForOrderBy> for OpClassPurpose {
+    #[inline]
+    fn from(node: OpClassForOrderBy) -> OpClassPurpose {
+        OpClassPurpose::OpClassForOrderBy(node)
+    }
+}
+impl From<OpClassForSearch> for OpClassPurpose {
+    #[inline]
+    fn from(node: OpClassForSearch) -> OpClassPurpose {
+        OpClassPurpose::OpClassForSearch(node)
+    }
+}
+impl AstNode for OverTarget {
+    #[inline]
+    fn can_cast(kind: SyntaxKind) -> bool {
+        matches!(kind, SyntaxKind::OVER_WINDOW_SPEC | SyntaxKind::WINDOW_REF)
+    }
+    #[inline]
+    fn cast(syntax: SyntaxNode) -> Option<Self> {
+        let res = match syntax.kind() {
+            SyntaxKind::OVER_WINDOW_SPEC => OverTarget::OverWindowSpec(OverWindowSpec { syntax }),
+            SyntaxKind::WINDOW_REF => OverTarget::WindowRef(WindowRef { syntax }),
+            _ => {
+                return None;
+            }
+        };
+        Some(res)
+    }
+    #[inline]
+    fn syntax(&self) -> &SyntaxNode {
+        match self {
+            OverTarget::OverWindowSpec(it) => &it.syntax,
+            OverTarget::WindowRef(it) => &it.syntax,
+        }
+    }
+}
+impl From<OverWindowSpec> for OverTarget {
+    #[inline]
+    fn from(node: OverWindowSpec) -> OverTarget {
+        OverTarget::OverWindowSpec(node)
+    }
+}
+impl From<WindowRef> for OverTarget {
+    #[inline]
+    fn from(node: WindowRef) -> OverTarget {
+        OverTarget::WindowRef(node)
+    }
+}
+impl AstNode for OverlayArgs {
+    #[inline]
+    fn can_cast(kind: SyntaxKind) -> bool {
+        matches!(
+            kind,
+            SyntaxKind::OVERLAY_EXPRS | SyntaxKind::OVERLAY_PLACING
+        )
+    }
+    #[inline]
+    fn cast(syntax: SyntaxNode) -> Option<Self> {
+        let res = match syntax.kind() {
+            SyntaxKind::OVERLAY_EXPRS => OverlayArgs::OverlayExprs(OverlayExprs { syntax }),
+            SyntaxKind::OVERLAY_PLACING => OverlayArgs::OverlayPlacing(OverlayPlacing { syntax }),
+            _ => {
+                return None;
+            }
+        };
+        Some(res)
+    }
+    #[inline]
+    fn syntax(&self) -> &SyntaxNode {
+        match self {
+            OverlayArgs::OverlayExprs(it) => &it.syntax,
+            OverlayArgs::OverlayPlacing(it) => &it.syntax,
+        }
+    }
+}
+impl From<OverlayExprs> for OverlayArgs {
+    #[inline]
+    fn from(node: OverlayExprs) -> OverlayArgs {
+        OverlayArgs::OverlayExprs(node)
+    }
+}
+impl From<OverlayPlacing> for OverlayArgs {
+    #[inline]
+    fn from(node: OverlayPlacing) -> OverlayArgs {
+        OverlayArgs::OverlayPlacing(node)
+    }
+}
+impl AstNode for OverlayExpr {
+    #[inline]
+    fn can_cast(kind: SyntaxKind) -> bool {
+        matches!(kind, SyntaxKind::NAMED_ARG) || Expr::can_cast(kind)
+    }
+    #[inline]
+    fn cast(syntax: SyntaxNode) -> Option<Self> {
+        let res = match syntax.kind() {
+            SyntaxKind::NAMED_ARG => OverlayExpr::NamedArg(NamedArg { syntax }),
+            _ => {
+                if let Some(result) = Expr::cast(syntax) {
+                    return Some(OverlayExpr::Expr(result));
+                }
+                return None;
+            }
+        };
+        Some(res)
+    }
+    #[inline]
+    fn syntax(&self) -> &SyntaxNode {
+        match self {
+            OverlayExpr::NamedArg(it) => &it.syntax,
+            OverlayExpr::Expr(it) => it.syntax(),
+        }
+    }
+}
+impl From<NamedArg> for OverlayExpr {
+    #[inline]
+    fn from(node: NamedArg) -> OverlayExpr {
+        OverlayExpr::NamedArg(node)
+    }
+}
+impl AstNode for OverridingClause {
+    #[inline]
+    fn can_cast(kind: SyntaxKind) -> bool {
+        matches!(
+            kind,
+            SyntaxKind::OVERRIDING_SYSTEM_VALUE | SyntaxKind::OVERRIDING_USER_VALUE
+        )
+    }
+    #[inline]
+    fn cast(syntax: SyntaxNode) -> Option<Self> {
+        let res = match syntax.kind() {
+            SyntaxKind::OVERRIDING_SYSTEM_VALUE => {
+                OverridingClause::OverridingSystemValue(OverridingSystemValue { syntax })
+            }
+            SyntaxKind::OVERRIDING_USER_VALUE => {
+                OverridingClause::OverridingUserValue(OverridingUserValue { syntax })
+            }
+            _ => {
+                return None;
+            }
+        };
+        Some(res)
+    }
+    #[inline]
+    fn syntax(&self) -> &SyntaxNode {
+        match self {
+            OverridingClause::OverridingSystemValue(it) => &it.syntax,
+            OverridingClause::OverridingUserValue(it) => &it.syntax,
+        }
+    }
+}
+impl From<OverridingSystemValue> for OverridingClause {
+    #[inline]
+    fn from(node: OverridingSystemValue) -> OverridingClause {
+        OverridingClause::OverridingSystemValue(node)
+    }
+}
+impl From<OverridingUserValue> for OverridingClause {
+    #[inline]
+    fn from(node: OverridingUserValue) -> OverridingClause {
+        OverridingClause::OverridingUserValue(node)
+    }
+}
+impl AstNode for OwnedByTarget {
+    #[inline]
+    fn can_cast(kind: SyntaxKind) -> bool {
+        matches!(
+            kind,
+            SyntaxKind::OWNED_BY_NONE | SyntaxKind::QUALIFIED_COLUMN_NAME_REF
+        )
+    }
+    #[inline]
+    fn cast(syntax: SyntaxNode) -> Option<Self> {
+        let res = match syntax.kind() {
+            SyntaxKind::OWNED_BY_NONE => OwnedByTarget::OwnedByNone(OwnedByNone { syntax }),
+            SyntaxKind::QUALIFIED_COLUMN_NAME_REF => {
+                OwnedByTarget::QualifiedColumnNameRef(QualifiedColumnNameRef { syntax })
+            }
+            _ => {
+                return None;
+            }
+        };
+        Some(res)
+    }
+    #[inline]
+    fn syntax(&self) -> &SyntaxNode {
+        match self {
+            OwnedByTarget::OwnedByNone(it) => &it.syntax,
+            OwnedByTarget::QualifiedColumnNameRef(it) => &it.syntax,
+        }
+    }
+}
+impl From<OwnedByNone> for OwnedByTarget {
+    #[inline]
+    fn from(node: OwnedByNone) -> OwnedByTarget {
+        OwnedByTarget::OwnedByNone(node)
+    }
+}
+impl From<QualifiedColumnNameRef> for OwnedByTarget {
+    #[inline]
+    fn from(node: QualifiedColumnNameRef) -> OwnedByTarget {
+        OwnedByTarget::QualifiedColumnNameRef(node)
     }
 }
 impl AstNode for ParamMode {
@@ -57038,6 +64612,122 @@ impl From<Unlogged> for Persistence {
     #[inline]
     fn from(node: Unlogged) -> Persistence {
         Persistence::Unlogged(node)
+    }
+}
+impl AstNode for PolicyCommandKind {
+    #[inline]
+    fn can_cast(kind: SyntaxKind) -> bool {
+        matches!(
+            kind,
+            SyntaxKind::POLICY_COMMAND_ALL
+                | SyntaxKind::POLICY_COMMAND_DELETE
+                | SyntaxKind::POLICY_COMMAND_INSERT
+                | SyntaxKind::POLICY_COMMAND_SELECT
+                | SyntaxKind::POLICY_COMMAND_UPDATE
+        )
+    }
+    #[inline]
+    fn cast(syntax: SyntaxNode) -> Option<Self> {
+        let res = match syntax.kind() {
+            SyntaxKind::POLICY_COMMAND_ALL => {
+                PolicyCommandKind::PolicyCommandAll(PolicyCommandAll { syntax })
+            }
+            SyntaxKind::POLICY_COMMAND_DELETE => {
+                PolicyCommandKind::PolicyCommandDelete(PolicyCommandDelete { syntax })
+            }
+            SyntaxKind::POLICY_COMMAND_INSERT => {
+                PolicyCommandKind::PolicyCommandInsert(PolicyCommandInsert { syntax })
+            }
+            SyntaxKind::POLICY_COMMAND_SELECT => {
+                PolicyCommandKind::PolicyCommandSelect(PolicyCommandSelect { syntax })
+            }
+            SyntaxKind::POLICY_COMMAND_UPDATE => {
+                PolicyCommandKind::PolicyCommandUpdate(PolicyCommandUpdate { syntax })
+            }
+            _ => {
+                return None;
+            }
+        };
+        Some(res)
+    }
+    #[inline]
+    fn syntax(&self) -> &SyntaxNode {
+        match self {
+            PolicyCommandKind::PolicyCommandAll(it) => &it.syntax,
+            PolicyCommandKind::PolicyCommandDelete(it) => &it.syntax,
+            PolicyCommandKind::PolicyCommandInsert(it) => &it.syntax,
+            PolicyCommandKind::PolicyCommandSelect(it) => &it.syntax,
+            PolicyCommandKind::PolicyCommandUpdate(it) => &it.syntax,
+        }
+    }
+}
+impl From<PolicyCommandAll> for PolicyCommandKind {
+    #[inline]
+    fn from(node: PolicyCommandAll) -> PolicyCommandKind {
+        PolicyCommandKind::PolicyCommandAll(node)
+    }
+}
+impl From<PolicyCommandDelete> for PolicyCommandKind {
+    #[inline]
+    fn from(node: PolicyCommandDelete) -> PolicyCommandKind {
+        PolicyCommandKind::PolicyCommandDelete(node)
+    }
+}
+impl From<PolicyCommandInsert> for PolicyCommandKind {
+    #[inline]
+    fn from(node: PolicyCommandInsert) -> PolicyCommandKind {
+        PolicyCommandKind::PolicyCommandInsert(node)
+    }
+}
+impl From<PolicyCommandSelect> for PolicyCommandKind {
+    #[inline]
+    fn from(node: PolicyCommandSelect) -> PolicyCommandKind {
+        PolicyCommandKind::PolicyCommandSelect(node)
+    }
+}
+impl From<PolicyCommandUpdate> for PolicyCommandKind {
+    #[inline]
+    fn from(node: PolicyCommandUpdate) -> PolicyCommandKind {
+        PolicyCommandKind::PolicyCommandUpdate(node)
+    }
+}
+impl AstNode for PortionTarget {
+    #[inline]
+    fn can_cast(kind: SyntaxKind) -> bool {
+        matches!(
+            kind,
+            SyntaxKind::PORTION_FROM_TO | SyntaxKind::PORTION_RANGE
+        )
+    }
+    #[inline]
+    fn cast(syntax: SyntaxNode) -> Option<Self> {
+        let res = match syntax.kind() {
+            SyntaxKind::PORTION_FROM_TO => PortionTarget::PortionFromTo(PortionFromTo { syntax }),
+            SyntaxKind::PORTION_RANGE => PortionTarget::PortionRange(PortionRange { syntax }),
+            _ => {
+                return None;
+            }
+        };
+        Some(res)
+    }
+    #[inline]
+    fn syntax(&self) -> &SyntaxNode {
+        match self {
+            PortionTarget::PortionFromTo(it) => &it.syntax,
+            PortionTarget::PortionRange(it) => &it.syntax,
+        }
+    }
+}
+impl From<PortionFromTo> for PortionTarget {
+    #[inline]
+    fn from(node: PortionFromTo) -> PortionTarget {
+        PortionTarget::PortionFromTo(node)
+    }
+}
+impl From<PortionRange> for PortionTarget {
+    #[inline]
+    fn from(node: PortionRange) -> PortionTarget {
+        PortionTarget::PortionRange(node)
     }
 }
 impl AstNode for PreparableStmt {
@@ -57516,6 +65206,90 @@ impl From<PrivilegeTargetTypes> for PrivilegeTarget {
         PrivilegeTarget::PrivilegeTargetTypes(node)
     }
 }
+impl AstNode for Privileges {
+    #[inline]
+    fn can_cast(kind: SyntaxKind) -> bool {
+        matches!(
+            kind,
+            SyntaxKind::ALL_PRIVILEGES | SyntaxKind::REVOKE_COMMAND_LIST
+        )
+    }
+    #[inline]
+    fn cast(syntax: SyntaxNode) -> Option<Self> {
+        let res = match syntax.kind() {
+            SyntaxKind::ALL_PRIVILEGES => Privileges::AllPrivileges(AllPrivileges { syntax }),
+            SyntaxKind::REVOKE_COMMAND_LIST => {
+                Privileges::RevokeCommandList(RevokeCommandList { syntax })
+            }
+            _ => {
+                return None;
+            }
+        };
+        Some(res)
+    }
+    #[inline]
+    fn syntax(&self) -> &SyntaxNode {
+        match self {
+            Privileges::AllPrivileges(it) => &it.syntax,
+            Privileges::RevokeCommandList(it) => &it.syntax,
+        }
+    }
+}
+impl From<AllPrivileges> for Privileges {
+    #[inline]
+    fn from(node: AllPrivileges) -> Privileges {
+        Privileges::AllPrivileges(node)
+    }
+}
+impl From<RevokeCommandList> for Privileges {
+    #[inline]
+    fn from(node: RevokeCommandList) -> Privileges {
+        Privileges::RevokeCommandList(node)
+    }
+}
+impl AstNode for PublicationForClause {
+    #[inline]
+    fn can_cast(kind: SyntaxKind) -> bool {
+        matches!(
+            kind,
+            SyntaxKind::FOR_ALL_PUBLICATION_OBJECTS | SyntaxKind::FOR_PUBLICATION_OBJECTS
+        )
+    }
+    #[inline]
+    fn cast(syntax: SyntaxNode) -> Option<Self> {
+        let res = match syntax.kind() {
+            SyntaxKind::FOR_ALL_PUBLICATION_OBJECTS => {
+                PublicationForClause::ForAllPublicationObjects(ForAllPublicationObjects { syntax })
+            }
+            SyntaxKind::FOR_PUBLICATION_OBJECTS => {
+                PublicationForClause::ForPublicationObjects(ForPublicationObjects { syntax })
+            }
+            _ => {
+                return None;
+            }
+        };
+        Some(res)
+    }
+    #[inline]
+    fn syntax(&self) -> &SyntaxNode {
+        match self {
+            PublicationForClause::ForAllPublicationObjects(it) => &it.syntax,
+            PublicationForClause::ForPublicationObjects(it) => &it.syntax,
+        }
+    }
+}
+impl From<ForAllPublicationObjects> for PublicationForClause {
+    #[inline]
+    fn from(node: ForAllPublicationObjects) -> PublicationForClause {
+        PublicationForClause::ForAllPublicationObjects(node)
+    }
+}
+impl From<ForPublicationObjects> for PublicationForClause {
+    #[inline]
+    fn from(node: ForPublicationObjects) -> PublicationForClause {
+        PublicationForClause::ForPublicationObjects(node)
+    }
+}
 impl AstNode for PublicationObject {
     #[inline]
     fn can_cast(kind: SyntaxKind) -> bool {
@@ -57573,6 +65347,42 @@ impl From<PublicationObjectTablesInSchema> for PublicationObject {
     #[inline]
     fn from(node: PublicationObjectTablesInSchema) -> PublicationObject {
         PublicationObject::PublicationObjectTablesInSchema(node)
+    }
+}
+impl AstNode for QuotesBehavior {
+    #[inline]
+    fn can_cast(kind: SyntaxKind) -> bool {
+        matches!(kind, SyntaxKind::KEEP_QUOTES | SyntaxKind::OMIT_QUOTES)
+    }
+    #[inline]
+    fn cast(syntax: SyntaxNode) -> Option<Self> {
+        let res = match syntax.kind() {
+            SyntaxKind::KEEP_QUOTES => QuotesBehavior::KeepQuotes(KeepQuotes { syntax }),
+            SyntaxKind::OMIT_QUOTES => QuotesBehavior::OmitQuotes(OmitQuotes { syntax }),
+            _ => {
+                return None;
+            }
+        };
+        Some(res)
+    }
+    #[inline]
+    fn syntax(&self) -> &SyntaxNode {
+        match self {
+            QuotesBehavior::KeepQuotes(it) => &it.syntax,
+            QuotesBehavior::OmitQuotes(it) => &it.syntax,
+        }
+    }
+}
+impl From<KeepQuotes> for QuotesBehavior {
+    #[inline]
+    fn from(node: KeepQuotes) -> QuotesBehavior {
+        QuotesBehavior::KeepQuotes(node)
+    }
+}
+impl From<OmitQuotes> for QuotesBehavior {
+    #[inline]
+    fn from(node: OmitQuotes) -> QuotesBehavior {
+        QuotesBehavior::OmitQuotes(node)
     }
 }
 impl AstNode for RefAction {
@@ -57642,6 +65452,42 @@ impl From<SetNullColumns> for RefAction {
     #[inline]
     fn from(node: SetNullColumns) -> RefAction {
         RefAction::SetNullColumns(node)
+    }
+}
+impl AstNode for ReferencingTable {
+    #[inline]
+    fn can_cast(kind: SyntaxKind) -> bool {
+        matches!(kind, SyntaxKind::NEW_TABLE | SyntaxKind::OLD_TABLE)
+    }
+    #[inline]
+    fn cast(syntax: SyntaxNode) -> Option<Self> {
+        let res = match syntax.kind() {
+            SyntaxKind::NEW_TABLE => ReferencingTable::NewTable(NewTable { syntax }),
+            SyntaxKind::OLD_TABLE => ReferencingTable::OldTable(OldTable { syntax }),
+            _ => {
+                return None;
+            }
+        };
+        Some(res)
+    }
+    #[inline]
+    fn syntax(&self) -> &SyntaxNode {
+        match self {
+            ReferencingTable::NewTable(it) => &it.syntax,
+            ReferencingTable::OldTable(it) => &it.syntax,
+        }
+    }
+}
+impl From<NewTable> for ReferencingTable {
+    #[inline]
+    fn from(node: NewTable) -> ReferencingTable {
+        ReferencingTable::NewTable(node)
+    }
+}
+impl From<OldTable> for ReferencingTable {
+    #[inline]
+    fn from(node: OldTable) -> ReferencingTable {
+        ReferencingTable::OldTable(node)
     }
 }
 impl AstNode for ReindexOption {
@@ -57776,6 +65622,72 @@ impl From<ReindexTargetTable> for ReindexTarget {
         ReindexTarget::ReindexTargetTable(node)
     }
 }
+impl AstNode for ReplicaIdentityOption {
+    #[inline]
+    fn can_cast(kind: SyntaxKind) -> bool {
+        matches!(
+            kind,
+            SyntaxKind::REPLICA_IDENTITY_DEFAULT
+                | SyntaxKind::REPLICA_IDENTITY_FULL
+                | SyntaxKind::REPLICA_IDENTITY_NOTHING
+                | SyntaxKind::USING_INDEX_NAME
+        )
+    }
+    #[inline]
+    fn cast(syntax: SyntaxNode) -> Option<Self> {
+        let res = match syntax.kind() {
+            SyntaxKind::REPLICA_IDENTITY_DEFAULT => {
+                ReplicaIdentityOption::ReplicaIdentityDefault(ReplicaIdentityDefault { syntax })
+            }
+            SyntaxKind::REPLICA_IDENTITY_FULL => {
+                ReplicaIdentityOption::ReplicaIdentityFull(ReplicaIdentityFull { syntax })
+            }
+            SyntaxKind::REPLICA_IDENTITY_NOTHING => {
+                ReplicaIdentityOption::ReplicaIdentityNothing(ReplicaIdentityNothing { syntax })
+            }
+            SyntaxKind::USING_INDEX_NAME => {
+                ReplicaIdentityOption::UsingIndexName(UsingIndexName { syntax })
+            }
+            _ => {
+                return None;
+            }
+        };
+        Some(res)
+    }
+    #[inline]
+    fn syntax(&self) -> &SyntaxNode {
+        match self {
+            ReplicaIdentityOption::ReplicaIdentityDefault(it) => &it.syntax,
+            ReplicaIdentityOption::ReplicaIdentityFull(it) => &it.syntax,
+            ReplicaIdentityOption::ReplicaIdentityNothing(it) => &it.syntax,
+            ReplicaIdentityOption::UsingIndexName(it) => &it.syntax,
+        }
+    }
+}
+impl From<ReplicaIdentityDefault> for ReplicaIdentityOption {
+    #[inline]
+    fn from(node: ReplicaIdentityDefault) -> ReplicaIdentityOption {
+        ReplicaIdentityOption::ReplicaIdentityDefault(node)
+    }
+}
+impl From<ReplicaIdentityFull> for ReplicaIdentityOption {
+    #[inline]
+    fn from(node: ReplicaIdentityFull) -> ReplicaIdentityOption {
+        ReplicaIdentityOption::ReplicaIdentityFull(node)
+    }
+}
+impl From<ReplicaIdentityNothing> for ReplicaIdentityOption {
+    #[inline]
+    fn from(node: ReplicaIdentityNothing) -> ReplicaIdentityOption {
+        ReplicaIdentityOption::ReplicaIdentityNothing(node)
+    }
+}
+impl From<UsingIndexName> for ReplicaIdentityOption {
+    #[inline]
+    fn from(node: UsingIndexName) -> ReplicaIdentityOption {
+        ReplicaIdentityOption::UsingIndexName(node)
+    }
+}
 impl AstNode for ResetTarget {
     #[inline]
     fn can_cast(kind: SyntaxKind) -> bool {
@@ -57836,6 +65748,106 @@ impl From<ResetTransactionIsolation> for ResetTarget {
     #[inline]
     fn from(node: ResetTransactionIsolation) -> ResetTarget {
         ResetTarget::ResetTransactionIsolation(node)
+    }
+}
+impl AstNode for ReturningOption {
+    #[inline]
+    fn can_cast(kind: SyntaxKind) -> bool {
+        matches!(kind, SyntaxKind::RETURNING_NEW | SyntaxKind::RETURNING_OLD)
+    }
+    #[inline]
+    fn cast(syntax: SyntaxNode) -> Option<Self> {
+        let res = match syntax.kind() {
+            SyntaxKind::RETURNING_NEW => ReturningOption::ReturningNew(ReturningNew { syntax }),
+            SyntaxKind::RETURNING_OLD => ReturningOption::ReturningOld(ReturningOld { syntax }),
+            _ => {
+                return None;
+            }
+        };
+        Some(res)
+    }
+    #[inline]
+    fn syntax(&self) -> &SyntaxNode {
+        match self {
+            ReturningOption::ReturningNew(it) => &it.syntax,
+            ReturningOption::ReturningOld(it) => &it.syntax,
+        }
+    }
+}
+impl From<ReturningNew> for ReturningOption {
+    #[inline]
+    fn from(node: ReturningNew) -> ReturningOption {
+        ReturningOption::ReturningNew(node)
+    }
+}
+impl From<ReturningOld> for ReturningOption {
+    #[inline]
+    fn from(node: ReturningOld) -> ReturningOption {
+        ReturningOption::ReturningOld(node)
+    }
+}
+impl AstNode for RevokeOptionFor {
+    #[inline]
+    fn can_cast(kind: SyntaxKind) -> bool {
+        matches!(
+            kind,
+            SyntaxKind::ADMIN_OPTION_FOR
+                | SyntaxKind::GRANT_OPTION_FOR
+                | SyntaxKind::INHERIT_OPTION_FOR
+                | SyntaxKind::SET_OPTION_FOR
+        )
+    }
+    #[inline]
+    fn cast(syntax: SyntaxNode) -> Option<Self> {
+        let res = match syntax.kind() {
+            SyntaxKind::ADMIN_OPTION_FOR => {
+                RevokeOptionFor::AdminOptionFor(AdminOptionFor { syntax })
+            }
+            SyntaxKind::GRANT_OPTION_FOR => {
+                RevokeOptionFor::GrantOptionFor(GrantOptionFor { syntax })
+            }
+            SyntaxKind::INHERIT_OPTION_FOR => {
+                RevokeOptionFor::InheritOptionFor(InheritOptionFor { syntax })
+            }
+            SyntaxKind::SET_OPTION_FOR => RevokeOptionFor::SetOptionFor(SetOptionFor { syntax }),
+            _ => {
+                return None;
+            }
+        };
+        Some(res)
+    }
+    #[inline]
+    fn syntax(&self) -> &SyntaxNode {
+        match self {
+            RevokeOptionFor::AdminOptionFor(it) => &it.syntax,
+            RevokeOptionFor::GrantOptionFor(it) => &it.syntax,
+            RevokeOptionFor::InheritOptionFor(it) => &it.syntax,
+            RevokeOptionFor::SetOptionFor(it) => &it.syntax,
+        }
+    }
+}
+impl From<AdminOptionFor> for RevokeOptionFor {
+    #[inline]
+    fn from(node: AdminOptionFor) -> RevokeOptionFor {
+        RevokeOptionFor::AdminOptionFor(node)
+    }
+}
+impl From<GrantOptionFor> for RevokeOptionFor {
+    #[inline]
+    fn from(node: GrantOptionFor) -> RevokeOptionFor {
+        RevokeOptionFor::GrantOptionFor(node)
+    }
+}
+impl From<InheritOptionFor> for RevokeOptionFor {
+    #[inline]
+    fn from(node: InheritOptionFor) -> RevokeOptionFor {
+        RevokeOptionFor::InheritOptionFor(node)
+    }
+}
+impl From<SetOptionFor> for RevokeOptionFor {
+    #[inline]
+    fn from(node: SetOptionFor) -> RevokeOptionFor {
+        RevokeOptionFor::SetOptionFor(node)
     }
 }
 impl AstNode for RoleOption {
@@ -57991,7 +66003,7 @@ impl From<RoleOptionValidUntil> for RoleOption {
 impl AstNode for RuleAction {
     #[inline]
     fn can_cast(kind: SyntaxKind) -> bool {
-        matches!(kind, SyntaxKind::NOTHING | SyntaxKind::RULE_STMT_LIST)
+        matches!(kind, SyntaxKind::NOTHING | SyntaxKind::RULE_STMT_LIST) || RuleStmt::can_cast(kind)
     }
     #[inline]
     fn cast(syntax: SyntaxNode) -> Option<Self> {
@@ -58034,7 +66046,7 @@ impl AstNode for RuleStmt {
         matches!(
             kind,
             SyntaxKind::DELETE | SyntaxKind::INSERT | SyntaxKind::NOTIFY | SyntaxKind::UPDATE
-        )
+        ) || SelectVariant::can_cast(kind)
     }
     #[inline]
     fn cast(syntax: SyntaxNode) -> Option<Self> {
@@ -58161,6 +66173,42 @@ impl From<Grant> for SchemaElement {
     #[inline]
     fn from(node: Grant) -> SchemaElement {
         SchemaElement::Grant(node)
+    }
+}
+impl AstNode for SearchOrder {
+    #[inline]
+    fn can_cast(kind: SyntaxKind) -> bool {
+        matches!(kind, SyntaxKind::BREADTH_FIRST | SyntaxKind::DEPTH_FIRST)
+    }
+    #[inline]
+    fn cast(syntax: SyntaxNode) -> Option<Self> {
+        let res = match syntax.kind() {
+            SyntaxKind::BREADTH_FIRST => SearchOrder::BreadthFirst(BreadthFirst { syntax }),
+            SyntaxKind::DEPTH_FIRST => SearchOrder::DepthFirst(DepthFirst { syntax }),
+            _ => {
+                return None;
+            }
+        };
+        Some(res)
+    }
+    #[inline]
+    fn syntax(&self) -> &SyntaxNode {
+        match self {
+            SearchOrder::BreadthFirst(it) => &it.syntax,
+            SearchOrder::DepthFirst(it) => &it.syntax,
+        }
+    }
+}
+impl From<BreadthFirst> for SearchOrder {
+    #[inline]
+    fn from(node: BreadthFirst) -> SearchOrder {
+        SearchOrder::BreadthFirst(node)
+    }
+}
+impl From<DepthFirst> for SearchOrder {
+    #[inline]
+    fn from(node: DepthFirst) -> SearchOrder {
+        SearchOrder::DepthFirst(node)
     }
 }
 impl AstNode for SecurityLabelObject {
@@ -58400,6 +66448,44 @@ impl From<ObjectView> for SecurityLabelObject {
     #[inline]
     fn from(node: ObjectView) -> SecurityLabelObject {
         SecurityLabelObject::ObjectView(node)
+    }
+}
+impl AstNode for SelectQuantifier {
+    #[inline]
+    fn can_cast(kind: SyntaxKind) -> bool {
+        matches!(kind, SyntaxKind::ALL | SyntaxKind::DISTINCT_CLAUSE)
+    }
+    #[inline]
+    fn cast(syntax: SyntaxNode) -> Option<Self> {
+        let res = match syntax.kind() {
+            SyntaxKind::ALL => SelectQuantifier::All(All { syntax }),
+            SyntaxKind::DISTINCT_CLAUSE => {
+                SelectQuantifier::DistinctClause(DistinctClause { syntax })
+            }
+            _ => {
+                return None;
+            }
+        };
+        Some(res)
+    }
+    #[inline]
+    fn syntax(&self) -> &SyntaxNode {
+        match self {
+            SelectQuantifier::All(it) => &it.syntax,
+            SelectQuantifier::DistinctClause(it) => &it.syntax,
+        }
+    }
+}
+impl From<All> for SelectQuantifier {
+    #[inline]
+    fn from(node: All) -> SelectQuantifier {
+        SelectQuantifier::All(node)
+    }
+}
+impl From<DistinctClause> for SelectQuantifier {
+    #[inline]
+    fn from(node: DistinctClause) -> SelectQuantifier {
+        SelectQuantifier::DistinctClause(node)
     }
 }
 impl AstNode for SelectVariant {
@@ -58690,6 +66776,187 @@ impl From<SetSingleColumn> for SetColumn {
         SetColumn::SetSingleColumn(node)
     }
 }
+impl AstNode for SetGeneratedOption {
+    #[inline]
+    fn can_cast(kind: SyntaxKind) -> bool {
+        matches!(
+            kind,
+            SyntaxKind::RESTART | SyntaxKind::SET_GENERATED | SyntaxKind::SET_SEQUENCE_OPTION
+        )
+    }
+    #[inline]
+    fn cast(syntax: SyntaxNode) -> Option<Self> {
+        let res = match syntax.kind() {
+            SyntaxKind::RESTART => SetGeneratedOption::Restart(Restart { syntax }),
+            SyntaxKind::SET_GENERATED => SetGeneratedOption::SetGenerated(SetGenerated { syntax }),
+            SyntaxKind::SET_SEQUENCE_OPTION => {
+                SetGeneratedOption::SetSequenceOption(SetSequenceOption { syntax })
+            }
+            _ => {
+                return None;
+            }
+        };
+        Some(res)
+    }
+    #[inline]
+    fn syntax(&self) -> &SyntaxNode {
+        match self {
+            SetGeneratedOption::Restart(it) => &it.syntax,
+            SetGeneratedOption::SetGenerated(it) => &it.syntax,
+            SetGeneratedOption::SetSequenceOption(it) => &it.syntax,
+        }
+    }
+}
+impl From<Restart> for SetGeneratedOption {
+    #[inline]
+    fn from(node: Restart) -> SetGeneratedOption {
+        SetGeneratedOption::Restart(node)
+    }
+}
+impl From<SetGenerated> for SetGeneratedOption {
+    #[inline]
+    fn from(node: SetGenerated) -> SetGeneratedOption {
+        SetGeneratedOption::SetGenerated(node)
+    }
+}
+impl From<SetSequenceOption> for SetGeneratedOption {
+    #[inline]
+    fn from(node: SetSequenceOption) -> SetGeneratedOption {
+        SetGeneratedOption::SetSequenceOption(node)
+    }
+}
+impl AstNode for SetRoleTarget {
+    #[inline]
+    fn can_cast(kind: SyntaxKind) -> bool {
+        matches!(
+            kind,
+            SyntaxKind::LITERAL | SyntaxKind::ROLE_REF | SyntaxKind::SET_ROLE_NONE
+        )
+    }
+    #[inline]
+    fn cast(syntax: SyntaxNode) -> Option<Self> {
+        let res = match syntax.kind() {
+            SyntaxKind::LITERAL => SetRoleTarget::Literal(Literal { syntax }),
+            SyntaxKind::ROLE_REF => SetRoleTarget::RoleRef(RoleRef { syntax }),
+            SyntaxKind::SET_ROLE_NONE => SetRoleTarget::SetRoleNone(SetRoleNone { syntax }),
+            _ => {
+                return None;
+            }
+        };
+        Some(res)
+    }
+    #[inline]
+    fn syntax(&self) -> &SyntaxNode {
+        match self {
+            SetRoleTarget::Literal(it) => &it.syntax,
+            SetRoleTarget::RoleRef(it) => &it.syntax,
+            SetRoleTarget::SetRoleNone(it) => &it.syntax,
+        }
+    }
+}
+impl From<Literal> for SetRoleTarget {
+    #[inline]
+    fn from(node: Literal) -> SetRoleTarget {
+        SetRoleTarget::Literal(node)
+    }
+}
+impl From<RoleRef> for SetRoleTarget {
+    #[inline]
+    fn from(node: RoleRef) -> SetRoleTarget {
+        SetRoleTarget::RoleRef(node)
+    }
+}
+impl From<SetRoleNone> for SetRoleTarget {
+    #[inline]
+    fn from(node: SetRoleNone) -> SetRoleTarget {
+        SetRoleTarget::SetRoleNone(node)
+    }
+}
+impl AstNode for SetScope {
+    #[inline]
+    fn can_cast(kind: SyntaxKind) -> bool {
+        matches!(kind, SyntaxKind::LOCAL_SCOPE | SyntaxKind::SESSION_SCOPE)
+    }
+    #[inline]
+    fn cast(syntax: SyntaxNode) -> Option<Self> {
+        let res = match syntax.kind() {
+            SyntaxKind::LOCAL_SCOPE => SetScope::LocalScope(LocalScope { syntax }),
+            SyntaxKind::SESSION_SCOPE => SetScope::SessionScope(SessionScope { syntax }),
+            _ => {
+                return None;
+            }
+        };
+        Some(res)
+    }
+    #[inline]
+    fn syntax(&self) -> &SyntaxNode {
+        match self {
+            SetScope::LocalScope(it) => &it.syntax,
+            SetScope::SessionScope(it) => &it.syntax,
+        }
+    }
+}
+impl From<LocalScope> for SetScope {
+    #[inline]
+    fn from(node: LocalScope) -> SetScope {
+        SetScope::LocalScope(node)
+    }
+}
+impl From<SessionScope> for SetScope {
+    #[inline]
+    fn from(node: SessionScope) -> SetScope {
+        SetScope::SessionScope(node)
+    }
+}
+impl AstNode for SetSessionAuthTarget {
+    #[inline]
+    fn can_cast(kind: SyntaxKind) -> bool {
+        matches!(
+            kind,
+            SyntaxKind::LITERAL | SyntaxKind::ROLE_REF | SyntaxKind::SET_SESSION_AUTH_DEFAULT
+        )
+    }
+    #[inline]
+    fn cast(syntax: SyntaxNode) -> Option<Self> {
+        let res = match syntax.kind() {
+            SyntaxKind::LITERAL => SetSessionAuthTarget::Literal(Literal { syntax }),
+            SyntaxKind::ROLE_REF => SetSessionAuthTarget::RoleRef(RoleRef { syntax }),
+            SyntaxKind::SET_SESSION_AUTH_DEFAULT => {
+                SetSessionAuthTarget::SetSessionAuthDefault(SetSessionAuthDefault { syntax })
+            }
+            _ => {
+                return None;
+            }
+        };
+        Some(res)
+    }
+    #[inline]
+    fn syntax(&self) -> &SyntaxNode {
+        match self {
+            SetSessionAuthTarget::Literal(it) => &it.syntax,
+            SetSessionAuthTarget::RoleRef(it) => &it.syntax,
+            SetSessionAuthTarget::SetSessionAuthDefault(it) => &it.syntax,
+        }
+    }
+}
+impl From<Literal> for SetSessionAuthTarget {
+    #[inline]
+    fn from(node: Literal) -> SetSessionAuthTarget {
+        SetSessionAuthTarget::Literal(node)
+    }
+}
+impl From<RoleRef> for SetSessionAuthTarget {
+    #[inline]
+    fn from(node: RoleRef) -> SetSessionAuthTarget {
+        SetSessionAuthTarget::RoleRef(node)
+    }
+}
+impl From<SetSessionAuthDefault> for SetSessionAuthTarget {
+    #[inline]
+    fn from(node: SetSessionAuthDefault) -> SetSessionAuthTarget {
+        SetSessionAuthTarget::SetSessionAuthDefault(node)
+    }
+}
 impl AstNode for SetTarget {
     #[inline]
     fn can_cast(kind: SyntaxKind) -> bool {
@@ -58830,6 +67097,53 @@ impl From<TransactionIsolationLevel> for ShowAction {
         ShowAction::TransactionIsolationLevel(node)
     }
 }
+impl AstNode for SortOrder {
+    #[inline]
+    fn can_cast(kind: SyntaxKind) -> bool {
+        matches!(
+            kind,
+            SyntaxKind::SORT_ASC | SyntaxKind::SORT_DESC | SyntaxKind::SORT_USING
+        )
+    }
+    #[inline]
+    fn cast(syntax: SyntaxNode) -> Option<Self> {
+        let res = match syntax.kind() {
+            SyntaxKind::SORT_ASC => SortOrder::SortAsc(SortAsc { syntax }),
+            SyntaxKind::SORT_DESC => SortOrder::SortDesc(SortDesc { syntax }),
+            SyntaxKind::SORT_USING => SortOrder::SortUsing(SortUsing { syntax }),
+            _ => {
+                return None;
+            }
+        };
+        Some(res)
+    }
+    #[inline]
+    fn syntax(&self) -> &SyntaxNode {
+        match self {
+            SortOrder::SortAsc(it) => &it.syntax,
+            SortOrder::SortDesc(it) => &it.syntax,
+            SortOrder::SortUsing(it) => &it.syntax,
+        }
+    }
+}
+impl From<SortAsc> for SortOrder {
+    #[inline]
+    fn from(node: SortAsc) -> SortOrder {
+        SortOrder::SortAsc(node)
+    }
+}
+impl From<SortDesc> for SortOrder {
+    #[inline]
+    fn from(node: SortDesc) -> SortOrder {
+        SortOrder::SortDesc(node)
+    }
+}
+impl From<SortUsing> for SortOrder {
+    #[inline]
+    fn from(node: SortUsing) -> SortOrder {
+        SortOrder::SortUsing(node)
+    }
+}
 impl AstNode for Stmt {
     #[inline]
     fn can_cast(kind: SyntaxKind) -> bool {
@@ -58886,6 +67200,7 @@ impl AstNode for Stmt {
                 | SyntaxKind::CLUSTER
                 | SyntaxKind::COMMENT_ON
                 | SyntaxKind::COMMIT
+                | SyntaxKind::COMPOUND_SELECT
                 | SyntaxKind::COPY
                 | SyntaxKind::CREATE_ACCESS_METHOD
                 | SyntaxKind::CREATE_AGGREGATE
@@ -59101,6 +67416,7 @@ impl AstNode for Stmt {
             SyntaxKind::CLUSTER => Stmt::Cluster(Cluster { syntax }),
             SyntaxKind::COMMENT_ON => Stmt::CommentOn(CommentOn { syntax }),
             SyntaxKind::COMMIT => Stmt::Commit(Commit { syntax }),
+            SyntaxKind::COMPOUND_SELECT => Stmt::CompoundSelect(CompoundSelect { syntax }),
             SyntaxKind::COPY => Stmt::Copy(Copy { syntax }),
             SyntaxKind::CREATE_ACCESS_METHOD => {
                 Stmt::CreateAccessMethod(CreateAccessMethod { syntax })
@@ -59346,6 +67662,7 @@ impl AstNode for Stmt {
             Stmt::Cluster(it) => &it.syntax,
             Stmt::CommentOn(it) => &it.syntax,
             Stmt::Commit(it) => &it.syntax,
+            Stmt::CompoundSelect(it) => &it.syntax,
             Stmt::Copy(it) => &it.syntax,
             Stmt::CreateAccessMethod(it) => &it.syntax,
             Stmt::CreateAggregate(it) => &it.syntax,
@@ -59788,6 +68105,12 @@ impl From<Commit> for Stmt {
     #[inline]
     fn from(node: Commit) -> Stmt {
         Stmt::Commit(node)
+    }
+}
+impl From<CompoundSelect> for Stmt {
+    #[inline]
+    fn from(node: CompoundSelect) -> Stmt {
+        Stmt::CompoundSelect(node)
     }
 }
 impl From<Copy> for Stmt {
@@ -60600,10 +68923,116 @@ impl From<Values> for Stmt {
         Stmt::Values(node)
     }
 }
+impl AstNode for SubscriptionSource {
+    #[inline]
+    fn can_cast(kind: SyntaxKind) -> bool {
+        matches!(
+            kind,
+            SyntaxKind::CONNECTION_CLAUSE | SyntaxKind::SERVER_CLAUSE
+        )
+    }
+    #[inline]
+    fn cast(syntax: SyntaxNode) -> Option<Self> {
+        let res = match syntax.kind() {
+            SyntaxKind::CONNECTION_CLAUSE => {
+                SubscriptionSource::ConnectionClause(ConnectionClause { syntax })
+            }
+            SyntaxKind::SERVER_CLAUSE => SubscriptionSource::ServerClause(ServerClause { syntax }),
+            _ => {
+                return None;
+            }
+        };
+        Some(res)
+    }
+    #[inline]
+    fn syntax(&self) -> &SyntaxNode {
+        match self {
+            SubscriptionSource::ConnectionClause(it) => &it.syntax,
+            SubscriptionSource::ServerClause(it) => &it.syntax,
+        }
+    }
+}
+impl From<ConnectionClause> for SubscriptionSource {
+    #[inline]
+    fn from(node: ConnectionClause) -> SubscriptionSource {
+        SubscriptionSource::ConnectionClause(node)
+    }
+}
+impl From<ServerClause> for SubscriptionSource {
+    #[inline]
+    fn from(node: ServerClause) -> SubscriptionSource {
+        SubscriptionSource::ServerClause(node)
+    }
+}
+impl AstNode for SubstringArgs {
+    #[inline]
+    fn can_cast(kind: SyntaxKind) -> bool {
+        matches!(
+            kind,
+            SyntaxKind::SUBSTRING_EXPRS
+                | SyntaxKind::SUBSTRING_FOR_FROM
+                | SyntaxKind::SUBSTRING_FROM_FOR
+                | SyntaxKind::SUBSTRING_SIMILAR_ESCAPE
+        )
+    }
+    #[inline]
+    fn cast(syntax: SyntaxNode) -> Option<Self> {
+        let res = match syntax.kind() {
+            SyntaxKind::SUBSTRING_EXPRS => SubstringArgs::SubstringExprs(SubstringExprs { syntax }),
+            SyntaxKind::SUBSTRING_FOR_FROM => {
+                SubstringArgs::SubstringForFrom(SubstringForFrom { syntax })
+            }
+            SyntaxKind::SUBSTRING_FROM_FOR => {
+                SubstringArgs::SubstringFromFor(SubstringFromFor { syntax })
+            }
+            SyntaxKind::SUBSTRING_SIMILAR_ESCAPE => {
+                SubstringArgs::SubstringSimilarEscape(SubstringSimilarEscape { syntax })
+            }
+            _ => {
+                return None;
+            }
+        };
+        Some(res)
+    }
+    #[inline]
+    fn syntax(&self) -> &SyntaxNode {
+        match self {
+            SubstringArgs::SubstringExprs(it) => &it.syntax,
+            SubstringArgs::SubstringForFrom(it) => &it.syntax,
+            SubstringArgs::SubstringFromFor(it) => &it.syntax,
+            SubstringArgs::SubstringSimilarEscape(it) => &it.syntax,
+        }
+    }
+}
+impl From<SubstringExprs> for SubstringArgs {
+    #[inline]
+    fn from(node: SubstringExprs) -> SubstringArgs {
+        SubstringArgs::SubstringExprs(node)
+    }
+}
+impl From<SubstringForFrom> for SubstringArgs {
+    #[inline]
+    fn from(node: SubstringForFrom) -> SubstringArgs {
+        SubstringArgs::SubstringForFrom(node)
+    }
+}
+impl From<SubstringFromFor> for SubstringArgs {
+    #[inline]
+    fn from(node: SubstringFromFor) -> SubstringArgs {
+        SubstringArgs::SubstringFromFor(node)
+    }
+}
+impl From<SubstringSimilarEscape> for SubstringArgs {
+    #[inline]
+    fn from(node: SubstringSimilarEscape) -> SubstringArgs {
+        SubstringArgs::SubstringSimilarEscape(node)
+    }
+}
 impl AstNode for TableArg {
     #[inline]
     fn can_cast(kind: SyntaxKind) -> bool {
         matches!(kind, SyntaxKind::COLUMN | SyntaxKind::LIKE_CLAUSE)
+            || TableConstraint::can_cast(kind)
     }
     #[inline]
     fn cast(syntax: SyntaxNode) -> Option<Self> {
@@ -60715,6 +69144,42 @@ impl From<UniqueConstraint> for TableConstraint {
     #[inline]
     fn from(node: UniqueConstraint) -> TableConstraint {
         TableConstraint::UniqueConstraint(node)
+    }
+}
+impl AstNode for TableParams {
+    #[inline]
+    fn can_cast(kind: SyntaxKind) -> bool {
+        matches!(kind, SyntaxKind::WITH_PARAMS | SyntaxKind::WITHOUT_OIDS)
+    }
+    #[inline]
+    fn cast(syntax: SyntaxNode) -> Option<Self> {
+        let res = match syntax.kind() {
+            SyntaxKind::WITH_PARAMS => TableParams::WithParams(WithParams { syntax }),
+            SyntaxKind::WITHOUT_OIDS => TableParams::WithoutOids(WithoutOids { syntax }),
+            _ => {
+                return None;
+            }
+        };
+        Some(res)
+    }
+    #[inline]
+    fn syntax(&self) -> &SyntaxNode {
+        match self {
+            TableParams::WithParams(it) => &it.syntax,
+            TableParams::WithoutOids(it) => &it.syntax,
+        }
+    }
+}
+impl From<WithParams> for TableParams {
+    #[inline]
+    fn from(node: WithParams) -> TableParams {
+        TableParams::WithParams(node)
+    }
+}
+impl From<WithoutOids> for TableParams {
+    #[inline]
+    fn from(node: WithoutOids) -> TableParams {
+        TableParams::WithoutOids(node)
     }
 }
 impl AstNode for TableProperty {
@@ -61031,6 +69496,49 @@ impl From<Serializable> for TransactionMode {
         TransactionMode::Serializable(node)
     }
 }
+impl AstNode for TransformFunc {
+    #[inline]
+    fn can_cast(kind: SyntaxKind) -> bool {
+        matches!(
+            kind,
+            SyntaxKind::TRANSFORM_FROM_FUNC | SyntaxKind::TRANSFORM_TO_FUNC
+        )
+    }
+    #[inline]
+    fn cast(syntax: SyntaxNode) -> Option<Self> {
+        let res = match syntax.kind() {
+            SyntaxKind::TRANSFORM_FROM_FUNC => {
+                TransformFunc::TransformFromFunc(TransformFromFunc { syntax })
+            }
+            SyntaxKind::TRANSFORM_TO_FUNC => {
+                TransformFunc::TransformToFunc(TransformToFunc { syntax })
+            }
+            _ => {
+                return None;
+            }
+        };
+        Some(res)
+    }
+    #[inline]
+    fn syntax(&self) -> &SyntaxNode {
+        match self {
+            TransformFunc::TransformFromFunc(it) => &it.syntax,
+            TransformFunc::TransformToFunc(it) => &it.syntax,
+        }
+    }
+}
+impl From<TransformFromFunc> for TransformFunc {
+    #[inline]
+    fn from(node: TransformFromFunc) -> TransformFunc {
+        TransformFunc::TransformFromFunc(node)
+    }
+}
+impl From<TransformToFunc> for TransformFunc {
+    #[inline]
+    fn from(node: TransformToFunc) -> TransformFunc {
+        TransformFunc::TransformToFunc(node)
+    }
+}
 impl AstNode for TriggerEvent {
     #[inline]
     fn can_cast(kind: SyntaxKind) -> bool {
@@ -61095,6 +69603,188 @@ impl From<TriggerEventUpdate> for TriggerEvent {
     #[inline]
     fn from(node: TriggerEventUpdate) -> TriggerEvent {
         TriggerEvent::TriggerEventUpdate(node)
+    }
+}
+impl AstNode for TriggerLevel {
+    #[inline]
+    fn can_cast(kind: SyntaxKind) -> bool {
+        matches!(
+            kind,
+            SyntaxKind::FOR_EACH_ROW | SyntaxKind::FOR_EACH_STATEMENT
+        )
+    }
+    #[inline]
+    fn cast(syntax: SyntaxNode) -> Option<Self> {
+        let res = match syntax.kind() {
+            SyntaxKind::FOR_EACH_ROW => TriggerLevel::ForEachRow(ForEachRow { syntax }),
+            SyntaxKind::FOR_EACH_STATEMENT => {
+                TriggerLevel::ForEachStatement(ForEachStatement { syntax })
+            }
+            _ => {
+                return None;
+            }
+        };
+        Some(res)
+    }
+    #[inline]
+    fn syntax(&self) -> &SyntaxNode {
+        match self {
+            TriggerLevel::ForEachRow(it) => &it.syntax,
+            TriggerLevel::ForEachStatement(it) => &it.syntax,
+        }
+    }
+}
+impl From<ForEachRow> for TriggerLevel {
+    #[inline]
+    fn from(node: ForEachRow) -> TriggerLevel {
+        TriggerLevel::ForEachRow(node)
+    }
+}
+impl From<ForEachStatement> for TriggerLevel {
+    #[inline]
+    fn from(node: ForEachStatement) -> TriggerLevel {
+        TriggerLevel::ForEachStatement(node)
+    }
+}
+impl AstNode for TriggerTarget {
+    #[inline]
+    fn can_cast(kind: SyntaxKind) -> bool {
+        matches!(
+            kind,
+            SyntaxKind::ALL | SyntaxKind::TRIGGER_REF | SyntaxKind::USER
+        )
+    }
+    #[inline]
+    fn cast(syntax: SyntaxNode) -> Option<Self> {
+        let res = match syntax.kind() {
+            SyntaxKind::ALL => TriggerTarget::All(All { syntax }),
+            SyntaxKind::TRIGGER_REF => TriggerTarget::TriggerRef(TriggerRef { syntax }),
+            SyntaxKind::USER => TriggerTarget::User(User { syntax }),
+            _ => {
+                return None;
+            }
+        };
+        Some(res)
+    }
+    #[inline]
+    fn syntax(&self) -> &SyntaxNode {
+        match self {
+            TriggerTarget::All(it) => &it.syntax,
+            TriggerTarget::TriggerRef(it) => &it.syntax,
+            TriggerTarget::User(it) => &it.syntax,
+        }
+    }
+}
+impl From<All> for TriggerTarget {
+    #[inline]
+    fn from(node: All) -> TriggerTarget {
+        TriggerTarget::All(node)
+    }
+}
+impl From<TriggerRef> for TriggerTarget {
+    #[inline]
+    fn from(node: TriggerRef) -> TriggerTarget {
+        TriggerTarget::TriggerRef(node)
+    }
+}
+impl From<User> for TriggerTarget {
+    #[inline]
+    fn from(node: User) -> TriggerTarget {
+        TriggerTarget::User(node)
+    }
+}
+impl AstNode for TrimArgs {
+    #[inline]
+    fn can_cast(kind: SyntaxKind) -> bool {
+        matches!(
+            kind,
+            SyntaxKind::TRIM_EXPR_FROM | SyntaxKind::TRIM_EXPRS | SyntaxKind::TRIM_FROM
+        )
+    }
+    #[inline]
+    fn cast(syntax: SyntaxNode) -> Option<Self> {
+        let res = match syntax.kind() {
+            SyntaxKind::TRIM_EXPR_FROM => TrimArgs::TrimExprFrom(TrimExprFrom { syntax }),
+            SyntaxKind::TRIM_EXPRS => TrimArgs::TrimExprs(TrimExprs { syntax }),
+            SyntaxKind::TRIM_FROM => TrimArgs::TrimFrom(TrimFrom { syntax }),
+            _ => {
+                return None;
+            }
+        };
+        Some(res)
+    }
+    #[inline]
+    fn syntax(&self) -> &SyntaxNode {
+        match self {
+            TrimArgs::TrimExprFrom(it) => &it.syntax,
+            TrimArgs::TrimExprs(it) => &it.syntax,
+            TrimArgs::TrimFrom(it) => &it.syntax,
+        }
+    }
+}
+impl From<TrimExprFrom> for TrimArgs {
+    #[inline]
+    fn from(node: TrimExprFrom) -> TrimArgs {
+        TrimArgs::TrimExprFrom(node)
+    }
+}
+impl From<TrimExprs> for TrimArgs {
+    #[inline]
+    fn from(node: TrimExprs) -> TrimArgs {
+        TrimArgs::TrimExprs(node)
+    }
+}
+impl From<TrimFrom> for TrimArgs {
+    #[inline]
+    fn from(node: TrimFrom) -> TrimArgs {
+        TrimArgs::TrimFrom(node)
+    }
+}
+impl AstNode for TrimSide {
+    #[inline]
+    fn can_cast(kind: SyntaxKind) -> bool {
+        matches!(
+            kind,
+            SyntaxKind::TRIM_BOTH | SyntaxKind::TRIM_LEADING | SyntaxKind::TRIM_TRAILING
+        )
+    }
+    #[inline]
+    fn cast(syntax: SyntaxNode) -> Option<Self> {
+        let res = match syntax.kind() {
+            SyntaxKind::TRIM_BOTH => TrimSide::TrimBoth(TrimBoth { syntax }),
+            SyntaxKind::TRIM_LEADING => TrimSide::TrimLeading(TrimLeading { syntax }),
+            SyntaxKind::TRIM_TRAILING => TrimSide::TrimTrailing(TrimTrailing { syntax }),
+            _ => {
+                return None;
+            }
+        };
+        Some(res)
+    }
+    #[inline]
+    fn syntax(&self) -> &SyntaxNode {
+        match self {
+            TrimSide::TrimBoth(it) => &it.syntax,
+            TrimSide::TrimLeading(it) => &it.syntax,
+            TrimSide::TrimTrailing(it) => &it.syntax,
+        }
+    }
+}
+impl From<TrimBoth> for TrimSide {
+    #[inline]
+    fn from(node: TrimBoth) -> TrimSide {
+        TrimSide::TrimBoth(node)
+    }
+}
+impl From<TrimLeading> for TrimSide {
+    #[inline]
+    fn from(node: TrimLeading) -> TrimSide {
+        TrimSide::TrimLeading(node)
+    }
+}
+impl From<TrimTrailing> for TrimSide {
+    #[inline]
+    fn from(node: TrimTrailing) -> TrimSide {
+        TrimSide::TrimTrailing(node)
     }
 }
 impl AstNode for Type {
@@ -61234,6 +69924,94 @@ impl From<BeforeValue> for ValuePosition {
     #[inline]
     fn from(node: BeforeValue) -> ValuePosition {
         ValuePosition::BeforeValue(node)
+    }
+}
+impl AstNode for VolatilityFuncOption {
+    #[inline]
+    fn can_cast(kind: SyntaxKind) -> bool {
+        matches!(
+            kind,
+            SyntaxKind::IMMUTABLE | SyntaxKind::STABLE | SyntaxKind::VOLATILE
+        )
+    }
+    #[inline]
+    fn cast(syntax: SyntaxNode) -> Option<Self> {
+        let res = match syntax.kind() {
+            SyntaxKind::IMMUTABLE => VolatilityFuncOption::Immutable(Immutable { syntax }),
+            SyntaxKind::STABLE => VolatilityFuncOption::Stable(Stable { syntax }),
+            SyntaxKind::VOLATILE => VolatilityFuncOption::Volatile(Volatile { syntax }),
+            _ => {
+                return None;
+            }
+        };
+        Some(res)
+    }
+    #[inline]
+    fn syntax(&self) -> &SyntaxNode {
+        match self {
+            VolatilityFuncOption::Immutable(it) => &it.syntax,
+            VolatilityFuncOption::Stable(it) => &it.syntax,
+            VolatilityFuncOption::Volatile(it) => &it.syntax,
+        }
+    }
+}
+impl From<Immutable> for VolatilityFuncOption {
+    #[inline]
+    fn from(node: Immutable) -> VolatilityFuncOption {
+        VolatilityFuncOption::Immutable(node)
+    }
+}
+impl From<Stable> for VolatilityFuncOption {
+    #[inline]
+    fn from(node: Stable) -> VolatilityFuncOption {
+        VolatilityFuncOption::Stable(node)
+    }
+}
+impl From<Volatile> for VolatilityFuncOption {
+    #[inline]
+    fn from(node: Volatile) -> VolatilityFuncOption {
+        VolatilityFuncOption::Volatile(node)
+    }
+}
+impl AstNode for WhereClauseOrCurrentOf {
+    #[inline]
+    fn can_cast(kind: SyntaxKind) -> bool {
+        matches!(
+            kind,
+            SyntaxKind::WHERE_CLAUSE | SyntaxKind::WHERE_CURRENT_OF
+        )
+    }
+    #[inline]
+    fn cast(syntax: SyntaxNode) -> Option<Self> {
+        let res = match syntax.kind() {
+            SyntaxKind::WHERE_CLAUSE => WhereClauseOrCurrentOf::WhereClause(WhereClause { syntax }),
+            SyntaxKind::WHERE_CURRENT_OF => {
+                WhereClauseOrCurrentOf::WhereCurrentOf(WhereCurrentOf { syntax })
+            }
+            _ => {
+                return None;
+            }
+        };
+        Some(res)
+    }
+    #[inline]
+    fn syntax(&self) -> &SyntaxNode {
+        match self {
+            WhereClauseOrCurrentOf::WhereClause(it) => &it.syntax,
+            WhereClauseOrCurrentOf::WhereCurrentOf(it) => &it.syntax,
+        }
+    }
+}
+impl From<WhereClause> for WhereClauseOrCurrentOf {
+    #[inline]
+    fn from(node: WhereClause) -> WhereClauseOrCurrentOf {
+        WhereClauseOrCurrentOf::WhereClause(node)
+    }
+}
+impl From<WhereCurrentOf> for WhereClauseOrCurrentOf {
+    #[inline]
+    fn from(node: WhereCurrentOf) -> WhereClauseOrCurrentOf {
+        WhereClauseOrCurrentOf::WhereCurrentOf(node)
     }
 }
 impl AstNode for WithQuery {
@@ -61406,6 +70184,78 @@ impl From<OptionPath> for XmlColumnOption {
         XmlColumnOption::OptionPath(node)
     }
 }
+impl AstNode for XmlDocumentOrContent {
+    #[inline]
+    fn can_cast(kind: SyntaxKind) -> bool {
+        matches!(kind, SyntaxKind::XML_CONTENT | SyntaxKind::XML_DOCUMENT)
+    }
+    #[inline]
+    fn cast(syntax: SyntaxNode) -> Option<Self> {
+        let res = match syntax.kind() {
+            SyntaxKind::XML_CONTENT => XmlDocumentOrContent::XmlContent(XmlContent { syntax }),
+            SyntaxKind::XML_DOCUMENT => XmlDocumentOrContent::XmlDocument(XmlDocument { syntax }),
+            _ => {
+                return None;
+            }
+        };
+        Some(res)
+    }
+    #[inline]
+    fn syntax(&self) -> &SyntaxNode {
+        match self {
+            XmlDocumentOrContent::XmlContent(it) => &it.syntax,
+            XmlDocumentOrContent::XmlDocument(it) => &it.syntax,
+        }
+    }
+}
+impl From<XmlContent> for XmlDocumentOrContent {
+    #[inline]
+    fn from(node: XmlContent) -> XmlDocumentOrContent {
+        XmlDocumentOrContent::XmlContent(node)
+    }
+}
+impl From<XmlDocument> for XmlDocumentOrContent {
+    #[inline]
+    fn from(node: XmlDocument) -> XmlDocumentOrContent {
+        XmlDocumentOrContent::XmlDocument(node)
+    }
+}
+impl AstNode for XmlIndent {
+    #[inline]
+    fn can_cast(kind: SyntaxKind) -> bool {
+        matches!(kind, SyntaxKind::INDENT | SyntaxKind::NO_INDENT)
+    }
+    #[inline]
+    fn cast(syntax: SyntaxNode) -> Option<Self> {
+        let res = match syntax.kind() {
+            SyntaxKind::INDENT => XmlIndent::Indent(Indent { syntax }),
+            SyntaxKind::NO_INDENT => XmlIndent::NoIndent(NoIndent { syntax }),
+            _ => {
+                return None;
+            }
+        };
+        Some(res)
+    }
+    #[inline]
+    fn syntax(&self) -> &SyntaxNode {
+        match self {
+            XmlIndent::Indent(it) => &it.syntax,
+            XmlIndent::NoIndent(it) => &it.syntax,
+        }
+    }
+}
+impl From<Indent> for XmlIndent {
+    #[inline]
+    fn from(node: Indent) -> XmlIndent {
+        XmlIndent::Indent(node)
+    }
+}
+impl From<NoIndent> for XmlIndent {
+    #[inline]
+    fn from(node: NoIndent) -> XmlIndent {
+        XmlIndent::NoIndent(node)
+    }
+}
 impl AstNode for XmlPassingMech {
     #[inline]
     fn can_cast(kind: SyntaxKind) -> bool {
@@ -61447,5 +70297,142 @@ impl From<XmlPassingMechByValue> for XmlPassingMech {
     #[inline]
     fn from(node: XmlPassingMechByValue) -> XmlPassingMech {
         XmlPassingMech::XmlPassingMechByValue(node)
+    }
+}
+impl AstNode for XmlRootVersion {
+    #[inline]
+    fn can_cast(kind: SyntaxKind) -> bool {
+        matches!(
+            kind,
+            SyntaxKind::XML_VERSION_EXPR | SyntaxKind::XML_VERSION_NO_VALUE
+        )
+    }
+    #[inline]
+    fn cast(syntax: SyntaxNode) -> Option<Self> {
+        let res = match syntax.kind() {
+            SyntaxKind::XML_VERSION_EXPR => {
+                XmlRootVersion::XmlVersionExpr(XmlVersionExpr { syntax })
+            }
+            SyntaxKind::XML_VERSION_NO_VALUE => {
+                XmlRootVersion::XmlVersionNoValue(XmlVersionNoValue { syntax })
+            }
+            _ => {
+                return None;
+            }
+        };
+        Some(res)
+    }
+    #[inline]
+    fn syntax(&self) -> &SyntaxNode {
+        match self {
+            XmlRootVersion::XmlVersionExpr(it) => &it.syntax,
+            XmlRootVersion::XmlVersionNoValue(it) => &it.syntax,
+        }
+    }
+}
+impl From<XmlVersionExpr> for XmlRootVersion {
+    #[inline]
+    fn from(node: XmlVersionExpr) -> XmlRootVersion {
+        XmlRootVersion::XmlVersionExpr(node)
+    }
+}
+impl From<XmlVersionNoValue> for XmlRootVersion {
+    #[inline]
+    fn from(node: XmlVersionNoValue) -> XmlRootVersion {
+        XmlRootVersion::XmlVersionNoValue(node)
+    }
+}
+impl AstNode for XmlStandalone {
+    #[inline]
+    fn can_cast(kind: SyntaxKind) -> bool {
+        matches!(
+            kind,
+            SyntaxKind::STANDALONE_NO
+                | SyntaxKind::STANDALONE_NO_VALUE
+                | SyntaxKind::STANDALONE_YES
+        )
+    }
+    #[inline]
+    fn cast(syntax: SyntaxNode) -> Option<Self> {
+        let res = match syntax.kind() {
+            SyntaxKind::STANDALONE_NO => XmlStandalone::StandaloneNo(StandaloneNo { syntax }),
+            SyntaxKind::STANDALONE_NO_VALUE => {
+                XmlStandalone::StandaloneNoValue(StandaloneNoValue { syntax })
+            }
+            SyntaxKind::STANDALONE_YES => XmlStandalone::StandaloneYes(StandaloneYes { syntax }),
+            _ => {
+                return None;
+            }
+        };
+        Some(res)
+    }
+    #[inline]
+    fn syntax(&self) -> &SyntaxNode {
+        match self {
+            XmlStandalone::StandaloneNo(it) => &it.syntax,
+            XmlStandalone::StandaloneNoValue(it) => &it.syntax,
+            XmlStandalone::StandaloneYes(it) => &it.syntax,
+        }
+    }
+}
+impl From<StandaloneNo> for XmlStandalone {
+    #[inline]
+    fn from(node: StandaloneNo) -> XmlStandalone {
+        XmlStandalone::StandaloneNo(node)
+    }
+}
+impl From<StandaloneNoValue> for XmlStandalone {
+    #[inline]
+    fn from(node: StandaloneNoValue) -> XmlStandalone {
+        XmlStandalone::StandaloneNoValue(node)
+    }
+}
+impl From<StandaloneYes> for XmlStandalone {
+    #[inline]
+    fn from(node: StandaloneYes) -> XmlStandalone {
+        XmlStandalone::StandaloneYes(node)
+    }
+}
+impl AstNode for XmlWhitespace {
+    #[inline]
+    fn can_cast(kind: SyntaxKind) -> bool {
+        matches!(
+            kind,
+            SyntaxKind::PRESERVE_WHITESPACE | SyntaxKind::STRIP_WHITESPACE
+        )
+    }
+    #[inline]
+    fn cast(syntax: SyntaxNode) -> Option<Self> {
+        let res = match syntax.kind() {
+            SyntaxKind::PRESERVE_WHITESPACE => {
+                XmlWhitespace::PreserveWhitespace(PreserveWhitespace { syntax })
+            }
+            SyntaxKind::STRIP_WHITESPACE => {
+                XmlWhitespace::StripWhitespace(StripWhitespace { syntax })
+            }
+            _ => {
+                return None;
+            }
+        };
+        Some(res)
+    }
+    #[inline]
+    fn syntax(&self) -> &SyntaxNode {
+        match self {
+            XmlWhitespace::PreserveWhitespace(it) => &it.syntax,
+            XmlWhitespace::StripWhitespace(it) => &it.syntax,
+        }
+    }
+}
+impl From<PreserveWhitespace> for XmlWhitespace {
+    #[inline]
+    fn from(node: PreserveWhitespace) -> XmlWhitespace {
+        XmlWhitespace::PreserveWhitespace(node)
+    }
+}
+impl From<StripWhitespace> for XmlWhitespace {
+    #[inline]
+    fn from(node: StripWhitespace) -> XmlWhitespace {
+        XmlWhitespace::StripWhitespace(node)
     }
 }

@@ -24,10 +24,20 @@ is NEW (confirm on real Ray). Exits non-zero iff a NEW signature is found.
           a regression and counts as NEW.
   chunker: GEN-611 (chunker output goes stale on an in-place source update).
 
+``GENEVA_MVDIFF_SRID=off`` sweeps NON-stable-row-id sources. The ``_rowaddr``-based
+flavors (backfill / sparse / cf-*) keep their oracles -- those write paths must stay
+oracle-correct without stable row ids -- while the mv* / mvbf* / chunker flavors flip
+to GUARD runners: a v1 (non-SRID) view must refresh correctly AT its base version
+(``GUARD-CONTENT``: oracle equality) and refuse any cross-version refresh with the
+documented error, leaving the view byte-identical to its last-good state
+(``GUARD-MISS`` / ``GUARD-WRONGERR`` / ``GUARD-MUTATE`` / ``GUARD-CONTENT`` are all
+NEW findings).
+
 Not a pytest test (it monkeypatches ``ray`` before importing geneva); run directly,
 or via ``test_mv_differential_shim`` which executes it as a subprocess.
 ``GENEVA_MVDIFF_MAXLEN`` sets depth (default 3); ``SWEEP_WORKERS`` the pool size;
-``GENEVA_MVDIFF_FLAVORS`` restricts the flavor set (csv).
+``GENEVA_MVDIFF_FLAVORS`` restricts the flavor set (csv); ``GENEVA_MVDIFF_SRID``
+selects stable-row-id mode (``on``, the default, or ``off``).
 """
 
 # ruff: noqa: T201 -- this is a CLI script; print() is the intended output
@@ -38,7 +48,8 @@ import os
 import shutil
 import sys
 import tempfile
-from collections.abc import Iterator
+import warnings
+from collections.abc import Callable, Iterator
 from pathlib import Path
 from typing import NamedTuple
 
@@ -51,10 +62,25 @@ import pyarrow as pa  # noqa: E402
 
 import geneva  # noqa: E402
 from geneva import connect, udf  # noqa: E402
-from geneva.db import Connection  # noqa: E402
+from geneva.db import Connection, dataset_uses_stable_row_ids  # noqa: E402
 from geneva.table import Table  # noqa: E402
 
 ray_shim.stub_geneva_cluster_polling()  # ~1.5x faster refresh; observability only
+
+# Stable-row-id mode for every source table the sweep builds (see the docstring).
+# Strict on|off: a typo silently meaning "on" would let a mis-configured srid-off
+# leg pass as a duplicate srid-on run. ("both" belongs to the pytest axis in
+# test_matview_differential, not to this one-mode-per-process script.)
+_SRID_ENV = os.environ.get("GENEVA_MVDIFF_SRID", "on")
+if _SRID_ENV not in ("on", "off"):
+    print(f"GENEVA_MVDIFF_SRID must be 'on' or 'off', got {_SRID_ENV!r}")
+    raise SystemExit(2)
+_SRID = _SRID_ENV == "on"
+if not _SRID:
+    # View creation over a non-SRID source warns by design; under srid-off that
+    # warning fires for every guard case and is pure noise (module-level so the
+    # spawned pool workers, which re-import this module, inherit the filter).
+    warnings.filterwarnings("ignore", message=".*without stable row IDs.*")
 
 # --- op alphabet -----------------------------------------------------------
 APPEND, DELETE, UPDATE, COMPACT, ADDCOL, MOVE = "A", "D", "U", "C", "X", "M"
@@ -272,9 +298,18 @@ def _live(source: Table) -> list[tuple]:
 
 # --- per-flavor build / refresh / read / oracle / classify -----------------
 def _mk_source(db: Connection, name: str) -> Table:
-    return db.create_table(
-        name, _initial(), storage_options={"new_table_enable_stable_row_ids": "true"}
-    )
+    # srid-off must OMIT the option entirely: bool False crashes create_table
+    # (GEN-869) and the string "false" is silently inert.
+    opts = {"new_table_enable_stable_row_ids": "true"} if _SRID else None
+    tbl = db.create_table(name, _initial(), storage_options=opts)
+    if not _SRID:
+        # Second fragment so COMPACT has real work: a pure-compaction version
+        # bump is the exact hazard the srid-off refresh guard exists for, and
+        # compact_files on a 1-fragment no-deletes table commits nothing --
+        # a (C,) guard case would silently never leave the base version.
+        tbl.add(pa.table({"id": [50, 51], "value": [500, 510]}))
+    assert dataset_uses_stable_row_ids(tbl.to_lance()) is _SRID
+    return tbl
 
 
 def _has_null(rows: list[tuple]) -> bool:
@@ -635,6 +670,211 @@ def _run_chunker(db: Connection, name: str, shape: str, seq: tuple) -> str:
     return "PASS"
 
 
+# --- srid-off GUARD runners -------------------------------------------------
+# A view over a non-SRID source is format v1: refresh succeeds iff the source is
+# still AT the view's base version, else the guard must raise (projection MV: a
+# client-side RuntimeError mentioning "stable row IDs", table.py; chunker: a
+# worker-side ValueError mentioning "chunker materialized view", pipeline.py)
+# and must leave the view byte-identical to its last-good state. An at-base
+# refresh must also MATCH the oracle (GUARD-CONTENT): the frozen snapshot every
+# later GUARD-MUTATE check compares against must itself be right.
+
+
+class _MvSnap(NamedTuple):
+    """The view state a guard raise must leave untouched."""
+
+    version: int
+    schema: str
+    rows: list[tuple]
+
+
+def _mv_snapshot(mv: Table) -> _MvSnap:
+    """Full-state snapshot of the view's LATEST version.
+
+    Spans every part of the no-mutation contract, not just the rows: a refresh
+    that commits a new version whose content happens to be identical, or that
+    changes only the schema or its field metadata, has still mutated the view
+    even though an order-insensitive row snapshot alone would compare equal."""
+    mv.checkout_latest()
+    t = mv.to_arrow()
+    cols = t.column_names
+    rows = _sorted([tuple(row[c] for c in cols) for row in t.to_pylist()])
+    return _MvSnap(mv.version, _schema_repr(mv.schema), rows)
+
+
+def _schema_repr(schema: pa.Schema) -> str:
+    """Field names, types, nullability, and metadata, as a comparable string."""
+    fields = ";".join(
+        f"{f.name}:{f.type}:{'null' if f.nullable else 'notnull'}:"
+        f"{sorted((f.metadata or {}).items())}"
+        for f in schema
+    )
+    return f"{fields}|meta={sorted((schema.metadata or {}).items())}"
+
+
+def _snap_diff(got: _MvSnap, exp: _MvSnap) -> str:
+    """Name the part of the view state that moved, most structural first."""
+    if got.version != exp.version:
+        return f"version {exp.version}->{got.version}"
+    if got.schema != exp.schema:
+        return f"schema {exp.schema} != {got.schema}"
+    return f"rows got={got.rows[:6]} exp={exp.rows[:6]}"
+
+
+def _guard_step(
+    mv: Table,
+    source: Table,
+    base_version: int,
+    snapshot: _MvSnap,
+    op: str,
+    err_type: type[Exception],
+    err_text: str,
+    content_fail: Callable[[], str | None],
+) -> tuple[str | None, _MvSnap]:
+    """One guarded refresh: returns ``(failure_or_None, current_snapshot)``.
+
+    Refresh must succeed iff the source is back at ``base_version`` (the
+    version-based state model); a raise must be ``err_type`` carrying
+    ``err_text`` and must not have mutated the view. A refresh that succeeds
+    at base must also pass ``content_fail`` (oracle equality): freezing a
+    wrong snapshot would make every later GUARD-MUTATE check vacuous."""
+    at_base = source.version == base_version
+    try:
+        mv.refresh(_admission_check=False)
+    except Exception as ex:  # noqa: BLE001 -- classify, don't crash the case
+        if at_base:
+            detail = f"{type(ex).__name__}: {str(ex)[:60]}"
+            return f"GUARD-WRONGERR@{op}: raised at base version: {detail}", snapshot
+        if not (isinstance(ex, err_type) and err_text in str(ex)):
+            return f"GUARD-WRONGERR@{op}: {type(ex).__name__}: {str(ex)[:60]}", snapshot
+        got = _mv_snapshot(mv)
+        if got != snapshot:
+            return f"GUARD-MUTATE@{op}: {_snap_diff(got, snapshot)}", snapshot
+        return None, snapshot
+    if not at_base:
+        return f"GUARD-MISS@{op}: refresh succeeded across versions", snapshot
+    fail = content_fail()
+    if fail is not None:
+        return f"{fail}@{op}", snapshot
+    return None, _mv_snapshot(mv)  # refreshed at base: re-freeze last-good
+
+
+def _run_mv_guard(
+    db: Connection, name: str, shape: str, seq: tuple, backfilled: bool
+) -> str:
+    """srid-off projection MV (and mvbf combination): assert the cross-version
+    refresh guard on top of at-base content. The initial refresh happens at the
+    base version, so it must succeed, match the oracle (GUARD-CONTENT), and
+    freeze the baseline snapshot."""
+    source = _mk_source(db, f"s_{name}")
+    cols = ["id", "value"]
+    if backfilled:
+        source.add_columns({"doubled": _double})
+        source.backfill("doubled", where="1=1", _admission_check=False)
+        cols = ["id", "value", "doubled"]
+    q = source.search(None)
+    if shape == FILTERED:
+        q = q.where(FILTER_EXPR)
+    mv = q.select(cols).create_materialized_view(db, f"m_{name}")  # pyright: ignore[reportAttributeAccessIssue]
+
+    def oracle() -> list[tuple]:
+        rows = _live(source)
+        if shape == FILTERED:
+            rows = [(i, v) for (i, v) in rows if v is not None and v > 50]
+        if backfilled:
+            return _sorted([(i, v, (None if v is None else v * 2)) for (i, v) in rows])
+        return _sorted(rows)
+
+    def content_fail() -> str | None:
+        t = mv.to_arrow()
+        got = _sorted(list(zip(*(t[c].to_pylist() for c in cols), strict=True)))
+        exp = oracle()
+        return None if got == exp else f"GUARD-CONTENT: got={got[:6]} exp={exp[:6]}"
+
+    mv.refresh(_admission_check=False)  # at base version: the initial sync
+    base_version = source.version
+    snapshot = _mv_snapshot(mv)
+    fail = content_fail()
+    if fail is not None:
+        return f"{fail}@init"
+    append_n = 0
+    for step, op in enumerate(seq):
+        _apply_op(source, op, append_n, step)
+        if backfilled and op in (APPEND, UPDATE, MOVE):
+            # the source-side backfill is the _rowaddr parity path: it must keep
+            # working under srid-off even though the MV refresh is guarded off
+            source.backfill("doubled", where="1=1", _admission_check=False)
+        if op == APPEND:
+            append_n += 1
+        fail, snapshot = _guard_step(
+            mv,
+            source,
+            base_version,
+            snapshot,
+            op,
+            RuntimeError,
+            "stable row IDs",
+            content_fail,
+        )
+        if fail is not None:
+            return fail
+    return "PASS"
+
+
+def _run_chunker_guard(db: Connection, name: str, shape: str, seq: tuple) -> str:
+    """srid-off chunker view: same guard contract, worker-side ValueError."""
+    source = _mk_source(db, f"s_{name}")
+    mv = db.create_udtf_view(
+        f"m_{name}", source.search(None).select(["id", "value"]), _expand2
+    )
+
+    def content_fail() -> str | None:
+        t = mv.to_arrow()
+        got = _sorted(
+            list(
+                zip(
+                    t["id"].to_pylist(),
+                    t["k"].to_pylist(),
+                    t["derived"].to_pylist(),
+                    strict=True,
+                )
+            )
+        )
+        exp = []
+        for i, v in _live(source):
+            exp += [
+                (i, 0, (None if v is None else v * 10)),
+                (i, 1, (None if v is None else v * 10 + 1)),
+            ]
+        exp = _sorted(exp)
+        return None if got == exp else f"GUARD-CONTENT: got={got[:6]} exp={exp[:6]}"
+
+    mv.refresh(_admission_check=False)  # at base version: the initial sync
+    base_version = source.version
+    snapshot = _mv_snapshot(mv)
+    fail = content_fail()
+    if fail is not None:
+        return f"{fail}@init"
+    append_n = 0
+    for step, op in enumerate(seq):
+        _apply_op(source, op, append_n, step)
+        if op == APPEND:
+            append_n += 1
+        fail, snapshot = _guard_step(
+            mv,
+            source,
+            base_version,
+            snapshot,
+            op,
+            ValueError,
+            "chunker materialized view",
+            content_fail,
+        )
+        if fail is not None:
+            return fail
+    return "PASS"
+
+
 # flavor -> (runner, shapes, op alphabet, known-signature set)
 # GEN-619 is fixed, so mv/mvbf flavors expect NO divergence -- a reappearing null
 # (still labelled "GEN-619" by the runner) falls through to NEW and fails the sweep.
@@ -705,8 +945,15 @@ def _cf_ops(kind: _CFKind) -> list[str]:
 # Carry-forward coverage: sweep every datatype in ``_CF_KINDS`` through the same
 # partial-WHERE re-backfill, on both the legacy (-off) and deferred (-on) path.
 # Adding a datatype extends the sweep automatically; the blob datatypes are the
-# carry-forward stress cases (see the known-set comment above).
-for _k in _CF_KINDS:
+# carry-forward stress cases (see the known-set comment above). Under srid-off
+# only the representative kinds run (int + the two blob shapes) to bound the
+# case count -- the cf oracle itself is srid-agnostic (_rowaddr-based).
+_CF_SWEEP_KINDS = (
+    _CF_KINDS
+    if _SRID
+    else [k for k in _CF_KINDS if k.name in ("int", "blob", "structblob")]
+)
+for _k in _CF_SWEEP_KINDS:
     FLAVORS[f"cf-{_k.name}-off"] = (
         lambda db, n, sh, sq, k=_k: _run_cf(db, n, sh, sq, defer=False, kind=k),
         [IDENTITY],
@@ -718,6 +965,46 @@ for _k in _CF_KINDS:
         [IDENTITY],
         _cf_ops(_k),
         _KNOWN_CF_DEFER,
+    )
+
+# srid-off: the view flavors flip to the GUARD runners (same names, same shapes
+# and op alphabets, so GENEVA_MVDIFF_FLAVORS keeps working unchanged). Their
+# known sets are EMPTY: any GUARD-* signature is a NEW finding. backfill/sparse
+# keep their srid-on runners and oracles -- parity is the invariant there.
+if not _SRID:
+    FLAVORS.update(
+        {
+            "mv-identity": (
+                lambda db, n, sh, sq: _run_mv_guard(db, n, sh, sq, False),
+                [IDENTITY],
+                [APPEND, DELETE, UPDATE, COMPACT, ADDCOL],
+                set(),
+            ),
+            "mv-filtered": (
+                lambda db, n, sh, sq: _run_mv_guard(db, n, sh, sq, False),
+                [FILTERED],
+                [APPEND, DELETE, UPDATE, COMPACT, ADDCOL],
+                set(),
+            ),
+            "chunker": (
+                lambda db, n, sh, sq: _run_chunker_guard(db, n, sh, sq),
+                [IDENTITY],
+                [APPEND, DELETE, UPDATE, COMPACT, MOVE],
+                set(),
+            ),
+            "mvbf-identity": (
+                lambda db, n, sh, sq: _run_mv_guard(db, n, sh, sq, True),
+                [IDENTITY],
+                [APPEND, DELETE, UPDATE, COMPACT],
+                set(),
+            ),
+            "mvbf-filtered": (
+                lambda db, n, sh, sq: _run_mv_guard(db, n, sh, sq, True),
+                [FILTERED],
+                [APPEND, DELETE, UPDATE, COMPACT],
+                set(),
+            ),
+        }
     )
 
 
@@ -765,13 +1052,28 @@ def main() -> int:
     recycle = int(os.environ.get("SWEEP_RECYCLE", "4"))  # batches per worker process
     only = os.environ.get("GENEVA_MVDIFF_FLAVORS")
     flavors = only.split(",") if only else list(FLAVORS)
+    srid = "on" if _SRID else "off"
+
+    unknown = [f for f in flavors if f not in FLAVORS]
+    if unknown:
+        print(f"unknown flavor(s) {unknown}; available: {sorted(FLAVORS)}")
+        return 2
 
     cases: list[tuple] = []
     for flavor in flavors:
         _runner, shapes, ops, _known = FLAVORS[flavor]
         for shape in shapes:
             cases.extend((flavor, shape, seq) for seq in _seqs(ops, max_len))
+    if not cases:
+        # a "0 cases, no failures" exit would read as coverage; make it loud.
+        print("no cases selected; check GENEVA_MVDIFF_FLAVORS / GENEVA_MVDIFF_MAXLEN")
+        return 2
     batches = [cases[i : i + batch_size] for i in range(0, len(cases), batch_size)]
+    print(
+        f"=== shim sweep start: srid={srid} | {len(cases)} cases over "
+        f"{len(flavors)} flavors | L<={max_len} | {workers} workers ===",
+        flush=True,
+    )
 
     known, new = 0, []
     # maxtasksperchild recycles a worker after `recycle` batches so accumulated
@@ -784,15 +1086,18 @@ def main() -> int:
 
     print(
         f"=== shim sweep: {len(cases)} cases over {len(flavors)} flavors "
-        f"(L<={max_len}, {workers} workers); {known} known-bug, {len(new)} NEW ==="
+        f"(L<={max_len}, {workers} workers, srid={srid}); "
+        f"{known} known-bug, {len(new)} NEW ==="
     )
     for line in new[:50]:
         print(f"  NEW {line}")
     if not new:
-        print(
-            "  no new-signature failures: all divergences are the known bug "
-            "(GEN-611 chunker stale-on-update)"
+        note = (
+            ": all divergences are the known bug (GEN-611 chunker stale-on-update)"
+            if known
+            else ""
         )
+        print(f"  no new-signature failures{note}")
     return 1 if new else 0
 
 

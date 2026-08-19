@@ -9,6 +9,7 @@ from pathlib import Path
 from typing import Any
 
 from echo_agent.agent.executors.base import BaseExecutor, ExecRequest
+from echo_agent.agent.proc_lifecycle import spawn_shell, terminate_tree
 from echo_agent.agent.tools.base import Tool, ToolExecutionContext, ToolResult
 from echo_agent.security.guards import evaluate_code_execution
 
@@ -45,7 +46,7 @@ class CodeExecTool(Tool):
         *,
         executor: BaseExecutor | None = None,
         allowed_languages: list[str] | None = None,
-        max_output: int = 32000,
+        max_output: int = 2000000,
         timeout_seconds: int = 60,
         exec_policy: Any | None = None,
         network_policy: str = "allow",
@@ -110,7 +111,7 @@ class CodeExecTool(Tool):
                 exit_code = response.return_code
                 executor_name = response.executor
             else:
-                proc = await asyncio.create_subprocess_shell(
+                proc = await spawn_shell(
                     command,
                     stdout=asyncio.subprocess.PIPE,
                     stderr=asyncio.subprocess.PIPE,
@@ -120,8 +121,7 @@ class CodeExecTool(Tool):
                 try:
                     stdout, stderr = await asyncio.wait_for(proc.communicate(code.encode()), timeout=timeout)
                 except asyncio.TimeoutError:
-                    proc.kill()
-                    await proc.wait()
+                    await terminate_tree(proc)
                     return ToolResult(success=False, error=f"Execution timed out after {timeout}s")
                 out = stdout.decode(errors="replace")
                 err = stderr.decode(errors="replace")

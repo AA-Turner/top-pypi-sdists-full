@@ -24,13 +24,17 @@ else:
 __all__ = (
     "AmiProductSortByType",
     "AmiProductVisibilityStringType",
+    "AssessmentResultType",
     "ChangeStatusType",
     "ContainerProductSortByType",
     "ContainerProductVisibilityStringType",
+    "ControlAssessmentResultType",
     "DataProductSortByType",
     "DataProductVisibilityStringType",
+    "DescribeAssessmentPaginatorName",
     "FailureCodeType",
     "IntentType",
+    "ListAssessmentsPaginatorName",
     "ListChangeSetsPaginatorName",
     "ListEntitiesPaginatorName",
     "MachineLearningProductSortByType",
@@ -58,15 +62,19 @@ __all__ = (
 
 AmiProductSortByType = Literal["EntityId", "LastModifiedDate", "ProductTitle", "Visibility"]
 AmiProductVisibilityStringType = Literal["Draft", "Limited", "Public", "Restricted"]
+AssessmentResultType = Literal["FAIL", "PASS"]
 ChangeStatusType = Literal["APPLYING", "CANCELLED", "FAILED", "PREPARING", "SUCCEEDED"]
 ContainerProductSortByType = Literal[
     "CompatibleAWSServices", "EntityId", "LastModifiedDate", "ProductTitle", "Visibility"
 ]
 ContainerProductVisibilityStringType = Literal["Draft", "Limited", "Public", "Restricted"]
+ControlAssessmentResultType = Literal["EXEMPTION_PASS", "FAIL", "NOT_EXECUTED", "PASS"]
 DataProductSortByType = Literal["EntityId", "LastModifiedDate", "ProductTitle", "Visibility"]
 DataProductVisibilityStringType = Literal["Draft", "Limited", "Public", "Restricted", "Unavailable"]
+DescribeAssessmentPaginatorName = Literal["describe_assessment"]
 FailureCodeType = Literal["CLIENT_ERROR", "SERVER_FAULT"]
 IntentType = Literal["APPLY", "VALIDATE"]
+ListAssessmentsPaginatorName = Literal["list_assessments"]
 ListChangeSetsPaginatorName = Literal["list_change_sets"]
 ListEntitiesPaginatorName = Literal["list_entities"]
 MachineLearningProductSortByType = Literal[
@@ -124,8 +132,11 @@ MarketplaceCatalogServiceName = Literal["marketplace-catalog"]
 ServiceName = Literal[
     "accessanalyzer",
     "account",
+    "account-access",
     "acm",
     "acm-pca",
+    "agent-registry",
+    "agent-registry-control",
     "aiops",
     "amp",
     "amplify",
@@ -552,5 +563,7 @@ ServiceName = Literal[
 ResourceServiceName = Literal[
     "cloudformation", "cloudwatch", "dynamodb", "ec2", "glacier", "iam", "s3", "sns", "sqs"
 ]
-PaginatorName = Literal["list_change_sets", "list_entities"]
+PaginatorName = Literal[
+    "describe_assessment", "list_assessments", "list_change_sets", "list_entities"
+]
 RegionName = Literal["us-east-1"]

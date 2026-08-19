@@ -79,6 +79,31 @@ def fire_info_event(base_msg: str, *args: t.Any) -> None:
     dbt_fire_event(types.AdapterEventInfo(name=ADAPTER_NAME, base_msg=base_msg, args=list(args)))  # ty: ignore[unresolved-attribute]
 
 
+def fire_disabled_event() -> None:
+    """Emit the informational event announcing that dbt-state is disabled.
+
+    Falls back to a raw dbt adapter event if the dbt-state event helpers are unavailable, and
+    swallows any error so that a disabled install can never break dbt startup.
+    """
+    try:
+        # Read the version from the zero-import generated module rather than dbt_state.version,
+        # which would pull in dbt_state.utils (and dbt) on the otherwise-cheap disabled path.
+        try:
+            from dbt_state._version import __version__  # type: ignore[import]
+        except ImportError:
+            __version__: str = "0.0.0"
+
+        fire_info_event("dbt-state v{} is disabled", __version__)
+    except Exception:
+        try:
+            from dbt.adapters.events.types import AdapterEventInfo
+            from dbt_common.events.functions import fire_event
+
+            fire_event(AdapterEventInfo(name="RunCache", base_msg="dbt State is disabled", args=[]))
+        except Exception:
+            pass
+
+
 def fire_warn_event(base_msg: str, *args: t.Any) -> None:
     dbt_fire_event(types.AdapterEventWarning(name=ADAPTER_NAME, base_msg=base_msg, args=list(args)))  # ty: ignore[unresolved-attribute]
 

@@ -31,8 +31,9 @@ class GpuState(object):
     ALLOCATED = "allocated"
     IDLE = "idle"
     UNHEALTHY = "unhealthy"
+    OFFLINE = "offline"
 
-    allowable_values = [ALLOCATED, IDLE, UNHEALTHY]  # noqa: E501
+    allowable_values = [ALLOCATED, IDLE, UNHEALTHY, OFFLINE]  # noqa: E501
 
     """
     Attributes:

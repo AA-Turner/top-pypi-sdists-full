@@ -191,6 +191,7 @@ from chalk.features import (
 )
 from chalk.features._encoding.inputs import (
     InputSchemaHint,
+    encode_relaxed_shape_input_column,
     input_schema_hint_to_projection_strings,
     recursive_encode_inputs,
     validate_iterable_values_in_mapping,
@@ -417,9 +418,11 @@ def _does_result_match(
 
 def _validate_offline_query_inputs(
     inputs: Mapping[Union[str, Feature, Any], Any],
-) -> Mapping[Union[str, Feature, Any], Any]:
+) -> Mapping[str, Any]:
+    """Validate the mapping's values and normalize its keys (features, feature references,
+    plain strings, ...) to root-fqn strings."""
     if len(inputs) == 0:
-        return inputs
+        return {}
 
     def _is_scalar(v: Any):
         return not isinstance(v, collections.abc.Iterable) or isinstance(v, str)
@@ -478,7 +481,20 @@ def _query_input_to_arrow_table(query_input: QueryInput) -> pa.Table:
     elif is_pandas_dataframe(query_input):
         return _pandas_to_arrow_table(query_input)
     elif isinstance(query_input, collections.abc.Mapping):  # pyright: ignore[reportUnnecessaryIsInstance]
-        return pl.DataFrame(_validate_offline_query_inputs(query_input)).to_arrow()
+        # Note: prefer to build pyarrow collections directly instead of trying to
+        # round-trip the data through polars, since polars cannot natively represent
+        # some important types (e.g. a has-many feature list[struct[...]]) and instead
+        # produces Object columns, which get exported to arrow as `fixed_size_binary[8]`
+        # as the raw object pointer bytes.
+        validated_input = _validate_offline_query_inputs(query_input)
+        columns: dict[str, Union[pa.Array, pa.ChunkedArray]] = {}
+        for column_name, values in validated_input.items():
+            try:
+                feature = Feature.from_root_fqn(column_name)
+            except FeatureNotFoundException:
+                feature = None
+            columns[column_name] = encode_relaxed_shape_input_column(feature, values, column_name=column_name)
+        return pa.Table.from_pydict(columns)
     else:
         pd = require_pandas()
         return _pandas_to_arrow_table(pd.DataFrame(cast(Any, query_input)))
@@ -537,12 +553,24 @@ def _offline_query_inputs_to_parquet(
         input_table = _query_input_to_arrow_table(single_input)
         fields: List[pa.Field] = []
         for i, column_fqn in enumerate(input_table.column_names):
+            existing_field = input_table.schema.field(i)
             try:
                 f = Feature.from_root_fqn(column_fqn)
             except FeatureNotFoundException:
-                field = input_table.schema.field(i)
+                field = existing_field
             else:
-                field = pa.field(column_fqn, f.converter.pyarrow_dtype)
+                if (
+                    f.is_has_many
+                    and (pa.types.is_large_list(existing_field.type) or pa.types.is_list(existing_field.type))
+                    and pa.types.is_struct(existing_field.type.value_type)
+                ):
+                    # Has-many inputs may deliberately provide a subset of the child
+                    # columns. Keep the provided schema: casting to the feature's full
+                    # dtype would null-fill unprovided columns, making them
+                    # indistinguishable from explicitly-given nulls.
+                    field = existing_field
+                else:
+                    field = pa.field(column_fqn, f.converter.pyarrow_dtype)
             try:
                 input_table.column(i).cast(field.type)
             except Exception as e:

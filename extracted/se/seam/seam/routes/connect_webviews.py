@@ -1,4 +1,4 @@
-from typing import Optional, Any, List, Dict, Union
+from typing import Optional, Any, List, Dict, Literal, Union
 import abc
 from ..client import SeamHttpClient
 from ..route import route_metadata
@@ -15,7 +15,7 @@ class AbstractConnectWebviews(abc.ABC):
         accepted_capabilities: Optional[List[str]] = None,
         accepted_providers: Optional[List[str]] = None,
         automatically_manage_new_devices: Optional[bool] = None,
-        custom_metadata: Optional[Dict[str, Any]] = None,
+        custom_metadata: Optional[Dict[str, Union[str, bool]]] = None,
         custom_redirect_failure_url: Optional[str] = None,
         custom_redirect_url: Optional[str] = None,
         customer_key: Optional[str] = None,
@@ -82,7 +82,7 @@ class AbstractConnectWebviews(abc.ABC):
     def list(
         self,
         *,
-        custom_metadata_has: Optional[Dict[str, Any]] = None,
+        custom_metadata_has: Optional[Dict[str, Union[str, bool]]] = None,
         customer_key: Optional[str] = None,
         limit: Optional[float] = None,
         page_cursor: Optional[Union[str, Null]] = None,
@@ -123,7 +123,7 @@ class ConnectWebviews(AbstractConnectWebviews):
         accepted_capabilities: Optional[List[str]] = None,
         accepted_providers: Optional[List[str]] = None,
         automatically_manage_new_devices: Optional[bool] = None,
-        custom_metadata: Optional[Dict[str, Any]] = None,
+        custom_metadata: Optional[Dict[str, Union[str, bool]]] = None,
         custom_redirect_failure_url: Optional[str] = None,
         custom_redirect_url: Optional[str] = None,
         customer_key: Optional[str] = None,
@@ -251,7 +251,7 @@ class ConnectWebviews(AbstractConnectWebviews):
     def list(
         self,
         *,
-        custom_metadata_has: Optional[Dict[str, Any]] = None,
+        custom_metadata_has: Optional[Dict[str, Union[str, bool]]] = None,
         customer_key: Optional[str] = None,
         limit: Optional[float] = None,
         page_cursor: Optional[Union[str, Null]] = None,
@@ -273,21 +273,21 @@ class ConnectWebviews(AbstractConnectWebviews):
         :param user_identifier_key: Your user ID for the user by which you want to filter Connect Webviews.
 
         :returns: OK"""
-        json_payload: Dict[str, Any] = {}
+        params: Dict[str, Any] = {}
 
         if custom_metadata_has is not None:
-            json_payload["custom_metadata_has"] = custom_metadata_has
+            params["custom_metadata_has"] = custom_metadata_has
         if customer_key is not None:
-            json_payload["customer_key"] = customer_key
+            params["customer_key"] = customer_key
         if limit is not None:
-            json_payload["limit"] = limit
+            params["limit"] = limit
         if page_cursor is not None:
-            json_payload["page_cursor"] = page_cursor
+            params["page_cursor"] = page_cursor
         if search is not None:
-            json_payload["search"] = search
+            params["search"] = search
         if user_identifier_key is not None:
-            json_payload["user_identifier_key"] = user_identifier_key
+            params["user_identifier_key"] = user_identifier_key
 
-        res = self.client.post("/connect_webviews/list", json=json_payload)
+        res = self.client.get("/connect_webviews/list", params=params)
 
         return [ConnectWebview.from_dict(item) for item in res["connect_webviews"]]

@@ -6,7 +6,7 @@ import { ColorArray } from "./types";
 import type * as types from "./types";
 import type { Factor } from "../models/ranges/factor_range";
 import type { ColumnarDataSource } from "../models/sources/columnar_data_source";
-import type { /*Value,*/ Scalar, Vector, Dimensional } from "./vectorization";
+import type { Scalar, Vector, Dimensional } from "./vectorization";
 import type { Kind } from "./kinds";
 import type { NDArray, NDArrayType } from "./util/ndarray";
 import type { RaggedArray } from "./util/ragged_array";
@@ -46,23 +46,23 @@ export type AttrsOf<P> = {
     [K in keyof P]: P[K] extends Property<infer T> ? T : never;
 };
 export type DefineOf<P, HP extends HasProps = HasProps> = {
-    [K in keyof P]: P[K] extends Property<infer T> ? [PropertyConstructor<T> | PropertyAlias | Kind<T>, (Unset | T | ((obj: HP) => T))?, PropertyOptions<T>?] : never;
+    [K in keyof P]: P[K] extends Property<infer T> ? [PropertyConstructor<T, HP> | PropertyAlias | Kind<T>, (Unset | T | ((obj: HP) => T))?, PropertyOptions<T, HP>?] : never;
 };
-export type DefaultsOf<P> = {
-    [K in keyof P]: P[K] extends Property<infer T> ? T | ((obj: HasProps) => T) : never;
+export type DefaultsOf<P, HP extends HasProps = HasProps> = {
+    [K in keyof P]: P[K] extends Property<infer T> ? T | ((obj: HP) => T) : never;
 };
-export type OptionsOf<P> = {
-    [K in keyof P]: P[K] extends Property<infer T> ? PropertyOptions<T> : never;
+export type OptionsOf<P, HP extends HasProps = HasProps> = {
+    [K in keyof P]: P[K] extends Property<infer T> ? PropertyOptions<T, HP> : never;
 };
 type DefaultFn<T> = (obj: HasProps) => T;
-export type PropertyOptions<T> = {
+export type PropertyOptions<T, HP extends HasProps> = {
     internal?: boolean;
     readonly?: boolean;
-    convert?(value: T, obj: HasProps): T | undefined;
-    on_update?(value: T, obj: HasProps): void;
+    convert?(value: T, obj: HP): T | undefined;
+    on_update?(value: T, obj: HP): void;
 };
-export interface PropertyConstructor<T> {
-    new (obj: HasProps, attr: string, kind: Kind<T>, default_value: DefaultFn<T>, options?: PropertyOptions<T>): Property<T>;
+export interface PropertyConstructor<T, HP extends HasProps> {
+    new (obj: HP, attr: string, kind: Kind<T>, default_value: DefaultFn<T>, options?: PropertyOptions<T, HP>): Property<T>;
     readonly prototype: Property<T>;
 }
 export declare const unset: unique symbol;
@@ -92,8 +92,9 @@ export declare abstract class Property<T = unknown> {
     readonly: boolean;
     convert?(value: T, obj: HasProps): T | undefined;
     on_update?(value: T, obj: HasProps): void;
-    constructor(obj: HasProps, attr: string, kind: Kind<T>, default_value: DefaultFn<T>, options?: PropertyOptions<T>);
+    constructor(obj: HasProps, attr: string, kind: Kind<T>, default_value: DefaultFn<T>, options?: PropertyOptions<T, HasProps>);
     protected _update(attr_value: T): void;
+    to_full_string(): string;
     toString(): string;
     normalize(values: any): any;
     validate(value: unknown): void;

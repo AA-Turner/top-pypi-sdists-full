@@ -8,6 +8,7 @@ import pydantic
 from ..core.pydantic_utilities import IS_PYDANTIC_V2, update_forward_refs
 from ..core.unchecked_base_model import UncheckedBaseModel
 from .error import Error
+from .included_resources import IncludedResources
 
 
 class BatchGetCatalogObjectsResponse(UncheckedBaseModel):
@@ -24,6 +25,11 @@ class BatchGetCatalogObjectsResponse(UncheckedBaseModel):
     related_objects: typing.Optional[typing.List["CatalogObject"]] = pydantic.Field(default=None)
     """
     A list of [CatalogObject](entity:CatalogObject)s referenced by the object in the `objects` field.
+    """
+
+    included_resources: typing.Optional[IncludedResources] = pydantic.Field(default=None)
+    """
+    A list of [CatalogObject](entity:CatalogObject)s referenced by the object in the `objects` field and specifically requested.
     """
 
     if IS_PYDANTIC_V2:

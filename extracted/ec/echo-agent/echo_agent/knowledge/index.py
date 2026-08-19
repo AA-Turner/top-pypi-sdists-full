@@ -6,6 +6,7 @@ import asyncio
 import hashlib
 import json
 import math
+import os
 import re
 import threading
 from collections import Counter
@@ -23,6 +24,10 @@ _CJK_RE = re.compile(r"[\u4e00-\u9fff]")
 # Fusion baseline mirrors echo_agent/memory/retrieval.py resonance weights.
 # Kept as a module constant (not config) until tuning data justifies a knob.
 _FUSION_BASE = 0.5
+
+#: On-disk index format. v3 adds the file manifest that makes deletions and
+#: renames detectable; a v2 index still loads but is rebuilt once to gain one.
+_INDEX_FORMAT = "echo-agent-knowledge-v3"
 
 
 @dataclass
@@ -102,6 +107,10 @@ class KnowledgeIndex:
         self.allowed_extensions = {ext.lower() for ext in (allowed_extensions or [".md", ".txt"])}
         self._chunks: list[dict[str, Any]] = []
         self._df: Counter[str] = Counter()
+        # Corpus snapshot (path → [mtime, size]) persisted with the index. This
+        # is what makes deletions and renames visible to _is_stale; see
+        # _build_manifest for why an mtime comparison alone cannot see them.
+        self._manifest: dict[str, list[float]] = {}
         self._loaded = False
         self._lock = threading.Lock()
         self._needs_rebuild = False
@@ -109,6 +118,16 @@ class KnowledgeIndex:
         self._vector_store: Any = None
         self._embed_timeout: float = 1.5
         self._chunk_vectors: dict[str, list[float]] = {}
+        # Single-flight guard for ``rebuild_async``. The body of rebuild_async
+        # crosses ``await`` points (executor + per-chunk embedding), so the
+        # plain ``threading.Lock`` from earlier only protected the synchronous
+        # halves and let two callers race on the same sidecar — A's sidecar
+        # write could clobber B's. ``asyncio.Lock`` serializes the whole
+        # rebuild; the *future* is cached so concurrent callers join it
+        # rather than queueing, which would otherwise let a user click
+        # "rebuild" twice and watch two backfills run sequentially.
+        self._rebuild_lock = asyncio.Lock()
+        self._rebuild_future: asyncio.Future[dict[str, Any]] | None = None
 
     @property
     def chunk_count(self) -> int:
@@ -131,18 +150,49 @@ class KnowledgeIndex:
         elif self.index_path.exists():
             self.load()
 
+    def _scan_docs(self) -> list[Path]:
+        """Indexable files currently on disk, sorted for deterministic output."""
+        if not self.docs_dir.exists():
+            return []
+        return sorted(
+            path for path in self.docs_dir.rglob("*")
+            if path.is_file() and path.suffix.lower() in self.allowed_extensions
+        )
+
+    def _manifest_key(self, path: Path) -> str:
+        """Stable identity for a source file: the path recorded on its chunks."""
+        if path.is_relative_to(self.workspace):
+            return str(path.relative_to(self.workspace))
+        return str(path)
+
+    def _build_manifest(self, files: list[Path]) -> dict[str, list[float]]:
+        """Snapshot of the corpus: path → [mtime, size].
+
+        Recorded so staleness can be decided by *comparing sets* rather than by
+        asking "is any file newer than the index". The latter cannot see a
+        deletion or a rename at all — the surviving files are all older than the
+        index, so the index looked fresh while still serving chunks of documents
+        that no longer exist.
+        """
+        manifest: dict[str, list[float]] = {}
+        for path in files:
+            try:
+                stat = path.stat()
+            except OSError:
+                continue
+            manifest[self._manifest_key(path)] = [stat.st_mtime, float(stat.st_size)]
+        return manifest
+
     def rebuild(self) -> dict[str, Any]:
         with self._lock:
             self._chunks = []
             self._df = Counter()
             self.docs_dir.mkdir(parents=True, exist_ok=True)
-            files = [
-                path for path in self.docs_dir.rglob("*")
-                if path.is_file() and path.suffix.lower() in self.allowed_extensions
-            ]
-            for path in sorted(files):
+            files = self._scan_docs()
+            for path in files:
                 self._index_file(path)
             self._recompute_stats()
+            self._manifest = self._build_manifest(files)
             self._save()
             self._loaded = True
             self._needs_rebuild = False
@@ -156,16 +206,66 @@ class KnowledgeIndex:
             if not self.index_path.exists():
                 self._chunks = []
                 self._df = Counter()
+                self._manifest = {}
                 self._loaded = True
                 return
-            data = json.loads(self.index_path.read_text(encoding="utf-8"))
-            self._chunks = list(data.get("chunks", []))
-            if data.get("format") != "echo-agent-knowledge-v2" or any(
+            try:
+                data = json.loads(self.index_path.read_text(encoding="utf-8"))
+                if not isinstance(data, dict):
+                    raise ValueError("index root is not an object")
+                chunks = list(data.get("chunks", []))
+            except (json.JSONDecodeError, ValueError, OSError, UnicodeDecodeError) as e:
+                # A half-written or truncated index (power loss mid-save, full
+                # disk) used to raise straight out of here. ensure_ready() is
+                # called from AgentLoop.__init__, so that single corrupt file
+                # stopped the whole agent from starting, with a JSONDecodeError
+                # that named neither the file nor the cause. Quarantine it and
+                # rebuild from the source documents, which are the real
+                # authority — the index is a derived artifact.
+                self._quarantine_index(e)
+                self._chunks = []
+                self._df = Counter()
+                self._manifest = {}
+                self._needs_rebuild = True
+                self._loaded = True
+                return
+            self._chunks = chunks
+            raw_manifest = data.get("manifest")
+            self._manifest = raw_manifest if isinstance(raw_manifest, dict) else {}
+            if data.get("format") != _INDEX_FORMAT or any(
                 "content_hash" not in c for c in self._chunks
             ):
                 self._needs_rebuild = True
+            # An index written before manifests existed has none. Treat that as
+            # needing a rebuild rather than as "empty corpus", which would read
+            # as "every document was deleted" on the next staleness check.
+            if not self._manifest and self._chunks:
+                self._needs_rebuild = True
             self._recompute_stats()
             self._loaded = True
+
+    def _quarantine_index(self, reason: Exception) -> None:
+        """Move an unreadable index aside so the rebuild has a clean target.
+
+        Renamed rather than deleted: it is the only evidence of what went wrong,
+        and it may still be useful for diagnosis. Failure to move it is not
+        fatal — _save() will overwrite it anyway.
+        """
+        stamp = datetime.now().strftime("%Y%m%d%H%M%S")
+        broken = self.index_path.with_name(f"{self.index_path.name}.corrupt.{stamp}")
+        try:
+            self.index_path.replace(broken)
+            logger.error(
+                "Knowledge index at {} is unreadable ({}); quarantined to {} and "
+                "rebuilding from source documents.",
+                self.index_path, reason, broken.name,
+            )
+        except OSError as e:
+            logger.error(
+                "Knowledge index at {} is unreadable ({}) and could not be "
+                "quarantined ({}); rebuilding over it.",
+                self.index_path, reason, e,
+            )
 
     def attach_embedding(
         self, embed_fn: Callable[[str], Awaitable[list[float]]],
@@ -201,46 +301,76 @@ class KnowledgeIndex:
         return False
 
     async def rebuild_async(self) -> dict[str, Any]:
+        # Single-flight: if a rebuild is already running, return its result
+        # when it completes rather than starting a parallel one. Two
+        # concurrent rebuilds racing on the vector sidecar was the data-
+        # integrity bug this protects (reviewer P2).
+        if self._rebuild_future is not None and not self._rebuild_future.done():
+            return await self._rebuild_future
         loop = asyncio.get_running_loop()
-        if not self._vector_store or not self._vector_store.available or not self._embed_fn:
-            return await loop.run_in_executor(None, self.rebuild)
-        # 0) 复用判定的权威依据是 sidecar 自记录的 content_hash,而非 self._chunks 的
-        #    旧 hash:重启启动期 ensure_ready 可能已把 self._chunks rebuild 成新内容,
-        #    此时旧 hash 已失真,只有 sidecar 知道每个向量是基于哪段文本算出来的。
-        self._ensure_loaded()
-        old_vectors = self._vector_store.load()
-        sidecar_hashes = self._vector_store.content_hashes()
-        # 1) 重建文本索引(同步内核,executor 防阻塞事件循环)
-        summary = await loop.run_in_executor(None, self.rebuild)
-        # 2) 仅对 id 命中且 sidecar 记录的 hash 与当前 chunk hash 一致的复用,余者重算
-        new_vectors: dict[str, list[float]] = {}
-        for chunk in self._chunks:
-            cid = chunk["id"]
-            reuse = old_vectors.get(cid)
-            if reuse is not None and sidecar_hashes.get(cid) == chunk["content_hash"]:
-                new_vectors[cid] = reuse
-                continue
-            try:
-                emb = await asyncio.wait_for(self._embed_fn(chunk["text"]), self._embed_timeout)
-            except Exception as e:
-                logger.warning("knowledge embed failed for {}: {}", cid, e)
-                continue
-            if emb:
-                new_vectors[cid] = emb
-        ordered = [(c["id"], new_vectors[c["id"]]) for c in self._chunks if c["id"] in new_vectors]
-        new_hashes = {c["id"]: c["content_hash"] for c in self._chunks if c["id"] in new_vectors}
-        self._vector_store.build(ordered)
-        self._vector_store.save(ordered, new_hashes)
-        self._chunk_vectors = new_vectors
-        logger.info("knowledge vectors backfilled: {} chunks", len(ordered))
-        return summary
+        future: asyncio.Future[dict[str, Any]] = loop.create_future()
+        self._rebuild_future = future
+        try:
+            result = await self._run_rebuild(loop)
+        except BaseException as exc:
+            future.set_exception(exc)
+            # The owner re-raises directly instead of awaiting ``future``.
+            # Mark the exception as retrieved so a rebuild with no concurrent
+            # waiter does not leak "Future exception was never retrieved" at
+            # event-loop shutdown. Any waiter already awaiting the same future
+            # still receives the original exception.
+            future.exception()
+            raise
+        else:
+            future.set_result(result)
+            return result
+        finally:
+            # Only clear if we're still the owner — another rebuild that
+            # started under the lock should keep its own future live.
+            if self._rebuild_future is future:
+                self._rebuild_future = None
 
-    async def search_async(self, query: str, *, limit: int = 5, user_id: str = "") -> list[KnowledgeSearchResult]:
+    async def _run_rebuild(self, loop: asyncio.AbstractEventLoop) -> dict[str, Any]:
+        async with self._rebuild_lock:
+            if not self._vector_store or not self._vector_store.available or not self._embed_fn:
+                return await loop.run_in_executor(None, self.rebuild)
+            # 0) 复用判定的权威依据是 sidecar 自记录的 content_hash,而非 self._chunks 的
+            #    旧 hash:重启启动期 ensure_ready 可能已把 self._chunks rebuild 成新内容,
+            #    此时旧 hash 已失真,只有 sidecar 知道每个向量是基于哪段文本算出来的。
+            self._ensure_loaded()
+            old_vectors = self._vector_store.load()
+            sidecar_hashes = self._vector_store.content_hashes()
+            # 1) 重建文本索引(同步内核,executor 防阻塞事件循环)
+            summary = await loop.run_in_executor(None, self.rebuild)
+            # 2) 仅对 id 命中且 sidecar 记录的 hash 与当前 chunk hash 一致的复用,余者重算
+            new_vectors: dict[str, list[float]] = {}
+            for chunk in self._chunks:
+                cid = chunk["id"]
+                reuse = old_vectors.get(cid)
+                if reuse is not None and sidecar_hashes.get(cid) == chunk["content_hash"]:
+                    new_vectors[cid] = reuse
+                    continue
+                try:
+                    emb = await asyncio.wait_for(self._embed_fn(chunk["text"]), self._embed_timeout)
+                except Exception as e:
+                    logger.warning("knowledge embed failed for {}: {}", cid, e)
+                    continue
+                if emb:
+                    new_vectors[cid] = emb
+            ordered = [(c["id"], new_vectors[c["id"]]) for c in self._chunks if c["id"] in new_vectors]
+            new_hashes = {c["id"]: c["content_hash"] for c in self._chunks if c["id"] in new_vectors}
+            self._vector_store.build(ordered)
+            self._vector_store.save(ordered, new_hashes)
+            self._chunk_vectors = new_vectors
+            logger.info("knowledge vectors backfilled: {} chunks", len(ordered))
+            return summary
+
+    async def search_async(self, query: str, *, limit: int = 5, user_id: str = "", channel: str = "") -> list[KnowledgeSearchResult]:
         self._ensure_loaded()
         with self._lock:
             chunks_snapshot = list(self._chunks)
             df_snapshot = Counter(self._df)
-        kw = self._keyword_scores(query, chunks_snapshot, df_snapshot, user_id=user_id)
+        kw = self._keyword_scores(query, chunks_snapshot, df_snapshot, user_id=user_id, channel=channel)
         vec: dict[str, float] = {}
         if self._vector_store and self._vector_store.available and self._embed_fn:
             try:
@@ -252,7 +382,7 @@ class KnowledgeIndex:
                 logger.debug("knowledge query embed failed; keyword-only")
         by_id = {c["id"]: c for c in chunks_snapshot}
         allowed_vec = {cid: s for cid, s in vec.items()
-                       if cid in by_id and self._allowed_for_user(by_id[cid].get("metadata", {}), user_id)}
+                       if cid in by_id and self._allowed_for_user(by_id[cid].get("metadata", {}), user_id, channel=channel)}
         fused = self._fuse(query, kw, allowed_vec)
         ranked = sorted(fused.items(), key=lambda kv: kv[1], reverse=True)[:limit]
         return self._to_results([(by_id[cid], sc) for cid, sc in ranked if cid in by_id])
@@ -283,7 +413,7 @@ class KnowledgeIndex:
 
     def _keyword_scores(
         self, query: str, chunks: list[dict[str, Any]],
-        df: Counter, *, user_id: str,
+        df: Counter, *, user_id: str, channel: str = "",
     ) -> dict[str, float]:
         query_terms = _tokenize(query)
         if not query_terms:
@@ -293,7 +423,7 @@ class KnowledgeIndex:
         query_lower = query.lower()
         scores: dict[str, float] = {}
         for chunk in chunks:
-            if not self._allowed_for_user(chunk.get("metadata", {}), user_id):
+            if not self._allowed_for_user(chunk.get("metadata", {}), user_id, channel=channel):
                 continue
             terms = Counter(chunk.get("terms", {}))
             if not terms:
@@ -327,12 +457,12 @@ class KnowledgeIndex:
             ))
         return results
 
-    def search(self, query: str, *, limit: int = 5, user_id: str = "") -> list[KnowledgeSearchResult]:
+    def search(self, query: str, *, limit: int = 5, user_id: str = "", channel: str = "") -> list[KnowledgeSearchResult]:
         self._ensure_loaded()
         with self._lock:
             chunks_snapshot = list(self._chunks)
             df_snapshot = Counter(self._df)
-        scores = self._keyword_scores(query, chunks_snapshot, df_snapshot, user_id=user_id)
+        scores = self._keyword_scores(query, chunks_snapshot, df_snapshot, user_id=user_id, channel=channel)
         by_id = {c["id"]: c for c in chunks_snapshot}
         ranked = sorted(scores.items(), key=lambda kv: kv[1], reverse=True)[:limit]
         return self._to_results([(by_id[cid], sc) for cid, sc in ranked])
@@ -362,20 +492,76 @@ class KnowledgeIndex:
             "chunks": self.chunk_count,
             "allowed_extensions": sorted(self.allowed_extensions),
             "stale": self._is_stale(),
+            "last_rebuild": self._last_rebuild_iso(),
         }
+
+    def _last_rebuild_iso(self) -> str | None:
+        """When the index file was last written, as a local-time ISO string.
+
+        The index has no build timestamp of its own; ``_save`` rewrites the file
+        on every rebuild, so its mtime is exactly the last successful rebuild.
+        None means the index was never built.
+        """
+        if not self.index_path.exists():
+            return None
+        return datetime.fromtimestamp(self.index_path.stat().st_mtime).isoformat(timespec="seconds")
 
     def _ensure_loaded(self) -> None:
         if not self._loaded:
             self.load()
 
     def _is_stale(self) -> bool:
+        """Whether the index no longer matches the documents on disk.
+
+        Compares the recorded manifest against a fresh scan, so additions,
+        **deletions**, renames and in-place edits are all detected. The previous
+        "is any file newer than the index file" test could only ever see the
+        first and last of those: after a delete, every remaining file was older
+        than the index, so it reported fresh and kept serving chunks from the
+        removed document (a ghost hit that survived restarts).
+        """
         if not self.index_path.exists():
             return True
+        current = self._build_manifest(self._scan_docs())
+        recorded = self._recorded_manifest()
+        if recorded is None:
+            # Pre-manifest index: fall back to the old mtime heuristic rather
+            # than forcing a rebuild on every startup for existing installs.
+            return self._is_stale_by_mtime()
+        if set(current) != set(recorded):
+            return True
+        for key, (mtime, size) in current.items():
+            prev = recorded.get(key) or []
+            if len(prev) < 2 or mtime > prev[0] or size != prev[1]:
+                return True
+        return False
+
+    def _recorded_manifest(self) -> dict[str, list[float]] | None:
+        """The manifest stored in the index file, or None if it predates them.
+
+        Read from disk rather than from ``self._manifest``: staleness is checked
+        before ``load()`` in ``ensure_ready``, so the in-memory copy is empty at
+        that point and would read as "the corpus was emptied".
+        """
+        if self._manifest:
+            return self._manifest
+        try:
+            data = json.loads(self.index_path.read_text(encoding="utf-8"))
+        except (json.JSONDecodeError, ValueError, OSError, UnicodeDecodeError):
+            # Unreadable: let load() quarantine and rebuild rather than deciding
+            # freshness from a file we cannot parse.
+            return {}
+        if not isinstance(data, dict):
+            return {}
+        manifest = data.get("manifest")
+        if isinstance(manifest, dict):
+            return manifest
+        return None
+
+    def _is_stale_by_mtime(self) -> bool:
         index_mtime = self.index_path.stat().st_mtime
-        if not self.docs_dir.exists():
-            return False
-        for path in self.docs_dir.rglob("*"):
-            if path.is_file() and path.suffix.lower() in self.allowed_extensions and path.stat().st_mtime > index_mtime:
+        for path in self._scan_docs():
+            if path.stat().st_mtime > index_mtime:
                 return True
         return False
 
@@ -427,7 +613,7 @@ class KnowledgeIndex:
                 return stripped[:80]
         return path.name
 
-    def _allowed_for_user(self, metadata: dict[str, Any], user_id: str) -> bool:
+    def _allowed_for_user(self, metadata: dict[str, Any], user_id: str, *, channel: str = "") -> bool:
         allowed = metadata.get("allowed_users") or metadata.get("allow_users") or metadata.get("users")
         if not allowed:
             return True
@@ -435,7 +621,22 @@ class KnowledgeIndex:
             allowed_values = {allowed}
         else:
             allowed_values = {str(value) for value in allowed}
-        return "*" in allowed_values or user_id in allowed_values
+        if "*" in allowed_values:
+            return True
+        # Match both namespaced ("telegram:12345") and bare ("12345") forms so
+        # that documents configured with either style work across channels.
+        if user_id in allowed_values:
+            return True
+        if channel and f"{channel}:{user_id}" in allowed_values:
+            return True
+        # Also check if the stored value is namespaced and the incoming user_id
+        # matches the bare part (e.g. stored "telegram:12345", incoming "12345"
+        # from telegram).
+        if channel:
+            for v in allowed_values:
+                if ":" in v and v.split(":", 1)[0] == channel and v.split(":", 1)[1] == user_id:
+                    return True
+        return False
 
     def _recompute_stats(self) -> None:
         self._df = Counter()
@@ -443,11 +644,29 @@ class KnowledgeIndex:
             self._df.update(set(chunk.get("terms", {}).keys()))
 
     def _save(self) -> None:
+        """Write the index atomically.
+
+        temp + fsync + os.replace, because a plain ``write_text`` leaves a
+        truncated file behind if the process dies (or the disk fills) mid-write,
+        and that half-file is what the next startup tries to parse. os.replace is
+        atomic within a filesystem, so a reader sees either the old index or the
+        new one, never a partial one.
+        """
         self.index_path.parent.mkdir(parents=True, exist_ok=True)
         data = {
-            "format": "echo-agent-knowledge-v2",
+            "format": _INDEX_FORMAT,
             "generated_at": datetime.now().isoformat(),
             "docs_dir": str(self.docs_dir),
+            "manifest": self._manifest,
             "chunks": self._chunks,
         }
-        self.index_path.write_text(json.dumps(data, ensure_ascii=False, indent=2), encoding="utf-8")
+        tmp = self.index_path.with_name(f".{self.index_path.name}.tmp")
+        try:
+            with tmp.open("w", encoding="utf-8") as fh:
+                json.dump(data, fh, ensure_ascii=False, indent=2)
+                fh.flush()
+                os.fsync(fh.fileno())
+            tmp.replace(self.index_path)
+        except BaseException:
+            tmp.unlink(missing_ok=True)
+            raise

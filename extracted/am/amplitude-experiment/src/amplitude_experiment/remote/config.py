@@ -17,7 +17,9 @@ class RemoteEvaluationConfig:
                  fetch_retry_backoff_max_millis=10000,
                  fetch_retry_backoff_scalar=1.5,
                  fetch_retry_timeout_millis=10000,
+                 fetch_pool_acquire_timeout_millis=None,
                  server_zone: ServerZone = ServerZone.US,
+                 connection_pool_max_size=1,
                  logger=None):
         """
         Initialize a config
@@ -33,7 +35,15 @@ class RemoteEvaluationConfig:
                   greater than the max, the max is used for all subsequent retries.
                 fetch_retry_backoff_scalar (float): Scales the minimum backoff exponentially.
                 fetch_retry_timeout_millis (int): The request timeout for retrying fetch requests.
+                fetch_pool_acquire_timeout_millis (int | None): Maximum time, in milliseconds, a fetch may wait to
+                  acquire a connection from the connection pool when all pooled connections are busy with concurrent
+                  fetches. None (the default) preserves the existing behavior of waiting indefinitely. When set, an
+                  exhausted wait raises TimeoutError, classified for retries exactly like a socket read timeout.
                 server_zone (str): Select the Amplitude data center to get flags and variants from, US or EU.
+                connection_pool_max_size (int): The maximum number of HTTP connections kept in the fetch connection
+                  pool, and therefore the maximum number of concurrent fetch requests. Additional concurrent fetches
+                  beyond this limit block waiting for a connection to be released. Defaults to 1 (all fetches in the
+                  process share a single keep-alive connection).
                 logger (logging.Logger): Optional logger instance. If provided, this logger will be used instead of
                   creating a new one. The debug flag only applies when no logger is provided.
 
@@ -48,7 +58,9 @@ class RemoteEvaluationConfig:
         self.fetch_retry_backoff_max_millis = fetch_retry_backoff_max_millis
         self.fetch_retry_backoff_scalar = fetch_retry_backoff_scalar
         self.fetch_retry_timeout_millis = fetch_retry_timeout_millis
+        self.fetch_pool_acquire_timeout_millis = fetch_pool_acquire_timeout_millis
         self.server_zone = server_zone
+        self.connection_pool_max_size = connection_pool_max_size
         if server_url == DEFAULT_SERVER_URL and server_zone == ServerZone.EU:
             self.server_url = EU_SERVER_URL
 

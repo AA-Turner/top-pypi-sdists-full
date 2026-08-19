@@ -125,6 +125,30 @@ def verify_udf_values(data: pa.Table, size: int = SIZE) -> None:
     assert not issues, f"Original rows with wrong 'b' values: {issues[:5]}"
 
 
+def _is_gen248_conflict(e: BaseException) -> bool:
+    """True when the exception chain carries a GEN-248 conflict shape.
+    Anything else (setup errors, unrelated crashes) must fail loudly.
+
+    Two shapes qualify: a Lance "commit conflict" (untyped OSError whose
+    wording has varied, per geneva.utils.commit_conflict) and fragment
+    invalidation -- concurrent compaction removes the fragments a backfill
+    is writing, surfacing as "Fragment N not found" (FragmentWriter) inside
+    a FragmentWriteFailedError. Checked on every link of the cause/context
+    chain; Ray task errors embed the remote message in str(), so they match
+    at the top level too."""
+    seen: set[int] = set()
+    cur: BaseException | None = e
+    while cur is not None and id(cur) not in seen:
+        seen.add(id(cur))
+        msg = str(cur).lower()
+        if "commit conflict" in msg or (
+            "fragment" in msg and ("invalidat" in msg or "not found" in msg)
+        ):
+            return True
+        cur = cur.__cause__ or cur.__context__
+    return False
+
+
 # --- Tests ---
 
 
@@ -316,6 +340,127 @@ def test_compaction_during_backfill(db: Connection, local_ray_context) -> None:
         wait_for_backfill(fut)
 
     verify_column_b(tbl, SIZE)
+
+
+def test_compaction_during_backfill_srid(
+    db: Connection, tmp_path: Path, local_ray_context
+) -> None:
+    """Compaction during backfill on a stable-row-id table.
+
+    Mirrors test_compaction_during_backfill with stable row ids enabled and a
+    merge source the target schema accepts. The tolerated GEN-248 outcomes --
+    a backfill commit conflict or NULL gaps in 'b' -- exit via dynamic
+    pytest.xfail, and only after two hard gates that run first:
+
+    * the race was actually exercised -- at least one background compaction
+      committed while the backfill was in flight, so neither a pass nor an
+      xfail can come from merge conflicts alone;
+    * no silent corruption -- a non-null 'b' that is not a*10 always fails,
+      as does any background or backfill failure that is not a recognized
+      GEN-248 conflict (setup errors, unrelated crashes).
+
+    A function-level xfail marker would swallow exactly those signals, so
+    this test must not carry one.
+    """
+    make_lance_dataset(
+        tmp_path / "foo_srid.lance",
+        size=SIZE,
+        max_rows_per_file=MAX_ROWS_PER_FILE,
+        stable_row_ids=True,
+    )
+    tbl = db.open_table("foo_srid")
+    tbl.add_columns({"b": slow_times_ten}, **SHUFFLE_CONFIG)
+
+    # Ops carry a completion timestamp so the overlap gate below can tell a
+    # compaction that raced the backfill from one that merely bracketed it.
+    # The merge source holds only 'a': merge_insert cannot create columns, so
+    # naming one outside the target schema would fail every merge and leave
+    # compaction racing nothing but the backfill's own commits.
+    def merge_and_compact(stop: threading.Event, results: OpResults) -> None:
+        iteration = 0
+        while not stop.is_set():
+            iteration += 1
+            try:
+                row = iteration % SIZE
+                data = pa.Table.from_pydict({"a": [row]})
+                tbl.merge_insert(
+                    "a"
+                ).when_matched_update_all().when_not_matched_insert_all().execute(data)
+                results.succeeded.append(("merge", row, time.monotonic()))
+            except Exception as e:
+                results.failed.append(("merge", e, time.monotonic()))
+
+            if iteration % 5 == 0:
+                try:
+                    tbl.compact_files()
+                    results.succeeded.append(("compact", iteration, time.monotonic()))
+                except Exception as e:
+                    results.failed.append(("compact", e, time.monotonic()))
+            time.sleep(0.02)
+
+    backfill_error: Exception | None = None
+    with background_worker(merge_and_compact) as bg:
+        backfill_start = time.monotonic()
+        fut = tbl.backfill_async("b", where=None)
+        wait_for_backfill(fut)
+        backfill_end = time.monotonic()
+        try:
+            fut.result()
+        except Exception as e:  # classified below, after the corruption gate
+            backfill_error = e
+
+    # Non-vacuity first: without a compaction committed inside the backfill
+    # window, whatever this test reports came from merge conflicts or plain
+    # NULLs and says nothing about the compaction race it exists to cover.
+    compactions = [(tag, ts) for kind, tag, ts in bg.succeeded if kind == "compact"]
+    overlapping = [
+        ts for _tag, ts in compactions if backfill_start <= ts <= backfill_end
+    ]
+    assert overlapping, (
+        f"compaction race not exercised: {len(compactions)} compaction(s) "
+        f"succeeded, none within the backfill window "
+        f"({backfill_end - backfill_start:.1f}s); "
+        f"failures={[(k, type(e).__name__) for k, e, _ in bg.failed]}"
+    )
+
+    # Background failures are tolerated only in the GEN-248 shape; an
+    # unrelated crash in the merge/compact thread would otherwise be recorded
+    # and silently discarded.
+    unexpected = [
+        (kind, repr(e)) for kind, e, _ts in bg.failed if not _is_gen248_conflict(e)
+    ]
+    assert not unexpected, (
+        f"unexpected background failure(s), not a GEN-248 conflict: {unexpected[:3]}"
+    )
+
+    # Value correctness next: rows that DID get a non-null 'b' must carry the
+    # right value. A mismatch here is silent corruption, never a tolerated
+    # GEN-248 outcome, so it is asserted before any xfail exit below.
+    tbl.checkout_latest()
+    d = tbl.to_arrow().to_pydict()
+    misaligned = sorted(
+        (a, b)
+        for a, b in zip(d["a"], d["b"], strict=True)
+        if a < SIZE and b is not None and b != a * 10
+    )
+    assert not misaligned, (
+        f"SILENT VALUE MISALIGNMENT on stable-row-id table: non-null b != a*10 "
+        f"for {misaligned[:5]} (of {len(misaligned)})"
+    )
+
+    if backfill_error is not None:
+        if _is_gen248_conflict(backfill_error):
+            pytest.xfail(f"GEN-248 conflict: {backfill_error}")
+        raise backfill_error
+
+    nulls = sorted(
+        a for a, b in zip(d["a"], d["b"], strict=True) if a < SIZE and b is None
+    )
+    if nulls:
+        pytest.xfail(f"GEN-248: NULL gaps in 'b' ({len(nulls)} rows: {nulls[:5]})")
+
+    verify_column_b(tbl, SIZE)
+    verify_udf_values(tbl.to_arrow())
 
 
 @pytest.mark.xfail(reason="GEN-248: deletes cause issues during backfill", strict=False)

@@ -32,7 +32,8 @@ def _compute_capability(device: jax.Device | None = None) -> float | None:
   if device.platform != 'gpu':
     return None
 
-  return float(getattr(device, 'compute_capability', None))
+  cc = getattr(device, 'compute_capability', None)
+  return None if cc is None else float(cc)
 
 
 def _cc_between(
@@ -68,8 +69,8 @@ def has_mosaic_gpu_support(device: jax.Device | None = None) -> bool:
   if device.platform != 'gpu':
     return False
 
-  # Only currently supported for Hopper and above.
-  return float(device.compute_capability) >= 9.0
+  # Only supported for Ampere and above. SM80 support is experimental.
+  return float(device.compute_capability) >= 8.0
 
 
 def has_triton_support(device: jax.Device | None = None) -> bool:

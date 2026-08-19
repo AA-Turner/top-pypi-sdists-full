@@ -22,6 +22,7 @@ from loguru import logger
 
 from echo_agent.bus.events import InboundEvent, OutboundEvent, ContentBlock, ContentType
 from echo_agent.bus.queue import MessageBus
+from echo_agent.channels.base import SendResult
 from echo_agent.channels.manager import ChannelManager
 from echo_agent.channels.qqbot_media import detect_media_kind
 from echo_agent.config.schema import GatewayConfig
@@ -34,6 +35,7 @@ from echo_agent.gateway.rate_limiter import RateLimiter
 from echo_agent.gateway.router import DeliveryRouter
 from echo_agent.gateway.session_context import set_session_vars, clear_session_vars
 from echo_agent.gateway.session_policy import SessionResetPolicy
+from echo_agent.gateway import ws_common
 from echo_agent.gateway.ws_dashboard import DashboardWebSocket
 from echo_agent.gateway.ws_session import resolve_client_session_key
 from echo_agent.session.manager import SessionManager
@@ -76,10 +78,19 @@ class GatewayServer:
         self._shutdown_event: asyncio.Event | None = None
 
         data_dir = workspace / "data"
-        self.auth = GatewayAuth(config.auth, data_dir)
+        # Pass the bind address to the auth so the Host-header check can derive
+        # a sensible default allowlist (loopback addresses when bound locally,
+        # none when bound to 0.0.0.0/::). For non-loopback binds, an empty
+        # allowed_hosts configuration is a deployment mistake: anyone reaching
+        # the gateway via DNS could claim to come from a non-existent domain.
+        self.auth = GatewayAuth(config.auth, data_dir, bound_host=config.host)
+        self._warn_host_allowlist_if_unset()
         self.media_cache = MediaCache(
             cache_dir=workspace / config.media_cache_dir,
             max_size_mb=config.media_cache_max_mb,
+            max_file_mb=config.media_max_file_mb,
+            concurrency=config.media_download_concurrency,
+            allow_private=config.media_allow_private_addresses,
         )
         self.rate_limiter = RateLimiter()
         self.delivery_router = DeliveryRouter(bus)
@@ -102,6 +113,12 @@ class GatewayServer:
     @property
     def is_running(self) -> bool:
         return self._running
+
+    @property
+    def dashboard_ws(self) -> DashboardWebSocket:
+        """The dashboard WebSocket hub — exposes broadcast() so subsystems (e.g.
+        TaskManager) can push real-time events to subscribed UI clients."""
+        return self._dashboard_ws
 
     @property
     def actual_port(self) -> int:
@@ -150,6 +167,30 @@ class GatewayServer:
 
         self._running = True
 
+        # Persist the actually bound endpoint so attach / `service status` can
+        # discover the real port even when gateway.port=0 (ephemeral) — until
+        # now it only surfaced on stdout, unreadable to anything not parsing the
+        # log. Best-effort: a write failure must not abort a healthy bind.
+        import os as _os
+
+        from echo_agent.cli.workspace import clear_runtime_endpoint, write_runtime_endpoint
+
+        try:
+            write_runtime_endpoint(
+                self._workspace,
+                host=self._config.host,
+                port=actual_port,
+                pid=_os.getpid(),
+                ws_path=self._config.ws_path,
+            )
+            # atexit backstop: if the process exits without a clean stop()
+            # (unhandled exception, os._exit), still drop the stale endpoint.
+            import atexit
+
+            atexit.register(clear_runtime_endpoint, self._workspace)
+        except Exception as e:
+            logger.warning("Failed to write gateway runtime endpoint: {}", e)
+
         import sys
         print(
             f"ECHO_AGENT_READY port={actual_port} ws={self._config.ws_path} health={self._config.api_prefix}/health",
@@ -166,13 +207,17 @@ class GatewayServer:
     def _check_bind_safety(self) -> None:
         """Refuse to expose an unauthenticated gateway beyond localhost.
 
-        With no api_tokens configured, ``authenticate_token`` accepts every
+        With no token of any kind configured, ``authenticate_token`` accepts every
         request — fine on loopback, an open door on 0.0.0.0. Configure
         gateway.auth.apiTokens, or bind to 127.0.0.1.
+
+        adminTokens alone counts as authenticated: an admin token is accepted
+        everywhere an API token is (admin implies read), so such a deployment is
+        not open — refusing to start would be a false alarm.
         """
         host = (self._config.host or "").strip()
         loopback = host in ("127.0.0.1", "localhost", "::1", "")
-        if loopback or self._config.auth.api_tokens:
+        if loopback or self._tokens_configured():
             return
         raise RuntimeError(
             f"Gateway is configured to bind {host}:{self._config.port} without any "
@@ -193,10 +238,21 @@ class GatewayServer:
             await ws.close(code=aiohttp.WSCloseCode.GOING_AWAY, message=b"shutdown")
         self._ws_clients.clear()
 
+        # Dashboard sockets live in their own registry. Leaving them open meant
+        # runner.cleanup() below waited on live handlers — an open browser tab
+        # could stall shutdown for aiohttp's shutdown timeout.
+        await self._dashboard_ws.close_all()
+
         if self._site:
             await self._site.stop()
         if self._runner:
             await self._runner.cleanup()
+
+        # Remove the runtime-endpoint file so a later `service status` doesn't
+        # report a stale port for a gateway that has since exited.
+        from echo_agent.cli.workspace import clear_runtime_endpoint
+
+        clear_runtime_endpoint(self._workspace)
 
         await self.media_cache.cleanup()
         logger.info("Gateway stopped")
@@ -218,6 +274,9 @@ class GatewayServer:
         app.router.add_post(f"{prefix}/pair", self._handle_pair_generate)
         app.router.add_post(f"{prefix}/pair/verify", self._handle_pair_verify)
         app.router.add_get(f"{prefix}/stats", self._handle_stats)
+        # Scope probe for the dashboard: lets the UI disable admin-only controls
+        # instead of rendering buttons that are guaranteed to 403.
+        app.router.add_get(f"{prefix}/capabilities", self._handle_capabilities)
         app.router.add_get(self._config.ws_path, self._handle_websocket)
         app.router.add_get("/ws/dashboard", self._dashboard_ws.handle)
 
@@ -236,6 +295,9 @@ class GatewayServer:
                 self._agent_loop,
                 card,
                 auth_fn=lambda req: self._require_api_token(req, action="a2a:rpc"),
+                task_ttl_seconds=self._a2a_config.task_ttl_seconds,
+                max_tasks=self._a2a_config.max_tasks,
+                active_task_ttl_seconds=self._a2a_config.active_task_ttl_seconds,
             )
             a2a.register_routes(app)
 
@@ -339,13 +401,65 @@ class GatewayServer:
         exposed to CSRF-to-localhost."""
         origin = request.headers.get("Origin", "").strip()
         sec_fetch_site = request.headers.get("Sec-Fetch-Site", "").strip()
-        if not self.auth.is_cross_site_browser(origin, sec_fetch_site):
+        host = request.headers.get("Host", "").strip()
+        is_browser_request = bool(origin) or sec_fetch_site not in ("", "none")
+        if not is_browser_request:
             return None
-        self.auth.audit(action, ok=False, reason=f"cross-site origin rejected: {origin or '?'}")
-        return web.json_response({"error": "cross-site request forbidden"}, status=403)
+        # Both gates must pass independently — see reject_cross_site for why
+        # same-origin alone is not enough (DNS rebinding makes Origin and Host
+        # both attacker-controlled and consistent with each other).
+        if self.auth.is_cross_site_browser(origin, sec_fetch_site, host):
+            self.auth.audit(action, ok=False, reason=f"cross-site origin rejected: {origin or '?'}")
+            return web.json_response({"error": "cross-site request forbidden"}, status=403)
+        if not self.auth.is_host_allowed(host):
+            self.auth.audit(action, ok=False, reason=f"untrusted host rejected: {host or '?'}")
+            return web.json_response({"error": "cross-site request forbidden"}, status=403)
+        return None
+
+    def _tokens_configured(self) -> bool:
+        """Whether this deployment authenticates at all.
+
+        Must consider BOTH lists, and every "is there a token?" test goes through
+        here. Keying such a test on ``api_tokens`` alone is what made a
+        deployment with only ``admin_tokens`` serve read endpoints (and the WS
+        handshake) unauthenticated, while making the bind-safety check refuse to
+        start on 0.0.0.0 — an admin token passes the read guard, so the two lists
+        are one hierarchy, not two independent switches."""
+        return bool(self._config.auth.api_tokens or self._config.auth.admin_tokens)
+
+    def _warn_host_allowlist_if_unset(self) -> None:
+        """Warn when the Host allowlist is empty and the bind is not loopback.
+
+        A non-loopback bind (``0.0.0.0`` / ``::`` / a LAN address) means
+        strangers can reach the gateway. Without an explicit
+        ``allowed_hosts`` entry, ``is_host_allowed`` refuses every Host the
+        server gets — DNS rebinding is closed but so is everything else.
+        The operator almost certainly meant to list their reverse-proxy
+        domain; surface the choice rather than fail silent.
+        """
+        if self._config.auth.allowed_hosts:
+            return
+        bound = (self._config.host or "").strip()
+        try:
+            import ipaddress
+            is_loopback = (
+                bound in ("localhost",) or ipaddress.ip_address(bound).is_loopback
+            )
+        except ValueError:
+            is_loopback = False
+        if not is_loopback:
+            logger.warning(
+                "Gateway bound to {} with empty auth.allowed_hosts. Every "
+                "browser-shaped request will be rejected for lacking a trusted "
+                "Host. List your reverse-proxy domain (e.g. 'echo.example.com') "
+                "in gateway.auth.allowed_hosts if you are behind one.",
+                bound,
+            )
 
     def _require_api_token(self, request: web.Request, *, action: str) -> web.Response | None:
-        if not self._config.auth.api_tokens:
+        """Guard for read/chat-level endpoints. Admin tokens also pass (admin
+        scope implies read scope — see auth.authenticate_token)."""
+        if not self._tokens_configured():
             return None
         token = self._request_token(request)
         if self.auth.authenticate_token(token):
@@ -460,7 +574,8 @@ class GatewayServer:
             return guard
         origin = request.headers.get("Origin", "").strip()
         sec_fetch_site = request.headers.get("Sec-Fetch-Site", "").strip()
-        if self.auth.is_cross_site_browser(origin, sec_fetch_site):
+        host = request.headers.get("Host", "").strip()
+        if self.auth.is_cross_site_browser(origin, sec_fetch_site, host):
             self.auth.audit("message", ok=False, reason=f"cross-site origin rejected: {origin or '?'}")
             return web.json_response({"error": "cross-site request forbidden"}, status=403)
         try:
@@ -479,6 +594,17 @@ class GatewayServer:
 
         if not text and not media_urls:
             return web.json_response({"error": "text or media_urls required"}, status=400)
+
+        # Bound the fan-out before any network work. Each URL becomes a guarded
+        # download (size-capped, SSRF-checked), but an unbounded *list* would
+        # still let one request open arbitrarily many of them at once.
+        if not isinstance(media_urls, list):
+            return web.json_response({"error": "media_urls must be a list"}, status=400)
+        max_urls = self._config.media_max_urls_per_message
+        if len(media_urls) > max_urls:
+            return web.json_response(
+                {"error": f"too many media_urls (max {max_urls})"}, status=400,
+            )
 
         rejection = self._authenticate_and_check_rate_limit(
             platform, user_id, chat_id, trusted=self._is_loopback_peer(request),
@@ -657,12 +783,55 @@ class GatewayServer:
             await self.hooks.emit("auth_failed", platform=platform, user_id=user_id)
             return web.json_response({"error": "invalid or expired code"}, status=403)
 
+    async def _handle_capabilities(self, request: web.Request) -> web.Response:
+        """What the *calling token* is allowed to do.
+
+        The dashboard mixes api-token and admin-token endpoints on the same page
+        (knowledge upload/delete, config, memory writes). Without this the UI can
+        only discover the boundary by firing a request and reading a 403, so it
+        rendered enabled buttons that were guaranteed to fail. Reporting the
+        caller's own scope lets those affordances be disabled up front with an
+        explanation.
+
+        Deliberately reports only booleans about the presented token — never the
+        configured tokens or whether any exist beyond what the caller's own scope
+        already tells them.
+
+        ``auth_required`` says whether this deployment authenticates at all. The
+        dashboard needs it because it treated ``!!token`` as "logged in": in the
+        officially supported open / no-token mode (see auth.authenticate_token,
+        which accepts every request when no token is configured) an empty token
+        is *correct*, yet Layout bounced it to /login, Login's probe succeeded
+        and navigated back to /, and Layout bounced it again — a redirect loop
+        out of which only typing a nonsense non-empty token could escape.
+        Reporting the fact server-side is what lets the UI stop guessing."""
+        guard = self._require_api_token(request, action="capabilities")
+        if guard is not None:
+            return guard
+        # Mirrors _require_admin_token's own resolution order, including the
+        # unauthenticated-deployment case (no tokens configured at all → every
+        # caller is effectively admin), so the UI never disables a control the
+        # server would in fact allow.
+        admin_configured = bool(
+            self._config.auth.admin_tokens or self._config.auth.api_tokens
+        )
+        if not admin_configured:
+            is_admin = True
+        else:
+            is_admin = self.auth.authenticate_admin_token(
+                self.auth.token_from_headers(request.headers)
+            )
+        return web.json_response({
+            "admin": is_admin,
+            "authRequired": self._tokens_configured(),
+        })
+
     async def _handle_stats(self, request: web.Request) -> web.Response:
         guard = self._require_api_token(request, action="stats")
         if guard is not None:
             return guard
+        # ws_clients is now part of health.check() itself, so no need to re-add it.
         health_data = await self.health.check()
-        health_data["ws_clients"] = len(self._ws_clients)
         return web.json_response(health_data)
 
     # ── WebSocket handler ─────────────────────────────────────────────────
@@ -671,13 +840,19 @@ class GatewayServer:
         """处理 WebSocket 连接：Origin 闸门 → 认证握手 → 消息循环 → 事件分发。"""
         # Gate A: reject cross-site browser upgrades BEFORE prepare(). Once the
         # socket is upgraded the browser's onopen fires, so this must run first.
-        origin = request.headers.get("Origin", "").strip()
-        sec_fetch_site = request.headers.get("Sec-Fetch-Site", "").strip()
-        if self.auth.is_cross_site_browser(origin, sec_fetch_site):
-            self.auth.audit("ws_auth", ok=False, reason=f"cross-site origin rejected: {origin or '?'}")
-            return web.json_response({"error": "cross-site request forbidden"}, status=403)
+        # Shared with the dashboard WS via ws_common so the two gates cannot
+        # drift apart again.
+        rejected = ws_common.reject_cross_site(request, self.auth, action="ws_auth")
+        if rejected is not None:
+            return rejected
 
-        websocket = web.WebSocketResponse()
+        # Server-driven heartbeat: without it keepalive was entirely client-side
+        # (the CLI pings, but nothing pinged the CLI), so a stalled/blocked client
+        # during a long turn could die unnoticed and the final reply would be
+        # dropped silently. aiohttp auto-pongs peer pings and drops the socket if
+        # our ping goes unanswered, surfacing the dead connection promptly.
+        hb = self._config.ws_heartbeat_seconds
+        websocket = web.WebSocketResponse(heartbeat=hb if hb and hb > 0 else None)
         await websocket.prepare(request)
 
         delivery_key = None
@@ -685,9 +860,26 @@ class GatewayServer:
         user_id = ""
         chat_id = ""
         session_key = ""
+        # Absolute bound on the pre-auth window. Passing the per-frame timeout to
+        # each wait_for restarted the clock on every frame, so a peer that kept
+        # sending frames it had no right to send (junk, bad JSON, `message`
+        # before `auth`) renewed its own deadline forever. See ws_common.
+        auth_deadline = ws_common.AuthDeadline()
 
         try:
-            async for raw_msg in websocket:
+            while True:
+                try:
+                    # Once authenticated the socket is a legitimate long-lived
+                    # client — a TUI turn can run for many minutes with no client
+                    # frames — so remaining() drops the bound entirely.
+                    raw_msg = await asyncio.wait_for(
+                        websocket.receive(), timeout=auth_deadline.remaining(),
+                    )
+                except asyncio.TimeoutError:
+                    self.auth.audit("ws_auth", ok=False, reason="authentication timeout")
+                    await websocket.close()
+                    break
+
                 if raw_msg.type == aiohttp.WSMsgType.TEXT:
                     try:
                         data = json.loads(raw_msg.data)
@@ -709,7 +901,10 @@ class GatewayServer:
                             chat_id = data.get("chat_id", user_id)
                             token = str(data.get("token") or self._request_token(request))
 
-                            if self._config.auth.api_tokens and not self.auth.authenticate_token(token):
+                            # Any configured token makes the check mandatory —
+                            # admin_tokens alone must not leave the socket open,
+                            # and authenticate_token already accepts both kinds.
+                            if self._tokens_configured() and not self.auth.authenticate_token(token):
                                 self.auth.audit("ws_auth", platform=platform, user_id=user_id, ok=False, reason="invalid api token")
                                 await websocket.send_json({"type": "error", "error": "unauthorized"})
                                 await websocket.close()
@@ -745,6 +940,10 @@ class GatewayServer:
                             # 让 _handle_outbound 无需任何 metadata 透传即可命中所有出站路径。
                             delivery_key = f"gateway:{platform}:{chat_id}"
                             self._ws_clients[delivery_key] = websocket
+                            # Lifts the pre-auth deadline. Set here, past every
+                            # rejection branch above, so a failed handshake never
+                            # buys an unbounded socket.
+                            auth_deadline.mark_authenticated()
 
                             session = await self.session_manager.get_or_create(session_key)
                             if self.session_policy.should_reset(session):
@@ -853,7 +1052,15 @@ class GatewayServer:
                             pass
                         continue
 
-                elif raw_msg.type in (aiohttp.WSMsgType.ERROR, aiohttp.WSMsgType.CLOSE):
+                elif raw_msg.type in (
+                    aiohttp.WSMsgType.ERROR,
+                    aiohttp.WSMsgType.CLOSE,
+                    # CLOSED / CLOSING were implicit while this was `async for`
+                    # (the iterator stops on them). With an explicit receive()
+                    # they must be handled here, or teardown spins forever.
+                    aiohttp.WSMsgType.CLOSED,
+                    aiohttp.WSMsgType.CLOSING,
+                ):
                     break
 
         except Exception as e:
@@ -888,35 +1095,84 @@ class GatewayServer:
 
         return websocket
 
-    async def _handle_outbound(self, event: OutboundEvent) -> None:
+    async def _handle_outbound(self, event: OutboundEvent) -> SendResult | None:
+        """Deliver a gateway-bound event to its live client, reporting the truth.
+
+        Returns ``None`` — "no opinion" — for anything this handler does not own.
+        That matters because this is a *global* outbound handler: it sees every
+        channel's events, and ``MessageBus._aggregate`` folds a returned
+        SendResult into the delivery verdict. Voting FAILED on, say, a Telegram
+        event because no WebSocket was attached would fault deliveries that in
+        fact succeeded on their own channel.
+
+        For events it does own, the receipt is real. Previously this returned
+        None unconditionally, which ``_aggregate`` reads as ACCEPTED — counted as
+        success by ``DeliveryResult.ok``. So a turn whose answer reached nobody
+        (client gone, no HTTP waiter) still reported success, and the cron run or
+        task that produced it was marked complete. The warning below already knew
+        the reply had been dropped; it just never told the caller.
+        """
         if event.metadata.get("_drop"):
-            return
+            return None
         if not event.channel.startswith("gateway:"):
-            return
+            return None
 
         _, platform = event.channel.split(":", 1)
         session_key = f"gateway:{platform}:{event.chat_id}"
         payload = self._build_outbound_payload(event)
 
+        # An HTTP waiter is a real delivery target: the caller is blocked on this
+        # reply and will receive it, whether or not a WebSocket is also attached.
+        answered_http_waiter = False
         correlation_id = str(event.metadata.get("_inbound_event_id") or event.reply_to_id or "")
         if correlation_id:
             future = self._pending_http.get(correlation_id)
             if future is not None and not future.done() and event.is_final:
                 try:
                     future.set_result(payload)
+                    answered_http_waiter = True
                 except asyncio.InvalidStateError:
                     pass
                 self._pending_http.pop(correlation_id, None)
 
-        await self.broadcast_to_ws(session_key, payload)
+        delivered = await self.broadcast_to_ws(session_key, payload)
+        if delivered or answered_http_waiter:
+            return SendResult(success=True)
+
+        is_final = event.is_final or event.message_kind == "final"
+        if not is_final:
+            # Interim stream frames are level-triggered progress: the final still
+            # carries the full text, so a dropped one is not a delivery failure.
+            # Stay silent rather than faulting the turn over a skipped frame.
+            return None
+
+        # A dropped FINAL reply is the severe case: the turn's answer was
+        # produced and persisted to history but never reached the live client
+        # (closed/rebound socket), and there is no replay — so the CLI shows
+        # nothing. Log it loudly with the routing key so the silent-drop is
+        # diagnosable instead of vanishing.
+        logger.warning(
+            "Outbound FINAL reply not delivered to live client "
+            "(session_key={}, event_id={}): socket missing or closed. "
+            "Reply is persisted to history but the attached client missed it.",
+            session_key, event.event_id,
+        )
+        return SendResult(
+            success=False,
+            error="no live gateway client for this session (reply persisted to history only)",
+        )
 
     async def broadcast_to_ws(self, session_key: str, data: dict[str, Any]) -> bool:
         ws = self._ws_clients.get(session_key)
-        if ws is None or ws.closed:
+        if ws is None:
+            logger.debug("broadcast_to_ws: no live client for session_key={}", session_key)
+            return False
+        if ws.closed:
+            logger.debug("broadcast_to_ws: client socket closed for session_key={}", session_key)
             return False
         try:
             await ws.send_json(data)
             return True
         except Exception as e:
-            logger.warning("Failed to send WebSocket message: {}", e)
+            logger.warning("Failed to send WebSocket message (session_key={}): {}", session_key, e)
             return False

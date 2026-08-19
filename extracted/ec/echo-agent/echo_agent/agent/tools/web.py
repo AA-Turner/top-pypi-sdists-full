@@ -3,102 +3,41 @@
 from __future__ import annotations
 
 import asyncio
-import ipaddress
-import socket
 from typing import Any
-from urllib.parse import urljoin, urlparse
+from urllib.parse import urlencode, urljoin, urlparse
 
 import aiohttp
 
 from echo_agent.agent.tools.base import Tool, ToolExecutionContext, ToolResult
+# SSRF policy lives in security/net_guard.py so the media path enforces the
+# identical rules (see that module's docstring). Re-exported under the original
+# private names: they are part of this module's de-facto API — browser/actions.py
+# and browser/session.py import check_url_ssrf from here, and the test suite
+# monkeypatches these attributes.
+from echo_agent.security.net_guard import (  # noqa: F401
+    _ip_is_blocked,
+    check_url_ssrf,
+    resolve_and_validate,
+)
+from echo_agent.security.net_guard import RESOLVE_FAILED_PREFIX as _RESOLVE_FAILED_PREFIX
+from echo_agent.security.net_guard import PinnedResolver as _PinnedResolver
 
 
-def _ip_is_blocked(ip: ipaddress._BaseAddress) -> bool:
-    return bool(
-        ip.is_private or ip.is_loopback or ip.is_link_local
-        or ip.is_reserved or ip.is_multicast or ip.is_unspecified
-    )
+def _error_kind_for(exc: BaseException) -> str:
+    """Map a transport exception to a ``ToolResult.error_kind``.
 
-
-async def resolve_and_validate(url: str) -> tuple[list[str], str | None]:
-    """Resolve *url*'s host and validate every resolved IP.
-
-    Returns ``(ips, error)``. ``ips`` is the list of validated address
-    strings (safe to pin a connection to); ``error`` is non-None when the
-    URL must be blocked. Pinning the returned IPs for the actual connection
-    closes the DNS-rebinding window between validation and connect.
+    Without this the web tools returned every failure unclassified, so
+    ``ToolResult.is_infra_failure`` was always False and the circuit breaker
+    never opened on a genuinely unreachable network — repeated timeouts just
+    kept costing a tool call each. aiohttp's timeout errors subclass
+    ``asyncio.TimeoutError``, so that arm must be checked before ClientError
+    (``ConnectionTimeoutError`` is both).
     """
-    parsed = urlparse(url)
-    if parsed.scheme not in ("http", "https"):
-        return [], f"Blocked: unsupported URL scheme '{parsed.scheme}'"
-    host = parsed.hostname
-    if not host:
-        return [], "Blocked: URL has no host"
-    try:
-        infos = await asyncio.to_thread(socket.getaddrinfo, host, None)
-    except OSError as e:
-        return [], f"Blocked: cannot resolve host '{host}': {e}"
-    ips: list[str] = []
-    for info in infos:
-        addr = info[4][0]
-        try:
-            ip = ipaddress.ip_address(addr)
-        except ValueError:
-            continue
-        if _ip_is_blocked(ip):
-            return [], (
-                f"Blocked: '{host}' resolves to non-public address {ip}. "
-                "Set tools.web.allowPrivateAddresses to true to permit internal targets."
-            )
-        ips.append(addr)
-    if not ips:
-        return [], f"Blocked: cannot resolve host '{host}' to a usable address"
-    return ips, None
-
-
-async def check_url_ssrf(url: str) -> str | None:
-    """Return an error message when *url* points at a non-public address.
-
-    Blocks loopback, private, link-local (cloud metadata), reserved and
-    multicast targets — web_fetch takes model-controlled URLs, so without
-    this it is a free proxy into the host's internal network.
-    """
-    _, error = await resolve_and_validate(url)
-    return error
-
-
-class _PinnedResolver(aiohttp.abc.AbstractResolver):
-    """aiohttp resolver that hands back a pre-validated IP for a host.
-
-    Pins DNS so the address aiohttp connects to is exactly the one SSRF
-    validation approved, defeating rebinding (validate IP_a, connect IP_b)."""
-
-    def __init__(self, host_to_ips: dict[str, list[str]]):
-        self._map = host_to_ips
-
-    async def resolve(self, host: str, port: int = 0, family: int = socket.AF_INET) -> list[dict[str, Any]]:
-        ips = self._map.get(host)
-        if not ips:
-            raise OSError(f"host '{host}' not in pinned set")
-        results: list[dict[str, Any]] = []
-        for addr in ips:
-            try:
-                fam = socket.AF_INET6 if ipaddress.ip_address(addr).version == 6 else socket.AF_INET
-            except ValueError:
-                continue
-            if family not in (socket.AF_UNSPEC, fam):
-                continue
-            results.append({
-                "hostname": host, "host": addr, "port": port,
-                "family": fam, "proto": 0, "flags": socket.AI_NUMERICHOST,
-            })
-        if not results:
-            raise OSError(f"no pinned address for '{host}' in family {family}")
-        return results
-
-    async def close(self) -> None:
-        return None
-
+    if isinstance(exc, asyncio.TimeoutError):
+        return "timeout"
+    if isinstance(exc, (aiohttp.ClientError, OSError)):
+        return "dependency"
+    return "internal"
 
 
 class WebFetchTool(Tool):
@@ -109,24 +48,35 @@ class WebFetchTool(Tool):
         "type": "object",
         "properties": {
             "url": {"type": "string", "description": "URL to fetch."},
-            "max_chars": {"type": "integer", "description": "Max response chars.", "default": 16000},
+            "max_chars": {"type": "integer", "description": "Optional acquisition cap; omit to fetch the full page. Oversized content is spilled to disk with a retrieval path."},
         },
         "required": ["url"],
     }
     timeout_seconds = 30
     _MAX_REDIRECTS = 5
 
+    # Per-request budget, kept strictly under the registry's ``timeout_seconds``
+    # wait_for. With both deadlines at 30s they raced, and the winner decided
+    # whether the failure got classified at all: the outer wait_for reports
+    # error_kind="timeout", while a bare inner aiohttp timeout used to report
+    # none. Landing inside our own handler keeps classification deterministic.
+    _REQUEST_TIMEOUT_MARGIN = 5
+
     def __init__(self, proxy: str | None = None, allow_private: bool = False):
         self._proxy = proxy
         self._allow_private = allow_private
 
+    def _request_timeout(self) -> float:
+        """Per-request deadline that stays inside the registry's wait_for."""
+        return max(1.0, self.timeout_seconds - self._REQUEST_TIMEOUT_MARGIN)
+
     async def execute(self, params: dict[str, Any], ctx: ToolExecutionContext | None = None) -> ToolResult:
         url = params["url"]
-        max_chars = params.get("max_chars", 16000)
+        max_chars = min(params.get("max_chars", 2_000_000), 2_000_000)
         try:
             return await self._fetch_with_redirect_guard(url, max_chars)
         except Exception as e:
-            return ToolResult(success=False, error=str(e))
+            return ToolResult(success=False, error=str(e), error_kind=_error_kind_for(e))
 
     async def _fetch_with_redirect_guard(self, url: str, max_chars: int) -> ToolResult:
         """Fetch with redirects followed manually so every hop is SSRF-checked
@@ -138,7 +88,9 @@ class WebFetchTool(Tool):
             if not self._allow_private:
                 ips, ssrf_error = await resolve_and_validate(current)
                 if ssrf_error:
-                    return ToolResult(success=False, error=ssrf_error)
+                    # A resolver failure is an infra fault; an SSRF verdict is not.
+                    kind = "dependency" if ssrf_error.startswith(_RESOLVE_FAILED_PREFIX) else ""
+                    return ToolResult(success=False, error=ssrf_error, error_kind=kind)
                 host = urlparse(current).hostname or ""
                 # Pin the validated IPs for the actual connection (anti-rebinding).
                 connector = aiohttp.TCPConnector(resolver=_PinnedResolver({host: ips}))
@@ -147,7 +99,7 @@ class WebFetchTool(Tool):
                     current,
                     proxy=self._proxy,
                     allow_redirects=False,
-                    timeout=aiohttp.ClientTimeout(total=self.timeout_seconds),
+                    timeout=aiohttp.ClientTimeout(total=self._request_timeout()),
                 ) as resp:
                     if resp.status in (301, 302, 303, 307, 308):
                         location = resp.headers.get("Location")
@@ -243,10 +195,15 @@ class WebSearchTool(Tool):
                     results = await self._search_serpapi(session, query, max_results)
                 elif self._provider == "searxng":
                     results = await self._search_searxng(session, query, max_results)
+                elif self._provider == "serply":
+                    results = await self._search_serply(session, query, max_results)
                 else:
                     return ToolResult(success=False, error=f"Unsupported search provider: {self._provider}")
         except Exception as e:
-            return ToolResult(success=False, error=str(e), metadata={"provider": self._provider})
+            return ToolResult(
+                success=False, error=str(e), error_kind=_error_kind_for(e),
+                metadata={"provider": self._provider},
+            )
 
         if not results:
             return ToolResult(output="No search results.", metadata={"provider": self._provider, "count": 0})
@@ -335,4 +292,26 @@ class WebSearchTool(Tool):
                 "snippet": item.get("content", ""),
             }
             for item in data.get("results", [])[:max_results]
+        ]
+
+    async def _search_serply(self, session: aiohttp.ClientSession, query: str, max_results: int) -> list[dict[str, str]]:
+        # Serply takes the query and result count as URL-encoded path segments.
+        base = (self._api_base or "https://api.serply.io").rstrip("/")
+        url = f"{base}/v1/search/{urlencode({'q': query, 'num': max_results})}"
+        headers = {
+            "X-Api-Key": self._api_key,
+            "Accept": "application/json",
+            # Serply is behind Cloudflare, which rejects the default aiohttp
+            # User-Agent, so send an explicit one.
+            "User-Agent": "echo-agent",
+        }
+        async with session.get(url, headers=headers, proxy=self._proxy) as resp:
+            data = await self._read_json(resp)
+        return [
+            {
+                "title": item.get("title", ""),
+                "url": item.get("link", ""),
+                "snippet": item.get("description", ""),
+            }
+            for item in data.get("results", [])
         ]

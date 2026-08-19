@@ -22,9 +22,11 @@ QUEUED case (waiting in the receiver's queue before
 ``JOB_STARTED`` fires) and for the brief gap between a job
 completing and the next submission.
 
-Empty ``<dashboard_id>/`` parents are pruned after the subtree
-sweep so an offloader that's been removed entirely doesn't
-leave a permanent empty directory behind.
+An offloader's shared build data dir
+(``<data_dir>/.remote_builds/<dashboard_id>/.esphome``) is
+reclaimed once nothing remains under its ``<dashboard_id>/``
+and no job targeting it is in flight; empty parents are pruned
+on both roots.
 
 Best-effort: per-subtree exceptions (permission denied, races
 against a concurrent submit) get logged and the walk continues.
@@ -39,14 +41,23 @@ from pathlib import Path
 
 from esphome.helpers import rmtree
 
-from .remote_build_layout import BUNDLE_SUFFIX, REMOTE_BUILDS_SUBDIR, RemoteBuildPath
+from .remote_build_layout import (
+    BUNDLE_SUFFIX,
+    DATA_DIR_NAME,
+    REMOTE_BUILDS_NAME,
+    REMOTE_BUILDS_SUBDIR,
+    VENVS_NAME,
+    RemoteBuildPath,
+    per_dashboard_data_dir,
+)
 
 _LOGGER = logging.getLogger(__name__)
 
 
-def sweep_remote_builds(  # noqa: C901
+def sweep_remote_builds(
     config_dir: Path,
     *,
+    data_dir: Path,
     ttl_seconds: float,
     in_flight_keys: frozenset[RemoteBuildPath],
     now: float | None = None,
@@ -60,6 +71,9 @@ def sweep_remote_builds(  # noqa: C901
         config_dir: The receiver's ``CORE.config_dir`` — the
             sweep operates on
             ``config_dir / REMOTE_BUILDS_SUBDIR``.
+        data_dir: The receiver's ``CORE.data_dir``; holds each
+            offloader's shared build data dir, reclaimed once
+            nothing under its ``<dashboard_id>/`` remains.
         ttl_seconds: Delete every subtree whose ``st_mtime`` is
             older than ``now - ttl_seconds``. Values <= 0 are
             treated as "delete everything not in-flight"; the
@@ -75,13 +89,18 @@ def sweep_remote_builds(  # noqa: C901
             deterministic.
 
     Returns:
-        Number of subtrees deleted. Useful for the caller's log
-        line so operators can see the cleanup running.
+        Number of subtrees deleted, device extracts and idle
+        build data dirs alike. Useful for the caller's log line
+        so operators can see the cleanup running.
     """
     if now is None:
         now = time.time()
     cutoff = now - ttl_seconds
     root = config_dir / REMOTE_BUILDS_SUBDIR
+    # Split-root deployments (HA add-on, ``ESPHOME_DATA_DIR``) hold the
+    # data dir under a second root; walk the union so a dashboard whose
+    # config-root dir was pruned on an earlier sweep is still reclaimed.
+    data_root = data_dir / REMOTE_BUILDS_NAME
     # Skip if the root itself is a symlink — ``is_dir()`` would
     # follow it and the sweep would walk into whatever directory
     # the symlink targets, potentially deleting subtrees outside
@@ -90,11 +109,20 @@ def sweep_remote_builds(  # noqa: C901
     # operator-or-attacker-placed and outside trust scope.
     # Defense-in-depth matching the symlink skips at the
     # dashboard_dir and entry levels below.
-    if root.is_symlink() or not root.is_dir():
+    if root.is_symlink():
         return 0
+    # Same stance for the data root, scoped to what lives under it:
+    # the config-root subtree sweep still runs.
+    reclaim_data_dirs = not data_root.is_symlink()
+    if not reclaim_data_dirs:
+        _LOGGER.warning(
+            "remote-build cleanup: %s is a symlink; leaving build data dirs alone", data_root
+        )
 
+    in_flight_dir_ids = frozenset(key.dir_id for key in in_flight_keys)
     deleted = 0
-    for dashboard_dir in _safe_iterdir(root):
+    for name in _dashboard_names(root, data_root):
+        dashboard_dir = root / name
         # Symlinks at any level are skipped outright. ``is_dir()``
         # follows symlinks by default, so a symlink to a directory
         # would pass the next check; ``rmtree`` on that symlink
@@ -104,44 +132,106 @@ def sweep_remote_builds(  # noqa: C901
         # against an operator (or attacker with write access to
         # the remote-builds root) placing a symlink that points
         # outside the canonical subtree.
-        if dashboard_dir.is_symlink() or not dashboard_dir.is_dir():
+        if dashboard_dir.is_symlink() or (dashboard_dir.exists() and not dashboard_dir.is_dir()):
             _LOGGER.debug(
                 "remote-build cleanup: skipping non-directory under %s: %s",
                 root,
                 dashboard_dir,
             )
             continue
-        for entry in _safe_iterdir(dashboard_dir):
-            if entry.is_symlink():
-                _LOGGER.debug("remote-build cleanup: skipping symlink %s", entry)
-                continue
-            if entry.is_dir():
-                key = RemoteBuildPath(dashboard_id=dashboard_dir.name, device_name=entry.name)
-                if key in in_flight_keys:
-                    _LOGGER.debug("remote-build cleanup: skipping in-flight %s", key)
-                    continue
-                if not _is_cold(entry, cutoff):
-                    continue
-                if _delete_subtree_and_sibling(key, config_dir):
-                    deleted += 1
-            elif entry.is_file() and entry.name.endswith(BUNDLE_SUFFIX):
-                # Orphan bundle path: a ``.tar.gz`` whose sibling
-                # subtree is missing. Happens when the previous
-                # sweep's ``rmtree`` succeeded but the ``unlink``
-                # failed (logged as warning, sweep continued),
-                # when an operator hand-deleted the subtree, or
-                # any other transient failure that left only the
-                # tarball behind. Without this branch the orphan
-                # would accumulate forever — the subtree-path
-                # above never visits it because that branch
-                # requires ``is_dir()``. Pair with the same
-                # in-flight + cold gates the subtree path uses.
-                _reclaim_orphan_bundle(entry, dashboard_dir, in_flight_keys, cutoff)
-        # An offloader that was paired once and never came back
-        # leaves an otherwise-permanent empty dashboard_id dir;
-        # prune here so the filesystem stays tidy without a
-        # separate housekeeping pass.
+        if dashboard_dir.is_dir():
+            deleted += _sweep_dashboard_dir(dashboard_dir, config_dir, in_flight_keys, cutoff)
+        if name in in_flight_dir_ids or _holds_live_entries(dashboard_dir):
+            continue
+        # Nothing references this offloader any more: reclaim its
+        # build data dir, then prune the empty parents on both roots.
+        if reclaim_data_dirs:
+            deleted += _reclaim_dashboard_data_dir(name, data_dir)
+            _prune_empty_dir(data_root / name)
         _prune_empty_dir(dashboard_dir)
+    return deleted
+
+
+def _dashboard_names(*roots: Path) -> set[str]:
+    """Return the ``<dashboard_id>`` entry names across *roots*, minus the venv cache."""
+    names: set[str] = set()
+    for root in roots:
+        if root.is_symlink() or not root.is_dir():
+            continue
+        names.update(entry.name for entry in _safe_iterdir(root))
+    return {name for name in names if name.casefold() != VENVS_NAME}
+
+
+def _holds_live_entries(dashboard_dir: Path) -> bool:
+    """
+    Return ``True`` while anything but the data dir or macOS metadata sits in *dashboard_dir*.
+
+    A directory that can't be listed counts as live; a missing one doesn't.
+    """
+    try:
+        entries = list(dashboard_dir.iterdir())
+    except FileNotFoundError:
+        return False
+    except OSError as exc:
+        _LOGGER.debug("remote-build cleanup: iterdir(%s) failed: %s", dashboard_dir, exc)
+        return True
+    return any(
+        entry.name.casefold() != DATA_DIR_NAME and not _is_macos_metadata(entry.name)
+        for entry in entries
+    )
+
+
+def _reclaim_dashboard_data_dir(dir_id: str, data_dir: Path) -> int:
+    """Delete *dir_id*'s shared build data dir; return the delete count."""
+    target = per_dashboard_data_dir(data_dir, dir_id)
+    if target.parent.is_symlink() or target.is_symlink() or not target.is_dir():
+        return 0
+    try:
+        rmtree(target)
+    except OSError as exc:
+        _LOGGER.warning("remote-build cleanup: rmtree(%s) failed: %s", target, exc)
+        return 0
+    _LOGGER.info("remote-build cleanup: removed idle build data dir %s", target)
+    return 1
+
+
+def _sweep_dashboard_dir(
+    dashboard_dir: Path,
+    config_dir: Path,
+    in_flight_keys: frozenset[RemoteBuildPath],
+    cutoff: float,
+) -> int:
+    """Delete cold device subtrees + orphan bundles under *dashboard_dir*; return the count."""
+    deleted = 0
+    for entry in _safe_iterdir(dashboard_dir):
+        # Standalone-install sibling of the device subtrees, not one of them.
+        if entry.name.casefold() == DATA_DIR_NAME:
+            continue
+        if entry.is_symlink():
+            _LOGGER.debug("remote-build cleanup: skipping symlink %s", entry)
+            continue
+        if entry.is_dir():
+            key = RemoteBuildPath(dashboard_id=dashboard_dir.name, device_name=entry.name)
+            if key in in_flight_keys:
+                _LOGGER.debug("remote-build cleanup: skipping in-flight %s", key)
+                continue
+            if not _is_cold(entry, cutoff):
+                continue
+            if _delete_subtree_and_sibling(key, config_dir):
+                deleted += 1
+        elif entry.is_file() and entry.name.endswith(BUNDLE_SUFFIX):
+            # Orphan bundle path: a ``.tar.gz`` whose sibling
+            # subtree is missing. Happens when the previous
+            # sweep's ``rmtree`` succeeded but the ``unlink``
+            # failed (logged as warning, sweep continued),
+            # when an operator hand-deleted the subtree, or
+            # any other transient failure that left only the
+            # tarball behind. Without this branch the orphan
+            # would accumulate forever — the subtree-path
+            # above never visits it because that branch
+            # requires ``is_dir()``. Pair with the same
+            # in-flight + cold gates the subtree path uses.
+            _reclaim_orphan_bundle(entry, dashboard_dir, in_flight_keys, cutoff)
     return deleted
 
 
@@ -255,14 +345,18 @@ def _reclaim_orphan_bundle(
     _LOGGER.info("remote-build cleanup: removed orphan bundle %s", bundle)
 
 
+def _is_macos_metadata(name: str) -> bool:
+    """Return ``True`` for Finder droppings (``.DS_Store``, AppleDouble ``._*``)."""
+    return name == ".DS_Store" or name.startswith("._")
+
+
 def _prune_empty_dir(directory: Path) -> None:
     """Remove *directory* when empty or holding only macOS metadata."""
+    if directory.is_symlink() or not directory.is_dir():
+        return
     metadata: list[Path] = []
     for entry in _safe_iterdir(directory):
-        if entry.is_symlink():
-            return
-        name = entry.name
-        if name != ".DS_Store" and not name.startswith("._"):
+        if entry.is_symlink() or not _is_macos_metadata(entry.name):
             return
         metadata.append(entry)
     for entry in metadata:

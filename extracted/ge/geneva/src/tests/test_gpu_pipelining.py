@@ -14,6 +14,7 @@ from __future__ import annotations
 import random
 import threading
 import time
+import weakref
 from typing import TYPE_CHECKING
 from unittest.mock import patch
 
@@ -33,6 +34,7 @@ from geneva.apply import CheckpointingApplier, plan_read
 from geneva.apply.task import (
     DEFAULT_CHECKPOINT_ROWS,
     BackfillUDFTask,
+    ReadTask,
 )
 from geneva.debug.logger import NoOpErrorLogger
 from geneva.runners.ray.loader import CollocatedPipelinedApplier
@@ -323,13 +325,11 @@ def test_collocated_applier_yields_batches_in_input_order_under_race(
     reorder, the yield order would invert; with it, the apply loop
     sees batches in reader-emitted order.
 
-    Synthetic ``_FakeReadTask`` is the only way to actually exercise
-    the race: a real Lance scan is forced through a ``scan_batch_min``
-    floor of 4096 in ``_reader_thread``, which would coalesce a
-    32-row plan into a single batch and leave only one of the K=4
-    preprocess workers with anything to do. With one batch the
-    "stays in input order" assertion is vacuous — exactly the
-    coverage gap this regression test is meant to close.
+    Synthetic ``_FakeReadTask`` is what makes the race reproducible:
+    it emits an exact, known number of batches, so all K=4 preprocess
+    workers have something to do. If the plan collapsed to a single
+    batch the "stays in input order" assertion would be vacuous —
+    exactly the coverage gap this regression test is meant to close.
     """
     import time as _time
 
@@ -426,7 +426,7 @@ def test_collocated_applier_yields_batches_in_input_order_under_race(
     # Sanity: the test must actually drive multiple batches through the
     # SequenceQueue, otherwise the ordering assertion below is vacuous.
     # An earlier version of this test used a real Lance plan and
-    # silently coalesced to a single batch via ``scan_batch_min=4096``.
+    # silently coalesced to a single batch.
     assert len(yielded_first_rowaddrs) == n_batches, (
         f"expected {n_batches} batches yielded, got {yielded_first_rowaddrs}"
     )
@@ -676,6 +676,254 @@ def test_collocated_applier_bounds_read_ahead_when_first_preprocess_stalls(
     assert yielded_first_rowaddrs == [b * rows_per_batch for b in range(n_batches)]
 
 
+class _TrimReadTask(ReadTask):
+    """Synthetic ReadTask yielding a fixed batch list."""
+
+    def __init__(self, batches: list[pa.RecordBatch]) -> None:
+        self._batches = batches
+        self.requested_batch_sizes: list[int] = []
+
+    def to_batches(self, *, batch_size: int = 0) -> Iterator[pa.RecordBatch]:
+        self.requested_batch_sizes.append(batch_size)
+        yield from self._batches
+
+    def checkpoint_key(self) -> str:
+        return "trim"
+
+    def dest_frag_id(self) -> int:
+        return 0
+
+    def dest_offset(self) -> int:
+        return 0
+
+    def num_rows(self) -> int:
+        return sum(b.num_rows for b in self._batches)
+
+    def table_uri(self) -> str:
+        return "memory://trim"
+
+
+def _trim_batch(value: int) -> pa.RecordBatch:
+    return pa.record_batch(
+        {
+            "a": pa.array([value], type=pa.int64()),
+            "_rowaddr": pa.array([value], type=pa.uint64()),
+        }
+    )
+
+
+class _WeakRefReadTask(ReadTask):
+    """ReadTask that materializes batches lazily and only tracks them weakly.
+
+    ``_TrimReadTask`` holds its batch list for the whole run, which would keep
+    every input batch alive no matter what the applier does. This one lets the
+    applier be the sole owner, so a weakref says exactly when the pipeline let
+    go of a batch.
+    """
+
+    def __init__(self, n_batches: int) -> None:
+        self._n_batches = n_batches
+        self.batch_refs: list[weakref.ReferenceType[pa.RecordBatch]] = []
+
+    def to_batches(self, *, batch_size: int = 0) -> Iterator[pa.RecordBatch]:
+        del batch_size
+        for value in range(self._n_batches):
+            batch = _trim_batch(value)
+            self.batch_refs.append(weakref.ref(batch))
+            yield batch
+
+    def checkpoint_key(self) -> str:
+        return "weakref-trim"
+
+    def dest_frag_id(self) -> int:
+        return 0
+
+    def dest_offset(self) -> int:
+        return 0
+
+    def num_rows(self) -> int:
+        return self._n_batches
+
+    def table_uri(self) -> str:
+        return "memory://weakref-trim"
+
+
+def _count_inputs_alive_at_trim(
+    monkeypatch: pytest.MonkeyPatch,
+    n_batches: int,
+    consume: Callable[[Iterator[pa.RecordBatch]], None],
+) -> tuple[list[int], _WeakRefReadTask]:
+    """Drive the applier over ``n_batches`` via ``consume``, recording how many
+    input batches were still reachable at each trim."""
+    read_task = _WeakRefReadTask(n_batches)
+    alive_at_trim: list[int] = []
+
+    def _probe() -> None:
+        alive_at_trim.append(sum(ref() is not None for ref in read_task.batch_refs))
+
+    monkeypatch.setattr(
+        "geneva.runners.ray.loader.release_unused_process_memory",
+        _probe,
+    )
+
+    map_task = BackfillUDFTask(udfs={"doubled": double_scalar})
+    applier = CollocatedPipelinedApplier(
+        num_readers=1,
+        prefetch_depth=1,
+        job_id="test-trim-liveness",
+    )
+    consume(applier.run(read_task, map_task, NoOpErrorLogger()))
+    return alive_at_trim, read_task
+
+
+def test_pipelined_post_drain_trim_sees_no_input_batch_alive(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """No input batch may still be reachable when the post-drain trim fires.
+
+    The trim used to run inside the drain frame, which still bound the last
+    batch, the in-flight queue item and the reorder queue — so neither Arrow
+    nor libc could hand those pages back. For a task shorter than the trim
+    interval that is the only trim it gets, and adaptive slices make it worse
+    by pinning a parent batch larger than the slice.
+    """
+    monkeypatch.setenv("GENEVA_APPLIER_MEMORY_TRIM_INTERVAL", "1000")
+
+    def _drain(it: Iterator[pa.RecordBatch]) -> None:
+        assert len(list(it)) == 3
+
+    alive_at_trim, read_task = _count_inputs_alive_at_trim(
+        monkeypatch, n_batches=3, consume=_drain
+    )
+
+    # Interval 1000 over 3 batches: the post-drain trim is the only one.
+    assert len(read_task.batch_refs) == 3
+    assert alive_at_trim == [0]
+
+
+def test_pipelined_trim_sees_no_input_batch_alive_after_abandoned_run(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Abandoning the iterator mid-task must free the inputs before the trim.
+
+    Cancellation retains more than the last batch: the reorder queue and the
+    partially consumed queue item are live too, and closing the generator is
+    the only thing that clears them.
+    """
+    monkeypatch.setenv("GENEVA_APPLIER_MEMORY_TRIM_INTERVAL", "1000")
+
+    def _take_one(it: Iterator[pa.RecordBatch]) -> None:
+        next(it)
+        it.close()  # type: ignore[attr-defined]
+
+    alive_at_trim, read_task = _count_inputs_alive_at_trim(
+        monkeypatch, n_batches=8, consume=_take_one
+    )
+
+    assert read_task.batch_refs  # the reader got at least one batch out
+    assert alive_at_trim == [0]
+
+
+def _run_pipelined_counting_trims(
+    monkeypatch: pytest.MonkeyPatch,
+    n_batches: int,
+) -> tuple[int, int]:
+    """Run the pipelined applier over ``n_batches``; return
+    ``(yielded, trim_calls)``."""
+    trims = 0
+
+    def _record_trim() -> None:
+        nonlocal trims
+        trims += 1
+
+    monkeypatch.setattr(
+        "geneva.runners.ray.loader.release_unused_process_memory",
+        _record_trim,
+    )
+
+    read_task = _TrimReadTask([_trim_batch(i) for i in range(n_batches)])
+    map_task = BackfillUDFTask(udfs={"doubled": double_scalar})
+    applier = CollocatedPipelinedApplier(
+        num_readers=2,
+        prefetch_depth=16,
+        job_id="test-memory-trim",
+    )
+    results = list(applier.run(read_task, map_task, NoOpErrorLogger()))
+    return len(results), trims
+
+
+@pytest.mark.parametrize("checkpoint_size", [1, 64, 8192])
+def test_pipelined_reader_honors_requested_batch_size(checkpoint_size: int) -> None:
+    """The reader requests exactly the UDF's declared ``checkpoint_size``.
+
+    That request is what sets how many rows Lance materializes per scan,
+    so the reader must forward it unmodified rather than substituting a
+    size of its own.
+    """
+
+    def _double(a: int) -> int:
+        return a * 2
+
+    sized_udf = udf(input_columns=["a"], checkpoint_size=checkpoint_size)(_double)
+
+    read_task = _TrimReadTask([_trim_batch(i) for i in range(3)])
+    map_task = BackfillUDFTask(udfs={"doubled": sized_udf})
+    applier = CollocatedPipelinedApplier(
+        num_readers=2, prefetch_depth=16, job_id="test-batch-size"
+    )
+
+    list(applier.run(read_task, map_task, NoOpErrorLogger()))
+
+    assert read_task.requested_batch_sizes == [checkpoint_size]
+
+
+def test_pipelined_reader_trims_memory_every_eight_batches(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """The reader thread must trim on the same cadence as SimpleApplier.
+
+    Without this the GPU-pipelined path pays full glibc page retention for
+    the whole scan while the simple and writer paths do not.
+
+    9 batches at the default interval of 8: one in-loop trim, plus the
+    post-drain trim every task gets.
+    """
+    monkeypatch.delenv("GENEVA_APPLIER_MEMORY_TRIM_INTERVAL", raising=False)
+
+    yielded, trims = _run_pipelined_counting_trims(monkeypatch, n_batches=9)
+
+    assert yielded == 9
+    assert trims == 2
+
+
+def test_pipelined_short_task_still_trims_on_drain(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """A task shorter than the trim interval never reaches the in-loop check,
+    so the post-drain trim is its only one.
+
+    The applier is reused across ReadTasks; without this a job made of short
+    tasks would strand every task's scan arenas in the actor.
+    """
+    monkeypatch.delenv("GENEVA_APPLIER_MEMORY_TRIM_INTERVAL", raising=False)
+
+    yielded, trims = _run_pipelined_counting_trims(monkeypatch, n_batches=3)
+
+    assert yielded == 3
+    assert trims == 1
+
+
+def test_pipelined_reader_memory_trim_can_be_disabled(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setenv("GENEVA_APPLIER_MEMORY_TRIM_INTERVAL", "0")
+
+    yielded, trims = _run_pipelined_counting_trims(monkeypatch, n_batches=9)
+
+    assert yielded == 9
+    assert trims == 0
+
+
 def test_fragment_writer_session_defers_writer_start_until_seal() -> None:
     """Session creation and ingest only cache work; seal starts the writer."""
     from geneva.runners.ray.pipeline import FragmentWriterManager
@@ -691,11 +939,11 @@ def test_fragment_writer_session_defers_writer_start_until_seal() -> None:
         assert harness.queues == []
         assert harness.writer.options.call_count == 0
 
-        sess.ingest_task(10, "key-10")
-        sess.ingest_task(0, "key-0")
+        sess.ingest_task(10, "key-10", 10)
+        sess.ingest_task(0, "key-0", 10)
 
         assert not sess.started
-        assert sess.cached_tasks == [(10, "key-10"), (0, "key-0")]
+        assert sess.cached_tasks == [(10, "key-10", 10), (0, "key-0", 10)]
         assert sess.enqueued == 2
         assert harness.queues == []
         assert harness.writer.options.call_count == 0
@@ -717,7 +965,12 @@ def test_fragment_writer_session_defers_writer_start_until_seal() -> None:
     assert sess.started
     assert len(harness.queues) == 1
     assert harness.writer.options.call_count == 1
-    assert harness.put_args() == [(10, "key-10"), (0, "key-0"), (-1, "")]
+    assert harness.put_args() == [(10, "key-10", 10), (0, "key-0", 10), (-1, "", 0)]
+    # The deferred seal hands everything over in one batch, which is what keeps
+    # the sentinel behind its checkpoints.
+    assert harness.batch_calls() == [
+        [(10, "key-10", 10), (0, "key-0", 10), (-1, "", 0)]
+    ]
 
 
 def test_fragment_writer_manager_poll_all_batches_started_sessions() -> None:
@@ -880,13 +1133,13 @@ def test_fragment_writer_session_restart_before_start_preserves_cached_tasks() -
         patch("geneva.runners.ray.pipeline.ray.get"),
     ):
         sess = make_fragment_writer_session()
-        sess.ingest_task(0, "key-0")
-        sess.ingest_task(10, "key-10")
+        sess.ingest_task(0, "key-0", 10)
+        sess.ingest_task(10, "key-10", 10)
         sess._restart()
 
         assert not sess.started
         assert sess._restart_count == 0
-        assert sess.cached_tasks == [(0, "key-0"), (10, "key-10")]
+        assert sess.cached_tasks == [(0, "key-0", 10), (10, "key-10", 10)]
         assert harness.queue_cls is not None
         harness.queue_cls.assert_not_called()
         harness.writer.options.assert_not_called()
@@ -894,7 +1147,7 @@ def test_fragment_writer_session_restart_before_start_preserves_cached_tasks() -
         sess.seal()
 
     assert sess.started
-    assert harness.put_args() == [(0, "key-0"), (10, "key-10"), (-1, "")]
+    assert harness.put_args() == [(0, "key-0", 10), (10, "key-10", 10), (-1, "", 0)]
 
 
 def test_fragment_writer_session_replays_full_log_on_each_started_restart() -> None:
@@ -915,26 +1168,31 @@ def test_fragment_writer_session_replays_full_log_on_each_started_restart() -> N
         patch("geneva.runners.ray.pipeline.ray.kill"),
     ):
         sess = make_fragment_writer_session()
-        sess.ingest_task(0, "key-0")
-        sess.ingest_task(10, "key-10")
+        sess.ingest_task(0, "key-0", 10)
+        sess.ingest_task(10, "key-10", 10)
         sess.seal()
 
-        expected_puts = [(0, "key-0"), (10, "key-10"), (-1, "")]
+        expected_puts = [(0, "key-0", 10), (10, "key-10", 10), (-1, "", 0)]
 
         assert harness.put_args(0) == expected_puts
+        assert harness.batch_calls(0) == [expected_puts]
 
         # First restart: queue receives both items + the seal sentinel.
         sess._restart()
         assert harness.put_args(1) == expected_puts
-        assert sess.cached_tasks == [(0, "key-0"), (10, "key-10")], (
+        assert harness.batch_calls(1) == [expected_puts]
+        assert sess.cached_tasks == [(0, "key-0", 10), (10, "key-10", 10)], (
             "cached_tasks must survive a restart so a second restart "
             "can also replay every item."
         )
 
         # Second restart on the same session: must replay the same items again.
+        # Each replay is one batch, so the sentinel cannot overtake the items
+        # it is replayed with.
         sess._restart()
         assert harness.put_args(2) == expected_puts
-        assert sess.cached_tasks == [(0, "key-0"), (10, "key-10")]
+        assert harness.batch_calls(2) == [expected_puts]
+        assert sess.cached_tasks == [(0, "key-0", 10), (10, "key-10", 10)]
 
 
 def test_require_pipelining_for_preprocess_raises_when_disabled() -> None:

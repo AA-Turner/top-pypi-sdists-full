@@ -25,6 +25,7 @@ from .common_types import (
     StackContext,
     UserContext,
     AbstractStickyBucketService,
+    AbstractAsyncStickyBucketService,
     FeatureRule,
     build_remote_eval_payload,
     features_from_dict,
@@ -868,6 +869,13 @@ class GrowthBook(object):
         self._remoteEval = remoteEval
         self._cacheKeyAttributes = cacheKeyAttributes
 
+        if isinstance(sticky_bucket_service, AbstractAsyncStickyBucketService):
+            raise ValueError(
+                "AbstractAsyncStickyBucketService is not supported by the synchronous "
+                "GrowthBook class. Use GrowthBookClient, or provide an "
+                "AbstractStickyBucketService implementation."
+            )
+
         if remoteEval:
             validate_remote_eval_options(
                 client_key, decryption_key, sticky_bucket_service, api_host
@@ -1308,10 +1316,15 @@ class GrowthBook(object):
         # refresh_sticky_buckets(); intentionally NOT mirrored here. `groups`
         # and `skip_all_experiments` have no setters today so they don't drift.
 
-    def _get_eval_context(self) -> EvaluationContext:
-        # Lazy refresh: ensure features are fresh before evaluation
-        self._ensure_fresh_features()
+    def _build_eval_context(self) -> EvaluationContext:
+        """Assemble an EvaluationContext WITHOUT any side effects.
 
+        Unlike `_get_eval_context`, this never triggers a feature refresh, so
+        it is safe to call from inside the feature-refresh / sticky-bucket flow
+        (see `_get_sticky_bucket_attributes`). Calling `_get_eval_context` there
+        would re-enter `_ensure_fresh_features` -> `load_features` for every
+        sticky-bucket identifier attribute, causing redundant feature reloads.
+        """
         # Centralized sync (see _sync_user_ctx_from_instance for rationale).
         self._sync_user_ctx_from_instance()
         # global_ctx.options.url is not part of _user_ctx; still needs updating.
@@ -1321,6 +1334,12 @@ class GrowthBook(object):
             user = self._user_ctx,
             stack = StackContext(evaluated_features=set())
         )
+
+    def _get_eval_context(self) -> EvaluationContext:
+        # Lazy refresh: ensure features are fresh before evaluation, then build
+        # the (side-effect-free) context.
+        self._ensure_fresh_features()
+        return self._build_eval_context()
 
     def eval_feature(self, key: str) -> FeatureResult:
         result = core_eval_feature(key=key, 
@@ -1409,8 +1428,12 @@ class GrowthBook(object):
         if not self.sticky_bucket_identifier_attributes:
             return attributes
 
+        # Build the context once, side-effect-free. Using _get_eval_context()
+        # here would re-trigger _ensure_fresh_features() -> load_features() on
+        # every attribute (this method itself runs inside the refresh flow).
+        eval_context = self._build_eval_context()
         for attr in self.sticky_bucket_identifier_attributes:
-            _, hash_value = _getHashValue(attr=attr, eval_context=self._get_eval_context())
+            _, hash_value = _getHashValue(attr=attr, eval_context=eval_context)
             if hash_value:
                 attributes[attr] = hash_value
         return attributes

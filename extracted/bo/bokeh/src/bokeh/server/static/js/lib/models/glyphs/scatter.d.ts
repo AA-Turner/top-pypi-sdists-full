@@ -9,7 +9,7 @@ export interface ScatterView extends Scatter.Data {
 }
 export declare class ScatterView extends MarkerView {
     model: Scatter;
-    load_glglyph(): Promise<typeof import("./webgl/multi_marker").MultiMarkerGL>;
+    load_glglyph(): Promise<typeof import("../../all/main").MultiMarkerGL>;
     protected _compute_can_use_webgl(): boolean;
     protected _update_defs(): Promise<void>;
     connect_signals(): void;

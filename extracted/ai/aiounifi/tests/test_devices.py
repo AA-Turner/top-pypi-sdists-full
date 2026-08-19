@@ -1191,6 +1191,7 @@ def test_enum_unknowns() -> None:
 def test_device_type_enum() -> None:
     """Validate DeviceType string enum behavior."""
     assert DeviceType.ACCESS_POINT == "uap"
+    assert DeviceType.SMART_POWER == "usp"
     assert DeviceType.SWITCH == "usw"
     assert str(DeviceType.SECURITY_GATEWAY) == "ugw"
 

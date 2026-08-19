@@ -23,14 +23,30 @@ from jax.experimental.pallas import mosaic_gpu as plgpu
 import jax.numpy as jnp
 from jaxtyping import Array, Float  # pylint: disable=g-multiple-import, g-importing-member
 from tokamax._src import jaxtyping
+from tokamax._src.ops import op
 from tokamax._src.ops.gated_linear_unit import pallas_mosaic_gpu_common as common
 
 
 ACC_NUM_SLOTS = 2
 
 
+def get_heuristics_config(ba: op.BoundArguments) -> common.Config:
+  del ba
+  return common.Config(
+      tile_m=128,
+      tile_n=64,
+      tile_k=64,
+      num_stages=4,
+  )
+
+
+def get_autotuning_configs(ba: op.BoundArguments) -> set[common.Config]:
+  del ba
+  return set()
+
+
 @jaxtyping.jaxtyped
-def gated_linear_unit_sm100(
+def gated_linear_unit(
     x: Float[Array, "*B M K"],
     weights: Float[Array, "K 2 N"],
     *,
@@ -75,7 +91,7 @@ def gated_linear_unit_sm100(
 
   cluster_size = config.cluster_size_m * config.cluster_size_n
   collective = cluster_size > 1
-  collective_axes = ("cluster",) if collective else None
+  collective_axis = "cluster" if collective else None
   m_iters, n_iters, k_iters = m // tile_m, n // tile_n, k // tile_k
 
   def kernel(
@@ -124,9 +140,8 @@ def gated_linear_unit_sm100(
 
       @pl.when(wg_idx == 0)
       def _compute_wg():
-        @pl.core_map(plgpu.WarpMesh(axis_name="warp"))
-        def _per_warp():
-          warp_id = lax.axis_index("warp")
+        @plgpu.warp_map
+        def _per_warp(warp_id):
           b_smems = (b0_smem, b1_smem)
           consumed_barriers = (consumed_barrier_0, consumed_barrier_1)
 
@@ -153,7 +168,7 @@ def gated_linear_unit_sm100(
                     leader_tracked=plgpu.CopyPartition.PARTITIONED(1)
                     if config.cluster_size_m > 1
                     else None,
-                    collective_axes=collective_axes,
+                    collective_axes=collective_axis,
                 )
               plgpu.copy_gmem_to_smem(
                   a_gmem.at[slice_m, slice_k],
@@ -162,7 +177,7 @@ def gated_linear_unit_sm100(
                   leader_tracked=plgpu.CopyPartition.PARTITIONED(1)
                   if config.cluster_size_n > 1
                   else None,
-                  collective_axes="cluster" if collective else None,
+                  collective_axes=collective_axis,
               )
 
             lax.fori_loop(0, k_iters, _loop_body, None)
@@ -188,14 +203,14 @@ def gated_linear_unit_sm100(
                     b_smems[i].at[slot],
                     consumed_barriers[i].at[slot],
                     accumulate=(ki > 0),
-                    collective_axis=collective_axes,
+                    collective_axis=collective_axis,
                 )
 
               @pl.when(ki >= k_iters - 1)
               def _arrive():
                 plgpu.tcgen05_commit_arrive(
                     mma_done_barrier.at[acc_slot],
-                    collective_axis=collective_axes,
+                    collective_axis=collective_axis,
                 )
 
             lax.fori_loop(0, k_iters, _loop_body, None)
@@ -209,12 +224,8 @@ def gated_linear_unit_sm100(
         ]
         for ni in range(tile_n // epi_tile_n):
           ni_col_slice = pl.ds(ni * epi_tile_n, epi_tile_n)
-          val0 = plgpu.async_load_tmem(
-              acc_tmem_slice_0.at[:, ni_col_slice]
-          )
-          val1 = plgpu.async_load_tmem(
-              acc_tmem_slice_1.at[:, ni_col_slice]
-          )
+          val0 = plgpu.async_load_tmem(acc_tmem_slice_0.at[:, ni_col_slice])
+          val1 = plgpu.async_load_tmem(acc_tmem_slice_1.at[:, ni_col_slice])
           plgpu.wait_load_tmem()
           val0 = val0.astype(dtype).astype(jnp.float32)
           val1 = val1.astype(dtype).astype(jnp.float32)
@@ -247,14 +258,14 @@ def gated_linear_unit_sm100(
   )
   kernel = plgpu.kernel(
       kernel,
-      out_shape=jax.ShapeDtypeStruct((m, n), dtype),
+      out_type=jax.ShapeDtypeStruct((m, n), dtype),
       grid=(m_iters * n_iters,),
       grid_names=("mn_linear",),
       cluster=(cluster_size,),
       cluster_names=("cluster",),
       num_threads=2,
       thread_name="wg",
-      scratch_shapes=dict(
+      scratch_types=dict(
           a_smem=plgpu.SMEM(
               (max_concurrent_steps, tile_m, tile_k),
               dtype,

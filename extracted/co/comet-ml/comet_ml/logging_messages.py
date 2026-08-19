@@ -297,6 +297,8 @@ STREAMER_FAILED_TO_PROCESS_ALL_MESSAGES = (
     "Failed to send all messages, metrics and output will likely be incomplete."
 )
 
+STREAMER_FAILED_TO_CALL_MESSAGE_CALLBACK_WARNING = "Failed to call the message callback after the message completion had already failed"
+
 REGISTER_RPC_FAILED = "Failed to register callback named %r"
 
 SEND_NOTIFICATION_FAILED = "Error sending a notification, make sure you have opted-in for notifications. Failure: %s"
@@ -443,9 +445,9 @@ LOG_PARAMS_EMPTY_CONVERTED_MAPPING_ERROR = (
     "Make sure to pass parameters mapping with at least one key/value pair."
 )
 
-LOG_PARAMS_MAX_DEPTH_REACHED = "%r passed to Experiment.log_parameters exceeded the nested limit of %d, Comet will convert the sub layers into strings."
+LOG_PARAMS_MAX_DEPTH_REACHED = "%s passed to Experiment.log_parameters exceeded the nested limit of %d, Comet will convert the sub layers into strings."
 
-LOG_METRICS_MAX_DEPTH_REACHED = "%r passed to Experiment.log_metrics exceeded the nested limit of %d, Comet will convert the sub layers into strings."
+LOG_METRICS_MAX_DEPTH_REACHED = "%s passed to Experiment.log_metrics exceeded the nested limit of %d, Comet will convert the sub layers into strings."
 
 CONFIG_API_KEY_IS_NOT_SET = "API key is not set. Please provide as the argument to init() or as an environment variable named COMET_API_KEY."
 
@@ -1337,6 +1339,13 @@ CONNECTION_FILE_UPLOAD_FAILED_WITH_STATUS_EXCEPTION = (
 
 CONNECTION_FILE_UPLOAD_FAILED_ERROR = (
     "File upload failed: %r, file: %s, url: %r, max retries: %d"
+)
+
+CONNECTION_FILE_UPLOAD_ALREADY_UPLOADED_WARNING = (
+    "Asset %r was rejected by the backend because an asset with the same name was already"
+    " uploaded to this experiment and assets are immutable; the file was NOT uploaded and"
+    " will not appear in the experiment. Log it under a different name, or pass"
+    " overwrite=True, to replace it. Backend response: %r"
 )
 
 CONNECTION_FILE_LIKE_UPLOAD_FAILED_EXCEPTION = (

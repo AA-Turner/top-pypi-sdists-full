@@ -31,6 +31,9 @@ line-length = 88
 select = ["E", "W", "F", "I", "B", "C4", "UP", "N", "SIM", "RUF"]
 ignore = ["E501", "B008"]
 
+# Rollout status glyphs are rendered output, so the glyph itself is the value (RUF001).
+allowed-confusables = ["➖"]
+
 [tool.pytest.ini_options]
 testpaths = ["tests"]
 pythonpath = ["."]

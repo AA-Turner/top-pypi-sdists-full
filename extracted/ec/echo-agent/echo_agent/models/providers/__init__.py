@@ -2,14 +2,20 @@
 
 from __future__ import annotations
 
+import asyncio
 import os
-from typing import Any
+import time
+from typing import Any, Awaitable
 
 from loguru import logger
 
 from echo_agent.config.schema import ProviderConfig
 from echo_agent.models.credential_pool import CredentialPool
-from echo_agent.models.provider import LLMProvider, StreamDeltaCallback
+from echo_agent.models.provider import (
+    LLMProvider,
+    StreamDeltaCallback,
+    StreamReasoningCallback,
+)
 from echo_agent.models.rate_limiter import RateLimitedProvider, TokenBucketLimiter
 
 _PROVIDER_MAP: dict[str, str] = {
@@ -111,6 +117,9 @@ def create_provider(config: ProviderConfig, *, default_model: str = "") -> LLMPr
     kwargs: dict[str, Any] = {}
     if config.extra_headers:
         kwargs["extra_headers"] = config.extra_headers
+    # Only meaningful for the OpenAI-compatible family; other providers accept
+    # **kwargs and ignore it. Lets an endpoint that rejects stream_options opt out.
+    kwargs["stream_include_usage"] = config.stream_include_usage
     configured_default = default_model or (config.models[0] if config.models else "")
     if configured_default:
         kwargs["default_model"] = configured_default
@@ -141,8 +150,26 @@ def create_provider(config: ProviderConfig, *, default_model: str = "") -> LLMPr
     return provider
 
 
+async def _close_client(client: Any) -> None:
+    """Close one SDK/httpx client. Best-effort, mirrors LLMProvider.aclose."""
+    closer = getattr(client, "close", None) or getattr(client, "aclose", None)
+    if closer is None:
+        return
+    try:
+        result = closer()
+        if asyncio.iscoroutine(result) or isinstance(result, Awaitable):
+            await result
+    except Exception as e:  # pragma: no cover - teardown never surfaces
+        logger.debug("Retired pooled client close failed (ignored): {}", e)
+
+
 class _PooledProvider(LLMProvider):
     """Wraps a provider with credential rotation on errors."""
+
+    # Hard cap on retired-but-not-yet-closed clients. Only reached when
+    # rotations come in faster than the grace period drains them; the oldest
+    # entries are then closed early rather than letting sockets pile up.
+    _RETIRED_CLIENT_LIMIT = 8
 
     def __init__(self, inner: LLMProvider, pool: CredentialPool, cls: type, config: ProviderConfig):
         super().__init__()
@@ -151,15 +178,74 @@ class _PooledProvider(LLMProvider):
         self._cls = cls
         self._config = config
         self.generation = inner.generation
+        # Old clients waiting to be closed once nobody is using them. Rotation
+        # can't close a client synchronously: a provider instance is shared by
+        # every concurrent session, so the one being replaced may still be
+        # serving other in-flight requests (see _rotate_credential). Index-aligned
+        # with _retired_deadlines (monotonic clock) — both are FIFO.
+        self._retired_clients: list[Any] = []
+        self._retired_deadlines: list[float] = []
+
+    def _retirement_grace(self) -> float:
+        """Seconds to keep a retired client alive: the longest single request."""
+        timeout = getattr(self._inner, "request_timeout", None) or self.request_timeout
+        return max(float(timeout or 0.0), 1.0)
+
+    async def _sweep_retired_clients(self, *, force_all: bool = False) -> None:
+        """Close retired clients past their grace period (or over the cap)."""
+        now = time.monotonic()
+        while self._retired_clients:
+            over_cap = len(self._retired_clients) > self._RETIRED_CLIENT_LIMIT
+            if not (force_all or over_cap or now >= self._retired_deadlines[0]):
+                break
+            client = self._retired_clients.pop(0)
+            self._retired_deadlines.pop(0)
+            await _close_client(client)
+
+    async def _rotate_credential(self) -> str:
+        """Point _inner at the next key on a FRESH client; retire the old one.
+
+        The previous implementation did ``await self._inner.aclose()`` before
+        rebuilding. `_inner` is one object shared across all concurrent sessions,
+        so that closed the httpx client that other in-flight requests were still
+        reading from — turning one key's rate-limit error into spurious
+        "client has been closed" failures on unrelated requests.
+
+        The aclose() call itself can't just be dropped: it exists because an SDK
+        client that outlives its loop makes the SDK's ``__del__`` schedule a
+        close on whatever loop runs next, surfacing "Event loop is closed" out of
+        a task nobody awaits. So the old client is *retired* instead — swapped
+        out immediately (new requests get the new key), then closed after a grace
+        period covering the longest single request. Waiting for aclose() instead
+        would leak a connection pool per rotation: an app-owned provider lives as
+        long as the process and never gets closed.
+        """
+        next_key = self._pool.get_next()
+        old_client = getattr(self._inner, "_client", None)
+        self._inner.api_key = next_key
+        self._inner._client = self._inner._build_client()
+        if old_client is not None and old_client is not self._inner._client:
+            self._retired_clients.append(old_client)
+            self._retired_deadlines.append(time.monotonic() + self._retirement_grace())
+        # Sweeping here (and on every request while the list is non-empty) is what
+        # keeps rotation from leaking: an app-owned provider lives for the whole
+        # process and never gets aclose()d, so waiting for teardown to reclaim
+        # these would grow one connection pool per rotation, forever.
+        await self._sweep_retired_clients()
+        logger.info("Rotated to next credential in pool")
+        return next_key
+
+    async def _close_retired_clients(self) -> None:
+        """Close every client still waiting, grace period or not (teardown)."""
+        await self._sweep_retired_clients(force_all=True)
 
     async def chat(self, messages, tools=None, model=None, tool_choice=None, **kwargs):
+        if self._retired_clients:
+            await self._sweep_retired_clients()
         resp = await self._inner.chat(messages, tools, model, tool_choice, **kwargs)
         if resp.finish_reason == "error" and self._pool.size > 1:
             self._pool.report_error(self._inner.api_key)
-            next_key = self._pool.get_next()
-            self._inner.api_key = next_key
-            self._inner._client = self._inner._build_client()
-            logger.info("Rotated to next credential in pool")
+            next_key = await self._rotate_credential()
             resp = await self._inner.chat(messages, tools, model, tool_choice, **kwargs)
             if resp.finish_reason != "error":
                 self._pool.report_success(next_key)
@@ -174,9 +260,12 @@ class _PooledProvider(LLMProvider):
         model=None,
         tool_choice=None,
         on_delta: StreamDeltaCallback | None = None,
+        on_reasoning: StreamReasoningCallback | None = None,
         **kwargs,
     ):
         emitted = False
+        if self._retired_clients:
+            await self._sweep_retired_clients()
 
         async def wrapped(delta: str) -> None:
             nonlocal emitted
@@ -184,26 +273,35 @@ class _PooledProvider(LLMProvider):
             if on_delta:
                 await on_delta(delta)
 
+        # A rotation retry re-runs the request on a different key, so the model
+        # thinks from the top again. Same rule as the retry wrapper: forward only
+        # the first run's reasoning, or the client appends a duplicate trace.
+        reasoning_open = True
+
+        async def wrapped_reasoning(delta: str) -> None:
+            if on_reasoning and reasoning_open:
+                await on_reasoning(delta)
+
         resp = await self._inner.chat_stream(
             messages,
             tools,
             model,
             tool_choice,
             on_delta=wrapped,
+            on_reasoning=wrapped_reasoning if on_reasoning else None,
             **kwargs,
         )
         if resp.finish_reason == "error" and self._pool.size > 1 and not emitted:
             self._pool.report_error(self._inner.api_key)
-            next_key = self._pool.get_next()
-            self._inner.api_key = next_key
-            self._inner._client = self._inner._build_client()
-            logger.info("Rotated to next credential in pool")
+            next_key = await self._rotate_credential()
+            reasoning_open = False
             resp = await self._inner.chat_stream(
                 messages,
                 tools,
                 model,
                 tool_choice,
                 on_delta=wrapped,
+                on_reasoning=wrapped_reasoning if on_reasoning else None,
                 **kwargs,
             )
             if resp.finish_reason != "error":
@@ -225,3 +323,11 @@ class _PooledProvider(LLMProvider):
 
     def supports_embed(self) -> bool:
         return self._inner.supports_embed()
+
+    async def aclose(self) -> None:
+        # The wrapper holds no client of its own; the socket owner is _inner.
+        # Retired clients from earlier rotations are closed here too — this is the
+        # point where no request can still be holding one, and it keeps the
+        # original guarantee that no SDK client outlives its event loop.
+        await self._close_retired_clients()
+        await self._inner.aclose()

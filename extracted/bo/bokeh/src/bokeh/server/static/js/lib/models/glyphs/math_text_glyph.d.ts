@@ -2,15 +2,14 @@ import { Text, TextView } from "./text";
 import type { BaseText } from "../text/base_text";
 import type { GraphicsBox } from "../../core/graphics";
 import type * as p from "../../core/properties";
-import type { ViewStorage, View } from "../../core/build_views";
+import type { ViewStorage, ChildView } from "../../core/build_views";
 export interface MathTextGlyphView extends MathTextGlyph.Data {
 }
 export declare abstract class MathTextGlyphView extends TextView {
     model: MathTextGlyph;
     visuals: MathTextGlyph.Visuals;
     protected _label_views: ViewStorage<BaseText>;
-    remove(): void;
-    children_views(): View[];
+    children_views(): ChildView[];
     has_finished(): boolean;
     protected abstract _build_label(text: string): BaseText;
     protected _build_labels(text: p.Uniform<string | null>): Promise<(GraphicsBox | null)[]>;

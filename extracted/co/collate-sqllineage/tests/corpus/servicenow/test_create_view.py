@@ -309,6 +309,5 @@ LEFT OUTER JOIN CTE_EVENT_REGISTRATIONS  P1_EVENT_REG_ATT
         },
         {"src_v_fact_event_open_pipeline_st"},
         dialect="snowflake",
-        test_sqlparse=False,
         skip_graph_check=True,
     )

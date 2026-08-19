@@ -661,6 +661,35 @@ def test_server_side_tool_image_search_enum():
     assert usage_pb2.ServerSideTool.Name(usage_pb2.SERVER_SIDE_TOOL_IMAGE_SEARCH) == "SERVER_SIDE_TOOL_IMAGE_SEARCH"
 
 
+def test_image_generation_tool():
+    """Test that image_generation util function correctly creates an image generation tool."""
+    from xai_sdk.tools import image_generation
+
+    tool = image_generation()
+    assert isinstance(tool, chat_pb2.Tool)
+    assert tool.HasField("image_generation")
+    assert not tool.image_generation.HasField("action")
+
+    for action in ("auto", "generate", "edit"):
+        tool = image_generation(action=action)
+        assert tool.HasField("image_generation")
+        assert tool.image_generation.action == action
+
+
+def test_image_generation_tool_call_type():
+    """Test that image generation tool calls map to the expected type string."""
+    tool_call = chat_pb2.ToolCall(type=chat_pb2.ToolCallType.TOOL_CALL_TYPE_IMAGE_GENERATION_TOOL)
+    assert get_tool_call_type(tool_call) == "image_generation_tool"
+
+
+def test_server_side_tool_image_generation_enum():
+    assert usage_pb2.SERVER_SIDE_TOOL_IMAGE_GENERATION == 11
+    assert (
+        usage_pb2.ServerSideTool.Name(usage_pb2.SERVER_SIDE_TOOL_IMAGE_GENERATION)
+        == "SERVER_SIDE_TOOL_IMAGE_GENERATION"
+    )
+
+
 def test_developer_message():
     """Test that developer() creates a message with ROLE_DEVELOPER role."""
     # Simple string content
@@ -790,6 +819,82 @@ def test_compact_context_response_empty_encrypted_content():
     proto = chat_pb2.CompactContextResponse(id="compact-empty", encrypted_content="")
     response = CompactContextResponse(proto)
     assert response.encrypted_content == ""
+
+
+def test_append_agentic_response_sets_tool_call_id_on_tool_messages():
+    """Test that append(Response) links replayed ROLE_TOOL outputs to their originating tool call.
+
+    Server-side hydration pairs replayed tool turns via `Message.tool_call_id` (e.g. to
+    re-hydrate binary results like generated images), so appending an agentic response
+    must set it from the tool call echoed on the ROLE_TOOL output.
+    """
+    from xai_sdk.proto import chat_pb2_grpc
+    from xai_sdk.sync.chat import Chat as SyncChat
+
+    tool_call = chat_pb2.ToolCall(
+        id="call_1",
+        type=chat_pb2.TOOL_CALL_TYPE_WEB_SEARCH_TOOL,
+        status=chat_pb2.TOOL_CALL_STATUS_COMPLETED,
+        function=chat_pb2.FunctionCall(name="web_search", arguments="{}"),
+    )
+    response_pb = chat_pb2.GetChatCompletionResponse(
+        outputs=[
+            chat_pb2.CompletionOutput(
+                index=0,
+                message=chat_pb2.CompletionMessage(role=chat_pb2.MessageRole.ROLE_ASSISTANT, tool_calls=[tool_call]),
+            ),
+            chat_pb2.CompletionOutput(
+                index=1,
+                message=chat_pb2.CompletionMessage(
+                    role=chat_pb2.MessageRole.ROLE_TOOL,
+                    content='{"__type": "web_search_result"}',
+                    tool_calls=[tool_call],
+                ),
+            ),
+            chat_pb2.CompletionOutput(
+                index=2,
+                message=chat_pb2.CompletionMessage(role=chat_pb2.MessageRole.ROLE_ASSISTANT, content="Done!"),
+            ),
+        ]
+    )
+    response = Response(response_pb, None)  # None means agentic: replay all outputs.
+
+    stub = chat_pb2_grpc.ChatStub.__new__(chat_pb2_grpc.ChatStub)
+    chat = SyncChat(stub, None, None, model="grok-4.3")
+    chat.append(response)
+
+    assert len(chat.messages) == 3
+    assert chat.messages[0].role == chat_pb2.MessageRole.ROLE_ASSISTANT
+    assert chat.messages[0].tool_call_id == ""
+    assert chat.messages[1].role == chat_pb2.MessageRole.ROLE_TOOL
+    assert chat.messages[1].tool_call_id == "call_1"
+    assert [tc.id for tc in chat.messages[1].tool_calls] == ["call_1"]
+    assert chat.messages[2].role == chat_pb2.MessageRole.ROLE_ASSISTANT
+    assert chat.messages[2].tool_call_id == ""
+
+
+def test_append_indexed_response_leaves_tool_call_id_unset_on_assistant_message():
+    """Test that append(Response) with an index keeps assistant messages without a tool_call_id."""
+    from xai_sdk.proto import chat_pb2_grpc
+    from xai_sdk.sync.chat import Chat as SyncChat
+
+    response_pb = chat_pb2.GetChatCompletionResponse(
+        outputs=[
+            chat_pb2.CompletionOutput(
+                index=0,
+                message=chat_pb2.CompletionMessage(role=chat_pb2.MessageRole.ROLE_ASSISTANT, content="Hello"),
+            )
+        ]
+    )
+    response = Response(response_pb, 0)
+
+    stub = chat_pb2_grpc.ChatStub.__new__(chat_pb2_grpc.ChatStub)
+    chat = SyncChat(stub, None, None, model="grok-4.3")
+    chat.append(response)
+
+    assert len(chat.messages) == 1
+    assert chat.messages[0].role == chat_pb2.MessageRole.ROLE_ASSISTANT
+    assert chat.messages[0].tool_call_id == ""
 
 
 def test_append_compact_context_response_creates_user_message():

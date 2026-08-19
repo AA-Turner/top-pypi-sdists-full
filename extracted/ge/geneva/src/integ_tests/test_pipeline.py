@@ -489,7 +489,7 @@ def test_ray_add_column_pipeline_timeout_fail_fast(
 
 
 @pytest.mark.timeout(900)
-def test_ray_add_column_pipeline_fatal_worker_exit_fail_fast(
+def test_ray_add_column_pipeline_fatal_worker_exit_isolates_failed_row(
     geneva_test_bucket: str,
     session_context: AbstractContextManager,
 ) -> None:
@@ -506,10 +506,24 @@ def test_ray_add_column_pipeline_fatal_worker_exit_fail_fast(
             concurrency=4,
         )
 
-        with pytest.raises(
-            geneva.FatalWorkerExitError,
-        ):
-            table.backfill("b", **backfill_args)
+        result = table.backfill("b", **backfill_args)
+        assert result.status == "DONE"
+        assert result.job_id
+
+        table.checkout_latest()
+        values = table.to_arrow().sort_by("a")["b"].to_pylist()
+        assert values[0] is None
+        assert values[1:] == list(range(2, 65))
+
+        errors = table.get_errors(job_id=result.job_id, column_name="b")
+        fatal_errors = [
+            error for error in errors if error.error_type == "FatalWorkerExitError"
+        ]
+        assert len(fatal_errors) == 1
+        assert fatal_errors[0].row_address == 0
+        assert fatal_errors[0].attempt == 3
+        assert fatal_errors[0].max_attempts == 3
+        assert fatal_errors[0].bisect_depth > 0
     finally:
         safe_drop_table(conn, table_name)
 

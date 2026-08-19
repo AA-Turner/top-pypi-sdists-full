@@ -12,13 +12,13 @@ import time
 from dataclasses import dataclass
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import IO, Any, Callable, Literal, Protocol
+from typing import IO, Any, Callable, Final, Literal, Protocol
 
 import gcsfs
 import requests
 import yaml
 from packaging.version import InvalidVersion, Version
-from pydantic import BaseModel, field_validator
+from pydantic import BaseModel, field_validator, model_validator
 
 from airbyte_ops_mcp.airbyte_repo.changelog_parser import parse_changelog_entries
 from airbyte_ops_mcp.github_api import resolve_default_github_token
@@ -46,6 +46,27 @@ _GITHUB_GRAPHQL_URL = "https://api.github.com/graphql"
 _GITHUB_REPO_OWNER = "airbytehq"
 _GITHUB_REPO_NAME = "airbyte"
 _GITHUB_REPO = f"{_GITHUB_REPO_OWNER}/{_GITHUB_REPO_NAME}"
+# GitHub author associations that identify the PR author as an Airbyte insider.
+_INTERNAL_AUTHOR_ASSOCIATIONS = frozenset({"MEMBER", "OWNER", "COLLABORATOR"})
+
+GitHubActorType = Literal["User", "Bot", "Unknown"]
+"""A GitHub actor's `__typename`, spelled as the GraphQL API spells it."""
+
+ACTOR_USER: Final[GitHubActorType] = "User"
+ACTOR_BOT: Final[GitHubActorType] = "Bot"
+ACTOR_UNKNOWN: Final[GitHubActorType] = "Unknown"
+_KNOWN_ACTOR_TYPES: Final = frozenset({ACTOR_USER, ACTOR_BOT})
+
+AttributionKind = Literal["maintainer", "bot", "other"]
+"""Our own verdict about who is accountable for a release.
+
+Deliberately lower case, unlike `GitHubActorType`: the casing marks which values
+are GitHub's vocabulary and which are ours.
+"""
+
+KIND_MAINTAINER: Final[AttributionKind] = "maintainer"
+KIND_BOT: Final[AttributionKind] = "bot"
+KIND_OTHER: Final[AttributionKind] = "other"
 
 
 class ReleaseAttribution(BaseModel):
@@ -55,8 +76,12 @@ class ReleaseAttribution(BaseModel):
     pr_url: str | None = None
     pr_author_id: int | None = None
     pr_author_login: str | None = None
-    pr_author_type: Literal["User", "Bot", "Unknown"] = "Unknown"
+    pr_author_type: GitHubActorType = ACTOR_UNKNOWN
+    pr_author_association: str | None = None
     attributed_to: str | None = None
+    attributed_to_kind: AttributionKind | None = None
+    pr_merged_by_login: str | None = None
+    pr_merged_by_type: GitHubActorType = ACTOR_UNKNOWN
     merge_commit_sha: str | None = None
     merged_at: datetime | None = None
     released_at: datetime | None = None
@@ -65,7 +90,24 @@ class ReleaseAttribution(BaseModel):
     @field_validator("pr_author_type", mode="before")
     @classmethod
     def _coerce_legacy_null_author_type(cls, value: str | None) -> str:
-        return "Unknown" if value is None else value
+        return ACTOR_UNKNOWN if value is None else value
+
+    @model_validator(mode="after")
+    def _derive_missing_attributed_to_kind(self) -> ReleaseAttribution:
+        """Classify a record published before the field existed.
+
+        A record that already names a contact keeps it; only the missing kind is
+        filled in, so back-classifying never erases attribution.
+        """
+        if self.attributed_to_kind is not None:
+            return self
+        if self.attributed_to is not None:
+            self.attributed_to_kind = (
+                KIND_BOT if self.pr_author_type == ACTOR_BOT else KIND_MAINTAINER
+            )
+            return self
+        self.attributed_to, self.attributed_to_kind = resolve_attribution(self)
+        return self
 
 
 class ReleaseAttributionSummary(BaseModel):
@@ -402,6 +444,8 @@ def _apply_pr_data(
     updates: dict[str, Any] = {}
     if pull_request.get("url"):
         updates["pr_url"] = pull_request["url"]
+    if isinstance(pull_request.get("authorAssociation"), str):
+        updates["pr_author_association"] = pull_request["authorAssociation"]
     author = pull_request.get("author")
     if isinstance(author, dict):
         author_id = author.get("databaseId")
@@ -411,10 +455,21 @@ def _apply_pr_data(
             updates["pr_author_id"] = author_id
         if isinstance(author_login, str):
             updates["pr_author_login"] = author_login
-        if raw_author_type in {"User", "Bot"}:
+        if raw_author_type in _KNOWN_ACTOR_TYPES:
             updates["pr_author_type"] = raw_author_type
-            updates["attributed_to"] = _attributed_to(raw_author_type, author_login)
+            (
+                updates["attributed_to"],
+                updates["attributed_to_kind"],
+            ) = _author_only_attribution(raw_author_type, author_login)
     if include_merge_data:
+        merged_by = pull_request.get("mergedBy")
+        if isinstance(merged_by, dict):
+            merged_by_login = merged_by.get("login")
+            merged_by_type = merged_by.get("__typename")
+            if isinstance(merged_by_login, str):
+                updates["pr_merged_by_login"] = merged_by_login
+            if merged_by_type in _KNOWN_ACTOR_TYPES:
+                updates["pr_merged_by_type"] = merged_by_type
         merge_commit = pull_request.get("mergeCommit")
         if isinstance(merge_commit, dict) and merge_commit.get("oid"):
             updates["merge_commit_sha"] = merge_commit["oid"]
@@ -424,7 +479,18 @@ def _apply_pr_data(
             )
             updates["merged_at"] = merged_at
             updates["released_at"] = merged_at
-    return record.model_copy(update=updates)
+    enriched = record.model_copy(update=updates)
+    if "pr_author_association" not in updates and "pr_merged_by_login" not in updates:
+        # Nothing in the response tells us whether the author is a maintainer, so
+        # the author-derived attribution above is the best available answer.
+        return enriched
+    attributed_to, attributed_to_kind = resolve_attribution(enriched)
+    return enriched.model_copy(
+        update={
+            "attributed_to": attributed_to,
+            "attributed_to_kind": attributed_to_kind,
+        }
+    )
 
 
 def _make_registry_fs() -> gcsfs.GCSFileSystem:
@@ -640,7 +706,7 @@ def extract_pr_number(subject: str) -> int | None:
 def derive_git_author(
     name: str,
     email: str,
-) -> tuple[int | None, str | None, Literal["User", "Bot", "Unknown"]]:
+) -> tuple[int | None, str | None, GitHubActorType]:
     """Derive GitHub author identity fields without making a network request."""
     normalized_email = email.strip()
     noreply_match = _NOREPLY_RE.match(email.strip())
@@ -648,13 +714,13 @@ def derive_git_author(
     author_id = int(noreply_match.group("id")) if noreply_match else None
     bot = bool(_BOT_RE.search(login or "") or _BOT_RE.search(name.strip()))
     if bot:
-        return author_id, login, "Bot"
+        return author_id, login, ACTOR_BOT
     if login:
-        return author_id, login, "User"
+        return author_id, login, ACTOR_USER
     if _AIRBYTE_EMAIL_RE.match(normalized_email):
         email_to_login = _airbyte_email_to_github()
-        return None, email_to_login.get(normalized_email.lower()), "User"
-    return None, None, "Unknown"
+        return None, email_to_login.get(normalized_email.lower()), ACTOR_USER
+    return None, None, ACTOR_UNKNOWN
 
 
 _AIRBYTE_EMAIL_TO_GITHUB_CACHE: dict[str, str] = {}
@@ -679,11 +745,41 @@ def _clear_airbyte_email_to_github_cache() -> None:
     _AIRBYTE_EMAIL_TO_GITHUB_CACHE.clear()
 
 
-def _attributed_to(
-    author_type: Literal["User", "Bot", "Unknown"],
+def _author_only_attribution(
+    author_type: GitHubActorType,
     author_login: str | None,
-) -> str | None:
-    return author_login if author_type == "User" else None
+) -> tuple[str | None, AttributionKind]:
+    """Run the ladder over the author alone, for a record with no merger data."""
+    if author_login is None or author_type == ACTOR_UNKNOWN:
+        return None, KIND_OTHER
+    return author_login, KIND_MAINTAINER if author_type == ACTOR_USER else KIND_BOT
+
+
+def resolve_attribution(
+    record: ReleaseAttribution,
+) -> tuple[str | None, AttributionKind]:
+    """Return the identity accountable for a release and what kind it is.
+
+    Ladder: an internal human author, else the human merger (a maintainer by
+    construction, since merging requires write access), else a bot for the record
+    only, else `other`.  Community authors are never named.
+    """
+    if (
+        record.pr_author_login
+        and record.pr_author_type == ACTOR_USER
+        and (
+            record.pr_author_association in _INTERNAL_AUTHOR_ASSOCIATIONS
+            or record.pr_author_association is None
+        )
+    ):
+        return record.pr_author_login, KIND_MAINTAINER
+    if record.pr_merged_by_type == ACTOR_USER and record.pr_merged_by_login:
+        return record.pr_merged_by_login, KIND_MAINTAINER
+    if record.pr_author_type == ACTOR_BOT and record.pr_author_login:
+        return record.pr_author_login, KIND_BOT
+    if record.pr_merged_by_type == ACTOR_BOT and record.pr_merged_by_login:
+        return record.pr_merged_by_login, KIND_BOT
+    return None, KIND_OTHER
 
 
 def _lookup_publish_pr(
@@ -752,6 +848,9 @@ def _build_record(
     )
     commit_datetime = datetime.fromisoformat(committed_at).astimezone(timezone.utc)
     merged_at = None if is_prerelease else commit_datetime
+    attributed_to, attributed_to_kind = _author_only_attribution(
+        author_type, author_login
+    )
     return ReleaseAttribution(
         pr_number=pr_number,
         pr_url=(
@@ -762,7 +861,8 @@ def _build_record(
         pr_author_id=author_id,
         pr_author_login=author_login,
         pr_author_type=author_type,
-        attributed_to=_attributed_to(author_type, author_login),
+        attributed_to=attributed_to,
+        attributed_to_kind=attributed_to_kind,
         merge_commit_sha=None if is_prerelease else sha,
         merged_at=merged_at,
         released_at=(
@@ -968,8 +1068,9 @@ def scan_release_attribution(
 def _graphql_query(pr_numbers: list[int]) -> str:
     fields = "\n".join(
         f"pr_{number}: pullRequest(number: {number}) {{ "
-        "url author { login __typename ... on User { databaseId } "
-        "... on Bot { databaseId } } mergedAt mergeCommit { oid } "
+        "url authorAssociation author { login __typename "
+        "... on User { databaseId } ... on Bot { databaseId } } "
+        "mergedBy { login __typename } mergedAt mergeCommit { oid } "
         "}"
         for number in pr_numbers
     )

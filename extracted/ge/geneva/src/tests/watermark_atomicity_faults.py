@@ -29,6 +29,7 @@ import sys
 import tempfile
 from collections.abc import Callable
 from pathlib import Path
+from typing import Any
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 import ray_shim  # noqa: E402
@@ -36,16 +37,16 @@ import ray_shim  # noqa: E402
 ray_shim.install()  # MUST precede the geneva import below
 
 import pyarrow as pa  # noqa: E402
-from geneva_faults import FlakyTableWriter  # noqa: E402
+from geneva_faults import FlakyCommitter, by_op_name  # noqa: E402
 
 from geneva import connect  # noqa: E402
+from geneva.committer import using_committer  # noqa: E402
 from geneva.db import Connection  # noqa: E402
 from geneva.table import (  # noqa: E402
     Table,
     _get_last_refreshed_version,
     _set_last_refreshed_version,
 )
-from geneva.table_writer import using_table_writer  # noqa: E402
 
 ray_shim.stub_geneva_cluster_polling()
 
@@ -82,10 +83,11 @@ def _mv_ids(mv: Table) -> list[int]:
 
 
 def scenario_lost_append_advances_watermark() -> int:
-    """Reachability check: drop the refresh's placeholder append (Table.add) on a
-    forward refresh, then report whether the watermark advanced past the rows that never
-    landed. This is the precondition for any watermark-atomicity bug -- if the watermark
-    does NOT advance on a lost append, the inflated-watermark state is unreachable."""
+    """Reachability check: drop the refresh's row-landing write -- the atomic Append
+    commit of the populated fragments -- on a forward refresh, then report whether
+    the watermark advanced past the rows that never landed. This is the
+    precondition for any watermark-atomicity bug -- if the watermark does NOT
+    advance on a lost append, the inflated-watermark state is unreachable."""
     tmp = tempfile.mkdtemp(prefix="wm_lost_append_")
     try:
         db = connect(tmp)
@@ -97,9 +99,17 @@ def scenario_lost_append_advances_watermark() -> int:
         src.add(_block(1))  # +6 rows; source advances to v_b
         v_b = src.version
 
-        flaky = FlakyTableWriter(ops={"add"}, drop_at={1})
+        # Only fault the view's own Append commits: job-history and other
+        # tables also commit through the committer seam.
+        class _DropMvAppend(FlakyCommitter):
+            def commit(self, dataset_or_uri: Any, operation: Any, **kw: Any) -> Any:
+                if "m.lance" not in str(dataset_or_uri):
+                    return self.inner.commit(dataset_or_uri, operation, **kw)
+                return super().commit(dataset_or_uri, operation, **kw)
+
+        flaky = _DropMvAppend(match=by_op_name("Append"), drop_at={1})
         raised: Exception | None = None
-        with using_table_writer(flaky):
+        with using_committer(flaky):
             try:
                 mv.refresh(_admission_check=False)
             except Exception as e:  # noqa: BLE001 -- we WANT to know if it raised
@@ -108,14 +118,17 @@ def scenario_lost_append_advances_watermark() -> int:
         ids = _mv_ids(mv)
         wm_after = _watermark(mv)
         outcome = f"raised {type(raised).__name__}" if raised else "reported success"
-        print(f"adds seen     : {flaky.calls}  dropped: {flaky.dropped}")
+        print(f"appends seen  : {flaky.calls}  dropped: {flaky.dropped}")
         print(f"refresh       : {outcome}")
         print(f"source version: v_a-watermark={wm_a}  v_b={v_b}")
         print(f"MV ids        : {ids} ({len(ids)} rows)")
         print(f"watermark now : {wm_after}")
 
         if not flaky.dropped:
-            print("INCONCLUSIVE: no add was dropped -- the table writer was not run.")
+            print(
+                "INCONCLUSIVE: no Append commit was dropped -- the committer "
+                "was not run."
+            )
             return 1
         if raised is not None:
             print(

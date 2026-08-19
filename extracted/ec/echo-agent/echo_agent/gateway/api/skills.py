@@ -66,7 +66,12 @@ class SkillsAPI:
         })
 
     async def toggle_skill(self, request: web.Request) -> web.Response:
-        guard = self._guard(request, "skills_toggle")
+        # Enabling a skill changes what the agent can do on its next turn, which
+        # is the same class of change as installing or deleting one — those
+        # already required an admin token while this did not. Admin-guarded also
+        # means CSRF-checked, closing the cross-site POST that could flip a
+        # skill on a localhost gateway.
+        guard = self._admin_guard(request, "skills_toggle")
         if guard is not None:
             return guard
 
@@ -184,6 +189,7 @@ class SkillsAPI:
         target.mkdir(parents=True, exist_ok=True)
         shutil.copytree(source, target, dirs_exist_ok=True)
 
+        store.persist_disable(meta.name)
         d = meta.to_dict()
         d["enabled"] = False
         return web.json_response({"success": True, "skill": d})

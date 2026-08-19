@@ -751,6 +751,10 @@ class DataPointSummary(BaseModel):
         None,
         description='Descriptor UNIT string ("°C", "% rF", "lx", "Wh", ...)\nas the CCU declares it. Empty when none.\n',
     )
+    multiplier: float | None = Field(
+        None,
+        description='Converts `value` (the raw wire value) into the unit `unit`\nnames — e.g. a LEVEL data point reports `value` in 0.0-1.0\nwith `unit` "%", so a client must multiply by `multiplier`\n(100) to render "42 %" instead of "0.42 %". Only present\nfor a non-trivial multiplier; absent means 1.\n',
+    )
     min: Any | None = None
     max: Any | None = None
     default: Any | None = None
@@ -1691,6 +1695,10 @@ class MatterExposure(BaseModel):
     friendly_name: str | None = None
     mappable: Mappable
     device_type: int | None = Field(None, ge=0, le=65535)
+    device_type_label: str | None = Field(
+        None,
+        description='Operator-facing Matter device-type name for `device_type`\n(e.g. "On/Off Light"). Empty when `device_type` is zero\n(measurement rides on a host endpoint).\n',
+    )
     clusters: list[int] | None = None
     reason: str | None = None
 
@@ -3036,11 +3044,15 @@ class BackupEntry(BaseModel):
     central: str
     bytes: int
     created_at: AwareDatetime
+    filename: str | None = Field(
+        None,
+        description="The archive's name in the CCU's own convention, `<hostname>-<CCU firmware version>-<YYYY-MM-DD-HHMM>.sbk`, recorded when the archive was taken. This is what the download is served as; show or store this rather than rebuilding a name, because the id is a storage key and carries no firmware version. Absent for archives taken before this field existed, or when the CCU had not reported its system information yet — fall back to `<id>.sbk`.",
+    )
 
 
 class EditSessionRequest(BaseModel):
     key: str
-    token: str
+    token: str | None = None
 
 
 class EditSessionResponse(BaseModel):
@@ -3197,6 +3209,14 @@ class AlarmZoneConfig(BaseModel):
 
 class AlarmZone(BaseModel):
     id: str
+    name: str
+    position: int | None = Field(
+        None, description="Display ordering hint for the SPA zone list."
+    )
+    config: AlarmZoneConfig | None = None
+
+
+class AlarmZoneCreate(BaseModel):
     name: str
     position: int | None = Field(
         None, description="Display ordering hint for the SPA zone list."

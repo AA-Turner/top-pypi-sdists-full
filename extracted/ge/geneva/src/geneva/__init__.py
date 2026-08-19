@@ -70,6 +70,11 @@ def _download_and_extract(args: dict) -> None:
         if worker_uri:
             namespace_properties["uri"] = worker_uri
 
+        from geneva._namespace_client import with_geneva_user_agent
+
+        namespace_properties = with_geneva_user_agent(
+            namespace_info["impl"], namespace_properties
+        )
         session_kwargs["namespace_client"] = namespace_connect(
             namespace_info["impl"],
             namespace_properties,
@@ -143,6 +148,7 @@ if "GENEVA_ZIPS" in os.environ:
         fcntl.lockf(file, fcntl.LOCK_UN)
 
 
+from geneva import telemetry
 from geneva._context import get_current_context
 from geneva.apply import CheckpointingApplier, ReadTask, ScanTask
 from geneva.checkpoint import (
@@ -167,6 +173,7 @@ from geneva.errors import (
     FatalWorkerOOMError,
     FatalWorkerTransientError,
 )
+from geneva.jobs.remote import RemoteJob
 from geneva.jobs.types import (
     BackfillJobResult,
     Job,
@@ -183,6 +190,11 @@ from geneva.transformer import (
     udf,
     udtf,
 )
+
+# Ray worker bootstrap (set by geneva.runners.ray._mgr, like GENEVA_ZIPS):
+# init telemetry before the worker's first I/O. Never raises.
+if os.environ.get(telemetry.TELEMETRY_INIT_ON_IMPORT_ENV):
+    telemetry.init()
 
 __all__ = [
     "BackfillJobResult",
@@ -206,6 +218,7 @@ __all__ = [
     "ReadTask",
     "RefreshJobResult",
     "RemoteConnection",
+    "RemoteJob",
     "Retry",
     "retry_all",
     "retry_transient",
@@ -221,6 +234,6 @@ __all__ = [
     "udtf",
 ]
 
-version = "0.14.0"
+version = "0.15.0"
 
 __version__ = version

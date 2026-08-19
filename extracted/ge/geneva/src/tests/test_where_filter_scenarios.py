@@ -24,7 +24,7 @@ import pytest
 
 import geneva
 from geneva import udf
-from geneva.db import Connection
+from geneva.db import Connection, dataset_uses_stable_row_ids
 
 _LOG = logging.getLogger(__name__)
 
@@ -44,12 +44,18 @@ SHUFFLE_CONFIG = {
 }
 
 
-def make_table_with_10_fragments(tbl_path: Path) -> lance.LanceDataset:
+def make_table_with_10_fragments(
+    tbl_path: Path, *, stable_row_ids: bool = False
+) -> lance.LanceDataset:
     """Create a table with 10 fragments (20 rows, 2 rows per fragment)."""
     data = {"a": pa.array(range(NUM_ROWS))}
     tbl = pa.Table.from_pydict(data)
     return lance.write_dataset(
-        tbl, tbl_path, max_rows_per_file=MAX_ROWS_PER_FILE, data_storage_version="2.0"
+        tbl,
+        tbl_path,
+        max_rows_per_file=MAX_ROWS_PER_FILE,
+        data_storage_version="2.0",
+        enable_stable_row_ids=stable_row_ids,
     )
 
 
@@ -58,9 +64,21 @@ def tbl_path(tmp_path: Path) -> Path:
     return tmp_path / "foo.lance"
 
 
+@pytest.fixture(params=[False], ids=["rowaddr"])
+def stable_row_ids(request: pytest.FixtureRequest) -> bool:
+    """Whether the module table is created with stable row IDs (SRID).
+
+    Defaults to rowaddr-based tables; opt a test into both modes via
+    ``@pytest.mark.parametrize("stable_row_ids", [False, True], indirect=True)``.
+    """
+    return request.param
+
+
 @pytest.fixture
-def db(tmp_path: Path, tbl_path: Path) -> Generator[Connection, None, None]:
-    make_table_with_10_fragments(tbl_path)
+def db(
+    tmp_path: Path, tbl_path: Path, stable_row_ids: bool
+) -> Generator[Connection, None, None]:
+    make_table_with_10_fragments(tbl_path, stable_row_ids=stable_row_ids)
     db = geneva.connect(str(tmp_path))
     yield db
     db.close()
@@ -96,6 +114,9 @@ def blob_v2(a: int) -> bytes:
 # --- Test Scenarios ---
 
 
+@pytest.mark.parametrize(
+    "stable_row_ids", [False, True], indirect=True, ids=["rowaddr", "srid"]
+)
 def test_scenario_a_partial_backfill_resume_same_udf(
     db: Connection, local_ray_context
 ) -> None:
@@ -305,8 +326,11 @@ def test_filtered_rebackfill_blob_carry_forward_deferred(
             )
 
 
+@pytest.mark.parametrize(
+    "stable_row_ids", [False, True], indirect=True, ids=["rowaddr", "srid"]
+)
 def test_scenario_c_partial_backfill_compaction_alter_columns_resume(
-    db: Connection, local_ray_context
+    db: Connection, local_ray_context, stable_row_ids: bool
 ) -> None:
     """
     Scenario C: Incomplete backfill → Compaction → alter_columns → Resume.
@@ -359,14 +383,22 @@ def test_scenario_c_partial_backfill_compaction_alter_columns_resume(
         expected = a_val * 100
         assert b_val == expected, f"Row {i}: expected v2 value {expected}, got {b_val}"
 
+    if stable_row_ids:
+        # backfill -> compaction -> alter -> resume must not silently drop
+        # the stable-row-id manifest flag.
+        assert dataset_uses_stable_row_ids(tbl.to_lance())
+
     _LOG.info(
         "Scenario C passed: WHERE filter correctly skipped after compaction + "
         "alter_columns"
     )
 
 
+@pytest.mark.parametrize(
+    "stable_row_ids", [False, True], indirect=True, ids=["rowaddr", "srid"]
+)
 def test_scenario_c_with_retry_after_compaction(
-    db: Connection, local_ray_context
+    db: Connection, local_ray_context, stable_row_ids: bool
 ) -> None:
     """
     Scenario C variant: Partial backfill → Compaction → alter_columns → Retry.
@@ -431,12 +463,20 @@ def test_scenario_c_with_retry_after_compaction(
         expected = a_val * 100
         assert b_val == expected, f"Row {i}: expected v2 value {expected}, got {b_val}"
 
+    if stable_row_ids:
+        # backfill -> compaction -> alter -> retry must not silently drop
+        # the stable-row-id manifest flag.
+        assert dataset_uses_stable_row_ids(tbl.to_lance())
+
     _LOG.info(
         "Scenario C with retry passed: All rows recomputed with v2 after "
         "compaction + alter_columns"
     )
 
 
+@pytest.mark.parametrize(
+    "stable_row_ids", [False, True], indirect=True, ids=["rowaddr", "srid"]
+)
 def test_scenario_d_first_backfill_no_checkpoints(
     db: Connection, local_ray_context
 ) -> None:
@@ -632,6 +672,9 @@ def struct_udf_v2(a: int) -> dict:
     return {"lpad": f"{a:08d}", "rpad": f"{a}00000000"[:8]}
 
 
+@pytest.mark.parametrize(
+    "stable_row_ids", [False, True], indirect=True, ids=["rowaddr", "srid"]
+)
 def test_struct_column_resume_partial_backfill(
     db: Connection, local_ray_context
 ) -> None:

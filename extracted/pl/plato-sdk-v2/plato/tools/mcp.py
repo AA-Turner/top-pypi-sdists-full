@@ -80,6 +80,75 @@ class McpRemoteServer(BaseModel):
     )
 
 
+def graft_mcp_path(base_url: str, path: str) -> str:
+    """Join ``path`` onto ``base_url`` without duplicating slashes."""
+    if not path:
+        return base_url
+    return base_url.rstrip("/") + "/" + path.lstrip("/")
+
+
+def resolve_mcp_url(
+    url: str | EnvMcpUrl | dict[str, object],
+    *,
+    env_job_ids: dict[str, str],
+    gateway_host: str = "connect.plato.so",
+) -> str:
+    """Turn an :class:`EnvMcpUrl` (or its dict form) into a connect-gateway URL.
+
+    Literal string URLs pass through unchanged. A missing env alias raises.
+    """
+    if isinstance(url, str):
+        return url
+    if isinstance(url, dict):
+        parsed = McpUrlAdapter.validate_python(url)
+    else:
+        parsed = url
+    if not isinstance(parsed, EnvMcpUrl):
+        raise TypeError(f"unsupported MCP url value: {url!r}")
+    job_id = env_job_ids.get(parsed.env)
+    if not job_id:
+        raise ValueError(f"mcp url references env alias {parsed.env!r}, which is not a booted env in this session")
+    if parsed.port is not None:
+        base = f"https://{job_id}--{parsed.port}.{gateway_host}"
+    else:
+        base = f"https://{job_id}.{gateway_host}"
+    return graft_mcp_path(base, parsed.path)
+
+
+def resolve_mcp_servers(
+    servers: dict[str, object],
+    *,
+    env_job_ids: dict[str, str],
+    gateway_host: str = "connect.plato.so",
+    client_id: str | None = None,
+) -> dict[str, object]:
+    """Resolve env-alias MCP URLs and attach caller identity to each server.
+
+    Values may be :class:`McpRemoteServer` instances or plain dicts (the
+    world-side agent config shape). Literal URLs are left intact aside from
+    :func:`scoped_mcp_url`.
+    """
+    resolved: dict[str, object] = {}
+    for name, server in servers.items():
+        if isinstance(server, McpRemoteServer):
+            dumped: dict[str, object] = server.model_dump(exclude_none=True)
+        elif isinstance(server, dict):
+            dumped = dict(server)
+        else:
+            resolved[name] = server
+            continue
+        raw_url = dumped.get("url")
+        if raw_url is None:
+            resolved[name] = dumped
+            continue
+        dumped["url"] = scoped_mcp_url(
+            resolve_mcp_url(raw_url, env_job_ids=env_job_ids, gateway_host=gateway_host),
+            client_id=client_id,
+        )
+        resolved[name] = dumped
+    return resolved
+
+
 def scoped_mcp_url(
     remote_url: str,
     *,

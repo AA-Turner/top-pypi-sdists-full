@@ -1,14 +1,13 @@
 import { AbstractButton, AbstractButtonView } from "./abstract_button";
 import type { TooltipView } from "../ui/tooltip";
 import { Tooltip } from "../ui/tooltip";
-import type { View } from "../../core/build_views";
+import type { ChildView } from "../../core/build_views";
 import type * as p from "../../core/properties";
 export declare class HelpButtonView extends AbstractButtonView {
     model: HelpButton;
     protected tooltip: TooltipView;
-    children_views(): View[];
+    children_views(): ChildView[];
     lazy_initialize(): Promise<void>;
-    remove(): void;
     render(): void;
 }
 export declare namespace HelpButton {

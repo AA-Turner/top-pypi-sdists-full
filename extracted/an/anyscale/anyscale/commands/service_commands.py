@@ -42,6 +42,7 @@ from anyscale.commands.util import (
     parse_tags_kv_to_str_map,
 )
 from anyscale.controllers.service_controller import ServiceController
+from anyscale.errors import from_command_exception
 import anyscale.service
 from anyscale.service.models import (
     ServiceConfig,
@@ -921,7 +922,9 @@ def _format_service_output_data(svc: ServiceStatus) -> Dict[str, str]:
     help="List services.",
     cls=AnyscaleCommand,
 )
-@click.option("--service-id", "--id", help="ID of the service to display.")
+@click.option(
+    "--service-id", "--id", "service_id", help="ID of the service to display."
+)
 @click.option("--name", "-n", help="Name of the service to display.")
 @click.option(
     "--cloud",
@@ -1157,7 +1160,7 @@ def service_tags_cli() -> None:
     ),
     cls=AnyscaleCommand,
 )
-@click.option("--service-id", "--id", help="ID of the service.")
+@click.option("--service-id", "--id", "service_id", help="ID of the service.")
 @click.option("--name", "-n", help="Name of the service.")
 @click.option("--cloud", type=str, help="Cloud name (for name resolution).")
 @click.option("--project", type=str, help="Project name (for name resolution).")
@@ -1210,7 +1213,7 @@ def add_tags(
     ),
     cls=AnyscaleCommand,
 )
-@click.option("--service-id", "--id", help="ID of the service.")
+@click.option("--service-id", "--id", "service_id", help="ID of the service.")
 @click.option("--name", "-n", help="Name of the service.")
 @click.option("--cloud", type=str, help="Cloud name (for name resolution).")
 @click.option("--project", type=str, help="Project name (for name resolution).")
@@ -1269,7 +1272,7 @@ def remove_tags(
     ),
     cls=AnyscaleCommand,
 )
-@click.option("--service-id", "--id", help="ID of the service.")
+@click.option("--service-id", "--id", "service_id", help="ID of the service.")
 @click.option("--name", "-n", help="Name of the service.")
 @click.option("--cloud", type=str, help="Cloud name (for name resolution).")
 @click.option("--project", type=str, help="Project name (for name resolution).")
@@ -1332,9 +1335,7 @@ def list_tags(
     ),
     cls=AnyscaleCommand,
 )
-@click.option(
-    "--service-id", "--id", default=None, help="ID of service.",
-)
+@click.option("--service-id", "--id", "service_id", default=None, help="ID of service.")
 @click.option("-n", "--name", required=False, default=None, help="Name of service.")
 @click.option("--project-id", required=False, help="Filter by project id.")
 @click.option(
@@ -1386,7 +1387,7 @@ def rollback(
     cls=AnyscaleCommand,
 )
 @click.option(
-    "--service-id", "--id", required=False, help="ID of service.",
+    "--service-id", "--id", "service_id", required=False, help="ID of service."
 )
 @click.option("-n", "--name", required=False, help="Name of service.")
 @click.option("--project-id", required=False, help="Filter by project id.")
@@ -1429,7 +1430,9 @@ def terminate(
             f"View the service in the UI at {get_endpoint(f'/services/{service_id}')}"
         )
     except Exception as e:  # noqa: BLE001
-        log.error(f"Error terminating service: {e}")
+        raise from_command_exception(
+            e, "Error terminating service", legacy_exit_code=0
+        ) from None
 
 
 @command_metadata(
@@ -1454,7 +1457,7 @@ def terminate(
     cls=AnyscaleCommand,
 )
 @click.option(
-    "--service-id", "--id", required=False, help="ID of service.",
+    "--service-id", "--id", "service_id", required=False, help="ID of service."
 )
 @click.option(
     "-n", "--name", required=False, default=None, type=str, help="Name of the service.",
@@ -1490,7 +1493,9 @@ def archive(
         anyscale.service.archive(id=service_id, name=name, cloud=cloud, project=project)
         log.info(f"Successfully archived service: {identifier}")
     except Exception as e:  # noqa: BLE001
-        log.error(f"Error archiving service: {e}")
+        raise from_command_exception(
+            e, "Error archiving service", legacy_exit_code=0
+        ) from None
 
 
 @command_metadata(
@@ -1515,7 +1520,7 @@ def archive(
     cls=AnyscaleCommand,
 )
 @click.option(
-    "--service-id", "--id", required=False, help="ID of service.",
+    "--service-id", "--id", "service_id", required=False, help="ID of service."
 )
 @click.option(
     "-n", "--name", required=False, default=None, type=str, help="Name of the service.",
@@ -1551,7 +1556,9 @@ def delete(
         anyscale.service.delete(id=service_id, name=name, cloud=cloud, project=project)
         log.info(f"Successfully deleted service: {identifier}")
     except Exception as e:  # noqa: BLE001
-        log.error(f"Error deleting service: {e}")
+        raise from_command_exception(
+            e, "Error deleting service", legacy_exit_code=0
+        ) from None
 
 
 @service_cli.group(
@@ -1587,7 +1594,10 @@ def token_group() -> None:
     "-n", "--name", required=False, default=None, type=str, help="Name of the service.",
 )
 @click.option(
-    "--service-id", "--id", help="ID of the service to generate a token for.",
+    "--service-id",
+    "--id",
+    "service_id",
+    help="ID of the service to generate a token for.",
 )
 @click.option(
     "--cloud",
@@ -1620,8 +1630,9 @@ def token_add(
             name=name, service_id=service_id, cloud=cloud, project=project
         )
     except Exception as e:  # noqa: BLE001
-        log.error(f"Error adding token: {e}")
-        return
+        raise from_command_exception(
+            e, "Error adding token", legacy_exit_code=0
+        ) from None
 
     log.info(f"Primary token: {primary_auth_token}")
     if secondary_auth_token is not None:
@@ -1658,7 +1669,10 @@ def token_add(
     "-n", "--name", required=False, default=None, type=str, help="Name of the service.",
 )
 @click.option(
-    "--service-id", "--id", help="ID of the service to delete a token for.",
+    "--service-id",
+    "--id",
+    "service_id",
+    help="ID of the service to delete a token for.",
 )
 @click.option(
     "--cloud",
@@ -1703,8 +1717,9 @@ def token_delete(
             auth_token=auth_token,
         )
     except Exception as e:  # noqa: BLE001
-        log.error(f"Error deleting token: {e}")
-        return
+        raise from_command_exception(
+            e, "Error deleting token", legacy_exit_code=0
+        ) from None
 
     log.info(f"Primary token: {primary_auth_token}")
     if secondary_auth_token is not None:

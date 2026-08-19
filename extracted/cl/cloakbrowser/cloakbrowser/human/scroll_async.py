@@ -14,7 +14,7 @@ from typing import Any, Awaitable, Callable, Optional, Tuple
 
 from .config import HumanConfig, rand, rand_range, rand_int_range, async_sleep_ms
 from .mouse_async import AsyncRawMouse, async_human_move
-from .scroll import _is_in_viewport
+from .scroll import _is_in_viewport, _SCROLL_JS
 from .stealth_dom import build_box_js, async_eval_parsed, OK, NOT_FOUND, UNSUPPORTED, _VIEWPORT_JS
 
 
@@ -50,6 +50,20 @@ async def _get_element_box_async(
         return await el.bounding_box(timeout=max(1, timeout))
     except Exception:
         return None
+
+
+async def _async_read_scroll_state(page: Any) -> dict:
+    """Current vertical scroll offset and the maximum scrollable offset."""
+    world = getattr(page, "_stealth_world", None)
+    if world is not None:
+        try:
+            return await world.evaluate(_SCROLL_JS)
+        except Exception:
+            pass
+    try:
+        return await page.evaluate(_SCROLL_JS)
+    except Exception:
+        return {"y": 0, "maxY": 0}
 
 
 async def _async_smooth_wheel(raw: AsyncRawMouse, delta: int, cfg: HumanConfig) -> None:
@@ -109,6 +123,16 @@ async def async_human_scroll_into_view(
 
     if _is_in_viewport(box, viewport_height, cfg):
         return box, cursor_x, cursor_y, False
+
+    # Already fully visible but off-center, with the page pinned at the boundary
+    # in the needed direction: scrolling can't help, so don't waste the budget.
+    fully_visible = box["y"] >= 0 and box["y"] + box["height"] <= viewport_height
+    if fully_visible:
+        zone_mid = viewport_height * (cfg.scroll_target_zone[0] + cfg.scroll_target_zone[1]) / 2
+        need_up = box["y"] + box["height"] / 2 < zone_mid
+        scroll = await _async_read_scroll_state(page)
+        if (scroll["y"] <= 0) if need_up else (scroll["y"] >= scroll["maxY"]):
+            return box, cursor_x, cursor_y, False
 
     # Move cursor into scroll area
     scroll_area_x = round(viewport_width * rand(0.3, 0.7))

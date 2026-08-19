@@ -107,23 +107,12 @@ class AdaptiveReadTask(ReadTask):
         if max_size <= 0:
             max_size = self.sizer.max_size
 
-        # The inner scan's ``batch_size`` controls the Python↔Rust FFI
-        # hop frequency, not the consumer batch shape — Lance/lancedb
-        # leaks ~5–15 MB of anonymous heap per FFI transition, and at
-        # checkpoint_size=64 that compounds to ~600 MB per ScanTask
-        # (see CollocatedPipelinedApplier's reader-thread comment for
-        # the full table). The caller (CollocatedPipelinedApplier
-        # passes ``scan_batch_size = max(batch_size, 4096)``) wants
-        # large FFI batches; we still need to honor the adaptive
-        # sizer's ``max_size`` to avoid an inner batch larger than
-        # what the sizer is allowed to yield. Use the larger of the
-        # two so the FFI hop count is bounded by both: caller's hint
-        # *or* the sizer ceiling, whichever is bigger.
-        # TODO(upstream): the per-FFI-hop heap leak this works
-        # around is upstream in lancedb/lance + lancedb/lancedb;
-        # see ``loader.py``'s scan_batch_min comment and the
-        # "File the FFI-hop heap leak upstream" entry in
-        # internal_docs/gpu_pipelining.md.
+        # The inner scan's ``batch_size`` sets how many rows Lance
+        # materializes per read, not the consumer batch shape — the loop
+        # below re-slices each inner batch to the sizer's
+        # ``current_size``. Scan at least ``max_size`` so one inner batch
+        # can always fill a full consumer slice, and honor a larger
+        # caller hint when there is one.
         scan_size = max(int(batch_size or 0), max_size)
         if scan_size <= 0:
             scan_size = max(1, max_size)

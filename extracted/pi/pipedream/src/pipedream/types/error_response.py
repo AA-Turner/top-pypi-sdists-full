@@ -8,13 +8,23 @@ from ..core.pydantic_utilities import IS_PYDANTIC_V2, UniversalBaseModel
 
 class ErrorResponse(UniversalBaseModel):
     """
-    The standard Connect error envelope: `{ "error": "<message>" }`.
-
-    Registered under its own name (`ErrorResponse`) with no `title` so Fern does
-    not attempt to merge it with a similarly-shaped envelope from another spec.
+    Error response returned by the API in case of an error
     """
 
-    error: str
+    error: str = pydantic.Field()
+    """
+    The error message
+    """
+
+    code: typing.Optional[str] = pydantic.Field(default=None)
+    """
+    The error code
+    """
+
+    details: typing.Optional[typing.Dict[str, typing.Any]] = pydantic.Field(default=None)
+    """
+    Additional error details
+    """
 
     if IS_PYDANTIC_V2:
         model_config: typing.ClassVar[pydantic.ConfigDict] = pydantic.ConfigDict(extra="allow", frozen=True)  # type: ignore # Pydantic v2

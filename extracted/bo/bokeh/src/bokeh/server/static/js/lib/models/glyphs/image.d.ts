@@ -7,7 +7,7 @@ export interface ImageView extends Image.Data {
 export declare class ImageView extends ImageBaseView {
     model: Image;
     visuals: Image.Visuals;
-    load_glglyph(): Promise<typeof import("./webgl/image").ImageGL>;
+    load_glglyph(): Promise<typeof import("../../all/main").ImageGL>;
     connect_signals(): void;
     protected _update_image(): void;
     protected get _can_inherit_image_data(): boolean;

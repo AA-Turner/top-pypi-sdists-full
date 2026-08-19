@@ -23,11 +23,14 @@ except ModuleNotFoundError as e:
         ) from e
     raise
 
+from cwsandbox.cli.delete import delete_sandbox
 from cwsandbox.cli.exec import exec_command
+from cwsandbox.cli.files import files
 from cwsandbox.cli.get import get_sandbox
 from cwsandbox.cli.list import list_sandboxes
 from cwsandbox.cli.logs import logs
 from cwsandbox.cli.shell import shell
+from cwsandbox.cli.snapshots import snapshots
 from cwsandbox.exceptions import CWSandboxError
 
 
@@ -53,6 +56,9 @@ def cli() -> None:
 
 cli.add_command(list_sandboxes, "ls")
 cli.add_command(get_sandbox, "get")
+cli.add_command(delete_sandbox, "delete")
 cli.add_command(exec_command, "exec")
+cli.add_command(files, "files")
 cli.add_command(logs, "logs")
 cli.add_command(shell, "sh")
+cli.add_command(snapshots, "snapshots")

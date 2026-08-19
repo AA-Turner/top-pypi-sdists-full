@@ -18,9 +18,9 @@ def test_create_bucket_table(dialect: str):
         None,
         {"tab1"},
         dialect,
-        # SqlGlot doesn't recognize BUCKETED tables, but no error is raised
-        # TODO: Fix SqlGlot to recognize BUCKETED tables
-        test_sqlglot=False,
+        # SqlGlot does not resolve the target table for CLUSTERED BY ... INTO BUCKETS
+        # in the Snowflake dialect
+        test_sqlglot=dialect != "snowflake",
     )
 
 
@@ -72,7 +72,8 @@ STORED AS TEXTFILE""",  # noqa
         # sqlglot.errors.ParseError: Expecting ). Line 13, Col: 59.
         # TODO: Evaluate and fix SqlGlot to support this syntax
         test_sqlglot=False,
-        test_sqlfluff=False,
+        # Graph: Parsers create different graph structures (table lineage is correct)
+        skip_graph_check=True,
     )
 
 
@@ -355,7 +356,8 @@ def test_redshift_materialize_view(dialect: str):
         {"test_schema.sales", "metadata_schema.datamart_run"},
         {"test_schema.sales_current2"},
         dialect=dialect,
-        test_sqlparse=False,
+        # Graph: Parsers create different graph structures (table lineage is correct)
+        skip_graph_check=True,
     )
 
 
@@ -515,5 +517,81 @@ SELECT json_extract_path_text(tbl_tst.col, VARIADIC ARRAY['foo'::text]) AS json_
    FROM tbl_tst""",
         {"tbl_tst"},
         {"v_tst"},
+        dialect=dialect,
+    )
+
+
+@pytest.mark.parametrize("dialect", ["snowflake"])
+def test_view_with_row_access_policy(dialect: str):
+    """Snowflake CREATE VIEW with a WITH ROW ACCESS POLICY clause.
+
+    sqlglot cannot parse this clause, so it is excluded here and asserted to raise in
+    test_unsupported_syntax_falling_back_to_command_raises_in_sqlglot. SqlFluff resolves
+    the table lineage, which is what the fallback relies on. SqlParse only finds the
+    target, so it is excluded too.
+    https://github.com/open-metadata/OpenMetadata/issues/7427#issuecomment-2021898535
+    """
+    assert_table_lineage_equal(
+        """create or replace view VW_TEST(
+    COL1,
+    COL2
+)
+WITH ROW ACCESS POLICY POLICYDB.POLICYSCHEMA.POLICYNAME ON (COL2)
+as (
+    with
+    -- Import CTEs
+    TEST_TABLE as (
+        select * from DB.SCHEMA.PARENT_TABLE
+    )
+    , final as (
+        select
+            COL1,
+            COL2
+        from TEST_TABLE
+    )
+    select * from final
+);""",
+        {"db.schema.parent_table"},
+        {"vw_test"},
+        dialect=dialect,
+        test_sqlglot=False,
+        test_sqlparse=False,
+    )
+
+
+@pytest.mark.parametrize("dialect", ["redshift"])
+def test_update_with_source_only_in_where_subquery(dialect: str):
+    """Source tables that appear only inside a WHERE subquery must be read.
+    https://github.com/open-metadata/OpenMetadata/issues/7427#issuecomment-2214106428
+    """
+    sql = """UPDATE news.ads SET flag = '1'
+WHERE ts <= (
+    SELECT MIN(h) FROM (
+        SELECT MAX(x) AS h FROM news.a
+        UNION ALL
+        SELECT MAX(x) AS h FROM news.b
+    ) z)"""
+    assert_table_lineage_equal(
+        sql,
+        {"news.a", "news.b"},
+        {"news.ads"},
+        dialect=dialect,
+        # All three resolve the same source and target tables. SqlParse keeps the
+        # off-path WHERE subquery as scaffolding nodes while SqlGlot and SqlFluff
+        # flatten it to its leaf tables, so only the internal graph shape differs.
+        skip_graph_check=True,
+    )
+
+
+@pytest.mark.parametrize("dialect", ["tsql"])
+def test_update_with_aliased_target(dialect: str):
+    """The UPDATE target given as an alias defined in FROM must resolve to the
+    real table, and the target table must not also be reported as a source."""
+    sql = """UPDATE t SET t.val = s.label
+FROM dbo.t_upd t JOIN dbo.src s ON t.id = s.id"""
+    assert_table_lineage_equal(
+        sql,
+        {"dbo.src"},
+        {"dbo.t_upd"},
         dialect=dialect,
     )

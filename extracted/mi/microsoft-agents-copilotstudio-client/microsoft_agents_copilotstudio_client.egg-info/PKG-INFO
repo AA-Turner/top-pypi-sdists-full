@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: microsoft-agents-copilotstudio-client
-Version: 1.3.0
+Version: 1.4.0
 Summary: A client library for Microsoft Agents
 Author: Microsoft Corporation
 License-Expression: MIT
@@ -15,7 +15,7 @@ Classifier: Operating System :: OS Independent
 Requires-Python: >=3.10
 Description-Content-Type: text/markdown
 License-File: LICENSE
-Requires-Dist: microsoft-agents-hosting-core==1.3.0
+Requires-Dist: microsoft-agents-hosting-core==1.4.0
 Dynamic: license-file
 Dynamic: requires-dist
 
@@ -36,6 +36,15 @@ This library is part of the **Microsoft 365 Agents SDK for Python** - a comprehe
     <th style="width:20%">Version</th>
     <th style="width:20%">Date</th>
     <th style="width:60%">Release Notes</th>
+  </tr>
+  <tr>
+   <td>1.4.0</td>
+   <td>2026-08-18</td>
+   <td>
+     <a href="https://github.com/microsoft/Agents-for-python/blob/main/changelog.md#microsoft-365-agents-sdk-for-python---release-notes-v140">
+       1.4.0 Release Notes
+     </a>
+   </td>
   </tr>
   <tr>
     <td>1.3.0</td>

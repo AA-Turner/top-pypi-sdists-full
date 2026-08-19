@@ -16,7 +16,7 @@ export declare abstract class ContinuousTicker extends Ticker {
     constructor(attrs?: Partial<ContinuousTicker.Attrs>);
     get_ticks(data_low: number, data_high: number, _range: Range, cross_loc: number): TickSpec<number>;
     abstract get_interval(data_low: number, data_high: number, desired_n_ticks: number): number;
-    get_ticks_no_defaults(data_low: number, data_high: number, _cross_loc: number, desired_n_ticks: number): TickSpec<number>;
+    get_ticks_no_defaults(data_low: number, data_high: number, _cross_loc: number, desired_n_ticks: number, num_minor_ticks: number): TickSpec<number>;
     abstract get_min_interval(): number;
     abstract get_max_interval(): number;
     get_ideal_interval(data_low: number, data_high: number, desired_n_ticks: number): number;

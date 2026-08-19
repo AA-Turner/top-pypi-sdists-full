@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: apify_client
-Version: 3.1.2
+Version: 3.1.3
 Summary: Apify API client for Python
 Keywords: apify,api,client,automation,crawling,scraping
 Author: Apify Technologies s.r.o.
@@ -20,6 +20,7 @@ Requires-Dist: colorama>=0.4.0
 Requires-Dist: impit~=0.13.0
 Requires-Dist: more-itertools>=10.0.0
 Requires-Dist: pydantic[email]>=2.11.0
+Requires-Dist: typing-extensions>=4.6.0
 Requires-Dist: brotli>=1.0.9 ; extra == 'brotli'
 Requires-Python: >=3.11
 Project-URL: Apify Homepage, https://apify.com

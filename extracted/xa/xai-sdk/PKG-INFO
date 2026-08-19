@@ -1,6 +1,6 @@
 Metadata-Version: 2.5
 Name: xai-sdk
-Version: 1.18.0
+Version: 1.19.0
 Summary: The official Python SDK for the xAI API
 Project-URL: Homepage, https://github.com/xai-org/xai-sdk-python
 Project-URL: Documentation, https://docs.x.ai
@@ -37,6 +37,7 @@ Requires-Dist: packaging<26,>=25.0
 Requires-Dist: protobuf<7,>=5.29.4
 Requires-Dist: pydantic<3,>=2.5.3
 Requires-Dist: requests<3,>=2.31.0
+Requires-Dist: typing-extensions<5,>=4.14.0
 Provides-Extra: telemetry-grpc
 Requires-Dist: opentelemetry-exporter-otlp-proto-grpc<2,>=1.36.0; extra == 'telemetry-grpc'
 Provides-Extra: telemetry-http
@@ -131,7 +132,7 @@ from xai_sdk.chat import system, user
 
 client = Client()
 chat = client.chat.create(
-    model="grok-3",
+    model="grok-4.6",
     messages=[system("You are a pirate assistant.")]
 )
 
@@ -157,7 +158,7 @@ from xai_sdk.chat import system, user
 async def main():
     client = AsyncClient()
     chat = client.chat.create(
-        model="grok-3",
+        model="grok-4.6",
         messages=[system("You are a pirate assistant.")]
     )
 
@@ -183,7 +184,7 @@ from xai_sdk import Client
 from xai_sdk.chat import user
 
 client = Client()
-chat = client.chat.create(model="grok-3")
+chat = client.chat.create(model="grok-4.6")
 
 while True:
     prompt = input("You: ")
@@ -206,7 +207,7 @@ from xai_sdk import Client
 from xai_sdk.chat import image, user
 
 client = Client()
-chat = client.chat.create(model="grok-2-vision")
+chat = client.chat.create(model="grok-4.6")
 
 chat.append(
     user(
@@ -347,7 +348,7 @@ telemetry.setup_console_exporter()
 client = Client()
 
 # The call to sample will now generate a trace that you will be able to see in the console
-chat = client.chat.create(model="grok-3")
+chat = client.chat.create(model="grok-4.6")
 chat.append(user("Hello, how are you?"))
 response = chat.sample()
 print(f"Response: {response.content}")
@@ -369,7 +370,7 @@ telemetry.setup_otlp_exporter(
 client = Client()
 
 # The call to sample will now generate a trace that you will be able to see in your observability platform
-chat = client.chat.create(model="grok-3")
+chat = client.chat.create(model="grok-4.6")
 chat.append(user("Hello, how are you?"))
 response = chat.sample()
 print(f"Response: {response.content}")
@@ -555,7 +556,7 @@ from xai_sdk import Client
 from xai_sdk.chat import user
 
 client = Client()
-chat = client.chat.create(model="grok-3")
+chat = client.chat.create(model="grok-4.6")
 chat.append(user("Hello, how are you?"))
 response = chat.sample()
 

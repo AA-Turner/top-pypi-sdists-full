@@ -54,7 +54,25 @@ pass.
 Not a pytest test (it monkeypatches ``ray`` before importing geneva); run directly, or
 via ``test_differential_fault_sweep``. ``GENEVA_FAULTSWEEP_MAXLEN`` sets op-sequence
 depth (default 2); ``SWEEP_WORKERS`` the pool size; ``GENEVA_FAULTSWEEP_FLAVORS``
-restricts the flavor set (csv); ``GENEVA_FAULTSWEEP_CASE_TIMEOUT_S`` the per-case
+restricts the flavor set (csv); ``GENEVA_FAULTSWEEP_OPS`` the op alphabet (csv of
+op letters, default ``A,D,U,C``; unknown flavors or op letters, or a selection of
+zero cases, are an error -- a silently emptied matrix would exit "PASS: all 0
+cases"); ``GENEVA_FAULTSWEEP_SRID=off`` sweeps NON-stable-row-id sources (all swept
+write paths are ``_rowaddr``-based, so each case's verdict must match the srid-on
+run; the view flavors are excluded there -- and rejected if requested explicitly
+-- because their cross-version refresh guard raises before any fault can fire).
+That parity is MEASURED, not
+assumed: ``GENEVA_FAULTSWEEP_VERDICTS_OUT=<path>`` dumps machine-readable per-case
+verdicts, and ``GENEVA_FAULTSWEEP_COMPARE=<path>`` reads such a file as the
+baseline and fails the run when any case passing in both runs carries a different
+verdict (e.g. srid-off going NOFIRE where srid-on HEALs = silently lost fault
+coverage), is missing from the baseline, or when the baseline file itself is absent
+(an unmeasured parity check is not a passing one). Both paths are checked before the
+sweep starts, and pointing them at the same file is rejected: the dump would clobber
+the baseline and the run would compare against itself. The nightly srid-off leg compares
+against the srid-on leg's file; its (flavors x L) matrix is a subset of the
+srid-on one, so every compared case has a baseline verdict.
+``GENEVA_FAULTSWEEP_CASE_TIMEOUT_S`` sets the per-case
 wedge alarm (default 120). Progress goes to the driver's stderr (live line on a tty,
 one line per 10% otherwise); worker stderr is silenced unless
 ``GENEVA_FAULTSWEEP_WORKER_STDERR=1``.
@@ -63,6 +81,7 @@ one line per 10% otherwise); worker stderr is silenced unless
 # ruff: noqa: T201 -- this is a CLI script; print() is the intended output
 
 import itertools
+import json
 import logging
 import multiprocessing as mp
 import os
@@ -104,13 +123,22 @@ import geneva  # noqa: E402
 from geneva import connect, udf  # noqa: E402
 from geneva.checkpoint import using_checkpoint_store_wrap  # noqa: E402
 from geneva.committer import using_committer  # noqa: E402
-from geneva.db import Connection  # noqa: E402
+from geneva.db import Connection, dataset_uses_stable_row_ids  # noqa: E402
 from geneva.debug.error_store import skip_on_error  # noqa: E402
 from geneva.fragment_writer import using_fragment_file_writer  # noqa: E402
 from geneva.table import Table  # noqa: E402
 from geneva.table_writer import using_table_writer  # noqa: E402
 
 ray_shim.stub_geneva_cluster_polling()
+
+# Stable-row-id mode for every source table the sweep builds (see the docstring).
+# Strict on|off: a typo silently meaning "on" would let a mis-configured srid-off
+# leg pass as a duplicate srid-on run.
+_SRID_ENV = os.environ.get("GENEVA_FAULTSWEEP_SRID", "on")
+if _SRID_ENV not in ("on", "off"):
+    print(f"GENEVA_FAULTSWEEP_SRID must be 'on' or 'off', got {_SRID_ENV!r}")
+    raise SystemExit(2)
+_SRID = _SRID_ENV == "on"
 
 APPEND, DELETE, UPDATE, COMPACT = "A", "D", "U", "C"
 OPS = [APPEND, DELETE, UPDATE, COMPACT]  # every flavor runs the full op alphabet
@@ -175,9 +203,12 @@ def _live(source: Table) -> list[tuple]:
 
 
 def _mk_source(db: Connection, name: str) -> Table:
-    return db.create_table(
-        name, _initial(), storage_options={"new_table_enable_stable_row_ids": "true"}
-    )
+    # srid-off must OMIT the option entirely: bool False crashes create_table
+    # (GEN-869) and the string "false" is silently inert.
+    opts = {"new_table_enable_stable_row_ids": "true"} if _SRID else None
+    tbl = db.create_table(name, _initial(), storage_options=opts)
+    assert dataset_uses_stable_row_ids(tbl.to_lance()) is _SRID
+    return tbl
 
 
 # flavor descriptors: (setup, materialize, oracle, read, ops); mv None for backfill
@@ -880,13 +911,16 @@ def _init_worker() -> None:
 
 def _process_batch(
     batch: list[tuple],
-) -> tuple[dict[str, int], list[tuple], list[tuple]]:
+) -> tuple[dict[str, int], list[tuple], list[tuple], list[tuple[str, str]]]:
     """Run (flavor, seq, fault) cases, each in its own tempdir; returns
-    (verdict_counts, hard_findings, soft_findings). Each finding is a raw
-    ``(verdict, flavor, seq, fault)`` record the summary renders in English."""
+    (verdict_counts, hard_findings, soft_findings, per_case_verdicts). Each
+    finding is a raw ``(verdict, flavor, seq, fault)`` record the summary
+    renders in English; per_case_verdicts pairs every case's ``_case_key``
+    with its verdict (the cross-run parity input)."""
     counts: dict[str, int] = {}
     findings: list[tuple] = []
     soft: list[tuple] = []
+    verdicts: list[tuple[str, str]] = []
     signal.signal(signal.SIGALRM, _on_case_timeout)
     with Connection.local_ray_context():  # no-op under the shim
         for i, (flavor, seq, fault) in enumerate(batch):
@@ -903,12 +937,21 @@ def _process_batch(
                 signal.alarm(0)
                 shutil.rmtree(tmp, ignore_errors=True)
             counts[v] = counts.get(v, 0) + 1
+            verdicts.append((_case_key(flavor, seq, fault), v))
             rec = (v, flavor, seq, fault)
             if v in _FINDINGS or v.startswith("CASE_CRASH"):
                 findings.append(rec)
             elif v in _SOFT:
                 soft.append(rec)
-    return counts, findings, soft
+    return counts, findings, soft, verdicts
+
+
+def _same_file(a: str, b: str) -> bool:
+    """True if two paths name the same file, whether or not they exist yet."""
+    p_a, p_b = Path(a), Path(b)
+    if p_a.exists() and p_b.exists():
+        return p_a.samefile(p_b)
+    return p_a.resolve() == p_b.resolve()
 
 
 def main() -> int:
@@ -916,11 +959,70 @@ def main() -> int:
     workers = int(os.environ.get("SWEEP_WORKERS", str(min(8, os.cpu_count() or 2))))
     batch_size = int(os.environ.get("SWEEP_BATCH", "12"))
     only = os.environ.get("GENEVA_FAULTSWEEP_FLAVORS")
-    flavors = only.split(",") if only else list(FLAVORS)
+    if only:
+        flavors = [f.strip() for f in only.split(",") if f.strip()]
+    elif not _SRID:
+        flavors = ["backfill", "sparse", "repair", "backfill-skip"]
+        print(
+            "srid=off: defaulting flavors to backfill,sparse,repair,backfill-skip "
+            "(mv-identity/chunker excluded: their cross-version refresh guard "
+            "raises before any fault can fire)",
+            flush=True,
+        )
+    else:
+        flavors = list(FLAVORS)
+    unknown = [f for f in flavors if f not in FLAVORS]
+    if unknown or not flavors:
+        # an unknown flavor selects zero cases; silence there reads as coverage.
+        print(f"invalid GENEVA_FAULTSWEEP_FLAVORS {unknown}; have {sorted(FLAVORS)}")
+        return 2
+    if not _SRID:
+        # This sweep has no guard-aware runners: under srid-off a view flavor's
+        # refresh trips the cross-version guard on every case and mass-reports
+        # spurious STUCK/CASE_CRASH. Guard coverage lives in
+        # mv_differential_sweep.py, so reject the combination outright.
+        view_flavors = [f for f in flavors if f in ("mv-identity", "chunker")]
+        if view_flavors:
+            print(
+                f"srid=off cannot sweep view flavor(s) {view_flavors}: their "
+                "cross-version refresh guard raises before any fault can fire "
+                "(see mv_differential_sweep.py's GUARD runners)"
+            )
+            return 2
+
+    # ad-hoc escape hatch: restrict the op alphabet (csv of op letters) so a deep
+    # MAXLEN run over one or two ops stays tractable. Unknown letters are an
+    # error, not a filter: silently dropping them can empty the whole matrix
+    # and exit "PASS: all 0 cases".
+    ops_csv = os.environ.get("GENEVA_FAULTSWEEP_OPS", ",".join(OPS))
+    ops = [s.strip().upper() for s in ops_csv.split(",") if s.strip()]
+    bad_ops = [o for o in ops if o not in OPS]
+    if bad_ops or not ops:
+        print(f"invalid GENEVA_FAULTSWEEP_OPS {ops_csv!r}; valid letters: {OPS}")
+        return 2
+
+    # Verdict dump / parity baseline, validated BEFORE the sweep burns hours: a
+    # missing baseline or a self-comparison is a config error, and finding out at
+    # the summary costs a whole nightly leg.
+    out_path = os.environ.get("GENEVA_FAULTSWEEP_VERDICTS_OUT")
+    base_path = os.environ.get("GENEVA_FAULTSWEEP_COMPARE")
+    if base_path and not Path(base_path).exists():
+        # the baseline producer never got far enough to write its verdicts (its
+        # own run reports why); an unmeasured parity check is a failure here.
+        print(f"FAIL: parity baseline {base_path} does not exist.")
+        return 1
+    if out_path and base_path and _same_file(out_path, base_path):
+        # writing the dump first would overwrite the baseline and compare this
+        # run against itself -- parity always "OK", measuring nothing.
+        print(
+            f"GENEVA_FAULTSWEEP_VERDICTS_OUT and _COMPARE are the same file "
+            f"({out_path}): a run cannot be its own parity baseline"
+        )
+        return 2
 
     seqs: list[tuple] = []
     for length in range(1, max_len + 1):
-        seqs.extend(itertools.product(OPS, repeat=length))
+        seqs.extend(itertools.product(ops, repeat=length))
 
     cases: list[tuple] = []
     for flavor in flavors:
@@ -933,21 +1035,26 @@ def main() -> int:
         # drop faults whose target cannot reach this flavor (see _FAULT_FLAVORS)
         faults = [f for f in faults if flavor in _FAULT_FLAVORS.get(f[0], _ALL_FLAVORS)]
         cases.extend((flavor, seq, fault) for seq in seqs for fault in faults)
+    if not cases:
+        print("no cases selected; check GENEVA_FAULTSWEEP_FLAVORS/OPS/MAXLEN")
+        return 2
 
     batches = [cases[i : i + batch_size] for i in range(0, len(cases), batch_size)]
     counts: dict[str, int] = {}
     findings: list[tuple] = []
     soft: list[tuple] = []
+    all_verdicts: dict[str, str] = {}
     t0 = time.monotonic()
     done = 0
     next_pct = 10
     live = sys.stderr.isatty()
     with mp.Pool(workers, _init_worker, maxtasksperchild=4) as pool:
-        for c, f, s in pool.imap_unordered(_process_batch, batches):
+        for c, f, s, vd in pool.imap_unordered(_process_batch, batches):
             for k, v in c.items():
                 counts[k] = counts.get(k, 0) + v
             findings.extend(f)
             soft.extend(s)
+            all_verdicts.update(vd)
             # progress on the driver's stderr (workers' stderr is silenced): a live
             # rewritten line on a tty, one line per 10% otherwise (CI logs).
             done += sum(c.values())
@@ -973,7 +1080,8 @@ def main() -> int:
     elapsed = time.monotonic() - t0
     print(
         f"=== fault sweep: {len(cases)} cases | {len(flavors)} flavors x "
-        f"{len(FAULTS)} faults | L<={max_len} | {workers} workers ==="
+        f"{len(FAULTS)} faults | L<={max_len} | {workers} workers | "
+        f"srid={'on' if _SRID else 'off'} ==="
     )
     print(
         f"completed in {elapsed:.0f}s ({len(cases) / max(elapsed, 1e-9):.1f} cases/s)"
@@ -1008,17 +1116,67 @@ def main() -> int:
             if len(shrunk) > 50:
                 print(f"    ... (+{len(shrunk) - 50} more)")
 
+    # machine-readable per-case verdicts, and the cross-run parity check they
+    # feed (the nightly srid-off leg compares against the srid-on leg's file).
+    # Both paths were validated up front, so the dump cannot clobber the baseline.
+    if out_path:
+        payload = {
+            "meta": {
+                "srid": "on" if _SRID else "off",
+                "max_len": max_len,
+                "flavors": flavors,
+            },
+            "verdicts": dict(sorted(all_verdicts.items())),
+        }
+        Path(out_path).write_text(json.dumps(payload, indent=1))
+        print(f"\nwrote {len(all_verdicts)} per-case verdicts to {out_path}")
+
+    drift: list[str] = []
+    if base_path:
+        base = json.loads(Path(base_path).read_text())
+        base_verdicts: dict[str, str] = base["verdicts"]
+        base_srid = base.get("meta", {}).get("srid", "?")
+        compared = 0
+        for key, v in sorted(all_verdicts.items()):
+            bv = base_verdicts.get(key)
+            if bv is None:
+                # every compared case needs a baseline verdict: this run's
+                # matrix must be a subset of the baseline's.
+                drift.append(f"{key}: {v} here, no baseline case (matrix mismatch)")
+                continue
+            if not (_verdict_meaning(v)[0] and _verdict_meaning(bv)[0]):
+                continue  # a failing verdict already fails its own run loudly
+            compared += 1
+            if v != bv:
+                drift.append(f"{key}: {bv} (srid={base_srid} baseline) -> {v}")
+        if drift:
+            print(f"\nVERDICT DRIFT vs {base_path} ({len(drift)} case(s)):")
+            for line in drift[:50]:
+                print(f"  {line}")
+            if len(drift) > 50:
+                print(f"  ... (+{len(drift) - 50} more)")
+        else:
+            print(
+                f"\nverdict parity vs {base_path} (srid={base_srid} baseline): "
+                f"OK ({compared} cases compared)"
+            )
+
     if n_fail:
         print(
             f"\nFAIL: {n_fail}/{len(cases)} cases neither healed nor failed cleanly "
             f"({n_loud} loud, {n_silent} silent/crash)."
+        )
+    elif drift:
+        print(
+            f"\nFAIL: every case met the durability invariant, but {len(drift)} "
+            "verdict(s) drifted from the baseline (lost or changed fault coverage)."
         )
     else:
         print(
             f"\nPASS: all {len(cases)} cases healed on resume or failed loudly and "
             "cleanly (no CORRUPT / STUCK / DIVERGE)."
         )
-    return 1 if n_fail else 0
+    return 1 if (n_fail or drift) else 0
 
 
 if __name__ == "__main__":

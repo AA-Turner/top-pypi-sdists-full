@@ -1,6 +1,6 @@
 Metadata-Version: 2.1
 Name: dbt-core-experimental-parser
-Version: 2.0.0b1
+Version: 2.0.0b2
 Summary: Build analytics the way engineers build applications
 Requires-Python: >=3.9
 License: Apache-2.0

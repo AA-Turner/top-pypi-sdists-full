@@ -25,6 +25,7 @@ consistent.
 
 from __future__ import annotations
 
+import json
 import math
 from pathlib import Path
 from typing import Any, Callable
@@ -32,22 +33,48 @@ from typing import Any, Callable
 from echo_agent.cli.colors import (
     Colors,
     color,
-    print_error,
-    print_info,
-    print_success,
-    print_warning,
+    set_color_override,
 )
 from echo_agent.cli import ui
+from echo_agent.cli.health import FAIL, OK, WARN, run_health_checks
 from echo_agent.cli.i18n import detect_locale, get_locale, set_locale, t
+from echo_agent.cli.palette import ansi
 from echo_agent.cli.prompt import (
+    PromptAborted,
     is_interactive,
     prompt_yes_no,
 )
+from echo_agent.cli.runtime_probe import GatewayState, is_wsl, probe_gateway
+from echo_agent.cli.service import run_service_action
 from echo_agent.cli.setup import providers as provider_catalog
-from echo_agent.cli.setup.model_verify import VerifyResult, list_models, verify_model
+from echo_agent.cli.setup.model_verify import (
+    VerifyResult,
+    list_model_windows,
+    list_models,
+    verify_model,
+)
 from echo_agent.cli.setup.providers import find as find_provider, grouped_catalog
+from echo_agent.cli.tui.brand import ECHO_LOGO_ART, ECHO_LOGO_GRADIENT, load_brand
 from echo_agent.config.loader import find_local_config_file, resolve_config_file, save_config
 from echo_agent.runtime_paths import default_config_path
+
+
+# Keep the section implementations readable while routing all setup notices
+# through the same glyphs and palette as the interactive prompt layer.
+def print_info(message: str) -> None:
+    ui.note(message, "info")
+
+
+def print_success(message: str) -> None:
+    ui.note(message, "success")
+
+
+def print_warning(message: str) -> None:
+    ui.note(message, "warning")
+
+
+def print_error(message: str) -> None:
+    ui.note(message, "error")
 
 
 # ── Channel presets ────────────────────────────────────────────────────────────
@@ -72,25 +99,24 @@ CHANNEL_DEFS: list[tuple[str, str, list[tuple[str, str]]]] = [
 # ── Banner & helpers ──────────────────────────────────────────────────────────
 
 def _print_banner() -> None:
-    title = t("banner.title")
+    brand = load_brand()
     subtitle = t("banner.subtitle")
     exit_hint = t("banner.exit_hint")
-    width = max(len(title), len(subtitle), len(exit_hint), 50)
-    inner = width + 4
     print()
-    print(color("  ┌" + "─" * inner + "┐", Colors.CYAN))
-    print(color(f"  │  {title.center(width)}  │", Colors.CYAN))
-    print(color("  ├" + "─" * inner + "┤", Colors.CYAN))
-    print(color(f"  │  {subtitle.ljust(width)}  │", Colors.CYAN))
-    print(color(f"  │  {exit_hint.ljust(width)}  │", Colors.CYAN))
-    print(color("  └" + "─" * inner + "┘", Colors.CYAN))
+    if brand.name.lower() == "echo":
+        for line, role in zip(ECHO_LOGO_ART, ECHO_LOGO_GRADIENT):
+            print(color(f"  {line}", Colors.BOLD, ansi(role)))
+    else:
+        print(color(f"  {brand.name}", Colors.BOLD, ansi("primary")))
+    print(color(f"  · {brand.tagline} · {t('banner.mode')}", ansi("text-muted")))
+    print()
+    print(f"  {subtitle}")
+    print(color(f"  {exit_hint}", ansi("text-muted")))
 
 
 def _print_section_header(key: str) -> None:
     label = t(f"section.{key}")
-    print()
-    print(color(f"  ◆ {label}", Colors.CYAN, Colors.BOLD))
-    print(color("  " + "─" * (len(label) + 2), Colors.DIM))
+    ui.intro(label)
 
 
 def _ensure_dict(parent: dict, key: str) -> dict:
@@ -152,29 +178,35 @@ def setup_model(config: dict) -> None:
 
     api_base = entry.api_base
     if entry.needs_api_base:
-        api_base = ui.text(f"  {t('model.api_base')}", default=existing.get("apiBase", "") or api_base)
+        api_base = ui.text(t("model.api_base"), default=existing.get("apiBase", "") or api_base)
 
     api_key = ""
     if entry.dialect != "bedrock":
-        api_key = ui.password(f"  {t_provider_label(entry)} {t('model.api_key')}")
+        api_key = ui.password(f"{t_provider_label(entry)} {t('model.api_key')}")
         if not api_key and existing.get("apiKey") and _detect_catalog_id(existing) == entry_id:
             api_key = existing.get("apiKey", "")
 
     models = []
+    model_windows: dict[str, int] = {}
     if entry.models_endpoint:
         with ui.spinner(t("model.fetching")):
             models = list_models(entry, api_key, api_base)
+            # Capture per-model context windows from the same listing so the
+            # runtime gauge/compression track the real window. Best-effort:
+            # providers that omit it (e.g. OpenAI native) yield {} and the
+            # built-in registry takes over.
+            model_windows = list_model_windows(entry, api_key, api_base)
     if not models:
         models = list(entry.fallback_models)
 
     if models:
         choices = [(m, m, "") for m in models] + [("__custom__", t("model.model_custom"), "")]
         picked = ui.select(t("model.model_select"), choices, default=models[0])
-        default_model = ui.text(f"  {t('model.model_name')}") if picked == "__custom__" else picked
+        default_model = ui.text(t("model.model_name")) if picked == "__custom__" else picked
     else:
         default_model = ""
         while not default_model:
-            default_model = ui.text(f"  {t('model.model_name')}")
+            default_model = ui.text(t("model.model_name"))
 
     if default_model and entry.dialect != "bedrock":
         with ui.spinner(t("model.verifying")):
@@ -197,6 +229,16 @@ def setup_model(config: dict) -> None:
     models_block = _ensure_dict(config, "models")
     models_block["defaultModel"] = default_model
     models_block["providers"] = [provider_entry]
+    # Merge captured windows into models.modelWindows (keep any prior entries
+    # from other providers/re-runs). Only keep the models we actually offer plus
+    # the picked one, to avoid bloating the config with the full catalog.
+    if model_windows:
+        keep = set(models) | ({default_model} if default_model else set())
+        captured = {mid: win for mid, win in model_windows.items() if mid in keep}
+        if captured:
+            existing_windows = dict(models_block.get("modelWindows") or {})
+            existing_windows.update(captured)
+            models_block["modelWindows"] = existing_windows
     ui.note(t("model.saved", provider=t_provider_label(entry), model=default_model), "success")
 
 
@@ -234,12 +276,12 @@ def _handle_verify(result: "VerifyResult", entry, api_key, api_base, model):
     if action == "skip":
         return model, api_key
     if action == "retry":
-        new_key = ui.password(f"  {t_provider_label(entry)} {t('model.api_key')}")
+        new_key = ui.password(f"{t_provider_label(entry)} {t('model.api_key')}")
         with ui.spinner(t("model.verifying")):
             res2 = verify_model(entry.dialect, new_key, api_base, model)
         return _handle_verify(res2, entry, new_key, api_base, model)
     # change model
-    new_model = ui.text(f"  {t('model.model_name')}")
+    new_model = ui.text(t("model.model_name"))
     with ui.spinner(t("model.verifying")):
         res2 = verify_model(entry.dialect, api_key, api_base, new_model)
     return _handle_verify(res2, entry, api_key, api_base, new_model)
@@ -265,7 +307,7 @@ def setup_permissions(config: dict) -> None:
 
     if chosen_mode == "smart":
         existing_smart_model = approval.get("smart_model", "") or approval.get("smartModel", "")
-        smart_model = ui.text(f"  {t('permissions.smart_model')}", default=existing_smart_model)
+        smart_model = ui.text(t("permissions.smart_model"), default=existing_smart_model)
         if smart_model:
             approval["smart_model"] = smart_model
         else:
@@ -305,13 +347,13 @@ def setup_terminal(config: dict) -> None:
 
     if chosen == "container":
         existing_image = execution.get("container_image") or execution.get("containerImage") or ""
-        image = ui.text(f"  {t('terminal.container_image')}", default=existing_image or "python:3.11-slim")
+        image = ui.text(t("terminal.container_image"), default=existing_image or "python:3.11-slim")
         execution["container_image"] = image
     elif chosen == "remote":
-        execution["remote_host"] = ui.text(f"  {t('terminal.remote_host')}", default=execution.get("remote_host", ""))
-        execution["remote_user"] = ui.text(f"  {t('terminal.remote_user')}", default=execution.get("remote_user", "root"))
+        execution["remote_host"] = ui.text(t("terminal.remote_host"), default=execution.get("remote_host", ""))
+        execution["remote_user"] = ui.text(t("terminal.remote_user"), default=execution.get("remote_user", "root"))
         existing_key = execution.get("remote_key_path") or execution.get("remoteKeyPath") or ""
-        execution["remote_key_path"] = ui.text(f"  {t('terminal.remote_key')}", default=existing_key)
+        execution["remote_key_path"] = ui.text(t("terminal.remote_key"), default=existing_key)
 
     network_keys = ["allow", "deny", "restricted"]
     network_labels = [t(f"terminal.network_{k}") for k in network_keys]
@@ -342,7 +384,7 @@ def setup_agent(config: dict) -> None:
     agent = _ensure_dict(config, "agent")
     current_iter = int(agent.get("max_iterations") or agent.get("maxIterations") or 40)
     print_info(t("agent.max_iter_hint"))
-    raw = ui.text(f"  {t('agent.max_iter')}", default=str(current_iter))
+    raw = ui.text(t("agent.max_iter"), default=str(current_iter))
     try:
         agent["max_iterations"] = max(1, int(raw))
     except ValueError:
@@ -354,7 +396,7 @@ def setup_agent(config: dict) -> None:
     if compression["enabled"]:
         current_thr = float(compression.get("trigger_ratio") or compression.get("triggerRatio") or 0.7)
         print_info(t("agent.compression_threshold_hint"))
-        raw = ui.text(f"  {t('agent.compression_threshold')}", default=f"{current_thr:.2f}")
+        raw = ui.text(t("agent.compression_threshold"), default=f"{current_thr:.2f}")
         try:
             value = float(raw)
             if 0.5 <= value <= 0.95:
@@ -374,14 +416,14 @@ def setup_agent(config: dict) -> None:
     sp["mode"] = reset_keys[reset_idx]
     if reset_keys[reset_idx] in ("idle", "both"):
         cur_idle = int(sp.get("idleTimeoutMinutes") or sp.get("idle_timeout_minutes") or 1440)
-        raw = ui.text(f"  {t('agent.idle_minutes')}", default=str(cur_idle))
+        raw = ui.text(t("agent.idle_minutes"), default=str(cur_idle))
         try:
             sp["idleTimeoutMinutes"] = max(1, int(raw))
         except ValueError:
             sp["idleTimeoutMinutes"] = cur_idle
     if reset_keys[reset_idx] in ("daily", "both"):
         cur_hr = int(sp.get("dailyResetHour") or sp.get("daily_reset_hour") or 4)
-        raw = ui.text(f"  {t('agent.daily_hour')}", default=str(cur_hr))
+        raw = ui.text(t("agent.daily_hour"), default=str(cur_hr))
         try:
             v = int(raw)
             sp["dailyResetHour"] = v if 0 <= v <= 23 else cur_hr
@@ -422,10 +464,20 @@ def setup_tools(config: dict) -> None:
     if (tools.get("web", {}) or {}).get("enabled"):
         pre_selected.append(TOOL_OPTIONS.index("web"))
     image_block = tools.get("image_gen") or tools.get("imageGen") or {}
-    if image_block.get("api_key") or image_block.get("apiKey") or image_block.get("fal_key") or image_block.get("falKey"):
+    # Respect an explicit enabled flag if present; otherwise infer from
+    # whether credentials were ever entered (back-compat with older configs).
+    image_on = image_block.get("enabled") if "enabled" in image_block else bool(
+        image_block.get("api_key") or image_block.get("apiKey")
+        or image_block.get("fal_key") or image_block.get("falKey")
+    )
+    if image_on:
         pre_selected.append(TOOL_OPTIONS.index("image_gen"))
     tts_block = tools.get("tts", {}) or {}
-    if tts_block.get("openai_api_key") or tts_block.get("openaiApiKey") or tts_block.get("default_backend"):
+    tts_on = tts_block.get("enabled") if "enabled" in tts_block else bool(
+        tts_block.get("openai_api_key") or tts_block.get("openaiApiKey")
+        or tts_block.get("default_backend")
+    )
+    if tts_on:
         pre_selected.append(TOOL_OPTIONS.index("tts"))
     code_exec_block = tools.get("code_exec") or tools.get("codeExec") or {}
     if code_exec_block.get("enabled", True):
@@ -434,9 +486,17 @@ def setup_tools(config: dict) -> None:
         pre_selected.append(TOOL_OPTIONS.index("knowledge"))
     if (config.get("scheduler", {}) or {}).get("enabled", True):
         pre_selected.append(TOOL_OPTIONS.index("cron"))
-    if tools.get("mcp_servers") or tools.get("mcpServers"):
+    mcp_block = tools.get("mcp") or {}
+    mcp_on = mcp_block.get("enabled") if "enabled" in mcp_block else bool(
+        tools.get("mcp_servers") or tools.get("mcpServers")
+    )
+    if mcp_on:
         pre_selected.append(TOOL_OPTIONS.index("mcp"))
-    if (config.get("skills", {}) or {}).get("skills_dir") or (config.get("skills", {}) or {}).get("skillsDir"):
+    skills_block = config.get("skills", {}) or {}
+    skills_on = skills_block.get("enabled") if "enabled" in skills_block else bool(
+        skills_block.get("skills_dir") or skills_block.get("skillsDir")
+    )
+    if skills_on:
         pre_selected.append(TOOL_OPTIONS.index("skills"))
     if (config.get("plugins", {}) or {}).get("enabled", True):
         pre_selected.append(TOOL_OPTIONS.index("plugins"))
@@ -454,18 +514,18 @@ def setup_tools(config: dict) -> None:
     if "web" in chosen:
         web = _ensure_dict(tools, "web")
         web["enabled"] = True
-        provider_choices = ["brave", "tavily", "serpapi", "searxng"]
+        provider_choices = ["brave", "tavily", "serpapi", "searxng", "serply"]
         cur_prov = web.get("search_provider") or web.get("searchProvider") or "brave"
         prov_idx = _choice(t("tools.web_provider"), provider_choices,
                            default=provider_choices.index(cur_prov) if cur_prov in provider_choices else 0)
         web["search_provider"] = provider_choices[prov_idx]
         existing_key = web.get("search_api_key") or web.get("searchApiKey") or ""
         if existing_key:
-            new_key = ui.password(f"  {t('tools.web_api_key')} [****{t('common.saved')}]")
+            new_key = ui.password(f"{t('tools.web_api_key')} [****{t('common.saved')}]")
             if new_key:
                 web["search_api_key"] = new_key
         else:
-            new_key = ui.password(f"  {t('tools.web_api_key')}")
+            new_key = ui.password(t("tools.web_api_key"))
             if new_key:
                 web["search_api_key"] = new_key
     else:
@@ -474,6 +534,7 @@ def setup_tools(config: dict) -> None:
 
     if "image_gen" in chosen:
         ig = _ensure_dict(tools, "image_gen")
+        ig["enabled"] = True
         backend_options = [t("tools.image_backend_openai"), t("tools.image_backend_fal")]
         backend_values = ["openai", "fal"]
         cur_backend = ig.get("backend", "openai")
@@ -484,29 +545,30 @@ def setup_tools(config: dict) -> None:
         if backend_values[b_idx] == "fal":
             existing = ig.get("fal_key") or ig.get("falKey") or ""
             if existing:
-                new_key = ui.password(f"  {t('tools.image_fal_key')} [****{t('common.saved')}]")
+                new_key = ui.password(f"{t('tools.image_fal_key')} [****{t('common.saved')}]")
                 if new_key:
                     ig["fal_key"] = new_key
             else:
-                new_key = ui.password(f"  {t('tools.image_fal_key')}")
+                new_key = ui.password(t("tools.image_fal_key"))
                 if new_key:
                     ig["fal_key"] = new_key
-            ig["fal_model"] = ui.text(f"  {t('tools.image_fal_model')}", default=ig.get("fal_model") or ig.get("falModel") or "fal-ai/flux/schnell")
+            ig["fal_model"] = ui.text(t("tools.image_fal_model"), default=ig.get("fal_model") or ig.get("falModel") or "fal-ai/flux/schnell")
         else:
             existing = ig.get("api_key") or ig.get("apiKey") or ""
             if existing:
-                new_key = ui.password(f"  {t('tools.image_api_key')} [****{t('common.saved')}]")
+                new_key = ui.password(f"{t('tools.image_api_key')} [****{t('common.saved')}]")
                 if new_key:
                     ig["api_key"] = new_key
             else:
-                new_key = ui.password(f"  {t('tools.image_api_key')}")
+                new_key = ui.password(t("tools.image_api_key"))
                 if new_key:
                     ig["api_key"] = new_key
-            ig["api_base"] = ui.text(f"  {t('tools.image_api_base')}", default=ig.get("api_base") or ig.get("apiBase") or "https://api.openai.com/v1")
-            ig["model"] = ui.text(f"  {t('tools.image_model')}", default=ig.get("model", "dall-e-3"))
+            ig["api_base"] = ui.text(t("tools.image_api_base"), default=ig.get("api_base") or ig.get("apiBase") or "https://api.openai.com/v1")
+            ig["model"] = ui.text(t("tools.image_model"), default=ig.get("model", "dall-e-3"))
 
     if "tts" in chosen:
         tts = _ensure_dict(tools, "tts")
+        tts["enabled"] = True
         # 只列运行时(agent/tools/tts.py)真正实现的后端。曾提供 elevenlabs,
         # 但运行时无该实现,选中后会被静默降级为 Edge TTS,故移除。
         backends = ["edge", "openai"]
@@ -517,13 +579,13 @@ def setup_tools(config: dict) -> None:
         if backends[b_idx] == "openai":
             existing = tts.get("openai_api_key") or tts.get("openaiApiKey") or ""
             if existing:
-                new_key = ui.password(f"  {t('tools.tts_openai_key')} [****{t('common.saved')}]")
+                new_key = ui.password(f"{t('tools.tts_openai_key')} [****{t('common.saved')}]")
                 if new_key:
                     tts["openai_api_key"] = new_key
             else:
-                tts["openai_api_key"] = ui.password(f"  {t('tools.tts_openai_key')}")
-            tts["openai_api_base"] = ui.text(f"  {t('tools.tts_openai_base')}", default=tts.get("openai_api_base", "https://api.openai.com/v1"))
-            tts["model"] = ui.text(f"  {t('tools.tts_model')}", default=tts.get("model", "tts-1"))
+                tts["openai_api_key"] = ui.password(t("tools.tts_openai_key"))
+            tts["openai_api_base"] = ui.text(t("tools.tts_openai_base"), default=tts.get("openai_api_base", "https://api.openai.com/v1"))
+            tts["model"] = ui.text(t("tools.tts_model"), default=tts.get("model", "tts-1"))
 
     code_exec = _ensure_dict(tools, "code_exec")
     code_exec["enabled"] = "code_exec" in chosen
@@ -531,8 +593,30 @@ def setup_tools(config: dict) -> None:
     _ensure_dict(config, "scheduler")["enabled"] = "cron" in chosen
     _ensure_dict(config, "plugins")["enabled"] = "plugins" in chosen
 
+    # Symmetric real switches for the remaining tools. Previously image_gen
+    # and tts were only touched when selected (un-checking left a stale
+    # enabled/credentials behind), mcp was never persisted (print-only), and
+    # skills had no write-back at all — all "fake" toggles. Now un-checking any
+    # of them flips a real enabled=False in the config.
+    #
+    # image_gen / tts: only the enabled flag is flipped; api_key / fal_key /
+    # backend are preserved so re-enabling later doesn't lose credentials.
+    if "image_gen" not in chosen:
+        _ensure_dict(tools, "image_gen")["enabled"] = False
+    if "tts" not in chosen:
+        _ensure_dict(tools, "tts")["enabled"] = False
+
+    # mcp has no dedicated enabled field in the schema (only tools.mcp_servers),
+    # so introduce tools.mcp.enabled as the explicit switch while keeping the
+    # "no servers configured" hint.
+    mcp_block = _ensure_dict(tools, "mcp")
+    mcp_block["enabled"] = "mcp" in chosen
     if "mcp" in chosen and not (tools.get("mcp_servers") or tools.get("mcpServers")):
         print_info(t("tools.mcp_skip_hint"))
+
+    # skills config lives at the top-level `skills` section (SkillsConfig);
+    # add an explicit enabled switch there so un-checking really disables it.
+    _ensure_dict(config, "skills")["enabled"] = "skills" in chosen
 
     extras_str = ", ".join(t(f"tools.{k}") for k in TOOL_OPTIONS if k in chosen) or t("common.no")
     print_success(t("tools.saved", profile=t(f"tools.profile_{profile_keys[p_idx]}"), extras=extras_str))
@@ -579,6 +663,18 @@ def setup_channels(config: dict) -> None:
         preselected=[str(i) for i in pre_selected],
     )
     selected = [int(v) for v in selected_vals]
+    selected_keys = {CHANNEL_DEFS[idx][0] for idx in selected}
+
+    # Symmetric persistence: every candidate channel gets an explicit
+    # enabled flag written. Un-checking a channel must flip its persisted
+    # enabled:true → false, otherwise the UI shows it off while the service
+    # keeps listening. Empty selection is handled here too (all → False)
+    # rather than early-returning without writing anything. CLI is the
+    # implicit default channel (not in CHANNEL_DEFS) and is left untouched.
+    for ch_key, _label, _fields in CHANNEL_DEFS:
+        if ch_key not in selected_keys:
+            _ensure_dict(existing, ch_key)["enabled"] = False
+
     if not selected:
         print_info(t("channels.no_extra"))
         return
@@ -586,7 +682,7 @@ def setup_channels(config: dict) -> None:
     for idx in selected:
         ch_key, ch_label, fields = CHANNEL_DEFS[idx]
         print()
-        print(color(f"  ── {t('channels.config_for', label=ch_label)} ──", Colors.CYAN))
+        print(color(f"  ● {t('channels.config_for', label=ch_label)}", ansi("secondary")))
         ch = _ensure_dict(existing, ch_key)
         ch["enabled"] = True
 
@@ -597,16 +693,16 @@ def setup_channels(config: dict) -> None:
         for field_key, field_label in fields:
             secret = any(s in field_key.lower() for s in ("key", "secret", "token", "password"))
             if secret:
-                value = ui.password(f"  {field_label}")
+                value = ui.password(field_label)
             else:
-                value = ui.text(f"  {field_label}", default=ch.get(field_key, ""))
+                value = ui.text(field_label, default=ch.get(field_key, ""))
             if value:
                 ch[field_key] = value
 
         if ch_key in ("telegram", "discord", "slack", "qqbot", "email", "weixin", "dingtalk"):
             existing_allow = ch.get("allow_from") or ch.get("allowFrom") or []
             allow_default = ",".join(existing_allow) if isinstance(existing_allow, list) else str(existing_allow or "")
-            allow_raw = ui.text(f"  {t('channels.allow_from')}", default=allow_default)
+            allow_raw = ui.text(t("channels.allow_from"), default=allow_default)
             if allow_raw:
                 ch["allow_from"] = [s.strip() for s in allow_raw.split(",") if s.strip()]
             else:
@@ -615,7 +711,7 @@ def setup_channels(config: dict) -> None:
                 print_warning(t("channels.allow_warn"))
 
             home_existing = ch.get("home_channel") or ch.get("homeChannel") or ""
-            home = ui.text(f"  {t('channels.home_channel')}", default=home_existing)
+            home = ui.text(t("channels.home_channel"), default=home_existing)
             if home:
                 ch["home_channel"] = home
 
@@ -634,8 +730,11 @@ def setup_gateway(config: dict) -> None:
     if not gw["enabled"]:
         return
 
-    gw["host"] = ui.text(f"  {t('gateway.host')}", default=str(gw.get("host", "0.0.0.0")))
-    port_str = ui.text(f"  {t('gateway.port')}", default=str(gw.get("port", 58123)))
+    # Offer the schema's loopback default rather than 0.0.0.0: accepting every
+    # prompt must not produce a network-exposed gateway (and, with no token set,
+    # one that _check_bind_safety refuses to start).
+    gw["host"] = ui.text(t("gateway.host"), default=str(gw.get("host", "127.0.0.1")))
+    port_str = ui.text(t("gateway.port"), default=str(gw.get("port", 58123)))
     try:
         gw["port"] = int(port_str)
     except ValueError:
@@ -668,11 +767,11 @@ def setup_gateway(config: dict) -> None:
     if auth_keys[a_idx] in ("allowlist", "pairing"):
         existing_tokens = auth.get("api_tokens") or auth.get("apiTokens") or []
         token_default = existing_tokens[0] if existing_tokens else ""
-        token = ui.password(f"  {t('gateway.api_token')}") or token_default
+        token = ui.password(t("gateway.api_token")) or token_default
         if not token:
             import secrets
             token = secrets.token_urlsafe(32)
-            print_info(f"  Generated token: {token}")
+            print_info(f"Generated token: {token}")
         auth["api_tokens"] = [token]
     else:
         # open 模式:清理遗留的 api_tokens(含驼峰键),否则 server 只要发现
@@ -749,9 +848,9 @@ def setup_observability(config: dict) -> None:
     otel_on = ui.confirm(t("observability.otel"), default=bool(obs.get("otel_enabled", False)))
     obs["otel_enabled"] = otel_on
     if otel_on:
-        obs["otel_endpoint"] = ui.text(f"  {t('observability.otel_endpoint')}",
+        obs["otel_endpoint"] = ui.text(t("observability.otel_endpoint"),
                                        default=obs.get("otel_endpoint") or obs.get("otelEndpoint") or "http://localhost:4317")
-        obs["otel_service_name"] = ui.text(f"  {t('observability.otel_service')}",
+        obs["otel_service_name"] = ui.text(t("observability.otel_service"),
                                            default=obs.get("otel_service_name") or obs.get("otelServiceName") or "echo-agent")
 
     print_success(t("observability.saved",
@@ -803,7 +902,7 @@ def setup_evolution(config: dict) -> None:
 
     if trigger == "threshold":
         cur = int(evo.get("threshold_trajectories") or evo.get("thresholdTrajectories") or 50)
-        raw = ui.text(f"  {t('evolution.threshold')}", default=str(cur))
+        raw = ui.text(t("evolution.threshold"), default=str(cur))
         try:
             evo["threshold_trajectories"] = max(1, int(raw))
         except ValueError:
@@ -811,12 +910,12 @@ def setup_evolution(config: dict) -> None:
             evo["threshold_trajectories"] = cur
     elif trigger == "scheduled":
         cur = evo.get("cron_expression") or evo.get("cronExpression") or "0 4 * * *"
-        raw = ui.text(f"  {t('evolution.cron')}", default=cur)
+        raw = ui.text(t("evolution.cron"), default=cur)
         evo["cron_expression"] = raw or cur
 
     # Eval dataset path
     cur_dataset = evo.get("eval_dataset_path") or evo.get("evalDatasetPath") or "data/eval/baseline.yaml"
-    raw = ui.text(f"  {t('evolution.dataset_path')}", default=cur_dataset)
+    raw = ui.text(t("evolution.dataset_path"), default=cur_dataset)
     evo["eval_dataset_path"] = raw or cur_dataset
 
     # Strict / regression policy
@@ -826,7 +925,7 @@ def setup_evolution(config: dict) -> None:
     )
     cur_thr = float(evo.get("regression_threshold") or evo.get("regressionThreshold") or 0.05)
     print_info(t("evolution.regression_hint"))
-    raw = ui.text(f"  {t('evolution.regression')}", default=f"{cur_thr:.2f}")
+    raw = ui.text(t("evolution.regression"), default=f"{cur_thr:.2f}")
     try:
         v = float(raw)
         if 0.0 <= v <= 0.5:
@@ -842,14 +941,14 @@ def setup_evolution(config: dict) -> None:
         default=bool(evo.get("candidate_review_required", False)),
     )
     cur_cand = int(evo.get("max_candidates_per_run") or evo.get("maxCandidatesPerRun") or 3)
-    raw = ui.text(f"  {t('evolution.max_candidates')}", default=str(cur_cand))
+    raw = ui.text(t("evolution.max_candidates"), default=str(cur_cand))
     try:
         evo["max_candidates_per_run"] = max(1, int(raw))
     except ValueError:
         evo["max_candidates_per_run"] = cur_cand
 
     cur_retain = int(evo.get("trajectory_retention_days") or evo.get("trajectoryRetentionDays") or 30)
-    raw = ui.text(f"  {t('evolution.retention_days')}", default=str(cur_retain))
+    raw = ui.text(t("evolution.retention_days"), default=str(cur_retain))
     try:
         evo["trajectory_retention_days"] = max(0, int(raw))
     except ValueError:
@@ -866,14 +965,14 @@ def setup_evolution(config: dict) -> None:
 
     # Eval execution knobs (used by PromotionGate)
     cur_par = int(evo.get("eval_parallel") or evo.get("evalParallel") or 2)
-    raw = ui.text(f"  {t('evolution.eval_parallel')}", default=str(cur_par))
+    raw = ui.text(t("evolution.eval_parallel"), default=str(cur_par))
     try:
         evo["eval_parallel"] = max(1, int(raw))
     except ValueError:
         evo["eval_parallel"] = cur_par
 
     cur_to = int(evo.get("eval_timeout_seconds") or evo.get("evalTimeoutSeconds") or 60)
-    raw = ui.text(f"  {t('evolution.eval_timeout')}", default=str(cur_to))
+    raw = ui.text(t("evolution.eval_timeout"), default=str(cur_to))
     try:
         evo["eval_timeout_seconds"] = max(1, int(raw))
     except ValueError:
@@ -922,7 +1021,7 @@ def setup_cost(config: dict) -> None:
         return
 
     cur_budget = float(cost.get("daily_budget_usd") or cost.get("dailyBudgetUsd") or 0.0)
-    raw = ui.text(f"  {t('cost.daily_budget')}", default=f"{cur_budget:.2f}")
+    raw = ui.text(t("cost.daily_budget"), default=f"{cur_budget:.2f}")
     try:
         budget = float(raw)
         if not math.isfinite(budget):
@@ -990,6 +1089,17 @@ SECTION_ALIASES: dict[str, str] = {
     "check": "doctor",
 }
 
+def section_names() -> list[str]:
+    """Every section name ``setup <section>`` accepts, in wizard order.
+
+    ``doctor`` is appended because it is dispatched separately (read-only) and
+    is therefore not part of ``SETUP_SECTIONS``. ``__main__`` renders its
+    ``--help`` from this so the advertised list can never drift from the
+    implemented one again.
+    """
+    return [key for key, _ in SETUP_SECTIONS] + ["doctor"]
+
+
 def _capability_check(config: dict) -> list[tuple[str, bool, str]]:
     """Return a list of (label, ok, hint) tuples summarising what's available."""
     checks: list[tuple[str, bool, str]] = []
@@ -1020,7 +1130,15 @@ def _capability_check(config: dict) -> list[tuple[str, bool, str]]:
 
     gw = config.get("gateway", {}) or {}
     if gw.get("enabled"):
-        checks.append((t("doctor.gateway_on", host=gw.get("host", "0.0.0.0"), port=gw.get("port", 58123)), True, ""))
+        # Read the live state, not just the YAML: this used to print a ✓ for a
+        # gateway nobody was serving, on the very screen users rely on to decide
+        # whether their setup worked.
+        rt = probe_gateway(config=_probe_config(config))
+        if rt.state is GatewayState.RUNNING:
+            checks.append((t("doctor.gateway_on", host=rt.probe_host, port=rt.effective_port), True, ""))
+        else:
+            checks.append((t("doctor.gateway_enabled_not_running"), False,
+                           t("doctor.gateway_not_running_hint")))
     else:
         checks.append((t("doctor.gateway_off"), False, ""))
 
@@ -1051,19 +1169,69 @@ def _capability_check(config: dict) -> list[tuple[str, bool, str]]:
     return checks
 
 
+def _doctor_mark(status: str) -> str:
+    """Map a health status to a coloured glyph (ok/warn/fail → ✓/!/✗)."""
+    if status == OK:
+        return color("✓", ansi("success"))
+    if status == WARN:
+        return color("!", ansi("warning"))
+    return color("✗", ansi("error"))
+
+
+def doctor_report(config: dict) -> dict:
+    """Structured doctor result: live probes plus the config echo.
+
+    Shared by the interactive rendering and ``setup doctor --json`` so both
+    report the exact same findings.
+    """
+    probes = run_health_checks(config)
+    return {
+        "ok": all(p["status"] != FAIL for p in probes),
+        "probes": [
+            {
+                "name": p["name"],
+                "status": p["status"],
+                "detail": p.get("detail") or None,
+            }
+            for p in probes
+        ],
+        "ok_count": sum(1 for p in probes if p["status"] == OK),
+        "total": len(probes),
+        "config_echo": [
+            {"label": label, "ok": bool(ok), "detail": extra or None}
+            for label, ok, extra in _capability_check(config)
+        ],
+    }
+
+
 def setup_doctor(config: dict) -> None:
     _print_section_header("doctor")
     print_info(t("doctor.intro"))
     print()
-    checks = _capability_check(config)
-    ok_count = sum(1 for _, ok, _ in checks if ok)
-    print_info(t("doctor.summary_count", ok=ok_count, total=len(checks)))
+
+    # Real environment probes (ports, paths, credentials, PATH binaries).
+    # These replace the old hard-coded "OK"s with actual detection.
+    probes = run_health_checks(config)
+    ok_count = sum(1 for p in probes if p["status"] == OK)
+    print_info(t("doctor.summary_count", ok=ok_count, total=len(probes)))
     print()
+    for probe in probes:
+        mark = _doctor_mark(probe["status"])
+        line = f"  {mark} {probe['name']}"
+        if probe.get("detail"):
+            line += color(f"  ({probe['detail']})", ansi("text-muted"))
+        print(line)
+    print()
+
+    # Retained config echo: a quick read-out of what the config declares
+    # (profile / approval mode / channels / observability), distinct from the
+    # live probes above.
+    checks = _capability_check(config)
     for label, ok, extra in checks:
-        mark = color("✓", Colors.GREEN) if ok else color("✗", Colors.RED)
+        mark = color("✓", ansi("success")) if ok else color("✗", ansi("error"))
         line = f"  {mark} {label}"
         if extra:
-            line += color(f"  ({extra})", Colors.DIM)
+            line += color(f"  ({extra})", ansi("text-muted"))
         print(line)
     print()
 
@@ -1105,38 +1273,362 @@ def _ensure_credential_key(workspace: Path) -> None:
 # ── Summary ───────────────────────────────────────────────────────────────────
 
 def _print_summary(config: dict, config_path: Path) -> None:
-    print()
-    print(color(f"  ◆ {t('summary.header')}", Colors.CYAN, Colors.BOLD))
+    ui.intro(t("summary.header"))
     models = config.get("models", {}) or {}
     providers = models.get("providers", []) or []
     model_name = models.get("defaultModel") or models.get("default_model") or "-"
     prov_name = providers[0].get("name", "?") if providers else "?"
-    print_info(f"  {t('summary.model')}: {prov_name} · {model_name}")
+    print_info(f"{t('summary.model')}: {prov_name} · {model_name}")
 
     enabled = [k for k, v in (config.get("channels", {}) or {}).items()
                if isinstance(v, dict) and v.get("enabled") and k != "cli"]
     if enabled:
-        print_info(f"  {t('summary.channels')}: {', '.join(enabled)}")
+        print_info(f"{t('summary.channels')}: {', '.join(enabled)}")
     else:
-        print_info(f"  {t('summary.channels')}: {t('summary.channels_cli_only')}  → echo-agent setup channel")
+        print_info(f"{t('summary.channels')}: {t('summary.channels_cli_only')}  → echo-agent setup channel")
 
-    if not (config.get("gateway", {}) or {}).get("enabled"):
-        print_info(f"  {t('summary.gateway_off')}  → echo-agent gateway install")
+    # No gateway next-step line here: it used to appear only when the gateway was
+    # *disabled*, which is exactly the case that needs no `gateway install`, and
+    # stayed silent for the enabled-but-not-running case that does. The startup
+    # handoff (_offer_gateway_start, called right after this) reads the live state
+    # and gives the one command that applies.
+    print_info(f"{t('summary.config_file')}: {config_path}")
+    print()
+    print(color(f"  {t('summary.next_steps')}", Colors.BOLD, ansi("primary")))
+    print(color(t("summary.next_run"), ansi("secondary")))
+    print(color(t("summary.next_setup"), ansi("secondary")))
+    print(color(t("summary.next_status"), ansi("secondary")))
+    print()
 
-    print_info(f"  {t('summary.config_file')}: {config_path}")
+
+# ── Startup handoff ───────────────────────────────────────────────────────────
+
+_START_TIMEOUT_SECONDS = 15.0
+"""How long to wait for the port after a successful `start`.
+
+Bootstrap loads the embedding model, so a cold start is not instant — hence a
+generous ceiling rather than a single check.
+"""
+
+
+def _as_str(path: Any) -> str | None:
+    return str(path) if path else None
+
+
+def _probe_config(config: dict) -> Any:
+    """Adapt the wizard's plain dict to the attribute access the probe expects.
+
+    The wizard works on raw YAML dicts (it must write keys the schema may not
+    know yet), while the probe reads config.gateway.*. Building a tiny view is
+    cheaper and safer than round-tripping the dict through the pydantic schema
+    mid-wizard, which would reject a half-configured file.
+
+    Every field is coerced defensively: the config may have been hand-edited
+    (``port: abc``), and the probe's own tolerance does not help here because
+    this view is built *before* the call, outside its never-raises guard.
+    """
+    from types import SimpleNamespace
+
+    gw = config.get("gateway", {})
+    if not isinstance(gw, dict):
+        gw = {}
+    try:
+        port = int(gw.get("port", 58123))
+    except (TypeError, ValueError):
+        port = 0
+    return SimpleNamespace(
+        gateway=SimpleNamespace(
+            enabled=bool(gw.get("enabled", False)),
+            # Mirrors the schema default so the probe targets the same address
+            # the gateway will actually bind when the key is absent.
+            host=str(gw.get("host", "127.0.0.1")),
+            port=port,
+        ),
+        workspace=str(config.get("workspace") or "."),
+    )
+
+
+def _wait_until_listening(
+    config: dict, config_path: Any, workspace: str | None,
+    timeout: float = _START_TIMEOUT_SECONDS,
+) -> bool:
+    """Poll until the gateway port actually accepts a connection.
+
+    A service manager's `start` returning 0 only means the fork succeeded. The
+    agent can still die during bootstrap (bad API key, port taken) and the
+    wizard would have reported success for a gateway nobody is serving.
+    """
+    import time
+
+    from echo_agent.cli.runtime_probe import GatewayState
+
+    deadline = time.monotonic() + timeout
+    while True:
+        rt = probe_gateway(config=_probe_config(config), config_path=_as_str(config_path),
+                           workspace=workspace)
+        if rt.state is GatewayState.RUNNING:
+            return True
+        if time.monotonic() >= deadline:
+            return False
+        time.sleep(0.5)
+
+
+def _service_action(action: str, workspace: str | None, config_path: Any) -> int:
+    """Run one service action, converting a hard exit into a return code.
+
+    The backends call ``sys.exit`` on a failing ``systemctl`` and raise
+    ``SystemExit`` when the unit is missing. That is right for
+    ``echo-agent gateway start``, whose only job is that action, but here the
+    config is already saved: a service that will not start is a result to report,
+    not a reason to kill the wizard before it prints anything.
+    """
+    try:
+        return int(run_service_action(action, workspace=workspace, config=_as_str(config_path)) or 0)
+    except SystemExit as exc:
+        return exc.code if isinstance(exc.code, int) else 1
+    except Exception:  # noqa: BLE001 - a broken service manager must not lose the summary
+        return 1
+
+
+def _installer_owns_service_registration() -> bool:
+    """True when install.sh will register the service itself after the wizard.
+
+    Only when running as root: install.sh then registers a *system* unit, while
+    this wizard can only register a user-scope one. Registering both would leave
+    two units competing for port 58123 and the workspace lock. As a normal user
+    the installer's scope matches the wizard's, so the wizard goes ahead and
+    install.sh detects the unit and skips its own prompt.
+    """
+    import os
+    import sys
+
+    if os.environ.get("ECHO_AGENT_SETUP_HANDLES_SERVICE") != "1":
+        return False
+    return sys.platform == "linux" and os.geteuid() == 0
+
+
+def _print_linger_hint_if_needed() -> None:
+    """A Linux user-scope service dies with the login session unless lingering
+    is enabled — surprising for something meant to run 24/7."""
+    import os
+    import subprocess
+    import sys
+
+    if sys.platform != "linux" or os.geteuid() == 0:
+        return
+    try:
+        user = os.getlogin()
+    except OSError:
+        user = os.environ.get("USER", "") or ""
+    if not user:
+        return
+    try:
+        out = subprocess.run(
+            ["loginctl", "show-user", user], capture_output=True, text=True, timeout=5,
+        ).stdout
+    except (OSError, subprocess.SubprocessError):
+        return
+    if "Linger=yes" in out:
+        return
+    print_warning(t("startup.linger_warn"))
+    print_info(t("startup.linger_fix", user=user))
+
+
+def _report_started(config: dict, config_path: Any, workspace: str | None) -> None:
+    print_info(t("startup.starting"))
+    if _wait_until_listening(config, config_path, workspace):
+        rt = probe_gateway(config=_probe_config(config), config_path=_as_str(config_path),
+                           workspace=workspace)
+        print_success(t("startup.start_ok", host=rt.probe_host, port=rt.effective_port))
+    else:
+        print_warning(t("startup.start_timeout", seconds=int(_START_TIMEOUT_SECONDS)))
+        print_info(t("startup.start_timeout_hint"))
+
+
+def _report_start_failed() -> None:
+    print_warning(t("startup.start_failed"))
+    print_info(t("startup.start_timeout_hint"))
+
+
+def _maybe_offer_dashboard_build() -> None:
+    """Offer to build the SPA before a background service takes over.
+
+    The service process itself never builds (it must not block on pnpm), so if we
+    do not ask here a fresh install would never build the Dashboard at all: the
+    installer no longer builds it either.
+    """
+    try:
+        from echo_agent.gateway.dashboard_build import (
+            BuildReason,
+            build_dashboard,
+            dashboard_build_needed,
+            describe_outcome,
+            find_web_dir,
+        )
+    except Exception:  # noqa: BLE001 - the frontend is optional
+        return
+
+    web_dir = find_web_dir()
+    if web_dir is None or not dashboard_build_needed(web_dir):
+        return
+    if not ui.confirm(t("dashboard.ask_build"), default=False):
+        print_info(t("dashboard.declined"))
+        return
+    print_info(t("dashboard.building"))
+    outcome = build_dashboard(
+        web_dir,
+        on_output=lambda line: print(f"    {line}", flush=True),
+        confirm=lambda msg: ui.confirm(msg, default=True),
+    )
+    # BuildOutcome 没有 ok 字段(拆成了 build_succeeded / artifact_usable),此处沿用
+    # describe_outcome 的判据:只有 reason 为 OK 才是纯成功。artifact_usable=True 但
+    # 构建失败时,消息是"继续使用上一次的产物",那属于警告而不是成功。
+    succeeded = outcome.reason is BuildReason.OK
+    (print_success if succeeded else print_warning)(describe_outcome(outcome))
+
+
+def _unstartable_reason(config: dict) -> str:
+    """Why the saved gateway config cannot start, or "" when it can.
+
+    Mirrors ``gateway/server.py:_check_bind_safety``: a non-loopback bind with no
+    token of any kind is refused at startup. Checking it here turns a service
+    that fails on every start into an explanation at the one moment the user can
+    still act on it — quickstart never visits the gateway section, so nothing
+    else in that flow would notice.
+
+    Kept as a *duplicate* of the server's rule rather than a call into it,
+    because the wizard holds a raw YAML dict (possibly hand-edited, possibly not
+    schema-valid yet) and building a GatewayServer to ask would mean standing up
+    a bus, session manager and workspace mid-wizard. The pairing is pinned by a
+    test that fails if the two rules drift.
+    """
+    gw = config.get("gateway", {})
+    if not isinstance(gw, dict) or not gw.get("enabled"):
+        return ""
+    host = str(gw.get("host", "127.0.0.1")).strip()
+    if host in ("127.0.0.1", "localhost", "::1", ""):
+        return ""
+    auth = gw.get("auth", {})
+    if not isinstance(auth, dict):
+        auth = {}
+    has_token = bool(
+        auth.get("api_tokens") or auth.get("apiTokens")
+        or auth.get("admin_tokens") or auth.get("adminTokens")
+    )
+    if has_token:
+        return ""
+    return host
+
+
+def _offer_gateway_start(
+    config: dict, config_path: Any, workspace: Any = None, *, section_only: bool = False
+) -> None:
+    """Close the gap between "config saved" and "the product works".
+
+    The wizard only ever wrote YAML; nothing started the process that serves
+    58123, and nothing said so. This runs after the summary and, per the live
+    runtime state, either starts the gateway or hands the user the one command
+    that applies to their platform.
+
+    ``section_only``: the user reconfigured a single section rather than doing a
+    first-time install. Never offer to install a service in that case — just say
+    whether the change is live yet.
+    """
+    from echo_agent.cli.runtime_probe import GatewayState
+
+    if not is_interactive():
+        return
+
+    # Refuse to register a unit that provably cannot boot. Doing this before the
+    # probe (rather than letting `start` fail and reporting it) means the user
+    # gets the actual cause and the fix, not a generic "could not start".
+    bad_host = _unstartable_reason(config)
+    if bad_host:
+        print()
+        print_warning(t("startup.unstartable", host=bad_host))
+        print_info(t("startup.unstartable_fix"))
+        return
+
+    ws = _as_str(workspace)
+    rt = probe_gateway(config=_probe_config(config), config_path=_as_str(config_path),
+                       workspace=ws)
+
+    if rt.state is GatewayState.DISABLED:
+        print_info(t("startup.disabled"))
+        print_info(t("startup.disabled_fix"))
+        return
+
     print()
-    print(color(f"  {t('summary.next_steps')}", Colors.CYAN))
-    print(color(t("summary.next_run"), Colors.GREEN))
-    print(color(t("summary.next_setup"), Colors.GREEN))
-    print(color(t("summary.next_status"), Colors.GREEN))
-    print()
+    ui.intro(t("startup.header"))
+
+    if rt.state is GatewayState.RUNNING:
+        print_success(t("startup.running", host=rt.probe_host, port=rt.effective_port))
+        if section_only:
+            print_info(t("startup.restart_needed"))
+        return
+
+    if rt.state is GatewayState.NO_SERVICE_MANAGER:
+        # Deliberately no prompt and no action: a nohup'd gateway the wizard
+        # spawned would be unsupervised, would not restart on crash or reboot,
+        # and would collide with the workspace single-instance lock later.
+        print_warning(t("startup.no_manager"))
+        if is_wsl():
+            print_info(t("startup.no_manager_wsl"))
+        print_info(t("startup.no_manager_tmux"))
+        return
+
+    if section_only:
+        # The next command differs by state: with no unit registered, a bare
+        # `gateway start` exits 1 and tells the user to run `install` first, so
+        # pointing there would send them down a command that cannot work.
+        if rt.state is GatewayState.NOT_INSTALLED:
+            print_warning(t("startup.not_installed_hint"))
+        else:
+            print_warning(t("startup.not_running"))
+        return
+
+    _maybe_offer_dashboard_build()
+
+    if rt.state is GatewayState.SERVICE_INSTALLED_STOPPED:
+        if not ui.confirm(t("startup.ask_start"), default=True):
+            print_info(t("startup.declined_start"))
+            return
+        # This state also covers "the manager calls the unit active but the port
+        # is dead" — a unit that forked and then died in bootstrap. `start` on an
+        # already-active unit is a no-op that would burn the whole poll window
+        # and still fail, so restart it instead; only a genuinely stopped unit
+        # gets `start`.
+        action = "restart" if rt.service_running else "start"
+        if _service_action(action, ws, config_path) != 0:
+            _report_start_failed()
+            return
+        _report_started(config, config_path, ws)
+        return
+
+    # NOT_INSTALLED
+    if _installer_owns_service_registration():
+        # install.sh running as root registers a *system* unit; this wizard only
+        # ever registers a user-scope one. Offering here would leave the machine
+        # with two units for one gateway, so defer to the installer.
+        print_info(t("startup.declined"))
+        return
+    if not ui.confirm(t("startup.ask_install"), default=True):
+        print_info(t("startup.declined"))
+        return
+    if _service_action("install", ws, config_path) != 0:
+        print_warning(t("startup.install_failed"))
+        return
+    if _service_action("start", ws, config_path) != 0:
+        _report_start_failed()
+        return
+    _report_started(config, config_path, ws)
+    _print_linger_hint_if_needed()
 
 
 # ── Headless / non-interactive guidance ───────────────────────────────────────
 
 def _print_headless_guidance() -> None:
-    print()
-    print(color(f"  ◆ {t('headless.guide_title')}", Colors.CYAN, Colors.BOLD))
+    ui.intro(t("headless.guide_title"))
     print()
     print_warning(t("headless.warning"))
     print_info(t("headless.guide_intro"))
@@ -1185,20 +1677,68 @@ def run_setup_wizard(
     workspace: str | Path | None = None,
     lang: str | None = None,
     flow: str | None = None,
-) -> None:
-    """Run the interactive setup wizard.
+    as_json: bool = False,
+) -> int:
+    """Run the setup wizard, treating Ctrl-C / EOF as a clean cancellation.
+
+    The prompt helpers raise PromptAborted rather than calling sys.exit(0)
+    themselves, so that a command whose work did NOT happen can report a
+    non-zero code. The wizard is the case where aborting genuinely is a normal
+    user action, so it keeps the old exit-0 behaviour — just decided here rather
+    than deep inside the input helper."""
+    try:
+        return _run_setup_wizard(
+            section=section, config_path=config_path, workspace=workspace,
+            lang=lang, flow=flow, as_json=as_json,
+        )
+    except PromptAborted:
+        return 0
+
+
+def _run_setup_wizard(
+    section: str | None = None,
+    config_path: str | Path | None = None,
+    workspace: str | Path | None = None,
+    lang: str | None = None,
+    flow: str | None = None,
+    as_json: bool = False,
+) -> int:
+    """Run the interactive setup wizard and return a process exit code.
 
     ``section``:  name (or alias) of a single section to configure.
     ``flow``:     ``"quickstart"`` or ``"full"``; bypasses the menu.
     ``lang``:     ``"zh"`` or ``"en"``; overrides auto-detection.
+    ``as_json``:  only meaningful for the read-only ``doctor`` section — emits
+                  the structured report with ANSI off and skips the TTY
+                  requirement (nothing is prompted or written). Any other
+                  section rejects it rather than pretending to be scriptable.
     """
+    if as_json:
+        config, _ = _load_existing_config(config_path, workspace)
+        _resolve_initial_locale(config, lang)
+        canonical = SECTION_ALIASES.get((section or "").lower(), (section or "").lower())
+        if canonical != "doctor":
+            print(json.dumps({
+                "ok": False,
+                "error": "--json is only supported for the read-only 'doctor' section",
+                "hint": "echo-agent setup doctor --json",
+            }, ensure_ascii=False, indent=2))
+            return 2
+        set_color_override(False)
+        try:
+            report = doctor_report(config)
+            print(json.dumps(report, ensure_ascii=False, indent=2))
+        finally:
+            set_color_override(None)
+        return 0 if report["ok"] else 1
+
     if not is_interactive():
         # Pick a locale even in headless mode so the guidance prints in the
         # user's language.
         config, _ = _load_existing_config(config_path, workspace)
         _resolve_initial_locale(config, lang)
         _print_headless_guidance()
-        return
+        return 1
 
     config_target = _setup_config_target(config_path=config_path, workspace=workspace)
     config, existing_file = _load_existing_config(config_path, workspace)
@@ -1217,18 +1757,19 @@ def run_setup_wizard(
         if canonical == "doctor":
             _print_banner()
             setup_doctor(config)
-            return
+            return 0
         func = section_map.get(canonical)
         if func is None:
             print_error(f"Unknown section: {section}")
             print_info("Available: " + ", ".join(k for k, _ in SETUP_SECTIONS) + ", doctor")
-            return
+            return 1
         _print_banner()
         func(config)
         path = save_config(config, config_target)
         label = t(f"section.{canonical}")
         print_success(t("summary.section_saved", label=label, path=path))
-        return
+        _offer_gateway_start(config, path, workspace, section_only=True)
+        return 0
 
     _print_banner()
 
@@ -1248,21 +1789,22 @@ def run_setup_wizard(
         choice = ui.select(t("menu.existing_what"), menu_choices, default="quickstart")
         if choice == "exit":
             print_info(t("menu.exit_hint"))
-            return
+            return 0
         if choice == "quickstart":
             flow = "quickstart"
         elif choice == "full":
             flow = "full"
         elif choice == "doctor":
             setup_doctor(config)
-            return
+            return 0
         else:
             key = choice.split(":", 1)[1]
             func = section_map[key]
             func(config)
             path = save_config(config, config_target)
             print_success(t("summary.section_saved", label=t(f"section.{key}"), path=path))
-            return
+            _offer_gateway_start(config, path, workspace, section_only=True)
+            return 0
 
     language_done = False
     if flow is None and not is_existing:
@@ -1285,8 +1827,9 @@ def run_setup_wizard(
         _ensure_credential_key(_resolve_workspace(config))
         setup_doctor(config)
         _print_summary(config, path)
+        _offer_gateway_start(config, path, workspace)
         ui.outro(t("summary.complete"))
-        return
+        return 0
 
     for _key, func in SETUP_SECTIONS:
         if _key == "language" and language_done:
@@ -1297,7 +1840,9 @@ def run_setup_wizard(
     _ensure_credential_key(_resolve_workspace(config))
     setup_doctor(config)
     _print_summary(config, path)
+    _offer_gateway_start(config, path, workspace)
     print_success(t("summary.complete"))
+    return 0
 
 
 def has_any_provider_configured(config_path: str | Path | None = None, workspace: str | Path | None = None) -> bool:
@@ -1308,7 +1853,11 @@ def has_any_provider_configured(config_path: str | Path | None = None, workspace
     with open(config_file, encoding="utf-8") as f:
         data = yaml.safe_load(f) or {}
     providers = (data.get("models", {}) or {}).get("providers", []) or []
-    return bool(providers)
+    # An empty mapping/list item is not a usable provider. Keeping this predicate
+    # aligned with the doctor capability check prevents the installer from
+    # treating ``providers: [{}]`` as a completed setup and silently skipping the
+    # wizard.
+    return any(isinstance(provider, dict) and provider.get("name") for provider in providers)
 
 
 def prompt_first_run_setup(
@@ -1329,10 +1878,16 @@ def prompt_first_run_setup(
 
     print()
     print_warning(t("summary.first_run_no_config"))
-    if prompt_yes_no(t("summary.first_run_prompt"), default=True):
+    try:
+        accepted = prompt_yes_no(t("summary.first_run_prompt"), default=True)
+    except PromptAborted:
+        # Ctrl-C / EOF at the very first prompt of a fresh install means "let me
+        # out", not "run me without a config" - keep the historical clean exit,
+        # decided here at the flow boundary instead of inside the input helper.
+        raise SystemExit(0) from None
+    if accepted:
         run_setup_wizard(config_path=config_path, workspace=workspace, lang=lang)
         return True
     print_info(t("summary.first_run_skip_msg"))
     print_info(t("summary.first_run_skip_hint"))
     return False
-

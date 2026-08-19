@@ -290,6 +290,13 @@ class AgentHITLType(str, Enum):
     SLACK = "slack"
 
 
+class AgentToolApprovalApprovers(BaseModel):
+    """Who may authorize a gated tool call: named people, named groups, or both."""
+
+    user_ids: Optional[List[str]] = None
+    group_ids: Optional[List[str]] = None
+
+
 class AgentGraphItemHITLSettings(BaseModel):
     """
     Model for Human-in-the-Loop settings in agent graph items.
@@ -309,6 +316,12 @@ class AgentGraphItemHITLSettings(BaseModel):
     hitl_type: Optional[AgentHITLType] = None
     slack_app: Optional[str] = None
     should_approve_with_current_user: Optional[bool] = True
+    enabled: Optional[bool] = False
+    approvers: Optional[AgentToolApprovalApprovers] = None
+    on_deny: Optional[str] = "continue"
+    allowed_scopes: Optional[List[str]] = None
+    timeout_seconds: Optional[int] = None
+    channels: Optional[List[str]] = None
 
 
 class AgentGraphItemA2ASettings(BaseModel):

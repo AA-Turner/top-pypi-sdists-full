@@ -1,6 +1,6 @@
 Metadata-Version: 2.5
 Name: langchain-openai
-Version: 1.5.1
+Version: 1.5.2
 Summary: An integration package connecting OpenAI and LangChain
 Project-URL: Homepage, https://docs.langchain.com/oss/python/integrations/providers/openai
 Project-URL: Documentation, https://reference.langchain.com/python/integrations/langchain_openai/
@@ -24,7 +24,7 @@ Classifier: Programming Language :: Python :: 3.14
 Classifier: Topic :: Scientific/Engineering :: Artificial Intelligence
 Requires-Python: <4.0.0,>=3.10.0
 Requires-Dist: certifi>=2024.6.2
-Requires-Dist: langchain-core<2.0.0,>=1.5.4
+Requires-Dist: langchain-core<2.0.0,>=1.5.6
 Requires-Dist: openai<4.0.0,>=2.45.0
 Requires-Dist: tiktoken<1.0.0,>=0.7.0
 Description-Content-Type: text/markdown

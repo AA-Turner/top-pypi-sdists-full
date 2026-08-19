@@ -105,6 +105,8 @@ with contextlib.suppress(ImportError):
         # before ``worker_process_setup_hook``.
         import sys as _sys
 
+        from geneva.utils.ray import GENEVA_RAY_HEAD
+
         existing_pythonpath = os.environ.get("PYTHONPATH", "")
         if test_path not in existing_pythonpath.split(os.pathsep):
             os.environ["PYTHONPATH"] = (
@@ -121,6 +123,9 @@ with contextlib.suppress(ImportError):
                 "env_vars": {"PYTHONPATH": os.environ["PYTHONPATH"]},
                 "worker_process_setup_hook": setup_worker_logging,
             },
+            # Advertise GENEVA_RAY_HEAD so tasks using
+            # ``head_pin_options()`` can be scheduled on the single local node.
+            resources={GENEVA_RAY_HEAD: 1},
         )
         yield
         ray.shutdown()
@@ -162,12 +167,18 @@ def make_lance_dataset(
     tbl_path: Path,
     size: int = 17,
     max_rows_per_file: int = 5,
+    *,
+    stable_row_ids: bool = False,
 ) -> lance.LanceDataset:
     """Create initial dataset with column 'a' as primary key."""
     data = {"a": pa.array(range(size))}
     tbl = pa.Table.from_pydict(data)
     ds = lance.write_dataset(
-        tbl, tbl_path, max_rows_per_file=max_rows_per_file, data_storage_version="2.0"
+        tbl,
+        tbl_path,
+        max_rows_per_file=max_rows_per_file,
+        data_storage_version="2.0",
+        enable_stable_row_ids=stable_row_ids,
     )
     return ds
 
@@ -410,7 +421,10 @@ def make_multifragment_table(
     Returns:
         Table with num_fragments fragments, each with rows_per_fragment rows
     """
-    storage_opts = {"new_table_enable_stable_row_ids": stable_row_ids}
+    # lancedb requires string storage_options values; a raw False would raise
+    storage_opts = {
+        "new_table_enable_stable_row_ids": "true" if stable_row_ids else "false"
+    }
 
     # Create first fragment
     start = 0

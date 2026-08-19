@@ -32,7 +32,14 @@ def test_mv_differential_shim_sweep() -> None:
         timeout=1200,
         # L=3 over 6 flavors (~717 cases); 4 workers ~= 2 GB peak -- safe on a
         # standard CI runner. Per-case tempdir cleanup keeps memory flat with depth.
-        env={**os.environ, "GENEVA_MVDIFF_MAXLEN": "3", "SWEEP_WORKERS": "4"},
+        # SRID pinned to "on": the script rejects anything else, and the pytest
+        # axis value "both" (test_matview_differential) may sit in ambient env.
+        env={
+            **os.environ,
+            "GENEVA_MVDIFF_MAXLEN": "3",
+            "SWEEP_WORKERS": "4",
+            "GENEVA_MVDIFF_SRID": "on",
+        },
     )
     # The sweep exits 0 iff every divergence is a known bug. On failure, lead with
     # the (large, noisy) logs and END with the sweep summary + NEW-signature lines,

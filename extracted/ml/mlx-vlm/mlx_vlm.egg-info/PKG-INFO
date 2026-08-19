@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: mlx-vlm
-Version: 0.6.14
+Version: 0.6.15
 Summary: MLX-VLM is a package for inference and fine-tuning of Vision Language Models (VLMs) and Omni Models (VLMs with audio and video support) on your Mac using MLX.
 Author-email: Prince Canuma <prince.gdt@gmail.com>
 License: MIT
@@ -19,6 +19,7 @@ Description-Content-Type: text/markdown
 License-File: LICENSE
 Requires-Dist: mlx>=0.32.0
 Requires-Dist: transformers>=5.14.0
+Requires-Dist: sentencepiece>=0.2.0
 Requires-Dist: miniaudio>=1.59
 Requires-Dist: tqdm>=4.66.2
 Requires-Dist: Pillow>=10.3.0

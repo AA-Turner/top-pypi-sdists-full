@@ -344,7 +344,12 @@ def test_plan_read_uses_indexed_ranges_without_blob_checkpoint_payload_reads(
     )
 
     task_list = list(tasks)
-    assert [(task.dest_offset(), task.num_rows()) for task in task_list] == [(2, 2)]
+    # The covered run [0, 2) is planned too (reused from checkpoints, no
+    # payload read at planning time); [2, 4) is recomputed.
+    assert [(task.dest_offset(), task.num_rows()) for task in task_list] == [
+        (0, 2),
+        (2, 2),
+    ]
     assert pipeline_args["skipped_stats"] == {"fragments": 0, "rows": 0}
 
 

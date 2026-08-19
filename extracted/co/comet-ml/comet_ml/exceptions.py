@@ -549,6 +549,30 @@ class FileUploadThrottledException(CometException):
         )
 
 
+class AssetIsImmutableException(CometException):
+    """Exception raised when the backend refuses to store an asset because an asset with the
+    same name was already uploaded to the experiment and assets are immutable.
+
+    The upload itself reached the backend, it is the asset that was rejected, so this is a
+    terminal outcome: retrying the very same upload can only be rejected again."""
+
+    def __init__(
+        self,
+        response: requests.Response,
+        upload_options: "AvailableUploadOptions" = None,
+    ) -> None:
+        super().__init__()
+        self.response = response
+        self.upload_options = upload_options
+        upload_type = (
+            upload_options.upload_type if upload_options is not None else "unknown"
+        )
+        self.args = (
+            f"Asset rejected as immutable for type '{upload_type}', it was NOT stored",
+            response,
+        )
+
+
 """
 SDK Error Code mapping, names comes from the backend
 """

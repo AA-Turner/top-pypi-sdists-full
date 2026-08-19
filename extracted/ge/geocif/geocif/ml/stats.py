@@ -1,9 +1,13 @@
+import ast
+import logging
 import os
 from pathlib import Path
 
 import numpy as np
 import pandas as pd
 from geocif.progress import pbar as _pbar
+
+logger = logging.getLogger(__name__)
 
 
 # Canonical production-system whitelist used by HvStat Africa data
@@ -73,6 +77,55 @@ def _norm_region_name(s) -> str:
 
 def _norm_region_series(s: pd.Series) -> pd.Series:
     return s.astype(str).str.lower().str.replace("_", " ", regex=False)
+
+
+def parse_run_regions(raw, crop=None, log=None):
+    """Parse a ``run_regions`` config value into a list of names, or None.
+
+    Accepts either form::
+
+        run_regions = ["illinois", "iowa"]                 ; all crops
+        run_regions = {"maize": ["illinois"], "soybean": [...]}
+
+    Returns None — meaning "no filtering" — when the value is unset,
+    unparseable, not a list/dict, or a dict with no entry for ``crop``. A
+    malformed value never raises: it is logged and treated as unset.
+
+    Shared by the ML frame filter (geocif._get_run_region_selection) and the
+    CID-generation filter, so the two can never interpret the same config
+    differently.
+    """
+    log = log or logger
+    if not raw:
+        return None
+
+    try:
+        selection = ast.literal_eval(str(raw))
+    except (ValueError, SyntaxError) as exc:
+        log.warning(f"Failed to parse run_regions ({raw!r}): {exc}. Running all regions.")
+        return None
+
+    if isinstance(selection, dict):
+        crop_key = str(crop or "").strip().lower().replace(" ", "_")
+        by_crop = {
+            str(k).strip().lower().replace(" ", "_"): v for k, v in selection.items()
+        }
+        if crop_key not in by_crop:
+            log.info(f"run_regions has no entry for crop '{crop}' — running all regions")
+            return None
+        selection = by_crop[crop_key]
+
+    if isinstance(selection, str):
+        selection = [selection]
+    if not isinstance(selection, (list, tuple, set)):
+        log.warning(
+            f"run_regions must be a list or a {{crop: list}} dict, got "
+            f"{type(selection).__name__} — ignoring, running all regions."
+        )
+        return None
+
+    names = [str(name).strip() for name in selection if str(name).strip()]
+    return names or None
 
 
 def _resolve_stats_file(country, parser=None) -> str:

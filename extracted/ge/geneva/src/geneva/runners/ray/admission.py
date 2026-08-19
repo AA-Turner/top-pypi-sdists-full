@@ -46,10 +46,14 @@ class AdmissionConfig(ConfigBase):
       GENEVA_ADMISSION__TIMEOUT (uses '__' double underscore separator)
     - pyproject.toml: [geneva.geneva_admission] section
     - Config files: .config/*.yaml, .config/*.json, .config/*.toml
+
+    ``strict`` defaults to False: admission control reports insufficient
+    resources as a warning and lets the job proceed. Set it to True (or pass
+    ``_admission_strict=True``) to fail fast instead.
     """
 
     check: bool = attrs.field(default=True, converter=str_to_bool)
-    strict: bool = attrs.field(default=True, converter=str_to_bool)
+    strict: bool = attrs.field(default=False, converter=str_to_bool)
     timeout: float = attrs.field(default=3.0, converter=float)
 
     @classmethod
@@ -201,6 +205,53 @@ class ResourcesUnavailableError(Exception):
     """Raised when job cannot run due to insufficient cluster resources."""
 
 
+class ClusterKind(Enum):
+    """Which kind of Ray cluster admission control is running against."""
+
+    KUBERAY = auto()  # Geneva-managed KubeRay cluster (autoscaling known)
+    LOCAL = auto()  # Local ray.init() cluster
+    EXTERNAL = auto()  # Pre-existing cluster connected to by address
+
+
+def _detect_cluster_kind() -> ClusterKind:
+    """Classify the current Ray connection for admission messaging."""
+    if _is_kuberay_cluster():
+        return ClusterKind.KUBERAY
+
+    from geneva._context import LocalRayContext
+
+    if isinstance(get_current_context(), LocalRayContext):
+        return ClusterKind.LOCAL
+    return ClusterKind.EXTERNAL
+
+
+def _cluster_advisory(kind: ClusterKind) -> str:
+    """Explain what the admission check did and did not account for.
+
+    Autoscaling is the main source of false rejections: on KubeRay we know the
+    max scale capacity, on an external cluster we only see current capacity.
+    """
+    if kind is ClusterKind.KUBERAY:
+        return (
+            "This check accounts for the cluster's maximum autoscale capacity, "
+            "so the job is unlikely to become schedulable by scaling up."
+        )
+    if kind is ClusterKind.EXTERNAL:
+        return (
+            "This check compares against the external cluster's current "
+            "capacity and does not account for autoscaling. If the cluster can "
+            "scale up, the job may still be schedulable."
+        )
+    return ""
+
+
+def _warn_admission(prefix: str, message: str, kind: ClusterKind) -> None:
+    """Log a non-strict admission rejection with cluster-specific context."""
+    parts = [message, _cluster_advisory(kind)]
+    parts.append("Proceeding anyway; set _admission_strict=True to fail fast.")
+    _LOG.warning("%s: %s", prefix, " ".join(p for p in parts if p))
+
+
 @dataclass
 class JobResources:
     """Resources required for a backfill job."""
@@ -210,7 +261,7 @@ class JobResources:
     applier_gpus: float
     applier_memory: int
 
-    # Overhead resources (driver, jobtracker, writers, queues)
+    # Worker-side overhead resources (JobTracker, writers, queues)
     overhead_cpus: float
     overhead_memory: int
 
@@ -401,14 +452,10 @@ def calculate_job_resources(
     applier_gpus = concurrency * udf_gpus
     applier_memory = concurrency * udf_memory
 
-    # Overhead resources for driver, jobtracker, and writers
-    # Note: queues use minimal CPU but we exclude them from overhead calculation
+    # Worker-side overhead resources. The driver is pinned to the head pod,
+    # so only the JobTracker and fragment writers consume worker CPU.
     rc = _get_resource_config()
-    overhead_cpus = (
-        rc.driver_num_cpus
-        + rc.jobtracker_num_cpus
-        + concurrency * rc.fragment_writer_num_cpus
-    )
+    overhead_cpus = rc.jobtracker_num_cpus + concurrency * rc.fragment_writer_num_cpus
     overhead_memory = rc.jobtracker_memory + concurrency * rc.fragment_writer_memory
 
     return JobResources(
@@ -432,8 +479,9 @@ def calculate_udtf_job_resources(
 ) -> JobResources:
     """Calculate total resources needed for a UDTF refresh job.
 
-    Unlike regular backfill jobs, UDTF jobs have no fragment writers so overhead
-    is just the driver + jobtracker.
+    Unlike regular backfill jobs, UDTF jobs have no fragment writers, and the
+    driver is pinned to the head pod, so worker-side overhead is just the
+    JobTracker.
 
     Parameters
     ----------
@@ -455,9 +503,10 @@ def calculate_udtf_job_resources(
     applier_gpus = concurrency * udtf_num_gpus
     applier_memory = concurrency * udtf_memory
 
-    # No fragment writers for UDTF — overhead is just driver + jobtracker
+    # No fragment writers for UDTF. The driver is pinned to the head pod, while
+    # the JobTracker runs on workers and must be included in admission.
     rc = _get_resource_config()
-    overhead_cpus = rc.driver_num_cpus + rc.jobtracker_num_cpus
+    overhead_cpus = rc.jobtracker_num_cpus
     overhead_memory = rc.jobtracker_memory
 
     return JobResources(
@@ -496,7 +545,8 @@ def validate_udtf_admission(
     check : bool | None
         If True, run admission control. If False, skip. If None, use config.
     strict : bool | None
-        If True, raise on rejection. If False, only log.
+        If True, raise on rejection. If False, only log. If None, use
+        AdmissionConfig.strict (default False: warn and proceed).
 
     Raises
     ------
@@ -522,7 +572,8 @@ def validate_udtf_admission(
         udtf_num_cpus, udtf_num_gpus, udtf_memory, concurrency
     )
 
-    if _is_kuberay_cluster():
+    kind = _detect_cluster_kind()
+    if kind is ClusterKind.KUBERAY:
         cluster_resources = get_kuberay_cluster_resources()
     else:
         cluster_resources = get_cluster_resources()
@@ -548,7 +599,7 @@ def validate_udtf_admission(
         if strict:
             raise ResourcesUnavailableError(message)
         else:
-            _LOG.warning("UDTF admission control: %s", message)
+            _warn_admission("UDTF admission control", message, kind)
     elif decision == AdmissionDecision.ALLOW_WITH_WARNING:
         _LOG.warning("UDTF admission control: %s", message)
     else:
@@ -1051,8 +1102,8 @@ def validate_admission(
         AdmissionConfig.check (configurable via GENEVA_ADMISSION__CHECK env var).
     strict : bool | None
         If True, raise exception on rejection. If False, only log warnings.
-        If None, use AdmissionConfig.strict (configurable via GENEVA_ADMISSION__STRICT
-        env var).
+        If None, use AdmissionConfig.strict (default False, configurable via
+        GENEVA_ADMISSION__STRICT env var).
     kuberay_namespace : str, optional
         Kubernetes namespace for KubeRay clusters
     kuberay_cluster_name : str, optional
@@ -1090,8 +1141,8 @@ def validate_admission(
         pipelining_num_readers=pipelining_num_readers,
     )
 
-    is_kuberay = _is_kuberay_cluster()
-    if is_kuberay:
+    kind = _detect_cluster_kind()
+    if kind is ClusterKind.KUBERAY:
         cluster_resources = get_kuberay_cluster_resources(
             namespace=kuberay_namespace,
             cluster_name=kuberay_cluster_name,
@@ -1120,7 +1171,7 @@ def validate_admission(
         if strict:
             raise ResourcesUnavailableError(message)
         else:
-            _LOG.warning(f"Admission control: {message}")
+            _warn_admission("Admission control", message, kind)
     elif decision == AdmissionDecision.ALLOW_WITH_WARNING:
         _LOG.warning(f"Admission control: {message}")
     else:

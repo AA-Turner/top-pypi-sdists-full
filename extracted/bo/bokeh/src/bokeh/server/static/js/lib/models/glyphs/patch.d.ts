@@ -11,6 +11,7 @@ export interface PatchView extends Patch.Data {
 export declare class PatchView extends XYGlyphView {
     model: Patch;
     visuals: Patch.Visuals;
+    load_glglyph(): Promise<typeof import("../../all/main").PatchGL>;
     protected _paint(ctx: Context2d, indices: number[], data?: Partial<Patch.Data>): void;
     draw_legend_for_index(ctx: Context2d, bbox: Rect, _index: number): void;
     protected _hit_point(geometry: PointGeometry): Selection;

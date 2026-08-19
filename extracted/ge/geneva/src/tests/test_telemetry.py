@@ -1,5 +1,7 @@
 """Tests for geneva.telemetry (OTLP metrics bootstrap)."""
 
+import subprocess
+import sys
 from collections.abc import Iterator
 
 import pytest
@@ -40,6 +42,16 @@ def test_init_is_latched(monkeypatch) -> None:
 
     assert telemetry.get_meter() is None
     assert telemetry._initialized is True
+
+
+def test_resource_instance_id_is_unique_per_process(monkeypatch) -> None:
+    """Workers in one Ray pod must not export independent counters as one series."""
+    monkeypatch.setenv("HOSTNAME", "ray-worker-pod")
+    monkeypatch.setattr(telemetry.os, "getpid", lambda: 4242)
+
+    resource = telemetry._build_resource()
+
+    assert resource.attributes["service.instance.id"] == "ray-worker-pod-4242"
 
 
 def test_tracing_is_noop_when_disabled(monkeypatch) -> None:
@@ -98,3 +110,29 @@ def test_worker_span_joins_trace_via_carrier() -> None:
     assert applier.context.trace_id == job.context.trace_id
     assert applier.parent is not None
     assert applier.parent.span_id == job.context.span_id
+
+
+# Subprocess: the flag is read at `import geneva`, already done in this process.
+_INIT_ON_IMPORT_SCRIPT = """
+import os, sys
+if sys.argv[1] == "1":
+    os.environ["GENEVA_TELEMETRY_INIT_ON_IMPORT"] = "1"
+else:
+    os.environ.pop("GENEVA_TELEMETRY_INIT_ON_IMPORT", None)
+import geneva
+from geneva import telemetry
+print(telemetry._initialized)
+"""
+
+
+@pytest.mark.parametrize(("flag", "expected"), [("1", "True"), ("0", "False")])
+def test_init_on_import_flag(flag: str, expected: str) -> None:
+    """The flag makes `import geneva` init telemetry; without it, lazy."""
+    proc = subprocess.run(
+        [sys.executable, "-c", _INIT_ON_IMPORT_SCRIPT, flag],
+        capture_output=True,
+        text=True,
+        timeout=120,
+    )
+    assert proc.returncode == 0, proc.stderr
+    assert proc.stdout.strip() == expected

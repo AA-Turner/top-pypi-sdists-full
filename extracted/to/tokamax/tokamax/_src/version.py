@@ -17,11 +17,12 @@
 
 from typing import Final
 
-TOKAMAX_VERSION: Final[str] = "0.0.12"
+TOKAMAX_VERSION: Final[str] = "0.0.13"
 
 
 def _version_as_tuple(version_str: str) -> tuple[int, int, int]:
-  return tuple(int(i) for i in version_str.split(".") if i.isdigit())
+  x, y, z = (int(i) for i in version_str.split(".") if i.isdigit())
+  return x, y, z
 
 
 TOKAMAX_VERSION_INFO: Final[tuple[int, int, int]] = _version_as_tuple(

@@ -7,7 +7,7 @@ export interface ImageStackView extends ImageBase.Data {
 export declare class ImageStackView extends ImageBaseView {
     model: ImageStack;
     visuals: ImageStack.Visuals;
-    load_glglyph(): Promise<typeof import("./webgl/image").ImageGL>;
+    load_glglyph(): Promise<typeof import("../../all/main").ImageGL>;
     connect_signals(): void;
     get image_dimension(): number;
     protected _update_image(): void;

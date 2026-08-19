@@ -7,9 +7,27 @@ from typing import Any
 from pyzotero import zotero
 
 
-def get_zotero_client(locale: str = "en-US") -> zotero.Zotero:
-    """Get a Zotero client configured for local access."""
-    return zotero.Zotero(library_id="0", library_type="user", local=True, locale=locale)
+def get_zotero_client(
+    locale: str = "en-US",
+    server_id: str | None = None,
+    local_api_key: str | None = None,
+) -> zotero.Zotero:
+    """Get a Zotero client that is configured for local access.
+
+    The CLI and the MCP server are read-only, so they do not use the two
+    optional arguments. The arguments let other callers write:
+    ``local_api_key`` permits writes (see :meth:`Zotero.authorize_local`),
+    and ``server_id`` supplies a server ID that was kept from an earlier
+    session, which prevents one initial request.
+    """
+    return zotero.Zotero(
+        library_id="0",
+        library_type="user",
+        local=True,
+        locale=locale,
+        server_id=server_id,
+        local_api_key=local_api_key,
+    )
 
 
 def normalise_doi(doi: str) -> str:

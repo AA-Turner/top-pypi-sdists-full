@@ -2,6 +2,7 @@
 # SPDX-FileCopyrightText: Copyright The Geneva Authors
 
 from collections import Counter
+from types import SimpleNamespace
 
 import attrs
 
@@ -10,9 +11,41 @@ from geneva.apply.table_cache import (
     _table_cache_key,
     bind_tables_for_task,
     clear_bound_tables,
+    maybe_refresh_credentials_on_retry,
+    refresh_task_credentials,
 )
 from geneva.apply.task import CopyTask, ScanTask
+from geneva.credentials import (
+    VENDED_EXPIRY_KEY,
+)
+from geneva.credentials import (
+    table_handle_credentials_expiring as _table_credentials_expiring,
+)
 from geneva.table import TableReference
+
+
+def _opts(expires_ms: int | None) -> dict[str, str]:
+    opts = {"aws_access_key_id": "AKIA", "aws_session_token": "tok"}
+    if expires_ms is not None:
+        opts[VENDED_EXPIRY_KEY] = str(expires_ms)
+    return opts
+
+
+# Epoch (1970) -> always within the safety window; ~year 2286 -> never.
+_EXPIRING = _opts(1)
+_FRESH = _opts(9_999_999_999_999)
+_STATIC = _opts(None)
+
+
+class _FakeTable:
+    """Minimal stand-in exposing the attrs ``_table_credentials_expiring`` reads."""
+
+    def __init__(
+        self, storage_options: dict[str, str] | None, ltbl_options: object = ...
+    ) -> None:
+        self._storage_options = storage_options
+        if ltbl_options is not ...:
+            self._ltbl = SimpleNamespace(latest_storage_options=lambda: ltbl_options)
 
 
 def test_table_cache_reuses_table(monkeypatch) -> None:
@@ -212,6 +245,220 @@ def test_table_cache_distinguishes_default_and_empty_system_namespace(
 
     assert default_table is not explicit_root_table
     assert calls == [(["__system"], None), ([], None)]
+
+
+def test_table_credentials_expiring() -> None:
+    # Near-expiry vended creds -> True; fresh / static / absent -> False.
+    assert _table_credentials_expiring(_FakeTable(_EXPIRING)) is True
+    assert _table_credentials_expiring(_FakeTable(_FRESH)) is False
+    assert _table_credentials_expiring(_FakeTable(_STATIC)) is False
+    assert _table_credentials_expiring(_FakeTable(None)) is False
+    # Expiry surfaced only via the lance table's latest_storage_options().
+    assert _table_credentials_expiring(_FakeTable(None, ltbl_options=_EXPIRING)) is True
+    # A broken latest_storage_options() must not crash the check.
+    broken = _FakeTable(_STATIC)
+    broken._ltbl = SimpleNamespace(
+        latest_storage_options=lambda: (_ for _ in ()).throw(RuntimeError("boom"))
+    )
+    assert _table_credentials_expiring(broken) is False
+
+
+def test_table_cache_evicts_when_cached_credentials_expiring(monkeypatch) -> None:
+    opened: list[_FakeTable] = []
+
+    def fake_open(self: TableReference) -> object:
+        table = _FakeTable(_EXPIRING)
+        opened.append(table)
+        return table
+
+    monkeypatch.setattr(TableReference, "open", fake_open, raising=True)
+
+    cache = TableCache()
+    ref = TableReference(table_id=["db", "tbl"], version=3, db_uri="db://example")
+
+    first = cache.get_or_open(ref)
+    second = cache.get_or_open(ref)
+
+    # The cached handle's vended creds are near expiry, so it is evicted and
+    # re-opened (which re-vends) rather than reused with a lapsed token.
+    assert second is not first
+    assert len(opened) == 2
+
+
+def test_table_cache_reuses_when_credentials_fresh(monkeypatch) -> None:
+    opened: list[_FakeTable] = []
+
+    def fake_open(self: TableReference) -> object:
+        table = _FakeTable(_FRESH)
+        opened.append(table)
+        return table
+
+    monkeypatch.setattr(TableReference, "open", fake_open, raising=True)
+
+    cache = TableCache()
+    ref = TableReference(table_id=["db", "tbl"], version=3, db_uri="db://example")
+
+    first = cache.get_or_open(ref)
+    second = cache.get_or_open(ref)
+
+    # Fresh creds -> the cache reuses the handle without re-opening.
+    assert second is first
+    assert len(opened) == 1
+
+
+def test_open_db_revends_expiring_storage_options(monkeypatch) -> None:
+    import geneva.table as gt
+
+    seen: dict[str, object] = {}
+
+    def fake_refresh(  # noqa: ANN202
+        storage_options,  # noqa: ANN001
+        *,
+        table_id,  # noqa: ANN001
+        namespace_client_factory=None,  # noqa: ANN001
+        **kw,  # noqa: ANN003
+    ):
+        seen["in"] = storage_options
+        seen["table_id"] = table_id
+        return _FRESH
+
+    captured: dict[str, object] = {}
+
+    def fake_connect(**kwargs) -> object:  # noqa: ANN003
+        captured.update(kwargs)
+        return object()
+
+    monkeypatch.setattr(gt, "refresh_storage_options", fake_refresh)
+    monkeypatch.setattr(gt, "connect", fake_connect)
+    monkeypatch.setattr(TableReference, "open_checkpoint_store", lambda self, **k: None)
+
+    ref = TableReference(
+        table_id=["db", "tbl"],
+        version=3,
+        namespace_client_impl="rest",
+        namespace_client_properties={"uri": "https://api.example"},
+        storage_options=_EXPIRING,
+    )
+    ref.open_db()
+
+    # open_db routes the shipped (stale) options through refresh_storage_options
+    # and connects with the re-vended result, not the plan-time token.
+    assert seen["table_id"] == ["db", "tbl"]
+    assert seen["in"] == _EXPIRING
+    assert captured["storage_options"] == _FRESH
+
+
+def test_reactive_refresh_recovers_via_retry(monkeypatch) -> None:
+    # Drive the read through the same retry mechanism the applier uses: a stale
+    # token fails the read with an ExpiredToken object-store error, before_sleep
+    # (maybe_refresh_credentials_on_retry) re-vends + rebinds, and the retry then
+    # succeeds -- exercising the condition instead of calling the refresh helper
+    # directly.
+    from tenacity import (
+        Retrying,
+        retry_if_exception,
+        stop_after_attempt,
+        wait_none,
+    )
+
+    from geneva.utils import object_store_retry
+
+    monkeypatch.setattr(
+        "geneva.credentials.revend_storage_options",
+        lambda *, table_id, namespace_client=None, **kw: _FRESH,  # noqa: ANN002, ANN003
+    )
+    monkeypatch.setattr(
+        TableReference, "connect_namespace", lambda self, **k: object(), raising=True
+    )
+    monkeypatch.setattr(
+        TableReference,
+        "open",
+        lambda self: _FakeTable(self.storage_options),
+        raising=True,
+    )
+
+    cache = TableCache()
+    ref = TableReference(
+        table_id=["db", "tbl"],
+        version=3,
+        namespace_client_impl="rest",
+        namespace_client_properties={"uri": "https://api.example"},
+        storage_options=_EXPIRING,
+    )
+    task = ScanTask(
+        uri="db://example/tbl",
+        table_ref=ref,
+        columns=["a"],
+        frag_id=0,
+        offset=0,
+        limit=10,
+        version=3,
+    )
+    # The actor binds the table once (stale token) before the read loop.
+    bind_tables_for_task(task, cache)
+
+    attempts = {"n": 0}
+
+    def read() -> str:
+        attempts["n"] += 1
+        opts = task._table._storage_options or {}
+        if opts.get(VENDED_EXPIRY_KEY) == _EXPIRING[VENDED_EXPIRY_KEY]:
+            # Signing with the dead token -> the object store returns ExpiredToken.
+            raise RuntimeError(
+                "RuntimeError: lance error: LanceError(IO): Generic S3 error: "
+                "Error performing HEAD https://s3.us-east-2.amazonaws.com/"
+                "foo/18446744073709550956.manifest in 16.28551ms -"
+                " Server returned non-2xx status code: 400 Bad Request:"
+            )
+        return "rows"
+
+    retrier = Retrying(
+        retry=retry_if_exception(object_store_retry.is_retryable_object_store_error),
+        stop=stop_after_attempt(3),
+        wait=wait_none(),
+        reraise=True,
+        before_sleep=lambda rs: maybe_refresh_credentials_on_retry(
+            rs.outcome.exception() if rs.outcome is not None else None, task, cache
+        ),
+    )
+
+    result = None
+    for attempt in retrier:
+        with attempt:
+            result = read()
+
+    # Read failed once with ExpiredToken; the retry hook re-vended + rebound, and
+    # the second attempt succeeded with fresh credentials.
+    assert result == "rows"
+    assert attempts["n"] == 2
+    assert task.table_ref.storage_options == _FRESH
+
+
+def test_refresh_task_credentials_without_namespace_is_noop(monkeypatch) -> None:
+    # No namespace to re-vend from -> keep the existing ref, still rebind.
+    monkeypatch.setattr(
+        TableReference, "connect_namespace", lambda self, **k: None, raising=True
+    )
+    monkeypatch.setattr(
+        TableReference, "open", lambda self: _FakeTable(self.storage_options)
+    )
+
+    cache = TableCache()
+    ref = TableReference(table_id=["db", "tbl"], version=3, db_uri="db://example")
+    task = ScanTask(
+        uri="db://example/tbl",
+        table_ref=ref,
+        columns=["a"],
+        frag_id=0,
+        offset=0,
+        limit=10,
+        version=3,
+    )
+
+    refresh_task_credentials(task, cache)
+
+    assert task.table_ref is ref  # unchanged
+    assert task._table is not None  # rebound
 
 
 def test_table_cache_retries_transient_open_failure(monkeypatch) -> None:

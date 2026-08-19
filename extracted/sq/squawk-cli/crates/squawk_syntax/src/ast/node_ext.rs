@@ -26,6 +26,7 @@
 
 use std::borrow::Cow;
 
+use either::Either;
 #[cfg(test)]
 use insta::assert_snapshot;
 use rowan::{GreenNodeData, GreenTokenData, NodeOrToken};
@@ -98,6 +99,27 @@ impl ast::Constraint {
         support::child::<ast::ConstraintNameClause>(self.syntax())
             .and_then(|clause| clause.constraint_name())
     }
+
+    #[inline]
+    pub fn constraint_options(&self) -> ast::AstChildren<ast::ConstraintOption> {
+        match self {
+            ast::Constraint::CheckConstraint(it) => it.constraint_options(),
+            ast::Constraint::DefaultConstraint(it) => it.constraint_options(),
+            ast::Constraint::ExcludeConstraint(it) => it.constraint_options(),
+            ast::Constraint::ForeignKeyConstraint(it) => it.constraint_options(),
+            ast::Constraint::GeneratedConstraint(it) => it.constraint_options(),
+            ast::Constraint::NotNullConstraint(it) => it.constraint_options(),
+            ast::Constraint::NullConstraint(it) => it.constraint_options(),
+            ast::Constraint::PrimaryKeyConstraint(it) => it.constraint_options(),
+            ast::Constraint::ReferencesConstraint(it) => it.constraint_options(),
+            ast::Constraint::UniqueConstraint(it) => it.constraint_options(),
+        }
+    }
+
+    pub fn is_not_valid(&self) -> bool {
+        self.constraint_options()
+            .any(|option| matches!(option, ast::ConstraintOption::NotValid(_)))
+    }
 }
 
 impl ast::CreateSchema {
@@ -125,11 +147,26 @@ impl ast::FromItem {
         }
     }
 
-    pub fn ordinality_token(&self) -> Option<SyntaxToken> {
+    pub fn with_ordinality(&self) -> Option<ast::WithOrdinality> {
         match self {
-            ast::FromItem::FunctionFromItem(it) => it.ordinality_token(),
-            ast::FromItem::RowsFromItem(it) => it.ordinality_token(),
+            ast::FromItem::FunctionFromItem(it) => it.with_ordinality(),
+            ast::FromItem::RowsFromItem(it) => it.with_ordinality(),
             _ => None,
+        }
+    }
+}
+
+impl ast::ColumnDefList {
+    pub fn column_names(self) -> impl Iterator<Item = ast::ColumnName> {
+        self.column_defs().filter_map(|column| column.name())
+    }
+}
+
+impl ast::FromAliasColumns {
+    pub fn column_names(self) -> impl Iterator<Item = ast::ColumnName> {
+        match self {
+            ast::FromAliasColumns::ColumnList(it) => Either::Left(it.column_names()),
+            ast::FromAliasColumns::ColumnDefList(it) => Either::Right(it.column_names()),
         }
     }
 }
@@ -202,6 +239,15 @@ pub enum PostfixOp {
     NotNull(SyntaxToken),
 }
 
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum PrefixOp {
+    CustomOp(ast::CustomOp),
+    Minus(SyntaxToken),
+    Not(SyntaxToken),
+    OperatorCall(ast::OperatorCall),
+    Plus(SyntaxToken),
+}
+
 impl ast::BinExpr {
     #[inline]
     pub fn lhs(&self) -> Option<ast::Expr> {
@@ -272,6 +318,35 @@ impl ast::BinExpr {
                             BinOp::OperatorCall(ast::OperatorCall { syntax: node })
                         }
                         SyntaxKind::SIMILAR_TO => BinOp::SimilarTo(ast::SimilarTo { syntax: node }),
+                        _ => continue,
+                    };
+                    return Some(op);
+                }
+            }
+        }
+        None
+    }
+}
+
+impl ast::PrefixExpr {
+    pub fn op(&self) -> Option<PrefixOp> {
+        for child in self.syntax().children_with_tokens() {
+            match child {
+                NodeOrToken::Token(token) => {
+                    let op = match token.kind() {
+                        SyntaxKind::MINUS => PrefixOp::Minus(token),
+                        SyntaxKind::NOT_KW => PrefixOp::Not(token),
+                        SyntaxKind::PLUS => PrefixOp::Plus(token),
+                        _ => continue,
+                    };
+                    return Some(op);
+                }
+                NodeOrToken::Node(node) => {
+                    let op = match node.kind() {
+                        SyntaxKind::CUSTOM_OP => PrefixOp::CustomOp(ast::CustomOp { syntax: node }),
+                        SyntaxKind::OPERATOR_CALL => {
+                            PrefixOp::OperatorCall(ast::OperatorCall { syntax: node })
+                        }
                         _ => continue,
                     };
                     return Some(op);
@@ -464,6 +539,16 @@ impl ast::WhenClause {
     }
 }
 
+impl ast::ReturningOption {
+    #[inline]
+    pub fn name(&self) -> Option<ast::TableAlias> {
+        match self {
+            ast::ReturningOption::ReturningOld(it) => it.name(),
+            ast::ReturningOption::ReturningNew(it) => it.name(),
+        }
+    }
+}
+
 impl ast::CompoundSelect {
     #[inline]
     pub fn lhs(&self) -> Option<ast::SelectVariant> {
@@ -472,6 +557,10 @@ impl ast::CompoundSelect {
     #[inline]
     pub fn rhs(&self) -> Option<ast::SelectVariant> {
         support::children(&self.syntax).nth(1)
+    }
+    #[inline]
+    pub fn op(&self) -> Option<ast::CompoundOp> {
+        support::child(&self.syntax)
     }
 }
 
@@ -534,7 +623,7 @@ fn is_quoted(node: &SyntaxNode) -> bool {
 }
 
 // TODO: return a NewType wrapper around String?
-fn normalize_name_node(node: &SyntaxNode) -> String {
+pub(crate) fn normalize_name_node(node: &SyntaxNode) -> String {
     let mut tokens = node
         .children_with_tokens()
         .filter_map(|el| el.into_token())
@@ -702,6 +791,195 @@ impl ast::CastSig {
 
     #[inline]
     pub fn rhs(&self) -> Option<ast::Type> {
+        support::children(self.syntax()).nth(1)
+    }
+}
+
+impl ast::ObjectOperator {
+    #[inline]
+    pub fn lhs(&self) -> Option<ast::Type> {
+        support::children(self.syntax()).next()
+    }
+
+    #[inline]
+    pub fn rhs(&self) -> Option<ast::Type> {
+        support::children(self.syntax()).nth(1)
+    }
+}
+
+impl ast::OpClassOptionOperator {
+    #[inline]
+    pub fn lhs(&self) -> Option<ast::Type> {
+        support::children(self.syntax()).next()
+    }
+
+    #[inline]
+    pub fn rhs(&self) -> Option<ast::Type> {
+        support::children(self.syntax()).nth(1)
+    }
+}
+
+impl ast::CreateConversion {
+    /// The source encoding.
+    #[inline]
+    pub fn for_(&self) -> Option<ast::Literal> {
+        support::children(self.syntax()).next()
+    }
+
+    /// The destination encoding.
+    #[inline]
+    pub fn to(&self) -> Option<ast::Literal> {
+        support::children(self.syntax()).nth(1)
+    }
+}
+
+impl ast::ExtractFieldName {
+    pub fn text(&self) -> String {
+        normalize_name_node(self.syntax())
+    }
+}
+
+impl ast::PositionFn {
+    #[inline]
+    pub fn pos(&self) -> Option<ast::Expr> {
+        support::children(self.syntax()).next()
+    }
+
+    #[inline]
+    pub fn string(&self) -> Option<ast::Expr> {
+        support::children(self.syntax()).nth(1)
+    }
+}
+
+impl ast::SubstringForFrom {
+    #[inline]
+    pub fn string(&self) -> Option<ast::Expr> {
+        support::children(self.syntax()).next()
+    }
+
+    #[inline]
+    pub fn count(&self) -> Option<ast::Expr> {
+        support::children(self.syntax()).nth(1)
+    }
+
+    #[inline]
+    pub fn start(&self) -> Option<ast::Expr> {
+        support::children(self.syntax()).nth(2)
+    }
+}
+
+impl ast::SubstringFromFor {
+    #[inline]
+    pub fn string(&self) -> Option<ast::Expr> {
+        support::children(self.syntax()).next()
+    }
+
+    #[inline]
+    pub fn start(&self) -> Option<ast::Expr> {
+        support::children(self.syntax()).nth(1)
+    }
+
+    #[inline]
+    pub fn count(&self) -> Option<ast::Expr> {
+        support::children(self.syntax()).nth(2)
+    }
+}
+
+impl ast::SubstringSimilarEscape {
+    #[inline]
+    pub fn string(&self) -> Option<ast::Expr> {
+        support::children(self.syntax()).next()
+    }
+
+    #[inline]
+    pub fn pattern(&self) -> Option<ast::Expr> {
+        support::children(self.syntax()).nth(1)
+    }
+
+    #[inline]
+    pub fn escape(&self) -> Option<ast::Expr> {
+        support::children(self.syntax()).nth(2)
+    }
+}
+
+impl ast::OverlayPlacing {
+    #[inline]
+    pub fn string(&self) -> Option<ast::Expr> {
+        support::children(self.syntax()).next()
+    }
+
+    #[inline]
+    pub fn placing(&self) -> Option<ast::Expr> {
+        support::children(self.syntax()).nth(1)
+    }
+
+    #[inline]
+    pub fn from(&self) -> Option<ast::Expr> {
+        support::children(self.syntax()).nth(2)
+    }
+
+    #[inline]
+    pub fn for_(&self) -> Option<ast::Expr> {
+        support::children(self.syntax()).nth(3)
+    }
+}
+
+impl ast::PartitionForValuesFrom {
+    #[inline]
+    pub fn from(&self) -> Option<ast::PartitionFromValues> {
+        support::child(self.syntax())
+    }
+
+    #[inline]
+    pub fn to(&self) -> Option<ast::PartitionToValues> {
+        support::child(self.syntax())
+    }
+}
+
+impl ast::PortionFromTo {
+    #[inline]
+    pub fn from(&self) -> Option<ast::Expr> {
+        support::children(self.syntax()).next()
+    }
+
+    #[inline]
+    pub fn to(&self) -> Option<ast::Expr> {
+        support::children(self.syntax()).nth(1)
+    }
+}
+
+impl ast::ReplaceDictionary {
+    #[inline]
+    pub fn before(&self) -> Option<ast::TextSearchDictionaryRef> {
+        support::children(self.syntax()).next()
+    }
+
+    #[inline]
+    pub fn after(&self) -> Option<ast::TextSearchDictionaryRef> {
+        support::children(self.syntax()).nth(1)
+    }
+}
+
+impl ast::Reassign {
+    #[inline]
+    pub fn before(&self) -> Option<ast::RoleRefList> {
+        support::children(self.syntax()).next()
+    }
+
+    #[inline]
+    pub fn after(&self) -> Option<ast::RoleRefList> {
+        support::children(self.syntax()).nth(1)
+    }
+}
+
+impl ast::AsObjFile {
+    #[inline]
+    pub fn obj_file(&self) -> Option<ast::Literal> {
+        support::children(self.syntax()).next()
+    }
+
+    #[inline]
+    pub fn link_symbol(&self) -> Option<ast::Literal> {
         support::children(self.syntax()).nth(1)
     }
 }

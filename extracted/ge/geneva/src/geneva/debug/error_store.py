@@ -87,7 +87,7 @@ class FaultIsolation(enum.Enum):
     """Strategy for isolating UDF failures"""
 
     FAIL_BATCH = "fail_batch"  # Fail entire batch on any error (default)
-    SKIP_ROWS = "skip_rows"  # Skip individual failing rows (scalar UDFs only)
+    SKIP_ROWS = "skip_rows"  # Isolate failing rows by bisection and skip them
 
 
 @attrs.define
@@ -195,24 +195,11 @@ class ErrorHandlingConfig:
         ------
 
         ValueError
-            If SKIP_ROWS is used with RecordBatch UDF
+            If the config is incompatible with the task
         """
-        from geneva.apply.task import BackfillUDFTask
-        from geneva.transformer import UDFArgType
-
-        if self.fault_isolation != FaultIsolation.SKIP_ROWS:
-            return
-
-        # SKIP_ROWS only works with scalar/array UDFs, not RecordBatch UDFs
-        if isinstance(map_task, BackfillUDFTask):
-            _, udf = next(iter(map_task.udfs.items()))
-            if hasattr(udf, "arg_type") and udf.arg_type == UDFArgType.RECORD_BATCH:
-                raise ValueError(
-                    "SKIP_ROWS fault isolation cannot be used with "
-                    "RecordBatch UDFs. RecordBatch UDFs process entire "
-                    "batches and cannot skip individual rows. "
-                    "Use FAIL_BATCH instead."
-                )
+        # SKIP_ROWS supports every UDF arg type: SkipRowsStrategy applies
+        # batches whole and bisects on failure.
+        return
 
 
 # =============================================================================

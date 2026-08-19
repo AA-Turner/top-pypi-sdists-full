@@ -137,15 +137,17 @@ def _emit_sql(sql: str) -> None:
 
 
 def print_dbos_migrations(
-    system_database_url: str,
+    system_database_url: Optional[str],
     *,
     schema: str = "dbos",
     migration: str = "all",
 ) -> None:
     """Print to stdout the SQL of the DBOS system database migrations, all of
     them (migration is "all") or starting from a number (migration is N),
-    without touching any database. Stdout is pure SQL and comments."""
-    if system_database_url.startswith("sqlite"):
+    without touching any database. Stdout is pure SQL and comments.
+
+    system_database_url may be None: it is only reported in a header comment."""
+    if system_database_url is not None and system_database_url.startswith("sqlite"):
         click.echo(
             "--print-migrations is only supported for Postgres databases", err=True
         )
@@ -172,9 +174,10 @@ def print_dbos_migrations(
             )
             raise click.exceptions.Exit(code=1)
 
-    click.echo(
-        f"-- DBOS system database migrations for {sa.make_url(system_database_url)}"
-    )
+    header = "-- DBOS system database migrations"
+    if system_database_url is not None:
+        header += f" for {sa.make_url(system_database_url)}"
+    click.echo(header)
     click.echo(
         "-- Contains CREATE/DROP INDEX CONCURRENTLY: run outside a transaction block (e.g. plain psql, not psql --single-transaction)."
     )
@@ -186,6 +189,19 @@ def print_dbos_migrations(
         )
 
     version_row_exists = start > 1
+    last_emitted = start - 1
+
+    def _emit_version(version: int) -> None:
+        nonlocal version_row_exists, last_emitted
+        if version_row_exists:
+            _emit_sql(f'UPDATE "{schema}".dbos_migrations SET version = {version}')
+        else:
+            _emit_sql(
+                f'INSERT INTO "{schema}".dbos_migrations (version) VALUES ({version})'
+            )
+            version_row_exists = True
+        last_emitted = version
+
     for i in range(start, latest_version + 1):
         migration_sql = migrations[i - 1]
         if i == 10:
@@ -195,13 +211,16 @@ def print_dbos_migrations(
         elif migration_sql.strip():
             click.echo(f"-- Migration {i}")
             _emit_sql(migration_sql)
+        else:
+            # Renumbering left long runs of empty migrations; nothing to emit.
+            continue
         # Per-migration version bookkeeping, mirroring the runner: an
         # interrupted apply can be resumed from the next migration number.
-        if version_row_exists:
-            _emit_sql(f'UPDATE "{schema}".dbos_migrations SET version = {i}')
-        else:
-            _emit_sql(f'INSERT INTO "{schema}".dbos_migrations (version) VALUES ({i})')
-            version_row_exists = True
+        _emit_version(i)
+
+    # Empty migrations at the end still count as applied.
+    if latest_version > last_emitted:
+        _emit_version(latest_version)
 
 
 def print_dbos_user_role_sql(*, schema: str = "dbos", role_name: str) -> None:

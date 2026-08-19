@@ -171,6 +171,51 @@ def test_partial_overlap_resyncs_cursor() -> None:
     assert q.pop() is None
 
 
+def test_real_item_arriving_after_gap_was_covered_is_dropped(
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    """A real item whose span was already covered (e.g. by a gap filler the
+    consumer inserted at seal, or by an overlapping retry checkpoint) is
+    silently dropped by the queue.
+
+    The queue cannot distinguish filler from real coverage — that is why the
+    writer must never insert filler while real checkpoints for the range can
+    still arrive (full-table backfills now fail loudly instead, see
+    CheckpointCoverageError). This test pins the queue-level contract the
+    writer guard relies on.
+    """
+    q = SequenceQueue[str]()
+    q.put(0, 4, "real[0,4)")
+    assert q.pop() == "real[0,4)"
+    # Consumer saw a gap at [4, 8) and inserted filler (seal-time behavior).
+    q.put(4, 4, "filler[4,8)")
+    assert q.pop() == "filler[4,8)"
+    assert q.next_position() == 8
+
+    # The real checkpoint for [4, 8) arrives late: fully covered -> dropped.
+    q.put(4, 4, "late-real[4,8)")
+    with caplog.at_level(logging.WARNING, logger="geneva.utils.sequence_queue"):
+        assert q.is_empty()
+    assert "position 4 (size 4, next_position 8)" in caplog.text
+    assert q.pop() is None
+
+
+def test_late_item_straddling_covered_range_is_returned_for_trimming() -> None:
+    """A late real item extending past the covered range is still returned;
+    the consumer trims the already-covered prefix (rowaddr-level in the
+    writer). Only its tail contributes rows."""
+    q = SequenceQueue[str]()
+    q.put(0, 6, "first")
+    assert q.pop() == "first"
+    assert q.next_position() == 6
+
+    # Late arrival at offset 4 spanning [4, 10): partially behind the cursor.
+    q.put(4, 6, "late-straddler")
+    assert not q.is_empty()
+    assert q.pop() == "late-straddler"
+    assert q.next_position() == 10
+
+
 def test_drain_loop_never_spins() -> None:
     """`while not is_empty(): pop()` terminates for any overlapping feed.
 

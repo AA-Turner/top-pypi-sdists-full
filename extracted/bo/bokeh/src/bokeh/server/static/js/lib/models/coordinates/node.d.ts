@@ -1,9 +1,9 @@
 import { Coordinate } from "./coordinate";
 import { Model } from "../../model";
 import type * as p from "../../core/properties";
-export declare const ImplicitTarget: import("../../core/kinds").Kinds.Enum<"canvas" | "plot" | "frame" | "parent">;
+export declare const ImplicitTarget: import("../../core/kinds").Kinds.Enum<"canvas" | "frame" | "parent" | "plot">;
 export type ImplicitTarget = typeof ImplicitTarget["__type__"];
-export declare const NodeTarget: import("../../core/kinds").Kinds.Or<[Model, "canvas" | "plot" | "frame" | "parent"]>;
+export declare const NodeTarget: import("../../core/kinds").Kinds.Or<[Model, "canvas" | "frame" | "parent" | "plot"]>;
 export type NodeTarget = typeof NodeTarget["__type__"];
 export declare class BoxNodes {
     readonly target: ImplicitTarget;

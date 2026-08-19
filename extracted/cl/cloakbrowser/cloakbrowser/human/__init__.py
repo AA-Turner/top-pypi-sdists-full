@@ -1025,6 +1025,17 @@ def patch_page(page: Any, cfg: HumanConfig, cursor: _CursorState) -> None:
         cdp_session = None
         logger.debug("Could not create CDP session — stealth features disabled")
 
+    if stealth is not None:
+        # Invalidate the isolated world on any main-frame nav, not just goto,
+        # so click/form navigations don't leave it bound to a stale doc (#507).
+        try:
+            page.on(
+                "framenavigated",
+                lambda frame: stealth.invalidate() if frame == page.main_frame else None,
+            )
+        except Exception:
+            logger.debug("Could not wire framenavigated invalidation")
+
     raw_mouse: RawMouse = type("_RawMouse", (), {
         "move": originals.mouse_move,
         "down": originals.mouse_down,
@@ -2094,6 +2105,16 @@ def patch_page_async(page: Any, cfg: HumanConfig, cursor: _CursorState) -> None:
     page._stealth_world = stealth
     cdp_session_holder: list[Any] = [None]  # mutable container for closure
     page._cdp_session_holder = cdp_session_holder  # expose for frame-level patching
+
+    # Invalidate the isolated world on any main-frame nav, not just goto, so
+    # click/form navigations don't leave it bound to a stale doc (#507).
+    try:
+        page.on(
+            "framenavigated",
+            lambda frame: stealth.invalidate() if frame == page.main_frame else None,
+        )
+    except Exception:
+        logger.debug("Could not wire framenavigated invalidation")
 
     async def _ensure_cdp() -> Any:
         if cdp_session_holder[0] is None:

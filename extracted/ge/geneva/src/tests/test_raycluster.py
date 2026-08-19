@@ -3,7 +3,7 @@
 from collections.abc import Generator
 from types import SimpleNamespace
 from typing import TYPE_CHECKING, Any
-from unittest.mock import Mock, patch
+from unittest.mock import Mock, PropertyMock, patch
 
 import pytest
 import ray
@@ -80,8 +80,10 @@ def test_env_vars_in_head_and_worker() -> None:
     assert head_env["GCS_REQUEST_CONNECTION_TIMEOUT_SECS"] == "300"
     assert head_env["GCS_REQUEST_TIMEOUT_SECS"] == "600"
     assert head_env["CUSTOM_VAR"] == "value"
-    # 3 custom env vars + 1 default (LANCE_LOG)
-    assert len(head_env) == 4
+    assert head_env["GENEVA_RAY_CLUSTER_NAME"] == "test-env-vars"
+    assert head_env["GENEVA_RAY_CLUSTER_NAMESPACE"] == "test"
+    # 3 custom env vars + 1 default (LANCE_LOG) + 2 cluster-identity vars
+    assert len(head_env) == 6
 
     # Check worker group container env vars in the generated definition
     worker_spec = cluster.definition["spec"]["workerGroupSpecs"][0]
@@ -90,12 +92,15 @@ def test_env_vars_in_head_and_worker() -> None:
     worker_env = {env["name"]: env["value"] for env in worker_container["env"]}
     # Worker has 3 default env vars (RAY_memory_usage_threshold,
     # RAY_memory_monitor_refresh_ms, LANCE_LOG) plus the 3 custom ones
+    # plus the 2 cluster-identity vars
     assert worker_env["GCS_REQUEST_CONNECTION_TIMEOUT_SECS"] == "300"
     assert worker_env["GCS_REQUEST_TIMEOUT_SECS"] == "600"
     assert worker_env["WORKER_VAR"] == "worker_value"
     assert worker_env["RAY_memory_usage_threshold"] == "0.9"
     assert worker_env["RAY_memory_monitor_refresh_ms"] == "0"
-    assert len(worker_env) == 6
+    assert worker_env["GENEVA_RAY_CLUSTER_NAME"] == "test-env-vars"
+    assert worker_env["GENEVA_RAY_CLUSTER_NAMESPACE"] == "test"
+    assert len(worker_env) == 8
 
 
 def test_env_vars_empty() -> None:
@@ -107,21 +112,27 @@ def test_env_vars_empty() -> None:
         name="test-empty-env", namespace="test", head_group=head, worker_groups=[worker]
     )
 
-    # Check head group has only default LANCE_LOG env var
+    # Check head group has only the default LANCE_LOG env var plus the
+    # cluster-identity vars
     head_spec = cluster.definition["spec"]["headGroupSpec"]
     head_container = head_spec["template"]["spec"]["containers"][0]
     head_env = {env["name"]: env["value"] for env in head_container["env"]}
     assert head_env["LANCE_LOG"] == _DEFAULT_LANCE_LOG
-    assert len(head_env) == 1
+    assert head_env["GENEVA_RAY_CLUSTER_NAME"] == "test-empty-env"
+    assert head_env["GENEVA_RAY_CLUSTER_NAMESPACE"] == "test"
+    assert len(head_env) == 3
 
-    # Check worker group has only default env vars
+    # Check worker group has only default env vars plus the cluster-identity
+    # vars
     worker_spec = cluster.definition["spec"]["workerGroupSpecs"][0]
     worker_container = worker_spec["template"]["spec"]["containers"][0]
     worker_env = {env["name"]: env["value"] for env in worker_container["env"]}
     assert worker_env["RAY_memory_usage_threshold"] == "0.9"
     assert worker_env["RAY_memory_monitor_refresh_ms"] == "0"
     assert worker_env["LANCE_LOG"] == _DEFAULT_LANCE_LOG
-    assert len(worker_env) == 3
+    assert worker_env["GENEVA_RAY_CLUSTER_NAME"] == "test-empty-env"
+    assert worker_env["GENEVA_RAY_CLUSTER_NAMESPACE"] == "test"
+    assert len(worker_env) == 5
 
 
 def test_default_lance_log_suppresses_engine_noise() -> None:
@@ -252,13 +263,98 @@ def test_wait_for_tracked_jobs_skips_tracker_confirmation_after_failure() -> Non
         ),
         patch.object(
             cluster,
-            "_is_tracker_done",
+            "_poll_tracker_done",
             side_effect=AssertionError("tracker should not be queried"),
         ),
         patch("geneva.runners.ray.raycluster._LOG.info"),
         patch("geneva.runners.ray.raycluster._LOG.warning"),
     ):
         assert cluster._wait_for_tracked_jobs() is True
+
+
+def test_wait_for_tracked_jobs_reuses_pending_tracker_probe() -> None:
+    """A slow completion probe remains single-flight until it resolves."""
+    cluster = RayCluster(name="test-cluster", namespace="test")
+    completed_ref = object()
+    probe_ref = object()
+    tracker = Mock()
+    tracker.is_job_done.remote.return_value = probe_ref
+    cluster.register_tracked_job("job-1", completed_ref, tracker)
+
+    with (
+        patch("geneva.runners.ray.raycluster.ray.is_initialized", return_value=True),
+        patch(
+            "geneva.runners.ray.raycluster.ray.wait",
+            side_effect=[
+                ([completed_ref], []),
+                ([], [probe_ref]),
+                ([probe_ref], []),
+            ],
+        ) as ray_wait,
+        patch(
+            "geneva.runners.ray.raycluster.ray.get",
+            side_effect=[None, True],
+        ),
+        patch("geneva.runners.ray.raycluster.time.sleep"),
+        patch("geneva.runners.ray.raycluster._LOG.info"),
+    ):
+        assert cluster._wait_for_tracked_jobs(poll_interval=0.01) is False
+
+    assert tracker.is_job_done.remote.call_count == 1
+    assert ray_wait.call_args_list[1].args[0] == [probe_ref]
+    assert ray_wait.call_args_list[2].args[0] == [probe_ref]
+
+
+def test_wait_for_tracked_jobs_repolls_pending_probe_before_deadline() -> None:
+    """A retained probe is re-polled without sleeping past the whole deadline."""
+    clock = [0.0]
+    ready_at = 6.0
+    completed_ref = object()
+    probe_ref = object()
+    tracker = Mock()
+    cluster = RayCluster(
+        name="test-cluster",
+        namespace="test",
+        wait_timeout=7.0,
+    )
+    cluster.register_tracked_job("job-1", completed_ref, tracker)
+
+    def poll(
+        _tracker: Mock,
+        current_ref: object | None = None,
+        *,
+        timeout: float,
+    ) -> tuple[bool | None, object | None]:
+        current_ref = probe_ref if current_ref is None else current_ref
+        if ready_at <= clock[0] + timeout:
+            clock[0] = ready_at
+            return True, None
+        clock[0] += timeout
+        return None, current_ref
+
+    with (
+        patch("geneva.runners.ray.raycluster.ray.is_initialized", return_value=True),
+        patch(
+            "geneva.runners.ray.raycluster.ray.wait",
+            return_value=([completed_ref], []),
+        ),
+        patch("geneva.runners.ray.raycluster.ray.get"),
+        patch.object(cluster, "_poll_tracker_done", side_effect=poll) as poll_call,
+        patch(
+            "geneva.runners.ray.raycluster.time.monotonic",
+            side_effect=lambda: clock[0],
+        ),
+        patch(
+            "geneva.runners.ray.raycluster.time.sleep",
+            side_effect=lambda seconds: clock.__setitem__(0, clock[0] + seconds),
+        ) as sleep,
+        patch("geneva.runners.ray.raycluster._LOG.info"),
+        patch("geneva.runners.ray.raycluster._LOG.warning"),
+    ):
+        assert cluster._wait_for_tracked_jobs(poll_interval=5.0) is False
+
+    assert poll_call.call_count == 2
+    sleep.assert_not_called()
 
 
 def test_env_vars_serialization_to_config_map_continued() -> None:
@@ -419,6 +515,67 @@ def test_init_ray_includes_zip_namespace(monkeypatch) -> None:
     env_vars = ray_init_called["kwargs"]["runtime_env"]["env_vars"]
     payload = json.loads(base64.b64decode(env_vars["GENEVA_ZIPS"]))
     assert payload["namespace"] == zip_namespace
+
+
+def test_init_ray_forwards_lance_metrics_env(monkeypatch) -> None:
+    """Lance/OTel metrics env vars set on the driver reach Ray workers."""
+    import geneva.runners.ray._mgr as ray_mgr_mod
+    from geneva import telemetry
+
+    ray_init_called: dict[str, Any] = {}
+
+    def mock_ray_init(*args: Any, **kwargs: Any) -> None:
+        ray_init_called["kwargs"] = kwargs
+
+    monkeypatch.setattr("ray.init", mock_ray_init)
+    monkeypatch.setattr("ray.shutdown", lambda: None)
+    monkeypatch.setattr("ray.is_initialized", lambda: False)
+    monkeypatch.setenv("LANCEDB_OTEL_COLLECTOR_URL", "http://collector:4317")
+    monkeypatch.setenv("GENEVA_ENABLE_OTEL_LANCE_METRICS", "false")
+    monkeypatch.setenv("LANCE_OBJECT_STORE_METRICS_LABEL", "full")
+
+    # Pre-latch as initialized-disabled: no real provider for the fake URL.
+    telemetry._reset_state()
+    telemetry._initialized = True
+    try:
+        with ray_mgr_mod.ray_cluster(local=True):
+            pass
+    finally:
+        telemetry._reset_state()
+
+    env_vars = ray_init_called["kwargs"]["runtime_env"]["env_vars"]
+    assert env_vars["LANCEDB_OTEL_COLLECTOR_URL"] == "http://collector:4317"
+    assert env_vars["GENEVA_ENABLE_OTEL_LANCE_METRICS"] == "false"
+    assert env_vars["LANCE_OBJECT_STORE_METRICS_LABEL"] == "full"
+
+
+def test_init_ray_sets_telemetry_init_flag(monkeypatch) -> None:
+    """Workers get the telemetry init-on-import flag; extra_env overrides."""
+    import geneva.runners.ray._mgr as ray_mgr_mod
+    from geneva import telemetry
+
+    ray_init_called: dict[str, Any] = {}
+
+    def mock_ray_init(*args: Any, **kwargs: Any) -> None:
+        ray_init_called["kwargs"] = kwargs
+
+    monkeypatch.setattr("ray.init", mock_ray_init)
+    monkeypatch.setattr("ray.shutdown", lambda: None)
+    monkeypatch.setattr("ray.is_initialized", lambda: False)
+
+    with ray_mgr_mod.ray_cluster(local=True):
+        pass
+    runtime_env = ray_init_called["kwargs"]["runtime_env"]
+    assert "worker_process_setup_hook" not in runtime_env
+    assert runtime_env["env_vars"][telemetry.TELEMETRY_INIT_ON_IMPORT_ENV] == "1"
+
+    with ray_mgr_mod.ray_cluster(
+        local=True,
+        extra_env={telemetry.TELEMETRY_INIT_ON_IMPORT_ENV: "0"},
+    ):
+        pass
+    runtime_env = ray_init_called["kwargs"]["runtime_env"]
+    assert runtime_env["env_vars"][telemetry.TELEMETRY_INIT_ON_IMPORT_ENV] == "0"
 
 
 def test_env_vars_vs_extra_env(monkeypatch) -> None:
@@ -1736,3 +1893,86 @@ class TestInjectGenevaDeps:
         runtime_env = captured["kwargs"]["runtime_env"]
         assert "pip" not in runtime_env
         assert "conda" in runtime_env
+
+
+class TestApplyHeadNodeFallback:
+    """``apply()`` falls back only for an unexpected kuberay status shape.
+
+    The fallback re-reads cluster status and returns ``status.head.podIP``.
+    Any other error reaching it names a real problem the fallback would mask:
+    a ``TimeoutError`` means the cluster never came up, and the head-container
+    health check raises ``RuntimeError`` for a CrashLoopBackOff/OOM pod that
+    already has an IP -- which the fallback would return as a success.
+    """
+
+    def _cluster(self) -> RayCluster:
+        cluster = RayCluster(name="test-cluster", namespace="test-ns")
+        cluster.clients = Mock()
+        cluster._validate = Mock()
+        cluster._has_existing_cluster = Mock(return_value=False)
+        return cluster
+
+    def _with_head_pod_error(self, cluster: RayCluster, exc: BaseException) -> Any:
+        return patch.object(
+            type(cluster),
+            "head_node_pod",
+            new_callable=PropertyMock,
+            side_effect=exc,
+        )
+
+    def test_head_pod_not_found_falls_back(self) -> None:
+        """The kuberay 1.1 shape: no podName, but podIP is on status.head."""
+        cluster = self._cluster()
+        cluster._wait_for_cluster = Mock(
+            return_value={"status": {"head": {"podIP": "10.0.0.1"}}}
+        )
+
+        with self._with_head_pod_error(
+            cluster, raycluster._HeadPodNotFoundError("Failed to find head node pod")
+        ):
+            assert cluster.apply() == "10.0.0.1"
+
+    def test_timeout_propagates_without_fallback(self) -> None:
+        cluster = self._cluster()
+        exc = TimeoutError(
+            "Timed out waiting for Ray cluster 'x' to be ready after 300s"
+        )
+
+        with (
+            self._with_head_pod_error(cluster, exc),
+            pytest.raises(TimeoutError, match="Timed out waiting for Ray cluster"),
+        ):
+            cluster.apply()
+
+        # the fallback re-reads cluster status; it must not have run
+        cluster.clients.custom_api.get_namespaced_custom_object.assert_not_called()
+
+    def test_container_health_error_propagates_without_fallback(self) -> None:
+        """A crash-looping head pod already has an IP, so the fallback would
+        return it as a success and discard the OOM diagnostic."""
+        cluster = self._cluster()
+        cluster._wait_for_cluster = Mock(
+            return_value={"status": {"head": {"podIP": "10.0.0.1"}}}
+        )
+        exc = RuntimeError(
+            "Head node container 'ray-head' is in CrashLoopBackOff. "
+            "If the container is OOM-killed, increase memory via head_group(memory=...)"
+        )
+
+        with (
+            self._with_head_pod_error(cluster, exc),
+            pytest.raises(RuntimeError, match="CrashLoopBackOff"),
+        ):
+            cluster.apply()
+
+        cluster._wait_for_cluster.assert_not_called()
+
+    def test_get_podname_raises_the_fallback_trigger(self) -> None:
+        """The trigger keeps its dedicated type, so apply() still falls back."""
+        cluster = self._cluster()
+        cluster.clients.core_api.list_namespaced_pod.return_value = SimpleNamespace(
+            items=[]
+        )
+
+        with pytest.raises(raycluster._HeadPodNotFoundError):
+            cluster._get_podname({"status": {"head": {}}})

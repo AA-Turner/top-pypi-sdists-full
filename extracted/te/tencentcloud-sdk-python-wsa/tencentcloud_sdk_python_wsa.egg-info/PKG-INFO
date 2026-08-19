@@ -1,6 +1,6 @@
 Metadata-Version: 2.1
 Name: tencentcloud-sdk-python-wsa
-Version: 3.1.155
+Version: 3.1.160
 Summary: Tencent Cloud Wsa SDK for Python
 Home-page: https://github.com/TencentCloud/tencentcloud-sdk-python
 Author: Tencent Cloud
@@ -15,7 +15,7 @@ Classifier: Programming Language :: Python :: 2.7
 Classifier: Programming Language :: Python :: 3
 Classifier: Programming Language :: Python :: 3.6
 Classifier: Programming Language :: Python :: 3.7
-Requires-Dist: tencentcloud-sdk-python-common<4.0.0,>=3.1.155
+Requires-Dist: tencentcloud-sdk-python-common<4.0.0,>=3.1.160
 
 ============================
 Tencent Cloud SDK for Python

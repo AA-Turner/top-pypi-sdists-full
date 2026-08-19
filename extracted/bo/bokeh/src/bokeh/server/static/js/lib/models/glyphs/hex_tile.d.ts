@@ -14,7 +14,7 @@ export interface HexTileView extends HexTile.Data {
 export declare class HexTileView extends GlyphView {
     model: HexTile;
     visuals: HexTile.Visuals;
-    load_glglyph(): Promise<typeof import("./webgl/hex_tile").HexTileGL>;
+    load_glglyph(): Promise<typeof import("../../all/main").HexTileGL>;
     scenterxy(i: number): [number, number];
     protected _set_data(): void;
     protected _project_data(): void;

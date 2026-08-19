@@ -40,7 +40,9 @@ from airbyte_ops_webapp.pages.connector_version_manager._mcp_tools import (
     YANK_STORE,
     advance_rollout,
     finalize_rollout,
+    pause_rollout,
     promote_to_next_stage,
+    unpause_rollout,
     unyank_connector_version,
     yank_connector_version,
 )
@@ -189,8 +191,8 @@ def _render_tier_card(card: LoopItem) -> None:
     Layout, top to bottom:
 
     - A header line pairing the status glyph (heavy minus / `🔵 In progress` /
-      `⚠️ Attention` / `☑️ Complete`) with the tier label and status word, so the
-      rollout state is obvious before any numbers are read.
+      `⚠️ Attention` / `⊘ Empty` / `☑️ Complete`) with the tier label and status
+      word, so the rollout state is obvious before any numbers are read.
     - A compact `Rollout Status` row: `Target (backend)` (backend-reported target,
       with an ⓘ hover explaining it can lag), `Pinned` (realized coverage), and
       `Failed` (post-pin failure rate).
@@ -313,9 +315,15 @@ def _render_needs_review_banner() -> None:
 
 
 def _render_rollout_action_buttons() -> None:
-    """Advance Rollout %, Promote to Next Stage, Promote to Default GA, Cancel."""
+    """Advance %, Pause/Unpause, Promote to Next Stage, Promote to Default GA, Yank.
+
+    There is deliberately no "Cancel Rollout" action: the platform re-creates a
+    rollout record for every advertised release candidate, so cancelling only
+    loops. Pausing holds the rollout (pins retained) and yanking withdraws the
+    version so it stops being advertised.
+    """
     with Column(gap=2, css_class="mt-2"):
-        # Row 1: Advance and Cancel
+        # Row 1: Advance and Pause
         with Row(gap=2, css_class="flex-wrap"):
             Button(
                 "Advance Rollout %",
@@ -328,15 +336,29 @@ def _render_rollout_action_buttons() -> None:
                 ],
             )
             Button(
-                "Cancel Rollout",
-                variant="destructive",
-                css_class=BUTTON_DESTRUCTIVE_CLASS,
-                disabled=STATE.is_loading,
+                "Pause Rollout",
+                variant="outline",
+                css_class=BUTTON_OUTLINE_CLASS,
+                disabled=STATE.is_loading.__or__(
+                    STATE.rollout_summary.is_paused.__eq__(True)
+                ),
                 on_click=[
-                    SetState("rollout_action", "cancel"),
+                    SetState("pause_reason", ""),
+                    SetState("rollout_action", "pause"),
                     SetState("rollout_modal_open", True),
                 ],
             )
+            with If(STATE.rollout_summary.is_paused):
+                Button(
+                    "Unpause Rollout",
+                    variant="info",
+                    css_class=BUTTON_INFO_CLASS,
+                    disabled=STATE.is_loading,
+                    on_click=[
+                        SetState("rollout_action", "unpause"),
+                        SetState("rollout_modal_open", True),
+                    ],
+                )
 
         # Row 2: Promote to Next Stage and Promote to Default GA
         with Row(gap=2, css_class="flex-wrap"):
@@ -363,7 +385,22 @@ def _render_rollout_action_buttons() -> None:
                 ],
             )
 
-        # Row 3: Re-drive Finalize — only when a rollout is stuck finalizing
+        # Row 3: Yank the RC version out of the registry
+        with If(STATE.selected_version_yanked.__eq__(False)):
+            with Row(gap=2, css_class="flex-wrap"):
+                Button(
+                    "Yank Version",
+                    variant="destructive",
+                    css_class=BUTTON_DESTRUCTIVE_CLASS,
+                    disabled=STATE.is_loading,
+                    on_click=[
+                        SetState("yank_reason", ""),
+                        SetState("yank_reference_url", ""),
+                        SetState("yank_modal_open", True),
+                    ],
+                )
+
+        # Row 4: Re-drive Finalize — only when a rollout is stuck finalizing
         with If(STATE.rollout_summary.is_finalizing):
             with Row(gap=2, css_class="flex-wrap"):
                 Button(
@@ -397,10 +434,11 @@ def _render_yank_controls() -> None:
     When the selected version is yanked, show the Version Yank Detail card and
     an Unyank action regardless of any unrelated active rollout. Otherwise offer
     Yank for any non-yanked selected version *except* the version that is
-    actively being rolled out: "Yank" overlaps with "Cancel Rollout" only for
-    the active RC version (mirroring the `rc_version == selected_version_tag`
-    gating of the Rollout Status detail), so a non-RC released version stays
-    yankable even while an unrelated rollout is in progress.
+    actively being rolled out — that version already gets a "Yank Version"
+    button inside the rollout action area (mirroring the
+    `rc_version == selected_version_tag` gating of the Rollout Status detail),
+    so a non-RC released version stays yankable even while an unrelated rollout
+    is in progress.
     """
     with If(STATE.selected_version_tag):
         with If(STATE.selected_version_yanked.__eq__(True)):
@@ -457,8 +495,9 @@ def _render_yank_section() -> None:
     """Yank Version action for a non-yanked, non-RC selected version.
 
     Gated by `_render_yank_controls`: shown for any non-yanked selected version
-    except the active RC version (which uses "Cancel Rollout" instead), so a
-    released version stays yankable even while an unrelated rollout is active.
+    except the active RC version (which carries its own Yank button in the
+    rollout action area), so a released version stays yankable even while an
+    unrelated rollout is active.
     """
     with Row(gap=2, css_class="mt-2 flex-wrap"):
         Button(
@@ -705,45 +744,104 @@ def _render_rollout_confirmation_modal() -> None:
                         ],
                     )
 
-        # --- Cancel Rollout ---
-        with If(STATE.rollout_action.__eq__("cancel")):
+        # --- Pause Rollout ---
+        with If(STATE.rollout_action.__eq__("pause")):
             with Column(gap=4):
                 Markdown(
-                    content="**Cancel rollout?**\n\n"
-                    "This will stop the progressive rollout and "
-                    "roll back affected users."
+                    content="**Pause rollout?**\n\n"
+                    "This holds the rollout of "
+                    + STATE.selected_connector.name
+                    + " "
+                    + STATE.rollout_summary.rc_docker_image_tag
+                    + ". Already-pinned customers stay on it. To withdraw the "
+                    "version entirely, yank it instead."
                 )
+                with Column(gap=1):
+                    Markdown("**Reason** (recorded on the rollout)")
+                    Input(
+                        name="pause_reason",
+                        value=STATE.pause_reason,
+                        placeholder="e.g. Sync failures reported on TIER_2",
+                    )
                 with Row(justify="end", gap=2):
                     Button(
-                        "Cancel",
+                        "Dismiss",
                         variant="outline",
                         css_class=BUTTON_OUTLINE_CLASS,
                         on_click=[SetState("rollout_modal_open", False)],
                     )
                     Button(
                         "Confirm",
-                        variant="destructive",
-                        css_class=BUTTON_DESTRUCTIVE_CLASS,
-                        disabled=STATE.is_loading,
+                        variant="info",
+                        css_class=BUTTON_INFO_CLASS,
+                        disabled=STATE.is_loading.__or__(STATE.pause_reason.__eq__("")),
                         on_click=[
                             SetState("rollout_modal_open", False),
-                            *start_tool_call("Canceling rollout…"),
+                            *start_tool_call("Pausing rollout…"),
                             _refresh_token_then(
                                 [
                                     CallTool(
-                                        finalize_rollout,
+                                        pause_rollout,
                                         arguments={
-                                            "rollout_id": STATE.rollout_summary.promote_rollout_id,
+                                            "rollout_id": STATE.rollout_summary.pause_rollout_id,
                                             "connector_id": STATE.rollout_summary.connector_id,
                                             "docker_repository": STATE.rollout_summary.docker_repository,
                                             "docker_image_tag": STATE.rollout_summary.rc_docker_image_tag,
-                                            "state": "canceled",
+                                            "paused_reason": STATE.pause_reason,
                                             "auth_bearer_token": STATE.auth_bearer_token,
                                             "user_email": STATE.oauth_user_email,
                                         },
                                         on_success=rollout_action_success_actions(),
                                         on_error=fail_tool_call(
-                                            "Cancel rollout failed."
+                                            "Pause rollout failed."
+                                        ),
+                                    ),
+                                ]
+                            ),
+                        ],
+                    )
+
+        # --- Unpause Rollout ---
+        with If(STATE.rollout_action.__eq__("unpause")):
+            with Column(gap=4):
+                Markdown(
+                    content="**Unpause rollout?**\n\n"
+                    "This resumes the paused rollout of "
+                    + STATE.selected_connector.name
+                    + " "
+                    + STATE.rollout_summary.rc_docker_image_tag
+                    + "."
+                )
+                with Row(justify="end", gap=2):
+                    Button(
+                        "Dismiss",
+                        variant="outline",
+                        css_class=BUTTON_OUTLINE_CLASS,
+                        on_click=[SetState("rollout_modal_open", False)],
+                    )
+                    Button(
+                        "Confirm",
+                        variant="info",
+                        css_class=BUTTON_INFO_CLASS,
+                        disabled=STATE.is_loading,
+                        on_click=[
+                            SetState("rollout_modal_open", False),
+                            *start_tool_call("Unpausing rollout…"),
+                            _refresh_token_then(
+                                [
+                                    CallTool(
+                                        unpause_rollout,
+                                        arguments={
+                                            "rollout_id": STATE.rollout_summary.pause_rollout_id,
+                                            "connector_id": STATE.rollout_summary.connector_id,
+                                            "docker_repository": STATE.rollout_summary.docker_repository,
+                                            "docker_image_tag": STATE.rollout_summary.rc_docker_image_tag,
+                                            "auth_bearer_token": STATE.auth_bearer_token,
+                                            "user_email": STATE.oauth_user_email,
+                                        },
+                                        on_success=rollout_action_success_actions(),
+                                        on_error=fail_tool_call(
+                                            "Unpause rollout failed."
                                         ),
                                     ),
                                 ]

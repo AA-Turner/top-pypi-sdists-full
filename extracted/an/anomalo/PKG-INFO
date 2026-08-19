@@ -1,6 +1,6 @@
 Metadata-Version: 2.5
 Name: anomalo
-Version: 0.50.2
+Version: 0.50.3
 Summary: Python bindings for the Anomalo API
 Project-URL: Homepage, https://anomalo.com
 Author-email: Anomalo <support@anomalo.com>

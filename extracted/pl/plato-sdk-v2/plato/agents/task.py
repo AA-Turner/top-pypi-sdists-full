@@ -23,7 +23,11 @@ from plato.agents.context import AgentContext
 from plato.agents.login_backends import resolve_login_backend
 from plato.agents.mounts import AgentWorkspaceMount
 from plato.runtimes.base import Runtime, RuntimeInfo
-from plato.tools.mcp import scoped_mcp_url
+from plato.sims.ubuntu_vm.client import (
+    _api_base_url_from_environment,
+    _deployment_connect_gateway,
+)
+from plato.tools.mcp import resolve_mcp_servers, scoped_mcp_url
 from plato.tools.request_context import (
     ToolRequestContext,
     register_client_context,
@@ -320,10 +324,27 @@ class AgentTask:
                 mcp_server_url,
                 client_id=info.runtime_id,
             )
+        mcp_servers = config.get("mcp_servers")
+        if isinstance(mcp_servers, dict) and mcp_servers:
+            env_job_ids: dict[str, str] = {}
+            if self._session is not None:
+                for env in self._session.envs:
+                    if env.alias and env.job_id:
+                        env_job_ids[env.alias] = env.job_id
+            config["mcp_servers"] = resolve_mcp_servers(
+                {str(name): server for name, server in mcp_servers.items()},
+                env_job_ids=env_job_ids,
+                gateway_host=self._connect_gateway_host(),
+                client_id=info.runtime_id,
+            )
         config["plato_mounts"] = [mount.to_payload().model_dump() for mount in mounts]
         if self._agent.browser_tooling and resolve_login_backend(self._agent.package) == "agent_browser":
             config.setdefault("browser_tooling", True)
         return config
+
+    def _connect_gateway_host(self) -> str:
+        """Connect-gateway host for env-alias MCP URLs (prod or per-deployment)."""
+        return _deployment_connect_gateway(_api_base_url_from_environment(self._session))
 
     async def _run_pre_login(self, info: RuntimeInfo) -> None:
         """Run pre-agent login against each env in ``self._session``.

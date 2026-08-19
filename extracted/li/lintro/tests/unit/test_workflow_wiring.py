@@ -801,6 +801,79 @@ def test_dogfood_skip_gate_has_bounded_timeout() -> None:
         assert_that(timeout).is_between(18, 28)
 
 
+def test_test_ci_changes_job_resolves_pipeline_relevance() -> None:
+    """test-ci classifies PR diffs before calling the reusable matrix (#1359)."""
+    test_ci = _load_workflow(name="test-ci.yml")
+    changes_job = test_ci["jobs"]["changes"]
+    steps = {step.get("id"): step for step in changes_job["steps"] if "id" in step}
+
+    assert_that(changes_job["outputs"]["pipeline"]).contains(
+        "steps.result.outputs.pipeline",
+    )
+    assert_that(changes_job["outputs"]["skip-reason"]).contains(
+        "steps.result.outputs.skip-reason",
+    )
+
+    bump_step = steps["bump"]
+    assert_that(bump_step["if"]).contains(_github_event_name_is_pull_request_token())
+    assert_that(bump_step["run"]).is_equal_to("scripts/ci/release-bump-only.sh")
+
+    resolve_step = steps["result"]
+    assert_that(resolve_step["run"]).is_equal_to(
+        "scripts/ci/resolve-pipeline-relevance.sh",
+    )
+    assert_that(resolve_step["env"]["RELEASE_BUMP"]).contains(
+        "steps.bump.outputs.release-bump",
+    )
+
+
+def test_test_ci_reusables_never_path_skip() -> None:
+    """Reusable callers fail-open on changes failure and never path-skip.
+
+    ``if: '!cancelled()'`` mirrors docker-ci's docker-build gate: a failed
+    changes job must still run the matrix (empty pipeline != 'false')
+    instead of collapsing to skipped → false green.
+
+    ``pipeline-skip`` stays hard-false (#2108): lgtm-ci's skipped ``test``
+    job publishes as ``test-compat / inputs.job-name`` rather than the
+    org-required ``test-compat / Python Compatibility`` (and the coverage
+    equivalent), which deadlocks version-bump merges. Re-enable only when
+    that reusable interpolates the skipped job name.
+    """
+    expected_job_names = {
+        "test-compat": "Python Compatibility",
+        "test-coverage": "Python Coverage",
+    }
+    test_ci = _load_workflow(name="test-ci.yml")
+    for job_name, published_name in expected_job_names.items():
+        job = test_ci["jobs"][job_name]
+        assert_that(job["needs"]).contains("changes")
+        assert_that(job["if"]).is_equal_to("!cancelled()")
+        assert_that(job["with"]["pipeline-skip"]).is_false()
+        assert_that(job["with"]["job-name"]).is_equal_to(published_name)
+
+
+def test_test_ci_suite_coverage_gate_mirrors_test_gate() -> None:
+    """Required coverage gate mirrors test-gate with no pipeline=false shortcut.
+
+    The Python matrix always runs (#2108), so a path-skip success shortcut
+    would false-green this required check while tests actually failed.
+    """
+    test_ci = _load_workflow(name="test-ci.yml")
+    gate = test_ci["jobs"]["test-suite-coverage"]
+
+    assert_that(gate["needs"]).contains(
+        "changes",
+        "test-gate",
+    )
+    assert_that(gate["with"]["upstream-result"]).is_equal_to(
+        "${{ needs.test-gate.outputs.result }}",
+    )
+    assert_that(gate["with"]["passed-output"]).is_equal_to(
+        "${{ needs.test-gate.outputs.passed }}",
+    )
+
+
 # --- Deny-by-default pipeline skip-list drift guard (#1369) ------------------
 #
 # docker-ci pipeline relevance is decided by
@@ -838,6 +911,7 @@ _PIPELINE_RELEVANT_TOP_LEVEL: frozenset[str] = frozenset(
         ".actrc",
         ".allstar",
         ".codecov.yml",
+        ".cursor",
         ".dockerignore",
         ".gitattributes",
         ".github",
@@ -872,6 +946,8 @@ _PIPELINE_RELEVANT_TOP_LEVEL: frozenset[str] = frozenset(
         "pyproject.toml",
         "pytest.ini",
         "renovate.json",
+        "requirements-semgrep.in",
+        "requirements-semgrep.txt",
         "scripts",
         "socket.yml",
         "test_samples",
@@ -1597,6 +1673,30 @@ def test_stage_coverage_html_allows_setup_uv_manifest_host() -> None:
     assert_that(allowed).contains("raw.githubusercontent.com:443")
     assert_that(allowed).contains("astral.sh:443")
     assert_that(allowed).contains("releases.astral.sh:443")
+
+
+@pytest.mark.parametrize("job_id", ["test-compat", "test-coverage"])
+def test_test_jobs_omit_pypi_publish_endpoints(job_id: str) -> None:
+    """Test jobs must not allowlist PyPI publish/alt-index hosts (#1351).
+
+    ``pytest`` only downloads from real PyPI. ``allowed-endpoints-mode:
+    replace`` is load-bearing so ``egress-preset: pypi`` cannot merge
+    publish hosts back in. ``upload.test.pypi.org`` was never in this
+    caller list; the omit assertion keeps the preset from reintroducing it.
+
+    Args:
+        job_id: Test job whose egress allowlist is under test.
+    """
+    workflow = _load_workflow(name="test-ci.yml")
+    job_with = workflow["jobs"][job_id]["with"]
+    allowed = set(job_with["allowed-endpoints"].split())
+
+    assert_that(job_with["allowed-endpoints-mode"]).is_equal_to("replace")
+    assert_that(allowed).contains("pypi.org:443")
+    assert_that(allowed).contains("files.pythonhosted.org:443")
+    assert_that(allowed).does_not_contain("test.pypi.org:443")
+    assert_that(allowed).does_not_contain("upload.pypi.org:443")
+    assert_that(allowed).does_not_contain("upload.test.pypi.org:443")
 
 
 def test_deploy_pages_pins_bundler_with_github_token() -> None:

@@ -24,6 +24,7 @@ from dbt_state.auth.sso_server import LOCAL_OAUTH_PORT, SsoHttpServer
 from dbt_state.auth.utils import parse_jwt
 from dbt_state.config import CLIENT_ID_DEFAULT, DBT_RUN_CACHE_PATH, DbtPlatformToken, get_env
 from dbt_state.errors import AuthenticationError, RecoverableAuthenticationError
+from dbt_state.utils import is_ci_environment, is_non_interactive_environment
 
 ORGS_SCOPE = "runcache:scope:orgs"
 """The scope to request from the auth service"""
@@ -392,7 +393,9 @@ class SsoAuth:
                 self._token_url,
                 grant_type="client_credentials",
             )
-            return self._update_token_info(self._session.token)
+            return self._update_token_info(
+                self._session.token, cache_to_disk=not self._is_headless_environment()
+            )
         except AuthenticationError:
             raise
         except Exception as e:
@@ -427,7 +430,9 @@ class SsoAuth:
                 ):
                     raise AuthenticationError(detail)
                 else:
-                    token_info = self._update_token_info(exchanged_token)
+                    token_info = self._update_token_info(
+                        exchanged_token, cache_to_disk=not self._is_headless_environment()
+                    )
                     # _update_token_info may throw so don't declare the token "exchanged" until it passes
                     events.fire_debug_event(
                         "Exchanged dbt platform token '{}' for a state token", token_prefix
@@ -528,7 +533,7 @@ class SsoAuth:
             # the token is already usable in memory, so a failed write only costs us the cache
             _warn_config_dir_not_writable(auth_file, e)
 
-    def _update_token_info(self, token: t.Dict) -> t.Dict:
+    def _update_token_info(self, token: t.Dict, cache_to_disk: bool = True) -> t.Dict:
         id_token = token["id_token"]
         claims = parse_jwt(id_token)[1]
         scope_str = claims.get("scope", "")
@@ -551,10 +556,16 @@ class SsoAuth:
         if "refresh_token" in token:
             new_token_info["refresh_token"] = token["refresh_token"]
 
-        self._save_auth_json(new_token_info)
+        if cache_to_disk:
+            self._save_auth_json(new_token_info)
         self._token_info = new_token_info
         self._token_scope = token_scope
         return self._token_info
+
+    @staticmethod
+    def _is_headless_environment() -> bool:
+        """Whether we're running without an attached user (CI or otherwise non-interactive)."""
+        return is_ci_environment() or is_non_interactive_environment()
 
     def _determine_org_id(self, scope: Scope) -> str:
         """Determine the organization ID from configuration or token scope.

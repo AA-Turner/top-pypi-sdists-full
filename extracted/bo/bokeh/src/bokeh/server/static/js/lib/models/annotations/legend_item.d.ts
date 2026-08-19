@@ -17,6 +17,7 @@ export declare class LegendItem extends Model {
     constructor(attrs?: Partial<LegendItem.Attrs>);
     _check_data_sources_on_renderers(): boolean;
     _check_field_label_on_data_source(): boolean;
+    protected _validate_integrity(): void;
     initialize(): void;
     get_field_from_label_prop(): string | null;
     get_labels_list_from_label_prop(): string[];

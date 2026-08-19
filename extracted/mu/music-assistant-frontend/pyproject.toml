@@ -1,6 +1,6 @@
 [project]
 name = "music-assistant-frontend"
-version = "2.17.278"
+version = "2.17.279"
 description = "The Music Assistant frontend"
 readme = "README.md"
 authors = [

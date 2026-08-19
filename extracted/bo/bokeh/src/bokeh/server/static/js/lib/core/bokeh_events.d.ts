@@ -13,10 +13,11 @@ import type { LegendItem } from "../models/annotations/legend_item";
 import type { Factor } from "../models/ranges/factor_range";
 import type { ClearInput } from "../models/widgets/input_widget";
 import type { ClientConnection } from "../client/connection";
+import type { FileInputChange } from "../models/widgets/file_input";
 export type BokehEventType = DocumentEventType | ModelEventType;
 export type DocumentEventType = "document_ready" | ConnectionEventType;
 export type ConnectionEventType = "connection_lost" | "client_reconnected";
-export type ModelEventType = "axis_click" | "button_click" | "legend_item_click" | "menu_item_click" | "value_submit" | UIEventType;
+export type ModelEventType = "axis_click" | "button_click" | "file_input_change" | "legend_item_click" | "menu_item_click" | "value_submit" | UIEventType;
 export type UIEventType = "lodstart" | "lodend" | "rangesupdate" | "selectiongeometry" | "reset" | PointEventType;
 export type PointEventType = "pan" | "pinch" | "rotate" | "wheel" | "mousemove" | "mouseenter" | "mouseleave" | "tap" | "doubletap" | "press" | "pressup" | "panstart" | "panend" | "pinchstart" | "pinchend" | "rotatestart" | "rotateend";
 /**
@@ -31,6 +32,7 @@ export type BokehEventMap = {
     client_reconnected: ClientReconnected;
     document_ready: DocumentReady;
     doubletap: DoubleTap;
+    file_input_change: FileInputChange;
     legend_item_click: LegendItemClick;
     lodend: LODEnd;
     lodstart: LODStart;
@@ -61,10 +63,11 @@ export type BokehEventRep = {
     name: string;
     values: unknown;
 };
+export declare function event(event_name: string): (cls: Class<BokehEvent, any[]>) => void;
 /**
  * Marks and registers a class as a one way (server -> client) event.
  */
-export declare function server_event(event_name: string): (cls: Class<BokehEvent>) => void;
+export declare function server_event(event_name: string): (cls: Class<BokehEvent, any[]>) => void;
 export declare abstract class BokehEvent implements Serializable, Equatable {
     event_name: string;
     publish: boolean;
@@ -82,6 +85,11 @@ export declare abstract class UserEvent extends ModelEvent {
     constructor(values: Attrs);
     protected get event_values(): Attrs;
     static from_values(values: Attrs): UserEvent;
+}
+export declare abstract class PropertyBundleEvent<M extends HasProps, K extends keyof M> extends ModelEvent {
+    readonly values: Pick<M, K>;
+    constructor(values: Pick<M, K>);
+    protected get event_values(): Attrs;
 }
 export declare abstract class DocumentEvent extends BokehEvent {
 }

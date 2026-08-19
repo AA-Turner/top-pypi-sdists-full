@@ -26,6 +26,26 @@ function isInViewport(
   return topEdge >= zoneTop && bottomEdge <= zoneBottom;
 }
 
+const SCROLL_JS =
+  '(() => { const e = document.scrollingElement || document.documentElement;' +
+  ' return { y: window.scrollY, maxY: Math.max(0, e.scrollHeight - e.clientHeight) }; })()';
+
+/** Current vertical scroll offset and the maximum scrollable offset. */
+async function readScrollState(page: Page): Promise<{ y: number; maxY: number }> {
+  const world = getWorld(page);
+  if (world) {
+    try { return await world.evaluate(SCROLL_JS); } catch { /* fall back below */ }
+  }
+  try {
+    return await page.evaluate(() => {
+      const e = document.scrollingElement || document.documentElement;
+      return { y: window.scrollY, maxY: Math.max(0, e.scrollHeight - e.clientHeight) };
+    });
+  } catch {
+    return { y: 0, maxY: 0 };
+  }
+}
+
 async function smoothWheel(raw: RawMouse, delta: number, cfg: HumanConfig): Promise<void> {
   const absD = Math.abs(delta);
   const sign = delta > 0 ? 1 : -1;
@@ -78,6 +98,18 @@ export async function humanScrollIntoView(
 
   if (isInViewport(box, viewport.height, cfg)) {
     return { box, cursorX, cursorY, didScroll: false };
+  }
+
+  // Already fully visible but off-center, with the page pinned at the boundary
+  // in the needed direction: scrolling can't help, so don't waste the budget.
+  const fullyVisible = box.y >= 0 && box.y + box.height <= viewport.height;
+  if (fullyVisible) {
+    const zoneMid = viewport.height * (cfg.scroll_target_zone[0] + cfg.scroll_target_zone[1]) / 2;
+    const needUp = box.y + box.height / 2 < zoneMid;
+    const { y, maxY } = await readScrollState(page);
+    if (needUp ? y <= 0 : y >= maxY) {
+      return { box, cursorX, cursorY, didScroll: false };
+    }
   }
 
   // Move cursor into scroll area

@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: geocif
-Version: 0.4.921
+Version: 0.4.928
 Summary: Models to visualize and forecast crop conditions and yields
 Author-email: Ritvik Sahajpal <ritvik@umd.edu>
 License: MIT
@@ -294,6 +294,27 @@ geocif supports the following model types (configured via `models` in `[DEFAULT]
 Configured via `feature_selection` in `[ML]`:
 
 `none`, `SelectKBest`, `BorutaPy`, `Leshy`, `gOMP`, `RFECV`, `RFE`, `lasso`, `mrmr`, `SHAP`, `stabl`, `PowerShap`, `BorutaShap`, `Genetic`, `feature_engine`, `multi`
+
+The `gOMP` tiers cap how many features survive: `gOMP_high` (500), `gOMP_medium` (50), `gOMP_low` (15). A county-scale sweep (usa_admin2 maize, cubist, matched county-years) found `gOMP_medium` best on **every** metric *and* 2.2× faster than both `gOMP_high` and `none` — `none` does not save time, it moves the cost into the model. Feature selection is the dominant cost of a fold (~74% at `gOMP_high`), so this setting matters more than the model choice.
+
+Selection results are cached on disk and shared across the models of a fold (see *Performance* below), since the selection depends only on the training data and method.
+
+### Performance
+
+Two settings govern how a run uses the machine:
+
+```ini
+[DEFAULT]
+do_parallel_ml = True
+fraction_cpus = 0.15          ; concurrent fold tasks, as a fraction of cores
+
+[ML]
+cache_feature_selection = True  ; reuse selections across models/runs (default)
+threads_per_worker = auto       ; auto | <int> | -1 (unlimited)
+```
+
+- **Feature-selection cache** — selection is model-independent, so the first model of a fold computes it and the rest reuse it, on disk (workers are separate processes). Measured at county scale: catboost 32 min/fold computing it, cubist 21 min/fold reusing it. Keys are content-addressed, so any change to the data, method, or selector code is a miss rather than a stale hit.
+- **Thread budget** — each worker gets `cores / workers` threads instead of every worker's model grabbing every core (which measured a load average of 940 on a 128-core node). Note `fraction_cpus` sets *concurrency*, not total footprint: the budget deliberately fills the machine without oversubscribing it. Set `threads_per_worker` explicitly to leave headroom for other users.
 
 ### Cluster analysis
 

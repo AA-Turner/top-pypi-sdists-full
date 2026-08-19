@@ -23,6 +23,7 @@ import anyscale.conf
 from anyscale.sdk import anyscale_client
 from anyscale.sdk.anyscale_client.api.default_api import DefaultApi as AnyscaleApi
 import anyscale.shared_anyscale_utils.conf as shared_anyscale_conf
+from anyscale.utils.rate_limit_retry_util import build_rate_limit_retry
 
 
 CREDENTIALS_FILE = "~/.anyscale/credentials.json"
@@ -114,6 +115,7 @@ class AuthenticationBlock:
         configuration = openapi_client.Configuration(host=self.host)
         configuration.proxy = os.environ.get("https_proxy")
         configuration.connection_pool_maxsize = 100
+        configuration.retries = build_rate_limit_retry(logger=self.log)
 
         cookie = f"cli_token={self.credentials}"
         api_client = ApiClientWrapperInternal(
@@ -143,6 +145,7 @@ class AuthenticationBlock:
         configuration = anyscale_client.Configuration(host=self.host + "/ext/v0")
         configuration.proxy = os.environ.get("https_proxy")
         configuration.connection_pool_maxsize = 100
+        configuration.retries = build_rate_limit_retry(logger=self.log)
 
         api_client = (
             ApiClientWrapperExternal(

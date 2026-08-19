@@ -10,6 +10,7 @@ import type { Tooltip } from "../ui/tooltip";
 export declare class TabsView extends LayoutDOMView {
     model: Tabs;
     protected tooltip_views: ViewStorage<Tooltip>;
+    protected readonly _materialized_tabs: Set<UIElement>;
     protected header_el: HTMLElement;
     headers_wrapper_el: HTMLElement;
     header_els: HTMLElement[];
@@ -17,6 +18,7 @@ export declare class TabsView extends LayoutDOMView {
     lazy_initialize(): Promise<void>;
     stylesheets(): StyleSheetLike[];
     get child_models(): UIElement[];
+    get normalized_active(): number;
     protected _intrinsic_display(): FullDisplay;
     _update_layout(): void;
     _after_layout(): void;

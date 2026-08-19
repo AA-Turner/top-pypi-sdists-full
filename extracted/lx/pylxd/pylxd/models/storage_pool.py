@@ -42,6 +42,13 @@ class StoragePool(model.Model):
         self.resources = managers.StorageResourcesManager(self)
         self.volumes = managers.StorageVolumeManager(self)
 
+    def __eq__(self, other):
+        if not isinstance(other, StoragePool):
+            return NotImplemented
+        return self.name == other.name
+
+    __hash__ = None  # type: ignore  # unhashable, consistent with defining __eq__
+
     @classmethod
     def get(cls, client, name):
         """Get a storage_pool by name.
@@ -110,7 +117,7 @@ class StoragePool(model.Model):
         Note that **all** fields in the `definition` parameter are strings.
 
         For further details on the storage pool types see:
-        https://documentation.ubuntu.com/lxd/en/latest/explanation/storage/
+        https://canonical.com/lxd/docs/latest/explanation/storage/
 
         The function returns the a `StoragePool` instance, if it is
         successfully created, otherwise an Exception is raised.
@@ -310,7 +317,7 @@ class StorageVolume(model.Model):
     # Date strings follow the ISO 8601 pattern
     created_at = model.Attribute(readonly=True)
     pool = model.Attribute(readonly=True)
-    project = model.Attribute(readonly=True)
+    project = model.Attribute(readonly=True, optional=True)
 
     snapshots = model.Manager()
 
@@ -333,6 +340,18 @@ class StorageVolume(model.Model):
         super().__init__(*args, **kwargs)
 
         self.snapshots = managers.StorageVolumeSnapshotManager(self)
+
+    def __eq__(self, other):
+        if not isinstance(other, StorageVolume):
+            return NotImplemented
+        return (
+            self.name == other.name
+            and self.type == other.type
+            and self._raw_attr("project") == other._raw_attr("project")
+            and self.storage_pool == other.storage_pool
+        )
+
+    __hash__ = None  # type: ignore  # unhashable, consistent with defining __eq__
 
     @classmethod
     def all(cls, storage_pool):
@@ -421,7 +440,7 @@ class StorageVolume(model.Model):
 
         Implements POST /1.0/storage-pools/<pool>/volumes/custom
 
-        See https://documentation.ubuntu.com/lxd/en/latest/api/#/storage/storage_pool_volumes_type_post
+        See https://canonical.com/lxd/docs/latest/api/#/storage/storage_pool_volumes_type_post
         for more details on what the `definition` parameter dictionary should
         contain for various volume creation.
 
@@ -500,7 +519,7 @@ class StorageVolume(model.Model):
         method does not override any items in the input definition, although it
         does check that the 'name' and 'pool' parameters are set.
 
-        Please see: https://documentation.ubuntu.com/lxd/en/latest/api/#/storage/storage_pool_volume_type_post
+        Please see: https://canonical.com/lxd/docs/latest/api/#/storage/storage_pool_volume_type_post
         for more details.
 
         :param _input: The `input` specification for the rename.
@@ -609,7 +628,7 @@ class StorageVolume(model.Model):
         Implements: DELETE /1.0/storage-pools/<pool>/volumes/<type>/<name>
 
         Deleting a storage volume may fail if it is being used.
-        See https://documentation.ubuntu.com/lxd/en/latest/explanation/storage/#storage-volumes
+        See https://canonical.com/lxd/docs/latest/explanation/storage/#storage-volumes
         for further details.
 
         :param wait: Whether to wait for async operations to complete.
@@ -671,6 +690,13 @@ class StorageVolumeSnapshot(model.Model):
 
     volume = model.Parent()
 
+    def __eq__(self, other):
+        if not isinstance(other, StorageVolumeSnapshot):
+            return NotImplemented
+        return self.name == other.name and self.volume == other.volume
+
+    __hash__ = None  # type: ignore  # unhashable, consistent with defining __eq__
+
     @property
     def api(self):
         """Provides an object with the endpoint:
@@ -709,7 +735,7 @@ class StorageVolumeSnapshot(model.Model):
         ):
             snapshot_object.created_at = None
 
-        # This field is may empty so derive it from its volume.
+        # This field is maybe empty so derive it from its volume.
         if not snapshot_object.content_type:
             snapshot_object.content_type = volume.content_type
 

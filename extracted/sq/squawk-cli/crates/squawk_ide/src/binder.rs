@@ -2,11 +2,12 @@
 /// see: typescript-go/internal/binder/binder.go
 use la_arena::Arena;
 use rowan::{TextRange, TextSize};
+use rustc_hash::FxHashMap;
 use smallvec::SmallVec;
 use squawk_syntax::{SyntaxNodePtr, ast, ast::AstNode};
 
 use crate::literals::literal_string_value;
-use crate::name::schema_and_func_name;
+use crate::name::{AsName, schema_and_func_name};
 use crate::scope::Scope;
 use crate::symbols::{Name, Schema, Symbol, SymbolKind};
 
@@ -51,6 +52,10 @@ pub(crate) struct Binder {
     // If we have a `create schema foo` command then commands nested inside that
     // get `foo` for their schema.
     schema_regions: Vec<(TextRange, Schema)>,
+    savepoint_stack: Vec<(Name, SyntaxNodePtr)>,
+    savepoint_refs: FxHashMap<SyntaxNodePtr, SyntaxNodePtr>,
+    prepared_transactions: FxHashMap<String, SyntaxNodePtr>,
+    prepared_transaction_refs: FxHashMap<SyntaxNodePtr, SyntaxNodePtr>,
 }
 
 impl Binder {
@@ -68,16 +73,42 @@ impl Binder {
             }],
             default_schema_override: None,
             schema_regions: vec![],
+            savepoint_stack: vec![],
+            savepoint_refs: FxHashMap::default(),
+            prepared_transactions: FxHashMap::default(),
+            prepared_transaction_refs: FxHashMap::default(),
         }
     }
 
-    pub(crate) fn lookup(&self, name: &Name, kind: SymbolKind) -> Option<SyntaxNodePtr> {
+    pub(crate) fn lookup<N: AsName + ?Sized>(
+        &self,
+        name: &N,
+        kind: SymbolKind,
+    ) -> Option<SyntaxNodePtr> {
         let symbols = self.scope.get(name)?;
         let symbol_id = symbols.iter().copied().find(|id| {
             let symbol = &self.symbols[*id];
             symbol.kind == kind
         })?;
         Some(self.symbols[symbol_id].ptr)
+    }
+
+    pub(crate) fn lookup_savepoint(
+        &self,
+        savepoint_ref: &ast::SavepointRef,
+    ) -> Option<SyntaxNodePtr> {
+        self.savepoint_refs
+            .get(&SyntaxNodePtr::new(savepoint_ref.syntax()))
+            .copied()
+    }
+
+    pub(crate) fn lookup_prepared_transaction(
+        &self,
+        literal: &ast::Literal,
+    ) -> Option<SyntaxNodePtr> {
+        self.prepared_transaction_refs
+            .get(&SyntaxNodePtr::new(literal.syntax()))
+            .copied()
     }
 
     pub(crate) fn resolved_schemas(
@@ -112,9 +143,9 @@ impl Binder {
         list
     }
 
-    pub(crate) fn lookup_with(
+    pub(crate) fn lookup_with<N: AsName + ?Sized>(
         &self,
-        name: &Name,
+        name: &N,
         kind: SymbolKind,
         schemas: &ResolvedSchemas,
     ) -> Option<SyntaxNodePtr> {
@@ -130,9 +161,9 @@ impl Binder {
         None
     }
 
-    pub(crate) fn lookup_with_params(
+    pub(crate) fn lookup_with_params<N: AsName + ?Sized>(
         &self,
-        name: &Name,
+        name: &N,
         kind: SymbolKind,
         schemas: &ResolvedSchemas,
         params: Option<&[Name]>,
@@ -155,9 +186,9 @@ impl Binder {
         None
     }
 
-    pub(crate) fn lookup_with_table(
+    pub(crate) fn lookup_with_table<N: AsName + ?Sized>(
         &self,
-        name: &Name,
+        name: &N,
         kind: SymbolKind,
         schemas: &ResolvedSchemas,
         table: &Option<Name>,
@@ -176,9 +207,9 @@ impl Binder {
         None
     }
 
-    pub(crate) fn lookup_info(
+    pub(crate) fn lookup_info<N: AsName + ?Sized>(
         &self,
-        name: &Name,
+        name: &N,
         kind: SymbolKind,
         schemas: &ResolvedSchemas,
     ) -> Option<(Schema, String)> {
@@ -189,7 +220,7 @@ impl Binder {
                 symbol.kind == kind && symbol.schema.as_ref() == Some(search_schema)
             }) {
                 let symbol = &self.symbols[symbol_id];
-                return Some((symbol.schema.clone()?, name.to_string()));
+                return Some((symbol.schema.clone()?, name.as_name().to_string()));
             }
         }
         None
@@ -354,6 +385,11 @@ fn bind_stmt(b: &mut Binder, stmt: ast::Stmt) {
         ast::Stmt::Prepare(prepare) => bind_prepare(b, prepare),
         ast::Stmt::Listen(listen) => bind_listen(b, listen),
         ast::Stmt::SavepointCreate(savepoint) => bind_savepoint(b, savepoint),
+        ast::Stmt::ReleaseSavepoint(release) => bind_release_savepoint(b, release),
+        ast::Stmt::Rollback(rollback) => bind_rollback(b, rollback),
+        ast::Stmt::PrepareTransaction(prepare) => bind_prepare_transaction(b, prepare),
+        ast::Stmt::Commit(commit) => bind_commit(b, commit),
+        ast::Stmt::Begin(_) => b.savepoint_stack.clear(),
         ast::Stmt::Select(select) => bind_select(b, select),
         ast::Stmt::Set(set) => bind_set(b, set),
         ast::Stmt::CreatePolicy(create_policy) => bind_create_policy(b, create_policy),
@@ -844,12 +880,11 @@ fn multirange_type_from_range(
     fallback_ptr: SyntaxNodePtr,
 ) -> Option<(Name, SyntaxNodePtr, Schema)> {
     if let Some(attribute_list) = range_type.attribute_list() {
-        let multirange_key = Name::from_string("multirange_type_name");
         for option in attribute_list.attribute_options() {
             let Some(name) = option.name() else {
                 continue;
             };
-            if Name::from_node(&name) != multirange_key {
+            if Name::from_node(&name) != "multirange_type_name" {
                 continue;
             }
             if let Some(attribute_value) = option.attribute_value() {
@@ -1679,7 +1714,82 @@ fn bind_savepoint(b: &mut Binder, savepoint: ast::SavepointCreate) {
         table: None,
     });
 
+    b.savepoint_stack.push((savepoint_name.clone(), name_ptr));
+
     b.scope.insert(savepoint_name, savepoint_id);
+}
+
+fn bind_savepoint_ref(b: &mut Binder, savepoint_ref: &ast::SavepointRef) -> Option<usize> {
+    let name = Name::from_node(savepoint_ref);
+    let idx = b.savepoint_stack.iter().rposition(|(n, _)| *n == name)?;
+    b.savepoint_refs.insert(
+        SyntaxNodePtr::new(savepoint_ref.syntax()),
+        b.savepoint_stack[idx].1,
+    );
+    Some(idx)
+}
+
+fn bind_release_savepoint(b: &mut Binder, release: ast::ReleaseSavepoint) {
+    let Some(savepoint_ref) = release.savepoint_ref() else {
+        return;
+    };
+
+    if let Some(idx) = bind_savepoint_ref(b, &savepoint_ref) {
+        b.savepoint_stack.truncate(idx);
+    }
+}
+
+fn bind_commit(b: &mut Binder, commit: ast::Commit) {
+    if commit.prepared_token().is_some() {
+        bind_prepared_transaction_ref(b, commit.literal());
+    }
+
+    b.savepoint_stack.clear();
+}
+
+fn bind_prepare_transaction(b: &mut Binder, prepare: ast::PrepareTransaction) {
+    b.savepoint_stack.clear();
+
+    let Some(literal) = prepare.literal() else {
+        return;
+    };
+    let Some(transaction_id) = literal_string_value(&literal) else {
+        return;
+    };
+
+    b.prepared_transactions
+        .insert(transaction_id, SyntaxNodePtr::new(literal.syntax()));
+}
+
+fn bind_prepared_transaction_ref(b: &mut Binder, literal: Option<ast::Literal>) {
+    let Some(literal) = literal else {
+        return;
+    };
+    let Some(transaction_id) = literal_string_value(&literal) else {
+        return;
+    };
+
+    let Some(ptr) = b.prepared_transactions.remove(&transaction_id) else {
+        return;
+    };
+
+    b.prepared_transaction_refs
+        .insert(SyntaxNodePtr::new(literal.syntax()), ptr);
+}
+
+fn bind_rollback(b: &mut Binder, rollback: ast::Rollback) {
+    if rollback.prepared_token().is_some() {
+        bind_prepared_transaction_ref(b, rollback.literal());
+    }
+
+    let Some(savepoint_ref) = rollback.savepoint_ref() else {
+        b.savepoint_stack.clear();
+        return;
+    };
+
+    if let Some(idx) = bind_savepoint_ref(b, &savepoint_ref) {
+        b.savepoint_stack.truncate(idx + 1);
+    }
 }
 
 fn item_name(path: &ast::Path) -> Option<Name> {
@@ -1779,31 +1889,42 @@ fn search_path_from_set_config_param(
         return None;
     }
 
-    if set_config_param.current_token().is_some() {
-        return Some(SearchPathOverride::FromCurrent);
+    match set_config_param.config_assignment()? {
+        ast::ConfigAssignment::FromCurrent(_) => Some(SearchPathOverride::FromCurrent),
+        ast::ConfigAssignment::ToConfigValue(to_config_value) => Some(
+            SearchPathOverride::Explicit(search_path_from_config_value(&to_config_value)),
+        ),
     }
+}
 
-    if set_config_param.default_token().is_some() {
-        return Some(SearchPathOverride::Explicit(vec![
-            Schema::new("public"),
-            Schema::new("pg_temp"),
-            Schema::new("pg_catalog"),
-        ]));
+fn default_search_path() -> Vec<Schema> {
+    vec![
+        Schema::new("public"),
+        Schema::new("pg_temp"),
+        Schema::new("pg_catalog"),
+    ]
+}
+
+fn search_path_from_config_value(to_config_value: &ast::ToConfigValue) -> Vec<Schema> {
+    if to_config_value.default_token().is_some() {
+        return default_search_path();
     }
-
     let mut search_path = vec![];
-    for literal in set_config_param.literals() {
-        if let Some(string_value) = extract_string_literal(&literal)
-            && !string_value.is_empty()
-        {
-            search_path.push(Schema::new(string_value));
+    for config_value in to_config_value.config_values() {
+        match config_value {
+            ast::ConfigValue::Literal(literal) => {
+                if let Some(string_value) = extract_string_literal(&literal)
+                    && !string_value.is_empty()
+                {
+                    search_path.push(Schema::new(string_value));
+                }
+            }
+            ast::ConfigValue::ConfigValueName(config_value_name) => {
+                search_path.push(Schema::new(config_value_name.syntax().text().to_string()));
+            }
         }
     }
-    for config_value_name in set_config_param.config_value_names() {
-        search_path.push(Schema::new(config_value_name.syntax().text().to_string()));
-    }
-
-    Some(SearchPathOverride::Explicit(search_path))
+    search_path
 }
 
 fn bind_set(b: &mut Binder, set: ast::Set) {
@@ -1849,40 +1970,17 @@ fn bind_set_config(b: &mut Binder, set_config: ast::SetConfig, position: TextSiz
     }
 
     // `set search_path`
-    if set_config.default_token().is_some() {
-        b.search_path_changes.push(SearchPathChange {
-            position,
-            search_path: vec![
-                Schema::new("public"),
-                Schema::new("pg_temp"),
-                Schema::new("pg_catalog"),
-            ],
-        });
-    } else {
-        let mut search_path = vec![];
-        for config_value in set_config.config_values() {
-            match config_value {
-                ast::ConfigValue::Literal(literal) => {
-                    if let Some(string_value) = extract_string_literal(&literal) {
-                        // You can unset the search path via `set search_path = ''`
-                        // so we want to skip over these, otherwise we'll
-                        // have a schema of value `''` which isn't valid.
-                        if !string_value.is_empty() {
-                            search_path.push(Schema::new(string_value));
-                        }
-                    }
-                }
-                ast::ConfigValue::ConfigValueName(config_value_name) => {
-                    let schema_name = config_value_name.syntax().text().to_string();
-                    search_path.push(Schema::new(schema_name));
-                }
-            }
+    let search_path = match set_config.config_assignment() {
+        Some(ast::ConfigAssignment::ToConfigValue(to_config_value)) => {
+            search_path_from_config_value(&to_config_value)
         }
-        b.search_path_changes.push(SearchPathChange {
-            position,
-            search_path,
-        });
-    }
+        // no-op
+        Some(ast::ConfigAssignment::FromCurrent(_)) | None => return,
+    };
+    b.search_path_changes.push(SearchPathChange {
+        position,
+        search_path,
+    });
 }
 
 fn bind_select(b: &mut Binder, select: ast::Select) {
@@ -1917,7 +2015,7 @@ fn bind_select_set_config(b: &mut Binder, select: &ast::Select, position: TextSi
     let Some((schema, func_name)) = schema_and_func_name(&call_expr) else {
         return;
     };
-    if func_name != Name::from_string("set_config") {
+    if func_name != "set_config" {
         return;
     }
     if let Some(schema) = &schema

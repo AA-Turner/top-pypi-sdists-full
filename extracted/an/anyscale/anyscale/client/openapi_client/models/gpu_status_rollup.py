@@ -101,7 +101,7 @@ class GpuStatusRollup(object):
     def gpu_used(self):
         """Gets the gpu_used of this GpuStatusRollup.  # noqa: E501
 
-        GPUs with a workload running.  # noqa: E501
+        GPUs in the allocated state: attributed to a running workload and healthy. Idle and unhealthy GPUs count toward gpu_total only.  # noqa: E501
 
         :return: The gpu_used of this GpuStatusRollup.  # noqa: E501
         :rtype: int
@@ -112,7 +112,7 @@ class GpuStatusRollup(object):
     def gpu_used(self, gpu_used):
         """Sets the gpu_used of this GpuStatusRollup.
 
-        GPUs with a workload running.  # noqa: E501
+        GPUs in the allocated state: attributed to a running workload and healthy. Idle and unhealthy GPUs count toward gpu_total only.  # noqa: E501
 
         :param gpu_used: The gpu_used of this GpuStatusRollup.  # noqa: E501
         :type: int

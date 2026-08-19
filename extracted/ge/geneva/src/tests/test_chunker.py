@@ -1189,6 +1189,49 @@ class TestStreamingFragments:
             float(i) for i in range(20)
         ]
 
+    def test_worker_oom_splits_source_work_without_duplicates(
+        self, tmp_path, ray_with_test_path
+    ) -> None:
+        """A worker OOM retries only smaller source-row-id work items."""
+        import ray
+
+        db = connect(tmp_path)
+        source = self._source(db, n=6)
+
+        @geneva.chunker(
+            batch=True,
+            output_schema=CLIP_SCHEMA,
+            input_columns=["duration"],
+        )
+        def oom_above_one_row(
+            duration: pa.Array,
+            **kwargs,
+        ) -> pa.RecordBatch:
+            if len(duration) > 1:
+                raise ray.exceptions.OutOfMemoryError("synthetic worker OOM")
+            return pa.RecordBatch.from_pydict(
+                {
+                    "__source_row_id": kwargs["__source_row_id"],
+                    "clip_start": pa.array([0.0] * len(duration)),
+                    "clip_end": duration,
+                }
+            )
+
+        query = source.search(None).select(["video_path", "duration"])
+        view = db.create_udtf_view("clips_oom_recovery", query, oom_above_one_row)
+
+        view.refresh(
+            concurrency=2,
+            source_task_size=4,
+            _admission_check=False,
+        )
+
+        result = view.to_arrow()
+        source_row_ids = result["__source_row_id"].to_pylist()
+        assert result.num_rows == 6
+        assert len(source_row_ids) == len(set(source_row_ids))
+        assert sorted(result["clip_end"].to_pylist()) == [float(i) for i in range(6)]
+
     def test_output_limit_exact_mid_fragment(
         self, tmp_path, ray_with_test_path
     ) -> None:

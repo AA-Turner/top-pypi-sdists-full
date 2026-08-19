@@ -1,6 +1,8 @@
 # Copyright (c) 2025 Airbyte, Inc., all rights reserved.
 """Unit tests for the connector rollout monitoring API-based tool."""
 
+from collections.abc import Iterator
+from contextlib import ExitStack, contextmanager
 from unittest.mock import MagicMock, patch
 
 import pytest
@@ -10,11 +12,18 @@ from airbyte_ops_mcp.cloud_admin.api_client import (
     get_actor_sync_info,
     pause_connector_rollout,
 )
+from airbyte_ops_mcp.connector_ops.rollouts.state_transitions import (
+    pause_rollout,
+    unpause_rollout,
+)
 from airbyte_ops_mcp.mcp.connector_versions import (
     RolloutActorSelectionInfo,
     RolloutActorSyncStats,
     RolloutMonitoringResult,
     query_prod_rollout_monitoring_stats,
+)
+from airbyte_ops_mcp.mcp.connector_versions import (
+    pause_connector_rollout as pause_connector_rollout_tool,
 )
 
 
@@ -244,3 +253,165 @@ def test_get_actor_sync_info_not_found() -> None:
                 config_api_root="https://api.test.com",
                 bearer_token="test-token",
             )
+
+
+_CLOUD_AUTH_PATCHES = (
+    (
+        "airbyte_ops_mcp.mcp.connector_versions.require_internal_admin_flag_only",
+        None,
+    ),
+    (
+        "airbyte_ops_mcp.mcp.connector_versions._resolve_cloud_auth",
+        MagicMock(bearer_token="test-token", client_id=None, client_secret=None),
+    ),
+    (
+        "airbyte_ops_mcp.mcp.connector_versions.api_client.get_user_id_by_email",
+        "user-uuid",
+    ),
+)
+
+
+@contextmanager
+def _patched_cloud_auth() -> Iterator[None]:
+    """Patch the admin gate, cloud auth, and email lookup the rollout tools share."""
+    with ExitStack() as stack:
+        for target, return_value in _CLOUD_AUTH_PATCHES:
+            stack.enter_context(patch(target, return_value=return_value))
+        yield
+
+
+@pytest.mark.unit
+@pytest.mark.parametrize(
+    "tool_kwargs,transition,transition_result,expect_call,expected_fragment",
+    [
+        pytest.param(
+            {"paused_reason": "  Sync failures on TIER_2  "},
+            "pause_rollout",
+            None,
+            True,
+            "Sync failures on TIER_2",
+            id="pause_normalizes_the_reason_and_attributes_the_user",
+        ),
+        pytest.param(
+            {"paused_reason": "   "},
+            "pause_rollout",
+            None,
+            False,
+            "paused_reason is required",
+            id="pause_rejects_a_blank_reason",
+        ),
+        pytest.param(
+            {"unpause": True},
+            "unpause_rollout",
+            (20, {}),
+            True,
+            "resumed rollout",
+            id="unpause_needs_no_reason",
+        ),
+        pytest.param(
+            {"unpause": True, "paused_reason": "not applicable"},
+            "unpause_rollout",
+            None,
+            False,
+            "does not apply",
+            id="unpause_rejects_a_reason_rather_than_dropping_it",
+        ),
+        pytest.param(
+            {"unpause": True},
+            "unpause_rollout",
+            PyAirbyteInputError(message="rollout is not paused"),
+            True,
+            "rollout is not paused",
+            id="unpause_reports_an_api_failure_as_an_unsuccessful_result",
+        ),
+    ],
+)
+def test_pause_connector_rollout_tool_pauses_unpauses_and_guards(
+    tool_kwargs: dict[str, object],
+    transition: str,
+    transition_result: object,
+    expect_call: bool,
+    expected_fragment: str,
+) -> None:
+    """One tool covers both transitions, each with its own required inputs."""
+    mock_ctx = MagicMock()
+    mock_ctx.request_context.lifespan_context = {}
+    raises = isinstance(transition_result, Exception)
+
+    with _patched_cloud_auth(), patch(
+        f"airbyte_ops_mcp.mcp.connector_versions.{transition}",
+        side_effect=transition_result if raises else None,
+        return_value=None if raises else transition_result,
+    ) as mock_transition:
+        result = pause_connector_rollout_tool(
+            docker_repository="airbyte/source-faker",
+            docker_image_tag="7.2.0-rc.1",
+            actor_definition_id="actor-definition",
+            rollout_id="rollout-id",
+            admin_user_email="ops@airbyte.io",
+            ctx=mock_ctx,
+            **tool_kwargs,
+        )
+
+    assert result.success is (expect_call and not raises)
+    assert expected_fragment in (result.message or "") or expected_fragment == (
+        result.paused_reason
+    )
+    assert mock_transition.called is expect_call
+    if expect_call and not raises:
+        assert mock_transition.call_args.kwargs["updated_by"] == "user-uuid"
+        assert "current_target_percentage" not in mock_transition.call_args.kwargs
+
+
+@pytest.mark.unit
+@pytest.mark.parametrize(
+    "current_target_percentage,expected_target",
+    [
+        pytest.param(20, 20, id="resumes_at_current_pct_pinning_nobody_new"),
+        pytest.param(0, 1, id="nothing_pinned_yet_resumes_at_one_pct"),
+        pytest.param(None, 1, id="missing_pct_resumes_at_one_pct"),
+    ],
+)
+def test_unpause_rollout_resumes_at_the_rollouts_own_percentage(
+    current_target_percentage: int | None,
+    expected_target: int,
+) -> None:
+    """Callers never supply a percentage: it is read from the rollout itself."""
+    with patch(
+        "airbyte_ops_mcp.connector_ops.rollouts.state_transitions.api_client.get_connector_rollout",
+        return_value={"current_target_rollout_pct": current_target_percentage},
+    ), patch(
+        "airbyte_ops_mcp.connector_ops.rollouts.state_transitions.api_client.progress_connector_rollout"
+    ) as mock_progress:
+        resume_percentage, _ = unpause_rollout(
+            docker_repository="airbyte/source-faker",
+            docker_image_tag="7.2.0-rc.1",
+            actor_definition_id="actor-definition",
+            rollout_id="rollout-id",
+            updated_by="user-id",
+            config_api_root="https://api.test.com",
+            bearer_token="test-token",
+        )
+
+    assert resume_percentage == expected_target
+    assert mock_progress.call_args.kwargs["target_percentage"] == expected_target
+
+
+@pytest.mark.unit
+def test_pause_rollout_requires_a_reason() -> None:
+    """The business layer refuses an unexplained hold, whatever the caller."""
+    with patch(
+        "airbyte_ops_mcp.connector_ops.rollouts.state_transitions.api_client.pause_connector_rollout"
+    ) as mock_pause, pytest.raises(PyAirbyteInputError, match="reason is required"):
+        pause_rollout(
+            docker_repository="airbyte/source-faker",
+            docker_image_tag="7.2.0-rc.1",
+            actor_definition_id="actor-definition",
+            rollout_id="rollout-id",
+            updated_by="user-id",
+            paused_reason="   ",
+            config_api_root="https://api.test.com",
+            bearer_token="test-token",
+        )
+
+    mock_pause.assert_not_called()

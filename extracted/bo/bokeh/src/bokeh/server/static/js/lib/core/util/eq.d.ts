@@ -6,13 +6,24 @@ export interface Equatable {
 export declare const wildcard: any;
 export declare class EqNotImplemented extends Error {
 }
+export type ComparatorOptions = {
+    /**
+     * Compare the structure of objects even if an identity check would be more
+     * robust (default: false)
+     */
+    structural?: boolean;
+    /**
+     * Don't throw any exceptions if values don't support equality, but simply
+     * return they aren't equal (default: false)
+     */
+    no_fail?: boolean;
+};
 export declare class Comparator {
     private readonly a_stack;
     private readonly b_stack;
     readonly structural: boolean;
-    constructor(options?: {
-        structural?: boolean;
-    });
+    readonly no_fail: boolean;
+    constructor(options?: ComparatorOptions);
     eq(a: any, b: any): boolean;
     numbers(a: number, b: number): boolean;
     arrays(a: ArrayLike<unknown>, b: ArrayLike<unknown>): boolean;

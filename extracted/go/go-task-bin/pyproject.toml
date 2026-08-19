@@ -1,9 +1,10 @@
 [project]
 name = "go-task-bin"
-version = "3.52.0"
-description = "A task runner / simpler Make alternative written in Go"
+version = "3.53.1"
+description = "A fast, cross-platform build tool inspired by Make, designed for modern workflows."
 readme = "README.md"
 requires-python = ">=3.7"
+license = "MIT"
 authors = [
     { name = "dowon", email = "ks2515@naver.com" },
 ]
@@ -25,9 +26,6 @@ classifiers = [
     "Topic :: Software Development :: Build Tools",
 ]
 dependencies = []
-
-[project.license]
-text = "MIT"
 
 [project.urls]
 repository = "https://github.com/Bing-su/pip-binary-factory"

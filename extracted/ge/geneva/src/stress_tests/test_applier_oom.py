@@ -34,7 +34,7 @@ cgroup memory cap (``make test-stress-applier-oom-cgroup``):
 - ``test_applier_oom_smoke_with_skip``: UDF declared with
   ``skip_on_error()``. Asserts backfill *completes*, planted rows end
   up null, and at least one error record was logged.
-- ``test_applier_oom_smoke_no_skip``: UDF without ``on_error``.
+- ``test_applier_oom_smoke_no_skip``: UDF with explicit ``fail_fast()``.
   Asserts backfill *raises* with a memory-flavored error in the
   exception chain.
 """
@@ -52,7 +52,7 @@ import pytest
 import ray
 
 import geneva
-from geneva import udf
+from geneva import fail_fast, udf
 from geneva.debug.error_store import skip_on_error
 from geneva.errors import FatalWorkerError, FatalWorkerOOMError
 
@@ -112,11 +112,9 @@ def alloc_with_skip(payload_bytes: int) -> bytes:
     return b"\x00" * payload_bytes
 
 
-@udf(data_type=pa.binary(), batch_size=URL_BATCH_SIZE)
+@udf(data_type=pa.binary(), batch_size=URL_BATCH_SIZE, on_error=fail_fast())
 def alloc_no_skip(payload_bytes: int) -> bytes:
-    """Same UDF, no on_error config -- a worker OOM propagates as a
-    FatalWorkerOOMError and fails the job.
-    """
+    """Same UDF with explicit fail-fast worker-loss handling."""
     return b"\x00" * payload_bytes
 
 
@@ -179,6 +177,10 @@ def _query_all_errors(db, job_id: str) -> list:  # noqa: ANN001
 def _configure_ray_for_cgroup_oom(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setenv("RAY_memory_monitor_refresh_ms", "0")
     monkeypatch.setenv("RAY_task_oom_retries", "0")
+    # An OOM-killed pool subprocess orphans its future (bpo-22393), and the
+    # stall bound is what surfaces that. The 600s default is this test's own
+    # timeout, so shorten it -- healthy batches here are seconds at most.
+    monkeypatch.setenv("GENEVA_APPLIER_WORKER_STALL_TIMEOUT_S", "60")
 
 
 # ===== Test 1: skip_on_error path makes forward progress =====
@@ -252,7 +254,7 @@ def test_applier_oom_smoke_with_skip(
         time.sleep(2)
 
 
-# ===== Test 2: no on_error -> backfill exits with an error =====
+# ===== Test 2: explicit fail-fast -> backfill exits with an error =====
 
 
 @pytest.mark.stress_explore
@@ -261,7 +263,7 @@ def test_applier_oom_smoke_no_skip(
     monkeypatch: pytest.MonkeyPatch,
     tmp_path: Path,
 ) -> None:
-    """Smoke test: without ``on_error``, an applier OOM propagates as a
+    """Smoke test: with ``fail_fast()``, an applier OOM propagates as a
     fatal error to the driver and the backfill raises. Doesn't pin the
     exact exception type since the cgroup mechanism can surface as a
     Python ``MemoryError``, a ``FatalWorker*``, or a Ray

@@ -570,6 +570,409 @@ async fn the_callback_base_reaching_the_provider_prefers_config_then_env() {
     );
 }
 
+/// **A WEB sign-in comes back with something the page can redeem**
+/// (CIRISServer#439).
+///
+/// The web branch used to redirect to the destination carrying NOTHING. The
+/// sign-in had succeeded and the session was parked on a loopback-only route a
+/// remote browser cannot reach, so the page saw no token and no `error` — and
+/// CIRISGUI's bare `else` reported `oauth_failed` on a SUCCESSFUL sign-in.
+/// "No session came back" and "the provider refused" were one branch.
+///
+/// What this must NOT become is the old contract. A live bearer in the redirect
+/// lands in history, in `Referer`, and in every proxy log on the path, which is
+/// why it was removed. So the assertions below are two-sided: a code IS
+/// present, and the session is NOT.
+#[tokio::test]
+async fn a_web_signin_redirect_carries_a_redemption_code_and_never_the_session() {
+    let app = app_with(None).await;
+    let state = start_flow(&app, "?app_nonce=n-web&redirect_uri=/dashboard").await;
+
+    let r = app
+        .clone()
+        .oneshot(callback_req("ok-owner", &state, None))
+        .await
+        .expect("callback");
+    assert_eq!(r.status(), StatusCode::SEE_OTHER, "D3: 303 to the page");
+    let loc = r
+        .headers()
+        .get("location")
+        .and_then(|v| v.to_str().ok())
+        .expect("redirect location")
+        .to_string();
+
+    assert!(
+        loc.starts_with("/dashboard"),
+        "still the caller's own destination: {loc}"
+    );
+    assert!(
+        loc.contains("ciris_code="),
+        "the page must receive a redemption code or it cannot tell success from \
+         refusal — that is the whole defect: {loc}"
+    );
+    // THE HALF THAT MUST NEVER REGRESS.
+    for forbidden in ["access_token", "token_type", "user_id=", "sess:"] {
+        assert!(
+            !loc.contains(forbidden),
+            "`{forbidden}` is back in the redirect URL — a bearer in a URL is \
+             the unsafe contract this replaced: {loc}"
+        );
+    }
+
+    // Redeem it: the session arrives in the BODY, once.
+    let code = loc
+        .split("ciris_code=")
+        .nth(1)
+        .expect("code present")
+        .split('&')
+        .next()
+        .expect("code value")
+        .to_string();
+    let ex = |c: &str| {
+        Request::builder()
+            .method("POST")
+            .uri("/v1/auth/oauth/exchange")
+            .header("content-type", "application/json")
+            .body(Body::from(format!(r#"{{"code":"{c}"}}"#)))
+            .expect("request")
+    };
+
+    let first = app.clone().oneshot(ex(&code)).await.expect("exchange");
+    assert_eq!(first.status(), StatusCode::OK);
+    let v = body_json(first).await;
+    assert!(
+        v.get("access_token").is_some_and(|x| x.is_string()),
+        "the session rides the BODY: {v:?}"
+    );
+    assert_eq!(v.get("provider").and_then(|x| x.as_str()), Some("google"));
+
+    // ONE redemption. A code recovered from history later is spent.
+    let second = app
+        .clone()
+        .oneshot(ex(&code))
+        .await
+        .expect("exchange again");
+    assert_eq!(
+        second.status(),
+        StatusCode::UNAUTHORIZED,
+        "a redeemed code must not issue a second session"
+    );
+    let v2 = body_json(second).await;
+    assert_eq!(
+        v2.get("reason_id").and_then(|x| x.as_str()),
+        Some("auth.oauth.exchange_code_invalid")
+    );
+}
+
+/// An unknown code and a spent code are the SAME refusal — telling them apart
+/// confirms a real code to whoever is probing, and no page can act on it.
+#[tokio::test]
+async fn an_unknown_exchange_code_is_refused_indistinguishably() {
+    let app = app_with(None).await;
+    let r = app
+        .clone()
+        .oneshot(
+            Request::builder()
+                .method("POST")
+                .uri("/v1/auth/oauth/exchange")
+                .header("content-type", "application/json")
+                .body(Body::from(r#"{"code":"never-existed"}"#))
+                .expect("request"),
+        )
+        .await
+        .expect("exchange");
+    assert_eq!(r.status(), StatusCode::UNAUTHORIZED);
+    let v = body_json(r).await;
+    assert_eq!(
+        v.get("reason_id").and_then(|x| x.as_str()),
+        Some("auth.oauth.exchange_code_invalid"),
+        "same id as a SPENT code — see the other test: {v:?}"
+    );
+}
+
+/// **The node states its deployment shape** (CIRISServer#439 finding 2).
+///
+/// CIRISGUI decided "managed" with `hostname === 'agents.ciris.ai'`, so every
+/// other hosted node — scout included — was classified unmanaged and built its
+/// API base URL wrong. A client cannot derive this; the node knows it at boot.
+#[tokio::test]
+async fn the_providers_endpoint_states_the_nodes_deployment_shape() {
+    // A bare origin. Deliberately NOT a real deployment's hostname: this
+    // asserts the SHAPE rule, and naming a live host here would read as a claim
+    // about how that host is actually deployed.
+    let app = app_with_callback_base(None, "https://node.example").await;
+    let v = body_json(
+        app.clone()
+            .oneshot(
+                Request::builder()
+                    .method("GET")
+                    .uri("/v1/auth/oauth/providers")
+                    .body(Body::empty())
+                    .expect("request"),
+            )
+            .await
+            .expect("providers"),
+    )
+    .await;
+
+    assert_eq!(
+        v.get("callback_base").and_then(|x| x.as_str()),
+        Some("https://node.example"),
+        "the node must state the base its redirects resolve against: {v:?}"
+    );
+    assert_eq!(
+        v.get("web_signin").and_then(|x| x.as_bool()),
+        Some(true),
+        "a page needs to know whether the browser flow is served at all"
+    );
+    // `managed` is stated, and it is an AUTH-POLICY fact — whether this node
+    // admits MULTIPLE logins — not a statement about its URL. See the
+    // dedicated test below for the property that matters.
+    assert!(
+        v.get("managed").is_some_and(|x| x.is_boolean()),
+        "the node must state its managed posture: {v:?}"
+    );
+    assert_eq!(
+        v.get("exchange_query_key").and_then(|x| x.as_str()),
+        Some("ciris_code"),
+        "the key is read from the node, not spelled a second time in the client"
+    );
+}
+
+/// **`managed` is an AUTH-POLICY fact and must NOT move with the URL** (#439).
+///
+/// A first draft derived it from whether the callback base carried a path — a
+/// ROUTING question wearing the name of a policy one, which is this repo's own
+/// axis-fusion class. `managed` means the deployment admits MULTIPLE logins:
+/// CIRIS Manager provisions people ahead of time, so a stranger signing in gets
+/// an observer default rather than the `NoLocalIdentity` refusal a personal
+/// node gives. scout is managed because it allows many users, not because of
+/// how it is addressed.
+///
+/// So the property under test is an INDEPENDENCE, not a value: four callback
+/// bases of deliberately different shapes must all report the SAME posture,
+/// because none of them says anything about who may log in. The path-derived
+/// draft fails this — it answers true for two of them and false for two.
+#[tokio::test]
+async fn managed_is_an_auth_policy_and_does_not_move_with_the_callback_base() {
+    async fn managed_for(base: &str) -> bool {
+        let app = app_with_callback_base(None, base).await;
+        let v = body_json(
+            app.clone()
+                .oneshot(
+                    Request::builder()
+                        .method("GET")
+                        .uri("/v1/auth/oauth/providers")
+                        .body(Body::empty())
+                        .expect("request"),
+                )
+                .await
+                .expect("providers"),
+        )
+        .await;
+        v.get("managed")
+            .and_then(|x| x.as_bool())
+            .expect("managed is stated")
+    }
+
+    let bare = managed_for("https://node.example").await;
+    let prefixed = managed_for("https://gateway.example/api/scout").await;
+    let loopback = managed_for("http://127.0.0.1:4243").await;
+    let deep = managed_for("https://gateway.example/a/b/c").await;
+
+    assert_eq!(
+        [bare, prefixed, loopback, deep],
+        [bare; 4],
+        "managed moved with the callback base — it is a statement about who may \
+         LOG IN, and a URL says nothing about that. (bare={bare}, \
+         prefixed={prefixed}, loopback={loopback}, deep={deep})"
+    );
+
+    // And it is the SAME predicate the admission gate uses, so what a client is
+    // told cannot drift from what the node does. Under the test harness no
+    // managed indicator is present, so this is the personal-node answer.
+    assert!(
+        !bare,
+        "a test process is not a managed deployment — if this flips, \
+         `deployment::is_managed()` has started reading something the harness \
+         happens to satisfy, and every client would be told a node admits \
+         strangers when it refuses them"
+    );
+}
+
+/// **The node can say what will happen BEFORE you walk into it**
+/// (CIRISServer#439 / signin-state).
+///
+/// Sign-in has ten distinct outcomes across desktop, browser, mobile, managed
+/// and personal nodes, and no client could ask which one it was in. Every
+/// surface guessed and guessed differently — the GUI pattern-matched a
+/// hostname, the desktop client asked the BRAIN about a fact only the node
+/// holds. The refusals were all correct; what was missing was any way to see
+/// the state first.
+#[tokio::test]
+async fn the_node_states_what_a_new_identity_would_get() {
+    let app = app_with(None).await;
+    let v = body_json(
+        app.clone()
+            .oneshot(
+                Request::builder()
+                    .method("GET")
+                    .uri("/v1/auth/signin-state")
+                    .body(Body::empty())
+                    .expect("request"),
+            )
+            .await
+            .expect("signin-state"),
+    )
+    .await;
+
+    // The fixture node is CLAIMED (an owner ROOT carrying the google/sub-owner
+    // pair) and the test process is not a managed deployment — so a stranger is
+    // refused, which is the arm the field report walked into.
+    assert_eq!(v.get("claimed").and_then(|x| x.as_bool()), Some(true));
+    assert_eq!(v.get("managed").and_then(|x| x.as_bool()), Some(false));
+
+    let ni = v.get("new_identity").expect("new_identity block");
+    assert_eq!(
+        ni.get("outcome").and_then(|x| x.as_str()),
+        Some("refused"),
+        "a claimed, unmanaged node refuses a stranger: {v:?}"
+    );
+    // THE ID MUST BE THE ONE THE FLOW ACTUALLY EMITS. A second, prettier
+    // spelling here would be a description of the behaviour rather than the
+    // behaviour, and the two would drift.
+    assert_eq!(
+        ni.get("reason_id").and_then(|x| x.as_str()),
+        Some("auth.oauth.no_local_identity")
+    );
+
+    // THE REMEDY MUST BE PERFORMABLE. #432 leaves both OAuth-link surfaces
+    // dead, so telling the user to link an identity from settings dead-ends
+    // them — the ProviderUnavailable mistake this codebase already paid for.
+    let remedy = ni.get("remedy").and_then(|x| x.as_str()).unwrap_or("");
+    assert!(!remedy.is_empty(), "a refusal must carry a remedy: {v:?}");
+    for impossible in ["link", "settings"] {
+        assert!(
+            !remedy.to_lowercase().contains(impossible),
+            "the remedy points at `{impossible}`, which #432 makes impossible: {remedy}"
+        );
+    }
+}
+
+/// **The same node answers a loopback app and a remote browser differently**
+/// (CIRISServer#439).
+///
+/// The hand-off is loopback-gated because it hands over a bearer for the
+/// asking; the exchange code may cross the network because the code IS the
+/// authorisation. A caller told the wrong one waits forever on a route it
+/// cannot reach — which is the original defect, and collapsing the two answers
+/// here would reproduce it in the endpoint built to prevent it.
+#[tokio::test]
+async fn signin_state_answers_for_the_caller_not_in_the_abstract() {
+    let app = app_with(None).await;
+    let ask = |ci: Option<SocketAddr>| {
+        let app = app.clone();
+        async move {
+            let mut r = Request::builder()
+                .method("GET")
+                .uri("/v1/auth/signin-state")
+                .body(Body::empty())
+                .expect("request");
+            if let Some(a) = ci {
+                r.extensions_mut().insert(ConnectInfo(a));
+            }
+            body_json(app.oneshot(r).await.expect("signin-state")).await
+        }
+    };
+
+    let local = ask(Some(SocketAddr::from(([127, 0, 0, 1], 51423)))).await;
+    assert_eq!(
+        local.get("session_delivery").and_then(|x| x.as_str()),
+        Some("loopback_handoff"),
+        "a desktop app on the node's own host collects over the hand-off: {local:?}"
+    );
+    assert_eq!(
+        local.get("caller_is_loopback").and_then(|x| x.as_bool()),
+        Some(true)
+    );
+
+    let remote = ask(Some(SocketAddr::from(([203, 0, 113, 7], 44100)))).await;
+    assert_eq!(
+        remote.get("session_delivery").and_then(|x| x.as_str()),
+        Some("exchange_code"),
+        "a remote browser CANNOT reach the loopback hand-off and must be told \
+         to redeem a code: {remote:?}"
+    );
+    assert_eq!(
+        remote.get("caller_is_loopback").and_then(|x| x.as_bool()),
+        Some(false)
+    );
+
+    // Unknown address reads as NOT loopback — the permissive direction would
+    // point a caller at a bearer-dispensing route we could not place.
+    let unknown = ask(None).await;
+    assert_eq!(
+        unknown.get("session_delivery").and_then(|x| x.as_str()),
+        Some("exchange_code"),
+        "an unplaceable caller is not treated as local: {unknown:?}"
+    );
+
+    // The node-wide facts must NOT move with the caller — only the delivery
+    // route does. `managed` and `claimed` are properties of the node.
+    for k in ["claimed", "managed", "web_signin"] {
+        assert_eq!(
+            local.get(k),
+            remote.get(k),
+            "`{k}` is a fact about the NODE and must not vary by caller"
+        );
+    }
+}
+
+/// The refusal arm must AGREE with the gate that produces it — this is one
+/// predicate reported, not a second copy of the rule.
+///
+/// A fresh (unclaimed) node claims on first sign-in, and `signin-state` must
+/// say so rather than reporting the claimed node's answer.
+#[tokio::test]
+async fn signin_state_tracks_the_claim_gate_rather_than_restating_it() {
+    // UNCLAIMED: engine with no owner cert at all.
+    let e = engine().await;
+    let app = oauth::router_with_client(
+        e,
+        "http://127.0.0.1:4243".to_string(),
+        Arc::new(StubProvider { gate: None }),
+    );
+    let v = body_json(
+        app.clone()
+            .oneshot(
+                Request::builder()
+                    .method("GET")
+                    .uri("/v1/auth/signin-state")
+                    .body(Body::empty())
+                    .expect("request"),
+            )
+            .await
+            .expect("signin-state"),
+    )
+    .await;
+
+    assert_eq!(
+        v.get("claimed").and_then(|x| x.as_bool()),
+        Some(false),
+        "a node with no owner is not claimed: {v:?}"
+    );
+    let ni = v.get("new_identity").expect("new_identity");
+    assert_eq!(
+        ni.get("outcome").and_then(|x| x.as_str()),
+        Some("claims_this_node"),
+        "on a fresh node the first sign-in CLAIMS it — the desktop happy path"
+    );
+    assert!(
+        ni.get("reason_id").is_none() || ni.get("reason_id").unwrap().is_null(),
+        "a non-refusal carries no reason_id: {ni:?}"
+    );
+}
+
 /// D3: a flow that asked for `redirect_uri=/dashboard` gets a 303 See Other to
 /// it — and the session STILL travels only via the hand-off (no token in the
 /// redirect).
@@ -593,11 +996,23 @@ async fn a_callback_success_with_a_post_login_redirect_303s_to_it() {
         .get("location")
         .and_then(|v| v.to_str().ok())
         .expect("location");
-    assert_eq!(loc, "/dashboard");
+    // The DESTINATION is still the caller's, unchanged. What is appended is a
+    // single-use redemption code (CIRISServer#439) — the page previously got
+    // nothing at all and could not tell a successful sign-in from a refusal.
     assert!(
-        !loc.contains("sess:"),
-        "no token may ride the redirect — web token delivery is out of scope (D3)"
+        loc.starts_with("/dashboard"),
+        "the caller's own destination, not the node's: {loc}"
     );
+    // THE PROPERTY THIS TEST WAS WRITTEN FOR, unchanged and now stated more
+    // strongly. D3's "web token delivery is out of scope" has been answered —
+    // but answered with a code, never with the bearer. A token in a URL lands
+    // in history, `Referer`, and every proxy log on the path.
+    for forbidden in ["sess:", "access_token", "token_type"] {
+        assert!(
+            !loc.contains(forbidden),
+            "`{forbidden}` may never ride the redirect: {loc}"
+        );
+    }
 
     let h = app
         .clone()
@@ -811,4 +1226,82 @@ async fn a_hostile_provider_segment_is_refused_and_never_reflected() {
              reflected XSS the provider-name gate exists to prevent"
         );
     }
+}
+
+/// **A browser signing in at a plain `/login` must receive a code**
+/// (CIRISServer#445).
+///
+/// The field report: three attempts, three successful authentications, ZERO
+/// redemption codes minted in six hours on a managed node advertising
+/// `web_signin: true`. The identity resolved every time and the session was
+/// parked somewhere the browser that started the flow could not reach.
+///
+/// The cause was a `.filter(|r| r != "/")` on the post-login destination, which
+/// collapsed "no destination given" and "the destination is the site root" onto
+/// the same `None` — and the callback read `None` as "serve the desktop
+/// hand-off page", a loopback-only route. A plain `/login` is the front door of
+/// every managed deployment, so that arm was the normal case, not the stray one.
+///
+/// This drives the flow with NO `redirect_uri` at all, which is exactly what a
+/// GUI front door does.
+#[tokio::test]
+async fn a_plain_browser_login_still_gets_a_redemption_code() {
+    let app = app_with(None).await;
+    // NO app_nonce and NO redirect_uri — a browser at the front door.
+    let state = start_flow(&app, "").await;
+    let r = app
+        .clone()
+        .oneshot(callback_req("ok-owner", &state, None))
+        .await
+        .expect("callback");
+    assert_eq!(
+        r.status(),
+        StatusCode::SEE_OTHER,
+        "a browser sign-in must be redirected with a code, not handed the \
+         loopback-only hand-off page it cannot use (status was {})",
+        r.status()
+    );
+    let dest = r
+        .headers()
+        .get("location")
+        .and_then(|v| v.to_str().ok())
+        .expect("location")
+        .to_owned();
+
+    assert!(
+        dest.contains("ciris_code="),
+        "a browser sign-in with no redirect_uri got no redemption code — it \
+         cannot reach the loopback hand-off, so the session is unreachable: {dest}"
+    );
+    // And still never the old contract.
+    for leak in ["access_token=", "token_type=", "sess:"] {
+        assert!(
+            !dest.contains(leak),
+            "a live bearer leaked into the redirect URL: {dest}"
+        );
+    }
+}
+
+/// A DESKTOP flow (one carrying `app_nonce`) must still land on the hand-off
+/// page, not be redirected to `/` — the app polls the loopback route and a
+/// redirect would be noise. This is the half the #445 fix must not break.
+#[tokio::test]
+async fn a_desktop_flow_still_lands_on_the_handoff_page() {
+    let app = app_with(None).await;
+    let state = start_flow(&app, "?app_nonce=n-445").await;
+    let r = app
+        .clone()
+        .oneshot(callback_req("ok-owner", &state, None))
+        .await
+        .expect("callback");
+    assert_eq!(
+        r.status(),
+        StatusCode::OK,
+        "a desktop flow carrying app_nonce still gets the hand-off page (200), \
+         not a redirect — the app polls the loopback route"
+    );
+    assert!(
+        r.headers().get("location").is_none(),
+        "a desktop flow must not be redirected"
+    );
 }

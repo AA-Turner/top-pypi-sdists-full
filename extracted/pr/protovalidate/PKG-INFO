@@ -1,14 +1,6 @@
 Metadata-Version: 2.4
 Name: protovalidate
-Version: 1.2.0
-Summary: Protocol Buffer Validation for Python
-Project-URL: Documentation, https://protovalidate.com
-Project-URL: Homepage, https://github.com/bufbuild/protovalidate-python
-Project-URL: Issues, https://github.com/bufbuild/protovalidate-python/issues
-Project-URL: Source, https://github.com/bufbuild/protovalidate-python
-License-Expression: Apache-2.0
-License-File: LICENSE
-Keywords: protobuf,protocol buffer,validate
+Version: 2.0.0
 Classifier: Operating System :: OS Independent
 Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
@@ -16,21 +8,23 @@ Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
 Classifier: Programming Language :: Python :: 3.14
 Classifier: Typing :: Typed
+Requires-Dist: protobuf-py>=0.2.0
+License-File: LICENSE
+Summary: Protocol Buffer Validation for Python
+Keywords: protobuf,protocol buffer,validate
+License-Expression: Apache-2.0
 Requires-Python: >=3.10
-Requires-Dist: cel-python>=0.5
-Requires-Dist: google-re2>=1
-Requires-Dist: google-re2>=1.1.20250722; python_version == '3.13'
-Requires-Dist: google-re2>=1.1.20251105; python_version == '3.14'
-Requires-Dist: google-re2>=1.1; python_version == '3.12'
-Requires-Dist: protobuf>=5
-Requires-Dist: protobuf>=6.31.0; python_version >= '3.14'
-Description-Content-Type: text/markdown
+Description-Content-Type: text/markdown; charset=UTF-8; variant=GFM
+Project-URL: Documentation, https://protovalidate.com
+Project-URL: Homepage, https://github.com/bufbuild/protovalidate-py
+Project-URL: Issues, https://github.com/bufbuild/protovalidate-py/issues
+Project-URL: Source, https://github.com/bufbuild/protovalidate-py
 
 [![The Buf logo](https://raw.githubusercontent.com/bufbuild/protovalidate/main/.github/buf-logo.svg)][buf]
 
-# protovalidate-python
+# protovalidate-py
 
-[![CI](https://github.com/bufbuild/protovalidate-python/actions/workflows/ci.yaml/badge.svg)](https://github.com/bufbuild/protovalidate-python/actions/workflows/ci.yaml)
+[![CI](https://github.com/bufbuild/protovalidate-py/actions/workflows/ci.yaml/badge.svg)](https://github.com/bufbuild/protovalidate-py/actions/workflows/ci.yaml)
 [![PyPI version](https://img.shields.io/pypi/v/protovalidate)](https://pypi.org/project/protovalidate)
 
 [Protovalidate][protovalidate] is the semantic validation library for Protobuf. It provides standard annotations to validate common rules on messages and fields, as well as the ability to use [CEL][cel] to write custom rules. It's the next generation of [protoc-gen-validate][protoc-gen-validate].
@@ -79,6 +73,10 @@ To install the package, use `pip`:
 pip install protovalidate
 ```
 
+protovalidate is implemented as a Python native extension. We publish wheels for common platforms
+and you will usually download a pre-built wheel. For others, ensure you have Rust and a C++
+compiler available, and it will be automatically built during installation.
+
 ## Documentation
 
 Comprehensive documentation for Protovalidate is available at [protovalidate.com][protovalidate].
@@ -103,6 +101,22 @@ Additionally, [protovalidate's core repository](https://github.com/bufbuild/prot
 - [Protovalidate's Protobuf API][validate-proto]
 - [Conformance testing utilities][conformance] for acceptance testing of `protovalidate` implementations
 
+## Benchmarks
+
+We include a set of benchmarks to verify different types of validation operations based on `pytest-benchmark`.
+You can run them with
+
+```shellsession
+$ uv run poe bench
+```
+
+This persists the runs results. It is often helpful to compare benchmark results between runs,
+for example before and after an optimization. To compare persisted results, use
+
+```shellsession
+$ uv run poe bench-compare
+```
+
 ## Contributing
 
 We genuinely appreciate any help! If you'd like to contribute, check out these resources:
@@ -119,7 +133,7 @@ Offered under the [Apache 2 license][license].
 
 [pv-go]: https://github.com/bufbuild/protovalidate-go
 [pv-java]: https://github.com/bufbuild/protovalidate-java
-[pv-python]: https://github.com/bufbuild/protovalidate-python
+[pv-python]: https://github.com/bufbuild/protovalidate-py
 [pv-cc]: https://github.com/bufbuild/protovalidate-cc
 [pv-es]: https://github.com/bufbuild/protovalidate-es
 
@@ -143,3 +157,4 @@ Offered under the [Apache 2 license][license].
 [conformance]: https://github.com/bufbuild/protovalidate/blob/main/docs/conformance.md
 [examples]: https://github.com/bufbuild/protovalidate/tree/main/examples
 [migrate]: https://protovalidate.com/migration-guides/migrate-from-protoc-gen-validate/
+

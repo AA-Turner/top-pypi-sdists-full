@@ -23,11 +23,14 @@ from urllib.parse import urlparse
 
 import requests
 
+from airbyte_ops_mcp.human_in_the_loop import classify_person_id
 from airbyte_ops_mcp.internal_team_roster import fetch_roster
 from airbyte_ops_mcp.slack_api import (
     SlackAPIError,
     SlackURLParseError,
     _resolve_slack_bot_token,
+    lookup_slack_usergroup,
+    unwrap_slack_identifier,
 )
 
 logger = logging.getLogger(__name__)
@@ -247,13 +250,17 @@ _SLACK_USERGROUP_ID_PATTERN = re.compile(r"^S[A-Z0-9]{8,}$")
 def _resolve_to_slack_id(
     identifier: str,
     roster: list[dict[str, str | int | None]],
+    *,
+    allow_usergroup: bool = False,
+    slack_token: str | None = None,
 ) -> str | None:
     """Resolve an identifier to a Slack user or usergroup ID.
 
     Slack IDs and usergroup IDs bypass roster lookup. Other identifiers are
-    matched against email, GitHub handle, and Slack ID fields.
+    matched against email, GitHub handle, and Slack ID fields. Usergroup
+    handle and name lookup is opt-in for HITL recipients.
     """
-    identifier = identifier.strip()
+    identifier = unwrap_slack_identifier(identifier)
     if identifier.startswith("@"):
         identifier = identifier[1:]
         if not identifier:
@@ -297,6 +304,24 @@ def _resolve_to_slack_id(
             if slack_id and isinstance(slack_id, str):
                 return slack_id
 
+    if not allow_usergroup or classify_person_id(identifier) == "email":
+        return None
+
+    try:
+        usergroups = lookup_slack_usergroup(identifier, token=slack_token)
+    except Exception as exc:
+        logger.warning("Could not resolve Slack usergroup %s: %s", identifier, exc)
+        return None
+
+    exact_identifier = identifier.removeprefix("@").casefold()
+    exact_matches = [
+        usergroup
+        for usergroup in usergroups
+        if usergroup.handle.casefold() == exact_identifier
+        or usergroup.name.casefold() == exact_identifier
+    ]
+    if len(exact_matches) == 1:
+        return exact_matches[0].id
     return None
 
 
@@ -307,7 +332,7 @@ def _format_mention(identifier: str, slack_id: str | None) -> str:
             return f"<!subteam^{slack_id}>"
         return f"<@{slack_id}>"
 
-    mention_id = identifier.strip()
+    mention_id = unwrap_slack_identifier(identifier)
     if _SLACK_USERGROUP_ID_PATTERN.match(mention_id):
         return f"<!subteam^{mention_id}>"
     if _SLACK_ID_PATTERN.match(mention_id):
@@ -635,12 +660,22 @@ def send_hitl_notification(
     if roster is None:
         roster = fetch_roster(token=github_token)
 
-    target_slack_id = _resolve_to_slack_id(target_person, roster)
+    target_slack_id = _resolve_to_slack_id(
+        target_person,
+        roster,
+        allow_usergroup=True,
+        slack_token=token,
+    )
 
     cc_mentions: list[str] = []
     if cc_persons:
         for person in cc_persons:
-            cc_slack_id = _resolve_to_slack_id(person, roster)
+            cc_slack_id = _resolve_to_slack_id(
+                person,
+                roster,
+                allow_usergroup=True,
+                slack_token=token,
+            )
             cc_mentions.append(_format_mention(person, cc_slack_id))
 
     sender_name: str

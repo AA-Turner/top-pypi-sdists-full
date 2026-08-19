@@ -155,6 +155,16 @@ class _RemoteProgressBars:
             bar.close()
 
 
+class _ServerJobError(RuntimeError):
+    """The remote job reached a terminal FAILED/CANCELLED state server-side.
+
+    Distinguished from client-side polling failures (lost connection, timeout,
+    interrupt) so ``RemoteJob.result`` prints resume instructions only for the
+    latter -- a server-failed job has nothing left to resume. Subclasses
+    ``RuntimeError`` so existing ``except RuntimeError`` callers are unaffected.
+    """
+
+
 @attrs.define
 class RemoteJob:
     """Handle for an asynchronous remote job dispatched via phalanx.
@@ -170,6 +180,38 @@ class RemoteJob:
     column_name: str | None = None
     job_type: str = "backfill"
     launched_at: datetime = attrs.Factory(lambda: datetime.now(tz=None))
+
+    @classmethod
+    def from_job(cls, conn: Connection, job_id: str) -> RemoteJob:
+        """Reattach to an already-dispatched job by its ID.
+
+        Job state is durable in the ``_geneva_jobs`` system table, so a handle
+        rebuilt here resumes polling exactly where a previous client left off --
+        useful after the original process exited or the client failed::
+
+            job = RemoteJob.from_job(conn, job_id)
+            job.result()
+
+        Parameters
+        ----------
+        conn
+            Connection to read job state from (e.g. from ``geneva.connect(...)``).
+        job_id
+            ID of a previously launched job.
+
+        Raises
+        ------
+        ValueError
+            If no job with ``job_id`` exists on the connection.
+        """
+        record = conn.get_job(job_id)  # raises ValueError if the id is unknown
+        return cls(
+            job_id=job_id,
+            table_name=record.table_name,
+            column_name=record.column_name,
+            job_type=record.job_type,
+            conn=conn,
+        )
 
     @property
     def status(self) -> str:
@@ -220,7 +262,24 @@ class RemoteJob:
         TimeoutError
             If *timeout* is exceeded.
         """
-        return self._poll_until_done(timeout=timeout, bars=bars)
+        _LOG.info("Polling remote job: %s", self.job_id)
+        try:
+            return self._poll_until_done(timeout=timeout, bars=bars)
+        except _ServerJobError:
+            # The job failed/was cancelled server-side; nothing to resume.
+            raise
+        except BaseException:
+            # Client-side failure (lost connection, timeout, Ctrl-C): the server
+            # job may still be running, so surface how to reattach and resume
+            # polling. BaseException so KeyboardInterrupt is covered too.
+            _LOG.warning(
+                "Client stopped polling job %s; the job may still be running "
+                "server-side. To resume, reconnect and run:\n"
+                '    RemoteJob.from_job(conn, "%s").result()',
+                self.job_id,
+                self.job_id,
+            )
+            raise
 
     def _poll_until_done(
         self,
@@ -264,7 +323,9 @@ class RemoteJob:
                         return record
                     events = record.events or []
                     detail = events[-1] if events else "no details available"
-                    raise RuntimeError(f"Job {self.job_id} {status.lower()}: {detail}")
+                    raise _ServerJobError(
+                        f"Job {self.job_id} {status.lower()}: {detail}"
+                    )
 
                 time.sleep(refresh_secs)
         finally:

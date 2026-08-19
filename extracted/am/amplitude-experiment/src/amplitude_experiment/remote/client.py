@@ -7,7 +7,7 @@ from typing import Any, Dict
 
 from .config import RemoteEvaluationConfig
 from .fetch_options import FetchOptions
-from ..connection_pool import HTTPConnectionPool
+from ..connection_pool import EmptyPoolError, HTTPConnectionPool
 from ..exception import FetchException
 from ..user import User
 from ..util.deprecated import deprecated
@@ -149,7 +149,14 @@ class RemoteEvaluationClient:
                 json.dumps(fetch_options.flagKeys, separators=(",", ":")).encode("utf-8")
             ).rstrip(b"=").decode("utf-8")
 
-        conn = self._connection_pool.acquire()
+        acquire_timeout_millis = self.config.fetch_pool_acquire_timeout_millis
+        try:
+            conn = self._connection_pool.acquire(
+                timeout=acquire_timeout_millis / 1000 if acquire_timeout_millis is not None else None
+            )
+        except EmptyPoolError:
+            raise TimeoutError(f"Timed out waiting {acquire_timeout_millis}ms for a connection "
+                               f"from the pool (max_size={self._connection_pool.max_size})")
         body = user_context.to_json().encode('utf8')
         if len(body) > 8000:
             self.logger.warning(f"[Experiment] encoded user object length ${len(body)} "
@@ -172,8 +179,8 @@ class RemoteEvaluationClient:
     def __setup_connection_pool(self):
         scheme, _, host = self.config.server_url.split('/', 3)
         timeout = self.config.fetch_timeout_millis / 1000
-        self._connection_pool = HTTPConnectionPool(host, max_size=1, idle_timeout=30,
-                                                   read_timeout=timeout, scheme=scheme)
+        self._connection_pool = HTTPConnectionPool(host, max_size=self.config.connection_pool_max_size,
+                                                   idle_timeout=30, read_timeout=timeout, scheme=scheme)
 
     def close(self) -> None:
         """

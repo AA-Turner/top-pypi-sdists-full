@@ -15,7 +15,7 @@
 """Base functionality for Sparse Flash Attention."""
 
 import functools
-from typing import Final, NamedTuple, TypeAlias
+from typing import Final, NamedTuple
 import jax
 import jax.numpy as jnp
 import numpy as np
@@ -55,11 +55,8 @@ class SegmentIds(NamedTuple):
 
 
 # Return type of SplashAttention function that implements the custom vjp rule.
-SplashCustomReturnType: TypeAlias = (
-    jax.Array | tuple[jax.Array, dict[str, jax.Array]]
-)
-
-SplashResidualsType = tuple[
+type SplashCustomReturnType = jax.Array | tuple[jax.Array, dict[str, jax.Array]]
+type SplashResidualsType = tuple[
     jax.Array,  # q
     jax.Array,  # k
     jax.Array,  # v
@@ -143,7 +140,7 @@ def _attention_reference_custom_bwd(
   logits = jnp.where(mask, logits, mask_value)
 
   p = jnp.exp(logits - logsumexp[..., None])
-  do = do.astype(jnp.float32)  # pytype: disable=attribute-error
+  do = do.astype(jnp.float32)
   dv = jnp.einsum("pt,pd->td", p, do).astype(v.dtype)
   dp = jnp.einsum("pd,td->pt", do, v.astype(jnp.float32))
 

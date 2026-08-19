@@ -14,8 +14,16 @@ import tempfile
 
 from loguru import logger
 
+from echo_agent.agent.proc_lifecycle import subprocess_kwargs, terminate_tree
+
 _PCM_RATE = 24000  # Weixin voice sample rate
 _BYTES_PER_SAMPLE = 2  # s16le → 2 bytes/sample, mono
+# Upper bound for one ffmpeg transcode. Voice messages are short, so this is
+# generous; it exists because ffmpeg can stall indefinitely on a truncated or
+# malformed input, and nothing upstream bounds this call — channels.weixin
+# awaits encode_to_silk directly, so a wedged ffmpeg would hang voice sending
+# and leak the process.
+_FFMPEG_TIMEOUT = 120.0
 
 
 def _resolve_ffmpeg() -> str:
@@ -41,8 +49,17 @@ async def _ffmpeg_to_pcm(src_path: str, pcm_path: str) -> None:
         "-f", "s16le", "-acodec", "pcm_s16le",
         "-ar", str(_PCM_RATE), "-ac", "1", "-y", pcm_path,
         stdout=asyncio.subprocess.DEVNULL, stderr=asyncio.subprocess.PIPE,
+        **subprocess_kwargs(),
     )
-    _, stderr = await proc.communicate()
+    try:
+        _, stderr = await asyncio.wait_for(proc.communicate(), timeout=_FFMPEG_TIMEOUT)
+    except (asyncio.TimeoutError, TimeoutError):
+        await terminate_tree(proc)
+        raise RuntimeError(f"ffmpeg timed out after {_FFMPEG_TIMEOUT}s") from None
+    except asyncio.CancelledError:
+        # Caller went away (shutdown, send aborted): don't leave ffmpeg running.
+        await terminate_tree(proc)
+        raise
     if proc.returncode != 0:
         raise RuntimeError(
             f"ffmpeg failed (rc={proc.returncode}): {stderr.decode(errors='ignore')[:300]}"
@@ -63,6 +80,7 @@ async def encode_to_silk(src_path: str) -> tuple[str, int]:
     os.close(pcm_fd)
     silk_fd, silk_path = tempfile.mkstemp(suffix=".silk")
     os.close(silk_fd)
+    ok = False
     try:
         await _ffmpeg_to_pcm(src_path, pcm_path)
         # pilk.encode is CPU-bound and synchronous → run off the event loop.
@@ -71,11 +89,16 @@ async def encode_to_silk(src_path: str) -> tuple[str, int]:
         )
         pcm_bytes = os.path.getsize(pcm_path)
         duration_ms = int(pcm_bytes / (_BYTES_PER_SAMPLE * _PCM_RATE) * 1000)
+        ok = True
         return silk_path, duration_ms
-    except Exception:
-        if os.path.exists(silk_path):
-            os.unlink(silk_path)
-        raise
     finally:
+        # Both temp files are cleaned on every non-success exit, cancellation
+        # included. The previous `except Exception` missed CancelledError (a
+        # BaseException since 3.8) — and cancellation is a real path here, both
+        # awaits can raise it — so an aborted send left an empty .silk behind
+        # every time. `ok` rather than exception matching: only a completed
+        # encode hands silk_path to the caller, so only then must we keep it.
+        if not ok and os.path.exists(silk_path):
+            os.unlink(silk_path)
         if os.path.exists(pcm_path):
             os.unlink(pcm_path)

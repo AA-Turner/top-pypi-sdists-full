@@ -24,6 +24,7 @@ export declare abstract class VisualProperties {
     constructor(obj: DOMComponentView & Paintable, prefix?: string);
     abstract get doit(): boolean;
     update(): void;
+    private _css_cache;
     protected _get_css_value(name: string): string;
 }
 export declare abstract class VisualUniforms {

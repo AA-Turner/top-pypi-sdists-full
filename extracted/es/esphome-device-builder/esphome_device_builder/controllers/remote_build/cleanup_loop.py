@@ -5,11 +5,14 @@ from __future__ import annotations
 import asyncio
 import logging
 from functools import partial
+from pathlib import Path
 from typing import TYPE_CHECKING
+
+from esphome.core import CORE
 
 from ...helpers.async_ import run_in_executor
 from ...helpers.remote_build_cleanup import sweep_remote_builds
-from ...helpers.remote_build_layout import parse_from_configuration
+from ...helpers.remote_build_layout import RemoteBuildPath, parse_from_configuration
 
 if TYPE_CHECKING:
     from .receiver import ReceiverController
@@ -47,13 +50,25 @@ async def run_cleanup_loop(controller: ReceiverController) -> None:
             )
             deleted = await run_in_executor(
                 partial(
-                    sweep_remote_builds,
+                    _sweep,
                     config_dir,
                     ttl_seconds=settings.cleanup_ttl_seconds,
                     in_flight_keys=in_flight_keys,
                 ),
             )
             if deleted:
-                _LOGGER.info("remote-build cleanup: swept %d cold subtree(s)", deleted)
+                _LOGGER.info("remote-build cleanup: reclaimed %d cold subtree(s)", deleted)
         except Exception:
             _LOGGER.exception("remote-build cleanup sweep failed")
+
+
+def _sweep(
+    config_dir: Path, *, ttl_seconds: float, in_flight_keys: frozenset[RemoteBuildPath]
+) -> int:
+    """Run one sweep with ``CORE.data_dir`` resolved on the executor thread."""
+    return sweep_remote_builds(
+        config_dir,
+        data_dir=Path(CORE.data_dir),
+        ttl_seconds=ttl_seconds,
+        in_flight_keys=in_flight_keys,
+    )

@@ -15,7 +15,7 @@ and different cadences:
 
 ``mint``      compiles the declaration's graph classes into packed AOTI
               artifacts (pgw#1331). Needs a GPU and a real toolchain; needs no
-              weights and no network, because cell identity is checkpoint-free
+              weights and no network, because compiled graph identity is checkpoint-free
               (§4.27) and the constants arrive at ARM time from the store.
               **Runs on a pod, never on a shared box** — it is a real compile.
 
@@ -191,8 +191,7 @@ def _handle_export(args: argparse.Namespace) -> int:
         return 2
     # An EAGER declaration takes the torch-free path: it has no graph classes,
     # so there is nothing to trace and `eager_model_v1` is what it can honestly
-    # state (pgw#1346 B5). The refusal this replaces was correct about the
-    # graph tier and wrong to leave the eager tier with no export at all.
+    # state (pgw#1346 B5).
     document: Any
     if isinstance(family, GraphModelSpec):
         from ..model.export import export_model

@@ -167,6 +167,34 @@ _BADGE_TEMPLATE = """
   const WINDOW_ACCENT = %(accent)s;
   if (window[HOST_ID]) return;
 
+  // TOP DOCUMENT ONLY. The guard above is per-window, and an iframe is its own
+  // window — so it stops a second badge in the SAME document and does nothing
+  // about a second one in a child frame. `add_init_script` runs in every frame
+  // Playwright sees, so a classic form (top document + `gsft_main`) mounted two
+  // badges: each `position:fixed` in its own viewport, both at the maximum
+  // z-index, landing a few pixels apart in the same corner. That reads as one
+  // pill with a thick doubled edge — the badge looking broken on the surface
+  // whose entire job is being trusted at a glance.
+  //
+  // Nothing is lost by staying out of frames: the user resolver above walks
+  // DOWN into iframes and shadow roots from here precisely because this is
+  // where the badge lives. A frame-local copy was never the thing reading the
+  // session; it was only ever a duplicate.
+  try { if (window.top !== window.self) return; } catch (e) { return; }
+
+  // CLAIM THE SLOT NOW, not at the end of mount(). The guard above is the only
+  // thing standing between one badge and N, and it used to be armed by the last
+  // line of mount() — which is fine while mount() runs synchronously, and wrong
+  // the moment it does not. `add_init_script` is re-registered on every attach
+  // (deliberately: whether CDP keeps them across a disconnect is not worth
+  // betting the probe on), so a document gets as many copies of this script as
+  // there have been attaches. With `documentElement` already present they run
+  // in a row and the first one's guard stops the rest. With it absent they ALL
+  // fall through to the `DOMContentLoaded` branch, all fire together, and all
+  // mount — two attaches, two pills; three, three. Exactly the stack the badge
+  // is supposed to be too simple to produce.
+  window[HOST_ID] = { pending: true };
+
   // WHICH instance this is gets read from the DOCUMENT, not baked in from
   // Python, for the same reason the signed-in user is (see above): a value
   // fixed when the script was built is right for at most one tab. It used to
@@ -195,6 +223,13 @@ _BADGE_TEMPLATE = """
   const mount = () => {
     const root = document.documentElement;
     if (!root) return;
+    // Belt and braces for the same failure: the `window` guard cannot see a
+    // badge left by a DIFFERENT execution context (an isolated world, a
+    // re-used document). The DOM can. Whatever is already there is by
+    // definition the older copy, and two badges are worse than either.
+    try {
+      root.querySelectorAll('[data-sn-mcp-badge]').forEach((old) => old.remove());
+    } catch (e) {}
     const host = document.createElement('div');
     host.setAttribute('data-sn-mcp-badge', '1');
     // Closed mode: page scripts cannot reach in, page CSS cannot select in.
@@ -213,9 +248,12 @@ _BADGE_TEMPLATE = """
       // that must be unambiguous became the least readable. A solid chip in the
       // corner already reads as not-the-page; it does not need an effect to say
       // so, and the effect cost legibility to say it.
+      // A flat chip. No drop shadow: it is not floating above the page, it IS
+      // a label, and the shadow only ever read as a smudged second edge —
+      // indistinguishable from the doubled badge above, which is the one thing
+      // this element must never look like.
       'background:#151517',
       'border:1px solid rgba(255,255,255,.10)',
-      'box-shadow:0 1px 4px rgba(0,0,0,.35)',
       'font:500 11px/1.45 ui-monospace,SFMono-Regular,Menlo,monospace',
       'letter-spacing:.01em',
       // Clickable, unlike everything else here — the badge is the one thing on
@@ -342,8 +380,18 @@ _BADGE_TEMPLATE = """
     }, %(keepalive_ms)d);
   };
 
-  if (document.documentElement) mount();
-  else document.addEventListener('DOMContentLoaded', mount, { once: true });
+  // Release the claim if mounting fails, so the NEXT attach can try again.
+  // A claim taken up front is a claim that outlives a throw, and the badge
+  // going permanently silent is the failure it exists to prevent.
+  const attempt = () => {
+    try {
+      mount();
+    } catch (e) {
+      if (window[HOST_ID] && window[HOST_ID].pending) delete window[HOST_ID];
+    }
+  };
+  if (document.documentElement) attempt();
+  else document.addEventListener('DOMContentLoaded', attempt, { once: true });
 })();
 """
 

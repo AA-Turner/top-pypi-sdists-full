@@ -23,7 +23,7 @@ export type SizeHint = Size & {
         fixed_height?: boolean;
     };
 };
-export declare const SizingPolicy: import("../kinds").Kinds.Enum<"min" | "max" | "fixed" | "fit">;
+export declare const SizingPolicy: import("../kinds").Kinds.Enum<"fit" | "fixed" | "max" | "min">;
 export type SizingPolicy = typeof SizingPolicy["__type__"];
 export type Sizing = number | "fit" | "min" | "max";
 export type Percent = {

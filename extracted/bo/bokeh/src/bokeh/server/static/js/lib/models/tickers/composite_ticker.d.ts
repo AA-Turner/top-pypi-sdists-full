@@ -18,6 +18,6 @@ export declare class CompositeTicker extends ContinuousTicker {
     get_max_interval(): number;
     get_best_ticker(data_low: number, data_high: number, desired_n_ticks: number): ContinuousTicker;
     get_interval(data_low: number, data_high: number, desired_n_ticks: number): number;
-    get_ticks_no_defaults(data_low: number, data_high: number, cross_loc: number, desired_n_ticks: number): TickSpec<number>;
+    get_ticks_no_defaults(data_low: number, data_high: number, cross_loc: number, desired_n_ticks: number, num_minor_ticks: number): TickSpec<number>;
 }
 //# sourceMappingURL=composite_ticker.d.ts.map

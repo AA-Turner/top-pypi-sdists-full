@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: lambdapdk
-Version: 0.2.17
+Version: 0.2.19
 Summary: Library of open source Process Design Kits
 Author: Zero ASIC
 License-Expression: Apache-2.0
@@ -8,13 +8,13 @@ Project-URL: Homepage, https://github.com/siliconcompiler/lambdapdk
 Requires-Python: >=3.10
 Description-Content-Type: text/markdown
 License-File: LICENSE
-Requires-Dist: siliconcompiler>=0.38.0
+Requires-Dist: siliconcompiler>=0.38.4
 Requires-Dist: lambdalib>=0.13.1
 Provides-Extra: test
 Requires-Dist: flake8==7.3.0; extra == "test"
 Requires-Dist: pytest==9.1.1; extra == "test"
 Requires-Dist: pytest-timeout==2.4.0; extra == "test"
-Requires-Dist: tclint==0.8.0; extra == "test"
+Requires-Dist: tclint==0.9.0; extra == "test"
 Requires-Dist: sc-leflib==0.5.1; extra == "test"
 Requires-Dist: Jinja2==3.1.6; extra == "test"
 Dynamic: license-file
@@ -59,6 +59,7 @@ Lambdapdk is a collection of open-source Process Design Kits (PDKs) that enable 
 | [GT2N](lambdapdk/gt2n/README.md) | 2nm GAAFET | Standard cells (HVT/SVT/LVT/ULVT/ELVT) | Georgia Institute of Technology |
 | [ASAP7](lambdapdk/asap7/README.md) | 7nm FinFET | Standard cells (RVT/LVT/SLVT), I/O, SRAM | Arizona State University |
 | [FreePDK45](lambdapdk/freepdk45/base/README.md) | 45nm | Nangate standard cells, SRAM | NC State / Nangate |
+| [ICsprout55](lambdapdk/icsprout55/README.md) | 55nm | Standard cells (HVT/RVT/LVT) | ICsprout / ECOS |
 | [Sky130](lambdapdk/sky130/README.md) | 130nm | Standard cells (HD/HDLL), I/O, SRAM | Google / Skywater |
 | [GF180](lambdapdk/gf180/README.md) | 180nm | Standard cells (7T/9T), I/O, SRAM | Google / GlobalFoundries |
 | [IHP130](https://github.com/IHP-GmbH/IHP-Open-PDK) | 130nm SiGe | Standard cells, I/O, SRAM | IHP GmbH |
@@ -94,9 +95,26 @@ project.run()
 project.summary()
 ```
 
-Available targets: `asap7_demo`, `freepdk45_demo`, `skywater130_demo`, `gf180_demo`, `ihp130_demo`, `interposer_demo`
+Available targets: `asap7_demo`, `freepdk45_demo`, `skywater130_demo`, `gf180_demo`, `ihp130_demo`, `interposer_demo`, `gt2n_demo`, and `icsprout55_demo`.
 
 ## Cell Library Inventory
+
+### GT2N (2nm)
+
+Ten standard cell libraries covering two nanosheet width flavors and five threshold voltages:
+
+| Library | Nanosheet width | Vt flavors | Cells |
+|---------|-----------------|------------|-------|
+| [gt2_6t_w13_*](lambdapdk/gt2n/libs) | 13nm | HVT, SVT, LVT, ULVT, ELVT | 72 each |
+| [gt2_6t_w31_*](lambdapdk/gt2n/libs) | 31nm | HVT, SVT, LVT, ULVT, ELVT | 72 each |
+
+Python classes follow the pattern `GT2N6TW<width><vt>`, e.g. `GT2N6TW31SVT` (the `gt2n_demo` main library).
+
+**Cell categories:** AND, OR, NAND, NOR, XOR, XNOR, INV, BUF, MUX, DFF (async reset), AO, AOI, OA, OAI, Tie, Filler, Decap, Tap
+
+Note: GT2N is backside-power-delivery (BSPDN); the libraries use the backside tap cell variant. Cell
+views are downloaded from the upstream [GT2N repository](https://github.com/azadnaeemi/GT2N/); this
+package provides the technology setup and APR scripts.
 
 ### ASAP7 (7nm)
 
@@ -131,6 +149,20 @@ Standard cell libraries with three threshold voltage variants:
 | Configuration | Verilog |
 |--------------|---------|
 | 64x32 to 512x64 | [verilog](lambdapdk/freepdk45/libs/fakeram45/verilog) |
+
+### ICsprout55 (55nm)
+
+Three threshold-voltage variants of the same 7-track library, on a 1.4um `core7` site:
+
+| Library | Type | Cells |
+|---------|------|-------|
+| ics55_stdcell_h | High Vt | 747 |
+| ics55_stdcell_r | Regular Vt | 747 |
+| ics55_stdcell_l | Low Vt | 747 |
+
+**Cell categories:** AND, OR, NAND, NOR, XOR, XNOR, INV, BUF, Tristate, MUX, DFF, Scan DFF, Latch, AOI, OAI, ICG, Delay, Adder, Tie, Filler, Decap, Tap, Antenna
+
+Nothing from ICsprout55 is vendored here: LEF, CDL and Verilog are fetched from the upstream repository archive, and liberty and GDS from the matching [release assets](https://github.com/openecos-projects/icsprout55-pdk/releases). See the [PDK README](lambdapdk/icsprout55/README.md) for the collateral that lambdapdk supplies itself, and for the gaps (no DRC/LVS decks, no SRAM, no I/O yet).
 
 ### Sky130 (130nm)
 
@@ -185,10 +217,16 @@ Stackup variants: 3ML, 4ML, 5ML with 400um, 800um, and 2000um bump pitches.
 
 ```
 lambdapdk/
+├── gt2n/            # 2nm GAAFET PDK
+│   ├── base/        # Technology files
+│   └── libs/        # Standard cells
 ├── asap7/           # 7nm FinFET PDK
 │   ├── base/        # Technology files, DRC rules
 │   └── libs/        # Standard cells, I/O, memory
 ├── freepdk45/       # 45nm PDK
+│   ├── base/
+│   └── libs/
+├── icsprout55/      # 55nm PDK
 │   ├── base/
 │   └── libs/
 ├── sky130/          # 130nm PDK

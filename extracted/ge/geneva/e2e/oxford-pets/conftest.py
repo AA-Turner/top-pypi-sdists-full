@@ -19,7 +19,6 @@ import pytest
 
 from geneva.cluster import GenevaCluster, K8sConfigMethod
 from geneva.cluster.builder import KubeRayClusterBuilder
-from geneva.utils import dt_now_utc
 
 _LOG = logging.getLogger(__name__)
 
@@ -37,14 +36,22 @@ def _head_memory_for_csp(csp: str) -> str:
 
 def _upload_all_manifests(bucket_path: str) -> None:
     """
-    Upload all suite manifests and add columns to the table.
+    Upload suite manifests and add columns to the table.
+
+    ``OXFORD_PETS_UPLOAD_PROFILES`` (comma-separated, default all) limits the
+    profiles to upload so runs that exercise a single driver skip the other
+    profiles' dependency syncs.
     """
     import subprocess
 
     _LOG.info("Uploading UDF manifests and adding columns...")
     suite_dir = Path(__file__).parent
+    cmd = ["uv", "run", "python", "upload_manifests.py", "--bucket", bucket_path]
+    profiles = os.environ.get("OXFORD_PETS_UPLOAD_PROFILES", "").strip()
+    if profiles:
+        cmd.extend(["--profile", profiles])
     result = subprocess.run(
-        ["uv", "run", "python", "upload_manifests.py", "--bucket", bucket_path],
+        cmd,
         cwd=str(suite_dir),
         capture_output=True,
         text=True,
@@ -156,8 +163,13 @@ def load_oxford_pets_images(
     for row in tqdm(dataset):
         buf = io.BytesIO()
         row["image"].save(buf, format="png")
-        batch.append({"image": buf.getvalue(), "label": row["label"],
-            "image_id":row["image_id"]})
+        batch.append(
+            {
+                "image": buf.getvalue(),
+                "label": row["label"],
+                "image_id": row["image_id"],
+            }
+        )
 
         if len(batch) >= frag_size:
             yield pa.RecordBatch.from_pylist(batch)
@@ -238,7 +250,7 @@ def oxford_pets_table(geneva_test_bucket: str, num_images: int) -> tuple:  # typ
         tbl = conn.open_table(table_name)
         _LOG.info(f"Table schema after manifest uploads: {tbl.schema}")
 
-    yield conn, tbl, table_name
+    return conn, tbl, table_name
 
 
 @pytest.fixture

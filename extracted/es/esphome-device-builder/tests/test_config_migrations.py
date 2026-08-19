@@ -9,6 +9,7 @@ import pytest
 from esphome_device_builder.controllers.automations.parsing import parse_device_yaml
 from esphome_device_builder.definitions import MigrationRule
 from esphome_device_builder.helpers import migrations
+from esphome_device_builder.helpers.channel_colors import fold_channel_colors_value
 from esphome_device_builder.helpers.migrations import (
     has_pending_migrations,
     render_migrations,
@@ -46,6 +47,10 @@ script:
           data:
             message: "hi"
 """
+
+
+#: Shape of the ``generated_rules`` fixture's injector.
+RuleSetter = Callable[..., None]
 
 
 def _respell(text: str) -> str:
@@ -487,7 +492,7 @@ wifi:
 _RP2_RULE = MigrationRule(kind="component_key", old="rp2040", new="rp2")
 
 
-def test_rp2040_platform_key_respelled_to_rp2(generated_rules: Callable[..., None]) -> None:
+def test_rp2040_platform_key_respelled_to_rp2(generated_rules: RuleSetter) -> None:
     generated_rules(_RP2_RULE)
     new_text = _respell(_RP2040_YAML)
     assert "rp2:  # target platform\n" in new_text
@@ -497,18 +502,18 @@ def test_rp2040_platform_key_respelled_to_rp2(generated_rules: Callable[..., Non
     assert "wifi:\n  ssid: foo\n" in new_text
 
 
-def test_rp2040_absent_untouched(generated_rules: Callable[..., None]) -> None:
+def test_rp2040_absent_untouched(generated_rules: RuleSetter) -> None:
     generated_rules(_RP2_RULE)
     assert render_migrations("esphome:\n  name: pico\n\nrp2:\n  board: rpipicow\n") is None
 
 
-def test_rp2040_beside_existing_rp2_untouched(generated_rules: Callable[..., None]) -> None:
+def test_rp2040_beside_existing_rp2_untouched(generated_rules: RuleSetter) -> None:
     generated_rules(_RP2_RULE)
     text = _RP2040_YAML + "\nrp2:\n  board: rpipico\n"
     assert render_migrations(text) is None
 
 
-def test_rp2040_prefixed_components_untouched(generated_rules: Callable[..., None]) -> None:
+def test_rp2040_prefixed_components_untouched(generated_rules: RuleSetter) -> None:
     generated_rules(_RP2_RULE)
     text = "rp2040:\n  board: rpipicow\n\noutput:\n  - platform: rp2040_pwm\n    pin: 1\n"
     new_text = _respell(text)
@@ -516,7 +521,7 @@ def test_rp2040_prefixed_components_untouched(generated_rules: Callable[..., Non
     assert "platform: rp2040_pwm" in new_text
 
 
-def test_rp2040_composes_with_other_rules(generated_rules: Callable[..., None]) -> None:
+def test_rp2040_composes_with_other_rules(generated_rules: RuleSetter) -> None:
     generated_rules(_RP2_RULE)
     text = "api:\n  services:\n    - service: hi\n      then: []\n\n" + _RP2040_YAML
     new_text = _respell(text)
@@ -560,7 +565,7 @@ def generated_rules(monkeypatch: pytest.MonkeyPatch) -> Callable[..., None]:
     return _set
 
 
-def test_platform_item_rename_scoped_to_matching_platform(generated_rules) -> None:
+def test_platform_item_rename_scoped_to_matching_platform(generated_rules: RuleSetter) -> None:
     generated_rules(_VOC_RULE)
     new_text = _respell(_SGP4X_YAML)
     assert "    voc_index:  # keep me\n" in new_text
@@ -569,7 +574,7 @@ def test_platform_item_rename_scoped_to_matching_platform(generated_rules) -> No
     assert "    voc: decoy\n" in new_text
 
 
-def test_platform_item_rename_on_the_dash_line(generated_rules) -> None:
+def test_platform_item_rename_on_the_dash_line(generated_rules: RuleSetter) -> None:
     generated_rules(_VOC_RULE)
     text = "sensor:\n  - voc:\n      name: x\n    platform: sgp4x\n"
     new_text = _respell(text)
@@ -577,25 +582,25 @@ def test_platform_item_rename_on_the_dash_line(generated_rules) -> None:
     assert "platform: sgp4x" in new_text
 
 
-def test_platform_item_collision_skips_the_item(generated_rules) -> None:
+def test_platform_item_collision_skips_the_item(generated_rules: RuleSetter) -> None:
     generated_rules(_VOC_RULE)
     text = "sensor:\n  - platform: sgp4x\n    voc: a\n    voc_index: b\n"
     assert render_migrations(text) is None
 
 
-def test_platform_item_rename_ignores_deeper_decoys(generated_rules) -> None:
+def test_platform_item_rename_ignores_deeper_decoys(generated_rules: RuleSetter) -> None:
     generated_rules(_VOC_RULE)
     text = "sensor:\n  - platform: sgp4x\n    compensation:\n      voc: nested\n"
     assert render_migrations(text) is None
 
 
-def test_platform_item_rename_skips_block_scalars(generated_rules) -> None:
+def test_platform_item_rename_skips_block_scalars(generated_rules: RuleSetter) -> None:
     generated_rules(_VOC_RULE)
     text = "sensor:\n  - platform: sgp4x\n    filters:\n      - lambda: |\n        voc: fake\n"
     assert render_migrations(text) is None
 
 
-def test_platform_item_platformless_item_untouched(generated_rules) -> None:
+def test_platform_item_platformless_item_untouched(generated_rules: RuleSetter) -> None:
     generated_rules(_VOC_RULE)
     text = "sensor:\n  - voc: bare\n  - platform: sgp4x\n    voc: a\n"
     new_text = _respell(text)
@@ -603,18 +608,18 @@ def test_platform_item_platformless_item_untouched(generated_rules) -> None:
     assert "    voc_index: a\n" in new_text
 
 
-def test_platform_value_tolerates_quotes_and_comment(generated_rules) -> None:
+def test_platform_value_tolerates_quotes_and_comment(generated_rules: RuleSetter) -> None:
     generated_rules(_VOC_RULE)
     text = 'sensor:\n  - platform: "sgp4x"  # gas\n    voc:\n      name: x\n'
     assert "voc_index:" in _respell(text)
 
 
-def test_platform_rule_without_domain_block_is_a_noop(generated_rules) -> None:
+def test_platform_rule_without_domain_block_is_a_noop(generated_rules: RuleSetter) -> None:
     generated_rules(_VOC_RULE)
     assert render_migrations("binary_sensor:\n  - platform: sgp4x\n    voc: x\n") is None
 
 
-def test_component_block_field_rename(generated_rules) -> None:
+def test_component_block_field_rename(generated_rules: RuleSetter) -> None:
     generated_rules(_BLOCK_RULE)
     text = "mycomp:\n  old_key: 1  # note\n  other: 2\n"
     new_text = _respell(text)
@@ -622,22 +627,22 @@ def test_component_block_field_rename(generated_rules) -> None:
     assert "  other: 2\n" in new_text
 
 
-def test_component_block_field_collision_is_a_noop(generated_rules) -> None:
+def test_component_block_field_collision_is_a_noop(generated_rules: RuleSetter) -> None:
     generated_rules(_BLOCK_RULE)
     assert render_migrations("mycomp:\n  old_key: 1\n  new_key: 2\n") is None
 
 
-def test_component_block_field_ignores_deeper_decoys(generated_rules) -> None:
+def test_component_block_field_ignores_deeper_decoys(generated_rules: RuleSetter) -> None:
     generated_rules(_BLOCK_RULE)
     assert render_migrations("mycomp:\n  child:\n    old_key: 1\n") is None
 
 
-def test_component_block_field_absent_component_is_a_noop(generated_rules) -> None:
+def test_component_block_field_absent_component_is_a_noop(generated_rules: RuleSetter) -> None:
     generated_rules(_BLOCK_RULE)
     assert render_migrations("other:\n  old_key: 1\n") is None
 
 
-def test_component_block_field_list_form_renames_every_item(generated_rules) -> None:
+def test_component_block_field_list_form_renames_every_item(generated_rules: RuleSetter) -> None:
     """The multi_conf shape (xiaomi_rtcgq02lm esp32_ble_id -> ble_hub_id)."""
     generated_rules(_BLOCK_RULE)
     text = "mycomp:\n  - old_key: a  # note\n    other: 1\n  - old_key: b\n"
@@ -647,7 +652,9 @@ def test_component_block_field_list_form_renames_every_item(generated_rules) -> 
     assert "    other: 1\n" in new_text
 
 
-def test_component_block_field_list_item_collision_skips_that_item(generated_rules) -> None:
+def test_component_block_field_list_item_collision_skips_that_item(
+    generated_rules: RuleSetter,
+) -> None:
     generated_rules(_BLOCK_RULE)
     text = "mycomp:\n  - old_key: a\n    new_key: b\n  - old_key: c\n"
     new_text = _respell(text)
@@ -655,12 +662,14 @@ def test_component_block_field_list_item_collision_skips_that_item(generated_rul
     assert "  - new_key: c\n" in new_text
 
 
-def test_component_block_field_list_ignores_deeper_decoys(generated_rules) -> None:
+def test_component_block_field_list_ignores_deeper_decoys(generated_rules: RuleSetter) -> None:
     generated_rules(_BLOCK_RULE)
     assert render_migrations("mycomp:\n  - child:\n      old_key: 1\n") is None
 
 
-def test_component_block_field_mapping_with_nested_list_stays_mapping(generated_rules) -> None:
+def test_component_block_field_mapping_with_nested_list_stays_mapping(
+    generated_rules: RuleSetter,
+) -> None:
     """A dash inside a mapping body is a nested list, not the multi_conf form."""
     generated_rules(_BLOCK_RULE)
     text = "mycomp:\n  seq:\n    - old_key: nested\n  old_key: 1\n"
@@ -669,7 +678,9 @@ def test_component_block_field_mapping_with_nested_list_stays_mapping(generated_
     assert "    - old_key: nested\n" in new_text
 
 
-def test_component_block_field_mapping_key_before_nested_automation(generated_rules) -> None:
+def test_component_block_field_mapping_key_before_nested_automation(
+    generated_rules: RuleSetter,
+) -> None:
     """The ble_client shape: the real key beside an on_x automation list."""
     generated_rules(_BLOCK_RULE)
     text = "mycomp:\n  old_key: my_tracker\n  on_connect:\n    - lambda: 'x'\n"
@@ -678,13 +689,17 @@ def test_component_block_field_mapping_key_before_nested_automation(generated_ru
     assert "    - lambda: 'x'\n" in new_text
 
 
-def test_component_block_field_leading_comment_does_not_decide_form(generated_rules) -> None:
+def test_component_block_field_leading_comment_does_not_decide_form(
+    generated_rules: RuleSetter,
+) -> None:
     generated_rules(_BLOCK_RULE)
     text = "mycomp:\n  # items\n\n  - old_key: a\n"
     assert "  - new_key: a\n" in _respell(text)
 
 
-def test_component_block_field_mapping_scalar_dash_is_not_the_form(generated_rules) -> None:
+def test_component_block_field_mapping_scalar_dash_is_not_the_form(
+    generated_rules: RuleSetter,
+) -> None:
     generated_rules(_BLOCK_RULE)
     text = "mycomp:\n  lambda: |-\n    - old_key: fake\n  old_key: 1\n"
     new_text = _respell(text)
@@ -692,7 +707,230 @@ def test_component_block_field_mapping_scalar_dash_is_not_the_form(generated_rul
     assert "    - old_key: fake\n" in new_text
 
 
-def test_generated_and_bespoke_rules_share_one_diff(generated_rules) -> None:
+_CHANNEL_RULES = (
+    MigrationRule(
+        kind="platform_channel_colors",
+        old="rgb_order",
+        new="channel_colors",
+        domain="light",
+        platform="esp32_rmt_led_strip",
+    ),
+    MigrationRule(
+        kind="platform_channel_colors",
+        old="rgb_order",
+        new="channel_colors",
+        domain="light",
+        platform="rp2040_pio_led_strip",
+    ),
+)
+
+_LED_STRIP_YAML = """light:
+  - platform: esp32_rmt_led_strip
+    id: legacy_rgb
+    pin: GPIO13
+    rgb_order: GRB  # strip order
+  - platform: esp32_rmt_led_strip
+    id: legacy_rgbw
+    pin: GPIO14
+    rgb_order: GRB
+    is_rgbw: true
+  - platform: rp2040_pio_led_strip
+    id: legacy_wrgb
+    rgb_order: GRB
+    is_wrgb: true
+  - platform: fastled_clockless
+    id: keeps_rgb_order
+    rgb_order: GRB
+"""
+
+_CHANNEL_ITEM = "light:\n  - platform: esp32_rmt_led_strip\n    rgb_order: GRB\n"
+
+
+def test_channel_colors_folds_each_platform_item(generated_rules: RuleSetter) -> None:
+    generated_rules(*_CHANNEL_RULES)
+    new_text = _respell(_LED_STRIP_YAML)
+    assert "    channel_colors: GRB  # strip order\n" in new_text
+    assert "    channel_colors: GRBW\n" in new_text
+    assert "    channel_colors: WGRB\n" in new_text
+    assert "is_rgbw:" not in new_text
+    assert "is_wrgb:" not in new_text
+    # fastled keeps rgb_order — its template parameter, not a rename.
+    assert new_text.count("rgb_order:") == 1
+    assert "  - platform: fastled_clockless\n    id: keeps_rgb_order\n    rgb_order: GRB\n" in (
+        new_text
+    )
+
+
+@pytest.mark.parametrize(
+    ("order", "is_rgbw", "is_wrgb", "expected"),
+    [
+        ("GRB", False, False, "GRB"),
+        ("grb", False, False, "GRB"),
+        ("GRB", True, False, "GRBW"),
+        ("RGB", False, True, "WRGB"),
+        ("GRB", True, True, None),
+        ("GRBW", False, False, None),
+        ("XYZ", False, False, None),
+    ],
+)
+def test_fold_channel_colors_value(
+    order: str, is_rgbw: bool, is_wrgb: bool, expected: str | None
+) -> None:
+    assert fold_channel_colors_value(order, is_rgbw=is_rgbw, is_wrgb=is_wrgb) == expected
+
+
+def test_channel_colors_false_flag_dropped(generated_rules: RuleSetter) -> None:
+    generated_rules(*_CHANNEL_RULES)
+    text = "light:\n  - platform: esp32_rmt_led_strip\n    rgb_order: grb\n    is_rgbw: 'no'\n"
+    new_text = _respell(text)
+    assert "    channel_colors: GRB\n" in new_text
+    assert "is_rgbw" not in new_text
+
+
+def test_channel_colors_keeps_a_deleted_flag_line_comment(generated_rules: RuleSetter) -> None:
+    generated_rules(*_CHANNEL_RULES)
+    new_text = _respell(_CHANNEL_ITEM + "    is_rgbw: true  # white last\n")
+    assert "    channel_colors: GRBW\n" in new_text
+    assert "    # white last\n" in new_text
+    assert "is_rgbw" not in new_text
+
+
+@pytest.mark.parametrize("flag", ["yes", "on", "enable", "True"])
+def test_channel_colors_truthy_flag_spellings(generated_rules: RuleSetter, flag: str) -> None:
+    generated_rules(*_CHANNEL_RULES)
+    new_text = _respell(_CHANNEL_ITEM + f"    is_rgbw: {flag}\n")
+    assert "    channel_colors: GRBW\n" in new_text
+
+
+@pytest.mark.parametrize("value", ["${order}", "!secret order", "XYZ"])
+def test_channel_colors_undecodable_order_untouched(
+    generated_rules: RuleSetter, value: str
+) -> None:
+    generated_rules(*_CHANNEL_RULES)
+    text = f"light:\n  - platform: esp32_rmt_led_strip\n    rgb_order: {value}\n"
+    assert render_migrations(text) is None
+
+
+def test_channel_colors_undecodable_flag_untouched(generated_rules: RuleSetter) -> None:
+    generated_rules(*_CHANNEL_RULES)
+    assert render_migrations(_CHANNEL_ITEM + "    is_rgbw: ${w}\n") is None
+
+
+def test_channel_colors_both_flags_untouched(generated_rules: RuleSetter) -> None:
+    generated_rules(*_CHANNEL_RULES)
+    assert render_migrations(_CHANNEL_ITEM + "    is_rgbw: true\n    is_wrgb: true\n") is None
+
+
+def test_channel_colors_beside_existing_entry_untouched(generated_rules: RuleSetter) -> None:
+    # Upstream refuses the combination, so the fold must not pick a winner.
+    generated_rules(*_CHANNEL_RULES)
+    text = (
+        "light:\n  - platform: esp32_rmt_led_strip\n    channel_colors: BGR\n"
+        "    rgb_order: GRB\n    is_rgbw: true\n"
+    )
+    assert render_migrations(text) is None
+
+
+def test_channel_colors_on_the_dash_line(generated_rules: RuleSetter) -> None:
+    generated_rules(*_CHANNEL_RULES)
+    text = "light:\n  - rgb_order: GRB\n    platform: esp32_rmt_led_strip\n"
+    assert "  - channel_colors: GRB\n" in _respell(text)
+
+
+def test_channel_colors_flag_on_the_dash_line_untouched(generated_rules: RuleSetter) -> None:
+    generated_rules(*_CHANNEL_RULES)
+    text = "light:\n  - is_rgbw: true\n    platform: esp32_rmt_led_strip\n    rgb_order: GRB\n"
+    assert render_migrations(text) is None
+
+
+def test_channel_colors_ignores_deeper_decoys(generated_rules: RuleSetter) -> None:
+    generated_rules(*_CHANNEL_RULES)
+    text = "light:\n  - platform: esp32_rmt_led_strip\n    nested:\n      rgb_order: GRB\n"
+    assert render_migrations(text) is None
+
+
+def test_channel_colors_merge_key_item_untouched(generated_rules: RuleSetter) -> None:
+    # The anchor may carry is_rgbw; folding the visible keys alone would
+    # emit the channel_colors-plus-flag combination upstream rejects.
+    generated_rules(*_CHANNEL_RULES)
+    text = (
+        "common: &common\n  is_rgbw: true\n\n"
+        "light:\n  - platform: esp32_rmt_led_strip\n    <<: *common\n    rgb_order: GRB\n"
+    )
+    assert render_migrations(text) is None
+
+
+def test_channel_colors_quoted_flag_key_untouched(generated_rules: RuleSetter) -> None:
+    generated_rules(*_CHANNEL_RULES)
+    text = 'light:\n  - platform: esp32_rmt_led_strip\n    rgb_order: GRB\n    "is_rgbw": true\n'
+    assert render_migrations(text) is None
+
+
+def test_channel_colors_anchored_item_untouched(generated_rules: RuleSetter) -> None:
+    # A sibling merging the anchor would inherit channel_colors beside
+    # its own legacy key, the combination upstream rejects.
+    generated_rules(*_CHANNEL_RULES)
+    text = (
+        "light:\n  - &strip\n    platform: esp32_rmt_led_strip\n    rgb_order: GRB\n"
+        "  - <<: *strip\n    is_rgbw: true\n"
+    )
+    assert render_migrations(text) is None
+
+
+def test_channel_colors_anchor_on_bare_dash_next_line_untouched(
+    generated_rules: RuleSetter,
+) -> None:
+    generated_rules(*_CHANNEL_RULES)
+    for lead in ("", "    # note\n"):
+        text = (
+            f"light:\n  -\n{lead}    &strip\n    platform: esp32_rmt_led_strip\n"
+            "    rgb_order: GRB\n"
+            "  - <<: *strip\n    is_rgbw: true\n"
+        )
+        assert render_migrations(text) is None
+
+
+def test_channel_colors_tagged_anchor_item_untouched(generated_rules: RuleSetter) -> None:
+    # A node tag may precede the anchor on the dash line.
+    generated_rules(*_CHANNEL_RULES)
+    text = (
+        "light:\n  - !!map &strip\n    platform: esp32_rmt_led_strip\n    rgb_order: GRB\n"
+        "  - <<: *strip\n    is_rgbw: true\n"
+    )
+    assert render_migrations(text) is None
+
+
+def test_channel_colors_trailing_bare_dash_item_folds_siblings(generated_rules: RuleSetter) -> None:
+    generated_rules(*_CHANNEL_RULES)
+    text = "light:\n  - platform: esp32_rmt_led_strip\n    rgb_order: GRB\n  -\n"
+    assert "    channel_colors: GRB\n" in _respell(text)
+
+
+def test_channel_colors_rgbw_order_item_untouched(generated_rules: RuleSetter) -> None:
+    # The beta-only rgbw_order key must keep failing validation loudly.
+    generated_rules(*_CHANNEL_RULES)
+    for extra in ("", "    rgb_order: GRB\n"):
+        text = f"light:\n  - platform: esp32_rmt_led_strip\n    rgbw_order: RWGB\n{extra}"
+        assert render_migrations(text) is None
+
+
+def test_channel_colors_other_domain_untouched(generated_rules: RuleSetter) -> None:
+    generated_rules(*_CHANNEL_RULES)
+    assert render_migrations("output:\n  - platform: esp32_rmt_led_strip\n    pin: 1\n") is None
+
+
+def test_channel_colors_composes_with_other_rules(generated_rules: RuleSetter) -> None:
+    generated_rules(*_CHANNEL_RULES)
+    text = _LEGACY_API_YAML + "\n" + _CHANNEL_ITEM + "    is_wrgb: true\n"
+    result = render_migrations(text)
+    assert result is not None
+    new_text, diff = result
+    assert "actions:" in new_text
+    assert "    channel_colors: WGRB\n" in new_text
+    assert diff.fromLine <= diff.toLine
+
+
+def test_generated_and_bespoke_rules_share_one_diff(generated_rules: RuleSetter) -> None:
     generated_rules(_VOC_RULE)
     text = _LEGACY_API_YAML + "\n" + _SGP4X_YAML
     result = render_migrations(text)
@@ -703,11 +941,12 @@ def test_generated_and_bespoke_rules_share_one_diff(generated_rules) -> None:
     assert diff.fromLine <= diff.toLine
 
 
-def test_prefilter_covers_every_generated_rule_kind(generated_rules) -> None:
+def test_prefilter_covers_every_generated_rule_kind(generated_rules: RuleSetter) -> None:
     """A new rule kind added without a firing fixture here fails the key compare."""
     firing = {
         "component_key": (_RP2_RULE, _RP2040_YAML),
         "platform_item_field": (_VOC_RULE, _SGP4X_YAML),
+        "platform_channel_colors": (_CHANNEL_RULES[0], _LED_STRIP_YAML),
         "component_block_field": (_BLOCK_RULE, "mycomp:\n  old_key: 1\n"),
     }
     assert set(firing) == set(MIGRATION_RULE_EXTRA_FIELDS)

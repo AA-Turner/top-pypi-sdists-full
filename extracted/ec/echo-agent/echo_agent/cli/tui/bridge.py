@@ -45,11 +45,28 @@ class WSBridge:
 
         # Plain outbound text (streaming or final)
         meta = payload.get("metadata") or {}
+        # The approval prompt is published as a redundant is_final text reply
+        # (metadata._approval_request) purely for IM channels — the interactive
+        # ApprovalBlock is already rendered from the cognitive approval_request
+        # frame above. If we let this text through, on_user_reply_final would (a)
+        # render a duplicate reply and (b) prematurely end the ORIGINAL turn,
+        # which is still parked server-side in wait_for_decision. Skip it: the TUI
+        # shows the ApprovalBlock, not this text.
+        if meta.get("_approval_request"):
+            return
         inbound_id = str(meta.get("_inbound_event_id", ""))
         text = payload.get("text") or ""
         streaming = bool(meta.get("_token_stream"))
         is_final = payload.get("is_final", True) or payload.get("message_kind") == "final"
         if streaming and not is_final:
+            # An optimistically-streamed draft turned out to be a pre-tool
+            # preamble and was retracted server-side. Tokens accumulate in one
+            # reply widget, so without acting on this the next iteration's text
+            # would be appended to the abandoned draft and the user would watch a
+            # spliced answer until the final frame replaced it.
+            if meta.get("_stream_reset"):
+                self._sink.on_user_reply_reset(inbound_id)
+                return
             self._sink.on_user_reply_token(inbound_id, text)
         else:
             self._sink.on_user_reply_final(inbound_id, text)

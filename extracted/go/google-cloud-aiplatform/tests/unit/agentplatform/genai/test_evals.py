@@ -10608,10 +10608,10 @@ class TestAllowCrossRegionModel:
                 ),
                 metrics=[
                     agentplatform_genai_types.EvaluationRunMetric(
-                        metric="general_quality_v1",
+                        metric="final_response_quality_v1",
                         metric_config=agentplatform_genai_types.UnifiedMetric(
                             predefined_metric_spec=genai_types.PredefinedMetricSpec(
-                                metric_spec_name="general_quality_v1",
+                                metric_spec_name="final_response_quality_v1",
                             )
                         ),
                     )
@@ -10650,10 +10650,10 @@ class TestAllowCrossRegionModel:
                 ),
                 metrics=[
                     agentplatform_genai_types.EvaluationRunMetric(
-                        metric="general_quality_v1",
+                        metric="final_response_quality_v1",
                         metric_config=agentplatform_genai_types.UnifiedMetric(
                             predefined_metric_spec=genai_types.PredefinedMetricSpec(
-                                metric_spec_name="general_quality_v1",
+                                metric_spec_name="final_response_quality_v1",
                             )
                         ),
                     )
@@ -11767,6 +11767,70 @@ class TestSandboxTurnMergingInAgentData:
         assert len(result.turns) == 2
 
 
+class TestValidateManagedAgentMetrics:
+    """Tests for _validate_managed_agent_metrics."""
+
+    MANAGED_AGENT = "projects/p/locations/global/agents/my-agent"
+    NON_MANAGED_AGENT = "projects/p/locations/global/reasoningEngines/123"
+
+    def _make_metric(self, name):
+        return agentplatform_genai_types.Metric(name=name)
+
+    def test_supported_metric_passes(self):
+        _evals_common._validate_managed_agent_metrics(
+            self.MANAGED_AGENT,
+            [self._make_metric("safety_v1")],
+        )
+
+    def test_multiple_supported_metrics_pass(self):
+        _evals_common._validate_managed_agent_metrics(
+            self.MANAGED_AGENT,
+            [
+                self._make_metric("safety_v1"),
+                self._make_metric("final_response_quality_v1"),
+                self._make_metric("multi_turn_task_success_v1"),
+            ],
+        )
+
+    def test_unsupported_metric_raises(self):
+        with pytest.raises(ValueError, match="not supported for Managed Agent"):
+            _evals_common._validate_managed_agent_metrics(
+                self.MANAGED_AGENT,
+                [self._make_metric("hallucination_v1")],
+            )
+
+    def test_unsupported_metric_lists_supported(self):
+        with pytest.raises(ValueError, match="multi_turn_task_success_v1"):
+            _evals_common._validate_managed_agent_metrics(
+                self.MANAGED_AGENT,
+                [self._make_metric("multi_turn_trajectory_quality_v1")],
+            )
+
+    def test_non_managed_agent_allows_any_metric(self):
+        # Non-Managed Agent (reasoning engine) should allow any metric.
+        _evals_common._validate_managed_agent_metrics(
+            self.NON_MANAGED_AGENT,
+            [self._make_metric("hallucination_v1")],
+        )
+
+    def test_no_agent_allows_any_metric(self):
+        # No agent parameter should allow any metric.
+        _evals_common._validate_managed_agent_metrics(
+            None,
+            [self._make_metric("hallucination_v1")],
+        )
+
+    def test_mixed_supported_and_unsupported_raises(self):
+        with pytest.raises(ValueError, match="not supported"):
+            _evals_common._validate_managed_agent_metrics(
+                self.MANAGED_AGENT,
+                [
+                    self._make_metric("safety_v1"),
+                    self._make_metric("hallucination_v1"),
+                ],
+            )
+
+
 class TestMergeTextPartsInAgentData:
     """Tests for _merge_text_parts_in_agent_data."""
 
@@ -12370,6 +12434,98 @@ class TestDeleteEvaluationExperiment:
         assert call_args[0][1] == self.experiment_name
 
 
+class TestListEvaluationSets:
+
+    def setup_method(self, method):
+        self.mock_api_client = mock.MagicMock()
+        self.mock_api_client.vertexai = True
+        self.mock_response = mock.MagicMock()
+        self.mock_response.body = json.dumps(
+            {
+                "evaluationSets": [
+                    {
+                        "name": "projects/123/locations/us-central1/evaluationSets/1",
+                        "displayName": "set_1",
+                    },
+                    {
+                        "name": "projects/123/locations/us-central1/evaluationSets/2",
+                        "displayName": "set_2",
+                    },
+                ]
+            }
+        )
+        self.mock_api_client.request.return_value = self.mock_response
+
+    def test_list_evaluation_sets_returns_sets(self):
+        evals_module = evals.Evals(api_client_=self.mock_api_client)
+
+        response = evals_module.list_evaluation_sets()
+
+        assert len(response.evaluation_sets) == 2
+        assert isinstance(
+            response.evaluation_sets[0], agentplatform_genai_types.EvaluationSet
+        )
+        assert response.evaluation_sets[0].display_name == "set_1"
+        assert response.evaluation_sets[1].display_name == "set_2"
+
+    def test_list_evaluation_sets_gets_evaluation_sets_path(self):
+        evals_module = evals.Evals(api_client_=self.mock_api_client)
+
+        evals_module.list_evaluation_sets()
+
+        self.mock_api_client.request.assert_called_once()
+        call_args = self.mock_api_client.request.call_args
+        assert call_args[0][0] == "get"
+        assert call_args[0][1].startswith("evaluationSets")
+
+    def test_list_evaluation_sets_passes_filter_and_order_by(self):
+        evals_module = evals.Evals(api_client_=self.mock_api_client)
+
+        evals_module.list_evaluation_sets(
+            filter='display_name="set_1"', order_by="create_time desc"
+        )
+
+        self.mock_api_client.request.assert_called_once()
+        path = self.mock_api_client.request.call_args[0][1]
+        assert path.startswith("evaluationSets?")
+        assert "orderBy=create_time+desc" in path
+
+
+class TestDeleteEvaluationSet:
+
+    def setup_method(self, method):
+        self.mock_api_client = mock.MagicMock()
+        self.mock_api_client.vertexai = True
+        self.set_name = "projects/123/locations/us-central1/evaluationSets/456"
+        self.mock_response = mock.MagicMock()
+        self.mock_response.body = json.dumps({"name": "operations/789"})
+        self.mock_api_client.request.return_value = self.mock_response
+
+    def test_delete_evaluation_set_uses_delete_and_short_name(self):
+        evals_module = evals.Evals(api_client_=self.mock_api_client)
+
+        evals_module.delete_evaluation_set(name=self.set_name)
+
+        self.mock_api_client.request.assert_called_once()
+        call_args = self.mock_api_client.request.call_args
+        assert call_args[0][0] == "delete"
+        assert call_args[0][1] == "evaluationSets/456"
+
+    def test_delete_evaluation_set_accepts_short_name(self):
+        evals_module = evals.Evals(api_client_=self.mock_api_client)
+
+        evals_module.delete_evaluation_set(name="456")
+
+        call_args = self.mock_api_client.request.call_args
+        assert call_args[0][1] == "evaluationSets/456"
+
+    def test_delete_evaluation_set_raises_on_empty_name(self):
+        evals_module = evals.Evals(api_client_=self.mock_api_client)
+
+        with pytest.raises(ValueError):
+            evals_module.delete_evaluation_set(name="")
+
+
 class TestCreateEvaluationRunAutoExperiment:
 
     def setup_method(self, method):
@@ -12544,3 +12700,143 @@ class TestAsyncCreateEvaluationRunAutoExperiment:
             request_body.get("evaluationExperiment")
             == "projects/123/locations/us-central1/evaluationExperiments/existing"
         )
+
+
+class TestImportEvaluationSet:
+
+    def setup_method(self, method):
+        self.mock_api_client = mock.MagicMock()
+        self.mock_api_client.vertexai = True
+        self.mock_response = mock.MagicMock()
+        self.mock_response.body = json.dumps({"name": "operations/123"})
+        self.mock_api_client.request.return_value = self.mock_response
+
+    def _import(self, evals_module):
+        return evals_module.import_evaluation_set(
+            evaluation_set=agentplatform_genai_types.EvaluationSet(
+                display_name="imported_set"
+            ),
+            gcs_destination=genai_types.GcsDestination(
+                output_uri_prefix="gs://bucket/output/"
+            ),
+            gcs_source=agentplatform_genai_types.EvaluationSetGcsSource(
+                gcs_uri="gs://bucket/items.jsonl",
+                import_schema_config=agentplatform_genai_types.ImportSchemaConfig(
+                    data_format=agentplatform_genai_types.ImportDataFormat.JSONL
+                ),
+            ),
+        )
+
+    def test_import_evaluation_set_posts_to_import_path(self):
+        evals_module = evals.Evals(api_client_=self.mock_api_client)
+
+        self._import(evals_module)
+
+        self.mock_api_client.request.assert_called_once()
+        call_args = self.mock_api_client.request.call_args
+        assert call_args[0][0] == "post"
+        assert call_args[0][1] == "evaluationSets:import"
+
+    def test_import_evaluation_set_sends_gcs_source(self):
+        evals_module = evals.Evals(api_client_=self.mock_api_client)
+
+        self._import(evals_module)
+
+        request_body = self.mock_api_client.request.call_args[0][2]
+        gcs_source = request_body["gcsSource"]
+        assert gcs_source["gcs_uri"] == "gs://bucket/items.jsonl"
+        assert gcs_source["import_schema_config"]["data_format"] == "JSONL"
+
+    def test_import_evaluation_set_sends_gcs_destination(self):
+        evals_module = evals.Evals(api_client_=self.mock_api_client)
+
+        self._import(evals_module)
+
+        request_body = self.mock_api_client.request.call_args[0][2]
+        assert (
+            request_body["gcsDestination"]["output_uri_prefix"] == "gs://bucket/output/"
+        )
+
+    def test_import_evaluation_set_returns_operation(self):
+        evals_module = evals.Evals(api_client_=self.mock_api_client)
+
+        operation = self._import(evals_module)
+
+        assert operation.name == "operations/123"
+
+    def test_import_evaluation_set_from_inline_source(self):
+        evals_module = evals.Evals(api_client_=self.mock_api_client)
+
+        evals_module.import_evaluation_set(
+            evaluation_set=agentplatform_genai_types.EvaluationSet(
+                display_name="imported_set"
+            ),
+            gcs_destination=genai_types.GcsDestination(
+                output_uri_prefix="gs://bucket/output/"
+            ),
+            inline_source=agentplatform_genai_types.EvaluationSetInlineSource(
+                content=b'{"evaluationRequest": {}}\n',
+                import_schema_config=agentplatform_genai_types.ImportSchemaConfig(
+                    data_format=agentplatform_genai_types.ImportDataFormat.JSONL
+                ),
+            ),
+        )
+
+        request_body = self.mock_api_client.request.call_args[0][2]
+        assert "inlineSource" in request_body
+        assert (
+            request_body["inlineSource"]["import_schema_config"]["data_format"]
+            == "JSONL"
+        )
+
+    def test_import_evaluation_set_from_cloud_trace_source(self):
+        evals_module = evals.Evals(api_client_=self.mock_api_client)
+
+        evals_module.import_evaluation_set(
+            evaluation_set=agentplatform_genai_types.EvaluationSet(
+                display_name="imported_set"
+            ),
+            gcs_destination=genai_types.GcsDestination(
+                output_uri_prefix="gs://bucket/output/"
+            ),
+            cloud_trace_source=agentplatform_genai_types.EvaluationSetCloudTraceSource(
+                project_id="test-project",
+                session_ids=["session-1"],
+            ),
+        )
+
+        request_body = self.mock_api_client.request.call_args[0][2]
+        cloud_trace_source = request_body["cloudTraceSource"]
+        assert cloud_trace_source["project_id"] == "test-project"
+        assert cloud_trace_source["session_ids"] == ["session-1"]
+
+    def test_import_evaluation_set_requires_exactly_one_source(self):
+        evals_module = evals.Evals(api_client_=self.mock_api_client)
+        evaluation_set = agentplatform_genai_types.EvaluationSet(
+            display_name="imported_set"
+        )
+        gcs_destination = genai_types.GcsDestination(
+            output_uri_prefix="gs://bucket/output/"
+        )
+        gcs_source = agentplatform_genai_types.EvaluationSetGcsSource(
+            gcs_uri="gs://bucket/items.jsonl",
+            import_schema_config=agentplatform_genai_types.ImportSchemaConfig(
+                data_format=agentplatform_genai_types.ImportDataFormat.JSONL
+            ),
+        )
+        cloud_trace_source = agentplatform_genai_types.EvaluationSetCloudTraceSource(
+            project_id="test-project"
+        )
+
+        with pytest.raises(ValueError):
+            evals_module.import_evaluation_set(
+                evaluation_set=evaluation_set, gcs_destination=gcs_destination
+            )
+
+        with pytest.raises(ValueError):
+            evals_module.import_evaluation_set(
+                evaluation_set=evaluation_set,
+                gcs_destination=gcs_destination,
+                gcs_source=gcs_source,
+                cloud_trace_source=cloud_trace_source,
+            )

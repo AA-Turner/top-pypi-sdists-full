@@ -48,6 +48,8 @@ from .type_defs import (
     CreateOrderOutputTypeDef,
     CreateOutpostInputTypeDef,
     CreateOutpostOutputTypeDef,
+    CreatePrivateConnectivityConfigInputTypeDef,
+    CreatePrivateConnectivityConfigOutputTypeDef,
     CreateQuoteInputTypeDef,
     CreateQuoteOutputTypeDef,
     CreateRenewalInputTypeDef,
@@ -73,6 +75,8 @@ from .type_defs import (
     GetOutpostOutputTypeDef,
     GetOutpostSupportedInstanceTypesInputTypeDef,
     GetOutpostSupportedInstanceTypesOutputTypeDef,
+    GetPrivateConnectivityConfigInputTypeDef,
+    GetPrivateConnectivityConfigOutputTypeDef,
     GetQuoteInputTypeDef,
     GetQuoteOutputTypeDef,
     GetRenewalPricingInputTypeDef,
@@ -210,6 +214,16 @@ class OutpostsClient(BaseClient):
         [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_outposts/client/#create_outpost)
         """
 
+    def create_private_connectivity_config(
+        self, **kwargs: Unpack[CreatePrivateConnectivityConfigInputTypeDef]
+    ) -> CreatePrivateConnectivityConfigOutputTypeDef:
+        """
+        Creates the private connectivity configuration for the specified Outpost.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/outposts/client/create_private_connectivity_config.html)
+        [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_outposts/client/#create_private_connectivity_config)
+        """
+
     def create_quote(self, **kwargs: Unpack[CreateQuoteInputTypeDef]) -> CreateQuoteOutputTypeDef:
         """
         Creates a quote for an Outpost.
@@ -335,6 +349,16 @@ class OutpostsClient(BaseClient):
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/outposts/client/get_outpost_supported_instance_types.html)
         [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_outposts/client/#get_outpost_supported_instance_types)
+        """
+
+    def get_private_connectivity_config(
+        self, **kwargs: Unpack[GetPrivateConnectivityConfigInputTypeDef]
+    ) -> GetPrivateConnectivityConfigOutputTypeDef:
+        """
+        Gets the private connectivity configuration for the specified Outpost.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/outposts/client/get_private_connectivity_config.html)
+        [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_outposts/client/#get_private_connectivity_config)
         """
 
     def get_quote(self, **kwargs: Unpack[GetQuoteInputTypeDef]) -> GetQuoteOutputTypeDef:

@@ -64,14 +64,14 @@ def main() -> None:
     parser.add_argument(
         "--target-person",
         required=True,
-        help="Primary identifier (email, GitHub handle, Slack user ID, or Slack usergroup ID).",
+        help="Primary identifier (email, GitHub handle, Slack ID, usergroup handle, or pasted Slack mention).",
     )
     parser.add_argument("--message", required=True, help="Message body.")
     parser.add_argument("--agent-session-url", required=True, help="Agent session URL.")
     parser.add_argument(
         "--cc-persons",
         default="",
-        help="Comma-separated additional person or Slack usergroup identifiers.",
+        help="Comma-separated person or usergroup handles, IDs, or pasted Slack mentions.",
     )
     parser.add_argument("--pr-url", default=None, help="Optional PR URL.")
     parser.add_argument("--issue-url", default=None, help="Optional issue URL.")

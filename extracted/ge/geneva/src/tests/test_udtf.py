@@ -2,6 +2,7 @@
 # SPDX-FileCopyrightText: Copyright The Geneva Authors
 
 from collections.abc import Iterator
+from datetime import timedelta
 
 import pyarrow as pa
 import pyarrow.compute
@@ -356,6 +357,40 @@ class TestCreateUDTFView:
         assert b"geneva::view::query" in meta
         assert b"geneva::view::base_table" in meta
         assert meta[b"geneva::view::version"] == b"udtf"
+
+
+class TestRefreshTimeout:
+    """refresh() must honor an explicit timeout on the native path (it used to be
+    silently dropped: _refresh ignored the argument and blocked forever)."""
+
+    def test_refresh_honors_timeout(self, tmp_path, monkeypatch) -> None:
+        db, source_table = _make_source_table(tmp_path)
+
+        @geneva.udtf(output_schema=OUTPUT_SCHEMA, input_columns=["id", "value"])
+        def passthrough(source) -> Iterator[pa.RecordBatch]:
+            yield from source.to_batches()
+
+        query = source_table.search(None).select(["id", "value"])
+        view = db.create_udtf_view("timeout_view", query, passthrough)
+
+        # A future that never completes, so only the timeout can end the wait.
+        class _NeverDone:
+            def done(self, timeout=None) -> bool:
+                return False
+
+            def result(self, timeout=None) -> object:
+                raise AssertionError("result() must not be reached on timeout")
+
+            def status(self, *a, **k) -> None:
+                return None
+
+        monkeypatch.setattr(
+            "geneva.runners.ray.pipeline.dispatch_run_ray_refresh",
+            lambda *a, **k: _NeverDone(),
+        )
+
+        with pytest.raises(TimeoutError, match="refresh did not complete within"):
+            view.refresh(timeout=timedelta(seconds=0.2), _admission_check=False)
 
 
 # ---------------------------------------------------------------------------
@@ -1088,6 +1123,50 @@ class TestIndexPartitionSource:
 # IVF_FLAT index-based partition assignment
 # ---------------------------------------------------------------------------
 
+# Distinct phash clusters with enough rows for k-means to converge reliably
+# (lance needs >=256 samples per partition by default).
+_PHASH_CLUSTERS = [("A", 0x00), ("B", 0xFF), ("C", 0x55)]
+_PHASH_ROWS_PER_CLUSTER = 300
+
+
+def _make_phash_cluster_table(
+    db: Connection,
+    name: str,
+    *,
+    storage_options: dict[str, str] | None = None,
+    batch_per_cluster: bool = False,
+) -> Table:
+    """900-row table with 3 well-separated phash clusters (A/B/C).
+
+    ``batch_per_cluster`` writes each cluster as its own add() so the table
+    starts with one fragment per cluster (compaction tests need fragments
+    that actually merge).
+    """
+
+    def _cluster(label: str, base: int) -> pa.Table:
+        return pa.table(
+            {
+                "image_id": pa.array(
+                    [f"{label}{i}" for i in range(_PHASH_ROWS_PER_CLUSTER)],
+                    type=pa.string(),
+                ),
+                "phash": pa.array(
+                    [[base] * 8 for _ in range(_PHASH_ROWS_PER_CLUSTER)],
+                    type=pa.list_(pa.uint8(), 8),
+                ),
+            }
+        )
+
+    clusters = [_cluster(label, base) for label, base in _PHASH_CLUSTERS]
+    if batch_per_cluster:
+        tbl = db.create_table(name, clusters[0], storage_options=storage_options)
+        for part in clusters[1:]:
+            tbl.add(part)
+        return tbl
+    return db.create_table(
+        name, pa.concat_tables(clusters), storage_options=storage_options
+    )
+
 
 class TestIVFFlatPartitionAssignment:
     """Test that assign_partitions_from_index() creates an IVF_FLAT index
@@ -1102,27 +1181,8 @@ class TestIVFFlatPartitionAssignment:
 
         db = connect(tmp_path)
         k = 3
-
-        # Create distinct phash clusters with enough rows for k-means to
-        # converge reliably (lance needs >=256 samples per partition by default).
-        #   Cluster A: all zeros
-        #   Cluster B: all 0xFF
-        #   Cluster C: all 0x55
-        rows_per_cluster = 300
-        image_ids: list[str] = []
-        phashes: list[list[int]] = []
-        for label, base in [("A", 0x00), ("B", 0xFF), ("C", 0x55)]:
-            for i in range(rows_per_cluster):
-                image_ids.append(f"{label}{i}")
-                phashes.append([base] * 8)
-
-        data = pa.table(
-            {
-                "image_id": pa.array(image_ids, type=pa.string()),
-                "phash": pa.array(phashes, type=pa.list_(pa.uint8(), 8)),
-            }
-        )
-        tbl = db.create_table("phash_index_test", data)
+        rows_per_cluster = _PHASH_ROWS_PER_CLUSTER
+        tbl = _make_phash_cluster_table(db, "phash_index_test")
 
         # Step 1: Create the IVF_FLAT index
         create_ivf_flat_index(tbl, "phash", k=k)
@@ -1165,6 +1225,133 @@ class TestIVFFlatPartitionAssignment:
         }
         assert len(all_cluster_pids) >= 2, (
             f"Expected at least 2 distinct partitions, got {all_cluster_pids}"
+        )
+
+    def test_assign_partitions_after_compaction_srid(self, tmp_path) -> None:
+        """Stable row ids keep the index rowid->pid map valid across
+        delete + compaction, so every row still gets its cluster's partition."""
+        from geneva.partitioning import (
+            assign_partitions_from_index,
+            create_ivf_flat_index,
+        )
+
+        db = connect(tmp_path)
+        k = 3
+        tbl = _make_phash_cluster_table(
+            db,
+            "phash_srid_compact",
+            storage_options={"new_table_enable_stable_row_ids": "true"},
+            batch_per_cluster=True,
+        )
+        create_ivf_flat_index(tbl, "phash", k=k)
+
+        # Delete a few rows per cluster, then compact so fragments merge.
+        tbl.delete("image_id IN ('A0', 'A1', 'B0', 'B1', 'C0', 'C1')")
+        n_frags_before = len(tbl.to_lance().get_fragments())
+        tbl.compact_files()
+        tbl.checkout_latest()
+        n_frags_after = len(tbl.to_lance().get_fragments())
+        assert n_frags_after < n_frags_before, "compaction did not merge fragments"
+
+        assign_partitions_from_index(tbl, "phash")
+
+        result = tbl.to_lance().to_table()
+        assert result.num_rows == 3 * _PHASH_ROWS_PER_CLUSTER - 6
+        cluster_pids: dict[str, set[int]] = {}
+        for image_id, pid in zip(
+            result["image_id"].to_pylist(),
+            result["partition_id"].to_pylist(),
+            strict=True,
+        ):
+            assert pid is not None, f"{image_id}: pid is None"
+            assert 0 <= pid < k, f"{image_id}: bad pid {pid}"
+            cluster_pids.setdefault(image_id[0], set()).add(pid)
+        for label, pids in sorted(cluster_pids.items()):
+            assert len(pids) == 1, f"cluster {label} split across partitions {pids}"
+        assert len(set().union(*cluster_pids.values())) >= 2
+
+    def test_assign_partitions_after_compaction_non_srid(self, tmp_path) -> None:
+        """Without stable row ids, delete + compaction renumbers ``_rowid``
+        (row addresses), invalidating every entry of a pre-compaction
+        snapshot of the index's rowid->pid map. Compaction also remaps the
+        vector index to the new addresses (as of pylance 9.0.0-beta.21 the
+        index reader returns exactly the live row count keyed by
+        post-compaction addresses), so assign_partitions_from_index — which
+        re-reads the index at assign time — still gives every row its
+        correct cluster partition rather than the silent default-partition-0
+        for unmapped rows (partitioning.py rowid_to_pid lookup miss). If
+        lance ever stops remapping the index on compaction, the
+        cluster-consistency assertions below fail.
+        """
+        import lance
+        from lance.dataset import VectorIndexReader
+
+        from geneva.partitioning import (
+            assign_partitions_from_index,
+            create_ivf_flat_index,
+        )
+
+        db = connect(tmp_path)
+        k = 3
+        tbl = _make_phash_cluster_table(
+            db, "phash_plain_compact", batch_per_cluster=True
+        )
+        index_name = create_ivf_flat_index(tbl, "phash", k=k)
+
+        # rowid -> pid exactly as the index recorded it (pre-compaction
+        # row addresses), mirroring assign_partitions_from_index's map.
+        lance_ds = lance.dataset(tbl.to_lance().uri)
+        reader = VectorIndexReader(lance_ds, index_name)
+        pre_map: dict[int, int] = {}
+        for pid in range(reader.num_partitions()):
+            for rid in reader.read_partition(pid).column("_rowid").to_pylist():
+                pre_map[rid] = pid
+
+        tbl.delete("image_id IN ('A0', 'A1', 'B0', 'B1', 'C0', 'C1')")
+        tbl.compact_files()
+        tbl.checkout_latest()
+
+        # Compaction must actually renumber row ids for the rest of the test
+        # to be meaningful: every live row falls out of the pre-compaction
+        # map, so without the index remap checked below, every row would
+        # default to partition 0.
+        post = tbl.to_lance().to_table(columns=["image_id"], with_row_id=True)
+        post_rowids = post["_rowid"].to_pylist()
+        assert all(rid not in pre_map for rid in post_rowids), (
+            "compaction did not renumber row ids; the pre-compaction map "
+            "is still valid and this test exercises nothing"
+        )
+
+        # Compaction remaps the index to the new addresses: a fresh reader
+        # covers exactly the live rows.
+        remapped_reader = VectorIndexReader(
+            lance.dataset(tbl.to_lance().uri), index_name
+        )
+        remapped_rowids: set[int] = set()
+        for pid in range(remapped_reader.num_partitions()):
+            remapped_rowids.update(
+                remapped_reader.read_partition(pid).column("_rowid").to_pylist()
+            )
+        assert remapped_rowids == set(post_rowids)
+
+        assign_partitions_from_index(tbl, "phash")
+
+        # No silent default-0: assignment stays valid and cluster-consistent.
+        result = tbl.to_lance().to_table()
+        assert result.num_rows == 3 * _PHASH_ROWS_PER_CLUSTER - 6
+        cluster_pids: dict[str, set[int]] = {}
+        for image_id, pid in zip(
+            result["image_id"].to_pylist(),
+            result["partition_id"].to_pylist(),
+            strict=True,
+        ):
+            assert pid is not None, f"{image_id}: pid is None"
+            assert 0 <= pid < k, f"{image_id}: bad pid {pid}"
+            cluster_pids.setdefault(image_id[0], set()).add(pid)
+        for label, pids in sorted(cluster_pids.items()):
+            assert len(pids) == 1, f"cluster {label} split across partitions {pids}"
+        assert len(set().union(*cluster_pids.values())) >= 2, (
+            "all clusters landed in one partition; cannot rule out default-0"
         )
 
     def test_create_ivf_flat_index_standalone(self, tmp_path) -> None:
@@ -1222,9 +1409,12 @@ class TestIVFFlatPartitionAssignment:
 
     def test_build_index_partition_work_items(self, tmp_path) -> None:
         """_build_index_partition_work_items returns index partition info."""
+        from lance.dataset import VectorIndexReader
+
         from geneva.checkpoint import InMemoryCheckpointStore
         from geneva.checkpoint_utils import format_udtf_checkpoint_prefix
         from geneva.partitioning import create_ivf_flat_index
+        from geneva.query import open_read_dataset
         from geneva.table import _build_index_partition_work_items, _IndexPartitionInfo
 
         db = connect(tmp_path)
@@ -1244,7 +1434,7 @@ class TestIVFFlatPartitionAssignment:
             }
         )
         tbl = db.create_table("idx_work_items_test", data)
-        create_ivf_flat_index(tbl, "phash", k=k)
+        index_name = create_ivf_flat_index(tbl, "phash", k=k)
 
         pbi = "phash"
         top_prefix = format_udtf_checkpoint_prefix(
@@ -1255,6 +1445,14 @@ class TestIVFFlatPartitionAssignment:
         work_items, distinct_values = _build_index_partition_work_items(
             tbl, pbi, top_prefix, ckp_store
         )
+
+        reader = VectorIndexReader(open_read_dataset(tbl), index_name)
+        expected = [
+            pid
+            for pid in range(reader.num_partitions())
+            if reader.read_partition(pid).num_rows > 0
+        ]
+        assert distinct_values == expected
 
         # At least 2 non-empty partitions
         assert len(work_items) >= 2

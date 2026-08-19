@@ -16,6 +16,7 @@ params JSON schema:
       "title": str, "label": str,
       "do_borders": bool,
       "annotate": bool,               # use the "_label" column
+      "admin1_borders": bool,         # overlay state/province lines (admin_2 maps)
       "colorbar": {
          "type": "continuous"|"qualitative"|"none",
          "colors": [hex, ...],        # continuous: ramp stops; qualitative: per-class
@@ -54,6 +55,14 @@ def render(geojson_path, params):
             fp = os.path.join(td, f"g{i}.gmt")
             grp[["geometry"]].to_file(fp, driver="OGR_GMT")
             fig.plot(data=fp, fill=color, pen=pen)
+
+        # admin_1 (state/province) boundaries, drawn AFTER the choropleth so
+        # they sit ON TOP of it — fig.coast above runs before the polygons, so
+        # borders requested there would be painted over. GMT border level 2 is
+        # state/province. Slim, but heavier than the county stroke (0.4p) so it
+        # reads above the county mesh instead of vanishing into it.
+        if p.get("admin1_borders"):
+            fig.coast(borders="2/0.7p,black", area_thresh=5000)
 
         cb = p.get("colorbar", {})
         label = p.get("label") or ""

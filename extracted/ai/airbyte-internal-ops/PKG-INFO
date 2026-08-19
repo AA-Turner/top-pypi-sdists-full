@@ -1,6 +1,6 @@
 Metadata-Version: 2.5
 Name: airbyte-internal-ops
-Version: 0.102.0
+Version: 0.103.0
 Summary: MCP and API interfaces that let the agents do the admin work
 Author-email: Aaron Steers <aj@airbyte.io>
 Keywords: admin,airbyte,api,mcp
@@ -12,7 +12,7 @@ Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Requires-Python: <3.13,>=3.11
 Requires-Dist: airbyte-cdk<8.0,>=7.3.9
-Requires-Dist: airbyte-connector-models<0.2.0,>=0.1.8
+Requires-Dist: airbyte-connector-models<0.2.0,>=0.1.11
 Requires-Dist: airbyte-protocol-models-pdv2>=0.13.0
 Requires-Dist: airbyte<1.0.0,>=0.53.1
 Requires-Dist: asyncclick<9.0,>=8.1.7

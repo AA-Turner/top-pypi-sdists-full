@@ -1,32 +1,52 @@
-Metadata-Version: 2.1
+Metadata-Version: 2.4
 Name: attributes-doc
-Version: 0.4.0
+Version: 0.5.0
 Summary: PEP 224 implementation
-Home-page: https://github.com/tkukushkin/attributes-doc
-Author: Timofey Kukushkin
-Author-email: tima@kukushkin.me
-License: MIT
+Author-email: Timofei Kukushkin <tima@kukushkin.me>
+License: MIT License
+        
+        Copyright (c) 2019 Timofey Kukushkin
+        
+        Permission is hereby granted, free of charge, to any person obtaining a copy
+        of this software and associated documentation files (the "Software"), to deal
+        in the Software without restriction, including without limitation the rights
+        to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+        copies of the Software, and to permit persons to whom the Software is
+        furnished to do so, subject to the following conditions:
+        
+        The above copyright notice and this permission notice shall be included in all
+        copies or substantial portions of the Software.
+        
+        THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+        IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+        FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+        AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+        LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+        OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+        SOFTWARE.
+        
 Project-URL: Source, https://github.com/tkukushkin/attributes-doc
 Classifier: Development Status :: 4 - Beta
 Classifier: Intended Audience :: Developers
 Classifier: License :: OSI Approved :: MIT License
 Classifier: Operating System :: OS Independent
 Classifier: Programming Language :: Python :: 3
-Classifier: Programming Language :: Python :: 3.8
-Classifier: Programming Language :: Python :: 3.9
 Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
+Classifier: Programming Language :: Python :: 3.13
+Classifier: Programming Language :: Python :: 3.14
 Classifier: Topic :: Software Development :: Libraries :: Python Modules
-Requires-Python: >=3.8
+Requires-Python: >=3.10
 Description-Content-Type: text/markdown
 License-File: LICENSE
+Dynamic: license-file
 
 # attributes-doc
 
 [![PyPI version](https://badge.fury.io/py/attributes-doc.svg)](https://pypi.org/project/attributes-doc/)
 ![PyPI - Python Version](https://img.shields.io/pypi/pyversions/attributes-doc.svg?color=green)
-[![Build Status](https://github.com/tkukushkin/attributes-doc/workflows/build/badge.svg?branch=master)](https://github.com/tkukushkin/attributes-doc/actions?query=workflow%3Abuild+branch%3Amaster)
+[![Check](https://github.com/tkukushkin/attributes-doc/actions/workflows/check.yml/badge.svg?branch=master)](https://github.com/tkukushkin/attributes-doc/actions/workflows/check.yml?query=branch%3Amaster)
 [![codecov](https://codecov.io/gh/tkukushkin/attributes-doc/branch/master/graph/badge.svg)](https://codecov.io/gh/tkukushkin/attributes-doc)
 
 
@@ -46,6 +66,7 @@ This function is a class decorator, and using it on a class will set class attri
 
 ```py
 from attributes_doc import attributes_doc
+
 
 @attributes_doc
 class Foo:
@@ -70,12 +91,15 @@ This function will return a dictionary with the docstrings for all attributes of
 ```py
 from attributes_doc import get_attributes_doc
 
+
 class Goo:
     """This class doesn't use attributes_doc and we don't want to modify it at all."""
+
     bar = 1
     """This is the docstring for the bar attribute."""
     baz = 2
     """This is the docstring for the baz attribute."""
+
 
 docs = get_attributes_doc(Goo)
 print(docs["bar"])
@@ -90,12 +114,14 @@ This is also a class decorator, but it is intended for Enum classes. Instead of 
 from attributes_doc import enum_doc
 from enum import Enum
 
+
 @enum_doc
 class Foo(Enum):
     bar = 1
     """This is the docstring for the bar attribute."""
     baz = 2
     """This is the docstring for the baz attribute."""
+
 
 print(Foo.bar.__doc__)
 ```
@@ -107,5 +133,5 @@ This function will return the docstring of an attribute of a class.
 ```py
 from attributes_doc import get_doc
 
-print(get_doc(Foo, "baz")) # Instead of getattr(Foo, "__doc_baz__") above
+print(get_doc(Foo, "baz"))  # Instead of getattr(Foo, "__doc_baz__") above
 ```

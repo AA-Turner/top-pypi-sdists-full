@@ -59,6 +59,7 @@ from .common import _DeleteDatasetRequestParameters
 from .common import _DeleteEndpointRequestParameters
 from .common import _DeleteEvaluationExperimentParameters
 from .common import _DeleteEvaluationMetricParameters
+from .common import _DeleteEvaluationSetParameters
 from .common import _DeleteMultimodalDatasetRequestParameters
 from .common import _DeletePromptVersionRequestParameters
 from .common import _DeleteRagCorpusRequestParameters
@@ -67,6 +68,7 @@ from .common import _DeleteRuntimeFeedbackEntryRequestParameters
 from .common import _DeleteSandboxEnvironmentSnapshotRequestParameters
 from .common import _DeleteSandboxEnvironmentTemplateRequestParameters
 from .common import _DeleteSkillRequestParameters
+from .common import _DeployRequestParameters
 from .common import _EvaluateInstancesRequestParameters
 from .common import _ExecuteCodeAgentEngineSandboxRequestParameters
 from .common import _ExportPublisherModelRequestParameters
@@ -94,6 +96,7 @@ from .common import _GetDatasetOperationParameters
 from .common import _GetDatasetParameters
 from .common import _GetDatasetVersionParameters
 from .common import _GetDeleteAgentEngineRuntimeRevisionOperationParameters
+from .common import _GetDeployOperationParameters
 from .common import _GetEndpointOperationParameters
 from .common import _GetEndpointParameters
 from .common import _GetEvaluationExperimentParameters
@@ -121,6 +124,7 @@ from .common import _GetSandboxEnvironmentTemplateRequestParameters
 from .common import _GetSkillOperationParameters
 from .common import _GetSkillRequestParameters
 from .common import _GetSkillRevisionRequestParameters
+from .common import _ImportEvaluationSetParameters
 from .common import _ImportRagFilesRequestParameters
 from .common import _IngestEventsRequestParameters
 from .common import _ListAgentEngineMemoryRequestParameters
@@ -136,6 +140,7 @@ from .common import _ListDatasetsRequestParameters
 from .common import _ListDatasetVersionsRequestParameters
 from .common import _ListEvaluationExperimentsParameters
 from .common import _ListEvaluationMetricsParameters
+from .common import _ListEvaluationSetsParameters
 from .common import _ListMultimodalDatasetsRequestParameters
 from .common import _ListPublisherModelsRequestParameters
 from .common import _ListRagCorporaRequestParameters
@@ -175,10 +180,22 @@ from .common import _UpdateRuntimeFeedbackContextRequestParameters
 from .common import _UpdateRuntimeFeedbackEntryRequestParameters
 from .common import _UpdateSkillRequestParameters
 from .common import _UploadRagFileParameters
+from .common import A2aPart
+from .common import A2aPartDict
+from .common import A2aPartOrDict
 from .common import A2aTask
+from .common import A2aTaskArtifact
+from .common import A2aTaskArtifactDict
+from .common import A2aTaskArtifactOrDict
 from .common import A2aTaskDict
+from .common import A2aTaskMessage
+from .common import A2aTaskMessageDict
+from .common import A2aTaskMessageOrDict
 from .common import A2aTaskOrDict
 from .common import A2aTaskState
+from .common import A2aTaskStatus
+from .common import A2aTaskStatusDict
+from .common import A2aTaskStatusOrDict
 from .common import AcceleratorType
 from .common import AgentEngine
 from .common import AgentEngineConfig
@@ -475,6 +492,12 @@ from .common import DeleteEvaluationMetricConfigOrDict
 from .common import DeleteEvaluationMetricOperation
 from .common import DeleteEvaluationMetricOperationDict
 from .common import DeleteEvaluationMetricOperationOrDict
+from .common import DeleteEvaluationSetConfig
+from .common import DeleteEvaluationSetConfigDict
+from .common import DeleteEvaluationSetConfigOrDict
+from .common import DeleteEvaluationSetOperation
+from .common import DeleteEvaluationSetOperationDict
+from .common import DeleteEvaluationSetOperationOrDict
 from .common import DeletePromptConfig
 from .common import DeletePromptConfigDict
 from .common import DeletePromptConfigOrDict
@@ -520,6 +543,9 @@ from .common import DeleteSkillConfigOrDict
 from .common import DeleteSkillOperation
 from .common import DeleteSkillOperationDict
 from .common import DeleteSkillOperationOrDict
+from .common import DeployConfig
+from .common import DeployConfigDict
+from .common import DeployConfigOrDict
 from .common import DeployedModel
 from .common import DeployedModelDict
 from .common import DeployedModelOrDict
@@ -527,9 +553,30 @@ from .common import DeployedModelStatus
 from .common import DeployedModelStatusDict
 from .common import DeployedModelStatusOrDict
 from .common import DeploymentType
+from .common import DeployModelOperation
+from .common import DeployModelOperationDict
+from .common import DeployModelOperationOrDict
 from .common import DeployOption
 from .common import DeployOptionDict
 from .common import DeployOptionOrDict
+from .common import DeployPublisherModelConfig
+from .common import DeployPublisherModelConfigDict
+from .common import DeployPublisherModelConfigOrDict
+from .common import DeployRequestCustomModel
+from .common import DeployRequestCustomModelDict
+from .common import DeployRequestCustomModelOrDict
+from .common import DeployRequestDeployConfig
+from .common import DeployRequestDeployConfigDict
+from .common import DeployRequestDeployConfigOrDict
+from .common import DeployRequestEndpointConfig
+from .common import DeployRequestEndpointConfigDict
+from .common import DeployRequestEndpointConfigOrDict
+from .common import DeployRequestModelConfig
+from .common import DeployRequestModelConfigDict
+from .common import DeployRequestModelConfigOrDict
+from .common import DeployResponse
+from .common import DeployResponseDict
+from .common import DeployResponseOrDict
 from .common import DirectUploadSource
 from .common import DirectUploadSourceDict
 from .common import DirectUploadSourceOrDict
@@ -637,7 +684,16 @@ from .common import EvaluationRunResultsDict
 from .common import EvaluationRunResultsOrDict
 from .common import EvaluationRunState
 from .common import EvaluationSet
+from .common import EvaluationSetCloudTraceSource
+from .common import EvaluationSetCloudTraceSourceDict
+from .common import EvaluationSetCloudTraceSourceOrDict
 from .common import EvaluationSetDict
+from .common import EvaluationSetGcsSource
+from .common import EvaluationSetGcsSourceDict
+from .common import EvaluationSetGcsSourceOrDict
+from .common import EvaluationSetInlineSource
+from .common import EvaluationSetInlineSourceDict
+from .common import EvaluationSetInlineSourceOrDict
 from .common import EvaluationSetOrDict
 from .common import Event
 from .common import EventActions
@@ -827,6 +883,9 @@ from .common import GetDatasetOperationConfigOrDict
 from .common import GetDeleteAgentEngineRuntimeRevisionOperationConfig
 from .common import GetDeleteAgentEngineRuntimeRevisionOperationConfigDict
 from .common import GetDeleteAgentEngineRuntimeRevisionOperationConfigOrDict
+from .common import GetDeployOperationConfig
+from .common import GetDeployOperationConfigDict
+from .common import GetDeployOperationConfigOrDict
 from .common import GetEndpointConfig
 from .common import GetEndpointConfigDict
 from .common import GetEndpointConfigOrDict
@@ -910,6 +969,13 @@ from .common import GoogleDriveSourceResourceIdDict
 from .common import GoogleDriveSourceResourceIdOrDict
 from .common import IdentityType
 from .common import Importance
+from .common import ImportDataFormat
+from .common import ImportEvaluationSetConfig
+from .common import ImportEvaluationSetConfigDict
+from .common import ImportEvaluationSetConfigOrDict
+from .common import ImportEvaluationSetOperation
+from .common import ImportEvaluationSetOperationDict
+from .common import ImportEvaluationSetOperationOrDict
 from .common import ImportRagFilesConfig
 from .common import ImportRagFilesConfigDict
 from .common import ImportRagFilesConfigOrDict
@@ -925,6 +991,12 @@ from .common import ImportRagFilesRequestOrDict
 from .common import ImportRagFilesResponse
 from .common import ImportRagFilesResponseDict
 from .common import ImportRagFilesResponseOrDict
+from .common import ImportSchemaConfig
+from .common import ImportSchemaConfigDict
+from .common import ImportSchemaConfigOrDict
+from .common import InferenceEventLoggingConfig
+from .common import InferenceEventLoggingConfigDict
+from .common import InferenceEventLoggingConfigOrDict
 from .common import IngestEventsConfig
 from .common import IngestEventsConfigDict
 from .common import IngestEventsConfigOrDict
@@ -1027,6 +1099,12 @@ from .common import ListEvaluationMetricsConfigOrDict
 from .common import ListEvaluationMetricsResponse
 from .common import ListEvaluationMetricsResponseDict
 from .common import ListEvaluationMetricsResponseOrDict
+from .common import ListEvaluationSetsConfig
+from .common import ListEvaluationSetsConfigDict
+from .common import ListEvaluationSetsConfigOrDict
+from .common import ListEvaluationSetsResponse
+from .common import ListEvaluationSetsResponseDict
+from .common import ListEvaluationSetsResponseOrDict
 from .common import ListModelGardenModelsConfig
 from .common import ListModelGardenModelsConfigDict
 from .common import ListModelGardenModelsConfigOrDict
@@ -1229,6 +1307,7 @@ from .common import Modality
 from .common import ModelContainerSpec
 from .common import ModelContainerSpecDict
 from .common import ModelContainerSpecOrDict
+from .common import ModelProvider
 from .common import MultimodalDataset
 from .common import MultimodalDatasetDict
 from .common import MultimodalDatasetOperation
@@ -1373,6 +1452,12 @@ from .common import PublisherModelCallToActionRegionalResourceReferencesOrDict
 from .common import PublisherModelCallToActionViewRestApi
 from .common import PublisherModelCallToActionViewRestApiDict
 from .common import PublisherModelCallToActionViewRestApiOrDict
+from .common import PublisherModelConfig
+from .common import PublisherModelConfigClaudeFeatureConfig
+from .common import PublisherModelConfigClaudeFeatureConfigDict
+from .common import PublisherModelConfigClaudeFeatureConfigOrDict
+from .common import PublisherModelConfigDict
+from .common import PublisherModelConfigOrDict
 from .common import PublisherModelDict
 from .common import PublisherModelDocumentation
 from .common import PublisherModelDocumentationDict
@@ -1700,6 +1785,7 @@ from .common import RetrieveSkillsConfigOrDict
 from .common import RetrieveSkillsResponse
 from .common import RetrieveSkillsResponseDict
 from .common import RetrieveSkillsResponseOrDict
+from .common import Role
 from .common import RollbackAgentEngineMemoryConfig
 from .common import RollbackAgentEngineMemoryConfigDict
 from .common import RollbackAgentEngineMemoryConfigOrDict
@@ -1794,6 +1880,9 @@ from .common import SandboxEnvironmentTemplateDefaultContainerEnvironmentOrDict
 from .common import SandboxEnvironmentTemplateDict
 from .common import SandboxEnvironmentTemplateEgressControlConfig
 from .common import SandboxEnvironmentTemplateEgressControlConfigDict
+from .common import SandboxEnvironmentTemplateEgressControlConfigDnsPeeringConfig
+from .common import SandboxEnvironmentTemplateEgressControlConfigDnsPeeringConfigDict
+from .common import SandboxEnvironmentTemplateEgressControlConfigDnsPeeringConfigOrDict
 from .common import SandboxEnvironmentTemplateEgressControlConfigOrDict
 from .common import SandboxEnvironmentTemplateNetworkPort
 from .common import SandboxEnvironmentTemplateNetworkPortDict
@@ -2145,6 +2234,18 @@ __all__ = [
     "TaskStatusDetails",
     "TaskStatusDetailsDict",
     "TaskStatusDetailsOrDict",
+    "A2aPart",
+    "A2aPartDict",
+    "A2aPartOrDict",
+    "A2aTaskArtifact",
+    "A2aTaskArtifactDict",
+    "A2aTaskArtifactOrDict",
+    "A2aTaskMessage",
+    "A2aTaskMessageDict",
+    "A2aTaskMessageOrDict",
+    "A2aTaskStatus",
+    "A2aTaskStatusDict",
+    "A2aTaskStatusOrDict",
     "A2aTask",
     "A2aTaskDict",
     "A2aTaskOrDict",
@@ -2361,6 +2462,12 @@ __all__ = [
     "DeleteEvaluationMetricOperation",
     "DeleteEvaluationMetricOperationDict",
     "DeleteEvaluationMetricOperationOrDict",
+    "DeleteEvaluationSetConfig",
+    "DeleteEvaluationSetConfigDict",
+    "DeleteEvaluationSetConfigOrDict",
+    "DeleteEvaluationSetOperation",
+    "DeleteEvaluationSetOperationDict",
+    "DeleteEvaluationSetOperationOrDict",
     "BleuInstance",
     "BleuInstanceDict",
     "BleuInstanceOrDict",
@@ -2541,6 +2648,24 @@ __all__ = [
     "GetEvaluationItemConfig",
     "GetEvaluationItemConfigDict",
     "GetEvaluationItemConfigOrDict",
+    "ImportSchemaConfig",
+    "ImportSchemaConfigDict",
+    "ImportSchemaConfigOrDict",
+    "EvaluationSetGcsSource",
+    "EvaluationSetGcsSourceDict",
+    "EvaluationSetGcsSourceOrDict",
+    "EvaluationSetInlineSource",
+    "EvaluationSetInlineSourceDict",
+    "EvaluationSetInlineSourceOrDict",
+    "EvaluationSetCloudTraceSource",
+    "EvaluationSetCloudTraceSourceDict",
+    "EvaluationSetCloudTraceSourceOrDict",
+    "ImportEvaluationSetConfig",
+    "ImportEvaluationSetConfigDict",
+    "ImportEvaluationSetConfigOrDict",
+    "ImportEvaluationSetOperation",
+    "ImportEvaluationSetOperationDict",
+    "ImportEvaluationSetOperationOrDict",
     "ListEvaluationExperimentsConfig",
     "ListEvaluationExperimentsConfigDict",
     "ListEvaluationExperimentsConfigOrDict",
@@ -2553,6 +2678,12 @@ __all__ = [
     "ListEvaluationMetricsResponse",
     "ListEvaluationMetricsResponseDict",
     "ListEvaluationMetricsResponseOrDict",
+    "ListEvaluationSetsConfig",
+    "ListEvaluationSetsConfigDict",
+    "ListEvaluationSetsConfigOrDict",
+    "ListEvaluationSetsResponse",
+    "ListEvaluationSetsResponseDict",
+    "ListEvaluationSetsResponseOrDict",
     "UpdateEvaluationExperimentConfig",
     "UpdateEvaluationExperimentConfigDict",
     "UpdateEvaluationExperimentConfigOrDict",
@@ -3270,6 +3401,9 @@ __all__ = [
     "SandboxEnvironmentTemplateDefaultContainerEnvironment",
     "SandboxEnvironmentTemplateDefaultContainerEnvironmentDict",
     "SandboxEnvironmentTemplateDefaultContainerEnvironmentOrDict",
+    "SandboxEnvironmentTemplateEgressControlConfigDnsPeeringConfig",
+    "SandboxEnvironmentTemplateEgressControlConfigDnsPeeringConfigDict",
+    "SandboxEnvironmentTemplateEgressControlConfigDnsPeeringConfigOrDict",
     "SandboxEnvironmentTemplateEgressControlConfig",
     "SandboxEnvironmentTemplateEgressControlConfigDict",
     "SandboxEnvironmentTemplateEgressControlConfigOrDict",
@@ -3702,6 +3836,36 @@ __all__ = [
     "GetExportPublisherModelOperationConfig",
     "GetExportPublisherModelOperationConfigDict",
     "GetExportPublisherModelOperationConfigOrDict",
+    "DeployConfig",
+    "DeployConfigDict",
+    "DeployConfigOrDict",
+    "DeployRequestCustomModel",
+    "DeployRequestCustomModelDict",
+    "DeployRequestCustomModelOrDict",
+    "DeployRequestModelConfig",
+    "DeployRequestModelConfigDict",
+    "DeployRequestModelConfigOrDict",
+    "PSCAutomationConfig",
+    "PSCAutomationConfigDict",
+    "PSCAutomationConfigOrDict",
+    "PrivateServiceConnectConfig",
+    "PrivateServiceConnectConfigDict",
+    "PrivateServiceConnectConfigOrDict",
+    "DeployRequestEndpointConfig",
+    "DeployRequestEndpointConfigDict",
+    "DeployRequestEndpointConfigOrDict",
+    "DeployRequestDeployConfig",
+    "DeployRequestDeployConfigDict",
+    "DeployRequestDeployConfigOrDict",
+    "DeployResponse",
+    "DeployResponseDict",
+    "DeployResponseOrDict",
+    "DeployModelOperation",
+    "DeployModelOperationDict",
+    "DeployModelOperationOrDict",
+    "GetDeployOperationConfig",
+    "GetDeployOperationConfigDict",
+    "GetDeployOperationConfigOrDict",
     "CreateRuntimeFeedbackEntryConfig",
     "CreateRuntimeFeedbackEntryConfigDict",
     "CreateRuntimeFeedbackEntryConfigOrDict",
@@ -3861,12 +4025,15 @@ __all__ = [
     "PredictRequestResponseLoggingConfig",
     "PredictRequestResponseLoggingConfigDict",
     "PredictRequestResponseLoggingConfigOrDict",
-    "PSCAutomationConfig",
-    "PSCAutomationConfigDict",
-    "PSCAutomationConfigOrDict",
-    "PrivateServiceConnectConfig",
-    "PrivateServiceConnectConfigDict",
-    "PrivateServiceConnectConfigOrDict",
+    "PublisherModelConfigClaudeFeatureConfig",
+    "PublisherModelConfigClaudeFeatureConfigDict",
+    "PublisherModelConfigClaudeFeatureConfigOrDict",
+    "InferenceEventLoggingConfig",
+    "InferenceEventLoggingConfigDict",
+    "InferenceEventLoggingConfigOrDict",
+    "PublisherModelConfig",
+    "PublisherModelConfigDict",
+    "PublisherModelConfigOrDict",
     "Endpoint",
     "EndpointDict",
     "EndpointOrDict",
@@ -3975,10 +4142,14 @@ __all__ = [
     "ExportOpenModelConfig",
     "ExportOpenModelConfigDict",
     "ExportOpenModelConfigOrDict",
+    "DeployPublisherModelConfig",
+    "DeployPublisherModelConfigDict",
+    "DeployPublisherModelConfigOrDict",
     "DeployOption",
     "DeployOptionDict",
     "DeployOptionOrDict",
     "A2aTaskState",
+    "Role",
     "State",
     "Strategy",
     "AcceleratorType",
@@ -4004,6 +4175,7 @@ __all__ = [
     "OpenSourceCategory",
     "VersionState",
     "QuotaState",
+    "PscAutomationState",
     "FeedbackType",
     "Encoding",
     "ColorMap",
@@ -4012,11 +4184,12 @@ __all__ = [
     "DataFormat",
     "Modality",
     "DeploymentType",
-    "PscAutomationState",
+    "ModelProvider",
     "EvaluationExperimentMergeStrategy",
     "EvaluationItemType",
     "SamplingMethod",
     "EvaluationRunState",
+    "ImportDataFormat",
     "OptimizeTarget",
     "MemoryMetadataMergeStrategy",
     "GenerateMemoriesResponseGeneratedMemoryAction",
@@ -4059,6 +4232,7 @@ __all__ = [
     "_CreateEvaluationSetParameters",
     "_DeleteEvaluationExperimentParameters",
     "_DeleteEvaluationMetricParameters",
+    "_DeleteEvaluationSetParameters",
     "_EvaluateInstancesRequestParameters",
     "_GenerateUserScenariosParameters",
     "_GenerateLossClustersParameters",
@@ -4068,8 +4242,10 @@ __all__ = [
     "_GetEvaluationRunParameters",
     "_GetEvaluationSetParameters",
     "_GetEvaluationItemParameters",
+    "_ImportEvaluationSetParameters",
     "_ListEvaluationExperimentsParameters",
     "_ListEvaluationMetricsParameters",
+    "_ListEvaluationSetsParameters",
     "_UpdateEvaluationExperimentParameters",
     "_OptimizeRequestParameters",
     "_CustomJobParameters",
@@ -4181,6 +4357,8 @@ __all__ = [
     "_RecommendSpecRequestParameters",
     "_ExportPublisherModelRequestParameters",
     "_GetExportPublisherModelOperationParameters",
+    "_DeployRequestParameters",
+    "_GetDeployOperationParameters",
     "_CreateRuntimeFeedbackEntryRequestParameters",
     "_DeleteRuntimeFeedbackEntryRequestParameters",
     "_GetRuntimeFeedbackRequestParameters",

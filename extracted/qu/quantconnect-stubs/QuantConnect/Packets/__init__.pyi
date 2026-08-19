@@ -307,6 +307,15 @@ class BaseResultParameters(System.Object):
         ...
 
     @property
+    def server_statistics(self) -> System.Collections.Generic.IDictionary[str, str]:
+        """Server status information, including CPU/RAM usage, ect..."""
+        ...
+
+    @server_statistics.setter
+    def server_statistics(self, value: System.Collections.Generic.IDictionary[str, str]) -> None:
+        ...
+
+    @property
     def algorithm_configuration(self) -> QuantConnect.AlgorithmConfiguration:
         """The algorithm's configuration required for report generation"""
         ...
@@ -333,7 +342,7 @@ class BaseResultParameters(System.Object):
     def analysis(self, value: typing.Sequence[QuantConnect.Analysis]) -> None:
         ...
 
-    def __init__(self, charts: System.Collections.Generic.IDictionary[str, QuantConnect.Chart], orders: System.Collections.Generic.IDictionary[int, QuantConnect.Orders.Order], profit_loss: System.Collections.Generic.IDictionary[datetime.datetime, float], statistics: System.Collections.Generic.IDictionary[str, str], runtime_statistics: System.Collections.Generic.IDictionary[str, str], order_events: typing.List[QuantConnect.Orders.OrderEvent], total_performance: QuantConnect.Statistics.AlgorithmPerformance = None, algorithm_configuration: QuantConnect.AlgorithmConfiguration = None, state: System.Collections.Generic.IDictionary[str, str] = None, analysis_result: typing.Sequence[QuantConnect.Analysis] = None) -> None:
+    def __init__(self, charts: System.Collections.Generic.IDictionary[str, QuantConnect.Chart], orders: System.Collections.Generic.IDictionary[int, QuantConnect.Orders.Order], profit_loss: System.Collections.Generic.IDictionary[datetime.datetime, float], statistics: System.Collections.Generic.IDictionary[str, str], runtime_statistics: System.Collections.Generic.IDictionary[str, str], order_events: typing.List[QuantConnect.Orders.OrderEvent], total_performance: QuantConnect.Statistics.AlgorithmPerformance = None, algorithm_configuration: QuantConnect.AlgorithmConfiguration = None, state: System.Collections.Generic.IDictionary[str, str] = None, analysis_result: typing.Sequence[QuantConnect.Analysis] = None, server_statistics: System.Collections.Generic.IDictionary[str, str] = None) -> None:
         """Creates a new instance"""
         ...
 
@@ -357,15 +366,6 @@ class LiveResultParameters(QuantConnect.Packets.BaseResultParameters):
 
     @cash_book.setter
     def cash_book(self, value: QuantConnect.Securities.CashBook) -> None:
-        ...
-
-    @property
-    def server_statistics(self) -> System.Collections.Generic.IDictionary[str, str]:
-        """Server status information, including CPU/RAM usage, ect..."""
-        ...
-
-    @server_statistics.setter
-    def server_statistics(self, value: System.Collections.Generic.IDictionary[str, str]) -> None:
         ...
 
     def __init__(self, charts: System.Collections.Generic.IDictionary[str, QuantConnect.Chart], orders: System.Collections.Generic.IDictionary[int, QuantConnect.Orders.Order], profit_loss: System.Collections.Generic.IDictionary[datetime.datetime, float], holdings: System.Collections.Generic.IDictionary[str, QuantConnect.Holding], cash_book: QuantConnect.Securities.CashBook, statistics: System.Collections.Generic.IDictionary[str, str], runtime_statistics: System.Collections.Generic.IDictionary[str, str], order_events: typing.List[QuantConnect.Orders.OrderEvent], total_performance: QuantConnect.Statistics.AlgorithmPerformance = None, server_statistics: System.Collections.Generic.IDictionary[str, str] = None, algorithm_configuration: QuantConnect.AlgorithmConfiguration = None, state: System.Collections.Generic.IDictionary[str, str] = None, analysis_result: typing.Sequence[QuantConnect.Analysis] = None) -> None:
@@ -1151,7 +1151,7 @@ class BacktestResultParameters(QuantConnect.Packets.BaseResultParameters):
     def rolling_window(self, value: System.Collections.Generic.Dictionary[str, QuantConnect.Statistics.AlgorithmPerformance]) -> None:
         ...
 
-    def __init__(self, charts: System.Collections.Generic.IDictionary[str, QuantConnect.Chart], orders: System.Collections.Generic.IDictionary[int, QuantConnect.Orders.Order], profit_loss: System.Collections.Generic.IDictionary[datetime.datetime, float], statistics: System.Collections.Generic.IDictionary[str, str], runtime_statistics: System.Collections.Generic.IDictionary[str, str], rolling_window: System.Collections.Generic.Dictionary[str, QuantConnect.Statistics.AlgorithmPerformance], order_events: typing.List[QuantConnect.Orders.OrderEvent], total_performance: QuantConnect.Statistics.AlgorithmPerformance = None, algorithm_configuration: QuantConnect.AlgorithmConfiguration = None, state: System.Collections.Generic.IDictionary[str, str] = None, analysis_result: typing.Sequence[QuantConnect.Analysis] = None) -> None:
+    def __init__(self, charts: System.Collections.Generic.IDictionary[str, QuantConnect.Chart], orders: System.Collections.Generic.IDictionary[int, QuantConnect.Orders.Order], profit_loss: System.Collections.Generic.IDictionary[datetime.datetime, float], statistics: System.Collections.Generic.IDictionary[str, str], runtime_statistics: System.Collections.Generic.IDictionary[str, str], rolling_window: System.Collections.Generic.Dictionary[str, QuantConnect.Statistics.AlgorithmPerformance], order_events: typing.List[QuantConnect.Orders.OrderEvent], total_performance: QuantConnect.Statistics.AlgorithmPerformance = None, algorithm_configuration: QuantConnect.AlgorithmConfiguration = None, state: System.Collections.Generic.IDictionary[str, str] = None, analysis_result: typing.Sequence[QuantConnect.Analysis] = None, server_statistics: System.Collections.Generic.IDictionary[str, str] = None) -> None:
         """Creates a new instance"""
         ...
 

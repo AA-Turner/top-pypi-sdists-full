@@ -96,9 +96,9 @@ class ModelType(type):
         return super().__new__(cls, name, bases, attrs)
 
 
-# Global used to record which warnings have been issues already for unknown
+# Global used to record which warnings have been issued already for unknown
 # attributes.
-_seen_attribute_warnings = set()
+_seen_attribute_warnings: set[str] = set()
 
 
 class Model(metaclass=ModelType):
@@ -118,7 +118,7 @@ class Model(metaclass=ModelType):
 
     If the LXD server sends attributes that this version of pylxd is unaware of
     then a warning is printed.  By default the warning is issued ONCE and then
-    supressed for every subsequent attempted setting.  The warnings can be
+    suppressed for every subsequent attempted setting.  The warnings can be
     completely suppressed by setting the environment variable PYLXD_WARNINGS to
     'none', or always displayed by setting the PYLXD_WARNINGS variable to
     'always'.
@@ -172,6 +172,21 @@ class Model(metaclass=ModelType):
         for attr in self.__attributes__.keys():
             yield attr, getattr(self, attr)
 
+    def _raw_attr(self, name, default=None):
+        """Read a model attribute slot without triggering sync.
+
+        Unlike normal attribute access, this bypasses Model.__getattribute__
+        so it never calls sync(). Returns default when the slot is unset or
+        holds the MISSING sentinel.
+        """
+        try:
+            value = object.__getattribute__(self, name)
+        except AttributeError:
+            return default
+        if value is MISSING:
+            return default
+        return value
+
     def __eq__(self, other):
         if other.__class__ != self.__class__:
             return False
@@ -197,7 +212,7 @@ class Model(metaclass=ModelType):
         When collections of objects are retrieved from the server, they
         are often partial objects. The full object must be retrieved before
         it can modified. This method is called when getattr is called on
-        a non-initaliazed object.
+        a non-initialized object.
         """
         # XXX: rockstar (25 Jun 2016) - This has the potential to step
         # on existing attributes.
@@ -313,7 +328,7 @@ class Model(metaclass=ModelType):
         """Access the PUT method directly for the object.
 
         This is to bypass the `save` method, and introduce a slightly saner
-        approach of thinking about immuatable objects coming *from* the lXD
+        approach of thinking about immutable objects coming *from* the lXD
         server, and sending back PUTs and PATCHes.
 
         This method allows arbitrary puts to be attempted on the object (thus
@@ -370,7 +385,7 @@ class Model(metaclass=ModelType):
         """Access the PATCH method directly for the object.
 
         This is to bypass the `save` method, and introduce a slightly saner
-        approach of thinking about immuatable objects coming *from* the lXD
+        approach of thinking about immutable objects coming *from* the lXD
         server, and sending back PUTs and PATCHes.
 
         This method allows arbitrary patches to be attempted on the object

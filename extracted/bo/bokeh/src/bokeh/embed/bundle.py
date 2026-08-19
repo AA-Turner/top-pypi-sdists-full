@@ -29,10 +29,13 @@ from os.path import normpath
 from pathlib import Path
 from typing import (
     TYPE_CHECKING,
+    Any,
     Callable,
     Iterator,
+    NotRequired,
     Sequence,
     TypedDict,
+    cast,
 )
 from urllib.parse import urljoin
 
@@ -46,8 +49,6 @@ from ..util.compiler import bundle_models
 from .util import contains_tex_string
 
 if TYPE_CHECKING:
-    from typing_extensions import NotRequired
-
     from ..resources import Hashes
 
 #-----------------------------------------------------------------------------
@@ -141,6 +142,9 @@ class Bundle:
             self.css_files.append(artifact.url)
         elif isinstance(artifact, Style):
             self.css_raw.append(artifact.content)
+
+    def clone(self) -> Bundle:
+        return Bundle(self.js_files, self.js_raw, self.css_files, self.css_raw, self.hashes)
 
 def bundle_for_objs_and_resources(objs: Sequence[HasProps | Document] | None, resources: Resources | None) -> Bundle:
     ''' Generate rendered CSS and JS resources suitable for the given
@@ -282,6 +286,8 @@ def _bundle_extensions(objs: set[HasProps] | None, resources: Resources) -> list
             continue
         names.add(name)
         module = __import__(name)
+        if module.__file__ is None:
+            continue
         this_file = Path(module.__file__).absolute()
         base_dir = this_file.parent
         dist_dir = base_dir / "dist"
@@ -312,11 +318,11 @@ def _bundle_extensions(objs: set[HasProps] | None, resources: Resources) -> list
             pkg_version = pkg.get("version", "latest")
             pkg_main = pkg.get("module", pkg.get("main", None))
             if pkg_main is not None:
-                pkg_main = Path(normpath(pkg_main))
-                cdn_url = _default_cdn_host / f"{pkg_name}@{pkg_version}" / f"{pkg_main}"
+                pkg_main_path = Path(normpath(pkg_main))
+                cdn_url = _default_cdn_host / f"{pkg_name}@{pkg_version}" / f"{pkg_main_path}"
             else:
-                pkg_main = dist_dir / f"{name}.js"
-            artifact_path = base_dir / pkg_main
+                pkg_main_path = dist_dir / f"{name}.js"
+            artifact_path = base_dir / pkg_main_path
             artifacts_dir = artifact_path.parent
             artifact_name = artifact_path.name
             server_path = f"{name}/{artifact_name}"
@@ -350,7 +356,7 @@ def _all_objs(objs: Sequence[HasProps | Document]) -> set[HasProps]:
             for root in obj.roots:
                 all_objs |= root.references()
         else:
-            all_objs |= obj.references()
+            all_objs |= cast(Any, obj).references()
 
     return all_objs
 

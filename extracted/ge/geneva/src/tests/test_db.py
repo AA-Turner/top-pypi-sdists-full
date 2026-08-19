@@ -9,6 +9,7 @@ import pytest
 from lance_namespace import DescribeTableRequest
 from lance_namespace.errors import TableNotFoundError
 
+from conftest import make_multifragment_table
 from geneva import connect
 from geneva.db import (
     WORKER_URI_KEY,
@@ -16,6 +17,7 @@ from geneva.db import (
     NamespaceConfig,
     _as_namespace_client_properties,
     _ensure_system_namespace_exists,
+    dataset_uses_stable_row_ids,
     has_stable_row_ids,
     resolve_table_physical_uri,
 )
@@ -66,6 +68,99 @@ def test_local_directory_namespace_preserves_stable_row_ids(tmp_path: Path) -> N
         DescribeTableRequest(id=["stable_table"])
     )
     assert response.location is not None
+
+
+def test_wrong_stable_row_id_option_key_is_inert(tmp_path: Path) -> None:
+    """Only ``new_table_enable_stable_row_ids`` enables SRID at create time;
+    the historically mis-documented ``enable_move_stable_row_ids`` key must
+    be inert (docs previously suggested it)."""
+    db = connect(tmp_path)
+
+    wrong = db.create_table(
+        "wrong_key",
+        pa.table({"value": [1, 2, 3]}),
+        storage_options={"enable_move_stable_row_ids": "true"},
+    )
+    assert not dataset_uses_stable_row_ids(wrong.to_lance())
+
+    right = db.create_table(
+        "right_key",
+        pa.table({"value": [1, 2, 3]}),
+        storage_options={"new_table_enable_stable_row_ids": "true"},
+    )
+    assert dataset_uses_stable_row_ids(right.to_lance())
+
+
+def test_create_table_normalizes_bool_false_stable_row_ids(tmp_path: Path) -> None:
+    """A raw bool False must be normalized to "false" for lancedb."""
+    db = connect(tmp_path)
+    table = db.create_table(
+        "unstable_table",
+        pa.table({"value": [1, 2, 3]}),
+        storage_options={"new_table_enable_stable_row_ids": False},
+    )
+
+    assert not has_stable_row_ids(list(table.to_lance().get_fragments()))
+
+
+@pytest.mark.parametrize("value", ["True", "TRUE", "tRuE"])
+def test_create_table_accepts_mixed_case_true_stable_row_ids(
+    tmp_path: Path, value: str
+) -> None:
+    """lancedb only parses exact "true", so mixed case must be folded here."""
+    db = connect(tmp_path)
+    table = db.create_table(
+        "stable_table",
+        pa.table({"value": [1, 2, 3]}),
+        storage_options={"new_table_enable_stable_row_ids": value},
+    )
+
+    assert has_stable_row_ids(list(table.to_lance().get_fragments()))
+
+
+@pytest.mark.parametrize("value", ["False", "FALSE", "fAlSe"])
+def test_create_table_accepts_mixed_case_false_stable_row_ids(
+    tmp_path: Path, value: str
+) -> None:
+    """lancedb only parses exact "false", so mixed case must be folded here."""
+    db = connect(tmp_path)
+    table = db.create_table(
+        "unstable_table",
+        pa.table({"value": [1, 2, 3]}),
+        storage_options={"new_table_enable_stable_row_ids": value},
+    )
+
+    assert not has_stable_row_ids(list(table.to_lance().get_fragments()))
+
+
+def test_create_table_mixed_case_true_still_validates_exist_ok(
+    tmp_path: Path,
+) -> None:
+    """Case folding must also reach the exist_ok stable row ID validation."""
+    db = connect(tmp_path)
+    db.create_table(
+        "unstable_table",
+        pa.table({"value": [1, 2, 3]}),
+        storage_options={"new_table_enable_stable_row_ids": "false"},
+    )
+
+    with pytest.raises(ValueError, match="does not have stable row IDs enabled"):
+        db.create_table(
+            "unstable_table",
+            pa.table({"value": [4, 5, 6]}),
+            exist_ok=True,
+            storage_options={"new_table_enable_stable_row_ids": "True"},
+        )
+
+
+def test_make_multifragment_table_without_stable_row_ids(tmp_path: Path) -> None:
+    """stable_row_ids=False must create a table without stable row IDs."""
+    db = connect(tmp_path)
+    table = make_multifragment_table(db, "unstable_table", 2, 2, stable_row_ids=False)
+
+    fragments = list(table.to_lance().get_fragments())
+    assert len(fragments) == 2
+    assert not has_stable_row_ids(fragments)
 
 
 def test_local_directory_namespace_checkpoint_store_uses_ckp_subdir(
@@ -184,6 +279,56 @@ class TestConnectRemote:
         assert db._region == "us-west-2"
         # api_key is wrapped in Credential
         assert db._api_key is not None
+
+    def test_connect_explicit_region_pins_aws_region(self) -> None:
+        """An explicit region= is pushed into storage_options as aws_region so a
+        stray AWS_REGION/AWS_DEFAULT_REGION env var is never used for S3 access.
+        """
+        db = connect(
+            uri="db://test_db",
+            api_key="my-api-key",
+            host_override="https://phalanx.example.com",
+            region="us-east-2",
+        )
+
+        assert db._storage_options is not None
+        assert db._storage_options["aws_region"] == "us-east-2"
+        assert db._region == "us-east-2"
+
+    def test_connect_without_region_does_not_pin_aws_region(self) -> None:
+        """No region= means the defaulted region must NOT be folded
+        into storage_options -- doing so would force the wrong S3 region.
+        """
+        db = connect(
+            uri="db://test_db",
+            api_key="my-api-key",
+            host_override="https://phalanx.example.com",
+        )
+
+        assert "aws_region" not in (db._storage_options or {})
+
+    def test_connect_explicit_region_does_not_override_caller_aws_region(
+        self,
+    ) -> None:
+        """A caller-provided storage_options['aws_region'] wins over region=."""
+        db = connect(
+            uri="db://test_db",
+            api_key="my-api-key",
+            host_override="https://phalanx.example.com",
+            region="us-east-2",
+            storage_options={"aws_region": "eu-west-1"},
+        )
+
+        assert db._storage_options is not None
+        assert db._storage_options["aws_region"] == "eu-west-1"
+
+    def test_connect_local_explicit_region_pins_aws_region(
+        self, tmp_path: Path
+    ) -> None:
+        """region= folds into aws_region for local/dir connections too."""
+        db = connect(tmp_path, region="us-west-2")
+
+        assert (db._storage_options or {}).get("aws_region") == "us-west-2"
 
     def test_connect_remote_system_namespace_preserved(self) -> None:
         """Remote connections should preserve configured system_namespace."""
@@ -434,6 +579,31 @@ async def test_table_reference_open_system_db_async_preserves_remote_credentials
     assert mock_async_conn.call_count == 1
 
 
+@pytest.mark.asyncio
+@pytest.mark.parametrize("open_method", ["open_system_db_async", "open_db_async"])
+async def test_table_reference_async_open_forwards_storage_options(
+    open_method: str,
+) -> None:
+    with (
+        patch("geneva.db.namespace_connect") as mock_namespace_connect,
+        patch("geneva.table.AsyncLanceNamespaceDBConnection") as mock_async_conn,
+    ):
+        mock_namespace_connect.return_value = MagicMock()
+        ref = TableReference(
+            table_id=[GENEVA_JOBS_TABLE_NAME],
+            version=None,
+            db_uri="az://lancedb-enterprise5/default",
+            storage_options={"account_name": "lancedbenterprise5"},
+        )
+
+        await getattr(ref, open_method)()
+
+    assert mock_async_conn.call_count == 1
+    assert mock_async_conn.call_args.kwargs["storage_options"] == {
+        "account_name": "lancedbenterprise5"
+    }
+
+
 def test_table_reference_checkpoint_store_uses_remote_table_location() -> None:
     with (
         patch("geneva.table.resolve_table_physical_uri") as mock_resolve_uri,
@@ -660,6 +830,45 @@ def test_uploader_rejects_db_uri() -> None:
 
     with pytest.raises(TypeError, match="db_uri"):
         Uploader(db_uri="s3://bucket/path", table_id=["my_table"])
+
+
+class TestNamespaceUserAgent:
+    def test_rest_namespace_client_sends_geneva_user_agent(self) -> None:
+        properties = {
+            "uri": "https://phalanx.external:8080",
+            "header.user-agent": "custom-client/1.0",
+        }
+        ns = NamespaceConfig(
+            namespace_client_impl="rest",
+            namespace_client_properties=properties,
+        )
+
+        with (
+            patch("geneva._namespace_client.version", return_value="1.2.3"),
+            patch("geneva.db.namespace_connect") as mock_connect,
+        ):
+            ns.connect_namespace_client()
+
+        mock_connect.assert_called_once_with(
+            "rest",
+            {
+                "uri": "https://phalanx.external:8080",
+                "header.user-agent": "Geneva-Python-Client/1.2.3",
+            },
+        )
+        assert properties["header.user-agent"] == "custom-client/1.0"
+
+    def test_non_rest_namespace_client_does_not_add_user_agent(self) -> None:
+        properties = {"root": "namespace"}
+        ns = NamespaceConfig(
+            namespace_client_impl="dir",
+            namespace_client_properties=properties,
+        )
+
+        with patch("geneva.db.namespace_connect") as mock_connect:
+            ns.connect_namespace_client()
+
+        mock_connect.assert_called_once_with("dir", properties)
 
 
 class TestWorkerHostOverride:

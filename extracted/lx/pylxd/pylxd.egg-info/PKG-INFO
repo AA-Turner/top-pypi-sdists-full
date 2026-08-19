@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: pylxd
-Version: 2.4.1
+Version: 2.4.2
 Summary: Python library for interacting with the LXD REST API
 Author-email: "Paul Hummer and others (see CONTRIBUTORS.rst)" <lxd@lists.canonical.com>
 License-Expression: Apache-2.0
@@ -46,8 +46,6 @@ pylxd
     :target: https://pypi.python.org/pypi/pylxd
 .. image:: https://github.com/canonical/pylxd/actions/workflows/tests.yml/badge.svg
     :target: https://github.com/canonical/pylxd
-.. image:: https://codecov.io/github/canonical/pylxd/coverage.svg?branch=main
-    :target: https://codecov.io/github/canonical/pylxd
 .. image:: https://readthedocs.org/projects/pylxd/badge/?version=latest
     :target: https://pylxd.readthedocs.io/en/latest/?badge=latest
 
@@ -58,8 +56,8 @@ Installation
 .. code-block:: console
 
   # Create a virtual environment
-  python3 -m venv myvenv
-  cd myvenv
+  python3 -m venv venv
+  cd venv
 
   # Activate the virtual environment
   . bin/activate
@@ -76,14 +74,10 @@ Support and discussions
 =======================
 
 We use the `LXD category on Ubuntu's Discourse
-<https://discourse.ubuntu.com/c/lxd/126>`_.
+<https://discourse.ubuntu.com/c/project/lxd/126>`_.
 
-If you prefer live discussions, some of us also hang out in
-`#lxd
-<https://web.libera.chat/#lxd>`_ on irc.libera.chat.
-
-LXD Documentation: `https://documentation.ubuntu.com/lxd/en/latest/
-<https://documentation.ubuntu.com/lxd/en/latest/>`_
+LXD Documentation: `https://canonical.com/lxd/docs/latest/
+<https://canonical.com/lxd/docs/latest/>`_
 
 PyLXD API Documentation: `https://pylxd.readthedocs.io/en/latest/
 <https://pylxd.readthedocs.io/en/latest/>`_

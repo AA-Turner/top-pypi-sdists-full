@@ -35,7 +35,7 @@ import pyarrow as pa
 import pytest
 
 import geneva
-from geneva import udf
+from geneva import fail_fast, udf
 from geneva.debug.error_store import ErrorStore, skip_on_error
 from geneva.errors import FatalWorkerError
 
@@ -65,7 +65,7 @@ def crash_on_bad_row(row_id: int) -> bytes:
     return b"\x00"
 
 
-@udf(data_type=pa.binary(), batch_size=URL_BATCH_SIZE)
+@udf(data_type=pa.binary(), batch_size=URL_BATCH_SIZE, on_error=fail_fast())
 def crash_on_bad_row_no_skip(row_id: int) -> bytes:
     if row_id in BAD_ROW_INDICES:
         os._exit(137)
@@ -160,11 +160,11 @@ def test_bisect_loop_runs_to_single_row(
 
 @pytest.mark.ray
 @pytest.mark.timeout(180)
-def test_no_on_error_raises_fatal_worker(
+def test_fail_fast_raises_fatal_worker(
     local_ray_context: None,  # noqa: ARG001
     tmp_path: Path,
 ) -> None:
-    """No ``on_error`` and the actor crashes: backfill raises with
+    """With explicit ``fail_fast()``, an actor crash raises with
     ``FatalWorkerError`` in the cause chain. Companion to
     ``test_bisect_loop_runs_to_single_row`` proving the no-skip path
     exits cleanly rather than running the bisect loop."""

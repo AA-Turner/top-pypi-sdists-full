@@ -87,6 +87,9 @@ from airbyte_ops_mcp.registry.registry_store_base import (
     get_registry,
 )
 from airbyte_ops_mcp.registry.release_attribution import (
+    ACTOR_BOT,
+    ACTOR_USER,
+    KIND_BOT,
     ReleaseAttributionListResult,
     enrich_release_attribution,
     list_release_attribution,
@@ -293,14 +296,17 @@ def _print_release_attribution_list(
             released_at = "-"
         else:
             author_type = {
-                "User": "HUMAN",
-                "Bot": "BOT",
+                ACTOR_USER: "HUMAN",
+                ACTOR_BOT: "BOT",
             }.get(attribution.pr_author_type or "", "UNKNOWN")
-            if attribution.attributed_to:
+            if attribution.attributed_to and attribution.attributed_to_kind != KIND_BOT:
                 contact = f"@{attribution.attributed_to}"
-            elif attribution.pr_author_type == "Bot":
+            elif (
+                attribution.attributed_to_kind == KIND_BOT
+                or attribution.pr_author_type == ACTOR_BOT
+            ):
                 contact = "none (bot-authored)"
-            elif attribution.pr_author_type == "User":
+            elif attribution.pr_author_type == ACTOR_USER:
                 contact = "none (human login unavailable)"
             else:
                 contact = "none (author unknown)"

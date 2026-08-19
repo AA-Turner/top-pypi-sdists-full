@@ -90,6 +90,9 @@ class ScreenshotParams(Task):
     def setup(self):
         super().setup()
 
+        # consumed by show(), which every screenshot goes through
+        self._add_hidelayers_required_keys()
+
         self.add_required_key("var", "show_resolution")
         self.add_required_key("var", "show_bins")
         self.add_required_key("var", "show_margin")

@@ -93,7 +93,7 @@ class ParameterValues:
             self.update(values_dict)
         else:
             # Check if values is a named parameter set
-            if isinstance(values, str) and values in pybamm.parameter_sets.keys():
+            if isinstance(values, str) and values in pybamm.parameter_sets:
                 values_dict = dict(pybamm.parameter_sets[values])
                 chemistry = values_dict.pop("chemistry", None)
                 self.update(values_dict)
@@ -460,11 +460,8 @@ class ParameterValues:
         if isinstance(value, str):
             if value == "[input]":
                 value = pybamm.InputParameter(key)
-            elif (
-                value.startswith("[function]")
-                or value.startswith("[current data]")
-                or value.startswith("[data]")
-                or value.startswith("[2D data]")
+            elif value.startswith(
+                ("[function]", "[current data]", "[data]", "[2D data]")
             ):
                 raise ValueError(
                     "Specifying parameters via [function], [current data], [data] "
@@ -662,11 +659,8 @@ class ParameterValues:
         for name, value in values.items():
             # Process value
             if isinstance(value, str):
-                if (
-                    value.startswith("[function]")
-                    or value.startswith("[current data]")
-                    or value.startswith("[data]")
-                    or value.startswith("[2D data]")
+                if value.startswith(
+                    ("[function]", "[current data]", "[data]", "[2D data]")
                 ):
                     raise ValueError(
                         "Specifying parameters via [function], [current data], [data] "
@@ -1251,7 +1245,7 @@ class ParameterValues:
         >>> param.print_evaluated_parameters(evaluated_params, "params.txt")
         """
         # Get column width for pretty printing
-        column_width = max(len(name) for name in evaluated_parameters.keys())
+        column_width = max(len(name) for name in evaluated_parameters)
         s = f"{{:>{column_width}}}"
         with open(output_file, "w") as file:
             for name, value in sorted(evaluated_parameters.items()):
@@ -1577,11 +1571,14 @@ def convert_symbols_in_dict(data_dict: dict | None = None) -> dict:
             x = value.get("x", [])
             y = value.get("y", [])
 
-            def interpolant_function(sto, x=x, y=y, interpolator=interpolator):
+            def interpolant_function(sto, x=x, y=y, interpolator=interpolator, key=key):
                 try:
                     return pybamm.Interpolant(x, y, sto, interpolator=interpolator)
-                except Exception as e:
-                    print(e)
+                except (ValueError, TypeError, IndexError) as e:
+                    pybamm.logger.warning(
+                        f"Could not build interpolant for '{key}', "
+                        f"falling back to zero: {e}"
+                    )
                     return pybamm.Scalar(0)
 
             data_dict[key] = interpolant_function

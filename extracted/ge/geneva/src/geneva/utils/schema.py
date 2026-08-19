@@ -358,11 +358,11 @@ def alter_or_create_table(
             namespace_path,
             table_uri,
         )
-    except Exception:
+    except Exception as open_err:
         # lancedb conn raises ValueError,
         # but namespace impl's may raise other exception types
         schema = attrs_to_arrow_schema(model)
-        _LOG.info(f"creating table '{table_name}'")
+        _LOG.info(f"could not open table, creating table '{table_name}': {open_err}")
         try:
             return db.create_table(
                 table_name, schema=schema, namespace_path=namespace_path

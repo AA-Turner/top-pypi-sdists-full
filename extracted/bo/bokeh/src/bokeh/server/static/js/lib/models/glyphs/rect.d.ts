@@ -14,7 +14,7 @@ export interface RectView extends Rect.Data {
 export declare class RectView extends CenterRotatableView {
     model: Rect;
     visuals: Rect.Visuals;
-    load_glglyph(): Promise<typeof import("./webgl/rect").RectGL>;
+    load_glglyph(): Promise<typeof import("../../all/main").RectGL>;
     protected _set_data(indices: number[] | null): void;
     protected _map_data(): void;
     protected _paint(ctx: Context2d, indices: number[], data?: Partial<Rect.Data>): void;

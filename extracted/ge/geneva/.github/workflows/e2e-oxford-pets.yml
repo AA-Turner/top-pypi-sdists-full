@@ -45,6 +45,20 @@ on:
         required: false
         type: boolean
         default: true
+      run_oom_retry:
+        description: "Run OOM retry validation tests"
+        required: false
+        type: boolean
+        default: false
+      oom_failfast:
+        description: "Include the OOM budget fail-fast scenario"
+        required: false
+        type: boolean
+        default: true
+      upload_profiles:
+        description: "UDF profiles to upload (comma-separated, empty = all)"
+        required: false
+        default: ""
   # Weekly schedule: Monday 11pm Pacific = Tuesday 6am UTC (runs on main only)
   schedule:
     - cron: "0 6 * * 2"
@@ -68,7 +82,10 @@ jobs:
         ${{ inputs.run_openclip == true || github.event_name == 'schedule' }} && TEST_FILES="$TEST_FILES test_drivers/test_embeddings_openclip.py"
         ${{ inputs.run_blip == true || github.event_name == 'schedule' }} && TEST_FILES="$TEST_FILES test_drivers/test_captions_blip.py"
         ${{ inputs.run_sentence_transformers == true || github.event_name == 'schedule' }} && TEST_FILES="$TEST_FILES test_drivers/test_embeddings_sentence_transformers.py"
+        ${{ inputs.run_oom_retry == true }} && TEST_FILES="$TEST_FILES test_drivers/test_oom_retry.py"
         echo "TEST_FILES=$TEST_FILES" >> $GITHUB_ENV
+        echo "OXFORD_PETS_UPLOAD_PROFILES=${{ inputs.upload_profiles || '' }}" >> $GITHUB_ENV
+        echo "GENEVA_E2E_OOM_FAILFAST=${{ inputs.oom_failfast != false && '1' || '0' }}" >> $GITHUB_ENV
         echo "Selected tests: $TEST_FILES"
       run_command: |
         make -f e2e/Makefile test-e2e-oxford-pets-${{ github.event_name == 'schedule' && 'azure' || inputs.csp || 'gcp' }} SLUG=$SLUG NUM_IMAGES=${{ github.event_name == 'schedule' && '50' || inputs.num_images || '500' }} BATCH_SIZE=${{ inputs.batch_size || '10' }} SKIP_GPU=${{ inputs.skip_gpu && '1' || '' }} TEST_FILES="${TEST_FILES}"

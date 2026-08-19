@@ -11,7 +11,7 @@ export interface LineView extends Line.Data {
 export declare class LineView extends XYGlyphView {
     model: Line;
     visuals: Line.Visuals;
-    load_glglyph(): Promise<typeof import("./webgl/line_gl").LineGL>;
+    load_glglyph(): Promise<typeof import("../../all/main").LineGL>;
     protected _paint(ctx: Context2d, indices: number[], data?: Partial<Line.Data>): void;
     protected _hit_point(geometry: PointGeometry): Selection;
     protected _hit_span(geometry: SpanGeometry): Selection;

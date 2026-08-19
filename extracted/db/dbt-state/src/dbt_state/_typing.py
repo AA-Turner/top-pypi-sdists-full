@@ -34,6 +34,14 @@ ModelOrSnapshotOrTestOrSeedNode = t.Union[
     ModelNode, SnapshotNode, GenericTestNode, SingularTestNode, SeedNode
 ]
 
+MODEL_OR_SNAPSHOT_OR_TEST_OR_SEED_NODE = (
+    ModelNode,
+    SnapshotNode,
+    GenericTestNode,
+    SingularTestNode,
+    SeedNode,
+)
+
 ClientEvent = t.Union[
     client_telemetry_service_models.SessionStartRequest,
     client_telemetry_service_models.ClientPrepareEnrichedSQLRequest,

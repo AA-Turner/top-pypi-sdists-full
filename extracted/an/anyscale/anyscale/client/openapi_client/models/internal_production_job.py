@@ -54,7 +54,8 @@ class InternalProductionJob(object):
         'access': 'UserServiceAccessTypes',
         'healthcheck_url': 'str',
         'archived_at': 'datetime',
-        'cloud_id': 'str'
+        'cloud_id': 'str',
+        'is_imported': 'bool'
     }
 
     attribute_map = {
@@ -79,10 +80,11 @@ class InternalProductionJob(object):
         'access': 'access',
         'healthcheck_url': 'healthcheck_url',
         'archived_at': 'archived_at',
-        'cloud_id': 'cloud_id'
+        'cloud_id': 'cloud_id',
+        'is_imported': 'is_imported'
     }
 
-    def __init__(self, id=None, name=None, description=None, created_at=None, updated_at=None, status_updated_at=None, creator_id=None, config=None, job_queue_config=None, state=None, project_id=None, last_job_run_id=None, schedule_id=None, job_queue_id=None, overview_url=None, is_service=None, url=None, token=None, access=None, healthcheck_url=None, archived_at=None, cloud_id=None, local_vars_configuration=None):  # noqa: E501
+    def __init__(self, id=None, name=None, description=None, created_at=None, updated_at=None, status_updated_at=None, creator_id=None, config=None, job_queue_config=None, state=None, project_id=None, last_job_run_id=None, schedule_id=None, job_queue_id=None, overview_url=None, is_service=None, url=None, token=None, access=None, healthcheck_url=None, archived_at=None, cloud_id=None, is_imported=False, local_vars_configuration=None):  # noqa: E501
         """InternalProductionJob - a model defined in OpenAPI"""  # noqa: E501
         if local_vars_configuration is None:
             local_vars_configuration = Configuration()
@@ -110,6 +112,7 @@ class InternalProductionJob(object):
         self._healthcheck_url = None
         self._archived_at = None
         self._cloud_id = None
+        self._is_imported = None
         self.discriminator = None
 
         self.id = id
@@ -146,6 +149,8 @@ class InternalProductionJob(object):
         if archived_at is not None:
             self.archived_at = archived_at
         self.cloud_id = cloud_id
+        if is_imported is not None:
+            self.is_imported = is_imported
 
     @property
     def id(self):
@@ -672,6 +677,29 @@ class InternalProductionJob(object):
             raise ValueError("Invalid value for `cloud_id`, must not be `None`")  # noqa: E501
 
         self._cloud_id = cloud_id
+
+    @property
+    def is_imported(self):
+        """Gets the is_imported of this InternalProductionJob.  # noqa: E501
+
+        Whether this workload was imported from a customer cluster rather than submitted through Anyscale. Imported workloads have no submitting user (creator_id falls back to the cloud creator), so the UI labels them 'Imported' instead of showing that misleading creator. Computed server-side; not client-settable.  # noqa: E501
+
+        :return: The is_imported of this InternalProductionJob.  # noqa: E501
+        :rtype: bool
+        """
+        return self._is_imported
+
+    @is_imported.setter
+    def is_imported(self, is_imported):
+        """Sets the is_imported of this InternalProductionJob.
+
+        Whether this workload was imported from a customer cluster rather than submitted through Anyscale. Imported workloads have no submitting user (creator_id falls back to the cloud creator), so the UI labels them 'Imported' instead of showing that misleading creator. Computed server-side; not client-settable.  # noqa: E501
+
+        :param is_imported: The is_imported of this InternalProductionJob.  # noqa: E501
+        :type: bool
+        """
+
+        self._is_imported = is_imported
 
     def to_dict(self):
         """Returns the model properties as a dict"""

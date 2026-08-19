@@ -17,12 +17,15 @@ declare abstract class WrappedBuffer<ArrayType extends WrappedArrayType> {
     get_sized_array(length: number): ArrayType;
     protected is_normalized(): boolean;
     get length(): number;
+    get is_scalar_value(): boolean;
     protected abstract new_array(len: number): ArrayType;
     set_from_array(numbers: Arrayable<number>): void;
     set_from_prop(prop: Uniform<number>): void;
     set_from_scalar(scalar: number): void;
+    to_per_vertex_config(): AttributeConfig;
     to_attribute_config(offset?: number, scalar_divisor?: number): AttributeConfig;
     to_attribute_config_nested(offset_vector?: number, divisor?: number): AttributeConfig;
+    extract_at<T extends WrappedBuffer<ArrayType>>(this: T, i: number, components: number, dst: T): T;
     update(is_scalar?: boolean): void;
 }
 export declare class Float32Buffer extends WrappedBuffer<Float32Array> {
@@ -40,5 +43,14 @@ export declare class Uint8Buffer extends WrappedBuffer<Uint8Array> {
 export declare class NormalizedUint8Buffer extends Uint8Buffer {
     protected is_normalized(): boolean;
 }
+export declare function expand_to_per_vertex(src: {
+    get_array(): ArrayLike<number>;
+    is_scalar_value: boolean;
+}, dst: {
+    get_sized_array(n: number): ArrayLike<number> & {
+        [i: number]: number;
+    };
+    update(): void;
+}, vertex_counts: number[], components: number): void;
 export {};
 //# sourceMappingURL=buffer.d.ts.map

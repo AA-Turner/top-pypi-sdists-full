@@ -2,7 +2,7 @@ import { ContextWhich, Location, ResolutionType } from "../../core/enums";
 import type * as p from "../../core/properties";
 import type { Arrayable } from "../../core/types";
 import { TickFormatter } from "./tick_formatter";
-export type { ResolutionType } from "../../core/enums";
+export type { ResolutionType } from "core/enums";
 export declare const resolution_order: ResolutionType[];
 export declare const tm_index_for_resolution: {
     [key in ResolutionType]: number;

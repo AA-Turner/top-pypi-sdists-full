@@ -114,8 +114,9 @@ MODEL_PRO_EM3_3CT63 = "SPEM-003CEBEU63"
 MODEL_PRO_EM3_400 = "SPEM-003CEBEU400"
 MODEL_PRO_RGBWW_PM = "SPDC-0D5PE16EU"
 MODEL_WALL_DISPLAY = "SAWD-0A1XX10EU1"
+MODEL_WALL_DISPLAY_X1I = "SAWD-6A1XX10EU0"
 MODEL_WALL_DISPLAY_X2 = "SAWD-2A1XX10EU1"
-MODEL_WALL_DISPLAY_X2I = " SAWD-5A1XX10EU0"
+MODEL_WALL_DISPLAY_X2I = "SAWD-5A1XX10EU0"
 MODEL_WALL_DISPLAY_XL = "SAWD-3A1XE10EU2"
 # Gen3 RPC based models
 MODEL_1_G3 = "S3SW-001X16EU"
@@ -129,6 +130,7 @@ MODEL_3EM_63_G3 = "S3EM-003CXCEU63"
 MODEL_AZ_HT = "S3SN-1U12A"
 MODEL_AZ_PLUG = "S3PL-10112EU"
 MODEL_BLU_GATEWAY_G3 = "S3GW-1DBT001"
+MODEL_CAMERA = "S1CM-0DXW00"
 MODEL_DALI_DIMMER_G3 = "S3DM-0A1WW"
 MODEL_DIMMER_10V_G3 = "S3DM-0010WW"
 MODEL_DIMMER_G3 = "S3DM-0A101WWL"
@@ -199,6 +201,9 @@ GEN3_GATEWAY_MIN_FIRMWARE_DATE = 20250109
 
 # Firmware 1.4.x release date
 GEN4_MIN_FIRMWARE_DATE = 20240902
+
+# `arm` and `privacy` in status
+GEN3_CAMERA_MIN_FIRMWARE_DATE = 20260817
 
 # Fallback for unknown devices
 MIN_FIRMWARE_DATES = {
@@ -531,6 +536,14 @@ DEVICES = {
         gen=GEN3,
         supported=True,
         model_id=0x1817,
+    ),
+    MODEL_CAMERA: ShellyDevice(
+        model=MODEL_CAMERA,
+        name="Shelly Camera",
+        min_fw_date=GEN3_CAMERA_MIN_FIRMWARE_DATE,
+        gen=GEN3,
+        supported=True,
+        model_id=0x5000,
     ),
     MODEL_PLUS_1: ShellyDevice(
         model=MODEL_PLUS_1,
@@ -991,6 +1004,14 @@ DEVICES = {
         min_fw_date=GEN2_WALL_DISPLAY_MIN_FIRMWARE_DATE,
         gen=GEN2,
         supported=True,
+    ),
+    MODEL_WALL_DISPLAY_X1I: ShellyDevice(
+        model=MODEL_WALL_DISPLAY_X1I,
+        name="Shelly Wall Display X1i",
+        min_fw_date=GEN2_MIN_FIRMWARE_DATE,
+        gen=GEN2,
+        supported=True,
+        model_id=0x3006,
     ),
     MODEL_WALL_DISPLAY_X2: ShellyDevice(
         model=MODEL_WALL_DISPLAY_X2,

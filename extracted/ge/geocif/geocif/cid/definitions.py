@@ -199,6 +199,15 @@ aridity_col_map = {"AI": "aridity"}
 dict_static_eo = {**dict_aridity, **dict_soilgrids}
 STATIC_EO_COL_MAP = {**aridity_col_map, **soilgrids_col_map}
 
+# Raw crop_t0 column -> the geoprepare eo_model dataset that produces it.
+# Used to explain a MISSING static column accurately: geoextract/geomerge read
+# countries.txt, never geocif.txt, so a dataset listed only in geocif.txt's
+# eo_model is never extracted and re-running geomerge can never add it.
+STATIC_COLUMN_SOURCE = {
+    **{col: "aridity" for col in aridity_col_map.values()},
+    **{col: "soilgrids" for col in soilgrids_col_map.values()},
+}
+
 # FLDAS forecast variables (5 variables × 6 lead times, monthly resolution)
 FLDAS_VARIABLES = [
     "SoilMoist_tavg", "TotalPrecip_tavg", "Tair_tavg", "Evap_tavg", "TWS_tavg"
@@ -228,10 +237,28 @@ for _var in S2S_VARIABLES:
         dict_s2s[_key] = ["S2S", f"Mean S2S {_var} (lead {_lead})"]
         s2s_col_map[_key] = f"s2s_{_var}_lead{_lead}"
 
-# CHIRPS-MFC: CHIRPS3 long-term monthly precipitation forecasts
+# CHIRPS-MFC: CHIRPS3 long-term SEASONAL precipitation forecasts
 # (hindcasts, monthly inits 1981-2023, leads 1-12, mm/month, init-anchored).
 # Raw columns from geomerge: chirps_mfc_prate_lead{k} — same monthly-broadcast
 # convention as FLDAS/S2S (geoprepare _MONTHLY_PREFIXES).
+#
+# LEAD SEMANTICS (data creator, 2026-08-18): lead k is NOT month init+k. It is
+# the 3-month AVERAGED precip CENTERED on init+k — window [M+k-1, M+k, M+k+1]
+# for init month M. Jan init lead1 verifies JFM, Feb init lead1 verifies FMA;
+# the init month itself sits inside lead1's window. Two implications:
+#
+#   * Adjacent leads share 2 of 3 months (~67% overlap), so LEAD1..LEAD12 are
+#     strongly collinear. gOMP and auto_tabpfn's |r| dedup will collapse
+#     neighbours — treat "which lead was selected" as near-arbitrary among
+#     adjacent ones rather than a meaningful horizon readout.
+#   * DO NOT add a SUM_CHIRPS_MFC_* aggregate mirroring the SUM_FLDAS_* /
+#     SUM_S2S_* pattern below. Those families use non-overlapping single-month
+#     leads, so summing them is valid; summing these overlapping 3-month means
+#     would triple-count nearly every month.
+#
+# Safe as of 2026-08-18: _extract_pre_season_features reads each lead column
+# verbatim with no lead->calendar-month mapping, and no CHIRPS-MFC aggregate
+# is computed, so the centering does not introduce an off-by-one anywhere.
 CHIRPS_MFC_VARIABLES = ["prate"]
 CHIRPS_MFC_LEADS = list(range(1, 13))  # 1-based: [1..12]
 

@@ -16,7 +16,7 @@ import pyarrow as pa
 from .utils import (
     _buffered_shuffle,
     _check_fragment_data_file_exists,
-    _compute_missing_ranges,
+    _compute_resume_runs,
     _count_udf_rows,
     _index_checkpoint_ranges,
     _iter_checkpoint_ranges_for_fragment,
@@ -51,11 +51,14 @@ from geneva.apply.task import (
 from geneva.checkpoint import (
     CheckpointStore,
     HierarchicalLanceCheckpointStore,
+    discard_short_checkpoint,
+    stamp_checkpoint_num_rows,
     unwrap_default_checkpoint_store,
 )
 from geneva.checkpoint_utils import hash_source_files
 from geneva.db import NamespaceConfig
 from geneva.debug.logger import ErrorLogger, NoOpErrorLogger
+from geneva.errors import FatalWorkerError
 from geneva.table import TableReference
 from geneva.utils import make_null_array, parse_data_storage_version, redact_dict_values
 from geneva.utils.byte_budget_queue import (
@@ -224,9 +227,68 @@ def blob_v2_checkpoint_data_file_name_for_fragment(
 class _PlanReadResult:
     tasks: Iterator[ReadTask]
     total_tasks: int
+    total_rows: int
+    tasks_by_frag: dict[int, int]
+    checkpoint_identity_contexts: tuple[tuple[str, str | None], ...]
     skipped_fragments: dict[int, tuple[lance.fragment.DataFile, int]]
     skipped_stats: dict[str, int]
     src_data_files_by_dst: dict[int, frozenset[str]]
+
+
+@attrs.define(frozen=True)
+class _FragmentScanPlan:
+    """Compact description of all read tasks for one fragment.
+
+    ``runs`` contains only checkpoint-coverage boundaries. Individual
+    ``ScanTask`` windows are tiled from those runs on demand, so planner memory
+    is proportional to fragments (plus resume coverage), not task count.
+    """
+
+    template: ScanTask
+    runs: tuple[tuple[int, int], ...]
+    task_size: int | None
+    legacy_zero_limit: bool = False
+
+    @property
+    def task_count(self) -> int:
+        if self.legacy_zero_limit:
+            return 1
+        if self.task_size is None:
+            return sum(1 for start, end in self.runs if end > start)
+        return sum(
+            -((end - start) // -self.task_size)
+            for start, end in self.runs
+            if end > start
+        )
+
+    def tasks(self) -> Iterator[ScanTask]:
+        if self.legacy_zero_limit:
+            yield attrs.evolve(self.template, offset=0, limit=0)
+            return
+
+        for run_start, run_end in self.runs:
+            if run_end <= run_start:
+                continue
+            if self.task_size is None:
+                yield attrs.evolve(
+                    self.template,
+                    offset=run_start,
+                    limit=run_end - run_start,
+                )
+                continue
+            for offset in range(run_start, run_end, self.task_size):
+                yield attrs.evolve(
+                    self.template,
+                    offset=offset,
+                    limit=min(self.task_size, run_end - offset),
+                )
+
+
+def _iter_fragment_scan_plans(
+    fragment_plans: list[_FragmentScanPlan],
+) -> Iterator[ScanTask]:
+    for fragment_plan in fragment_plans:
+        yield from fragment_plan.tasks()
 
 
 @attrs.define(frozen=True)
@@ -261,19 +323,24 @@ def _concat_record_batches(batches: list[pa.RecordBatch]) -> pa.RecordBatch:
     if not batches:
         raise ValueError("cannot concatenate empty batch list")
     if len(batches) == 1:
+        # Identity, not a copy: the single-batch flush is the common case and
+        # ``concat_batches`` would copy it for nothing.
         return batches[0]
 
-    table = pa.Table.from_batches(batches).combine_chunks()
-    if table.num_rows <= 0:
-        schema = batches[0].schema
-        return pa.record_batch(
-            [pa.array([], type=field.type) for field in schema], schema=schema
-        )
-
-    return pa.record_batch(
-        [table.column(i).combine_chunks() for i in range(table.num_columns)],
-        schema=table.schema,
-    )
+    # Two properties are load-bearing here, and ``concat_batches`` has both.
+    #
+    # One copy of the pending set: this runs on every flush and its cost scales
+    # with ``applier_checkpoint_buffer_bytes``, so a second copy is charged to
+    # every backfill (1 GiB pending set: 2 GiB live, not 3 GiB).
+    #
+    # All rows or an error: for 32-bit offset types (``binary``/``string``/
+    # ``list``) an over-2 GiB concat cannot be represented, and the flusher
+    # records full coverage for whatever comes back -- so a short result is
+    # silent data loss. ``concat_batches`` raises ``ArrowInvalid: offset
+    # overflow``. UDF output reaches those types readily: ``bytes`` maps to
+    # ``pa.binary()``, not ``large_binary``.
+    # ``concat_batches`` is missing from the pyarrow stubs, not from pyarrow.
+    return pa.concat_batches(batches)  # type: ignore[attr-defined]
 
 
 @attrs.define
@@ -744,6 +811,7 @@ class CheckpointingApplier:
         if self.direct_fragment_write is None:
             raise ValueError("direct_fragment_write config is required")
 
+        from geneva.errors import ShortFragmentWriteError
         from geneva.fragment_writer import get_fragment_file_writer
         from geneva.runners.ray.writer import (
             build_fragment_checkpoint_batch,
@@ -767,6 +835,15 @@ class CheckpointingApplier:
             data_dir=data_dir,
             base_id=base_id,
         )
+
+        # The direct path writes one batch unaligned, so a complete write emits exactly
+        # the batch's rows. Fewer is a short write -- fail loud before the checkpoint
+        # and commit so it never lands.
+        if rows_written != batch.num_rows:
+            raise ShortFragmentWriteError(
+                f"fragment {task.dest_frag_id()}: wrote {rows_written} rows but the "
+                f"input batch has {batch.num_rows}; refusing to commit a short file"
+            )
 
         dedupe_key = get_fragment_dedupe_key(
             config.ds_uri,
@@ -812,14 +889,36 @@ class CheckpointingApplier:
         start: int,
         checkpoint_size: int,
     ) -> int:
+        """Compute the checkpoint's ``end`` in the planner's logical domain.
+
+        ``start``/``end`` must both be logical (post-delete) offsets — every
+        consumer of the ``_range-START-END`` key (recovery, replacement
+        planning, resume, writer span accounting) interprets them that way.
+
+        On fragments with deletion vectors, ``_rowaddr`` is a physical
+        position and over-counts the logical span by the number of deleted
+        rows before it; deriving ``end`` from it produced ranges that claimed
+        rows the blob does not contain, and every range consumer then dropped
+        or null-filled the difference. Backfill scans yield the window's live
+        rows densely, so ``batch.num_rows`` is the logical span consumed.
+        Fragments without deletes keep the rowaddr-based end: there
+        physical == logical, and it correctly extends the span for legacy
+        sparse batches (rows dropped by a row-level filter).
+        """
         task_end = task.dest_offset() + task.num_rows()
-        if "_rowaddr" in batch.schema.names and batch.num_rows > 0:
+        physical = getattr(task, "fragment_physical_rows", None)
+        logical = getattr(task, "fragment_logical_rows", None)
+        has_deletes = (
+            physical is not None and logical is not None and physical != logical
+        )
+        if has_deletes:
+            end = start + batch.num_rows
+        elif "_rowaddr" in batch.schema.names and batch.num_rows > 0:
             rowaddrs = batch["_rowaddr"]
             last_row_offset = int(rowaddrs[-1].as_py() & 0xFFFFFFFF)
+            end = max(start + checkpoint_size, last_row_offset + 1)
         else:
-            last_row_offset = start - 1
-
-        end = max(start + checkpoint_size, last_row_offset + 1)
+            end = start + checkpoint_size
         end = min(task_end, end)
         if end < start:
             end = start
@@ -942,7 +1041,7 @@ class CheckpointingApplier:
         # for adaptive checkpoint sizing don't need to account for additional
         # timing calls.
         ckpt_start = time.perf_counter()
-        self.checkpoint_store[checkpoint_key] = batch
+        self.checkpoint_store[checkpoint_key] = stamp_checkpoint_num_rows(batch)
         self.batch_checkpointing_time_ms += int(
             (time.perf_counter() - ckpt_start) * 1000
         )
@@ -1025,6 +1124,12 @@ class CheckpointingApplier:
             self.checkpoint_load_time_ms += int(
                 (time.perf_counter() - ckpt_start) * 1000
             )
+            # Single-batch task: data stored under the task key (task range == batch
+            # range). Validate the read-back against the recorded count so a short file
+            # is dropped and recomputed rather than replayed; the metadata table format
+            # carries no stamp, so this is a no-op there.
+            if discard_short_checkpoint(self.checkpoint_store, task_key, cached):
+                return None
             try:
                 schema_names = cached.schema.names
             except Exception:
@@ -1121,6 +1226,11 @@ class CheckpointingApplier:
             self.checkpoint_load_time_ms += int(
                 (time.perf_counter() - ckpt_start) * 1000
             )
+            if discard_short_checkpoint(self.checkpoint_store, key, batch):
+                # Stored count below the producer's recorded count: a truncated file
+                # that would gap-fill or crash the writer. Drop it and recompute the
+                # task rather than trust it.
+                return None
             results.append(
                 MapBatchCheckpoint(
                     checkpoint_key=key,
@@ -1303,9 +1413,18 @@ class CheckpointingApplier:
             checkpoint_writer.join()
 
         if writer_errors:
+            from geneva.errors import FatalWorkerError
+
+            first = writer_errors[0]
+            # Typed worker failures (e.g. a rejected short fragment write) must
+            # surface as themselves: wrapping them in a RuntimeError would
+            # demote them to a generic failure and break the classification
+            # that decides how the pipeline handles them.
+            if isinstance(first, FatalWorkerError):
+                raise first
             raise RuntimeError(
                 "Error writing batch checkpoints asynchronously"
-            ) from writer_errors[0]
+            ) from first
         results.extend(queued_results)
         direct_result = direct_results[0] if direct_results else None
         if direct_result is not None and results:
@@ -1417,6 +1536,8 @@ class CheckpointingApplier:
                 e,
                 snapshot,
             )
+            if isinstance(e, FatalWorkerError):
+                raise
             raise RuntimeError(f"Error running task {task}") from e
 
     def status(self, task: ReadTask) -> bool:
@@ -1467,6 +1588,21 @@ def _prefetch_filter_row_counts(
             f = future_to_frag[fut]
             counts[f.fragment_id] = fut.result()
     return counts
+
+
+@attrs.define
+class _PlanTimings:
+    """Per-phase wall-clock seconds for the "Building tasks" plan loop.
+
+    Each field aggregates one class of per-fragment S3/blob I/O so a slow build
+    phase can be attributed to source-file reads vs. dedupe-key/checkpoint
+    lookups vs. staged-data-file existence checks. Set as span attrs (via
+    ``attrs.asdict``) and logged at plan close.
+    """
+
+    source_files_s: float = 0.0
+    dedupe_checkpoint_s: float = 0.0
+    data_file_check_s: float = 0.0
 
 
 def _plan_read(
@@ -1618,7 +1754,10 @@ def _plan_read(
 
     skipped_fragments = {}
     skipped_stats = {"fragments": 0, "rows": 0}
-    tasks = []
+    fragment_plans: list[_FragmentScanPlan] = []
+    total_tasks = 0
+    total_rows = 0
+    tasks_by_frag: dict[int, int] = {}
     src_data_files_by_dst: dict[int, frozenset[str]] = {}
     checkpoint_keys: set[str] | None = None
     ranges_by_prefix: dict[str, dict[int, list[tuple[int, int]]]] | None = None
@@ -1830,6 +1969,13 @@ def _plan_read(
     _plan_total = len(all_fragments)
     _plan_tick = max(1, _plan_total // 200)
     report_plan_progress(job_tracker, desc="Building tasks", n=0, total=_plan_total)
+    # Attribute a slow "Building tasks" phase to its sub-steps -- source-file
+    # reads, dedupe-key compute + checkpoint-store lookups, and staged-data-file
+    # existence checks are all per-fragment S3/blob I/O and are what make this
+    # phase take minutes with no row progress. Aggregated onto _build_span and
+    # logged at close; individually slow calls are warned live below.
+    _plan_timings = _PlanTimings()
+    _slow_warn_s = 10.0
     for idx, frag in enumerate(all_fragments):
         if idx % _plan_tick == 0:
             report_plan_progress(job_tracker, n=idx + 1)
@@ -1849,13 +1995,23 @@ def _plan_read(
         src_files_hash = None
         if map_task is not None:
             assert get_source_data_files is not None
+            _t = time.perf_counter()
             src_files = get_source_data_files(frag, relevant_field_ids)
             src_data_files_by_dst[frag.fragment_id] = src_files
             if should_compute_src_files_hash:
                 src_files_hash = hash_source_files(src_files)
+            _dt = time.perf_counter() - _t
+            _plan_timings.source_files_s += _dt
+            if _dt > _slow_warn_s:
+                _LOG.warning(
+                    "plan_read: fragment %d source-file read took %.1fs",
+                    frag.fragment_id,
+                    _dt,
+                )
 
         # Compute dedupe key first so we can use the in-memory checkpoint_keys
         # set to avoid per-fragment blob I/O.
+        _t = time.perf_counter()
         dedupe_present = False
         dedupe_key: str | None = None
         if (
@@ -1890,6 +2046,14 @@ def _plan_read(
                         dedupe_present = legacy_key in checkpoint_store
                         if dedupe_present:
                             dedupe_key = legacy_key
+        _dt = time.perf_counter() - _t
+        _plan_timings.dedupe_checkpoint_s += _dt
+        if _dt > _slow_warn_s:
+            _LOG.warning(
+                "plan_read: fragment %d dedupe-key + checkpoint lookup took %.1fs",
+                frag.fragment_id,
+                _dt,
+            )
 
         # `_find_output_data_file_in_fragment` is a manifest lookup (no I/O);
         # the where-filter fast path below relies on it being populated.
@@ -1913,6 +2077,7 @@ def _plan_read(
             # before skipping. expected_rows is physical_rows, not the logical
             # (post-deletion) count: the writer fills staged files to the
             # physical layout, so a complete staged file has physical_rows rows.
+            _t = time.perf_counter()
             checked = _check_fragment_data_file_exists(
                 uri,
                 frag.fragment_id,
@@ -1929,6 +2094,8 @@ def _plan_read(
                 expected_rows=frag.physical_rows,
                 base_dirs=base_data_dirs,
             )
+            _dt = time.perf_counter() - _t
+            _plan_timings.data_file_check_s += _dt
             if checked is not None:
                 checked_file_path, checked_base_id = checked
             checkpoint_exists = checked is not None
@@ -2095,16 +2262,22 @@ def _plan_read(
             filtered_frag_rows,
         )
 
-        # the ranges that we need to backfill, the tuple is (offset, num_rows),
-        # which means we need to backfill the range [offset, offset + num_rows)
-        gaps: list[tuple[int, int]]
+        # Compact coverage runs for this fragment. Individual task windows are
+        # tiled lazily from these runs when the scheduler requests them.
+        runs: tuple[tuple[int, int], ...]
+        plan_task_size: int | None
+        legacy_zero_limit = False
         if not use_checkpoint_gap_planning:
-            gaps = [
-                (offset, min(task_size, frag_rows - offset))
-                for offset in range(
-                    0, frag_rows, task_size if task_size > 0 else frag_rows
-                )
-            ]
+            if frag_rows <= 0:
+                continue
+            runs = ((0, frag_rows),)
+            if task_size > 0:
+                plan_task_size = task_size
+            else:
+                # Preserve the historical whole-fragment ScanTask encoding:
+                # limit=0 means read through the end of the fragment.
+                plan_task_size = None
+                legacy_zero_limit = True
         else:
             assert map_task is not None
             assert checkpoint_store is not None
@@ -2151,14 +2324,20 @@ def _plan_read(
                 and covered[-1][1] >= frag_rows
                 and len(covered) == 1
             )
-            if fully_covered and existing_data_file is None:
-                # Fully checkpointed per-batch but no committed output data file
+            if fully_covered:
+                # Fully checkpointed per-batch but never committed for THIS job
                 # (e.g. a crash between the last batch checkpoint and the
-                # fragment commit). Skipping would leave the column NULL forever,
-                # so replan to commit -- the applier reuses the per-batch
-                # checkpoints, so the UDF is not recomputed. (existing_data_file
-                # is None catches the no-fragment-checkpoint case the
-                # dedupe_present guard above misses.)
+                # fragment commit). Reaching here means the fragment dedupe
+                # marker is absent: a present+valid marker skips the fragment
+                # above, and a present+invalid one empties `covered`. The writer
+                # durably records that marker before any commit, so this job's
+                # output cannot be in the manifest. An output data file may
+                # still exist in the fragment -- for a first fill it doesn't
+                # (skipping would leave the column NULL forever), and for a
+                # repair of an already-filled column it is the STALE file the
+                # repair exists to overwrite (skipping would silently no-op the
+                # repair). Either way, replan to commit -- the applier reuses
+                # the per-batch checkpoints, so the UDF is not recomputed.
                 #
                 # Emit one whole-fragment task, not task_size chunks: a task
                 # narrower than an existing ``_range-START-END`` checkpoint would
@@ -2172,70 +2351,89 @@ def _plan_read(
                     "no recompute)",
                     frag.fragment_id,
                 )
-                gaps = [(0, frag_rows)]
-            elif fully_covered:
-                # All rows already covered and committed -- genuinely done.
-                _LOG.info(
-                    "Skipping fragment %s entirely (all rows checkpointed)",
-                    frag.fragment_id,
-                )
-                skipped_stats["rows"] += frag_rows
-                skipped_stats["fragments"] += 1
-                continue
+                runs = ((0, frag_rows),)
+                plan_task_size = None
             else:
-                gaps = _compute_missing_ranges(
-                    total_rows=frag_rows,
-                    task_size=task_size,
-                    covered=covered,
+                # Partially covered: the fragment is rewritten in full, so the
+                # writer needs checkpoints for every row. Tile the covered runs
+                # into tasks too (they reconstruct from the store without
+                # recomputing) instead of planning only the gaps — gaps-only
+                # planning null-filled the previously computed ranges at seal.
+                runs = tuple(
+                    _compute_resume_runs(
+                        total_rows=frag_rows,
+                        covered=covered,
+                    )
                 )
+                plan_task_size = task_size if task_size > 0 else None
+                covered_rows = sum(e - s for s, e in covered)
+                if covered_rows:
+                    _LOG.info(
+                        "Fragment %s partially checkpointed: reusing %d "
+                        "checkpointed row(s), recomputing %d",
+                        frag.fragment_id,
+                        covered_rows,
+                        frag_rows - covered_rows,
+                    )
 
-        for offset, span in gaps:
-            limit = span
-            _LOG.debug(
-                "scan task: idx=%d fragid=%d offset=%d limit=%d where=%r",
-                idx,
-                frag.fragment_id,
-                offset,
-                limit,
-                where,
-            )
+        fragment_plan = _FragmentScanPlan(
+            template=ScanTask(
+                uri=uri,
+                table_ref=table_ref,
+                version=dataset_version,
+                columns=scan_columns,
+                frag_id=frag.fragment_id,
+                offset=0,
+                limit=0,
+                where=where,
+                with_row_address=True,
+                range_blob_columns=range_blob_columns,
+                selected_only_blob_columns=selected_only_blob_columns,
+                struct_blob_decomp=struct_blob_decomp,
+                blob_read_strategy=normalized_blob_read_strategy,
+                blob_read_buffer_size=blob_read_buffer_size,
+                src_files_hash=src_files_hash,
+                src_data_files=src_data_files_by_dst.get(frag.fragment_id),
+                fragment_physical_rows=frag.physical_rows,
+                fragment_logical_rows=frag_logical_rows,
+            ),
+            runs=runs,
+            task_size=plan_task_size,
+            legacy_zero_limit=legacy_zero_limit,
+        )
+        fragment_task_count = fragment_plan.task_count
+        if fragment_task_count <= 0:
+            continue
+        fragment_plans.append(fragment_plan)
+        tasks_by_frag[frag.fragment_id] = fragment_task_count
+        total_tasks += fragment_task_count
+        total_rows += frag_rows
 
-            tasks.append(
-                ScanTask(
-                    uri=uri,
-                    table_ref=table_ref,
-                    version=dataset_version,
-                    columns=scan_columns,
-                    frag_id=frag.fragment_id,
-                    offset=offset,
-                    limit=limit,
-                    where=where,
-                    with_row_address=True,
-                    range_blob_columns=range_blob_columns,
-                    selected_only_blob_columns=selected_only_blob_columns,
-                    struct_blob_decomp=struct_blob_decomp,
-                    blob_read_strategy=normalized_blob_read_strategy,
-                    blob_read_buffer_size=blob_read_buffer_size,
-                    src_files_hash=src_files_hash,
-                    src_data_files=src_data_files_by_dst.get(frag.fragment_id),
-                    fragment_physical_rows=frag.physical_rows,
-                    fragment_logical_rows=frag_logical_rows,
-                )
-            )
-
+    telemetry.set_span_attrs(_build_span, attrs.asdict(_plan_timings))
     telemetry.close_span(_build_span)
     report_plan_progress(job_tracker, n=_plan_total)
+    _LOG.info(
+        "Build tasks timing over %d fragments: source_files=%.1fs "
+        "dedupe/checkpoint=%.1fs staged_data_file_check=%.1fs",
+        _plan_total,
+        _plan_timings.source_files_s,
+        _plan_timings.dedupe_checkpoint_s,
+        _plan_timings.data_file_check_s,
+    )
 
     _LOG.info(
         "Plan complete: %d scan tasks, %d skipped fragments (%d skipped rows)",
-        len(tasks),
+        total_tasks,
         skipped_stats["fragments"],
         skipped_stats["rows"],
     )
 
     return _PlanReadResult(
-        tasks=iter(tasks),
-        total_tasks=len(tasks),
+        tasks=_iter_fragment_scan_plans(fragment_plans),
+        total_tasks=total_tasks,
+        total_rows=total_rows,
+        tasks_by_frag=tasks_by_frag,
+        checkpoint_identity_contexts=(((uri, where),) if total_tasks > 0 else ()),
         skipped_fragments=skipped_fragments,
         skipped_stats=skipped_stats,
         src_data_files_by_dst=src_data_files_by_dst,
@@ -2249,15 +2447,33 @@ T = TypeVar("T")  # Define type variable "T"
 class _LanceReadPlanIterator(Iterator[T]):
     it: Iterator[T]
     total: int
+    total_rows: int | None = None
+    tasks_by_frag: Mapping[int, int] | None = None
+    checkpoint_identity_contexts: tuple[tuple[str, str | None], ...] = ()
+    _consumed: int = attrs.field(default=0, init=False)
 
     def __iter__(self) -> Iterator[T]:
         return self
 
     def __next__(self) -> T:
-        return next(self.it)
+        item = next(self.it)
+        self._consumed += 1
+        return item
 
     def __len__(self) -> int:
         return self.total
+
+    @property
+    def total_tasks(self) -> int:
+        return self.total
+
+    @property
+    def is_compact_geneva_plan(self) -> bool:
+        return True
+
+    @property
+    def consumed(self) -> int:
+        return self._consumed
 
 
 def plan_read(
@@ -2353,6 +2569,9 @@ def plan_read(
     return _LanceReadPlanIterator(
         it,
         plan_result.total_tasks,
+        total_rows=plan_result.total_rows,
+        tasks_by_frag=plan_result.tasks_by_frag,
+        checkpoint_identity_contexts=plan_result.checkpoint_identity_contexts,
     ), unused_kwargs
 
 
@@ -2393,6 +2612,9 @@ def _plan_copy(
     _plan_tick = max(1, _plan_total // 200)
     report_plan_progress(job_tracker, desc="Counting fragments", n=0, total=_plan_total)
     num_tasks = 0
+    total_rows = 0
+    tasks_by_frag: dict[int, int] = {}
+    fragment_specs: list[tuple[int, int, int, str | None, frozenset[str] | None]] = []
     for _idx, frag in enumerate(_frags):
         if _idx % _plan_tick == 0:
             report_plan_progress(job_tracker, n=_idx + 1)
@@ -2402,55 +2624,69 @@ def _plan_copy(
         frag_rows = frag.count_rows()
         if frag_rows <= 0:
             continue
-        if task_size <= 0:
-            num_tasks += 1
-        else:
-            # ceil_div
-            num_tasks += -(frag_rows // -task_size)
+        src_files = (
+            None
+            if src_data_files_by_dst is None
+            else src_data_files_by_dst.get(frag.fragment_id)
+        )
+        src_files_hash = hash_source_files(src_files) if src_files is not None else None
+        fragment_task_count = 1 if task_size <= 0 else -(frag_rows // -task_size)
+        num_tasks += fragment_task_count
+        total_rows += frag_rows
+        tasks_by_frag[frag.fragment_id] = fragment_task_count
+        fragment_specs.append(
+            (
+                frag.fragment_id,
+                frag.physical_rows,
+                frag_rows,
+                src_files_hash,
+                src_files,
+            )
+        )
     report_plan_progress(job_tracker, n=_plan_total)
 
     def task_gen() -> Iterator[CopyTask]:
-        for frag in dst_dataset.get_fragments():
-            # Skip fragments that don't match the filter
-            if (
-                only_fragment_ids is not None
-                and frag.fragment_id not in only_fragment_ids
-            ):
-                continue
-            frag_rows = frag.count_rows()
-            if frag_rows <= 0:
-                continue
-            src_files_hash = None
-            if src_data_files_by_dst is not None:
-                src_files = src_data_files_by_dst.get(frag.fragment_id)
-                if src_files is not None:
-                    src_files_hash = hash_source_files(src_files)
+        for (
+            frag_id,
+            fragment_physical_rows,
+            frag_rows,
+            src_files_hash,
+            src_files,
+        ) in fragment_specs:
             if task_size <= 0:
-                offsets_and_limits = [(0, 0)]
+                offsets_and_limits: Iterator[tuple[int, int]] = iter(((0, 0),))
             else:
-                offsets_and_limits = [
+                offsets_and_limits = (
                     (offset, min(task_size, frag_rows - offset))
                     for offset in range(0, frag_rows, task_size)
-                ]
+                )
             for offset, limit in offsets_and_limits:
                 yield CopyTask(
                     src=src,
                     dst=dst,
                     columns=columns,
-                    frag_id=frag.fragment_id,
+                    frag_id=frag_id,
                     offset=offset,
                     limit=limit,
                     src_files_hash=src_files_hash,
-                    src_data_files=(
-                        None
-                        if src_data_files_by_dst is None
-                        else src_data_files_by_dst.get(frag.fragment_id)
-                    ),
-                    fragment_physical_rows=frag.physical_rows,
+                    src_data_files=src_files,
+                    fragment_physical_rows=fragment_physical_rows,
                     fragment_logical_rows=frag_rows,
                 )
 
-    return (task_gen(), num_tasks)
+    source_uri = getattr(src, "table_uri", None) or "$".join(src.table_id)
+    return (
+        _LanceReadPlanIterator(
+            task_gen(),
+            num_tasks,
+            total_rows=total_rows,
+            tasks_by_frag=tasks_by_frag,
+            checkpoint_identity_contexts=(
+                ((source_uri, None),) if num_tasks > 0 else ()
+            ),
+        ),
+        num_tasks,
+    )
 
 
 def plan_copy(
@@ -2491,6 +2727,9 @@ def plan_copy(
         src_data_files_by_dst=src_data_files_by_dst,
         job_tracker=job_tracker,
     )
+    total_rows = getattr(it, "total_rows", None)
+    tasks_by_frag = getattr(it, "tasks_by_frag", None)
+    checkpoint_identity_contexts = getattr(it, "checkpoint_identity_contexts", ())
     # same as no shuffle
     if shuffle_buffer_size > 1 and task_shuffle_diversity is None:
         it = _buffered_shuffle(it, buffer_size=shuffle_buffer_size)
@@ -2503,4 +2742,10 @@ def plan_copy(
             buffer_size=buffer_size,
         )
 
-    return _LanceReadPlanIterator(it, num_tasks)
+    return _LanceReadPlanIterator(
+        it,
+        num_tasks,
+        total_rows=total_rows,
+        tasks_by_frag=tasks_by_frag,
+        checkpoint_identity_contexts=checkpoint_identity_contexts,
+    )

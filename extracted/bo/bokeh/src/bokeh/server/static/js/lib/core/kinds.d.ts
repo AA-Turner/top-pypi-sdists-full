@@ -27,17 +27,11 @@ declare const DOMNode: {
     readonly DOCUMENT_POSITION_CONTAINED_BY: 16;
     readonly DOCUMENT_POSITION_IMPLEMENTATION_SPECIFIC: 32;
 };
-export interface Kind<T> {
-    constructor: Function & {
-        __name__: string;
-    };
-}
 export declare abstract class Kind<T> {
     __type__: T;
     coerce?(value: unknown): unknown;
     abstract valid(value: unknown): value is this["__type__"];
     abstract may_have_refs(): boolean;
-    static readonly __name__: string;
     get kind_name(): string;
     get kind_args(): unknown[];
     toString(): string;
@@ -292,7 +286,7 @@ export declare const Set: <V>(item_type: Kind<V>) => Kinds.Set<V>;
 export declare const Enum: <T extends string | number>(...values: T[]) => Kinds.Enum<T>;
 export declare const Ref: <ObjType extends object>(obj_type: Constructor<ObjType>) => Kinds.Ref<ObjType>;
 export declare const AnyRef: <ObjType extends object>() => Kinds.AnyRef<ObjType>;
-export declare const Func: <Args extends unknown[], Ret>(args_types?: Kinds.TupleKind<Args>, ret_type?: Kind<Ret>) => Kinds.Func<Args, Ret>;
+export declare const Func: <Args extends unknown[], Ret>(args_types?: Kinds.TupleKind<Args> | undefined, ret_type?: Kind<Ret> | undefined) => Kinds.Func<Args, Ret>;
 export declare const Func0: <Ret>(ret_type: Kind<Ret>) => Kinds.Func<[], Ret>;
 export declare const Node: Kinds.Node;
 export declare const NonNegative: <BaseType extends number>(base_type: Kind<BaseType>) => Kinds.NonNegative<BaseType>;
@@ -318,6 +312,6 @@ export declare const Array: <ItemType>(item_type: Kind<ItemType>) => Kinds.List<
 /** @deprecated */
 export declare const Map: <K, V>(key_type: Kind<K>, item_type: Kind<V>) => Kinds.Mapping<K, V>;
 /** @deprecated */
-export declare const Function: <Args extends unknown[], Ret>(args_types?: Kinds.TupleKind<Args>, ret_type?: Kind<Ret>) => Kinds.Func<Args, Ret>;
+export declare const Function: <Args extends unknown[], Ret>(args_types?: Kinds.TupleKind<Args> | undefined, ret_type?: Kind<Ret> | undefined) => Kinds.Func<Args, Ret>;
 export {};
 //# sourceMappingURL=kinds.d.ts.map

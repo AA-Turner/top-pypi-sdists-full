@@ -12,6 +12,7 @@ import aiosqlite
 from loguru import logger
 
 from echo_agent.storage.backend import StorageBackend
+from echo_agent.storage.errors import CorruptData, StorageUnavailable
 
 _SCHEMA_SQL = """\
 CREATE TABLE IF NOT EXISTS sessions (
@@ -185,6 +186,13 @@ _MIGRATIONS: list[tuple[int, str]] = [
     (25, """CREATE UNIQUE INDEX IF NOT EXISTS uq_episodes_span
             ON memory_episodes(session_key, message_range_start, message_range_end)
             WHERE NOT (message_range_start = 0 AND message_range_end = 0)"""),
+    # 26-29:tasks 表引入租约(owner/lease/attempt)+乐观锁 version,支撑
+    # dispatcher 崩溃回收与终态 CAS。存量行:version=0、lease NULL、owner/attempt 空串,
+    # 平滑升级。新库建表未含这些列,ALTER 报 duplicate column 由 _run_migrations 跳过。
+    (26, "ALTER TABLE tasks ADD COLUMN owner_id TEXT NOT NULL DEFAULT ''"),
+    (27, "ALTER TABLE tasks ADD COLUMN lease_until_ms INTEGER"),
+    (28, "ALTER TABLE tasks ADD COLUMN attempt_id TEXT NOT NULL DEFAULT ''"),
+    (29, "ALTER TABLE tasks ADD COLUMN version INTEGER NOT NULL DEFAULT 0"),
 ]
 
 
@@ -283,13 +291,19 @@ class SQLiteBackend(StorageBackend):
             raise
 
     async def load_session(self, key: str) -> dict[str, Any] | None:
-        db = await self._ensure_connection()
         try:
+            db = await self._ensure_connection()
             row = await db.execute_fetchall("SELECT data FROM sessions WHERE key=?", (key,))
-            return json.loads(row[0][0]) if row else None
-        except Exception as e:
-            logger.error("Failed to load session '{}': {}", key, e)
+        except (aiosqlite.Error, OSError) as e:
+            logger.error("Storage unavailable loading session '{}': {}", key, e)
+            raise StorageUnavailable(f"failed to read session '{key}': {e}") from e
+        if not row:
             return None
+        try:
+            return json.loads(row[0][0])
+        except (json.JSONDecodeError, ValueError, TypeError, KeyError) as e:
+            logger.error("Corrupt session data for '{}': {}", key, e)
+            raise CorruptData(f"session '{key}' is not decodable: {e}") from e
 
     async def delete_session(self, key: str) -> bool:
         db = await self._ensure_connection()
@@ -344,18 +358,22 @@ class SQLiteBackend(StorageBackend):
             raise
 
     async def load_memories(self, mem_type: str | None = None) -> list[dict[str, Any]]:
-        db = await self._ensure_connection()
         try:
+            db = await self._ensure_connection()
             if mem_type:
                 rows = await db.execute_fetchall(
                     "SELECT data FROM memories WHERE type=? ORDER BY updated_at DESC", (mem_type,),
                 )
             else:
                 rows = await db.execute_fetchall("SELECT data FROM memories ORDER BY updated_at DESC")
+        except (aiosqlite.Error, OSError) as e:
+            logger.error("Storage unavailable loading memories: {}", e)
+            raise StorageUnavailable(f"failed to read memories: {e}") from e
+        try:
             return [json.loads(r[0]) for r in rows]
-        except Exception as e:
-            logger.error("Failed to load memories: {}", e)
-            return []
+        except (json.JSONDecodeError, ValueError, TypeError, KeyError) as e:
+            logger.error("Corrupt memory data: {}", e)
+            raise CorruptData(f"a memory row is not decodable: {e}") from e
 
     async def delete_memory(self, entry_id: str) -> bool:
         db = await self._ensure_connection()
@@ -374,24 +392,63 @@ class SQLiteBackend(StorageBackend):
         now = datetime.now().isoformat()
         try:
             await db.execute(
-                "INSERT OR REPLACE INTO tasks (id, workflow_id, status, data, created_at, updated_at) "
-                "VALUES (?, ?, ?, ?, COALESCE((SELECT created_at FROM tasks WHERE id=?), ?), ?)",
+                "INSERT OR REPLACE INTO tasks "
+                "(id, workflow_id, status, data, owner_id, lease_until_ms, attempt_id, version, created_at, updated_at) "
+                "VALUES (?, ?, ?, ?, ?, ?, ?, ?, COALESCE((SELECT created_at FROM tasks WHERE id=?), ?), ?)",
                 (task_id, data.get("workflow_id", ""), data.get("status", "pending"),
-                 json.dumps(data, ensure_ascii=False), task_id, now, now),
+                 json.dumps(data, ensure_ascii=False),
+                 data.get("owner_id", ""), data.get("lease_until_ms"),
+                 data.get("attempt_id", ""), data.get("version", 0),
+                 task_id, now, now),
             )
             await db.commit()
         except Exception as e:
             logger.error("Failed to store task '{}': {}", task_id, e)
             raise
 
-    async def load_task(self, task_id: str) -> dict[str, Any] | None:
+    async def cas_store_task(self, task_id: str, data: dict[str, Any], expected_version: int) -> bool:
+        """Compare-and-swap write: only persists when the row's current version
+        still equals ``expected_version``, then bumps it. Returns True on a
+        winning swap, False when another writer already advanced the version
+        (stale caller must re-read). This is the one write path allowed to move a
+        task's terminal/lease state under concurrency without clobbering a peer."""
         db = await self._ensure_connection()
+        now = datetime.now().isoformat()
+        # Make the stored JSON authoritative: on a winning swap the SQL bumps the
+        # ``version`` column to expected_version+1, so the serialized blob must
+        # carry the same value regardless of what the caller passed. Otherwise the
+        # column and load_task(...)["version"] diverge and a read-modify-write
+        # retry loop spuriously loses. Shallow-copy to avoid mutating the caller.
+        persisted = {**data, "version": expected_version + 1}
         try:
-            row = await db.execute_fetchall("SELECT data FROM tasks WHERE id=?", (task_id,))
-            return json.loads(row[0][0]) if row else None
+            cur = await db.execute(
+                "UPDATE tasks SET status=?, data=?, owner_id=?, lease_until_ms=?, "
+                "attempt_id=?, version=version+1, updated_at=? WHERE id=? AND version=?",
+                (persisted.get("status", "pending"),
+                 json.dumps(persisted, ensure_ascii=False),
+                 persisted.get("owner_id", ""), persisted.get("lease_until_ms"),
+                 persisted.get("attempt_id", ""), now, task_id, expected_version),
+            )
+            await db.commit()
+            return cur.rowcount == 1
         except Exception as e:
-            logger.error("Failed to load task '{}': {}", task_id, e)
+            logger.error("CAS store task '{}' failed: {}", task_id, e)
+            raise
+
+    async def load_task(self, task_id: str) -> dict[str, Any] | None:
+        try:
+            db = await self._ensure_connection()
+            row = await db.execute_fetchall("SELECT data FROM tasks WHERE id=?", (task_id,))
+        except (aiosqlite.Error, OSError) as e:
+            logger.error("Storage unavailable loading task '{}': {}", task_id, e)
+            raise StorageUnavailable(f"failed to read task '{task_id}': {e}") from e
+        if not row:
             return None
+        try:
+            return json.loads(row[0][0])
+        except (json.JSONDecodeError, ValueError, TypeError, KeyError) as e:
+            logger.error("Corrupt task data for '{}': {}", task_id, e)
+            raise CorruptData(f"task '{task_id}' is not decodable: {e}") from e
 
     async def list_tasks(
         self,
@@ -447,13 +504,19 @@ class SQLiteBackend(StorageBackend):
             raise
 
     async def load_workflow(self, workflow_id: str) -> dict[str, Any] | None:
-        db = await self._ensure_connection()
         try:
+            db = await self._ensure_connection()
             row = await db.execute_fetchall("SELECT data FROM workflows WHERE id=?", (workflow_id,))
-            return json.loads(row[0][0]) if row else None
-        except Exception as e:
-            logger.error("Failed to load workflow '{}': {}", workflow_id, e)
+        except (aiosqlite.Error, OSError) as e:
+            logger.error("Storage unavailable loading workflow '{}': {}", workflow_id, e)
+            raise StorageUnavailable(f"failed to read workflow '{workflow_id}': {e}") from e
+        if not row:
             return None
+        try:
+            return json.loads(row[0][0])
+        except (json.JSONDecodeError, ValueError, TypeError, KeyError) as e:
+            logger.error("Corrupt workflow data for '{}': {}", workflow_id, e)
+            raise CorruptData(f"workflow '{workflow_id}' is not decodable: {e}") from e
 
     async def list_workflows(self, status: str | None = None) -> list[dict[str, Any]]:
         db = await self._ensure_connection()

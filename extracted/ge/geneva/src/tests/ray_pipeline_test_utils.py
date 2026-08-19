@@ -38,6 +38,9 @@ class MockedRayWriterHarness:
     write_futures: list[object] = field(default_factory=list)
     writer: MagicMock = field(default_factory=MagicMock)
     queue_cls: MagicMock | None = field(default=None, init=False)
+    # Items enqueued per queue, in submission order, across both the per-item
+    # and batched paths.
+    enqueued: list[list[tuple[int, Any, int]]] = field(default_factory=list, init=False)
 
     def __post_init__(self) -> None:
         self.writer.options.return_value.remote.side_effect = self.make_actor
@@ -45,8 +48,20 @@ class MockedRayWriterHarness:
     def make_queue(self, *args: Any, **kwargs: Any) -> MagicMock:
         queue = MagicMock()
         queue.actor = MagicMock()
-        queue.actor.put_nowait.remote = MagicMock(return_value=object())
+        items: list[tuple[int, Any, int]] = []
+
+        def _put(item: tuple[int, Any, int]) -> object:
+            items.append(item)
+            return object()
+
+        def _put_batch(batch: list[tuple[int, Any, int]]) -> object:
+            items.extend(batch)
+            return object()
+
+        queue.actor.put_nowait.remote = MagicMock(side_effect=_put)
+        queue.actor.put_nowait_batch.remote = MagicMock(side_effect=_put_batch)
         self.queues.append(queue)
+        self.enqueued.append(items)
         return queue
 
     def make_actor(self, *args: Any, **kwargs: Any) -> MagicMock:
@@ -69,10 +84,17 @@ class MockedRayWriterHarness:
             self.queue_cls = queue_cls
             yield self
 
-    def put_args(self, queue_index: int = 0) -> list[tuple[int, Any]]:
+    def put_args(self, queue_index: int = 0) -> list[tuple[int, Any, int]]:
+        """Effective enqueue sequence, whether sent per-item or batched."""
+        return list(self.enqueued[queue_index])
+
+    def batch_calls(self, queue_index: int = 0) -> list[list[tuple[int, Any, int]]]:
+        """Each ``put_nowait_batch`` submission, for asserting the batched shape."""
         return [
             call.args[0]
-            for call in self.queues[queue_index].actor.put_nowait.remote.call_args_list
+            for call in self.queues[
+                queue_index
+            ].actor.put_nowait_batch.remote.call_args_list
         ]
 
 

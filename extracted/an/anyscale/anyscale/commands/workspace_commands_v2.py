@@ -58,6 +58,7 @@ from anyscale.util import (
     validate_non_negative_arg,
     validate_workspace_state_filter,
 )
+from anyscale.utils.entity_arg_utils import validate_exactly_one_name_or_id
 from anyscale.utils.name_utils import validate_resource_name
 import anyscale.workspace
 from anyscale.workspace._private.workspace_sdk import ANYSCALE_WORKSPACES_SSH_OPTIONS
@@ -191,11 +192,7 @@ def _format_workspace_output_verbose(workspace: Workspace) -> Dict[str, str]:
 def _validate_workspace_name_and_id(
     name: Optional[str], id: Optional[str]  # noqa: A002
 ):
-    if name is None and id is None:
-        raise click.ClickException("One of '--name' and '--id' must be provided.")
-
-    if name is not None and id is not None:
-        raise click.ClickException("Only one of '--name' and '--id' can be provided.")
+    validate_exactly_one_name_or_id(name, id)
 
 
 def _check_workspace_is_running(
@@ -777,7 +774,7 @@ def create(  # noqa: PLR0913, PLR0912, C901
     name="start", short_help="Start a workspace.", cls=AnyscaleCommand,
 )
 @click.option(
-    "--id", "--workspace-id", required=False, help="Unique ID of the workspace."
+    "--workspace-id", "--id", "id", required=False, help="Unique ID of the workspace."
 )
 @click.option("--name", "-n", required=False, help="Name of the workspace.")
 @click.option(
@@ -828,7 +825,7 @@ id should be used, specifying both will result in an error.
     name="terminate", short_help="Terminate a workspace.", cls=AnyscaleCommand,
 )
 @click.option(
-    "--id", "--workspace-id", required=False, help="Unique ID of the workspace."
+    "--workspace-id", "--id", "id", required=False, help="Unique ID of the workspace."
 )
 @click.option("--name", "-n", required=False, help="Name of the workspace.")
 @click.option(
@@ -876,7 +873,7 @@ id should be used, specifying both will result in an error.
     name="status", short_help="Get the status of a workspace.", cls=AnyscaleCommand,
 )
 @click.option(
-    "--id", "--workspace-id", required=False, help="Unique ID of the workspace."
+    "--workspace-id", "--id", "id", required=False, help="Unique ID of the workspace."
 )
 @click.option("--name", "-n", required=False, help="Name of the workspace.")
 @click.option(
@@ -927,7 +924,7 @@ id should be used, specifying both will result in an error.
     cls=AnyscaleCommand,
 )
 @click.option(
-    "--id", "--workspace-id", required=False, help="Unique ID of the workspace."
+    "--workspace-id", "--id", "id", required=False, help="Unique ID of the workspace."
 )
 @click.option("--name", "-n", required=False, help="Name of the workspace.")
 @click.option(
@@ -1019,7 +1016,11 @@ def workspace_tags_cli() -> None:
     cls=AnyscaleCommand,
 )
 @click.option(
-    "--id", "workspace_id", required=False, help="Unique ID of the workspace."
+    "--workspace-id",
+    "--id",
+    "workspace_id",
+    required=False,
+    help="Unique ID of the workspace.",
 )
 @click.option("--name", "-n", required=False, help="Name of the workspace.")
 @click.option(
@@ -1085,7 +1086,11 @@ def add_tags(
     cls=AnyscaleCommand,
 )
 @click.option(
-    "--id", "workspace_id", required=False, help="Unique ID of the workspace."
+    "--workspace-id",
+    "--id",
+    "workspace_id",
+    required=False,
+    help="Unique ID of the workspace.",
 )
 @click.option("--name", "-n", required=False, help="Name of the workspace.")
 @click.option(
@@ -1157,7 +1162,11 @@ def remove_tags(
     cls=AnyscaleCommand,
 )
 @click.option(
-    "--id", "workspace_id", required=False, help="Unique ID of the workspace."
+    "--workspace-id",
+    "--id",
+    "workspace_id",
+    required=False,
+    help="Unique ID of the workspace.",
 )
 @click.option("--name", "-n", required=False, help="Name of the workspace.")
 @click.option(
@@ -1231,7 +1240,7 @@ def list_tags(
     cls=AnyscaleCommand,
 )
 @click.option(
-    "--id", "--workspace-id", required=False, help="Unique ID of the workspace."
+    "--workspace-id", "--id", "id", required=False, help="Unique ID of the workspace."
 )
 @click.option("--name", "-n", required=False, help="Name of the workspace.")
 @click.option(
@@ -1412,7 +1421,7 @@ id should be used, specifying both will result in an error.
     name="run_command", short_help="Run a command in a workspace.", cls=AnyscaleCommand,
 )
 @click.option(
-    "--id", "--workspace-id", required=False, help="Unique ID of the workspace."
+    "--workspace-id", "--id", "id", required=False, help="Unique ID of the workspace."
 )
 @click.option("--name", "-n", required=False, help="Name of the workspace.")
 @click.option(
@@ -1467,7 +1476,7 @@ id should be used, specifying both will result in an error.
     cls=AnyscaleCommand,
 )
 @click.option(
-    "--id", "--workspace-id", required=False, help="Unique ID of the workspace."
+    "--workspace-id", "--id", "id", required=False, help="Unique ID of the workspace."
 )
 @click.option("--name", "-n", required=False, help="Name of the workspace.")
 @click.option(
@@ -1569,7 +1578,7 @@ id should be used, specifying both will result in an error.
     cls=AnyscaleCommand,
 )
 @click.option(
-    "--id", "--workspace-id", required=False, help="Unique ID of the workspace."
+    "--workspace-id", "--id", "id", required=False, help="Unique ID of the workspace."
 )
 @click.option("--name", "-n", required=False, help="Name of the workspace.")
 @click.option(
@@ -1854,7 +1863,7 @@ def update(  # noqa: PLR0913, PLR0912, C901
     name="get", short_help="Get a workspace.", cls=AnyscaleCommand,
 )
 @click.option(
-    "--id", "--workspace-id", required=False, help="Unique ID of the workspace."
+    "--workspace-id", "--id", "id", required=False, help="Unique ID of the workspace."
 )
 @click.option("--name", "-n", required=False, help="Name of the workspace.")
 @click.option(
@@ -2007,7 +2016,9 @@ def get(
     help="List workspaces with optional filters.",
     cls=AnyscaleCommand,
 )
-@click.option("--workspace-id", "--id", help="ID of the workspace to display.")
+@click.option(
+    "--workspace-id", "--id", "workspace_id", help="ID of the workspace to display."
+)
 @click.option("--name", "-n", help="Substring to match against the workspace name.")
 @click.option("--project", help="Filter workspaces by project name.")
 @click.option("--cloud", help="Filter workspaces by cloud name.")

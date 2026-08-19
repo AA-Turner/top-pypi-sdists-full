@@ -20,6 +20,11 @@ from geneva.runners.ray import pipeline as ray_pipeline
 
 pytestmark = pytest.mark.ray
 
+# Create-time storage options toggling Lance stable row IDs (SRID); the
+# backfill engine is _rowaddr-based and must behave identically in both modes.
+_SRID_ON = {"new_table_enable_stable_row_ids": "true"}
+_SRID_OFF = {"new_table_enable_stable_row_ids": "false"}
+
 
 def test_add_column(tmp_path: Path) -> None:
     db = connect(tmp_path)
@@ -1202,6 +1207,22 @@ class TestRefreshReturnType:
         result = job.result()
         assert isinstance(result, RefreshJobResult)
 
+    def test_refresh_result_carries_real_job_id(
+        self, db, local_ray_context, monkeypatch
+    ) -> None:
+        # The result must echo the job_id that refresh actually threaded
+        # through dispatch/_geneva_jobs, not a fabricated uuid. Otherwise
+        # conn.get_job(result.job_id) and any telemetry keyed on the
+        # returned id are wrong.
+        from geneva.runners.ray import pipeline as ray_pipeline
+
+        monkeypatch.setattr(ray_pipeline, "run_ray_copy_table", lambda *_a, **_k: None)
+
+        table = self._setup(db)
+        job_id = "gva034-fixed-job-id"
+        result = table.refresh(job_id=job_id)
+        assert result.job_id == job_id
+
 
 class TestBackfillColumnsParameter:
     """Validate the str | list[str] shape of the columns/col_name argument."""
@@ -1315,8 +1336,14 @@ class TestBackfillColumnsParameter:
     def test_plan_backfill_canonicalizes_top_level_target_before_validation(
         self, db, monkeypatch
     ) -> None:
+        class ExplodingTasks:
+            def __iter__(self) -> Generator[object, None, None]:
+                raise AssertionError("plan_backfill must not materialize read tasks")
+
         class EmptyPlanRead:
-            tasks: list[object] = []
+            tasks = ExplodingTasks()
+            total_tasks = 0
+            total_rows = 0
             skipped_stats = {"fragments": 0, "rows": 0}
 
         table = self._make_case_table(db)
@@ -1327,6 +1354,8 @@ class TestBackfillColumnsParameter:
         plan = table.plan_backfill("userid")
 
         assert plan.column_name == "UserId"
+        assert plan.total_tasks == 0
+        assert plan.total_rows_pending == 0
 
     def test_sync_backfill_paths_reject_nested_output_target(self, db) -> None:
         table = self._make_nested_table(db)
@@ -1691,3 +1720,196 @@ def test_table_to_pandas_with_blob_modes(tmp_path: Path, blob_table_factory) -> 
         {"position", "size"},
     ]
     assert [description["size"] for description in descriptions] == [3, 5, 8]
+
+
+@pytest.mark.parametrize("stable_row_ids", [False, True], ids=["rowaddr", "srid"])
+def test_backfill_reuses_partial_checkpoints_without_orphan_nulls(
+    db, local_ray_context, stable_row_ids: bool
+) -> None:
+    """Resume regression (GEN-744 follow-up): a fragment partially covered by
+    checkpoints from an interrupted run must commit with the covered rows
+    carrying their checkpointed values and the gap rows computed — never
+    silently null-filled.
+
+    Pre-fix, gap planning tiled tasks over the missing ranges only and nothing
+    re-ingested the covered ranges into the writer, so a "successful" resumed
+    backfill committed nulls for every previously computed row.
+    """
+    from geneva.apply.task import BackfillUDFTask
+    from geneva.checkpoint_utils import hash_source_files
+    from geneva.runners.ray.pipeline import (
+        _get_relevant_field_ids,
+        get_source_data_files,
+    )
+
+    table = db.create_table(
+        "resume_tbl",
+        pa.Table.from_pydict({"id": list(range(8))}),
+        storage_options=_SRID_ON if stable_row_ids else _SRID_OFF,
+    )
+
+    @udf(data_type=pa.int64(), version="resume-v1")
+    def plus_hundred(id: int) -> int:  # noqa: A002
+        return id + 100
+
+    table.add_columns({"out": plus_hundred})
+
+    # Simulate an interrupted earlier run: rows [0, 4) already checkpointed.
+    # Seeded values are distinguishable from what the UDF computes so reuse
+    # (not recompute) is observable.
+    dataset = table.to_lance()
+    frag = dataset.get_fragment(0)
+    src_files_hash = hash_source_files(
+        get_source_data_files(frag, _get_relevant_field_ids(dataset, ["id"]))
+    )
+    map_task = BackfillUDFTask(udfs={"out": plus_hundred})
+    # backfill() defaults to an implicit "<col> IS NULL" filter; checkpoint
+    # keys are scoped by it, so the seeded key must carry the same filter.
+    key = map_task.checkpoint_key(
+        dataset_uri=table.uri,
+        dataset_version=dataset.version,
+        frag_id=0,
+        start=0,
+        end=4,
+        where="out IS NULL",
+        src_files_hash=src_files_hash,
+    )
+    store = table.get_reference().open_checkpoint_store()
+    store[key] = pa.RecordBatch.from_arrays(
+        [
+            pa.array([1000, 1001, 1002, 1003], type=pa.int64()),
+            pa.array([0, 1, 2, 3], type=pa.uint64()),
+        ],
+        names=["out", "_rowaddr"],
+    )
+
+    table.backfill("out")
+
+    out = table.to_arrow()["out"].to_pylist()
+    # Zero orphan nulls; covered rows reused, gap rows computed.
+    assert out == [1000, 1001, 1002, 1003, 104, 105, 106, 107]
+
+
+@pytest.mark.timeout(300)
+@pytest.mark.parametrize(
+    "stable_row_ids",
+    [
+        pytest.param(False, id="rowaddr"),
+        pytest.param(True, marks=pytest.mark.multibackfill, id="srid"),
+    ],
+)
+def test_backfill_delete_fragment_crash_no_orphan_nulls(
+    tmp_path: Path, local_ray_context, stable_row_ids: bool
+) -> None:
+    """Delete-fragment orphan-null regression: a worker crash mid-task on a
+    fragment with a deletion vector must not lose rows.
+
+    Pre-fix, checkpoint ``_range-`` ends were derived from physical rowaddrs,
+    so on deletion-vector fragments the failed task's flushed checkpoints
+    over-claimed their logical range; replacement tasks skipped recomputing
+    rows no blob contained, and the writer null-filled them as if deleted.
+    """
+    import os as _os
+    import random as _random
+    import time as _time
+
+    from geneva.debug.error_store import retry_all
+
+    marker = tmp_path / "crashed.marker"
+
+    db = connect(tmp_path)
+    n = 30_000
+    table = db.create_table(
+        "delcrash",
+        pa.Table.from_pydict({"id": list(range(n))}),
+        storage_options=_SRID_ON if stable_row_ids else _SRID_OFF,
+    )
+    _random.seed(7)
+    doomed = sorted(_random.sample(range(n), n // 100))
+    table.delete(f"id in ({','.join(map(str, doomed))})")
+    frag = table.to_lance().get_fragment(0)
+    assert frag.physical_rows != frag.count_rows()  # deletion vector present
+
+    crash_id = 12_003
+    marker_path = str(marker)
+
+    @udf(
+        data_type=pa.int64(),
+        version="delcrash-v1",
+        on_error=retry_all(max_attempts=3),
+    )
+    def out_udf(id: int) -> int:  # noqa: A002
+        if id == crash_id and not _os.path.exists(marker_path):
+            Path(marker_path).write_text("crashed")
+            _time.sleep(0.5)  # let earlier checkpoint flushes persist
+            _os._exit(137)
+        return id + 1_000_000
+
+    table.add_columns({"out": out_udf})
+    result = table.backfill(
+        "out",
+        task_size=4096,
+        checkpoint_size=512,
+        min_checkpoint_size=512,
+        max_checkpoint_size=512,
+        batch_checkpoint_flush_interval_seconds=0.05,
+        concurrency=2,
+        _admission_check=False,
+    )
+    assert result.status == "DONE"
+    assert marker.exists(), "the injected crash never fired"
+
+    res = table.to_arrow()
+    ids = res["id"].to_pylist()
+    outs = res["out"].to_pylist()
+    orphans = [i for i, o in zip(ids, outs, strict=True) if o is None]
+    wrong = [
+        (i, o)
+        for i, o in zip(ids, outs, strict=True)
+        if o is not None and o != i + 1_000_000
+    ]
+    assert len(ids) == n - len(doomed)
+    assert orphans == []
+    assert wrong == []
+
+
+class _FakeJobFuture:
+    """Minimal JobFuture stand-in for testing _await_job_future."""
+
+    def __init__(self, *, done: bool, result: Any) -> None:
+        self._done = done
+        self._result = result
+        self.done_timeouts: list[float | None] = []
+
+    def done(self, timeout: float | None = None) -> bool:
+        self.done_timeouts.append(timeout)
+        return self._done
+
+    def result(self, timeout: float | None = None) -> Any:
+        return self._result
+
+
+def test_await_job_future_no_timeout_returns_result() -> None:
+    # timeout_secs=None waits unbounded: result() is called directly and
+    # done() is never consulted.
+    from geneva.table import _await_job_future
+
+    fut = _FakeJobFuture(done=False, result="ok")
+    assert _await_job_future(fut, None, what="refresh") == "ok"
+    assert fut.done_timeouts == []
+
+
+def test_await_job_future_completes_within_timeout() -> None:
+    from geneva.table import _await_job_future
+
+    fut = _FakeJobFuture(done=True, result="ok")
+    assert _await_job_future(fut, 5.0, what="refresh") == "ok"
+    assert fut.done_timeouts == [5.0]  # waited with the deadline
+
+
+def test_await_job_future_times_out_raises() -> None:
+    from geneva.table import _await_job_future
+
+    fut = _FakeJobFuture(done=False, result="unused")
+    with pytest.raises(TimeoutError, match="refresh did not complete within 0.5s"):
+        _await_job_future(fut, 0.5, what="refresh")

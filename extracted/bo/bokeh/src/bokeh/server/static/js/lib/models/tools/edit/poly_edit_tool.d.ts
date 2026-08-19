@@ -34,7 +34,7 @@ export declare class PolyEditTool extends PolyTool {
     constructor(attrs?: Partial<PolyEditTool.Attrs>);
     tool_name: string;
     tool_icon: string;
-    event_type: ("tap" | "pan" | "press" | "move")[];
+    event_type: ("move" | "pan" | "press" | "tap")[];
     default_order: number;
 }
 //# sourceMappingURL=poly_edit_tool.d.ts.map

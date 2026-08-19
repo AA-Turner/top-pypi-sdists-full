@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: rucio-clients
-Version: 41.1.1
+Version: 41.2.0
 Summary: Rucio client package
 Author-email: Rucio <rucio-contact@cern.ch>
 Maintainer-email: Rucio <rucio-contact@cern.ch>

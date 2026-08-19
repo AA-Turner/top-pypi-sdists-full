@@ -1,5 +1,6 @@
 import { Model } from "../../model";
 import type * as p from "../../core/properties";
+import { SubsetIndexMapper } from "../../core/util/indices";
 import type { Selection } from "../selections/selection";
 import { View } from "../../core/view";
 import { Indices } from "../../core/types";
@@ -20,7 +21,7 @@ export declare namespace CDSView {
     type Props = Model.Props & {
         filter: p.Property<Filter>;
         indices: p.Property<Indices>;
-        indices_map: p.Property<Arrayable<number>>;
+        indices_map: p.Property<SubsetIndexMapper>;
         masked: p.Property<Indices | null>;
     };
 }
@@ -30,14 +31,13 @@ export declare class CDSView extends Model {
     properties: CDSView.Props;
     __view_type__: CDSViewView;
     constructor(attrs?: Partial<CDSView.Attrs>);
-    private _indices;
-    _indices_map_to_subset(): void;
-    get_subset_index(index: number): number | undefined;
+    get_subset_index(index: number): number;
     has_subset_index(index: number): boolean;
     convert_selection_from_subset(selection_subset: Selection): Selection;
     convert_selection_to_subset(selection_full: Selection): Selection;
     convert_indices_from_subset(indices: number[]): number[];
-    get_reference_point(array: Arrayable, value?: unknown): number | undefined | null;
+    get_reference_point(array: Arrayable, value: unknown): number | null;
+    compute_indices(source: ColumnarDataSource): void;
     /** @deprecated */
     get filters(): Filter[];
     /** @deprecated */

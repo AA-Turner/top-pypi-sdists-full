@@ -11,8 +11,7 @@ export interface Expression<T = Arrayable> extends Expression.Attrs {
 export declare abstract class Expression<T = Arrayable> extends Model {
     properties: Expression.Props;
     constructor(attrs?: Partial<Expression.Attrs>);
-    protected _result: Map<ColumnarDataSource, T>;
-    initialize(): void;
+    protected readonly _result: Map<ColumnarDataSource, T>;
     protected abstract _v_compute(source: ColumnarDataSource): T;
     v_compute(source: ColumnarDataSource): T;
 }
@@ -25,8 +24,7 @@ export interface ScalarExpression<T> extends ScalarExpression.Attrs {
 export declare abstract class ScalarExpression<T> extends Model {
     properties: ScalarExpression.Props;
     constructor(attrs?: Partial<ScalarExpression.Attrs>);
-    protected _result: Map<ColumnarDataSource, T>;
-    initialize(): void;
+    protected readonly _result: Map<ColumnarDataSource, T>;
     protected abstract _compute(source: ColumnarDataSource): T;
     compute(source: ColumnarDataSource): T;
 }

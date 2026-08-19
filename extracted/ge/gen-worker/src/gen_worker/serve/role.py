@@ -43,7 +43,7 @@ violation is silenced.
 
 WHAT IS DELIBERATELY *NOT* IN THE SERVE-ROLE SET
 ------------------------------------------------
-``gen_worker.fleet_cells`` and ``gen_worker.executor``. Both are the
+``gen_worker.fleet_compiled_graphs`` and ``gen_worker.executor``. Both are the
 EAGER-CAPABLE arming brain and the process host respectively, and both reach
 mint machinery on purpose. The adopt-only path arms through
 ``aot_serve.arm_compiled_graph_from_store`` (pgw#1329) — the arm with no
@@ -79,15 +79,12 @@ class ServeRole(StrEnum):
 #: (pgw#1331). 67 of the role's 76 roots; the other nine are named, with their
 #: two causes, in :data:`MODEL_BEARING_SERVE_MODULES` directly below.
 #:
-#: This used to be 14 — the typed family surface alone — because two PACKAGE
-#: ROOTS dragged the eager-capable worker's guts into every closure that named
-#: them. ``gen_worker/__init__`` eagerly re-exported ``view`` and
-#: ``models.provision``; ``gen_worker/models/__init__`` eagerly re-exported
-#: ``residency`` and through it ``loading``. Both are PEP 562 lazy now, so
-#: importing a package costs nothing and asking for a name costs exactly the
-#: submodule that defines it. ``serving_mode`` separately stopped importing
-#: ``compile_cache`` — 3,100 lines of arming brain — to read two facts, which
-#: now live in :mod:`gen_worker.compile_facts`.
+#: What keeps the number high is PEP 562 laziness at the two package roots
+#: (``gen_worker/__init__``, ``gen_worker/models/__init__``): an eager
+#: re-export there drags the eager-capable worker's guts into every closure
+#: that names them. ``serving_mode`` likewise reads its two facts from
+#: :mod:`gen_worker.compile_facts` rather than importing ``compile_cache`` —
+#: 3,100 lines of arming brain.
 MODEL_FREE_MODULES: Tuple[str, ...] = (
     # The role itself.
     "gen_worker.serve",
@@ -97,12 +94,12 @@ MODEL_FREE_MODULES: Tuple[str, ...] = (
     "gen_worker.serve.role",
     "gen_worker.serve.selection",
     # §4.27 steps 1-3, the parts that state and materialize a key set.
-    "gen_worker.local_cell_store",
+    "gen_worker.local_compiled_graph_store",
     "gen_worker.keyset.document",
     "gen_worker.keyset.identifiers",
     # The arm's constants (pgw#1329) and the adopt outcome vocabulary.
     "gen_worker.aot_constants",
-    "gen_worker.cell_adopt",
+    "gen_worker.compiled_graph_adopt",
     # The compile facts a serving process READS — the arm marker and the
     # toolchain probe — with none of the machinery that writes them.
     "gen_worker.compile_facts",
@@ -218,11 +215,11 @@ MODEL_FREE_MODULES: Tuple[str, ...] = (
 #:    inside their functions and are entitled to, because an eager-capable pod
 #:    serves eager on a miss (§4.28). It is ALSO where the compile-cache
 #:    IDENTITY functions live — ``toolchain_digest``, ``content_keys``,
-#:    ``static_code_closure``, ``parse_cell_ref`` — and the key set folds a
-#:    cell key from those, so ``keyset.fold`` and ``keyset.closure`` import the
+#:    ``static_code_closure``, ``parse_compiled_graph_ref`` — and the key set folds a
+#:    compiled graph key from those, so ``keyset.fold`` and ``keyset.closure`` import the
 #:    arming brain to do arithmetic and everything rooted at them inherits it
 #:    (``keyset``, ``keyset.boot``, ``keyset.store``, ``boot_adopt``;
-#:    ``cell_resolve`` reaches it through ``aot_delivery``). **The cut:** the
+#:    ``compiled_graph_resolve`` reaches it through ``aot_delivery``). **The cut:** the
 #:    identity half of ``compile_cache`` moves out, the way its READ half
 #:    already did — :mod:`gen_worker.compile_facts` holds ``runtime_key`` and
 #:    the marker readers and imports nothing above ``hostfacts``.
@@ -235,7 +232,7 @@ MODEL_FREE_MODULES: Tuple[str, ...] = (
 #:    read before it is relocated.
 MODEL_BEARING_SERVE_MODULES: Tuple[str, ...] = (
     "gen_worker.boot_adopt",
-    "gen_worker.cell_resolve",
+    "gen_worker.compiled_graph_resolve",
     "gen_worker.keyset",
     "gen_worker.keyset.boot",
     "gen_worker.keyset.closure",

@@ -58,7 +58,7 @@ export declare class Span extends Annotation {
     properties: Span.Props;
     __view_type__: SpanView;
     constructor(attrs?: Partial<Span.Attrs>);
-    readonly pan: Signal<["pan" | "pan:start" | "pan:end", KeyModifiers], this>;
+    readonly pan: Signal<["pan" | "pan:end" | "pan:start", KeyModifiers], this>;
 }
 export {};
 //# sourceMappingURL=span.d.ts.map

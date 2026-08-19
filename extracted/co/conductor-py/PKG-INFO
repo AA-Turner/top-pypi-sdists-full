@@ -1,6 +1,6 @@
 Metadata-Version: 2.3
 Name: conductor-py
-Version: 1.91.0
+Version: 1.91.1
 Summary: The official Python library for the conductor API
 Project-URL: Homepage, https://github.com/conductor-is/quickbooks-desktop-python
 Project-URL: Repository, https://github.com/conductor-is/quickbooks-desktop-python

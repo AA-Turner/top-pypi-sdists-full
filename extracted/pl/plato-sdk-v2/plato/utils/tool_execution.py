@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import json
 import logging
+from collections.abc import Mapping
 from datetime import UTC, datetime
 from enum import StrEnum
 from pathlib import Path
@@ -143,6 +144,82 @@ class ToolExecutionRecorderLike(Protocol):
 
 
 start_tool_step_span = start_step_span
+
+MCP_TOOL_ORIGIN = "mcp"
+"""Value of ``origin`` on ``atif.step.tool_calls[]`` for remote MCP invocations.
+
+Harness builtins (Bash, Read, Write, ``command_execution``, …) omit ``origin``.
+"""
+
+
+def claude_mcp_tool_origin(tool_name: str) -> tuple[str | None, str | None]:
+    """Return ``(origin, mcp_server)`` for a Claude Code tool name.
+
+    Remote MCP tools are named ``mcp__{server}__{tool}``. Harness meta-tools
+    such as ``ListMcpResourcesTool`` are not remote MCP calls.
+    """
+    if not tool_name.startswith("mcp__"):
+        return None, None
+    parts = tool_name.split("__")
+    if len(parts) < 3 or not parts[1]:
+        return None, None
+    return MCP_TOOL_ORIGIN, parts[1]
+
+
+def opencode_mcp_server(
+    tool_name: str,
+    mcp_servers: Mapping[str, object] | None,
+    *,
+    part: Mapping[str, object] | None = None,
+) -> str | None:
+    """Return the MCP server name for an OpenCode tool part, if any.
+
+    Prefers an explicit ``mcp`` / ``server`` field on the part, then matches
+    OpenCode's ``{server}_{tool}`` prefix against configured ``mcp_servers``
+    (longest name wins).
+    """
+    if part is not None:
+        for key in ("mcp", "server"):
+            value = part.get(key)
+            if isinstance(value, str) and value:
+                return value
+            if isinstance(value, dict):
+                as_map = {str(k): v for k, v in value.items()}
+                nested = as_map.get("name") or as_map.get("server")
+                if isinstance(nested, str) and nested:
+                    return nested
+    if not mcp_servers or not tool_name:
+        return None
+    best: str | None = None
+    for name in mcp_servers:
+        if not isinstance(name, str):
+            continue
+        if tool_name != name and not tool_name.startswith(f"{name}_"):
+            continue
+        if best is None or len(name) > len(best):
+            best = name
+    return best
+
+
+def tool_call_payload(
+    *,
+    tool_call_id: str,
+    function_name: str,
+    arguments: object,
+    origin: str | None = None,
+    mcp_server: str | None = None,
+) -> dict[str, object]:
+    """Build one ATIF ``tool_calls[]`` entry, adding MCP attrs when present."""
+    payload: dict[str, object] = {
+        "tool_call_id": tool_call_id,
+        "function_name": function_name,
+        "arguments": arguments,
+    }
+    if origin:
+        payload["origin"] = origin
+    if mcp_server:
+        payload["mcp_server"] = mcp_server
+    return payload
 
 
 def update_tool_execution_context_trace(
@@ -311,6 +388,8 @@ def open_tool_execution(
     working_directory: str | None = None,
     span_kwargs: dict[str, object] | None = None,
     tool_span: Span | None = None,
+    origin: str | None = None,
+    mcp_server: str | None = None,
 ) -> PendingToolExecution:
     """Open a shared ATIF tool span and register the pending execution.
 
@@ -318,6 +397,9 @@ def open_tool_execution(
     lifecycle (deferred-export path: the span is finished later, once
     late-resolving usage lands); only the recorder/registration wiring runs
     here. Otherwise a span is created and ended immediately.
+
+    ``origin`` / ``mcp_server`` are copied onto the ATIF ``tool_calls[]``
+    entry so MCP invocations are distinguishable from harness builtins.
     """
 
     def _register(span: Span) -> PendingToolExecution:
@@ -353,11 +435,13 @@ def open_tool_execution(
         message="",
         model_name=model_name,
         tool_calls=[
-            {
-                "tool_call_id": tool_id,
-                "function_name": tool_name,
-                "arguments": tool_arguments,
-            }
+            tool_call_payload(
+                tool_call_id=tool_id,
+                function_name=tool_name,
+                arguments=tool_arguments,
+                origin=origin,
+                mcp_server=mcp_server,
+            )
         ],
         **(span_kwargs or {}),  # type: ignore[arg-type]  # dynamic kwargs forwarded to start_step_span
     ) as span:

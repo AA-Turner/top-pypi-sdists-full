@@ -1,10 +1,9 @@
-from datetime import datetime
 from typing import TYPE_CHECKING, Optional
 
 from dbos._context import get_local_dbos_context
 from dbos._utils import generate_uuid
 
-from ._sys_db import SystemDatabase, WorkflowStatus, WorkflowStatusString
+from ._sys_db import SystemDatabase, WorkflowStatus
 
 if TYPE_CHECKING:
     from ._dbos import DBOS
@@ -36,7 +35,15 @@ def fork_workflow(
     queue_name: Optional[str] = None,
     queue_partition_key: Optional[str] = None,
     replacement_children: Optional[dict[str, str]] = None,
+    timeout_seconds: Optional[float] = None,
 ) -> str:
+    if timeout_seconds is not None and not timeout_seconds > 0:
+        raise Exception(
+            f"Invalid workflow timeout {timeout_seconds}. Timeouts must be positive."
+        )
+    workflow_timeout_ms = (
+        int(timeout_seconds * 1000) if timeout_seconds is not None else None
+    )
 
     ctx = get_local_dbos_context()
     if ctx is not None and len(ctx.id_assigned_for_next_workflow) > 0:
@@ -52,6 +59,7 @@ def fork_workflow(
         queue_name=queue_name,
         queue_partition_key=queue_partition_key,
         replacement_children=replacement_children,
+        workflow_timeout_ms=workflow_timeout_ms,
     )
     return forked_workflow_id
 
@@ -99,13 +107,8 @@ def garbage_collect(
 
 
 def global_timeout(dbos: "DBOS", cutoff_epoch_timestamp_ms: int) -> None:
-    cutoff_iso = datetime.fromtimestamp(cutoff_epoch_timestamp_ms / 1000).isoformat()
-    for workflow in dbos.list_workflows(
-        status=[
-            WorkflowStatusString.PENDING.value,
-            WorkflowStatusString.ENQUEUED.value,
-            WorkflowStatusString.DELAYED.value,
-        ],
-        end_time=cutoff_iso,
+    # IDs only, so a bulk timeout does not deserialize every row's inputs and outputs.
+    for workflow_id in dbos._sys_db.list_timed_out_workflow_ids(
+        cutoff_epoch_timestamp_ms
     ):
-        dbos.cancel_workflow(workflow.workflow_id)
+        dbos.cancel_workflow(workflow_id)

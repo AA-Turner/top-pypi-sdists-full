@@ -5,7 +5,10 @@ from __future__ import annotations
 import time
 from dataclasses import asdict
 
-from airbyte_ops_mcp.connector_ops.rollouts.constants import CustomerTier
+from airbyte_ops_mcp.connector_ops.rollouts.constants import (
+    NO_OP_EMPTY_TIER_MARKER,
+    CustomerTier,
+)
 from airbyte_ops_mcp.registry.progressive_rollout_marker import (
     ProgressiveRolloutMarkerAnnotationResult,
 )
@@ -683,6 +686,27 @@ MOCK_ROLLOUTS: dict[str, tuple[ConnectorRollout, ...]] = {
             rc_pin_count=1,
             tier=CustomerTier.TIER_0,
         ),
+        ConnectorRollout(
+            rollout_id="mock-snowflake-rollout-t1",
+            connector_id="25c5221d-dce2-4163-ade9-739ef790f503",
+            connector_name="destination-snowflake",
+            connector_type="destination",
+            docker_repository="airbyte/destination-snowflake",
+            # Autopilot creates and immediately cancels a tier with no eligible
+            # customers, recording NO_OP_EMPTY_TIER_MARKER. Such a tier renders
+            # as `Empty` rather than ☑️ Complete.
+            state="canceled",
+            error_msg=NO_OP_EMPTY_TIER_MARKER,
+            rc_docker_image_tag="3.4.0-rc.5",
+            initial_docker_image_tag="3.3.1",
+            current_target_rollout_pct="0",
+            final_target_rollout_pct="100",
+            created_at="2026-06-16T16:00:00Z",
+            updated_at="2026-06-20T10:00:00Z",
+            rollout_strategy="auto",
+            rc_pin_count=0,
+            tier=CustomerTier.TIER_1,
+        ),
     ),
 }
 
@@ -1034,7 +1058,11 @@ class MockPinningAdapter(OpsMcpAdapter):
         connector_id: str,
     ) -> tuple[ConnectorRollout, ...]:
         """List active mock rollouts for a connector."""
-        return self.rollouts.get(connector_id, ())
+        return tuple(
+            rollout
+            for rollout in self.rollouts.get(connector_id, ())
+            if rollout.state in _ROLLOUT_ACTIVE_STATES
+        )
 
     def list_active_rollouts_with_siblings(
         self,
@@ -1329,10 +1357,10 @@ class MockPinningAdapter(OpsMcpAdapter):
             "b5ea17b1-f170-46dc-bc31-cc744ca984c1": _mock_population(
                 (90, 45), (36, 12), (6, 0)
             ),
-            # destination-snowflake (only the T0 terminal stage is rolling out;
-            # T2/T1 have no rollout row, so their pinned counts are 0)
+            # destination-snowflake (T0 is rolling out; T1 has no customers at
+            # all, so its rollout was canceled as a no-op and renders `Empty`)
             "25c5221d-dce2-4163-ade9-739ef790f503": _mock_population(
-                (50, 0), (20, 0), (40, 12)
+                (50, 0), (0, 0), (40, 12)
             ),
         }
         return per_connector.get(

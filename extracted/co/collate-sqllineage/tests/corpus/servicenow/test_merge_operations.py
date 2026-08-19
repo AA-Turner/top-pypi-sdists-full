@@ -155,6 +155,9 @@ MERGE INTO DYNAMICS365.opportunities TARGET USING ( SELECT * FROM DYNAMICS365.st
         {"dynamics365.opportunities"},
         dialect="snowflake",
         test_sqlparse=False,  # SqlParse fails on this query
+        # 72 KB query, parses in ~3s locally but the default 10s budget is tight on
+        # slower CI runners
+        timeout_seconds=20,
     )
 
 

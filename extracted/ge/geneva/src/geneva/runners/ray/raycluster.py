@@ -62,6 +62,7 @@ from geneva.utils.ray import (
     GENEVA_AUTOSCALING_RESOURCE,
     GENEVA_RAY_CPU_NODE,
     GENEVA_RAY_GPU_NODE,
+    GENEVA_RAY_HEAD,
     GENEVA_RAY_HEAD_NODE,
     get_ray_image,
     size_to_bytes,
@@ -75,6 +76,43 @@ _LOG = logging.getLogger(__name__)
 #  - DataReplacement transaction warnings (``lance::dataset::transaction``)
 #  - per-event telemetry (``lance::events::*`` "plan_run"/"loading" INFO lines)
 _DEFAULT_LANCE_LOG = "info,lance::dataset::transaction=error,lance::events=warn"
+
+# Env vars advertising the owning RayCluster inside its pods. The remote
+# pipeline driver (head pod) uses them with in-cluster credentials to look up
+# worker pod status (OOM evidence) when the client-side RayCluster context is
+# not available in its process.
+GENEVA_RAY_CLUSTER_NAME_ENV = "GENEVA_RAY_CLUSTER_NAME"
+GENEVA_RAY_CLUSTER_NAMESPACE_ENV = "GENEVA_RAY_CLUSTER_NAMESPACE"
+
+# Poll completion probes in a Ray-safe bounded slice. Slow probes retain their
+# ObjectRef across slices instead of submitting duplicate actor calls.
+_DEFAULT_JOB_TRACKER_PROBE_TIMEOUT_SECS = 5.0
+
+
+class _HeadPodNotFoundError(RuntimeError):
+    """No head pod is discoverable from the RayCluster status.
+
+    Signals the one condition the kuberay 1.1 fallback in ``apply()`` exists
+    to handle, so that unrelated ``RuntimeError``s raised while waiting for
+    the head node are not swallowed by it.
+    """
+
+
+def _inject_cluster_identity_env(group_spec: dict, name: str, namespace: str) -> None:
+    """Add cluster-identity env vars to every container in a group spec."""
+    try:
+        containers = group_spec["template"]["spec"]["containers"]
+    except (KeyError, TypeError):
+        return
+    for container in containers:
+        env = container.setdefault("env", [])
+        existing = {e.get("name") for e in env if isinstance(e, dict)}
+        for key, value in (
+            (GENEVA_RAY_CLUSTER_NAME_ENV, name),
+            (GENEVA_RAY_CLUSTER_NAMESPACE_ENV, namespace),
+        ):
+            if key not in existing:
+                env.append({"name": key, "value": value})
 
 
 @attrs.define
@@ -315,9 +353,23 @@ class _HeadGroupSpec(_PodSpec):
                 # do not schedule tasks onto the head node this prevents cluster
                 # crashes due to other tasks killing the head node
                 "num-cpus": "0",
-                # Custom resource to identify Geneva-managed autoscaling clusters
-                # This allows admission control to detect KubeRay clusters from outside
-                "resources": json.dumps(json.dumps({GENEVA_AUTOSCALING_RESOURCE: 1})),
+                # Custom resources advertised by the head pod:
+                #   GENEVA_AUTOSCALING_RESOURCE: identifies Geneva-managed
+                #     autoscaling clusters (admission control reads it via
+                #     ``ray.cluster_resources()``).
+                #   GENEVA_RAY_HEAD: head-only marker that pipeline drivers
+                #     use to pin placement here -- combined with their
+                #     ``num_cpus=0`` so they bypass the ``num-cpus=0``
+                #     task-blocking above while still being constrained to
+                #     the head.
+                "resources": json.dumps(
+                    json.dumps(
+                        {
+                            GENEVA_AUTOSCALING_RESOURCE: 1,
+                            GENEVA_RAY_HEAD: 1,
+                        }
+                    )
+                ),
             },
             "template": {
                 "metadata": {
@@ -747,7 +799,7 @@ class RayCluster(_RayVersionMixin, _ValidationVisitable):
 
     _tracked_refs: list = attrs.field(factory=list, init=False)
     """
-    List of (job_id, ObjectRef) tuples registered during the context.
+    List of (job_id, ObjectRef, JobTracker) tuples registered during the context.
     Used by _wait_for_tracked_jobs to block until all async jobs complete.
     """
 
@@ -903,12 +955,16 @@ class RayCluster(_RayVersionMixin, _ValidationVisitable):
 
         This can be used as part of RayJob for configuring the Ray cluster.
         """
+        head_spec = self.head_group.definition
+        worker_specs = [worker.definition for worker in self.worker_groups]
+        for group_spec in (head_spec, *worker_specs):
+            _inject_cluster_identity_env(group_spec, self.name, self.namespace)
         return {
             "enableInTreeAutoscaling": True,
             "autoscalerOptions": self._autoscaler_options,
             "rayVersion": self.ray_version,
-            "headGroupSpec": self.head_group.definition,
-            "workerGroupSpecs": [worker.definition for worker in self.worker_groups],
+            "headGroupSpec": head_spec,
+            "workerGroupSpecs": worker_specs,
         }
 
     @property
@@ -1091,7 +1147,9 @@ class RayCluster(_RayVersionMixin, _ValidationVisitable):
         for pod in pods.items:
             if pod.status.phase == "Running":
                 return pod.metadata.name
-        raise RuntimeError(f"Failed to find head node pod for cluster {self.name}")
+        raise _HeadPodNotFoundError(
+            f"Failed to find head node pod for cluster {self.name}"
+        )
 
     @property
     def head_node_pod(self) -> Any:
@@ -1148,7 +1206,13 @@ class RayCluster(_RayVersionMixin, _ValidationVisitable):
             pod = self.head_node_pod
 
             return pod.status.pod_ip
-        except Exception:
+        except (_HeadPodNotFoundError, KeyError, AttributeError):
+            # Only an unexpected status shape falls back. Everything else
+            # names a real problem the fallback would mask: a TimeoutError
+            # means the cluster never came up, and the RuntimeError from
+            # _check_head_container_health carries the CrashLoopBackOff /
+            # OOM diagnostic for a head pod that already has an IP -- which
+            # the fallback would happily return as a success.
             _LOG.warning("Falling back to kuberay 1.1 cluster status")
             # kuberay 1.1 version of cluster['status'].  kuberay 1.2+ has
             # cluster['status']['head']['podName'] which is used to look up
@@ -1213,26 +1277,31 @@ class RayCluster(_RayVersionMixin, _ValidationVisitable):
             raise e
 
     @staticmethod
-    def _is_tracker_done(tracker: Any, timeout: float = 5.0) -> bool:
-        """Check if a JobTracker actor reports done.
+    def _poll_tracker_done(
+        tracker: Any,
+        probe_ref: Any = None,
+        *,
+        timeout: float = _DEFAULT_JOB_TRACKER_PROBE_TIMEOUT_SECS,
+    ) -> tuple[bool | None, Any | None]:
+        """Poll one single-flight JobTracker completion probe.
 
-        Returns True only if the actor explicitly reports done.  On any
-        failure to reach the actor (dead, unavailable, timeout), returns
-        False — treating an unreachable tracker as "unknown, not confirmed
-        done" rather than assuming success.  The outer polling loop will
-        keep trying until its own deadline expires, at which point the
-        whole wait is reported as a failure.  This prevents silently
-        marking jobs as successful when the tracker actor dies mid-job
-        (e.g., OOMKilled, node preempted, raylet crash).
+        Returns ``(None, ref)`` while the existing probe is still running,
+        ``(True, None)`` only when the actor explicitly reports completion,
+        and ``(False, None)`` when a completed probe reports not-done or fails.
         """
         try:
-            return ray.get(tracker.is_job_done.remote(), timeout=timeout)  # type: ignore[no-any-return]
+            if probe_ref is None:
+                probe_ref = tracker.is_job_done.remote()
+            ready, _ = ray.wait([probe_ref], timeout=timeout)
+            if not ready:
+                return None, probe_ref
+            return bool(ray.get(ready[0])), None
         except Exception:
             _LOG.warning(
                 "JobTracker unreachable; treating as not-yet-done (will retry)",
                 exc_info=True,
             )
-            return False
+            return False, None
 
     def register_tracked_job(
         self, job_id: str, obj_ref: ray.ObjectRef, job_tracker: Any = None
@@ -1341,9 +1410,9 @@ class RayCluster(_RayVersionMixin, _ValidationVisitable):
             # job as failed.  This prevents an infinite spin when
             # wait_timeout is None (the default) and the tracker actor is
             # genuinely gone.
-            max_consecutive_failures = 6  # ~30s at poll_interval=5s
-            failure_counts: dict[str, int] = {jid: 0 for jid, _ in trackers}
-            pending = list(trackers)
+            max_consecutive_failures = 6
+            failure_counts: dict[str, int] = {jid: 0 for jid, _tracker in trackers}
+            pending = [(jid, tracker, None) for jid, tracker in trackers]
             while pending:
                 if deadline is not None and time.monotonic() > deadline:
                     _LOG.warning(
@@ -1353,32 +1422,64 @@ class RayCluster(_RayVersionMixin, _ValidationVisitable):
                     return True
 
                 still_pending = []
-                for jid, tracker in pending:
-                    if self._is_tracker_done(tracker):
+                has_inflight_probe = False
+                for jid, tracker, probe_ref in pending:
+                    probe_timeout = _DEFAULT_JOB_TRACKER_PROBE_TIMEOUT_SECS
+                    if deadline is not None:
+                        remaining = deadline - time.monotonic()
+                        if remaining <= 0:
+                            _LOG.warning(
+                                f"{self.name}: timed out waiting for "
+                                "JobTracker confirmation"
+                            )
+                            return True
+                        probe_timeout = min(probe_timeout, remaining)
+
+                    done, probe_ref = self._poll_tracker_done(
+                        tracker,
+                        probe_ref,
+                        timeout=probe_timeout,
+                    )
+                    if done is True:
                         _LOG.info(f"{self.name}: JobTracker {jid} confirmed done")
                         failure_counts[jid] = 0
+                    elif done is None:
+                        has_inflight_probe = True
+                        still_pending.append((jid, tracker, probe_ref))
                     else:
                         failure_counts[jid] += 1
                         if failure_counts[jid] >= max_consecutive_failures:
-                            elapsed = max_consecutive_failures * poll_interval
                             _LOG.error(
                                 f"{self.name}: JobTracker {jid} unreachable "
                                 f"for {max_consecutive_failures} consecutive "
-                                f"polls ({elapsed:.0f}s); treating job as "
+                                "probes; treating job as "
                                 "FAILED rather than assuming success"
                             )
                             has_failures = True
                             # Drop this tracker from pending — don't keep
                             # polling a dead actor.
                             continue
-                        still_pending.append((jid, tracker))
+                        still_pending.append((jid, tracker, None))
                 pending = still_pending
                 if pending:
-                    _LOG.info(
-                        f"{self.name}: {len(pending)} JobTracker(s) "
-                        f"not yet done, waiting {poll_interval}s..."
-                    )
-                    time.sleep(poll_interval)
+                    if has_inflight_probe:
+                        _LOG.info(
+                            f"{self.name}: {len(pending)} JobTracker probe(s) "
+                            "still running"
+                        )
+                    else:
+                        sleep_secs = poll_interval
+                        if deadline is not None:
+                            sleep_secs = min(
+                                sleep_secs,
+                                max(0.0, deadline - time.monotonic()),
+                            )
+                        _LOG.info(
+                            f"{self.name}: {len(pending)} JobTracker(s) "
+                            f"not yet done, waiting {sleep_secs}s..."
+                        )
+                        if sleep_secs > 0:
+                            time.sleep(sleep_secs)
 
         _LOG.info(f"{self.name}: all tracked jobs completed")
         return has_failures
@@ -1770,10 +1871,6 @@ class ClusterStatus:
             self.ray_cluster = rc
         # if still missing, fall back to your previous inference helpers
         if not self.namespace or not self.cluster_name:
-            _LOG.debug(
-                "RayCluster status missing namespace or cluster_name, "
-                "falling back to None"
-            )
             ns, cn = (None, None)
             self.namespace = self.namespace or ns
             self.cluster_name = self.cluster_name or cn
@@ -1846,20 +1943,12 @@ class ClusterStatus:
         try:
             self._ensure_ctx()
             if not self.namespace or not self.cluster_name or not self.ray_cluster:
-                _LOG.debug(
-                    "RayCluster status missing namespace or cluster_name, "
-                    "skipping status check"
-                )
                 return  # nothing we can do
 
             s = summarize_kuberay_status(
                 self.ray_cluster.clients, self.namespace, self.cluster_name
             )
             if s is None:
-                _LOG.info(
-                    f"RayCluster {self.cluster_name} not found in namespace "
-                    f"{self.namespace}, skipping status check"
-                )
                 return  # cluster not found
 
             # k8s lane

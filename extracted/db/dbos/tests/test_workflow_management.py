@@ -8,8 +8,19 @@ import sqlalchemy as sa
 from sqlalchemy import event as sa_event
 
 from dbos import DBOS, DBOSClient, SetEnqueueOptions, SetWorkflowID, WorkflowHandle
-from dbos._error import DBOSAwaitedWorkflowCancelledError, DBOSNonExistentWorkflowError
+from dbos._error import (
+    DBOSAwaitedWorkflowCancelledError,
+    DBOSAwaitedWorkflowMaxRecoveryAttemptsExceeded,
+    DBOSNonExistentWorkflowError,
+    DBOSWorkflowCancelledError,
+)
 from dbos._schemas.application_database import ApplicationSchema
+from dbos._schemas.system_database import SystemSchema
+from dbos._serialization import (
+    deserialize_value,
+    serialize_exception,
+    serialize_value_as,
+)
 from dbos._utils import INTERNAL_QUEUE_NAME, GlobalParams
 from dbos._workflow_commands import garbage_collect, global_timeout
 from tests.conftest import queue_entries_are_cleaned_up
@@ -107,12 +118,12 @@ def test_active_id_released_before_outcome_write(dbos: DBOS) -> None:
 
     def parking_update_outcome(
         workflow_id: str, status: Any, *, output: Any = None, error: Any = None
-    ) -> None:
+    ) -> bool:
         if workflow_id == wfid and not parked_once.is_set():
             parked_once.set()
             parked.set()
             assert release_stale_write.wait(timeout=30)
-        original_update_outcome(workflow_id, status, output=output, error=error)
+        return original_update_outcome(workflow_id, status, output=output, error=error)
 
     dbos._sys_db.update_workflow_outcome = parking_update_outcome  # type: ignore[method-assign]
 
@@ -188,6 +199,196 @@ def test_cancel_after_final_step(dbos: DBOS) -> None:
     assert steps_completed == 1  # step_one was already recorded, not re-run
 
     assert queue_entries_are_cleaned_up(dbos)
+
+
+def test_workflow_outcome_is_owned_by_the_pending_row(dbos: DBOS) -> None:
+    # A run may record its outcome only while its workflow_status row is still
+    # PENDING: that row is what says "this run is what the workflow is doing".
+    # Every other status means the run lost ownership (a concurrent resume
+    # re-enqueued it, a recovery raced it, it was cancelled or dead-lettered)
+    # and the recorded outcome, not the one the run computed, is the workflow's
+    # outcome.
+
+    # Each run blocks until the test has rewritten its row, then returns a
+    # result the test can tell apart from anything recorded out-of-band.
+    controls: dict[str, tuple[threading.Event, threading.Event]] = {}
+
+    @DBOS.workflow()
+    def blocked_workflow(wfid: str) -> str:
+        started, release = controls[wfid]
+        started.set()
+        assert release.wait(timeout=30)
+        return "own-result"
+
+    # Stands in for a run that observes its own cancellation mid-flight: the
+    # cancellation is raised only after the test has rewritten the row.
+    @DBOS.workflow()
+    def self_cancelling_workflow(wfid: str) -> str:
+        started, release = controls[wfid]
+        started.set()
+        assert release.wait(timeout=30)
+        raise DBOSWorkflowCancelledError(f"workflow {wfid} observed cancellation")
+
+    def start_blocked_run(
+        workflow: Any = blocked_workflow,
+    ) -> tuple[WorkflowHandle[str], threading.Event]:
+        """Start a run and return once it is blocked inside the workflow
+        function, with its row PENDING."""
+        wfid = f"outcome-ownership-{uuid.uuid4()}"
+        started, release = threading.Event(), threading.Event()
+        controls[wfid] = (started, release)
+        with SetWorkflowID(wfid):
+            handle = DBOS.start_workflow(workflow, wfid)
+        assert started.wait(timeout=15), "the workflow never started"
+        return handle, release
+
+    def encode_output(value: str) -> str:
+        serval, _ = serialize_value_as(value, None, dbos._serializer)
+        assert serval is not None
+        return serval
+
+    def rewrite_row(
+        wfid: str,
+        status: str,
+        output: Any = None,
+        error: Any = None,
+    ) -> None:
+        """Take the row away from the blocked run, standing in for the
+        concurrent resume/recovery/cancel that would do it in production."""
+        with dbos._sys_db.engine.begin() as c:
+            c.execute(
+                sa.update(SystemSchema.workflow_status)
+                .values(status=status, output=output, error=error)
+                .where(SystemSchema.workflow_status.c.workflow_uuid == wfid)
+            )
+
+    def read_row(wfid: str) -> Any:
+        with dbos._sys_db.engine.begin() as c:
+            return c.execute(
+                sa.select(
+                    SystemSchema.workflow_status.c.status,
+                    SystemSchema.workflow_status.c.output,
+                    SystemSchema.workflow_status.c.serialization,
+                ).where(SystemSchema.workflow_status.c.workflow_uuid == wfid)
+            ).fetchone()
+
+    # 1. A recorded success supersedes the run's own result.
+    handle, release = start_blocked_run()
+    rewrite_row(
+        handle.workflow_id, "SUCCESS", output=encode_output("recorded-elsewhere")
+    )
+    release.set()
+    assert (
+        handle.get_result() == "recorded-elsewhere"
+    ), "the run must report the recorded output, not its own"
+    row = read_row(handle.workflow_id)
+    assert row[0] == "SUCCESS"
+    assert (
+        deserialize_value(row[1], row[2], dbos._serializer) == "recorded-elsewhere"
+    ), "the recorded output must not be overwritten"
+
+    # 2. A recorded error supersedes the run's own result.
+    handle, release = start_blocked_run()
+    recorded_error, _ = serialize_exception(
+        Exception("recorded failure"), None, dbos._serializer
+    )
+    rewrite_row(handle.workflow_id, "ERROR", error=recorded_error)
+    release.set()
+    with pytest.raises(Exception, match="recorded failure"):
+        handle.get_result()
+    assert read_row(handle.workflow_id)[0] == "ERROR"
+
+    # 3. A non-terminal row parks the run until an outcome is recorded.
+    # ENQUEUED with no queue name: nothing dequeues it, so the run stays parked
+    # until this test records the outcome itself.
+    handle, release = start_blocked_run()
+    parked_wfid = handle.workflow_id
+    rewrite_row(parked_wfid, "ENQUEUED")
+    release.set()
+
+    parked_outcome: dict[str, Any] = {}
+    done = threading.Event()
+
+    def get_parked_result() -> None:
+        try:
+            parked_outcome["result"] = handle.get_result()
+        except Exception as e:
+            parked_outcome["error"] = e
+        done.set()
+
+    threading.Thread(target=get_parked_result, daemon=True).start()
+
+    # The run releases its active-workflow-ID entry immediately before it tries
+    # to record its outcome. Waiting for that makes the check below assert that
+    # the run parked, rather than merely that it had not gotten around to the
+    # write yet.
+    deadline = time.time() + 30
+    while parked_wfid in dbos._active_workflows_set.activeList():
+        assert time.time() < deadline, "the run never reached its outcome write"
+        time.sleep(0.01)
+    assert not done.wait(
+        timeout=2
+    ), f"the run must wait for the owning execution, got {parked_outcome}"
+
+    rewrite_row(parked_wfid, "SUCCESS", output=encode_output("recorded-by-owner"))
+    assert done.wait(timeout=30), "the parked run did not pick up the recorded outcome"
+    assert (
+        parked_outcome.get("result") == "recorded-by-owner"
+    ), f"the run must report the recorded output, not its own: {parked_outcome}"
+
+    # 4. A dead-lettered row fails the run with the DLQ error.
+    handle, release = start_blocked_run()
+    rewrite_row(handle.workflow_id, "MAX_RECOVERY_ATTEMPTS_EXCEEDED")
+    release.set()
+    with pytest.raises(DBOSAwaitedWorkflowMaxRecoveryAttemptsExceeded):
+        handle.get_result()
+    row = read_row(handle.workflow_id)
+    assert row[0] == "MAX_RECOVERY_ATTEMPTS_EXCEEDED"
+    assert row[1] is None, "the refused outcome must not record an output"
+
+    # 5. A deleted row fails the run with the non-existent-workflow error.
+    handle, release = start_blocked_run()
+    with dbos._sys_db.engine.begin() as c:
+        c.execute(
+            sa.delete(SystemSchema.workflow_status).where(
+                SystemSchema.workflow_status.c.workflow_uuid == handle.workflow_id
+            )
+        )
+    # The guarded UPDATE is a single statement: on a missing row it reports
+    # not-landed rather than raising. It is the parked await, told the row must
+    # already exist, that detects the deletion and raises.
+    assert not dbos._sys_db.update_workflow_outcome(
+        handle.workflow_id, "SUCCESS", output=encode_output("never-lands")
+    )
+    with pytest.raises(DBOSNonExistentWorkflowError):
+        dbos._sys_db.await_workflow_result(
+            handle.workflow_id, polling_interval=0.01, fail_if_missing=True
+        )
+    release.set()
+    with pytest.raises(DBOSNonExistentWorkflowError):
+        handle.get_result()
+
+    # 6. A run that observes its own cancellation adopts the recorded outcome
+    # rather than trusting its local view: here a concurrent "resume" already
+    # rewrote the row to SUCCESS, so the handle reports that outcome instead of
+    # a cancellation that is no longer the workflow's state.
+    handle, release = start_blocked_run(self_cancelling_workflow)
+    rewrite_row(
+        handle.workflow_id, "SUCCESS", output=encode_output("recorded-after-cancel")
+    )
+    release.set()
+    assert (
+        handle.get_result() == "recorded-after-cancel"
+    ), "the run must adopt the recorded outcome, not report its cancellation"
+
+    # ... and when the row is genuinely CANCELLED, the handle still reports the
+    # awaited-cancelled error, as before.
+    handle, release = start_blocked_run(self_cancelling_workflow)
+    rewrite_row(handle.workflow_id, "CANCELLED")
+    release.set()
+    with pytest.raises(DBOSAwaitedWorkflowCancelledError):
+        handle.get_result()
+    assert read_row(handle.workflow_id)[0] == "CANCELLED"
 
 
 def test_delete_workflow(dbos: DBOS) -> None:
@@ -1071,6 +1272,34 @@ def test_fork_version(
     assert queue_entries_are_cleaned_up(dbos)
 
 
+def test_fork_timeout(dbos: DBOS) -> None:
+    @DBOS.workflow()
+    def blocking_workflow() -> None:
+        while True:
+            DBOS.sleep(0.1)
+
+    workflow_id = str(uuid.uuid4())
+    with SetWorkflowID(workflow_id):
+        handle = DBOS.start_workflow(blocking_workflow)
+    DBOS.cancel_workflow(workflow_id)
+    with pytest.raises(DBOSAwaitedWorkflowCancelledError):
+        handle.get_result()
+
+    # Forking with a short timeout should cancel the forked workflow too.
+    forked_handle = DBOS.fork_workflow(workflow_id, 1, timeout_seconds=0.1)
+    assert forked_handle.get_status().workflow_timeout_ms == 100
+    with pytest.raises(DBOSAwaitedWorkflowCancelledError):
+        forked_handle.get_result()
+    assert queue_entries_are_cleaned_up(dbos)
+
+    # Forking without a timeout should leave it unset.
+    no_timeout_handle = DBOS.fork_workflow(workflow_id, 1)
+    assert no_timeout_handle.get_status().workflow_timeout_ms is None
+    DBOS.cancel_workflow(no_timeout_handle.workflow_id)
+    with pytest.raises(DBOSAwaitedWorkflowCancelledError):
+        no_timeout_handle.get_result()
+
+
 def test_resume_and_fork_to_queue(dbos: DBOS) -> None:
     step_one_count = 0
     step_two_count = 0
@@ -1770,6 +1999,43 @@ def test_fork_from_failure(dbos: DBOS) -> None:
     assert step_two_count == 7  # re-run
     assert step_three_count == 10  # re-run
 
+    # --- stepless workflows restart from the beginning ---
+    # A workflow with no recorded steps has nothing to resume from, so both
+    # step-deriving modes fork it from step 1 rather than failing.
+    stepless_count = 0
+
+    @DBOS.workflow()
+    def stepless_workflow() -> int:
+        nonlocal stepless_count
+        stepless_count += 1
+        return 42
+
+    wf4_id = str(uuid.uuid4())
+    with SetWorkflowID(wf4_id):
+        assert stepless_workflow() == 42
+    assert stepless_count == 1
+    assert DBOS.list_workflow_steps(wf4_id) == []
+
+    for mode in ({"from_last_failure": True}, {"from_last_step": True}):
+        forked_stepless = dbos._sys_db.fork_from_failure(
+            [wf4_id], application_version=None, **mode  # type: ignore[arg-type]
+        )
+        fk: WorkflowHandle[int] = DBOS.retrieve_workflow(forked_stepless[0])
+        assert fk.get_result() == 42
+    assert stepless_count == 3  # the body re-ran from the top for both forks
+
+    # A stepless workflow mixed into a batch does not break its peers.
+    forked_mixed = dbos._sys_db.fork_from_failure(
+        [wf4_id, wf3_id],
+        application_version=None,
+        from_last_step=True,
+    )
+    mixed_stepless: WorkflowHandle[int] = DBOS.retrieve_workflow(forked_mixed[0])
+    mixed_stepped: WorkflowHandle[int] = DBOS.retrieve_workflow(forked_mixed[1])
+    assert mixed_stepless.get_result() == 42
+    assert mixed_stepped.get_result() == 6
+    assert stepless_count == 4
+
     # --- validation: from_step_name errors when step not found ---
     # wf1 never ran step_three, so this should raise
     with pytest.raises(Exception, match="has no step named"):
@@ -1777,6 +2043,13 @@ def test_fork_from_failure(dbos: DBOS) -> None:
             [wf1_id],
             application_version=None,
             from_step_name=step_three.__qualname__,
+        )
+    # A stepless workflow has no named step either, so this still raises.
+    with pytest.raises(Exception, match="has no step named"):
+        dbos._sys_db.fork_from_failure(
+            [wf4_id],
+            application_version=None,
+            from_step_name=step_one.__qualname__,
         )
     # Nonexistent step name should also raise
     with pytest.raises(Exception, match="has no step named"):
@@ -1800,14 +2073,19 @@ def test_fork_from_failure(dbos: DBOS) -> None:
         )
 
     # All originals should be marked as having been forked from.
-    for wid in [wf1_id, wf2_id, wf3_id]:
+    for wid in [wf1_id, wf2_id, wf3_id, wf4_id]:
         wid_status = DBOS.get_workflow_status(wid)
         assert wid_status is not None
         assert wid_status.was_forked_from is True
 
     # Verify list_workflows filter still works.
     forked_from_workflows = DBOS.list_workflows(was_forked_from=True)
-    assert {w.workflow_id for w in forked_from_workflows} == {wf1_id, wf2_id, wf3_id}
+    assert {w.workflow_id for w in forked_from_workflows} == {
+        wf1_id,
+        wf2_id,
+        wf3_id,
+        wf4_id,
+    }
 
 
 def test_fork_replacement_children(dbos: DBOS) -> None:

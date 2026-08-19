@@ -34,8 +34,9 @@ ignore = [
 ]
 
 # Allow specific Unicode characters that Ruff would otherwise flag as ambiguous (RUF001).
-# These are intentional emoji used in Slack message formatting.
-allowed-confusables = ["ℹ"]
+# These are intentional emoji used in Slack message formatting and in the Ops Webapp's
+# rollout status glyphs, where the glyph itself is the rendered output.
+allowed-confusables = ["ℹ", "➖"]
 
 # Allow fix for all enabled rules (when `--fix`) is provided.
 fixable = ["ALL"]

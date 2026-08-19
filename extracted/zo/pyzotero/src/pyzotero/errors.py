@@ -40,6 +40,20 @@ class TooManyItemsError(PyZoteroError):
     """Raised when too many items are passed to a Write API method."""
 
 
+class LocalAPIKeyRequiredError(UserNotAuthorisedError):
+    """401 - Raised when a local API write has no valid local API key.
+
+    Local API keys have no relation to zotero.org API keys. A key that the
+    user grants with "Allow", not "Always Allow", is valid for one write only:
+    the first successful write uses it. Call ``Zotero.authorize_local()`` to
+    get a new key.
+    """
+
+
+class LocalAPIDeniedError(UserNotAuthorisedError):
+    """403 - Raised when the user denies a local API authorisation request."""
+
+
 class MissingCredentialsError(PyZoteroError):
     """Raised when an attempt is made to create a Zotero instance
     without providing both the user ID and the user key.
@@ -80,6 +94,24 @@ class PreConditionRequiredError(PyZoteroError):
     """428 - Raised when If-Match or If-None-Match was not provided."""
 
 
+class ServerIDMismatchError(PreConditionFailedError):
+    """412 - Raised when Zotero-Server-ID does not match the local server.
+
+    The request went to a different Zotero instance, or to the same instance
+    with a restored or replaced database. Object data and versions from the
+    local API apply only to one server ID. Do not use them with a different
+    server ID.
+    """
+
+
+class ServerIDRequiredError(PreConditionRequiredError):
+    """428 - Raised when a local API write had no Zotero-Server-ID header.
+
+    Pyzotero gets and sends the header automatically. Thus this error shows
+    that a request did not go through ``Zotero._write``.
+    """
+
+
 class TooManyRequestsError(PyZoteroError):
     """429 - Raised when there are too many unfinished uploads.
     Try again after the number of seconds specified in the Retry-After header.
@@ -114,13 +146,54 @@ ERROR_CODES: dict[int, type[PyZoteroError]] = {
 }
 
 
-def _err_msg(req: httpx.Response) -> str:
+# The local API uses the status codes 401, 412 and 428 for more than one
+# condition each. To identify the condition, examine the plain-text response
+# body. Each entry is a sequence of (body fragment, exception class) pairs.
+# The fragments are compared with the response text in the given order.
+_LOCAL_API_ERRORS: dict[int, tuple[tuple[str, type[PyZoteroError]], ...]] = {
+    401: (
+        ("API key required", LocalAPIKeyRequiredError),
+        ("Invalid or expired API key", LocalAPIKeyRequiredError),
+    ),
+    412: (("Zotero-Server-ID does not match", ServerIDMismatchError),),
+    428: (("Zotero-Server-ID not provided", ServerIDRequiredError),),
+}
+
+# The message for these errors gets a hint, because the server's own response
+# text does not show the corrective action.
+_ERROR_HINTS: dict[type[PyZoteroError], str] = {
+    LocalAPIKeyRequiredError: (
+        "Hint: call Zotero.authorize_local() to obtain a local API key. A key "
+        "granted with 'Allow' rather than 'Always Allow' is single-use, and is "
+        "consumed by the first successful write."
+    ),
+    ServerIDMismatchError: (
+        "Hint: the server_id in use belongs to a different Zotero instance or "
+        "database. Local API data and versions must be partitioned by server "
+        "ID; discard anything cached against the old one before replacing it."
+    ),
+}
+
+
+def _error_class(req: httpx.Response) -> type[PyZoteroError]:
+    """Return the most specific exception class for a response.
+
+    If the body does not identify one of the local API's special conditions,
+    fall back to a lookup by status code.
+    """
+    for fragment, error_cls in _LOCAL_API_ERRORS.get(req.status_code, ()):
+        if fragment in req.text:
+            return error_cls
+    return ERROR_CODES.get(req.status_code, HTTPError)
+
+
+def _err_msg(req: httpx.Response, hint: str = "") -> str:
     """Return a nicely-formatted error message for an HTTP response."""
     return (
         f"\nCode: {req.status_code}\n"
         f"URL: {req.url!s}\n"
         f"Method: {req.request.method}\n"
-        f"Response: {req.text}"
+        f"Response: {req.text}" + (f"\n{hint}" if hint else "")
     )
 
 
@@ -153,10 +226,11 @@ def error_handler(
         zot._set_backoff(delay)
         return
 
-    error_cls = ERROR_CODES.get(req.status_code, HTTPError)
+    error_cls = _error_class(req)
+    msg = _err_msg(req, _ERROR_HINTS.get(error_cls, ""))
     if exc is None:
-        raise error_cls(_err_msg(req))
-    raise error_cls(_err_msg(req)) from exc
+        raise error_cls(msg)
+    raise error_cls(msg) from exc
 
 
 __all__ = [
@@ -167,6 +241,8 @@ __all__ = [
     "FileDoesNotExistError",
     "HTTPError",
     "InvalidItemFieldsError",
+    "LocalAPIDeniedError",
+    "LocalAPIKeyRequiredError",
     "MissingCredentialsError",
     "ParamNotPassedError",
     "PreConditionFailedError",
@@ -174,6 +250,8 @@ __all__ = [
     "PyZoteroError",
     "RequestEntityTooLargeError",
     "ResourceNotFoundError",
+    "ServerIDMismatchError",
+    "ServerIDRequiredError",
     "TooManyItemsError",
     "TooManyRequestsError",
     "TooManyRetriesError",

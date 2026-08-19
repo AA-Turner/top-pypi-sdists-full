@@ -15,10 +15,9 @@ from geneva.apply.blob_range import (
     InMemoryBlobFile,
     RangeBlobReadUnsupportedError,
     _coalesce_blob_ranges,
-    _filesystem_from_uri,
-    _full_data_file_uri,
     _iter_row_budget_slices,
     _read_blob_values,
+    _read_data_file_ranges,
     _reassemble_struct_columns,
     blob_columns_in_schema,
     is_blob_field,
@@ -202,103 +201,41 @@ def test_iter_row_budget_slices_accounts_after_out_of_order_range() -> None:
     ]
 
 
-def test_full_data_file_uri_preserves_query_params() -> None:
-    assert _full_data_file_uri(
-        "s3+ddb://bucket/path/table.lance?ddbTableName=manifest",
-        "fragment-0.lance",
-    ) == (
-        "s3+ddb://bucket/path/table.lance/data/fragment-0.lance?ddbTableName=manifest"
-    )
+def test_read_data_file_ranges_reads_through_session() -> None:
+    class FakeSession:
+        def __init__(self) -> None:
+            self.calls: list[tuple[str, int, int]] = []
 
+        def read_range(self, path: str, offset: int, length: int) -> bytes:
+            self.calls.append((path, offset, length))
+            return bytes(range(offset, offset + length))
 
-def test_filesystem_from_uri_maps_s3_storage_options(monkeypatch) -> None:
-    import pyarrow.fs as pafs
-
-    captured: dict[str, Any] = {}
-
-    class FakeS3FileSystem:
-        pass
-
-    def fake_s3_file_system(**kwargs) -> FakeS3FileSystem:
-        captured.update(kwargs)
-        return FakeS3FileSystem()
-
-    monkeypatch.setattr(pafs, "S3FileSystem", fake_s3_file_system)
-
-    filesystem, path = _filesystem_from_uri(
-        "s3+ddb://bucket/path/table.lance/data/fragment-0.lance?ddbTableName=x",
+    root_session = FakeSession()
+    base_session = FakeSession()
+    buffers = _read_data_file_ranges(
         {
-            "aws_access_key_id": "access",
-            "aws_secret_access_key": "secret",
-            "aws_session_token": "token",
-            "aws_region": "us-west-2",
+            "frag-0.lance": (root_session, "data/frag-0.lance"),
+            "frag-7.lance": (base_session, "frag-7.lance"),
         },
+        {"frag-0.lance": [(0, 4), (64, 70)], "frag-7.lance": [(8, 12)]},
     )
 
-    assert isinstance(filesystem, FakeS3FileSystem)
-    assert path == "bucket/path/table.lance/data/fragment-0.lance"
-    assert captured == {
-        "access_key": "access",
-        "secret_key": "secret",
-        "session_token": "token",
-        "region": "us-west-2",
-    }
-
-
-def test_filesystem_from_uri_wraps_s3_constructor_errors(monkeypatch) -> None:
-    import pyarrow.fs as pafs
-
-    def fail_s3_file_system(**kwargs) -> None:
-        raise ValueError("bad s3 options")
-
-    monkeypatch.setattr(pafs, "S3FileSystem", fail_s3_file_system)
-
-    with pytest.raises(RangeBlobReadUnsupportedError, match="s3"):
-        _filesystem_from_uri(
-            "s3://bucket/path/table.lance/data/fragment-0.lance",
-            {"region": "us-west-2"},
-        )
-
-
-def test_filesystem_from_uri_supports_relative_local_paths() -> None:
-    import pyarrow.fs as pafs
-
-    filesystem, path = _filesystem_from_uri("relative/table.lance/data/file", None)
-
-    assert isinstance(filesystem, pafs.LocalFileSystem)
-    assert path == "relative/table.lance/data/file"
-
-
-def test_filesystem_from_uri_rejects_gcs_service_account_key() -> None:
-    with pytest.raises(RangeBlobReadUnsupportedError):
-        _filesystem_from_uri(
-            "gs://bucket/path/table.lance/data/fragment-0.lance",
-            {"google_service_account_key": "secret"},
-        )
-
-
-def test_filesystem_from_uri_rejects_gcs_access_token_without_expiration() -> None:
-    with pytest.raises(RangeBlobReadUnsupportedError, match="blob_read_strategy"):
-        _filesystem_from_uri(
-            "gs://bucket/path/table.lance/data/fragment-0.lance",
-            {"google_access_token": "token"},
-        )
-
-
-def test_filesystem_from_uri_rejects_azure_without_account_name(monkeypatch) -> None:
-    monkeypatch.delenv("AZURE_STORAGE_ACCOUNT_NAME", raising=False)
-    monkeypatch.delenv("AZURE_STORAGE_ACCOUNT", raising=False)
-
-    with pytest.raises(RangeBlobReadUnsupportedError, match="account_name"):
-        _filesystem_from_uri(
-            "az://container/path/table.lance/data/fragment-0.lance",
-            None,
-        )
-
-
-def test_filesystem_from_uri_marks_unsupported_schemes_unsupported() -> None:
-    with pytest.raises(RangeBlobReadUnsupportedError):
-        _filesystem_from_uri("memory://table.lance/data/fragment-0.lance", None)
+    # Dataset-root files resolve under the dataset's data dir on the root
+    # session; multi-base files read their bare path on that base's session.
+    # Each coalesced range is one ranged read returning a buffer tagged with
+    # its start offset.
+    assert root_session.calls == [
+        ("data/frag-0.lance", 0, 4),
+        ("data/frag-0.lance", 64, 6),
+    ]
+    assert base_session.calls == [("frag-7.lance", 8, 4)]
+    assert [(start, buf.to_pybytes()) for start, buf in buffers["frag-0.lance"]] == [
+        (0, bytes([0, 1, 2, 3])),
+        (64, bytes([64, 65, 66, 67, 68, 69])),
+    ]
+    assert [(start, buf.to_pybytes()) for start, buf in buffers["frag-7.lance"]] == [
+        (8, bytes([8, 9, 10, 11])),
+    ]
 
 
 def test_scalar_udf_wraps_range_materialized_blob_field() -> None:
@@ -399,7 +336,6 @@ def test_range_blob_batches_accepts_preopened_dataset(tmp_path) -> None:
     dataset = tbl.to_lance()
     frag_id = dataset.get_fragments()[0].fragment_id
     common = {
-        "dataset_uri": tbl.uri,
         "columns": ["id", "blob"],
         "frag_id": frag_id,
         "offset": 0,
@@ -440,7 +376,6 @@ def test_range_blob_batches_requires_table_or_dataset() -> None:
             range_blob_batches(
                 table=None,
                 dataset=None,
-                dataset_uri="mem://x",
                 columns=["blob"],
                 frag_id=0,
                 offset=0,
@@ -613,22 +548,22 @@ def test_scan_task_range_blob_batches_materialize_nested_blob(
     dataset = tbl.to_lance()
     fragment = dataset.get_fragments()[0]
 
-    # Spy on _filesystem_from_uri: this helper is only invoked by the range
+    # Spy on _read_data_file_ranges: this helper is only invoked by the range
     # path (range_blob_batches), so a non-zero call count proves the
     # optimized path ran end-to-end rather than silently falling back to the
     # legacy ``blob_handling="all_binary"`` materializer.
     from geneva.apply import blob_range as blob_range_module
 
-    fs_calls: list[str] = []
-    original_fs = blob_range_module._filesystem_from_uri
+    read_calls: list[dict] = []
+    original_read = blob_range_module._read_data_file_ranges
 
-    def spy_filesystem_from_uri(uri, storage_options):  # noqa: ANN001, ANN202
-        fs_calls.append(uri)
-        return original_fs(uri, storage_options)
+    def spy_read_data_file_ranges(session, ranges):  # noqa: ANN001, ANN202
+        read_calls.append(ranges)
+        return original_read(session, ranges)
 
     monkeypatch.setattr(
-        "geneva.apply.blob_range._filesystem_from_uri",
-        spy_filesystem_from_uri,
+        "geneva.apply.blob_range._read_data_file_ranges",
+        spy_read_data_file_ranges,
     )
 
     task = ScanTask(
@@ -654,9 +589,9 @@ def test_scan_task_range_blob_batches_materialize_nested_blob(
     ]
     nested_field = result.schema.field("image.image_bytes")
     assert nested_field.metadata[b"lance-encoding:blob"] == b"true"
-    assert len(fs_calls) >= 1, (
+    assert len(read_calls) >= 1, (
         "range path was not used for nested blob column "
-        "(_filesystem_from_uri was never called)"
+        "(_read_data_file_ranges was never called)"
     )
 
 
@@ -717,19 +652,19 @@ def test_range_blob_plan_activates_for_nested_blob_udf(tmp_path, monkeypatch) ->
     assert task.range_blob_columns == frozenset({"image.image_bytes"})
 
     # Spy proves the range path actually ran (not just that planning routed
-    # the task correctly). _filesystem_from_uri is range-path-only.
+    # the task correctly). _read_data_file_ranges is range-path-only.
     from geneva.apply import blob_range as blob_range_module
 
-    fs_calls: list[str] = []
-    original_fs = blob_range_module._filesystem_from_uri
+    read_calls: list[dict] = []
+    original_read = blob_range_module._read_data_file_ranges
 
-    def spy_filesystem_from_uri(uri, storage_options):  # noqa: ANN001, ANN202
-        fs_calls.append(uri)
-        return original_fs(uri, storage_options)
+    def spy_read_data_file_ranges(session, ranges):  # noqa: ANN001, ANN202
+        read_calls.append(ranges)
+        return original_read(session, ranges)
 
     monkeypatch.setattr(
-        "geneva.apply.blob_range._filesystem_from_uri",
-        spy_filesystem_from_uri,
+        "geneva.apply.blob_range._read_data_file_ranges",
+        spy_read_data_file_ranges,
     )
 
     batch = next(task.to_batches(batch_size=10))
@@ -738,9 +673,9 @@ def test_range_blob_plan_activates_for_nested_blob_udf(tmp_path, monkeypatch) ->
         b"BBBBB",
         b"C" * 10,
     ]
-    assert len(fs_calls) >= 1, (
+    assert len(read_calls) >= 1, (
         "range path was not used for nested blob UDF "
-        "(_filesystem_from_uri was never called)"
+        "(_read_data_file_ranges was never called)"
     )
 
     result = map_task.apply(batch)
@@ -1004,12 +939,13 @@ def test_scan_task_auto_falls_back_when_range_blob_unsupported(
     dataset = tbl.to_lance()
     fragment = dataset.get_fragments()[0]
 
-    def fail_range_filesystem(uri, storage_options) -> None:
+    import lance as lance_module
+
+    def fail_new_file_session(self) -> None:  # noqa: ANN001
         raise RangeBlobReadUnsupportedError("unsupported test backend")
 
     monkeypatch.setattr(
-        "geneva.apply.blob_range._filesystem_from_uri",
-        fail_range_filesystem,
+        lance_module.LanceDataset, "new_file_session", fail_new_file_session
     )
 
     task = ScanTask(
@@ -1085,12 +1021,13 @@ def test_scan_task_explicit_range_raises_when_unsupported(
     dataset = tbl.to_lance()
     fragment = dataset.get_fragments()[0]
 
-    def fail_range_filesystem(uri, storage_options) -> None:
+    import lance as lance_module
+
+    def fail_new_file_session(self) -> None:  # noqa: ANN001
         raise RangeBlobReadUnsupportedError("unsupported test backend")
 
     monkeypatch.setattr(
-        "geneva.apply.blob_range._filesystem_from_uri",
-        fail_range_filesystem,
+        lance_module.LanceDataset, "new_file_session", fail_new_file_session
     )
 
     task = ScanTask(

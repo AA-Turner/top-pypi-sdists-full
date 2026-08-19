@@ -1,13 +1,12 @@
 """MINT-LANE TOOLING (pgw#1327): derive a family's ``cg-key-v1`` entry key SET
 from CODE ALONE, by structure-only ``torch.export`` traces in child processes.
 
-**This module is no longer on the serve-boot path.** Until pgw#1327 every pod
-ran the traces below at boot — its own docstring said *"< 60 s, every time, ~99 %
-of it the traces"* — which made torch, diffusers and the endpoint's model code a
-hard dependency of a pod that will never compile anything. The traces compute a
-pure function of code the mint lane already ran, so their OUTPUT is now emitted
-as a ``cg-keyset-v1`` document (:mod:`gen_worker.keyset`) and a serve pod reads
-it as data. What remains here is the DERIVATION, which the mint lane owns:
+**This module is not on the serve-boot path** (pgw#1327). Running the traces
+below at boot makes torch, diffusers and the endpoint's model code a hard
+dependency of a pod that will never compile anything. They compute a pure
+function of code the mint lane already ran, so their OUTPUT is emitted as a
+``cg-keyset-v1`` document (:mod:`gen_worker.keyset`) and a serve pod reads it as
+data. What remains here is the DERIVATION, which the mint lane owns:
 
 * an ordinary Python serving pod that misses and mints (§4.28) runs this once and
   records the closure in its own cache;
@@ -20,7 +19,7 @@ serve role can pass ``None`` and the import guard has nothing to catch.
 
 The result is a KEY SET — one ``cg-key-v1`` per declared graph class — so a
 PARTIAL resolve helps: a pod that resolves 30
-of 36 keys arms 30 classes and compiles 6, where a single cell key made that
+of 36 keys arms 30 classes and compiles 6, where a single compiled graph key made that
 same outcome a total miss and a full re-mint.
 
 Processes, not threads
@@ -70,14 +69,10 @@ and re-derives on the next boot. ``trust_memo=False`` is the explicit
 verification posture. A wrong key is never produced — at worst a cached row is
 thrown away, by the pod that proved it wrong.
 
-THE CALLER, named here because for the whole of pgw#1089's life there was none:
-``mint_supervisor.rule_on_boot_memo``, at the seal/publish seam of every
-supervised mint. Until pgw#1271 this paragraph described a check with **zero
-``src/`` callers** — ``trust_memo=False`` was passed only from tests, both
-production callers took the default, and so the sentence above was FALSE in the
-deployed configuration. It is a sentence that reads exactly like enforcement,
-which is why nothing caught it. If you move the mint's publish seam, move the
-call with it; a paragraph is not a caller.
+THE CALLER, named because this check once had none in ``src/`` while its
+description read exactly like enforcement: ``mint_supervisor.rule_on_boot_memo``,
+at the seal/publish seam of every supervised mint. If you move the mint's
+publish seam, move the call with it — a paragraph is not a caller.
 """
 
 from __future__ import annotations
@@ -516,7 +511,7 @@ def derive(
     and then RULES on what it held — the verify posture, never the default.
 
     ``declared_hint`` is the parent's read of the declaration's class-row count
-    — ``len(aot_declaration.cell_plans(decl))``, which needs no pipeline. It
+    — ``len(aot_declaration.compiled_graph_plans(decl))``, which needs no pipeline. It
     sizes K and NOTHING else: the adapter fork can double it, and the true
     class set is whatever the children enumerate off their own composed
     pipelines. A hint that sizes a pool cannot move a key.
@@ -529,7 +524,7 @@ def derive(
     if int(declared_hint) <= 0:
         raise BootKeyUnavailable(
             "no_classes",
-            f"family {family!r} declares no graph classes; a cell with no "
+            f"family {family!r} declares no graph classes; a compiled graph with no "
             f"class set has no identity (pgw#716/#758)")
 
     try:
@@ -627,7 +622,7 @@ def derive(
             "class_set_disagreement",
             f"the trace children do not agree on how many classes this "
             f"declaration produces ({declared!r}) — they composed different "
-            f"pipelines, so their graphs are not one cell's graphs")
+            f"pipelines, so their graphs are not one compiled graph's graphs")
     total = declared[0]
     duplicated = sum(len(r.declarations) for r in reports) - len(declarations)
     if len(declarations) != total or duplicated:

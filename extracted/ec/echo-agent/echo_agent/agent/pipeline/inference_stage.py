@@ -27,6 +27,8 @@ from echo_agent.agent.pipeline.types import InferenceResult, PipelineContext
 from echo_agent.agent.tools.base import ToolExecutionContext, build_idempotency_key
 from echo_agent.agent.tools.circuit_breaker import ToolCircuitBreaker
 from echo_agent.agent.progress_heartbeat import ActivitySnapshot, friendly_activity
+from echo_agent.agent.streaming import channel_matches
+from echo_agent.agent.thinking_stream import ThinkingStream
 from echo_agent.bus.events import OutboundEvent
 from echo_agent.cost.budget import BudgetExceeded
 from echo_agent.models.provider import LLMResponse
@@ -66,6 +68,11 @@ class _LoopResult:
     # post-processing (planner reflection, is_complete) that assumes a finished
     # turn.
     interrupted: bool = False
+    # True when the provider returned finish_reason="error" (the LLM call itself
+    # failed and was surfaced as a fallback reply, not raised). The turn produced
+    # only a canned apology; the TASK did not complete — a dispatched board task
+    # must be written back as FAILED, not SUCCESS.
+    errored: bool = False
     should_review_skills: bool = False
     should_review_memory: bool = False
     skill_iters: int = 0
@@ -99,6 +106,7 @@ class _Decision:
     exec_ctx: object = None  # ToolExecutionContext, set when RUN
     blocked_message: str = ""  # tool message text, set when BLOCKED
     blocked_meta: dict = field(default_factory=dict)  # span end metadata
+    terminal: bool = False  # deterministic denial: do not ask the LLM to rewrite it
     read_only: bool = False
     approved: bool = True
     paths: list = field(default_factory=list)
@@ -182,6 +190,21 @@ class InferenceStage:
         answer. No id injection, no frame — those are CLI/TUI-only."""
         if tool_call.name != "clarify" or self._clarify is None:
             return
+        # Registering a pending request is a side effect on session state, so it
+        # must not happen for a call that is about to be rejected. Validation
+        # lives in ToolRegistry.execute, which runs AFTER this — so malformed
+        # arguments (options as a JSON string, question as a dict) left a pending
+        # request behind that nothing would ever resolve. On IM that is worse than
+        # cosmetic: _on_inbound treats the user's next message as the answer to a
+        # question they were never asked, swallowing it.
+        #
+        # Deliberately delegating to the tool's own validate_params rather than
+        # re-checking the shape here: two copies of the rules would drift, and the
+        # only correct predicate is "would execute() reject this?".
+        registry = getattr(self, "_tools", None)
+        tool = registry.get(tool_call.name) if registry is not None else None
+        if tool is not None and tool.validate_params(tool_call.arguments):
+            return
         question = tool_call.arguments.get("question", "")
         options = tool_call.arguments.get("options", []) or []
         if not should_emit_cognitive(event.channel):
@@ -206,6 +229,30 @@ class InferenceStage:
                 {"clarify_id": req.id, "question": question, "options": options},
                 question,
             )
+
+    async def _finish_clarify(self, tool_call: Any, event: Any) -> None:
+        """Tell the TUI a clarify prompt is closed, once its tool call returns.
+
+        The CLI clarify has no timeout — the only unblock is resolve() — so the
+        client cannot infer "this prompt is dead" from anything else on the wire.
+        It used to guess from the intermediate is_final frames the gateway emits
+        mid-turn, which fired while the prompt was still live: the picker went
+        inert, the next thing the user typed became a NEW turn, and that turn
+        queued forever behind the very turn still parked on this clarify.
+
+        Emitted for CLI only (matching _prepare_clarify) and best-effort: a
+        failure here must not fault an otherwise successful tool call."""
+        if tool_call.name != "clarify" or self._cog is None:
+            return
+        clarify_id = str(tool_call.arguments.get("_clarify_id", ""))
+        if not clarify_id or not should_emit_cognitive(event.channel):
+            return
+        try:
+            await self._cog.emit(
+                event, "clarify_closed", {"clarify_id": clarify_id}, "",
+            )
+        except Exception:  # noqa: BLE001 — never fault the tool call on this
+            logger.debug("clarify_closed emit failed", exc_info=True)
 
     async def _emit_progress(self, ctx: PipelineContext, text: str, *, tool_hint: bool = False) -> None:
         if not ctx.publish_response:
@@ -268,9 +315,34 @@ class InferenceStage:
             f"🔧 {name} · {status}",
         )
 
+    def _sync_context_window(self, display_window: int) -> None:
+        """Retarget the shared compressor to the model that just answered.
+
+        display_window is the routed model's real window (for the gauge); the
+        compression budget is capped by session.compression_window_cap so a
+        large-window model does not defer compression until context balloons.
+        """
+        if not display_window or display_window <= 0:
+            return
+        compressor = getattr(self, "_compressor", None)
+        if compressor is None or not hasattr(compressor, "update_context_window"):
+            return
+        cap = getattr(self._config.session, "compression_window_cap", 0) or 0
+        comp_window = min(display_window, cap) if cap > 0 else display_window
+        try:
+            compressor.update_context_window(display_window, comp_window)
+        except Exception:
+            logger.debug("context window sync failed", exc_info=True)
+
     async def _emit_cost(self, event, turn_tokens, turn_cost, total_cost,
-                         model: str = "", messages: list | None = None) -> None:
-        """Surface a cost update to the cognition stream (cli-gated)."""
+                         model: str = "", messages: list | None = None,
+                         measured_used: int = 0) -> None:
+        """Surface a cost update to the cognition stream (cli-gated).
+
+        ``measured_used`` is the provider-reported prompt-token count for the
+        round — the true occupancy. It is preferred over the local estimate;
+        the estimate is only a fallback when the provider omitted usage.
+        """
         if self._cog is None:
             return
         context_used = 0
@@ -278,7 +350,9 @@ class InferenceStage:
         compressor = getattr(self, "_compressor", None)
         if compressor is not None:
             context_max = getattr(compressor, "context_window_tokens", 0) or 0
-            if messages:
+            if measured_used and measured_used > 0:
+                context_used = int(measured_used)
+            elif messages:
                 context_used = compressor.estimate_tokens(messages)
         memory_count = 0
         memory_store = getattr(self, "_memory_store", None)
@@ -287,6 +361,9 @@ class InferenceStage:
                 memory_count = len(memory_store.list_all())
             except Exception:
                 pass
+        # Summaries carry TEXT ONLY, no leading glyph: the client owns the line
+        # marker (cli/tui/glyphs.py) and prefixes its own, so an emoji here
+        # rendered twice — and the emoji set is user-selectable client-side.
         await self._cog.emit(
             event, "cost_update",
             {"turn_tokens": int(turn_tokens), "turn_cost": round(turn_cost, 4),
@@ -295,7 +372,7 @@ class InferenceStage:
              "context_used": context_used,
              "context_max": context_max,
              "memory_count": memory_count},
-            f"💰 ${round(total_cost, 4)}",
+            f"${round(total_cost, 4)}",
         )
 
     async def _emit_memory_written(self, event, items) -> None:
@@ -308,17 +385,84 @@ class InferenceStage:
         n = len(norm)
         await self._cog.emit(
             event, "memory_written", {"items": norm},
-            f"✍ 写入/强化 {n} 条记忆",
+            f"写入/强化 {n} 条记忆",
         )
 
-    async def _emit_thinking(self, event, duration_ms, text) -> None:
-        """Surface a reasoning/thinking span to the cognition stream."""
+    def _thinking_sink(self, event, stream, started_at: float):
+        """Build the ``on_reasoning`` callback for one LLM round, or None.
+
+        None when nobody renders cognitive frames on this channel: the provider
+        then skips its forwarding branch entirely instead of building deltas that
+        would be dropped at the emitter's gate.
+        """
+        if self._cog is None or not should_emit_cognitive(event.channel):
+            return None
+
+        async def on_reasoning(delta: str) -> None:
+            snapshot = stream.add(delta)
+            if snapshot is None:
+                return
+            await self._emit_thinking(
+                event, int((time.monotonic() - started_at) * 1000), snapshot,
+                thinking_id=stream.thinking_id, streaming=True,
+            )
+
+        return on_reasoning
+
+    async def _settle_thinking(self, event, stream, response, duration_ms) -> None:
+        """Close out a round's thinking line once the response is in hand.
+
+        Three cases, and the reason each needs handling:
+
+        * The provider streamed and the trace survived on the response — emit a
+          final non-streaming frame so the line stops saying "思考中" and gains
+          its real duration.
+        * The provider streamed but ``reasoning_content`` came back empty. That
+          is _promote_reasoning: the reasoning WAS the answer, and it is about to
+          be rendered as the reply body. Retract the trace, or the user reads the
+          same text twice.
+        * The provider never streamed — emit the whole trace once, exactly as
+          before streaming existed.
+        """
+        reasoning = getattr(response, "reasoning_content", None)
+        if stream.streamed:
+            if reasoning:
+                await self._emit_thinking(
+                    event, duration_ms, reasoning,
+                    thinking_id=stream.thinking_id,
+                )
+            else:
+                await self._emit_thinking(
+                    event, duration_ms, "",
+                    thinking_id=stream.thinking_id, retracted=True,
+                )
+            return
+        if reasoning:
+            await self._emit_thinking(
+                event, duration_ms, reasoning, thinking_id=stream.thinking_id,
+            )
+
+    async def _emit_thinking(
+        self, event, duration_ms, text, *,
+        thinking_id: str = "", streaming: bool = False, retracted: bool = False,
+    ) -> None:
+        """Surface a reasoning/thinking span to the cognition stream.
+
+        ``thinking_id`` ties the frames of one LLM round together so a client can
+        update a single line in place instead of stacking a new one per frame.
+        ``streaming`` marks a partial snapshot (more text is still coming);
+        ``retracted`` asks the client to drop the line entirely, used when the
+        reasoning turned out to BE the answer (see _promote_reasoning) and would
+        otherwise appear twice.
+        """
         if self._cog is None:
             return
         await self._cog.emit(
             event, "thinking",
-            {"duration_ms": duration_ms, "text": str(text)[:2000]},
-            f"💭 Thought for {round(duration_ms / 1000, 1)}s",
+            {"duration_ms": duration_ms, "text": str(text)[:2000],
+             "thinking_id": thinking_id, "streaming": streaming,
+             "retracted": retracted},
+            ("思考中" if streaming else f"思考 {round(duration_ms / 1000, 1)}s"),
         )
 
     async def _emit_evolution(self, event, phase, skill, detail) -> None:
@@ -328,7 +472,7 @@ class InferenceStage:
         await self._cog.emit(
             event, "evolution",
             {"phase": phase, "skill": skill, "detail": str(detail)[:300]},
-            f"🧬 {skill}: {phase}",
+            f"{skill}: {phase}",
         )
 
     async def run(self, ctx: PipelineContext) -> InferenceResult:
@@ -383,6 +527,7 @@ class InferenceStage:
                     # normally the turn is fine; only its own forcing counts.
                     forced_convergence=second.forced_convergence,
                     interrupted=second.interrupted,
+                    errored=second.errored,
                     should_review_skills=loop_result.should_review_skills or second.should_review_skills,
                     should_review_memory=loop_result.should_review_memory or second.should_review_memory,
                     skill_iters=second.skill_iters,
@@ -451,6 +596,16 @@ class InferenceStage:
             should_review_skills=loop_result.should_review_skills,
             should_review_memory=should_review_memory,
             degraded_notices=loop_result.degraded_notices,
+            # Same "didn't cleanly finish" signal the plan-run status uses above,
+            # plus provider error. Carried out of the stage so AgentLoop can write
+            # a dispatched task back as FAILED instead of SUCCESS.
+            task_incomplete=(
+                loop_result.loop_exhausted
+                or loop_result.budget_halted
+                or loop_result.forced_convergence
+                or loop_result.interrupted
+                or loop_result.errored
+            ),
         )
 
     async def _run_tool_loop(self, ctx: PipelineContext, messages: list[dict[str, Any]]) -> _LoopResult:
@@ -480,6 +635,7 @@ class InferenceStage:
         forcing_final = False
         forced_convergence = False
         interrupted = False
+        errored = False
 
         # Read nudge counters from session (do NOT write back — run() owns that)
         _skill_iters = session.metadata.get("_nudge_tool_iters_skill", 0)
@@ -497,6 +653,12 @@ class InferenceStage:
         )
 
         on_delta = stream_publisher.on_delta if ctx.publish_response else None
+        # Whether this channel may show a draft that might later be retracted.
+        # Decided here (not in the provider) because only this layer knows the
+        # channel; see chat_stream_with_retry's draft_policy contract.
+        _draft_policy = (
+            "stream" if self._can_retract_draft(event.channel) else "buffer"
+        )
 
         for iteration in range(self._max_iterations):
             # Cooperative interrupt checkpoint. A Ctrl+C interrupt frame set this
@@ -568,21 +730,41 @@ class InferenceStage:
                     break
 
             _llm_started = time.monotonic()
+            # One thinking stream per LLM round. Built even when nothing will
+            # subscribe (non-cli channel) — it is a few attribute assignments,
+            # and `_thinking_sink` returning None is what actually keeps the
+            # provider from paying for the callback.
+            _thinking = ThinkingStream()
             response, route_decision = await self._chat_stream_with_routing(
                 messages=messages,
                 tools=active_tool_defs if active_tool_defs else None,
                 on_delta=on_delta,
+                on_reasoning=self._thinking_sink(event, _thinking, _llm_started),
                 task_type=ctx.task_type,
                 content=event.text,
+                draft_policy=_draft_policy,
             )
 
-            # Surface model reasoning as a thinking event when the provider
-            # returns reasoning content (real signal on LLMResponse).
-            _reasoning = getattr(response, "reasoning_content", None)
-            if _reasoning:
-                await self._emit_thinking(
-                    event, int((time.monotonic() - _llm_started) * 1000), _reasoning,
-                )
+            # Optimistic streaming: the draft we just published belongs to this
+            # iteration only. If the model chose to call a tool, that text was a
+            # pre-tool preamble and the real answer comes from a later
+            # iteration — retract it so the two never appear concatenated.
+            if (
+                _draft_policy == "stream"
+                and on_delta is not None
+                and response.has_tool_calls
+            ):
+                await stream_publisher.discard()
+
+            # Surface model reasoning as a thinking event. Two shapes, one line
+            # on screen: providers that stream reasoning have already published
+            # partial snapshots under _thinking.thinking_id and this closes it
+            # out; providers that don't emit their whole trace here for the
+            # first time.
+            await self._settle_thinking(
+                event, _thinking, response,
+                int((time.monotonic() - _llm_started) * 1000),
+            )
 
             # post_llm_call hook
             if self._hook_registry and self._hook_registry.has_hooks("post_llm_call"):
@@ -618,12 +800,19 @@ class InferenceStage:
                     or (int(_u.get("prompt_tokens") or _u.get("input_tokens") or 0)
                         + int(_u.get("completion_tokens") or _u.get("output_tokens") or 0))
                 )
+                # Prompt tokens = the real current-window occupancy for the gauge.
+                _measured_used = int(_u.get("prompt_tokens") or _u.get("input_tokens") or 0)
+                # Push the routed model's real window into the (shared) compressor
+                # so the gauge shows the true max and compression triggers against
+                # the capped budget — both track the model that actually answered.
+                self._sync_context_window(route_decision.context_window)
                 await self._emit_cost(
                     event, _turn_tokens,
                     self._cost_tracker.spent_usd - _cost_before,
                     self._cost_tracker.spent_usd,
                     model=route_decision.model,
                     messages=messages,
+                    measured_used=_measured_used,
                 )
 
             issues = self._inference.validate_response(response)
@@ -635,6 +824,7 @@ class InferenceStage:
                 if not response_text:
                     response_text = "I encountered an issue processing your request. Please try again."
                 loop_exhausted = False
+                errored = True
                 break
 
             if response.finish_reason == "length":
@@ -721,16 +911,31 @@ class InferenceStage:
 
             assistant_msg: dict[str, Any] = {"role": "assistant", "content": response.content}
             assistant_msg["tool_calls"] = [tc.to_openai_format() for tc in response.tool_calls]
+            # Anthropic validates the signature on every thinking block and
+            # requires them replayed unmodified in the turn that continues a tool
+            # call. They ride alongside the text rather than replacing it so the
+            # OpenAI-shaped `content` stays intact for every other provider; the
+            # Anthropic converter picks them up and others drop them. Kept off the
+            # persisted session history, which stays provider-neutral.
+            if getattr(response, "thinking_blocks", None):
+                assistant_msg["thinking_blocks"] = response.thinking_blocks
             messages.append(assistant_msg)
 
             tool_call_fmts = [tc.to_openai_format() for tc in response.tool_calls]
             session.add_message("assistant", response.content or "", tool_calls=tool_call_fmts)
 
-            await self._execute_tool_batch(
+            terminal_denial = await self._execute_tool_batch(
                 ctx=ctx, response=response, messages=messages, session=session,
                 trace_id=trace_id, iteration=iteration, event=event,
                 repeat_tracker=_repeat_tracker, counters=counters,
             )
+            if terminal_denial:
+                # ResponseStage will replace the generic fallback below with the
+                # deterministic degraded notice. Drop any pre-tool preamble so
+                # the final reply cannot contradict the timeout/delivery fact.
+                response_text = ""
+                loop_exhausted = False
+                break
 
         if loop_exhausted:
             logger.warning(
@@ -753,6 +958,7 @@ class InferenceStage:
             budget_halted=budget_halted,
             forced_convergence=forced_convergence,
             interrupted=interrupted,
+            errored=errored,
             should_review_skills=counters.should_review_skills,
             should_review_memory=counters.should_review_memory,
             skill_iters=counters.skill_iters,
@@ -780,8 +986,25 @@ class InferenceStage:
                 modified_args = hr.modified
         return None, modified_args
 
+    def _respill(self, tool_name: str, exec_ctx: Any, result: Any) -> Any:
+        """post_tool_call 之后补一次 spill。
+
+        registry 在 execute 内部已经 spill 过一次,但那不是最终写回边界:插件
+        可以替换 result,而替换后的超长文本只会撞上 _MAX_TOOL_RESULT_CHARS 的
+        哑截断。registry 侧的 apply 幂等,所以这次补调对未被插件改动的结果是
+        no-op。registry 没装 spill 或不是本类型时静默跳过。
+        """
+        applier = getattr(self._tools, "apply_spill", None)
+        if applier is None:
+            return result
+        try:
+            return applier(tool_name, exec_ctx, result)
+        except Exception as e:  # noqa: BLE001
+            logger.debug("post_tool_call 后的 spill 补调失败,保留插件结果: {}", e)
+            return result
+
     async def _execute_tool_batch(self, *, ctx, response, messages, session,
-                                  trace_id, iteration, event, repeat_tracker, counters):
+                                  trace_id, iteration, event, repeat_tracker, counters) -> bool:
         """Execute one batch of tool_calls in three phases:
 
         A. serial decision (approval / repeat guard / pre_tool_call hook) ->
@@ -819,6 +1042,7 @@ class InferenceStage:
                 d.verdict = "BLOCKED"
                 d.blocked_message = approval_check.denial.text
                 d.blocked_meta = {"success": False, "denied": True}
+                d.terminal = approval_check.terminal is True
                 if approval_check.notify_user and approval_check.notice:
                     counters.degraded_notices.append(approval_check.notice)
                 decisions.append(d)
@@ -874,9 +1098,17 @@ class InferenceStage:
                 idempotency_key=build_idempotency_key(trace_id, tool_call.name, tool_index, tool_call.arguments),
                 credentials=self._credentials.get_for_tool(tool_call.name),
                 approved_actions=approval_check.approved_actions,
+                approval_source=approval_check.approval_source,
                 channel=event.channel,
                 chat_id=event.chat_id,
                 reply_to_id=event.reply_to_id or "",
+                inbound_event_id=event.event_id,
+                # Trust facts travel with the context so a nested call (a
+                # delegate/spawn worker) can be gated on them. Read from the
+                # typed InboundEvent fields only — never metadata, which external
+                # channels populate from untrusted input.
+                unattended=bool(getattr(event, "unattended", False)),
+                cron_authorized=bool(getattr(event, "cron_authorized", False)),
             )
 
             # pre_tool_call hook (may cancel/modify); modifications applied in place
@@ -942,6 +1174,9 @@ class InferenceStage:
                             "post_tool_call", result, d.tool_call.name,
                             d.tool_call.arguments, d.exec_ctx,
                         )
+                        # 插件可能把结果换成一段超长文本。此处才是最终写回边界,
+                        # 不再过一遍 spill 就会掉进下方 16000 字符的哑截断。
+                        result = self._respill(d.tool_call.name, d.exec_ctx, result)
                     return result
 
             conc_order = list(conc_idx)
@@ -1011,6 +1246,7 @@ class InferenceStage:
                     result = await self._hook_registry.dispatch_modify(
                         "post_tool_call", result, tool_call.name, tool_call.arguments, d.exec_ctx,
                     )
+                    result = self._respill(tool_call.name, d.exec_ctx, result)
 
                 _tool_duration_ms = int((_time.monotonic() - _tool_start_ts) * 1000)
                 _tool_result_meta: dict[str, Any] = {
@@ -1051,6 +1287,11 @@ class InferenceStage:
                 )
                 results[d.index] = exc
                 break
+            finally:
+                # The clarify prompt (if this was one) is no longer answerable
+                # once execute() has returned, by answer OR by crash. Tell the
+                # client explicitly on both paths so it never has to infer it.
+                await self._finish_clarify(tool_call, ctx.event)
 
         # ---- Phase C: serial writeback in ORIGINAL tool_call order ----
         for d in decisions:
@@ -1146,6 +1387,23 @@ class InferenceStage:
                 # background review succeeds, so a failed review re-triggers next
                 # turn instead of dropping this batch permanently.
 
+        return any(d.terminal for d in decisions)
+
+    def _can_retract_draft(self, channel: str) -> bool:
+        """True when *channel* can visually replace text it already delivered,
+        which is what makes optimistic streaming safe (see
+        channels.stream_optimistic_channels).
+
+        Anything other than a real list of patterns (missing key on an older
+        config, a partially-built stub) reads as "not allowed" — the buffered
+        path is the safe default, so an unrecognised config must never opt a
+        send-only channel into showing retractable drafts.
+        """
+        patterns = getattr(self._config.channels, "stream_optimistic_channels", None)
+        if not isinstance(patterns, list) or not patterns:
+            return False
+        return channel_matches(channel, patterns)
+
     async def _chat_stream_with_routing(
         self,
         *,
@@ -1154,6 +1412,8 @@ class InferenceStage:
         on_delta: Any | None,
         task_type: str,
         content: str,
+        draft_policy: str | None = None,
+        on_reasoning: Any | None = None,
     ) -> tuple[LLMResponse, RouteDecision]:
         """Route to appropriate model with fallback chain and streaming."""
         if not self._router:
@@ -1162,10 +1422,18 @@ class InferenceStage:
                 tools=tools,
                 model=self._default_model or None,
                 on_delta=on_delta,
+                on_reasoning=on_reasoning,
+                draft_policy=draft_policy,
             )
             return response, RouteDecision(provider_name="default", model=self._default_model, reason="no router")
 
         emitted = False
+        # Reasoning from a FAILED candidate is not replayed by the next one:
+        # snapshots accumulate into one trace, so a second provider's thinking
+        # would be appended to the dead first attempt's and read as one garbled
+        # thought. Same rule as chat_stream_with_retry's reasoning_open, applied
+        # one level up across the fallback chain.
+        reasoning_open = True
 
         async def routed_delta(delta: str) -> None:
             nonlocal emitted
@@ -1175,6 +1443,17 @@ class InferenceStage:
                 if asyncio.iscoroutine(maybe):
                     await maybe
 
+        reasoning_seen = False
+
+        async def routed_reasoning(delta: str) -> None:
+            nonlocal reasoning_seen
+            if not reasoning_open or not on_reasoning:
+                return
+            reasoning_seen = True
+            maybe = on_reasoning(delta)
+            if asyncio.iscoroutine(maybe):
+                await maybe
+
         last_response: LLMResponse | None = None
         last_decision: RouteDecision | None = None
         for provider_name, provider, decision in self._router.route_candidates(task_type, content):
@@ -1183,8 +1462,10 @@ class InferenceStage:
                 tools=tools,
                 model=decision.model,
                 on_delta=routed_delta if on_delta else None,
+                on_reasoning=routed_reasoning if on_reasoning else None,
                 max_tokens=decision.max_tokens,
                 temperature=decision.temperature,
+                draft_policy=draft_policy,
             )
             last_response = response
             last_decision = decision
@@ -1195,6 +1476,8 @@ class InferenceStage:
             logger.warning("LLM provider '{}' failed for model '{}': {}", provider_name, decision.model, response.content)
             if emitted:
                 return response, decision
+            if reasoning_seen:
+                reasoning_open = False
 
         if last_response and last_decision:
             return last_response, last_decision
@@ -1203,5 +1486,7 @@ class InferenceStage:
             tools=tools,
             model=self._default_model or None,
             on_delta=on_delta,
+            on_reasoning=routed_reasoning if on_reasoning else None,
+            draft_policy=draft_policy,
         )
         return response, RouteDecision(provider_name="default", model=self._default_model, reason="router empty")

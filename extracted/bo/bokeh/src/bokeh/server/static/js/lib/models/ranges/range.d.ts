@@ -9,6 +9,9 @@ export declare namespace Range {
         bounds: p.Property<Bounds>;
         min_interval: p.Property<number | null>;
         max_interval: p.Property<number | null>;
+    } & Internal;
+    type Internal = {
+        computed_bounds: p.Property<[number, number]>;
     };
 }
 export interface Range extends Range.Attrs {
@@ -16,8 +19,6 @@ export interface Range extends Range.Attrs {
 export declare abstract class Range extends Model {
     properties: Range.Props;
     constructor(attrs?: Partial<Range.Attrs>);
-    protected _computed_bounds: [number, number];
-    get computed_bounds(): [number, number];
     abstract start: number;
     abstract end: number;
     abstract get min(): number;

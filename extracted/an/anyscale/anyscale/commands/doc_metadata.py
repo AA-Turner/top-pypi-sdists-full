@@ -7,6 +7,9 @@ from typing import Any, Dict, List, Optional
 
 from anyscale.commands.output_format import OutputFormat, render_output
 
+# Re-exported: commands annotate error_codes= with ErrorCode from this module.
+from anyscale.errors import ErrorCode  # noqa: F401
+
 
 class ReleaseStatus(str, Enum):
     """Release status of a command in the doc spec."""
@@ -16,23 +19,6 @@ class ReleaseStatus(str, Enum):
     BETA = "beta"
     GA = "ga"
     DEPRECATED = "deprecated"
-
-
-class ErrorCode(str, Enum):
-    """A documented error a command may raise."""
-
-    RESOURCE_NOT_FOUND = "resource_not_found"
-    NAME_CONFLICT = "name_conflict"
-    AUTH_UNAUTHORIZED = "auth_unauthorized"
-    AUTH_FORBIDDEN = "auth_forbidden"
-    AUTH_TOKEN_EXPIRED = "auth_token_expired"
-    OPERATION_TIMEOUT = "operation_timeout"
-    WORKLOAD_FAILED = "workload_failed"
-    INSUFFICIENT_CAPACITY = "insufficient_capacity"
-    CONNECTION_ERROR = "connection_error"
-    RATE_LIMITED = "rate_limited"
-    MISSING_CONFIG = "missing_config"
-    INVALID_CONFIG = "invalid_config"
 
 
 @dataclass(frozen=True)

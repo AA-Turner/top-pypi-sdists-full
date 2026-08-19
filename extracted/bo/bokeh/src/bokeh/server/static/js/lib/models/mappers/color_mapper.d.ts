@@ -20,9 +20,8 @@ export interface ColorMapper extends ColorMapper.Attrs {
 }
 export declare abstract class ColorMapper extends Mapper<Color> {
     properties: ColorMapper.Props;
-    metrics_change: Signal0<this>;
+    readonly metrics_change: Signal0<this>;
     constructor(attrs?: Partial<ColorMapper.Attrs>);
-    initialize(): void;
     v_compute(xs: Arrayable<number> | Arrayable<Factor | number | null>): Arrayable<Color>;
     get rgba_mapper(): RGBAMapper;
     protected _colors<T>(conv: (c: Color) => T): {

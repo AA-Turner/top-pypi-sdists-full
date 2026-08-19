@@ -5,14 +5,9 @@
 
 The legacy Lance path materializes blobs one logical value at a time. This
 module scans Lance blob descriptors, groups the underlying data-file byte
-ranges by batch, and opens PyArrow ``NativeFile`` handles to fetch those ranges
-directly.
-
-The storage-option helpers are a translation layer between Lance/object_store
-``storage_options`` accepted by Geneva and the PyArrow filesystem constructor
-arguments needed for direct byte-range reads. When that translation cannot
-preserve existing storage semantics, ``auto`` mode falls back to the legacy
-blob path.
+ranges by batch, and fetches them as ranged reads through the dataset's own
+``LanceFileSession`` -- the same object store, storage options, and credential
+provider the dataset itself reads with.
 """
 
 from __future__ import annotations
@@ -20,23 +15,17 @@ from __future__ import annotations
 import logging
 import os
 from array import array
-from datetime import datetime, timezone
 from itertools import pairwise
 from typing import TYPE_CHECKING, Any, Literal, cast
-from urllib.parse import ParseResult, urlparse, urlunparse
 
 import attrs
 import pyarrow as pa
+import pyarrow.compute as pc
 from lance.blob import BlobFile
 
 from geneva.transformer import BACKFILL_SELECTED
 from geneva.utils.parse_rust_debug import extract_field_ids
 from geneva.utils.schema import format_field_path, resolve_arrow_field
-from geneva.utils.storage import (
-    azure_credential_env,
-    get_azure_storage_account,
-    temporary_env,
-)
 
 _LOG = logging.getLogger(__name__)
 _ROW_ID_COLUMN = "_rowid"
@@ -45,7 +34,7 @@ if TYPE_CHECKING:
     from collections.abc import Iterator, Sequence
 
     import lance
-    import pyarrow.fs as pafs
+    from lance.file import LanceFileSession
 
 BlobReadStrategy = Literal["auto", "legacy", "range"]
 
@@ -54,6 +43,12 @@ BLOB_ENCODING_METADATA_VALUE = b"true"
 BLOB_V2_EXTENSION_METADATA_KEY = b"ARROW:extension:name"
 BLOB_V2_EXTENSION_NAME = b"lance.blob.v2"
 DEFAULT_RANGE_BLOB_READ_BUFFER_SIZE = 128 * 1024 * 1024
+# Deprecated raw env var. The blob read buffer now reads the JobConfig knob
+# applier_blob_buffer_bytes, set via env JOB__APPLIER_BLOB_BUFFER_BYTES -- one
+# attribute sizing both this actual read buffer and the memory estimate. This
+# env survives only as that JobConfig field's default, whose factory
+# (_default_applier_blob_buffer_bytes) warns once when this env is the source.
+# TODO: drop this raw env once operators have moved to the JobConfig knob.
 RANGE_BLOB_READ_BUFFER_SIZE_ENV = "GENEVA_RANGE_BLOB_READ_BUFFER_SIZE"
 _INTERNAL_ROW_ID_SCAN_BATCH_SIZE = 4096
 
@@ -82,8 +77,13 @@ def normalize_blob_read_strategy(value: str | None) -> BlobReadStrategy:
 
 def resolve_blob_read_buffer_size(value: int | None) -> int:
     if value is None:
-        raw = os.environ.get(RANGE_BLOB_READ_BUFFER_SIZE_ENV)
-        value = int(raw) if raw else DEFAULT_RANGE_BLOB_READ_BUFFER_SIZE
+        # Default to the JobConfig knob (JOB__APPLIER_BLOB_BUFFER_BYTES), which
+        # also sizes the memory estimate -- one attribute for both. Its default
+        # still mirrors the deprecated raw env, and the JobConfig factory warns
+        # once when that env is the source.
+        from geneva.jobs.config import JobConfig
+
+        value = JobConfig.get().applier_blob_buffer_bytes
     value = int(value)
     if value <= 0:
         raise ValueError("blob_read_buffer_size must be positive")
@@ -429,260 +429,18 @@ class _BlobColumnPlan:
     name: str
     field: pa.Field
     data_file_path: str
+    data_file_base_id: int | None = None
 
 
 class _MissingBlobDataFileError(ValueError):
     pass
 
 
-def _full_data_file_uri(dataset_uri: str, data_file_path: str) -> str:
-    parsed = urlparse(dataset_uri)
-    path = f"{parsed.path.rstrip('/')}/data/{data_file_path.lstrip('/')}"
-    return urlunparse(parsed._replace(path=path))
-
-
-def _uri_filesystem_path(parsed: ParseResult) -> str:
-    if parsed.netloc:
-        return f"{parsed.netloc}{parsed.path}"
-    return parsed.path
-
-
-def _storage_option(options: dict[str, Any], *keys: str) -> Any | None:
-    for key in keys:
-        value = options.get(key)
-        if value is not None:
-            return value
-    return None
-
-
-def _storage_bool(options: dict[str, Any], *keys: str) -> bool | None:
-    value = _storage_option(options, *keys)
-    if value is None:
-        return None
-    if isinstance(value, bool):
-        return value
-    return str(value).strip().lower() in {"1", "true", "yes", "on"}
-
-
-def _storage_float(options: dict[str, Any], *keys: str) -> float | None:
-    value = _storage_option(options, *keys)
-    if value is None:
-        return None
-    return float(value)
-
-
-def _storage_datetime(options: dict[str, Any], *keys: str) -> datetime | None:
-    value = _storage_option(options, *keys)
-    if value is None:
-        return None
-    if isinstance(value, datetime):
-        return value
-    if isinstance(value, int | float):
-        return datetime.fromtimestamp(value, tz=timezone.utc)
-    text = str(value)
-    return datetime.fromisoformat(text.replace("Z", "+00:00"))
-
-
-def _with_storage_value(
-    kwargs: dict[str, Any],
-    arg_name: str,
-    options: dict[str, Any],
-    *keys: str,
-) -> None:
-    value = _storage_option(options, *keys)
-    if value is not None:
-        kwargs[arg_name] = value
-
-
-def _with_storage_bool(
-    kwargs: dict[str, Any],
-    arg_name: str,
-    options: dict[str, Any],
-    *keys: str,
-) -> None:
-    value = _storage_bool(options, *keys)
-    if value is not None:
-        kwargs[arg_name] = value
-
-
-def _with_storage_float(
-    kwargs: dict[str, Any],
-    arg_name: str,
-    options: dict[str, Any],
-    *keys: str,
-) -> None:
-    value = _storage_float(options, *keys)
-    if value is not None:
-        kwargs[arg_name] = value
-
-
-def _s3_filesystem_from_uri(
-    parsed: ParseResult, options: dict[str, Any]
-) -> tuple[pafs.FileSystem, str]:
-    import pyarrow.fs as fs
-
-    kwargs: dict[str, Any] = {}
-    _with_storage_value(
-        kwargs,
-        "access_key",
-        options,
-        "access_key",
-        "aws_access_key_id",
-        "aws_access_key",
-    )
-    _with_storage_value(
-        kwargs,
-        "secret_key",
-        options,
-        "secret_key",
-        "aws_secret_access_key",
-        "aws_secret_key",
-    )
-    _with_storage_value(
-        kwargs, "session_token", options, "session_token", "aws_session_token"
-    )
-    _with_storage_value(kwargs, "region", options, "region", "aws_region")
-    _with_storage_value(
-        kwargs,
-        "endpoint_override",
-        options,
-        "endpoint_override",
-        "endpoint_url",
-        "aws_endpoint",
-        "aws_endpoint_url",
-        "s3_endpoint",
-    )
-    _with_storage_value(kwargs, "role_arn", options, "role_arn", "aws_role_arn")
-    _with_storage_value(kwargs, "session_name", options, "session_name")
-    _with_storage_value(kwargs, "external_id", options, "external_id")
-    _with_storage_value(kwargs, "scheme", options, "scheme")
-    _with_storage_bool(kwargs, "anonymous", options, "anonymous")
-    _with_storage_bool(
-        kwargs, "force_virtual_addressing", options, "force_virtual_addressing"
-    )
-    _with_storage_float(kwargs, "request_timeout", options, "request_timeout")
-    _with_storage_float(kwargs, "connect_timeout", options, "connect_timeout")
-
-    return fs.S3FileSystem(**kwargs), _uri_filesystem_path(parsed)
-
-
-def _gcs_filesystem_from_uri(
-    parsed: ParseResult, options: dict[str, Any]
-) -> tuple[pafs.FileSystem, str]:
-    import pyarrow.fs as fs
-
-    if _storage_option(options, "google_service_account_key", "service_account_key"):
-        raise RangeBlobReadUnsupportedError(
-            "GCS service-account-key storage_options cannot be represented in "
-            "pyarrow.fs.GcsFileSystem; use blob_read_strategy='legacy' or "
-            "ambient credentials"
-        )
-
-    kwargs: dict[str, Any] = {}
-    _with_storage_bool(kwargs, "anonymous", options, "anonymous")
-    _with_storage_value(
-        kwargs, "project_id", options, "project_id", "google_project_id"
-    )
-    _with_storage_value(
-        kwargs, "target_service_account", options, "target_service_account"
-    )
-    _with_storage_value(
-        kwargs, "endpoint_override", options, "endpoint_override", "endpoint_url"
-    )
-
-    access_token = _storage_option(options, "access_token", "google_access_token")
-    if access_token is not None:
-        expiration = _storage_datetime(
-            options,
-            "credential_token_expiration",
-            "google_credential_token_expiration",
-        )
-        if expiration is None:
-            raise RangeBlobReadUnsupportedError(
-                "GCS access_token storage_options require "
-                "credential_token_expiration for pyarrow.fs.GcsFileSystem; "
-                "use blob_read_strategy='legacy' or provide a token expiration"
-            )
-        kwargs["access_token"] = access_token
-        kwargs["credential_token_expiration"] = expiration
-
-    return fs.GcsFileSystem(**kwargs), _uri_filesystem_path(parsed)
-
-
-def _azure_filesystem_from_uri(
-    parsed: ParseResult, options: dict[str, Any]
-) -> tuple[pafs.FileSystem, str]:
-    import pyarrow.fs as fs
-
-    try:
-        account_name = (
-            _storage_option(options, "account_name", "azure_storage_account_name")
-            or get_azure_storage_account()
-        )
-    except ValueError as exc:
-        raise RangeBlobReadUnsupportedError(
-            "Azure account_name is required for pyarrow.fs.AzureFileSystem; "
-            "use blob_read_strategy='legacy' or set account_name/"
-            "AZURE_STORAGE_ACCOUNT_NAME"
-        ) from exc
-    kwargs: dict[str, Any] = {"account_name": account_name}
-    account_key = _storage_option(options, "account_key", "azure_storage_account_key")
-    if account_key is not None:
-        kwargs["account_key"] = account_key
-    _with_storage_value(
-        kwargs, "blob_storage_authority", options, "blob_storage_authority"
-    )
-    _with_storage_value(
-        kwargs, "dfs_storage_authority", options, "dfs_storage_authority"
-    )
-    _with_storage_value(kwargs, "blob_storage_scheme", options, "blob_storage_scheme")
-    _with_storage_value(kwargs, "dfs_storage_scheme", options, "dfs_storage_scheme")
-    sas_token = _storage_option(options, "sas_token", "azure_storage_sas_token")
-    if sas_token is None and account_key is None:
-        sas_token = parsed.query
-    if sas_token:
-        kwargs["sas_token"] = sas_token
-
-    with temporary_env(azure_credential_env(options)):
-        azure_fs = fs.AzureFileSystem(**kwargs)
-    return azure_fs, _uri_filesystem_path(parsed)
-
-
-def _filesystem_from_uri(
-    uri: str, storage_options: dict[str, Any] | None
-) -> tuple[pafs.FileSystem, str]:
-    import pyarrow.fs as fs
-
-    parsed = urlparse(uri)
-    scheme = parsed.scheme.lower()
-    options = storage_options or {}
-
-    try:
-        if not scheme:
-            return fs.LocalFileSystem(), uri
-        if scheme == "az":
-            return _azure_filesystem_from_uri(parsed, options)
-        if scheme in {"s3", "s3+ddb"}:
-            return _s3_filesystem_from_uri(parsed, options)
-        if scheme in {"gs", "gcs"}:
-            return _gcs_filesystem_from_uri(parsed, options)
-
-        if parsed.query and parsed.scheme:
-            uri = urlunparse(parsed._replace(query="", fragment=""))
-        return fs.FileSystem.from_uri(uri)
-    except RangeBlobReadUnsupportedError:
-        raise
-    except Exception as exc:
-        raise RangeBlobReadUnsupportedError(
-            f"pyarrow cannot construct a filesystem for {parsed.scheme!r} URIs"
-        ) from exc
-
-
 def _get_blob_data_file_path(
     dataset: lance.LanceDataset,
     fragment: lance.LanceFragment,
     column: str,
-) -> str:
+) -> tuple[str, int | None]:
     # Field ids come from Lance's internal schema representation. If parsing or
     # lookup fails, mark range reads unsupported so `auto` can fall back.
     try:
@@ -698,7 +456,11 @@ def _get_blob_data_file_path(
 
     for data_file in fragment.data_files():
         if field_ids & set(data_file.fields):
-            return data_file.path
+            base_id = getattr(data_file, "base_id", None)
+            return (
+                data_file.path,
+                int(base_id) if base_id is not None else None,
+            )
 
     raise _MissingBlobDataFileError(
         f"Could not find data file for blob column {column!r} "
@@ -719,6 +481,62 @@ def _blob_descriptor_arrays(array: pa.Array) -> tuple[pa.Array, pa.Array]:
             f"got {array.type}"
         )
     return struct_arr.field("position"), struct_arr.field("size")
+
+
+def materialized_column_bytes(
+    array: pa.Array | pa.ChunkedArray, field: pa.Field
+) -> int:
+    """Bytes this column occupies once its blob leaves are materialized.
+
+    A plain scan of a blob column returns ``struct<position, size>``
+    *descriptors*, so ``nbytes`` reports ~16 B/row no matter how large the
+    payload is. Sizing a read task or an actor reservation from that number is
+    blind to the payload the applier will actually hold: measured on identical
+    150 KiB values, ``nbytes`` gives 153,608 B/row unencoded and 16 B/row with
+    ``lance-encoding:blob=true``.
+
+    The descriptor carries the payload length in its ``size`` field, so the
+    real width is available without fetching a single blob byte. Struct columns
+    are walked so a nested blob leaf counts too; anything else falls back to
+    ``nbytes``.
+    """
+    if isinstance(array, pa.ChunkedArray):
+        return sum(materialized_column_bytes(chunk, field) for chunk in array.chunks)
+
+    if is_blob_field(field) and pa.types.is_struct(array.type):
+        names = {f.name for f in array.type}
+        if {"position", "size"} <= names:
+            sizes = cast("pa.StructArray", array).field("size")
+            total = pc.sum(sizes).as_py()
+            # Descriptors themselves stay resident alongside the payload.
+            return int(total or 0) + array.nbytes
+
+    # Recurse on the *schema* type, not the scanned one. A scanned blob leaf
+    # arrives as a bare ``struct<position, size>`` with the
+    # ``lance-encoding:blob`` metadata stripped, so asking ``array.type``
+    # whether it holds a blob answers no and the whole struct falls through to
+    # descriptor bytes -- the exact bug this function exists to fix, one level
+    # down. ``field.type`` came from the dataset schema and still knows.
+    #
+    # Children are paired by name because a projection can drop or reorder
+    # them: a positional walk would misattribute one child's payload to
+    # another's field, and silently price both wrong.
+    if _struct_contains_blob(field.type) and pa.types.is_struct(array.type):
+        struct_arr = cast("pa.StructArray", array)
+        scanned = {f.name: i for i, f in enumerate(array.type)}
+        schema_type = cast("pa.StructType", field.type)
+        total = 0
+        for i in range(schema_type.num_fields):
+            child_field = schema_type.field(i)
+            scanned_index = scanned.get(child_field.name)
+            if scanned_index is None:
+                continue
+            total += materialized_column_bytes(
+                struct_arr.field(scanned_index), child_field
+            )
+        return total
+
+    return array.nbytes
 
 
 def _row_blob_ranges(
@@ -900,16 +718,25 @@ def _iter_row_budget_slices(
 
 
 def _read_data_file_ranges(
-    files: dict[str, pa.NativeFile],
+    file_reads: dict[str, tuple[LanceFileSession, str]],
     ranges: dict[str, list[tuple[int, int]]],
 ) -> dict[str, list[tuple[int, pa.Buffer]]]:
+    """Fetch coalesced byte ranges through per-base Lance file sessions.
+
+    ``file_reads`` maps each data file to its session and session-relative
+    path (dataset-root files read via the dataset session, multi-base files
+    via a session rooted at their base). Each range is a single ranged GET
+    against the owning object store; token acquisition happens in Rust with
+    cached credentials, so a failure surfaces as a catchable ``OSError``
+    instead of an unhandled C++ exception aborting the process.
+    """
     buffers: dict[str, list[tuple[int, pa.Buffer]]] = {}
     for data_file_path, file_ranges in ranges.items():
-        file = files[data_file_path]
+        session, rel_path = file_reads[data_file_path]
         for range_start, range_end in file_ranges:
-            file.seek(range_start)
+            data = session.read_range(rel_path, range_start, range_end - range_start)
             buffers.setdefault(data_file_path, []).append(
-                (range_start, file.read_buffer(range_end - range_start))
+                (range_start, pa.py_buffer(data))
             )
     return buffers
 
@@ -995,14 +822,14 @@ def _read_blob_values(
 def _materialize_blob_slice(
     batch: pa.RecordBatch,
     plans: Sequence[_BlobColumnPlan],
-    files: dict[str, pa.NativeFile],
+    file_reads: dict[str, tuple[LanceFileSession, str]],
     row_ranges: Sequence[Sequence[tuple[str, int, int]]],
     byte_budget: int,
     selected_only_blob_columns: frozenset[str] | None,
 ) -> pa.RecordBatch:
     flat_ranges = [r for ranges in row_ranges for r in ranges]
     data_file_ranges = _coalesce_blob_ranges(flat_ranges, byte_budget)
-    data_file_buffers = _read_data_file_ranges(files, data_file_ranges)
+    data_file_buffers = _read_data_file_ranges(file_reads, data_file_ranges)
     columns = list(batch.columns)
     fields = list(batch.schema)
     index_by_name = {name: idx for idx, name in enumerate(batch.schema.names)}
@@ -1158,8 +985,6 @@ def _struct_validity_from_leaves(
     if not leaf_arrays:
         return None
     all_null = pa.array([True] * num_rows, type=pa.bool_())
-    import pyarrow.compute as pc
-
     for leaf in leaf_arrays:
         all_null = pc.and_(all_null, pc.is_null(leaf))
     if pc.sum(pc.cast(all_null, pa.int64())).as_py() == 0:
@@ -1268,7 +1093,6 @@ def _drop_internal_row_id(
 def range_blob_batches(
     *,
     table: Any = None,
-    dataset_uri: str,
     columns: Sequence[str],
     frag_id: int,
     offset: int,
@@ -1286,9 +1110,10 @@ def range_blob_batches(
 ) -> Iterator[pa.RecordBatch]:
     """Yield record batches with top-level blob columns materialized as bytes.
 
-    This is the engine behind ``blob_read_strategy="range"``. It keeps one
-    open file handle per Lance data file, batches blob byte ranges by the
-    configured buffer budget, and returns batches ready for UDF argument
+    This is the engine behind ``blob_read_strategy="range"``. It reads blob
+    payloads as coalesced ranged reads through the dataset's file session
+    (per-base sessions for multi-base datasets), batches the byte ranges by
+    the configured buffer budget, and returns batches ready for UDF argument
     conversion.
 
     When ``struct_blob_decomp`` is provided, each named struct column is read as
@@ -1318,7 +1143,14 @@ def range_blob_batches(
         from geneva.query import open_read_dataset
 
         dataset = open_read_dataset(table, version=version)
-    resolved_dataset_uri = str(getattr(dataset, "uri", dataset_uri))
+    from geneva.utils.multi_base import resolve_dataset_bases
+
+    base_data_dirs: dict[int, str] | None = {
+        base_id: base.data_dir
+        for base_id, base in resolve_dataset_bases(dataset).items()
+    }
+    if not base_data_dirs:
+        base_data_dirs = None
 
     fragment = dataset.get_fragment(frag_id)
     if fragment is None:
@@ -1337,7 +1169,9 @@ def range_blob_batches(
                 f"Could not resolve blob column path {col!r} in schema"
             )
         try:
-            data_file_path = _get_blob_data_file_path(dataset, fragment, col)
+            data_file_path, data_file_base_id = _get_blob_data_file_path(
+                dataset, fragment, col
+            )
         except _MissingBlobDataFileError:
             _LOG.debug(
                 "Blob column %s in fragment %s has no backing data file; "
@@ -1352,6 +1186,7 @@ def range_blob_batches(
                 name=col,
                 field=field,
                 data_file_path=data_file_path,
+                data_file_base_id=data_file_base_id,
             )
         )
 
@@ -1372,62 +1207,82 @@ def range_blob_batches(
         scanner_kwargs["limit"] = int(limit)
     scanner_kwargs = {k: v for k, v in scanner_kwargs.items() if v is not None}
 
-    data_files = {plan.data_file_path for plan in blob_plans}
-    open_files = {}
-    try:
-        # Keep one input file open per data file instead of reopening per row.
-        for data_file in data_files:
-            full_uri = _full_data_file_uri(resolved_dataset_uri, data_file)
-            file_system, path = _filesystem_from_uri(full_uri, storage_options)
-            # Read-only blob fetch; no DataLake create/dir semantics.
-            # hns-ok: open_input_file does not trigger the Azure dfs/HNS probe.
-            open_files[data_file] = file_system.open_input_file(path)
+    # One file session per task for dataset-root data files, plus one plain-
+    # rooted session per storage base for multi-base data files (a dataset
+    # session resolves paths relative to the table root and cannot address a
+    # base outside it -- same routing as MultiBaseCheckpointStore). Tokens are
+    # acquired, cached, and refreshed in Rust, ranged reads go straight to the
+    # store with no per-file open/stat round trip, and an auth failure is a
+    # catchable Python error.
+    from lance.file import LanceFileSession
 
-        scanner = dataset.scanner(**scanner_kwargs)
-        main_batches = scanner.to_batches()
-        try:
-            for batch in main_batches:
-                batch = _materialize_missing_blob_columns(batch, missing_blob_fields)
-                if needs_filter_mask:
-                    assert where is not None
-                    row_ids = [
-                        int(row_id)
-                        for row_id in batch[_ROW_ID_COLUMN].to_pylist()
-                        if row_id is not None
-                    ]
-                    matching_row_ids = _matching_row_ids_for_where(
-                        dataset,
-                        fragment,
-                        where,
-                        row_ids,
-                    )
-                    batch = _add_backfill_selected_mask(batch, matching_row_ids)
-                    batch = _drop_internal_row_id(batch, requested_columns)
-                # Blob descriptor structs provide the byte spans each row needs.
-                row_ranges = _row_blob_ranges(
-                    batch,
-                    blob_plans,
-                    selected_only_blob_columns=selected_only_blob_columns,
+    root_session = dataset.new_file_session()
+    base_sessions: dict[int, LanceFileSession] = {}
+    session_options = (
+        {k: str(v) for k, v in storage_options.items()} if storage_options else None
+    )
+    file_reads: dict[str, tuple[LanceFileSession, str]] = {}
+    for plan in blob_plans:
+        base_id = plan.data_file_base_id
+        base_dir = (
+            base_data_dirs.get(base_id)
+            if base_data_dirs and base_id is not None
+            else None
+        )
+        if base_id is None or base_dir is None:
+            file_reads[plan.data_file_path] = (
+                root_session,
+                f"data/{plan.data_file_path.lstrip('/')}",
+            )
+            continue
+        session = base_sessions.get(base_id)
+        if session is None:
+            session = LanceFileSession(base_dir, storage_options=session_options)
+            base_sessions[base_id] = session
+        file_reads[plan.data_file_path] = (session, plan.data_file_path.lstrip("/"))
+
+    scanner = dataset.scanner(**scanner_kwargs)
+    main_batches = scanner.to_batches()
+    try:
+        for batch in main_batches:
+            batch = _materialize_missing_blob_columns(batch, missing_blob_fields)
+            if needs_filter_mask:
+                assert where is not None
+                row_ids = [
+                    int(row_id)
+                    for row_id in batch[_ROW_ID_COLUMN].to_pylist()
+                    if row_id is not None
+                ]
+                matching_row_ids = _matching_row_ids_for_where(
+                    dataset,
+                    fragment,
+                    where,
+                    row_ids,
                 )
-                for row_slice in _iter_row_budget_slices(row_ranges, byte_budget):
-                    start = int(row_slice.start or 0)
-                    stop = int(row_slice.stop or start)
-                    sliced = batch.slice(start, stop - start)
-                    materialized = _materialize_blob_slice(
-                        sliced,
-                        blob_plans,
-                        open_files,
-                        row_ranges[start:stop],
-                        byte_budget,
-                        selected_only_blob_columns,
+                batch = _add_backfill_selected_mask(batch, matching_row_ids)
+                batch = _drop_internal_row_id(batch, requested_columns)
+            # Blob descriptor structs provide the byte spans each row needs.
+            row_ranges = _row_blob_ranges(
+                batch,
+                blob_plans,
+                selected_only_blob_columns=selected_only_blob_columns,
+            )
+            for row_slice in _iter_row_budget_slices(row_ranges, byte_budget):
+                start = int(row_slice.start or 0)
+                stop = int(row_slice.stop or start)
+                sliced = batch.slice(start, stop - start)
+                materialized = _materialize_blob_slice(
+                    sliced,
+                    blob_plans,
+                    file_reads,
+                    row_ranges[start:stop],
+                    byte_budget,
+                    selected_only_blob_columns,
+                )
+                if decomps:
+                    materialized = _reassemble_struct_columns(
+                        materialized, decomps, requested_struct_columns
                     )
-                    if decomps:
-                        materialized = _reassemble_struct_columns(
-                            materialized, decomps, requested_struct_columns
-                        )
-                    yield materialized
-        finally:
-            _close_iterator(main_batches)
+                yield materialized
     finally:
-        for file in open_files.values():
-            file.close()
+        _close_iterator(main_batches)

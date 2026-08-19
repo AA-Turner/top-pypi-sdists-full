@@ -23,7 +23,7 @@ import dataclasses
 import functools
 import os
 import typing
-from typing import Any, ParamSpec, Self, TypeVar, cast
+from typing import Any, cast
 
 from absl import logging
 import immutabledict
@@ -31,14 +31,11 @@ from pydantic_core import core_schema as cs
 from tokamax._src import benchmarking
 from tokamax._src import numerics
 
-
-_Config = TypeVar("_Config")
-_P = ParamSpec("_P")
 BenchmarkData = benchmarking.BenchmarkData
 
 
-class AutotuningData(
-    immutabledict.immutabledict[_Config, BenchmarkData | Exception]
+class AutotuningData[K](
+    immutabledict.immutabledict[K, BenchmarkData | Exception]
 ):
   """Results from autotuning."""
 
@@ -48,7 +45,7 @@ class AutotuningData(
     return cast(AutotuningData, super().__new__(cls, *args, **kwargs))
 
   @property
-  def fastest_config(self) -> _Config:
+  def fastest_config(self) -> K:
     valid_benchmarks = tuple(
         it for it in self.items() if isinstance(it[1], BenchmarkData)
     )
@@ -57,10 +54,11 @@ class AutotuningData(
       return min(valid_benchmarks, key=key_fn)[0]
     except ValueError as e:
       if self:
-        raise ExceptionGroup("All configs failed", tuple(self.values())) from e
+        exceptions = cast(tuple[Exception, ...], tuple(self.values()))
+        raise ExceptionGroup("All configs failed", exceptions) from e
       raise ValueError("Autotuning data is empty") from e
 
-  def prune(self) -> Self:
+  def prune(self) -> AutotuningData[K]:
     if not self:
       return self
     try:
@@ -69,6 +67,9 @@ class AutotuningData(
     except ExceptionGroup as e:
       raise e
     return return_data
+
+  def prune_errors(self) -> dict[K, BenchmarkData]:
+    return {k: v for k, v in self.items() if isinstance(v, BenchmarkData)}
 
   @classmethod
   def __get_pydantic_core_schema__(cls, source, handler):
@@ -85,11 +86,14 @@ class AutotuningData(
         ),
     )
 
+  def __or__(self, other: AutotuningData[K]) -> AutotuningData[K]:
+    return AutotuningData(super().__or__(other))
+
 
 def _compile(fn_factory, config, args, kwargs, *, seed=None):
   fn = fn_factory(config)
   fn, x = benchmarking.standardize_function(fn, *args, kwargs=kwargs, seed=seed)
-  return benchmarking.compile_benchmark(fn, x), x
+  return benchmarking.compile_benchmark(fn, cast(Any, x)), x
 
 
 def _benchmark(fn_factory, config, args, kwargs):
@@ -117,19 +121,18 @@ class Autotuner:
       futures.ThreadPoolExecutor
   )
   executor_fn: Callable[[], futures.Executor] = _SyncExecutor
-  timeout_seconds: float = 600.0
 
-  def autotune(
+  def autotune[C, **P](
       self,
-      fn_factory: Callable[[_Config], Callable[_P, Any]],
-      configs: set[_Config],
-      *args: _P.args,
-      **kwargs: _P.kwargs,
-  ) -> AutotuningData[_Config]:
+      fn_factory: Callable[[C], Callable[P, Any]],
+      configs: set[C],
+      *args: P.args,
+      timeout: float | None = 600.0,  # pyrefly: ignore[bad-function-definition]
+      **kwargs: P.kwargs,
+  ) -> AutotuningData[C]:
     """Autotunes over configs for the given arguments."""
     executor = self.executor_fn()
     executor_args = {}
-    timeout = self.timeout_seconds
     vlog_exc_info = functools.partial(logging.vlog, 2, exc_info=True)
 
     results = {}
@@ -139,9 +142,7 @@ class Autotuner:
             "Cannot specify a `compile_executor_fn` when using a"
             " `ProcessPoolExecutor` executor."
         )
-      # pytype: disable=wrong-keyword-args
-      with self.compile_executor_fn(max_workers=os.cpu_count()) as compile_exec:
-        # pytype: enable=wrong-keyword-args
+      with self.compile_executor_fn(max_workers=os.cpu_count()) as compile_exec:  # pyrefly: ignore[unexpected-keyword]
         compiled = {
             compile_exec.submit(_compile, fn_factory, cfg, args, kwargs): cfg
             for cfg in configs
@@ -155,7 +156,7 @@ class Autotuner:
               if initialized_args is None:
                 initialized_args = numerics.random_initialize(args)
               executor_args[config] = (compiled_fn, initialized_args)
-            except Exception as e:
+            except Exception as e:  # pylint: disable=broad-exception-caught
               vlog_exc_info("Config failed to compile: %s", config)
               results[config] = e
         except TimeoutError as e:
@@ -208,7 +209,7 @@ class Autotuner:
           1,
           "best config is %s (median execution time: %f ms)",
           config,
-          results[config].median_evaluation_time_ms,
+          cast(BenchmarkData, results[config]).median_evaluation_time_ms,
       )
     except ExceptionGroup:
       logging.exception("all configs failed for %s", fn_factory)

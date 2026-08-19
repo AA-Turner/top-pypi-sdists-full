@@ -1,1 +1,0 @@
-import{t as e}from"./zod-CQiLPjWG.js";var t=t=>e.object({url:e.string().trim().min(1,t(`auth.field_required`)),name:e.string().trim().min(1,t(`auth.field_required`)),image:e.string()});export{t};

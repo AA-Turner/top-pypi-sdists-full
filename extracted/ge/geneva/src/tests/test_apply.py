@@ -6,8 +6,10 @@ import json
 import logging
 import threading
 import time
+from collections import Counter
 from collections.abc import Iterator
 from concurrent.futures import Future
+from itertools import islice
 from pathlib import Path
 from typing import Any, NamedTuple, NoReturn
 
@@ -49,6 +51,7 @@ from geneva.apply.task import (
     ScanTask,
 )
 from geneva.apply.utils import (
+    _compute_resume_ranges,
     _index_checkpoint_ranges,
     _parse_checkpoint_range_key,
 )
@@ -74,7 +77,7 @@ from geneva.runners.ray.pipeline import (
     _get_relevant_field_ids,
     get_source_data_files,
 )
-from geneva.runners.ray.writer import FragmentWriter
+from geneva.runners.ray.writer import FragmentWriteFailedError, FragmentWriter
 from geneva.table import TableReference
 from geneva.transformer import BACKFILL_SELECTED, UnpackedUDF
 from geneva.utils.object_store_retry import is_retryable_object_store_error
@@ -99,6 +102,7 @@ class _NoopRemote:
 class _NoopJobTracker:
     def __init__(self) -> None:
         self.increment = _NoopRemote()
+        self.batch_increment = _NoopRemote()
         self.set_total = _NoopRemote()
         self.set_desc = _NoopRemote()
         self.mark_done = _NoopRemote()
@@ -156,14 +160,18 @@ class _DummyWriterSession:
         self.inflight = inflight or {}
         self.failed = failed
         self.failure_reason = failure_reason
-        self.cached_tasks: list[tuple[int, str]] = []
+        self.cached_tasks: list[tuple[int, str, int]] = []
         self.seal_calls = 0
         self.drain_calls = 0
+        self.check_seal_ack_calls = 0
         self.shutdown_force_values: list[bool] = []
 
     def seal(self) -> None:
         self.seal_calls += 1
         self.sealed = True
+
+    def check_seal_ack(self) -> None:
+        self.check_seal_ack_calls += 1
 
     def drain(self) -> Iterator[Any]:
         self.drain_calls += 1
@@ -754,6 +762,306 @@ def test_setup_inputplans_counts_multiple_readtasks_per_fragment(
     assert total_tasks == 2
 
 
+def test_setup_inputplans_keeps_compact_plan_lazy(
+    tbl_ref: TableReference,
+) -> None:
+    consumed = 0
+    tasks = [
+        _DummyReadTask(frag_id=0, rows=5, offset=0),
+        _DummyReadTask(frag_id=0, rows=7, offset=5),
+    ]
+
+    def task_gen() -> Iterator[ReadTask]:
+        nonlocal consumed
+        for task in tasks:
+            consumed += 1
+            yield task
+
+    plan = apply_module._LanceReadPlanIterator(
+        task_gen(),
+        total=2,
+        total_rows=12,
+        tasks_by_frag={0: 2},
+        checkpoint_identity_contexts=(("memory://source", None),),
+    )
+    job = ColumnAddPipelineJob(
+        map_task=BackfillUDFTask(
+            udfs={"one": one},
+            override_batch_size=2,
+            min_checkpoint_size=DEFAULT_CHECKPOINT_ROWS,
+            max_checkpoint_size=DEFAULT_CHECKPOINT_ROWS,
+        ),
+        checkpoint_store=CheckpointStore.from_uri("memory"),
+        error_store=None,
+        config=JobConfig(),
+        dst=tbl_ref,
+        input_plan=plan,
+        job_id="job-lazy-plan",
+        job_tracker=_NoopJobTracker(),
+    )
+
+    plans, tasks_by_frag, total_tasks = job.setup_inputplans()
+
+    assert consumed == 0
+    assert job._total_rows == 12
+    assert job._checkpoint_identity_contexts == (("memory://source", None),)
+    assert tasks_by_frag == {0: 2}
+    assert total_tasks == 2
+    assert next(plans) is tasks[0]
+    assert consumed == 1
+
+
+def test_setup_inputplans_rejects_preconsumed_compact_plan(
+    tbl_ref: TableReference,
+) -> None:
+    task = _DummyReadTask(frag_id=0, rows=1)
+    plan = apply_module._LanceReadPlanIterator(
+        iter((task,)),
+        total=1,
+        total_rows=1,
+        tasks_by_frag={0: 1},
+        checkpoint_identity_contexts=(("memory://source", None),),
+    )
+    assert next(plan) is task
+    job = ColumnAddPipelineJob(
+        map_task=BackfillUDFTask(
+            udfs={"one": one},
+            override_batch_size=1,
+            min_checkpoint_size=DEFAULT_CHECKPOINT_ROWS,
+            max_checkpoint_size=DEFAULT_CHECKPOINT_ROWS,
+        ),
+        checkpoint_store=CheckpointStore.from_uri("memory"),
+        error_store=None,
+        config=JobConfig(),
+        dst=tbl_ref,
+        input_plan=plan,
+        job_id="job-preconsumed-plan",
+        job_tracker=_NoopJobTracker(),
+    )
+
+    with pytest.raises(ValueError, match="must not be consumed"):
+        job.setup_inputplans()
+
+
+def test_fragment_scan_plan_counts_tasks_without_materializing(
+    tbl_ref: TableReference,
+) -> None:
+    total_rows = 1_000_000_000
+    fragment_plan = apply_module._FragmentScanPlan(
+        template=ScanTask(
+            uri="memory://table",
+            table_ref=tbl_ref,
+            columns=["a"],
+            frag_id=7,
+            offset=0,
+            limit=0,
+            fragment_physical_rows=total_rows,
+            fragment_logical_rows=total_rows,
+        ),
+        runs=((0, total_rows),),
+        task_size=1,
+    )
+
+    assert fragment_plan.task_count == total_rows
+    first_tasks = list(islice(fragment_plan.tasks(), 3))
+    assert [(task.offset, task.limit) for task in first_tasks] == [
+        (0, 1),
+        (1, 1),
+        (2, 1),
+    ]
+
+
+def test_read_task_feeder_is_bounded_and_prioritizes_retries() -> None:
+    tasks = [_DummyReadTask(frag_id=0, rows=1, offset=offset) for offset in range(10)]
+    consumed = 0
+
+    def task_gen() -> Iterator[ReadTask]:
+        nonlocal consumed
+        for task in tasks:
+            consumed += 1
+            yield task
+
+    feeder = pipeline_module._ReadTaskFeeder(
+        task_gen(),
+        Counter({0: 10}),
+        expected_total_tasks=10,
+        expected_total_rows=10,
+    )
+
+    primed = [feeder.pop_next() for _ in range(4)]
+    assert consumed == 4
+    assert all(item is not None and item[1] for item in primed)
+
+    retry = pipeline_module.ScheduledReadTask(
+        _DummyReadTask(frag_id=0, rows=1, offset=99), attempt=2
+    )
+    feeder.retry_tasks.append(retry)
+    assert feeder.pop_next() == (retry, False)
+    assert consumed == 4
+    assert feeder.pop_next() == (pipeline_module.ScheduledReadTask(tasks[4]), True)
+    assert consumed == 5
+
+
+def test_read_task_feeder_rejects_metadata_underflow() -> None:
+    task = _DummyReadTask(frag_id=0, rows=1)
+    feeder = pipeline_module._ReadTaskFeeder(
+        iter((task,)),
+        Counter({0: 2}),
+        expected_total_tasks=2,
+        expected_total_rows=2,
+    )
+
+    assert feeder.pop_next() is not None
+    with pytest.raises(ValueError, match="ended before its metadata"):
+        feeder.pop_next()
+
+
+def test_job_tracker_metric_buffer_batches_task_progress() -> None:
+    tracker = _RecordingJobTracker()
+    metric_buffer = pipeline_module._JobTrackerMetricBuffer(
+        tracker,  # type: ignore[arg-type]
+        max_events=100,
+        flush_interval_s=3600,
+    )
+
+    for _ in range(10_000):
+        metric_buffer.add("tasks_completed", 1)
+    metric_buffer.flush(force=True)
+
+    calls = tracker.batch_increment.calls
+    assert len(calls) == 100
+    assert sum(call[0]["tasks_completed"] for call in calls) == 10_000
+
+
+def test_job_tracker_metric_buffer_bounds_slow_inflight_rpc(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    class _SlowRemote:
+        def __init__(self) -> None:
+            self.calls: list[dict[str, int]] = []
+            self.result: object = pipeline_module.ray.ObjectRef.from_random()
+
+        def remote(self, payload: dict[str, int]) -> object:
+            self.calls.append(payload)
+            return self.result
+
+    class _SlowTracker:
+        batch_increment = _SlowRemote()
+
+    tracker = _SlowTracker()
+    monkeypatch.setattr(
+        pipeline_module.ray,
+        "wait",
+        lambda refs, timeout=0: ([], refs),
+    )
+    metric_buffer = pipeline_module._JobTrackerMetricBuffer(
+        tracker,  # type: ignore[arg-type]
+        max_events=1,
+        flush_interval_s=0,
+    )
+
+    for _ in range(10_000):
+        metric_buffer.add("tasks_completed", 1)
+
+    assert tracker.batch_increment.calls == [{"tasks_completed": 1}]
+    assert metric_buffer._pending == {"tasks_completed": 9_999}
+
+    # Simulate the one outstanding RPC completing, then drain the fixed-size
+    # pending metric map.
+    metric_buffer._inflight = None
+    tracker.batch_increment.result = None
+    metric_buffer.flush(force=True)
+    assert tracker.batch_increment.calls[-1] == {"tasks_completed": 9_999}
+
+
+def test_writer_session_bounds_pending_enqueue_refs(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    class _PutRemote:
+        def __init__(self) -> None:
+            self.calls = 0
+
+        def remote(self, item: object) -> str:
+            self.calls += 1
+            return f"ref-{self.calls}"
+
+    class _Queue:
+        class _Actor:
+            put_nowait = _PutRemote()
+
+        actor = _Actor()
+
+    drained: list[list[object]] = []
+    monkeypatch.setattr(pipeline_module, "WRITER_ENQUEUE_ACK_BATCH_SIZE", 3)
+    monkeypatch.setattr(
+        pipeline_module.ray,
+        "get",
+        lambda refs: drained.append(list(refs)),
+    )
+    session = pipeline_module.FragmentWriterSession(
+        frag_id=0,
+        ds_uri="memory://table",
+        output_columns=["one"],
+        checkpoint_store=object(),  # type: ignore[arg-type]
+        where=None,
+    )
+    session.queue = _Queue()  # type: ignore[assignment]
+
+    for offset in range(7):
+        session._enqueue_unbounded((offset, f"checkpoint-{offset}", 1))
+
+    assert drained == [
+        ["ref-1", "ref-2", "ref-3"],
+        ["ref-4", "ref-5", "ref-6"],
+    ]
+    assert session._pending_enqueue_refs == ["ref-7"]
+
+
+def test_fragment_task_keys_are_released_at_terminal_state() -> None:
+    manager = _make_fragment_writer_manager()
+    task = _DummyReadTask(frag_id=0, rows=1)
+    session = _DummyWriterSession(sealed=False)
+    manager.sessions[0] = session  # type: ignore[assignment]
+    manager.remaining_tasks[0] = 1
+
+    manager.ingest_task(task, [])
+
+    assert manager._task_key_was_ingested(0, task.checkpoint_key())
+    manager._mark_partial_task_key_ingested(0, task.checkpoint_key())
+    assert session.seal_calls == 1
+
+    request = pipeline_module._FragmentRecordRequest(
+        frag_id=0,
+        new_file=object(),
+        commit_granularity=999,
+        rows_written=1,
+        direct_write=False,
+        checkpoint_already_written=True,
+        fragment_checkpointing_ms=0,
+        buffer_sort_ms=0,
+        align_ms=0,
+        write_ms=0,
+        queue_wait_ms=0,
+        checkpoint_read_ms=0,
+        avg_batch_num_rows=0,
+        avg_batch_size=0,
+        dedupe_key="fragment-0",
+        checkpoint_batch=None,
+        purge_keys=[],
+    )
+    manager._finish_fragment_record(
+        pipeline_module._CompletedFragmentRecord(request, checkpointing_ms=0)
+    )
+
+    assert 0 in manager._recorded_fragment_ids
+    manager.ingest_task(task, [])
+
+    assert 0 not in manager._ingested_task_keys
+    assert 0 not in manager._partial_ingested_task_keys
+    assert manager.remaining_tasks[0] == 0
+    assert session.seal_calls == 1
+
+
 def test_applier_synthesizes_checkpoints_when_no_batches() -> None:
     task = _DummyReadTask(frag_id=0, rows=5, offset=0)
     applier = CheckpointingApplier(
@@ -1090,13 +1398,16 @@ def test_applier_chain_spans_respects_task_end(
     assert [r.span for r in results] == [2, 2, 1]
 
 
-def test_plan_read_skips_checkpointed_ranges(
+def test_plan_read_recommits_checkpointed_ranges_over_preexisting_output(
     tmp_path: Path, tbl_ref: TableReference
 ) -> None:
-    # Output column 'one' is committed, so full per-batch coverage is a
-    # legitimate skip. Contrast with
-    # test_plan_read_replans_fully_checkpointed_uncommitted_fragment, where the
-    # output was never committed.
+    # Output column 'one' has a committed data file, but full per-batch
+    # coverage with NO fragment dedupe marker means this job's output never
+    # landed -- the file predates the job and may hold stale values (the
+    # filtered-repair case). Skipping would silently no-op the job, so the
+    # fragment is replanned as one whole-fragment commit task that reuses the
+    # checkpoints. A fragment genuinely committed by this job is still skipped
+    # via its dedupe marker (written durably before the commit).
     db = connect(tmp_path)
     tbl = db.create_table(
         "tbl", pa.table({"a": [1, 2, 3, 4, 5, 6], "one": [1, 1, 1, 1, 1, 1]})
@@ -1135,8 +1446,9 @@ def test_plan_read_skips_checkpointed_ranges(
         checkpoint_store=store,
     )
 
-    assert list(tasks) == []
-    assert pipeline_args["skipped_stats"]["rows"] == 6
+    # One whole-fragment task to commit the checkpointed output; not skipped.
+    assert [(t.offset, t.limit) for t in tasks] == [(0, 6)]
+    assert pipeline_args["skipped_stats"]["rows"] == 0
 
 
 def test_plan_read_skip_checkpoint_index_scan_does_not_list_or_probe(
@@ -1230,7 +1542,8 @@ def test_plan_read_replans_fully_checkpointed_uncommitted_fragment(
     committed (no data file for the output column). Skipping would leave the
     column NULL forever, so the fragment is replanned; the applier reuses the
     per-batch checkpoints, so the commit happens without recomputing the UDF.
-    Contrast with the committed case above, which skips."""
+    The repair-shaped sibling above (pre-existing output data file, same
+    orphaned-coverage state) replans the same way."""
     db = connect(tmp_path)
     tbl = db.create_table("tbl", pa.table({"a": [1, 2, 3, 4, 5, 6]}))
     tbl.add_columns({"one": one})  # 'one' in schema, never committed in fragment
@@ -1332,6 +1645,11 @@ def test_plan_read_replan_does_not_split_checkpoint_spans(
 def test_plan_read_builds_gaps_and_chunks(
     tmp_path: Path, tbl_ref: TableReference
 ) -> None:
+    """A partially covered fragment is tiled in full: covered runs become
+    tasks too (reconstructed from the store, no recompute), because the
+    fragment is rewritten in full and the writer needs checkpoints for every
+    row. Planning only the gap used to null-fill the covered ranges at seal.
+    """
     db = connect(tmp_path)
     tbl = db.create_table("tbl", pa.table({"a": list(range(10))}))
 
@@ -1366,11 +1684,13 @@ def test_plan_read_builds_gaps_and_chunks(
         checkpoint_store=store,
     )
 
-    task_list = list(tasks)
-    assert len(task_list) == 1
-    task = task_list[0]
-    assert task.offset == 5
-    assert task.limit == 2
+    # Covered run [0,5) tiled at task_size, gap [5,7), covered run [7,10).
+    assert [(t.offset, t.limit) for t in tasks] == [
+        (0, 3),
+        (3, 2),
+        (5, 2),
+        (7, 3),
+    ]
 
 
 def test_plan_read_propagates_src_data_files_to_tasks(
@@ -1416,7 +1736,8 @@ def test_plan_read_chunks_large_gap(tmp_path: Path, tbl_ref: TableReference) -> 
     store = CheckpointStore.from_uri(str(URL(str(tmp_path)) / "ckp"))
 
     # Covered [0,2) and [10,20); gap [2,10) length 8.
-    # task_size=3 -> chunks [2,5), (5,8), (8,10).
+    # task_size=3 -> gap chunks [2,5), [5,8), [8,10); covered runs are tiled
+    # too (reused from checkpoints) so the writer sees every row.
     src_files_hash = _src_files_hash_for_cols(tbl, ["a"])
     for start, end in [(0, 2), (10, 20)]:
         key = map_task.checkpoint_key(
@@ -1441,7 +1762,16 @@ def test_plan_read_chunks_large_gap(tmp_path: Path, tbl_ref: TableReference) -> 
 
     task_list = list(tasks)
     offsets_limits = [(t.offset, t.limit) for t in task_list]
-    assert offsets_limits == [(2, 3), (5, 3), (8, 2)]
+    assert offsets_limits == [
+        (0, 2),  # covered run, reused
+        (2, 3),
+        (5, 3),
+        (8, 2),
+        (10, 3),  # covered run, reused
+        (13, 3),
+        (16, 3),
+        (19, 1),
+    ]
 
 
 def test_applier_checkpoints_each_map_batch(
@@ -2200,6 +2530,146 @@ def test_udf_with_arrow_array(tmp_path: Path, tbl_ref: TableReference) -> None:
     )
     assert batch == expected_batch
     assert cnt_udf_computed == 3
+
+
+def test_compute_checkpoint_end_is_logical_on_delete_fragments(
+    tbl_ref: TableReference,
+) -> None:
+    """On fragments with deletion vectors, checkpoint ``end`` must come from
+    the batch's row count (logical span), not ``_rowaddr`` (physical).
+
+    Deriving it from the physical rowaddr produced ``_range-`` keys claiming
+    more logical rows than the blob contains; recovery/replacement/resume
+    then skipped recomputing rows no blob held, and the writer null-filled
+    them as if they were deleted (the delete-fragment orphan-null bug).
+    """
+    applier = CheckpointingApplier(
+        map_task=BackfillUDFTask(udfs={"one": one}),
+        checkpoint_uri="memory",
+    )
+
+    def make_task(physical: int, logical: int) -> ScanTask:
+        return ScanTask(
+            uri="db://example/tbl",
+            table_ref=tbl_ref,
+            columns=["a"],
+            frag_id=0,
+            offset=0,
+            limit=logical,
+            fragment_physical_rows=physical,
+            fragment_logical_rows=logical,
+        )
+
+    # 512 live rows whose physical addresses drift ahead by 20 deleted slots.
+    batch = pa.RecordBatch.from_arrays(
+        [
+            pa.array(range(512), type=pa.int64()),
+            pa.array([i + 20 for i in range(512)], type=pa.uint64()),
+        ],
+        names=["one", "_rowaddr"],
+    )
+
+    # Delete fragment: end = start + rows, physical drift ignored.
+    end = applier._compute_checkpoint_end(
+        make_task(2048, 2000), batch, start=0, checkpoint_size=512
+    )
+    assert end == 512
+
+    # No deletes: the rowaddr-based end is preserved (legacy sparse batches).
+    end = applier._compute_checkpoint_end(
+        make_task(2048, 2048), batch, start=0, checkpoint_size=512
+    )
+    assert end == 532  # last physical rowaddr + 1
+
+    # Task-end clamp still applies on delete fragments.
+    end = applier._compute_checkpoint_end(
+        make_task(600, 500), batch, start=100, checkpoint_size=512
+    )
+    assert end == 500
+
+
+def test_checkpoint_ranges_truthful_on_delete_fragment(
+    tmp_path: Path, tbl_ref: TableReference
+) -> None:
+    """End-to-end through the applier: every ``_range-START-END`` checkpoint
+    written for a deletion-vector fragment must contain exactly END-START
+    rows, with contiguous logical ranges tiling the fragment."""
+    db = connect(tmp_path)
+    tbl = db.create_table("tbl", pa.table({"a": list(range(4000))}))
+    tbl.delete("a % 100 = 7")  # 1% deleted -> physical != logical
+
+    frag = tbl.to_lance().get_fragment(0)
+    logical = frag.count_rows()
+    assert frag.physical_rows == 4000
+    assert logical == 3960
+
+    map_task = BackfillUDFTask(
+        udfs={"one": one},
+        override_batch_size=256,
+        min_checkpoint_size=256,
+        max_checkpoint_size=256,
+    )
+    store = CheckpointStore.from_uri(str(URL(str(tmp_path)) / "ckp"))
+    tasks, _ = plan_read(
+        tbl.uri,
+        tbl_ref,
+        ["a"],
+        task_size=1024,
+        map_task=map_task,
+        checkpoint_store=store,
+    )
+    applier = CheckpointingApplier(
+        map_task=map_task,
+        checkpoint_uri=store.root,
+        checkpoint_pending_bytes_target=1,  # flush each slice separately
+    )
+
+    cursor = 0
+    for task in tasks:
+        checkpoints, _, _ = applier.run(task)
+        for c in checkpoints:
+            suffix = c.checkpoint_key.rsplit("_range-", 1)[1]
+            ks, ke = (int(x) for x in suffix.split("-"))
+            blob = store[c.checkpoint_key]
+            assert ks == cursor, f"range start {ks} != expected {cursor}"
+            assert ke - ks == blob.num_rows, (
+                f"key {c.checkpoint_key} claims {ke - ks} rows, "
+                f"blob has {blob.num_rows}"
+            )
+            cursor = ke
+    assert cursor == logical
+
+
+def test_compute_resume_ranges_tiles_covered_and_missing_runs() -> None:
+    """Every row is planned exactly once, split at coverage boundaries so each
+    task is either fully covered (reused from checkpoints) or fully missing
+    (recomputed)."""
+    ranges = _compute_resume_ranges(
+        total_rows=10, task_size=3, covered=[(0, 5), (7, 10)]
+    )
+    assert ranges == [(0, 3), (3, 2), (5, 2), (7, 3)]
+    # Full tiling: covers [0, 10) exactly once.
+    assert sum(limit for _, limit in ranges) == 10
+
+    # No coverage: plain task_size tiling.
+    assert _compute_resume_ranges(total_rows=7, task_size=3, covered=[]) == [
+        (0, 3),
+        (3, 3),
+        (6, 1),
+    ]
+
+    # Coverage extending past the fragment is clipped.
+    assert _compute_resume_ranges(total_rows=6, task_size=10, covered=[(4, 9)]) == [
+        (0, 4),
+        (4, 2),
+    ]
+
+    # Degenerate task size: one task per run.
+    assert _compute_resume_ranges(total_rows=10, task_size=0, covered=[(2, 4)]) == [
+        (0, 2),
+        (2, 2),
+        (4, 6),
+    ]
 
 
 # Tests for fragment-level checkpoint functionality
@@ -3593,7 +4063,13 @@ def test_plan_read_generated_default_where_preserves_partial_checkpoint_gaps(
     )
 
     task_list = list(tasks)
-    assert [(task.offset, task.limit) for task in task_list] == [(4, 2)]
+    # Covered runs [0,2) and [2,4) are planned too (merged and tiled at
+    # task_size, reused from checkpoints); only [4,6) is recomputed.
+    assert [(task.offset, task.limit) for task in task_list] == [
+        (0, 2),
+        (2, 2),
+        (4, 2),
+    ]
     assert pipeline_args["skipped_stats"]["rows"] == 0
 
 
@@ -4051,7 +4527,7 @@ def test_fragment_writer_manager_purges_batch_checkpoints_after_fragment_record(
 
     class _CachedSession:
         def __init__(self) -> None:
-            self.cached_tasks = [(idx, key) for idx, key in enumerate(batch_keys)]
+            self.cached_tasks = [(idx, key, 0) for idx, key in enumerate(batch_keys)]
             self.sealed = False
             self.inflight: dict[object, int] = {}
 
@@ -4190,13 +4666,13 @@ def test_fragment_writer_manager_async_record_copies_purge_keys_before_work() ->
     fwm.rows_input_by_frag[0] = 3
 
     sess = _DummyWriterSession(sealed=False)
-    sess.cached_tasks = [(0, "batch-key-a")]
+    sess.cached_tasks = [(0, "batch-key-a", 3)]
     fwm.sessions[0] = sess  # type: ignore[assignment]
 
     data_file = lance.fragment.DataFile("fragment_0.lance", [], [], 2, 0)
     fwm._record_fragment(0, data_file, commit_granularity=999, rows_written=3)
 
-    sess.cached_tasks = [(0, "batch-key-b")]
+    sess.cached_tasks = [(0, "batch-key-b", 3)]
     _complete_fragment_record_submission(executor, 0)
     fwm._drain_pending_fragment_records()
 
@@ -4351,7 +4827,8 @@ def test_fragment_writer_manager_cleanup_preserves_failed_session_path() -> None
     )
     fwm.sessions[0] = sess  # type: ignore[assignment]
 
-    fwm.cleanup()
+    with pytest.raises(FragmentWriteFailedError, match="write failed"):
+        fwm.cleanup()
 
     assert sess.drain_calls == 0
     assert sess.shutdown_force_values == [False]
@@ -4414,10 +4891,10 @@ def test_fragment_writer_manager_dedupes_duplicate_task_ingest(tmp_path: Path) -
 
         def __init__(self) -> None:
             self.sealed = False
-            self.ingested: list[tuple[int, str]] = []
+            self.ingested: list[tuple[int, str, int]] = []
 
-        def ingest_task(self, offset: int, checkpoint_key: str) -> None:
-            self.ingested.append((offset, checkpoint_key))
+        def ingest_task(self, offset: int, checkpoint_key: str, num_rows: int) -> None:
+            self.ingested.append((offset, checkpoint_key, num_rows))
 
         def seal(self) -> None:
             self.sealed = True
@@ -4448,7 +4925,7 @@ def test_fragment_writer_manager_dedupes_duplicate_task_ingest(tmp_path: Path) -
     fwm.ingest_task(task, checkpoints)
     fwm.ingest_task(task, checkpoints)
 
-    assert sess.ingested == [(0, "frag-0_range-0-3")]
+    assert sess.ingested == [(0, "frag-0_range-0-3", 3)]
     assert fwm._reconciled_rows_checkpointed_total == 3
     assert fwm.rows_input_by_frag[0] == 3
     assert fwm.remaining_tasks[0] == 0
@@ -4688,6 +5165,48 @@ def test_plan_copy_skips_zero_row_fragments_for_whole_fragment_tasks() -> None:
     assert list(tasks) == []
 
 
+def test_plan_copy_keeps_large_fragment_tasks_lazy() -> None:
+    total_rows = 1_000_000_000
+
+    class _FakeFragment:
+        fragment_id = 7
+        physical_rows = total_rows
+
+        def count_rows(self) -> int:
+            return total_rows
+
+    class _FakeDataset:
+        def get_fragments(self) -> list[object]:
+            return [_FakeFragment()]
+
+    class _FakeTableRef:
+        table_id = ["tbl"]
+        table_uri = "memory://table"
+
+        def open(self) -> "_FakeTableRef":
+            return self
+
+        def to_lance(self) -> _FakeDataset:
+            return _FakeDataset()
+
+    tasks, num_tasks = apply_module._plan_copy(
+        _FakeTableRef(),  # type: ignore[arg-type]
+        _FakeTableRef(),  # type: ignore[arg-type]
+        ["a"],
+        task_size=1,
+    )
+
+    assert num_tasks == total_rows
+    assert tasks.total_rows == total_rows  # type: ignore[attr-defined]
+    assert tasks.tasks_by_frag == {7: total_rows}  # type: ignore[attr-defined]
+    first_tasks = list(islice(tasks, 3))
+    assert [(task.offset, task.limit) for task in first_tasks] == [
+        (0, 1),
+        (1, 1),
+        (2, 1),
+    ]
+
+
 def test_worker_rebuilt_checkpoint_stores_preserve_nested_session_root_subdir(
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,
@@ -4785,19 +5304,34 @@ def test_driver_identity_sidecar_uses_planned_task_uri_for_copy_recovery(
     source_uri = "memory:///source.lance"
     destination_uri = "memory:///destination.lance"
     task = _DummyReadTask(frag_id=0, rows=4, table_uri=source_uri)
+    consumed = 0
+
+    def task_gen() -> Iterator[ReadTask]:
+        nonlocal consumed
+        consumed += 1
+        yield task
+
+    plan = apply_module._LanceReadPlanIterator(
+        task_gen(),
+        total=1,
+        total_rows=4,
+        tasks_by_frag={0: 1},
+        checkpoint_identity_contexts=((source_uri, None),),
+    )
     job = ColumnAddPipelineJob(
         map_task=map_task,
         checkpoint_store=store,
         error_store=None,
         config=JobConfig(),
         dst=tbl_ref,
-        input_plan=iter([task]),
+        input_plan=plan,
         job_id="job-copy-identity",
         job_tracker=_NoopJobTracker(),
     )
 
     job.setup_inputplans()
     job._ensure_driver_checkpoint_identity_sidecar(destination_uri)
+    assert consumed == 0
 
     source_prefix = map_task.checkpoint_prefix(
         dataset_uri=source_uri,
@@ -4848,10 +5382,10 @@ def test_fragment_writer_uses_precomputed_metadata(tmp_path: Path, monkeypatch) 
         def __init__(self, items) -> None:
             self._items = deque(items)
 
-        def get(self) -> tuple[int, str]:
+        def get(self) -> tuple[int, str, int]:
             return self._items.popleft()
 
-    queue = _Queue([(0, checkpoint_key), (-1, "")])
+    queue = _Queue([(0, checkpoint_key, 3), (-1, "", 0)])
 
     base_schema = ds.schema
     fields = [base_schema.field("a"), pa.field("_rowaddr", pa.uint64())]
@@ -4905,10 +5439,10 @@ def test_fragment_writer_falls_back_to_open_dataset(
         def __init__(self, items) -> None:
             self._items = deque(items)
 
-        def get(self) -> tuple[int, str]:
+        def get(self) -> tuple[int, str, int]:
             return self._items.popleft()
 
-    queue = _Queue([(0, checkpoint_key), (-1, "")])
+    queue = _Queue([(0, checkpoint_key, 3), (-1, "", 0)])
 
     call_count = {"n": 0}
     original_dataset = lance.dataset
@@ -5282,30 +5816,206 @@ def test_multiprocess_applier_standard_batch() -> None:
     assert combined["result"] == [0, 2, 4, 6, 8, 10]
 
 
-class _FakeFuture:
-    """Minimal stand-in for a multiprocess ``AsyncResult``."""
+def _multiprocess_trim_batches(n: int) -> list[pa.RecordBatch]:
+    return [
+        pa.record_batch(
+            {
+                "_rowaddr": pa.array([i], type=pa.uint64()),
+                "value": pa.array([i], type=pa.int64()),
+            }
+        )
+        for i in range(n)
+    ]
 
-    def __init__(self, ready: bool) -> None:
+
+@udf(data_type=pa.int64(), input_columns=["value"])
+def _trim_double(value: int) -> int:
+    return value * 2
+
+
+def _run_multiprocess_counting_trims(
+    monkeypatch: pytest.MonkeyPatch,
+    n_batches: int,
+) -> tuple[int, int]:
+    """Run the multiprocess applier; return ``(yielded, parent trim calls)``."""
+    from geneva.debug.logger import NoOpErrorLogger
+
+    trims = 0
+
+    def _record_trim() -> None:
+        nonlocal trims
+        trims += 1
+
+    monkeypatch.setattr(
+        "geneva.apply.memory.release_unused_process_memory",
+        _record_trim,
+    )
+
+    batches = _multiprocess_trim_batches(n_batches)
+    read_task = _DummyReadTask(frag_id=0, rows=n_batches, batches=batches)
+    map_task = BackfillUDFTask(udfs={"result": _trim_double})
+
+    applier = MultiProcessBatchApplier(num_processes=2, job_id="test")
+    results = list(applier.run(read_task, map_task, NoOpErrorLogger()))
+    return len(results), trims
+
+
+def test_multiprocess_applier_parent_trims_memory_every_eight_batches(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """The parent process churns scan batches and IPC buffers even though the
+    UDF runs in the pool, so it trims on the SimpleApplier cadence."""
+    monkeypatch.delenv("GENEVA_APPLIER_MEMORY_TRIM_INTERVAL", raising=False)
+
+    yielded, trims = _run_multiprocess_counting_trims(monkeypatch, n_batches=9)
+
+    assert yielded == 9
+    assert trims == 1
+
+
+def test_multiprocess_applier_parent_memory_trim_can_be_disabled(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setenv("GENEVA_APPLIER_MEMORY_TRIM_INTERVAL", "0")
+
+    yielded, trims = _run_multiprocess_counting_trims(monkeypatch, n_batches=9)
+
+    assert yielded == 9
+    assert trims == 0
+
+
+def test_multiprocess_applier_parent_trim_counter_spans_read_tasks(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """One applier serves many ReadTasks, so the parent's trim counter must
+    survive ``run``. Five 5-batch tasks are 25 batches: three trims, not zero.
+
+    A per-run counter never reaches the interval on tasks this short, so the
+    parent would hold scan and IPC arenas for the whole job.
+    """
+    from geneva.debug.logger import NoOpErrorLogger
+
+    monkeypatch.delenv("GENEVA_APPLIER_MEMORY_TRIM_INTERVAL", raising=False)
+
+    trims = 0
+
+    def _record_trim() -> None:
+        nonlocal trims
+        trims += 1
+
+    monkeypatch.setattr(
+        "geneva.apply.memory.release_unused_process_memory",
+        _record_trim,
+    )
+
+    map_task = BackfillUDFTask(udfs={"result": _trim_double})
+    applier = MultiProcessBatchApplier(num_processes=2, job_id="test")
+
+    yielded = 0
+    for frag_id in range(5):
+        batches = _multiprocess_trim_batches(5)
+        read_task = _DummyReadTask(frag_id=frag_id, rows=5, batches=batches)
+        yielded += len(list(applier.run(read_task, map_task, NoOpErrorLogger())))
+
+    assert yielded == 25
+    assert trims == 3
+    # 25 % 8 == 1: the remainder carries into the next task rather than
+    # being discarded at the task boundary.
+    assert applier.trim_counter.batches_since_trim == 1
+
+
+def test_worker_trim_memory_fires_on_interval(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Pool workers keep their own counter; they run the UDF, so they are
+    where decode buffers accumulate."""
+    from geneva.apply import multiprocess as mp_applier
+
+    trims = 0
+
+    def _record_trim() -> None:
+        nonlocal trims
+        trims += 1
+
+    monkeypatch.delenv("GENEVA_APPLIER_MEMORY_TRIM_INTERVAL", raising=False)
+    monkeypatch.setattr(mp_applier._WORKER_TRIM_COUNTER, "batches_since_trim", 0)
+    monkeypatch.setattr(
+        "geneva.apply.memory.release_unused_process_memory",
+        _record_trim,
+    )
+
+    for _ in range(16):
+        mp_applier._worker_trim_memory()
+    assert trims == 2
+
+    monkeypatch.setenv("GENEVA_APPLIER_MEMORY_TRIM_INTERVAL", "0")
+    for _ in range(16):
+        mp_applier._worker_trim_memory()
+    assert trims == 2
+
+
+class _FakeFuture:
+    """Minimal stand-in for a multiprocess ``AsyncResult``.
+
+    ``ready_after`` makes the future flip to ready once ``wait`` has been
+    called that many times, standing in for a slow batch that does return.
+    """
+
+    def __init__(self, ready: bool, ready_after: int | None = None) -> None:
         self._ready = ready
+        self._ready_after = ready_after
+        self.waits = 0
+
+    def wait(self, timeout: float | None = None) -> None:
+        self.waits += 1
+        if self._ready_after is not None and self.waits >= self._ready_after:
+            self._ready = True
 
     def ready(self) -> bool:
         return self._ready
 
 
-def test_await_head_ready_detects_orphan_via_younger_sibling() -> None:
-    """A later future completing while the head hasn't => head's worker died."""
+def test_await_head_ready_tolerates_out_of_order_completion() -> None:
+    """A younger future finishing first is normal on a healthy pool (GEN-857).
+
+    With more than one worker, ``apply_async`` hands out tasks in order but
+    they complete in whatever order the work finishes. Pre-fix this was taken
+    as proof the head's worker had died and failed the job outright.
+    """
     import time
 
-    from geneva.errors import FatalWorkerCrashError
+    applier = MultiProcessBatchApplier(num_processes=4, job_id="test")
+    # Head is slow; two younger batches are already done.
+    futs = [
+        _FakeFuture(ready=False, ready_after=3),
+        _FakeFuture(ready=True),
+        _FakeFuture(ready=True),
+    ]
+
+    applier._await_head_ready(futs, time.monotonic(), stall_timeout_s=100)
+
+    assert futs[0].ready()
+
+
+def test_await_head_ready_tolerates_slow_batch() -> None:
+    """A batch slower than the poll interval is not a crash on its own.
+
+    Only the stall bound may condemn a batch, and it is measured from the last
+    completed batch, not from how long this one has taken.
+    """
+    import time
 
     applier = MultiProcessBatchApplier(num_processes=2, job_id="test")
-    futs = [_FakeFuture(ready=False), _FakeFuture(ready=True)]
-    with pytest.raises(FatalWorkerCrashError, match="died mid-task"):
-        applier._await_head_ready(futs, time.monotonic(), stall_timeout_s=100)
+    slow = _FakeFuture(ready=False, ready_after=5)
+
+    applier._await_head_ready([slow], time.monotonic(), stall_timeout_s=100)
+
+    assert slow.ready()
+    assert slow.waits == 5
 
 
 def test_await_head_ready_stall_backstop() -> None:
-    """With no younger sibling, a stuck head escalates after the stall bound."""
+    """A head that never returns escalates after the stall bound."""
     import time
 
     from geneva.errors import FatalWorkerCrashError
@@ -5328,6 +6038,43 @@ def test_await_head_ready_returns_when_head_ready() -> None:
     )
 
 
+def test_multiprocess_applier_survives_out_of_order_batches() -> None:
+    """Uneven batch durations must not be reported as a worker crash (GEN-857).
+
+    The first batch is deliberately slow so several younger batches finish
+    ahead of it across four workers. Pre-fix, that alone raised
+    ``FatalWorkerCrashError`` and escalated a healthy job to the Ray layer.
+    """
+    from geneva.debug.logger import NoOpErrorLogger
+
+    @udf(data_type=pa.int64(), input_columns=["value"])
+    def slow_first_batch(value: int) -> int:
+        import time as _time
+
+        if value == 0:
+            _time.sleep(2.0)
+        return value * 2
+
+    n_batches = 16
+    batches = [
+        pa.record_batch(
+            {
+                "_rowaddr": pa.array([i], type=pa.uint64()),
+                "value": pa.array([i], type=pa.int64()),
+            }
+        )
+        for i in range(n_batches)
+    ]
+    read_task = _DummyReadTask(frag_id=0, rows=n_batches, batches=batches)
+    map_task = BackfillUDFTask(udfs={"result": slow_first_batch})
+
+    applier = MultiProcessBatchApplier(num_processes=4, job_id="test")
+    results = list(applier.run(read_task, map_task, NoOpErrorLogger()))
+
+    combined = pa.concat_tables([pa.table(b) for b in results]).to_pydict()
+    assert combined["result"] == [i * 2 for i in range(n_batches)]
+
+
 def test_multiprocess_applier_raises_on_worker_crash(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
@@ -5345,17 +6092,21 @@ def test_multiprocess_applier_raises_on_worker_crash(
     from geneva.debug.logger import NoOpErrorLogger
     from geneva.errors import FatalWorkerCrashError
 
-    # Fail fast if the younger-sibling detection somehow misses.
+    # The stall bound is the detector, so shorten it rather than wait out the
+    # 600s production default.
     monkeypatch.setenv("GENEVA_APPLIER_WORKER_STALL_TIMEOUT_S", "15")
 
     @udf(data_type=pa.int64(), input_columns=["value"])
     def crash_on_sentinel(value: int) -> int:
         if value == 999:
-            # Suppress pytest's faulthandler traceback dump from the crashing
-            # child — the segfault is intentional, not a test failure.
+            # This child crash is intentional. Suppress both pytest's
+            # faulthandler output and the CI core dump reserved for unexpected
+            # parent-interpreter crashes.
             import faulthandler
+            import resource
 
             faulthandler.disable()
+            resource.setrlimit(resource.RLIMIT_CORE, (0, 0))
             os.kill(os.getpid(), signal.SIGSEGV)
         return value * 2
 

@@ -29,14 +29,12 @@ def test_swap_remaining_rds__q595():
     FROM RDS."SURF"."CMDB_CI_BUSINESS_APP" where sys_id IN (SELECT DISTINCT D.DOCUMENTKEY
     FROM "RDS"."SURF"."SYS_AUDIT_DELETE" D
     WHERE D.TABLENAME LIKE LOWER('placeholder_4')  AND CAST( D.SYS_UPDATED_ON AS DATE )  >= DATEADD(DAY, 'placeholder_5', CURRENT_DATE ))"""
-    # SqlParse: Includes target table as source in INSERT INTO...SELECT
     # Graph: Parsers create different graph structures (table lineage is correct)
     assert_table_lineage_equal(
         sql,
         {"rds.surf.cmdb_ci_business_app", "rds.surf.sys_audit_delete"},  # source_tables
         {"rds.staging.instance_tables_deleted_sys_id"},  # target_tables
         dialect="snowflake",
-        test_sqlparse=False,
         skip_graph_check=True,
     )
 
@@ -91,13 +89,11 @@ def test_swap_remaining_edw_ls__q602():
             "BSEG_Current_and_Prior_Qtr_Flag",
             "Test")"Aggregation_1"
             QUALIFY "Rank_Column" <= 'placeholder_9'"""
-    # SqlParse: Cannot extract source tables from subqueries/complex queries
     assert_table_lineage_equal(
         sql,
         {"edw_ls.finance_ar_em.em_accounting_document_item"},  # source_tables
         {"edw_ls.finance_ar_em.temp_em_accounting_document_item"},  # target_tables
         dialect="snowflake",
-        test_sqlparse=False,
     )
 
 
@@ -108,7 +104,6 @@ def test_swap_remaining_rds__q655():
     FROM RDS."SURF_ALT"."U_SALES_TERRITORY" where sys_id IN (SELECT DISTINCT D.DOCUMENTKEY
     FROM "RDS"."SURF_ALT"."SYS_AUDIT_DELETE" D
     WHERE D.TABLENAME LIKE LOWER('placeholder_4')  AND CAST( D.SYS_UPDATED_ON AS DATE )  >= DATEADD(DAY, 'placeholder_5', CURRENT_DATE ))"""
-    # SqlParse: Includes target table as source in INSERT INTO...SELECT
     # Graph: Parsers create different graph structures (table lineage is correct)
     assert_table_lineage_equal(
         sql,
@@ -118,7 +113,6 @@ def test_swap_remaining_rds__q655():
         },  # source_tables
         {"rds.staging.instance_tables_deleted_sys_id"},  # target_tables
         dialect="snowflake",
-        test_sqlparse=False,
         skip_graph_check=True,
     )
 
@@ -138,14 +132,12 @@ def test_swap_remaining_rds_surf_alt_stg_sys_audit_delete_delta_q716():
             WHEN NOT MATCHED THEN INSERT("SYS_ID", "TABLENAME", "SYS_MOD_COUNT", "SYS_CREATED_ON", "PAYLOAD", "SYS_UPDATED_ON", "SYS_UPDATED_BY", "DISPLAY_VALUE", "SYS_CREATED_BY", "DOCUMENTKEY", "PSP_PER_DELETE_DT",PSP_PER_INSERT_DT,PSP_PER_UPDATE_DT,PSP_DELTA_UPDATE_DT) VALUES(STG."SYS_ID",STG."TABLENAME",STG."SYS_MOD_COUNT",STG."SYS_CREATED_ON",STG."PAYLOAD",STG."SYS_UPDATED_ON",STG."SYS_UPDATED_BY",STG."DISPLAY_VALUE",STG."SYS_CREATED_BY",STG."DOCUMENTKEY",STG."PSP_PER_DELETE_DT",current_timestamp(),current_timestamp(),current_timestamp())
             WHEN MATCHED and stg.sys_updated_on>tgt.sys_updated_on THEN UPDATE SET TGT."SYS_ID" = STG."SYS_ID", TGT."TABLENAME" = STG."TABLENAME", TGT."SYS_MOD_COUNT" = STG."SYS_MOD_COUNT", TGT."SYS_CREATED_ON" = STG."SYS_CREATED_ON", TGT."PAYLOAD" = STG."PAYLOAD", TGT."SYS_UPDATED_ON" = STG."SYS_UPDATED_ON", TGT."SYS_UPDATED_BY" = STG."SYS_UPDATED_BY", TGT."DISPLAY_VALUE" = STG."DISPLAY_VALUE", TGT."SYS_CREATED_BY" = STG."SYS_CREATED_BY", TGT."DOCUMENTKEY" = STG."DOCUMENTKEY", TGT."PSP_PER_DELETE_DT" = STG."PSP_PER_DELETE_DT" ,PSP_PER_UPDATE_DT=current_timestamp(), PSP_DELTA_UPDATE_DT=current_timestamp()
             WHEN MATCHED THEN UPDATE SET TGT."SYS_ID" = STG."SYS_ID", TGT."TABLENAME" = STG."TABLENAME", TGT."SYS_MOD_COUNT" = STG."SYS_MOD_COUNT", TGT."SYS_CREATED_ON" = STG."SYS_CREATED_ON", TGT."PAYLOAD" = STG."PAYLOAD", TGT."SYS_UPDATED_ON" = STG."SYS_UPDATED_ON", TGT."SYS_UPDATED_BY" = STG."SYS_UPDATED_BY", TGT."DISPLAY_VALUE" = STG."DISPLAY_VALUE", TGT."SYS_CREATED_BY" = STG."SYS_CREATED_BY", TGT."DOCUMENTKEY" = STG."DOCUMENTKEY", TGT."PSP_PER_DELETE_DT" = STG."PSP_PER_DELETE_DT" ,PSP_PER_UPDATE_DT=current_timestamp()"""
-    # SqlParse: Cannot extract source tables from complex MERGE statements
     # Graph: Parsers create different graph structures (table lineage is correct)
     assert_table_lineage_equal(
         sql,
         {"rds.surf_alt.stg_sys_audit_delete_delta"},  # source_tables
         {"rds.surf_alt.sys_audit_delete"},  # target_tables
         dialect="snowflake",
-        test_sqlparse=False,
         skip_graph_check=True,
     )
 
@@ -153,26 +145,22 @@ def test_swap_remaining_rds_surf_alt_stg_sys_audit_delete_delta_q716():
 def test_swap_remaining_query_q731():
     """swap remaining - Query 731"""
     sql = """ UPDATE NOC.CONFIG.ETL_RDS_CONFIG_RECON                                     SET ETL_UPDATE_DATE = CURRENT_TIMESTAMP, LAST_RDS_JOB_RUN_ID = '2025-01-01 00:00:00',                                     TOTAL_SOURCE_COUNT = 2 WHERE SOURCE_SCHEMA = 'placeholder_3' AND                                     SOURCE_TABLE_NAME = 'placeholder_4'"""
-    # SqlParse: Cannot extract source tables from subqueries/complex queries
     assert_table_lineage_equal(
         sql,
         set(),  # source_tables
         {"noc.config.etl_rds_config_recon"},  # target_tables
         dialect="snowflake",
-        test_sqlparse=False,
     )
 
 
 def test_swap_remaining_query_q787():
     """swap remaining - Query 787"""
     sql = """ UPDATE NOC.CONFIG.ETL_RDS_CONFIG_RECON                                     SET ETL_UPDATE_DATE = CURRENT_TIMESTAMP, LAST_RDS_JOB_RUN_ID = '2025-01-01 00:00:00',                                     TOTAL_SOURCE_COUNT = 2 WHERE SOURCE_SCHEMA = 'placeholder_3' AND                                     SOURCE_TABLE_NAME = 'placeholder_4'"""
-    # SqlParse: Cannot extract source tables from subqueries/complex queries
     assert_table_lineage_equal(
         sql,
         set(),  # source_tables
         {"noc.config.etl_rds_config_recon"},  # target_tables
         dialect="snowflake",
-        test_sqlparse=False,
     )
 
 
@@ -183,7 +171,6 @@ def test_swap_remaining_rds__q866():
     FROM RDS."APPSTORE"."SN_APPSTORE_APPLICATION" where sys_id IN (SELECT DISTINCT D.DOCUMENTKEY
     FROM "RDS"."APPSTORE"."SYS_AUDIT_DELETE" D
     WHERE D.TABLENAME LIKE LOWER('placeholder_4')  AND CAST( D.SYS_UPDATED_ON AS DATE )  >= DATEADD(DAY, 'placeholder_5', CURRENT_DATE ))"""
-    # SqlParse: Includes target table as source in INSERT INTO...SELECT
     # Graph: Parsers create different graph structures (table lineage is correct)
     assert_table_lineage_equal(
         sql,
@@ -193,7 +180,6 @@ def test_swap_remaining_rds__q866():
         },  # source_tables
         {"rds.staging.instance_tables_deleted_sys_id"},  # target_tables
         dialect="snowflake",
-        test_sqlparse=False,
         skip_graph_check=True,
     )
 
@@ -217,13 +203,11 @@ def test_swap_remaining_rds_dynamics365_businessunits_q17475():
     select 'placeholder_1' , 'placeholder_2' , 'placeholder_3' , "BUSINESSUNITID" ,  CURRENT_TIMESTAMP
     FROM RDS.DYNAMICS365.BUSINESSUNITS
     where "BUSINESSUNITID" IN (select distinct OBJECTID FROM "RDS"."DYNAMICS365"."AUDITS" WHERE "ACTION"='placeholder_4' and "OPERATION" = 'placeholder_5' AND LOWER( "OBJECTTYPECODE" ) = 'placeholder_6' AND CAST( "CREATEDON" AS DATE ) >=DATEADD(DAY, 'placeholder_7', CURRENT_DATE ))"""
-    # SqlParse: Includes target table as source in INSERT INTO...SELECT
     # Graph: Parsers create different graph structures (table lineage is correct)
     assert_table_lineage_equal(
         sql,
         {"rds.dynamics365.audits", "rds.dynamics365.businessunits"},  # source_tables
         {"rds.dynamics365.tables_deleted_records_id"},  # target_tables
         dialect="snowflake",
-        test_sqlparse=False,
         skip_graph_check=True,
     )

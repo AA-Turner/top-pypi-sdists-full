@@ -1,7 +1,7 @@
 import { Annotation, AnnotationView } from "./annotation";
 import type { ToolbarView } from "../tools/toolbar";
 import { Toolbar } from "../tools/toolbar";
-import type { View } from "../../core/build_views";
+import type { ChildView } from "../../core/build_views";
 import type { Size, Layoutable } from "../../core/layout";
 import type * as p from "../../core/properties";
 export declare class ToolbarPanelView extends AnnotationView {
@@ -10,11 +10,10 @@ export declare class ToolbarPanelView extends AnnotationView {
     update_layout(): void;
     after_layout(): void;
     has_finished(): boolean;
-    children_views(): View[];
+    children_views(): ChildView[];
     toolbar_view: ToolbarView;
     lazy_initialize(): Promise<void>;
     connect_signals(): void;
-    remove(): void;
     render(): void;
     private get is_horizontal();
     protected _paint(): void;

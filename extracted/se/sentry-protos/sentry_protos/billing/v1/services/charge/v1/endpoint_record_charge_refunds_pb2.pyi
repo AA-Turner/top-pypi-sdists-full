@@ -4,7 +4,9 @@ isort:skip_file
 """
 
 import builtins
+import collections.abc
 import google.protobuf.descriptor
+import google.protobuf.internal.containers
 import google.protobuf.message
 import sentry_protos.billing.v1.common.v1.stripe_charge_pb2
 import sentry_protos.billing.v1.services.charge.v1.charge_pb2
@@ -43,6 +45,7 @@ class RecordChargeRefundsResponse(google.protobuf.message.Message):
     DESCRIPTOR: google.protobuf.descriptor.Descriptor
 
     CHARGE_FIELD_NUMBER: builtins.int
+    NEW_REFUNDS_FIELD_NUMBER: builtins.int
     @property
     def charge(self) -> sentry_protos.billing.v1.services.charge.v1.charge_pb2.PlatformCharge:
         """Unset when no platform charge exists for ``stripe_charge.id``. Callers
@@ -51,13 +54,23 @@ class RecordChargeRefundsResponse(google.protobuf.message.Message):
         or already existed, ordered by ``date_added_st`` ascending.
         """
 
+    @property
+    def new_refunds(self) -> google.protobuf.internal.containers.RepeatedCompositeFieldContainer[sentry_protos.billing.v1.services.charge.v1.charge_pb2.PlatformRefund]:
+        """Only the refunds this call actually inserted -- those Stripe reported that
+        were not already stored. Stripe re-sends a charge's entire refund list on
+        every ``charge.refunded`` event, so a caller that must act exactly once per
+        refund (reversing its share of sales tax, for instance) reads this rather
+        than ``charge.refunds``. Empty when the payload carried nothing new.
+        """
+
     def __init__(
         self,
         *,
         charge: sentry_protos.billing.v1.services.charge.v1.charge_pb2.PlatformCharge | None = ...,
+        new_refunds: collections.abc.Iterable[sentry_protos.billing.v1.services.charge.v1.charge_pb2.PlatformRefund] | None = ...,
     ) -> None: ...
     def HasField(self, field_name: typing.Literal["_charge", b"_charge", "charge", b"charge"]) -> builtins.bool: ...
-    def ClearField(self, field_name: typing.Literal["_charge", b"_charge", "charge", b"charge"]) -> None: ...
+    def ClearField(self, field_name: typing.Literal["_charge", b"_charge", "charge", b"charge", "new_refunds", b"new_refunds"]) -> None: ...
     def WhichOneof(self, oneof_group: typing.Literal["_charge", b"_charge"]) -> typing.Literal["charge"] | None: ...
 
 global___RecordChargeRefundsResponse = RecordChargeRefundsResponse

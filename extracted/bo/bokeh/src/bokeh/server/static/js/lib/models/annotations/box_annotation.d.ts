@@ -19,7 +19,7 @@ import * as Box from "../common/box_kinds";
 import { Node } from "../coordinates/node";
 import { Coordinate } from "../coordinates/coordinate";
 import type { Renderer } from "../renderers/renderer";
-declare const CoordinateLike: import("../../core/kinds").Kinds.Or<[number, string | number | [string, string] | [string, string, string] | [string, number] | [string, string, number] | [string, string, string, number], Coordinate]>;
+declare const CoordinateLike: import("../../core/kinds").Kinds.Or<[number, string | number | [string, string] | [string, number] | [string, string, string] | [string, string, number] | [string, string, string, number], Coordinate]>;
 type CoordinateLike = typeof CoordinateLike["__type__"];
 export declare const EDGE_TOLERANCE = 2.5;
 export declare namespace BoxInteractionHandles {
@@ -146,7 +146,7 @@ export declare class BoxAnnotation extends Annotation {
     __view_type__: BoxAnnotationView;
     constructor(attrs?: Partial<BoxAnnotation.Attrs>);
     clone(attrs?: Partial<BoxAnnotation.Attrs>): this;
-    readonly pan: Signal<["pan" | "pan:start" | "pan:end", KeyModifiers], this>;
+    readonly pan: Signal<["pan" | "pan:end" | "pan:start", KeyModifiers], this>;
     update({ left, right, top, bottom }: LRTB<number | Coordinate>): void;
     clear(): void;
     readonly nodes: {

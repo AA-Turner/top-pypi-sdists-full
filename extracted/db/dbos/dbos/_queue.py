@@ -2,7 +2,16 @@ import asyncio
 import copy
 import random
 import threading
-from typing import TYPE_CHECKING, Any, Callable, Coroutine, Literal, Optional, TypedDict
+from typing import (
+    TYPE_CHECKING,
+    Any,
+    Callable,
+    Coroutine,
+    List,
+    Literal,
+    Optional,
+    TypedDict,
+)
 
 QueueConflictResolution = Literal[
     "update_if_latest_version", "always_update", "never_update"
@@ -12,11 +21,11 @@ from psycopg import errors
 from sqlalchemy.exc import OperationalError
 
 from dbos._context import DBOSContext, get_local_dbos_context
-from dbos._error import DBOSException
+from dbos._error import DBOSException, DBOSRecoveryError
 from dbos._logger import dbos_logger
 from dbos._utils import INTERNAL_QUEUE_NAME, GlobalParams
 
-from ._core import P, R, execute_workflow_by_id, start_workflow, start_workflow_async
+from ._core import P, R, execute_dequeued_workflow, start_workflow, start_workflow_async
 
 if TYPE_CHECKING:
     from ._dbos import DBOS, WorkflowHandle, WorkflowHandleAsync
@@ -77,6 +86,7 @@ class Queue:
         polling_interval_sec: float = DEFAULT_QUEUE_POLLING_INTERVAL_SEC,
         database_backed_queue: bool = False,
         client_system_database: Optional["SystemDatabase"] = None,
+        application_name: Optional[str] = None,
     ) -> None:
         Queue._validate_queue(
             concurrency=concurrency,
@@ -86,6 +96,8 @@ class Queue:
         )
         self.name = name
         self.database_backed_queue = database_backed_queue
+        # Owner from the queues table; None for in-memory and pre-upgrade queues.
+        self.application_name = application_name
         # When set, getters/setters use this SystemDatabase instead of the
         # DBOS singleton's. This allows a DBOSClient to manipulate queues
         # without depending on a launched DBOS process.
@@ -168,6 +180,7 @@ class Queue:
         self._priority_enabled = latest._priority_enabled
         self._partition_queue = latest._partition_queue
         self._polling_interval_sec = latest._polling_interval_sec
+        self.application_name = latest.application_name
 
     async def _configure_thread_pool(self) -> None:
         """Route ``asyncio.to_thread`` through DBOS's executor for DBOS-bound
@@ -447,6 +460,25 @@ def queue_worker_thread(
     polling_interval = queue._polling_interval_sec
     max_polling_interval = max(queue._polling_interval_sec, 120.0)
 
+    def start_dequeued_workflows(workflow_ids: List[str]) -> None:
+        """Fetch the claimed workflows' statuses in one round trip, then dispatch each."""
+        try:
+            found = {
+                status["workflow_uuid"]: status
+                for status in dbos._sys_db.get_workflow_statuses(workflow_ids)
+            }
+        except Exception as e:
+            dbos.logger.warning(f"Error fetching dequeued workflow statuses: {e}")
+            found = {}
+        for id in workflow_ids:
+            try:
+                status = found.get(id) or dbos._sys_db.get_workflow_status(id)
+                if status is None:
+                    raise DBOSRecoveryError(id, "Workflow status not found")
+                execute_dequeued_workflow(dbos, status)
+            except Exception as e:
+                dbos.logger.error(f"Error executing workflow {id}: {e}")
+
     while not stop_event.is_set():
         # Reload database-backed queue config once per iteration so dynamic
         # changes (concurrency, polling interval, etc.) take effect without
@@ -489,11 +521,7 @@ def queue_worker_thread(
                     GlobalParams.executor_id,
                     GlobalParams.app_version,
                 )
-                for id in dequeued_workflows:
-                    try:
-                        execute_workflow_by_id(dbos, id, False, True)
-                    except Exception as e:
-                        dbos.logger.error(f"Error executing workflow {id}: {e}")
+                start_dequeued_workflows(dequeued_workflows)
             elif queue._partition_queue:
                 # Every other partitioned config sweeps one partition at a time.
                 queue_partition_keys = dbos._sys_db.get_queue_partitions(queue.name)
@@ -517,11 +545,7 @@ def queue_worker_thread(
                         ):
                             continue
                         raise
-                    for id in dequeued_workflows:
-                        try:
-                            execute_workflow_by_id(dbos, id, False, True)
-                        except Exception as e:
-                            dbos.logger.error(f"Error executing workflow {id}: {e}")
+                    start_dequeued_workflows(dequeued_workflows)
             else:
                 local_running_count = dbos._active_workflows_set.count_for_queue(
                     queue.name, None
@@ -533,11 +557,7 @@ def queue_worker_thread(
                     None,
                     local_running_count,
                 )
-                for id in dequeued_workflows:
-                    try:
-                        execute_workflow_by_id(dbos, id, False, True)
-                    except Exception as e:
-                        dbos.logger.error(f"Error executing workflow {id}: {e}")
+                start_dequeued_workflows(dequeued_workflows)
         except OperationalError as e:
             if isinstance(e.orig, errors.LockNotAvailable):
                 # Another worker is dequeueing this queue right now; retry next
@@ -588,7 +608,9 @@ def queue_thread(stop_event: threading.Event, dbos: "DBOS") -> None:
                 if name in listening_set
             }
             try:
-                for queue in dbos._sys_db.list_queues():
+                for queue in dbos._sys_db.list_queues(
+                    application_name=dbos._sys_db.app_name
+                ):
                     if queue.name in listening_set and queue.name not in current_queues:
                         current_queues[queue.name] = queue
             except Exception as e:
@@ -615,7 +637,9 @@ def queue_thread(stop_event: threading.Event, dbos: "DBOS") -> None:
             # Else, check all in-memory and database-backed queues
             current_queues = dict(dbos._registry.queue_info_map)
             try:
-                for queue in dbos._sys_db.list_queues():
+                for queue in dbos._sys_db.list_queues(
+                    application_name=dbos._sys_db.app_name
+                ):
                     if queue.name in dbos._registry.queue_info_map:
                         dbos.logger.warning(
                             f"Database-backed queue {queue.name} has the same "
@@ -702,7 +726,7 @@ def log_queues(dbos: "DBOS", listening_queues: Optional[list[str]]) -> None:
     """
     queues: dict[str, Queue] = dict(dbos._registry.queue_info_map)
     try:
-        for q in dbos._sys_db.list_queues():
+        for q in dbos._sys_db.list_queues(application_name=dbos._sys_db.app_name):
             queues.setdefault(q.name, q)
     except Exception as e:
         dbos.logger.warning(f"Exception listing database-backed queues: {e}")

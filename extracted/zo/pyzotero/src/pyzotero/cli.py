@@ -452,6 +452,50 @@ def itemtypes(ctx: Any) -> None:
 
 
 @main.command()
+@click.option(
+    "--app-name",
+    default="Pyzotero",
+    show_default=True,
+    help="The name that Zotero shows in the authorisation dialog.",
+)
+@click.pass_context
+@cli_error_handler
+def authorize(ctx: Any, app_name: str) -> None:
+    """Get a local API key, which permits writes to your Zotero library.
+
+    Zotero shows a dialog with the options "Allow" (one-time access),
+    "Always Allow" (permanent access) and "Deny". Select "Always Allow" to
+    get a key that you can keep: the first write uses a one-time key.
+
+    Local API keys have no relation to zotero.org API keys.
+
+    Examples:
+        pyzotero authorize
+        pyzotero authorize --app-name "My MCP server"
+
+    """
+    zot = _zot_from_ctx(ctx)
+    click.echo("Requesting authorisation. Confirm the dialog in Zotero...", err=True)
+    result = zot.authorize_local(app_name)
+    click.echo(f"Key:       {result['key']}")
+    click.echo(f"Server ID: {zot.server_id}")
+    if result["remember"]:
+        click.echo(
+            "\nThis key persists. To give the MCP server write access, set it in\n"
+            "the server's environment and pass --enable-writes:\n\n"
+            '    "env": {"PYZOTERO_LOCAL_API_KEY": "' + result["key"] + '"},\n'
+            '    "args": ["--enable-writes"]',
+            err=True,
+        )
+    else:
+        click.echo(
+            "\nThis key is single-use: the first successful write consumes it.\n"
+            "Re-run and choose 'Always Allow' if you need a persistent key.",
+            err=True,
+        )
+
+
+@main.command()
 @click.pass_context
 @cli_error_handler
 def test(ctx: Any) -> None:

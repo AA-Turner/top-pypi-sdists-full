@@ -1,6 +1,7 @@
 import type { Regl, Texture2D } from "regl";
 export type DashReturn = [[number, number, number, number], Texture2D, number];
 type TextureReturn = [[number, number, number, number], Texture2D];
+export declare function normalize_dash_pattern(pattern: number[]): number[];
 export declare class DashCache {
     private _regl;
     private _map;

@@ -9,6 +9,7 @@ import pyarrow as pa
 from chalk.client.models import FeatureReference
 from chalk.features import Features, FeatureWrapper, TPrimitive, ensure_feature, unwrap_feature
 from chalk.features._encoding.json import FeatureEncodingOptions, unstructure_primitive_to_json
+from chalk.features._encoding.values_to_arrow import values_to_pyarrow_array
 from chalk.features.feature_field import Feature, FeatureNotFoundException
 from chalk.utils.json import TJSON
 
@@ -148,6 +149,85 @@ def _validate_rows_against_hint(rows: Sequence[Mapping[str, Any]], columns: Sequ
                     _hint_columns(column),
                     has_many_fqn=column.root_fqn,
                 )
+
+
+def encode_relaxed_shape_input_column(
+    feature: Optional[Feature],
+    values: Any,
+    column_name: Optional[str] = None,
+) -> Union[pa.Array, pa.ChunkedArray]:
+    """Encode one bulk input column to arrow, applying "relaxed shape" handling for
+    has-many features.
+
+    Has-many inputs given as chalk DataFrames usually provide a subset of the child
+    class's columns. The union of the provided columns acts as an inferred input schema
+    hint (c.f. `resolve_input_schema_hint`): the encoded struct contains exactly that
+    union, so downstream consumers can distinguish "column not provided" from "provided
+    as null". Cells missing one of the union's columns are null-filled, mirroring
+    `_validate_rows_against_hint`. When no cell provides a shape (all cells are None or
+    empty), the child class's full schema is used.
+
+    Every other value shape -- unknown columns, typed containers, plain sequences, and
+    has-many values given as lists of dicts or feature instances -- is encoded with the
+    feature's converter via `values_to_pyarrow_array`.
+    """
+    from chalk.features import DataFrame
+
+    if feature is not None and feature.is_has_many:
+        cells: List[Any] = list(values)
+        if any(isinstance(cell, DataFrame) for cell in cells):
+            return _encode_has_many_dataframe_cells(feature, cells, column_name)
+        values = cells
+    return values_to_pyarrow_array(
+        values,
+        converter=None if feature is None else feature.converter,
+        column_name=column_name,
+        # "allow" keeps explicit Nones as nulls instead of filling feature defaults.
+        missing_value_strategy="allow",
+    )
+
+
+def _encode_has_many_dataframe_cells(
+    feature: Feature,
+    cells: List[Any],
+    column_name: Optional[str],
+) -> pa.Array:
+    from chalk.features import DataFrame
+
+    name_part = f" of column '{column_name}'" if column_name is not None else ""
+    provided_columns: Dict[str, None] = {}  # insertion-ordered set of provided root fqns
+    rows: List[Optional[List[Dict[str, Any]]]] = []
+    for cell in cells:
+        if cell is None or cell is ...:
+            rows.append(None)
+        elif isinstance(cell, DataFrame):
+            cell_table = cell.to_pyarrow()
+            for fqn in cell_table.schema.names:
+                provided_columns.setdefault(fqn)
+            rows.append(cell_table.to_pylist())
+        elif isinstance(cell, (list, tuple)) and len(cell) == 0:
+            rows.append([])
+        else:
+            raise ValueError(
+                f"The has-many values{name_part} mix chalk DataFrames with values of type "
+                + f"'{type(cell).__name__}'. When passing DataFrames for a has-many feature, every "
+                + "cell must be a DataFrame, an empty list, or None."
+            )
+    if len(provided_columns) == 0:
+        # No cell provides a shape (e.g. only empty DataFrames); use the full child schema.
+        projected = feature
+    else:
+        column_features = tuple(ensure_feature(fqn) for fqn in provided_columns)
+        projected = unwrap_feature(FeatureWrapper(feature)[column_features])
+    # An explicitly-typed array pins the schema regardless of the row data (c.f. the
+    # input_schema_hint handling in recursive_encode_bulk_inputs).
+    try:
+        return pa.array(rows, type=projected.converter.pyarrow_dtype)
+    except (pa.ArrowException, ValueError, TypeError) as e:
+        raise ValueError(
+            f"Could not convert the has-many values{name_part} to the type "
+            + f"'{projected.converter.pyarrow_dtype}': {e}"
+        ) from e
 
 
 def _recursive_unstructure_primitive_to_json(val: TPrimitive) -> TJSON:

@@ -209,7 +209,6 @@ def test_create_table_rds_powerbi__q4736():
 (select 'placeholder_1','placeholder_2',"Data Value",'placeholder_3'
 from RDS.POWERBI."TEMP_FABRIC_CAPACITY_METRICS_7B4ECCAF-EF86-475A-B8AB-EA595D5066E3")"""
     # SqlParse: Includes target table as source in INSERT INTO...SELECT
-    # Graph: Parsers create different graph structures (table lineage is correct)
     assert_table_lineage_equal(
         sql,
         {
@@ -218,7 +217,6 @@ from RDS.POWERBI."TEMP_FABRIC_CAPACITY_METRICS_7B4ECCAF-EF86-475A-B8AB-EA595D506
         {"rds.powerbi.stg_fabric_capacity_metrics"},  # target_tables
         dialect="snowflake",
         test_sqlparse=False,
-        skip_graph_check=True,
     )
 
 

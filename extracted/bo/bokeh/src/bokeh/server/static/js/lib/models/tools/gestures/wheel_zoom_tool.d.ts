@@ -5,7 +5,7 @@ import { GroupBy } from "../../misc/group_by";
 import type * as p from "../../../core/properties";
 import type { PinchEvent, ScrollEvent } from "../../../core/ui_events";
 import { Dimensions } from "../../../core/enums";
-declare const ZoomTogether: import("../../../core/kinds").Kinds.Enum<"none" | "all" | "cross">;
+declare const ZoomTogether: import("../../../core/kinds").Kinds.Enum<"all" | "cross" | "none">;
 type ZoomTogether = typeof ZoomTogether["__type__"];
 declare const Renderers: import("../../../core/kinds").Kinds.Or<[DataRenderer[], "auto"]>;
 type Renderers = typeof Renderers["__type__"];

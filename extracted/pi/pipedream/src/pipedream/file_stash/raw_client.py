@@ -21,14 +21,14 @@ class RawFileStashClient:
 
     @contextlib.contextmanager
     def download_file(
-        self, *, s3key: str, request_options: typing.Optional[RequestOptions] = None
+        self, *, s_3_key: str, request_options: typing.Optional[RequestOptions] = None
     ) -> typing.Iterator[HttpResponse[typing.Iterator[bytes]]]:
         """
         Download a file from File Stash
 
         Parameters
         ----------
-        s3key : str
+        s_3_key : str
 
         request_options : typing.Optional[RequestOptions]
             Request-specific configuration. You can pass in configuration such as `chunk_size`, and more to customize the request and response.
@@ -42,7 +42,7 @@ class RawFileStashClient:
             f"v1/connect/{encode_path_param(self._client_wrapper._project_id)}/file_stash/download",
             method="GET",
             params={
-                "s3_key": s3key,
+                "s3_key": s_3_key,
             },
             request_options=request_options,
         ) as _response:
@@ -89,14 +89,14 @@ class AsyncRawFileStashClient:
 
     @contextlib.asynccontextmanager
     async def download_file(
-        self, *, s3key: str, request_options: typing.Optional[RequestOptions] = None
+        self, *, s_3_key: str, request_options: typing.Optional[RequestOptions] = None
     ) -> typing.AsyncIterator[AsyncHttpResponse[typing.AsyncIterator[bytes]]]:
         """
         Download a file from File Stash
 
         Parameters
         ----------
-        s3key : str
+        s_3_key : str
 
         request_options : typing.Optional[RequestOptions]
             Request-specific configuration. You can pass in configuration such as `chunk_size`, and more to customize the request and response.
@@ -110,7 +110,7 @@ class AsyncRawFileStashClient:
             f"v1/connect/{encode_path_param(self._client_wrapper._project_id)}/file_stash/download",
             method="GET",
             params={
-                "s3_key": s3key,
+                "s3_key": s_3_key,
             },
             request_options=request_options,
         ) as _response:

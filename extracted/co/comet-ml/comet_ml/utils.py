@@ -22,6 +22,7 @@ import os
 import os.path
 import platform
 import random
+import reprlib
 import string
 import subprocess
 import sys
@@ -733,3 +734,20 @@ def create_asset_url(prefix, **query_arguments):
     splitted[3] = urlencode(query_arguments)
 
     return urlunsplit(splitted)
+
+
+def bounded_repr(value: Any, max_depth: int = 4) -> str:
+    """Returns a depth-limited repr of ``value``, for use in log messages.
+
+    ``repr()`` of a deeply nested structure recurses once per level, so reporting one - for
+    instance a metrics dictionary that exceeded the nested depth limit - could itself raise
+    RecursionError, and would put the whole structure on a single log line. Nesting below
+    ``max_depth`` is elided as ``{...}``."""
+    limiter = reprlib.Repr()
+    limiter.maxlevel = max_depth
+
+    try:
+        return limiter.repr(value)
+    except Exception:
+        # rendering the value must never be the reason a message is lost
+        return "<unrepresentable %s>" % type(value).__name__

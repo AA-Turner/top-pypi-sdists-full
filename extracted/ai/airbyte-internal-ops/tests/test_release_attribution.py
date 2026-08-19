@@ -459,6 +459,7 @@ def test_release_attribution_index_round_trip(tmp_path: Path) -> None:
                 "pr_author_login": "alice",
                 "pr_author_type": "User",
                 "attributed_to": "alice",
+                "attributed_to_kind": "maintainer",
                 "merge_commit_sha": "github-sha",
                 "merged_at": datetime(2025, 1, 2, tzinfo=timezone.utc),
                 "released_at": datetime(2025, 1, 2, tzinfo=timezone.utc),
@@ -485,6 +486,7 @@ def test_release_attribution_index_round_trip(tmp_path: Path) -> None:
                 "pr_author_login": "alice",
                 "pr_author_type": "User",
                 "attributed_to": "alice",
+                "attributed_to_kind": "maintainer",
                 "merge_commit_sha": "github-sha",
                 "merged_at": datetime(2025, 1, 2, tzinfo=timezone.utc),
                 "released_at": datetime(2025, 1, 2, tzinfo=timezone.utc),
@@ -586,3 +588,49 @@ def test_shallow_repo_guard(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> 
     monkeypatch.setattr(subprocess, "run", fake_run)
     with pytest.raises(ValueError, match="shallow"):
         scan_release_attribution(tmp_path)
+
+
+@pytest.mark.unit
+def test_legacy_record_without_kind_is_reclassified() -> None:
+    """A record published before the field existed keeps naming its contact."""
+    legacy = ReleaseAttribution.model_validate(
+        {
+            "pr_number": 82705,
+            "pr_author_login": "ZenonRad",
+            "pr_author_type": "User",
+            "attributed_to": "ZenonRad",
+            "source": "publish",
+        }
+    )
+    assert legacy.attributed_to_kind == "maintainer"
+    assert legacy.attributed_to == "ZenonRad"
+
+    community = ReleaseAttribution.model_validate(
+        {
+            "pr_number": 82705,
+            "pr_author_login": "ZenonRad",
+            "pr_author_type": "User",
+            "pr_author_association": "CONTRIBUTOR",
+            "pr_merged_by_login": "mwbayley",
+            "pr_merged_by_type": "User",
+            "source": "publish",
+        }
+    )
+    assert community.attributed_to_kind == "maintainer"
+    assert community.attributed_to == "mwbayley"
+
+
+@pytest.mark.unit
+def test_bot_author_with_internal_association_is_never_a_maintainer() -> None:
+    """A bot carrying a write-access association is still only ever a bot."""
+    record = ReleaseAttribution.model_validate(
+        {
+            "pr_number": 1,
+            "pr_author_login": "octavia-squidington-iii[bot]",
+            "pr_author_type": "Bot",
+            "pr_author_association": "MEMBER",
+            "source": "publish",
+        }
+    )
+    assert record.attributed_to_kind == "bot"
+    assert record.attributed_to == "octavia-squidington-iii[bot]"

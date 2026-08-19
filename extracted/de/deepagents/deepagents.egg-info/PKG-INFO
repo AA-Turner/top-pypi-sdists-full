@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: deepagents
-Version: 0.7.6
+Version: 0.7.7
 Summary: Production-ready, extensible agent harness with a built-in filesystem and context management, sub-agent delegation, skills, and long-term memory.
 License: MIT
 Project-URL: Homepage, https://docs.langchain.com/oss/python/deepagents/overview

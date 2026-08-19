@@ -20,6 +20,7 @@ from anyscale.commands.output_format import (
     print_output,
 )
 from anyscale.commands.util import AnyscaleCommand
+from anyscale.errors import UserError
 from anyscale.resource_quota.models import CreateResourceQuota, Quota, ResourceQuota
 from anyscale.util import validate_non_negative_arg
 
@@ -233,8 +234,9 @@ def create(  # noqa: PLR0913
         log.info(f"Resource quota created successfully ID: {resource_quota.id}")
 
     except ValueError as e:
-        log.error(f"Error creating resource quota: {e}")
-        return
+        raise UserError(
+            f"Error creating resource quota: {e}", legacy_exit_code=0
+        ) from None
 
 
 @command_metadata(
@@ -355,7 +357,11 @@ def list_resource_quotas(
     is_beta=True,
 )
 @click.option(
-    "--id", required=True, help="ID of the resource quota to delete.",
+    "--resource-quota-id",
+    "--id",
+    "id",
+    required=True,
+    help="ID of the resource quota to delete.",
 )
 def delete(id: str) -> None:  # noqa: A002
     """Delete a resource quota.
@@ -366,8 +372,9 @@ def delete(id: str) -> None:  # noqa: A002
         with log.spinner("Deleting resource quota..."):
             anyscale.resource_quota.delete(resource_quota_id=id)
     except ValueError as e:
-        log.error(f"Error deleting resource quota: {e}")
-        return
+        raise UserError(
+            f"Error deleting resource quota: {e}", legacy_exit_code=0
+        ) from None
 
     log.info(f"Resource quota with ID {id} deleted successfully.")
 
@@ -391,7 +398,11 @@ def delete(id: str) -> None:  # noqa: A002
     is_beta=True,
 )
 @click.option(
-    "--id", required=True, help="ID of the resource quota to enable.",
+    "--resource-quota-id",
+    "--id",
+    "id",
+    required=True,
+    help="ID of the resource quota to enable.",
 )
 def enable(id: str) -> None:  # noqa: A002
     """Enable a resource quota.
@@ -402,8 +413,9 @@ def enable(id: str) -> None:  # noqa: A002
         with log.spinner("Setting resource quota status..."):
             anyscale.resource_quota.enable(resource_quota_id=id)
     except ValueError as e:
-        log.error(f"Error enabling resource quota: {e}")
-        return
+        raise UserError(
+            f"Error enabling resource quota: {e}", legacy_exit_code=0
+        ) from None
 
     log.info(f"Enabled resource quota with ID {id} successfully.")
 
@@ -427,7 +439,11 @@ def enable(id: str) -> None:  # noqa: A002
     is_beta=True,
 )
 @click.option(
-    "--id", required=True, help="ID of the resource quota to disable.",
+    "--resource-quota-id",
+    "--id",
+    "id",
+    required=True,
+    help="ID of the resource quota to disable.",
 )
 def disable(id: str) -> None:  # noqa: A002
     """Disable a resource quota.
@@ -438,7 +454,8 @@ def disable(id: str) -> None:  # noqa: A002
         with log.spinner("Setting resource quota status..."):
             anyscale.resource_quota.disable(resource_quota_id=id)
     except ValueError as e:
-        log.error(f"Error disabling resource quota: {e}")
-        return
+        raise UserError(
+            f"Error disabling resource quota: {e}", legacy_exit_code=0
+        ) from None
 
     log.info(f"Disabled resource quota with ID {id} successfully.")

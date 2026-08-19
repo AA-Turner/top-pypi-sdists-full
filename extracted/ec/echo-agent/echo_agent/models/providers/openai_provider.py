@@ -11,6 +11,7 @@ from echo_agent.models.provider import (
     LLMProvider,
     LLMResponse,
     StreamDeltaCallback,
+    StreamReasoningCallback,
     ToolCallRequest,
     _invoke_stream_callback,
 )
@@ -22,6 +23,13 @@ class OpenAIProvider(LLMProvider):
         super().__init__(api_key=api_key, api_base=api_base)
         self._default_model = default_model
         self._extra_headers: dict[str, str] = kwargs.get("extra_headers", {})
+        # Whether to request `stream_options={"include_usage": True}` on streaming
+        # calls (needed for token counts / cost frames). Some OpenAI-compatible
+        # endpoints reject the field outright; set stream_include_usage=False for
+        # those. Default True preserves usage reporting on real OpenAI. Even when
+        # True, chat_stream retries once WITHOUT the field before giving up on
+        # streaming, so a rejecting endpoint still streams (just without usage).
+        self._stream_include_usage: bool = bool(kwargs.get("stream_include_usage", True))
         self._client = self._build_client()
 
     def _build_client(self) -> Any:
@@ -63,7 +71,14 @@ class OpenAIProvider(LLMProvider):
             )
             return resp.data[0].embedding
         except Exception as e:
-            logger.warning("Embedding API error: {}", e)
+            # DEBUG, not WARNING: many OpenAI-compatible endpoints serve chat only
+            # and have no /embeddings at all, so the startup probe failing here is
+            # an EXPECTED step of `memory.embedding_backend=auto` before it falls
+            # back to the local model. The caller owns the visible reporting — an
+            # INFO line naming the chosen backend, and a WARNING once the failure
+            # circuit trips. Warning here just meant a scary line on every boot of
+            # a perfectly healthy deployment.
+            logger.debug("Embedding API error: {}", e)
             return None
 
     async def chat_stream(
@@ -73,16 +88,37 @@ class OpenAIProvider(LLMProvider):
         model: str | None = None,
         tool_choice: str | dict | None = None,
         on_delta: StreamDeltaCallback | None = None,
+        on_reasoning: StreamReasoningCallback | None = None,
         **kwargs: Any,
     ) -> LLMResponse:
         params = self._build_params(messages, tools, model, tool_choice, **kwargs)
         params["stream"] = True
+        # OpenAI-compatible streaming omits `usage` unless include_usage is set;
+        # without it the final chunk carries no token counts, so cost/context/
+        # model status frames never surface. A caller may override stream_options
+        # explicitly (honored by _build_params); otherwise default it on unless
+        # this provider was configured with stream_include_usage=False.
+        if "stream_options" not in params and self._stream_include_usage:
+            params["stream_options"] = {"include_usage": True}
 
         try:
             stream = await self._client.chat.completions.create(**params)
         except Exception as e:
-            logger.warning("OpenAI stream init failed, falling back to non-streaming: {}", e)
-            return await self.chat(messages, tools, model, tool_choice, **kwargs)
+            # Some OpenAI-compatible endpoints reject stream_options. Before
+            # abandoning streaming entirely, retry the stream once without that
+            # field — this keeps token-by-token output for such endpoints (only
+            # usage/cost frames are lost). Only worth retrying if we actually
+            # sent stream_options; otherwise go straight to the non-stream path.
+            if params.pop("stream_options", None) is not None:
+                logger.warning("OpenAI stream init failed, retrying stream without stream_options: {}", e)
+                try:
+                    stream = await self._client.chat.completions.create(**params)
+                except Exception as e2:
+                    logger.warning("OpenAI stream retry failed, falling back to non-streaming: {}", e2)
+                    return await self.chat(messages, tools, model, tool_choice, **kwargs)
+            else:
+                logger.warning("OpenAI stream init failed, falling back to non-streaming: {}", e)
+                return await self.chat(messages, tools, model, tool_choice, **kwargs)
 
         text_parts: list[str] = []
         reasoning_parts: list[str] = []
@@ -119,6 +155,11 @@ class OpenAIProvider(LLMProvider):
                 reasoning_delta = self._delta_reasoning(delta)
                 if reasoning_delta:
                     reasoning_parts.append(reasoning_delta)
+                    # Forwarded as it arrives so the client can show thinking
+                    # while it happens. Deltas are still accumulated: the whole
+                    # trace is needed on the response for _promote_reasoning and
+                    # for consumers that never subscribed to the callback.
+                    await _invoke_stream_callback(on_reasoning, reasoning_delta)
 
                 for tc in getattr(delta, "tool_calls", None) or []:
                     self._merge_tool_delta(tool_parts, tc)
@@ -167,7 +208,7 @@ class OpenAIProvider(LLMProvider):
             params["tool_choice"] = tool_choice
         if self.generation.top_p < 1.0:
             params["top_p"] = self.generation.top_p
-        for key in ("extra_body", "extra_headers"):
+        for key in ("extra_body", "extra_headers", "stream_options"):
             if key in kwargs:
                 params[key] = kwargs[key]
         return params

@@ -58,8 +58,11 @@ from airbyte_ops_mcp.connector_ops.rollouts.models import (
     AutopilotResult,
     ConnectorRolloutRecord,
 )
+from airbyte_ops_mcp.connector_ops.rollouts.state_transitions import pause_rollout
 from airbyte_ops_mcp.prod_db_access.queries import query_connector_rollouts
 from airbyte_ops_mcp.registry.release_attribution import (
+    KIND_BOT,
+    KIND_MAINTAINER,
     lookup_release_attribution,
 )
 from airbyte_ops_mcp.registry.store import RegistryStore
@@ -70,7 +73,33 @@ from airbyte_ops_mcp.slack_posting import (
 
 logger = logging.getLogger(__name__)
 
-_AUTOPILOT_ESCALATION_TARGET = "@aaronsteers"
+# `@oc-hydra` usergroup: default escalation point when no release owner resolves.
+_AUTOPILOT_ESCALATION_FALLBACK = "S0BJ4K3LC4X"
+
+
+@dataclass(frozen=True)
+class ReleaseContext:
+    """Release attribution for a rollout notification.
+
+    `contact_login` is set only for a human release owner.  A bot identity is
+    named in the message but cannot act on a paused rollout, and a community
+    contributor is never named at all, so both route to the oncall rotation.
+    """
+
+    text: str = ""
+    contact_login: str | None = None
+
+    @property
+    def escalation_target(self) -> str:
+        """Return the person to notify, falling back to the oncall usergroup."""
+        if self.contact_login:
+            return f"@{self.contact_login}"
+        return _AUTOPILOT_ESCALATION_FALLBACK
+
+    @property
+    def escalation_cc(self) -> list[str]:
+        """Return the oncall CC list, empty when oncall is already the target."""
+        return [_AUTOPILOT_ESCALATION_FALLBACK] if self.contact_login else []
 
 
 def _release_context(
@@ -78,7 +107,7 @@ def _release_context(
     version: str,
     *,
     store: RegistryStore | None = None,
-) -> str:
+) -> ReleaseContext:
     """Return best-effort release context for a rollout notification."""
     try:
         result = lookup_release_attribution(
@@ -93,7 +122,7 @@ def _release_context(
             version,
             exc,
         )
-        return ""
+        return ReleaseContext()
 
     if result.status != "found" or result.attribution is None:
         if result.status == "error":
@@ -103,7 +132,7 @@ def _release_context(
                 version,
                 result.error,
             )
-        return ""
+        return ReleaseContext()
 
     attribution = result.attribution
     lines: list[str] = []
@@ -115,16 +144,16 @@ def _release_context(
         )
         lines.append(f"Release PR: <{attribution.pr_url}|{pr_label}>")
 
-    if attribution.attributed_to:
-        contact = format_github_login_contact(attribution.attributed_to)
-        lines.append(f"Release contact: {contact}")
-    elif attribution.pr_author_login and attribution.pr_author_type in {"User", "Bot"}:
-        suffix = " (automated account)" if attribution.pr_author_type == "Bot" else ""
-        lines.append(f"Release author: `{attribution.pr_author_login}`{suffix}")
+    contact_login: str | None = None
+    if attribution.attributed_to_kind == KIND_MAINTAINER and attribution.attributed_to:
+        contact_login = attribution.attributed_to
+        lines.append(f"Release contact: {format_github_login_contact(contact_login)}")
+    elif attribution.attributed_to_kind == KIND_BOT and attribution.attributed_to:
+        lines.append(f"Released by: `{attribution.attributed_to}` (automated account)")
     if attribution.released_at:
         lines.append(f"Released at: `{attribution.released_at.isoformat()}`")
 
-    return "\n".join(lines)
+    return ReleaseContext(text="\n".join(lines), contact_login=contact_login)
 
 
 @dataclass(frozen=True)
@@ -1036,7 +1065,9 @@ def run_auto_promote(
       succeeded (promotes to GA).
 
     Health gate algorithm (5-threshold model):
-    1. If failures >= `ROLLOUT_FAILURE_COUNT_THRESHOLD`, recommend rollback.
+    1. If the failing-connector rate >= `ROLLOUT_FAILURE_PERCENT_THRESHOLD` or
+       failing connectors >= `ROLLOUT_FAILURE_COUNT_THRESHOLD` (and failing
+       connectors >= `ROLLOUT_FAILURE_COUNT_FLOOR`), recommend rollback.
     2. If elapsed < `MIN_SOAK_TIME`, wait (never promote before this).
     3. If elapsed >= `MAX_SOAK_TIME`, force progression regardless of signal.
     4. Otherwise, require both `SOAKED_SIGNAL_COUNT_THRESHOLD` (actor count)
@@ -1987,7 +2018,7 @@ def _send_failure_threshold_hitl(
     Failures are logged but not raised.
     """
     release_context = _release_context(rollout.connector_name, rc_version)
-    release_section = f"\n\n{release_context}" if release_context else ""
+    release_section = f"\n\n{release_context.text}" if release_context.text else ""
     message = (
         f"🚨 *Rollout paused (failure threshold)*\n\n"
         f"Connector: `{rollout.connector_name}`\n"
@@ -1996,13 +2027,16 @@ def _send_failure_threshold_hitl(
         f"Tier: `{rollout.tier or 'unknown'}`\n"
         f"Current %: {rollout.current_target_rollout_pct or 0}%\n\n"
         f"Reason: {gate.reason}\n"
-        f"Failures observed: {gate.failure_count}\n\n"
+        f"Failures observed: {gate.failed_actor_count} of "
+        f"{gate.actors_with_sync_signal} connectors "
+        f"({gate.failure_percent:.1%}), {gate.failure_count} failed syncs\n\n"
         f"Action required: review sync failures and decide whether to "
         f"rollback or resume the rollout.{release_section}"
     )
     try:
         send_hitl_notification(
-            target_person=_AUTOPILOT_ESCALATION_TARGET,
+            target_person=release_context.escalation_target,
+            cc_persons=release_context.escalation_cc,
             message=message,
             agent_session_url=_build_ci_run_url(),
             connector_name=rollout.connector_name,
@@ -2033,7 +2067,8 @@ def run_auto_triage_failed(
        per `unsafeDowngrades`. Actor-level unpinning not yet implemented.
     2. **Failure threshold detection** (`in_progress` and `workflow_started`
        autopilot rollouts): Calls `check_health_gate` on active rollouts. If
-       failure count >= threshold, pauses the rollout and sends an HITL
+       the failing-connector rate trips the threshold, pauses the rollout and
+       sends an HITL
        notification. The pause prevents duplicate notifications on subsequent
        cron runs. Auto-advance and auto-promote independently skip on the same
        gate as defense-in-depth.
@@ -2160,7 +2195,7 @@ def run_auto_triage_failed(
 
         # Pause the rollout to retain pins and prevent re-notification on next run
         try:
-            api_client.pause_connector_rollout(
+            pause_rollout(
                 docker_repository=rollout.rc_docker_repository or "",
                 docker_image_tag=rc_version,
                 actor_definition_id=rollout.actor_definition_id,

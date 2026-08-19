@@ -11,6 +11,6 @@ export declare class LinearScale extends ContinuousScale {
     constructor(attrs?: Partial<LinearScale.Attrs>);
     get s_compute(): (x: number) => number;
     get s_invert(): (sx: number) => number;
-    _linear_compute_state(): [number, number];
+    static linear_compute(source_start: number, source_end: number, target_start: number, target_end: number): [number, number];
 }
 //# sourceMappingURL=linear_scale.d.ts.map

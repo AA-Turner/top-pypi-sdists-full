@@ -2,7 +2,7 @@ import { LayoutProvider } from "./layout_provider";
 import type { ColumnarDataSource } from "../sources/columnar_data_source";
 import type { Arrayable } from "../../core/types";
 import type * as p from "../../core/properties";
-export declare const GraphLayout: import("../../core/kinds").Kinds.Or<[import("core/types").Dict<Arrayable<number>>, Map<string | number, Arrayable<number>>]>;
+export declare const GraphLayout: import("../../core/kinds").Kinds.Or<[import("../../core/types").Dict<Arrayable<number>>, Map<string | number, Arrayable<number>>]>;
 export type GraphLayout = typeof GraphLayout["__type__"];
 export declare namespace StaticLayoutProvider {
     type Attrs = p.AttrsOf<Props>;

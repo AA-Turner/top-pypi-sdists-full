@@ -281,6 +281,61 @@ To further configure your DatadogLambda construct for Lambda, use the following 
 | `llmObsMlApp`                | `llm_obs_ml_app`                | The name of your LLM application, service, or project, under which all traces and spans are grouped. This helps distinguish between different applications or experiments. See [Application naming guidelines](https://docs.datadoghq.com/llm_observability/sdk/?tab=nodejs#application-naming-guidelines) for allowed characters and other constraints. To override this value for a given root span, see [Tracing multiple applications](https://docs.datadoghq.com/llm_observability/sdk/?tab=nodejs#tracing-multiple-applications).  Required if `llmObsEnabled` is `true` |
 | `llmObsAgentlessEnabled`     | `llm_obs_agentless_enabled`     | Only required if you are not using the Datadog Lambda Extension, in which case this should be set to `true`.  Defaults to `false`.                                                                                                                                                                                                                                                                                                                                                                                                                                             |
 
+#### Setting `DD_*` environment variables
+
+To configure Datadog variables for every instrumented function, set the matching field on `DatadogLambdaProps` (for example, `enableDatadogTracing`, `logLevel`, `env`, or `tags`).
+
+To override a value on a single function, use one of:
+
+* `datadogLambda.setEnvironment(func, key, value)` before `datadogLambda.addLambdaFunctions()`, to override a construct default while letting the construct finish instrumenting the function.
+* `func.addEnvironment(key, value)` after `datadogLambda.addLambdaFunctions()`, to override the value set during instrumentation.
+
+When more than one source sets the same key, the following order applies (highest precedence first):
+
+1. `func.addEnvironment(key, value)` called after `datadogLambda.addLambdaFunctions()`.
+2. `DatadogLambdaProps` fields dedicated to that key. These fields overwrite a value for the same key set through `datadogLambda.setEnvironment()`:
+
+   * Unified service tagging: `env`, `service`, `version`
+   * Cold-start tracing: `enableColdStartTracing`, `minColdStartTraceDuration`, `coldStartTraceSkipLibs`
+   * Other tracer settings: `enableProfiling`, `encodeAuthorizerContext`, `decodeAuthorizerContext`, `apmFlushDeadline`
+   * LLM Observability: `llmObsEnabled`, `llmObsMlApp`, `llmObsAgentlessEnabled`
+   * Transport: `site`, `apiKey`, `apiKeySecretArn`, `apiKeySsmArn`, `apiKmsKey`, `flushMetricsToLogs`
+3. `datadogLambda.setEnvironment(func, key, value)` called before `datadogLambda.addLambdaFunctions()`.
+4. Construct defaults, which apply only when nothing else set the key: `enableDatadogTracing`, `datadogAppSecMode`, `enableMergeXrayTraces`, `injectLogContext`, `enableDatadogLogs`, `captureLambdaPayload`, `captureCloudServicePayload`, `logLevel`
+
+`datadogLambda.addLambdaFunctions` merges the `DD_TAGS` environment variable from three sources, in order:
+
+1. `DatadogLambdaProps.tags`.
+2. Per-function tags from `datadogLambda.setEnvironment(func, 'DD_TAGS', ...)`.
+3. `git.commit.sha` and `git.repository_url` from source code integration.
+
+If the same tag key appears in more than one source, the later source wins.
+
+The following example shows these rules in practice:
+
+```python
+const myFunction = new lambda.Function(this, 'MyFunction', {
+  // ...
+});
+
+const datadogLambda = new DatadogLambda(this, 'DatadogLambda', {
+  // ...
+  tags: 'env:prod,team:platform',
+});
+
+datadogLambda.setEnvironment(myFunction, 'DD_TRACE_ENABLED', 'false');
+datadogLambda.setEnvironment(myFunction, 'DD_TAGS', 'service:worker,team:payments');
+datadogLambda.addLambdaFunctions([myFunction]);
+
+myFunction.addEnvironment('DD_LOG_LEVEL', 'debug');
+```
+
+Final values on `myFunction`:
+
+* `DD_TRACE_ENABLED=false`, from `datadogLambda.setEnvironment`, overriding the default.
+* `DD_LOG_LEVEL=debug`, from `myFunction.addEnvironment`, overriding the construct.
+* `DD_TAGS=env:prod,service:worker,team:payments,git.commit.sha:...,git.repository_url:...`. `team:payments` replaces `team:platform`, and source code integration appends the git tags.
+
 #### Default layer versions
 
 When you don't pass a `*LayerVersion` or `*LayerArn`, the construct uses a default layer version bundled with the package. These defaults track the latest released Datadog Lambda layers at the time the construct version was published, and are exposed via the `DatadogDefaultLayerVersions` class so you can reference them directly in any language:
@@ -694,7 +749,7 @@ const stateMachine = new sfn.StateMachine(stack, 'MyStateMachine', {
 
 ## Using Projen
 
-The Datadog CDK Construct Libraries use Projen to maintain project configuration files such as the `package.json`, `.gitignore`, `.npmignore`, etc. Most of the configuration files will be protected by Projen via read-only permissions. In order to change these files, edit the `.projenrc.js` file, then run `npx projen` to synthesize the new changes. Check out [Projen](https://github.com/projen/projen) for more details.
+The Datadog CDK Construct Libraries use Projen to maintain project configuration files such as the `package.json`, `.gitignore`, `.npmignore`, etc. Most of the configuration files will be protected by Projen via read-only permissions. In order to change these files, edit the `.projenrc.ts` file, then run `yarn projen` to synthesize the new changes. Check out [Projen](https://github.com/projen/projen) for more details.
 
 ## Migrating from v2-1.x.x to v2-2.x.x
 
@@ -777,7 +832,7 @@ import jsii
 import publication
 import typing_extensions
 
-from jsii._type_checking import check_type
+from jsii._type_checking import cached_type_hints, check_type
 
 
 from ._jsii import *
@@ -839,7 +894,7 @@ class APMFeatureConfig:
         :param trace_inferred_proxy_services: Enables inferred spans for proxy services like AWS API Gateway. When enabled, the tracer will create spans for proxy services by using headers passed from the proxy service to the application.
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__e230986922ff4221b55047d221e20a0c611bc5d8df4610875061e8ae695d6738)
+            type_hints = cached_type_hints(_typecheckingstub__e230986922ff4221b55047d221e20a0c611bc5d8df4610875061e8ae695d6738)
             check_type(argname="argument is_enabled", value=is_enabled, expected_type=type_hints["is_enabled"])
             check_type(argname="argument is_profiling_enabled", value=is_profiling_enabled, expected_type=type_hints["is_profiling_enabled"])
             check_type(argname="argument is_socket_enabled", value=is_socket_enabled, expected_type=type_hints["is_socket_enabled"])
@@ -912,7 +967,7 @@ class CWSFeatureConfig:
         :param is_enabled: Enables CWS.
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__ff0c4d67dd6843f17b765f1e6b351b15bf898ecaae3fe812a95acf8ee0703814)
+            type_hints = cached_type_hints(_typecheckingstub__ff0c4d67dd6843f17b765f1e6b351b15bf898ecaae3fe812a95acf8ee0703814)
             check_type(argname="argument is_enabled", value=is_enabled, expected_type=type_hints["is_enabled"])
         self._values: typing.Dict[builtins.str, typing.Any] = {}
         if is_enabled is not None:
@@ -1094,7 +1149,7 @@ class DatadogECSBaseProps:
         if isinstance(orchestrator_explorer, dict):
             orchestrator_explorer = OrchestratorExplorerFeatureConfig(**orchestrator_explorer)
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__d27d29c3a8198268022c64bd85cfc6542074c930488b7326c79b53336deaa44a)
+            type_hints = cached_type_hints(_typecheckingstub__d27d29c3a8198268022c64bd85cfc6542074c930488b7326c79b53336deaa44a)
             check_type(argname="argument api_key", value=api_key, expected_type=type_hints["api_key"])
             check_type(argname="argument api_key_secret", value=api_key_secret, expected_type=type_hints["api_key_secret"])
             check_type(argname="argument api_key_secret_arn", value=api_key_secret_arn, expected_type=type_hints["api_key_secret_arn"])
@@ -1524,7 +1579,7 @@ class DatadogECSFargate(
         :param version: The task version. Used for tagging (UST).
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__7e36e6c3fc3a4574bfd3006ff2c205658f6beefccb62229aea1be683f8672145)
+            type_hints = cached_type_hints(_typecheckingstub__7e36e6c3fc3a4574bfd3006ff2c205658f6beefccb62229aea1be683f8672145)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
             check_type(argname="argument props", value=props, expected_type=type_hints["props"])
@@ -1664,7 +1719,7 @@ class DatadogECSFargateProps(DatadogECSBaseProps):
         if isinstance(log_collection, dict):
             log_collection = FargateLogCollectionFeatureConfig(**log_collection)
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__203f4e755dbe1abe14e7ebcd9aed8ad2720b707b756d8dd72acc9e252d0012d2)
+            type_hints = cached_type_hints(_typecheckingstub__203f4e755dbe1abe14e7ebcd9aed8ad2720b707b756d8dd72acc9e252d0012d2)
             check_type(argname="argument api_key", value=api_key, expected_type=type_hints["api_key"])
             check_type(argname="argument api_key_secret", value=api_key_secret, expected_type=type_hints["api_key_secret"])
             check_type(argname="argument api_key_secret_arn", value=api_key_secret_arn, expected_type=type_hints["api_key_secret_arn"])
@@ -2018,7 +2073,7 @@ class DatadogECSFargateTaskDefinition(
         :param version: The task version. Used for tagging (UST).
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__1b705bc69b69e399d2d0fd2c5c39581aa92dc32dccf1793d2785f3b83956123a)
+            type_hints = cached_type_hints(_typecheckingstub__1b705bc69b69e399d2d0fd2c5c39581aa92dc32dccf1793d2785f3b83956123a)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
             check_type(argname="argument props", value=props, expected_type=type_hints["props"])
@@ -2144,7 +2199,7 @@ class DatadogECSFargateTaskDefinition(
         :param working_directory: The working directory in which to run commands inside the container. Default: /
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__c5ac675477a0d01b2aa2f7669d706a5924a6f78b8c8f44289133025fc940cb3f)
+            type_hints = cached_type_hints(_typecheckingstub__c5ac675477a0d01b2aa2f7669d706a5924a6f78b8c8f44289133025fc940cb3f)
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
         container_props = _aws_cdk_aws_ecs_ceddda9d.ContainerDefinitionOptions(
             image=image,
@@ -2245,7 +2300,7 @@ class DatadogECSLogDriverProps:
         :param tls: 
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__1d244c4707c408dda2c6e1127da618ed1b203600e8fbd40e66eadf006705274e)
+            type_hints = cached_type_hints(_typecheckingstub__1d244c4707c408dda2c6e1127da618ed1b203600e8fbd40e66eadf006705274e)
             check_type(argname="argument compress", value=compress, expected_type=type_hints["compress"])
             check_type(argname="argument host_endpoint", value=host_endpoint, expected_type=type_hints["host_endpoint"])
             check_type(argname="argument message_key", value=message_key, expected_type=type_hints["message_key"])
@@ -2334,7 +2389,7 @@ class DatadogFirelensOptions(_aws_cdk_aws_ecs_ceddda9d.FirelensOptions):
         :param is_parse_json: Overrides the config file type and value to support JSON parsing.
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__7b73367dd8934066b0e85349e1e0223d15cbd2ebd04ffe9ce237c87f413f1f2e)
+            type_hints = cached_type_hints(_typecheckingstub__7b73367dd8934066b0e85349e1e0223d15cbd2ebd04ffe9ce237c87f413f1f2e)
             check_type(argname="argument config_file_type", value=config_file_type, expected_type=type_hints["config_file_type"])
             check_type(argname="argument config_file_value", value=config_file_value, expected_type=type_hints["config_file_value"])
             check_type(argname="argument enable_ecs_log_metadata", value=enable_ecs_log_metadata, expected_type=type_hints["enable_ecs_log_metadata"])
@@ -2515,7 +2570,7 @@ class DatadogLambda(
         :param version: 
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__7d2984f96d56b35b6bf9f462eeb539cb66d7814bc0c2c05efa693a19e965978d)
+            type_hints = cached_type_hints(_typecheckingstub__7d2984f96d56b35b6bf9f462eeb539cb66d7814bc0c2c05efa693a19e965978d)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
         props = DatadogLambdaProps(
@@ -2581,7 +2636,7 @@ class DatadogLambda(
         :param log_groups: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__d077b7f7df346dab533a634af3f0901767a9f2b837615c493fef851e2caeaa37)
+            type_hints = cached_type_hints(_typecheckingstub__d077b7f7df346dab533a634af3f0901767a9f2b837615c493fef851e2caeaa37)
             check_type(argname="argument log_groups", value=log_groups, expected_type=type_hints["log_groups"])
         return typing.cast(None, jsii.invoke(self, "addForwarderToNonLambdaLogGroups", [log_groups]))
 
@@ -2598,7 +2653,7 @@ class DatadogLambda(
         :param git_repo_url: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__bea846263375949d2a4455edf17977f56d13f60fa2f6f2d50679231a2ee9e68e)
+            type_hints = cached_type_hints(_typecheckingstub__bea846263375949d2a4455edf17977f56d13f60fa2f6f2d50679231a2ee9e68e)
             check_type(argname="argument lambda_functions", value=lambda_functions, expected_type=type_hints["lambda_functions"])
             check_type(argname="argument git_commit_sha", value=git_commit_sha, expected_type=type_hints["git_commit_sha"])
             check_type(argname="argument git_repo_url", value=git_repo_url, expected_type=type_hints["git_repo_url"])
@@ -2615,7 +2670,7 @@ class DatadogLambda(
         :param construct: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__8c9f739b7a469f9944fd92418630c6ace0920581d7aba71e8bb4836e1878bb6c)
+            type_hints = cached_type_hints(_typecheckingstub__8c9f739b7a469f9944fd92418630c6ace0920581d7aba71e8bb4836e1878bb6c)
             check_type(argname="argument lambda_functions", value=lambda_functions, expected_type=type_hints["lambda_functions"])
             check_type(argname="argument construct", value=construct, expected_type=type_hints["construct"])
         return typing.cast(None, jsii.invoke(self, "addLambdaFunctions", [lambda_functions, construct]))
@@ -2631,10 +2686,41 @@ class DatadogLambda(
         :param git_repo_url: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__add190e793382279b2292e564b6b7af77c9e86799063643d34222561b86f6bcd)
+            type_hints = cached_type_hints(_typecheckingstub__add190e793382279b2292e564b6b7af77c9e86799063643d34222561b86f6bcd)
             check_type(argname="argument git_commit_sha", value=git_commit_sha, expected_type=type_hints["git_commit_sha"])
             check_type(argname="argument git_repo_url", value=git_repo_url, expected_type=type_hints["git_repo_url"])
         return typing.cast(None, jsii.invoke(self, "overrideGitMetadata", [git_commit_sha, git_repo_url]))
+
+    @jsii.member(jsii_name="setEnvironment")
+    def set_environment(
+        self,
+        lambda_function: typing.Union["_aws_cdk_aws_lambda_ceddda9d.Function", "_aws_cdk_aws_lambda_ceddda9d.SingletonFunction"],
+        key: builtins.str,
+        value: builtins.str,
+    ) -> None:
+        '''Pre-set a Datadog environment variable on ``lambdaFunction``. Call before ``addLambdaFunctions([lambdaFunction])``.
+
+        Precedence, highest first:
+
+        1. ``func.addEnvironment()`` called after ``addLambdaFunctions()``.
+        2. ``DatadogLambdaProps`` fields dedicated to ``key`` (for example, ``env`` for ``DD_ENV``).
+        3. This method.
+        4. Construct defaults (for example, ``enableDatadogTracing`` for ``DD_TRACE_ENABLED``).
+
+        ``addLambdaFunctions`` merges ``DD_TAGS`` from ``DatadogLambdaProps.tags``, per-function
+        tags from this method, and git tags from source code integration, in that order.
+        On duplicate tag keys, the later source wins.
+
+        :param lambda_function: -
+        :param key: -
+        :param value: -
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__1e97e5c452ca09f2fc5604bf83c6b5218e764c2306b4a6dbcb2d04855a40b175)
+            check_type(argname="argument lambda_function", value=lambda_function, expected_type=type_hints["lambda_function"])
+            check_type(argname="argument key", value=key, expected_type=type_hints["key"])
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        return typing.cast(None, jsii.invoke(self, "setEnvironment", [lambda_function, key, value]))
 
     @builtins.property
     @jsii.member(jsii_name="contextGitShaOverrideKey")
@@ -2644,7 +2730,7 @@ class DatadogLambda(
     @context_git_sha_override_key.setter
     def context_git_sha_override_key(self, value: builtins.str) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__0b2235362f45dc0197a214709f6a5cf3d466c6d7f3700120c66f6f7b29fa3573)
+            type_hints = cached_type_hints(_typecheckingstub__0b2235362f45dc0197a214709f6a5cf3d466c6d7f3700120c66f6f7b29fa3573)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "contextGitShaOverrideKey", value) # pyright: ignore[reportArgumentType]
 
@@ -2661,7 +2747,7 @@ class DatadogLambda(
         value: typing.List[typing.Union["_aws_cdk_aws_lambda_ceddda9d.Function", "_aws_cdk_aws_lambda_ceddda9d.SingletonFunction"]],
     ) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__637733c25a7c2850eaee52097e2193a573cd89b62a7c3996ea0fda7addda066c)
+            type_hints = cached_type_hints(_typecheckingstub__637733c25a7c2850eaee52097e2193a573cd89b62a7c3996ea0fda7addda066c)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "lambdas", value) # pyright: ignore[reportArgumentType]
 
@@ -2673,7 +2759,7 @@ class DatadogLambda(
     @props.setter
     def props(self, value: "DatadogLambdaProps") -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__5cacc2a125e366ff9b1144af9ca07a68614e32ac99686c20a48c623921b3359e)
+            type_hints = cached_type_hints(_typecheckingstub__5cacc2a125e366ff9b1144af9ca07a68614e32ac99686c20a48c623921b3359e)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "props", value) # pyright: ignore[reportArgumentType]
 
@@ -2685,7 +2771,7 @@ class DatadogLambda(
     @scope.setter
     def scope(self, value: "_constructs_77d1e7e8.Construct") -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__bd01617eb2e87ed512be49dc83a00ad8014edd30800c640e958188cbcb58426f)
+            type_hints = cached_type_hints(_typecheckingstub__bd01617eb2e87ed512be49dc83a00ad8014edd30800c640e958188cbcb58426f)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "scope", value) # pyright: ignore[reportArgumentType]
 
@@ -2697,7 +2783,7 @@ class DatadogLambda(
     @transport.setter
     def transport(self, value: "Transport") -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__01077f52f36828b6127966c542bcbf9e86506f40b406b02d331a1f5f35827b96)
+            type_hints = cached_type_hints(_typecheckingstub__01077f52f36828b6127966c542bcbf9e86506f40b406b02d331a1f5f35827b96)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "transport", value) # pyright: ignore[reportArgumentType]
 
@@ -2709,7 +2795,7 @@ class DatadogLambda(
     @git_commit_sha_override.setter
     def git_commit_sha_override(self, value: typing.Optional[builtins.str]) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__213e6389c94903631c6747e04649248f0784d5717f40ad071d3c71802a5c3200)
+            type_hints = cached_type_hints(_typecheckingstub__213e6389c94903631c6747e04649248f0784d5717f40ad071d3c71802a5c3200)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "gitCommitShaOverride", value) # pyright: ignore[reportArgumentType]
 
@@ -2721,7 +2807,7 @@ class DatadogLambda(
     @git_repo_url_override.setter
     def git_repo_url_override(self, value: typing.Optional[builtins.str]) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__f19e6a46905795090f9f235d7ea2f95c0282dcb3ea533553002ad0708e60f7cd)
+            type_hints = cached_type_hints(_typecheckingstub__f19e6a46905795090f9f235d7ea2f95c0282dcb3ea533553002ad0708e60f7cd)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "gitRepoUrlOverride", value) # pyright: ignore[reportArgumentType]
 
@@ -2887,7 +2973,7 @@ class DatadogLambdaProps:
         :param version: 
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__63d91330a506031886b9d88e6eb264015f9a55aa2384c231f966073763613dde)
+            type_hints = cached_type_hints(_typecheckingstub__63d91330a506031886b9d88e6eb264015f9a55aa2384c231f966073763613dde)
             check_type(argname="argument add_layers", value=add_layers, expected_type=type_hints["add_layers"])
             check_type(argname="argument api_key", value=api_key, expected_type=type_hints["api_key"])
             check_type(argname="argument api_key_secret", value=api_key_secret, expected_type=type_hints["api_key_secret"])
@@ -3396,7 +3482,7 @@ class DatadogLambdaStrictProps:
         :param source_code_integration: 
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__83a8c4fb2da825eb5b4c4706ded5ed3a805d4d22c40216a83a302992413a7603)
+            type_hints = cached_type_hints(_typecheckingstub__83a8c4fb2da825eb5b4c4706ded5ed3a805d4d22c40216a83a302992413a7603)
             check_type(argname="argument add_layers", value=add_layers, expected_type=type_hints["add_layers"])
             check_type(argname="argument capture_cloud_service_payload", value=capture_cloud_service_payload, expected_type=type_hints["capture_cloud_service_payload"])
             check_type(argname="argument capture_lambda_payload", value=capture_lambda_payload, expected_type=type_hints["capture_lambda_payload"])
@@ -3664,7 +3750,7 @@ class DatadogStepFunctions(
         :param version: 
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__22de8a6a119027e0b8ea7ca177be2b03b18fed9df0d8d06f09e4d0c4f3d1061a)
+            type_hints = cached_type_hints(_typecheckingstub__22de8a6a119027e0b8ea7ca177be2b03b18fed9df0d8d06f09e4d0c4f3d1061a)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
         props = DatadogStepFunctionsProps(
@@ -3687,7 +3773,7 @@ class DatadogStepFunctions(
         :param payload: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__8ff43489bd1ac32321747cea710370f4bdce5f242ff13f9380a1361dc8d284ba)
+            type_hints = cached_type_hints(_typecheckingstub__8ff43489bd1ac32321747cea710370f4bdce5f242ff13f9380a1361dc8d284ba)
             check_type(argname="argument payload", value=payload, expected_type=type_hints["payload"])
         return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.sinvoke(cls, "buildLambdaPayloadToMergeTraces", [payload]))
 
@@ -3701,7 +3787,7 @@ class DatadogStepFunctions(
         :param input: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__80ee3a45fd279fff6068db6e8febc4482deff2e00f87e20181cac602b782daf5)
+            type_hints = cached_type_hints(_typecheckingstub__80ee3a45fd279fff6068db6e8febc4482deff2e00f87e20181cac602b782daf5)
             check_type(argname="argument input", value=input, expected_type=type_hints["input"])
         return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.sinvoke(cls, "buildStepFunctionTaskInputToMergeTraces", [input]))
 
@@ -3716,7 +3802,7 @@ class DatadogStepFunctions(
         :param construct: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__55a8b1a0693488cc7f0ec2cc582bb311867b6a762accc86928ae3b12a97d6aef)
+            type_hints = cached_type_hints(_typecheckingstub__55a8b1a0693488cc7f0ec2cc582bb311867b6a762accc86928ae3b12a97d6aef)
             check_type(argname="argument state_machines", value=state_machines, expected_type=type_hints["state_machines"])
             check_type(argname="argument construct", value=construct, expected_type=type_hints["construct"])
         return typing.cast(None, jsii.invoke(self, "addStateMachines", [state_machines, construct]))
@@ -3729,7 +3815,7 @@ class DatadogStepFunctions(
     @props.setter
     def props(self, value: "DatadogStepFunctionsProps") -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__5b10ed674eb55ba6d923f23a99b43b07d2c6f239f5c4ce9e7fa058477b59c90f)
+            type_hints = cached_type_hints(_typecheckingstub__5b10ed674eb55ba6d923f23a99b43b07d2c6f239f5c4ce9e7fa058477b59c90f)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "props", value) # pyright: ignore[reportArgumentType]
 
@@ -3741,7 +3827,7 @@ class DatadogStepFunctions(
     @scope.setter
     def scope(self, value: "_constructs_77d1e7e8.Construct") -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__9b1d09fd1401fae9805dc0d66cb2c39f536e290d1dc30696de1ad72771731685)
+            type_hints = cached_type_hints(_typecheckingstub__9b1d09fd1401fae9805dc0d66cb2c39f536e290d1dc30696de1ad72771731685)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "scope", value) # pyright: ignore[reportArgumentType]
 
@@ -3753,7 +3839,7 @@ class DatadogStepFunctions(
     @stack.setter
     def stack(self, value: "_aws_cdk_ceddda9d.Stack") -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__ff6ed5d0fcff8c46a1c7c2760ce2c125fa08fba4d53c4e7781f64cd428d87bf6)
+            type_hints = cached_type_hints(_typecheckingstub__ff6ed5d0fcff8c46a1c7c2760ce2c125fa08fba4d53c4e7781f64cd428d87bf6)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "stack", value) # pyright: ignore[reportArgumentType]
 
@@ -3787,7 +3873,7 @@ class DatadogStepFunctionsProps:
         :param version: 
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__64f1437564f1e6a00aa900ce6ba8b85e2a53793b8631eb501f23de91c18e435a)
+            type_hints = cached_type_hints(_typecheckingstub__64f1437564f1e6a00aa900ce6ba8b85e2a53793b8631eb501f23de91c18e435a)
             check_type(argname="argument env", value=env, expected_type=type_hints["env"])
             check_type(argname="argument forwarder_arn", value=forwarder_arn, expected_type=type_hints["forwarder_arn"])
             check_type(argname="argument service", value=service, expected_type=type_hints["service"])
@@ -3869,7 +3955,7 @@ class DogstatsdFeatureConfig:
         :param is_socket_enabled: Enables Dogstatsd traffic over Unix Domain Socket. Falls back to UDP configuration for application containers when disabled
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__c2a415254e87b33446228e6d2c9d413460f69ef49f30a4aef5c6a1f31993f291)
+            type_hints = cached_type_hints(_typecheckingstub__c2a415254e87b33446228e6d2c9d413460f69ef49f30a4aef5c6a1f31993f291)
             check_type(argname="argument dogstatsd_cardinality", value=dogstatsd_cardinality, expected_type=type_hints["dogstatsd_cardinality"])
             check_type(argname="argument is_enabled", value=is_enabled, expected_type=type_hints["is_enabled"])
             check_type(argname="argument is_origin_detection_enabled", value=is_origin_detection_enabled, expected_type=type_hints["is_origin_detection_enabled"])
@@ -3946,7 +4032,7 @@ class FargateCWSFeatureConfig(CWSFeatureConfig):
         :param memory_limit_mib: The amount (in MiB) of memory to present to the Datadog CWS init container.
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__dfc0e228d3d1e5a0c42fa76c959abedf019b9d4ede760018ef694f7550a228b1)
+            type_hints = cached_type_hints(_typecheckingstub__dfc0e228d3d1e5a0c42fa76c959abedf019b9d4ede760018ef694f7550a228b1)
             check_type(argname="argument is_enabled", value=is_enabled, expected_type=type_hints["is_enabled"])
             check_type(argname="argument cpu", value=cpu, expected_type=type_hints["cpu"])
             check_type(argname="argument memory_limit_mib", value=memory_limit_mib, expected_type=type_hints["memory_limit_mib"])
@@ -4038,7 +4124,7 @@ class FluentbitConfig:
         if isinstance(log_router_health_check, dict):
             log_router_health_check = _aws_cdk_aws_ecs_ceddda9d.HealthCheck(**log_router_health_check)
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__bce7f515206c50e8fb1ec5d51a1f261f008e45a207781b3820caf1e40b9fabcb)
+            type_hints = cached_type_hints(_typecheckingstub__bce7f515206c50e8fb1ec5d51a1f261f008e45a207781b3820caf1e40b9fabcb)
             check_type(argname="argument cpu", value=cpu, expected_type=type_hints["cpu"])
             check_type(argname="argument firelens_log_driver", value=firelens_log_driver, expected_type=type_hints["firelens_log_driver"])
             check_type(argname="argument firelens_options", value=firelens_options, expected_type=type_hints["firelens_options"])
@@ -4162,7 +4248,7 @@ class LogCollectionFeatureConfig:
         :param is_enabled: Enables log collection.
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__94eadcb7ca52ba8bed5cc0d8eb96f43999bf00c06aa40228ba347f64eeb52e91)
+            type_hints = cached_type_hints(_typecheckingstub__94eadcb7ca52ba8bed5cc0d8eb96f43999bf00c06aa40228ba347f64eeb52e91)
             check_type(argname="argument is_enabled", value=is_enabled, expected_type=type_hints["is_enabled"])
         self._values: typing.Dict[builtins.str, typing.Any] = {}
         if is_enabled is not None:
@@ -4198,41 +4284,6 @@ class LoggingType(enum.Enum):
 
 
 @jsii.data_type(
-    jsii_type="datadog-cdk-constructs-v2.Node",
-    jsii_struct_bases=[],
-    name_mapping={"default_child": "defaultChild"},
-)
-class Node:
-    def __init__(self, *, default_child: typing.Any) -> None:
-        '''
-        :param default_child: 
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__7b031a9a9356d281380eb23c847fc68b7a40ef4f9c9175b10723b3df950f40fd)
-            check_type(argname="argument default_child", value=default_child, expected_type=type_hints["default_child"])
-        self._values: typing.Dict[builtins.str, typing.Any] = {
-            "default_child": default_child,
-        }
-
-    @builtins.property
-    def default_child(self) -> typing.Any:
-        result = self._values.get("default_child")
-        assert result is not None, "Required property 'default_child' is missing"
-        return typing.cast(typing.Any, result)
-
-    def __eq__(self, rhs: typing.Any) -> builtins.bool:
-        return isinstance(rhs, self.__class__) and rhs._values == self._values
-
-    def __ne__(self, rhs: typing.Any) -> builtins.bool:
-        return not (rhs == self)
-
-    def __repr__(self) -> str:
-        return "Node(%s)" % ", ".join(
-            k + "=" + repr(v) for k, v in self._values.items()
-        )
-
-
-@jsii.data_type(
     jsii_type="datadog-cdk-constructs-v2.OrchestratorExplorerFeatureConfig",
     jsii_struct_bases=[],
     name_mapping={"is_enabled": "isEnabled", "url": "url"},
@@ -4250,7 +4301,7 @@ class OrchestratorExplorerFeatureConfig:
         :param url: The URL of the Orchestrator Explorer API.
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__4022108989f302878b69ab88b8214ccc5653754b90275b20f6d4b8ba23719643)
+            type_hints = cached_type_hints(_typecheckingstub__4022108989f302878b69ab88b8214ccc5653754b90275b20f6d4b8ba23719643)
             check_type(argname="argument is_enabled", value=is_enabled, expected_type=type_hints["is_enabled"])
             check_type(argname="argument url", value=url, expected_type=type_hints["url"])
         self._values: typing.Dict[builtins.str, typing.Any] = {}
@@ -4294,7 +4345,7 @@ class Runtime:
         :param name: 
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__0639977270a81d2f0f42855c73d20a000172a5161638228ab6cd9a064a29942a)
+            type_hints = cached_type_hints(_typecheckingstub__0639977270a81d2f0f42855c73d20a000172a5161638228ab6cd9a064a29942a)
             check_type(argname="argument name", value=name, expected_type=type_hints["name"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
             "name": name,
@@ -4364,7 +4415,7 @@ class Transport(
         :param extension_layer_arn: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__a0096d7b257dfe55c39e9a74f016968fe42afe4617f426d50fed2ef3441338d7)
+            type_hints = cached_type_hints(_typecheckingstub__a0096d7b257dfe55c39e9a74f016968fe42afe4617f426d50fed2ef3441338d7)
             check_type(argname="argument flush_metrics_to_logs", value=flush_metrics_to_logs, expected_type=type_hints["flush_metrics_to_logs"])
             check_type(argname="argument site", value=site, expected_type=type_hints["site"])
             check_type(argname="argument api_key", value=api_key, expected_type=type_hints["api_key"])
@@ -4376,12 +4427,15 @@ class Transport(
         jsii.create(self.__class__, self, [flush_metrics_to_logs, site, api_key, api_key_secret_arn, api_key_ssm_arn, api_kms_key, extension_layer_version, extension_layer_arn])
 
     @jsii.member(jsii_name="applyEnvVars")
-    def apply_env_vars(self, lam: "_aws_cdk_aws_lambda_ceddda9d.Function") -> None:
+    def apply_env_vars(
+        self,
+        lam: typing.Union["_aws_cdk_aws_lambda_ceddda9d.Function", "_aws_cdk_aws_lambda_ceddda9d.SingletonFunction"],
+    ) -> None:
         '''
         :param lam: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__36b2b48b92acf28e2e8ffef9123831fc89362305a97cfed821d91c642a67dd86)
+            type_hints = cached_type_hints(_typecheckingstub__36b2b48b92acf28e2e8ffef9123831fc89362305a97cfed821d91c642a67dd86)
             check_type(argname="argument lam", value=lam, expected_type=type_hints["lam"])
         return typing.cast(None, jsii.invoke(self, "applyEnvVars", [lam]))
 
@@ -4393,7 +4447,7 @@ class Transport(
     @flush_metrics_to_logs.setter
     def flush_metrics_to_logs(self, value: builtins.bool) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__87d37a95f6dd3d1a31b972e8a18e2e936cbf664a6115834cfcc7603f98c551a0)
+            type_hints = cached_type_hints(_typecheckingstub__87d37a95f6dd3d1a31b972e8a18e2e936cbf664a6115834cfcc7603f98c551a0)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "flushMetricsToLogs", value) # pyright: ignore[reportArgumentType]
 
@@ -4405,7 +4459,7 @@ class Transport(
     @site.setter
     def site(self, value: builtins.str) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__d6f64e6254d5b2c7300d506cc6c873060cbbc2f69b870b7754d459d721bfc9fd)
+            type_hints = cached_type_hints(_typecheckingstub__d6f64e6254d5b2c7300d506cc6c873060cbbc2f69b870b7754d459d721bfc9fd)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "site", value) # pyright: ignore[reportArgumentType]
 
@@ -4417,7 +4471,7 @@ class Transport(
     @api_key.setter
     def api_key(self, value: typing.Optional[builtins.str]) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__972f96a848003a1b191a5a2b1b385eb8ae5537da456ee82835b121b2f7bee129)
+            type_hints = cached_type_hints(_typecheckingstub__972f96a848003a1b191a5a2b1b385eb8ae5537da456ee82835b121b2f7bee129)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "apiKey", value) # pyright: ignore[reportArgumentType]
 
@@ -4429,7 +4483,7 @@ class Transport(
     @api_key_secret_arn.setter
     def api_key_secret_arn(self, value: typing.Optional[builtins.str]) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__a239562249ca542ce2cf0d1c83a0a743656792a47b3366d1ae3d031f42f5c3ba)
+            type_hints = cached_type_hints(_typecheckingstub__a239562249ca542ce2cf0d1c83a0a743656792a47b3366d1ae3d031f42f5c3ba)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "apiKeySecretArn", value) # pyright: ignore[reportArgumentType]
 
@@ -4441,7 +4495,7 @@ class Transport(
     @api_key_ssm_arn.setter
     def api_key_ssm_arn(self, value: typing.Optional[builtins.str]) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__0f1bac0920740601316f9c4b816e302dbd50234e5968fa9f99bf66b7e5f4bb76)
+            type_hints = cached_type_hints(_typecheckingstub__0f1bac0920740601316f9c4b816e302dbd50234e5968fa9f99bf66b7e5f4bb76)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "apiKeySsmArn", value) # pyright: ignore[reportArgumentType]
 
@@ -4453,7 +4507,7 @@ class Transport(
     @api_kms_key.setter
     def api_kms_key(self, value: typing.Optional[builtins.str]) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__66a0c11321e5495d2118a192e3d4e7e1cc604ec8c806a36ab92a4dfc5dec7bfa)
+            type_hints = cached_type_hints(_typecheckingstub__66a0c11321e5495d2118a192e3d4e7e1cc604ec8c806a36ab92a4dfc5dec7bfa)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "apiKmsKey", value) # pyright: ignore[reportArgumentType]
 
@@ -4465,7 +4519,7 @@ class Transport(
     @extension_layer_arn.setter
     def extension_layer_arn(self, value: typing.Optional[builtins.str]) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__36104d26f9460abbfc771a11b22aebe8f8924c949c0030d0e2f064812dea0123)
+            type_hints = cached_type_hints(_typecheckingstub__36104d26f9460abbfc771a11b22aebe8f8924c949c0030d0e2f064812dea0123)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "extensionLayerArn", value) # pyright: ignore[reportArgumentType]
 
@@ -4477,7 +4531,7 @@ class Transport(
     @extension_layer_version.setter
     def extension_layer_version(self, value: typing.Optional[jsii.Number]) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__b5e4df65851315cbd779a7d51db28b4f9f2ff24e8d2030ab94830e4548e02f64)
+            type_hints = cached_type_hints(_typecheckingstub__b5e4df65851315cbd779a7d51db28b4f9f2ff24e8d2030ab94830e4548e02f64)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "extensionLayerVersion", value) # pyright: ignore[reportArgumentType]
 
@@ -4507,7 +4561,7 @@ class FargateLogCollectionFeatureConfig(LogCollectionFeatureConfig):
         if isinstance(fluentbit_config, dict):
             fluentbit_config = FluentbitConfig(**fluentbit_config)
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__7630c5f0060d4f687c766a118b1afb74862f175347e4df6a34b8a1dcb986202d)
+            type_hints = cached_type_hints(_typecheckingstub__7630c5f0060d4f687c766a118b1afb74862f175347e4df6a34b8a1dcb986202d)
             check_type(argname="argument is_enabled", value=is_enabled, expected_type=type_hints["is_enabled"])
             check_type(argname="argument fluentbit_config", value=fluentbit_config, expected_type=type_hints["fluentbit_config"])
             check_type(argname="argument logging_type", value=logging_type, expected_type=type_hints["logging_type"])
@@ -4572,7 +4626,6 @@ __all__ = [
     "FluentbitConfig",
     "LogCollectionFeatureConfig",
     "LoggingType",
-    "Node",
     "OrchestratorExplorerFeatureConfig",
     "Runtime",
     "RuntimeType",
@@ -4884,6 +4937,14 @@ def _typecheckingstub__add190e793382279b2292e564b6b7af77c9e86799063643d34222561b
     """Type checking stubs"""
     pass
 
+def _typecheckingstub__1e97e5c452ca09f2fc5604bf83c6b5218e764c2306b4a6dbcb2d04855a40b175(
+    lambda_function: typing.Union[_aws_cdk_aws_lambda_ceddda9d.Function, _aws_cdk_aws_lambda_ceddda9d.SingletonFunction],
+    key: builtins.str,
+    value: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
 def _typecheckingstub__0b2235362f45dc0197a214709f6a5cf3d466c6d7f3700120c66f6f7b29fa3573(
     value: builtins.str,
 ) -> None:
@@ -5118,13 +5179,6 @@ def _typecheckingstub__94eadcb7ca52ba8bed5cc0d8eb96f43999bf00c06aa40228ba347f64e
     """Type checking stubs"""
     pass
 
-def _typecheckingstub__7b031a9a9356d281380eb23c847fc68b7a40ef4f9c9175b10723b3df950f40fd(
-    *,
-    default_child: typing.Any,
-) -> None:
-    """Type checking stubs"""
-    pass
-
 def _typecheckingstub__4022108989f302878b69ab88b8214ccc5653754b90275b20f6d4b8ba23719643(
     *,
     is_enabled: typing.Optional[builtins.bool] = None,
@@ -5154,7 +5208,7 @@ def _typecheckingstub__a0096d7b257dfe55c39e9a74f016968fe42afe4617f426d50fed2ef34
     pass
 
 def _typecheckingstub__36b2b48b92acf28e2e8ffef9123831fc89362305a97cfed821d91c642a67dd86(
-    lam: _aws_cdk_aws_lambda_ceddda9d.Function,
+    lam: typing.Union[_aws_cdk_aws_lambda_ceddda9d.Function, _aws_cdk_aws_lambda_ceddda9d.SingletonFunction],
 ) -> None:
     """Type checking stubs"""
     pass

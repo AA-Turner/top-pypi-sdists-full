@@ -1,6 +1,7 @@
 # SPDX-License-Identifier: PROPRIETARY
 # SPDX-FileCopyrightText: Copyright The Geneva Authors
 
+import functools
 import logging
 import pickle as std_pickle
 import signal
@@ -22,6 +23,7 @@ from geneva.transformer import (
     UDFArgType,
     UnpackedUDF,
     _blob_list_to_record_batch,
+    _func_version_hash,
     _scalar_results_to_array,
 )
 
@@ -270,23 +272,30 @@ def test_string_annotation_eval_missing_globals() -> None:
         return len(x)
 
     # Simulate Ray/cloudpickle dropping names only used in annotations.
-    sum_list_any.__globals__.pop("Any", None)
+    # ``__globals__`` is the shared module namespace, so restore it afterwards
+    # to avoid polluting later tests (removing ``Any`` breaks any subsequent
+    # code that evaluates an ``Any`` annotation at definition time).
+    _missing = object()
+    _saved_any = sum_list_any.__globals__.pop("Any", _missing)
+    try:
+        wrapped = udf(data_type=pa.int32())(sum_list_any)
 
-    wrapped = udf(data_type=pa.int32())(sum_list_any)
+        struct_type = pa.struct([("a", pa.int32())])
+        rb = pa.RecordBatch.from_arrays(
+            [
+                pa.array(
+                    [[{"a": 1}, {"a": 2}], None],
+                    type=pa.list_(struct_type),
+                )
+            ],
+            ["x"],
+        )
 
-    struct_type = pa.struct([("a", pa.int32())])
-    rb = pa.RecordBatch.from_arrays(
-        [
-            pa.array(
-                [[{"a": 1}, {"a": 2}], None],
-                type=pa.list_(struct_type),
-            )
-        ],
-        ["x"],
-    )
-
-    result = wrapped(rb)
-    assert result == pa.array([2, None], type=pa.int32())
+        result = wrapped(rb)
+        assert result == pa.array([2, None], type=pa.int32())
+    finally:
+        if _saved_any is not _missing:
+            sum_list_any.__globals__["Any"] = _saved_any
 
 
 def test_scalar_udf_accepts_list_structs() -> None:
@@ -1359,3 +1368,286 @@ def test_checkpoint_version_uses_override() -> None:
     assert my_udf.checkpoint_version == "pinned"
     prefix = my_udf.checkpoint_prefix(column="c", dataset_uri="memory://t")
     assert "_ver-pinned_col-c_" in prefix
+
+
+# ---------------------------------------------------------------------------
+# GVA-002: auto-generated version must reflect code identity, not pickle-by-
+# reference bytes, so that editing a module-defined UDF/UDTF/chunker body
+# invalidates stale checkpoints.
+# ---------------------------------------------------------------------------
+
+# Module source shipped to a temp dir on sys.path. The ``RETVAL`` marker is
+# substituted to simulate a user editing the function body between runs.
+_VERSION_MODULE_TEMPLATE = """
+import pyarrow as pa
+
+
+def myudf(x: int) -> int:
+    return x + RETVAL
+
+
+def myudtf(source):
+    yield pa.record_batch({"y": pa.array([RETVAL])})
+
+
+def mychunk(x: int):
+    yield {"y": x + RETVAL}
+"""
+
+# Executed in a fresh interpreter so the edited module source is picked up
+# rather than a cached import, mirroring an edit-and-re-run workflow.
+_VERSION_DRIVER = """
+import sys
+
+import pyarrow as pa
+
+sys.path.insert(0, sys.argv[1])
+import vermod
+
+from geneva.transformer import chunker, udf, udtf
+
+kind = sys.argv[2]
+schema = pa.schema([("y", pa.int64())])
+if kind == "udf":
+    obj = udf(vermod.myudf, data_type=pa.int64())
+elif kind == "udtf":
+    obj = udtf(vermod.myudtf, output_schema=schema)
+elif kind == "chunker":
+    obj = chunker(vermod.mychunk, output_schema=schema)
+else:
+    raise ValueError(kind)
+print(obj.version)
+"""
+
+
+def _version_for_body(tmp_path: Path, kind: str, retval: str) -> str:
+    """Write ``vermod`` with the given body and return the transformer version.
+
+    Runs construction in a subprocess so each body is imported fresh.
+    """
+    import subprocess
+    import sys
+
+    mod_dir = tmp_path / kind
+    mod_dir.mkdir(parents=True, exist_ok=True)
+    (mod_dir / "vermod.py").write_text(
+        _VERSION_MODULE_TEMPLATE.replace("RETVAL", retval)
+    )
+    driver = tmp_path / "driver.py"
+    driver.write_text(_VERSION_DRIVER)
+    result = subprocess.run(
+        [sys.executable, str(driver), str(mod_dir), kind],
+        capture_output=True,
+        text=True,
+        check=True,
+    )
+    return result.stdout.strip().splitlines()[-1]
+
+
+@pytest.mark.parametrize("kind", ["udf", "udtf", "chunker"])
+def test_module_defined_version_reflects_body_edit(tmp_path: Path, kind: str) -> None:
+    """Editing a module-defined callable's body must change its version.
+
+    cloudpickle serializes module-level callables by reference, so without a
+    code-identity hash the version (and therefore the checkpoint prefix) would
+    stay identical after a body edit, silently serving stale checkpoints.
+    """
+    v1 = _version_for_body(tmp_path, kind, "1")
+    v2 = _version_for_body(tmp_path, kind, "1000")
+    assert v1 != v2, (
+        f"{kind} version did not change after editing the function body "
+        f"({v1!r} == {v2!r}); stale checkpoints would be served"
+    )
+
+
+def test_partial_callable_udf_constructs_and_is_stable() -> None:
+    """A ``functools.partial`` over a stdlib function must not crash hashing.
+
+    ``inspect.getmodule`` on a partial resolves to ``functools``; naively
+    registering that module for pickle-by-value tries to serialize the whole
+    stdlib module and raises ``TypeError``. The hash must fall back to a
+    by-reference fingerprint and stay deterministic.
+    """
+    import functools
+    import operator
+
+    my_udf = udf(functools.partial(operator.add, 1), data_type=pa.int64())
+    assert my_udf.version
+    # Reconstructing the same callable yields the same version.
+    again = udf(functools.partial(operator.add, 1), data_type=pa.int64())
+    assert my_udf.version == again.version
+
+
+def test_callable_instance_version_is_stable() -> None:
+    """Callable instances whose type lives in a stdlib module hash safely.
+
+    ``operator.itemgetter(0)`` is a callable instance defined by the stdlib
+    ``operator`` module; resolving/registering that module would fail, so the
+    hash must fall back to by-reference and remain deterministic.
+    """
+    import operator
+
+    getter = operator.itemgetter(0)
+    v1 = _func_version_hash(getter)
+    v2 = _func_version_hash(getter)
+    assert v1
+    assert v1 == v2
+
+
+def test_user_callable_instance_version_reflects_code() -> None:
+    """A user-defined callable instance constructs and hashes deterministically."""
+
+    class _AddConst:
+        def __init__(self, n: int) -> None:
+            self.n = n
+
+        def __call__(self, x: int) -> int:
+            return x + self.n
+
+    inst = _AddConst(1)
+    v1 = _func_version_hash(inst)
+    v2 = _func_version_hash(inst)
+    assert v1
+    assert v1 == v2
+
+
+# Module source with a module-level ``threading.Event`` alongside a UDF that
+# references it — the exact shape that broke CI when the defining module was
+# swept into a cloudpickle pickle-by-value dump (``cannot pickle
+# '_thread.lock' object``).
+_LOCK_MODULE_TEMPLATE = """
+import threading
+
+import pyarrow as pa
+
+from geneva.transformer import udf
+
+_MODULE_EVENT = threading.Event()
+_MODULE_LOCK = threading.Lock()
+
+
+@udf(data_type=pa.int64())
+def locked_udf(x: int) -> int:
+    if _MODULE_EVENT.is_set():
+        return x
+    return x + 1
+"""
+
+
+def test_udf_in_module_with_module_level_lock_hashes(tmp_path: Path) -> None:
+    """A UDF defined beside a module-level lock/Event must construct and hash.
+
+    Regression for GVA-002: the earlier fix registered the UDF's defining module
+    for cloudpickle pickle-by-value before dumping, which pulled unpicklable
+    module-level state (a ``threading.Event``/``Lock``) into the dump and raised
+    ``TypeError: cannot pickle '_thread.lock' object``. Code-identity hashing
+    never touches the module, so construction and versioning must succeed.
+    """
+    import importlib
+    import sys
+
+    mod_dir = tmp_path / "lockmod_pkg"
+    mod_dir.mkdir(parents=True, exist_ok=True)
+    (mod_dir / "lockmod.py").write_text(_LOCK_MODULE_TEMPLATE)
+    sys.path.insert(0, str(mod_dir))
+    try:
+        lockmod = importlib.import_module("lockmod")
+        assert lockmod.locked_udf.version
+        # Deterministic across a re-hash of the same code.
+        assert _func_version_hash(lockmod.locked_udf.func) == lockmod.locked_udf.version
+    finally:
+        sys.path.remove(str(mod_dir))
+        sys.modules.pop("lockmod", None)
+
+
+# ---------------------------------------------------------------------------
+# GVA-002 follow-ups: the code-identity walk must also fold by-value state
+# (referenced globals, wrapper closures, bound/instance state) and must not
+# recurse forever on self-referential closures. These distinguish callables
+# that share the same code object but differ in captured state.
+# ---------------------------------------------------------------------------
+
+
+def test_version_reflects_referenced_global_edit() -> None:
+    """Editing a helper referenced via globals changes the version.
+
+    Two callers share identical bytecode (a bare ``helper(x)`` call) but close
+    over different ``helper`` implementations; the version must differ so a
+    helper edit invalidates the caller's checkpoints.
+    """
+
+    def _make_caller(helper_src: str) -> object:
+        ns: dict = {}
+        exec(helper_src, ns)
+        exec("def caller(x):\n    return helper(x)\n", ns)
+        return ns["caller"]
+
+    f1 = _make_caller("def helper(x):\n    return x + 1\n")
+    f2 = _make_caller("def helper(x):\n    return x + 1000\n")
+    assert _func_version_hash(f1) != _func_version_hash(f2)
+
+
+def test_version_reflects_decorator_wrapper_closure() -> None:
+    """``functools.wraps`` wrappers with different closures must not collide.
+
+    ``inspect.unwrap`` discards the wrapper, so a code-identity walk alone would
+    hash ``scale(2)`` and ``scale(3)`` identically; the by-value fold keeps the
+    captured factor distinct.
+    """
+
+    def base(x: int) -> int:
+        return x
+
+    def scale(n: int) -> object:
+        def deco(fn: object) -> object:
+            @functools.wraps(fn)
+            def wrapper(x: int) -> int:
+                return fn(x) * n
+
+            return wrapper
+
+        return deco
+
+    assert _func_version_hash(scale(2)(base)) != _func_version_hash(scale(3)(base))
+
+
+def test_version_reflects_bound_method_self_state() -> None:
+    """Bound methods over different instance state must not collide."""
+
+    class Add:
+        def __init__(self, n: int) -> None:
+            self.n = n
+
+        def apply(self, x: int) -> int:
+            return x + self.n
+
+    assert _func_version_hash(Add(1).apply) != _func_version_hash(Add(2).apply)
+
+
+def test_version_reflects_slots_instance_state() -> None:
+    """Callable instances using ``__slots__`` (no ``__dict__``) must not collide."""
+
+    class SlotAdd:
+        __slots__ = ("n",)
+
+        def __init__(self, n: int) -> None:
+            self.n = n
+
+        def __call__(self, x: int) -> int:
+            return x + self.n
+
+    assert _func_version_hash(SlotAdd(1)) != _func_version_hash(SlotAdd(2))
+
+
+def test_version_hash_handles_self_referential_closure() -> None:
+    """A factory-produced recursive closure must hash without a RecursionError."""
+
+    def make_recursive() -> object:
+        def rec(x: int) -> int:
+            return rec(x - 1) if x else 0
+
+        return rec
+
+    # Must not raise; also deterministic across constructions of equal code.
+    assert _func_version_hash(make_recursive())
+    assert _func_version_hash(make_recursive()) == _func_version_hash(make_recursive())

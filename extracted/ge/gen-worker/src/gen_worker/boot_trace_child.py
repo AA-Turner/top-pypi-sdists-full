@@ -41,16 +41,12 @@ The weight-free premise is FENCED, not assumed (pgw#1173)
 ---------------------------------------------------------
 Every VRAM conclusion in the compile loop follows from "compilation is
 weight-free", so this child proves it about the pipeline it is about to trace
-rather than inferring it from the absence of a complaint. Two guards used to
-stand here and neither could see the case they were named for: a
-``place=False`` load puts real weights on the HOST, where
-:func:`off_host_tensors` cannot see them, and
-``structure_only.structure_only_components`` is satisfied by ANY one virtual
-component, so a family declaring two targets passed with one of them stranded
-on real weights. :func:`gen_worker.models.structure_only.assert_weight_free`
-is the ALL-of check over the declared targets, device-blind, typed
-``StructureNotHonored`` — the type that already means exactly this and that
-this path is required to treat as fatal.
+rather than inferring it from the absence of a complaint.
+:func:`gen_worker.models.structure_only.assert_weight_free` is the ALL-of check
+over the declared targets, device-blind, typed ``StructureNotHonored``. A
+device-scoped guard cannot do it — a ``place=False`` load puts real weights on
+the HOST — and an ANY-of guard passes a family whose second target is stranded
+on real weights.
 """
 
 from __future__ import annotations
@@ -161,7 +157,7 @@ def run(job: TraceJob) -> int:
             f"{CODE_DIGEST!r}; the classes this child would hash are not the "
             f"classes the parent's code describes")
 
-    from . import aot_mint, fleet_cells
+    from . import aot_mint, fleet_compiled_graphs
     from .api.export_contract import export_declaration
     from .cli.run import run_setup
     from .registry import collect_endpoints
@@ -213,13 +209,11 @@ def run(job: TraceJob) -> int:
 
     # The weight-free PREMISE, fenced (pgw#1173). Every declared target this
     # pipeline carries must hold zero real parameters — an ALL-of check, and
-    # one that does not care which device the weights are on. The two guards
-    # that stood here before could both read clean on a composition that traces
-    # real weights: `off_host_tensors` sees nothing because `place=False` puts
-    # them on the HOST, and `structure_only_components` is satisfied by ANY one
-    # virtual component, so a two-target family with one target stranded passed
-    # both. This is the seam every downstream VRAM conclusion rests on, so it
-    # fails closed and names the component, the class and the bytes.
+    # one that does not care which device the weights are on (`place=False`
+    # puts real weights on the HOST, where a device-scoped guard sees nothing;
+    # an ANY-of guard passes a two-target family with one target stranded).
+    # This is the seam every downstream VRAM conclusion rests on, so it fails
+    # closed and names the component, the class and the bytes.
     try:
         structure_only.assert_weight_free(
             pipeline, cfg.targets, what=f"the boot trace of {job.function!r}")
@@ -241,7 +235,7 @@ def run(job: TraceJob) -> int:
         # that needs it — `aot_mint.trace_for_key` arms it itself (pgw#1132);
         # a second arm site here is how the two halves drifted apart.
         cc.apply_lora_execution_lane(pipeline, int(cfg.lora_bucket))
-    export_spec = fleet_cells.aot_export_spec(pipeline, cfg)
+    export_spec = fleet_compiled_graphs.aot_export_spec(pipeline, cfg)
     setup_ms = int((time.monotonic() - t_setup) * 1000)
 
     decl = export_declaration(export_spec.family)
@@ -249,7 +243,7 @@ def run(job: TraceJob) -> int:
         return _fail(
             report_path, "no_declaration",
             f"family {export_spec.family!r} has no registered export "
-            f"declaration — a multi-graph cell derives its class set from it")
+            f"declaration — a multi-graph compiled graph derives its class set from it")
 
     declarations: Dict[str, str] = {}
     nodes: Dict[str, int] = {}

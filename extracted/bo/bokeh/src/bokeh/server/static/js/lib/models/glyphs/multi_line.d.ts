@@ -12,7 +12,7 @@ export interface MultiLineView extends MultiLine.Data {
 export declare class MultiLineView extends GlyphView {
     model: MultiLine;
     visuals: MultiLine.Visuals;
-    load_glglyph(): Promise<typeof import("./webgl/multi_line").MultiLineGL>;
+    load_glglyph(): Promise<typeof import("../../all/main").MultiLineGL>;
     protected _project_data(): void;
     protected _index_data(index: SpatialIndex): void;
     protected _paint(ctx: Context2d, indices: number[], data?: Partial<MultiLine.Data>): void;

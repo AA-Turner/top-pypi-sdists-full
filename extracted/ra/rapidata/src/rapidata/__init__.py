@@ -1,4 +1,4 @@
-__version__ = "3.19.4"
+__version__ = "3.20.0"
 
 from .rapidata_client import (
     RapidataClient,
@@ -16,6 +16,8 @@ from .rapidata_client import (
     JobProgress,
     RapidataSignal,
     RapidataSignalManager,
+    BillingPeriod,
+    RapidataBillingManager,
     ValidationSetManager,
     RapidataValidationSet,
     Box,

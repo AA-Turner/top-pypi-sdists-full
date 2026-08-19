@@ -1,4 +1,4 @@
-from typing import Union, Any, Required, Dict, TypedDict, List
+from typing import TypedDict, Required, Union, Dict, List, Any
 
 
 class Profile(TypedDict, total=False):

@@ -127,16 +127,6 @@ jobs:
           client-id: 8671ea50-af15-49cd-a234-0077c1e20c43
           tenant-id: 4d0b3e97-e90c-4c8f-9b18-1146dd5f22f6
           subscription-id: 2251a256-3e12-4197-b94f-e847b55dd69e
-      - name: Get Azure Storage Token
-        if: ${{ inputs.csp == 'azure' }}
-        run: |
-          TOKEN=$(az account get-access-token --resource https://storage.azure.com/ --query accessToken -o tsv)
-          echo "AZURE_STORAGE_TOKEN=$TOKEN" >> $GITHUB_ENV
-          # Both variants needed: Lance/object_store uses AZURE_STORAGE_ACCOUNT,
-          # Geneva code prefers AZURE_STORAGE_ACCOUNT_NAME
-          echo "AZURE_STORAGE_ACCOUNT=lancedbdevlancedb" >> $GITHUB_ENV
-          echo "AZURE_STORAGE_ACCOUNT_NAME=lancedbdevlancedb" >> $GITHUB_ENV
-          echo "AZURE_TENANT_ID=4d0b3e97-e90c-4c8f-9b18-1146dd5f22f6" >> $GITHUB_ENV
       - name: Configure kubectl with static token (Azure)
         if: ${{ inputs.csp == 'azure' }}
         run: |
@@ -173,14 +163,60 @@ jobs:
           else
             echo "CLUSTER_NAME=e2e-$SLUG" >> $GITHUB_ENV
           fi
+      - name: Configure Azure workload identity
+        if: ${{ inputs.csp == 'azure' }}
+        uses: ./.github/actions/setup-azure-storage-workload-identity
+        with:
+          storage-account-name: lancedbdevlancedb
+          client-id: 8671ea50-af15-49cd-a234-0077c1e20c43
+          tenant-id: 4d0b3e97-e90c-4c8f-9b18-1146dd5f22f6
       - name: Prepare test inputs
         if: ${{ inputs.prepare_command != '' }}
-        run: ${{ inputs.prepare_command }}
+        run: |
+          set -euo pipefail
+          if [ "${{ inputs.csp }}" = "azure" ] && [ -n "${AZURE_OIDC_REFRESH_SCRIPT:-}" ]; then
+            "$AZURE_OIDC_REFRESH_SCRIPT"
+            (
+              while sleep "$AZURE_OIDC_REFRESH_INTERVAL_SECONDS"; do
+                "$AZURE_OIDC_REFRESH_SCRIPT"
+              done
+            ) &
+            azure_oidc_refresher=$!
+            trap 'kill "$azure_oidc_refresher" 2>/dev/null || true' EXIT
+          fi
+
+          ${{ inputs.prepare_command }}
       - name: Run e2e tests
-        run: ${{ inputs.run_command }}
+        run: |
+          set -euo pipefail
+          if [ "${{ inputs.csp }}" = "azure" ] && [ -n "${AZURE_OIDC_REFRESH_SCRIPT:-}" ]; then
+            "$AZURE_OIDC_REFRESH_SCRIPT"
+            (
+              while sleep "$AZURE_OIDC_REFRESH_INTERVAL_SECONDS"; do
+                "$AZURE_OIDC_REFRESH_SCRIPT"
+              done
+            ) &
+            azure_oidc_refresher=$!
+            trap 'kill "$azure_oidc_refresher" 2>/dev/null || true' EXIT
+          fi
+
+          ${{ inputs.run_command }}
       - name: Post-test command
         if: ${{ always() && inputs.post_command != '' }}
-        run: ${{ inputs.post_command }}
+        run: |
+          set -euo pipefail
+          if [ "${{ inputs.csp }}" = "azure" ] && [ -n "${AZURE_OIDC_REFRESH_SCRIPT:-}" ]; then
+            "$AZURE_OIDC_REFRESH_SCRIPT"
+            (
+              while sleep "$AZURE_OIDC_REFRESH_INTERVAL_SECONDS"; do
+                "$AZURE_OIDC_REFRESH_SCRIPT"
+              done
+            ) &
+            azure_oidc_refresher=$!
+            trap 'kill "$azure_oidc_refresher" 2>/dev/null || true' EXIT
+          fi
+
+          ${{ inputs.post_command }}
       - name: Upload test artifacts
         if: ${{ always() && inputs.artifact_name != '' }}
         uses: actions/upload-artifact@v4
@@ -212,11 +248,6 @@ jobs:
           client-id: 8671ea50-af15-49cd-a234-0077c1e20c43
           tenant-id: 4d0b3e97-e90c-4c8f-9b18-1146dd5f22f6
           subscription-id: 2251a256-3e12-4197-b94f-e847b55dd69e
-      - name: Refresh Azure storage token for Cleanup
-        if: ${{ always() && inputs.csp == 'azure' }}
-        run: |
-          TOKEN=$(az account get-access-token --resource https://storage.azure.com/ --query accessToken -o tsv)
-          echo "AZURE_STORAGE_TOKEN=$TOKEN" >> $GITHUB_ENV
       - name: Cleanup Ray Clusters
         if: always()
         run: ${{ inputs.cleanup_command }}

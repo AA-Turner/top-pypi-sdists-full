@@ -1,0 +1,665 @@
+# SPDX-License-Identifier: PROPRIETARY
+# SPDX-FileCopyrightText: Copyright The Geneva Authors
+#
+# Stable row ID (SRID) invariant specification.
+#
+# This file is the machine-readable half of the GEN-842 audit. It is consumed by:
+#
+#   * src/tests/test_stable_row_id_invariants.py  -- fast, no-Ray assertions
+#   * src/tests/test_stable_row_id_mv.py          -- Ray-marked MV/chunker cases
+#   * lancedb/lance-vibecheck                     -- Rust model-based sequence tester
+#
+# Every entry MUST have a matching test; the coverage-guard test in
+# test_stable_row_id_invariants.py enforces both directions.
+#
+# Field reference
+# ---------------
+# id                 stable identifier, referenced from tests and from the Notion write-up
+# layer              lance | geneva -- which codebase owns the behaviour
+# statement          the invariant, phrased so that "holds" is the desired outcome
+# geneva_depends_on  why Geneva cares; names the call site
+# severity           critical | high | medium | low
+# status             holds | broken | by-design
+#                      holds     -- measured true on the pinned pylance
+#                      broken    -- measured false; the test is xfail(strict=True)
+#                      by-design -- true today and deliberately so; the test pins it
+#                                   so a future change cannot silently flip it
+# bug                tracker reference, or null
+# vibecheck.invariant  an existing Invariant variant in lance-vibecheck/src/invariants.rs
+# vibecheck.proposed   a variant Geneva needs that does NOT exist yet -- the ask
+# vibecheck.dsl        a sequence in lance-vibecheck's DSL that exercises it
+# measured_on        the pylance build the status was measured against
+#
+# Measured on TWO builds, with identical results on both:
+#
+#   * pylance 9.0.0-beta.21 / lancedb 0.34.0b4 -- pinned by pyproject.toml on
+#     main, and the pair deployed in the ENT-2036 field report.
+#   * pylance 10.0.0-beta.7 / lancedb 0.37.1b0 -- the newest builds published to
+#     the lance-format and lancedb indexes as of 2026-07-29.
+#
+# No invariant changed status between the two builds above.
+#
+# ONE broken invariant has since been fixed upstream in a build newer than either:
+# SRID-L11 (OSS-1607) is green on pylance 10.1.0b2. It stays `broken` here because
+# status is measured against the pinned floor, and picking the fix up means a major
+# bump (9.x -> 10.1.0b2) that this change does not make. See its note. Every other
+# broken invariant is broken on the latest build too.
+#
+# Seven invariants that were broken when this spec was first written are now
+# `holds`, fixed in the same change: SRID-G03 (ENT-2036 defect B), SRID-G06,
+# SRID-G07, SRID-G08 (GEN-839), SRID-G10, SRID-G11 and SRID-G14. Their `note`
+# records what the fix was. The three still broken are SRID-L11 (Lance-side, fixed
+# upstream, awaiting a floor bump), SRID-G09 (breaking schema change) and SRID-G16
+# (needs update detection in chunker refresh).
+#
+# Re-run `pytest src/tests/test_stable_row_id_invariants.py` after any pylance
+# bump; the xfail(strict=True) markers will fail loudly when an upstream fix
+# lands. SRID-L11 is expected to be the first to fire.
+
+version: 1
+measured_on:
+  - pylance==9.0.0-beta.21 lancedb==0.34.0b4    # pinned by main
+  - pylance==10.0.0-beta.7 lancedb==0.37.1b0    # latest published, 2026-07-29
+
+invariants:
+  # ==========================================================================
+  # Lance layer -- what Geneva assumes of the storage engine.
+  # ==========================================================================
+
+  - id: SRID-L01
+    layer: lance
+    statement: >
+      After compact_files, the set of live _rowid values is unchanged.
+    geneva_depends_on: >
+      MV incremental refresh diffs source _rowid sets against the stored
+      __source_row_id column (Table.plan_refresh in table.py,
+      _extract_new_row_ids_from_source_fragment in runners/ray/pipeline.py). If
+      compaction renumbers, every row looks new and the MV re-expands wholesale.
+    severity: critical
+    status: holds
+    bug: null
+    vibecheck:
+      invariant: RowIdConsistency
+      dsl: "srid:ws->ws->c"
+
+  - id: SRID-L02
+    layer: lance
+    statement: >
+      After compact_files, each surviving _rowid still denotes the same logical
+      row -- the id-to-business-key mapping is preserved, not merely the id set.
+    geneva_depends_on: >
+      Stronger than L01 and the one that actually matters: an MV that kept the
+      same id set but permuted the mapping would silently attach every computed
+      value to the wrong source row.
+    severity: critical
+    status: holds
+    bug: null
+    vibecheck:
+      proposed: RowIdIdentityStability
+      dsl: "srid:ws->ws->c"
+
+  - id: SRID-L03
+    layer: lance
+    statement: >
+      dataset.update() preserves the _rowid of every updated row.
+    geneva_depends_on: >
+      Chunker MV refresh recomputes children for changed parents and keys them
+      on __source_row_id (Chunker.expanded_output_schema in transformer.py). A
+      reassigned id orphans the
+      old children and duplicates the new ones.
+    severity: critical
+    status: holds
+    bug: null
+    vibecheck:
+      proposed: RowIdIdentityStability
+      dsl: "srid:ws->bt->wo"
+
+  - id: SRID-L04
+    layer: lance
+    statement: >
+      merge_insert with when_matched_update_all preserves the _rowid of matched
+      rows.
+    geneva_depends_on: >
+      The documented upsert path for MV source tables; same lineage requirement
+      as L03.
+    severity: high
+    status: holds
+    bug: null
+    vibecheck:
+      invariant: RowIdConsistency
+      dsl: "srid:ws->mi"
+
+  - id: SRID-L05
+    layer: lance
+    statement: >
+      Deleting rows retires their ids permanently; a subsequent append allocates
+      strictly above the previous high-water mark and never reuses a retired id.
+    geneva_depends_on: >
+      _extract_new_row_ids_from_source_fragment (runners/ray/pipeline.py) treats
+      "source _rowid not present in the MV" as
+      "this is a new row". A reused id would be misread as an already-computed
+      row and silently skipped.
+    severity: critical
+    status: holds
+    bug: null
+    vibecheck:
+      proposed: RowIdNoReuse
+      dsl: "srid:ws->dc->ws"
+
+  - id: SRID-L06
+    layer: lance
+    statement: >
+      At every version, a live _rowid appears in at most one fragment.
+    geneva_depends_on: >
+      _build_dst_to_src_mapping (runners/ray/pipeline.py) builds a driver-side set of existing
+      __source_row_id values. A duplicated id produces duplicate MV rows, which
+      the code raises on rather than tolerates, in that same function.
+    severity: critical
+    status: holds
+    bug: OSS-1605
+    vibecheck:
+      proposed: RowIdSingleFragment
+      dsl: "srid:ws->ws->dc->c"
+
+  - id: SRID-L07
+    layer: lance
+    statement: >
+      take_rows by stable id resolves to the correct rows after compaction.
+    geneva_depends_on: >
+      CopyTask.to_batches (apply/task.py) and the chunker expand actor
+      (_make_chunker_expand_actor in runners/ray/pipeline.py) both fetch source
+      rows by stored row id.
+    severity: critical
+    status: holds
+    bug: null
+    vibecheck:
+      invariant: RowIdConsistency
+      dsl: "srid:ws->ws->c"
+
+  - id: SRID-L08
+    layer: lance
+    statement: >
+      has_stable_row_ids stays true, and every fragment keeps row_id_meta,
+      across compact_files and optimize_indices.
+    geneva_depends_on: >
+      run_ray_copy_table (runners/ray/pipeline.py) re-reads the manifest on every
+      chunker refresh. If
+      maintenance cleared the flag, refresh would start rejecting itself.
+    severity: high
+    status: holds
+    bug: null
+    vibecheck:
+      invariant: ManifestIntegrity
+      dsl: "srid:ws->bt->c->oi"
+
+  - id: SRID-L09
+    layer: lance
+    statement: >
+      add_columns (Geneva's backfill write path) preserves every _rowid.
+    geneva_depends_on: >
+      Backfill itself is row-address based, but a backfill on an MV source table
+      must not disturb the ids the MV holds.
+    severity: high
+    status: holds
+    bug: null
+    vibecheck:
+      proposed: RowIdIdentityStability
+      dsl: null   # lance-vibecheck has no add_columns op -- see the vibecheck ask
+
+  - id: SRID-L10
+    layer: lance
+    statement: >
+      WriteMode.Overwrite starts a fresh id generation; no reader is served the
+      previous generation's RowIdSequence for a reused fragment id.
+    geneva_depends_on: >
+      Table._run_udtf_refresh (table.py) overwrites the MV table on UDTF full
+      refresh. A stale
+      sequence would corrupt __source_row_id for the whole view.
+    severity: high
+    status: holds
+    bug: OSS-1606
+    note: >
+      Holds through the Python binding, which does not share a Rust Session
+      across dataset handles. OSS-1606 reproduces only with an explicitly shared
+      Session, which pylance does not expose -- so this is unreachable from
+      Geneva today but would become reachable if Geneva ever shared a Session.
+    vibecheck:
+      proposed: RowIdGenerationIsolation
+      dsl: null   # requires an Overwrite op, which lance-vibecheck lacks
+
+  - id: SRID-L11
+    layer: lance
+    statement: >
+      A filtered scan served by a scalar index succeeds after compaction on a
+      stable-row-id dataset.
+    geneva_depends_on: >
+      Geneva's MV source tables routinely carry scalar indexes and are compacted
+      by the maintenance agent. When this breaks, every filtered read of the
+      source fails, which takes MV refresh down with it.
+    severity: critical
+    status: broken
+    bug: OSS-1607
+    note: >
+      FIXED UPSTREAM, not yet picked up here. Reproduced on both originally
+      measured builds: ZoneMap index, two fragments, compact, then
+      `filter="key > 0"` raises "fragment 0 referenced by an address-domain index
+      result was not found in the dataset". The raise site moved between them --
+      io/exec/scalar_index.rs:123 on 9.0.0-beta.21, dataset/rowids.rs:106 on
+      10.0.0-beta.7 -- so match on the message, not the location.
+      lance 15125949e, "fix(index): keep address-domain indices off replaced
+      fragments" (lance-format/lance#8084, closing #8076), lands the fix and is
+      tagged v10.1.0-beta.2; verified green on pylance 10.1.0b2, which returns the
+      expected 199 rows. It is NOT in any 9.x tag, so clearing this invariant means
+      a major pylance floor bump (9.0.0b21 -> 10.1.0b2), deliberately left out of
+      this change: it touches pyproject.toml and uv.lock, which this branch
+      otherwise does not. Status stays broken because it is measured against the
+      pinned build. The xfail(strict=True) will fail the build the moment the floor
+      moves -- that is the signal to flip this to holds, not a regression.
+      The BloomFilter-after-update trigger named in OSS-1607 did NOT reproduce with
+      our sequence on either build, nor on 10.1.0b2; it is now split out as
+      OSS-1657, which reports it silently DROPS rows rather than raising.
+    vibecheck:
+      invariant: IndexConsistency
+      dsl: "srid:ws->ws->bt->c"
+
+  - id: SRID-L12
+    layer: lance
+    statement: >
+      For versions v1 < v2, a _rowid live in both denotes the same logical row,
+      and an id deleted between them is absent from v2.
+    geneva_depends_on: >
+      This is the entire contract behind cross-version MV refresh. Without it
+      the base_table_version guard (Table._refresh in table.py,
+      run_ray_copy_table in runners/ray/pipeline.py) would be
+      protecting nothing.
+    severity: critical
+    status: holds
+    bug: null
+    vibecheck:
+      proposed: CrossVersionRowIdIdentity
+      dsl: "srid:ws->ws->dc->c"
+
+  - id: SRID-L13
+    layer: lance
+    statement: >
+      A stable-row-id table with zero rows still reports has_stable_row_ids on
+      the manifest.
+    geneva_depends_on: >
+      The manifest is the only correct place to read the flag from. See G06/G07
+      for what happens when Geneva reads it off the fragments instead.
+    severity: medium
+    status: holds
+    bug: null
+    vibecheck:
+      invariant: ManifestIntegrity
+      dsl: null
+
+  - id: SRID-L14
+    layer: lance
+    statement: >
+      take_rows with an id that is no longer live returns a SHORT table rather
+      than raising or emitting a null placeholder.
+    geneva_depends_on: >
+      This is a hazard, not a defect -- but Geneva must not join the result
+      positionally against the requested id list. See G11, where it does.
+    severity: high
+    status: by-design
+    bug: null
+    note: >
+      Measured: requesting [live_a, deleted, live_b] returns 2 rows. The caller
+      cannot tell WHICH id dropped out from the result alone.
+    vibecheck:
+      proposed: TakeMissingRowIdShape
+      dsl: "srid:ws->dc"
+
+  - id: SRID-L15
+    layer: lance
+    statement: >
+      Scan order is NOT guaranteed to be ascending by _rowid once a stable-row-id
+      dataset has been compacted.
+    geneva_depends_on: >
+      _append_expanded_fragments (runners/ray/pipeline.py) sorts chunker work
+      items with the comment "Lance row IDs encode fragment_id in the upper
+      bits", which is only true for physical row addresses. See G14.
+    severity: low
+    status: by-design
+    bug: null
+    note: >
+      Measured: after append x4 + delete + compact, scan order diverges from
+      ascending id order at position 7. Affects work-item locality only, not
+      correctness.
+    vibecheck:
+      proposed: RowIdScanOrder
+      dsl: "srid:ws->ws->dc->c"
+
+  # ==========================================================================
+  # Geneva layer -- how Geneva consumes stable row IDs, and where it is wrong.
+  # ==========================================================================
+
+  - id: SRID-G01
+    layer: geneva
+    statement: >
+      Connection.create_table normalizes new_table_enable_stable_row_ids from
+      True / "true" / 1 to the string "true", and the resulting table really has
+      stable row IDs.
+    geneva_depends_on: >
+      Connection.create_table (db.py). This is the only supported route to a
+      stable-row-id table
+      in Geneva.
+    severity: high
+    status: holds
+    bug: null
+    vibecheck: null
+
+  - id: SRID-G02
+    layer: geneva
+    statement: >
+      A materialized view is stamped MATVIEW_META_VERSION "2" if and only if its
+      source has stable row IDs.
+    geneva_depends_on: >
+      create_materialized_view (query.py) writes it; Table._refresh (table.py)
+      reads it as the sole gate on
+      cross-version refresh. One byte decides whether the MV is refreshable.
+    severity: critical
+    status: holds
+    bug: null
+    vibecheck: null
+
+  - id: SRID-G03
+    layer: geneva
+    statement: >
+      A chunker materialized view advances geneva::view::base_table_version on
+      every successful refresh.
+    geneva_depends_on: >
+      Written at create by _create_udtf_view (db.py) -- the chunker impl behind
+      create_udtf_view -- and read by the is_chunker cross-version guard at the
+      top of run_ray_copy_table (runners/ray/pipeline.py). While it never advanced, a chunker MV over a
+      source WITHOUT stable row IDs became permanently unrefreshable the first
+      time the source moved -- which the maintenance agent causes on its own at
+      30 fragments.
+    severity: critical
+    status: holds
+    bug: ENT-2036
+    note: >
+      PARTIALLY FIXED in this change. The chunker/scalar-UDTF refresh path now
+      re-stamps base_table_version via a metadata-only update_schema_metadata
+      commit (_advance_base_table_version in runners/ray/pipeline.py), matching
+      what the 1:1 UDTF path already got for free from its Overwrite. The
+      statement above now holds.
+
+      It does NOT clear ENT-2036 defect B's symptom, and must not be read as
+      closing it. The cross-version guard runs at the top of run_ray_copy_table
+      and RAISES, so on a source without stable row IDs the stamp is never
+      reached and the baseline still cannot move. That is a deadlock: advancing
+      it requires a successful refresh at the new source version, which is
+      exactly what the guard forbids. The stamp therefore only ever advances for
+      sources that ALREADY have stable row IDs -- the case where the guard never
+      fires and the frozen baseline was harmless. Clearing defect B needs a
+      change to the guard, not to the stamp. See SRID-G05 and
+      test_cross_version_guard_is_not_suppressible_by_error_mode, which pin the
+      surviving behaviour. Also does NOT fix SRID-G16 -- an updated source row is
+      still not recomputed.
+    vibecheck: null
+
+  - id: SRID-G04
+    layer: geneva
+    statement: >
+      A plain UDTF materialized view advances base_table_version on refresh.
+    geneva_depends_on: >
+      Table._run_udtf_refresh (table.py). Pinned so that a future unification of
+      the UDTF and chunker
+      refresh paths cannot silently regress the side that works.
+    severity: high
+    status: holds
+    bug: null
+    vibecheck: null
+
+  - id: SRID-G05
+    layer: geneva
+    statement: >
+      The chunker cross-version guard raises during planning, before any per-row
+      work, so on_error / skip_on_error cannot suppress or partially apply it.
+    geneva_depends_on: >
+      The is_chunker guard at the top of run_ray_copy_table
+      (runners/ray/pipeline.py), which raises ahead of both
+      _delete_stale_mv_rows and _append_expanded_fragments. GEN-813 mistook this
+      loud failure for a passing test; pinning the ordering keeps the two
+      behaviours distinguishable. This guard is also why SRID-G03's stamp cannot
+      clear ENT-2036 defect B on its own.
+    severity: medium
+    status: holds
+    bug: GEN-813
+    vibecheck: null
+
+  - id: SRID-G06
+    layer: geneva
+    statement: >
+      Geneva's exist_ok validation detects stable row IDs on an EMPTY
+      stable-row-id table.
+    geneva_depends_on: >
+      has_stable_row_ids (db.py) uses any() over fragments and so reports False
+      on a table with no fragments; dataset_uses_stable_row_ids (db.py) reads the
+      manifest and reports True.
+      Connection._validate_existing_table_has_stable_row_ids (db.py) is the call
+      site that must not be fooled by the difference.
+    severity: medium
+    status: holds
+    bug: null
+    note: >
+      FIXED in this change: the validator reads the manifest
+      (dataset_uses_stable_row_ids) instead of any() over fragments, so an empty
+      stable-row-id table is validated instead of silently skipped.
+
+      Deliberately NOT claimed: create_materialized_view (query.py) got the same
+      substitution, but only for consistency -- it rejects zero-fragment sources
+      before the check, so its manifest read is unreachable in the one case
+      where the two helpers disagree, and reverting that hunk alone cannot fail
+      SRID-G06/G07. Whether an MV over an empty stable-row-id source should be
+      creatable at all is a product question this spec does not answer. The
+      fragment-based helper is retained only so the SRID-G06/G07 checks can pin
+      the asymmetry; it has no production callers left (GEN-856).
+    vibecheck: null
+
+  - id: SRID-G07
+    layer: geneva
+    statement: >
+      Geneva's exist_ok validation detects stable row IDs after every row has
+      been deleted.
+    geneva_depends_on: >
+      Same two helpers as G06, but reachable on a table that was populated and
+      then fully emptied -- no "empty source" guard applies at create_table time,
+      so Connection._validate_existing_table_has_stable_row_ids is reached with
+      a real but fragmentless dataset.
+    severity: medium
+    status: holds
+    bug: null
+    note: >
+      FIXED in this change: same manifest-based detection as G06, which also
+      covers a table whose rows have all been deleted (zero fragments). Before
+      the fix this path logged a warning and skipped validation entirely; it now
+      raises, so exist_ok=True against a drained non-SRID table is a hard failure
+      where it previously passed silently.
+    vibecheck: null
+
+  - id: SRID-G08
+    layer: geneva
+    statement: >
+      Connection._supports_stable_row_ids_on_create() is true for every backend
+      that can in fact honour the option -- including rest namespaces.
+    geneva_depends_on: >
+      _supports_stable_row_ids_on_create (db.py) gates all three local MV
+      creators: create_udtf_view and its chunker impl _create_udtf_view (db.py),
+      and create_materialized_view (query.py). Reporting rest as unsupported means
+      every enterprise view table is created without stable row IDs, and there is
+      no retrofit.
+    severity: high
+    status: holds
+    bug: GEN-839
+    note: >
+      FIXED in this change: _supports_stable_row_ids_on_create() now returns
+      True for every backend, since all of them reach storage through a
+      LanceNamespaceDBConnection that forwards the per-request option (GEN-839).
+
+      CAVEAT -- this is the one status in this spec that is asserted rather than
+      measured. The method is now a literal `return True`, and the check below
+      asserts exactly that, so it cannot fail. Confirming that a rest namespace
+      create really PRODUCES a stable-row-id dataset needs a live server and is
+      tracked as GEN-854. If that claim turns out to be wrong the failure is a
+      silent degrade to the pre-fix behaviour, not corruption, because every
+      consumer re-reads the real manifest via dataset_uses_stable_row_ids.
+    vibecheck: null
+
+  - id: SRID-G09
+    layer: geneva
+    statement: >
+      The MV __source_row_id column can represent the full u64 row-id domain.
+    geneva_depends_on: >
+      Declared pa.int64() by create_materialized_view (query.py), by the
+      chunker-view schema in _create_udtf_view (db.py) and by
+      _create_materialized_view_remote (db.py); populated by a cast to int64 in
+      the refresh path (runners/ray/pipeline.py and runners/ray/writer.py).
+    severity: low
+    status: broken
+    bug: GEN-852
+    note: >
+      Measured: the cast RAISES ArrowInvalid rather than silently wrapping, so
+      this fails loud rather than corrupting. Severity is low because reaching
+      id 2**63 requires that many allocations; it becomes reachable only if
+      Lance ever exposes reserved//sparse id ranges (cf. OSS-763).
+    vibecheck: null
+
+  - id: SRID-G10
+    layer: geneva
+    statement: >
+      Geneva declares the _rowaddr metacolumn as uint64 everywhere, matching
+      Lance.
+    geneva_depends_on: >
+      GenevaQueryBuilder.schema (query.py) declared pa.field("_rowaddr",
+      pa.int64()); every other declaration -- the MapTask/CopyTask output schemas
+      (apply/task.py), the writer's fill path (runners/ray/writer.py) and the
+      error-table schema (apply/error_handling.py) -- uses uint64, as does the
+      column Lance actually emits.
+    severity: medium
+    status: holds
+    bug: null
+    note: >
+      FIXED in this change: query.py now declares _rowaddr as uint64, matching
+      Lance and every other Geneva declaration.
+    vibecheck: null
+
+  - id: SRID-G11
+    layer: geneva
+    statement: >
+      CopyTask.to_batches does not misalign computed values onto the wrong
+      destination rows when the source take comes back short.
+    geneva_depends_on: >
+      CopyTask.to_batches (apply/task.py). On a short take it sliced
+      dst_row_addrs from the END (`slice(0, table.num_rows)`), but per L14 the
+      dropped id can be anywhere in the list. Every row after the hole was then
+      written to its predecessor's physical slot.
+    severity: critical
+    status: holds
+    bug: null
+    note: >
+      FIXED in this change: CopyTask projects _rowid alongside the data columns,
+      so a short take names its own survivors and their destination addresses are
+      kept in request order instead of the tail being trimmed. Raises rather than
+      guessing if the counts still disagree. Costs no extra read of the source;
+      an address-domain source, where Lance refuses to project row addresses
+      across deleted rows, falls back to a filtered scan.
+    vibecheck: null
+
+  - id: SRID-G12
+    layer: geneva
+    statement: >
+      Backfill checkpoint keys are address-domain -- {prefix}_frag-{id}_range-
+      {start}-{end} -- and carry no stable row identity.
+    geneva_depends_on: >
+      format_checkpoint_key (checkpoint_utils.py) and
+      BackfillUDFTask.initial_checkpoint_size (apply/task.py). Documented here
+      because
+      it is the load-bearing reason backfill is unaffected by stable row IDs,
+      and the reason compaction invalidates backfill checkpoints regardless.
+    severity: medium
+    status: by-design
+    bug: null
+    vibecheck: null
+
+  - id: SRID-G13
+    layer: geneva
+    statement: >
+      There is no way to enable stable row IDs on an existing Geneva table; the
+      option is write-time only.
+    geneva_depends_on: >
+      No migrate path exists in src/geneva. Pinned so that if Lance ever adds
+      one, this test fails and prompts Geneva to expose it.
+    severity: high
+    status: by-design
+    bug: ENT-2072
+    vibecheck: null
+
+  - id: SRID-G14
+    layer: geneva
+    statement: >
+      Chunker work items are fragment-aligned.
+    geneva_depends_on: >
+      _append_expanded_fragments (runners/ray/pipeline.py) batches work items for
+      the actor pool in list order, so read locality is whatever that order gives.
+      It accumulates one source fragment's ids at a time, which is aligned by
+      construction.
+    severity: low
+    status: holds
+    bug: null
+    note: >
+      FIXED in this change by DELETING `all_new_row_ids.sort()`. The sort claimed
+      to create the alignment it destroyed: it ran on the premise that "Lance row
+      IDs encode fragment_id in the upper bits", true of row ADDRESSES but not of
+      stable row ids -- and chunker views require stable row ids, so the premise
+      was never true on the only path that relied on it. Per L15 it breaks once an
+      UPDATE has moved low-id rows into a late fragment and compaction merges that
+      fragment with a high-id one. Measured on that sequence: 6 fragment runs
+      across 5 fragments sorted, versus 5 unsorted. Locality/batching only, never
+      correctness. The statement was rewritten too -- it used to assert "work items
+      SORTED BY ROW ID are fragment-aligned", which is a Lance property that is
+      false and cannot be fixed from Geneva, so the check could only ever have gone
+      green upstream. It now pins the ordering Geneva actually produces.
+    vibecheck: null
+
+  - id: SRID-G15
+    layer: geneva
+    statement: >
+      A materialized view over a stable-row-id source refreshes correctly after
+      the source is compacted.
+    geneva_depends_on: >
+      The end-to-end statement that L01/L02/L07/L12 exist to support, and the
+      exact production sequence in ENT-2036 (the maintenance agent compacts a
+      source at 30 fragments).
+    severity: critical
+    status: holds
+    bug: null
+    vibecheck: null
+
+  - id: SRID-G16
+    layer: geneva
+    statement: >
+      A chunker materialized view recomputes a source row's children when that
+      row is updated in place.
+    geneva_depends_on: >
+      _extract_new_row_ids_from_source_fragment (runners/ray/pipeline.py) treats
+      a source row as work only when its _rowid is absent from the view. An
+      updated row keeps its stable row id -- that is the whole point of the
+      feature -- so it is never seen as new work.
+    severity: high
+    status: broken
+    bug: GEN-851
+    note: >
+      Measured end to end: source row re-pointed from duration 30.0 to 10.0
+      (verified: the update lands and the stable row id is unchanged), refresh
+      succeeds with stable row IDs on, and the view still shows the original 3
+      clips instead of 1. Deletes ARE handled, via _delete_stale_mv_rows; only
+      updates are missed. This is the second half of GEN-813: enabling stable
+      row IDs removes ENT-2036's crash, but the re-point still does not take
+      effect, so "3 -> 3 clips" persists for a different reason than GEN-813
+      assumed. Plain UDTF MVs are unaffected -- they rebuild via
+      LanceOperation.Overwrite.
+    vibecheck: null

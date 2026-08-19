@@ -472,7 +472,9 @@ def test_carry_forward_merge_blob_encoded_overlay(tmp_path) -> None:
         ),
     )
     key = "ckpt_range-0-3"  # _range suffix -> start offset 0
-    inst = deferred_cf_writer(tbl, ds, frag_id, {key: matched}, FakeQueue([(0, key)]))
+    inst = deferred_cf_writer(
+        tbl, ds, frag_id, {key: matched}, FakeQueue([(0, key, 1)])
+    )
 
     merged = pa.Table.from_batches(
         list(inst._carry_forward_merge(num_logical_rows=3, tranche_rows=64))

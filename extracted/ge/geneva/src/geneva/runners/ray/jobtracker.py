@@ -4,6 +4,7 @@ import asyncio
 import contextlib
 import json
 import logging
+import math
 import time
 from typing import Any
 
@@ -16,7 +17,7 @@ from lancedb.util import (
 )
 
 from geneva.config import ConfigBase
-from geneva.jobs.jobs import GENEVA_JOBS_TABLE_NAME
+from geneva.jobs.jobs import GENEVA_JOBS_TABLE_NAME, JobStatus
 from geneva.table import TableReference
 from geneva.utils import dt_now_utc, escape_sql_string
 
@@ -26,6 +27,10 @@ _LOG = logging.getLogger(__name__)
 # auth retry storm against the system DB) must not occupy the background save
 # slot indefinitely and must never block the actor mailbox.
 SAVE_TIMEOUT_SECS = 30.0
+
+# Allow headroom for remote system-DB cold opens while keeping the deadline
+# operator-tunable through JobTrackerConfig.
+DEFAULT_HYDRATION_TIMEOUT_SECS = 10.0
 
 # Bounded backoff applied after consecutive save failures so a persistently
 # failing system DB (e.g. bad cloud credentials) does not trigger a retry storm.
@@ -42,9 +47,21 @@ DEFAULT_MAX_UPDATE_INTERVAL_SECS = 300.0
 DEFAULT_UPDATE_INTERVAL_RAMP = 60.0
 
 
+def _validate_hydration_timeout(
+    instance: object,
+    attribute: attrs.Attribute,
+    value: float,
+) -> None:
+    """Validate that durable reads retain a positive finite deadline."""
+    if not math.isfinite(value) or value <= 0:
+        raise ValueError(
+            "hydration_timeout_secs must be a positive finite number of seconds"
+        )
+
+
 @attrs.define
 class JobTrackerConfig(ConfigBase):
-    """Operator-tunable throttle for JobTracker metric saves.
+    """Operator-tunable settings for JobTracker persistence.
 
     Configurable via environment variables
     (``GENEVA_JOB_TRACKER__MIN_UPDATE_INTERVAL_SECS``, etc., using the ``__``
@@ -76,6 +93,13 @@ class JobTrackerConfig(ConfigBase):
     # disable the ramp and hold a flat ``min_update_interval_secs``.
     update_interval_ramp: float = attrs.field(
         default=DEFAULT_UPDATE_INTERVAL_RAMP, converter=float
+    )
+    # Per-attempt timeout for durable state hydration/status reads. Remote
+    # system DBs may need more than the default during a cold open.
+    hydration_timeout_secs: float = attrs.field(
+        default=DEFAULT_HYDRATION_TIMEOUT_SECS,
+        converter=float,
+        validator=_validate_hydration_timeout,
     )
 
     @classmethod
@@ -111,8 +135,7 @@ def job_tracker_throttle_kwargs(
     override_min_interval_secs: float | None = None,
     config: JobTrackerConfig | None = None,
 ) -> dict[str, float]:
-    """Throttle params (read from :class:`JobTrackerConfig`) to pass to a
-    JobTracker at construction.
+    """Operator-configured params to pass to a JobTracker at construction.
 
     ``override_min_interval_secs`` overrides the initial interval for one job
     (the operator's global config still supplies the ceiling and ramp).
@@ -127,6 +150,7 @@ def job_tracker_throttle_kwargs(
         "min_update_interval_secs": lo,
         "max_update_interval_secs": max(cfg.max_update_interval_secs, lo),
         "update_interval_ramp": cfg.update_interval_ramp,
+        "hydration_timeout_secs": cfg.hydration_timeout_secs,
     }
 
 
@@ -178,6 +202,9 @@ METRIC_AVG_BATCH_SIZE = "avg_batch_size"
 # Rows dropped by the applier's error handling (error_handling=skip / @skip_on_error).
 METRIC_ROWS_SKIPPED = "rows_skipped_on_error"
 
+# Finished ReadTasks; surfaced as the "Tasks completed" progress bar.
+METRIC_TASKS_COMPLETED = "tasks_completed"
+
 
 ROW_PROGRESS_METRICS = frozenset(
     {"rows_checkpointed", "rows_ready_for_commit", "rows_committed"}
@@ -215,6 +242,16 @@ def report_plan_progress(
             job_tracker.set.remote(PLAN_FRAGMENTS_METRIC, n)
 
 
+# Metrics materialized at 0 when a tracker is constructed so they appear in the
+# persisted job record from the start of every job -- not only after the first
+# time they are incremented. rows_skipped_on_error is incremented lazily
+# (batch_increment skips zero deltas), so without seeding it is absent on any
+# job that never drops a row.
+SEED_METRICS: dict[str, str] = {
+    METRIC_ROWS_SKIPPED: "Rows skipped on error",
+}
+
+
 @attrs.define
 class _JobTracker:
     """
@@ -246,6 +283,11 @@ class _JobTracker:
         default=DEFAULT_MAX_UPDATE_INTERVAL_SECS
     )
     update_interval_ramp: float = attrs.field(default=DEFAULT_UPDATE_INTERVAL_RAMP)
+    hydration_timeout_secs: float = attrs.field(
+        default=DEFAULT_HYDRATION_TIMEOUT_SECS,
+        converter=float,
+        validator=_validate_hydration_timeout,
+    )
 
     # use async lancedb connection to avoid blocking Ray Tasks
     _db: AsyncConnection | AsyncLanceNamespaceDBConnection | None = attrs.field(
@@ -253,6 +295,10 @@ class _JobTracker:
     )
 
     _jobs_table: AsyncTable | None = attrs.field(init=False, default=None)
+    # Background saves can outlive the actor RPC that scheduled them and race
+    # durable status reads. Keep shared DB/table handle initialization
+    # single-flight across those independently locked paths.
+    _db_init_lock: asyncio.Lock = attrs.field(init=False, factory=asyncio.Lock)
 
     _last_updated: float = attrs.field(init=False, default=-float("inf"))
     # Job runtime origin for the duration-aware throttle; set on the first save.
@@ -266,9 +312,14 @@ class _JobTracker:
     _save_pending: bool = attrs.field(init=False, default=False)
     _consecutive_save_failures: int = attrs.field(init=False, default=0)
     _save_backoff_until: float = attrs.field(init=False, default=0.0)
-    # Serializes the actual DB write (and lazy connection open) so a background
-    # save and a flush cannot collide on the connection or the underlying row.
+    # Serializes the actual DB write so a background save and a flush cannot
+    # collide on the underlying row.
     _save_lock: asyncio.Lock = attrs.field(init=False, factory=asyncio.Lock)
+
+    # A restarted actor must restore the durable snapshot before its first
+    # mutation. Otherwise a seed-only full-column save can erase prior metrics.
+    _hydrated: bool = attrs.field(init=False, default=False)
+    _hydration_lock: asyncio.Lock = attrs.field(init=False, factory=asyncio.Lock)
 
     # Save-pressure counters (diagnostic; GEN-566). Distinguish how saves are
     # driven: throttled saves are bounded by the (cluster-size-aware) interval,
@@ -283,6 +334,128 @@ class _JobTracker:
 
     _job_done: bool = attrs.field(init=False, default=False)
 
+    def __attrs_post_init__(self) -> None:
+        # Seed always-present metrics at 0 so they exist from job start.
+        for name, desc in SEED_METRICS.items():
+            self.metrics.setdefault(
+                name, {"n": 0, "total": 0, "done": False, "desc": desc}
+            )
+
+    def _reset_db_handles(self) -> None:
+        self._db = None
+        self._jobs_table = None
+
+    def _disable_persistence_for_version_skew(self, error: AttributeError) -> None:
+        _LOG.warning(
+            "unable to load persisted metrics; the execution manifest may be "
+            "using an older Geneva version: %s",
+            error,
+        )
+        self.enable_saves = False
+        self._reset_db_handles()
+
+    async def _get_jobs_table(self) -> AsyncTable | None:
+        if not self.enable_saves or not self.table_ref:
+            return None
+        async with self._db_init_lock:
+            if not self.enable_saves or not self.table_ref:
+                return None
+            if self._db is None:
+                self._db = await self.table_ref.open_system_db_async()
+            if self._jobs_table is None:
+                namespace = self.table_ref.system_namespace
+                self._jobs_table = await self._db.open_table(
+                    GENEVA_JOBS_TABLE_NAME, namespace_path=namespace
+                )
+                _LOG.info(
+                    "using jobs table uri=%s namespace=%s",
+                    self._jobs_table.uri,
+                    namespace,
+                )
+            return self._jobs_table
+
+    @staticmethod
+    def _is_terminal_status(status: Any) -> bool:
+        if isinstance(status, JobStatus):
+            status = status.value
+        if isinstance(status, bytes):
+            status = status.decode()
+        return status in {
+            JobStatus.DONE.value,
+            JobStatus.FAILED.value,
+            JobStatus.CANCELLED.value,
+        }
+
+    async def _load_persisted_state(self) -> tuple[dict[str, dict], Any | None]:
+        jobs_table = await self._get_jobs_table()
+        if jobs_table is None:
+            return {}, None
+        rows = (
+            await jobs_table.query()
+            .where(f"job_id = '{escape_sql_string(self.job_id)}'")
+            .select(["metrics", "status"])
+            .limit(1)
+            .to_arrow()
+        ).to_pylist()
+        if not rows:
+            return {}, None
+
+        persisted: dict[str, dict] = {}
+        for encoded in rows[0].get("metrics") or []:
+            metric = json.loads(encoded)
+            name = metric.pop("name")
+            persisted[name] = metric
+        return persisted, rows[0].get("status")
+
+    async def _load_persisted_status(self) -> Any | None:
+        jobs_table = await self._get_jobs_table()
+        if jobs_table is None:
+            return None
+        rows = (
+            await jobs_table.query()
+            .where(f"job_id = '{escape_sql_string(self.job_id)}'")
+            .select(["status"])
+            .limit(1)
+            .to_arrow()
+        ).to_pylist()
+        return rows[0].get("status") if rows else None
+
+    async def _ensure_hydrated(self) -> None:
+        if self._hydrated:
+            return
+        async with self._hydration_lock:
+            if self._hydrated:
+                return
+            if not self.enable_saves or not self.table_ref:
+                self._hydrated = True
+                return
+
+            try:
+                persisted, status = await asyncio.wait_for(
+                    self._load_persisted_state(), timeout=self.hydration_timeout_secs
+                )
+            except AttributeError as e:
+                self._disable_persistence_for_version_skew(e)
+                self._hydrated = True
+                return
+            except asyncio.CancelledError:
+                self._reset_db_handles()
+                raise
+            except Exception:
+                self._reset_db_handles()
+                raise
+            self.metrics.update(persisted)
+            for name, desc in SEED_METRICS.items():
+                self.metrics.setdefault(
+                    name, {"n": 0, "total": 0, "done": False, "desc": desc}
+                )
+            self._rows_finalized = all(
+                bool(self.metrics.get(name, {}).get("done"))
+                for name in ROW_PROGRESS_METRICS
+            )
+            self._job_done = self._job_done or self._is_terminal_status(status)
+            self._hydrated = True
+
     async def _upsert(
         self, name: str, *, total: int | None = None, desc: str | None = None
     ) -> None:
@@ -292,6 +465,7 @@ class _JobTracker:
         This will flush the metrics to the underlying lance table if the current
         (duration-aware) save interval has elapsed
         """
+        await self._ensure_hydrated()
         m = self.metrics.get(name)
         if m is None:
             m = {"n": 0, "total": 0, "done": False, "desc": name}
@@ -308,6 +482,7 @@ class _JobTracker:
 
     # Generic metric API
     async def set_total(self, name: str, total: int) -> None:
+        await self._ensure_hydrated()
         if self._should_skip_row_update(name):
             return
         await self._upsert(name, total=total)
@@ -316,22 +491,25 @@ class _JobTracker:
         await self._upsert(name, desc=desc)
 
     async def set(self, name: str, n: int) -> None:
+        await self._ensure_hydrated()
         if self._should_skip_row_update(name):
             return
         await self._upsert(name)
         m = self.metrics[name]
         m["n"] = int(n)
-        if m["total"] and m["n"] >= m["total"]:
+        # Force only on the done transition; gauges can sit at their total.
+        if m["total"] and m["n"] >= m["total"] and not m["done"]:
             m["done"] = True
             await self._save_with_throttle(force=True)
 
     async def increment(self, name: str, delta: int = 1) -> None:
+        await self._ensure_hydrated()
         if self._should_skip_row_update(name):
             return
         await self._upsert(name)
         m = self.metrics[name]
         m["n"] += int(delta)
-        if m["total"] and m["n"] >= m["total"]:
+        if m["total"] and m["n"] >= m["total"] and not m["done"]:
             m["done"] = True
             await self._save_with_throttle(force=True)
 
@@ -339,6 +517,7 @@ class _JobTracker:
         """Increment multiple metrics in a single actor call/save cycle."""
         if not deltas:
             return
+        await self._ensure_hydrated()
 
         if self._rows_finalized:
             deltas = {
@@ -361,7 +540,7 @@ class _JobTracker:
                 self.metrics[name] = m
             m["n"] += inc
             updated = True
-            if m["total"] and m["n"] >= m["total"]:
+            if m["total"] and m["n"] >= m["total"] and not m["done"]:
                 m["done"] = True
                 force_save = True
 
@@ -370,6 +549,7 @@ class _JobTracker:
         await self._save_with_throttle(force=force_save)
 
     async def mark_done(self, name: str) -> None:
+        await self._ensure_hydrated()
         if self._should_skip_row_update(name):
             return
         await self._upsert(name)
@@ -390,7 +570,25 @@ class _JobTracker:
             f"{self.max_update_interval_secs:.0f}s)"
         )
 
-    def is_job_done(self) -> bool:
+    async def is_job_done(self) -> bool:
+        was_hydrated = self._hydrated
+        await self._ensure_hydrated()
+        if self._job_done or not was_hydrated or not self.enable_saves:
+            return self._job_done
+        try:
+            status = await asyncio.wait_for(
+                self._load_persisted_status(), timeout=self.hydration_timeout_secs
+            )
+        except AttributeError as e:
+            self._disable_persistence_for_version_skew(e)
+            return self._job_done
+        except asyncio.CancelledError:
+            self._reset_db_handles()
+            raise
+        except Exception:
+            self._reset_db_handles()
+            raise
+        self._job_done = self._is_terminal_status(status)
         return self._job_done
 
     def get_save_stats(self) -> dict[str, float]:
@@ -418,6 +616,7 @@ class _JobTracker:
         rows_committed: int,
     ) -> None:
         """Atomically finalize core row metrics for a completed job."""
+        await self._ensure_hydrated()
         self._rows_finalized = True
         for name, value in (
             ("rows_checkpointed", rows_checkpointed),
@@ -441,7 +640,8 @@ class _JobTracker:
         m = self.metrics[name]
         return {"n": m["n"], "total": m["total"], "done": m["done"], "desc": m["desc"]}
 
-    def get_all(self) -> dict[str, dict]:
+    async def get_all(self) -> dict[str, dict]:
+        await self._ensure_hydrated()
         # Shallow copy for safety
         return {k: dict(v) for k, v in self.metrics.items()}
 
@@ -515,7 +715,7 @@ class _JobTracker:
             self._save_pending = False
             try:
                 await asyncio.wait_for(
-                    self._save_metrics(self._snapshot_metrics()),
+                    self._save_metrics(),
                     timeout=SAVE_TIMEOUT_SECS,
                 )
                 self._consecutive_save_failures = 0
@@ -528,7 +728,7 @@ class _JobTracker:
                     SAVE_BACKOFF_MAX_SECS,
                 )
                 self._save_backoff_until = time.time() + backoff
-                self._db = None  # force reconnect on next attempt
+                self._reset_db_handles()
                 _LOG.error(
                     f"error saving metrics (attempt "
                     f"{self._consecutive_save_failures}, backoff {backoff:.0f}s): {e}"
@@ -548,47 +748,48 @@ class _JobTracker:
         """
         if not self.enable_saves:
             return True
-        try:
-            await asyncio.wait_for(
-                self._save_metrics(self._snapshot_metrics()), timeout=timeout
-            )
+
+        async def _flush_once() -> None:
+            await self._ensure_hydrated()
+            await self._save_metrics()
             self._consecutive_save_failures = 0
             self._save_backoff_until = 0.0
+            self._save_pending = False
+            if self._save_task is not None and not self._save_task.done():
+                self._save_task.cancel()
+                with contextlib.suppress(asyncio.CancelledError):
+                    await self._save_task
+            self._save_task = None
+
+        try:
+            await asyncio.wait_for(_flush_once(), timeout=timeout)
             return True
         except Exception as e:
-            self._db = None  # force reconnect on next attempt
+            self._reset_db_handles()
             _LOG.warning(f"final metrics flush failed: {e}")
             return False
 
-    async def _save_metrics(self, _metrics: dict[str, dict]) -> None:
+    async def _save_metrics(self, _metrics: dict[str, dict] | None = None) -> None:
         """Write metrics to the system DB. Raises on transient/IO failure so the
         caller can apply backoff; version-mismatch errors are warned and ignored.
+
+        Production callers omit ``_metrics`` so the snapshot is captured only
+        after taking the save lock. Tests may still provide an explicit snapshot.
         """
         if not self.enable_saves:
             return
-        if not _metrics:
-            return
 
         async with self._save_lock:
-            await self._write_metrics(_metrics)
+            metrics = self._snapshot_metrics() if _metrics is None else _metrics
+            if metrics:
+                await self._write_metrics(metrics)
 
     async def _write_metrics(self, _metrics: dict[str, dict]) -> None:
         try:
-            # lazy load db and table
-            if not self._db:
-                if not self.table_ref:
-                    _LOG.error(
-                        "JobTracker missing table_ref, metrics will not be saved"
-                    )
-                    return
-                self._db = await self.table_ref.open_system_db_async()
-                namespace = self.table_ref.system_namespace
-                self._jobs_table = await self._db.open_table(
-                    GENEVA_JOBS_TABLE_NAME, namespace_path=namespace
-                )
-                _LOG.info(
-                    f"using jobs table uri={self._jobs_table.uri} namespace={namespace}"
-                )
+            jobs_table = await self._get_jobs_table()
+            if jobs_table is None:
+                _LOG.error("JobTracker missing table_ref, metrics will not be saved")
+                return
 
             updates = {
                 "metrics": self._convert_metrics(_metrics),
@@ -598,7 +799,7 @@ class _JobTracker:
             _LOG.debug(f"Saving metrics for job {self.job_id}: {updates_sql}")
             start = time.time()
 
-            await self._jobs_table.update(
+            await jobs_table.update(
                 where=f"job_id = '{escape_sql_string(self.job_id)}'",
                 updates_sql=updates_sql,
             )

@@ -28,10 +28,107 @@ class OOMRecoveryBudgetConfig(ConfigBase):
     enabled: bool = attrs.field(default=True, converter=str_to_bool)
     max_total_oom_recoveries: int = attrs.field(default=10, converter=int)
     max_same_range_oom_recoveries: int = attrs.field(default=3, converter=int)
+    target_split_fanout: int | None = attrs.field(
+        default=None,
+        converter=attrs.converters.optional(int),
+        validator=attrs.validators.optional(attrs.validators.ge(2)),
+    )
 
     @classmethod
     def name(cls) -> str:
         return "geneva_oom_recovery_budget"
+
+
+def oom_recovery_target_split_fanout(task_size: int) -> int:
+    """Choose an OOM split fanout from the unfinished task size."""
+    if task_size >= 1_000_000:
+        return 100
+    if task_size >= 1_000:
+        return 10
+    return 2
+
+
+def oom_recovery_task_ranges(
+    *,
+    total_rows: int,
+    covered: Sequence[tuple[int, int]],
+    target_split_fanout: int,
+) -> list[tuple[int, int]]:
+    """Partition unfinished rows into a bounded number of balanced ranges.
+
+    Completed checkpoint ranges remain untouched. The target fanout is shared
+    across all unfinished gaps instead of being applied independently to each
+    gap. When checkpoint coverage creates more disjoint gaps than the target,
+    one task per gap is the unavoidable minimum and the returned count can
+    exceed the target.
+    """
+    if target_split_fanout < 2:
+        raise ValueError("target_split_fanout must be at least 2")
+    if total_rows <= 0:
+        return []
+
+    normalized_covered: list[tuple[int, int]] = []
+    for raw_start, raw_end in covered:
+        start = min(max(0, int(raw_start)), total_rows)
+        end = min(max(start, int(raw_end)), total_rows)
+        if start < end:
+            normalized_covered.append((start, end))
+    normalized_covered.sort()
+
+    merged_covered: list[tuple[int, int]] = []
+    for start, end in normalized_covered:
+        if merged_covered and start <= merged_covered[-1][1]:
+            merged_start, merged_end = merged_covered[-1]
+            merged_covered[-1] = (merged_start, max(merged_end, end))
+        else:
+            merged_covered.append((start, end))
+
+    gaps: list[tuple[int, int]] = []
+    cursor = 0
+    for start, end in merged_covered:
+        if cursor < start:
+            gaps.append((cursor, start))
+        cursor = end
+    if cursor < total_rows:
+        gaps.append((cursor, total_rows))
+    if not gaps:
+        return []
+
+    gap_lengths = [end - start for start, end in gaps]
+    unfinished_rows = sum(gap_lengths)
+    task_count = max(len(gaps), min(target_split_fanout, unfinished_rows))
+
+    # Every disjoint gap needs at least one task. Assign remaining task slots
+    # to the gap with the largest current chunk until the target is reached.
+    tasks_per_gap = [1] * len(gaps)
+    for _ in range(task_count - len(gaps)):
+        candidates = [
+            index
+            for index, length in enumerate(gap_lengths)
+            if tasks_per_gap[index] < length
+        ]
+        if not candidates:
+            break
+        index = max(
+            candidates,
+            key=lambda i: (
+                -(-gap_lengths[i] // tasks_per_gap[i]),
+                gap_lengths[i],
+                -i,
+            ),
+        )
+        tasks_per_gap[index] += 1
+
+    tasks: list[tuple[int, int]] = []
+    for (start, end), parts in zip(gaps, tasks_per_gap, strict=True):
+        length = end - start
+        base, larger_parts = divmod(length, parts)
+        offset = start
+        for part in range(parts):
+            part_rows = base + (1 if part < larger_parts else 0)
+            tasks.append((offset, part_rows))
+            offset += part_rows
+    return tasks
 
 
 @attrs.define(frozen=True)
@@ -61,12 +158,22 @@ class OOMRecoveryBudgetTracker:
         job_id: str,
         range_key: str,
         oom_exc: FatalWorkerOOMError,
+        shrunk: bool = False,
     ) -> OOMRecoveryBudgetAttempt | None:
+        """Record one OOM recovery attempt; raise when the budget is exhausted.
+
+        A recovery that strictly shrinks every unfinished window
+        (``shrunk=True``) is progress, not thrashing: repeated splitting
+        terminates at one row, so it needs no cap and is not charged. Only
+        retries that can no longer shrink — a single-row window or a re-run of
+        the same window — count toward the fail-fast budget.
+        """
         if not self.config.enabled:
             return None
 
-        self.total_oom_recoveries += 1
-        self._range_counts[range_key] += 1
+        if not shrunk:
+            self.total_oom_recoveries += 1
+            self._range_counts[range_key] += 1
         attempt = OOMRecoveryBudgetAttempt(
             total_count=self.total_oom_recoveries,
             total_limit=self.config.max_total_oom_recoveries,
@@ -74,7 +181,7 @@ class OOMRecoveryBudgetTracker:
             same_range_limit=self.config.max_same_range_oom_recoveries,
             range_key=range_key,
         )
-        if (
+        if not shrunk and (
             attempt.total_count > attempt.total_limit
             or attempt.same_range_count > attempt.same_range_limit
         ):
@@ -112,9 +219,12 @@ def record_oom_recovery_attempt(
     job_id: str,
     range_key: str,
     oom_exc: FatalWorkerOOMError,
+    shrunk: bool = False,
 ) -> OOMRecoveryBudgetAttempt | None:
     try:
-        attempt = tracker.record(job_id=job_id, range_key=range_key, oom_exc=oom_exc)
+        attempt = tracker.record(
+            job_id=job_id, range_key=range_key, oom_exc=oom_exc, shrunk=shrunk
+        )
     except FatalWorkerOOMError:
         _increment_metric(job_tracker, METRIC_FATAL_WORKER_OOM_RECOVERIES)
         _increment_metric(job_tracker, METRIC_FATAL_WORKER_OOM_BUDGET_EXCEEDED)
@@ -197,7 +307,9 @@ def _task_uri(task: Any) -> Any:
 
 def _task_limit(task: Any) -> Any:
     if hasattr(task, "limit"):
-        return task.limit
+        limit = task.limit
+        if limit is not None and limit > 0:
+            return limit
     return _safe_call(task, "num_rows")
 
 

@@ -2,7 +2,7 @@
 
 stop() uses ``launchctl bootout`` — removes the agent from the current boot
 session without persisting a disable, so KeepAlive crash-recovery still works
-and the next ``start`` re-bootstraps cleanly (same semantics as openclaw).
+and the next ``start`` re-bootstraps cleanly.
 """
 
 from __future__ import annotations

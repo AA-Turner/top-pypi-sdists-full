@@ -26,7 +26,7 @@ from sentry_protos.billing.v1.common.v1 import stripe_charge_pb2 as sentry__prot
 from sentry_protos.billing.v1.services.charge.v1 import charge_pb2 as sentry__protos_dot_billing_dot_v1_dot_services_dot_charge_dot_v1_dot_charge__pb2
 
 
-DESCRIPTOR = _descriptor_pool.Default().AddSerializedFile(b'\nPsentry_protos/billing/v1/services/charge/v1/endpoint_record_charge_refunds.proto\x12+sentry_protos.billing.v1.services.charge.v1\x1a\x36sentry_protos/billing/v1/common/v1/stripe_charge.proto\x1a\x38sentry_protos/billing/v1/services/charge/v1/charge.proto\"e\n\x1aRecordChargeRefundsRequest\x12G\n\rstripe_charge\x18\x01 \x01(\x0b\x32\x30.sentry_protos.billing.v1.common.v1.StripeCharge\"z\n\x1bRecordChargeRefundsResponse\x12P\n\x06\x63harge\x18\x01 \x01(\x0b\x32;.sentry_protos.billing.v1.services.charge.v1.PlatformChargeH\x00\x88\x01\x01\x42\t\n\x07_chargeb\x06proto3')
+DESCRIPTOR = _descriptor_pool.Default().AddSerializedFile(b'\nPsentry_protos/billing/v1/services/charge/v1/endpoint_record_charge_refunds.proto\x12+sentry_protos.billing.v1.services.charge.v1\x1a\x36sentry_protos/billing/v1/common/v1/stripe_charge.proto\x1a\x38sentry_protos/billing/v1/services/charge/v1/charge.proto\"e\n\x1aRecordChargeRefundsRequest\x12G\n\rstripe_charge\x18\x01 \x01(\x0b\x32\x30.sentry_protos.billing.v1.common.v1.StripeCharge\"\xcc\x01\n\x1bRecordChargeRefundsResponse\x12P\n\x06\x63harge\x18\x01 \x01(\x0b\x32;.sentry_protos.billing.v1.services.charge.v1.PlatformChargeH\x00\x88\x01\x01\x12P\n\x0bnew_refunds\x18\x02 \x03(\x0b\x32;.sentry_protos.billing.v1.services.charge.v1.PlatformRefundB\t\n\x07_chargeb\x06proto3')
 
 _globals = globals()
 _builder.BuildMessageAndEnumDescriptors(DESCRIPTOR, _globals)
@@ -35,6 +35,6 @@ if not _descriptor._USE_C_DESCRIPTORS:
   DESCRIPTOR._loaded_options = None
   _globals['_RECORDCHARGEREFUNDSREQUEST']._serialized_start=243
   _globals['_RECORDCHARGEREFUNDSREQUEST']._serialized_end=344
-  _globals['_RECORDCHARGEREFUNDSRESPONSE']._serialized_start=346
-  _globals['_RECORDCHARGEREFUNDSRESPONSE']._serialized_end=468
+  _globals['_RECORDCHARGEREFUNDSRESPONSE']._serialized_start=347
+  _globals['_RECORDCHARGEREFUNDSRESPONSE']._serialized_end=551
 # @@protoc_insertion_point(module_scope)

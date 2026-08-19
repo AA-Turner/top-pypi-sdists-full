@@ -29,6 +29,7 @@ def session_start_data():
         ("jenkinsJobName", "LOCAL-RUN"),
         ("jenkinsTestResultsUrl", "LOCAL-RUN"),
         ("testFramework", "UTF"),
+        ("subStackName", "ot-ble"),
     ]
 
 
@@ -57,6 +58,7 @@ def session_stop_data():
         ("jenkinsTestResultsUrl", "LOCAL-RUN"),
         ("traceId", "QWERTY12345"),
         ("testFramework", "UTF"),
+        ("subStackName", "ot-ble"),
     ]
 
 

@@ -19,6 +19,7 @@ log = logging.getLogger(__name__)
 
 # Standard library imports
 from inspect import Parameter
+from typing import Any
 
 # Bokeh imports
 from ..models import Marker
@@ -39,7 +40,9 @@ __all__ = (
 # Dev API
 #-----------------------------------------------------------------------------
 
-def generate_docstring(glyphclass, parameters, extra_docs):
+ParameterSpec = tuple[Parameter, str, str | None]
+
+def generate_docstring(glyphclass: type[Any], parameters: list[ParameterSpec], extra_docs: str | None) -> str:
     return f""" {_docstring_header(glyphclass)}
 
 Args:
@@ -67,7 +70,7 @@ Returns:
 # Private API
 #-----------------------------------------------------------------------------
 
-def _add_arglines(arglines, param, typ, doc):
+def _add_arglines(arglines: list[str], param: Parameter, typ: str, doc: str | None) -> None:
     default = param.default if param.default != Parameter.empty else None
 
     # add a line for the arg
@@ -84,32 +87,32 @@ def _add_arglines(arglines, param, typ, doc):
     # blank line between args
     arglines.append("")
 
-def _docstring_args(parameters):
-    arglines = []
+def _docstring_args(parameters: list[ParameterSpec]) -> str:
+    arglines: list[str] = []
     for param, typ, doc in (x for x in parameters if x[0].kind == Parameter.POSITIONAL_OR_KEYWORD):
         _add_arglines(arglines, param, typ, doc)
     return "\n".join(arglines)
 
-def _docstring_extra(extra_docs):
+def _docstring_extra(extra_docs: str | None) -> str:
     return "" if extra_docs is None else extra_docs
 
-def _docstring_header(glyphclass):
+def _docstring_header(glyphclass: type[Any]) -> str:
     glyph_class = "Scatter" if issubclass(glyphclass, Marker) else glyphclass.__name__
     return f"Configure and add :class:`~bokeh.models.glyphs.{glyph_class}` glyphs to this figure."
 
-def _docstring_kwargs(parameters):
-    arglines = []
+def _docstring_kwargs(parameters: list[ParameterSpec]) -> str:
+    arglines: list[str] = []
     for param, typ, doc in (x for x in parameters if x[0].kind == Parameter.KEYWORD_ONLY):
         _add_arglines(arglines, param, typ, doc)
     return "\n".join(arglines)
 
-def _docstring_other():
+def _docstring_other() -> str:
     # XXX (bev) this should be automated with and Options class
     return _OTHER_PARAMS
 
 _OTHER_PARAMS = """
 Other Parameters:
-    alpha (float, optional) :
+    alpha (``float``, optional) :
         An alias to set all alpha keyword arguments at once. (default: None)
 
         Alpha values must be between 0 (fully transparent) and 1 (fully opaque).
@@ -117,7 +120,7 @@ Other Parameters:
         Any explicitly set values for ``line_alpha``, etc. will override this
         setting.
 
-    color (color, optional) :
+    color (ColorLike, optional) :
         An alias to set all color keyword arguments at once. (default: None)
 
         See :ref:`ug_styling_colors` in the user guide for different

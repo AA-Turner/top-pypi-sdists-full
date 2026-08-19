@@ -15,6 +15,7 @@ from query_cache_common.models.services import (
     clone_service_models,
     execution_service_models,
     explain_service_models,
+    selector_service_models,
     sql_service_models,
 )
 from query_cache_protobuf.query_cache.services import (
@@ -23,6 +24,7 @@ from query_cache_protobuf.query_cache.services import (
     clone_service_pb2_grpc,
     execution_service_pb2_grpc,
     explain_service_pb2_grpc,
+    selector_service_pb2_grpc,
     sql_service_pb2_grpc,
 )
 
@@ -122,6 +124,7 @@ class QueryCacheGrpcClient:
             self.channel
         )
         self.explain_stub = explain_service_pb2_grpc.ExplainStub(self.channel)
+        self.state_selector_stub = selector_service_pb2_grpc.SelectorServiceStub(self.channel)
 
     @classmethod
     def create(
@@ -398,6 +401,28 @@ class QueryCacheGrpcClient:
 
         return execution_service_models.RecordExecutionsResponse.from_proto(response)
 
+    def get_selection(
+        self, request: selector_service_models.SelectorRequest
+    ) -> selector_service_models.SelectorResponse:
+        """Get state selection results for the given nodes.
+
+        Args:
+            request: StateSelectorRequest containing nodes and selector criteria.
+
+        Returns:
+            SelectorResponse with categorized node IDs (new, modified, etc.).
+
+        Raises:
+            grpc.RpcError: If the RPC fails.
+        """
+        self._check_channel_state("get_selection")
+
+        response = self.state_selector_stub.GetStateSelection(
+            request.to_proto(), timeout=self.timeout
+        )
+
+        return selector_service_models.SelectorResponse.from_proto(response)
+
     def is_client_version_supported(self) -> bool:
         """Check whether the current client version is supported by the server.
 
@@ -424,6 +449,32 @@ class QueryCacheGrpcClient:
         self._check_channel_state("get_explain_messages")
         response = self.explain_stub.GetExplainMessages(request.to_proto(), timeout=self.timeout)
         return explain_service_models.GetExplainMessagesResponse.from_proto(response)
+
+    def resolve_deferred_relations(
+        self, request: execution_service_models.ResolveDeferredRelationsRequest
+    ) -> t.Dict[str, str]:
+        """Resolve unselected upstream dbt nodes to their recorded FQNs in their defer_to target.
+
+        Args:
+            request: ResolveDeferredRelationsRequest with environment details and
+            unique IDs of unselected dbt nodes.
+
+        Returns:
+            A dict mapping of dbt node unique_id to recorded prod target_table.
+            Returns an empty dict on any RPC error, so the caller falls back to the
+            macro-based deferral resolution.
+        """
+        try:
+            self._check_channel_state("resolve_deferred_relations")
+            response = self.execution_stub.ResolveDeferredRelations(
+                request.to_proto(), timeout=self.timeout
+            )
+        except (grpc.RpcError, RuntimeError) as e:
+            logger.error("Error trying to resolve deferred relations via state: %s", e)
+            return {}
+        return execution_service_models.ResolveDeferredRelationsResponse.from_proto(
+            response
+        ).fqn_by_unique_id
 
     def close(self) -> None:
         """Close the gRPC channel."""

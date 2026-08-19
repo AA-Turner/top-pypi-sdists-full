@@ -34,6 +34,7 @@ from echo_agent.memory.service import MemoryService
 from echo_agent.memory.store import MemoryStore
 from echo_agent.models.inference import InferenceController
 from echo_agent.models.provider import LLMProvider
+from echo_agent.models.model_windows import compression_window, resolve_context_window
 from echo_agent.models.router import ModelRouter
 from echo_agent.observability.monitor import TraceLogger
 from echo_agent.permissions.manager import ApprovalManager, ApprovalStatus, CredentialManager
@@ -43,6 +44,7 @@ from echo_agent.skills.store import SkillStore
 from echo_agent.agent.streaming import (
     ProcessResult as _ProcessResult,
     TokenStreamPublisher as _TokenStreamPublisher,
+    channel_matches as _channel_matches,
 )
 from echo_agent.agent.progress_heartbeat import ProgressHeartbeat, SharedActivityState
 from echo_agent.agent.degraded_notice import GENERIC_FALLBACK_TEXT
@@ -257,6 +259,9 @@ class AgentLoop:
             # R1 Task8:唯一写口。所有写者经 self._memory_service 单例(下方构造)
             # 走八步写序,故 store 置 service_only,外部绕过 service 直写即软告警。
             service_only=config.memory.enabled,
+            snapshot_layering=config.memory.snapshot_layering,
+            snapshot_user_core_max=config.memory.snapshot_user_core_max,
+            snapshot_env_core_max=config.memory.snapshot_env_core_max,
         )
         # R1 Task8:统一装配的 MemoryService 单例——所有写者(工具/reviewer/REST/
         # promotion/reflection/detector/归档)共享此实例,失效/flush/审计集中一处,
@@ -269,14 +274,27 @@ class AgentLoop:
             audit_path=workspace / config.storage.logs_dir / "memory_audit.jsonl",
             allow_env_writes=config.memory.allow_model_environment_writes,
         )
+        from echo_agent.spill.policy import SpillPolicy
+        from echo_agent.spill.store import SpillStore
+        self._spill_store = SpillStore(workspace / config.storage.spill_dir)
+        # 清扫循环的句柄,由 start() 建、aclose() 收。见 _start_spill_sweeper。
+        self._spill_sweep_task: asyncio.Task | None = None
         self.tools = ToolRegistry(
             audit_log_path=workspace / config.storage.logs_dir / "tool_audit.jsonl",
             config=config,
+            spill_policy=SpillPolicy(
+                self._spill_store,
+                max_inline_chars=config.spill.max_inline_chars,
+                enabled=config.spill.enabled,
+            ),
         )
         from echo_agent.gateway.media import MediaCache
         media_cache = MediaCache(
             cache_dir=workspace / config.gateway.media_cache_dir,
             max_size_mb=config.gateway.media_cache_max_mb,
+            max_file_mb=config.gateway.media_max_file_mb,
+            concurrency=config.gateway.media_download_concurrency,
+            allow_private=config.gateway.media_allow_private_addresses,
         )
         from echo_agent.agent.media.understanding import default_understanders
         understanders = default_understanders(
@@ -291,14 +309,28 @@ class AgentLoop:
             doc_max_chars=config.tools.inbound_document_max_chars,
             understanders=understanders,
         )
+        # Resolve the default model's real window up front so the gauge and
+        # compression threshold start correct, before any LLM round runs. The
+        # inference stage re-syncs this per round to the model that answers.
+        self._initial_context_window = resolve_context_window(
+            self._default_model,
+            captured_windows=config.models.model_windows,
+            config_default=config.session.context_window_tokens,
+        )
+        _comp_window = compression_window(
+            self._initial_context_window, config.session.compression_window_cap,
+        )
         self.compressor = ConversationCompressor(
             config=config.compression,
-            context_window_tokens=config.session.context_window_tokens,
+            context_window_tokens=_comp_window,
             provider=provider,
             default_model=self._default_model,
             storage=storage,
             router=router,
         )
+        # Display gauge should show the real window; only the compression budget
+        # is capped. context_window_tokens holds the real value for display.
+        self.compressor.context_window_tokens = self._initial_context_window
         try:
             from echo_agent.models.tokenizer import TokenCounter
             provider_name = getattr(config.models, "default_provider", "") or ""
@@ -355,7 +387,7 @@ class AgentLoop:
         self.consolidator = MemoryConsolidator(
             memory_store=self.memory,
             llm_call=self.provider.chat_with_retry,
-            context_window_tokens=config.session.context_window_tokens,
+            context_window_tokens=self._initial_context_window,
             consolidation_threshold=config.memory.consolidation_threshold,
         )
 
@@ -364,6 +396,7 @@ class AgentLoop:
         self._vector_index = None
         self._embed_fn = None
         self._local_embedder = None
+        self._reranker = None
         self._embed_model_id = ""
         self._episodic = None
         # 两阶段接线的默认值：memory 关闭时 _init_advanced_memory 不跑，
@@ -530,10 +563,13 @@ class AgentLoop:
         # already initialized at this point.
         from echo_agent.memory.prefetch import RetrievalPrefetcher
 
-        def _knowledge_fetch(query: str, user_id: str) -> str:
-            # SYNC CPU-bound scan; the prefetcher runs this in an executor.
-            results = self.knowledge.search(
-                query, limit=config.knowledge.max_results, user_id=user_id
+        async def _knowledge_fetch(query: str, user_id: str, channel: str = "") -> str:
+            # search_async, NOT the sync search(): the sync path is keyword-only,
+            # so prefetching with it wrote a keyword-grade context into the cache
+            # that the reply path then served on every cache hit — silently
+            # dropping knowledge vector recall for those turns.
+            results = await self.knowledge.search_async(
+                query, limit=config.knowledge.max_results, user_id=user_id, channel=channel
             )
             return self.knowledge.format_results(results)
 
@@ -618,7 +654,6 @@ class AgentLoop:
         for tool in all_tools:
             self.tools.register(tool)
 
-        # Startup diagnostics: report tool readiness
         report = self.tools.get_readiness_report()
         not_ready = [(name, reason) for name, ready, reason in report if not ready]
         if not_ready:
@@ -854,7 +889,13 @@ class AgentLoop:
         self.memory.set_embed_fn(embed_fn)
         self.consolidator.set_embed_fn(embed_fn)
         if self._episodic is not None and embed_fn is not None:
-            self._episodic.attach_embedding(embed_fn, vector_index)
+            # Same vector floor as the hybrid retriever: a low-cosine episode
+            # must not enter the candidate pool (it would only be filtered later
+            # at the retrieve() admission gate — cheaper to drop it at source).
+            self._episodic.attach_embedding(
+                embed_fn, vector_index,
+                min_similarity=config.memory.rrf_min_similarity,
+            )
         self._wire_vector_consumers(vector_index, embed_fn)
 
     def _wire_vector_consumers(self, vector_index: Any, embed_fn: Any) -> None:
@@ -915,6 +956,40 @@ class AgentLoop:
                 query, session_key=session_key or None, limit=limit
             )
 
+        # Optional cross-encoder reranker. Built once here; the rerank_fn closure
+        # bounds each call with the INFERENCE budget so a slow/still-loading model
+        # degrades THIS turn to the un-reranked RRF order instead of stalling the
+        # reply. The model load gets its own, far larger budget: a ~1GB ONNX load
+        # can never finish inside a per-turn budget, and sharing one value meant
+        # every wait timed out (silent permanent degrade). start() warms the model
+        # in the background so the first real turn likely finds it hot.
+        rerank_fn = None
+        rerank_min_score = None
+        if config.memory.rerank_enabled:
+            from echo_agent.memory.local_rerank import LocalReranker
+            self._reranker = LocalReranker(
+                model_name=config.memory.rerank_model,
+                load_timeout_seconds=config.memory.rerank_load_timeout_seconds,
+                hf_endpoint=config.memory.hf_embedding_endpoint,
+                cache_dir=config.memory.local_embedding_cache_dir,
+                max_load_attempts=config.memory.local_embedding_max_load_attempts,
+                retry_backoff_seconds=config.memory.local_embedding_retry_backoff_seconds,
+            )
+            _reranker = self._reranker
+            _rerank_budget = max(0.1, float(config.memory.rerank_timeout_seconds))
+
+            async def rerank_fn(query: str, docs: list) -> "list[float] | None":
+                try:
+                    return await asyncio.wait_for(
+                        _reranker.rerank(query, docs), timeout=_rerank_budget
+                    )
+                except (asyncio.TimeoutError, TimeoutError):
+                    logger.debug("Rerank exceeded {}s budget; keeping RRF order", _rerank_budget)
+                    return None
+
+            _floor = float(config.memory.rerank_min_score)
+            rerank_min_score = _floor if _floor > 0 else None
+
         self._hybrid_retriever = HybridRetriever(
             entries_fn=entries_fn,
             vector_index=vector_index,
@@ -925,6 +1000,9 @@ class AgentLoop:
             episode_search_fn=_episode_search if episodic_mgr is not None else None,
             is_unresolved_fn=self.memory.is_unresolved,
             min_similarity=config.memory.rrf_min_similarity,
+            rerank_fn=rerank_fn,
+            rerank_top_k=config.memory.rerank_top_k,
+            rerank_min_score=rerank_min_score,
         )
         self.memory.set_retriever(self._hybrid_retriever)
         # context_stage 在 __init__ 里按值持有了 None，这里重指最终检索器。
@@ -933,9 +1011,11 @@ class AgentLoop:
         # 这里补建并重指 response_stage，使回复后预取重新生效。
         from echo_agent.memory.prefetch import RetrievalPrefetcher
 
-        def _knowledge_fetch(query: str, user_id: str) -> str:
-            results = self.knowledge.search(
-                query, limit=config.knowledge.max_results, user_id=user_id
+        async def _knowledge_fetch(query: str, user_id: str, channel: str = "") -> str:
+            # search_async (keyword + vector), not the keyword-only sync search —
+            # see the identical closure in __init__.
+            results = await self.knowledge.search_async(
+                query, limit=config.knowledge.max_results, user_id=user_id, channel=channel
             )
             return self.knowledge.format_results(results)
 
@@ -947,8 +1027,91 @@ class AgentLoop:
         )
         self._response_stage._prefetcher = self._prefetcher
 
+    async def _warmup_embedding(self) -> None:
+        """Prime the embedding backend once at startup.
+
+        The inline retrieval budget (memory.retrieval_miss_timeout_seconds,
+        default 0.8s) is spent almost entirely on the FIRST embedding call —
+        a local fastembed model lazy-loads/JITs on first use, then serves
+        subsequent queries in ~10-50ms. Without a warmup the first real turn
+        (and every topic-switch cache miss until the model is hot) times out
+        and degrades to keyword-only — dropping the one signal that carries
+        absolute relevance. A throwaway embed here moves that cost off the
+        user-facing path. Best-effort: failure just leaves the old lazy
+        behavior intact.
+        """
+        if self._embed_fn is None:
+            return
+        try:
+            await asyncio.wait_for(
+                self._embed_fn("warmup"),
+                timeout=self.config.memory.embed_load_timeout_seconds,
+            )
+            logger.info("Embedding backend warmed up")
+        except Exception as e:
+            logger.debug("Embedding warmup skipped ({}); first query will lazy-load", e)
+
+    async def _warmup_reranker(self) -> None:
+        """Prime the cross-encoder reranker once at startup.
+
+        Same reasoning as _warmup_embedding, only more so: the reranker model is
+        an order of magnitude larger (~1GB ONNX), so its first-use lazy load can
+        never fit inside a per-turn budget. Without a warmup the reranker is
+        effectively dead weight — every turn waits out the inference budget, gets
+        None, and silently keeps the RRF order, while the model file sits unused
+        on disk. Warming it here moves that one-time cost off the user-facing path.
+
+        The wait uses the LOAD budget (not the per-turn inference budget) because
+        that is what is actually happening here. Outcome is logged at INFO/WARNING
+        rather than DEBUG: "is the reranker actually serving?" is otherwise
+        unanswerable from the logs, which is exactly how a permanently degraded
+        reranker went unnoticed.
+        """
+        if self._reranker is None:
+            return
+        budget = self.config.memory.rerank_load_timeout_seconds
+        # LocalReranker.rerank already bounds its own load wait by the load
+        # budget, and only THEN runs inference. So this outer guard gets the load
+        # budget plus one inference budget — sized at exactly the load budget it
+        # could abort a load that had just succeeded and report a misleading
+        # failure. This is only a backstop against a wedged call; the inner waits
+        # are what normally decide the outcome.
+        guard = budget + max(0.1, float(self.config.memory.rerank_timeout_seconds))
+        try:
+            scores = await asyncio.wait_for(
+                self._reranker.rerank("warmup", ["warmup document"]),
+                timeout=guard,
+            )
+        except Exception as e:
+            logger.warning(
+                "Reranker warmup failed ({}); retrieval keeps the RRF order until "
+                "the model loads on a later turn", e,
+            )
+            return
+        if scores:
+            logger.info("Reranker warmed up: {}", self.config.memory.rerank_model)
+        else:
+            # rerank() swallows its own failures and returns None, so an empty
+            # result here means "not ready" — the load is still running, hit its
+            # own budget, or failed. Either way retrieval degrades to RRF order,
+            # and that must be visible.
+            logger.warning(
+                "Reranker '{}' not ready after {}s; retrieval keeps the un-reranked "
+                "RRF order until the background load completes",
+                self.config.memory.rerank_model, budget,
+            )
+
     async def start(self) -> None:
         await self._resolve_embed_and_index(self._storage)
+        if self._embed_fn is not None:
+            # Off the critical path: warm the model in the background so startup
+            # isn't blocked, but the first retrieval likely finds it hot.
+            self._spawn_background(self._warmup_embedding())
+        if self._reranker is not None:
+            # Same deal for the reranker, and it matters more here: its model is
+            # ~20x larger, so without this the first turns are guaranteed to
+            # degrade to the RRF order.
+            self._spawn_background(self._warmup_reranker())
         if self._vector_index is not None:
             # Order matters: purge orphan rows BEFORE the index loads (so they
             # never enter the matrix), then queue re-embeds for entries whose
@@ -990,6 +1153,7 @@ class AgentLoop:
             except Exception as e:
                 logger.warning("Unresolved-contradiction rebuild failed: {}", e)
         self._spawn_background(self._start_mcp_background())
+        self._start_spill_sweeper()
         # Skill admission candidate store: ensure schema exists before the first
         # background skill review can stage a candidate. Must run BEFORE
         # subscribe_inbound to close the startup race where an inbound event
@@ -1016,6 +1180,7 @@ class AgentLoop:
 
     async def stop(self) -> None:
         self._running = False
+        self.bus.unsubscribe_inbound(self._on_inbound)
         if self.evolution is not None:
             try:
                 await self.evolution.stop()
@@ -1031,6 +1196,25 @@ class AgentLoop:
             await _browser_manager.close_all()
         except Exception as e:
             logger.debug("browser manager close_all raised (ignored): {}", e)
+        # Terminate any background processes started via ProcessTool so they do
+        # not outlive the agent (orphaned children would keep running).
+        proc_tool = self.tools.get("process")
+        if proc_tool is not None and hasattr(proc_tool, "aclose"):
+            try:
+                await proc_tool.aclose()
+            except Exception as e:
+                logger.debug("ProcessTool aclose raised (ignored): {}", e)
+        # spill 清扫循环不属于调度器,自己收。它绝大多数时间停在 sleep 上,
+        # cancel 即刻生效;正在 to_thread 里扫的那一轮会跑完(线程不可中断),
+        # 故这里等它,不 fire-and-forget。
+        if self._spill_sweep_task is not None:
+            self._spill_sweep_task.cancel()
+            try:
+                await self._spill_sweep_task
+            except (asyncio.CancelledError, Exception) as e:  # noqa: BLE001
+                if not isinstance(e, asyncio.CancelledError):
+                    logger.debug("spill 清扫任务收尾异常(忽略): {}", e)
+            self._spill_sweep_task = None
         # All background work is spawned via ``_spawn_background`` and owned by
         # the scheduler; ``aclose`` cancels discardable tasks and flushes durable
         # ones. This is the single shutdown path for background work.
@@ -1048,11 +1232,39 @@ class AgentLoop:
                 self._local_embedder.close()
             except Exception as e:
                 logger.debug("Local embedder close raised (ignored): {}", e)
+        # Same for the reranker's dedicated pool.
+        if self._reranker is not None:
+            try:
+                self._reranker.close()
+            except Exception as e:
+                logger.debug("Local reranker close raised (ignored): {}", e)
         logger.info("Agent loop stopped")
 
     def _spawn_background(self, coro: Any, *, tier: Any = None) -> None:
         from echo_agent.agent.background import Tier
         self._bg_scheduler.spawn(coro, tier=tier or Tier.DISCARDABLE)
+
+    def _start_spill_sweeper(self) -> None:
+        """启动 spill 清扫循环,持有独立生命周期,不进 BackgroundScheduler。
+
+        调度器是为"有界的一次性工作"设计的,而这是个永不返回的循环,放进去有两个
+        后果:启动时若池已饱和,DISCARDABLE 会被永久丢弃(不是漏一轮,是这辈子
+        不再清扫);启动成功则永久占住一个信号量槽,max_background_tasks=1 时后续
+        DURABLE 全部排队等它——而它永远不结束。
+
+        不以 spill.enabled 为条件:关掉开关只是不再产生新产物,已有的敏感内容
+        仍须继续受 retentionDays/maxTotalMb 约束。目录不存在时循环自身是 no-op,
+        所以无条件启动是安全的。
+        """
+        from echo_agent.spill.sweeper import sweep_forever
+        # 挂在 start() 而非 __init__:AgentLoop 在 app.py 里于事件循环之外构造,
+        # 那里 create_task 会抛 "no running event loop"。
+        self._spill_sweep_task = asyncio.create_task(sweep_forever(
+            self._spill_store.root,
+            self.config.spill.retention_days,
+            self.config.spill.max_total_mb,
+            self.config.spill.sweep_interval_hours,
+        ))
 
     async def _lru_put(self, cache: OrderedDict, key: str, value: Any) -> None:  # type: ignore[type-arg]
         async with self._state_lock:
@@ -1172,6 +1384,54 @@ class AgentLoop:
         except Exception as e:
             logger.debug("Cron outcome writeback failed for job {}: {}", job_id, e)
 
+    async def _record_task_outcome(self, event: InboundEvent, status: str, error: str = "") -> None:
+        """For a dispatched board task, drive it to a terminal state after its turn
+        finishes — the safety net that keeps a task from being stuck at RUNNING if
+        the agent didn't close it out via the task tool itself. `status` is one of
+        "completed" (clean finish → SUCCESS), "incomplete" (turn produced a reply
+        but did not finish the task: provider error / budget / iteration ceiling /
+        forced convergence / interrupt → FAILED) or "error" (the turn raised →
+        FAILED). Idempotent: if the agent already completed/failed it (terminal),
+        mark_terminal no-ops, and a task cancelled mid-run is already terminal so a
+        later writeback can't resurrect it. No-op for non-task events or when no
+        task_manager is wired."""
+        manager = getattr(self, "_task_manager", None)
+        task_id = str(event.metadata.get("task_id") or "")
+        if manager is None or not task_id:
+            return
+        from echo_agent.tasks.models import TERMINAL_TASK_STATUSES, TaskStatus
+        target = TaskStatus.SUCCESS if status == "completed" else TaskStatus.FAILED
+        if status == "incomplete" and not error:
+            error = "任务未完成即结束(模型报错/预算或轮次耗尽/被中断),已按失败处理"
+        try:
+            # Snapshot the pre-writeback status: if the agent already closed the
+            # task via the task tool, it's already terminal AND the tool already
+            # advanced the workflow — mark_terminal no-ops and we must NOT advance
+            # again. We only advance the workflow when THIS writeback is what
+            # drove the task terminal (the agent didn't call complete/fail).
+            before = await manager.get(task_id)
+            was_open = before is not None and before.status not in TERMINAL_TASK_STATUSES
+            after = await manager.mark_terminal(task_id, target, error=error)
+        except Exception as e:
+            logger.debug("Task outcome writeback failed for task {}: {}", task_id, e)
+            return
+        # Safety-net terminal transition on a workflow step: advance the owning
+        # workflow so its next eligible steps get queued (same hook TaskTool runs
+        # when the agent closes a step itself). Best-effort — the writeback
+        # already persisted; a failed advance is recoverable via explicit advance.
+        engine = getattr(self, "_workflow_engine", None)
+        if (
+            engine is not None
+            and was_open
+            and after is not None
+            and getattr(after, "workflow_id", "")
+            and after.status in TERMINAL_TASK_STATUSES
+        ):
+            try:
+                await engine.on_task_complete(after.id)
+            except Exception as e:
+                logger.debug("Workflow advance after task writeback failed for {}: {}", task_id, e)
+
     async def _on_inbound(self, event: InboundEvent) -> None:
         """入站事件处理入口，负责追踪、错误处理和响应发布。"""
         if not self._running:
@@ -1269,15 +1529,38 @@ class AgentLoop:
                 # needed: streamed turns already delivered it.
                 final_text = "" if result.outbound_sent else response_text
 
+                # Terminal state must reflect the REAL delivery fate, not merely
+                # that we called publish. Only a non-streaming publish here can
+                # fail: a streamed turn only sets outbound_sent when its finalize
+                # receipt was ok, and a FAILED stream falls back to republishing
+                # response_text (final_text non-empty) which is judged below.
+                # Default True so a turn with nothing to publish (e.g. silenced
+                # inspection, or an already-delivered stream) is not falsely faulted.
+                delivered = True
                 if final_text and _should_publish_reply(event, final_text):
                     out = OutboundEvent.from_text_with_media(
                         channel=event.channel, chat_id=event.chat_id, text=final_text, reply_to_id=event.reply_to_id,
                     )
                     out.metadata = dict(event.metadata)
                     out.metadata["_inbound_event_id"] = event.event_id
-                    await self.bus.publish_outbound(out)
+                    delivery = await self.bus.publish_outbound(out)
+                    delivered = delivery.ok
                 self.tracer.end_span(span, metadata={"response_len": len(response_text or "")})
-                await self._record_cron_outcome(event, "completed")
+                # A turn that returned without raising still may not have FINISHED
+                # the task: a failed delivery, or a provider error / budget /
+                # iteration ceiling / forced convergence / interrupt that produced
+                # a reply but left the task incomplete. Fault the terminal state so
+                # neither cron history nor the board shows an undelivered or
+                # half-done turn as done.
+                if not delivered:
+                    await self._record_cron_outcome(event, "error", "delivery failed")
+                    await self._record_task_outcome(event, "error", "delivery failed")
+                elif getattr(result, "task_incomplete", False):
+                    await self._record_cron_outcome(event, "completed")
+                    await self._record_task_outcome(event, "incomplete")
+                else:
+                    await self._record_cron_outcome(event, "completed")
+                    await self._record_task_outcome(event, "completed")
             except Exception as e:
                 logger.error("Processing failed for event {}: {}", event.event_id, e)
                 self.tracer.end_span(span, error=str(e))
@@ -1288,6 +1571,7 @@ class AgentLoop:
                 error_out.metadata["_inbound_event_id"] = event.event_id
                 await self.bus.publish_outbound(error_out)
                 await self._record_cron_outcome(event, "error", str(e))
+                await self._record_task_outcome(event, "error", str(e))
             finally:
                 # Deregister the turn so a finished turn leaves no residue for
                 # the next one to trip over (mirrors request() above).
@@ -1340,13 +1624,14 @@ class AgentLoop:
 
         should_introduce = self._should_introduce(session)
         intro_text = self._build_introduction(event) if should_introduce else ""
+        _flush_chars, _flush_interval_ms, _paragraph_mode = self._stream_flush_params(event.channel)
         stream_publisher = _TokenStreamPublisher(
             self.bus,
             event,
             enabled=publish_response and self._should_stream_channel(event.channel),
-            flush_chars=self.config.channels.stream_flush_chars,
-            flush_interval_ms=self.config.channels.stream_flush_interval_ms,
-            paragraph_mode=self.config.channels.stream_paragraph_mode,
+            flush_chars=_flush_chars,
+            flush_interval_ms=_flush_interval_ms,
+            paragraph_mode=_paragraph_mode,
             intro_text=intro_text,
         )
         if publish_response:
@@ -1402,6 +1687,7 @@ class AgentLoop:
             response_text=result.response_text,
             outbound_sent=result.outbound_sent,
             degraded_notices=result.degraded_notices,
+            task_incomplete=result.task_incomplete,
         )
 
     async def _handle_approval_command(self, event: InboundEvent) -> str | None:
@@ -1551,6 +1837,13 @@ class AgentLoop:
         # wait_for_answer until the 24h registry backstop. Internal control
         # command — no user-facing reply.
         self.clarify.cancel_session(event.session_key)
+        # Same reasoning for approvals: a turn parked on wait_for_decision is
+        # waiting for a human who is no longer connected, and it holds the session
+        # lock while it waits. Releasing only clarify left that case blocked for
+        # the full wait_timeout_seconds (300s), during which the user's next
+        # message queued behind a decision nobody could make. Denying is the safe
+        # direction — the call needed a human and none is present.
+        self.approval.cancel_session(event.session_key)
 
     _INTERRUPT_CMD = "/__interrupt__"
 
@@ -1569,14 +1862,37 @@ class AgentLoop:
         target_event_id = str(event.metadata.get("_interrupt_target_event_id", ""))
         self.interrupt.interrupt(event.session_key, target_event_id)
         self.clarify.cancel_session(event.session_key)
+        # A turn parked on an approval must be stoppable too. The interrupt flag
+        # is only polled at the inference loop's checkpoints, and a turn blocked
+        # in wait_for_decision never reaches one — so a Ctrl+C would appear to do
+        # nothing until the 300s approval timeout expired. Deny the prompt to
+        # unblock it, mirroring the disconnect escape valve.
+        self.approval.cancel_session(event.session_key, reason="interrupted by user")
 
     async def _handle_clarify_command(self, event: InboundEvent) -> str | None:
-        # Format: /clarify <clarify_id> <answer...>  (answer may contain spaces)
-        parts = event.text.strip().split(maxsplit=2)
+        # Format: /clarify <clarify_id> <answer...>
+        #
+        # Only the command word and the id are whitespace-delimited; everything
+        # after the id is the answer verbatim. split(maxsplit=2) was wrong for
+        # a whitespace-only answer: it collapsed "/clarify c1   " down to two
+        # tokens, so an answer the user really did send arrived as "" and was
+        # indistinguishable from "no answer argument at all" — the model then
+        # learned nothing and re-asked the same question. Splitting off exactly
+        # the two leading tokens keeps the answer's own leading/trailing
+        # whitespace intact, and lets a missing id (the only genuinely
+        # malformed case) still be reported as such.
+        head = event.text.lstrip()
+        parts = head.split(maxsplit=1)
         if len(parts) < 2:
             return "用法:`/clarify <id> <答案>`"
-        clarify_id = parts[1]
-        answer = parts[2] if len(parts) >= 3 else ""
+        rest = parts[1]
+        clarify_id = rest.split(maxsplit=1)[0]
+        # Slice the answer out by offset rather than re-splitting: split() would
+        # discard exactly the whitespace this parse exists to preserve. Only the
+        # single separator between the id and the answer is dropped.
+        answer = rest[len(clarify_id):]
+        if answer[:1].isspace():
+            answer = answer[1:]
         ok = self.clarify.resolve(clarify_id, answer)
         if ok:
             return f"已回复澄清请求 {clarify_id}。"
@@ -1614,14 +1930,29 @@ class AgentLoop:
             logger.warning("Invalid session introduction template, using raw text")
             return template
 
+    @staticmethod
+    def _channel_matches(channel: str, patterns: list[str]) -> bool:
+        # Thin alias kept for existing call sites/tests; the implementation lives
+        # in agent.streaming so the inference stage can share it.
+        return _channel_matches(channel, patterns)
+
     def _should_stream_channel(self, channel: str) -> bool:
-        channels = set(self.config.channels.stream_channels)
-        if channel in channels:
-            return True
-        for pattern in channels:
-            if pattern.endswith(":*") and channel.startswith(pattern[:-1]):
-                return True
-        return False
+        return _channel_matches(channel, self.config.channels.stream_channels)
+
+    def _stream_flush_params(self, channel: str) -> tuple[int, int, bool]:
+        """Return (flush_chars, flush_interval_ms, paragraph_mode) for a channel.
+
+        Local channels (cli, gateway websocket) get the low-latency tier: frames
+        cost nothing and the TUI redraws in place, so there is no reason to sit
+        on tokens for a 180-char paragraph boundary. IM channels keep the
+        paragraph-mode defaults, which exist to stay inside edit-API budgets.
+        """
+        ch = self.config.channels
+        if ch.stream_local_flush_chars > 0 and _channel_matches(
+            channel, ch.stream_local_channels
+        ):
+            return (ch.stream_local_flush_chars, ch.stream_local_flush_interval_ms, False)
+        return (ch.stream_flush_chars, ch.stream_flush_interval_ms, ch.stream_paragraph_mode)
 
     async def process_direct(self, content: str, session_key: str = "cli:direct", channel: str = "cli") -> str:
         """Process a message directly (for CLI or testing)."""

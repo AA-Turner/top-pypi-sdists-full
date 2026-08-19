@@ -11,7 +11,7 @@ import jsii
 import publication
 import typing_extensions
 
-from jsii._type_checking import check_type
+from jsii._type_checking import cached_type_hints, check_type
 
 
 import aws_cdk._jsii
@@ -19,9 +19,9 @@ import constructs._jsii
 
 __jsii_assembly__ = jsii.JSIIAssembly.load(
     "datadog-cdk-constructs-v2",
-    "4.2.0",
+    "5.0.0",
     __name__[0:-6],
-    "datadog-cdk-constructs-v2@4.2.0.jsii.tgz",
+    "datadog-cdk-constructs-v2@5.0.0.jsii.tgz",
 )
 
 __all__ = [

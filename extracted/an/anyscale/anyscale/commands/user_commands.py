@@ -30,6 +30,7 @@ from anyscale.commands.output_format import (
     warn_deprecated_flag,
 )
 from anyscale.commands.util import AnyscaleCommand
+from anyscale.errors import UserError
 from anyscale.user.models import AdminCreateUser, AdminCreateUsers, User
 from anyscale.util import AnyscaleJSONEncoder, get_endpoint, validate_non_negative_arg
 
@@ -103,8 +104,7 @@ def admin_batch_create(users_file: str,) -> None:
             ]
         )
     except ValueError as e:
-        log.error(f"Error creating users: {e}")
-        return
+        raise UserError(f"Error creating users: {e}", legacy_exit_code=0) from None
 
     log.info(f"{len(created_users)} users created.")
 
@@ -144,7 +144,7 @@ def admin_batch_create(users_file: str,) -> None:
     cls=AnyscaleCommand,
 )
 @click.option("--email", type=str, help="Filter users by email.")
-@click.option("--name", type=str, help="Filter users by display name.")
+@click.option("--name", "-n", type=str, help="Filter users by display name.")
 @click.option(
     "--collaborator-type",
     type=click.Choice(_COLLABORATOR_TYPE_CHOICES, case_sensitive=False),
@@ -317,7 +317,7 @@ def list_users(  # noqa: A001, PLR0913
     cls=AnyscaleCommand,
 )
 @click.option("--email", type=str, help="Email address of the user.")
-@click.option("--name", type=str, help="Display name of the user.")
+@click.option("--name", "-n", type=str, help="Display name of the user.")
 @click.option(
     "--collaborator-type",
     type=click.Choice(_COLLABORATOR_TYPE_CHOICES, case_sensitive=False),
@@ -424,7 +424,7 @@ def get_user(  # noqa: A001, PLR0913
         "--output": {
             "status": ReleaseStatus.DEPRECATED,
             "deprecation_info": {"message": "Use --output-file instead."},
-        }
+        },
     },
     examples=[
         CommandExample(
@@ -468,6 +468,8 @@ def get_user(  # noqa: A001, PLR0913
 )
 @click.option(
     "--user-id",
+    "--id",
+    "user_id",
     type=str,
     default=None,
     help="Filter to a specific user ID. If not provided, lists permissions for all users.",

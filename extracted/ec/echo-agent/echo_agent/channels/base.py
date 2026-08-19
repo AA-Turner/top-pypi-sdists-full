@@ -33,8 +33,23 @@ class BaseChannel(ABC):
     name: str = "base"
     transcription_api_key: str = ""
     supports_edit: bool = False
-    supports_reactions: bool = False  # overridden by channels that implement send_reaction
+    supports_reactions: bool = False
     is_realtime: bool = True          # False for async channels (email/webhook/cron)
+    # Whether this channel can render a real, selectable choice control (as the
+    # CLI TUI does from a clarify_request frame). IM channels can only show text,
+    # so the clarify tool must not promise the model a clickable picker there.
+    supports_interactive_choices: bool = False
+    # Whether ``send()`` actually uploads FILE / IMAGE content blocks, rather
+    # than sending only the accompanying caption text.
+    #
+    # Most channels consume `event.text` and ignore structured media blocks
+    # entirely, so a send_file call to them delivered the caption and silently
+    # dropped the attachment — while the tool told the model "File sent". A
+    # channel that implements real uploads sets this True; send_file consults it
+    # and tells the model the truth when it is False. Default False is the
+    # conservative reading: a channel that has not been taught to upload cannot
+    # claim it.
+    supports_files: bool = False
 
     def __init__(self, config: Any, bus: MessageBus):
         self.config = config
@@ -68,11 +83,11 @@ class BaseChannel(ABC):
             return True
         # Heartbeats are level-triggered progress beats that the ChannelManager
         # has already deduped per the turn's milestone seq and filtered per the
-        # channel's verbosity tier before reaching here. Let them through on
-        # uneditable channels too, so the manager's tiering is authoritative
-        # rather than silently overridden by this guard (which only exists to
-        # suppress token-stream / progress chunks).
-        if event.message_kind == "heartbeat":
+        # channel's verbosity tier before reaching here. Approval prompts are
+        # control messages: the parked turn cannot continue until the user sees
+        # and answers one. Neither is a retractable progress/draft chunk, so both
+        # must pass on uneditable channels such as weixin.
+        if event.message_kind in {"heartbeat", "approval_prompt"}:
             return True
         return False
 

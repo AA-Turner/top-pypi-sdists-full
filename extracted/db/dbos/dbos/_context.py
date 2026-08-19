@@ -3,16 +3,27 @@ from __future__ import annotations
 import json
 import os
 import time
-from contextlib import AbstractContextManager
+from contextlib import AbstractContextManager, contextmanager
 from contextvars import ContextVar
 from dataclasses import dataclass
 from enum import Enum
 from types import TracebackType
-from typing import TYPE_CHECKING, Any, Dict, List, Literal, Optional, Type, TypedDict
+from typing import (
+    TYPE_CHECKING,
+    Any,
+    Dict,
+    Iterator,
+    List,
+    Literal,
+    Optional,
+    Type,
+    TypedDict,
+)
 
 from dbos._serialization import WorkflowSerializationFormat
 
 if TYPE_CHECKING:
+    from opentelemetry.context import Context as OtelContext
     from opentelemetry.trace import Span
 
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -38,6 +49,15 @@ OperationTypes = Literal["handler", "workflow", "transaction", "step", "procedur
 
 MaxPriority = 2**31 - 1  # 2,147,483,647
 MinPriority = 1
+
+# How to handle a collision with another workflow that has the same deduplication ID on the
+# same queue. "reject" (the default) raises DBOSQueueDeduplicatedError; "return-existing"
+# returns a handle to the workflow already holding the deduplication ID, discarding the
+# colliding caller's arguments.
+DuplicationPolicy = Literal["reject", "return-existing"]
+
+# Reserved workflow attribute holding the trace carrier set by PropagateOtelContext.
+OTEL_CARRIER_ATTRIBUTE = "dbos.otelContext"
 
 
 # Keys must be the same as in TypeScript Transact
@@ -128,10 +148,14 @@ class DBOSContext:
 
         # A user-specified deduplication ID for the enqueuing workflow.
         self.deduplication_id: Optional[str] = None
+        # How the enqueuing workflow reacts to a collision on its deduplication ID.
+        self.duplication_policy: Optional[DuplicationPolicy] = None
         # A user-specified priority for the enqueuing workflow.
         self.priority: Optional[int] = None
         # User-specified attributes to attach to the next started workflow.
         self.workflow_attributes: Optional[Dict[str, Any]] = None
+        # Trace carrier for the next started workflow, set by PropagateOtelContext.
+        self.otel_carrier: Optional[Dict[str, str]] = None
         # If the workflow is enqueued on a partitioned queue, its partition key
         self.queue_partition_key: Optional[str] = None
         # The UNIX epoch timestamp before which the workflow should not be dequeued
@@ -140,6 +164,8 @@ class DBOSContext:
         self.debounce_deadline_epoch_ms: Optional[int] = None
         # Whether the next enqueued workflow is debounced (its dedup ID is a debounce key cleared on DELAYED->ENQUEUED).
         self.is_debounced: bool = False
+        # The application the next debounced enqueue acts for; None means this one.
+        self.debounce_application_name: Optional[str] = None
 
     def create_child(self, *, is_for_workflow: bool) -> DBOSContext:
         rv = DBOSContext()
@@ -152,6 +178,9 @@ class DBOSContext:
                 dict(self.workflow_attributes)
                 if self.workflow_attributes is not None
                 else None
+            )
+            rv.otel_carrier = (
+                dict(self.otel_carrier) if self.otel_carrier is not None else None
             )
         rv.is_within_set_workflow_id_block = self.is_within_set_workflow_id_block
         rv.parent_workflow_id = self.workflow_id
@@ -176,12 +205,15 @@ class DBOSContext:
         rv.workflow_deadline_epoch_ms = self.workflow_deadline_epoch_ms
         rv.workflow_timeout_ms = self.workflow_timeout_ms
         rv.deduplication_id = self.deduplication_id
+        rv.duplication_policy = self.duplication_policy
         rv.priority = self.priority
         rv.queue_partition_key = self.queue_partition_key
         rv.delay_until_epoch_ms = self.delay_until_epoch_ms
         rv.debounce_deadline_epoch_ms = self.debounce_deadline_epoch_ms
         rv.is_debounced = self.is_debounced
+        rv.debounce_application_name = self.debounce_application_name
         rv.workflow_attributes = self.workflow_attributes
+        rv.otel_carrier = self.otel_carrier
         self.function_id += 1
         rv.function_id = self.function_id
         if reserve_sleep_id:
@@ -615,6 +647,128 @@ class SetWorkflowAttributes:
         return False  # Did not handle
 
 
+def inject_trace_context(context: "Optional[OtelContext]") -> Dict[str, str]:
+    """Serialize just the W3C trace context of `context` into a fresh carrier.
+
+    Deliberately not the global composite propagator: that one also injects baggage,
+    which is unbounded in size, commonly carries user data, and would be persisted in
+    the workflow's attributes and shipped anywhere the status is read. Returns an empty
+    carrier when there is no valid span context to propagate.
+    """
+    from opentelemetry.trace.propagation.tracecontext import (
+        TraceContextTextMapPropagator,
+    )
+
+    carrier: Dict[str, str] = {}
+    TraceContextTextMapPropagator().inject(carrier, context=context)
+    return carrier
+
+
+def extract_trace_context(carrier: Dict[str, Any]) -> "Optional[OtelContext]":
+    """Rebuild an OpenTelemetry context from a carrier written by inject_trace_context.
+
+    Returns None when the carrier holds no usable span context, so callers can fall back
+    to whatever context they already have instead of rooting a detached trace. Never
+    raises: the carrier lives in the user-writable attributes map, so a bad value must
+    not be able to stop a workflow from executing.
+    """
+    from opentelemetry.trace import get_current_span
+    from opentelemetry.trace.propagation.tracecontext import (
+        TraceContextTextMapPropagator,
+    )
+
+    try:
+        extracted = TraceContextTextMapPropagator().extract(carrier)
+    except Exception as e:
+        # Non-string carrier values make the propagator's regex/len calls raise.
+        dbos_logger.warning(
+            f"Ignoring malformed {OTEL_CARRIER_ATTRIBUTE} workflow attribute: {e}"
+        )
+        return None
+    if not get_current_span(extracted).get_span_context().is_valid:
+        return None
+    return extracted
+
+
+def otel_carrier_from_attributes(
+    attributes: Optional[Any],
+) -> Optional[Dict[str, Any]]:
+    """Read the trace carrier out of a workflow's persisted attributes, if present.
+
+    Tolerates any shape: attributes are user-supplied and are not validated on every
+    enqueue path, so a non-dict value here must not raise on the execution path.
+    """
+    if not isinstance(attributes, dict):
+        return None
+    carrier = attributes.get(OTEL_CARRIER_ATTRIBUTE)
+    return carrier if isinstance(carrier, dict) else None
+
+
+class PropagateOtelContext:
+    """
+    Propagate the current OpenTelemetry context (or optionally, a passed-in context)
+    to all workflows started or enqueued in this block so their spans join the caller's
+    trace. The propagated context is durably backed by the workflow's attributes.
+
+    Only the W3C trace context (traceparent/tracestate) travels, not baggage.
+
+    Not automatically inherited by child workflows; use PropagateOtelContext again
+    inside a workflow to keep its children on the trace.
+
+    Typical Usage
+        ```
+        with PropagateOtelContext():
+            handle = queue.enqueue(workflow_function, ...)
+        ```
+    """
+
+    def __init__(self, context: "Optional[OtelContext]" = None) -> None:
+        self.context = context
+        self.created_ctx = False
+        self.saved_carrier: Optional[Dict[str, str]] = None
+
+    def __enter__(self) -> PropagateOtelContext:
+        # Writes nothing when there is no valid context to propagate.
+        carrier = inject_trace_context(self.context)
+        # Code to create a basic context
+        ctx = get_local_dbos_context()
+        if ctx is None:
+            self.created_ctx = True
+            _set_local_dbos_context(DBOSContext())
+        ctx = assert_current_dbos_context()
+        self.saved_carrier = ctx.otel_carrier
+        ctx.otel_carrier = carrier if carrier else None
+        return self
+
+    def __exit__(
+        self,
+        exc_type: Optional[Type[BaseException]],
+        exc_value: Optional[BaseException],
+        traceback: Optional[TracebackType],
+    ) -> Literal[False]:
+        assert_current_dbos_context().otel_carrier = self.saved_carrier
+        # Code to clean up the basic context if we created it
+        if self.created_ctx:
+            _clear_local_dbos_context()
+        return False  # Did not handle
+
+
+@contextmanager
+def restore_otel_carrier(carrier: Optional[Any]) -> Iterator[None]:
+    """Put a carrier persisted by PropagateOtelContext back on the context.
+
+    Dequeue and recovery rebuild the workflow status from a fresh context, so the stored
+    carrier would not otherwise reach the executing workflow. Non-dict values are ignored.
+    """
+    ctx = assert_current_dbos_context()
+    saved = ctx.otel_carrier
+    ctx.otel_carrier = carrier if isinstance(carrier, dict) else None
+    try:
+        yield
+    finally:
+        assert_current_dbos_context().otel_carrier = saved
+
+
 class SetEnqueueOptions:
     """
     Set the workflow enqueue options for the enclosed enqueue operation.
@@ -634,10 +788,13 @@ class SetEnqueueOptions:
         app_version: Optional[str] = None,
         queue_partition_key: Optional[str] = None,
         delay_seconds: Optional[float] = None,
+        duplication_policy: Optional[DuplicationPolicy] = None,
     ) -> None:
         self.created_ctx = False
         self.deduplication_id: Optional[str] = deduplication_id
         self.saved_deduplication_id: Optional[str] = None
+        self.duplication_policy: Optional[DuplicationPolicy] = duplication_policy
+        self.saved_duplication_policy: Optional[DuplicationPolicy] = None
         if priority is not None and (priority < MinPriority or priority > MaxPriority):
             raise Exception(
                 f"Invalid priority {priority}. Priority must be between {MinPriority}~{MaxPriority}."
@@ -664,6 +821,8 @@ class SetEnqueueOptions:
         ctx = assert_current_dbos_context()
         self.saved_deduplication_id = ctx.deduplication_id
         ctx.deduplication_id = self.deduplication_id
+        self.saved_duplication_policy = ctx.duplication_policy
+        ctx.duplication_policy = self.duplication_policy
         self.saved_priority = ctx.priority
         ctx.priority = self.priority
         self.saved_app_version = ctx.app_version
@@ -682,6 +841,7 @@ class SetEnqueueOptions:
     ) -> Literal[False]:
         curr_ctx = assert_current_dbos_context()
         curr_ctx.deduplication_id = self.saved_deduplication_id
+        curr_ctx.duplication_policy = self.saved_duplication_policy
         curr_ctx.priority = self.saved_priority
         curr_ctx.app_version = self.saved_app_version
         curr_ctx.queue_partition_key = self.saved_queue_partition_key
@@ -696,9 +856,10 @@ class SetWorkflowDebounce:
     """Internal: mark the next enqueued workflow as debounced.
 
     Sets the deduplication ID (a debounce key), the initial delay, the absolute
-    debounce deadline, and the is_debounced flag on the context, restoring them
-    on exit. Unlike SetEnqueueOptions, it leaves priority/app_version/partition
-    untouched so a debounced workflow still inherits the caller's other options.
+    debounce deadline, the is_debounced flag, and the application the debounce
+    acts for on the context, restoring them on exit. Unlike SetEnqueueOptions,
+    it leaves priority/app_version/partition untouched so a debounced workflow
+    still inherits the caller's other options.
 
     It also clears any propagated workflow deadline: a debounce called inside a
     workflow that has a timeout would otherwise pass that workflow's absolute
@@ -714,16 +875,19 @@ class SetWorkflowDebounce:
         deduplication_id: str,
         delay_until_epoch_ms: int,
         debounce_deadline_epoch_ms: Optional[int],
+        application_name: Optional[str] = None,
     ) -> None:
         self.created_ctx = False
         self.deduplication_id = deduplication_id
         self.delay_until_epoch_ms = delay_until_epoch_ms
         self.debounce_deadline_epoch_ms = debounce_deadline_epoch_ms
+        self.application_name = application_name
         self.saved_deduplication_id: Optional[str] = None
         self.saved_delay_until_epoch_ms: Optional[int] = None
         self.saved_debounce_deadline_epoch_ms: Optional[int] = None
         self.saved_is_debounced: bool = False
         self.saved_workflow_deadline_epoch_ms: Optional[int] = None
+        self.saved_debounce_application_name: Optional[str] = None
 
     def __enter__(self) -> SetWorkflowDebounce:
         ctx = get_local_dbos_context()
@@ -736,10 +900,12 @@ class SetWorkflowDebounce:
         self.saved_debounce_deadline_epoch_ms = ctx.debounce_deadline_epoch_ms
         self.saved_is_debounced = ctx.is_debounced
         self.saved_workflow_deadline_epoch_ms = ctx.workflow_deadline_epoch_ms
+        self.saved_debounce_application_name = ctx.debounce_application_name
         ctx.deduplication_id = self.deduplication_id
         ctx.delay_until_epoch_ms = self.delay_until_epoch_ms
         ctx.debounce_deadline_epoch_ms = self.debounce_deadline_epoch_ms
         ctx.is_debounced = True
+        ctx.debounce_application_name = self.application_name
         # Don't inherit the caller workflow's deadline onto the debounced workflow.
         ctx.workflow_deadline_epoch_ms = None
         return self
@@ -756,6 +922,7 @@ class SetWorkflowDebounce:
         curr_ctx.debounce_deadline_epoch_ms = self.saved_debounce_deadline_epoch_ms
         curr_ctx.is_debounced = self.saved_is_debounced
         curr_ctx.workflow_deadline_epoch_ms = self.saved_workflow_deadline_epoch_ms
+        curr_ctx.debounce_application_name = self.saved_debounce_application_name
         if self.created_ctx:
             _clear_local_dbos_context()
         return False
@@ -768,6 +935,7 @@ class EnterDBOSWorkflow(AbstractContextManager[DBOSContext, Literal[False]]):
         self.attributes = attributes
         self.saved_workflow_timeout: Optional[int] = None
         self.saved_deduplication_id: Optional[str] = None
+        self.saved_duplication_policy: Optional[DuplicationPolicy] = None
         self.saved_priority: Optional[int] = None
         self.saved_is_within_set_workflow_id_block: bool = False
         self.use_ctx = ctx
@@ -788,10 +956,12 @@ class EnterDBOSWorkflow(AbstractContextManager[DBOSContext, Literal[False]]):
         # workflow's children (instead we propagate the deadline)
         self.saved_workflow_timeout = ctx.workflow_timeout_ms
         ctx.workflow_timeout_ms = None
-        # Unset the deduplication_id and priority context var so it is not applied to this
-        # workflow's children
+        # Unset the deduplication_id, duplication policy, and priority context vars so
+        # they are not applied to this workflow's children
         self.saved_deduplication_id = ctx.deduplication_id
         ctx.deduplication_id = None
+        self.saved_duplication_policy = ctx.duplication_policy
+        ctx.duplication_policy = None
         self.saved_priority = ctx.priority
         ctx.priority = None
         ctx.start_workflow(
@@ -815,9 +985,10 @@ class EnterDBOSWorkflow(AbstractContextManager[DBOSContext, Literal[False]]):
         ctx.workflow_timeout_ms = self.saved_workflow_timeout
         # Clear any propagating timeout
         ctx.workflow_deadline_epoch_ms = None
-        # Restore the saved deduplication ID and priority
+        # Restore the saved deduplication ID, duplication policy, and priority
         ctx.priority = self.saved_priority
         ctx.deduplication_id = self.saved_deduplication_id
+        ctx.duplication_policy = self.saved_duplication_policy
         # Code to clean up the basic context if we created it
         _set_local_dbos_context(self.prev_ctx)
         return False  # Did not handle

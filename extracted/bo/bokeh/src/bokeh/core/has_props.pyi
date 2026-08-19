@@ -6,7 +6,6 @@
 #-----------------------------------------------------------------------------
 
 # Standard library imports
-from functools import lru_cache
 from typing import (
     Any,
     Callable,
@@ -16,9 +15,7 @@ from typing import (
     NoReturn,
     NotRequired,
     Self,
-    TypeAlias,
     TypedDict,
-    TypeVar,
     overload,
 )
 
@@ -35,11 +32,9 @@ from .serialization import (
     Serializer,
 )
 
-Setter: TypeAlias = ClientSession | ServerSession
+type Setter = ClientSession | ServerSession
 
-HasPropsType = TypeVar("HasPropsType", bound=type[HasProps])
-
-def abstract(cls: HasPropsType) -> HasPropsType: ...
+def abstract[HasPropsType: type[HasProps]](cls: HasPropsType) -> HasPropsType: ...
 
 def is_abstract(cls: type[HasProps]) -> bool: ...
 
@@ -56,9 +51,7 @@ class MetaHasProps(type):
     __overridden_defaults__: dict[str, Any]
     __themed_values__: dict[str, Any]
 
-    def __new__(cls, class_name: str, bases: tuple[type, ...], class_dict: dict[str, Any]) -> HasProps: ...
-
-    def __init__(cls, class_name: str, bases: tuple[type, ...], _) -> None: ...
+    def __new__(cls, class_name: str, bases: tuple[type, ...], class_dict: dict[str, Any]) -> type[HasProps]: ...
 
     @property
     def model_class_reverse_map(cls) -> dict[str, type[HasProps]]: ...
@@ -114,33 +107,21 @@ class HasProps(Serializable, metaclass=MetaHasProps):
     @classmethod
     def lookup(cls, name: str, *, raises: Literal[False] = False) -> PropertyDescriptor[Any] | None: ...
 
-    @classmethod
-    def lookup(cls, name: str, *, raises: bool = True) -> PropertyDescriptor[Any] | None: ...
-
     @overload
     @classmethod
-    @lru_cache(None)
     def properties(cls, *, _with_props: Literal[False] = False) -> set[str]: ...
 
     @overload
     @classmethod
-    @lru_cache(None)
-    def properties(cls, *, _with_props: Literal[True] = True) -> dict[str, Property[Any]]: ...
+    def properties(cls, *, _with_props: Literal[True]) -> dict[str, Property[Any]]: ...
 
     @classmethod
-    @lru_cache(None)
-    def properties(cls, *, _with_props: bool = False) -> set[str] | dict[str, Property[Any]]: ...
-
-    @classmethod
-    @lru_cache(None)
     def descriptors(cls) -> list[PropertyDescriptor[Any]]: ...
 
     @classmethod
-    @lru_cache(None)
     def properties_with_refs(cls) -> dict[str, Property[Any]]: ...
 
     @classmethod
-    @lru_cache(None)
     def dataspecs(cls) -> dict[str, DataSpec]: ...
 
     def properties_with_values(self, *, include_defaults: bool = True, include_undefined: bool = False) -> dict[str, Any]: ...

@@ -2,7 +2,7 @@ import { DOMElement, DOMElementView } from "./dom_element";
 import { HasProps } from "../../core/has_props";
 import { CustomJS } from "../callbacks/customjs";
 import type * as p from "../../core/properties";
-declare const Formatter: import("../../core/kinds").Kinds.Or<["raw" | "basic" | "numeral" | "printf" | "datetime", CustomJS]>;
+declare const Formatter: import("../../core/kinds").Kinds.Or<["basic" | "datetime" | "numeral" | "printf" | "raw", CustomJS]>;
 type Formatter = typeof Formatter["__type__"];
 export declare class ValueOfView extends DOMElementView {
     model: ValueOf;

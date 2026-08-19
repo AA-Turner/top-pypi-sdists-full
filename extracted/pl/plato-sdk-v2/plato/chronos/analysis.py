@@ -236,6 +236,8 @@ class AgentStepInfo(BaseModel):
     model_name: str | None = None
     message_preview: str = ""
     tool_names: list[str] = []
+    mcp_tool_names: list[str] = []
+    mcp_servers: list[str] = []
     prompt_tokens: int = 0
     completion_tokens: int = 0
 
@@ -248,6 +250,8 @@ class AgentExecution(BaseModel):
     models_used: list[str] = []
     token_summary: TokenSummary = TokenSummary()
     tool_usage: dict[str, int] = {}
+    mcp_tool_usage: dict[str, int] = {}
+    mcp_server_usage: dict[str, int] = {}
     duration_ms: float | None = None
     step_count: int = 0
     is_orphaned: bool = False
@@ -268,6 +272,8 @@ class SessionAnalysis(BaseModel):
     agent_executions: list[AgentExecution] = []
     token_summary: TokenSummary = TokenSummary()
     tool_usage: dict[str, int] = {}
+    mcp_tool_usage: dict[str, int] = {}
+    mcp_server_usage: dict[str, int] = {}
 
 
 # ---------------------------------------------------------------------------
@@ -280,6 +286,8 @@ _STRUCTURAL_PREFIXES = ("reset", "ad_loop", "transition_analysis", "ingest", "an
 def _parse_step_info(node: SpanNode) -> AgentStepInfo:
     attrs = node.span.attributes or {}
     tool_names: list[str] = []
+    mcp_tool_names: list[str] = []
+    mcp_servers: list[str] = []
     raw_tools = attrs.get("atif.step.tool_calls")
     if raw_tools:
         try:
@@ -295,6 +303,11 @@ def _parse_step_info(node: SpanNode) -> AgentStepInfo:
                     )
                     if name:
                         tool_names.append(name)
+                        if tc.get("origin") == "mcp":
+                            mcp_tool_names.append(name)
+                            server = tc.get("mcp_server")
+                            if isinstance(server, str) and server:
+                                mcp_servers.append(server)
         except (json.JSONDecodeError, TypeError):
             pass
 
@@ -305,6 +318,8 @@ def _parse_step_info(node: SpanNode) -> AgentStepInfo:
         model_name=attrs.get("atif.step.model_name"),
         message_preview=message,
         tool_names=tool_names,
+        mcp_tool_names=mcp_tool_names,
+        mcp_servers=mcp_servers,
         prompt_tokens=int(attrs.get("atif.step.prompt_tokens", 0)),
         completion_tokens=int(attrs.get("atif.step.completion_tokens", 0)),
     )
@@ -407,6 +422,8 @@ def analyze_session(spans: list[OTelSpan], session_id: str) -> SessionAnalysis:
     # Aggregate tokens/tools across all executions
     global_tokens = TokenSummary()
     global_tools: dict[str, int] = defaultdict(int)
+    global_mcp_tools: dict[str, int] = defaultdict(int)
+    global_mcp_servers: dict[str, int] = defaultdict(int)
     for ex in executions:
         global_tokens.prompt_tokens += ex.token_summary.prompt_tokens
         global_tokens.completion_tokens += ex.token_summary.completion_tokens
@@ -415,6 +432,10 @@ def analyze_session(spans: list[OTelSpan], session_id: str) -> SessionAnalysis:
         global_tokens.cost_usd += ex.token_summary.cost_usd
         for tool, count in ex.tool_usage.items():
             global_tools[tool] += count
+        for tool, count in ex.mcp_tool_usage.items():
+            global_mcp_tools[tool] += count
+        for server, count in ex.mcp_server_usage.items():
+            global_mcp_servers[server] += count
 
     return SessionAnalysis(
         session_id=session_id,
@@ -425,6 +446,8 @@ def analyze_session(spans: list[OTelSpan], session_id: str) -> SessionAnalysis:
         agent_executions=executions,
         token_summary=global_tokens,
         tool_usage=dict(global_tools),
+        mcp_tool_usage=dict(global_mcp_tools),
+        mcp_server_usage=dict(global_mcp_servers),
     )
 
 
@@ -445,6 +468,8 @@ def _build_execution(
     steps: list[AgentStepInfo] = []
     models: set[str] = set()
     tool_usage: dict[str, int] = defaultdict(int)
+    mcp_tool_usage: dict[str, int] = defaultdict(int)
+    mcp_server_usage: dict[str, int] = defaultdict(int)
     total_prompt = 0
     total_completion = 0
     total_cost = 0.0
@@ -456,6 +481,10 @@ def _build_execution(
             models.add(info.model_name)
         for tool in info.tool_names:
             tool_usage[tool] += 1
+        for tool in info.mcp_tool_names:
+            mcp_tool_usage[tool] += 1
+        for server in info.mcp_servers:
+            mcp_server_usage[server] += 1
         total_prompt += info.prompt_tokens
         total_completion += info.completion_tokens
         total_cost += float(sn.get_attr("atif.step.cost_usd", 0) or 0)
@@ -508,6 +537,8 @@ def _build_execution(
             cost_usd=total_cost,
         ),
         tool_usage=dict(tool_usage),
+        mcp_tool_usage=dict(mcp_tool_usage),
+        mcp_server_usage=dict(mcp_server_usage),
         duration_ms=duration,
         step_count=len(steps),
         is_orphaned=is_orphaned,

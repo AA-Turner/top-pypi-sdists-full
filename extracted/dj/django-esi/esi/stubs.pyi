@@ -1714,6 +1714,54 @@ class GetCorporationsProjectsListingOperation(EsiOperation):
         ...
 
 
+class GetCharactersCosmeticsSkinrOperation(EsiOperation):
+    """EsiOperation, use result()"""
+    @overload
+    def result(self, use_etag: bool = True, return_response: Literal[False] = False, force_refresh: bool = False, use_cache: bool = True, store_cache: bool = True, last_modified: datetime | None = None, **extra) -> CharactersCosmeticsSkinr:
+        """Listing of all SKINR licenses you own"""
+        ...
+
+    @overload
+    def result(self, use_etag: bool = True, *, return_response: Literal[True], force_refresh: bool = False, use_cache: bool = True, store_cache: bool = True, last_modified: datetime | None = None, **extra) -> tuple[CharactersCosmeticsSkinr, Response]:
+        """Listing of all SKINR licenses you own"""
+        ...
+
+    def result(self, use_etag: bool = True, return_response: bool = False, force_refresh: bool = False, use_cache: bool = True, store_cache: bool = True, last_modified: datetime | None = None, **extra) -> CharactersCosmeticsSkinr | tuple[CharactersCosmeticsSkinr, Response]:
+        """Listing of all SKINR licenses you own"""
+        ...
+
+class GetCharactersCosmeticsSkinrComponentsOperation(EsiOperation):
+    """EsiOperation, use result()"""
+    @overload
+    def result(self, use_etag: bool = True, return_response: Literal[False] = False, force_refresh: bool = False, use_cache: bool = True, store_cache: bool = True, last_modified: datetime | None = None, **extra) -> CharactersCosmeticsSkinrComponents:
+        """Listing of all SKINR component licenses you own"""
+        ...
+
+    @overload
+    def result(self, use_etag: bool = True, *, return_response: Literal[True], force_refresh: bool = False, use_cache: bool = True, store_cache: bool = True, last_modified: datetime | None = None, **extra) -> tuple[CharactersCosmeticsSkinrComponents, Response]:
+        """Listing of all SKINR component licenses you own"""
+        ...
+
+    def result(self, use_etag: bool = True, return_response: bool = False, force_refresh: bool = False, use_cache: bool = True, store_cache: bool = True, last_modified: datetime | None = None, **extra) -> CharactersCosmeticsSkinrComponents | tuple[CharactersCosmeticsSkinrComponents, Response]:
+        """Listing of all SKINR component licenses you own"""
+        ...
+
+class GetCosmeticsSkinrOperation(EsiOperation):
+    """EsiOperation, use result()"""
+    @overload
+    def result(self, use_etag: bool = True, return_response: Literal[False] = False, force_refresh: bool = False, use_cache: bool = True, store_cache: bool = True, last_modified: datetime | None = None, **extra) -> CosmeticsSkinr:
+        """All attributes of a SKINR license"""
+        ...
+
+    @overload
+    def result(self, use_etag: bool = True, *, return_response: Literal[True], force_refresh: bool = False, use_cache: bool = True, store_cache: bool = True, last_modified: datetime | None = None, **extra) -> tuple[CosmeticsSkinr, Response]:
+        """All attributes of a SKINR license"""
+        ...
+
+    def result(self, use_etag: bool = True, return_response: bool = False, force_refresh: bool = False, use_cache: bool = True, store_cache: bool = True, last_modified: datetime | None = None, **extra) -> CosmeticsSkinr | tuple[CosmeticsSkinr, Response]:
+        """All attributes of a SKINR license"""
+        ...
+
 class GetDogmaAttributesOperation(EsiOperation):
     """EsiOperation, use result()"""
     @overload
@@ -3400,6 +3448,181 @@ class GetMilitaryCampaignsObjectivesListingOperation(EsiOperation):
         ...
 
 
+class GetCharactersParagonHubSkinrOperation(EsiOperation):
+    """EsiOperation, use result(), results() or results_localized()"""
+    @overload
+    def result(self, use_etag: bool = True, return_response: Literal[False] = False, force_refresh: bool = False, use_cache: bool = True, store_cache: bool = True, last_modified: datetime | None = None, **extra) -> CharactersParagonHubSkinr:
+        """List the SKINR listings a character has posted on the Paragon Hub."""
+        ...
+
+    @overload
+    def result(self, use_etag: bool = True, *, return_response: Literal[True], force_refresh: bool = False, use_cache: bool = True, store_cache: bool = True, last_modified: datetime | None = None, **extra) -> tuple[CharactersParagonHubSkinr, Response]:
+        """List the SKINR listings a character has posted on the Paragon Hub."""
+        ...
+
+    def result(self, use_etag: bool = True, return_response: bool = False, force_refresh: bool = False, use_cache: bool = True, store_cache: bool = True, last_modified: datetime | None = None, **extra) -> CharactersParagonHubSkinr | tuple[CharactersParagonHubSkinr, Response]:
+        """List the SKINR listings a character has posted on the Paragon Hub."""
+        ...
+
+    @overload
+    def results(self, use_etag: bool = True, return_response: Literal[False] = False, force_refresh: bool = False, use_cache: bool = True, store_cache: bool = True, last_modified: datetime | None = None, **extra) -> list[CharactersParagonHubSkinr]:
+        """List the SKINR listings a character has posted on the Paragon Hub."""
+        ...
+
+    @overload
+    def results(self, use_etag: bool = True, *, return_response: Literal[True], force_refresh: bool = False, use_cache: bool = True, store_cache: bool = True, last_modified: datetime | None = None, **extra) -> tuple[list[CharactersParagonHubSkinr], Response]:
+        """List the SKINR listings a character has posted on the Paragon Hub."""
+        ...
+
+    def results(self, use_etag: bool = True, return_response: bool = False, force_refresh: bool = False, use_cache: bool = True, store_cache: bool = True, last_modified: datetime | None = None, **extra) -> list[CharactersParagonHubSkinr] | tuple[list[CharactersParagonHubSkinr], Response]:
+        """List the SKINR listings a character has posted on the Paragon Hub."""
+        ...
+
+    def results_localized(self, languages: list[str] | str | None = None, **extra) -> dict[str, list[CharactersParagonHubSkinr]]:
+        """List the SKINR listings a character has posted on the Paragon Hub."""
+        ...
+
+
+class GetParagonHubSkinrOperation(EsiOperation):
+    """EsiOperation, use result(), results() or results_localized()"""
+    @overload
+    def result(self, use_etag: bool = True, return_response: Literal[False] = False, force_refresh: bool = False, use_cache: bool = True, store_cache: bool = True, last_modified: datetime | None = None, **extra) -> ParagonHubSkinr:
+        """Browse the SKINR listings publicly available on the Paragon Hub."""
+        ...
+
+    @overload
+    def result(self, use_etag: bool = True, *, return_response: Literal[True], force_refresh: bool = False, use_cache: bool = True, store_cache: bool = True, last_modified: datetime | None = None, **extra) -> tuple[ParagonHubSkinr, Response]:
+        """Browse the SKINR listings publicly available on the Paragon Hub."""
+        ...
+
+    def result(self, use_etag: bool = True, return_response: bool = False, force_refresh: bool = False, use_cache: bool = True, store_cache: bool = True, last_modified: datetime | None = None, **extra) -> ParagonHubSkinr | tuple[ParagonHubSkinr, Response]:
+        """Browse the SKINR listings publicly available on the Paragon Hub."""
+        ...
+
+    @overload
+    def results(self, use_etag: bool = True, return_response: Literal[False] = False, force_refresh: bool = False, use_cache: bool = True, store_cache: bool = True, last_modified: datetime | None = None, **extra) -> list[ParagonHubSkinr]:
+        """Browse the SKINR listings publicly available on the Paragon Hub."""
+        ...
+
+    @overload
+    def results(self, use_etag: bool = True, *, return_response: Literal[True], force_refresh: bool = False, use_cache: bool = True, store_cache: bool = True, last_modified: datetime | None = None, **extra) -> tuple[list[ParagonHubSkinr], Response]:
+        """Browse the SKINR listings publicly available on the Paragon Hub."""
+        ...
+
+    def results(self, use_etag: bool = True, return_response: bool = False, force_refresh: bool = False, use_cache: bool = True, store_cache: bool = True, last_modified: datetime | None = None, **extra) -> list[ParagonHubSkinr] | tuple[list[ParagonHubSkinr], Response]:
+        """Browse the SKINR listings publicly available on the Paragon Hub."""
+        ...
+
+    def results_localized(self, languages: list[str] | str | None = None, **extra) -> dict[str, list[ParagonHubSkinr]]:
+        """Browse the SKINR listings publicly available on the Paragon Hub."""
+        ...
+
+
+class GetParagonHubSkinrAlliancesOperation(EsiOperation):
+    """EsiOperation, use result(), results() or results_localized()"""
+    @overload
+    def result(self, use_etag: bool = True, return_response: Literal[False] = False, force_refresh: bool = False, use_cache: bool = True, store_cache: bool = True, last_modified: datetime | None = None, **extra) -> ParagonHubSkinrAlliances:
+        """Browse the SKINR listings on the Paragon Hub that are visible to the given alliance."""
+        ...
+
+    @overload
+    def result(self, use_etag: bool = True, *, return_response: Literal[True], force_refresh: bool = False, use_cache: bool = True, store_cache: bool = True, last_modified: datetime | None = None, **extra) -> tuple[ParagonHubSkinrAlliances, Response]:
+        """Browse the SKINR listings on the Paragon Hub that are visible to the given alliance."""
+        ...
+
+    def result(self, use_etag: bool = True, return_response: bool = False, force_refresh: bool = False, use_cache: bool = True, store_cache: bool = True, last_modified: datetime | None = None, **extra) -> ParagonHubSkinrAlliances | tuple[ParagonHubSkinrAlliances, Response]:
+        """Browse the SKINR listings on the Paragon Hub that are visible to the given alliance."""
+        ...
+
+    @overload
+    def results(self, use_etag: bool = True, return_response: Literal[False] = False, force_refresh: bool = False, use_cache: bool = True, store_cache: bool = True, last_modified: datetime | None = None, **extra) -> list[ParagonHubSkinrAlliances]:
+        """Browse the SKINR listings on the Paragon Hub that are visible to the given alliance."""
+        ...
+
+    @overload
+    def results(self, use_etag: bool = True, *, return_response: Literal[True], force_refresh: bool = False, use_cache: bool = True, store_cache: bool = True, last_modified: datetime | None = None, **extra) -> tuple[list[ParagonHubSkinrAlliances], Response]:
+        """Browse the SKINR listings on the Paragon Hub that are visible to the given alliance."""
+        ...
+
+    def results(self, use_etag: bool = True, return_response: bool = False, force_refresh: bool = False, use_cache: bool = True, store_cache: bool = True, last_modified: datetime | None = None, **extra) -> list[ParagonHubSkinrAlliances] | tuple[list[ParagonHubSkinrAlliances], Response]:
+        """Browse the SKINR listings on the Paragon Hub that are visible to the given alliance."""
+        ...
+
+    def results_localized(self, languages: list[str] | str | None = None, **extra) -> dict[str, list[ParagonHubSkinrAlliances]]:
+        """Browse the SKINR listings on the Paragon Hub that are visible to the given alliance."""
+        ...
+
+
+class GetParagonHubSkinrCharactersOperation(EsiOperation):
+    """EsiOperation, use result(), results() or results_localized()"""
+    @overload
+    def result(self, use_etag: bool = True, return_response: Literal[False] = False, force_refresh: bool = False, use_cache: bool = True, store_cache: bool = True, last_modified: datetime | None = None, **extra) -> ParagonHubSkinrCharacters:
+        """Browse the SKINR listings on the Paragon Hub that are visible to the given character."""
+        ...
+
+    @overload
+    def result(self, use_etag: bool = True, *, return_response: Literal[True], force_refresh: bool = False, use_cache: bool = True, store_cache: bool = True, last_modified: datetime | None = None, **extra) -> tuple[ParagonHubSkinrCharacters, Response]:
+        """Browse the SKINR listings on the Paragon Hub that are visible to the given character."""
+        ...
+
+    def result(self, use_etag: bool = True, return_response: bool = False, force_refresh: bool = False, use_cache: bool = True, store_cache: bool = True, last_modified: datetime | None = None, **extra) -> ParagonHubSkinrCharacters | tuple[ParagonHubSkinrCharacters, Response]:
+        """Browse the SKINR listings on the Paragon Hub that are visible to the given character."""
+        ...
+
+    @overload
+    def results(self, use_etag: bool = True, return_response: Literal[False] = False, force_refresh: bool = False, use_cache: bool = True, store_cache: bool = True, last_modified: datetime | None = None, **extra) -> list[ParagonHubSkinrCharacters]:
+        """Browse the SKINR listings on the Paragon Hub that are visible to the given character."""
+        ...
+
+    @overload
+    def results(self, use_etag: bool = True, *, return_response: Literal[True], force_refresh: bool = False, use_cache: bool = True, store_cache: bool = True, last_modified: datetime | None = None, **extra) -> tuple[list[ParagonHubSkinrCharacters], Response]:
+        """Browse the SKINR listings on the Paragon Hub that are visible to the given character."""
+        ...
+
+    def results(self, use_etag: bool = True, return_response: bool = False, force_refresh: bool = False, use_cache: bool = True, store_cache: bool = True, last_modified: datetime | None = None, **extra) -> list[ParagonHubSkinrCharacters] | tuple[list[ParagonHubSkinrCharacters], Response]:
+        """Browse the SKINR listings on the Paragon Hub that are visible to the given character."""
+        ...
+
+    def results_localized(self, languages: list[str] | str | None = None, **extra) -> dict[str, list[ParagonHubSkinrCharacters]]:
+        """Browse the SKINR listings on the Paragon Hub that are visible to the given character."""
+        ...
+
+
+class GetParagonHubSkinrCorporationsOperation(EsiOperation):
+    """EsiOperation, use result(), results() or results_localized()"""
+    @overload
+    def result(self, use_etag: bool = True, return_response: Literal[False] = False, force_refresh: bool = False, use_cache: bool = True, store_cache: bool = True, last_modified: datetime | None = None, **extra) -> ParagonHubSkinrCorporations:
+        """Browse the SKINR listings on the Paragon Hub that are visible to the given corporation."""
+        ...
+
+    @overload
+    def result(self, use_etag: bool = True, *, return_response: Literal[True], force_refresh: bool = False, use_cache: bool = True, store_cache: bool = True, last_modified: datetime | None = None, **extra) -> tuple[ParagonHubSkinrCorporations, Response]:
+        """Browse the SKINR listings on the Paragon Hub that are visible to the given corporation."""
+        ...
+
+    def result(self, use_etag: bool = True, return_response: bool = False, force_refresh: bool = False, use_cache: bool = True, store_cache: bool = True, last_modified: datetime | None = None, **extra) -> ParagonHubSkinrCorporations | tuple[ParagonHubSkinrCorporations, Response]:
+        """Browse the SKINR listings on the Paragon Hub that are visible to the given corporation."""
+        ...
+
+    @overload
+    def results(self, use_etag: bool = True, return_response: Literal[False] = False, force_refresh: bool = False, use_cache: bool = True, store_cache: bool = True, last_modified: datetime | None = None, **extra) -> list[ParagonHubSkinrCorporations]:
+        """Browse the SKINR listings on the Paragon Hub that are visible to the given corporation."""
+        ...
+
+    @overload
+    def results(self, use_etag: bool = True, *, return_response: Literal[True], force_refresh: bool = False, use_cache: bool = True, store_cache: bool = True, last_modified: datetime | None = None, **extra) -> tuple[list[ParagonHubSkinrCorporations], Response]:
+        """Browse the SKINR listings on the Paragon Hub that are visible to the given corporation."""
+        ...
+
+    def results(self, use_etag: bool = True, return_response: bool = False, force_refresh: bool = False, use_cache: bool = True, store_cache: bool = True, last_modified: datetime | None = None, **extra) -> list[ParagonHubSkinrCorporations] | tuple[list[ParagonHubSkinrCorporations], Response]:
+        """Browse the SKINR listings on the Paragon Hub that are visible to the given corporation."""
+        ...
+
+    def results_localized(self, languages: list[str] | str | None = None, **extra) -> dict[str, list[ParagonHubSkinrCorporations]]:
+        """Browse the SKINR listings on the Paragon Hub that are visible to the given corporation."""
+        ...
+
+
 class GetCharactersCharacterIdPlanetsOperation(EsiOperation):
     """EsiOperation, use result()"""
     @overload
@@ -3598,17 +3821,17 @@ class GetSovereigntySystemsOperation(EsiOperation):
 class GetStatusOperation(EsiOperation):
     """EsiOperation, use result()"""
     @overload
-    def result(self, use_etag: bool = True, return_response: Literal[False] = False, force_refresh: bool = False, use_cache: bool = True, store_cache: bool = True, last_modified: datetime | None = None, **extra) -> StatusGet:
-        """EVE Server status"""
+    def result(self, use_etag: bool = True, return_response: Literal[False] = False, force_refresh: bool = False, use_cache: bool = True, store_cache: bool = True, last_modified: datetime | None = None, **extra) -> Status:
+        """Current status of the EVE Online cluster"""
         ...
 
     @overload
-    def result(self, use_etag: bool = True, *, return_response: Literal[True], force_refresh: bool = False, use_cache: bool = True, store_cache: bool = True, last_modified: datetime | None = None, **extra) -> tuple[StatusGet, Response]:
-        """EVE Server status"""
+    def result(self, use_etag: bool = True, *, return_response: Literal[True], force_refresh: bool = False, use_cache: bool = True, store_cache: bool = True, last_modified: datetime | None = None, **extra) -> tuple[Status, Response]:
+        """Current status of the EVE Online cluster"""
         ...
 
-    def result(self, use_etag: bool = True, return_response: bool = False, force_refresh: bool = False, use_cache: bool = True, store_cache: bool = True, last_modified: datetime | None = None, **extra) -> StatusGet | tuple[StatusGet, Response]:
-        """EVE Server status"""
+    def result(self, use_etag: bool = True, return_response: bool = False, force_refresh: bool = False, use_cache: bool = True, store_cache: bool = True, last_modified: datetime | None = None, **extra) -> Status | tuple[Status, Response]:
+        """Current status of the EVE Online cluster"""
         ...
 
 class GetCharactersStructuresMercenaryDensDetailOperation(EsiOperation):
@@ -6071,6 +6294,107 @@ class CorporationsProjectsListing(BaseModel):
     projects: list[CorporationsProjectsDetailProject]
 
 
+class CharactersCosmeticsSkinrItem(BaseModel):
+    activated: bool
+    skinr_id: str
+    unactivated: int
+
+
+class CharactersCosmeticsSkinr(BaseModel):
+    licenses: list[CharactersCosmeticsSkinrItem]
+
+
+class CharactersCosmeticsSkinrComponentsItem_RunsAlt0(BaseModel):
+    remaining: int | None
+
+
+class CharactersCosmeticsSkinrComponentsItem_RunsAlt1(BaseModel):
+    unlimited: bool | None
+
+
+class CharactersCosmeticsSkinrComponentsItem(BaseModel):
+    component_id: int
+    runs: CharactersCosmeticsSkinrComponentsItem_RunsAlt0 | CharactersCosmeticsSkinrComponentsItem_RunsAlt1
+    type: Literal['nanocoating', 'pattern']
+
+
+class CharactersCosmeticsSkinrComponents(BaseModel):
+    licenses: list[CharactersCosmeticsSkinrComponentsItem]
+
+
+class CosmeticsSkinrSlotnanocoating(BaseModel):
+    id: int
+
+
+class CosmeticsSkinrLayoutslot_ConfigurationAlt0(BaseModel):
+    nanocoating: CosmeticsSkinrSlotnanocoating | None
+
+
+class CosmeticsSkinrPatternprojection(BaseModel):
+    slot1: bool
+    slot2: bool
+    slot3: bool
+    slot4: bool
+
+
+class CosmeticsSkinrVector3(BaseModel):
+    x: float
+    y: float
+    z: float
+
+
+class CosmeticsSkinrVector4(BaseModel):
+    w: float
+    x: float
+    y: float
+    z: float
+
+
+class CosmeticsSkinrPatterntransform(BaseModel):
+    position: CosmeticsSkinrVector3
+    rotation: CosmeticsSkinrVector4
+    scaling: CosmeticsSkinrVector3
+
+
+class CosmeticsSkinrPatternconfiguration(BaseModel):
+    mirrored: bool
+    projection: CosmeticsSkinrPatternprojection
+    transform: CosmeticsSkinrPatterntransform
+
+
+class CosmeticsSkinrSlotpattern(BaseModel):
+    configuration: CosmeticsSkinrPatternconfiguration
+    id: int
+
+
+class CosmeticsSkinrLayoutslot_ConfigurationAlt1(BaseModel):
+    pattern: CosmeticsSkinrSlotpattern | None
+
+
+class CosmeticsSkinrLayoutslot(BaseModel):
+    configuration: CosmeticsSkinrLayoutslot_ConfigurationAlt0 | CosmeticsSkinrLayoutslot_ConfigurationAlt1
+    id: int
+
+
+class CosmeticsSkinrLayout(BaseModel):
+    pattern_blend_mode: Literal['normal', 'subtract', 'exclusion', 'nested', 'nested_inverted']
+    slots: list[CosmeticsSkinrLayoutslot]
+
+
+class CosmeticsSkinrTier(BaseModel):
+    level: int
+
+
+class CosmeticsSkinr(BaseModel):
+    creator_id: CharacterID
+    id: str
+    layout: CosmeticsSkinrLayout
+    line: str | None
+    name: str
+    ship_type_id: TypeID
+    tier: CosmeticsSkinrTier
+
+
 DogmaAttributesGet = list[int]
 
 
@@ -7187,6 +7511,88 @@ class MilitaryCampaignsObjectivesListing(BaseModel):
     objectives: list[MilitaryCampaignsObjectivesDetailObjective]
 
 
+class CharactersParagonHubSkinrItem_PriceAlt0(BaseModel):
+    isk: float | None
+
+
+class CharactersParagonHubSkinrItem_PriceAlt1(BaseModel):
+    plex: int | None
+
+
+class CharactersParagonHubSkinrItem_TargetAlt0(BaseModel):
+    character_id: CharacterID | None
+
+
+class CharactersParagonHubSkinrItem_TargetAlt1(BaseModel):
+    corporation_id: CorporationID | None
+
+
+class CharactersParagonHubSkinrItem_TargetAlt2(BaseModel):
+    alliance_id: AllianceID | None
+
+
+class CharactersParagonHubSkinrItem_TargetAlt3(BaseModel):
+    public: bool | None
+
+
+class CharactersParagonHubSkinrItem(BaseModel):
+    created: datetime
+    expires: datetime
+    id: UUID
+    last_modified: datetime
+    price: CharactersParagonHubSkinrItem_PriceAlt0 | CharactersParagonHubSkinrItem_PriceAlt1
+    quantity: int
+    seller_id: CharacterID
+    skinr_id: str
+    state: Literal['listed', 'sold_out', 'expired', 'removed']
+    target: CharactersParagonHubSkinrItem_TargetAlt0 | CharactersParagonHubSkinrItem_TargetAlt1 | CharactersParagonHubSkinrItem_TargetAlt2 | CharactersParagonHubSkinrItem_TargetAlt3
+
+
+class CharactersParagonHubSkinr(BaseModel):
+    cursor: Cursor | None
+    listings: list[CharactersParagonHubSkinrItem]
+
+
+class ParagonHubSkinrInternalItem_PriceAlt0(BaseModel):
+    isk: float | None
+
+
+class ParagonHubSkinrInternalItem_PriceAlt1(BaseModel):
+    plex: int | None
+
+
+class ParagonHubSkinrInternalItem(BaseModel):
+    created: datetime
+    expires: datetime
+    id: UUID
+    last_modified: datetime
+    price: ParagonHubSkinrInternalItem_PriceAlt0 | ParagonHubSkinrInternalItem_PriceAlt1
+    quantity: int
+    seller_id: CharacterID
+    skinr_id: str
+    state: Literal['listed', 'sold_out', 'expired', 'removed']
+
+
+class ParagonHubSkinr(BaseModel):
+    cursor: Cursor | None
+    listings: list[ParagonHubSkinrInternalItem]
+
+
+class ParagonHubSkinrAlliances(BaseModel):
+    cursor: Cursor | None
+    listings: list[ParagonHubSkinrInternalItem]
+
+
+class ParagonHubSkinrCharacters(BaseModel):
+    cursor: Cursor | None
+    listings: list[ParagonHubSkinrInternalItem]
+
+
+class ParagonHubSkinrCorporations(BaseModel):
+    cursor: Cursor | None
+    listings: list[ParagonHubSkinrInternalItem]
+
+
 class CharactersCharacterIdPlanetsGetItem(BaseModel):
     last_update: datetime
     num_pins: int
@@ -7405,11 +7811,11 @@ class SovereigntySystems(BaseModel):
     solar_systems: list[SovereigntySystemsSolarsystem]
 
 
-class StatusGet(BaseModel):
+class Status(BaseModel):
     players: int
     server_version: str
     start_time: datetime
-    vip: bool | None
+    vip: bool
 
 
 class CharactersStructuresMercenaryDensDetailEvolutionanarchy(BaseModel):
@@ -8036,11 +8442,11 @@ WarsWarIdKillmailsGet = list[WarsWarIdKillmailsGetItem]
 
 class ESIClientStub:
     class _Access_List:
-        def GetCharactersAccessListsDetail(self, access_list_id: AccessListID, character_id: CharacterID, token: Token, Accept_Language: Literal['en', 'de', 'fr', 'ja', 'ru', 'zh', 'ko', 'es'] | None = ..., If_None_Match: str | None = ..., X_Compatibility_Date: Literal['2026-08-04'] | None = ..., X_Tenant: str | None = ..., If_Modified_Since: str | None = ..., **kwargs: Any) -> GetCharactersAccessListsDetailOperation:
+        def GetCharactersAccessListsDetail(self, access_list_id: AccessListID, character_id: CharacterID, token: Token, Accept_Language: Literal['en', 'de', 'fr', 'ja', 'ru', 'zh', 'ko', 'es'] | None = ..., If_None_Match: str | None = ..., X_Compatibility_Date: Literal['2026-08-18'] | None = ..., X_Tenant: str | None = ..., If_Modified_Since: str | None = ..., **kwargs: Any) -> GetCharactersAccessListsDetailOperation:
             """Get the details of an Access List."""
             ...
 
-        def GetCharactersAccessListsListing(self, character_id: CharacterID, token: Token, Accept_Language: Literal['en', 'de', 'fr', 'ja', 'ru', 'zh', 'ko', 'es'] | None = ..., If_None_Match: str | None = ..., X_Compatibility_Date: Literal['2026-08-04'] | None = ..., X_Tenant: str | None = ..., If_Modified_Since: str | None = ..., **kwargs: Any) -> GetCharactersAccessListsListingOperation:
+        def GetCharactersAccessListsListing(self, character_id: CharacterID, token: Token, Accept_Language: Literal['en', 'de', 'fr', 'ja', 'ru', 'zh', 'ko', 'es'] | None = ..., If_None_Match: str | None = ..., X_Compatibility_Date: Literal['2026-08-18'] | None = ..., X_Tenant: str | None = ..., If_Modified_Since: str | None = ..., **kwargs: Any) -> GetCharactersAccessListsListingOperation:
             """Lists all Access Lists the character is Manager or Admin of."""
             ...
 
@@ -8048,15 +8454,15 @@ class ESIClientStub:
     Access_List: _Access_List = _Access_List()
 
     class _Activities:
-        def GetCharactersMercenaryTacticalOperationsDetail(self, operation_id: UUID, character_id: CharacterID, token: Token, Accept_Language: Literal['en', 'de', 'fr', 'ja', 'ru', 'zh', 'ko', 'es'] | None = ..., If_None_Match: str | None = ..., X_Compatibility_Date: Literal['2026-08-04'] | None = ..., X_Tenant: str | None = ..., If_Modified_Since: str | None = ..., **kwargs: Any) -> GetCharactersMercenaryTacticalOperationsDetailOperation:
+        def GetCharactersMercenaryTacticalOperationsDetail(self, operation_id: UUID, character_id: CharacterID, token: Token, Accept_Language: Literal['en', 'de', 'fr', 'ja', 'ru', 'zh', 'ko', 'es'] | None = ..., If_None_Match: str | None = ..., X_Compatibility_Date: Literal['2026-08-18'] | None = ..., X_Tenant: str | None = ..., If_Modified_Since: str | None = ..., **kwargs: Any) -> GetCharactersMercenaryTacticalOperationsDetailOperation:
             """Get the details of a Mercenary Tactical Operation."""
             ...
 
-        def GetCharactersMercenaryTacticalOperationsListing(self, character_id: CharacterID, token: Token, Accept_Language: Literal['en', 'de', 'fr', 'ja', 'ru', 'zh', 'ko', 'es'] | None = ..., If_None_Match: str | None = ..., X_Compatibility_Date: Literal['2026-08-04'] | None = ..., X_Tenant: str | None = ..., If_Modified_Since: str | None = ..., **kwargs: Any) -> GetCharactersMercenaryTacticalOperationsListingOperation:
+        def GetCharactersMercenaryTacticalOperationsListing(self, character_id: CharacterID, token: Token, Accept_Language: Literal['en', 'de', 'fr', 'ja', 'ru', 'zh', 'ko', 'es'] | None = ..., If_None_Match: str | None = ..., X_Compatibility_Date: Literal['2026-08-18'] | None = ..., X_Tenant: str | None = ..., If_Modified_Since: str | None = ..., **kwargs: Any) -> GetCharactersMercenaryTacticalOperationsListingOperation:
             """Listing of all Mercenary Tactical Operations for the character."""
             ...
 
-        def GetSkyhooksRaidable(self, Accept_Language: Literal['en', 'de', 'fr', 'ja', 'ru', 'zh', 'ko', 'es'] | None = ..., If_None_Match: str | None = ..., X_Compatibility_Date: Literal['2026-08-04'] | None = ..., X_Tenant: str | None = ..., If_Modified_Since: str | None = ..., **kwargs: Any) -> GetSkyhooksRaidableOperation:
+        def GetSkyhooksRaidable(self, Accept_Language: Literal['en', 'de', 'fr', 'ja', 'ru', 'zh', 'ko', 'es'] | None = ..., If_None_Match: str | None = ..., X_Compatibility_Date: Literal['2026-08-18'] | None = ..., X_Tenant: str | None = ..., If_Modified_Since: str | None = ..., **kwargs: Any) -> GetSkyhooksRaidableOperation:
             """Listing of all Skyhooks that currently or will shortly be raidable."""
             ...
 
@@ -8064,19 +8470,19 @@ class ESIClientStub:
     Activities: _Activities = _Activities()
 
     class _Alliance:
-        def GetAlliances(self, Accept_Language: Literal['en', 'de', 'fr', 'ja', 'ru', 'zh', 'ko', 'es'] | None = ..., If_None_Match: str | None = ..., X_Compatibility_Date: Literal['2026-08-04'] | None = ..., X_Tenant: str | None = ..., If_Modified_Since: str | None = ..., **kwargs: Any) -> GetAlliancesOperation:
+        def GetAlliances(self, Accept_Language: Literal['en', 'de', 'fr', 'ja', 'ru', 'zh', 'ko', 'es'] | None = ..., If_None_Match: str | None = ..., X_Compatibility_Date: Literal['2026-08-18'] | None = ..., X_Tenant: str | None = ..., If_Modified_Since: str | None = ..., **kwargs: Any) -> GetAlliancesOperation:
             """List all active player alliances"""
             ...
 
-        def GetAlliancesAllianceId(self, alliance_id: AllianceID, Accept_Language: Literal['en', 'de', 'fr', 'ja', 'ru', 'zh', 'ko', 'es'] | None = ..., If_None_Match: str | None = ..., X_Compatibility_Date: Literal['2026-08-04'] | None = ..., X_Tenant: str | None = ..., If_Modified_Since: str | None = ..., **kwargs: Any) -> GetAlliancesAllianceIdOperation:
+        def GetAlliancesAllianceId(self, alliance_id: AllianceID, Accept_Language: Literal['en', 'de', 'fr', 'ja', 'ru', 'zh', 'ko', 'es'] | None = ..., If_None_Match: str | None = ..., X_Compatibility_Date: Literal['2026-08-18'] | None = ..., X_Tenant: str | None = ..., If_Modified_Since: str | None = ..., **kwargs: Any) -> GetAlliancesAllianceIdOperation:
             """Public information about an alliance"""
             ...
 
-        def GetAlliancesAllianceIdCorporations(self, alliance_id: AllianceID, Accept_Language: Literal['en', 'de', 'fr', 'ja', 'ru', 'zh', 'ko', 'es'] | None = ..., If_None_Match: str | None = ..., X_Compatibility_Date: Literal['2026-08-04'] | None = ..., X_Tenant: str | None = ..., If_Modified_Since: str | None = ..., **kwargs: Any) -> GetAlliancesAllianceIdCorporationsOperation:
+        def GetAlliancesAllianceIdCorporations(self, alliance_id: AllianceID, Accept_Language: Literal['en', 'de', 'fr', 'ja', 'ru', 'zh', 'ko', 'es'] | None = ..., If_None_Match: str | None = ..., X_Compatibility_Date: Literal['2026-08-18'] | None = ..., X_Tenant: str | None = ..., If_Modified_Since: str | None = ..., **kwargs: Any) -> GetAlliancesAllianceIdCorporationsOperation:
             """List all current member corporations of an alliance"""
             ...
 
-        def GetAlliancesAllianceIdIcons(self, alliance_id: AllianceID, Accept_Language: Literal['en', 'de', 'fr', 'ja', 'ru', 'zh', 'ko', 'es'] | None = ..., If_None_Match: str | None = ..., X_Compatibility_Date: Literal['2026-08-04'] | None = ..., X_Tenant: str | None = ..., If_Modified_Since: str | None = ..., **kwargs: Any) -> GetAlliancesAllianceIdIconsOperation:
+        def GetAlliancesAllianceIdIcons(self, alliance_id: AllianceID, Accept_Language: Literal['en', 'de', 'fr', 'ja', 'ru', 'zh', 'ko', 'es'] | None = ..., If_None_Match: str | None = ..., X_Compatibility_Date: Literal['2026-08-18'] | None = ..., X_Tenant: str | None = ..., If_Modified_Since: str | None = ..., **kwargs: Any) -> GetAlliancesAllianceIdIconsOperation:
             """Get the icon urls for a alliance  This route expires daily at 11:05"""
             ...
 
@@ -8084,27 +8490,27 @@ class ESIClientStub:
     Alliance: _Alliance = _Alliance()
 
     class _Assets:
-        def GetCharactersCharacterIdAssets(self, character_id: CharacterID, token: Token, page: int | None = ..., Accept_Language: Literal['en', 'de', 'fr', 'ja', 'ru', 'zh', 'ko', 'es'] | None = ..., If_None_Match: str | None = ..., X_Compatibility_Date: Literal['2026-08-04'] | None = ..., X_Tenant: str | None = ..., If_Modified_Since: str | None = ..., **kwargs: Any) -> GetCharactersCharacterIdAssetsOperation:
+        def GetCharactersCharacterIdAssets(self, character_id: CharacterID, token: Token, page: int | None = ..., Accept_Language: Literal['en', 'de', 'fr', 'ja', 'ru', 'zh', 'ko', 'es'] | None = ..., If_None_Match: str | None = ..., X_Compatibility_Date: Literal['2026-08-18'] | None = ..., X_Tenant: str | None = ..., If_Modified_Since: str | None = ..., **kwargs: Any) -> GetCharactersCharacterIdAssetsOperation:
             """Return a list of the characters assets"""
             ...
 
-        def GetCorporationsCorporationIdAssets(self, corporation_id: CorporationID, token: Token, page: int | None = ..., Accept_Language: Literal['en', 'de', 'fr', 'ja', 'ru', 'zh', 'ko', 'es'] | None = ..., If_None_Match: str | None = ..., X_Compatibility_Date: Literal['2026-08-04'] | None = ..., X_Tenant: str | None = ..., If_Modified_Since: str | None = ..., **kwargs: Any) -> GetCorporationsCorporationIdAssetsOperation:
+        def GetCorporationsCorporationIdAssets(self, corporation_id: CorporationID, token: Token, page: int | None = ..., Accept_Language: Literal['en', 'de', 'fr', 'ja', 'ru', 'zh', 'ko', 'es'] | None = ..., If_None_Match: str | None = ..., X_Compatibility_Date: Literal['2026-08-18'] | None = ..., X_Tenant: str | None = ..., If_Modified_Since: str | None = ..., **kwargs: Any) -> GetCorporationsCorporationIdAssetsOperation:
             """Return a list of the corporation assets"""
             ...
 
-        def PostCharactersCharacterIdAssetsLocations(self, body: list[int], character_id: CharacterID, token: Token, Accept_Language: Literal['en', 'de', 'fr', 'ja', 'ru', 'zh', 'ko', 'es'] | None = ..., If_None_Match: str | None = ..., X_Compatibility_Date: Literal['2026-08-04'] | None = ..., X_Tenant: str | None = ..., If_Modified_Since: str | None = ..., **kwargs: Any) -> PostCharactersCharacterIdAssetsLocationsOperation:
+        def PostCharactersCharacterIdAssetsLocations(self, body: list[int], character_id: CharacterID, token: Token, Accept_Language: Literal['en', 'de', 'fr', 'ja', 'ru', 'zh', 'ko', 'es'] | None = ..., If_None_Match: str | None = ..., X_Compatibility_Date: Literal['2026-08-18'] | None = ..., X_Tenant: str | None = ..., If_Modified_Since: str | None = ..., **kwargs: Any) -> PostCharactersCharacterIdAssetsLocationsOperation:
             """Return locations for a set of item ids, which you can get from character assets endpoint. Coordinates for items in hangars or stations are set to (0,0,0)"""
             ...
 
-        def PostCharactersCharacterIdAssetsNames(self, body: list[int], character_id: CharacterID, token: Token, Accept_Language: Literal['en', 'de', 'fr', 'ja', 'ru', 'zh', 'ko', 'es'] | None = ..., If_None_Match: str | None = ..., X_Compatibility_Date: Literal['2026-08-04'] | None = ..., X_Tenant: str | None = ..., If_Modified_Since: str | None = ..., **kwargs: Any) -> PostCharactersCharacterIdAssetsNamesOperation:
+        def PostCharactersCharacterIdAssetsNames(self, body: list[int], character_id: CharacterID, token: Token, Accept_Language: Literal['en', 'de', 'fr', 'ja', 'ru', 'zh', 'ko', 'es'] | None = ..., If_None_Match: str | None = ..., X_Compatibility_Date: Literal['2026-08-18'] | None = ..., X_Tenant: str | None = ..., If_Modified_Since: str | None = ..., **kwargs: Any) -> PostCharactersCharacterIdAssetsNamesOperation:
             """Return names for a set of item ids, which you can get from character assets endpoint. Typically used for items that can customize names, like containers or ships."""
             ...
 
-        def PostCorporationsCorporationIdAssetsLocations(self, body: list[int], corporation_id: CorporationID, token: Token, Accept_Language: Literal['en', 'de', 'fr', 'ja', 'ru', 'zh', 'ko', 'es'] | None = ..., If_None_Match: str | None = ..., X_Compatibility_Date: Literal['2026-08-04'] | None = ..., X_Tenant: str | None = ..., If_Modified_Since: str | None = ..., **kwargs: Any) -> PostCorporationsCorporationIdAssetsLocationsOperation:
+        def PostCorporationsCorporationIdAssetsLocations(self, body: list[int], corporation_id: CorporationID, token: Token, Accept_Language: Literal['en', 'de', 'fr', 'ja', 'ru', 'zh', 'ko', 'es'] | None = ..., If_None_Match: str | None = ..., X_Compatibility_Date: Literal['2026-08-18'] | None = ..., X_Tenant: str | None = ..., If_Modified_Since: str | None = ..., **kwargs: Any) -> PostCorporationsCorporationIdAssetsLocationsOperation:
             """Return locations for a set of item ids, which you can get from corporation assets endpoint. Coordinates for items in hangars or stations are set to (0,0,0)"""
             ...
 
-        def PostCorporationsCorporationIdAssetsNames(self, body: list[int], corporation_id: CorporationID, token: Token, Accept_Language: Literal['en', 'de', 'fr', 'ja', 'ru', 'zh', 'ko', 'es'] | None = ..., If_None_Match: str | None = ..., X_Compatibility_Date: Literal['2026-08-04'] | None = ..., X_Tenant: str | None = ..., If_Modified_Since: str | None = ..., **kwargs: Any) -> PostCorporationsCorporationIdAssetsNamesOperation:
+        def PostCorporationsCorporationIdAssetsNames(self, body: list[int], corporation_id: CorporationID, token: Token, Accept_Language: Literal['en', 'de', 'fr', 'ja', 'ru', 'zh', 'ko', 'es'] | None = ..., If_None_Match: str | None = ..., X_Compatibility_Date: Literal['2026-08-18'] | None = ..., X_Tenant: str | None = ..., If_Modified_Since: str | None = ..., **kwargs: Any) -> PostCorporationsCorporationIdAssetsNamesOperation:
             """Return names for a set of item ids, which you can get from corporation assets endpoint. Only valid for items that can customize names, like containers or ships"""
             ...
 
@@ -8112,19 +8518,19 @@ class ESIClientStub:
     Assets: _Assets = _Assets()
 
     class _Calendar:
-        def GetCharactersCharacterIdCalendar(self, character_id: CharacterID, token: Token, from_event: int | None = ..., Accept_Language: Literal['en', 'de', 'fr', 'ja', 'ru', 'zh', 'ko', 'es'] | None = ..., If_None_Match: str | None = ..., X_Compatibility_Date: Literal['2026-08-04'] | None = ..., X_Tenant: str | None = ..., If_Modified_Since: str | None = ..., **kwargs: Any) -> GetCharactersCharacterIdCalendarOperation:
+        def GetCharactersCharacterIdCalendar(self, character_id: CharacterID, token: Token, from_event: int | None = ..., Accept_Language: Literal['en', 'de', 'fr', 'ja', 'ru', 'zh', 'ko', 'es'] | None = ..., If_None_Match: str | None = ..., X_Compatibility_Date: Literal['2026-08-18'] | None = ..., X_Tenant: str | None = ..., If_Modified_Since: str | None = ..., **kwargs: Any) -> GetCharactersCharacterIdCalendarOperation:
             """Get 50 event summaries from the calendar. If no from_event ID is given, the resource will return the next 50 chronological event summaries from now. If a from_event ID is specified, it will return the next 50 chronological event summaries from after that event"""
             ...
 
-        def GetCharactersCharacterIdCalendarEventId(self, character_id: CharacterID, event_id: int, token: Token, Accept_Language: Literal['en', 'de', 'fr', 'ja', 'ru', 'zh', 'ko', 'es'] | None = ..., If_None_Match: str | None = ..., X_Compatibility_Date: Literal['2026-08-04'] | None = ..., X_Tenant: str | None = ..., If_Modified_Since: str | None = ..., **kwargs: Any) -> GetCharactersCharacterIdCalendarEventIdOperation:
+        def GetCharactersCharacterIdCalendarEventId(self, character_id: CharacterID, event_id: int, token: Token, Accept_Language: Literal['en', 'de', 'fr', 'ja', 'ru', 'zh', 'ko', 'es'] | None = ..., If_None_Match: str | None = ..., X_Compatibility_Date: Literal['2026-08-18'] | None = ..., X_Tenant: str | None = ..., If_Modified_Since: str | None = ..., **kwargs: Any) -> GetCharactersCharacterIdCalendarEventIdOperation:
             """Get all the information for a specific event"""
             ...
 
-        def GetCharactersCharacterIdCalendarEventIdAttendees(self, character_id: CharacterID, event_id: int, token: Token, Accept_Language: Literal['en', 'de', 'fr', 'ja', 'ru', 'zh', 'ko', 'es'] | None = ..., If_None_Match: str | None = ..., X_Compatibility_Date: Literal['2026-08-04'] | None = ..., X_Tenant: str | None = ..., If_Modified_Since: str | None = ..., **kwargs: Any) -> GetCharactersCharacterIdCalendarEventIdAttendeesOperation:
+        def GetCharactersCharacterIdCalendarEventIdAttendees(self, character_id: CharacterID, event_id: int, token: Token, Accept_Language: Literal['en', 'de', 'fr', 'ja', 'ru', 'zh', 'ko', 'es'] | None = ..., If_None_Match: str | None = ..., X_Compatibility_Date: Literal['2026-08-18'] | None = ..., X_Tenant: str | None = ..., If_Modified_Since: str | None = ..., **kwargs: Any) -> GetCharactersCharacterIdCalendarEventIdAttendeesOperation:
             """Get all invited attendees for a given event"""
             ...
 
-        def PutCharactersCharacterIdCalendarEventId(self, body: PutCharactersCharacterIdCalendarEventIdOperationBody, character_id: CharacterID, event_id: int, token: Token, Accept_Language: Literal['en', 'de', 'fr', 'ja', 'ru', 'zh', 'ko', 'es'] | None = ..., If_None_Match: str | None = ..., X_Compatibility_Date: Literal['2026-08-04'] | None = ..., X_Tenant: str | None = ..., If_Modified_Since: str | None = ..., **kwargs: Any) -> PutCharactersCharacterIdCalendarEventIdOperation:
+        def PutCharactersCharacterIdCalendarEventId(self, body: PutCharactersCharacterIdCalendarEventIdOperationBody, character_id: CharacterID, event_id: int, token: Token, Accept_Language: Literal['en', 'de', 'fr', 'ja', 'ru', 'zh', 'ko', 'es'] | None = ..., If_None_Match: str | None = ..., X_Compatibility_Date: Literal['2026-08-18'] | None = ..., X_Tenant: str | None = ..., If_Modified_Since: str | None = ..., **kwargs: Any) -> PutCharactersCharacterIdCalendarEventIdOperation:
             """Set your response status to an event"""
             ...
 
@@ -8132,59 +8538,59 @@ class ESIClientStub:
     Calendar: _Calendar = _Calendar()
 
     class _Character:
-        def GetCharactersCharacterIdAgentsResearch(self, character_id: CharacterID, token: Token, Accept_Language: Literal['en', 'de', 'fr', 'ja', 'ru', 'zh', 'ko', 'es'] | None = ..., If_None_Match: str | None = ..., X_Compatibility_Date: Literal['2026-08-04'] | None = ..., X_Tenant: str | None = ..., If_Modified_Since: str | None = ..., **kwargs: Any) -> GetCharactersCharacterIdAgentsResearchOperation:
+        def GetCharactersCharacterIdAgentsResearch(self, character_id: CharacterID, token: Token, Accept_Language: Literal['en', 'de', 'fr', 'ja', 'ru', 'zh', 'ko', 'es'] | None = ..., If_None_Match: str | None = ..., X_Compatibility_Date: Literal['2026-08-18'] | None = ..., X_Tenant: str | None = ..., If_Modified_Since: str | None = ..., **kwargs: Any) -> GetCharactersCharacterIdAgentsResearchOperation:
             """Return a list of agents research information for a character. The formula for finding the current research points with an agent is: currentPoints = remainderPoints + pointsPerDay * days(currentTime - researchStartDate)"""
             ...
 
-        def GetCharactersCharacterIdBlueprints(self, character_id: CharacterID, token: Token, page: int | None = ..., Accept_Language: Literal['en', 'de', 'fr', 'ja', 'ru', 'zh', 'ko', 'es'] | None = ..., If_None_Match: str | None = ..., X_Compatibility_Date: Literal['2026-08-04'] | None = ..., X_Tenant: str | None = ..., If_Modified_Since: str | None = ..., **kwargs: Any) -> GetCharactersCharacterIdBlueprintsOperation:
+        def GetCharactersCharacterIdBlueprints(self, character_id: CharacterID, token: Token, page: int | None = ..., Accept_Language: Literal['en', 'de', 'fr', 'ja', 'ru', 'zh', 'ko', 'es'] | None = ..., If_None_Match: str | None = ..., X_Compatibility_Date: Literal['2026-08-18'] | None = ..., X_Tenant: str | None = ..., If_Modified_Since: str | None = ..., **kwargs: Any) -> GetCharactersCharacterIdBlueprintsOperation:
             """Return a list of blueprints the character owns"""
             ...
 
-        def GetCharactersCharacterIdCorporationhistory(self, character_id: CharacterID, Accept_Language: Literal['en', 'de', 'fr', 'ja', 'ru', 'zh', 'ko', 'es'] | None = ..., If_None_Match: str | None = ..., X_Compatibility_Date: Literal['2026-08-04'] | None = ..., X_Tenant: str | None = ..., If_Modified_Since: str | None = ..., **kwargs: Any) -> GetCharactersCharacterIdCorporationhistoryOperation:
+        def GetCharactersCharacterIdCorporationhistory(self, character_id: CharacterID, Accept_Language: Literal['en', 'de', 'fr', 'ja', 'ru', 'zh', 'ko', 'es'] | None = ..., If_None_Match: str | None = ..., X_Compatibility_Date: Literal['2026-08-18'] | None = ..., X_Tenant: str | None = ..., If_Modified_Since: str | None = ..., **kwargs: Any) -> GetCharactersCharacterIdCorporationhistoryOperation:
             """Get a list of all the corporations a character has been a member of"""
             ...
 
-        def GetCharactersCharacterIdFatigue(self, character_id: CharacterID, token: Token, Accept_Language: Literal['en', 'de', 'fr', 'ja', 'ru', 'zh', 'ko', 'es'] | None = ..., If_None_Match: str | None = ..., X_Compatibility_Date: Literal['2026-08-04'] | None = ..., X_Tenant: str | None = ..., If_Modified_Since: str | None = ..., **kwargs: Any) -> GetCharactersCharacterIdFatigueOperation:
+        def GetCharactersCharacterIdFatigue(self, character_id: CharacterID, token: Token, Accept_Language: Literal['en', 'de', 'fr', 'ja', 'ru', 'zh', 'ko', 'es'] | None = ..., If_None_Match: str | None = ..., X_Compatibility_Date: Literal['2026-08-18'] | None = ..., X_Tenant: str | None = ..., If_Modified_Since: str | None = ..., **kwargs: Any) -> GetCharactersCharacterIdFatigueOperation:
             """Return a character's jump activation and fatigue information"""
             ...
 
-        def GetCharactersCharacterIdMedals(self, character_id: CharacterID, token: Token, Accept_Language: Literal['en', 'de', 'fr', 'ja', 'ru', 'zh', 'ko', 'es'] | None = ..., If_None_Match: str | None = ..., X_Compatibility_Date: Literal['2026-08-04'] | None = ..., X_Tenant: str | None = ..., If_Modified_Since: str | None = ..., **kwargs: Any) -> GetCharactersCharacterIdMedalsOperation:
+        def GetCharactersCharacterIdMedals(self, character_id: CharacterID, token: Token, Accept_Language: Literal['en', 'de', 'fr', 'ja', 'ru', 'zh', 'ko', 'es'] | None = ..., If_None_Match: str | None = ..., X_Compatibility_Date: Literal['2026-08-18'] | None = ..., X_Tenant: str | None = ..., If_Modified_Since: str | None = ..., **kwargs: Any) -> GetCharactersCharacterIdMedalsOperation:
             """Return a list of medals the character has"""
             ...
 
-        def GetCharactersCharacterIdNotifications(self, character_id: CharacterID, token: Token, Accept_Language: Literal['en', 'de', 'fr', 'ja', 'ru', 'zh', 'ko', 'es'] | None = ..., If_None_Match: str | None = ..., X_Compatibility_Date: Literal['2026-08-04'] | None = ..., X_Tenant: str | None = ..., If_Modified_Since: str | None = ..., **kwargs: Any) -> GetCharactersCharacterIdNotificationsOperation:
+        def GetCharactersCharacterIdNotifications(self, character_id: CharacterID, token: Token, Accept_Language: Literal['en', 'de', 'fr', 'ja', 'ru', 'zh', 'ko', 'es'] | None = ..., If_None_Match: str | None = ..., X_Compatibility_Date: Literal['2026-08-18'] | None = ..., X_Tenant: str | None = ..., If_Modified_Since: str | None = ..., **kwargs: Any) -> GetCharactersCharacterIdNotificationsOperation:
             """Return character notifications"""
             ...
 
-        def GetCharactersCharacterIdNotificationsContacts(self, character_id: CharacterID, token: Token, Accept_Language: Literal['en', 'de', 'fr', 'ja', 'ru', 'zh', 'ko', 'es'] | None = ..., If_None_Match: str | None = ..., X_Compatibility_Date: Literal['2026-08-04'] | None = ..., X_Tenant: str | None = ..., If_Modified_Since: str | None = ..., **kwargs: Any) -> GetCharactersCharacterIdNotificationsContactsOperation:
+        def GetCharactersCharacterIdNotificationsContacts(self, character_id: CharacterID, token: Token, Accept_Language: Literal['en', 'de', 'fr', 'ja', 'ru', 'zh', 'ko', 'es'] | None = ..., If_None_Match: str | None = ..., X_Compatibility_Date: Literal['2026-08-18'] | None = ..., X_Tenant: str | None = ..., If_Modified_Since: str | None = ..., **kwargs: Any) -> GetCharactersCharacterIdNotificationsContactsOperation:
             """Return notifications about having been added to someone's contact list"""
             ...
 
-        def GetCharactersCharacterIdPortrait(self, character_id: CharacterID, Accept_Language: Literal['en', 'de', 'fr', 'ja', 'ru', 'zh', 'ko', 'es'] | None = ..., If_None_Match: str | None = ..., X_Compatibility_Date: Literal['2026-08-04'] | None = ..., X_Tenant: str | None = ..., If_Modified_Since: str | None = ..., **kwargs: Any) -> GetCharactersCharacterIdPortraitOperation:
+        def GetCharactersCharacterIdPortrait(self, character_id: CharacterID, Accept_Language: Literal['en', 'de', 'fr', 'ja', 'ru', 'zh', 'ko', 'es'] | None = ..., If_None_Match: str | None = ..., X_Compatibility_Date: Literal['2026-08-18'] | None = ..., X_Tenant: str | None = ..., If_Modified_Since: str | None = ..., **kwargs: Any) -> GetCharactersCharacterIdPortraitOperation:
             """Get portrait urls for a character  This route expires daily at 11:05"""
             ...
 
-        def GetCharactersCharacterIdRoles(self, character_id: CharacterID, token: Token, Accept_Language: Literal['en', 'de', 'fr', 'ja', 'ru', 'zh', 'ko', 'es'] | None = ..., If_None_Match: str | None = ..., X_Compatibility_Date: Literal['2026-08-04'] | None = ..., X_Tenant: str | None = ..., If_Modified_Since: str | None = ..., **kwargs: Any) -> GetCharactersCharacterIdRolesOperation:
+        def GetCharactersCharacterIdRoles(self, character_id: CharacterID, token: Token, Accept_Language: Literal['en', 'de', 'fr', 'ja', 'ru', 'zh', 'ko', 'es'] | None = ..., If_None_Match: str | None = ..., X_Compatibility_Date: Literal['2026-08-18'] | None = ..., X_Tenant: str | None = ..., If_Modified_Since: str | None = ..., **kwargs: Any) -> GetCharactersCharacterIdRolesOperation:
             """Returns a character's corporation roles"""
             ...
 
-        def GetCharactersCharacterIdStandings(self, character_id: CharacterID, token: Token, Accept_Language: Literal['en', 'de', 'fr', 'ja', 'ru', 'zh', 'ko', 'es'] | None = ..., If_None_Match: str | None = ..., X_Compatibility_Date: Literal['2026-08-04'] | None = ..., X_Tenant: str | None = ..., If_Modified_Since: str | None = ..., **kwargs: Any) -> GetCharactersCharacterIdStandingsOperation:
+        def GetCharactersCharacterIdStandings(self, character_id: CharacterID, token: Token, Accept_Language: Literal['en', 'de', 'fr', 'ja', 'ru', 'zh', 'ko', 'es'] | None = ..., If_None_Match: str | None = ..., X_Compatibility_Date: Literal['2026-08-18'] | None = ..., X_Tenant: str | None = ..., If_Modified_Since: str | None = ..., **kwargs: Any) -> GetCharactersCharacterIdStandingsOperation:
             """Return character standings from agents, NPC corporations, and factions"""
             ...
 
-        def GetCharactersCharacterIdTitles(self, character_id: CharacterID, token: Token, Accept_Language: Literal['en', 'de', 'fr', 'ja', 'ru', 'zh', 'ko', 'es'] | None = ..., If_None_Match: str | None = ..., X_Compatibility_Date: Literal['2026-08-04'] | None = ..., X_Tenant: str | None = ..., If_Modified_Since: str | None = ..., **kwargs: Any) -> GetCharactersCharacterIdTitlesOperation:
+        def GetCharactersCharacterIdTitles(self, character_id: CharacterID, token: Token, Accept_Language: Literal['en', 'de', 'fr', 'ja', 'ru', 'zh', 'ko', 'es'] | None = ..., If_None_Match: str | None = ..., X_Compatibility_Date: Literal['2026-08-18'] | None = ..., X_Tenant: str | None = ..., If_Modified_Since: str | None = ..., **kwargs: Any) -> GetCharactersCharacterIdTitlesOperation:
             """Returns a character's titles"""
             ...
 
-        def GetCharactersDetail(self, character_id: CharacterID, Accept_Language: Literal['en', 'de', 'fr', 'ja', 'ru', 'zh', 'ko', 'es'] | None = ..., If_None_Match: str | None = ..., X_Compatibility_Date: Literal['2026-08-04'] | None = ..., X_Tenant: str | None = ..., If_Modified_Since: str | None = ..., **kwargs: Any) -> GetCharactersDetailOperation:
+        def GetCharactersDetail(self, character_id: CharacterID, Accept_Language: Literal['en', 'de', 'fr', 'ja', 'ru', 'zh', 'ko', 'es'] | None = ..., If_None_Match: str | None = ..., X_Compatibility_Date: Literal['2026-08-18'] | None = ..., X_Tenant: str | None = ..., If_Modified_Since: str | None = ..., **kwargs: Any) -> GetCharactersDetailOperation:
             """Public information about a character"""
             ...
 
-        def PostCharactersAffiliation(self, body: list[int], Accept_Language: Literal['en', 'de', 'fr', 'ja', 'ru', 'zh', 'ko', 'es'] | None = ..., If_None_Match: str | None = ..., X_Compatibility_Date: Literal['2026-08-04'] | None = ..., X_Tenant: str | None = ..., If_Modified_Since: str | None = ..., **kwargs: Any) -> PostCharactersAffiliationOperation:
+        def PostCharactersAffiliation(self, body: list[int], Accept_Language: Literal['en', 'de', 'fr', 'ja', 'ru', 'zh', 'ko', 'es'] | None = ..., If_None_Match: str | None = ..., X_Compatibility_Date: Literal['2026-08-18'] | None = ..., X_Tenant: str | None = ..., If_Modified_Since: str | None = ..., **kwargs: Any) -> PostCharactersAffiliationOperation:
             """Bulk lookup of character IDs to corporation, alliance and faction"""
             ...
 
-        def PostCharactersCharacterIdCspa(self, body: list[int], character_id: CharacterID, token: Token, Accept_Language: Literal['en', 'de', 'fr', 'ja', 'ru', 'zh', 'ko', 'es'] | None = ..., If_None_Match: str | None = ..., X_Compatibility_Date: Literal['2026-08-04'] | None = ..., X_Tenant: str | None = ..., If_Modified_Since: str | None = ..., **kwargs: Any) -> PostCharactersCharacterIdCspaOperation:
+        def PostCharactersCharacterIdCspa(self, body: list[int], character_id: CharacterID, token: Token, Accept_Language: Literal['en', 'de', 'fr', 'ja', 'ru', 'zh', 'ko', 'es'] | None = ..., If_None_Match: str | None = ..., X_Compatibility_Date: Literal['2026-08-18'] | None = ..., X_Tenant: str | None = ..., If_Modified_Since: str | None = ..., **kwargs: Any) -> PostCharactersCharacterIdCspaOperation:
             """Takes a source character ID in the url and a set of target character ID's in the body, returns a CSPA charge cost"""
             ...
 
@@ -8192,11 +8598,11 @@ class ESIClientStub:
     Character: _Character = _Character()
 
     class _Clones:
-        def GetCharactersCharacterIdClones(self, character_id: CharacterID, token: Token, Accept_Language: Literal['en', 'de', 'fr', 'ja', 'ru', 'zh', 'ko', 'es'] | None = ..., If_None_Match: str | None = ..., X_Compatibility_Date: Literal['2026-08-04'] | None = ..., X_Tenant: str | None = ..., If_Modified_Since: str | None = ..., **kwargs: Any) -> GetCharactersCharacterIdClonesOperation:
+        def GetCharactersCharacterIdClones(self, character_id: CharacterID, token: Token, Accept_Language: Literal['en', 'de', 'fr', 'ja', 'ru', 'zh', 'ko', 'es'] | None = ..., If_None_Match: str | None = ..., X_Compatibility_Date: Literal['2026-08-18'] | None = ..., X_Tenant: str | None = ..., If_Modified_Since: str | None = ..., **kwargs: Any) -> GetCharactersCharacterIdClonesOperation:
             """A list of the character's clones"""
             ...
 
-        def GetCharactersCharacterIdImplants(self, character_id: CharacterID, token: Token, Accept_Language: Literal['en', 'de', 'fr', 'ja', 'ru', 'zh', 'ko', 'es'] | None = ..., If_None_Match: str | None = ..., X_Compatibility_Date: Literal['2026-08-04'] | None = ..., X_Tenant: str | None = ..., If_Modified_Since: str | None = ..., **kwargs: Any) -> GetCharactersCharacterIdImplantsOperation:
+        def GetCharactersCharacterIdImplants(self, character_id: CharacterID, token: Token, Accept_Language: Literal['en', 'de', 'fr', 'ja', 'ru', 'zh', 'ko', 'es'] | None = ..., If_None_Match: str | None = ..., X_Compatibility_Date: Literal['2026-08-18'] | None = ..., X_Tenant: str | None = ..., If_Modified_Since: str | None = ..., **kwargs: Any) -> GetCharactersCharacterIdImplantsOperation:
             """Return implants on the active clone of a character"""
             ...
 
@@ -8204,39 +8610,39 @@ class ESIClientStub:
     Clones: _Clones = _Clones()
 
     class _Contacts:
-        def DeleteCharactersCharacterIdContacts(self, character_id: CharacterID, contact_ids: list[int], token: Token, Accept_Language: Literal['en', 'de', 'fr', 'ja', 'ru', 'zh', 'ko', 'es'] | None = ..., If_None_Match: str | None = ..., X_Compatibility_Date: Literal['2026-08-04'] | None = ..., X_Tenant: str | None = ..., If_Modified_Since: str | None = ..., **kwargs: Any) -> DeleteCharactersCharacterIdContactsOperation:
+        def DeleteCharactersCharacterIdContacts(self, character_id: CharacterID, contact_ids: list[int], token: Token, Accept_Language: Literal['en', 'de', 'fr', 'ja', 'ru', 'zh', 'ko', 'es'] | None = ..., If_None_Match: str | None = ..., X_Compatibility_Date: Literal['2026-08-18'] | None = ..., X_Tenant: str | None = ..., If_Modified_Since: str | None = ..., **kwargs: Any) -> DeleteCharactersCharacterIdContactsOperation:
             """Bulk delete contacts"""
             ...
 
-        def GetAlliancesAllianceIdContacts(self, alliance_id: AllianceID, token: Token, page: int | None = ..., Accept_Language: Literal['en', 'de', 'fr', 'ja', 'ru', 'zh', 'ko', 'es'] | None = ..., If_None_Match: str | None = ..., X_Compatibility_Date: Literal['2026-08-04'] | None = ..., X_Tenant: str | None = ..., If_Modified_Since: str | None = ..., **kwargs: Any) -> GetAlliancesAllianceIdContactsOperation:
+        def GetAlliancesAllianceIdContacts(self, alliance_id: AllianceID, token: Token, page: int | None = ..., Accept_Language: Literal['en', 'de', 'fr', 'ja', 'ru', 'zh', 'ko', 'es'] | None = ..., If_None_Match: str | None = ..., X_Compatibility_Date: Literal['2026-08-18'] | None = ..., X_Tenant: str | None = ..., If_Modified_Since: str | None = ..., **kwargs: Any) -> GetAlliancesAllianceIdContactsOperation:
             """Return contacts of an alliance"""
             ...
 
-        def GetAlliancesAllianceIdContactsLabels(self, alliance_id: AllianceID, token: Token, Accept_Language: Literal['en', 'de', 'fr', 'ja', 'ru', 'zh', 'ko', 'es'] | None = ..., If_None_Match: str | None = ..., X_Compatibility_Date: Literal['2026-08-04'] | None = ..., X_Tenant: str | None = ..., If_Modified_Since: str | None = ..., **kwargs: Any) -> GetAlliancesAllianceIdContactsLabelsOperation:
+        def GetAlliancesAllianceIdContactsLabels(self, alliance_id: AllianceID, token: Token, Accept_Language: Literal['en', 'de', 'fr', 'ja', 'ru', 'zh', 'ko', 'es'] | None = ..., If_None_Match: str | None = ..., X_Compatibility_Date: Literal['2026-08-18'] | None = ..., X_Tenant: str | None = ..., If_Modified_Since: str | None = ..., **kwargs: Any) -> GetAlliancesAllianceIdContactsLabelsOperation:
             """Return custom labels for an alliance's contacts"""
             ...
 
-        def GetCharactersCharacterIdContacts(self, character_id: CharacterID, token: Token, page: int | None = ..., Accept_Language: Literal['en', 'de', 'fr', 'ja', 'ru', 'zh', 'ko', 'es'] | None = ..., If_None_Match: str | None = ..., X_Compatibility_Date: Literal['2026-08-04'] | None = ..., X_Tenant: str | None = ..., If_Modified_Since: str | None = ..., **kwargs: Any) -> GetCharactersCharacterIdContactsOperation:
+        def GetCharactersCharacterIdContacts(self, character_id: CharacterID, token: Token, page: int | None = ..., Accept_Language: Literal['en', 'de', 'fr', 'ja', 'ru', 'zh', 'ko', 'es'] | None = ..., If_None_Match: str | None = ..., X_Compatibility_Date: Literal['2026-08-18'] | None = ..., X_Tenant: str | None = ..., If_Modified_Since: str | None = ..., **kwargs: Any) -> GetCharactersCharacterIdContactsOperation:
             """Return contacts of a character"""
             ...
 
-        def GetCharactersCharacterIdContactsLabels(self, character_id: CharacterID, token: Token, Accept_Language: Literal['en', 'de', 'fr', 'ja', 'ru', 'zh', 'ko', 'es'] | None = ..., If_None_Match: str | None = ..., X_Compatibility_Date: Literal['2026-08-04'] | None = ..., X_Tenant: str | None = ..., If_Modified_Since: str | None = ..., **kwargs: Any) -> GetCharactersCharacterIdContactsLabelsOperation:
+        def GetCharactersCharacterIdContactsLabels(self, character_id: CharacterID, token: Token, Accept_Language: Literal['en', 'de', 'fr', 'ja', 'ru', 'zh', 'ko', 'es'] | None = ..., If_None_Match: str | None = ..., X_Compatibility_Date: Literal['2026-08-18'] | None = ..., X_Tenant: str | None = ..., If_Modified_Since: str | None = ..., **kwargs: Any) -> GetCharactersCharacterIdContactsLabelsOperation:
             """Return custom labels for a character's contacts"""
             ...
 
-        def GetCorporationsCorporationIdContacts(self, corporation_id: CorporationID, token: Token, page: int | None = ..., Accept_Language: Literal['en', 'de', 'fr', 'ja', 'ru', 'zh', 'ko', 'es'] | None = ..., If_None_Match: str | None = ..., X_Compatibility_Date: Literal['2026-08-04'] | None = ..., X_Tenant: str | None = ..., If_Modified_Since: str | None = ..., **kwargs: Any) -> GetCorporationsCorporationIdContactsOperation:
+        def GetCorporationsCorporationIdContacts(self, corporation_id: CorporationID, token: Token, page: int | None = ..., Accept_Language: Literal['en', 'de', 'fr', 'ja', 'ru', 'zh', 'ko', 'es'] | None = ..., If_None_Match: str | None = ..., X_Compatibility_Date: Literal['2026-08-18'] | None = ..., X_Tenant: str | None = ..., If_Modified_Since: str | None = ..., **kwargs: Any) -> GetCorporationsCorporationIdContactsOperation:
             """Return contacts of a corporation"""
             ...
 
-        def GetCorporationsCorporationIdContactsLabels(self, corporation_id: CorporationID, token: Token, Accept_Language: Literal['en', 'de', 'fr', 'ja', 'ru', 'zh', 'ko', 'es'] | None = ..., If_None_Match: str | None = ..., X_Compatibility_Date: Literal['2026-08-04'] | None = ..., X_Tenant: str | None = ..., If_Modified_Since: str | None = ..., **kwargs: Any) -> GetCorporationsCorporationIdContactsLabelsOperation:
+        def GetCorporationsCorporationIdContactsLabels(self, corporation_id: CorporationID, token: Token, Accept_Language: Literal['en', 'de', 'fr', 'ja', 'ru', 'zh', 'ko', 'es'] | None = ..., If_None_Match: str | None = ..., X_Compatibility_Date: Literal['2026-08-18'] | None = ..., X_Tenant: str | None = ..., If_Modified_Since: str | None = ..., **kwargs: Any) -> GetCorporationsCorporationIdContactsLabelsOperation:
             """Return custom labels for a corporation's contacts"""
             ...
 
-        def PostCharactersCharacterIdContacts(self, body: list[int], character_id: CharacterID, standing: float, token: Token, label_ids: list[int] | None = ..., watched: bool | None = ..., Accept_Language: Literal['en', 'de', 'fr', 'ja', 'ru', 'zh', 'ko', 'es'] | None = ..., If_None_Match: str | None = ..., X_Compatibility_Date: Literal['2026-08-04'] | None = ..., X_Tenant: str | None = ..., If_Modified_Since: str | None = ..., **kwargs: Any) -> PostCharactersCharacterIdContactsOperation:
+        def PostCharactersCharacterIdContacts(self, body: list[int], character_id: CharacterID, standing: float, token: Token, label_ids: list[int] | None = ..., watched: bool | None = ..., Accept_Language: Literal['en', 'de', 'fr', 'ja', 'ru', 'zh', 'ko', 'es'] | None = ..., If_None_Match: str | None = ..., X_Compatibility_Date: Literal['2026-08-18'] | None = ..., X_Tenant: str | None = ..., If_Modified_Since: str | None = ..., **kwargs: Any) -> PostCharactersCharacterIdContactsOperation:
             """Bulk add contacts with same settings"""
             ...
 
-        def PutCharactersCharacterIdContacts(self, body: list[int], character_id: CharacterID, standing: float, token: Token, label_ids: list[int] | None = ..., watched: bool | None = ..., Accept_Language: Literal['en', 'de', 'fr', 'ja', 'ru', 'zh', 'ko', 'es'] | None = ..., If_None_Match: str | None = ..., X_Compatibility_Date: Literal['2026-08-04'] | None = ..., X_Tenant: str | None = ..., If_Modified_Since: str | None = ..., **kwargs: Any) -> PutCharactersCharacterIdContactsOperation:
+        def PutCharactersCharacterIdContacts(self, body: list[int], character_id: CharacterID, standing: float, token: Token, label_ids: list[int] | None = ..., watched: bool | None = ..., Accept_Language: Literal['en', 'de', 'fr', 'ja', 'ru', 'zh', 'ko', 'es'] | None = ..., If_None_Match: str | None = ..., X_Compatibility_Date: Literal['2026-08-18'] | None = ..., X_Tenant: str | None = ..., If_Modified_Since: str | None = ..., **kwargs: Any) -> PutCharactersCharacterIdContactsOperation:
             """Bulk edit contacts with same settings"""
             ...
 
@@ -8244,39 +8650,39 @@ class ESIClientStub:
     Contacts: _Contacts = _Contacts()
 
     class _Contracts:
-        def GetCharactersCharacterIdContracts(self, character_id: CharacterID, token: Token, page: int | None = ..., Accept_Language: Literal['en', 'de', 'fr', 'ja', 'ru', 'zh', 'ko', 'es'] | None = ..., If_None_Match: str | None = ..., X_Compatibility_Date: Literal['2026-08-04'] | None = ..., X_Tenant: str | None = ..., If_Modified_Since: str | None = ..., **kwargs: Any) -> GetCharactersCharacterIdContractsOperation:
+        def GetCharactersCharacterIdContracts(self, character_id: CharacterID, token: Token, page: int | None = ..., Accept_Language: Literal['en', 'de', 'fr', 'ja', 'ru', 'zh', 'ko', 'es'] | None = ..., If_None_Match: str | None = ..., X_Compatibility_Date: Literal['2026-08-18'] | None = ..., X_Tenant: str | None = ..., If_Modified_Since: str | None = ..., **kwargs: Any) -> GetCharactersCharacterIdContractsOperation:
             """Returns contracts available to a character, only if the character is issuer, acceptor or assignee. Only returns contracts no older than 30 days, or if the status is "in_progress"."""
             ...
 
-        def GetCharactersCharacterIdContractsContractIdBids(self, character_id: CharacterID, contract_id: int, token: Token, Accept_Language: Literal['en', 'de', 'fr', 'ja', 'ru', 'zh', 'ko', 'es'] | None = ..., If_None_Match: str | None = ..., X_Compatibility_Date: Literal['2026-08-04'] | None = ..., X_Tenant: str | None = ..., If_Modified_Since: str | None = ..., **kwargs: Any) -> GetCharactersCharacterIdContractsContractIdBidsOperation:
+        def GetCharactersCharacterIdContractsContractIdBids(self, character_id: CharacterID, contract_id: int, token: Token, Accept_Language: Literal['en', 'de', 'fr', 'ja', 'ru', 'zh', 'ko', 'es'] | None = ..., If_None_Match: str | None = ..., X_Compatibility_Date: Literal['2026-08-18'] | None = ..., X_Tenant: str | None = ..., If_Modified_Since: str | None = ..., **kwargs: Any) -> GetCharactersCharacterIdContractsContractIdBidsOperation:
             """Lists bids on a particular auction contract"""
             ...
 
-        def GetCharactersCharacterIdContractsContractIdItems(self, character_id: CharacterID, contract_id: int, token: Token, Accept_Language: Literal['en', 'de', 'fr', 'ja', 'ru', 'zh', 'ko', 'es'] | None = ..., If_None_Match: str | None = ..., X_Compatibility_Date: Literal['2026-08-04'] | None = ..., X_Tenant: str | None = ..., If_Modified_Since: str | None = ..., **kwargs: Any) -> GetCharactersCharacterIdContractsContractIdItemsOperation:
+        def GetCharactersCharacterIdContractsContractIdItems(self, character_id: CharacterID, contract_id: int, token: Token, Accept_Language: Literal['en', 'de', 'fr', 'ja', 'ru', 'zh', 'ko', 'es'] | None = ..., If_None_Match: str | None = ..., X_Compatibility_Date: Literal['2026-08-18'] | None = ..., X_Tenant: str | None = ..., If_Modified_Since: str | None = ..., **kwargs: Any) -> GetCharactersCharacterIdContractsContractIdItemsOperation:
             """Lists items of a particular contract"""
             ...
 
-        def GetContractsPublicBidsContractId(self, contract_id: int, page: int | None = ..., Accept_Language: Literal['en', 'de', 'fr', 'ja', 'ru', 'zh', 'ko', 'es'] | None = ..., If_None_Match: str | None = ..., X_Compatibility_Date: Literal['2026-08-04'] | None = ..., X_Tenant: str | None = ..., If_Modified_Since: str | None = ..., **kwargs: Any) -> GetContractsPublicBidsContractIdOperation:
+        def GetContractsPublicBidsContractId(self, contract_id: int, page: int | None = ..., Accept_Language: Literal['en', 'de', 'fr', 'ja', 'ru', 'zh', 'ko', 'es'] | None = ..., If_None_Match: str | None = ..., X_Compatibility_Date: Literal['2026-08-18'] | None = ..., X_Tenant: str | None = ..., If_Modified_Since: str | None = ..., **kwargs: Any) -> GetContractsPublicBidsContractIdOperation:
             """Lists bids on a public auction contract"""
             ...
 
-        def GetContractsPublicItemsContractId(self, contract_id: int, page: int | None = ..., Accept_Language: Literal['en', 'de', 'fr', 'ja', 'ru', 'zh', 'ko', 'es'] | None = ..., If_None_Match: str | None = ..., X_Compatibility_Date: Literal['2026-08-04'] | None = ..., X_Tenant: str | None = ..., If_Modified_Since: str | None = ..., **kwargs: Any) -> GetContractsPublicItemsContractIdOperation:
+        def GetContractsPublicItemsContractId(self, contract_id: int, page: int | None = ..., Accept_Language: Literal['en', 'de', 'fr', 'ja', 'ru', 'zh', 'ko', 'es'] | None = ..., If_None_Match: str | None = ..., X_Compatibility_Date: Literal['2026-08-18'] | None = ..., X_Tenant: str | None = ..., If_Modified_Since: str | None = ..., **kwargs: Any) -> GetContractsPublicItemsContractIdOperation:
             """Lists items of a public contract"""
             ...
 
-        def GetContractsPublicRegionId(self, region_id: int, page: int | None = ..., Accept_Language: Literal['en', 'de', 'fr', 'ja', 'ru', 'zh', 'ko', 'es'] | None = ..., If_None_Match: str | None = ..., X_Compatibility_Date: Literal['2026-08-04'] | None = ..., X_Tenant: str | None = ..., If_Modified_Since: str | None = ..., **kwargs: Any) -> GetContractsPublicRegionIdOperation:
+        def GetContractsPublicRegionId(self, region_id: int, page: int | None = ..., Accept_Language: Literal['en', 'de', 'fr', 'ja', 'ru', 'zh', 'ko', 'es'] | None = ..., If_None_Match: str | None = ..., X_Compatibility_Date: Literal['2026-08-18'] | None = ..., X_Tenant: str | None = ..., If_Modified_Since: str | None = ..., **kwargs: Any) -> GetContractsPublicRegionIdOperation:
             """Returns a paginated list of all public contracts in the given region"""
             ...
 
-        def GetCorporationsCorporationIdContracts(self, corporation_id: CorporationID, token: Token, page: int | None = ..., Accept_Language: Literal['en', 'de', 'fr', 'ja', 'ru', 'zh', 'ko', 'es'] | None = ..., If_None_Match: str | None = ..., X_Compatibility_Date: Literal['2026-08-04'] | None = ..., X_Tenant: str | None = ..., If_Modified_Since: str | None = ..., **kwargs: Any) -> GetCorporationsCorporationIdContractsOperation:
+        def GetCorporationsCorporationIdContracts(self, corporation_id: CorporationID, token: Token, page: int | None = ..., Accept_Language: Literal['en', 'de', 'fr', 'ja', 'ru', 'zh', 'ko', 'es'] | None = ..., If_None_Match: str | None = ..., X_Compatibility_Date: Literal['2026-08-18'] | None = ..., X_Tenant: str | None = ..., If_Modified_Since: str | None = ..., **kwargs: Any) -> GetCorporationsCorporationIdContractsOperation:
             """Returns contracts available to a corporation, only if the corporation is issuer, acceptor or assignee. Only returns contracts no older than 30 days, or if the status is "in_progress"."""
             ...
 
-        def GetCorporationsCorporationIdContractsContractIdBids(self, contract_id: int, corporation_id: CorporationID, token: Token, page: int | None = ..., Accept_Language: Literal['en', 'de', 'fr', 'ja', 'ru', 'zh', 'ko', 'es'] | None = ..., If_None_Match: str | None = ..., X_Compatibility_Date: Literal['2026-08-04'] | None = ..., X_Tenant: str | None = ..., If_Modified_Since: str | None = ..., **kwargs: Any) -> GetCorporationsCorporationIdContractsContractIdBidsOperation:
+        def GetCorporationsCorporationIdContractsContractIdBids(self, contract_id: int, corporation_id: CorporationID, token: Token, page: int | None = ..., Accept_Language: Literal['en', 'de', 'fr', 'ja', 'ru', 'zh', 'ko', 'es'] | None = ..., If_None_Match: str | None = ..., X_Compatibility_Date: Literal['2026-08-18'] | None = ..., X_Tenant: str | None = ..., If_Modified_Since: str | None = ..., **kwargs: Any) -> GetCorporationsCorporationIdContractsContractIdBidsOperation:
             """Lists bids on a particular auction contract"""
             ...
 
-        def GetCorporationsCorporationIdContractsContractIdItems(self, contract_id: int, corporation_id: CorporationID, token: Token, Accept_Language: Literal['en', 'de', 'fr', 'ja', 'ru', 'zh', 'ko', 'es'] | None = ..., If_None_Match: str | None = ..., X_Compatibility_Date: Literal['2026-08-04'] | None = ..., X_Tenant: str | None = ..., If_Modified_Since: str | None = ..., **kwargs: Any) -> GetCorporationsCorporationIdContractsContractIdItemsOperation:
+        def GetCorporationsCorporationIdContractsContractIdItems(self, contract_id: int, corporation_id: CorporationID, token: Token, Accept_Language: Literal['en', 'de', 'fr', 'ja', 'ru', 'zh', 'ko', 'es'] | None = ..., If_None_Match: str | None = ..., X_Compatibility_Date: Literal['2026-08-18'] | None = ..., X_Tenant: str | None = ..., If_Modified_Since: str | None = ..., **kwargs: Any) -> GetCorporationsCorporationIdContractsContractIdItemsOperation:
             """Lists items of a particular contract"""
             ...
 
@@ -8284,91 +8690,91 @@ class ESIClientStub:
     Contracts: _Contracts = _Contracts()
 
     class _Corporation:
-        def GetCorporationsCorporationId(self, corporation_id: CorporationID, Accept_Language: Literal['en', 'de', 'fr', 'ja', 'ru', 'zh', 'ko', 'es'] | None = ..., If_None_Match: str | None = ..., X_Compatibility_Date: Literal['2026-08-04'] | None = ..., X_Tenant: str | None = ..., If_Modified_Since: str | None = ..., **kwargs: Any) -> GetCorporationsCorporationIdOperation:
+        def GetCorporationsCorporationId(self, corporation_id: CorporationID, Accept_Language: Literal['en', 'de', 'fr', 'ja', 'ru', 'zh', 'ko', 'es'] | None = ..., If_None_Match: str | None = ..., X_Compatibility_Date: Literal['2026-08-18'] | None = ..., X_Tenant: str | None = ..., If_Modified_Since: str | None = ..., **kwargs: Any) -> GetCorporationsCorporationIdOperation:
             """Public information about a corporation"""
             ...
 
-        def GetCorporationsCorporationIdAlliancehistory(self, corporation_id: CorporationID, Accept_Language: Literal['en', 'de', 'fr', 'ja', 'ru', 'zh', 'ko', 'es'] | None = ..., If_None_Match: str | None = ..., X_Compatibility_Date: Literal['2026-08-04'] | None = ..., X_Tenant: str | None = ..., If_Modified_Since: str | None = ..., **kwargs: Any) -> GetCorporationsCorporationIdAlliancehistoryOperation:
+        def GetCorporationsCorporationIdAlliancehistory(self, corporation_id: CorporationID, Accept_Language: Literal['en', 'de', 'fr', 'ja', 'ru', 'zh', 'ko', 'es'] | None = ..., If_None_Match: str | None = ..., X_Compatibility_Date: Literal['2026-08-18'] | None = ..., X_Tenant: str | None = ..., If_Modified_Since: str | None = ..., **kwargs: Any) -> GetCorporationsCorporationIdAlliancehistoryOperation:
             """Get a list of all the alliances a corporation has been a member of"""
             ...
 
-        def GetCorporationsCorporationIdBlueprints(self, corporation_id: CorporationID, token: Token, page: int | None = ..., Accept_Language: Literal['en', 'de', 'fr', 'ja', 'ru', 'zh', 'ko', 'es'] | None = ..., If_None_Match: str | None = ..., X_Compatibility_Date: Literal['2026-08-04'] | None = ..., X_Tenant: str | None = ..., If_Modified_Since: str | None = ..., **kwargs: Any) -> GetCorporationsCorporationIdBlueprintsOperation:
+        def GetCorporationsCorporationIdBlueprints(self, corporation_id: CorporationID, token: Token, page: int | None = ..., Accept_Language: Literal['en', 'de', 'fr', 'ja', 'ru', 'zh', 'ko', 'es'] | None = ..., If_None_Match: str | None = ..., X_Compatibility_Date: Literal['2026-08-18'] | None = ..., X_Tenant: str | None = ..., If_Modified_Since: str | None = ..., **kwargs: Any) -> GetCorporationsCorporationIdBlueprintsOperation:
             """Returns a list of blueprints the corporation owns"""
             ...
 
-        def GetCorporationsCorporationIdContainersLogs(self, corporation_id: CorporationID, token: Token, page: int | None = ..., Accept_Language: Literal['en', 'de', 'fr', 'ja', 'ru', 'zh', 'ko', 'es'] | None = ..., If_None_Match: str | None = ..., X_Compatibility_Date: Literal['2026-08-04'] | None = ..., X_Tenant: str | None = ..., If_Modified_Since: str | None = ..., **kwargs: Any) -> GetCorporationsCorporationIdContainersLogsOperation:
+        def GetCorporationsCorporationIdContainersLogs(self, corporation_id: CorporationID, token: Token, page: int | None = ..., Accept_Language: Literal['en', 'de', 'fr', 'ja', 'ru', 'zh', 'ko', 'es'] | None = ..., If_None_Match: str | None = ..., X_Compatibility_Date: Literal['2026-08-18'] | None = ..., X_Tenant: str | None = ..., If_Modified_Since: str | None = ..., **kwargs: Any) -> GetCorporationsCorporationIdContainersLogsOperation:
             """Returns logs recorded in the past seven days from all audit log secure containers (ALSC) owned by a given corporation"""
             ...
 
-        def GetCorporationsCorporationIdDivisions(self, corporation_id: CorporationID, token: Token, Accept_Language: Literal['en', 'de', 'fr', 'ja', 'ru', 'zh', 'ko', 'es'] | None = ..., If_None_Match: str | None = ..., X_Compatibility_Date: Literal['2026-08-04'] | None = ..., X_Tenant: str | None = ..., If_Modified_Since: str | None = ..., **kwargs: Any) -> GetCorporationsCorporationIdDivisionsOperation:
+        def GetCorporationsCorporationIdDivisions(self, corporation_id: CorporationID, token: Token, Accept_Language: Literal['en', 'de', 'fr', 'ja', 'ru', 'zh', 'ko', 'es'] | None = ..., If_None_Match: str | None = ..., X_Compatibility_Date: Literal['2026-08-18'] | None = ..., X_Tenant: str | None = ..., If_Modified_Since: str | None = ..., **kwargs: Any) -> GetCorporationsCorporationIdDivisionsOperation:
             """Return corporation hangar and wallet division names, only show if a division is not using the default name"""
             ...
 
-        def GetCorporationsCorporationIdFacilities(self, corporation_id: CorporationID, token: Token, Accept_Language: Literal['en', 'de', 'fr', 'ja', 'ru', 'zh', 'ko', 'es'] | None = ..., If_None_Match: str | None = ..., X_Compatibility_Date: Literal['2026-08-04'] | None = ..., X_Tenant: str | None = ..., If_Modified_Since: str | None = ..., **kwargs: Any) -> GetCorporationsCorporationIdFacilitiesOperation:
+        def GetCorporationsCorporationIdFacilities(self, corporation_id: CorporationID, token: Token, Accept_Language: Literal['en', 'de', 'fr', 'ja', 'ru', 'zh', 'ko', 'es'] | None = ..., If_None_Match: str | None = ..., X_Compatibility_Date: Literal['2026-08-18'] | None = ..., X_Tenant: str | None = ..., If_Modified_Since: str | None = ..., **kwargs: Any) -> GetCorporationsCorporationIdFacilitiesOperation:
             """Return a corporation's facilities"""
             ...
 
-        def GetCorporationsCorporationIdIcons(self, corporation_id: CorporationID, Accept_Language: Literal['en', 'de', 'fr', 'ja', 'ru', 'zh', 'ko', 'es'] | None = ..., If_None_Match: str | None = ..., X_Compatibility_Date: Literal['2026-08-04'] | None = ..., X_Tenant: str | None = ..., If_Modified_Since: str | None = ..., **kwargs: Any) -> GetCorporationsCorporationIdIconsOperation:
+        def GetCorporationsCorporationIdIcons(self, corporation_id: CorporationID, Accept_Language: Literal['en', 'de', 'fr', 'ja', 'ru', 'zh', 'ko', 'es'] | None = ..., If_None_Match: str | None = ..., X_Compatibility_Date: Literal['2026-08-18'] | None = ..., X_Tenant: str | None = ..., If_Modified_Since: str | None = ..., **kwargs: Any) -> GetCorporationsCorporationIdIconsOperation:
             """Get the icon urls for a corporation"""
             ...
 
-        def GetCorporationsCorporationIdMedals(self, corporation_id: CorporationID, token: Token, page: int | None = ..., Accept_Language: Literal['en', 'de', 'fr', 'ja', 'ru', 'zh', 'ko', 'es'] | None = ..., If_None_Match: str | None = ..., X_Compatibility_Date: Literal['2026-08-04'] | None = ..., X_Tenant: str | None = ..., If_Modified_Since: str | None = ..., **kwargs: Any) -> GetCorporationsCorporationIdMedalsOperation:
+        def GetCorporationsCorporationIdMedals(self, corporation_id: CorporationID, token: Token, page: int | None = ..., Accept_Language: Literal['en', 'de', 'fr', 'ja', 'ru', 'zh', 'ko', 'es'] | None = ..., If_None_Match: str | None = ..., X_Compatibility_Date: Literal['2026-08-18'] | None = ..., X_Tenant: str | None = ..., If_Modified_Since: str | None = ..., **kwargs: Any) -> GetCorporationsCorporationIdMedalsOperation:
             """Returns a corporation's medals"""
             ...
 
-        def GetCorporationsCorporationIdMedalsIssued(self, corporation_id: CorporationID, token: Token, page: int | None = ..., Accept_Language: Literal['en', 'de', 'fr', 'ja', 'ru', 'zh', 'ko', 'es'] | None = ..., If_None_Match: str | None = ..., X_Compatibility_Date: Literal['2026-08-04'] | None = ..., X_Tenant: str | None = ..., If_Modified_Since: str | None = ..., **kwargs: Any) -> GetCorporationsCorporationIdMedalsIssuedOperation:
+        def GetCorporationsCorporationIdMedalsIssued(self, corporation_id: CorporationID, token: Token, page: int | None = ..., Accept_Language: Literal['en', 'de', 'fr', 'ja', 'ru', 'zh', 'ko', 'es'] | None = ..., If_None_Match: str | None = ..., X_Compatibility_Date: Literal['2026-08-18'] | None = ..., X_Tenant: str | None = ..., If_Modified_Since: str | None = ..., **kwargs: Any) -> GetCorporationsCorporationIdMedalsIssuedOperation:
             """Returns medals issued by a corporation"""
             ...
 
-        def GetCorporationsCorporationIdMembers(self, corporation_id: CorporationID, token: Token, Accept_Language: Literal['en', 'de', 'fr', 'ja', 'ru', 'zh', 'ko', 'es'] | None = ..., If_None_Match: str | None = ..., X_Compatibility_Date: Literal['2026-08-04'] | None = ..., X_Tenant: str | None = ..., If_Modified_Since: str | None = ..., **kwargs: Any) -> GetCorporationsCorporationIdMembersOperation:
+        def GetCorporationsCorporationIdMembers(self, corporation_id: CorporationID, token: Token, Accept_Language: Literal['en', 'de', 'fr', 'ja', 'ru', 'zh', 'ko', 'es'] | None = ..., If_None_Match: str | None = ..., X_Compatibility_Date: Literal['2026-08-18'] | None = ..., X_Tenant: str | None = ..., If_Modified_Since: str | None = ..., **kwargs: Any) -> GetCorporationsCorporationIdMembersOperation:
             """Return the current member list of a corporation, the token's character need to be a member of the corporation."""
             ...
 
-        def GetCorporationsCorporationIdMembersLimit(self, corporation_id: CorporationID, token: Token, Accept_Language: Literal['en', 'de', 'fr', 'ja', 'ru', 'zh', 'ko', 'es'] | None = ..., If_None_Match: str | None = ..., X_Compatibility_Date: Literal['2026-08-04'] | None = ..., X_Tenant: str | None = ..., If_Modified_Since: str | None = ..., **kwargs: Any) -> GetCorporationsCorporationIdMembersLimitOperation:
+        def GetCorporationsCorporationIdMembersLimit(self, corporation_id: CorporationID, token: Token, Accept_Language: Literal['en', 'de', 'fr', 'ja', 'ru', 'zh', 'ko', 'es'] | None = ..., If_None_Match: str | None = ..., X_Compatibility_Date: Literal['2026-08-18'] | None = ..., X_Tenant: str | None = ..., If_Modified_Since: str | None = ..., **kwargs: Any) -> GetCorporationsCorporationIdMembersLimitOperation:
             """Return a corporation's member limit, not including CEO himself"""
             ...
 
-        def GetCorporationsCorporationIdMembersTitles(self, corporation_id: CorporationID, token: Token, Accept_Language: Literal['en', 'de', 'fr', 'ja', 'ru', 'zh', 'ko', 'es'] | None = ..., If_None_Match: str | None = ..., X_Compatibility_Date: Literal['2026-08-04'] | None = ..., X_Tenant: str | None = ..., If_Modified_Since: str | None = ..., **kwargs: Any) -> GetCorporationsCorporationIdMembersTitlesOperation:
+        def GetCorporationsCorporationIdMembersTitles(self, corporation_id: CorporationID, token: Token, Accept_Language: Literal['en', 'de', 'fr', 'ja', 'ru', 'zh', 'ko', 'es'] | None = ..., If_None_Match: str | None = ..., X_Compatibility_Date: Literal['2026-08-18'] | None = ..., X_Tenant: str | None = ..., If_Modified_Since: str | None = ..., **kwargs: Any) -> GetCorporationsCorporationIdMembersTitlesOperation:
             """Returns a corporation's members' titles"""
             ...
 
-        def GetCorporationsCorporationIdMembertracking(self, corporation_id: CorporationID, token: Token, Accept_Language: Literal['en', 'de', 'fr', 'ja', 'ru', 'zh', 'ko', 'es'] | None = ..., If_None_Match: str | None = ..., X_Compatibility_Date: Literal['2026-08-04'] | None = ..., X_Tenant: str | None = ..., If_Modified_Since: str | None = ..., **kwargs: Any) -> GetCorporationsCorporationIdMembertrackingOperation:
+        def GetCorporationsCorporationIdMembertracking(self, corporation_id: CorporationID, token: Token, Accept_Language: Literal['en', 'de', 'fr', 'ja', 'ru', 'zh', 'ko', 'es'] | None = ..., If_None_Match: str | None = ..., X_Compatibility_Date: Literal['2026-08-18'] | None = ..., X_Tenant: str | None = ..., If_Modified_Since: str | None = ..., **kwargs: Any) -> GetCorporationsCorporationIdMembertrackingOperation:
             """Returns additional information about a corporation's members which helps tracking their activities"""
             ...
 
-        def GetCorporationsCorporationIdRoles(self, corporation_id: CorporationID, token: Token, Accept_Language: Literal['en', 'de', 'fr', 'ja', 'ru', 'zh', 'ko', 'es'] | None = ..., If_None_Match: str | None = ..., X_Compatibility_Date: Literal['2026-08-04'] | None = ..., X_Tenant: str | None = ..., If_Modified_Since: str | None = ..., **kwargs: Any) -> GetCorporationsCorporationIdRolesOperation:
+        def GetCorporationsCorporationIdRoles(self, corporation_id: CorporationID, token: Token, Accept_Language: Literal['en', 'de', 'fr', 'ja', 'ru', 'zh', 'ko', 'es'] | None = ..., If_None_Match: str | None = ..., X_Compatibility_Date: Literal['2026-08-18'] | None = ..., X_Tenant: str | None = ..., If_Modified_Since: str | None = ..., **kwargs: Any) -> GetCorporationsCorporationIdRolesOperation:
             """Return the roles of all members if the character has the personnel manager role or any grantable role."""
             ...
 
-        def GetCorporationsCorporationIdRolesHistory(self, corporation_id: CorporationID, token: Token, page: int | None = ..., Accept_Language: Literal['en', 'de', 'fr', 'ja', 'ru', 'zh', 'ko', 'es'] | None = ..., If_None_Match: str | None = ..., X_Compatibility_Date: Literal['2026-08-04'] | None = ..., X_Tenant: str | None = ..., If_Modified_Since: str | None = ..., **kwargs: Any) -> GetCorporationsCorporationIdRolesHistoryOperation:
+        def GetCorporationsCorporationIdRolesHistory(self, corporation_id: CorporationID, token: Token, page: int | None = ..., Accept_Language: Literal['en', 'de', 'fr', 'ja', 'ru', 'zh', 'ko', 'es'] | None = ..., If_None_Match: str | None = ..., X_Compatibility_Date: Literal['2026-08-18'] | None = ..., X_Tenant: str | None = ..., If_Modified_Since: str | None = ..., **kwargs: Any) -> GetCorporationsCorporationIdRolesHistoryOperation:
             """Return how roles have changed for a coporation's members, up to a month"""
             ...
 
-        def GetCorporationsCorporationIdShareholders(self, corporation_id: CorporationID, token: Token, page: int | None = ..., Accept_Language: Literal['en', 'de', 'fr', 'ja', 'ru', 'zh', 'ko', 'es'] | None = ..., If_None_Match: str | None = ..., X_Compatibility_Date: Literal['2026-08-04'] | None = ..., X_Tenant: str | None = ..., If_Modified_Since: str | None = ..., **kwargs: Any) -> GetCorporationsCorporationIdShareholdersOperation:
+        def GetCorporationsCorporationIdShareholders(self, corporation_id: CorporationID, token: Token, page: int | None = ..., Accept_Language: Literal['en', 'de', 'fr', 'ja', 'ru', 'zh', 'ko', 'es'] | None = ..., If_None_Match: str | None = ..., X_Compatibility_Date: Literal['2026-08-18'] | None = ..., X_Tenant: str | None = ..., If_Modified_Since: str | None = ..., **kwargs: Any) -> GetCorporationsCorporationIdShareholdersOperation:
             """Return the current shareholders of a corporation."""
             ...
 
-        def GetCorporationsCorporationIdStandings(self, corporation_id: CorporationID, token: Token, page: int | None = ..., Accept_Language: Literal['en', 'de', 'fr', 'ja', 'ru', 'zh', 'ko', 'es'] | None = ..., If_None_Match: str | None = ..., X_Compatibility_Date: Literal['2026-08-04'] | None = ..., X_Tenant: str | None = ..., If_Modified_Since: str | None = ..., **kwargs: Any) -> GetCorporationsCorporationIdStandingsOperation:
+        def GetCorporationsCorporationIdStandings(self, corporation_id: CorporationID, token: Token, page: int | None = ..., Accept_Language: Literal['en', 'de', 'fr', 'ja', 'ru', 'zh', 'ko', 'es'] | None = ..., If_None_Match: str | None = ..., X_Compatibility_Date: Literal['2026-08-18'] | None = ..., X_Tenant: str | None = ..., If_Modified_Since: str | None = ..., **kwargs: Any) -> GetCorporationsCorporationIdStandingsOperation:
             """Return corporation standings from agents, NPC corporations, and factions"""
             ...
 
-        def GetCorporationsCorporationIdStarbases(self, corporation_id: CorporationID, token: Token, page: int | None = ..., Accept_Language: Literal['en', 'de', 'fr', 'ja', 'ru', 'zh', 'ko', 'es'] | None = ..., If_None_Match: str | None = ..., X_Compatibility_Date: Literal['2026-08-04'] | None = ..., X_Tenant: str | None = ..., If_Modified_Since: str | None = ..., **kwargs: Any) -> GetCorporationsCorporationIdStarbasesOperation:
+        def GetCorporationsCorporationIdStarbases(self, corporation_id: CorporationID, token: Token, page: int | None = ..., Accept_Language: Literal['en', 'de', 'fr', 'ja', 'ru', 'zh', 'ko', 'es'] | None = ..., If_None_Match: str | None = ..., X_Compatibility_Date: Literal['2026-08-18'] | None = ..., X_Tenant: str | None = ..., If_Modified_Since: str | None = ..., **kwargs: Any) -> GetCorporationsCorporationIdStarbasesOperation:
             """Returns list of corporation starbases (POSes)"""
             ...
 
-        def GetCorporationsCorporationIdStarbasesStarbaseId(self, corporation_id: CorporationID, starbase_id: int, system_id: int, token: Token, Accept_Language: Literal['en', 'de', 'fr', 'ja', 'ru', 'zh', 'ko', 'es'] | None = ..., If_None_Match: str | None = ..., X_Compatibility_Date: Literal['2026-08-04'] | None = ..., X_Tenant: str | None = ..., If_Modified_Since: str | None = ..., **kwargs: Any) -> GetCorporationsCorporationIdStarbasesStarbaseIdOperation:
+        def GetCorporationsCorporationIdStarbasesStarbaseId(self, corporation_id: CorporationID, starbase_id: int, system_id: int, token: Token, Accept_Language: Literal['en', 'de', 'fr', 'ja', 'ru', 'zh', 'ko', 'es'] | None = ..., If_None_Match: str | None = ..., X_Compatibility_Date: Literal['2026-08-18'] | None = ..., X_Tenant: str | None = ..., If_Modified_Since: str | None = ..., **kwargs: Any) -> GetCorporationsCorporationIdStarbasesStarbaseIdOperation:
             """Returns various settings and fuels of a starbase (POS)"""
             ...
 
-        def GetCorporationsCorporationIdStructures(self, corporation_id: CorporationID, token: Token, page: int | None = ..., Accept_Language: Literal['en', 'de', 'fr', 'ja', 'ru', 'zh', 'ko', 'es'] | None = ..., If_None_Match: str | None = ..., X_Compatibility_Date: Literal['2026-08-04'] | None = ..., X_Tenant: str | None = ..., If_Modified_Since: str | None = ..., **kwargs: Any) -> GetCorporationsCorporationIdStructuresOperation:
+        def GetCorporationsCorporationIdStructures(self, corporation_id: CorporationID, token: Token, page: int | None = ..., Accept_Language: Literal['en', 'de', 'fr', 'ja', 'ru', 'zh', 'ko', 'es'] | None = ..., If_None_Match: str | None = ..., X_Compatibility_Date: Literal['2026-08-18'] | None = ..., X_Tenant: str | None = ..., If_Modified_Since: str | None = ..., **kwargs: Any) -> GetCorporationsCorporationIdStructuresOperation:
             """Get a list of corporation structures. This route's version includes the changes to structures detailed in this blog: https://www.eveonline.com/article/upwell-2.0-structures-changes-coming-on-february-13th"""
             ...
 
-        def GetCorporationsCorporationIdTitles(self, corporation_id: CorporationID, token: Token, Accept_Language: Literal['en', 'de', 'fr', 'ja', 'ru', 'zh', 'ko', 'es'] | None = ..., If_None_Match: str | None = ..., X_Compatibility_Date: Literal['2026-08-04'] | None = ..., X_Tenant: str | None = ..., If_Modified_Since: str | None = ..., **kwargs: Any) -> GetCorporationsCorporationIdTitlesOperation:
+        def GetCorporationsCorporationIdTitles(self, corporation_id: CorporationID, token: Token, Accept_Language: Literal['en', 'de', 'fr', 'ja', 'ru', 'zh', 'ko', 'es'] | None = ..., If_None_Match: str | None = ..., X_Compatibility_Date: Literal['2026-08-18'] | None = ..., X_Tenant: str | None = ..., If_Modified_Since: str | None = ..., **kwargs: Any) -> GetCorporationsCorporationIdTitlesOperation:
             """Returns a corporation's titles"""
             ...
 
-        def GetCorporationsNpccorps(self, Accept_Language: Literal['en', 'de', 'fr', 'ja', 'ru', 'zh', 'ko', 'es'] | None = ..., If_None_Match: str | None = ..., X_Compatibility_Date: Literal['2026-08-04'] | None = ..., X_Tenant: str | None = ..., If_Modified_Since: str | None = ..., **kwargs: Any) -> GetCorporationsNpccorpsOperation:
+        def GetCorporationsNpccorps(self, Accept_Language: Literal['en', 'de', 'fr', 'ja', 'ru', 'zh', 'ko', 'es'] | None = ..., If_None_Match: str | None = ..., X_Compatibility_Date: Literal['2026-08-18'] | None = ..., X_Tenant: str | None = ..., If_Modified_Since: str | None = ..., **kwargs: Any) -> GetCorporationsNpccorpsOperation:
             """Get a list of npc corporations  This route expires daily at 11:05"""
             ...
 
@@ -8376,43 +8782,59 @@ class ESIClientStub:
     Corporation: _Corporation = _Corporation()
 
     class _Corporation_Projects:
-        def GetCorporationsProjectsContribution(self, corporation_id: CorporationID, project_id: UUID, character_id: CharacterID, token: Token, Accept_Language: Literal['en', 'de', 'fr', 'ja', 'ru', 'zh', 'ko', 'es'] | None = ..., If_None_Match: str | None = ..., X_Compatibility_Date: Literal['2026-08-04'] | None = ..., X_Tenant: str | None = ..., If_Modified_Since: str | None = ..., **kwargs: Any) -> GetCorporationsProjectsContributionOperation:
+        def GetCorporationsProjectsContribution(self, corporation_id: CorporationID, project_id: UUID, character_id: CharacterID, token: Token, Accept_Language: Literal['en', 'de', 'fr', 'ja', 'ru', 'zh', 'ko', 'es'] | None = ..., If_None_Match: str | None = ..., X_Compatibility_Date: Literal['2026-08-18'] | None = ..., X_Tenant: str | None = ..., If_Modified_Since: str | None = ..., **kwargs: Any) -> GetCorporationsProjectsContributionOperation:
             """Show your contribution to a corporation project."""
             ...
 
-        def GetCorporationsProjectsContributors(self, corporation_id: CorporationID, project_id: UUID, token: Token, after: str | None = ..., before: str | None = ..., limit: int | None = ..., Accept_Language: Literal['en', 'de', 'fr', 'ja', 'ru', 'zh', 'ko', 'es'] | None = ..., If_None_Match: str | None = ..., X_Compatibility_Date: Literal['2026-08-04'] | None = ..., X_Tenant: str | None = ..., If_Modified_Since: str | None = ..., **kwargs: Any) -> GetCorporationsProjectsContributorsOperation:
+        def GetCorporationsProjectsContributors(self, corporation_id: CorporationID, project_id: UUID, token: Token, after: str | None = ..., before: str | None = ..., limit: int | None = ..., Accept_Language: Literal['en', 'de', 'fr', 'ja', 'ru', 'zh', 'ko', 'es'] | None = ..., If_None_Match: str | None = ..., X_Compatibility_Date: Literal['2026-08-18'] | None = ..., X_Tenant: str | None = ..., If_Modified_Since: str | None = ..., **kwargs: Any) -> GetCorporationsProjectsContributorsOperation:
             """Listing of all contributors to a corporation project."""
             ...
 
-        def GetCorporationsProjectsDetail(self, corporation_id: CorporationID, project_id: UUID, token: Token, Accept_Language: Literal['en', 'de', 'fr', 'ja', 'ru', 'zh', 'ko', 'es'] | None = ..., If_None_Match: str | None = ..., X_Compatibility_Date: Literal['2026-08-04'] | None = ..., X_Tenant: str | None = ..., If_Modified_Since: str | None = ..., **kwargs: Any) -> GetCorporationsProjectsDetailOperation:
+        def GetCorporationsProjectsDetail(self, corporation_id: CorporationID, project_id: UUID, token: Token, Accept_Language: Literal['en', 'de', 'fr', 'ja', 'ru', 'zh', 'ko', 'es'] | None = ..., If_None_Match: str | None = ..., X_Compatibility_Date: Literal['2026-08-18'] | None = ..., X_Tenant: str | None = ..., If_Modified_Since: str | None = ..., **kwargs: Any) -> GetCorporationsProjectsDetailOperation:
             """Get the details of a corporation project."""
             ...
 
-        def GetCorporationsProjectsListing(self, corporation_id: CorporationID, token: Token, after: str | None = ..., before: str | None = ..., limit: int | None = ..., state: Literal['All', 'Active'] | None = ..., Accept_Language: Literal['en', 'de', 'fr', 'ja', 'ru', 'zh', 'ko', 'es'] | None = ..., If_None_Match: str | None = ..., X_Compatibility_Date: Literal['2026-08-04'] | None = ..., X_Tenant: str | None = ..., If_Modified_Since: str | None = ..., **kwargs: Any) -> GetCorporationsProjectsListingOperation:
+        def GetCorporationsProjectsListing(self, corporation_id: CorporationID, token: Token, after: str | None = ..., before: str | None = ..., limit: int | None = ..., state: Literal['All', 'Active'] | None = ..., Accept_Language: Literal['en', 'de', 'fr', 'ja', 'ru', 'zh', 'ko', 'es'] | None = ..., If_None_Match: str | None = ..., X_Compatibility_Date: Literal['2026-08-18'] | None = ..., X_Tenant: str | None = ..., If_Modified_Since: str | None = ..., **kwargs: Any) -> GetCorporationsProjectsListingOperation:
             """Listing of all (active) corporation projects."""
             ...
 
 
     Corporation_Projects: _Corporation_Projects = _Corporation_Projects()
 
+    class _Cosmetics:
+        def GetCharactersCosmeticsSkinr(self, character_id: CharacterID, token: Token, Accept_Language: Literal['en', 'de', 'fr', 'ja', 'ru', 'zh', 'ko', 'es'] | None = ..., If_None_Match: str | None = ..., X_Compatibility_Date: Literal['2026-08-18'] | None = ..., X_Tenant: str | None = ..., If_Modified_Since: str | None = ..., **kwargs: Any) -> GetCharactersCosmeticsSkinrOperation:
+            """Listing of all SKINR licenses you own"""
+            ...
+
+        def GetCharactersCosmeticsSkinrComponents(self, character_id: CharacterID, token: Token, Accept_Language: Literal['en', 'de', 'fr', 'ja', 'ru', 'zh', 'ko', 'es'] | None = ..., If_None_Match: str | None = ..., X_Compatibility_Date: Literal['2026-08-18'] | None = ..., X_Tenant: str | None = ..., If_Modified_Since: str | None = ..., **kwargs: Any) -> GetCharactersCosmeticsSkinrComponentsOperation:
+            """Listing of all SKINR component licenses you own"""
+            ...
+
+        def GetCosmeticsSkinr(self, skinr_id: str, Accept_Language: Literal['en', 'de', 'fr', 'ja', 'ru', 'zh', 'ko', 'es'] | None = ..., If_None_Match: str | None = ..., X_Compatibility_Date: Literal['2026-08-18'] | None = ..., X_Tenant: str | None = ..., If_Modified_Since: str | None = ..., **kwargs: Any) -> GetCosmeticsSkinrOperation:
+            """All attributes of a SKINR license"""
+            ...
+
+
+    Cosmetics: _Cosmetics = _Cosmetics()
+
     class _Dogma:
-        def GetDogmaAttributes(self, Accept_Language: Literal['en', 'de', 'fr', 'ja', 'ru', 'zh', 'ko', 'es'] | None = ..., If_None_Match: str | None = ..., X_Compatibility_Date: Literal['2026-08-04'] | None = ..., X_Tenant: str | None = ..., If_Modified_Since: str | None = ..., **kwargs: Any) -> GetDogmaAttributesOperation:
+        def GetDogmaAttributes(self, Accept_Language: Literal['en', 'de', 'fr', 'ja', 'ru', 'zh', 'ko', 'es'] | None = ..., If_None_Match: str | None = ..., X_Compatibility_Date: Literal['2026-08-18'] | None = ..., X_Tenant: str | None = ..., If_Modified_Since: str | None = ..., **kwargs: Any) -> GetDogmaAttributesOperation:
             """Get a list of dogma attribute ids  This route expires daily at 11:05"""
             ...
 
-        def GetDogmaAttributesAttributeId(self, attribute_id: int, Accept_Language: Literal['en', 'de', 'fr', 'ja', 'ru', 'zh', 'ko', 'es'] | None = ..., If_None_Match: str | None = ..., X_Compatibility_Date: Literal['2026-08-04'] | None = ..., X_Tenant: str | None = ..., If_Modified_Since: str | None = ..., **kwargs: Any) -> GetDogmaAttributesAttributeIdOperation:
+        def GetDogmaAttributesAttributeId(self, attribute_id: int, Accept_Language: Literal['en', 'de', 'fr', 'ja', 'ru', 'zh', 'ko', 'es'] | None = ..., If_None_Match: str | None = ..., X_Compatibility_Date: Literal['2026-08-18'] | None = ..., X_Tenant: str | None = ..., If_Modified_Since: str | None = ..., **kwargs: Any) -> GetDogmaAttributesAttributeIdOperation:
             """Get information on a dogma attribute  This route expires daily at 11:05"""
             ...
 
-        def GetDogmaDynamicItemsTypeIdItemId(self, item_id: int, type_id: int, Accept_Language: Literal['en', 'de', 'fr', 'ja', 'ru', 'zh', 'ko', 'es'] | None = ..., If_None_Match: str | None = ..., X_Compatibility_Date: Literal['2026-08-04'] | None = ..., X_Tenant: str | None = ..., If_Modified_Since: str | None = ..., **kwargs: Any) -> GetDogmaDynamicItemsTypeIdItemIdOperation:
+        def GetDogmaDynamicItemsTypeIdItemId(self, item_id: int, type_id: int, Accept_Language: Literal['en', 'de', 'fr', 'ja', 'ru', 'zh', 'ko', 'es'] | None = ..., If_None_Match: str | None = ..., X_Compatibility_Date: Literal['2026-08-18'] | None = ..., X_Tenant: str | None = ..., If_Modified_Since: str | None = ..., **kwargs: Any) -> GetDogmaDynamicItemsTypeIdItemIdOperation:
             """Returns info about a dynamic item resulting from mutation with a mutaplasmid.  This route expires daily at 11:05"""
             ...
 
-        def GetDogmaEffects(self, Accept_Language: Literal['en', 'de', 'fr', 'ja', 'ru', 'zh', 'ko', 'es'] | None = ..., If_None_Match: str | None = ..., X_Compatibility_Date: Literal['2026-08-04'] | None = ..., X_Tenant: str | None = ..., If_Modified_Since: str | None = ..., **kwargs: Any) -> GetDogmaEffectsOperation:
+        def GetDogmaEffects(self, Accept_Language: Literal['en', 'de', 'fr', 'ja', 'ru', 'zh', 'ko', 'es'] | None = ..., If_None_Match: str | None = ..., X_Compatibility_Date: Literal['2026-08-18'] | None = ..., X_Tenant: str | None = ..., If_Modified_Since: str | None = ..., **kwargs: Any) -> GetDogmaEffectsOperation:
             """Get a list of dogma effect ids  This route expires daily at 11:05"""
             ...
 
-        def GetDogmaEffectsEffectId(self, effect_id: int, Accept_Language: Literal['en', 'de', 'fr', 'ja', 'ru', 'zh', 'ko', 'es'] | None = ..., If_None_Match: str | None = ..., X_Compatibility_Date: Literal['2026-08-04'] | None = ..., X_Tenant: str | None = ..., If_Modified_Since: str | None = ..., **kwargs: Any) -> GetDogmaEffectsEffectIdOperation:
+        def GetDogmaEffectsEffectId(self, effect_id: int, Accept_Language: Literal['en', 'de', 'fr', 'ja', 'ru', 'zh', 'ko', 'es'] | None = ..., If_None_Match: str | None = ..., X_Compatibility_Date: Literal['2026-08-18'] | None = ..., X_Tenant: str | None = ..., If_Modified_Since: str | None = ..., **kwargs: Any) -> GetDogmaEffectsEffectIdOperation:
             """Get information on a dogma effect  This route expires daily at 11:05"""
             ...
 
@@ -8420,35 +8842,35 @@ class ESIClientStub:
     Dogma: _Dogma = _Dogma()
 
     class _Faction_Warfare:
-        def GetCharactersCharacterIdFwStats(self, character_id: CharacterID, token: Token, Accept_Language: Literal['en', 'de', 'fr', 'ja', 'ru', 'zh', 'ko', 'es'] | None = ..., If_None_Match: str | None = ..., X_Compatibility_Date: Literal['2026-08-04'] | None = ..., X_Tenant: str | None = ..., If_Modified_Since: str | None = ..., **kwargs: Any) -> GetCharactersCharacterIdFwStatsOperation:
+        def GetCharactersCharacterIdFwStats(self, character_id: CharacterID, token: Token, Accept_Language: Literal['en', 'de', 'fr', 'ja', 'ru', 'zh', 'ko', 'es'] | None = ..., If_None_Match: str | None = ..., X_Compatibility_Date: Literal['2026-08-18'] | None = ..., X_Tenant: str | None = ..., If_Modified_Since: str | None = ..., **kwargs: Any) -> GetCharactersCharacterIdFwStatsOperation:
             """Statistical overview of a character involved in faction warfare  This route expires daily at 11:05"""
             ...
 
-        def GetCorporationsCorporationIdFwStats(self, corporation_id: CorporationID, token: Token, Accept_Language: Literal['en', 'de', 'fr', 'ja', 'ru', 'zh', 'ko', 'es'] | None = ..., If_None_Match: str | None = ..., X_Compatibility_Date: Literal['2026-08-04'] | None = ..., X_Tenant: str | None = ..., If_Modified_Since: str | None = ..., **kwargs: Any) -> GetCorporationsCorporationIdFwStatsOperation:
+        def GetCorporationsCorporationIdFwStats(self, corporation_id: CorporationID, token: Token, Accept_Language: Literal['en', 'de', 'fr', 'ja', 'ru', 'zh', 'ko', 'es'] | None = ..., If_None_Match: str | None = ..., X_Compatibility_Date: Literal['2026-08-18'] | None = ..., X_Tenant: str | None = ..., If_Modified_Since: str | None = ..., **kwargs: Any) -> GetCorporationsCorporationIdFwStatsOperation:
             """Statistics about a corporation involved in faction warfare  This route expires daily at 11:05"""
             ...
 
-        def GetFwLeaderboards(self, Accept_Language: Literal['en', 'de', 'fr', 'ja', 'ru', 'zh', 'ko', 'es'] | None = ..., If_None_Match: str | None = ..., X_Compatibility_Date: Literal['2026-08-04'] | None = ..., X_Tenant: str | None = ..., If_Modified_Since: str | None = ..., **kwargs: Any) -> GetFwLeaderboardsOperation:
+        def GetFwLeaderboards(self, Accept_Language: Literal['en', 'de', 'fr', 'ja', 'ru', 'zh', 'ko', 'es'] | None = ..., If_None_Match: str | None = ..., X_Compatibility_Date: Literal['2026-08-18'] | None = ..., X_Tenant: str | None = ..., If_Modified_Since: str | None = ..., **kwargs: Any) -> GetFwLeaderboardsOperation:
             """Top 4 leaderboard of factions for kills and victory points separated by total, last week and yesterday  This route expires daily at 11:05"""
             ...
 
-        def GetFwLeaderboardsCharacters(self, Accept_Language: Literal['en', 'de', 'fr', 'ja', 'ru', 'zh', 'ko', 'es'] | None = ..., If_None_Match: str | None = ..., X_Compatibility_Date: Literal['2026-08-04'] | None = ..., X_Tenant: str | None = ..., If_Modified_Since: str | None = ..., **kwargs: Any) -> GetFwLeaderboardsCharactersOperation:
+        def GetFwLeaderboardsCharacters(self, Accept_Language: Literal['en', 'de', 'fr', 'ja', 'ru', 'zh', 'ko', 'es'] | None = ..., If_None_Match: str | None = ..., X_Compatibility_Date: Literal['2026-08-18'] | None = ..., X_Tenant: str | None = ..., If_Modified_Since: str | None = ..., **kwargs: Any) -> GetFwLeaderboardsCharactersOperation:
             """Top 100 leaderboard of pilots for kills and victory points separated by total, last week and yesterday  This route expires daily at 11:05"""
             ...
 
-        def GetFwLeaderboardsCorporations(self, Accept_Language: Literal['en', 'de', 'fr', 'ja', 'ru', 'zh', 'ko', 'es'] | None = ..., If_None_Match: str | None = ..., X_Compatibility_Date: Literal['2026-08-04'] | None = ..., X_Tenant: str | None = ..., If_Modified_Since: str | None = ..., **kwargs: Any) -> GetFwLeaderboardsCorporationsOperation:
+        def GetFwLeaderboardsCorporations(self, Accept_Language: Literal['en', 'de', 'fr', 'ja', 'ru', 'zh', 'ko', 'es'] | None = ..., If_None_Match: str | None = ..., X_Compatibility_Date: Literal['2026-08-18'] | None = ..., X_Tenant: str | None = ..., If_Modified_Since: str | None = ..., **kwargs: Any) -> GetFwLeaderboardsCorporationsOperation:
             """Top 10 leaderboard of corporations for kills and victory points separated by total, last week and yesterday  This route expires daily at 11:05"""
             ...
 
-        def GetFwStats(self, Accept_Language: Literal['en', 'de', 'fr', 'ja', 'ru', 'zh', 'ko', 'es'] | None = ..., If_None_Match: str | None = ..., X_Compatibility_Date: Literal['2026-08-04'] | None = ..., X_Tenant: str | None = ..., If_Modified_Since: str | None = ..., **kwargs: Any) -> GetFwStatsOperation:
+        def GetFwStats(self, Accept_Language: Literal['en', 'de', 'fr', 'ja', 'ru', 'zh', 'ko', 'es'] | None = ..., If_None_Match: str | None = ..., X_Compatibility_Date: Literal['2026-08-18'] | None = ..., X_Tenant: str | None = ..., If_Modified_Since: str | None = ..., **kwargs: Any) -> GetFwStatsOperation:
             """Statistical overviews of factions involved in faction warfare  This route expires daily at 11:05"""
             ...
 
-        def GetFwSystems(self, Accept_Language: Literal['en', 'de', 'fr', 'ja', 'ru', 'zh', 'ko', 'es'] | None = ..., If_None_Match: str | None = ..., X_Compatibility_Date: Literal['2026-08-04'] | None = ..., X_Tenant: str | None = ..., If_Modified_Since: str | None = ..., **kwargs: Any) -> GetFwSystemsOperation:
+        def GetFwSystems(self, Accept_Language: Literal['en', 'de', 'fr', 'ja', 'ru', 'zh', 'ko', 'es'] | None = ..., If_None_Match: str | None = ..., X_Compatibility_Date: Literal['2026-08-18'] | None = ..., X_Tenant: str | None = ..., If_Modified_Since: str | None = ..., **kwargs: Any) -> GetFwSystemsOperation:
             """An overview of the current ownership of faction warfare solar systems"""
             ...
 
-        def GetFwWars(self, Accept_Language: Literal['en', 'de', 'fr', 'ja', 'ru', 'zh', 'ko', 'es'] | None = ..., If_None_Match: str | None = ..., X_Compatibility_Date: Literal['2026-08-04'] | None = ..., X_Tenant: str | None = ..., If_Modified_Since: str | None = ..., **kwargs: Any) -> GetFwWarsOperation:
+        def GetFwWars(self, Accept_Language: Literal['en', 'de', 'fr', 'ja', 'ru', 'zh', 'ko', 'es'] | None = ..., If_None_Match: str | None = ..., X_Compatibility_Date: Literal['2026-08-18'] | None = ..., X_Tenant: str | None = ..., If_Modified_Since: str | None = ..., **kwargs: Any) -> GetFwWarsOperation:
             """Data about which NPC factions are at war  This route expires daily at 11:05"""
             ...
 
@@ -8456,15 +8878,15 @@ class ESIClientStub:
     Faction_Warfare: _Faction_Warfare = _Faction_Warfare()
 
     class _Fittings:
-        def DeleteCharactersCharacterIdFittingsFittingId(self, character_id: CharacterID, fitting_id: int, token: Token, Accept_Language: Literal['en', 'de', 'fr', 'ja', 'ru', 'zh', 'ko', 'es'] | None = ..., If_None_Match: str | None = ..., X_Compatibility_Date: Literal['2026-08-04'] | None = ..., X_Tenant: str | None = ..., If_Modified_Since: str | None = ..., **kwargs: Any) -> DeleteCharactersCharacterIdFittingsFittingIdOperation:
+        def DeleteCharactersCharacterIdFittingsFittingId(self, character_id: CharacterID, fitting_id: int, token: Token, Accept_Language: Literal['en', 'de', 'fr', 'ja', 'ru', 'zh', 'ko', 'es'] | None = ..., If_None_Match: str | None = ..., X_Compatibility_Date: Literal['2026-08-18'] | None = ..., X_Tenant: str | None = ..., If_Modified_Since: str | None = ..., **kwargs: Any) -> DeleteCharactersCharacterIdFittingsFittingIdOperation:
             """Delete a fitting from a character"""
             ...
 
-        def GetCharactersCharacterIdFittings(self, character_id: CharacterID, token: Token, Accept_Language: Literal['en', 'de', 'fr', 'ja', 'ru', 'zh', 'ko', 'es'] | None = ..., If_None_Match: str | None = ..., X_Compatibility_Date: Literal['2026-08-04'] | None = ..., X_Tenant: str | None = ..., If_Modified_Since: str | None = ..., **kwargs: Any) -> GetCharactersCharacterIdFittingsOperation:
+        def GetCharactersCharacterIdFittings(self, character_id: CharacterID, token: Token, Accept_Language: Literal['en', 'de', 'fr', 'ja', 'ru', 'zh', 'ko', 'es'] | None = ..., If_None_Match: str | None = ..., X_Compatibility_Date: Literal['2026-08-18'] | None = ..., X_Tenant: str | None = ..., If_Modified_Since: str | None = ..., **kwargs: Any) -> GetCharactersCharacterIdFittingsOperation:
             """Return fittings of a character"""
             ...
 
-        def PostCharactersCharacterIdFittings(self, body: PostCharactersCharacterIdFittingsOperationBody, character_id: CharacterID, token: Token, Accept_Language: Literal['en', 'de', 'fr', 'ja', 'ru', 'zh', 'ko', 'es'] | None = ..., If_None_Match: str | None = ..., X_Compatibility_Date: Literal['2026-08-04'] | None = ..., X_Tenant: str | None = ..., If_Modified_Since: str | None = ..., **kwargs: Any) -> PostCharactersCharacterIdFittingsOperation:
+        def PostCharactersCharacterIdFittings(self, body: PostCharactersCharacterIdFittingsOperationBody, character_id: CharacterID, token: Token, Accept_Language: Literal['en', 'de', 'fr', 'ja', 'ru', 'zh', 'ko', 'es'] | None = ..., If_None_Match: str | None = ..., X_Compatibility_Date: Literal['2026-08-18'] | None = ..., X_Tenant: str | None = ..., If_Modified_Since: str | None = ..., **kwargs: Any) -> PostCharactersCharacterIdFittingsOperation:
             """Save a new fitting for a character"""
             ...
 
@@ -8472,59 +8894,59 @@ class ESIClientStub:
     Fittings: _Fittings = _Fittings()
 
     class _Fleets:
-        def DeleteFleetsFleetIdMembersMemberId(self, fleet_id: int, member_id: int, token: Token, Accept_Language: Literal['en', 'de', 'fr', 'ja', 'ru', 'zh', 'ko', 'es'] | None = ..., If_None_Match: str | None = ..., X_Compatibility_Date: Literal['2026-08-04'] | None = ..., X_Tenant: str | None = ..., If_Modified_Since: str | None = ..., **kwargs: Any) -> DeleteFleetsFleetIdMembersMemberIdOperation:
+        def DeleteFleetsFleetIdMembersMemberId(self, fleet_id: int, member_id: int, token: Token, Accept_Language: Literal['en', 'de', 'fr', 'ja', 'ru', 'zh', 'ko', 'es'] | None = ..., If_None_Match: str | None = ..., X_Compatibility_Date: Literal['2026-08-18'] | None = ..., X_Tenant: str | None = ..., If_Modified_Since: str | None = ..., **kwargs: Any) -> DeleteFleetsFleetIdMembersMemberIdOperation:
             """Kick a fleet member"""
             ...
 
-        def DeleteFleetsFleetIdSquadsSquadId(self, fleet_id: int, squad_id: int, token: Token, Accept_Language: Literal['en', 'de', 'fr', 'ja', 'ru', 'zh', 'ko', 'es'] | None = ..., If_None_Match: str | None = ..., X_Compatibility_Date: Literal['2026-08-04'] | None = ..., X_Tenant: str | None = ..., If_Modified_Since: str | None = ..., **kwargs: Any) -> DeleteFleetsFleetIdSquadsSquadIdOperation:
+        def DeleteFleetsFleetIdSquadsSquadId(self, fleet_id: int, squad_id: int, token: Token, Accept_Language: Literal['en', 'de', 'fr', 'ja', 'ru', 'zh', 'ko', 'es'] | None = ..., If_None_Match: str | None = ..., X_Compatibility_Date: Literal['2026-08-18'] | None = ..., X_Tenant: str | None = ..., If_Modified_Since: str | None = ..., **kwargs: Any) -> DeleteFleetsFleetIdSquadsSquadIdOperation:
             """Delete a fleet squad, only empty squads can be deleted"""
             ...
 
-        def DeleteFleetsFleetIdWingsWingId(self, fleet_id: int, wing_id: int, token: Token, Accept_Language: Literal['en', 'de', 'fr', 'ja', 'ru', 'zh', 'ko', 'es'] | None = ..., If_None_Match: str | None = ..., X_Compatibility_Date: Literal['2026-08-04'] | None = ..., X_Tenant: str | None = ..., If_Modified_Since: str | None = ..., **kwargs: Any) -> DeleteFleetsFleetIdWingsWingIdOperation:
+        def DeleteFleetsFleetIdWingsWingId(self, fleet_id: int, wing_id: int, token: Token, Accept_Language: Literal['en', 'de', 'fr', 'ja', 'ru', 'zh', 'ko', 'es'] | None = ..., If_None_Match: str | None = ..., X_Compatibility_Date: Literal['2026-08-18'] | None = ..., X_Tenant: str | None = ..., If_Modified_Since: str | None = ..., **kwargs: Any) -> DeleteFleetsFleetIdWingsWingIdOperation:
             """Delete a fleet wing, only empty wings can be deleted. The wing may contain squads, but the squads must be empty"""
             ...
 
-        def GetCharactersCharacterIdFleet(self, character_id: CharacterID, token: Token, Accept_Language: Literal['en', 'de', 'fr', 'ja', 'ru', 'zh', 'ko', 'es'] | None = ..., If_None_Match: str | None = ..., X_Compatibility_Date: Literal['2026-08-04'] | None = ..., X_Tenant: str | None = ..., If_Modified_Since: str | None = ..., **kwargs: Any) -> GetCharactersCharacterIdFleetOperation:
+        def GetCharactersCharacterIdFleet(self, character_id: CharacterID, token: Token, Accept_Language: Literal['en', 'de', 'fr', 'ja', 'ru', 'zh', 'ko', 'es'] | None = ..., If_None_Match: str | None = ..., X_Compatibility_Date: Literal['2026-08-18'] | None = ..., X_Tenant: str | None = ..., If_Modified_Since: str | None = ..., **kwargs: Any) -> GetCharactersCharacterIdFleetOperation:
             """Return the fleet ID the character is in, if any."""
             ...
 
-        def GetFleetsFleetId(self, fleet_id: int, token: Token, Accept_Language: Literal['en', 'de', 'fr', 'ja', 'ru', 'zh', 'ko', 'es'] | None = ..., If_None_Match: str | None = ..., X_Compatibility_Date: Literal['2026-08-04'] | None = ..., X_Tenant: str | None = ..., If_Modified_Since: str | None = ..., **kwargs: Any) -> GetFleetsFleetIdOperation:
+        def GetFleetsFleetId(self, fleet_id: int, token: Token, Accept_Language: Literal['en', 'de', 'fr', 'ja', 'ru', 'zh', 'ko', 'es'] | None = ..., If_None_Match: str | None = ..., X_Compatibility_Date: Literal['2026-08-18'] | None = ..., X_Tenant: str | None = ..., If_Modified_Since: str | None = ..., **kwargs: Any) -> GetFleetsFleetIdOperation:
             """Return details about a fleet"""
             ...
 
-        def GetFleetsFleetIdMembers(self, fleet_id: int, token: Token, Accept_Language: Literal['en', 'de', 'fr', 'ja', 'ru', 'zh', 'ko', 'es'] | None = ..., If_None_Match: str | None = ..., X_Compatibility_Date: Literal['2026-08-04'] | None = ..., X_Tenant: str | None = ..., If_Modified_Since: str | None = ..., **kwargs: Any) -> GetFleetsFleetIdMembersOperation:
+        def GetFleetsFleetIdMembers(self, fleet_id: int, token: Token, Accept_Language: Literal['en', 'de', 'fr', 'ja', 'ru', 'zh', 'ko', 'es'] | None = ..., If_None_Match: str | None = ..., X_Compatibility_Date: Literal['2026-08-18'] | None = ..., X_Tenant: str | None = ..., If_Modified_Since: str | None = ..., **kwargs: Any) -> GetFleetsFleetIdMembersOperation:
             """Return information about fleet members"""
             ...
 
-        def GetFleetsFleetIdWings(self, fleet_id: int, token: Token, Accept_Language: Literal['en', 'de', 'fr', 'ja', 'ru', 'zh', 'ko', 'es'] | None = ..., If_None_Match: str | None = ..., X_Compatibility_Date: Literal['2026-08-04'] | None = ..., X_Tenant: str | None = ..., If_Modified_Since: str | None = ..., **kwargs: Any) -> GetFleetsFleetIdWingsOperation:
+        def GetFleetsFleetIdWings(self, fleet_id: int, token: Token, Accept_Language: Literal['en', 'de', 'fr', 'ja', 'ru', 'zh', 'ko', 'es'] | None = ..., If_None_Match: str | None = ..., X_Compatibility_Date: Literal['2026-08-18'] | None = ..., X_Tenant: str | None = ..., If_Modified_Since: str | None = ..., **kwargs: Any) -> GetFleetsFleetIdWingsOperation:
             """Return information about wings in a fleet"""
             ...
 
-        def PostFleetsFleetIdMembers(self, body: PostFleetsFleetIdMembersOperationBody, fleet_id: int, token: Token, Accept_Language: Literal['en', 'de', 'fr', 'ja', 'ru', 'zh', 'ko', 'es'] | None = ..., If_None_Match: str | None = ..., X_Compatibility_Date: Literal['2026-08-04'] | None = ..., X_Tenant: str | None = ..., If_Modified_Since: str | None = ..., **kwargs: Any) -> PostFleetsFleetIdMembersOperation:
+        def PostFleetsFleetIdMembers(self, body: PostFleetsFleetIdMembersOperationBody, fleet_id: int, token: Token, Accept_Language: Literal['en', 'de', 'fr', 'ja', 'ru', 'zh', 'ko', 'es'] | None = ..., If_None_Match: str | None = ..., X_Compatibility_Date: Literal['2026-08-18'] | None = ..., X_Tenant: str | None = ..., If_Modified_Since: str | None = ..., **kwargs: Any) -> PostFleetsFleetIdMembersOperation:
             """Invite a character into the fleet. If a character has a CSPA charge set it is not possible to invite them to the fleet using ESI"""
             ...
 
-        def PostFleetsFleetIdWings(self, fleet_id: int, token: Token, Accept_Language: Literal['en', 'de', 'fr', 'ja', 'ru', 'zh', 'ko', 'es'] | None = ..., If_None_Match: str | None = ..., X_Compatibility_Date: Literal['2026-08-04'] | None = ..., X_Tenant: str | None = ..., If_Modified_Since: str | None = ..., **kwargs: Any) -> PostFleetsFleetIdWingsOperation:
+        def PostFleetsFleetIdWings(self, fleet_id: int, token: Token, Accept_Language: Literal['en', 'de', 'fr', 'ja', 'ru', 'zh', 'ko', 'es'] | None = ..., If_None_Match: str | None = ..., X_Compatibility_Date: Literal['2026-08-18'] | None = ..., X_Tenant: str | None = ..., If_Modified_Since: str | None = ..., **kwargs: Any) -> PostFleetsFleetIdWingsOperation:
             """Create a new wing in a fleet"""
             ...
 
-        def PostFleetsFleetIdWingsWingIdSquads(self, fleet_id: int, wing_id: int, token: Token, Accept_Language: Literal['en', 'de', 'fr', 'ja', 'ru', 'zh', 'ko', 'es'] | None = ..., If_None_Match: str | None = ..., X_Compatibility_Date: Literal['2026-08-04'] | None = ..., X_Tenant: str | None = ..., If_Modified_Since: str | None = ..., **kwargs: Any) -> PostFleetsFleetIdWingsWingIdSquadsOperation:
+        def PostFleetsFleetIdWingsWingIdSquads(self, fleet_id: int, wing_id: int, token: Token, Accept_Language: Literal['en', 'de', 'fr', 'ja', 'ru', 'zh', 'ko', 'es'] | None = ..., If_None_Match: str | None = ..., X_Compatibility_Date: Literal['2026-08-18'] | None = ..., X_Tenant: str | None = ..., If_Modified_Since: str | None = ..., **kwargs: Any) -> PostFleetsFleetIdWingsWingIdSquadsOperation:
             """Create a new squad in a fleet"""
             ...
 
-        def PutFleetsFleetId(self, body: PutFleetsFleetIdOperationBody, fleet_id: int, token: Token, Accept_Language: Literal['en', 'de', 'fr', 'ja', 'ru', 'zh', 'ko', 'es'] | None = ..., If_None_Match: str | None = ..., X_Compatibility_Date: Literal['2026-08-04'] | None = ..., X_Tenant: str | None = ..., If_Modified_Since: str | None = ..., **kwargs: Any) -> PutFleetsFleetIdOperation:
+        def PutFleetsFleetId(self, body: PutFleetsFleetIdOperationBody, fleet_id: int, token: Token, Accept_Language: Literal['en', 'de', 'fr', 'ja', 'ru', 'zh', 'ko', 'es'] | None = ..., If_None_Match: str | None = ..., X_Compatibility_Date: Literal['2026-08-18'] | None = ..., X_Tenant: str | None = ..., If_Modified_Since: str | None = ..., **kwargs: Any) -> PutFleetsFleetIdOperation:
             """Update settings about a fleet"""
             ...
 
-        def PutFleetsFleetIdMembersMemberId(self, body: PutFleetsFleetIdMembersMemberIdOperationBody, fleet_id: int, member_id: int, token: Token, Accept_Language: Literal['en', 'de', 'fr', 'ja', 'ru', 'zh', 'ko', 'es'] | None = ..., If_None_Match: str | None = ..., X_Compatibility_Date: Literal['2026-08-04'] | None = ..., X_Tenant: str | None = ..., If_Modified_Since: str | None = ..., **kwargs: Any) -> PutFleetsFleetIdMembersMemberIdOperation:
+        def PutFleetsFleetIdMembersMemberId(self, body: PutFleetsFleetIdMembersMemberIdOperationBody, fleet_id: int, member_id: int, token: Token, Accept_Language: Literal['en', 'de', 'fr', 'ja', 'ru', 'zh', 'ko', 'es'] | None = ..., If_None_Match: str | None = ..., X_Compatibility_Date: Literal['2026-08-18'] | None = ..., X_Tenant: str | None = ..., If_Modified_Since: str | None = ..., **kwargs: Any) -> PutFleetsFleetIdMembersMemberIdOperation:
             """Move a fleet member around"""
             ...
 
-        def PutFleetsFleetIdSquadsSquadId(self, body: PutFleetsFleetIdSquadsSquadIdOperationBody, fleet_id: int, squad_id: int, token: Token, Accept_Language: Literal['en', 'de', 'fr', 'ja', 'ru', 'zh', 'ko', 'es'] | None = ..., If_None_Match: str | None = ..., X_Compatibility_Date: Literal['2026-08-04'] | None = ..., X_Tenant: str | None = ..., If_Modified_Since: str | None = ..., **kwargs: Any) -> PutFleetsFleetIdSquadsSquadIdOperation:
+        def PutFleetsFleetIdSquadsSquadId(self, body: PutFleetsFleetIdSquadsSquadIdOperationBody, fleet_id: int, squad_id: int, token: Token, Accept_Language: Literal['en', 'de', 'fr', 'ja', 'ru', 'zh', 'ko', 'es'] | None = ..., If_None_Match: str | None = ..., X_Compatibility_Date: Literal['2026-08-18'] | None = ..., X_Tenant: str | None = ..., If_Modified_Since: str | None = ..., **kwargs: Any) -> PutFleetsFleetIdSquadsSquadIdOperation:
             """Rename a fleet squad"""
             ...
 
-        def PutFleetsFleetIdWingsWingId(self, body: PutFleetsFleetIdWingsWingIdOperationBody, fleet_id: int, wing_id: int, token: Token, Accept_Language: Literal['en', 'de', 'fr', 'ja', 'ru', 'zh', 'ko', 'es'] | None = ..., If_None_Match: str | None = ..., X_Compatibility_Date: Literal['2026-08-04'] | None = ..., X_Tenant: str | None = ..., If_Modified_Since: str | None = ..., **kwargs: Any) -> PutFleetsFleetIdWingsWingIdOperation:
+        def PutFleetsFleetIdWingsWingId(self, body: PutFleetsFleetIdWingsWingIdOperationBody, fleet_id: int, wing_id: int, token: Token, Accept_Language: Literal['en', 'de', 'fr', 'ja', 'ru', 'zh', 'ko', 'es'] | None = ..., If_None_Match: str | None = ..., X_Compatibility_Date: Literal['2026-08-18'] | None = ..., X_Tenant: str | None = ..., If_Modified_Since: str | None = ..., **kwargs: Any) -> PutFleetsFleetIdWingsWingIdOperation:
             """Rename a fleet wing"""
             ...
 
@@ -8532,27 +8954,27 @@ class ESIClientStub:
     Fleets: _Fleets = _Fleets()
 
     class _Freelance_Jobs:
-        def GetCharactersFreelanceJobsListing(self, character_id: CharacterID, token: Token, Accept_Language: Literal['en', 'de', 'fr', 'ja', 'ru', 'zh', 'ko', 'es'] | None = ..., If_None_Match: str | None = ..., X_Compatibility_Date: Literal['2026-08-04'] | None = ..., X_Tenant: str | None = ..., If_Modified_Since: str | None = ..., **kwargs: Any) -> GetCharactersFreelanceJobsListingOperation:
+        def GetCharactersFreelanceJobsListing(self, character_id: CharacterID, token: Token, Accept_Language: Literal['en', 'de', 'fr', 'ja', 'ru', 'zh', 'ko', 'es'] | None = ..., If_None_Match: str | None = ..., X_Compatibility_Date: Literal['2026-08-18'] | None = ..., X_Tenant: str | None = ..., If_Modified_Since: str | None = ..., **kwargs: Any) -> GetCharactersFreelanceJobsListingOperation:
             """Listing of all freelance jobs you are actively participating in."""
             ...
 
-        def GetCharactersFreelanceJobsParticipation(self, character_id: CharacterID, job_id: UUID, token: Token, Accept_Language: Literal['en', 'de', 'fr', 'ja', 'ru', 'zh', 'ko', 'es'] | None = ..., If_None_Match: str | None = ..., X_Compatibility_Date: Literal['2026-08-04'] | None = ..., X_Tenant: str | None = ..., If_Modified_Since: str | None = ..., **kwargs: Any) -> GetCharactersFreelanceJobsParticipationOperation:
+        def GetCharactersFreelanceJobsParticipation(self, character_id: CharacterID, job_id: UUID, token: Token, Accept_Language: Literal['en', 'de', 'fr', 'ja', 'ru', 'zh', 'ko', 'es'] | None = ..., If_None_Match: str | None = ..., X_Compatibility_Date: Literal['2026-08-18'] | None = ..., X_Tenant: str | None = ..., If_Modified_Since: str | None = ..., **kwargs: Any) -> GetCharactersFreelanceJobsParticipationOperation:
             """Show your participation in a freelance job."""
             ...
 
-        def GetCorporationsFreelanceJobsListing(self, corporation_id: CorporationID, token: Token, after: str | None = ..., before: str | None = ..., limit: int | None = ..., Accept_Language: Literal['en', 'de', 'fr', 'ja', 'ru', 'zh', 'ko', 'es'] | None = ..., If_None_Match: str | None = ..., X_Compatibility_Date: Literal['2026-08-04'] | None = ..., X_Tenant: str | None = ..., If_Modified_Since: str | None = ..., **kwargs: Any) -> GetCorporationsFreelanceJobsListingOperation:
+        def GetCorporationsFreelanceJobsListing(self, corporation_id: CorporationID, token: Token, after: str | None = ..., before: str | None = ..., limit: int | None = ..., Accept_Language: Literal['en', 'de', 'fr', 'ja', 'ru', 'zh', 'ko', 'es'] | None = ..., If_None_Match: str | None = ..., X_Compatibility_Date: Literal['2026-08-18'] | None = ..., X_Tenant: str | None = ..., If_Modified_Since: str | None = ..., **kwargs: Any) -> GetCorporationsFreelanceJobsListingOperation:
             """Listing of all freelance jobs for your corporation."""
             ...
 
-        def GetCorporationsFreelanceJobsParticipants(self, corporation_id: CorporationID, job_id: UUID, token: Token, after: str | None = ..., before: str | None = ..., limit: int | None = ..., Accept_Language: Literal['en', 'de', 'fr', 'ja', 'ru', 'zh', 'ko', 'es'] | None = ..., If_None_Match: str | None = ..., X_Compatibility_Date: Literal['2026-08-04'] | None = ..., X_Tenant: str | None = ..., If_Modified_Since: str | None = ..., **kwargs: Any) -> GetCorporationsFreelanceJobsParticipantsOperation:
+        def GetCorporationsFreelanceJobsParticipants(self, corporation_id: CorporationID, job_id: UUID, token: Token, after: str | None = ..., before: str | None = ..., limit: int | None = ..., Accept_Language: Literal['en', 'de', 'fr', 'ja', 'ru', 'zh', 'ko', 'es'] | None = ..., If_None_Match: str | None = ..., X_Compatibility_Date: Literal['2026-08-18'] | None = ..., X_Tenant: str | None = ..., If_Modified_Since: str | None = ..., **kwargs: Any) -> GetCorporationsFreelanceJobsParticipantsOperation:
             """Listing of all participants of a freelance job."""
             ...
 
-        def GetFreelanceJobsDetail(self, job_id: UUID, Accept_Language: Literal['en', 'de', 'fr', 'ja', 'ru', 'zh', 'ko', 'es'] | None = ..., If_None_Match: str | None = ..., X_Compatibility_Date: Literal['2026-08-04'] | None = ..., X_Tenant: str | None = ..., If_Modified_Since: str | None = ..., **kwargs: Any) -> GetFreelanceJobsDetailOperation:
+        def GetFreelanceJobsDetail(self, job_id: UUID, Accept_Language: Literal['en', 'de', 'fr', 'ja', 'ru', 'zh', 'ko', 'es'] | None = ..., If_None_Match: str | None = ..., X_Compatibility_Date: Literal['2026-08-18'] | None = ..., X_Tenant: str | None = ..., If_Modified_Since: str | None = ..., **kwargs: Any) -> GetFreelanceJobsDetailOperation:
             """Get the details of a freelance job.  Jobs without an ACL (public jobs) does not require authentication.  Jobs with an ACL requires authentication, and requires that the character is: - An active participant of the job, or - A freelance job manager for the corporation that owns the job."""
             ...
 
-        def GetFreelanceJobsListing(self, after: str | None = ..., before: str | None = ..., limit: int | None = ..., corporation_id: CorporationID | None = ..., Accept_Language: Literal['en', 'de', 'fr', 'ja', 'ru', 'zh', 'ko', 'es'] | None = ..., If_None_Match: str | None = ..., X_Compatibility_Date: Literal['2026-08-04'] | None = ..., X_Tenant: str | None = ..., If_Modified_Since: str | None = ..., **kwargs: Any) -> GetFreelanceJobsListingOperation:
+        def GetFreelanceJobsListing(self, after: str | None = ..., before: str | None = ..., limit: int | None = ..., corporation_id: CorporationID | None = ..., Accept_Language: Literal['en', 'de', 'fr', 'ja', 'ru', 'zh', 'ko', 'es'] | None = ..., If_None_Match: str | None = ..., X_Compatibility_Date: Literal['2026-08-18'] | None = ..., X_Tenant: str | None = ..., If_Modified_Since: str | None = ..., **kwargs: Any) -> GetFreelanceJobsListingOperation:
             """Listing of all public freelance jobs."""
             ...
 
@@ -8560,7 +8982,7 @@ class ESIClientStub:
     Freelance_Jobs: _Freelance_Jobs = _Freelance_Jobs()
 
     class _Incursions:
-        def GetIncursions(self, Accept_Language: Literal['en', 'de', 'fr', 'ja', 'ru', 'zh', 'ko', 'es'] | None = ..., If_None_Match: str | None = ..., X_Compatibility_Date: Literal['2026-08-04'] | None = ..., X_Tenant: str | None = ..., If_Modified_Since: str | None = ..., **kwargs: Any) -> GetIncursionsOperation:
+        def GetIncursions(self, Accept_Language: Literal['en', 'de', 'fr', 'ja', 'ru', 'zh', 'ko', 'es'] | None = ..., If_None_Match: str | None = ..., X_Compatibility_Date: Literal['2026-08-18'] | None = ..., X_Tenant: str | None = ..., If_Modified_Since: str | None = ..., **kwargs: Any) -> GetIncursionsOperation:
             """Return a list of current incursions"""
             ...
 
@@ -8568,35 +8990,35 @@ class ESIClientStub:
     Incursions: _Incursions = _Incursions()
 
     class _Industry:
-        def GetCharactersCharacterIdIndustryJobs(self, character_id: CharacterID, token: Token, include_completed: bool | None = ..., Accept_Language: Literal['en', 'de', 'fr', 'ja', 'ru', 'zh', 'ko', 'es'] | None = ..., If_None_Match: str | None = ..., X_Compatibility_Date: Literal['2026-08-04'] | None = ..., X_Tenant: str | None = ..., If_Modified_Since: str | None = ..., **kwargs: Any) -> GetCharactersCharacterIdIndustryJobsOperation:
+        def GetCharactersCharacterIdIndustryJobs(self, character_id: CharacterID, token: Token, include_completed: bool | None = ..., Accept_Language: Literal['en', 'de', 'fr', 'ja', 'ru', 'zh', 'ko', 'es'] | None = ..., If_None_Match: str | None = ..., X_Compatibility_Date: Literal['2026-08-18'] | None = ..., X_Tenant: str | None = ..., If_Modified_Since: str | None = ..., **kwargs: Any) -> GetCharactersCharacterIdIndustryJobsOperation:
             """List industry jobs placed by a character"""
             ...
 
-        def GetCharactersCharacterIdMining(self, character_id: CharacterID, token: Token, page: int | None = ..., Accept_Language: Literal['en', 'de', 'fr', 'ja', 'ru', 'zh', 'ko', 'es'] | None = ..., If_None_Match: str | None = ..., X_Compatibility_Date: Literal['2026-08-04'] | None = ..., X_Tenant: str | None = ..., If_Modified_Since: str | None = ..., **kwargs: Any) -> GetCharactersCharacterIdMiningOperation:
+        def GetCharactersCharacterIdMining(self, character_id: CharacterID, token: Token, page: int | None = ..., Accept_Language: Literal['en', 'de', 'fr', 'ja', 'ru', 'zh', 'ko', 'es'] | None = ..., If_None_Match: str | None = ..., X_Compatibility_Date: Literal['2026-08-18'] | None = ..., X_Tenant: str | None = ..., If_Modified_Since: str | None = ..., **kwargs: Any) -> GetCharactersCharacterIdMiningOperation:
             """Paginated record of all mining done by a character for the past 30 days"""
             ...
 
-        def GetCorporationCorporationIdMiningExtractions(self, corporation_id: CorporationID, token: Token, page: int | None = ..., Accept_Language: Literal['en', 'de', 'fr', 'ja', 'ru', 'zh', 'ko', 'es'] | None = ..., If_None_Match: str | None = ..., X_Compatibility_Date: Literal['2026-08-04'] | None = ..., X_Tenant: str | None = ..., If_Modified_Since: str | None = ..., **kwargs: Any) -> GetCorporationCorporationIdMiningExtractionsOperation:
+        def GetCorporationCorporationIdMiningExtractions(self, corporation_id: CorporationID, token: Token, page: int | None = ..., Accept_Language: Literal['en', 'de', 'fr', 'ja', 'ru', 'zh', 'ko', 'es'] | None = ..., If_None_Match: str | None = ..., X_Compatibility_Date: Literal['2026-08-18'] | None = ..., X_Tenant: str | None = ..., If_Modified_Since: str | None = ..., **kwargs: Any) -> GetCorporationCorporationIdMiningExtractionsOperation:
             """Extraction timers for all moon chunks being extracted by refineries belonging to a corporation."""
             ...
 
-        def GetCorporationCorporationIdMiningObservers(self, corporation_id: CorporationID, token: Token, page: int | None = ..., Accept_Language: Literal['en', 'de', 'fr', 'ja', 'ru', 'zh', 'ko', 'es'] | None = ..., If_None_Match: str | None = ..., X_Compatibility_Date: Literal['2026-08-04'] | None = ..., X_Tenant: str | None = ..., If_Modified_Since: str | None = ..., **kwargs: Any) -> GetCorporationCorporationIdMiningObserversOperation:
+        def GetCorporationCorporationIdMiningObservers(self, corporation_id: CorporationID, token: Token, page: int | None = ..., Accept_Language: Literal['en', 'de', 'fr', 'ja', 'ru', 'zh', 'ko', 'es'] | None = ..., If_None_Match: str | None = ..., X_Compatibility_Date: Literal['2026-08-18'] | None = ..., X_Tenant: str | None = ..., If_Modified_Since: str | None = ..., **kwargs: Any) -> GetCorporationCorporationIdMiningObserversOperation:
             """Paginated list of all entities capable of observing and recording mining for a corporation"""
             ...
 
-        def GetCorporationCorporationIdMiningObserversObserverId(self, corporation_id: CorporationID, observer_id: int, token: Token, page: int | None = ..., Accept_Language: Literal['en', 'de', 'fr', 'ja', 'ru', 'zh', 'ko', 'es'] | None = ..., If_None_Match: str | None = ..., X_Compatibility_Date: Literal['2026-08-04'] | None = ..., X_Tenant: str | None = ..., If_Modified_Since: str | None = ..., **kwargs: Any) -> GetCorporationCorporationIdMiningObserversObserverIdOperation:
+        def GetCorporationCorporationIdMiningObserversObserverId(self, corporation_id: CorporationID, observer_id: int, token: Token, page: int | None = ..., Accept_Language: Literal['en', 'de', 'fr', 'ja', 'ru', 'zh', 'ko', 'es'] | None = ..., If_None_Match: str | None = ..., X_Compatibility_Date: Literal['2026-08-18'] | None = ..., X_Tenant: str | None = ..., If_Modified_Since: str | None = ..., **kwargs: Any) -> GetCorporationCorporationIdMiningObserversObserverIdOperation:
             """Paginated record of all mining seen by an observer"""
             ...
 
-        def GetCorporationsCorporationIdIndustryJobs(self, corporation_id: CorporationID, token: Token, include_completed: bool | None = ..., page: int | None = ..., Accept_Language: Literal['en', 'de', 'fr', 'ja', 'ru', 'zh', 'ko', 'es'] | None = ..., If_None_Match: str | None = ..., X_Compatibility_Date: Literal['2026-08-04'] | None = ..., X_Tenant: str | None = ..., If_Modified_Since: str | None = ..., **kwargs: Any) -> GetCorporationsCorporationIdIndustryJobsOperation:
+        def GetCorporationsCorporationIdIndustryJobs(self, corporation_id: CorporationID, token: Token, include_completed: bool | None = ..., page: int | None = ..., Accept_Language: Literal['en', 'de', 'fr', 'ja', 'ru', 'zh', 'ko', 'es'] | None = ..., If_None_Match: str | None = ..., X_Compatibility_Date: Literal['2026-08-18'] | None = ..., X_Tenant: str | None = ..., If_Modified_Since: str | None = ..., **kwargs: Any) -> GetCorporationsCorporationIdIndustryJobsOperation:
             """List industry jobs run by a corporation"""
             ...
 
-        def GetIndustryFacilities(self, Accept_Language: Literal['en', 'de', 'fr', 'ja', 'ru', 'zh', 'ko', 'es'] | None = ..., If_None_Match: str | None = ..., X_Compatibility_Date: Literal['2026-08-04'] | None = ..., X_Tenant: str | None = ..., If_Modified_Since: str | None = ..., **kwargs: Any) -> GetIndustryFacilitiesOperation:
+        def GetIndustryFacilities(self, Accept_Language: Literal['en', 'de', 'fr', 'ja', 'ru', 'zh', 'ko', 'es'] | None = ..., If_None_Match: str | None = ..., X_Compatibility_Date: Literal['2026-08-18'] | None = ..., X_Tenant: str | None = ..., If_Modified_Since: str | None = ..., **kwargs: Any) -> GetIndustryFacilitiesOperation:
             """Return a list of industry facilities"""
             ...
 
-        def GetIndustrySystems(self, Accept_Language: Literal['en', 'de', 'fr', 'ja', 'ru', 'zh', 'ko', 'es'] | None = ..., If_None_Match: str | None = ..., X_Compatibility_Date: Literal['2026-08-04'] | None = ..., X_Tenant: str | None = ..., If_Modified_Since: str | None = ..., **kwargs: Any) -> GetIndustrySystemsOperation:
+        def GetIndustrySystems(self, Accept_Language: Literal['en', 'de', 'fr', 'ja', 'ru', 'zh', 'ko', 'es'] | None = ..., If_None_Match: str | None = ..., X_Compatibility_Date: Literal['2026-08-18'] | None = ..., X_Tenant: str | None = ..., If_Modified_Since: str | None = ..., **kwargs: Any) -> GetIndustrySystemsOperation:
             """Return cost indices for solar systems"""
             ...
 
@@ -8604,7 +9026,7 @@ class ESIClientStub:
     Industry: _Industry = _Industry()
 
     class _Insurance:
-        def GetInsurancePrices(self, Accept_Language: Literal['en', 'de', 'fr', 'ja', 'ru', 'zh', 'ko', 'es'] | None = ..., If_None_Match: str | None = ..., X_Compatibility_Date: Literal['2026-08-04'] | None = ..., X_Tenant: str | None = ..., If_Modified_Since: str | None = ..., **kwargs: Any) -> GetInsurancePricesOperation:
+        def GetInsurancePrices(self, Accept_Language: Literal['en', 'de', 'fr', 'ja', 'ru', 'zh', 'ko', 'es'] | None = ..., If_None_Match: str | None = ..., X_Compatibility_Date: Literal['2026-08-18'] | None = ..., X_Tenant: str | None = ..., If_Modified_Since: str | None = ..., **kwargs: Any) -> GetInsurancePricesOperation:
             """Return available insurance levels for all ship types"""
             ...
 
@@ -8612,15 +9034,15 @@ class ESIClientStub:
     Insurance: _Insurance = _Insurance()
 
     class _Killmails:
-        def GetCharactersCharacterIdKillmailsRecent(self, character_id: CharacterID, token: Token, page: int | None = ..., Accept_Language: Literal['en', 'de', 'fr', 'ja', 'ru', 'zh', 'ko', 'es'] | None = ..., If_None_Match: str | None = ..., X_Compatibility_Date: Literal['2026-08-04'] | None = ..., X_Tenant: str | None = ..., If_Modified_Since: str | None = ..., **kwargs: Any) -> GetCharactersCharacterIdKillmailsRecentOperation:
+        def GetCharactersCharacterIdKillmailsRecent(self, character_id: CharacterID, token: Token, page: int | None = ..., Accept_Language: Literal['en', 'de', 'fr', 'ja', 'ru', 'zh', 'ko', 'es'] | None = ..., If_None_Match: str | None = ..., X_Compatibility_Date: Literal['2026-08-18'] | None = ..., X_Tenant: str | None = ..., If_Modified_Since: str | None = ..., **kwargs: Any) -> GetCharactersCharacterIdKillmailsRecentOperation:
             """Return a list of a character's kills and losses going back 90 days"""
             ...
 
-        def GetCorporationsCorporationIdKillmailsRecent(self, corporation_id: CorporationID, token: Token, page: int | None = ..., Accept_Language: Literal['en', 'de', 'fr', 'ja', 'ru', 'zh', 'ko', 'es'] | None = ..., If_None_Match: str | None = ..., X_Compatibility_Date: Literal['2026-08-04'] | None = ..., X_Tenant: str | None = ..., If_Modified_Since: str | None = ..., **kwargs: Any) -> GetCorporationsCorporationIdKillmailsRecentOperation:
+        def GetCorporationsCorporationIdKillmailsRecent(self, corporation_id: CorporationID, token: Token, page: int | None = ..., Accept_Language: Literal['en', 'de', 'fr', 'ja', 'ru', 'zh', 'ko', 'es'] | None = ..., If_None_Match: str | None = ..., X_Compatibility_Date: Literal['2026-08-18'] | None = ..., X_Tenant: str | None = ..., If_Modified_Since: str | None = ..., **kwargs: Any) -> GetCorporationsCorporationIdKillmailsRecentOperation:
             """Get a list of a corporation's kills and losses going back 90 days"""
             ...
 
-        def GetKillmailsKillmailIdKillmailHash(self, killmail_hash: str, killmail_id: int, Accept_Language: Literal['en', 'de', 'fr', 'ja', 'ru', 'zh', 'ko', 'es'] | None = ..., If_None_Match: str | None = ..., X_Compatibility_Date: Literal['2026-08-04'] | None = ..., X_Tenant: str | None = ..., If_Modified_Since: str | None = ..., **kwargs: Any) -> GetKillmailsKillmailIdKillmailHashOperation:
+        def GetKillmailsKillmailIdKillmailHash(self, killmail_hash: str, killmail_id: int, Accept_Language: Literal['en', 'de', 'fr', 'ja', 'ru', 'zh', 'ko', 'es'] | None = ..., If_None_Match: str | None = ..., X_Compatibility_Date: Literal['2026-08-18'] | None = ..., X_Tenant: str | None = ..., If_Modified_Since: str | None = ..., **kwargs: Any) -> GetKillmailsKillmailIdKillmailHashOperation:
             """Return a single killmail from its ID and hash"""
             ...
 
@@ -8628,15 +9050,15 @@ class ESIClientStub:
     Killmails: _Killmails = _Killmails()
 
     class _Location:
-        def GetCharactersCharacterIdLocation(self, character_id: CharacterID, token: Token, Accept_Language: Literal['en', 'de', 'fr', 'ja', 'ru', 'zh', 'ko', 'es'] | None = ..., If_None_Match: str | None = ..., X_Compatibility_Date: Literal['2026-08-04'] | None = ..., X_Tenant: str | None = ..., If_Modified_Since: str | None = ..., **kwargs: Any) -> GetCharactersCharacterIdLocationOperation:
+        def GetCharactersCharacterIdLocation(self, character_id: CharacterID, token: Token, Accept_Language: Literal['en', 'de', 'fr', 'ja', 'ru', 'zh', 'ko', 'es'] | None = ..., If_None_Match: str | None = ..., X_Compatibility_Date: Literal['2026-08-18'] | None = ..., X_Tenant: str | None = ..., If_Modified_Since: str | None = ..., **kwargs: Any) -> GetCharactersCharacterIdLocationOperation:
             """Information about the characters current location. Returns the current solar system id, and also the current station or structure ID if applicable"""
             ...
 
-        def GetCharactersCharacterIdOnline(self, character_id: CharacterID, token: Token, Accept_Language: Literal['en', 'de', 'fr', 'ja', 'ru', 'zh', 'ko', 'es'] | None = ..., If_None_Match: str | None = ..., X_Compatibility_Date: Literal['2026-08-04'] | None = ..., X_Tenant: str | None = ..., If_Modified_Since: str | None = ..., **kwargs: Any) -> GetCharactersCharacterIdOnlineOperation:
+        def GetCharactersCharacterIdOnline(self, character_id: CharacterID, token: Token, Accept_Language: Literal['en', 'de', 'fr', 'ja', 'ru', 'zh', 'ko', 'es'] | None = ..., If_None_Match: str | None = ..., X_Compatibility_Date: Literal['2026-08-18'] | None = ..., X_Tenant: str | None = ..., If_Modified_Since: str | None = ..., **kwargs: Any) -> GetCharactersCharacterIdOnlineOperation:
             """Checks if the character is currently online"""
             ...
 
-        def GetCharactersCharacterIdShip(self, character_id: CharacterID, token: Token, Accept_Language: Literal['en', 'de', 'fr', 'ja', 'ru', 'zh', 'ko', 'es'] | None = ..., If_None_Match: str | None = ..., X_Compatibility_Date: Literal['2026-08-04'] | None = ..., X_Tenant: str | None = ..., If_Modified_Since: str | None = ..., **kwargs: Any) -> GetCharactersCharacterIdShipOperation:
+        def GetCharactersCharacterIdShip(self, character_id: CharacterID, token: Token, Accept_Language: Literal['en', 'de', 'fr', 'ja', 'ru', 'zh', 'ko', 'es'] | None = ..., If_None_Match: str | None = ..., X_Compatibility_Date: Literal['2026-08-18'] | None = ..., X_Tenant: str | None = ..., If_Modified_Since: str | None = ..., **kwargs: Any) -> GetCharactersCharacterIdShipOperation:
             """Get the current ship type, name and id"""
             ...
 
@@ -8644,11 +9066,11 @@ class ESIClientStub:
     Location: _Location = _Location()
 
     class _Loyalty:
-        def GetCharactersCharacterIdLoyaltyPoints(self, character_id: CharacterID, token: Token, Accept_Language: Literal['en', 'de', 'fr', 'ja', 'ru', 'zh', 'ko', 'es'] | None = ..., If_None_Match: str | None = ..., X_Compatibility_Date: Literal['2026-08-04'] | None = ..., X_Tenant: str | None = ..., If_Modified_Since: str | None = ..., **kwargs: Any) -> GetCharactersCharacterIdLoyaltyPointsOperation:
+        def GetCharactersCharacterIdLoyaltyPoints(self, character_id: CharacterID, token: Token, Accept_Language: Literal['en', 'de', 'fr', 'ja', 'ru', 'zh', 'ko', 'es'] | None = ..., If_None_Match: str | None = ..., X_Compatibility_Date: Literal['2026-08-18'] | None = ..., X_Tenant: str | None = ..., If_Modified_Since: str | None = ..., **kwargs: Any) -> GetCharactersCharacterIdLoyaltyPointsOperation:
             """Return a list of loyalty points for all corporations the character has worked for"""
             ...
 
-        def GetLoyaltyStoresCorporationIdOffers(self, corporation_id: CorporationID, Accept_Language: Literal['en', 'de', 'fr', 'ja', 'ru', 'zh', 'ko', 'es'] | None = ..., If_None_Match: str | None = ..., X_Compatibility_Date: Literal['2026-08-04'] | None = ..., X_Tenant: str | None = ..., If_Modified_Since: str | None = ..., **kwargs: Any) -> GetLoyaltyStoresCorporationIdOffersOperation:
+        def GetLoyaltyStoresCorporationIdOffers(self, corporation_id: CorporationID, Accept_Language: Literal['en', 'de', 'fr', 'ja', 'ru', 'zh', 'ko', 'es'] | None = ..., If_None_Match: str | None = ..., X_Compatibility_Date: Literal['2026-08-18'] | None = ..., X_Tenant: str | None = ..., If_Modified_Since: str | None = ..., **kwargs: Any) -> GetLoyaltyStoresCorporationIdOffersOperation:
             """Return a list of offers from a specific corporation's loyalty store  This route expires daily at 11:05"""
             ...
 
@@ -8656,39 +9078,39 @@ class ESIClientStub:
     Loyalty: _Loyalty = _Loyalty()
 
     class _Mail:
-        def DeleteCharactersCharacterIdMailLabelsLabelId(self, character_id: CharacterID, label_id: int, token: Token, Accept_Language: Literal['en', 'de', 'fr', 'ja', 'ru', 'zh', 'ko', 'es'] | None = ..., If_None_Match: str | None = ..., X_Compatibility_Date: Literal['2026-08-04'] | None = ..., X_Tenant: str | None = ..., If_Modified_Since: str | None = ..., **kwargs: Any) -> DeleteCharactersCharacterIdMailLabelsLabelIdOperation:
+        def DeleteCharactersCharacterIdMailLabelsLabelId(self, character_id: CharacterID, label_id: int, token: Token, Accept_Language: Literal['en', 'de', 'fr', 'ja', 'ru', 'zh', 'ko', 'es'] | None = ..., If_None_Match: str | None = ..., X_Compatibility_Date: Literal['2026-08-18'] | None = ..., X_Tenant: str | None = ..., If_Modified_Since: str | None = ..., **kwargs: Any) -> DeleteCharactersCharacterIdMailLabelsLabelIdOperation:
             """Delete a mail label"""
             ...
 
-        def DeleteCharactersCharacterIdMailMailId(self, character_id: CharacterID, mail_id: int, token: Token, Accept_Language: Literal['en', 'de', 'fr', 'ja', 'ru', 'zh', 'ko', 'es'] | None = ..., If_None_Match: str | None = ..., X_Compatibility_Date: Literal['2026-08-04'] | None = ..., X_Tenant: str | None = ..., If_Modified_Since: str | None = ..., **kwargs: Any) -> DeleteCharactersCharacterIdMailMailIdOperation:
+        def DeleteCharactersCharacterIdMailMailId(self, character_id: CharacterID, mail_id: int, token: Token, Accept_Language: Literal['en', 'de', 'fr', 'ja', 'ru', 'zh', 'ko', 'es'] | None = ..., If_None_Match: str | None = ..., X_Compatibility_Date: Literal['2026-08-18'] | None = ..., X_Tenant: str | None = ..., If_Modified_Since: str | None = ..., **kwargs: Any) -> DeleteCharactersCharacterIdMailMailIdOperation:
             """Delete a mail"""
             ...
 
-        def GetCharactersCharacterIdMail(self, character_id: CharacterID, token: Token, labels: list[int] | None = ..., last_mail_id: int | None = ..., Accept_Language: Literal['en', 'de', 'fr', 'ja', 'ru', 'zh', 'ko', 'es'] | None = ..., If_None_Match: str | None = ..., X_Compatibility_Date: Literal['2026-08-04'] | None = ..., X_Tenant: str | None = ..., If_Modified_Since: str | None = ..., **kwargs: Any) -> GetCharactersCharacterIdMailOperation:
+        def GetCharactersCharacterIdMail(self, character_id: CharacterID, token: Token, labels: list[int] | None = ..., last_mail_id: int | None = ..., Accept_Language: Literal['en', 'de', 'fr', 'ja', 'ru', 'zh', 'ko', 'es'] | None = ..., If_None_Match: str | None = ..., X_Compatibility_Date: Literal['2026-08-18'] | None = ..., X_Tenant: str | None = ..., If_Modified_Since: str | None = ..., **kwargs: Any) -> GetCharactersCharacterIdMailOperation:
             """Return the 50 most recent mail headers belonging to the character that match the query criteria. Queries can be filtered by label, and last_mail_id can be used to paginate backwards"""
             ...
 
-        def GetCharactersCharacterIdMailLabels(self, character_id: CharacterID, token: Token, Accept_Language: Literal['en', 'de', 'fr', 'ja', 'ru', 'zh', 'ko', 'es'] | None = ..., If_None_Match: str | None = ..., X_Compatibility_Date: Literal['2026-08-04'] | None = ..., X_Tenant: str | None = ..., If_Modified_Since: str | None = ..., **kwargs: Any) -> GetCharactersCharacterIdMailLabelsOperation:
+        def GetCharactersCharacterIdMailLabels(self, character_id: CharacterID, token: Token, Accept_Language: Literal['en', 'de', 'fr', 'ja', 'ru', 'zh', 'ko', 'es'] | None = ..., If_None_Match: str | None = ..., X_Compatibility_Date: Literal['2026-08-18'] | None = ..., X_Tenant: str | None = ..., If_Modified_Since: str | None = ..., **kwargs: Any) -> GetCharactersCharacterIdMailLabelsOperation:
             """Return a list of the users mail labels, unread counts for each label and a total unread count."""
             ...
 
-        def GetCharactersCharacterIdMailLists(self, character_id: CharacterID, token: Token, Accept_Language: Literal['en', 'de', 'fr', 'ja', 'ru', 'zh', 'ko', 'es'] | None = ..., If_None_Match: str | None = ..., X_Compatibility_Date: Literal['2026-08-04'] | None = ..., X_Tenant: str | None = ..., If_Modified_Since: str | None = ..., **kwargs: Any) -> GetCharactersCharacterIdMailListsOperation:
+        def GetCharactersCharacterIdMailLists(self, character_id: CharacterID, token: Token, Accept_Language: Literal['en', 'de', 'fr', 'ja', 'ru', 'zh', 'ko', 'es'] | None = ..., If_None_Match: str | None = ..., X_Compatibility_Date: Literal['2026-08-18'] | None = ..., X_Tenant: str | None = ..., If_Modified_Since: str | None = ..., **kwargs: Any) -> GetCharactersCharacterIdMailListsOperation:
             """Return all mailing lists that the character is subscribed to"""
             ...
 
-        def GetCharactersCharacterIdMailMailId(self, character_id: CharacterID, mail_id: int, token: Token, Accept_Language: Literal['en', 'de', 'fr', 'ja', 'ru', 'zh', 'ko', 'es'] | None = ..., If_None_Match: str | None = ..., X_Compatibility_Date: Literal['2026-08-04'] | None = ..., X_Tenant: str | None = ..., If_Modified_Since: str | None = ..., **kwargs: Any) -> GetCharactersCharacterIdMailMailIdOperation:
+        def GetCharactersCharacterIdMailMailId(self, character_id: CharacterID, mail_id: int, token: Token, Accept_Language: Literal['en', 'de', 'fr', 'ja', 'ru', 'zh', 'ko', 'es'] | None = ..., If_None_Match: str | None = ..., X_Compatibility_Date: Literal['2026-08-18'] | None = ..., X_Tenant: str | None = ..., If_Modified_Since: str | None = ..., **kwargs: Any) -> GetCharactersCharacterIdMailMailIdOperation:
             """Return the contents of an EVE mail"""
             ...
 
-        def PostCharactersCharacterIdMail(self, body: PostCharactersCharacterIdMailOperationBody, character_id: CharacterID, token: Token, Accept_Language: Literal['en', 'de', 'fr', 'ja', 'ru', 'zh', 'ko', 'es'] | None = ..., If_None_Match: str | None = ..., X_Compatibility_Date: Literal['2026-08-04'] | None = ..., X_Tenant: str | None = ..., If_Modified_Since: str | None = ..., **kwargs: Any) -> PostCharactersCharacterIdMailOperation:
+        def PostCharactersCharacterIdMail(self, body: PostCharactersCharacterIdMailOperationBody, character_id: CharacterID, token: Token, Accept_Language: Literal['en', 'de', 'fr', 'ja', 'ru', 'zh', 'ko', 'es'] | None = ..., If_None_Match: str | None = ..., X_Compatibility_Date: Literal['2026-08-18'] | None = ..., X_Tenant: str | None = ..., If_Modified_Since: str | None = ..., **kwargs: Any) -> PostCharactersCharacterIdMailOperation:
             """Create and send a new mail"""
             ...
 
-        def PostCharactersCharacterIdMailLabels(self, body: PostCharactersCharacterIdMailLabelsOperationBody, character_id: CharacterID, token: Token, Accept_Language: Literal['en', 'de', 'fr', 'ja', 'ru', 'zh', 'ko', 'es'] | None = ..., If_None_Match: str | None = ..., X_Compatibility_Date: Literal['2026-08-04'] | None = ..., X_Tenant: str | None = ..., If_Modified_Since: str | None = ..., **kwargs: Any) -> PostCharactersCharacterIdMailLabelsOperation:
+        def PostCharactersCharacterIdMailLabels(self, body: PostCharactersCharacterIdMailLabelsOperationBody, character_id: CharacterID, token: Token, Accept_Language: Literal['en', 'de', 'fr', 'ja', 'ru', 'zh', 'ko', 'es'] | None = ..., If_None_Match: str | None = ..., X_Compatibility_Date: Literal['2026-08-18'] | None = ..., X_Tenant: str | None = ..., If_Modified_Since: str | None = ..., **kwargs: Any) -> PostCharactersCharacterIdMailLabelsOperation:
             """Create a mail label"""
             ...
 
-        def PutCharactersCharacterIdMailMailId(self, body: PutCharactersCharacterIdMailMailIdOperationBody, character_id: CharacterID, mail_id: int, token: Token, Accept_Language: Literal['en', 'de', 'fr', 'ja', 'ru', 'zh', 'ko', 'es'] | None = ..., If_None_Match: str | None = ..., X_Compatibility_Date: Literal['2026-08-04'] | None = ..., X_Tenant: str | None = ..., If_Modified_Since: str | None = ..., **kwargs: Any) -> PutCharactersCharacterIdMailMailIdOperation:
+        def PutCharactersCharacterIdMailMailId(self, body: PutCharactersCharacterIdMailMailIdOperationBody, character_id: CharacterID, mail_id: int, token: Token, Accept_Language: Literal['en', 'de', 'fr', 'ja', 'ru', 'zh', 'ko', 'es'] | None = ..., If_None_Match: str | None = ..., X_Compatibility_Date: Literal['2026-08-18'] | None = ..., X_Tenant: str | None = ..., If_Modified_Since: str | None = ..., **kwargs: Any) -> PutCharactersCharacterIdMailMailIdOperation:
             """Update metadata about a mail"""
             ...
 
@@ -8696,47 +9118,47 @@ class ESIClientStub:
     Mail: _Mail = _Mail()
 
     class _Market:
-        def GetCharactersCharacterIdOrders(self, character_id: CharacterID, token: Token, Accept_Language: Literal['en', 'de', 'fr', 'ja', 'ru', 'zh', 'ko', 'es'] | None = ..., If_None_Match: str | None = ..., X_Compatibility_Date: Literal['2026-08-04'] | None = ..., X_Tenant: str | None = ..., If_Modified_Since: str | None = ..., **kwargs: Any) -> GetCharactersCharacterIdOrdersOperation:
+        def GetCharactersCharacterIdOrders(self, character_id: CharacterID, token: Token, Accept_Language: Literal['en', 'de', 'fr', 'ja', 'ru', 'zh', 'ko', 'es'] | None = ..., If_None_Match: str | None = ..., X_Compatibility_Date: Literal['2026-08-18'] | None = ..., X_Tenant: str | None = ..., If_Modified_Since: str | None = ..., **kwargs: Any) -> GetCharactersCharacterIdOrdersOperation:
             """List open market orders placed by a character"""
             ...
 
-        def GetCharactersCharacterIdOrdersHistory(self, character_id: CharacterID, token: Token, page: int | None = ..., Accept_Language: Literal['en', 'de', 'fr', 'ja', 'ru', 'zh', 'ko', 'es'] | None = ..., If_None_Match: str | None = ..., X_Compatibility_Date: Literal['2026-08-04'] | None = ..., X_Tenant: str | None = ..., If_Modified_Since: str | None = ..., **kwargs: Any) -> GetCharactersCharacterIdOrdersHistoryOperation:
+        def GetCharactersCharacterIdOrdersHistory(self, character_id: CharacterID, token: Token, page: int | None = ..., Accept_Language: Literal['en', 'de', 'fr', 'ja', 'ru', 'zh', 'ko', 'es'] | None = ..., If_None_Match: str | None = ..., X_Compatibility_Date: Literal['2026-08-18'] | None = ..., X_Tenant: str | None = ..., If_Modified_Since: str | None = ..., **kwargs: Any) -> GetCharactersCharacterIdOrdersHistoryOperation:
             """List cancelled and expired market orders placed by a character up to 90 days in the past."""
             ...
 
-        def GetCorporationsCorporationIdOrders(self, corporation_id: CorporationID, token: Token, page: int | None = ..., Accept_Language: Literal['en', 'de', 'fr', 'ja', 'ru', 'zh', 'ko', 'es'] | None = ..., If_None_Match: str | None = ..., X_Compatibility_Date: Literal['2026-08-04'] | None = ..., X_Tenant: str | None = ..., If_Modified_Since: str | None = ..., **kwargs: Any) -> GetCorporationsCorporationIdOrdersOperation:
+        def GetCorporationsCorporationIdOrders(self, corporation_id: CorporationID, token: Token, page: int | None = ..., Accept_Language: Literal['en', 'de', 'fr', 'ja', 'ru', 'zh', 'ko', 'es'] | None = ..., If_None_Match: str | None = ..., X_Compatibility_Date: Literal['2026-08-18'] | None = ..., X_Tenant: str | None = ..., If_Modified_Since: str | None = ..., **kwargs: Any) -> GetCorporationsCorporationIdOrdersOperation:
             """List open market orders placed on behalf of a corporation"""
             ...
 
-        def GetCorporationsCorporationIdOrdersHistory(self, corporation_id: CorporationID, token: Token, page: int | None = ..., Accept_Language: Literal['en', 'de', 'fr', 'ja', 'ru', 'zh', 'ko', 'es'] | None = ..., If_None_Match: str | None = ..., X_Compatibility_Date: Literal['2026-08-04'] | None = ..., X_Tenant: str | None = ..., If_Modified_Since: str | None = ..., **kwargs: Any) -> GetCorporationsCorporationIdOrdersHistoryOperation:
+        def GetCorporationsCorporationIdOrdersHistory(self, corporation_id: CorporationID, token: Token, page: int | None = ..., Accept_Language: Literal['en', 'de', 'fr', 'ja', 'ru', 'zh', 'ko', 'es'] | None = ..., If_None_Match: str | None = ..., X_Compatibility_Date: Literal['2026-08-18'] | None = ..., X_Tenant: str | None = ..., If_Modified_Since: str | None = ..., **kwargs: Any) -> GetCorporationsCorporationIdOrdersHistoryOperation:
             """List cancelled and expired market orders placed on behalf of a corporation up to 90 days in the past."""
             ...
 
-        def GetMarketsGroups(self, Accept_Language: Literal['en', 'de', 'fr', 'ja', 'ru', 'zh', 'ko', 'es'] | None = ..., If_None_Match: str | None = ..., X_Compatibility_Date: Literal['2026-08-04'] | None = ..., X_Tenant: str | None = ..., If_Modified_Since: str | None = ..., **kwargs: Any) -> GetMarketsGroupsOperation:
+        def GetMarketsGroups(self, Accept_Language: Literal['en', 'de', 'fr', 'ja', 'ru', 'zh', 'ko', 'es'] | None = ..., If_None_Match: str | None = ..., X_Compatibility_Date: Literal['2026-08-18'] | None = ..., X_Tenant: str | None = ..., If_Modified_Since: str | None = ..., **kwargs: Any) -> GetMarketsGroupsOperation:
             """Get a list of item groups  This route expires daily at 11:05"""
             ...
 
-        def GetMarketsGroupsMarketGroupId(self, market_group_id: int, Accept_Language: Literal['en', 'de', 'fr', 'ja', 'ru', 'zh', 'ko', 'es'] | None = ..., If_None_Match: str | None = ..., X_Compatibility_Date: Literal['2026-08-04'] | None = ..., X_Tenant: str | None = ..., If_Modified_Since: str | None = ..., **kwargs: Any) -> GetMarketsGroupsMarketGroupIdOperation:
+        def GetMarketsGroupsMarketGroupId(self, market_group_id: int, Accept_Language: Literal['en', 'de', 'fr', 'ja', 'ru', 'zh', 'ko', 'es'] | None = ..., If_None_Match: str | None = ..., X_Compatibility_Date: Literal['2026-08-18'] | None = ..., X_Tenant: str | None = ..., If_Modified_Since: str | None = ..., **kwargs: Any) -> GetMarketsGroupsMarketGroupIdOperation:
             """Get information on an item group  This route expires daily at 11:05"""
             ...
 
-        def GetMarketsPrices(self, Accept_Language: Literal['en', 'de', 'fr', 'ja', 'ru', 'zh', 'ko', 'es'] | None = ..., If_None_Match: str | None = ..., X_Compatibility_Date: Literal['2026-08-04'] | None = ..., X_Tenant: str | None = ..., If_Modified_Since: str | None = ..., **kwargs: Any) -> GetMarketsPricesOperation:
+        def GetMarketsPrices(self, Accept_Language: Literal['en', 'de', 'fr', 'ja', 'ru', 'zh', 'ko', 'es'] | None = ..., If_None_Match: str | None = ..., X_Compatibility_Date: Literal['2026-08-18'] | None = ..., X_Tenant: str | None = ..., If_Modified_Since: str | None = ..., **kwargs: Any) -> GetMarketsPricesOperation:
             """Return a list of prices"""
             ...
 
-        def GetMarketsRegionIdHistory(self, region_id: int, type_id: int, Accept_Language: Literal['en', 'de', 'fr', 'ja', 'ru', 'zh', 'ko', 'es'] | None = ..., If_None_Match: str | None = ..., X_Compatibility_Date: Literal['2026-08-04'] | None = ..., X_Tenant: str | None = ..., If_Modified_Since: str | None = ..., **kwargs: Any) -> GetMarketsRegionIdHistoryOperation:
+        def GetMarketsRegionIdHistory(self, region_id: int, type_id: int, Accept_Language: Literal['en', 'de', 'fr', 'ja', 'ru', 'zh', 'ko', 'es'] | None = ..., If_None_Match: str | None = ..., X_Compatibility_Date: Literal['2026-08-18'] | None = ..., X_Tenant: str | None = ..., If_Modified_Since: str | None = ..., **kwargs: Any) -> GetMarketsRegionIdHistoryOperation:
             """Return a list of historical market statistics for the specified type in a region  This route expires daily at 11:05"""
             ...
 
-        def GetMarketsRegionIdOrders(self, order_type: Literal['buy', 'sell', 'all'], region_id: int, page: int | None = ..., type_id: int | None = ..., Accept_Language: Literal['en', 'de', 'fr', 'ja', 'ru', 'zh', 'ko', 'es'] | None = ..., If_None_Match: str | None = ..., X_Compatibility_Date: Literal['2026-08-04'] | None = ..., X_Tenant: str | None = ..., If_Modified_Since: str | None = ..., **kwargs: Any) -> GetMarketsRegionIdOrdersOperation:
+        def GetMarketsRegionIdOrders(self, order_type: Literal['buy', 'sell', 'all'], region_id: int, page: int | None = ..., type_id: int | None = ..., Accept_Language: Literal['en', 'de', 'fr', 'ja', 'ru', 'zh', 'ko', 'es'] | None = ..., If_None_Match: str | None = ..., X_Compatibility_Date: Literal['2026-08-18'] | None = ..., X_Tenant: str | None = ..., If_Modified_Since: str | None = ..., **kwargs: Any) -> GetMarketsRegionIdOrdersOperation:
             """Return a list of orders in a region"""
             ...
 
-        def GetMarketsRegionIdTypes(self, region_id: int, page: int | None = ..., Accept_Language: Literal['en', 'de', 'fr', 'ja', 'ru', 'zh', 'ko', 'es'] | None = ..., If_None_Match: str | None = ..., X_Compatibility_Date: Literal['2026-08-04'] | None = ..., X_Tenant: str | None = ..., If_Modified_Since: str | None = ..., **kwargs: Any) -> GetMarketsRegionIdTypesOperation:
+        def GetMarketsRegionIdTypes(self, region_id: int, page: int | None = ..., Accept_Language: Literal['en', 'de', 'fr', 'ja', 'ru', 'zh', 'ko', 'es'] | None = ..., If_None_Match: str | None = ..., X_Compatibility_Date: Literal['2026-08-18'] | None = ..., X_Tenant: str | None = ..., If_Modified_Since: str | None = ..., **kwargs: Any) -> GetMarketsRegionIdTypesOperation:
             """Return a list of type IDs that have active orders in the region, for efficient market indexing."""
             ...
 
-        def GetMarketsStructuresStructureId(self, structure_id: int, token: Token, page: int | None = ..., Accept_Language: Literal['en', 'de', 'fr', 'ja', 'ru', 'zh', 'ko', 'es'] | None = ..., If_None_Match: str | None = ..., X_Compatibility_Date: Literal['2026-08-04'] | None = ..., X_Tenant: str | None = ..., If_Modified_Since: str | None = ..., **kwargs: Any) -> GetMarketsStructuresStructureIdOperation:
+        def GetMarketsStructuresStructureId(self, structure_id: int, token: Token, page: int | None = ..., Accept_Language: Literal['en', 'de', 'fr', 'ja', 'ru', 'zh', 'ko', 'es'] | None = ..., If_None_Match: str | None = ..., X_Compatibility_Date: Literal['2026-08-18'] | None = ..., X_Tenant: str | None = ..., If_Modified_Since: str | None = ..., **kwargs: Any) -> GetMarketsStructuresStructureIdOperation:
             """Return all orders in a structure"""
             ...
 
@@ -8744,19 +9166,19 @@ class ESIClientStub:
     Market: _Market = _Market()
 
     class _Meta:
-        def GetMetaChangelog(self, Accept_Language: Literal['en', 'de', 'fr', 'ja', 'ru', 'zh', 'ko', 'es'] | None = ..., If_None_Match: str | None = ..., X_Compatibility_Date: Literal['2026-08-04'] | None = ..., X_Tenant: str | None = ..., If_Modified_Since: str | None = ..., **kwargs: Any) -> GetMetaChangelogOperation:
+        def GetMetaChangelog(self, Accept_Language: Literal['en', 'de', 'fr', 'ja', 'ru', 'zh', 'ko', 'es'] | None = ..., If_None_Match: str | None = ..., X_Compatibility_Date: Literal['2026-08-18'] | None = ..., X_Tenant: str | None = ..., If_Modified_Since: str | None = ..., **kwargs: Any) -> GetMetaChangelogOperation:
             """Get the changelog of this API."""
             ...
 
-        def GetMetaCompatibilityDates(self, Accept_Language: Literal['en', 'de', 'fr', 'ja', 'ru', 'zh', 'ko', 'es'] | None = ..., If_None_Match: str | None = ..., X_Compatibility_Date: Literal['2026-08-04'] | None = ..., X_Tenant: str | None = ..., If_Modified_Since: str | None = ..., **kwargs: Any) -> GetMetaCompatibilityDatesOperation:
+        def GetMetaCompatibilityDates(self, Accept_Language: Literal['en', 'de', 'fr', 'ja', 'ru', 'zh', 'ko', 'es'] | None = ..., If_None_Match: str | None = ..., X_Compatibility_Date: Literal['2026-08-18'] | None = ..., X_Tenant: str | None = ..., If_Modified_Since: str | None = ..., **kwargs: Any) -> GetMetaCompatibilityDatesOperation:
             """Get a list of compatibility dates."""
             ...
 
-        def GetMetaName(self, Accept_Language: Literal['en', 'de', 'fr', 'ja', 'ru', 'zh', 'ko', 'es'] | None = ..., If_None_Match: str | None = ..., X_Compatibility_Date: Literal['2026-08-04'] | None = ..., X_Tenant: str | None = ..., If_Modified_Since: str | None = ..., **kwargs: Any) -> GetMetaNameOperation:
+        def GetMetaName(self, Accept_Language: Literal['en', 'de', 'fr', 'ja', 'ru', 'zh', 'ko', 'es'] | None = ..., If_None_Match: str | None = ..., X_Compatibility_Date: Literal['2026-08-18'] | None = ..., X_Tenant: str | None = ..., If_Modified_Since: str | None = ..., **kwargs: Any) -> GetMetaNameOperation:
             """Get the name ESI is currently going by, plus the full and glorious history of every name it has ever had. The three letters have never once meant the same thing twice."""
             ...
 
-        def GetMetaStatus(self, Accept_Language: Literal['en', 'de', 'fr', 'ja', 'ru', 'zh', 'ko', 'es'] | None = ..., If_None_Match: str | None = ..., X_Compatibility_Date: Literal['2026-08-04'] | None = ..., X_Tenant: str | None = ..., If_Modified_Since: str | None = ..., **kwargs: Any) -> GetMetaStatusOperation:
+        def GetMetaStatus(self, Accept_Language: Literal['en', 'de', 'fr', 'ja', 'ru', 'zh', 'ko', 'es'] | None = ..., If_None_Match: str | None = ..., X_Compatibility_Date: Literal['2026-08-18'] | None = ..., X_Tenant: str | None = ..., If_Modified_Since: str | None = ..., **kwargs: Any) -> GetMetaStatusOperation:
             """Get the health status of each API route."""
             ...
 
@@ -8764,47 +9186,71 @@ class ESIClientStub:
     Meta: _Meta = _Meta()
 
     class _Military_Campaigns:
-        def GetCharactersMilitaryCampaignsObjectivesListing(self, character_id: CharacterID, token: Token, after: str | None = ..., before: str | None = ..., limit: int | None = ..., Accept_Language: Literal['en', 'de', 'fr', 'ja', 'ru', 'zh', 'ko', 'es'] | None = ..., If_None_Match: str | None = ..., X_Compatibility_Date: Literal['2026-08-04'] | None = ..., X_Tenant: str | None = ..., If_Modified_Since: str | None = ..., **kwargs: Any) -> GetCharactersMilitaryCampaignsObjectivesListingOperation:
+        def GetCharactersMilitaryCampaignsObjectivesListing(self, character_id: CharacterID, token: Token, after: str | None = ..., before: str | None = ..., limit: int | None = ..., Accept_Language: Literal['en', 'de', 'fr', 'ja', 'ru', 'zh', 'ko', 'es'] | None = ..., If_None_Match: str | None = ..., X_Compatibility_Date: Literal['2026-08-18'] | None = ..., X_Tenant: str | None = ..., If_Modified_Since: str | None = ..., **kwargs: Any) -> GetCharactersMilitaryCampaignsObjectivesListingOperation:
             """Listing of the military campaign objectives the character has participated in."""
             ...
 
-        def GetCharactersMilitaryCampaignsObjectivesParticipation(self, character_id: CharacterID, objective_id: UUID, token: Token, Accept_Language: Literal['en', 'de', 'fr', 'ja', 'ru', 'zh', 'ko', 'es'] | None = ..., If_None_Match: str | None = ..., X_Compatibility_Date: Literal['2026-08-04'] | None = ..., X_Tenant: str | None = ..., If_Modified_Since: str | None = ..., **kwargs: Any) -> GetCharactersMilitaryCampaignsObjectivesParticipationOperation:
+        def GetCharactersMilitaryCampaignsObjectivesParticipation(self, character_id: CharacterID, objective_id: UUID, token: Token, Accept_Language: Literal['en', 'de', 'fr', 'ja', 'ru', 'zh', 'ko', 'es'] | None = ..., If_None_Match: str | None = ..., X_Compatibility_Date: Literal['2026-08-18'] | None = ..., X_Tenant: str | None = ..., If_Modified_Since: str | None = ..., **kwargs: Any) -> GetCharactersMilitaryCampaignsObjectivesParticipationOperation:
             """Show your participation in a military campaign objective."""
             ...
 
-        def GetMilitaryCampaignsDetail(self, campaign_id: UUID, Accept_Language: Literal['en', 'de', 'fr', 'ja', 'ru', 'zh', 'ko', 'es'] | None = ..., If_None_Match: str | None = ..., X_Compatibility_Date: Literal['2026-08-04'] | None = ..., X_Tenant: str | None = ..., If_Modified_Since: str | None = ..., **kwargs: Any) -> GetMilitaryCampaignsDetailOperation:
+        def GetMilitaryCampaignsDetail(self, campaign_id: UUID, Accept_Language: Literal['en', 'de', 'fr', 'ja', 'ru', 'zh', 'ko', 'es'] | None = ..., If_None_Match: str | None = ..., X_Compatibility_Date: Literal['2026-08-18'] | None = ..., X_Tenant: str | None = ..., If_Modified_Since: str | None = ..., **kwargs: Any) -> GetMilitaryCampaignsDetailOperation:
             """Get the details of a military campaign."""
             ...
 
-        def GetMilitaryCampaignsListing(self, Accept_Language: Literal['en', 'de', 'fr', 'ja', 'ru', 'zh', 'ko', 'es'] | None = ..., If_None_Match: str | None = ..., X_Compatibility_Date: Literal['2026-08-04'] | None = ..., X_Tenant: str | None = ..., If_Modified_Since: str | None = ..., **kwargs: Any) -> GetMilitaryCampaignsListingOperation:
+        def GetMilitaryCampaignsListing(self, Accept_Language: Literal['en', 'de', 'fr', 'ja', 'ru', 'zh', 'ko', 'es'] | None = ..., If_None_Match: str | None = ..., X_Compatibility_Date: Literal['2026-08-18'] | None = ..., X_Tenant: str | None = ..., If_Modified_Since: str | None = ..., **kwargs: Any) -> GetMilitaryCampaignsListingOperation:
             """Listing of all active military campaigns."""
             ...
 
-        def GetMilitaryCampaignsObjectivesDetail(self, campaign_id: UUID, objective_id: UUID, Accept_Language: Literal['en', 'de', 'fr', 'ja', 'ru', 'zh', 'ko', 'es'] | None = ..., If_None_Match: str | None = ..., X_Compatibility_Date: Literal['2026-08-04'] | None = ..., X_Tenant: str | None = ..., If_Modified_Since: str | None = ..., **kwargs: Any) -> GetMilitaryCampaignsObjectivesDetailOperation:
+        def GetMilitaryCampaignsObjectivesDetail(self, campaign_id: UUID, objective_id: UUID, Accept_Language: Literal['en', 'de', 'fr', 'ja', 'ru', 'zh', 'ko', 'es'] | None = ..., If_None_Match: str | None = ..., X_Compatibility_Date: Literal['2026-08-18'] | None = ..., X_Tenant: str | None = ..., If_Modified_Since: str | None = ..., **kwargs: Any) -> GetMilitaryCampaignsObjectivesDetailOperation:
             """Get the details of an objective of a military campaign."""
             ...
 
-        def GetMilitaryCampaignsObjectivesListing(self, campaign_id: UUID, after: str | None = ..., before: str | None = ..., limit: int | None = ..., Accept_Language: Literal['en', 'de', 'fr', 'ja', 'ru', 'zh', 'ko', 'es'] | None = ..., If_None_Match: str | None = ..., X_Compatibility_Date: Literal['2026-08-04'] | None = ..., X_Tenant: str | None = ..., If_Modified_Since: str | None = ..., **kwargs: Any) -> GetMilitaryCampaignsObjectivesListingOperation:
+        def GetMilitaryCampaignsObjectivesListing(self, campaign_id: UUID, after: str | None = ..., before: str | None = ..., limit: int | None = ..., Accept_Language: Literal['en', 'de', 'fr', 'ja', 'ru', 'zh', 'ko', 'es'] | None = ..., If_None_Match: str | None = ..., X_Compatibility_Date: Literal['2026-08-18'] | None = ..., X_Tenant: str | None = ..., If_Modified_Since: str | None = ..., **kwargs: Any) -> GetMilitaryCampaignsObjectivesListingOperation:
             """Listing of all active, completed or expired objectives of a military campaign."""
             ...
 
 
     Military_Campaigns: _Military_Campaigns = _Military_Campaigns()
 
+    class _Paragon_Hub:
+        def GetCharactersParagonHubSkinr(self, character_id: CharacterID, token: Token, after: str | None = ..., before: str | None = ..., limit: int | None = ..., Accept_Language: Literal['en', 'de', 'fr', 'ja', 'ru', 'zh', 'ko', 'es'] | None = ..., If_None_Match: str | None = ..., X_Compatibility_Date: Literal['2026-08-18'] | None = ..., X_Tenant: str | None = ..., If_Modified_Since: str | None = ..., **kwargs: Any) -> GetCharactersParagonHubSkinrOperation:
+            """List the SKINR listings a character has posted on the Paragon Hub."""
+            ...
+
+        def GetParagonHubSkinr(self, after: str | None = ..., before: str | None = ..., limit: int | None = ..., Accept_Language: Literal['en', 'de', 'fr', 'ja', 'ru', 'zh', 'ko', 'es'] | None = ..., If_None_Match: str | None = ..., X_Compatibility_Date: Literal['2026-08-18'] | None = ..., X_Tenant: str | None = ..., If_Modified_Since: str | None = ..., **kwargs: Any) -> GetParagonHubSkinrOperation:
+            """Browse the SKINR listings publicly available on the Paragon Hub."""
+            ...
+
+        def GetParagonHubSkinrAlliances(self, alliance_id: AllianceID, token: Token, after: str | None = ..., before: str | None = ..., limit: int | None = ..., Accept_Language: Literal['en', 'de', 'fr', 'ja', 'ru', 'zh', 'ko', 'es'] | None = ..., If_None_Match: str | None = ..., X_Compatibility_Date: Literal['2026-08-18'] | None = ..., X_Tenant: str | None = ..., If_Modified_Since: str | None = ..., **kwargs: Any) -> GetParagonHubSkinrAlliancesOperation:
+            """Browse the SKINR listings on the Paragon Hub that are visible to the given alliance."""
+            ...
+
+        def GetParagonHubSkinrCharacters(self, character_id: CharacterID, token: Token, after: str | None = ..., before: str | None = ..., limit: int | None = ..., Accept_Language: Literal['en', 'de', 'fr', 'ja', 'ru', 'zh', 'ko', 'es'] | None = ..., If_None_Match: str | None = ..., X_Compatibility_Date: Literal['2026-08-18'] | None = ..., X_Tenant: str | None = ..., If_Modified_Since: str | None = ..., **kwargs: Any) -> GetParagonHubSkinrCharactersOperation:
+            """Browse the SKINR listings on the Paragon Hub that are visible to the given character."""
+            ...
+
+        def GetParagonHubSkinrCorporations(self, corporation_id: CorporationID, token: Token, after: str | None = ..., before: str | None = ..., limit: int | None = ..., Accept_Language: Literal['en', 'de', 'fr', 'ja', 'ru', 'zh', 'ko', 'es'] | None = ..., If_None_Match: str | None = ..., X_Compatibility_Date: Literal['2026-08-18'] | None = ..., X_Tenant: str | None = ..., If_Modified_Since: str | None = ..., **kwargs: Any) -> GetParagonHubSkinrCorporationsOperation:
+            """Browse the SKINR listings on the Paragon Hub that are visible to the given corporation."""
+            ...
+
+
+    Paragon_Hub: _Paragon_Hub = _Paragon_Hub()
+
     class _Planetary_Interaction:
-        def GetCharactersCharacterIdPlanets(self, character_id: CharacterID, token: Token, Accept_Language: Literal['en', 'de', 'fr', 'ja', 'ru', 'zh', 'ko', 'es'] | None = ..., If_None_Match: str | None = ..., X_Compatibility_Date: Literal['2026-08-04'] | None = ..., X_Tenant: str | None = ..., If_Modified_Since: str | None = ..., **kwargs: Any) -> GetCharactersCharacterIdPlanetsOperation:
+        def GetCharactersCharacterIdPlanets(self, character_id: CharacterID, token: Token, Accept_Language: Literal['en', 'de', 'fr', 'ja', 'ru', 'zh', 'ko', 'es'] | None = ..., If_None_Match: str | None = ..., X_Compatibility_Date: Literal['2026-08-18'] | None = ..., X_Tenant: str | None = ..., If_Modified_Since: str | None = ..., **kwargs: Any) -> GetCharactersCharacterIdPlanetsOperation:
             """Returns a list of all planetary colonies owned by a character."""
             ...
 
-        def GetCharactersCharacterIdPlanetsPlanetId(self, character_id: CharacterID, planet_id: int, token: Token, Accept_Language: Literal['en', 'de', 'fr', 'ja', 'ru', 'zh', 'ko', 'es'] | None = ..., If_None_Match: str | None = ..., X_Compatibility_Date: Literal['2026-08-04'] | None = ..., X_Tenant: str | None = ..., If_Modified_Since: str | None = ..., **kwargs: Any) -> GetCharactersCharacterIdPlanetsPlanetIdOperation:
+        def GetCharactersCharacterIdPlanetsPlanetId(self, character_id: CharacterID, planet_id: int, token: Token, Accept_Language: Literal['en', 'de', 'fr', 'ja', 'ru', 'zh', 'ko', 'es'] | None = ..., If_None_Match: str | None = ..., X_Compatibility_Date: Literal['2026-08-18'] | None = ..., X_Tenant: str | None = ..., If_Modified_Since: str | None = ..., **kwargs: Any) -> GetCharactersCharacterIdPlanetsPlanetIdOperation:
             """Returns full details on the layout of a single planetary colony, including links, pins and routes. Note: Planetary information is only recalculated when the colony is viewed through the client. Information will not update until this criteria is met."""
             ...
 
-        def GetCorporationsCorporationIdCustomsOffices(self, corporation_id: CorporationID, token: Token, page: int | None = ..., Accept_Language: Literal['en', 'de', 'fr', 'ja', 'ru', 'zh', 'ko', 'es'] | None = ..., If_None_Match: str | None = ..., X_Compatibility_Date: Literal['2026-08-04'] | None = ..., X_Tenant: str | None = ..., If_Modified_Since: str | None = ..., **kwargs: Any) -> GetCorporationsCorporationIdCustomsOfficesOperation:
+        def GetCorporationsCorporationIdCustomsOffices(self, corporation_id: CorporationID, token: Token, page: int | None = ..., Accept_Language: Literal['en', 'de', 'fr', 'ja', 'ru', 'zh', 'ko', 'es'] | None = ..., If_None_Match: str | None = ..., X_Compatibility_Date: Literal['2026-08-18'] | None = ..., X_Tenant: str | None = ..., If_Modified_Since: str | None = ..., **kwargs: Any) -> GetCorporationsCorporationIdCustomsOfficesOperation:
             """List customs offices owned by a corporation"""
             ...
 
-        def GetUniverseSchematicsSchematicId(self, schematic_id: int, Accept_Language: Literal['en', 'de', 'fr', 'ja', 'ru', 'zh', 'ko', 'es'] | None = ..., If_None_Match: str | None = ..., X_Compatibility_Date: Literal['2026-08-04'] | None = ..., X_Tenant: str | None = ..., If_Modified_Since: str | None = ..., **kwargs: Any) -> GetUniverseSchematicsSchematicIdOperation:
+        def GetUniverseSchematicsSchematicId(self, schematic_id: int, Accept_Language: Literal['en', 'de', 'fr', 'ja', 'ru', 'zh', 'ko', 'es'] | None = ..., If_None_Match: str | None = ..., X_Compatibility_Date: Literal['2026-08-18'] | None = ..., X_Tenant: str | None = ..., If_Modified_Since: str | None = ..., **kwargs: Any) -> GetUniverseSchematicsSchematicIdOperation:
             """Get information on a planetary factory schematic"""
             ...
 
@@ -8812,7 +9258,7 @@ class ESIClientStub:
     Planetary_Interaction: _Planetary_Interaction = _Planetary_Interaction()
 
     class _Routes:
-        def PostRoute(self, body: RouteRequestBody, origin_system_id: SolarSystemID, destination_system_id: SolarSystemID, Accept_Language: Literal['en', 'de', 'fr', 'ja', 'ru', 'zh', 'ko', 'es'] | None = ..., If_None_Match: str | None = ..., X_Compatibility_Date: Literal['2026-08-04'] | None = ..., X_Tenant: str | None = ..., If_Modified_Since: str | None = ..., **kwargs: Any) -> PostRouteOperation:
+        def PostRoute(self, body: RouteRequestBody, origin_system_id: SolarSystemID, destination_system_id: SolarSystemID, Accept_Language: Literal['en', 'de', 'fr', 'ja', 'ru', 'zh', 'ko', 'es'] | None = ..., If_None_Match: str | None = ..., X_Compatibility_Date: Literal['2026-08-18'] | None = ..., X_Tenant: str | None = ..., If_Modified_Since: str | None = ..., **kwargs: Any) -> PostRouteOperation:
             """Calculate the systems between the given origin and destination."""
             ...
 
@@ -8820,7 +9266,7 @@ class ESIClientStub:
     Routes: _Routes = _Routes()
 
     class _Search:
-        def GetCharactersCharacterIdSearch(self, categories: list[Literal['agent', 'alliance', 'character', 'constellation', 'corporation', 'faction', 'inventory_type', 'region', 'solar_system', 'station', 'structure']], character_id: CharacterID, search: Annotated[str, Field(min_length=3)], token: Token, strict: bool | None = ..., Accept_Language: Literal['en', 'de', 'fr', 'ja', 'ru', 'zh', 'ko', 'es'] | None = ..., If_None_Match: str | None = ..., X_Compatibility_Date: Literal['2026-08-04'] | None = ..., X_Tenant: str | None = ..., If_Modified_Since: str | None = ..., **kwargs: Any) -> GetCharactersCharacterIdSearchOperation:
+        def GetCharactersCharacterIdSearch(self, categories: list[Literal['agent', 'alliance', 'character', 'constellation', 'corporation', 'faction', 'inventory_type', 'region', 'solar_system', 'station', 'structure']], character_id: CharacterID, search: Annotated[str, Field(min_length=3)], token: Token, strict: bool | None = ..., Accept_Language: Literal['en', 'de', 'fr', 'ja', 'ru', 'zh', 'ko', 'es'] | None = ..., If_None_Match: str | None = ..., X_Compatibility_Date: Literal['2026-08-18'] | None = ..., X_Tenant: str | None = ..., If_Modified_Since: str | None = ..., **kwargs: Any) -> GetCharactersCharacterIdSearchOperation:
             """Search for entities that match a given sub-string."""
             ...
 
@@ -8828,15 +9274,15 @@ class ESIClientStub:
     Search: _Search = _Search()
 
     class _Skills:
-        def GetCharactersCharacterIdAttributes(self, character_id: CharacterID, token: Token, Accept_Language: Literal['en', 'de', 'fr', 'ja', 'ru', 'zh', 'ko', 'es'] | None = ..., If_None_Match: str | None = ..., X_Compatibility_Date: Literal['2026-08-04'] | None = ..., X_Tenant: str | None = ..., If_Modified_Since: str | None = ..., **kwargs: Any) -> GetCharactersCharacterIdAttributesOperation:
+        def GetCharactersCharacterIdAttributes(self, character_id: CharacterID, token: Token, Accept_Language: Literal['en', 'de', 'fr', 'ja', 'ru', 'zh', 'ko', 'es'] | None = ..., If_None_Match: str | None = ..., X_Compatibility_Date: Literal['2026-08-18'] | None = ..., X_Tenant: str | None = ..., If_Modified_Since: str | None = ..., **kwargs: Any) -> GetCharactersCharacterIdAttributesOperation:
             """Return attributes of a character"""
             ...
 
-        def GetCharactersCharacterIdSkillqueue(self, character_id: CharacterID, token: Token, Accept_Language: Literal['en', 'de', 'fr', 'ja', 'ru', 'zh', 'ko', 'es'] | None = ..., If_None_Match: str | None = ..., X_Compatibility_Date: Literal['2026-08-04'] | None = ..., X_Tenant: str | None = ..., If_Modified_Since: str | None = ..., **kwargs: Any) -> GetCharactersCharacterIdSkillqueueOperation:
+        def GetCharactersCharacterIdSkillqueue(self, character_id: CharacterID, token: Token, Accept_Language: Literal['en', 'de', 'fr', 'ja', 'ru', 'zh', 'ko', 'es'] | None = ..., If_None_Match: str | None = ..., X_Compatibility_Date: Literal['2026-08-18'] | None = ..., X_Tenant: str | None = ..., If_Modified_Since: str | None = ..., **kwargs: Any) -> GetCharactersCharacterIdSkillqueueOperation:
             """List the configured skill queue for the given character.  Entries that have their finish time in the past are completed, but aren't updated in the "/skills" route yet. This will happen the next time the character logs in."""
             ...
 
-        def GetCharactersCharacterIdSkills(self, character_id: CharacterID, token: Token, Accept_Language: Literal['en', 'de', 'fr', 'ja', 'ru', 'zh', 'ko', 'es'] | None = ..., If_None_Match: str | None = ..., X_Compatibility_Date: Literal['2026-08-04'] | None = ..., X_Tenant: str | None = ..., If_Modified_Since: str | None = ..., **kwargs: Any) -> GetCharactersCharacterIdSkillsOperation:
+        def GetCharactersCharacterIdSkills(self, character_id: CharacterID, token: Token, Accept_Language: Literal['en', 'de', 'fr', 'ja', 'ru', 'zh', 'ko', 'es'] | None = ..., If_None_Match: str | None = ..., X_Compatibility_Date: Literal['2026-08-18'] | None = ..., X_Tenant: str | None = ..., If_Modified_Since: str | None = ..., **kwargs: Any) -> GetCharactersCharacterIdSkillsOperation:
             """List all trained skills for the given character.  Skills returned by this route can be out-of-date if the character hasn't logged in since one or more skills completed training. Use the /skillqueue route to check for skills that completed training. Entries that are in the past need to be applied on top of this list to get an accurate view of the character's current skills."""
             ...
 
@@ -8844,11 +9290,11 @@ class ESIClientStub:
     Skills: _Skills = _Skills()
 
     class _Sovereignty:
-        def GetSovereigntyCampaigns(self, Accept_Language: Literal['en', 'de', 'fr', 'ja', 'ru', 'zh', 'ko', 'es'] | None = ..., If_None_Match: str | None = ..., X_Compatibility_Date: Literal['2026-08-04'] | None = ..., X_Tenant: str | None = ..., If_Modified_Since: str | None = ..., **kwargs: Any) -> GetSovereigntyCampaignsOperation:
+        def GetSovereigntyCampaigns(self, Accept_Language: Literal['en', 'de', 'fr', 'ja', 'ru', 'zh', 'ko', 'es'] | None = ..., If_None_Match: str | None = ..., X_Compatibility_Date: Literal['2026-08-18'] | None = ..., X_Tenant: str | None = ..., If_Modified_Since: str | None = ..., **kwargs: Any) -> GetSovereigntyCampaignsOperation:
             """Shows sovereignty data for campaigns."""
             ...
 
-        def GetSovereigntySystems(self, Accept_Language: Literal['en', 'de', 'fr', 'ja', 'ru', 'zh', 'ko', 'es'] | None = ..., If_None_Match: str | None = ..., X_Compatibility_Date: Literal['2026-08-04'] | None = ..., X_Tenant: str | None = ..., If_Modified_Since: str | None = ..., **kwargs: Any) -> GetSovereigntySystemsOperation:
+        def GetSovereigntySystems(self, Accept_Language: Literal['en', 'de', 'fr', 'ja', 'ru', 'zh', 'ko', 'es'] | None = ..., If_None_Match: str | None = ..., X_Compatibility_Date: Literal['2026-08-18'] | None = ..., X_Tenant: str | None = ..., If_Modified_Since: str | None = ..., **kwargs: Any) -> GetSovereigntySystemsOperation:
             """Listing of sovereignty details for all K-space systems in New Eden."""
             ...
 
@@ -8856,35 +9302,35 @@ class ESIClientStub:
     Sovereignty: _Sovereignty = _Sovereignty()
 
     class _Status:
-        def GetStatus(self, Accept_Language: Literal['en', 'de', 'fr', 'ja', 'ru', 'zh', 'ko', 'es'] | None = ..., If_None_Match: str | None = ..., X_Compatibility_Date: Literal['2026-08-04'] | None = ..., X_Tenant: str | None = ..., If_Modified_Since: str | None = ..., **kwargs: Any) -> GetStatusOperation:
-            """EVE Server status"""
+        def GetStatus(self, Accept_Language: Literal['en', 'de', 'fr', 'ja', 'ru', 'zh', 'ko', 'es'] | None = ..., If_None_Match: str | None = ..., X_Compatibility_Date: Literal['2026-08-18'] | None = ..., X_Tenant: str | None = ..., If_Modified_Since: str | None = ..., **kwargs: Any) -> GetStatusOperation:
+            """Current status of the EVE Online cluster"""
             ...
 
 
     Status: _Status = _Status()
 
     class _Structures:
-        def GetCharactersStructuresMercenaryDensDetail(self, mercenary_den_id: ItemID, character_id: CharacterID, token: Token, Accept_Language: Literal['en', 'de', 'fr', 'ja', 'ru', 'zh', 'ko', 'es'] | None = ..., If_None_Match: str | None = ..., X_Compatibility_Date: Literal['2026-08-04'] | None = ..., X_Tenant: str | None = ..., If_Modified_Since: str | None = ..., **kwargs: Any) -> GetCharactersStructuresMercenaryDensDetailOperation:
+        def GetCharactersStructuresMercenaryDensDetail(self, mercenary_den_id: ItemID, character_id: CharacterID, token: Token, Accept_Language: Literal['en', 'de', 'fr', 'ja', 'ru', 'zh', 'ko', 'es'] | None = ..., If_None_Match: str | None = ..., X_Compatibility_Date: Literal['2026-08-18'] | None = ..., X_Tenant: str | None = ..., If_Modified_Since: str | None = ..., **kwargs: Any) -> GetCharactersStructuresMercenaryDensDetailOperation:
             """Get the details of a Mercenary Den."""
             ...
 
-        def GetCharactersStructuresMercenaryDensListing(self, character_id: CharacterID, token: Token, Accept_Language: Literal['en', 'de', 'fr', 'ja', 'ru', 'zh', 'ko', 'es'] | None = ..., If_None_Match: str | None = ..., X_Compatibility_Date: Literal['2026-08-04'] | None = ..., X_Tenant: str | None = ..., If_Modified_Since: str | None = ..., **kwargs: Any) -> GetCharactersStructuresMercenaryDensListingOperation:
+        def GetCharactersStructuresMercenaryDensListing(self, character_id: CharacterID, token: Token, Accept_Language: Literal['en', 'de', 'fr', 'ja', 'ru', 'zh', 'ko', 'es'] | None = ..., If_None_Match: str | None = ..., X_Compatibility_Date: Literal['2026-08-18'] | None = ..., X_Tenant: str | None = ..., If_Modified_Since: str | None = ..., **kwargs: Any) -> GetCharactersStructuresMercenaryDensListingOperation:
             """Listing of all Mercenary Dens."""
             ...
 
-        def GetCorporationsStructuresSkyhooksDetail(self, skyhook_id: ItemID, corporation_id: CorporationID, token: Token, Accept_Language: Literal['en', 'de', 'fr', 'ja', 'ru', 'zh', 'ko', 'es'] | None = ..., If_None_Match: str | None = ..., X_Compatibility_Date: Literal['2026-08-04'] | None = ..., X_Tenant: str | None = ..., If_Modified_Since: str | None = ..., **kwargs: Any) -> GetCorporationsStructuresSkyhooksDetailOperation:
+        def GetCorporationsStructuresSkyhooksDetail(self, skyhook_id: ItemID, corporation_id: CorporationID, token: Token, Accept_Language: Literal['en', 'de', 'fr', 'ja', 'ru', 'zh', 'ko', 'es'] | None = ..., If_None_Match: str | None = ..., X_Compatibility_Date: Literal['2026-08-18'] | None = ..., X_Tenant: str | None = ..., If_Modified_Since: str | None = ..., **kwargs: Any) -> GetCorporationsStructuresSkyhooksDetailOperation:
             """Get the details of a Skyhook."""
             ...
 
-        def GetCorporationsStructuresSkyhooksListing(self, corporation_id: CorporationID, token: Token, Accept_Language: Literal['en', 'de', 'fr', 'ja', 'ru', 'zh', 'ko', 'es'] | None = ..., If_None_Match: str | None = ..., X_Compatibility_Date: Literal['2026-08-04'] | None = ..., X_Tenant: str | None = ..., If_Modified_Since: str | None = ..., **kwargs: Any) -> GetCorporationsStructuresSkyhooksListingOperation:
+        def GetCorporationsStructuresSkyhooksListing(self, corporation_id: CorporationID, token: Token, Accept_Language: Literal['en', 'de', 'fr', 'ja', 'ru', 'zh', 'ko', 'es'] | None = ..., If_None_Match: str | None = ..., X_Compatibility_Date: Literal['2026-08-18'] | None = ..., X_Tenant: str | None = ..., If_Modified_Since: str | None = ..., **kwargs: Any) -> GetCorporationsStructuresSkyhooksListingOperation:
             """Listing of all Skyhooks."""
             ...
 
-        def GetCorporationsStructuresSovereigntyHubsDetail(self, sovereignty_hub_id: ItemID, corporation_id: CorporationID, token: Token, Accept_Language: Literal['en', 'de', 'fr', 'ja', 'ru', 'zh', 'ko', 'es'] | None = ..., If_None_Match: str | None = ..., X_Compatibility_Date: Literal['2026-08-04'] | None = ..., X_Tenant: str | None = ..., If_Modified_Since: str | None = ..., **kwargs: Any) -> GetCorporationsStructuresSovereigntyHubsDetailOperation:
+        def GetCorporationsStructuresSovereigntyHubsDetail(self, sovereignty_hub_id: ItemID, corporation_id: CorporationID, token: Token, Accept_Language: Literal['en', 'de', 'fr', 'ja', 'ru', 'zh', 'ko', 'es'] | None = ..., If_None_Match: str | None = ..., X_Compatibility_Date: Literal['2026-08-18'] | None = ..., X_Tenant: str | None = ..., If_Modified_Since: str | None = ..., **kwargs: Any) -> GetCorporationsStructuresSovereigntyHubsDetailOperation:
             """Get the details of a Sovereignty Hub."""
             ...
 
-        def GetCorporationsStructuresSovereigntyHubsListing(self, corporation_id: CorporationID, token: Token, Accept_Language: Literal['en', 'de', 'fr', 'ja', 'ru', 'zh', 'ko', 'es'] | None = ..., If_None_Match: str | None = ..., X_Compatibility_Date: Literal['2026-08-04'] | None = ..., X_Tenant: str | None = ..., If_Modified_Since: str | None = ..., **kwargs: Any) -> GetCorporationsStructuresSovereigntyHubsListingOperation:
+        def GetCorporationsStructuresSovereigntyHubsListing(self, corporation_id: CorporationID, token: Token, Accept_Language: Literal['en', 'de', 'fr', 'ja', 'ru', 'zh', 'ko', 'es'] | None = ..., If_None_Match: str | None = ..., X_Compatibility_Date: Literal['2026-08-18'] | None = ..., X_Tenant: str | None = ..., If_Modified_Since: str | None = ..., **kwargs: Any) -> GetCorporationsStructuresSovereigntyHubsListingOperation:
             """Listing of all Sovereignty Hubs."""
             ...
 
@@ -8892,123 +9338,123 @@ class ESIClientStub:
     Structures: _Structures = _Structures()
 
     class _Universe:
-        def GetUniverseAncestries(self, Accept_Language: Literal['en', 'de', 'fr', 'ja', 'ru', 'zh', 'ko', 'es'] | None = ..., If_None_Match: str | None = ..., X_Compatibility_Date: Literal['2026-08-04'] | None = ..., X_Tenant: str | None = ..., If_Modified_Since: str | None = ..., **kwargs: Any) -> GetUniverseAncestriesOperation:
+        def GetUniverseAncestries(self, Accept_Language: Literal['en', 'de', 'fr', 'ja', 'ru', 'zh', 'ko', 'es'] | None = ..., If_None_Match: str | None = ..., X_Compatibility_Date: Literal['2026-08-18'] | None = ..., X_Tenant: str | None = ..., If_Modified_Since: str | None = ..., **kwargs: Any) -> GetUniverseAncestriesOperation:
             """Get all character ancestries  This route expires daily at 11:05"""
             ...
 
-        def GetUniverseAsteroidBeltsAsteroidBeltId(self, asteroid_belt_id: int, Accept_Language: Literal['en', 'de', 'fr', 'ja', 'ru', 'zh', 'ko', 'es'] | None = ..., If_None_Match: str | None = ..., X_Compatibility_Date: Literal['2026-08-04'] | None = ..., X_Tenant: str | None = ..., If_Modified_Since: str | None = ..., **kwargs: Any) -> GetUniverseAsteroidBeltsAsteroidBeltIdOperation:
+        def GetUniverseAsteroidBeltsAsteroidBeltId(self, asteroid_belt_id: int, Accept_Language: Literal['en', 'de', 'fr', 'ja', 'ru', 'zh', 'ko', 'es'] | None = ..., If_None_Match: str | None = ..., X_Compatibility_Date: Literal['2026-08-18'] | None = ..., X_Tenant: str | None = ..., If_Modified_Since: str | None = ..., **kwargs: Any) -> GetUniverseAsteroidBeltsAsteroidBeltIdOperation:
             """Get information on an asteroid belt  This route expires daily at 11:05"""
             ...
 
-        def GetUniverseBloodlines(self, Accept_Language: Literal['en', 'de', 'fr', 'ja', 'ru', 'zh', 'ko', 'es'] | None = ..., If_None_Match: str | None = ..., X_Compatibility_Date: Literal['2026-08-04'] | None = ..., X_Tenant: str | None = ..., If_Modified_Since: str | None = ..., **kwargs: Any) -> GetUniverseBloodlinesOperation:
+        def GetUniverseBloodlines(self, Accept_Language: Literal['en', 'de', 'fr', 'ja', 'ru', 'zh', 'ko', 'es'] | None = ..., If_None_Match: str | None = ..., X_Compatibility_Date: Literal['2026-08-18'] | None = ..., X_Tenant: str | None = ..., If_Modified_Since: str | None = ..., **kwargs: Any) -> GetUniverseBloodlinesOperation:
             """Get a list of bloodlines  This route expires daily at 11:05"""
             ...
 
-        def GetUniverseCategories(self, Accept_Language: Literal['en', 'de', 'fr', 'ja', 'ru', 'zh', 'ko', 'es'] | None = ..., If_None_Match: str | None = ..., X_Compatibility_Date: Literal['2026-08-04'] | None = ..., X_Tenant: str | None = ..., If_Modified_Since: str | None = ..., **kwargs: Any) -> GetUniverseCategoriesOperation:
+        def GetUniverseCategories(self, Accept_Language: Literal['en', 'de', 'fr', 'ja', 'ru', 'zh', 'ko', 'es'] | None = ..., If_None_Match: str | None = ..., X_Compatibility_Date: Literal['2026-08-18'] | None = ..., X_Tenant: str | None = ..., If_Modified_Since: str | None = ..., **kwargs: Any) -> GetUniverseCategoriesOperation:
             """Get a list of item categories  This route expires daily at 11:05"""
             ...
 
-        def GetUniverseCategoriesCategoryId(self, category_id: int, Accept_Language: Literal['en', 'de', 'fr', 'ja', 'ru', 'zh', 'ko', 'es'] | None = ..., If_None_Match: str | None = ..., X_Compatibility_Date: Literal['2026-08-04'] | None = ..., X_Tenant: str | None = ..., If_Modified_Since: str | None = ..., **kwargs: Any) -> GetUniverseCategoriesCategoryIdOperation:
+        def GetUniverseCategoriesCategoryId(self, category_id: int, Accept_Language: Literal['en', 'de', 'fr', 'ja', 'ru', 'zh', 'ko', 'es'] | None = ..., If_None_Match: str | None = ..., X_Compatibility_Date: Literal['2026-08-18'] | None = ..., X_Tenant: str | None = ..., If_Modified_Since: str | None = ..., **kwargs: Any) -> GetUniverseCategoriesCategoryIdOperation:
             """Get information of an item category  This route expires daily at 11:05"""
             ...
 
-        def GetUniverseConstellations(self, Accept_Language: Literal['en', 'de', 'fr', 'ja', 'ru', 'zh', 'ko', 'es'] | None = ..., If_None_Match: str | None = ..., X_Compatibility_Date: Literal['2026-08-04'] | None = ..., X_Tenant: str | None = ..., If_Modified_Since: str | None = ..., **kwargs: Any) -> GetUniverseConstellationsOperation:
+        def GetUniverseConstellations(self, Accept_Language: Literal['en', 'de', 'fr', 'ja', 'ru', 'zh', 'ko', 'es'] | None = ..., If_None_Match: str | None = ..., X_Compatibility_Date: Literal['2026-08-18'] | None = ..., X_Tenant: str | None = ..., If_Modified_Since: str | None = ..., **kwargs: Any) -> GetUniverseConstellationsOperation:
             """Get a list of constellations  This route expires daily at 11:05"""
             ...
 
-        def GetUniverseConstellationsConstellationId(self, constellation_id: int, Accept_Language: Literal['en', 'de', 'fr', 'ja', 'ru', 'zh', 'ko', 'es'] | None = ..., If_None_Match: str | None = ..., X_Compatibility_Date: Literal['2026-08-04'] | None = ..., X_Tenant: str | None = ..., If_Modified_Since: str | None = ..., **kwargs: Any) -> GetUniverseConstellationsConstellationIdOperation:
+        def GetUniverseConstellationsConstellationId(self, constellation_id: int, Accept_Language: Literal['en', 'de', 'fr', 'ja', 'ru', 'zh', 'ko', 'es'] | None = ..., If_None_Match: str | None = ..., X_Compatibility_Date: Literal['2026-08-18'] | None = ..., X_Tenant: str | None = ..., If_Modified_Since: str | None = ..., **kwargs: Any) -> GetUniverseConstellationsConstellationIdOperation:
             """Get information on a constellation  This route expires daily at 11:05"""
             ...
 
-        def GetUniverseFactions(self, Accept_Language: Literal['en', 'de', 'fr', 'ja', 'ru', 'zh', 'ko', 'es'] | None = ..., If_None_Match: str | None = ..., X_Compatibility_Date: Literal['2026-08-04'] | None = ..., X_Tenant: str | None = ..., If_Modified_Since: str | None = ..., **kwargs: Any) -> GetUniverseFactionsOperation:
+        def GetUniverseFactions(self, Accept_Language: Literal['en', 'de', 'fr', 'ja', 'ru', 'zh', 'ko', 'es'] | None = ..., If_None_Match: str | None = ..., X_Compatibility_Date: Literal['2026-08-18'] | None = ..., X_Tenant: str | None = ..., If_Modified_Since: str | None = ..., **kwargs: Any) -> GetUniverseFactionsOperation:
             """Get a list of factions  This route expires daily at 11:05"""
             ...
 
-        def GetUniverseGraphics(self, Accept_Language: Literal['en', 'de', 'fr', 'ja', 'ru', 'zh', 'ko', 'es'] | None = ..., If_None_Match: str | None = ..., X_Compatibility_Date: Literal['2026-08-04'] | None = ..., X_Tenant: str | None = ..., If_Modified_Since: str | None = ..., **kwargs: Any) -> GetUniverseGraphicsOperation:
+        def GetUniverseGraphics(self, Accept_Language: Literal['en', 'de', 'fr', 'ja', 'ru', 'zh', 'ko', 'es'] | None = ..., If_None_Match: str | None = ..., X_Compatibility_Date: Literal['2026-08-18'] | None = ..., X_Tenant: str | None = ..., If_Modified_Since: str | None = ..., **kwargs: Any) -> GetUniverseGraphicsOperation:
             """Get a list of graphics  This route expires daily at 11:05"""
             ...
 
-        def GetUniverseGraphicsGraphicId(self, graphic_id: int, Accept_Language: Literal['en', 'de', 'fr', 'ja', 'ru', 'zh', 'ko', 'es'] | None = ..., If_None_Match: str | None = ..., X_Compatibility_Date: Literal['2026-08-04'] | None = ..., X_Tenant: str | None = ..., If_Modified_Since: str | None = ..., **kwargs: Any) -> GetUniverseGraphicsGraphicIdOperation:
+        def GetUniverseGraphicsGraphicId(self, graphic_id: int, Accept_Language: Literal['en', 'de', 'fr', 'ja', 'ru', 'zh', 'ko', 'es'] | None = ..., If_None_Match: str | None = ..., X_Compatibility_Date: Literal['2026-08-18'] | None = ..., X_Tenant: str | None = ..., If_Modified_Since: str | None = ..., **kwargs: Any) -> GetUniverseGraphicsGraphicIdOperation:
             """Get information on a graphic  This route expires daily at 11:05"""
             ...
 
-        def GetUniverseGroups(self, page: int | None = ..., Accept_Language: Literal['en', 'de', 'fr', 'ja', 'ru', 'zh', 'ko', 'es'] | None = ..., If_None_Match: str | None = ..., X_Compatibility_Date: Literal['2026-08-04'] | None = ..., X_Tenant: str | None = ..., If_Modified_Since: str | None = ..., **kwargs: Any) -> GetUniverseGroupsOperation:
+        def GetUniverseGroups(self, page: int | None = ..., Accept_Language: Literal['en', 'de', 'fr', 'ja', 'ru', 'zh', 'ko', 'es'] | None = ..., If_None_Match: str | None = ..., X_Compatibility_Date: Literal['2026-08-18'] | None = ..., X_Tenant: str | None = ..., If_Modified_Since: str | None = ..., **kwargs: Any) -> GetUniverseGroupsOperation:
             """Get a list of item groups  This route expires daily at 11:05"""
             ...
 
-        def GetUniverseGroupsGroupId(self, group_id: int, Accept_Language: Literal['en', 'de', 'fr', 'ja', 'ru', 'zh', 'ko', 'es'] | None = ..., If_None_Match: str | None = ..., X_Compatibility_Date: Literal['2026-08-04'] | None = ..., X_Tenant: str | None = ..., If_Modified_Since: str | None = ..., **kwargs: Any) -> GetUniverseGroupsGroupIdOperation:
+        def GetUniverseGroupsGroupId(self, group_id: int, Accept_Language: Literal['en', 'de', 'fr', 'ja', 'ru', 'zh', 'ko', 'es'] | None = ..., If_None_Match: str | None = ..., X_Compatibility_Date: Literal['2026-08-18'] | None = ..., X_Tenant: str | None = ..., If_Modified_Since: str | None = ..., **kwargs: Any) -> GetUniverseGroupsGroupIdOperation:
             """Get information on an item group  This route expires daily at 11:05"""
             ...
 
-        def GetUniverseMoonsMoonId(self, moon_id: int, Accept_Language: Literal['en', 'de', 'fr', 'ja', 'ru', 'zh', 'ko', 'es'] | None = ..., If_None_Match: str | None = ..., X_Compatibility_Date: Literal['2026-08-04'] | None = ..., X_Tenant: str | None = ..., If_Modified_Since: str | None = ..., **kwargs: Any) -> GetUniverseMoonsMoonIdOperation:
+        def GetUniverseMoonsMoonId(self, moon_id: int, Accept_Language: Literal['en', 'de', 'fr', 'ja', 'ru', 'zh', 'ko', 'es'] | None = ..., If_None_Match: str | None = ..., X_Compatibility_Date: Literal['2026-08-18'] | None = ..., X_Tenant: str | None = ..., If_Modified_Since: str | None = ..., **kwargs: Any) -> GetUniverseMoonsMoonIdOperation:
             """Get information on a moon  This route expires daily at 11:05"""
             ...
 
-        def GetUniversePlanetsPlanetId(self, planet_id: int, Accept_Language: Literal['en', 'de', 'fr', 'ja', 'ru', 'zh', 'ko', 'es'] | None = ..., If_None_Match: str | None = ..., X_Compatibility_Date: Literal['2026-08-04'] | None = ..., X_Tenant: str | None = ..., If_Modified_Since: str | None = ..., **kwargs: Any) -> GetUniversePlanetsPlanetIdOperation:
+        def GetUniversePlanetsPlanetId(self, planet_id: int, Accept_Language: Literal['en', 'de', 'fr', 'ja', 'ru', 'zh', 'ko', 'es'] | None = ..., If_None_Match: str | None = ..., X_Compatibility_Date: Literal['2026-08-18'] | None = ..., X_Tenant: str | None = ..., If_Modified_Since: str | None = ..., **kwargs: Any) -> GetUniversePlanetsPlanetIdOperation:
             """Get information on a planet  This route expires daily at 11:05"""
             ...
 
-        def GetUniverseRaces(self, Accept_Language: Literal['en', 'de', 'fr', 'ja', 'ru', 'zh', 'ko', 'es'] | None = ..., If_None_Match: str | None = ..., X_Compatibility_Date: Literal['2026-08-04'] | None = ..., X_Tenant: str | None = ..., If_Modified_Since: str | None = ..., **kwargs: Any) -> GetUniverseRacesOperation:
+        def GetUniverseRaces(self, Accept_Language: Literal['en', 'de', 'fr', 'ja', 'ru', 'zh', 'ko', 'es'] | None = ..., If_None_Match: str | None = ..., X_Compatibility_Date: Literal['2026-08-18'] | None = ..., X_Tenant: str | None = ..., If_Modified_Since: str | None = ..., **kwargs: Any) -> GetUniverseRacesOperation:
             """Get a list of character races  This route expires daily at 11:05"""
             ...
 
-        def GetUniverseRegions(self, Accept_Language: Literal['en', 'de', 'fr', 'ja', 'ru', 'zh', 'ko', 'es'] | None = ..., If_None_Match: str | None = ..., X_Compatibility_Date: Literal['2026-08-04'] | None = ..., X_Tenant: str | None = ..., If_Modified_Since: str | None = ..., **kwargs: Any) -> GetUniverseRegionsOperation:
+        def GetUniverseRegions(self, Accept_Language: Literal['en', 'de', 'fr', 'ja', 'ru', 'zh', 'ko', 'es'] | None = ..., If_None_Match: str | None = ..., X_Compatibility_Date: Literal['2026-08-18'] | None = ..., X_Tenant: str | None = ..., If_Modified_Since: str | None = ..., **kwargs: Any) -> GetUniverseRegionsOperation:
             """Get a list of regions  This route expires daily at 11:05"""
             ...
 
-        def GetUniverseRegionsRegionId(self, region_id: int, Accept_Language: Literal['en', 'de', 'fr', 'ja', 'ru', 'zh', 'ko', 'es'] | None = ..., If_None_Match: str | None = ..., X_Compatibility_Date: Literal['2026-08-04'] | None = ..., X_Tenant: str | None = ..., If_Modified_Since: str | None = ..., **kwargs: Any) -> GetUniverseRegionsRegionIdOperation:
+        def GetUniverseRegionsRegionId(self, region_id: int, Accept_Language: Literal['en', 'de', 'fr', 'ja', 'ru', 'zh', 'ko', 'es'] | None = ..., If_None_Match: str | None = ..., X_Compatibility_Date: Literal['2026-08-18'] | None = ..., X_Tenant: str | None = ..., If_Modified_Since: str | None = ..., **kwargs: Any) -> GetUniverseRegionsRegionIdOperation:
             """Get information on a region  This route expires daily at 11:05"""
             ...
 
-        def GetUniverseStargatesStargateId(self, stargate_id: int, Accept_Language: Literal['en', 'de', 'fr', 'ja', 'ru', 'zh', 'ko', 'es'] | None = ..., If_None_Match: str | None = ..., X_Compatibility_Date: Literal['2026-08-04'] | None = ..., X_Tenant: str | None = ..., If_Modified_Since: str | None = ..., **kwargs: Any) -> GetUniverseStargatesStargateIdOperation:
+        def GetUniverseStargatesStargateId(self, stargate_id: int, Accept_Language: Literal['en', 'de', 'fr', 'ja', 'ru', 'zh', 'ko', 'es'] | None = ..., If_None_Match: str | None = ..., X_Compatibility_Date: Literal['2026-08-18'] | None = ..., X_Tenant: str | None = ..., If_Modified_Since: str | None = ..., **kwargs: Any) -> GetUniverseStargatesStargateIdOperation:
             """Get information on a stargate  This route expires daily at 11:05"""
             ...
 
-        def GetUniverseStarsStarId(self, star_id: int, Accept_Language: Literal['en', 'de', 'fr', 'ja', 'ru', 'zh', 'ko', 'es'] | None = ..., If_None_Match: str | None = ..., X_Compatibility_Date: Literal['2026-08-04'] | None = ..., X_Tenant: str | None = ..., If_Modified_Since: str | None = ..., **kwargs: Any) -> GetUniverseStarsStarIdOperation:
+        def GetUniverseStarsStarId(self, star_id: int, Accept_Language: Literal['en', 'de', 'fr', 'ja', 'ru', 'zh', 'ko', 'es'] | None = ..., If_None_Match: str | None = ..., X_Compatibility_Date: Literal['2026-08-18'] | None = ..., X_Tenant: str | None = ..., If_Modified_Since: str | None = ..., **kwargs: Any) -> GetUniverseStarsStarIdOperation:
             """Get information on a star  This route expires daily at 11:05"""
             ...
 
-        def GetUniverseStationsStationId(self, station_id: int, Accept_Language: Literal['en', 'de', 'fr', 'ja', 'ru', 'zh', 'ko', 'es'] | None = ..., If_None_Match: str | None = ..., X_Compatibility_Date: Literal['2026-08-04'] | None = ..., X_Tenant: str | None = ..., If_Modified_Since: str | None = ..., **kwargs: Any) -> GetUniverseStationsStationIdOperation:
+        def GetUniverseStationsStationId(self, station_id: int, Accept_Language: Literal['en', 'de', 'fr', 'ja', 'ru', 'zh', 'ko', 'es'] | None = ..., If_None_Match: str | None = ..., X_Compatibility_Date: Literal['2026-08-18'] | None = ..., X_Tenant: str | None = ..., If_Modified_Since: str | None = ..., **kwargs: Any) -> GetUniverseStationsStationIdOperation:
             """Get information on a station  This route expires daily at 11:05"""
             ...
 
-        def GetUniverseStructures(self, filter: Literal['market', 'manufacturing_basic'] | None = ..., Accept_Language: Literal['en', 'de', 'fr', 'ja', 'ru', 'zh', 'ko', 'es'] | None = ..., If_None_Match: str | None = ..., X_Compatibility_Date: Literal['2026-08-04'] | None = ..., X_Tenant: str | None = ..., If_Modified_Since: str | None = ..., **kwargs: Any) -> GetUniverseStructuresOperation:
+        def GetUniverseStructures(self, filter: Literal['market', 'manufacturing_basic'] | None = ..., Accept_Language: Literal['en', 'de', 'fr', 'ja', 'ru', 'zh', 'ko', 'es'] | None = ..., If_None_Match: str | None = ..., X_Compatibility_Date: Literal['2026-08-18'] | None = ..., X_Tenant: str | None = ..., If_Modified_Since: str | None = ..., **kwargs: Any) -> GetUniverseStructuresOperation:
             """List all public structures"""
             ...
 
-        def GetUniverseStructuresStructureId(self, structure_id: int, token: Token, Accept_Language: Literal['en', 'de', 'fr', 'ja', 'ru', 'zh', 'ko', 'es'] | None = ..., If_None_Match: str | None = ..., X_Compatibility_Date: Literal['2026-08-04'] | None = ..., X_Tenant: str | None = ..., If_Modified_Since: str | None = ..., **kwargs: Any) -> GetUniverseStructuresStructureIdOperation:
+        def GetUniverseStructuresStructureId(self, structure_id: int, token: Token, Accept_Language: Literal['en', 'de', 'fr', 'ja', 'ru', 'zh', 'ko', 'es'] | None = ..., If_None_Match: str | None = ..., X_Compatibility_Date: Literal['2026-08-18'] | None = ..., X_Tenant: str | None = ..., If_Modified_Since: str | None = ..., **kwargs: Any) -> GetUniverseStructuresStructureIdOperation:
             """Returns information on requested structure if you are on the ACL. Otherwise, returns "Forbidden" for all inputs."""
             ...
 
-        def GetUniverseSystemJumps(self, Accept_Language: Literal['en', 'de', 'fr', 'ja', 'ru', 'zh', 'ko', 'es'] | None = ..., If_None_Match: str | None = ..., X_Compatibility_Date: Literal['2026-08-04'] | None = ..., X_Tenant: str | None = ..., If_Modified_Since: str | None = ..., **kwargs: Any) -> GetUniverseSystemJumpsOperation:
+        def GetUniverseSystemJumps(self, Accept_Language: Literal['en', 'de', 'fr', 'ja', 'ru', 'zh', 'ko', 'es'] | None = ..., If_None_Match: str | None = ..., X_Compatibility_Date: Literal['2026-08-18'] | None = ..., X_Tenant: str | None = ..., If_Modified_Since: str | None = ..., **kwargs: Any) -> GetUniverseSystemJumpsOperation:
             """Get the number of jumps in solar systems within the last hour ending at the timestamp of the Last-Modified header, excluding wormhole space. Only systems with jumps will be listed"""
             ...
 
-        def GetUniverseSystemKills(self, Accept_Language: Literal['en', 'de', 'fr', 'ja', 'ru', 'zh', 'ko', 'es'] | None = ..., If_None_Match: str | None = ..., X_Compatibility_Date: Literal['2026-08-04'] | None = ..., X_Tenant: str | None = ..., If_Modified_Since: str | None = ..., **kwargs: Any) -> GetUniverseSystemKillsOperation:
+        def GetUniverseSystemKills(self, Accept_Language: Literal['en', 'de', 'fr', 'ja', 'ru', 'zh', 'ko', 'es'] | None = ..., If_None_Match: str | None = ..., X_Compatibility_Date: Literal['2026-08-18'] | None = ..., X_Tenant: str | None = ..., If_Modified_Since: str | None = ..., **kwargs: Any) -> GetUniverseSystemKillsOperation:
             """Get the number of ship, pod and NPC kills per solar system within the last hour ending at the timestamp of the Last-Modified header, excluding wormhole space. Only systems with kills will be listed"""
             ...
 
-        def GetUniverseSystems(self, Accept_Language: Literal['en', 'de', 'fr', 'ja', 'ru', 'zh', 'ko', 'es'] | None = ..., If_None_Match: str | None = ..., X_Compatibility_Date: Literal['2026-08-04'] | None = ..., X_Tenant: str | None = ..., If_Modified_Since: str | None = ..., **kwargs: Any) -> GetUniverseSystemsOperation:
+        def GetUniverseSystems(self, Accept_Language: Literal['en', 'de', 'fr', 'ja', 'ru', 'zh', 'ko', 'es'] | None = ..., If_None_Match: str | None = ..., X_Compatibility_Date: Literal['2026-08-18'] | None = ..., X_Tenant: str | None = ..., If_Modified_Since: str | None = ..., **kwargs: Any) -> GetUniverseSystemsOperation:
             """Get a list of solar systems  This route expires daily at 11:05"""
             ...
 
-        def GetUniverseSystemsSystemId(self, system_id: int, Accept_Language: Literal['en', 'de', 'fr', 'ja', 'ru', 'zh', 'ko', 'es'] | None = ..., If_None_Match: str | None = ..., X_Compatibility_Date: Literal['2026-08-04'] | None = ..., X_Tenant: str | None = ..., If_Modified_Since: str | None = ..., **kwargs: Any) -> GetUniverseSystemsSystemIdOperation:
+        def GetUniverseSystemsSystemId(self, system_id: int, Accept_Language: Literal['en', 'de', 'fr', 'ja', 'ru', 'zh', 'ko', 'es'] | None = ..., If_None_Match: str | None = ..., X_Compatibility_Date: Literal['2026-08-18'] | None = ..., X_Tenant: str | None = ..., If_Modified_Since: str | None = ..., **kwargs: Any) -> GetUniverseSystemsSystemIdOperation:
             """Get information on a solar system.  This route expires daily at 11:05"""
             ...
 
-        def GetUniverseTypes(self, page: int | None = ..., Accept_Language: Literal['en', 'de', 'fr', 'ja', 'ru', 'zh', 'ko', 'es'] | None = ..., If_None_Match: str | None = ..., X_Compatibility_Date: Literal['2026-08-04'] | None = ..., X_Tenant: str | None = ..., If_Modified_Since: str | None = ..., **kwargs: Any) -> GetUniverseTypesOperation:
+        def GetUniverseTypes(self, page: int | None = ..., Accept_Language: Literal['en', 'de', 'fr', 'ja', 'ru', 'zh', 'ko', 'es'] | None = ..., If_None_Match: str | None = ..., X_Compatibility_Date: Literal['2026-08-18'] | None = ..., X_Tenant: str | None = ..., If_Modified_Since: str | None = ..., **kwargs: Any) -> GetUniverseTypesOperation:
             """Get a list of type ids  This route expires daily at 11:05"""
             ...
 
-        def GetUniverseTypesTypeId(self, type_id: int, Accept_Language: Literal['en', 'de', 'fr', 'ja', 'ru', 'zh', 'ko', 'es'] | None = ..., If_None_Match: str | None = ..., X_Compatibility_Date: Literal['2026-08-04'] | None = ..., X_Tenant: str | None = ..., If_Modified_Since: str | None = ..., **kwargs: Any) -> GetUniverseTypesTypeIdOperation:
+        def GetUniverseTypesTypeId(self, type_id: int, Accept_Language: Literal['en', 'de', 'fr', 'ja', 'ru', 'zh', 'ko', 'es'] | None = ..., If_None_Match: str | None = ..., X_Compatibility_Date: Literal['2026-08-18'] | None = ..., X_Tenant: str | None = ..., If_Modified_Since: str | None = ..., **kwargs: Any) -> GetUniverseTypesTypeIdOperation:
             """Get information on a type  This route expires daily at 11:05"""
             ...
 
-        def PostUniverseIds(self, body: list[Annotated[str, Field(min_length=1, max_length=100)]], Accept_Language: Literal['en', 'de', 'fr', 'ja', 'ru', 'zh', 'ko', 'es'] | None = ..., If_None_Match: str | None = ..., X_Compatibility_Date: Literal['2026-08-04'] | None = ..., X_Tenant: str | None = ..., If_Modified_Since: str | None = ..., **kwargs: Any) -> PostUniverseIdsOperation:
+        def PostUniverseIds(self, body: list[Annotated[str, Field(min_length=1, max_length=100)]], Accept_Language: Literal['en', 'de', 'fr', 'ja', 'ru', 'zh', 'ko', 'es'] | None = ..., If_None_Match: str | None = ..., X_Compatibility_Date: Literal['2026-08-18'] | None = ..., X_Tenant: str | None = ..., If_Modified_Since: str | None = ..., **kwargs: Any) -> PostUniverseIdsOperation:
             """Resolve a set of names to IDs in the following categories: agents, alliances, characters, constellations, corporations factions, inventory_types, regions, stations, and systems. Only exact matches will be returned. All names searched for are cached for 12 hours"""
             ...
 
-        def PostUniverseNames(self, body: list[int], Accept_Language: Literal['en', 'de', 'fr', 'ja', 'ru', 'zh', 'ko', 'es'] | None = ..., If_None_Match: str | None = ..., X_Compatibility_Date: Literal['2026-08-04'] | None = ..., X_Tenant: str | None = ..., If_Modified_Since: str | None = ..., **kwargs: Any) -> PostUniverseNamesOperation:
+        def PostUniverseNames(self, body: list[int], Accept_Language: Literal['en', 'de', 'fr', 'ja', 'ru', 'zh', 'ko', 'es'] | None = ..., If_None_Match: str | None = ..., X_Compatibility_Date: Literal['2026-08-18'] | None = ..., X_Tenant: str | None = ..., If_Modified_Since: str | None = ..., **kwargs: Any) -> PostUniverseNamesOperation:
             """Resolve a set of IDs to names and categories. Supported ID's for resolving are: Characters, Corporations, Alliances, Stations, Solar Systems, Constellations, Regions, Types, Factions"""
             ...
 
@@ -9016,23 +9462,23 @@ class ESIClientStub:
     Universe: _Universe = _Universe()
 
     class _User_Interface:
-        def PostUiAutopilotWaypoint(self, add_to_beginning: bool, clear_other_waypoints: bool, destination_id: int, token: Token, Accept_Language: Literal['en', 'de', 'fr', 'ja', 'ru', 'zh', 'ko', 'es'] | None = ..., If_None_Match: str | None = ..., X_Compatibility_Date: Literal['2026-08-04'] | None = ..., X_Tenant: str | None = ..., If_Modified_Since: str | None = ..., **kwargs: Any) -> PostUiAutopilotWaypointOperation:
+        def PostUiAutopilotWaypoint(self, add_to_beginning: bool, clear_other_waypoints: bool, destination_id: int, token: Token, Accept_Language: Literal['en', 'de', 'fr', 'ja', 'ru', 'zh', 'ko', 'es'] | None = ..., If_None_Match: str | None = ..., X_Compatibility_Date: Literal['2026-08-18'] | None = ..., X_Tenant: str | None = ..., If_Modified_Since: str | None = ..., **kwargs: Any) -> PostUiAutopilotWaypointOperation:
             """Set a solar system as autopilot waypoint"""
             ...
 
-        def PostUiOpenwindowContract(self, contract_id: int, token: Token, Accept_Language: Literal['en', 'de', 'fr', 'ja', 'ru', 'zh', 'ko', 'es'] | None = ..., If_None_Match: str | None = ..., X_Compatibility_Date: Literal['2026-08-04'] | None = ..., X_Tenant: str | None = ..., If_Modified_Since: str | None = ..., **kwargs: Any) -> PostUiOpenwindowContractOperation:
+        def PostUiOpenwindowContract(self, contract_id: int, token: Token, Accept_Language: Literal['en', 'de', 'fr', 'ja', 'ru', 'zh', 'ko', 'es'] | None = ..., If_None_Match: str | None = ..., X_Compatibility_Date: Literal['2026-08-18'] | None = ..., X_Tenant: str | None = ..., If_Modified_Since: str | None = ..., **kwargs: Any) -> PostUiOpenwindowContractOperation:
             """Open the contract window inside the client"""
             ...
 
-        def PostUiOpenwindowInformation(self, target_id: int, token: Token, Accept_Language: Literal['en', 'de', 'fr', 'ja', 'ru', 'zh', 'ko', 'es'] | None = ..., If_None_Match: str | None = ..., X_Compatibility_Date: Literal['2026-08-04'] | None = ..., X_Tenant: str | None = ..., If_Modified_Since: str | None = ..., **kwargs: Any) -> PostUiOpenwindowInformationOperation:
+        def PostUiOpenwindowInformation(self, target_id: int, token: Token, Accept_Language: Literal['en', 'de', 'fr', 'ja', 'ru', 'zh', 'ko', 'es'] | None = ..., If_None_Match: str | None = ..., X_Compatibility_Date: Literal['2026-08-18'] | None = ..., X_Tenant: str | None = ..., If_Modified_Since: str | None = ..., **kwargs: Any) -> PostUiOpenwindowInformationOperation:
             """Open the information window for a character, corporation or alliance inside the client"""
             ...
 
-        def PostUiOpenwindowMarketdetails(self, type_id: int, token: Token, Accept_Language: Literal['en', 'de', 'fr', 'ja', 'ru', 'zh', 'ko', 'es'] | None = ..., If_None_Match: str | None = ..., X_Compatibility_Date: Literal['2026-08-04'] | None = ..., X_Tenant: str | None = ..., If_Modified_Since: str | None = ..., **kwargs: Any) -> PostUiOpenwindowMarketdetailsOperation:
+        def PostUiOpenwindowMarketdetails(self, type_id: int, token: Token, Accept_Language: Literal['en', 'de', 'fr', 'ja', 'ru', 'zh', 'ko', 'es'] | None = ..., If_None_Match: str | None = ..., X_Compatibility_Date: Literal['2026-08-18'] | None = ..., X_Tenant: str | None = ..., If_Modified_Since: str | None = ..., **kwargs: Any) -> PostUiOpenwindowMarketdetailsOperation:
             """Open the market details window for a specific typeID inside the client"""
             ...
 
-        def PostUiOpenwindowNewmail(self, body: PostUiOpenwindowNewmailOperationBody, token: Token, Accept_Language: Literal['en', 'de', 'fr', 'ja', 'ru', 'zh', 'ko', 'es'] | None = ..., If_None_Match: str | None = ..., X_Compatibility_Date: Literal['2026-08-04'] | None = ..., X_Tenant: str | None = ..., If_Modified_Since: str | None = ..., **kwargs: Any) -> PostUiOpenwindowNewmailOperation:
+        def PostUiOpenwindowNewmail(self, body: PostUiOpenwindowNewmailOperationBody, token: Token, Accept_Language: Literal['en', 'de', 'fr', 'ja', 'ru', 'zh', 'ko', 'es'] | None = ..., If_None_Match: str | None = ..., X_Compatibility_Date: Literal['2026-08-18'] | None = ..., X_Tenant: str | None = ..., If_Modified_Since: str | None = ..., **kwargs: Any) -> PostUiOpenwindowNewmailOperation:
             """Open the New Mail window, according to settings from the request if applicable"""
             ...
 
@@ -9040,27 +9486,27 @@ class ESIClientStub:
     User_Interface: _User_Interface = _User_Interface()
 
     class _Wallet:
-        def GetCharactersCharacterIdWallet(self, character_id: CharacterID, token: Token, Accept_Language: Literal['en', 'de', 'fr', 'ja', 'ru', 'zh', 'ko', 'es'] | None = ..., If_None_Match: str | None = ..., X_Compatibility_Date: Literal['2026-08-04'] | None = ..., X_Tenant: str | None = ..., If_Modified_Since: str | None = ..., **kwargs: Any) -> GetCharactersCharacterIdWalletOperation:
+        def GetCharactersCharacterIdWallet(self, character_id: CharacterID, token: Token, Accept_Language: Literal['en', 'de', 'fr', 'ja', 'ru', 'zh', 'ko', 'es'] | None = ..., If_None_Match: str | None = ..., X_Compatibility_Date: Literal['2026-08-18'] | None = ..., X_Tenant: str | None = ..., If_Modified_Since: str | None = ..., **kwargs: Any) -> GetCharactersCharacterIdWalletOperation:
             """Returns a character's wallet balance"""
             ...
 
-        def GetCharactersCharacterIdWalletJournal(self, character_id: CharacterID, token: Token, page: int | None = ..., Accept_Language: Literal['en', 'de', 'fr', 'ja', 'ru', 'zh', 'ko', 'es'] | None = ..., If_None_Match: str | None = ..., X_Compatibility_Date: Literal['2026-08-04'] | None = ..., X_Tenant: str | None = ..., If_Modified_Since: str | None = ..., **kwargs: Any) -> GetCharactersCharacterIdWalletJournalOperation:
+        def GetCharactersCharacterIdWalletJournal(self, character_id: CharacterID, token: Token, page: int | None = ..., Accept_Language: Literal['en', 'de', 'fr', 'ja', 'ru', 'zh', 'ko', 'es'] | None = ..., If_None_Match: str | None = ..., X_Compatibility_Date: Literal['2026-08-18'] | None = ..., X_Tenant: str | None = ..., If_Modified_Since: str | None = ..., **kwargs: Any) -> GetCharactersCharacterIdWalletJournalOperation:
             """Retrieve the given character's wallet journal going 30 days back"""
             ...
 
-        def GetCharactersCharacterIdWalletTransactions(self, character_id: CharacterID, token: Token, from_id: int | None = ..., Accept_Language: Literal['en', 'de', 'fr', 'ja', 'ru', 'zh', 'ko', 'es'] | None = ..., If_None_Match: str | None = ..., X_Compatibility_Date: Literal['2026-08-04'] | None = ..., X_Tenant: str | None = ..., If_Modified_Since: str | None = ..., **kwargs: Any) -> GetCharactersCharacterIdWalletTransactionsOperation:
+        def GetCharactersCharacterIdWalletTransactions(self, character_id: CharacterID, token: Token, from_id: int | None = ..., Accept_Language: Literal['en', 'de', 'fr', 'ja', 'ru', 'zh', 'ko', 'es'] | None = ..., If_None_Match: str | None = ..., X_Compatibility_Date: Literal['2026-08-18'] | None = ..., X_Tenant: str | None = ..., If_Modified_Since: str | None = ..., **kwargs: Any) -> GetCharactersCharacterIdWalletTransactionsOperation:
             """Get wallet transactions of a character"""
             ...
 
-        def GetCorporationsCorporationIdWallets(self, corporation_id: CorporationID, token: Token, Accept_Language: Literal['en', 'de', 'fr', 'ja', 'ru', 'zh', 'ko', 'es'] | None = ..., If_None_Match: str | None = ..., X_Compatibility_Date: Literal['2026-08-04'] | None = ..., X_Tenant: str | None = ..., If_Modified_Since: str | None = ..., **kwargs: Any) -> GetCorporationsCorporationIdWalletsOperation:
+        def GetCorporationsCorporationIdWallets(self, corporation_id: CorporationID, token: Token, Accept_Language: Literal['en', 'de', 'fr', 'ja', 'ru', 'zh', 'ko', 'es'] | None = ..., If_None_Match: str | None = ..., X_Compatibility_Date: Literal['2026-08-18'] | None = ..., X_Tenant: str | None = ..., If_Modified_Since: str | None = ..., **kwargs: Any) -> GetCorporationsCorporationIdWalletsOperation:
             """Get a corporation's wallets"""
             ...
 
-        def GetCorporationsCorporationIdWalletsDivisionJournal(self, corporation_id: CorporationID, division: int, token: Token, page: int | None = ..., Accept_Language: Literal['en', 'de', 'fr', 'ja', 'ru', 'zh', 'ko', 'es'] | None = ..., If_None_Match: str | None = ..., X_Compatibility_Date: Literal['2026-08-04'] | None = ..., X_Tenant: str | None = ..., If_Modified_Since: str | None = ..., **kwargs: Any) -> GetCorporationsCorporationIdWalletsDivisionJournalOperation:
+        def GetCorporationsCorporationIdWalletsDivisionJournal(self, corporation_id: CorporationID, division: int, token: Token, page: int | None = ..., Accept_Language: Literal['en', 'de', 'fr', 'ja', 'ru', 'zh', 'ko', 'es'] | None = ..., If_None_Match: str | None = ..., X_Compatibility_Date: Literal['2026-08-18'] | None = ..., X_Tenant: str | None = ..., If_Modified_Since: str | None = ..., **kwargs: Any) -> GetCorporationsCorporationIdWalletsDivisionJournalOperation:
             """Retrieve the given corporation's wallet journal for the given division going 30 days back"""
             ...
 
-        def GetCorporationsCorporationIdWalletsDivisionTransactions(self, corporation_id: CorporationID, division: int, token: Token, from_id: int | None = ..., Accept_Language: Literal['en', 'de', 'fr', 'ja', 'ru', 'zh', 'ko', 'es'] | None = ..., If_None_Match: str | None = ..., X_Compatibility_Date: Literal['2026-08-04'] | None = ..., X_Tenant: str | None = ..., If_Modified_Since: str | None = ..., **kwargs: Any) -> GetCorporationsCorporationIdWalletsDivisionTransactionsOperation:
+        def GetCorporationsCorporationIdWalletsDivisionTransactions(self, corporation_id: CorporationID, division: int, token: Token, from_id: int | None = ..., Accept_Language: Literal['en', 'de', 'fr', 'ja', 'ru', 'zh', 'ko', 'es'] | None = ..., If_None_Match: str | None = ..., X_Compatibility_Date: Literal['2026-08-18'] | None = ..., X_Tenant: str | None = ..., If_Modified_Since: str | None = ..., **kwargs: Any) -> GetCorporationsCorporationIdWalletsDivisionTransactionsOperation:
             """Get wallet transactions of a corporation"""
             ...
 
@@ -9068,15 +9514,15 @@ class ESIClientStub:
     Wallet: _Wallet = _Wallet()
 
     class _Wars:
-        def GetWars(self, max_war_id: int | None = ..., Accept_Language: Literal['en', 'de', 'fr', 'ja', 'ru', 'zh', 'ko', 'es'] | None = ..., If_None_Match: str | None = ..., X_Compatibility_Date: Literal['2026-08-04'] | None = ..., X_Tenant: str | None = ..., If_Modified_Since: str | None = ..., **kwargs: Any) -> GetWarsOperation:
+        def GetWars(self, max_war_id: int | None = ..., Accept_Language: Literal['en', 'de', 'fr', 'ja', 'ru', 'zh', 'ko', 'es'] | None = ..., If_None_Match: str | None = ..., X_Compatibility_Date: Literal['2026-08-18'] | None = ..., X_Tenant: str | None = ..., If_Modified_Since: str | None = ..., **kwargs: Any) -> GetWarsOperation:
             """Return a list of wars"""
             ...
 
-        def GetWarsWarId(self, war_id: int, Accept_Language: Literal['en', 'de', 'fr', 'ja', 'ru', 'zh', 'ko', 'es'] | None = ..., If_None_Match: str | None = ..., X_Compatibility_Date: Literal['2026-08-04'] | None = ..., X_Tenant: str | None = ..., If_Modified_Since: str | None = ..., **kwargs: Any) -> GetWarsWarIdOperation:
+        def GetWarsWarId(self, war_id: int, Accept_Language: Literal['en', 'de', 'fr', 'ja', 'ru', 'zh', 'ko', 'es'] | None = ..., If_None_Match: str | None = ..., X_Compatibility_Date: Literal['2026-08-18'] | None = ..., X_Tenant: str | None = ..., If_Modified_Since: str | None = ..., **kwargs: Any) -> GetWarsWarIdOperation:
             """Return details about a war"""
             ...
 
-        def GetWarsWarIdKillmails(self, war_id: int, page: int | None = ..., Accept_Language: Literal['en', 'de', 'fr', 'ja', 'ru', 'zh', 'ko', 'es'] | None = ..., If_None_Match: str | None = ..., X_Compatibility_Date: Literal['2026-08-04'] | None = ..., X_Tenant: str | None = ..., If_Modified_Since: str | None = ..., **kwargs: Any) -> GetWarsWarIdKillmailsOperation:
+        def GetWarsWarIdKillmails(self, war_id: int, page: int | None = ..., Accept_Language: Literal['en', 'de', 'fr', 'ja', 'ru', 'zh', 'ko', 'es'] | None = ..., If_None_Match: str | None = ..., X_Compatibility_Date: Literal['2026-08-18'] | None = ..., X_Tenant: str | None = ..., If_Modified_Since: str | None = ..., **kwargs: Any) -> GetWarsWarIdKillmailsOperation:
             """Return a list of kills related to a war"""
             ...
 

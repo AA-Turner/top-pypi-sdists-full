@@ -9,7 +9,8 @@ from types import SimpleNamespace
 from pathlib import Path
 from typing import Any
 
-from echo_agent.agent.executors.base import BaseExecutor, ExecRequest
+from echo_agent.agent.executors.base import BaseExecutor, ExecRequest, prepend_interpreter_bin
+from echo_agent.agent.proc_lifecycle import spawn_shell, terminate_tree
 from echo_agent.agent.tools.base import Tool, ToolExecutionContext, ToolResult
 from echo_agent.security.guards import evaluate_shell_command
 from echo_agent.security.path_policy import check_cwd
@@ -43,7 +44,7 @@ class ShellTool(Tool):
         workspace: str,
         allowed: list[str] | None = None,
         blocked: list[str] | None = None,
-        max_output: int = 16000,
+        max_output: int = 2000000,
         executor: BaseExecutor | None = None,
         exec_policy: Any | None = None,
         network_policy: str = "allow",
@@ -55,6 +56,13 @@ class ShellTool(Tool):
         self._executor = executor
         self._exec_policy = exec_policy
         self._network_policy = network_policy
+
+    def _bound(self, text: str) -> str:
+        """套采集上限。stderr 此前完全没套,而 return_code != 0 时它就是模型
+        读到的全部内容——构建失败、pytest 失败正是最常见的大输出场景。"""
+        if len(text) <= self._max_output:
+            return text
+        return text[:self._max_output] + f"\n... (truncated, {len(text)} total chars)"
 
     def _check_command(self, command: str) -> str | None:
         cmd_name = command.strip().split()[0] if command.strip() else ""
@@ -111,6 +119,7 @@ class ShellTool(Tool):
         if policy_violation:
             return ToolResult(success=False, error=policy_violation)
 
+        proc = None
         try:
             try:
                 cwd = self._resolve_cwd(cwd)
@@ -129,12 +138,12 @@ class ShellTool(Tool):
                 return_code = response.return_code
                 executor_name = response.executor
             else:
-                proc = await asyncio.create_subprocess_shell(
+                proc = await spawn_shell(
                     command,
                     stdout=asyncio.subprocess.PIPE,
                     stderr=asyncio.subprocess.PIPE,
                     cwd=cwd,
-                    env={**os.environ, "WORKSPACE": self._workspace},
+                    env={**prepend_interpreter_bin(dict(os.environ)), "WORKSPACE": self._workspace},
                 )
                 stdout, stderr = await asyncio.wait_for(proc.communicate(), timeout=timeout)
                 output = stdout.decode(errors="replace")
@@ -142,12 +151,15 @@ class ShellTool(Tool):
                 return_code = proc.returncode or 0
                 executor_name = "direct"
 
-            if len(output) > self._max_output:
-                output = output[:self._max_output] + f"\n... (truncated, {len(output)} total chars)"
+            output = self._bound(output)
+            err_output = self._bound(err_output)
 
             combined = output
             if err_output:
                 combined += f"\nSTDERR:\n{err_output}"
+            # combined 是模型实际读到的那一份,必须自己也受上限约束:stdout 与
+            # stderr 各自贴着上限时,合起来正好是两倍,采集上限就名不副实了。
+            combined = self._bound(combined)
 
             return ToolResult(
                 success=return_code == 0,
@@ -156,8 +168,15 @@ class ShellTool(Tool):
                 metadata={"return_code": return_code, "executor": executor_name},
             )
         except asyncio.TimeoutError:
+            if proc is not None:
+                await terminate_tree(proc)
             return ToolResult(success=False, error=f"Command timed out after {timeout}s")
         except Exception as e:
+            if proc is not None:
+                # Not gated on `returncode is None`: an exited leader can still
+                # have left backgrounded grandchildren in its group, and this
+                # tool holds the only handle to them.
+                await terminate_tree(proc)
             return ToolResult(success=False, error=str(e))
 
     def execution_mode(self, params: dict[str, Any]) -> str:

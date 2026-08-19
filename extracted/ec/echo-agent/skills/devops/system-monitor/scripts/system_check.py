@@ -3,14 +3,12 @@
 
 import argparse
 import json
-import sys
+from echo_agent.dependencies.skill_require import require  # noqa: E402
 
-try:
-    import psutil
-except ImportError:
-    sys.exit("Install: pip install psutil")
+require("skill.system-monitor")
 
-from datetime import datetime
+import psutil  # noqa: E402
+from datetime import datetime  # noqa: E402
 
 
 def check_cpu():

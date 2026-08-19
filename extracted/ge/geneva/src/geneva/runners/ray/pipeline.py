@@ -8,6 +8,7 @@ import logging
 import os
 import random
 import re
+import threading
 import time
 import uuid
 from collections import Counter, deque
@@ -49,8 +50,10 @@ from geneva.apply.blob_checkpoint import (
     schema_supports_blob_v2_checkpoints,
     storage_version_supports_blob_v2_checkpoints,
 )
+from geneva.apply.bulk_load import BulkLoadMapTask
 from geneva.apply.error_handling import (
     ErrorHandlingContext,
+    SkipBudgetTracker,
     get_error_handling_config,
     get_max_attempts,
     make_skip_budget_tracker,
@@ -61,10 +64,12 @@ from geneva.apply.table_cache import (
     TableCache,
     bind_tables_for_task,
     clear_bound_tables,
+    maybe_refresh_credentials_on_retry,
 )
 from geneva.apply.task import (
     BackfillUDFTask,
     CopyTableTask,
+    CopyTask,
     MapTask,
     ReadTask,
     ScanTask,
@@ -81,6 +86,8 @@ from geneva.checkpoint import (
     FlatLanceCheckpointStore,
     HierarchicalLanceCheckpointStore,
     MultiBaseCheckpointStore,
+    discard_short_checkpoint,
+    stamp_checkpoint_num_rows,
 )
 from geneva.checkpoint_utils import hash_source_files
 from geneva.committer import get_committer
@@ -95,17 +102,23 @@ from geneva.debug.error_store import (
     ErrorStore,
     FaultIsolation,
     Outcome,
+    Retry,
+    Skip,
     SkipThresholdExceededError,
     get_exception_outcome,
+    resolve_on_error,
 )
 from geneva.debug.logger import TableErrorLogger
 from geneva.errors import (
+    CheckpointCoverageError,
     CorruptCheckpointError,
     FatalWorkerCrashError,
     FatalWorkerError,
     FatalWorkerExitError,
     FatalWorkerOOMError,
     FatalWorkerTransientError,
+    MergeFallbackTargetError,
+    ShortFragmentWriteError,
 )
 from geneva.jobs.config import JobConfig
 from geneva.packager import UDFPackager, UDFSpec
@@ -119,6 +132,7 @@ from geneva.query import (
     MATVIEW_VERSION_SCALAR_UDTF,
     GenevaQuery,
     GenevaQueryBuilder,
+    normalize_query_columns,
 )
 from geneva.utils.multi_base import (
     FragmentBasePlacement,
@@ -134,7 +148,13 @@ if TYPE_CHECKING:
     from geneva.table import TableReference
 
 from geneva import telemetry
-from geneva.runners.ray.actor_pool import ActorLostError, ActorPool, ActorPoolTaskError
+from geneva.credentials import is_credential_expiry_error
+from geneva.runners.ray.actor_pool import (
+    ActorLostError,
+    ActorPool,
+    ActorPoolTaskError,
+    PollTimeoutError,
+)
 from geneva.runners.ray.admission import PipelineResourceConfig
 from geneva.runners.ray.jobtracker import (
     METRIC_AVG_BATCH_NUM_ROWS,
@@ -154,6 +174,7 @@ from geneva.runners.ray.jobtracker import (
     METRIC_READ_IO_TIME,
     METRIC_READ_TASK_TOTAL_TIME,
     METRIC_ROWS_SKIPPED,
+    METRIC_TASKS_COMPLETED,
     METRIC_UDF_PROCESSING_TIME,
     METRIC_WRITER_ALIGN_TIME,
     METRIC_WRITER_BUFFER_SORT_TIME,
@@ -165,12 +186,25 @@ from geneva.runners.ray.jobtracker import (
     job_tracker_throttle_kwargs,
 )
 from geneva.runners.ray.kuberay import PodStatus, _ray_status, k8s_status
+from geneva.runners.ray.oom_recovery_budget import (
+    OOMRecoveryBudgetTracker,
+    init_oom_recovery_metrics,
+    oom_recovery_target_split_fanout,
+    oom_recovery_task_ranges,
+    read_task_oom_range_key,
+    record_oom_recovery_attempt,
+    row_ids_oom_range_key,
+)
 from geneva.runners.ray.raycluster import (
     ray_tqdm,
 )
 from geneva.runners.ray.writer import (
+    DEFAULT_CARRY_FORWARD_TRANCHE_ROWS,
+    FragmentWriteFailedError,
     FragmentWriter,
     FragmentWriteResult,
+    WriterProgress,
+    _parse_span_from_key,
     build_fragment_checkpoint_batch,
 )
 from geneva.table import JobFuture, Table, TableReference
@@ -182,19 +216,25 @@ from geneva.tqdm import (
     tqdm,
 )
 from geneva.transformer import (
+    BACKFILL_SELECTED,
     UDF,
     Chunker,
     UnpackedUDFField,
     _get_field_type_from_schema,
 )
-from geneva.utils import make_null_array, object_store_retry, parse_data_storage_version
+from geneva.utils import (
+    _PeriodicCaller,
+    make_null_array,
+    object_store_retry,
+    parse_data_storage_version,
+)
 from geneva.utils.batch_size import resolve_batch_size, resolve_task_size
 from geneva.utils.commit_conflict import is_retryable_commit_conflict
 from geneva.utils.parse_rust_debug import (
     extract_field_ids,
     extract_field_ids_and_column_indices,
 )
-from geneva.utils.ray import CPU_ONLY_NODE
+from geneva.utils.ray import CPU_ONLY_NODE, head_pin_options
 from geneva.utils.schema import canonical_field_paths, resolve_arrow_field_path
 
 _LOG = logging.getLogger(__name__)
@@ -321,26 +361,60 @@ PIPELINE_STALL_TIMEOUT_S = float(
 # Maximum number of times to restart a writer actor before giving up
 MAX_WRITER_RESTARTS = 5
 
-# Number of idle rounds (5s each) before considering a writer stalled during drain.
-# The writer is "stalled" only from the orchestrator's POV — ``ray.wait(future,
-# timeout=5s)`` returning empty means the future hasn't resolved yet, but the
-# actor may still be doing real work (checkpoint reads, sort, write_fragment_file).
-# Idle-poll rounds before a sealed writer is treated as stalled and restarted.
-# Each round is one ``ray.wait(timeout=5.0)``, so 120 = 600 s (10 min). The
-# threshold must exceed the slowest legitimate flush, and large-blob
-# carry-forward fragments (a 100M x 150 KB rebackfill flushes ~156 GB files) take
-# many minutes — too low and healthy writers get restart-cycled into a livelock.
-# (Abstract rounds + future-resolution polling; see follow-ups for seconds units
-# and heartbeat-based detection.)
-GENEVA_WRITER_STALL_IDLE_ROUNDS = int(
-    os.environ.get("GENEVA_WRITER_STALL_IDLE_ROUNDS", "120")
+# Bound fire-and-forget Queue.put ObjectRefs retained by one writer session.
+# The replay log still keeps checkpoint identities until the fragment-level
+# checkpoint is durable, but enqueue acknowledgements can be drained eagerly.
+WRITER_ENQUEUE_ACK_BATCH_SIZE = max(
+    1, int(os.environ.get("GENEVA_WRITER_ENQUEUE_ACK_BATCH_SIZE", "256"))
 )
+
+# In-band marker telling the writer no further checkpoints will be enqueued.
+_SEAL_SENTINEL: tuple[int, str, int] = (-1, "", 0)
+
+# Seconds a sealed writer may go without advancing its progress counter
+# (``FragmentWriter.progress``) before drain() restarts it. Only has to
+# outlast one unit of work (a checkpoint read, a batch write, the final
+# flush), not the whole fragment, so it is an escape hatch, not a knob.
+WRITER_NO_PROGRESS_TIMEOUT_S = float(
+    os.environ.get("GENEVA_WRITER_NO_PROGRESS_TIMEOUT_S", "600")
+)
+
+_DRAIN_POLL_INTERVAL_S = 5.0
+
+_warned_stall_rounds_removed = False
+
+
+def _warn_if_stall_rounds_env_set() -> None:
+    """Warn once per process if the removed stall knob is still set."""
+    global _warned_stall_rounds_removed
+    if _warned_stall_rounds_removed:
+        return
+    if "GENEVA_WRITER_STALL_IDLE_ROUNDS" not in os.environ:
+        return
+    _warned_stall_rounds_removed = True
+    _LOG.warning(
+        "GENEVA_WRITER_STALL_IDLE_ROUNDS is removed and ignored: writer stall "
+        "detection is now based on writer progress, not write-future "
+        "resolution, and no longer needs per-workload tuning. The escape "
+        "hatch, if one is truly needed, is GENEVA_WRITER_NO_PROGRESS_TIMEOUT_S "
+        "(seconds, default 600)."
+    )
+
 
 # Maximum retries for version conflicts during commit. Version conflicts occur when
 # concurrent backfills commit to the same fragments. We attempt column merging on
 # conflict, but limit retries to prevent infinite loops.
 GENEVA_VERSION_CONFLICT_MAX_RETRIES = int(
     os.environ.get("GENEVA_VERSION_CONFLICT_MAX_RETRIES", "10")
+)
+
+# Maximum re-vend + replay rounds when a commit attempt fails with expired
+# vended credentials. The committer holds job-start credentials, so a long
+# backfill's commits can outlive the token; one round normally suffices (a
+# fresh token lasts on the order of an hour). The bound keeps a broken
+# credential vendor from spinning the commit loop.
+GENEVA_COMMIT_CREDENTIAL_REVEND_RETRIES = int(
+    os.environ.get("GENEVA_COMMIT_CREDENTIAL_REVEND_RETRIES", "2")
 )
 
 # Lance uses -2 as a "tombstone" field_id marker. When a field is marked as -2 in a
@@ -356,7 +430,7 @@ CNT_K8S_NODES = "k8s_nodes_provisioned"
 CNT_K8S_PHASE = "k8s_cluster_phase"
 METRIC_UDF_VALUES = "udf_values_computed"
 
-DEFAULT_TRANSIENT_FATAL_MAX_ATTEMPTS = 3
+DEFAULT_FATAL_WORKER_MAX_ATTEMPTS = 3
 
 
 @attrs.define(frozen=True)
@@ -364,6 +438,164 @@ class ScheduledReadTask:
     task: ReadTask
     attempt: int = 1
     bisect_depth: int = 0
+
+
+def _fill_actor_pool(pool: ActorPool, submit_one: Callable[[], bool]) -> int:
+    """Refill the pool to its bounded ready-work target.
+
+    A failed task may create several replacements at once. Submitting only one
+    replacement here leaves otherwise-idle actors unused during long-tail OOM
+    recovery; submitting up to the pool's capacity exposes the fanout without
+    growing its driver-side queue beyond the existing actor-count-plus-one
+    bound.
+    """
+    submitted = 0
+    for _ in range(pool.submission_capacity()):
+        if not submit_one():
+            break
+        submitted += 1
+    return submitted
+
+
+@attrs.define
+class _JobTrackerMetricBuffer:
+    """Bound driver-side progress RPCs independently of task count."""
+
+    job_tracker: ActorHandle
+    max_events: int = 128
+    flush_interval_s: float = 0.5
+    _pending: Counter[str] = attrs.field(factory=Counter, init=False)
+    _pending_events: int = attrs.field(default=0, init=False)
+    _inflight: Any = attrs.field(default=None, init=False, repr=False)
+    _last_flush: float = attrs.field(factory=time.monotonic, init=False)
+
+    def add(self, metric: str, delta: int) -> None:
+        self.add_many({metric: delta})
+
+    def add_many(self, deltas: dict[str, int]) -> None:
+        for metric, delta in deltas.items():
+            if delta:
+                self._pending[metric] += int(delta)
+        self._pending_events += 1
+        self.flush()
+
+    def _finish_inflight(self, *, wait: bool) -> bool:
+        if self._inflight is None:
+            return True
+        if not isinstance(self._inflight, ray.ObjectRef):
+            self._inflight = None
+            return True
+        try:
+            if wait:
+                ray.get(self._inflight, timeout=FINAL_STATUS_TIMEOUT_S)
+            else:
+                ready, _ = ray.wait([self._inflight], timeout=0)
+                if not ready:
+                    return False
+                ray.get(ready[0])
+        except Exception:
+            # Progress reporting is best-effort and must never fail the job.
+            _LOG.exception("Failed to flush buffered JobTracker metrics")
+        self._inflight = None
+        return True
+
+    def flush(self, *, force: bool = False) -> None:
+        if not self._finish_inflight(wait=force):
+            return
+        if not self._pending:
+            return
+        if (
+            not force
+            and self._pending_events < self.max_events
+            and time.monotonic() - self._last_flush < self.flush_interval_s
+        ):
+            return
+
+        payload = dict(self._pending)
+        self._pending.clear()
+        self._pending_events = 0
+        self._last_flush = time.monotonic()
+        try:
+            self._inflight = self.job_tracker.batch_increment.remote(payload)
+        except Exception:
+            _LOG.exception("Failed to submit buffered JobTracker metrics")
+            self._inflight = None
+        if force:
+            self._finish_inflight(wait=True)
+
+
+@attrs.define
+class _ReadTaskFeeder:
+    """Lazily feed base-plan tasks while keeping retries bounded and first."""
+
+    plan: Iterator[ReadTask]
+    expected_tasks_by_frag: Counter[int]
+    expected_total_tasks: int
+    expected_total_rows: int
+    validate_metadata: bool = True
+    retry_tasks: deque[ScheduledReadTask] = attrs.field(factory=deque, init=False)
+    exhausted: bool = attrs.field(default=False, init=False)
+    tasks_yielded: int = attrs.field(default=0, init=False)
+    rows_yielded: int = attrs.field(default=0, init=False)
+    _remaining_by_frag: Counter[int] = attrs.field(init=False)
+
+    def __attrs_post_init__(self) -> None:
+        self._remaining_by_frag = Counter(self.expected_tasks_by_frag)
+
+    @property
+    def has_work(self) -> bool:
+        return bool(self.retry_tasks) or not self.exhausted
+
+    def _validate_exhausted(self) -> None:
+        remaining = {
+            frag_id: count
+            for frag_id, count in self._remaining_by_frag.items()
+            if count != 0
+        }
+        if (
+            self.tasks_yielded != self.expected_total_tasks
+            or self.rows_yielded != self.expected_total_rows
+            or remaining
+        ):
+            raise ValueError(
+                "Read-plan iterator ended before its metadata: "
+                f"yielded_tasks={self.tasks_yielded}, "
+                f"expected_tasks={self.expected_total_tasks}, "
+                f"yielded_rows={self.rows_yielded}, "
+                f"expected_rows={self.expected_total_rows}, "
+                f"remaining_by_frag={remaining}"
+            )
+
+    def pop_next(self) -> tuple[ScheduledReadTask, bool] | None:
+        """Return ``(task, from_base_plan)``; retries take priority."""
+        if self.retry_tasks:
+            return self.retry_tasks.popleft(), False
+        if self.exhausted:
+            return None
+        try:
+            task = next(self.plan)
+        except StopIteration:
+            self.exhausted = True
+            if self.validate_metadata:
+                self._validate_exhausted()
+            return None
+
+        if self.validate_metadata:
+            frag_id = task.dest_frag_id()
+            if self._remaining_by_frag[frag_id] <= 0:
+                raise ValueError(
+                    "Read-plan iterator yielded more tasks than its metadata "
+                    f"for fragment {frag_id}"
+                )
+            self._remaining_by_frag[frag_id] -= 1
+            self.tasks_yielded += 1
+            self.rows_yielded += int(task.num_rows())
+            if (
+                self.tasks_yielded > self.expected_total_tasks
+                or self.rows_yielded > self.expected_total_rows
+            ):
+                raise ValueError("Read-plan iterator exceeded its task or row metadata")
+        return ScheduledReadTask(task), True
 
 
 class CheckpointStoreNamespaceArgs(NamedTuple):
@@ -426,6 +658,28 @@ def _is_corrupt_checkpoint_failure(
     return bool(reason) and "CorruptCheckpointError" in reason
 
 
+def _is_coverage_gap_failure(exc: BaseException | None, reason: str | None) -> bool:
+    """True if a fragment failure was the writer refusing to null-fill a gap.
+
+    Like :func:`_is_corrupt_checkpoint_failure`, falls back to the reason string
+    because Ray wraps remote errors in ``RayTaskError``.
+    """
+    if isinstance(exc, CheckpointCoverageError):
+        return True
+    return bool(reason) and "CheckpointCoverageError" in reason
+
+
+def _is_writer_oom_failure(exc: BaseException | None, reason: str | None) -> bool:
+    """True if a fragment exhausted driver-owned writer OOM recovery.
+
+    Ray can wrap remote exceptions, so retain the same reason-string fallback
+    used by the other typed fragment failures.
+    """
+    if isinstance(exc, FatalWorkerOOMError):
+        return True
+    return bool(reason) and "FatalWorkerOOMError" in reason
+
+
 def _worker_pod_statuses_have_oom_evidence(
     pod_statuses: Sequence[PodStatus] | None,
 ) -> bool:
@@ -456,6 +710,35 @@ def _worker_pod_statuses_have_oom_evidence(
     return False
 
 
+def _get_current_k8s_pod_statuses() -> list[PodStatus] | None:
+    """Return fresh pod statuses for driver code without a pipeline-job instance."""
+    try:
+        from geneva._context import get_current_context
+        from geneva.runners.ray.raycluster import (
+            GENEVA_RAY_CLUSTER_NAME_ENV,
+            GENEVA_RAY_CLUSTER_NAMESPACE_ENV,
+            RayCluster,
+        )
+
+        ctx = get_current_context()
+        if isinstance(ctx, RayCluster):
+            return k8s_status(ctx.clients, ctx.namespace, cluster_name=ctx.name)
+
+        cluster_name = os.environ.get(GENEVA_RAY_CLUSTER_NAME_ENV)
+        namespace = os.environ.get(GENEVA_RAY_CLUSTER_NAMESPACE_ENV)
+        if not cluster_name or not namespace:
+            return None
+
+        from geneva.cluster import K8sConfigMethod
+        from geneva.runners.kuberay.client import KuberayClients
+
+        clients = KuberayClients(config_method=K8sConfigMethod.IN_CLUSTER)
+        return k8s_status(clients, namespace, cluster_name=cluster_name)
+    except Exception:
+        _LOG.debug("Failed to get k8s pod status", exc_info=True)
+        return None
+
+
 def _is_transient_actor_loss_error(exc: BaseException) -> bool:
     if isinstance(exc, ActorLostError):
         return exc.is_transient_infra_loss
@@ -481,7 +764,43 @@ def _normalize_fatal_worker_error(
     # cause chain.
     for candidate in chain:
         if isinstance(candidate, FatalWorkerError):
-            return type(candidate)(_exception_chain_message(exc))
+            message = _exception_chain_message(exc)
+            remote_cause = getattr(candidate, "cause", None)
+            classified = candidate
+            if isinstance(remote_cause, FatalWorkerError):
+                message = _exception_chain_message(remote_cause)
+                classified = remote_cause
+            # Ray reconstructs remote exceptions as dynamic classes such as
+            # ``RayTaskError(FatalWorkerCrashError)``. Canonicalize public
+            # fatal-worker types so matcher behavior and stored error_type do
+            # not depend on which process boundary the exception crossed.
+            for error_type in (
+                FatalWorkerOOMError,
+                FatalWorkerCrashError,
+                FatalWorkerTransientError,
+                FatalWorkerExitError,
+                ShortFragmentWriteError,
+                MergeFallbackTargetError,
+            ):
+                if isinstance(classified, error_type):
+                    return error_type(message)
+            if isinstance(classified, CorruptCheckpointError):
+                return CorruptCheckpointError(
+                    str(getattr(classified, "key", "unknown")),
+                    path=getattr(classified, "path", None),
+                    cause=getattr(classified, "cause", None) or message,
+                )
+            if isinstance(classified, CheckpointCoverageError):
+                return CheckpointCoverageError(
+                    getattr(classified, "frag_id", -1),
+                    gap_start=getattr(classified, "gap_start", 0),
+                    gap_end=getattr(classified, "gap_end", 0),
+                    detail=message,
+                )
+            try:
+                return type(classified)(message)
+            except Exception:
+                return FatalWorkerError(message)
     lowered = " ".join(str(candidate).lower() for candidate in chain)
     actor_unavailable = any(
         isinstance(candidate, ray.exceptions.ActorUnavailableError)
@@ -501,9 +820,16 @@ def _normalize_fatal_worker_error(
     ray_oom = any(
         isinstance(candidate, ray.exceptions.OutOfMemoryError) for candidate in chain
     )
-    if ray_oom or (
+    actor_state_oom = any(
+        isinstance(candidate, ActorLostError) and candidate.is_oom_loss
+        for candidate in chain
+    )
+    # Kubernetes OOM evidence is only a valid fallback when the error already
+    # indicates actor or node loss; unrelated task errors must not be reclassified.
+    actor_or_node_loss_with_pod_oom = (
         actor_or_node_loss and _worker_pod_statuses_have_oom_evidence(pod_statuses)
-    ):
+    )
+    if ray_oom or actor_state_oom or actor_or_node_loss_with_pod_oom:
         err_cls = FatalWorkerOOMError
     elif any(
         isinstance(candidate, ray.exceptions.WorkerCrashedError) for candidate in chain
@@ -522,9 +848,32 @@ def _config_handles_exception(
     if config is None:
         return False
     matchers = getattr(config, "_matchers", None)
-    if not matchers:
-        return False
-    return any(matcher.matches(exc) for matcher in matchers)
+    # An explicit empty policy is the public fail-fast configuration.
+    return not matchers or any(matcher.matches(exc) for matcher in matchers)
+
+
+_DEFAULT_FATAL_WORKER_FAIL_FAST_ERRORS = (
+    ShortFragmentWriteError,
+    CorruptCheckpointError,
+    CheckpointCoverageError,
+    MergeFallbackTargetError,
+)
+
+
+def _default_worker_loss_policy(
+    exc: FatalWorkerError,
+) -> ErrorHandlingConfig | None:
+    """Return the driver-only fallback without changing UDF batch strategy."""
+    if isinstance(exc, (FatalWorkerOOMError, *_DEFAULT_FATAL_WORKER_FAIL_FAST_ERRORS)):
+        return None
+    if isinstance(exc, FatalWorkerCrashError):
+        return resolve_on_error([Skip(FatalWorkerCrashError)])
+    return resolve_on_error(
+        [
+            Retry(FatalWorkerError, max_attempts=DEFAULT_FATAL_WORKER_MAX_ATTEMPTS),
+            Skip(FatalWorkerError),
+        ]
+    )
 
 
 @ray.remote  # type: ignore[misc]
@@ -579,6 +928,13 @@ class ApplierActor:  # pyright: ignore[reportRedeclaration]
                 if retry_state.outcome is not None
                 else None
             )
+            # React to expired vended credentials: the task's tables are bound
+            # once before the loop, so replaying the read with the dead token
+            # fails identically. Force a re-vend + rebind before the next attempt.
+            if maybe_refresh_credentials_on_retry(exc, task, self.table_cache):
+                _LOG.debug(
+                    "reactively re-vended credentials for task %s before retry", task
+                )
             backoff = (
                 retry_state.next_action.sleep
                 if retry_state.next_action is not None
@@ -972,6 +1328,71 @@ def _emit_phase(hist: Any, job_id: str | None, phase: str) -> None:
             hist.add_event(job_id, phase)
 
 
+@attrs.define(frozen=True)
+class _ClusterStatusSnapshot:
+    """Timestamped cluster-status reading published by the background refresher."""
+
+    captured_at: float
+    status: dict[str, Any]
+
+    def age_seconds(self, *, now: float | None = None) -> float:
+        return (time.monotonic() if now is None else now) - self.captured_at
+
+
+class _ClusterStatusRefresher:
+    """Refresh cluster status on a background daemon so the result loop never
+    blocks on the listing. A failed or degraded fetch keeps the last snapshot.
+    stop() discards any in-flight fetch result, so nothing is applied or
+    published after teardown even if the fetch outlives the join.
+    """
+
+    def __init__(
+        self,
+        fetch_fn: Callable[[], "dict[str, Any] | None"],
+        apply_fn: Callable[[dict[str, Any]], None],
+        interval: float,
+    ) -> None:
+        self._fetch_fn = fetch_fn
+        self._apply_fn = apply_fn
+        self._lock = threading.Lock()
+        self._snapshot: _ClusterStatusSnapshot | None = None
+        self._stop_evt = threading.Event()
+        self._caller = _PeriodicCaller(self._tick, interval)
+
+    def _tick(self) -> None:
+        try:
+            status = self._fetch_fn()
+        except Exception:
+            _LOG.debug(
+                "cluster status refresh failed; keeping last snapshot",
+                exc_info=True,
+            )
+            return
+        if status is None:
+            _LOG.debug("cluster status refresh unavailable; keeping last snapshot")
+            return
+        if self._stop_evt.is_set():
+            return
+        self._apply_fn(status)
+        snapshot = _ClusterStatusSnapshot(captured_at=time.monotonic(), status=status)
+        with self._lock:
+            self._snapshot = snapshot
+
+    def start(self) -> None:
+        self._caller.start()
+
+    def stop(self, *, timeout: float = 5.0) -> None:
+        self._stop_evt.set()
+        self._caller.stop()
+        self._caller.join(timeout=timeout)
+        if self._caller.is_alive():
+            _LOG.debug("cluster status refresher still draining its last fetch")
+
+    def latest(self) -> _ClusterStatusSnapshot | None:
+        with self._lock:
+            return self._snapshot
+
+
 @attrs.define
 class ColumnAddPipelineJob:
     """ColumnAddPipeline drives batches of rows to commits in the dataset.
@@ -1008,10 +1429,30 @@ class ColumnAddPipelineJob:
     # Running "tasks_completed" total; grows as failed ReadTasks are replaced
     # (see _account_for_replacements) so the completion bar can't overshoot.
     _tasks_completed_total: int = attrs.field(default=0, init=False)
-    _planned_tasks: list[ReadTask] = attrs.field(factory=list, init=False)
-    _last_status_refresh: float = attrs.field(factory=lambda: 0.0, init=False)
+    skip_tracker: "SkipBudgetTracker | None" = attrs.field(default=None, init=False)
+    _checkpoint_identity_contexts: tuple[tuple[str, str | None], ...] = attrs.field(
+        factory=tuple, init=False
+    )
+    _metric_buffer: _JobTrackerMetricBuffer | None = attrs.field(
+        default=None, init=False, repr=False
+    )
+    _validate_plan_metadata: bool = attrs.field(default=False, init=False)
+    _cluster_status_refresher: "_ClusterStatusRefresher | None" = attrs.field(
+        default=None, init=False, repr=False
+    )
     _error_logger: TableErrorLogger | None = attrs.field(
         default=None, init=False, repr=False
+    )
+    # Job-level budget for default-on OOM recovery (GEN-515 / GEN-697).
+    _oom_budget_tracker: OOMRecoveryBudgetTracker = attrs.field(
+        factory=OOMRecoveryBudgetTracker.from_config, init=False, repr=False
+    )
+    # Lazily-built in-cluster pod-status lookup for remote drivers.
+    _in_cluster_k8s: "tuple[Any, str, str] | None" = attrs.field(
+        default=None, init=False, repr=False
+    )
+    _in_cluster_k8s_unavailable: bool = attrs.field(
+        default=False, init=False, repr=False
     )
     _blob_v2_checkpoint_assembly_enabled_value: bool | None = attrs.field(
         default=None, init=False, repr=False
@@ -1056,14 +1497,14 @@ class ColumnAddPipelineJob:
         self._blob_v2_checkpoint_assembly_enabled_value = enabled
         return enabled
 
-    def _src_files_hash_for_task(self, task: ScanTask) -> str | None:
+    def _src_files_hash_for_task(self, task: ScanTask | CopyTask) -> str | None:
         src_files_hash = getattr(task, "src_files_hash", None)
         if src_files_hash is not None:
             return src_files_hash
         src_files = self.src_data_files_by_dst.get(task.dest_frag_id())
         return hash_source_files(src_files) if src_files is not None else None
 
-    def _checkpoint_prefixes_for_task(self, task: ScanTask) -> list[str]:
+    def _checkpoint_prefixes_for_task(self, task: ScanTask | CopyTask) -> list[str]:
         base_prefix = self.map_task.checkpoint_prefix(
             dataset_uri=task.table_uri(),
             where=getattr(task, "where", None),
@@ -1073,8 +1514,60 @@ class ColumnAddPipelineJob:
         return [base_prefix]
 
     def setup_inputplans(self) -> tuple[Iterator[ReadTask], Counter[int], int]:
-        all_tasks = list(self.input_plan)
-        self._planned_tasks = all_tasks
+        plan_total_tasks = getattr(self.input_plan, "total_tasks", None)
+        plan_total_rows = getattr(self.input_plan, "total_rows", None)
+        plan_tasks_by_frag = getattr(self.input_plan, "tasks_by_frag", None)
+
+        # Native Lance plans carry compact metadata, so keep their task stream
+        # lazy. Fall back to materialization for third-party/generic iterators
+        # that do not provide the accounting FragmentWriterManager requires.
+        if (
+            getattr(self.input_plan, "is_compact_geneva_plan", False)
+            and plan_total_tasks is not None
+            and plan_total_rows is not None
+            and plan_tasks_by_frag is not None
+            and hasattr(self.input_plan, "checkpoint_identity_contexts")
+        ):
+            if getattr(self.input_plan, "consumed", 0) != 0:
+                raise ValueError(
+                    "A compact read plan must not be consumed before pipeline setup"
+                )
+            plans: Iterator[ReadTask] = self.input_plan
+            readtasks_by_frag = Counter(plan_tasks_by_frag)
+            total_readtasks = int(plan_total_tasks)
+            self._total_rows = int(plan_total_rows)
+            self._checkpoint_identity_contexts = tuple(
+                getattr(self.input_plan, "checkpoint_identity_contexts", ())
+            )
+            self._validate_plan_metadata = True
+        else:
+            all_tasks = list(self.input_plan)
+            plans = iter(all_tasks)
+            self._total_rows = sum(t.num_rows() for t in all_tasks)
+            readtasks_by_frag = Counter(t.dest_frag_id() for t in all_tasks)
+            total_readtasks = len(all_tasks)
+
+            contexts: list[tuple[str, str | None]] = []
+            seen_contexts: set[tuple[str, str | None]] = set()
+            for task in all_tasks:
+                try:
+                    task_uri = task.table_uri()
+                except Exception:
+                    task_uri = self.dst.table_uri or "$".join(self.dst.table_id)
+                context = (task_uri, getattr(task, "where", None))
+                if context not in seen_contexts:
+                    seen_contexts.add(context)
+                    contexts.append(context)
+            self._checkpoint_identity_contexts = tuple(contexts)
+
+        # FragmentWriterManager seals a fragment from these counts, so reject
+        # inconsistent compact metadata before creating any Ray actors.
+        if sum(readtasks_by_frag.values()) != total_readtasks:
+            raise ValueError(
+                "Read-plan metadata is inconsistent: total_tasks does not "
+                "match tasks_by_frag"
+            )
+
         rc = PipelineResourceConfig.get()
         self.job_tracker = self.job_tracker or job_tracker_options(  # type: ignore[assignment]
             name=f"jobtracker-{self.job_id}",
@@ -1086,20 +1579,12 @@ class ColumnAddPipelineJob:
             self.dst,
             **job_tracker_throttle_kwargs(),
         )
+        init_oom_recovery_metrics(self.job_tracker)
+        assert self.job_tracker is not None
+        self._metric_buffer = _JobTrackerMetricBuffer(self.job_tracker)
 
-        self._total_rows = sum(t.num_rows() for t in all_tasks)
-
-        # Count ReadTasks per fragment. FragmentWriterManager
-        # decrements remaining_tasks once per ReadTask in ingest_task(), so this
-        # must match. A single ReadTask may produce multiple checkpoints when
-        # checkpoint_size < task_size, but seal() should be called once all
-        # ReadTasks for a fragment have completed.
-        readtasks_by_frag: Counter[int] = Counter()
-        for t in all_tasks:
-            frag_id = t.dest_frag_id()
-            readtasks_by_frag[frag_id] += 1
-
-        total_readtasks = sum(readtasks_by_frag.values())
+        # FragmentWriterManager decrements once per ReadTask (not per batch
+        # checkpoint); setup above preserves that unit in tasks_by_frag.
         # Running total for the "tasks_completed" metric. Grows when a failed
         # ReadTask is replaced by several (see _account_for_replacements) so the
         # completion counter can't overshoot its total and close the bar early.
@@ -1115,16 +1600,16 @@ class ColumnAddPipelineJob:
             # Completion counterpart to "fragments" (scheduled): incremented per
             # finished ReadTask in the main loop. Surfaced as the "Tasks
             # completed" progress bar.
-            self.job_tracker.set_total.remote("tasks_completed", total_readtasks)
+            self.job_tracker.set_total.remote(METRIC_TASKS_COMPLETED, total_readtasks)
             self.job_tracker.set_desc.remote(
-                "tasks_completed",
+                METRIC_TASKS_COMPLETED,
                 f"[{self.dst.table_name} - {self.map_task.name()}] "
                 "Read tasks (compute)",
             )
 
         # this reports # of read tasks started, not completed.
         return (
-            ray_tqdm(all_tasks, self.job_tracker, metric="fragments"),
+            plans,
             readtasks_by_frag,
             total_readtasks,
         )
@@ -1346,15 +1831,11 @@ class ColumnAddPipelineJob:
                 seen.add(prefix)
                 prefixes.append(prefix)
 
-        for task in self._planned_tasks:
-            try:
-                task_uri = task.table_uri()
-            except Exception:
-                task_uri = dataset_uri
+        for task_uri, task_where in self._checkpoint_identity_contexts:
             add_prefix(
                 self.map_task.checkpoint_prefix(
                     dataset_uri=task_uri or dataset_uri,
-                    where=getattr(task, "where", None),
+                    where=task_where,
                     column=None,
                     src_files_hash=None,
                 )
@@ -1376,40 +1857,57 @@ class ColumnAddPipelineJob:
             for store in hierarchical_stores:
                 store.ensure_identity_sidecar(checkpoint_prefix)
 
-    def _refresh_cluster_status(self) -> None:
-        # cluster metrics
+    def _fetch_cluster_status(self) -> dict[str, Any] | None:
+        """Cluster status via the Ray state API; None when the listing is
+        degraded. _ray_status reports failures via error keys, not exceptions."""
         try:
             ray_status = _ray_status()
-
-            # TODO batch this.
-            if self.job_tracker is not None:
-                m_rn = CNT_RAY_NODES
-                cnt_workers = ray_status.get(m_rn, 0)
-                self.job_tracker.set_desc.remote(m_rn, "ray nodes provisioned")
-                self.job_tracker.set.remote(m_rn, cnt_workers)
-
-                # TODO separate metrics for gpu and cpu workers?
-                m_caa = CNT_WORKERS_ACTIVE
-                cnt_active = ray_status.get(m_caa, 0)
-                self.job_tracker.set_desc.remote(m_caa, "active workers")
-                self.job_tracker.set_total.remote(m_caa, self.applier_concurrency)
-                self.job_tracker.set.remote(m_caa, cnt_active)
-
-                m_cpa = CNT_WORKERS_PENDING
-                cnt_pending = ray_status.get(m_cpa, 0)
-                self.job_tracker.set_desc.remote(m_cpa, "pending workers")
-                self.job_tracker.set_total.remote(m_cpa, self.applier_concurrency)
-                self.job_tracker.set.remote(m_cpa, cnt_pending)
-
         except Exception:
             _LOG.debug("refresh: failed to get ray status", exc_info=True)
-            # do nothing
+            return None
+        if "ray_nodes_error" in ray_status or "geneva_workers_error" in ray_status:
+            return None
+        return ray_status
 
-    def _try_refresh_cluster_status(self) -> None:
-        now = time.monotonic()
-        if now - self._last_status_refresh >= REFRESH_EVERY_SECONDS:
-            self._refresh_cluster_status()
-            self._last_status_refresh = now
+    def _publish_cluster_status(self, ray_status: dict[str, Any]) -> None:
+        """Push worker counts to the JobTracker display. Best-effort."""
+        if self.job_tracker is None:
+            return
+        try:
+            # TODO batch this.
+            m_rn = CNT_RAY_NODES
+            cnt_workers = ray_status.get(m_rn, 0)
+            self.job_tracker.set_desc.remote(m_rn, "ray nodes provisioned")
+            self.job_tracker.set.remote(m_rn, cnt_workers)
+
+            # TODO separate metrics for gpu and cpu workers?
+            m_caa = CNT_WORKERS_ACTIVE
+            cnt_active = ray_status.get(m_caa, 0)
+            self.job_tracker.set_desc.remote(m_caa, "active workers")
+            self.job_tracker.set_total.remote(m_caa, self.applier_concurrency)
+            self.job_tracker.set.remote(m_caa, cnt_active)
+
+            m_cpa = CNT_WORKERS_PENDING
+            cnt_pending = ray_status.get(m_cpa, 0)
+            self.job_tracker.set_desc.remote(m_cpa, "pending workers")
+            self.job_tracker.set_total.remote(m_cpa, self.applier_concurrency)
+            self.job_tracker.set.remote(m_cpa, cnt_pending)
+        except Exception:
+            _LOG.debug("refresh: failed to update job tracker", exc_info=True)
+
+    def _refresh_cluster_status(self) -> dict[str, Any] | None:
+        ray_status = self._fetch_cluster_status()
+        if ray_status is not None:
+            self._publish_cluster_status(ray_status)
+        return ray_status
+
+    def _cluster_status_age_str(self) -> str:
+        """Age of the latest background cluster-status snapshot, for logs."""
+        refresher = self._cluster_status_refresher
+        snapshot = refresher.latest() if refresher is not None else None
+        if snapshot is None:
+            return "unavailable"
+        return f"{snapshot.age_seconds():.1f}s"
 
     def _get_k8s_pod_statuses(self) -> list[PodStatus] | None:
         """Return worker pod statuses from the k8s API, or None on failure."""
@@ -1418,12 +1916,50 @@ class ColumnAddPipelineJob:
             from geneva.runners.ray.raycluster import RayCluster
 
             ctx = get_current_context()
-            if not isinstance(ctx, RayCluster):
-                return None
-            return k8s_status(ctx.clients, ctx.namespace, cluster_name=ctx.name)
+            if isinstance(ctx, RayCluster):
+                return k8s_status(ctx.clients, ctx.namespace, cluster_name=ctx.name)
+            return self._k8s_pod_statuses_from_pod_env()
         except Exception:
             _LOG.debug("Failed to get k8s pod status", exc_info=True)
             return None
+
+    def _k8s_pod_statuses_from_pod_env(self) -> list[PodStatus] | None:
+        """Pod-status lookup for remote drivers.
+
+        The client-side RayCluster context does not cross the Ray task
+        boundary, so a driver running on the head pod resolves the owning
+        cluster from the env vars advertised in the pod spec and uses
+        in-cluster credentials. Returns None when either is unavailable
+        (e.g. local Ray or missing RBAC).
+        """
+        if self._in_cluster_k8s_unavailable:
+            return None
+        if self._in_cluster_k8s is None:
+            from geneva.runners.ray.raycluster import (
+                GENEVA_RAY_CLUSTER_NAME_ENV,
+                GENEVA_RAY_CLUSTER_NAMESPACE_ENV,
+            )
+
+            cluster_name = os.environ.get(GENEVA_RAY_CLUSTER_NAME_ENV)
+            namespace = os.environ.get(GENEVA_RAY_CLUSTER_NAMESPACE_ENV)
+            if not cluster_name or not namespace:
+                self._in_cluster_k8s_unavailable = True
+                return None
+            try:
+                from geneva.cluster import K8sConfigMethod
+                from geneva.runners.kuberay.client import KuberayClients
+
+                clients = KuberayClients(config_method=K8sConfigMethod.IN_CLUSTER)
+            except Exception:
+                _LOG.debug(
+                    "in-cluster k8s client unavailable for pod status",
+                    exc_info=True,
+                )
+                self._in_cluster_k8s_unavailable = True
+                return None
+            self._in_cluster_k8s = (clients, namespace, cluster_name)
+        clients, namespace, cluster_name = self._in_cluster_k8s
+        return k8s_status(clients, namespace, cluster_name=cluster_name)
 
     def _log_k8s_pod_status(self) -> None:
         """Log the current k8s worker pod status."""
@@ -1462,8 +1998,12 @@ class ColumnAddPipelineJob:
         return "\n".join(lines)
 
     def _load_existing_checkpoints_for_task(
-        self, task: ScanTask
+        self,
+        task: ScanTask | CopyTask,
+        *,
+        invalid_checkpoint_keys: set[str] | None = None,
     ) -> list[MapBatchCheckpoint] | None:
+        """Load full checkpoint coverage and report any rejected short keys."""
         ranges = _iter_checkpoint_ranges_for_fragment(
             checkpoint_store=self.checkpoint_store,
             prefixes=self._checkpoint_prefixes_for_task(task),
@@ -1490,6 +2030,12 @@ class ColumnAddPipelineJob:
             if span <= 0:
                 continue
             batch = self.checkpoint_store[key]
+            if discard_short_checkpoint(self.checkpoint_store, key, batch):
+                if invalid_checkpoint_keys is not None:
+                    invalid_checkpoint_keys.add(key)
+                # Truncated checkpoint: drop the poisoned key and mark the task
+                # uncovered so the caller recomputes rather than reading a partial file.
+                return None
             recovered.append(
                 MapBatchCheckpoint(
                     checkpoint_key=key,
@@ -1507,17 +2053,84 @@ class ColumnAddPipelineJob:
             return None
         return recovered
 
-    def _replacement_scan_tasks(
+    def _load_partial_checkpoints_for_task(
         self,
-        task: ScanTask,
+        task: ScanTask | CopyTask,
         *,
-        split_limit: int,
-    ) -> list[ScanTask]:
+        excluded_checkpoint_keys: set[str] | None = None,
+    ) -> list[MapBatchCheckpoint]:
+        """Load whatever checkpoint coverage exists inside a task's window.
+
+        Unlike ``_load_existing_checkpoints_for_task`` this does not require
+        contiguous coverage: it returns the covered subranges (clipped to the
+        window, deduped against each other) and leaves the gaps to replacement
+        tasks. Used when a task fails after flushing some checkpoints, so the
+        flushed rows still reach the writer instead of being null-filled. Short
+        checkpoints identified by the full-coverage check are excluded even
+        when their best-effort deletion fails.
+        """
         ranges = _iter_checkpoint_ranges_for_fragment(
             checkpoint_store=self.checkpoint_store,
             prefixes=self._checkpoint_prefixes_for_task(task),
             frag_id=task.dest_frag_id(),
         )
+        if not ranges:
+            return []
+        if excluded_checkpoint_keys:
+            ranges = [
+                item for item in ranges if item[0] not in excluded_checkpoint_keys
+            ]
+
+        task_start = task.dest_offset()
+        task_end = task_start + task.num_rows()
+        overlaps = [
+            (key, max(start, task_start), min(end, task_end))
+            for key, start, end in ranges
+            if end > task_start and start < task_end
+        ]
+        overlaps.sort(key=lambda item: item[1])
+
+        cur = task_start
+        recovered: list[MapBatchCheckpoint] = []
+        for key, start, end in overlaps:
+            offset = max(start, cur)
+            span = end - offset
+            if span <= 0:
+                continue
+            recovered.append(
+                MapBatchCheckpoint(
+                    checkpoint_key=key,
+                    offset=offset,
+                    num_rows=0,
+                    span=span,
+                    udf_rows=0,
+                )
+            )
+            cur = max(cur, end)
+        return recovered
+
+    def _replacement_scan_tasks(
+        self,
+        task: ScanTask | CopyTask,
+        *,
+        split_limit: int | None = None,
+        target_split_fanout: int | None = None,
+        strict_shrink_unfinished: bool = False,
+        excluded_checkpoint_keys: set[str] | None = None,
+    ) -> list[ScanTask | CopyTask]:
+        if (split_limit is None) == (target_split_fanout is None):
+            raise ValueError(
+                "exactly one of split_limit or target_split_fanout is required"
+            )
+        ranges = _iter_checkpoint_ranges_for_fragment(
+            checkpoint_store=self.checkpoint_store,
+            prefixes=self._checkpoint_prefixes_for_task(task),
+            frag_id=task.dest_frag_id(),
+        )
+        if excluded_checkpoint_keys:
+            ranges = [
+                item for item in ranges if item[0] not in excluded_checkpoint_keys
+            ]
 
         task_start = task.dest_offset()
         task_end = task_start + task.num_rows()
@@ -1528,11 +2141,64 @@ class ColumnAddPipelineJob:
                 if end > task_start and start < task_end
             ]
         )
-        missing = _compute_missing_ranges(
-            total_rows=task.num_rows(),
-            task_size=max(1, split_limit),
-            covered=covered,
-        )
+        if target_split_fanout is not None:
+            if strict_shrink_unfinished:
+                # Bulk-load recovery must shrink every unfinished gap, even
+                # when checkpoint coverage creates more gaps than the global
+                # fanout target can split independently.
+                gaps = _compute_missing_ranges(
+                    total_rows=task.num_rows(),
+                    task_size=max(1, task.num_rows()),
+                    covered=covered,
+                )
+                missing = []
+                for gap_start, gap_limit in gaps:
+                    gap_fanout = min(target_split_fanout, max(2, gap_limit))
+                    missing.extend(
+                        (gap_start + rel_start, rel_limit)
+                        for rel_start, rel_limit in oom_recovery_task_ranges(
+                            total_rows=gap_limit,
+                            covered=[],
+                            target_split_fanout=gap_fanout,
+                        )
+                    )
+            else:
+                missing = oom_recovery_task_ranges(
+                    total_rows=task.num_rows(),
+                    covered=covered,
+                    target_split_fanout=target_split_fanout,
+                )
+        else:
+            assert split_limit is not None
+            if strict_shrink_unfinished:
+                # First isolate each unfinished gap, then split that gap itself.
+                # Applying only the parent task's split limit can leave a smaller
+                # checkpoint-trimmed gap unchanged, retrying the same OOM footprint.
+                gaps = _compute_missing_ranges(
+                    total_rows=task.num_rows(),
+                    task_size=max(1, task.num_rows()),
+                    covered=covered,
+                )
+                missing = []
+                for gap_start, gap_limit in gaps:
+                    gap_split_limit = min(
+                        max(1, split_limit),
+                        max(1, gap_limit // 2),
+                    )
+                    missing.extend(
+                        (gap_start + rel_start, rel_limit)
+                        for rel_start, rel_limit in _compute_missing_ranges(
+                            total_rows=gap_limit,
+                            task_size=gap_split_limit,
+                            covered=[],
+                        )
+                    )
+            else:
+                missing = _compute_missing_ranges(
+                    total_rows=task.num_rows(),
+                    task_size=max(1, split_limit),
+                    covered=covered,
+                )
         return [
             attrs.evolve(task, offset=task.offset + rel_start, limit=rel_limit)
             for rel_start, rel_limit in missing
@@ -1541,25 +2207,47 @@ class ColumnAddPipelineJob:
     def _make_null_checkpoint_for_task(
         self,
         task: ScanTask,
-    ) -> tuple[MapBatchCheckpoint, int | None]:
+        *,
+        before_store: Callable[[int], None] | None = None,
+    ) -> tuple[MapBatchCheckpoint, int | None, bool]:
+        if task.num_rows() != 1:
+            raise RuntimeError(f"Refusing to NULL non-leaf task {task}")
         try:
             row_batch = next(task.to_batches(batch_size=1))
         except StopIteration as exc:
             raise RuntimeError(f"Unable to materialize skipped task {task}") from exc
+        if row_batch.num_rows != 1:
+            raise RuntimeError(f"Expected one row for skipped task {task}")
 
-        row_address = None
-        if "_rowaddr" in row_batch.schema.names and row_batch.num_rows > 0:
-            value = row_batch["_rowaddr"][0].as_py()
-            row_address = int(value) if value is not None else None
+        selected = (
+            bool(row_batch[BACKFILL_SELECTED][0].as_py())
+            if BACKFILL_SELECTED in row_batch.schema.names
+            else True
+        )
+        row_address = (
+            row_batch["_rowaddr"][0].as_py()
+            if selected and "_rowaddr" in row_batch.schema.names
+            else None
+        )
+        row_address = int(row_address) if row_address is not None else None
+
+        defer_carry_forward = (
+            isinstance(self.map_task, BackfillUDFTask)
+            and self.map_task.defer_carry_forward
+        )
+        if defer_carry_forward and not selected:
+            row_batch = row_batch.slice(0, 0)
 
         arrays: list[pa.Array] = []
         for field in self.map_task.output_schema():
             if field.name == "_rowaddr" and "_rowaddr" in row_batch.schema.names:
                 arrays.append(cast("pa.Array", row_batch["_rowaddr"]))
+            elif not selected and field.name in row_batch.schema.names:
+                arrays.append(cast("pa.Array", row_batch[field.name]))
             else:
-                # Use make_null_array for proper struct null handling in Lance 2.1
                 arrays.append(make_null_array(row_batch.num_rows, field.type))
         batch = pa.record_batch(arrays, schema=self.map_task.output_schema())
+        batch = stamp_checkpoint_num_rows(batch)
 
         checkpoint_key = self.map_task.checkpoint_key(
             dataset_uri=task.table_uri(),
@@ -1570,6 +2258,8 @@ class ColumnAddPipelineJob:
             where=getattr(task, "where", None),
             src_files_hash=getattr(task, "src_files_hash", None),
         )
+        if before_store is not None:
+            before_store(int(selected))
         self.checkpoint_store[checkpoint_key] = batch
         checkpoint = MapBatchCheckpoint(
             checkpoint_key=checkpoint_key,
@@ -1578,7 +2268,25 @@ class ColumnAddPipelineJob:
             span=task.num_rows(),
             udf_rows=0,
         )
-        return checkpoint, row_address
+        return checkpoint, row_address, selected
+
+    def _record_driver_task_completion(self, *, rows_skipped: int = 0) -> None:
+        metric_deltas = {
+            METRIC_ROWS_SKIPPED: int(rows_skipped),
+            METRIC_TASKS_COMPLETED: 1,
+        }
+        _emit_otel_metrics(
+            metric_deltas,
+            job_type=self.job_type,
+            stage="execute",
+            job_id=self.job_id,
+            table=self.dst.table_name,
+            column=self.map_task.name(),
+        )
+        if self._metric_buffer is not None:
+            self._metric_buffer.add_many(metric_deltas)
+        elif self.job_tracker is not None:
+            self.job_tracker.batch_increment.remote(metric_deltas)
 
     def _account_for_replacements(self, num_replacements: int) -> None:
         """Keep progress counters consistent when a failed ReadTask is replaced.
@@ -1591,13 +2299,19 @@ class ColumnAddPipelineJob:
         stays accurate).
         """
         delta = num_replacements - 1
-        if delta <= 0 or self.job_tracker is None:
+        if delta <= 0:
             return
         self._tasks_completed_total += delta
+        if self.job_tracker is None:
+            return
         self.job_tracker.set_total.remote(
-            "tasks_completed", self._tasks_completed_total
+            METRIC_TASKS_COMPLETED, self._tasks_completed_total
         )
-        self.job_tracker.increment.remote("fragments", delta)
+        self.job_tracker.set_total.remote("fragments", self._tasks_completed_total)
+        if self._metric_buffer is not None:
+            self._metric_buffer.add("fragments", delta)
+        else:
+            self.job_tracker.increment.remote("fragments", delta)
 
     def _handle_fatal_task_failure(
         self,
@@ -1606,56 +2320,202 @@ class ColumnAddPipelineJob:
         pending_tasks: deque[ScheduledReadTask],
         fwm: "FragmentWriterManager",
         pod_statuses: Sequence[PodStatus] | None,
+        submission_capacity: int | None = None,
     ) -> bool:
         task = scheduled.task
-        if not isinstance(task, ScanTask):
-            return False
-        if not isinstance(self.map_task, BackfillUDFTask):
+        is_bulk_load_task = False
+        if isinstance(task, ScanTask):
+            is_bulk_load_task = isinstance(self.map_task, BulkLoadMapTask)
+            if not isinstance(self.map_task, BackfillUDFTask) and not is_bulk_load_task:
+                return False
+            is_copy_task = False
+        elif isinstance(task, CopyTask):
+            if not isinstance(self.map_task, CopyTableTask):
+                return False
+            is_copy_task = True
+        else:
             return False
 
-        recovered = self._load_existing_checkpoints_for_task(task)
+        # CopyTableTask and BulkLoadMapTask do not participate in the backfill
+        # user error-policy or transient retry paths. Admit only classified OOMs
+        # so their existing non-OOM fail-fast behavior remains unchanged.
+        fatal_exc: FatalWorkerError | None = None
+        if is_copy_task or is_bulk_load_task:
+            fatal_exc = _normalize_fatal_worker_error(
+                exc,
+                pod_statuses=pod_statuses,
+            )
+            if not isinstance(fatal_exc, FatalWorkerOOMError):
+                return False
+
+        invalid_checkpoint_keys: set[str] = set()
+        recovered = self._load_existing_checkpoints_for_task(
+            task,
+            invalid_checkpoint_keys=invalid_checkpoint_keys,
+        )
         if recovered is not None:
             fwm.ingest_task(task, recovered)
+            self._record_driver_task_completion()
             return True
 
-        raw_config = get_error_handling_config(self.map_task)
-        fatal_exc = _normalize_fatal_worker_error(
-            exc,
-            pod_statuses=pod_statuses,
+        # The task died with partial checkpoint coverage. Re-ingest the flushed
+        # ranges now so the writer still receives them; the replacement tasks
+        # created below cover only the gaps. Skipping this null-fills the
+        # flushed rows at seal (GEN-744 follow-up).
+        partial = self._load_partial_checkpoints_for_task(
+            task,
+            excluded_checkpoint_keys=invalid_checkpoint_keys,
         )
+        if partial:
+            _LOG.info(
+                "Task %s (fragment %d) failed with %d flushed checkpoint(s) "
+                "covering %d row(s); re-ingesting them for the writer",
+                task.checkpoint_key(),
+                task.dest_frag_id(),
+                len(partial),
+                sum(c.span for c in partial),
+            )
+            fwm.ingest_recovered_checkpoints(task, partial)
+
+        raw_config = get_error_handling_config(self.map_task)
+        if fatal_exc is None:
+            fatal_exc = _normalize_fatal_worker_error(
+                exc,
+                pod_statuses=pod_statuses,
+            )
+
+        config_handles_fatal = _config_handles_exception(raw_config, fatal_exc)
+
         if (
-            isinstance(fatal_exc, FatalWorkerTransientError)
-            and not _config_handles_exception(raw_config, fatal_exc)
-            and scheduled.attempt < DEFAULT_TRANSIENT_FATAL_MAX_ATTEMPTS
+            isinstance(fatal_exc, FatalWorkerOOMError)
+            and self._oom_budget_tracker.config.enabled
+            and not config_handles_fatal
         ):
-            replacements = self._replacement_scan_tasks(task, split_limit=task.limit)
+            # Default-on bounded OOM recovery: use current submission capacity
+            # up to a size-aware cap so idle actors shorten long tails without
+            # unconditionally amplifying small tasks.
+            parent_rows = task.num_rows()
+            if parent_rows <= 0:
+                raise FatalWorkerOOMError(
+                    "OOM recovery cannot safely split a task with unknown row count "
+                    f"(frag={task.dest_frag_id()}; offset={task.dest_offset()}; "
+                    f"limit={task.limit})"
+                ) from fatal_exc
+            unfinished_rows = max(1, parent_rows - sum(c.span for c in partial))
+            configured_fanout = self._oom_budget_tracker.config.target_split_fanout
+            size_fanout_cap = configured_fanout or oom_recovery_target_split_fanout(
+                unfinished_rows
+            )
+            target_split_fanout = size_fanout_cap
+            if configured_fanout is None and submission_capacity is not None:
+                target_split_fanout = min(
+                    size_fanout_cap,
+                    max(2, submission_capacity),
+                )
+            if is_bulk_load_task:
+                replacements = self._replacement_scan_tasks(
+                    task,
+                    target_split_fanout=target_split_fanout,
+                    strict_shrink_unfinished=True,
+                    excluded_checkpoint_keys=invalid_checkpoint_keys,
+                )
+            else:
+                replacements = self._replacement_scan_tasks(
+                    task,
+                    target_split_fanout=target_split_fanout,
+                    excluded_checkpoint_keys=invalid_checkpoint_keys,
+                )
             if not replacements:
                 replacements = [task]
+                shrunk = False
+            else:
+                shrunk = all(0 < r.num_rows() < parent_rows for r in replacements)
+                if parent_rows > 1 and not shrunk:
+                    raise FatalWorkerOOMError(
+                        "OOM recovery failed to strictly shrink unfinished work "
+                        f"(frag={task.dest_frag_id()}; offset={task.dest_offset()}; "
+                        f"rows={parent_rows}; replacements="
+                        f"{[r.num_rows() for r in replacements]})"
+                    ) from fatal_exc
+            attempt_info = record_oom_recovery_attempt(
+                self._oom_budget_tracker,
+                job_tracker=self.job_tracker,
+                job_id=self.job_id,
+                range_key=read_task_oom_range_key(task),
+                oom_exc=fatal_exc,
+                shrunk=shrunk,
+            )
             fwm.replace_task(task, replacements)
             self._account_for_replacements(len(replacements))
+            new_depth = scheduled.bisect_depth + (1 if shrunk else 0)
+            self.skipped_stats["oom_recoveries"] = (
+                self.skipped_stats.get("oom_recoveries", 0) + 1
+            )
+            self.skipped_stats["max_bisect_depth"] = max(
+                self.skipped_stats.get("max_bisect_depth", 0), new_depth
+            )
+            if attempt_info is not None:  # None only when the budget is disabled
+                _LOG.warning(
+                    "fatal worker OOM on task frag=%s offset=%s limit=%s: "
+                    "retrying unfinished_rows=%d with target_fanout=%d "
+                    "(submission_capacity=%s, size_fanout_cap=%d) as %d task(s) "
+                    "(shrunk=%s; oom budget: total=%d/%d, same_range=%d/%d)",
+                    task.dest_frag_id(),
+                    task.dest_offset(),
+                    parent_rows,
+                    unfinished_rows,
+                    target_split_fanout,
+                    submission_capacity,
+                    size_fanout_cap,
+                    len(replacements),
+                    shrunk,
+                    attempt_info.total_count,
+                    attempt_info.total_limit,
+                    attempt_info.same_range_count,
+                    attempt_info.same_range_limit,
+                )
+            # Splitting creates new, smaller windows; like the SKIP-bisect
+            # path below, preserve the attempt counter so OOM recovery does
+            # not consume the transient/user retry budgets it is independent
+            # of (the OOM budget above is its bound).
             for replacement in reversed(replacements):
                 pending_tasks.appendleft(
                     ScheduledReadTask(
                         replacement,
-                        attempt=scheduled.attempt + 1,
-                        bisect_depth=scheduled.bisect_depth,
+                        attempt=scheduled.attempt,
+                        bisect_depth=new_depth,
                     )
                 )
             return True
 
-        if raw_config is None:
+        using_default_worker_policy = not config_handles_fatal
+        error_config = (
+            _default_worker_loss_policy(fatal_exc)
+            if using_default_worker_policy
+            else raw_config
+        )
+        if error_config is None:
             raise fatal_exc from exc
 
-        outcome = get_exception_outcome(fatal_exc, raw_config)
-        retry_config = raw_config.retry_config
+        # CopyTableTask and BulkLoadMapTask returned above for non-OOM failures,
+        # and unhandled OOM has already taken its dedicated path. Keep both the
+        # user policy and driver-only default worker-loss policy scoped to UDF
+        # ScanTasks.
+        assert isinstance(task, ScanTask)
+
+        outcome = get_exception_outcome(fatal_exc, error_config)
+        retry_config = error_config.retry_config
         max_attempts = get_max_attempts(retry_config)
+        task_rows = task.num_rows()
         should_retry = outcome == Outcome.RETRY and scheduled.attempt < max_attempts
         if should_retry:
-            # If the worker died before flushing any checkpoints, the missing range
-            # is still the full task span and this will resubmit the original
-            # window unchanged. That is intentional: RETRY preserves the user's
-            # existing retry semantics for transient fatal worker failures.
-            replacements = self._replacement_scan_tasks(task, split_limit=task.limit)
+            # Preserve the existing Retry policy's task-level scope and attempt
+            # budget for both explicit and built-in worker-loss policies.
+            replacements = self._replacement_scan_tasks(
+                task,
+                split_limit=task_rows,
+                excluded_checkpoint_keys=invalid_checkpoint_keys,
+            )
             if not replacements:
                 replacements = [task]
             fwm.replace_task(task, replacements)
@@ -1671,42 +2531,67 @@ class ColumnAddPipelineJob:
             return True
 
         can_skip = (
-            raw_config.fault_isolation == FaultIsolation.SKIP_ROWS
+            error_config.fault_isolation == FaultIsolation.SKIP_ROWS
             and outcome in (Outcome.SKIP, Outcome.RETRY)
         )
         if can_skip:
-            if task.limit > 1:
-                split_limit = max(1, task.limit // 2)
+            if task_rows > 1:
+                split_limit = max(1, task_rows // 2)
                 replacements = self._replacement_scan_tasks(
                     task,
                     split_limit=split_limit,
+                    excluded_checkpoint_keys=invalid_checkpoint_keys,
                 )
-                if replacements:
-                    fwm.replace_task(task, replacements)
-                    self._account_for_replacements(len(replacements))
-                    new_depth = scheduled.bisect_depth + 1
-                    self.skipped_stats["bisect_splits"] = (
-                        self.skipped_stats.get("bisect_splits", 0) + 1
-                    )
-                    self.skipped_stats["max_bisect_depth"] = max(
-                        self.skipped_stats.get("max_bisect_depth", 0),
-                        new_depth,
-                    )
-                    for replacement in reversed(replacements):
-                        pending_tasks.appendleft(
-                            ScheduledReadTask(
-                                replacement,
-                                attempt=scheduled.attempt,
-                                bisect_depth=new_depth,
-                            )
+                if not replacements or any(
+                    replacement.num_rows() >= task.num_rows()
+                    for replacement in replacements
+                ):
+                    raise RuntimeError(
+                        "Fatal-worker row isolation could not shrink a multi-row "
+                        f"task (frag={task.dest_frag_id()}; "
+                        f"offset={task.dest_offset()}; rows={task.num_rows()}; "
+                        f"replacements={[r.num_rows() for r in replacements]})"
+                    ) from fatal_exc
+                fwm.replace_task(task, replacements)
+                self._account_for_replacements(len(replacements))
+                new_depth = scheduled.bisect_depth + 1
+                self.skipped_stats["bisect_splits"] = (
+                    self.skipped_stats.get("bisect_splits", 0) + 1
+                )
+                self.skipped_stats["max_bisect_depth"] = max(
+                    self.skipped_stats.get("max_bisect_depth", 0),
+                    new_depth,
+                )
+                for replacement in reversed(replacements):
+                    pending_tasks.appendleft(
+                        ScheduledReadTask(
+                            replacement,
+                            attempt=scheduled.attempt,
+                            bisect_depth=new_depth,
                         )
-                    return True
+                    )
+                return True
 
-            checkpoint, row_address = self._make_null_checkpoint_for_task(task)
+            # Charge the skip budget for the rows this task actually nulls. The
+            # callback runs after the WHERE mask has been materialized but before
+            # the deterministic checkpoint is stored, so a rejected skip cannot
+            # poison a later retry with a durable NULL checkpoint.
+            def _charge_skip_budget(null_rows: int) -> None:
+                if (
+                    not using_default_worker_policy
+                    and self.skip_tracker is not None
+                    and null_rows > 0
+                ):
+                    self.skip_tracker.record_batch(null_rows, null_rows)
+
+            checkpoint, row_address, row_skipped = self._make_null_checkpoint_for_task(
+                task,
+                before_store=_charge_skip_budget,
+            )
             self.skipped_stats["null_checkpoints"] = (
                 self.skipped_stats.get("null_checkpoints", 0) + 1
             )
-            if raw_config.log_errors:
+            if error_config.log_errors and row_skipped:
                 ctx = ErrorHandlingContext.create(self.map_task, task, self.job_id, 0)
                 self._log_fatal_error_record(
                     ctx.create_error_record(
@@ -1718,6 +2603,7 @@ class ColumnAddPipelineJob:
                     )
                 )
             fwm.ingest_task(task, [checkpoint])
+            self._record_driver_task_completion(rows_skipped=int(row_skipped))
             return True
 
         raise fatal_exc from exc
@@ -1911,20 +2797,27 @@ class ColumnAddPipelineJob:
         submit_fn = lambda actor, value: actor.run.remote(  # noqa: E731
             value.task, trace_carrier
         )
-        pending_tasks: deque[ScheduledReadTask] = deque(
-            ScheduledReadTask(task) for task in plans
+        feeder = _ReadTaskFeeder(
+            iter(plans),
+            Counter(tasks_by_frag),
+            cnt_tasks,
+            self._total_rows,
+            validate_metadata=self._validate_plan_metadata,
         )
+        pending_tasks = feeder.retry_tasks
 
         def _maybe_submit() -> bool:
-            if not pending_tasks:
+            next_task = feeder.pop_next()
+            if next_task is None:
                 return False
-            pool.submit(submit_fn, pending_tasks.popleft())
+            scheduled, from_plan = next_task
+            pool.submit(submit_fn, scheduled)
+            if from_plan and self._metric_buffer is not None:
+                self._metric_buffer.add("fragments", 1)
             return True
 
         # Prime the pool: num_actors + 1 so there's always a queued task ready.
-        priming = pool._num_actors + 1
-        while priming and _maybe_submit():
-            priming -= 1
+        _fill_actor_pool(pool, _maybe_submit)
 
         checkpoint_namespace_args = _checkpoint_store_namespace_args(
             self.checkpoint_store
@@ -1938,6 +2831,7 @@ class ColumnAddPipelineJob:
             job_tracker=self.job_tracker,
             job_id=self.job_id,
             job_type=self.job_type,
+            oom_budget_tracker=self._oom_budget_tracker,
             table_name=self.dst.table_name,
             commit_granularity=resolve_commit_granularity(
                 self.config.commit_granularity, cnt_fragments
@@ -1967,137 +2861,183 @@ class ColumnAddPipelineJob:
             ),
             fragment_base_placement=self.fragment_base_placement,
             src_data_files_by_dst=self.src_data_files_by_dst,
+            metric_buffer=self._metric_buffer,
         )
 
-        # Create skip budget tracker for per-job threshold checking
+        # Held on self so fatal-task handling can charge the budget for synthesized
+        # null checkpoints.
         error_config = get_error_handling_config(self.map_task)
-        skip_tracker = make_skip_budget_tracker(error_config)
+        self.skip_tracker = make_skip_budget_tracker(error_config)
+
+        refresher = _ClusterStatusRefresher(
+            self._fetch_cluster_status,
+            self._publish_cluster_status,
+            REFRESH_EVERY_SECONDS,
+        )
+        self._cluster_status_refresher = refresher
+        refresher.start()
 
         stall_deadline = time.monotonic() + PIPELINE_STALL_TIMEOUT_S
-        while pool.has_next():
-            try:
-                (
-                    task,
-                    checkpoints,
-                    direct_result,
-                    _cnt_udf_computed,
-                    udf_processing_time_ms,
-                    batch_checkpointing_time_ms,
-                    read_io_time_ms,
-                    checkpoint_load_time_ms,
-                    checkpoint_exists_time_ms,
-                    checkpoint_list_time_ms,
-                    read_task_total_time_ms,
-                    task_skip_count,
-                    task_total_rows,
-                ) = pool.get_next_unordered(timeout=POLL_INTERVAL_S)
-            except ActorPoolTaskError as exc:
-                pod_statuses = self._get_k8s_pod_statuses()
-                handled = self._handle_fatal_task_failure(
-                    exc.task,
-                    exc.cause,
-                    pending_tasks,
-                    fwm,
-                    pod_statuses=pod_statuses,
-                )
-                if not handled:
-                    raise _normalize_fatal_worker_error(
+        try:
+            while pool.has_next() or feeder.has_work:
+                if not pool.has_next() and not _fill_actor_pool(pool, _maybe_submit):
+                    break
+                try:
+                    batch = pool.drain_ready(timeout=POLL_INTERVAL_S)
+                except ActorPoolTaskError as exc:
+                    pod_statuses = self._get_k8s_pod_statuses()
+                    handled = self._handle_fatal_task_failure(
+                        exc.task,
                         exc.cause,
+                        pending_tasks,
+                        fwm,
                         pod_statuses=pod_statuses,
-                    ) from exc.cause
-                stall_deadline = time.monotonic() + PIPELINE_STALL_TIMEOUT_S
-                _maybe_submit()
-                fwm.poll_all()
-                self._try_refresh_cluster_status()
-                continue
-            except TimeoutError:
-                self._log_k8s_pod_status()
-                if time.monotonic() > stall_deadline:
-                    diag = self._k8s_pod_diagnostics()
-                    raise TimeoutError(
-                        f"Pipeline stalled: no task completed in "
-                        f"{PIPELINE_STALL_TIMEOUT_S}s. "
-                        f"Worker pod status:\n{diag}"
-                    ) from None
-                continue
-
-            # Got a result — reset stall deadline and submit next task.
-            stall_deadline = time.monotonic() + PIPELINE_STALL_TIMEOUT_S
-            _maybe_submit()
-
-            if direct_result is not None:
-                fwm.ingest_direct_fragment_result(task, direct_result)
-                if self.job_tracker and _cnt_udf_computed > 0:
-                    self.job_tracker.increment.remote(
-                        METRIC_UDF_VALUES, int(_cnt_udf_computed)
+                        submission_capacity=pool.submission_capacity(),
                     )
-            else:
-                fwm.ingest_task(task, checkpoints)
+                    if not handled:
+                        raise _normalize_fatal_worker_error(
+                            exc.cause,
+                            pod_statuses=pod_statuses,
+                        ) from exc.cause
+                    stall_deadline = time.monotonic() + PIPELINE_STALL_TIMEOUT_S
+                    _fill_actor_pool(pool, _maybe_submit)
+                    fwm.poll_all()
+                    continue
+                except PollTimeoutError:
+                    # Only the pool's own poll expiry means "no result yet". A
+                    # TimeoutError raised inside a task (e.g. a dependent API
+                    # timing out) is a task failure and propagates above.
+                    self._log_k8s_pod_status()
+                    _LOG.info(
+                        "cluster status snapshot age: %s",
+                        self._cluster_status_age_str(),
+                    )
+                    if time.monotonic() > stall_deadline:
+                        diag = self._k8s_pod_diagnostics()
+                        raise TimeoutError(
+                            f"Pipeline stalled: no task completed in "
+                            f"{PIPELINE_STALL_TIMEOUT_S}s (cluster status age "
+                            f"{self._cluster_status_age_str()}). "
+                            f"Worker pod status:\n{diag}"
+                        ) from None
+                    if self._metric_buffer is not None:
+                        self._metric_buffer.flush()
+                    continue
 
-            metric_deltas = {
-                METRIC_UDF_PROCESSING_TIME: int(udf_processing_time_ms),
-                METRIC_BATCH_CHECKPOINTING_TIME: int(batch_checkpointing_time_ms),
-                METRIC_READ_IO_TIME: int(read_io_time_ms),
-                METRIC_CHECKPOINT_LOAD_TIME: int(checkpoint_load_time_ms),
-                METRIC_CHECKPOINT_EXISTS_TIME: int(checkpoint_exists_time_ms),
-                METRIC_CHECKPOINT_LIST_TIME: int(checkpoint_list_time_ms),
-                METRIC_READ_TASK_TOTAL_TIME: int(read_task_total_time_ms),
-                # Rows dropped by error handling this task (usually 0).
-                # Folded into the existing batch_increment so it adds no
-                # extra actor call. Surfaced on the "skipped" status line.
-                METRIC_ROWS_SKIPPED: int(task_skip_count),
-                # Finer-grained completion signal than fragment writes: one
-                # ReadTask finished. Surfaced as the "Tasks completed" bar.
-                "tasks_completed": 1,
-            }
-            _emit_otel_metrics(
-                metric_deltas,
-                job_type=self.job_type,
-                stage="execute",
-                job_id=self.job_id,
-                table=self.dst.table_name,
-                column=self.map_task.name(),
+                # Refill every freed actor up front so the fleet is busy while
+                # this thread does the per-result writer and metrics work below.
+                stall_deadline = time.monotonic() + PIPELINE_STALL_TIMEOUT_S
+                _fill_actor_pool(pool, _maybe_submit)
+
+                for i, result in enumerate(batch):
+                    (
+                        task,
+                        checkpoints,
+                        direct_result,
+                        _cnt_udf_computed,
+                        udf_processing_time_ms,
+                        batch_checkpointing_time_ms,
+                        read_io_time_ms,
+                        checkpoint_load_time_ms,
+                        checkpoint_exists_time_ms,
+                        checkpoint_list_time_ms,
+                        read_task_total_time_ms,
+                        task_skip_count,
+                        task_total_rows,
+                    ) = result
+
+                    if direct_result is not None:
+                        fwm.ingest_direct_fragment_result(task, direct_result)
+                        if self._metric_buffer is not None and _cnt_udf_computed > 0:
+                            self._metric_buffer.add(
+                                METRIC_UDF_VALUES, int(_cnt_udf_computed)
+                            )
+                    else:
+                        fwm.ingest_task(task, checkpoints)
+                    # FragmentWriterManager has copied the checkpoint references
+                    # into fragment-scoped state; drop the local payload
+                    # references now.
+                    del checkpoints, direct_result
+
+                    metric_deltas = {
+                        METRIC_UDF_PROCESSING_TIME: int(udf_processing_time_ms),
+                        METRIC_BATCH_CHECKPOINTING_TIME: int(
+                            batch_checkpointing_time_ms
+                        ),
+                        METRIC_READ_IO_TIME: int(read_io_time_ms),
+                        METRIC_CHECKPOINT_LOAD_TIME: int(checkpoint_load_time_ms),
+                        METRIC_CHECKPOINT_EXISTS_TIME: int(checkpoint_exists_time_ms),
+                        METRIC_CHECKPOINT_LIST_TIME: int(checkpoint_list_time_ms),
+                        METRIC_READ_TASK_TOTAL_TIME: int(read_task_total_time_ms),
+                        # Rows dropped by error handling this task (usually 0).
+                        # Folded into the existing batch_increment so it adds no
+                        # extra actor call. Surfaced on the "skipped" status line.
+                        METRIC_ROWS_SKIPPED: int(task_skip_count),
+                        # Finer-grained completion signal than fragment writes:
+                        # one ReadTask finished. Surfaced as "Tasks completed".
+                        METRIC_TASKS_COMPLETED: 1,
+                    }
+                    _emit_otel_metrics(
+                        metric_deltas,
+                        job_type=self.job_type,
+                        stage="execute",
+                        job_id=self.job_id,
+                        table=self.dst.table_name,
+                        column=self.map_task.name(),
+                    )
+
+                    if self._metric_buffer is not None:
+                        self._metric_buffer.add_many(metric_deltas)
+                    # Check per-job skip threshold across all tasks
+                    if self.skip_tracker is not None and task_total_rows > 0:
+                        self.skip_tracker.record_batch(task_total_rows, task_skip_count)
+
+                    # Release the ingested result tuple so the batch does not
+                    # pin every payload across writer polling and the next
+                    # blocking drain.
+                    batch[i] = None
+
+                # ensure we discover any frgments that finished writing even if
+                # the current task belongs to another fragment.
+                fwm.poll_all()
+
+            if self._metric_buffer is not None:
+                self._metric_buffer.flush(force=True)
+            if self.job_tracker is not None:
+                self.job_tracker.mark_done.remote("fragments")
+
+            _finalize_span = telemetry.open_span(
+                "finalize",
+                {
+                    "job_id": self.job_id or "",
+                    "job_type": self.job_type,
+                    "table": self.dst.table_name,
+                    "table_uri": self.dst.table_uri or "",
+                    "fragments": fwm._reconciled_written_fragments_total,
+                    "rows_committed": fwm._reconciled_rows_committed_total,
+                },
             )
-
-            if self.job_tracker:
-                self.job_tracker.batch_increment.remote(metric_deltas)
-            # Check per-job skip threshold across all tasks
-            if skip_tracker is not None and task_total_rows > 0:
-                skip_tracker.record_batch(task_total_rows, task_skip_count)
-
-            # ensure we discover any frgments that finished writing even if the
-            # current task belongs to another fragment.
-            fwm.poll_all()
-            self._try_refresh_cluster_status()
-
-        _finalize_span = telemetry.open_span(
-            "finalize",
-            {
-                "job_id": self.job_id or "",
-                "job_type": self.job_type,
-                "table": self.dst.table_name,
-                "table_uri": self.dst.table_uri or "",
-                "fragments": fwm._reconciled_written_fragments_total,
-                "rows_committed": fwm._reconciled_rows_committed_total,
-            },
-        )
-        # Flush each worker's buffered spans/metrics before the pool kills the
-        # actors (all tasks have drained, so every actor is idle here), then
-        # tear down the pool and the writer manager. Timed as a sub-span of
-        # `finalize`, distinct from the `finalize_metrics` step that follows.
-        _finalize_shutdown_span = telemetry.open_span(
-            "flush_and_shutdown",
-            {
-                "job_id": self.job_id or "",
-                "job_type": self.job_type,
-                "table": self.dst.table_name,
-                "table_uri": self.dst.table_uri or "",
-            },
-            parent=_finalize_span,
-        )
-        pool.broadcast("flush_telemetry")
-        pool.shutdown()
+            # Flush each worker's buffered spans/metrics before the pool kills the
+            # actors (all tasks have drained, so every actor is idle here), then
+            # tear down the pool and the writer manager. Timed as a sub-span of
+            # `finalize`, distinct from the `finalize_metrics` step that follows.
+            _finalize_shutdown_span = telemetry.open_span(
+                "flush_and_shutdown",
+                {
+                    "job_id": self.job_id or "",
+                    "job_type": self.job_type,
+                    "table": self.dst.table_name,
+                    "table_uri": self.dst.table_uri or "",
+                },
+                parent=_finalize_span,
+            )
+            pool.broadcast("flush_telemetry")
+        finally:
+            refresher.stop()
+            pool.shutdown()
         fwm.cleanup()
+        if self._metric_buffer is not None:
+            self._metric_buffer.flush(force=True)
         telemetry.close_span(_finalize_shutdown_span)
         # Ensure final metrics reflect all processed rows even if some tracker
         # updates were dropped or delayed. Timed as a sub-span of `finalize`.
@@ -2127,13 +3067,15 @@ class ColumnAddPipelineJob:
 
         nulls = self.skipped_stats.get("null_checkpoints", 0)
         splits = self.skipped_stats.get("bisect_splits", 0)
-        if nulls or splits:
+        oom_recoveries = self.skipped_stats.get("oom_recoveries", 0)
+        if nulls or splits or oom_recoveries:
             _LOG.info(
                 "fault-isolation summary: null_checkpoints=%d bisect_splits=%d "
-                "max_bisect_depth=%d",
+                "max_bisect_depth=%d oom_recoveries=%d",
                 nulls,
                 splits,
                 self.skipped_stats.get("max_bisect_depth", 0),
+                oom_recoveries,
             )
         telemetry.close_span(_finalize_span)
 
@@ -2193,13 +3135,23 @@ class FragmentWriterSession:
     # defaults (`fragment_writer_memory` / `fragment_writer_num_cpus`).
     writer_memory_bytes: int | None = None
     writer_num_cpus: float | None = None
+    # GEN-780: the driver lowers this row cap after a classified writer OOM.
+    # It is deliberately independent from the writer actor's lifetime so a
+    # replacement actor consumes the same durable replay log in smaller units.
+    writer_max_rows: int | None = None
+    oom_budget_tracker: OOMRecoveryBudgetTracker = attrs.field(
+        factory=OOMRecoveryBudgetTracker.from_config, repr=False
+    )
+    job_tracker: ActorHandle | None = attrs.field(default=None, repr=False)
+    job_id: str | None = None
 
     # runtime state.  This is single-threaded and is not thread-safe.
     queue: ray.util.queue.Queue | None = attrs.field(default=None, init=False)
     actor: ActorHandle | None = attrs.field(default=None, init=False)
-    cached_tasks: list[tuple[int, Any]] = attrs.field(factory=list, init=False)
+    cached_tasks: list[tuple[int, Any, int]] = attrs.field(factory=list, init=False)
     inflight: dict[ray.ObjectRef, int] = attrs.field(factory=dict, init=False)
     _pending_enqueue_refs: list[ray.ObjectRef] = attrs.field(factory=list, init=False)
+    _seal_ack_ref: ray.ObjectRef | None = attrs.field(default=None, init=False)
     _shutdown: bool = attrs.field(default=False, init=False)
 
     sealed: bool = attrs.field(default=False, init=False)  # no more tasks will be added
@@ -2210,6 +3162,13 @@ class FragmentWriterSession:
     # this is needed because the map task would produce less checkpoints if
     # there are deletions or where filters.
     _seal_signal_sent: bool = attrs.field(default=False, init=False)
+
+    # Liveness state for drain()'s no-progress watchdog (see _check_liveness).
+    _live_last_seq: int | None = attrs.field(default=None, init=False)
+    _live_last_advance: float = attrs.field(factory=time.monotonic, init=False)
+    _live_last_snap: "WriterProgress | None" = attrs.field(default=None, init=False)
+    _live_probe_fut: "ray.ObjectRef | None" = attrs.field(default=None, init=False)
+    _live_warned_quiet: bool = attrs.field(default=False, init=False)
 
     # Graceful degradation: track if this fragment failed (e.g., fragment not found)
     failed: bool = attrs.field(default=False, init=False)
@@ -2298,6 +3257,7 @@ class FragmentWriterSession:
             struct_blob_decomp=self.struct_blob_decomp,
             blob_read_strategy=self.blob_read_strategy,
             blob_read_buffer_size=self.blob_read_buffer_size,
+            max_rows_per_batch=self.writer_max_rows,
         )
         # prime one future so we can detect when it finishes
         fut = self.actor.write.remote()  # type: ignore[call-arg]
@@ -2333,7 +3293,7 @@ class FragmentWriterSession:
         self.actor = None
         self._shutdown = True
 
-    def _enqueue_unbounded(self, item: tuple[int, Any]) -> None:
+    def _enqueue_unbounded(self, item: tuple[int, Any, int]) -> None:
         """Submit to the queue actor without the driver-side ``ray.get()``.
 
         ``ray.util.queue.Queue.put()`` blocks on the actor reply even when the
@@ -2345,6 +3305,8 @@ class FragmentWriterSession:
         actor = self.queue.actor
         assert actor is not None
         self._pending_enqueue_refs.append(actor.put_nowait.remote(item))
+        if len(self._pending_enqueue_refs) >= WRITER_ENQUEUE_ACK_BATCH_SIZE:
+            self._flush_pending_enqueues()
 
     def _flush_pending_enqueues(self) -> None:
         if not self._pending_enqueue_refs:
@@ -2359,27 +3321,58 @@ class FragmentWriterSession:
         # sentinel can overtake fire-and-forget checkpoint enqueues and make the
         # writer gap-fill rows that actually have checkpoint data.
         self._flush_pending_enqueues()
-        self._enqueue_unbounded((-1, ""))
+        self._enqueue_unbounded(_SEAL_SENTINEL)
         self._flush_pending_enqueues()
         self._seal_signal_sent = True
 
-    def _restart(self) -> None:
-        if not self.started and not self.sealed:
+    def _enqueue_cached_and_seal(self) -> None:
+        """Enqueue every cached checkpoint and the sentinel in ONE call.
+
+        The queue actor declares ``put`` as a coroutine, so separately submitted
+        ``put_nowait`` tasks apply out of order and the sentinel can overtake its
+        own data. ``put_nowait_batch`` applies the list in a single invocation,
+        which is the only thing keeping the sentinel last: do not split it back
+        into per-item enqueues.
+        """
+        if self.queue is None:
+            raise RuntimeError("Cannot seal a fragment writer before startup")
+        actor = self.queue.actor
+        assert actor is not None
+        items: list[tuple[int, Any, int]] = [*self.cached_tasks, _SEAL_SENTINEL]
+        self._seal_ack_ref = actor.put_nowait_batch.remote(items)
+        self._seal_signal_sent = True
+
+    def check_seal_ack(self) -> None:
+        """Reap the batched seal ack; a dropped hand-off is otherwise silent."""
+        ref = self._seal_ack_ref
+        if ref is None:
             return
-
-        self._restart_count += 1
-        if self._restart_count > MAX_WRITER_RESTARTS:
-            raise RuntimeError(
-                f"Writer actor for frag {self.frag_id} died "
-                f"{self._restart_count} times, exceeding max restarts "
-                f"({MAX_WRITER_RESTARTS}). Giving up."
+        ready, _ = ray.wait([ref], timeout=0)
+        if not ready:
+            return
+        # Clear before ray.get: the except branch restarts, installing a new ref.
+        self._seal_ack_ref = None
+        try:
+            ray.get(ref)
+        except (
+            ray.exceptions.ActorDiedError,
+            ray.exceptions.ActorUnavailableError,
+        ):
+            _LOG.warning(
+                "Batched seal enqueue for frag %s failed - restarting (attempt %d/%d)",
+                self.frag_id,
+                self._restart_count + 1,
+                MAX_WRITER_RESTARTS,
             )
+            self._restart()
 
+    def _replace_writer(self) -> None:
+        """Start a fresh actor and replay the driver's complete checkpoint log."""
         self.shutdown()
-
         self._seal_signal_sent = False
         self.inflight.clear()
         self._pending_enqueue_refs.clear()
+        self._seal_ack_ref = None
         # ``cached_tasks`` must survive restarts so a *second* restart can also
         # replay every item that was originally ingested. The previous
         # implementation reset it to ``[]`` here, which silently produced an
@@ -2391,19 +3384,167 @@ class FragmentWriterSession:
         self._start_writer()
 
         # replay tasks
-        for off, res in self.cached_tasks:
-            self._enqueue_unbounded((off, res))
-        if self.sealed and not self._seal_signal_sent:
-            self._send_seal_signal()
+        if self.sealed:
+            self._enqueue_cached_and_seal()
+        else:
+            for off, res, nrows in self.cached_tasks:
+                self._enqueue_unbounded((off, res, nrows))
 
-    def ingest_task(self, offset: int, result: Any) -> None:
-        """Called by manager when a new (offset, result) arrives."""
-        self.cached_tasks.append((offset, result))
+    def _restart(self) -> None:
+        """Restart after an ordinary transient writer/queue loss.
+
+        GEN-780 keeps this budget and replay shape unchanged. In particular, a
+        non-OOM restart neither lowers nor resets ``writer_max_rows``.
+        """
+        if not self.started and not self.sealed:
+            return
+
+        self._restart_count += 1
+        if self._restart_count > MAX_WRITER_RESTARTS:
+            raise RuntimeError(
+                f"Writer actor for frag {self.frag_id} died "
+                f"{self._restart_count} times, exceeding max restarts "
+                f"({MAX_WRITER_RESTARTS}). Giving up."
+            )
+
+        self._replace_writer()
+
+    def _writer_working_rows(self) -> int | None:
+        """Return the current replay unit whose size can be reduced after OOM."""
+        if self.writer_max_rows is not None:
+            return max(1, int(self.writer_max_rows))
+
+        candidates: list[int] = []
+        for _, checkpoint_key, num_rows in self.cached_tasks:
+            if num_rows > 0:
+                candidates.append(int(num_rows))
+            elif isinstance(checkpoint_key, str):
+                span = _parse_span_from_key(checkpoint_key)
+                if span is not None:
+                    candidates.append(span)
+
+        # Deferred carry-forward also holds a tranche of the existing column.
+        # Once a cap exists it supersedes this default and may shrink below it.
+        if self.defer_carry_forward:
+            candidates.append(DEFAULT_CARRY_FORWARD_TRANCHE_ROWS)
+        if candidates:
+            return max(candidates)
+
+        # An all-filtered fragment can legitimately have no checkpoint batches,
+        # yet the writer still has to gap-fill its physical layout. Use that
+        # writer-facing upper bound so its first OOM installs a concrete,
+        # strictly smaller cap instead of replaying the same unbounded filler.
+        if self.num_physical_rows is not None and self.num_physical_rows > 0:
+            return int(self.num_physical_rows)
+        return None
+
+    def _writer_oom_range_key(self) -> str:
+        """Stable driver-side budget key for this fragment writer unit."""
+        return (
+            "fragment_writer:"
+            f"uri={self.ds_uri};"
+            f"version={self.read_version};"
+            f"frag={self.frag_id}"
+        )
+
+    def _classified_writer_oom(self, exc: Exception) -> FatalWorkerOOMError | None:
+        """Return a typed OOM only when Ray supplies direct OOM evidence."""
+        fatal_exc = _normalize_fatal_worker_error(exc)
+        if isinstance(fatal_exc, FatalWorkerOOMError):
+            return fatal_exc
+        return None
+
+    def _mark_failed(self, exc: BaseException, *, context: str) -> None:
+        """Record one terminal writer failure and discard stale actor futures."""
+        error_msg = f"{type(exc).__name__}: {exc}"
+        _LOG.warning(
+            "Fragment %s write failed%s: %s. Marking as failed and continuing.",
+            self.frag_id,
+            context,
+            error_msg,
+        )
+        self.failed = True
+        self.failure_reason = error_msg
+        self.failure_exc = exc
+        # Drop every old actor future. Any result arriving after this point is
+        # stale and must not become a second fragment record.
+        self.inflight.clear()
+        self.shutdown()
+
+    def _recover_writer_oom(self, oom_exc: FatalWorkerOOMError) -> bool:
+        """Shrink the writer unit and replay, or record a bounded terminal OOM.
+
+        Returns ``True`` only when a replacement actor was started. OOM attempts
+        are tracked separately from ordinary writer reconstruction attempts.
+        """
+        tracker = self.oom_budget_tracker
+        if not tracker.config.enabled:
+            self._mark_failed(
+                FatalWorkerOOMError(
+                    "FragmentWriter OOM recovery is disabled "
+                    f"(fragment={self.frag_id}; original_oom={oom_exc})"
+                ),
+                context=" after OOM",
+            )
+            return False
+
+        current_rows = self._writer_working_rows()
+        if current_rows is not None and current_rows > 1:
+            shrunk = True
+            next_rows = max(1, current_rows // 2)
+        else:
+            shrunk = False
+            next_rows = current_rows
+
+        try:
+            attempt = record_oom_recovery_attempt(
+                tracker,
+                job_tracker=self.job_tracker,
+                job_id=self.job_id
+                or f"fragment-writer:{self.ds_uri}@{self.read_version}",
+                range_key=self._writer_oom_range_key(),
+                oom_exc=oom_exc,
+                shrunk=shrunk,
+            )
+        except FatalWorkerOOMError as terminal_exc:
+            self._mark_failed(terminal_exc, context=" after OOM")
+            return False
+
+        self.writer_max_rows = next_rows
+        if shrunk:
+            _LOG.warning(
+                "FragmentWriter for fragment %d OOMed; replaying the complete "
+                "checkpoint log with max_rows_per_batch reduced from %d to %d",
+                self.frag_id,
+                current_rows,
+                next_rows,
+            )
+        else:
+            _LOG.warning(
+                "FragmentWriter for fragment %d OOMed at an irreducible writer "
+                "unit (max_rows_per_batch=%s); bounded retry %d/%d",
+                self.frag_id,
+                next_rows,
+                attempt.same_range_count if attempt is not None else 0,
+                attempt.same_range_limit if attempt is not None else 0,
+            )
+
+        self._replace_writer()
+        return True
+
+    def ingest_task(self, offset: int, result: Any, num_rows: int) -> None:
+        """Called by manager when a new (offset, result, num_rows) arrives.
+
+        ``num_rows`` is the producer's recorded materialized row count for this
+        checkpoint; the writer validates the read-back against it to reject a
+        short/truncated checkpoint file.
+        """
+        self.cached_tasks.append((offset, result, num_rows))
         self.enqueued += 1
         if not self.started:
             return
         try:
-            self._enqueue_unbounded((offset, result))
+            self._enqueue_unbounded((offset, result, num_rows))
         except (ray.exceptions.ActorDiedError, ray.exceptions.ActorUnavailableError):
             _LOG.warning(
                 "Writer actor for frag %s died – restarting (attempt %d/%d)",
@@ -2426,7 +3567,11 @@ class FragmentWriterSession:
         except (
             ray.exceptions.ActorDiedError,
             ray.exceptions.ActorUnavailableError,
-        ):
+        ) as e:
+            oom_exc = self._classified_writer_oom(e)
+            if oom_exc is not None:
+                self._recover_writer_oom(oom_exc)
+                return None
             _LOG.warning(
                 "Writer actor for frag %s unavailable – restarting (attempt %d/%d)",
                 self.frag_id,
@@ -2438,17 +3583,11 @@ class FragmentWriterSession:
         except ray.exceptions.RayError as e:
             # ray.get surfaced a remote writer failure. Local consumer bugs
             # should propagate instead of being marked as fragment failures.
-            error_msg = f"{type(e).__name__}: {e}"
-            _LOG.warning(
-                "Fragment %s write failed: %s. Marking as failed and continuing.",
-                self.frag_id,
-                error_msg,
-            )
-            self.failed = True
-            self.failure_reason = error_msg
-            self.failure_exc = e
-            self.inflight.pop(fut, None)
-            self.shutdown()
+            oom_exc = self._classified_writer_oom(e)
+            if oom_exc is not None:
+                self._recover_writer_oom(oom_exc)
+                return None
+            self._mark_failed(e, context="")
             return None
         assert res.frag_id == self.frag_id
         self.completed += 1
@@ -2482,10 +3621,11 @@ class FragmentWriterSession:
         try:
             if not self.started:
                 self._start_writer()
-                for off, res in self.cached_tasks:
-                    self._enqueue_unbounded((off, res))
-            # In-band signal to the writer that no more checkpoints will be enqueued.
-            self._send_seal_signal()
+                self._enqueue_cached_and_seal()
+            else:
+                # Checkpoints already went individually; the sentinel still
+                # needs the barrier to stay behind them.
+                self._send_seal_signal()
         except (ray.exceptions.ActorDiedError, ray.exceptions.ActorUnavailableError):
             _LOG.warning(
                 "Writer queue for frag %s died while sealing – restarting",
@@ -2493,32 +3633,90 @@ class FragmentWriterSession:
             )
             self._restart()
 
+    def _reset_liveness(self) -> None:
+        """Start a fresh no-progress deadline (new actor or new evidence)."""
+        self._live_last_seq = None
+        self._live_last_advance = time.monotonic()
+        self._live_last_snap = None
+        self._live_probe_fut = None
+        self._live_warned_quiet = False
+
+    def _check_liveness(self) -> None:
+        """One idle-round liveness probe; restart after a no-progress deadline.
+
+        A slow or failed probe counts as "no advance", never an instant kill:
+        a GIL-holding native call delays the probe, and a dead actor fails the
+        write future, which drain()'s ready-branch already restarts.
+        """
+        if self._live_probe_fut is None and self.actor is not None:
+            self._live_probe_fut = self.actor.progress.remote()
+        if self._live_probe_fut is not None:
+            probe_ready, _ = ray.wait([self._live_probe_fut], timeout=0.0)
+            if probe_ready:
+                fut, self._live_probe_fut = self._live_probe_fut, None
+                try:
+                    snap: WriterProgress = ray.get(fut)
+                except ray.exceptions.RayError:
+                    _LOG.debug("progress probe failed for frag %s", self.frag_id)
+                else:
+                    self._live_last_snap = snap
+                    if self._live_last_seq is None or snap.seq != self._live_last_seq:
+                        self._live_last_seq = snap.seq
+                        self._live_last_advance = time.monotonic()
+                        self._live_warned_quiet = False
+
+        quiet_s = time.monotonic() - self._live_last_advance
+        if quiet_s > WRITER_NO_PROGRESS_TIMEOUT_S:
+            _LOG.warning(
+                "Writer for frag %s made no progress for %.0fs (deadline %.0fs); "
+                "restarting (attempt %d/%d). last=%s",
+                self.frag_id,
+                quiet_s,
+                WRITER_NO_PROGRESS_TIMEOUT_S,
+                self._restart_count + 1,
+                MAX_WRITER_RESTARTS,
+                self._live_last_snap,
+            )
+            self._restart()
+            self._reset_liveness()
+        elif quiet_s > WRITER_NO_PROGRESS_TIMEOUT_S / 2 and not self._live_warned_quiet:
+            self._live_warned_quiet = True
+            _LOG.info(
+                "Writer for frag %s is %.0fs without progress (deadline %.0fs). "
+                "last=%s",
+                self.frag_id,
+                quiet_s,
+                WRITER_NO_PROGRESS_TIMEOUT_S,
+                self._live_last_snap,
+            )
+
     def drain(self) -> Generator[FragmentWriteResult, None, None]:
-        """Yield FragmentWriteResult as futures complete."""
+        """Yield FragmentWriteResult as futures complete.
+
+        An unresolved write future is not evidence of a stall; large-blob
+        fragments legitimately flush for 30-70+ min. A sealed writer is
+        restarted only when its progress counter stops advancing for
+        ``WRITER_NO_PROGRESS_TIMEOUT_S`` (see ``_check_liveness``).
+        """
         # If already failed, nothing to drain
         if self.failed:
             return
+        _warn_if_stall_rounds_env_set()
 
-        idle_rounds = 0
+        self._reset_liveness()
         while self.inflight:
-            ready, _ = ray.wait(list(self.inflight.keys()), timeout=5.0)
+            ready, _ = ray.wait(
+                list(self.inflight.keys()), timeout=_DRAIN_POLL_INTERVAL_S
+            )
             if not ready:
-                idle_rounds += 1
-                # If we've been sealed (no more tasks will arrive) and the writer
-                # future isn't making progress, assume the actor is stalled or died
-                # without surfacing an exception. Restarting is safe here because
-                # any partial output from the dead actor is lost, and cached tasks
-                # can be replayed into a fresh writer.
-                if self.sealed and idle_rounds >= GENEVA_WRITER_STALL_IDLE_ROUNDS:
-                    _LOG.warning(
-                        "Writer actor for frag %s appears stalled during drain; "
-                        "restarting",
-                        self.frag_id,
-                    )
-                    self._restart()
-                    idle_rounds = 0
+                if self.sealed:
+                    self._check_liveness()
+                else:
+                    # Pre-seal writers idle on queue.get waiting for input;
+                    # they owe no progress.
+                    self._reset_liveness()
                 continue
-            idle_rounds = 0
+            self._reset_liveness()
 
             for fut in ready:
                 try:
@@ -2528,7 +3726,14 @@ class FragmentWriterSession:
                 except (
                     ray.exceptions.ActorDiedError,
                     ray.exceptions.ActorUnavailableError,
-                ):
+                ) as e:
+                    oom_exc = self._classified_writer_oom(e)
+                    if oom_exc is not None:
+                        if not self._recover_writer_oom(oom_exc):
+                            return
+                        # Re-enter the loop with only the replacement future.
+                        self._reset_liveness()
+                        break
                     _LOG.warning(
                         "Writer actor for frag %s died during drain—restarting "
                         "(attempt %d/%d)",
@@ -2540,20 +3745,18 @@ class FragmentWriterSession:
                     self._restart()
                     # break out to re-enter the while loop with a clean slate
                     break
+                except ray.exceptions.RayError as e:
+                    oom_exc = self._classified_writer_oom(e)
+                    if oom_exc is not None:
+                        if not self._recover_writer_oom(oom_exc):
+                            return
+                        self._reset_liveness()
+                        break
+                    self._mark_failed(e, context=" during drain")
+                    return
                 except Exception as e:
                     # Graceful degradation: mark fragment as failed, don't crash
-                    error_msg = f"{type(e).__name__}: {e}"
-                    _LOG.warning(
-                        "Fragment %s write failed during drain: %s. "
-                        "Marking as failed and continuing.",
-                        self.frag_id,
-                        error_msg,
-                    )
-                    self.failed = True
-                    self.failure_reason = error_msg
-                    self.failure_exc = e
-                    self.inflight.pop(fut)
-                    self.shutdown()
+                    self._mark_failed(e, context=" during drain")
                     return  # Exit drain since we're failed
                 # sucessful write
                 self.inflight.pop(fut)
@@ -2627,8 +3830,14 @@ class FragmentWriterManager:
     job_id: Optional[str] = None
     job_type: str = "backfill"
     table_name: Optional[str] = None
+    # Driver-owned and shared with the applier recovery path for one job-wide
+    # bounded OOM policy. JobTracker remains metrics-only and best effort.
+    oom_budget_tracker: OOMRecoveryBudgetTracker = attrs.field(
+        factory=OOMRecoveryBudgetTracker.from_config, repr=False
+    )
     # Source data files per destination fragment (for MV checkpoint validation)
     src_data_files_by_dst: dict[int, frozenset[str]] = attrs.field(factory=dict)
+    metric_buffer: _JobTrackerMetricBuffer | None = None
 
     # internal state
     sessions: dict[int, FragmentWriterSession] = attrs.field(factory=dict, init=False)
@@ -2646,7 +3855,11 @@ class FragmentWriterManager:
         factory=dict, init=False
     )
     # Track ingested read-task identities to avoid counting replayed task results.
-    _ingested_task_keys: set[str] = attrs.field(factory=set, init=False)
+    _ingested_task_keys: dict[int, set[str]] = attrs.field(factory=dict, init=False)
+    # Track failed tasks whose partial checkpoint coverage was already re-ingested.
+    _partial_ingested_task_keys: dict[int, set[str]] = attrs.field(
+        factory=dict, init=False
+    )
     # Track fragment IDs that are skipped to avoid double-counting in progress
     _skipped_fragment_ids: set[int] = attrs.field(factory=set, init=False)
     # Track fragment IDs already recorded to avoid duplicate commit/metrics
@@ -2659,6 +3872,14 @@ class FragmentWriterManager:
     # non-retryable, so the job fails with attribution at teardown rather than
     # reporting a re-runnable warning.
     corrupt_fragments: dict[int, str] = attrs.field(factory=dict, init=False)
+    # Subset of failed_fragments where the writer refused to null-fill a
+    # checkpoint coverage gap. Committing would silently lose UDF output, so
+    # the job fails with attribution at teardown (a re-run backfills the gap
+    # from existing checkpoints).
+    coverage_gap_fragments: dict[int, str] = attrs.field(factory=dict, init=False)
+    # Subset of failed_fragments that exhausted the driver-owned writer OOM
+    # strategy. Healthy completed records are committed before this is raised.
+    writer_oom_fragments: dict[int, str] = attrs.field(factory=dict, init=False)
     # (frag_id, lance.fragment.DataFile, # rows)
     rows_input_by_frag: dict[int, int] = attrs.field(factory=dict, init=False)
     # Local reconciled totals (authoritative at teardown even if tracker updates drop)
@@ -2710,6 +3931,30 @@ class FragmentWriterManager:
         self.blob_read_buffer_size = task.blob_read_buffer_size
         self._blob_read_config_captured = True
 
+    def _task_key_was_ingested(self, frag_id: int, task_key: str) -> bool:
+        return task_key in self._ingested_task_keys.get(frag_id, ())
+
+    def _partial_task_key_was_ingested(self, frag_id: int, task_key: str) -> bool:
+        return task_key in self._partial_ingested_task_keys.get(frag_id, ())
+
+    def _mark_task_key_ingested(self, frag_id: int, task_key: str) -> None:
+        self._ingested_task_keys.setdefault(frag_id, set()).add(task_key)
+
+    def _mark_partial_task_key_ingested(self, frag_id: int, task_key: str) -> None:
+        self._partial_ingested_task_keys.setdefault(frag_id, set()).add(task_key)
+
+    def _release_fragment_task_keys(self, frag_id: int) -> None:
+        self._ingested_task_keys.pop(frag_id, None)
+        self._partial_ingested_task_keys.pop(frag_id, None)
+
+    def _add_metrics(self, deltas: dict[str, int]) -> None:
+        if not deltas or self.job_tracker is None:
+            return
+        if self.metric_buffer is not None:
+            self.metric_buffer.add_many(deltas)
+        else:
+            self.job_tracker.batch_increment.remote(deltas)
+
     @property
     def namespace_client(self) -> "LanceNamespace | None":
         """Create namespace client from impl and properties if available.
@@ -2719,6 +3964,59 @@ class FragmentWriterManager:
         if self.namespace_config is None:
             return None
         return self.namespace_config.connect_namespace_client(use_worker_props=True)
+
+    def _resolve_commit_storage_options(self) -> dict[str, str] | None:
+        """Storage options for a commit attempt.
+
+        Cached vended options are proactively re-vended once they enter the
+        expiry safety window: the manager is constructed with job-start
+        credentials, and on a long backfill the final commit outlives them.
+        Falls back to a namespace describe when no options were cached at
+        construction.
+        """
+        from geneva.credentials import refresh_storage_options
+
+        if self.storage_options is not None:
+            fresh = refresh_storage_options(
+                self.storage_options,
+                table_id=self.table_id,
+                namespace_config=self.namespace_config,
+            )
+            if fresh is not self.storage_options:
+                self.storage_options = fresh
+            return self.storage_options
+        ns = self.namespace_config
+        if (
+            ns
+            and ns.namespace_client_impl
+            and ns.namespace_client_properties
+            and self.table_id
+        ):
+            from lance_namespace import DescribeTableRequest
+
+            ns_client = self.namespace_client
+            assert ns_client is not None
+            response = ns_client.describe_table(DescribeTableRequest(id=self.table_id))
+            return response.storage_options
+        return None
+
+    def _refresh_credentials_on_error(self) -> None:
+        """Force a re-vend after an expired-credential commit error.
+
+        Unlike the proactive :meth:`_resolve_commit_storage_options`, this
+        bypasses the expiry window -- the error already proves the token is
+        dead. Best-effort: a namespace-side failure keeps the existing options
+        so the replayed commit surfaces the underlying error itself.
+        """
+        from geneva.credentials import force_revend_storage_options
+
+        fresh = force_revend_storage_options(
+            table_id=self.table_id,
+            namespace_config=self.namespace_config,
+            label="commit",
+        )
+        if fresh is not None:
+            self.storage_options = fresh
 
     def _uses_blob_v2_checkpoint_assembly(self) -> bool:
         if not storage_version_supports_blob_v2_checkpoints(
@@ -2894,20 +4192,39 @@ class FragmentWriterManager:
             # and get the stats from the dataset itself again.
             return None
 
+    def _record_session_failure(
+        self, frag_id: int, sess: FragmentWriterSession
+    ) -> bool:
+        """Capture a session failure and its typed teardown classification."""
+        reason = sess.failure_reason
+        if not reason:
+            return False
+        self.failed_fragments[frag_id] = reason
+        self._release_fragment_task_keys(frag_id)
+        failure_exc = getattr(sess, "failure_exc", None)
+        if _is_corrupt_checkpoint_failure(failure_exc, reason):
+            self.corrupt_fragments[frag_id] = reason
+        if _is_coverage_gap_failure(failure_exc, reason):
+            self.coverage_gap_fragments[frag_id] = reason
+        if _is_writer_oom_failure(failure_exc, reason):
+            self.writer_oom_fragments[frag_id] = reason
+        return True
+
     def poll_all(self) -> None:
         completed_records = self._drain_completed_fragment_records()
         pending: dict[ray.ObjectRef, tuple[int, FragmentWriterSession]] = {}
         for frag_id, sess in list(self.sessions.items()):
             # Check for newly failed sessions (graceful degradation)
             if sess.failed and frag_id not in self.failed_fragments:
-                if sess.failure_reason:
-                    self.failed_fragments[frag_id] = sess.failure_reason
+                if self._record_session_failure(frag_id, sess):
                     _LOG.warning(
                         "Fragment %d marked as failed during poll: %s",
                         frag_id,
                         sess.failure_reason,
                     )
                 continue  # Skip polling failed sessions
+
+            sess.check_seal_ack()
 
             for fut in sess.pending_poll_futures():
                 pending[fut] = (frag_id, sess)
@@ -2943,7 +4260,7 @@ class FragmentWriterManager:
                     and frag_id not in self.failed_fragments
                     and sess.failure_reason
                 ):
-                    self.failed_fragments[frag_id] = sess.failure_reason
+                    self._record_session_failure(frag_id, sess)
         completed_records += self._drain_completed_fragment_records()
         if completed_records:
             self._commit_if_n_fragments(self.commit_granularity)
@@ -3036,6 +4353,9 @@ class FragmentWriterManager:
             blob_read_buffer_size=self.blob_read_buffer_size,
             writer_memory_bytes=writer_memory_bytes,
             writer_num_cpus=writer_num_cpus,
+            oom_budget_tracker=self.oom_budget_tracker,
+            job_tracker=self.job_tracker,
+            job_id=self.job_id,
         )
         self.sessions[frag_id] = sess
         return sess
@@ -3068,7 +4388,11 @@ class FragmentWriterManager:
         frag_id = task.dest_frag_id()
         task_key = task.checkpoint_key()
 
-        if task_key in self._ingested_task_keys:
+        if (
+            frag_id in self._recorded_fragment_ids
+            or frag_id in self._recording_fragment_ids
+            or self._task_key_was_ingested(frag_id, task_key)
+        ):
             _LOG.info(
                 "Read task %s for fragment %d already ingested; skipping duplicate",
                 task_key,
@@ -3093,50 +4417,86 @@ class FragmentWriterManager:
 
         # Check if session is already failed (might have failed during a previous poll)
         if sess.failed:
-            if sess.failure_reason and frag_id not in self.failed_fragments:
-                self.failed_fragments[frag_id] = sess.failure_reason
+            if frag_id not in self.failed_fragments:
+                self._record_session_failure(frag_id, sess)
             _LOG.debug("Skipping ingest for failed session fragment %d", frag_id)
             return
 
+        rows_checkpointed_delta = 0
+        udf_values_delta = 0
         for result in checkpoints:
-            sess.ingest_task(result.offset, result.checkpoint_key)
+            sess.ingest_task(result.offset, result.checkpoint_key, result.num_rows)
             # Track progress in the planner's offset domain (span).
             if result.span > 0:
                 self.rows_input_by_frag[frag_id] = self.rows_input_by_frag.get(
                     frag_id, 0
                 ) + int(result.span)
                 self._reconciled_rows_checkpointed_total += int(result.span)
-                if self.job_tracker:
-                    try:
-                        self.job_tracker.increment.remote(
-                            "rows_checkpointed", result.span
-                        )
-                    except Exception:
-                        _LOG.exception(
-                            "Failed to update rows_checkpointed for task %s "
-                            "(checkpoint %s)",
-                            task,
-                            result.checkpoint_key,
-                        )
-            if self.job_tracker and result.udf_rows > 0:
-                try:
-                    self.job_tracker.increment.remote(
-                        METRIC_UDF_VALUES, result.udf_rows
-                    )
-                except Exception:
-                    _LOG.exception(
-                        "Failed to update UDF metrics for task %s (checkpoint %s)",
-                        task,
-                        result.checkpoint_key,
-                    )
+                rows_checkpointed_delta += int(result.span)
+            if result.udf_rows > 0:
+                udf_values_delta += int(result.udf_rows)
+
+        self._add_metrics(
+            {
+                "rows_checkpointed": rows_checkpointed_delta,
+                METRIC_UDF_VALUES: udf_values_delta,
+            }
+        )
 
         # One read task completed for this fragment.
         self.remaining_tasks[frag_id] = self.remaining_tasks.get(frag_id, 0) - 1
         if self.remaining_tasks[frag_id] <= 0:
             sess.seal()
-        self._ingested_task_keys.add(task_key)
+        self._mark_task_key_ingested(frag_id, task_key)
 
         # TODO check if previously checkpointed fragment exists
+
+    def ingest_recovered_checkpoints(
+        self, task: ReadTask, checkpoints: list[MapBatchCheckpoint]
+    ) -> None:
+        """Re-ingest checkpoints flushed by a failed task before it died.
+
+        Feeds ``(offset, key)`` pairs to the fragment writer WITHOUT marking a
+        ReadTask complete: the failed task's ``remaining_tasks`` slot is
+        carried by its replacement tasks (see ``replace_task``), which cover
+        only the uncheckpointed gaps. Without this re-ingest the flushed rows
+        would never reach the writer and would be null-filled at seal
+        (GEN-744 follow-up).
+        """
+        frag_id = task.dest_frag_id()
+        task_key = task.checkpoint_key()
+        if (
+            frag_id in self._recorded_fragment_ids
+            or frag_id in self._recording_fragment_ids
+            or self._partial_task_key_was_ingested(frag_id, task_key)
+        ):
+            return
+        if frag_id in self.failed_fragments:
+            return
+
+        self._capture_blob_read_config(task)
+        sess = self._session_for_frag(frag_id)
+        if sess.failed:
+            if frag_id not in self.failed_fragments:
+                self._record_session_failure(frag_id, sess)
+            return
+
+        rows_checkpointed_delta = 0
+        for result in checkpoints:
+            # Partial recovery lists coverage from checkpoint keys without
+            # reading the batches, so the producer's row count is unknown here
+            # (the recovered entries carry a placeholder num_rows). Pass -1,
+            # not the bogus zero, so read-back validation doesn't reject a
+            # full checkpoint.
+            sess.ingest_task(result.offset, result.checkpoint_key, -1)
+            if result.span > 0:
+                self.rows_input_by_frag[frag_id] = self.rows_input_by_frag.get(
+                    frag_id, 0
+                ) + int(result.span)
+                self._reconciled_rows_checkpointed_total += int(result.span)
+                rows_checkpointed_delta += int(result.span)
+        self._add_metrics({"rows_checkpointed": rows_checkpointed_delta})
+        self._mark_partial_task_key_ingested(frag_id, task_key)
 
     def ingest_direct_fragment_result(
         self,
@@ -3146,7 +4506,11 @@ class FragmentWriterManager:
         frag_id = task.dest_frag_id()
         task_key = task.checkpoint_key()
 
-        if task_key in self._ingested_task_keys:
+        if (
+            frag_id in self._recorded_fragment_ids
+            or frag_id in self._recording_fragment_ids
+            or self._task_key_was_ingested(frag_id, task_key)
+        ):
             _LOG.info(
                 "Read task %s for fragment %d already ingested; skipping duplicate",
                 task_key,
@@ -3167,18 +4531,10 @@ class FragmentWriterManager:
                 frag_id, 0
             ) + (task_rows)
             self._reconciled_rows_checkpointed_total += task_rows
-            if self.job_tracker:
-                try:
-                    self.job_tracker.increment.remote("rows_checkpointed", task_rows)
-                except Exception:
-                    _LOG.exception(
-                        (
-                            "Failed to update rows_checkpointed for "
-                            "direct fragment task %s"
-                        ),
-                        task,
-                    )
+            self._add_metrics({"rows_checkpointed": task_rows})
 
+        self.remaining_tasks[frag_id] = self.remaining_tasks.get(frag_id, 0) - 1
+        self._mark_task_key_ingested(frag_id, task_key)
         self._record_fragment(
             result.frag_id,
             result.new_file,
@@ -3195,8 +4551,6 @@ class FragmentWriterManager:
             avg_batch_num_rows=result.avg_batch_num_rows,
             avg_batch_size=result.avg_batch_size,
         )
-        self.remaining_tasks[frag_id] = self.remaining_tasks.get(frag_id, 0) - 1
-        self._ingested_task_keys.add(task_key)
 
     def replace_task(
         self,
@@ -3280,7 +4634,7 @@ class FragmentWriterManager:
         sess = self.sessions.get(frag_id)
         purge_keys: list[str] = []
         if sess is not None:
-            purge_keys = [batch_key for _offset, batch_key in sess.cached_tasks]
+            purge_keys = [batch_key for _offset, batch_key, _nrows in sess.cached_tasks]
 
         return _FragmentRecordRequest(
             frag_id=frag_id,
@@ -3327,6 +4681,7 @@ class FragmentWriterManager:
         frag_id = request.frag_id
         self._recording_fragment_ids.discard(frag_id)
         if frag_id in self._recorded_fragment_ids:
+            self._release_fragment_task_keys(frag_id)
             _LOG.info(
                 "Fragment %d already recorded, skipping duplicate write record",
                 frag_id,
@@ -3350,8 +4705,7 @@ class FragmentWriterManager:
             table=self.table_name,
             column=self.map_task.name(),
         )
-        if self.job_tracker:
-            self.job_tracker.batch_increment.remote(writer_metric_deltas)
+        self._add_metrics(writer_metric_deltas)
 
         # Maintain unweighted averages across writer fragments.
         self._reconciled_written_fragments_total += 1
@@ -3384,16 +4738,16 @@ class FragmentWriterManager:
                 f"not re-adding to commit list"
             )
             self._recorded_fragment_ids.add(frag_id)
+            self._release_fragment_task_keys(frag_id)
             return  # Don't add it again to avoid double-commit
 
         # New fragment, add it normally
         _LOG.info(f"Adding new fragment {frag_id} to commit list")
         self.to_commit.append((frag_id, request.new_file, input_rows))
         self._recorded_fragment_ids.add(frag_id)
-        if input_rows > 0 and self.job_tracker:
-            self.job_tracker.batch_increment.remote(
-                {"rows_ready_for_commit": int(input_rows)}
-            )
+        self._release_fragment_task_keys(frag_id)
+        if input_rows > 0:
+            self._add_metrics({"rows_ready_for_commit": int(input_rows)})
         # Track totals locally so we can reconcile metrics even if tracker updates drop
         self._reconciled_rows_ready_total += input_rows
 
@@ -3547,8 +4901,7 @@ class FragmentWriterManager:
             table=self.table_name,
             column=self.map_task.name(),
         )
-        if self.job_tracker is not None:
-            self.job_tracker.batch_increment.remote(commit_deltas)
+        self._add_metrics(commit_deltas)
 
     def _record_committed_rows(
         self, to_commit: list[tuple[int, lance.fragment.DataFile, int]]
@@ -3558,8 +4911,8 @@ class FragmentWriterManager:
             for _fid, _new_file, _rows in to_commit
             if _fid not in self._skipped_fragment_ids
         )
-        if committed_rows and self.job_tracker:
-            self.job_tracker.increment.remote("rows_committed", committed_rows)
+        if committed_rows:
+            self._add_metrics({"rows_committed": committed_rows})
         self._reconciled_rows_committed_total += committed_rows
 
     # aka _try_commit
@@ -3595,6 +4948,7 @@ class FragmentWriterManager:
 
         retry_attempt = 0
         version_conflict_attempts = 0
+        credential_revend_attempts = 0
         max_retries = GENEVA_COMMIT_MAX_RETRIES if robust else 0
         commit_type = "Robust" if robust else "Standard"
 
@@ -3612,24 +4966,9 @@ class FragmentWriterManager:
                     else "",
                 )
 
-                # Use cached storage options, fallback to namespace describe
-                storage_options = self.storage_options
-                ns = self.namespace_config
-                if (
-                    storage_options is None
-                    and ns
-                    and ns.namespace_client_impl
-                    and ns.namespace_client_properties
-                    and self.table_id
-                ):
-                    from lance_namespace import DescribeTableRequest
-
-                    ns_client = self.namespace_client
-                    assert ns_client is not None
-                    response = ns_client.describe_table(
-                        DescribeTableRequest(id=self.table_id)
-                    )
-                    storage_options = response.storage_options
+                # Resolved per attempt: proactively re-vended near expiry,
+                # namespace-describe fallback when nothing was cached.
+                storage_options = self._resolve_commit_storage_options()
 
                 # Pass namespace_client and table_id for managed versioning
                 # This triggers CreateTableVersion API calls through phalanx
@@ -3653,10 +4992,28 @@ class FragmentWriterManager:
                 break
             except OSError as e:
                 self._record_commit_elapsed(attempt_start)
-                # Handle post-compaction case: DataReplacement fails because
-                # compaction merged column files into combined files.
+                # Expired vended credentials: re-vend and replay the same
+                # commit. Bounded separately from the conflict/backpressure
+                # retries -- this is a token lifecycle event, not contention.
+                if (
+                    is_credential_expiry_error(e)
+                    and credential_revend_attempts
+                    < GENEVA_COMMIT_CREDENTIAL_REVEND_RETRIES
+                ):
+                    credential_revend_attempts += 1
+                    _LOG.warning(
+                        "%s commit hit expired credentials (re-vend attempt %d/%d): %s",
+                        commit_type,
+                        credential_revend_attempts,
+                        GENEVA_COMMIT_CREDENTIAL_REVEND_RETRIES,
+                        e,
+                    )
+                    self._refresh_credentials_on_error()
+                    continue
+                # Handle misaligned-data-file cases: DataReplacement fails
+                # because no existing file's field_ids match the new file's.
                 #
-                # Why this happens:
+                # Post-compaction example:
                 # 1. Partial backfill creates separate column file (field_ids=[10])
                 # 2. Compaction merges all column files into one (field_ids=[0,10])
                 # 3. alter_columns changes UDF version
@@ -3664,6 +5021,11 @@ class FragmentWriterManager:
                 # 5. DataReplacement looks for file with field_ids=[10] to replace
                 # 6. No such file exists - only merged file with field_ids=[0,10]
                 # 7. Error: "no changes were made"
+                #
+                # The same shape occurs when an MV refresh fills a fragment a
+                # populated append created: that fragment's single data file
+                # spans the meta AND projected columns, so the fill pass's
+                # recomputed column file overlaps it without matching exactly.
                 #
                 # The Merge fallback handles this by directly setting fragment
                 # metadata with masked original files + new column files.
@@ -3675,14 +5037,12 @@ class FragmentWriterManager:
                 # Current testing shows this works, but more investigation needed.
                 if "no changes were made" in str(e):
                     _LOG.info(
-                        "DataReplacement failed (post-compaction merged files), "
+                        "DataReplacement failed (misaligned data files), "
                         "falling back to Merge operation: %s",
                         e,
                     )
                     fallback_start = time.perf_counter()
-                    self._commit_with_merge_fallback(
-                        to_commit, version, storage_options
-                    )
+                    self._commit_with_merge_fallback(to_commit, storage_options)
                     self._record_commit_elapsed(fallback_start)
                     self._record_committed_rows(to_commit)
                     break
@@ -3700,9 +5060,7 @@ class FragmentWriterManager:
                         e,
                     )
                     fallback_start = time.perf_counter()
-                    self._commit_with_merge_fallback(
-                        to_commit, version, storage_options
-                    )
+                    self._commit_with_merge_fallback(to_commit, storage_options)
                     self._record_commit_elapsed(fallback_start)
                     self._record_committed_rows(to_commit)
                     break
@@ -3743,24 +5101,9 @@ class FragmentWriterManager:
 
                 # Get latest version from dataset - concurrent commits may have
                 # advanced it by more than 1
-                # Use cached storage options, fallback to namespace describe
-                storage_options = self.storage_options
-                ns = self.namespace_config
-                if (
-                    storage_options is None
-                    and ns
-                    and ns.namespace_client_impl
-                    and ns.namespace_client_properties
-                    and self.table_id
-                ):
-                    from lance_namespace import DescribeTableRequest
-
-                    ns_client = self.namespace_client
-                    assert ns_client is not None
-                    response = ns_client.describe_table(
-                        DescribeTableRequest(id=self.table_id)
-                    )
-                    storage_options = response.storage_options
+                # Resolved per attempt: proactively re-vended near expiry,
+                # namespace-describe fallback when nothing was cached.
+                storage_options = self._resolve_commit_storage_options()
                 from geneva.db import open_lance_dataset as _open_ds
 
                 latest_ds = _open_ds(self.ds_uri, storage_options=storage_options)
@@ -3823,10 +5166,9 @@ class FragmentWriterManager:
     def _commit_with_merge_fallback(
         self,
         to_commit: list[tuple[int, lance.fragment.DataFile, int]],
-        version: int,
         storage_options: dict[str, str] | None,
     ) -> None:
-        """Commit using Merge operation when DataReplacement fails post-compaction.
+        """Commit using Merge operation when DataReplacement cannot align.
 
         Why DataReplacement fails after compaction:
         - DataReplacement requires exact field_ids match to replace/add files
@@ -3834,16 +5176,26 @@ class FragmentWriterManager:
         - New column file has field_ids=[10], but no existing file has just [10]
         - Lance error: "no changes were made" (can't find file to replace)
 
+        The same misalignment occurs for fragments a populated MV append
+        created: their single data file carries the meta columns AND the
+        projected columns, so the fill pass's recomputed column file overlaps
+        it without matching any existing file exactly.
+
         How Merge fallback works:
         - Uses LanceOperation.Merge to directly set fragment metadata
         - Masks our field_ids in original files (set to LANCE_FIELD_ID_TOMBSTONE = -2)
         - Adds new column file with correct field_ids
         - Effectively overlays new column data on existing fragment
 
-        Caveats:
-        - Merge requires ALL fragments to be provided (not just modified ones)
-        - This can conflict with concurrent writes to other fragments
-        - Use only as fallback when DataReplacement fails
+        Read version and retries: the Merge is built from the dataset's
+        CURRENT fragment metadata (Merge must list ALL fragments, not just the
+        modified ones), so it is committed against the version that metadata
+        was read at -- not the job's original read version. Unlike
+        DataReplacement, Lance cannot rebase a Merge across intervening
+        commits (including this job's own earlier fragment batches); it raises
+        a retryable commit conflict instead. Retrying means rebuilding:
+        re-open the dataset, rebuild the fragment list, and commit at the new
+        version, bounded by GENEVA_VERSION_CONFLICT_MAX_RETRIES.
 
         TODO: Investigate behavior when compaction materializes deletions.
         If deletions are materialized (rows physically removed), the fragment's
@@ -3854,16 +5206,7 @@ class FragmentWriterManager:
         """
         from lance.fragment import FragmentMetadata
 
-        # Get current dataset state
         from geneva.db import open_lance_dataset
-
-        ds = open_lance_dataset(
-            self.ds_uri,
-            namespace_config=self.namespace_config,
-            table_id=self.table_id,
-            storage_options=storage_options,
-            use_worker_props=True,
-        )
 
         # Build map of fragments we're updating
         frag_updates: dict[int, lance.fragment.DataFile] = {
@@ -3875,67 +5218,147 @@ class FragmentWriterManager:
             set(self.output_field_ids) if self.output_field_ids else set()
         )
 
-        # Build fragment metadata for ALL fragments
-        all_frags = []
-        for frag in ds.get_fragments():
-            if frag.fragment_id in frag_updates:
-                # Modified fragment: mask our columns in existing files, add new file
-                new_files = []
-                for df in frag.data_files():
-                    # Create masked version of this file - tombstone our field_ids
-                    masked_field_ids = [
-                        LANCE_FIELD_ID_TOMBSTONE if fid in field_ids_to_mask else fid
-                        for fid in df.field_ids()
-                    ]
-                    # Only include if there are non-tombstoned fields.
-                    # Preserve file_size_bytes and base_id: dropping base_id
-                    # re-roots a multi-base fragment's file at the dataset
-                    # root and breaks every subsequent commit/read.
-                    if any(fid != LANCE_FIELD_ID_TOMBSTONE for fid in masked_field_ids):
-                        masked_df = lance.fragment.DataFile(
-                            df.path,
-                            masked_field_ids,
-                            df.column_indices,
-                            df.file_major_version,
-                            df.file_minor_version,
-                            file_size_bytes=getattr(df, "file_size_bytes", None),
-                            base_id=getattr(df, "base_id", None),
-                        )
-                        new_files.append(masked_df)
+        conflict_attempts = 0
+        credential_revend_attempts = 0
+        while True:
+            # Re-resolve per attempt: the fallback is reached from an
+            # already-failed commit, and conflict retries can span the vended
+            # credential expiry window. Direct-URI callers pass static options
+            # that resolve() knows nothing about, so keep those on None.
+            resolved = self._resolve_commit_storage_options()
+            if resolved is not None:
+                storage_options = resolved
+            # Get current dataset state; re-read on every attempt so the Merge
+            # reflects every commit that landed before it
+            ds = open_lance_dataset(
+                self.ds_uri,
+                namespace_config=self.namespace_config,
+                table_id=self.table_id,
+                storage_options=storage_options,
+                use_worker_props=True,
+            )
 
-                # Add our new column file
-                new_files.append(frag_updates[frag.fragment_id])
+            # Build fragment metadata for ALL fragments
+            all_frags = []
+            matched: set[int] = set()
+            for frag in ds.get_fragments():
+                if frag.fragment_id in frag_updates:
+                    matched.add(frag.fragment_id)
+                    # Modified fragment: mask our columns in existing files,
+                    # add new file
+                    new_files = []
+                    for df in frag.data_files():
+                        # Create masked version of this file - tombstone our field_ids
+                        masked_field_ids = [
+                            LANCE_FIELD_ID_TOMBSTONE
+                            if fid in field_ids_to_mask
+                            else fid
+                            for fid in df.field_ids()
+                        ]
+                        # Only include if there are non-tombstoned fields.
+                        # Preserve file_size_bytes and base_id: dropping base_id
+                        # re-roots a multi-base fragment's file at the dataset
+                        # root and breaks every subsequent commit/read.
+                        if any(
+                            fid != LANCE_FIELD_ID_TOMBSTONE for fid in masked_field_ids
+                        ):
+                            masked_df = lance.fragment.DataFile(
+                                df.path,
+                                masked_field_ids,
+                                df.column_indices,
+                                df.file_major_version,
+                                df.file_minor_version,
+                                file_size_bytes=getattr(df, "file_size_bytes", None),
+                                base_id=getattr(df, "base_id", None),
+                            )
+                            new_files.append(masked_df)
 
-                new_frag = FragmentMetadata(
-                    id=frag.fragment_id,
-                    files=new_files,
-                    physical_rows=frag.physical_rows,
-                    deletion_file=frag.metadata.deletion_file,
-                    row_id_meta=frag.metadata.row_id_meta,
-                    created_at_version_meta=frag.metadata.created_at_version_meta,
-                    last_updated_at_version_meta=(
-                        frag.metadata.last_updated_at_version_meta
-                    ),
+                    # Add our new column file
+                    new_files.append(frag_updates[frag.fragment_id])
+
+                    new_frag = FragmentMetadata(
+                        id=frag.fragment_id,
+                        files=new_files,
+                        physical_rows=frag.physical_rows,
+                        deletion_file=frag.metadata.deletion_file,
+                        row_id_meta=frag.metadata.row_id_meta,
+                        created_at_version_meta=frag.metadata.created_at_version_meta,
+                        last_updated_at_version_meta=(
+                            frag.metadata.last_updated_at_version_meta
+                        ),
+                    )
+                    all_frags.append(new_frag)
+                else:
+                    # Unmodified fragment: keep existing metadata
+                    all_frags.append(frag.metadata)
+
+            # A Merge lists every fragment, so an update target missing from
+            # this snapshot (removed or renumbered by a concurrent writer
+            # between conflict retries) would be silently dropped: the commit
+            # would succeed without its new column file, orphaning the written
+            # data while the rows are recorded as committed. Refuse instead.
+            missing = set(frag_updates) - matched
+            if missing:
+                raise MergeFallbackTargetError(
+                    f"Merge fallback: update target fragments {sorted(missing)} "
+                    f"are missing from {self.ds_uri} at version {ds.version}; "
+                    "committing would silently drop their column files."
                 )
-                all_frags.append(new_frag)
-            else:
-                # Unmodified fragment: keep existing metadata
-                all_frags.append(frag.metadata)
 
-        # Commit with Merge operation
-        op = lance.LanceOperation.Merge(
-            fragments=all_frags,
-            schema=ds.lance_schema,
-        )
-        # Pass namespace_client and table_id for managed versioning
-        get_committer().commit(
-            self.ds_uri,
-            op,
-            read_version=version,
-            storage_options=storage_options,
-            namespace_client=self.namespace_client,
-            table_id=self.table_id,
-        )
+            # Commit with Merge operation at the version the metadata was read at
+            op = lance.LanceOperation.Merge(
+                fragments=all_frags,
+                schema=ds.lance_schema,
+            )
+            try:
+                # Pass namespace_client and table_id for managed versioning
+                get_committer().commit(
+                    self.ds_uri,
+                    op,
+                    read_version=ds.version,
+                    storage_options=storage_options,
+                    namespace_client=self.namespace_client,
+                    table_id=self.table_id,
+                )
+                break
+            except OSError as e:
+                # Expired vended credentials: re-vend and rebuild the Merge
+                # from the latest snapshot (the loop re-opens the dataset).
+                if (
+                    is_credential_expiry_error(e)
+                    and credential_revend_attempts
+                    < GENEVA_COMMIT_CREDENTIAL_REVEND_RETRIES
+                ):
+                    credential_revend_attempts += 1
+                    _LOG.warning(
+                        "Merge fallback hit expired credentials "
+                        "(re-vend attempt %d/%d): %s",
+                        credential_revend_attempts,
+                        GENEVA_COMMIT_CREDENTIAL_REVEND_RETRIES,
+                        e,
+                    )
+                    self._refresh_credentials_on_error()
+                    continue
+                if not is_retryable_commit_conflict(e):
+                    raise
+                conflict_attempts += 1
+                if self.job_tracker:
+                    self.job_tracker.increment.remote(METRIC_COMMIT_CONFLICT_RETRIES, 1)
+                if conflict_attempts >= GENEVA_VERSION_CONFLICT_MAX_RETRIES:
+                    _LOG.error(
+                        "Merge fallback failed after %d version conflict retries: %s",
+                        conflict_attempts,
+                        e,
+                    )
+                    raise
+                _LOG.info(
+                    "Merge fallback conflict at version %d (attempt %d/%d): %s. "
+                    "Rebuilding from latest version and retrying.",
+                    ds.version,
+                    conflict_attempts,
+                    GENEVA_VERSION_CONFLICT_MAX_RETRIES,
+                    e,
+                )
 
         _LOG.info(
             "Merge fallback committed %d fragments to %s",
@@ -3973,23 +5396,9 @@ class FragmentWriterManager:
             "lancedb:agent:completed_job_json": json.dumps(completed_job)
         }
         try:
-            # Resolve storage options the same way the data commits do.
-            storage_options = self.storage_options
-            ns = self.namespace_config
-            if (
-                storage_options is None
-                and ns
-                and ns.namespace_client_impl
-                and ns.namespace_client_properties
-                and self.table_id
-            ):
-                from lance_namespace import DescribeTableRequest
-
-                ns_client = self.namespace_client
-                assert ns_client is not None
-                storage_options = ns_client.describe_table(
-                    DescribeTableRequest(id=self.table_id)
-                ).storage_options
+            # Resolve storage options the same way the data commits do,
+            # including the proactive near-expiry re-vend.
+            storage_options = self._resolve_commit_storage_options()
 
             marker = lance.Transaction(
                 read_version=self.dst_read_version,
@@ -4043,11 +5452,7 @@ class FragmentWriterManager:
         for _frag_id, sess in list(self.sessions.items()):
             # Collect failed fragments before draining (graceful degradation)
             if sess.failed and sess.failure_reason:
-                self.failed_fragments[_frag_id] = sess.failure_reason
-                if _is_corrupt_checkpoint_failure(
-                    getattr(sess, "failure_exc", None), sess.failure_reason
-                ):
-                    self.corrupt_fragments[_frag_id] = sess.failure_reason
+                self._record_session_failure(_frag_id, sess)
                 _LOG.warning(
                     "Fragment %d failed: %s. Skipping drain.",
                     _frag_id,
@@ -4061,6 +5466,8 @@ class FragmentWriterManager:
 
             if not sess.sealed:
                 sess.seal()
+            # poll_all may not run again after this final seal.
+            sess.check_seal_ack()
             for result in sess.drain():
                 # this may in turn pop more sessions via _record_fragment
                 self._record_fragment(
@@ -4079,11 +5486,7 @@ class FragmentWriterManager:
 
             # Check if session failed during drain
             if sess.failed and sess.failure_reason:
-                self.failed_fragments[_frag_id] = sess.failure_reason
-                if _is_corrupt_checkpoint_failure(
-                    getattr(sess, "failure_exc", None), sess.failure_reason
-                ):
-                    self.corrupt_fragments[_frag_id] = sess.failure_reason
+                self._record_session_failure(_frag_id, sess)
                 _LOG.warning(
                     "Fragment %d failed during drain: %s",
                     _frag_id,
@@ -4100,17 +5503,7 @@ class FragmentWriterManager:
         self._drain_pending_fragment_records()
         self._commit_if_n_fragments(1, robust=True)
 
-        # 5) Log summary of failed fragments for graceful degradation
-        if self.failed_fragments:
-            _LOG.warning(
-                "Graceful degradation: %d fragment(s) failed. "
-                "Re-run backfill to process failed fragments.",
-                len(self.failed_fragments),
-            )
-            for frag_id, reason in self.failed_fragments.items():
-                _LOG.warning("  Fragment %d: %s", frag_id, reason)
-
-        # 6) Poison checkpoints are non-retryable: the healthy fragments above have
+        # 5) Poison checkpoints are non-retryable: the healthy fragments above have
         # already been committed, but a corrupt checkpoint will reproduce on re-run,
         # so fail the job with attribution instead of returning a silent partial
         # success (which is what wedged the worker before this guard existed).
@@ -4122,6 +5515,57 @@ class FragmentWriterManager:
             raise CorruptCheckpointError(
                 key=f"{len(self.corrupt_fragments)} fragment(s)",
                 cause=frags,
+            )
+
+        # 6) Coverage gaps mean the writer refused to commit null output for
+        # rows whose checkpoints went missing. Healthy fragments are already
+        # committed; fail the job with attribution so the gap is not mistaken
+        # for a successful backfill. A re-run recomputes only the missing rows.
+        if self.coverage_gap_fragments:
+            frags = "; ".join(
+                f"fragment {fid}: {reason}"
+                for fid, reason in sorted(self.coverage_gap_fragments.items())
+            )
+            raise CheckpointCoverageError(
+                min(self.coverage_gap_fragments),
+                detail=(
+                    f"{len(self.coverage_gap_fragments)} fragment(s) were "
+                    "missing checkpoint data for a full-table backfill and "
+                    f"were not committed: {frags}. Re-run the backfill to "
+                    "compute the missing rows."
+                ),
+            )
+
+        # 7) A writer OOM that could not be reduced any further has exhausted the
+        # driver-owned bound. Healthy fragment records were drained and committed
+        # above; surface the typed failure instead of flattening it into a generic
+        # writer error so callers can distinguish it from transient actor loss.
+        if self.writer_oom_fragments:
+            frags = "; ".join(
+                f"fragment {fid}: {reason}"
+                for fid, reason in sorted(self.writer_oom_fragments.items())
+            )
+            raise FatalWorkerOOMError(
+                f"{len(self.writer_oom_fragments)} FragmentWriter fragment(s) "
+                "exhausted bounded OOM recovery for the replay working set; "
+                f"healthy completed fragments were committed: {frags}"
+            )
+
+        # 8) Any other failed fragment also fails the job with attribution: those
+        # fragments' rows were never written, so returning success would report a
+        # complete backfill over missing data. The healthy fragments' commits are
+        # preserved and the failed fragments' checkpoints survive, so a re-run
+        # resumes from here.
+        if self.failed_fragments:
+            for frag_id, reason in self.failed_fragments.items():
+                _LOG.warning("Fragment %d failed: %s", frag_id, reason)
+            frags = ", ".join(
+                f"fragment {fid}: {reason}"
+                for fid, reason in sorted(self.failed_fragments.items())
+            )
+            raise FragmentWriteFailedError(
+                f"{len(self.failed_fragments)} fragment(s) failed to write; "
+                f"re-run to process them: {frags}"
             )
 
     def finalize_metrics(self) -> None:
@@ -4281,61 +5725,51 @@ MAX_DELETE_BATCH_SIZE = 10000
 
 
 def _get_valid_source_row_ids_at_version(
-    src_db_uri: str,
-    src_table_name: str,
+    src: TableReference,
     target_version: int,
     query: GenevaQuery,
-    namespace_config: NamespaceConfig | None = None,
 ) -> set[int]:
-    """Get all row IDs that exist in source table at target version.
+    """Get all row IDs that exist in the source table at target version.
 
-    Applies the MV's WHERE filter to only return matching rows.
+    Applies the MV's WHERE filter to only return matching rows. The source is
+    opened through its ``TableReference`` (see ``_mv_source_ref``), whose
+    ``table_id`` carries the source's namespace path; opening by bare table
+    name cannot find a source that lives in a child namespace.
 
     Args:
-        src_db_uri: URI of the source database
-        src_table_name: Name of the source table
+        src: Reference to the source table
         target_version: Version of the source table to query
         query: The GenevaQuery containing the WHERE filter
-        namespace_config: Optional namespace configuration
 
     Returns:
         set: Row IDs that exist in the source table at target_version and match filter
     """
-    from geneva.db import connect
+    src_table = src.open()
+    # to_lance: fresh — commit/merge path needs a live manifest
+    src_dataset = src_table.to_lance().checkout_version(target_version)
 
-    ns = namespace_config or NamespaceConfig()
-    # Connect to source database (use context manager to ensure connection is closed)
-    with connect(
-        src_db_uri,
-        namespace_client_impl=ns.namespace_client_impl,
-        namespace_client_properties=ns.namespace_client_properties,
-    ) as src_db:
-        src_table = src_db.open_table(src_table_name)
-        # to_lance: fresh — commit/merge path needs a live manifest
-        src_dataset = src_table.to_lance().checkout_version(target_version)
+    # Build scanner with the MV's WHERE filter
+    filter_expr = query.base.filter if query.base and query.base.filter else None
 
-        # Build scanner with the MV's WHERE filter
-        filter_expr = query.base.filter if query.base and query.base.filter else None
+    scanner = src_dataset.scanner(
+        columns=[],  # Only need row IDs, not data columns
+        filter=filter_expr,
+        with_row_id=True,
+    )
 
-        scanner = src_dataset.scanner(
-            columns=[],  # Only need row IDs, not data columns
-            filter=filter_expr,
-            with_row_id=True,
-        )
+    # Collect all valid row IDs
+    valid_row_ids: set[int] = set()
+    for batch in scanner.to_batches():
+        if "_rowid" in batch.schema.names:
+            valid_row_ids.update(
+                rid for rid in batch["_rowid"].to_pylist() if rid is not None
+            )
 
-        # Collect all valid row IDs
-        valid_row_ids: set[int] = set()
-        for batch in scanner.to_batches():
-            if "_rowid" in batch.schema.names:
-                valid_row_ids.update(
-                    rid for rid in batch["_rowid"].to_pylist() if rid is not None
-                )
-
-        _LOG.info(
-            f"Found {len(valid_row_ids)} valid row IDs in source table "
-            f"at version {target_version}"
-        )
-        return valid_row_ids
+    _LOG.info(
+        f"Found {len(valid_row_ids)} valid row IDs in source table "
+        f"at version {target_version}"
+    )
+    return valid_row_ids
 
 
 def _delete_rows_not_in_source_version(
@@ -4387,8 +5821,7 @@ def _delete_rows_not_in_source_version(
 def _delete_stale_mv_rows(
     dst: TableReference,
     dst_table: Table,
-    src_dburi: str,
-    src_name: str,
+    src: TableReference,
     src_version: int,
     query: GenevaQuery,
     delete_batch_size: int,
@@ -4403,8 +5836,7 @@ def _delete_stale_mv_rows(
     Args:
         dst: The destination table reference
         dst_table: The destination (MV) table
-        src_dburi: URI of the source database
-        src_name: Name of the source table
+        src: Reference to the source table
         src_version: Version of the source table to query
         query: The GenevaQuery containing the WHERE filter
         delete_batch_size: Number of rows to delete per batch
@@ -4416,13 +5848,7 @@ def _delete_stale_mv_rows(
         Tuple of (dst_table, dst_dataset, deleted_count, valid_row_ids)
     """
     # Get valid row IDs at target version (with MV filter applied).
-    valid_row_ids = _get_valid_source_row_ids_at_version(
-        src_dburi,
-        src_name,
-        src_version,
-        query,
-        namespace_config=dst.namespace_config.for_worker(),
-    )
+    valid_row_ids = _get_valid_source_row_ids_at_version(src, src_version, query)
 
     # Early exit if caller knows there are no deletions
     if existing_source_row_ids is not None:
@@ -4617,6 +6043,13 @@ def _build_dst_to_src_mapping(
     dst_frags_with_checkpoint: set[int] = set()
     existing_source_row_ids: set[int] = set()
     src_data_files_by_dst: dict[int, frozenset[str]] = {}
+    # MV v2 (stable row IDs) cannot map a dst fragment back to specific source
+    # fragments, so every dst fragment falls back to the union of ALL source
+    # data files. That union is identical for each fragment — compute it (and
+    # its hash: a sort + md5 over every path) once instead of
+    # O(dst_frags x src_frags).
+    all_source_data_files: frozenset[str] | None = None
+    all_source_files_hash: str | None = None
     output_field_ids: frozenset[int] | None = None
     use_blob_v2_assembly = False
     if storage_version_supports_blob_v2_checkpoints(dst_dataset.data_storage_version):
@@ -4680,11 +6113,19 @@ def _build_dst_to_src_mapping(
                 existing_source_row_ids.update(
                     row_id for row_id in source_row_ids if row_id is not None
                 )
-        except Exception as e:
-            _LOG.warning(
+        except Exception:
+            # Re-raise so the refresh fails loudly and the caller can retry.
+            # Treating a failed scan as an empty fragment would skip a stale
+            # destination fragment (its checkpoint misses and it is dropped from
+            # dst_to_src_map, so it is never reprocessed) and re-classify its
+            # source fragments as "new", re-appending their rows and leaving
+            # permanent duplicate __source_row_id values.
+            _LOG.exception(
                 f"Failed to read __source_row_id from destination fragment "
-                f"{dst_frag_id}: {e}"
+                f"{dst_frag_id}; aborting refresh to avoid silently skipping "
+                f"the fragment and creating duplicate rows"
             )
+            raise
 
         # Compute source data files for this destination fragment.
         # We compute the UNION of data file paths from all source fragments
@@ -4705,20 +6146,31 @@ def _build_dst_to_src_mapping(
             else:
                 # Can't determine source fragments (e.g., MV v2 with stable row IDs)
                 # Use ALL source fragments' data files (conservative but correct)
-                all_src_frag_ids = {f.fragment_id for f in src_dataset.get_fragments()}
-                current_data_files = get_combined_source_data_files(
-                    src_dataset, all_src_frag_ids, relevant_field_ids
-                )
+                if all_source_data_files is None:
+                    all_src_frag_ids = {
+                        f.fragment_id for f in src_dataset.get_fragments()
+                    }
+                    all_source_data_files = get_combined_source_data_files(
+                        src_dataset, all_src_frag_ids, relevant_field_ids
+                    )
+                    all_source_files_hash = hash_source_files(all_source_data_files)
+                current_data_files = all_source_data_files
                 _LOG.debug(
                     f"Computed source data files for dst frag {dst_frag_id} "
                     f"(all source frags): file_count={len(current_data_files)}"
                 )
             src_data_files_by_dst[dst_frag_id] = current_data_files
-        src_files_hash = (
-            hash_source_files(current_data_files) if src_dataset is not None else None
-        )
+        if src_dataset is None:
+            src_files_hash = None
+        elif current_data_files is all_source_data_files:
+            # Shared all-source union: reuse its precomputed hash.
+            src_files_hash = all_source_files_hash
+        else:
+            src_files_hash = hash_source_files(current_data_files)
 
-        # Check if this destination fragment has a valid checkpoint
+        # Pass expected_rows so a staged data file is accepted only when its row count
+        # matches the fragment's physical layout; without it the check degrades to
+        # `num_rows > 0` and accepts a short staged file as complete.
         checkpoint_exists = (
             _check_fragment_data_file_exists(
                 dst_uri,
@@ -4731,6 +6183,7 @@ def _build_dst_to_src_mapping(
                 namespace=namespace,
                 table_id=dst_ref.table_id,
                 storage_options=dst_ref.storage_options,
+                expected_rows=dst_frag.physical_rows,
             )
             is not None
         )
@@ -4931,6 +6384,404 @@ def _append_placeholder_fragments(
     else:
         _LOG.warning(f"Expected at least 1 new fragment but got {len(added_fragments)}")
         return None
+
+
+def _make_populated_append_actor() -> Any:
+    """Lazily define the PopulatedAppendActor Ray actor class.
+
+    Defers ``import ray`` until Ray is actually needed.
+    """
+    import ray
+
+    @ray.remote
+    class PopulatedAppendActor:
+        """Writes populated MV rows for one source fragment directly to storage.
+
+        Reads the projected view columns for its assigned source fragment --
+        applying the MV's own select/filter via the same query builder the
+        fill pass uses, so the values match what the fill pass would produce --
+        and writes the populated rows straight to the destination dataset as
+        data files. Only lightweight fragment metadata returns to the driver,
+        so the projected payload never transits or accumulates there.
+        """
+
+        def __init__(
+            self,
+            src_ref: TableReference,
+            projection_base: Any,
+            write_schema_ipc: bytes,
+            field_ids: list[int],
+            column_indices: list[int],
+            udf_output_columns: list[str],
+            dst_uri: str,
+            dst_storage_options: dict[str, str] | None,
+            dest_data_storage_version: str,
+            flush_rows: int | None,
+        ) -> None:
+            import pyarrow as pa
+
+            self._src_ref = src_ref
+            self._projection_base = projection_base
+            self._field_ids = field_ids
+            self._column_indices = column_indices
+            self._udf_output_columns = set(udf_output_columns)
+            self._dst_uri = dst_uri
+            self._dst_storage_options = dst_storage_options
+            self._dest_data_storage_version = dest_data_storage_version
+            self._flush_rows = flush_rows
+            self._write_schema = pa.ipc.open_stream(write_schema_ipc).schema
+            self._table = None
+
+        def _get_table(self) -> Any:
+            if self._table is None:
+                self._table = self._src_ref.open()
+            return self._table
+
+        def _populate(self, kept: Any) -> Any:
+            """Projected columns -> populated view rows (adds the MV meta cols).
+
+            SAFETY: drop any UDF output columns that survived the select strip
+            (e.g. a source column shadowing a UDF output name) -- the appended
+            batch must not carry a data file for the UDF fields, or the fill
+            pass may never compute them.
+            """
+            import pyarrow as pa
+
+            populated = kept.drop_columns(["_rowid"])
+            stray = [c for c in populated.column_names if c in self._udf_output_columns]
+            if stray:
+                populated = populated.drop_columns(stray)
+            populated = populated.append_column(
+                "__source_row_id",
+                kept["_rowid"].combine_chunks().cast(pa.int64()),
+            )
+            # __is_set is True only when every view column is present at append
+            # time. Mixed-view rows still await their UDF columns, so they stay
+            # False; pure-projection rows are complete and land True.
+            populated = populated.append_column(
+                "__is_set",
+                pa.array(
+                    [not self._udf_output_columns] * kept.num_rows, type=pa.bool_()
+                ),
+            )
+            return populated.select(self._write_schema.names).cast(self._write_schema)
+
+        def append_fragment(
+            self, frag_id: int, wanted: list[int]
+        ) -> tuple[list[str], int]:
+            """Write populated destination fragment(s) for one source fragment.
+
+            Streams the source read batch by batch: peak memory is one read
+            batch (or ``flush_rows`` buffered rows when a fragment row cap is
+            set), regardless of fragment size. No commit happens here; the
+            driver commits the returned metadata. Returns
+            ``(fragment_jsons, row_count)`` where *fragment_jsons* is the
+            JSON-serialized ``FragmentMetadata`` per written fragment.
+            """
+            import itertools
+
+            import pyarrow as pa
+            from lance.fragment import FragmentMetadata
+
+            from geneva.fragment_writer import get_fragment_file_writer
+            from geneva.runners.ray.writer import write_fragment_file
+
+            frag_query = GenevaQuery(
+                fragment_ids=[frag_id],
+                base=self._projection_base.model_copy(deep=True),
+            )
+            frag_query.base.with_row_id = True
+            frag_query.base.limit = None
+            frag_query.base.offset = None
+            frag_query.column_udfs = None
+            frag_query.with_row_address = None
+
+            reader = GenevaQueryBuilder.from_query_object(
+                self._get_table(), frag_query
+            ).to_batches()
+
+            wanted_set = set(wanted)
+            counted = {"rows": 0}
+
+            def _kept_batches():  # noqa: ANN202
+                for batch in reader:
+                    if batch.num_rows == 0:
+                        continue
+                    tbl = pa.Table.from_batches([batch])
+                    row_ids = cast("list[int]", tbl["_rowid"].to_pylist())
+                    mask = pa.array(
+                        [rid in wanted_set for rid in row_ids], type=pa.bool_()
+                    )
+                    kept = tbl.filter(mask)
+                    if kept.num_rows == 0:
+                        continue
+                    populated = self._populate(kept)
+                    counted["rows"] += populated.num_rows
+                    yield from populated.to_batches()
+
+            fragment_jsons: list[str] = []
+
+            def _write_fragment(batches) -> None:  # noqa: ANN001
+                # ``LanceFragment.create(mode="append")`` requires the FULL
+                # dataset schema, but the appended data must omit the UDF
+                # columns so their field ids stay uncovered. Write the data
+                # file directly (the fill pass's own mechanism for
+                # subset-field files) and assemble the fragment metadata.
+                data_file, rows_written, _write_ms = get_fragment_file_writer().write(
+                    write_fragment_file,
+                    self._dst_uri,
+                    batches,
+                    column_names=list(self._write_schema.names),
+                    field_ids=self._field_ids,
+                    column_indices=self._column_indices,
+                    data_storage_version=self._dest_data_storage_version,
+                    storage_options=self._dst_storage_options,
+                )
+                frag_meta = FragmentMetadata(
+                    id=0, files=[data_file], physical_rows=int(rows_written)
+                )
+                fragment_jsons.append(json.dumps(frag_meta.to_json()))
+
+            it = _kept_batches()
+            if self._flush_rows is None:
+                # One destination fragment, streamed end to end. Peek so an
+                # empty read writes nothing at all.
+                first = next(it, None)
+                if first is not None:
+                    _write_fragment(itertools.chain([first], it))
+            else:
+                # Split the stream into fragments of exactly flush_rows rows
+                # (the last one smaller), buffering at most flush_rows rows.
+                buf: list[pa.RecordBatch] = []
+                buf_rows = 0
+                for b in it:
+                    pending: pa.RecordBatch | None = b
+                    while pending is not None:
+                        room = self._flush_rows - buf_rows
+                        if pending.num_rows <= room:
+                            buf.append(pending)
+                            buf_rows += pending.num_rows
+                            pending = None
+                        else:
+                            buf.append(pending.slice(0, room))
+                            buf_rows = self._flush_rows
+                            pending = pending.slice(room)
+                        if buf_rows >= self._flush_rows:
+                            _write_fragment(iter(buf))
+                            buf = []
+                            buf_rows = 0
+                if buf:
+                    _write_fragment(iter(buf))
+
+            return (fragment_jsons, counted["rows"])
+
+    return PopulatedAppendActor
+
+
+_PopulatedAppendActor: Any = None
+
+
+def _get_populated_append_actor() -> Any:
+    """Return the PopulatedAppendActor class, creating it on first call."""
+    global _PopulatedAppendActor  # noqa: PLW0603
+    if _PopulatedAppendActor is None:
+        _PopulatedAppendActor = _make_populated_append_actor()
+    return _PopulatedAppendActor
+
+
+def _append_populated_fragments(
+    dst_table,
+    source_query: GenevaQuery,
+    row_ids_by_fragment: dict[int, list[int]],
+    max_rows_per_fragment: int | None = None,
+    udf_output_columns: set[str] | None = None,
+    *,
+    src_ref: TableReference,
+    dst_ref: TableReference | None = None,
+    concurrency: int = 4,
+    job_tracker: ActorHandle | None = None,
+) -> set[int] | None:
+    """Append new MV rows with their projected view columns already computed.
+
+    The projected (non-UDF) view columns are a direct projection of source
+    columns. One Ray actor per source fragment reads them straight from
+    storage -- applying the MV's own select/filter so the values match what
+    the fill pass would produce -- and writes populated destination data
+    files directly; the driver commits the returned fragment metadata as a
+    single atomic Append. The projected payload never transits the driver,
+    and a reader never sees the append half-landed or rows whose projected
+    columns are NULL. Pure-projection views land complete rows; mixed views
+    (projection plus per-column UDFs) land their projected columns populated
+    while the UDF columns are filled by the later column pass.
+
+    The appended data OMITS the UDF output columns entirely -- it never
+    appends explicit NULLs for them. Appending them would give the new
+    fragment a data file covering their field ids, and the destination-driven
+    fill pass could treat that coverage as already-computed and never fill
+    the column, turning a transient NULL into a permanent one. Omitted
+    columns get no data file, so they read as NULL until the fill pass
+    writes them.
+
+    Args:
+        dst_table: The destination (view) table to append to.
+        source_query: The MV's stored source query (carries select/filter).
+        row_ids_by_fragment: Source row IDs to land, keyed by source fragment
+            id (already deduped against the destination and limit-truncated
+            by the caller).
+        max_rows_per_fragment: Optional max rows per appended fragment.
+        udf_output_columns: Output column names of the view's per-column UDFs.
+            Excluded from the projection read and the appended data.
+        src_ref: Reference the actors open the source table from, pinned to
+            the version this refresh reads.
+        dst_ref: Destination reference (carries the storage options for the
+            direct fragment writes).
+        concurrency: Maximum concurrent append actors.
+        job_tracker: Optional tracker reused for worker accounting.
+
+    Returns:
+        set[int] | None: The new destination fragment IDs, or None if no rows
+        were added.
+    """
+    row_ids_by_fragment = {fid: ids for fid, ids in row_ids_by_fragment.items() if ids}
+    if not row_ids_by_fragment:
+        _LOG.info("No new rows needed - all source row IDs already in destination")
+        return None
+
+    if max_rows_per_fragment is not None and max_rows_per_fragment < 1:
+        raise ValueError(
+            f"max_rows_per_fragment must be at least 1 (got {max_rows_per_fragment})"
+        )
+
+    udf_output_columns = udf_output_columns or set()
+
+    # to_lance: fresh — commit/merge path needs a live manifest
+    dst_dataset_before = dst_table.to_lance()
+    existing_fragment_ids = {
+        frag.fragment_id for frag in dst_dataset_before.get_fragments()
+    }
+    dst_uri = dst_dataset_before.uri
+    dst_read_version = dst_dataset_before.version
+    dst_data_storage_version = dst_dataset_before.data_storage_version
+    dst_storage_options = dst_ref.storage_options if dst_ref else None
+
+    # The projection read must only touch the non-UDF select entries. The native
+    # create path already stores base.columns without UDF-mapped entries; this
+    # guards query producers that don't.
+    projection_base = source_query.base.model_copy(deep=True)
+    if udf_output_columns and projection_base.columns is not None:
+        cols = normalize_query_columns(projection_base.columns)
+        if isinstance(cols, dict):
+            projection_base.columns = {
+                k: v for k, v in cols.items() if k not in udf_output_columns
+            }
+        elif cols is not None:
+            projection_base.columns = [c for c in cols if c not in udf_output_columns]
+
+    # The written schema is the view schema minus the omitted UDF columns;
+    # mode="append" resolves it against the destination's existing field ids.
+    write_schema = pa.schema(
+        [f for f in dst_table.schema if f.name not in udf_output_columns]
+    )
+    write_schema_ipc = _serialize_schema_ipc(write_schema)
+    field_ids, column_indices = extract_field_ids_and_column_indices(
+        dst_dataset_before.lance_schema,
+        list(write_schema.names),
+        dst_data_storage_version,
+    )
+
+    flush_rows = (
+        max_rows_per_fragment
+        if max_rows_per_fragment is not None and max_rows_per_fragment > 0
+        else None
+    )
+
+    actor_cls = _get_populated_append_actor()
+    actor_factory = functools.partial(
+        actor_cls.remote,
+        src_ref,
+        projection_base,
+        write_schema_ipc,
+        field_ids,
+        column_indices,
+        sorted(udf_output_columns),
+        dst_uri,
+        dst_storage_options,
+        dst_data_storage_version,
+        flush_rows,
+    )
+
+    work_items = sorted(row_ids_by_fragment.items())
+    num_actors = min(len(work_items), max(1, concurrency))
+    _LOG.info(
+        "Populated append: dispatching %d source fragment(s) to %d actor(s)",
+        len(work_items),
+        num_actors,
+    )
+    pool = ActorPool(actor_factory, num_actors, job_tracker=job_tracker)
+
+    from lance.fragment import FragmentMetadata
+
+    metas: list[Any] = []
+    total_rows = 0
+    try:
+        for fragment_jsons, row_count in pool.map_unordered(
+            lambda actor, item: actor.append_fragment.remote(item[0], item[1]),
+            work_items,
+        ):
+            total_rows += row_count
+            metas.extend(FragmentMetadata.from_json(j) for j in fragment_jsons)
+    finally:
+        pool.shutdown()
+
+    if not metas:
+        _LOG.info("No projected rows resolved for the new source row IDs")
+        return None
+
+    # One atomic Append: readers never observe the new rows partially landed.
+    op = lance.LanceOperation.Append(metas)
+    get_committer().commit(
+        dst_uri,
+        op,
+        read_version=dst_read_version,
+        storage_options=dst_storage_options or None,
+    )
+    _LOG.info(f"Appended {total_rows} populated rows for new source data")
+
+    dst_table.checkout_latest()
+
+    # to_lance: fresh — commit/merge path needs a live manifest
+    dst_dataset_after = dst_table.to_lance()
+    new_fragment_ids = {frag.fragment_id for frag in dst_dataset_after.get_fragments()}
+    added_fragments = new_fragment_ids - existing_fragment_ids
+
+    if len(added_fragments) >= 1:
+        _LOG.info(
+            f"Successfully added {len(added_fragments)} populated fragment(s) "
+            f"{added_fragments} with {total_rows} total rows"
+        )
+        return added_fragments
+
+    _LOG.warning(f"Expected at least 1 new fragment but got {len(added_fragments)}")
+    return None
+
+
+def _has_projected_columns(
+    source_query: GenevaQuery, udf_output_columns: set[str]
+) -> bool:
+    """True when the MV's select carries at least one non-UDF (projected) entry.
+
+    ``None`` means no explicit select, which projects every source column.
+
+    Normalized first: lancedb's ordered ``[(alias, expr)]`` shape would
+    otherwise be walked as a list of *tuples*, none of which can match a UDF
+    output name, so a UDF-only view would report projected columns it doesn't
+    have and take the populated-append path.
+    """
+    cols = normalize_query_columns(source_query.base.columns)
+    if cols is None:
+        return True
+    names = cols.keys() if isinstance(cols, dict) else cols
+    return any(n not in udf_output_columns for n in names)
 
 
 # Default per-flush output-row bound for chunker expansion when the caller
@@ -5172,6 +7023,157 @@ def _tail_rowids_for_trim(dataset: "lance.LanceDataset", surplus: int) -> list[i
     return rowids[-surplus:]
 
 
+@attrs.define
+class _ScalarUDTFWorkState:
+    """Driver-owned accounting for a scalar-UDTF expansion queue."""
+
+    total_work_items: int
+    completed_work_items: int = 0
+    oom_recoveries: int = 0
+
+
+def _split_scalar_udtf_row_ids(row_ids: list[int]) -> list[list[int]]:
+    """Bisect one source-row-id item, preserving order and exact coverage."""
+    if not row_ids:
+        raise ValueError("scalar UDTF work items must contain at least one row ID")
+    if len(row_ids) == 1:
+        return [row_ids]
+    midpoint = len(row_ids) // 2
+    return [row_ids[:midpoint], row_ids[midpoint:]]
+
+
+def _iter_scalar_udtf_results(
+    pool: ActorPool,
+    submit_fn: Callable[[ActorHandle, list[int]], Any],
+    work_items: Sequence[list[int]],
+    *,
+    prefetch: int,
+    oom_budget_tracker: OOMRecoveryBudgetTracker,
+    job_tracker: ActorHandle | Any | None,
+    job_id: str,
+    state: _ScalarUDTFWorkState,
+    pod_status_fetcher: Callable[[], Sequence[PodStatus] | None] | None = None,
+) -> Iterator[Any]:
+    """Yield scalar-UDTF results while recovering classified worker OOMs.
+
+    Successful results leave the pool exactly once and can be committed by the
+    caller immediately. A failed OOM item has no acknowledged result, so only
+    that row-id item is bisected and resubmitted. ActorPool has already removed
+    the failed actor and queued its replacement before raising the task error.
+    """
+    remaining = iter(work_items)
+
+    def maybe_submit() -> bool:
+        try:
+            row_ids = next(remaining)
+        except StopIteration:
+            return False
+        pool.submit(submit_fn, row_ids)
+        return True
+
+    for _ in range(max(1, prefetch)):
+        if not maybe_submit():
+            break
+
+    stall_deadline = time.monotonic() + PIPELINE_STALL_TIMEOUT_S
+
+    def raise_if_stalled() -> None:
+        if time.monotonic() > stall_deadline:
+            raise TimeoutError(
+                "Scalar UDTF ActorPool stalled: no work item completed in "
+                f"{PIPELINE_STALL_TIMEOUT_S}s"
+            ) from None
+
+    while pool.has_next():
+        try:
+            result = pool.get_next_unordered(timeout=POLL_INTERVAL_S)
+        except ActorPoolTaskError as exc:
+            pod_statuses = None
+            if pod_status_fetcher is not None:
+                try:
+                    pod_statuses = pod_status_fetcher()
+                except Exception:
+                    # Diagnostics must never replace the worker failure that
+                    # recovery is trying to classify.
+                    _LOG.debug(
+                        "Failed to get scalar UDTF worker pod status",
+                        exc_info=True,
+                    )
+            fatal_exc = _normalize_fatal_worker_error(
+                exc.cause,
+                pod_statuses=pod_statuses,
+            )
+            if isinstance(fatal_exc, FatalWorkerTransientError):
+                # ActorPool has already retired the lost actor and queued a
+                # replacement. Preserve the existing transient-loss behavior
+                # by retrying the exact same work item on that fresh pool. A
+                # failed attempt is not progress and must not extend the stall
+                # deadline, or repeated node loss could retry forever.
+                raise_if_stalled()
+                pool.submit(
+                    submit_fn,
+                    [int(row_id) for row_id in exc.task],
+                )
+                continue
+            if not isinstance(fatal_exc, FatalWorkerOOMError):
+                # Non-transient worker crashes/exits keep the current fail-fast
+                # behavior and are never routed through OOM bisection.
+                raise
+            if not oom_budget_tracker.config.enabled:
+                raise fatal_exc from exc.cause
+
+            failed_row_ids = [int(row_id) for row_id in exc.task]
+            replacements = _split_scalar_udtf_row_ids(failed_row_ids)
+            shrunk = max(len(item) for item in replacements) < len(failed_row_ids)
+            attempt_info = record_oom_recovery_attempt(
+                oom_budget_tracker,
+                job_tracker=job_tracker,
+                job_id=job_id,
+                range_key=row_ids_oom_range_key(failed_row_ids),
+                oom_exc=fatal_exc,
+                shrunk=shrunk,
+            )
+
+            state.oom_recoveries += 1
+            state.total_work_items += len(replacements) - 1
+            if job_tracker is not None:
+                with contextlib.suppress(Exception):
+                    job_tracker.set_total.remote(
+                        "batches",
+                        state.total_work_items,
+                    )
+
+            if attempt_info is not None:
+                _LOG.warning(
+                    "Scalar UDTF worker OOM on %d source row ID(s): "
+                    "retrying as %s (shrunk=%s; oom budget: total=%d/%d, "
+                    "same_range=%d/%d)",
+                    len(failed_row_ids),
+                    [len(item) for item in replacements],
+                    shrunk,
+                    attempt_info.total_count,
+                    attempt_info.total_limit,
+                    attempt_info.same_range_count,
+                    attempt_info.same_range_limit,
+                )
+
+            # The failed task has been removed from the pool. Submit only its
+            # exact replacements; every unrelated pending or completed item is
+            # left untouched.
+            for replacement in replacements:
+                pool.submit(submit_fn, replacement)
+            stall_deadline = time.monotonic() + PIPELINE_STALL_TIMEOUT_S
+            continue
+        except PollTimeoutError:
+            raise_if_stalled()
+            continue
+
+        stall_deadline = time.monotonic() + PIPELINE_STALL_TIMEOUT_S
+        state.completed_work_items += 1
+        yield result
+        maybe_submit()
+
+
 def _append_expanded_fragments(
     src_table,
     dst_table,
@@ -5263,9 +7265,19 @@ def _append_expanded_fragments(
         new_ids = [rid for rid in frag_row_ids if rid not in existing_source_row_ids]
         all_new_row_ids.extend(new_ids)
 
-    # Sort so work items are fragment-aligned (Lance row IDs encode
-    # fragment_id in the upper bits), improving read locality.
-    all_new_row_ids.sort()
+    # Deliberately NOT sorted. The loop above appends one fragment's ids at a
+    # time, so the list is already fragment-aligned -- and within each fragment
+    # it is in physical scan order, which is the best locality available.
+    #
+    # This used to end in `all_new_row_ids.sort()`, on the premise that "Lance
+    # row IDs encode fragment_id in the upper bits". That is true of physical
+    # row ADDRESSES, not of stable row ids -- and chunker views require stable
+    # row ids, so the premise was never true on the only path that relied on it.
+    # An update moves low-id rows into a late fragment while they keep their
+    # original ids; compaction then merges that fragment with a high-id one, so
+    # the fragment owns two disjoint id ranges and sorting by id revisits it.
+    # Measured on that sequence: 6 fragment runs across 5 fragments, versus 5
+    # here (SRID-G14, GEN-853).
 
     # Batch row IDs into work items for the actor pool
     work_items: list[list[int]] = [
@@ -5374,15 +7386,28 @@ def _append_expanded_fragments(
             sentinel_ref = ray.put(True)
             ctx.register_tracked_job(jt_name, sentinel_ref, job_tracker)
 
-    pool = ActorPool(actor_factory, num_actors, job_tracker=job_tracker)
+    pool = ActorPool(
+        actor_factory,
+        num_actors,
+        job_tracker=job_tracker,
+        # The driver below owns classification and OOM bisection. ActorPool
+        # still retires failed actors, but must not hide the failed work item
+        # behind an internal same-size resubmit.
+        resubmit_on_actor_failure=False,
+    )
 
     total_expanded = 0
+    work_state = _ScalarUDTFWorkState(total_work_items=len(work_items))
+    oom_budget_tracker = OOMRecoveryBudgetTracker.from_config()
+    init_oom_recovery_metrics(job_tracker)
     # Track remaining output capacity for global limit enforcement.
     # UDTFs can be one-to-many (one source row -> multiple output rows), so
     # we must enforce the limit on output rows, not just source rows.
     remaining_output = remaining_capacity
 
-    job_tracker.set_total.remote("batches", len(work_items))  # type: ignore[attr-defined]
+    job_tracker.set_total.remote(  # type: ignore[attr-defined]
+        "batches", work_state.total_work_items
+    )
     job_tracker.set_desc.remote("batches", "UDTF batches expanded")  # type: ignore[attr-defined]
     job_tracker.set.remote("batches", 0)  # type: ignore[attr-defined]
     # Mirror the per-batch row counter so remote-polling clients see it.
@@ -5408,9 +7433,16 @@ def _append_expanded_fragments(
         return committed.version
 
     try:
-        for result in pool.map_unordered(
+        for result in _iter_scalar_udtf_results(
+            pool,
             lambda actor, item: actor.expand_batch.remote(item, flush_rows),
             work_items,
+            prefetch=num_actors + 1,
+            oom_budget_tracker=oom_budget_tracker,
+            job_tracker=job_tracker,
+            job_id=job_id or "scalar-udtf",
+            state=work_state,
+            pod_status_fetcher=_get_current_k8s_pod_statuses,
         ):
             fragment_jsons, src_rows, out_rows = result
             total_expanded += out_rows
@@ -5482,8 +7514,10 @@ def _append_expanded_fragments(
     added_fragments = new_fragment_ids - existing_fragment_ids
 
     _LOG.info(
-        "Scalar UDTF expansion: %d batches → %d expanded rows across %d fragment(s)",
-        len(work_items),
+        "Scalar UDTF expansion: %d batches (%d OOM recoveries) → "
+        "%d expanded rows across %d fragment(s)",
+        work_state.completed_work_items,
+        work_state.oom_recoveries,
         total_expanded,
         len(added_fragments),
     )
@@ -5703,17 +7737,18 @@ def _validate_mv_source_schema(
     missing_columns: set[str] = set()
 
     # Extract columns from base query SELECT clause
-    if query.base.columns:
-        if isinstance(query.base.columns, list):
+    base_columns = normalize_query_columns(query.base.columns)
+    if base_columns:
+        if isinstance(base_columns, list):
             # Simple column list: ['col1', 'col2']
-            for col_name in query.base.columns:
+            for col_name in base_columns:
                 resolved = resolve_source_column(col_name)
                 if resolved is None:
                     missing_columns.add(col_name)
-        elif isinstance(query.base.columns, dict):
+        elif isinstance(base_columns, dict):
             # Column mapping: {'output': 'source_col'} or {'output': <expression>}
             # Extract string values (column names), skip UDFs (handled separately)
-            for value in query.base.columns.values():
+            for value in base_columns.values():
                 if isinstance(value, str):
                     resolved = resolve_source_column(value)
                     if resolved is None:
@@ -5751,6 +7786,66 @@ def _validate_mv_source_schema(
             f"  1. Restore the missing columns to the source table\n"
             f"  2. Drop and recreate the materialized view with an updated query\n"
             f"  3. If the column was renamed, update the source table accordingly"
+        )
+
+
+def _advance_base_table_version(dst_table: "Table", src_version: int) -> None:
+    """Record the source version a chunker materialized view is now built to.
+
+    ``geneva::view::base_table_version`` is stamped at creation and read by the
+    cross-version guard on every refresh. The 1:1 UDTF path re-stamps it because
+    it rebuilds via ``LanceOperation.Overwrite``; the chunker path appends, so
+    without this it stays frozen at the creation version forever.
+
+    A frozen baseline is one half of ENT-2036 defect B. Note this does NOT clear
+    that defect's symptom: the cross-version guard earlier in
+    ``run_ray_copy_table`` raises before this is ever reached on a source without
+    stable row IDs, so the baseline there still cannot move. See SRID-G03.
+
+    The stamp is also blind to SRID-G16: the chunker refresh silently skips
+    source rows updated in place (GEN-851), then still advances the baseline
+    past the update, so the recorded version can claim changes the view does
+    not contain. Signalling that staleness is GEN-855.
+
+    Only ever advances an existing baseline, never creates one. A chunker MV with
+    no ``base_table_version`` key has the guard disabled; writing the key would
+    arm it and start rejecting the next cross-version refresh, which is a
+    regression for views this function has no business changing.
+
+    Metadata-only commit. Failures are logged rather than raised: the refresh
+    itself already succeeded, and losing the stamp costs freshness, not
+    correctness.
+    """
+    try:
+        # Commits schema metadata onto the view table immediately after its
+        # refresh, so a cached read snapshot would be the wrong manifest.
+        # to_lance: fresh — metadata commit needs the live manifest
+        dataset = dst_table.to_lance()
+        current = (dataset.schema.metadata or {}).get(
+            MATVIEW_META_BASE_VERSION.encode()
+        )
+        if current is None:
+            return
+        # Monotonic: a point-in-time refresh to an older source version must not
+        # walk the recorded baseline backwards.
+        if int(current.decode()) >= int(src_version):
+            return
+        dataset.update_schema_metadata({MATVIEW_META_BASE_VERSION: str(src_version)})
+        dst_table.checkout_latest()
+        _LOG.info(
+            "Advanced %s to source version %s for %s",
+            MATVIEW_META_BASE_VERSION,
+            src_version,
+            dst_table.name,
+        )
+    except Exception:
+        _LOG.warning(
+            "Could not advance %s to %s for %s; the view stays refreshable but "
+            "its recorded baseline is stale",
+            MATVIEW_META_BASE_VERSION,
+            src_version,
+            getattr(dst_table, "name", "<unknown>"),
+            exc_info=True,
         )
 
 
@@ -5936,8 +8031,7 @@ def run_ray_copy_table(
         dst_table, _, _, _ = _delete_stale_mv_rows(
             dst,
             dst_table,
-            src_dburi,
-            src_name,
+            src,
             src_version,
             query,
             config.delete_batch_size,
@@ -6012,10 +8106,11 @@ def run_ray_copy_table(
             src_cols_required.add(resolved)
         return resolved
 
-    if query.base.columns and isinstance(query.base.columns, dict):
+    query_columns = normalize_query_columns(query.base.columns)
+    if query_columns and isinstance(query_columns, dict):
         # Dict select - pass through to Lance for expression evaluation
         input_cols_dict: dict[str, str] = {}
-        for dst_col_name, dst_col_expr in query.base.columns.items():
+        for dst_col_name, dst_col_expr in query_columns.items():
             if isinstance(dst_col_expr, str):
                 resolved = add_src_col_required(dst_col_expr)
                 if resolved is not None:
@@ -6038,10 +8133,10 @@ def run_ray_copy_table(
                         input_col_names.add(read_col)
 
         input_cols = input_cols_dict
-    elif query.base.columns and isinstance(query.base.columns, list):
+    elif query_columns and isinstance(query_columns, list):
         # Simple column list
         input_cols = []
-        for col_name in query.base.columns:
+        for col_name in query_columns:
             resolved = add_src_col_required(col_name)
             input_cols.append(resolved or col_name)
         # Also include UDF input columns that may not be in the select list
@@ -6120,24 +8215,29 @@ def run_ray_copy_table(
         relevant_field_ids,
     )
 
-    # === HANDLE SOURCE DELETIONS (FORWARD REFRESH) ===
-    # When doing a forward refresh, check if any source rows have been deleted
-    # and remove them from the MV
+    # === HANDLE SOURCE DELETIONS (FORWARD / FIRST REFRESH) ===
+    # Remove MV rows whose source rows no longer exist at src_version.
+    #
+    # This must also run on the FIRST refresh: creation pre-populates a
+    # placeholder per source row, so a delete landing before the first
+    # refresh leaves placeholders whose CopyTasks resolve zero source rows
+    # and fail the fragment write. No-op when nothing was deleted.
+    is_forward_or_first_refresh = last_refreshed is None or (
+        src_version is not None and src_version >= last_refreshed
+    )
     if (
-        last_refreshed is not None
+        is_forward_or_first_refresh
         and src_version is not None
-        and src_version >= last_refreshed  # Forward or same version refresh
         and existing_source_row_ids  # MV has rows
     ):
         dst_table, dst_dataset, deleted_count, valid_row_ids = _delete_stale_mv_rows(
             dst,
             dst_table,
-            src_dburi,
-            src_name,
+            src,
             src_version,
             query,
             config.delete_batch_size,
-            "Forward refresh",
+            "Forward refresh" if last_refreshed is not None else "First refresh",
             existing_source_row_ids,
         )
         if deleted_count > 0:
@@ -6174,6 +8274,7 @@ def run_ray_copy_table(
 
         if src_version is not None:
             _set_last_refreshed_version(dst_table, src_version)
+            _advance_base_table_version(dst_table, src_version)
 
         _LOG.info(
             f"Scalar UDTF refresh complete for {dst.table_name}: "
@@ -6187,6 +8288,7 @@ def run_ray_copy_table(
     # For 1:1 MVs each source row maps to one destination row, so we can
     # stop scanning fragments as soon as we have collected enough row IDs.
     new_fragment_row_ids: list[int] = []
+    row_ids_by_fragment: dict[int, list[int]] = {}
     existing_dst_row_count = len(existing_source_row_ids)
 
     if query.base.limit is not None:
@@ -6229,16 +8331,44 @@ def run_ray_copy_table(
                 )
                 new_row_ids = new_row_ids[:allowed]
 
+        if new_row_ids:
+            row_ids_by_fragment[frag_id] = new_row_ids
         new_fragment_row_ids.extend(new_row_ids)
         existing_source_row_ids.update(new_row_ids)
 
-    # Append placeholder rows for new data
-    new_dst_frag_ids = _append_placeholder_fragments(
-        dst_table, new_fragment_row_ids, max_rows_per_fragment
-    )
+    # Snapshot the destination row count before the append; source deletions already
+    # committed, so the delta isolates exactly the new rows and catches a dropped
+    # Table.add.
+    dst_table.checkout_latest()
+    dst_rows_before_append = dst_table.count_rows()
 
-    # After appending placeholder fragments, update dst reference to use latest version.
-    # This is needed because _append_placeholder_fragments creates a new table version.
+    # Any MV with projected (non-UDF) select entries -- pure projection or mixed --
+    # computes those columns up front and appends them populated, so a reader never
+    # sees NULL projected columns mid-refresh. The appended batch omits the UDF
+    # output columns entirely (see _append_populated_fragments). UDF-only views
+    # still append bare placeholders: every view column awaits the column pass.
+    udf_output_columns = {t.output_name for t in column_udfs}
+    if column_udfs and not _has_projected_columns(query, udf_output_columns):
+        new_dst_frag_ids = _append_placeholder_fragments(
+            dst_table, new_fragment_row_ids, max_rows_per_fragment
+        )
+    else:
+        new_dst_frag_ids = _append_populated_fragments(
+            dst_table,
+            query,
+            row_ids_by_fragment,
+            max_rows_per_fragment,
+            udf_output_columns=udf_output_columns,
+            src_ref=attrs.evolve(src, version=src_table.version),
+            dst_ref=dst,
+            concurrency=concurrency,
+            job_tracker=job_tracker,
+        )
+
+    # After appending the new rows, update dst reference to use latest version.
+    # Both append helpers commit a new table version: placeholder appends via
+    # dst_table.add(), populated appends via one atomic Append of the fragments
+    # the workers wrote.
     if new_dst_frag_ids:
         dst_table.checkout_latest()
         dst = attrs.evolve(dst, version=dst_table.version)
@@ -6277,11 +8407,37 @@ def run_ray_copy_table(
                         f"{new_dst_frag_id}: source_frags={src_frag_ids}, "
                         f"file_count={len(data_files)}"
                     )
-            except Exception as e:
-                _LOG.warning(
+            except Exception:
+                # Re-raise so the refresh fails loudly and the caller can retry.
+                # Skipping this fragment would leave its checkpoint without
+                # source data file paths, so a later refresh cannot match it and
+                # force-reprocesses the fragment (wasted compute) rather than
+                # committing an incomplete checkpoint.
+                _LOG.exception(
                     f"Failed to compute data files for new dst fragment "
-                    f"{new_dst_frag_id}: {e}"
+                    f"{new_dst_frag_id}; aborting refresh so it can be retried"
                 )
+                raise
+
+    # Reconcile the placeholder append: this path commits new rows with a plain
+    # Table.add and no completion marker, so a dropped append leaves the view silently
+    # short. If the row-count delta is under the rows we meant to add, fail loud with a
+    # retryable error so the caller does not record a false success; a later refresh
+    # heals. A refresh that adds zero rows skips the check, and the snapshot sits after
+    # deletions and before the column-fill pass (which adds no rows), so delete-only,
+    # compaction-only, and multi-commit fills are never misread as short.
+    expected_new_rows = len(new_fragment_row_ids)
+    if expected_new_rows:
+        dst_table.checkout_latest()
+        landed_rows = dst_table.count_rows() - dst_rows_before_append
+        if landed_rows < expected_new_rows:
+            raise FatalWorkerExitError(
+                f"materialized view refresh: placeholder append landed {landed_rows} "
+                f"of {expected_new_rows} new source row(s) for {dst.table_name}; a "
+                "Table.add was dropped, leaving the view silently incomplete. Failing "
+                "the refresh so it is not reported as a success; a later refresh "
+                "re-selects the missing rows and heals."
+            )
 
     # Collect checkpointed fragments for commit inclusion
     skipped_fragments, skipped_stats = _collect_skipped_fragments(
@@ -6521,10 +8677,14 @@ def dispatch_run_ray_add_column(
         ),
     )
 
-    # Run on small cpu so that it's always easy to schedule.
+    # Pin the driver task to the head pod (see ``head_pin_options()``)
+    # so an OOM in a worker-pod actor can't take the orchestrator
+    # down with it.
     remote_runner = cast(
         "Any",
-        run_ray_add_column_remote.options(num_cpus=rc.driver_num_cpus).remote,
+        run_ray_add_column_remote.options(
+            **(head_pin_options() or {"num_cpus": rc.driver_num_cpus})
+        ).remote,
     )
     parent_carrier = telemetry.inject_context()
     obj_ref = _submit_ray_job(
@@ -6671,7 +8831,9 @@ def dispatch_run_ray_refresh(
 
         remote_runner = cast(
             "Any",
-            run_ray_refresh_remote.options(num_cpus=rc.driver_num_cpus).remote,
+            run_ray_refresh_remote.options(
+                **(head_pin_options() or {"num_cpus": rc.driver_num_cpus})
+            ).remote,
         )
         parent_carrier = telemetry.inject_context()
         obj_ref = remote_runner(
@@ -6891,6 +9053,31 @@ def _resolve_read_version(tbl: Table, read_version: int | None) -> int:
     against concurrent column drops during execution.
     """
     return read_version if read_version is not None else tbl.version
+
+
+def _max_fragment_size(table: Table, *, read_version: int) -> int | None:
+    """Return the largest physical fragment in the pinned planning snapshot."""
+    try:
+        from geneva.query import open_read_dataset
+
+        return max(
+            (
+                int(fragment.physical_rows)
+                for fragment in open_read_dataset(
+                    table,
+                    version=read_version,
+                ).get_fragments()
+            ),
+            default=None,
+        )
+    except Exception:
+        _LOG.warning(
+            "Failed to determine max fragment size at version=%s; "
+            "using uncapped default task_size",
+            read_version,
+            exc_info=True,
+        )
+        return None
 
 
 def validate_backfill_args(
@@ -7229,50 +9416,80 @@ def _iter_exception_chain(exc: BaseException) -> Iterator[BaseException]:
 
 def _estimate_avg_row_bytes(
     table: Table,
-    output_columns: list[str],
-    read_columns: list[str],
+    column_groups: dict[str, list[str]],
     *,
     sample_rows: int = 128,
-) -> int | None:
-    """Best-effort bytes/row for the columns a backfill touches (GEN-630).
+    read_version: int | None = None,
+) -> dict[str, int | None]:
+    """Best-effort bytes/row for named column groups (GEN-630).
 
     Honors ``GENEVA_AVG_ROW_BYTES_HINT`` for workloads where sampling is too
-    expensive or unrepresentative. Returns None if it can't estimate.
+    expensive or unrepresentative. All groups share one dataset open and scan.
+
+    ``read_version`` pins the sample to the snapshot the job reads. Sampling
+    the live table instead measures data the job will never see: with a 1 MiB
+    ``payload`` at the pinned version and ``'z'`` written live, the live sample
+    reports 5 B/row against the pinned 1,048,580, so a historical backfill
+    would plan tasks and reserve its actor from the wrong table.
     """
+    estimates: dict[str, int | None] = dict.fromkeys(column_groups)
     hint = os.environ.get("GENEVA_AVG_ROW_BYTES_HINT")
     if hint:
         try:
-            return max(1, int(hint))
+            value = max(1, int(hint))
+            return dict.fromkeys(column_groups, value)
         except ValueError:
             _LOG.warning("Invalid GENEVA_AVG_ROW_BYTES_HINT=%r; sampling instead", hint)
     try:
         from geneva.query import open_read_dataset
 
-        ds = open_read_dataset(table)
+        ds = open_read_dataset(table, version=read_version)
         schema_names = set(ds.schema.names)
-        # Sample the columns that actually flow through the job: read inputs plus
-        # any existing output (carry-forward) columns. Reduce dotted struct paths
-        # to their root column for the scan.
-        cols: list[str] = []
-        for c in list(read_columns) + list(output_columns):
-            root = c.split(".")[0]
-            if root in schema_names and root not in cols:
-                cols.append(root)
-        if not cols:
-            return None
-        sample = ds.scanner(columns=cols, limit=int(sample_rows)).to_table()
+        group_columns: dict[str, list[str]] = {}
+        scan_columns: list[str] = []
+        for name, columns in column_groups.items():
+            # Reduce dotted struct paths to their root column for the scan.
+            roots: list[str] = []
+            for column in columns:
+                root = column.split(".")[0]
+                if root in schema_names and root not in roots:
+                    roots.append(root)
+                if root in schema_names and root not in scan_columns:
+                    scan_columns.append(root)
+            group_columns[name] = roots
+        if not scan_columns:
+            return estimates
+        sample = ds.scanner(columns=scan_columns, limit=int(sample_rows)).to_table()
         if sample.num_rows == 0:
-            return None
-        return max(1, int(sample.nbytes // sample.num_rows))
+            return estimates
+        # Per column rather than ``sample.select(columns).nbytes``: a blob
+        # column scans as a struct<position, size> descriptor, so nbytes reports
+        # ~16 B/row regardless of payload size and leaves both read-task sizing
+        # and the actor reservation blind to the bytes the applier materializes.
+        from geneva.apply.blob_range import materialized_column_bytes
+
+        for name, columns in group_columns.items():
+            if not columns:
+                continue
+            group_bytes = 0
+            for column in columns:
+                # Blob-ness comes from the dataset schema: the scan result is a
+                # descriptor struct and does not necessarily carry the
+                # ``lance-encoding:blob`` metadata forward.
+                field = ds.schema.field(column)
+                group_bytes += materialized_column_bytes(sample.column(column), field)
+            estimates[name] = max(1, int(group_bytes // sample.num_rows))
+        return estimates
     except Exception:
         _LOG.debug("avg_row_bytes sampling failed", exc_info=True)
-        return None
+        return estimates
 
 
 def _log_backfill_memory_budget(
     table: Table,
     *,
     output_columns: list[str],
+    output_schema: pa.Schema,
     read_columns: list[str],
     checkpoint_size: int,
     intra_applier_concurrency: int,
@@ -7287,16 +9504,40 @@ def _log_backfill_memory_budget(
         from geneva.runners.ray.memory_budget import (
             DEFAULT_WRITER_MEMORY_OVERHEAD,
             MemoryBudget,
+            choose_output_avg_row_bytes,
+            estimate_fixed_width_output_row_bytes,
         )
         from geneva.runners.ray.writer import DEFAULT_CARRY_FORWARD_TRANCHE_ROWS
 
-        avg_row_bytes = _estimate_avg_row_bytes(table, output_columns, read_columns)
-        if avg_row_bytes is None:
+        sampled_avg_row_bytes = _estimate_avg_row_bytes(
+            table,
+            {
+                "input": read_columns,
+                "output": output_columns,
+            },
+        )
+        input_avg_row_bytes = sampled_avg_row_bytes["input"]
+        if input_avg_row_bytes is None:
             _LOG.info(
                 "memory budget estimate: skipped (could not sample "
-                "avg_row_bytes); set GENEVA_AVG_ROW_BYTES_HINT to enable"
+                "input_avg_row_bytes); set GENEVA_AVG_ROW_BYTES_HINT to enable"
             )
             return
+        fixed_width_output_avg_row_bytes = estimate_fixed_width_output_row_bytes(
+            output_schema
+        )
+        writer_sample_avg_row_bytes = sampled_avg_row_bytes["output"]
+        output_avg_row_bytes = choose_output_avg_row_bytes(
+            fixed_width_output_avg_row_bytes=fixed_width_output_avg_row_bytes,
+            sampled_output_avg_row_bytes=writer_sample_avg_row_bytes,
+        )
+        writer_avg_row_bytes = (
+            writer_sample_avg_row_bytes
+            if writer_sample_avg_row_bytes is not None
+            else fixed_width_output_avg_row_bytes
+            if fixed_width_output_avg_row_bytes is not None
+            else input_avg_row_bytes
+        )
         try:
             from geneva.query import open_read_dataset
 
@@ -7308,7 +9549,9 @@ def _log_backfill_memory_budget(
             matched_rows_per_frag_est = 0
         actors_per_pod = max(1, int(os.environ.get("GENEVA_ACTORS_PER_POD", "1")))
         budget = MemoryBudget(
-            avg_row_bytes=avg_row_bytes,
+            input_avg_row_bytes=input_avg_row_bytes,
+            output_avg_row_bytes=output_avg_row_bytes,
+            writer_avg_row_bytes=writer_avg_row_bytes,
             checkpoint_size=max(1, int(checkpoint_size)),
             intra_applier_concurrency=max(1, int(intra_applier_concurrency)),
             pending_target_bytes=DEFAULT_CHECKPOINT_PENDING_BYTES_TARGET,
@@ -7392,10 +9635,16 @@ def run_ray_add_column(
         _LOG.warning("Failed to count rows for %s; using fallback task_size", table)
         row_count = None
 
+    max_fragment_size = (
+        _max_fragment_size(table, read_version=read_version)
+        if task_size is None
+        else None
+    )
     task_size = resolve_task_size(
         task_size=task_size,
         row_count=row_count,
         num_workers=concurrency,
+        max_fragment_size=max_fragment_size,
     )
 
     # See run_ray_copy_table for rationale on capping checkpoint size.
@@ -7411,6 +9660,9 @@ def run_ray_add_column(
     # ``count_rows(filter=where)`` straight from ``backfill(...)`` (in addition
     # to the ``JOB___SKIP_PLANNER_FILTER_COUNT`` env var). Popped from kwargs so
     # it doesn't collide with the explicit arg passed to ``plan_read`` below.
+    #
+    # Local only: the ``_`` prefix keeps these off the remote (db://) path --
+    # see geneva.utils.remote_options.
     skip_planner_filter_count = kwargs.pop("_skip_planner_filter_count", None)
     skip_checkpoint_index_scan = bool(kwargs.pop("_skip_checkpoint_index_scan", False))
 
@@ -7585,6 +9837,7 @@ def run_ray_add_column(
     _log_backfill_memory_budget(
         table,
         output_columns=output_columns,
+        output_schema=map_task.output_schema(),
         read_columns=cols,
         checkpoint_size=map_checkpoint_size,
         intra_applier_concurrency=int(
@@ -7705,7 +9958,7 @@ class RayJobFuture(JobFuture):
                     "rows_checkpointed",
                     "rows_ready_for_commit",
                     "rows_committed",
-                    "tasks_completed",
+                    METRIC_TASKS_COMPLETED,
                     "writer_fragments",
                 }
                 if name not in allowed:
@@ -7720,13 +9973,13 @@ class RayJobFuture(JobFuture):
             # rather than on its own done, which could otherwise hide it early.
             bar.n = min(n, total) if total else n
             bar.refresh()
-            if done and name != "tasks_completed":
+            if done and name != METRIC_TASKS_COMPLETED:
                 bar.close()
 
         # Once everything is committed, close the transient lines and bars.
         if (snapshot.get("rows_committed") or {}).get("done"):
             for key in (
-                "tasks_completed",
+                METRIC_TASKS_COMPLETED,
                 self._JOB_ID_KEY,
                 self._RAY_LINE_KEY,
                 self._HEARTBEAT_KEY,
@@ -7790,7 +10043,7 @@ class RayJobFuture(JobFuture):
 
         # geneva | heartbeat -- liveness + worker utilization
         scheduled = self._metric_n(snapshot, "fragments")
-        completed = self._metric_n(snapshot, "tasks_completed")
+        completed = self._metric_n(snapshot, METRIC_TASKS_COMPLETED)
         in_flight = max(0, scheduled - completed)
         workers_m = snapshot.get(CNT_WORKERS_ACTIVE) or {}
         active_workers = int(workers_m.get("n", 0))
@@ -7810,8 +10063,8 @@ class RayJobFuture(JobFuture):
         # geneva | phase -- which pipeline phase is the active bottleneck, so
         # the write/commit-drain tail (reads done, writer still committing) is
         # not mistaken for done or wedged.
-        tasks_total = int((snapshot.get("tasks_completed") or {}).get("total", 0))
-        reads_done = bool((snapshot.get("tasks_completed") or {}).get("done")) or (
+        tasks_total = int((snapshot.get(METRIC_TASKS_COMPLETED) or {}).get("total", 0))
+        reads_done = bool((snapshot.get(METRIC_TASKS_COMPLETED) or {}).get("done")) or (
             in_flight == 0 and tasks_total > 0 and completed >= tasks_total
         )
         commit_done = bool((snapshot.get("rows_committed") or {}).get("done"))
@@ -8110,9 +10363,14 @@ def dispatch_run_ray_bulk_load(
         **job_tracker_throttle_kwargs(),
     )
 
+    # Pin the bulk-load driver task to the head pod (see
+    # ``head_pin_options()``) for the same reason as the add-column
+    # driver above.
     remote_runner = cast(
         "Any",
-        run_ray_bulk_load_remote.options(num_cpus=rc.driver_num_cpus).remote,
+        run_ray_bulk_load_remote.options(
+            **(head_pin_options() or {"num_cpus": rc.driver_num_cpus})
+        ).remote,
     )
     parent_carrier = telemetry.inject_context()
     obj_ref = _submit_ray_job(
@@ -8306,10 +10564,16 @@ def run_ray_bulk_load(
         _LOG.warning("Failed to count rows; using fallback task_size")
         row_count = None
 
+    max_fragment_size = (
+        _max_fragment_size(table, read_version=read_version)
+        if task_size is None
+        else None
+    )
     task_size = resolve_task_size(
         task_size=task_size,
         row_count=row_count,
         num_workers=concurrency,
+        max_fragment_size=max_fragment_size,
     )
     map_checkpoint_size = resolve_batch_size(
         batch_size=None,

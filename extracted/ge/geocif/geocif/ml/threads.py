@@ -12,6 +12,14 @@ The fix is to give each worker ``floor(C / N)`` threads so the pool as a whole
 fits inside the machine. Serial runs (``do_parallel_ml = False``) are left
 alone — a single process should use the whole box.
 
+Note this deliberately *fills* the machine rather than reserving part of it:
+``fraction_cpus`` sets how many fold tasks run concurrently, not the job's
+total footprint, so 19 workers x 6 threads occupies ~114 of 128 cores. That is
+the intended behaviour (confirmed 2026-08-17) — the pathology being fixed is
+oversubscription and the thrashing it causes, not machine utilisation. Anyone
+wanting to leave headroom for co-tenant jobs should pin ``threads_per_worker``
+rather than lower ``fraction_cpus``, which no longer bounds the total.
+
 Two mechanisms are needed, because neither covers everything:
 
 1. ``threadpool_limits`` from threadpoolctl retunes OpenMP/BLAS pools that are

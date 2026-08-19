@@ -1,17 +1,19 @@
 [project]
 name = "geneva"
-version = "0.14.0"
+version = "0.15.0"
 description = "Geneva - Multimodal Data Lake for AI"
 readme = "README.md"
 requires-python = ">=3.10,<3.14"
 dependencies = [
     "attrs>=23,<25",
     "cattrs",
-    "pylance>=9.0.0b15",
-    "lancedb>=0.34.0b4",
+    "pylance>=10.0.0",
+    "lancedb>=0.37.1",
     "lance-namespace>=0.8.6",
     "cloudpickle",
     "typing-extensions>=4.12",
+    # 19 is the floor for pa.concat_batches (src/geneva/apply/__init__.py)
+    "pyarrow>=19",
     "overrides>=7.7.0",
     "pip>=24.3.1",
     "numpy",
@@ -83,7 +85,7 @@ azure-metrics = [
     "azure-monitor-query>=1.2,<2",
     "azure-mgmt-storage",
 ]
-bulk-load = ["pyarrow>=16"]
+bulk-load = ["pyarrow>=19"]
 
 # UDF dependencies
 udf-text-gemini = ["google-genai>=1.0"]
@@ -233,7 +235,14 @@ override-dependencies = [
     "attrs>=23,<25",  # Ray container images ship attrs 23.x; 23.x/25.x pickle formats are incompatible
 ]
 index-strategy = "unsafe-best-match"
-prerelease = "allow"
+# No `prerelease` setting on purpose: uv's default already restricts
+# prereleases to packages that ask for one, which is what a public release
+# needs (`allow` pulled Gemfury betas over the stable pins). Naming it
+# explicitly breaks CI -- uv renamed the default from
+# `if-necessary-or-explicit` to `if-necessary`, and the lockfile records the
+# mode only when it differs from the running uv's default, so an explicit
+# value makes `uv sync --locked` fail on any uv whose default is spelled
+# differently.
 
 [tool.uv.sources]
 #lance-namespace = { path = "../lance-namespace/python/lance_namespace", editable = true }

@@ -1,0 +1,59 @@
+name: Setup Azure storage workload identity
+description: Configure Azure SDK/object_store storage auth with GitHub OIDC workload identity.
+inputs:
+  storage-account-name:
+    description: Azure Storage account name used by az:// URIs.
+    required: true
+  client-id:
+    description: Azure workload identity client ID.
+    required: true
+  tenant-id:
+    description: Azure tenant ID.
+    required: true
+  refresh-interval-seconds:
+    description: Seconds between federated token refreshes in long-running steps.
+    default: "240"
+runs:
+  using: composite
+  steps:
+    - name: Configure Azure workload identity
+      shell: bash
+      run: |
+        set -euo pipefail
+
+        token_file="$RUNNER_TEMP/azure-federated-token"
+        refresh_script="$RUNNER_TEMP/refresh-azure-federated-token"
+
+        {
+          echo "AZURE_STORAGE_ACCOUNT=${{ inputs.storage-account-name }}"
+          echo "AZURE_STORAGE_ACCOUNT_NAME=${{ inputs.storage-account-name }}"
+          echo "AZURE_CLIENT_ID=${{ inputs.client-id }}"
+          echo "AZURE_STORAGE_CLIENT_ID=${{ inputs.client-id }}"
+          echo "AZURE_TENANT_ID=${{ inputs.tenant-id }}"
+          echo "AZURE_STORAGE_TENANT_ID=${{ inputs.tenant-id }}"
+          echo "AZURE_AUTHORITY_HOST=https://login.microsoftonline.com/"
+          echo "AZURE_CREDENTIAL_TYPE=workload_identity"
+          echo "AZURE_FEDERATED_TOKEN_FILE=$token_file"
+          echo "AZURE_OIDC_REFRESH_SCRIPT=$refresh_script"
+          echo "AZURE_OIDC_REFRESH_INTERVAL_SECONDS=${{ inputs.refresh-interval-seconds }}"
+        } >> "$GITHUB_ENV"
+
+        cat > "$refresh_script" <<'EOF'
+        #!/usr/bin/env bash
+        set -euo pipefail
+
+        : "${AZURE_FEDERATED_TOKEN_FILE:?AZURE_FEDERATED_TOKEN_FILE is required}"
+        : "${ACTIONS_ID_TOKEN_REQUEST_TOKEN:?ACTIONS_ID_TOKEN_REQUEST_TOKEN is required}"
+        : "${ACTIONS_ID_TOKEN_REQUEST_URL:?ACTIONS_ID_TOKEN_REQUEST_URL is required}"
+
+        tmp="${AZURE_FEDERATED_TOKEN_FILE}.tmp"
+        curl -sSfL \
+          -H "Authorization: bearer ${ACTIONS_ID_TOKEN_REQUEST_TOKEN}" \
+          "${ACTIONS_ID_TOKEN_REQUEST_URL}&audience=api://AzureADTokenExchange" \
+          | uv run python -c 'import json, sys; sys.stdout.write(json.load(sys.stdin)["value"])' \
+          > "$tmp"
+        mv "$tmp" "$AZURE_FEDERATED_TOKEN_FILE"
+        chmod 600 "$AZURE_FEDERATED_TOKEN_FILE"
+        EOF
+        chmod +x "$refresh_script"
+        AZURE_FEDERATED_TOKEN_FILE="$token_file" "$refresh_script"

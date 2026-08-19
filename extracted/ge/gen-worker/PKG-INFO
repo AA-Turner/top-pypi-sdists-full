@@ -1,6 +1,6 @@
 Metadata-Version: 2.5
 Name: gen-worker
-Version: 0.125.0
+Version: 0.126.0
 Summary: A library used to build custom functions in Cozy Creator's serverless function platform.
 Project-URL: Homepage, https://github.com/cozy-creator/python-gen-worker
 Project-URL: Repository, https://github.com/cozy-creator/python-gen-worker
@@ -244,7 +244,7 @@ hard-fails if `gen_worker` resolves outside `src/`).
   `prefetch`, `field=value` grammar, `--offline`, exit codes.
 - [docs/dockerfile.md](docs/dockerfile.md) — bring-your-own-Dockerfile contract.
 - [docs/endpoint-envs.md](docs/endpoint-envs.md) — tenant envs/secrets.
-- [docs/compile-cache.md](docs/compile-cache.md) — compiled cells: the graph
+- [docs/compile-cache.md](docs/compile-cache.md) — compiled graphs: the graph
   digest vs the declared envelope, kernel lanes, JIT intake.
 
 ## Examples

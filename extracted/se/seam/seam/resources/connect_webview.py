@@ -1,7 +1,7 @@
-from typing import Any, Dict, List, Optional, Union
+from typing import Any, Dict, List, Literal, Optional, Union
 from dataclasses import dataclass
-from ..utils.deep_attr_dict import DeepAttrDict
-from ..utils.resource_mapping import ResourceMapping
+from ..deep_attr_dict import DeepAttrDict
+from ..resource_mapping import ResourceMapping
 
 
 @dataclass
@@ -64,7 +64,7 @@ class ConnectWebview:
     connect_webview_id: str
     connected_account_id: Optional[str]
     created_at: str
-    custom_metadata: Dict[str, Any]
+    custom_metadata: Dict[str, Union[str, bool]]
     custom_redirect_failure_url: Optional[str]
     custom_redirect_url: Optional[str]
     customer_key: Optional[str]

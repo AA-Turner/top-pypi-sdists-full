@@ -6,6 +6,8 @@ from __future__ import annotations
 import os
 from typing import TYPE_CHECKING
 
+from lance_namespace.errors import ServiceUnavailableError, ThrottlingError
+
 if TYPE_CHECKING:
     from collections.abc import Iterator
 
@@ -72,6 +74,22 @@ RETRYABLE_OBJECT_STORE_MARKERS = (
     # restarting the upload (GEN-525, observed on Atlas writes).
     "missing part",
 )
+# Throttle-specific subset: only these (plus a retryable status code or a typed
+# throttle error) may override a not-found message, so a generic transient
+# marker cannot resurrect a genuine miss.
+THROTTLE_OBJECT_STORE_MARKERS = (
+    "too many requests",
+    "rate limit",
+    "throttle",
+    "service unavailable",
+    "serverbusy",
+    "server is busy",
+)
+
+
+# Bare Exception subclasses with no status/marker text, so they are matched
+# by type. Both exist at the lance-namespace floor pinned in pyproject.toml.
+LANCE_NAMESPACE_THROTTLE_ERRORS = (ThrottlingError, ServiceUnavailableError)
 
 
 def get_applier_retry_settings() -> tuple[int, float, float]:
@@ -112,10 +130,27 @@ def has_marker(msg: str, markers: tuple[str, ...]) -> bool:
     return any(marker in msg for marker in markers)
 
 
+def _has_throttle_evidence(candidates: tuple[BaseException, ...]) -> bool:
+    """True for a typed throttle error, retryable status, or throttle marker."""
+    for candidate in candidates:
+        if isinstance(candidate, LANCE_NAMESPACE_THROTTLE_ERRORS):
+            return True
+        if get_status_code(candidate) in RETRYABLE_OBJECT_STORE_STATUS_CODES:
+            return True
+        if has_marker(str(candidate).lower(), THROTTLE_OBJECT_STORE_MARKERS):
+            return True
+    return False
+
+
 def is_retryable_object_store_error(exc: BaseException) -> bool:
-    """Return True for transient object-store setup/read failures."""
+    """Return True for transient object-store setup/read failures.
+
+    Throttle-specific evidence overrides a not-found message; a not-found with
+    no throttle evidence stays non-retryable. Auth/404 signals win over all.
+    """
     candidates = tuple(iter_exception_chain(exc))
     has_object_store_context = False
+    has_not_found = False
 
     for candidate in candidates:
         status_code = get_status_code(candidate)
@@ -128,9 +163,22 @@ def is_retryable_object_store_error(exc: BaseException) -> bool:
         if has_marker(msg, OBJECT_STORE_CONTEXT_MARKERS):
             has_object_store_context = True
         if is_not_found_object_store_message(msg):
-            return False
+            has_not_found = True
         if has_marker(msg, NON_RETRYABLE_OBJECT_STORE_MARKERS):
             return False
+
+    # Typed throttle errors are definitive alone; other throttle evidence still
+    # needs object-store context (a not-found message counts as context).
+    for candidate in candidates:
+        if isinstance(candidate, LANCE_NAMESPACE_THROTTLE_ERRORS):
+            return True
+    if (has_object_store_context or has_not_found) and _has_throttle_evidence(
+        candidates
+    ):
+        return True
+
+    if has_not_found:
+        return False
 
     for candidate in candidates:
         status_code = get_status_code(candidate)

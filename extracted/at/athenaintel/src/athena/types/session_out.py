@@ -62,6 +62,11 @@ class SessionOut(UniversalBaseModel):
     Whether this is a branched sub-session of another session
     """
 
+    is_unread: typing.Optional[bool] = pydantic.Field(default=None)
+    """
+    Whether the session is unread for the calling user: it changed since they last opened it, or they never opened it and it did not originate from the web app
+    """
+
     last_message_preview: typing.Optional[str] = pydantic.Field(default=None)
     """
     Plain-text preview of the most recent message, when available

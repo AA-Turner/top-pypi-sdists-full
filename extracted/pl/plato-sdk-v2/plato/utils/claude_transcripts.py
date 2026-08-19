@@ -38,7 +38,9 @@ from plato.otel import DeferredStepSpan, emit_step, start_deferred_step_span
 from plato.utils.tool_execution import (
     ToolExecutionRecorderLike,
     ToolExecutionStatus,
+    claude_mcp_tool_origin,
     open_tool_execution,
+    tool_call_payload,
 )
 
 logger = logging.getLogger(__name__)
@@ -736,6 +738,7 @@ class ClaudeTranscriptEmitter:
                     )
 
             for index, (tool_id, tool_name, tool_input) in enumerate(tool_uses):
+                origin, mcp_server = claude_mcp_tool_origin(tool_name)
                 start_record = None
                 if tool_execution_recorder is not None:
                     start_record = tool_execution_recorder.consume_start_record(
@@ -770,11 +773,13 @@ class ClaudeTranscriptEmitter:
                         "",
                         model_name=message.get("model", self.model_name),
                         tool_calls=[
-                            {
-                                "tool_call_id": tool_id,
-                                "function_name": tool_name,
-                                "arguments": tool_input,
-                            }
+                            tool_call_payload(
+                                tool_call_id=tool_id,
+                                function_name=tool_name,
+                                arguments=tool_input,
+                                origin=origin,
+                                mcp_server=mcp_server,
+                            )
                         ],
                     )
                     self._register_deferred_turn(message["id"], tool_step_id, deferred_tool)
@@ -791,6 +796,8 @@ class ClaudeTranscriptEmitter:
                     working_directory=self.workspace_dir,
                     span_kwargs=span_kwargs,
                     tool_span=deferred_tool.span if deferred_tool is not None else None,
+                    origin=origin,
+                    mcp_server=mcp_server,
                 )
                 pending_tool_calls[tool_id].step_id = pending_execution.step_id
                 pending_tool_calls[tool_id].execution = pending_execution.execution

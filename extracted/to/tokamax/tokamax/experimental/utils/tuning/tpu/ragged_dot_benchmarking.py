@@ -17,8 +17,8 @@
 # pylint: disable=g-importing-member
 # pylint: disable=g-multiple-import
 
-from itertools import product as iproduct
 from functools import partial
+from itertools import product as iproduct
 
 from absl import app
 from absl import flags
@@ -27,7 +27,6 @@ from jax import numpy as jnp
 from jax import random
 from jax.experimental import xla_metadata
 import numpy as np
-
 import qwix
 from tokamax._src.ops.ragged_dot import pallas_mosaic_tpu
 import tune_jax
@@ -246,10 +245,8 @@ def run_benchmark(
       return fn(*args, **kw)
     return wrapped
 
-  if qdtype is not None:
-    qdtype = jnp.dtype(qdtype)
-
-  def _quantize(x: jax.Array, qdtype: jnp.dtype, axis: int):
+  def _quantize(x: jax.Array, axis: int):
+    assert qdtype is not None
     axis = axis % x.ndim
     channelwise_axes = [i for i in range(x.ndim) if i != axis]
     return qwix.quantize(x, qdtype, channelwise_axes=channelwise_axes)
@@ -267,8 +264,8 @@ def run_benchmark(
     print(tune_jax.tabulate(fn_fwd))
 
     if qdtype is not None:
-      lhs_quant = _quantize(lhs, qdtype, axis=1)
-      rhs_quant = _quantize(rhs, qdtype, axis=1)
+      lhs_quant = _quantize(lhs, axis=1)
+      rhs_quant = _quantize(rhs, axis=1)
       _ = fn_fwd(lhs_quant, rhs_quant, gs)
       print("Quantized FWD PASS results")
       print(tune_jax.tabulate(fn_fwd))
@@ -296,8 +293,8 @@ def run_benchmark(
     print(tune_jax.tabulate(dlhs_fn))
 
     if qdtype is not None:
-      dout_quant = _quantize(dout, qdtype, axis=1)
-      rhs_quant = _quantize(rhs, qdtype, axis=2)
+      dout_quant = _quantize(dout, axis=1)
+      rhs_quant = _quantize(rhs, axis=2)
       _ = dlhs_fn(dout_quant, rhs_quant, gs)
       print("Quantized DLHS pass results")
       print(tune_jax.tabulate(dlhs_fn))
@@ -325,8 +322,8 @@ def run_benchmark(
     print(tune_jax.tabulate(drhs_fn))
 
     if qdtype is not None:
-      lhs_quant = _quantize(lhs, qdtype, axis=0)
-      dout_quant = _quantize(dout, qdtype, axis=0)
+      lhs_quant = _quantize(lhs, axis=0)
+      dout_quant = _quantize(dout, axis=0)
       _ = drhs_fn(lhs_quant, dout_quant, gs)
       print("Quantized DRHS pass results")
       print(tune_jax.tabulate(drhs_fn))
@@ -341,30 +338,26 @@ def run_benchmark(
     print(tune_jax.tabulate(lax_drhs_fn))
   # drhs #######################################################################
 
-  # pytype: disable=name-error
-  with jax.profiler.trace("/tmp/ragged_dot_benchmark"):
+    with jax.profiler.trace("/tmp/ragged_dot_benchmark"):
     if "fwd" in modes_to_tune:
       for _ in range(3):
-        jax.block_until_ready(fn_fwd(lhs, rhs, gs))
+        jax.block_until_ready(fn_fwd(lhs, rhs, gs))  # pyrefly: ignore[unbound-name]
       for _ in range(3):
-        jax.block_until_ready(lax_fn_fwd(lhs, rhs, gs))
+        jax.block_until_ready(lax_fn_fwd(lhs, rhs, gs))  # pyrefly: ignore[unbound-name]
     if "dlhs" in modes_to_tune:
       for _ in range(3):
-        jax.block_until_ready(dlhs_fn(dout, rhs, gs))
+        jax.block_until_ready(dlhs_fn(dout, rhs, gs))  # pyrefly: ignore[unbound-name]
       for _ in range(3):
-        jax.block_until_ready(lax_dlhs_fn(dout, rhs, gs))
+        jax.block_until_ready(lax_dlhs_fn(dout, rhs, gs))  # pyrefly: ignore[unbound-name]
     if "drhs" in modes_to_tune:
       for _ in range(3):
-        jax.block_until_ready(drhs_fn(lhs, dout, gs))
+        jax.block_until_ready(drhs_fn(lhs, dout, gs))  # pyrefly: ignore[unbound-name]
       for _ in range(3):
-        jax.block_until_ready(lax_drhs_fn(lhs, dout, gs))
-  # pytype: enable=name-error
+        jax.block_until_ready(lax_drhs_fn(lhs, dout, gs))  # pyrefly: ignore[unbound-name]
   print("######### XPROF URL HERE #########")
   print("Results at /tmp/ragged_dot_benchmark")
   print("######### XPROF URL HERE #########", flush=True)
 
-  # pytype: disable=name-error
-  # pytype: disable=attribute-error
   print("-------------------------  Results -------------------------")
   print(f"For m={m}, k={k}, n={n}, g={g}")
   if "fwd" in modes_to_tune:
@@ -374,23 +367,19 @@ def run_benchmark(
   if "drhs" in modes_to_tune:
     print(f"DRHS: {drhs_fn.optimal_hyperparams=}")
   print("------------------------------------------------------------")
-  # pytype: enable=attribute-error
-  # pytype: enable=name-error
 
 
 def main(argv):
   del argv
-  m, k, n, g = flags.FLAGS.m, flags.FLAGS.k, flags.FLAGS.n, flags.FLAGS.g
-  tune_modes = flags.FLAGS.tune_modes
-  tune_samples = flags.FLAGS.num_samples
-  qdtype = flags.FLAGS.qdtype
-  try:
-    qdtype = jnp.dtype(qdtype)
-  except TypeError:
-    qdtype = None
-
-  opts = dict(tune_modes=tune_modes, tune_samples=tune_samples, qdtype=qdtype)
-  run_benchmark(m=m, k=k, n=n, g=g, **opts)
+  run_benchmark(
+      m=flags.FLAGS.m,
+      k=flags.FLAGS.k,
+      n=flags.FLAGS.n,
+      g=flags.FLAGS.g,
+      tune_modes=flags.FLAGS.tune_modes,
+      tune_samples=flags.FLAGS.num_samples,
+      qdtype=flags.FLAGS.qdtype,
+  )
 
 
 if __name__ == "__main__":

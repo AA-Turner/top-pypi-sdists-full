@@ -26,6 +26,10 @@ from airbyte_ops_mcp.connector_ops.rollouts.models import (
     CustomerTierFilter,
     RolloutFilters,
 )
+from airbyte_ops_mcp.connector_ops.rollouts.state_transitions import (
+    pause_rollout,
+    unpause_rollout,
+)
 
 __all__ = [
     "AutopilotAction",
@@ -33,10 +37,12 @@ __all__ = [
     "ConnectorRolloutRecord",
     "CustomerTierFilter",
     "RolloutFilters",
+    "pause_rollout",
     "run_auto_advance",
     "run_auto_close",
     "run_auto_promote",
     "run_auto_rollback_failed",
     "run_auto_start",
     "run_auto_triage_failed",
+    "unpause_rollout",
 ]

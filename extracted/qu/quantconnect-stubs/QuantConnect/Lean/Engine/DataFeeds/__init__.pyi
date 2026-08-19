@@ -2280,6 +2280,20 @@ class SubscriptionUtils(System.Object):
         """
         ...
 
+    @staticmethod
+    def schedule_enumerator(symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract, QuantConnect.Securities.Security], enumerator: System.Collections.Generic.IEnumerator[QuantConnect.Data.BaseData]) -> System.Collections.Generic.IEnumerator[QuantConnect.Data.BaseData]:
+        """
+        Setups a worker task to enumerate the given enumerator, feeding a blocking EnqueueableEnumerator{T} which is returned.
+        Useful for enumerators which perform blocking IO, like the live warmup enumerators performing history requests, so that they run
+        concurrently on the workers instead of sequentially driven by the consuming thread, which will only block until the next data
+        point of each enumerator is available
+        
+        :param symbol: The symbol associated with this work
+        :param enumerator: The data enumerator stack to enumerate
+        :returns: A blocking enumerator providing the data.
+        """
+        ...
+
 
 class AggregationManager(System.Object, QuantConnect.Data.IDataAggregator):
     """

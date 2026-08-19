@@ -1,6 +1,6 @@
-Metadata-Version: 2.4
+Metadata-Version: 2.5
 Name: jupyterlab_widgets
-Version: 3.0.16
+Version: 3.0.17
 Summary: Jupyter interactive widgets for JupyterLab
 Project-URL: Homepage, https://github.com/jupyter-widgets/ipywidgets
 Author-email: Jupyter Development Team <jupyter@googlegroups.com>
@@ -297,10 +297,9 @@ License: Copyright (c) 2015 Project Jupyter Contributors
         FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR
         OTHER DEALINGS IN THE SOFTWARE.
 License-File: LICENSE
-Keywords: Interactive,Interpreter,Jupyter,JupyterLab,JupyterLab3,Shell,Web,notebook,widgets
+Keywords: Interactive,Interpreter,Jupyter,JupyterLab,Shell,Web,notebook,widgets
 Classifier: Framework :: Jupyter
 Classifier: Framework :: Jupyter :: JupyterLab
-Classifier: Framework :: Jupyter :: JupyterLab :: 3
 Classifier: Framework :: Jupyter :: JupyterLab :: 4
 Classifier: Framework :: Jupyter :: JupyterLab :: Extensions
 Classifier: Framework :: Jupyter :: JupyterLab :: Extensions :: Prebuilt
@@ -311,11 +310,11 @@ Classifier: License :: OSI Approved :: BSD License
 Classifier: Programming Language :: Python
 Classifier: Programming Language :: Python :: 3
 Classifier: Programming Language :: Python :: 3 :: Only
-Classifier: Programming Language :: Python :: 3.9
 Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
+Classifier: Programming Language :: Python :: 3.14
 Requires-Python: >=3.7
 Description-Content-Type: text/markdown
 

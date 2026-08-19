@@ -40,6 +40,7 @@ from airbyte_ops_mcp.cloud_admin.auth import (
 )
 from airbyte_ops_mcp.cloud_admin.models import (
     ConnectorRolloutFinalizeResult,
+    ConnectorRolloutPauseResult,
     ConnectorRolloutProgressResult,
     ConnectorRolloutStartResult,
     ConnectorVersionInfo,
@@ -54,6 +55,10 @@ from airbyte_ops_mcp.cloud_admin.version_overrides import (
 )
 from airbyte_ops_mcp.connector_ops.rollouts._helpers import (
     count_eligible_or_pinned_actors,
+)
+from airbyte_ops_mcp.connector_ops.rollouts.state_transitions import (
+    pause_rollout,
+    unpause_rollout,
 )
 from airbyte_ops_mcp.constants import ServerConfigKey, WorkspaceAliasEnum
 from airbyte_ops_mcp.github_actions import trigger_workflow_dispatch
@@ -1123,6 +1128,188 @@ def progress_connector_rollout(
             docker_repository=docker_repository,
             docker_image_tag=docker_image_tag,
         )
+
+
+@mcp_tool(
+    destructive=False,
+    idempotent=True,
+    open_world=True,
+)
+def pause_connector_rollout(
+    docker_repository: Annotated[
+        str,
+        Field(description="The docker repository (e.g., 'airbyte/source-pokeapi')"),
+    ],
+    docker_image_tag: Annotated[
+        str,
+        Field(description="The docker image tag (e.g., '0.3.48-rc.1')"),
+    ],
+    actor_definition_id: Annotated[
+        str,
+        Field(description="The actor definition ID (UUID)"),
+    ],
+    rollout_id: Annotated[
+        str,
+        Field(
+            description="The rollout ID (UUID). Can be found from query_prod_connector_rollouts."
+        ),
+    ],
+    admin_user_email: Annotated[
+        str,
+        Field(
+            description="Email of the admin the change is attributed to, resolved to "
+            "the rollout's `updated_by` user ID."
+        ),
+    ],
+    paused_reason: Annotated[
+        str,
+        Field(
+            description="Why the rollout is being held, recorded on the rollout "
+            "(e.g., 'Sync failures reported on TIER_2'). Required unless "
+            "`unpause=True`."
+        ),
+    ] = "",
+    unpause: Annotated[
+        bool,
+        Field(
+            description="Resume a paused rollout instead of pausing it, handing it "
+            "back to Autopilot without pinning new customers."
+        ),
+    ] = False,
+    *,
+    ctx: Context,
+) -> ConnectorRolloutPauseResult:
+    """Pause a connector rollout, or resume a paused one with `unpause=True`.
+
+    A paused rollout is held in place: Autopilot will not advance or promote it, and
+    already-pinned actors stay on the release candidate. To withdraw the version
+    entirely, yank it instead.
+
+    Resuming hands the rollout back to Autopilot from exactly where it stopped, pinning
+    no additional customers. A rollout with nothing pinned yet resumes at 1%, pinning
+    one customer, because the platform rejects a zero-sized step. If Autopilot paused
+    the rollout over failing syncs, it will pause it again while those failures persist.
+
+    Prefer pausing over `finalize_connector_rollout(state="canceled")` when reacting to
+    a problem: the platform re-creates a rollout for every still-advertised release
+    candidate, so cancelling loops.
+
+    Unlike progress/finalize, neither direction needs Slack approval — both are
+    reversible and hold or restore the current state rather than moving customers ahead
+    of the normal cadence. Both require `AIRBYTE_INTERNAL_ADMIN_FLAG=airbyte.io`.
+    """
+    paused_reason = paused_reason.strip()
+    if unpause and paused_reason:
+        return ConnectorRolloutPauseResult(
+            success=False,
+            message="A paused_reason does not apply when unpause=True.",
+            rollout_id=rollout_id,
+            docker_repository=docker_repository,
+            docker_image_tag=docker_image_tag,
+        )
+    if not unpause and not paused_reason:
+        return ConnectorRolloutPauseResult(
+            success=False,
+            message="A paused_reason is required.",
+            rollout_id=rollout_id,
+            docker_repository=docker_repository,
+            docker_image_tag=docker_image_tag,
+        )
+
+    try:
+        require_internal_admin_flag_only()
+    except CloudAuthError as e:
+        return ConnectorRolloutPauseResult(
+            success=False,
+            message=f"Admin authentication failed: {e}",
+            rollout_id=rollout_id,
+            docker_repository=docker_repository,
+            docker_image_tag=docker_image_tag,
+        )
+
+    try:
+        auth = _resolve_cloud_auth(ctx)
+    except CloudAuthError as e:
+        return ConnectorRolloutPauseResult(
+            success=False,
+            message=f"Failed to resolve credentials: {e}",
+            rollout_id=rollout_id,
+            docker_repository=docker_repository,
+            docker_image_tag=docker_image_tag,
+        )
+
+    try:
+        user_id = api_client.get_user_id_by_email(
+            email=admin_user_email,
+            config_api_root=constants.CLOUD_CONFIG_API_ROOT,
+            client_id=auth.client_id,
+            client_secret=auth.client_secret,
+            bearer_token=auth.bearer_token,
+        )
+    except PyAirbyteInputError as e:
+        return ConnectorRolloutPauseResult(
+            success=False,
+            message=f"Failed to get user ID for admin email '{admin_user_email}': {e}",
+            rollout_id=rollout_id,
+            docker_repository=docker_repository,
+            docker_image_tag=docker_image_tag,
+        )
+
+    try:
+        if unpause:
+            resume_percentage, _ = unpause_rollout(
+                docker_repository=docker_repository,
+                docker_image_tag=docker_image_tag,
+                actor_definition_id=actor_definition_id,
+                rollout_id=rollout_id,
+                updated_by=user_id,
+                config_api_root=constants.CLOUD_CONFIG_API_ROOT,
+                client_id=auth.client_id,
+                client_secret=auth.client_secret,
+                bearer_token=auth.bearer_token,
+            )
+        else:
+            pause_rollout(
+                docker_repository=docker_repository,
+                docker_image_tag=docker_image_tag,
+                actor_definition_id=actor_definition_id,
+                rollout_id=rollout_id,
+                updated_by=user_id,
+                paused_reason=paused_reason,
+                config_api_root=constants.CLOUD_CONFIG_API_ROOT,
+                client_id=auth.client_id,
+                client_secret=auth.client_secret,
+                bearer_token=auth.bearer_token,
+            )
+    except PyAirbyteInputError as e:
+        return ConnectorRolloutPauseResult(
+            success=False,
+            message=str(e),
+            rollout_id=rollout_id,
+            docker_repository=docker_repository,
+            docker_image_tag=docker_image_tag,
+        )
+
+    if unpause:
+        return ConnectorRolloutPauseResult(
+            success=True,
+            message=f"Successfully resumed rollout for "
+            f"{docker_repository}:{docker_image_tag} at {resume_percentage}%. "
+            "Autopilot will advance it from here.",
+            rollout_id=rollout_id,
+            docker_repository=docker_repository,
+            docker_image_tag=docker_image_tag,
+        )
+
+    return ConnectorRolloutPauseResult(
+        success=True,
+        message=f"Successfully paused rollout for "
+        f"{docker_repository}:{docker_image_tag}. Existing pins retained.",
+        rollout_id=rollout_id,
+        docker_repository=docker_repository,
+        docker_image_tag=docker_image_tag,
+        paused_reason=paused_reason,
+    )
 
 
 @mcp_tool(

@@ -2,20 +2,16 @@
 """PowerPoint presentation creator using python-pptx."""
 
 import argparse
-import sys
 from pathlib import Path
 
 
 def _ensure_deps():
     try:
-        from echo_agent.dependencies import require
+        from echo_agent.dependencies.skill_require import require
         require("skill.ppt-author")
     except ImportError:
         pass
-    try:
-        from pptx import Presentation  # noqa: F401
-    except ImportError:
-        sys.exit("Install: pip install python-pptx")
+    require("skill.ppt-author")
 
 
 def create_pptx(title, slides_data, output="output.pptx", template=None):

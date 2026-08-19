@@ -13,7 +13,9 @@ from .cohere import CohereConversationalTask
 from .deepinfra import (
     DeepInfraAutomaticSpeechRecognitionTask,
     DeepInfraConversationalTask,
+    DeepInfraFeatureExtractionTask,
     DeepInfraTextGenerationTask,
+    DeepInfraTextToSpeechTask,
 )
 from .fal_ai import (
     FalAIAutomaticSpeechRecognitionTask,
@@ -106,7 +108,9 @@ PROVIDERS: dict[PROVIDER_T, dict[str, TaskProviderHelper]] = {
     "deepinfra": {
         "automatic-speech-recognition": DeepInfraAutomaticSpeechRecognitionTask(),
         "conversational": DeepInfraConversationalTask(),
+        "feature-extraction": DeepInfraFeatureExtractionTask(),
         "text-generation": DeepInfraTextGenerationTask(),
+        "text-to-speech": DeepInfraTextToSpeechTask(),
     },
     "fal-ai": {
         "automatic-speech-recognition": FalAIAutomaticSpeechRecognitionTask(),

@@ -17700,7 +17700,7 @@ class DefaultApi(object):
     def get_cloud_gpu_status_api_v2_clouds_cloud_id_gpu_status_get(self, cloud_id, **kwargs):  # noqa: E501
         """Get Cloud Gpu Status  # noqa: E501
 
-        Cloud-wide GPU fleet snapshot, grouped by instance type or workload, with per-group and node-level rollups. Filterable by project, status, instance type, workload, and a node/GPU-id substring search. Only the project, instance type and workload type filters affect the rollups; workload, status and search narrow only what is returned for display.  # noqa: E501
+        Cloud-wide GPU fleet snapshot, grouped by instance type or workload, with per-group and node-level rollups. Filterable by project, creator, status, instance type, workload, and a node/GPU-id substring search. Only the project, creator, instance type and workload type filters affect the rollups; workload, status and search narrow only what is returned for display.  # noqa: E501
         This method makes a synchronous HTTP request by default. To make an
         asynchronous HTTP request, please pass async_req=True
         >>> thread = api.get_cloud_gpu_status_api_v2_clouds_cloud_id_gpu_status_get(cloud_id, async_req=True)
@@ -17713,6 +17713,7 @@ class DefaultApi(object):
         :param str workload_id: Only *display* GPUs attributed to this workload id (idle GPUs are excluded when set). Does not change the rollups, so the fleet counts stay stable while drilling into one workload.
         :param GpuState status: Only *display* GPUs in this derived state. Does not change the rollups, so the state counts remain stable while toggling between states.
         :param str project_id: Only include GPUs on clusters in this project.
+        :param str creator_id: Only include GPUs on clusters created by this user.
         :param str instance_type: Only include GPUs on nodes of this instance type.
         :param str search: Case-insensitive substring match on node id or GPU UUID. Only GPUs whose node id or UUID contains this value are *displayed*. Does not change the rollups, so the fleet counts stay stable while searching.
         :param float time: Unix timestamp to snapshot at. Defaults to now. Subject to the Prometheus lookback window: GPUs of a node terminated within the last ~5 minutes may still appear.
@@ -17733,7 +17734,7 @@ class DefaultApi(object):
     def get_cloud_gpu_status_api_v2_clouds_cloud_id_gpu_status_get_with_http_info(self, cloud_id, **kwargs):  # noqa: E501
         """Get Cloud Gpu Status  # noqa: E501
 
-        Cloud-wide GPU fleet snapshot, grouped by instance type or workload, with per-group and node-level rollups. Filterable by project, status, instance type, workload, and a node/GPU-id substring search. Only the project, instance type and workload type filters affect the rollups; workload, status and search narrow only what is returned for display.  # noqa: E501
+        Cloud-wide GPU fleet snapshot, grouped by instance type or workload, with per-group and node-level rollups. Filterable by project, creator, status, instance type, workload, and a node/GPU-id substring search. Only the project, creator, instance type and workload type filters affect the rollups; workload, status and search narrow only what is returned for display.  # noqa: E501
         This method makes a synchronous HTTP request by default. To make an
         asynchronous HTTP request, please pass async_req=True
         >>> thread = api.get_cloud_gpu_status_api_v2_clouds_cloud_id_gpu_status_get_with_http_info(cloud_id, async_req=True)
@@ -17746,6 +17747,7 @@ class DefaultApi(object):
         :param str workload_id: Only *display* GPUs attributed to this workload id (idle GPUs are excluded when set). Does not change the rollups, so the fleet counts stay stable while drilling into one workload.
         :param GpuState status: Only *display* GPUs in this derived state. Does not change the rollups, so the state counts remain stable while toggling between states.
         :param str project_id: Only include GPUs on clusters in this project.
+        :param str creator_id: Only include GPUs on clusters created by this user.
         :param str instance_type: Only include GPUs on nodes of this instance type.
         :param str search: Case-insensitive substring match on node id or GPU UUID. Only GPUs whose node id or UUID contains this value are *displayed*. Does not change the rollups, so the fleet counts stay stable while searching.
         :param float time: Unix timestamp to snapshot at. Defaults to now. Subject to the Prometheus lookback window: GPUs of a node terminated within the last ~5 minutes may still appear.
@@ -17772,6 +17774,7 @@ class DefaultApi(object):
             'workload_id',
             'status',
             'project_id',
+            'creator_id',
             'instance_type',
             'search',
             'time'
@@ -17817,6 +17820,8 @@ class DefaultApi(object):
             query_params.append(('status', local_var_params['status']))  # noqa: E501
         if 'project_id' in local_var_params and local_var_params['project_id'] is not None:  # noqa: E501
             query_params.append(('project_id', local_var_params['project_id']))  # noqa: E501
+        if 'creator_id' in local_var_params and local_var_params['creator_id'] is not None:  # noqa: E501
+            query_params.append(('creator_id', local_var_params['creator_id']))  # noqa: E501
         if 'instance_type' in local_var_params and local_var_params['instance_type'] is not None:  # noqa: E501
             query_params.append(('instance_type', local_var_params['instance_type']))  # noqa: E501
         if 'search' in local_var_params and local_var_params['search'] is not None:  # noqa: E501
@@ -17846,6 +17851,264 @@ class DefaultApi(object):
             post_params=form_params,
             files=local_var_files,
             response_type='CloudgpustatusResponse',  # noqa: E501
+            auth_settings=auth_settings,
+            async_req=local_var_params.get('async_req'),
+            _return_http_data_only=local_var_params.get('_return_http_data_only'),  # noqa: E501
+            _preload_content=local_var_params.get('_preload_content', True),
+            _request_timeout=local_var_params.get('_request_timeout'),
+            collection_formats=collection_formats)
+
+    def get_cloud_gpu_status_instance_types_api_v2_clouds_cloud_id_gpu_status_instance_types_get(self, cloud_id, **kwargs):  # noqa: E501
+        """Get Cloud Gpu Status Instance Types  # noqa: E501
+
+        The distinct instance types of the GPU nodes in the cloud's GPU snapshot, sorted alphabetically. Feeds the GPU status node-type filter menu: it reflects only the cloud, project and creator scope, never the fleet view's drill-down filters, so the menu stays stable while those change.  # noqa: E501
+        This method makes a synchronous HTTP request by default. To make an
+        asynchronous HTTP request, please pass async_req=True
+        >>> thread = api.get_cloud_gpu_status_instance_types_api_v2_clouds_cloud_id_gpu_status_instance_types_get(cloud_id, async_req=True)
+        >>> result = thread.get()
+
+        :param async_req bool: execute request asynchronously
+        :param str cloud_id: (required)
+        :param str project_id: Only include nodes of clusters in this project.
+        :param str creator_id: Only include nodes of clusters created by this user.
+        :param float time: Unix timestamp to snapshot at. Defaults to now. Subject to the Prometheus lookback window: GPUs of a node terminated within the last ~5 minutes may still appear.
+        :param _preload_content: if False, the urllib3.HTTPResponse object will
+                                 be returned without reading/decoding response
+                                 data. Default is True.
+        :param _request_timeout: timeout setting for this request. If one
+                                 number provided, it will be total request
+                                 timeout. It can also be a pair (tuple) of
+                                 (connection, read) timeouts.
+        :return: GpustatusinstancetypesResponse
+                 If the method is called asynchronously,
+                 returns the request thread.
+        """
+        kwargs['_return_http_data_only'] = True
+        return self.get_cloud_gpu_status_instance_types_api_v2_clouds_cloud_id_gpu_status_instance_types_get_with_http_info(cloud_id, **kwargs)  # noqa: E501
+
+    def get_cloud_gpu_status_instance_types_api_v2_clouds_cloud_id_gpu_status_instance_types_get_with_http_info(self, cloud_id, **kwargs):  # noqa: E501
+        """Get Cloud Gpu Status Instance Types  # noqa: E501
+
+        The distinct instance types of the GPU nodes in the cloud's GPU snapshot, sorted alphabetically. Feeds the GPU status node-type filter menu: it reflects only the cloud, project and creator scope, never the fleet view's drill-down filters, so the menu stays stable while those change.  # noqa: E501
+        This method makes a synchronous HTTP request by default. To make an
+        asynchronous HTTP request, please pass async_req=True
+        >>> thread = api.get_cloud_gpu_status_instance_types_api_v2_clouds_cloud_id_gpu_status_instance_types_get_with_http_info(cloud_id, async_req=True)
+        >>> result = thread.get()
+
+        :param async_req bool: execute request asynchronously
+        :param str cloud_id: (required)
+        :param str project_id: Only include nodes of clusters in this project.
+        :param str creator_id: Only include nodes of clusters created by this user.
+        :param float time: Unix timestamp to snapshot at. Defaults to now. Subject to the Prometheus lookback window: GPUs of a node terminated within the last ~5 minutes may still appear.
+        :param _return_http_data_only: response data without head status code
+                                       and headers
+        :param _preload_content: if False, the urllib3.HTTPResponse object will
+                                 be returned without reading/decoding response
+                                 data. Default is True.
+        :param _request_timeout: timeout setting for this request. If one
+                                 number provided, it will be total request
+                                 timeout. It can also be a pair (tuple) of
+                                 (connection, read) timeouts.
+        :return: tuple(GpustatusinstancetypesResponse, status_code(int), headers(HTTPHeaderDict))
+                 If the method is called asynchronously,
+                 returns the request thread.
+        """
+
+        local_var_params = locals()
+
+        all_params = [
+            'cloud_id',
+            'project_id',
+            'creator_id',
+            'time'
+        ]
+        all_params.extend(
+            [
+                'async_req',
+                '_return_http_data_only',
+                '_preload_content',
+                '_request_timeout'
+            ]
+        )
+
+        for key, val in six.iteritems(local_var_params['kwargs']):
+            if key not in all_params:
+                raise ApiTypeError(
+                    "Got an unexpected keyword argument '%s'"
+                    " to method get_cloud_gpu_status_instance_types_api_v2_clouds_cloud_id_gpu_status_instance_types_get" % key
+                )
+            local_var_params[key] = val
+        del local_var_params['kwargs']
+        # verify the required parameter 'cloud_id' is set
+        if self.api_client.client_side_validation and ('cloud_id' not in local_var_params or  # noqa: E501
+                                                        local_var_params['cloud_id'] is None):  # noqa: E501
+            raise ApiValueError("Missing the required parameter `cloud_id` when calling `get_cloud_gpu_status_instance_types_api_v2_clouds_cloud_id_gpu_status_instance_types_get`")  # noqa: E501
+
+        collection_formats = {}
+
+        path_params = {}
+        if 'cloud_id' in local_var_params:
+            path_params['cloud_id'] = local_var_params['cloud_id']  # noqa: E501
+
+        query_params = []
+        if 'project_id' in local_var_params and local_var_params['project_id'] is not None:  # noqa: E501
+            query_params.append(('project_id', local_var_params['project_id']))  # noqa: E501
+        if 'creator_id' in local_var_params and local_var_params['creator_id'] is not None:  # noqa: E501
+            query_params.append(('creator_id', local_var_params['creator_id']))  # noqa: E501
+        if 'time' in local_var_params and local_var_params['time'] is not None:  # noqa: E501
+            query_params.append(('time', local_var_params['time']))  # noqa: E501
+
+        header_params = {}
+
+        form_params = []
+        local_var_files = {}
+
+        body_params = None
+        # HTTP header `Accept`
+        header_params['Accept'] = self.api_client.select_header_accept(
+            ['application/json'])  # noqa: E501
+
+        # Authentication setting
+        auth_settings = []  # noqa: E501
+
+        return self.api_client.call_api(
+            '/api/v2/clouds/{cloud_id}/gpu-status/instance-types', 'GET',
+            path_params,
+            query_params,
+            header_params,
+            body=body_params,
+            post_params=form_params,
+            files=local_var_files,
+            response_type='GpustatusinstancetypesResponse',  # noqa: E501
+            auth_settings=auth_settings,
+            async_req=local_var_params.get('async_req'),
+            _return_http_data_only=local_var_params.get('_return_http_data_only'),  # noqa: E501
+            _preload_content=local_var_params.get('_preload_content', True),
+            _request_timeout=local_var_params.get('_request_timeout'),
+            collection_formats=collection_formats)
+
+    def get_cloud_gpu_status_workloads_api_v2_clouds_cloud_id_gpu_status_workloads_get(self, cloud_id, **kwargs):  # noqa: E501
+        """Get Cloud Gpu Status Workloads  # noqa: E501
+
+        Every GPU-holding workload in the cloud's GPU snapshot, with its GPU count and cluster metadata (creator, state, created time, idle auto-termination), sorted by GPU count descending. Feeds the GPU status workload picker: it reflects only the cloud, project and creator scope, never the fleet view's drill-down filters, so the list stays stable while those change.  # noqa: E501
+        This method makes a synchronous HTTP request by default. To make an
+        asynchronous HTTP request, please pass async_req=True
+        >>> thread = api.get_cloud_gpu_status_workloads_api_v2_clouds_cloud_id_gpu_status_workloads_get(cloud_id, async_req=True)
+        >>> result = thread.get()
+
+        :param async_req bool: execute request asynchronously
+        :param str cloud_id: (required)
+        :param str project_id: Only include workloads on clusters in this project.
+        :param str creator_id: Only include workloads on clusters created by this user.
+        :param float time: Unix timestamp to snapshot at. Defaults to now. Subject to the Prometheus lookback window: GPUs of a node terminated within the last ~5 minutes may still appear.
+        :param _preload_content: if False, the urllib3.HTTPResponse object will
+                                 be returned without reading/decoding response
+                                 data. Default is True.
+        :param _request_timeout: timeout setting for this request. If one
+                                 number provided, it will be total request
+                                 timeout. It can also be a pair (tuple) of
+                                 (connection, read) timeouts.
+        :return: GpustatusworkloadsResponse
+                 If the method is called asynchronously,
+                 returns the request thread.
+        """
+        kwargs['_return_http_data_only'] = True
+        return self.get_cloud_gpu_status_workloads_api_v2_clouds_cloud_id_gpu_status_workloads_get_with_http_info(cloud_id, **kwargs)  # noqa: E501
+
+    def get_cloud_gpu_status_workloads_api_v2_clouds_cloud_id_gpu_status_workloads_get_with_http_info(self, cloud_id, **kwargs):  # noqa: E501
+        """Get Cloud Gpu Status Workloads  # noqa: E501
+
+        Every GPU-holding workload in the cloud's GPU snapshot, with its GPU count and cluster metadata (creator, state, created time, idle auto-termination), sorted by GPU count descending. Feeds the GPU status workload picker: it reflects only the cloud, project and creator scope, never the fleet view's drill-down filters, so the list stays stable while those change.  # noqa: E501
+        This method makes a synchronous HTTP request by default. To make an
+        asynchronous HTTP request, please pass async_req=True
+        >>> thread = api.get_cloud_gpu_status_workloads_api_v2_clouds_cloud_id_gpu_status_workloads_get_with_http_info(cloud_id, async_req=True)
+        >>> result = thread.get()
+
+        :param async_req bool: execute request asynchronously
+        :param str cloud_id: (required)
+        :param str project_id: Only include workloads on clusters in this project.
+        :param str creator_id: Only include workloads on clusters created by this user.
+        :param float time: Unix timestamp to snapshot at. Defaults to now. Subject to the Prometheus lookback window: GPUs of a node terminated within the last ~5 minutes may still appear.
+        :param _return_http_data_only: response data without head status code
+                                       and headers
+        :param _preload_content: if False, the urllib3.HTTPResponse object will
+                                 be returned without reading/decoding response
+                                 data. Default is True.
+        :param _request_timeout: timeout setting for this request. If one
+                                 number provided, it will be total request
+                                 timeout. It can also be a pair (tuple) of
+                                 (connection, read) timeouts.
+        :return: tuple(GpustatusworkloadsResponse, status_code(int), headers(HTTPHeaderDict))
+                 If the method is called asynchronously,
+                 returns the request thread.
+        """
+
+        local_var_params = locals()
+
+        all_params = [
+            'cloud_id',
+            'project_id',
+            'creator_id',
+            'time'
+        ]
+        all_params.extend(
+            [
+                'async_req',
+                '_return_http_data_only',
+                '_preload_content',
+                '_request_timeout'
+            ]
+        )
+
+        for key, val in six.iteritems(local_var_params['kwargs']):
+            if key not in all_params:
+                raise ApiTypeError(
+                    "Got an unexpected keyword argument '%s'"
+                    " to method get_cloud_gpu_status_workloads_api_v2_clouds_cloud_id_gpu_status_workloads_get" % key
+                )
+            local_var_params[key] = val
+        del local_var_params['kwargs']
+        # verify the required parameter 'cloud_id' is set
+        if self.api_client.client_side_validation and ('cloud_id' not in local_var_params or  # noqa: E501
+                                                        local_var_params['cloud_id'] is None):  # noqa: E501
+            raise ApiValueError("Missing the required parameter `cloud_id` when calling `get_cloud_gpu_status_workloads_api_v2_clouds_cloud_id_gpu_status_workloads_get`")  # noqa: E501
+
+        collection_formats = {}
+
+        path_params = {}
+        if 'cloud_id' in local_var_params:
+            path_params['cloud_id'] = local_var_params['cloud_id']  # noqa: E501
+
+        query_params = []
+        if 'project_id' in local_var_params and local_var_params['project_id'] is not None:  # noqa: E501
+            query_params.append(('project_id', local_var_params['project_id']))  # noqa: E501
+        if 'creator_id' in local_var_params and local_var_params['creator_id'] is not None:  # noqa: E501
+            query_params.append(('creator_id', local_var_params['creator_id']))  # noqa: E501
+        if 'time' in local_var_params and local_var_params['time'] is not None:  # noqa: E501
+            query_params.append(('time', local_var_params['time']))  # noqa: E501
+
+        header_params = {}
+
+        form_params = []
+        local_var_files = {}
+
+        body_params = None
+        # HTTP header `Accept`
+        header_params['Accept'] = self.api_client.select_header_accept(
+            ['application/json'])  # noqa: E501
+
+        # Authentication setting
+        auth_settings = []  # noqa: E501
+
+        return self.api_client.call_api(
+            '/api/v2/clouds/{cloud_id}/gpu-status/workloads', 'GET',
+            path_params,
+            query_params,
+            header_params,
+            body=body_params,
+            post_params=form_params,
+            files=local_var_files,
+            response_type='GpustatusworkloadsResponse',  # noqa: E501
             auth_settings=auth_settings,
             async_req=local_var_params.get('async_req'),
             _return_http_data_only=local_var_params.get('_return_http_data_only'),  # noqa: E501
@@ -22161,7 +22424,7 @@ class DefaultApi(object):
     def get_gpu_api_v2_clusters_cluster_id_gpus_gpu_uuid_get(self, cluster_id, gpu_uuid, **kwargs):  # noqa: E501
         """Get Gpu  # noqa: E501
 
-        Get DCGM telemetry and placement metadata for a single GPU.  # noqa: E501
+        Get DCGM telemetry and placement metadata for a single GPU. Looks back over the cluster's lifetime (capped), so a GPU whose node is terminated or dead still resolves, as `offline` with its last-known telemetry.  # noqa: E501
         This method makes a synchronous HTTP request by default. To make an
         asynchronous HTTP request, please pass async_req=True
         >>> thread = api.get_gpu_api_v2_clusters_cluster_id_gpus_gpu_uuid_get(cluster_id, gpu_uuid, async_req=True)
@@ -22188,7 +22451,7 @@ class DefaultApi(object):
     def get_gpu_api_v2_clusters_cluster_id_gpus_gpu_uuid_get_with_http_info(self, cluster_id, gpu_uuid, **kwargs):  # noqa: E501
         """Get Gpu  # noqa: E501
 
-        Get DCGM telemetry and placement metadata for a single GPU.  # noqa: E501
+        Get DCGM telemetry and placement metadata for a single GPU. Looks back over the cluster's lifetime (capped), so a GPU whose node is terminated or dead still resolves, as `offline` with its last-known telemetry.  # noqa: E501
         This method makes a synchronous HTTP request by default. To make an
         asynchronous HTTP request, please pass async_req=True
         >>> thread = api.get_gpu_api_v2_clusters_cluster_id_gpus_gpu_uuid_get_with_http_info(cluster_id, gpu_uuid, async_req=True)
@@ -22279,6 +22542,164 @@ class DefaultApi(object):
             post_params=form_params,
             files=local_var_files,
             response_type='GpudetailResponse',  # noqa: E501
+            auth_settings=auth_settings,
+            async_req=local_var_params.get('async_req'),
+            _return_http_data_only=local_var_params.get('_return_http_data_only'),  # noqa: E501
+            _preload_content=local_var_params.get('_preload_content', True),
+            _request_timeout=local_var_params.get('_request_timeout'),
+            collection_formats=collection_formats)
+
+    def get_gpu_timeseries_api_v2_clusters_cluster_id_gpus_gpu_uuid_timeseries_get(self, cluster_id, gpu_uuid, metrics, start, end, **kwargs):  # noqa: E501
+        """Get Gpu Timeseries  # noqa: E501
+
+        DCGM telemetry timeseries (utilization, memory used/free, temperature) for a single GPU, one series per requested metric, aligned to a shared step grid.  # noqa: E501
+        This method makes a synchronous HTTP request by default. To make an
+        asynchronous HTTP request, please pass async_req=True
+        >>> thread = api.get_gpu_timeseries_api_v2_clusters_cluster_id_gpus_gpu_uuid_timeseries_get(cluster_id, gpu_uuid, metrics, start, end, async_req=True)
+        >>> result = thread.get()
+
+        :param async_req bool: execute request asynchronously
+        :param str cluster_id: (required)
+        :param str gpu_uuid: (required)
+        :param list[GpuTimeseriesMetric] metrics: The GPU metrics to query (repeated query parameter); duplicates are rejected. (required)
+        :param int start: Start of the query window (integer unix seconds). (required)
+        :param int end: End of the query window (integer unix seconds). Must be after start; the window is capped at 90 days (customer metrics retention). (required)
+        :param int step_seconds: Step of the timeseries grid, in seconds. Coarsened server-side when needed so the response stays at or under 1000 points; read timestamps from the response points.
+        :param _preload_content: if False, the urllib3.HTTPResponse object will
+                                 be returned without reading/decoding response
+                                 data. Default is True.
+        :param _request_timeout: timeout setting for this request. If one
+                                 number provided, it will be total request
+                                 timeout. It can also be a pair (tuple) of
+                                 (connection, read) timeouts.
+        :return: GpumetrictimeseriesResponse
+                 If the method is called asynchronously,
+                 returns the request thread.
+        """
+        kwargs['_return_http_data_only'] = True
+        return self.get_gpu_timeseries_api_v2_clusters_cluster_id_gpus_gpu_uuid_timeseries_get_with_http_info(cluster_id, gpu_uuid, metrics, start, end, **kwargs)  # noqa: E501
+
+    def get_gpu_timeseries_api_v2_clusters_cluster_id_gpus_gpu_uuid_timeseries_get_with_http_info(self, cluster_id, gpu_uuid, metrics, start, end, **kwargs):  # noqa: E501
+        """Get Gpu Timeseries  # noqa: E501
+
+        DCGM telemetry timeseries (utilization, memory used/free, temperature) for a single GPU, one series per requested metric, aligned to a shared step grid.  # noqa: E501
+        This method makes a synchronous HTTP request by default. To make an
+        asynchronous HTTP request, please pass async_req=True
+        >>> thread = api.get_gpu_timeseries_api_v2_clusters_cluster_id_gpus_gpu_uuid_timeseries_get_with_http_info(cluster_id, gpu_uuid, metrics, start, end, async_req=True)
+        >>> result = thread.get()
+
+        :param async_req bool: execute request asynchronously
+        :param str cluster_id: (required)
+        :param str gpu_uuid: (required)
+        :param list[GpuTimeseriesMetric] metrics: The GPU metrics to query (repeated query parameter); duplicates are rejected. (required)
+        :param int start: Start of the query window (integer unix seconds). (required)
+        :param int end: End of the query window (integer unix seconds). Must be after start; the window is capped at 90 days (customer metrics retention). (required)
+        :param int step_seconds: Step of the timeseries grid, in seconds. Coarsened server-side when needed so the response stays at or under 1000 points; read timestamps from the response points.
+        :param _return_http_data_only: response data without head status code
+                                       and headers
+        :param _preload_content: if False, the urllib3.HTTPResponse object will
+                                 be returned without reading/decoding response
+                                 data. Default is True.
+        :param _request_timeout: timeout setting for this request. If one
+                                 number provided, it will be total request
+                                 timeout. It can also be a pair (tuple) of
+                                 (connection, read) timeouts.
+        :return: tuple(GpumetrictimeseriesResponse, status_code(int), headers(HTTPHeaderDict))
+                 If the method is called asynchronously,
+                 returns the request thread.
+        """
+
+        local_var_params = locals()
+
+        all_params = [
+            'cluster_id',
+            'gpu_uuid',
+            'metrics',
+            'start',
+            'end',
+            'step_seconds'
+        ]
+        all_params.extend(
+            [
+                'async_req',
+                '_return_http_data_only',
+                '_preload_content',
+                '_request_timeout'
+            ]
+        )
+
+        for key, val in six.iteritems(local_var_params['kwargs']):
+            if key not in all_params:
+                raise ApiTypeError(
+                    "Got an unexpected keyword argument '%s'"
+                    " to method get_gpu_timeseries_api_v2_clusters_cluster_id_gpus_gpu_uuid_timeseries_get" % key
+                )
+            local_var_params[key] = val
+        del local_var_params['kwargs']
+        # verify the required parameter 'cluster_id' is set
+        if self.api_client.client_side_validation and ('cluster_id' not in local_var_params or  # noqa: E501
+                                                        local_var_params['cluster_id'] is None):  # noqa: E501
+            raise ApiValueError("Missing the required parameter `cluster_id` when calling `get_gpu_timeseries_api_v2_clusters_cluster_id_gpus_gpu_uuid_timeseries_get`")  # noqa: E501
+        # verify the required parameter 'gpu_uuid' is set
+        if self.api_client.client_side_validation and ('gpu_uuid' not in local_var_params or  # noqa: E501
+                                                        local_var_params['gpu_uuid'] is None):  # noqa: E501
+            raise ApiValueError("Missing the required parameter `gpu_uuid` when calling `get_gpu_timeseries_api_v2_clusters_cluster_id_gpus_gpu_uuid_timeseries_get`")  # noqa: E501
+        # verify the required parameter 'metrics' is set
+        if self.api_client.client_side_validation and ('metrics' not in local_var_params or  # noqa: E501
+                                                        local_var_params['metrics'] is None):  # noqa: E501
+            raise ApiValueError("Missing the required parameter `metrics` when calling `get_gpu_timeseries_api_v2_clusters_cluster_id_gpus_gpu_uuid_timeseries_get`")  # noqa: E501
+        # verify the required parameter 'start' is set
+        if self.api_client.client_side_validation and ('start' not in local_var_params or  # noqa: E501
+                                                        local_var_params['start'] is None):  # noqa: E501
+            raise ApiValueError("Missing the required parameter `start` when calling `get_gpu_timeseries_api_v2_clusters_cluster_id_gpus_gpu_uuid_timeseries_get`")  # noqa: E501
+        # verify the required parameter 'end' is set
+        if self.api_client.client_side_validation and ('end' not in local_var_params or  # noqa: E501
+                                                        local_var_params['end'] is None):  # noqa: E501
+            raise ApiValueError("Missing the required parameter `end` when calling `get_gpu_timeseries_api_v2_clusters_cluster_id_gpus_gpu_uuid_timeseries_get`")  # noqa: E501
+
+        if self.api_client.client_side_validation and 'step_seconds' in local_var_params and local_var_params['step_seconds'] < 15:  # noqa: E501
+            raise ApiValueError("Invalid value for parameter `step_seconds` when calling `get_gpu_timeseries_api_v2_clusters_cluster_id_gpus_gpu_uuid_timeseries_get`, must be a value greater than or equal to `15`")  # noqa: E501
+        collection_formats = {}
+
+        path_params = {}
+        if 'cluster_id' in local_var_params:
+            path_params['cluster_id'] = local_var_params['cluster_id']  # noqa: E501
+        if 'gpu_uuid' in local_var_params:
+            path_params['gpu_uuid'] = local_var_params['gpu_uuid']  # noqa: E501
+
+        query_params = []
+        if 'metrics' in local_var_params and local_var_params['metrics'] is not None:  # noqa: E501
+            query_params.append(('metrics', local_var_params['metrics']))  # noqa: E501
+            collection_formats['metrics'] = 'multi'  # noqa: E501
+        if 'start' in local_var_params and local_var_params['start'] is not None:  # noqa: E501
+            query_params.append(('start', local_var_params['start']))  # noqa: E501
+        if 'end' in local_var_params and local_var_params['end'] is not None:  # noqa: E501
+            query_params.append(('end', local_var_params['end']))  # noqa: E501
+        if 'step_seconds' in local_var_params and local_var_params['step_seconds'] is not None:  # noqa: E501
+            query_params.append(('step_seconds', local_var_params['step_seconds']))  # noqa: E501
+
+        header_params = {}
+
+        form_params = []
+        local_var_files = {}
+
+        body_params = None
+        # HTTP header `Accept`
+        header_params['Accept'] = self.api_client.select_header_accept(
+            ['application/json'])  # noqa: E501
+
+        # Authentication setting
+        auth_settings = []  # noqa: E501
+
+        return self.api_client.call_api(
+            '/api/v2/clusters/{cluster_id}/gpus/{gpu_uuid}/timeseries', 'GET',
+            path_params,
+            query_params,
+            header_params,
+            body=body_params,
+            post_params=form_params,
+            files=local_var_files,
+            response_type='GpumetrictimeseriesResponse',  # noqa: E501
             auth_settings=auth_settings,
             async_req=local_var_params.get('async_req'),
             _return_http_data_only=local_var_params.get('_return_http_data_only'),  # noqa: E501
@@ -25384,7 +25805,7 @@ class DefaultApi(object):
     def get_node_gpus_api_v2_clusters_cluster_id_nodes_node_id_gpus_get(self, cluster_id, node_id, **kwargs):  # noqa: E501
         """Get Node Gpus  # noqa: E501
 
-        Get DCGM telemetry for every GPU on a node.  # noqa: E501
+        Get DCGM telemetry for every GPU on a node. Looks back over the cluster's lifetime (capped), so a terminated or dead node still returns its last-known telemetry as `offline` GPUs.  # noqa: E501
         This method makes a synchronous HTTP request by default. To make an
         asynchronous HTTP request, please pass async_req=True
         >>> thread = api.get_node_gpus_api_v2_clusters_cluster_id_nodes_node_id_gpus_get(cluster_id, node_id, async_req=True)
@@ -25411,7 +25832,7 @@ class DefaultApi(object):
     def get_node_gpus_api_v2_clusters_cluster_id_nodes_node_id_gpus_get_with_http_info(self, cluster_id, node_id, **kwargs):  # noqa: E501
         """Get Node Gpus  # noqa: E501
 
-        Get DCGM telemetry for every GPU on a node.  # noqa: E501
+        Get DCGM telemetry for every GPU on a node. Looks back over the cluster's lifetime (capped), so a terminated or dead node still returns its last-known telemetry as `offline` GPUs.  # noqa: E501
         This method makes a synchronous HTTP request by default. To make an
         asynchronous HTTP request, please pass async_req=True
         >>> thread = api.get_node_gpus_api_v2_clusters_cluster_id_nodes_node_id_gpus_get_with_http_info(cluster_id, node_id, async_req=True)
@@ -32463,10 +32884,143 @@ class DefaultApi(object):
             _request_timeout=local_var_params.get('_request_timeout'),
             collection_formats=collection_formats)
 
+    def get_workload_gpu_nodes_api_v2_gpus_nodes_get(self, entity_type, entity_id, **kwargs):  # noqa: E501
+        """Get Workload Gpu Nodes  # noqa: E501
+
+        Get the GPU nodes of a cluster, job, service, or workspace, with per-GPU DCGM telemetry and node-level resources (CPU, memory, disk, object store, network). Looks back over the entity's lifetime (capped), so nodes that died mid-run are included with their last-known GPU telemetry, marked `dead`. Optionally filtered to one Ray session.  # noqa: E501
+        This method makes a synchronous HTTP request by default. To make an
+        asynchronous HTTP request, please pass async_req=True
+        >>> thread = api.get_workload_gpu_nodes_api_v2_gpus_nodes_get(entity_type, entity_id, async_req=True)
+        >>> result = thread.get()
+
+        :param async_req bool: execute request asynchronously
+        :param GpuEntityType entity_type: The entity type to scope to. (required)
+        :param str entity_id: The entity ID to scope to. (required)
+        :param str session_name: Only include nodes of this Ray session (resolved from the Ray node export events). A node whose session could not be resolved never matches. When omitted, nodes of all the entity's clusters are returned.
+        :param float time: Unix timestamp to snapshot at. Defaults to now. Subject to the Prometheus lookback window: GPUs of a node terminated within the last ~5 minutes may still appear.
+        :param _preload_content: if False, the urllib3.HTTPResponse object will
+                                 be returned without reading/decoding response
+                                 data. Default is True.
+        :param _request_timeout: timeout setting for this request. If one
+                                 number provided, it will be total request
+                                 timeout. It can also be a pair (tuple) of
+                                 (connection, read) timeouts.
+        :return: WorkloadgpunodesresultResponse
+                 If the method is called asynchronously,
+                 returns the request thread.
+        """
+        kwargs['_return_http_data_only'] = True
+        return self.get_workload_gpu_nodes_api_v2_gpus_nodes_get_with_http_info(entity_type, entity_id, **kwargs)  # noqa: E501
+
+    def get_workload_gpu_nodes_api_v2_gpus_nodes_get_with_http_info(self, entity_type, entity_id, **kwargs):  # noqa: E501
+        """Get Workload Gpu Nodes  # noqa: E501
+
+        Get the GPU nodes of a cluster, job, service, or workspace, with per-GPU DCGM telemetry and node-level resources (CPU, memory, disk, object store, network). Looks back over the entity's lifetime (capped), so nodes that died mid-run are included with their last-known GPU telemetry, marked `dead`. Optionally filtered to one Ray session.  # noqa: E501
+        This method makes a synchronous HTTP request by default. To make an
+        asynchronous HTTP request, please pass async_req=True
+        >>> thread = api.get_workload_gpu_nodes_api_v2_gpus_nodes_get_with_http_info(entity_type, entity_id, async_req=True)
+        >>> result = thread.get()
+
+        :param async_req bool: execute request asynchronously
+        :param GpuEntityType entity_type: The entity type to scope to. (required)
+        :param str entity_id: The entity ID to scope to. (required)
+        :param str session_name: Only include nodes of this Ray session (resolved from the Ray node export events). A node whose session could not be resolved never matches. When omitted, nodes of all the entity's clusters are returned.
+        :param float time: Unix timestamp to snapshot at. Defaults to now. Subject to the Prometheus lookback window: GPUs of a node terminated within the last ~5 minutes may still appear.
+        :param _return_http_data_only: response data without head status code
+                                       and headers
+        :param _preload_content: if False, the urllib3.HTTPResponse object will
+                                 be returned without reading/decoding response
+                                 data. Default is True.
+        :param _request_timeout: timeout setting for this request. If one
+                                 number provided, it will be total request
+                                 timeout. It can also be a pair (tuple) of
+                                 (connection, read) timeouts.
+        :return: tuple(WorkloadgpunodesresultResponse, status_code(int), headers(HTTPHeaderDict))
+                 If the method is called asynchronously,
+                 returns the request thread.
+        """
+
+        local_var_params = locals()
+
+        all_params = [
+            'entity_type',
+            'entity_id',
+            'session_name',
+            'time'
+        ]
+        all_params.extend(
+            [
+                'async_req',
+                '_return_http_data_only',
+                '_preload_content',
+                '_request_timeout'
+            ]
+        )
+
+        for key, val in six.iteritems(local_var_params['kwargs']):
+            if key not in all_params:
+                raise ApiTypeError(
+                    "Got an unexpected keyword argument '%s'"
+                    " to method get_workload_gpu_nodes_api_v2_gpus_nodes_get" % key
+                )
+            local_var_params[key] = val
+        del local_var_params['kwargs']
+        # verify the required parameter 'entity_type' is set
+        if self.api_client.client_side_validation and ('entity_type' not in local_var_params or  # noqa: E501
+                                                        local_var_params['entity_type'] is None):  # noqa: E501
+            raise ApiValueError("Missing the required parameter `entity_type` when calling `get_workload_gpu_nodes_api_v2_gpus_nodes_get`")  # noqa: E501
+        # verify the required parameter 'entity_id' is set
+        if self.api_client.client_side_validation and ('entity_id' not in local_var_params or  # noqa: E501
+                                                        local_var_params['entity_id'] is None):  # noqa: E501
+            raise ApiValueError("Missing the required parameter `entity_id` when calling `get_workload_gpu_nodes_api_v2_gpus_nodes_get`")  # noqa: E501
+
+        collection_formats = {}
+
+        path_params = {}
+
+        query_params = []
+        if 'entity_type' in local_var_params and local_var_params['entity_type'] is not None:  # noqa: E501
+            query_params.append(('entity_type', local_var_params['entity_type']))  # noqa: E501
+        if 'entity_id' in local_var_params and local_var_params['entity_id'] is not None:  # noqa: E501
+            query_params.append(('entity_id', local_var_params['entity_id']))  # noqa: E501
+        if 'session_name' in local_var_params and local_var_params['session_name'] is not None:  # noqa: E501
+            query_params.append(('session_name', local_var_params['session_name']))  # noqa: E501
+        if 'time' in local_var_params and local_var_params['time'] is not None:  # noqa: E501
+            query_params.append(('time', local_var_params['time']))  # noqa: E501
+
+        header_params = {}
+
+        form_params = []
+        local_var_files = {}
+
+        body_params = None
+        # HTTP header `Accept`
+        header_params['Accept'] = self.api_client.select_header_accept(
+            ['application/json'])  # noqa: E501
+
+        # Authentication setting
+        auth_settings = []  # noqa: E501
+
+        return self.api_client.call_api(
+            '/api/v2/gpus/nodes', 'GET',
+            path_params,
+            query_params,
+            header_params,
+            body=body_params,
+            post_params=form_params,
+            files=local_var_files,
+            response_type='WorkloadgpunodesresultResponse',  # noqa: E501
+            auth_settings=auth_settings,
+            async_req=local_var_params.get('async_req'),
+            _return_http_data_only=local_var_params.get('_return_http_data_only'),  # noqa: E501
+            _preload_content=local_var_params.get('_preload_content', True),
+            _request_timeout=local_var_params.get('_request_timeout'),
+            collection_formats=collection_formats)
+
     def get_workload_gpus_api_v2_gpus_get(self, entity_type, entity_id, **kwargs):  # noqa: E501
         """Get Workload Gpus  # noqa: E501
 
-        Get DCGM telemetry for every GPU of a cluster, job, service, or workspace, paginated.  # noqa: E501
+        Get DCGM telemetry for every GPU of a cluster, job, service, or workspace, paginated. Looks back over the entity's lifetime (capped), so GPUs of terminated or dead nodes are included with their last-known telemetry -- state `offline`, stamped with `last_reported_at`.  # noqa: E501
         This method makes a synchronous HTTP request by default. To make an
         asynchronous HTTP request, please pass async_req=True
         >>> thread = api.get_workload_gpus_api_v2_gpus_get(entity_type, entity_id, async_req=True)
@@ -32495,7 +33049,7 @@ class DefaultApi(object):
     def get_workload_gpus_api_v2_gpus_get_with_http_info(self, entity_type, entity_id, **kwargs):  # noqa: E501
         """Get Workload Gpus  # noqa: E501
 
-        Get DCGM telemetry for every GPU of a cluster, job, service, or workspace, paginated.  # noqa: E501
+        Get DCGM telemetry for every GPU of a cluster, job, service, or workspace, paginated. Looks back over the entity's lifetime (capped), so GPUs of terminated or dead nodes are included with their last-known telemetry -- state `offline`, stamped with `last_reported_at`.  # noqa: E501
         This method makes a synchronous HTTP request by default. To make an
         asynchronous HTTP request, please pass async_req=True
         >>> thread = api.get_workload_gpus_api_v2_gpus_get_with_http_info(entity_type, entity_id, async_req=True)
@@ -37780,6 +38334,409 @@ class DefaultApi(object):
             post_params=form_params,
             files=local_var_files,
             response_type='DecoratedproductionjobstatetransitionListResponse',  # noqa: E501
+            auth_settings=auth_settings,
+            async_req=local_var_params.get('async_req'),
+            _return_http_data_only=local_var_params.get('_return_http_data_only'),  # noqa: E501
+            _preload_content=local_var_params.get('_preload_content', True),
+            _request_timeout=local_var_params.get('_request_timeout'),
+            collection_formats=collection_formats)
+
+    def list_k8s_cluster_nodes_api_v2_clouds_cloud_id_k8s_clusters_cluster_id_nodes_get(self, cloud_id, cluster_id, **kwargs):  # noqa: E501
+        """List K8S Cluster Nodes  # noqa: E501
+
+        The nodes of one Kubernetes cluster that are running Anyscale's pods, with each machine's CPU, GPU and memory usage. The figures cover only the Ray pods on the machine, not the machine itself.  # noqa: E501
+        This method makes a synchronous HTTP request by default. To make an
+        asynchronous HTTP request, please pass async_req=True
+        >>> thread = api.list_k8s_cluster_nodes_api_v2_clouds_cloud_id_k8s_clusters_cluster_id_nodes_get(cloud_id, cluster_id, async_req=True)
+        >>> result = thread.get()
+
+        :param async_req bool: execute request asynchronously
+        :param str cloud_id: (required)
+        :param str cluster_id: (required)
+        :param str project_id: Only include rows belonging to this project. Absent means every project the caller can read in this cloud.
+        :param int count: Page size.
+        :param str paging_token: Token from a previous page's `metadata.next_paging_token`. Absent means the first page. Each page re-reads the metrics snapshot, so rows can shift between pages on a cluster that is scaling.
+        :param _preload_content: if False, the urllib3.HTTPResponse object will
+                                 be returned without reading/decoding response
+                                 data. Default is True.
+        :param _request_timeout: timeout setting for this request. If one
+                                 number provided, it will be total request
+                                 timeout. It can also be a pair (tuple) of
+                                 (connection, read) timeouts.
+        :return: K8SnodeListResponse
+                 If the method is called asynchronously,
+                 returns the request thread.
+        """
+        kwargs['_return_http_data_only'] = True
+        return self.list_k8s_cluster_nodes_api_v2_clouds_cloud_id_k8s_clusters_cluster_id_nodes_get_with_http_info(cloud_id, cluster_id, **kwargs)  # noqa: E501
+
+    def list_k8s_cluster_nodes_api_v2_clouds_cloud_id_k8s_clusters_cluster_id_nodes_get_with_http_info(self, cloud_id, cluster_id, **kwargs):  # noqa: E501
+        """List K8S Cluster Nodes  # noqa: E501
+
+        The nodes of one Kubernetes cluster that are running Anyscale's pods, with each machine's CPU, GPU and memory usage. The figures cover only the Ray pods on the machine, not the machine itself.  # noqa: E501
+        This method makes a synchronous HTTP request by default. To make an
+        asynchronous HTTP request, please pass async_req=True
+        >>> thread = api.list_k8s_cluster_nodes_api_v2_clouds_cloud_id_k8s_clusters_cluster_id_nodes_get_with_http_info(cloud_id, cluster_id, async_req=True)
+        >>> result = thread.get()
+
+        :param async_req bool: execute request asynchronously
+        :param str cloud_id: (required)
+        :param str cluster_id: (required)
+        :param str project_id: Only include rows belonging to this project. Absent means every project the caller can read in this cloud.
+        :param int count: Page size.
+        :param str paging_token: Token from a previous page's `metadata.next_paging_token`. Absent means the first page. Each page re-reads the metrics snapshot, so rows can shift between pages on a cluster that is scaling.
+        :param _return_http_data_only: response data without head status code
+                                       and headers
+        :param _preload_content: if False, the urllib3.HTTPResponse object will
+                                 be returned without reading/decoding response
+                                 data. Default is True.
+        :param _request_timeout: timeout setting for this request. If one
+                                 number provided, it will be total request
+                                 timeout. It can also be a pair (tuple) of
+                                 (connection, read) timeouts.
+        :return: tuple(K8SnodeListResponse, status_code(int), headers(HTTPHeaderDict))
+                 If the method is called asynchronously,
+                 returns the request thread.
+        """
+
+        local_var_params = locals()
+
+        all_params = [
+            'cloud_id',
+            'cluster_id',
+            'project_id',
+            'count',
+            'paging_token'
+        ]
+        all_params.extend(
+            [
+                'async_req',
+                '_return_http_data_only',
+                '_preload_content',
+                '_request_timeout'
+            ]
+        )
+
+        for key, val in six.iteritems(local_var_params['kwargs']):
+            if key not in all_params:
+                raise ApiTypeError(
+                    "Got an unexpected keyword argument '%s'"
+                    " to method list_k8s_cluster_nodes_api_v2_clouds_cloud_id_k8s_clusters_cluster_id_nodes_get" % key
+                )
+            local_var_params[key] = val
+        del local_var_params['kwargs']
+        # verify the required parameter 'cloud_id' is set
+        if self.api_client.client_side_validation and ('cloud_id' not in local_var_params or  # noqa: E501
+                                                        local_var_params['cloud_id'] is None):  # noqa: E501
+            raise ApiValueError("Missing the required parameter `cloud_id` when calling `list_k8s_cluster_nodes_api_v2_clouds_cloud_id_k8s_clusters_cluster_id_nodes_get`")  # noqa: E501
+        # verify the required parameter 'cluster_id' is set
+        if self.api_client.client_side_validation and ('cluster_id' not in local_var_params or  # noqa: E501
+                                                        local_var_params['cluster_id'] is None):  # noqa: E501
+            raise ApiValueError("Missing the required parameter `cluster_id` when calling `list_k8s_cluster_nodes_api_v2_clouds_cloud_id_k8s_clusters_cluster_id_nodes_get`")  # noqa: E501
+
+        if self.api_client.client_side_validation and 'count' in local_var_params and local_var_params['count'] > 100:  # noqa: E501
+            raise ApiValueError("Invalid value for parameter `count` when calling `list_k8s_cluster_nodes_api_v2_clouds_cloud_id_k8s_clusters_cluster_id_nodes_get`, must be a value less than or equal to `100`")  # noqa: E501
+        if self.api_client.client_side_validation and 'count' in local_var_params and local_var_params['count'] < 1:  # noqa: E501
+            raise ApiValueError("Invalid value for parameter `count` when calling `list_k8s_cluster_nodes_api_v2_clouds_cloud_id_k8s_clusters_cluster_id_nodes_get`, must be a value greater than or equal to `1`")  # noqa: E501
+        collection_formats = {}
+
+        path_params = {}
+        if 'cloud_id' in local_var_params:
+            path_params['cloud_id'] = local_var_params['cloud_id']  # noqa: E501
+        if 'cluster_id' in local_var_params:
+            path_params['cluster_id'] = local_var_params['cluster_id']  # noqa: E501
+
+        query_params = []
+        if 'project_id' in local_var_params and local_var_params['project_id'] is not None:  # noqa: E501
+            query_params.append(('project_id', local_var_params['project_id']))  # noqa: E501
+        if 'count' in local_var_params and local_var_params['count'] is not None:  # noqa: E501
+            query_params.append(('count', local_var_params['count']))  # noqa: E501
+        if 'paging_token' in local_var_params and local_var_params['paging_token'] is not None:  # noqa: E501
+            query_params.append(('paging_token', local_var_params['paging_token']))  # noqa: E501
+
+        header_params = {}
+
+        form_params = []
+        local_var_files = {}
+
+        body_params = None
+        # HTTP header `Accept`
+        header_params['Accept'] = self.api_client.select_header_accept(
+            ['application/json'])  # noqa: E501
+
+        # Authentication setting
+        auth_settings = []  # noqa: E501
+
+        return self.api_client.call_api(
+            '/api/v2/clouds/{cloud_id}/k8s-clusters/{cluster_id}/nodes', 'GET',
+            path_params,
+            query_params,
+            header_params,
+            body=body_params,
+            post_params=form_params,
+            files=local_var_files,
+            response_type='K8SnodeListResponse',  # noqa: E501
+            auth_settings=auth_settings,
+            async_req=local_var_params.get('async_req'),
+            _return_http_data_only=local_var_params.get('_return_http_data_only'),  # noqa: E501
+            _preload_content=local_var_params.get('_preload_content', True),
+            _request_timeout=local_var_params.get('_request_timeout'),
+            collection_formats=collection_formats)
+
+    def list_k8s_cluster_workloads_api_v2_clouds_cloud_id_k8s_clusters_cluster_id_workloads_get(self, cloud_id, cluster_id, **kwargs):  # noqa: E501
+        """List K8S Cluster Workloads  # noqa: E501
+
+        Every Anyscale workload on one Kubernetes cluster, terminated ones included, one per KubeRay CR: a CR carries exactly one job, and its usage is the total over that CR's own Ray nodes.  # noqa: E501
+        This method makes a synchronous HTTP request by default. To make an
+        asynchronous HTTP request, please pass async_req=True
+        >>> thread = api.list_k8s_cluster_workloads_api_v2_clouds_cloud_id_k8s_clusters_cluster_id_workloads_get(cloud_id, cluster_id, async_req=True)
+        >>> result = thread.get()
+
+        :param async_req bool: execute request asynchronously
+        :param str cloud_id: (required)
+        :param str cluster_id: (required)
+        :param str project_id: Only include rows belonging to this project. Absent means every project the caller can read in this cloud.
+        :param int count: Page size.
+        :param str paging_token: Token from a previous page's `metadata.next_paging_token`. Absent means the first page. Each page re-reads the metrics snapshot, so rows can shift between pages on a cluster that is scaling.
+        :param _preload_content: if False, the urllib3.HTTPResponse object will
+                                 be returned without reading/decoding response
+                                 data. Default is True.
+        :param _request_timeout: timeout setting for this request. If one
+                                 number provided, it will be total request
+                                 timeout. It can also be a pair (tuple) of
+                                 (connection, read) timeouts.
+        :return: K8SworkloadListResponse
+                 If the method is called asynchronously,
+                 returns the request thread.
+        """
+        kwargs['_return_http_data_only'] = True
+        return self.list_k8s_cluster_workloads_api_v2_clouds_cloud_id_k8s_clusters_cluster_id_workloads_get_with_http_info(cloud_id, cluster_id, **kwargs)  # noqa: E501
+
+    def list_k8s_cluster_workloads_api_v2_clouds_cloud_id_k8s_clusters_cluster_id_workloads_get_with_http_info(self, cloud_id, cluster_id, **kwargs):  # noqa: E501
+        """List K8S Cluster Workloads  # noqa: E501
+
+        Every Anyscale workload on one Kubernetes cluster, terminated ones included, one per KubeRay CR: a CR carries exactly one job, and its usage is the total over that CR's own Ray nodes.  # noqa: E501
+        This method makes a synchronous HTTP request by default. To make an
+        asynchronous HTTP request, please pass async_req=True
+        >>> thread = api.list_k8s_cluster_workloads_api_v2_clouds_cloud_id_k8s_clusters_cluster_id_workloads_get_with_http_info(cloud_id, cluster_id, async_req=True)
+        >>> result = thread.get()
+
+        :param async_req bool: execute request asynchronously
+        :param str cloud_id: (required)
+        :param str cluster_id: (required)
+        :param str project_id: Only include rows belonging to this project. Absent means every project the caller can read in this cloud.
+        :param int count: Page size.
+        :param str paging_token: Token from a previous page's `metadata.next_paging_token`. Absent means the first page. Each page re-reads the metrics snapshot, so rows can shift between pages on a cluster that is scaling.
+        :param _return_http_data_only: response data without head status code
+                                       and headers
+        :param _preload_content: if False, the urllib3.HTTPResponse object will
+                                 be returned without reading/decoding response
+                                 data. Default is True.
+        :param _request_timeout: timeout setting for this request. If one
+                                 number provided, it will be total request
+                                 timeout. It can also be a pair (tuple) of
+                                 (connection, read) timeouts.
+        :return: tuple(K8SworkloadListResponse, status_code(int), headers(HTTPHeaderDict))
+                 If the method is called asynchronously,
+                 returns the request thread.
+        """
+
+        local_var_params = locals()
+
+        all_params = [
+            'cloud_id',
+            'cluster_id',
+            'project_id',
+            'count',
+            'paging_token'
+        ]
+        all_params.extend(
+            [
+                'async_req',
+                '_return_http_data_only',
+                '_preload_content',
+                '_request_timeout'
+            ]
+        )
+
+        for key, val in six.iteritems(local_var_params['kwargs']):
+            if key not in all_params:
+                raise ApiTypeError(
+                    "Got an unexpected keyword argument '%s'"
+                    " to method list_k8s_cluster_workloads_api_v2_clouds_cloud_id_k8s_clusters_cluster_id_workloads_get" % key
+                )
+            local_var_params[key] = val
+        del local_var_params['kwargs']
+        # verify the required parameter 'cloud_id' is set
+        if self.api_client.client_side_validation and ('cloud_id' not in local_var_params or  # noqa: E501
+                                                        local_var_params['cloud_id'] is None):  # noqa: E501
+            raise ApiValueError("Missing the required parameter `cloud_id` when calling `list_k8s_cluster_workloads_api_v2_clouds_cloud_id_k8s_clusters_cluster_id_workloads_get`")  # noqa: E501
+        # verify the required parameter 'cluster_id' is set
+        if self.api_client.client_side_validation and ('cluster_id' not in local_var_params or  # noqa: E501
+                                                        local_var_params['cluster_id'] is None):  # noqa: E501
+            raise ApiValueError("Missing the required parameter `cluster_id` when calling `list_k8s_cluster_workloads_api_v2_clouds_cloud_id_k8s_clusters_cluster_id_workloads_get`")  # noqa: E501
+
+        if self.api_client.client_side_validation and 'count' in local_var_params and local_var_params['count'] > 100:  # noqa: E501
+            raise ApiValueError("Invalid value for parameter `count` when calling `list_k8s_cluster_workloads_api_v2_clouds_cloud_id_k8s_clusters_cluster_id_workloads_get`, must be a value less than or equal to `100`")  # noqa: E501
+        if self.api_client.client_side_validation and 'count' in local_var_params and local_var_params['count'] < 1:  # noqa: E501
+            raise ApiValueError("Invalid value for parameter `count` when calling `list_k8s_cluster_workloads_api_v2_clouds_cloud_id_k8s_clusters_cluster_id_workloads_get`, must be a value greater than or equal to `1`")  # noqa: E501
+        collection_formats = {}
+
+        path_params = {}
+        if 'cloud_id' in local_var_params:
+            path_params['cloud_id'] = local_var_params['cloud_id']  # noqa: E501
+        if 'cluster_id' in local_var_params:
+            path_params['cluster_id'] = local_var_params['cluster_id']  # noqa: E501
+
+        query_params = []
+        if 'project_id' in local_var_params and local_var_params['project_id'] is not None:  # noqa: E501
+            query_params.append(('project_id', local_var_params['project_id']))  # noqa: E501
+        if 'count' in local_var_params and local_var_params['count'] is not None:  # noqa: E501
+            query_params.append(('count', local_var_params['count']))  # noqa: E501
+        if 'paging_token' in local_var_params and local_var_params['paging_token'] is not None:  # noqa: E501
+            query_params.append(('paging_token', local_var_params['paging_token']))  # noqa: E501
+
+        header_params = {}
+
+        form_params = []
+        local_var_files = {}
+
+        body_params = None
+        # HTTP header `Accept`
+        header_params['Accept'] = self.api_client.select_header_accept(
+            ['application/json'])  # noqa: E501
+
+        # Authentication setting
+        auth_settings = []  # noqa: E501
+
+        return self.api_client.call_api(
+            '/api/v2/clouds/{cloud_id}/k8s-clusters/{cluster_id}/workloads', 'GET',
+            path_params,
+            query_params,
+            header_params,
+            body=body_params,
+            post_params=form_params,
+            files=local_var_files,
+            response_type='K8SworkloadListResponse',  # noqa: E501
+            auth_settings=auth_settings,
+            async_req=local_var_params.get('async_req'),
+            _return_http_data_only=local_var_params.get('_return_http_data_only'),  # noqa: E501
+            _preload_content=local_var_params.get('_preload_content', True),
+            _request_timeout=local_var_params.get('_request_timeout'),
+            collection_formats=collection_formats)
+
+    def list_k8s_clusters_api_v2_clouds_cloud_id_k8s_clusters_get(self, cloud_id, **kwargs):  # noqa: E501
+        """List K8S Clusters  # noqa: E501
+
+        The cloud's Kubernetes clusters, each with the rollup of its Ray nodes and the counts backing its Nodes and Workloads tabs.  # noqa: E501
+        This method makes a synchronous HTTP request by default. To make an
+        asynchronous HTTP request, please pass async_req=True
+        >>> thread = api.list_k8s_clusters_api_v2_clouds_cloud_id_k8s_clusters_get(cloud_id, async_req=True)
+        >>> result = thread.get()
+
+        :param async_req bool: execute request asynchronously
+        :param str cloud_id: (required)
+        :param str project_id: Only include rows belonging to this project. Absent means every project the caller can read in this cloud.
+        :param _preload_content: if False, the urllib3.HTTPResponse object will
+                                 be returned without reading/decoding response
+                                 data. Default is True.
+        :param _request_timeout: timeout setting for this request. If one
+                                 number provided, it will be total request
+                                 timeout. It can also be a pair (tuple) of
+                                 (connection, read) timeouts.
+        :return: K8SclusterListResponse
+                 If the method is called asynchronously,
+                 returns the request thread.
+        """
+        kwargs['_return_http_data_only'] = True
+        return self.list_k8s_clusters_api_v2_clouds_cloud_id_k8s_clusters_get_with_http_info(cloud_id, **kwargs)  # noqa: E501
+
+    def list_k8s_clusters_api_v2_clouds_cloud_id_k8s_clusters_get_with_http_info(self, cloud_id, **kwargs):  # noqa: E501
+        """List K8S Clusters  # noqa: E501
+
+        The cloud's Kubernetes clusters, each with the rollup of its Ray nodes and the counts backing its Nodes and Workloads tabs.  # noqa: E501
+        This method makes a synchronous HTTP request by default. To make an
+        asynchronous HTTP request, please pass async_req=True
+        >>> thread = api.list_k8s_clusters_api_v2_clouds_cloud_id_k8s_clusters_get_with_http_info(cloud_id, async_req=True)
+        >>> result = thread.get()
+
+        :param async_req bool: execute request asynchronously
+        :param str cloud_id: (required)
+        :param str project_id: Only include rows belonging to this project. Absent means every project the caller can read in this cloud.
+        :param _return_http_data_only: response data without head status code
+                                       and headers
+        :param _preload_content: if False, the urllib3.HTTPResponse object will
+                                 be returned without reading/decoding response
+                                 data. Default is True.
+        :param _request_timeout: timeout setting for this request. If one
+                                 number provided, it will be total request
+                                 timeout. It can also be a pair (tuple) of
+                                 (connection, read) timeouts.
+        :return: tuple(K8SclusterListResponse, status_code(int), headers(HTTPHeaderDict))
+                 If the method is called asynchronously,
+                 returns the request thread.
+        """
+
+        local_var_params = locals()
+
+        all_params = [
+            'cloud_id',
+            'project_id'
+        ]
+        all_params.extend(
+            [
+                'async_req',
+                '_return_http_data_only',
+                '_preload_content',
+                '_request_timeout'
+            ]
+        )
+
+        for key, val in six.iteritems(local_var_params['kwargs']):
+            if key not in all_params:
+                raise ApiTypeError(
+                    "Got an unexpected keyword argument '%s'"
+                    " to method list_k8s_clusters_api_v2_clouds_cloud_id_k8s_clusters_get" % key
+                )
+            local_var_params[key] = val
+        del local_var_params['kwargs']
+        # verify the required parameter 'cloud_id' is set
+        if self.api_client.client_side_validation and ('cloud_id' not in local_var_params or  # noqa: E501
+                                                        local_var_params['cloud_id'] is None):  # noqa: E501
+            raise ApiValueError("Missing the required parameter `cloud_id` when calling `list_k8s_clusters_api_v2_clouds_cloud_id_k8s_clusters_get`")  # noqa: E501
+
+        collection_formats = {}
+
+        path_params = {}
+        if 'cloud_id' in local_var_params:
+            path_params['cloud_id'] = local_var_params['cloud_id']  # noqa: E501
+
+        query_params = []
+        if 'project_id' in local_var_params and local_var_params['project_id'] is not None:  # noqa: E501
+            query_params.append(('project_id', local_var_params['project_id']))  # noqa: E501
+
+        header_params = {}
+
+        form_params = []
+        local_var_files = {}
+
+        body_params = None
+        # HTTP header `Accept`
+        header_params['Accept'] = self.api_client.select_header_accept(
+            ['application/json'])  # noqa: E501
+
+        # Authentication setting
+        auth_settings = []  # noqa: E501
+
+        return self.api_client.call_api(
+            '/api/v2/clouds/{cloud_id}/k8s-clusters', 'GET',
+            path_params,
+            query_params,
+            header_params,
+            body=body_params,
+            post_params=form_params,
+            files=local_var_files,
+            response_type='K8SclusterListResponse',  # noqa: E501
             auth_settings=auth_settings,
             async_req=local_var_params.get('async_req'),
             _return_http_data_only=local_var_params.get('_return_http_data_only'),  # noqa: E501

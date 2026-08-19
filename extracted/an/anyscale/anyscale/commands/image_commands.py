@@ -388,7 +388,7 @@ def get(  # noqa: PLR0913
 @image_cli.command(
     name="list", short_help="List images.", help="List images.", cls=AnyscaleCommand,
 )
-@click.option("--image-id", "--id", help="ID of the image to display.")
+@click.option("--image-id", "--id", "image_id", help="ID of the image to display.")
 @click.option("--name", "-n", help="Substring to match against the image name.")
 @click.option(
     "--image-name",

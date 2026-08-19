@@ -381,6 +381,7 @@ from .system.network.network_metrics_data_logger import NetworkMetricsDataLogger
 from .system.system_metrics_logging_thread import SystemMetricsLoggingThread
 from .upload_callback.callback import UploadCallback
 from .utils import (
+    bounded_repr,
     compress_git_patch,
     create_asset_url,
     find_logger_spec,
@@ -2822,21 +2823,23 @@ class CometExperiment(CommonExperiment):
             on_failed_sync,
         ) = self.model_upload_synchronizer.start_processing(model_name)
 
-        if on_upload_original is None:
-            on_upload = lambda response: on_completed_sync()  # noqa: E731
-        else:
-            on_upload = lambda response: (  # noqa: E731
-                on_upload_original(response),
-                on_completed_sync(),
-            )
+        # The synchronization events are what release the waiters in
+        # model_upload_synchronizer, so they must be set even when the wrapped callback
+        # raises. Setting them in a `finally` keeps the original exception visible to the
+        # caller, which logs it, without leaving the waiters blocked until they time out.
+        def on_upload(response: Any) -> None:
+            try:
+                if on_upload_original is not None:
+                    on_upload_original(response)
+            finally:
+                on_completed_sync()
 
-        if on_failed_original is None:
-            on_failed_upload = lambda response: on_failed_sync()  # noqa: E731
-        else:
-            on_failed_upload = lambda response: (  # noqa: E731
-                on_failed_original(response),
-                on_failed_sync(),
-            )
+        def on_failed_upload(response: Any) -> None:
+            try:
+                if on_failed_original is not None:
+                    on_failed_original(response)
+            finally:
+                on_failed_sync()
 
         return on_upload, on_failed_upload
 
@@ -3515,7 +3518,7 @@ class CometExperiment(CommonExperiment):
                     urls.append((file_name, asset_url))
         except Exception as e:
             debug_helpers.log_error_or_raise(
-                LOG_ASSET_FOLDER_ERROR, folder, original_exception=e
+                LOG_ASSET_FOLDER_ERROR, folder, original_exception=e, exc_info=True
             )
             return None
 
@@ -4896,7 +4899,7 @@ class CometExperiment(CommonExperiment):
             if flatten_op_result.max_depth_limit_reached:
                 debug_helpers.log_warning_or_raise(
                     LOG_PARAMS_MAX_DEPTH_REACHED,
-                    parameters,
+                    bounded_repr(parameters),
                     PARAMETERS_MAX_DEPTH,
                     logger=LOGGER,
                 )
@@ -4978,7 +4981,7 @@ class CometExperiment(CommonExperiment):
         if flatten_op_result.max_depth_limit_reached:
             debug_helpers.log_warning_or_raise(
                 LOG_METRICS_MAX_DEPTH_REACHED,
-                metrics,
+                bounded_repr(metrics),
                 METRICS_MAX_DEPTH,
                 logger=LOGGER,
             )

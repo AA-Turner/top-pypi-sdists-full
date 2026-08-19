@@ -11,7 +11,8 @@ import platform
 import threading
 import time
 import uuid
-from collections.abc import Callable, Iterable, Iterator
+import warnings
+from collections.abc import Callable, Iterable, Iterator, Sequence
 from datetime import timedelta
 from functools import cached_property
 from typing import Any, Literal, cast
@@ -31,10 +32,10 @@ from lancedb.merge import LanceMergeInsertBuilder
 from lancedb.namespace import AsyncLanceNamespaceDBConnection
 from lancedb.query import LanceQueryBuilder, LanceTakeQueryBuilder
 from lancedb.query import Query as LanceQuery
-from lancedb.table import BlobMode, IndexStatistics, TableStatistics, Tags
+from lancedb.table import IndexStatistics, TableStatistics, Tags
 from lancedb.table import LanceTable as LanceLocalTable
 from lancedb.table import Table as LanceTable
-from lancedb.types import OnBadVectorsType
+from lancedb.types import BlobMode, OnBadVectorsType
 
 # Python 3.10 compatibility
 from typing_extensions import TYPE_CHECKING, Never, Optional, override  # noqa: UP035
@@ -42,8 +43,10 @@ from yarl import URL
 
 from geneva import telemetry
 from geneva._context import get_current_context
+from geneva._namespace_client import with_geneva_user_agent
 from geneva.checkpoint import CheckpointStore
 from geneva.committer import get_committer
+from geneva.credentials import refresh_storage_options
 from geneva.db import (
     SYSTEM_NAMESPACE,
     Connection,
@@ -79,6 +82,7 @@ from geneva.transformer import (
 )
 from geneva.utils import redact_dict_values, status_updates
 from geneva.utils.batch_size import resolve_batch_size
+from geneva.utils.remote_options import build_remote_request
 from geneva.utils.schema import canonical_field_paths, resolve_arrow_field_path
 
 if TYPE_CHECKING:
@@ -100,6 +104,26 @@ _LOG = logging.getLogger(__name__)
 _IVF_PARTITION_COL = "_ivf_partition"
 _UDTF_INDEX_ROW_ID_CHUNK_SIZE = 100_000
 _UDTF_PARTITION_DISTINCT_BATCH_SIZE = 65_536
+_LANCE_INCLUDE_VECTOR_CENTROIDS_ENV = "LANCE_INCLUDE_VECTOR_CENTROIDS"
+_INDEX_STATS_ENV_LOCK = threading.Lock()
+
+# Lance internal columns are virtual: they are synthesized per query rather than
+# stored, so they never appear in the physical schema ``Table.schema`` returns.
+# ``take_row_ids()`` still surfaces them, both as uint64.
+_LANCE_INTERNAL_COLUMN_TYPES: dict[str, pa.DataType] = {
+    "_rowid": pa.uint64(),
+    "_rowaddr": pa.uint64(),
+}
+
+# Blob columns are stored as ``large_binary`` but read back as a descriptor
+# struct, so a projected schema has to mirror the read rather than storage.
+_LANCE_BLOB_ENCODING_META_KEY = b"lance-encoding:blob"
+_LANCE_BLOB_DESCRIPTOR_TYPE = pa.struct(
+    [
+        pa.field("position", pa.uint64()),
+        pa.field("size", pa.uint64()),
+    ]
+)
 
 # Metadata key for tracking the last successfully refreshed source version
 MATVIEW_LAST_REFRESHED_VERSION = "geneva::mv::last_refreshed_version"
@@ -108,11 +132,25 @@ _IMPLICIT_LOCAL_RAY_WARNING = (
     "If you want this to continue to work and ensure proper cleanup, "
     "wrap your call in a context: conn.local_ray_context()."
 )
+# Lance computed columns are SQL expressions evaluated by Lance itself, and are
+# distinct from Geneva's UDF-backed virtual columns. Geneva declares neither
+# kind through the Lance API, so declaring one warns and refreshing one raises.
+_COMPUTED_COLUMN_MIN_LANCEDB = "0.38"
+_COMPUTED_COLUMN_SIGNATURE = 'add_columns(computed={"<column>": "<sql expr>"})'
 _VIRTUAL_COLUMN_META_FLAG = "virtual_column"
 _UNPACK_META_FLAG = "virtual_column.unpack"
 _UNPACK_META_GROUP = "virtual_column.unpack_group"
 _UNPACK_META_FIELD = "virtual_column.unpack_field"
 _UNPACK_META_FIELDS = "virtual_column.unpack_fields"
+
+
+def _computed_column_unsupported(operation: str) -> NotImplementedError:
+    """Build the error for a Lance computed column operation Geneva lacks."""
+    return NotImplementedError(
+        f"{operation} is not supported. It fills Lance computed columns, "
+        f"added in lancedb {_COMPUTED_COLUMN_MIN_LANCEDB}; Geneva does not "
+        f"declare them yet, see {_COMPUTED_COLUMN_SIGNATURE}."
+    )
 
 
 @attrs.define(frozen=True)
@@ -253,6 +291,23 @@ def _set_last_refreshed_version(table: "Table", version: int) -> None:
     )
 
 
+def _await_job_future(
+    fut: "JobFuture", timeout_secs: float | None, *, what: str
+) -> Any:
+    """Block on a job future, honoring an optional timeout.
+
+    ``fut.result(timeout=...)`` surfaces Ray's ``GetTimeoutError`` on expiry, so
+    wait via ``fut.done(timeout=...)`` (``False`` on timeout) and raise a plain
+    ``TimeoutError``, matching ``backfill``'s timeout behavior. A ``timeout_secs``
+    of ``None`` waits unbounded.
+    """
+    if timeout_secs is None:
+        return fut.result()
+    if not fut.done(timeout=timeout_secs):
+        raise TimeoutError(f"{what} did not complete within {timeout_secs}s")
+    return fut.result()
+
+
 def _plain_api_key(api_key: Any) -> Any:
     """Convert masked Credential wrappers back to their raw string value."""
     if isinstance(api_key, Credential):
@@ -353,14 +408,73 @@ class _ChunkedTakeSource:
         try:
             first_batch = next(batches)
         except StopIteration:
-            query_builder = self._table.search(None)
+            schema = self._table.schema
             if self._selected_columns:
-                query_builder = query_builder.select(self._selected_columns)
-            return query_builder.limit(0).to_arrow()
+                schema = pa.schema(
+                    [
+                        _selected_field(schema, column)
+                        for column in self._selected_columns
+                    ],
+                    metadata=cast(
+                        "dict[bytes | str, bytes | str] | None", schema.metadata
+                    ),
+                )
+            return schema.empty_table()
         return pa.Table.from_batches(
             itertools.chain([first_batch], batches),
             schema=first_batch.schema,
         )
+
+
+def _selected_field(schema: pa.Schema, column: str) -> pa.Field:
+    """Resolve a selected column to the field ``take_row_ids()`` would return.
+
+    ``schema`` is the physical Lance schema, which diverges from a read's schema
+    in three ways an indexed UDTF can hit:
+
+    * internal columns (``_rowid``/``_rowaddr``) are virtual, so they are
+      synthesized per query and absent from ``schema`` entirely;
+    * nested paths such as ``meta.author`` are not top-level fields, and read
+      back as one flat field named with the whole dotted path;
+    * blob columns are stored as ``large_binary`` but read back as a
+      ``struct<position, size>`` descriptor.
+
+    Resolving through all three keeps an empty partition's schema identical to
+    the one a non-empty take produces, so a UDTF sees a single shape either way.
+    Physical fields still win over the internal-column fallback, and a column
+    matching none of these raises ``KeyError``, so typos stay visible.
+    """
+    internal_type = _LANCE_INTERNAL_COLUMN_TYPES.get(column)
+    if internal_type is not None and column not in schema.names:
+        return pa.field(column, internal_type)
+    field = _physical_field(schema, column)
+    metadata = field.metadata or {}
+    if _LANCE_BLOB_ENCODING_META_KEY in metadata:
+        return field.with_type(_LANCE_BLOB_DESCRIPTOR_TYPE)
+    return field
+
+
+def _physical_field(schema: pa.Schema, column: str) -> pa.Field:
+    """Resolve ``column`` against ``schema``, following dotted nested paths.
+
+    A stored column whose own name contains a dot takes precedence over path
+    traversal. The returned field keeps the dotted name a read projects it
+    under, so callers can build a projected schema directly from it.
+    """
+    if column in schema.names or "." not in column:
+        # Raises KeyError for an unknown top-level column.
+        return schema.field(column)
+
+    root, *rest = column.split(".")
+    field = schema.field(root)
+    for part in rest:
+        if not pa.types.is_struct(field.type):
+            raise KeyError(f"Column {column} does not exist in schema")
+        try:
+            field = field.type.field(part)
+        except KeyError as exc:
+            raise KeyError(f"Column {column} does not exist in schema") from exc
+    return field.with_name(column)
 
 
 def _iter_row_id_chunks(
@@ -790,6 +904,13 @@ def _make_udtf_processor_actor() -> Any:
             finally:
                 telemetry.end_job_span(span, span_token, span_exc)
 
+        def flush_telemetry(self) -> None:
+            """Force-export this worker's buffered spans/metrics before the
+            pool kills the actor. The actor is long-lived, so its
+            BatchSpanProcessor may not have exported the ``process_partition``
+            spans yet, and ``atexit`` does not run under ``ray.kill``."""
+            telemetry.flush()
+
     return UDTFProcessorActor
 
 
@@ -816,6 +937,117 @@ class _IndexPartitionInfo:
     partition_ordinal: int
     index_name: str
     column: str
+
+
+def _index_stats_for_partition_planning(
+    lance_ds: Any, index_name: str
+) -> dict[str, Any]:
+    """Read index statistics without materializing unused IVF centroids.
+
+    Lance currently controls centroid inclusion with a process environment
+    variable.  Serialize the temporary override and restore the caller's value
+    immediately after the statistics call.
+    """
+    with _INDEX_STATS_ENV_LOCK:
+        previous = os.environ.get(_LANCE_INCLUDE_VECTOR_CENTROIDS_ENV)
+        os.environ[_LANCE_INCLUDE_VECTOR_CENTROIDS_ENV] = "false"
+        try:
+            return cast("dict[str, Any]", lance_ds.stats.index_stats(index_name))
+        finally:
+            if previous is None:
+                os.environ.pop(_LANCE_INCLUDE_VECTOR_CENTROIDS_ENV, None)
+            else:
+                os.environ[_LANCE_INCLUDE_VECTOR_CENTROIDS_ENV] = previous
+
+
+def _index_partition_ids_from_stats(index_stats: dict[str, Any]) -> list[int]:
+    """Return non-empty IVF partition ordinals without reading index rows.
+
+    Lance reports one entry per index segment.  A partition is non-empty when
+    any segment reports a positive size for that ordinal.  Older or partial
+    statistics may omit partition sizes; in that case all known ordinals are
+    returned so workers can determine emptiness when they read their assigned
+    partitions.
+    """
+    segments = index_stats.get("indices")
+    if not isinstance(segments, list) or not segments:
+        segments = index_stats.get("segments")
+
+    if not isinstance(segments, list) or not segments:
+        top_level_count = index_stats.get("num_partitions")
+        if isinstance(top_level_count, int) and top_level_count >= 0:
+            _LOG.warning(
+                "IVF index statistics omit segment metadata; scheduling all %d "
+                "partition ordinals",
+                top_level_count,
+            )
+            return list(range(top_level_count))
+        raise ValueError("Index statistics do not include IVF partition metadata")
+
+    first_segment = segments[0]
+    first_count = (
+        first_segment.get("num_partitions") if isinstance(first_segment, dict) else None
+    )
+    top_level_count = index_stats.get("num_partitions")
+    if not isinstance(first_count, int) or first_count < 0:
+        if isinstance(top_level_count, int) and top_level_count >= 0:
+            _LOG.warning(
+                "First IVF index segment omits its partition count; scheduling "
+                "all %d top-level partition ordinals",
+                top_level_count,
+            )
+            return list(range(top_level_count))
+        raise ValueError("Index statistics do not include IVF partition counts")
+
+    num_partitions = first_count
+
+    def _schedule_all(reason: str) -> list[int]:
+        _LOG.warning(
+            "%s; scheduling all %d reader-visible partition ordinals",
+            reason,
+            num_partitions,
+        )
+        return list(range(num_partitions))
+
+    if (
+        isinstance(top_level_count, int)
+        and top_level_count >= 0
+        and top_level_count != num_partitions
+    ):
+        return _schedule_all(
+            "Top-level and first-segment IVF partition counts disagree"
+        )
+
+    segment_sizes: list[list[int]] = []
+    for segment in segments:
+        if not isinstance(segment, dict):
+            return _schedule_all("IVF index segment metadata is malformed")
+        if segment.get("num_partitions") != num_partitions:
+            return _schedule_all("IVF index segments report different counts")
+        partitions = segment.get("partitions")
+        if not isinstance(partitions, list) or len(partitions) < num_partitions:
+            return _schedule_all("IVF index partition-size metadata is incomplete")
+
+        sizes: list[int] = []
+        for partition in partitions[:num_partitions]:
+            if not isinstance(partition, dict):
+                return _schedule_all("IVF index partition metadata is malformed")
+            size = partition.get("size")
+            if not isinstance(size, int) or size < 0:
+                return _schedule_all("IVF index partition size is unavailable")
+            sizes.append(size)
+        segment_sizes.append(sizes)
+
+    partition_ids = [
+        pid
+        for pid in range(num_partitions)
+        if any(sizes[pid] > 0 for sizes in segment_sizes)
+    ]
+    if not partition_ids and num_partitions:
+        _LOG.warning(
+            "IVF index statistics report all %d partitions empty", num_partitions
+        )
+    return partition_ids
 
 
 def _build_column_partition_work_items(
@@ -868,6 +1100,8 @@ def _build_index_partition_work_items(
     column: str,
     top_prefix: str,
     checkpoint_store: CheckpointStore,
+    *,
+    completed_fragment_keys: set[str] | None = None,
 ) -> tuple[list[tuple[str | None, str, _IndexPartitionInfo | None]], list[int]]:
     """Build work items from an existing IVF vector index.
 
@@ -876,8 +1110,6 @@ def _build_index_partition_work_items(
     Completed partitions (those with a ``_fragment`` key in the
     checkpoint store) are skipped.
     """
-    from lance.dataset import VectorIndexReader
-
     from geneva.checkpoint_utils import (
         format_udtf_fragment_key,
         format_udtf_partition_prefix,
@@ -899,25 +1131,22 @@ def _build_index_partition_work_items(
             f"Create one first (e.g. create_ivf_flat_index())."
         ) from None
 
-    reader = VectorIndexReader(lance_ds, idx_info.name)
+    partition_ids = _index_partition_ids_from_stats(
+        _index_stats_for_partition_planning(lance_ds, idx_info.name)
+    )
+    if completed_fragment_keys is None:
+        completed_fragment_keys = set(checkpoint_store.list_keys(top_prefix))
 
     partition_col = _IVF_PARTITION_COL
     work_items: list[tuple[str | None, str, _IndexPartitionInfo | None]] = []
-    distinct_values: list[int] = []
-
-    for pid in range(reader.num_partitions()):
-        part = reader.read_partition(pid)
-        if part.num_rows == 0:
-            continue
-
-        distinct_values.append(pid)
+    for pid in partition_ids:
         part_prefix = format_udtf_partition_prefix(
             top_prefix,
             partition_col=partition_col,
             partition_value=pid,
         )
         frag_key = format_udtf_fragment_key(part_prefix)
-        if frag_key in checkpoint_store:
+        if frag_key in completed_fragment_keys:
             _LOG.info(
                 "UDTF partition %s=%d completed, loading from checkpoint",
                 partition_col,
@@ -931,7 +1160,7 @@ def _build_index_partition_work_items(
             )
             work_items.append((None, part_prefix, info))
 
-    return work_items, distinct_values
+    return work_items, partition_ids
 
 
 def _get_udf_name_from_field(field: pa.Field) -> str | None:
@@ -1302,9 +1531,39 @@ class TableReference:
             connect_kwargs["checkpoint"] = cp
         # Workers must inherit explicit storage credentials for every namespace
         # impl; otherwise a non-"dir" worker opens storage with no credentials
-        # and falls back to the ambient credential chain.
-        connect_kwargs["storage_options"] = self.storage_options
+        # and falls back to the ambient credential chain. Re-vend near-expiry
+        # credentials so a backfill that outlives the plan-time token doesn't
+        # sign requests with a dead credential (see _refreshed_storage_options).
+        connect_kwargs["storage_options"] = self._refreshed_storage_options()
         return connect(**connect_kwargs)
+
+    def _refreshed_storage_options(self) -> dict[str, str] | None:
+        """Re-vend this reference's vended credentials when they are near expiry.
+
+        The driver vends a short-lived token once at plan time and ships it in
+        ``self.storage_options``; a backfill that outlives it would otherwise
+        sign every object-store request with a dead credential (400
+        ExpiredToken). No-op for static credentials or a token not yet within
+        the safety window.
+        """
+        return refresh_storage_options(
+            self.storage_options,
+            table_id=self.table_id,
+            namespace_client_factory=lambda: self.connect_namespace(
+                use_worker_props=True
+            ),
+        )
+
+    def _open_async_db(self) -> AsyncLanceNamespaceDBConnection:
+        """Shared body for the async connection openers (re-vends creds)."""
+        namespace = self.connect_namespace(use_worker_props=True)
+        assert namespace is not None, "TableReference requires namespace credentials"
+        return AsyncLanceNamespaceDBConnection(
+            namespace,
+            read_consistency_interval=timedelta(0),
+            storage_options=self._refreshed_storage_options(),
+            namespace_client_pushdown_operations=self.namespace_client_pushdown_operations,
+        )
 
     async def open_db_async(
         self,
@@ -1313,32 +1572,24 @@ class TableReference:
         This uses native lancedb AsyncConnection and doesn't support checkpoint store.
         Currently used by JobTracker only.
         """
-        namespace = self.connect_namespace(use_worker_props=True)
-        assert namespace is not None, "TableReference requires namespace credentials"
-        return AsyncLanceNamespaceDBConnection(
-            namespace,
-            read_consistency_interval=timedelta(0),
-            namespace_client_pushdown_operations=self.namespace_client_pushdown_operations,
-        )
+        return self._open_async_db()
 
     async def open_system_db_async(
         self,
     ) -> AsyncConnection | AsyncLanceNamespaceDBConnection:
         """Open an async connection suitable for system-table operations."""
-        namespace = self.connect_namespace(use_worker_props=True)
-        assert namespace is not None, "TableReference requires namespace credentials"
-        return AsyncLanceNamespaceDBConnection(
-            namespace,
-            read_consistency_interval=timedelta(0),
-            namespace_client_pushdown_operations=self.namespace_client_pushdown_operations,
-        )
+        return self._open_async_db()
 
     def open(self) -> "Table":
         # Extract namespace from table_id (everything except the last element)
         namespace = self.table_id[:-1] if len(self.table_id) > 1 else []
-        return self.open_db().open_table(
+        tbl = self.open_db().open_table(
             self.table_name, version=self.version, namespace=namespace
         )
+        # Seed the URI cache so worker reads skip the describe_table (GEN-758).
+        if self.table_uri:
+            vars(tbl)["uri"] = self.table_uri
+        return tbl
 
     def connect_namespace(
         self,
@@ -1460,6 +1711,12 @@ class Table(LanceTable):
             **(self._storage_options or {}),
         } or None
 
+        storage_options = refresh_storage_options(
+            storage_options,
+            table_id=self._table_id,
+            namespace_config=getattr(self._conn, "_ns_config", None),
+        )
+
         # remote db, open table directly
         if self._conn.is_remote_uri():
             tbl = inner.open_table(
@@ -1573,6 +1830,9 @@ class Table(LanceTable):
         -----
         UserWarning
             If type validation is skipped due to missing type annotations
+        UserWarning
+            If ``computed=`` is passed. It is accepted for forward
+            compatibility with LanceDB's ``add_columns`` and ignored here.
 
         Examples
         --------
@@ -1582,6 +1842,19 @@ class Table(LanceTable):
         >>> table.add_columns({"doubled": double})  # Validates 'a' column exists
 
         """
+        # ``computed=`` belongs to LanceDB's add_columns, which Geneva's does
+        # not mirror. Accept and ignore it so forward-looking callers still
+        # run, but say the column was not added.
+        if kwargs.pop("computed", None) is not None:
+            warnings.warn(
+                "add_columns ignored computed=: Geneva does not declare Lance "
+                f"computed columns yet. {_COMPUTED_COLUMN_SIGNATURE} needs "
+                f"lancedb {_COMPUTED_COLUMN_MIN_LANCEDB} or newer; pass a UDF "
+                "to add a Geneva computed column.",
+                UserWarning,
+                stacklevel=2,
+            )
+
         if isinstance(transforms, UDF):
             if not transforms.is_multi_output:
                 raise ValueError(
@@ -1875,7 +2148,7 @@ class Table(LanceTable):
         _admission_strict: bool | None
             If True, raises ResourcesUnavailableError when resources are
             insufficient. If False, logs a warning but allows the job to proceed.
-            If None, uses config (default: true).
+            If None, uses config (default: false, i.e. warn and proceed).
             **Experimental**: Parameters starting with `_` are subject to change.
 
         Raises
@@ -1903,6 +2176,7 @@ class Table(LanceTable):
                 manifest=manifest,
                 output_limit=output_limit,
                 source_task_size=source_task_size,
+                **kwargs,
             )
             timeout_secs = timeout.total_seconds() if timeout is not None else None
             result = cast("RefreshJobResult", job.result(timeout=timeout_secs))
@@ -1922,6 +2196,7 @@ class Table(LanceTable):
             intra_applier_concurrency=intra_applier_concurrency,
             output_limit=output_limit,
             source_task_size=source_task_size,
+            timeout=timeout,
             _admission_check=_admission_check,
             _admission_strict=_admission_strict,
         )
@@ -1939,6 +2214,7 @@ class Table(LanceTable):
         _admission_check: bool | None,
         _admission_strict: bool | None,
         source_task_size: int | None = None,
+        timeout: timedelta | None = None,
     ) -> "RefreshJobResult":
         # Mint the job_id up front so the root span carries the real id (the
         # same value hist.launch will reuse) rather than an empty string.
@@ -1961,6 +2237,10 @@ class Table(LanceTable):
                 raise NotImplementedError(
                     "where clauses on materialized view refresh not implemented yet."
                 )
+
+            # Honor an explicit timeout on the native path, like the remote
+            # db:// path. None means an unbounded wait.
+            timeout_secs = timeout.total_seconds() if timeout is not None else None
 
             # Check source stable row IDs and validate version compatibility
             schema = self.schema
@@ -1996,9 +2276,9 @@ class Table(LanceTable):
                     _admission_check=_admission_check,
                     _admission_strict=_admission_strict,
                 )
-                fut.result()
+                _await_job_future(fut, timeout_secs, what="refresh")
                 self.checkout_latest()
-                return self._build_refresh_result()
+                return self._build_refresh_result(job_id)
 
             if _is_chunker_mv_version(mv_version_str):
                 # Chunker-backed view (1:N) — same worker-side dispatch.
@@ -2016,9 +2296,9 @@ class Table(LanceTable):
                     _admission_check=_admission_check,
                     _admission_strict=_admission_strict,
                 )
-                fut.result()
+                _await_job_future(fut, timeout_secs, what="refresh")
                 self.checkout_latest()
-                return self._build_refresh_result()
+                return self._build_refresh_result(job_id)
 
             # Get MV format version from metadata
             # Version 1: fragment+offset encoding, no stable row IDs
@@ -2084,14 +2364,14 @@ class Table(LanceTable):
                 _admission_check=_admission_check,
                 _admission_strict=_admission_strict,
             )
-            fut.result()
+            _await_job_future(fut, timeout_secs, what="refresh")
 
             # Update last refreshed version in metadata
             if src_version is not None:
                 _set_last_refreshed_version(self, src_version)
 
             self.checkout_latest()
-            return self._build_refresh_result()
+            return self._build_refresh_result(job_id)
 
     def _validate_refresh_admission(
         self,
@@ -2185,19 +2465,21 @@ class Table(LanceTable):
                 strict=_admission_strict,
             )
 
-    def _build_refresh_result(self) -> "RefreshJobResult":
+    def _build_refresh_result(self, job_id: str) -> "RefreshJobResult":
         """Build a typed RefreshJobResult for the just-completed refresh.
+
+        ``job_id`` is the real id minted in :meth:`_refresh` and threaded
+        through dispatch and ``_geneva_jobs``, so callers can correlate the
+        result via ``conn.get_job(result.job_id)``.
 
         Today's refresh path doesn't surface row-level counters from the
         executor; the result carries identifying metadata so callers can
         chain on it and extend later when counters become available.
         """
-        import uuid
-
         from geneva.jobs.types import DONE, RefreshJobResult
 
         return RefreshJobResult(
-            job_id=uuid.uuid4().hex,
+            job_id=job_id,
             status=DONE,
             table_name=self._name,
         )
@@ -2250,6 +2532,7 @@ class Table(LanceTable):
                 manifest=manifest,
                 output_limit=output_limit,
                 source_task_size=source_task_size,
+                **kwargs,
             )
 
         from geneva.jobs.types import Job, RefreshJobResult
@@ -2803,17 +3086,20 @@ class Table(LanceTable):
         # --- Build work items ---
         # work_items: list of (partition_filter, partition_prefix, index_info)
         work_items: list[tuple[str | None, str, _IndexPartitionInfo | None]] = []
+        completed_fragment_keys: set[str] | None = None
 
         # Planning sub-step for the live plan line (the partitions bar takes over
         # once work items are known and dispatched below).
         report_plan_progress(job_tracker, desc="discovering partitions")
 
         if udtf_obj.partition_by_indexed_column:
+            completed_fragment_keys = set(checkpoint_store.list_keys(top_prefix))
             work_items, distinct_values = _build_index_partition_work_items(
                 src_tbl,
                 udtf_obj.partition_by_indexed_column,
                 top_prefix,
                 checkpoint_store,
+                completed_fragment_keys=completed_fragment_keys,
             )
         elif udtf_obj.partition_by:
             work_items, distinct_values = _build_column_partition_work_items(
@@ -2934,8 +3220,11 @@ class Table(LanceTable):
             finally:
                 bar_partitions.close()
                 bar_rows.close()
-                pool.shutdown()
+                # Flush each worker's buffered spans BEFORE shutdown: shutdown()
+                # ray.kills and drops every idle actor, so a broadcast after it
+                # reaches zero actors (atexit does not run under ray.kill).
                 pool.broadcast("flush_telemetry")
+                pool.shutdown()
             if skipped_count:
                 _LOG.warning(
                     "UDTF refresh: %d/%d partitions skipped due to errors",
@@ -2958,13 +3247,16 @@ class Table(LanceTable):
             error_store.log_errors(errors)
 
         # --- Collect FragmentMetadata from checkpoint store (resumed partitions) ---
-        # Re-scan checkpoint store for completed partitions that were not in
-        # this run's work_items (i.e., previously completed and skipped).
+        # Load completed partitions that were not in this run's work items.
+        # Indexed planning already listed their keys in bulk.
 
         def _load_checkpoint_fragment(pfx: str) -> str | None:
             """Load FragmentMetadata JSON from checkpoint, or None."""
             frag_key = format_udtf_fragment_key(pfx)
-            if frag_key not in checkpoint_store:
+            if completed_fragment_keys is not None:
+                if frag_key not in completed_fragment_keys:
+                    return None
+            elif frag_key not in checkpoint_store:
                 return None
             batch = checkpoint_store[frag_key]
             return batch.column("fragment_json")[0].as_py()  # type: ignore[return-value]
@@ -3147,7 +3439,8 @@ class Table(LanceTable):
         _admission_strict: bool | None
             If True, raises ResourcesUnavailableError when resources are
             insufficient. If False, logs a warning but allows the job to proceed.
-            If None, uses GENEVA_ADMISSION__STRICT env var (default: true).
+            If None, uses GENEVA_ADMISSION__STRICT env var (default: false, i.e.
+            warn and proceed).
             **Experimental**: Parameters starting with `_` are subject to change.
         commit_granularity: int | None
             (default = 64) Show a partial result everytime this number of fragments
@@ -3179,7 +3472,9 @@ class Table(LanceTable):
             ``0`` to persist every batch as soon as it is produced.
         task_size: int | None
             Controls read-task sizing (rows per worker task). Defaults to
-            ``table.count_rows() // num_workers // 2`` when omitted.
+            ``min(table.count_rows() // num_workers // 2,
+            max_fragment_size)`` when omitted, where ``max_fragment_size`` is
+            the largest fragment in the pinned read snapshot.
         num_frags: int | None
             (default = None) The number of table fragments to process.  If None,
             process all fragments.
@@ -3419,7 +3714,8 @@ class Table(LanceTable):
         _admission_strict: bool | None
             If True, raises ResourcesUnavailableError when resources are
             insufficient. If False, logs a warning but allows the job to proceed.
-            If None, uses GENEVA_ADMISSION__STRICT env var (default: true).
+            If None, uses GENEVA_ADMISSION__STRICT env var (default: false, i.e.
+            warn and proceed).
             **Experimental**: Parameters starting with `_` are subject to change.
         commit_granularity: int | None
             (default = 64) Show a partial result everytime this number of fragments
@@ -3452,7 +3748,9 @@ class Table(LanceTable):
             ``0`` to persist every batch as soon as it is produced.
         task_size: int | None
             Controls read-task sizing (rows per worker task). Defaults to
-            ``table.count_rows() // num_workers // 2`` when omitted.
+            ``min(table.count_rows() // num_workers // 2,
+            max_fragment_size)`` when omitted, where ``max_fragment_size`` is
+            the largest fragment in the pinned read snapshot.
         num_frags: int | None
             (default = None) The number of table fragments to process.  If None,
             process all fragments.
@@ -4114,10 +4412,8 @@ class Table(LanceTable):
             **plan_kwargs,
         )
 
-        # Materialize the task iterator to count tasks and rows
-        task_list = list(plan_result.tasks)
-        total_tasks = len(task_list)
-        total_rows_pending = sum(t.num_rows() for t in task_list)
+        total_tasks = plan_result.total_tasks
+        total_rows_pending = plan_result.total_rows
 
         # Get total table stats
         from geneva.db import open_lance_dataset
@@ -4566,6 +4862,19 @@ class Table(LanceTable):
     def list_indices(self) -> Iterable[IndexConfig]:
         return self._ltbl.list_indices()
 
+    def tokenize(
+        self,
+        query: str,
+        *,
+        column: str | None = None,
+        index_name: str | None = None,
+    ) -> Iterable[Any]:
+        return self._ltbl.tokenize(  # type: ignore[attr-defined]
+            query,
+            column=column,
+            index_name=index_name,
+        )
+
     @override
     def index_stats(self, index_name: str) -> IndexStatistics | None:
         return self._ltbl.index_stats(index_name)
@@ -4758,6 +5067,49 @@ class Table(LanceTable):
     def take_row_ids(self, row_ids: list[int]) -> LanceTakeQueryBuilder:
         return self._ltbl.take_row_ids(row_ids)
 
+    def blob_columns(self) -> list[str]:
+        return self._ltbl.blob_columns()  # type: ignore[attr-defined]
+
+    def fetch_blobs(
+        self, column: str, row_ids: list[int] | pa.Table
+    ) -> pa.LargeBinaryArray:
+        return self._ltbl.fetch_blobs(column, row_ids)  # type: ignore[attr-defined]
+
+    def fetch_blob_ranges(
+        self,
+        column: str,
+        requests: Sequence[tuple[int, int, int]],
+    ) -> pa.LargeBinaryArray:
+        return self._ltbl.fetch_blob_ranges(  # type: ignore[attr-defined]
+            column, requests
+        )
+
+    def fetch_blob_files(
+        self, column: str, row_ids: list[int] | pa.Table
+    ) -> list[Any | None]:
+        return self._ltbl.fetch_blob_files(  # type: ignore[attr-defined]
+            column, row_ids
+        )
+
+    def refresh_column(self, column: str) -> Never:
+        """Fill the rows of a Lance computed column that hold no value yet.
+
+        Not supported: Geneva does not declare Lance computed columns, so a
+        Geneva table never has one to fill. Unrelated to
+        [`refresh`][geneva.table.Table.refresh], which rebuilds a materialized
+        view, and to [`backfill`][geneva.table.Table.backfill], which runs
+        Geneva UDF columns.
+        """
+        raise _computed_column_unsupported("refresh_column")
+
+    def refresh_column_async(self, column: str) -> Never:
+        """Start a Lance computed column refresh and return its job handle.
+
+        Not supported, for the same reason as
+        [`refresh_column`][geneva.table.Table.refresh_column].
+        """
+        raise _computed_column_unsupported("refresh_column_async")
+
     def get_errors(
         self,
         job_id: str | None = None,
@@ -4863,6 +5215,7 @@ class Table(LanceTable):
 
         props = dict(props)
         props["header.x-lancedb-min-read-version"] = str(self.version)
+        props = with_geneva_user_agent(impl, props)
         return namespace_connect(impl, props)
 
     def _backfill_async_v2(
@@ -4929,7 +5282,9 @@ class Table(LanceTable):
                     "_skip_checkpoint_index_scan with this lance_namespace client."
                 )
 
-        request = AlterTableBackfillColumnsRequest(**request_kwargs)
+        request = build_remote_request(
+            AlterTableBackfillColumnsRequest, request_kwargs, kwargs, op="backfill"
+        )
         response = ns.alter_table_backfill_columns(request)
 
         output_columns = [output_column]
@@ -5004,6 +5359,7 @@ class Table(LanceTable):
         manifest: str | None = None,
         output_limit: int | None = None,
         source_task_size: int | None = None,
+        **kwargs: Any,
     ) -> "Job":
         """Dispatch refresh via the namespace API (remote ``db://`` path).
 
@@ -5031,6 +5387,10 @@ class Table(LanceTable):
         # source_task_size was added to the namespace API later; only forward it
         # when the installed lance-namespace version carries the field, so an
         # older client degrades gracefully instead of failing.
+        #
+        # Deliberately not folded into the surplus bag below: the server rejects
+        # keys it considers driver-owned, which would turn today's ignored knob
+        # into a failed dispatch. Worth revisiting once that list is confirmed.
         if source_task_size is not None:
             if "source_task_size" in RefreshMaterializedViewRequest.model_fields:
                 request_kwargs["source_task_size"] = source_task_size
@@ -5039,7 +5399,10 @@ class Table(LanceTable):
                     "source_task_size is not supported by the installed "
                     "lance-namespace version; ignoring it for this remote refresh"
                 )
-        request = RefreshMaterializedViewRequest(**request_kwargs)
+
+        request = build_remote_request(
+            RefreshMaterializedViewRequest, request_kwargs, kwargs, op="refresh"
+        )
         response = ns.refresh_materialized_view(request)
 
         self._conn._history.launch(self._name, "", job_id=response.job_id)

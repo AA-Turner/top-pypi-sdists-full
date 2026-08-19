@@ -57,21 +57,6 @@ class PersonRecord(BaseModel):
     )
 
 
-class PeopleLookupResponse(BaseModel):
-    """Response from a people lookup query."""
-
-    query: str = Field(description="The search query that was used")
-    total_matches: int = Field(description="Number of matching records")
-    matches: list[PersonRecord] = Field(description="Matching person records")
-
-
-class RosterListResponse(BaseModel):
-    """Response listing the full internal team roster."""
-
-    total_members: int = Field(description="Total number of members in the roster")
-    members: list[PersonRecord] = Field(description="All person records in the roster")
-
-
 class SlackUsergroupRecord(BaseModel):
     """A Slack usergroup and its mention metadata."""
 
@@ -80,6 +65,27 @@ class SlackUsergroupRecord(BaseModel):
     name: str = Field(description="Slack usergroup display name")
     description: str = Field(description="Slack usergroup description")
     user_count: int = Field(description="Number of members in the usergroup")
+
+
+class PeopleLookupResponse(BaseModel):
+    """Response from a people lookup query."""
+
+    query: str = Field(description="The search query that was used")
+    total_matches: int = Field(
+        description="Number of matching person records; usergroups are reported separately"
+    )
+    matches: list[PersonRecord] = Field(description="Matching person records")
+    usergroup_matches: list[SlackUsergroupRecord] = Field(
+        default_factory=list,
+        description="Matching Slack usergroups",
+    )
+
+
+class RosterListResponse(BaseModel):
+    """Response listing the full internal team roster."""
+
+    total_members: int = Field(description="Total number of members in the roster")
+    members: list[PersonRecord] = Field(description="All person records in the roster")
 
 
 class SlackUsergroupLookupResponse(BaseModel):
@@ -114,13 +120,30 @@ def lookup_person(
 
     Use this to find someone's Slack ID for messaging, GitHub handle
     for code review, or to cross-reference identities across platforms.
+    Slack usergroup handles and names are searchable too; use the returned
+    usergroup ID for the most precise team reference.
     """
     roster = fetch_roster()
     matches = search_roster(roster, query)
+    try:
+        usergroup_matches = find_slack_usergroups(query)
+    except Exception as exc:
+        logger.warning("Could not look up Slack usergroups for %s: %s", query, exc)
+        usergroup_matches = []
     return PeopleLookupResponse(
         query=query,
         total_matches=len(matches),
         matches=[PersonRecord.model_validate(person) for person in matches],
+        usergroup_matches=[
+            SlackUsergroupRecord(
+                id=usergroup.id,
+                handle=usergroup.handle,
+                name=usergroup.name,
+                description=usergroup.description,
+                user_count=usergroup.user_count,
+            )
+            for usergroup in usergroup_matches
+        ],
     )
 
 
@@ -238,8 +261,9 @@ def escalate_to_human(
         "Primary person to notify. Accepts an email address (e.g. 'aj@airbyte.io'), "
         "a GitHub handle prefixed with @ (e.g. '@aaronsteers'), "
         "a Slack user ID (e.g. 'U05AKF1BCC9'), or a Slack usergroup ID "
-        "(e.g. 'S0BKR63VAN5' for @oc-internal-ai). Slack usergroup handles "
-        "such as '@oc-internal-ai' are not resolvable; use the ID form.",
+        "(e.g. 'S0BKR63VAN5' for @oc-internal-ai). Plain usergroup handles, "
+        "S-prefixed IDs, and pasted Slack subteam mentions all work; the ID "
+        "form is the most precise.",
     ],
     message: Annotated[
         str,
@@ -257,8 +281,9 @@ def escalate_to_human(
         list[str] | None,
         "Optional list of additional people or Slack usergroups to tag on the "
         "message. Each entry uses the same identifier format as target_person. "
-        "For usergroups, use the S-prefixed ID (e.g. 'S0BKR63VAN5' for "
-        "@oc-internal-ai), not the handle.",
+        "Plain usergroup handles, S-prefixed IDs, and pasted Slack subteam "
+        "mentions all work; the ID form (e.g. 'S0BKR63VAN5' for "
+        "@oc-internal-ai) is the most precise.",
     ] = None,
     pr_url: Annotated[
         str | None,

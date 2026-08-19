@@ -50,6 +50,7 @@ from .literals import (
     PowerFeedDropType,
     PowerPhaseType,
     PricingResultType,
+    PrivateConnectivityStatusType,
     QuoteCapacityTypeType,
     QuoteConstraintTypeType,
     QuoteRackUseTypeType,
@@ -90,6 +91,8 @@ __all__ = (
     "CreateOrderOutputTypeDef",
     "CreateOutpostInputTypeDef",
     "CreateOutpostOutputTypeDef",
+    "CreatePrivateConnectivityConfigInputTypeDef",
+    "CreatePrivateConnectivityConfigOutputTypeDef",
     "CreateQuoteInputTypeDef",
     "CreateQuoteOutputTypeDef",
     "CreateRenewalInputTypeDef",
@@ -121,6 +124,8 @@ __all__ = (
     "GetOutpostSupportedInstanceTypesInputPaginateTypeDef",
     "GetOutpostSupportedInstanceTypesInputTypeDef",
     "GetOutpostSupportedInstanceTypesOutputTypeDef",
+    "GetPrivateConnectivityConfigInputTypeDef",
+    "GetPrivateConnectivityConfigOutputTypeDef",
     "GetQuoteInputTypeDef",
     "GetQuoteOutputTypeDef",
     "GetRenewalPricingInputTypeDef",
@@ -175,6 +180,7 @@ __all__ = (
     "OutpostTypeDef",
     "PaginatorConfigTypeDef",
     "PricingOptionTypeDef",
+    "PrivateConnectivityConfigTypeDef",
     "QuoteCapacityTypeDef",
     "QuoteConstraintTypeDef",
     "QuoteOptionTypeDef",
@@ -207,6 +213,9 @@ __all__ = (
     "UpdateSiteOutputTypeDef",
     "UpdateSiteRackPhysicalPropertiesInputTypeDef",
     "UpdateSiteRackPhysicalPropertiesOutputTypeDef",
+    "VpcInformationOutputTypeDef",
+    "VpcInformationTypeDef",
+    "VpcInformationUnionTypeDef",
 )
 
 class AddressTypeDef(TypedDict):
@@ -414,6 +423,9 @@ class GetOutpostSupportedInstanceTypesInputTypeDef(TypedDict):
     MaxResults: NotRequired[int]
     NextToken: NotRequired[str]
 
+class GetPrivateConnectivityConfigInputTypeDef(TypedDict):
+    OutpostId: str
+
 class GetQuoteInputTypeDef(TypedDict):
     QuoteIdentifier: str
 
@@ -528,6 +540,11 @@ class SubscriptionPricingDetailsTypeDef(TypedDict):
     MonthlyRecurringPrice: NotRequired[float]
     Currency: NotRequired[Literal["USD"]]
 
+class VpcInformationOutputTypeDef(TypedDict):
+    VpcId: NotRequired[str]
+    SubnetIds: NotRequired[list[str]]
+    VpcEndpointId: NotRequired[str]
+
 class StartConnectionRequestTypeDef(TypedDict):
     AssetId: str
     ClientPublicKey: str
@@ -569,6 +586,11 @@ class UpdateSiteRackPhysicalPropertiesInputTypeDef(TypedDict):
     FiberOpticCableType: NotRequired[FiberOpticCableTypeType]
     OpticalStandard: NotRequired[OpticalStandardType]
     MaximumSupportedWeightLbs: NotRequired[MaximumSupportedWeightLbsType]
+
+class VpcInformationTypeDef(TypedDict):
+    VpcId: NotRequired[str]
+    SubnetIds: NotRequired[Sequence[str]]
+    VpcEndpointId: NotRequired[str]
 
 class UpdateSiteAddressInputTypeDef(TypedDict):
     SiteId: str
@@ -884,6 +906,14 @@ class PricingOptionTypeDef(TypedDict):
     PricingType: NotRequired[Literal["SUBSCRIPTION"]]
     SubscriptionPricingDetails: NotRequired[SubscriptionPricingDetailsTypeDef]
 
+class PrivateConnectivityConfigTypeDef(TypedDict):
+    RoleArn: NotRequired[str]
+    PrivateConnectivityStatus: NotRequired[PrivateConnectivityStatusType]
+    VpcInformationList: NotRequired[list[VpcInformationOutputTypeDef]]
+    ProvisioningRoleArn: NotRequired[str]
+
+VpcInformationUnionTypeDef = Union[VpcInformationTypeDef, VpcInformationOutputTypeDef]
+
 class AssetInfoTypeDef(TypedDict):
     AssetId: NotRequired[str]
     RackId: NotRequired[str]
@@ -958,6 +988,19 @@ class GetRenewalPricingOutputTypeDef(TypedDict):
     PricingResult: PricingResultType
     PricingOptions: list[PricingOptionTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
+
+class CreatePrivateConnectivityConfigOutputTypeDef(TypedDict):
+    PrivateConnectivityConfig: PrivateConnectivityConfigTypeDef
+    OutpostId: str
+    ResponseMetadata: ResponseMetadataTypeDef
+
+class GetPrivateConnectivityConfigOutputTypeDef(TypedDict):
+    PrivateConnectivityConfig: PrivateConnectivityConfigTypeDef
+    ResponseMetadata: ResponseMetadataTypeDef
+
+class CreatePrivateConnectivityConfigInputTypeDef(TypedDict):
+    OutpostId: str
+    VpcInformationList: Sequence[VpcInformationUnionTypeDef]
 
 class ListAssetsOutputTypeDef(TypedDict):
     Assets: list[AssetInfoTypeDef]

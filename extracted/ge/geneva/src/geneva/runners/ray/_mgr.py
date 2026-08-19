@@ -511,7 +511,11 @@ def init_ray(
     # Forward OTLP telemetry config from the driver process into the Ray worker
     telemetry_env = {
         key: os.environ[key]
-        for key in ("LANCEDB_OTEL_COLLECTOR_URL",)
+        for key in (
+            "LANCEDB_OTEL_COLLECTOR_URL",
+            telemetry.LANCE_METRICS_ENV,
+            "LANCE_OBJECT_STORE_METRICS_LABEL",
+        )
         if key in os.environ
     }
 
@@ -519,6 +523,10 @@ def init_ray(
         "env_vars": {
             "PIP_EXTRA_INDEX_URL": pip_extra_index_url,
             "GENEVA_ZIPS": geneva_zip_payload,
+            # Workers init telemetry at `import geneva` (see geneva/__init__.py).
+            # An env var, not worker_process_setup_hook: Ray Client doesn't
+            # export the hook.
+            telemetry.TELEMETRY_INIT_ON_IMPORT_ENV: "1",
             **telemetry_env,
             **(extra_env or {}),
         },
@@ -594,6 +602,17 @@ def init_ray(
         "logging_level": logging_level,
         **(ray_init_kwargs or {}),
     }
+
+    # Local Ray has no head/worker split. Advertise GENEVA_RAY_HEAD on
+    # the single node so tasks using ``head_pin_options()`` (pipeline
+    # drivers) can still be scheduled in unit tests and local development.
+    # On kuberay this resource is advertised by the head pod's
+    # rayStartParams instead (raycluster.py).
+    if local:
+        from geneva.utils.ray import GENEVA_RAY_HEAD
+
+        user_resources = init_kwargs.get("resources") or {}
+        init_kwargs["resources"] = {GENEVA_RAY_HEAD: 1, **user_resources}
 
     # Define tenacity-decorated inner function for retrying ray.init()
     # Retries on transient connection errors with exponential backoff + jitter

@@ -157,9 +157,9 @@ from lusid.models.adjust_global_commitment_event import AdjustGlobalCommitmentEv
 from lusid.models.adjust_holding import AdjustHolding
 from lusid.models.adjust_holding_for_date_request import AdjustHoldingForDateRequest
 from lusid.models.adjust_holding_request import AdjustHoldingRequest
+from lusid.models.aggregate_matching_rule import AggregateMatchingRule
 from lusid.models.aggregate_rule_values import AggregateRuleValues
 from lusid.models.aggregate_spec import AggregateSpec
-from lusid.models.aggregate_tolerance_base import AggregateToleranceBase
 from lusid.models.aggregated_return import AggregatedReturn
 from lusid.models.aggregated_returns_dispersion_request import AggregatedReturnsDispersionRequest
 from lusid.models.aggregated_returns_entity_id import AggregatedReturnsEntityId
@@ -244,6 +244,7 @@ from lusid.models.bond_conversion_schedule import BondConversionSchedule
 from lusid.models.bond_coupon_event import BondCouponEvent
 from lusid.models.bond_default_event import BondDefaultEvent
 from lusid.models.bond_option import BondOption
+from lusid.models.bond_option_termination_event import BondOptionTerminationEvent
 from lusid.models.bond_principal_event import BondPrincipalEvent
 from lusid.models.bonus_issue_event import BonusIssueEvent
 from lusid.models.book_transactions_request import BookTransactionsRequest
@@ -278,6 +279,7 @@ from lusid.models.cancel_orders_response import CancelOrdersResponse
 from lusid.models.cancel_placements_response import CancelPlacementsResponse
 from lusid.models.cancel_schedule import CancelSchedule
 from lusid.models.cancel_single_holding_adjustment_request import CancelSingleHoldingAdjustmentRequest
+from lusid.models.cancel_swap_event import CancelSwapEvent
 from lusid.models.cancelled_order_result import CancelledOrderResult
 from lusid.models.cancelled_placement_result import CancelledPlacementResult
 from lusid.models.cap_floor import CapFloor
@@ -395,8 +397,8 @@ from lusid.models.contract_for_difference import ContractForDifference
 from lusid.models.contract_initialisation_event import ContractInitialisationEvent
 from lusid.models.contribution_to_non_passing_rule_detail import ContributionToNonPassingRuleDetail
 from lusid.models.conversion_event import ConversionEvent
+from lusid.models.core_matching_rule import CoreMatchingRule
 from lusid.models.core_rule_values import CoreRuleValues
-from lusid.models.core_tolerance_base import CoreToleranceBase
 from lusid.models.corporate_action import CorporateAction
 from lusid.models.corporate_action_source import CorporateActionSource
 from lusid.models.corporate_action_transition import CorporateActionTransition
@@ -424,9 +426,11 @@ from lusid.models.create_derived_transaction_portfolio_request import CreateDeri
 from lusid.models.create_group_reconciliation_comparison_ruleset_request import CreateGroupReconciliationComparisonRulesetRequest
 from lusid.models.create_group_reconciliation_definition_request import CreateGroupReconciliationDefinitionRequest
 from lusid.models.create_identifier_definition_request import CreateIdentifierDefinitionRequest
+from lusid.models.create_matching_ruleset_request import CreateMatchingRulesetRequest
 from lusid.models.create_portfolio_details import CreatePortfolioDetails
 from lusid.models.create_portfolio_group_request import CreatePortfolioGroupRequest
 from lusid.models.create_property_definition_request import CreatePropertyDefinitionRequest
+from lusid.models.create_rec_definition_request import CreateRecDefinitionRequest
 from lusid.models.create_recipe_request import CreateRecipeRequest
 from lusid.models.create_reconciliation_request import CreateReconciliationRequest
 from lusid.models.create_reference_portfolio_request import CreateReferencePortfolioRequest
@@ -748,6 +752,7 @@ from lusid.models.index_convention import IndexConvention
 from lusid.models.index_model_options import IndexModelOptions
 from lusid.models.index_projection_dependency import IndexProjectionDependency
 from lusid.models.industry_classifier import IndustryClassifier
+from lusid.models.inflation_curve_data import InflationCurveData
 from lusid.models.inflation_fixing_dependency import InflationFixingDependency
 from lusid.models.inflation_index_conventions import InflationIndexConventions
 from lusid.models.inflation_leg import InflationLeg
@@ -855,6 +860,7 @@ from lusid.models.market_options import MarketOptions
 from lusid.models.market_quote import MarketQuote
 from lusid.models.mastered_instrument import MasteredInstrument
 from lusid.models.match_criterion import MatchCriterion
+from lusid.models.matching_ruleset import MatchingRuleset
 from lusid.models.maturity_event import MaturityEvent
 from lusid.models.mbs_coupon_event import MbsCouponEvent
 from lusid.models.mbs_interest_deferral_event import MbsInterestDeferralEvent
@@ -992,6 +998,7 @@ from lusid.models.paged_resource_list_of_instrument_event_holder import PagedRes
 from lusid.models.paged_resource_list_of_instrument_event_instruction import PagedResourceListOfInstrumentEventInstruction
 from lusid.models.paged_resource_list_of_item_and_workspace import PagedResourceListOfItemAndWorkspace
 from lusid.models.paged_resource_list_of_legal_entity import PagedResourceListOfLegalEntity
+from lusid.models.paged_resource_list_of_matching_ruleset import PagedResourceListOfMatchingRuleset
 from lusid.models.paged_resource_list_of_order import PagedResourceListOfOrder
 from lusid.models.paged_resource_list_of_order_breach_history import PagedResourceListOfOrderBreachHistory
 from lusid.models.paged_resource_list_of_order_graph_block import PagedResourceListOfOrderGraphBlock
@@ -1008,6 +1015,7 @@ from lusid.models.paged_resource_list_of_posting_module_response import PagedRes
 from lusid.models.paged_resource_list_of_posting_module_rule import PagedResourceListOfPostingModuleRule
 from lusid.models.paged_resource_list_of_property_definition import PagedResourceListOfPropertyDefinition
 from lusid.models.paged_resource_list_of_property_definition_search_result import PagedResourceListOfPropertyDefinitionSearchResult
+from lusid.models.paged_resource_list_of_rec_definition import PagedResourceListOfRecDefinition
 from lusid.models.paged_resource_list_of_rec_instance import PagedResourceListOfRecInstance
 from lusid.models.paged_resource_list_of_rec_result import PagedResourceListOfRecResult
 from lusid.models.paged_resource_list_of_rec_result_set import PagedResourceListOfRecResultSet
@@ -1176,7 +1184,15 @@ from lusid.models.rec_approval_decision import RecApprovalDecision
 from lusid.models.rec_closed_exception_counts import RecClosedExceptionCounts
 from lusid.models.rec_closed_period_reference import RecClosedPeriodReference
 from lusid.models.rec_closed_periods import RecClosedPeriods
+from lusid.models.rec_dataset_schema import RecDatasetSchema
+from lusid.models.rec_dataset_schemas import RecDatasetSchemas
 from lusid.models.rec_dates_reconciled import RecDatesReconciled
+from lusid.models.rec_def_currencies import RecDefCurrencies
+from lusid.models.rec_def_recipe_ids import RecDefRecipeIds
+from lusid.models.rec_def_ruleset import RecDefRuleset
+from lusid.models.rec_def_side_names import RecDefSideNames
+from lusid.models.rec_def_source import RecDefSource
+from lusid.models.rec_definition import RecDefinition
 from lusid.models.rec_exception_count_by_closure_type import RecExceptionCountByClosureType
 from lusid.models.rec_exception_count_by_result_type import RecExceptionCountByResultType
 from lusid.models.rec_execution import RecExecution
@@ -1457,6 +1473,7 @@ from lusid.models.sub_holding_key_value_equals import SubHoldingKeyValueEquals
 from lusid.models.submit_rec_result_set_review_request import SubmitRecResultSetReviewRequest
 from lusid.models.subscribe_election import SubscribeElection
 from lusid.models.subscription_definition import SubscriptionDefinition
+from lusid.models.supplemental_attribute import SupplementalAttribute
 from lusid.models.supplemental_attribute_values import SupplementalAttributeValues
 from lusid.models.swap_cash_flow_event import SwapCashFlowEvent
 from lusid.models.swap_principal_event import SwapPrincipalEvent
@@ -1476,6 +1493,7 @@ from lusid.models.time_zone_conventions import TimeZoneConventions
 from lusid.models.timeline import Timeline
 from lusid.models.to_be_announced import ToBeAnnounced
 from lusid.models.to_be_announced_option import ToBeAnnouncedOption
+from lusid.models.tolerance_base import ToleranceBase
 from lusid.models.total_return_swap import TotalReturnSwap
 from lusid.models.touch import Touch
 from lusid.models.trade_ticket import TradeTicket
@@ -1570,11 +1588,13 @@ from lusid.models.update_group_reconciliation_definition_request import UpdateGr
 from lusid.models.update_identifier_definition_request import UpdateIdentifierDefinitionRequest
 from lusid.models.update_instrument_identifier_request import UpdateInstrumentIdentifierRequest
 from lusid.models.update_market_data_field_configuration_request import UpdateMarketDataFieldConfigurationRequest
+from lusid.models.update_matching_ruleset_request import UpdateMatchingRulesetRequest
 from lusid.models.update_orders_response import UpdateOrdersResponse
 from lusid.models.update_placements_response import UpdatePlacementsResponse
 from lusid.models.update_portfolio_group_request import UpdatePortfolioGroupRequest
 from lusid.models.update_portfolio_request import UpdatePortfolioRequest
 from lusid.models.update_property_definition_request import UpdatePropertyDefinitionRequest
+from lusid.models.update_rec_definition_request import UpdateRecDefinitionRequest
 from lusid.models.update_reconciliation_request import UpdateReconciliationRequest
 from lusid.models.update_reference_data_request import UpdateReferenceDataRequest
 from lusid.models.update_relational_dataset_definition_request import UpdateRelationalDatasetDefinitionRequest
@@ -1853,9 +1873,9 @@ __all__ = [
     "AdjustHolding",
     "AdjustHoldingForDateRequest",
     "AdjustHoldingRequest",
+    "AggregateMatchingRule",
     "AggregateRuleValues",
     "AggregateSpec",
-    "AggregateToleranceBase",
     "AggregatedReturn",
     "AggregatedReturnsDispersionRequest",
     "AggregatedReturnsEntityId",
@@ -1940,6 +1960,7 @@ __all__ = [
     "BondCouponEvent",
     "BondDefaultEvent",
     "BondOption",
+    "BondOptionTerminationEvent",
     "BondPrincipalEvent",
     "BonusIssueEvent",
     "BookTransactionsRequest",
@@ -1974,6 +1995,7 @@ __all__ = [
     "CancelPlacementsResponse",
     "CancelSchedule",
     "CancelSingleHoldingAdjustmentRequest",
+    "CancelSwapEvent",
     "CancelledOrderResult",
     "CancelledPlacementResult",
     "CapFloor",
@@ -2091,8 +2113,8 @@ __all__ = [
     "ContractInitialisationEvent",
     "ContributionToNonPassingRuleDetail",
     "ConversionEvent",
+    "CoreMatchingRule",
     "CoreRuleValues",
-    "CoreToleranceBase",
     "CorporateAction",
     "CorporateActionSource",
     "CorporateActionTransition",
@@ -2120,9 +2142,11 @@ __all__ = [
     "CreateGroupReconciliationComparisonRulesetRequest",
     "CreateGroupReconciliationDefinitionRequest",
     "CreateIdentifierDefinitionRequest",
+    "CreateMatchingRulesetRequest",
     "CreatePortfolioDetails",
     "CreatePortfolioGroupRequest",
     "CreatePropertyDefinitionRequest",
+    "CreateRecDefinitionRequest",
     "CreateRecipeRequest",
     "CreateReconciliationRequest",
     "CreateReferencePortfolioRequest",
@@ -2444,6 +2468,7 @@ __all__ = [
     "IndexModelOptions",
     "IndexProjectionDependency",
     "IndustryClassifier",
+    "InflationCurveData",
     "InflationFixingDependency",
     "InflationIndexConventions",
     "InflationLeg",
@@ -2551,6 +2576,7 @@ __all__ = [
     "MarketQuote",
     "MasteredInstrument",
     "MatchCriterion",
+    "MatchingRuleset",
     "MaturityEvent",
     "MbsCouponEvent",
     "MbsInterestDeferralEvent",
@@ -2688,6 +2714,7 @@ __all__ = [
     "PagedResourceListOfInstrumentEventInstruction",
     "PagedResourceListOfItemAndWorkspace",
     "PagedResourceListOfLegalEntity",
+    "PagedResourceListOfMatchingRuleset",
     "PagedResourceListOfOrder",
     "PagedResourceListOfOrderBreachHistory",
     "PagedResourceListOfOrderGraphBlock",
@@ -2704,6 +2731,7 @@ __all__ = [
     "PagedResourceListOfPostingModuleRule",
     "PagedResourceListOfPropertyDefinition",
     "PagedResourceListOfPropertyDefinitionSearchResult",
+    "PagedResourceListOfRecDefinition",
     "PagedResourceListOfRecInstance",
     "PagedResourceListOfRecResult",
     "PagedResourceListOfRecResultSet",
@@ -2872,7 +2900,15 @@ __all__ = [
     "RecClosedExceptionCounts",
     "RecClosedPeriodReference",
     "RecClosedPeriods",
+    "RecDatasetSchema",
+    "RecDatasetSchemas",
     "RecDatesReconciled",
+    "RecDefCurrencies",
+    "RecDefRecipeIds",
+    "RecDefRuleset",
+    "RecDefSideNames",
+    "RecDefSource",
+    "RecDefinition",
     "RecExceptionCountByClosureType",
     "RecExceptionCountByResultType",
     "RecExecution",
@@ -3153,6 +3189,7 @@ __all__ = [
     "SubmitRecResultSetReviewRequest",
     "SubscribeElection",
     "SubscriptionDefinition",
+    "SupplementalAttribute",
     "SupplementalAttributeValues",
     "SwapCashFlowEvent",
     "SwapPrincipalEvent",
@@ -3172,6 +3209,7 @@ __all__ = [
     "Timeline",
     "ToBeAnnounced",
     "ToBeAnnouncedOption",
+    "ToleranceBase",
     "TotalReturnSwap",
     "Touch",
     "TradeTicket",
@@ -3266,11 +3304,13 @@ __all__ = [
     "UpdateIdentifierDefinitionRequest",
     "UpdateInstrumentIdentifierRequest",
     "UpdateMarketDataFieldConfigurationRequest",
+    "UpdateMatchingRulesetRequest",
     "UpdateOrdersResponse",
     "UpdatePlacementsResponse",
     "UpdatePortfolioGroupRequest",
     "UpdatePortfolioRequest",
     "UpdatePropertyDefinitionRequest",
+    "UpdateRecDefinitionRequest",
     "UpdateReconciliationRequest",
     "UpdateReferenceDataRequest",
     "UpdateRelationalDatasetDefinitionRequest",

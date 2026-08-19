@@ -643,6 +643,39 @@ class ConnectorRolloutProgressResult(BaseModel):
         return f"FAILED {self.message}"
 
 
+class ConnectorRolloutPauseResult(BaseModel):
+    """Result of a connector rollout pause operation.
+
+    A paused rollout keeps its existing pins; it is the reversible alternative to
+    finalizing a rollout as `canceled`.
+    """
+
+    success: bool = Field(description="Whether the operation succeeded")
+    message: str = Field(description="Human-readable message describing the result")
+    rollout_id: str | None = Field(
+        default=None,
+        description="The rollout ID that was paused",
+    )
+    docker_repository: str | None = Field(
+        default=None,
+        description="The docker repository (e.g., 'airbyte/source-github')",
+    )
+    docker_image_tag: str | None = Field(
+        default=None,
+        description="The docker image tag (e.g., '1.2.0-rc.2')",
+    )
+    paused_reason: str | None = Field(
+        default=None,
+        description="The reason recorded on the paused rollout",
+    )
+
+    def __str__(self) -> str:
+        """Return a string representation of the operation result."""
+        if self.success:
+            return f"OK {self.message}"
+        return f"FAILED {self.message}"
+
+
 class ConnectorRolloutFinalizeResult(BaseModel):
     """Result of a connector rollout finalization operation.
 

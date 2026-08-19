@@ -319,7 +319,7 @@ def _isolate_group_inductor_cache() -> None:
 
     Set AFTER the seal — env_seal scrubs the whole ``TORCH*``/``TRITON*``
     namespace at boot, and the sanctioned window to point the SDK's own capture
-    redirects is after that scrub (same as cell ``capture_env``). A per-group
+    redirects is after that scrub (same as compiled graph ``capture_env``). A per-group
     PATH is plumbing, not a behaviour flag, so it does not touch the seal
     digest or minted kernels (inductor keys are content-addressed).
 
@@ -538,12 +538,11 @@ def _run_main() -> int:
         logger.info("  Local Model Cache Dir: %s", cache_cfg["local_model_cache_dir"])
 
     if not user_modules:
-        # pgw#1354: this exit used to be a bare `logger.error` + `return 1`.
-        # RunPod exposes no container-logs API, so the hub saw `exit:1` with no
-        # reason class and condemned the pod `[hardware-unsuitable]` with empty
-        # driver/gpu — a boot bug wearing a hardware verdict, and it cost a paid
-        # pod to find. Every other fatal in this function dials typed; so does
-        # this one. The message DISCRIMINATES the two gaps, because they have
+        # pgw#1354: dial TYPED, like every other fatal in this function. RunPod
+        # exposes no container-logs API, so a bare `return 1` reaches the hub as
+        # `exit:1` with no reason class and is condemned `[hardware-unsuitable]` —
+        # a boot bug wearing a hardware verdict. The message DISCRIMINATES the two
+        # gaps, because they have
         # different owners: no manifest at all is a Dockerfile that never ran
         # discovery, while declarations-without-modules is a manifest this wheel
         # cannot read (a block it does not walk, or rows with no `module`).
@@ -604,3 +603,27 @@ def _run_main() -> int:
 
 if __name__ == "__main__":
     sys.exit(_run_main())
+
+
+# ---------------------------------------------------------------------------
+# pgw#1370 INTERIM (name collision, flagged for pgw#1372/#1373): the reviewed
+# author surface spells `from gen_worker import entrypoint` for the DECORATOR
+# (gen_worker.api.entrypoint), while THIS module is the worker process entry
+# (`python -m gen_worker.entrypoint`, pinned in every fleet Dockerfile).
+# Renaming the module is a fleet-wide coordinated change; until that ruling,
+# this module is made CALLABLE and delegates to the decorator, so both
+# spellings work at runtime. Type checkers see the module; author repos type
+# against gen_worker.api.entrypoint directly.
+import sys as _sys
+import types as _types
+from typing import Any as _Any
+
+
+class _CallableEntrypointModule(_types.ModuleType):
+    def __call__(self, fn: _Any) -> _Any:
+        from .api.entrypoint import entrypoint as _decorator
+
+        return _decorator(fn)
+
+
+_sys.modules[__name__].__class__ = _CallableEntrypointModule

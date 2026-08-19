@@ -12,6 +12,8 @@ from geneva.runners.ray.oom_recovery_budget import (
     OOMRecoveryBudgetConfig,
     OOMRecoveryBudgetTracker,
     init_oom_recovery_metrics,
+    oom_recovery_target_split_fanout,
+    oom_recovery_task_ranges,
     read_task_oom_range_key,
     record_oom_recovery_attempt,
     row_ids_oom_range_key,
@@ -146,12 +148,111 @@ def test_config_base_env_names(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setenv("GENEVA_OOM_RECOVERY_BUDGET__ENABLED", "false")
     monkeypatch.setenv("GENEVA_OOM_RECOVERY_BUDGET__MAX_TOTAL_OOM_RECOVERIES", "17")
     monkeypatch.setenv("GENEVA_OOM_RECOVERY_BUDGET__MAX_SAME_RANGE_OOM_RECOVERIES", "9")
+    monkeypatch.setenv("GENEVA_OOM_RECOVERY_BUDGET__TARGET_SPLIT_FANOUT", "10")
 
     config = loader(from_env()).load(OOMRecoveryBudgetConfig)
 
     assert config.enabled is False
     assert config.max_total_oom_recoveries == 17
     assert config.max_same_range_oom_recoveries == 9
+    assert config.target_split_fanout == 10
+
+
+def test_config_target_split_fanout_defaults_to_adaptive() -> None:
+    assert OOMRecoveryBudgetConfig().target_split_fanout is None
+
+
+@pytest.mark.parametrize(
+    ("task_size", "expected"),
+    [
+        (999, 2),
+        (1_000, 10),
+        (999_999, 10),
+        (1_000_000, 100),
+    ],
+)
+def test_oom_recovery_target_split_fanout_is_adaptive(
+    task_size: int, expected: int
+) -> None:
+    assert oom_recovery_target_split_fanout(task_size) == expected
+
+
+@pytest.mark.parametrize(
+    ("total_rows", "target_split_fanout", "expected_sizes"),
+    [
+        (20, 2, [10, 10]),
+        (23, 10, [3, 3, 3, 2, 2, 2, 2, 2, 2, 2]),
+    ],
+    ids=["two-way", "ten-way-remainder"],
+)
+def test_oom_recovery_task_ranges_are_balanced_and_deterministic(
+    total_rows: int,
+    target_split_fanout: int,
+    expected_sizes: list[int],
+) -> None:
+    ranges = oom_recovery_task_ranges(
+        total_rows=total_rows,
+        covered=[],
+        target_split_fanout=target_split_fanout,
+    )
+    assert [size for _, size in ranges] == expected_sizes
+    assert [start for start, _ in ranges] == [
+        sum(expected_sizes[:index]) for index in range(len(expected_sizes))
+    ]
+
+
+def test_oom_recovery_task_ranges_preserve_fragmented_checkpoint_gaps() -> None:
+    assert oom_recovery_task_ranges(
+        total_rows=32,
+        covered=[(4, 8), (12, 16), (20, 24)],
+        target_split_fanout=10,
+    ) == [
+        (0, 2),
+        (2, 2),
+        (8, 2),
+        (10, 2),
+        (16, 2),
+        (18, 2),
+        (24, 2),
+        (26, 2),
+        (28, 2),
+        (30, 2),
+    ]
+
+
+def test_oom_recovery_task_ranges_normalize_checkpoint_coverage() -> None:
+    assert oom_recovery_task_ranges(
+        total_rows=20,
+        covered=[(12, 16), (-3, 3), (2, 6), (10, 14), (25, 30)],
+        target_split_fanout=4,
+    ) == [(6, 2), (8, 2), (16, 2), (18, 2)]
+
+
+def test_oom_recovery_task_ranges_can_exceed_target_for_disjoint_gaps() -> None:
+    assert oom_recovery_task_ranges(
+        total_rows=9,
+        covered=[(1, 2), (3, 4), (5, 6), (7, 8)],
+        target_split_fanout=2,
+    ) == [(0, 1), (2, 1), (4, 1), (6, 1), (8, 1)]
+
+
+def test_oom_recovery_task_ranges_validate_edge_cases() -> None:
+    assert (
+        oom_recovery_task_ranges(
+            total_rows=12,
+            covered=[(0, 12)],
+            target_split_fanout=10,
+        )
+        == []
+    )
+    with pytest.raises(ValueError, match="target_split_fanout must be at least 2"):
+        oom_recovery_task_ranges(
+            total_rows=10,
+            covered=[],
+            target_split_fanout=1,
+        )
+    with pytest.raises(ValueError, match="must be >= 2"):
+        OOMRecoveryBudgetConfig(target_split_fanout=1)
 
 
 def test_scan_task_range_key_uses_exact_task_identity() -> None:
@@ -260,3 +361,27 @@ def test_metric_helpers_initialize_and_record_attempts() -> None:
         (METRIC_FATAL_WORKER_OOM_RECOVERIES, 1),
         (METRIC_FATAL_WORKER_OOM_BUDGET_EXCEEDED, 1),
     ]
+
+
+def test_shrunk_recoveries_are_not_charged_and_never_fail() -> None:
+    """Shrinking retries are progress: uncounted and exempt from fail-fast."""
+    tracker = _tracker(max_total=2, max_same_range=1)
+
+    # Far more shrinking recoveries than either limit allows.
+    for i in range(10):
+        attempt = tracker.record(
+            job_id="job-1",
+            range_key=f"range-{i % 2}",
+            oom_exc=_oom(),
+            shrunk=True,
+        )
+        assert attempt is not None
+        assert attempt.total_count == 0
+        assert attempt.same_range_count == 0
+
+    assert tracker.total_oom_recoveries == 0
+
+    # Non-shrinking recoveries still charge the budget and fail fast.
+    assert tracker.record(job_id="job-1", range_key="stuck", oom_exc=_oom())
+    with pytest.raises(FatalWorkerOOMError):
+        tracker.record(job_id="job-1", range_key="stuck", oom_exc=_oom())

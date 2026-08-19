@@ -13,6 +13,8 @@
 #-----------------------------------------------------------------------------
 from __future__ import annotations
 
+# pyright: reportAbstractUsage=false, reportArgumentType=false, reportAssignmentType=false, reportAttributeAccessIssue=false, reportGeneralTypeIssues=false, reportInconsistentOverload=false, reportOperatorIssue=false
+
 import logging # isort:skip
 log = logging.getLogger(__name__)
 
@@ -397,7 +399,9 @@ class Plot(LayoutDOM):
                 A tile source instance which contain tileset configuration
 
             retina (bool) :
-                Whether to use retina version of tiles (if available)
+                Whether to use retina version of tiles (if available). This
+                also sets ``TileSource.pixel_ratio``, so that the tiles are
+                displayed at their natural size.
 
         Keyword Arguments:
             Additional keyword arguments are passed on as-is to the tile renderer
@@ -428,11 +432,19 @@ class Plot(LayoutDOM):
                     retina = True
 
                 selected_provider = xyzservices.providers.query_name(tile_source)
+            else:
+                raise ValueError(f"expected a TileSource, xyzservices.TileProvider, or str, got {tile_source!r}")
 
             scale_factor = "@2x" if retina else None
+            url = selected_provider.build_url(scale_factor=scale_factor)
+
+            # a provider without a scale factor placeholder ignores the request
+            # for retina tiles, in which case the tiles are of the usual size
+            high_res = retina and "{r}" in selected_provider.get("url", "")
 
             tile_source = WMTSTileSource(
-                url=selected_provider.build_url(scale_factor=scale_factor),
+                url=url,
+                pixel_ratio=2 if high_res else 1,
                 attribution=selected_provider.html_attribution,
                 min_zoom=selected_provider.get("min_zoom", 0),
                 max_zoom=selected_provider.get("max_zoom", 30),
@@ -452,8 +464,10 @@ class Plot(LayoutDOM):
         '''
         if render:
             self.hold_render = True
-            yield
-            self.hold_render = False
+            try:
+                yield
+            finally:
+                self.hold_render = False
 
     @error(REQUIRED_RANGE)
     def _check_required_range(self) -> str | None:

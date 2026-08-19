@@ -50,6 +50,9 @@ from .protocols import (
     # Agent-callable message reactions (Issue #3917)
     ReactionResult,
     ReactionStatus,
+    # Agent/gateway-callable thread creation (Issue #3987)
+    ThreadResult,
+    ThreadStatus,
     # Agent-callable cross-conversation request/reply (Issue #3689)
     ConversationReply,
     ConversationReplyStatus,
@@ -151,6 +154,11 @@ from .protocols import (
     TurnLeaseToken,
     TurnLockProtocol,
     LocalTurnLock,
+    # Per-session turn-execution isolation (Issue #4011)
+    WorkerWedgedError,
+    TurnPlacement,
+    TurnExecutorProtocol,
+    InProcessTurnExecutor,
     # Schema-validated inbound frame codec (Issue #2831)
     HelloParams,
     HelloResult,
@@ -314,6 +322,8 @@ __all__ = [
     "TargetInfo",
     "ReactionResult",
     "ReactionStatus",
+    "ThreadResult",
+    "ThreadStatus",
     # Agent-callable cross-conversation request/reply (Issue #3689)
     "ConversationReply",
     "ConversationReplyStatus",
@@ -414,6 +424,11 @@ __all__ = [
     "TurnLeaseToken",
     "TurnLockProtocol",
     "LocalTurnLock",
+    # Per-session turn-execution isolation (Issue #4011)
+    "WorkerWedgedError",
+    "TurnPlacement",
+    "TurnExecutorProtocol",
+    "InProcessTurnExecutor",
     # Schema-validated inbound frame codec (Issue #2831)
     "HelloParams",
     "HelloResult",

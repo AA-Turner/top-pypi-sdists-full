@@ -14,6 +14,10 @@ Bootstrap is **lazy, idempotent, and process-global**. The first ``get_meter`` /
 flush. A process that never emits anything pays nothing, and a process with no
 collector URL configured is a silent no-op.
 
+When metrics are enabled, Lance's object-store metrics are bridged into the same
+provider via ``lance.otel`` (disable with ``GENEVA_ENABLE_OTEL_LANCE_METRICS=false``).
+Ray workers init at ``import geneva``, gated by ``GENEVA_TELEMETRY_INIT_ON_IMPORT``.
+
 Tracing: a single job's execution lifecycle runs inside one Ray task process, so
 a root ``geneva.job`` span there plus nested in-process child spans (``plan`` /
 ``execute`` / ...) forms one trace per job. If a real ``TracerProvider`` is
@@ -41,6 +45,7 @@ import atexit
 import contextlib
 import logging
 import os
+import socket
 import threading
 from typing import TYPE_CHECKING
 
@@ -70,6 +75,14 @@ _SERVICE_NAME = "geneva"
 #: series explode Prometheus cardinality. Trace spans always carry them.
 METRIC_HIGH_CARDINALITY_LABELS_ENV = "GENEVA_OTEL_METRIC_HIGH_CARDINALITY_LABELS"
 
+#: Opt-out for the Lance object-store metrics bridge (default on). Set to
+#: ``false`` to disable; unrecognized values also disable, with a warning.
+LANCE_METRICS_ENV = "GENEVA_ENABLE_OTEL_LANCE_METRICS"
+
+#: Internal: set on Ray workers by ``geneva.runners.ray._mgr`` so that
+#: ``import geneva`` calls :func:`init` before the worker's first I/O.
+TELEMETRY_INIT_ON_IMPORT_ENV = "GENEVA_TELEMETRY_INIT_ON_IMPORT"
+
 _lock = threading.Lock()
 _initialized = False
 _meter_provider: MeterProvider | None = None
@@ -88,9 +101,8 @@ def _build_resource() -> Resource:
 
     attributes: dict[str, str] = {"service.name": _SERVICE_NAME}
     # Process-static identity only -- never the per-job axes (see module docs).
-    instance = os.environ.get("HOSTNAME")
-    if instance:
-        attributes["service.instance.id"] = instance
+    host = os.environ.get("HOSTNAME") or socket.gethostname()
+    attributes["service.instance.id"] = f"{host}-{os.getpid()}"
     for env_key, attr_key in (
         ("LANCEDB_ENV", "env"),
         ("GENEVA_CLUSTER_NAME", "cluster"),
@@ -123,6 +135,47 @@ def _init_metrics(url: str, resource: Resource) -> None:
         _LOG.warning("failed to initialize geneva metrics", exc_info=True)
         _meter_provider = None
         _meter = None
+
+
+def _lance_metrics_enabled() -> bool:
+    """Whether the Lance metrics bridge is enabled (default on). Unrecognized
+    values disable with a warning: the var only appears in an environment to
+    turn the bridge off, so a typo must not silently leave it on."""
+    value = os.environ.get(LANCE_METRICS_ENV, "").strip().lower()
+    if value in ("", "1", "true", "yes", "on"):
+        return True
+    if value not in ("0", "false", "no", "off"):
+        _LOG.warning(
+            "unrecognized %s value %r; treating as 'false'", LANCE_METRICS_ENV, value
+        )
+    return False
+
+
+def _init_lance_metrics(provider: MeterProvider) -> None:
+    """Bridge Lance's object-store metrics into ``provider`` (best-effort).
+
+    Requires pylance >= 9.0.0b21; any failure disables Lance metrics without
+    breaking telemetry or the job.
+    """
+    if not _lance_metrics_enabled():
+        _LOG.info("lance object-store metrics disabled via %s", LANCE_METRICS_ENV)
+        return
+    try:
+        from lance.otel import instrument_lance_metrics
+    except ImportError:
+        _LOG.info(
+            "lance object-store metrics unavailable (requires pylance >= 9.0.0b21)"
+        )
+        return
+    try:
+        # False: another library holds the process's one Rust recorder slot.
+        if not instrument_lance_metrics(provider):
+            _LOG.warning(
+                "lance object-store metrics disabled: another metrics recorder "
+                "is already installed in this process"
+            )
+    except Exception:
+        _LOG.warning("failed to enable lance object-store metrics", exc_info=True)
 
 
 def _init_tracing(url: str, resource: Resource) -> None:
@@ -173,6 +226,8 @@ def _init_locked() -> None:
 
     resource = _build_resource()
     _init_metrics(url, resource)
+    if _meter_provider is not None:
+        _init_lance_metrics(_meter_provider)
     _init_tracing(url, resource)
     atexit.register(shutdown)
     _LOG.info("telemetry initialized; exporting to %s", url)

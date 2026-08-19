@@ -35,6 +35,13 @@ public sealed partial class HumanizedPage : IPage
         _human = new HumanPage(inner, cfg);
         _mouse = new HumanizedMouse(inner.Mouse, cursor, cfg);
         _keyboard = new HumanizedKeyboard(inner.Keyboard, cursor, cfg);
+
+        // Invalidate the isolated world on any main-frame nav, not just goto, so
+        // click/form navigations don't leave it bound to a stale doc (#507).
+        _inner.FrameNavigated += (_, frame) =>
+        {
+            if (frame == _inner.MainFrame) _cursor.InvalidateStealth();
+        };
     }
 
     /// <summary>The original, un-humanized Playwright page (escape hatch for raw speed).</summary>

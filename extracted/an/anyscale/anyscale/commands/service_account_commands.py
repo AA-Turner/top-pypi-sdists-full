@@ -19,6 +19,7 @@ from anyscale.commands.output_format import (
     print_output,
 )
 from anyscale.commands.util import AnyscaleCommand
+from anyscale.errors import UserError
 from anyscale.service_account.models import (
     OrganizationPermissionLevel,
     ServiceAccount,
@@ -118,7 +119,9 @@ def create(name: str, output_format: str) -> None:
         log.info(f"Service account {name} created successfully.")
         _print_new_api_key(api_key)
     except ValueError as e:
-        log.error(f"Error creating service account: {e}")
+        raise UserError(
+            f"Error creating service account: {e}", legacy_exit_code=0
+        ) from None
 
 
 @command_metadata(
@@ -147,7 +150,10 @@ def create(name: str, output_format: str) -> None:
     "--email", help="Email of the service account to create the new key for.", type=str
 )
 @click.option(
-    "--name", help="Name of the service account to create the new key for.", type=str
+    "--name",
+    "-n",
+    help="Name of the service account to create the new key for.",
+    type=str,
 )
 @click.option(
     OUTPUT_FLAG,
@@ -172,7 +178,7 @@ def create_api_key(
 
         _print_new_api_key(api_key)
     except ValueError as e:
-        log.error(f"Error creating API key: {e}")
+        raise UserError(f"Error creating API key: {e}", legacy_exit_code=0) from None
 
 
 @command_metadata(
@@ -252,10 +258,12 @@ def list_service_accounts(max_items: int, output_format: str) -> None:
     cls=AnyscaleCommand,
 )
 @click.option("--email", help="Email of the service account to delete.", type=str)
-@click.option("--name", help="Name of the service account to delete.", type=str)
+@click.option("--name", "-n", help="Name of the service account to delete.", type=str)
 def delete(email: Optional[str], name: Optional[str]) -> None:
     try:
         anyscale.service_account.delete(email, name)
         log.info(f"Service account {email or name} deleted successfully.")
     except ValueError as e:
-        log.error(f"Error deleting service account: {e}")
+        raise UserError(
+            f"Error deleting service account: {e}", legacy_exit_code=0
+        ) from None

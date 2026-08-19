@@ -52,6 +52,7 @@ def cluster_cli() -> None:
 @click.option(
     "--cluster-id",
     "--id",
+    "cluster_id",
     required=False,
     default=None,
     help=(
@@ -146,6 +147,7 @@ def archive(
 @click.option(
     "--cluster-id",
     "--id",
+    "cluster_id",
     required=False,
     default=None,
     help=(

@@ -1,5 +1,5 @@
 import type { StyleSheetLike } from "../../core/dom";
-import type { ViewStorage, View, ViewOf } from "../../core/build_views";
+import type { ViewStorage, ChildView, ViewOf } from "../../core/build_views";
 import type * as p from "../../core/properties";
 import { UIElement, UIElementView } from "../ui/ui_element";
 import { Logo, Location, ToolName } from "../../core/enums";
@@ -27,7 +27,7 @@ export declare class ToolbarView extends UIElementView {
     get overflow_el(): HTMLElement;
     private _visible;
     get visible(): boolean;
-    children_views(): View[];
+    children_views(): ChildView[];
     has_finished(): boolean;
     initialize(): void;
     lazy_initialize(): Promise<void>;
@@ -129,13 +129,13 @@ export declare class Toolbar extends UIElement {
     properties: Toolbar.Props;
     __view_type__: ToolbarView;
     constructor(attrs?: Partial<Toolbar.Attrs>);
-    active_changed: Signal0<this>;
+    readonly active_changed: Signal0<this>;
     get horizontal(): boolean;
     get vertical(): boolean;
     connect_signals(): void;
     initialize(): void;
     protected _init_tools(): void;
-    protected _activate_tools(): void;
+    protected _activate_tools(emit: boolean): void;
     _active_change(tool: ToolLike<GestureTool>): void;
     to_menu(): Menu;
 }

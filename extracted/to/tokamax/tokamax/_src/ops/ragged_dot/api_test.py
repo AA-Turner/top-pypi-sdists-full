@@ -13,6 +13,7 @@
 # limitations under the License.
 # ==============================================================================
 import functools
+from typing import override
 from absl.testing import absltest
 from absl.testing import parameterized
 import chex
@@ -24,7 +25,6 @@ from tokamax._src import hlo_utils
 from tokamax._src import quantization
 from tokamax._src.ops.ragged_dot import api
 from tokamax._src.ops.ragged_dot import test_base
-from typing_extensions import override
 
 
 def _get_input_data(num_experts, m, k, n, dtype=jnp.bfloat16):
@@ -34,11 +34,13 @@ def _get_input_data(num_experts, m, k, n, dtype=jnp.bfloat16):
   group_sizes = jnp.array([m // num_experts] * num_experts, jnp.uint32)
   return (lhs, rhs, group_sizes)
 
+
 # TODO: `jax.nn.relu` is annotated with `custom_jvp_call`
 # which isn't compatible with `_estimate_resources` in the mosaic lowering.
 # It would be nice in the future to support this, if possible.
 def relu(x):
   return jnp.maximum(x, 0)
+
 
 class RaggedDotTest(parameterized.TestCase):
 
@@ -95,8 +97,8 @@ class RaggedDotTest(parameterized.TestCase):
         out = activation(out)
       return jnp.sum(out)
 
-    (out, (lhs_grad, rhs_grad)) = f(lhs, rhs)
-    (out_gt, (lhs_grad_gt, rhs_grad_gt)) = f_gt(lhs, rhs)
+    out, (lhs_grad, rhs_grad) = f(lhs, rhs)
+    out_gt, (lhs_grad_gt, rhs_grad_gt) = f_gt(lhs, rhs)
 
     with self.subTest("value"):
       chex.assert_trees_all_close(out, out_gt)
@@ -131,6 +133,21 @@ class RaggedDotTest(parameterized.TestCase):
                 isinstance(opspecs[0].op, triton_impl)
                 or isinstance(opspecs[0].op, mosaic_impl)
             )
+
+  def test_manual_axis_type(self):
+    if jax.default_backend() == "tpu":
+      lhs, rhs, group_sizes = _get_input_data(
+          num_experts=8, m=256, k=128, n=128
+      )
+    else:
+      lhs, rhs, group_sizes = _get_input_data(num_experts=8, m=128, k=64, n=128)
+
+    api.ragged_dot(
+        lhs,
+        rhs,
+        group_sizes,
+        manual_axis_type=None,
+    )
 
 
 class RaggedDotImplementationTest(test_base.RaggedDotTestBase):

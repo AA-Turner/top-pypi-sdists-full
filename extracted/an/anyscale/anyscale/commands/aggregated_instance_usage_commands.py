@@ -13,6 +13,7 @@ from anyscale.commands.doc_metadata import (
 )
 from anyscale.commands.output_format import OutputFormat
 from anyscale.commands.util import AnyscaleCommand
+from anyscale.errors import UserError
 
 
 log = BlockLogger()  # CLI Logger
@@ -100,5 +101,4 @@ def download_csv(
             )
         )
     except ValueError as e:
-        log.error(f"{e}")
-        return
+        raise UserError(f"{e}", legacy_exit_code=0) from None

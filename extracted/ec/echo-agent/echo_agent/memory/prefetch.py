@@ -7,6 +7,7 @@ current query overlaps the cached query (Jaccard) — a topic shift is a miss.
 from __future__ import annotations
 
 import asyncio
+import inspect
 import logging
 import time
 from dataclasses import dataclass
@@ -83,16 +84,19 @@ class RetrievalPrefetcher:
         cache_put: Callable[[str, "RetrievalCacheEntry"], Awaitable[None]],
         *,
         limit: int = 5,
-        knowledge_fetch: Callable[[str, str], str] | None = None,
+        knowledge_fetch: Callable[[str, str, str], Any] | None = None,
     ) -> None:
         self._retriever = retriever
         self._cache_put = cache_put
         self._limit = limit
-        # knowledge_fetch is a SYNC CPU-bound scan that must be offloaded to a
-        # thread so this background task never blocks the event loop.
+        # knowledge_fetch may be async (the vector+keyword path, which is what
+        # the agent loop wires) or sync (a plain keyword scan). An async fetch is
+        # awaited directly; a sync one is CPU-bound and gets offloaded to a thread
+        # so this background task never blocks the event loop.
         self._knowledge_fetch = knowledge_fetch
+        self._knowledge_is_async = inspect.iscoroutinefunction(knowledge_fetch)
 
-    async def prefetch(self, session_key: str, query: str, user_id: str = "", memory_scope: str = "", scope_version: int = 0) -> None:
+    async def prefetch(self, session_key: str, query: str, user_id: str = "", memory_scope: str = "", scope_version: int = 0, *, channel: str = "") -> None:
         """Retrieve once for ``query`` and write the result into the cache.
 
         Main-memory and knowledge retrieval are warmed together into a single
@@ -118,7 +122,7 @@ class RetrievalPrefetcher:
                 "retrieval prefetch failed for session %r", session_key, exc_info=True
             )
             return
-        knowledge_context = await self._prefetch_knowledge(user_id, query)
+        knowledge_context = await self._prefetch_knowledge(user_id, query, channel=channel)
         entry = RetrievalCacheEntry(
             query_text=query,
             query_tokens=query_tokens(query),
@@ -137,8 +141,13 @@ class RetrievalPrefetcher:
         await self._cache_put(session_key, entry)
 
 
-    async def _prefetch_knowledge(self, user_id: str, query: str) -> str | None:
-        """Warm knowledge retrieval off the event loop (sync CPU-bound scan).
+    async def _prefetch_knowledge(self, user_id: str, query: str, *, channel: str = "") -> str | None:
+        """Warm knowledge retrieval for the cache.
+
+        An async fetch (keyword + vector fusion) is awaited directly — its
+        embedding call is IO-bound and already off the reply path here. A sync
+        fetch is a CPU-bound scan and goes to an executor so this background task
+        never blocks the event loop.
 
         Isolated failure leaves knowledge_context unset (None) so a knowledge
         error never costs us the episodic/main-memory prefetch.
@@ -146,10 +155,13 @@ class RetrievalPrefetcher:
         if self._knowledge_fetch is None:
             return None
         try:
-            loop = asyncio.get_running_loop()
-            context = await loop.run_in_executor(
-                None, lambda: self._knowledge_fetch(query, user_id)
-            )
+            if self._knowledge_is_async:
+                context = await self._knowledge_fetch(query, user_id, channel)
+            else:
+                loop = asyncio.get_running_loop()
+                context = await loop.run_in_executor(
+                    None, lambda: self._knowledge_fetch(query, user_id, channel)
+                )
             return context or None
         except Exception:
             logger.warning(

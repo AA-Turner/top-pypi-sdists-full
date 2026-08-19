@@ -1,0 +1,91 @@
+# SPDX-License-Identifier: PROPRIETARY
+# SPDX-FileCopyrightText: Copyright The Geneva Authors
+#
+# Named dataset + compute-scale profiles for the workbench.
+#   uv run python -m loadtest.azure_scale_bench.run <stage> --dataset 50b --scale 100n
+# Only "50b" is currently confirmed/openable in this storage account.
+# Add another dataset profile only after verifying that its source_uri opens
+# with Lance and has the expected row_index + summary columns.
+#
+# Keys are EXACTLY BenchConfig field names (no aliases): source_uri is the
+# read-only source, bench_uri the writable shallow-clone target. Precedence is
+# defaults < BENCH_* env < profile < explicit CLI flags.
+#
+# DO NOT put secrets here (this file is checked in). account_name is fine;
+# account_key must stay in the AZURE_STORAGE_ACCOUNT_KEY env var (the loader
+# rejects an account_key key).
+
+datasets:
+  "50b":
+    source_uri: az://datasets/mmlb_50b_default_text_embedding_50000shard_20260601053941.lance
+    bench_uri: az://datasets/mmlb_50b_azure_scale_bench.lance   # shallow-clone target
+    rows_per_fragment: 1000000
+    expected_rows: 50000000000
+    expected_fragments: 50000
+    # upload-images (loose-object image-dataset seeding). Account NAMES are not
+    # secrets and may live here; account KEYS stay in the worker env var
+    # AZURE_STORAGE_ACCOUNT_KEY[_<ACCOUNT>] (never in this file). Defaults:
+    # prefix_count=8192, base_prefix=loadtest/images, seed_rows_per_fragment=100000.
+    # Set `accounts` (writable account names) before running upload-images:
+    # accounts: [oailancepub]
+    # loose_container: datasets
+    # base_prefix: loadtest/images
+    # prefix_count: 8192
+    # seed_rows_per_fragment: 100000
+    # NOTE: --include-large-tail raises per-render transient memory (real pixels;
+    # a 64 MiB image needs ~3x its size during encode). The 4 GiB worker profiles
+    # have ample headroom (reserved = per_actor_memory_gib x intra_concurrency);
+    # for large-tail runs on the 1.5 GiB default, raise --memory-gib or cap
+    # --max-image-bytes.
+    #
+    # download-images (direct ref-table ingest). --clone-target is a build-ref-table
+    # reference table; the download UDF reads each row's locator columns directly and
+    # GETs the blob (no manifest, no derivation, no reshuffle). download_concurrency
+    # switches to the batched downloader (N concurrent GETs per batch), bounded by
+    # max_in_flight (concurrency x intra_concurrency x download_concurrency).
+    # driver_rows_per_fragment overrides the reference table's rows-per-fragment for
+    # --num-frags windowing. Read keys stay in the worker env.
+    # download_concurrency: 8
+    # max_in_flight: 50000
+    # driver_rows_per_fragment: 1000000
+
+  # --- Reference-table generator (build-ref-table) ---------------------------
+  # Build a standalone shuffled reference table that points at already-uploaded
+  # blobs, derived from the seed run's .seedrun.json (NO source-table scan, NO
+  # upload — buildable while the upload is still running). N = seed object_count;
+  # M = target_rows, or N * expansion_factor. Copy a block below and fill in the
+  # real URIs to enable it:
+  #
+  # "100m":                                                       # 100M -> 1B
+  #   seed_run_config_uri: az://datasets/<your-100m-manifest>.seedrun.json
+  #   bench_uri: az://datasets/<your-100m-ref>.lance              # table to build
+  #   target_rows: 1000000000
+  #   rows_per_fragment: 1000000
+  #   build_workers: 16
+  #   commit_fragments: 500
+  # "5b":                                                         # 5B -> 50B
+  #   seed_run_config_uri: az://datasets/<your-5b-manifest>.seedrun.json
+  #   bench_uri: az://datasets/<your-5b-ref>.lance                # table to build
+  #   target_rows: 50000000000
+  #   rows_per_fragment: 1000000
+  #   build_workers: 32
+  #   commit_fragments: 500
+
+scales:
+  # num_cpus = the ACTUAL schedulable CPU count the run consumes (worker pods'
+  # requested CPUs ~= concurrency x cpus/actor), NOT nominal nodes x vCPU — it is
+  # what the GEN-626 per-cpu metrics normalize against. cluster names a
+  # pre-provisioned Ray cluster (the workbench does not create clusters).
+  # cluster/manifest explicitly null so a stray BENCH_CLUSTER env can't bleed a
+  # "local" run onto a cluster (a profile overlays only the keys it lists).
+  # intra_concurrency stays 1 everywhere: >1 is unvalidated and has crashed
+  # multiprocess workers on large-image paths. Override with --intra-concurrency
+  # explicitly (experimental) if you want to test intra-actor parallelism.
+  "local":  { cluster: null, manifest: null,
+              num_nodes: 1, num_cpus: 8, concurrency: 2, intra_concurrency: 1 }
+  "10n":    { cluster: lancedb-10n,   num_nodes: 10,   num_cpus: 360,
+              concurrency: 180,  intra_concurrency: 1, per_actor_memory_gib: 4 }
+  "100n":   { cluster: lancedb-100n,  num_nodes: 100,  num_cpus: 3600,
+              concurrency: 1800, intra_concurrency: 1, per_actor_memory_gib: 4 }
+  "1000n":  { cluster: lancedb-1000n, num_nodes: 1000, num_cpus: 36000,
+              concurrency: 18000, intra_concurrency: 1, per_actor_memory_gib: 4 }

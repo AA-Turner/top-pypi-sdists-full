@@ -2021,6 +2021,15 @@ class LiveAlgorithmResults(QuantConnect.Api.RestResponse):
         ...
 
     @property
+    def server_statistics(self) -> System.Collections.Generic.IDictionary[str, str]:
+        """Server status information, including CPU/RAM usage, ect..."""
+        ...
+
+    @server_statistics.setter
+    def server_statistics(self, value: System.Collections.Generic.IDictionary[str, str]) -> None:
+        ...
+
+    @property
     def charts(self) -> System.Collections.Generic.IDictionary[str, QuantConnect.Chart]:
         """Charts updates for the live algorithm since the last result packet"""
         ...

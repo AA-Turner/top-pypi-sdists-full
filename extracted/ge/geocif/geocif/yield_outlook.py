@@ -22,6 +22,7 @@ import pandas as pd
 from geocif import geocif_runner as gc
 from geocif import logger as log
 from geocif import utils as ut
+from .ml import stats as ml_stats
 from .viz import plot
 from .utils import friendly_stage_label
 
@@ -237,7 +238,12 @@ def _query_predictions(db_path, table, model, experiment_name="default"):
         # multi-season countries (e.g. Somalia: 1=Gu, 2=Deyr); single-season
         # / older DBs lack it and stay on the pre-season code path.
         optional_cols = [
-            c for c in ("lower CI", "upper CI", "alpha", "Area (ha)", "Stage Window Display", "Season")
+            # Region_ID is the CLUSTER id (1..N per cluster_strategy), NOT the
+            # county FIPS — carried through only as the DB's own identifier.
+            # The admin_2 county export resolves FIPS from
+            # level2_to_fips_crosswalk.csv instead; see _load_county_lookup.
+            c for c in ("lower CI", "upper CI", "alpha", "Area (ha)",
+                        "Stage Window Display", "Season", "Region_ID")
             if c in table_cols
         ]
         extra_select = (
@@ -1243,6 +1249,141 @@ _STATE_EXPORT_COLS = [
     "alpha", "ci_coverage",
 ]
 
+# admin_2 schema. The first 11 columns are the requested county product;
+# units/model/alpha/ci_coverage follow so the file stays self-describing
+# (same rationale as the state export).
+_COUNTY_EXPORT_COLS = [
+    "crop", "year", "state_name", "county_name", "state_fips", "county_fips",
+    "fips", "observed_yield", "predicted_yield", "lower_ci", "upper_ci",
+    "units", "model", "alpha", "ci_coverage",
+]
+
+_FIPS_TO_STATE = {code: name.title() for name, code in _STATE_FIPS.items()}
+
+# Display names for the county product: USA convention is "Corn", not the
+# internal "maize". Unlisted crops fall back to title-case.
+_CROP_DISPLAY = {
+    "maize": "Corn",
+    "soybean": "Soybeans",
+    "winter_wheat": "Winter Wheat",
+    "spring_wheat": "Spring Wheat",
+    "sorghum": "Sorghum",
+    "rice": "Rice",
+    "cotton": "Cotton",
+}
+
+
+def _crop_display_name(crop):
+    """'maize' -> 'Corn'. Unknown crops become title-case with spaces."""
+    key = str(crop).strip().lower().replace(" ", "_")
+    return _CROP_DISPLAY.get(key, key.replace("_", " ").title())
+
+
+#: crosswalk filename, alongside the county boundary shapefile
+_FIPS_CROSSWALK = "level2_to_fips_crosswalk.csv"
+
+_county_lookup_cache = {}
+
+
+def _load_county_lookup(parser):
+    """Map normalized region -> ``(state_name, county_name, fips5)``.
+
+    The DB does NOT carry the county FIPS: ``Region_ID`` is the cluster id
+    (1..N per cluster_strategy), so the county code has to be resolved from
+    the region name. Source is ``level2_to_fips_crosswalk.csv`` next to the
+    boundary files, whose ``region_composite`` column is exactly the
+    ``state_county`` key the pipeline builds regions from, and whose adm1/adm2
+    columns carry properly-cased display names.
+
+    Keys are normalized with ``ml.stats._norm_region_name`` — the same
+    normalizer the yield join uses, so this lookup cannot disagree with it.
+    Returns ``{}`` (never raises) when the crosswalk is absent; the caller
+    then falls back to parsing the region string.
+    """
+    try:
+        path = Path(parser.get("PATHS", "dir_boundary_files")) / _FIPS_CROSSWALK
+    except Exception:
+        return {}
+
+    key = str(path)
+    if key in _county_lookup_cache:
+        return _county_lookup_cache[key]
+
+    lookup = {}
+    try:
+        if path.is_file():
+            df = pd.read_csv(path, dtype=str)
+            needed = {"adm1", "adm2", "region_composite", "fips"}
+            if needed.issubset(df.columns):
+                for adm1, adm2, composite, fips in zip(
+                    df["adm1"], df["adm2"], df["region_composite"], df["fips"]
+                ):
+                    if pd.isna(composite) or pd.isna(fips):
+                        continue
+                    lookup[ml_stats._norm_region_name(composite)] = (
+                        str(adm1).strip(),
+                        str(adm2).strip(),
+                        str(fips).strip().split(".")[0].zfill(5),
+                    )
+            else:
+                logger.warning(
+                    f"County FIPS crosswalk {path} lacks {sorted(needed - set(df.columns))}; "
+                    f"falling back to region-name parsing"
+                )
+        else:
+            logger.warning(
+                f"County FIPS crosswalk not found at {path}; "
+                f"falling back to region-name parsing"
+            )
+    except Exception as e:
+        logger.warning(f"Could not read county FIPS crosswalk {path} ({e})")
+
+    _county_lookup_cache[key] = lookup
+    return lookup
+
+
+def _split_county_region(region, fips):
+    """Split a ``"State County"`` region into (state_name, county_name).
+
+    The state is taken from the FIPS prefix rather than guessed from the
+    string, then stripped off the front — so multi-word states AND multi-word
+    counties both survive ("South Dakota Fall River" -> "South Dakota",
+    "Fall River"). Falls back to a first-token split when the FIPS is unusable.
+    """
+    text = str(region).strip().replace("_", " ")
+    state = _FIPS_TO_STATE.get(str(fips)[:2]) if fips else None
+
+    if not state:
+        # No FIPS (crosswalk miss). Recover the state by LONGEST-prefix match
+        # against the known state names instead of splitting on the first
+        # space — otherwise this fallback mangles exactly the multi-word case
+        # it exists to handle ("South Dakota Fall River" -> "South" /
+        # "Dakota Fall River"). Longest wins so "West Virginia" beats a
+        # hypothetical "West", and "North Dakota" is not shadowed by "North".
+        matches = [
+            name for name in _FIPS_TO_STATE.values()
+            if text.lower().startswith(name.lower())
+        ]
+        if matches:
+            state = max(matches, key=len)
+
+    def _cased(name):
+        # Title-case ONLY when the source carried no casing (e.g. an
+        # underscored "fall_river"). Names that arrive properly cased are left
+        # alone, because .title() would wreck McLean -> Mclean, DeKalb -> Dekalb.
+        return name.title() if name and not any(c.isupper() for c in name) else name
+
+    if state and text.lower().startswith(state.lower()):
+        county = text[len(state):].strip()
+        return state, _cased(county or text)
+
+    parts = text.split(" ", 1)
+    if state:
+        return state, _cased(parts[1].strip() if len(parts) > 1 else text)
+    if len(parts) > 1:
+        return _cased(parts[0]), _cased(parts[1].strip())
+    return _cased(text), ""
+
 
 def _write_state_export(df_pred_store, season_bounds, dir_outlook, parser=None):
     """Flat per-state yield export, one row per (crop, year, state).
@@ -1260,8 +1401,23 @@ def _write_state_export(df_pred_store, season_bounds, dir_outlook, parser=None):
     unless ``[ML] estimate_ci_for_all = True``.
 
     One file per (country, model), alongside the monthly history.
-    Extension path for admin-2: add county_name/county_fips and a 5-digit
-    ``fips`` = state+county from a county lookup; the row rule is unchanged.
+
+    At ``admin_level = admin_2`` this emits the COUNTY product instead —
+    ``{country}_{model}_county_yields_{first}_{last}.csv`` with
+    ``crop, year, state_name, county_name, state_fips, county_fips, fips,
+    observed_yield, predicted_yield, lower_ci, upper_ci`` (then units/model/
+    alpha/ci_coverage). The row rule is unchanged. ``fips`` is the 5-digit
+    county code resolved from ``level2_to_fips_crosswalk.csv`` (NOT from
+    ``Region_ID``, which is the cluster id), zero-padded and kept as a string;
+    ``state_fips`` is its first two digits and the state NAME is looked up
+    from those digits rather than parsed out of the region string, which is
+    ambiguous when both the state and the county are multi-word
+    ("South Dakota Fall River"). ``crop`` uses display names (maize -> Corn).
+
+    When a region is missing from the crosswalk the FIPS columns are left
+    blank and the names are parsed from the region string instead — see
+    ``_split_county_region``, which still resolves multi-word states in that
+    case by longest-prefix match against the known state names.
     """
     by_country_model = {}
     for (country, crop, model), df in df_pred_store.items():
@@ -1302,6 +1458,75 @@ def _write_state_export(df_pred_store, season_bounds, dir_outlook, parser=None):
                 alpha = alpha.fillna(parser.getfloat("ML", "alpha"))
             except Exception:
                 pass
+        # admin_2 runs get the county product: one row per (crop, year,
+        # county), keyed on the FIPS resolved from the crosswalk.
+        admin_level = ""
+        if parser is not None and parser.has_option(country, "admin_level"):
+            admin_level = str(parser.get(country, "admin_level")).strip().lower()
+
+        if admin_level == "admin_2":
+            # Region_ID is the CLUSTER id, not the FIPS — resolve the county
+            # code from the region name via the crosswalk instead.
+            lookup = _load_county_lookup(parser) if parser is not None else {}
+            resolved = [lookup.get(ml_stats._norm_region_name(r)) for r in regions]
+
+            fips = pd.Series(
+                [r[2] if r else "" for r in resolved], index=out.index
+            )
+            split = [
+                (r[0], r[1]) if r else _split_county_region(region, "")
+                for r, region in zip(resolved, regions)
+            ]
+
+            unmatched = sorted({
+                str(region) for r, region in zip(resolved, regions) if not r
+            })
+            if unmatched:
+                logger.warning(
+                    f"County export: {len(unmatched)} region(s) not in the FIPS "
+                    f"crosswalk, names parsed and FIPS left blank "
+                    f"(e.g. {unmatched[:3]})"
+                )
+            county_fips = pd.to_numeric(fips.str[2:], errors="coerce").astype("Int64")
+            flat = pd.DataFrame({
+                "crop": [_crop_display_name(c) for c in out["Crop"]],
+                "year": out["_yr"].astype("Int64").values,
+                "state_name": [s for s, _ in split],
+                "county_name": [c for _, c in split],
+                "state_fips": fips.str[:2].values,
+                "county_fips": county_fips.values,
+                "fips": fips.values,
+                "observed_yield": _num(_CANON_OBS).round(4).values,
+                "predicted_yield": _num(_CANON_PRED).round(4).values,
+                "lower_ci": _num("lower CI").round(4).values,
+                "upper_ci": _num("upper CI").round(4).values,
+                "units": [_yield_display_for(parser, c)[0] for c in out["Crop"]],
+                "model": model,
+                "alpha": alpha.values,
+                "ci_coverage": (1 - alpha).round(3).values,
+            })[_COUNTY_EXPORT_COLS].sort_values(
+                ["crop", "state_name", "county_name", "year"], kind="mergesort"
+            )
+
+            bad_fips = int((flat["fips"].isin(("", "00000")) | flat["fips"].isna()).sum())
+            if bad_fips:
+                logger.warning(
+                    f"County export: {bad_fips} row(s) with no usable FIPS "
+                    f"(region absent from {_FIPS_CROSSWALK}?) — blank in output"
+                )
+
+            path = (dir_outlook /
+                    f"{country}_{model}_county_yields_"
+                    f"{int(years.min())}_{int(years.max())}.csv")
+            flat.to_csv(path, index=False)
+            logger.info(
+                f"County export CSV saved to {path} ({len(flat):,} rows, "
+                f"{flat['fips'].nunique():,} counties, "
+                f"{int(flat['lower_ci'].notna().sum())} with CI)"
+            )
+            written.append(path)
+            continue
+
         flat = pd.DataFrame({
             "crop": out["Crop"].astype(str).values,
             "year": out["_yr"].astype("Int64").values,

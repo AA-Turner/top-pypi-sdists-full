@@ -7,7 +7,7 @@ import type { PanEvent, TapEvent, MoveEvent, KeyEvent, EventType } from "../../.
 import type * as p from "../../../core/properties";
 import { Node } from "../../coordinates/node";
 import type { CoordinateMapper, LRTB } from "../../../core/util/bbox";
-declare const StartGesture: import("../../../core/kinds").Kinds.Enum<"none" | "tap" | "pan">;
+declare const StartGesture: import("../../../core/kinds").Kinds.Enum<"none" | "pan" | "tap">;
 type StartGesture = typeof StartGesture["__type__"];
 export declare class RangeToolView extends GestureToolView {
     model: RangeTool;

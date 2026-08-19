@@ -30,6 +30,12 @@ jobs:
           - python-version: "3.12"
             test-type: integration
             timeout: 120
+          # Pipeline tests run as their own job so they execute in parallel
+          # with the rest of the integration suite instead of extending the
+          # integration job's wall-clock budget.
+          - python-version: "3.12"
+            test-type: pipeline
+            timeout: 90
           - python-version: "3.12"
             test-type: direct-connect
             timeout: 60
@@ -85,44 +91,66 @@ jobs:
           uv sync --extra k8s --extra gcp --extra embedding --locked
       - name: Generate test slug
         run: |
-          SLUG=$(printf "%05d" $((RANDOM % 10001)))
+          # SLUG is per-leg: it lands in RayCluster names (conftest.py) and the
+          # cleanup step greps by it, so legs of one run must not share a slug.
+          # 6 hex chars keep the longest integration RayCluster name at 52,
+          # below KubeRay 1.4's 53-character limit, with 24 bits of entropy.
+          SLUG=$(python3 -c "import uuid; print(uuid.uuid4().hex[:6])")
           echo "SLUG=$SLUG" >> $GITHUB_ENV
+          # CI_PREFIX is per-run: carries the run id so bucket data is traceable
+          # to the run that made it, under one `ci/` prefix and never the root.
+          echo "CI_PREFIX=ci/${{ github.run_id }}-${{ github.run_attempt }}-$SLUG" >> $GITHUB_ENV
       - name: Set bucket path
         run: |
           # Keep system tables isolated per run. Reusing a global path causes
           # the Geneva job history table to accumulate thousands of versions,
           # making job-status updates slow enough to trip test timeouts.
-          echo "BUCKET_PATH=gs://lancedb-lancedb-dev-us-central1/$SLUG/data" >> $GITHUB_ENV
+          echo "BUCKET_PATH=gs://lancedb-lancedb-dev-us-central1/$CI_PREFIX/data" >> $GITHUB_ENV
       - name: Auth check
         run: |
           kubectl config current-context
           kubectl auth whoami
           kubectl auth can-i get pods -n lancedb
       - name: Run tests
+        if: matrix.test-type != 'pipeline'
         run: |
           if [ "${{ matrix.test-type }}" = "integration" ]; then
-            # Run all tests except test_pipeline.py first.
-            # GPU-marked tests are excluded from GCP (and AWS) to avoid
-            # GPU node spin-up contention; they run on Azure instead.
+            # Run all tests except test_pipeline.py; those run in the parallel
+            # pipeline job. GPU-marked tests are excluded from GCP (and AWS) to
+            # avoid GPU node spin-up contention; they run on Azure instead.
             # See GEN-439 for the cross-cloud GPU routing strategy.
             uv run -m pytest src/integ_tests --ignore=src/integ_tests/direct_connect --ignore=src/integ_tests/test_pipeline.py -m "not phalanx and not gpu" --csp=gcp --test-slug=$SLUG $(if [ -n "$BUCKET_PATH" ]; then echo "--bucket-path=$BUCKET_PATH"; fi) --cov=src/geneva --cov-append -v -s --cov-report=term-missing --durations=0
           else
             make test-${{ matrix.test-type }}-gcp SLUG=$SLUG BUCKET_PATH="$BUCKET_PATH"
           fi
       - name: Run pipeline tests
-        if: matrix.test-type == 'integration'
+        if: matrix.test-type == 'pipeline'
         run: |
           uv run -m pytest src/integ_tests/test_pipeline.py -m "not phalanx" --csp=gcp --test-slug=$SLUG $(if [ -n "$BUCKET_PATH" ]; then echo "--bucket-path=$BUCKET_PATH"; fi) --cov=src/geneva --cov-append -v -s --cov-report=term-missing --durations=0
       - name: Cleanup Ray Clusters
         if: always()
         run: |
+          # Unset SLUG makes this `grep ""` -- it would match every cluster in
+          # the shared namespace, including other runs' live ones.
+          if [ -z "${SLUG:-}" ]; then
+            echo "SLUG unset -- refusing to delete (would match every cluster)"
+            exit 0
+          fi
           echo "Deleting rayclusters matching slug $SLUG"
-          kubectl get raycluster -n lancedb --no-headers -o custom-columns=":metadata.name" | grep $SLUG | xargs -r -n1 kubectl delete raycluster -n lancedb --wait
+          kubectl get raycluster -n lancedb --no-headers -o custom-columns=":metadata.name" | grep "$SLUG" | xargs -r -n1 kubectl delete raycluster -n lancedb --wait
       - name: Cleanup bucket data
-        if: success()
+        # always(), not success(): data a failed run keeps is what a later run
+        # inherits (GEN-833). The env guard is the other half of the fix.
+        if: always() && env.CI_PREFIX != ''
         run: |
-          echo "Tests passed. Cleaning up bucket data for slug $SLUG"
-          gcloud storage rm -r gs://lancedb-lancedb-dev-us-central1/$SLUG || echo "Bucket cleanup failed or path doesn't exist"
+          # Unset CI_PREFIX would make the path below the bucket root -- always()
+          # reaches here even when "Generate test slug" never ran.
+          if [ -z "${CI_PREFIX:-}" ]; then
+            echo "CI_PREFIX unset -- refusing to delete (would target the bucket root)"
+            exit 0
+          fi
+          echo "Cleaning up bucket data for $CI_PREFIX"
+          gcloud storage rm -r "gs://lancedb-lancedb-dev-us-central1/$CI_PREFIX" || echo "Bucket cleanup failed or path doesn't exist"
       - name: Generate coverage report
         run: |
           make coverage-report
@@ -149,6 +177,12 @@ jobs:
           - python-version: "3.12"
             test-type: integration
             timeout: 120
+          # Pipeline tests run as their own job, in parallel with integration.
+          # Dispatched via `make test-pipeline-aws`; the enterprise-services
+          # step below runs for this job too (kafka/lance_agent are needed).
+          - python-version: "3.12"
+            test-type: pipeline
+            timeout: 90
           - python-version: "3.12"
             test-type: direct-connect
             timeout: 60
@@ -215,14 +249,21 @@ jobs:
           aws ecr get-login-password --region us-east-1 | docker login --username AWS --password-stdin 948856271544.dkr.ecr.us-east-1.amazonaws.com
       - name: Generate test slug
         run: |
-          SLUG=$(printf "%05d" $((RANDOM % 10001)))
+          # SLUG is per-leg: it lands in RayCluster names (conftest.py) and the
+          # cleanup step greps by it, so legs of one run must not share a slug.
+          # 6 hex chars keep the longest integration RayCluster name at 52,
+          # below KubeRay 1.4's 53-character limit, with 24 bits of entropy.
+          SLUG=$(python3 -c "import uuid; print(uuid.uuid4().hex[:6])")
           echo "SLUG=$SLUG" >> $GITHUB_ENV
+          # CI_PREFIX is per-run: carries the run id so bucket data is traceable
+          # to the run that made it, under one `ci/` prefix and never the root.
+          echo "CI_PREFIX=ci/${{ github.run_id }}-${{ github.run_attempt }}-$SLUG" >> $GITHUB_ENV
       - name: Set bucket path
         run: |
           # Keep system tables isolated per run. Reusing a global path causes
           # the Geneva job history table to accumulate thousands of versions,
           # making job-status updates slow enough to trip test timeouts.
-          echo "BUCKET_PATH=s3://geneva-integ-test-devland-us-east-1/$SLUG/data" >> $GITHUB_ENV
+          echo "BUCKET_PATH=s3://geneva-integ-test-devland-us-east-1/$CI_PREFIX/data" >> $GITHUB_ENV
       - name: Start enterprise services (kafka, phalanx, lance_agent)
         working-directory: .
         run: |
@@ -279,13 +320,27 @@ jobs:
       - name: Cleanup Ray Clusters
         if: always()
         run: |
+          # Unset SLUG makes this `grep ""` -- it would match every cluster in
+          # the shared namespace, including other runs' live ones.
+          if [ -z "${SLUG:-}" ]; then
+            echo "SLUG unset -- refusing to delete (would match every cluster)"
+            exit 0
+          fi
           echo "Deleting rayclusters matching slug $SLUG"
-          kubectl get raycluster -n lancedb --no-headers -o custom-columns=":metadata.name" | grep $SLUG | xargs -r -n1 kubectl delete raycluster -n lancedb --timeout=300s
+          kubectl get raycluster -n lancedb --no-headers -o custom-columns=":metadata.name" | grep "$SLUG" | xargs -r -n1 kubectl delete raycluster -n lancedb --timeout=300s
       - name: Cleanup bucket data
-        if: success()
+        # always(), not success(): data a failed run keeps is what a later run
+        # inherits (GEN-833). The env guard is the other half of the fix.
+        if: always() && env.CI_PREFIX != ''
         run: |
-          echo "Tests passed. Cleaning up bucket data for slug $SLUG"
-          aws s3 rm s3://geneva-integ-test-devland-us-east-1/$SLUG --recursive || echo "Bucket cleanup failed or path doesn't exist"
+          # Unset CI_PREFIX would make the path below the bucket root -- always()
+          # reaches here even when "Generate test slug" never ran.
+          if [ -z "${CI_PREFIX:-}" ]; then
+            echo "CI_PREFIX unset -- refusing to delete (would target the bucket root)"
+            exit 0
+          fi
+          echo "Cleaning up bucket data for $CI_PREFIX"
+          aws s3 rm "s3://geneva-integ-test-devland-us-east-1/$CI_PREFIX" --recursive || echo "Bucket cleanup failed or path doesn't exist"
       - name: Generate coverage report
         run: |
           make coverage-report
@@ -312,6 +367,12 @@ jobs:
           - python-version: "3.12"
             test-type: integration
             timeout: 120
+          # Pipeline tests run as their own job so they execute in parallel
+          # with the rest of the integration suite instead of extending the
+          # integration job's wall-clock budget.
+          - python-version: "3.12"
+            test-type: pipeline
+            timeout: 90
           - python-version: "3.12"
             test-type: direct-connect
             timeout: 60
@@ -346,13 +407,6 @@ jobs:
           client-id: 8671ea50-af15-49cd-a234-0077c1e20c43
           tenant-id: 4d0b3e97-e90c-4c8f-9b18-1146dd5f22f6
           subscription-id: 2251a256-3e12-4197-b94f-e847b55dd69e
-      - name: Get Azure Storage Token
-        run: |
-          # Get access token for Azure Storage and export for Lance/object_store
-          TOKEN=$(az account get-access-token --resource https://storage.azure.com/ --query accessToken -o tsv)
-          echo "AZURE_STORAGE_TOKEN=$TOKEN" >> $GITHUB_ENV
-          # Also set tenant for potential fallback auth methods
-          echo "AZURE_TENANT_ID=4d0b3e97-e90c-4c8f-9b18-1146dd5f22f6" >> $GITHUB_ENV
       - name: Configure kubectl with static token
         run: |
           CLUSTER_ENDPOINT=$(az aks show \
@@ -379,17 +433,42 @@ jobs:
           kubectl get pods -n lancedb
       - name: Generate test slug
         run: |
-          SLUG=$(printf "%05d" $((RANDOM % 10001)))
+          # SLUG is per-leg: it lands in RayCluster names (conftest.py) and the
+          # cleanup step greps by it, so legs of one run must not share a slug.
+          # 6 hex chars keep the longest integration RayCluster name at 52,
+          # below KubeRay 1.4's 53-character limit, with 24 bits of entropy.
+          SLUG=$(python3 -c "import uuid; print(uuid.uuid4().hex[:6])")
           echo "SLUG=$SLUG" >> $GITHUB_ENV
+          # CI_PREFIX is per-run: carries the run id so bucket data is traceable
+          # to the run that made it, under one `ci/` prefix and never the root.
+          echo "CI_PREFIX=ci/${{ github.run_id }}-${{ github.run_attempt }}-$SLUG" >> $GITHUB_ENV
       - name: Set bucket path
         run: |
           # Azure URI: az://container/path (account via AZURE_STORAGE_ACCOUNT env var)
           # Keep system tables isolated per run. Reusing a global path causes
           # the Geneva job history table to accumulate thousands of versions,
           # making job-status updates slow enough to trip test timeouts.
-          echo "BUCKET_PATH=az://lancedbdatasets/$SLUG/data" >> $GITHUB_ENV
+          echo "BUCKET_PATH=az://lancedbdatasets/$CI_PREFIX/data" >> $GITHUB_ENV
+      - name: Configure Azure workload identity
+        uses: ./.github/actions/setup-azure-storage-workload-identity
+        with:
+          storage-account-name: lancedbdevlancedb
+          client-id: 8671ea50-af15-49cd-a234-0077c1e20c43
+          tenant-id: 4d0b3e97-e90c-4c8f-9b18-1146dd5f22f6
       - name: Run tests
+        if: matrix.test-type != 'pipeline'
         run: |
+          set -euo pipefail
+
+          "$AZURE_OIDC_REFRESH_SCRIPT"
+          (
+            while sleep "$AZURE_OIDC_REFRESH_INTERVAL_SECONDS"; do
+              "$AZURE_OIDC_REFRESH_SCRIPT"
+            done
+          ) &
+          azure_oidc_refresher=$!
+          trap 'kill "$azure_oidc_refresher" 2>/dev/null || true' EXIT
+
           if [ "${{ matrix.test-type }}" = "integration" ]; then
             # Run all tests except test_pipeline.py first.
             # Azure is the GPU target — GPU-marked tests run here (not
@@ -399,36 +478,24 @@ jobs:
           else
             make test-${{ matrix.test-type }}-azure SLUG=$SLUG BUCKET_PATH="$BUCKET_PATH"
           fi
-      # Force a fresh Azure storage token before the pipeline phase. The
-      # Azure CLI's MSAL cache returns the original token until it's within
-      # ~5 min of expiry, so simply re-running `azure/login` + `az account
-      # get-access-token` is a no-op. Clearing the MSAL cache + the Azure
-      # CLI account state ensures the next login mints a brand-new token.
-      - name: Clear Azure CLI cache
-        if: matrix.test-type == 'integration'
-        run: |
-          az account clear || true
-          rm -rf ~/.azure/msal_token_cache.* ~/.azure/service_principal_entries.* 2>/dev/null || true
-      - name: Re-authenticate with Azure
-        if: matrix.test-type == 'integration'
-        uses: azure/login@v2
-        with:
-          client-id: 8671ea50-af15-49cd-a234-0077c1e20c43
-          tenant-id: 4d0b3e97-e90c-4c8f-9b18-1146dd5f22f6
-          subscription-id: 2251a256-3e12-4197-b94f-e847b55dd69e
-      - name: Refresh Azure storage token
-        if: matrix.test-type == 'integration'
-        run: |
-          TOKEN=$(az account get-access-token --resource https://storage.azure.com/ --query accessToken -o tsv)
-          echo "AZURE_STORAGE_TOKEN=$TOKEN" >> $GITHUB_ENV
       - name: Run pipeline tests
-        if: matrix.test-type == 'integration'
+        if: matrix.test-type == 'pipeline'
         run: |
+          set -euo pipefail
+
+          "$AZURE_OIDC_REFRESH_SCRIPT"
+          (
+            while sleep "$AZURE_OIDC_REFRESH_INTERVAL_SECONDS"; do
+              "$AZURE_OIDC_REFRESH_SCRIPT"
+            done
+          ) &
+          azure_oidc_refresher=$!
+          trap 'kill "$azure_oidc_refresher" 2>/dev/null || true' EXIT
+
           AZURE_STORAGE_ACCOUNT_NAME=lancedbdevlancedb uv run -m pytest src/integ_tests/test_pipeline.py -m "not phalanx" --csp=azure --test-slug=$SLUG $(if [ -n "$BUCKET_PATH" ]; then echo "--bucket-path=$BUCKET_PATH"; fi) --cov=src/geneva --cov-append -v -s --cov-report=term-missing --durations=0
-      # Rebuild Azure auth immediately before cleanup because the earlier
-      # storage token can expire during long integration runs, and the
-      # integration-only refresh steps are skipped if the first test phase fails.
-      # Same MSAL-cache workaround as above.
+      # Rebuild Azure CLI auth immediately before cleanup because the earlier
+      # CLI session can expire during long integration runs, and cleanup uses
+      # `az storage ... --auth-mode login`.
       - name: Clear Azure CLI cache before cleanup
         if: always()
         run: |
@@ -441,21 +508,30 @@ jobs:
           client-id: 8671ea50-af15-49cd-a234-0077c1e20c43
           tenant-id: 4d0b3e97-e90c-4c8f-9b18-1146dd5f22f6
           subscription-id: 2251a256-3e12-4197-b94f-e847b55dd69e
-      - name: Refresh Azure storage token for cleanup
-        if: always()
-        run: |
-          TOKEN=$(az account get-access-token --resource https://storage.azure.com/ --query accessToken -o tsv)
-          echo "AZURE_STORAGE_TOKEN=$TOKEN" >> $GITHUB_ENV
       - name: Cleanup Ray Clusters
         if: always()
         run: |
+          # Unset SLUG makes this `grep ""` -- it would match every cluster in
+          # the shared namespace, including other runs' live ones.
+          if [ -z "${SLUG:-}" ]; then
+            echo "SLUG unset -- refusing to delete (would match every cluster)"
+            exit 0
+          fi
           echo "Deleting rayclusters matching slug $SLUG"
-          kubectl get raycluster -n lancedb --no-headers -o custom-columns=":metadata.name" | grep $SLUG | xargs -r -n1 kubectl delete raycluster -n lancedb --wait
+          kubectl get raycluster -n lancedb --no-headers -o custom-columns=":metadata.name" | grep "$SLUG" | xargs -r -n1 kubectl delete raycluster -n lancedb --wait
       - name: Cleanup bucket data
-        if: success()
+        # always(), not success(): data a failed run keeps is what a later run
+        # inherits (GEN-833). The env guard is the other half of the fix.
+        if: always() && env.CI_PREFIX != ''
         run: |
-          echo "Tests passed. Cleaning up bucket data for slug $SLUG"
-          az storage blob delete-batch --account-name "$AZURE_STORAGE_ACCOUNT" --source lancedbdatasets --pattern "$SLUG/*" --auth-mode login || echo "Bucket cleanup failed or path doesn't exist"
+          # Unset CI_PREFIX would make the path below the bucket root -- always()
+          # reaches here even when "Generate test slug" never ran.
+          if [ -z "${CI_PREFIX:-}" ]; then
+            echo "CI_PREFIX unset -- refusing to delete (would target the bucket root)"
+            exit 0
+          fi
+          echo "Cleaning up bucket data for $CI_PREFIX"
+          az storage blob delete-batch --account-name "$AZURE_STORAGE_ACCOUNT" --source lancedbdatasets --pattern "$CI_PREFIX/*" --auth-mode login || echo "Bucket cleanup failed or path doesn't exist"
       - name: Generate coverage report
         run: |
           make coverage-report
@@ -472,11 +548,11 @@ jobs:
   # GEN-645 regression guard: prove geneva needs only the Azure blob endpoint by
   # running the checkpoint sidecar test against the real dev account with the
   # dfs/HNS endpoint blackholed via /etc/hosts. Runs directly on the runner (not
-  # a container) so object_store + PyArrow authenticate through the runner's az
-  # session, the way every other Azure job does — a bare container has no az and
-  # hangs on the managed-identity (IMDS) probe. The failure only reproduces when
-  # dfs is unreachable, so the normal integ-test-azure job (reachable dfs) can't
-  # catch it.
+  # a container) so object_store + PyArrow authenticate through the same
+  # workload identity token file as the other Azure job — a bare container has
+  # no token file and hangs on the managed-identity (IMDS) probe.
+  # The failure only reproduces when dfs is unreachable, so the normal
+  # integ-test-azure job (reachable dfs) can't catch it.
   # EXPERIMENT: also verifies that sudo can edit /etc/hosts on this runner.
   integ-test-azure-fns:
     permissions:
@@ -487,6 +563,9 @@ jobs:
     env:
       AZURE_STORAGE_ACCOUNT: lancedbdevlancedb
       AZURE_STORAGE_ACCOUNT_NAME: lancedbdevlancedb
+      # Already unique per run/attempt. This job writes at the bucket root
+      # because it takes no --bucket-path, so it stays outside the ci/ prefix
+      # the other jobs use.
       SLUG: fns-${{ github.run_id }}-${{ github.run_attempt }}
     steps:
       - uses: actions/checkout@v4
@@ -505,11 +584,12 @@ jobs:
           client-id: 8671ea50-af15-49cd-a234-0077c1e20c43
           tenant-id: 4d0b3e97-e90c-4c8f-9b18-1146dd5f22f6
           subscription-id: 2251a256-3e12-4197-b94f-e847b55dd69e
-      - name: Get Azure Storage Token
-        run: |
-          TOKEN=$(az account get-access-token --resource https://storage.azure.com/ --query accessToken -o tsv)
-          echo "AZURE_STORAGE_TOKEN=$TOKEN" >> $GITHUB_ENV
-          echo "AZURE_TENANT_ID=4d0b3e97-e90c-4c8f-9b18-1146dd5f22f6" >> $GITHUB_ENV
+      - name: Configure Azure workload identity
+        uses: ./.github/actions/setup-azure-storage-workload-identity
+        with:
+          storage-account-name: lancedbdevlancedb
+          client-id: 8671ea50-af15-49cd-a234-0077c1e20c43
+          tenant-id: 4d0b3e97-e90c-4c8f-9b18-1146dd5f22f6
       - name: Blackhole the dfs endpoint via /etc/hosts
         run: |
           echo "=== /etc/hosts before ==="; tail -3 /etc/hosts || true
@@ -521,12 +601,29 @@ jobs:
         env:
           GENEVA_AZURE_ASSERT_DFS_BLOCKED: "1"
         run: |
+          set -euo pipefail
+
+          "$AZURE_OIDC_REFRESH_SCRIPT"
+          (
+            while sleep "$AZURE_OIDC_REFRESH_INTERVAL_SECONDS"; do
+              "$AZURE_OIDC_REFRESH_SCRIPT"
+            done
+          ) &
+          azure_oidc_refresher=$!
+          trap 'kill "$azure_oidc_refresher" 2>/dev/null || true' EXIT
+
           RAY_ENABLE_UV_RUN_RUNTIME_ENV=0 uv run -m pytest \
             src/integ_tests/test_checkpoint_store_azure_hns.py --csp=azure \
             --test-slug=$SLUG -v -s --durations=0
       - name: Cleanup bucket data
         if: always()
         run: |
+          # Job-level env, so always populated -- guarded anyway so this cannot
+          # regress into a container-wide delete if it is ever moved.
+          if [ -z "${SLUG:-}" ]; then
+            echo "SLUG unset -- refusing to delete"
+            exit 0
+          fi
           # in-test delete no-ops while dfs is blocked (purge needs GEN-658);
           # clean up via the blob endpoint, which is not blocked.
           az storage blob delete-batch --account-name "$AZURE_STORAGE_ACCOUNT" \

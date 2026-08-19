@@ -16,7 +16,11 @@ from geneva.manifest import GenevaManifest
 from geneva.runners.ray.raycluster import ExitMode
 from geneva.table import Table
 from geneva.utils import dt_now_utc
-from integ_tests.utils import ray_get_with_retry, safe_drop_table
+from integ_tests.utils import (
+    installed_distribution_requirement,
+    ray_get_with_retry,
+    safe_drop_table,
+)
 
 _LOG = logging.getLogger(__name__)
 
@@ -181,8 +185,8 @@ def test_backfill_with_dir_namespace_child(
                 # pylance must be explicitly installed for the worker
                 # to download the manifest when using namespaces
                 .upload_site_packages()
-                .add_pip("lancedb>=0.31.0b9")
-                .add_pip("pylance>=6.0.0b1")
+                .add_pip(installed_distribution_requirement("lancedb"))
+                .add_pip(installed_distribution_requirement("pylance"))
                 .add_pip("pyarrow>=16.0")
                 .build(),
             )
@@ -429,8 +433,8 @@ def ns_kuberay_cluster_ready(
 
     manifest_def = GenevaManifest.create_pip(manifest_name).upload_site_packages()
     manifest_def = (
-        manifest_def.add_pip("lancedb>=0.31.0b9")
-        .add_pip("pylance>=6.0.0b1")
+        manifest_def.add_pip(installed_distribution_requirement("lancedb"))
+        .add_pip(installed_distribution_requirement("pylance"))
         .add_pip("pyarrow>=16.0")
         .build()
     )

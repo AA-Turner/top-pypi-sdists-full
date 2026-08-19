@@ -63,7 +63,7 @@ fn array_expr(p: &mut Parser<'_>, m: Option<Marker>) -> CompletedMarker {
     let m = m.unwrap_or_else(|| p.start());
     if p.at(L_PAREN) && p.nth_at_ts(1, SELECT_FIRST) {
         p.expect(L_PAREN);
-        select(p, None, &SelectRestrictions::default(), false);
+        select(p, None, &SelectRestrictions::default());
         p.expect(R_PAREN);
     } else {
         // `[` or `(`
@@ -83,13 +83,27 @@ fn array_expr(p: &mut Parser<'_>, m: Option<Marker>) -> CompletedMarker {
 }
 
 struct SelectRestrictions {
+    semi_allowed: bool,
     trailing_clauses: bool,
+    compound_allowed: bool,
+}
+
+impl SelectRestrictions {
+    const fn none() -> Self {
+        Self {
+            semi_allowed: false,
+            trailing_clauses: false,
+            compound_allowed: false,
+        }
+    }
 }
 
 impl Default for SelectRestrictions {
     fn default() -> Self {
         Self {
+            semi_allowed: false,
             trailing_clauses: true,
+            compound_allowed: true,
         }
     }
 }
@@ -97,25 +111,28 @@ impl Default for SelectRestrictions {
 fn opt_paren_select(
     p: &mut Parser<'_>,
     m: Option<Marker>,
-    semi_allowed: bool,
+    r: &SelectRestrictions,
 ) -> Option<CompletedMarker> {
     let m = m.unwrap_or_else(|| p.start());
     if !p.eat(L_PAREN) {
         m.abandon(p);
         return None;
     }
+    if p.at(R_PAREN) {
+        p.error("expected start of a select statement");
+    }
     while !p.at(EOF) && !p.at(R_PAREN) {
         // saw_expr = true;
         // we want to check for select stuff before we get the the expr stuff maybe? Although select is an expr so maybe fine? but it's not prefix or postfix so maybe right here is good?
         //
         if p.at_ts(SELECT_FIRST)
-            && (select(p, None, &SelectRestrictions::default(), semi_allowed).is_none()
+            && (select(p, None, &SelectRestrictions::default()).is_none()
                 || p.at(EOF)
                 || p.at(R_PAREN))
         {
             break;
         }
-        if opt_paren_select(p, None, semi_allowed).is_none() {
+        if opt_paren_select(p, None, &SelectRestrictions::default()).is_none() {
             break;
         }
         if !p.at(R_PAREN) {
@@ -123,12 +140,14 @@ fn opt_paren_select(
         }
     }
     p.expect(R_PAREN);
-    if p.at_ts(COMPOUND_SELECT_FIRST) {
+    if p.at_ts(COMPOUND_SELECT_FIRST) && r.compound_allowed {
         let cm = m.complete(p, PAREN_SELECT);
-        Some(compound_select(p, cm, semi_allowed))
+        Some(compound_select(p, cm, r))
     } else {
-        opt_select_trailing_clauses(p);
-        if semi_allowed {
+        if r.trailing_clauses {
+            opt_select_trailing_clauses(p);
+        }
+        if r.semi_allowed {
             p.eat(SEMICOLON);
         }
         Some(m.complete(p, PAREN_SELECT))
@@ -138,13 +157,27 @@ fn opt_paren_select(
 const SELECT_FIRST: TokenSet = TokenSet::new(&[SELECT_KW, TABLE_KW, WITH_KW, VALUES_KW, FROM_KW]);
 const PAREN_SELECT_FIRST: TokenSet = TokenSet::new(&[L_PAREN]).union(SELECT_FIRST);
 
-fn tuple_expr(p: &mut Parser<'_>) -> CompletedMarker {
+fn is_select_marker(cm: &CompletedMarker) -> bool {
+    matches!(
+        cm.kind(),
+        SELECT | SELECT_INTO | PAREN_SELECT | TABLE | VALUES | COMPOUND_SELECT
+    )
+}
+
+#[derive(Clone, Copy, PartialEq, Eq)]
+enum ExprKind {
+    Other,
+    Select,
+}
+
+fn tuple_expr(p: &mut Parser<'_>) -> (CompletedMarker, ExprKind) {
     assert!(p.at(L_PAREN) || p.at(ROW_KW));
     let m = p.start();
-    p.eat(ROW_KW);
+    let explicit_row = p.eat(ROW_KW);
     p.expect(L_PAREN);
     let mut saw_comma = false;
     let mut saw_expr = false;
+    let mut saw_select = false;
     if p.eat(COMMA) {
         p.error("expected expression in tuple_expr");
         saw_comma = true;
@@ -153,35 +186,41 @@ fn tuple_expr(p: &mut Parser<'_>) -> CompletedMarker {
         saw_expr = true;
         // we want to check for select stuff before we get the the expr stuff maybe? Although select is an expr so maybe fine? but it's not prefix or postfix so maybe right here is good?
         //
-        if p.at_ts(SELECT_FIRST)
-            && (select(p, None, &SelectRestrictions::default(), false).is_none()
-                || p.at(EOF)
-                || p.at(R_PAREN))
-        {
-            break;
+        if p.at_ts(SELECT_FIRST) {
+            let select = select(p, None, &SelectRestrictions::default());
+            saw_select |= select.as_ref().is_some_and(is_select_marker);
+            if select.is_none() || p.at(EOF) || p.at(R_PAREN) {
+                break;
+            }
         }
-        if expr(p).is_none() {
+        let Some((expr, expr_kind)) = expr(p) else {
             break;
+        };
+        if p.at_ts(COMPOUND_SELECT_FIRST) {
+            if expr_kind != ExprKind::Select {
+                p.error("expected select before compound select operator");
+            }
+            compound_select(p, expr, &SelectRestrictions::default());
         }
+        saw_select |= expr_kind == ExprKind::Select;
         if !p.at(R_PAREN) {
             saw_comma = true;
             p.expect(COMMA);
         }
     }
     p.expect(R_PAREN);
-    let cm = m.complete(
-        p,
-        if saw_expr && !saw_comma {
-            PAREN_EXPR
-        } else {
-            TUPLE_EXPR
-        },
-    );
-    // TODO: needs to be reworked
-    if p.at_ts(COMPOUND_SELECT_FIRST) {
-        return compound_select(p, cm, false);
-    }
-    cm
+
+    let kind = if !explicit_row && saw_expr && !saw_comma {
+        PAREN_EXPR
+    } else {
+        TUPLE_EXPR
+    };
+    let expr_kind = if kind == PAREN_EXPR && saw_select {
+        ExprKind::Select
+    } else {
+        ExprKind::Other
+    };
+    (m.complete(p, kind), expr_kind)
 }
 
 // Define SQL-style CASE clause.
@@ -246,14 +285,19 @@ fn when_clause(p: &mut Parser<'_>) -> CompletedMarker {
     m.complete(p, WHEN_CLAUSE)
 }
 
-const EXTRACT_ARG_FIRST_: TokenSet =
-    TokenSet::new(&[YEAR_KW, MONTH_KW, DAY_KW, HOUR_KW, MINUTE_KW, SECOND_KW]).union(STRING_FIRST);
-
-// IDENT | YEAR_P | MONTH_P | DAY_P | HOUR_P | MINUTE_P | SECOND_P | Sconst
-const EXTRACT_ARG_FIRST: TokenSet = IDENTS.union(EXTRACT_ARG_FIRST_);
+const EXTRACT_ARG_FIRST: TokenSet = TokenSet::new(&[
+    IDENT, YEAR_KW, MONTH_KW, DAY_KW, HOUR_KW, MINUTE_KW, SECOND_KW,
+])
+.union(STRING_FIRST);
 fn extract_arg(p: &mut Parser<'_>) {
-    if p.at_ts(EXTRACT_ARG_FIRST) {
-        p.bump_any();
+    if p.at_ts(STRING_FIRST) {
+        let m = p.start();
+        literal(p);
+        m.complete(p, EXTRACT_FIELD_LITERAL);
+    } else if p.at_ts(EXTRACT_ARG_FIRST) {
+        let m = p.start();
+        pg_name(p);
+        m.complete(p, EXTRACT_FIELD_NAME);
     } else {
         p.error(format!(
             "expected ident, year, month, day, hour, minute, second, or string, got {:?}",
@@ -287,17 +331,23 @@ fn overlay_fn(p: &mut Parser<'_>) -> CompletedMarker {
     p.expect(OVERLAY_KW);
     p.expect(L_PAREN);
     if !p.at(R_PAREN) {
+        let m = p.start();
         expr(p);
-        if p.eat(PLACING_KW) {
+        let kind = if p.eat(PLACING_KW) {
             expr(p);
             p.expect(FROM_KW);
             expr(p);
             if p.eat(FOR_KW) {
                 expr(p);
             }
-        } else if p.eat(COMMA) {
-            opt_expr_list(p);
-        }
+            OVERLAY_PLACING
+        } else {
+            if p.eat(COMMA) {
+                opt_expr_list(p);
+            }
+            OVERLAY_EXPRS
+        };
+        m.complete(p, kind);
     }
     p.expect(R_PAREN);
     let m = m.complete(p, OVERLAY_FN).precede(p);
@@ -325,31 +375,52 @@ fn position_fn(p: &mut Parser<'_>) -> CompletedMarker {
     m.complete(p, CALL_EXPR)
 }
 
-fn trim_fn(p: &mut Parser<'_>) -> CompletedMarker {
-    assert!(p.at(TRIM_KW));
+fn opt_trim_side(p: &mut Parser<'_>) {
+    let kind = match p.current() {
+        BOTH_KW => TRIM_BOTH,
+        LEADING_KW => TRIM_LEADING,
+        TRAILING_KW => TRIM_TRAILING,
+        _ => return,
+    };
     let m = p.start();
-    p.expect(TRIM_KW);
-    p.expect(L_PAREN);
-    let _ = p.eat(BOTH_KW) || p.eat(LEADING_KW) || p.eat(TRAILING_KW);
+    p.bump_any();
+    m.complete(p, kind);
+}
+
+fn trim_args(p: &mut Parser<'_>) -> CompletedMarker {
+    let m = p.start();
     // | FROM expr_list
     // | a_expr FROM expr_list
     // | expr_list
-    if p.eat(FROM_KW) {
+    let kind = if p.eat(FROM_KW) {
         if !opt_expr_list(p) {
             p.error("expected expression")
         }
+        TRIM_FROM
     } else {
         if expr(p).is_none() {
             p.error("expected expression");
         }
         if p.eat(FROM_KW) {
             opt_expr_list(p);
+            TRIM_EXPR_FROM
         } else {
             if p.eat(COMMA) {
                 opt_expr_list(p);
             }
+            TRIM_EXPRS
         }
     };
+    m.complete(p, kind)
+}
+
+fn trim_fn(p: &mut Parser<'_>) -> CompletedMarker {
+    assert!(p.at(TRIM_KW));
+    let m = p.start();
+    p.expect(TRIM_KW);
+    p.expect(L_PAREN);
+    opt_trim_side(p);
+    trim_args(p);
     p.expect(R_PAREN);
     let m = m.complete(p, TRIM_FN).precede(p);
     opt_agg_clauses(p);
@@ -365,13 +436,10 @@ fn trim_fn(p: &mut Parser<'_>) -> CompletedMarker {
 //     | a_expr SIMILAR a_expr ESCAPE a_expr
 //
 // SUBSTRING '(' func_arg_list_opt ')'
-fn substring_fn(p: &mut Parser<'_>) -> CompletedMarker {
-    assert!(p.at(SUBSTRING_KW));
+fn substring_args(p: &mut Parser<'_>) -> CompletedMarker {
     let m = p.start();
-    p.expect(SUBSTRING_KW);
-    p.expect(L_PAREN);
     expr(p);
-    match p.current() {
+    let kind = match p.current() {
         // FOR a_expr FROM a_expr
         // FOR a_expr
         FOR_KW => {
@@ -381,6 +449,7 @@ fn substring_fn(p: &mut Parser<'_>) -> CompletedMarker {
             if p.eat(FROM_KW) {
                 expr(p);
             }
+            SUBSTRING_FOR_FROM
         }
         // FROM a_expr
         // FROM a_expr FOR a_expr
@@ -391,17 +460,39 @@ fn substring_fn(p: &mut Parser<'_>) -> CompletedMarker {
             if p.eat(FOR_KW) {
                 expr(p);
             }
+            SUBSTRING_FROM_FOR
         }
         // SIMILAR a_expr ESCAPE a_expr
         SIMILAR_KW => {
             p.bump(SIMILAR_KW);
+            expr_bp(
+                p,
+                1,
+                &Restrictions {
+                    escape_disabled: true,
+                    ..Restrictions::default()
+                },
+            );
+            p.expect(ESCAPE_KW);
             expr(p);
+            SUBSTRING_SIMILAR_ESCAPE
         }
-        _ if p.eat(COMMA) => {
-            opt_expr_list(p);
+        _ => {
+            if p.eat(COMMA) {
+                opt_expr_list(p);
+            }
+            SUBSTRING_EXPRS
         }
-        _ => (),
-    }
+    };
+    m.complete(p, kind)
+}
+
+fn substring_fn(p: &mut Parser<'_>) -> CompletedMarker {
+    assert!(p.at(SUBSTRING_KW));
+    let m = p.start();
+    p.expect(SUBSTRING_KW);
+    p.expect(L_PAREN);
+    substring_args(p);
     p.expect(R_PAREN);
     let m = m.complete(p, SUBSTRING_FN).precede(p);
     opt_agg_clauses(p);
@@ -644,9 +735,7 @@ fn json_table_arg_list(p: &mut Parser<'_>) {
         p.error("expected expression");
     }
     // [ AS json_path_name ]
-    if p.eat(AS_KW) {
-        json_path_name(p);
-    }
+    opt_json_path_name_clause(p);
     opt_json_passing_clause(p);
     json_table_column_list(p);
     opt_json_table_plan_clause(p);
@@ -682,11 +771,24 @@ fn opt_json_table_plan_clause(p: &mut Parser<'_>) {
 fn json_table_plan_choice(p: &mut Parser<'_>) {
     if p.at_ts(JSON_TABLE_PLAN_JOIN_KINDS) {
         let m = p.start();
-        p.bump_any();
+        json_table_plan_operator(p);
         m.complete(p, JSON_TABLE_PLAN_CHOICE);
     } else {
         p.error("expected INNER, OUTER, CROSS, or UNION");
     }
+}
+
+fn json_table_plan_operator(p: &mut Parser<'_>) -> CompletedMarker {
+    let m = p.start();
+    let kind = match p.current() {
+        CROSS_KW => JSON_TABLE_PLAN_CROSS,
+        INNER_KW => JSON_TABLE_PLAN_INNER,
+        OUTER_KW => JSON_TABLE_PLAN_OUTER,
+        UNION_KW => JSON_TABLE_PLAN_UNION,
+        _ => unreachable!(),
+    };
+    p.bump_any();
+    m.complete(p, kind)
 }
 
 // json_table_plan is:
@@ -703,7 +805,7 @@ fn json_table_plan(p: &mut Parser<'_>) {
     };
     while p.at_ts(JSON_TABLE_PLAN_JOIN_KINDS) {
         let m = lhs.precede(p);
-        p.bump_any();
+        json_table_plan_operator(p);
         if opt_json_table_plan_primary(p).is_none() {
             p.error("expected json table plan");
         }
@@ -765,28 +867,29 @@ fn opt_json_table_column(p: &mut Parser<'_>) -> bool {
     }
     let m = p.start();
     // NESTED [ PATH ] path_expression [ AS json_path_name ] COLUMNS ( json_table_column [, ...] )
-    if p.eat(NESTED_KW) {
+    let kind = if p.eat(NESTED_KW) {
         p.eat(PATH_KW);
         // path_expression
         if expr(p).is_none() {
             p.error("expected expression");
         }
         // [ AS json_path_name ]
-        if p.eat(AS_KW) {
-            json_path_name(p);
-        }
+        opt_json_path_name_clause(p);
         json_table_column_list(p);
+        JSON_TABLE_NESTED_COLUMN
     } else {
         column_name(p);
         // FOR ORDINALITY
         if p.eat(FOR_KW) {
             p.expect(ORDINALITY_KW);
+            JSON_TABLE_ORDINALITY_COLUMN
         } else {
             type_name(p);
             // name type EXISTS [ PATH path_expression ]
             if p.eat(EXISTS_KW) {
                 opt_json_path_clause(p);
                 opt_json_behavior_clause(p);
+                JSON_TABLE_EXISTS_COLUMN
             } else {
                 // [ FORMAT JSON [ENCODING UTF8]]
                 opt_json_format_clause(p);
@@ -794,10 +897,11 @@ fn opt_json_table_column(p: &mut Parser<'_>) -> bool {
                 opt_json_wrapper_behavior(p);
                 opt_json_quotes_clause(p);
                 opt_json_behavior_clause(p);
+                JSON_TABLE_VALUE_COLUMN
             }
         }
-    }
-    m.complete(p, JSON_TABLE_COLUMN);
+    };
+    m.complete(p, kind);
     true
 }
 
@@ -827,7 +931,7 @@ fn opt_json_array_fn_arg_list(p: &mut Parser<'_>) {
     while !p.at(EOF) && !p.at(R_PAREN) && !p.at(RETURNING_KW) {
         let m = p.start();
         if p.at_ts(SELECT_FIRST) {
-            if select(p, None, &SelectRestrictions::default(), false).is_none() {
+            if select(p, None, &SelectRestrictions::default()).is_none() {
                 m.abandon(p);
                 break;
             }
@@ -877,7 +981,7 @@ fn some_any_all_fn(p: &mut Parser<'_>) -> CompletedMarker {
     // args
     p.expect(L_PAREN);
     if p.at_ts(SELECT_FIRST) {
-        select(p, None, &SelectRestrictions::default(), false);
+        select(p, None, &SelectRestrictions::default());
     } else {
         if expr(p).is_none() {
             p.error("expected expression or select");
@@ -890,9 +994,9 @@ fn some_any_all_fn(p: &mut Parser<'_>) -> CompletedMarker {
 }
 
 // literal, path, tuple, array
-fn atom_expr(p: &mut Parser<'_>) -> Option<CompletedMarker> {
+fn atom_expr(p: &mut Parser<'_>) -> Option<(CompletedMarker, ExprKind)> {
     if let Some(m) = literal(p) {
-        return Some(m);
+        return Some((m, ExprKind::Other));
     }
     let done = match (p.current(), p.nth(1)) {
         (POSITIONAL_PARAM, _) => {
@@ -936,9 +1040,9 @@ fn atom_expr(p: &mut Parser<'_>) -> Option<CompletedMarker> {
         (SOME_KW | ALL_KW | ANY_KW, L_PAREN) => some_any_all_fn(p),
         (EXISTS_KW, L_PAREN) => exists_fn(p),
         (COLLATION_KW, FOR_KW) => collation_for_fn(p),
-        (ROW_KW, L_PAREN) => tuple_expr(p),
+        (ROW_KW, L_PAREN) => return Some(tuple_expr(p)),
         _ if p.at_ts(NAME_REF_FIRST) => name_ref_(p)?,
-        (L_PAREN, _) => tuple_expr(p),
+        (L_PAREN, _) => return Some(tuple_expr(p)),
         (ARRAY_KW, L_BRACK | L_PAREN) => {
             let m = p.start();
             p.bump(ARRAY_KW);
@@ -953,7 +1057,7 @@ fn atom_expr(p: &mut Parser<'_>) -> Option<CompletedMarker> {
             return None;
         }
     };
-    Some(done)
+    Some((done, ExprKind::Other))
 }
 
 fn json_arrayagg_fn(p: &mut Parser<'_>) -> CompletedMarker {
@@ -1035,21 +1139,43 @@ fn xmlparse_fn(p: &mut Parser<'_>) -> CompletedMarker {
     let m = p.start();
     p.expect(XMLPARSE_KW);
     p.expect(L_PAREN);
-    if p.at(DOCUMENT_KW) || p.at(CONTENT_KW) {
-        p.bump_any();
-    } else {
+    if !opt_xml_document_or_content(p) {
         p.error("expected DOCUMENT or CONTENT");
     }
     if expr(p).is_none() {
         p.error("expected expression");
     }
-    if p.eat(PRESERVE_KW) || p.eat(STRIP_KW) {
-        p.expect(WHITESPACE_KW);
+    match p.current() {
+        PRESERVE_KW => {
+            let m = p.start();
+            p.bump(PRESERVE_KW);
+            p.expect(WHITESPACE_KW);
+            m.complete(p, PRESERVE_WHITESPACE);
+        }
+        STRIP_KW => {
+            let m = p.start();
+            p.bump(STRIP_KW);
+            p.expect(WHITESPACE_KW);
+            m.complete(p, STRIP_WHITESPACE);
+        }
+        _ => (),
     }
     p.expect(R_PAREN);
     let m = m.complete(p, XML_PARSE_FN).precede(p);
     opt_agg_clauses(p);
     m.complete(p, CALL_EXPR)
+}
+
+fn opt_xml_document_or_content(p: &mut Parser<'_>) -> bool {
+    let kind = match p.current() {
+        DOCUMENT_KW => XML_DOCUMENT,
+        CONTENT_KW => XML_CONTENT,
+        _ => return false,
+    };
+    let m = p.start();
+    p.bump_any();
+    m.complete(p, kind);
+    true
 }
 
 fn opt_xml_passing_mech(p: &mut Parser<'_>) -> bool {
@@ -1276,9 +1402,7 @@ fn xmlserialize_fn(p: &mut Parser<'_>) -> CompletedMarker {
     let m = p.start();
     p.expect(XMLSERIALIZE_KW);
     p.expect(L_PAREN);
-    if p.at(DOCUMENT_KW) || p.at(CONTENT_KW) {
-        p.bump_any();
-    } else {
+    if !opt_xml_document_or_content(p) {
         p.error("expected DOCUMENT or CONTENT");
     }
     if expr(p).is_none() {
@@ -1286,10 +1410,19 @@ fn xmlserialize_fn(p: &mut Parser<'_>) -> CompletedMarker {
     }
     p.expect(AS_KW);
     type_name(p);
-    if p.eat(NO_KW) {
-        p.expect(INDENT_KW);
-    } else {
-        p.eat(INDENT_KW);
+    match p.current() {
+        NO_KW => {
+            let m = p.start();
+            p.bump(NO_KW);
+            p.expect(INDENT_KW);
+            m.complete(p, NO_INDENT);
+        }
+        INDENT_KW => {
+            let m = p.start();
+            p.bump(INDENT_KW);
+            m.complete(p, INDENT);
+        }
+        _ => (),
     }
     p.expect(R_PAREN);
     let m = m.complete(p, XML_SERIALIZE_FN).precede(p);
@@ -1315,24 +1448,49 @@ fn xmlroot_fn(p: &mut Parser<'_>) -> CompletedMarker {
         p.error("expected expression");
     }
     p.expect(COMMA);
-    p.expect(VERSION_KW);
-    if p.eat(NO_KW) {
-        p.expect(VALUE_KW);
-    } else if expr(p).is_none() {
-        p.error("expected expression");
-    }
-    if p.eat(COMMA) {
-        p.expect(STANDALONE_KW);
-        if p.eat(NO_KW) {
-            p.eat(VALUE_KW);
-        } else {
-            p.expect(YES_KW);
-        }
-    }
+    xml_root_version(p);
+    opt_xml_standalone(p);
     p.expect(R_PAREN);
     let m = m.complete(p, XML_ROOT_FN).precede(p);
     opt_agg_clauses(p);
     m.complete(p, CALL_EXPR)
+}
+
+// VERSION { a_expr | NO VALUE }
+fn xml_root_version(p: &mut Parser<'_>) {
+    let m = p.start();
+    p.expect(VERSION_KW);
+    let kind = if p.eat(NO_KW) {
+        p.expect(VALUE_KW);
+        XML_VERSION_NO_VALUE
+    } else {
+        if expr(p).is_none() {
+            p.error("expected expression");
+        }
+        XML_VERSION_EXPR
+    };
+    m.complete(p, kind);
+}
+
+// [ ',' STANDALONE { YES | NO [ VALUE ] } ]
+fn opt_xml_standalone(p: &mut Parser<'_>) {
+    if !p.at(COMMA) {
+        return;
+    }
+    let m = p.start();
+    p.bump(COMMA);
+    p.expect(STANDALONE_KW);
+    let kind = if p.eat(NO_KW) {
+        if p.eat(VALUE_KW) {
+            STANDALONE_NO_VALUE
+        } else {
+            STANDALONE_NO
+        }
+    } else {
+        p.expect(YES_KW);
+        STANDALONE_YES
+    };
+    m.complete(p, kind);
 }
 
 // JSON '(' json_value_expr json_key_uniqueness_constraint_opt ')'
@@ -1442,19 +1600,33 @@ fn json_query_fn(p: &mut Parser<'_>) -> CompletedMarker {
     m.complete(p, CALL_EXPR)
 }
 
+// { KEEP | OMIT } QUOTES
+fn opt_quotes(p: &mut Parser<'_>) -> Option<CompletedMarker> {
+    let kind = match p.current() {
+        KEEP_KW => KEEP_QUOTES,
+        OMIT_KW => OMIT_QUOTES,
+        _ => return None,
+    };
+    let m = p.start();
+    p.bump_any();
+    p.expect(QUOTES_KW);
+    Some(m.complete(p, kind))
+}
+
 fn opt_json_quotes_clause(p: &mut Parser<'_>) -> Option<CompletedMarker> {
     let m = p.start();
-    if p.eat(KEEP_KW) || p.eat(OMIT_KW) {
-        p.expect(QUOTES_KW);
-        if p.eat(ON_KW) {
-            p.expect(SCALAR_KW);
-            p.expect(STRING_KW);
-        }
-        Some(m.complete(p, JSON_QUOTES_CLAUSE))
-    } else {
+    if opt_quotes(p).is_none() {
         m.abandon(p);
-        None
+        return None;
     }
+    if p.at(ON_KW) {
+        let m = p.start();
+        p.bump(ON_KW);
+        p.expect(SCALAR_KW);
+        p.expect(STRING_KW);
+        m.complete(p, ON_SCALAR_STRING);
+    }
+    Some(m.complete(p, JSON_QUOTES_CLAUSE))
 }
 
 fn opt_json_behavior_clause(p: &mut Parser<'_>) {
@@ -1626,7 +1798,7 @@ fn opt_json_passing_clause(p: &mut Parser<'_>) {
 }
 
 // unary / prefix stuff
-fn lhs(p: &mut Parser<'_>, r: &Restrictions) -> Option<CompletedMarker> {
+fn lhs(p: &mut Parser<'_>, r: &Restrictions) -> Option<(CompletedMarker, ExprKind)> {
     let m;
     let (kind, prefix_bp) = match p.current() {
         MINUS | PLUS => {
@@ -1638,7 +1810,7 @@ fn lhs(p: &mut Parser<'_>, r: &Restrictions) -> Option<CompletedMarker> {
             m = p.start();
             p.bump(COLON);
             bind_param_name_ref(p);
-            return Some(m.complete(p, NON_STANDARD_PARAM));
+            return Some((m.complete(p, NON_STANDARD_PARAM), ExprKind::Other));
         }
         _ if p.at_ts(OPERATOR_FIRST) && p.at(CUSTOM_OP) => {
             m = p.start();
@@ -1656,15 +1828,20 @@ fn lhs(p: &mut Parser<'_>, r: &Restrictions) -> Option<CompletedMarker> {
             (PREFIX_EXPR, 7)
         }
         _ => {
-            let lhs = atom_expr(p)?;
+            let (lhs, expr_kind) = atom_expr(p)?;
             let cm = postfix_expr(p, lhs);
-            return Some(cm);
+            let expr_kind = if cm.kind() == PAREN_EXPR {
+                expr_kind
+            } else {
+                ExprKind::Other
+            };
+            return Some((cm, expr_kind));
         }
     };
     // parse the interior of the unary expression
     expr_bp(p, prefix_bp, &Restrictions::default());
     let cm = m.complete(p, kind);
-    Some(cm)
+    Some((cm, ExprKind::Other))
 }
 
 fn bind_param_name_ref(p: &mut Parser<'_>) {
@@ -2191,6 +2368,7 @@ fn arg_list(p: &mut Parser<'_>) {
         m.complete(p, ARG_LIST);
         return;
     }
+    let mut first_arg = true;
     delimited(
         p,
         L_PAREN,
@@ -2199,11 +2377,27 @@ fn arg_list(p: &mut Parser<'_>) {
         || "expected expression".into(),
         EXPR_FIRST,
         |p| {
-            let _ = p.eat(DISTINCT_KW) || p.eat(ALL_KW);
+            if std::mem::take(&mut first_arg) {
+                opt_all_or_distinct(p);
+            } else if p.at(ALL_KW) || p.at(DISTINCT_KW) {
+                p.err_and_bump("ALL or DISTINCT is only allowed before the first argument");
+            }
             arg_expr(p).is_some()
         },
     );
     m.complete(p, ARG_LIST);
+}
+
+// [ ALL | DISTINCT ]
+fn opt_all_or_distinct(p: &mut Parser<'_>) {
+    let kind = match p.current() {
+        ALL_KW => ALL,
+        DISTINCT_KW => DISTINCT,
+        _ => return,
+    };
+    let m = p.start();
+    p.bump_any();
+    m.complete(p, kind);
 }
 
 fn interval_second(p: &mut Parser<'_>) {
@@ -2349,12 +2543,24 @@ fn name_ref_(p: &mut Parser<'_>) -> Option<CompletedMarker> {
     }
 }
 
+// [ SYMMETRIC | ASYMMETRIC ]
+fn opt_between_symmetry(p: &mut Parser<'_>) {
+    let kind = match p.current() {
+        SYMMETRIC_KW => SYMMETRIC,
+        ASYMMETRIC_KW => ASYMMETRIC,
+        _ => return,
+    };
+    let m = p.start();
+    p.bump_any();
+    m.complete(p, kind);
+}
+
 fn between_expr(p: &mut Parser<'_>) -> CompletedMarker {
     assert!(p.at(NOT_KW) || p.at(BETWEEN_KW));
     let m = p.start();
     p.eat(NOT_KW);
     p.expect(BETWEEN_KW);
-    let _ = p.eat(SYMMETRIC_KW) || p.eat(ASYMMETRIC_KW);
+    opt_between_symmetry(p);
     b_expr(p);
     p.expect(AND_KW);
     b_expr(p);
@@ -2406,9 +2612,12 @@ fn opt_over_clause(p: &mut Parser<'_>) {
         // OVER ( window_definition )
         let m = p.start();
         p.expect(OVER_KW);
-        if p.eat(L_PAREN) {
+        if p.at(L_PAREN) {
+            let target = p.start();
+            p.bump(L_PAREN);
             window_spec(p);
             p.expect(R_PAREN);
+            target.complete(p, OVER_WINDOW_SPEC);
         } else {
             window_ref(p);
         }
@@ -2528,11 +2737,11 @@ fn postfix_dot_expr(p: &mut Parser<'_>, lhs: CompletedMarker) -> CompletedMarker
     }
 }
 
-fn expr(p: &mut Parser) -> Option<CompletedMarker> {
+fn expr(p: &mut Parser<'_>) -> Option<(CompletedMarker, ExprKind)> {
     expr_bp(p, 1, &Restrictions::default())
 }
 
-fn opt_expr(p: &mut Parser<'_>) -> Option<CompletedMarker> {
+fn opt_expr(p: &mut Parser<'_>) -> Option<(CompletedMarker, ExprKind)> {
     if !p.at_ts(EXPR_FIRST) {
         return None;
     }
@@ -2541,7 +2750,7 @@ fn opt_expr(p: &mut Parser<'_>) -> Option<CompletedMarker> {
 
 // Based on the Postgres grammar b_expr, it's expr without `AND`, `NOT`, `IS`,
 // and `IN`
-fn b_expr(p: &mut Parser<'_>) -> Option<CompletedMarker> {
+fn b_expr(p: &mut Parser<'_>) -> Option<(CompletedMarker, ExprKind)> {
     expr_bp(
         p,
         1,
@@ -2608,7 +2817,7 @@ fn current_op(p: &Parser<'_>, r: &Restrictions) -> (u8, SyntaxKind, Associativit
         // overlaps
         OVERLAPS_KW => (7, OVERLAPS_KW, Left),
         // escape
-        ESCAPE_KW => (7, ESCAPE_KW, Left),
+        ESCAPE_KW if !r.escape_disabled => (7, ESCAPE_KW, Left),
         // like
         LIKE_KW => (6, LIKE_KW, Left),
         // ilike
@@ -2691,13 +2900,14 @@ const OVERLAPPING_TOKENS: TokenSet = TokenSet::new(&[OR_KW, AND_KW, IS_KW, COLLA
 #[derive(Default)]
 struct Restrictions {
     order_by_allowed: bool,
+    escape_disabled: bool,
     in_disabled: bool,
     is_disabled: bool,
     not_disabled: bool,
     and_disabled: bool,
 }
 
-fn expr_bp(p: &mut Parser<'_>, bp: u8, r: &Restrictions) -> Option<CompletedMarker> {
+fn expr_bp(p: &mut Parser<'_>, bp: u8, r: &Restrictions) -> Option<(CompletedMarker, ExprKind)> {
     let m = p.start();
     if !p.at_ts(EXPR_FIRST) {
         p.err_recover(
@@ -2707,8 +2917,8 @@ fn expr_bp(p: &mut Parser<'_>, bp: u8, r: &Restrictions) -> Option<CompletedMark
         m.abandon(p);
         return None;
     }
-    let mut lhs = match lhs(p, r) {
-        Some(lhs) => lhs.extend_to(p, m),
+    let (mut lhs, mut expr_kind) = match lhs(p, r) {
+        Some((lhs, expr_kind)) => (lhs.extend_to(p, m), expr_kind),
         None => {
             m.abandon(p);
             return None;
@@ -2730,7 +2940,7 @@ fn expr_bp(p: &mut Parser<'_>, bp: u8, r: &Restrictions) -> Option<CompletedMark
         let m = p.start();
         column_name(p);
         m.complete(p, AS_NAME);
-        return Some(lhs);
+        return Some((lhs, expr_kind));
     }
     if r.order_by_allowed && p.at(ORDER_KW) {
         opt_order_by_clause(p);
@@ -2746,11 +2956,13 @@ fn expr_bp(p: &mut Parser<'_>, bp: u8, r: &Restrictions) -> Option<CompletedMark
             type_name(p);
             let cast_expr = m.complete(p, CAST_EXPR);
             lhs = postfix_expr(p, cast_expr);
+            expr_kind = ExprKind::Other;
             continue;
         }
         if matches!(op, COLLATE_KW) {
             collation_ref(p);
             lhs = m.complete(p, COLLATE);
+            expr_kind = ExprKind::Other;
             continue;
         }
 
@@ -2764,11 +2976,12 @@ fn expr_bp(p: &mut Parser<'_>, bp: u8, r: &Restrictions) -> Option<CompletedMark
         } else {
             m.complete(p, BIN_EXPR)
         };
+        expr_kind = ExprKind::Other;
     }
     if r.order_by_allowed && p.at(ORDER_KW) {
         opt_order_by_clause(p);
     }
-    Some(lhs)
+    Some((lhs, expr_kind))
 }
 
 fn opt_expr_list(p: &mut Parser) -> bool {
@@ -2807,14 +3020,24 @@ fn with_query(p: &mut Parser<'_>) -> CompletedMarker {
     m.complete(p, WITH_TABLE)
 }
 
+// { BREADTH | DEPTH } FIRST
+fn search_order(p: &mut Parser<'_>) {
+    let m = p.start();
+    let kind = if p.eat(BREADTH_KW) {
+        BREADTH_FIRST
+    } else {
+        p.expect(DEPTH_KW);
+        DEPTH_FIRST
+    };
+    p.expect(FIRST_KW);
+    m.complete(p, kind);
+}
+
 fn opt_search_clause(p: &mut Parser<'_>) {
     let m = p.start();
     // [ SEARCH { BREADTH | DEPTH } FIRST BY column_name [, ...] SET search_seq_col_name ]
     if p.eat(SEARCH_KW) {
-        if !p.eat(BREADTH_KW) {
-            p.expect(DEPTH_KW);
-        }
-        p.expect(FIRST_KW);
+        search_order(p);
         p.expect(BY_KW);
         search_columns(p);
         search_set_column(p);
@@ -2953,39 +3176,82 @@ fn select_clause(p: &mut Parser<'_>) -> CompletedMarker {
     //        ^^^
     // select distinct
     //        ^^^^^^^^
-    opt_all_or_distinct(p);
+    opt_select_all_or_distinct(p);
     opt_target_list(p);
     m.complete(p, SELECT_CLAUSE)
 }
 
-fn compound_select(p: &mut Parser<'_>, cm: CompletedMarker, semi_allowed: bool) -> CompletedMarker {
+// { UNION | INTERSECT | EXCEPT } [ ALL | DISTINCT ]
+fn compound_op(p: &mut Parser<'_>) {
     assert!(p.at_ts(COMPOUND_SELECT_FIRST));
-    let m = cm.precede(p);
+    let kind = match p.current() {
+        UNION_KW => UNION,
+        INTERSECT_KW => INTERSECT,
+        _ => EXCEPT,
+    };
+    let m = p.start();
     p.bump_any();
-    if !p.eat(ALL_KW) {
-        p.eat(DISTINCT_KW);
+    opt_all_or_distinct(p);
+    m.complete(p, kind);
+}
+
+fn compound_op_bp(p: &Parser<'_>) -> Option<u8> {
+    match p.current() {
+        UNION_KW | EXCEPT_KW => Some(1),
+        INTERSECT_KW => Some(2),
+        _ => None,
     }
+}
+
+fn compound_select_operand(p: &mut Parser<'_>) -> Option<CompletedMarker> {
     if p.at(L_PAREN) {
-        opt_paren_select(p, None, false);
+        opt_paren_select(p, None, &SelectRestrictions::none())
+    } else if p.at_ts(SELECT_FIRST) {
+        if p.at(WITH_KW) {
+            p.error("a WITH clause is only allowed at the start of a select statement");
+        }
+        select(p, None, &SelectRestrictions::none())
     } else {
-        if p.at_ts(SELECT_FIRST) {
-            select(
-                p,
-                None,
-                &SelectRestrictions {
-                    trailing_clauses: false,
-                },
-                false,
-            );
-        } else {
-            p.error("expected start of a select statement")
+        p.error("expected start of a select statement");
+        None
+    }
+}
+
+fn compound_select_bp(
+    p: &mut Parser<'_>,
+    lhs: CompletedMarker,
+    min_bp: u8,
+    r: &SelectRestrictions,
+) -> CompletedMarker {
+    let mut lhs = lhs;
+    while let Some(bp) = compound_op_bp(p) {
+        if bp < min_bp {
+            break;
+        }
+        let m = lhs.precede(p);
+        compound_op(p);
+        if let Some(rhs) = compound_select_operand(p) {
+            compound_select_bp(p, rhs, bp + 1, &SelectRestrictions::none());
+        }
+        if r.trailing_clauses {
+            opt_select_trailing_clauses(p);
+        }
+        let terminated = r.semi_allowed && p.eat(SEMICOLON);
+        lhs = m.complete(p, COMPOUND_SELECT);
+        if terminated {
+            break;
         }
     }
-    opt_select_trailing_clauses(p);
-    if semi_allowed {
-        p.eat(SEMICOLON);
-    }
-    m.complete(p, COMPOUND_SELECT)
+    lhs
+}
+
+fn compound_select(
+    p: &mut Parser<'_>,
+    cm: CompletedMarker,
+    r: &SelectRestrictions,
+) -> CompletedMarker {
+    assert!(p.at_ts(COMPOUND_SELECT_FIRST));
+    compound_select_bp(p, cm, 0, r)
 }
 
 fn opt_select_clause(p: &mut Parser<'_>) {
@@ -2997,12 +3263,7 @@ fn opt_select_clause(p: &mut Parser<'_>) {
 // error recovery:
 // - <https://youtu.be/0HlrqwLjCxA?feature=shared&t=2172>
 /// <https://www.postgresql.org/docs/17/sql-select.html>
-fn select(
-    p: &mut Parser,
-    m: Option<Marker>,
-    r: &SelectRestrictions,
-    semi_allowed: bool,
-) -> Option<CompletedMarker> {
+fn select(p: &mut Parser, m: Option<Marker>, r: &SelectRestrictions) -> Option<CompletedMarker> {
     assert!(p.at_ts(SELECT_FIRST));
     let m = m.unwrap_or_else(|| p.start());
 
@@ -3011,15 +3272,10 @@ fn select(
     // with aka cte
     // [ WITH [ RECURSIVE ] with_query [, ...] ]
     if p.at(WITH_KW) {
-        return with(p, Some(m), semi_allowed);
+        return with(p, Some(m), r);
     }
     if p.at(VALUES_KW) {
-        let cm = values(p, Some(m), semi_allowed);
-        if p.at_ts(COMPOUND_SELECT_FIRST) {
-            return Some(compound_select(p, cm, semi_allowed));
-        } else {
-            return Some(cm);
-        }
+        return Some(values(p, Some(m), r));
     }
     // table [only] name [*]
     if p.eat(TABLE_KW) {
@@ -3041,14 +3297,19 @@ fn select(
     opt_group_by_clause(p);
     opt_having_clause(p);
     opt_window_clause(p);
-    if p.at_ts(COMPOUND_SELECT_FIRST) {
+    if p.at_ts(COMPOUND_SELECT_FIRST) && r.compound_allowed {
         let cm = m.complete(p, out_kind);
-        return Some(compound_select(p, cm, semi_allowed));
+        return Some(compound_select(p, cm, r));
     }
     if r.trailing_clauses {
         opt_select_trailing_clauses(p);
+        // error recovery
+        if p.at_ts(COMPOUND_SELECT_FIRST) && r.compound_allowed {
+            let cm = m.complete(p, out_kind);
+            return Some(compound_select(p, cm, r));
+        }
     }
-    if semi_allowed {
+    if r.semi_allowed {
         p.eat(SEMICOLON);
     }
     Some(m.complete(p, out_kind))
@@ -3079,6 +3340,11 @@ fn opt_select_trailing_clauses(p: &mut Parser<'_>) -> bool {
         while p.at(FOR_KW) {
             opt_locking_clause(p);
         }
+    }
+    if p.at_ts(COMPOUND_SELECT_FIRST) {
+        p.error(
+            "UNION, INTERSECT, EXCEPT must come before ORDER BY, LIMIT, OFFSET, FETCH, and locking clauses",
+        );
     }
     true
 }
@@ -3126,6 +3392,15 @@ fn lock_strength(p: &mut Parser<'_>) {
     }
 }
 
+fn opt_nowait(p: &mut Parser<'_>) {
+    if !p.at(NOWAIT_KW) {
+        return;
+    }
+    let m = p.start();
+    p.bump(NOWAIT_KW);
+    m.complete(p, NOWAIT);
+}
+
 fn opt_locking_clause(p: &mut Parser<'_>) -> Option<CompletedMarker> {
     let m = p.start();
     if !p.eat(FOR_KW) {
@@ -3133,17 +3408,39 @@ fn opt_locking_clause(p: &mut Parser<'_>) -> Option<CompletedMarker> {
         return None;
     }
     lock_strength(p);
-    if p.eat(OF_KW) {
+    if p.at(OF_KW) {
+        let m = p.start();
+        p.bump(OF_KW);
         if !opt_expr_list(p) {
             p.error("expected an expression");
         }
+        m.complete(p, LOCKING_OF);
     }
-    if p.eat(SKIP_KW) {
-        p.expect(LOCKED_KW)
-    } else {
-        p.eat(NOWAIT_KW)
-    };
+    match p.current() {
+        SKIP_KW => {
+            let m = p.start();
+            p.bump(SKIP_KW);
+            p.expect(LOCKED_KW);
+            m.complete(p, SKIP_LOCKED);
+        }
+        NOWAIT_KW => opt_nowait(p),
+        _ => (),
+    }
     Some(m.complete(p, LOCKING_CLAUSE))
+}
+
+// { ONLY | WITH TIES }
+fn fetch_quantity(p: &mut Parser<'_>) {
+    let m = p.start();
+    if p.eat(WITH_KW) {
+        p.expect(TIES_KW);
+        m.complete(p, WITH_TIES);
+    } else if p.eat(ONLY_KW) {
+        m.complete(p, FETCH_ONLY);
+    } else {
+        p.error("expected ONLY or WITH TIES");
+        m.abandon(p);
+    }
 }
 
 // FETCH { FIRST | NEXT } [ count ] { ROW | ROWS } { ONLY | WITH TIES }
@@ -3165,12 +3462,7 @@ fn opt_fetch_clause(p: &mut Parser<'_>) -> Option<CompletedMarker> {
     if !p.eat(ROW_KW) {
         p.expect(ROWS_KW);
     }
-    // { ONLY | WITH TIES }
-    if p.eat(WITH_KW) {
-        p.expect(TIES_KW);
-    } else {
-        p.expect(ONLY_KW);
-    }
+    fetch_quantity(p);
     Some(m.complete(p, FETCH_CLAUSE))
 }
 
@@ -3285,11 +3577,11 @@ fn opt_from_clause(p: &mut Parser<'_>) -> Option<CompletedMarker> {
         m.abandon(p);
         return None;
     }
-    if !opt_from_item(p) {
+    if opt_from_item(p).is_none() {
         p.error(format!("expected from item, got {:?}", p.current()));
     }
     while !p.at(EOF) && p.eat(COMMA) {
-        if !opt_from_item(p) {
+        if opt_from_item(p).is_none() {
             p.error("expected from item");
             break;
         }
@@ -3381,6 +3673,17 @@ fn from_item_relation_name_ref(p: &mut Parser<'_>) {
     m.complete(p, RELATION_NAME_REF);
 }
 
+// [ WITH ORDINALITY ]
+fn opt_with_ordinality(p: &mut Parser<'_>) {
+    if !p.at(WITH_KW) {
+        return;
+    }
+    let m = p.start();
+    p.bump(WITH_KW);
+    p.expect(ORDINALITY_KW);
+    m.complete(p, WITH_ORDINALITY);
+}
+
 fn from_item_name(p: &mut Parser<'_>) -> SyntaxKind {
     if from_item_is_function(p) {
         // [ WITH ORDINALITY ]
@@ -3390,9 +3693,7 @@ fn from_item_name(p: &mut Parser<'_>) -> SyntaxKind {
         // TODO: we should use this to inform parsing down below
         match name_ref_(p).map(|lhs| postfix_expr(p, lhs)) {
             Some(val) if val.kind() == CALL_EXPR => {
-                if p.eat(WITH_KW) {
-                    p.expect(ORDINALITY_KW);
-                }
+                opt_with_ordinality(p);
                 opt_from_alias(p);
                 FUNCTION_FROM_ITEM
             }
@@ -3419,13 +3720,25 @@ fn from_item_name(p: &mut Parser<'_>) -> SyntaxKind {
     }
 }
 
-fn data_source(p: &mut Parser<'_>) -> SyntaxKind {
-    p.eat(ONLY_KW);
-    p.eat(LATERAL_KW);
-    match p.current() {
+struct DataSource {
+    kind: SyntaxKind,
+    expr_kind: ExprKind,
+    paren_select: Option<CompletedMarker>,
+}
+
+fn data_source(p: &mut Parser<'_>) -> DataSource {
+    let only = p.eat(ONLY_KW);
+    let lateral = p.eat(LATERAL_KW);
+    let mut expr_kind = ExprKind::Other;
+    let mut paren_select = None;
+    let kind = match p.current() {
         L_PAREN => {
-            paren_data_source(p);
-            opt_from_alias(p);
+            let cm = paren_data_source(p);
+            expr_kind = cm.as_ref().map_or(ExprKind::Other, |(_, kind)| *kind);
+            let alias = opt_from_alias(p);
+            if !only && !lateral && alias.is_none() {
+                paren_select = cm.map(|(cm, _)| cm).filter(is_select_marker);
+            }
             PAREN_FROM_ITEM
         }
         JSON_TABLE_KW => {
@@ -3455,10 +3768,7 @@ fn data_source(p: &mut Parser<'_>) -> SyntaxKind {
                 EXPR_FIRST,
                 opt_row_from_expr,
             );
-            // [ WITH ORDINALITY ]
-            if p.eat(WITH_KW) {
-                p.expect(ORDINALITY_KW);
-            }
+            opt_with_ordinality(p);
             opt_from_alias(p);
             ROWS_FROM_ITEM
         }
@@ -3480,6 +3790,11 @@ fn data_source(p: &mut Parser<'_>) -> SyntaxKind {
             p.error("expected table reference");
             RELATION_FROM_ITEM
         }
+    };
+    DataSource {
+        kind,
+        expr_kind,
+        paren_select,
     }
 }
 
@@ -3506,10 +3821,12 @@ fn xml_row_passing_clause(p: &mut Parser<'_>) {
     }
     p.expect(PASSING_KW);
     opt_xml_passing_mech(p);
+    let doc = p.start();
     if expr(p).is_none() {
         p.error("expected expression");
     }
     opt_xml_passing_mech(p);
+    doc.complete(p, XML_PASSING_DOC);
     m.complete(p, XML_ROW_PASSING_CLAUSE);
 }
 
@@ -3517,8 +3834,12 @@ fn opt_row_from_expr(p: &mut Parser<'_>) -> bool {
     if !p.at_ts(EXPR_FIRST) {
         return false;
     }
+    let m = p.start();
     call_expr(p);
-    opt_from_alias(p);
+    if p.eat(AS_KW) && !opt_column_list_with(p, ColumnDefKind::ColumnDef) {
+        p.error("expected column definition list");
+    }
+    m.complete(p, ROWS_FROM_ARG);
     true
 }
 
@@ -3637,33 +3958,36 @@ fn xml_namespace_prefix(p: &mut Parser<'_>) {
     m.complete(p, XML_NAMESPACE_PREFIX);
 }
 
-fn paren_data_source(p: &mut Parser<'_>) -> Option<CompletedMarker> {
+fn paren_data_source(p: &mut Parser<'_>) -> Option<(CompletedMarker, ExprKind)> {
     assert!(p.at(L_PAREN));
     if p.at(L_PAREN) && p.nth_at_ts(1, SELECT_FIRST) {
-        return opt_paren_select(p, None, false);
+        return opt_paren_select(p, None, &SelectRestrictions::default())
+            .map(|cm| (cm, ExprKind::Select));
     }
     let m = p.start();
     p.bump(L_PAREN);
     // Then try to parse as a FROM_ITEM (which includes table references and joins)
-    if opt_from_item(p) {
+    if let Some((lhs, lhs_kind)) = opt_paren_from_item(p) {
         if p.at_ts(COMPOUND_SELECT_FIRST) {
-            let cm = m.complete(p, PAREN_SELECT);
-            let cm = compound_select(p, cm, false);
-            p.expect(R_PAREN);
-            return Some(cm.precede(p).complete(p, PAREN_SELECT));
-        }
-        if opt_select_trailing_clauses(p) {
-            p.expect(R_PAREN);
-            return Some(m.complete(p, PAREN_SELECT));
+            if lhs_kind != ExprKind::Select {
+                p.error("expected select before compound select operator");
+            }
+            compound_select(p, lhs, &SelectRestrictions::default());
+        } else if lhs_kind == ExprKind::Select {
+            opt_select_trailing_clauses(p);
         }
         p.expect(R_PAREN);
-        return Some(m.complete(p, PAREN_EXPR));
+        let kind = match lhs_kind {
+            ExprKind::Select => PAREN_SELECT,
+            ExprKind::Other => PAREN_EXPR,
+        };
+        return Some((m.complete(p, kind), lhs_kind));
     } else {
         p.error("expected table name or SELECT");
     }
 
     p.expect(R_PAREN);
-    Some(m.complete(p, PAREN_EXPR))
+    Some((m.complete(p, PAREN_EXPR), ExprKind::Other))
 }
 
 // USING data_source ON join_condition
@@ -3713,19 +4037,39 @@ fn merge_using_clause(p: &mut Parser<'_>) {
 //    RIGHT [ OUTER ] JOIN
 //    FULL [ OUTER ] JOIN
 //
-fn opt_from_item(p: &mut Parser<'_>) -> bool {
+fn opt_from_item(p: &mut Parser<'_>) -> Option<(CompletedMarker, ExprKind)> {
+    from_item(p, false)
+}
+
+fn opt_paren_from_item(p: &mut Parser<'_>) -> Option<(CompletedMarker, ExprKind)> {
+    from_item(p, true)
+}
+
+fn from_item(p: &mut Parser<'_>, in_parens: bool) -> Option<(CompletedMarker, ExprKind)> {
     if !p.at_ts(FROM_ITEM_FIRST) {
-        return false;
+        return None;
     }
     let m = p.start();
-    let kind = data_source(p);
+    let DataSource {
+        kind,
+        mut expr_kind,
+        paren_select,
+    } = data_source(p);
+    if in_parens
+        && let Some(select) = paren_select
+        && !p.at_ts(JOIN_FIRST)
+    {
+        m.abandon(p);
+        return Some((select, expr_kind));
+    }
     let mut cm = m.complete(p, kind);
     while p.at_ts(JOIN_FIRST) {
         let m = cm.precede(p);
         join(p);
         cm = m.complete(p, JOIN_EXPR);
+        expr_kind = ExprKind::Other;
     }
-    true
+    Some((cm, expr_kind))
 }
 
 // we have a from_item
@@ -3746,7 +4090,7 @@ fn join(p: &mut Parser<'_>) {
     let is_natural = p.eat(NATURAL_KW);
     let result = join_type(p);
     let join_kind = result.map(|x| x.kind()).unwrap_or(JOIN_INNER);
-    if !opt_from_item(p) {
+    if opt_from_item(p).is_none() {
         p.error("expected from_item");
     }
     let can_have_on_clause = !is_natural && join_kind != JOIN_CROSS;
@@ -3803,7 +4147,7 @@ fn opt_numeric_literal(p: &mut Parser<'_>) -> Option<CompletedMarker> {
         Some(m.complete(p, LITERAL))
     } else if p.at(MINUS) || p.at(PLUS) {
         // TODO: add validation to check this is a prefix expression with a numeric literal inside
-        expr(p)
+        expr(p).map(|(cm, _)| cm)
     } else {
         None
     }
@@ -3899,7 +4243,11 @@ fn opt_sequence_option(p: &mut Parser<'_>) -> Option<CompletedMarker> {
         OWNED_KW => {
             p.bump(OWNED_KW);
             p.expect(BY_KW);
-            if !p.eat(NONE_KW) {
+            if p.at(NONE_KW) {
+                let target = p.start();
+                p.bump(NONE_KW);
+                target.complete(p, OWNED_BY_NONE);
+            } else {
                 qualified_column_name_ref(p);
             }
             OPTION_OWNED_BY
@@ -3962,11 +4310,12 @@ fn opt_sequence_options(p: &mut Parser<'_>) -> Option<CompletedMarker> {
 
 #[derive(Clone, Copy, PartialEq)]
 enum ColumnDefKind {
-    Alias,
+    ColumnDef,
     ColumnTarget,
     CompositeFieldDef,
     ConstraintColumnRef,
     ForeignKeyColumnRef,
+    FromAliasColumn,
     Name,
     NameRef,
 }
@@ -3985,6 +4334,7 @@ fn opt_column_list_with(p: &mut Parser<'_>, kind: ColumnDefKind) -> bool {
     }
     let m = p.start();
     p.expect(L_PAREN);
+    let mut kind = kind;
     let mut seen_period = false;
     while !p.at(EOF) && !p.at(R_PAREN) {
         if p.at(COMMA) {
@@ -3998,7 +4348,7 @@ fn opt_column_list_with(p: &mut Parser<'_>, kind: ColumnDefKind) -> bool {
             p.error("PERIOD must be the last column in the list");
         }
         seen_period |= kind == ColumnDefKind::ForeignKeyColumnRef && at_period_column(p);
-        column(p, kind);
+        kind = column(p, kind);
         if p.at(COMMA) && p.nth_at(1, R_PAREN) {
             p.err_and_bump("unexpected trailing comma");
         }
@@ -4013,28 +4363,41 @@ fn opt_column_list_with(p: &mut Parser<'_>, kind: ColumnDefKind) -> bool {
     opt_without_overlaps(p, kind);
     p.expect(R_PAREN);
     let list_kind = match kind {
-        ColumnDefKind::Alias => ALIAS_COLUMN_LIST,
+        ColumnDefKind::ColumnDef => COLUMN_DEF_LIST,
         ColumnDefKind::ColumnTarget => COLUMN_TARGET_LIST,
         ColumnDefKind::CompositeFieldDef => COMPOSITE_FIELD_LIST,
         ColumnDefKind::ConstraintColumnRef => CONSTRAINT_COLUMN_REF_LIST,
         ColumnDefKind::ForeignKeyColumnRef => FOREIGN_KEY_COLUMN_LIST,
-        ColumnDefKind::Name => COLUMN_LIST,
+        ColumnDefKind::FromAliasColumn | ColumnDefKind::Name => COLUMN_LIST,
         ColumnDefKind::NameRef => COLUMN_REF_LIST,
     };
     m.complete(p, list_kind);
     return true;
 }
 
-fn column(p: &mut Parser<'_>, kind: ColumnDefKind) {
+fn column(p: &mut Parser<'_>, kind: ColumnDefKind) -> ColumnDefKind {
     assert!(p.at_ts(COLUMN_FIRST));
     match kind {
-        ColumnDefKind::Alias => {
+        ColumnDefKind::FromAliasColumn => {
             let m = p.start();
             column_name(p);
             if !p.at(COMMA) && !p.at(R_PAREN) && opt_type_name(p) {
                 opt_collate(p);
+                m.complete(p, COLUMN_DEF);
+                return ColumnDefKind::ColumnDef;
             }
-            m.complete(p, ALIAS_COLUMN);
+            m.abandon(p);
+            return ColumnDefKind::Name;
+        }
+        ColumnDefKind::ColumnDef => {
+            let m = p.start();
+            column_name(p);
+            if p.at(COMMA) || p.at(R_PAREN) || !opt_type_name(p) {
+                p.error("expected a type");
+            } else {
+                opt_collate(p);
+            }
+            m.complete(p, COLUMN_DEF);
         }
         ColumnDefKind::CompositeFieldDef => {
             let m = p.start();
@@ -4079,6 +4442,7 @@ fn column(p: &mut Parser<'_>, kind: ColumnDefKind) {
             }
         }
     }
+    kind
 }
 
 fn at_period_column(p: &Parser<'_>) -> bool {
@@ -4363,7 +4727,7 @@ fn opt_constraint_inner(p: &mut Parser<'_>) -> Option<SyntaxKind> {
             let m = p.start();
             // ALWAYS AS ( generation_expr ) STORED
             if p.at(ALWAYS_KW) && p.nth_at(1, AS_KW) && p.nth_at(2, L_PAREN) {
-                p.expect(ALWAYS_KW);
+                generated_when(p);
                 p.expect(AS_KW);
                 p.expect(L_PAREN);
                 expr(p);
@@ -4373,11 +4737,7 @@ fn opt_constraint_inner(p: &mut Parser<'_>) -> Option<SyntaxKind> {
                 GENERATED_CONSTRAINT
             // { ALWAYS | BY DEFAULT } AS IDENTITY [ ( sequence_options ) ]
             } else if p.at(ALWAYS_KW) || p.at(BY_KW) {
-                if p.eat(BY_KW) {
-                    p.expect(DEFAULT_KW);
-                } else {
-                    p.expect(ALWAYS_KW);
-                }
+                generated_when(p);
                 p.expect(AS_KW);
                 if p.eat(L_PAREN) {
                     expr(p);
@@ -4463,7 +4823,27 @@ fn opt_match_type(p: &mut Parser<'_>) {
 }
 
 fn opt_virtual_or_stored(p: &mut Parser<'_>) {
-    let _ = p.eat(STORED_KW) || p.eat(VIRTUAL_KW);
+    let kind = match p.current() {
+        STORED_KW => STORED,
+        VIRTUAL_KW => VIRTUAL,
+        _ => return,
+    };
+    let m = p.start();
+    p.bump_any();
+    m.complete(p, kind);
+}
+
+// { ALWAYS | BY DEFAULT }
+fn generated_when(p: &mut Parser<'_>) {
+    let m = p.start();
+    let kind = if p.eat(ALWAYS_KW) {
+        GENERATED_ALWAYS
+    } else {
+        p.expect(BY_KW);
+        p.expect(DEFAULT_KW);
+        GENERATED_BY_DEFAULT
+    };
+    m.complete(p, kind);
 }
 
 fn opt_no_inherit(p: &mut Parser<'_>) {
@@ -4616,10 +4996,64 @@ pub(crate) fn current_operator(p: &Parser<'_>) -> Option<SyntaxKind> {
     if power == 0 { None } else { Some(kind) }
 }
 
-fn using_index(p: &mut Parser<'_>) {
-    assert!(p.at(USING_KW));
+// USING INDEX index_name
+// [ CONCURRENTLY | FINALIZE ]
+fn opt_detach_partition_option(p: &mut Parser<'_>) {
+    let kind = match p.current() {
+        CONCURRENTLY_KW => DETACH_CONCURRENTLY,
+        FINALIZE_KW => DETACH_FINALIZE,
+        _ => return,
+    };
     let m = p.start();
-    p.bump(USING_KW);
+    p.bump_any();
+    m.complete(p, kind);
+}
+
+// { trigger_name | ALL | USER }
+fn trigger_target(p: &mut Parser<'_>) {
+    let kind = match p.current() {
+        ALL_KW => ALL,
+        USER_KW => USER,
+        _ => {
+            trigger_ref(p);
+            return;
+        }
+    };
+    let m = p.start();
+    p.bump_any();
+    m.complete(p, kind);
+}
+
+// { DEFAULT | USING INDEX index_name | FULL | NOTHING }
+fn replica_identity_option(p: &mut Parser<'_>) {
+    let kind = match p.current() {
+        DEFAULT_KW => REPLICA_IDENTITY_DEFAULT,
+        FULL_KW => REPLICA_IDENTITY_FULL,
+        NOTHING_KW => REPLICA_IDENTITY_NOTHING,
+        _ => {
+            using_index_name(p);
+            return;
+        }
+    };
+    let m = p.start();
+    p.bump_any();
+    m.complete(p, kind);
+}
+
+fn using_index_name(p: &mut Parser<'_>) {
+    let m = p.start();
+    p.expect(USING_KW);
+    p.expect(INDEX_KW);
+    if opt_index_ref(p).is_none() {
+        p.error("expected index name");
+    }
+    m.complete(p, USING_INDEX_NAME);
+}
+
+// USING INDEX [ index_name ]
+fn using_index(p: &mut Parser<'_>) {
+    let m = p.start();
+    p.expect(USING_KW);
     p.expect(INDEX_KW);
     opt_index_ref(p);
     m.complete(p, USING_INDEX);
@@ -4671,7 +5105,7 @@ fn table_constraint(p: &mut Parser<'_>) -> CompletedMarker {
             p.bump(UNIQUE_KW);
             // USING INDEX index_name
             if p.at(USING_KW) {
-                using_index(p);
+                using_index_name(p);
             // [ NULLS [ NOT ] DISTINCT ] ( column_name [, ... ] ) index_parameters
             } else {
                 let m = p.start();
@@ -4689,7 +5123,7 @@ fn table_constraint(p: &mut Parser<'_>) -> CompletedMarker {
             p.expect(KEY_KW);
             // USING INDEX index_name
             if p.at(USING_KW) {
-                using_index(p);
+                using_index_name(p);
             // ( column_name [, ... ] ) index_parameters
             } else {
                 let m = p.start();
@@ -4729,9 +5163,8 @@ fn table_constraint(p: &mut Parser<'_>) -> CompletedMarker {
             FOREIGN_KEY_CONSTRAINT
         }
     };
-    let cm = m.complete(p, kind);
     opt_constraint_option_list(p);
-    cm
+    m.complete(p, kind)
 }
 
 fn opt_nulls_not_distinct(p: &mut Parser<'_>) {
@@ -4962,7 +5395,6 @@ fn like_clause(p: &mut Parser<'_>) -> CompletedMarker {
 // [ AS ] alias ( column_definition [, ...] )
 // AS ( column_definition [, ...] )
 fn opt_from_alias(p: &mut Parser<'_>) -> Option<CompletedMarker> {
-    // TODO: we should split this into opt_col_def and opt_col_alias
     if !(p.at(AS_KW) || p.at_ts(NAME_FIRST) || p.at(L_PAREN)) {
         return None;
     }
@@ -4972,10 +5404,8 @@ fn opt_from_alias(p: &mut Parser<'_>) -> Option<CompletedMarker> {
     if p.at_ts(NAME_FIRST) {
         table_alias(p);
     }
-    if p.at(L_PAREN) {
-        if !opt_column_list_with(p, ColumnDefKind::Alias) {
-            p.error("expected column list");
-        }
+    if p.at(L_PAREN) && !opt_column_list_with(p, ColumnDefKind::FromAliasColumn) {
+        p.error("expected column list");
     }
     Some(m.complete(p, FROM_ALIAS))
 }
@@ -5032,9 +5462,7 @@ fn opt_group_by_clause(p: &mut Parser<'_>) -> Option<CompletedMarker> {
         return None;
     }
     p.expect(BY_KW);
-    if p.at(ALL_KW) || p.at(DISTINCT_KW) {
-        p.bump_any();
-    }
+    opt_all_or_distinct(p);
     opt_group_by_list(p);
 
     Some(m.complete(p, GROUP_BY_CLAUSE))
@@ -5241,10 +5669,23 @@ fn opt_window_partition_by(p: &mut Parser<'_>) {
     m.complete(p, PARTITION_BY_CLAUSE);
 }
 
+// { RANGE | ROWS | GROUPS }
+fn frame_units(p: &mut Parser<'_>) {
+    assert!(p.at(RANGE_KW) || p.at(ROWS_KW) || p.at(GROUPS_KW));
+    let kind = match p.current() {
+        RANGE_KW => FRAME_RANGE,
+        ROWS_KW => FRAME_ROWS,
+        _ => FRAME_GROUPS,
+    };
+    let m = p.start();
+    p.bump_any();
+    m.complete(p, kind);
+}
+
 fn opt_frame_clause(p: &mut Parser<'_>) {
     if p.at(RANGE_KW) || p.at(ROWS_KW) || p.at(GROUPS_KW) {
         let m = p.start();
-        p.bump_any();
+        frame_units(p);
         if p.at(BETWEEN_KW) {
             let m = p.start();
             p.bump(BETWEEN_KW);
@@ -5292,7 +5733,11 @@ fn opt_limit_clause(p: &mut Parser<'_>) -> Option<CompletedMarker> {
         m.abandon(p);
         return None;
     }
-    if !p.eat(ALL_KW) {
+    if p.at(ALL_KW) {
+        let value = p.start();
+        p.bump(ALL_KW);
+        value.complete(p, ALL);
+    } else {
         expr(p);
     }
     Some(m.complete(p, LIMIT_CLAUSE))
@@ -5313,10 +5758,13 @@ fn opt_offset_clause(p: &mut Parser<'_>) -> Option<CompletedMarker> {
 }
 
 /// all is the default, distinct removes duplicate rows
-fn opt_all_or_distinct(p: &mut Parser) {
+fn opt_select_all_or_distinct(p: &mut Parser) {
     // TODO: we probably don't want to be so specific here, we can be more
     // generous with parsing and handle error reporting later on.
-    if p.eat(ALL_KW) {
+    if p.at(ALL_KW) {
+        let m = p.start();
+        p.bump(ALL_KW);
+        m.complete(p, ALL);
         return;
     }
     // ```
@@ -5347,8 +5795,11 @@ fn opt_all_or_distinct(p: &mut Parser) {
     // appears first.
     let m = p.start();
     if p.eat(DISTINCT_KW) {
-        if p.eat(ON_KW) {
+        if p.at(ON_KW) {
+            let m = p.start();
+            p.bump(ON_KW);
             paren_expr_list(p);
+            m.complete(p, DISTINCT_ON);
         }
         m.complete(p, DISTINCT_CLAUSE);
     } else {
@@ -5698,6 +6149,15 @@ fn table_arg_list(p: &mut Parser<'_>) -> Option<CompletedMarker> {
     Some(m.complete(p, TABLE_ARG_LIST))
 }
 
+// modulus 5
+// remainder 0
+fn partition_bound_number(p: &mut Parser<'_>, kind: SyntaxKind) {
+    let m = p.start();
+    ident(p);
+    p.expect(INT_NUMBER);
+    m.complete(p, kind);
+}
+
 // { FOR VALUES partition_bound_spec | DEFAULT }
 fn partition_option(p: &mut Parser<'_>) {
     let m = p.start();
@@ -5706,11 +6166,9 @@ fn partition_option(p: &mut Parser<'_>) {
         // FOR VALUES WITH (modulus 5, remainder 0)
         if p.eat(WITH_KW) {
             p.expect(L_PAREN);
-            ident(p);
-            p.expect(INT_NUMBER);
+            partition_bound_number(p, PARTITION_MODULUS);
             p.expect(COMMA);
-            ident(p);
-            p.expect(INT_NUMBER);
+            partition_bound_number(p, PARTITION_REMAINDER);
             p.expect(R_PAREN);
             PARTITION_FOR_VALUES_WITH
         // FOR VALUES IN '(' expr_list ')'
@@ -5719,9 +6177,13 @@ fn partition_option(p: &mut Parser<'_>) {
             PARTITION_FOR_VALUES_IN
         // FOR VALUES FROM '(' expr_list ')' TO '(' expr_list ')'
         } else if p.eat(FROM_KW) {
+            let m = p.start();
             paren_expr_list(p);
+            m.complete(p, PARTITION_FROM_VALUES);
             p.expect(TO_KW);
+            let m = p.start();
             paren_expr_list(p);
+            m.complete(p, PARTITION_TO_VALUES);
             PARTITION_FOR_VALUES_FROM
         } else {
             p.error("expected partition option");
@@ -6047,6 +6509,17 @@ fn json_path_name(p: &mut Parser<'_>) {
     let m = p.start();
     pg_name(p);
     m.complete(p, JSON_PATH_NAME);
+}
+
+// [ AS json_path_name ]
+fn opt_json_path_name_clause(p: &mut Parser<'_>) {
+    if !p.at(AS_KW) {
+        return;
+    }
+    let m = p.start();
+    p.bump(AS_KW);
+    json_path_name(p);
+    m.complete(p, JSON_PATH_NAME_CLAUSE);
 }
 
 fn json_path_name_ref(p: &mut Parser<'_>) -> CompletedMarker {
@@ -6599,6 +7072,16 @@ fn text_search_dictionary_ref(p: &mut Parser<'_>) {
     m.complete(p, TEXT_SEARCH_DICTIONARY_REF);
 }
 
+// REPLACE old_dictionary WITH new_dictionary
+fn replace_dictionary(p: &mut Parser<'_>) {
+    let m = p.start();
+    p.expect(REPLACE_KW);
+    text_search_dictionary_ref(p);
+    p.expect(WITH_KW);
+    text_search_dictionary_ref(p);
+    m.complete(p, REPLACE_DICTIONARY);
+}
+
 fn text_search_parser(p: &mut Parser<'_>) {
     let m = p.start();
     path_name(p);
@@ -6780,13 +7263,25 @@ fn commit(p: &mut Parser<'_>) -> CompletedMarker {
     } else {
         // [ WORK | TRANSACTION ] [ AND [ NO ] CHAIN ]
         let _ = p.eat(WORK_KW) || p.eat(TRANSACTION_KW);
-        if p.eat(AND_KW) {
-            p.eat(NO_KW);
-            p.expect(CHAIN_KW);
-        }
+        opt_chain_clause(p);
     }
     p.eat(SEMICOLON);
     m.complete(p, COMMIT)
+}
+
+fn opt_chain_clause(p: &mut Parser<'_>) {
+    if !p.at(AND_KW) {
+        return;
+    }
+    let m = p.start();
+    p.bump(AND_KW);
+    let kind = if p.eat(NO_KW) {
+        AND_NO_CHAIN
+    } else {
+        AND_CHAIN
+    };
+    p.expect(CHAIN_KW);
+    m.complete(p, kind);
 }
 
 const TRANSACTION_MODE_FIRST: TokenSet =
@@ -6979,9 +7474,8 @@ fn rollback(p: &mut Parser<'_>) -> CompletedMarker {
     if is_rollback && p.eat(TO_KW) {
         p.eat(SAVEPOINT_KW);
         savepoint_ref(p);
-    } else if p.eat(AND_KW) {
-        p.eat(NO_KW);
-        p.expect(CHAIN_KW);
+    } else {
+        opt_chain_clause(p);
     }
     p.eat(SEMICOLON);
     m.complete(p, ROLLBACK)
@@ -7220,7 +7714,14 @@ fn stmt(p: &mut Parser, r: &StmtRestrictions) -> Option<CompletedMarker> {
         (INSERT_KW, _) => Some(insert(p, None, r.semi_allowed)),
         (L_PAREN, _) if p.nth_at_ts(1, PAREN_SELECT_FIRST) => {
             // can have select nested in parens, i.e., ((select 1));
-            opt_paren_select(p, None, r.semi_allowed)
+            opt_paren_select(
+                p,
+                None,
+                &SelectRestrictions {
+                    semi_allowed: r.semi_allowed,
+                    ..SelectRestrictions::default()
+                },
+            )
         }
         (LISTEN_KW, _) => Some(listen(p)),
         (LOAD_KW, _) => Some(load(p)),
@@ -7242,9 +7743,14 @@ fn stmt(p: &mut Parser, r: &StmtRestrictions) -> Option<CompletedMarker> {
         (ROLLBACK_KW, _) => Some(rollback(p)),
         (SAVEPOINT_KW, _) => Some(savepoint_create(p)),
         (SECURITY_KW, LABEL_KW) => Some(security_label(p)),
-        (SELECT_KW | TABLE_KW | VALUES_KW | FROM_KW, _) => {
-            select(p, None, &SelectRestrictions::default(), r.semi_allowed)
-        }
+        (SELECT_KW | TABLE_KW | VALUES_KW | FROM_KW, _) => select(
+            p,
+            None,
+            &SelectRestrictions {
+                semi_allowed: r.semi_allowed,
+                ..SelectRestrictions::default()
+            },
+        ),
         (SET_KW, CONSTRAINTS_KW) => Some(set_constraints(p)),
         (SET_KW, LOCAL_KW) => match p.nth(2) {
             ROLE_KW => Some(set_role(p)),
@@ -7266,7 +7772,14 @@ fn stmt(p: &mut Parser, r: &StmtRestrictions) -> Option<CompletedMarker> {
         (UNLISTEN_KW, _) => Some(unlisten(p)),
         (UPDATE_KW, _) => Some(update(p, None, r.semi_allowed)),
         (VACUUM_KW, _) => Some(vacuum(p)),
-        (WITH_KW, _) => with(p, None, r.semi_allowed),
+        (WITH_KW, _) => with(
+            p,
+            None,
+            &SelectRestrictions {
+                semi_allowed: r.semi_allowed,
+                ..SelectRestrictions::default()
+            },
+        ),
         (command, _) => {
             // commands are outlined in:
             // https://www.postgresql.org/docs/17/sql-commands.html
@@ -7349,7 +7862,7 @@ fn alter_server(p: &mut Parser<'_>) -> CompletedMarker {
                 let m = p.start();
                 p.bump(VERSION_KW);
                 string_literal(p);
-                m.complete(p, SET_VERSION);
+                m.complete(p, SERVER_VERSION);
                 found_option = true;
             }
             found_option |= opt_alter_option_list(p);
@@ -7613,12 +8126,12 @@ fn alter_publication(p: &mut Parser<'_>) -> CompletedMarker {
         SET_KW if p.nth_at(1, ALL_KW) => {
             let m = p.start();
             p.bump(SET_KW);
-            publication_all_object(p);
+            set_all_publication_object(p);
             while !p.at(EOF) && p.eat(COMMA) {
-                publication_all_object(p);
+                set_all_publication_object(p);
             }
             opt_except_table_clause(p);
-            m.complete(p, SET_ALL_PUBLICATION_OBJECTS);
+            m.complete(p, SET_ALL_PUBLICATION_OBJECT_LIST);
         }
         SET_KW => {
             let m = p.start();
@@ -7704,9 +8217,7 @@ fn alter_policy(p: &mut Parser<'_>) -> CompletedMarker {
         rename_to(p, POLICY_RENAME_TO, policy);
     } else if p.at(TO_KW) || p.at(USING_KW) || p.at(WITH_KW) {
         let m = p.start();
-        if p.eat(TO_KW) {
-            role_list(p);
-        }
+        opt_policy_roles(p);
         opt_using_expr_clause(p);
         opt_with_check_expr_clause(p);
         m.complete(p, ALTER_POLICY_TO);
@@ -8082,11 +8593,13 @@ fn alter_index(p: &mut Parser<'_>) -> CompletedMarker {
                 if p.at(SET_KW) && p.nth_at(1, L_PAREN) {
                     set_options(p);
                 } else {
+                    let m = p.start();
                     p.expect(SET_KW);
                     p.expect(STATISTICS_KW);
                     if opt_numeric_literal(p).is_none() {
                         p.error("expected numeric literal");
                     }
+                    m.complete(p, SET_STATISTICS);
                 }
                 m.complete(p, ALTER_SET_STATISTICS);
             }
@@ -8369,13 +8882,7 @@ fn alter_extension(p: &mut Parser<'_>) -> CompletedMarker {
         UPDATE_KW => {
             let m = p.start();
             p.bump(UPDATE_KW);
-            if p.eat(TO_KW) {
-                if p.at_ts(NON_RESERVED_WORD) {
-                    p.bump_any();
-                } else {
-                    string_literal(p);
-                }
-            }
+            opt_update_to(p);
             m.complete(p, ALTER_EXTENSION_UPDATE);
         }
         SET_KW => {
@@ -8401,6 +8908,21 @@ fn alter_extension(p: &mut Parser<'_>) -> CompletedMarker {
     }
     p.eat(SEMICOLON);
     m.complete(p, ALTER_EXTENSION)
+}
+
+// TO new_version
+fn opt_update_to(p: &mut Parser<'_>) {
+    if !p.at(TO_KW) {
+        return;
+    }
+    let m = p.start();
+    p.bump(TO_KW);
+    if p.at_ts(NON_RESERVED_WORD) {
+        extension_version(p);
+    } else {
+        string_literal(p);
+    }
+    m.complete(p, UPDATE_TO);
 }
 
 fn extension_member_object(p: &mut Parser<'_>) {
@@ -8708,7 +9230,6 @@ fn alter_domain_action(p: &mut Parser<'_>) -> Option<CompletedMarker> {
         ADD_KW => {
             p.bump(ADD_KW);
             domain_constraint(p);
-            opt_constraint_option_list(p);
             ADD_CONSTRAINT
         }
         RENAME_KW if p.nth_at(1, TO_KW) => {
@@ -8747,20 +9268,24 @@ fn alter_domain_action(p: &mut Parser<'_>) -> Option<CompletedMarker> {
 fn domain_constraint(p: &mut Parser<'_>) {
     let m = p.start();
     opt_constraint_name_clause(p);
-    if p.eat(NOT_KW) {
+    let kind = if p.eat(NOT_KW) {
         p.expect(NULL_KW);
-        m.complete(p, NOT_NULL_CONSTRAINT);
+        NOT_NULL_CONSTRAINT
     } else if p.eat(CHECK_KW) {
         p.expect(L_PAREN);
         if expr(p).is_none() {
             p.error("expected expression");
         }
         p.expect(R_PAREN);
-        m.complete(p, CHECK_CONSTRAINT);
+        CHECK_CONSTRAINT
     } else {
         p.error("expected NOT NULL or CHECK constraint");
         m.abandon(p);
-    }
+        opt_constraint_option_list(p);
+        return;
+    };
+    opt_constraint_option_list(p);
+    m.complete(p, kind);
 }
 
 fn opt_constraint_name_clause(p: &mut Parser<'_>) {
@@ -8841,16 +9366,22 @@ fn alter_default_privileges(p: &mut Parser<'_>) -> CompletedMarker {
     p.bump(DEFAULT_KW);
     p.bump(PRIVILEGES_KW);
     // [ FOR { ROLE | USER } target_role [, ...] ]
-    if p.eat(FOR_KW) {
+    if p.at(FOR_KW) {
+        let m = p.start();
+        p.bump(FOR_KW);
         if !p.eat(ROLE_KW) && !p.eat(USER_KW) {
             p.error("expected ROLE or USER");
         }
         role_list(p);
+        m.complete(p, FOR_ROLES);
     }
     // [ IN SCHEMA schema_name [, ...] ]
-    if p.eat(IN_KW) {
+    if p.at(IN_KW) {
+        let m = p.start();
+        p.bump(IN_KW);
         p.expect(SCHEMA_KW);
         schema_ref_list(p);
+        m.complete(p, IN_SCHEMAS);
     }
     match p.current() {
         GRANT_KW => {
@@ -8861,19 +9392,15 @@ fn alter_default_privileges(p: &mut Parser<'_>) -> CompletedMarker {
             privilege_target_type(p);
             p.expect(TO_KW);
             role_list(p);
-            if p.eat(WITH_KW) {
-                p.expect(GRANT_KW);
-                p.expect(OPTION_KW);
+            if p.at(WITH_KW) {
+                grant_with_clause(p);
             }
             m.complete(p, GRANT_DEFAULT_PRIVILEGES);
         }
         REVOKE_KW => {
             let m = p.start();
             p.bump(REVOKE_KW);
-            if p.eat(GRANT_KW) {
-                p.eat(OPTION_KW);
-                p.eat(FOR_KW);
-            }
+            opt_grant_option_for(p);
             privileges(p);
             p.expect(ON_KW);
             privilege_target_type(p);
@@ -8974,13 +9501,13 @@ fn alter_database(p: &mut Parser<'_>) -> CompletedMarker {
     m.complete(p, ALTER_DATABASE)
 }
 
-fn set_tablespace(p: &mut Parser<'_>) {
+fn set_tablespace(p: &mut Parser<'_>) -> CompletedMarker {
     assert!(p.at(SET_KW) && p.nth_at(1, TABLESPACE_KW));
     let m = p.start();
     p.bump(SET_KW);
     p.bump(TABLESPACE_KW);
     tablespace_ref(p);
-    m.complete(p, SET_TABLESPACE);
+    m.complete(p, SET_TABLESPACE)
 }
 
 fn opt_database_option_list(p: &mut Parser<'_>) {
@@ -9121,16 +9648,10 @@ fn alter_subscription(p: &mut Parser<'_>) -> CompletedMarker {
     subscription_ref(p);
     match p.current() {
         CONNECTION_KW => {
-            let m = p.start();
-            p.bump(CONNECTION_KW);
-            string_literal(p);
-            m.complete(p, SET_CONNECTION);
+            connection_clause(p);
         }
         SERVER_KW => {
-            let m = p.start();
-            p.bump(SERVER_KW);
-            server_ref(p);
-            m.complete(p, SET_SERVER);
+            server_clause(p);
         }
         SET_KW if p.nth_at(1, L_PAREN) => {
             set_options(p);
@@ -9141,7 +9662,7 @@ fn alter_subscription(p: &mut Parser<'_>) -> CompletedMarker {
             p.bump_any();
             p.expect(PUBLICATION_KW);
             publication_ref_list(p);
-            opt_with_options_list(p);
+            opt_with_params(p);
             m.complete(
                 p,
                 if is_add {
@@ -9156,14 +9677,14 @@ fn alter_subscription(p: &mut Parser<'_>) -> CompletedMarker {
             p.bump(DROP_KW);
             p.expect(PUBLICATION_KW);
             publication_ref_list(p);
-            opt_with_options_list(p);
+            opt_with_params(p);
             m.complete(p, DROP_SUBSCRIPTION_PUBLICATION);
         }
         REFRESH_KW => {
             let m = p.start();
             p.bump(REFRESH_KW);
             p.expect(PUBLICATION_KW);
-            opt_with_options_list(p);
+            opt_with_params(p);
             m.complete(p, REFRESH_PUBLICATION);
         }
         ENABLE_KW | DISABLE_KW => {
@@ -9199,12 +9720,6 @@ fn alter_subscription(p: &mut Parser<'_>) -> CompletedMarker {
     }
     p.eat(SEMICOLON);
     m.complete(p, ALTER_SUBSCRIPTION)
-}
-
-fn opt_with_options_list(p: &mut Parser<'_>) {
-    if p.eat(WITH_KW) {
-        attribute_list(p);
-    }
 }
 
 // ALTER SYSTEM SET configuration_parameter { TO | = } { value [, ...] | DEFAULT }
@@ -9376,17 +9891,13 @@ fn alter_text_search_configuration(p: &mut Parser<'_>) -> CompletedMarker {
                 text_search_token_kind_list(p);
                 if p.eat(WITH_KW) {
                     text_search_dictionary_ref_list(p);
-                } else if p.eat(REPLACE_KW) {
-                    text_search_dictionary_ref(p);
-                    p.expect(WITH_KW);
-                    text_search_dictionary_ref(p);
+                } else if p.at(REPLACE_KW) {
+                    replace_dictionary(p);
                 } else {
                     p.error("expected WITH or REPLACE");
                 }
-            } else if p.eat(REPLACE_KW) {
-                text_search_dictionary_ref(p);
-                p.expect(WITH_KW);
-                text_search_dictionary_ref(p);
+            } else if p.at(REPLACE_KW) {
+                replace_dictionary(p);
             } else {
                 p.error("expected FOR or REPLACE");
             }
@@ -9836,7 +10347,7 @@ fn alter_user_mapping(p: &mut Parser<'_>) -> CompletedMarker {
     p.bump(MAPPING_KW);
     p.expect(FOR_KW);
     role_ref(p);
-    server_name(p);
+    server_clause(p);
     if !opt_alter_option_list(p) {
         p.error("expected options");
     }
@@ -9844,11 +10355,11 @@ fn alter_user_mapping(p: &mut Parser<'_>) -> CompletedMarker {
     m.complete(p, ALTER_USER_MAPPING)
 }
 
-fn server_name(p: &mut Parser<'_>) {
+fn server_clause(p: &mut Parser<'_>) {
     let m = p.start();
     p.expect(SERVER_KW);
     server_ref(p);
-    m.complete(p, SERVER_NAME);
+    m.complete(p, SERVER_CLAUSE);
 }
 
 const ALTER_OPTION_FIRST: TokenSet =
@@ -9865,22 +10376,31 @@ fn opt_alter_option(p: &mut Parser<'_>) -> Option<CompletedMarker> {
         return None;
     }
     let m = p.start();
-    let arg_required = match p.current() {
+    let kind = match p.current() {
         DROP_KW => {
             p.bump(DROP_KW);
-            false
+            foreign_option_name(p);
+            DROP_FOREIGN_OPTION
         }
-        ADD_KW | SET_KW => {
-            p.bump_any();
-            true
+        SET_KW => {
+            p.bump(SET_KW);
+            foreign_option_name(p);
+            string_literal(p);
+            SET_FOREIGN_OPTION
         }
-        _ => true,
+        ADD_KW => {
+            p.bump(ADD_KW);
+            foreign_option_name(p);
+            string_literal(p);
+            ADD_FOREIGN_OPTION
+        }
+        _ => {
+            foreign_option_name(p);
+            string_literal(p);
+            ADD_FOREIGN_OPTION
+        }
     };
-    foreign_option_name(p);
-    if arg_required {
-        string_literal(p);
-    }
-    Some(m.complete(p, ALTER_OPTION))
+    Some(m.complete(p, kind))
 }
 
 // ALTER VIEW [ IF EXISTS ] name ALTER [ COLUMN ] column_name SET DEFAULT expression
@@ -10402,18 +10922,28 @@ fn opt_vertex_table_def(p: &mut Parser<'_>) -> bool {
     }
     let m = p.start();
     table_name_ref(p);
-    if p.eat(AS_KW) {
-        element_table_alias(p);
-    }
-    opt_key_columns(p);
+    opt_element_table_alias_clause(p);
+    opt_element_table_key_clause(p);
     opt_element_table_label_and_properties(p);
     m.complete(p, VERTEX_TABLE_DEF);
     true
 }
 
-fn opt_key_columns(p: &mut Parser<'_>) {
-    if p.eat(KEY_KW) {
+fn opt_element_table_alias_clause(p: &mut Parser<'_>) {
+    if p.at(AS_KW) {
+        let m = p.start();
+        p.bump(AS_KW);
+        element_table_alias(p);
+        m.complete(p, ELEMENT_TABLE_ALIAS_CLAUSE);
+    }
+}
+
+fn opt_element_table_key_clause(p: &mut Parser<'_>) {
+    if p.at(KEY_KW) {
+        let m = p.start();
+        p.bump(KEY_KW);
         opt_column_list_with(p, ColumnDefKind::NameRef);
+        m.complete(p, ELEMENT_TABLE_KEY_CLAUSE);
     }
 }
 
@@ -10437,14 +10967,23 @@ fn opt_label_and_properties_list(p: &mut Parser<'_>) {
 
 fn label_and_properties(p: &mut Parser<'_>) {
     let m = p.start();
-    if p.eat(DEFAULT_KW) {
+    label_spec(p);
+    opt_element_table_properties_clause(p);
+    m.complete(p, LABEL_AND_PROPERTIES);
+}
+
+// { LABEL label | DEFAULT LABEL }
+fn label_spec(p: &mut Parser<'_>) {
+    let m = p.start();
+    let kind = if p.eat(DEFAULT_KW) {
         p.expect(LABEL_KW);
+        DEFAULT_LABEL
     } else {
         p.expect(LABEL_KW);
         label(p);
-    }
-    opt_element_table_properties_clause(p);
-    m.complete(p, LABEL_AND_PROPERTIES);
+        NAMED_LABEL
+    };
+    m.complete(p, kind);
 }
 
 fn opt_element_table_properties_clause(p: &mut Parser<'_>) -> bool {
@@ -10499,10 +11038,8 @@ fn opt_edge_table_def(p: &mut Parser<'_>) -> bool {
     }
     let m = p.start();
     table_name_ref(p);
-    if p.eat(AS_KW) {
-        element_table_alias(p);
-    }
-    opt_key_columns(p);
+    opt_element_table_alias_clause(p);
+    opt_element_table_key_clause(p);
     source_vertex_table(p);
     dest_vertex_table(p);
     opt_element_table_label_and_properties(p);
@@ -10854,21 +11391,23 @@ fn opt_graph_pattern_qualifier(p: &mut Parser<'_>) {
     let m = p.start();
     p.expect(L_CURLY);
     if p.eat(COMMA) {
-        if expr(p).is_none() {
-            p.error("expected expression");
-        }
+        qualifier_bound(p, QUALIFIER_MAX);
     } else {
-        if expr(p).is_none() {
-            p.error("expected expression");
-        }
+        qualifier_bound(p, QUALIFIER_MIN);
         if p.eat(COMMA) {
-            if expr(p).is_none() {
-                p.error("expected expression");
-            }
+            qualifier_bound(p, QUALIFIER_MAX);
         }
     }
     p.expect(R_CURLY);
     m.complete(p, GRAPH_PATTERN_QUALIFIER);
+}
+
+fn qualifier_bound(p: &mut Parser<'_>, kind: SyntaxKind) {
+    let m = p.start();
+    if expr(p).is_none() {
+        p.error("expected expression");
+    }
+    m.complete(p, kind);
 }
 
 const OPTION_FIRST: TokenSet =
@@ -10879,11 +11418,16 @@ fn opt_option(p: &mut Parser<'_>) -> bool {
         return false;
     }
     let m = p.start();
-    // option name
-    p.bump_any();
+    option_item_key(p);
     opt_option_value(p);
     m.complete(p, OPTION_ITEM);
     true
+}
+
+fn option_item_key(p: &mut Parser<'_>) {
+    let m = p.start();
+    p.bump_any();
+    m.complete(p, OPTION_ITEM_KEY);
 }
 
 // CREATE ACCESS METHOD name
@@ -10897,7 +11441,16 @@ fn create_access_method(p: &mut Parser<'_>) -> CompletedMarker {
     p.expect(METHOD_KW);
     access_method(p);
     p.expect(TYPE_KW);
-    if !p.eat(TABLE_KW) && !p.eat(INDEX_KW) {
+    if p.at(TABLE_KW) || p.at(INDEX_KW) {
+        let ty = p.start();
+        let kind = if p.at(TABLE_KW) {
+            ACCESS_METHOD_TYPE_TABLE
+        } else {
+            ACCESS_METHOD_TYPE_INDEX
+        };
+        p.bump_any();
+        ty.complete(p, kind);
+    } else {
         p.error("expected TABLE or INDEX");
     }
     handler_clause(p);
@@ -10910,6 +11463,13 @@ fn handler_clause(p: &mut Parser<'_>) {
     p.expect(HANDLER_KW);
     function_name_ref(p);
     m.complete(p, HANDLER_CLAUSE);
+}
+
+fn connection_clause(p: &mut Parser<'_>) {
+    let m = p.start();
+    p.expect(CONNECTION_KW);
+    string_literal(p);
+    m.complete(p, CONNECTION_CLAUSE);
 }
 
 // CREATE [ OR REPLACE ] AGGREGATE name ( [ argmode ] [ argname ] arg_data_type [ , ... ] ) (
@@ -10988,6 +11548,24 @@ fn create_aggregate(p: &mut Parser<'_>) -> CompletedMarker {
     m.complete(p, CREATE_AGGREGATE)
 }
 
+// [ AS ASSIGNMENT | AS IMPLICIT ]
+fn opt_cast_context(p: &mut Parser<'_>) {
+    if !p.at(AS_KW) {
+        return;
+    }
+    let m = p.start();
+    p.bump(AS_KW);
+    let kind = if p.eat(ASSIGNMENT_KW) {
+        AS_ASSIGNMENT
+    } else if p.eat(IMPLICIT_KW) {
+        AS_IMPLICIT
+    } else {
+        p.error("expected ASSIGNMENT or IMPLICIT");
+        ERROR
+    };
+    m.complete(p, kind);
+}
+
 // CREATE CAST (source_type AS target_type)
 //     WITH FUNCTION function_name [ (argument_type [, ...]) ]
 //     [ AS ASSIGNMENT | AS IMPLICIT ]
@@ -11022,12 +11600,7 @@ fn create_cast(p: &mut Parser<'_>) -> CompletedMarker {
         p.expect(FUNCTION_KW);
         m.complete(p, WITHOUT_FUNCTION);
     }
-    // [ AS ASSIGNMENT | AS IMPLICIT ]
-    if p.eat(AS_KW) {
-        if !p.eat(ASSIGNMENT_KW) && !p.eat(IMPLICIT_KW) {
-            p.error("expected ASSIGNMENT or IMPLICIT");
-        }
-    }
+    opt_cast_context(p);
     p.eat(SEMICOLON);
     m.complete(p, CREATE_CAST)
 }
@@ -11081,18 +11654,22 @@ fn create_conversion(p: &mut Parser<'_>) -> CompletedMarker {
 }
 
 fn opt_option_value(p: &mut Parser<'_>) -> bool {
+    let m = p.start();
     if opt_numeric_literal(p).is_none()
         && opt_string_literal(p).is_none()
         && !opt_bool_literal(p)
         && !p.eat(DEFAULT_KW)
     {
         if p.at_ts(NON_RESERVED_WORD) {
+            let m = p.start();
             p.bump_any();
-            return true;
+            m.complete(p, OPTION_ITEM_VALUE_NAME);
         } else {
+            m.abandon(p);
             return false;
         }
     }
+    m.complete(p, OPTION_ITEM_VALUE);
     true
 }
 
@@ -11311,9 +11888,8 @@ fn create_foreign_table(p: &mut Parser<'_>) -> CompletedMarker {
     p.expect(TABLE_KW);
     opt_if_not_exists(p);
     table_name(p);
-    if p.eat(PARTITION_KW) {
-        p.expect(OF_KW);
-        table_name_ref(p);
+    if p.at(PARTITION_KW) {
+        partition_of(p);
         if p.at(L_PAREN) {
             table_arg_list(p);
         }
@@ -11326,7 +11902,7 @@ fn create_foreign_table(p: &mut Parser<'_>) -> CompletedMarker {
         }
         opt_inherits_tables(p);
     }
-    server_name(p);
+    server_clause(p);
     opt_alter_option_list(p);
     p.eat(SEMICOLON);
     m.complete(p, CREATE_FOREIGN_TABLE)
@@ -11463,13 +12039,19 @@ fn create_language(p: &mut Parser<'_>) -> CompletedMarker {
     p.eat(PROCEDURAL_KW);
     p.eat(LANGUAGE_KW);
     language(p);
-    if p.eat(HANDLER_KW) {
-        function_name_ref(p);
-        if p.eat(INLINE_KW) {
+    if p.at(HANDLER_KW) {
+        handler_clause(p);
+        if p.at(INLINE_KW) {
+            let m = p.start();
+            p.bump(INLINE_KW);
             function_name_ref(p);
+            m.complete(p, INLINE_CLAUSE);
         }
-        if p.eat(VALIDATOR_KW) {
+        if p.at(VALIDATOR_KW) {
+            let m = p.start();
+            p.bump(VALIDATOR_KW);
             function_name_ref(p);
+            m.complete(p, VALIDATOR_CLAUSE);
         }
     }
     p.eat(SEMICOLON);
@@ -11585,14 +12167,18 @@ fn operator_class_option(p: &mut Parser<'_>) {
                 type_name(p);
                 p.expect(R_PAREN);
             }
-            if p.eat(FOR_KW) {
+            if p.at(FOR_KW) {
+                let m = p.start();
+                p.bump(FOR_KW);
                 if p.eat(ORDER_KW) {
                     p.expect(BY_KW);
                     op_family_ref(p);
+                    m.complete(p, OP_CLASS_FOR_ORDER_BY);
                 } else if p.eat(SEARCH_KW) {
-                    // pass
+                    m.complete(p, OP_CLASS_FOR_SEARCH);
                 } else {
                     p.error("expected SEARCH or ORDER BY");
+                    m.abandon(p);
                 }
             }
             m.complete(p, OP_CLASS_OPTION_OPERATOR);
@@ -11667,20 +12253,49 @@ fn create_policy(p: &mut Parser<'_>) -> CompletedMarker {
     policy(p);
     on_table(p);
     opt_as_policy_type(p);
-    if p.eat(FOR_KW) {
-        let _ = p.eat(ALL_KW)
-            || p.eat(SELECT_KW)
-            || p.eat(INSERT_KW)
-            || p.eat(UPDATE_KW)
-            || p.eat(DELETE_KW);
-    }
-    if p.eat(TO_KW) {
-        role_list(p);
-    }
+    opt_policy_command(p);
+    opt_policy_roles(p);
     opt_using_expr_clause(p);
     opt_with_check_expr_clause(p);
     p.eat(SEMICOLON);
     m.complete(p, CREATE_POLICY)
+}
+
+// [ FOR { ALL | SELECT | INSERT | UPDATE | DELETE } ]
+fn opt_policy_command(p: &mut Parser<'_>) {
+    if !p.at(FOR_KW) {
+        return;
+    }
+    let m = p.start();
+    p.bump(FOR_KW);
+    let command = p.start();
+    let kind = match p.current() {
+        ALL_KW => POLICY_COMMAND_ALL,
+        SELECT_KW => POLICY_COMMAND_SELECT,
+        INSERT_KW => POLICY_COMMAND_INSERT,
+        UPDATE_KW => POLICY_COMMAND_UPDATE,
+        DELETE_KW => POLICY_COMMAND_DELETE,
+        _ => {
+            command.abandon(p);
+            p.error("expected ALL, SELECT, INSERT, UPDATE, or DELETE");
+            m.complete(p, POLICY_COMMAND);
+            return;
+        }
+    };
+    p.bump_any();
+    command.complete(p, kind);
+    m.complete(p, POLICY_COMMAND);
+}
+
+// [ TO { role_name | PUBLIC | CURRENT_ROLE | CURRENT_USER | SESSION_USER } [, ...] ]
+fn opt_policy_roles(p: &mut Parser<'_>) {
+    if !p.at(TO_KW) {
+        return;
+    }
+    let m = p.start();
+    p.bump(TO_KW);
+    role_list(p);
+    m.complete(p, POLICY_ROLES);
 }
 
 fn opt_as_policy_type(p: &mut Parser<'_>) {
@@ -11775,21 +12390,24 @@ fn create_publication(p: &mut Parser<'_>) -> CompletedMarker {
     p.bump(CREATE_KW);
     p.bump(PUBLICATION_KW);
     publication(p);
-    if p.eat(FOR_KW) {
-        if p.at(ALL_KW) {
-            let m = p.start();
+    if p.at(FOR_KW) {
+        let m = p.start();
+        p.bump(FOR_KW);
+        let kind = if p.at(ALL_KW) {
             publication_all_object(p);
             while !p.at(EOF) && p.eat(COMMA) {
                 publication_all_object(p);
             }
             opt_except_table_clause(p);
-            m.complete(p, FOR_ALL_PUBLICATION_OBJECTS);
+            FOR_ALL_PUBLICATION_OBJECTS
         } else {
             publication_object(p);
             while !p.at(EOF) && p.eat(COMMA) {
                 publication_object(p);
             }
-        }
+            FOR_PUBLICATION_OBJECTS
+        };
+        m.complete(p, kind);
     }
     opt_with_params(p);
     p.eat(SEMICOLON);
@@ -11797,13 +12415,19 @@ fn create_publication(p: &mut Parser<'_>) -> CompletedMarker {
 }
 
 fn publication_all_object(p: &mut Parser<'_>) {
+    let m = p.start();
     p.expect(ALL_KW);
-    if !p.eat(TABLES_KW) && !p.eat(SEQUENCES_KW) {
-        p.error(format!(
-            "expected TABLES or SEQUENCES, got {:?}",
-            p.current()
-        ));
-    }
+    let kind = if p.eat(TABLES_KW) {
+        ALL_PUBLICATION_TABLES
+    } else {
+        p.expect(SEQUENCES_KW);
+        ALL_PUBLICATION_SEQUENCES
+    };
+    m.complete(p, kind);
+}
+
+fn set_all_publication_object(p: &mut Parser<'_>) {
+    publication_all_object(p);
 }
 
 fn opt_except_table_clause(p: &mut Parser<'_>) {
@@ -11983,11 +12607,17 @@ fn create_server(p: &mut Parser<'_>) -> CompletedMarker {
     p.bump(SERVER_KW);
     opt_if_not_exists(p);
     server(p);
-    if p.eat(TYPE_KW) {
+    if p.at(TYPE_KW) {
+        let m = p.start();
+        p.bump(TYPE_KW);
         string_literal(p);
+        m.complete(p, SERVER_TYPE);
     }
-    if p.eat(VERSION_KW) {
+    if p.at(VERSION_KW) {
+        let m = p.start();
+        p.bump(VERSION_KW);
         string_literal(p);
+        m.complete(p, SERVER_VERSION);
     }
     p.expect(FOREIGN_KW);
     p.expect(DATA_KW);
@@ -12016,10 +12646,13 @@ fn create_statistics(p: &mut Parser<'_>) -> CompletedMarker {
         statistics(p);
     }
     opt_stat_types(p);
-    if p.eat(ON_KW) {
+    if p.at(ON_KW) {
+        let m = p.start();
+        p.bump(ON_KW);
         if !opt_expr_list(p) {
             p.error("expected expression")
         }
+        m.complete(p, STATISTICS_ON_CLAUSE);
     }
     from_table(p);
     p.eat(SEMICOLON);
@@ -12053,11 +12686,10 @@ fn create_subscription(p: &mut Parser<'_>) -> CompletedMarker {
     p.bump(CREATE_KW);
     p.bump(SUBSCRIPTION_KW);
     subscription(p);
-    if p.eat(SERVER_KW) {
-        server_ref(p);
+    if p.at(SERVER_KW) {
+        server_clause(p);
     } else {
-        p.expect(CONNECTION_KW);
-        string_literal(p);
+        connection_clause(p);
     }
     p.expect(PUBLICATION_KW);
     publication_ref_list(p);
@@ -12076,8 +12708,11 @@ fn create_tablespace(p: &mut Parser<'_>) -> CompletedMarker {
     p.bump(CREATE_KW);
     p.bump(TABLESPACE_KW);
     tablespace(p);
-    if p.eat(OWNER_KW) {
+    if p.at(OWNER_KW) {
+        let m = p.start();
+        p.bump(OWNER_KW);
         role_ref(p);
+        m.complete(p, TABLESPACE_OWNER);
     }
     p.expect(LOCATION_KW);
     string_literal(p);
@@ -12227,7 +12862,7 @@ fn create_user_mapping(p: &mut Parser<'_>) -> CompletedMarker {
     if !p.eat(USER_KW) {
         role_ref(p);
     }
-    server_name(p);
+    server_clause(p);
     opt_alter_option_list(p);
     p.eat(SEMICOLON);
     m.complete(p, CREATE_USER_MAPPING)
@@ -12883,7 +13518,15 @@ fn drop_subscription(p: &mut Parser<'_>) -> CompletedMarker {
 
 // [ CASCADE | RESTRICT ]
 fn opt_cascade_or_restrict(p: &mut Parser<'_>) -> bool {
-    p.eat(CASCADE_KW) || p.eat(RESTRICT_KW)
+    let kind = match p.current() {
+        CASCADE_KW => CASCADE,
+        RESTRICT_KW => RESTRICT,
+        _ => return false,
+    };
+    let m = p.start();
+    p.bump_any();
+    m.complete(p, kind);
+    true
 }
 
 // DROP TABLESPACE [ IF EXISTS ] name
@@ -13013,7 +13656,7 @@ fn drop_user_mapping(p: &mut Parser<'_>) -> CompletedMarker {
     if !p.eat(USER_KW) {
         role_ref(p);
     }
-    server_name(p);
+    server_clause(p);
     p.eat(SEMICOLON);
     m.complete(p, DROP_USER_MAPPING)
 }
@@ -13024,9 +13667,14 @@ fn explain(p: &mut Parser<'_>) -> CompletedMarker {
     assert!(p.at(EXPLAIN_KW));
     let m = p.start();
     p.bump(EXPLAIN_KW);
-    let has_analyze = p.eat(ANALYZE_KW) || p.eat(ANALYSE_KW);
-    let has_verbose = p.eat(VERBOSE_KW);
-    if !(has_analyze || has_verbose) {
+    if p.at(ANALYZE_KW) || p.at(ANALYSE_KW) {
+        let m = p.start();
+        p.bump_any();
+        opt_explain_verbose(p);
+        m.complete(p, EXPLAIN_ANALYZE);
+    } else if p.at(VERBOSE_KW) {
+        opt_explain_verbose(p);
+    } else {
         opt_explain_option_list(p);
     }
     // statement is SELECT, INSERT, UPDATE, DELETE, MERGE, VALUES, EXECUTE, DECLARE, CREATE TABLE AS, or CREATE MATERIALIZED VIEW AS
@@ -13059,6 +13707,15 @@ fn explain(p: &mut Parser<'_>) -> CompletedMarker {
     }
     p.eat(SEMICOLON);
     m.complete(p, EXPLAIN)
+}
+
+fn opt_explain_verbose(p: &mut Parser<'_>) {
+    if !p.at(VERBOSE_KW) {
+        return;
+    }
+    let m = p.start();
+    p.bump(VERBOSE_KW);
+    m.complete(p, EXPLAIN_VERBOSE);
 }
 
 fn opt_explain_option_list(p: &mut Parser<'_>) -> Option<CompletedMarker> {
@@ -13181,7 +13838,7 @@ fn import_foreign_schema(p: &mut Parser<'_>) -> CompletedMarker {
         m.complete(p, kind);
     }
     p.expect(FROM_KW);
-    server_name(p);
+    server_clause(p);
     into_schema(p);
     opt_alter_option_list(p);
     p.eat(SEMICOLON);
@@ -13207,61 +13864,75 @@ fn lock(p: &mut Parser<'_>) -> CompletedMarker {
     // [ TABLE ]
     p.eat(TABLE_KW);
     relation_list(p);
-    // [ IN lockmode MODE ]
-    if p.eat(IN_KW) {
-        let m = p.start();
-        match (p.current(), p.nth(1)) {
-            (ACCESS_KW, SHARE_KW) => {
-                p.bump(ACCESS_KW);
-                p.bump(SHARE_KW);
-                m.complete(p, ACCESS_SHARE);
-            }
-            (ROW_KW, SHARE_KW) => {
-                p.bump(ROW_KW);
-                p.bump(SHARE_KW);
-                m.complete(p, ROW_SHARE);
-            }
-            (ACCESS_KW, EXCLUSIVE_KW) => {
-                p.bump(ACCESS_KW);
-                p.bump(EXCLUSIVE_KW);
-                m.complete(p, ACCESS_EXCLUSIVE);
-            }
-            (ROW_KW, EXCLUSIVE_KW) => {
-                p.bump(ROW_KW);
-                p.bump(EXCLUSIVE_KW);
-                m.complete(p, ROW_EXCLUSIVE);
-            }
-            (SHARE_KW, ROW_KW) => {
-                p.bump(SHARE_KW);
-                p.bump(ROW_KW);
-                p.expect(EXCLUSIVE_KW);
-                m.complete(p, SHARE_ROW_EXCLUSIVE);
-            }
-            (SHARE_KW, UPDATE_KW) => {
-                p.bump(SHARE_KW);
-                p.bump(UPDATE_KW);
-                p.expect(EXCLUSIVE_KW);
-                m.complete(p, SHARE_UPDATE_EXCLUSIVE);
-            }
-            (SHARE_KW, _) => {
-                p.bump(SHARE_KW);
-                m.complete(p, SHARE);
-            }
-            (EXCLUSIVE_KW, _) => {
-                p.bump(EXCLUSIVE_KW);
-                m.complete(p, EXCLUSIVE);
-            }
-            _ => {
-                p.error("expected lockmode");
-                m.abandon(p);
-            }
-        }
-        p.expect(MODE_KW);
-    }
+    opt_lock_mode_clause(p);
     // [ NOWAIT ]
-    p.eat(NOWAIT_KW);
+    opt_nowait(p);
     p.eat(SEMICOLON);
     m.complete(p, LOCK)
+}
+
+// [ IN lockmode MODE ]
+fn opt_lock_mode_clause(p: &mut Parser<'_>) {
+    if !p.at(IN_KW) {
+        return;
+    }
+    let m = p.start();
+    p.bump(IN_KW);
+    lock_mode(p);
+    p.expect(MODE_KW);
+    m.complete(p, LOCK_MODE_CLAUSE);
+}
+
+fn lock_mode(p: &mut Parser<'_>) {
+    let m = p.start();
+    let kind = match (p.current(), p.nth(1)) {
+        (ACCESS_KW, SHARE_KW) => {
+            p.bump(ACCESS_KW);
+            p.bump(SHARE_KW);
+            ACCESS_SHARE
+        }
+        (ROW_KW, SHARE_KW) => {
+            p.bump(ROW_KW);
+            p.bump(SHARE_KW);
+            ROW_SHARE
+        }
+        (ACCESS_KW, EXCLUSIVE_KW) => {
+            p.bump(ACCESS_KW);
+            p.bump(EXCLUSIVE_KW);
+            ACCESS_EXCLUSIVE
+        }
+        (ROW_KW, EXCLUSIVE_KW) => {
+            p.bump(ROW_KW);
+            p.bump(EXCLUSIVE_KW);
+            ROW_EXCLUSIVE
+        }
+        (SHARE_KW, ROW_KW) => {
+            p.bump(SHARE_KW);
+            p.bump(ROW_KW);
+            p.expect(EXCLUSIVE_KW);
+            SHARE_ROW_EXCLUSIVE
+        }
+        (SHARE_KW, UPDATE_KW) => {
+            p.bump(SHARE_KW);
+            p.bump(UPDATE_KW);
+            p.expect(EXCLUSIVE_KW);
+            SHARE_UPDATE_EXCLUSIVE
+        }
+        (SHARE_KW, _) => {
+            p.bump(SHARE_KW);
+            SHARE
+        }
+        (EXCLUSIVE_KW, _) => {
+            p.bump(EXCLUSIVE_KW);
+            EXCLUSIVE
+        }
+        _ => {
+            p.error("expected lockmode");
+            m.abandon(p);
+            return;
+        }
+    };
+    m.complete(p, kind);
 }
 
 // [ ONLY ] name [ * ] [, ... ]
@@ -13366,13 +14037,21 @@ fn merge_when_clause(p: &mut Parser<'_>) {
             p.bump(NOT_KW);
             p.expect(MATCHED_KW);
             // BY SOURCE | BY TARGET
-            if p.eat(BY_KW) {
-                if p.eat(SOURCE_KW) {
+            if p.at(BY_KW) {
+                if p.nth_at(1, SOURCE_KW) {
+                    p.bump(BY_KW);
+                    p.bump(SOURCE_KW);
                     MERGE_WHEN_NOT_MATCHED_SOURCE
-                } else if p.eat(TARGET_KW) {
-                    MERGE_WHEN_NOT_MATCHED_TARGET
                 } else {
-                    p.error("expected SOURCE or TARGET");
+                    let m = p.start();
+                    p.bump(BY_KW);
+                    let by_kind = if p.eat(TARGET_KW) {
+                        BY_TARGET
+                    } else {
+                        p.error("expected SOURCE or TARGET");
+                        ERROR
+                    };
+                    m.complete(p, by_kind);
                     MERGE_WHEN_NOT_MATCHED_TARGET
                 }
             } else {
@@ -13384,15 +14063,57 @@ fn merge_when_clause(p: &mut Parser<'_>) {
             MERGE_WHEN_NOT_MATCHED_TARGET
         }
     };
-    // [ AND condition ]
-    if p.eat(AND_KW) {
-        if expr(p).is_none() {
-            p.error("expected condition");
-        }
-    }
+    opt_merge_condition(p);
     p.expect(THEN_KW);
     merge_action(p);
     m.complete(p, kind);
+}
+
+// [ AND condition ]
+fn opt_merge_condition(p: &mut Parser<'_>) {
+    if !p.at(AND_KW) {
+        return;
+    }
+    let m = p.start();
+    p.bump(AND_KW);
+    if expr(p).is_none() {
+        p.error("expected condition");
+    }
+    m.complete(p, MERGE_CONDITION);
+}
+
+// [ OVERRIDING { SYSTEM | USER } VALUE ]
+fn opt_overriding_clause(p: &mut Parser<'_>) {
+    if !p.at(OVERRIDING_KW) {
+        return;
+    }
+    let m = p.start();
+    p.bump(OVERRIDING_KW);
+    let kind = if p.eat(SYSTEM_KW) {
+        Some(OVERRIDING_SYSTEM_VALUE)
+    } else if p.eat(USER_KW) {
+        Some(OVERRIDING_USER_VALUE)
+    } else {
+        p.error("expected SYSTEM or USER");
+        None
+    };
+    p.expect(VALUE_KW);
+    match kind {
+        Some(kind) => {
+            m.complete(p, kind);
+        }
+        None => {
+            m.abandon(p);
+        }
+    }
+}
+
+// DEFAULT VALUES
+fn default_values(p: &mut Parser<'_>) {
+    let m = p.start();
+    p.expect(DEFAULT_KW);
+    p.expect(VALUES_KW);
+    m.complete(p, DEFAULT_VALUES);
 }
 
 // merge_update | merge_delete | merge_insert | DO NOTHING
@@ -13416,17 +14137,12 @@ fn merge_action(p: &mut Parser<'_>) {
             // [ ( column_name [, ...] ) ]
             opt_column_target_list(p);
             // [ OVERRIDING { SYSTEM | USER } VALUE ]
-            if p.eat(OVERRIDING_KW) {
-                if !p.eat(SYSTEM_KW) && !p.eat(USER_KW) {
-                    p.error("expected SYSTEM or USER");
-                }
-                p.expect(VALUE_KW);
-            }
+            opt_overriding_clause(p);
             // { VALUES ( { expression | DEFAULT } [, ...] ) | DEFAULT VALUES }
             if p.at(VALUES_KW) {
-                values(p, None, false);
-            } else if p.eat(DEFAULT_KW) {
-                p.expect(VALUES_KW);
+                values(p, None, &SelectRestrictions::none());
+            } else if p.at(DEFAULT_KW) {
+                default_values(p);
             } else {
                 p.error("expected VALUES or DEFAULT VALUES");
             }
@@ -13495,16 +14211,7 @@ fn grant(p: &mut Parser<'_>) -> CompletedMarker {
     // [, ...] | ALL [ PRIVILEGES ] ( column_name [, ...] ) }
     // { { SELECT | INSERT | UPDATE | DELETE | TRUNCATE | REFERENCES | TRIGGER | MAINTAIN }
     //  [, ...] | ALL [ PRIVILEGES ] }
-    // ALL [ PRIVILEGES ]
-    if p.at(ALL_KW) {
-        let m = p.start();
-        p.bump(ALL_KW);
-        p.eat(PRIVILEGES_KW);
-        opt_column_ref_list(p);
-        m.complete(p, ALL_PRIVILEGES);
-    } else if !p.at(TO_KW) {
-        revoke_command_list(p);
-    }
+    privileges(p);
     // ON { [ TABLE ] table_name [, ...]
     //      | ALL TABLES IN SCHEMA schema_name [, ...] }
     // ON { SEQUENCE sequence_name [, ...]
@@ -13514,9 +14221,7 @@ fn grant(p: &mut Parser<'_>) -> CompletedMarker {
     // ON { { FUNCTION | PROCEDURE | ROUTINE } function_name [ ( [ [ argmode ] [ arg_name ] arg_type [, ...] ] ) ] [, ...]
     //       | ALL { FUNCTIONS | PROCEDURES | ROUTINES } IN SCHEMA schema_name [, ...] }
     // ON PARAMETER configuration_parameter [, ...]
-    if p.eat(ON_KW) {
-        privilege_target(p);
-    }
+    opt_on_privilege_objects_clause(p);
     // TO role_specification [, ...]
     p.expect(TO_KW);
     role_list(p);
@@ -13543,8 +14248,11 @@ fn revoke_command_list(p: &mut Parser<'_>) {
 fn grant_with_clause(p: &mut Parser<'_>) {
     let m = p.start();
     p.expect(WITH_KW);
-    if p.eat(GRANT_KW) {
+    if p.at(GRANT_KW) {
+        let m = p.start();
+        p.bump(GRANT_KW);
         p.expect(OPTION_KW);
+        m.complete(p, GRANT_OPTION);
     } else {
         grant_role_option_list(p);
     }
@@ -13586,6 +14294,15 @@ fn grant_role_option_name(p: &mut Parser<'_>) {
     let m = p.start();
     pg_name(p);
     m.complete(p, GRANT_ROLE_OPTION_NAME);
+}
+
+fn opt_on_privilege_objects_clause(p: &mut Parser<'_>) {
+    if p.at(ON_KW) {
+        let m = p.start();
+        p.bump(ON_KW);
+        privilege_target(p);
+        m.complete(p, ON_PRIVILEGE_OBJECTS_CLAUSE);
+    }
 }
 
 fn privilege_target(p: &mut Parser<'_>) {
@@ -13717,10 +14434,42 @@ fn privilege_target(p: &mut Parser<'_>) {
 
 // [ GRANTED BY role_specification ]
 fn opt_granted_by(p: &mut Parser<'_>) {
-    if p.eat(GRANTED_KW) {
+    if p.at(GRANTED_KW) {
+        let m = p.start();
+        p.bump(GRANTED_KW);
         p.expect(BY_KW);
         role_ref(p);
+        m.complete(p, GRANTED_BY_CLAUSE);
     }
+}
+
+// [ { ADMIN | INHERIT | SET } OPTION FOR ]
+// [ GRANT OPTION FOR ]
+fn opt_revoke_option_for(p: &mut Parser<'_>) {
+    let kind = match p.current() {
+        ADMIN_KW => ADMIN_OPTION_FOR,
+        INHERIT_KW => INHERIT_OPTION_FOR,
+        GRANT_KW => GRANT_OPTION_FOR,
+        SET_KW if p.nth_at(1, OPTION_KW) => SET_OPTION_FOR,
+        _ => return,
+    };
+    option_for(p, kind);
+}
+
+fn option_for(p: &mut Parser<'_>, kind: SyntaxKind) {
+    let m = p.start();
+    p.bump_any();
+    p.expect(OPTION_KW);
+    p.expect(FOR_KW);
+    m.complete(p, kind);
+}
+
+// [ GRANT OPTION FOR ]
+fn opt_grant_option_for(p: &mut Parser<'_>) {
+    if !p.at(GRANT_KW) {
+        return;
+    }
+    option_for(p, GRANT_OPTION_FOR);
 }
 
 // REVOKE [ GRANT OPTION FOR ]
@@ -13738,21 +14487,7 @@ fn revoke(p: &mut Parser<'_>) -> CompletedMarker {
     // TODO: we'll need a syntax validation for this since it uses specific
     // idents not purely keywords
     // TODO: we can cleanup this function a lot
-    // [ { ADMIN | INHERIT | SET } OPTION FOR ]
-    // [ GRANT OPTION FOR ]
-    match p.current() {
-        ADMIN_KW | INHERIT_KW | GRANT_KW => {
-            p.bump_any();
-            p.expect(OPTION_KW);
-            p.expect(FOR_KW);
-        }
-        SET_KW if p.nth_at(1, OPTION_KW) => {
-            p.bump(SET_KW);
-            p.bump(OPTION_KW);
-            p.expect(FOR_KW);
-        }
-        _ => (),
-    }
+    opt_revoke_option_for(p);
     privileges(p);
     // ON { [ TABLE ] table_name [, ...]
     //      | ALL TABLES IN SCHEMA schema_name [, ...] }
@@ -13763,9 +14498,7 @@ fn revoke(p: &mut Parser<'_>) -> CompletedMarker {
     // ON { { FUNCTION | PROCEDURE | ROUTINE } function_name [ ( [ [ argmode ] [ arg_name ] arg_type [, ...] ] ) ] [, ...]
     //       | ALL { FUNCTIONS | PROCEDURES | ROUTINES } IN SCHEMA schema_name [, ...] }
     // ON PARAMETER configuration_parameter [, ...]
-    if p.eat(ON_KW) {
-        privilege_target(p);
-    }
+    opt_on_privilege_objects_clause(p);
     // FROM role_specification [, ...]
     p.expect(FROM_KW);
     role_list(p);
@@ -13781,16 +14514,16 @@ fn revoke(p: &mut Parser<'_>) -> CompletedMarker {
 // { { SELECT | INSERT | UPDATE | DELETE | TRUNCATE | REFERENCES | TRIGGER | MAINTAIN }
 //  [, ...] | ALL [ PRIVILEGES ] }
 fn privileges(p: &mut Parser<'_>) {
-    let m = p.start();
-    // ALL [ PRIVILEGES ]
-    if p.eat(ALL_KW) {
+    // ALL [ PRIVILEGES ] [ ( column_name [, ...] ) ]
+    if p.at(ALL_KW) {
+        let m = p.start();
+        p.bump(ALL_KW);
         p.eat(PRIVILEGES_KW);
-    } else if !p.at(FROM_KW) {
+        opt_column_ref_list(p);
+        m.complete(p, ALL_PRIVILEGES);
+    } else if !p.at(FROM_KW) && !p.at(TO_KW) {
         revoke_command_list(p);
     }
-    // [ ( column_name [, ...] ) ]
-    opt_column_ref_list(p);
-    m.complete(p, PRIVILEGES);
 }
 
 const REVOKE_COMMAND_FIRST: TokenSet = TokenSet::new(&[
@@ -14112,6 +14845,21 @@ fn aggregate_arg_list(p: &mut Parser<'_>) {
     m.complete(p, PARAM_LIST);
 }
 
+// { DEFERRED | IMMEDIATE }
+fn constraint_timing(p: &mut Parser<'_>) {
+    let kind = match p.current() {
+        DEFERRED_KW => DEFERRED,
+        IMMEDIATE_KW => IMMEDIATE,
+        _ => {
+            p.error("expected DEFERRED or IMMEDIATE");
+            return;
+        }
+    };
+    let m = p.start();
+    p.bump_any();
+    m.complete(p, kind);
+}
+
 // SET CONSTRAINTS { ALL | name [, ...] } { DEFERRED | IMMEDIATE }
 fn set_constraints(p: &mut Parser<'_>) -> CompletedMarker {
     assert!(p.at(SET_KW) && p.nth_at(1, CONSTRAINTS_KW));
@@ -14121,11 +14869,21 @@ fn set_constraints(p: &mut Parser<'_>) -> CompletedMarker {
     if !p.eat(ALL_KW) {
         constraint_name_ref_list(p);
     }
-    if !p.eat(DEFERRED_KW) && !p.eat(IMMEDIATE_KW) {
-        p.error("expected DEFERRED or IMMEDIATE");
-    }
+    constraint_timing(p);
     p.eat(SEMICOLON);
     m.complete(p, SET_CONSTRAINTS)
+}
+
+// [ SESSION | LOCAL ]
+fn opt_set_scope(p: &mut Parser<'_>) {
+    let kind = match p.current() {
+        SESSION_KW => SESSION_SCOPE,
+        LOCAL_KW => LOCAL_SCOPE,
+        _ => return,
+    };
+    let m = p.start();
+    p.bump_any();
+    m.complete(p, kind);
 }
 
 // SET [ SESSION | LOCAL ] ROLE role_name
@@ -14135,9 +14893,13 @@ fn set_role(p: &mut Parser<'_>) -> CompletedMarker {
     assert!(p.at(SET_KW));
     let m = p.start();
     p.bump(SET_KW);
-    let _ = p.eat(SESSION_KW) || p.eat(LOCAL_KW);
+    opt_set_scope(p);
     p.expect(ROLE_KW);
-    if !p.eat(NONE_KW) && opt_string_literal(p).is_none() {
+    if p.at(NONE_KW) {
+        let target = p.start();
+        p.bump(NONE_KW);
+        target.complete(p, SET_ROLE_NONE);
+    } else if opt_string_literal(p).is_none() {
         role_ref(p);
     }
     p.eat(SEMICOLON);
@@ -14160,11 +14922,16 @@ fn set_session_auth(p: &mut Parser<'_>) -> CompletedMarker {
     assert!(p.at(SET_KW));
     let m = p.start();
     p.bump(SET_KW);
-    p.eat(LOCAL_KW);
+    if p.at(LOCAL_KW) || (p.at(SESSION_KW) && p.nth_at(1, SESSION_KW)) {
+        opt_set_scope(p);
+    }
     p.expect(SESSION_KW);
-    p.eat(SESSION_KW);
     p.expect(AUTHORIZATION_KW);
-    if !p.eat(DEFAULT_KW) && opt_string_literal(p).is_none() {
+    if p.at(DEFAULT_KW) {
+        let target = p.start();
+        p.bump(DEFAULT_KW);
+        target.complete(p, SET_SESSION_AUTH_DEFAULT);
+    } else if opt_string_literal(p).is_none() {
         role_ref(p);
     }
     p.eat(SEMICOLON);
@@ -14240,15 +15007,18 @@ fn set_transaction(p: &mut Parser<'_>) -> CompletedMarker {
 //     [ LIMIT { count | ALL } ]
 //     [ OFFSET start [ ROW | ROWS ] ]
 //     [ FETCH { FIRST | NEXT } [ count ] { ROW | ROWS } ONLY ]
-fn values(p: &mut Parser<'_>, m: Option<Marker>, semi_allowed: bool) -> CompletedMarker {
+fn values(p: &mut Parser<'_>, m: Option<Marker>, r: &SelectRestrictions) -> CompletedMarker {
     let m = m.unwrap_or_else(|| p.start());
     p.bump(VALUES_KW);
     row_list(p);
-    opt_order_by_clause(p);
-    opt_limit_clause(p);
-    opt_offset_clause(p);
-    opt_fetch_clause(p);
-    if semi_allowed {
+    if p.at_ts(COMPOUND_SELECT_FIRST) && r.compound_allowed {
+        let cm = m.complete(p, VALUES);
+        return compound_select(p, cm, r);
+    }
+    if r.trailing_clauses {
+        opt_select_trailing_clauses(p);
+    }
+    if r.semi_allowed {
         p.eat(SEMICOLON);
     }
     m.complete(p, VALUES)
@@ -14402,6 +15172,28 @@ fn drop_view(p: &mut Parser<'_>) -> CompletedMarker {
     m.complete(p, DROP_VIEW)
 }
 
+// [ WITH [ CASCADED | LOCAL ] CHECK OPTION ]
+fn opt_with_check_option(p: &mut Parser<'_>) {
+    if !p.at(WITH_KW) {
+        return;
+    }
+    let m = p.start();
+    p.bump(WITH_KW);
+    if p.at(CASCADED_KW) || p.at(LOCAL_KW) {
+        let level = p.start();
+        let kind = if p.at(CASCADED_KW) {
+            CASCADED_CHECK_OPTION
+        } else {
+            LOCAL_CHECK_OPTION
+        };
+        p.bump_any();
+        level.complete(p, kind);
+    }
+    p.expect(CHECK_KW);
+    p.expect(OPTION_KW);
+    m.complete(p, WITH_CHECK_OPTION);
+}
+
 // CREATE [ OR REPLACE ] [ TEMP | TEMPORARY ] [ RECURSIVE ] VIEW name [ ( column_name [, ...] ) ]
 //     [ WITH ( view_option_name [= view_option_value] [, ... ] ) ]
 //     AS query
@@ -14428,12 +15220,7 @@ fn create_view(p: &mut Parser<'_>) -> CompletedMarker {
         },
         None => p.error("expected SELECT"),
     }
-    // [ WITH [ CASCADED | LOCAL ] CHECK OPTION ]
-    if p.eat(WITH_KW) {
-        let _ = p.eat(CASCADED_KW) | p.eat(LOCAL_KW);
-        p.expect(CHECK_KW);
-        p.expect(OPTION_KW);
-    }
+    opt_with_check_option(p);
     p.eat(SEMICOLON);
     m.complete(p, CREATE_VIEW)
 }
@@ -14604,23 +15391,46 @@ fn discard(p: &mut Parser<'_>) -> CompletedMarker {
     assert!(p.at(DISCARD_KW));
     let m = p.start();
     p.bump(DISCARD_KW);
-    let _ = p.eat(ALL_KW) || p.eat(PLANS_KW) || p.eat(SEQUENCES_KW) || opt_temp(p);
+    opt_discard_target(p);
     p.eat(SEMICOLON);
     m.complete(p, DISCARD)
+}
+
+const DISCARD_TARGET_FIRST: TokenSet =
+    TokenSet::new(&[ALL_KW, PLANS_KW, SEQUENCES_KW, TEMP_KW, TEMPORARY_KW]);
+
+fn opt_discard_target(p: &mut Parser<'_>) {
+    if !p.at_ts(DISCARD_TARGET_FIRST) {
+        return;
+    }
+    let m = p.start();
+    let kind = match p.current() {
+        ALL_KW => DISCARD_ALL,
+        PLANS_KW => DISCARD_PLANS,
+        SEQUENCES_KW => DISCARD_SEQUENCES,
+        TEMP_KW | TEMPORARY_KW => DISCARD_TEMP,
+        _ => unreachable!(),
+    };
+    p.bump_any();
+    m.complete(p, kind);
 }
 
 fn opt_temp(p: &mut Parser<'_>) -> bool {
     p.eat(TEMP_KW) || p.eat(TEMPORARY_KW)
 }
 
-fn opt_language(p: &mut Parser<'_>) {
-    if p.eat(LANGUAGE_KW) {
-        if p.at_ts(NON_RESERVED_WORD) {
-            language_ref(p);
-        } else {
-            string_literal(p);
-        }
+fn opt_do_language(p: &mut Parser<'_>) {
+    if !p.at(LANGUAGE_KW) {
+        return;
     }
+    let m = p.start();
+    p.bump(LANGUAGE_KW);
+    if p.at_ts(NON_RESERVED_WORD) {
+        language_ref(p);
+    } else {
+        string_literal(p);
+    }
+    m.complete(p, DO_LANGUAGE);
 }
 
 // DO [ LANGUAGE lang_name ] code
@@ -14628,9 +15438,9 @@ fn do_(p: &mut Parser<'_>) -> CompletedMarker {
     assert!(p.at(DO_KW));
     let m = p.start();
     p.bump(DO_KW);
-    opt_language(p);
+    opt_do_language(p);
     string_literal(p);
-    opt_language(p);
+    opt_do_language(p);
     p.eat(SEMICOLON);
     m.complete(p, DO)
 }
@@ -14645,17 +15455,50 @@ fn declare(p: &mut Parser<'_>) -> CompletedMarker {
     // [ BINARY ]
     p.eat(BINARY_KW);
     // [ ASENSITIVE | INSENSITIVE ]
-    let _ = p.eat(ASENSITIVE_KW) || p.eat(INSENSITIVE_KW);
+    match p.current() {
+        ASENSITIVE_KW => {
+            let m = p.start();
+            p.bump(ASENSITIVE_KW);
+            m.complete(p, ASENSITIVE);
+        }
+        INSENSITIVE_KW => {
+            let m = p.start();
+            p.bump(INSENSITIVE_KW);
+            m.complete(p, INSENSITIVE);
+        }
+        _ => (),
+    }
     // [ [ NO ] SCROLL ]
-    if p.eat(NO_KW) {
-        p.expect(SCROLL_KW);
-    } else {
-        p.eat(SCROLL_KW);
+    match p.current() {
+        NO_KW => {
+            let m = p.start();
+            p.bump(NO_KW);
+            p.expect(SCROLL_KW);
+            m.complete(p, NO_SCROLL);
+        }
+        SCROLL_KW => {
+            let m = p.start();
+            p.bump(SCROLL_KW);
+            m.complete(p, SCROLL);
+        }
+        _ => (),
     }
     p.expect(CURSOR_KW);
     // [ { WITH | WITHOUT } HOLD ]
-    if p.eat(WITH_KW) || p.eat(WITHOUT_KW) {
-        p.expect(HOLD_KW);
+    match p.current() {
+        WITH_KW => {
+            let m = p.start();
+            p.bump(WITH_KW);
+            p.expect(HOLD_KW);
+            m.complete(p, WITH_HOLD);
+        }
+        WITHOUT_KW => {
+            let m = p.start();
+            p.bump(WITHOUT_KW);
+            p.expect(HOLD_KW);
+            m.complete(p, WITHOUT_HOLD);
+        }
+        _ => (),
     }
     p.expect(FOR_KW);
     // select stmt
@@ -14821,11 +15664,17 @@ fn truncate(p: &mut Parser<'_>) -> CompletedMarker {
     p.bump(TRUNCATE_KW);
     p.eat(TABLE_KW);
     table_list(p);
-    if p.eat(RESTART_KW) {
+    if p.at(RESTART_KW) {
+        let m = p.start();
+        p.bump(RESTART_KW);
         p.expect(IDENTITY_KW);
+        m.complete(p, RESTART_IDENTITY);
     }
-    if p.eat(CONTINUE_KW) {
+    if p.at(CONTINUE_KW) {
+        let m = p.start();
+        p.bump(CONTINUE_KW);
         p.expect(IDENTITY_KW);
+        m.complete(p, CONTINUE_IDENTITY);
     }
     opt_cascade_or_restrict(p);
     p.eat(SEMICOLON);
@@ -14996,19 +15845,20 @@ fn opt_copy_option(p: &mut Parser) -> bool {
         m.abandon(p);
         return false;
     }
-    copy_option_name(p);
-    copy_option_arg(p);
+    copy_option_key(p);
+    copy_option_value(p);
     m.complete(p, COPY_OPTION);
     true
 }
 
-fn copy_option_name(p: &mut Parser<'_>) {
+fn copy_option_key(p: &mut Parser<'_>) {
     let m = p.start();
     pg_name(p);
-    m.complete(p, COPY_OPTION_NAME);
+    m.complete(p, COPY_OPTION_KEY);
 }
 
-fn copy_option_arg(p: &mut Parser<'_>) {
+fn copy_option_value(p: &mut Parser<'_>) {
+    let m = p.start();
     match p.current() {
         STAR | DEFAULT_KW | ON_KW | OFF_KW => {
             p.bump_any();
@@ -15018,20 +15868,19 @@ fn copy_option_arg(p: &mut Parser<'_>) {
         }
         _ => {
             if p.at_ts(NON_RESERVED_WORD) {
+                let m = p.start();
                 p.bump_any();
-                return;
-            }
-            if opt_numeric_literal(p).is_some() {
-                return;
-            }
-            if opt_string_literal(p).is_some() {
-                return;
-            }
-            if opt_bool_literal(p) {
+                m.complete(p, COPY_OPTION_VALUE_NAME);
+            } else if opt_numeric_literal(p).is_none()
+                && opt_string_literal(p).is_none()
+                && !opt_bool_literal(p)
+            {
+                m.abandon(p);
                 return;
             }
         }
     }
+    m.complete(p, COPY_OPTION_VALUE);
 }
 
 fn copy_option_list(p: &mut Parser<'_>) {
@@ -15081,21 +15930,30 @@ fn opt_copy_option_item(p: &mut Parser<'_>) -> bool {
         }
         FORCE_KW => {
             p.bump_any();
-            match p.current() {
+            let m = p.start();
+            let kind = match p.current() {
                 NOT_KW => {
                     p.bump_any();
                     p.expect(NULL_KW);
-                    opt_copy_force_target(p)
+                    Some(FORCE_NOT_NULL)
                 }
                 NULL_KW => {
                     p.bump_any();
-                    opt_copy_force_target(p)
+                    Some(FORCE_NULL)
                 }
                 QUOTE_KW => {
                     p.bump_any();
+                    Some(FORCE_QUOTE)
+                }
+                _ => None,
+            };
+            match kind {
+                Some(kind) => {
+                    m.complete(p, kind);
                     opt_copy_force_target(p)
                 }
-                _ => {
+                None => {
+                    m.abandon(p);
                     p.error("expected NOT, QUOTE, or NULL");
                     false
                 }
@@ -15109,6 +15967,27 @@ fn opt_copy_option_item(p: &mut Parser<'_>) -> bool {
         m.abandon(p);
     }
     parsed
+}
+
+// { STDIN | STDOUT | [ PROGRAM ] 'command_or_filename' }
+fn copy_source(p: &mut Parser<'_>, allow_stdin: bool) {
+    let m = p.start();
+    let kind = match p.current() {
+        STDIN_KW if allow_stdin => {
+            p.bump(STDIN_KW);
+            COPY_STDIN
+        }
+        STDOUT_KW => {
+            p.bump(STDOUT_KW);
+            COPY_STDOUT
+        }
+        _ => {
+            p.eat(PROGRAM_KW);
+            string_literal(p);
+            COPY_PROGRAM
+        }
+    };
+    m.complete(p, kind);
 }
 
 // COPY table_name [ ( column_name [, ...] ) ]
@@ -15193,23 +16072,12 @@ fn copy(p: &mut Parser<'_>) -> CompletedMarker {
     if p.at(FROM_KW) {
         let m = p.start();
         p.bump(FROM_KW);
-        // STDIN
-        if p.eat(STDIN_KW) || p.eat(STDOUT_KW) {
-            // PROGRAM 'command'
-        } else if p.eat(PROGRAM_KW) {
-            string_literal(p);
-        // 'filename'
-        } else {
-            string_literal(p);
-        }
+        copy_source(p, true);
         m.complete(p, COPY_FROM);
     } else if p.at(TO_KW) {
         let m = p.start();
         p.bump(TO_KW);
-        if !p.eat(STDOUT_KW) {
-            p.eat(PROGRAM_KW);
-            string_literal(p);
-        }
+        copy_source(p, false);
         m.complete(p, COPY_TO);
     }
     p.eat(WITH_KW);
@@ -15290,15 +16158,7 @@ fn create_trigger(p: &mut Parser<'_>) -> CompletedMarker {
     opt_from_table(p);
     opt_constraint_option_list(p);
     opt_referencing_clause(p);
-    // [ FOR [ EACH ] { ROW | STATEMENT } ]
-    if p.eat(FOR_KW) {
-        p.eat(EACH_KW);
-        if p.at(ROW_KW) || p.at(STATEMENT_KW) {
-            p.bump_any();
-        } else {
-            p.error("expected ROW or STATEMENT");
-        }
-    }
+    opt_trigger_level(p);
     opt_when_condition(p);
     // EXECUTE { FUNCTION | PROCEDURE } function_name ( arguments )
     p.expect(EXECUTE_KW);
@@ -15309,6 +16169,30 @@ fn create_trigger(p: &mut Parser<'_>) -> CompletedMarker {
     call_expr(p);
     p.eat(SEMICOLON);
     m.complete(p, CREATE_TRIGGER)
+}
+
+// [ FOR [ EACH ] { ROW | STATEMENT } ]
+fn opt_trigger_level(p: &mut Parser<'_>) {
+    if !p.at(FOR_KW) {
+        return;
+    }
+    let m = p.start();
+    p.bump(FOR_KW);
+    p.eat(EACH_KW);
+    match p.current() {
+        ROW_KW => {
+            p.bump(ROW_KW);
+            m.complete(p, FOR_EACH_ROW);
+        }
+        STATEMENT_KW => {
+            p.bump(STATEMENT_KW);
+            m.complete(p, FOR_EACH_STATEMENT);
+        }
+        _ => {
+            p.error("expected ROW or STATEMENT");
+            m.abandon(p);
+        }
+    }
 }
 
 fn opt_when_condition(p: &mut Parser<'_>) {
@@ -15426,7 +16310,7 @@ fn timing(p: &mut Parser<'_>) {
 }
 
 fn call_expr(p: &mut Parser<'_>) {
-    match expr(p).map(|x| x.kind()) {
+    match expr(p).map(|(cm, _)| cm.kind()) {
         Some(CALL_EXPR) => (),
         _ => p.error("expected call expression"),
     }
@@ -15437,13 +16321,14 @@ fn opt_referencing_table(p: &mut Parser<'_>) -> bool {
     if !(p.at(OLD_KW) || p.at(NEW_KW)) {
         return false;
     }
+    let kind = if p.at(OLD_KW) { OLD_TABLE } else { NEW_TABLE };
     let m = p.start();
     p.bump_any();
     p.expect(TABLE_KW);
     p.eat(AS_KW);
     // transition_relation_name
     transition_relation_name(p);
-    m.complete(p, REFERENCING_TABLE);
+    m.complete(p, kind);
     true
 }
 
@@ -15587,8 +16472,8 @@ fn create_schema(p: &mut Parser<'_>) -> CompletedMarker {
 
 fn query(p: &mut Parser<'_>) {
     // TODO: this needs to be more general
-    if (!p.at_ts(SELECT_FIRST) || select(p, None, &SelectRestrictions::default(), false).is_none())
-        && opt_paren_select(p, None, false).is_none()
+    if (!p.at_ts(SELECT_FIRST) || select(p, None, &SelectRestrictions::default()).is_none())
+        && opt_paren_select(p, None, &SelectRestrictions::default()).is_none()
     {
         p.error("expected select stmt")
     }
@@ -15626,13 +16511,10 @@ fn insert(p: &mut Parser<'_>, m: Option<Marker>, semi_allowed: bool) -> Complete
         opt_column_target_list(p);
     }
     // [ OVERRIDING { SYSTEM | USER } VALUE ]
-    if p.eat(OVERRIDING_KW) {
-        let _ = p.eat(SYSTEM_KW) || p.expect(USER_KW);
-        p.expect(VALUE_KW);
-    }
+    opt_overriding_clause(p);
     // { DEFAULT VALUES | VALUES ( { expression | DEFAULT } [, ...] ) [, ...] | query }
-    if p.eat(DEFAULT_KW) {
-        p.expect(VALUES_KW);
+    if p.at(DEFAULT_KW) {
+        default_values(p);
     } else {
         query(p);
     }
@@ -15796,7 +16678,7 @@ fn set_expr_list_or_paren_select(p: &mut Parser<'_>) {
     p.eat(ROW_KW);
     if p.at(L_PAREN) {
         if p.nth_at(1, SELECT_KW) {
-            if opt_paren_select(p, Some(m), false).is_none() {
+            if opt_paren_select(p, Some(m), &SelectRestrictions::default()).is_none() {
                 p.error("expected sub-SELECT");
             }
         } else {
@@ -15887,7 +16769,7 @@ fn update(p: &mut Parser<'_>, m: Option<Marker>, semi_allowed: bool) -> Complete
     // [ FROM from_item [, ...] ]
     opt_from_clause(p);
     // [ WHERE condition | WHERE CURRENT OF cursor_name ]
-    opt_where_or_current_of(p);
+    opt_where_clause_or_current_of(p);
     // [ RETURNING { * | output_expression [ [ AS ] output_name ] } [, ...] ]
     opt_returning_clause(p);
     if semi_allowed {
@@ -15912,9 +16794,11 @@ fn opt_for_portion_of(p: &mut Parser<'_>) {
 }
 
 fn for_portion_of_target(p: &mut Parser<'_>) {
+    let m = p.start();
     if p.eat(L_PAREN) {
         expr(p);
         p.expect(R_PAREN);
+        m.complete(p, PORTION_RANGE);
     } else {
         p.expect(FROM_KW);
         // start time
@@ -15922,10 +16806,11 @@ fn for_portion_of_target(p: &mut Parser<'_>) {
         p.expect(TO_KW);
         // end time
         expr(p);
+        m.complete(p, PORTION_FROM_TO);
     }
 }
 
-fn opt_where_or_current_of(p: &mut Parser<'_>) {
+fn opt_where_clause_or_current_of(p: &mut Parser<'_>) {
     if p.at(WHERE_KW) {
         if p.nth_at(1, CURRENT_KW) {
             opt_where_current_of(p);
@@ -15935,22 +16820,20 @@ fn opt_where_or_current_of(p: &mut Parser<'_>) {
     }
 }
 
-fn with(p: &mut Parser<'_>, m: Option<Marker>, semi_allowed: bool) -> Option<CompletedMarker> {
+fn with(p: &mut Parser<'_>, m: Option<Marker>, r: &SelectRestrictions) -> Option<CompletedMarker> {
     let m = m.unwrap_or_else(|| p.start());
     // with aka cte
     // [ WITH [ RECURSIVE ] with_query [, ...] ]
     with_query_clause(p);
     match p.current() {
-        DELETE_KW => Some(delete(p, Some(m), semi_allowed)),
-        SELECT_KW | TABLE_KW | VALUES_KW | FROM_KW => {
-            select(p, Some(m), &SelectRestrictions::default(), semi_allowed)
-        }
-        INSERT_KW => Some(insert(p, Some(m), semi_allowed)),
-        UPDATE_KW => Some(update(p, Some(m), semi_allowed)),
-        MERGE_KW => Some(merge(p, Some(m), semi_allowed)),
+        DELETE_KW => Some(delete(p, Some(m), r.semi_allowed)),
+        SELECT_KW | TABLE_KW | VALUES_KW | FROM_KW => select(p, Some(m), r),
+        INSERT_KW => Some(insert(p, Some(m), r.semi_allowed)),
+        UPDATE_KW => Some(update(p, Some(m), r.semi_allowed)),
+        MERGE_KW => Some(merge(p, Some(m), r.semi_allowed)),
         L_PAREN if p.nth_at_ts(1, PAREN_SELECT_FIRST) => {
             // can have select nested in parens, i.e., ((select 1));
-            opt_paren_select(p, Some(m), semi_allowed)
+            opt_paren_select(p, Some(m), r)
         }
         _ => {
             m.abandon(p);
@@ -15980,7 +16863,7 @@ fn delete(p: &mut Parser<'_>, m: Option<Marker>, semi_allowed: bool) -> Complete
     }
     opt_using_clause(p);
     // [ WHERE condition | WHERE CURRENT OF cursor_name ]
-    opt_where_or_current_of(p);
+    opt_where_clause_or_current_of(p);
     opt_returning_clause(p);
     if semi_allowed {
         p.eat(SEMICOLON);
@@ -15992,7 +16875,7 @@ fn opt_using_clause(p: &mut Parser<'_>) {
     let m = p.start();
     if p.eat(USING_KW) {
         while p.at_ts(FROM_ITEM_FIRST) {
-            if !opt_from_item(p) || !p.eat(COMMA) {
+            if opt_from_item(p).is_none() || !p.eat(COMMA) {
                 break;
             }
         }
@@ -16051,12 +16934,17 @@ fn opt_returning_option(p: &mut Parser<'_>) -> bool {
     if !p.at_ts(RETURNING_OPTION_FIRST) {
         return false;
     }
+    let kind = if p.at(OLD_KW) {
+        RETURNING_OLD
+    } else {
+        RETURNING_NEW
+    };
     let m = p.start();
     // OLD | NEW
     p.bump_any();
     p.expect(AS_KW);
     table_alias(p);
-    m.complete(p, RETURNING_OPTION);
+    m.complete(p, kind);
     true
 }
 
@@ -16131,6 +17019,37 @@ fn drop_index(p: &mut Parser<'_>) -> CompletedMarker {
 
 const DROP_DATABASE_OPTION_FIRST: TokenSet = TokenSet::new(&[FORCE_KW]);
 
+fn force(p: &mut Parser<'_>) -> CompletedMarker {
+    assert!(p.at(FORCE_KW));
+    let m = p.start();
+    p.bump(FORCE_KW);
+    m.complete(p, FORCE)
+}
+
+fn opt_drop_database_force_clause(p: &mut Parser<'_>) {
+    if !p.at(L_PAREN) && !p.at(WITH_KW) {
+        return;
+    }
+    let m = p.start();
+    p.eat(WITH_KW);
+    delimited(
+        p,
+        L_PAREN,
+        R_PAREN,
+        COMMA,
+        || "unexpected comma".to_string(),
+        DROP_DATABASE_OPTION_FIRST,
+        |p| {
+            if !p.at(FORCE_KW) {
+                return false;
+            }
+            force(p);
+            true
+        },
+    );
+    m.complete(p, DROP_DATABASE_FORCE_CLAUSE);
+}
+
 // DROP DATABASE [ IF EXISTS ] name [ [ WITH ] ( option [, ...] ) ]
 //
 // where option can be:
@@ -16145,17 +17064,7 @@ fn drop_database(p: &mut Parser<'_>) -> CompletedMarker {
     opt_if_exists(p);
     database_ref(p);
     // [ [ WITH ] ( option [, ...] ) ]
-    if p.at(L_PAREN) || p.eat(WITH_KW) {
-        delimited(
-            p,
-            L_PAREN,
-            R_PAREN,
-            COMMA,
-            || "unexpected comma".to_string(),
-            DROP_DATABASE_OPTION_FIRST,
-            |p| p.eat(FORCE_KW),
-        );
-    }
+    opt_drop_database_force_clause(p);
     p.eat(SEMICOLON);
     m.complete(p, DROP_DATABASE)
 }
@@ -16368,6 +17277,14 @@ fn param(p: &mut Parser<'_>, kind: ParamKind) {
     m.complete(p, PARAM);
 }
 
+fn transform_for_type(p: &mut Parser<'_>) -> CompletedMarker {
+    let m = p.start();
+    p.expect(FOR_KW);
+    p.expect(TYPE_KW);
+    type_name(p);
+    m.complete(p, TRANSFORM_FOR_TYPE)
+}
+
 // { LANGUAGE lang_name
 //   | TRANSFORM { FOR TYPE type_name } [, ... ]
 //   | WINDOW
@@ -16413,9 +17330,7 @@ fn opt_function_option(p: &mut Parser<'_>) -> bool {
         TRANSFORM_KW => {
             p.bump(TRANSFORM_KW);
             while !p.at(EOF) {
-                p.expect(FOR_KW);
-                p.expect(TYPE_KW);
-                type_name(p);
+                transform_for_type(p);
                 if !p.eat(COMMA) {
                     break;
                 }
@@ -16429,8 +17344,14 @@ fn opt_function_option(p: &mut Parser<'_>) -> bool {
         }
         // { IMMUTABLE | STABLE | VOLATILE }
         IMMUTABLE_KW | STABLE_KW | VOLATILE_KW => {
+            let kind = match p.current() {
+                IMMUTABLE_KW => IMMUTABLE,
+                STABLE_KW => STABLE,
+                VOLATILE_KW => VOLATILE,
+                _ => unreachable!(),
+            };
             p.bump_any();
-            VOLATILITY_FUNC_OPTION
+            kind
         }
         // [ NOT ] LEAKPROOF
         NOT_KW => {
@@ -16475,8 +17396,12 @@ fn opt_function_option(p: &mut Parser<'_>) -> bool {
         EXTERNAL_KW | SECURITY_KW => {
             p.eat(EXTERNAL_KW);
             p.expect(SECURITY_KW);
-            let _ = p.eat(INVOKER_KW) || p.expect(DEFINER_KW);
-            SECURITY_FUNC_OPTION
+            if p.eat(INVOKER_KW) {
+                SECURITY_INVOKER_FUNC_OPTION
+            } else {
+                p.expect(DEFINER_KW);
+                SECURITY_DEFINER_FUNC_OPTION
+            }
         }
         // PARALLEL { UNSAFE | RESTRICTED | SAFE }
         PARALLEL_KW => {
@@ -16515,10 +17440,15 @@ fn opt_function_option(p: &mut Parser<'_>) -> bool {
         // AS 'obj_file', 'link_symbol'
         AS_KW => {
             p.bump(AS_KW);
+            let m = p.start();
             string_literal(p);
-            if p.eat(COMMA) {
+            let kind = if p.eat(COMMA) {
                 string_literal(p);
-            }
+                AS_OBJ_FILE
+            } else {
+                AS_DEFINITION
+            };
+            m.complete(p, kind);
             AS_FUNC_OPTION
         }
         // RETURN expression
@@ -16588,11 +17518,7 @@ fn set_configuration_param(p: &mut Parser<'_>) {
     // configuration_parameter
     config_parameter_ref(p);
     // { TO value | = value | FROM CURRENT }
-    if p.eat(FROM_KW) {
-        p.expect(CURRENT_KW);
-    } else if (p.eat(TO_KW) || p.expect(EQ)) && !config_value(p) {
-        p.error(format!("expected config value, got {:?}", p.current()));
-    }
+    config_assignment(p);
     m.complete(p, SET_CONFIG_PARAM);
 }
 
@@ -16841,17 +17767,35 @@ fn create_extension(p: &mut Parser<'_>) -> CompletedMarker {
     // extension_name
     extension(p);
     p.eat(WITH_KW);
-    if p.eat(SCHEMA_KW) {
+    if p.at(SCHEMA_KW) {
+        let m = p.start();
+        p.bump(SCHEMA_KW);
         schema_ref(p);
+        m.complete(p, EXTENSION_SCHEMA);
     }
-    if p.eat(VERSION_KW) {
-        if opt_string_literal(p).is_none() && !opt_ident(p) {
-            p.error("expected string literal or IDENT");
+    if p.at(VERSION_KW) {
+        let m = p.start();
+        p.bump(VERSION_KW);
+        if opt_string_literal(p).is_none() {
+            if p.at(IDENT) {
+                extension_version(p);
+            } else {
+                p.error("expected string literal or IDENT");
+            }
         }
+        m.complete(p, EXTENSION_VERSION_CLAUSE);
     }
     p.eat(CASCADE_KW);
     p.eat(SEMICOLON);
     m.complete(p, CREATE_EXTENSION)
+}
+
+fn extension_version(p: &mut Parser<'_>) {
+    let m = p.start();
+    if !opt_ident(p) {
+        p.bump_any();
+    }
+    m.complete(p, EXTENSION_VERSION);
 }
 
 fn opt_ident(p: &mut Parser<'_>) -> bool {
@@ -16880,6 +17824,22 @@ fn pg_name(p: &mut Parser<'_>) {
 fn ident(p: &mut Parser<'_>) {
     if !opt_ident(p) {
         p.error("expected identifier");
+    }
+}
+
+// { TO value | = value | FROM CURRENT }
+fn config_assignment(p: &mut Parser<'_>) {
+    let m = p.start();
+    if p.at(FROM_KW) {
+        p.bump(FROM_KW);
+        p.expect(CURRENT_KW);
+        m.complete(p, FROM_CURRENT);
+    } else {
+        let _ = p.eat(TO_KW) || p.expect(EQ);
+        if !config_value(p) {
+            p.error(format!("expected config value, got {:?}", p.current()));
+        }
+        m.complete(p, TO_CONFIG_VALUE);
     }
 }
 
@@ -16917,12 +17877,14 @@ fn set(p: &mut Parser<'_>) -> CompletedMarker {
     assert!(p.at(SET_KW));
     let m = p.start();
     p.bump(SET_KW);
-    let _ = p.eat(SESSION_KW) || p.eat(LOCAL_KW);
+    opt_set_scope(p);
     if p.at(XML_KW) {
         let m = p.start();
         p.bump(XML_KW);
         p.expect(OPTION_KW);
-        let _ = p.eat(DOCUMENT_KW) || p.eat(CONTENT_KW);
+        if !opt_xml_document_or_content(p) {
+            p.error("expected DOCUMENT or CONTENT");
+        }
         m.complete(p, SET_XML_OPTION);
     } else
     // TIME ZONE { value | 'value' | LOCAL | DEFAULT }
@@ -16949,16 +17911,7 @@ fn set(p: &mut Parser<'_>) -> CompletedMarker {
         let m = p.start();
         // configuration_parameter
         config_parameter_ref(p);
-        if p.eat(FROM_KW) {
-            p.expect(CURRENT_KW);
-        } else {
-            // { TO | = }
-            let _ = p.eat(TO_KW) || p.expect(EQ);
-            // { value | 'value' | DEFAULT }
-            if !config_value(p) {
-                p.error(format!("expected config value, got {:?}", p.current()));
-            }
-        }
+        config_assignment(p);
         m.complete(p, SET_CONFIG);
     }
     p.eat(SEMICOLON);
@@ -17173,7 +18126,7 @@ fn all_in_tablespace(p: &mut Parser<'_>) {
     if p.at(SET_KW) && p.nth_at(1, TABLESPACE_KW) {
         set_tablespace(p);
     }
-    p.eat(NOWAIT_KW);
+    opt_nowait(p);
     m.complete(p, ALL_IN_TABLESPACE);
 }
 
@@ -17231,11 +18184,7 @@ fn opt_alter_table_action(p: &mut Parser<'_>) -> Option<CompletedMarker> {
             let m = p.start();
             p.bump(REPLICA_KW);
             p.expect(IDENTITY_KW);
-            if !p.eat(DEFAULT_KW) && !p.eat(FULL_KW) && !p.eat(NOTHING_KW) {
-                p.expect(USING_KW);
-                p.expect(INDEX_KW);
-                index_ref(p);
-            }
+            replica_identity_option(p);
             m.complete(p, REPLICA_IDENTITY)
         }
         // OF type_name
@@ -17299,9 +18248,7 @@ fn opt_alter_table_action(p: &mut Parser<'_>) -> Option<CompletedMarker> {
             let kind = match p.current() {
                 TRIGGER_KW => {
                     p.bump(TRIGGER_KW);
-                    if !p.eat(ALL_KW) && !p.eat(USER_KW) {
-                        trigger_ref(p);
-                    }
+                    trigger_target(p);
                     ENABLE_TRIGGER
                 }
                 REPLICA_KW => {
@@ -17354,9 +18301,7 @@ fn opt_alter_table_action(p: &mut Parser<'_>) -> Option<CompletedMarker> {
             let kind = match p.current() {
                 TRIGGER_KW => {
                     p.bump(TRIGGER_KW);
-                    if !p.eat(ALL_KW) && !p.eat(USER_KW) {
-                        trigger_ref(p);
-                    }
+                    trigger_target(p);
                     DISABLE_TRIGGER
                 }
                 ROW_KW => {
@@ -17395,9 +18340,7 @@ fn opt_alter_table_action(p: &mut Parser<'_>) -> Option<CompletedMarker> {
             // partition_name
             table_name_ref(p);
             // [ CONCURRENTLY | FINALIZE ]
-            if !p.eat(CONCURRENTLY_KW) {
-                p.eat(FINALIZE_KW);
-            }
+            opt_detach_partition_option(p);
             m.complete(p, DETACH_PARTITION)
         }
         MERGE_KW => {
@@ -17496,7 +18439,8 @@ fn opt_alter_table_action(p: &mut Parser<'_>) -> Option<CompletedMarker> {
         SET_KW if p.nth_at(1, SCHEMA_KW) => set_schema(p),
         // SET ( storage_parameter [= value] [, ... ] )
         SET_KW if p.nth_at(1, L_PAREN) => set_options(p),
-        // SET TABLESPACE new_tablespace [ NOWAIT ]
+        // SET TABLESPACE new_tablespace
+        SET_KW if p.nth_at(1, TABLESPACE_KW) => set_tablespace(p),
         // SET WITHOUT CLUSTER
         // SET WITHOUT OIDS
         // SET ACCESS METHOD { new_access_method | DEFAULT }
@@ -17504,14 +18448,9 @@ fn opt_alter_table_action(p: &mut Parser<'_>) -> Option<CompletedMarker> {
         SET_KW => {
             let m = p.start();
             p.expect(SET_KW);
-            // SET TABLESPACE new_tablespace [ NOWAIT ]
-            let kind = if p.eat(TABLESPACE_KW) {
-                tablespace_ref(p);
-                p.eat(NOWAIT_KW);
-                SET_TABLESPACE
             // SET WITHOUT CLUSTER
             // SET WITHOUT OIDS
-            } else if p.eat(WITHOUT_KW) {
+            let kind = if p.eat(WITHOUT_KW) {
                 if p.eat(CLUSTER_KW) {
                     SET_WITHOUT_CLUSTER
                 } else {
@@ -17520,7 +18459,7 @@ fn opt_alter_table_action(p: &mut Parser<'_>) -> Option<CompletedMarker> {
                 }
             // SET ACCESS METHOD { new_access_method | DEFAULT }
             } else if p.eat(ACCESS_KW) {
-                p.eat(METHOD_KW);
+                p.expect(METHOD_KW);
                 if !p.eat(DEFAULT_KW) {
                     // TODO: I think this can be stricter
                     // name
@@ -17705,10 +18644,7 @@ fn generated_options(p: &mut Parser<'_>) {
                 continue;
             } else {
                 p.expect(GENERATED_KW);
-                if !p.eat(ALWAYS_KW) {
-                    p.expect(BY_KW);
-                    p.expect(DEFAULT_KW);
-                }
+                generated_when(p);
                 m.complete(p, SET_GENERATED);
             }
         } else {
@@ -17772,10 +18708,7 @@ fn alter_column_option(p: &mut Parser<'_>) {
             p.bump(ADD_KW);
             // ADD GENERATED { ALWAYS | BY DEFAULT } AS IDENTITY [ ( sequence_options ) ]
             p.expect(GENERATED_KW);
-            if !p.eat(ALWAYS_KW) {
-                p.expect(BY_KW);
-                p.expect(DEFAULT_KW);
-            }
+            generated_when(p);
             p.expect(AS_KW);
             p.expect(IDENTITY_KW);
             opt_sequence_options(p);

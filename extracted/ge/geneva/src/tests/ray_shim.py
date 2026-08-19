@@ -487,4 +487,4 @@ def stub_geneva_cluster_polling() -> None:
         return None
 
     p.ColumnAddPipelineJob._refresh_cluster_status = _noop_status  # type: ignore[method-assign]
-    p.ColumnAddPipelineJob._try_refresh_cluster_status = _noop_status  # type: ignore[method-assign]
+    p.ColumnAddPipelineJob._fetch_cluster_status = _noop_status  # type: ignore[method-assign]

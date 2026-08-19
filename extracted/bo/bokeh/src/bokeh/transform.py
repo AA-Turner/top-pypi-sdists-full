@@ -22,10 +22,12 @@ log = logging.getLogger(__name__)
 #-----------------------------------------------------------------------------
 
 # Standard library imports
-from typing import TYPE_CHECKING, Sequence, TypeAlias
+from typing import TYPE_CHECKING, Sequence, cast
 
 # Bokeh imports
+from .core.enums import MarkerTypeType, PaletteType
 from .core.property.vectorization import Expr, Field
+from .core.property.visual import HatchPatternType
 from .models.expressions import CumSum, Stack
 from .models.mappers import (
     CategoricalColorMapper,
@@ -38,7 +40,7 @@ from .models.mappers import (
 from .models.transforms import Dodge, Jitter
 
 if TYPE_CHECKING:
-    from .colors import ColorLike
+    from .colors.color import RGBTuple
     from .core.enums import JitterRandomDistributionType
     from .models.ranges import Range
     from .models.transforms import Transform
@@ -66,7 +68,9 @@ __all__ = (
 #-----------------------------------------------------------------------------
 
 if TYPE_CHECKING:
-    Factors: TypeAlias = Sequence[str] | Sequence[tuple[str, str]] | Sequence[tuple[str, str, str]]
+    type Factors = Sequence[str] | Sequence[tuple[str, str]] | Sequence[tuple[str, str, str]]
+    type ColorType = str | RGBTuple
+    type PaletteLike = Sequence[ColorType] | PaletteType
 
 def cumsum(field_name: str, include_zero: bool = False) -> Expr:
     ''' Create a ``DataSpec`` dict to generate a ``CumSum`` expression
@@ -116,12 +120,12 @@ def dodge(field_name: str, value: float, range: Range | None = None) -> Field:
 
 def eqhist_cmap(
     field_name: str,
-    palette: Sequence[ColorLike],
+    palette: PaletteLike,
     low: float,
     high: float,
-    low_color: ColorLike | None = None,
-    high_color: ColorLike | None = None,
-    nan_color: ColorLike = "gray",
+    low_color: ColorType | None = None,
+    high_color: ColorType | None = None,
+    nan_color: ColorType = "gray",
 ) -> Field:
     ''' Create a ``DataSpec`` dict that applies a client-side
     ``EqHistColorMapper`` transformation to a ``ColumnDataSource`` column.
@@ -129,7 +133,7 @@ def eqhist_cmap(
     Args:
         field_name (str) : a field name to configure ``DataSpec`` with
 
-        palette (seq[color]) : a list of colors to use for colormapping
+        palette (seq[ColorLike]) : a list of colors to use for colormapping
 
         low (float) : a minimum value of the range to map into the palette.
             Values below this are clamped to ``low``.
@@ -137,15 +141,15 @@ def eqhist_cmap(
         high (float) : a maximum value of the range to map into the palette.
             Values above this are clamped to ``high``.
 
-        low_color (color, optional) : color to be used if data is lower than
+        low_color (ColorLike, optional) : color to be used if data is lower than
             ``low`` value. If None, values lower than ``low`` are mapped to the
             first color in the palette. (default: None)
 
-        high_color (color, optional) : color to be used if data is higher than
+        high_color (ColorLike, optional) : color to be used if data is higher than
             ``high`` value. If None, values higher than ``high`` are mapped to
             the last color in the palette. (default: None)
 
-        nan_color (color, optional) : a default color to use when mapping data
+        nan_color (ColorLike, optional) : a default color to use when mapping data
             from a column does not succeed (default: "gray")
 
     '''
@@ -163,11 +167,11 @@ def eqhist_cmap(
 
 def factor_cmap(
     field_name: str,
-    palette: Sequence[ColorLike],
+    palette: PaletteLike,
     factors: Factors,
-    start: float = 0,
-    end: float | None = None,
-    nan_color: ColorLike = "gray",
+    start: int = 0,
+    end: int | None = None,
+    nan_color: ColorType = "gray",
 ) -> Field:
     ''' Create a ``DataSpec`` dict that applies a client-side
     ``CategoricalColorMapper`` transformation to a ``ColumnDataSource``
@@ -176,7 +180,7 @@ def factor_cmap(
     Args:
         field_name (str) : a field name to configure ``DataSpec`` with
 
-        palette (seq[color]) : a list of colors to use for colormapping
+        palette (seq[ColorLike]) : a list of colors to use for colormapping
 
         factors (seq) : a sequence of categorical factors corresponding to
             the palette
@@ -187,7 +191,7 @@ def factor_cmap(
         end (int, optional) : an end slice index to apply when the column
             data has factors with multiple levels. (default: None)
 
-        nan_color (color, optional) : a default color to use when mapping data
+        nan_color (ColorLike, optional) : a default color to use when mapping data
             from a column does not succeed (default: "gray")
 
     Returns:
@@ -209,8 +213,8 @@ def factor_hatch(
     field_name: str,
     patterns: Sequence[str],
     factors: Factors,
-    start: float = 0,
-    end: float | None = None,
+    start: int = 0,
+    end: int | None = None,
 ) -> Field:
     ''' Create a ``DataSpec`` dict that applies a client-side
     ``CategoricalPatternMapper`` transformation to a ``ColumnDataSource``
@@ -239,7 +243,7 @@ def factor_hatch(
     return Field(
         field_name,
         CategoricalPatternMapper(
-            patterns=patterns,
+            patterns=cast(Sequence[HatchPatternType], patterns),
             factors=factors,
             start=start,
             end=end,
@@ -250,8 +254,8 @@ def factor_mark(
     field_name: str,
     markers: Sequence[str],
     factors: Factors,
-    start: float = 0,
-    end: float | None = None,
+    start: int = 0,
+    end: int | None = None,
 ) -> Field:
     ''' Create a ``DataSpec`` dict that applies a client-side
     ``CategoricalMarkerMapper`` transformation to a ``ColumnDataSource``
@@ -282,7 +286,7 @@ def factor_mark(
     return Field(
         field_name,
         CategoricalMarkerMapper(
-            markers=markers,
+            markers=cast(Sequence[MarkerTypeType], markers),
             factors=factors,
             start=start,
             end=end,
@@ -329,12 +333,12 @@ def jitter(
 
 def linear_cmap(
     field_name: str,
-    palette: Sequence[ColorLike],
+    palette: PaletteLike,
     low: float,
     high: float,
-    low_color: ColorLike | None = None,
-    high_color: ColorLike | None = None,
-    nan_color: ColorLike = "gray",
+    low_color: ColorType | None = None,
+    high_color: ColorType | None = None,
+    nan_color: ColorType = "gray",
 ) -> Field:
     ''' Create a ``DataSpec`` dict that applies a client-side
     ``LinearColorMapper`` transformation to a ``ColumnDataSource`` column.
@@ -342,7 +346,7 @@ def linear_cmap(
     Args:
         field_name (str) : a field name to configure ``DataSpec`` with
 
-        palette (seq[color]) : a list of colors to use for colormapping
+        palette (seq[ColorLike]) : a list of colors to use for colormapping
 
         low (float) : a minimum value of the range to map into the palette.
             Values below this are clamped to ``low``.
@@ -350,15 +354,15 @@ def linear_cmap(
         high (float) : a maximum value of the range to map into the palette.
             Values above this are clamped to ``high``.
 
-        low_color (color, optional) : color to be used if data is lower than
+        low_color (ColorLike, optional) : color to be used if data is lower than
             ``low`` value. If None, values lower than ``low`` are mapped to the
             first color in the palette. (default: None)
 
-        high_color (color, optional) : color to be used if data is higher than
+        high_color (ColorLike, optional) : color to be used if data is higher than
             ``high`` value. If None, values higher than ``high`` are mapped to
             the last color in the palette. (default: None)
 
-        nan_color (color, optional) : a default color to use when mapping data
+        nan_color (ColorLike, optional) : a default color to use when mapping data
             from a column does not succeed (default: "gray")
 
     '''
@@ -376,12 +380,12 @@ def linear_cmap(
 
 def log_cmap(
     field_name: str,
-    palette: Sequence[ColorLike],
+    palette: PaletteLike,
     low: float,
     high: float,
-    low_color: ColorLike | None = None,
-    high_color: ColorLike | None = None,
-    nan_color: ColorLike = "gray",
+    low_color: ColorType | None = None,
+    high_color: ColorType | None = None,
+    nan_color: ColorType = "gray",
 ) -> Field:
     ''' Create a ``DataSpec`` dict that applies a client-side ``LogColorMapper``
     transformation to a ``ColumnDataSource`` column.
@@ -389,7 +393,7 @@ def log_cmap(
     Args:
         field_name (str) : a field name to configure ``DataSpec`` with
 
-        palette (seq[color]) : a list of colors to use for colormapping
+        palette (seq[ColorLike]) : a list of colors to use for colormapping
 
         low (float) : a minimum value of the range to map into the palette.
             Values below this are clamped to ``low``.
@@ -397,15 +401,15 @@ def log_cmap(
         high (float) : a maximum value of the range to map into the palette.
             Values above this are clamped to ``high``.
 
-        low_color (color, optional) : color to be used if data is lower than
+        low_color (ColorLike, optional) : color to be used if data is lower than
             ``low`` value. If None, values lower than ``low`` are mapped to the
             first color in the palette. (default: None)
 
-        high_color (color, optional) : color to be used if data is higher than
+        high_color (ColorLike, optional) : color to be used if data is higher than
             ``high`` value. If None, values higher than ``high`` are mapped to
             the last color in the palette. (default: None)
 
-        nan_color (color, optional) : a default color to use when mapping data
+        nan_color (ColorLike, optional) : a default color to use when mapping data
             from a column does not succeed (default: "gray")
 
     '''

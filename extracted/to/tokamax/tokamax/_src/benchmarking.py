@@ -14,7 +14,6 @@
 # ==============================================================================
 """Utilities for benchmarking."""
 
-from collections import defaultdict  # pylint: disable=g-importing-member
 from collections.abc import Callable, Mapping, Sequence
 import contextlib
 import dataclasses
@@ -23,11 +22,10 @@ import inspect
 import logging
 import os
 import pathlib
-import re
 import shutil
 import tempfile
 import time
-from typing import Any, Final, Literal, TypeAlias, TypeVar
+from typing import Any, Final, Literal, cast, overload
 
 import jax
 from jax.experimental.mosaic.gpu import profiler
@@ -38,25 +36,21 @@ from tokamax._src import utils
 
 xprof_session, profile_data = None, None  # stubs for internal benchmarking
 
-BenchmarkMode: TypeAlias = Literal[
-    'forward', 'forward_res', 'vjp', 'forward_and_vjp'
-]
+from xprof.cli.tools import get_kernel_stats_tool
 
-PyTree = Any
-
+type BenchmarkMode = Literal['forward', 'forward_res', 'vjp', 'forward_and_vjp']
 # Timer functions return the time delta in ms and a dictionary of metadata.
-Timer: TypeAlias = Callable[[bool], tuple[float, dict[str, Any]]]
+type Timer = Callable[[bool], tuple[float, dict[str, Any]]]
+type TimingMethod = Literal['wallclock', 'cupti', 'xprof', 'hermetic_xprof']
 
-T = TypeVar('T')
-RetT: TypeAlias = T | list[jax.Array] | tuple[T, list[jax.Array]]
-
-TimingMethod: TypeAlias = Literal[
-    'wallclock', 'cupti', 'xprof', 'hermetic_xprof'
-]
+type PyTree = Any
+type Ret[T] = T | tuple[jax.Array, ...] | tuple[T, tuple[jax.Array, ...]]
 
 logger = logging.getLogger(__name__)
 
-WORKLOAD_ARTIFACTS_DIR_VARNAME: Final[str] = 'WORKLOAD_ARTIFACTS_DIR'  # for CI
+# for CI
+WORKLOAD_ARTIFACTS_DIR_VARNAME: Final[str] = 'WORKLOAD_ARTIFACTS_DIR'
+RETAIN_ARTIFACTS_VARNAME: Final[str] = 'TOKAMAX_DUMP_XPROF'
 
 
 def get_tempdir(
@@ -69,7 +63,7 @@ def get_tempdir(
 
 
 @jax.custom_vjp
-def _optimization_barrier(x: T) -> T:
+def _optimization_barrier[T](x: T) -> T:
   return jax.lax.optimization_barrier(x)
 
 
@@ -117,14 +111,11 @@ class XprofProfileSession(contextlib.AbstractContextManager):
   Note: In case of multiple XLA Ops, the one with the most events is used.
   """
 
-  IGNORE_LINE_PATTERNS: set[str] = {
-      r'.*counter.*',  # on TPU the counters span more than the jit execution
-  }
-
   def __init__(
       self,
       hermetic: bool = True,
       use_jax_profiler: bool = False,
+      event_filter_regex: str | None = None,
       **xprof_session_kwargs,
   ):
     """Initializer.
@@ -136,6 +127,7 @@ class XprofProfileSession(contextlib.AbstractContextManager):
       use_jax_profiler: Profile with the jax.profiler API writing a temporary
         profile file instead of invoking xprof directly. If False (default),
         profile with xprof directly.
+      event_filter_regex: A regex pattern to include only matching event names.
       **xprof_session_kwargs: Additional keyword arguments to pass to
         `xprof_session.start_session`.
     """
@@ -153,64 +145,59 @@ class XprofProfileSession(contextlib.AbstractContextManager):
     self._profiler_wallclock_start_time: float | None = None
     self._profiler_wallclock_time: float | None = None
     self._profile_tempdir: pathlib.Path | None = None
+    self._event_filter_regex = event_filter_regex
     self._xprof_session_kwargs = xprof_session_kwargs
+    self._retain_artifacts = False
+    self._timing_summary: dict[str, Any] | None = None
 
   @property
   def total_op_time(self) -> datetime.timedelta:
-    """Returns the total device time of XLA operators."""
-    profile = self._profile
-    if profile is None:
-      raise ValueError('XProfProfileSession has not been started.')
+    """Returns the total active device time of XLA operators.
 
-    xla_xlines = defaultdict(list)
-    for xplane in profile.planes:
-      if xplane.name.startswith('/device:'):
-        for xline in xplane.lines:
-          if self._jax_profiler_mode:
-            # OSS profiling: select all lines, except lines to ignore
-            if all(
-                re.match(p, xline.name) is None
-                for p in self.IGNORE_LINE_PATTERNS
-            ):
-              xla_xlines[xplane.name].append(xline)
-          else:
-            # xprof: select only the XLA Ops line
-            if 'XLA Ops' in xline.name:
-              xla_xlines[xplane.name].append(xline)
+    This corresponds to the ground-truth device compute duration computed via
+    Disjoint Interval Union (a sweep-line algorithm that merges overlapping
+    hardware event intervals to measure exact active compute time without
+    double-counting; see the xprof CLI docs:
+    https://github.com/openxla/xprof/blob/master/plugin/xprof/cli/README.md#kernel-statistics--disjoint-interval-union)
+    over hardware event traces by
+    ``compute_kernel_stats(include_summary=True)``.
 
-    all_lines = sum(xla_xlines.values(), [])
-    all_events = sum([list(x.events) for x in all_lines], [])
-    xla_lines_repr = {k: [l.name for l in v] for k, v in xla_xlines.items()}
+    The timing is pre-computed during ``__exit__`` and cached in
+    ``_timing_summary`` rather than evaluated on-demand, because the temporary
+    profile trace files are deleted upon context exit (``shutil.rmtree``),
+    making direct re-evaluation impossible after the session closes.
 
-    if not xla_xlines or not all_events:  # len(all_events) == 0
-      msg = (
+    Raises:
+      ValueError: If timing summary failed to compute or no XLA code executed.
+      RuntimeError: If profiler wallclock time is smaller than parsed profile
+        time.
+    """
+    if self._timing_summary is None:
+      raise ValueError(
+          'XprofProfileSession has not been started or failed to compute'
+          ' timing summary.'
+      )
+    total_us = self._timing_summary.get('total_device_duration_us', 0.0)
+    if total_us == 0:
+      raise ValueError(
           'No XLA device code executed in the context manager. Check that JAX'
           ' functions inside the context are blocked using'
-          ' `jax.block_until_ready`. '
-          f'Collected XLA lines include: {xla_lines_repr}.'
+          ' `jax.block_until_ready`.'
       )
-      if jax.default_backend() == 'gpu':
-        msg += ' Check also that build flag `--config=cuda` is used.'
-      raise ValueError(msg)
-
-    t_starts = [e.start_ns for e in all_events]
-    t_ends = [e.start_ns + e.duration_ns for e in all_events]
-    duration_ns = max(t_ends) - min(t_starts)
     if (
         self._profiler_wallclock_time is not None
-        and self._profiler_wallclock_time < duration_ns / 1e9
+        and self._profiler_wallclock_time < total_us / 1e6
     ):
       raise RuntimeError(
-          f'Profiler wallclock time {self._profiler_wallclock_time:.4e} s is '
-          f'smaller than parsed profile time {duration_ns / 1e9:.4e} s. '
-          f'Collected XLA lines include: {xla_lines_repr}.'
+          f'Profiler wallclock time {self._profiler_wallclock_time:.4e} s is'
+          f' smaller than parsed profile time {total_us / 1e6:.4e} s.'
       )
-
-    # timedelta will round to the nearest microsecond, which is the smallest
-    # time resolution supported by this object.
-    return datetime.timedelta(microseconds=duration_ns / 1000.0)
+    return datetime.timedelta(microseconds=total_us)
 
   def __enter__(self):
+    self._retain_artifacts = os.environ.get(
+        RETAIN_ARTIFACTS_VARNAME, 'false'
+    ).lower() in ['true', '1', 't', 'y', 'yes']
     if self._jax_profiler_mode:
       try:
         root_dir = os.environ.get(WORKLOAD_ARTIFACTS_DIR_VARNAME, None)
@@ -247,9 +234,10 @@ class XprofProfileSession(contextlib.AbstractContextManager):
     if self._jax_profiler_mode:
       jax.profiler.stop_trace()
       # get profiling wallclock time right after the profiling ends
-      profiling_time = time.perf_counter() - self._profiler_wallclock_start_time
+      end_time = time.perf_counter()
+      assert (start_time := self._profiler_wallclock_start_time) is not None
       self._profiler_wallclock_start_time = None
-      self._profiler_wallclock_time = profiling_time
+      self._profiler_wallclock_time = end_time - start_time
       assert self._profile_tempdir is not None, 'Profile tempdir should be set.'
       profile_paths = list(
           pathlib.Path(self._profile_tempdir).glob('**/*.xplane.pb')
@@ -262,40 +250,90 @@ class XprofProfileSession(contextlib.AbstractContextManager):
       self._profile = jax.profiler.ProfileData.from_serialized_xspace(
           profile_path.read_bytes()
       )
-      if WORKLOAD_ARTIFACTS_DIR_VARNAME not in os.environ:
+      if (not self._retain_artifacts
+          or WORKLOAD_ARTIFACTS_DIR_VARNAME not in os.environ):
         if self._profile_tempdir is not None and self._profile_tempdir.exists():
           shutil.rmtree(self._profile_tempdir)
       logger.info('JAX profiler trace file written to: %s', profile_path)
       self._profile_tempdir = None
     else:
-      assert profile_data is not None and self._xprof_session is not None
-      if self._xprof_session is None:
-        raise AssertionError(
-            '__exit__ called without a prior call to __enter__'
-        )
+      assert self._xprof_session is not None
       if self._hermetic:
         xspace = self._xprof_session.end_session_and_get_xspace()
       else:
         xspace, url = self._xprof_session.end_session_and_get_xspace_and_url()
         self.xprof_url = url
       # get profiling wallclock time right after the profiling ends
-      profiling_time = time.perf_counter() - self._profiler_wallclock_start_time
+      end_time = time.perf_counter()
+      assert (start_time := self._profiler_wallclock_start_time) is not None
       self._profiler_wallclock_start_time = None
-      self._profiler_wallclock_time = profiling_time
-
+      self._profiler_wallclock_time = end_time - start_time
+      assert profile_data is not None
       self._profile = profile_data.ProfileData.from_serialized_xspace(
           xspace.SerializeToString()
       )
 
+    self._compute_timing_summary()
 
-def standardize_function(
+  def _compute_timing_summary(self) -> None:
+    """Pre-computes Disjoint Interval Union timings for this session."""
+    if self._profile is None:
+      return
+
+    trace_matchers = None if (re := self._event_filter_regex) is None else (re,)
+
+    try:
+      self._timing_summary = get_kernel_stats_tool.compute_kernel_stats(
+          self._profile,
+          output_format='dict',
+          include_summary=True,
+          trace_matchers=trace_matchers,
+      )
+    except Exception as e:
+      raise RuntimeError(
+          f'Could not compute timing summary via xprof_cli for {self._profile}.'
+      ) from e
+
+
+_ARRAY_TYPES = (
+    jax.Array, numerics.ArrayInitializer, jax.ShapeDtypeStruct, np.ndarray
+)
+
+
+@overload
+def standardize_function[T](
+    f: Callable[..., T],
+    *args: PyTree,
+    kwargs: Mapping[str, PyTree] | None = ...,
+    mode: BenchmarkMode = ...,
+    seed: int = ...,
+) -> tuple[Callable[[Sequence[jax.Array]], Ret[T]], tuple[jax.Array, ...]]:
+  ...
+
+
+@overload
+def standardize_function[T](
+    f: Callable[..., T],
+    *args: PyTree,
+    kwargs: Mapping[str, PyTree] | None = ...,
+    mode: BenchmarkMode = ...,
+    seed: None,
+) -> tuple[
+    Callable[[Sequence[jax.Array]], Ret[T]],
+    tuple[jax.Array | jax.ShapeDtypeStruct, ...],
+]:
+  ...
+
+
+def standardize_function[T](
     f: Callable[..., T],
     *args: PyTree,
     kwargs: Mapping[str, PyTree] | None = None,
     mode: BenchmarkMode = 'forward',
     seed: int | None = 0,
 ) -> tuple[
-    Callable[[list[jax.Array]], RetT], list[jax.Array | jax.ShapeDtypeStruct]
+    Callable[[Sequence[jax.Array]], Ret[T]],
+    tuple[jax.Array | jax.ShapeDtypeStruct, ...],
 ]:
   """Creates a standardized function for testing and benchmarking.
 
@@ -326,12 +364,10 @@ def standardize_function(
 
   is_leaf = lambda x: isinstance(x, numerics.ArrayInitializer)
   args_flat, args_tree = jax.tree.flatten((ba.args, ba.kwargs), is_leaf=is_leaf)
-  is_array = lambda x: isinstance(
-      x, (jax.Array, numerics.ArrayInitializer, jax.ShapeDtypeStruct)
-  )
+  is_array = lambda x: isinstance(x, _ARRAY_TYPES)
   arrays, other, merge = utils.split_merge(is_array, args_flat)
 
-  def forward(arrays: list[jax.Array]) -> T:
+  def forward(arrays: Sequence[jax.Array]) -> T:
     args, kwargs = args_tree.unflatten(merge(arrays, other))
     return f(*args, **kwargs)
 
@@ -346,7 +382,7 @@ def standardize_function(
           for x in arrays
       )
       for in_axes in reversed(list(zip(*array_vmap_axes, strict=True))):
-        forward = jax.vmap(forward, in_axes=(list(in_axes),))
+        forward = jax.vmap(forward, in_axes=(in_axes,))
 
   if seed is None:
     # `standardize_function` should be idempotent, but the vmaps added to
@@ -357,9 +393,9 @@ def standardize_function(
         return jax.ShapeDtypeStruct(x.vmap_shape, x.dtype)
       return x
 
-    arrays = [convert_batched(x) for x in arrays]
+    arrays = tuple(convert_batched(x) for x in arrays)
   else:
-    arrays = numerics.random_initialize(arrays, seed=seed)
+    arrays = tuple(numerics.random_initialize(arrays, seed=seed))
 
   if mode == 'forward':
     func = forward
@@ -367,7 +403,7 @@ def standardize_function(
     func = lambda arrays: jax.vjp(forward, arrays)[0]
   elif mode == 'forward_and_vjp':
 
-    def vjp_full(arrays: list[jax.Array]) -> tuple[T, list[jax.Array]]:
+    def vjp_full(arrays):
       fwd_opt_barrier = lambda x: _optimization_barrier(forward(x))
       out, f_vjp = jax.vjp(fwd_opt_barrier, arrays)
       return out, f_vjp(out)
@@ -380,10 +416,10 @@ def standardize_function(
   else:
     raise ValueError(f'Unsupported mode: {mode}')
 
-  return func, arrays
+  return cast(Callable[[Sequence[jax.Array]], Ret[T]], func), tuple(arrays)
 
 
-def wallclock_timer(f: Callable[[T], Any], args: T) -> Timer:
+def wallclock_timer[T](f: Callable[[T], Any], args: T) -> Timer:
   def timer(_):
     jax.block_until_ready(f(args))  # Warmup.
     start_time = time.perf_counter()
@@ -393,15 +429,19 @@ def wallclock_timer(f: Callable[[T], Any], args: T) -> Timer:
   return timer
 
 
-def cupti_timer(f: Callable[[T], Any], args: T) -> Timer:
+def cupti_timer[T](f: Callable[[T], Any], args: T) -> Timer:
   timer = profiler.Cupti(finalize=False).measure(f)
   return lambda _: (timer(args)[1], {})
 
 
-def xprof_timer(f: Callable[[T], Any], args: T) -> Timer:
+def xprof_timer[T](
+    f: Callable[[T], Any], args: T, event_filter_regex: str | None = None
+) -> Timer:
   def timer(return_metadata):
     jax.block_until_ready(f(args))  # Warmup.
-    with XprofProfileSession(hermetic=not return_metadata) as profile:
+    with XprofProfileSession(
+        hermetic=not return_metadata, event_filter_regex=event_filter_regex
+    ) as profile:
       jax.block_until_ready(f(args))
 
     metadata = dict(xprof_url=profile.xprof_url) if return_metadata else {}
@@ -410,23 +450,34 @@ def xprof_timer(f: Callable[[T], Any], args: T) -> Timer:
   return timer
 
 
-def hermetic_xprof_timer(f: Callable[[T], Any], args: T) -> Timer:
-  timer = xprof_timer(f, args)
+def hermetic_xprof_timer[T](
+    f: Callable[[T], Any], args: T, event_filter_regex: str | None = None
+) -> Timer:
+  timer = xprof_timer(f, args, event_filter_regex=event_filter_regex)
   return lambda _: timer(False)
 
 
-_TIMERS: dict[str, Callable[[Callable[[T], Any], T], Timer]] = {
+_TIMERS: dict[str, Callable[[Callable[[Any], Any], Any], Timer]] = {
     'wallclock': wallclock_timer,
     'cupti': cupti_timer,
     'xprof': xprof_timer,
     'hermetic_xprof': hermetic_xprof_timer,
 }
 
-_DEFAULT_TIMING_METHOD = {'gpu': 'cupti', 'tpu': 'hermetic_xprof'}
+_DEFAULT_TIMING_METHOD: Final[dict[str, TimingMethod]] = {
+    'gpu': 'cupti',
+    'tpu': 'hermetic_xprof',
+}
 _FALLBACK_TIMING_METHOD = 'wallclock'
 
 
-def compile_benchmark(
+def _is_concrete(x):
+  if isinstance(x, jax.core.Tracer):
+    return x.to_concrete_value() is not None
+  return x is not None
+
+
+def compile_benchmark[T](
     f: Callable[[T], Any], x: T
 ) -> Callable[..., BenchmarkData]:
   """Compiles a function and returns a function to benchmark it.
@@ -446,10 +497,15 @@ def compile_benchmark(
   f_compiled = lowered.compile()
   compile_time = time.perf_counter() - start_time
 
-  peak_mem_mb = f_compiled.memory_analysis().peak_memory_in_bytes / 10**6
+  assert (memory_analysis := f_compiled.memory_analysis()) is not None
+  peak_mem_mb = memory_analysis.peak_memory_in_bytes / 10**6
 
   def runner(
-      x: T, *, iterations: int = 5, method: TimingMethod | None = None
+      x: T,
+      *,
+      iterations: int = 5,
+      method: TimingMethod | None = None,
+      event_filter_regex: str | None = None,
   ) -> BenchmarkData:
     """Runs the compiled benchmark.
 
@@ -462,6 +518,10 @@ def compile_benchmark(
         backend, and does not add any device overhead, but does measure Python
         overhead. 'cupti' uses the CUPTI profiling API to measure the device
         execution time. If `None`, will pick a sensible default for the backend.
+      event_filter_regex: By default, the reported timing result sums the
+        execution time of all XLA Ops present in `x`. This regex enables
+        filtering to consider only a subset of Ops whose event names match the
+        pattern.
 
     Returns:
       A `BenchmarkData` object.
@@ -469,7 +529,7 @@ def compile_benchmark(
     concrete_inputs = [
         z
         for z in jax.tree.leaves(x)
-        if isinstance(z, jax.Array) and jax.core.is_concrete(z)
+        if isinstance(z, jax.Array) and _is_concrete(z)
     ]
     if concrete_inputs:
       platform = list(concrete_inputs[0].devices())[0].platform
@@ -485,7 +545,14 @@ def compile_benchmark(
       if platform not in ('gpu', 'tpu'):
         raise ValueError('XProf profiling is only supported on GPU or TPU.')
 
-    timer = _TIMERS[method](f_compiled, x)
+    if method == 'xprof':
+      timer = xprof_timer(f_compiled, x, event_filter_regex=event_filter_regex)
+    elif method == 'hermetic_xprof':
+      timer = hermetic_xprof_timer(
+          f_compiled, x, event_filter_regex=event_filter_regex
+      )
+    else:
+      timer = _TIMERS[method](f_compiled, x)
     times = [timer(False)[0] for _ in range(iterations - 1)]
     dt, metadata = timer(True)  # Capture metadata on last iteration.
     return BenchmarkData(
@@ -499,12 +566,13 @@ def compile_benchmark(
   return runner
 
 
-def benchmark(
+def benchmark[T](
     f: Callable[[T], Any],
     x: T,
     *,
     iterations: int = 5,
     method: TimingMethod | None = None,
+    event_filter_regex: str | None = None,
 ) -> BenchmarkData:
   """Benchmarks a function on a specific input.
 
@@ -521,14 +589,22 @@ def benchmark(
       backend, and does not add any device overhead, but does measure Python
       overhead. `'cupti'` is only supported on GPU, and uses the CUPTI profiling
       API to measure the device execution time, which adds some small device
-      overhead. 'xprof_hermetic' uses XProf as the profiler, and is the
+      overhead. 'hermetic_xprof' uses XProf as the profiler, and is the
       recommended timing method for TPU. If `None` (default), a sensible default
       is chosen for the backend.
+    event_filter_regex: Reported timing sums all XLA operations in `f` by
+      default. This regex enables filtering by specific event names to report
+      timing for just a subset of events that match the pattern.
 
   Returns:
     A `BenchmarkData` object.
   """
-  res = compile_benchmark(f, x)(x, iterations=iterations, method=method)
+  res = compile_benchmark(f, x)(
+      x,
+      iterations=iterations,
+      method=method,
+      event_filter_regex=event_filter_regex,
+  )
   return res
 
 
@@ -602,10 +678,14 @@ def get_benchmark_registrar(
     impl = impls[impl_name]
     if hasattr(impl, 'bind') and hasattr(impl, 'replace'):
       kwargs_ = kwargs() if callable(kwargs) else kwargs
-      config = impl.bind(**kwargs_).default_config
-      impl = impl.replace(config=config)
-      is_null_config = type(config).__name__ == 'NullConfig'
-      metadata = None if is_null_config else dict(config=config)
+      try:
+        config = impl.bind(**kwargs_).default_config
+      except NotImplementedError:
+        metadata = None
+      else:
+        impl = impl.replace(config=config)
+        is_null_config = type(config).__name__ == 'NullConfig'
+        metadata = None if is_null_config else dict(config=config)
     else:
       metadata = None
 

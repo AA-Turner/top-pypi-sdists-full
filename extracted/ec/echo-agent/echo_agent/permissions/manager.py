@@ -41,6 +41,11 @@ class ApprovalRequest:
     decided_by: str = ""
     created_at: str = field(default_factory=lambda: datetime.now().isoformat())
     decided_at: str = ""
+    # Which conversation this decision belongs to. Needed to answer "whose
+    # approval is this?" when a channel disconnects: without it the only way to
+    # release an approval nobody can answer anymore was to wait out
+    # wait_timeout_seconds (300s by default) with the turn parked.
+    session_key: str = ""
 
 
 class ApprovalManager:
@@ -75,7 +80,24 @@ class ApprovalManager:
             return True
         return self._default_policy == "ask"
 
-    def request_approval(self, action: str, tool_name: str = "", params: dict[str, Any] | None = None, user_id: str = "") -> ApprovalRequest:
+    def request_approval(
+        self, action: str, tool_name: str = "", params: dict[str, Any] | None = None,
+        user_id: str = "", session_key: str = "", require: bool = False,
+    ) -> ApprovalRequest:
+        """Open (or reuse) an approval request for ``action``.
+
+        ``require=True`` means the CALLER has already established that this call
+        needs human approval — e.g. ApprovalGate classified it EXEC/DANGEROUS —
+        so a genuine PENDING request is created even when ``action`` is absent
+        from ``require_approval``. Without it the manager fell through to
+        ``default_policy="approve"`` and returned an already-APPROVED request
+        that was never registered as pending, which made the ``require_approval``
+        name list the effective gate and silently overrode the caller's finding.
+
+        The explicit allow/deny rules above still win: an operator who put the
+        action in ``auto_approve``, or a human who previously chose "always",
+        has stated a policy, and ``require`` does not revoke it.
+        """
         params = params or {}
         signature = self._signature(action, tool_name, params, user_id)
         if signature in self._approved_signatures:
@@ -92,17 +114,23 @@ class ApprovalManager:
             req = ApprovalRequest(action=action, tool_name=tool_name, params=params, user_id=user_id, status=ApprovalStatus.DENIED, reason="auto-denied by policy")
             self._history.append(req)
             return req
-        if action in self._require:
+        if require or action in self._require:
             existing = self._existing_pending(signature)
             if existing:
                 return existing
-            req = ApprovalRequest(action=action, tool_name=tool_name, params=params, user_id=user_id)
+            req = ApprovalRequest(
+                action=action, tool_name=tool_name, params=params,
+                user_id=user_id, session_key=session_key,
+            )
             self._pending[req.id] = req
             self._pending_by_signature[signature] = req.id
             self._save_state()
             return req
         if self._default_policy == "approve":
-            req = ApprovalRequest(action=action, tool_name=tool_name, params=params, user_id=user_id, status=ApprovalStatus.APPROVED)
+            req = ApprovalRequest(
+                action=action, tool_name=tool_name, params=params, user_id=user_id,
+                status=ApprovalStatus.APPROVED,
+            )
             self._history.append(req)
             return req
         if self._default_policy == "deny":
@@ -113,7 +141,10 @@ class ApprovalManager:
         existing = self._existing_pending(signature)
         if existing:
             return existing
-        req = ApprovalRequest(action=action, tool_name=tool_name, params=params, user_id=user_id)
+        req = ApprovalRequest(
+            action=action, tool_name=tool_name, params=params,
+            user_id=user_id, session_key=session_key,
+        )
         self._pending[req.id] = req
         self._pending_by_signature[signature] = req.id
         self._save_state()
@@ -172,6 +203,30 @@ class ApprovalManager:
         finally:
             self._waiters.pop(request_id, None)
         return self._find_history(request_id)
+
+    def cancel_session(self, session_key: str, *, reason: str = "channel disconnected") -> int:
+        """Deny every pending approval for `session_key`. Returns how many.
+
+        The escape valve for a channel that goes away (socket drop, /quit) while
+        a turn is parked on wait_for_decision. Nobody can answer that prompt
+        anymore, so without this the turn sat blocked for the full
+        wait_timeout_seconds — holding the session lock, so the user's next
+        message queued behind a decision that could never arrive.
+
+        Denying (rather than releasing as approved) is the safe direction: the
+        tool call was risky enough to require a human, and no human is there.
+        """
+        if not session_key:
+            return 0
+        victims = [rid for rid, req in self._pending.items() if req.session_key == session_key]
+        for rid in victims:
+            self.deny(rid, reason=reason, decided_by="system")
+        if victims:
+            logger.info(
+                "Denied {} pending approval(s) for disconnected session {}",
+                len(victims), session_key,
+            )
+        return len(victims)
 
     def get_pending(self) -> list[ApprovalRequest]:
         return list(self._pending.values())
@@ -259,6 +314,7 @@ class ApprovalManager:
             "decided_by": req.decided_by,
             "created_at": req.created_at,
             "decided_at": req.decided_at,
+            "session_key": req.session_key,
         }
 
     @staticmethod
@@ -274,6 +330,8 @@ class ApprovalManager:
             decided_by=data.get("decided_by", ""),
             created_at=data.get("created_at", datetime.now().isoformat()),
             decided_at=data.get("decided_at", ""),
+            # Absent in state files written before session scoping existed.
+            session_key=data.get("session_key", ""),
         )
 
 

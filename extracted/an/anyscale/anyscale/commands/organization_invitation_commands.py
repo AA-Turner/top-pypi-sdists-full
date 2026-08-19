@@ -20,6 +20,7 @@ from anyscale.commands.output_format import (
     print_output,
 )
 from anyscale.commands.util import AnyscaleCommand
+from anyscale.errors import UserError
 from anyscale.organization_invitation.models import OrganizationInvitation
 
 
@@ -165,7 +166,8 @@ def delete(email: str,) -> None:
     try:
         organization_invitation_email = anyscale.organization_invitation.delete(email)
     except ValueError as e:
-        log.error(f"Failed to delete organization invitation: {e}")
-        return
+        raise UserError(
+            f"Failed to delete organization invitation: {e}", legacy_exit_code=0
+        ) from None
 
     log.info(f"Organization invitation for {organization_invitation_email} deleted.")

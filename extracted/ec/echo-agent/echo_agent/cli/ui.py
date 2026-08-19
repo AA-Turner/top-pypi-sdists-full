@@ -12,14 +12,24 @@ import sys
 from contextlib import contextmanager
 from typing import Iterator
 
-from echo_agent.cli.colors import (
-    Colors, color, print_error, print_info, print_success, print_warning,
-)
+from echo_agent.cli.colors import Colors, color
+from echo_agent.cli.palette import active_palette, ansi
 from echo_agent.cli.prompt import (
-    is_interactive, prompt, prompt_checklist, prompt_choice, prompt_yes_no,
+    PromptAborted, is_interactive, prompt, prompt_checklist, prompt_choice,
+    prompt_yes_no,
 )
 
 Choice = tuple[str, str, str]  # (value, label, hint)
+
+
+def _aborted(what: str) -> PromptAborted:
+    """questionary returns None when the user hits Ctrl-C / Ctrl-D.
+
+    Mirrors the fallback backend: both raise PromptAborted so the caller decides
+    the exit code. Previously the rich path called sys.exit(0) here, which made
+    a cancelled prompt indistinguishable from completed work.
+    """
+    return PromptAborted(f"cancelled at {what}")
 
 try:
     import questionary as _q  # type: ignore
@@ -32,19 +42,20 @@ except Exception:  # pragma: no cover - import guard
 # Shared visual identity for every interactive prompt. Centralized here so the
 # whole setup wizard looks consistent — tweak once, all menus follow.
 _POINTER = "❯"
-_QMARK = "◆"
+_QMARK = "●"
 
 if _HAS_Q:
+    _palette = active_palette()
     _STYLE = _q.Style([
-        ("qmark", "fg:#00afaf bold"),          # leading marker (cyan)
+        ("qmark", f"fg:{_palette['primary']} bold"),
         ("question", "bold"),                  # the prompt text
-        ("pointer", "fg:#00afaf bold"),        # arrow on the focused row
-        ("highlighted", "fg:#00afaf bold"),    # focused choice label
-        ("selected", "fg:#00af5f"),            # chosen value (green)
-        ("separator", "fg:#6c6c6c bold"),      # group headers (dim, weighty)
-        ("answer", "fg:#00afaf bold"),         # echoed answer after submit
-        ("instruction", "fg:#6c6c6c"),         # (Use arrow keys) hint
-        ("disabled", "fg:#6c6c6c italic"),
+        ("pointer", f"fg:{_palette['primary']} bold"),
+        ("highlighted", f"fg:{_palette['primary']} bold"),
+        ("selected", f"fg:{_palette['success']}"),
+        ("separator", f"fg:{_palette['text-muted']} bold"),
+        ("answer", f"fg:{_palette['primary']} bold"),
+        ("instruction", f"fg:{_palette['text-muted']}"),
+        ("disabled", f"fg:{_palette['text-muted']} italic"),
     ])
 else:  # pragma: no cover - import guard
     _STYLE = None
@@ -73,7 +84,7 @@ def select(message: str, choices: list[Choice], default: str = "") -> str:
         ans = _q.select(message, choices=opts, default=default_val,
                         style=_STYLE, pointer=_POINTER, qmark=_QMARK).ask()
         if ans is None:
-            sys.exit(0)
+            raise _aborted("select")
         return ans
     idx = prompt_choice(message, _labels(choices), default=_default_index(choices, default))
     return choices[idx][0]
@@ -90,7 +101,7 @@ def select_grouped(message: str, groups: list[tuple[str, list[Choice]]], default
         ans = _q.select(message, choices=opts, default=default_val,
                         style=_STYLE, pointer=_POINTER, qmark=_QMARK).ask()
         if ans is None:
-            sys.exit(0)
+            raise _aborted("select_grouped")
         return ans
     flat: list[Choice] = []
     labels: list[str] = []
@@ -110,7 +121,7 @@ def multiselect(message: str, choices: list[Choice], preselected: list[str] | No
         ans = _q.checkbox(message, choices=opts, style=_STYLE,
                           pointer=_POINTER, qmark=_QMARK).ask()
         if ans is None:
-            sys.exit(0)
+            raise _aborted("multiselect")
         return list(ans)
     pre_idx = [i for i, (v, _l, _h) in enumerate(choices) if v in pre]
     idxs = prompt_checklist(message, _labels(choices), pre_selected=pre_idx)
@@ -121,7 +132,7 @@ def text(message: str, default: str = "") -> str:
     if use_rich():
         ans = _q.text(message, default=default, style=_STYLE, qmark=_QMARK).ask()
         if ans is None:
-            sys.exit(0)
+            raise _aborted("text")
         return ans.strip() or default
     return prompt(message, default=default)
 
@@ -130,7 +141,7 @@ def password(message: str) -> str:
     if use_rich():
         ans = _q.password(message, style=_STYLE, qmark=_QMARK).ask()
         if ans is None:
-            sys.exit(0)
+            raise _aborted("password")
         return ans.strip()
     return prompt(message, password=True)
 
@@ -139,31 +150,80 @@ def confirm(message: str, default: bool = True) -> bool:
     if use_rich():
         ans = _q.confirm(message, default=default, style=_STYLE, qmark=_QMARK).ask()
         if ans is None:
-            sys.exit(0)
+            raise _aborted("confirm")
         return bool(ans)
     return prompt_yes_no(message, default=default)
 
 
 def note(message: str, kind: str = "info") -> None:
-    {"success": print_success, "warning": print_warning,
-     "error": print_error, "info": print_info}.get(kind, print_info)(message)
+    glyph = {"success": "✓", "warning": "!", "error": "✗", "info": "·"}.get(kind, "·")
+    role = {"success": "success", "warning": "warning", "error": "error",
+            "info": "text-muted"}.get(kind, "text-muted")
+    print(color(f"  {glyph} {message}", ansi(role)))
 
 
 def intro(title: str) -> None:
     print()
-    print(color(f"  ◆  {title}", Colors.CYAN, Colors.BOLD))
+    print(color(f"  ❯ {title}", Colors.BOLD, ansi("primary")))
 
 
 def outro(message: str) -> None:
     print()
-    print(color(f"  ◆  {message}", Colors.CYAN, Colors.BOLD))
+    print(color(f"  ● {message}", Colors.BOLD, ansi("success")))
     print()
+
+
+_SPINNER_FRAMES = "⠋⠙⠹⠸⠼⠴⠦⠧⠇⠏"
+_SPINNER_INTERVAL = 0.08
 
 
 @contextmanager
 def spinner(message: str) -> Iterator[None]:
-    print(color(f"  ⋯ {message}", Colors.DIM))
+    """Show a live spinner for the duration of the block.
+
+    On a TTY a daemon thread repaints a braille frame in place, so a long
+    ``list_models`` / ``verify_model`` call visibly progresses instead of
+    leaving one dead line on screen. Without a TTY (CI, piped output, no PTY)
+    the animation would emit control-character noise, so we print the single
+    static line and skip the thread entirely. Never raises: a failed repaint
+    must not take down the wizard.
+    """
+    label = color(f"  ⋯ {message}", ansi("text-muted"))
+    if not sys.stdout.isatty():
+        print(label)
+        yield
+        return
+
+    import threading
+
+    stop = threading.Event()
+
+    def _spin() -> None:
+        idx = 0
+        try:
+            while not stop.wait(_SPINNER_INTERVAL):
+                frame = _SPINNER_FRAMES[idx % len(_SPINNER_FRAMES)]
+                idx += 1
+                sys.stdout.write(
+                    "\r" + color(f"  {frame} {message}", ansi("text-muted"))
+                )
+                sys.stdout.flush()
+        except Exception:  # pragma: no cover - a broken tty must not propagate
+            pass
+
+    sys.stdout.write(label)
+    sys.stdout.flush()
+    thread = threading.Thread(target=_spin, daemon=True)
+    thread.start()
     try:
         yield
     finally:
-        pass
+        stop.set()
+        thread.join(timeout=1.0)
+        # Clear the animated line so the caller's own output starts clean, then
+        # leave the completed step on screen as a static line.
+        try:
+            sys.stdout.write("\r\033[2K" + label + "\n")
+            sys.stdout.flush()
+        except Exception:  # pragma: no cover - see above
+            pass

@@ -9,14 +9,19 @@ CheckpointingApplier/FragmentWriter/DataReplacementOperation pipeline,
 and commits results.
 """
 
+import os
 from pathlib import Path
 
 import lance
 import pyarrow as pa
 import pyarrow.parquet as pq
 import pytest
+import ray
 
+import geneva.apply.bulk_load as bulk_load_module
+from geneva.apply.bulk_load import BulkLoadMapTask
 from geneva.db import Connection
+from geneva.runners.ray.pipeline import ColumnAddPipelineJob, run_ray_bulk_load
 
 pytestmark = pytest.mark.ray
 
@@ -71,6 +76,105 @@ def test_load_columns_basic(tmp_path: Path, db: Connection, local_ray_context) -
     result = table.to_arrow().sort_by("pk")
     assert result.column("score").to_pylist() == [0.1, 0.2, 0.3, 0.4, 0.5]
     assert result.column("name").to_pylist() == ["a", "b", "c", "d", "e"]
+
+
+@pytest.mark.timeout(180)
+def test_bulk_load_oom_shrinks_on_fresh_actor_and_commits_once(
+    tmp_path: Path,
+    db: Connection,
+    local_ray_context,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """A classified bulk-load OOM shrinks, changes actor, and commits once."""
+    table = db.create_table(
+        "dest_oom_recovery",
+        pa.table(
+            {
+                "pk": pa.array(range(8)),
+                "score": pa.array([None] * 8, type=pa.int64()),
+            }
+        ),
+    )
+    source_path = _write_parquet(
+        tmp_path / "oom_source.parquet",
+        pa.table(
+            {
+                "pk": pa.array(range(8)),
+                "score": pa.array([value * 10 for value in range(8)]),
+            }
+        ),
+    )
+    event_path = Path(f"{source_path}.oom-events")
+
+    class OOMAboveTwoRowsBulkLoadMapTask(BulkLoadMapTask):
+        """Test-only map task that models an aggregate-batch OOM."""
+
+        def apply(self, batch: pa.RecordBatch) -> pa.RecordBatch:
+            actor_id = ray.get_runtime_context().get_actor_id()
+            actor_hex = actor_id.hex() if hasattr(actor_id, "hex") else str(actor_id)
+            outcome = "oom" if batch.num_rows > 2 else "ok"
+            with event_path.open("a", encoding="utf-8") as events:
+                events.write(f"{actor_hex},{batch.num_rows},{outcome}\n")
+
+            if batch.num_rows > 2:
+                # The driver supplies worker-pod OOM evidence, so this hard
+                # exit is classified through the production OOM path.
+                os._exit(137)
+            return super().apply(batch)
+
+    monkeypatch.setattr(
+        bulk_load_module,
+        "BulkLoadMapTask",
+        OOMAboveTwoRowsBulkLoadMapTask,
+    )
+    monkeypatch.setattr(
+        ColumnAddPipelineJob,
+        "_get_k8s_pod_statuses",
+        lambda self: [
+            {
+                "node_type": "worker",
+                "phase": "Running",
+                "ready": True,
+                "oom_evidence": {"state.reason=OOMKilled": 1},
+            }
+        ],
+    )
+
+    version_before = table.to_lance().version
+    run_ray_bulk_load(
+        table.get_reference(),
+        source_uri=source_path,
+        pk_column="pk",
+        value_columns=["score"],
+        source_format="parquet",
+        concurrency=1,
+        task_size=8,
+        checkpoint_size=8,
+        min_checkpoint_size=8,
+        max_checkpoint_size=8,
+        commit_granularity=1,
+        batch_checkpoint_flush_interval_seconds=0,
+    )
+
+    updated = db.open_table("dest_oom_recovery")
+    result = updated.to_arrow().sort_by("pk")
+    assert result.column("score").to_pylist() == [value * 10 for value in range(8)]
+    assert updated.to_lance().version == version_before + 1
+
+    events = [line.split(",") for line in event_path.read_text().splitlines()]
+    oom_events = [(actor, int(rows)) for actor, rows, state in events if state == "oom"]
+    ok_events = [(actor, int(rows)) for actor, rows, state in events if state == "ok"]
+    assert oom_events
+    assert ok_events
+    assert max(rows for _, rows in oom_events) == 8
+    assert all(rows <= 2 for _, rows in ok_events)
+    # With one actor in flight, the event immediately following each hard
+    # actor exit must come from the fresh replacement actor.
+    for (actor, _rows, state), (next_actor, _next_rows, _next_state) in zip(
+        events, events[1:], strict=False
+    ):
+        if state == "oom":
+            assert next_actor != actor
 
 
 def test_load_columns_partial_match_carry(

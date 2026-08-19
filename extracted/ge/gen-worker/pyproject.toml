@@ -1,6 +1,6 @@
 [project]
 name = "gen-worker"
-version = "0.125.0"
+version = "0.126.0"
 description = "A library used to build custom functions in Cozy Creator's serverless function platform."
 readme = "README.md"
 license = "MIT"
@@ -124,6 +124,16 @@ dev = [
     "types-requests>=2.32.4.20250913",
 ]
 
+# pgw#1370: the release-derive tests drive REAL torchcg discovery — the derive
+# imports torchcg from the env it RUNS IN (in production, the release env's
+# own pin; never a gen-worker dependency). A PEP 735 dependency GROUP, not an
+# extra: groups are NOT published in wheel metadata, so `pip install
+# gen-worker[dev]` from an index never asks PyPI for the deleted project —
+# which is the exact wound pgw#1310's fence guards. uv installs the `dev`
+# group by default on every `uv sync`.
+[dependency-groups]
+dev = ["torchcg"]
+
 [build-system]
 requires = ["hatchling"]
 build-backend = "hatchling.build"
@@ -212,7 +222,7 @@ module = [
   "gen_worker.convert.source",
   "gen_worker.convert.writer",
   "gen_worker.executor",
-  "gen_worker.fleet_cells",
+  "gen_worker.fleet_compiled_graphs",
   "gen_worker.guard_closure",
   "gen_worker.host_move_guard",
   "gen_worker.hot_swap",
@@ -263,7 +273,7 @@ module = [
   "gen_worker.convert.source",
   "gen_worker.executor",
   "gen_worker.families.base",
-  "gen_worker.fleet_cells",
+  "gen_worker.fleet_compiled_graphs",
   "gen_worker.io",
   "gen_worker.lifecycle",
   "gen_worker.lifecycle_intents",
@@ -326,7 +336,7 @@ disallow_untyped_decorators = false
 module = [
   "gen_worker.aot_mint",
   "gen_worker.cuda_root",
-  "gen_worker.fleet_cells",
+  "gen_worker.fleet_compiled_graphs",
   "gen_worker.hot_swap",
   "gen_worker.models.cozy_snapshot",
   "gen_worker.models.lora_lifted",
@@ -412,7 +422,7 @@ module = [
   "tests.test_adapter_backend_preflight_pgw501",
   "tests.test_admission_identity_pgw1058",
   "tests.test_adopt_seam_budget_pgw1168",
-  "tests.test_adopted_cell_warm_proof_pgw1141",
+  "tests.test_adopted_graph_warm_proof_pgw1141",
   "tests.test_aot_boot_proof_gap_pgw735",
   "tests.test_aot_compile_pool_pgw809",
   "tests.test_aot_declaration_pgw739",
@@ -432,9 +442,9 @@ module = [
   "tests.test_boot_span_ladder_pgw797",
   "tests.test_build_guarantees_pgw1023",
   "tests.test_cancelled_setup_leak_gw624",
-  "tests.test_cell_declare_bound_th1645_pgw987",
-  "tests.test_cell_publish_v2_pgw807",
-  "tests.test_cell_resolve_pgw1090",
+  "tests.test_compiled_graph_declare_bound_th1645_pgw987",
+  "tests.test_compiled_graph_publish_v2_pgw807",
+  "tests.test_compiled_graph_resolve_pgw1090",
   "tests.test_child_call_pipelining_pgw943",
   "tests.test_child_code_identity_pgw840",
   "tests.test_cold_boot_decomposition_pgw1087",
@@ -503,7 +513,6 @@ module = [
   "tests.test_hf_fp8_blockwise_th1803",
   "tests.test_host_canary",
   "tests.test_host_isa_pgw754",
-  "tests.test_host_move_guard_pgw763",
   "tests.test_host_ram_probe_pgw752",
   "tests.test_hot_gpu_pgw636",
   "tests.test_hot_swap_pgw622",
@@ -519,7 +528,7 @@ module = [
   "tests.test_llama_runtime",
   "tests.test_load_telemetry_pgw1041",
   "tests.test_local_serve_no_publisher_pgw1127",
-  "tests.test_lora_cells",
+  "tests.test_lora_compiled_graphs",
   "tests.test_lora_lifted_pgw725",
   "tests.test_lora_zero_delta_th1036",
   "tests.test_magic_timeouts_gw666",
@@ -559,12 +568,9 @@ module = [
   "tests.test_pad32_codegen_pgw1079",
   "tests.test_partial_shape_coverage_pgw844",
   "tests.test_per_stage_staging_pgw1026",
-  "tests.test_pod_privilege_isolation_pgw858",
   "tests.test_pool_sizing_pgw842",
   "tests.test_post_connect_resolution_gate_pgw891",
   "tests.test_precision_resolution_apply",
-  "tests.test_procsplit_pgw763",
-  "tests.test_procsplit_security_pgw763",
   "tests.test_producer_no_shards_th1362",
   "tests.test_provider_routing",
   "tests.test_publish_proof_gate_pgw1191",
@@ -680,6 +686,8 @@ torch = [
 torchvision = [
   { index = "pytorch-cu130", marker = "sys_platform == 'linux' or sys_platform == 'win32'" },
 ]
+# pgw#1370: dev-only (see the dev extra) — release envs pin their own torchcg.
+torchcg = { git = "https://github.com/cozy-creator/torchcg", rev = "7102d60e2786fe1f78c75b10b0edb8dabdddc7e0" }
 # Saying which pins were deleted requires naming them.
 # retired-name: historical rationale, not a live reference.
 # pgw#1310 deleted the `hashrepo` / `torch-compiled-graphs` git pins that stood

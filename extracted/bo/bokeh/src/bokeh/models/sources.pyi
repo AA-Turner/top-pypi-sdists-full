@@ -13,7 +13,6 @@ from typing import (
     Literal,
     Mapping,
     Sequence,
-    TypeAlias,
     overload,
 )
 
@@ -32,13 +31,24 @@ from .callbacks import CustomJS
 from .filters import Filter
 from .selections import Selection, SelectionPolicy
 
-DataDict: TypeAlias = dict[str, Sequence[Any] | npt.NDArray[Any] | pd.Series[Any] | pd.Index[Any]]
+__all__ = (
+    "AjaxDataSource",
+    "CDSView",
+    "ColumnarDataSource",
+    "ColumnDataSource",
+    "DataSource",
+    "GeoJSONDataSource",
+    "ServerSentDataSource",
+    "WebDataSource",
+)
 
-DataDictLike: TypeAlias = DataDict | pd.DataFrame | GroupBy[Any]
+type DataDict = dict[str, Sequence[Any] | npt.NDArray[Any] | pd.Series[Any] | pd.Index[Any]]  # pyright: ignore[reportInvalidTypeArguments]
 
-Index: TypeAlias = int | slice | tuple[int | slice, ...]
+type DataDictLike = DataDict | pd.DataFrame | GroupBy[Any]
 
-Patches: TypeAlias = Mapping[str, Sequence[tuple[Index, Any]]]
+type Index = int | slice | tuple[int | slice, ...]
+
+type Patches = Mapping[str, Sequence[tuple[Index, Any]]]
 
 @abstract
 @dataclass(init=False)
@@ -57,18 +67,18 @@ class ColumnarDataSource(DataSource):
 @dataclass
 class ColumnDataSource(ColumnarDataSource):
 
-    # TODO asymmetric get/set
-    data: DataDictLike = ...
-
-    @overload
-    def __init__(self, data: DataDictLike, **kwargs: Any) -> None: ...
     @overload
     def __init__(self, **kwargs: Any) -> None: ...
-
-    def __init__(self, *args: Any, **kwargs: Any) -> None: ...
+    @overload
+    def __init__(self, data: DataDictLike, /, **kwargs: Any) -> None: ...
 
     @property
     def column_names(self) -> list[str]: ...
+
+    @property
+    def data(self) -> DataDict: ...
+    @data.setter
+    def data(self, data: DataDictLike) -> None: ...
 
     @property
     def length(self) -> int: ...

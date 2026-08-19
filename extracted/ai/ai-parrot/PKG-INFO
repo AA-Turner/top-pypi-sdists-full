@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: ai-parrot
-Version: 0.25.35
+Version: 0.26.0
 Summary: Framework for building AI agents for Navigator
 Author-email: Jesus Lara <jesuslara@phenobarbital.info>
 License-Expression: MIT
@@ -38,6 +38,7 @@ Requires-Dist: typing-extensions<5,>=4.14.1
 Requires-Dist: pydantic==2.12.5
 Requires-Dist: PyYAML>=6.0.2
 Requires-Dist: python-frontmatter>=1.1.0
+Requires-Dist: marko>=2.0
 Requires-Dist: xmltodict>=0.14.2
 Requires-Dist: tiktoken>=0.9.0
 Requires-Dist: psutil>=5.9
@@ -57,9 +58,11 @@ Requires-Dist: aiohttp-sse-client==0.2.1
 Requires-Dist: aiohttp-cors>=0.8.1
 Requires-Dist: brotli==1.2.0
 Requires-Dist: urllib3==2.7.0
+Requires-Dist: proxylists>=0.12.0
 Requires-Dist: prance>=25.4.8.0
 Requires-Dist: openapi-schema-validator==0.6.3
 Requires-Dist: openapi-spec-validator>=0.7.1
+Requires-Dist: async-notify>=1.4.2
 Requires-Dist: ddgs>=9.5.2
 Requires-Dist: python-statemachine==2.5.0
 Requires-Dist: cel-python>=0.4
@@ -195,7 +198,7 @@ Requires-Dist: zeep[async]==4.3.3; extra == "agents-lite"
 Requires-Dist: branca==0.8.2; extra == "agents-lite"
 Requires-Dist: opensearch-py==3.1.0; extra == "agents-lite"
 Provides-Extra: mcp
-Requires-Dist: google-genai>=2.10.0; extra == "mcp"
+Requires-Dist: google-genai>=2.18.1; extra == "mcp"
 Requires-Dist: openai==2.41.0; extra == "mcp"
 Requires-Dist: yfinance==0.2.54; extra == "mcp"
 Requires-Dist: youtube_search==2.1.2; extra == "mcp"
@@ -251,14 +254,14 @@ Requires-Dist: tiktoken==0.9.0; extra == "openai"
 Provides-Extra: google
 Requires-Dist: google-api-python-client<=2.177.0,>=2.166.0; extra == "google"
 Requires-Dist: google-cloud-texttospeech==2.27.0; extra == "google"
-Requires-Dist: google-genai>=2.10.0; extra == "google"
+Requires-Dist: google-genai>=2.18.1; extra == "google"
 Requires-Dist: google-cloud-aiplatform>=1.153.0; extra == "google"
 Provides-Extra: groq
 Requires-Dist: groq==0.33.0; extra == "groq"
 Provides-Extra: zai
 Requires-Dist: zai-sdk>=0.2.3; extra == "zai"
 Provides-Extra: llms
-Requires-Dist: google-genai>=2.10.0; extra == "llms"
+Requires-Dist: google-genai>=2.18.1; extra == "llms"
 Requires-Dist: openai==2.41.0; extra == "llms"
 Requires-Dist: groq==0.33.0; extra == "llms"
 Requires-Dist: ai-parrot[anthropic,bedrock]; extra == "llms"

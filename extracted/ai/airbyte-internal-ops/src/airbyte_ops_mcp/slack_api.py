@@ -52,6 +52,9 @@ _SLACK_MESSAGE_URL_PATTERN = re.compile(
 
 # The workspace slug we expect for Airbyte's Slack.
 _EXPECTED_WORKSPACE = "airbytehq-team"
+_SLACK_MENTION_PATTERN = re.compile(
+    r"^<!(?:subteam)\^(?P<id>[A-Z0-9]+)(?:\|[^>]*)?>$|^<@(?P<user_id>[A-Z0-9]+)>$"
+)
 _SLACK_USERGROUP_ID_PATTERN = re.compile(r"^S[A-Z0-9]{8,}$")
 
 # Approval record constants
@@ -160,6 +163,18 @@ class SlackUsergroup:
 
     user_count: int
     """Number of members in the usergroup."""
+
+
+def unwrap_slack_identifier(identifier: str) -> str:
+    """Unwrap a pasted Slack user or usergroup mention to its ID.
+
+    Plain identifiers are returned unchanged apart from surrounding whitespace.
+    """
+    normalized_identifier = identifier.strip()
+    match = _SLACK_MENTION_PATTERN.fullmatch(normalized_identifier)
+    if match:
+        return match.group("id") or match.group("user_id") or normalized_identifier
+    return normalized_identifier
 
 
 # ---------------------------------------------------------------------------
@@ -296,7 +311,7 @@ def lookup_slack_usergroup(
     Raises:
         ValueError: If `id_or_handle` is empty or contains only whitespace.
     """
-    normalized_id_or_handle = id_or_handle.strip().removeprefix("@")
+    normalized_id_or_handle = unwrap_slack_identifier(id_or_handle).removeprefix("@")
     if not normalized_id_or_handle:
         raise ValueError("Slack usergroup lookup id_or_handle must be non-empty.")
 

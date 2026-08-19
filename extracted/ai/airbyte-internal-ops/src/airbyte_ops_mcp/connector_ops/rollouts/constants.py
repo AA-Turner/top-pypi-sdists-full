@@ -98,10 +98,29 @@ SOAKED_SIGNAL_PERCENT_THRESHOLD: dict[RolloutStrategy, float] = {
     RolloutStrategy.SLOW: 0.50,  # 50%
 }
 
-# Number of failures that triggers a pause/rollback decision.
+# Fraction of failing actors that triggers a pause/rollback decision:
+# `failing actors / actors with sync signal`. Rate-based rather than absolute so
+# that a couple of unlucky syncs in a large cohort do not pause a rollout that
+# is healthy for everyone else.
+ROLLOUT_FAILURE_PERCENT_THRESHOLD: dict[RolloutStrategy, float] = {
+    RolloutStrategy.FAST: 0.05,  # 5%
+    RolloutStrategy.SLOW: 0.05,  # 5%
+}
+
+# Minimum number of distinct failing actors before the failure percentage can
+# trip the gate. Without a floor, one failure in a three-actor cohort reads as
+# 33% and pauses the rollout on a single data point.
+ROLLOUT_FAILURE_COUNT_FLOOR: dict[RolloutStrategy, int] = {
+    RolloutStrategy.FAST: 2,
+    RolloutStrategy.SLOW: 2,
+}
+
+# Absolute number of distinct failing actors that triggers pause/rollback on its
+# own, regardless of the percentage. Backstop for very large cohorts, where a
+# sub-5% rate can still mean dozens of broken connectors.
 ROLLOUT_FAILURE_COUNT_THRESHOLD: dict[RolloutStrategy, int] = {
-    RolloutStrategy.FAST: 1,
-    RolloutStrategy.SLOW: 1,
+    RolloutStrategy.FAST: 50,
+    RolloutStrategy.SLOW: 50,
 }
 
 # ---------------------------------------------------------------------------

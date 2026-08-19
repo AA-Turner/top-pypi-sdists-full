@@ -1,7 +1,7 @@
 from copy import deepcopy
 from datetime import date, datetime
 import sys
-from typing import Dict, Iterable, List, Optional, Tuple, TypeVar
+from typing import Any, Dict, Iterable, List, Optional, Tuple, TypeVar
 
 import click
 import colorama
@@ -9,12 +9,13 @@ from rich.table import Table
 
 from anyscale._private.models.integrations import ConnectionConfig, ConnectionType
 from anyscale._private.workload import WorkloadConfig
-from anyscale.cli_logger import BlockLogger
+from anyscale.cli_logger import BlockLogger, effective_output_format
 from anyscale.commands.doc_metadata import ReleaseStatus
 from anyscale.commands.help_examples_formatter import (
     format_flag_for_command,
     render_examples_for_help,
 )
+from anyscale.errors import set_error_output_format
 
 
 logger = BlockLogger()
@@ -107,6 +108,19 @@ class AnyscaleCommand(click.Command):
                     formatter.write(" " * formatter.current_indent + line + "\n")
                 else:
                     formatter.write("\n")
+
+    def invoke(self, ctx: click.Context) -> Any:
+        """Record the output format, then run the command.
+
+        Click discards the context before it shows an error, so an error cannot
+        read the format later.
+        """
+        set_error_output_format(effective_output_format(ctx))
+        result = super().invoke(ctx)
+        # The command succeeded, so no error reads the format. Clear it so it
+        # does not leak into a later command in the same process.
+        set_error_output_format(None)
+        return result
 
 
 class LegacyAnyscaleCommand(click.Command):

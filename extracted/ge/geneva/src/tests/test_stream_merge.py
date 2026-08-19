@@ -4,9 +4,11 @@
 """Unit tests for the streaming deferred-CF merge (``MatchStream``).
 
 Matched checkpoint files are peeked by their key range, ordered, and read lazily
-so only the runs overlapping the current old-column window are resident —
-independent of the total match count.
+as bounded batches. Active cursors retain at most one lookahead batch instead of
+materializing complete checkpoint files.
 """
+
+from collections.abc import Iterator
 
 import pyarrow as pa
 import pytest
@@ -42,12 +44,13 @@ def _old(rowaddrs: list[int]) -> pa.RecordBatch:
 def _cursor(
     start: int, batch: pa.RecordBatch | None, counter: list[int] | None = None
 ) -> _RunCursor:
-    def load() -> pa.RecordBatch | None:
+    def batches() -> Iterator[pa.RecordBatch]:
         if counter is not None:
             counter[0] += 1
-        return batch
+        if batch is not None:
+            yield batch
 
-    return _RunCursor(start, load)
+    return _RunCursor(start, batches())
 
 
 def _merge(cursors, tranches) -> dict[int, int]:
@@ -117,6 +120,102 @@ def test_run_straddles_tranche_boundary() -> None:
         [_old([0, 1, 2]), _old([3, 4, 5])],
     )
     assert got == {0: 100, 1: -1, 2: -1, 3: -1, 4: -1, 5: 105}
+
+
+def test_run_streams_multiple_bounded_checkpoint_batches() -> None:
+    """A recovered writer must not materialize a whole matched run at once."""
+    loaded = [0]
+    pulled: list[int] = []
+
+    def batches() -> Iterator[pa.RecordBatch]:
+        loaded[0] += 1
+        for batch_num, rows in enumerate(
+            [
+                [(0, 100), (2, 102)],
+                [(4, 104), (6, 106)],
+                [(8, 108), (10, 110)],
+            ]
+        ):
+            pulled.append(batch_num)
+            yield _run(rows)
+
+    ms = MatchStream(_SCHEMA, [_RunCursor(0, batches())])
+    out = [ms.overlay(_old([0, 1, 2]))]
+    # The cursor needs one lookahead batch to discover the window boundary, but
+    # it must not consume the complete iterator.
+    assert pulled == [0, 1]
+
+    out.append(ms.overlay(_old([3, 4, 5])))
+    assert pulled == [0, 1]
+
+    out.append(ms.overlay(_old([6, 7, 8])))
+    assert pulled == [0, 1, 2]
+
+    out.append(ms.overlay(_old([9, 10])))
+    tbl = pa.Table.from_batches(out)
+    got = dict(
+        zip(tbl.column(_ROWADDR).to_pylist(), tbl.column("v").to_pylist(), strict=True)
+    )
+
+    assert loaded == [1]
+    assert got == {
+        0: 100,
+        1: -1,
+        2: 102,
+        3: -1,
+        4: 104,
+        5: -1,
+        6: 106,
+        7: -1,
+        8: 108,
+        9: -1,
+        10: 110,
+    }
+
+
+def test_run_skips_empty_bounded_batches() -> None:
+    def batches() -> Iterator[pa.RecordBatch]:
+        yield _run([])
+        yield _run([(1, 101)])
+        yield _run([])
+        yield _run([(3, 103)])
+        yield _run([])
+
+    got = _merge(
+        [_RunCursor(0, batches())],
+        [_old([0, 1]), _old([2, 3])],
+    )
+
+    assert got == {0: -1, 1: 101, 2: -1, 3: 103}
+
+
+def test_unsorted_across_bounded_batches_raises() -> None:
+    def batches() -> Iterator[pa.RecordBatch]:
+        yield _run([(1, 101), (5, 105)])
+        yield _run([(4, 104)])
+
+    ms = MatchStream(_SCHEMA, [_RunCursor(0, batches())])
+    with pytest.raises(ValueError, match="not sorted by _rowaddr"):
+        ms.overlay(_old([0, 1, 2, 3, 4, 5]))
+
+
+def test_duplicate_rowaddr_across_bounded_batches_raises() -> None:
+    def batches() -> Iterator[pa.RecordBatch]:
+        yield _run([(1, 101), (2, 102)])
+        yield _run([(2, 202), (3, 103)])
+
+    ms = MatchStream(_SCHEMA, [_RunCursor(0, batches())])
+    with pytest.raises(ValueError, match="duplicate _rowaddr"):
+        ms.overlay(_old([0, 1, 2, 3]))
+
+
+def test_duplicate_rowaddr_within_bounded_batch_raises() -> None:
+    def batches() -> Iterator[pa.RecordBatch]:
+        yield _run([(1, 101), (1, 201)])
+
+    ms = MatchStream(_SCHEMA, [_RunCursor(0, batches())])
+    with pytest.raises(ValueError, match="duplicate _rowaddr"):
+        ms.overlay(_old([0, 1]))
 
 
 def test_zero_match_tranche_keeps_old() -> None:

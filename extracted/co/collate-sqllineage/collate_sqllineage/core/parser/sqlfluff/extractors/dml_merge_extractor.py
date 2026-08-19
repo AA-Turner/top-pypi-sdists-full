@@ -109,27 +109,42 @@ class DmlMergeExtractor(LineageHolderExtractor):
             statement, "merge_match", "merge_when_not_matched_clause"
         ):
             merge_insert = not_match.get_child("merge_insert_clause")
+            if merge_insert is None:
+                continue
             insert_columns = []
             merge_insert_bracketed = merge_insert.get_child("bracketed")
-            if merge_insert_bracketed and merge_insert_bracketed.get_children(
-                "column_reference"
+            values_bracketed = self._get_merge_values_bracketed(merge_insert)
+            if (
+                merge_insert_bracketed
+                and merge_insert_bracketed.get_children("column_reference")
+                and values_bracketed is not None
             ):
-                for c in merge_insert.get_child("bracketed").get_children(
-                    "column_reference"
-                ):
+                for c in merge_insert_bracketed.get_children("column_reference"):
                     tgt_col = Column(get_identifier(c))
                     tgt_col.parent = list(holder.write)[0]
                     insert_columns.append(tgt_col)
                 for j, e in enumerate(
-                    retrieve_segments(
-                        merge_insert.get_child("values_clause").get_child("bracketed"),
-                        check_bracketed=False,
-                    )
+                    retrieve_segments(values_bracketed, check_bracketed=False)
                 ):
-                    if e.type == "expression":
+                    if e.type == "expression" and j < len(insert_columns):
                         col_ref = e.get_child("column_reference")
                         if col_ref:
                             src_col = Column(get_identifier(col_ref))
                             src_col.parent = direct_source
                             holder.add_column_lineage(src_col, insert_columns[j])
         return holder
+
+    @staticmethod
+    def _get_merge_values_bracketed(merge_insert: BaseSegment):
+        """
+        Return the bracketed VALUES list of a WHEN NOT MATCHED INSERT clause.
+
+        Dialects differ: ansi and snowflake wrap it in a `values_clause` child,
+        while tsql emits a bare `VALUES` keyword followed by a sibling `bracketed`
+        (the second bracketed of the clause, after the column list).
+        """
+        values_clause = merge_insert.get_child("values_clause")
+        if values_clause is not None:
+            return values_clause.get_child("bracketed")
+        brackets = merge_insert.get_children("bracketed")
+        return brackets[1] if len(brackets) > 1 else None

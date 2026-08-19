@@ -70,7 +70,7 @@ def test_simple_applier_trims_memory_every_eight_batches(
 
     monkeypatch.delenv("GENEVA_APPLIER_MEMORY_TRIM_INTERVAL", raising=False)
     monkeypatch.setattr(
-        "geneva.apply.simple.release_unused_process_memory",
+        "geneva.apply.memory.release_unused_process_memory",
         _record_trim,
     )
 
@@ -86,6 +86,43 @@ def test_simple_applier_trims_memory_every_eight_batches(
     assert calls == 1
 
 
+def test_simple_applier_trim_counter_spans_read_tasks(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """One applier serves many ReadTasks, so the trim counter must survive
+    ``run``. Five 5-batch tasks are 25 batches: three trims, not zero.
+
+    A per-run counter never reaches the interval on tasks this short, so the
+    worker would hold its arenas for the whole job.
+    """
+    calls = 0
+
+    def _record_trim() -> None:
+        nonlocal calls
+        calls += 1
+
+    monkeypatch.delenv("GENEVA_APPLIER_MEMORY_TRIM_INTERVAL", raising=False)
+    monkeypatch.setattr(
+        "geneva.apply.memory.release_unused_process_memory",
+        _record_trim,
+    )
+
+    map_task = BackfillUDFTask(udfs={"b": _identity})
+    applier = SimpleApplier(job_id="test")
+
+    yielded = 0
+    for _ in range(5):
+        read_task = _ReadTask([_batch(idx) for idx in range(5)])
+        yielded += len(
+            list(applier.run(read_task, map_task, error_logger=NoOpErrorLogger()))
+        )
+
+    assert yielded == 25
+    assert calls == 3
+    # 25 % 8 == 1: the remainder carries forward instead of being discarded.
+    assert applier.trim_counter.batches_since_trim == 1
+
+
 def test_simple_applier_memory_trim_can_be_disabled(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
@@ -97,7 +134,7 @@ def test_simple_applier_memory_trim_can_be_disabled(
 
     monkeypatch.setenv("GENEVA_APPLIER_MEMORY_TRIM_INTERVAL", "0")
     monkeypatch.setattr(
-        "geneva.apply.simple.release_unused_process_memory",
+        "geneva.apply.memory.release_unused_process_memory",
         _record_trim,
     )
 

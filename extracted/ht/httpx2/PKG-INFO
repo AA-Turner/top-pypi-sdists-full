@@ -1,6 +1,6 @@
-Metadata-Version: 2.4
+Metadata-Version: 2.5
 Name: httpx2
-Version: 2.10.0
+Version: 2.12.0
 Summary: The next generation HTTP client.
 Project-URL: Changelog, https://github.com/pydantic/httpx2/blob/main/src/httpx2/CHANGELOG.md
 Project-URL: Homepage, https://github.com/pydantic/httpx2
@@ -27,14 +27,14 @@ Classifier: Programming Language :: Python :: 3.15
 Classifier: Topic :: Internet :: WWW/HTTP
 Requires-Python: >=3.10
 Requires-Dist: anyio>=4.10; sys_platform != 'emscripten'
-Requires-Dist: httpcore2==2.10.0; sys_platform != 'emscripten'
+Requires-Dist: httpcore2==2.12.0; sys_platform != 'emscripten'
 Requires-Dist: httpx2-jsfetch; sys_platform == 'emscripten' and python_version >= '3.12'
 Requires-Dist: idna>=3.18
 Requires-Dist: truststore>=0.10; sys_platform != 'emscripten'
 Requires-Dist: typing-extensions>=4.5.0; python_version < '3.13'
 Provides-Extra: brotli
-Requires-Dist: brotli; (platform_python_implementation == 'CPython') and extra == 'brotli'
-Requires-Dist: brotlicffi; (platform_python_implementation != 'CPython') and extra == 'brotli'
+Requires-Dist: brotli>=1.2.0; (platform_python_implementation == 'CPython') and extra == 'brotli'
+Requires-Dist: brotlicffi>=1.2.0.0; (platform_python_implementation != 'CPython') and extra == 'brotli'
 Provides-Extra: cli
 Requires-Dist: click>=8.4.2; extra == 'cli'
 Requires-Dist: pygments==2.*; extra == 'cli'
@@ -46,7 +46,7 @@ Requires-Dist: socksio==1.*; extra == 'socks'
 Provides-Extra: ws
 Requires-Dist: wsproto>=1.2; extra == 'ws'
 Provides-Extra: zstd
-Requires-Dist: zstandard>=0.18.0; (python_version <= '3.13') and extra == 'zstd'
+Requires-Dist: backports-zstd>=1.0.0; (python_version <= '3.13') and extra == 'zstd'
 Description-Content-Type: text/markdown
 
 <h1 align="center">HTTPX2</h1>
@@ -200,7 +200,7 @@ As well as these optional installs:
 * `rich` - Rich terminal support. *(Optional, with `httpx2[cli]`)*
 * `click` - Command line client support. *(Optional, with `httpx2[cli]`)*
 * `brotli` or `brotlicffi` - Decoding for "brotli" compressed responses. *(Optional, with `httpx2[brotli]`)*
-* `zstandard` - Decoding for "zstd" compressed responses on Python 3.13 and below. *(Optional, with `httpx2[zstd]`. On Python 3.14+, `zstd` is supported via the stdlib [`compression.zstd`](https://docs.python.org/3/library/compression.zstd.html) module when it is available; the `httpx2[zstd]` extra installs nothing there, so decoding falls back to `zstandard` only on 3.13 and below.)*
+* `backports.zstd` - Decoding for "zstd" compressed responses on Python 3.13 and below. *(Optional, with `httpx2[zstd]`. On Python 3.14+, `zstd` is supported via the stdlib [`compression.zstd`](https://docs.python.org/3/library/compression.zstd.html) module when it is available, and the `httpx2[zstd]` extra installs nothing.)*
 
 A huge amount of credit is due to `requests` for the API layout that
 much of this work follows, as well as to `urllib3` for plenty of design
@@ -212,26 +212,17 @@ inspiration around the lower-level networking details.
 
 ## Release Information
 
-### Added
-
-* Add support for running on WebAssembly / Emscripten via Pyodide, using a JavaScript
-  `fetch`-based transport defined in `httpx2-jsfetch`.
-  ([#1119](https://github.com/pydantic/httpx2/pull/1119))
-* Add `max_event_size` to cap SSE event buffering. ([#1071](https://github.com/pydantic/httpx2/pull/1071))
-* Add RFC 9110 status code constants. ([#1069](https://github.com/pydantic/httpx2/pull/1069))
-* Add support for Python 3.15. ([#1090](https://github.com/pydantic/httpx2/pull/1090))
+## 2.12.0 (August 18th, 2026)
 
 ### Changed
 
-* Improve SSE chunk buffering performance. ([#1117](https://github.com/pydantic/httpx2/pull/1117))
-* Skip cookie extraction for responses without `Set-Cookie` headers. ([#1107](https://github.com/pydantic/httpx2/pull/1107))
-* Return `str | None` instead of `Any` from `Headers.get`. ([#1121](https://github.com/pydantic/httpx2/pull/1121))
+* Use `backports.zstd` for Zstandard decoding on Python 3.13 and earlier.
+  ([#1146](https://github.com/pydantic/httpx2/pull/1146))
 
 ### Fixed
 
-* Enforce the WebSocket max message size across fragmented messages. ([#1085](https://github.com/pydantic/httpx2/pull/1085))
-* Ignore unsolicited and duplicate WebSocket Pong frames. ([#1122](https://github.com/pydantic/httpx2/pull/1122))
-
+* Bound peak memory while streaming compressed responses and close response streams when decoding fails.
+  ([#1126](https://github.com/pydantic/httpx2/pull/1126))
 
 ---
 

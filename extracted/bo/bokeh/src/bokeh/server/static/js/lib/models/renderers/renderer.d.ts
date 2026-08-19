@@ -1,4 +1,4 @@
-import type { ViewOf, View } from "../../core/view";
+import type { ViewOf, ChildView, View } from "../../core/view";
 import { StyledElement, StyledElementView } from "../ui/styled_element";
 import * as visuals from "../../core/visuals";
 import { RenderLevel } from "../../core/enums";
@@ -29,13 +29,13 @@ export declare abstract class RendererView extends StyledElementView implements 
     rendering_target(): RenderingTarget | null;
     protected _context_menu: ViewOf<Menu> | null;
     get context_menu(): ViewOf<Menu> | null;
+    children_views(): ChildView[];
     protected _coordinates?: CoordinateTransform;
     get coordinates(): CoordinateTransform;
     private _custom_coordinates;
     set coordinates(custom_coordinates: CoordinateTransform | null);
     initialize(): void;
     lazy_initialize(): Promise<void>;
-    remove(): void;
     connect_signals(): void;
     protected _initialize_coordinates(): CoordinateTransform;
     get plot_view(): PlotView;

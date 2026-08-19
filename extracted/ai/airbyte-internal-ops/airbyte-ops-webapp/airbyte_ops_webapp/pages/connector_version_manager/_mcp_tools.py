@@ -14,6 +14,7 @@ from airbyte_ops_mcp.cloud_admin import api_client as cloud_api
 from airbyte_ops_mcp.cloud_admin.registry_lookup import (
     invalidate_cloud_registry_cache,
 )
+from airbyte_ops_mcp.connector_ops.rollouts import state_transitions
 from airbyte_ops_mcp.connector_ops.rollouts.constants import CustomerTier
 from airbyte_ops_mcp.github_actions import trigger_workflow_dispatch
 from airbyte_ops_mcp.github_api import resolve_ci_trigger_github_token
@@ -1134,6 +1135,118 @@ def advance_rollout(
         rollout_action_result=(
             f"Successfully advanced rollout{pct_msg} for "
             f"{docker_repository}:{docker_image_tag}."
+        ),
+        rollout_action_success=True,
+    )
+
+
+@connector_version_manager_app.tool()
+def pause_rollout(
+    rollout_id: str,
+    connector_id: str,
+    docker_repository: str,
+    docker_image_tag: str,
+    paused_reason: str,
+    auth_bearer_token: str = "",
+    user_email: str = "",
+) -> RolloutActionResult:
+    """Pause a connector rollout, retaining its existing version pins.
+
+    A paused rollout is held in place: Autopilot will not advance or promote it,
+    and already-pinned actors stay on the release candidate. This is the
+    reversible alternative to finalizing as `canceled`, which the platform
+    re-creates for every still-advertised release candidate.
+    """
+    paused_reason = paused_reason.strip()
+    if not paused_reason:
+        return RolloutActionResult(
+            rollout_action_result="A pause reason is required.",
+            rollout_action_success=False,
+        )
+
+    adapter = get_adapter(auth_bearer_token or None)
+    config_api_root = adapter.config_api_root
+
+    updated_by = _resolve_updated_by(
+        user_email=user_email,
+        bearer_token=auth_bearer_token or None,
+        config_api_root=config_api_root,
+    )
+
+    try:
+        state_transitions.pause_rollout(
+            docker_repository=docker_repository,
+            docker_image_tag=docker_image_tag,
+            actor_definition_id=connector_id,
+            rollout_id=rollout_id,
+            updated_by=updated_by,
+            paused_reason=paused_reason,
+            config_api_root=config_api_root,
+            bearer_token=auth_bearer_token or None,
+        )
+    except PyAirbyteInputError as exc:
+        return RolloutActionResult(
+            rollout_action_result=f"Failed to pause rollout: {exc}",
+            rollout_action_success=False,
+        )
+
+    return RolloutActionResult(
+        rollout_action_result=(
+            f"Successfully paused rollout for "
+            f"{docker_repository}:{docker_image_tag}. Existing pins retained. "
+            "Status may take a few seconds to reflect this."
+        ),
+        rollout_action_success=True,
+    )
+
+
+@connector_version_manager_app.tool()
+def unpause_rollout(
+    rollout_id: str,
+    connector_id: str,
+    docker_repository: str,
+    docker_image_tag: str,
+    auth_bearer_token: str = "",
+    user_email: str = "",
+) -> RolloutActionResult:
+    """Resume a paused connector rollout and hand it back to Autopilot.
+
+    Autopilot skips `paused` rollouts and picks one up again as soon as its state is
+    `in_progress`, so this submits the smallest manual progression that performs that
+    transition: the percentage already pinned, which pins nobody new. A rollout with
+    nothing pinned yet resumes at 1% (the platform rejects a `0` target), pinning one
+    actor.
+    """
+    adapter = get_adapter(auth_bearer_token or None)
+    config_api_root = adapter.config_api_root
+
+    updated_by = _resolve_updated_by(
+        user_email=user_email,
+        bearer_token=auth_bearer_token or None,
+        config_api_root=config_api_root,
+    )
+
+    try:
+        _resume_pct, _ = state_transitions.unpause_rollout(
+            docker_repository=docker_repository,
+            docker_image_tag=docker_image_tag,
+            actor_definition_id=connector_id,
+            rollout_id=rollout_id,
+            updated_by=updated_by,
+            config_api_root=config_api_root,
+            bearer_token=auth_bearer_token or None,
+        )
+    except PyAirbyteInputError as exc:
+        return RolloutActionResult(
+            rollout_action_result=f"Failed to unpause rollout: {exc}",
+            rollout_action_success=False,
+        )
+
+    return RolloutActionResult(
+        rollout_action_result=(
+            f"Successfully unpaused rollout for "
+            f"{docker_repository}:{docker_image_tag}. "
+            "Status may take a few seconds to reflect this."
         ),
         rollout_action_success=True,
     )

@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: widgetsnbextension
-Version: 4.0.15
+Version: 4.0.16
 Summary: Jupyter interactive widgets for Jupyter Notebook
 Home-page: http://jupyter.org
 Author: Jupyter Development Team
@@ -16,11 +16,11 @@ Classifier: Intended Audience :: Science/Research
 Classifier: License :: OSI Approved :: BSD License
 Classifier: Programming Language :: Python
 Classifier: Programming Language :: Python :: 3
-Classifier: Programming Language :: Python :: 3.9
 Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
+Classifier: Programming Language :: Python :: 3.14
 Classifier: Programming Language :: Python :: 3 :: Only
 Classifier: Framework :: Jupyter
 Requires-Python: >=3.7

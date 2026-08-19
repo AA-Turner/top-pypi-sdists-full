@@ -36,7 +36,7 @@ from fastapi import (
 )
 from fastapi.responses import Response
 from pydantic import ValidationError
-from sqlalchemy.exc import IntegrityError, SQLAlchemyError
+from sqlalchemy.exc import IntegrityError, SQLAlchemyError, StatementError
 
 from omnigent.cost_plan import (
     COST_CONTROL_LABEL_NAMESPACE,
@@ -105,7 +105,7 @@ from omnigent.server.managed_hosts import (
     ManagedHostLaunch,
     ManagedLaunch,
     ManagedLaunchTracker,
-    ManagedSandboxConfig,
+    ManagedSandboxDeployment,
     RepoWorkspace,
 )
 from omnigent.server.routes._auth_helpers import (
@@ -124,6 +124,13 @@ from omnigent.server.routes._session_create_validation import (
 # ``__all__`` and the facade's explicit re-exports, preserving its real runtime
 # bindings so a facade-level monkeypatch is honoured in this module too.
 from omnigent.server.routes._sessions.common import (  # noqa: F401
+    _ANTIGRAVITY_NATIVE_HARNESS,
+    _ANTIGRAVITY_NATIVE_SUBAGENT_CASCADE_ID_LABEL_KEY,
+    _ANTIGRAVITY_NATIVE_SUBAGENT_DISPLAY_FALLBACK,
+    _ANTIGRAVITY_NATIVE_SUBAGENT_ROLE_LABEL_KEY,
+    _ANTIGRAVITY_NATIVE_SUBAGENT_TOOL_CALL_ID_LABEL_KEY,
+    _ANTIGRAVITY_NATIVE_SUBAGENT_TYPE_LABEL_KEY,
+    _ANTIGRAVITY_NATIVE_SUBAGENT_WRAPPER_LABEL_VALUE,
     _APPROVAL_TYPE,
     _CHILD_PREVIEW_LIMIT,
     _CLAUDE_NATIVE_DESCRIPTION_LABEL_KEY,
@@ -156,9 +163,13 @@ from omnigent.server.routes._sessions.common import (  # noqa: F401
     _FORK_HISTORY_NATIVE_HARNESSES,
     _HOOK_ELICITATION_ID_RE,
     _HOST_LAUNCH_RESULT_TIMEOUT_S,
+    _KIMI_NATIVE_HARNESS,
     _LABEL_VALUE_MAX_LEN,
+    _LAST_TASK_ERROR_CAUSE_LABEL_KEY,
     _LAST_TASK_ERROR_CODE_LABEL_KEY,
     _LAST_TASK_ERROR_MESSAGE_LABEL_KEY,
+    _LAST_TASK_ERROR_REMEDIATION_LABEL_KEY,
+    _LAST_TASK_ERROR_TITLE_LABEL_KEY,
     _MAX_TERMINAL_LAUNCH_ARG_LEN,
     _MAX_TERMINAL_LAUNCH_ARGS,
     _MODEL_OPTIONS_ENDPOINT_BY_WRAPPER,
@@ -1610,15 +1621,22 @@ def _publish_external_assistant_message(
     session_stream.publish(session_id, event.model_dump())
 
 
-def _resolve_llm_model(conv: Conversation | None) -> str | None:
+def _resolve_llm_model(
+    conv: Conversation | None,
+    *,
+    agent_store: AgentStore | None = None,
+    agent_cache: AgentCache | None = None,
+) -> str | None:
     """
     Resolve the LLM model identifier from a conversation's agent spec.
 
-    Uses the global agent cache to load the parsed spec and read
-    ``spec.llm.model``. Returns ``None`` when the conversation has
-    no agent binding or the spec cannot be loaded.
+    Uses injected agent dependencies when available, falling back to the
+    runtime globals for legacy callers. Returns ``None`` when the conversation
+    has no agent binding or the spec cannot be loaded.
 
     :param conv: The conversation entity, or ``None``.
+    :param agent_store: Optional store for resolving the bound agent.
+    :param agent_cache: Optional cache for loading the bound agent spec.
     :returns: Model string (e.g. ``"databricks-gpt-5-5"``), or
         ``None`` when unavailable.
     """
@@ -1630,21 +1648,31 @@ def _resolve_llm_model(conv: Conversation | None) -> str | None:
         # module-level name is a facade proxy that bypasses that patch).
         from omnigent.runtime import get_agent_cache
 
-        agent_cache = get_agent_cache()
-        # The agent store is injected at app startup; access it
-        # through the runtime globals.
-        from omnigent.runtime._globals import _agent_store
+        if agent_store is None:
+            from omnigent.runtime._globals import _agent_store
 
-        if _agent_store is None:
+            agent_store = _agent_store
+        if agent_store is None:
             return None
-        agent = _agent_store.get(conv.agent_id)
+        if agent_cache is None:
+            agent_cache = get_agent_cache()
+        agent = agent_store.get(conv.agent_id)
         if agent is None:
             return None
         loaded = agent_cache.load(
             agent.id, agent.bundle_location, expand_env=agent.session_id is None
         )
         return loaded.spec.llm.model if loaded.spec.llm else None
-    except (KeyError, AttributeError, ValueError, ImportError, OSError, RuntimeError):
+    # UUID bind failures are wrapped by SQLAlchemy; do not hide broader DB errors.
+    except (
+        KeyError,
+        AttributeError,
+        ValueError,
+        ImportError,
+        OSError,
+        RuntimeError,
+        StatementError,
+    ):
         # ``RuntimeError`` covers ``get_agent_cache()`` before the runtime is
         # initialized: this is a best-effort display resolver (now also called
         # on native cost-only broadcasts), so an uninitialized runtime must
@@ -1659,7 +1687,12 @@ def _resolve_harness(*args: Any, **kwargs: Any) -> str | None:
     return _facade._resolve_harness(*args, **kwargs)
 
 
-def _resolve_harness_impl(conv: Conversation | None) -> str | None:
+def _resolve_harness_impl(
+    conv: Conversation | None,
+    *,
+    agent_store: AgentStore | None = None,
+    agent_cache: AgentCache | None = None,
+) -> str | None:
     """
     Resolve the canonical harness for a conversation's bound agent.
 
@@ -1673,6 +1706,8 @@ def _resolve_harness_impl(conv: Conversation | None) -> str | None:
     model, e.g. a generic-provider launcher).
 
     :param conv: The conversation entity, or ``None``.
+    :param agent_store: Optional store for resolving the bound agent.
+    :param agent_cache: Optional cache for loading the bound agent spec.
     :returns: The canonical harness (e.g. ``"openai-agents"`` or
         ``"claude-sdk"``), or ``None`` when unavailable.
     """
@@ -1688,14 +1723,19 @@ def _resolve_harness_impl(conv: Conversation | None) -> str | None:
     try:
         from omnigent.harness_aliases import canonicalize_harness
         from omnigent.runtime import get_agent_cache
-        from omnigent.runtime._globals import _agent_store
 
-        if _agent_store is None:
+        if agent_store is None:
+            from omnigent.runtime._globals import _agent_store
+
+            agent_store = _agent_store
+        if agent_store is None:
             return None
-        agent = _agent_store.get(conv.agent_id)
+        if agent_cache is None:
+            agent_cache = get_agent_cache()
+        agent = agent_store.get(conv.agent_id)
         if agent is None:
             return None
-        loaded = get_agent_cache().load(
+        loaded = agent_cache.load(
             agent.id, agent.bundle_location, expand_env=agent.session_id is None
         )
         executor = loaded.spec.executor
@@ -1716,7 +1756,16 @@ def _resolve_harness_impl(conv: Conversation | None) -> str | None:
             or executor.type
         )
         return canonicalize_harness(harness) or harness
-    except (KeyError, AttributeError, ValueError, ImportError, OSError):
+    # UUID bind failures are wrapped by SQLAlchemy; do not hide broader DB errors.
+    except (
+        KeyError,
+        AttributeError,
+        ValueError,
+        ImportError,
+        OSError,
+        RuntimeError,
+        StatementError,
+    ):
         return None
 
 
@@ -2474,7 +2523,7 @@ def _publish_external_output_text_delta(session_id: str, body: SessionEventInput
     the integration posts ``external_conversation_item``.
 
     The optional ``message_id`` / ``index`` / ``final`` fields are
-    carried through when present (claude-native live streaming) and
+    carried through when present (native live streaming) and
     omitted otherwise — ``exclude_none`` keeps the wire shape identical
     to in-process task streaming for callers that don't set them.
 
@@ -3049,6 +3098,105 @@ async def _persist_external_subagent_start(
     return child.id
 
 
+def _antigravity_subagent_title(role: str, cascade_id: str) -> str:
+    """
+    Build the child row title for an agy sub-agent.
+
+    ``"<role>:<cascade id>"``. The Agents rail splits a child title on its FIRST
+    colon into ``tool`` / ``session_name``, so this renders the role as the agent
+    name and the cascade id as the correlation handle with no rail-side special
+    case — unlike claude/codex children, which need a display helper each. Any
+    colon inside the role is folded to a dash so that split lands where intended.
+
+    The cascade id is agy's own stable per-sub-agent id, which also makes the
+    title the idempotency key: a redelivered start trips the
+    ``(parent_conversation_id, title)`` unique index instead of minting a second
+    row for the same sub-agent.
+
+    :param role: agy ``subagentSpec`` role, e.g. ``"App Router Code Reviewer"``.
+    :param cascade_id: agy child conversation id, e.g. ``"1eca7625-…"``.
+    :returns: Child conversation title.
+    """
+    head = role.replace(":", "-").strip() or _ANTIGRAVITY_NATIVE_SUBAGENT_DISPLAY_FALLBACK
+    return f"{head}:{cascade_id}"
+
+
+def _antigravity_subagent_labels_from_body(
+    cascade_id: str,
+    body: SessionEventInput,
+) -> dict[str, str]:
+    """
+    Build the label dict for an agy sub-agent child row.
+
+    :param cascade_id: agy child conversation id, e.g. ``"1eca7625-…"``.
+    :param body: Validated ``external_antigravity_subagent_start`` event body.
+    :returns: Labels to upsert on the child conversation row.
+    """
+    labels: dict[str, str] = {
+        _CLAUDE_NATIVE_WRAPPER_LABEL_KEY: _ANTIGRAVITY_NATIVE_SUBAGENT_WRAPPER_LABEL_VALUE,
+        _ANTIGRAVITY_NATIVE_SUBAGENT_CASCADE_ID_LABEL_KEY: cascade_id,
+    }
+    for data_key, label_key in (
+        ("tool_call_id", _ANTIGRAVITY_NATIVE_SUBAGENT_TOOL_CALL_ID_LABEL_KEY),
+        ("role", _ANTIGRAVITY_NATIVE_SUBAGENT_ROLE_LABEL_KEY),
+        ("agent_type", _ANTIGRAVITY_NATIVE_SUBAGENT_TYPE_LABEL_KEY),
+    ):
+        value = body.data.get(data_key)
+        if isinstance(value, str) and value:
+            labels[label_key] = value
+    return labels
+
+
+async def _create_and_publish_antigravity_child(
+    parent_id: str,
+    parent_conv: Conversation,
+    title: str,
+    agent_type: str,
+    labels: dict[str, str],
+    conversation_store: ConversationStore,
+) -> str:
+    """
+    Create an agy sub-agent child row and publish ``session.created``.
+
+    :param parent_id: Parent antigravity-native conversation id.
+    :param parent_conv: Parent row whose ``agent_id`` / ``runner_id`` the child
+        inherits.
+    :param title: Child title from :func:`_antigravity_subagent_title`.
+    :param agent_type: agy ``subagentSpec`` type, e.g. ``"research"``.
+    :param labels: Labels to stamp on the new child row.
+    :param conversation_store: Store used to create the child row.
+    :returns: New child conversation id, e.g. ``"conv_child456"``.
+    """
+    try:
+        child = await asyncio.to_thread(
+            conversation_store.create_conversation,
+            kind="sub_agent",
+            title=title,
+            parent_conversation_id=parent_id,
+            agent_id=parent_conv.agent_id,
+            runner_id=parent_conv.runner_id,
+            sub_agent_name=agent_type or _ANTIGRAVITY_NATIVE_SUBAGENT_DISPLAY_FALLBACK,
+        )
+    except NameAlreadyExistsError:
+        # The (parent, title) unique index fired: a concurrent start, or a
+        # redelivery that arrived before ``set_labels`` ran. Adopt the row and
+        # upsert labels rather than 500ing the sub-agent out of the rail.
+        existing = await asyncio.to_thread(
+            _find_subagent_child_by_title, conversation_store, parent_id, title
+        )
+        if existing is None:
+            raise
+        await asyncio.to_thread(conversation_store.set_labels, existing.id, labels)
+        # An orphaned row's creator died before publishing, so live clients have
+        # never heard about this child; a duplicate publish in the race case is a
+        # harmless extra cache invalidation.
+        _publish_session_created(parent_id, existing.id, parent_conv.agent_id)
+        return existing.id
+    await asyncio.to_thread(conversation_store.set_labels, child.id, labels)
+    _publish_session_created(parent_id, child.id, parent_conv.agent_id)
+    return child.id
+
+
 def _find_codex_native_subagent_child(
     conversation_store: ConversationStore,
     parent_id: str,
@@ -3595,13 +3743,18 @@ def _publish_status(
     # an explicit ``0`` clears it so a finished background shell drops the
     # indicator on the next turn end. ``None`` means "no information" (the
     # trailing PTY-activity ``idle`` carries none) and must NOT wipe the
-    # count the Stop hook just published. A new turn or a failure clears it.
+    # count the Stop hook just published. A new ``running`` turn does NOT clear
+    # it either — background shells outlive turn boundaries, so the tally
+    # persists across the turn (the composer pill stays lit alongside the
+    # working shimmer) until the next authoritative count. Only a failure
+    # clears it: a dead session may never post another count to drop a stale
+    # tally.
     if background_task_count is not None:
         if background_task_count > 0:
             _session_background_task_count_cache[session_id] = background_task_count
         else:
             _session_background_task_count_cache.pop(session_id, None)
-    elif status in ("running", "failed"):
+    elif status == "failed":
         _session_background_task_count_cache.pop(session_id, None)
     event = SessionStatusEvent(
         type="session.status",
@@ -3660,15 +3813,25 @@ async def _persist_session_status_error_labels(
         ``None`` to clear stale error labels on subsequent activity.
     :param conversation_store: Store used to upsert labels.
     """
+    # Structured fields are optional (present only when the runner classified
+    # the failure). Always write all keys — empty when absent — because the
+    # label store is upsert-only and a stale title/cause from a prior failure
+    # must not leak onto a later, unclassified one.
     updates = (
         {
             _LAST_TASK_ERROR_CODE_LABEL_KEY: _truncate_label(error.code),
             _LAST_TASK_ERROR_MESSAGE_LABEL_KEY: _truncate_label(error.message),
+            _LAST_TASK_ERROR_TITLE_LABEL_KEY: _truncate_label(error.title or ""),
+            _LAST_TASK_ERROR_CAUSE_LABEL_KEY: _truncate_label(error.cause or ""),
+            _LAST_TASK_ERROR_REMEDIATION_LABEL_KEY: _truncate_label(error.remediation or ""),
         }
         if error is not None
         else {
             _LAST_TASK_ERROR_CODE_LABEL_KEY: "",
             _LAST_TASK_ERROR_MESSAGE_LABEL_KEY: "",
+            _LAST_TASK_ERROR_TITLE_LABEL_KEY: "",
+            _LAST_TASK_ERROR_CAUSE_LABEL_KEY: "",
+            _LAST_TASK_ERROR_REMEDIATION_LABEL_KEY: "",
         }
     )
     try:
@@ -3696,10 +3859,19 @@ def _last_task_error_from_labels(labels: Mapping[str, str]) -> dict[str, str] | 
     raw_error_code = labels.get(_LAST_TASK_ERROR_CODE_LABEL_KEY)
     raw_error_message = labels.get(_LAST_TASK_ERROR_MESSAGE_LABEL_KEY)
     if raw_error_code and raw_error_message:
-        return {
+        error: dict[str, str] = {
             "code": raw_error_code,
             "message": raw_error_message,
         }
+        for key, label in (
+            ("title", _LAST_TASK_ERROR_TITLE_LABEL_KEY),
+            ("cause", _LAST_TASK_ERROR_CAUSE_LABEL_KEY),
+            ("remediation", _LAST_TASK_ERROR_REMEDIATION_LABEL_KEY),
+        ):
+            value = labels.get(label)
+            if value:
+                error[key] = value
+        return error
     return None
 
 
@@ -4022,6 +4194,8 @@ async def _get_runner_client(*args: Any, **kwargs: Any) -> httpx.AsyncClient | N
 async def _get_runner_client_impl(
     session_id: str,
     runner_router: RunnerRouter | None,
+    *,
+    conversation: Conversation | None = None,
 ) -> httpx.AsyncClient | None:
     """
     Get an HTTP client for the runner bound to a session.
@@ -4033,6 +4207,7 @@ async def _get_runner_client_impl(
         e.g. ``"conv_abc123"``.
     :param runner_router: The ``RunnerRouter`` instance, or
         ``None`` for in-process setups.
+    :param conversation: An already-loaded conversation to reuse for routing.
     :returns: An ``httpx.AsyncClient`` pointed at the runner,
         or ``None`` if no runner is available.
     """
@@ -4040,9 +4215,13 @@ async def _get_runner_client_impl(
 
     if runner_router is not None:
         try:
-            routed = runner_router.client_for_session_resources(
-                session_id,
-            )
+            if conversation is None:
+                routed = runner_router.client_for_session_resources(session_id)
+            else:
+                routed = runner_router.client_for_session_resources(
+                    session_id,
+                    conversation=conversation,
+                )
             return routed.client
         except (LookupError, httpx.HTTPError, OmnigentError):
             _logger.debug(
@@ -4396,11 +4575,12 @@ async def _provision_managed_sandbox(
     *,
     session_id: str,
     owner: str,
-    sandbox_config: ManagedSandboxConfig,
+    sandbox_config: ManagedSandboxDeployment,
     repo: RepoWorkspace | None,
     tracker: ManagedLaunchTracker,
     host_store: HostStore,
     relaunch_host: Host | None,
+    provider: str | None = None,
     agent_name: str | None = None,
 ) -> ManagedHostLaunch | None:
     """
@@ -4419,6 +4599,9 @@ async def _provision_managed_sandbox(
     :param host_store: Persistent host registrations.
     :param relaunch_host: Existing host row for a relaunch, or
         ``None`` for a first launch.
+    :param provider: Requested sandbox provider for a first launch, or
+        ``None`` for the default. Ignored on a relaunch, which stays on
+        the host row's recorded provider.
     :param agent_name: Server-resolved built-in agent name the session
         runs, stamped as the runner Pod's ``omnigent.ai/agent`` classifier
         (Kubernetes only), or ``None`` to leave it unstamped.
@@ -4454,6 +4637,7 @@ async def _provision_managed_sandbox(
             owner=owner,
             host_store=host_store,
             repo=repo,
+            provider=provider,
             agent_name=agent_name,
             on_stage=_on_stage,
         )
@@ -4556,19 +4740,28 @@ async def _get_runner_client_for_resource_access(
 
 async def _get_runner_client_for_resource_access_impl(
     session_id: str,
+    *,
+    conversation: Conversation | None = None,
 ) -> httpx.AsyncClient | None:
     """Return the authoritative runner client for session resources.
 
     Requires the session to be bound to a runner via
     ``PATCH /v1/sessions/{id}``; raises ``conflict`` otherwise. If no
     runner router is configured (unit-test/in-process setups), callers
-    may fall back to local registries.
+    may fall back to local registries. ``conversation`` reuses the row
+    already loaded during authorization.
     """
     from omnigent.runtime import get_runner_client, get_runner_router
 
     runner_router = get_runner_router()
     if runner_router is not None:
-        routed_runner = runner_router.client_for_session_resources(session_id)
+        if conversation is None:
+            routed_runner = runner_router.client_for_session_resources(session_id)
+        else:
+            routed_runner = runner_router.client_for_session_resources(
+                session_id,
+                conversation=conversation,
+            )
         return routed_runner.client
     return cast("httpx.AsyncClient | None", get_runner_client())
 
@@ -5078,10 +5271,11 @@ async def _forward_session_change_to_runner(
 
 
 #: Forward budget for a control event the runner answers by driving the TUI.
-#: The claude-native ``/model`` and ``/effort`` injectors wait up to 1s for the
-#: tmux advertisement and then up to 4s for the confirmation dialog, so the
-#: default 5s budget could time out on a legitimately-still-working injection
-#: and report a failure that did not happen.
+#: The claude-native slash-command injector's worst case is ~16s (1s tmux
+#: advertisement + 5s commit-poll + 10s submit-verify; the 4s dialog watch
+#: only runs after a fast verify), so the default 5s budget could time out on
+#: a legitimately-still-working injection and report a failure that did not
+#: happen.
 _TUI_INJECT_FORWARD_TIMEOUT_S = 20.0
 
 
@@ -6417,9 +6611,12 @@ async def _run_compact_locked(
                 code=ErrorCode.INVALID_INPUT,
             )
         task_id = f"compact_{int(time.time() * 1000)}"
-        _publish_status(session_id, "running")
-        # compact() publishes its own in_progress / completed SSE events
-        # when conversation_id is set — don't double-publish here.
+        # compact() publishes its own in_progress / completed SSE events when
+        # conversation_id is set, and the web UI's compaction bubble owns the
+        # busy state from those. Deliberately no ``session.status`` bracket:
+        # compaction is not an agent turn, so reporting running→idle would
+        # invent one — and its idle would land mid-turn on a session that is
+        # genuinely working, which clients then had to second-guess.
         from omnigent.runtime.workflow import compact_conversation_now
 
         try:
@@ -6435,12 +6632,10 @@ async def _run_compact_locked(
             _logger.exception("Explicit session compaction failed for %s", session_id)
             detail = str(exc) or repr(exc)
             _publish_compaction_failed(session_id)
-            _publish_status(session_id, "idle")
             raise OmnigentError(
                 f"Compaction failed while generating a summary: {detail}",
                 code=ErrorCode.INTERNAL_ERROR,
             ) from exc
-        _publish_status(session_id, "idle")
 
 
 def _agent_provider_family(agent: Agent) -> str | None:
@@ -6667,22 +6862,33 @@ def _build_policy_engine_from_spec_impl(
     spec: AgentSpec,
     session_id: str,
     conversation_store: ConversationStore,
+    conversation: Conversation | None = None,
 ) -> PolicyEngine:
+    """Build an engine for *spec*, reusing a conversation row when held.
+
+    Every caller of this wrapper already loaded the conversation to
+    resolve *spec*; passing it lets the builder skip its own read. Only
+    the row's immutable identity is reused — the builder re-derives
+    labels, session_state and model from a fresh read (see
+    :func:`build_policy_engine`).
+    """
     caps = get_caps()
     host_connection = (
         caps.policy_llm_connection_factory() if caps.policy_llm_connection_factory else None
     )
-    return cast(
-        PolicyEngine,
-        build_policy_engine(
-            spec=spec,
-            conversation_id=session_id,
-            conversation_store=conversation_store,
-            default_policies=caps.default_policies,
-            policy_store=get_policy_store(),
-            server_llm=caps.llm,
-            host_connection=host_connection,
-        ),
+    return build_policy_engine(
+        spec=spec,
+        conversation_id=session_id,
+        conversation_store=conversation_store,
+        conversation=conversation,
+        # The spec was resolved from this row's agent binding; the builder
+        # confirms it against its own fresh read and fails closed if a
+        # switch-agent landed in between.
+        expected_agent_id=conversation.agent_id if conversation is not None else None,
+        default_policies=caps.default_policies,
+        policy_store=get_policy_store(),
+        server_llm=caps.llm,
+        host_connection=host_connection,
     )
 
 
@@ -6734,22 +6940,27 @@ async def _apply_pending_policy_ask_writes(
         return
     # Non-MCP relay path: pop and apply writes here since no retry
     # will arrive.
-    _pending_policy_ask_writes.pop(elicitation_id, None)
     # Resolve the agent spec + build the engine off the event loop: the
     # lookup, cold-cache bundle fetch, and engine construction are all
     # blocking DB/IO.
     spec = await asyncio.to_thread(_load_agent_spec_for_session, conv, agent_store)
     if spec is None:
+        _pending_policy_ask_writes.pop(elicitation_id, None)
         return
     engine = await asyncio.to_thread(
-        _build_policy_engine_from_spec, spec, session_id, conversation_store
+        _build_policy_engine_from_spec, spec, session_id, conversation_store, conv
     )
+    # Pop only after the engine build succeeds: a raise here (e.g. a
+    # concurrent agent rebind) would otherwise lose the approved writes
+    # with no retry possible.
+    _pending_policy_ask_writes.pop(elicitation_id, None)
     # The label/state writes hit the DB synchronously too — keep them
     # off the loop.
     if pending.set_labels:
         await asyncio.to_thread(engine.apply_label_writes, pending.set_labels)
     if pending.state_updates:
-        await asyncio.to_thread(engine.apply_state_updates, pending.state_updates)
+        with contextlib.suppress(ConversationNotFoundError):
+            await asyncio.to_thread(engine.apply_state_updates, pending.state_updates)
 
 
 def _build_actor(user_id: str | None) -> dict[str, str] | None:
@@ -6856,11 +7067,13 @@ def _build_evaluation_context(
             harness=hook_harness,
         )
     # REQUEST / RESPONSE — content is the user/assistant text. The wire ``data``
-    # is a dict for the native command hooks (``{"text"|"content": ...}``), but
-    # may be a bare string — opencode's policy plugin sends the prompt text
-    # directly for ``PHASE_REQUEST``. Accept both, and NEVER raise here: a crash
-    # 500s the evaluate endpoint, which silently fails the request/result gate
-    # OPEN (the exact symptom that let cost-over-budget terminal prompts through).
+    # is a dict for every current first-party producer (``{"text"|"content":
+    # ...}``, including OpenCode's plugin, which sends ``{"text": ...}``), but
+    # a bare string is still accepted for ``PHASE_REQUEST`` for compatibility
+    # with older or third-party callers that send the prompt text directly.
+    # Accept both, and NEVER raise here: a crash 500s the evaluate endpoint,
+    # which silently fails the request/result gate OPEN (the exact symptom
+    # that let cost-over-budget terminal prompts through).
     if isinstance(data, str):
         text = data
     elif isinstance(data, dict):
@@ -7145,7 +7358,7 @@ async def _evaluate_output_policy(
         return None
 
     engine = await asyncio.to_thread(
-        _build_policy_engine_from_spec, spec, session_id, conversation_store
+        _build_policy_engine_from_spec, spec, session_id, conversation_store, conv
     )
     ctx = EvaluationContext(
         phase=Phase.RESPONSE,
@@ -7737,7 +7950,8 @@ def _derive_terminal_launch_args_from_spec(sub_spec: AgentSpec) -> list[str] | N
     """
     Derive native-terminal YOLO pass-through args from a trusted sub-spec.
 
-    polly's native workers (claude-native / codex-native / cursor-native)
+    polly's native workers (claude-native / codex-native / cursor-native /
+    kimi-native / antigravity-native)
     launch in a headless pane where no human can answer an ApprovalCard, so
     every Edit/Write/Bash that prompts stalls the worker. This translates a
     worker bundle's declared full-bypass intent into the per-session
@@ -7768,6 +7982,22 @@ def _derive_terminal_launch_args_from_spec(sub_spec: AgentSpec) -> list[str] | N
       to ``auto`` or ``auto-review``, emit ``["--auto-review"]`` instead
       (Smart Auto) so a bundle can choose Claude-style auto without full
       yolo.
+    - kimi-native + ``executor.config.yolo: true`` -> ``["--yolo"]``
+      (kimi's auto-approve-tools flag; ``--auto`` full autonomy is NOT
+      mapped). Opt-IN: absent / false leaves args unset.
+    - antigravity-native + ``executor.config.permission_mode:
+      bypassPermissions`` -> ``["--dangerously-skip-permissions"]``, agy's
+      only pre-emptive permission control. Opt-IN like claude-native;
+      other / absent modes leave args unset.
+
+    Value-matching policy: enabling values are matched without whitespace
+    tolerance. Flag-valued keys (``yolo``) accept a real bool or the
+    case-insensitive strings ``"true"`` / ``"false"``. Mode-valued keys
+    (``permission_mode``) are matched exactly, mirroring claude-native's
+    verbatim pass-through and the runner's exact ``bypassPermissions``
+    comparison (``should_skip_permissions`` in
+    :mod:`omnigent.antigravity_native_launch`). A present-but-unrecognized
+    value logs at debug and leaves args unset.
 
     Only those native harnesses are translated; for any other harness
     (e.g. ``claude-sdk`` / ``cursor``, whose bypass is set via the SDK
@@ -7816,6 +8046,43 @@ def _derive_terminal_launch_args_from_spec(sub_spec: AgentSpec) -> list[str] | N
         if _spec_config_flag_explicitly_disabled(sub_spec, "yolo"):
             return None
         return _validate_terminal_launch_args(["--yolo"])
+    if harness == _KIMI_NATIVE_HARNESS:
+        # Opt-IN (unlike codex/cursor's headless default-bypass). The bool
+        # arm covers programmatically built specs; the string arm covers the
+        # parser's stringified ``"True"`` (see the value-matching policy).
+        yolo = sub_spec.executor.config.get("yolo")
+        if yolo is True or (isinstance(yolo, str) and yolo.lower() == "true"):
+            return _validate_terminal_launch_args(["--yolo"])
+        if (
+            yolo is not None
+            and yolo is not False
+            and not _spec_config_flag_explicitly_disabled(sub_spec, "yolo")
+        ):
+            _logger.debug(
+                "kimi-native sub-spec has unrecognized yolo=%r; launching without --yolo.",
+                yolo,
+            )
+        return None
+    if harness == _ANTIGRAVITY_NATIVE_HARNESS:
+        # Opt-IN, matched exactly like the runner's should_skip_permissions;
+        # other modes have no agy analogue and leave args unset.
+        mode = sub_spec.executor.config.get("permission_mode")
+        if isinstance(mode, str):
+            if mode == "bypassPermissions":
+                return _validate_terminal_launch_args(["--dangerously-skip-permissions"])
+            if mode:
+                _logger.debug(
+                    "antigravity-native sub-spec permission_mode=%r has no agy analogue; "
+                    "launching without --dangerously-skip-permissions.",
+                    mode,
+                )
+        elif mode is not None:
+            _logger.debug(
+                "antigravity-native sub-spec has unrecognized permission_mode=%r; "
+                "launching without --dangerously-skip-permissions.",
+                mode,
+            )
+        return None
     return None
 
 
@@ -7836,6 +8103,56 @@ def _native_subagent_wrapper_labels_from_spec(sub_spec: AgentSpec) -> dict[str, 
             _CLAUDE_NATIVE_UI_LABEL_KEY: _CLAUDE_NATIVE_UI_LABEL_VALUE,
         }
     return {}
+
+
+def _repl_terminal_ui_labels(
+    *,
+    agent: Agent,
+    agent_cache: AgentCache | None,
+    harness_override: str | None,
+) -> dict[str, str]:
+    """
+    Resolve the terminal-view label for a session that gets a REPL terminal.
+
+    A non-native session's runner auto-creates the ``omnigent`` REPL
+    terminal and stamps ``omnigent.ui: terminal`` only *after* that
+    terminal exists. The web UI's "Starting up…" indicator needs the
+    label while the terminal is still missing, so that window is empty by
+    construction and such sessions fall back to the passive "Connecting…"
+    band instead. Stamping the same label at creation closes the gap.
+
+    Mirrors the runner's own auto-create predicate (non-native harness,
+    top-level session — see ``_auto_create_repl_terminal``'s call site in
+    ``omnigent/runner/app.py``); the caller adds the host-bound check.
+
+    :param agent: The agent row backing the session.
+    :param agent_cache: Cache used to load the parsed bundle. ``None``
+        disables resolution (returns an empty dict).
+    :param harness_override: The session's stored harness override, if
+        any. ``"auto"`` defers the harness to the first-message router,
+        so nothing is stamped.
+    :returns: ``{ui_key: "terminal"}`` when the runner will host a REPL
+        terminal, else ``{}``.
+    """
+    from omnigent.harness_aliases import is_native_harness
+
+    if agent_cache is None or harness_override == "auto":
+        return {}
+    if harness_override:
+        harness = harness_override
+    else:
+        try:
+            spec = agent_cache.load(
+                agent.id, agent.bundle_location, expand_env=agent.session_id is None
+            ).spec
+        except Exception:  # noqa: BLE001
+            # Can't resolve the harness -> leave the label to the runner's
+            # own later stamp rather than guessing at creation.
+            return {}
+        harness = _spec_harness(spec)
+    if is_native_harness(harness):
+        return {}
+    return {_CLAUDE_NATIVE_UI_LABEL_KEY: _CLAUDE_NATIVE_UI_LABEL_VALUE}
 
 
 def _reject_reserved_cost_control_label_seed(labels: dict[str, str]) -> None:
@@ -8367,6 +8684,7 @@ def _child_session_summary_from_conversation(
         id=conv.id,
         parent_session_id=parent_session_id,
         title=display_title,
+        task_summary=conv.task_summary,
         tool=tool,
         session_name=session_name,
         created_at=conv.created_at,
@@ -9112,6 +9430,8 @@ __all__ = [
     "_allow_remember_eligible",
     "_ancestor_session_ids",
     "_announce_session_added",
+    "_antigravity_subagent_labels_from_body",
+    "_antigravity_subagent_title",
     "_apply_liveness_to_items",
     "_apply_pending_policy_ask_writes",
     "_attachment_disposition",
@@ -9135,6 +9455,7 @@ __all__ = [
     "_collect_descendant_conversation_ids",
     "_compact_lock",
     "_consume_pre_resolved_harness_elicitation",
+    "_create_and_publish_antigravity_child",
     "_create_and_publish_codex_child",
     "_create_session_worktree",
     "_delete_stored_session_bundle_after_failure",
@@ -9258,6 +9579,7 @@ __all__ = [
     "_relay_persist",
     "_relay_persist_error_once",
     "_remove_session_worktree_best_effort",
+    "_repl_terminal_ui_labels",
     "_replace_text_in_message_body",
     "_require_collaboration_mode_forward",
     "_require_cost_control_label_authority",

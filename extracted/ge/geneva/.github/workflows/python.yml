@@ -38,7 +38,13 @@ jobs:
       contents: read
       id-token: write
     runs-on: warp-ubuntu-latest-x64-32x
-    timeout-minutes: 60
+    # 90, not 60: the (3.12, stable) leg is the only one that runs `make
+    # bench-ci` on top of the full suite, and it has been finishing at 58-59
+    # minutes on main for weeks -- less headroom than the run-to-run variance.
+    # Any PR adding a minute of tests tipped it, and a timeout surfaces as
+    # `cancelled`, which reads like an infra blip rather than a deadline.
+    # Splitting bench-ci into its own job is the real fix (GEN-834).
+    timeout-minutes: 90
     strategy:
       fail-fast: false
       matrix:
@@ -51,6 +57,7 @@ jobs:
     env:
       UV_CACHE_DIR: /tmp/.uv-cache
       RAY_BACKEND_LOG_LEVEL: debug
+      PYTHONFAULTHANDLER: "1"
     steps:
       - uses: actions/checkout@v4
         with:
@@ -73,9 +80,62 @@ jobs:
           cat uv.lock
           make pydeps
       - name: Run tests
-        if: matrix.suite == 'stable'
+        if: matrix.suite == 'stable' && matrix.python-version != '3.13'
         run: |
           make test-no-flaky
+          make bench-ci
+      - name: Run tests with native crash diagnostics
+        if: matrix.suite == 'stable' && matrix.python-version == '3.13'
+        shell: bash
+        run: |
+          if ! command -v gdb >/dev/null; then
+            sudo apt-get update
+            sudo apt-get install --yes gdb
+          fi
+          gdb --version
+
+          crash_dir="$GITHUB_WORKSPACE/crash-dumps"
+          original_core_pattern="$crash_dir/original-core-pattern"
+          mkdir -p "$crash_dir"
+          cat /proc/sys/kernel/core_pattern > "$original_core_pattern"
+
+          restore_core_pattern() {
+            status=$?
+            trap - EXIT
+            if ! sudo tee /proc/sys/kernel/core_pattern \
+              < "$original_core_pattern" >/dev/null; then
+              echo "Failed to restore the original kernel core pattern" >&2
+            fi
+            exit "$status"
+          }
+          trap restore_core_pattern EXIT
+
+          echo "$crash_dir/core.%e.%p.%t" \
+            | sudo tee /proc/sys/kernel/core_pattern
+          ulimit -c unlimited
+          python_executable="$(uv run python -c 'import sys; print(sys.executable)')"
+
+          set +e
+          make test-no-flaky
+          test_status=$?
+          set -e
+
+          shopt -s nullglob
+          core_files=("$crash_dir"/core.*)
+          if (( ${#core_files[@]} > 0 )); then
+            for core_file in "${core_files[@]}"; do
+              echo "::group::Native backtrace for $core_file"
+              gdb --batch --quiet \
+                --ex "set pagination off" \
+                --ex "thread apply all bt full" \
+                "$python_executable" "$core_file" || true
+              echo "::endgroup::"
+            done
+          fi
+
+          if (( test_status != 0 )); then
+            exit "$test_status"
+          fi
           make bench-ci
       - name: Run experimental tests
         if: matrix.suite == 'experimental'

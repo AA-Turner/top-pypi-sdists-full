@@ -5,6 +5,8 @@
 # The full license is in the file LICENSE.txt, distributed with this software.
 #-----------------------------------------------------------------------------
 
+# pyright: reportIncompatibleVariableOverride=false
+
 # Standard library imports
 from dataclasses import InitVar, dataclass
 from typing import (
@@ -12,7 +14,6 @@ from typing import (
     Any,
     Literal,
     Sequence,
-    TypeAlias,
     Unpack,
 )
 
@@ -73,8 +74,8 @@ from .glyph_api import (
     MultiPolygonsArgs,
 )
 
-EagerDataFrame: TypeAlias = IntoDataFrame
-EagerSeries: TypeAlias = IntoSeries
+type EagerDataFrame = IntoDataFrame
+type EagerSeries = IntoSeries
 
 @dataclass(init=False)
 class BaseFigureOptions:
@@ -105,7 +106,7 @@ class BaseFigureOptions:
 
     tooltips: InitVar[Template | str | list[tuple[str, str]] | None] = ...
 
-RangeLike: TypeAlias = (
+type RangeLike = (
     Range |
     tuple[float, float] |
     tuple[Datetime, Datetime] |
@@ -115,7 +116,7 @@ RangeLike: TypeAlias = (
     GroupBy[Any]
 )
 
-AxisType: TypeAlias = Auto | Literal["linear", "log", "datetime", "timedelta", "mercator"] | None
+type AxisType = Auto | Literal["linear", "log", "datetime", "timedelta", "mercator"] | None
 
 DEFAULT_TOOLS: str
 

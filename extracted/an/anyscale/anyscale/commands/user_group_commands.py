@@ -23,6 +23,7 @@ from anyscale.commands.output_format import (
     warn_deprecated_flag,
 )
 from anyscale.commands.util import AnyscaleCommand
+from anyscale.errors import UserError
 from anyscale.user_group.models import UserGroup
 
 
@@ -89,8 +90,7 @@ def list_user_groups(max_items: int, output_format: str) -> None:
     try:
         user_groups = anyscale.user_group.list(max_items=max_items)
     except ValueError as e:
-        log.error(str(e))
-        return
+        raise UserError(str(e), legacy_exit_code=0) from None
 
     if output_format != OutputFormat.TEXT.value:
         print_output(user_groups, output_format)
@@ -133,7 +133,12 @@ def list_user_groups(max_items: int, output_format: str) -> None:
     is_beta=True,
 )
 @click.option(
-    "--id", required=True, type=str, help="The ID of the user group to retrieve.",
+    "--user-group-id",
+    "--id",
+    "id",
+    type=str,
+    required=True,
+    help="The ID of the user group to retrieve.",
 )
 @click.option(
     OUTPUT_FLAG,
@@ -153,8 +158,7 @@ def get_user_group(id: str, output_format: str) -> None:  # noqa: A002
     try:
         user_group = anyscale.user_group.get(id=id)
     except ValueError as e:
-        log.error(f"Failed to get user group: {e}")
-        return
+        raise UserError(f"Failed to get user group: {e}", legacy_exit_code=0) from None
 
     if output_format != OutputFormat.TEXT.value:
         print_output(user_group, output_format)

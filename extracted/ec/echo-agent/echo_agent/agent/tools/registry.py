@@ -43,7 +43,8 @@ class ToolRegistry:
         "code": "execute_code",
     }
 
-    def __init__(self, audit_log_path: Path | None = None, config: Any = None):
+    def __init__(self, audit_log_path: Path | None = None, config: Any = None,
+                 spill_policy: Any = None):  # SpillPolicy;用 Any 避免 registry 依赖 spill 包
         self._tools: dict[str, Tool] = {}
         self._replay_cache: collections.OrderedDict[str, dict[str, Any]] = collections.OrderedDict()
         self._execution_log: collections.deque[dict[str, Any]] = collections.deque(maxlen=_MAX_EXECUTION_LOG)
@@ -58,6 +59,9 @@ class ToolRegistry:
         # tool that passed registration already satisfies this check under the
         # same config, so this is a no-op unless the profile changed underneath.
         self._config = config
+        # execute 是所有工具的唯一收口点,超长输出的落盘策略挂在这里才能覆盖
+        # 动态注册的 MCP 工具——逐工具打补丁覆盖不到它们。未装配时是 no-op。
+        self._spill_policy = spill_policy
 
     def set_audit_log_path(self, path: Path) -> None:
         self._audit_log_path = path
@@ -95,23 +99,23 @@ class ToolRegistry:
     def has(self, name: str) -> bool:
         return self._resolve(name) in self._tools
 
-    def get_definitions(self) -> list[dict[str, Any]]:
+    def get_definitions(self, channel: str | None = None) -> list[dict[str, Any]]:
         definitions: list[dict[str, Any]] = []
         for tool in self._tools.values():
             try:
-                definitions.append(tool.to_schema())
+                definitions.append(tool.to_schema(channel))
             except ValueError as e:
                 logger.error("Skipping tool '{}' due to invalid schema: {}", tool.name, e)
         return definitions
 
-    def get_ready_definitions(self) -> list[dict[str, Any]]:
+    def get_ready_definitions(self, channel: str | None = None) -> list[dict[str, Any]]:
         """Like get_definitions() but only includes tools where is_ready() is True."""
         definitions: list[dict[str, Any]] = []
         for tool in self._tools.values():
             if not tool.is_ready():
                 continue
             try:
-                definitions.append(tool.to_schema())
+                definitions.append(tool.to_schema(channel))
             except ValueError as e:
                 logger.error("Skipping tool '{}' due to invalid schema: {}", tool.name, e)
         return definitions
@@ -207,7 +211,7 @@ class ToolRegistry:
                         }
                         while len(self._replay_cache) > _MAX_REPLAY_CACHE:
                             self._replay_cache.popitem(last=False)
-                return result
+                return self._apply_spill(resolved_name, exec_ctx, result)
             except asyncio.TimeoutError:
                 last_result = ToolResult(success=False, error=f"Tool '{name}' timed out after {tool.timeout_seconds}s", error_kind="timeout")
                 logger.warning("Tool {} timed out (attempt {}/{})", name, attempt + 1, max_attempts)
@@ -222,7 +226,30 @@ class ToolRegistry:
         log_entry["attempt"] = attempt
         self._execution_log.append(log_entry)
         self._append_audit(log_entry)
-        return last_result
+        return self._apply_spill(resolved_name, exec_ctx, last_result)
+
+    def apply_spill(self, tool_name: str, ctx: ToolExecutionContext, result: ToolResult) -> ToolResult:
+        """把超长的模型可见文本落盘换成预览。spill 未装配时是 no-op。
+
+        公开是因为 registry 不是最终写回边界:post_tool_call 插件可以在
+        execute 返回之后替换 result,插件产出的超长文本若不再过一遍这里,就会
+        被下游按 16000 字符哑截断,尾部丢失且没有取回路径——恰是 spill 要消除
+        的那个失效模式。调用点见 inference_stage 的 dispatch_modify 之后。
+
+        二次调用天然幂等:第一次替换后的预览长度必 <= cap,再进来直接原样返回,
+        不会落第二个文件。
+        """
+        if self._spill_policy is None:
+            return result
+        try:
+            return self._spill_policy.apply(tool_name, ctx.session_key, result)
+        except Exception as e:
+            # spill 是可选能力,它自身的缺陷不该让工具调用失败
+            logger.warning("spill 策略异常,保留原结果 tool={} err={}", tool_name, e)
+            return result
+
+    # 旧名:内部调用点仍在用,且外部可能已引用。
+    _apply_spill = apply_spill
 
     def get_execution_log(self, limit: int = 100) -> list[dict[str, Any]]:
         return list(self._execution_log)[-limit:]

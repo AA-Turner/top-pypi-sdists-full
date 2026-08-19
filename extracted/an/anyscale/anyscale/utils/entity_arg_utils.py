@@ -41,3 +41,28 @@ def format_inputs_to_entity(
         return IdBasedEntity(id=entity_id)
     else:
         raise click.ClickException("Please provide exactly one of: name, id.")
+
+
+def validate_exactly_one_name_or_id(
+    name: Optional[str],
+    entity_id: Optional[str],
+    *,
+    name_flag: str = "--name",
+    id_flag: str = "--id",
+) -> None:
+    """Make sure the caller gives exactly one of name and id.
+
+    Raise a ``ClickException`` if the caller gives more or fewer than one. This
+    function replaces the per-command ``_validate_*_name_and_id`` copies. The
+    default flag spellings are ``--name`` and ``--id``. Pass ``name_flag`` or
+    ``id_flag`` to show a different spelling in the error message.
+    """
+    provided = int(name is not None) + int(entity_id is not None)
+    if provided == 0:
+        raise click.ClickException(
+            f"One of '{name_flag}' and '{id_flag}' must be provided."
+        )
+    if provided > 1:
+        raise click.ClickException(
+            f"Only one of '{name_flag}' and '{id_flag}' can be provided."
+        )

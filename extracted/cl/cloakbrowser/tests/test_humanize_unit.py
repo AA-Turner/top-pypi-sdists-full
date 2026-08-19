@@ -2703,6 +2703,87 @@ class TestStealthAsync:
 
 
 # =========================================================================
+# framenavigated -> isolated-world invalidation (#507)
+# =========================================================================
+
+class TestFrameNavigatedInvalidation:
+    """Regression #507: click/form/history navigation must invalidate the
+    isolated world, not just page.goto. Without this the world stays bound to
+    a bfcached old document and fill()/click() actionability reads fail."""
+
+    @staticmethod
+    def _build_page(is_async):
+        from unittest.mock import MagicMock, AsyncMock
+        Mock = AsyncMock if is_async else MagicMock
+        page = MagicMock()
+        for name in ("click", "dblclick", "hover", "type", "fill", "goto",
+                     "check", "uncheck", "select_option", "press"):
+            setattr(page, name, Mock())
+        page.is_checked = Mock(return_value=False)
+        page.viewport_size = {"width": 1280, "height": 720}
+        page.evaluate = Mock(return_value={"hit": True})
+        # new_cdp_session must SUCCEED so the stealth world is created
+        page.context.new_cdp_session = Mock(return_value=MagicMock())
+        for surface in ("mouse", "keyboard"):
+            setattr(page, surface, MagicMock())
+        for m in ("move", "click", "wheel", "down", "up"):
+            setattr(page.mouse, m, Mock())
+        for m in ("type", "down", "up", "press", "insert_text"):
+            setattr(page.keyboard, m, Mock())
+        page.query_selector = Mock(return_value=None)
+        page.query_selector_all = Mock(return_value=[])
+        page.wait_for_selector = Mock(return_value=None)
+        # main_frame is a property in the Playwright API (sync + async)
+        main_frame = MagicMock()
+        main_frame.child_frames = []
+        page.main_frame = main_frame
+        return page
+
+    @staticmethod
+    def _framenavigated_handler(page):
+        # capture the handler registered via page.on("framenavigated", cb)
+        for call in page.on.call_args_list:
+            if call.args and call.args[0] == "framenavigated":
+                return call.args[1]
+        return None
+
+    def _run(self, is_async):
+        import cloakbrowser.human as h
+        from cloakbrowser.human import _CursorState
+        from cloakbrowser.human.config import resolve_config
+
+        cfg = resolve_config("default", {"idle_between_actions": False})
+        cursor = _CursorState()
+        cursor.initialized = True
+        cursor.x = cursor.y = 100
+        page = self._build_page(is_async)
+
+        (h.patch_page_async if is_async else h.patch_page)(page, cfg, cursor)
+
+        handler = self._framenavigated_handler(page)
+        assert handler is not None, "framenavigated listener was not registered"
+
+        world = page._stealth_world
+        assert world is not None
+
+        # main-frame navigation invalidates the world
+        world._context_id = 123
+        handler(page.main_frame)
+        assert world._context_id is None, "main-frame nav did not invalidate the world"
+
+        # a subframe navigation must NOT invalidate
+        world._context_id = 456
+        handler(MagicMock())  # some other frame
+        assert world._context_id == 456, "subframe nav wrongly invalidated the world"
+
+    def test_sync_invalidates_on_main_frame_nav(self):
+        self._run(is_async=False)
+
+    def test_async_invalidates_on_main_frame_nav(self):
+        self._run(is_async=True)
+
+
+# =========================================================================
 # Direct runner (backwards compat)
 # =========================================================================
 

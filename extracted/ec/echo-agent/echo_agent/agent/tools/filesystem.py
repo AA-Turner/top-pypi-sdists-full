@@ -24,13 +24,17 @@ class ReadFileTool(Tool):
         "required": ["path"],
     }
 
-    def __init__(self, workspace: str, restrict: bool = False):
+    def __init__(self, workspace: str, restrict: bool = False, spill_root: Path | None = None):
         self._workspace = str(Path(workspace).resolve())
         self._restrict = restrict
+        self._spill_root = spill_root
 
     async def execute(self, params: dict[str, Any], ctx: ToolExecutionContext | None = None) -> ToolResult:
         path = params["path"]
-        violation = check_read(path, self._workspace)
+        # spill_root 传入即启用 spill 闸门:产物按会话私有,而本工具只认路径、
+        # 不认会话,故一律拒绝并指向 read_spill。已清扫的产物也走这条,提示
+        # 由 read_spill 给——两种情况对模型的下一步动作是同一个。
+        violation = check_read(path, self._workspace, spill_root=self._spill_root)
         if violation:
             return ToolResult(success=False, error=violation)
         if self._restrict:
@@ -149,13 +153,15 @@ class ListDirTool(Tool):
         "required": ["path"],
     }
 
-    def __init__(self, workspace: str, restrict: bool = False):
+    def __init__(self, workspace: str, restrict: bool = False, spill_root: Path | None = None):
         self._workspace = str(Path(workspace).resolve())
         self._restrict = restrict
+        self._spill_root = spill_root
 
     async def execute(self, params: dict[str, Any], ctx: ToolExecutionContext | None = None) -> ToolResult:
         path = params["path"]
-        violation = check_read(path, self._workspace)
+        # 列举 spill 目录会泄漏"存在哪些会话、各产出多少",同样归 read_spill 管。
+        violation = check_read(path, self._workspace, spill_root=self._spill_root)
         if violation:
             return ToolResult(success=False, error=violation)
         if self._restrict:

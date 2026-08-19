@@ -12,7 +12,7 @@ export interface AnnulusView extends Annulus.Data {
 export declare class AnnulusView extends XYGlyphView {
     model: Annulus;
     visuals: Annulus.Visuals;
-    load_glglyph(): Promise<typeof import("./webgl/annulus").AnnulusGL>;
+    load_glglyph(): Promise<typeof import("../../all/main").AnnulusGL>;
     protected _index_data(index: SpatialIndex): void;
     protected _map_data(): void;
     protected _paint(ctx: Context2d, indices: number[], data?: Partial<Annulus.Data>): void;

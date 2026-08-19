@@ -43,6 +43,7 @@ from ..exceptions import (
     NOTEBOOK_LIMIT_REACHED,
     TEXT_SAMPLES_LIMIT_REACHED,
     VIDEO_LIMIT_REACHED,
+    AssetIsImmutableException,
     BackendCustomError,
     FileUploadThrottledException,
     ImagesUploadLimitReachedException,
@@ -57,6 +58,7 @@ from ..logging_messages import (
     CONNECTION_FILE_LIKE_UPLOAD_FAILED_ERROR,
     CONNECTION_FILE_LIKE_UPLOAD_FAILED_EXCEPTION,
     CONNECTION_FILE_LIKE_UPLOAD_FAILED_WITH_STATUS_EXCEPTION,
+    CONNECTION_FILE_UPLOAD_ALREADY_UPLOADED_WARNING,
     CONNECTION_FILE_UPLOAD_FAILED_ERROR,
     CONNECTION_FILE_UPLOAD_FAILED_EXCEPTION,
     CONNECTION_FILE_UPLOAD_FAILED_WITH_STATUS_EXCEPTION,
@@ -707,6 +709,52 @@ def check_upload_limit_not_reached(
             raise UploadLimitReachedException(asset_type=options.upload_type)
 
 
+def uploaded_asset_name(
+    options: Union[FileUploadOptions, FileLikeUploadOptions]
+) -> str:
+    """Returns the most user-recognizable name of the asset being uploaded, to be used in
+    user-facing messages."""
+    if options.additional_params is not None:
+        file_name = options.additional_params.get("fileName")
+        if file_name:
+            return str(file_name)
+
+    if isinstance(options, FileUploadOptions):
+        return options.file_path
+
+    return options.upload_type
+
+
+def _report_asset_rejected_as_immutable(
+    options: Union[FileUploadOptions, FileLikeUploadOptions],
+    response: requests.Response,
+) -> None:
+    """Handles an upload that the backend refused to store because the asset is immutable.
+
+    The asset was NOT stored, so this must not be reported as a successful upload. The
+    outcome is terminal - replaying the same upload can only be rejected again - and it is
+    delivered through ``on_failed_asset_upload`` so that consumers waiting on this asset
+    (model synchronization, artifact completion) are released with a failure instead of
+    recording an asset that does not exist, or hanging until they time out."""
+    LOGGER.warning(
+        CONNECTION_FILE_UPLOAD_ALREADY_UPLOADED_WARNING,
+        uploaded_asset_name(options),
+        response.content,
+    )
+
+    if options.on_failed_asset_upload is None:
+        return
+
+    try:
+        options.on_failed_asset_upload(
+            AssetIsImmutableException(response, upload_options=options)
+        )
+    except Exception:
+        LOGGER.warning(
+            CONNECTION_FAILED_TO_CALL_ON_FAILED_ASSET_UPLOAD_WARNING, exc_info=True
+        )
+
+
 def check_asset_was_already_uploaded(response: requests.Response) -> bool:
     try:
         data = response.json()
@@ -770,20 +818,18 @@ def upload_file(
                 raise FileUploadThrottledException(response, options)
 
             if check_asset_was_already_uploaded(response):
-                LOGGER.debug(
-                    "File was rejected by backend since it was already uploaded before, exception NOT raised: %r",
+                _report_asset_rejected_as_immutable(options, response)
+                return
+
+            raise ValueError(
+                CONNECTION_FILE_UPLOAD_FAILED_WITH_STATUS_EXCEPTION
+                % (
+                    response.status_code,
+                    options.max_retries,
+                    options.upload_endpoint,
                     response.content,
                 )
-            else:
-                raise ValueError(
-                    CONNECTION_FILE_UPLOAD_FAILED_WITH_STATUS_EXCEPTION
-                    % (
-                        response.status_code,
-                        options.max_retries,
-                        options.upload_endpoint,
-                        response.content,
-                    )
-                )
+            )
 
         LOGGER.debug(
             "File successfully uploaded to: %s",
@@ -902,20 +948,18 @@ def upload_file_like(
                 raise FileUploadThrottledException(response, options)
 
             if check_asset_was_already_uploaded(response):
-                LOGGER.debug(
-                    "File-like was rejected by backend since it was already uploaded before: %r",
+                _report_asset_rejected_as_immutable(options, response)
+                return
+
+            raise ValueError(
+                CONNECTION_FILE_LIKE_UPLOAD_FAILED_WITH_STATUS_EXCEPTION
+                % (
+                    response.status_code,
+                    options.max_retries,
+                    options.upload_endpoint,
                     response.content,
                 )
-            else:
-                raise ValueError(
-                    CONNECTION_FILE_LIKE_UPLOAD_FAILED_WITH_STATUS_EXCEPTION
-                    % (
-                        response.status_code,
-                        options.max_retries,
-                        options.upload_endpoint,
-                        response.content,
-                    )
-                )
+            )
 
         LOGGER.debug(
             "File-like successfully uploaded to: %s",

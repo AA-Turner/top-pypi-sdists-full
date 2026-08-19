@@ -107,5 +107,5 @@ def _log_or_raise(level: int, message: str, *args, **kwargs) -> None:
         else:
             raise_debug_exception(message, *args)
     else:
-        logger = kwargs.pop("logger", None) if not None else LOGGER
+        logger = kwargs.pop("logger", None) or LOGGER
         logger.log(level, message, *args, **kwargs)

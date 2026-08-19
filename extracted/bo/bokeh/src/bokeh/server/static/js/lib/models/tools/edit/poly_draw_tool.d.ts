@@ -36,7 +36,7 @@ export declare class PolyDrawTool extends PolyTool {
     constructor(attrs?: Partial<PolyDrawTool.Attrs>);
     tool_name: string;
     tool_icon: string;
-    event_type: ("tap" | "pan" | "press" | "move")[];
+    event_type: ("move" | "pan" | "press" | "tap")[];
     default_order: number;
 }
 //# sourceMappingURL=poly_draw_tool.d.ts.map

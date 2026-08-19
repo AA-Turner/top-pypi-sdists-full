@@ -13,6 +13,6 @@ export declare class YearsTicker extends BaseSingleIntervalTicker {
     constructor(attrs?: Partial<YearsTicker.Attrs>);
     readonly interval: number;
     readonly basic_ticker: BasicTicker;
-    get_ticks_no_defaults(data_low: number, data_high: number, cross_loc: number, desired_n_ticks: number): TickSpec<number>;
+    get_ticks_no_defaults(data_low: number, data_high: number, cross_loc: number, desired_n_ticks: number, num_minor_ticks: number): TickSpec<number>;
 }
 //# sourceMappingURL=years_ticker.d.ts.map

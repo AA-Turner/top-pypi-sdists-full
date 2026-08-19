@@ -93,7 +93,7 @@ export declare class PolyAnnotation extends Annotation {
     properties: PolyAnnotation.Props;
     __view_type__: PolyAnnotationView;
     constructor(attrs?: Partial<PolyAnnotation.Attrs>);
-    readonly pan: Signal<["pan" | "pan:start" | "pan:end", KeyModifiers], this>;
+    readonly pan: Signal<["pan" | "pan:end" | "pan:start", KeyModifiers], this>;
     update({ xs, ys }: {
         xs: Arrayable<number>;
         ys: Arrayable<number>;

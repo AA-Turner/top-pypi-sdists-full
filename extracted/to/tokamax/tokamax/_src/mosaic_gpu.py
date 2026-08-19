@@ -14,12 +14,126 @@
 # ==============================================================================
 """Mosaic-GPU utils."""
 
-import jax.experimental.mosaic.gpu as mgpu
-import jax.experimental.pallas.mosaic_gpu as plgpu
+from collections.abc import Callable, Mapping
+import dataclasses
+import functools
+import math
+from typing import Any, cast
+
+import jax
+from jax.experimental import pallas as pl
+from jax.experimental.mosaic import gpu as mgpu
+from jax.experimental.pallas import mosaic_gpu as plgpu
+from jax.extend import backend
 import jax.numpy as jnp
 from jaxlib.mlir import ir
 from jaxlib.mlir.dialects import llvm
+from jaxlib.mlir.dialects import nvvm
 import numpy as np
+
+
+def num_bits(dtype: jax.typing.DTypeLike) -> int:
+  fn = jnp.finfo if jnp.issubdtype(dtype, jnp.floating) else jnp.iinfo
+  return fn(dtype).bits
+
+
+def tile_swizzle_transforms(
+    shape: tuple[int, ...],
+    dtype: jax.typing.DTypeLike,
+    what: str = "",
+    *,
+    swizzle: int | None = None,
+    tiling_prefix: tuple[int, ...] = (8,),
+) -> tuple[plgpu.TilingTransform, plgpu.SwizzleTransform]:
+  """Returns tiling and swizzling transforms."""
+  elem_bits = num_bits(dtype)
+  if swizzle is None:
+    swizzle = plgpu.find_swizzle(shape[-1] * elem_bits, what)
+  tiling = (*tiling_prefix, 8 * swizzle // elem_bits)
+  return plgpu.TilingTransform(tiling), plgpu.SwizzleTransform(swizzle)
+
+
+def tiled_swizzled_smem(
+    shape: tuple[int, ...],
+    dtype: jax.typing.DTypeLike,
+    what: str = "",
+    *,
+    swizzle: int | None = None,
+    tiling_prefix: tuple[int, ...] = (8,),
+) -> pl.MemoryRef:
+  """Returns a memory reference to a tiled and swizzled shared memory array."""
+  transforms = tile_swizzle_transforms(
+      shape, dtype, what, swizzle=swizzle, tiling_prefix=tiling_prefix
+  )
+  return plgpu.SMEM(shape, dtype, transforms=transforms)
+
+
+def tiled_swizzled_block_spec(
+    shape, dtype, index_map, what="", **kwargs
+) -> plgpu.BlockSpec:
+  """Returns a block spec with tiling and swizzling transforms."""
+  transforms = tile_swizzle_transforms(shape, dtype, what)
+  return plgpu.BlockSpec(shape, index_map, transforms=transforms, **kwargs)
+
+
+warpgroup_barrier = plgpu.inline_mgpu()(lambda _: mgpu.warpgroup_barrier())
+
+
+@plgpu.inline_mgpu()
+def tcgen05_wait_ld(_):
+  nvvm.tcgen05_wait(nvvm.Tcgen05WaitKind.LOAD)
+
+
+@plgpu.inline_mgpu()
+def tcgen05_wait_st(_):
+  nvvm.tcgen05_wait(nvvm.Tcgen05WaitKind.STORE)
+
+
+@plgpu.inline_mgpu()
+def tcgen05_fence_before_thread_sync(_):
+  nvvm.tcgen05_fence(nvvm.Tcgen05FenceKind.BEFORE_THREAD_SYNC)
+
+
+@plgpu.inline_mgpu()
+def fence_async_shared_cta(_):
+  space = nvvm.SharedSpace.shared_cta
+  nvvm.fence_proxy(nvvm.ProxyKind.async_shared, space=space)
+
+
+def _bar_operation(
+    operation: str, barrier_id: int | jax.Array, num_threads: int
+):
+  """Performs a PTX CTA barrier operation."""
+  if isinstance(barrier_id, int):
+
+    @plgpu.inline_mgpu()
+    def bar_op(_):
+      llvm.inline_asm(
+          ir.Type.parse("!llvm.void"),
+          [],
+          f"bar.{operation} {barrier_id}, {num_threads};",
+          "",
+          has_side_effects=True,
+      )
+
+    bar_op()
+  else:
+
+    @plgpu.inline_mgpu(arg_types=(plgpu.Layout.WG_SPLAT,))
+    def bar_op(_, barrier_id):
+      llvm.inline_asm(
+          ir.Type.parse("!llvm.void"),
+          [barrier_id.registers[()]],
+          f"bar.{operation} $0, {num_threads};",
+          "r",
+          has_side_effects=True,
+      )
+
+    bar_op(barrier_id)
+
+
+bar_arrive = functools.partial(_bar_operation, "arrive")
+bar_sync = functools.partial(_bar_operation, "sync")
 
 
 def int4_as_biased_f8e4m3fn(x, layout):
@@ -104,21 +218,24 @@ def int4_as_biased_f8e4m3fn(x, layout):
 
     def upcast_i4_to_fp8_biased(reg: ir.Value):
 
-      out_struct = llvm.inline_asm(
-          ir.Type.parse("!llvm.struct<(i32, i32)>"),
-          [reg],
-          """
-            {{
-            .reg .b32 biased, evens, odds, odds_raw;
-            xor.b32 biased, $2, 0x88888888;
-            and.b32 evens, biased, 0x0F0F0F0F;
-            shr.u32 odds_raw, biased, 4;
-            and.b32 odds, odds_raw, 0x0F0F0F0F;
-            prmt.b32 $0, evens, odds, 0x5140;
-            prmt.b32 $1, evens, odds, 0x7362;
-            }}
-            """,
-          "=r,=r,r",
+      out_struct = cast(
+          ir.Value,
+          llvm.inline_asm(
+              llvm.StructType.get_literal((i32, i32)),
+              [reg],
+              """
+              {{
+              .reg .b32 odds_raw, c_mask;
+              mov.b32 c_mask, 0x0F0F0F0F;
+              shr.u32 odds_raw, $2, 4;
+              prmt.b32 $0, $2, odds_raw, 0x5140;
+              prmt.b32 $1, $2, odds_raw, 0x7362;
+              lop3.b32 $0, $0, 0x08080808, c_mask, 0x6c;
+              lop3.b32 $1, $1, 0x08080808, c_mask, 0x6c;
+              }}
+              """,
+              "=r,=r,r",
+          ),
       )
 
       lo_i32 = llvm.extractvalue(i32, out_struct, (0,))
@@ -141,3 +258,95 @@ def int4_as_biased_f8e4m3fn(x, layout):
     )
 
   return encode(x)
+
+
+def _get_smem_bytes(x: Any) -> int:
+  if isinstance(x, (plgpu.Barrier, plgpu.ClusterBarrier)):
+    return (n if isinstance(n := x.num_barriers, int) else math.prod(n)) * 8
+
+  if getattr(x, "memory_space", None) == plgpu.SMEM:
+    size_bytes = math.prod(x.shape) * num_bits(x.dtype) // 8
+    return pl.cdiv(size_bytes, 1024) * 1024
+
+  return 0
+
+
+def estimate_smem_bytes(scratch_types: Any) -> int:
+  """Estimates the total SMEM usage in bytes for the given scratch types."""
+  is_ref_union = lambda x: isinstance(x, plgpu.RefUnion)
+  scratch_types_flat = jax.tree.leaves(scratch_types, is_leaf=is_ref_union)
+  return sum(map(_get_smem_bytes, scratch_types_flat))
+
+
+def static_scheduling_persistent_kernel(
+    body: Callable[..., None],
+    out_type: Any = (),
+    *,
+    grid: tuple[int, ...] = (),
+    cluster: tuple[int, ...] = (),
+    **kwargs: Any,
+) -> Callable[..., Any]:
+  """Entry point for defining a persistent Mosaic GPU kernel."""
+
+  launch_grid = (backend.get_default_device().core_count // math.prod(cluster),)
+  launch_grid_name = "$$__sm__$$"
+
+  @jax.custom_batching.custom_vmap
+  def wrapper(*args):
+
+    def wrapped_body(*refs, **scratch_ref_kwargs):
+
+      def grid_loop[T](init_carry: T = None) -> Callable[[Callable[..., T]], T]:
+        return lambda body: plgpu.nd_loop(
+            grid, collective_axes=launch_grid_name, init_carry=init_carry
+        )(functools.partial(body, refs))
+
+      return body(grid_loop, **scratch_ref_kwargs)
+
+    return plgpu.kernel(
+        wrapped_body,
+        out_type=out_type,
+        grid=launch_grid,
+        grid_names=(launch_grid_name,),
+        cluster=cluster,
+        **kwargs,
+    )(*args)
+
+  @wrapper.def_vmap
+  def vmap_rule(axis_size, in_batched, *args):
+    out_batched = jax.tree.map(lambda _: True, out_type)
+
+    def batched_body(batched_grid_loop, **scratch_ref_kwargs):
+
+      def grid_loop[T](init_carry: T = None) -> Callable[[Callable[..., T]], T]:
+
+        def decorator(body: Callable[..., T]) -> T:
+
+          def wrapper(refs, batched_loop_info: plgpu.NDLoopInfo, carry: T) -> T:
+            batch_idx, *idx = batched_loop_info.index
+            slice_ref = lambda r, b: (r.at[batch_idx] if b else r)
+            if isinstance(out_batched, (tuple, list)):
+              batched = (*in_batched, *out_batched)
+            else:
+              batched = (*in_batched, out_batched)
+            refs = jax.tree.map(slice_ref, refs, batched)
+            loop_info = dataclasses.replace(batched_loop_info, index=tuple(idx))
+            return body(refs, loop_info, carry)
+
+          return batched_grid_loop(init_carry=init_carry)(wrapper)
+
+        return decorator
+
+      return body(grid_loop, **scratch_ref_kwargs)
+
+    add_batch_dim = lambda x: x.update(shape=(axis_size, *x.shape))
+    out = static_scheduling_persistent_kernel(
+        batched_body,
+        out_type=jax.tree.map(add_batch_dim, out_type),
+        grid=(axis_size,) + grid,
+        cluster=cluster,
+        **kwargs,
+    )(*args)
+    return out, out_batched
+
+  return wrapper

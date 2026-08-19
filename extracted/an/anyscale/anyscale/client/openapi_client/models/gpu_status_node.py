@@ -42,7 +42,16 @@ class GpuStatusNode(object):
         'cpu_utilization_pct': 'float',
         'cpu_status': 'NodeResourceStatus',
         'memory_utilization_pct': 'float',
-        'memory_status': 'NodeResourceStatus'
+        'memory_status': 'NodeResourceStatus',
+        'gpu_utilization_pct': 'float',
+        'memory_used_bytes': 'float',
+        'memory_total_bytes': 'float',
+        'disk_used_bytes': 'float',
+        'disk_total_bytes': 'float',
+        'object_store_used_bytes': 'float',
+        'object_store_total_bytes': 'float',
+        'network_sent_bytes_per_sec': 'float',
+        'network_received_bytes_per_sec': 'float'
     }
 
     attribute_map = {
@@ -55,10 +64,19 @@ class GpuStatusNode(object):
         'cpu_utilization_pct': 'cpu_utilization_pct',
         'cpu_status': 'cpu_status',
         'memory_utilization_pct': 'memory_utilization_pct',
-        'memory_status': 'memory_status'
+        'memory_status': 'memory_status',
+        'gpu_utilization_pct': 'gpu_utilization_pct',
+        'memory_used_bytes': 'memory_used_bytes',
+        'memory_total_bytes': 'memory_total_bytes',
+        'disk_used_bytes': 'disk_used_bytes',
+        'disk_total_bytes': 'disk_total_bytes',
+        'object_store_used_bytes': 'object_store_used_bytes',
+        'object_store_total_bytes': 'object_store_total_bytes',
+        'network_sent_bytes_per_sec': 'network_sent_bytes_per_sec',
+        'network_received_bytes_per_sec': 'network_received_bytes_per_sec'
     }
 
-    def __init__(self, node_id=None, instance_id=None, hostname=None, node_ip=None, instance_type=None, gpus=None, cpu_utilization_pct=None, cpu_status=None, memory_utilization_pct=None, memory_status=None, local_vars_configuration=None):  # noqa: E501
+    def __init__(self, node_id=None, instance_id=None, hostname=None, node_ip=None, instance_type=None, gpus=None, cpu_utilization_pct=None, cpu_status=None, memory_utilization_pct=None, memory_status=None, gpu_utilization_pct=None, memory_used_bytes=None, memory_total_bytes=None, disk_used_bytes=None, disk_total_bytes=None, object_store_used_bytes=None, object_store_total_bytes=None, network_sent_bytes_per_sec=None, network_received_bytes_per_sec=None, local_vars_configuration=None):  # noqa: E501
         """GpuStatusNode - a model defined in OpenAPI"""  # noqa: E501
         if local_vars_configuration is None:
             local_vars_configuration = Configuration()
@@ -74,6 +92,15 @@ class GpuStatusNode(object):
         self._cpu_status = None
         self._memory_utilization_pct = None
         self._memory_status = None
+        self._gpu_utilization_pct = None
+        self._memory_used_bytes = None
+        self._memory_total_bytes = None
+        self._disk_used_bytes = None
+        self._disk_total_bytes = None
+        self._object_store_used_bytes = None
+        self._object_store_total_bytes = None
+        self._network_sent_bytes_per_sec = None
+        self._network_received_bytes_per_sec = None
         self.discriminator = None
 
         if node_id is not None:
@@ -95,6 +122,24 @@ class GpuStatusNode(object):
             self.memory_utilization_pct = memory_utilization_pct
         if memory_status is not None:
             self.memory_status = memory_status
+        if gpu_utilization_pct is not None:
+            self.gpu_utilization_pct = gpu_utilization_pct
+        if memory_used_bytes is not None:
+            self.memory_used_bytes = memory_used_bytes
+        if memory_total_bytes is not None:
+            self.memory_total_bytes = memory_total_bytes
+        if disk_used_bytes is not None:
+            self.disk_used_bytes = disk_used_bytes
+        if disk_total_bytes is not None:
+            self.disk_total_bytes = disk_total_bytes
+        if object_store_used_bytes is not None:
+            self.object_store_used_bytes = object_store_used_bytes
+        if object_store_total_bytes is not None:
+            self.object_store_total_bytes = object_store_total_bytes
+        if network_sent_bytes_per_sec is not None:
+            self.network_sent_bytes_per_sec = network_sent_bytes_per_sec
+        if network_received_bytes_per_sec is not None:
+            self.network_received_bytes_per_sec = network_received_bytes_per_sec
 
     @property
     def node_id(self):
@@ -327,6 +372,213 @@ class GpuStatusNode(object):
         """
 
         self._memory_status = memory_status
+
+    @property
+    def gpu_utilization_pct(self):
+        """Gets the gpu_utilization_pct of this GpuStatusNode.  # noqa: E501
+
+        Mean utilization over the node's GPUs that reported one -- the group rollup's GPU-utilization derivation, at node scope. Null when no GPU on the node reported utilization.  # noqa: E501
+
+        :return: The gpu_utilization_pct of this GpuStatusNode.  # noqa: E501
+        :rtype: float
+        """
+        return self._gpu_utilization_pct
+
+    @gpu_utilization_pct.setter
+    def gpu_utilization_pct(self, gpu_utilization_pct):
+        """Sets the gpu_utilization_pct of this GpuStatusNode.
+
+        Mean utilization over the node's GPUs that reported one -- the group rollup's GPU-utilization derivation, at node scope. Null when no GPU on the node reported utilization.  # noqa: E501
+
+        :param gpu_utilization_pct: The gpu_utilization_pct of this GpuStatusNode.  # noqa: E501
+        :type: float
+        """
+
+        self._gpu_utilization_pct = gpu_utilization_pct
+
+    @property
+    def memory_used_bytes(self):
+        """Gets the memory_used_bytes of this GpuStatusNode.  # noqa: E501
+
+        Node memory used in bytes (from the Ray node series). Null when the node has no memory sample in the snapshot window.  # noqa: E501
+
+        :return: The memory_used_bytes of this GpuStatusNode.  # noqa: E501
+        :rtype: float
+        """
+        return self._memory_used_bytes
+
+    @memory_used_bytes.setter
+    def memory_used_bytes(self, memory_used_bytes):
+        """Sets the memory_used_bytes of this GpuStatusNode.
+
+        Node memory used in bytes (from the Ray node series). Null when the node has no memory sample in the snapshot window.  # noqa: E501
+
+        :param memory_used_bytes: The memory_used_bytes of this GpuStatusNode.  # noqa: E501
+        :type: float
+        """
+
+        self._memory_used_bytes = memory_used_bytes
+
+    @property
+    def memory_total_bytes(self):
+        """Gets the memory_total_bytes of this GpuStatusNode.  # noqa: E501
+
+        Node memory total in bytes (from the Ray node series). Null when the node has no memory sample in the snapshot window.  # noqa: E501
+
+        :return: The memory_total_bytes of this GpuStatusNode.  # noqa: E501
+        :rtype: float
+        """
+        return self._memory_total_bytes
+
+    @memory_total_bytes.setter
+    def memory_total_bytes(self, memory_total_bytes):
+        """Sets the memory_total_bytes of this GpuStatusNode.
+
+        Node memory total in bytes (from the Ray node series). Null when the node has no memory sample in the snapshot window.  # noqa: E501
+
+        :param memory_total_bytes: The memory_total_bytes of this GpuStatusNode.  # noqa: E501
+        :type: float
+        """
+
+        self._memory_total_bytes = memory_total_bytes
+
+    @property
+    def disk_used_bytes(self):
+        """Gets the disk_used_bytes of this GpuStatusNode.  # noqa: E501
+
+        Disk space used across the node's mounts, in bytes (from the Ray node series). Null when the node has no disk sample in the snapshot window.  # noqa: E501
+
+        :return: The disk_used_bytes of this GpuStatusNode.  # noqa: E501
+        :rtype: float
+        """
+        return self._disk_used_bytes
+
+    @disk_used_bytes.setter
+    def disk_used_bytes(self, disk_used_bytes):
+        """Sets the disk_used_bytes of this GpuStatusNode.
+
+        Disk space used across the node's mounts, in bytes (from the Ray node series). Null when the node has no disk sample in the snapshot window.  # noqa: E501
+
+        :param disk_used_bytes: The disk_used_bytes of this GpuStatusNode.  # noqa: E501
+        :type: float
+        """
+
+        self._disk_used_bytes = disk_used_bytes
+
+    @property
+    def disk_total_bytes(self):
+        """Gets the disk_total_bytes of this GpuStatusNode.  # noqa: E501
+
+        Total disk space across the node's mounts, in bytes (used + free). Null unless both samples are present in the snapshot window.  # noqa: E501
+
+        :return: The disk_total_bytes of this GpuStatusNode.  # noqa: E501
+        :rtype: float
+        """
+        return self._disk_total_bytes
+
+    @disk_total_bytes.setter
+    def disk_total_bytes(self, disk_total_bytes):
+        """Sets the disk_total_bytes of this GpuStatusNode.
+
+        Total disk space across the node's mounts, in bytes (used + free). Null unless both samples are present in the snapshot window.  # noqa: E501
+
+        :param disk_total_bytes: The disk_total_bytes of this GpuStatusNode.  # noqa: E501
+        :type: float
+        """
+
+        self._disk_total_bytes = disk_total_bytes
+
+    @property
+    def object_store_used_bytes(self):
+        """Gets the object_store_used_bytes of this GpuStatusNode.  # noqa: E501
+
+        Ray object store memory used on the node, in bytes. Null when the node has no object store sample in the snapshot window.  # noqa: E501
+
+        :return: The object_store_used_bytes of this GpuStatusNode.  # noqa: E501
+        :rtype: float
+        """
+        return self._object_store_used_bytes
+
+    @object_store_used_bytes.setter
+    def object_store_used_bytes(self, object_store_used_bytes):
+        """Sets the object_store_used_bytes of this GpuStatusNode.
+
+        Ray object store memory used on the node, in bytes. Null when the node has no object store sample in the snapshot window.  # noqa: E501
+
+        :param object_store_used_bytes: The object_store_used_bytes of this GpuStatusNode.  # noqa: E501
+        :type: float
+        """
+
+        self._object_store_used_bytes = object_store_used_bytes
+
+    @property
+    def object_store_total_bytes(self):
+        """Gets the object_store_total_bytes of this GpuStatusNode.  # noqa: E501
+
+        Total Ray object store memory on the node, in bytes (used + available). Null unless both samples are present in the snapshot window.  # noqa: E501
+
+        :return: The object_store_total_bytes of this GpuStatusNode.  # noqa: E501
+        :rtype: float
+        """
+        return self._object_store_total_bytes
+
+    @object_store_total_bytes.setter
+    def object_store_total_bytes(self, object_store_total_bytes):
+        """Sets the object_store_total_bytes of this GpuStatusNode.
+
+        Total Ray object store memory on the node, in bytes (used + available). Null unless both samples are present in the snapshot window.  # noqa: E501
+
+        :param object_store_total_bytes: The object_store_total_bytes of this GpuStatusNode.  # noqa: E501
+        :type: float
+        """
+
+        self._object_store_total_bytes = object_store_total_bytes
+
+    @property
+    def network_sent_bytes_per_sec(self):
+        """Gets the network_sent_bytes_per_sec of this GpuStatusNode.  # noqa: E501
+
+        Node network send throughput in bytes per second. Null when the node has no network sample in the snapshot window.  # noqa: E501
+
+        :return: The network_sent_bytes_per_sec of this GpuStatusNode.  # noqa: E501
+        :rtype: float
+        """
+        return self._network_sent_bytes_per_sec
+
+    @network_sent_bytes_per_sec.setter
+    def network_sent_bytes_per_sec(self, network_sent_bytes_per_sec):
+        """Sets the network_sent_bytes_per_sec of this GpuStatusNode.
+
+        Node network send throughput in bytes per second. Null when the node has no network sample in the snapshot window.  # noqa: E501
+
+        :param network_sent_bytes_per_sec: The network_sent_bytes_per_sec of this GpuStatusNode.  # noqa: E501
+        :type: float
+        """
+
+        self._network_sent_bytes_per_sec = network_sent_bytes_per_sec
+
+    @property
+    def network_received_bytes_per_sec(self):
+        """Gets the network_received_bytes_per_sec of this GpuStatusNode.  # noqa: E501
+
+        Node network receive throughput in bytes per second. Null when the node has no network sample in the snapshot window.  # noqa: E501
+
+        :return: The network_received_bytes_per_sec of this GpuStatusNode.  # noqa: E501
+        :rtype: float
+        """
+        return self._network_received_bytes_per_sec
+
+    @network_received_bytes_per_sec.setter
+    def network_received_bytes_per_sec(self, network_received_bytes_per_sec):
+        """Sets the network_received_bytes_per_sec of this GpuStatusNode.
+
+        Node network receive throughput in bytes per second. Null when the node has no network sample in the snapshot window.  # noqa: E501
+
+        :param network_received_bytes_per_sec: The network_received_bytes_per_sec of this GpuStatusNode.  # noqa: E501
+        :type: float
+        """
+
+        self._network_received_bytes_per_sec = network_received_bytes_per_sec
 
     def to_dict(self):
         """Returns the model properties as a dict"""

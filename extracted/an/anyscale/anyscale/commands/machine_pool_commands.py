@@ -59,6 +59,7 @@ def machine_pool_cli() -> None:
 )
 @click.option(
     "--name",
+    "-n",
     type=str,
     required=True,
     help="Provide a machine pool name (must be unique within an organization).",
@@ -90,7 +91,9 @@ def create_machine_pool(name: str) -> None:
     cls=AnyscaleCommand,
     is_beta=True,
 )
-@click.option("--name", type=str, required=True, help="Provide a machine pool name.")
+@click.option(
+    "--name", "-n", type=str, required=True, help="Provide a machine pool name."
+)
 @click.option(
     "--spec-file",
     type=str,
@@ -139,7 +142,9 @@ def update_machine_pool(name: str, spec_file: str) -> None:
     cls=AnyscaleCommand,
     is_beta=True,
 )
-@click.option("--name", type=str, required=True, help="Provide a machine pool name.")
+@click.option(
+    "--name", "-n", type=str, required=True, help="Provide a machine pool name."
+)
 @click.option(
     "--format",
     "format_",
@@ -280,7 +285,9 @@ def describe(name: str, format_: str, output_format: str) -> None:
     cls=AnyscaleCommand,
     is_beta=True,
 )
-@click.option("--name", type=str, required=True, help="Provide a machine pool name.")
+@click.option(
+    "--name", "-n", type=str, required=True, help="Provide a machine pool name."
+)
 def delete_machine_pool(name: str) -> None:
     machine_pool_controller = MachinePoolController()
     machine_pool_controller.delete_machine_pool(machine_pool_name=name)
@@ -421,7 +428,9 @@ def list_machine_pools(format_: str, output_format: str) -> None:
     cls=AnyscaleCommand,
     is_beta=True,
 )
-@click.option("--name", type=str, required=True, help="Provide a machine pool name.")
+@click.option(
+    "--name", "-n", type=str, required=True, help="Provide a machine pool name."
+)
 @click.option("--cloud", type=str, required=True, help="Provide a cloud name.")
 @click.option(
     "--resource",
@@ -464,7 +473,9 @@ def attach_machine_pool_to_cloud(
     cls=AnyscaleCommand,
     is_beta=True,
 )
-@click.option("--name", type=str, required=True, help="Provide a machine pool name.")
+@click.option(
+    "--name", "-n", type=str, required=True, help="Provide a machine pool name."
+)
 @click.option("--cloud", type=str, required=True, help="Provide a cloud name.")
 @click.option(
     "--resource",

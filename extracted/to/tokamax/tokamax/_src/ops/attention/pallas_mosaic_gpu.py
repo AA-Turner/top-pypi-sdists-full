@@ -16,7 +16,7 @@
 
 import dataclasses
 import functools
-from typing import Any, ClassVar, TypeAlias
+from typing import Any, ClassVar, override
 
 import immutabledict
 import jax
@@ -25,7 +25,6 @@ from jaxtyping import Array, Bool, Float, Int  # pylint: disable=g-multiple-impo
 from tokamax._src import batching
 from tokamax._src import gpu_utils
 from tokamax._src import jaxtyping
-from tokamax._src import quantization
 from tokamax._src import shape as shape_lib
 from tokamax._src.ops import op
 from tokamax._src.ops.attention import base
@@ -33,21 +32,17 @@ from tokamax._src.ops.attention import pallas_mosaic_gpu_common as common
 from tokamax._src.ops.attention import pallas_mosaic_gpu_kernel_sm100 as sm100
 from tokamax._src.ops.attention import pallas_mosaic_gpu_kernel_sm90 as sm90
 from tokamax._src.ops.attention import pallas_mosaic_gpu_vjp as vjp
-from typing_extensions import override
+
 
 # TODO: Make attention Config a pydantic discriminated union.
 ConfigSM90 = sm90.Config
 ConfigSM100 = sm100.Config
-Config = ConfigSM90 | ConfigSM100
-Key: TypeAlias = immutabledict.immutabledict[str, Any]
+type Config = ConfigSM90 | ConfigSM100
+type Key = immutabledict.immutabledict[str, Any]
 Mask = base.Mask
 PagingInfo = base.PagingInfo
 QArray = base.QArray
 Residuals = base.Residuals
-
-
-def _broadcast_to_rank(x, rank):
-  return None if x is None else jax.lax.broadcast_to_rank(x, rank)
 
 
 def _get_kernel_module():
@@ -78,7 +73,7 @@ class PallasMosaicGpuFlashAttention(base.DotProductAttention[Config, Key]):
       stability. It is ignored when not using stable softmax.
   """
 
-  config_cls: ClassVar[type[Config]] = Config
+  config_cls: ClassVar[type[Config]] = Config.__value__
   supports_symbolic_shapes: ClassVar[bool] = False
   use_stable_softmax: bool | type[base.AUTO] = base.AUTO
   rescale_threshold: float = 1.0
@@ -96,7 +91,7 @@ class PallasMosaicGpuFlashAttention(base.DotProductAttention[Config, Key]):
       k: Float[Array | QArray, "*B t h D"],
       v: Float[Array | QArray, "*B t h d"],
       *,
-      precision: tuple[jax.lax.DotAlgorithmPreset, jax.lax.DotAlgorithmPreset],
+      precision: tuple[base.CanonicalPrecision, base.CanonicalPrecision],
       logits_dtype: jnp.dtype,
       logits_scale: float,
       bias: Float[Array, "*#B #H #T #t"] | None,
@@ -130,59 +125,35 @@ class PallasMosaicGpuFlashAttention(base.DotProductAttention[Config, Key]):
     if paging_info is not None:
       raise NotImplementedError("Paged attention not supported.")
 
-    # TODO: Support in-kernel dequantization.
-    q, k, v = map(quantization.as_array, (q, k, v))
     out_dtype = q.dtype
-
-    def cast(x, precision):
-      msg = lambda dt: f"Only {dt} supported for {precision=}, got {x.dtype=}"
-      if precision == jax.lax.DotAlgorithmPreset.DEFAULT:
-        if x.dtype not in (jnp.float16, jnp.bfloat16):
-          raise NotImplementedError(msg("f16 and bf16"))
-        return x
-      if x.dtype not in precision.supported_lhs_types:
-        raise NotImplementedError(msg(precision.supported_lhs_types))
-      if precision == jax.lax.DotAlgorithmPreset.BF16_BF16_F32:
-        return x.astype(jnp.bfloat16)
-      if precision == jax.lax.DotAlgorithmPreset.F16_F16_F32:
-        return x.astype(jnp.float16)
-      raise NotImplementedError(f"Unsupported {precision=}")
-
-    q_k_dot_precision, weights_v_dot_precision = precision
-    # TODO: Avoid silently downcasting types.
-    q = cast(q, q_k_dot_precision)
-    k = cast(k, q_k_dot_precision)
-    v = cast(v, weights_v_dot_precision)
-
     orig_seq_len_q = q.shape[-3]
-    if isinstance(config, common.ConfigBase) and config.fold_q_sequence_heads:
-      q, bias, mask, _, q_indices = base.fold_q_sequence_heads(
-          q, bias, mask, dropout_mask, q_indices, k.shape[-3], k.shape[-2]
-      )
-
-    mask, is_causal, k_start, k_end = common.decompose_mask(
-        mask, q, k, q_indices, k_indices
+    orig_seq_len_k = k.shape[-3]
+    q, k, v, bias, mask, is_causal, k_start, k_end = common.prepare_inputs(
+        q,
+        k,
+        v,
+        bias=bias,
+        mask=mask,
+        q_indices=q_indices,
+        k_indices=k_indices,
+        precision=precision,
+        fold_q_sequence_heads=config.fold_q_sequence_heads,
     )
 
+    if orig_seq_len_k % (config.split_k * config.block_kv) != 0:
+      if k_end is None:
+        k_end = jnp.full([1] * (q.ndim - 1), orig_seq_len_k, jnp.int32)
+      else:
+        k_end = jnp.minimum(k_end, orig_seq_len_k)
+
     use_stable_softmax = self.use_stable_softmax
+    split_k = config.split_k
 
     if isinstance(config, ConfigSM100):
       kernel_module = sm100
       if use_stable_softmax is base.AUTO:
         # TODO: Support sm100 with unstable softmax.
         use_stable_softmax = True
-
-      # TMA requires 16-byte aligned strides. If the last dimension is
-      # 1 (e.g. broadcasting), the stride of the second-to-last
-      # dimension is small (1 element), violating the requirement. We
-      # broadcast explicitly to fix this.
-      kv_seq_len = k.shape[-3]
-      if mask is not None and mask.shape[-1] == 1 and kv_seq_len > 1:
-        mask = jnp.broadcast_to(mask, mask.shape[:-1] + (kv_seq_len,))
-      if bias is not None and bias.shape[-1] == 1 and kv_seq_len > 1:
-        bias = jnp.broadcast_to(bias, bias.shape[:-1] + (kv_seq_len,)).astype(
-            bias.dtype
-        )
     elif isinstance(config, ConfigSM90):
       kernel_module = sm90
       if use_stable_softmax is base.AUTO:
@@ -204,12 +175,6 @@ class PallasMosaicGpuFlashAttention(base.DotProductAttention[Config, Key]):
         rescale_threshold=self.rescale_threshold,
         config=config,
     )
-    bias = _broadcast_to_rank(bias, q.ndim)
-    mask = _broadcast_to_rank(mask, q.ndim)
-    k_start = _broadcast_to_rank(k_start, q.ndim - 1)
-    k_end = _broadcast_to_rank(k_end, q.ndim - 1)
-
-    split_k = config.split_k
 
     def pad_seq_k(x, axis):
       if x is None or axis is None or x.shape[axis] == 1:
@@ -241,7 +206,14 @@ class PallasMosaicGpuFlashAttention(base.DotProductAttention[Config, Key]):
 
   @override
   def _get_heuristics_config(self, ba: op.BoundArguments) -> Config:
-    return _get_kernel_module().get_heuristics_config(ba)
+    return self._get_heuristics_config_impl(ba, fold_q_sequence_heads=False)
+
+  def _get_heuristics_config_impl(
+      self, ba: op.BoundArguments, *, fold_q_sequence_heads: bool
+  ) -> Config:
+    return _get_kernel_module().get_heuristics_config(
+        ba, fold_q_sequence_heads=fold_q_sequence_heads
+    )
 
   @override
   def _get_autotuning_configs(self, ba: op.BoundArguments) -> set[Config]:

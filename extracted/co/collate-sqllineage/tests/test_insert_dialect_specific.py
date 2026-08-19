@@ -113,7 +113,6 @@ WHERE  listid IN( 500, 501, 502 ); """
         {"test_schema.sales"},
         {"test_schema.union_all_test"},
         dialect=dialect,
-        test_sqlparse=False,
     )
     assert_column_lineage_equal(
         sql,

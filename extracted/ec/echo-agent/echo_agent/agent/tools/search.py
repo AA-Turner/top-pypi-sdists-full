@@ -48,9 +48,10 @@ class SearchFilesTool(Tool):
     }
     timeout_seconds = 30
 
-    def __init__(self, workspace: str, restrict: bool = False):
+    def __init__(self, workspace: str, restrict: bool = False, spill_root: Path | None = None):
         self._workspace = Path(workspace).resolve()
         self._restrict = restrict
+        self._spill_root = spill_root
 
     async def execute(self, params: dict[str, Any], ctx: ToolExecutionContext | None = None) -> ToolResult:
         pattern = params["pattern"]
@@ -64,7 +65,10 @@ class SearchFilesTool(Tool):
                 search_root.relative_to(self._workspace)
             except ValueError:
                 return ToolResult(success=False, error="Path outside workspace")
-        violation = check_read(str(search_root), str(self._workspace))
+        # spill 闸门:一次搜索会横扫整棵子树,若 spill 根落在工作区内(默认
+        # data/spill 就是),一个 path="." 的搜索便会把其他会话的产物内容当作
+        # 匹配行返回——比按路径读取更容易撞上,且模型并非有意越权。
+        violation = check_read(str(search_root), str(self._workspace), spill_root=self._spill_root)
         if violation:
             return ToolResult(success=False, error=violation)
 
@@ -90,12 +94,33 @@ class SearchFilesTool(Tool):
         rglob("*"), which materialises every entry then filters). Prunes
         in-place via the dirnames slice so large vendored trees are skipped
         at the top rather than walked.
+
+        The spill root is pruned here as well, not just gated at *root*: the
+        default spill dir lives inside the workspace, so a search rooted at "."
+        would otherwise descend into it and return other sessions' artifact
+        contents as matching lines. Gating the search root only catches a search
+        aimed *at* the spill dir; this catches every search that merely contains
+        it.
         """
+        spill_root = self._spill_root.resolve() if self._spill_root else None
         for dirpath, dirnames, filenames in os.walk(root, followlinks=False):
-            dirnames[:] = [d for d in dirnames if d not in _SKIP_DIRS]
             base = Path(dirpath)
+            dirnames[:] = [
+                d for d in dirnames
+                if d not in _SKIP_DIRS and not self._is_spill(base / d, spill_root)
+            ]
             for name in filenames:
                 yield base / name
+
+    @staticmethod
+    def _is_spill(candidate: Path, spill_root: Path | None) -> bool:
+        if spill_root is None:
+            return False
+        try:
+            resolved = candidate.resolve()
+        except OSError:
+            return False
+        return resolved == spill_root or spill_root in resolved.parents
 
     def _glob_search(self, root: Path, pattern: str, limit: int) -> ToolResult:
         matches: list[str] = []

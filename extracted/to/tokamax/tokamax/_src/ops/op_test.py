@@ -14,20 +14,24 @@
 # ==============================================================================
 
 import dataclasses
-import types
 from typing import Any, ClassVar
 
 from absl.testing import absltest
 from absl.testing import parameterized
 import jax
+from jax.extend import backend
 import jax.numpy as jnp
+import tokamax
 from tokamax._src import batching
 from tokamax._src import config as config_lib
+from tokamax._src import hlo_utils
 from tokamax._src import utils
 from tokamax._src.ops import op as op_lib
 from tokamax._src.ops.attention import arg_specs as attn_arg_specs
 from tokamax._src.ops.attention import base as attn_base
 from tokamax._src.ops.attention import pallas_triton as pl_attn
+from tokamax._src.ops.gated_linear_unit import arg_specs as glu_arg_specs
+from tokamax._src.ops.gated_linear_unit import base as glu_base
 from tokamax._src.ops.normalization import arg_specs as norm_arg_specs
 from tokamax._src.ops.normalization import base as norm_base
 from tokamax._src.ops.ragged_dot import arg_specs as ragged_dot_arg_specs
@@ -35,6 +39,7 @@ from tokamax._src.ops.ragged_dot import base as ragged_dot_base
 from tokamax._src.ops.ragged_dot import pallas_triton as pl_ragged_dot
 
 _ATTN_ARG_SPECS = attn_arg_specs.ARG_SPECS
+_GLU_ARG_SPECS = glu_arg_specs.ARG_SPECS
 _NORM_ARG_SPECS = norm_arg_specs.ARG_SPECS
 _RAGGED_DOT_ARG_SPECS = ragged_dot_arg_specs.ARG_SPECS
 
@@ -49,9 +54,9 @@ def _eval_shape(spec):
   if not callable(spec):
     return spec
 
-  other = [None]
-  merge = [None]
-  out_tree = [None]
+  other: list[Any] = [None]
+  merge: list[Any] = [None]
+  out_tree: list[Any] = [None]
 
   def f():
     out = spec()
@@ -74,7 +79,7 @@ _HEURISTICS_CONFIG = _FakeOpConfig(1)
 _AUTOTUNE_CONFIG = _FakeOpConfig(2)
 
 
-class _FakeOp(op_lib.Op[Any, jax.Array, types.NoneType, _FakeOpConfig, Any]):
+class _FakeOp(op_lib.Op[Any, jax.Array, None, _FakeOpConfig, Any]):
   config_cls: ClassVar[type[_FakeOpConfig]] = _FakeOpConfig
 
   def _fwd(self, x: jax.Array, y: jax.Array, *, return_residuals: bool, config):
@@ -160,6 +165,17 @@ class BoundArgumentsTest(parameterized.TestCase):
     self.assertIs(results.fastest_config, config)
     self.assertNotEmpty(cache)
 
+  def test_autotune_with_timeout(self):
+    config = _FakeOpConfig(3)
+    x = jnp.zeros((1, 2))
+    y = jnp.ones((1, 2))
+    results = (
+        _FakeOp()
+        .bind(x, y)
+        .autotune({config}, cache_results=False, timeout=120.0)
+    )
+    self.assertIs(results.fastest_config, config)
+
   @parameterized.parameters(
       ((1,), (None,)), ((0, 0), (0, None)), ((1, 0), (None, 0))
   )
@@ -190,6 +206,7 @@ class BoundArgumentsTest(parameterized.TestCase):
           pl_attn.PallasTritonFlashAttention(use_stable_softmax=True),
           _ATTN_ARG_SPECS,
       ),
+      ("glu", glu_base.GatedLinearUnit(), _GLU_ARG_SPECS),
       ("normalization", norm_base.Normalization(), _NORM_ARG_SPECS),
       ("ragged_dot", ragged_dot_base.RaggedDot(), _RAGGED_DOT_ARG_SPECS),
       (
@@ -218,6 +235,29 @@ class BoundArgumentsTest(parameterized.TestCase):
         self.assertEqual(ba, ba2.replace(op=ba2.op.replace(vjp=None)))
         ba3 = adapter.validate_json(adapter.dump_json(ba))
         self.assertEqual(ba, ba3.replace(op=ba3.op.replace(vjp=None)))
+
+  def test_ignore_cache_overlay(self):
+    if "H100" not in backend.get_default_device().device_kind:
+      self.skipTest("Only test on H100 GPU.")
+    # Use a real op so that we have a real autotuning cache.
+    # Read in the autotuning cache and then with the overlay it should be None.
+    ba = norm_base.Normalization().bind(
+        x=jax.ShapeDtypeStruct((2, 2), jnp.bfloat16),  # pyrefly: ignore[bad-argument-type]
+        scale=None,
+        offset=None,
+        axis=-1,
+        epsilon=1e-6,
+        scale_offset=0.0,
+        subtract_mean=False,
+        return_residuals=False,
+    )
+    self.assertIsNotNone(ba.cached_autotuning_data)
+
+    with config_lib.ignore_autotuning_cache(True):
+      self.assertIsNone(ba.cached_autotuning_data)
+
+    with config_lib.ignore_autotuning_cache(False):
+      self.assertIsNotNone(ba.cached_autotuning_data)
 
 
 if __name__ == "__main__":

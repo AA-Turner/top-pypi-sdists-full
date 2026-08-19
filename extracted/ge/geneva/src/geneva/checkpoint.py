@@ -11,6 +11,7 @@ import os
 import re
 import tempfile
 import threading
+import time
 from collections.abc import Callable, Iterator
 from concurrent.futures import ThreadPoolExecutor
 from enum import Enum
@@ -26,6 +27,7 @@ from geneva.checkpoint_utils import hash_string
 from geneva.config import ConfigBase, str_to_bool
 from geneva.errors import CorruptCheckpointError
 from geneva.utils import retry_lance
+from geneva.utils.object_store_retry import is_not_found_object_store_message
 from geneva.utils.storage import timed_list, timed_list_with_delimiter
 
 if TYPE_CHECKING:
@@ -56,6 +58,16 @@ def set_checkpoint_store_wrap(
     ``lambda s: s`` to reset to production behavior."""
     global _CHECKPOINT_WRAP
     _CHECKPOINT_WRAP = fn
+
+
+def _is_transient_table_not_found(exc: BaseException) -> bool:
+    """True for a not-found a throttled listing could be faking."""
+    with contextlib.suppress(Exception):
+        from lance_namespace.errors import TableNotFoundError
+
+        if isinstance(exc, TableNotFoundError):
+            return True
+    return is_not_found_object_store_message(str(exc).lower())
 
 
 @contextlib.contextmanager
@@ -367,6 +379,81 @@ def _batch_lance_file_version(batch: pa.RecordBatch) -> str | None:
     return None
 
 
+# Durable record of a checkpoint batch's row count, stamped into its schema metadata at
+# write time. ``RecordBatch.slice`` and the Lance round-trip both preserve schema
+# metadata, so a resume recovers the intended count even when the file landed short. The
+# value is the physical row count (correct for filtered/sparse scans, smaller than the
+# key span); compare against it, never the span.
+_CHECKPOINT_NUM_ROWS_KEY = b"geneva::checkpoint::num_rows"
+
+
+def stamp_checkpoint_num_rows(
+    batch: pa.RecordBatch, num_rows: int | None = None
+) -> pa.RecordBatch:
+    """Stamp the materialized row count into ``batch``'s schema metadata.
+
+    ``num_rows`` defaults to ``batch.num_rows``; pass it explicitly when stamping a
+    batch that may already have been truncated so the recorded count reflects the
+    full, intended size.
+    """
+    count = batch.num_rows if num_rows is None else int(num_rows)
+    metadata = dict(batch.schema.metadata or {})
+    metadata[_CHECKPOINT_NUM_ROWS_KEY] = str(int(count)).encode()
+    return batch.replace_schema_metadata(metadata)
+
+
+def read_checkpoint_num_rows(batch: pa.RecordBatch) -> int | None:
+    """Return the stamped row count, or ``None`` for a legacy/unstamped checkpoint."""
+    raw = (batch.schema.metadata or {}).get(_CHECKPOINT_NUM_ROWS_KEY)
+    if raw is None:
+        return None
+    try:
+        return int(raw)
+    except (TypeError, ValueError):
+        return None
+
+
+def discard_short_checkpoint(
+    store: "CheckpointStore", key: str, batch: pa.RecordBatch
+) -> bool:
+    """Reject a short/truncated checkpoint read back during resume reconstruction.
+
+    Compares ``batch.num_rows`` against the count the producer stamped at write
+    time. On a shortfall the stored file is partial: reusing it would gap-fill or
+    crash the writer, so delete the poisoned key and return ``True`` so the caller
+    recomputes the range. Returns ``False`` for a full checkpoint or a legacy one
+    written before the stamp existed (which cannot be validated and is left as-is).
+    """
+    expected = read_checkpoint_num_rows(batch)
+    if expected is None or batch.num_rows == expected:
+        return False
+    try:
+        store.delete(key)
+    except Exception:
+        _LOG.exception("Failed to invalidate short checkpoint %s", key)
+    _LOG.warning(
+        "checkpoint %s holds %d rows, expected %d; treating as a gap so resume "
+        "recomputes it",
+        key,
+        batch.num_rows,
+        expected,
+    )
+    return True
+
+
+def strip_checkpoint_num_rows(batch: pa.RecordBatch) -> pa.RecordBatch:
+    """Drop the row-count stamp so it doesn't leak into a committed fragment schema.
+
+    The fragment writer derives the committed file schema from the checkpoint batch,
+    so the resume-only stamp must be removed before the batch is written out.
+    """
+    metadata = dict(batch.schema.metadata or {})
+    if _CHECKPOINT_NUM_ROWS_KEY not in metadata:
+        return batch
+    metadata.pop(_CHECKPOINT_NUM_ROWS_KEY)
+    return batch.replace_schema_metadata(metadata or None)
+
+
 def _is_lance_reader_panic(exc: BaseException) -> bool:
     """True if ``exc`` is a Lance/pyo3 reader panic, not a normal IO/value error.
 
@@ -380,6 +467,16 @@ def _is_lance_reader_panic(exc: BaseException) -> bool:
     ):
         return True
     return "panicked" in str(exc)
+
+
+def _validate_checkpoint_read_range(start: int, num_rows: int) -> None:
+    """Reject negative offsets or lengths before accessing a checkpoint store."""
+    if start < 0:
+        raise ValueError(f"checkpoint range start must be non-negative, got {start}")
+    if num_rows < 0:
+        raise ValueError(
+            f"checkpoint range row count must be non-negative, got {num_rows}"
+        )
 
 
 class CheckpointStore(abc.ABC):
@@ -399,6 +496,17 @@ class CheckpointStore(abc.ABC):
     @abc.abstractmethod
     def __getitem__(self, item: str) -> pa.RecordBatch:
         pass
+
+    def read_range(self, key: str, start: int, num_rows: int) -> pa.RecordBatch:
+        """Read a physical row range from a checkpoint.
+
+        The default implementation preserves correctness for wrappers and custom
+        stores by slicing a fully materialized checkpoint. Lance-backed stores
+        override this method to avoid materializing rows outside the requested
+        range.
+        """
+        _validate_checkpoint_read_range(start, num_rows)
+        return self[key].slice(start, num_rows)
 
     @abc.abstractmethod
     def __setitem__(self, key: str, value: pa.RecordBatch) -> None:
@@ -665,15 +773,53 @@ class MultiBaseCheckpointStore(CheckpointStore):
         if storage_options is None:
             storage_options = getattr(self.default_store, "storage_options", None)
         if issubclass(store_cls, HierarchicalLanceCheckpointStore):
-            return store_cls(
+            store: FlatLanceCheckpointStore = store_cls(
                 base_uri,
                 storage_options=storage_options,
                 write_identity_sidecar=self.write_identity_sidecar,
             )
-        return store_cls(base_uri, storage_options=storage_options)
+        else:
+            store = store_cls(base_uri, storage_options=storage_options)
+        # Base stores have no namespace context of their own; on a credential
+        # error the reactive @retry_lance refresh re-vends through the default
+        # store (shared table creds) instead of being a silent no-op.
+        store._revend_source = self.default_store
+        return store
+
+    def _maybe_refresh_base_stores(self) -> None:
+        """Re-vend near-expiry base-store credentials and rebuild the base stores.
+
+        Base stores are plain-rooted and carry no namespace context, so unlike
+        the default store they cannot self-refresh (their inherited
+        ``_maybe_refresh_storage_options`` is a no-op without a ``table_id``).
+        They share the table's vended credentials, so re-vend once through the
+        default store's namespace client and rebuild every base store with the
+        fresh options. No-op for static / non-namespace credentials.
+        """
+        if not self.base_stores:
+            return
+        from geneva.credentials import refresh_storage_options
+
+        current = self.base_storage_options
+        if current is None:
+            current = getattr(self.default_store, "storage_options", None)
+        fresh = refresh_storage_options(
+            current,
+            table_id=getattr(self.default_store, "table_id", None),
+            namespace_client_factory=getattr(
+                self.default_store, "_resolve_namespace_client", None
+            ),
+        )
+        if fresh is not current:
+            self.base_storage_options = fresh
+            self.base_stores = {
+                base_id: self._make_base_store(base_uri)
+                for base_id, base_uri in self.base_checkpoint_uris.items()
+            }
 
     def _store_for_key(self, key: str) -> CheckpointStore:
         """The store a key is written to (strict routing, no fallback)."""
+        self._maybe_refresh_base_stores()
         frag_id = parse_frag_id_from_checkpoint_key(key)
         if frag_id is None:
             return self.default_store
@@ -701,6 +847,7 @@ class MultiBaseCheckpointStore(CheckpointStore):
 
     def store_for_frag(self, frag_id: int) -> CheckpointStore:
         """The store fragment ``frag_id``'s checkpoints are written to."""
+        self._maybe_refresh_base_stores()
         base_id = self.frag_to_base.get(frag_id)
         if base_id is None:
             return self.default_store
@@ -716,10 +863,19 @@ class MultiBaseCheckpointStore(CheckpointStore):
                 return store[item]
         return stores[-1][item]
 
+    def read_range(self, key: str, start: int, num_rows: int) -> pa.RecordBatch:
+        _validate_checkpoint_read_range(start, num_rows)
+        stores = self._stores_for_key_read(key)
+        for store in stores[:-1]:
+            with contextlib.suppress(KeyError):
+                return store.read_range(key, start, num_rows)
+        return stores[-1].read_range(key, start, num_rows)
+
     def __setitem__(self, key: str, value: pa.RecordBatch) -> None:
         self._store_for_key(key)[key] = value
 
     def list_keys(self, prefix: str = "") -> Iterator[str]:
+        self._maybe_refresh_base_stores()
         seen: set[str] = set()
         for store in (self.default_store, *self.base_stores.values()):
             for key in store.list_keys(prefix):
@@ -779,6 +935,7 @@ class MultiBaseCheckpointStore(CheckpointStore):
             stores[store_id].purge_many(group)
 
     def has_udf_version_mismatch(self, column: str, current_udf_version: str) -> bool:
+        self._maybe_refresh_base_stores()
         # Any-child delegation is correct here (a stale version in any store
         # is a mismatch) and keeps each child's layout-optimized scan.
         return any(
@@ -838,6 +995,10 @@ class InMemoryCheckpointStore(CheckpointStore):
 
     def __getitem__(self, item: str) -> pa.RecordBatch:
         return self._store[item]
+
+    def read_range(self, key: str, start: int, num_rows: int) -> pa.RecordBatch:
+        _validate_checkpoint_read_range(start, num_rows)
+        return self._store[key].slice(start, num_rows)
 
     def __setitem__(self, key: str, value: pa.RecordBatch) -> None:
         self._store[key] = value
@@ -905,6 +1066,15 @@ class FlatLanceCheckpointStore(CheckpointStore):
 
         # Lazy-initialized runtime state (avoid getting this pickled)
         self._session: Optional[LanceFileSession] = None
+        # Coalesces concurrent first-access opens onto one open (the open is
+        # expensive under throttling). Excluded from __getstate__; recreated
+        # here and in __setstate__, mirroring the Hierarchical subclass's
+        # _coexistence_lock.
+        self._session_lock = threading.Lock()
+        # Delegate used to re-vend credentials on error when this store has no
+        # namespace context of its own (multi-base child stores). ``None`` for
+        # normal stores, which re-vend via their own table_id/namespace.
+        self._revend_source: Optional[CheckpointStore] = None
 
     def __getstate__(self) -> dict:
         """Exclude unpicklable session from pickle."""
@@ -915,6 +1085,7 @@ class FlatLanceCheckpointStore(CheckpointStore):
             "table_id": self.table_id,
             "storage_options": self.storage_options,
             "session_root_subdir": self.session_root_subdir,
+            "_revend_source": self._revend_source,
         }
 
     def __setstate__(self, state: dict) -> None:
@@ -927,6 +1098,8 @@ class FlatLanceCheckpointStore(CheckpointStore):
         self.storage_options = state.get("storage_options")
         self.session_root_subdir = state.get("session_root_subdir")
         self._session = None
+        self._session_lock = threading.Lock()
+        self._revend_source = state.get("_revend_source")
 
     def _resolve_namespace_client(self) -> Optional["LanceNamespace"]:
         """Resolve namespace client from pre-built instance or impl/properties."""
@@ -938,39 +1111,198 @@ class FlatLanceCheckpointStore(CheckpointStore):
         ):
             from lance_namespace import connect as namespace_connect
 
+            from geneva._namespace_client import with_geneva_user_agent
             from geneva.db import WORKER_URI_KEY
 
             props = dict(self.namespace_client_properties)
             if WORKER_URI_KEY in props:
                 worker_uri = props.pop(WORKER_URI_KEY)
                 props["uri"] = worker_uri
+            props = with_geneva_user_agent(self.namespace_client_impl, props)
             return namespace_connect(self.namespace_client_impl, props)
         return None
 
-    @property
-    def session(self) -> "LanceFileSession":
-        """Lazily create LanceFileSession on first access."""
-        if self._session is None:
-            ns_client = self._resolve_namespace_client()
-            if ns_client and self.table_id:
-                # Use dataset's file session for proper credential handling
-                from geneva.db import open_lance_dataset
+    def _maybe_refresh_storage_options(self) -> None:
+        """Re-vend near-expiry vended credentials and drop the cached session.
 
-                ds = open_lance_dataset(
+        The ``LanceFileSession`` (and its object store) is cached for the
+        actor's lifetime, so without this a long backfill keeps signing
+        checkpoint reads/writes with the credentials vended at plan time —
+        which expire mid-job and fail every S3 request with 400/403. No-op for
+        static credentials or when re-vending isn't available.
+        """
+        from geneva.credentials import refresh_storage_options
+
+        fresh = refresh_storage_options(
+            self.storage_options,
+            table_id=self.table_id,
+            namespace_client_factory=self._resolve_namespace_client,
+        )
+        if fresh is not self.storage_options:
+            self.storage_options = fresh
+            # Force the cached session/object store to rebuild with fresh creds.
+            self._session = None
+
+    def _refresh_credentials_on_error(self) -> None:
+        """Force a re-vend + session rebuild after an expired-credential error.
+
+        Invoked by ``@retry_lance`` on the checkpoint read/write path. Unlike the
+        proactive :meth:`_maybe_refresh_storage_options`, this bypasses the
+        expiry window (the error already proves the creds are dead) and always
+        drops the cached session so the retry rebuilds with fresh creds.
+        """
+        from geneva.credentials import force_revend_storage_options
+
+        # Multi-base child stores carry no namespace context of their own, so
+        # re-vend through the delegate (the default store), which holds the real
+        # table_id + namespace client and shares the table's vended creds.
+        source = self._revend_source or self
+        if not isinstance(source, FlatLanceCheckpointStore):
+            source = self
+        fresh = force_revend_storage_options(
+            table_id=source.table_id,
+            namespace_client_factory=source._resolve_namespace_client,
+            label="checkpoint",
+        )
+        if fresh is not None:
+            self.storage_options = fresh
+        # Drop the cached session so the retry rebuilds the object store -- with
+        # the fresh creds if we got them, otherwise at least without a stale
+        # handle. A ``None`` fresh with no warning means there was nothing to
+        # re-vend (direct-URI / static-credential store), which is a no-op.
+        self._session = None
+
+    _SESSION_OPEN_ATTEMPTS = 3
+    _SESSION_OPEN_BACKOFF_SECS = 1.0
+
+    def _direct_session_uri(self) -> Optional[str]:
+        """Physical table URI for a direct session open, or None if ineligible.
+
+        Vending namespaces are skipped (a direct open bypasses vended creds).
+        Single-element ``table_id`` only: a nested table lives at a manifest-
+        hashed path, not ``<root>/<name>.lance``.
+        """
+        if (
+            self.namespace_client_impl != "dir"
+            or not self.table_id
+            or len(self.table_id) != 1
+        ):
+            return None
+        props = self.namespace_client_properties or {}
+        root = props.get("root")
+        if not root:
+            return None
+        for key in props:
+            key_lower = key.lower()
+            if key_lower.startswith("credential_vendor.") or (
+                key_lower == "vend_input_storage_options"
+            ):
+                return None
+        from yarl import URL
+
+        return str(URL(str(root)) / f"{self.table_id[-1]}.lance")
+
+    def _open_session_dataset_direct(
+        self, exc: BaseException
+    ) -> "tuple[Optional[lance.LanceDataset], Optional[BaseException]]":
+        """Open the checkpoint table by physical URI, bypassing the namespace.
+
+        Returns ``(dataset, direct_error)``; dataset is None when ineligible
+        or the direct open failed. The direct-open failure is surfaced so the
+        caller can chain it: unlike the namespace error, it still carries the
+        429/503 evidence retry classifiers key on.
+        """
+        uri = self._direct_session_uri()
+        if uri is None:
+            return None, None
+        try:
+            ds = lance.dataset(uri, storage_options=self.storage_options)
+        except Exception as direct_exc:
+            _LOG.warning(
+                "Direct physical-URI open failed for checkpoint table %s; "
+                "keeping the namespace open path",
+                uri,
+                exc_info=True,
+            )
+            return None, direct_exc
+        _LOG.warning(
+            "Checkpoint namespace open failed for table_id=%s (%s); recovered "
+            "via direct physical URI %s",
+            self.table_id,
+            exc,
+            uri,
+        )
+        return ds, None
+
+    def _open_session_dataset(
+        self, ns_client: "LanceNamespace"
+    ) -> "lance.LanceDataset":
+        """Open the checkpoint table dataset for the file session.
+
+        Prefers the namespace-mediated open; on failure falls back to a direct
+        physical-URI open, then retries a not-found a bounded number of times
+        before propagating the original error.
+        """
+        from geneva.db import open_lance_dataset
+
+        last_exc: Optional[BaseException] = None
+        for attempt in range(self._SESSION_OPEN_ATTEMPTS):
+            try:
+                return open_lance_dataset(
                     table_id=self.table_id,
                     namespace_client=ns_client,
                     storage_options=self.storage_options,
                 )
-                session = ds.new_file_session()
-                assert session is not None
-                self._session = session
-            else:
-                # Fallback for non-namespace tables
-                self._session = LanceFileSession(
-                    self.root, storage_options=self.storage_options
-                )
-        assert self._session is not None
-        return self._session
+            except Exception as exc:  # noqa: PERF203
+                last_exc = exc
+                direct, direct_exc = self._open_session_dataset_direct(exc)
+                if direct is not None:
+                    return direct
+                if (
+                    not _is_transient_table_not_found(exc)
+                    or attempt + 1 >= self._SESSION_OPEN_ATTEMPTS
+                ):
+                    if direct_exc is not None:
+                        # The namespace error is evidence-free; the direct-open
+                        # failure carries any throttle text, so chain it.
+                        raise exc from direct_exc
+                    raise
+                time.sleep(self._SESSION_OPEN_BACKOFF_SECS * (attempt + 1))
+        assert last_exc is not None
+        raise last_exc
+
+    @property
+    def session(self) -> "LanceFileSession":
+        """Lazily create LanceFileSession on first access.
+
+        Double-checked lock: the writer threads and the ``purge_many`` pool
+        race into the lazy init, and the open is expensive under throttling
+        (retry + direct-URI fallback + backoff), so concurrent first-access is
+        coalesced onto one open. The fast path (already built) stays lock-free.
+        """
+        self._maybe_refresh_storage_options()
+        # Snapshot: returning the local keeps the result immune to a concurrent
+        # refresh-driven reset of self._session.
+        session = self._session
+        if session is None:
+            with self._session_lock:
+                session = self._session
+                if session is None:
+                    session = self._build_session()
+                    self._session = session
+        return session
+
+    def _build_session(self) -> "LanceFileSession":
+        """Open the underlying file session (namespace-mediated or direct)."""
+        ns_client = self._resolve_namespace_client()
+        if ns_client and self.table_id:
+            # Use dataset's file session for proper credential handling
+            ds = self._open_session_dataset(ns_client)
+            session = ds.new_file_session()
+            assert session is not None
+            return session
+        # Fallback for non-namespace tables
+        return LanceFileSession(self.root, storage_options=self.storage_options)
 
     def _make_path(self, key: str) -> str:
         """Make the full path for a checkpoint key."""
@@ -1024,28 +1356,100 @@ class FlatLanceCheckpointStore(CheckpointStore):
                     schema=table.schema,
                 )
             )
-        except OSError as exc:
-            if not self.session.contains(path):
-                raise KeyError(key) from exc
-            raise
         except (KeyboardInterrupt, SystemExit):
             raise
         except BaseException as exc:  # noqa: BLE001
-            # A poison checkpoint can panic in Lance's Rust reader (a BaseException,
-            # not Exception). Convert it to a non-retryable, attributable error so
-            # the FragmentWriter isolates this fragment rather than the panic killing
-            # the worker and Ray crash-looping on the same file. Genuine transient IO
-            # errors (OSError/ValueError) are re-raised for @retry_lance to retry.
+            # A poison checkpoint can panic in Lance's Rust reader — as a pyo3
+            # PanicException (a BaseException, not Exception) or wrapped as
+            # pyarrow ArrowInvalid (a ValueError subclass), so check panic
+            # before the missing-key probe. Convert it to a non-retryable,
+            # attributable error so the FragmentWriter isolates this fragment
+            # rather than the panic killing the worker and Ray crash-looping
+            # on the same file.
             if _is_lance_reader_panic(exc):
                 raise CorruptCheckpointError(
                     key,
                     path=self._full_uri(path),
                     cause=f"{type(exc).__name__}: {exc}",
                 ) from exc
+            # A missing checkpoint surfaces as OSError on some object stores
+            # and as ValueError ("Not found: ...") on others; the existence
+            # probe is the arbiter. A genuine miss becomes KeyError; any other
+            # read error is re-raised for @retry_lance to retry.
+            if isinstance(exc, (OSError, ValueError)) and not self.session.contains(
+                path
+            ):
+                raise KeyError(key) from exc
             raise
         # Restore blob encoding stripped on write, so callers (and the fragment
         # writer that derives the committed schema from this batch) see the
         # original ``lance-encoding:blob`` metadata.
+        batch = _swap_batch_blob_marker(batch, _WAS_BLOB_KEY, _BLOB_ENCODING_KEY)
+        return _restore_batch_blob_v2_extensions(batch)
+
+    def read_range(self, key: str, start: int, num_rows: int) -> pa.RecordBatch:
+        """Read a bounded physical row range without materializing the whole file."""
+        _validate_checkpoint_read_range(start, num_rows)
+        return self._read_range(key, start, num_rows)
+
+    @retry_lance
+    def _read_range(self, key: str, start: int, num_rows: int) -> pa.RecordBatch:
+        _LOG.debug("read_range: %s[%d:%d]", key, start, start + num_rows)
+        path = self._make_path(key)
+        try:
+            reader = self.session.open_reader(path)
+            # Match RecordBatch.slice semantics when the requested range extends
+            # past EOF while keeping every payload read bounded by ``num_rows``.
+            metadata = reader.metadata()
+            total_rows = metadata.num_rows
+            bounded_start = min(start, total_rows)
+            bounded_num_rows = min(num_rows, total_rows - bounded_start)
+            if bounded_num_rows == 0:
+                # A zero-length or out-of-range slice must still validate that
+                # the checkpoint exists and preserve its schema, but it need not
+                # schedule a payload read. The file metadata already carries the
+                # stored schema (including checkpoint row-count/blob markers).
+                batch = pa.RecordBatch.from_arrays(
+                    [pa.array([], type=field.type) for field in metadata.schema],
+                    schema=metadata.schema,
+                )
+            else:
+                table = (
+                    reader.read_range(
+                        bounded_start,
+                        bounded_num_rows,
+                        batch_size=bounded_num_rows,
+                        batch_readahead=1,
+                    )
+                    .to_table()
+                    .combine_chunks()
+                )
+                batches = table.to_batches()
+                # A short/corrupt file may unexpectedly yield no batch. Preserve
+                # its schema so the caller can apply its existing row-count/EOF
+                # checks instead of failing here with IndexError.
+                batch = (
+                    batches[0]
+                    if batches
+                    else pa.RecordBatch.from_arrays(
+                        [pa.array([], type=field.type) for field in table.schema],
+                        schema=table.schema,
+                    )
+                )
+        except (KeyboardInterrupt, SystemExit):
+            raise
+        except BaseException as exc:  # noqa: BLE001
+            if _is_lance_reader_panic(exc):
+                raise CorruptCheckpointError(
+                    key,
+                    path=self._full_uri(path),
+                    cause=f"{type(exc).__name__}: {exc}",
+                ) from exc
+            if isinstance(exc, (OSError, ValueError)) and not self.session.contains(
+                path
+            ):
+                raise KeyError(key) from exc
+            raise
         batch = _swap_batch_blob_marker(batch, _WAS_BLOB_KEY, _BLOB_ENCODING_KEY)
         return _restore_batch_blob_v2_extensions(batch)
 
@@ -1142,8 +1546,15 @@ class FlatLanceCheckpointStore(CheckpointStore):
         paths = [self._make_path(key) for key in keys]
         self._purge_paths_parallel(paths)
 
-    @retry_lance
     def list_keys(self, prefix: str = "") -> Iterator[str]:
+        # A @retry_lance-decorated *generator* returns an unstarted generator and
+        # runs its LIST I/O on the caller's first next(), outside retry_lance's
+        # try/except -- so retries and the credential-refresh hook never fire.
+        # Do the I/O in a retried, non-generator helper, then yield its result.
+        yield from self._list_keys(prefix)
+
+    @retry_lance
+    def _list_keys(self, prefix: str = "") -> list[str]:
         _LOG.debug("list_keys: %s", prefix)
         # LanceFileSession.list() lists by path prefix, not by filename prefix.
         # Since checkpoint keys are stored as flat files (no '/' separators by
@@ -1158,6 +1569,7 @@ class FlatLanceCheckpointStore(CheckpointStore):
             layout=self._LAYOUT_LABEL,
             root=self.root,
         )
+        keys: list[str] = []
         for file_path in files:
             if not file_path.endswith(".lance"):
                 continue
@@ -1169,7 +1581,8 @@ class FlatLanceCheckpointStore(CheckpointStore):
             key = file_path.removesuffix(".lance")
             if prefix and not key.startswith(prefix):
                 continue
-            yield key
+            keys.append(key)
+        return keys
 
     def uri(self) -> str:
         return self.root
@@ -1701,7 +2114,6 @@ class HierarchicalLanceCheckpointStore(FlatLanceCheckpointStore):
         if self.write_identity_sidecar:
             self._write_identity_if_missing(bf_dir, key_prefix)
 
-    @retry_lance
     def list_keys(self, prefix: str = "") -> Iterator[str]:
         """Enumerate checkpoint keys, optionally filtered by a flat-key prefix.
 
@@ -1709,6 +2121,13 @@ class HierarchicalLanceCheckpointStore(FlatLanceCheckpointStore):
         to a single ``bf=`` directory and bounded by one backfill's worth of
         checkpoints. When *prefix* is empty, the checkpoint root is walked.
         """
+        # Materialize inside the retried helper -- see
+        # FlatLanceCheckpointStore.list_keys for why the generator can't be
+        # decorated with @retry_lance directly.
+        yield from self._list_keys(prefix)
+
+    @retry_lance
+    def _list_keys(self, prefix: str = "") -> list[str]:
         _LOG.debug("hierarchical list_keys: %s", prefix)
         scope = self._scope_for_prefix(prefix)
         files = timed_list(
@@ -1718,13 +2137,15 @@ class HierarchicalLanceCheckpointStore(FlatLanceCheckpointStore):
             layout=self._LAYOUT_LABEL,
             root=self.root,
         )
+        keys: list[str] = []
         for path in files:
             key = self._path_to_key(path)
             if key is None:
                 continue
             if prefix and not key.startswith(prefix):
                 continue
-            yield key
+            keys.append(key)
+        return keys
 
     def _scope_for_prefix(self, prefix: str) -> str | None:
         """Pick the narrowest LIST scope that still covers ``prefix``."""

@@ -18,9 +18,9 @@ from urllib import parse
 
 from pylxd import exceptions
 
-# Global used to record which warnings have been issues already for unknown
+# Global used to record which warnings have been issued already for unknown
 # attributes.
-_seen_attribute_warnings = set()
+_seen_attribute_warnings: set[str] = set()
 
 
 class Operation:
@@ -28,7 +28,7 @@ class Operation:
 
     If the LXD server sends attributes that this version of pylxd is unaware of
     then a warning is printed.  By default the warning is issued ONCE and then
-    supressed for every subsequent attempted setting.  The warnings can be
+    suppressed for every subsequent attempted setting.  The warnings can be
     completely suppressed by setting the environment variable PYLXD_WARNINGS to
     'none', or always displayed by setting the PYLXD_WARNINGS variable to
     'always'.
@@ -41,6 +41,7 @@ class Operation:
         "description",
         "err",
         "id",
+        "secret",
         "location",
         "may_cancel",
         "metadata",

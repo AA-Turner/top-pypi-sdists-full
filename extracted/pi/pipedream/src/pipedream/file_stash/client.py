@@ -23,14 +23,14 @@ class FileStashClient:
         return self._raw_client
 
     def download_file(
-        self, *, s3key: str, request_options: typing.Optional[RequestOptions] = None
+        self, *, s_3_key: str, request_options: typing.Optional[RequestOptions] = None
     ) -> typing.Iterator[bytes]:
         """
         Download a file from File Stash
 
         Parameters
         ----------
-        s3key : str
+        s_3_key : str
 
         request_options : typing.Optional[RequestOptions]
             Request-specific configuration. You can pass in configuration such as `chunk_size`, and more to customize the request and response.
@@ -50,10 +50,10 @@ class FileStashClient:
             client_secret="YOUR_CLIENT_SECRET",
         )
         client.file_stash.download_file(
-            s3key="s3_key",
+            s_3_key="s3_key",
         )
         """
-        with self._raw_client.download_file(s3key=s3key, request_options=request_options) as r:
+        with self._raw_client.download_file(s_3_key=s_3_key, request_options=request_options) as r:
             yield from r.data
 
 
@@ -73,14 +73,14 @@ class AsyncFileStashClient:
         return self._raw_client
 
     async def download_file(
-        self, *, s3key: str, request_options: typing.Optional[RequestOptions] = None
+        self, *, s_3_key: str, request_options: typing.Optional[RequestOptions] = None
     ) -> typing.AsyncIterator[bytes]:
         """
         Download a file from File Stash
 
         Parameters
         ----------
-        s3key : str
+        s_3_key : str
 
         request_options : typing.Optional[RequestOptions]
             Request-specific configuration. You can pass in configuration such as `chunk_size`, and more to customize the request and response.
@@ -105,12 +105,12 @@ class AsyncFileStashClient:
 
         async def main() -> None:
             await client.file_stash.download_file(
-                s3key="s3_key",
+                s_3_key="s3_key",
             )
 
 
         asyncio.run(main())
         """
-        async with self._raw_client.download_file(s3key=s3key, request_options=request_options) as r:
+        async with self._raw_client.download_file(s_3_key=s_3_key, request_options=request_options) as r:
             async for _chunk in r.data:
                 yield _chunk

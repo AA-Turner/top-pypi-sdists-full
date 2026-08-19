@@ -558,6 +558,8 @@ class Scope:
     )
     if not rewind_rngs:
       scope.rng_counters = self.rng_counters
+    if self.parent is None and hasattr(self, '_submodule_adoption_cache'):
+      scope._submodule_adoption_cache = self._submodule_adoption_cache  # pylint: disable=protected-access
     return scope
 
   def name_reserved(self, name: str, col: str | None = None) -> bool:
@@ -1144,6 +1146,10 @@ def lazy_init(
   Similar to ``init`` except that the init function now accepts
   ``jax.ShapeDtypeStruct`` instances for arguments that do not
   affect the variable initialization (typically this is all the input data).
+  Each ``ShapeDtypeStruct`` is replaced with an all-zeros array of the
+  corresponding shape and dtype before initialization runs, so a variable
+  whose initialization does depend on the value of such an argument is
+  silently initialized as if that argument were all zeros.
 
   Example::
 

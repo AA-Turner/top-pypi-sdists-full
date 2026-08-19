@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from pathlib import PurePosixPath
 from typing import Any, Literal
 
 from pydantic import BaseModel, ConfigDict, Field, field_validator
@@ -287,6 +288,30 @@ class WhatsAppChannelConfig(_Base):
             "status": "effective", "ref": "channels/whatsapp.py:40",
             "desc_zh": "WhatsApp 服务监听端口",
             "desc_en": "WhatsApp server listen port",
+        },
+    )
+    app_secret: str = Field(
+        default="",
+        json_schema_extra={
+            "status": "effective", "ref": "channels/whatsapp.py",
+            "desc_zh": "WhatsApp App Secret（用于 webhook HMAC 签名验证）",
+            "desc_en": "WhatsApp App Secret for webhook HMAC signature verification",
+        },
+    )
+    allow_from: list[str] = Field(
+        default_factory=list,
+        json_schema_extra={
+            "status": "effective", "ref": "channels/base.py:107",
+            "desc_zh": "允许交互的用户白名单（空为不限制）",
+            "desc_en": "Allowlist of user IDs permitted to interact (empty = all)",
+        },
+    )
+    group_policy: str = Field(
+        default="mention",
+        json_schema_extra={
+            "status": "effective", "ref": "channels/whatsapp.py",
+            "desc_zh": "群聊响应策略：all=响应所有消息，mention=仅响应@机器人",
+            "desc_en": "Group response policy: all=respond to all, mention=only respond when mentioned",
         },
     )
 
@@ -839,6 +864,55 @@ class ChannelsConfig(_Base):
             "desc_en": "Flush streaming output on paragraph boundaries",
         },
     )
+    # The stream_flush_* / stream_paragraph_mode defaults above are tuned for IM
+    # channels, where every incremental update costs an edit API call and risks
+    # rate limits. Local channels (cli / gateway websocket) have no such budget:
+    # frames are cheap and the TUI redraws the whole block anyway, so they get
+    # their own low-latency tier below. Setting stream_local_flush_chars to 0
+    # makes local channels fall back to the shared values above.
+    stream_local_flush_chars: int = Field(
+        default=24,
+        json_schema_extra={
+            "status": "effective", "ref": "agent/loop.py:1516",
+            "desc_zh": "本地通道(cli/gateway)流式推送的字符阈值,0 表示复用通用配置",
+            "desc_en": "Flush threshold for local channels (cli/gateway); 0 reuses the shared value",
+        },
+    )
+    stream_local_flush_interval_ms: int = Field(
+        default=100,
+        json_schema_extra={
+            "status": "effective", "ref": "agent/loop.py:1516",
+            "desc_zh": "本地通道(cli/gateway)流式推送的最大时间间隔(毫秒)",
+            "desc_en": "Maximum interval between flushes for local channels (cli/gateway), in ms",
+        },
+    )
+    stream_local_channels: list[str] = Field(
+        default_factory=lambda: ["cli", "gateway:*"],
+        json_schema_extra={
+            "status": "effective", "ref": "agent/loop.py:1516",
+            "desc_zh": "使用本地低延迟流式档位的通道列表(支持 prefix:* 通配)",
+            "desc_en": "Channels that use the local low-latency streaming tier (supports prefix:*)",
+        },
+    )
+    # Channels listed here stream the model's text as it arrives, even on turns
+    # that may end in a tool call. If such a turn does call a tool, the streamed
+    # draft ("let me check ...") is retracted and the block redrawn. Only list
+    # channels that can visually REPLACE what they already showed.
+    #
+    # gateway:cli qualifies: the TUI keeps a reply widget per turn and rewrites it
+    # via set_markdown. The plain "cli" channel does NOT — it prints straight to
+    # stdout and cannot unprint, so a retraction there would leave the draft on
+    # screen above the answer. IM channels are excluded too: editing is possible
+    # but each edit burns API budget. Empty list = buffer everywhere, i.e. the
+    # pre-existing conservative behaviour.
+    stream_optimistic_channels: list[str] = Field(
+        default_factory=lambda: ["gateway:cli"],
+        json_schema_extra={
+            "status": "effective", "ref": "agent/pipeline/inference_stage.py:617",
+            "desc_zh": "允许乐观流式(工具前草稿先发后撤回)的通道列表;仅限能就地重绘的通道",
+            "desc_en": "Channels allowed to stream optimistically (pre-tool draft sent then retracted); only channels that can redraw in place",
+        },
+    )
     transcription_api_key: str = Field(
         default="",
         json_schema_extra={
@@ -908,6 +982,16 @@ class ProviderConfig(_Base):
             "desc_en": "Per-request timeout (seconds)",
         },
     )
+    stream_include_usage: bool = Field(
+        default=True,
+        json_schema_extra={
+            "status": "effective", "ref": "models/providers/openai_provider.py:31",
+            "desc_zh": "流式请求是否附带 stream_options.include_usage(用于统计 token/成本);"
+                       "个别不支持该字段的 OpenAI 兼容端点需设为 false",
+            "desc_en": "Send stream_options.include_usage on streaming requests (for token/cost "
+                       "accounting); set false for OpenAI-compatible endpoints that reject the field",
+        },
+    )
     rate_limit_rpm: int = Field(
         default=0,
         json_schema_extra={
@@ -975,6 +1059,16 @@ class ModelRouteConfig(_Base):
             "desc_en": "Sampling temperature for this route",
         },
     )
+    context_window: int = Field(
+        default=0,
+        json_schema_extra={
+            "status": "effective", "ref": "models/router.py:268",
+            "desc_zh": "该路由模型的上下文窗口显式覆盖(0 为不指定,自动按模型解析);"
+                       "优先级高于内置注册表与全局兜底",
+            "desc_en": "Explicit context-window override for this route's model (0 = unset, resolved "
+                       "automatically); takes precedence over the built-in registry and global fallback",
+        },
+    )
 
 
 class ModelsConfig(_Base):
@@ -1010,6 +1104,16 @@ class ModelsConfig(_Base):
             "desc_en": "Global fallback model",
         },
     )
+    model_windows: dict[str, int] = Field(
+        default_factory=dict,
+        json_schema_extra={
+            "status": "effective", "ref": "models/router.py:268",
+            "desc_zh": "模型 ID 到上下文窗口 token 数的映射(setup 从提供商元数据自动捕获,也可手填);"
+                       "解析窗口时优先级低于路由显式覆盖、高于内置注册表",
+            "desc_en": "Map of model id to context-window tokens (auto-captured by setup from provider "
+                       "metadata, or hand-set); ranks below a route override and above the built-in registry",
+        },
+    )
 
 
 # ── Tool configs ─────────────────────────────────────────────────────────────
@@ -1024,11 +1128,11 @@ class ExecToolConfig(_Base):
         },
     )
     max_output_chars: int = Field(
-        default=16000,
+        default=2000000,
         json_schema_extra={
             "status": "effective", "ref": "agent/tools/__init__.py:47",
-            "desc_zh": "命令输出截断的最大字符数",
-            "desc_en": "Maximum characters of command output before truncation",
+            "desc_zh": "命令输出的采集上限字符数(不是模型可见上限——后者由 spill.maxInlineChars 决定)",
+            "desc_en": "Acquisition character cap for command output (not the model-facing cap, which is spill.maxInlineChars)",
         },
     )
     host: Literal["auto", "local", "sandbox", "container", "remote"] = Field(
@@ -1131,12 +1235,12 @@ class WebToolConfig(_Base):
             "desc_en": "Search service API key",
         },
     )
-    search_provider: Literal["brave", "tavily", "serpapi", "searxng"] = Field(
+    search_provider: Literal["brave", "tavily", "serpapi", "searxng", "serply"] = Field(
         default="brave",
         json_schema_extra={
             "status": "effective", "ref": "agent/tools/__init__.py:58",
-            "desc_zh": "网络搜索服务提供商",
-            "desc_en": "Web search service provider",
+            "desc_zh": "网络搜索服务提供商 (serply 使用 Serply SERP API: https://serply.io, 文档 https://serply.io/docs)",
+            "desc_en": "Web search service provider (serply uses the Serply SERP API: https://serply.io, docs https://serply.io/docs)",
         },
     )
     search_api_base: str = Field(
@@ -1173,8 +1277,16 @@ class BrowserToolConfig(_Base):
         default=3,
         json_schema_extra={
             "status": "effective", "ref": "agent/browser/session.py",
-            "desc_zh": "并发浏览器会话上限",
-            "desc_en": "Max concurrent browser sessions",
+            "desc_zh": "单个会话方(owner)的并发浏览器会话上限",
+            "desc_en": "Max concurrent browser sessions per owner",
+        },
+    )
+    max_total_sessions: int = Field(
+        default=10,
+        json_schema_extra={
+            "status": "effective", "ref": "agent/browser/session.py",
+            "desc_zh": "全实例并发浏览器会话总上限（每个会话都是独立 Chromium context，占用真实内存）；<=0 表示不限制",
+            "desc_en": "Global cap on concurrent browser sessions across all owners (each is a Chromium context); <=0 disables",
         },
     )
     session_idle_timeout_sec: int = Field(
@@ -1217,9 +1329,73 @@ class BrowserToolConfig(_Base):
             "desc_en": "Allow navigating to private addresses (default blocked, reuses SSRF policy)",
         },
     )
+    dialog_policy: str = Field(
+        default="dismiss",
+        json_schema_extra={
+            "status": "effective", "ref": "agent/browser/session.py",
+            "desc_zh": "原生弹窗(alert/confirm/prompt)自动处理策略：dismiss 取消 / accept 确认。不处理会导致页面阻塞",
+            "desc_en": "Native dialog auto-handling policy: dismiss or accept (unhandled dialogs block the page)",
+        },
+    )
+    allow_evaluate: bool = Field(
+        default=True,
+        json_schema_extra={
+            "status": "effective", "ref": "agent/tools/browser.py",
+            "desc_zh": "是否允许 evaluate 动作在页面内执行 JS。表达式黑名单只能拦住粗糙用法，无法对抗刻意混淆；不能接受页内任意代码执行的部署应关掉此项",
+            "desc_en": "Allow the evaluate action to run JS in the page. The expression blacklist stops careless use, not deliberate obfuscation; turn this off where in-page code execution is unacceptable",
+        },
+    )
+    allow_unsafe_evaluate: bool = Field(
+        default=False,
+        json_schema_extra={
+            "status": "effective", "ref": "agent/browser/actions.py",
+            "desc_zh": "是否跳过 evaluate 的敏感表达式检查（读取 cookie/localStorage、脚本跳转等），默认拒绝以防注入外泄",
+            "desc_en": "Skip evaluate's sensitive-expression checks (cookie/storage reads, script navigation). Default denied",
+        },
+    )
+    persist_login_state: bool = Field(
+        default=False,
+        json_schema_extra={
+            "status": "effective", "ref": "agent/tools/browser.py",
+            "desc_zh": "是否持久化浏览器登录态(cookie/localStorage)到工作区，供后续会话复用",
+            "desc_en": "Persist browser login state (cookies/localStorage) into the workspace for reuse",
+        },
+    )
+    viewport_width: int = Field(
+        default=1280,
+        json_schema_extra={
+            "status": "effective", "ref": "agent/browser/session.py",
+            "desc_zh": "浏览器视口宽度(像素)",
+            "desc_en": "Browser viewport width (px)",
+        },
+    )
+    viewport_height: int = Field(
+        default=800,
+        json_schema_extra={
+            "status": "effective", "ref": "agent/browser/session.py",
+            "desc_zh": "浏览器视口高度(像素)",
+            "desc_en": "Browser viewport height (px)",
+        },
+    )
+    user_agent: str = Field(
+        default="",
+        json_schema_extra={
+            "status": "effective", "ref": "agent/browser/session.py",
+            "desc_zh": "自定义 User-Agent，留空用 Chromium 默认值",
+            "desc_en": "Custom User-Agent; empty uses the Chromium default",
+        },
+    )
 
 
 class ImageGenConfig(_Base):
+    enabled: bool = Field(
+        default=True,
+        json_schema_extra={
+            "status": "effective", "ref": "agent/tools/__init__.py:220",
+            "desc_zh": "是否启用图像生成工具(取消后即使填了 key 也不注册)",
+            "desc_en": "Enable the image generation tool (unset skips registration even if a key is present)",
+        },
+    )
     backend: str = Field(
         default="openai",
         json_schema_extra={
@@ -1273,6 +1449,14 @@ class ImageGenConfig(_Base):
 
 
 class TTSConfig(_Base):
+    enabled: bool = Field(
+        default=True,
+        json_schema_extra={
+            "status": "effective", "ref": "agent/tools/__init__.py:263",
+            "desc_zh": "是否启用 TTS 语音合成工具(取消后不注册,保留已填凭证)",
+            "desc_en": "Enable the TTS tool (unset skips registration; stored credentials are kept)",
+        },
+    )
     openai_api_key: str = Field(
         default="",
         json_schema_extra={
@@ -1433,6 +1617,23 @@ class MCPServerConfig(_Base):
     )
 
 
+class MCPToolConfig(_Base):
+    """Top-level MCP switch for the tools section.
+
+    Individual servers live in ``tools.mcp_servers``; this holds the single
+    on/off flag the setup wizard writes so un-checking MCP is a real config
+    change rather than a print-only no-op.
+    """
+    enabled: bool = Field(
+        default=True,
+        json_schema_extra={
+            "status": "effective", "ref": "agent/loop.py:552",
+            "desc_zh": "是否启用 MCP 工具接入(取消后不加载任何 MCP 服务)",
+            "desc_en": "Enable MCP tool integration (unset skips loading all MCP servers)",
+        },
+    )
+
+
 class ToolsConfig(_Base):
     # Keep in sync with default.yaml (tools.profile). "full" is the packaged
     # default; both must agree so the effective profile is unambiguous.
@@ -1525,6 +1726,7 @@ class ToolsConfig(_Base):
     image_gen: ImageGenConfig = Field(default_factory=ImageGenConfig)
     tts: TTSConfig = Field(default_factory=TTSConfig)
     code_exec: CodeExecConfig = Field(default_factory=CodeExecConfig)
+    mcp: MCPToolConfig = Field(default_factory=MCPToolConfig)
 
 
 # ── Execution environment configs ────────────────────────────────────────────
@@ -1618,17 +1820,25 @@ class ApprovalConfig(_Base):
     require_approval: list[str] = Field(
         default_factory=lambda: [
             "cronjob",
+            "delegate_task",
             "dep_install",
             "exec",
             "execute_code",
             "process",
             "skill_install",
             "skill_manage",
+            "spawn_task",
         ],
         json_schema_extra={
             "status": "effective", "ref": "agent/approval_gate.py:291",
-            "desc_zh": "执行前必须审批的工具/动作列表",
-            "desc_en": "Tools/actions that require approval before running",
+            "desc_zh": "执行前必须审批的工具/动作列表。风险等级(EXEC/DANGEROUS)本身即要求审批，本列表用于额外追加，不能反向豁免；delegate_task/spawn_task 在列是因为它们派发的 worker 可以调用 exec，派发处是调用方权限仍然已知的最后一环",
+            "desc_en": (
+                "Tools/actions that require approval before running. The risk tier "
+                "(EXEC/DANGEROUS) already requires approval on its own; this list only "
+                "adds tools and can never exempt one. delegate_task/spawn_task are listed "
+                "because a worker they dispatch can call exec, and the dispatch is the "
+                "last point where the caller's own authority is still known"
+            ),
         },
     )
     auto_approve: list[str] = Field(
@@ -1787,11 +1997,25 @@ class SessionConfig(_Base):
         },
     )
     context_window_tokens: int = Field(
-        default=65536,
+        default=0,
         json_schema_extra={
-            "status": "effective", "ref": "agent/loop.py:122",
-            "desc_zh": "上下文窗口 token 上限",
-            "desc_en": "Context window token budget",
+            "status": "effective", "ref": "models/model_windows.py:88",
+            "desc_zh": "上下文窗口 token 上限的全局兜底值(0=不设,让未知模型落到 256K 现代基线;"
+                       "仅当你为某些无法动态解析的私有/本地模型显式设成正数时才生效,优先级低于 models.dev/内置注册表)",
+            "desc_en": "Global fallback context-window budget (0 = unset, so an unknown model lands on the 256K "
+                       "modern baseline; only an explicit positive value takes effect, for private/local models "
+                       "that cannot be resolved dynamically, and it ranks below models.dev and the built-in registry)",
+        },
+    )
+    compression_window_cap: int = Field(
+        default=200000,
+        json_schema_extra={
+            "status": "effective", "ref": "agent/pipeline/inference_stage.py:285",
+            "desc_zh": "压缩预算上限(0 为不封顶):模型真实窗口用于显示,但压缩触发按 min(真实窗口, 此上限) 计算,"
+                       "避免大窗口模型让上下文膨胀到很大才压缩、抬高单请求成本与延迟",
+            "desc_en": "Compression-budget cap (0 = uncapped): the model's real window drives the display, but "
+                       "compression triggers against min(real_window, cap) so a large-window model does not let "
+                       "context balloon before compressing, which would raise per-request cost and latency",
         },
     )
     introduction_enabled: bool = Field(
@@ -2033,6 +2257,30 @@ class MemoryConfig(_Base):
             "desc_en": "Inject memory snapshots into context",
         },
     )
+    snapshot_layering: bool = Field(
+        default=True,
+        json_schema_extra={
+            "status": "effective", "ref": "memory/store.py:get_snapshot_with_ids",
+            "desc_zh": "快照分层:常驻核心只保留 top-K(按有效重要度)+ 显式 pinned 条目,长尾不再每轮无条件注入 system prompt,改由 query 驱动的召回按需带出。关闭则回退旧行为(USER≤50/ENV≤30 全量注入)。解决'常驻画像与当前问题无关'的注入路径",
+            "desc_en": "Snapshot layering: the always-on core keeps only top-K (by effective importance) plus explicitly pinned entries; the long tail is no longer injected into the system prompt every turn but surfaces via query-driven recall. Disable to revert to the legacy full snapshot (USER≤50/ENV≤30). Addresses the query-independent 'always-on profile looks unrelated' injection path.",
+        },
+    )
+    snapshot_user_core_max: int = Field(
+        default=12,
+        json_schema_extra={
+            "status": "effective", "ref": "memory/store.py:get_snapshot_with_ids",
+            "desc_zh": "分层开启时 USER 常驻核心的最大条目数(top-K + pinned)。长尾靠召回带出",
+            "desc_en": "Max USER entries in the always-on core when layering is on (top-K + pinned). The long tail surfaces via recall.",
+        },
+    )
+    snapshot_env_core_max: int = Field(
+        default=8,
+        json_schema_extra={
+            "status": "effective", "ref": "memory/store.py:get_snapshot_with_ids",
+            "desc_zh": "分层开启时 ENVIRONMENT 常驻核心的最大条目数(top-K + pinned)",
+            "desc_en": "Max ENVIRONMENT entries in the always-on core when layering is on (top-K + pinned).",
+        },
+    )
     contradiction_detection: bool = Field(
         default=True,
         json_schema_extra={
@@ -2137,11 +2385,59 @@ class MemoryConfig(_Base):
         },
     )
     rrf_min_similarity: float = Field(
-        default=0.25,
+        default=0.30,
         json_schema_extra={
             "status": "effective", "ref": "memory/retrieval.py:vec_rank_map",
-            "desc_zh": "RRF 向量召回相似度下限(可调),向量命中分数低于该值则不占 rank 槽、不贡献 RRF 分,避免低相似度命中污染真实候选;BM25 侧不设(量纲不同)",
-            "desc_en": "RRF vector-recall similarity floor (tunable); vector hits scoring below it occupy no rank slot and contribute no RRF term, preventing low-similarity hits from polluting real candidates. Not applied to BM25 (different scale).",
+            "desc_zh": "RRF 向量召回相似度下限(可调)。向量命中余弦低于该值则不占 rank 槽、不贡献 RRF 分,且不构成'向量达标'准入通路——避免低相似度命中污染真实候选。对归一化句向量,0.25 基本是'勉强沾边',0.30 是更稳的下限;BM25 侧改用判别性 token 门控(单个常见汉字命中不准入),不设分数下限(量纲不同)",
+            "desc_en": "RRF vector-recall similarity floor (tunable). Vector hits below this cosine occupy no rank slot, contribute no RRF term, and do not count as a vector-admission path — keeping low-similarity hits from polluting real candidates. For normalized sentence embeddings 0.25 is 'barely related'; 0.30 is a safer floor. The BM25 side instead uses a discriminative-token gate (a single common CJK char never admits) rather than a score floor (different scale).",
+        },
+    )
+    rerank_enabled: bool = Field(
+        default=True,
+        json_schema_extra={
+            "status": "effective", "ref": "memory/retrieval.py:_rerank",
+            "desc_zh": "是否启用 cross-encoder 精排。RRF 只融合两路顺序、不懂'到底多相关',cross-encoder 对 (query,doc) 联合打分是相关性金标准。开启后对融合 top-K 重排(仅 top-K,开销小),超时/失败回退 RRF 原序。默认开:重排模型(约 941MB,sha256 校验后离线命中)在安装期就从自建镜像预取(Gitee 分卷优先,再 GitHub 整包),安装期漏下时运行期按退避重下;模型未就绪时本轮自动降级为 RRF 原序,不阻塞回复。关闭可完全省去该模型与每轮数十~上百 ms 精排延迟",
+            "desc_en": "Enable cross-encoder reranking. RRF only fuses rank order; a cross-encoder scores (query,doc) jointly — the relevance gold standard. When on, the fused top-K is reranked (top-K only, cheap); timeout/failure falls back to the RRF order. Default on: the reranker model (~941MB, sha256-verified) is prefetched at install time from the self-hosted mirrors (Gitee split volumes first, then the whole file from GitHub) and then served offline; if the prefetch was missed the runtime downloads it with backoff. Until it is ready each turn degrades to the RRF order without blocking the reply. Disable to drop the model and the per-turn rerank latency entirely.",
+        },
+    )
+    rerank_model: str = Field(
+        default="BAAI/bge-reranker-base",
+        json_schema_extra={
+            "status": "effective", "ref": "memory/local_rerank.py",
+            "desc_zh": "cross-encoder 精排模型(fastembed TextCrossEncoder 支持的模型名)。中文/多语可选 BAAI/bge-reranker-base 或 jinaai/jina-reranker-v2-base-multilingual",
+            "desc_en": "Cross-encoder rerank model (a fastembed TextCrossEncoder model name). For CN/multilingual use BAAI/bge-reranker-base or jinaai/jina-reranker-v2-base-multilingual.",
+        },
+    )
+    rerank_top_k: int = Field(
+        default=10,
+        json_schema_extra={
+            "status": "effective", "ref": "memory/retrieval.py:_rerank",
+            "desc_zh": "精排作用的融合 top-K 数量。只对 RRF 融合后的前 K 条重排,其余保持原序,控制精排开销。默认 10:精排是纯 CPU 的 cross-encoder,base 规模模型每对 (query,doc) 打分在数十毫秒量级,K=20 常态就会撞满推理预算而整轮白跑降级;而召回配额本身只有 5 条记忆+3 条 episode,K=10 已覆盖两倍配额,再往上是花延迟买不到名次变化",
+            "desc_en": "Number of fused top-K candidates the reranker rescores; the rest keep RRF order. Bounds rerank cost. Default 10: the cross-encoder is CPU-only and a base-size model spends tens of ms per (query,doc) pair, so K=20 routinely blows the inference budget and wastes the whole pass; the recall quota is only 5 memories + 3 episodes, so K=10 already covers twice the quota and going higher buys latency, not ranking changes.",
+        },
+    )
+    rerank_min_score: float = Field(
+        default=0.0,
+        json_schema_extra={
+            "status": "effective", "ref": "memory/retrieval.py:_rerank",
+            "desc_zh": "精排绝对相关性下限(0=只重排不剔除)。>0 时重排分低于该值的候选被丢弃(仅在重排 top-K 内,且全被丢时回退不过滤,防止误配阈值清空召回)",
+            "desc_en": "Rerank absolute relevance floor (0 = reorder only, drop nothing). When >0, reranked candidates below it are dropped (within the top-K only; if the floor drops everything it falls back to unfiltered, so a miscalibrated threshold can't empty recall).",
+        },
+    )
+    rerank_timeout_seconds: float = Field(
+        default=5.0,
+        json_schema_extra={
+            "status": "effective", "ref": "memory/local_rerank.py",
+            "desc_zh": "精排单次推理的等待预算(秒),超时本轮回退 RRF 原序。仅管推理:模型加载/下载走 rerank_load_timeout_seconds(两者共用一个值时,2s 既等不到 1GB 模型加载完,也不够 base 模型在纯 CPU 上给 top-K 打完分,结果是常态降级)",
+            "desc_en": "Per-call wait budget (seconds) for reranker INFERENCE; on timeout this turn keeps the RRF order. Inference only — model load/download uses rerank_load_timeout_seconds. (When both shared one value, 2s was neither enough to load a ~1GB model nor enough for a base-size model to score the top-K on CPU, so every turn degraded.)",
+        },
+    )
+    rerank_load_timeout_seconds: float = Field(
+        default=60.0,
+        json_schema_extra={
+            "status": "effective", "ref": "memory/local_rerank.py",
+            "desc_zh": "精排模型加载/下载的单次等待预算(秒),与 embed_load_timeout_seconds 对称。超时不算失败:后台加载继续,本轮回退 RRF 原序,模型就绪后自动接管。设得太小(如按推理预算的 2s)会让每次等待都超时,启动预热也白跑",
+            "desc_en": "Per-wait budget (seconds) for reranker model load/download, symmetric with embed_load_timeout_seconds. A timeout is not a failure: the background load continues, this turn keeps the RRF order, and the model is picked up transparently once ready. Setting it as low as the inference budget (2s) makes every wait time out and wastes the startup warmup.",
         },
     )
     embed_load_timeout_seconds: float = Field(
@@ -2666,6 +2962,94 @@ class StorageConfig(_Base):
             "desc_en": "Directory storing log files",
         },
     )
+    spill_dir: str = Field(
+        default="data/spill",
+        json_schema_extra={
+            "status": "effective", "ref": "spill/store.py:1",
+            "desc_zh": "工具输出溢出产物的存储目录(必须是工作区内的相对路径专用子目录)",
+            "desc_en": "Directory storing spilled tool-output artifacts (must be a dedicated workspace-relative subdirectory)",
+        },
+    )
+
+    @field_validator("spill_dir")
+    @classmethod
+    def _spill_dir_must_be_dedicated(cls, v: str) -> str:
+        """拒绝把 spill 根指到工作区本身或工作区之外。
+
+        清扫器会在这个目录下删文件。它虽只删自己认得的形状,但把根指到源码树
+        仍是配置错误,且让 spill 闸门去屏蔽整个工作区的读取——那会静默废掉
+        read_file/search_files。这里挡在源头,比在删除点补救可靠。
+        """
+        raw = v.strip()
+        if not raw:
+            raise ValueError("storage.spillDir must not be empty")
+        p = PurePosixPath(raw.replace("\\", "/"))
+        if p.is_absolute() or (len(raw) > 1 and raw[1] == ":"):
+            raise ValueError(
+                f"storage.spillDir must be workspace-relative, got absolute path: {v}"
+            )
+        parts = [seg for seg in p.parts if seg not in (".",)]
+        if any(seg == ".." for seg in parts):
+            raise ValueError(f"storage.spillDir must not escape the workspace: {v}")
+        if not parts:
+            raise ValueError(
+                "storage.spillDir must be a dedicated subdirectory, not the workspace root"
+            )
+        return raw
+
+
+# ── Spill config ─────────────────────────────────────────────────────────────
+
+class SpillConfig(_Base):
+    """超长工具输出落盘。跨工具生效,故挂 Config 顶层而非某个工具下。"""
+
+    enabled: bool = Field(
+        default=True,
+        json_schema_extra={
+            "status": "effective", "ref": "spill/policy.py:1",
+            "desc_zh": "是否把超长工具输出落盘并只给模型预览(关闭则回退旧行为:输出由下游按 16000 字符哑截断,尾部结论丢失且无取回路径)",
+            "desc_en": "Spill oversized tool output to disk and show the model a preview only (off falls back to the old behaviour: output is bluntly truncated downstream at 16000 chars, losing the trailing conclusion with no way to retrieve it)",
+        },
+    )
+    # 下限 500 不是保守起见:替换文本要装得下取回提示本身(约 100 字符)再加
+    # 一点头尾预览,cap 过小 compose 会一路返回 None,于是文件白写、模型仍拿到
+    # 超长原文——"配小一点更省 token"的直觉在这里得到相反的结果。
+    max_inline_chars: int = Field(
+        default=6000, ge=500,
+        json_schema_extra={
+            "status": "effective", "ref": "spill/policy.py:1",
+            "desc_zh": "模型可见的工具输出字符上限,超出则落盘并替换为首尾预览加取回路径",
+            "desc_en": "Model-facing character cap for tool output; larger results are spilled and replaced with a head/tail preview",
+        },
+    )
+    # ge=1:0 或负值会让 cutoff 落到当下或未来,一次清扫就删光全部产物,而
+    # 模型手里的取回路径此时已经发出去了。
+    retention_days: int = Field(
+        default=7, ge=1,
+        json_schema_extra={
+            "status": "effective", "ref": "spill/sweeper.py:1",
+            "desc_zh": "spill 产物保留天数,超期删除",
+            "desc_en": "Days to retain spill artifacts before deletion",
+        },
+    )
+    max_total_mb: int = Field(
+        default=512, ge=1,
+        json_schema_extra={
+            "status": "effective", "ref": "spill/sweeper.py:1",
+            "desc_zh": "spill 产物总体积上限(MB),超出按最旧优先删除",
+            "desc_en": "Total size cap (MB) for spill artifacts; oldest are deleted first when exceeded",
+        },
+    )
+    # ge=1 与 sweep_forever 里的 max(1, ...) 兜底一致。差别在于这里会明确报错,
+    # 而兜底是静默把 0 改成 1 小时——配错的人得不到任何反馈。
+    sweep_interval_hours: int = Field(
+        default=6, ge=1,
+        json_schema_extra={
+            "status": "effective", "ref": "spill/sweeper.py:1",
+            "desc_zh": "spill 产物清扫间隔(小时)",
+            "desc_en": "Interval (hours) between spill artifact sweeps",
+        },
+    )
 
 
 # ── Observability configs ────────────────────────────────────────────────────
@@ -2730,7 +3114,7 @@ class ObservabilityConfig(_Base):
     otel_export_interval_ms: int = Field(
         default=5000,
         json_schema_extra={
-            "status": "effective", "ref": "agent/loop.py:207",
+            "status": "effective", "ref": "observability/telemetry.py:87",
             "desc_zh": "OpenTelemetry 指标导出间隔(毫秒)",
             "desc_en": "OpenTelemetry metrics export interval (ms)",
         },
@@ -2962,9 +3346,13 @@ class GatewayAuthConfig(_Base):
     allowed_origins: list[str] = Field(
         default_factory=list,
         json_schema_extra={
-            "status": "effective", "ref": "gateway/server.py:_check_csrf",
-            "desc_zh": "浏览器 Origin 白名单(CSRF 防护)；留空则不启用 CSRF 检查(默认),配置后仅放行白名单内的跨站浏览器请求,非浏览器客户端始终不受影响",
-            "desc_en": "Allowlisted browser Origins (CSRF protection); empty disables the CSRF check (default). When set, only listed cross-site browser requests pass; non-browser clients are always unaffected",
+            "status": "effective", "ref": "gateway/auth.py:is_cross_site_browser",
+            # 旧文案称"留空则不启用 CSRF 检查",与实际默认行为不符:WS 握手、
+            # POST /message 与管理接口走的是默认开启的 is_cross_site_browser,
+            # 空白名单下依然拦截明确的跨站浏览器请求(这正是防 CSRF-to-localhost
+            # 的那一层)。本项只是这层判定之上的显式放行入口。
+            "desc_zh": "浏览器 Origin 白名单(跨站放行入口)；留空不等于关闭 CSRF 防护——WS 握手、POST /message 与管理接口默认即拦截明确的跨站浏览器请求,本项用于额外放行指定 Origin(如 webview、开发用的前端端口);非浏览器客户端始终不受影响",
+            "desc_en": "Allowlisted browser Origins (cross-site escape hatch). Empty does NOT disable CSRF protection: the WS handshake, POST /message and the admin endpoints reject explicit cross-site browser requests by default. Use this to additionally permit specific Origins (webviews, a dev frontend port); non-browser clients are always unaffected",
         },
     )
     token_header: str = Field(
@@ -2983,6 +3371,30 @@ class GatewayAuthConfig(_Base):
             "desc_en": "Pairing-mode token time-to-live (seconds)",
         },
     )
+    # Host header allowlist that closes the DNS-rebinding loop. The Origin /
+    # Host comparison alone cannot stop a rebind: both are attacker-controlled
+    # strings the moment DNS resolves to 127.0.0.1. The only authoritative
+    # signal is whether the Host matches a name this gateway was intended to be
+    # reached on — loopback addresses when bound locally, the proxy domain when
+    # behind one. Empty defers to the default for the bind address (loopback
+    # addresses when bound to loopback, none when bound to 0.0.0.0/::).
+    allowed_hosts: list[str] = Field(
+        default_factory=list,
+        json_schema_extra={
+            "status": "effective", "ref": "gateway/auth.py",
+            "desc_zh": "可接受的 Host 头列表。DNS rebinding 攻击中 Origin 与 Host 都是攻击者控制的字符串，比对二者无效；唯一可信信号是 Host 是否为本网关预期被访问的名字。绑 loopback 时留空默认接受 localhost/127.0.0.1/[::1]；绑 0.0.0.0/:: 时留空会启动告警；反代时显式列出代理域名",
+            "desc_en": (
+                "Accepted Host header values. DNS rebinding makes Origin and Host "
+                "both attacker-controlled strings — comparing them is useless. "
+                "The only authoritative signal is whether the Host matches a name "
+                "this gateway was intended to be reached on: loopback addresses "
+                "when bound to loopback, the proxy domain when behind one. Empty "
+                "defers to the bind-address default (loopback addresses when "
+                "bound to loopback; warns at startup when bound to 0.0.0.0/::). "
+                "Set explicitly for reverse-proxy deployments"
+            ),
+        },
+    )
 
 
 class GatewayConfig(_Base):
@@ -2994,22 +3406,47 @@ class GatewayConfig(_Base):
             "desc_en": "Enable the gateway service",
         },
     )
+    # Loopback by default. The previous 0.0.0.0 default combined with the empty
+    # apiTokens default into a config that _check_bind_safety refuses outright
+    # ("bind 0.0.0.0 without any API token"), so a quickstart install — which
+    # never visits the gateway section and therefore never sets a token — always
+    # produced a service that could not start. Binding locally is also the right
+    # default on its own terms: exposing an agent to the network should be an
+    # explicit act, not what happens when you accept every prompt.
     host: str = Field(
-        default="0.0.0.0",
+        default="127.0.0.1",
         json_schema_extra={
-            "status": "effective", "ref": "gateway/server.py:128",
-            "desc_zh": "网关监听地址",
-            "desc_en": "Gateway bind address",
+            "status": "effective", "ref": "gateway/server.py:_check_bind_safety",
+            "desc_zh": (
+                "网关监听地址。默认 127.0.0.1 仅本机可达;要对外提供服务改为 0.0.0.0 "
+                "并同时配置 auth.apiTokens(无 token 绑非回环地址会被拒绝启动),"
+                "反代场景还需在 auth.allowedHosts 列出代理域名"
+            ),
+            "desc_en": (
+                "Gateway bind address. Defaults to 127.0.0.1 (this machine only). "
+                "To serve the network, set 0.0.0.0 AND configure auth.apiTokens — "
+                "binding non-loopback without a token is refused at startup — and "
+                "list your proxy domain in auth.allowedHosts if behind a reverse proxy"
+            ),
         },
     )
     port: int = Field(
         default=58123,
         json_schema_extra={
             "status": "effective", "ref": "gateway/server.py:129",
-            "desc_zh": "网关监听端口",
-            "desc_en": "Gateway listen port",
+            "desc_zh": "网关监听端口(0 表示动态分配,真实端口写入 workspace/.echo-agent/gateway.json)",
+            "desc_en": "Gateway listen port (0 = dynamically assigned; the real port is written to workspace/.echo-agent/gateway.json)",
         },
     )
+
+    @field_validator("port")
+    @classmethod
+    def _validate_port(cls, v: int) -> int:
+        # 0 = 让 OS 挑临时端口(真实端口经端点文件对外暴露);其余须为合法 TCP 端口。
+        # 越界值(负数/>65535)fail-closed 拒绝启动,而非等到 bind 时才报晦涩的 OSError。
+        if v != 0 and not (1 <= v <= 65535):
+            raise ValueError("port 必须为 0(动态分配)或 1-65535 之间的合法端口")
+        return v
     api_prefix: str = Field(
         default="/api/v1",
         json_schema_extra={
@@ -3024,6 +3461,17 @@ class GatewayConfig(_Base):
             "status": "effective", "ref": "gateway/server.py:207",
             "desc_zh": "网关 WebSocket 路径",
             "desc_en": "Gateway WebSocket path",
+        },
+    )
+    ws_heartbeat_seconds: float = Field(
+        default=30.0,
+        json_schema_extra={
+            "status": "effective", "ref": "gateway/server.py:716",
+            "desc_zh": "服务端 WebSocket 主动心跳间隔(秒,0 为关闭):服务端定期 ping 客户端并要求 pong,"
+                       "避免长回合期间连接单边失效而无人察觉导致回复投递不到 CLI",
+            "desc_en": "Server-side WebSocket heartbeat interval in seconds (0 = off): the server pings "
+                       "clients and expects a pong, so a connection cannot silently die during a long turn "
+                       "and cause the reply to miss the CLI",
         },
     )
     session_policy: GatewaySessionPolicyConfig = Field(default_factory=GatewaySessionPolicyConfig)
@@ -3050,6 +3498,55 @@ class GatewayConfig(_Base):
             "status": "effective", "ref": "gateway/server.py:80",
             "desc_zh": "媒体缓存大小上限(MB)",
             "desc_en": "Media cache size limit (MB)",
+        },
+    )
+    # Media URLs are attacker-controlled input: they arrive in a POST /message
+    # body or an inbound chat attachment. The download path therefore runs under
+    # the same SSRF guard as web_fetch (security/net_guard.py) plus the ceilings
+    # below. Without them a single request could probe internal services, read
+    # cloud instance metadata, or exhaust memory/disk with one huge response.
+    media_max_file_mb: int = Field(
+        default=25,
+        json_schema_extra={
+            "status": "effective", "ref": "gateway/media.py",
+            "desc_zh": "单个媒体文件下载大小上限(MB)。Content-Length 与实际字节流都会校验,超限即中止并删除临时文件",
+            "desc_en": (
+                "Per-file download ceiling (MB). Enforced on both Content-Length "
+                "and the real byte stream; an over-size download is aborted and "
+                "its partial file removed"
+            ),
+        },
+    )
+    media_max_urls_per_message: int = Field(
+        default=10,
+        json_schema_extra={
+            "status": "effective", "ref": "gateway/server.py",
+            "desc_zh": "单条消息允许携带的媒体 URL 数量上限,超出的部分被拒绝",
+            "desc_en": "Maximum media URLs accepted on one message; extras are rejected",
+        },
+    )
+    media_download_concurrency: int = Field(
+        default=4,
+        json_schema_extra={
+            "status": "effective", "ref": "gateway/media.py",
+            "desc_zh": "媒体并行下载数上限,避免一条消息打满出站连接与内存",
+            "desc_en": "Maximum parallel media downloads, bounding outbound connections and memory",
+        },
+    )
+    media_allow_private_addresses: bool = Field(
+        default=False,
+        json_schema_extra={
+            "status": "effective", "ref": "gateway/media.py",
+            "desc_zh": (
+                "是否允许媒体下载访问私有/回环地址(SSRF 风险)。与 tools.web.allowPrivateAddresses "
+                "同口径但独立开关:内网自建 CDN 可能需要开启,默认拦截。即使开启也仍然只允许 http/https"
+            ),
+            "desc_en": (
+                "Allow media downloads to reach private/loopback addresses (SSRF risk). "
+                "Same policy as tools.web.allowPrivateAddresses but a separate switch, "
+                "since an internal CDN may legitimately need it. Blocked by default; "
+                "the http/https scheme restriction applies either way"
+            ),
         },
     )
     emit_progress_events: bool = Field(
@@ -3081,6 +3578,14 @@ class GatewayConfig(_Base):
 # ── Skills configs ───────────────────────────────────────────────────────────
 
 class SkillsConfig(_Base):
+    enabled: bool = Field(
+        default=True,
+        json_schema_extra={
+            "status": "effective", "ref": "agent/loop.py:227",
+            "desc_zh": "是否启用技能系统",
+            "desc_en": "Enable the skills system",
+        },
+    )
     skills_dir: str = Field(
         default="skills",
         json_schema_extra={
@@ -3232,7 +3737,11 @@ class PlanningConfig(_Base):
     max_tree_depth: int = Field(
         default=5,
         json_schema_extra={
-            "status": "effective", "ref": "agent/loop.py:194",
+            "status": "dead", "disposition": "fix",
+            "reason": "AgentPlanner 只把它存进 _max_tree_depth 后从不读取。"
+                      "ToT 策略做的是广度(max_branches 个候选,无递归),LATS 直接委托 "
+                      "PlanExecuteStrategy 也无 MCTS 深度,即没有任何'树深度'可限制。"
+                      "接线前需先实现深度语义,故标 fix 而非 remove。",
             "desc_zh": "规划树最大深度",
             "desc_en": "Maximum planning tree depth",
         },
@@ -3286,6 +3795,33 @@ class A2AConfig(_Base):
             "status": "effective", "ref": "gateway/server.py:212",
             "desc_zh": "A2A AgentCard 对外声明的能力标签",
             "desc_en": "Capability tags advertised in the A2A AgentCard",
+        },
+    )
+    # Task retention. The store is in-memory only, so these bound how much a
+    # long-running server accumulates; operators need them reachable to shrink
+    # retention under load.
+    task_ttl_seconds: float = Field(
+        default=3600.0, gt=0,
+        json_schema_extra={
+            "status": "effective", "ref": "a2a/server.py:34",
+            "desc_zh": "A2A 终态任务保留时长(秒),超时后回收;tasks/get 在此窗口内仍可取回结果",
+            "desc_en": "How long terminal A2A tasks are retained (seconds) before reclamation",
+        },
+    )
+    max_tasks: int = Field(
+        default=1000, gt=0,
+        json_schema_extra={
+            "status": "effective", "ref": "a2a/server.py:34",
+            "desc_zh": "A2A 任务仓库容量上限,超出时淘汰最老的终态任务",
+            "desc_en": "Capacity of the A2A task store; oldest terminal tasks are evicted past it",
+        },
+    )
+    active_task_ttl_seconds: float = Field(
+        default=86400.0, gt=0,
+        json_schema_extra={
+            "status": "effective", "ref": "a2a/task_store.py:52",
+            "desc_zh": "未达终态任务的兜底保留时长(秒),防卡住的任务永久占用;非任务超时",
+            "desc_en": "Backstop retention for non-terminal A2A tasks (seconds); a leak guard, not a task deadline",
         },
     )
 
@@ -3743,6 +4279,7 @@ class Config(_Base):
     media_understanding: MediaUnderstandingConfig = Field(default_factory=MediaUnderstandingConfig)
     runtime: RuntimeConfig = Field(default_factory=RuntimeConfig)
     storage: StorageConfig = Field(default_factory=StorageConfig)
+    spill: SpillConfig = Field(default_factory=SpillConfig)
     observability: ObservabilityConfig = Field(default_factory=ObservabilityConfig)
     skills: SkillsConfig = Field(default_factory=SkillsConfig)
     compression: CompressionConfig = Field(default_factory=CompressionConfig)

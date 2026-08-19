@@ -239,7 +239,9 @@ InternetFallbackProtocolType = Literal["PCOIP"]
 ListAccountLinksPaginatorName = Literal["list_account_links"]
 ListAvailableManagementCidrRangesPaginatorName = Literal["list_available_management_cidr_ranges"]
 LogUploadEnumType = Literal["DISABLED", "ENABLED"]
-ModificationResourceEnumType = Literal["COMPUTE_TYPE", "PROTOCOL", "ROOT_VOLUME", "USER_VOLUME"]
+ModificationResourceEnumType = Literal[
+    "COMPUTE_TYPE", "NESTED_VIRTUALIZATION", "PROTOCOL", "ROOT_VOLUME", "USER_VOLUME"
+]
 ModificationStateEnumType = Literal["UPDATE_FAILED", "UPDATE_INITIATED", "UPDATE_IN_PROGRESS"]
 OSVersionType = Literal["Windows_10", "Windows_11"]
 OperatingSystemNameType = Literal[
@@ -423,8 +425,11 @@ WorkSpacesServiceName = Literal["workspaces"]
 ServiceName = Literal[
     "accessanalyzer",
     "account",
+    "account-access",
     "acm",
     "acm-pca",
+    "agent-registry",
+    "agent-registry-control",
     "aiops",
     "amp",
     "amplify",

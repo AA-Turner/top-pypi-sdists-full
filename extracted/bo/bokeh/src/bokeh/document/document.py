@@ -40,6 +40,7 @@ from json import loads
 from typing import (
     TYPE_CHECKING,
     Any,
+    Callable,
     Iterable,
     Literal,
     overload,
@@ -60,7 +61,12 @@ from ..core.serialization import (
 )
 from ..core.templates import FILE
 from ..core.validation import check_integrity, process_validation_issues
-from ..themes import Theme, built_in_themes, default as default_theme
+from ..themes import (
+    Theme,
+    ThemeLike,
+    built_in_themes,
+    default as default_theme,
+)
 from ..util.serialization import make_id
 from ..util.version import __version__
 from .callbacks import (
@@ -95,6 +101,7 @@ if TYPE_CHECKING:
     )
     from .events import DocumentChangeCallback
     from .json import DocJson, PatchJson
+    from .locking import LockedCallback, LockedCallbackPolicy
 
 #-----------------------------------------------------------------------------
 # Globals and constants
@@ -105,6 +112,9 @@ DEFAULT_TITLE = "Bokeh Application"
 __all__ = (
     'Document',
 )
+
+def _no_op_callback() -> None:
+    pass
 
 #-----------------------------------------------------------------------------
 # General API
@@ -228,7 +238,7 @@ class Document:
         return self._theme
 
     @theme.setter
-    def theme(self, theme: Theme | str | None) -> None:
+    def theme(self, theme: ThemeLike | None) -> None:
         theme = default_theme if theme is None else theme
 
         if isinstance(theme, str):
@@ -283,8 +293,70 @@ class Document:
 
         '''
         from ..server.callbacks import NextTickCallback
-        cb = NextTickCallback(callback=None, callback_id=make_id())
+        cb = NextTickCallback(callback=_no_op_callback, callback_id=make_id())
         return self.callbacks.add_session_callback(cb, callback, one_shot=True)
+
+    @overload
+    def locked_callback[**P](self, callback: Callable[P, Any], *, policy: LockedCallbackPolicy = "every") -> LockedCallback[P]: ...
+
+    @overload
+    def locked_callback[**P](self, callback: None = None, *, policy: LockedCallbackPolicy = "every") -> Callable[[Callable[P, Any]], LockedCallback[P]]: ...
+
+    def locked_callback[**P](
+        self, callback: Callable[P, Any] | None = None, *, policy: LockedCallbackPolicy = "every",
+    ) -> LockedCallback[P] | Callable[[Callable[P, Any]], LockedCallback[P]]:
+        ''' Decorate a callback to safely update this document from any thread.
+
+        The decorated function schedules its work on this document's server
+        session and executes with the document lock held. Calls return
+        immediately instead of returning the wrapped function's result.
+
+        Parentheses are optional when using the default policy. That is,
+        ``@doc.locked_callback`` and ``@doc.locked_callback()`` are equivalent.
+
+        Args:
+            callback (callable, optional):
+                The function to decorate when this method is used without
+                parentheses.
+
+            policy (``"every"`` or ``"latest"``, optional):
+                With ``"every"``, invoke the callback once for every call, in
+                order. With ``"latest"``, keep at most one waiting invocation,
+                replacing its arguments with those from the most recent call.
+
+        Returns:
+            A decorator that produces a
+            :class:`~bokeh.document.locking.LockedCallback`.
+
+        Example:
+
+            .. code-block:: python
+
+                @curdoc().locked_callback(policy="latest")
+                def update(value):
+                    source.data = value
+
+                @curdoc().locked_callback
+                def notify(value):
+                    status.text = value
+
+                # Safe to call from another thread:
+                update(new_data)
+
+        .. note::
+            Locked callbacks require a Bokeh server session and are closed
+            automatically when that session is destroyed.
+
+        '''
+        from .locking import LockedCallback
+
+        if callback is not None:
+            return LockedCallback(self, callback, policy=policy)
+
+        def decorator(callback: Callable[P, Any]) -> LockedCallback[P]:
+            return LockedCallback(self, callback, policy=policy)
+
+        return decorator
 
     def add_periodic_callback(self, callback: Callback, period_milliseconds: int) -> PeriodicCallback:
         ''' Add a callback to be invoked on a session periodically.
@@ -306,7 +378,7 @@ class Document:
 
         '''
         from ..server.callbacks import PeriodicCallback
-        cb = PeriodicCallback(callback=None, period=period_milliseconds, callback_id=make_id())
+        cb = PeriodicCallback(callback=_no_op_callback, period=period_milliseconds, callback_id=make_id())
         return self.callbacks.add_session_callback(cb, callback, one_shot=False)
 
     def add_root(self, model: Model, setter: Setter | None = None) -> None:
@@ -360,7 +432,7 @@ class Document:
 
         '''
         from ..server.callbacks import TimeoutCallback
-        cb = TimeoutCallback(callback=None, timeout=timeout_milliseconds, callback_id=make_id())
+        cb = TimeoutCallback(callback=_no_op_callback, timeout=timeout_milliseconds, callback_id=make_id())
         return self.callbacks.add_session_callback(cb, callback, one_shot=True)
 
     def apply_json_patch(self, patch_json: PatchJson | Serialized[PatchJson], *, setter: Setter | None = None) -> None:
@@ -747,7 +819,7 @@ side of a communications channel while it was being removed on the other end.\
         from ..model import Model
 
         if isinstance(selector, type) and issubclass(selector, Model):
-            selector = dict(type=selector)
+            selector = {"type": selector}
         for obj in self.select(selector):
             for key, val in updates.items():
                 setattr(obj, key, val)

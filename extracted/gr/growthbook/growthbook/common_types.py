@@ -9,7 +9,7 @@ else:
     from typing_extensions import TypedDict
 
 from dataclasses import dataclass, field
-from typing import Any, Callable, Dict, List, Optional, Union, Set, Tuple
+from typing import Any, Awaitable, Callable, Dict, List, Optional, Union, Set, Tuple
 from enum import Enum
 from abc import ABC, abstractmethod
 from urllib.parse import urlparse as _urlparse
@@ -54,6 +54,7 @@ class Experiment(object):
         bucketVersion: Optional[int] = None,
         minBucketVersion: Optional[int] = None,
         parentConditions: Optional[List[Dict[str, Any]]] = None,
+        customFields: Optional[Dict[str, Any]] = None,
         **_ignored: Any,
     ) -> None:
         self.key = key
@@ -76,6 +77,9 @@ class Experiment(object):
         self.bucketVersion = bucketVersion or 0
         self.minBucketVersion = minBucketVersion or 0
         self.parentConditions = parentConditions
+        # Custom Fields defined for the experiment in the GrowthBook UI.
+        # Arrives from the API as a flat dict (e.g. {"cfl_abc123": "value"}).
+        self.customFields = customFields or {}
 
         self.fallbackAttribute = None
         if not self.disableStickyBucketing:
@@ -117,6 +121,8 @@ class Experiment(object):
             obj["minBucketVersion"] = self.minBucketVersion
         if self.parentConditions:
             obj["parentConditions"] = self.parentConditions
+        if self.customFields:
+            obj["customFields"] = self.customFields
 
         return obj
 
@@ -378,8 +384,35 @@ class AbstractStickyBucketService(ABC):
                 docs[self.get_key(attributeName, attributeValue)] = doc
         return docs
 
+
+class AbstractAsyncStickyBucketService(ABC):
+    """Async twin of AbstractStickyBucketService for network-backed stores
+    (Redis, DynamoDB, ...). Only usable with the async GrowthBookClient;
+    the sync GrowthBook class rejects it at construction."""
+
+    @abstractmethod
+    async def get_assignments(self, attributeName: str, attributeValue: str) -> Optional[Dict]:
+        pass
+
+    @abstractmethod
+    async def save_assignments(self, doc: Dict) -> None:
+        pass
+
+    def get_key(self, attributeName: str, attributeValue: str) -> str:
+        return f"{attributeName}||{attributeValue}"
+
+    # By default, just loop through all attributes and call get_assignments
+    # Override this method in subclasses to perform a multi-query instead
+    async def get_all_assignments(self, attributes: Dict[str, str]) -> Dict[str, Dict]:
+        docs = {}
+        for attributeName, attributeValue in attributes.items():
+            doc = await self.get_assignments(attributeName, attributeValue)
+            if doc:
+                docs[self.get_key(attributeName, attributeValue)] = doc
+        return docs
+
 @dataclass
-class StackContext: 
+class StackContext:
     id: Optional[str] = None
     evaluated_features: Set[str] = field(default_factory=set)
 
@@ -418,10 +451,13 @@ class Options:
     enable_dev_mode: bool = False
     # forced_variations: Dict[str, Any] = field(default_factory=dict)
     refresh_strategy: Optional[FeatureRefreshStrategy] = FeatureRefreshStrategy.STALE_WHILE_REVALIDATE
-    sticky_bucket_service: Optional[AbstractStickyBucketService] = None
+    sticky_bucket_service: Optional[Union[AbstractStickyBucketService, AbstractAsyncStickyBucketService]] = None
     sticky_bucket_identifier_attributes: Optional[List[str]] = None
-    on_experiment_viewed: Optional[Callable[[Experiment, Result, Optional[UserContext]], None]] = None
-    on_feature_usage: Optional[Callable[[str, 'FeatureResult', UserContext], None]] = None
+    # Callbacks may be sync (return None) or async (return an awaitable).
+    # The async GrowthBookClient schedules returned awaitables on the loop;
+    # the sync GrowthBook class supports sync callbacks only.
+    on_experiment_viewed: Optional[Callable[[Experiment, Result, Optional[UserContext]], Union[None, Awaitable[None]]]] = None
+    on_feature_usage: Optional[Callable[[str, 'FeatureResult', UserContext], Union[None, Awaitable[None]]]] = None
     tracking_plugins: Optional[List[Any]] = None
     http_connect_timeout: Optional[int] = None
     http_read_timeout: Optional[int] = None
@@ -429,6 +465,14 @@ class Options:
     remote_eval: bool = False
     cache_key_attributes: Optional[List[str]] = None
     remote_eval_cache_size: int = 1000
+    # Opt-in sticky bucket prefetch cache for the async client. 0 (default)
+    # disables caching: assignments are fetched per evaluation context,
+    # matching the JS SDK's server-side GrowthBookClient. When > 0, fetched
+    # assignments are reused for this many seconds per attributes dict
+    # (bounded staleness across workers), LRU-bounded by
+    # sticky_bucket_cache_size. Non-positive values disable caching.
+    sticky_bucket_cache_ttl: float = 0
+    sticky_bucket_cache_size: int = 1000
 
 
 @dataclass
@@ -442,6 +486,10 @@ class EvaluationContext:
     user: UserContext
     global_ctx: GlobalContext
     stack: StackContext
+    # When set, core calls this instead of sticky_bucket_service.save_assignments
+    # directly, letting the async client schedule persistence off the event loop.
+    # None (the default) preserves the sync client's direct-call behavior.
+    save_sticky_bucket_doc: Optional[Callable[[Dict], None]] = None
 
 
 # ---------------------------------------------------------------------------

@@ -13,6 +13,8 @@ a Bokeh |Document|.
 #-----------------------------------------------------------------------------
 from __future__ import annotations
 
+# pyright: reportArgumentType=false, reportAssignmentType=false, reportAttributeAccessIssue=false, reportFunctionMemberAccess=false, reportIncompatibleVariableOverride=false, reportIndexIssue=false, reportOperatorIssue=false, reportOptionalMemberAccess=false, reportReturnType=false
+
 import logging # isort:skip
 log = logging.getLogger(__name__)
 
@@ -22,7 +24,12 @@ log = logging.getLogger(__name__)
 
 # Standard library imports
 from inspect import Parameter, Signature, isclass
-from typing import TYPE_CHECKING, Any, Iterable
+from typing import (
+    TYPE_CHECKING,
+    Any,
+    Iterable,
+    Self,
+)
 
 # Bokeh imports
 from ..core.has_props import HasProps, _default_resolver, abstract
@@ -46,8 +53,6 @@ from .util import (
 )
 
 if TYPE_CHECKING:
-    from typing_extensions import Self
-
     from ..core.has_props import Setter
     from ..core.query import SelectorType
     from ..core.types import ID
@@ -94,7 +99,7 @@ class Model(HasProps, HasDocumentRef, PropertyCallbackManager, EventCallbackMana
 
         if cls.__module__.startswith("bokeh.models"):
             assert "__init__" in cls.__dict__, str(cls)
-            parameters = [x[0] for x in  cls.parameters()]
+            parameters = [x[0] for x in cls.parameters()]
             cls.__init__.__signature__ = Signature(parameters=parameters)
             process_example(cls)
 
@@ -511,10 +516,11 @@ class Model(HasProps, HasDocumentRef, PropertyCallbackManager, EventCallbackMana
 
     def select_one(self, selector: SelectorType) -> Model | None:
         ''' Query this object and all of its references for objects that
-        match the given selector.  Raises an error if more than one object
-        is found.  Returns single matching object, or None if nothing is found
+        match the given selector. Raises an error if more than one object
+        is found. Returns single matching object, or None if nothing is found.
+
         Args:
-            selector (JSON-like) :
+            selector (JSON-like):
 
         Returns:
             Model

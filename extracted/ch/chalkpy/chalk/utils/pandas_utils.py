@@ -30,3 +30,8 @@ def require_pandas() -> ModuleType:
 def is_pandas_dataframe(value: Any) -> TypeGuard[pd.DataFrame]:
     pd = get_pandas()
     return pd is not None and isinstance(value, pd.DataFrame)
+
+
+def is_pandas_series(value: Any) -> TypeGuard[pd.Series]:
+    pd = get_pandas()
+    return pd is not None and isinstance(value, pd.Series)

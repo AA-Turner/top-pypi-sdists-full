@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: omnigent
-Version: 0.9.0
+Version: 0.10.0
 Summary: Omnigent: declarative agent authoring and runtime framework
 Author: Databricks, Inc.
 Keywords: agents,llm,ai,databricks,cli
@@ -14,8 +14,8 @@ Requires-Python: >=3.12
 Description-Content-Type: text/markdown
 License-File: LICENSE
 License-File: NOTICE
-Requires-Dist: omnigent-client==0.9.0
-Requires-Dist: omnigent-ui-sdk==0.9.0
+Requires-Dist: omnigent-client==0.10.0
+Requires-Dist: omnigent-ui-sdk==0.10.0
 Requires-Dist: pyyaml<7,>=6.0
 Requires-Dist: json5<1,>=0.10
 Requires-Dist: openai<2.45,>=1.0
@@ -30,6 +30,7 @@ Requires-Dist: ftfy>=6.0
 Requires-Dist: psutil<8,>=5.9
 Requires-Dist: cel-python>=0.5
 Requires-Dist: keyring<26,>=24
+Requires-Dist: pillow<13,>=12.2
 Requires-Dist: tomlkit<1,>=0.12
 Requires-Dist: alembic<2,>=1.0
 Requires-Dist: anyio<5,>=4.0
@@ -42,23 +43,26 @@ Requires-Dist: pydantic<3,>=2.0
 Requires-Dist: sqlalchemy<3,>=2.0
 Requires-Dist: zstandard<1,>=0.22
 Requires-Dist: tiktoken<1,>=0.7
-Requires-Dist: opentelemetry-exporter-otlp-proto-grpc<2,>=1.20
-Requires-Dist: opentelemetry-exporter-otlp-proto-http<2,>=1.20
-Requires-Dist: opentelemetry-instrumentation-fastapi<1,>=0
-Requires-Dist: opentelemetry-instrumentation-httpx<1,>=0
-Requires-Dist: opentelemetry-instrumentation-sqlalchemy<1,>=0
+Requires-Dist: opentelemetry-api<2,>=1.20
 Requires-Dist: claude-agent-sdk>=0.1.62
 Requires-Dist: openai-agents>=0.0.17
 Requires-Dist: PyJWT[crypto]<3,>=2.8
 Requires-Dist: argon2-cffi<24,>=23.1
 Requires-Dist: packaging<26,>=23
 Requires-Dist: certifi>=2023.7
-Requires-Dist: protobuf<7,>=6
+Requires-Dist: protobuf<8,>=6
 Requires-Dist: python-dateutil<3,>=2.8
+Requires-Dist: tzdata>=2024.1; platform_system == "Windows"
 Provides-Extra: claude-sdk
 Provides-Extra: openai-agents
 Provides-Extra: all
 Requires-Dist: databricks-sdk<1,>=0.56.0; extra == "all"
+Requires-Dist: opentelemetry-sdk<2,>=1.20; extra == "all"
+Requires-Dist: opentelemetry-exporter-otlp-proto-grpc<2,>=1.20; extra == "all"
+Requires-Dist: opentelemetry-exporter-otlp-proto-http<2,>=1.20; extra == "all"
+Requires-Dist: opentelemetry-instrumentation-fastapi<1,>=0; extra == "all"
+Requires-Dist: opentelemetry-instrumentation-httpx<1,>=0; extra == "all"
+Requires-Dist: opentelemetry-instrumentation-sqlalchemy<1,>=0; extra == "all"
 Provides-Extra: bedrock
 Requires-Dist: boto3<2,>=1.30; extra == "bedrock"
 Requires-Dist: botocore<2,>=1.30; extra == "bedrock"
@@ -71,6 +75,8 @@ Provides-Extra: modal
 Requires-Dist: modal<2,>=1.0; extra == "modal"
 Provides-Extra: daytona
 Requires-Dist: daytona<1,>=0.180; extra == "daytona"
+Provides-Extra: blaxel
+Requires-Dist: blaxel<0.5,>=0.4.1; extra == "blaxel"
 Provides-Extra: boxlite
 Requires-Dist: boxlite<1,>=0.9.5; extra == "boxlite"
 Provides-Extra: cwsandbox
@@ -84,11 +90,18 @@ Requires-Dist: openshell<1,>=0.0.88; extra == "openshell"
 Provides-Extra: kubernetes
 Requires-Dist: kubernetes<37,>=36; extra == "kubernetes"
 Provides-Extra: tracing
+Requires-Dist: opentelemetry-sdk<2,>=1.20; extra == "tracing"
+Requires-Dist: opentelemetry-exporter-otlp-proto-grpc<2,>=1.20; extra == "tracing"
+Requires-Dist: opentelemetry-exporter-otlp-proto-http<2,>=1.20; extra == "tracing"
+Requires-Dist: opentelemetry-instrumentation-fastapi<1,>=0; extra == "tracing"
+Requires-Dist: opentelemetry-instrumentation-httpx<1,>=0; extra == "tracing"
+Requires-Dist: opentelemetry-instrumentation-sqlalchemy<1,>=0; extra == "tracing"
 Provides-Extra: agents-sdk
 Requires-Dist: openai-agents<1,>=0.1; extra == "agents-sdk"
 Requires-Dist: opentelemetry-instrumentation-openai-agents-v2>=0.1; extra == "agents-sdk"
 Provides-Extra: antigravity
 Requires-Dist: google-antigravity<1,>=0.1; extra == "antigravity"
+Requires-Dist: protobuf<8,>=7; extra == "antigravity"
 Provides-Extra: copilot
 Requires-Dist: github-copilot-sdk<2,>=1; extra == "copilot"
 Provides-Extra: dictation
@@ -104,7 +117,7 @@ Requires-Dist: hindsight-client>=0.4.0; extra == "memory"
 Provides-Extra: nimble
 Requires-Dist: nimble-python<2,>=1.2.0; extra == "nimble"
 Provides-Extra: slack
-Requires-Dist: omnigent-slack==0.9.0; extra == "slack"
+Requires-Dist: omnigent-slack==0.10.0; extra == "slack"
 Provides-Extra: databricks
 Requires-Dist: databricks-sdk<1,>=0.56.0; extra == "databricks"
 Requires-Dist: opentelemetry-distro<1,>=0; extra == "databricks"
@@ -114,31 +127,6 @@ Requires-Dist: databricks-mcp>=0.9.0; extra == "databricks"
 Requires-Dist: databricks-ai-bridge>=0.19; extra == "databricks"
 Provides-Extra: loadtest
 Requires-Dist: locust<3,>=2.30; extra == "loadtest"
-Provides-Extra: dev
-Requires-Dist: pytest>=7.0; extra == "dev"
-Requires-Dist: hindsight-client>=0.4.0; extra == "dev"
-Requires-Dist: nimble-python<2,>=1.2.0; extra == "dev"
-Requires-Dist: pytest-asyncio>=0.21; extra == "dev"
-Requires-Dist: pytest-xdist>=3.6; extra == "dev"
-Requires-Dist: pytest-cov>=5; extra == "dev"
-Requires-Dist: pytest-playwright>=0.7; extra == "dev"
-Requires-Dist: pytest-playwright-visual-snapshot>=0.5.1; extra == "dev"
-Requires-Dist: pytest-shard==0.1.2; extra == "dev"
-Requires-Dist: pytest-timeout==2.4.0; extra == "dev"
-Requires-Dist: pytest-rerunfailures==16.3; extra == "dev"
-Requires-Dist: filelock>=3.0; extra == "dev"
-Requires-Dist: ruff>=0.6; extra == "dev"
-Requires-Dist: mypy>=1.10; extra == "dev"
-Requires-Dist: pyrefly==1.1.1; extra == "dev"
-Requires-Dist: pre-commit>=3.5; extra == "dev"
-Requires-Dist: types-PyYAML>=6.0; extra == "dev"
-Requires-Dist: filelock>=3.0; extra == "dev"
-Requires-Dist: pathspec>=0.12; extra == "dev"
-Requires-Dist: moto[s3]<6,>=5; extra == "dev"
-Requires-Dist: respx<1,>=0.21; extra == "dev"
-Requires-Dist: boto3<2,>=1.30; extra == "dev"
-Requires-Dist: sqlalchemy-cloudflare-d1==0.3.10; extra == "dev"
-Requires-Dist: grpcio-tools<2,>=1.68; extra == "dev"
 Dynamic: license-file
 
 <div align="center">
@@ -186,6 +174,7 @@ Omnigent lets you:
 
 - **☁️ Run agents in cloud sandboxes.** No laptop required: run sessions in
   disposable [Modal](https://modal.com), [Daytona](https://www.daytona.io),
+  [Blaxel](https://blaxel.ai),
   [Islo](https://islo.dev), [E2B](https://e2b.dev),
   [CoreWeave](https://docs.coreweave.com/products/sandboxes),
   [Kubernetes](https://kubernetes.io), [OpenShell](https://github.com/NVIDIA/OpenShell),
@@ -223,7 +212,7 @@ curl -fsSL https://raw.githubusercontent.com/omnigent-ai/omnigent/main/scripts/i
 Available user-facing extras include:
 
 - **Model providers:** `databricks`, `bedrock`, `vertex`
-- **Sandbox providers:** `modal`, `daytona`, `boxlite`, `cwsandbox`, `e2b`,
+- **Sandbox providers:** `modal`, `daytona`, `blaxel`, `boxlite`, `cwsandbox`, `e2b`,
   `openshell`, `kubernetes`
 - **SDK harnesses:** `antigravity`, `copilot`, `cursor`, `agents-sdk`
 - **Storage and memory:** `s3`, `hindsight`
@@ -444,15 +433,16 @@ full pages through an MCP search server, and verifies each claim across
 independent sources. It's also the simplest example to copy from: one agent
 plus one `tools/mcp/*.yaml` server, no sub-agents.
 
-**Prefer the browser?** Start a server and register your machine as a host:
+**Prefer the browser?** One command starts the local server and registers this
+machine as a host:
 
 ```bash
-omnigent server --background   # start the local server and web UI in the background
-omnigent host           # (separate terminal) register this machine as a host
+omnigent start   # starts the local server and registers this machine as a host
 ```
 
-In the web UI, hit **New Chat**, pick your machine, and go. Check status with
-`omnigent server status`; stop everything with `omnigent stop`.
+Open the server URL it prints, hit **New Chat**, pick your machine, and go.
+Check status with `omnigent server status`; stop everything with
+`omnigent stop`.
 
 ### 3. Choose & switch models
 
@@ -506,8 +496,10 @@ Face Spaces**, **Modal**, **Cloudflare** (serverless, scale-to-zero), and
 covered too — and a **Cloudflare quick tunnel** (public) or **Tailscale**
 (private) reaches a server running on your own laptop without a deploy. The
 server can also provision a cloud sandbox per session (*managed hosts*), so no
-laptop has to stay online. The full menu of targets, the database options, and
-the sandbox setup live in
+laptop has to stay online. The full menu of targets, the database options, the
+sandbox setup, and
+[branding/white-labeling](https://github.com/omnigent-ai/omnigent/blob/main/deploy/README.md#branding-white-labeling)
+live in
 [`deploy/README.md`](https://github.com/omnigent-ai/omnigent/blob/main/deploy/README.md).
 
 Once the server is up, sign in and register your laptop as a host:
@@ -552,6 +544,9 @@ and they're in. Signup is invite-only.
 
 - **Share a live session.** Hit **Share** in the web UI and send the link;
   teammates watch your agent work and chat with it in real time.
+- **Leave a shared session.** Done with a session someone shared with you?
+  Pick **Leave session** from its sidebar row menu to drop it from your
+  sidebar. Nothing is deleted — the owner keeps it and can share it again.
 - **Co-drive.** A teammate co-attaches to your running session; their
   messages execute on **your** machine. Great for pairing or handing the
   keyboard to a domain expert mid-investigation.

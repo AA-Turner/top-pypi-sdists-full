@@ -220,6 +220,68 @@ class SessionsClient:
         _response = self._raw_client.download(asset_id, export_format=export_format, request_options=request_options)
         return _response.data
 
+    def mark_read(self, asset_id: str, *, request_options: typing.Optional[RequestOptions] = None) -> SessionOut:
+        """
+        Record that the calling user has read the session as of now, clearing its unread indicator. Idempotent: repeated calls only move the read receipt forward.
+
+        Parameters
+        ----------
+        asset_id : str
+            Unique identifier of the session asset to mark as read
+
+        request_options : typing.Optional[RequestOptions]
+            Request-specific configuration.
+
+        Returns
+        -------
+        SessionOut
+            Successful Response
+
+        Examples
+        --------
+        from athena import Athena
+
+        client = Athena(
+            api_key="YOUR_API_KEY",
+        )
+        client.sessions.mark_read(
+            asset_id="asset_92492920-d118-42d3-95b4-00eccfe0754f",
+        )
+        """
+        _response = self._raw_client.mark_read(asset_id, request_options=request_options)
+        return _response.data
+
+    def mark_unread(self, asset_id: str, *, request_options: typing.Optional[RequestOptions] = None) -> SessionOut:
+        """
+        Clear the calling user's read receipt so the session shows as unread again. Idempotent: repeated calls leave the session unread.
+
+        Parameters
+        ----------
+        asset_id : str
+            Unique identifier of the session asset to mark as unread
+
+        request_options : typing.Optional[RequestOptions]
+            Request-specific configuration.
+
+        Returns
+        -------
+        SessionOut
+            Successful Response
+
+        Examples
+        --------
+        from athena import Athena
+
+        client = Athena(
+            api_key="YOUR_API_KEY",
+        )
+        client.sessions.mark_unread(
+            asset_id="asset_92492920-d118-42d3-95b4-00eccfe0754f",
+        )
+        """
+        _response = self._raw_client.mark_unread(asset_id, request_options=request_options)
+        return _response.data
+
 
 class AsyncSessionsClient:
     def __init__(self, *, client_wrapper: AsyncClientWrapper):
@@ -453,4 +515,84 @@ class AsyncSessionsClient:
         _response = await self._raw_client.download(
             asset_id, export_format=export_format, request_options=request_options
         )
+        return _response.data
+
+    async def mark_read(self, asset_id: str, *, request_options: typing.Optional[RequestOptions] = None) -> SessionOut:
+        """
+        Record that the calling user has read the session as of now, clearing its unread indicator. Idempotent: repeated calls only move the read receipt forward.
+
+        Parameters
+        ----------
+        asset_id : str
+            Unique identifier of the session asset to mark as read
+
+        request_options : typing.Optional[RequestOptions]
+            Request-specific configuration.
+
+        Returns
+        -------
+        SessionOut
+            Successful Response
+
+        Examples
+        --------
+        import asyncio
+
+        from athena import AsyncAthena
+
+        client = AsyncAthena(
+            api_key="YOUR_API_KEY",
+        )
+
+
+        async def main() -> None:
+            await client.sessions.mark_read(
+                asset_id="asset_92492920-d118-42d3-95b4-00eccfe0754f",
+            )
+
+
+        asyncio.run(main())
+        """
+        _response = await self._raw_client.mark_read(asset_id, request_options=request_options)
+        return _response.data
+
+    async def mark_unread(
+        self, asset_id: str, *, request_options: typing.Optional[RequestOptions] = None
+    ) -> SessionOut:
+        """
+        Clear the calling user's read receipt so the session shows as unread again. Idempotent: repeated calls leave the session unread.
+
+        Parameters
+        ----------
+        asset_id : str
+            Unique identifier of the session asset to mark as unread
+
+        request_options : typing.Optional[RequestOptions]
+            Request-specific configuration.
+
+        Returns
+        -------
+        SessionOut
+            Successful Response
+
+        Examples
+        --------
+        import asyncio
+
+        from athena import AsyncAthena
+
+        client = AsyncAthena(
+            api_key="YOUR_API_KEY",
+        )
+
+
+        async def main() -> None:
+            await client.sessions.mark_unread(
+                asset_id="asset_92492920-d118-42d3-95b4-00eccfe0754f",
+            )
+
+
+        asyncio.run(main())
+        """
+        _response = await self._raw_client.mark_unread(asset_id, request_options=request_options)
         return _response.data

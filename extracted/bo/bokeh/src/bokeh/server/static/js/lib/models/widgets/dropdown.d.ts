@@ -4,10 +4,12 @@ import type * as p from "../../core/properties";
 import type { CallbackLike1 } from "../../core/util/callbacks";
 import { Menu } from "../ui/menus";
 import type { MenuView } from "../ui/menus/menu";
+import type { ChildView } from "../../core/build_views";
 export declare class DropdownView extends AbstractButtonView {
     model: Dropdown;
     protected _open: boolean;
     protected menu: MenuView;
+    children_views(): ChildView[];
     stylesheets(): StyleSheetLike[];
     lazy_initialize(): Promise<void>;
     connect_signals(): void;

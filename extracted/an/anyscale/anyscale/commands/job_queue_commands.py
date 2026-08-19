@@ -138,8 +138,8 @@ VIEW_COLUMNS: Dict[ViewOption, List[JobQueueStatusKeys]] = {
     help="List job queues.",
     cls=AnyscaleCommand,
 )
-@click.option("--id", "job_queue_id", help="ID of a job queue.")
-@click.option("--name", type=str, help="Filter by name.")
+@click.option("--job-queue-id", "--id", "job_queue_id", help="ID of a job queue.")
+@click.option("--name", "-n", type=str, help="Filter by name.")
 @click.option("--cloud", type=str, help="Filter by cloud.")
 @click.option("--project", type=str, help="Filter by project.")
 @click.option(
@@ -358,7 +358,7 @@ def list_job_queues(  # noqa: PLR0913
     ),
     cls=AnyscaleCommand,
 )
-@click.option("--id", "job_queue_id", help="ID of the job queue.")
+@click.option("--job-queue-id", "--id", "job_queue_id", help="ID of the job queue.")
 @click.option("--name", "-n", help="Name of the job queue.")
 @click.option("--project", "-p", help="Project name (required when using --name).")
 @click.option("--cloud", help="Cloud name (required when using --name).")
@@ -446,7 +446,7 @@ def job_queue_tags_cli() -> None:
     ),
     cls=AnyscaleCommand,
 )
-@click.option("--id", "job_queue_id", help="ID of a job queue.")
+@click.option("--job-queue-id", "--id", "job_queue_id", help="ID of a job queue.")
 @click.option("--name", "-n", type=str, help="Name of a job queue.")
 @click.option(
     "--tag",
@@ -490,7 +490,7 @@ def add_tags(
     ),
     cls=AnyscaleCommand,
 )
-@click.option("--id", "job_queue_id", help="ID of a job queue.")
+@click.option("--job-queue-id", "--id", "job_queue_id", help="ID of a job queue.")
 @click.option("--name", "-n", type=str, help="Name of a job queue.")
 @click.option("--key", "keys", multiple=True, help="Tag key to remove. Repeatable.")
 def remove_tags(
@@ -540,7 +540,7 @@ def remove_tags(
     ),
     cls=AnyscaleCommand,
 )
-@click.option("--id", "job_queue_id", help="ID of a job queue.")
+@click.option("--job-queue-id", "--id", "job_queue_id", help="ID of a job queue.")
 @click.option("--name", "-n", type=str, help="Name of a job queue.")
 @click.option(
     OUTPUT_FLAG,
@@ -621,7 +621,7 @@ def list_tags(
     ),
     cls=AnyscaleCommand,
 )
-@click.option("--id", "job_queue_id", help="ID of the job queue.")
+@click.option("--job-queue-id", "--id", "job_queue_id", help="ID of the job queue.")
 @click.option("--name", "-n", help="Name of the job queue.")
 @click.option("--project", "-p", help="Project name to filter by when using --name.")
 @click.option("--cloud", help="Cloud name to filter by when using --name.")
@@ -719,7 +719,7 @@ def status(
     ),
     cls=AnyscaleCommand,
 )
-@click.option("--id", "job_queue_id", help="ID of the job queue.")
+@click.option("--job-queue-id", "--id", "job_queue_id", help="ID of the job queue.")
 @click.option("--name", "-n", help="Name of the job queue.")
 @click.option("--project", help="Project name (required with --name).")
 @click.option("--cloud", help="Cloud name (required with --name).")
@@ -779,7 +779,7 @@ def archive_job_queue(
     ),
     cls=AnyscaleCommand,
 )
-@click.option("--id", "job_queue_id", help="ID of the job queue.")
+@click.option("--job-queue-id", "--id", "job_queue_id", help="ID of the job queue.")
 @click.option("--name", "-n", help="Name of the job queue.")
 @click.option("--project", help="Project name (required with --name).")
 @click.option("--cloud", help="Cloud name (required with --name).")
@@ -851,7 +851,7 @@ def terminate_job_queue(
     ),
     cls=AnyscaleCommand,
 )
-@click.option("--id", "job_queue_id", help="ID of the job queue.")
+@click.option("--job-queue-id", "--id", "job_queue_id", help="ID of the job queue.")
 @click.option("--name", "-n", help="Name of the job queue.")
 @click.option("--project", help="Project name (required with --name).")
 @click.option("--cloud", help="Cloud name (required with --name).")

@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: edx-drf-extensions
-Version: 10.6.0
+Version: 10.7.0
 Summary: edX extensions of Django REST Framework
 Home-page: https://github.com/openedx/edx-drf-extensions
 Author: edX
@@ -120,6 +120,13 @@ Change Log
 
 Unreleased
 ----------
+
+[10.7.0] - 2026-07-30
+---------------------
+* Added a ``scoping`` module providing the OEP-66 record-visibility building
+  blocks for DRF list endpoints: ``ScopingPolicy`` (a ``typing.Protocol``, so
+  implementers need not inherit from it) and ``ScopedQuerysetMixin``, which
+  applies a configured policy in ``get_queryset()``.
 
 [10.6.0] - 2025-04-04
 ---------------------

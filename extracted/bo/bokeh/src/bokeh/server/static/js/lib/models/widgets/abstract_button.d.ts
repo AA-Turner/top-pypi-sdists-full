@@ -1,7 +1,7 @@
 import type * as p from "../../core/properties";
 import { ButtonType } from "../../core/enums";
 import type { StyleSheetLike } from "../../core/dom";
-import type { ViewOf, View } from "../../core/build_views";
+import type { ViewOf, ChildView } from "../../core/build_views";
 import { Control, ControlView } from "./control";
 import { DOMNode } from "../dom/dom_node";
 import { Icon } from "../ui/icons/icon";
@@ -12,12 +12,11 @@ export declare abstract class AbstractButtonView extends ControlView {
     button_el: HTMLButtonElement;
     protected group_el: HTMLElement;
     controls(): Generator<HTMLButtonElement, void, unknown>;
-    children_views(): View[];
+    children_views(): ChildView[];
     lazy_initialize(): Promise<void>;
     _rebuild_label(): Promise<void>;
     _rebuild_icon(): Promise<void>;
     connect_signals(): void;
-    remove(): void;
     stylesheets(): StyleSheetLike[];
     _render_button(...children: (string | ChildNode | null | undefined)[]): HTMLButtonElement;
     render(): void;

@@ -7,7 +7,7 @@ import type { Context2d } from "../../core/util/canvas";
 import { DOMComponentView } from "../../core/dom_view";
 import { Model } from "../../model";
 import type { Anchor, WindowAxis } from "../../core/enums";
-import type { ViewStorage, View } from "../../core/build_views";
+import type { ViewStorage, ChildView } from "../../core/build_views";
 import type { Arrayable, Rect, FloatArray } from "../../core/types";
 import { ScreenArray, Indices } from "../../core/types";
 import { RaggedArray } from "../../core/util/ragged_array";
@@ -41,7 +41,7 @@ export declare abstract class GlyphView extends DOMComponentView {
     get data_size(): number;
     initialize(): void;
     readonly decorations: ViewStorage<Decoration>;
-    children_views(): View[];
+    children_views(): ChildView[];
     lazy_initialize(): Promise<void>;
     request_paint(): void;
     get canvas(): import("../canvas/canvas").CanvasView;
@@ -76,6 +76,28 @@ export declare abstract class GlyphView extends DOMComponentView {
     protected _inherit_attr<Data>(attr: keyof Data): void;
     protected _inherit_from<Data>(attr: keyof Data, base: this): void;
     protected _define_inherited<Data>(attr: keyof Data, value: boolean): void;
+    /**
+     * Determine if this view can inherit a property value from the base glyph.
+     *
+     * This enables selection/hover/muted glyphs to inherit properties from the base
+     * glyph when not explicitly overridden, which is critical when a derived glyph
+     * only overrides some properties (e.g., radius) but should inherit others
+     * (e.g., start_angle, end_angle).
+     *
+     * Inheritance occurs when either:
+     * 1. The derived property value equals the base value (original behavior), OR
+     * 2. The derived property value equals its default (new behavior)
+     *
+     * Example (case 2):
+     *   Base glyph: start_angle: {value: 0}
+     *   Selection glyph: (unspecified) → gets default {field: "start_angle"}
+     *   Without inheritance: would try to read missing field → rendering fails
+     *   With inheritance: inherits {value: 0} from base → renders correctly ✓
+     *
+     * @param prop - The property to check for inheritance
+     * @param base - The base glyph view to potentially inherit from
+     * @returns true if the property should be inherited from base
+     */
     protected _can_inherit_from<T>(prop: p.Property<T>, base: this | null): boolean;
     protected _is_inherited<T>(prop: p.Property<T> | string): boolean;
     set_visuals(source: ColumnarDataSource, indices: Indices): void;

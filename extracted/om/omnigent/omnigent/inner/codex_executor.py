@@ -71,6 +71,7 @@ from .executor import (
     ToolSpec,
     TurnComplete,
     classify_tool_result,
+    describe_exception,
 )
 from .hook_scripts.subagent_router import HOOK_TIMEOUT_HEADROOM_S as _ROUTER_HOOK_HEADROOM_S
 from .hook_scripts.subagent_router import REQUEST_TIMEOUT_S as _ROUTER_REQUEST_TIMEOUT_S
@@ -3034,7 +3035,7 @@ class CodexExecutor(Executor):
             ``RetryPolicy()`` defaults — see Phase 1f of
             ``designs/RETRY_ACROSS_HARNESSES.md``.
         :param bundle_dir: The agent bundle's extracted on-disk path.
-            When set, ``<bundle_dir>/skills/<name>/SKILL.md`` files are
+            When set, ``<bundle_dir>/skills/<dir>/SKILL.md`` files are
             symlinked into the per-conversation ``$CODEX_HOME/skills/``
             so Codex auto-discovers them. ``None`` skips bundle-skill
             wiring (host-installed ``~/.codex/skills/`` only, subject to
@@ -3324,7 +3325,7 @@ class CodexExecutor(Executor):
                 cfg.extra.get("reasoning_effort"), "codex", CODEX_EFFORTS
             )
         except ValueError as exc:
-            yield ExecutorError(message=str(exc), retryable=False)
+            yield ExecutorError(message=describe_exception(exc), retryable=False)
             return
 
         app_session = await self._ensure_app_session(

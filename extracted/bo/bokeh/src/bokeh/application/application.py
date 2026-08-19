@@ -29,6 +29,7 @@ log = logging.getLogger(__name__)
 #-----------------------------------------------------------------------------
 
 # Standard library imports
+import inspect
 from abc import ABCMeta, abstractmethod
 from typing import (
     TYPE_CHECKING,
@@ -36,17 +37,16 @@ from typing import (
     Awaitable,
     Callable,
     ClassVar,
-    TypeAlias,
 )
 
 # Bokeh imports
 from ..document import Document
 from ..settings import settings
+from ..util.asyncio import _run_in_executor
 
 if TYPE_CHECKING:
-    from tornado.httputil import HTTPServerRequest
-
     from ..core.types import ID
+    from ..server.request import RequestLike
     from ..server.session import ServerSession
     from .handlers.handler import Handler
 
@@ -68,24 +68,22 @@ __all__ = (
 # Dev API
 #-----------------------------------------------------------------------------
 
-Callback: TypeAlias = Callable[[], None]
+type Callback = Callable[[], None]
 
 class Application:
     ''' An Application is a factory for Document instances.
 
     '''
 
-    # This is so that bokeh.io.show can check if a passed in object is an
-    # Application without having to import Application directly. This module
-    # depends on tornado and we have made a commitment that "basic" modules
-    # will function without bringing in tornado.
+    # This lets bokeh.io.show identify an Application without importing the
+    # application and server-facing modules solely for an isinstance check.
     _is_a_bokeh_application_class: ClassVar[bool] = True
 
     _static_path: str | None
     _handlers: list[Handler]
-    _metadata: dict[str, Any] | None
+    _metadata: dict[str, Any] | Callable[[], dict[str, Any]] | None
 
-    def __init__(self, *handlers: Handler, metadata: dict[str, Any] | None = None) -> None:
+    def __init__(self, *handlers: Handler, metadata: dict[str, Any] | Callable[[], dict[str, Any]] | None = None) -> None:
         ''' Application factory.
 
         Args:
@@ -129,7 +127,7 @@ class Application:
         return tuple(self._handlers)
 
     @property
-    def metadata(self) -> dict[str, Any] | None:
+    def metadata(self) -> dict[str, Any] | Callable[[], dict[str, Any]] | None:
         ''' Arbitrary user-supplied metadata to associate with this application.
 
         '''
@@ -246,7 +244,7 @@ class Application:
             await h.on_session_destroyed(session_context)
         return None
 
-    def process_request(self, request: HTTPServerRequest) -> dict[str, Any]:
+    def process_request(self, request: RequestLike) -> dict[str, Any]:
         ''' Processes incoming HTTP request returning a dictionary of
         additional data to add to the session_context.
 
@@ -260,6 +258,21 @@ class Application:
         request_data: dict[str, Any] = {}
         for h in self._handlers:
             request_data.update(h.process_request(request))
+        return request_data
+
+    async def process_request_async(self, request: RequestLike) -> dict[str, Any]:
+        ''' Asynchronously process an incoming HTTP request.
+
+        Synchronous handlers run in a worker, while handlers that return an
+        awaitable continue on the event loop. Handler ordering and dictionary
+        update semantics match :meth:`process_request`.
+        '''
+        request_data: dict[str, Any] = {}
+        for h in self._handlers:
+            result: Any = await _run_in_executor(h.process_request, request)
+            if inspect.isawaitable(result):
+                result = await result
+            request_data.update(result)
         return request_data
 
 
@@ -327,6 +340,14 @@ class SessionContext(metaclass=ABCMeta):
 
         '''
         return self._server_context
+
+    @property
+    @abstractmethod
+    def document(self) -> Document:
+        ''' The document associated with this session context.
+
+        '''
+        pass
 
     # Public methods ----------------------------------------------------------
 

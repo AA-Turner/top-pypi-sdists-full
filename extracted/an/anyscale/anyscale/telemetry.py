@@ -26,6 +26,7 @@ import click
 
 from anyscale.cli_logger import BlockLogger
 from anyscale.client.openapi_client.models.cli_usage_payload import CLIUsagePayload
+from anyscale.errors import from_unexpected_exception
 
 
 # ─── Configuration ────────────────────────────────────────────────────────────
@@ -358,6 +359,18 @@ def _emit_telemetry(body: CLIUsagePayload) -> None:
 # ─── Click Patch ─────────────────────────────────────────────────────────────
 
 
+def _exit_code_for_exception(e: BaseException) -> int:
+    """Return the exit code the process reports for ``e``.
+
+    A ClickException carries its exit code. Classify anything else the same
+    way ``handle_uncaught_exception`` does after the command unwinds.
+    """
+    exit_code = getattr(e, "exit_code", None)
+    if exit_code is None:
+        exit_code = from_unexpected_exception(e).exit_code
+    return exit_code
+
+
 def _patch_click() -> None:
     """Monkey-patch Click so that each leaf command emits telemetry."""
     try:
@@ -388,7 +401,10 @@ def _patch_click() -> None:
                 result = original_invoke(self, ctx, *args, **kwargs)
                 return result
             except Exception as e:  # noqa: BLE001
-                exit_code, exc_name = 1, e.__class__.__name__
+                exit_code, exc_name = (
+                    _exit_code_for_exception(e),
+                    e.__class__.__name__,
+                )
                 raise
             finally:
                 # Only emit telemetry once per command invocation

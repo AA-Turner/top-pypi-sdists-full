@@ -47,7 +47,7 @@ export declare class Label extends TextAnnotation {
     properties: Label.Props;
     __view_type__: LabelView;
     constructor(attrs?: Partial<Label.Attrs>);
-    readonly pan: Signal<["pan" | "pan:start" | "pan:end", KeyModifiers], this>;
+    readonly pan: Signal<["pan" | "pan:end" | "pan:start", KeyModifiers], this>;
 }
 export {};
 //# sourceMappingURL=label.d.ts.map

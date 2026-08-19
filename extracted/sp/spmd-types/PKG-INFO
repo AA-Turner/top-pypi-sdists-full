@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: spmd_types
-Version: 0.2.3
+Version: 0.2.4
 Summary: A type system for distributed (SPMD) tensor computations in PyTorch
 Author: Meta Platforms, Inc.
 License: BSD 3-Clause License

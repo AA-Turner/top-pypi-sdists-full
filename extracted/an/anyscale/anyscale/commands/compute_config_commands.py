@@ -178,6 +178,7 @@ def create_compute_config(
 @click.option(
     "--compute-config-id",
     "--id",
+    "compute_config_id",
     help="ID of the compute config to archive. Alternative to name.",
     required=False,
     type=str,
@@ -246,6 +247,7 @@ def archive_compute_config(
 @click.option(
     "--compute-config-id",
     "--id",
+    "compute_config_id",
     required=False,
     default=None,
     help="List information about the compute config with this id.",
@@ -275,7 +277,9 @@ def archive_compute_config(
     "--cloud-id", required=False, default=None, type=str, help="Filter by cloud ID.",
 )
 @click.option(
+    "--cloud",
     "--cloud-name",
+    "cloud_name",
     required=False,
     default=None,
     type=str,
@@ -453,7 +457,9 @@ def list_compute_configs(  # noqa: A001, PLR0913
     help="Filter by cloud ID when resolving compute config by name.",
 )
 @click.option(
+    "--cloud",
     "--cloud-name",
+    "cloud_name",
     required=False,
     default=None,
     type=str,

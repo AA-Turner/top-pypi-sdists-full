@@ -1,4 +1,4 @@
-from typing import Union, Required, Literal, TypedDict
+from typing import Required, Union, Literal, TypedDict
 
 
 class CheckIn(TypedDict, total=False):

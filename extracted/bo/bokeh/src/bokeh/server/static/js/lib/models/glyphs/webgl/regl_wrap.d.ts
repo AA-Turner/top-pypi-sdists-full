@@ -1,4 +1,4 @@
-import type { BoundingBox, Buffer, BufferOptions } from "regl";
+import type { BoundingBox, Buffer, BufferOptions, Elements, ElementsOptions } from "regl";
 import type { Framebuffer2D, Texture2D, Texture2DOptions } from "regl";
 import type * as t from "./types";
 import type { GLMarkerType } from "./types";
@@ -13,6 +13,8 @@ export declare class ReglWrapper {
     private _image?;
     private _solid_line?;
     private _dashed_line?;
+    private _polygon?;
+    private _polygon_hatch?;
     private _marker_no_hatch_map;
     private _marker_hatch_map;
     private _line_geometry;
@@ -25,6 +27,7 @@ export declare class ReglWrapper {
     private _framebuffer_texture?;
     constructor(gl: WebGLRenderingContext);
     buffer(options: BufferOptions): Buffer;
+    elements(options: ElementsOptions): Elements;
     clear(width: number, height: number): void;
     clear_framebuffer(framebuffer: Framebuffer2D): void;
     get framebuffer_and_texture(): [Framebuffer2D, Texture2D];
@@ -37,6 +40,8 @@ export declare class ReglWrapper {
     dashed_line(): ReglRenderFunction;
     get_dash(line_dash: number[]): DashReturn;
     image(): ReglRenderFunction;
+    polygon(): ReglRenderFunction<t.PolygonGlyphProps>;
+    polygon_hatch(): ReglRenderFunction<t.PolygonHatchGlyphProps>;
     marker_no_hatch(marker_type: GLMarkerType): ReglRenderFunction<t.MarkerGlyphProps>;
     marker_hatch(marker_type: GLMarkerType): ReglRenderFunction<t.MarkerHatchGlyphProps>;
     solid_line(): ReglRenderFunction;

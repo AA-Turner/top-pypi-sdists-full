@@ -862,6 +862,7 @@ __all__ = (
     "NielsenCBETTypeDef",
     "NielsenConfigurationTypeDef",
     "NielsenNaesIiNwTypeDef",
+    "NielsenNwOnlyTypeDef",
     "NielsenWatermarksSettingsTypeDef",
     "NodeInterfaceMappingCreateRequestTypeDef",
     "NodeInterfaceMappingOutputTypeDef",
@@ -2315,6 +2316,11 @@ class NielsenCBETTypeDef(TypedDict):
     Csid: str
 
 class NielsenNaesIiNwTypeDef(TypedDict):
+    CheckDigitString: str
+    Sid: float
+    Timezone: NotRequired[NielsenWatermarkTimezonesType]
+
+class NielsenNwOnlyTypeDef(TypedDict):
     CheckDigitString: str
     Sid: float
     Timezone: NotRequired[NielsenWatermarkTimezonesType]
@@ -3846,6 +3852,7 @@ class NielsenWatermarksSettingsTypeDef(TypedDict):
     NielsenCbetSettings: NotRequired[NielsenCBETTypeDef]
     NielsenDistributionType: NotRequired[NielsenWatermarksDistributionTypesType]
     NielsenNaesIiNwSettings: NotRequired[NielsenNaesIiNwTypeDef]
+    NielsenNwOnlySettings: NotRequired[NielsenNwOnlyTypeDef]
 
 NodeInterfaceMappingUnionTypeDef = Union[
     NodeInterfaceMappingTypeDef, NodeInterfaceMappingOutputTypeDef

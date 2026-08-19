@@ -87,7 +87,8 @@ def test_copy_into_stage_from_subquery(dialect: str):
         {"table_01"},
         {Location("@STAGE_01")},
         dialect=dialect,
-        test_sqlparse=False,
+        # Graph: Parsers create different graph structures (table lineage is correct)
+        skip_graph_check=True,
     )
 
 
@@ -116,7 +117,6 @@ def test_copy_into_table_from_stage_with_subpath(dialect: str):
         {Location("@STAGE_01/data/2024/")},
         {"schema_01.table_02"},
         dialect=dialect,
-        test_sqlparse=False,
     )
 
 
@@ -131,7 +131,6 @@ def test_copy_into_stage_with_subpath_from_table(dialect: str):
         {"schema_01.table_01"},
         {Location("@STAGE_01/output/2024/")},
         dialect=dialect,
-        test_sqlparse=False,
     )
 
 
@@ -181,7 +180,8 @@ FILE_FORMAT = (TYPE = CSV)""",
         {Location("@DB_01.SCHEMA_01.MY_STAGE/data/2024/export.csv")},
         {"db_01.schema_01.table_02"},
         dialect=dialect,
-        test_sqlparse=False,
+        # Graph: Parsers create different graph structures (table lineage is correct)
+        skip_graph_check=True,
     )
 
 
@@ -197,7 +197,8 @@ def test_copy_into_stage_from_subquery_with_join(dialect: str):
         {"table_01", "table_02"},
         {Location("@STAGE_01")},
         dialect=dialect,
-        test_sqlparse=False,
+        # Graph: Parsers create different graph structures (table lineage is correct)
+        skip_graph_check=True,
     )
 
 

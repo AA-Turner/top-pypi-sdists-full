@@ -1,5 +1,4 @@
-import type { uint32 } from "../types";
-declare const _named_colors: {
+export declare const named_colors: {
     aliceblue: number;
     antiquewhite: number;
     aqua: number;
@@ -149,8 +148,6 @@ declare const _named_colors: {
     yellow: number;
     yellowgreen: number;
 };
-export declare const named_colors: { [key in keyof typeof _named_colors]: uint32; };
 export type NamedColor = keyof typeof named_colors;
 export declare function is_named_color(color: string): color is NamedColor;
-export {};
 //# sourceMappingURL=svg_colors.d.ts.map

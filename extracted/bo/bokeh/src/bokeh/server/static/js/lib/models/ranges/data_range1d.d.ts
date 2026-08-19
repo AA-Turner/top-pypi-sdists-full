@@ -24,7 +24,16 @@ export declare namespace DataRange1d {
         follow_interval: p.Property<number | null>;
         default_span: p.Property<number>;
         only_visible: p.Property<boolean>;
+    } & Internal;
+    type Internal = {
         scale_hint: p.Property<"log" | "auto">;
+        _initial_start: p.Property<number | null>;
+        _initial_end: p.Property<number | null>;
+        _initial_range_padding: p.Property<number>;
+        _initial_range_padding_units: p.Property<PaddingUnits>;
+        _initial_follow: p.Property<StartEnd | null>;
+        _initial_follow_interval: p.Property<number | null>;
+        _initial_default_span: p.Property<number>;
     };
 }
 export interface DataRange1d extends DataRange1d.Attrs {
@@ -32,16 +41,7 @@ export interface DataRange1d extends DataRange1d.Attrs {
 export declare class DataRange1d extends DataRange {
     properties: DataRange1d.Props;
     constructor(attrs?: Partial<DataRange1d.Attrs>);
-    protected _initial_start: number | null;
-    protected _initial_end: number | null;
-    protected _initial_range_padding: number;
-    protected _initial_range_padding_units: PaddingUnits;
-    protected _initial_follow: StartEnd | null;
-    protected _initial_follow_interval: number | null;
-    protected _initial_default_span: number;
-    protected _plot_bounds: Map<PlotView, Rect>;
-    have_updated_interactively: boolean;
-    initialize(): void;
+    protected readonly _plot_bounds: Map<PlotView, Rect>;
     connect_signals(): void;
     protected _invalidate_dataranges(): void;
     get min(): number;

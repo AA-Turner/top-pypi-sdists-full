@@ -17,7 +17,7 @@ import type * as p from "../../core/properties";
 import type { Context2d } from "../../core/util/canvas";
 import type { Layoutable } from "../../core/layout";
 import { BorderLayout } from "../../core/layout/border";
-import type { View } from "../../core/build_views";
+import type { ChildView } from "../../core/build_views";
 import { BBox } from "../../core/util/bbox";
 export declare abstract class BaseColorBarView extends AnnotationView {
     model: BaseColorBar;
@@ -38,10 +38,9 @@ export declare abstract class BaseColorBarView extends AnnotationView {
     protected _minor_scale: Scale;
     private _orientation;
     get orientation(): Orientation;
-    children_views(): View[];
+    children_views(): ChildView[];
     initialize(): void;
     lazy_initialize(): Promise<void>;
-    remove(): void;
     protected _apply_axis_properties(): void;
     protected _apply_title_properties(): void;
     connect_signals(): void;

@@ -199,6 +199,11 @@ workspace_api_keys:
   # delete: can delete the api keys
   org_id: wildcard
   ws_id: wildcard
+workspace_user_management:
+  # read: can read the roles held by users in the workspace
+  # write: can grant and revoke roles scoped to the workspace
+  org_id: wildcard
+  ws_id: wildcard
 workspace_review_case:
   # write: can create, assign, update, submit manual review cases
   # read: can read manual review cases (including sensitive data)

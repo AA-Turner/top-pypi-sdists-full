@@ -119,6 +119,23 @@ def test_non_dataset_root_base_data_dir() -> None:
     assert info.checkpoint_root("_ckp") == "s3://bucket/dir/_ckp"
 
 
+def test_dataset_root_base_dirs_preserve_uri_query() -> None:
+    from geneva.utils.multi_base import DatasetBaseInfo
+
+    # An object-store URI may carry credentials in its query (e.g. an Azure
+    # SAS token); appending a subdirectory must not drop it, or the per-base
+    # file session built from it reads unauthenticated.
+    info = DatasetBaseInfo(
+        base_id=0,
+        uri="az://container/table.lance?sv=abc&sig=xyz",
+        is_dataset_root=True,
+    )
+    assert info.data_dir == "az://container/table.lance/data?sv=abc&sig=xyz"
+    assert (
+        info.checkpoint_root("_ckp") == "az://container/table.lance/_ckp?sv=abc&sig=xyz"
+    )
+
+
 # ---------------------------------------------------------------------------
 # MultiBaseCheckpointStore routing
 # ---------------------------------------------------------------------------
@@ -520,3 +537,114 @@ def test_backfill_multi_base_direct_path(tmp_path: Path, local_ray_context) -> N
         tmp_path, rows_per_fragment=8, fragments_per_side=2
     )
     _assert_multi_base_backfill(tmp_path, root, base_dir)
+
+
+# ---------------------------------------------------------------------------
+# Compaction vs placement / routing
+# ---------------------------------------------------------------------------
+
+
+def test_resolve_fragment_bases_after_compaction(tmp_path: Path) -> None:
+    """Lance compacts multi-base datasets by writing the merged fragment's
+    single data file at the dataset root (base_id=None), pulling
+    base-resident data back to the root (as of pylance 9.0.0-beta.21).
+    Placement follows the new fragment's first data file: it maps to no
+    base, so its checkpoint keys route to the default store, and with no
+    base holding a fragment the store wrapper stays a plain store. A router
+    built before the compaction keeps routing the removed fragment's keys to
+    its base — the reason orphan cleanup relies on read/purge fallbacks that
+    span every store."""
+    root, base_dir = _make_multi_base_dataset(tmp_path)
+    ds = lance.dataset(root)
+    assert resolve_fragment_bases(ds.get_fragments()) == {1: 1}
+    pre_frag_ids = {frag.fragment_id for frag in ds.get_fragments()}
+
+    metrics = ds.optimize.compact_files()
+    assert metrics.fragments_removed == 2
+    assert metrics.fragments_added == 1
+
+    ds = lance.dataset(root)
+    frags = ds.get_fragments()
+    assert len(frags) == 1
+    new_frag = frags[0]
+    assert new_frag.fragment_id not in pre_frag_ids
+    assert [df.base_id for df in new_frag.data_files()] == [None]
+    assert ds.to_table()["a"].to_pylist() == list(range(16))
+
+    # frag_to_base follows the first data file's base: root -> unmapped.
+    assert resolve_fragment_bases(frags) == {}
+    placement = FragmentBasePlacement.from_dataset(ds)
+    assert placement is not None  # base_paths persists in the manifest
+    assert set(placement.bases) == {1}
+    assert placement.frag_to_base == {}
+    assert placement.base_id_for_frag(new_frag.fragment_id) is None
+
+    # Rebuilding the store wrapper from post-compaction placement yields no
+    # router at all: no base holds a fragment, so the store stays plain.
+    store = FlatLanceCheckpointStore(f"{root}/_ckp")
+    assert maybe_wrap_checkpoint_store_for_bases(store, placement) is store
+
+    # A router built from the PRE-compaction placement (a job that outlives
+    # the compaction) routes new-fragment keys to the default store and the
+    # removed base fragment's keys to its base store.
+    stale_router = MultiBaseCheckpointStore(
+        store,
+        base_checkpoint_uris={1: f"{base_dir}/_ckp"},
+        frag_to_base={1: 1},
+    )
+    new_key = _frag_key(new_frag.fragment_id)
+    assert stale_router._store_for_key(new_key) is stale_router.default_store
+    assert stale_router._store_for_key(_frag_key(1)) is stale_router.base_stores[1]
+
+
+@pytest.mark.ray
+@pytest.mark.multibackfill
+@requires_multi_base_lance
+def test_multi_base_backfill_resume_after_compaction(
+    tmp_path: Path, local_ray_context
+) -> None:
+    """A backfill resumed after compaction stays correct on a multi-base
+    dataset.
+
+    Compaction merges the root- and base-side fragments into one root
+    fragment (renumbering fragments, so the first run's per-fragment
+    checkpoints no longer apply) and folds the partially filled 'b' column
+    into the merged data file. The resume must recompute and commit against
+    the merged fragment without routing errors and leave b == a * 10
+    everywhere."""
+    root, base_dir = _make_multi_base_dataset(
+        tmp_path, rows_per_fragment=8, fragments_per_side=2
+    )
+    db = geneva.connect(str(tmp_path))
+    tbl = db.open_table("foo")
+    tbl.add_columns({"b": _times_ten})
+
+    # Partial leg: only the root-side fragments (rows 0..15).
+    tbl.backfill("b", where="a < 16")
+    tbl.checkout_latest()
+    data = tbl.to_arrow().to_pydict()
+    assert [b for a, b in zip(data["a"], data["b"], strict=True) if a < 16] == [
+        a * 10 for a in range(16)
+    ]
+    # The base-side rows must still be unfilled: if the predicate were ignored
+    # the "resume" below would be a no-op and the test would prove nothing.
+    filled_early = sorted(
+        a
+        for a, b in zip(data["a"], data["b"], strict=True)
+        if a >= 16 and b is not None
+    )
+    assert not filled_early, (
+        f"first leg ignored where='a < 16': rows {filled_early[:5]} already filled"
+    )
+
+    tbl.compact_files()
+    tbl.checkout_latest()
+    ds = lance.dataset(root)
+    assert len(ds.get_fragments()) == 1
+
+    # Resume: fill the remaining rows against the merged fragment.
+    tbl.backfill("b")
+    tbl.checkout_latest()
+    data = tbl.to_arrow().to_pydict()
+    assert data["b"] == [a * 10 for a in data["a"]]
+    assert sorted(data["a"]) == list(range(32))

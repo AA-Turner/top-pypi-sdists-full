@@ -309,7 +309,15 @@ def _print_schedule_list_diagnostics(  # noqa: PLR0913
     default=None,
     help="Filter by the name of the schedule.",
 )
-@click.option("--id", "-i", required=False, default=None, help="Id of the schedule.")
+@click.option(
+    "--schedule-id",
+    "--id",
+    "-i",
+    "id",
+    required=False,
+    default=None,
+    help="Id of the schedule.",
+)
 @click.option(
     "--project",
     required=False,
@@ -525,7 +533,15 @@ def list(  # noqa: A001 PLR0913
 @click.option(
     "--name", "-n", required=False, default=None, help="Name of the schedule."
 )
-@click.option("--id", "-i", required=False, default=None, help="Id of the schedule.")
+@click.option(
+    "--schedule-id",
+    "--id",
+    "-i",
+    "id",
+    required=False,
+    default=None,
+    help="Id of the schedule.",
+)
 @click.option(
     "--cloud",
     required=False,
@@ -592,7 +608,15 @@ def pause(
 @click.option(
     "--name", "-n", required=False, default=None, help="Name of the schedule."
 )
-@click.option("--id", "-i", required=False, default=None, help="Id of the schedule.")
+@click.option(
+    "--schedule-id",
+    "--id",
+    "-i",
+    "id",
+    required=False,
+    default=None,
+    help="Id of the schedule.",
+)
 @click.option(
     "--cloud",
     required=False,
@@ -671,7 +695,15 @@ def resume(
 @click.option(
     "--name", "-n", required=False, default=None, help="Name of the schedule."
 )
-@click.option("--id", "-i", required=False, default=None, help="Id of the schedule.")
+@click.option(
+    "--schedule-id",
+    "--id",
+    "-i",
+    "id",
+    required=False,
+    default=None,
+    help="Id of the schedule.",
+)
 @click.option(
     "--cloud",
     required=False,
@@ -782,7 +814,15 @@ def status(
 @click.option(
     "--name", "-n", required=False, default=None, help="Name of the schedule."
 )
-@click.option("--id", "-i", required=False, default=None, help="Id of the schedule.")
+@click.option(
+    "--schedule-id",
+    "--id",
+    "-i",
+    "id",
+    required=False,
+    default=None,
+    help="Id of the schedule.",
+)
 @click.option(
     "--cloud",
     required=False,
@@ -842,7 +882,15 @@ def trigger(
 @click.option(
     "--name", "-n", required=False, default=None, help="Name of the schedule."
 )
-@click.option("--id", "-i", required=False, default=None, help="Id of the schedule.")
+@click.option(
+    "--schedule-id",
+    "--id",
+    "-i",
+    "id",
+    required=False,
+    default=None,
+    help="Id of the schedule.",
+)
 @click.option("--v2", is_flag=True, help="Use new SDK-based implementation")
 @click.option("--cloud", help="Cloud name (required with --name in v2 mode)")
 @click.option("--project", help="Project name (required with --name in v2 mode)")
@@ -919,7 +967,15 @@ def _validate_delete_identifiers(
 @click.option(
     "--name", "-n", required=False, default=None, help="Name of the schedule."
 )
-@click.option("--id", "-i", required=False, default=None, help="Id of the schedule.")
+@click.option(
+    "--schedule-id",
+    "--id",
+    "-i",
+    "id",
+    required=False,
+    default=None,
+    help="Id of the schedule.",
+)
 @click.option(
     "--cloud",
     required=False,

@@ -1,4 +1,4 @@
-from typing import Optional, Any, List, Dict, Union
+from typing import Optional, Any, List, Dict, Literal, Union
 import abc
 from ..client import SeamHttpClient
 from ..route import route_metadata
@@ -80,8 +80,8 @@ class AbstractDevicesUnmanaged(abc.ABC):
         self,
         *,
         device_id: str,
-        custom_metadata: Optional[Dict[str, Any]] = None,
-        is_managed: Optional[bool] = None,
+        custom_metadata: Optional[Dict[str, Union[str, bool]]] = None,
+        is_managed: Optional[Literal[True]] = None,
     ) -> None:
         """Updates a specified `unmanaged device <https://docs.seam.co/core-concepts/devices/managed-and-unmanaged-devices>`_. To convert an unmanaged device to managed, set ``is_managed`` to ``true``.
 
@@ -189,34 +189,34 @@ class DevicesUnmanaged(AbstractDevicesUnmanaged):
         :param search: String for which to search. Filters returned devices to include all records that satisfy a partial match using ``device_id`` (full or partial UUID prefix, minimum 4 characters), ``connected_account_id``, ``display_name``, ``custom_metadata`` or ``location.location_name``.
 
         :returns: OK"""
-        json_payload: Dict[str, Any] = {}
+        params: Dict[str, Any] = {}
 
         if connect_webview_id is not None:
-            json_payload["connect_webview_id"] = connect_webview_id
+            params["connect_webview_id"] = connect_webview_id
         if connected_account_id is not None:
-            json_payload["connected_account_id"] = connected_account_id
+            params["connected_account_id"] = connected_account_id
         if connected_account_ids is not None:
-            json_payload["connected_account_ids"] = connected_account_ids
+            params["connected_account_ids"] = connected_account_ids
         if created_before is not None:
-            json_payload["created_before"] = created_before
+            params["created_before"] = created_before
         if customer_key is not None:
-            json_payload["customer_key"] = customer_key
+            params["customer_key"] = customer_key
         if device_ids is not None:
-            json_payload["device_ids"] = device_ids
+            params["device_ids"] = device_ids
         if device_type is not None:
-            json_payload["device_type"] = device_type
+            params["device_type"] = device_type
         if device_types is not None:
-            json_payload["device_types"] = device_types
+            params["device_types"] = device_types
         if limit is not None:
-            json_payload["limit"] = limit
+            params["limit"] = limit
         if manufacturer is not None:
-            json_payload["manufacturer"] = manufacturer
+            params["manufacturer"] = manufacturer
         if page_cursor is not None:
-            json_payload["page_cursor"] = page_cursor
+            params["page_cursor"] = page_cursor
         if search is not None:
-            json_payload["search"] = search
+            params["search"] = search
 
-        res = self.client.post("/devices/unmanaged/list", json=json_payload)
+        res = self.client.get("/devices/unmanaged/list", params=params)
 
         return [UnmanagedDevice.from_dict(item) for item in res["devices"]]
 
@@ -229,8 +229,8 @@ class DevicesUnmanaged(AbstractDevicesUnmanaged):
         self,
         *,
         device_id: str,
-        custom_metadata: Optional[Dict[str, Any]] = None,
-        is_managed: Optional[bool] = None,
+        custom_metadata: Optional[Dict[str, Union[str, bool]]] = None,
+        is_managed: Optional[Literal[True]] = None,
     ) -> None:
         """Updates a specified `unmanaged device <https://docs.seam.co/core-concepts/devices/managed-and-unmanaged-devices>`_. To convert an unmanaged device to managed, set ``is_managed`` to ``true``.
 

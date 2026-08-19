@@ -1,6 +1,5 @@
 use crate::ast_nav;
 use crate::collect;
-use crate::column_name::ColumnName;
 use crate::comments::preceding_comment;
 use crate::db::{File, bind, list_files, parse};
 use crate::file::InFile;
@@ -19,6 +18,7 @@ use squawk_line_index::find_newline;
 use squawk_syntax::SyntaxNode;
 use squawk_syntax::SyntaxNodePtr;
 use squawk_syntax::ast::LitKind;
+use squawk_syntax::column_name::ColumnName;
 use squawk_syntax::{
     SyntaxKind,
     ast::{self, AstNode},
@@ -204,7 +204,8 @@ pub fn hover(db: &dyn Db, position: InFile<TextSize>) -> Option<Hover> {
             | ast::AnyName::ColumnNameRef(_)
             | ast::AnyName::CompositeFieldRef(_)
             | ast::AnyName::ConfigValueName(_)
-            | ast::AnyName::CopyOptionName(_)
+            | ast::AnyName::CopyOptionKey(_)
+            | ast::AnyName::CopyOptionValueName(_)
             | ast::AnyName::CursorRef(_)
             | ast::AnyName::DatabaseRef(_)
             | ast::AnyName::ElementTableAlias(_)
@@ -213,6 +214,7 @@ pub fn hover(db: &dyn Db, position: InFile<TextSize>) -> Option<Hover> {
             | ast::AnyName::EventTriggerRef(_)
             | ast::AnyName::ExplainOptionName(_)
             | ast::AnyName::ExtensionRef(_)
+            | ast::AnyName::ExtensionVersion(_)
             | ast::AnyName::ForeignDataWrapperRef(_)
             | ast::AnyName::ForeignOptionName(_)
             | ast::AnyName::GrantRoleOptionName(_)
@@ -222,6 +224,8 @@ pub fn hover(db: &dyn Db, position: InFile<TextSize>) -> Option<Hover> {
             | ast::AnyName::LabelRef(_)
             | ast::AnyName::LanguageRef(_)
             | ast::AnyName::NameRef(_)
+            | ast::AnyName::OptionItemKey(_)
+            | ast::AnyName::OptionItemValueName(_)
             | ast::AnyName::ParamNameRef(_)
             | ast::AnyName::PathSegmentRef(_)
             | ast::AnyName::PolicyRef(_)
@@ -353,6 +357,7 @@ fn hover_name(db: &dyn Db, def: Location) -> Option<Hover> {
         | LocationKind::CommitEnd
         | LocationKind::ElementTable
         | LocationKind::Label
+        | LocationKind::PreparedTransaction
         | LocationKind::Property => None,
         LocationKind::Channel => hover_channel(db, def),
         LocationKind::Column => hover_name_column(db, def),
@@ -441,6 +446,7 @@ fn hover_position(db: &dyn Db, position: InFile<TextSize>) -> Option<Hover> {
         | LocationKind::CommitEnd
         | LocationKind::ElementTable
         | LocationKind::Label
+        | LocationKind::PreparedTransaction
         | LocationKind::Property => None,
         LocationKind::Channel => hover_channel(db, def),
         LocationKind::Column => {
@@ -627,7 +633,7 @@ fn format_hover_for_column_ptr(db: &dyn Db, def: Location) -> Option<Hover> {
         }
         ast_nav::ParentSouce::Alias(alias) => {
             let alias_name = alias.name()?;
-            alias.column_list()?;
+            alias.columns()?;
             let from_item = alias.syntax().ancestors().find_map(ast::FromItem::cast)?;
             let table_name = Name::from_node(&alias_name);
             let column_name = Name::from_string(def_node.text().to_string());
@@ -798,7 +804,7 @@ fn format_alias_with_column_list(db: &dyn Db, alias: InFile<ast::FromAlias>) -> 
     let alias_name = alias.name()?;
     let name = Name::from_node(&alias_name);
 
-    let Some(column_list) = alias.column_list() else {
+    let Some(alias_columns) = alias.columns() else {
         let name = Name::from_node(&alias.name()?);
         let from_item = alias.syntax().ancestors().find_map(ast::FromItem::cast)?;
         let ast::FromItem::ParenFromItem(paren) = from_item else {
@@ -808,7 +814,7 @@ fn format_alias_with_column_list(db: &dyn Db, alias: InFile<ast::FromAlias>) -> 
         return format_subquery_table(name, paren_select);
     };
 
-    let mut columns: Vec<Name> = column_list
+    let mut columns: Vec<Name> = alias_columns
         .column_names()
         .map(|column_name| Name::from_node(&column_name))
         .collect();
@@ -950,7 +956,7 @@ fn hover_qualified_star_columns_from_alias(
     let file = alias.file_id;
     let alias = alias.value;
     let alias_name = Name::from_node(&alias.name()?);
-    alias.column_list()?;
+    alias.columns()?;
     let from_item = alias.syntax().ancestors().find_map(ast::FromItem::cast)?;
     let columns = collect::columns_for_star_from_alias(db, file, &from_item, alias);
 
@@ -2030,7 +2036,7 @@ fn qualified_star_from_clause_table_ptr(
     let from_item = resolve::find_from_item_in_from_clause(&from_clause, table_name)?;
 
     if let Some(alias) = from_item.alias()
-        && alias.column_list().is_some()
+        && alias.columns().is_some()
     {
         return Some(SyntaxNodePtr::new(alias.syntax()));
     }

@@ -1,7 +1,7 @@
-from typing import Any, Dict, List, Optional, Union
+from typing import Any, Dict, List, Literal, Optional, Union
 from dataclasses import dataclass
-from ..utils.deep_attr_dict import DeepAttrDict
-from ..utils.resource_mapping import ResourceMapping
+from ..deep_attr_dict import DeepAttrDict
+from ..resource_mapping import ResourceMapping
 
 
 @dataclass
@@ -153,7 +153,7 @@ class Device:
         created_at: str
         error_code: str
         is_connected_account_error: Optional[bool]
-        is_device_error: Optional[bool]
+        is_device_error: Optional[Literal[False, True]]
         message: str
         is_bridge_error: Optional[bool]
 
@@ -2106,7 +2106,7 @@ class Device:
 
             display_name: str
             end_date_recurrence_rule: Optional[str]
-            matching_start_end_time: Optional[bool]
+            matching_start_end_time: Optional[Literal[True]]
             max_duration: Optional[str]
             min_duration: Optional[str]
             start_date_recurrence_rule: Optional[str]
@@ -2176,7 +2176,7 @@ class Device:
 
             display_name: str
             end_date_recurrence_rule: Optional[str]
-            matching_start_end_time: Optional[bool]
+            matching_start_end_time: Optional[Literal[True]]
             max_duration: Optional[str]
             min_duration: Optional[str]
             start_date_recurrence_rule: Optional[str]
@@ -3275,14 +3275,14 @@ class Device:
     capabilities_supported: List[str]
     connected_account_id: str
     created_at: str
-    custom_metadata: Dict[str, Any]
+    custom_metadata: Dict[str, Union[str, bool]]
     device_id: str
     device_manufacturer: Optional[DeviceManufacturer]
     device_provider: Optional[DeviceProvider]
     device_type: str
     display_name: str
     errors: List[Errors]
-    is_managed: bool
+    is_managed: Literal[True]
     location: Optional[Location]
     nickname: Optional[str]
     properties: Optional[Properties]

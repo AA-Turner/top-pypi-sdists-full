@@ -300,6 +300,75 @@ def _compute_missing_ranges(
     return tasks
 
 
+def _compute_resume_ranges(
+    *,
+    total_rows: int,
+    task_size: int,
+    covered: list[tuple[int, int]],
+) -> list[tuple[int, int]]:
+    """Tile the whole ``[0, total_rows)`` window, splitting at coverage boundaries.
+
+    Args:
+        total_rows: Total number of rows in the fragment.
+        task_size: Desired read-task size. Each returned task has
+            `limit <= task_size` unless `task_size <= 0`.
+        covered: Sorted, merged checkpoint coverage ranges `[start, end)`.
+
+    Returns:
+        `(offset, limit)` pairs covering every row exactly once. Each task
+        window is either fully covered by existing checkpoints (the applier
+        reconstructs it from the store without recomputing, which re-ingests
+        the coverage into the writer) or fully uncovered (recomputed).
+
+    Unlike `_compute_missing_ranges`, the covered runs are tiled instead of
+    skipped: a partially covered fragment must still be rewritten in full, so
+    the writer needs checkpoints for every row. Skipping the covered runs
+    null-fills them at seal.
+    """
+    runs = _compute_resume_runs(total_rows=total_rows, covered=covered)
+
+    tasks: list[tuple[int, int]] = []
+    for start, end in runs:
+        remaining = end - start
+        if task_size <= 0:
+            tasks.append((start, remaining))
+            continue
+        while remaining > task_size:
+            tasks.append((start, task_size))
+            start += task_size
+            remaining -= task_size
+        if remaining > 0:
+            tasks.append((start, remaining))
+    return tasks
+
+
+def _compute_resume_runs(
+    *,
+    total_rows: int,
+    covered: list[tuple[int, int]],
+) -> list[tuple[int, int]]:
+    """Split ``[0, total_rows)`` only at checkpoint coverage boundaries.
+
+    Unlike :func:`_compute_resume_ranges`, this does not tile the runs by task
+    size.  Keeping these compact runs lets the read planner calculate task
+    counts up front while creating the individual tasks lazily during
+    scheduling.
+    """
+    runs: list[tuple[int, int]] = []
+    cur = 0
+    for s, e in covered:
+        s = max(0, min(int(s), total_rows))
+        e = max(0, min(int(e), total_rows))
+        if cur < s:
+            runs.append((cur, s))
+        if e > max(cur, s):
+            runs.append((max(cur, s), e))
+        cur = max(cur, e)
+    if cur < total_rows:
+        runs.append((cur, total_rows))
+    return runs
+
+
 def _count_udf_rows(batch: pa.RecordBatch | list[dict[str, Any]]) -> int:
     """
     Count the number of rows that will execute a UDF within the provided batch.

@@ -97,6 +97,20 @@ impl LineInfo {
         self.in_admonition || self.in_content_tab || self.in_mkdocs_html_markdown
     }
 
+    /// Whether this line is a heading in the document's structure.
+    ///
+    /// An ATX line without a space after its `#`s is recorded as a heading so
+    /// MD018 can report it, with `is_valid` carrying heading detection's verdict
+    /// on whether a heading was meant: `#2, #3` and `#hashtag` read as paragraph
+    /// text (`is_valid == false`), `##hashtag` and `#Hashtag` as headings missing
+    /// their space. Structurally an invalid one is paragraph text: it continues a
+    /// list item and does not separate two lists. Structural code asks this
+    /// instead of `heading.is_some()`.
+    #[inline]
+    pub fn is_valid_heading(&self) -> bool {
+        self.heading.as_ref().is_some_and(|h| h.is_valid)
+    }
+
     /// Whether this line could be part of a paragraph block (CommonMark `paragraph` token).
     ///
     /// Returns true for ordinary prose lines, including those inside blockquotes and list items.

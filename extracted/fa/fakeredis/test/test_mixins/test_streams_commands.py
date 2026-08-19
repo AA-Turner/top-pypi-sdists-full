@@ -1,6 +1,5 @@
 import threading
 import time
-from typing import List
 
 import pytest
 import redis
@@ -9,7 +8,7 @@ import valkey
 from fakeredis import _msgs as msgs
 from fakeredis._typing import ClientType
 from test import testtools
-from test.testtools import resp_conversion, get_protocol_version
+from test.testtools import get_protocol_version, resp_conversion
 
 
 def get_ids(results):
@@ -546,7 +545,7 @@ def test_xinfo_stream(r: ClientType):
     assert info["last-entry"] == get_stream_message(r, stream, m2)
 
 
-def assert_consumer_info(r: ClientType, stream: str, group: str, equal_keys: List) -> List:
+def assert_consumer_info(r: ClientType, stream: str, group: str, equal_keys: list) -> list:
     res = r.xinfo_consumers(stream, group)
     assert len(res) == len(equal_keys)
     for i in range(len(equal_keys)):
@@ -622,6 +621,40 @@ def test_xinfo_stream_full(r: ClientType):
     assert info["length"] == 1
     assert m1 in info["entries"]
     assert len(info["groups"]) == 1
+
+
+def test_xinfo_groups_missing_stream(r: ClientType):
+    stream = "missing"
+
+    with pytest.raises((redis.ResponseError, valkey.ResponseError), match="no such key"):
+        r.xinfo_groups(stream)
+
+    assert not r.exists(stream)
+
+
+def test_xpending_missing_stream_or_group(r: ClientType):
+    stream, group = "stream", "group"
+
+    with pytest.raises((redis.ResponseError, valkey.ResponseError), match="NOGROUP"):
+        r.xpending(stream, group)
+
+    assert not r.exists(stream)
+
+    r.xadd(stream, {"foo": "bar"})
+    with pytest.raises((redis.ResponseError, valkey.ResponseError), match="NOGROUP"):
+        r.xpending(stream, group)
+
+
+def test_xpending_pipeline_missing_stream_or_group(r: ClientType):
+    stream, group = "stream", "group"
+    with r.pipeline() as pipe:
+        pipe.xinfo_groups(stream)
+        pipe.xpending(stream, group)
+
+        result = pipe.execute(raise_on_error=False)
+
+    assert all(isinstance(item, (redis.ResponseError, valkey.ResponseError)) for item in result)
+    assert not r.exists(stream)
 
 
 def test_xpending(r: ClientType):
@@ -1000,7 +1033,7 @@ def test_xreadgroup_pel_read_deleted_entry(r: ClientType):
 
 def test_xadd_change_time(r: ClientType):
     res = r.xadd("foobar", {"a": "1"})
-    ts, seq = res.decode().split("-")
+    ts, _seq = res.decode().split("-")
     new_ts = int(ts) - 10
     new_id = f"{new_ts}-*"
     with pytest.raises(Exception) as ctx:

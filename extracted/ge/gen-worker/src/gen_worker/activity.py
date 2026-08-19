@@ -13,18 +13,14 @@ Kind/phase strings are wire-shared with tensorhub
 Without a bound transport sink (cozy-local, tests) reports land on the
 logger, which IS the local progress UI.
 
-ie#522 (2026-07-21): the watchdog's default liveness evidence was process
-CPU seconds ONLY. Two real activities are honestly alive while burning
-near-zero CPU on the reporting process: (1) an I/O-bound network model
-fill (large composite checkpoints, tens of GB, minutes over a real link —
-CPU-light by design); (2) inductor compile phases that fork subprocess
-compile workers (torch's async_compile) — their CPU burn never showed up
-in this process's own `time.process_time()`. Both read as "stalled" to the
-hub's th#965 layer-3 rule after 10 minutes of no heartbeat, even mid
-genuine progress. Reproduced live twice (ie#522 wan-2.2 animegen boot
-warmup, two different RunPod hosts, identical ~9.5min self_mint_compile
-CancelledError at phase=load). Fixed two ways below: `_process_cpu_evidence`
-now sums live (not just reaped) child-process CPU via psutil, and
+ie#522: process CPU seconds alone are NOT liveness evidence. Two real
+activities are honestly alive while burning near-zero CPU on the reporting
+process: (1) an I/O-bound network model fill (tens of GB over a real link —
+CPU-light by design); (2) inductor compile phases that fork subprocess compile
+workers (torch's async_compile), whose burn never reaches this process's own
+`time.process_time()`. Both read as "stalled" to the hub's th#965 layer-3 rule
+after 10 minutes, mid genuine progress. So `_process_cpu_evidence` sums live
+(not just reaped) child-process CPU via psutil, and
 `note_progress()` lets an I/O callback (model-download byte ticks) heartbeat
 the current activity directly — proof-of-life from genuine external
 progress, independent of the CPU-sampling watchdog thread entirely.
@@ -68,16 +64,16 @@ KIND_WARMUP_SUMMARY = "warmup_summary"
 KIND_GUARD_MISS = "guard_miss"
 # pgw#756: the guard-closure classifier flagged guards it cannot tie to the
 # declared contract. ADVISORY — the mint completes and publishes; the rows
-# ride the cell's guard manifest. Countable so a real leak class surfaces as
+# ride the compiled graph's guard manifest. Countable so a real leak class surfaces as
 # a trend hub-side instead of as a fleet-wide mint refusal (pgw#691/#733).
 KIND_GUARD_LEAK = "guard_leak"
 # pgw#916: the AOT arm's counterpart of `guard_miss` — one tenant request
-# arrived at a graph class the armed cell does not cover, was NAMED at ingress
+# arrived at a graph class the armed compiled graph does not cover, was NAMED at ingress
 # and served eager. `guard_miss` is a dynamo concept (a torch guard fired), so
 # an AOT-armed pod produced no shape-gap fact at all and the hub could not
 # count AOT coverage holes the way it counts dynamo ones. `phase` carries the
 # ingress reason token (`no_entry_admits` / `entry_ambiguous`), `detail` names
-# the family, the target, the missing DECLARED CLASS and the cell.
+# the family, the target, the missing DECLARED CLASS and the compiled graph.
 KIND_SHAPE_GAP = "shape_gap"
 # pgw#760 (error-visibility doctrine): a fail-soft outcome that changes what
 # or how this worker SERVES — or that a hub decision depends on — must ride
@@ -89,7 +85,7 @@ KIND_SHAPE_GAP = "shape_gap"
 KIND_SERVE_DEGRADE = "serve_degrade"
 # pgw#1142 / §4.32 item 4: the OPERATOR's eager-only order changed state on this
 # worker. Two phases, both transitions and neither a degradation:
-# `eager_only_engaged` (compiled serving suppressed — armed cells stay armed and
+# `eager_only_engaged` (compiled serving suppressed — armed compiled graphs stay armed and
 # are not called) and `eager_only_released`. Deliberately its own kind rather
 # than a `serve_degrade` phase: every other member of that kind is something
 # that went wrong, and an operator exercising a supported control must not land
@@ -103,10 +99,10 @@ KIND_LORA_HYGIENE = "lora_hygiene"
 # the worst per-module rows, so a release shipping an adapter its own serving
 # dtype destroys is countable hub-side without the pod's stdout.
 KIND_LORA_FIDELITY = "lora_fidelity"
-# pgw#817: the ADOPTION numerics gate — a cell about to arm is run against the
+# pgw#817: the ADOPTION numerics gate — a compiled graph about to arm is run against the
 # eager forward it replaces and judged on the shared verdict ladder. Same two
 # phases and the same fail-closed shape as `lora_fidelity`, one population
-# down: `phase=refused` means the cell did NOT arm and this pod serves eager;
+# down: `phase=refused` means the compiled graph did NOT arm and this pod serves eager;
 # `phase=degraded` means it armed inside the gray band. pgw#814 measured a
 # real DEGRADED artifact (flux2 w8a8 whole-graph, cos 0.931-0.973 against
 # eager) that nothing in the worker would have noticed, which is why the
@@ -134,10 +130,9 @@ KIND_COMPONENT_MISS = "component_miss"
 # frame_std_min, so ie#634's "corr 0.29 was uploaded and billed" is countable
 # hub-side instead of invisible.
 KIND_OUTPUT_INTEGRITY = "output_integrity"
-# pgw#1117 / th#1777: the pre-stage envelope precondition refused a slot load.
-# th#1867 deleted KIND_ENVELOPE_REFUSAL with the precondition that emitted it
-# (pgw#1117/th#1777): it compared the bound artifact against the release's
-# declared `vram_gb` under `strict_vram`, and both declarations are gone. The
+# th#1867 deleted KIND_ENVELOPE_REFUSAL with the pre-stage envelope
+# precondition that emitted it (pgw#1117/th#1777): it compared the bound
+# artifact against a declared `vram_gb`, and that declaration is gone. The
 # question it was really asking — "is this slot bound to the wrong artifact?" —
 # is th#1913's, and it is answered against the CATALOG, not a card size.
 KIND_ROTATION_PRELOAD = "rotation_preload"
@@ -190,10 +185,10 @@ KIND_ADOPT_REFUSED = "adopt_refused"
 # `phase` is `memo_dishonest` / `memo_unrulable`; `detail` carries
 # `assert_memo_honest`'s own sentence, which names every disagreeing class.
 KIND_BOOT_MEMO = "boot_memo_honesty"
-# th#1322: JIT (dynamo/inductor) compile duration, as a typed numeric event.
-# It used to be `logger.info("compiled %s in %.0fs")` and nothing else, so on a
-# hub-spawned pod (no stdout, pgw#760) the one number an AOT-vs-JIT comparison
-# needs did not exist anywhere. Same shape as `aot_mint_phases` deliberately:
+# th#1322: JIT (dynamo/inductor) compile duration, as a typed numeric event —
+# never a log line, because a hub-spawned pod has no reachable stdout (pgw#760)
+# and this is the one number an AOT-vs-JIT comparison needs. Same shape as
+# `aot_mint_phases` deliberately:
 # `phase=minted` carries the mint's roll-up in `duration_ms`, `phase=shape:<WxH>`
 # / `phase=child:<phase>` carry the spans inside it, so comparing the two mint
 # routes is ONE grouped query over worker_activity_events rather than a regex
@@ -266,9 +261,7 @@ PHASE_MINTED = "minted"
 PHASE_LOAD = "load"
 PHASE_TRACE_GRAPH = "trace_graph"
 PHASE_INDUCTOR_COMPILE = "inductor_compile"
-# pgw#989: the dynamo mint used to report its router drain under
-# PHASE_INDUCTOR_COMPILE, next to a `warmup_forward` row holding every compile
-# it ever ran. Re-exported (defined in `warm_spans`, which the mint child can
+# pgw#989. Re-exported (defined in `warm_spans`, which the mint child can
 # import without protobuf) so the vocabulary is enumerable from one module.
 PHASE_ROUTER_DRAIN = warm_spans.PHASE_ROUTER_DRAIN
 PHASE_WARMUP_FORWARD = "warmup_forward"

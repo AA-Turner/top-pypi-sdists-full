@@ -1,6 +1,6 @@
 import { Range } from "./range";
 import { PaddingUnits } from "../../core/enums";
-import * as p from "../../core/properties";
+import type * as p from "../../core/properties";
 import { Signal0 } from "../../core/signaling";
 import type { Arrayable } from "../../core/types";
 import { ScreenArray } from "../../core/types";
@@ -67,25 +67,27 @@ type BoxedAtMost<T> = T extends L1Factor ? [L1Factor] : T extends L2Factor ? [L1
 export declare function map_one_level(factors: L1Factor[], padding: number, offset?: number): L1MappingSpec;
 export declare function map_two_levels(factors: L2Factor[], outer_pad: number, factor_pad: number, offset?: number): L2MappingSpec;
 export declare function map_three_levels(factors: L3Factor[], outer_pad: number, inner_pad: number, factor_pad: number, offset?: number): L3MappingSpec;
+type FactorMapperInit<FactorType> = {
+    levels: FactorLevel;
+    mapping: MappingFor<FactorType>;
+    tops?: L1Factor[] | null;
+    mids?: L2Factor[] | null;
+    inner_padding: number;
+};
 export declare abstract class FactorMapper<FactorType> {
     readonly levels: FactorLevel;
     readonly mids: L2Factor[] | null;
     readonly tops: L1Factor[] | null;
     readonly inner_padding: number;
     protected readonly mapping: MappingFor<FactorType>;
-    constructor({ levels, mapping, tops, mids, inner_padding }: {
-        levels: FactorLevel;
-        mapping: MappingFor<FactorType>;
-        tops?: L1Factor[] | null;
-        mids?: L2Factor[] | null;
-        inner_padding: number;
-    });
+    constructor({ levels, mapping, tops, mids, inner_padding }: FactorMapperInit<FactorType>);
     static compute_levels(factors: Factor[]): FactorLevel;
-    static for(range: FactorRange): L1FactorMapper | L2FactorMapper | L3FactorMapper;
+    static for(range: FactorRange): AnyFactorMapper;
     map(x: FactorLike): number;
     private lookup_value;
     protected abstract lookup_entry(x: BoxedAtMost<FactorType>): MappingEntry | null;
 }
+type AnyFactorMapper = L1FactorMapper | L2FactorMapper | L3FactorMapper;
 declare class L1FactorMapper extends FactorMapper<L1Factor> {
     constructor(range: FactorRange);
     protected lookup_entry(x: BoxedAtMost<L1Factor>): MappingEntry | null;
@@ -109,6 +111,9 @@ export declare namespace FactorRange {
         range_padding_units: p.Property<PaddingUnits>;
         start: p.Property<number>;
         end: p.Property<number>;
+    } & Internal;
+    type Internal = {
+        mapper: p.Property<AnyFactorMapper>;
     };
 }
 export interface FactorRange extends FactorRange.Attrs {
@@ -116,7 +121,6 @@ export interface FactorRange extends FactorRange.Attrs {
 export declare class FactorRange extends Range {
     properties: FactorRange.Props;
     constructor(attrs?: Partial<FactorRange.Attrs>);
-    mapper: L1FactorMapper | L2FactorMapper | L3FactorMapper;
     get min(): number;
     get max(): number;
     initialize(): void;

@@ -44,7 +44,7 @@ export declare class BoxEditTool extends EditTool {
     constructor(attrs?: Partial<BoxEditTool.Attrs>);
     tool_name: string;
     tool_icon: string;
-    event_type: ("tap" | "pan" | "press" | "move")[];
+    event_type: ("move" | "pan" | "press" | "tap")[];
     default_order: number;
 }
 //# sourceMappingURL=box_edit_tool.d.ts.map

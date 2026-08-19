@@ -30,7 +30,7 @@
  * THE POSSIBILITY OF SUCH DAMAGE.
  */
 (function(root, factory) {
-  factory(root["Bokeh"], "3.9.2");
+  factory(root["Bokeh"], "3.10.0");
 })(this, function(Bokeh, version) {
   let define;
   return (function(modules, entry, aliases, externals) {
@@ -42,116 +42,118 @@
     }
   })
 ({
-622: /* models/widgets/main.js */ function _(require, module, exports, __esModule, __esExport) {
+697: /* models/widgets/main.js */ function _(require, module, exports, __esModule, __esExport) {
     __esModule();
     const tslib_1 = require(1) /* tslib */;
-    const Widgets = tslib_1.__importStar(require(623) /* ./index */);
+    const Widgets = tslib_1.__importStar(require(698) /* ./index */);
     exports.Widgets = Widgets;
     const base_1 = require(7) /* ../../base */;
     (0, base_1.register_models)(Widgets);
 },
-623: /* models/widgets/index.js */ function _(require, module, exports, __esModule, __esExport) {
+698: /* models/widgets/index.js */ function _(require, module, exports, __esModule, __esExport) {
     __esModule();
     const tslib_1 = require(1) /* tslib */;
-    var abstract_button_1 = require(624) /* ./abstract_button */;
+    var abstract_button_1 = require(699) /* ./abstract_button */;
     __esExport("AbstractButton", abstract_button_1.AbstractButton);
-    var autocomplete_input_1 = require(627) /* ./autocomplete_input */;
+    var autocomplete_input_1 = require(702) /* ./autocomplete_input */;
     __esExport("AutocompleteInput", autocomplete_input_1.AutocompleteInput);
-    var button_1 = require(633) /* ./button */;
+    var button_1 = require(708) /* ./button */;
     __esExport("Button", button_1.Button);
-    var checkbox_button_group_1 = require(634) /* ./checkbox_button_group */;
+    var checkbox_button_group_1 = require(709) /* ./checkbox_button_group */;
     __esExport("CheckboxButtonGroup", checkbox_button_group_1.CheckboxButtonGroup);
-    var checkbox_group_1 = require(637) /* ./checkbox_group */;
+    var checkbox_group_1 = require(712) /* ./checkbox_group */;
     __esExport("CheckboxGroup", checkbox_group_1.CheckboxGroup);
-    var checkbox_1 = require(640) /* ./checkbox */;
+    var checkbox_1 = require(715) /* ./checkbox */;
     __esExport("Checkbox", checkbox_1.Checkbox);
-    var color_picker_1 = require(643) /* ./color_picker */;
+    var color_picker_1 = require(718) /* ./color_picker */;
     __esExport("ColorPicker", color_picker_1.ColorPicker);
-    var date_picker_1 = require(644) /* ./date_picker */;
+    var date_picker_1 = require(719) /* ./date_picker */;
     __esExport("DatePicker", date_picker_1.DatePicker);
-    var date_range_picker_1 = require(656) /* ./date_range_picker */;
+    var date_range_picker_1 = require(731) /* ./date_range_picker */;
     __esExport("DateRangePicker", date_range_picker_1.DateRangePicker);
-    var datetime_picker_1 = require(657) /* ./datetime_picker */;
+    var datetime_picker_1 = require(732) /* ./datetime_picker */;
     __esExport("DatetimePicker", datetime_picker_1.DatetimePicker);
-    var datetime_range_picker_1 = require(659) /* ./datetime_range_picker */;
+    var datetime_range_picker_1 = require(734) /* ./datetime_range_picker */;
     __esExport("DatetimeRangePicker", datetime_range_picker_1.DatetimeRangePicker);
-    var div_1 = require(660) /* ./div */;
+    var div_1 = require(735) /* ./div */;
     __esExport("Div", div_1.Div);
-    var dropdown_1 = require(663) /* ./dropdown */;
+    var dropdown_1 = require(738) /* ./dropdown */;
     __esExport("Dropdown", dropdown_1.Dropdown);
-    var file_input_1 = require(665) /* ./file_input */;
+    var file_input_1 = require(740) /* ./file_input */;
     __esExport("FileInput", file_input_1.FileInput);
-    var help_button_1 = require(666) /* ./help_button */;
+    __esExport("FileInputChange", file_input_1.FileInputChange);
+    var help_button_1 = require(741) /* ./help_button */;
     __esExport("HelpButton", help_button_1.HelpButton);
-    var input_widget_1 = require(630) /* ./input_widget */;
+    var input_widget_1 = require(705) /* ./input_widget */;
     __esExport("InputWidget", input_widget_1.InputWidget);
-    var markdown_1 = require(667) /* ./markdown */;
+    var markdown_1 = require(742) /* ./markdown */;
     __esExport("Markdown", markdown_1.Markdown);
-    var markup_1 = require(661) /* ./markup */;
+    var markup_1 = require(736) /* ./markup */;
     __esExport("Markup", markup_1.Markup);
-    var multi_choice_1 = require(670) /* ./multi_choice */;
+    var multi_choice_1 = require(745) /* ./multi_choice */;
     __esExport("MultiChoice", multi_choice_1.MultiChoice);
-    var multiselect_1 = require(673) /* ./multiselect */;
+    var multiselect_1 = require(748) /* ./multiselect */;
     __esExport("MultiSelect", multiselect_1.MultiSelect);
-    var multiple_date_picker_1 = require(674) /* ./multiple_date_picker */;
+    var multiple_date_picker_1 = require(749) /* ./multiple_date_picker */;
     __esExport("MultipleDatePicker", multiple_date_picker_1.MultipleDatePicker);
-    var multiple_datetime_picker_1 = require(675) /* ./multiple_datetime_picker */;
+    var multiple_datetime_picker_1 = require(750) /* ./multiple_datetime_picker */;
     __esExport("MultipleDatetimePicker", multiple_datetime_picker_1.MultipleDatetimePicker);
-    var numeric_input_1 = require(676) /* ./numeric_input */;
+    var numeric_input_1 = require(751) /* ./numeric_input */;
     __esExport("NumericInput", numeric_input_1.NumericInput);
-    var palette_select_1 = require(677) /* ./palette_select */;
+    var palette_select_1 = require(752) /* ./palette_select */;
     __esExport("PaletteSelect", palette_select_1.PaletteSelect);
-    var paragraph_1 = require(683) /* ./paragraph */;
+    var paragraph_1 = require(758) /* ./paragraph */;
     __esExport("Paragraph", paragraph_1.Paragraph);
-    var password_input_1 = require(684) /* ./password_input */;
+    var password_input_1 = require(759) /* ./password_input */;
     __esExport("PasswordInput", password_input_1.PasswordInput);
-    var pretext_1 = require(686) /* ./pretext */;
+    var pretext_1 = require(761) /* ./pretext */;
     __esExport("PreText", pretext_1.PreText);
-    var progress_1 = require(687) /* ./progress */;
+    var progress_1 = require(762) /* ./progress */;
     __esExport("Progress", progress_1.Progress);
-    var radio_button_group_1 = require(690) /* ./radio_button_group */;
+    var radio_button_group_1 = require(765) /* ./radio_button_group */;
     __esExport("RadioButtonGroup", radio_button_group_1.RadioButtonGroup);
-    var radio_group_1 = require(691) /* ./radio_group */;
+    var radio_group_1 = require(766) /* ./radio_group */;
     __esExport("RadioGroup", radio_group_1.RadioGroup);
-    var select_1 = require(692) /* ./select */;
+    var select_1 = require(767) /* ./select */;
     __esExport("Select", select_1.Select);
-    var spinner_1 = require(693) /* ./spinner */;
+    var spinner_1 = require(768) /* ./spinner */;
     __esExport("Spinner", spinner_1.Spinner);
-    var switch_1 = require(694) /* ./switch */;
+    var switch_1 = require(769) /* ./switch */;
     __esExport("Switch", switch_1.Switch);
-    var textarea_input_1 = require(696) /* ./textarea_input */;
+    var textarea_input_1 = require(771) /* ./textarea_input */;
     __esExport("TextAreaInput", textarea_input_1.TextAreaInput);
-    var text_input_1 = require(628) /* ./text_input */;
+    var text_input_1 = require(703) /* ./text_input */;
     __esExport("TextInput", text_input_1.TextInput);
-    var time_picker_1 = require(697) /* ./time_picker */;
+    var time_picker_1 = require(772) /* ./time_picker */;
     __esExport("TimePicker", time_picker_1.TimePicker);
-    var toggle_1 = require(698) /* ./toggle */;
+    var toggle_1 = require(773) /* ./toggle */;
     __esExport("Toggle", toggle_1.Toggle);
-    var widget_1 = require(737) /* ./widget */;
+    var widget_1 = require(798) /* ./widget */;
     __esExport("Widget", widget_1.Widget);
-    tslib_1.__exportStar(require(699) /* ./sliders */, exports);
+    tslib_1.__exportStar(require(774) /* ./sliders */, exports);
 },
-624: /* models/widgets/abstract_button.js */ function _(require, module, exports, __esModule, __esExport) {
-    var _a;
+699: /* models/widgets/abstract_button.js */ function _(require, module, exports, __esModule, __esExport) {
     __esModule();
     const tslib_1 = require(1) /* tslib */;
     const enums_1 = require(21) /* ../../core/enums */;
     const dom_1 = require(61) /* ../../core/dom */;
     const build_views_1 = require(69) /* ../../core/build_views */;
     const types_1 = require(8) /* ../../core/util/types */;
-    const control_1 = require(625) /* ./control */;
+    const control_1 = require(700) /* ./control */;
     const dom_node_1 = require(130) /* ../dom/dom_node */;
-    const text_1 = require(359) /* ../dom/text */;
-    const icon_1 = require(504) /* ../ui/icons/icon */;
+    const text_1 = require(429) /* ../dom/text */;
+    const icon_1 = require(573) /* ../ui/icons/icon */;
     const buttons_css_1 = tslib_1.__importStar(require(77) /* ../../styles/buttons.css */), buttons = buttons_css_1;
     class AbstractButtonView extends control_1.ControlView {
+        label_view;
+        icon_view;
+        button_el;
+        group_el;
         *controls() {
             yield this.button_el;
         }
         children_views() {
-            const this_label_view = this.label_view != null ? [this.label_view] : [];
-            const this_icon_view = this.icon_view != null ? [this.icon_view] : [];
-            return [...super.children_views(), ...this_label_view, ...this_icon_view];
+            return [...super.children_views(), this.label_view, this.icon_view];
         }
         async lazy_initialize() {
             await super.lazy_initialize();
@@ -188,11 +190,6 @@
                 this.rerender();
             });
         }
-        remove() {
-            this.label_view?.remove();
-            this.icon_view?.remove();
-            super.remove();
-        }
         stylesheets() {
             return [...super.stylesheets(), buttons_css_1.default];
         }
@@ -219,26 +216,23 @@
         click() { }
     }
     exports.AbstractButtonView = AbstractButtonView;
-    AbstractButtonView.__name__ = "AbstractButtonView";
     class AbstractButton extends control_1.Control {
         constructor(attrs) {
             super(attrs);
         }
+        static {
+            this.define(({ Str, Ref, Or, Nullable }) => ({
+                label: [Or(Ref(dom_node_1.DOMNode), Str), "Button"],
+                icon: [Nullable(Ref(icon_1.Icon)), null],
+                button_type: [enums_1.ButtonType, "default"],
+            }));
+        }
     }
     exports.AbstractButton = AbstractButton;
-    _a = AbstractButton;
-    AbstractButton.__name__ = "AbstractButton";
-    (() => {
-        _a.define(({ Str, Ref, Or, Nullable }) => ({
-            label: [Or(Ref(dom_node_1.DOMNode), Str), "Button"],
-            icon: [Nullable(Ref(icon_1.Icon)), null],
-            button_type: [enums_1.ButtonType, "default"],
-        }));
-    })();
 },
-625: /* models/widgets/control.js */ function _(require, module, exports, __esModule, __esExport) {
+700: /* models/widgets/control.js */ function _(require, module, exports, __esModule, __esExport) {
     __esModule();
-    const widget_1 = require(737) /* ./widget */;
+    const widget_1 = require(798) /* ./widget */;
     const dom_1 = require(61) /* ../../core/dom */;
     class ControlView extends widget_1.WidgetView {
         connect_signals() {
@@ -251,20 +245,17 @@
         }
     }
     exports.ControlView = ControlView;
-    ControlView.__name__ = "ControlView";
     class Control extends widget_1.Widget {
         constructor(attrs) {
             super(attrs);
         }
     }
     exports.Control = Control;
-    Control.__name__ = "Control";
 },
-737: /* models/widgets/widget.js */ function _(require, module, exports, __esModule, __esExport) {
-    var _a;
+798: /* models/widgets/widget.js */ function _(require, module, exports, __esModule, __esExport) {
     __esModule();
     const layout_dom_1 = require(131) /* ../layouts/layout_dom */;
-    const providers_1 = require(194) /* ../text/providers */;
+    const providers_1 = require(264) /* ../text/providers */;
     class WidgetView extends layout_dom_1.LayoutDOMView {
         get child_models() {
             return [];
@@ -309,39 +300,33 @@
         }
     }
     exports.WidgetView = WidgetView;
-    WidgetView.__name__ = "WidgetView";
     class Widget extends layout_dom_1.LayoutDOM {
         constructor(attrs) {
             super(attrs);
         }
+        static {
+            this.override({
+                margin: 5,
+            });
+        }
     }
     exports.Widget = Widget;
-    _a = Widget;
-    Widget.__name__ = "Widget";
-    (() => {
-        _a.override({
-            margin: 5,
-        });
-    })();
 },
-627: /* models/widgets/autocomplete_input.js */ function _(require, module, exports, __esModule, __esExport) {
-    var _a;
+702: /* models/widgets/autocomplete_input.js */ function _(require, module, exports, __esModule, __esExport) {
     __esModule();
     const tslib_1 = require(1) /* tslib */;
-    const text_input_1 = require(628) /* ./text_input */;
+    const text_input_1 = require(703) /* ./text_input */;
     const dom_1 = require(61) /* ../../core/dom */;
-    const iterator_1 = require(14) /* ../../core/util/iterator */;
-    const math_1 = require(11) /* ../../core/util/math */;
+    const iterator_1 = require(15) /* ../../core/util/iterator */;
+    const math_1 = require(12) /* ../../core/util/math */;
     const kinds_1 = require(22) /* ../../core/kinds */;
-    const dropdown_css_1 = tslib_1.__importStar(require(632) /* ../../styles/dropdown.css */), dropdown = dropdown_css_1;
+    const dropdown_css_1 = tslib_1.__importStar(require(707) /* ../../styles/dropdown.css */), dropdown = dropdown_css_1;
     const SearchStrategy = (0, kinds_1.Enum)("starts_with", "includes");
     class AutocompleteInputView extends text_input_1.TextInputView {
-        constructor() {
-            super(...arguments);
-            this._open = false;
-            this._last_value = "";
-            this._hover_index = 0;
-        }
+        _open = false;
+        _last_value = "";
+        _hover_index = 0;
+        menu;
         stylesheets() {
             return [...super.stylesheets(), dropdown_css_1.default];
         }
@@ -422,7 +407,7 @@
                         this._hide_menu();
                     }
                 };
-                document.addEventListener("click", listener);
+                document.addEventListener("click", listener, { signal: this.abort_signal });
             }
         }
         _hide_menu() {
@@ -481,35 +466,31 @@
         }
     }
     exports.AutocompleteInputView = AutocompleteInputView;
-    AutocompleteInputView.__name__ = "AutocompleteInputView";
     class AutocompleteInput extends text_input_1.TextInput {
         constructor(attrs) {
             super(attrs);
         }
+        static {
+            this.prototype.default_view = AutocompleteInputView;
+            this.define(({ Bool, Int, Str, List, NonNegative, Positive, Nullable }) => ({
+                completions: [List(Str), []],
+                min_characters: [NonNegative(Int), 2],
+                max_completions: [Nullable(Positive(Int)), null],
+                case_sensitive: [Bool, true],
+                restrict: [Bool, true],
+                search_strategy: [SearchStrategy, "starts_with"],
+            }));
+        }
     }
     exports.AutocompleteInput = AutocompleteInput;
-    _a = AutocompleteInput;
-    AutocompleteInput.__name__ = "AutocompleteInput";
-    (() => {
-        _a.prototype.default_view = AutocompleteInputView;
-        _a.define(({ Bool, Int, Str, List, NonNegative, Positive, Nullable }) => ({
-            completions: [List(Str), []],
-            min_characters: [NonNegative(Int), 2],
-            max_completions: [Nullable(Positive(Int)), null],
-            case_sensitive: [Bool, true],
-            restrict: [Bool, true],
-            search_strategy: [SearchStrategy, "starts_with"],
-        }));
-    })();
 },
-628: /* models/widgets/text_input.js */ function _(require, module, exports, __esModule, __esExport) {
-    var _a;
+703: /* models/widgets/text_input.js */ function _(require, module, exports, __esModule, __esExport) {
     __esModule();
     const tslib_1 = require(1) /* tslib */;
-    const text_like_input_1 = require(629) /* ./text_like_input */;
+    const text_like_input_1 = require(704) /* ./text_like_input */;
     const dom_1 = require(61) /* ../../core/dom */;
     const bokeh_events_1 = require(80) /* ../../core/bokeh_events */;
-    const inputs = tslib_1.__importStar(require(631) /* ../../styles/widgets/inputs.css */);
+    const inputs = tslib_1.__importStar(require(706) /* ../../styles/widgets/inputs.css */);
     class TextInputView extends text_like_input_1.TextLikeInputView {
         connect_signals() {
             super.connect_signals();
@@ -535,27 +516,23 @@
         }
     }
     exports.TextInputView = TextInputView;
-    TextInputView.__name__ = "TextInputView";
     class TextInput extends text_like_input_1.TextLikeInput {
         constructor(attrs) {
             super(attrs);
         }
+        static {
+            this.prototype.default_view = TextInputView;
+            this.define(({ Str, Nullable }) => ({
+                prefix: [Nullable(Str), null],
+                suffix: [Nullable(Str), null],
+            }));
+        }
     }
     exports.TextInput = TextInput;
-    _a = TextInput;
-    TextInput.__name__ = "TextInput";
-    (() => {
-        _a.prototype.default_view = TextInputView;
-        _a.define(({ Str, Nullable }) => ({
-            prefix: [Nullable(Str), null],
-            suffix: [Nullable(Str), null],
-        }));
-    })();
 },
-629: /* models/widgets/text_like_input.js */ function _(require, module, exports, __esModule, __esExport) {
-    var _a;
+704: /* models/widgets/text_like_input.js */ function _(require, module, exports, __esModule, __esExport) {
     __esModule();
-    const input_widget_1 = require(630) /* ./input_widget */;
+    const input_widget_1 = require(705) /* ./input_widget */;
     class TextLikeInputView extends input_widget_1.InputWidgetView {
         connect_signals() {
             super.connect_signals();
@@ -595,26 +572,22 @@
         }
     }
     exports.TextLikeInputView = TextLikeInputView;
-    TextLikeInputView.__name__ = "TextLikeInputView";
     class TextLikeInput extends input_widget_1.InputWidget {
         constructor(attrs) {
             super(attrs);
         }
+        static {
+            this.define(({ Int, Str, Nullable }) => ({
+                value: [Str, ""],
+                value_input: [Str, ""],
+                placeholder: [Str, ""],
+                max_length: [Nullable(Int), null],
+            }));
+        }
     }
     exports.TextLikeInput = TextLikeInput;
-    _a = TextLikeInput;
-    TextLikeInput.__name__ = "TextLikeInput";
-    (() => {
-        _a.define(({ Int, Str, Nullable }) => ({
-            value: [Str, ""],
-            value_input: [Str, ""],
-            placeholder: [Str, ""],
-            max_length: [Nullable(Int), null],
-        }));
-    })();
 },
-630: /* models/widgets/input_widget.js */ function _(require, module, exports, __esModule, __esExport) {
-    var _a, _b;
+705: /* models/widgets/input_widget.js */ function _(require, module, exports, __esModule, __esExport) {
     __esModule();
     const tslib_1 = require(1) /* tslib */;
     var __decorate = (this && this.__decorate) || function (decorators, target, key, desc) {
@@ -627,18 +600,18 @@
                     r = (c < 3 ? d(r) : c > 3 ? d(target, key, r) : d(target, key)) || r;
         return c > 3 && r && Object.defineProperty(target, key, r), r;
     };
-    var ClearInput_1;
-    const control_1 = require(625) /* ./control */;
-    const tooltip_1 = require(447) /* ../ui/tooltip */;
+    const control_1 = require(700) /* ./control */;
+    const tooltip_1 = require(516) /* ../ui/tooltip */;
     const html_1 = require(133) /* ../dom/html */;
     const types_1 = require(8) /* ../../core/util/types */;
     const build_views_1 = require(69) /* ../../core/build_views */;
     const dom_1 = require(61) /* ../../core/dom */;
     const view_1 = require(65) /* ../../core/view */;
     const bokeh_events_1 = require(80) /* ../../core/bokeh_events */;
-    const inputs_css_1 = tslib_1.__importStar(require(631) /* ../../styles/widgets/inputs.css */), inputs = inputs_css_1;
+    const inputs_css_1 = tslib_1.__importStar(require(706) /* ../../styles/widgets/inputs.css */), inputs = inputs_css_1;
     const icons_css_1 = tslib_1.__importDefault(require(76) /* ../../styles/icons.css */);
-    let ClearInput = (_a = class ClearInput extends bokeh_events_1.ModelEvent {
+    let ClearInput = class ClearInput extends bokeh_events_1.ModelEvent {
+        model;
         constructor(model) {
             super();
             this.model = model;
@@ -646,24 +619,20 @@
         }
         static from_values(values) {
             const { model } = values;
-            return new ClearInput_1(model);
+            return new ClearInput(model);
         }
-    },
-        (() => {
-            ClearInput_1 = _a;
-        })(),
-        _a.__name__ = "ClearInput",
-        _a);
+    };
     exports.ClearInput = ClearInput;
-    exports.ClearInput = ClearInput = ClearInput_1 = __decorate([
+    exports.ClearInput = ClearInput = __decorate([
         (0, bokeh_events_1.server_event)("clear_input")
     ], ClearInput);
     class InputWidgetView extends control_1.ControlView {
-        constructor() {
-            super(...arguments);
-            this.description = null;
-            this.desc_el = null;
-        }
+        title;
+        description = null;
+        input_el;
+        title_el;
+        desc_el = null;
+        group_el;
         *controls() {
             yield this.input_el;
         }
@@ -677,16 +646,6 @@
             await super.lazy_initialize();
             await this._build_title();
             await this._build_description();
-        }
-        remove() {
-            const { title, description } = this;
-            if (title instanceof view_1.View) {
-                title.remove();
-            }
-            if (description instanceof view_1.View) {
-                description.remove();
-            }
-            super.remove();
         }
         connect_signals() {
             super.connect_signals();
@@ -763,16 +722,19 @@
                             persistent = false;
                             toggle(false);
                         }
-                    });
+                    }, { signal: this.abort_signal });
                     window.addEventListener("blur", () => {
                         persistent = false;
                         toggle(false);
-                    });
+                    }, { signal: this.abort_signal });
                 }
                 return desc_el;
             }
         }
         async _build_title() {
+            if (this.title instanceof view_1.View) {
+                this.title.remove();
+            }
             const { title } = this.model;
             if (title instanceof html_1.HTML) {
                 this.title = await (0, build_views_1.build_view)(title, { parent: this });
@@ -782,6 +744,9 @@
             }
         }
         async _build_description() {
+            if (this.description instanceof view_1.View) {
+                this.description.remove();
+            }
             const { description } = this.model;
             if (description instanceof tooltip_1.Tooltip) {
                 this.description = await (0, build_views_1.build_view)(description, { parent: this });
@@ -807,23 +772,20 @@
         change_input() { }
     }
     exports.InputWidgetView = InputWidgetView;
-    InputWidgetView.__name__ = "InputWidgetView";
     class InputWidget extends control_1.Control {
         constructor(attrs) {
             super(attrs);
         }
+        static {
+            this.define(({ Str, Nullable, Or, Ref }) => ({
+                title: [Or(Str, Ref(html_1.HTML)), ""],
+                description: [Nullable(Or(Str, Ref(tooltip_1.Tooltip))), null],
+            }));
+        }
     }
     exports.InputWidget = InputWidget;
-    _b = InputWidget;
-    InputWidget.__name__ = "InputWidget";
-    (() => {
-        _b.define(({ Str, Nullable, Or, Ref }) => ({
-            title: [Or(Str, Ref(html_1.HTML)), ""],
-            description: [Nullable(Or(Str, Ref(tooltip_1.Tooltip))), null],
-        }));
-    })();
 },
-631: /* styles/widgets/inputs.css.js */ function _(require, module, exports, __esModule, __esExport) {
+706: /* styles/widgets/inputs.css.js */ function _(require, module, exports, __esModule, __esExport) {
     __esModule();
     exports.input = "bk-input";
     exports.disabled = "bk-disabled";
@@ -841,7 +803,7 @@
     exports.opaque = "bk-opaque";
     exports.default = `:host{--input-min-height:calc(var(--line-height-computed) + 2*var(--padding-vertical) + 2px);--focus-border-color:var(--input-focus-border-color);--focus-halo-color:var(--input-focus-halo-color);--disabled-opacity:1;}.bk-input{position:relative;display:inline-block;width:100%;flex-grow:1;min-height:var(--input-min-height);padding:0 var(--padding-horizontal);background-color:var(--background-color);border:var(--border);border-radius:var(--border-radius);resize:none;}.bk-input:focus{border-color:var(--focus-border-color);outline:0;box-shadow:inset 0 1px 1px rgba(0, 0, 0, 0.075), 0 0 8px var(--focus-halo-color);}.bk-input::placeholder,.bk-input:-ms-input-placeholder,.bk-input::-moz-placeholder,.bk-input::-webkit-input-placeholder{color:var(--placeholder-color);opacity:1;}.bk-input[disabled],.bk-input.bk-disabled{background-color:var(--disabled-background-color);color:var(--disabled-color);cursor:not-allowed;pointer-events:none;opacity:var(--disabled-opacity);}.bk-input[disabled] .bk-icon,.bk-input.bk-disabled .bk-icon{color:inherit;}.bk-input-container{width:100%;height:100%;display:flex;flex-direction:row;flex-wrap:nowrap;}.bk-input-container .bk-input-prefix,.bk-input-container .bk-input-suffix{display:flex;align-items:center;flex:0 1 0;border:var(--border);border-radius:var(--border-radius);padding:0 var(--padding-horizontal);background-color:var(--surface-background-color);}.bk-input-container .bk-input-prefix{border-right:none;border-top-right-radius:0;border-bottom-right-radius:0;}.bk-input-container .bk-input-suffix{border-left:none;border-top-left-radius:0;border-bottom-left-radius:0;}.bk-input-container .bk-input{flex:1 0 0;}.bk-input-container .bk-input:not(:first-child){border-top-left-radius:0;border-bottom-left-radius:0;}.bk-input-container .bk-input:not(:last-child){border-top-right-radius:0;border-bottom-right-radius:0;}input[type=file].bk-input{padding-left:0;}input[type=file]::file-selector-button{box-sizing:inherit;font-family:inherit;font-size:inherit;line-height:inherit;}select:not([multiple]).bk-input,select:not([size]).bk-input{height:auto;appearance:none;-webkit-appearance:none;background-image:url('data:image/svg+xml;utf8,<svg version="1.1" viewBox="0 0 25 20" xmlns="http://www.w3.org/2000/svg"><path d="M 0,0 25,0 12.5,20 Z" fill="black" /></svg>');background-position:right 0.5em center;background-size:8px 6px;background-repeat:no-repeat;padding-right:calc(var(--padding-horizontal) + 8px);}option{padding:0;}select[multiple].bk-input,select[size].bk-input,textarea.bk-input{height:auto;}.bk-input-group{position:relative;width:100%;height:100%;display:inline-flex;flex-wrap:nowrap;align-items:start;flex-direction:column;white-space:nowrap;}.bk-input-group.bk-inline{flex-direction:row;}.bk-input-group.bk-inline > *:not(:first-child){margin-left:5px;}.bk-input-group > .bk-spin-wrapper{display:inherit;width:inherit;height:inherit;position:relative;overflow:hidden;padding:0;vertical-align:middle;}.bk-input-group > .bk-spin-wrapper input{padding-right:20px;}.bk-input-group > .bk-spin-wrapper > .bk-spin-btn{position:absolute;display:block;height:50%;min-height:0;min-width:0;width:30px;padding:0;margin:0;right:0;border:none;background:none;cursor:pointer;}.bk-input-group > .bk-spin-wrapper > .bk-spin-btn:before{content:"";display:inline-block;transform:translateY(-50%);border-left:5px solid transparent;border-right:5px solid transparent;}.bk-input-group > .bk-spin-wrapper > .bk-spin-btn.bk-spin-btn-up{top:0;}.bk-input-group > .bk-spin-wrapper > .bk-spin-btn.bk-spin-btn-up:before{border-bottom:5px solid var(--color);}.bk-input-group > .bk-spin-wrapper > .bk-spin-btn.bk-spin-btn-up:disabled:before{border-bottom-color:var(--disabled-color);}.bk-input-group > .bk-spin-wrapper > .bk-spin-btn.bk-spin-btn-down{bottom:0;}.bk-input-group > .bk-spin-wrapper > .bk-spin-btn.bk-spin-btn-down:before{border-top:5px solid var(--color);}.bk-input-group > .bk-spin-wrapper > .bk-spin-btn.bk-spin-btn-down:disabled:before{border-top-color:var(--disabled-color);}.bk-description{position:relative;display:inline-block;margin-left:0.25em;vertical-align:middle;margin-top:-2px;cursor:pointer;}.bk-description > .bk-icon{width:18px;height:18px;background-color:var(--color);mask-image:var(--bokeh-icon-help);mask-size:contain;mask-repeat:no-repeat;-webkit-mask-image:var(--bokeh-icon-help);-webkit-mask-size:contain;-webkit-mask-repeat:no-repeat;}label:hover > .bk-description > .bk-icon,.bk-icon.bk-opaque{opacity:1;}`;
 },
-632: /* styles/dropdown.css.js */ function _(require, module, exports, __esModule, __esExport) {
+707: /* styles/dropdown.css.js */ function _(require, module, exports, __esModule, __esExport) {
     __esModule();
     exports.menu = "bk-menu";
     exports.above = "bk-above";
@@ -850,10 +812,9 @@
     exports.active = "bk-active";
     exports.default = `:host{position:relative;--menu-width:100%;--menu-template-columns:max-content max-content 1fr max-content max-content;}.bk-menu{position:absolute;left:0;width:100%;z-index:var(--bokeh-top-level);cursor:pointer;font-size:var(--font-size);background-color:var(--background-color);border:var(--border);border-radius:var(--border-radius);box-shadow:var(--box-shadow-x-symmetric);}.bk-menu.bk-above{bottom:100%;}.bk-menu.bk-below{top:100%;}.bk-menu > .bk-divider{height:1px;margin:calc(var(--line-height-computed)/2 - 1px) 0;overflow:hidden;background-color:var(--divider-color);}.bk-menu > :not(.bk-divider){padding:var(--padding-vertical) var(--padding-horizontal);}.bk-menu > :not(.bk-divider):hover,.bk-menu > :not(.bk-divider).bk-active{background-color:var(--surface-background-color);}`;
 },
-633: /* models/widgets/button.js */ function _(require, module, exports, __esModule, __esExport) {
-    var _a;
+708: /* models/widgets/button.js */ function _(require, module, exports, __esModule, __esExport) {
     __esModule();
-    const abstract_button_1 = require(624) /* ./abstract_button */;
+    const abstract_button_1 = require(699) /* ./abstract_button */;
     const bokeh_events_1 = require(80) /* ../../core/bokeh_events */;
     class ButtonView extends abstract_button_1.AbstractButtonView {
         click() {
@@ -862,30 +823,26 @@
         }
     }
     exports.ButtonView = ButtonView;
-    ButtonView.__name__ = "ButtonView";
     class Button extends abstract_button_1.AbstractButton {
         constructor(attrs) {
             super(attrs);
+        }
+        static {
+            this.prototype.default_view = ButtonView;
+            this.override({
+                label: "Button",
+            });
         }
         on_click(callback) {
             this.on_event(bokeh_events_1.ButtonClick, callback);
         }
     }
     exports.Button = Button;
-    _a = Button;
-    Button.__name__ = "Button";
-    (() => {
-        _a.prototype.default_view = ButtonView;
-        _a.override({
-            label: "Button",
-        });
-    })();
 },
-634: /* models/widgets/checkbox_button_group.js */ function _(require, module, exports, __esModule, __esExport) {
-    var _a;
+709: /* models/widgets/checkbox_button_group.js */ function _(require, module, exports, __esModule, __esExport) {
     __esModule();
     const tslib_1 = require(1) /* tslib */;
-    const toggle_button_group_1 = require(635) /* ./toggle_button_group */;
+    const toggle_button_group_1 = require(710) /* ./toggle_button_group */;
     const buttons = tslib_1.__importStar(require(77) /* ../../styles/buttons.css */);
     class CheckboxButtonGroupView extends toggle_button_group_1.ToggleButtonGroupView {
         get active() {
@@ -904,32 +861,29 @@
         }
     }
     exports.CheckboxButtonGroupView = CheckboxButtonGroupView;
-    CheckboxButtonGroupView.__name__ = "CheckboxButtonGroupView";
     class CheckboxButtonGroup extends toggle_button_group_1.ToggleButtonGroup {
         constructor(attrs) {
             super(attrs);
         }
+        static {
+            this.prototype.default_view = CheckboxButtonGroupView;
+            this.define(({ Int, List }) => ({
+                active: [List(Int), []],
+            }));
+        }
     }
     exports.CheckboxButtonGroup = CheckboxButtonGroup;
-    _a = CheckboxButtonGroup;
-    CheckboxButtonGroup.__name__ = "CheckboxButtonGroup";
-    (() => {
-        _a.prototype.default_view = CheckboxButtonGroupView;
-        _a.define(({ Int, List }) => ({
-            active: [List(Int), []],
-        }));
-    })();
 },
-635: /* models/widgets/toggle_button_group.js */ function _(require, module, exports, __esModule, __esExport) {
-    var _a;
+710: /* models/widgets/toggle_button_group.js */ function _(require, module, exports, __esModule, __esExport) {
     __esModule();
     const tslib_1 = require(1) /* tslib */;
-    const oriented_control_1 = require(636) /* ./oriented_control */;
+    const oriented_control_1 = require(711) /* ./oriented_control */;
     const bokeh_events_1 = require(80) /* ../../core/bokeh_events */;
     const enums_1 = require(21) /* ../../core/enums */;
     const dom_1 = require(61) /* ../../core/dom */;
     const buttons_css_1 = tslib_1.__importStar(require(77) /* ../../styles/buttons.css */), buttons = buttons_css_1;
     class ToggleButtonGroupView extends oriented_control_1.OrientedControlView {
+        _buttons;
         *controls() {
             yield* this._buttons; // TODO: HTMLButtonElement[]
         }
@@ -963,54 +917,46 @@
         }
     }
     exports.ToggleButtonGroupView = ToggleButtonGroupView;
-    ToggleButtonGroupView.__name__ = "ToggleButtonGroupView";
     class ToggleButtonGroup extends oriented_control_1.OrientedControl {
         constructor(attrs) {
             super(attrs);
         }
+        static {
+            this.define(({ Str, List }) => ({
+                labels: [List(Str), []],
+                button_type: [enums_1.ButtonType, "default"],
+            }));
+        }
     }
     exports.ToggleButtonGroup = ToggleButtonGroup;
-    _a = ToggleButtonGroup;
-    ToggleButtonGroup.__name__ = "ToggleButtonGroup";
-    (() => {
-        _a.define(({ Str, List }) => ({
-            labels: [List(Str), []],
-            button_type: [enums_1.ButtonType, "default"],
-        }));
-    })();
 },
-636: /* models/widgets/oriented_control.js */ function _(require, module, exports, __esModule, __esExport) {
-    var _a;
+711: /* models/widgets/oriented_control.js */ function _(require, module, exports, __esModule, __esExport) {
     __esModule();
-    const control_1 = require(625) /* ./control */;
+    const control_1 = require(700) /* ./control */;
     const enums_1 = require(21) /* ../../core/enums */;
     class OrientedControlView extends control_1.ControlView {
     }
     exports.OrientedControlView = OrientedControlView;
-    OrientedControlView.__name__ = "OrientedControlView";
     class OrientedControl extends control_1.Control {
         constructor(attrs) {
             super(attrs);
         }
+        static {
+            this.define(() => ({
+                orientation: [enums_1.Orientation, "horizontal"],
+            }));
+        }
     }
     exports.OrientedControl = OrientedControl;
-    _a = OrientedControl;
-    OrientedControl.__name__ = "OrientedControl";
-    (() => {
-        _a.define(() => ({
-            orientation: [enums_1.Orientation, "horizontal"],
-        }));
-    })();
 },
-637: /* models/widgets/checkbox_group.js */ function _(require, module, exports, __esModule, __esExport) {
-    var _a;
+712: /* models/widgets/checkbox_group.js */ function _(require, module, exports, __esModule, __esExport) {
     __esModule();
     const tslib_1 = require(1) /* tslib */;
-    const toggle_input_group_1 = require(638) /* ./toggle_input_group */;
+    const toggle_input_group_1 = require(713) /* ./toggle_input_group */;
     const dom_1 = require(61) /* ../../core/dom */;
     const array_1 = require(10) /* ../../core/util/array */;
-    const iterator_1 = require(14) /* ../../core/util/iterator */;
-    const inputs = tslib_1.__importStar(require(631) /* ../../styles/widgets/inputs.css */);
+    const iterator_1 = require(15) /* ../../core/util/iterator */;
+    const inputs = tslib_1.__importStar(require(706) /* ../../styles/widgets/inputs.css */);
     class CheckboxGroupView extends toggle_input_group_1.ToggleInputGroupView {
         get active() {
             return new Set(this.model.active);
@@ -1052,30 +998,27 @@
         }
     }
     exports.CheckboxGroupView = CheckboxGroupView;
-    CheckboxGroupView.__name__ = "CheckboxGroupView";
     class CheckboxGroup extends toggle_input_group_1.ToggleInputGroup {
         constructor(attrs) {
             super(attrs);
         }
+        static {
+            this.prototype.default_view = CheckboxGroupView;
+            this.define(({ Int, List }) => ({
+                active: [List(Int), []],
+            }));
+        }
     }
     exports.CheckboxGroup = CheckboxGroup;
-    _a = CheckboxGroup;
-    CheckboxGroup.__name__ = "CheckboxGroup";
-    (() => {
-        _a.prototype.default_view = CheckboxGroupView;
-        _a.define(({ Int, List }) => ({
-            active: [List(Int), []],
-        }));
-    })();
 },
-638: /* models/widgets/toggle_input_group.js */ function _(require, module, exports, __esModule, __esExport) {
-    var _a;
+713: /* models/widgets/toggle_input_group.js */ function _(require, module, exports, __esModule, __esExport) {
     __esModule();
     const tslib_1 = require(1) /* tslib */;
-    const control_1 = require(625) /* ./control */;
-    const inputs_css_1 = tslib_1.__importDefault(require(631) /* ../../styles/widgets/inputs.css */);
-    const checkbox_css_1 = tslib_1.__importDefault(require(639) /* ../../styles/widgets/checkbox.css */);
+    const control_1 = require(700) /* ./control */;
+    const inputs_css_1 = tslib_1.__importDefault(require(706) /* ../../styles/widgets/inputs.css */);
+    const checkbox_css_1 = tslib_1.__importDefault(require(714) /* ../../styles/widgets/checkbox.css */);
     class ToggleInputGroupView extends control_1.ControlView {
+        _inputs;
         *controls() {
             yield* this._inputs;
         }
@@ -1089,34 +1032,31 @@
         }
     }
     exports.ToggleInputGroupView = ToggleInputGroupView;
-    ToggleInputGroupView.__name__ = "ToggleInputGroupView";
     class ToggleInputGroup extends control_1.Control {
         constructor(attrs) {
             super(attrs);
         }
+        static {
+            this.define(({ Bool, Str, List }) => ({
+                labels: [List(Str), []],
+                inline: [Bool, false],
+            }));
+        }
     }
     exports.ToggleInputGroup = ToggleInputGroup;
-    _a = ToggleInputGroup;
-    ToggleInputGroup.__name__ = "ToggleInputGroup";
-    (() => {
-        _a.define(({ Bool, Str, List }) => ({
-            labels: [List(Str), []],
-            inline: [Bool, false],
-        }));
-    })();
 },
-639: /* styles/widgets/checkbox.css.js */ function _(require, module, exports, __esModule, __esExport) {
+714: /* styles/widgets/checkbox.css.js */ function _(require, module, exports, __esModule, __esExport) {
     __esModule();
     exports.default = `input[type="checkbox"],input[type="radio"]{margin:0;}input[type="checkbox"] + *,input[type="radio"] + *{position:relative;top:-2px;margin-left:3px;}`;
 },
-640: /* models/widgets/checkbox.js */ function _(require, module, exports, __esModule, __esExport) {
-    var _a;
+715: /* models/widgets/checkbox.js */ function _(require, module, exports, __esModule, __esExport) {
     __esModule();
     const tslib_1 = require(1) /* tslib */;
-    const toggle_input_1 = require(641) /* ./toggle_input */;
+    const toggle_input_1 = require(716) /* ./toggle_input */;
     const dom_1 = require(61) /* ../../core/dom */;
-    const checkbox_css_1 = tslib_1.__importDefault(require(639) /* ../../styles/widgets/checkbox.css */);
+    const checkbox_css_1 = tslib_1.__importDefault(require(714) /* ../../styles/widgets/checkbox.css */);
     class CheckboxView extends toggle_input_1.ToggleInputView {
+        checkbox_el;
         stylesheets() {
             return [...super.stylesheets(), checkbox_css_1.default];
         }
@@ -1137,27 +1077,24 @@
         }
     }
     exports.CheckboxView = CheckboxView;
-    CheckboxView.__name__ = "CheckboxView";
     class Checkbox extends toggle_input_1.ToggleInput {
         constructor(attrs) {
             super(attrs);
         }
+        static {
+            this.prototype.default_view = CheckboxView;
+        }
     }
     exports.Checkbox = Checkbox;
-    _a = Checkbox;
-    Checkbox.__name__ = "Checkbox";
-    (() => {
-        _a.prototype.default_view = CheckboxView;
-    })();
 },
-641: /* models/widgets/toggle_input.js */ function _(require, module, exports, __esModule, __esExport) {
-    var _a;
+716: /* models/widgets/toggle_input.js */ function _(require, module, exports, __esModule, __esExport) {
     __esModule();
     const tslib_1 = require(1) /* tslib */;
-    const widget_1 = require(737) /* ./widget */;
+    const widget_1 = require(798) /* ./widget */;
     const dom_1 = require(61) /* ../../core/dom */;
-    const toggle_input_css = tslib_1.__importStar(require(642) /* ../../styles/widgets/toggle_input.css */);
+    const toggle_input_css = tslib_1.__importStar(require(717) /* ../../styles/widgets/toggle_input.css */);
     class ToggleInputView extends widget_1.WidgetView {
+        label_el;
         stylesheets() {
             return [...super.stylesheets(), toggle_input_css.default];
         }
@@ -1182,35 +1119,31 @@
         }
     }
     exports.ToggleInputView = ToggleInputView;
-    ToggleInputView.__name__ = "ToggleInputView";
     class ToggleInput extends widget_1.Widget {
         constructor(attrs) {
             super(attrs);
         }
+        static {
+            this.define(({ Bool, Str }) => ({
+                active: [Bool, false],
+                label: [Str, ""],
+            }));
+        }
     }
     exports.ToggleInput = ToggleInput;
-    _a = ToggleInput;
-    ToggleInput.__name__ = "ToggleInput";
-    (() => {
-        _a.define(({ Bool, Str }) => ({
-            active: [Bool, false],
-            label: [Str, ""],
-        }));
-    })();
 },
-642: /* styles/widgets/toggle_input.css.js */ function _(require, module, exports, __esModule, __esExport) {
+717: /* styles/widgets/toggle_input.css.js */ function _(require, module, exports, __esModule, __esExport) {
     __esModule();
     exports.label = "bk-label";
     exports.default = `.bk-label{position:relative;display:inline;}.bk-label:empty{display:none;}`;
 },
-643: /* models/widgets/color_picker.js */ function _(require, module, exports, __esModule, __esExport) {
-    var _a;
+718: /* models/widgets/color_picker.js */ function _(require, module, exports, __esModule, __esExport) {
     __esModule();
     const tslib_1 = require(1) /* tslib */;
-    const input_widget_1 = require(630) /* ./input_widget */;
+    const input_widget_1 = require(705) /* ./input_widget */;
     const dom_1 = require(61) /* ../../core/dom */;
     const color_1 = require(23) /* ../../core/util/color */;
-    const inputs = tslib_1.__importStar(require(631) /* ../../styles/widgets/inputs.css */);
+    const inputs = tslib_1.__importStar(require(706) /* ../../styles/widgets/inputs.css */);
     class ColorPickerView extends input_widget_1.InputWidgetView {
         connect_signals() {
             super.connect_signals();
@@ -1237,27 +1170,23 @@
         }
     }
     exports.ColorPickerView = ColorPickerView;
-    ColorPickerView.__name__ = "ColorPickerView";
     class ColorPicker extends input_widget_1.InputWidget {
         constructor(attrs) {
             super(attrs);
         }
+        static {
+            this.prototype.default_view = ColorPickerView;
+            this.define(({ Color }) => ({
+                color: [Color, "#000000"],
+            }));
+        }
     }
     exports.ColorPicker = ColorPicker;
-    _a = ColorPicker;
-    ColorPicker.__name__ = "ColorPicker";
-    (() => {
-        _a.prototype.default_view = ColorPickerView;
-        _a.define(({ Color }) => ({
-            color: [Color, "#000000"],
-        }));
-    })();
 },
-644: /* models/widgets/date_picker.js */ function _(require, module, exports, __esModule, __esExport) {
-    var _a;
+719: /* models/widgets/date_picker.js */ function _(require, module, exports, __esModule, __esExport) {
     __esModule();
-    const base_date_picker_1 = require(645) /* ./base_date_picker */;
-    const assert_1 = require(12) /* ../../core/util/assert */;
+    const base_date_picker_1 = require(720) /* ./base_date_picker */;
+    const assert_1 = require(13) /* ../../core/util/assert */;
     class DatePickerView extends base_date_picker_1.BaseDatePickerView {
         get flatpickr_options() {
             return {
@@ -1280,26 +1209,22 @@
         }
     }
     exports.DatePickerView = DatePickerView;
-    DatePickerView.__name__ = "DatePickerView";
     class DatePicker extends base_date_picker_1.BaseDatePicker {
         constructor(attrs) {
             super(attrs);
         }
+        static {
+            this.prototype.default_view = DatePickerView;
+            this.define(({ Nullable }) => ({
+                value: [Nullable(base_date_picker_1.DateLike), null],
+            }));
+        }
     }
     exports.DatePicker = DatePicker;
-    _a = DatePicker;
-    DatePicker.__name__ = "DatePicker";
-    (() => {
-        _a.prototype.default_view = DatePickerView;
-        _a.define(({ Nullable }) => ({
-            value: [Nullable(base_date_picker_1.DateLike), null],
-        }));
-    })();
 },
-645: /* models/widgets/base_date_picker.js */ function _(require, module, exports, __esModule, __esExport) {
-    var _a;
+720: /* models/widgets/base_date_picker.js */ function _(require, module, exports, __esModule, __esExport) {
     __esModule();
-    const picker_base_1 = require(646) /* ./picker_base */;
+    const picker_base_1 = require(721) /* ./picker_base */;
     const types_1 = require(8) /* ../../core/util/types */;
     const kinds_1 = require(22) /* ../../core/kinds */;
     exports.DateLike = (0, kinds_1.Or)((0, kinds_1.Ref)(Date), kinds_1.Str, kinds_1.Float);
@@ -1379,38 +1304,35 @@
         }
     }
     exports.BaseDatePickerView = BaseDatePickerView;
-    BaseDatePickerView.__name__ = "BaseDatePickerView";
     class BaseDatePicker extends picker_base_1.PickerBase {
         constructor(attrs) {
             super(attrs);
         }
+        static {
+            this.define(({ Nullable }) => ({
+                min_date: [Nullable(exports.DateLike), null],
+                max_date: [Nullable(exports.DateLike), null],
+                disabled_dates: [Nullable(exports.DateLikeList), null],
+                enabled_dates: [Nullable(exports.DateLikeList), null],
+                date_format: [kinds_1.Str, "Y-m-d"],
+            }));
+        }
     }
     exports.BaseDatePicker = BaseDatePicker;
-    _a = BaseDatePicker;
-    BaseDatePicker.__name__ = "BaseDatePicker";
-    (() => {
-        _a.define(({ Nullable }) => ({
-            min_date: [Nullable(exports.DateLike), null],
-            max_date: [Nullable(exports.DateLike), null],
-            disabled_dates: [Nullable(exports.DateLikeList), null],
-            enabled_dates: [Nullable(exports.DateLikeList), null],
-            date_format: [kinds_1.Str, "Y-m-d"],
-        }));
-    })();
 },
-646: /* models/widgets/picker_base.js */ function _(require, module, exports, __esModule, __esExport) {
-    var _a;
+721: /* models/widgets/picker_base.js */ function _(require, module, exports, __esModule, __esExport) {
     __esModule();
     const tslib_1 = require(1) /* tslib */;
-    const flatpickr_1 = tslib_1.__importDefault(require(647) /* flatpickr */);
-    const input_widget_1 = require(630) /* ./input_widget */;
+    const flatpickr_1 = tslib_1.__importDefault(require(722) /* flatpickr */);
+    const input_widget_1 = require(705) /* ./input_widget */;
     const dom_1 = require(61) /* ../../core/dom */;
     const enums_1 = require(21) /* ../../core/enums */;
     const dom_2 = require(61) /* ../../core/dom */;
-    const assert_1 = require(12) /* ../../core/util/assert */;
-    const flatpickr_css_1 = tslib_1.__importDefault(require(655) /* ../../styles/widgets/flatpickr.css */);
-    const inputs = tslib_1.__importStar(require(631) /* ../../styles/widgets/inputs.css */);
+    const assert_1 = require(13) /* ../../core/util/assert */;
+    const flatpickr_css_1 = tslib_1.__importDefault(require(730) /* ../../styles/widgets/flatpickr.css */);
+    const inputs = tslib_1.__importStar(require(706) /* ../../styles/widgets/inputs.css */);
     class PickerBaseView extends input_widget_1.InputWidgetView {
+        _picker;
         get picker() {
             (0, assert_1.assert)(this._picker != null);
             return this._picker;
@@ -1534,25 +1456,22 @@
         }
     }
     exports.PickerBaseView = PickerBaseView;
-    PickerBaseView.__name__ = "PickerBaseView";
     class PickerBase extends input_widget_1.InputWidget {
         constructor(attrs) {
             super(attrs);
         }
+        static {
+            this.define(({ Bool }) => {
+                return {
+                    position: [enums_1.CalendarPosition, "auto"],
+                    inline: [Bool, false],
+                };
+            });
+        }
     }
     exports.PickerBase = PickerBase;
-    _a = PickerBase;
-    PickerBase.__name__ = "PickerBase";
-    (() => {
-        _a.define(({ Bool }) => {
-            return {
-                position: [enums_1.CalendarPosition, "auto"],
-                inline: [Bool, false],
-            };
-        });
-    })();
 },
-647: /* flatpickr/dist/esm/index.js */ function _(require, module, exports, __esModule, __esExport) {
+722: /* flatpickr/dist/esm/index.js */ function _(require, module, exports, __esModule, __esExport) {
     __esModule();
     const tslib_1 = require(1) /* tslib */;
     var __assign = (this && this.__assign) || function () {
@@ -1575,13 +1494,13 @@
                 r[k] = a[j];
         return r;
     };
-    const options_1 = require(648) /* ./types/options */;
-    const default_1 = tslib_1.__importDefault(require(649) /* ./l10n/default */);
-    const utils_1 = require(650) /* ./utils */;
-    const dom_1 = require(651) /* ./utils/dom */;
-    const dates_1 = require(652) /* ./utils/dates */;
-    const formatting_1 = require(653) /* ./utils/formatting */;
-    require(654) /* ./utils/polyfills */;
+    const options_1 = require(723) /* ./types/options */;
+    const default_1 = tslib_1.__importDefault(require(724) /* ./l10n/default */);
+    const utils_1 = require(725) /* ./utils */;
+    const dom_1 = require(726) /* ./utils/dom */;
+    const dates_1 = require(727) /* ./utils/dates */;
+    const formatting_1 = require(728) /* ./utils/formatting */;
+    require(729) /* ./utils/polyfills */;
     var DEBOUNCED_CHANGE_MS = 300;
     function FlatpickrInstance(element, instanceConfig) {
         var self = {
@@ -3628,7 +3547,7 @@
     }
     exports.default = flatpickr;
 },
-648: /* flatpickr/dist/esm/types/options.js */ function _(require, module, exports, __esModule, __esExport) {
+723: /* flatpickr/dist/esm/types/options.js */ function _(require, module, exports, __esModule, __esExport) {
     __esModule();
     exports.HOOKS = [
         "onChange",
@@ -3714,7 +3633,7 @@
         wrap: false,
     };
 },
-649: /* flatpickr/dist/esm/l10n/default.js */ function _(require, module, exports, __esModule, __esExport) {
+724: /* flatpickr/dist/esm/l10n/default.js */ function _(require, module, exports, __esModule, __esExport) {
     __esModule();
     exports.english = {
         weekdays: {
@@ -3789,7 +3708,7 @@
     };
     exports.default = exports.english;
 },
-650: /* flatpickr/dist/esm/utils/index.js */ function _(require, module, exports, __esModule, __esExport) {
+725: /* flatpickr/dist/esm/utils/index.js */ function _(require, module, exports, __esModule, __esExport) {
     __esModule();
     exports.debounce = debounce;
     var pad = function (number, length) {
@@ -3815,7 +3734,7 @@
     };
     exports.arrayify = arrayify;
 },
-651: /* flatpickr/dist/esm/utils/dom.js */ function _(require, module, exports, __esModule, __esExport) {
+726: /* flatpickr/dist/esm/utils/dom.js */ function _(require, module, exports, __esModule, __esExport) {
     __esModule();
     exports.toggleClass = toggleClass;
     exports.createElement = createElement;
@@ -3878,14 +3797,14 @@
         }
     }
 },
-652: /* flatpickr/dist/esm/utils/dates.js */ function _(require, module, exports, __esModule, __esExport) {
+727: /* flatpickr/dist/esm/utils/dates.js */ function _(require, module, exports, __esModule, __esExport) {
     __esModule();
     exports.compareDates = compareDates;
     exports.compareTimes = compareTimes;
     exports.getDefaultHours = getDefaultHours;
-    const formatting_1 = require(653) /* ./formatting */;
-    const options_1 = require(648) /* ../types/options */;
-    const default_1 = require(649) /* ../l10n/default */;
+    const formatting_1 = require(728) /* ./formatting */;
+    const options_1 = require(723) /* ../types/options */;
+    const default_1 = require(724) /* ../l10n/default */;
     var createDateFormatter = function (_a) {
         var _b = _a.config, config = _b === void 0 ? options_1.defaults : _b, _c = _a.l10n, l10n = _c === void 0 ? default_1.english : _c, _d = _a.isMobile, isMobile = _d === void 0 ? false : _d;
         return function (dateObj, frmt, overrideLocale) {
@@ -4034,9 +3953,9 @@
         return { hours: hours, minutes: minutes, seconds: seconds };
     }
 },
-653: /* flatpickr/dist/esm/utils/formatting.js */ function _(require, module, exports, __esModule, __esExport) {
+728: /* flatpickr/dist/esm/utils/formatting.js */ function _(require, module, exports, __esModule, __esExport) {
     __esModule();
-    const utils_1 = require(650) /* ../utils */;
+    const utils_1 = require(725) /* ../utils */;
     var doNothing = function () { return undefined; };
     var monthToStr = function (monthNumber, shorthand, locale) { return locale.months[shorthand ? "shorthand" : "longhand"][monthNumber]; };
     exports.monthToStr = monthToStr;
@@ -4172,7 +4091,7 @@
         y: function (date) { return String(date.getFullYear()).substring(2); },
     };
 },
-654: /* flatpickr/dist/esm/utils/polyfills.js */ function _(require, module, exports, __esModule, __esExport) {
+729: /* flatpickr/dist/esm/utils/polyfills.js */ function _(require, module, exports, __esModule, __esExport) {
     if (typeof Object.assign !== "function") {
         Object.assign = function (target) {
             var args = [];
@@ -4195,15 +4114,14 @@
         };
     }
 },
-655: /* styles/widgets/flatpickr.css.js */ function _(require, module, exports, __esModule, __esExport) {
+730: /* styles/widgets/flatpickr.css.js */ function _(require, module, exports, __esModule, __esExport) {
     __esModule();
     exports.default = `.flatpickr-calendar{background:transparent;opacity:0;display:none;text-align:center;visibility:hidden;padding:0;-webkit-animation:none;animation:none;direction:ltr;border:0;font-size:14px;line-height:24px;border-radius:5px;position:absolute;width:307.875px;-webkit-box-sizing:border-box;box-sizing:border-box;-ms-touch-action:manipulation;touch-action:manipulation;background:#fff;-webkit-box-shadow:1px 0 0 #e6e6e6, -1px 0 0 #e6e6e6, 0 1px 0 #e6e6e6, 0 -1px 0 #e6e6e6, 0 3px 13px rgba(0, 0, 0, 0.08);box-shadow:1px 0 0 #e6e6e6, -1px 0 0 #e6e6e6, 0 1px 0 #e6e6e6, 0 -1px 0 #e6e6e6, 0 3px 13px rgba(0, 0, 0, 0.08);}.flatpickr-calendar.open,.flatpickr-calendar.inline{opacity:1;max-height:640px;visibility:visible;}.flatpickr-calendar.open{display:inline-block;z-index:99999;}.flatpickr-calendar.animate.open{-webkit-animation:fpFadeInDown 300ms cubic-bezier(0.23, 1, 0.32, 1);animation:fpFadeInDown 300ms cubic-bezier(0.23, 1, 0.32, 1);}.flatpickr-calendar.inline{display:block;position:relative;top:2px;}.flatpickr-calendar.static{position:absolute;top:calc(100% + 2px);}.flatpickr-calendar.static.open{z-index:999;display:block;}.flatpickr-calendar.multiMonth .flatpickr-days .dayContainer:nth-child(n+1) .flatpickr-day.inRange:nth-child(7n+7){-webkit-box-shadow:none !important;box-shadow:none !important;}.flatpickr-calendar.multiMonth .flatpickr-days .dayContainer:nth-child(n+2) .flatpickr-day.inRange:nth-child(7n+1){-webkit-box-shadow:-2px 0 0 #e6e6e6, 5px 0 0 #e6e6e6;box-shadow:-2px 0 0 #e6e6e6, 5px 0 0 #e6e6e6;}.flatpickr-calendar .hasWeeks .dayContainer,.flatpickr-calendar .hasTime .dayContainer{border-bottom:0;border-bottom-right-radius:0;border-bottom-left-radius:0;}.flatpickr-calendar .hasWeeks .dayContainer{border-left:0;}.flatpickr-calendar.hasTime .flatpickr-time{height:40px;border-top:1px solid #e6e6e6;}.flatpickr-calendar.noCalendar.hasTime .flatpickr-time{height:auto;}.flatpickr-calendar:before,.flatpickr-calendar:after{position:absolute;display:block;pointer-events:none;border:solid transparent;content:'';height:0;width:0;left:22px;}.flatpickr-calendar.rightMost:before,.flatpickr-calendar.arrowRight:before,.flatpickr-calendar.rightMost:after,.flatpickr-calendar.arrowRight:after{left:auto;right:22px;}.flatpickr-calendar.arrowCenter:before,.flatpickr-calendar.arrowCenter:after{left:50%;right:50%;}.flatpickr-calendar:before{border-width:5px;margin:0 -5px;}.flatpickr-calendar:after{border-width:4px;margin:0 -4px;}.flatpickr-calendar.arrowTop:before,.flatpickr-calendar.arrowTop:after{bottom:100%;}.flatpickr-calendar.arrowTop:before{border-bottom-color:#e6e6e6;}.flatpickr-calendar.arrowTop:after{border-bottom-color:#fff;}.flatpickr-calendar.arrowBottom:before,.flatpickr-calendar.arrowBottom:after{top:100%;}.flatpickr-calendar.arrowBottom:before{border-top-color:#e6e6e6;}.flatpickr-calendar.arrowBottom:after{border-top-color:#fff;}.flatpickr-calendar:focus{outline:0;}.flatpickr-wrapper{position:relative;display:inline-block;}.flatpickr-months{display:-webkit-box;display:-webkit-flex;display:-ms-flexbox;display:flex;}.flatpickr-months .flatpickr-month{background:transparent;color:rgba(0, 0, 0, 0.9);fill:rgba(0, 0, 0, 0.9);height:34px;line-height:1;text-align:center;position:relative;-webkit-user-select:none;-moz-user-select:none;-ms-user-select:none;user-select:none;overflow:hidden;-webkit-box-flex:1;-webkit-flex:1;-ms-flex:1;flex:1;}.flatpickr-months .flatpickr-prev-month,.flatpickr-months .flatpickr-next-month{-webkit-user-select:none;-moz-user-select:none;-ms-user-select:none;user-select:none;text-decoration:none;cursor:pointer;position:absolute;top:0;height:34px;padding:10px;z-index:3;color:rgba(0, 0, 0, 0.9);fill:rgba(0, 0, 0, 0.9);}.flatpickr-months .flatpickr-prev-month.flatpickr-disabled,.flatpickr-months .flatpickr-next-month.flatpickr-disabled{display:none;}.flatpickr-months .flatpickr-prev-month i,.flatpickr-months .flatpickr-next-month i{position:relative;}.flatpickr-months .flatpickr-prev-month.flatpickr-prev-month,.flatpickr-months .flatpickr-next-month.flatpickr-prev-month{left:0;}.flatpickr-months .flatpickr-prev-month.flatpickr-next-month,.flatpickr-months .flatpickr-next-month.flatpickr-next-month{right:0;}.flatpickr-months .flatpickr-prev-month:hover,.flatpickr-months .flatpickr-next-month:hover{color:#959ea9;}.flatpickr-months .flatpickr-prev-month:hover svg,.flatpickr-months .flatpickr-next-month:hover svg{fill:#f64747;}.flatpickr-months .flatpickr-prev-month svg,.flatpickr-months .flatpickr-next-month svg{width:14px;height:14px;}.flatpickr-months .flatpickr-prev-month svg path,.flatpickr-months .flatpickr-next-month svg path{-webkit-transition:fill 0.1s;transition:fill 0.1s;fill:inherit;}.numInputWrapper{position:relative;height:auto;}.numInputWrapper input,.numInputWrapper span{display:inline-block;}.numInputWrapper input{width:100%;}.numInputWrapper input::-ms-clear{display:none;}.numInputWrapper input::-webkit-outer-spin-button,.numInputWrapper input::-webkit-inner-spin-button{margin:0;-webkit-appearance:none;}.numInputWrapper span{position:absolute;right:0;width:14px;padding:0 4px 0 2px;height:50%;line-height:50%;opacity:0;cursor:pointer;border:1px solid rgba(57, 57, 57, 0.15);-webkit-box-sizing:border-box;box-sizing:border-box;}.numInputWrapper span:hover{background:rgba(0, 0, 0, 0.1);}.numInputWrapper span:active{background:rgba(0, 0, 0, 0.2);}.numInputWrapper span:after{display:block;content:"";position:absolute;}.numInputWrapper span.arrowUp{top:0;border-bottom:0;}.numInputWrapper span.arrowUp:after{border-left:4px solid transparent;border-right:4px solid transparent;border-bottom:4px solid rgba(57, 57, 57, 0.6);top:26%;}.numInputWrapper span.arrowDown{top:50%;}.numInputWrapper span.arrowDown:after{border-left:4px solid transparent;border-right:4px solid transparent;border-top:4px solid rgba(57, 57, 57, 0.6);top:40%;}.numInputWrapper span svg{width:inherit;height:auto;}.numInputWrapper span svg path{fill:rgba(0, 0, 0, 0.5);}.numInputWrapper:hover{background:rgba(0, 0, 0, 0.05);}.numInputWrapper:hover span{opacity:1;}.flatpickr-current-month{font-size:135%;line-height:inherit;font-weight:300;color:inherit;position:absolute;width:75%;left:12.5%;padding:7.48px 0 0 0;line-height:1;height:34px;display:inline-block;text-align:center;-webkit-transform:translate3d(0px, 0px, 0px);transform:translate3d(0px, 0px, 0px);}.flatpickr-current-month span.cur-month{font-family:inherit;font-weight:700;color:inherit;display:inline-block;margin-left:0.5ch;padding:0;}.flatpickr-current-month span.cur-month:hover{background:rgba(0, 0, 0, 0.05);}.flatpickr-current-month .numInputWrapper{width:6ch;width:7ch\0;display:inline-block;}.flatpickr-current-month .numInputWrapper span.arrowUp:after{border-bottom-color:rgba(0, 0, 0, 0.9);}.flatpickr-current-month .numInputWrapper span.arrowDown:after{border-top-color:rgba(0, 0, 0, 0.9);}.flatpickr-current-month input.cur-year{background:transparent;-webkit-box-sizing:border-box;box-sizing:border-box;color:inherit;cursor:text;padding:0 0 0 0.5ch;margin:0;display:inline-block;font-size:inherit;font-family:inherit;font-weight:300;line-height:inherit;height:auto;border:0;border-radius:0;vertical-align:initial;-webkit-appearance:textfield;-moz-appearance:textfield;appearance:textfield;}.flatpickr-current-month input.cur-year:focus{outline:0;}.flatpickr-current-month input.cur-year[disabled],.flatpickr-current-month input.cur-year[disabled]:hover{font-size:100%;color:rgba(0, 0, 0, 0.5);background:transparent;pointer-events:none;}.flatpickr-current-month .flatpickr-monthDropdown-months{appearance:menulist;background:transparent;border:none;border-radius:0;box-sizing:border-box;color:inherit;cursor:pointer;font-size:inherit;font-family:inherit;font-weight:300;height:auto;line-height:inherit;margin:-1px 0 0 0;outline:none;padding:0 0 0 0.5ch;position:relative;vertical-align:initial;-webkit-box-sizing:border-box;-webkit-appearance:menulist;-moz-appearance:menulist;width:auto;}.flatpickr-current-month .flatpickr-monthDropdown-months:focus,.flatpickr-current-month .flatpickr-monthDropdown-months:active{outline:none;}.flatpickr-current-month .flatpickr-monthDropdown-months:hover{background:rgba(0, 0, 0, 0.05);}.flatpickr-current-month .flatpickr-monthDropdown-months .flatpickr-monthDropdown-month{background-color:transparent;outline:none;padding:0;}.flatpickr-weekdays{background:transparent;text-align:center;overflow:hidden;width:100%;display:-webkit-box;display:-webkit-flex;display:-ms-flexbox;display:flex;-webkit-box-align:center;-webkit-align-items:center;-ms-flex-align:center;align-items:center;height:28px;}.flatpickr-weekdays .flatpickr-weekdaycontainer{display:-webkit-box;display:-webkit-flex;display:-ms-flexbox;display:flex;-webkit-box-flex:1;-webkit-flex:1;-ms-flex:1;flex:1;}span.flatpickr-weekday{cursor:default;font-size:90%;background:transparent;color:rgba(0, 0, 0, 0.54);line-height:1;margin:0;text-align:center;display:block;-webkit-box-flex:1;-webkit-flex:1;-ms-flex:1;flex:1;font-weight:bolder;}.dayContainer,.flatpickr-weeks{padding:1px 0 0 0;}.flatpickr-days{position:relative;overflow:hidden;display:-webkit-box;display:-webkit-flex;display:-ms-flexbox;display:flex;-webkit-box-align:start;-webkit-align-items:flex-start;-ms-flex-align:start;align-items:flex-start;width:307.875px;}.flatpickr-days:focus{outline:0;}.dayContainer{padding:0;outline:0;text-align:left;width:307.875px;min-width:307.875px;max-width:307.875px;-webkit-box-sizing:border-box;box-sizing:border-box;display:inline-block;display:-ms-flexbox;display:-webkit-box;display:-webkit-flex;display:flex;-webkit-flex-wrap:wrap;flex-wrap:wrap;-ms-flex-wrap:wrap;-ms-flex-pack:justify;-webkit-justify-content:space-around;justify-content:space-around;-webkit-transform:translate3d(0px, 0px, 0px);transform:translate3d(0px, 0px, 0px);opacity:1;}.dayContainer + .dayContainer{-webkit-box-shadow:-1px 0 0 #e6e6e6;box-shadow:-1px 0 0 #e6e6e6;}.flatpickr-day{background:none;border:1px solid transparent;border-radius:150px;-webkit-box-sizing:border-box;box-sizing:border-box;color:#393939;cursor:pointer;font-weight:400;width:14.2857143%;-webkit-flex-basis:14.2857143%;-ms-flex-preferred-size:14.2857143%;flex-basis:14.2857143%;max-width:39px;height:39px;line-height:39px;margin:0;display:inline-block;position:relative;-webkit-box-pack:center;-webkit-justify-content:center;-ms-flex-pack:center;justify-content:center;text-align:center;}.flatpickr-day.inRange,.flatpickr-day.prevMonthDay.inRange,.flatpickr-day.nextMonthDay.inRange,.flatpickr-day.today.inRange,.flatpickr-day.prevMonthDay.today.inRange,.flatpickr-day.nextMonthDay.today.inRange,.flatpickr-day:hover,.flatpickr-day.prevMonthDay:hover,.flatpickr-day.nextMonthDay:hover,.flatpickr-day:focus,.flatpickr-day.prevMonthDay:focus,.flatpickr-day.nextMonthDay:focus{cursor:pointer;outline:0;background:#e6e6e6;border-color:#e6e6e6;}.flatpickr-day.today{border-color:#959ea9;}.flatpickr-day.today:hover,.flatpickr-day.today:focus{border-color:#959ea9;background:#959ea9;color:#fff;}.flatpickr-day.selected,.flatpickr-day.startRange,.flatpickr-day.endRange,.flatpickr-day.selected.inRange,.flatpickr-day.startRange.inRange,.flatpickr-day.endRange.inRange,.flatpickr-day.selected:focus,.flatpickr-day.startRange:focus,.flatpickr-day.endRange:focus,.flatpickr-day.selected:hover,.flatpickr-day.startRange:hover,.flatpickr-day.endRange:hover,.flatpickr-day.selected.prevMonthDay,.flatpickr-day.startRange.prevMonthDay,.flatpickr-day.endRange.prevMonthDay,.flatpickr-day.selected.nextMonthDay,.flatpickr-day.startRange.nextMonthDay,.flatpickr-day.endRange.nextMonthDay{background:#569ff7;-webkit-box-shadow:none;box-shadow:none;color:#fff;border-color:#569ff7;}.flatpickr-day.selected.startRange,.flatpickr-day.startRange.startRange,.flatpickr-day.endRange.startRange{border-radius:50px 0 0 50px;}.flatpickr-day.selected.endRange,.flatpickr-day.startRange.endRange,.flatpickr-day.endRange.endRange{border-radius:0 50px 50px 0;}.flatpickr-day.selected.startRange + .endRange:not(:nth-child(7n+1)),.flatpickr-day.startRange.startRange + .endRange:not(:nth-child(7n+1)),.flatpickr-day.endRange.startRange + .endRange:not(:nth-child(7n+1)){-webkit-box-shadow:-10px 0 0 #569ff7;box-shadow:-10px 0 0 #569ff7;}.flatpickr-day.selected.startRange.endRange,.flatpickr-day.startRange.startRange.endRange,.flatpickr-day.endRange.startRange.endRange{border-radius:50px;}.flatpickr-day.inRange{border-radius:0;-webkit-box-shadow:-5px 0 0 #e6e6e6, 5px 0 0 #e6e6e6;box-shadow:-5px 0 0 #e6e6e6, 5px 0 0 #e6e6e6;}.flatpickr-day.flatpickr-disabled,.flatpickr-day.flatpickr-disabled:hover,.flatpickr-day.prevMonthDay,.flatpickr-day.nextMonthDay,.flatpickr-day.notAllowed,.flatpickr-day.notAllowed.prevMonthDay,.flatpickr-day.notAllowed.nextMonthDay{color:rgba(57, 57, 57, 0.3);background:transparent;border-color:transparent;cursor:default;}.flatpickr-day.flatpickr-disabled,.flatpickr-day.flatpickr-disabled:hover{cursor:not-allowed;color:rgba(57, 57, 57, 0.1);}.flatpickr-day.week.selected{border-radius:0;-webkit-box-shadow:-5px 0 0 #569ff7, 5px 0 0 #569ff7;box-shadow:-5px 0 0 #569ff7, 5px 0 0 #569ff7;}.flatpickr-day.hidden{visibility:hidden;}.rangeMode .flatpickr-day{margin-top:1px;}.flatpickr-weekwrapper{float:left;}.flatpickr-weekwrapper .flatpickr-weeks{padding:0 12px;-webkit-box-shadow:1px 0 0 #e6e6e6;box-shadow:1px 0 0 #e6e6e6;}.flatpickr-weekwrapper .flatpickr-weekday{float:none;width:100%;line-height:28px;}.flatpickr-weekwrapper span.flatpickr-day,.flatpickr-weekwrapper span.flatpickr-day:hover{display:block;width:100%;max-width:none;color:rgba(57, 57, 57, 0.3);background:transparent;cursor:default;border:none;}.flatpickr-innerContainer{display:block;display:-webkit-box;display:-webkit-flex;display:-ms-flexbox;display:flex;-webkit-box-sizing:border-box;box-sizing:border-box;overflow:hidden;}.flatpickr-rContainer{display:inline-block;padding:0;-webkit-box-sizing:border-box;box-sizing:border-box;}.flatpickr-time{text-align:center;outline:0;display:block;height:0;line-height:40px;max-height:40px;-webkit-box-sizing:border-box;box-sizing:border-box;overflow:hidden;display:-webkit-box;display:-webkit-flex;display:-ms-flexbox;display:flex;}.flatpickr-time:after{content:"";display:table;clear:both;}.flatpickr-time .numInputWrapper{-webkit-box-flex:1;-webkit-flex:1;-ms-flex:1;flex:1;width:40%;height:40px;float:left;}.flatpickr-time .numInputWrapper span.arrowUp:after{border-bottom-color:#393939;}.flatpickr-time .numInputWrapper span.arrowDown:after{border-top-color:#393939;}.flatpickr-time.hasSeconds .numInputWrapper{width:26%;}.flatpickr-time.time24hr .numInputWrapper{width:49%;}.flatpickr-time input{background:transparent;-webkit-box-shadow:none;box-shadow:none;border:0;border-radius:0;text-align:center;margin:0;padding:0;height:inherit;line-height:inherit;color:#393939;font-size:14px;position:relative;-webkit-box-sizing:border-box;box-sizing:border-box;-webkit-appearance:textfield;-moz-appearance:textfield;appearance:textfield;}.flatpickr-time input.flatpickr-hour{font-weight:bold;}.flatpickr-time input.flatpickr-minute,.flatpickr-time input.flatpickr-second{font-weight:400;}.flatpickr-time input:focus{outline:0;border:0;}.flatpickr-time .flatpickr-time-separator,.flatpickr-time .flatpickr-am-pm{height:inherit;float:left;line-height:inherit;color:#393939;font-weight:bold;width:2%;-webkit-user-select:none;-moz-user-select:none;-ms-user-select:none;user-select:none;-webkit-align-self:center;-ms-flex-item-align:center;align-self:center;}.flatpickr-time .flatpickr-am-pm{outline:0;width:18%;cursor:pointer;text-align:center;font-weight:400;}.flatpickr-time input:hover,.flatpickr-time .flatpickr-am-pm:hover,.flatpickr-time input:focus,.flatpickr-time .flatpickr-am-pm:focus{background:#eee;}.flatpickr-input[readonly]{cursor:pointer;}@-webkit-keyframes fpFadeInDown{from{opacity:0;-webkit-transform:translate3d(0, -20px, 0);transform:translate3d(0, -20px, 0);}to{opacity:1;-webkit-transform:translate3d(0, 0, 0);transform:translate3d(0, 0, 0);}}@keyframes fpFadeInDown{from{opacity:0;-webkit-transform:translate3d(0, -20px, 0);transform:translate3d(0, -20px, 0);}to{opacity:1;-webkit-transform:translate3d(0, 0, 0);transform:translate3d(0, 0, 0);}}.flatpickr-calendar{background:transparent;opacity:0;display:none;text-align:center;visibility:hidden;padding:0;-webkit-animation:none;animation:none;direction:ltr;border:0;font-size:14px;line-height:24px;border-radius:5px;position:absolute;width:307.875px;-webkit-box-sizing:border-box;box-sizing:border-box;-ms-touch-action:manipulation;touch-action:manipulation;-webkit-box-shadow:0 3px 13px rgba(0, 0, 0, 0.08);box-shadow:0 3px 13px rgba(0, 0, 0, 0.08);}.flatpickr-calendar.open,.flatpickr-calendar.inline{opacity:1;max-height:640px;visibility:visible;}.flatpickr-calendar.open{display:inline-block;z-index:99999;}.flatpickr-calendar.animate.open{-webkit-animation:fpFadeInDown 300ms cubic-bezier(0.23, 1, 0.32, 1);animation:fpFadeInDown 300ms cubic-bezier(0.23, 1, 0.32, 1);}.flatpickr-calendar.inline{display:block;position:relative;top:2px;}.flatpickr-calendar.static{position:absolute;top:calc(100% + 2px);}.flatpickr-calendar.static.open{z-index:999;display:block;}.flatpickr-calendar.multiMonth .flatpickr-days .dayContainer:nth-child(n+1) .flatpickr-day.inRange:nth-child(7n+7){-webkit-box-shadow:none !important;box-shadow:none !important;}.flatpickr-calendar.multiMonth .flatpickr-days .dayContainer:nth-child(n+2) .flatpickr-day.inRange:nth-child(7n+1){-webkit-box-shadow:-2px 0 0 #e6e6e6, 5px 0 0 #e6e6e6;box-shadow:-2px 0 0 #e6e6e6, 5px 0 0 #e6e6e6;}.flatpickr-calendar .hasWeeks .dayContainer,.flatpickr-calendar .hasTime .dayContainer{border-bottom:0;border-bottom-right-radius:0;border-bottom-left-radius:0;}.flatpickr-calendar .hasWeeks .dayContainer{border-left:0;}.flatpickr-calendar.hasTime .flatpickr-time{height:40px;border-top:1px solid #eceef1;}.flatpickr-calendar.hasTime .flatpickr-innerContainer{border-bottom:0;}.flatpickr-calendar.hasTime .flatpickr-time{border:1px solid #eceef1;}.flatpickr-calendar.noCalendar.hasTime .flatpickr-time{height:auto;}.flatpickr-calendar:before,.flatpickr-calendar:after{position:absolute;display:block;pointer-events:none;border:solid transparent;content:'';height:0;width:0;left:22px;}.flatpickr-calendar.rightMost:before,.flatpickr-calendar.arrowRight:before,.flatpickr-calendar.rightMost:after,.flatpickr-calendar.arrowRight:after{left:auto;right:22px;}.flatpickr-calendar.arrowCenter:before,.flatpickr-calendar.arrowCenter:after{left:50%;right:50%;}.flatpickr-calendar:before{border-width:5px;margin:0 -5px;}.flatpickr-calendar:after{border-width:4px;margin:0 -4px;}.flatpickr-calendar.arrowTop:before,.flatpickr-calendar.arrowTop:after{bottom:100%;}.flatpickr-calendar.arrowTop:before{border-bottom-color:#eceef1;}.flatpickr-calendar.arrowTop:after{border-bottom-color:#eceef1;}.flatpickr-calendar.arrowBottom:before,.flatpickr-calendar.arrowBottom:after{top:100%;}.flatpickr-calendar.arrowBottom:before{border-top-color:#eceef1;}.flatpickr-calendar.arrowBottom:after{border-top-color:#eceef1;}.flatpickr-calendar:focus{outline:0;}.flatpickr-wrapper{position:relative;display:inline-block;}.flatpickr-months{display:-webkit-box;display:-webkit-flex;display:-ms-flexbox;display:flex;}.flatpickr-months .flatpickr-month{border-radius:5px 5px 0 0;background:#eceef1;color:#5a6171;fill:#5a6171;height:34px;line-height:1;text-align:center;position:relative;-webkit-user-select:none;-moz-user-select:none;-ms-user-select:none;user-select:none;overflow:hidden;-webkit-box-flex:1;-webkit-flex:1;-ms-flex:1;flex:1;}.flatpickr-months .flatpickr-prev-month,.flatpickr-months .flatpickr-next-month{-webkit-user-select:none;-moz-user-select:none;-ms-user-select:none;user-select:none;text-decoration:none;cursor:pointer;position:absolute;top:0;height:34px;padding:10px;z-index:3;color:#5a6171;fill:#5a6171;}.flatpickr-months .flatpickr-prev-month.flatpickr-disabled,.flatpickr-months .flatpickr-next-month.flatpickr-disabled{display:none;}.flatpickr-months .flatpickr-prev-month i,.flatpickr-months .flatpickr-next-month i{position:relative;}.flatpickr-months .flatpickr-prev-month.flatpickr-prev-month,.flatpickr-months .flatpickr-next-month.flatpickr-prev-month{left:0;}.flatpickr-months .flatpickr-prev-month.flatpickr-next-month,.flatpickr-months .flatpickr-next-month.flatpickr-next-month{right:0;}.flatpickr-months .flatpickr-prev-month:hover,.flatpickr-months .flatpickr-next-month:hover{color:#bbb;}.flatpickr-months .flatpickr-prev-month:hover svg,.flatpickr-months .flatpickr-next-month:hover svg{fill:#f64747;}.flatpickr-months .flatpickr-prev-month svg,.flatpickr-months .flatpickr-next-month svg{width:14px;height:14px;}.flatpickr-months .flatpickr-prev-month svg path,.flatpickr-months .flatpickr-next-month svg path{-webkit-transition:fill 0.1s;transition:fill 0.1s;fill:inherit;}.numInputWrapper{position:relative;height:auto;}.numInputWrapper input,.numInputWrapper span{display:inline-block;}.numInputWrapper input{width:100%;}.numInputWrapper input::-ms-clear{display:none;}.numInputWrapper input::-webkit-outer-spin-button,.numInputWrapper input::-webkit-inner-spin-button{margin:0;-webkit-appearance:none;}.numInputWrapper span{position:absolute;right:0;width:14px;padding:0 4px 0 2px;height:50%;line-height:50%;opacity:0;cursor:pointer;border:1px solid rgba(72, 72, 72, 0.15);-webkit-box-sizing:border-box;box-sizing:border-box;}.numInputWrapper span:hover{background:rgba(0, 0, 0, 0.1);}.numInputWrapper span:active{background:rgba(0, 0, 0, 0.2);}.numInputWrapper span:after{display:block;content:"";position:absolute;}.numInputWrapper span.arrowUp{top:0;border-bottom:0;}.numInputWrapper span.arrowUp:after{border-left:4px solid transparent;border-right:4px solid transparent;border-bottom:4px solid rgba(72, 72, 72, 0.6);top:26%;}.numInputWrapper span.arrowDown{top:50%;}.numInputWrapper span.arrowDown:after{border-left:4px solid transparent;border-right:4px solid transparent;border-top:4px solid rgba(72, 72, 72, 0.6);top:40%;}.numInputWrapper span svg{width:inherit;height:auto;}.numInputWrapper span svg path{fill:rgba(90, 97, 113, 0.5);}.numInputWrapper:hover{background:rgba(0, 0, 0, 0.05);}.numInputWrapper:hover span{opacity:1;}.flatpickr-current-month{font-size:135%;line-height:inherit;font-weight:300;color:inherit;position:absolute;width:75%;left:12.5%;padding:7.48px 0 0 0;line-height:1;height:34px;display:inline-block;text-align:center;-webkit-transform:translate3d(0px, 0px, 0px);transform:translate3d(0px, 0px, 0px);}.flatpickr-current-month span.cur-month{font-family:inherit;font-weight:700;color:inherit;display:inline-block;margin-left:0.5ch;padding:0;}.flatpickr-current-month span.cur-month:hover{background:rgba(0, 0, 0, 0.05);}.flatpickr-current-month .numInputWrapper{width:6ch;width:7ch\0;display:inline-block;}.flatpickr-current-month .numInputWrapper span.arrowUp:after{border-bottom-color:#5a6171;}.flatpickr-current-month .numInputWrapper span.arrowDown:after{border-top-color:#5a6171;}.flatpickr-current-month input.cur-year{background:transparent;-webkit-box-sizing:border-box;box-sizing:border-box;color:inherit;cursor:text;padding:0 0 0 0.5ch;margin:0;display:inline-block;font-size:inherit;font-family:inherit;font-weight:300;line-height:inherit;height:auto;border:0;border-radius:0;vertical-align:initial;-webkit-appearance:textfield;-moz-appearance:textfield;appearance:textfield;}.flatpickr-current-month input.cur-year:focus{outline:0;}.flatpickr-current-month input.cur-year[disabled],.flatpickr-current-month input.cur-year[disabled]:hover{font-size:100%;color:rgba(90, 97, 113, 0.5);background:transparent;pointer-events:none;}.flatpickr-current-month .flatpickr-monthDropdown-months{appearance:menulist;background:#eceef1;border:none;border-radius:0;box-sizing:border-box;color:inherit;cursor:pointer;font-size:inherit;font-family:inherit;font-weight:300;height:auto;line-height:inherit;margin:-1px 0 0 0;outline:none;padding:0 0 0 0.5ch;position:relative;vertical-align:initial;-webkit-box-sizing:border-box;-webkit-appearance:menulist;-moz-appearance:menulist;width:auto;}.flatpickr-current-month .flatpickr-monthDropdown-months:focus,.flatpickr-current-month .flatpickr-monthDropdown-months:active{outline:none;}.flatpickr-current-month .flatpickr-monthDropdown-months:hover{background:rgba(0, 0, 0, 0.05);}.flatpickr-current-month .flatpickr-monthDropdown-months .flatpickr-monthDropdown-month{background-color:#eceef1;outline:none;padding:0;}.flatpickr-weekdays{background:#eceef1;text-align:center;overflow:hidden;width:100%;display:-webkit-box;display:-webkit-flex;display:-ms-flexbox;display:flex;-webkit-box-align:center;-webkit-align-items:center;-ms-flex-align:center;align-items:center;height:28px;}.flatpickr-weekdays .flatpickr-weekdaycontainer{display:-webkit-box;display:-webkit-flex;display:-ms-flexbox;display:flex;-webkit-box-flex:1;-webkit-flex:1;-ms-flex:1;flex:1;}span.flatpickr-weekday{cursor:default;font-size:90%;background:#eceef1;color:#5a6171;line-height:1;margin:0;text-align:center;display:block;-webkit-box-flex:1;-webkit-flex:1;-ms-flex:1;flex:1;font-weight:bolder;}.dayContainer,.flatpickr-weeks{padding:1px 0 0 0;}.flatpickr-days{position:relative;overflow:hidden;display:-webkit-box;display:-webkit-flex;display:-ms-flexbox;display:flex;-webkit-box-align:start;-webkit-align-items:flex-start;-ms-flex-align:start;align-items:flex-start;width:307.875px;border-left:1px solid #eceef1;border-right:1px solid #eceef1;}.flatpickr-days:focus{outline:0;}.dayContainer{padding:0;outline:0;text-align:left;width:307.875px;min-width:307.875px;max-width:307.875px;-webkit-box-sizing:border-box;box-sizing:border-box;display:inline-block;display:-ms-flexbox;display:-webkit-box;display:-webkit-flex;display:flex;-webkit-flex-wrap:wrap;flex-wrap:wrap;-ms-flex-wrap:wrap;-ms-flex-pack:justify;-webkit-justify-content:space-around;justify-content:space-around;-webkit-transform:translate3d(0px, 0px, 0px);transform:translate3d(0px, 0px, 0px);opacity:1;}.dayContainer + .dayContainer{-webkit-box-shadow:-1px 0 0 #eceef1;box-shadow:-1px 0 0 #eceef1;}.flatpickr-day{background:none;border:1px solid transparent;border-radius:150px;-webkit-box-sizing:border-box;box-sizing:border-box;color:#484848;cursor:pointer;font-weight:400;width:14.2857143%;-webkit-flex-basis:14.2857143%;-ms-flex-preferred-size:14.2857143%;flex-basis:14.2857143%;max-width:39px;height:39px;line-height:39px;margin:0;display:inline-block;position:relative;-webkit-box-pack:center;-webkit-justify-content:center;-ms-flex-pack:center;justify-content:center;text-align:center;}.flatpickr-day.inRange,.flatpickr-day.prevMonthDay.inRange,.flatpickr-day.nextMonthDay.inRange,.flatpickr-day.today.inRange,.flatpickr-day.prevMonthDay.today.inRange,.flatpickr-day.nextMonthDay.today.inRange,.flatpickr-day:hover,.flatpickr-day.prevMonthDay:hover,.flatpickr-day.nextMonthDay:hover,.flatpickr-day:focus,.flatpickr-day.prevMonthDay:focus,.flatpickr-day.nextMonthDay:focus{cursor:pointer;outline:0;background:#e2e2e2;border-color:#e2e2e2;}.flatpickr-day.today{border-color:#bbb;}.flatpickr-day.today:hover,.flatpickr-day.today:focus{border-color:#bbb;background:#bbb;color:#fff;}.flatpickr-day.selected,.flatpickr-day.startRange,.flatpickr-day.endRange,.flatpickr-day.selected.inRange,.flatpickr-day.startRange.inRange,.flatpickr-day.endRange.inRange,.flatpickr-day.selected:focus,.flatpickr-day.startRange:focus,.flatpickr-day.endRange:focus,.flatpickr-day.selected:hover,.flatpickr-day.startRange:hover,.flatpickr-day.endRange:hover,.flatpickr-day.selected.prevMonthDay,.flatpickr-day.startRange.prevMonthDay,.flatpickr-day.endRange.prevMonthDay,.flatpickr-day.selected.nextMonthDay,.flatpickr-day.startRange.nextMonthDay,.flatpickr-day.endRange.nextMonthDay{background:#ff5a5f;-webkit-box-shadow:none;box-shadow:none;color:#fff;border-color:#ff5a5f;}.flatpickr-day.selected.startRange,.flatpickr-day.startRange.startRange,.flatpickr-day.endRange.startRange{border-radius:50px 0 0 50px;}.flatpickr-day.selected.endRange,.flatpickr-day.startRange.endRange,.flatpickr-day.endRange.endRange{border-radius:0 50px 50px 0;}.flatpickr-day.selected.startRange + .endRange:not(:nth-child(7n+1)),.flatpickr-day.startRange.startRange + .endRange:not(:nth-child(7n+1)),.flatpickr-day.endRange.startRange + .endRange:not(:nth-child(7n+1)){-webkit-box-shadow:-10px 0 0 #ff5a5f;box-shadow:-10px 0 0 #ff5a5f;}.flatpickr-day.selected.startRange.endRange,.flatpickr-day.startRange.startRange.endRange,.flatpickr-day.endRange.startRange.endRange{border-radius:50px;}.flatpickr-day.inRange{border-radius:0;-webkit-box-shadow:-5px 0 0 #e2e2e2, 5px 0 0 #e2e2e2;box-shadow:-5px 0 0 #e2e2e2, 5px 0 0 #e2e2e2;}.flatpickr-day.flatpickr-disabled,.flatpickr-day.flatpickr-disabled:hover,.flatpickr-day.prevMonthDay,.flatpickr-day.nextMonthDay,.flatpickr-day.notAllowed,.flatpickr-day.notAllowed.prevMonthDay,.flatpickr-day.notAllowed.nextMonthDay{color:rgba(72, 72, 72, 0.3);background:transparent;border-color:transparent;cursor:default;}.flatpickr-day.flatpickr-disabled,.flatpickr-day.flatpickr-disabled:hover{cursor:not-allowed;color:rgba(72, 72, 72, 0.1);}.flatpickr-day.week.selected{border-radius:0;-webkit-box-shadow:-5px 0 0 #ff5a5f, 5px 0 0 #ff5a5f;box-shadow:-5px 0 0 #ff5a5f, 5px 0 0 #ff5a5f;}.flatpickr-day.hidden{visibility:hidden;}.rangeMode .flatpickr-day{margin-top:1px;}.flatpickr-weekwrapper{float:left;}.flatpickr-weekwrapper .flatpickr-weeks{padding:0 12px;border-left:1px solid #eceef1;}.flatpickr-weekwrapper .flatpickr-weekday{float:none;width:100%;line-height:28px;}.flatpickr-weekwrapper span.flatpickr-day,.flatpickr-weekwrapper span.flatpickr-day:hover{display:block;width:100%;max-width:none;color:rgba(72, 72, 72, 0.3);background:transparent;cursor:default;border:none;}.flatpickr-innerContainer{display:block;display:-webkit-box;display:-webkit-flex;display:-ms-flexbox;display:flex;-webkit-box-sizing:border-box;box-sizing:border-box;overflow:hidden;background:#fff;border-bottom:1px solid #eceef1;}.flatpickr-rContainer{display:inline-block;padding:0;-webkit-box-sizing:border-box;box-sizing:border-box;}.flatpickr-time{text-align:center;outline:0;display:block;height:0;line-height:40px;max-height:40px;-webkit-box-sizing:border-box;box-sizing:border-box;overflow:hidden;display:-webkit-box;display:-webkit-flex;display:-ms-flexbox;display:flex;background:#fff;border-radius:0 0 5px 5px;}.flatpickr-time:after{content:"";display:table;clear:both;}.flatpickr-time .numInputWrapper{-webkit-box-flex:1;-webkit-flex:1;-ms-flex:1;flex:1;width:40%;height:40px;float:left;}.flatpickr-time .numInputWrapper span.arrowUp:after{border-bottom-color:#484848;}.flatpickr-time .numInputWrapper span.arrowDown:after{border-top-color:#484848;}.flatpickr-time.hasSeconds .numInputWrapper{width:26%;}.flatpickr-time.time24hr .numInputWrapper{width:49%;}.flatpickr-time input{background:transparent;-webkit-box-shadow:none;box-shadow:none;border:0;border-radius:0;text-align:center;margin:0;padding:0;height:inherit;line-height:inherit;color:#484848;font-size:14px;position:relative;-webkit-box-sizing:border-box;box-sizing:border-box;-webkit-appearance:textfield;-moz-appearance:textfield;appearance:textfield;}.flatpickr-time input.flatpickr-hour{font-weight:bold;}.flatpickr-time input.flatpickr-minute,.flatpickr-time input.flatpickr-second{font-weight:400;}.flatpickr-time input:focus{outline:0;border:0;}.flatpickr-time .flatpickr-time-separator,.flatpickr-time .flatpickr-am-pm{height:inherit;float:left;line-height:inherit;color:#484848;font-weight:bold;width:2%;-webkit-user-select:none;-moz-user-select:none;-ms-user-select:none;user-select:none;-webkit-align-self:center;-ms-flex-item-align:center;align-self:center;}.flatpickr-time .flatpickr-am-pm{outline:0;width:18%;cursor:pointer;text-align:center;font-weight:400;}.flatpickr-time input:hover,.flatpickr-time .flatpickr-am-pm:hover,.flatpickr-time input:focus,.flatpickr-time .flatpickr-am-pm:focus{background:#eaeaea;}.flatpickr-input[readonly]{cursor:pointer;}@-webkit-keyframes fpFadeInDown{from{opacity:0;-webkit-transform:translate3d(0, -20px, 0);transform:translate3d(0, -20px, 0);}to{opacity:1;-webkit-transform:translate3d(0, 0, 0);transform:translate3d(0, 0, 0);}}@keyframes fpFadeInDown{from{opacity:0;-webkit-transform:translate3d(0, -20px, 0);transform:translate3d(0, -20px, 0);}to{opacity:1;-webkit-transform:translate3d(0, 0, 0);transform:translate3d(0, 0, 0);}}span.flatpickr-day.selected{font-weight:bold;}`;
 },
-656: /* models/widgets/date_range_picker.js */ function _(require, module, exports, __esModule, __esExport) {
-    var _a;
+731: /* models/widgets/date_range_picker.js */ function _(require, module, exports, __esModule, __esExport) {
     __esModule();
-    const base_date_picker_1 = require(645) /* ./base_date_picker */;
-    const assert_1 = require(12) /* ../../core/util/assert */;
+    const base_date_picker_1 = require(720) /* ./base_date_picker */;
+    const assert_1 = require(13) /* ../../core/util/assert */;
     class DateRangePickerView extends base_date_picker_1.BaseDatePickerView {
         get flatpickr_options() {
             const options = super.flatpickr_options;
@@ -4253,28 +4171,24 @@
         }
     }
     exports.DateRangePickerView = DateRangePickerView;
-    DateRangePickerView.__name__ = "DateRangePickerView";
     class DateRangePicker extends base_date_picker_1.BaseDatePicker {
         constructor(attrs) {
             super(attrs);
         }
+        static {
+            this.prototype.default_view = DateRangePickerView;
+            this.define(({ Tuple, Nullable }) => ({
+                value: [Nullable(Tuple(base_date_picker_1.DateLike, base_date_picker_1.DateLike)), null],
+            }));
+        }
     }
     exports.DateRangePicker = DateRangePicker;
-    _a = DateRangePicker;
-    DateRangePicker.__name__ = "DateRangePicker";
-    (() => {
-        _a.prototype.default_view = DateRangePickerView;
-        _a.define(({ Tuple, Nullable }) => ({
-            value: [Nullable(Tuple(base_date_picker_1.DateLike, base_date_picker_1.DateLike)), null],
-        }));
-    })();
 },
-657: /* models/widgets/datetime_picker.js */ function _(require, module, exports, __esModule, __esExport) {
-    var _a;
+732: /* models/widgets/datetime_picker.js */ function _(require, module, exports, __esModule, __esExport) {
     __esModule();
-    const base_datetime_picker_1 = require(658) /* ./base_datetime_picker */;
-    const base_date_picker_1 = require(645) /* ./base_date_picker */;
-    const assert_1 = require(12) /* ../../core/util/assert */;
+    const base_datetime_picker_1 = require(733) /* ./base_datetime_picker */;
+    const base_date_picker_1 = require(720) /* ./base_date_picker */;
+    const assert_1 = require(13) /* ../../core/util/assert */;
     class DatetimePickerView extends base_datetime_picker_1.BaseDatetimePickerView {
         get flatpickr_options() {
             return {
@@ -4296,26 +4210,22 @@
         }
     }
     exports.DatetimePickerView = DatetimePickerView;
-    DatetimePickerView.__name__ = "DatetimePickerView";
     class DatetimePicker extends base_datetime_picker_1.BaseDatetimePicker {
         constructor(attrs) {
             super(attrs);
         }
+        static {
+            this.prototype.default_view = DatetimePickerView;
+            this.define(({ Nullable }) => ({
+                value: [Nullable(base_date_picker_1.DateLike), null],
+            }));
+        }
     }
     exports.DatetimePicker = DatetimePicker;
-    _a = DatetimePicker;
-    DatetimePicker.__name__ = "DatetimePicker";
-    (() => {
-        _a.prototype.default_view = DatetimePickerView;
-        _a.define(({ Nullable }) => ({
-            value: [Nullable(base_date_picker_1.DateLike), null],
-        }));
-    })();
 },
-658: /* models/widgets/base_datetime_picker.js */ function _(require, module, exports, __esModule, __esExport) {
-    var _a;
+733: /* models/widgets/base_datetime_picker.js */ function _(require, module, exports, __esModule, __esExport) {
     __esModule();
-    const base_date_picker_1 = require(645) /* ./base_date_picker */;
+    const base_date_picker_1 = require(720) /* ./base_date_picker */;
     const enums_1 = require(21) /* ../../core/enums */;
     class BaseDatetimePickerView extends base_date_picker_1.BaseDatePickerView {
         connect_signals() {
@@ -4357,34 +4267,30 @@
         }
     }
     exports.BaseDatetimePickerView = BaseDatetimePickerView;
-    BaseDatetimePickerView.__name__ = "BaseDatetimePickerView";
     class BaseDatetimePicker extends base_date_picker_1.BaseDatePicker {
         constructor(attrs) {
             super(attrs);
         }
+        static {
+            this.define(({ Bool, Positive, Int }) => ({
+                hour_increment: [Positive(Int), 1],
+                minute_increment: [Positive(Int), 1],
+                second_increment: [Positive(Int), 1],
+                seconds: [Bool, false],
+                clock: [enums_1.Clock, "24h"],
+            }));
+            this.override({
+                date_format: "Y-m-d H:i",
+            });
+        }
     }
     exports.BaseDatetimePicker = BaseDatetimePicker;
-    _a = BaseDatetimePicker;
-    BaseDatetimePicker.__name__ = "BaseDatetimePicker";
-    (() => {
-        _a.define(({ Bool, Positive, Int }) => ({
-            hour_increment: [Positive(Int), 1],
-            minute_increment: [Positive(Int), 1],
-            second_increment: [Positive(Int), 1],
-            seconds: [Bool, false],
-            clock: [enums_1.Clock, "24h"],
-        }));
-        _a.override({
-            date_format: "Y-m-d H:i",
-        });
-    })();
 },
-659: /* models/widgets/datetime_range_picker.js */ function _(require, module, exports, __esModule, __esExport) {
-    var _a;
+734: /* models/widgets/datetime_range_picker.js */ function _(require, module, exports, __esModule, __esExport) {
     __esModule();
-    const base_datetime_picker_1 = require(658) /* ./base_datetime_picker */;
-    const base_date_picker_1 = require(645) /* ./base_date_picker */;
-    const assert_1 = require(12) /* ../../core/util/assert */;
+    const base_datetime_picker_1 = require(733) /* ./base_datetime_picker */;
+    const base_date_picker_1 = require(720) /* ./base_date_picker */;
+    const assert_1 = require(13) /* ../../core/util/assert */;
     class DatetimeRangePickerView extends base_datetime_picker_1.BaseDatetimePickerView {
         get flatpickr_options() {
             const options = super.flatpickr_options;
@@ -4438,26 +4344,22 @@
         }
     }
     exports.DatetimeRangePickerView = DatetimeRangePickerView;
-    DatetimeRangePickerView.__name__ = "DatetimeRangePickerView";
     class DatetimeRangePicker extends base_datetime_picker_1.BaseDatetimePicker {
         constructor(attrs) {
             super(attrs);
         }
+        static {
+            this.prototype.default_view = DatetimeRangePickerView;
+            this.define(({ Nullable, Tuple }) => ({
+                value: [Nullable(Tuple(base_date_picker_1.DateLike, base_date_picker_1.DateLike)), null],
+            }));
+        }
     }
     exports.DatetimeRangePicker = DatetimeRangePicker;
-    _a = DatetimeRangePicker;
-    DatetimeRangePicker.__name__ = "DatetimeRangePicker";
-    (() => {
-        _a.prototype.default_view = DatetimeRangePickerView;
-        _a.define(({ Nullable, Tuple }) => ({
-            value: [Nullable(Tuple(base_date_picker_1.DateLike, base_date_picker_1.DateLike)), null],
-        }));
-    })();
 },
-660: /* models/widgets/div.js */ function _(require, module, exports, __esModule, __esExport) {
-    var _a;
+735: /* models/widgets/div.js */ function _(require, module, exports, __esModule, __esExport) {
     __esModule();
-    const markup_1 = require(661) /* ./markup */;
+    const markup_1 = require(736) /* ./markup */;
     class DivView extends markup_1.MarkupView {
         render() {
             super.render();
@@ -4470,35 +4372,29 @@
         }
     }
     exports.DivView = DivView;
-    DivView.__name__ = "DivView";
     class Div extends markup_1.Markup {
         constructor(attrs) {
             super(attrs);
         }
+        static {
+            this.prototype.default_view = DivView;
+            this.define(({ Bool }) => ({
+                render_as_text: [Bool, false],
+            }));
+        }
     }
     exports.Div = Div;
-    _a = Div;
-    Div.__name__ = "Div";
-    (() => {
-        _a.prototype.default_view = DivView;
-        _a.define(({ Bool }) => ({
-            render_as_text: [Bool, false],
-        }));
-    })();
 },
-661: /* models/widgets/markup.js */ function _(require, module, exports, __esModule, __esExport) {
-    var _a;
+736: /* models/widgets/markup.js */ function _(require, module, exports, __esModule, __esExport) {
     __esModule();
     const tslib_1 = require(1) /* tslib */;
     const dom_1 = require(61) /* ../../core/dom */;
-    const widget_1 = require(737) /* ./widget */;
-    const clearfix_css_1 = tslib_1.__importStar(require(662) /* ../../styles/clearfix.css */);
+    const widget_1 = require(798) /* ./widget */;
+    const clearfix_css_1 = tslib_1.__importStar(require(737) /* ../../styles/clearfix.css */);
     class MarkupView extends widget_1.WidgetView {
-        constructor() {
-            super(...arguments);
-            this._auto_width = "fit-content";
-            this._auto_height = "auto";
-        }
+        markup_el;
+        _auto_width = "fit-content";
+        _auto_height = "auto";
         async lazy_initialize() {
             await super.lazy_initialize();
             if (this.provider.status == "not_started" || this.provider.status == "loading") {
@@ -4531,45 +4427,42 @@
         }
     }
     exports.MarkupView = MarkupView;
-    MarkupView.__name__ = "MarkupView";
     class Markup extends widget_1.Widget {
         constructor(attrs) {
             super(attrs);
         }
+        static {
+            this.define(({ Bool, Str }) => ({
+                text: [Str, ""],
+                disable_math: [Bool, false],
+            }));
+        }
     }
     exports.Markup = Markup;
-    _a = Markup;
-    Markup.__name__ = "Markup";
-    (() => {
-        _a.define(({ Bool, Str }) => ({
-            text: [Str, ""],
-            disable_math: [Bool, false],
-        }));
-    })();
 },
-662: /* styles/clearfix.css.js */ function _(require, module, exports, __esModule, __esExport) {
+737: /* styles/clearfix.css.js */ function _(require, module, exports, __esModule, __esExport) {
     __esModule();
     exports.clearfix = "bk-clearfix";
     exports.default = `.bk-clearfix:before,.bk-clearfix:after{content:"";display:table;}.bk-clearfix:after{clear:both;}`;
 },
-663: /* models/widgets/dropdown.js */ function _(require, module, exports, __esModule, __esExport) {
-    var _a;
+738: /* models/widgets/dropdown.js */ function _(require, module, exports, __esModule, __esExport) {
     __esModule();
     const tslib_1 = require(1) /* tslib */;
-    const abstract_button_1 = require(624) /* ./abstract_button */;
+    const abstract_button_1 = require(699) /* ./abstract_button */;
     const bokeh_events_1 = require(80) /* ../../core/bokeh_events */;
     const dom_1 = require(61) /* ../../core/dom */;
     const types_1 = require(8) /* ../../core/util/types */;
     const callbacks_1 = require(51) /* ../../core/util/callbacks */;
     const buttons = tslib_1.__importStar(require(77) /* ../../styles/buttons.css */);
-    const dropdown_css_1 = tslib_1.__importDefault(require(632) /* ../../styles/dropdown.css */);
-    const caret_css_1 = tslib_1.__importStar(require(664) /* ../../styles/caret.css */), carets = caret_css_1;
-    const menus_1 = require(310) /* ../ui/menus */;
+    const dropdown_css_1 = tslib_1.__importDefault(require(707) /* ../../styles/dropdown.css */);
+    const caret_css_1 = tslib_1.__importStar(require(739) /* ../../styles/caret.css */), carets = caret_css_1;
+    const menus_1 = require(380) /* ../ui/menus */;
     const build_views_1 = require(69) /* ../../core/build_views */;
     class DropdownView extends abstract_button_1.AbstractButtonView {
-        constructor() {
-            super(...arguments);
-            this._open = false;
+        _open = false;
+        menu;
+        children_views() {
+            return [...super.children_views(), this.menu];
         }
         stylesheets() {
             return [...super.stylesheets(), dropdown_css_1.default, caret_css_1.default];
@@ -4583,6 +4476,7 @@
             const { menu } = this.model.properties;
             this.on_change(menu, async () => {
                 const menu_open = this.menu.is_open;
+                this.menu.remove();
                 await this._build_menu();
                 this.rerender();
                 if (menu_open) {
@@ -4656,30 +4550,27 @@
         }
     }
     exports.DropdownView = DropdownView;
-    DropdownView.__name__ = "DropdownView";
     class Dropdown extends abstract_button_1.AbstractButton {
         constructor(attrs) {
             super(attrs);
+        }
+        static {
+            this.prototype.default_view = DropdownView;
+            this.define(({ Null, Bool, Str, List, Tuple, Or }) => ({
+                split: [Bool, false],
+                menu: [List(Or(Str, Tuple(Str, Or(Str /*TODO*/)), Null)), []],
+            }));
+            this.override({
+                label: "Dropdown",
+            });
         }
         get is_split() {
             return this.split;
         }
     }
     exports.Dropdown = Dropdown;
-    _a = Dropdown;
-    Dropdown.__name__ = "Dropdown";
-    (() => {
-        _a.prototype.default_view = DropdownView;
-        _a.define(({ Null, Bool, Str, List, Tuple, Or }) => ({
-            split: [Bool, false],
-            menu: [List(Or(Str, Tuple(Str, Or(Str /*TODO*/)), Null)), []],
-        }));
-        _a.override({
-            label: "Dropdown",
-        });
-    })();
 },
-664: /* styles/caret.css.js */ function _(require, module, exports, __esModule, __esExport) {
+739: /* styles/caret.css.js */ function _(require, module, exports, __esModule, __esExport) {
     __esModule();
     exports.caret = "bk-caret";
     exports.down = "bk-down";
@@ -4688,16 +4579,42 @@
     exports.right = "bk-right";
     exports.default = `:host{--caret-width:4px;}.bk-caret{display:inline-block;vertical-align:middle;width:0;height:0;margin:0 5px;}.bk-caret.bk-down{border-top:var(--caret-width) solid;}.bk-caret.bk-up{border-bottom:var(--caret-width) solid;}.bk-caret.bk-down,.bk-caret.bk-up{border-right:var(--caret-width) solid transparent;border-left:var(--caret-width) solid transparent;}.bk-caret.bk-left{border-right:var(--caret-width) solid;}.bk-caret.bk-right{border-left:var(--caret-width) solid;}.bk-caret.bk-left,.bk-caret.bk-right{border-top:var(--caret-width) solid transparent;border-bottom:var(--caret-width) solid transparent;}`;
 },
-665: /* models/widgets/file_input.js */ function _(require, module, exports, __esModule, __esExport) {
-    var _a;
+740: /* models/widgets/file_input.js */ function _(require, module, exports, __esModule, __esExport) {
     __esModule();
     const tslib_1 = require(1) /* tslib */;
-    const input_widget_1 = require(630) /* ./input_widget */;
+    var __decorate = (this && this.__decorate) || function (decorators, target, key, desc) {
+        var c = arguments.length, r = c < 3 ? target : desc === null ? desc = Object.getOwnPropertyDescriptor(target, key) : desc, d;
+        if (typeof Reflect === "object" && typeof Reflect.decorate === "function")
+            r = Reflect.decorate(decorators, target, key, desc);
+        else
+            for (var i = decorators.length - 1; i >= 0; i--)
+                if (d = decorators[i])
+                    r = (c < 3 ? d(r) : c > 3 ? d(target, key, r) : d(target, key)) || r;
+        return c > 3 && r && Object.defineProperty(target, key, r), r;
+    };
+    const input_widget_1 = require(705) /* ./input_widget */;
     const dom_1 = require(61) /* ../../core/dom */;
     const types_1 = require(8) /* ../../core/util/types */;
-    const p = tslib_1.__importStar(require(19) /* ../../core/properties */);
-    const inputs = tslib_1.__importStar(require(631) /* ../../styles/widgets/inputs.css */);
+    const p = tslib_1.__importStar(require(20) /* ../../core/properties */);
+    const inputs = tslib_1.__importStar(require(706) /* ../../styles/widgets/inputs.css */);
     const buttons_css_1 = tslib_1.__importDefault(require(77) /* ../../styles/buttons.css */);
+    const bokeh_events_1 = require(80) /* ../../core/bokeh_events */;
+    const bokeh_events_2 = require(80) /* ../../core/bokeh_events */;
+    let FileInputChange = class FileInputChange extends bokeh_events_1.PropertyBundleEvent {
+        get value() {
+            return this.values.value;
+        }
+        get filename() {
+            return this.values.filename;
+        }
+        get mime_type() {
+            return this.values.mime_type;
+        }
+    };
+    exports.FileInputChange = FileInputChange;
+    exports.FileInputChange = FileInputChange = __decorate([
+        (0, bokeh_events_2.event)("file_input_change")
+    ], FileInputChange);
     class FileInputView extends input_widget_1.InputWidgetView {
         connect_signals() {
             super.connect_signals();
@@ -4707,6 +4624,7 @@
                     mime_type: "", // p.unset,
                     filename: "", // p.unset,
                 });
+                this.model.trigger_event(new FileInputChange({ value: "", filename: "", mime_type: "" }));
                 this.input_el.value = "";
             });
         }
@@ -4768,6 +4686,7 @@
                 }
             })();
             this.model.setv({ value, filename, mime_type });
+            this.model.trigger_event(new FileInputChange({ value, filename, mime_type }));
         }
         _read_file(file) {
             return new Promise((resolve, reject) => {
@@ -4786,35 +4705,32 @@
         }
     }
     exports.FileInputView = FileInputView;
-    FileInputView.__name__ = "FileInputView";
     class FileInput extends input_widget_1.InputWidget {
         constructor(attrs) {
             super(attrs);
         }
+        static {
+            this.prototype.default_view = FileInputView;
+            this.define(({ Bool, Str, List, Or }) => ({
+                value: [Or(Str, List(Str)), p.unset, { readonly: true }],
+                mime_type: [Or(Str, List(Str)), p.unset, { readonly: true }],
+                filename: [Or(Str, List(Str)), p.unset, { readonly: true }],
+                accept: [Or(Str, List(Str)), ""],
+                multiple: [Bool, false],
+                directory: [Bool, false],
+            }));
+        }
     }
     exports.FileInput = FileInput;
-    _a = FileInput;
-    FileInput.__name__ = "FileInput";
-    (() => {
-        _a.prototype.default_view = FileInputView;
-        _a.define(({ Bool, Str, List, Or }) => ({
-            value: [Or(Str, List(Str)), p.unset, { readonly: true }],
-            mime_type: [Or(Str, List(Str)), p.unset, { readonly: true }],
-            filename: [Or(Str, List(Str)), p.unset, { readonly: true }],
-            accept: [Or(Str, List(Str)), ""],
-            multiple: [Bool, false],
-            directory: [Bool, false],
-        }));
-    })();
 },
-666: /* models/widgets/help_button.js */ function _(require, module, exports, __esModule, __esExport) {
-    var _a;
+741: /* models/widgets/help_button.js */ function _(require, module, exports, __esModule, __esExport) {
     __esModule();
-    const abstract_button_1 = require(624) /* ./abstract_button */;
-    const tooltip_1 = require(447) /* ../ui/tooltip */;
-    const builtin_icon_1 = require(503) /* ../ui/icons/builtin_icon */;
+    const abstract_button_1 = require(699) /* ./abstract_button */;
+    const tooltip_1 = require(516) /* ../ui/tooltip */;
+    const builtin_icon_1 = require(572) /* ../ui/icons/builtin_icon */;
     const build_views_1 = require(69) /* ../../core/build_views */;
     class HelpButtonView extends abstract_button_1.AbstractButtonView {
+        tooltip;
         children_views() {
             return [...super.children_views(), this.tooltip];
         }
@@ -4822,10 +4738,6 @@
             await super.lazy_initialize();
             const { tooltip } = this.model;
             this.tooltip = await (0, build_views_1.build_view)(tooltip, { parent: this });
-        }
-        remove() {
-            this.tooltip.remove();
-            super.remove();
         }
         render() {
             super.render();
@@ -4865,49 +4777,42 @@
                     persistent = false;
                     toggle(false);
                 }
-            });
+            }, { signal: this.abort_signal });
             window.addEventListener("blur", () => {
                 persistent = false;
                 toggle(false);
-            });
+            }, { signal: this.abort_signal });
         }
     }
     exports.HelpButtonView = HelpButtonView;
-    HelpButtonView.__name__ = "HelpButtonView";
     class HelpButton extends abstract_button_1.AbstractButton {
         constructor(attrs) {
             super(attrs);
         }
+        static {
+            this.prototype.default_view = HelpButtonView;
+            this.define(({ Ref }) => ({
+                tooltip: [Ref(tooltip_1.Tooltip)],
+            }));
+            this.override({
+                label: "",
+                icon: () => new builtin_icon_1.BuiltinIcon({ icon_name: "help", size: 18 }),
+                button_type: "default",
+            });
+        }
     }
     exports.HelpButton = HelpButton;
-    _a = HelpButton;
-    HelpButton.__name__ = "HelpButton";
-    (() => {
-        _a.prototype.default_view = HelpButtonView;
-        _a.define(({ Ref }) => ({
-            tooltip: [Ref(tooltip_1.Tooltip)],
-        }));
-        _a.override({
-            label: "",
-            icon: () => new builtin_icon_1.BuiltinIcon({ icon_name: "help", size: 18 }),
-            button_type: "default",
-        });
-    })();
 },
-667: /* models/widgets/markdown.js */ function _(require, module, exports, __esModule, __esExport) {
-    var _a;
+742: /* models/widgets/markdown.js */ function _(require, module, exports, __esModule, __esExport) {
     __esModule();
     const tslib_1 = require(1) /* tslib */;
-    const widget_1 = require(737) /* ./widget */;
+    const widget_1 = require(798) /* ./widget */;
     const dom_1 = require(61) /* ../../core/dom */;
-    const marked_1 = require(668) /* marked */;
-    const dompurify_1 = tslib_1.__importDefault(require(669) /* dompurify */);
+    const marked_1 = require(743) /* marked */;
+    const dompurify_1 = tslib_1.__importDefault(require(744) /* dompurify */);
     class MarkdownView extends widget_1.WidgetView {
-        constructor() {
-            super(...arguments);
-            this._markdown = new marked_1.Marked();
-            this.contents = (0, dom_1.div)({ style: { display: "contents" } });
-        }
+        _markdown = new marked_1.Marked();
+        contents = (0, dom_1.div)({ style: { display: "contents" } });
         connect_signals() {
             super.connect_signals();
             const { text, disable_math } = this.model.properties;
@@ -4928,35 +4833,24 @@
         }
     }
     exports.MarkdownView = MarkdownView;
-    MarkdownView.__name__ = "MarkdownView";
     class Markdown extends widget_1.Widget {
         constructor(attrs) {
             super(attrs);
         }
+        static {
+            this.prototype.default_view = MarkdownView;
+            this.define(({ Str, Bool }) => ({
+                text: [Str, ""],
+                disable_math: [Bool, false],
+            }));
+        }
     }
     exports.Markdown = Markdown;
-    _a = Markdown;
-    Markdown.__name__ = "Markdown";
-    (() => {
-        _a.prototype.default_view = MarkdownView;
-        _a.define(({ Str, Bool }) => ({
-            text: [Str, ""],
-            disable_math: [Bool, false],
-        }));
-    })();
 },
-668: /* marked/lib/marked.esm.js */ function _(require, module, exports, __esModule, __esExport) {
-    /**
-     * marked v17.0.1 - a markdown parser
-     * Copyright (c) 2018-2025, MarkedJS. (MIT License)
-     * Copyright (c) 2011-2018, Christopher Jeffrey. (MIT License)
-     * https://github.com/markedjs/marked
-     */
-    var _a;
+743: /* marked/lib/marked.esm.js */ function _(require, module, exports, __esModule, __esExport) {
     __esModule();
     exports.getDefaults = L;
     exports.marked = d;
-    const tslib_1 = require(1) /* tslib */;
     /**
      * DO NOT EDIT THIS FILE
      * The code in this file is generated from files in ./src/
@@ -5058,6 +4952,9 @@
 `);
     }
     var y = class {
+        options;
+        rules;
+        lexer;
         constructor(e) { this.options = e || T; }
         space(e) {
             let t = this.rules.block.newline.exec(e);
@@ -5393,6 +5290,11 @@ ${c}` : c;
     };
     exports.Tokenizer = y;
     var x = class u {
+        tokens;
+        options;
+        state;
+        inlineQueue;
+        tokenizer;
         constructor(e) { this.tokens = [], this.tokens.links = Object.create(null), this.options = e || T, this.options.tokenizer = this.options.tokenizer || new y, this.tokenizer = this.options.tokenizer, this.tokenizer.options = this.options, this.tokenizer.lexer = this, this.inlineQueue = [], this.state = { inLink: !1, inRawBlock: !1, top: !0 }; let t = { other: m, block: E.normal, inline: M.normal }; this.options.pedantic ? (t.block = E.pedantic, t.inline = M.pedantic) : this.options.gfm && (t.block = E.gfm, this.options.breaks ? t.inline = M.breaks : t.inline = M.gfm), this.tokenizer.rules = t; }
         static get rules() { return { block: E, inline: M }; }
         static lex(e, t) { return new u(t).lex(e); }
@@ -5591,6 +5493,8 @@ ${c}` : c;
     };
     exports.Lexer = x;
     var P = class {
+        options;
+        parser;
         constructor(e) { this.options = e || T; }
         space(e) { return ""; }
         code({ text: e, lang: t, escaped: n }) {
@@ -5703,6 +5607,9 @@ ${e}</tr>
     };
     exports.TextRenderer = $;
     var b = class u {
+        options;
+        renderer;
+        textRenderer;
         constructor(e) { this.options = e || T, this.options.renderer = this.options.renderer || new P, this.renderer = this.options.renderer, this.renderer.options = this.options, this.renderer.parser = this, this.textRenderer = new $; }
         static parse(e, t) { return new u(t).parse(e); }
         static parseInline(e, t) { return new u(t).parseInline(e); }
@@ -5846,34 +5753,32 @@ ${e}</tr>
         }
     };
     exports.Parser = b;
-    var S = (_a = class {
+    var S = class {
+        options;
+        block;
         constructor(e) { this.options = e || T; }
+        static passThroughHooks = new Set(["preprocess", "postprocess", "processAllTokens", "emStrongMask"]);
+        static passThroughHooksRespectAsync = new Set(["preprocess", "postprocess", "processAllTokens"]);
         preprocess(e) { return e; }
         postprocess(e) { return e; }
         processAllTokens(e) { return e; }
         emStrongMask(e) { return e; }
         provideLexer() { return this.block ? x.lex : x.lexInline; }
         provideParser() { return this.block ? b.parse : b.parseInline; }
-    },
-        tslib_1.__setFunctionName(_a, "S"),
-        _a.passThroughHooks = new Set(["preprocess", "postprocess", "processAllTokens", "emStrongMask"]),
-        _a.passThroughHooksRespectAsync = new Set(["preprocess", "postprocess", "processAllTokens"]),
-        _a);
+    };
     exports.Hooks = S;
     var B = class {
-        constructor(...e) {
-            this.defaults = L();
-            this.options = this.setOptions;
-            this.parse = this.parseMarkdown(!0);
-            this.parseInline = this.parseMarkdown(!1);
-            this.Parser = b;
-            this.Renderer = P;
-            this.TextRenderer = $;
-            this.Lexer = x;
-            this.Tokenizer = y;
-            this.Hooks = S;
-            this.use(...e);
-        }
+        defaults = L();
+        options = this.setOptions;
+        parse = this.parseMarkdown(!0);
+        parseInline = this.parseMarkdown(!1);
+        Parser = b;
+        Renderer = P;
+        TextRenderer = $;
+        Lexer = x;
+        Tokenizer = y;
+        Hooks = S;
+        constructor(...e) { this.use(...e); }
         walkTokens(e, t) {
             let n = [];
             for (let r of e)
@@ -6037,7 +5942,7 @@ Please report this to https://github.com/markedjs/marked.`, e) {
     exports.parser = Ft;
     exports.lexer = jt;
 },
-669: /* dompurify/dist/purify.es.mjs */ function _(require, module, exports, __esModule, __esExport) {
+744: /* dompurify/dist/purify.es.mjs */ function _(require, module, exports, __esModule, __esExport) {
     __esModule();
     function _arrayLikeToArray(r, a) {
         (null == a || a > r.length) && (a = r.length);
@@ -7802,17 +7707,16 @@ Please report this to https://github.com/markedjs/marked.`, e) {
     var purify = createDOMPurify();
     exports.default = purify;
 },
-670: /* models/widgets/multi_choice.js */ function _(require, module, exports, __esModule, __esExport) {
-    var _a;
+745: /* models/widgets/multi_choice.js */ function _(require, module, exports, __esModule, __esExport) {
     __esModule();
     const tslib_1 = require(1) /* tslib */;
-    const choices_js_1 = tslib_1.__importDefault(require(671) /* choices.js */);
+    const choices_js_1 = tslib_1.__importDefault(require(746) /* choices.js */);
     const dom_1 = require(61) /* ../../core/dom */;
     const types_1 = require(8) /* ../../core/util/types */;
     const eq_1 = require(27) /* ../../core/util/eq */;
-    const inputs = tslib_1.__importStar(require(631) /* ../../styles/widgets/inputs.css */);
-    const choices_css_1 = tslib_1.__importDefault(require(672) /* ../../styles/widgets/choices.css */);
-    const input_widget_1 = require(630) /* ./input_widget */;
+    const inputs = tslib_1.__importStar(require(706) /* ../../styles/widgets/inputs.css */);
+    const choices_css_1 = tslib_1.__importDefault(require(747) /* ../../styles/widgets/choices.css */);
+    const input_widget_1 = require(705) /* ./input_widget */;
     function retarget(event) {
         Object.defineProperty(event, "target", {
             get: () => event.composedPath()[0] ?? null,
@@ -7846,8 +7750,8 @@ Please report this to https://github.com/markedjs/marked.`, e) {
             super._onMouseOver(retarget(event));
         }
     }
-    OurChoices.__name__ = "OurChoices";
     class MultiChoiceView extends input_widget_1.InputWidgetView {
+        choice_el;
         connect_signals() {
             super.connect_signals();
             this.connect(this.model.properties.disabled.change, () => this.set_disabled());
@@ -7923,30 +7827,27 @@ Please report this to https://github.com/markedjs/marked.`, e) {
         }
     }
     exports.MultiChoiceView = MultiChoiceView;
-    MultiChoiceView.__name__ = "MultiChoiceView";
     class MultiChoice extends input_widget_1.InputWidget {
         constructor(attrs) {
             super(attrs);
         }
+        static {
+            this.prototype.default_view = MultiChoiceView;
+            this.define(({ Bool, Int, Str, List, Tuple, Or, Nullable }) => ({
+                value: [List(Str), []],
+                options: [List(Or(Str, Tuple(Str, Str))), []],
+                max_items: [Nullable(Int), null],
+                delete_button: [Bool, true],
+                placeholder: [Nullable(Str), null],
+                option_limit: [Nullable(Int), null],
+                search_option_limit: [Nullable(Int), null],
+                solid: [Bool, true],
+            }));
+        }
     }
     exports.MultiChoice = MultiChoice;
-    _a = MultiChoice;
-    MultiChoice.__name__ = "MultiChoice";
-    (() => {
-        _a.prototype.default_view = MultiChoiceView;
-        _a.define(({ Bool, Int, Str, List, Tuple, Or, Nullable }) => ({
-            value: [List(Str), []],
-            options: [List(Or(Str, Tuple(Str, Str))), []],
-            max_items: [Nullable(Int), null],
-            delete_button: [Bool, true],
-            placeholder: [Nullable(Str), null],
-            option_limit: [Nullable(Int), null],
-            search_option_limit: [Nullable(Int), null],
-            solid: [Bool, true],
-        }));
-    })();
 },
-671: /* choices.js/public/assets/scripts/choices.js */ function _(require, module, exports, __esModule, __esExport) {
+746: /* choices.js/public/assets/scripts/choices.js */ function _(require, module, exports, __esModule, __esExport) {
     /*! choices.js v10.2.0 | © 2022 Josh Johnson | https://github.com/jshjohnson/Choices#readme */
     (function webpackUniversalModuleDefinition(root, factory) {
         if (typeof exports === 'object' && typeof module === 'object')
@@ -14098,18 +13999,17 @@ Please report this to https://github.com/markedjs/marked.`, e) {
         })();
     });
 },
-672: /* styles/widgets/choices.css.js */ function _(require, module, exports, __esModule, __esExport) {
+747: /* styles/widgets/choices.css.js */ function _(require, module, exports, __esModule, __esExport) {
     __esModule();
     exports.default = `.choices{position:relative;overflow:hidden;margin-bottom:24px;font-size:16px;}.choices:focus{outline:none;}.choices:last-child{margin-bottom:0;}.choices.is-open{overflow:visible;}.choices.is-disabled .choices__inner,.choices.is-disabled .choices__input{background-color:#eaeaea;cursor:not-allowed;-webkit-user-select:none;user-select:none;}.choices.is-disabled .choices__item{cursor:not-allowed;}.choices [hidden]{display:none !important;}.choices[data-type*=select-one]{cursor:pointer;}.choices[data-type*=select-one] .choices__inner{padding-bottom:7.5px;}.choices[data-type*=select-one] .choices__input{display:block;width:100%;padding:10px;border-bottom:1px solid #ddd;background-color:#fff;margin:0;}.choices[data-type*=select-one] .choices__button{background-image:url("data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMjEiIGhlaWdodD0iMjEiIHZpZXdCb3g9IjAgMCAyMSAyMSIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj48ZyBmaWxsPSIjMDAwIiBmaWxsLXJ1bGU9ImV2ZW5vZGQiPjxwYXRoIGQ9Ik0yLjU5Mi4wNDRsMTguMzY0IDE4LjM2NC0yLjU0OCAyLjU0OEwuMDQ0IDIuNTkyeiIvPjxwYXRoIGQ9Ik0wIDE4LjM2NEwxOC4zNjQgMGwyLjU0OCAyLjU0OEwyLjU0OCAyMC45MTJ6Ii8+PC9nPjwvc3ZnPg==");padding:0;background-size:8px;position:absolute;top:50%;right:0;margin-top:-10px;margin-right:25px;height:20px;width:20px;border-radius:10em;opacity:0.25;}.choices[data-type*=select-one] .choices__button:hover,.choices[data-type*=select-one] .choices__button:focus{opacity:1;}.choices[data-type*=select-one] .choices__button:focus{box-shadow:0 0 0 2px #00bcd4;}.choices[data-type*=select-one] .choices__item[data-value=""] .choices__button{display:none;}.choices[data-type*=select-one]::after{content:"";height:0;width:0;border-style:solid;border-color:#333 transparent transparent transparent;border-width:5px;position:absolute;right:11.5px;top:50%;margin-top:-2.5px;pointer-events:none;}.choices[data-type*=select-one].is-open::after{border-color:transparent transparent #333 transparent;margin-top:-7.5px;}.choices[data-type*=select-one][dir=rtl]::after{left:11.5px;right:auto;}.choices[data-type*=select-one][dir=rtl] .choices__button{right:auto;left:0;margin-left:25px;margin-right:0;}.choices[data-type*=select-multiple] .choices__inner,.choices[data-type*=text] .choices__inner{cursor:text;}.choices[data-type*=select-multiple] .choices__button,.choices[data-type*=text] .choices__button{position:relative;display:inline-block;margin-top:0;margin-right:-4px;margin-bottom:0;margin-left:8px;padding-left:16px;border-left:1px solid #008fa1;background-image:url("data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMjEiIGhlaWdodD0iMjEiIHZpZXdCb3g9IjAgMCAyMSAyMSIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj48ZyBmaWxsPSIjRkZGIiBmaWxsLXJ1bGU9ImV2ZW5vZGQiPjxwYXRoIGQ9Ik0yLjU5Mi4wNDRsMTguMzY0IDE4LjM2NC0yLjU0OCAyLjU0OEwuMDQ0IDIuNTkyeiIvPjxwYXRoIGQ9Ik0wIDE4LjM2NEwxOC4zNjQgMGwyLjU0OCAyLjU0OEwyLjU0OCAyMC45MTJ6Ii8+PC9nPjwvc3ZnPg==");background-size:8px;width:8px;line-height:1;opacity:0.75;border-radius:0;}.choices[data-type*=select-multiple] .choices__button:hover,.choices[data-type*=select-multiple] .choices__button:focus,.choices[data-type*=text] .choices__button:hover,.choices[data-type*=text] .choices__button:focus{opacity:1;}.choices__inner{display:inline-block;vertical-align:top;width:100%;background-color:#f9f9f9;padding:7.5px 7.5px 3.75px;border:1px solid #ddd;border-radius:2.5px;font-size:14px;min-height:44px;overflow:hidden;}.is-focused .choices__inner,.is-open .choices__inner{border-color:#b7b7b7;}.is-open .choices__inner{border-radius:2.5px 2.5px 0 0;}.is-flipped.is-open .choices__inner{border-radius:0 0 2.5px 2.5px;}.choices__list{margin:0;padding-left:0;list-style:none;}.choices__list--single{display:inline-block;padding:4px 16px 4px 4px;width:100%;}[dir=rtl] .choices__list--single{padding-right:4px;padding-left:16px;}.choices__list--single .choices__item{width:100%;}.choices__list--multiple{display:inline;}.choices__list--multiple .choices__item{display:inline-block;vertical-align:middle;border-radius:20px;padding:4px 10px;font-size:12px;font-weight:500;margin-right:3.75px;margin-bottom:3.75px;background-color:#00bcd4;border:1px solid #00a5bb;color:#fff;word-break:break-all;box-sizing:border-box;}.choices__list--multiple .choices__item[data-deletable]{padding-right:5px;}[dir=rtl] .choices__list--multiple .choices__item{margin-right:0;margin-left:3.75px;}.choices__list--multiple .choices__item.is-highlighted{background-color:#00a5bb;border:1px solid #008fa1;}.is-disabled .choices__list--multiple .choices__item{background-color:#aaaaaa;border:1px solid #919191;}.choices__list--dropdown,.choices__list[aria-expanded]{visibility:hidden;z-index:1;position:absolute;width:100%;background-color:#fff;border:1px solid #ddd;top:100%;margin-top:-1px;border-bottom-left-radius:2.5px;border-bottom-right-radius:2.5px;overflow:hidden;word-break:break-all;will-change:visibility;}.is-active.choices__list--dropdown,.is-active.choices__list[aria-expanded]{visibility:visible;}.is-open .choices__list--dropdown,.is-open .choices__list[aria-expanded]{border-color:#b7b7b7;}.is-flipped .choices__list--dropdown,.is-flipped .choices__list[aria-expanded]{top:auto;bottom:100%;margin-top:0;margin-bottom:-1px;border-radius:0.25rem 0.25rem 0 0;}.choices__list--dropdown .choices__list,.choices__list[aria-expanded] .choices__list{position:relative;max-height:300px;overflow:auto;-webkit-overflow-scrolling:touch;will-change:scroll-position;}.choices__list--dropdown .choices__item,.choices__list[aria-expanded] .choices__item{position:relative;padding:10px;font-size:14px;}[dir=rtl] .choices__list--dropdown .choices__item,[dir=rtl] .choices__list[aria-expanded] .choices__item{text-align:right;}@media (min-width: 640px){.choices__list--dropdown .choices__item--selectable,.choices__list[aria-expanded] .choices__item--selectable{padding-right:100px;}.choices__list--dropdown .choices__item--selectable::after,.choices__list[aria-expanded] .choices__item--selectable::after{content:attr(data-select-text);font-size:12px;opacity:0;position:absolute;right:10px;top:50%;transform:translateY(-50%);}[dir=rtl] .choices__list--dropdown .choices__item--selectable,[dir=rtl] .choices__list[aria-expanded] .choices__item--selectable{text-align:right;padding-left:100px;padding-right:10px;}[dir=rtl] .choices__list--dropdown .choices__item--selectable::after,[dir=rtl] .choices__list[aria-expanded] .choices__item--selectable::after{right:auto;left:10px;}}.choices__list--dropdown .choices__item--selectable.is-highlighted,.choices__list[aria-expanded] .choices__item--selectable.is-highlighted{background-color:#f2f2f2;}.choices__list--dropdown .choices__item--selectable.is-highlighted::after,.choices__list[aria-expanded] .choices__item--selectable.is-highlighted::after{opacity:0.5;}.choices__item{cursor:default;}.choices__item--selectable{cursor:pointer;}.choices__item--disabled{cursor:not-allowed;-webkit-user-select:none;user-select:none;opacity:0.5;}.choices__heading{font-weight:600;font-size:12px;padding:10px;border-bottom:1px solid #f7f7f7;color:gray;}.choices__button{text-indent:-9999px;-webkit-appearance:none;appearance:none;border:0;background-color:transparent;background-repeat:no-repeat;background-position:center;cursor:pointer;}.choices__button:focus{outline:none;}.choices__input{display:inline-block;vertical-align:baseline;background-color:#f9f9f9;font-size:14px;margin-bottom:5px;border:0;border-radius:0;max-width:100%;padding:4px 0 4px 2px;}.choices__input:focus{outline:0;}.choices__input::-webkit-search-decoration,.choices__input::-webkit-search-cancel-button,.choices__input::-webkit-search-results-button,.choices__input::-webkit-search-results-decoration{display:none;}.choices__input::-ms-clear,.choices__input::-ms-reveal{display:none;width:0;height:0;}[dir=rtl] .choices__input{padding-right:2px;padding-left:0;}.choices__placeholder{opacity:0.5;}:host{--light:rgba(0, 126, 255, 0.08);--light-border:rgba(0, 126, 255, 0.24);--light-text:#007eff;--solid:#1f77b4;}.choices{width:100%;}.choices{box-sizing:border-box;}.choices *,.choices *:before,.choices *:after{box-sizing:inherit;}input[type="search"]{margin:0;}.choices__inner .choices__item.light{background-color:var(--light);border-radius:var(--border-radius);border:var(--border-width) var(--border-style) var(--light-border);color:var(--light-text);}.choices__inner .choices__item.solid{background-color:var(--solid);border:none;border-radius:var(--border-radius);color:white;}.choices__inner .choices__item.solid .is-highlighted{background-color:var(--solid);border:none;}.choices__input{background-color:transparent;}.choices__inner{background:transparent;border:var(--border);border-radius:var(--border-radius);min-height:0;padding:calc(var(--padding-vertical) / 2) var(--padding-horizontal);}.choices__list{white-space:initial;}.choices__list--dropdown,.choices__list[aria-expanded]{z-index:var(--bokeh-top-level);}.choices__list--dropdown .choices__item--selectable,.choices__list[aria-expanded] .choices__item--selectable{padding-right:0;}.choices[data-type*=select-multiple] .choices__button.light{background-image:url(data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMjEiIGhlaWdodD0iMjEiIHZpZXdCb3g9IjAgMCAyMSAyMSIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj48ZyBmaWxsPSIjMDA3ZWZmIiBmaWxsLXJ1bGU9ImV2ZW5vZGQiPjxwYXRoIGQ9Ik0yLjU5Mi4wNDRsMTguMzY0IDE4LjM2NC0yLjU0OCAyLjU0OEwuMDQ0IDIuNTkyeiIvPjxwYXRoIGQ9Ik0wIDE4LjM2NEwxOC4zNjQgMGwyLjU0OCAyLjU0OEwyLjU0OCAyMC45MTJ6Ii8+PC9nPjwvc3ZnPg==);}.choices[data-type*=select-multiple] .choices__button.solid{background-image:url(data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMjEiIGhlaWdodD0iMjEiIHZpZXdCb3g9IjAgMCAyMSAyMSIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj48ZyBmaWxsPSIjZmZmZmZmIiBmaWxsLXJ1bGU9ImV2ZW5vZGQiPjxwYXRoIGQ9Ik0yLjU5Mi4wNDRsMTguMzY0IDE4LjM2NC0yLjU0OCAyLjU0OEwuMDQ0IDIuNTkyeiIvPjxwYXRoIGQ9Ik0wIDE4LjM2NEwxOC4zNjQgMGwyLjU0OCAyLjU0OEwyLjU0OCAyMC45MTJ6Ii8+PC9nPjwvc3ZnPg==);border-left:var(--divider-width) solid var(--inverted-color);opacity:1;}`;
 },
-673: /* models/widgets/multiselect.js */ function _(require, module, exports, __esModule, __esExport) {
-    var _a;
+748: /* models/widgets/multiselect.js */ function _(require, module, exports, __esModule, __esExport) {
     __esModule();
     const tslib_1 = require(1) /* tslib */;
     const dom_1 = require(61) /* ../../core/dom */;
     const types_1 = require(8) /* ../../core/util/types */;
-    const input_widget_1 = require(630) /* ./input_widget */;
-    const inputs = tslib_1.__importStar(require(631) /* ../../styles/widgets/inputs.css */);
+    const input_widget_1 = require(705) /* ./input_widget */;
+    const inputs = tslib_1.__importStar(require(706) /* ../../styles/widgets/inputs.css */);
     class MultiSelectView extends input_widget_1.InputWidgetView {
         connect_signals() {
             super.connect_signals();
@@ -14173,28 +14073,24 @@ Please report this to https://github.com/markedjs/marked.`, e) {
         }
     }
     exports.MultiSelectView = MultiSelectView;
-    MultiSelectView.__name__ = "MultiSelectView";
     class MultiSelect extends input_widget_1.InputWidget {
         constructor(attrs) {
             super(attrs);
         }
+        static {
+            this.prototype.default_view = MultiSelectView;
+            this.define(({ Int, Str, List, Tuple, Or }) => ({
+                value: [List(Str), []],
+                options: [List(Or(Str, Tuple(Str, Str))), []],
+                size: [Int, 4], // 4 is the HTML default
+            }));
+        }
     }
     exports.MultiSelect = MultiSelect;
-    _a = MultiSelect;
-    MultiSelect.__name__ = "MultiSelect";
-    (() => {
-        _a.prototype.default_view = MultiSelectView;
-        _a.define(({ Int, Str, List, Tuple, Or }) => ({
-            value: [List(Str), []],
-            options: [List(Or(Str, Tuple(Str, Str))), []],
-            size: [Int, 4], // 4 is the HTML default
-        }));
-    })();
 },
-674: /* models/widgets/multiple_date_picker.js */ function _(require, module, exports, __esModule, __esExport) {
-    var _a;
+749: /* models/widgets/multiple_date_picker.js */ function _(require, module, exports, __esModule, __esExport) {
     __esModule();
-    const base_date_picker_1 = require(645) /* ./base_date_picker */;
+    const base_date_picker_1 = require(720) /* ./base_date_picker */;
     class MultipleDatePickerView extends base_date_picker_1.BaseDatePickerView {
         get flatpickr_options() {
             return {
@@ -14208,28 +14104,24 @@ Please report this to https://github.com/markedjs/marked.`, e) {
         }
     }
     exports.MultipleDatePickerView = MultipleDatePickerView;
-    MultipleDatePickerView.__name__ = "MultipleDatePickerView";
     class MultipleDatePicker extends base_date_picker_1.BaseDatePicker {
         constructor(attrs) {
             super(attrs);
         }
+        static {
+            this.prototype.default_view = MultipleDatePickerView;
+            this.define(({ Str, List }) => ({
+                value: [List(base_date_picker_1.DateLike), []],
+                separator: [Str, ", "],
+            }));
+        }
     }
     exports.MultipleDatePicker = MultipleDatePicker;
-    _a = MultipleDatePicker;
-    MultipleDatePicker.__name__ = "MultipleDatePicker";
-    (() => {
-        _a.prototype.default_view = MultipleDatePickerView;
-        _a.define(({ Str, List }) => ({
-            value: [List(base_date_picker_1.DateLike), []],
-            separator: [Str, ", "],
-        }));
-    })();
 },
-675: /* models/widgets/multiple_datetime_picker.js */ function _(require, module, exports, __esModule, __esExport) {
-    var _a;
+750: /* models/widgets/multiple_datetime_picker.js */ function _(require, module, exports, __esModule, __esExport) {
     __esModule();
-    const base_datetime_picker_1 = require(658) /* ./base_datetime_picker */;
-    const base_date_picker_1 = require(645) /* ./base_date_picker */;
+    const base_datetime_picker_1 = require(733) /* ./base_datetime_picker */;
+    const base_date_picker_1 = require(720) /* ./base_date_picker */;
     class MultipleDatetimePickerView extends base_datetime_picker_1.BaseDatetimePickerView {
         get flatpickr_options() {
             return {
@@ -14243,37 +14135,34 @@ Please report this to https://github.com/markedjs/marked.`, e) {
         }
     }
     exports.MultipleDatetimePickerView = MultipleDatetimePickerView;
-    MultipleDatetimePickerView.__name__ = "MultipleDatetimePickerView";
     class MultipleDatetimePicker extends base_datetime_picker_1.BaseDatetimePicker {
         constructor(attrs) {
             super(attrs);
         }
+        static {
+            this.prototype.default_view = MultipleDatetimePickerView;
+            this.define(({ Str, List }) => ({
+                value: [List(base_date_picker_1.DateLike), []],
+                separator: [Str, ", "],
+            }));
+        }
     }
     exports.MultipleDatetimePicker = MultipleDatetimePicker;
-    _a = MultipleDatetimePicker;
-    MultipleDatetimePicker.__name__ = "MultipleDatetimePicker";
-    (() => {
-        _a.prototype.default_view = MultipleDatetimePickerView;
-        _a.define(({ Str, List }) => ({
-            value: [List(base_date_picker_1.DateLike), []],
-            separator: [Str, ", "],
-        }));
-    })();
 },
-676: /* models/widgets/numeric_input.js */ function _(require, module, exports, __esModule, __esExport) {
-    var _a;
+751: /* models/widgets/numeric_input.js */ function _(require, module, exports, __esModule, __esExport) {
     __esModule();
     const tslib_1 = require(1) /* tslib */;
-    const numbro = tslib_1.__importStar(require(260) /* @bokeh/numbro */);
-    const input_widget_1 = require(630) /* ./input_widget */;
-    const tick_formatter_1 = require(205) /* ../formatters/tick_formatter */;
+    const numbro = tslib_1.__importStar(require(330) /* @bokeh/numbro */);
+    const input_widget_1 = require(705) /* ./input_widget */;
+    const tick_formatter_1 = require(275) /* ../formatters/tick_formatter */;
     const dom_1 = require(61) /* ../../core/dom */;
     const types_1 = require(8) /* ../../core/util/types */;
-    const assert_1 = require(12) /* ../../core/util/assert */;
-    const inputs = tslib_1.__importStar(require(631) /* ../../styles/widgets/inputs.css */);
+    const assert_1 = require(13) /* ../../core/util/assert */;
+    const inputs = tslib_1.__importStar(require(706) /* ../../styles/widgets/inputs.css */);
     const int_regex = /^[-+]?\d*$/;
     const float_regex = /^[-+]?\d*\.?\d*(?:(?:\d|\d.)[eE][-+]?)*\d*$/;
     class NumericInputView extends input_widget_1.InputWidgetView {
+        old_value;
         connect_signals() {
             super.connect_signals();
             this.connect(this.model.properties.name.change, () => this.input_el.name = this.model.name ?? "");
@@ -14366,10 +14255,20 @@ Please report this to https://github.com/markedjs/marked.`, e) {
         }
     }
     exports.NumericInputView = NumericInputView;
-    NumericInputView.__name__ = "NumericInputView";
     class NumericInput extends input_widget_1.InputWidget {
         constructor(attrs) {
             super(attrs);
+        }
+        static {
+            this.prototype.default_view = NumericInputView;
+            this.define(({ Float, Str, Enum, Ref, Or, Nullable }) => ({
+                value: [Nullable(Float), null],
+                placeholder: [Str, ""],
+                mode: [Enum("int", "float"), "int"],
+                format: [Nullable(Or(Str, Ref(tick_formatter_1.TickFormatter))), null],
+                low: [Nullable(Float), null],
+                high: [Nullable(Float), null],
+            }));
         }
         _formatter(value, format) {
             if ((0, types_1.isString)(format)) {
@@ -14389,45 +14288,30 @@ Please report this to https://github.com/markedjs/marked.`, e) {
         }
     }
     exports.NumericInput = NumericInput;
-    _a = NumericInput;
-    NumericInput.__name__ = "NumericInput";
-    (() => {
-        _a.prototype.default_view = NumericInputView;
-        _a.define(({ Float, Str, Enum, Ref, Or, Nullable }) => ({
-            value: [Nullable(Float), null],
-            placeholder: [Str, ""],
-            mode: [Enum("int", "float"), "int"],
-            format: [Nullable(Or(Str, Ref(tick_formatter_1.TickFormatter))), null],
-            low: [Nullable(Float), null],
-            high: [Nullable(Float), null],
-        }));
-    })();
 },
-677: /* models/widgets/palette_select.js */ function _(require, module, exports, __esModule, __esExport) {
-    var _a;
+752: /* models/widgets/palette_select.js */ function _(require, module, exports, __esModule, __esExport) {
     __esModule();
     const tslib_1 = require(1) /* tslib */;
     const dom_1 = require(61) /* ../../core/dom */;
-    const panes_1 = require(678) /* ../../core/util/panes */;
-    const iterator_1 = require(14) /* ../../core/util/iterator */;
+    const panes_1 = require(753) /* ../../core/util/panes */;
+    const iterator_1 = require(15) /* ../../core/util/iterator */;
     const color_1 = require(23) /* ../../core/util/color */;
-    const math_1 = require(11) /* ../../core/util/math */;
+    const math_1 = require(12) /* ../../core/util/math */;
     const array_1 = require(10) /* ../../core/util/array */;
-    const assert_1 = require(12) /* ../../core/util/assert */;
-    const input_widget_1 = require(630) /* ./input_widget */;
-    const inputs_css = tslib_1.__importStar(require(631) /* ../../styles/widgets/inputs.css */);
-    const palette_select_css = tslib_1.__importStar(require(680) /* ../../styles/widgets/palette_select.css */);
-    const item_css = tslib_1.__importStar(require(681) /* ../../styles/widgets/palette_select_item.css */);
-    const pane_css = tslib_1.__importStar(require(682) /* ../../styles/widgets/palette_select_pane.css */);
+    const assert_1 = require(13) /* ../../core/util/assert */;
+    const input_widget_1 = require(705) /* ./input_widget */;
+    const inputs_css = tslib_1.__importStar(require(706) /* ../../styles/widgets/inputs.css */);
+    const palette_select_css = tslib_1.__importStar(require(755) /* ../../styles/widgets/palette_select.css */);
+    const item_css = tslib_1.__importStar(require(756) /* ../../styles/widgets/palette_select_item.css */);
+    const pane_css = tslib_1.__importStar(require(757) /* ../../styles/widgets/palette_select_pane.css */);
     const icons_css = tslib_1.__importStar(require(76) /* ../../styles/icons.css */);
     const kinds_1 = require(22) /* ../../core/kinds */;
     const Item = (0, kinds_1.Tuple)(kinds_1.Str, (0, kinds_1.Arrayable)(kinds_1.Color));
     class PaletteSelectView extends input_widget_1.InputWidgetView {
-        constructor() {
-            super(...arguments);
-            this._style = new dom_1.InlineStyleSheet("", "select");
-            this._style_menu = new dom_1.InlineStyleSheet("", "menu");
-        }
+        _value_el;
+        _pane;
+        _style = new dom_1.InlineStyleSheet("", "select");
+        _style_menu = new dom_1.InlineStyleSheet("", "menu");
         stylesheets() {
             return [...super.stylesheets(), palette_select_css.default, item_css.default, icons_css.default, this._style];
         }
@@ -14610,70 +14494,46 @@ Please report this to https://github.com/markedjs/marked.`, e) {
         }
     }
     exports.PaletteSelectView = PaletteSelectView;
-    PaletteSelectView.__name__ = "PaletteSelectView";
     class PaletteSelect extends input_widget_1.InputWidget {
         constructor(attrs) {
             super(attrs);
         }
+        static {
+            this.prototype.default_view = PaletteSelectView;
+            this.define(({ Int, Str, List, NonNegative, Positive, Or, Auto }) => ({
+                value: [Str],
+                items: [List(Item)],
+                ncols: [Positive(Int), 1],
+                swatch_width: [NonNegative(Int), 100],
+                swatch_height: [Or(Auto, NonNegative(Int)), "auto"],
+            }));
+        }
     }
     exports.PaletteSelect = PaletteSelect;
-    _a = PaletteSelect;
-    PaletteSelect.__name__ = "PaletteSelect";
-    (() => {
-        _a.prototype.default_view = PaletteSelectView;
-        _a.define(({ Int, Str, List, NonNegative, Positive, Or, Auto }) => ({
-            value: [Str],
-            items: [List(Item)],
-            ncols: [Positive(Int), 1],
-            swatch_width: [NonNegative(Int), 100],
-            swatch_height: [Or(Auto, NonNegative(Int)), "auto"],
-        }));
-    })();
 },
-678: /* core/util/panes.js */ function _(require, module, exports, __esModule, __esExport) {
+753: /* core/util/panes.js */ function _(require, module, exports, __esModule, __esExport) {
     __esModule();
     const tslib_1 = require(1) /* tslib */;
     const dom_1 = require(61) /* ../dom */;
     const types_1 = require(8) /* ./types */;
-    const panes_css_1 = tslib_1.__importDefault(require(679) /* ../../styles/panes.css */);
+    const panes_css_1 = tslib_1.__importDefault(require(754) /* ../../styles/panes.css */);
     const base_css_1 = tslib_1.__importDefault(require(70) /* ../../styles/base.css */);
     //import {DOMComponentView} from "../dom_view"
     class DropPane {
+        contents;
+        el = (0, dom_1.div)();
+        shadow_el;
+        _open = false;
         get is_open() {
             return this._open;
         }
+        target;
+        orientation;
+        reversed;
+        prevent_hide;
+        extra_stylesheets;
+        class_list;
         constructor(contents, options) {
-            this.el = (0, dom_1.div)();
-            this._open = false;
-            this._on_mousedown = (event) => {
-                if (event.composedPath().includes(this.el)) {
-                    return;
-                }
-                const { prevent_hide } = this;
-                if (prevent_hide instanceof HTMLElement) {
-                    if (event.composedPath().includes(prevent_hide)) {
-                        return;
-                    }
-                }
-                else if (prevent_hide != null) {
-                    if (prevent_hide(event)) {
-                        return;
-                    }
-                }
-                this.hide();
-            };
-            this._on_keydown = (event) => {
-                switch (event.key) {
-                    case "Escape": {
-                        this.hide();
-                        break;
-                    }
-                    default:
-                }
-            };
-            this._on_blur = () => {
-                this.hide();
-            };
             this.contents = contents;
             this.target = options.target;
             this.prevent_hide = options.prevent_hide;
@@ -14681,6 +14541,35 @@ Please report this to https://github.com/markedjs/marked.`, e) {
             this.shadow_el = this.el.attachShadow({ mode: "open" });
             this.class_list = new dom_1.ClassList(this.el.classList);
         }
+        _on_mousedown = (event) => {
+            if (event.composedPath().includes(this.el)) {
+                return;
+            }
+            const { prevent_hide } = this;
+            if (prevent_hide instanceof HTMLElement) {
+                if (event.composedPath().includes(prevent_hide)) {
+                    return;
+                }
+            }
+            else if (prevent_hide != null) {
+                if (prevent_hide(event)) {
+                    return;
+                }
+            }
+            this.hide();
+        };
+        _on_keydown = (event) => {
+            switch (event.key) {
+                case "Escape": {
+                    this.hide();
+                    break;
+                }
+                default:
+            }
+        };
+        _on_blur = () => {
+            this.hide();
+        };
         remove() {
             this._unlisten();
             this.el.remove();
@@ -14731,20 +14620,19 @@ Please report this to https://github.com/markedjs/marked.`, e) {
         }
     }
     exports.DropPane = DropPane;
-    DropPane.__name__ = "DropPane";
 },
-679: /* styles/panes.css.js */ function _(require, module, exports, __esModule, __esExport) {
+754: /* styles/panes.css.js */ function _(require, module, exports, __esModule, __esExport) {
     __esModule();
     exports.default = `:host{position:absolute;top:100%;min-width:100%;width:auto;height:auto;user-select:none;-webkit-user-select:none;z-index:var(--bokeh-top-level);cursor:pointer;font-size:var(--font-size);background-color:var(--background-color);border:var(--border);border-radius:var(--border-radius);box-shadow:var(--box-shadow);}`;
 },
-680: /* styles/widgets/palette_select.css.js */ function _(require, module, exports, __esModule, __esExport) {
+755: /* styles/widgets/palette_select.css.js */ function _(require, module, exports, __esModule, __esExport) {
     __esModule();
     exports.value_input = "bk-value-input";
     exports.value = "bk-value";
     exports.chevron = "bk-chevron";
     exports.default = `.bk-value-input{display:flex;flex-direction:row;flex-wrap:nowrap;align-items:center;gap:1em;cursor:pointer;}.bk-value{flex-grow:1;}.bk-chevron{width:16px;height:16px;mask-size:100% 100%;-webkit-mask-size:100% 100%;mask-position:center center;-webkit-mask-position:center center;mask-repeat:no-repeat;-webkit-mask-repeat:no-repeat;}`;
 },
-681: /* styles/widgets/palette_select_item.css.js */ function _(require, module, exports, __esModule, __esExport) {
+756: /* styles/widgets/palette_select_item.css.js */ function _(require, module, exports, __esModule, __esExport) {
     __esModule();
     exports.entry = "bk-entry";
     exports.swatch = "bk-swatch";
@@ -14752,14 +14640,13 @@ Please report this to https://github.com/markedjs/marked.`, e) {
     exports.active = "bk-active";
     exports.default = `.bk-entry{display:flex;flex-direction:row;flex-wrap:nowrap;align-items:center;gap:0.5em;}.bk-swatch{width:100px;height:auto;align-self:stretch;}.bk-item{border:var(--border-width) var(--border-style) transparent;}.bk-item.bk-active{border-color:var(--highlight-color);}.bk-item:hover{background-color:var(--hover-color);}.bk-item:focus,.bk-item:focus-visible{outline:var(--outline-width) var(--outline-style) var(--highlight-color);outline-offset:-1px;}.bk-item::-moz-focus-inner{border:0;}`;
 },
-682: /* styles/widgets/palette_select_pane.css.js */ function _(require, module, exports, __esModule, __esExport) {
+757: /* styles/widgets/palette_select_pane.css.js */ function _(require, module, exports, __esModule, __esExport) {
     __esModule();
     exports.default = `:host{--number-of-columns:1;padding:5px;display:grid;grid-template-columns:repeat(var(--number-of-columns), 1fr);gap:0.25em;}`;
 },
-683: /* models/widgets/paragraph.js */ function _(require, module, exports, __esModule, __esExport) {
-    var _a;
+758: /* models/widgets/paragraph.js */ function _(require, module, exports, __esModule, __esExport) {
     __esModule();
-    const markup_1 = require(661) /* ./markup */;
+    const markup_1 = require(736) /* ./markup */;
     const dom_1 = require(61) /* ../../core/dom */;
     class ParagraphView extends markup_1.MarkupView {
         render() {
@@ -14776,28 +14663,25 @@ Please report this to https://github.com/markedjs/marked.`, e) {
         }
     }
     exports.ParagraphView = ParagraphView;
-    ParagraphView.__name__ = "ParagraphView";
     class Paragraph extends markup_1.Markup {
         constructor(attrs) {
             super(attrs);
         }
+        static {
+            this.prototype.default_view = ParagraphView;
+        }
     }
     exports.Paragraph = Paragraph;
-    _a = Paragraph;
-    Paragraph.__name__ = "Paragraph";
-    (() => {
-        _a.prototype.default_view = ParagraphView;
-    })();
 },
-684: /* models/widgets/password_input.js */ function _(require, module, exports, __esModule, __esExport) {
-    var _a;
+759: /* models/widgets/password_input.js */ function _(require, module, exports, __esModule, __esExport) {
     __esModule();
     const tslib_1 = require(1) /* tslib */;
-    const text_input_1 = require(628) /* ./text_input */;
+    const text_input_1 = require(703) /* ./text_input */;
     const dom_1 = require(61) /* ../../core/dom */;
-    const password_input_css_1 = tslib_1.__importDefault(require(685) /* ../../styles/widgets/password_input.css */);
+    const password_input_css_1 = tslib_1.__importDefault(require(760) /* ../../styles/widgets/password_input.css */);
     const icons_css_1 = tslib_1.__importDefault(require(76) /* ../../styles/icons.css */);
     class PasswordInputView extends text_input_1.TextInputView {
+        toggle_el;
         stylesheets() {
             return [...super.stylesheets(), password_input_css_1.default, icons_css_1.default];
         }
@@ -14815,30 +14699,26 @@ Please report this to https://github.com/markedjs/marked.`, e) {
         }
     }
     exports.PasswordInputView = PasswordInputView;
-    PasswordInputView.__name__ = "PasswordInputView";
     class PasswordInput extends text_input_1.TextInput {
         constructor(attrs) {
             super(attrs);
         }
+        static {
+            this.prototype.default_view = PasswordInputView;
+        }
     }
     exports.PasswordInput = PasswordInput;
-    _a = PasswordInput;
-    PasswordInput.__name__ = "PasswordInput";
-    (() => {
-        _a.prototype.default_view = PasswordInputView;
-    })();
 },
-685: /* styles/widgets/password_input.css.js */ function _(require, module, exports, __esModule, __esExport) {
+760: /* styles/widgets/password_input.css.js */ function _(require, module, exports, __esModule, __esExport) {
     __esModule();
     exports.input = "bk-input";
     exports.toggle = "bk-toggle";
     exports.visible = "bk-visible";
     exports.default = `:host{--toggle-size:14px;--toggle-padding:4px;--toggle-width:calc(var(--toggle-size) + 2*var(--toggle-padding));}.bk-input{padding-right:max();}.bk-toggle{position:absolute;right:0;top:0;width:var(--toggle-width);height:100%;padding:0 var(--toggle-padding);background-color:var(--icon-color);mask-image:var(--bokeh-icon-see-off);-webkit-mask-image:var(--bokeh-icon-see-off);mask-size:var(--toggle-size) var(--toggle-size);-webkit-mask-size:var(--toggle-size) var(--toggle-size);mask-position:center center;-webkit-mask-position:center center;mask-repeat:no-repeat;-webkit-mask-repeat:no-repeat;cursor:pointer;}.bk-toggle.bk-visible{mask-image:var(--bokeh-icon-see-on);-webkit-mask-image:var(--bokeh-icon-see-on);}`;
 },
-686: /* models/widgets/pretext.js */ function _(require, module, exports, __esModule, __esExport) {
-    var _a;
+761: /* models/widgets/pretext.js */ function _(require, module, exports, __esModule, __esExport) {
     __esModule();
-    const markup_1 = require(661) /* ./markup */;
+    const markup_1 = require(736) /* ./markup */;
     const dom_1 = require(61) /* ../../core/dom */;
     class PreTextView extends markup_1.MarkupView {
         render() {
@@ -14848,34 +14728,33 @@ Please report this to https://github.com/markedjs/marked.`, e) {
         }
     }
     exports.PreTextView = PreTextView;
-    PreTextView.__name__ = "PreTextView";
     class PreText extends markup_1.Markup {
         constructor(attrs) {
             super(attrs);
         }
+        static {
+            this.prototype.default_view = PreTextView;
+        }
     }
     exports.PreText = PreText;
-    _a = PreText;
-    PreText.__name__ = "PreText";
-    (() => {
-        _a.prototype.default_view = PreTextView;
-    })();
 },
-687: /* models/widgets/progress.js */ function _(require, module, exports, __esModule, __esExport) {
-    var _a;
+762: /* models/widgets/progress.js */ function _(require, module, exports, __esModule, __esExport) {
     __esModule();
     const tslib_1 = require(1) /* tslib */;
-    const indicator_1 = require(688) /* ./indicator */;
-    const signaling_1 = require(16) /* ../../core/signaling */;
+    const indicator_1 = require(763) /* ./indicator */;
+    const signaling_1 = require(17) /* ../../core/signaling */;
     const dom_1 = require(61) /* ../../core/dom */;
     const enums_1 = require(21) /* ../../core/enums */;
     const kinds_1 = require(22) /* ../../core/kinds */;
-    const math_1 = require(11) /* ../../core/util/math */;
-    const templating_1 = require(259) /* ../../core/util/templating */;
-    const progress_css = tslib_1.__importStar(require(689) /* ../../styles/widgets/progress.css */);
+    const math_1 = require(12) /* ../../core/util/math */;
+    const templating_1 = require(329) /* ../../core/util/templating */;
+    const progress_css = tslib_1.__importStar(require(764) /* ../../styles/widgets/progress.css */);
     const ProgressMode = (0, kinds_1.Enum)("determinate", "indeterminate");
     const LabelLocation = (0, kinds_1.Enum)("none", "inline");
     class ProgressView extends indicator_1.IndicatorView {
+        label_el;
+        value_el;
+        bar_el;
         connect_signals() {
             super.connect_signals();
             const { mode, value, min, max, label, reversed, orientation, disabled, label_location, description } = this.model.properties;
@@ -14966,11 +14845,24 @@ Please report this to https://github.com/markedjs/marked.`, e) {
         }
     }
     exports.ProgressView = ProgressView;
-    ProgressView.__name__ = "ProgressView";
     class Progress extends indicator_1.Indicator {
+        finished = new signaling_1.Signal0(this, "finished");
         constructor(attrs) {
             super(attrs);
-            this.finished = new signaling_1.Signal0(this, "finished");
+        }
+        static {
+            this.prototype.default_view = ProgressView;
+            this.define(({ Bool, Int, Str, Nullable }) => ({
+                mode: [ProgressMode, "determinate"],
+                value: [Int, 0],
+                min: [Int, 0],
+                max: [Int, 100],
+                reversed: [Bool, false],
+                orientation: [enums_1.Orientation, "horizontal"],
+                label: [Nullable(Str), "@{percent}%"],
+                label_location: [LabelLocation, "inline"],
+                description: [Nullable(Str), null],
+            }));
         }
         get indeterminate() {
             return this.mode == "indeterminate";
@@ -14998,39 +14890,21 @@ Please report this to https://github.com/markedjs/marked.`, e) {
         }
     }
     exports.Progress = Progress;
-    _a = Progress;
-    Progress.__name__ = "Progress";
-    (() => {
-        _a.prototype.default_view = ProgressView;
-        _a.define(({ Bool, Int, Str, Nullable }) => ({
-            mode: [ProgressMode, "determinate"],
-            value: [Int, 0],
-            min: [Int, 0],
-            max: [Int, 100],
-            reversed: [Bool, false],
-            orientation: [enums_1.Orientation, "horizontal"],
-            label: [Nullable(Str), "@{percent}%"],
-            label_location: [LabelLocation, "inline"],
-            description: [Nullable(Str), null],
-        }));
-    })();
 },
-688: /* models/widgets/indicator.js */ function _(require, module, exports, __esModule, __esExport) {
+763: /* models/widgets/indicator.js */ function _(require, module, exports, __esModule, __esExport) {
     __esModule();
-    const widget_1 = require(737) /* ./widget */;
+    const widget_1 = require(798) /* ./widget */;
     class IndicatorView extends widget_1.WidgetView {
     }
     exports.IndicatorView = IndicatorView;
-    IndicatorView.__name__ = "IndicatorView";
     class Indicator extends widget_1.Widget {
         constructor(attrs) {
             super(attrs);
         }
     }
     exports.Indicator = Indicator;
-    Indicator.__name__ = "Indicator";
 },
-689: /* styles/widgets/progress.css.js */ function _(require, module, exports, __esModule, __esExport) {
+764: /* styles/widgets/progress.css.js */ function _(require, module, exports, __esModule, __esExport) {
     __esModule();
     exports.bar = "bk-bar";
     exports.value = "bk-value";
@@ -15043,11 +14917,10 @@ Please report this to https://github.com/markedjs/marked.`, e) {
     exports.indeterminate = "bk-indeterminate";
     exports.default = `:host{--progress:0%;}.bk-bar{position:relative;display:flex;flex-wrap:nowrap;align-items:center;justify-content:center;background-color:var(--active-bg);border:var(--border);border-radius:var(--border-radius);overflow:hidden;}.bk-value{position:absolute;background-color:var(--active-fg);}:host(.bk-disabled) .bk-bar{background-color:var(--inactive-bg);}:host(.bk-disabled) .bk-value{background-color:var(--inactive-fg);}:host(.bk-horizontal) .bk-bar{width:100%;height:max-content;min-width:3em;min-height:0.5em;}:host(.bk-horizontal) .bk-value{left:0;width:var(--progress);height:100%;}:host(.bk-vertical) .bk-bar{width:max-content;height:100%;min-width:0.5em;min-height:3em;}:host(.bk-vertical) .bk-value{bottom:0;width:100%;height:var(--progress);}:host(.bk-horizontal.bk-reversed) .bk-value{left:unset;right:0;}:host(.bk-vertical.bk-reversed) .bk-value{top:0;bottom:unset;}.bk-label{position:relative;padding:0.25em;}.bk-label.bk-hidden{display:none;}:host(.bk-vertical) .bk-label{writing-mode:vertical-rl;rotate:180deg;}:host(.bk-indeterminate){--indeterminate-size:10%;}:host(.bk-indeterminate) .bk-label{visibility:hidden;}:host(.bk-indeterminate) .bk-value{animation-duration:1.5s;animation-direction:alternate;animation-iteration-count:infinite;animation-timing-function:linear;}:host(.bk-indeterminate.bk-horizontal:not(.bk-disabled)) .bk-value{width:var(--indeterminate-size);animation-name:bk-progress-animation-horizontal;}:host(.bk-indeterminate.bk-vertical:not(.bk-disabled)) .bk-value{height:var(--indeterminate-size);animation-name:bk-progress-animation-vertical;}@keyframes bk-progress-animation-horizontal{from{left:calc(-1 * var(--indeterminate-size));}to{left:100%;}}@keyframes bk-progress-animation-vertical{from{bottom:calc(-1 * var(--indeterminate-size));}to{bottom:100%;}}`;
 },
-690: /* models/widgets/radio_button_group.js */ function _(require, module, exports, __esModule, __esExport) {
-    var _a;
+765: /* models/widgets/radio_button_group.js */ function _(require, module, exports, __esModule, __esExport) {
     __esModule();
     const tslib_1 = require(1) /* tslib */;
-    const toggle_button_group_1 = require(635) /* ./toggle_button_group */;
+    const toggle_button_group_1 = require(710) /* ./toggle_button_group */;
     const buttons = tslib_1.__importStar(require(77) /* ../../styles/buttons.css */);
     class RadioButtonGroupView extends toggle_button_group_1.ToggleButtonGroupView {
         change_active(i) {
@@ -15063,31 +14936,27 @@ Please report this to https://github.com/markedjs/marked.`, e) {
         }
     }
     exports.RadioButtonGroupView = RadioButtonGroupView;
-    RadioButtonGroupView.__name__ = "RadioButtonGroupView";
     class RadioButtonGroup extends toggle_button_group_1.ToggleButtonGroup {
         constructor(attrs) {
             super(attrs);
         }
+        static {
+            this.prototype.default_view = RadioButtonGroupView;
+            this.define(({ Int, Nullable }) => ({
+                active: [Nullable(Int), null],
+            }));
+        }
     }
     exports.RadioButtonGroup = RadioButtonGroup;
-    _a = RadioButtonGroup;
-    RadioButtonGroup.__name__ = "RadioButtonGroup";
-    (() => {
-        _a.prototype.default_view = RadioButtonGroupView;
-        _a.define(({ Int, Nullable }) => ({
-            active: [Nullable(Int), null],
-        }));
-    })();
 },
-691: /* models/widgets/radio_group.js */ function _(require, module, exports, __esModule, __esExport) {
-    var _a;
+766: /* models/widgets/radio_group.js */ function _(require, module, exports, __esModule, __esExport) {
     __esModule();
     const tslib_1 = require(1) /* tslib */;
-    const toggle_input_group_1 = require(638) /* ./toggle_input_group */;
+    const toggle_input_group_1 = require(713) /* ./toggle_input_group */;
     const dom_1 = require(61) /* ../../core/dom */;
     const string_1 = require(41) /* ../../core/util/string */;
-    const iterator_1 = require(14) /* ../../core/util/iterator */;
-    const inputs = tslib_1.__importStar(require(631) /* ../../styles/widgets/inputs.css */);
+    const iterator_1 = require(15) /* ../../core/util/iterator */;
+    const inputs = tslib_1.__importStar(require(706) /* ../../styles/widgets/inputs.css */);
     class RadioGroupView extends toggle_input_group_1.ToggleInputGroupView {
         connect_signals() {
             super.connect_signals();
@@ -15125,31 +14994,27 @@ Please report this to https://github.com/markedjs/marked.`, e) {
         }
     }
     exports.RadioGroupView = RadioGroupView;
-    RadioGroupView.__name__ = "RadioGroupView";
     class RadioGroup extends toggle_input_group_1.ToggleInputGroup {
         constructor(attrs) {
             super(attrs);
         }
+        static {
+            this.prototype.default_view = RadioGroupView;
+            this.define(({ Int, Nullable }) => ({
+                active: [Nullable(Int), null],
+            }));
+        }
     }
     exports.RadioGroup = RadioGroup;
-    _a = RadioGroup;
-    RadioGroup.__name__ = "RadioGroup";
-    (() => {
-        _a.prototype.default_view = RadioGroupView;
-        _a.define(({ Int, Nullable }) => ({
-            active: [Nullable(Int), null],
-        }));
-    })();
 },
-692: /* models/widgets/select.js */ function _(require, module, exports, __esModule, __esExport) {
-    var _a;
+767: /* models/widgets/select.js */ function _(require, module, exports, __esModule, __esExport) {
     __esModule();
     const tslib_1 = require(1) /* tslib */;
     const dom_1 = require(61) /* ../../core/dom */;
     const types_1 = require(8) /* ../../core/util/types */;
     const object_1 = require(9) /* ../../core/util/object */;
-    const input_widget_1 = require(630) /* ./input_widget */;
-    const inputs = tslib_1.__importStar(require(631) /* ../../styles/widgets/inputs.css */);
+    const input_widget_1 = require(705) /* ./input_widget */;
+    const inputs = tslib_1.__importStar(require(706) /* ../../styles/widgets/inputs.css */);
     const kinds_1 = require(22) /* ../../core/kinds */;
     const Value = kinds_1.Unknown;
     const Label = kinds_1.Str;
@@ -15157,10 +15022,6 @@ Please report this to https://github.com/markedjs/marked.`, e) {
     const OptionsGroups = (0, kinds_1.Dict)(Options);
     const NotSelected = "";
     class SelectView extends input_widget_1.InputWidgetView {
-        constructor() {
-            super(...arguments);
-            this._known_values = new Map();
-        }
         connect_signals() {
             super.connect_signals();
             const { value, options } = this.model.properties;
@@ -15173,6 +15034,7 @@ Please report this to https://github.com/markedjs/marked.`, e) {
                 this._update_value();
             });
         }
+        _known_values = new Map();
         options_el() {
             const { _known_values } = this;
             _known_values.clear();
@@ -15238,31 +15100,27 @@ Please report this to https://github.com/markedjs/marked.`, e) {
         }
     }
     exports.SelectView = SelectView;
-    SelectView.__name__ = "SelectView";
     class Select extends input_widget_1.InputWidget {
         constructor(attrs) {
             super(attrs);
         }
+        static {
+            this.prototype.default_view = SelectView;
+            this.define(() => {
+                return {
+                    value: [Value, NotSelected],
+                    options: [(0, kinds_1.Or)(Options, OptionsGroups), []],
+                };
+            });
+        }
     }
     exports.Select = Select;
-    _a = Select;
-    Select.__name__ = "Select";
-    (() => {
-        _a.prototype.default_view = SelectView;
-        _a.define(() => {
-            return {
-                value: [Value, NotSelected],
-                options: [(0, kinds_1.Or)(Options, OptionsGroups), []],
-            };
-        });
-    })();
 },
-693: /* models/widgets/spinner.js */ function _(require, module, exports, __esModule, __esExport) {
-    var _a;
+768: /* models/widgets/spinner.js */ function _(require, module, exports, __esModule, __esExport) {
     __esModule();
     const tslib_1 = require(1) /* tslib */;
-    const numeric_input_1 = require(676) /* ./numeric_input */;
-    const p = tslib_1.__importStar(require(19) /* ../../core/properties */);
+    const numeric_input_1 = require(751) /* ./numeric_input */;
+    const p = tslib_1.__importStar(require(20) /* ../../core/properties */);
     const dom_1 = require(61) /* ../../core/dom */;
     const { min, max } = Math;
     function debounce(func, wait, immediate = false) {
@@ -15288,6 +15146,12 @@ Please report this to https://github.com/markedjs/marked.`, e) {
     }
     // Inspiration from https://github.com/uNmAnNeR/ispinjs
     class SpinnerView extends numeric_input_1.NumericInputView {
+        wrapper_el;
+        btn_up_el;
+        btn_down_el;
+        _handles;
+        _counter;
+        _interval;
         *buttons() {
             yield this.btn_up_el;
             yield this.btn_down_el;
@@ -15434,39 +15298,40 @@ Please report this to https://github.com/markedjs/marked.`, e) {
         }
     }
     exports.SpinnerView = SpinnerView;
-    SpinnerView.__name__ = "SpinnerView";
     class Spinner extends numeric_input_1.NumericInput {
         constructor(attrs) {
             super(attrs);
         }
+        static {
+            this.prototype.default_view = SpinnerView;
+            this.define(({ Float, Nullable }) => ({
+                value_throttled: [Nullable(Float), p.unset, { readonly: true }],
+                step: [Float, 1],
+                page_step_multiplier: [Float, 10],
+                wheel_wait: [Float, 100],
+            }));
+            this.override({
+                mode: "float",
+            });
+        }
     }
     exports.Spinner = Spinner;
-    _a = Spinner;
-    Spinner.__name__ = "Spinner";
-    (() => {
-        _a.prototype.default_view = SpinnerView;
-        _a.define(({ Float, Nullable }) => ({
-            value_throttled: [Nullable(Float), p.unset, { readonly: true }],
-            step: [Float, 1],
-            page_step_multiplier: [Float, 10],
-            wheel_wait: [Float, 100],
-        }));
-        _a.override({
-            mode: "float",
-        });
-    })();
 },
-694: /* models/widgets/switch.js */ function _(require, module, exports, __esModule, __esExport) {
-    var _a;
+769: /* models/widgets/switch.js */ function _(require, module, exports, __esModule, __esExport) {
     __esModule();
     const tslib_1 = require(1) /* tslib */;
-    const toggle_input_1 = require(641) /* ./toggle_input */;
+    const toggle_input_1 = require(716) /* ./toggle_input */;
     const kinds_1 = require(124) /* ../common/kinds */;
     const resolve_1 = require(127) /* ../common/resolve */;
     const dom_1 = require(61) /* ../../core/dom */;
     const icons_css = tslib_1.__importStar(require(76) /* ../../styles/icons.css */);
-    const switch_css = tslib_1.__importStar(require(695) /* ../../styles/widgets/switch.css */);
+    const switch_css = tslib_1.__importStar(require(770) /* ../../styles/widgets/switch.css */);
     class SwitchView extends toggle_input_1.ToggleInputView {
+        static aria_role = "switch";
+        icon_el;
+        body_el;
+        bar_el;
+        knob_el;
         stylesheets() {
             return [...super.stylesheets(), icons_css.default, switch_css.default];
         }
@@ -15518,25 +15383,21 @@ Please report this to https://github.com/markedjs/marked.`, e) {
         }
     }
     exports.SwitchView = SwitchView;
-    SwitchView.__name__ = "SwitchView";
-    SwitchView.aria_role = "switch";
     class Switch extends toggle_input_1.ToggleInput {
         constructor(attrs) {
             super(attrs);
         }
+        static {
+            this.prototype.default_view = SwitchView;
+            this.define(({ Nullable }) => ({
+                on_icon: [Nullable(kinds_1.IconLike), null],
+                off_icon: [Nullable(kinds_1.IconLike), null],
+            }));
+        }
     }
     exports.Switch = Switch;
-    _a = Switch;
-    Switch.__name__ = "Switch";
-    (() => {
-        _a.prototype.default_view = SwitchView;
-        _a.define(({ Nullable }) => ({
-            on_icon: [Nullable(kinds_1.IconLike), null],
-            off_icon: [Nullable(kinds_1.IconLike), null],
-        }));
-    })();
 },
-695: /* styles/widgets/switch.css.js */ function _(require, module, exports, __esModule, __esExport) {
+770: /* styles/widgets/switch.css.js */ function _(require, module, exports, __esModule, __esExport) {
     __esModule();
     exports.icon = "bk-icon";
     exports.body = "bk-body";
@@ -15546,13 +15407,12 @@ Please report this to https://github.com/markedjs/marked.`, e) {
     exports.active = "bk-active";
     exports.default = `:host{--switch-width:32px;--switch-size:16px;--bar-height:10px;}:host{display:flex;flex-direction:row;flex-wrap:nowrap;gap:0.5em;}.bk-icon{position:relative;width:var(--switch-size);height:var(--switch-size);mask-size:100% 100%;-webkit-mask-size:100% 100%;mask-position:center center;-webkit-mask-position:center center;mask-repeat:no-repeat;-webkit-mask-repeat:no-repeat;}.bk-body{position:relative;width:var(--switch-width);height:var(--switch-size);cursor:pointer;}:host(.bk-disabled){cursor:default;}.bk-bar{position:relative;top:calc(50% - var(--bar-height)/2);height:var(--bar-height);border-radius:calc(var(--bar-height)/2);background-color:var(--inactive-bg);transition-property:background-color;}.bk-knob{position:absolute;top:0;left:0;width:var(--switch-size);height:var(--switch-size);border-radius:8px;background-color:var(--inactive-fg);transition-property:left, background-color;}:host(.bk-active) .bk-bar{background-color:var(--active-bg);}:host(.bk-active) .bk-knob{left:calc(100% - var(--switch-size));background-color:var(--active-fg);}`;
 },
-696: /* models/widgets/textarea_input.js */ function _(require, module, exports, __esModule, __esExport) {
-    var _a;
+771: /* models/widgets/textarea_input.js */ function _(require, module, exports, __esModule, __esExport) {
     __esModule();
     const tslib_1 = require(1) /* tslib */;
-    const text_like_input_1 = require(629) /* ./text_like_input */;
+    const text_like_input_1 = require(704) /* ./text_like_input */;
     const dom_1 = require(61) /* ../../core/dom */;
-    const inputs = tslib_1.__importStar(require(631) /* ../../styles/widgets/inputs.css */);
+    const inputs = tslib_1.__importStar(require(706) /* ../../styles/widgets/inputs.css */);
     class TextAreaInputView extends text_like_input_1.TextLikeInputView {
         connect_signals() {
             super.connect_signals();
@@ -15569,33 +15429,29 @@ Please report this to https://github.com/markedjs/marked.`, e) {
         }
     }
     exports.TextAreaInputView = TextAreaInputView;
-    TextAreaInputView.__name__ = "TextAreaInputView";
     class TextAreaInput extends text_like_input_1.TextLikeInput {
         constructor(attrs) {
             super(attrs);
         }
+        static {
+            this.prototype.default_view = TextAreaInputView;
+            this.define(({ Int }) => ({
+                cols: [Int, 20],
+                rows: [Int, 2],
+            }));
+            this.override({
+                max_length: 500,
+            });
+        }
     }
     exports.TextAreaInput = TextAreaInput;
-    _a = TextAreaInput;
-    TextAreaInput.__name__ = "TextAreaInput";
-    (() => {
-        _a.prototype.default_view = TextAreaInputView;
-        _a.define(({ Int }) => ({
-            cols: [Int, 20],
-            rows: [Int, 2],
-        }));
-        _a.override({
-            max_length: 500,
-        });
-    })();
 },
-697: /* models/widgets/time_picker.js */ function _(require, module, exports, __esModule, __esExport) {
-    var _a;
+772: /* models/widgets/time_picker.js */ function _(require, module, exports, __esModule, __esExport) {
     __esModule();
-    const picker_base_1 = require(646) /* ./picker_base */;
+    const picker_base_1 = require(721) /* ./picker_base */;
     const kinds_1 = require(22) /* ../../core/kinds */;
     const enums_1 = require(21) /* ../../core/enums */;
-    const assert_1 = require(12) /* ../../core/util/assert */;
+    const assert_1 = require(13) /* ../../core/util/assert */;
     exports.TimeLike = (0, kinds_1.Or)(kinds_1.Str, kinds_1.Float);
     class TimePickerView extends picker_base_1.PickerBaseView {
         _format_time(date) {
@@ -15668,35 +15524,31 @@ Please report this to https://github.com/markedjs/marked.`, e) {
         }
     }
     exports.TimePickerView = TimePickerView;
-    TimePickerView.__name__ = "TimePickerView";
     class TimePicker extends picker_base_1.PickerBase {
         constructor(attrs) {
             super(attrs);
         }
+        static {
+            this.prototype.default_view = TimePickerView;
+            this.define(({ Bool, Str, Nullable, Positive, Int }) => ({
+                value: [Nullable(exports.TimeLike), null],
+                min_time: [Nullable(exports.TimeLike), null],
+                max_time: [Nullable(exports.TimeLike), null],
+                time_format: [Str, "H:i"],
+                hour_increment: [Positive(Int), 1],
+                minute_increment: [Positive(Int), 1],
+                second_increment: [Positive(Int), 1],
+                seconds: [Bool, false],
+                clock: [enums_1.Clock, "24h"],
+            }));
+        }
     }
     exports.TimePicker = TimePicker;
-    _a = TimePicker;
-    TimePicker.__name__ = "TimePicker";
-    (() => {
-        _a.prototype.default_view = TimePickerView;
-        _a.define(({ Bool, Str, Nullable, Positive, Int }) => ({
-            value: [Nullable(exports.TimeLike), null],
-            min_time: [Nullable(exports.TimeLike), null],
-            max_time: [Nullable(exports.TimeLike), null],
-            time_format: [Str, "H:i"],
-            hour_increment: [Positive(Int), 1],
-            minute_increment: [Positive(Int), 1],
-            second_increment: [Positive(Int), 1],
-            seconds: [Bool, false],
-            clock: [enums_1.Clock, "24h"],
-        }));
-    })();
 },
-698: /* models/widgets/toggle.js */ function _(require, module, exports, __esModule, __esExport) {
-    var _a;
+773: /* models/widgets/toggle.js */ function _(require, module, exports, __esModule, __esExport) {
     __esModule();
     const tslib_1 = require(1) /* tslib */;
-    const abstract_button_1 = require(624) /* ./abstract_button */;
+    const abstract_button_1 = require(699) /* ./abstract_button */;
     const bokeh_events_1 = require(80) /* ../../core/bokeh_events */;
     const buttons = tslib_1.__importStar(require(77) /* ../../styles/buttons.css */);
     class ToggleView extends abstract_button_1.AbstractButtonView {
@@ -15718,50 +15570,43 @@ Please report this to https://github.com/markedjs/marked.`, e) {
         }
     }
     exports.ToggleView = ToggleView;
-    ToggleView.__name__ = "ToggleView";
     class Toggle extends abstract_button_1.AbstractButton {
         constructor(attrs) {
             super(attrs);
         }
+        static {
+            this.prototype.default_view = ToggleView;
+            this.define(({ Bool }) => ({
+                active: [Bool, false],
+            }));
+            this.override({
+                label: "Toggle",
+            });
+        }
     }
     exports.Toggle = Toggle;
-    _a = Toggle;
-    Toggle.__name__ = "Toggle";
-    (() => {
-        _a.prototype.default_view = ToggleView;
-        _a.define(({ Bool }) => ({
-            active: [Bool, false],
-        }));
-        _a.override({
-            label: "Toggle",
-        });
-    })();
 },
-699: /* models/widgets/sliders/index.js */ function _(require, module, exports, __esModule, __esExport) {
+774: /* models/widgets/sliders/index.js */ function _(require, module, exports, __esModule, __esExport) {
     __esModule();
-    var categorical_slider_1 = require(700) /* ./categorical_slider */;
+    var categorical_slider_1 = require(775) /* ./categorical_slider */;
     __esExport("CategoricalSlider", categorical_slider_1.CategoricalSlider);
-    var date_range_slider_1 = require(705) /* ./date_range_slider */;
+    var date_range_slider_1 = require(780) /* ./date_range_slider */;
     __esExport("DateRangeSlider", date_range_slider_1.DateRangeSlider);
-    var date_slider_1 = require(708) /* ./date_slider */;
+    var date_slider_1 = require(783) /* ./date_slider */;
     __esExport("DateSlider", date_slider_1.DateSlider);
-    var datetime_range_slider_1 = require(710) /* ./datetime_range_slider */;
+    var datetime_range_slider_1 = require(785) /* ./datetime_range_slider */;
     __esExport("DatetimeRangeSlider", datetime_range_slider_1.DatetimeRangeSlider);
-    var range_slider_1 = require(711) /* ./range_slider */;
+    var range_slider_1 = require(786) /* ./range_slider */;
     __esExport("RangeSlider", range_slider_1.RangeSlider);
-    var slider_1 = require(712) /* ./slider */;
+    var slider_1 = require(787) /* ./slider */;
     __esExport("Slider", slider_1.Slider);
 },
-700: /* models/widgets/sliders/categorical_slider.js */ function _(require, module, exports, __esModule, __esExport) {
-    var _a;
+775: /* models/widgets/sliders/categorical_slider.js */ function _(require, module, exports, __esModule, __esExport) {
     __esModule();
-    const abstract_slider_1 = require(701) /* ./abstract_slider */;
+    const abstract_slider_1 = require(776) /* ./abstract_slider */;
     const types_1 = require(8) /* ../../../core/util/types */;
     class CategoricalSliderView extends abstract_slider_1.AbstractSliderView {
-        constructor() {
-            super(...arguments);
-            this.behaviour = "tap";
-        }
+        behaviour = "tap";
         connect_signals() {
             super.connect_signals();
             const { categories } = this.model.properties;
@@ -15792,45 +15637,43 @@ Please report this to https://github.com/markedjs/marked.`, e) {
         }
     }
     exports.CategoricalSliderView = CategoricalSliderView;
-    CategoricalSliderView.__name__ = "CategoricalSliderView";
     class CategoricalSlider extends abstract_slider_1.AbstractSlider {
         constructor(attrs) {
             super(attrs);
         }
+        static {
+            this.prototype.default_view = CategoricalSliderView;
+            this.define(({ List, Str }) => ({
+                categories: [List(Str)],
+            }));
+        }
     }
     exports.CategoricalSlider = CategoricalSlider;
-    _a = CategoricalSlider;
-    CategoricalSlider.__name__ = "CategoricalSlider";
-    (() => {
-        _a.prototype.default_view = CategoricalSliderView;
-        _a.define(({ List, Str }) => ({
-            categories: [List(Str)],
-        }));
-    })();
 },
-701: /* models/widgets/sliders/abstract_slider.js */ function _(require, module, exports, __esModule, __esExport) {
-    var _a;
+776: /* models/widgets/sliders/abstract_slider.js */ function _(require, module, exports, __esModule, __esExport) {
     __esModule();
     const tslib_1 = require(1) /* tslib */;
-    const nouislider_1 = tslib_1.__importDefault(require(702) /* nouislider */);
-    const p = tslib_1.__importStar(require(19) /* ../../../core/properties */);
+    const nouislider_1 = tslib_1.__importDefault(require(777) /* nouislider */);
+    const p = tslib_1.__importStar(require(20) /* ../../../core/properties */);
     const dom_1 = require(61) /* ../../../core/dom */;
     const array_1 = require(10) /* ../../../core/util/array */;
     const color_1 = require(23) /* ../../../core/util/color */;
-    const oriented_control_1 = require(636) /* ../oriented_control */;
-    const sliders_css_1 = tslib_1.__importStar(require(703) /* ../../../styles/widgets/sliders.css */), sliders = sliders_css_1;
-    const nouislider_css_1 = tslib_1.__importDefault(require(704) /* ../../../styles/widgets/nouislider.css */);
-    const inputs = tslib_1.__importStar(require(631) /* ../../../styles/widgets/inputs.css */);
+    const oriented_control_1 = require(711) /* ../oriented_control */;
+    const sliders_css_1 = tslib_1.__importStar(require(778) /* ../../../styles/widgets/sliders.css */), sliders = sliders_css_1;
+    const nouislider_css_1 = tslib_1.__importDefault(require(779) /* ../../../styles/widgets/nouislider.css */);
+    const inputs = tslib_1.__importStar(require(706) /* ../../../styles/widgets/inputs.css */);
     class AbstractSliderView extends oriented_control_1.OrientedControlView {
-        constructor() {
-            super(...arguments);
-            this.connected = false;
-            this._auto_width = "auto";
-            this._auto_height = "auto";
-        }
+        behaviour;
+        connected = false;
+        group_el;
+        slider_el;
+        title_el;
+        _auto_width = "auto";
+        _auto_height = "auto";
         *controls() {
             yield this.slider_el;
         }
+        _noUiSlider;
         get _steps() {
             return this._noUiSlider.steps;
         }
@@ -15948,33 +15791,30 @@ Please report this to https://github.com/markedjs/marked.`, e) {
         }
     }
     exports.AbstractSliderView = AbstractSliderView;
-    AbstractSliderView.__name__ = "AbstractSliderView";
     class AbstractSlider extends oriented_control_1.OrientedControl {
         constructor(attrs) {
             super(attrs);
         }
+        static {
+            this.define(({ Unknown, Bool, Str, Color, Enum, Nullable }) => {
+                return {
+                    title: [Nullable(Str), ""],
+                    show_value: [Bool, true],
+                    value: [Unknown],
+                    value_throttled: [Unknown, p.unset, { readonly: true }],
+                    direction: [Enum("ltr", "rtl"), "ltr"],
+                    tooltips: [Bool, true],
+                    bar_color: [Color, "#e6e6e6"],
+                };
+            });
+            this.override({
+                width: 300, // sliders don't have any intrinsic width
+            });
+        }
     }
     exports.AbstractSlider = AbstractSlider;
-    _a = AbstractSlider;
-    AbstractSlider.__name__ = "AbstractSlider";
-    (() => {
-        _a.define(({ Unknown, Bool, Str, Color, Enum, Nullable }) => {
-            return {
-                title: [Nullable(Str), ""],
-                show_value: [Bool, true],
-                value: [Unknown],
-                value_throttled: [Unknown, p.unset, { readonly: true }],
-                direction: [Enum("ltr", "rtl"), "ltr"],
-                tooltips: [Bool, true],
-                bar_color: [Color, "#e6e6e6"],
-            };
-        });
-        _a.override({
-            width: 300, // sliders don't have any intrinsic width
-        });
-    })();
 },
-702: /* nouislider/dist/nouislider.mjs */ function _(require, module, exports, __esModule, __esExport) {
+777: /* nouislider/dist/nouislider.mjs */ function _(require, module, exports, __esModule, __esExport) {
     __esModule();
     exports.create = initialize;
     (function (PipsMode) {
@@ -18247,28 +18087,24 @@ Please report this to https://github.com/markedjs/marked.`, e) {
         create: initialize,
     };
 },
-703: /* styles/widgets/sliders.css.js */ function _(require, module, exports, __esModule, __esExport) {
+778: /* styles/widgets/sliders.css.js */ function _(require, module, exports, __esModule, __esExport) {
     __esModule();
     exports.slider_title = "bk-slider-title";
     exports.slider_value = "bk-slider-value";
     exports.default = `.bk-slider-title{white-space:nowrap;}.bk-slider-value{font-weight:600;}`;
 },
-704: /* styles/widgets/nouislider.css.js */ function _(require, module, exports, __esModule, __esExport) {
+779: /* styles/widgets/nouislider.css.js */ function _(require, module, exports, __esModule, __esExport) {
     __esModule();
     exports.default = `.noUi-target,.noUi-target *{-webkit-touch-callout:none;-webkit-tap-highlight-color:rgba(0, 0, 0, 0);-webkit-user-select:none;-ms-touch-action:none;touch-action:none;-ms-user-select:none;-moz-user-select:none;user-select:none;-moz-box-sizing:border-box;box-sizing:border-box;}.noUi-target{position:relative;}.noUi-base,.noUi-connects{width:100%;height:100%;position:relative;z-index:1;}.noUi-connects{overflow:hidden;z-index:0;}.noUi-connect,.noUi-origin{will-change:transform;position:absolute;z-index:1;top:0;right:0;height:100%;width:100%;-ms-transform-origin:0 0;-webkit-transform-origin:0 0;-webkit-transform-style:preserve-3d;transform-origin:0 0;transform-style:flat;}.noUi-txt-dir-rtl.noUi-horizontal .noUi-origin{left:0;right:auto;}.noUi-vertical .noUi-origin{top:-100%;width:0;}.noUi-horizontal .noUi-origin{height:0;}.noUi-handle{-webkit-backface-visibility:hidden;backface-visibility:hidden;position:absolute;}.noUi-touch-area{height:100%;width:100%;}.noUi-state-tap .noUi-connect,.noUi-state-tap .noUi-origin{-webkit-transition:transform 0.3s;transition:transform 0.3s;}.noUi-state-drag *{cursor:inherit !important;}.noUi-horizontal{height:18px;}.noUi-horizontal .noUi-handle{width:34px;height:28px;right:-17px;top:-6px;}.noUi-vertical{width:18px;}.noUi-vertical .noUi-handle{width:28px;height:34px;right:-6px;bottom:-17px;}.noUi-txt-dir-rtl.noUi-horizontal .noUi-handle{left:-17px;right:auto;}.noUi-target{background:#FAFAFA;border-radius:4px;border:1px solid #D3D3D3;box-shadow:inset 0 1px 1px #F0F0F0, 0 3px 6px -5px #BBB;}.noUi-connects{border-radius:3px;}.noUi-connect{background:#3FB8AF;}.noUi-draggable{cursor:ew-resize;}.noUi-vertical .noUi-draggable{cursor:ns-resize;}.noUi-handle{border:1px solid #D9D9D9;border-radius:3px;background:#FFF;cursor:default;box-shadow:inset 0 0 1px #FFF, inset 0 1px 7px #EBEBEB, 0 3px 6px -3px #BBB;}.noUi-active{box-shadow:inset 0 0 1px #FFF, inset 0 1px 7px #DDD, 0 3px 6px -3px #BBB;}.noUi-handle:before,.noUi-handle:after{content:"";display:block;position:absolute;height:14px;width:1px;background:#E8E7E6;left:14px;top:6px;}.noUi-handle:after{left:17px;}.noUi-vertical .noUi-handle:before,.noUi-vertical .noUi-handle:after{width:14px;height:1px;left:6px;top:14px;}.noUi-vertical .noUi-handle:after{top:17px;}[disabled] .noUi-connect{background:#B8B8B8;}[disabled].noUi-target,[disabled].noUi-handle,[disabled] .noUi-handle{cursor:not-allowed;}.noUi-pips,.noUi-pips *{-moz-box-sizing:border-box;box-sizing:border-box;}.noUi-pips{position:absolute;color:#999;}.noUi-value{position:absolute;white-space:nowrap;text-align:center;}.noUi-value-sub{color:#ccc;font-size:10px;}.noUi-marker{position:absolute;background:#CCC;}.noUi-marker-sub{background:#AAA;}.noUi-marker-large{background:#AAA;}.noUi-pips-horizontal{padding:10px 0;height:80px;top:100%;left:0;width:100%;}.noUi-value-horizontal{-webkit-transform:translate(-50%, 50%);transform:translate(-50%, 50%);}.noUi-rtl .noUi-value-horizontal{-webkit-transform:translate(50%, 50%);transform:translate(50%, 50%);}.noUi-marker-horizontal.noUi-marker{margin-left:-1px;width:2px;height:5px;}.noUi-marker-horizontal.noUi-marker-sub{height:10px;}.noUi-marker-horizontal.noUi-marker-large{height:15px;}.noUi-pips-vertical{padding:0 10px;height:100%;top:0;left:100%;}.noUi-value-vertical{-webkit-transform:translate(0, -50%);transform:translate(0, -50%);padding-left:25px;}.noUi-rtl .noUi-value-vertical{-webkit-transform:translate(0, 50%);transform:translate(0, 50%);}.noUi-marker-vertical.noUi-marker{width:5px;height:2px;margin-top:-1px;}.noUi-marker-vertical.noUi-marker-sub{width:10px;}.noUi-marker-vertical.noUi-marker-large{width:15px;}.noUi-tooltip{display:block;position:absolute;border:1px solid #D9D9D9;border-radius:3px;background:#fff;color:#000;padding:5px;text-align:center;white-space:nowrap;}.noUi-horizontal .noUi-tooltip{-webkit-transform:translate(-50%, 0);transform:translate(-50%, 0);left:50%;bottom:120%;}.noUi-vertical .noUi-tooltip{-webkit-transform:translate(0, -50%);transform:translate(0, -50%);top:50%;right:120%;}.noUi-horizontal .noUi-origin > .noUi-tooltip{-webkit-transform:translate(50%, 0);transform:translate(50%, 0);left:auto;bottom:10px;}.noUi-vertical .noUi-origin > .noUi-tooltip{-webkit-transform:translate(0, -18px);transform:translate(0, -18px);top:auto;right:28px;}.noUi-handle{cursor:grab;cursor:-webkit-grab;}.noUi-handle.noUi-active{cursor:grabbing;cursor:-webkit-grabbing;}.noUi-handle:after,.noUi-handle:before{display:none;}.noUi-tooltip{display:none;white-space:nowrap;}.noUi-handle:hover .noUi-tooltip{display:block;}:host{--slider-size:10px;--handle-width:14px;--handle-height:18px;--handle-right:calc(-1*var(--handle-width)/2);--handle-top:calc(-1*(var(--handle-height) - var(--slider-size))/2 - 1px);--slider-margin:calc((var(--handle-height) - var(--slider-size))/2 + 1px);}.noUi-horizontal{width:100%;height:var(--slider-size);}.noUi-vertical{width:var(--slider-size);height:100%;}.noUi-horizontal .noUi-handle{width:var(--handle-width);height:var(--handle-height);right:var(--handle-right);top:var(--handle-top);}.noUi-vertical .noUi-handle{width:var(--handle-height);height:var(--handle-width);right:var(--handle-top);top:var(--handle-right);}.noUi-target.noUi-horizontal{margin:var(--slider-margin) 0px;}.noUi-target.noUi-vertical{margin:0px var(--slider-margin);}`;
 },
-705: /* models/widgets/sliders/date_range_slider.js */ function _(require, module, exports, __esModule, __esExport) {
-    var _a;
+780: /* models/widgets/sliders/date_range_slider.js */ function _(require, module, exports, __esModule, __esExport) {
     __esModule();
-    const numerical_range_slider_1 = require(706) /* ./numerical_range_slider */;
+    const numerical_range_slider_1 = require(781) /* ./numerical_range_slider */;
     const types_1 = require(8) /* ../../../core/util/types */;
-    const templating_1 = require(259) /* ../../../core/util/templating */;
+    const templating_1 = require(329) /* ../../../core/util/templating */;
     class DateRangeSliderView extends numerical_range_slider_1.NumericalRangeSliderView {
-        constructor() {
-            super(...arguments);
-            this.behaviour = "drag";
-            this.connected = [false, true, false];
-        }
+        behaviour = "drag";
+        connected = [false, true, false];
         _calc_to() {
             const spec = super._calc_to();
             spec.step *= 86400000;
@@ -18284,25 +18120,22 @@ Please report this to https://github.com/markedjs/marked.`, e) {
         }
     }
     exports.DateRangeSliderView = DateRangeSliderView;
-    DateRangeSliderView.__name__ = "DateRangeSliderView";
     class DateRangeSlider extends numerical_range_slider_1.NumericalRangeSlider {
         constructor(attrs) {
             super(attrs);
         }
+        static {
+            this.prototype.default_view = DateRangeSliderView;
+            this.override({
+                format: "%d %b %Y",
+            });
+        }
     }
     exports.DateRangeSlider = DateRangeSlider;
-    _a = DateRangeSlider;
-    DateRangeSlider.__name__ = "DateRangeSlider";
-    (() => {
-        _a.prototype.default_view = DateRangeSliderView;
-        _a.override({
-            format: "%d %b %Y",
-        });
-    })();
 },
-706: /* models/widgets/sliders/numerical_range_slider.js */ function _(require, module, exports, __esModule, __esExport) {
+781: /* models/widgets/sliders/numerical_range_slider.js */ function _(require, module, exports, __esModule, __esExport) {
     __esModule();
-    const base_numerical_slider_1 = require(707) /* ./base_numerical_slider */;
+    const base_numerical_slider_1 = require(782) /* ./base_numerical_slider */;
     class NumericalRangeSliderView extends base_numerical_slider_1.BaseNumericalSliderView {
         _calc_to() {
             return {
@@ -18319,20 +18152,17 @@ Please report this to https://github.com/markedjs/marked.`, e) {
         }
     }
     exports.NumericalRangeSliderView = NumericalRangeSliderView;
-    NumericalRangeSliderView.__name__ = "NumericalRangeSliderView";
     class NumericalRangeSlider extends base_numerical_slider_1.BaseNumericalSlider {
         constructor(attrs) {
             super(attrs);
         }
     }
     exports.NumericalRangeSlider = NumericalRangeSlider;
-    NumericalRangeSlider.__name__ = "NumericalRangeSlider";
 },
-707: /* models/widgets/sliders/base_numerical_slider.js */ function _(require, module, exports, __esModule, __esExport) {
-    var _a;
+782: /* models/widgets/sliders/base_numerical_slider.js */ function _(require, module, exports, __esModule, __esExport) {
     __esModule();
-    const abstract_slider_1 = require(701) /* ./abstract_slider */;
-    const tick_formatter_1 = require(205) /* ../../formatters/tick_formatter */;
+    const abstract_slider_1 = require(776) /* ./abstract_slider */;
+    const tick_formatter_1 = require(275) /* ../../formatters/tick_formatter */;
     class BaseNumericalSliderView extends abstract_slider_1.AbstractSliderView {
         connect_signals() {
             super.connect_signals();
@@ -18344,38 +18174,31 @@ Please report this to https://github.com/markedjs/marked.`, e) {
         }
     }
     exports.BaseNumericalSliderView = BaseNumericalSliderView;
-    BaseNumericalSliderView.__name__ = "BaseNumericalSliderView";
     class BaseNumericalSlider extends abstract_slider_1.AbstractSlider {
         constructor(attrs) {
             super(attrs);
         }
+        static {
+            this.define(({ Float, Str, Or, Ref }) => {
+                return {
+                    start: [Float],
+                    end: [Float],
+                    step: [Float, 1],
+                    format: [Or(Str, Ref(tick_formatter_1.TickFormatter))],
+                };
+            });
+        }
     }
     exports.BaseNumericalSlider = BaseNumericalSlider;
-    _a = BaseNumericalSlider;
-    BaseNumericalSlider.__name__ = "BaseNumericalSlider";
-    (() => {
-        _a.define(({ Float, Str, Or, Ref }) => {
-            return {
-                start: [Float],
-                end: [Float],
-                step: [Float, 1],
-                format: [Or(Str, Ref(tick_formatter_1.TickFormatter))],
-            };
-        });
-    })();
 },
-708: /* models/widgets/sliders/date_slider.js */ function _(require, module, exports, __esModule, __esExport) {
-    var _a;
+783: /* models/widgets/sliders/date_slider.js */ function _(require, module, exports, __esModule, __esExport) {
     __esModule();
-    const numerical_slider_1 = require(709) /* ./numerical_slider */;
+    const numerical_slider_1 = require(784) /* ./numerical_slider */;
     const types_1 = require(8) /* ../../../core/util/types */;
-    const templating_1 = require(259) /* ../../../core/util/templating */;
+    const templating_1 = require(329) /* ../../../core/util/templating */;
     class DateSliderView extends numerical_slider_1.NumericalSliderView {
-        constructor() {
-            super(...arguments);
-            this.behaviour = "tap";
-            this.connected = [true, false];
-        }
+        behaviour = "tap";
+        connected = [true, false];
         _calc_to() {
             const spec = super._calc_to();
             spec.step *= 86400000;
@@ -18391,25 +18214,22 @@ Please report this to https://github.com/markedjs/marked.`, e) {
         }
     }
     exports.DateSliderView = DateSliderView;
-    DateSliderView.__name__ = "DateSliderView";
     class DateSlider extends numerical_slider_1.NumericalSlider {
         constructor(attrs) {
             super(attrs);
         }
+        static {
+            this.prototype.default_view = DateSliderView;
+            this.override({
+                format: "%d %b %Y",
+            });
+        }
     }
     exports.DateSlider = DateSlider;
-    _a = DateSlider;
-    DateSlider.__name__ = "DateSlider";
-    (() => {
-        _a.prototype.default_view = DateSliderView;
-        _a.override({
-            format: "%d %b %Y",
-        });
-    })();
 },
-709: /* models/widgets/sliders/numerical_slider.js */ function _(require, module, exports, __esModule, __esExport) {
+784: /* models/widgets/sliders/numerical_slider.js */ function _(require, module, exports, __esModule, __esExport) {
     __esModule();
-    const base_numerical_slider_1 = require(707) /* ./base_numerical_slider */;
+    const base_numerical_slider_1 = require(782) /* ./base_numerical_slider */;
     class NumericalSliderView extends base_numerical_slider_1.BaseNumericalSliderView {
         _calc_to() {
             const { start, end, value, step } = this.model;
@@ -18432,27 +18252,21 @@ Please report this to https://github.com/markedjs/marked.`, e) {
         }
     }
     exports.NumericalSliderView = NumericalSliderView;
-    NumericalSliderView.__name__ = "NumericalSliderView";
     class NumericalSlider extends base_numerical_slider_1.BaseNumericalSlider {
         constructor(attrs) {
             super(attrs);
         }
     }
     exports.NumericalSlider = NumericalSlider;
-    NumericalSlider.__name__ = "NumericalSlider";
 },
-710: /* models/widgets/sliders/datetime_range_slider.js */ function _(require, module, exports, __esModule, __esExport) {
-    var _a;
+785: /* models/widgets/sliders/datetime_range_slider.js */ function _(require, module, exports, __esModule, __esExport) {
     __esModule();
-    const numerical_range_slider_1 = require(706) /* ./numerical_range_slider */;
+    const numerical_range_slider_1 = require(781) /* ./numerical_range_slider */;
     const types_1 = require(8) /* ../../../core/util/types */;
-    const templating_1 = require(259) /* ../../../core/util/templating */;
+    const templating_1 = require(329) /* ../../../core/util/templating */;
     class DatetimeRangeSliderView extends numerical_range_slider_1.NumericalRangeSliderView {
-        constructor() {
-            super(...arguments);
-            this.behaviour = "drag";
-            this.connected = [false, true, false];
-        }
+        behaviour = "drag";
+        connected = [false, true, false];
         _formatter(value, format) {
             if ((0, types_1.isString)(format)) {
                 return (0, templating_1.datetime)(value, format);
@@ -18463,36 +18277,29 @@ Please report this to https://github.com/markedjs/marked.`, e) {
         }
     }
     exports.DatetimeRangeSliderView = DatetimeRangeSliderView;
-    DatetimeRangeSliderView.__name__ = "DatetimeRangeSliderView";
     class DatetimeRangeSlider extends numerical_range_slider_1.NumericalRangeSlider {
         constructor(attrs) {
             super(attrs);
         }
+        static {
+            this.prototype.default_view = DatetimeRangeSliderView;
+            this.override({
+                format: "%d %b %Y %H:%M:%S",
+                step: 3600000, // 1 hour
+            });
+        }
     }
     exports.DatetimeRangeSlider = DatetimeRangeSlider;
-    _a = DatetimeRangeSlider;
-    DatetimeRangeSlider.__name__ = "DatetimeRangeSlider";
-    (() => {
-        _a.prototype.default_view = DatetimeRangeSliderView;
-        _a.override({
-            format: "%d %b %Y %H:%M:%S",
-            step: 3600000, // 1 hour
-        });
-    })();
 },
-711: /* models/widgets/sliders/range_slider.js */ function _(require, module, exports, __esModule, __esExport) {
-    var _a;
+786: /* models/widgets/sliders/range_slider.js */ function _(require, module, exports, __esModule, __esExport) {
     __esModule();
     const tslib_1 = require(1) /* tslib */;
-    const numbro = tslib_1.__importStar(require(260) /* @bokeh/numbro */);
-    const numerical_range_slider_1 = require(706) /* ./numerical_range_slider */;
+    const numbro = tslib_1.__importStar(require(330) /* @bokeh/numbro */);
+    const numerical_range_slider_1 = require(781) /* ./numerical_range_slider */;
     const types_1 = require(8) /* ../../../core/util/types */;
     class RangeSliderView extends numerical_range_slider_1.NumericalRangeSliderView {
-        constructor() {
-            super(...arguments);
-            this.behaviour = "drag";
-            this.connected = [false, true, false];
-        }
+        behaviour = "drag";
+        connected = [false, true, false];
         _formatter(value, format) {
             if ((0, types_1.isString)(format)) {
                 return numbro.format(value, format);
@@ -18503,35 +18310,28 @@ Please report this to https://github.com/markedjs/marked.`, e) {
         }
     }
     exports.RangeSliderView = RangeSliderView;
-    RangeSliderView.__name__ = "RangeSliderView";
     class RangeSlider extends numerical_range_slider_1.NumericalRangeSlider {
         constructor(attrs) {
             super(attrs);
         }
+        static {
+            this.prototype.default_view = RangeSliderView;
+            this.override({
+                format: "0[.]00",
+            });
+        }
     }
     exports.RangeSlider = RangeSlider;
-    _a = RangeSlider;
-    RangeSlider.__name__ = "RangeSlider";
-    (() => {
-        _a.prototype.default_view = RangeSliderView;
-        _a.override({
-            format: "0[.]00",
-        });
-    })();
 },
-712: /* models/widgets/sliders/slider.js */ function _(require, module, exports, __esModule, __esExport) {
-    var _a;
+787: /* models/widgets/sliders/slider.js */ function _(require, module, exports, __esModule, __esExport) {
     __esModule();
     const tslib_1 = require(1) /* tslib */;
-    const numbro = tslib_1.__importStar(require(260) /* @bokeh/numbro */);
-    const numerical_slider_1 = require(709) /* ./numerical_slider */;
+    const numbro = tslib_1.__importStar(require(330) /* @bokeh/numbro */);
+    const numerical_slider_1 = require(784) /* ./numerical_slider */;
     const types_1 = require(8) /* ../../../core/util/types */;
     class SliderView extends numerical_slider_1.NumericalSliderView {
-        constructor() {
-            super(...arguments);
-            this.behaviour = "tap";
-            this.connected = [true, false];
-        }
+        behaviour = "tap";
+        connected = [true, false];
         _formatter(value, format) {
             if ((0, types_1.isString)(format)) {
                 return numbro.format(value, format);
@@ -18542,21 +18342,18 @@ Please report this to https://github.com/markedjs/marked.`, e) {
         }
     }
     exports.SliderView = SliderView;
-    SliderView.__name__ = "SliderView";
     class Slider extends numerical_slider_1.NumericalSlider {
         constructor(attrs) {
             super(attrs);
         }
+        static {
+            this.prototype.default_view = SliderView;
+            this.override({
+                format: "0[.]00",
+            });
+        }
     }
     exports.Slider = Slider;
-    _a = Slider;
-    Slider.__name__ = "Slider";
-    (() => {
-        _a.prototype.default_view = SliderView;
-        _a.override({
-            format: "0[.]00",
-        });
-    })();
 },
-}, 622, {"models/widgets/main":622,"models/widgets/index":623,"models/widgets/abstract_button":624,"models/widgets/control":625,"models/widgets/widget":737,"models/widgets/autocomplete_input":627,"models/widgets/text_input":628,"models/widgets/text_like_input":629,"models/widgets/input_widget":630,"styles/widgets/inputs.css":631,"styles/dropdown.css":632,"models/widgets/button":633,"models/widgets/checkbox_button_group":634,"models/widgets/toggle_button_group":635,"models/widgets/oriented_control":636,"models/widgets/checkbox_group":637,"models/widgets/toggle_input_group":638,"styles/widgets/checkbox.css":639,"models/widgets/checkbox":640,"models/widgets/toggle_input":641,"styles/widgets/toggle_input.css":642,"models/widgets/color_picker":643,"models/widgets/date_picker":644,"models/widgets/base_date_picker":645,"models/widgets/picker_base":646,"styles/widgets/flatpickr.css":655,"models/widgets/date_range_picker":656,"models/widgets/datetime_picker":657,"models/widgets/base_datetime_picker":658,"models/widgets/datetime_range_picker":659,"models/widgets/div":660,"models/widgets/markup":661,"styles/clearfix.css":662,"models/widgets/dropdown":663,"styles/caret.css":664,"models/widgets/file_input":665,"models/widgets/help_button":666,"models/widgets/markdown":667,"models/widgets/multi_choice":670,"styles/widgets/choices.css":672,"models/widgets/multiselect":673,"models/widgets/multiple_date_picker":674,"models/widgets/multiple_datetime_picker":675,"models/widgets/numeric_input":676,"models/widgets/palette_select":677,"core/util/panes":678,"styles/panes.css":679,"styles/widgets/palette_select.css":680,"styles/widgets/palette_select_item.css":681,"styles/widgets/palette_select_pane.css":682,"models/widgets/paragraph":683,"models/widgets/password_input":684,"styles/widgets/password_input.css":685,"models/widgets/pretext":686,"models/widgets/progress":687,"models/widgets/indicator":688,"styles/widgets/progress.css":689,"models/widgets/radio_button_group":690,"models/widgets/radio_group":691,"models/widgets/select":692,"models/widgets/spinner":693,"models/widgets/switch":694,"styles/widgets/switch.css":695,"models/widgets/textarea_input":696,"models/widgets/time_picker":697,"models/widgets/toggle":698,"models/widgets/sliders/index":699,"models/widgets/sliders/categorical_slider":700,"models/widgets/sliders/abstract_slider":701,"styles/widgets/sliders.css":703,"styles/widgets/nouislider.css":704,"models/widgets/sliders/date_range_slider":705,"models/widgets/sliders/numerical_range_slider":706,"models/widgets/sliders/base_numerical_slider":707,"models/widgets/sliders/date_slider":708,"models/widgets/sliders/numerical_slider":709,"models/widgets/sliders/datetime_range_slider":710,"models/widgets/sliders/range_slider":711,"models/widgets/sliders/slider":712}, {});});
+}, 697, {"models/widgets/main":697,"models/widgets/index":698,"models/widgets/abstract_button":699,"models/widgets/control":700,"models/widgets/widget":798,"models/widgets/autocomplete_input":702,"models/widgets/text_input":703,"models/widgets/text_like_input":704,"models/widgets/input_widget":705,"styles/widgets/inputs.css":706,"styles/dropdown.css":707,"models/widgets/button":708,"models/widgets/checkbox_button_group":709,"models/widgets/toggle_button_group":710,"models/widgets/oriented_control":711,"models/widgets/checkbox_group":712,"models/widgets/toggle_input_group":713,"styles/widgets/checkbox.css":714,"models/widgets/checkbox":715,"models/widgets/toggle_input":716,"styles/widgets/toggle_input.css":717,"models/widgets/color_picker":718,"models/widgets/date_picker":719,"models/widgets/base_date_picker":720,"models/widgets/picker_base":721,"styles/widgets/flatpickr.css":730,"models/widgets/date_range_picker":731,"models/widgets/datetime_picker":732,"models/widgets/base_datetime_picker":733,"models/widgets/datetime_range_picker":734,"models/widgets/div":735,"models/widgets/markup":736,"styles/clearfix.css":737,"models/widgets/dropdown":738,"styles/caret.css":739,"models/widgets/file_input":740,"models/widgets/help_button":741,"models/widgets/markdown":742,"models/widgets/multi_choice":745,"styles/widgets/choices.css":747,"models/widgets/multiselect":748,"models/widgets/multiple_date_picker":749,"models/widgets/multiple_datetime_picker":750,"models/widgets/numeric_input":751,"models/widgets/palette_select":752,"core/util/panes":753,"styles/panes.css":754,"styles/widgets/palette_select.css":755,"styles/widgets/palette_select_item.css":756,"styles/widgets/palette_select_pane.css":757,"models/widgets/paragraph":758,"models/widgets/password_input":759,"styles/widgets/password_input.css":760,"models/widgets/pretext":761,"models/widgets/progress":762,"models/widgets/indicator":763,"styles/widgets/progress.css":764,"models/widgets/radio_button_group":765,"models/widgets/radio_group":766,"models/widgets/select":767,"models/widgets/spinner":768,"models/widgets/switch":769,"styles/widgets/switch.css":770,"models/widgets/textarea_input":771,"models/widgets/time_picker":772,"models/widgets/toggle":773,"models/widgets/sliders/index":774,"models/widgets/sliders/categorical_slider":775,"models/widgets/sliders/abstract_slider":776,"styles/widgets/sliders.css":778,"styles/widgets/nouislider.css":779,"models/widgets/sliders/date_range_slider":780,"models/widgets/sliders/numerical_range_slider":781,"models/widgets/sliders/base_numerical_slider":782,"models/widgets/sliders/date_slider":783,"models/widgets/sliders/numerical_slider":784,"models/widgets/sliders/datetime_range_slider":785,"models/widgets/sliders/range_slider":786,"models/widgets/sliders/slider":787}, {});});
 //# sourceMappingURL=bokeh-widgets.js.map

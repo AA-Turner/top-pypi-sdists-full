@@ -474,7 +474,7 @@ class ClusterController(BaseController):
             )
         if cluster_name is None and cluster_id is None:
             raise click.ClickException(
-                "Please specity one of `--name` or `--cluster-id`."
+                "Please specify one of `--name` or `--cluster-id`."
             )
         if cloud_name is not None and cloud_id is not None:
             raise click.ClickException(

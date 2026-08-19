@@ -10,8 +10,10 @@ from collections import Counter
 from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
 
+import lance
 import pyarrow as pa
 import pytest
+from lance.file import LanceFileReader, ReaderResults
 
 from geneva.checkpoint import (
     CheckpointConfig,
@@ -20,10 +22,16 @@ from geneva.checkpoint import (
     FlatLanceCheckpointStore,
     HierarchicalLanceCheckpointStore,
     InMemoryCheckpointStore,
+    MultiBaseCheckpointStore,
     _parse_flat_key,
     _select_store_class,
+    discard_short_checkpoint,
+    read_checkpoint_num_rows,
+    stamp_checkpoint_num_rows,
+    strip_checkpoint_num_rows,
 )
 from geneva.checkpoint_utils import hash_string
+from geneva.errors import CorruptCheckpointError
 
 pytestmark = pytest.mark.slow
 
@@ -60,6 +68,260 @@ def test_checkpoint(store: CheckpointStore) -> None:
     assert "key" in store
     assert "key" in list(store.list_keys())
     assert store["key"].to_pydict() == {"a": [1, 2, 3]}
+
+
+@pytest.mark.parametrize("layout", ["flat", "hierarchical"])
+def test_lance_checkpoint_read_range_preserves_values_and_metadata(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, layout: str
+) -> None:
+    if layout == "flat":
+        store: CheckpointStore = FlatLanceCheckpointStore(str(tmp_path / "flat"))
+        key = "key"
+        empty_key = "empty"
+        missing_key = "missing"
+    else:
+        store = HierarchicalLanceCheckpointStore(
+            str(tmp_path / "hierarchical"), write_identity_sidecar=False
+        )
+        key = f"{_FLAT_KEY_BASE}_frag-7_range-0-5"
+        empty_key = f"{_FLAT_KEY_BASE}_frag-8_range-0-0"
+        missing_key = f"{_FLAT_KEY_BASE}_frag-9_range-0-1"
+
+    payload_field = pa.field(
+        "payload",
+        pa.large_binary(),
+        metadata={b"lance-encoding:blob": b"true"},
+    )
+    schema = pa.schema(
+        [payload_field, pa.field("_rowaddr", pa.uint64())],
+        metadata={b"schema-key": b"schema-value"},
+    )
+    batch = stamp_checkpoint_num_rows(
+        pa.record_batch(
+            [
+                pa.array([b"a", b"b", None, b"d", b"e"], pa.large_binary()),
+                pa.array(range(5), pa.uint64()),
+            ],
+            schema=schema,
+        )
+    )
+    store[key] = batch
+
+    read_calls: list[tuple[int, int, int, int]] = []
+    original_read_range = LanceFileReader.read_range
+
+    def tracked_read_range(
+        reader: LanceFileReader,
+        start: int,
+        num_rows: int,
+        *,
+        batch_size: int = 1024,
+        batch_readahead: int = 16,
+    ) -> ReaderResults:
+        read_calls.append((start, num_rows, batch_size, batch_readahead))
+        return original_read_range(
+            reader,
+            start,
+            num_rows,
+            batch_size=batch_size,
+            batch_readahead=batch_readahead,
+        )
+
+    def reject_full_read(
+        _reader: LanceFileReader,
+        *,
+        batch_size: int = 1024,
+        batch_readahead: int = 16,
+    ) -> ReaderResults:
+        del batch_size, batch_readahead
+        raise AssertionError("read_range must not materialize the whole checkpoint")
+
+    monkeypatch.setattr(LanceFileReader, "read_range", tracked_read_range)
+    monkeypatch.setattr(LanceFileReader, "read_all", reject_full_read)
+
+    middle = store.read_range(key, 1, 2)
+    assert middle.column("payload").to_pylist() == [b"b", None]
+    assert middle.column("_rowaddr").to_pylist() == [1, 2]
+    assert middle.schema.equals(batch.schema, check_metadata=True)
+    assert read_checkpoint_num_rows(middle) == 5
+
+    tail = store.read_range(key, 4, 8)
+    assert tail.column("payload").to_pylist() == [b"e"]
+    assert tail.column("_rowaddr").to_pylist() == [4]
+    assert tail.schema.equals(batch.schema, check_metadata=True)
+
+    empty_range = store.read_range(key, 99, 8)
+    assert empty_range.num_rows == 0
+    assert empty_range.schema.equals(batch.schema, check_metadata=True)
+
+    empty_batch = stamp_checkpoint_num_rows(
+        pa.RecordBatch.from_arrays(
+            [pa.array([], type=field.type) for field in schema], schema=schema
+        )
+    )
+    store[empty_key] = empty_batch
+    empty_checkpoint = store.read_range(empty_key, 0, 0)
+    assert empty_checkpoint.num_rows == 0
+    assert empty_checkpoint.schema.equals(empty_batch.schema, check_metadata=True)
+    assert read_checkpoint_num_rows(empty_checkpoint) == 0
+
+    with pytest.raises(KeyError):
+        store.read_range(missing_key, 0, 1)
+    with pytest.raises(KeyError):
+        store.read_range(missing_key, 0, 0)
+
+    assert read_calls == [
+        (1, 2, 2, 1),
+        (4, 1, 1, 1),
+    ]
+
+
+def test_multi_base_checkpoint_read_range_delegates_to_bounded_reads(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    store = MultiBaseCheckpointStore(
+        FlatLanceCheckpointStore(str(tmp_path / "default")),
+        base_checkpoint_uris={1: str(tmp_path / "base")},
+        frag_to_base={7: 1},
+    )
+    routed_key = f"{_FLAT_KEY_BASE}_frag-7_range-0-5"
+    fallback_key = f"{_FLAT_KEY_BASE}_frag-7_range-5-10"
+    batch = pa.RecordBatch.from_pydict({"value": list(range(5))})
+    store[routed_key] = batch
+    # Simulate a checkpoint written at the default root before multi-base
+    # routing existed. The router must preserve its fallback lookup while
+    # delegating the bounded read to the store that actually contains the key.
+    store.default_store[fallback_key] = batch
+
+    read_calls: list[tuple[int, int, int, int]] = []
+    original_read_range = LanceFileReader.read_range
+
+    def tracked_read_range(
+        reader: LanceFileReader,
+        start: int,
+        num_rows: int,
+        *,
+        batch_size: int = 1024,
+        batch_readahead: int = 16,
+    ) -> ReaderResults:
+        read_calls.append((start, num_rows, batch_size, batch_readahead))
+        return original_read_range(
+            reader,
+            start,
+            num_rows,
+            batch_size=batch_size,
+            batch_readahead=batch_readahead,
+        )
+
+    def reject_full_read(
+        _reader: LanceFileReader,
+        *,
+        batch_size: int = 1024,
+        batch_readahead: int = 16,
+    ) -> ReaderResults:
+        del batch_size, batch_readahead
+        raise AssertionError("multi-base range reads must not read full checkpoints")
+
+    monkeypatch.setattr(LanceFileReader, "read_range", tracked_read_range)
+    monkeypatch.setattr(LanceFileReader, "read_all", reject_full_read)
+
+    assert store.read_range(routed_key, 1, 2).column("value").to_pylist() == [1, 2]
+    assert store.read_range(fallback_key, 2, 2).column("value").to_pylist() == [2, 3]
+    assert read_calls == [(1, 2, 2, 1), (2, 2, 2, 1)]
+
+
+def test_lance_checkpoint_read_range_restores_blob_v2_metadata(
+    tmp_path: Path,
+) -> None:
+    store = FlatLanceCheckpointStore(str(tmp_path))
+    schema = pa.schema(
+        [pa.field("_rowaddr", pa.uint64()), lance.blob_field("payload")],
+        metadata={b"schema-key": b"schema-value"},
+    )
+    batch = stamp_checkpoint_num_rows(
+        pa.record_batch(
+            [
+                pa.array(range(3), type=pa.uint64()),
+                lance.blob_array([b"a", None, b"c"]),
+            ],
+            schema=schema,
+        )
+    )
+    store["key"] = batch
+
+    middle = store.read_range("key", 1, 1)
+    assert middle.schema.equals(batch.schema, check_metadata=True)
+    assert read_checkpoint_num_rows(middle) == 3
+
+    empty = store.read_range("key", batch.num_rows, 0)
+    assert empty.num_rows == 0
+    assert empty.schema.equals(batch.schema, check_metadata=True)
+    assert read_checkpoint_num_rows(empty) == 3
+
+
+def test_in_memory_checkpoint_read_range_uses_slice_semantics() -> None:
+    store = InMemoryCheckpointStore()
+    schema = pa.schema([pa.field("value", pa.int64())], metadata={b"key": b"value"})
+    batch = stamp_checkpoint_num_rows(
+        pa.RecordBatch.from_arrays([pa.array(range(5), pa.int64())], schema=schema)
+    )
+    store["key"] = batch
+
+    middle = store.read_range("key", 1, 2)
+    assert middle.column("value").to_pylist() == [1, 2]
+    assert middle.schema.equals(batch.schema, check_metadata=True)
+    assert read_checkpoint_num_rows(middle) == 5
+
+    assert store.read_range("key", 4, 8).column("value").to_pylist() == [4]
+    empty = store.read_range("key", 99, 8)
+    assert empty.num_rows == 0
+    assert empty.schema.equals(batch.schema, check_metadata=True)
+
+    with pytest.raises(ValueError, match="start must be non-negative"):
+        store.read_range("key", -1, 1)
+    with pytest.raises(ValueError, match="row count must be non-negative"):
+        store.read_range("key", 0, -1)
+
+
+@pytest.mark.parametrize("panic_stage", ["metadata", "read_range"])
+def test_lance_checkpoint_read_range_converts_reader_panic(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, panic_stage: str
+) -> None:
+    store = FlatLanceCheckpointStore(str(tmp_path))
+    store["key"] = pa.RecordBatch.from_pydict({"value": [1]})
+
+    class PanicException(BaseException):
+        pass
+
+    def panic_metadata(_reader: LanceFileReader) -> None:
+        raise PanicException("injected Lance metadata panic")
+
+    def panic_read_range(
+        _reader: LanceFileReader,
+        start: int,
+        num_rows: int,
+        *,
+        batch_size: int = 1024,
+        batch_readahead: int = 16,
+    ) -> ReaderResults:
+        del start, num_rows, batch_size, batch_readahead
+        raise PanicException("injected Lance reader panic")
+
+    if panic_stage == "metadata":
+        monkeypatch.setattr(LanceFileReader, "metadata", panic_metadata)
+        num_rows = 0
+    else:
+        monkeypatch.setattr(LanceFileReader, "read_range", panic_read_range)
+        num_rows = 1
+
+    with pytest.raises(CorruptCheckpointError) as excinfo:
+        store.read_range("key", 0, num_rows)
+
+    error = excinfo.value
+    assert error.key == "key"
+    assert error.path is not None
+    assert error.cause is not None
+    assert "PanicException" in error.cause
 
 
 def test_default_ckp_store() -> None:
@@ -1862,3 +2124,44 @@ def test_checkpoint_config_per_layout_subdir_env_vars(
     cfg = CheckpointConfig.from_loader(make_loader(EnvVarResolver()))
     assert cfg.flat_subdir == "_ckp_flat_env"
     assert cfg.hierarchical_subdir == "_ckp_hier_env"
+
+
+def test_checkpoint_num_rows_stamp_roundtrip() -> None:
+    batch = pa.RecordBatch.from_pydict({"a": [1, 2, 3, 4]})
+    assert read_checkpoint_num_rows(batch) is None
+
+    stamped = stamp_checkpoint_num_rows(batch)
+    assert read_checkpoint_num_rows(stamped) == 4
+    # slice preserves the stamp: a truncated batch still records the full count
+    assert read_checkpoint_num_rows(stamped.slice(0, 2)) == 4
+
+    stripped = strip_checkpoint_num_rows(stamped)
+    assert read_checkpoint_num_rows(stripped) is None
+    # stripping an unstamped batch is a no-op
+    assert strip_checkpoint_num_rows(batch) is batch
+
+
+@pytest.mark.parametrize(
+    "store",
+    [
+        InMemoryCheckpointStore(),
+        FlatLanceCheckpointStore(f"{tempfile.mkdtemp()}/short_ckpt_test"),
+    ],
+)
+def test_discard_short_checkpoint(store: CheckpointStore) -> None:
+    batch = pa.RecordBatch.from_pydict({"a": [1, 2, 3, 4]})
+
+    # a full stamped checkpoint survives the round-trip and is kept
+    store["full"] = stamp_checkpoint_num_rows(batch)
+    assert not discard_short_checkpoint(store, "full", store["full"])
+    assert "full" in store
+
+    # a legacy unstamped checkpoint cannot be validated and is kept
+    store["legacy"] = batch
+    assert not discard_short_checkpoint(store, "legacy", store["legacy"])
+    assert "legacy" in store
+
+    # a short write (stamp says 4 rows, file holds 2) is deleted and reported
+    store["short"] = stamp_checkpoint_num_rows(batch).slice(0, 2)
+    assert discard_short_checkpoint(store, "short", store["short"])
+    assert "short" not in store

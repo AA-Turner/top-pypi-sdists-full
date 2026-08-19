@@ -95,23 +95,12 @@ def test_adaptive_read_task_honors_caller_scan_batch_size() -> None:
     """``AdaptiveReadTask`` must use ``max(batch_size, sizer.max_size)``
     for the inner Lance scan.
 
-    Why this matters: ``CollocatedPipelinedApplier`` deliberately
-    passes a large ``scan_batch_size`` (≥ 4096 by default) to bound
-    the per-FFI-hop allocation in lancedb's bindings. The naive
-    ``AdaptiveReadTask`` would silently discard the kwarg and use
-    ``self.sizer.max_size`` instead — which for a UDF that only
-    declares ``checkpoint_size=64`` (no ``max_checkpoint_size``
-    override) resolves to 64. That dropped the scan into the leaky
-    regime the comment in ``loader.py`` claims to fix; the bench
-    only masked it because it set ``GENEVA_BENCH_MAX_CHECKPOINT_SIZE``.
-
-    TODO(upstream): the workaround under test is itself an
-    attenuator for an upstream lance/lancedb FFI-hop heap leak
-    (lancedb/lance + lancedb/lancedb). Once those issues land we
-    can drop both the ``scan_batch_min = 4096`` floor in
-    ``loader.py`` and the larger-of-the-two clamp here, and this
-    test will become moot. See "File the FFI-hop heap leak
-    upstream" in ``internal_docs/gpu_pipelining.md``.
+    A naive implementation discards the caller's kwarg and scans at
+    ``self.sizer.max_size``, which for a UDF declaring only
+    ``checkpoint_size=64`` (no ``max_checkpoint_size`` override)
+    resolves to 64 — ignoring a caller that asked for a coarser scan.
+    The bench masked this because it set
+    ``GENEVA_BENCH_MAX_CHECKPOINT_SIZE``.
     """
 
     class _RecordingTask(ReadTask):
@@ -149,7 +138,7 @@ def test_adaptive_read_task_honors_caller_scan_batch_size() -> None:
 
     # Sizer ceiling is small (64), caller passes a much larger
     # ``batch_size``. Inner scan must see the *larger* value so the
-    # FFI hop count is bounded by the caller's hint, not the sizer.
+    # scan granularity follows the caller's hint, not the sizer.
     inner = _RecordingTask()
     sizer = AdaptiveCheckpointSizer(max_size=64, min_size=1, target_seconds=10.0)
     adaptive = AdaptiveReadTask(inner, sizer=sizer, size_tracker=BatchSizeTracker())

@@ -20,8 +20,8 @@ from geneva.apply.error_handling import (
     make_skip_budget_tracker,
 )
 from geneva.apply.memory import (
+    BatchTrimCounter,
     get_applier_memory_trim_interval,
-    release_unused_process_memory,
 )
 from geneva.apply.task import MapTask, ReadTask
 from geneva.apply.utils import _iter_with_next_duration
@@ -42,6 +42,8 @@ class SimpleApplier(BatchApplier):
     read_io_time_ms: int = attrs.field(default=0, init=False)
     skip_count: int = attrs.field(default=0, init=False)
     total_rows: int = attrs.field(default=0, init=False)
+    # Spans ReadTasks by design; deliberately not cleared by reset_run_state.
+    trim_counter: BatchTrimCounter = attrs.field(factory=BatchTrimCounter, init=False)
 
     def reset_run_state(self) -> None:
         self.udf_processing_time_ms = 0
@@ -64,11 +66,9 @@ class SimpleApplier(BatchApplier):
         )
         batch_iter = read_task.to_batches(batch_size=map_task.batch_size())
         memory_trim_interval = get_applier_memory_trim_interval()
-        for completed_batches, (read_ms, batch) in enumerate(
-            _iter_with_next_duration(iter(batch_iter)),
-            start=1,
+        for seq, (read_ms, batch) in enumerate(
+            _iter_with_next_duration(iter(batch_iter))
         ):
-            seq = completed_batches - 1
             self.read_io_time_ms += read_ms
             # Create error context and strategy for this batch
             ctx = ErrorHandlingContext.create(map_task, read_task, self.job_id, seq)
@@ -95,8 +95,4 @@ class SimpleApplier(BatchApplier):
                 skip_tracker.record_batch(batch_rows, skip_count)
 
             yield result_batch
-            if (
-                memory_trim_interval > 0
-                and completed_batches % memory_trim_interval == 0
-            ):
-                release_unused_process_memory()
+            self.trim_counter.record_batch(memory_trim_interval)

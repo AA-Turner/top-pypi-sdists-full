@@ -30,6 +30,7 @@ from geneva import (
     skip_on_error,
     udf,
 )
+from geneva.apply.error_handling import get_max_attempts
 from geneva.apply.task import BackfillUDFTask, ScanTask
 from geneva.checkpoint import CheckpointStore
 from geneva.db import Connection
@@ -41,11 +42,20 @@ from geneva.debug.error_store import (
     get_exception_outcome,
     resolve_on_error,
 )
+from geneva.errors import (
+    CheckpointCoverageError,
+    CorruptCheckpointError,
+    FatalWorkerError,
+    MergeFallbackTargetError,
+    ShortFragmentWriteError,
+)
 from geneva.jobs.config import JobConfig
 from geneva.runners.ray.actor_pool import ActorLostError, ActorStateSnapshot
 from geneva.runners.ray.pipeline import (
     ColumnAddPipelineJob,
     ScheduledReadTask,
+    _config_handles_exception,
+    _default_worker_loss_policy,
     _normalize_fatal_worker_error,
 )
 from geneva.table import TableReference
@@ -781,10 +791,20 @@ def test_on_error_retry_timeout_integration(db: Connection, local_ray_context) -
     counter_file.unlink(missing_ok=True)
 
 
-def test_on_error_fatal_worker_exit_fail_fast(
-    db: Connection, local_ray_context
+def test_default_worker_loss_isolates_row_and_preserves_where_values(
+    db: Connection,
+    local_ray_context,
+    monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    """Fatal worker exit should fail immediately by default."""
+    """The default retries, isolates one row, and preserves WHERE siblings."""
+
+    import geneva.runners.ray.pipeline as pipeline_module
+
+    monkeypatch.setattr(pipeline_module, "DEFAULT_DEFER_CARRY_FORWARD", False)
+
+    @udf(data_type=pa.int32(), version=uuid.uuid4().hex)
+    def times_ten(a: int) -> int:
+        return a * 10
 
     @udf(data_type=pa.int32(), version=uuid.uuid4().hex)
     def fatal_exit_udf(a: int) -> int:
@@ -792,13 +812,42 @@ def test_on_error_fatal_worker_exit_fail_fast(
 
         if a == 0:
             os._exit(137)
-        return a * 2
+        return a * 100
 
     tbl = db.open_table("test")
-    tbl.add_columns({"b": fatal_exit_udf})
+    tbl.add_columns({"b": times_ten})
+    tbl.backfill("b", where="1=1", concurrency=1, checkpoint_size=4)
+    tbl.checkout_latest()
+    tbl.alter_columns({"path": "b", "udf": fatal_exit_udf})
+    tbl.checkout_latest()
 
-    with pytest.raises(FatalWorkerExitError):
-        tbl.backfill("b")
+    result = tbl.backfill(
+        "b",
+        where="a < 2",
+        concurrency=1,
+        checkpoint_size=64,
+        min_checkpoint_size=1,
+        max_checkpoint_size=4,
+        task_size=SIZE,
+    )
+    assert result.job_id
+
+    result_tbl = db.open_table("test")
+    values = result_tbl.to_arrow().sort_by("a")["b"].to_pylist()
+    assert values[:4] == [None, 100, 20, 30]
+    assert values[4:] == [a * 10 for a in range(4, SIZE)]
+    assert result_tbl.get_failed_row_addresses(result.job_id, "b") == [0]
+
+    errors = result_tbl.get_errors(job_id=result.job_id, column_name="b")
+    fatal_errors = [e for e in errors if e.error_type == "FatalWorkerExitError"]
+    assert len(fatal_errors) == 1
+    assert fatal_errors[0].attempt == 3
+    assert fatal_errors[0].max_attempts == 3
+    assert fatal_errors[0].bisect_depth > 0
+
+    metrics = {m.name: m for m in db.get_job(result.job_id).metrics or []}
+    assert metrics["rows_skipped_on_error"].n == 1
+    assert metrics["tasks_completed"].n == metrics["tasks_completed"].total
 
 
 def test_on_error_skip_fatal_worker_exit_integration(
@@ -883,6 +932,188 @@ def test_on_error_retry_all_fatal_worker_exit_integration(
     counter_file.unlink(missing_ok=True)
 
 
+def _make_poison_udf(kind: str, on_error, version: str):  # noqa: ANN001, ANN202
+    """Build a poison UDF of the given arg type that SIGSEGVs the worker on the
+    input containing ``a == 0``.
+
+    One per UDF arg type -- ``scalar`` (``a: int``), ``array`` (``a: pa.Array``),
+    ``batch`` (``batch: pa.RecordBatch``). The crash is inlined (not a shared
+    helper) so the UDF ships cleanly to the Ray worker; the ``faulthandler`` /
+    core-dump suppression keeps this intentional crash out of CI's crash output.
+    """
+    if kind == "scalar":
+
+        @udf(data_type=pa.int32(), on_error=on_error, version=version)
+        def crash_udf(a: int) -> int:
+            if a == 0:
+                import faulthandler
+                import os
+                import resource
+                import signal
+
+                faulthandler.disable()
+                resource.setrlimit(resource.RLIMIT_CORE, (0, 0))
+                os.kill(os.getpid(), signal.SIGSEGV)
+            return a * 2
+
+        return crash_udf
+
+    if kind == "array":
+
+        @udf(data_type=pa.int32(), on_error=on_error, version=version)
+        def crash_udf(a: pa.Array) -> pa.Array:
+            import pyarrow.compute as pc
+
+            if pc.any(pc.equal(a, 0)).as_py():
+                import faulthandler
+                import os
+                import resource
+                import signal
+
+                faulthandler.disable()
+                resource.setrlimit(resource.RLIMIT_CORE, (0, 0))
+                os.kill(os.getpid(), signal.SIGSEGV)
+            return pc.multiply(a, 2).cast(pa.int32())
+
+        return crash_udf
+
+    @udf(data_type=pa.int32(), on_error=on_error, version=version)
+    def crash_udf(batch: pa.RecordBatch) -> pa.Array:
+        import pyarrow.compute as pc
+
+        a = batch.column("a")
+        if pc.any(pc.equal(a, 0)).as_py():
+            import faulthandler
+            import os
+            import resource
+            import signal
+
+            faulthandler.disable()
+            resource.setrlimit(resource.RLIMIT_CORE, (0, 0))
+            os.kill(os.getpid(), signal.SIGSEGV)
+        return pc.multiply(a, 2).cast(pa.int32())
+
+    return crash_udf
+
+
+@pytest.mark.parametrize("kind", ["scalar", "array", "batch"])
+def test_on_error_retry_then_skip_isolates_fatal_crash_integration(
+    db: Connection, local_ray_context, kind: str
+) -> None:
+    """End-to-end proof, for all three UDF arg types: a real SIGSEGV on the poison
+    row is retried at the whole-task level, then bisected to isolate the row --
+    nulled and recorded (``bisect_depth > 0``) -- while every other row computes.
+
+    Runs for scalar, array, and RecordBatch (``batch``) UDFs; the customer's case
+    is the RecordBatch one (enabled by #1060). ``task_size`` forces multi-row scan
+    tasks so isolation requires real splitting, not just retry of a width-1 task.
+
+    Classification note: on the Ray actor path a worker SIGSEGV surfaces as
+    ``ActorLostError(WORKER_DIED)`` and normalizes to ``FatalWorkerExitError`` --
+    NOT ``FatalWorkerCrashError`` (Ray's ``WorkerCrashedError``, the multiprocess
+    path). The policy covers both.
+    """
+    death = [
+        Retry(FatalWorkerCrashError, FatalWorkerExitError, max_attempts=2),
+        Skip(FatalWorkerCrashError, FatalWorkerExitError, max_skip_count=SIZE),
+    ]
+    crash_udf = _make_poison_udf(kind, death, uuid.uuid4().hex)
+
+    tbl = db.open_table("test")
+    tbl.add_columns({"b": crash_udf}, concurrency=1)
+
+    # task_size > 1 -> the poison row co-batches with healthy rows, so the driver
+    # must bisect (not just retry a width-1 task) to isolate it.
+    result = tbl.backfill("b", task_size=10)
+    assert result is not None
+    assert result.job_id
+
+    result_tbl = db.open_table("test")
+    b_values = result_tbl.to_arrow()["b"].to_pylist()
+    assert b_values[0] is None  # poison row isolated + nulled
+    assert b_values[1:] == [x * 2 for x in range(1, SIZE)]  # every other row computed
+
+    errors = result_tbl.get_errors(job_id=result.job_id, column_name="b")
+    exit_errs = [e for e in errors if e.error_type == "FatalWorkerExitError"]
+    assert exit_errs
+    assert any(e.row_address == 0 for e in exit_errs)
+    # Proof the whole task was split to isolate the poison row (job metric).
+    assert any((e.bisect_depth or 0) > 0 for e in exit_errs)
+
+
+def test_on_error_retry_recovers_intermittent_fatal_crash_integration(
+    db: Connection, local_ray_context
+) -> None:
+    """End-to-end proof of the retry leg: a row that SIGSEGVs on its first
+    execution succeeds on the whole-task retry, so no row is nulled.
+
+    A cross-process counter file makes the crash fire exactly once (the
+    intermittent / mi_malloc failure mode), so the retry recovers it rather than
+    the skip path isolating it. Scoped to ``FatalWorkerExitError`` because a Ray
+    worker SIGSEGV normalizes to that (see the sibling isolate test).
+    """
+    import fcntl
+    import tempfile
+
+    with tempfile.NamedTemporaryFile(mode="w", delete=False, suffix=".txt") as f:
+        f.write("0")
+        counter_file = Path(f.name)
+
+    def atomic_increment(filepath: Path) -> int:
+        with open(filepath, "r+") as f:
+            fcntl.flock(f.fileno(), fcntl.LOCK_EX)
+            try:
+                count = int(f.read() or "0") + 1
+                f.seek(0)
+                f.write(str(count))
+                f.truncate()
+                return count
+            finally:
+                fcntl.flock(f.fileno(), fcntl.LOCK_UN)
+
+    @udf(
+        data_type=pa.int32(),
+        on_error=[
+            Retry(FatalWorkerCrashError, FatalWorkerExitError, max_attempts=3),
+            Skip(FatalWorkerCrashError, FatalWorkerExitError, max_skip_count=SIZE),
+        ],
+        version=uuid.uuid4().hex,
+    )
+    def intermittent_crash_udf(a: int) -> int:
+        # Only row 0's first execution crashes; the whole-task retry then passes.
+        if a == 0 and atomic_increment(counter_file) == 1:
+            import faulthandler
+            import os
+            import resource
+            import signal
+
+            faulthandler.disable()
+            resource.setrlimit(resource.RLIMIT_CORE, (0, 0))
+            os.kill(os.getpid(), signal.SIGSEGV)
+        return a * 2
+
+    tbl = db.open_table("test")
+    tbl.add_columns({"b": intermittent_crash_udf}, batch_size=4, concurrency=1)
+
+    result = tbl.backfill("b")
+    assert result is not None
+    assert result.job_id
+
+    result_tbl = db.open_table("test")
+    b_values = result_tbl.to_arrow()["b"].to_pylist()
+    # Retry recovered the intermittent crash: every row computed, nothing nulled.
+    assert b_values == [x * 2 for x in range(SIZE)]
+
+    # The values above are also what a run with no crash at all would produce,
+    # so assert row 0 actually executed twice: once crashing, once on retry.
+    executions = int(counter_file.read_text() or "0")
+    counter_file.unlink(missing_ok=True)
+    assert executions >= 2, (
+        f"row 0 executed {executions} time(s); the SIGSEGV never fired, "
+        "so the retry leg was not exercised"
+    )
+
+
 def test_on_error_retry_then_skip_fatal_worker_exit_preserves_attempts(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
@@ -939,12 +1170,12 @@ def test_on_error_retry_then_skip_fatal_worker_exit_preserves_attempts(
     monkeypatch.setattr(
         ColumnAddPipelineJob,
         "_load_existing_checkpoints_for_task",
-        lambda self, task: None,
+        lambda self, task, **kwargs: None,
     )
     monkeypatch.setattr(
         ColumnAddPipelineJob,
         "_replacement_scan_tasks",
-        lambda self, task, split_limit: replacements,
+        lambda self, task, split_limit, **kwargs: replacements,
     )
 
     class _FakeFwm:
@@ -1029,12 +1260,12 @@ def test_user_policy_retry_preserves_bisect_depth_on_child(
     monkeypatch.setattr(
         ColumnAddPipelineJob,
         "_load_existing_checkpoints_for_task",
-        lambda self, task: None,
+        lambda self, task, **kwargs: None,
     )
     monkeypatch.setattr(
         ColumnAddPipelineJob,
         "_replacement_scan_tasks",
-        lambda self, task, split_limit: [replacement],
+        lambda self, task, split_limit, **kwargs: [replacement],
     )
 
     class _FakeFwm:
@@ -1071,16 +1302,11 @@ def test_user_policy_retry_preserves_bisect_depth_on_child(
 def test_transient_fatal_retry_preserves_bisect_depth_on_child(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    """Same invariant as the user-policy RETRY case, but on the
-    transient-fatal retry path (``FatalWorkerTransientError`` that the
-    on_error config does not handle). The driver retries up to
-    ``DEFAULT_TRANSIENT_FATAL_MAX_ATTEMPTS`` and must preserve the
-    child's ``bisect_depth`` across attempts."""
+    """The default worker-loss retry preserves a child's bisect depth."""
 
     @udf(
         data_type=pa.int32(),
-        # No matcher for transient errors -> driver's built-in
-        # transient-fatal retry path (pipeline.py:~1118) engages.
+        # No matcher for transient errors -> the driver fallback engages.
         version=uuid.uuid4().hex,
     )
     def passthrough_udf(a: int) -> int:
@@ -1116,12 +1342,12 @@ def test_transient_fatal_retry_preserves_bisect_depth_on_child(
     monkeypatch.setattr(
         ColumnAddPipelineJob,
         "_load_existing_checkpoints_for_task",
-        lambda self, task: None,
+        lambda self, task, **kwargs: None,
     )
     monkeypatch.setattr(
         ColumnAddPipelineJob,
         "_replacement_scan_tasks",
-        lambda self, task, split_limit: [replacement],
+        lambda self, task, split_limit, **kwargs: [replacement],
     )
 
     class _FakeFwm:
@@ -1168,7 +1394,6 @@ def test_transient_fatal_retry_preserves_bisect_depth_on_child(
                 death_cause={
                     "actorDiedErrorContext": {
                         "reason": "NODE_DIED",
-                        "nodeDeathInfo": {"reason": "NODE_DIED"},
                     }
                 },
                 death_reason="NODE_DIED",
@@ -1185,7 +1410,7 @@ def test_transient_fatal_retry_preserves_bisect_depth_on_child(
         ray.exceptions.NodeDiedError("node hosting the actor died"),
     ],
     ids=[
-        "actor_lost",
+        "actor_lost_node_died_without_optional_details",
         "actor_unavailable",
         "preempted_ray_actor_error",
         "node_died",
@@ -1451,6 +1676,26 @@ def test_normalize_fatal_worker_error_keeps_generic_actor_errors_as_exit(
     assert isinstance(normalized, FatalWorkerExitError)
 
 
+@pytest.mark.parametrize("oom_context_key", ["oomContext", "oom_context"])
+def test_normalize_fatal_worker_error_classifies_actor_lost_oom_context(
+    oom_context_key: str,
+) -> None:
+    exc = ActorLostError(
+        ActorStateSnapshot(
+            actor_id="actor-oom",
+            state="DEAD",
+            death_cause={oom_context_key: {}},
+            death_reason=None,
+            node_id="node-live",
+        ),
+        "task-1",
+    )
+
+    normalized = _normalize_fatal_worker_error(exc)
+
+    assert isinstance(normalized, FatalWorkerOOMError)
+
+
 def test_normalize_fatal_worker_error_classifies_oom() -> None:
     """Ray's preemptive memory-monitor kill surfaces as OutOfMemoryError;
     Geneva should classify it as FatalWorkerOOMError."""
@@ -1492,6 +1737,46 @@ def test_normalize_fatal_worker_error_defaults_to_exit() -> None:
     assert isinstance(normalized, FatalWorkerExitError)
 
 
+class _FutureFatalWorkerError(FatalWorkerError):
+    pass
+
+
+@pytest.mark.parametrize(
+    ("error", "outcome", "max_attempts"),
+    [
+        (FatalWorkerExitError("exit"), Outcome.RETRY, 3),
+        (FatalWorkerTransientError("transient"), Outcome.RETRY, 3),
+        (_FutureFatalWorkerError("future"), Outcome.RETRY, 3),
+        (FatalWorkerCrashError("crash"), Outcome.SKIP, 1),
+        (FatalWorkerOOMError("oom"), None, None),
+        (ShortFragmentWriteError("short write"), None, None),
+        (CorruptCheckpointError("key"), None, None),
+        (CheckpointCoverageError(0), None, None),
+        (MergeFallbackTargetError("missing target"), None, None),
+    ],
+)
+def test_default_worker_loss_policy(
+    error: FatalWorkerError,
+    outcome: Outcome | None,
+    max_attempts: int | None,
+) -> None:
+    config = _default_worker_loss_policy(error)
+    if outcome is None:
+        assert config is None
+        return
+    assert get_exception_outcome(error, config) == outcome
+    assert config.fault_isolation == FaultIsolation.SKIP_ROWS
+    assert get_max_attempts(config.retry_config) == max_attempts
+
+
+@pytest.mark.parametrize(
+    "config",
+    [resolve_on_error(fail_fast()), ErrorHandlingConfig()],
+)
+def test_explicit_empty_policy_handles_worker_loss(config: ErrorHandlingConfig) -> None:
+    assert _config_handles_exception(config, FatalWorkerExitError("worker exited"))
+
+
 def test_default_transient_fatal_retry_budget(monkeypatch: pytest.MonkeyPatch) -> None:
     @udf(data_type=pa.int32(), version=uuid.uuid4().hex)
     def transient_udf(a: int) -> int:
@@ -1506,7 +1791,6 @@ def test_default_transient_fatal_retry_budget(monkeypatch: pytest.MonkeyPatch) -
         offset=0,
         limit=4,
     )
-    replacements = [task]
 
     job = ColumnAddPipelineJob(
         map_task=BackfillUDFTask(udfs={"b": transient_udf}),
@@ -1517,15 +1801,24 @@ def test_default_transient_fatal_retry_budget(monkeypatch: pytest.MonkeyPatch) -
         input_plan=iter(()),
         job_id="job-default-transient-retry",
     )
+    invalid_key = "short-checkpoint"
+
+    def _no_checkpoint(self, task, *, invalid_checkpoint_keys=None) -> None:
+        invalid_checkpoint_keys.add(invalid_key)
+        return None
+
+    original_replacements = ColumnAddPipelineJob._replacement_scan_tasks
+    seen_exclusions: list[set[str]] = []
+
+    def _capture_replacements(self, task, **kwargs) -> list[ScanTask]:
+        seen_exclusions.append(set(kwargs["excluded_checkpoint_keys"]))
+        return original_replacements(self, task, **kwargs)
+
     monkeypatch.setattr(
-        ColumnAddPipelineJob,
-        "_load_existing_checkpoints_for_task",
-        lambda self, task: None,
+        ColumnAddPipelineJob, "_load_existing_checkpoints_for_task", _no_checkpoint
     )
     monkeypatch.setattr(
-        ColumnAddPipelineJob,
-        "_replacement_scan_tasks",
-        lambda self, task, split_limit: replacements,
+        ColumnAddPipelineJob, "_replacement_scan_tasks", _capture_replacements
     )
 
     class _FakeFwm:
@@ -1560,14 +1853,19 @@ def test_default_transient_fatal_retry_budget(monkeypatch: pytest.MonkeyPatch) -
     assert handled is True
     assert list(pending_tasks) == [ScheduledReadTask(task, attempt=3)]
 
-    with pytest.raises(FatalWorkerTransientError):
-        job._handle_fatal_task_failure(
-            ScheduledReadTask(task, attempt=3),
-            transient_exc,
-            deque(),
-            _FakeFwm(),  # type: ignore[arg-type]
-            pod_statuses=None,
-        )
+    pending_tasks.clear()
+    assert job._handle_fatal_task_failure(
+        ScheduledReadTask(task, attempt=3),
+        transient_exc,
+        pending_tasks,
+        _FakeFwm(),  # type: ignore[arg-type]
+        pod_statuses=None,
+    )
+    assert [
+        (item.task.offset, item.task.limit, item.attempt, item.bisect_depth)
+        for item in pending_tasks
+    ] == [(0, 2, 3, 1), (2, 2, 3, 1)]
+    assert seen_exclusions == [{invalid_key}] * 3
 
 
 def test_default_transient_fatal_retry_applies_when_on_error_omits_it(
@@ -1603,12 +1901,12 @@ def test_default_transient_fatal_retry_applies_when_on_error_omits_it(
     monkeypatch.setattr(
         ColumnAddPipelineJob,
         "_load_existing_checkpoints_for_task",
-        lambda self, task: None,
+        lambda self, task, **kwargs: None,
     )
     monkeypatch.setattr(
         ColumnAddPipelineJob,
         "_replacement_scan_tasks",
-        lambda self, task, split_limit: [task],
+        lambda self, task, split_limit, **kwargs: [task],
     )
 
     class _FakeFwm:
@@ -1667,7 +1965,7 @@ def test_explicit_fail_transient_overrides_default_retry(
     monkeypatch.setattr(
         ColumnAddPipelineJob,
         "_load_existing_checkpoints_for_task",
-        lambda self, task: None,
+        lambda self, task, **kwargs: None,
     )
 
     class _FakeFwm:
@@ -1739,16 +2037,19 @@ def test_actor_unavailable_oom_classification_is_wired_into_handler_and_fallback
     )
 
     class _FakeFwm:
+        def __init__(self) -> None:
+            self.replaced: list[ScanTask] | None = None
+
         def replace_task(
             self, task: ScanTask, replacement_tasks: list[ScanTask]
         ) -> None:
-            raise AssertionError("replace_task should not be called for OOM")
+            self.replaced = replacement_tasks
 
     handler_job = _new_job("job-handler-k8s-oom")
     monkeypatch.setattr(
         ColumnAddPipelineJob,
         "_load_existing_checkpoints_for_task",
-        lambda self, task: None,
+        lambda self, task, **kwargs: None,
     )
     monkeypatch.setattr(
         ColumnAddPipelineJob,
@@ -1756,14 +2057,25 @@ def test_actor_unavailable_oom_classification_is_wired_into_handler_and_fallback
         lambda self: pod_statuses,
     )
 
-    with pytest.raises(FatalWorkerOOMError):
-        handler_job._handle_fatal_task_failure(
-            ScheduledReadTask(task, attempt=3),
-            actor_exc,
-            deque(),
-            _FakeFwm(),  # type: ignore[arg-type]
-            pod_statuses=pod_statuses,
-        )
+    # Actor loss with pod OOM evidence classifies as FatalWorkerOOMError and
+    # takes the default bounded OOM recovery: the task is split in half and
+    # resubmitted (not the transient path, which would keep the task size).
+    fwm = _FakeFwm()
+    pending: deque[ScheduledReadTask] = deque()
+    handled = handler_job._handle_fatal_task_failure(
+        ScheduledReadTask(task, attempt=3),
+        actor_exc,
+        pending,
+        fwm,  # type: ignore[arg-type]
+        pod_statuses=pod_statuses,
+    )
+    assert handled is True
+    assert fwm.replaced is not None
+    assert [t.limit for t in fwm.replaced] == [2, 2]
+    # Splitting preserves the attempt counter (matching the SKIP-bisect
+    # path); OOM recovery is bounded by its own budget, not by attempts.
+    assert [(s.attempt, s.bisect_depth) for s in pending] == [(3, 1), (3, 1)]
+    assert handler_job.skipped_stats.get("oom_recoveries") == 1
 
     from geneva.runners.ray import pipeline as ray_pipeline
     from geneva.runners.ray.actor_pool import ActorPoolTaskError
@@ -1775,14 +2087,23 @@ def test_actor_unavailable_oom_classification_is_wired_into_handler_and_fallback
     class _FakePool:
         _num_actors = 0
 
+        def __init__(self) -> None:
+            self.shutdown_called = False
+
+        def submission_capacity(self) -> int:
+            return 1
+
         def submit(self, _fn, _value) -> None:  # noqa: ANN001
             return None
 
         def has_next(self) -> bool:
             return True
 
-        def get_next_unordered(self, timeout: float) -> NoReturn:
+        def drain_ready(self, timeout: float) -> NoReturn:
             raise ActorPoolTaskError(ScheduledReadTask(object()), actor_exc)
+
+        def shutdown(self) -> None:
+            self.shutdown_called = True
 
     class _FakeFragmentWriterManager:
         def __init__(self, *args, **kwargs) -> None:  # noqa: ANN002, ANN003
@@ -1804,11 +2125,13 @@ def test_actor_unavailable_oom_classification_is_wired_into_handler_and_fallback
         "_ensure_driver_checkpoint_identity_sidecar",
         lambda self, dataset_uri: None,
     )
-    monkeypatch.setattr(
-        ColumnAddPipelineJob, "setup_actorpool", lambda self: _FakePool()
-    )
+    fake_pool = _FakePool()
+    monkeypatch.setattr(ColumnAddPipelineJob, "setup_actorpool", lambda self: fake_pool)
     monkeypatch.setattr(
         ColumnAddPipelineJob, "_refresh_cluster_status", lambda self: None
+    )
+    monkeypatch.setattr(
+        ColumnAddPipelineJob, "_fetch_cluster_status", lambda self: None
     )
     monkeypatch.setattr(
         ray_pipeline,
@@ -1818,6 +2141,7 @@ def test_actor_unavailable_oom_classification_is_wired_into_handler_and_fallback
 
     with pytest.raises(FatalWorkerOOMError):
         fallback_job.run()
+    assert fake_pool.shutdown_called
 
 
 def test_on_error_custom_matchers_integration(
@@ -1903,3 +2227,91 @@ def test_normalize_preserves_preclassified_fatal_worker_error() -> None:
     assert type(nested) is FatalWorkerOOMError
     assert "worker OOMKilled" in str(nested)
     assert nested is not oom
+
+
+def test_partial_checkpoints_reingested_when_task_fails(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """A task that dies after flushing some checkpoints must re-ingest the
+    flushed coverage into the writer; replacements cover only the gaps.
+
+    Without the re-ingest, the flushed rows never reach the writer and are
+    null-filled at seal (the orphan-null bug: completed full-table backfills
+    with millions of silently null output rows).
+    """
+
+    @udf(data_type=pa.int32(), version=uuid.uuid4().hex)
+    def plain_udf(a: int) -> int:
+        return a
+
+    tbl_ref = TableReference(table_id=["tbl"], version=None, db_uri="db://example")
+    task = ScanTask(
+        uri="db://example/tbl",
+        table_ref=tbl_ref,
+        columns=["a", "b"],
+        frag_id=0,
+        offset=0,
+        limit=4,
+    )
+
+    store = CheckpointStore.from_uri("memory")
+    map_task = BackfillUDFTask(udfs={"b": plain_udf})
+    job = ColumnAddPipelineJob(
+        map_task=map_task,
+        checkpoint_store=store,
+        error_store=None,
+        config=JobConfig(),
+        dst=tbl_ref,
+        input_plan=iter(()),
+        job_id="job-partial-reingest",
+    )
+
+    # The task flushed a checkpoint for [0, 2) before dying; [2, 4) is missing.
+    flushed_key = map_task.checkpoint_key(
+        dataset_uri=task.table_uri(),
+        dataset_version=getattr(task, "version", None),
+        frag_id=task.dest_frag_id(),
+        start=0,
+        end=2,
+        where=None,
+        src_files_hash=job._src_files_hash_for_task(task),
+    )
+    store[flushed_key] = pa.record_batch([], names=[])
+
+    class _FakeFwm:
+        def __init__(self) -> None:
+            self.recovered: list[tuple[ScanTask, list]] = []
+            self.replaced: list[ScanTask] | None = None
+
+        def ingest_recovered_checkpoints(
+            self, task: ScanTask, checkpoints: list
+        ) -> None:
+            self.recovered.append((task, checkpoints))
+
+        def replace_task(
+            self, task: ScanTask, replacement_tasks: list[ScanTask]
+        ) -> None:
+            self.replaced = list(replacement_tasks)
+
+    fwm = _FakeFwm()
+    pending_tasks: deque[ScheduledReadTask] = deque()
+
+    handled = job._handle_fatal_task_failure(
+        ScheduledReadTask(task, attempt=0),
+        FatalWorkerTransientError("worker lost"),
+        pending_tasks,
+        fwm,  # type: ignore[arg-type]
+        pod_statuses=None,
+    )
+
+    assert handled is True
+    # The flushed [0, 2) coverage was re-ingested for the writer.
+    assert len(fwm.recovered) == 1
+    _, checkpoints = fwm.recovered[0]
+    assert [(c.offset, c.span, c.checkpoint_key) for c in checkpoints] == [
+        (0, 2, flushed_key)
+    ]
+    # Replacements cover only the missing [2, 4) range.
+    assert fwm.replaced is not None
+    assert [(t.offset, t.limit) for t in fwm.replaced] == [(2, 2)]
+    assert [(s.task.offset, s.task.limit) for s in pending_tasks] == [(2, 2)]

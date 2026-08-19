@@ -15,6 +15,7 @@ from typing import Any
 
 import pytest
 
+from geneva.config.loader import from_env, loader
 from geneva.runners.ray.jobtracker import (
     JobTrackerConfig,
     _JobTracker,
@@ -32,7 +33,39 @@ def test_job_tracker_config_defaults() -> None:
     assert c.min_update_interval_secs == 10.0
     assert c.max_update_interval_secs == 300.0
     assert c.update_interval_ramp == 60.0
+    assert c.hydration_timeout_secs == 10.0
     assert JobTrackerConfig.name() == "geneva_job_tracker"
+
+
+def test_job_tracker_hydration_timeout_from_env(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """The hydration timeout loads from the JobTracker environment config."""
+    monkeypatch.setenv("GENEVA_JOB_TRACKER__HYDRATION_TIMEOUT_SECS", "12.5")
+
+    config = loader(from_env()).load(JobTrackerConfig)
+
+    assert config.hydration_timeout_secs == 12.5
+    assert job_tracker_throttle_kwargs(config=config)["hydration_timeout_secs"] == 12.5
+
+
+def test_job_tracker_hydration_timeout_accepts_large_finite_values(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Any positive finite timeout is valid, including very large values."""
+    config = JobTrackerConfig(hydration_timeout_secs=1e308)
+    tracker = _JobTracker(
+        job_id="j",
+        table_ref=_TABLE_REF,
+        hydration_timeout_secs=1e308,
+    )
+
+    assert config.hydration_timeout_secs == 1e308
+    assert tracker.hydration_timeout_secs == 1e308
+
+    monkeypatch.setenv("GENEVA_JOB_TRACKER__HYDRATION_TIMEOUT_SECS", "1e309")
+    with pytest.raises(ValueError, match="positive finite"):
+        loader(from_env()).load(JobTrackerConfig)
 
 
 @pytest.mark.parametrize(
@@ -80,6 +113,7 @@ def test_job_tracker_throttle_kwargs_from_config() -> None:
         "min_update_interval_secs": 10.0,
         "max_update_interval_secs": 300.0,
         "update_interval_ramp": 60.0,
+        "hydration_timeout_secs": 10.0,
     }
 
     overridden = job_tracker_throttle_kwargs(override_min_interval_secs=30.0, config=c)
@@ -116,9 +150,69 @@ class _CountingTracker(_JobTracker):
 
     def _arm(self) -> None:
         self.saves = 0
+        self._hydrated = True
 
-    async def _save_metrics(self, _metrics: dict[str, dict]) -> None:  # type: ignore[override]
+    async def _save_metrics(  # type: ignore[override]
+        self, _metrics: dict[str, dict] | None = None
+    ) -> None:
         self.saves += 1
+
+
+class _SlowHydrationTracker(_JobTracker):
+    """JobTracker whose valid durable-state read exceeds the old 4s bound."""
+
+    async def _load_persisted_state(self) -> tuple[dict[str, dict], Any | None]:
+        await asyncio.sleep(4.05)
+        return {
+            "persisted": {"n": 4, "total": 5, "done": False, "desc": "old"}
+        }, "RUNNING"
+
+
+class _SlowStatusTracker(_JobTracker):
+    """JobTracker whose durable completion-status read is intentionally slow."""
+
+    async def _load_persisted_status(self) -> Any | None:
+        """Return a terminal status after a short read delay."""
+        await asyncio.sleep(0.05)
+        return "DONE"
+
+
+@pytest.mark.asyncio
+async def test_configured_hydration_timeout_allows_slow_valid_read() -> None:
+    """A configured timeout permits a valid read beyond the old deadline."""
+    tracker = _SlowHydrationTracker(
+        job_id="j",
+        table_ref=_TABLE_REF,
+        hydration_timeout_secs=5.0,
+    )
+
+    metrics = await tracker.get_all()
+
+    assert metrics["persisted"]["n"] == 4
+    assert tracker._hydrated is True
+
+
+@pytest.mark.asyncio
+async def test_is_job_done_uses_instance_hydration_timeout() -> None:
+    """Completion-status reads use each tracker's configured timeout."""
+    tracker = _SlowStatusTracker(
+        job_id="j",
+        table_ref=_TABLE_REF,
+        hydration_timeout_secs=0.01,
+    )
+    tracker._hydrated = True
+
+    with pytest.raises(asyncio.TimeoutError):
+        await tracker.is_job_done()
+
+    tracker = _SlowStatusTracker(
+        job_id="j",
+        table_ref=_TABLE_REF,
+        hydration_timeout_secs=0.1,
+    )
+    tracker._hydrated = True
+
+    assert await tracker.is_job_done() is True
 
 
 async def _run_and_drain(tracker: _CountingTracker, coro: Any) -> None:
@@ -192,3 +286,54 @@ async def test_save_pressure_counters_distinguish_throttled_and_forced() -> None
     # Saves are no-ops here (no DB), so no real writes were counted.
     assert stats["save_writes"] == 0
     assert stats["min_update_interval_secs"] == 1000.0
+
+
+@pytest.mark.asyncio
+async def test_gauge_at_total_forces_only_on_the_done_transition() -> None:
+    """A gauge sitting at its total forces one save, not one per update."""
+    tracker = _CountingTracker(
+        job_id="j",
+        table_ref=_TABLE_REF,
+        min_update_interval_secs=1000.0,
+        max_update_interval_secs=1000.0,
+        update_interval_ramp=0.0,
+    )
+    tracker._arm()
+
+    await _run_and_drain(tracker, tracker.set_total("workers", 8))
+    await _run_and_drain(tracker, tracker.set("workers", 8))
+    assert tracker.get_save_stats()["forced_saves"] == 1
+
+    for _ in range(10):
+        await _run_and_drain(tracker, tracker.set("workers", 8))
+    assert tracker.get_save_stats()["forced_saves"] == 1
+
+    # A dip and return does not re-fire (done latches).
+    await _run_and_drain(tracker, tracker.set("workers", 7))
+    await _run_and_drain(tracker, tracker.set("workers", 8))
+    assert tracker.get_save_stats()["forced_saves"] == 1
+
+
+@pytest.mark.asyncio
+async def test_counter_overshoot_does_not_refire_forced_saves() -> None:
+    """increment/batch_increment force once at completion, not on overshoot."""
+    tracker = _CountingTracker(
+        job_id="j",
+        table_ref=_TABLE_REF,
+        min_update_interval_secs=1000.0,
+        max_update_interval_secs=1000.0,
+        update_interval_ramp=0.0,
+    )
+    tracker._arm()
+
+    await _run_and_drain(tracker, tracker.set_total("tasks", 2))
+    await _run_and_drain(tracker, tracker.increment("tasks", 2))
+    assert tracker.get_save_stats()["forced_saves"] == 1
+    await _run_and_drain(tracker, tracker.increment("tasks", 1))
+    assert tracker.get_save_stats()["forced_saves"] == 1
+
+    await _run_and_drain(tracker, tracker.set_total("rows", 4))
+    await _run_and_drain(tracker, tracker.batch_increment({"rows": 4}))
+    assert tracker.get_save_stats()["forced_saves"] == 2
+    await _run_and_drain(tracker, tracker.batch_increment({"rows": 1}))
+    assert tracker.get_save_stats()["forced_saves"] == 2

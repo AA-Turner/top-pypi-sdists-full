@@ -1,13 +1,21 @@
 # SPDX-License-Identifier: PROPRIETARY
 # SPDX-FileCopyrightText: Copyright The Geneva Authors
 
+import logging
 import os
+import re
 
 import attrs
 from typing_extensions import Self  # noqa: UP035
 
 from geneva.checkpoint import CheckpointConfig, CheckpointStore
 from geneva.config import ConfigBase
+
+_LOG = logging.getLogger(__name__)
+
+# Deprecated blob-buffer env vars already warned about, so the nudge fires once
+# per process rather than on every JobConfig construction.
+_DEPRECATED_BLOB_ENV_WARNED: set[str] = set()
 
 
 def _default_plan_filter_count_concurrency() -> int:
@@ -16,6 +24,85 @@ def _default_plan_filter_count_concurrency() -> int:
     reasonable. The work is I/O-bound so 4× CPU is a sensible upper bound.
     """
     return min((os.cpu_count() or 1) * 4, 64)
+
+
+_U64_MAX = (1 << 64) - 1
+# Rust's ``u64::from_str``: optional leading '+', digits only. Deliberately
+# stricter than ``int()``, which accepts "1_000" and surrounding whitespace --
+# Lance rejects those and allocates its 2 GiB default, so accepting them here
+# would estimate a buffer size Lance never uses.
+_U64_LITERAL = re.compile(r"\+?[0-9]+")
+
+
+def _env_byte_size(env: str, default: int, *, minimum: int = 0) -> int:
+    """Read a byte-count env var, falling back to ``default`` when the value
+    isn't usable.
+
+    Mirrors Lance's ``parse_env_var`` (``rust/lance/src/dataset/scanner.rs``),
+    which warns and uses its own default for anything ``u64::from_str`` rejects.
+    A malformed value must not abort ``JobConfig`` construction: a job Lance
+    runs fine should still start here -- with the same buffer size Lance
+    actually allocates -- rather than fail at config time. Values below
+    ``minimum`` or beyond ``u64`` fall back the same way; a negative would
+    otherwise be clamped to 0 later and silently drop a real buffer from the
+    reservation.
+    """
+    raw = os.environ.get(env)
+    if raw is None or not raw.strip():
+        return default
+    if not _U64_LITERAL.fullmatch(raw):
+        _LOG.warning(
+            "%s=%r is not a non-negative integer; using the default of %s bytes.",
+            env,
+            raw,
+            default,
+        )
+        return default
+    value = int(raw)
+    if value < minimum or value > _U64_MAX:
+        _LOG.warning(
+            "%s=%s is out of range; using the default of %s bytes.", env, value, default
+        )
+        return default
+    return value
+
+
+def _default_applier_lance_io_buffer_bytes() -> int:
+    """Mirror Lance's scanner IO readahead buffer (~2 GiB default) so the
+    applier memory estimate matches what Lance actually allocates. Reads
+    ``LANCE_DEFAULT_IO_BUFFER_SIZE`` -- Lance's own knob -- as the default,
+    with Lance's own tolerance for a value it can't parse.
+    """
+    return _env_byte_size("LANCE_DEFAULT_IO_BUFFER_SIZE", 2 << 30)
+
+
+def _default_applier_blob_buffer_bytes() -> int:
+    """Default for the range-blob read coalescing buffer, mirroring the
+    reader's own default. This is the single knob for both the actual buffer
+    and the memory estimate.
+
+    This factory only runs when applier_blob_buffer_bytes has no override from
+    any source (JOB__ env, config file, pyproject) -- so reading the deprecated
+    raw env here is exactly the deprecation case, and we warn once. Kept
+    self-contained (literal name/size mirroring geneva.apply.blob_range's
+    RANGE_BLOB_READ_BUFFER_SIZE_ENV / DEFAULT_RANGE_BLOB_READ_BUFFER_SIZE) so
+    config stays a leaf -- the data path depends on config, not the reverse.
+    """
+    env = "GENEVA_RANGE_BLOB_READ_BUFFER_SIZE"
+    default = 128 * 1024 * 1024
+    raw = os.environ.get(env)
+    if raw:
+        if env not in _DEPRECATED_BLOB_ENV_WARNED:
+            _DEPRECATED_BLOB_ENV_WARNED.add(env)
+            _LOG.warning(
+                "%s is deprecated; set JOB__APPLIER_BLOB_BUFFER_BYTES instead "
+                "for consistency with the other JobConfig knobs.",
+                env,
+            )
+        # The read buffer must be positive; a bad value falls back rather than
+        # failing JobConfig construction (the reader would reject 0 anyway).
+        return _env_byte_size(env, default, minimum=1)
+    return default
 
 
 def _coerce_bool(value: object) -> bool:
@@ -73,6 +160,48 @@ class JobConfig(ConfigBase):
     enable_gpu_pipelining: bool = attrs.field(default=False, converter=_coerce_bool)
     pipelining_num_readers: int = attrs.field(default=8, converter=int)
     pipelining_prefetch_depth: int = attrs.field(default=16, converter=int)
+
+    # --- Applier default memory sizing ---
+    # Knobs for the white-box per-actor RAM floor estimate_applier_memory
+    # reserves when a UDF/chunker leaves memory unset (see
+    # runners/ray/memory_budget.py). Big/safe by default; override via the
+    # JOB__APPLIER_* env vars below to tune down on constrained footprints.
+
+    # Lance scanner IO readahead buffer. Env var: JOB__APPLIER_LANCE_IO_BUFFER_BYTES
+    # (defaults to LANCE_DEFAULT_IO_BUFFER_SIZE so it mirrors Lance's allocation).
+    applier_lance_io_buffer_bytes: int = attrs.field(
+        factory=_default_applier_lance_io_buffer_bytes, converter=int
+    )
+    # object_store / Tokio native headroom. Env var: JOB__APPLIER_NATIVE_OVERHEAD_BYTES.
+    applier_native_overhead_bytes: int = attrs.field(
+        default=512 * 1024 * 1024, converter=int
+    )
+    # Range-blob read coalescing buffer. Env var: JOB__APPLIER_BLOB_BUFFER_BYTES
+    # (defaults to GENEVA_RANGE_BLOB_READ_BUFFER_SIZE, what the reader allocates).
+    applier_blob_buffer_bytes: int = attrs.field(
+        factory=_default_applier_blob_buffer_bytes, converter=int
+    )
+    # Per-worker Python + libs baseline. Env var: JOB__APPLIER_WORKER_BASELINE_BYTES.
+    applier_worker_baseline_bytes: int = attrs.field(default=1 << 30, converter=int)
+    # Working-copy expansion of the scan batch.
+    # Env var: JOB__APPLIER_USER_EXPANSION_FACTOR.
+    applier_user_expansion_factor: float = attrs.field(default=4.0, converter=float)
+    # Extra per-row working bytes the UDF/chunker materializes that the scan
+    # sample can't see -- e.g. an image downloaded inside the UDF (its 150 KB
+    # never appears in the input columns). Callers scale this by the batch row
+    # count and add it to the scan batch *before* the expansion factor, so it
+    # works on a first backfill (no sample) too. Default 0.
+    # Env var: JOB__APPLIER_USER_ROW_OVERHEAD_BYTES.
+    applier_user_row_overhead_bytes: int = attrs.field(default=0, converter=int)
+    # Per-worker GPU host overhead. Env var: JOB__APPLIER_GPU_OVERHEAD_BYTES.
+    applier_gpu_overhead_bytes: int = attrs.field(default=2 << 30, converter=int)
+    # Bytes a single read task should pull in. Read tasks are sized in *rows*,
+    # so the planner divides this by the sampled bytes/row to pick task_size:
+    # a 150 KB image column gets few rows per task, an int column keeps the
+    # row-count default. Only ever lowers task_size, and only when the caller
+    # didn't name one. 0 disables auto-sizing (keep the row-only default).
+    # Env var: JOB__APPLIER_TARGET_READ_BYTES.
+    applier_target_read_bytes: int = attrs.field(default=512 << 20, converter=int)
 
     # Experimental (leading underscore = API may change). When True, the
     # planner skips the per-fragment `count_rows(filter=where)` even on

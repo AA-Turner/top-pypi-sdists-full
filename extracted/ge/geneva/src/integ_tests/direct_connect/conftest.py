@@ -45,6 +45,7 @@ from geneva.runners.ray.raycluster import (
     RayCluster,
 )
 from geneva.utils import dt_now_utc
+from integ_tests.utils import installed_distribution_requirement
 
 _LOG = logging.getLogger(__name__)
 
@@ -125,8 +126,8 @@ def direct_connect_default_manifest(slug: str) -> GenevaManifest:
         .worker_image(default_image(arm=False))
         .add_pip("pyarrow>=16.0.0")
         # Geneva requires lance/pylance/lancedb for data operations
-        .add_pip("pylance>=6.0.0b1")
-        .add_pip("lancedb>=0.31.0b9")
+        .add_pip(installed_distribution_requirement("pylance"))
+        .add_pip(installed_distribution_requirement("lancedb"))
         .add_pip("lance-namespace>=0.2.1")
         # Geneva runtime dependencies needed by workers
         .add_pip("more-itertools")

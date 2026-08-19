@@ -63,6 +63,14 @@ def test_resume_after_worker_death_heals() -> None:
     _run_scenario("resume-heals")
 
 
+def test_short_fragment_write_fails_loud() -> None:
+    # A SHORT fragment write (fewer rows than the manifest) must fail loud before
+    # the short file is committed, so the table stays readable and a re-run heals
+    # it -- never a corrupt false success (unreadable table behind a success
+    # report).
+    _run_scenario("short-fragment-write-fails-loud")
+
+
 def test_checkpoint_write_loss_is_loud_and_recoverable() -> None:
     # Dropping a checkpoint write (vs the commit) fails loud and a resume heals it.
     _run_scenario("checkpoint-loss-recovers")
@@ -88,6 +96,15 @@ def test_applier_death_fails_loud_and_resume_heals() -> None:
     _run_scenario("applier-death-fails-loud")
 
 
+def test_applier_death_under_zero_skip_budget_fails_loud() -> None:
+    # A worker death under skip_on_error(max_skip_count=0) must fail loud: the skip
+    # budget is charged BEFORE the null checkpoint is persisted, so a zero or exceeded
+    # budget raises instead of silently NULLing the dead task's rows -- and leaves no
+    # orphaned null checkpoint. The scenario's second phase retries the backfill clean
+    # and asserts zero NULLs (no poisoned checkpoint consumed as cached results).
+    _run_scenario("applier-death-skip-budget-bypass")
+
+
 def test_concurrent_append_during_backfill_resolves() -> None:
     # A deterministic concurrent-writer race: an append commits between the backfill's
     # version read and its fragment commit. geneva's conflict handling must leave every
@@ -95,70 +112,42 @@ def test_concurrent_append_during_backfill_resolves() -> None:
     _run_scenario("concurrent-append-during-backfill")
 
 
-# --- invariants currently VIOLATED by a known, not-yet-fixed bug ------------
-# xfail(strict): each asserts the CORRECT behavior, so it stays xfailed while the bug
-# is live and turns into a strict XPASS (hard failure) the moment a fix lands -- forcing
-# the marker off. Reasons name the bug in plain English (ticket refs live in the PR).
-
-
-@pytest.mark.xfail(
-    strict=True,
-    raises=_BugPresentError,
-    reason="a stranded fragment (writer death swallowed to success) lands a durable "
-    "completion marker, so the agent records the job DONE and never re-dispatches -- "
-    "the NULL gap is persistent",
-)
-def test_dropped_data_commit_leaves_no_durable_done_marker() -> None:
-    _run_scenario("marker-after-dropped-commit")
-
-
-@pytest.mark.xfail(
-    strict=True,
-    raises=_BugPresentError,
-    reason="a lost append makes the refresh report success while the MV is incomplete "
-    "(transient -- a later refresh heals it, but the success report is still false)",
-)
-def test_mv_refresh_does_not_report_success_while_incomplete() -> None:
-    _run_scenario("mv-refresh-lost-append")
-
-
-@pytest.mark.xfail(
-    strict=True,
-    raises=_BugPresentError,
-    reason="a healthy refresh exposes intermediate placeholder rows with NULL view "
-    "columns and no read-side signal to exclude them (the __is_set gate is dead)",
-)
-def test_mv_refresh_does_not_expose_placeholder_rows() -> None:
-    _run_scenario("mv-refresh-exposes-placeholders")
-
-
-@pytest.mark.xfail(
-    strict=True,
-    raises=_BugPresentError,
-    reason="a fragment-write failure is swallowed into a graceful-degradation success "
-    "with that fragment's rows NULL; pending the fail-loud cleanup fix",
-)
 def test_fragment_write_failure_is_not_a_silent_success() -> None:
+    # A failed fragment now fails the job with attribution after the healthy
+    # fragments commit, instead of degrading into a success with NULL rows.
     _run_scenario("graceful-degradation")
 
 
-@pytest.mark.xfail(
-    strict=True,
-    raises=_BugPresentError,
-    reason="a filtered repair that dies after writing per-range checkpoints but before "
-    "committing silently no-ops on a clean resume: the planner sees full checkpoint "
-    "coverage plus the pre-existing output data file and skips the fragment as done, "
-    "leaving the target rows at their stale pre-repair values",
-)
+def test_dropped_data_commit_leaves_no_durable_done_marker() -> None:
+    # A dropped fragment write now fails the job, so no durable completion marker
+    # lands and a resume re-dispatches instead of recording a NULL gap as DONE.
+    _run_scenario("marker-after-dropped-commit")
+
+
+def test_mv_refresh_does_not_report_success_while_incomplete() -> None:
+    # Row-count reconciliation in the copy-table path confirms the placeholder append
+    # landed every new source row; a dropped Table.add fails the refresh loud instead
+    # of reporting a false success, and a later refresh re-selects and heals the gap.
+    _run_scenario("mv-refresh-lost-append")
+
+
 def test_repair_resume_is_not_a_silent_noop() -> None:
+    # A filtered repair that dies after writing per-range checkpoints but before
+    # committing now replans the fully-checkpointed fragment as a single commit
+    # task on resume (reusing the checkpoints, no recompute) instead of treating
+    # the stale pre-repair output data file as proof the fragment is done.
     _run_scenario("repair-resume-noop")
 
 
-@pytest.mark.xfail(
-    strict=True,
-    raises=_BugPresentError,
-    reason="a worker death under skip_on_error(max_skip_count=0) silently NULLs the "
-    "dead task's rows and reports success, bypassing the zero skip budget",
-)
-def test_applier_death_under_zero_skip_budget_fails_loud() -> None:
-    _run_scenario("applier-death-skip-budget-bypass")
+def test_mv_refresh_does_not_expose_placeholder_rows() -> None:
+    # A projection MV refresh appends its new rows fully populated, so a reader at
+    # the intermediate (post-append) version never sees NULL view columns.
+    _run_scenario("mv-refresh-exposes-placeholders")
+
+
+def test_mixed_view_refresh_does_not_expose_projected_placeholders() -> None:
+    # A mixed view (projection + per-column UDF) appends its new rows with the
+    # projected columns populated, so a reader at the intermediate (post-append)
+    # version never sees NULL projected columns. The UDF column staying NULL until
+    # the fill pass is acceptable and out of scope here.
+    _run_scenario("mv-refresh-mixed-view-exposes-placeholders")

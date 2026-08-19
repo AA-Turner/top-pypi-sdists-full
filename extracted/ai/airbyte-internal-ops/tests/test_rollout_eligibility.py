@@ -472,7 +472,10 @@ def test_run_auto_triage_pauses_failure_threshold_rollout(
         lambda **_: {
             "data": {
                 "actorSelectionInfo": {"numPinnedToConnectorRollout": 2},
-                "syncs": {"actor-1": {"numFailed": 2}},
+                "syncs": {
+                    "actor-1": {"numFailed": 2},
+                    "actor-2": {"numFailed": 1},
+                },
             }
         },
     )
@@ -501,7 +504,7 @@ def test_run_auto_triage_pauses_failure_threshold_rollout(
     assert paused[0]["paused_reason"].startswith(
         rollout_constants.FAILURE_THRESHOLD_EXCEEDED_MARKER
     )
-    assert "2 failures (threshold=1)" in paused[0]["paused_reason"]
+    assert "2 of 2 connectors failing" in paused[0]["paused_reason"]
     assert result.actions[0].success is True
 
 

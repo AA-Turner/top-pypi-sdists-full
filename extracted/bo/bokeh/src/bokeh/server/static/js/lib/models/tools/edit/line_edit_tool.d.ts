@@ -36,7 +36,7 @@ export declare class LineEditTool extends LineTool {
     constructor(attrs?: Partial<LineEditTool.Attrs>);
     tool_name: string;
     tool_icon: string;
-    event_type: ("tap" | "pan" | "press" | "move")[];
+    event_type: ("move" | "pan" | "press" | "tap")[];
     default_order: number;
     get tooltip(): string;
 }

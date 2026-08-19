@@ -36,6 +36,10 @@ from spmd_types._collectives import (
     reduce_scatter,
 )
 from spmd_types._local import convert, invariant_to_replicate, reinterpret
+from spmd_types._local_registration import (  # noqa: F401
+    _LOCAL_AUTOGRAD_FUNCTIONS,
+    register_local_autograd_function,
+)
 from spmd_types._mesh_axis import MeshAxis
 from spmd_types._reinterpret_mesh import (  # noqa: F401
     _format_arg_for_context,
@@ -53,8 +57,9 @@ from spmd_types._state import _current_mode, _set_current_mode, current_mesh
 from spmd_types._traceback import _filter_and_reraise
 from spmd_types._type_attr import get_local_type
 from spmd_types.runtime import (  # noqa: F401
-    _LOCAL_AUTOGRAD_FUNCTIONS,
+    _get_autograd_spmd_typecheck,
     _PARTITION_SPEC_ATTR,
+    _run_autograd_spmd_typecheck,
     _set_local_type,
     _set_partition_spec,
     _TRACE,
@@ -71,7 +76,6 @@ from spmd_types.runtime import (  # noqa: F401
     no_typecheck,
     register_autograd_function,
     register_decomposition,
-    register_local_autograd_function,
     trace,
 )
 from spmd_types.types import (
@@ -2455,10 +2459,9 @@ from spmd_types._state import is_type_checking  # noqa: E402, F401
 # Set of autograd.Function subclasses whose apply is known to be local-only
 # (i.e., each output element depends only on the corresponding input elements
 # so the standard element-wise type propagation rule is safe).
-# Set of autograd.Function subclasses registered with a typecheck_forward
-# staticmethod.  When .apply() is intercepted by __torch_function__,
-# typecheck_forward is called INSTEAD of .apply().  It should assert_type()
-# on inputs, call .apply() to execute, and assert_type() on the output.
+# Set of autograd.Function subclasses registered with custom typechecking.
+# Legacy typecheck_forward wrappers execute the function themselves, while
+# spmd_typecheck runs after the real apply call managed by the checker.
 
 
 # The original C++ descriptor for autograd.Function.apply, saved when the
@@ -2707,18 +2710,22 @@ class _SpmdTypeMode(torch.overrides.TorchFunctionMode):
                         is_global_axis=self._is_global_axis,
                     )
 
-            # Typecheck-registered autograd function: dispatch to typecheck_forward
-            # INSTEAD of executing func.  The mode is popped off the
+            # Typecheck-registered autograd function. The mode is popped off the
             # TorchFunctionMode stack during __torch_function__ dispatch (via
-            # _pop_mode_temporarily in torch/overrides.py), so .apply() called
-            # inside typecheck_forward executes normally without re-entering
-            # this method.
+            # _pop_mode_temporarily in torch/overrides.py), so the real apply
+            # executes normally without re-entering this method.
             autograd_cls = _get_autograd_function_class(func)
-            if (
-                autograd_cls is not None
-                and autograd_cls in _TYPECHECK_AUTOGRAD_FUNCTIONS
-            ):
-                return autograd_cls.typecheck_forward(*args, **kwargs)
+            if autograd_cls is not None:
+                spmd_typecheck = _get_autograd_spmd_typecheck(autograd_cls)
+                if spmd_typecheck is not None:
+                    if kwargs:
+                        raise TypeError(
+                            f"{autograd_cls.__name__}.apply() accepts positional "
+                            "arguments only"
+                        )
+                    return _run_autograd_spmd_typecheck(autograd_cls, func, args)
+                if autograd_cls in _TYPECHECK_AUTOGRAD_FUNCTIONS:
+                    return autograd_cls.typecheck_forward(*args, **kwargs)
 
             # DTensor tracks its own placement metadata; the SPMD type checker
             # should not interfere with DTensor operations.  This covers
@@ -2908,10 +2915,9 @@ class _SpmdTypeMode(torch.overrides.TorchFunctionMode):
                         f"checking. Use "
                         f"{register_local_autograd_function.__name__}("
                         f"{autograd_cls.__name__}) to mark it as safe "
-                        f"for type propagation, and provide "
-                        f"register_autograd_function("
-                        f"{autograd_cls.__name__}) for a custom "
-                        f"typecheck_forward."
+                        f"for type propagation, or define "
+                        f"{autograd_cls.__name__}.spmd_typecheck for a custom "
+                        f"typecheck rule."
                     )
                 return result
 

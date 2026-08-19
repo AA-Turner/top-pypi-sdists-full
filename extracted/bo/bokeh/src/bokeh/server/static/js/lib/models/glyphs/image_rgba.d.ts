@@ -6,7 +6,7 @@ export interface ImageRGBAView extends ImageRGBA.Data {
 export declare class ImageRGBAView extends ImageBaseView {
     model: ImageRGBA;
     visuals: ImageRGBA.Visuals;
-    load_glglyph(): Promise<typeof import("./webgl/image").ImageGL>;
+    load_glglyph(): Promise<typeof import("../../all/main").ImageGL>;
     protected _flat_img_to_buf8(img: NDArrayType<number>): Uint8ClampedArray;
 }
 export declare namespace ImageRGBA {

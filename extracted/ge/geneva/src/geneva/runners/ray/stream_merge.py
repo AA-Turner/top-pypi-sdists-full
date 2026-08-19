@@ -10,12 +10,12 @@ sparse WHERE-matched UDF output as it goes.
 
 The matched output is consumed by :class:`MatchStream` as lazy per-file cursors
 ordered by their peeked checkpoint key range, and ``k``-way merged against the
-old column. Only the files overlapping the current tranche window are read, so
-per-fragment memory is ``tranche + overlapping-window matches`` — independent of
-the total match count ``M``.
+old column. Only bounded batches from active files are read, so per-fragment
+memory is ``tranche + active-run lookahead + overlapping-window matches`` — not
+the complete matched output.
 """
 
-from collections.abc import Callable, Iterator
+from collections.abc import Iterable, Iterator
 from typing import cast
 
 import pyarrow as pa
@@ -37,40 +37,66 @@ class _RunCursor:
 
     Constructed from the file's logical ``start`` offset (peeked from the
     ``_range-START-END`` key suffix, so run ordering is known *without reading
-    the data*) and a ``load`` thunk that fetches the file's RecordBatch on first
-    use. The batch is read only when the merge window reaches the run's range and
-    is dropped once fully consumed, so only files overlapping the current window
-    are ever resident.
+    the data*) and a lazy iterable of bounded RecordBatches. Batches are pulled
+    incrementally and dropped once fully consumed. The cursor can retain one
+    bounded lookahead batch: after consuming a batch it must inspect the next
+    batch to determine whether that batch also overlaps the current window.
     """
 
-    def __init__(self, start: int, load: Callable[[], pa.RecordBatch | None]) -> None:
+    def __init__(
+        self,
+        start: int,
+        batches: Iterable[pa.RecordBatch],
+    ) -> None:
         self.start = start  # logical lower bound for lazy activation
-        self._load = load
+        self._batches = iter(batches)
         self._batch: pa.RecordBatch | None = None
         self._offsets: list[int] = []
         self._pos = 0
-        self._loaded = False
+        self._last_loaded_offset: int | None = None
         self.exhausted = False
 
-    def _ensure_loaded(self) -> None:
-        if self._loaded:
-            return
-        self._loaded = True
-        batch = self._load()
-        if batch is None or batch.num_rows == 0:
-            self.exhausted = True
-            return
-        addrs = cast("list[int]", batch.column(_ROWADDR).to_pylist())
-        offsets = [_local_offset(a) for a in addrs]
-        for i in range(1, len(offsets)):
-            if offsets[i] < offsets[i - 1]:
+    def _load_next_batch(self) -> bool:
+        """Pull the next non-empty batch, preserving run-wide sort validation."""
+        for batch in self._batches:
+            if not isinstance(batch, pa.RecordBatch):
+                raise TypeError("matched run iterator must yield RecordBatch values")
+            if batch.num_rows == 0:
+                continue
+
+            addrs = cast("list[int]", batch.column(_ROWADDR).to_pylist())
+            offsets = [_local_offset(a) for a in addrs]
+            for i in range(1, len(offsets)):
+                if offsets[i] < offsets[i - 1]:
+                    raise ValueError("matched run is not sorted by _rowaddr")
+                if offsets[i] == offsets[i - 1]:
+                    raise ValueError("duplicate _rowaddr in matched output")
+            if (
+                self._last_loaded_offset is not None
+                and offsets[0] < self._last_loaded_offset
+            ):
                 raise ValueError("matched run is not sorted by _rowaddr")
-        self._batch = batch
-        self._offsets = offsets
+            if (
+                self._last_loaded_offset is not None
+                and offsets[0] == self._last_loaded_offset
+            ):
+                raise ValueError("duplicate _rowaddr in matched output")
+
+            self._last_loaded_offset = offsets[-1]
+            self._batch = batch
+            self._offsets = offsets
+            self._pos = 0
+            return True
+
+        self._batch = None
+        self._offsets = []
+        self._pos = 0
+        self.exhausted = True
+        return False
 
     def take_below(self, end_offset: int) -> pa.RecordBatch | None:
-        """Return this run's rows with local offset ``< end_offset`` as a single
-        contiguous slice (the run is sorted), or ``None``.
+        """Return this run's rows with local offset ``< end_offset`` as one
+        RecordBatch (the run is sorted), or ``None``.
 
         Does not load the file while the window is still behind the run's range
         (``start >= end_offset``); ``start`` is the run's logical lower bound and
@@ -79,23 +105,40 @@ class _RunCursor:
         """
         if self.exhausted or self.start >= end_offset:
             return None
-        self._ensure_loaded()
-        if self.exhausted:
+        if self._batch is None and not self._load_next_batch():
             return None
-        assert self._batch is not None
-        if self._offsets[self._pos] >= end_offset:
-            return None
-        begin = self._pos
-        while (
-            self._pos < self._batch.num_rows and self._offsets[self._pos] < end_offset
-        ):
-            self._pos += 1
-        slice_ = self._batch.slice(begin, self._pos - begin)
-        if self._pos >= self._batch.num_rows:
-            self.exhausted = True
+
+        parts: list[pa.RecordBatch] = []
+        while not self.exhausted:
+            assert self._batch is not None
+            if self._offsets[self._pos] >= end_offset:
+                break
+
+            begin = self._pos
+            while (
+                self._pos < self._batch.num_rows
+                and self._offsets[self._pos] < end_offset
+            ):
+                self._pos += 1
+            parts.append(self._batch.slice(begin, self._pos - begin))
+
+            if self._pos < self._batch.num_rows:
+                break
+
+            # The next bounded batch may still contain rows for this window.
+            # Pull only one at a time and stop as soon as its first row is at or
+            # beyond ``end_offset``.
             self._batch = None
             self._offsets = []
-        return slice_
+            self._pos = 0
+            if not self._load_next_batch():
+                break
+
+        if not parts:
+            return None
+        if len(parts) == 1:
+            return parts[0]
+        return pa.Table.from_batches(parts).combine_chunks().to_batches()[0]
 
 
 class MatchStream:
@@ -103,10 +146,10 @@ class MatchStream:
 
     Exposes an ``overlay(old_tranche)`` surface for
     :func:`stream_merge_carry_forward` but does **not** hold all ``M`` matched
-    rows resident. Runs are ordered by their
-    peeked ``start`` offset and read lazily; per old-column tranche only the runs
-    overlapping the current window are touched and ``k``-way merged. Resident set
-    is ``tranche + overlapping-window matches`` — independent of ``M``.
+    rows resident. Runs are ordered by their peeked ``start`` offset and read
+    lazily; per old-column tranche only active runs are touched and ``k``-way
+    merged. The resident set is bounded by the tranche, its matched rows, and at
+    most one bounded lookahead batch per active run.
     """
 
     def __init__(self, schema: pa.Schema, cursors: list[_RunCursor]) -> None:

@@ -1,6 +1,6 @@
-Metadata-Version: 2.4
+Metadata-Version: 2.5
 Name: mcp-server-git
-Version: 2026.7.10
+Version: 2026.8.18
 Summary: A Model Context Protocol server providing tools to read, search, and manipulate Git repositories programmatically via LLMs
 Project-URL: Repository, https://github.com/modelcontextprotocol/servers/tree/main/src/git
 Project-URL: Issues, https://github.com/modelcontextprotocol/servers/issues
@@ -17,7 +17,7 @@ Classifier: Programming Language :: Python :: 3.10
 Requires-Python: >=3.10
 Requires-Dist: click>=8.1.7
 Requires-Dist: gitpython>=3.1.50
-Requires-Dist: mcp>=1.0.0
+Requires-Dist: mcp<2,>=1.29.0
 Requires-Dist: pydantic>=2.0.0
 Description-Content-Type: text/markdown
 
@@ -30,6 +30,8 @@ Description-Content-Type: text/markdown
 A Model Context Protocol server for Git repository interaction and automation. This server provides tools to read, search, and manipulate Git repositories via Large Language Models.
 
 Source: https://github.com/modelcontextprotocol/servers/tree/main/src/git
+
+Requires MCP Python SDK 1.x (`mcp>=1.29.0,<2`). SDK 2.0 renamed APIs this server uses. The port to v2 is in progress.
 
 Please note that mcp-server-git is currently in early development. The functionality and available tools are subject to change and expansion as we continue to develop and improve the server.
 

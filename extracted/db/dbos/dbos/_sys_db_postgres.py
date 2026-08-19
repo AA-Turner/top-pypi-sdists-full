@@ -6,7 +6,12 @@ import sqlalchemy as sa
 from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.exc import DBAPIError
 
-from dbos._migration import ensure_dbos_schema, run_dbos_migrations, should_migrate
+from dbos._migration import (
+    ensure_dbos_schema,
+    get_migration_versions,
+    run_dbos_migrations,
+    should_migrate,
+)
 
 from ._logger import dbos_logger
 from ._schemas.system_database import SystemSchema
@@ -103,6 +108,14 @@ class PostgresSystemDatabase(SystemDatabase):
                         {"lock_id": MIGRATION_LOCK_ID},
                     )
 
+    def verify_migrations(self) -> None:
+        """Check the system database is migrated, creating and changing nothing."""
+        assert self.schema
+        current_version, latest_version = get_migration_versions(
+            self.engine, self.schema, self.use_listen_notify
+        )
+        self._assert_migration_version(current_version, latest_version)
+
     def _cleanup_connections(self) -> None:
         """Clean up PostgreSQL-specific connections."""
         with self._listener_thread_lock:
@@ -129,13 +142,74 @@ class PostgresSystemDatabase(SystemDatabase):
         return dbapi_error.orig.sqlstate == "23503"  # type: ignore
 
     @staticmethod
-    def _reset_system_database(database_url: str) -> None:
-        """Reset the PostgreSQL system database by dropping it."""
+    def _truncate_system_database(database_url: str, schema: str) -> None:
+        """Empty every DBOS table in the system database, leaving the schema intact.
+
+        dbos_migrations is spared: clearing it would re-run applied migrations."""
+        # The plain PostgreSQL dialect cannot connect to CockroachDB at all: it
+        # asserts on the server version string. Keep the caller's dialect there.
+        url = sa.make_url(database_url)
+        if not url.drivername.startswith("cockroachdb"):
+            url = url.set(drivername="postgresql+psycopg")
+        engine = sa.create_engine(url, connect_args={"connect_timeout": 10})
+        try:
+            try:
+                # Evict other backends, as DROP DATABASE ... WITH (FORCE) does, or one
+                # holding a lock blocks the deletes. Its own transaction, and best
+                # effort: CockroachDB has no pg_terminate_backend, and a role may not signal.
+                with engine.begin() as conn:
+                    conn.execute(
+                        sa.text(
+                            "SELECT pg_terminate_backend(pid) FROM pg_stat_activity "
+                            "WHERE datname = current_database() AND pid <> pg_backend_pid()"
+                        )
+                    )
+            except Exception as e:
+                dbos_logger.warning(
+                    f"Could not evict connections before truncating: {e}"
+                )
+            with engine.begin() as conn:
+                tables = [
+                    table
+                    for table in conn.execute(
+                        sa.text(
+                            "SELECT tablename FROM pg_tables WHERE schemaname = :schema"
+                        ),
+                        {"schema": schema},
+                    ).scalars()
+                    if table != "dbos_migrations"
+                ]
+                if not tables:
+                    dbos_logger.warning(
+                        f'Found no tables to empty in schema "{schema}" of system '
+                        f"database {url.database}. If it uses a different schema, "
+                        "pass that schema to reset_system_database."
+                    )
+                # For small test tables, DELETE is far faster than TRUNCATE
+                for table in tables:
+                    conn.execute(sa.text(f'DELETE FROM "{schema}"."{table}"'))
+        except Exception as e:
+            # Best effort: an absent or unreachable database must not fail the caller.
+            dbos_logger.warning(f"Could not empty system database {url.database}: {e}")
+        finally:
+            engine.dispose()
+
+    @staticmethod
+    def _reset_system_database(
+        database_url: str, *, truncate: bool = False, schema: Optional[str] = None
+    ) -> None:
+        """Reset the PostgreSQL system database by dropping it, or by emptying its tables."""
         system_db_url = sa.make_url(database_url)
         sysdb_name = system_db_url.database
 
         if sysdb_name is None:
             raise ValueError(f"System database name not found in URL {system_db_url}")
+
+        if truncate:
+            PostgresSystemDatabase._truncate_system_database(
+                database_url, schema if schema else "dbos"
+            )
+            return
 
         try:
             # Connect to postgres default database

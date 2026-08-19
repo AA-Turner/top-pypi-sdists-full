@@ -21,7 +21,14 @@ from collate_sqllineage.core.holders import (
     StatementLineageHolder,
     SubQueryLineageHolder,
 )
-from collate_sqllineage.core.models import AnalyzerContext, Column, SubQuery
+from collate_sqllineage.core.models import (
+    AnalyzerContext,
+    Column,
+    Schema,
+    SubQuery,
+    Table,
+)
+from collate_sqllineage.core.parser import SourceHandlerMixin
 from collate_sqllineage.core.parser.sqlparse.handlers.base import (
     CurrentTokenBaseHandler,
     NextTokenBaseHandler,
@@ -30,6 +37,7 @@ from collate_sqllineage.core.parser.sqlparse.holder_utils import (
     get_dataset_from_identifier,
 )
 from collate_sqllineage.core.parser.sqlparse.models import (
+    SqlParseColumn,
     SqlParseSubQuery,
     SqlParseTable,
 )
@@ -38,6 +46,7 @@ from collate_sqllineage.core.parser.sqlparse.utils import (
     is_subquery,
     is_token_negligible,
 )
+from collate_sqllineage.utils.constant import NodeTag
 from collate_sqllineage.utils.helpers import trim_comment
 
 logger = logging.getLogger(__name__)
@@ -69,6 +78,8 @@ class SqlParseLineageAnalyzer(LineageAnalyzer):
                 holder = self._extract_from_ddl_alter(stmt)
             elif stmt.get_type() == "MERGE":
                 holder = self._extract_from_dml_merge(stmt)
+            elif stmt.get_type() == "UPDATE":
+                holder = self._extract_from_dml_update(stmt)
             else:
                 # DML parsing logic also applies to CREATE DDL
                 holder = StatementLineageHolder.of(
@@ -113,6 +124,97 @@ class SqlParseLineageAnalyzer(LineageAnalyzer):
             holder.add_write(tables[0])
             holder.add_read(tables[1])
         return holder
+
+    @classmethod
+    def _extract_from_dml_update(cls, stmt: Statement) -> StatementLineageHolder:
+        # Reuse the generic DML pass to collect source/target tables and their aliases,
+        # then map each SET assignment onto its real source table, the same way the
+        # SELECT column lineage is resolved. The SET clause is walked after the tables
+        # are known because in `UPDATE ... SET ... FROM ...` the FROM comes last.
+        holder = cls._extract_from_dml(stmt, AnalyzerContext())
+        if holder.write:
+            cls._resolve_aliased_update_target(holder)
+            alias_mapping = SourceHandlerMixin.get_alias_mapping_from_table_group(
+                list(holder.read), holder
+            )
+            read_tables = set(holder.read)
+            write_table = list(holder.write)[0]
+            for comparison in cls._get_update_set_comparisons(stmt):
+                if not isinstance(comparison.left, Identifier):
+                    continue
+                target_column = Column(
+                    comparison.left.get_real_name(),
+                    source_columns=SqlParseColumn._extract_source_columns(
+                        comparison.right
+                    ),
+                )
+                target_column.parent = write_table
+                for source_column in target_column.to_source_columns(alias_mapping):
+                    # Only emit when the source resolves to a real table in the
+                    # statement. sqlparse cannot tokenize a three part name with a
+                    # space alias, so an unresolved qualifier would otherwise create
+                    # a phantom default-schema table.
+                    if source_column.parent in read_tables:
+                        holder.add_column_lineage(source_column, target_column)
+        return StatementLineageHolder.of(holder)
+
+    @staticmethod
+    def _resolve_aliased_update_target(holder) -> None:
+        """
+        `UPDATE alias SET ... FROM real_table alias ...` writes to a table declared
+        in the FROM clause under an alias. Rewrite the write target to that real
+        table and drop it from the sources so it is not also reported as a source.
+        The target is matched only against an explicit alias, never a table's own
+        name, so a self-join source is not misread as the target.
+        """
+        write_tables = list(holder.write)
+        if write_tables:
+            write_table = write_tables[0]
+            if (
+                isinstance(write_table, Table)
+                and str(write_table.schema) == Schema.unknown
+            ):
+                matched = next(
+                    (
+                        tbl
+                        for tbl in holder.read
+                        if isinstance(tbl, Table)
+                        and tbl.alias != tbl.raw_name
+                        and write_table.raw_name == tbl.alias
+                    ),
+                    None,
+                )
+                if matched is not None and matched != write_table:
+                    for alias in list(holder.graph.successors(matched)):
+                        if not isinstance(alias, (Table, SubQuery)):
+                            holder.graph.remove_node(alias)
+                    if write_table in holder.graph:
+                        holder.graph.remove_node(write_table)
+                    holder.add_write(matched)
+                    holder.graph.nodes[matched][NodeTag.READ] = False
+
+    @staticmethod
+    def _get_update_set_comparisons(stmt: Statement) -> List[Comparison]:
+        comparisons: List[Comparison] = []
+        set_flag = False
+        for token in stmt.tokens:
+            if is_token_negligible(token):
+                continue
+            if token.is_keyword:
+                if token.normalized == "SET":
+                    set_flag = True
+                elif set_flag:
+                    break
+                continue
+            if set_flag:
+                if isinstance(token, Comparison):
+                    comparisons.append(token)
+                elif isinstance(token, IdentifierList):
+                    comparisons.extend(
+                        t for t in token.get_identifiers() if isinstance(t, Comparison)
+                    )
+                break
+        return comparisons
 
     @classmethod
     def _extract_from_dml_merge(cls, stmt: Statement) -> StatementLineageHolder:

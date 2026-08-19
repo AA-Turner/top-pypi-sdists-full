@@ -19,7 +19,6 @@ already-correct bulk_load path.
 """
 
 import os
-from urllib.parse import urlparse
 
 import pytest
 
@@ -75,19 +74,6 @@ def _strip_ambient_azure_env(monkeypatch) -> None:
         "AZURE_STORAGE_ACCOUNT",
     ):
         monkeypatch.delenv(key, raising=False)
-
-
-def test_blob_range_azure_fs_receives_service_principal(monkeypatch) -> None:
-    captured = _install_env_capturing_azure_fs(monkeypatch)
-    from geneva.apply.blob_range import _azure_filesystem_from_uri
-
-    _azure_filesystem_from_uri(urlparse("az://container/blob"), dict(_SP_OPTIONS))
-
-    assert captured["env"] == _EXPECTED_ENV
-    # The SP goes through the environment, not as constructor kwargs (older
-    # worker pyarrow has no client_id/client_secret params).
-    assert "client_secret" not in captured["kwargs"]
-    assert captured["kwargs"].get("account_name") == "acct"
 
 
 def test_filesystem_from_uri_azure_fs_receives_service_principal(monkeypatch) -> None:

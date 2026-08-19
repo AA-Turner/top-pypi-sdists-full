@@ -24,7 +24,7 @@ from pylxd.models import _model as model
 def _image_create_from_config(client, config, wait=False):
     """Create an image from the given configuration.
 
-    See: https://documentation.ubuntu.com/lxd/en/latest/api/#/instances/instances_post
+    See: https://canonical.com/lxd/docs/latest/api/#/instances/instances_post
     """
     response = client.api.images.post(json=config)
     if wait:
@@ -50,8 +50,17 @@ class Image(model.Model):
     uploaded_at = model.Attribute(readonly=True)
     update_source = model.Attribute(readonly=True)
     type = model.Attribute(readonly=True)
-    project = model.Attribute(readonly=True)
+    project = model.Attribute(readonly=True, optional=True)
     profiles = model.Attribute(readonly=True)
+
+    def __eq__(self, other):
+        if not isinstance(other, Image):
+            return NotImplemented
+        return self.fingerprint == other.fingerprint and self._raw_attr(
+            "project"
+        ) == other._raw_attr("project")
+
+    __hash__ = None  # type: ignore  # unhashable, consistent with defining __eq__
 
     @property
     def api(self):
@@ -103,12 +112,12 @@ class Image(model.Model):
     @classmethod
     def create(
         cls, client, image_data, metadata=None, public=False, wait=True, vm=False
-    ):
+    ) -> "Image":
         """Create an image.
 
         If metadata is provided, a multipart form data request is formed to
         push metadata and image together in a single request. The metadata must
-        be a tar achive.
+        be a tar archive.
 
         `wait` parameter is now ignored, as the image fingerprint cannot be
         reliably determined consistently until after the image is indexed.
@@ -217,12 +226,8 @@ class Image(model.Model):
         """Delete an alias from the image."""
         self.client.api.images.aliases[name].delete()
 
-        # Update current aliases list
-        la = [a["name"] for a in self.aliases]
-        try:
-            del self.aliases[la.index(name)]
-        except ValueError:
-            pass
+        # Rebuild the list without the deleted alias
+        self.aliases = [a for a in self.aliases if a.get("name") != name]
 
     def copy(self, new_client, public=None, auto_update=None, wait=False):
         """Copy an image to a another LXD.
@@ -265,3 +270,4 @@ class Image(model.Model):
 
         if wait:
             return new_client.images.get(self.fingerprint)
+        return None

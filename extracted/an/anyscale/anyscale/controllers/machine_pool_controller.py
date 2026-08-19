@@ -1,5 +1,5 @@
 import pathlib
-from typing import List, Optional
+from typing import Any, Dict, List, Optional, Set, Tuple
 
 from rich.console import Console
 import yaml
@@ -18,6 +18,72 @@ from anyscale.client.openapi_client.models import (
 )
 from anyscale.cloud_utils import get_cloud_id_and_name, get_cloud_resource_id_by_name
 from anyscale.controllers.base_controller import BaseController
+
+
+def _machine_types_and_partitions(spec: Any) -> Optional[Dict[str, Set[str]]]:
+    """Map each machine-type name in a spec to the set of its partition names.
+
+    Returns None when the spec is not diffable -- it is not a dict or has no
+    "machine_types" list -- which signals callers to skip the rename/removal check.
+    """
+    if not isinstance(spec, dict):
+        return None
+    machine_types = spec.get("machine_types")
+    if not isinstance(machine_types, list):
+        return None
+    result: Dict[str, Set[str]] = {}
+    for machine_type in machine_types:
+        if not isinstance(machine_type, dict):
+            continue
+        name = machine_type.get("machine_type")
+        if name is None:
+            continue
+        partition_names: Set[str] = set()
+        partitions = machine_type.get("partitions")
+        if isinstance(partitions, list):
+            for partition in partitions:
+                if isinstance(partition, dict) and partition.get("name") is not None:
+                    partition_names.add(partition["name"])
+        result[name] = partition_names
+    return result
+
+
+def compute_removed_machine_pool_resources(
+    current_spec: Any, new_spec: Any
+) -> Tuple[List[str], List[Tuple[str, str]]]:
+    """Find machine types and partitions present in current_spec but absent from new_spec.
+
+    A machine type or partition name that exists in the current (last-applied) spec
+    but not in the new spec is being renamed or removed; the backend applies that as a
+    delete-then-create, which terminates the underlying instances. Returns a tuple of
+    (removed_machine_type_names, removed (machine_type, partition) pairs). Partitions
+    are only reported for machine types that survive the update -- a removed machine
+    type already accounts for all of its partitions. Returns ([], []) when the new
+    spec is not diffable, so a malformed or non-ANYSCALE_MANAGED spec never raises a
+    false "removing everything" warning.
+    """
+    new_resources = _machine_types_and_partitions(new_spec)
+    if new_resources is None:
+        return [], []
+
+    current_resources = _machine_types_and_partitions(current_spec)
+    if current_resources is None:
+        current_resources = {}
+
+    removed_types = sorted(
+        name for name in current_resources if name not in new_resources
+    )
+    removed_partitions: List[Tuple[str, str]] = []
+    for machine_type_name, partition_names in current_resources.items():
+        if machine_type_name not in new_resources:
+            # The whole machine type is gone; its partitions are already covered
+            # by the machine-type removal above, so don't double-report them.
+            continue
+        surviving = new_resources[machine_type_name]
+        for partition_name in sorted(partition_names - surviving):
+            removed_partitions.append((machine_type_name, partition_name))
+
+    return removed_types, removed_partitions
 
 
 class MachinePoolController(BaseController):
@@ -44,9 +110,7 @@ class MachinePoolController(BaseController):
             DeleteMachinePoolRequest(machine_pool_name=machine_pool_name)
         )
 
-    def update_machine_pool(
-        self, machine_pool_name: str, spec_file: str,
-    ):
+    def update_machine_pool(self, machine_pool_name: str, spec_file: str):
         path = pathlib.Path(spec_file)
         if not path.exists():
             raise FileNotFoundError(f"File {spec_file} does not exist.")
@@ -56,9 +120,57 @@ class MachinePoolController(BaseController):
 
         spec = yaml.safe_load(path.read_text())
 
+        self._warn_on_destructive_update(machine_pool_name, spec)
+
         self.api_client.update_machine_pool_api_v2_machine_pools_update_post(
             UpdateMachinePoolRequest(machine_pool_name=machine_pool_name, spec=spec,)
         )
+
+    def _warn_on_destructive_update(
+        self, machine_pool_name: str, new_spec: Any
+    ) -> None:
+        if _machine_types_and_partitions(new_spec) is None:
+            # The new spec has no machine_types list to diff against (e.g. a
+            # CUSTOMER_MANAGED or malformed spec); leave validation to the backend.
+            return
+
+        current_spec = self._get_current_spec(machine_pool_name)
+        removed_types, removed_partitions = compute_removed_machine_pool_resources(
+            current_spec, new_spec
+        )
+        if not removed_types and not removed_partitions:
+            return
+
+        lines = ["The following machine pool resources will be removed or renamed:"]
+        for machine_type_name in removed_types:
+            lines.append(
+                f"  - machine type '{machine_type_name}' (and all of its partitions)"
+            )
+        for machine_type_name, partition_name in removed_partitions:
+            lines.append(
+                f"  - partition '{partition_name}' in machine type '{machine_type_name}'"
+            )
+        lines.append(
+            "Renaming or removing a machine type or partition is applied as a delete and re-create, so the underlying instances will be terminated and any workloads running on them will be disrupted."
+        )
+        self.log.warning("\n".join(lines))
+
+    def _get_current_spec(self, machine_pool_name: str) -> Optional[dict]:
+        try:
+            response = self.list_machine_pools()
+            for machine_pool in response.machine_pools:
+                if machine_pool.machine_pool_name == machine_pool_name:
+                    return machine_pool.spec
+            return None
+        except Exception:  # noqa: BLE001
+            # Fail open: if the current spec can't be read, skip the rename/removal
+            # check and let the update proceed (the update call below surfaces any
+            # real connectivity or auth error). A transient read failure must not
+            # block a legitimate update.
+            self.log.warning(
+                "Could not read the current machine pool spec; skipping the rename/removal check before updating."
+            )
+            return None
 
     def describe_machine_pool(
         self, machine_pool_name: str,

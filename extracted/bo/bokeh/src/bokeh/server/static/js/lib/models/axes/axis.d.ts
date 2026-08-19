@@ -15,9 +15,9 @@ import { GraphicsBoxes } from "../../core/graphics";
 import type { Factor } from "../ranges/factor_range";
 import type { BaseTextView } from "../text/base_text";
 import { BaseText } from "../text/base_text";
-import type { View } from "../../core/build_views";
+import type { ChildView } from "../../core/build_views";
 import { BBox } from "../../core/util/bbox";
-export declare const LabelOverrides: import("../../core/kinds").Kinds.Or<[import("core/types").Dict<string | BaseText>, Map<string | number, string | BaseText>]>;
+export declare const LabelOverrides: import("../../core/kinds").Kinds.Or<[import("../../core/types").Dict<string | BaseText>, Map<string | number, string | BaseText>]>;
 export type LabelOverrides = typeof LabelOverrides["__type__"];
 export type Extents = {
     tick: number;
@@ -39,7 +39,7 @@ export declare abstract class AxisView extends GuideRendererView {
     _axis_label_view: BaseTextView | null;
     _major_label_views: Map<string | number, BaseTextView>;
     get bbox(): BBox;
-    children_views(): View[];
+    children_views(): ChildView[];
     lazy_initialize(): Promise<void>;
     protected _init_axis_label(): Promise<void>;
     protected _init_major_labels(): Promise<void>;
@@ -82,7 +82,6 @@ export declare abstract class AxisView extends GuideRendererView {
     private _warned_bad_loc;
     get loc(): number;
     get face(): Face;
-    remove(): void;
     has_finished(): boolean;
 }
 export declare namespace Axis {

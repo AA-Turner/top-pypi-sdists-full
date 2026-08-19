@@ -219,7 +219,6 @@ def test_merge_complex_rds__q40():
     FROM RDS."OLANOW"."U_OLA_RELEASE_SPECIFIC_CONFIG" where sys_id IN (SELECT DISTINCT D.DOCUMENTKEY
     FROM "RDS"."OLANOW"."SYS_AUDIT_DELETE" D
     WHERE D.TABLENAME LIKE LOWER('placeholder_4')  AND CAST( D.SYS_UPDATED_ON AS DATE )  >= DATEADD(DAY, 'placeholder_5', CURRENT_DATE ))"""
-    # SqlParse: Includes target table as source in INSERT INTO...SELECT
     # Graph: Parsers create different graph structures (table lineage is correct)
     assert_table_lineage_equal(
         sql,
@@ -229,7 +228,6 @@ def test_merge_complex_rds__q40():
         },  # source_tables
         {"rds.staging.instance_tables_deleted_sys_id"},  # target_tables
         dialect="snowflake",
-        test_sqlparse=False,
         skip_graph_check=True,
     )
 
@@ -268,14 +266,12 @@ RDS.OUTREACH.CONTENT_CATEGORIES
 SWAP WITH
 RDS.OUTREACH.STG_CONTENT_CATEGORIES"""
     # SqlParse: Cannot correctly parse SWAP statements - extracts wrong tables
-    # Graph: Parsers create different graph structures (table lineage is correct)
     assert_table_lineage_equal(
         sql,
         {"rds.outreach.stg_content_categories"},  # source_tables
         {"rds.outreach.content_categories"},  # target_tables
         dialect="snowflake",
         test_sqlparse=False,
-        skip_graph_check=True,
     )
 
 
@@ -858,7 +854,6 @@ def test_merge_complex_rds_powerbi__q229():
 (select 'placeholder_1','placeholder_2',"Data Value",'placeholder_3'
 from RDS.POWERBI."TEMP_FABRIC_CAPACITY_METRICS_1BB61C0E-9F72-4F46-A655-9E5691CADBF2")"""
     # SqlParse: Includes target table as source in INSERT INTO...SELECT
-    # Graph: Parsers create different graph structures (table lineage is correct)
     assert_table_lineage_equal(
         sql,
         {
@@ -867,7 +862,6 @@ from RDS.POWERBI."TEMP_FABRIC_CAPACITY_METRICS_1BB61C0E-9F72-4F46-A655-9E5691CAD
         {"rds.powerbi.stg_fabric_capacity_metrics"},  # target_tables
         dialect="snowflake",
         test_sqlparse=False,
-        skip_graph_check=True,
     )
 
 

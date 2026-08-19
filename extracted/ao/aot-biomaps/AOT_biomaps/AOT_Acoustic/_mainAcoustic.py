@@ -170,6 +170,9 @@ class AcousticField(ABC):
         Generate the acoustic field based on the specified simulation type and parameters.
         """
         try:
+            if self.medium.medium_properties is None:
+                raise ValueError("[AOT-biomaps] Medium properties are not defined. Please generate or load a valid Medium object.")
+
             logging.getLogger('root').setLevel(logging.ERROR)
             if self.params.acoustic['typeSim'] == TypeSim.FIELD2.value:
                 raise NotImplementedError("[AOT-biomaps] FIELD2 simulation is not implemented yet.")

@@ -67,6 +67,7 @@ __all__ = (
     "PowerFeedDropType",
     "PowerPhaseType",
     "PricingResultType",
+    "PrivateConnectivityStatusType",
     "QuoteCapacityTypeType",
     "QuoteConstraintTypeType",
     "QuotePricingTypeType",
@@ -210,6 +211,7 @@ PowerDrawKvaType = Literal["POWER_10_KVA", "POWER_15_KVA", "POWER_30_KVA", "POWE
 PowerFeedDropType = Literal["ABOVE_RACK", "BELOW_RACK"]
 PowerPhaseType = Literal["SINGLE_PHASE", "THREE_PHASE"]
 PricingResultType = Literal["PRICED", "UNABLE_TO_PRICE"]
+PrivateConnectivityStatusType = Literal["DISABLED", "ENABLED"]
 QuoteCapacityTypeType = Literal["EBS", "EC2", "S3"]
 QuoteConstraintTypeType = Literal["RACK_MAXIMUM", "RACK_MAX_POWER_KVA", "RACK_MAX_WEIGHT_LBS"]
 QuotePricingTypeType = Literal["SUBSCRIPTION"]

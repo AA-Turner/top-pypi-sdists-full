@@ -4,12 +4,26 @@ on:
     - cron: "0 7 * * *" # 07:00 UTC daily
   workflow_dispatch:
 
+# The two legs are SEPARATE JOBS with no `needs:` between them, and that is the
+# point: they share no state, so neither leg's outcome may cost the other a night
+# of coverage. As one job the srid-off leg was unreachable twice over -- first
+# behind the default first-failure step abort, then behind `if: !cancelled()`,
+# because the L=5 step hit the job timeout and a timed-out job is *cancelled*.
+# (The fault-injection nightly keeps both legs in one job by necessity: its
+# srid-off leg reads the srid-on leg's verdict dump as a parity baseline.)
 jobs:
   deep-sweep:
     permissions:
       contents: read
     runs-on: warp-ubuntu-latest-x64-32x
-    timeout-minutes: 60
+    # Sized from measurement, not from the default. The previous 60-minute cap cut
+    # every scheduled run short -- 30 of the last 30 ended `cancelled` at ~61 min,
+    # so the deep leg produced no signal at all and the cap, not the sweep, was the
+    # bug. Measured baseline: L=3 is 3,998 cases in 557 s at 12 workers (7.2
+    # cases/s, 14 cores). L=5 is 95,458 cases and each case applies 5 ops instead of
+    # 3, which extrapolates to ~5.5 h at 12 workers -- hence 24 workers below and
+    # this cap at roughly 2x the resulting estimate.
+    timeout-minutes: 330
     env:
       UV_CACHE_DIR: /tmp/.uv-cache
     steps:
@@ -25,9 +39,44 @@ jobs:
         run: make pydeps
       # Cluster-free in-process multi-flavor shim sweep at depth 5, parallel. Exits
       # non-zero (fails the job) if any new-signature divergence appears beyond the
-      # known bugs (GEN-619 / GEN-611). 12 workers ~= 6 GB peak (each re-imports
-      # geneva); per-case tempdir cleanup keeps memory flat with depth.
+      # known bugs (GEN-619 / GEN-611). 24 workers ~= 12 GB peak (each re-imports
+      # geneva) on this 32-vCPU runner -- the same width the fault-injection
+      # nightly already runs there; per-case tempdir cleanup keeps memory flat
+      # with depth, so depth costs wall-clock rather than RAM.
       - name: Deep differential sweep (L=5, parallel)
         run: |
-          GENEVA_MVDIFF_MAXLEN=5 SWEEP_WORKERS=12 RAY_ENABLE_UV_RUN_RUNTIME_ENV=0 \
+          GENEVA_MVDIFF_MAXLEN=5 SWEEP_WORKERS=24 RAY_ENABLE_UV_RUN_RUNTIME_ENV=0 \
+            uv run python src/tests/mv_differential_sweep.py
+
+  srid-off-sweep:
+    permissions:
+      contents: read
+    runs-on: warp-ubuntu-latest-x64-32x
+    # Measured: 1,518 cases in 197 s at 12 workers, so this leg is setup-dominated
+    # and nowhere near the cap. Kept well clear of it anyway -- the whole point of
+    # the split is that this leg never gets cancelled out from under itself.
+    timeout-minutes: 60
+    env:
+      UV_CACHE_DIR: /tmp/.uv-cache
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: true
+      - name: Install uv
+        uses: astral-sh/setup-uv@v5
+        with:
+          enable-cache: true
+          cache-dependency-glob: "uv.lock"
+      - name: Install dependencies
+        run: make pydeps
+      # srid-off leg: non-stable-row-id sources. The view flavors assert the
+      # cross-version refresh guard plus at-base oracle content (any GUARD-*
+      # signature is a NEW finding); backfill/sparse/cf-* keep their srid-on
+      # oracles -- every case self-checks content, so the _rowaddr write paths
+      # must stay oracle-correct without stable row ids. Depth 3 keeps this leg
+      # cheap next to the L=5 srid-on sweep.
+      - name: Differential sweep, srid-off leg (L=3, parallel)
+        run: |
+          GENEVA_MVDIFF_SRID=off GENEVA_MVDIFF_MAXLEN=3 SWEEP_WORKERS=12 \
+            RAY_ENABLE_UV_RUN_RUNTIME_ENV=0 \
             uv run python src/tests/mv_differential_sweep.py

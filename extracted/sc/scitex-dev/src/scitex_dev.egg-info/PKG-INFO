@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: scitex-dev
-Version: 0.53.0
+Version: 0.55.0
 Summary: Shared developer utilities for the SciTeX ecosystem
 Author-email: Yusuke Watanabe <ywatanabe@scitex.ai>
 License-Expression: AGPL-3.0-only

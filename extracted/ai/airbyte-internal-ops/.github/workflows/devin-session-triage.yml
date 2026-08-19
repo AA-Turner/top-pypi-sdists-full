@@ -116,7 +116,9 @@ jobs:
     if: needs.triage-session.outputs.triage-session-url != ''
     uses: ./.github/workflows/human-in-the-loop.yml
     with:
-      target_person: ${{ inputs.reporting_user || 'aaronsteers' }}
+      # `S0BJ4K3LC4X` is the `@oc-hydra` usergroup: default escalation point when no
+      # reporting user is known.
+      target_person: ${{ inputs.reporting_user || 'S0BJ4K3LC4X' }}
       cc_persons: ${{ inputs.cc_persons }}
       message: ${{ inputs.feedback_context }}
       agent_session_url: ${{ inputs.session_url }}

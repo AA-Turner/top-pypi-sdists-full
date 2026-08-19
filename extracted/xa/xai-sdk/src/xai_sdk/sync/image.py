@@ -3,13 +3,14 @@ from typing import Optional, Sequence, Union
 import requests
 from opentelemetry.trace import SpanKind
 
-from ..__about__ import __version__
+from ..client import USER_AGENT
 from ..files import StorageOptions
 from ..image import (
     BaseClient,
     BaseImageResponse,
     ImageAspectRatio,
     ImageFormat,
+    ImageQuality,
     ImageResolution,
     _make_generate_request,
     _make_span_request_attributes,
@@ -39,6 +40,7 @@ class Client(BaseClient):
         image_format: Optional[ImageFormat] = None,
         aspect_ratio: Optional[ImageAspectRatio] = None,
         resolution: Optional[ImageResolution] = None,
+        quality: Optional[ImageQuality] = None,
         storage_options: Optional[Union[StorageOptions, image_pb2.StorageOptions]] = None,
     ) -> batch_pb2.BatchRequest:
         """Prepares an image generation request for batch processing.
@@ -73,6 +75,10 @@ class Client(BaseClient):
             image_format: The format of the image to return ("url" or "base64"). Defaults to "url".
             aspect_ratio: The aspect ratio of the image to generate.
             resolution: The image resolution to generate ("1k" or "2k").
+            quality: Control generation quality with the optional quality
+                parameter. Allowed values are ``"low"`` and ``"medium"``. When
+                omitted, the default is ``"medium"``. The parameter is only
+                supported for ``grok-imagine-image-2.0``.
             storage_options: Persist the result to the Files API. Accepts a dict
                 with a required ``filename`` and optional ``expires_after`` and ``public_url`` keys.
                 Set ``public_url`` to also create a publicly shareable URL.
@@ -124,6 +130,7 @@ class Client(BaseClient):
             image_format=image_format,
             aspect_ratio=aspect_ratio,
             resolution=resolution,
+            quality=quality,
             storage_options=storage_options,
         )
         return batch_pb2.BatchRequest(
@@ -144,6 +151,7 @@ class Client(BaseClient):
         image_format: Optional[ImageFormat] = None,
         aspect_ratio: Optional[ImageAspectRatio] = None,
         resolution: Optional[ImageResolution] = None,
+        quality: Optional[ImageQuality] = None,
         storage_options: Optional[Union[StorageOptions, image_pb2.StorageOptions]] = None,
     ) -> "ImageResponse":
         """Samples a single image based on the provided prompt.
@@ -193,6 +201,10 @@ class Client(BaseClient):
             - `"1k"`: ~1 megapixel total. Dimensions vary by aspect ratio.
             - `"2k"`: ~4 megapixels total. Dimensions vary by aspect ratio.
             Only supported for grok-imagine models.
+            quality: Control generation quality with the optional quality
+                parameter. Allowed values are ``"low"`` and ``"medium"``. When
+                omitted, the default is ``"medium"``. The parameter is only
+                supported for ``grok-imagine-image-2.0``.
             storage_options: Persist the result to the Files API. Accepts a dict
                 with a required ``filename`` and optional ``expires_after`` and ``public_url`` keys.
                 Set ``public_url`` to also create a publicly shareable URL.
@@ -217,6 +229,7 @@ class Client(BaseClient):
             image_format=image_format,
             aspect_ratio=aspect_ratio,
             resolution=resolution,
+            quality=quality,
             storage_options=storage_options,
         )
         with tracer.start_as_current_span(
@@ -243,6 +256,7 @@ class Client(BaseClient):
         image_format: Optional[ImageFormat] = None,
         aspect_ratio: Optional[ImageAspectRatio] = None,
         resolution: Optional[ImageResolution] = None,
+        quality: Optional[ImageQuality] = None,
         storage_options: Optional[Union[StorageOptions, image_pb2.StorageOptions]] = None,
     ) -> Sequence["ImageResponse"]:
         """Samples a batch of images based on the provided prompt.
@@ -293,6 +307,10 @@ class Client(BaseClient):
             - `"1k"`: ~1 megapixel total. Dimensions vary by aspect ratio.
             - `"2k"`: ~4 megapixels total. Dimensions vary by aspect ratio.
             Only supported for grok-imagine models.
+            quality: Control generation quality with the optional quality
+                parameter. Allowed values are ``"low"`` and ``"medium"``. When
+                omitted, the default is ``"medium"``. The parameter is only
+                supported for ``grok-imagine-image-2.0``.
             storage_options: Persist the results to the Files API. Accepts a dict
                 with a required ``filename`` and optional ``expires_after`` and ``public_url`` keys.
                 Set ``public_url`` to also create a publicly shareable URL.
@@ -318,6 +336,7 @@ class Client(BaseClient):
             image_format=image_format,
             aspect_ratio=aspect_ratio,
             resolution=resolution,
+            quality=quality,
             storage_options=storage_options,
         )
         with tracer.start_as_current_span(
@@ -342,7 +361,7 @@ class ImageResponse(BaseImageResponse):
         elif self._image.url:
             response = requests.get(
                 self.url,
-                headers={"User-Agent": f"XaiSdk/{__version__}"},
+                headers={"User-Agent": USER_AGENT},
                 timeout=5,  # 5 seconds
             )
             response.raise_for_status()

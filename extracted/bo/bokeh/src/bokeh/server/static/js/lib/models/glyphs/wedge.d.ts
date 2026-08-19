@@ -13,7 +13,7 @@ export interface WedgeView extends Wedge.Data {
 export declare class WedgeView extends XYGlyphView {
     model: Wedge;
     visuals: Wedge.Visuals;
-    load_glglyph(): Promise<typeof import("./webgl/wedge").WedgeGL>;
+    load_glglyph(): Promise<typeof import("../../all/main").WedgeGL>;
     protected _index_data(index: SpatialIndex): void;
     protected _map_data(): void;
     protected _paint(ctx: Context2d, indices: number[], data?: Partial<Wedge.Data>): void;

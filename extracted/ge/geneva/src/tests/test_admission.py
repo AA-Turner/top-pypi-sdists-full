@@ -2,6 +2,8 @@
 # SPDX-FileCopyrightText: Copyright The Geneva Authors
 """Tests for admission control."""
 
+import contextlib
+from collections.abc import Iterator
 from unittest.mock import MagicMock, patch
 
 import lance
@@ -10,7 +12,9 @@ import pytest
 
 from geneva._context import LocalRayContext
 from geneva.runners.ray.admission import (
+    AdmissionConfig,
     AdmissionDecision,
+    ClusterKind,
     ClusterResources,
     JobResources,
     NodeCapacity,
@@ -18,10 +22,13 @@ from geneva.runners.ray.admission import (
     ResourcesUnavailableError,
     _check_kuberay_admission,
     _check_static_admission,
+    _detect_cluster_kind,
     _is_kuberay_cluster,
     calculate_job_resources,
+    calculate_udtf_job_resources,
     check_admission,
     validate_admission,
+    validate_udtf_admission,
 )
 from geneva.runners.ray.raycluster import RayCluster
 from geneva.transformer import UDF
@@ -59,9 +66,9 @@ class TestCalculateJobResources:
         assert resources.concurrency == 4
         assert resources.udf_cpus == 1.0
         assert resources.udf_gpus == 0.0
-        # Overhead includes driver (0.1), jobtracker (0.1), and writers (0.1 each)
-        # Note: queues use 0 CPU and 0 memory
-        assert resources.overhead_cpus == pytest.approx(0.6)
+        # The driver is head-pinned and excluded from worker admission. The
+        # JobTracker (0.1) and fragment writers (4 × 0.1) run on workers.
+        assert resources.overhead_cpus == pytest.approx(0.5)
 
     def test_gpu_udf(self) -> None:
         udf = make_udf(num_cpus=1.0, num_gpus=1.0)
@@ -1049,8 +1056,9 @@ class TestBackfillAdmissionControlIntegration:
     def test_backfill_rejects_excessive_gpu_without_explicit_flag(self, db) -> None:
         """Backfill with UDF requiring 1000 GPUs fails without _admission_check.
 
-        This is the key regression test - before the fix, this would NOT raise
-        because admission control was not invoked when _admission_check=None.
+        This is the key regression test - before the fix, admission control was
+        not invoked at all when _admission_check=None. Strictness is requested
+        explicitly here because the default is warn-and-proceed.
         """
 
         from geneva import udf
@@ -1066,7 +1074,7 @@ class TestBackfillAdmissionControlIntegration:
         # Key: we do NOT pass _admission_check=True here
         # Before the fix, this would hang instead of failing fast
         with pytest.raises(ResourcesUnavailableError) as exc_info:
-            tbl.backfill_async("b")
+            tbl.backfill_async("b", _admission_strict=True)
 
         assert "GPU" in str(exc_info.value)
 
@@ -1084,7 +1092,7 @@ class TestBackfillAdmissionControlIntegration:
         tbl.add_columns({"b": excessive_cpu_udf})
 
         with pytest.raises(ResourcesUnavailableError) as exc_info:
-            tbl.backfill_async("b")
+            tbl.backfill_async("b", _admission_strict=True)
 
         assert "CPU" in str(exc_info.value)
 
@@ -1104,7 +1112,7 @@ class TestBackfillAdmissionControlIntegration:
         tbl.add_columns({"b": excessive_memory_udf})
 
         with pytest.raises(ResourcesUnavailableError) as exc_info:
-            tbl.backfill_async("b")
+            tbl.backfill_async("b", _admission_strict=True)
 
         assert "memory" in str(exc_info.value).lower()
 
@@ -1153,6 +1161,143 @@ class TestBackfillAdmissionControlIntegration:
             )
         result = tbl.to_arrow()
         assert result.column("b").to_pylist() == [2, 3, 4]
+
+
+class TestDetectClusterKind:
+    """Tests for _detect_cluster_kind."""
+
+    def test_kuberay_takes_precedence(self) -> None:
+        with patch(
+            "geneva.runners.ray.admission._is_kuberay_cluster", return_value=True
+        ):
+            assert _detect_cluster_kind() is ClusterKind.KUBERAY
+
+    def test_local_context_is_local(self) -> None:
+        with (
+            patch(
+                "geneva.runners.ray.admission._is_kuberay_cluster", return_value=False
+            ),
+            patch(
+                "geneva.runners.ray.admission.get_current_context",
+                return_value=LocalRayContext(),
+            ),
+        ):
+            assert _detect_cluster_kind() is ClusterKind.LOCAL
+
+    def test_no_context_is_external(self) -> None:
+        """A cluster connected to by address has no Geneva context."""
+        with (
+            patch(
+                "geneva.runners.ray.admission._is_kuberay_cluster", return_value=False
+            ),
+            patch(
+                "geneva.runners.ray.admission.get_current_context", return_value=None
+            ),
+        ):
+            assert _detect_cluster_kind() is ClusterKind.EXTERNAL
+
+
+class TestNonStrictByDefault:
+    """Admission control warns instead of raising unless strict is requested."""
+
+    def test_config_default_is_non_strict(self) -> None:
+        assert AdmissionConfig().strict is False
+
+    @staticmethod
+    @contextlib.contextmanager
+    def _rejecting_cluster(kind: ClusterKind) -> Iterator[None]:
+        """Patch admission's dependencies so any validate call hits REJECT."""
+        is_kuberay = kind is ClusterKind.KUBERAY
+        resources = ClusterResources(
+            total_cpus=8.0,
+            total_gpus=0.0,
+            total_memory=16 * 1024**3,
+            available_cpus=8.0,
+            available_gpus=0.0,
+            available_memory=16 * 1024**3,
+            is_kuberay=is_kuberay,
+            max_scale_cpus=8.0 if is_kuberay else None,
+            max_scale_gpus=0.0 if is_kuberay else None,
+            max_scale_memory=16 * 1024**3 if is_kuberay else None,
+        )
+        with (
+            patch("geneva.runners.ray.admission.ray.is_initialized", return_value=True),
+            patch(
+                "geneva.runners.ray.admission.AdmissionConfig.get",
+                return_value=AdmissionConfig(),
+            ),
+            patch(
+                "geneva.runners.ray.admission._detect_cluster_kind", return_value=kind
+            ),
+            patch(
+                "geneva.runners.ray.admission.get_cluster_resources",
+                return_value=resources,
+            ),
+            patch(
+                "geneva.runners.ray.admission.get_kuberay_cluster_resources",
+                return_value=resources,
+            ),
+            patch(
+                "geneva.runners.ray.admission.check_admission",
+                return_value=(AdmissionDecision.REJECT, "Job requires 1.0 GPUs"),
+            ),
+        ):
+            yield
+
+    def _run_rejected(self, kind: ClusterKind, *, strict: bool | None = None) -> None:
+        """Drive validate_admission to a REJECT decision on a given cluster kind."""
+        with self._rejecting_cluster(kind):
+            validate_admission(
+                make_udf(num_gpus=1.0), concurrency=1, check=True, strict=strict
+            )
+
+    def _run_udtf_rejected(
+        self, kind: ClusterKind, *, strict: bool | None = None
+    ) -> None:
+        """Drive validate_udtf_admission to a REJECT on a given cluster kind."""
+        with self._rejecting_cluster(kind):
+            validate_udtf_admission(
+                udtf_num_gpus=1.0, concurrency=1, check=True, strict=strict
+            )
+
+    def test_rejection_only_warns_by_default(self, caplog) -> None:
+        """No exception is raised when strict is left unset."""
+        with caplog.at_level("WARNING", logger="geneva.runners.ray.admission"):
+            self._run_rejected(ClusterKind.LOCAL)
+        assert "Job requires 1.0 GPUs" in caplog.text
+        assert "_admission_strict=True" in caplog.text
+
+    def test_explicit_strict_still_raises(self) -> None:
+        with pytest.raises(ResourcesUnavailableError, match="Job requires 1.0 GPUs"):
+            self._run_rejected(ClusterKind.LOCAL, strict=True)
+
+    def test_external_warning_flags_unknown_autoscaling(self, caplog) -> None:
+        with caplog.at_level("WARNING", logger="geneva.runners.ray.admission"):
+            self._run_rejected(ClusterKind.EXTERNAL)
+        assert "does not account for autoscaling" in caplog.text
+
+    def test_kuberay_warning_notes_autoscaling_accounted(self, caplog) -> None:
+        with caplog.at_level("WARNING", logger="geneva.runners.ray.admission"):
+            self._run_rejected(ClusterKind.KUBERAY)
+        assert "maximum autoscale capacity" in caplog.text
+
+    def test_local_warning_omits_autoscaling_note(self, caplog) -> None:
+        with caplog.at_level("WARNING", logger="geneva.runners.ray.admission"):
+            self._run_rejected(ClusterKind.LOCAL)
+        assert "autoscal" not in caplog.text
+
+    def test_udtf_rejection_only_warns_by_default(self, caplog) -> None:
+        """The UDTF entry point warns rather than raising when strict is unset."""
+        with caplog.at_level("WARNING", logger="geneva.runners.ray.admission"):
+            self._run_udtf_rejected(ClusterKind.EXTERNAL)
+        assert "UDTF admission control" in caplog.text
+        assert "Job requires 1.0 GPUs" in caplog.text
+        assert "does not account for autoscaling" in caplog.text
+        assert "_admission_strict=True" in caplog.text
+
+    def test_udtf_explicit_strict_still_raises(self) -> None:
+        with pytest.raises(ResourcesUnavailableError, match="Job requires 1.0 GPUs"):
+            self._run_udtf_rejected(ClusterKind.EXTERNAL, strict=True)
 
 
 class TestPipelineResourceConfig:
@@ -1216,7 +1361,24 @@ class TestPipelineResourceConfig:
         try:
             udf = make_udf(num_cpus=1.0)
             resources = calculate_job_resources(udf, concurrency=2)
-            # overhead_cpus = driver(0.2) + jobtracker(0.3) + 2*writer(0.4) = 1.3
-            assert resources.overhead_cpus == pytest.approx(1.3)
+            # The head-pinned driver is excluded. The worker-side JobTracker
+            # and fragment writers count: 0.3 + 2 * 0.4 = 1.1.
+            assert resources.overhead_cpus == pytest.approx(1.1)
+        finally:
+            PipelineResourceConfig.get.cache_clear()
+
+    def test_udtf_resources_count_jobtracker_but_not_driver(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        """UDTF worker admission separates driver and JobTracker placement."""
+        PipelineResourceConfig.get.cache_clear()
+        monkeypatch.setenv("GENEVA_PIPELINE_RESOURCES__DRIVER_NUM_CPUS", "0.7")
+        monkeypatch.setenv("GENEVA_PIPELINE_RESOURCES__JOBTRACKER_NUM_CPUS", "0.3")
+        try:
+            resources = calculate_udtf_job_resources(udtf_num_cpus=1.0, concurrency=2)
+            # Only the worker-side JobTracker contributes overhead; the 0.7 CPU
+            # driver remains pinned to the head and is not counted here.
+            assert resources.overhead_cpus == pytest.approx(0.3)
+            assert resources.total_cpus == pytest.approx(2.3)
         finally:
             PipelineResourceConfig.get.cache_clear()

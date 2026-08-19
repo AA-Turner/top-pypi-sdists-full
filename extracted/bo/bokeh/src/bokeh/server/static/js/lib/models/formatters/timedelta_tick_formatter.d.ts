@@ -2,7 +2,7 @@ import { ContextWhich, Location, TimedeltaResolutionType } from "../../core/enum
 import type * as p from "../../core/properties";
 import type { Arrayable } from "../../core/types";
 import { TickFormatter } from "./tick_formatter";
-export type { TimedeltaResolutionType } from "../../core/enums";
+export type { TimedeltaResolutionType } from "core/enums";
 export declare const resolution_order: TimedeltaResolutionType[];
 export declare const formatting_map: {
     [template: string]: any;

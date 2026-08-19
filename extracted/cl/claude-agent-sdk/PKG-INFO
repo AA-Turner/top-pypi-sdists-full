@@ -1,6 +1,6 @@
 Metadata-Version: 2.5
 Name: claude-agent-sdk
-Version: 0.2.139
+Version: 0.2.140
 Summary: Python SDK for Claude Code
 Project-URL: Homepage, https://github.com/anthropics/claude-agent-sdk-python
 Project-URL: Documentation, https://docs.anthropic.com/en/docs/claude-code/sdk
@@ -20,7 +20,8 @@ Classifier: Programming Language :: Python :: 3.13
 Classifier: Typing :: Typed
 Requires-Python: >=3.10
 Requires-Dist: anyio>=4.0.0
-Requires-Dist: mcp<2.0.0,>=1.23.0
+Requires-Dist: jsonschema>=4.20.0
+Requires-Dist: mcp<3.0.0,>=1.23.0
 Requires-Dist: sniffio>=1.0.0
 Requires-Dist: typing-extensions>=4.0.0; python_version < '3.11'
 Provides-Extra: dev
@@ -293,6 +294,7 @@ from claude_agent_sdk import (
     CLINotFoundError,    # Claude Code not installed
     CLIConnectionError,  # Connection issues
     ProcessError,        # Process failed
+    ResultError,         # Run ended with an error result (subclass of ProcessError)
     CLIJSONDecodeError,  # JSON parsing issues
 )
 
@@ -301,6 +303,11 @@ try:
         pass
 except CLINotFoundError:
     print("Please install Claude Code")
+except ResultError as e:
+    # The CLI reported a terminal error result (also yielded as the final
+    # ResultMessage) and exited. Structured fields are on the exception.
+    print(f"Run failed: {e.subtype=} {e.terminal_reason=} {e.api_error_status=}")
+    print(e.result or e.errors)
 except ProcessError as e:
     print(f"Process failed with exit code: {e.exit_code}")
 except CLIJSONDecodeError as e:

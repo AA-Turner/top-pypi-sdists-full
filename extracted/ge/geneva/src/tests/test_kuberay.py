@@ -592,3 +592,87 @@ def test_k8s_status_returns_empty_when_no_ray_pods(monkeypatch) -> None:
 
     result = k8s_status(clients)
     assert result == []  # no pods matching the ray label
+
+
+def _bare_pipeline_job():  # noqa: ANN202
+    """ColumnAddPipelineJob shell for pod-status lookup tests."""
+    from geneva.runners.ray.pipeline import ColumnAddPipelineJob
+
+    job = object.__new__(ColumnAddPipelineJob)
+    job._in_cluster_k8s = None
+    job._in_cluster_k8s_unavailable = False
+    return job
+
+
+def test_pod_status_env_fallback_used_without_cluster_context(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """A remote driver (no client RayCluster context) resolves pod status via
+    the cluster-identity env vars and in-cluster credentials."""
+    import geneva.runners.kuberay.client as kuberay_client
+    import geneva.runners.ray.pipeline as pipeline_mod
+
+    job = _bare_pipeline_job()
+    monkeypatch.setenv("GENEVA_RAY_CLUSTER_NAME", "oom-cluster")
+    monkeypatch.setenv("GENEVA_RAY_CLUSTER_NAMESPACE", "oom-ns")
+
+    built: list[object] = []
+
+    class _StubClients:
+        def __init__(self, *, config_method) -> None:  # noqa: ANN001
+            built.append(config_method)
+
+    sentinel = [{"name": "worker", "oom_evidence": {"state.reason=OOMKilled": 1}}]
+    calls: list[tuple] = []
+
+    def _fake_k8s_status(clients, namespace, *, cluster_name):  # noqa: ANN001, ANN202
+        calls.append((namespace, cluster_name))
+        return sentinel
+
+    monkeypatch.setattr(kuberay_client, "KuberayClients", _StubClients)
+    monkeypatch.setattr(pipeline_mod, "k8s_status", _fake_k8s_status)
+
+    assert job._get_k8s_pod_statuses() == sentinel
+    assert job._get_k8s_pod_statuses() == sentinel
+    # The in-cluster client is built once and reused.
+    assert built == [K8sConfigMethod.IN_CLUSTER]
+    assert calls == [("oom-ns", "oom-cluster"), ("oom-ns", "oom-cluster")]
+
+
+def test_pod_status_env_fallback_disabled_without_env(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Without the cluster-identity env vars the fallback stays off."""
+    job = _bare_pipeline_job()
+    monkeypatch.delenv("GENEVA_RAY_CLUSTER_NAME", raising=False)
+    monkeypatch.delenv("GENEVA_RAY_CLUSTER_NAMESPACE", raising=False)
+
+    assert job._get_k8s_pod_statuses() is None
+    assert job._in_cluster_k8s_unavailable is True
+
+
+def test_cluster_identity_env_injected_into_group_specs() -> None:
+    """RayCluster group specs advertise the owning cluster to their pods."""
+    from geneva.runners.ray.raycluster import _inject_cluster_identity_env
+
+    group_spec = {
+        "template": {
+            "spec": {
+                "containers": [
+                    {"name": "ray", "env": [{"name": "EXISTING", "value": "1"}]},
+                    {"name": "sidecar"},
+                ]
+            }
+        }
+    }
+    _inject_cluster_identity_env(group_spec, "clu", "ns")
+    _inject_cluster_identity_env(group_spec, "clu", "ns")  # idempotent
+
+    for container in group_spec["template"]["spec"]["containers"]:
+        env = {e["name"]: e["value"] for e in container["env"]}
+        assert env["GENEVA_RAY_CLUSTER_NAME"] == "clu"
+        assert env["GENEVA_RAY_CLUSTER_NAMESPACE"] == "ns"
+        assert (
+            sum(1 for e in container["env"] if e["name"] == "GENEVA_RAY_CLUSTER_NAME")
+            == 1
+        )

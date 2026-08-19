@@ -1,7 +1,7 @@
-from typing import Any, Dict, List, Optional, Union
+from typing import Any, Dict, List, Literal, Optional, Union
 from dataclasses import dataclass
-from ..utils.deep_attr_dict import DeepAttrDict
-from ..utils.resource_mapping import ResourceMapping
+from ..deep_attr_dict import DeepAttrDict
+from ..resource_mapping import ResourceMapping
 
 
 @dataclass
@@ -487,10 +487,10 @@ class SeamEvent:
             )
 
     access_code_id: Optional[str]
-    connected_account_custom_metadata: Optional[Dict[str, Any]]
+    connected_account_custom_metadata: Optional[Dict[str, Union[str, bool]]]
     connected_account_id: Optional[str]
     created_at: str
-    device_custom_metadata: Optional[Dict[str, Any]]
+    device_custom_metadata: Optional[Dict[str, Union[str, bool]]]
     device_id: Optional[str]
     event_description: Optional[str]
     event_id: str

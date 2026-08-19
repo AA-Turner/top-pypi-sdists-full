@@ -16,8 +16,8 @@ def test_select_with_table_name_in_backtick(dialect: str):
         "SELECT * FROM `tab1`",
         {"tab1"},
         dialect=dialect,
-        # TODO: Remove once SqlGlot adds support for backtick identifiers in Athena dialect
-        test_sqlglot=False,
+        # SqlGlot cannot parse backtick identifiers in the Athena dialect
+        test_sqlglot=dialect != "athena",
     )
 
 
@@ -29,34 +29,8 @@ def test_select_with_schema_in_backtick(dialect: str):
         "SELECT col1 FROM `schema1`.`tab1`",
         {"schema1.tab1"},
         dialect=dialect,
-        # TODO: Remove once SqlGlot adds support for backtick identifiers in Athena dialect
-        test_sqlglot=False,
-    )
-
-
-# Duplicate test with Athena excluded as it doesn't support backtick identifiers in SqlGlot
-# TODO: Remove duplicate test once SqlGlot adds support for backtick identifiers in Athena dialect
-@pytest.mark.parametrize(
-    "dialect", ["bigquery", "databricks", "hive", "mysql", "sparksql"]
-)
-def test_select_with_table_name_in_backtick_sqlglot(dialect: str):
-    assert_table_lineage_equal(
-        "SELECT * FROM `tab1`",
-        {"tab1"},
-        dialect=dialect,
-    )
-
-
-# Duplicate test with Athena excluded as it doesn't support backtick identifiers in SqlGlot
-# TODO: Remove duplicate test once SqlGlot adds support for backtick identifiers in Athena dialect
-@pytest.mark.parametrize(
-    "dialect", ["bigquery", "databricks", "hive", "mysql", "sparksql"]
-)
-def test_select_with_schema_in_backtick_sqlglot(dialect: str):
-    assert_table_lineage_equal(
-        "SELECT col1 FROM `schema1`.`tab1`",
-        {"schema1.tab1"},
-        dialect=dialect,
+        # SqlGlot cannot parse backtick identifiers in the Athena dialect
+        test_sqlglot=dialect != "athena",
     )
 
 
@@ -82,9 +56,7 @@ def test_select_from_generator(dialect: str):
     sql = """SELECT seq4(), uniform(1, 10, random(12))
 FROM table(generator()) v
 ORDER BY 1;"""
-    assert_table_lineage_equal(
-        sql, {DataFunction("generator")}, dialect=dialect, test_sqlparse=False
-    )
+    assert_table_lineage_equal(sql, {DataFunction("generator")}, dialect=dialect)
 
 
 @pytest.mark.parametrize("dialect", ["postgres", "redshift", "tsql"])
@@ -108,13 +80,11 @@ def test_redshift_system_types_cast(dialect: str):
         "SELECT relname FROM pg_class pc WHERE pc.oid = '1234'::oid",
         {"pg_class"},
         dialect=dialect,
-        test_sqlparse=False,
     )
     assert_table_lineage_equal(
         "SELECT 'proname'::regproc, 'pg_class'::regclass, 'int4'::regtype FROM mytable",
         {"mytable"},
         dialect=dialect,
-        test_sqlparse=False,
     )
     # Skip: SqlGlot doesn't support PostgreSQL internal types: cid, tid, xid, regprocedure
     # TODO: Work on adding support in SqlGlot parser for these types
@@ -122,14 +92,12 @@ def test_redshift_system_types_cast(dialect: str):
         "SELECT p.oid::regprocedure AS proc_oid, '1'::cid, '1'::tid, '1'::xid FROM pg_proc p",
         {"pg_proc"},
         dialect=dialect,
-        test_sqlparse=False,
         test_sqlglot=False,
     )
     assert_table_lineage_equal(
         "SELECT relname::name FROM pg_class",
         {"pg_class"},
         dialect=dialect,
-        test_sqlparse=False,
     )
 
 
@@ -144,7 +112,6 @@ def test_redshift_quoted_identifier_types(dialect: str):
 WHERE relkind = 'r'::"char" OR relkind = 'v'::"char" """,
         {"pg_class"},
         dialect=dialect,
-        test_sqlparse=False,
     )
     assert_table_lineage_equal(
         """SELECT CASE
@@ -154,7 +121,6 @@ END AS objtype
 FROM pg_class""",
         {"pg_class"},
         dialect=dialect,
-        test_sqlparse=False,
     )
 
 
@@ -169,7 +135,6 @@ def test_redshift_array_types_cast(dialect: str):
         "SELECT defaclacl FROM pg_default_acl WHERE defaclacl = '{}'::aclitem[]",
         {"pg_default_acl"},
         dialect=dialect,
-        test_sqlparse=False,
         test_sqlglot=False,
     )
     assert_table_lineage_equal(
@@ -178,7 +143,6 @@ ARRAY['a','b','c']::text[] AS letters
 FROM mytable""",
         {"mytable"},
         dialect=dialect,
-        test_sqlparse=False,
     )
     assert_table_lineage_equal(
         """SELECT ARRAY['hello','world']::varchar(100)[] AS words,
@@ -186,5 +150,4 @@ ARRAY[ARRAY[1,2],ARRAY[3,4]]::integer[][] AS matrix
 FROM mytable""",
         {"mytable"},
         dialect=dialect,
-        test_sqlparse=False,
     )

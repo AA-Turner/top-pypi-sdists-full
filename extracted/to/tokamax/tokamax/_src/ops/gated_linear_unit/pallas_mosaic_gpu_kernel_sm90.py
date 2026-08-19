@@ -25,11 +25,59 @@ from jax.extend import backend
 import jax.numpy as jnp
 from jaxtyping import Array, Float  # pylint: disable=g-importing-member,g-multiple-import
 from tokamax._src import jaxtyping
+from tokamax._src.ops import op
 from tokamax._src.ops.gated_linear_unit import pallas_mosaic_gpu_common as common
 
 
+def get_heuristics_config(ba: op.BoundArguments) -> common.Config:
+  del ba
+  return common.Config(
+      tile_m=128,
+      tile_n=64,
+      tile_k=64,
+      num_stages=4,
+  )
+
+
+def get_autotuning_configs(ba: op.BoundArguments) -> set[common.Config]:
+  """Returns the autotuning configs for the Pallas:MGPU GLU SM90 kernel."""
+  del ba
+  configs = set()
+  tile_n = 64
+  epi_tile_m = 64
+  grid_minor_dim = common.MatmulDimension.N
+  for tile_m in (128, 256):
+    for tile_k in (64, 128, 256):
+      for num_stages in (1, 2, 4):
+        for epi_tile_n in (16, 32):
+          for grid_tile_width in (1, 2, 4, 8, 16):
+            for wg_dimension in (
+                common.MatmulDimension.M, common.MatmulDimension.N
+            ):
+              for cluster_size_m in (1, 2):
+                for cluster_size_n in (1, 2):
+                  if cluster_size_m != 1 and cluster_size_n != 1:
+                    continue
+                  configs.add(
+                      common.Config(
+                          tile_m=tile_m,
+                          tile_n=tile_n,
+                          tile_k=tile_k,
+                          num_stages=num_stages,
+                          epi_tile_n=epi_tile_n,
+                          epi_tile_m=epi_tile_m,
+                          grid_minor_dim=grid_minor_dim,
+                          grid_tile_width=grid_tile_width,
+                          wg_dimension=wg_dimension,
+                          cluster_size_m=cluster_size_m,
+                          cluster_size_n=cluster_size_n,
+                      )
+                  )
+  return configs
+
+
 @jaxtyping.jaxtyped
-def gated_linear_unit_sm90(
+def gated_linear_unit(
     x: Float[Array, "*B M K"],
     weights: Float[Array, "K 2 N"],
     *,
@@ -72,10 +120,7 @@ def gated_linear_unit_sm90(
       plgpu.SwizzleTransform(swizzle),
   )
   rhs_transforms = (
-      plgpu.TransposeTransform((0, 2, 1, 3)),  # (2, k, n)
-      # (2, k, n, tk, tn)
-      plgpu.TilingTransform((8, swizzle_elems)),
-      plgpu.TransposeTransform((0, 2, 1, 3, 4, 5)),  # (k, 2, n, tk, tn)
+      plgpu.TilingTransform((8, 1, swizzle_elems)),
       plgpu.SwizzleTransform(swizzle),
   )
   cta_tile_m = tile_m * (1 + (config.wg_dimension == common.MatmulDimension.M))
@@ -98,30 +143,34 @@ def gated_linear_unit_sm90(
   def kernel(a_gmem, b_gmem, out_gmem, out_smem):
 
     def get_pipeline(pipeline_body, compute_context):
+      in_specs = [
+          plgpu.BlockSpec(
+              (cta_tile_m, tile_k),
+              lambda k: (0, k),
+              transforms=lhs_transforms,
+              memory_space=plgpu.SMEM,
+              collective_axes=("cluster",) if config.cluster_size_n > 1 else (),
+          ),
+      ]
+      for i in range(
+          2 if config.wg_dimension == common.MatmulDimension.N else 1
+      ):
+        in_specs.append(
+            plgpu.BlockSpec(
+                (tile_k, 2, tile_n),
+                lambda k, i=i: (k, 0, i),
+                transforms=rhs_transforms,
+                memory_space=plgpu.SMEM,
+                collective_axes=("cluster",)
+                if config.cluster_size_m > 1
+                else (),
+            )
+        )
       return plgpu.emit_pipeline_warp_specialized(
           pipeline_body,
           grid=(k_iters,),
           memory_registers=40,
-          in_specs=[
-              plgpu.BlockSpec(
-                  (cta_tile_m, tile_k),
-                  lambda k: (0, k),
-                  transforms=lhs_transforms,
-                  memory_space=plgpu.SMEM,
-                  collective_axes=("cluster",)
-                  if config.cluster_size_n > 1
-                  else (),
-              ),
-              plgpu.BlockSpec(
-                  (tile_k, 2, cta_tile_n),
-                  lambda k: (k, 0, 0),
-                  transforms=rhs_transforms,
-                  memory_space=plgpu.SMEM,
-                  collective_axes=("cluster",)
-                  if config.cluster_size_m > 1
-                  else (),
-              ),
-          ],
+          in_specs=in_specs,
           wg_axis="wg",
           num_compute_wgs=2,
           max_concurrent_steps=num_stages,
@@ -131,10 +180,15 @@ def gated_linear_unit_sm90(
     # Functions don't influence the allocations necessary to run the pipeline.
     ignore = lambda *_, **__: None
 
+    if config.wg_dimension == common.MatmulDimension.N:
+      alloc_shapes = [a_gmem, b_gmem, b_gmem]
+    else:
+      alloc_shapes = [a_gmem, b_gmem]
+
     @functools.partial(
         pl.run_scoped,
         pipeline_allocs=get_pipeline(ignore, ignore).get_allocations(
-            a_gmem, b_gmem
+            *alloc_shapes
         ),
         collective_axes="wg",
     )
@@ -197,18 +251,35 @@ def gated_linear_unit_sm90(
                     .at[epi_m_slice, epi_n_slice],
                 )
 
-        def mma_body(_, a_smem, b_smem, acc_ref):
-          reshaped_b = b_smem.at[:, :, wg_n_slice]
-          reshaped_b = reshaped_b.reshape(
-              reshaped_b.shape[0], math.prod(reshaped_b.shape[1:])
-          )
-          plgpu.wgmma(acc_ref, a_smem.at[wg_m_slice], reshaped_b)
+        def mma_body(_, *refs):
+          def collapse_minor_dims(ref):
+            return ref.reshape(ref.shape[0], math.prod(ref.shape[1:]))
+          if config.wg_dimension == common.MatmulDimension.N:
+            a_smem, b_smem0, b_smem1, acc_ref = refs
+            reshaped_b0 = collapse_minor_dims(b_smem0)
+            reshaped_b1 = collapse_minor_dims(b_smem1)
+
+            # TODO: We could use select_ref here, but we don't
+            # handle it yet in lowering. I.e.
+            # b_smem = pl.select_ref(wg_idx, b_smem0, b_smem1)
+            def zero():
+              plgpu.wgmma(acc_ref, a_smem, reshaped_b0)
+            def one():
+              plgpu.wgmma(acc_ref, a_smem, reshaped_b1)
+            jax.lax.cond(wg_idx == 0, zero, one)
+          else:
+            a_smem, b_smem, acc_ref = refs
+            reshaped_b = collapse_minor_dims(b_smem)
+            plgpu.wgmma(acc_ref, a_smem.at[wg_m_slice], reshaped_b)
           plgpu.wgmma_wait(0)
           return acc_ref
 
         get_pipeline(mma_body, compute_context)(
             a_gmem.at[cta_m_slice, :],
-            b_gmem.at[:, :, cta_n_slice],
+            *(
+                [b_gmem.at[:, :, cta_n_slice]]
+                * (1 + (config.wg_dimension == common.MatmulDimension.N))
+            ),
             allocations=pipeline_allocs,
         )
 
@@ -234,13 +305,17 @@ def gated_linear_unit_sm90(
   cluster_size = config.cluster_size_m * config.cluster_size_n
   f = plgpu.kernel(
       kernel,
-      out_shape=jax.ShapeDtypeStruct((m, n), dtype),
+      out_type=jax.ShapeDtypeStruct((m, n), dtype),
       grid=(num_sms // cluster_size,),
       grid_names=("cluster_grid",),
       cluster=(cluster_size,),
       cluster_names=("cluster",),
       num_threads=3,
       thread_name="wg",
-      scratch_shapes=scratch_shapes,
+      scratch_types=scratch_shapes,
+      compiler_params=plgpu.CompilerParams(
+          # TODO: This kernel does not compile under WG semantics.
+          lowering_semantics=plgpu.LoweringSemantics.Lane,
+      ),
   )
   return jnp.reshape(f(x, weights), (*orig_x_shape[:-1], n))

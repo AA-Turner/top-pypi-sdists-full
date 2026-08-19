@@ -14,14 +14,33 @@ from echo_agent.cli.service.base import GATEWAY_ENV_FLAG, ServiceBackend
 
 ACTIONS = ("install", "uninstall", "start", "stop", "restart", "status", "logs")
 
-_FALLBACK_HINTS = """\
-No supported service manager found on this platform.
-Run the gateway in the foreground instead:
+def _fallback_hints() -> str:
+    """Guidance for platforms with no supported service manager.
 
-  echo-agent gateway                                    # direct foreground
-  tmux new -s echo-agent 'echo-agent gateway'           # persistent via tmux
-  nohup echo-agent gateway > ~/.echo-agent/logs/gateway.log 2>&1 &  # background
-"""
+    WSL without `systemd=true` is the common case and has an extra option the
+    generic text hid: turning systemd on. A container cannot do that, so the
+    two must not share one message."""
+    from echo_agent.cli.runtime_probe import is_wsl
+
+    lines = ["No supported service manager found on this platform."]
+    if is_wsl():
+        lines += [
+            "",
+            "On WSL2 you can enable systemd and register a real service:",
+            "  1. Add to /etc/wsl.conf:   [boot]",
+            "                             systemd=true",
+            "  2. Run from Windows:       wsl --shutdown",
+            "  3. Then:                   echo-agent gateway install",
+        ]
+    lines += [
+        "",
+        "Or run the gateway in the foreground:",
+        "",
+        "  echo-agent gateway                                    # direct foreground",
+        "  tmux new -s echo-agent 'echo-agent gateway'           # persistent via tmux",
+        "  nohup echo-agent gateway > ~/.echo-agent/logs/gateway.log 2>&1 &  # background",
+    ]
+    return "\n".join(lines)
 
 
 def detect_backend(system: bool = False) -> ServiceBackend | None:
@@ -59,18 +78,38 @@ def _refuse_inside_gateway(action: str) -> bool:
 
 
 def _status_without_service() -> None:
-    """No service installed: probe the configured port so a manually started
-    foreground gateway is still reported."""
+    """No service installed: probe the running gateway so a manually started
+    foreground instance is still reported.
+
+    Prefers the runtime-endpoint file the gateway writes into its workspace —
+    that carries the *actually bound* port, so a ``gateway.port=0`` (ephemeral)
+    instance is now discoverable instead of "cannot probe". Falls back to the
+    configured host/port when no endpoint file exists."""
     print("Gateway service is not installed.")
+    host = "127.0.0.1"
+    port = 58123
     try:
+        from echo_agent.cli.workspace import (
+            read_runtime_endpoint,
+            resolve_effective_workspace,
+        )
         from echo_agent.config.loader import load_config, resolve_config_file
-        config = load_config(config_path=resolve_config_file(None))
+
+        config_file = resolve_config_file(None)
+        config = load_config(config_path=config_file)
         host, port = config.gateway.host, config.gateway.port
+        ws = resolve_effective_workspace(
+            config, str(config_file) if config_file else None, None
+        )
+        endpoint = read_runtime_endpoint(ws)
+        if endpoint and endpoint.get("port"):
+            host, port = endpoint.get("host", host), int(endpoint["port"])
     except Exception:
-        host, port = "127.0.0.1", 58123
+        pass
     if not port:
-        # port=0 is the ephemeral sentinel — nothing meaningful to probe.
-        print("Gateway port is dynamic (gateway.port=0); cannot probe for a running instance.")
+        # port=0 with no endpoint file — the gateway isn't running (a live one
+        # would have written its real port), so there is nothing to probe.
+        print("Gateway port is dynamic (gateway.port=0) and no running instance was found.")
         print()
         print("To run in the foreground:  echo-agent gateway")
         print("To install as a service:   echo-agent gateway install")
@@ -91,6 +130,30 @@ def _status_without_service() -> None:
     print("To install as a service:   echo-agent gateway install")
 
 
+def _resolve_install_paths(
+    workspace: str | None, config: str | None
+) -> tuple[str, str]:
+    """Freeze absolute (workspace, config) for the supervised service.
+
+    A daemon started by launchd/systemd inherits neither the install-time cwd
+    nor a project-local config — without baking absolute paths it falls back to
+    ``~/.echo-agent`` and loads a *different* config than the foreground
+    ``gateway`` would. Resolve both through the same rules the runtime uses
+    (:func:`resolve_config_file` + :func:`resolve_effective_workspace`) so the
+    installed service is pinned regardless of where it is later launched from.
+    Returns ``str`` paths ready to embed in the service file."""
+    from echo_agent.cli.workspace import resolve_effective_workspace
+    from echo_agent.config.loader import load_config, resolve_config_file
+
+    config_file = resolve_config_file(config, search_dir=workspace)
+    overrides = {"workspace": workspace} if workspace else None
+    loaded = load_config(config_path=config_file, overrides=overrides)
+    ws = resolve_effective_workspace(
+        loaded, str(config_file) if config_file else None, workspace
+    )
+    return str(ws), (str(config_file) if config_file else "")
+
+
 def run_service_action(
     action: str,
     workspace: str | None = None,
@@ -98,20 +161,24 @@ def run_service_action(
     force: bool = False,
     follow: bool = False,
     config: str | None = None,
-) -> None:
+) -> int:
+    """Run one service lifecycle action and return a process exit code."""
     if action in ("stop", "restart", "uninstall") and _refuse_inside_gateway(action):
-        sys.exit(1)
+        return 1
 
     backend = detect_backend(system=system)
     if backend is None:
         if action == "status":
             _status_without_service()
-            return
-        print(_FALLBACK_HINTS)
-        sys.exit(1)
+            return 0
+        print(_fallback_hints())
+        return 1
 
     if action == "install":
-        backend.install(workspace=workspace, force=force, config=config)
+        # 固化绝对 workspace/config,使后台服务不依赖 cwd 或 ~/.echo-agent 兜底,
+        # 加载与前台 gateway 完全一致的配置与工作目录。
+        abs_ws, abs_config = _resolve_install_paths(workspace, config)
+        backend.install(workspace=abs_ws, force=force, config=abs_config or None)
     elif action == "uninstall":
         backend.uninstall()
     elif action == "start":
@@ -130,10 +197,11 @@ def run_service_action(
     else:
         print(f"Unknown action: {action}")
         print(f"Available: {', '.join(ACTIONS)}")
-        sys.exit(1)
+        return 1
+    return 0
 
 
-def run_action(action: str, workspace: str | None = None) -> None:
+def run_action(action: str, workspace: str | None = None) -> int:
     """Deprecated shim for ``echo-agent service <action>`` (and install.sh).
 
     Old behaviour was Linux system-scope systemd; keep that mapping so
@@ -144,4 +212,6 @@ def run_action(action: str, workspace: str | None = None) -> None:
         f"{action}` instead (system-scope on Linux: add --system).",
         file=sys.stderr,
     )
-    run_service_action(action, workspace=workspace, system=sys.platform == "linux")
+    return run_service_action(
+        action, workspace=workspace, system=sys.platform == "linux"
+    )

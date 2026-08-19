@@ -13,7 +13,7 @@ export interface AnnularWedgeView extends AnnularWedge.Data {
 export declare class AnnularWedgeView extends XYGlyphView {
     model: AnnularWedge;
     visuals: AnnularWedge.Visuals;
-    load_glglyph(): Promise<typeof import("./webgl/annular_wedge").AnnularWedgeGL>;
+    load_glglyph(): Promise<typeof import("../../all/main").AnnularWedgeGL>;
     protected _index_data(index: SpatialIndex): void;
     protected _map_data(): void;
     protected _paint(ctx: Context2d, indices: number[], data?: Partial<AnnularWedge.Data>): void;

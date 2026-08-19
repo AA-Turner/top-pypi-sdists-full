@@ -20,6 +20,7 @@ from anyscale.commands.output_format import (
     print_output,
 )
 from anyscale.commands.util import AnyscaleCommand
+from anyscale.errors import UserError
 from anyscale.policy.models import (
     Policy,
     PolicyBinding,
@@ -239,8 +240,7 @@ def get_policy(
             resource_type=resource_type, resource_id=resource_id,
         )
     except ValueError as e:
-        log.error(f"Failed to get policy: {e}")
-        return
+        raise UserError(f"Failed to get policy: {e}", legacy_exit_code=0) from None
 
     if output_format != OutputFormat.TEXT.value:
         print_output(policy, output_format)
@@ -322,8 +322,7 @@ def list_policies(resource_type: str, output_format: str) -> None:
     try:
         policies = anyscale.policy.list(resource_type=resource_type)
     except ValueError as e:
-        log.error(f"Failed to list policies: {e}")
-        return
+        raise UserError(f"Failed to list policies: {e}", legacy_exit_code=0) from None
 
     if output_format != OutputFormat.TEXT.value:
         print_output([p for p in policies if p.bindings], output_format)

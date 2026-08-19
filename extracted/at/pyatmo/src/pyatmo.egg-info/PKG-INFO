@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: pyatmo
-Version: 9.8.0
+Version: 9.9.0
 Summary: Simple API to access Netatmo weather station data from any Python 3 script. Designed for Home Assistant (but not only)
 Author-email: Hugo Dupras <jabesq@gmail.com>
 Maintainer-email: Tobias Sauerwein <cgtobi@gmail.com>, Hugo Dupras <jabesq@gmail.com>
@@ -98,3 +98,7 @@ Another way to run the tests is by using `tox`. This runs the tests against the 
 or by specifying a python version
 
     tox -e py310
+
+## Releasing
+
+Maintainers: see [docs/release-process.md](docs/release-process.md).

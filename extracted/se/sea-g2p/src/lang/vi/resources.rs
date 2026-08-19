@@ -26,6 +26,13 @@ use std::collections::{HashMap, HashSet};
 use once_cell::sync::Lazy;
 use crate::core::abbrev::{AbbrevTable, Reading};
 
+/// Every letter of the Vietnamese alphabet that carries a diacritic, lowercase
+/// then uppercase. Two passes depend on this being the *complete* list:
+/// `RE_CLEAN_OTHERS` keeps exactly these (plus ASCII) and deletes the rest, and
+/// [`crate::lang::vi::translit`] refuses to fold them. A missing character
+/// would be silently deleted by the first and flattened by the second.
+pub const VI_LETTERS: &str = "àáảãạăắằẳẵặâấầẩẫậèéẻẽẹêếềểễệìíỉĩịòóỏõọôốồổỗộơớờởỡợùúủũụưứừửữựỳýỷỹỵđÀÁẢÃẠĂẮẰẲẴẶÂẤẦẨẪẬÈÉẺẼẸÊẾỀỂỄỆÌÍỈĨỊÒÓỎÕỌÔỐỒỔỖỘƠỚỜỞỠỢÙÚỦŨỤƯỨỪỬỮỰỲÝỶỸỴĐ";
+
 pub static VI_LETTER_NAMES: Lazy<HashMap<&'static str, &'static str>> = Lazy::new(|| {
     let mut m = HashMap::new();
     m.insert("a", "a"); m.insert("b", "bê"); m.insert("c", "xê");
@@ -186,7 +193,7 @@ pub static CURRENCY_KEY: Lazy<HashMap<&'static str, &'static str>> = Lazy::new(|
 pub static ACRONYMS_EXCEPTIONS_VI: Lazy<HashMap<&'static str, &'static str>> = Lazy::new(|| {
     let mut m = HashMap::new();
     m.insert("CĐV", "cổ động viên"); m.insert("HĐND", "hội đồng nhân dân");
-    m.insert("HĐQT", "hội đồng quản trị"); m.insert("TAND", "toàn án nhân dân");
+    m.insert("HĐQT", "hội đồng quản trị"); m.insert("TAND", "tòa án nhân dân");
     m.insert("BHXH", "bảo hiểm xã hội"); m.insert("BHTN", "bảo hiểm thất nghiệp");
     m.insert("TP.HCM", "thành phố hồ chí minh"); m.insert("VN", "việt nam");
     m.insert("UBND", "uỷ ban nhân dân"); m.insert("TP", "thành phố");

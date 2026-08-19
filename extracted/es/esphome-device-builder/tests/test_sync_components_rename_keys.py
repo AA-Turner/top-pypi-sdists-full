@@ -2,19 +2,24 @@
 
 from __future__ import annotations
 
+from collections.abc import Callable
 from pathlib import Path
 from types import ModuleType, SimpleNamespace
+from typing import Any
 
 import orjson
 import pytest
 
+from esphome_device_builder import definitions
 from script import sync_components
 from script.sync_components import (  # type: ignore[import-not-found]
     _MIGRATION_RULES,
     _RENAME_SWEEP_COUNT,
     _UNHANDLED_ALIASES,
+    _UNHANDLED_CHANNEL_COLORS,
     _UNHANDLED_RENAME_KEYS,
     _classify_rename_pairs,
+    _collect_channel_colors_fold,
     _collect_rename_keys,
     _emit_migration_rules_index,
     _fail_on_unhandled_renames,
@@ -38,11 +43,13 @@ def cv() -> ModuleType:
 def _clean_accumulators():
     _UNHANDLED_RENAME_KEYS.clear()
     _UNHANDLED_ALIASES.clear()
+    _UNHANDLED_CHANNEL_COLORS.clear()
     _MIGRATION_RULES.clear()
     saved_sweeps = _RENAME_SWEEP_COUNT[0]
     yield
     _UNHANDLED_RENAME_KEYS.clear()
     _UNHANDLED_ALIASES.clear()
+    _UNHANDLED_CHANNEL_COLORS.clear()
     _MIGRATION_RULES.clear()
     _RENAME_SWEEP_COUNT[0] = saved_sweeps
 
@@ -355,6 +362,241 @@ def test_handled_pairs_do_not_fail_the_sync() -> None:
     _note_unhandled_rename_keys("api", [("services", "actions"), ("service", "action")])
     _fail_on_unhandled_renames()
     assert set() == _UNHANDLED_RENAME_KEYS
+
+
+def _fold_validator() -> Callable[[Any], Any]:
+    """Return a closure whose qualname matches the fold detector."""
+
+    def validator(value: Any) -> Any:
+        return value
+
+    validator.__qualname__ = "migrate_channel_colors.<locals>.validator"
+    return validator
+
+
+def test_channel_colors_fold_is_discovered_on_the_validator_chain(cv: ModuleType) -> None:
+    schema = cv.All(cv.Schema({cv.Optional("channel_colors"): cv.string}), _fold_validator())
+    assert _collect_channel_colors_fold(_manifest(schema)) == "direct"
+    assert _collect_channel_colors_fold(_manifest(cv.Schema({}))) is None
+    assert _collect_channel_colors_fold(SimpleNamespace(config_schema=None)) is None
+
+
+def test_channel_colors_fold_under_a_wrapper_is_nested(cv: ModuleType) -> None:
+    item = cv.All(cv.Schema({cv.Optional("channel_colors"): cv.string}), _fold_validator())
+    schema = cv.Schema({cv.Optional("strips"): cv.ensure_list(item)})
+    assert _collect_channel_colors_fold(_manifest(schema)) == "nested"
+
+
+def test_channel_colors_fold_shared_both_ways_is_nested(cv: ModuleType) -> None:
+    """A shared closure reachable direct and nested still votes on both paths."""
+    fold = _fold_validator()
+    item = cv.All(cv.Schema({cv.Optional("channel_colors"): cv.string}), fold)
+    schema = cv.All(cv.Schema({cv.Optional("strips"): cv.ensure_list(item)}), fold)
+    assert _collect_channel_colors_fold(_manifest(schema)) == "nested"
+
+
+def test_channel_colors_fold_carrier_reachable_both_ways_is_nested(cv: ModuleType) -> None:
+    """A fold-carrying node reachable direct and nested classifies nested in either pop order."""
+    fold = _fold_validator()
+    carrier = cv.All(cv.Schema({cv.Optional("channel_colors"): cv.string}), fold)
+    listed = cv.Schema({cv.Optional("strips"): cv.ensure_list(carrier)})
+    for schema in (cv.All(carrier, listed), cv.All(listed, carrier)):
+        sync_components._CHANNEL_COLORS_MEMO.clear()
+        assert _collect_channel_colors_fold(_manifest(schema)) == "nested"
+
+
+def test_rename_carrier_reachable_both_ways_is_nested_in_either_order(cv: ModuleType) -> None:
+    """A rename-carrying node reachable direct and nested classifies nested in either pop order."""
+    rename = cv.rename_key("service", "action")
+    carrier = cv.All(cv.Schema({cv.Optional("action"): cv.string}), rename)
+    listed = cv.Schema({cv.Optional("actions"): cv.ensure_list(carrier)})
+    for schema in (cv.All(carrier, listed), cv.All(listed, carrier)):
+        assert _collect_rename_keys(_manifest(schema)) == {("service", "action"): False}
+
+
+def test_nested_platform_fold_routes_to_the_canary(cv: ModuleType) -> None:
+    """The depth-1 runtime fold can't apply a nested fold, so no rule is emitted."""
+    item = cv.All(cv.Schema({cv.Optional("channel_colors"): cv.string}), _fold_validator())
+    platform = _manifest(cv.Schema({cv.Optional("strips"): cv.ensure_list(item)}))
+    sync_components._classify_channel_colors_folds(
+        "weird_strip", SimpleNamespace(config_schema=None), [("light", platform)]
+    )
+    assert set() == _MIGRATION_RULES
+    assert {"weird_strip"} == _UNHANDLED_CHANNEL_COLORS
+
+
+_LED_STRIP_RULE_ROW = (
+    "platform_channel_colors",
+    "",
+    "light",
+    "esp32_rmt_led_strip",
+    "rgb_order",
+    "channel_colors",
+)
+
+
+def test_channel_colors_fold_outside_a_platform_schema_fails_the_sync(cv: ModuleType) -> None:
+    schema = cv.All(cv.Schema({}), _fold_validator())
+    sync_components._classify_channel_colors_folds("weird_component", _manifest(schema), [])
+    assert {"weird_component"} == _UNHANDLED_CHANNEL_COLORS
+    _RENAME_SWEEP_COUNT[0] = 1
+    with pytest.raises(SystemExit, match="weird_component"):
+        _fail_on_unhandled_renames()
+
+
+def test_acknowledged_channel_colors_fold_is_skipped(
+    cv: ModuleType, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    schema = cv.All(cv.Schema({}), _fold_validator())
+    monkeypatch.setattr(sync_components, "_HANDLED_CHANNEL_COLORS", {"weird_component"})
+    sync_components._classify_channel_colors_folds("weird_component", _manifest(schema), [])
+    assert set() == _UNHANDLED_CHANNEL_COLORS
+
+
+def test_missing_channel_colors_rules_fail_a_fold_capable_sync(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setattr(sync_components, "_installed_esphome_has_channel_colors_fold", lambda: True)
+    monkeypatch.setattr(sync_components, "_committed_channel_colors_platforms", set)
+    with pytest.raises(SystemExit, match="platform_channel_colors"):
+        sync_components._fail_on_missing_channel_colors_rules([])
+    _MIGRATION_RULES.add(_LED_STRIP_RULE_ROW)
+    sync_components._fail_on_missing_channel_colors_rules([])
+
+
+def test_vanished_committed_rule_fails_per_platform(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """One platform's row disappearing must abort even while sibling rows survive."""
+    monkeypatch.setattr(sync_components, "_installed_esphome_has_channel_colors_fold", lambda: True)
+    monkeypatch.setattr(
+        sync_components,
+        "_committed_channel_colors_platforms",
+        lambda: {("light", "esp32_rmt_led_strip"), ("light", "rp2040_pio_led_strip")},
+    )
+    _MIGRATION_RULES.add(_LED_STRIP_RULE_ROW)
+    with pytest.raises(SystemExit, match="rp2040_pio_led_strip"):
+        sync_components._fail_on_missing_channel_colors_rules([])
+
+
+def test_stale_committed_rules_fail_the_missing_rules_guard(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Committed rows absent from the sweep abort the sync."""
+    monkeypatch.setattr(
+        sync_components, "_installed_esphome_has_channel_colors_fold", lambda: False
+    )
+    monkeypatch.setattr(
+        sync_components,
+        "_committed_channel_colors_platforms",
+        lambda: {("light", "esp32_rmt_led_strip")},
+    )
+    with pytest.raises(SystemExit, match="esp32_rmt_led_strip"):
+        sync_components._fail_on_missing_channel_colors_rules([])
+
+
+def test_fold_free_esphome_passes_the_missing_rules_guard(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setattr(
+        sync_components, "_installed_esphome_has_channel_colors_fold", lambda: False
+    )
+    monkeypatch.setattr(sync_components, "_committed_channel_colors_platforms", set)
+    sync_components._fail_on_missing_channel_colors_rules([])
+
+
+@pytest.mark.parametrize(
+    ("payload", "match"),
+    [
+        pytest.param(b"{not json", "unreadable", id="corrupt"),
+        pytest.param(b"[]", "rules", id="wrong-shape"),
+        pytest.param(b'{"rules": ["bare"]}', "non-mapping", id="non-mapping-row"),
+        pytest.param(
+            b'{"rules": [{"kind": "platform_channel_colors", "domain": "light"}]}',
+            "missing domain/platform",
+            id="missing-field",
+        ),
+    ],
+)
+def test_unreadable_committed_artifact_fails_the_guard(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, payload: bytes, match: str
+) -> None:
+    """A corrupt, mis-shaped, or field-less artifact aborts instead of reading as empty."""
+    bad = tmp_path / "migration_rules.index.json"
+    bad.write_bytes(payload)
+    monkeypatch.setattr(sync_components, "_MIGRATION_RULES_INDEX_FILE", bad)
+    with pytest.raises(SystemExit, match=match):
+        sync_components._committed_channel_colors_platforms()
+
+
+def test_catalog_capable_platform_without_a_rule_fails_the_guard(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """A built catalog entry carrying both fold keys expects an emitted rule."""
+    monkeypatch.setattr(sync_components, "_installed_esphome_has_channel_colors_fold", lambda: True)
+    monkeypatch.setattr(sync_components, "_committed_channel_colors_platforms", set)
+    catalog = [
+        {
+            "id": "light.esp32_rmt_led_strip",
+            "config_entries": [{"key": "rgb_order"}, {"key": "channel_colors"}],
+        },
+        {"id": "light.fastled_clockless", "config_entries": [{"key": "rgb_order"}]},
+        {"id": "ethernet", "config_entries": [{"key": "rgb_order"}, {"key": "channel_colors"}]},
+    ]
+    with pytest.raises(SystemExit, match="esp32_rmt_led_strip"):
+        sync_components._fail_on_missing_channel_colors_rules(catalog)
+    _MIGRATION_RULES.add(_LED_STRIP_RULE_ROW)
+    sync_components._fail_on_missing_channel_colors_rules(catalog)
+
+
+def test_acknowledged_fold_platform_does_not_wedge_the_guard(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """A bespoke-acknowledged platform's catalog keys must not demand a rule row."""
+    monkeypatch.setattr(sync_components, "_installed_esphome_has_channel_colors_fold", lambda: True)
+    monkeypatch.setattr(sync_components, "_committed_channel_colors_platforms", set)
+    monkeypatch.setattr(sync_components, "_HANDLED_CHANNEL_COLORS", {"weird_strip"})
+    catalog = [
+        {
+            "id": "light.weird_strip",
+            "config_entries": [{"key": "rgb_order"}, {"key": "channel_colors"}],
+        },
+    ]
+    sync_components._fail_on_missing_channel_colors_rules(catalog)
+
+
+def _committed_catalog_fold_platforms() -> list[str]:
+    """Platform stems whose committed light catalog carries both fold keys."""
+    records = [
+        orjson.loads(path.read_bytes())
+        for path in sorted((Path(definitions.__file__).parent / "components").glob("light.*.json"))
+    ]
+    return sorted(
+        platform
+        for domain, platform in sync_components._catalog_channel_colors_platforms(records)
+        if domain == "light"
+    )
+
+
+def test_committed_artifact_platforms_read_the_real_artifact() -> None:
+    """The shipped artifact parses; rows are well-formed pairs."""
+    pairs = sync_components._committed_channel_colors_platforms()
+    if not pairs:
+        pytest.skip("shipped artifact predates the channel_colors fold rules")
+    for domain, platform in pairs:
+        assert domain and platform
+
+
+@pytest.mark.parametrize("platform", _committed_catalog_fold_platforms())
+def test_live_fold_emits_a_rule_for_every_capable_platform(platform: str) -> None:
+    """Every committed catalog platform carrying both fold keys emits its rule."""
+    pytest.importorskip("esphome.loader")
+    if not sync_components._installed_esphome_has_channel_colors_fold():
+        pytest.skip("installed esphome predates channel_colors")
+    introspect_component(platform)
+    row = ("platform_channel_colors", "", "light", platform, "rgb_order", "channel_colors")
+    assert row in _MIGRATION_RULES
+    assert set() == _UNHANDLED_CHANNEL_COLORS
 
 
 def test_unreadable_rename_closure_yields_sentinel_pair() -> None:

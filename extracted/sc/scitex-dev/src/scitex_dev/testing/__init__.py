@@ -28,12 +28,28 @@ from ._audit_outcome import (
     classify_audit_outcome,
     could_not_run_evidence,
 )
+from ._import_vantage import (
+    DEFAULT_ENV_VAR,
+    ForeignImportError,
+    PackageNotImportableError,
+    assert_imports_tree_under_test,
+    assert_path_inside_tree,
+    make_pytest_configure,
+    resolve_package_path,
+)
 
 __all__ = [
+    "DEFAULT_ENV_VAR",
     "VERDICT_FAIL",
     "VERDICT_PASS",
     "VERDICT_UNKNOWN",
+    "ForeignImportError",
+    "PackageNotImportableError",
+    "assert_imports_tree_under_test",
+    "assert_path_inside_tree",
     "audit_all_for_package",
     "classify_audit_outcome",
     "could_not_run_evidence",
+    "make_pytest_configure",
+    "resolve_package_path",
 ]

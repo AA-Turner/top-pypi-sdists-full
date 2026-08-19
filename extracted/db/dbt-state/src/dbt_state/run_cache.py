@@ -82,9 +82,7 @@ from dbt_state.utils import (
     is_view,
 )
 
-# Feature-detect RunStatus.Reused. dbt-core added this member in
-# https://github.com/dbt-labs/dbt-core/pull/12912 (target: 1.11.0); older clients
-# only support Success/Error/Skipped/PartialSuccess/NoOp.
+# Feature-detect RunStatus.Reused. Older dbt versions do not define it.
 _RUN_STATUS_REUSED = getattr(RunStatus, "Reused", None)
 
 if t.TYPE_CHECKING:
@@ -723,6 +721,30 @@ class RunCache:
 
         return target_table_type, last_modified_epoch
 
+    def _iter_selected_nodes(
+        self, selected_ids: t.Set[str]
+    ) -> t.Iterator[ModelNode | SnapshotNode]:
+        """Yield model/snapshot nodes matching selected_ids"""
+        for node in self._manifest.nodes.values():
+            if not isinstance(node, (ModelNode, SnapshotNode)):
+                continue
+            if selected_ids and node.unique_id not in selected_ids:
+                continue
+            yield node
+
+    def _collect_unselected_node_deps(
+        self, selected_ids: t.Set[str]
+    ) -> t.Tuple[t.Set[str], t.Set[str]]:
+        """Collect unselected upstream dep IDs and source IDs for selected_ids."""
+        dep_ids: t.Set[str] = set()
+        source_ids: t.Set[str] = set()
+        for node in self._iter_selected_nodes(selected_ids):
+            model_node_ids, node_source_ids = self._resolve_deps(node)
+            source_ids.update(node_source_ids)
+            if selected_ids:
+                dep_ids.update(model_node_ids - selected_ids)
+        return dep_ids, source_ids
+
     def _collect_all_prefetch_tables(
         self, selected_ids: t.Set[str]
     ) -> t.Dict[str, ManifestNode | SourceDefinition]:
@@ -734,19 +756,10 @@ class RunCache:
                 When empty, all model/snapshot tables are collected (full-project run).
         """
         tables: t.Dict[str, ManifestNode | SourceDefinition] = {}
-        source_ids: t.Set[str] = set()
-        unselected_model_dep_ids: t.Set[str] = set()
+        unselected_model_dep_ids, source_ids = self._collect_unselected_node_deps(selected_ids)
 
-        for node in self._manifest.nodes.values():
-            if not isinstance(node, (ModelNode, SnapshotNode)):
-                continue
-            if selected_ids and node.unique_id not in selected_ids:
-                continue
+        for node in self._iter_selected_nodes(selected_ids):
             tables[self._node_to_table(node).sql(dialect=self.dialect)] = node
-            model_node_ids, source_node_ids = self._resolve_deps(node)
-            source_ids.update(source_node_ids)
-            if selected_ids:
-                unselected_model_dep_ids.update(model_node_ids - selected_ids)
 
         for source_id in source_ids:
             source = self._manifest.sources.get(source_id)
@@ -1746,8 +1759,60 @@ class RunCache:
     def _sql(self, expr: exp.Expr, copy: bool = False) -> str:
         return self._adapter_ext._sql(expr, copy=copy)  # noqa: SLF001
 
+    def _state_deferred_table_parts(
+        self, node: ManifestNode
+    ) -> t.Optional[t.Tuple[t.Optional[str], t.Optional[str], str]]:
+        """Return state-resolved table overrides for a deferred node, if available.
+
+        Looks up the recorded prod FQN for node.unique_id and parses it into
+        (database, schema, identifier). Returns None when there is no state
+        entry for the node or when the FQN cannot be parsed, so callers can fall
+        back to the macro-based deferred relation resolver.
+        """
+        state_fqn = self._state_deferred_fqn_by_unique_id.get(node.unique_id)
+        if state_fqn is None:
+            return None
+
+        try:
+            parsed = exp.to_table(state_fqn, dialect=self.dialect)
+        except SqlglotError as e:
+            events.fire_debug_event(
+                "Failed to parse state-resolved deferred FQN '{}' for node {}: {}",
+                state_fqn,
+                node.unique_id,
+                str(e),
+            )
+            return None
+
+        if not parsed.name:
+            events.fire_debug_event(
+                "State-resolved deferred FQN '{}' for node {} did not contain a table name",
+                state_fqn,
+                node.unique_id,
+            )
+            return None
+
+        # Relation identifiers are treated as case-sensitive, so lowercase them here.
+        # The macro-based resolver is also case-insensitive, as the identifiers are generated
+        # rather than being an actual observed relation name.
+        return (
+            parsed.catalog.lower() if parsed.catalog else None,
+            parsed.db.lower() if parsed.db else None,
+            parsed.name.lower(),
+        )
+
     def _node_to_deferred_table(self, node: ManifestNode) -> exp.Table:
+        if (state_deferred_table_parts := self._state_deferred_table_parts(node)) is not None:
+            database, schema, identifier = state_deferred_table_parts
+            return self._adapter_ext._node_to_table(  # noqa: SLF001
+                node,
+                override_database=database,
+                override_schema=schema,
+                override_identifier=identifier,
+            )
+
         assert self._deferred_relation_resolver is not None
+
         database = self._deferred_relation_resolver.get_deferred_database(node) or node.database
         schema = self._deferred_relation_resolver.get_deferred_schema(node) or node.schema
         identifier = self._deferred_relation_resolver.get_deferred_identifier(node) or node.alias
@@ -1793,8 +1858,19 @@ class RunCache:
         return model_ids, source_ids
 
     def _defer_relation(self, relation: BaseRelation, target_node: ManifestNode) -> BaseRelation:
-        assert self._deferred_relation_resolver is not None
         deferred_relation = replace(relation, path=replace(relation.path))
+
+        if (
+            state_deferred_table_parts := self._state_deferred_table_parts(target_node)
+        ) is not None:
+            database, schema, identifier = state_deferred_table_parts
+            deferred_relation.path.database = database
+            deferred_relation.path.schema = schema
+            deferred_relation.path.identifier = identifier
+            return deferred_relation
+
+        assert self._deferred_relation_resolver is not None
+
         deferred_relation.path.schema = self._deferred_relation_resolver.get_deferred_schema(
             target_node
         )
@@ -1805,6 +1881,47 @@ class RunCache:
             self._deferred_relation_resolver.get_deferred_identifier(target_node)
         )
         return deferred_relation
+
+    def _resolve_state_deferred_fqns(self) -> t.Dict[str, str]:
+        """Batch-resolve unselected upstream nodes to recorded prod FQNs.
+
+        Returns an empty map when deferral is disabled, the dev target already
+        is the defer-to profile, there are no deferred nodes, or the RPC fails
+        for any reason.
+        """
+        if not self._defer_enabled or self._profiles.is_defer_to_profile:
+            return {}
+        dep_ids, _ = self._collect_unselected_node_deps(self._selected_resource_ids)
+        if not dep_ids:
+            return {}
+
+        try:
+            if not self._run_cache_config.dbt_project_id:
+                events.fire_warn_event(
+                    "State-based deferral could not use dbt project_id; falling back to project_name "
+                    "for deferred relation lookup. Deferral will continue, but project_name fallback "
+                    "is less precise if multiple projects in the organization share the same profile "
+                    "and target. project_id can be specified in your dbt_project.yml"
+                )
+            request = execution_service_models.ResolveDeferredRelationsRequest(
+                profile_name=self._config.profile_name,
+                target_name=self._run_cache_config.defer_to,
+                project_name=self._config.project_name,
+                project_id=self._run_cache_config.dbt_project_id,
+                node_unique_ids=sorted(dep_ids),
+            )
+            return self._query_cache_client.resolve_deferred_relations(request)
+        except Exception as e:
+            events.fire_debug_event("State deferral resolve failed: {}", str(e))
+            return {}
+
+    @cached_property
+    def _state_deferred_fqn_by_unique_id(self) -> t.Dict[str, str]:
+        return self._resolve_state_deferred_fqns()
+
+    def resolve_state_deferred_relations(self) -> None:
+        """Trigger the one-time state-based deferred-relation resolve."""
+        _ = self._state_deferred_fqn_by_unique_id
 
     def _resolve_dbt_source_freshness_overrides(
         self, node: ModelNode | SourceDefinition
@@ -1909,9 +2026,9 @@ class RunCache:
     def _cache_hit_run_status(self) -> RunStatus:
         """Return the ``RunStatus`` to use for cache-hit results (no-op or clone).
 
-        ``RunStatus.Reused`` when ``emit_reused_status`` is enabled and the running
-        dbt-core supports it; otherwise ``RunStatus.Success``. Emits a single warn
-        event if the flag is on but the installed dbt build pre-dates the enum.
+        Return ``RunStatus.Reused`` when enabled and supported. Otherwise return
+        ``RunStatus.Success``. If reused status is enabled but unsupported, emit
+        one warning before returning ``RunStatus.Success``.
         """
         if not self._run_cache_config.emit_reused_status:
             return RunStatus.Success
@@ -1928,13 +2045,12 @@ class RunCache:
     def _clone_status_and_message(self, is_stale: bool) -> t.Tuple[RunStatus, str]:
         """Return (status, message) for cache-hit clone results.
 
-        When ``emit_reused_status`` is enabled and the running dbt-core supports
-        ``RunStatus.Reused``, emit the new status with a Fusion-style message
-        describing the clone. Otherwise fall back to the legacy ``Success`` +
-        "CLONE" representation so older dbt clients keep working.
+        When ``emit_reused_status`` is enabled and supported, emit the new status with a
+        Fusion-style message describing the clone. Otherwise use the legacy
+        ``Success`` + "CLONE" representation.
         """
         status = self._cache_hit_run_status()
-        if status is _RUN_STATUS_REUSED and _RUN_STATUS_REUSED is not None:
+        if status is _RUN_STATUS_REUSED:
             suffix = " within tolerance" if is_stale else ""
             return status, "Cloned from other environment" + suffix
         legacy_suffix = " (within tolerance)" if is_stale else ""
@@ -1947,10 +2063,9 @@ class RunCache:
     ) -> t.Tuple[RunStatus, str]:
         """Return (status, message) for cache-hit no-op results.
 
-        When ``emit_reused_status`` is enabled and the running dbt-core supports
-        ``RunStatus.Reused``, emit the new status with a Fusion-style message
-        describing why the node was reused. Otherwise fall back to the legacy
-        ``Success`` + "NO-OP" representation so older dbt clients keep working.
+        When ``emit_reused_status`` is enabled and supported, emit the new status with a
+        Fusion-style message describing why the node was reused. Otherwise use
+        the legacy ``Success`` + "NO-OP" representation.
         """
         status = self._cache_hit_run_status()
         if status is not _RUN_STATUS_REUSED:

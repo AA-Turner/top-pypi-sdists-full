@@ -15,8 +15,7 @@ export interface LogTickFormatter extends LogTickFormatter.Attrs {
 export declare class LogTickFormatter extends TickFormatter {
     properties: LogTickFormatter.Props;
     constructor(attrs?: Partial<LogTickFormatter.Attrs>);
-    protected basic_formatter: BasicTickFormatter;
-    initialize(): void;
+    protected readonly basic_formatter: BasicTickFormatter;
     format_graphics(ticks: number[], opts: {
         loc: number;
     }): GraphicsBox[];

@@ -16,13 +16,16 @@ from typing import TYPE_CHECKING, TypeVar
 
 import pyarrow as pa
 from tenacity import (
+    Retrying,
     before_sleep_log,
-    retry,
     retry_if_exception,
     retry_if_exception_type,
     stop_after_attempt,
     wait_exponential_jitter,
 )
+
+from geneva.credentials import is_credential_expiry_error
+from geneva.utils.object_store_retry import LANCE_NAMESPACE_THROTTLE_ERRORS
 
 if TYPE_CHECKING:
     from collections.abc import Callable, Iterator
@@ -53,6 +56,42 @@ def _should_retry_lance_runtime_error(exception: BaseException) -> bool:
     return "Too many concurrent writers" in msg or "lance error: Retryable" in msg
 
 
+def _is_retryable_namespace_error(exception: BaseException) -> bool:
+    """True for the only namespace errors treated as retryable: ThrottlingError
+    and ServiceUnavailableError, bare Exception subclasses the OSError/ValueError
+    retry set misses. InternalError is deliberately excluded since it also
+    covers permanent server bugs.
+    """
+    return isinstance(exception, LANCE_NAMESPACE_THROTTLE_ERRORS)
+
+
+# Canonical implementation lives in geneva.credentials; the old underscored
+# name is kept importable from here for existing callers (e.g. geneva_driver).
+_is_credential_expiry_error = is_credential_expiry_error
+
+
+def _refresh_credentials_on_retry(retry_state) -> None:  # noqa: ANN001 - tenacity state
+    """Re-vend before retrying when the failure was expired credentials.
+
+    The retried callable is a bound method, so ``retry_state.args[0]`` is
+    ``self``; if it exposes ``_refresh_credentials_on_error`` we invoke it so the
+    next attempt uses freshly vended credentials instead of replaying the stale
+    ones. Best-effort — never let the refresh hook itself abort the retry.
+    """
+    outcome = retry_state.outcome
+    exc = outcome.exception() if outcome is not None else None
+    if exc is None or not _is_credential_expiry_error(exc) or not retry_state.args:
+        return
+    target = retry_state.args[0]
+    hook = getattr(target, "_refresh_credentials_on_error", None)
+    if callable(hook):
+        try:
+            hook()
+            _LOG.info("re-vended credentials on %s before retry", type(target).__name__)
+        except Exception:
+            _LOG.warning("credential refresh hook failed", exc_info=True)
+
+
 def retry_lance(fn: F) -> F:
     """
     Tenacity retry for Lance/GCS I/O:
@@ -60,26 +99,53 @@ def retry_lance(fn: F) -> F:
         writers"), RuntimeError("lance error: Retryable ...").
       - Attempts: 7 total
       - Backoff: exponential with full jitter (0.5s .. 20s)
-      - Logs: warning before each retry, error on final failure
+      - Logs: on each retry and on recovery, warning before each retry,
+        error on final failure
     """
     # TODO make OSError and ValueError exception retrys more precise.
-    wrapped = retry(
-        retry=(
-            retry_if_exception_type((OSError, ValueError))
-            | retry_if_exception(_should_retry_lance_runtime_error)
-        ),
-        wait=wait_exponential_jitter(
-            initial=RETRY_LANCE_INITIAL_SECS, max=RETRY_LANCE_MAX_SECS
-        ),
-        stop=stop_after_attempt(RETRY_LANCE_ATTEMPTS),
-        reraise=True,
-        before_sleep=before_sleep_log(_LOG, logging.WARNING),
-    )(fn)
+    _log_before_sleep = before_sleep_log(_LOG, logging.WARNING)
+
+    def _before_sleep(retry_state) -> None:  # noqa: ANN001 - tenacity state
+        # Re-vend expired credentials before the retry replays with them, then
+        # log the standard retry warning.
+        _refresh_credentials_on_retry(retry_state)
+        # Retry backoff is otherwise indistinguishable from a hung UDF: a
+        # caller sees no progress and no error. Account for the attempt and
+        # the elapsed budget so stalled wall clock is attributable in logs.
+        outcome = retry_state.outcome
+        exc = outcome.exception() if outcome is not None else None
+        sleep_secs = getattr(retry_state.next_action, "sleep", 0.0)
+        _LOG.debug(
+            "%r attempt %d/%d failed (%s); sleeping %.1fs, %.1fs elapsed so far",
+            fn.__qualname__,
+            retry_state.attempt_number,
+            RETRY_LANCE_ATTEMPTS,
+            "credential expiry"
+            if exc and _is_credential_expiry_error(exc)
+            else "retryable",
+            sleep_secs,
+            retry_state.seconds_since_start or 0.0,
+        )
+        _log_before_sleep(retry_state)
 
     @functools.wraps(fn)
     def wrapper(*args, **kwargs) -> object:
+        retrier = Retrying(
+            retry=(
+                retry_if_exception_type((OSError, ValueError))
+                | retry_if_exception(_should_retry_lance_runtime_error)
+                | retry_if_exception(_is_credential_expiry_error)
+                | retry_if_exception(_is_retryable_namespace_error)
+            ),
+            wait=wait_exponential_jitter(
+                initial=RETRY_LANCE_INITIAL_SECS, max=RETRY_LANCE_MAX_SECS
+            ),
+            stop=stop_after_attempt(RETRY_LANCE_ATTEMPTS),
+            reraise=True,
+            before_sleep=_before_sleep,
+        )
         try:
-            return wrapped(*args, **kwargs)
+            result = retrier(fn, *args, **kwargs)
         except Exception:
             _LOG.error(
                 "%r failed after %d attempts; giving up.",
@@ -88,6 +154,17 @@ def retry_lance(fn: F) -> F:
                 exc_info=True,
             )
             raise
+        # A call that recovered on a later attempt is otherwise silent, so
+        # slow-but-succeeding retry storms leave no trace to correlate.
+        attempts = retrier.statistics.get("attempt_number", 1)
+        if attempts > 1:
+            _LOG.debug(
+                "%r succeeded after %d attempts, %.1fs elapsed",
+                fn.__qualname__,
+                attempts,
+                retrier.statistics.get("delay_since_first_attempt", 0.0),
+            )
+        return result
 
     return wrapper  # type: ignore[return-value]
 

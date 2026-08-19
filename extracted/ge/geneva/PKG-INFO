@@ -1,6 +1,6 @@
-Metadata-Version: 2.4
+Metadata-Version: 2.5
 Name: geneva
-Version: 0.14.0
+Version: 0.15.0
 Summary: Geneva - Multimodal Data Lake for AI
 License-Expression: LicenseRef-Proprietary
 License-File: LICENSE
@@ -30,7 +30,7 @@ Requires-Dist: httpx
 Requires-Dist: jinja2==3.*
 Requires-Dist: kubernetes==35.0.0
 Requires-Dist: lance-namespace>=0.8.6
-Requires-Dist: lancedb>=0.34.0b4
+Requires-Dist: lancedb>=0.37.1
 Requires-Dist: more-itertools
 Requires-Dist: multiprocess
 Requires-Dist: numpy
@@ -38,7 +38,8 @@ Requires-Dist: opentelemetry-exporter-otlp-proto-grpc
 Requires-Dist: opentelemetry-sdk
 Requires-Dist: overrides>=7.7.0
 Requires-Dist: pip>=24.3.1
-Requires-Dist: pylance>=9.0.0b15
+Requires-Dist: pyarrow>=19
+Requires-Dist: pylance>=10.0.0
 Requires-Dist: pyyaml>=6.0.2
 Requires-Dist: ray[client]>=2.54
 Requires-Dist: ray[default]>=2.54
@@ -63,7 +64,7 @@ Requires-Dist: azure-mgmt-storage; extra == 'azure-metrics'
 Requires-Dist: azure-monitor-query<2,>=1.2; extra == 'azure-metrics'
 Requires-Dist: azure-storage-blob; extra == 'azure-metrics'
 Provides-Extra: bulk-load
-Requires-Dist: pyarrow>=16; extra == 'bulk-load'
+Requires-Dist: pyarrow>=19; extra == 'bulk-load'
 Provides-Extra: docs
 Requires-Dist: mkdocs; extra == 'docs'
 Requires-Dist: mkdocs-material; extra == 'docs'

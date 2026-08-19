@@ -26,19 +26,28 @@ from botocore.client import BaseClient, ClientMeta
 from botocore.errorfactory import BaseClientExceptions
 from botocore.exceptions import ClientError as BotocoreClientError
 
-from .paginator import ListChangeSetsPaginator, ListEntitiesPaginator
+from .paginator import (
+    DescribeAssessmentPaginator,
+    ListAssessmentsPaginator,
+    ListChangeSetsPaginator,
+    ListEntitiesPaginator,
+)
 from .type_defs import (
     BatchDescribeEntitiesRequestTypeDef,
     BatchDescribeEntitiesResponseTypeDef,
     CancelChangeSetRequestTypeDef,
     CancelChangeSetResponseTypeDef,
     DeleteResourcePolicyRequestTypeDef,
+    DescribeAssessmentRequestTypeDef,
+    DescribeAssessmentResponseTypeDef,
     DescribeChangeSetRequestTypeDef,
     DescribeChangeSetResponseTypeDef,
     DescribeEntityRequestTypeDef,
     DescribeEntityResponseTypeDef,
     GetResourcePolicyRequestTypeDef,
     GetResourcePolicyResponseTypeDef,
+    ListAssessmentsRequestTypeDef,
+    ListAssessmentsResponseTypeDef,
     ListChangeSetsRequestTypeDef,
     ListChangeSetsResponseTypeDef,
     ListEntitiesRequestTypeDef,
@@ -139,6 +148,18 @@ class MarketplaceCatalogClient(BaseClient):
         [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_marketplace_catalog/client/#delete_resource_policy)
         """
 
+    def describe_assessment(
+        self, **kwargs: Unpack[DescribeAssessmentRequestTypeDef]
+    ) -> DescribeAssessmentResponseTypeDef:
+        """
+        Returns the metadata and detailed results of a single assessment, including the
+        framework that was evaluated, the overall assessment result, and a paginated
+        list of individual control evaluation results.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/marketplace-catalog/client/describe_assessment.html)
+        [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_marketplace_catalog/client/#describe_assessment)
+        """
+
     def describe_change_set(
         self, **kwargs: Unpack[DescribeChangeSetRequestTypeDef]
     ) -> DescribeChangeSetResponseTypeDef:
@@ -168,6 +189,17 @@ class MarketplaceCatalogClient(BaseClient):
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/marketplace-catalog/client/get_resource_policy.html)
         [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_marketplace_catalog/client/#get_resource_policy)
+        """
+
+    def list_assessments(
+        self, **kwargs: Unpack[ListAssessmentsRequestTypeDef]
+    ) -> ListAssessmentsResponseTypeDef:
+        """
+        Returns a paginated list of assessments associated with an entity or change set
+        in AWS Marketplace.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/marketplace-catalog/client/list_assessments.html)
+        [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_marketplace_catalog/client/#list_assessments)
         """
 
     def list_change_sets(
@@ -245,6 +277,28 @@ class MarketplaceCatalogClient(BaseClient):
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/marketplace-catalog/client/untag_resource.html)
         [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_marketplace_catalog/client/#untag_resource)
+        """
+
+    @overload  # type: ignore[override]
+    def get_paginator(  # type: ignore[override]
+        self, operation_name: Literal["describe_assessment"]
+    ) -> DescribeAssessmentPaginator:
+        """
+        Create a paginator for an operation.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/marketplace-catalog/client/get_paginator.html)
+        [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_marketplace_catalog/client/#get_paginator)
+        """
+
+    @overload  # type: ignore[override]
+    def get_paginator(  # type: ignore[override]
+        self, operation_name: Literal["list_assessments"]
+    ) -> ListAssessmentsPaginator:
+        """
+        Create a paginator for an operation.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/marketplace-catalog/client/get_paginator.html)
+        [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_marketplace_catalog/client/#get_paginator)
         """
 
     @overload  # type: ignore[override]

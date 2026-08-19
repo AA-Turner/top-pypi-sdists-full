@@ -70,6 +70,7 @@ ws_admin/org_id,ws_id:
     # delete stays admin-only: no granular persona for it in the PRD
     - d:workspace_decision_history/org_id,ws_id
     - w+d:workspace_api_keys/org_id,ws_id
+    - r+w:workspace_user_management/org_id,ws_id
     - w:workspace_live_job_trigger/org_id,ws_id
     - w+d:jobs/org_id,ws_id,*
     - w:job_run/org_id,ws_id,*,{env=live}
@@ -79,7 +80,7 @@ ws_admin/org_id,ws_id:
     - case_admin/org_id,ws_id
 flow_viewer/org_id,ws_id,flow_folder_id:
     - r:flows/org_id,ws_id,flow_folder_id,{env=*}
-    - r:decision_history/org_id,ws_id,{env=sandbox}
+    - dh_viewer_sandbox/org_id,ws_id
 flow_execute_sandbox/org_id,ws_id,flow_folder_id:
     - execute:flows/org_id,ws_id,flow_folder_id,{env=sandbox}
     - execute:flows/org_id,ws_id,flow_folder_id,{env=test}

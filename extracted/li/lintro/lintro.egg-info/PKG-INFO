@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: lintro
-Version: 0.118.1
+Version: 0.120.0
 Summary: A unified CLI tool for code formatting, linting, and quality assurance
 Author-email: lgtm-hq <turbocoder13@gmail.com>
 License-Expression: MIT
@@ -66,9 +66,8 @@ Provides-Extra: ai
 Requires-Dist: anthropic>=0.39.0; extra == "ai"
 Requires-Dist: openai>=1.50.0; extra == "ai"
 Provides-Extra: mcp
-Requires-Dist: mcp<2,>=1.10.0; extra == "mcp"
+Requires-Dist: mcp<3,>=2; extra == "mcp"
 Provides-Extra: tools
-Requires-Dist: semgrep>=1.151.0; extra == "tools"
 Requires-Dist: sqlfluff>=4.0.0; extra == "tools"
 Requires-Dist: pip-audit>=2.10.1; extra == "tools"
 Dynamic: license-file
@@ -368,7 +367,7 @@ system.
 <td><a href="https://semgrep.dev/"><img src="https://img.shields.io/badge/Semgrep-5b21b6?logo=semgrep&logoColor=white" alt="Semgrep"></a></td>
 <td>🔒 Multi-language</td>
 <td>-</td>
-<td><code>pipx install semgrep</code><br><code>pip install semgrep</code><br><code>brew install semgrep</code></td>
+<td><code>./scripts/utils/install-semgrep.sh</code><br><code>uv tool install semgrep</code><br><code>brew install semgrep</code></td>
 </tr>
 <tr>
 <td><a href="https://github.com/trufflesecurity/trufflehog"><img src="https://img.shields.io/badge/TruffleHog-800000?logo=trufflesecurity&logoColor=white" alt="TruffleHog"></a></td>

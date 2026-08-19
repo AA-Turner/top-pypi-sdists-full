@@ -16,10 +16,6 @@ union all
 select * from TAB_B""",
         {"tab_b"},
         {"tab_a"},
-        # Skip graph check due to case-sensitivity differences between parsers
-        # SqlGlot normalizes table names while SqlFluff preserves case
-        # TODO: Remove skip_graph_check once both parsers handle case-sensitivity consistently
-        skip_graph_check=True,
     )
 
 
@@ -247,17 +243,17 @@ FROM Persons Per
     INNER JOIN
     AddressList Addr
 ON Per.PersonId = Addr.PersonId"""
-    assert_table_lineage_equal(sql, {"persons", "addresslist"}, {"per"})
+    # `Per` is the alias of `Persons` declared in FROM, so the target resolves to
+    # Persons and Persons is not also a source.
+    assert_table_lineage_equal(sql, {"addresslist"}, {"persons"})
 
 
 def test_select_from_column():
     sql = """create view test_view as SELECT col1, (select col2 from tab2) FROM tab1"""
-    assert_table_lineage_equal(
-        sql, {"tab1", "tab2"}, {"test_view"}, test_sqlparse=False
-    )
+    assert_table_lineage_equal(sql, {"tab1", "tab2"}, {"test_view"})
 
     sql = """create view test_view as SELECT "col1", (select count(*) from tab2)"""
-    assert_table_lineage_equal(sql, {"tab2"}, {"test_view"}, test_sqlparse=False)
+    assert_table_lineage_equal(sql, {"tab2"}, {"test_view"})
 
 
 def test_create_as_with_template_param():

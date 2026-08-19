@@ -29,18 +29,20 @@ LOG_STREAM_STDERR = "stderr"
 # `commands/output_format.py` -> `anyscale.util` -> this module.
 _MACHINE_READABLE_FORMATS = frozenset({"json", "yaml"})
 
-# No shared registry: every command names its own. `old_format` selects a legacy
-# JSON-printing path; bare `format`/`yaml` are unbound today but listed for symmetry.
+# No shared registry: every command names its own. The tuple is in precedence
+# order: the modern `-o` destinations first, then the older string options, then
+# the boolean flags. `old_format` selects a legacy JSON-printing path; bare
+# `format`/`yaml` are unbound today but listed for symmetry.
 _OUTPUT_FORMAT_PARAM_NAMES = (
+    "output_format",
+    "output",
     "format",
     "format_",
     "json",
     "json_output",
-    "old_format",
-    "output",
-    "output_format",
     "output_json",
     "show_json",
+    "old_format",
     "yaml",
     "yaml_output",
 )
@@ -54,22 +56,38 @@ def _selects_machine_readable_format(value: Any) -> bool:
     return isinstance(value, str) and value.strip().lower() in _MACHINE_READABLE_FORMATS
 
 
+def effective_output_format(ctx: Optional[click.Context]) -> str:
+    """Return the format name of the payload the running command writes.
+
+    The name is one of ``json``, ``yaml``, and ``text``. A format option wins
+    over a legacy boolean flag. Parents are walked because the root group
+    declares ``--json`` too.
+    """
+    while ctx is not None:
+        flag_format: Optional[str] = None
+        for name in _OUTPUT_FORMAT_PARAM_NAMES:
+            value = ctx.params.get(name)
+            if not _selects_machine_readable_format(value):
+                continue
+            if isinstance(value, str):
+                return value.strip().lower()
+            if flag_format is None:
+                # A boolean flag names its format: `--yaml` binds `yaml_output`.
+                flag_format = "yaml" if "yaml" in name else "json"
+        if flag_format is not None:
+            return flag_format
+        ctx = ctx.parent
+    return "text"
+
+
 def structured_output_selected() -> bool:
     """Whether the running command is writing a machine-readable payload to stdout.
 
-    Read off the live Click params so no command needs a call site; parents are walked
-    because the root group declares `--json` too.
+    Read off the live Click params so no command needs a call site.
     """
     # Annotated because `silent=True` makes this Optional only in newer click stubs.
     ctx: Optional[click.Context] = click.get_current_context(silent=True)
-    while ctx is not None:
-        if any(
-            _selects_machine_readable_format(ctx.params.get(name))
-            for name in _OUTPUT_FORMAT_PARAM_NAMES
-        ):
-            return True
-        ctx = ctx.parent
-    return False
+    return effective_output_format(ctx) in _MACHINE_READABLE_FORMATS
 
 
 def bold(text: str, color: Optional[int] = None) -> str:

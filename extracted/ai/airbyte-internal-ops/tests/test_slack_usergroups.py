@@ -11,6 +11,7 @@ from airbyte_ops_mcp.slack_api import (
     SlackAPIError,
     SlackUsergroup,
     list_slack_usergroups,
+    unwrap_slack_identifier,
 )
 from airbyte_ops_mcp.slack_api import (
     lookup_slack_usergroup as lookup_slack_usergroups,
@@ -114,3 +115,18 @@ def test_list_slack_usergroups_missing_scope(mock_web_client: MagicMock) -> None
 
     with pytest.raises(SlackAPIError, match="usergroups:read"):
         list_slack_usergroups(token="xoxb-token")
+
+
+@pytest.mark.unit
+@pytest.mark.parametrize(
+    "identifier, expected",
+    [
+        ("<!subteam^S0BKR63VAN5>", "S0BKR63VAN5"),
+        ("<!subteam^S0BKR63VAN5|@oc-internal-ai>", "S0BKR63VAN5"),
+        ("<@U05AKF1BCC9>", "U05AKF1BCC9"),
+        (" S0BKR63VAN5 ", "S0BKR63VAN5"),
+    ],
+)
+def test_unwrap_slack_identifier(identifier: str, expected: str) -> None:
+    """unwrap_slack_identifier handles pasted Slack mentions and plain IDs."""
+    assert unwrap_slack_identifier(identifier) == expected

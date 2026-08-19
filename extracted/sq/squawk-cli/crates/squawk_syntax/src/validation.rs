@@ -17,11 +17,12 @@ pub(crate) fn validate(root: &SyntaxNode, errors: &mut Vec<SyntaxError>) {
             match node {
                 ast::AlterAggregate(it) => validate_aggregate_params(it.aggregate().and_then(|x| x.param_list()), errors),
                 ast::BeginFuncOptionList(it) => validate_begin_func_option_list(it, errors),
+                ast::BinExpr(it) => validate_bin_expr(it, errors),
                 ast::CreateAggregate(it) => validate_aggregate_params(it.param_list(), errors),
                 ast::CreateTable(it) => validate_create_table(it, errors),
                 ast::CreateViewLike(it) => validate_non_empty_column_list(it.column_list(), errors),
                 ast::CustomOp(it) => validate_custom_op_length(it, errors),
-                ast::FromAlias(it) => validate_non_empty_column_list(it.column_list(), errors),
+                ast::FromAlias(it) => validate_non_empty_column_list(it.columns(), errors),
                 ast::WithTable(it) => validate_non_empty_column_list(it.column_list(), errors),
                 ast::PrefixExpr(it) => validate_prefix_expr(it, errors),
                 ast::ArrayExpr(it) => validate_array_expr(it, errors),
@@ -589,6 +590,50 @@ fn offset_range(start: TextSize, range: Range<usize>) -> TextRange {
     TextRange::new(begin, end)
 }
 
+fn validate_bin_expr(bin_expr: ast::BinExpr, acc: &mut Vec<SyntaxError>) {
+    match bin_expr.op() {
+        Some(ast::BinOp::In(_) | ast::BinOp::NotIn(_)) => validate_in_expr(&bin_expr, acc),
+        Some(ast::BinOp::Overlaps(_)) => validate_overlaps_expr(&bin_expr, acc),
+        _ => (),
+    }
+}
+
+// see: https://christopher.xyz/2020/08/01/any-all-pg.html
+fn validate_in_expr(bin_expr: &ast::BinExpr, acc: &mut Vec<SyntaxError>) {
+    let rhs = match bin_expr.rhs() {
+        None | Some(ast::Expr::ParenExpr(_)) => return,
+        Some(ast::Expr::TupleExpr(tuple)) if tuple.row_token().is_none() => {
+            if tuple.exprs().next().is_none() {
+                acc.push(SyntaxError::new(
+                    "Expected at least one expression in IN list.",
+                    tuple.syntax().text_range(),
+                ));
+            }
+            return;
+        }
+        Some(rhs) => rhs,
+    };
+    acc.push(SyntaxError::new(
+        "Expected a parenthesized value list or subquery.",
+        rhs.syntax().text_range(),
+    ));
+}
+
+fn validate_overlaps_expr(bin_expr: &ast::BinExpr, acc: &mut Vec<SyntaxError>) {
+    for operand in [bin_expr.lhs(), bin_expr.rhs()].into_iter().flatten() {
+        match operand {
+            ast::Expr::TupleExpr(tuple) if tuple.exprs().count() != 2 => acc.push(
+                SyntaxError::new("wrong number of parameters", tuple.syntax().text_range()),
+            ),
+            ast::Expr::TupleExpr(_) => (),
+            operand => acc.push(SyntaxError::new(
+                "OVERLAPS operand must be a row expression",
+                operand.syntax().text_range(),
+            )),
+        }
+    }
+}
+
 fn validate_join_expr(join_expr: ast::JoinExpr, acc: &mut Vec<SyntaxError>) {
     let Some(join) = join_expr.join() else {
         return;
@@ -630,7 +675,7 @@ fn validate_join_expr(join_expr: ast::JoinExpr, acc: &mut Vec<SyntaxError>) {
 
     match join_clause {
         Required => {
-            if join.on_clause().is_none() && join.using_clause().is_none() {
+            if join.join_condition().is_none() {
                 let end = join_expr.syntax().text_range().end();
                 acc.push(SyntaxError::new(
                     "Join missing condition.",
@@ -639,7 +684,7 @@ fn validate_join_expr(join_expr: ast::JoinExpr, acc: &mut Vec<SyntaxError>) {
             }
         }
         NotAllowed => {
-            if let Some(using_clause) = join.using_clause() {
+            if let Some(ast::JoinCondition::JoinUsingClause(using_clause)) = join.join_condition() {
                 acc.push(SyntaxError::new(
                     format!("Join `using` clause is not allowed for {join_name} joins."),
                     using_clause.syntax().text_range(),

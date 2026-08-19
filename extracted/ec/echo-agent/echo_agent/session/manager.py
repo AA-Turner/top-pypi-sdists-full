@@ -12,8 +12,11 @@ from dataclasses import dataclass, field
 from datetime import datetime, timedelta
 from pathlib import Path
 from typing import Any
+from urllib.parse import quote
 
 from loguru import logger
+
+from echo_agent.storage.errors import CorruptData
 
 
 @dataclass
@@ -85,10 +88,53 @@ class SessionManager:
         self._lock = asyncio.Lock()
         self._session_locks: OrderedDict[str, asyncio.Lock] = OrderedDict()
         self._max_session_locks = 200
+        self._migrate_legacy_filenames()
 
     def _session_path(self, key: str) -> Path:
-        safe = key.replace(":", "_").replace("/", "_")
+        # Lossless, bijective encoding so distinct keys never map to the same
+        # file. The old scheme replaced both ":" and "/" with "_", so "a:b",
+        # "a/b" and "a_b" all collided onto "a_b.jsonl" — one session silently
+        # overwriting another. quote(safe="") escapes every reserved char.
+        safe = quote(key, safe="")
         return self.sessions_dir / f"{safe}.jsonl"
+
+    def _migrate_legacy_filenames(self) -> None:
+        """One-time, idempotent rename of files written under the old lossy
+        scheme (":"/"/" -> "_") to the new quote()-encoded names.
+
+        The authoritative key is the ``key`` field in each file's metadata line,
+        not the filename — so a legacy "a_b.jsonl" whose metadata key is "a:b"
+        is moved to "a%3Ab.jsonl". Files already at their canonical path are left
+        untouched; ambiguous cases (missing key, target exists) are logged and
+        skipped rather than risking data loss.
+        """
+        for path in self.sessions_dir.glob("*.jsonl"):
+            try:
+                with open(path, encoding="utf-8") as f:
+                    first = f.readline().strip()
+                if not first:
+                    continue
+                meta = json.loads(first)
+                if meta.get("_type") != "metadata":
+                    continue
+                key = meta.get("key")
+                if not key:
+                    logger.warning("Session file {} has no key; skipping migration", path.name)
+                    continue
+                target = self._session_path(key)
+                if target == path:
+                    continue  # already canonical — idempotent no-op
+                if target.exists():
+                    logger.warning(
+                        "Cannot migrate {} -> {}: target exists; skipping",
+                        path.name, target.name,
+                    )
+                    continue
+                os.replace(str(path), str(target))
+                logger.info("Migrated session filename {} -> {}", path.name, target.name)
+            except (OSError, ValueError) as e:
+                logger.warning("Failed to migrate session file {}: {}", path.name, e)
+                continue
 
     async def acquire(self, key: str) -> asyncio.Lock:
         """Return a per-session lock for serializing concurrent access.
@@ -159,16 +205,53 @@ class SessionManager:
                     logger.warning("Failed to save evicted session {}: {}", evicted.key, e)
             return session
 
+    async def get(self, key: str) -> Session | None:
+        """Read a session without creating one. Returns None if it does not exist.
+
+        ``get_or_create`` is the write path: it fabricates an empty Session for an
+        unknown key, inserts it into the LRU, and can evict-and-persist another
+        session to make room. Read-only callers (the dashboard's session-history
+        endpoint) went through it and so *created* a session for any key they were
+        asked about — a GET with a persistent side effect. This is the read path:
+        cache hit, else load from storage, and no mutation either way."""
+        async with self._lock:
+            cached = self._cache.get(key)
+            if cached is not None:
+                # Deliberately no move_to_end: a read must not reorder eviction
+                # priority for the write path.
+                return cached
+        # Load outside the manager lock. Unlike get_or_create (which loads while
+        # holding it, because it then has to publish into the cache atomically),
+        # this returns a detached copy and touches no shared state, so holding the
+        # lock across the I/O would only block concurrent turns.
+        return await self._load(key)
+
     async def _load(self, key: str) -> Session | None:
-        if self._storage:
-            return await self._load_from_storage(key)
-        return await self._load_from_file(key)
+        if not self._storage:
+            return await self._load_from_file(key)
+        # StorageUnavailable / CorruptData propagate — we must NOT quietly serve a
+        # possibly-stale downgrade file when the backend is merely unreachable.
+        session = await self._load_from_storage(key)
+        if session is not None:
+            return session
+        # Genuine NotFound in SQLite: a prior save may have fallen back to a
+        # downgrade file. Recover it and best-effort re-persist to SQLite.
+        recovered = await self._load_from_file(key)
+        if recovered is not None:
+            try:
+                await self._save_to_storage(recovered)
+            except Exception as e:
+                logger.warning("Failed to re-persist recovered session {} to storage: {}", key, e)
+        return recovered
 
     async def _load_from_storage(self, key: str) -> Session | None:
+        # StorageUnavailable / CorruptData propagate to get_or_create, which must
+        # NOT fabricate an empty session (that would overwrite real history on the
+        # next save). Only a genuine NotFound (load_session -> None) returns None.
+        data = await self._storage.load_session(key)
+        if not data:
+            return None
         try:
-            data = await self._storage.load_session(key)
-            if not data:
-                return None
             return Session(
                 key=key,
                 messages=data.get("messages", []),
@@ -178,9 +261,9 @@ class SessionManager:
                 last_consolidated=data.get("last_consolidated", 0),
                 status=data.get("status", "active"),
             )
-        except Exception as e:
-            logger.warning("Failed to load session {} from storage: {}", key, e)
-            return None
+        except (ValueError, TypeError, KeyError) as e:
+            logger.error("Corrupt session record for '{}': {}", key, e)
+            raise CorruptData(f"session '{key}' fields are not parseable: {e}") from e
 
     async def _load_from_file(self, key: str) -> Session | None:
         path = self._session_path(key)
@@ -291,7 +374,10 @@ class SessionManager:
         async with self._lock:
             session = self._cache.get(key)
         if session is None:
-            session = await self._load_from_storage(key)
+            # Mode-aware load: in file mode _load_from_storage would hit a None
+            # backend and (previously) swallow the error, leaving cleanup_expired
+            # reporting processed=1 while the on-disk status stayed "active".
+            session = await self._load(key)
         if session is None:
             return
         session.status = "expired"
@@ -302,7 +388,7 @@ class SessionManager:
             async with self._lock:
                 session = self._cache.get(key)
             if session is None:
-                session = await self._load_from_storage(key)
+                session = await self._load(key)
             if session is None:
                 return False
             session.status = "archived"

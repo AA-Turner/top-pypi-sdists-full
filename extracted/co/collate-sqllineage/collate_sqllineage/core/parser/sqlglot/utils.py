@@ -32,6 +32,22 @@ def is_subquery(expression: Expression) -> bool:
     return isinstance(expression, (exp.Subquery, exp.Select))
 
 
+def is_unparsed_command(statement: exp.Command) -> bool:
+    """
+    Check whether sqlglot gave up parsing a statement instead of recognising a command
+
+    sqlglot builds a Command node from two different paths. A command it understands
+    (SHOW, VACUUM) is built by `_parse_command`, which stores the trailing text as a
+    parsed literal. A statement it cannot handle is built by `_parse_as_command`, which
+    stores the rest of the statement as raw, unparsed SQL text. Only the second case is
+    a parse failure, and it carries lineage that would otherwise be silently lost.
+
+    :param statement: a sqlglot Command expression
+    :return: True if the statement was never actually parsed
+    """
+    return isinstance(statement.args.get("expression"), str)
+
+
 def get_statement_type(statement: Expression) -> str:
     """
     Get the type of SQL statement
@@ -60,7 +76,9 @@ def get_statement_type(statement: Expression) -> str:
     elif isinstance(statement, exp.Use):
         return "use_statement"
     elif isinstance(statement, exp.Command):
-        return "command"
+        # A statement sqlglot failed to parse must be reported as unsupported so callers
+        # can fall back to another parser rather than accept empty lineage as a result.
+        return "unsupported_command" if is_unparsed_command(statement) else "command"
     elif isinstance(statement, exp.Union):
         return "set_expression"
     else:

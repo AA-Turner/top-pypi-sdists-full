@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: linopy
-Version: 0.9.0
+Version: 0.9.1
 Summary: Linear optimization with N-D labeled arrays in Python
 Author-email: Fabian Hofmann <fabianmarikhofmann@gmail.com>
 Maintainer-email: Fabian Hofmann <fabianmarikhofmann@gmail.com>, Felix Bumann <dev@fxbumann.de>
@@ -45,7 +45,6 @@ Requires-Dist: sphinx-copybutton==0.5.2; extra == "docs"
 Requires-Dist: nbsphinx==0.9.4; extra == "docs"
 Requires-Dist: nbsphinx-link==1.4.1; extra == "docs"
 Requires-Dist: docutils<0.24; extra == "docs"
-Requires-Dist: numpy<2; extra == "docs"
 Requires-Dist: gurobipy>=13.0.0; extra == "docs"
 Requires-Dist: ipykernel==7.3.0; extra == "docs"
 Requires-Dist: matplotlib==3.11.0; extra == "docs"
@@ -63,14 +62,14 @@ Requires-Dist: gurobipy; extra == "dev"
 Requires-Dist: highspy; extra == "dev"
 Requires-Dist: jupyter; extra == "dev"
 Provides-Extra: benchmarks
-Requires-Dist: highspy==1.15.0; extra == "benchmarks"
+Requires-Dist: highspy==1.15.1; extra == "benchmarks"
 Requires-Dist: netcdf4==1.7.4; extra == "benchmarks"
 Requires-Dist: numpy==2.4.6; extra == "benchmarks"
 Requires-Dist: scipy==1.17.1; extra == "benchmarks"
-Requires-Dist: xarray==2026.4.0; extra == "benchmarks"
-Requires-Dist: pandas==3.0.3; extra == "benchmarks"
-Requires-Dist: polars==1.41.2; extra == "benchmarks"
-Requires-Dist: dask==2026.6.0; extra == "benchmarks"
+Requires-Dist: xarray==2026.7.0; extra == "benchmarks"
+Requires-Dist: pandas==3.0.5; extra == "benchmarks"
+Requires-Dist: polars==1.42.1; extra == "benchmarks"
+Requires-Dist: dask==2026.7.1; extra == "benchmarks"
 Requires-Dist: pytest==9.1.1; extra == "benchmarks"
 Requires-Dist: pytest-benchmark==5.2.3; extra == "benchmarks"
 Requires-Dist: pytest-memray==1.9.0; extra == "benchmarks"

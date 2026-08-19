@@ -1,21 +1,16 @@
 """th#1834 Phase 3 (pgw#1215 step 4): the serving parent supervises its own
 compile children, per graph class.
 
-    "...if miss then begin compiling and serve eager until the local cell is
+    "...if miss then begin compiling and serve eager until the local compiled graph is
     available; then switch over to using that."
 
-**Two tiers, not three.** What stood here was a nested stack: the serving
-parent spawned ONE mint child (``mint_delegate.build_cell`` ->
-``mint_process.run_mint`` -> ``mint_child``), which loaded a second
-weight-free pipeline and then itself drove the K-wide compile pool. The
-middle tier existed to hold a pipeline the parent already holds a real copy
-of, and to buy th#1299's property — *"no inductor on the serving loop"* —
-with a whole extra process. th#1299's defect was inductor's GIL-holding
-orchestration starving the one asyncio task that carries the 10 s beat and
-eager serving; spawn / poll / collect / digest / CAS-write / publish are I/O
-and supervision and do not starve it. So the property is bought by a
-structural fence instead (``scripts/lint_serving_process_compiles.py``) and
-the middle tier is gone.
+**Two tiers, not three.** A middle tier holding a second weight-free pipeline
+the parent already has a real copy of buys nothing: th#1299's property — *"no
+inductor on the serving loop"* — is about inductor's GIL-holding orchestration
+starving the asyncio task that carries the 10 s beat, and spawn / poll /
+collect / digest / CAS-write / publish are I/O and supervision that do not
+starve it. The property is bought by a structural fence instead
+(``scripts/lint_serving_process_compiles.py``).
 
 What this module owns, and it is all supervision:
 
@@ -28,15 +23,15 @@ What this module owns, and it is all supervision:
 * the ACCRETION loop: an attempt consumes what earlier attempts already
   packed, so a retry pays neither the trace nor the compile for a class this
   pod already holds;
-* adopting what came back through the ordinary delivered-cell path
-  (``fleet_cells.adopt_delegated_mint``: pack -> local CAS -> verify -> arm ->
+* adopting what came back through the ordinary delivered-compiled graph path
+  (``fleet_compiled_graphs.adopt_delegated_mint``: pack -> local CAS -> verify -> arm ->
   async publish, per artifact, pgw#1183);
 * the parent-side telemetry the child cannot emit — it holds no orchestrator
   session, so its phase table, its per-class trace rows and its device-peak
   census all have to be re-emitted from here.
 
 What it does NOT own: deciding a mint is owed
-(``fleet_cells.enable_compiled``), the ``self_mint_compile`` Activity's
+(``fleet_compiled_graphs.enable_compiled``), the ``self_mint_compile`` Activity's
 lifetime, and advertising the adopted identity on the live compile targets.
 Those stay in ``executor.py``, which is where the decision and the targets
 live.
@@ -83,7 +78,7 @@ MAX_ATTEMPTS = 3
 
 #: The directory this record's packed graph classes accrete in, under the
 #: pending's own mint root. ATTEMPT-STABLE, and that is the whole of the
-#: priced-resume fix: ``mint_delegate.build_cell`` gave every attempt a fresh
+#: priced-resume fix: ``mint_delegate.build_compiled_graph`` gave every attempt a fresh
 #: ``child-N`` directory, so attempt 2 of a 36-class mint re-paid 35 finished
 #: classes to retry one.
 GRAPH_DIRNAME = "graphs"
@@ -102,7 +97,7 @@ class DeclaredBlockerRefusal(RuntimeError):
     nothing — so there is no fallback to take. Enforced HERE, on the parent,
     because the parent is now the process that decides to mint: the gate used
     to sit in ``mint_child`` and a reroute that dropped it would publish a
-    cell for a class set the declaration says it cannot yet claim.
+    compiled graph for a class set the declaration says it cannot yet claim.
     """
 
 
@@ -114,12 +109,12 @@ class MintTask:
     ``pipe`` is the LIVE serving pipeline. It is read, never handed across a
     process boundary: the supervisor enumerates the declared graph classes
     off it (the adapter fork is a property of the composed pipeline) and
-    ``fleet_cells.adopt_delegated_mint`` arms the finished artifacts onto it.
+    ``fleet_compiled_graphs.adopt_delegated_mint`` arms the finished artifacts onto it.
     Each compile child composes its own weight-free target from ``modules`` /
     ``slots`` / ``cfg``.
     """
 
-    pending: Any                      # fleet_cells.PendingSelfMint
+    pending: Any                      # fleet_compiled_graphs.PendingSelfMint
     pipe: Any
     function: str
     modules: Tuple[str, ...]
@@ -146,7 +141,7 @@ class SupervisedResult:
 
     status: str
     detail: str = ""
-    minted: Optional[Any] = None      # fleet_cells.SelfMint
+    minted: Optional[Any] = None      # fleet_compiled_graphs.SelfMint
     attempts: int = 0
     #: pgw#999: the CLASSIFIED reason the artifacts did not adopt, carried up
     #: so the executor's decline names the same token the abort event did.
@@ -167,7 +162,7 @@ def delegation_refusal() -> str:
 
     Always "" today: nothing worker-wide can refuse a supervised mint. The
     seam survives because the PIPELINE half
-    (``fleet_cells.delegation_refusal`` — an armed non-eager backend with no
+    (``fleet_compiled_graphs.delegation_refusal`` — an armed non-eager backend with no
     eager tier to serve from) is a real per-pipe refusal, and both halves must
     reach ``mint_recipe`` as one typed reason rather than as an either/or
     sentence (pgw#813).
@@ -176,7 +171,7 @@ def delegation_refusal() -> str:
 
 
 def cfg_spec(cfg: Any) -> CompileSpec:
-    """Flatten the parent's ``CompileCell`` for the child job.
+    """Flatten the parent's ``CompileContract`` for the child job.
 
     The parent states the contract because the class-scoped guidance/text-len
     unions live on the spec rather than the decorator: a child re-deriving
@@ -588,6 +583,36 @@ def _emit_abort(
     )
 
 
+def _adopt_landed(task: "MintTask", pending: Any, row: Any) -> None:
+    """pgw#1371: the per-class adopt/publish sink, run as each class LANDS.
+
+    Called from the pool's supervision thread while sibling classes are still
+    compiling — the same concurrency the terminus adopt already has with live
+    serving. Never raises: a failed incremental adopt costs nothing but the
+    incremental property for that class, because the terminus
+    ``adopt_delegated_mint`` still sees the artifact on disk and runs the
+    ordinary batch path over it.
+    """
+    from . import fleet_compiled_graphs
+
+    try:
+        fleet_compiled_graphs.adopt_minted_class(
+            task.pipe, pending, Path(str(row.artifact)))
+    except Exception:  # noqa: BLE001 — the terminus adopt is the backstop
+        logger.warning(
+            "mint-supervisor: mid-mint adopt of %s failed; the class stays "
+            "packed on disk and the terminus adopt will retry it",
+            getattr(row, "name", "?"), exc_info=True)
+
+
+def _incremental_covered(pending: Any) -> int:
+    """How many classes `adopt_minted_class` has ARMED so far (pgw#1371)."""
+    try:
+        return len(pending._state.get("incremental") or {})
+    except Exception:  # noqa: BLE001 — a double without state answers 0
+        return 0
+
+
 def graph_dir(pending: Any) -> Path:
     """Where this obligation's packed graph classes accrete."""
     return Path(pending.mint_root) / GRAPH_DIRNAME
@@ -643,7 +668,7 @@ async def supervise(
     mint. ``ABANDONED`` is returned for the co-tenancy signal so the caller
     can tell "somebody took the card" from "this mint failed".
     """
-    from . import aot_compile_pool, aot_mint, fleet_cells
+    from . import aot_compile_pool, aot_mint, fleet_compiled_graphs
 
     pending = task.pending
     family = str(pending.family)
@@ -663,25 +688,25 @@ async def supervise(
     # class count to size K against.
     try:
         assert_family_mintable(family)
-        spec = fleet_cells.aot_export_spec(task.pipe, cfg)
+        spec = fleet_compiled_graphs.aot_export_spec(task.pipe, cfg)
         decl = export_declaration(str(spec.family or ""))
         if decl is None:
             raise DeclaredBlockerRefusal(
                 f"family {spec.family!r} has no registered export declaration "
-                f"— a multi-graph cell derives its class set from it")
+                f"— a multi-graph compiled graph derives its class set from it")
         # ONE enumeration, off the composed pipeline. A child cannot be told
         # how many classes exist (the adapter fork depends on the composition);
         # it can only be told which SHARE of them is its own.
         declared = len(aot_mint.declared_class_rows(task.pipe, spec, decl))
     except DeclaredBlockerRefusal as exc:
-        fleet_cells.abandon_self_mint(pending)
+        fleet_compiled_graphs.abandon_self_mint(pending)
         _emit_abort(
             family=family, key=str(pending.arm_token), attempt=0,
             status="refused", detail=str(exc), retryable=False)
         return SupervisedResult(
             status=FAILED, detail=str(exc), reason="declared_blocker")
     except Exception as exc:  # noqa: BLE001 — never die with the mint
-        fleet_cells.abandon_self_mint(pending)
+        fleet_compiled_graphs.abandon_self_mint(pending)
         detail = f"{type(exc).__name__}: {exc}"
         _emit_abort(
             family=family, key=str(pending.arm_token), attempt=0,
@@ -720,6 +745,16 @@ async def supervise(
                 detail="abandoned before attempt")
         held = held_graph_classes(out_dir)
         have = tuple(sorted(str(row.entry) for row in held))
+        # pgw#1371 holes-only: the obligation may be SCOPED — the opener named
+        # the classes with no artifact for this (lane x sm), and this mint
+        # produces those and nothing else. The class goal, the width and the
+        # completion test all shrink to the holes; the wider declaration is
+        # someone else's coverage (adopted at boot, or another pod's publish).
+        holes = tuple(
+            str(h) for h in (getattr(pending, "holes", ()) or ()))
+        todo = (
+            len(set(holes) - set(have)) if holes
+            else max(0, declared - len(have)))
         # §4.33 / pgw#1175: NOTHING IS BUDGETED. A `mint_budget.co_residency`
         # gate stood at the top of this loop and charged a weight-free child
         # for the PARENT's resident weights, already excluded from the free
@@ -728,7 +763,7 @@ async def supervise(
         # separate processes, crash-isolated, and a real shortfall comes back
         # classified from the card itself.
         width = aot_compile_pool.entry_workers(
-            max(1, declared - len(have)),
+            max(1, todo),
             # The one banked measurement that survives: what a previous
             # compile child on this pod really peaked at, in HOST RSS. K's
             # divisor and nothing else.
@@ -741,18 +776,25 @@ async def supervise(
         terminus = ""
         retryable = False
         try:
-            if len(have) >= declared:
-                # Every declared class is already on disk. The attempt is a
-                # no-op and saying so is cheaper than proving it with a pool.
+            if todo <= 0:
+                # Everything this obligation is scoped to is already on disk.
+                # The attempt is a no-op and saying so is cheaper than proving
+                # it with a pool.
                 result = aot_mint.fold_held_graph_classes(held, spec=spec)
             else:
                 result = await asyncio.to_thread(
                     aot_mint.mint_graph_classes,
-                    msgspec.structs.replace(template, have_classes=have),
+                    msgspec.structs.replace(
+                        template, have_classes=have, hole_classes=holes),
                     workdir=Path(pending.mint_root) / "compile-pool",
                     width=width,
                     spec=spec,
                     on_progress=_progress,
+                    # pgw#1371: adopt-and-publish EACH class the moment its
+                    # artifact lands — runs on the pool's supervision thread,
+                    # beside the still-compiling siblings, so a killed pod
+                    # keeps (and the fleet store holds) every completed graph.
+                    on_landed=lambda row: _adopt_landed(task, pending, row),
                     # pgw#848: rewritten on every beat, so a mint this pod is
                     # KILLED still leaves its measurements on disk.
                     phase_snapshot=snapshot,
@@ -790,7 +832,11 @@ async def supervise(
         if terminus == ABANDONED:
             return SupervisedResult(
                 status=ABANDONED, detail=last, attempts=attempts,
-                covered=len(have), declared=declared)
+                # pgw#1371: the classes `adopt_minted_class` armed before the
+                # abandon are REAL coverage — armed on this pipe, durable in
+                # the local CAS, and (with a sink) already uploaded.
+                covered=len(have) + _incremental_covered(pending),
+                declared=declared)
 
         if not last:
             act.phase(activity_mod.PHASE_SEAL_PUBLISH)
@@ -803,7 +849,7 @@ async def supervise(
             # pgw#1176/pgw#1183: one artifact per graph class; the adopt
             # stages each durable, verifies, arms and stores it in turn, and a
             # class that refuses costs itself.
-            minted = fleet_cells.adopt_delegated_mint(
+            minted = fleet_compiled_graphs.adopt_delegated_mint(
                 task.pipe, pending, [row.artifact for row in result.entries],
                 # pgw#1341: the declaration-wide contract digest this mint just
                 # folded. It is the `graph_contract` axis of every row's
@@ -817,7 +863,7 @@ async def supervise(
             # Bytes this runtime could not adopt. `adopt_delegated_mint`
             # emitted the typed abort and cleaned up; retrying cannot change a
             # verify()/drift verdict.
-            reason, why = fleet_cells.adopt_refusal(pending)
+            reason, why = fleet_compiled_graphs.adopt_refusal(pending)
             return SupervisedResult(
                 status=FAILED, attempts=attempts, reason=reason,
                 covered=0, declared=declared,
@@ -831,7 +877,7 @@ async def supervise(
             family=family, key=str(pending.arm_token), attempt=attempts,
             status="aborted", detail=last, retryable=retryable)
         if not (retryable and attempts < max(1, max_attempts)):
-            fleet_cells.abandon_self_mint(pending)
+            fleet_compiled_graphs.abandon_self_mint(pending)
             return SupervisedResult(
                 status=FAILED, detail=last, attempts=attempts,
                 covered=len(have), declared=declared)
@@ -841,7 +887,7 @@ async def supervise(
             "recompiled", family, attempts + 1, max_attempts, len(have),
             declared)
 
-    fleet_cells.abandon_self_mint(pending)
+    fleet_compiled_graphs.abandon_self_mint(pending)
     return SupervisedResult(
         status=FAILED, detail=last, attempts=attempts, declared=declared)
 
@@ -853,18 +899,12 @@ def _mint_phase_table_of(result: Any) -> Dict[str, Any]:
     (it is the RESULT's view, never the packed envelope's — the artifact
     deliberately carries no wall clocks), so any entry answers.
 
-    pgw#1356: READ OFF THE TYPED FIELD, which is where the writer has always
-    put it. This read ``entry.metadata["mint_phases"]`` — and ``metadata`` is
-    TCG's CLOSED artifact vocabulary, which has no such field and cannot be
-    extended (``test_tcg_mint_parent_pgw1270`` asserts ``"mint_phases" not in
-    survivor.metadata`` by name). So the reader could never find the table,
-    ``phase_table`` fell through to the on-disk snapshot on EVERY successful
-    mint, and the roll-up on the wire announced a completed mint as
-    ``status=in_flight`` — ``in_flight`` being the terminus
-    :func:`aot_mint.write_phase_snapshot` stamps on a beat. Measured on the
-    2026-08-17 A40 mint: 36 of 36 classes ``status=compiled exit=0``, roll-up
-    ``aot_mint_phases in_flight n_entries=0``, and the operator reading it
-    could not tell a finished mint from a killed one.
+    pgw#1356: READ OFF THE TYPED FIELD, which is where the writer puts it.
+    ``entry.metadata`` is TCG's CLOSED artifact vocabulary and can carry no
+    ``mint_phases`` (``test_tcg_mint_parent_pgw1270`` asserts its absence by
+    name), so reading it there falls through to the on-disk snapshot on every
+    successful mint and announces a completed mint as ``status=in_flight`` —
+    the terminus :func:`aot_mint.write_phase_snapshot` stamps on a beat.
     """
     for entry in getattr(result, "entries", ()):
         rows = getattr(entry, "mint_phases", None)

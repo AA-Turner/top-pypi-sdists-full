@@ -15,7 +15,7 @@ Changelog = "https://github.com/qm-labs/qm-qua-sdk-public/blob/main/CHANGELOG.md
 
 [tool.poetry]
 name = "qm-qua"
-version = "1.4.0"
+version = "1.4.1"
 description = "QUA language SDK to control a Quantum Computer"
 authors = ["Quantum Machines <info@quantum-machines.co>"]
 classifiers = ["Topic :: Scientific/Engineering :: Quantum Computing", "Development Status :: 5 - Production/Stable"]

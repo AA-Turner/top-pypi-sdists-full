@@ -177,6 +177,37 @@ impl MD032BlanksAroundLists {
             .is_some_and(|li| !li.in_code_block && !li.in_front_matter && !li.in_html_comment && !li.in_mdx_comment)
     }
 
+    /// Whether a line is a Pandoc/Quarto fenced-div marker in a flavor where
+    /// those are structure rather than prose. MD032 looks through them when it
+    /// scans for the blank line around a list, and the same line must not be
+    /// read as prose that lazily continues the last item either: indenting a
+    /// closing `:::` into the item pulls the div's fence into the list.
+    fn is_transparent_div_marker(ctx: &crate::lint_context::LintContext, info: &crate::lint_context::LineInfo) -> bool {
+        if !ctx.flavor.is_pandoc_compatible() {
+            return false;
+        }
+        let trimmed = info.content(ctx.content).trim();
+        pandoc::is_div_open(trimmed) || pandoc::is_div_close(trimmed)
+    }
+
+    /// Whether a lazy continuation line reported by the parser is one MD032
+    /// should act on: inside a list block, and not a transparent div marker.
+    fn is_reportable_lazy_line(
+        ctx: &crate::lint_context::LintContext,
+        list_blocks: &[(usize, usize, String)],
+        line_num: usize,
+    ) -> bool {
+        let is_within_block = list_blocks
+            .iter()
+            .any(|(start, end, _)| line_num >= *start && line_num <= *end);
+        if !is_within_block {
+            return false;
+        }
+        ctx.lines
+            .get(line_num.saturating_sub(1))
+            .is_some_and(|info| !Self::is_transparent_div_marker(ctx, info))
+    }
+
     /// Calculate the fix for a lazy continuation line.
     /// Returns the byte range to replace and the replacement string.
     fn calculate_lazy_continuation_fix(
@@ -240,7 +271,6 @@ impl MD032BlanksAroundLists {
     /// Transparent elements (HTML comments, Quarto div markers) are skipped,
     /// matching markdownlint-cli behavior.
     fn find_preceding_content(ctx: &crate::lint_context::LintContext, before_line: usize) -> (usize, bool) {
-        let is_pandoc = ctx.flavor.is_pandoc_compatible();
         for line_num in (1..before_line).rev() {
             let idx = line_num - 1;
             if let Some(info) = ctx.lines.get(idx) {
@@ -249,11 +279,8 @@ impl MD032BlanksAroundLists {
                     continue;
                 }
                 // Skip Pandoc/Quarto div markers in Pandoc-compatible flavor - they're transparent
-                if is_pandoc {
-                    let trimmed = info.content(ctx.content).trim();
-                    if pandoc::is_div_open(trimmed) || pandoc::is_div_close(trimmed) {
-                        continue;
-                    }
+                if Self::is_transparent_div_marker(ctx, info) {
+                    continue;
                 }
                 return (line_num, info.is_blank);
             }
@@ -269,7 +296,6 @@ impl MD032BlanksAroundLists {
     ///
     /// Transparent elements (HTML comments, Quarto div markers) are skipped.
     fn find_following_content(ctx: &crate::lint_context::LintContext, after_line: usize) -> (usize, bool) {
-        let is_pandoc = ctx.flavor.is_pandoc_compatible();
         let num_lines = ctx.lines.len();
         for line_num in (after_line + 1)..=num_lines {
             let idx = line_num - 1;
@@ -279,11 +305,8 @@ impl MD032BlanksAroundLists {
                     continue;
                 }
                 // Skip Pandoc/Quarto div markers in Pandoc-compatible flavor - they're transparent
-                if is_pandoc {
-                    let trimmed = info.content(ctx.content).trim();
-                    if pandoc::is_div_open(trimmed) || pandoc::is_div_close(trimmed) {
-                        continue;
-                    }
+                if Self::is_transparent_div_marker(ctx, info) {
+                    continue;
                 }
                 return (line_num, info.is_blank);
             }
@@ -439,8 +462,11 @@ impl MD032BlanksAroundLists {
                         if check_line - 1 < ctx.lines.len() {
                             let line = &ctx.lines[check_line - 1];
                             let line_content = line.content(ctx.content);
-                            // Stop at next list item or non-continuation content
-                            if block.item_lines.contains(&check_line) || line.heading.is_some() {
+                            // Stop at next list item or non-continuation content. Only a
+                            // heading CommonMark accepts ends the item: `#2, #3` and other
+                            // no-space `#` lines are recorded as invalid headings for MD018
+                            // and stay paragraph text of the item.
+                            if block.item_lines.contains(&check_line) || line.is_valid_heading() {
                                 break;
                             }
                             // Don't extend through code blocks
@@ -461,7 +487,7 @@ impl MD032BlanksAroundLists {
                             // Thematic breaks, code fences, etc. cannot be lazy continuations
                             // Always include lazy lines in block range - the config controls whether to WARN
                             else if !line.is_blank
-                                && line.heading.is_none()
+                                && !line.is_valid_heading()
                                 && !block.item_lines.contains(&check_line)
                                 && !is_thematic_break(line_content)
                             {
@@ -738,25 +764,9 @@ impl MD032BlanksAroundLists {
 
                     let prefixes_match = next_prefix.trim() == prefix.trim();
 
-                    // Do not warn when the immediately following line is a tight continuation
-                    // of the last list item. A tight continuation is any non-blank,
-                    // non-list-item line indented strictly past the last item's marker column.
-                    // Inserting a blank there would structurally separate the continuation
-                    // from its parent item.
-                    let is_tight_continuation_of_last_item = ctx
-                        .lines
-                        .get(end_line - 1)
-                        .and_then(|last_li| last_li.list_item.as_ref())
-                        .is_some_and(|last_item| {
-                            let marker_col = last_item.marker_column;
-                            ctx.lines.get(content_line - 1).is_some_and(|next_li| {
-                                !next_li.is_blank && next_li.list_item.is_none() && next_li.indent > marker_col
-                            })
-                        });
-
                     // Only require blank lines for content in the same context (same blockquote level)
                     // Skip if the following line exits a blockquote - boundary provides separation
-                    if !is_next_excluded && prefixes_match && !exits_blockquote && !is_tight_continuation_of_last_item {
+                    if !is_next_excluded && prefixes_match && !exits_blockquote {
                         // Calculate precise character range for the last line of the list (not the line after)
                         let (start_line_last, start_col_last, end_line_last, end_col_last) =
                             calculate_line_range(end_line, lines[end_line - 1]);
@@ -819,11 +829,7 @@ impl Rule for MD032BlanksAroundLists {
                 // Only warn about lazy continuation lines that are WITHIN a list block
                 // (i.e., between list items). End-of-block lazy continuation is already
                 // handled by the existing "list should be followed by blank line" logic.
-                let is_within_block = list_blocks
-                    .iter()
-                    .any(|(start, end, _)| line_num >= *start && line_num <= *end);
-
-                if !is_within_block {
+                if !Self::is_reportable_lazy_line(ctx, &list_blocks, line_num) {
                     continue;
                 }
 
@@ -897,10 +903,7 @@ impl MD032BlanksAroundLists {
             for lazy_info in lazy_cont_lines.iter() {
                 let line_num = lazy_info.line_num;
                 // Only fix lines within a list block
-                let is_within_block = list_blocks
-                    .iter()
-                    .any(|(start, end, _)| line_num >= *start && line_num <= *end);
-                if !is_within_block {
+                if !Self::is_reportable_lazy_line(ctx, &list_blocks, line_num) {
                     continue;
                 }
                 // Only fix if not in code block, front matter, or HTML comment
@@ -1108,6 +1111,56 @@ mod tests {
         let ctx = LintContext::new(content, crate::config::MarkdownFlavor::Standard, None);
         let fixed = rule.fix(&ctx).expect("Lint fix failed");
         assert_eq!(fixed, "- alpha beta\n  lazy\n\n1. ordered item\n");
+    }
+
+    #[test]
+    fn test_div_closer_after_list_is_not_a_lazy_continuation_in_quarto() {
+        // On a Pandoc-compatible flavor a `:::` line is the div's fence, not
+        // prose continuing the last item, so `allow_lazy_continuation = false`
+        // must neither report it nor indent it into the item.
+        let rule = MD032BlanksAroundLists::from_config_struct(MD032Config {
+            allow_lazy_continuation: false,
+        });
+        let content = "::: callout-note\n- List item 1\n- List item 2\n:::\n";
+        let ctx = LintContext::new(content, crate::config::MarkdownFlavor::Quarto, None);
+        let warnings = rule.check(&ctx).expect("Lint check failed");
+        assert!(warnings.is_empty(), "Expected no warnings, got: {warnings:?}");
+        let fixed = rule.fix(&ctx).expect("Lint fix failed");
+        assert_eq!(fixed, content);
+    }
+
+    #[test]
+    fn test_prose_after_list_in_quarto_div_is_still_a_lazy_continuation() {
+        // Positive control for the div-marker exemption: real prose under the
+        // item inside a div is still indented when lazy continuation is off,
+        // and the closing fence that follows it stays where it is.
+        let rule = MD032BlanksAroundLists::from_config_struct(MD032Config {
+            allow_lazy_continuation: false,
+        });
+        let content = "::: callout-note\n- List item 1\nlazy\n:::\n";
+        let ctx = LintContext::new(content, crate::config::MarkdownFlavor::Quarto, None);
+        let warnings = rule.check(&ctx).expect("Lint check failed");
+        assert_eq!(
+            warnings.len(),
+            1,
+            "Expected one lazy-continuation warning, got: {warnings:?}"
+        );
+        assert_eq!(warnings[0].line, 3);
+        let fixed = rule.fix(&ctx).expect("Lint fix failed");
+        assert_eq!(fixed, "::: callout-note\n- List item 1\n  lazy\n:::\n");
+    }
+
+    #[test]
+    fn test_div_closer_after_list_is_a_lazy_continuation_in_standard() {
+        // Outside the Pandoc-compatible flavors `:::` is ordinary text, so it
+        // lazily continues the item exactly as CommonMark reads it.
+        let rule = MD032BlanksAroundLists::from_config_struct(MD032Config {
+            allow_lazy_continuation: false,
+        });
+        let content = "Intro\n\n- List item 1\n- List item 2\n:::\n";
+        let ctx = LintContext::new(content, crate::config::MarkdownFlavor::Standard, None);
+        let fixed = rule.fix(&ctx).expect("Lint fix failed");
+        assert_eq!(fixed, "Intro\n\n- List item 1\n- List item 2\n  :::\n");
     }
 
     // Test that warnings include Fix objects
@@ -3504,5 +3557,375 @@ Root level lazy continuation.
             warnings.is_empty(),
             "Expected no warnings for pseudo-list marker without preceding list, but got: {warnings:?}"
         );
+    }
+
+    #[test]
+    fn test_no_space_hash_continuation_line_stays_in_its_item() {
+        // `#2, #3` is recorded as an invalid ATX heading for MD018's benefit but is
+        // paragraph text to CommonMark, so it neither ends the list block nor earns a
+        // blank line above it. The only blank line owed here is the one before the
+        // task list that follows the heading.
+        let content = indoc::indoc! {"
+            5. **`M.md`** - the deltas (esp. items #1,
+               #2, #3, #5, #8).
+
+            ---
+
+            ## Plan
+
+            ### Phase 0
+            - [ ] task one
+                  wrapped
+        "};
+        let warnings = lint(content);
+        assert_eq!(
+            warnings.len(),
+            1,
+            "only the task list is missing a blank line, got: {warnings:?}"
+        );
+        assert_eq!(warnings[0].line, 9);
+        assert_eq!(warnings[0].message, "List should be preceded by blank line");
+
+        let expected = indoc::indoc! {"
+            5. **`M.md`** - the deltas (esp. items #1,
+               #2, #3, #5, #8).
+
+            ---
+
+            ## Plan
+
+            ### Phase 0
+
+            - [ ] task one
+                  wrapped
+        "};
+        assert_eq!(fix(content), expected);
+    }
+
+    #[test]
+    fn test_fix_keeps_tight_continuation_attached_while_fixing_elsewhere() {
+        // The two-space continuation under `3. item` sits below the content column,
+        // so it is a lazy continuation of the item and the list block includes it.
+        // The fix runs whenever the rule has any warning in the document, here the
+        // heading-hugging list at the end, and must not insert between the item and
+        // its continuation, which would detach the continuation from the item.
+        let content = indoc::indoc! {"
+            1. first
+
+            3. item
+              continuation
+
+              1. nested
+              2. nested
+
+            ## Heading
+            - task
+        "};
+        let warnings = lint(content);
+        assert_eq!(
+            warnings.iter().map(|w| w.line).collect::<Vec<_>>(),
+            vec![10],
+            "only the list after the heading is missing a blank line, got: {warnings:?}"
+        );
+
+        let expected = indoc::indoc! {"
+            1. first
+
+            3. item
+              continuation
+
+              1. nested
+              2. nested
+
+            ## Heading
+
+            - task
+        "};
+        assert_eq!(fix(content), expected);
+    }
+
+    #[test]
+    fn test_no_space_hash_lazy_continuation_stays_in_its_item() {
+        // A lazy continuation line that begins with `#` followed by a digit is
+        // paragraph text to CommonMark (no space after the `#`), so it belongs to
+        // the item above it and the list keeps running through it.
+        let content = indoc::indoc! {"
+            - item (esp. #1,
+            #2, #3).
+            - next item
+
+            ## Heading
+            - task
+        "};
+        let warnings = lint(content);
+        assert_eq!(
+            warnings.iter().map(|w| w.line).collect::<Vec<_>>(),
+            vec![6],
+            "only the list after the heading is missing a blank line, got: {warnings:?}"
+        );
+
+        let expected = indoc::indoc! {"
+            - item (esp. #1,
+            #2, #3).
+            - next item
+
+            ## Heading
+
+            - task
+        "};
+        assert_eq!(fix(content), expected);
+    }
+
+    #[test]
+    fn test_under_indented_continuation_lines_stay_in_their_item() {
+        // Paragraph text indented short of the content column is a lazy
+        // continuation per CommonMark, however short the indent, in and out of a
+        // blockquote. Neither the check nor the fix separates it from its item.
+        for content in [
+            "1. Helps to avoid situations\n  changes that the team might not accept\n  changes are in a direction.\n",
+            "> 1. Helps to avoid situations\n>   changes that the team might not accept\n>   changes are in a direction.\n",
+            "- Item\n lazy continuation\n- another item\n",
+            "> - Item\n>  lazy continuation\n> - another item\n",
+        ] {
+            let warnings = lint(content);
+            assert!(warnings.is_empty(), "{content:?}: got {warnings:?}");
+            assert_eq!(fix(content), content, "{content:?}");
+        }
+    }
+
+    #[test]
+    fn test_under_indented_continuation_lines_are_lazy_when_lazy_is_disallowed() {
+        // With allow_lazy_continuation = false the same lines are reported as
+        // lazy continuations, not as a list missing a blank line around it.
+        let config = MD032Config {
+            allow_lazy_continuation: false,
+        };
+        for (content, lazy_lines) in [
+            ("- Item\n lazy continuation\n- another item\n", vec![2]),
+            ("> - Item\n>  lazy continuation\n> - another item\n", vec![2]),
+            ("> 1. Item\n>   changes that\n>   changes are\n> 2. next\n", vec![2, 3]),
+        ] {
+            let warnings = lint_with_config(content, config.clone());
+            assert!(
+                warnings.iter().all(|w| w.message.contains("Lazy continuation")),
+                "{content:?}: got {warnings:?}"
+            );
+            assert_eq!(
+                warnings.iter().map(|w| w.line).collect::<Vec<_>>(),
+                lazy_lines,
+                "{content:?}: got {warnings:?}"
+            );
+        }
+    }
+
+    #[test]
+    fn test_structural_line_at_short_indent_ends_the_list() {
+        // A thematic break or heading cannot be a lazy continuation, so at an
+        // indent short of the content column it ends the list and the list is
+        // missing its trailing blank line, in and out of a blockquote.
+        for (content, expected) in [
+            ("1. item\n  ---\n", "1. item\n\n  ---\n"),
+            ("1. item\n  ## Heading\n", "1. item\n\n  ## Heading\n"),
+            ("> 1. item\n>   ---\n", "> 1. item\n>\n>   ---\n"),
+            ("> 1. item\n> ---\n", "> 1. item\n>\n> ---\n"),
+        ] {
+            let warnings = lint(content);
+            assert_eq!(
+                warnings
+                    .iter()
+                    .map(|w| (w.line, w.message.as_str()))
+                    .collect::<Vec<_>>(),
+                vec![(1, "List should be followed by blank line")],
+                "{content:?}: got {warnings:?}"
+            );
+            assert_eq!(fix(content), expected, "{content:?}");
+        }
+    }
+
+    #[test]
+    fn test_html_block_at_short_indent_ends_the_list() {
+        // A block-level tag interrupts a paragraph, so at an indent short of
+        // the content column it is not a lazy continuation: it ends the list,
+        // and a list that follows its closing tag is a new list. Both lists
+        // are missing a blank line next to the HTML block, whether the tag
+        // sits at the margin or one column in, and inside a blockquote as much
+        // as at the root.
+        for (content, expected) in [
+            (
+                "- item\n<script>\nx\n</script>\n- next\n",
+                "- item\n\n<script>\nx\n</script>\n\n- next\n",
+            ),
+            (
+                "- item\n <script>\n x\n </script>\n- next\n",
+                "- item\n\n <script>\n x\n </script>\n\n- next\n",
+            ),
+            (
+                "- item\n <pre>\n x\n </pre>\n- next\n",
+                "- item\n\n <pre>\n x\n </pre>\n\n- next\n",
+            ),
+            (
+                "> - item\n> <script>\n> x\n> </script>\n> - next\n",
+                "> - item\n>\n> <script>\n> x\n> </script>\n>\n> - next\n",
+            ),
+            (
+                "> - item\n> <pre>\n> x\n> </pre>\n> - next\n",
+                "> - item\n>\n> <pre>\n> x\n> </pre>\n>\n> - next\n",
+            ),
+        ] {
+            let warnings = lint(content);
+            assert_eq!(
+                warnings
+                    .iter()
+                    .map(|w| (w.line, w.message.as_str()))
+                    .collect::<Vec<_>>(),
+                vec![
+                    (1, "List should be followed by blank line"),
+                    (5, "List should be preceded by blank line"),
+                ],
+                "{content:?}: got {warnings:?}"
+            );
+            assert_eq!(fix(content), expected, "{content:?}");
+        }
+    }
+
+    #[test]
+    fn test_html_looking_text_at_short_indent_is_a_lazy_continuation() {
+        // An HTML block opens only within three columns of indent, and only
+        // when the tag name ends the way CommonMark requires. A tag indented
+        // four columns short of a wide item's content column, or a bracket
+        // that merely begins with a block element's name, is paragraph text
+        // that lazily continues the item, at the root and inside a blockquote:
+        // one list, nothing to report, nothing to rewrite. Indent is measured
+        // in columns, so a tab reaches the fourth column however few bytes
+        // precede it (a tab right after `>` gives the marker its optional
+        // space and indents with the rest), and a tag that reaches an outer
+        // item's content column is that item's own HTML block, however short
+        // of a nested item it falls.
+        for content in [
+            "100. item\n    <div>\n101. next\n",
+            "> 100. item\n>     <div>\n> 101. next\n",
+            "100. item\n    <div>\ntext\n101. next\n",
+            "- item\n<div.class>\n- next\n",
+            "> - item\n> <div.class>\n> - next\n",
+            "100. item\n\t<div>\n101. next\n",
+            "- item\n  \t<div>\n- next\n",
+            "> - item\n> \t<div>\n> - next\n",
+            "> - item\n>\t<div>\n> - next\n",
+            "> 100. item\n>   \t<div>\n> 101. next\n",
+            "- outer\n  - inner\n   <script>\n   x\n   </script>\n- next\n",
+            "- outer\n  - inner\n  <script>\n  x\n  </script>\n- next\n",
+            "> - outer\n>   - inner\n>   <div>\n>   x\n>   </div>\n> - next\n",
+        ] {
+            let warnings = lint(content);
+            assert!(warnings.is_empty(), "{content:?}: got {warnings:?}");
+            assert_eq!(fix(content), content, "{content:?}");
+        }
+
+        // Control: the same tag one column closer to the margin, or short of
+        // every item's content column, opens a block and ends the list after
+        // its last item.
+        for (content, last_item_line) in [
+            ("100. item\n   <div>\n101. next\n", 1),
+            ("> 100. item\n>    <div>\n> 101. next\n", 1),
+            ("- item\n <div>\n- next\n", 1),
+            ("> 1. item\n> \t<div>\n> 2. next\n", 1),
+            ("> 1. item\n>\t<div>\n> 2. next\n", 1),
+            ("1. outer\n   1. inner\n  <div>\n2. next\n", 2),
+        ] {
+            let warnings = lint(content);
+            assert_eq!(
+                warnings
+                    .iter()
+                    .map(|w| (w.line, w.message.as_str()))
+                    .collect::<Vec<_>>(),
+                vec![(last_item_line, "List should be followed by blank line")],
+                "{content:?}: got {warnings:?}"
+            );
+        }
+    }
+
+    #[test]
+    fn test_tab_indented_nested_list_stays_inside_its_item() {
+        // A tab before a nested marker reaches the fourth column, past the
+        // parent item's content column, so the nested list belongs to the
+        // item however few bytes precede the marker, at the root and inside a
+        // blockquote: one list, nothing to report, nothing to rewrite.
+        // Every row nests a list of the OTHER type, since a same-type child
+        // was grouped with its parent before markers were measured in
+        // columns; the last row is that same-type shape, kept as the control
+        // that the column measure did not disturb it.
+        for content in [
+            "* item text\n\t1. nested\n\t   more\n",
+            "* item text\n\tcontinuation\n\t1. nested\n",
+            "1. item text\n\t- nested\n",
+            "> * item text\n>\t1. nested\n",
+            "> * item text\n> \t1. nested\n",
+            "* item text\n\tcontinuation\n\t- nested\n",
+        ] {
+            let warnings = lint(content);
+            assert!(warnings.is_empty(), "{content:?}: got {warnings:?}");
+            assert_eq!(fix(content), content, "{content:?}");
+        }
+
+        // Control: a marker one space in falls short of the content column,
+        // so it starts a new list of another type against the first.
+        for content in ["* item text\n 1. nested\n", "> * item text\n>  1. nested\n"] {
+            let warnings = lint(content);
+            assert_eq!(
+                warnings
+                    .iter()
+                    .map(|w| (w.line, w.message.as_str()))
+                    .collect::<Vec<_>>(),
+                vec![
+                    (1, "List should be followed by blank line"),
+                    (2, "List should be preceded by blank line"),
+                ],
+                "{content:?}: got {warnings:?}"
+            );
+        }
+    }
+
+    #[test]
+    fn test_list_marker_inside_an_unclosed_html_block_is_html() {
+        // A block opened by a tag such as `<div>` runs to the next blank line,
+        // so a marker line before that blank is the block's content and not a
+        // list: the list before the block still needs its blank line, the
+        // marker line needs nothing, at the root and inside a blockquote.
+        for (content, expected) in [
+            (
+                "- item\n<div>\nx\n</div>\n- next\n",
+                "- item\n\n<div>\nx\n</div>\n- next\n",
+            ),
+            (
+                "> - item\n> <div>\n> x\n> </div>\n> - next\n",
+                "> - item\n>\n> <div>\n> x\n> </div>\n> - next\n",
+            ),
+        ] {
+            let warnings = lint(content);
+            assert_eq!(
+                warnings
+                    .iter()
+                    .map(|w| (w.line, w.message.as_str()))
+                    .collect::<Vec<_>>(),
+                vec![(1, "List should be followed by blank line")],
+                "{content:?}: got {warnings:?}"
+            );
+            assert_eq!(fix(content), expected, "{content:?}");
+        }
+    }
+
+    #[test]
+    fn test_html_block_at_content_column_is_item_content() {
+        // The same tags indented to the content column are the item's own
+        // content, so the list runs through them and nothing is reported.
+        for content in [
+            "- item\n  <script>\n  x\n  </script>\n- next\n",
+            "- item\n  <div>\n  x\n  </div>\n- next\n",
+            "1. item\n   <pre>\n   x\n   </pre>\n2. next\n",
+            "> - item\n>   <div>\n>   x\n>   </div>\n> - next\n",
+        ] {
+            assert!(lint(content).is_empty(), "{content:?}: got {:?}", lint(content));
+            assert_eq!(fix(content), content, "{content:?}");
+        }
     }
 }

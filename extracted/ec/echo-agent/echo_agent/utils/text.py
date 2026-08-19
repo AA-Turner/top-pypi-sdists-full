@@ -167,7 +167,7 @@ def _is_table_separator(line: str) -> bool:
 
 
 def _render_table_row_as_fields(headers: list[str], cells: list[str]) -> str:
-    """Render one table row as ``header: value`` lines (openclaw-style)."""
+    """Render one table row as ``header: value`` lines."""
     parts = []
     for idx, cell in enumerate(cells):
         header = headers[idx].strip() if idx < len(headers) else ""

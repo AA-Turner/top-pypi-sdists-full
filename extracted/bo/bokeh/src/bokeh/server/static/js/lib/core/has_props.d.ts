@@ -9,8 +9,8 @@ import type { Property } from "./properties";
 import type { Serializable, Serializer, ObjectRefRep } from "./serialization";
 import { serialize } from "./serialization";
 import type { Document } from "../document/document";
-import type { Equatable, Comparator } from "./util/eq";
-import { equals } from "./util/eq";
+import type { Equatable } from "./util/eq";
+import { equals, Comparator } from "./util/eq";
 import type { Printable, Printer } from "./util/pretty";
 import { pretty } from "./util/pretty";
 import type { Cloneable } from "./util/cloneable";
@@ -30,7 +30,6 @@ export declare namespace HasProps {
 }
 export interface HasProps extends HasProps.Attrs, ISignalable {
     constructor: Function & {
-        __name__: string;
         __module__?: string;
         __qualified__: string;
     };
@@ -48,7 +47,6 @@ export declare abstract class HasProps extends HasProps_base implements Equatabl
     get is_syncable(): boolean;
     get type(): string;
     get is_root(): boolean;
-    static __name__: string;
     static __module__?: string;
     static get __qualified__(): string;
     static set __qualified__(qualified: string);
@@ -58,19 +56,19 @@ export declare abstract class HasProps extends HasProps_base implements Equatabl
     /** @prototype */
     _props: {
         [key: string]: {
-            type: p.PropertyConstructor<unknown>;
+            type: p.PropertyConstructor<unknown, HasProps>;
             default_value: (self: HasProps) => unknown | p.Unset;
-            options: p.PropertyOptions<unknown>;
+            options: p.PropertyOptions<unknown, HasProps>;
         };
     };
     /** @prototype */
     _mixins: [string, object][];
     private static _fix_default;
     static define<T, HP extends HasProps = HasProps>(obj: Partial<p.DefineOf<T, HP>> | ((types: typeof kinds) => Partial<p.DefineOf<T, HP>>)): void;
-    static internal<T>(obj: Partial<p.DefineOf<T>> | ((types: typeof kinds) => Partial<p.DefineOf<T>>)): void;
+    static internal<T, HP extends HasProps = HasProps>(obj: Partial<p.DefineOf<T, HP>> | ((types: typeof kinds) => Partial<p.DefineOf<T, HP>>)): void;
     static mixins<_T>(defs: Attrs | (Attrs | [string, Attrs])[]): void;
-    static override<T>(obj: Partial<p.DefaultsOf<T>>): void;
-    static override_options<T>(obj: Partial<p.OptionsOf<T>>): void;
+    static override<T, HP extends HasProps = HasProps>(obj: Partial<p.DefaultsOf<T, HP>>): void;
+    static override_options<T, HP extends HasProps = HasProps>(obj: Partial<p.OptionsOf<T, HP>>): void;
     static toString(): string;
     toString(): string;
     document: Document | null;

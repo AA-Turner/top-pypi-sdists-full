@@ -1,6 +1,6 @@
-Metadata-Version: 2.4
+Metadata-Version: 2.5
 Name: mcp-server-fetch
-Version: 2026.7.10
+Version: 2026.8.18
 Summary: A Model Context Protocol server providing tools to fetch and convert web content for usage by LLMs
 Project-URL: Repository, https://github.com/modelcontextprotocol/servers/tree/main/src/fetch
 Project-URL: Issues, https://github.com/modelcontextprotocol/servers/issues
@@ -17,7 +17,7 @@ Classifier: Programming Language :: Python :: 3.10
 Requires-Python: >=3.10
 Requires-Dist: httpx>=0.27
 Requires-Dist: markdownify>=0.13.1
-Requires-Dist: mcp>=1.1.3
+Requires-Dist: mcp<2,>=1.29.0
 Requires-Dist: protego>=0.3.1
 Requires-Dist: pydantic>=2.0.0
 Requires-Dist: readabilipy>=0.2.0
@@ -31,6 +31,8 @@ Description-Content-Type: text/markdown
 A Model Context Protocol server that provides web content fetching capabilities. This server enables LLMs to retrieve and process content from web pages, converting HTML to markdown for easier consumption.
 
 Source: https://github.com/modelcontextprotocol/servers/tree/main/src/fetch
+
+Requires MCP Python SDK 1.x (`mcp>=1.29.0,<2`). SDK 2.0 renamed APIs this server uses. The port to v2 is in progress.
 
 > [!CAUTION]
 > This server can access local/internal IP addresses and may represent a security risk. Exercise caution when using this MCP server to ensure this does not expose any sensitive data.

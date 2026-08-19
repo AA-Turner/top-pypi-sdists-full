@@ -12,6 +12,7 @@ export interface PatchesView extends Patches.Data {
 export declare class PatchesView extends GlyphView {
     model: Patches;
     visuals: Patches.Visuals;
+    load_glglyph(): Promise<typeof import("../../all/main").PatchesGL>;
     protected _project_data(): void;
     protected _index_data(index: SpatialIndex): void;
     protected _mask_data(): Indices;

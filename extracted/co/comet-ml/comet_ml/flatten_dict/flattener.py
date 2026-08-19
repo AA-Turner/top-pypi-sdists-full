@@ -33,6 +33,28 @@ class FlattenDictionaryOpResult:
         return self.max_depth > 1
 
 
+class _FlattenFrame:
+    """One level of the traversal in FlattenDictionaryOp._flatten."""
+
+    __slots__ = ("mapping", "items", "depth", "parent_key", "flat_key", "has_items")
+
+    def __init__(
+        self,
+        mapping: Mapping,
+        depth: int,
+        parent_key: Optional[str],
+        flat_key: Optional[str],
+    ):
+        self.mapping = mapping
+        self.items = iter(mapping.items())
+        self.depth = depth
+        self.parent_key = parent_key
+        # the key this mapping itself would be stored under, None for the outermost one
+        self.flat_key = flat_key
+        # whether the mapping yielded any item at all, nested or scalar
+        self.has_items = False
+
+
 class FlattenDictionaryOp:
     def __init__(
         self,
@@ -62,28 +84,55 @@ class FlattenDictionaryOp:
         depth: int,
         parent_key: Optional[str],
     ) -> bool:
-        has_child = False
-        for key, value in d.items():
-            has_child = True
-            flat_key = self.reducer(parent_key, key)
+        """Flattens ``d`` depth-first, using an explicit stack rather than recursion.
+
+        ``max_depth_limit`` is as high as 1000 for metrics, which is at CPython's default
+        recursion limit, so recursing once per level raised RecursionError instead of
+        reporting that the limit was reached."""
+        root = _FlattenFrame(
+            mapping=d, depth=depth, parent_key=parent_key, flat_key=None
+        )
+        stack = [root]
+
+        while stack:
+            frame = stack[-1]
+
+            try:
+                key, value = next(frame.items)
+            except StopIteration:
+                self.max_depth = max(self.max_depth, frame.depth)
+                stack.pop()
+                # an empty mapping is not a node, so it is stored as a plain value, the
+                # same way the recursive version stored it when _flatten returned False
+                if not frame.has_items and frame.flat_key is not None:
+                    self._store(frame.flat_key, frame.mapping)
+                continue
+
+            frame.has_items = True
+            flat_key = self.reducer(frame.parent_key, key)
 
             if isinstance(value, Mapping):
-                if depth < self.max_depth_limit:
-                    is_node = self._flatten(
-                        d=value, depth=depth + 1, parent_key=flat_key
+                if frame.depth < self.max_depth_limit:
+                    stack.append(
+                        _FlattenFrame(
+                            mapping=value,
+                            depth=frame.depth + 1,
+                            parent_key=flat_key,
+                            flat_key=flat_key,
+                        )
                     )
-                    if is_node:
-                        continue
+                    continue
                 else:
                     self.max_depth_reached = True
 
-            if flat_key in self.flattened_dict:
-                raise ValueError("duplicated key '{}'".format(flat_key))
-            self.flattened_dict[flat_key] = value
+            self._store(flat_key, value)
 
-        self.max_depth = max(self.max_depth, depth)
+        return root.has_items
 
-        return has_child
+    def _store(self, flat_key: str, value: Any) -> None:
+        if flat_key in self.flattened_dict:
+            raise ValueError("duplicated key '{}'".format(flat_key))
+        self.flattened_dict[flat_key] = value
 
 
 def flatten_dict(

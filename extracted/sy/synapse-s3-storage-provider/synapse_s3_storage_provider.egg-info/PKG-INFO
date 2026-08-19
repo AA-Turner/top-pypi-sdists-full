@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: synapse-s3-storage-provider
-Version: 1.6.1
+Version: 1.7.0
 Summary: A storage provider which can fetch and store media in Amazon S3.
 Home-page: https://github.com/matrix-org/synapse-s3-storage-provider
 Author: matrix.org team and contributors
@@ -131,7 +131,14 @@ Packaging and release
 
 For maintainers:
 
-1. Update the `__version__` in setup.py. Commit. Push.
+1. Update the `__version__` in setup.py. Then commit and push the changes:
+
+    ```
+    git add setup.py
+    git commit -m "vX.Y.Z"
+    git push
+    ```
+
 1. Create a signed tag and push that:
 
     ```

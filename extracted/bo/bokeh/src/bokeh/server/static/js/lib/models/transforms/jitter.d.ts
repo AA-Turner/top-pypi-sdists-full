@@ -11,7 +11,9 @@ export declare namespace Jitter {
         mean: p.Property<number>;
         width: p.Property<number>;
         distribution: p.Property<Distribution>;
-        /** internal */
+    } & Internal;
+    type Internal = {
+        _generator: p.Property<AbstractRandom>;
         random_generator: p.Property<RandomGenerator | null>;
     };
 }
@@ -21,8 +23,6 @@ export declare class Jitter extends RangeTransform {
     properties: Jitter.Props;
     protected _previous_offsets: Float64Array | null;
     constructor(attrs?: Partial<Jitter.Attrs>);
-    protected _generator: AbstractRandom;
-    initialize(): void;
     v_compute(xs0: Arrayable<number | Factor>): Arrayable<number>;
     protected _compute(): number;
     protected _v_compute(n: number): Float64Array;

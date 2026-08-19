@@ -62,6 +62,7 @@ from anyscale.commands.setup_k8s import (
 )
 from anyscale.commands.util import AnyscaleCommand, OptionPromptNull
 from anyscale.controllers.cloud_controller import CloudController
+from anyscale.errors import InvalidConfigError, ResourceNotFoundError, UserError
 from anyscale.util import (
     _apn_boto3_session,
     allow_optional_file_storage,
@@ -276,6 +277,7 @@ def _format_cloud_output_data(cloud: Any) -> Dict[str, str]:
 @click.option(
     "--cloud-id",
     "--id",
+    "cloud_id",
     help="Cloud id to delete. Alternative to cloud name.",
     required=False,
 )
@@ -340,6 +342,7 @@ def cloud_delete(
 @click.option(
     "--cloud-id",
     "--id",
+    "cloud_id",
     help="Cloud id to set as default. Alternative to cloud name.",
     required=False,
 )
@@ -437,7 +440,9 @@ def default_region(provider: str) -> str:
     default="anyscale-operator",
 )
 @click.option(
+    "--gcp-project-id",
     "--project-id",
+    "project_id",
     help="Globally Unique project ID for GCP clouds (e.g., my-project-abc123)",
     required=False,
     type=str,
@@ -664,6 +669,7 @@ def setup_cloud(  # noqa: PLR0913
 @click.option(
     "--cloud-id",
     "--id",
+    "cloud_id",
     required=False,
     default=None,
     help=("Id of cloud to get information about."),
@@ -931,7 +937,9 @@ def cloud_resource_create(
     default="anyscale-operator",
 )
 @click.option(
+    "--gcp-project-id",
     "--project-id",
+    "project_id",
     help="Globally Unique project ID for GCP clouds (e.g., my-project-abc123)",
     required=False,
     type=str,
@@ -1111,6 +1119,7 @@ def cloud_resource_delete(cloud: str, resource: str, yes: bool,) -> None:
 @click.option(
     "--cloud-id",
     "--id",
+    "cloud_id",
     help="Cloud id to update. Alternative to cloud name.",
     required=False,
 )
@@ -1214,6 +1223,7 @@ def cloud_update(  # noqa: PLR0913
 @click.option(
     "--cloud-id",
     "--id",
+    "cloud_id",
     help="Cloud id to update. Alternative to cloud name.",
     required=False,
 )
@@ -1298,6 +1308,7 @@ def cloud_update_storage_cors(
 @click.option(
     "--cloud-id",
     "--id",
+    "cloud_id",
     help="Cloud id to get details about. Alternative to cloud name.",
     required=False,
 )
@@ -1479,6 +1490,7 @@ def _handle_system_cluster_config(enable_system_cluster: Optional[bool]) -> None
 @click.option(
     "--cloud-id",
     "--id",
+    "cloud_id",
     help="Cloud id to update. Alternative to cloud name.",
     required=False,
 )
@@ -1693,7 +1705,9 @@ def cloud_config_update(  # noqa: PLR0913
     "--memorydb-cluster-id", help="Memorydb cluster ID", required=False, type=str,
 )
 @click.option(
+    "--gcp-project-id",
     "--project-id",
+    "project_id",
     help="Globally Unique project ID for GCP clouds (e.g., my-project-abc123)",
     required=False,
     type=str,
@@ -2312,6 +2326,7 @@ def register_cloud(  # noqa: PLR0913, PLR0912, C901
 @click.option(
     "--cloud-id",
     "--id",
+    "cloud_id",
     help="Verify cloud by cloud id, alternative to cloud name.",
     required=False,
 )
@@ -2387,6 +2402,7 @@ def cloud_verify(
 @click.option(
     "--cloud-id",
     "--id",
+    "cloud_id",
     help="Edit cloud by id, alternative to cloud name.",
     required=False,
 )
@@ -2556,8 +2572,9 @@ def add_collaborators(cloud: str, users_file: str,) -> None:
             ],
         )
     except ValueError as e:
-        log.error(f"Error adding collaborators to cloud: {e}")
-        return
+        raise UserError(
+            f"Error adding collaborators to cloud: {e}", legacy_exit_code=0
+        ) from None
 
     log.info(
         f"Successfully added {len(collaborators.collaborators)} collaborators to cloud {cloud}."
@@ -2584,15 +2601,15 @@ def _get_cloud_info(
     """
     # Validate that exactly one of --name or --cloud-id is provided
     if (cloud_id and name) or (not cloud_id and not name):
-        log.error("Please provide exactly one of --name or --cloud-id.")
-        return
+        raise InvalidConfigError(
+            "Please provide exactly one of --name or --cloud-id.", legacy_exit_code=0
+        )
 
     try:
         cloud = anyscale.cloud.get(id=cloud_id, name=name)
 
         if not cloud:
-            log.error("Cloud not found.")
-            return
+            raise ResourceNotFoundError("Cloud not found.", legacy_exit_code=0)
 
         # Include all cloud resources for the cloud.
         cloud_resources = CloudController().get_formatted_cloud_resources(
@@ -2634,7 +2651,7 @@ def _get_cloud_info(
             print(yaml.dump(info_dict, sort_keys=False))
 
     except ValueError as e:
-        log.error(f"Error retrieving cloud: {e}")
+        raise UserError(f"Error retrieving cloud: {e}", legacy_exit_code=0) from None
 
 
 @command_metadata(
@@ -2688,6 +2705,7 @@ def _get_cloud_info(
 @click.option(
     "--cloud-id",
     "--id",
+    "cloud_id",
     help="ID of the cloud to get information about.",
     type=str,
     required=False,
@@ -2802,6 +2820,7 @@ def get_cloud(
 @click.option(
     "--cloud-id",
     "--id",
+    "cloud_id",
     help="ID of the cloud to get status for.",
     type=str,
     required=False,
@@ -2904,8 +2923,7 @@ def get_default_cloud(output_format: str) -> None:
         default_cloud = anyscale.cloud.get_default()
 
         if not default_cloud:
-            log.error("No default cloud found.")
-            return
+            raise ResourceNotFoundError("No default cloud found.", legacy_exit_code=0)
 
         if output_format != OutputFormat.TEXT.value:
             print_output(default_cloud, output_format)
@@ -2920,7 +2938,9 @@ def get_default_cloud(output_format: str) -> None:
         print(yaml.dump(cloud_dict, sort_keys=False))
 
     except ValueError as e:
-        log.error(f"Error retrieving default cloud: {e}")
+        raise UserError(
+            f"Error retrieving default cloud: {e}", legacy_exit_code=0
+        ) from None
 
 
 @cloud_cli.command(
@@ -2991,7 +3011,9 @@ def generate_jobs_report(
             cloud_id, csv, out, sort_by, sort_order == "asc"
         )
     except ValueError as e:
-        log.error(f"Error generating jobs report: {e}")
+        raise UserError(
+            f"Error generating jobs report: {e}", legacy_exit_code=0
+        ) from None
 
 
 @command_metadata(
@@ -3015,6 +3037,7 @@ def generate_jobs_report(
 @click.option(
     "--cloud-id",
     "--id",
+    "cloud_id",
     help="ID of the cloud to terminate the system cluster for.",
     type=str,
     required=True,
@@ -3038,7 +3061,9 @@ def terminate_system_cluster(cloud_id: str, wait: Optional[bool]) -> None:
     try:
         anyscale.cloud.terminate_system_cluster(cloud_id, wait)
     except ValueError as e:
-        log.error(f"Error terminating system cluster: {e}")
+        raise UserError(
+            f"Error terminating system cluster: {e}", legacy_exit_code=0
+        ) from None
 
 
 # --- Gateway Migration Commands ---

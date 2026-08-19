@@ -199,8 +199,7 @@ create or replace table SELFSERVE.PLATFORM_PERF.MAV_CATCHPOINT_REPORT
             "selfserve.platform_perf.catchpoint_step_url_mapping",
         },
         {"selfserve.platform_perf.mav_catchpoint_report"},
-        dialect="snowflake",
-        test_sqlparse=False,  # SqlParse fails on this query
+        dialect="snowflake",  # SqlParse fails on this query
     )
 
 
@@ -264,8 +263,7 @@ FROM
         sql,
         {"edw_ls.customer_em.customer_base", "ods_ls.nps.vw_npssurvey"},
         {"<default>.npsquarter"},
-        dialect="snowflake",
-        test_sqlparse=False,  # SqlParse fails on this query
+        dialect="snowflake",  # SqlParse fails on this query
     )
 
 

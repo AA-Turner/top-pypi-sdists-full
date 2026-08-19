@@ -15,7 +15,7 @@
 """Common utilities for Mosaic GPU attention implementations."""
 
 import functools
-from typing import Any
+from typing import Annotated, Any
 
 import jax
 from jax.experimental import pallas as pl
@@ -23,29 +23,41 @@ import jax.experimental.mosaic.gpu as mgpu
 from jax.experimental.pallas import mosaic_gpu as plgpu
 import jax.numpy as jnp
 from jaxlib.mlir import ir
-from jaxlib.mlir.dialects import llvm
-from jaxlib.mlir.dialects import nvvm
+from jaxlib.mlir.dialects import arith
 from jaxlib.mlir.dialects import vector
 import numpy as np
 import pydantic
+import qwix
+from tokamax._src import mosaic_gpu as mgpu_lib
+from tokamax._src import precision as precision_lib
+from tokamax._src import quantization
+from tokamax._src import shape as shape_lib
+from tokamax._src.ops import op as op_lib
+from tokamax._src.ops.attention import base
+
+
+CanonicalPrecision = precision_lib.CanonicalPrecision
+QArray = qwix.QArray
+_FORBID_EXTRA = pydantic.ConfigDict(extra="forbid")
 
 
 @pydantic.dataclasses.dataclass(
-    frozen=True, kw_only=True, slots=True, config=dict(extra="forbid")
-)  # pytype: disable=wrong-keyword-args
+    frozen=True, kw_only=True, slots=True, config=_FORBID_EXTRA
+)
 class ConfigBase:
   """Common configuration parameters for Pallas-Mosaic-GPU kernels.
 
   Attributes:
     block_q: Block size along Q sequence length.
+    block_kv: Block size along K/V sequence length.
     num_stages: Number of tma stages for loading KV.
     fold_q_sequence_heads: Whether to fold seq_q into num_q_heads.
     split_k: Number of chunks to split seq_len_k into to improve parallelism.
   """
 
   # TODO: Relax block size constraints to multiple of 32.
-  block_q: pydantic.conint(multiple_of=64, gt=0) = 64
-  block_kv: pydantic.conint(multiple_of=64, gt=0) = 64
+  block_q: Annotated[int, pydantic.Field(multiple_of=64, gt=0)] = 64
+  block_kv: Annotated[int, pydantic.Field(multiple_of=64, gt=0)] = 64
   num_stages: pydantic.PositiveInt = 2
   fold_q_sequence_heads: pydantic.StrictBool = False
   split_k: pydantic.PositiveInt = 1
@@ -53,6 +65,16 @@ class ConfigBase:
   def __post_init__(self):
     if type(self) is ConfigBase:  # pylint: disable=unidiomatic-typecheck
       raise ValueError("Cannot use ConfigBase directly. Use a subclass.")
+
+
+MIN_SWIZZLE = 32
+
+
+# The contracting dimension for `wgmma` / `tcgen05.mma` must be a multiple of
+# the minimum swizzle size (in number of elements).
+def pad_head_dim_to_next_multiple_of_min_swizzle(x):
+  m = 8 * MIN_SWIZZLE // mgpu_lib.num_bits(x.dtype)
+  return shape_lib.pad_to_next_multiple_of(x, m, -1)
 
 
 def decompose_mask(mask, q, k, q_indices, k_indices):
@@ -87,6 +109,107 @@ def decompose_mask(mask, q, k, q_indices, k_indices):
   return mask, is_causal, k_start, k_end
 
 
+def cast_qkv[
+    Q: (jax.Array, QArray), K: (jax.Array, QArray), V: (jax.Array, QArray)
+](
+    q: Q, k: K, v: V, precision: tuple[CanonicalPrecision, CanonicalPrecision]
+) -> tuple[Q, K, V]:
+  """Casts Q, K, and V to the given precision."""
+
+  def cast(x, precision):
+    # Quantized arrays inherently define their precision (e.g., int8) and
+    # cannot contain infinities, so we bypass sanitization and downcasting.
+    if isinstance(x, QArray):
+      return x
+    assert precision != jax.lax.DotAlgorithmPreset.DEFAULT
+    if precision == jax.lax.DotAlgorithmPreset.BF16_BF16_F32:
+      return safe_downcast(x, jnp.bfloat16)
+    if precision == jax.lax.DotAlgorithmPreset.F16_F16_F32:
+      return safe_downcast(x, jnp.float16)
+    raise NotImplementedError(f"Unsupported precision: {precision}")
+
+  q_k_dot_precision, p_v_dot_precision = precision
+  q_k_dot_precision = precision_lib.to_dot_algorithm_preset(
+      q.dtype, k.dtype, q_k_dot_precision
+  )
+  p_v_dot_precision = precision_lib.to_dot_algorithm_preset(
+      v.dtype, v.dtype, p_v_dot_precision
+  )
+  q = cast(q, q_k_dot_precision)
+  k = cast(k, q_k_dot_precision)
+  v = cast(v, p_v_dot_precision)
+  return q, k, v
+
+
+def _broadcast_to_rank(x, rank):
+  return None if x is None else jax.lax.broadcast_to_rank(x, rank)
+
+
+def prepare_inputs(
+    q,
+    k,
+    v,
+    *,
+    bias,
+    mask,
+    q_indices,
+    k_indices,
+    precision,
+    fold_q_sequence_heads,
+):
+  """Prepares inputs for the standard attention kernel."""
+  # TODO: Support in-kernel dequantization.
+  q, k, v = map(quantization.as_array, (q, k, v))
+  q, k, v = cast_qkv(q, k, v, precision)
+
+  if fold_q_sequence_heads:
+    q, bias, mask, _, q_indices = base.fold_q_sequence_heads(
+        q, bias, mask, None, q_indices, k.shape[-3], k.shape[-2]
+    )
+
+  mask, is_causal, k_start, k_end = decompose_mask(
+      mask, q, k, q_indices, k_indices
+  )
+
+  bias = _broadcast_to_rank(bias, q.ndim)
+  mask = _broadcast_to_rank(mask, q.ndim)
+  k_start = _broadcast_to_rank(k_start, q.ndim - 1)
+  k_end = _broadcast_to_rank(k_end, q.ndim - 1)
+  return q, k, v, bias, mask, is_causal, k_start, k_end
+
+
+def eval_input_shapes(
+    ba: op_lib.BoundArguments, *, fold_q_sequence_heads: bool, split_k: int
+):
+  """Evaluates the shape of the inputs after `prepare_inputs`."""
+  q, k, v, bias, mask, _, _, _ = jax.eval_shape(
+      functools.partial(
+          prepare_inputs,
+          precision=ba.kwargs["precision"],
+          fold_q_sequence_heads=fold_q_sequence_heads,
+      ),
+      *ba.args,
+      bias=ba.kwargs["bias"],
+      mask=ba.kwargs["mask"],
+      q_indices=ba.kwargs["q_indices"],
+      k_indices=ba.kwargs["k_indices"],
+  )
+
+  if split_k > 1:
+    k_seq_len = pl.cdiv(k.shape[-3], split_k)
+    k_shape = (split_k, *k.shape[:-3], k_seq_len, *k.shape[-2:])
+    k = jax.ShapeDtypeStruct(k_shape, k.dtype)
+    v = jax.ShapeDtypeStruct(k_shape[:-1] + (v.shape[-1],), v.dtype)
+    if bias is not None:
+      bias_shape = (split_k, *bias.shape[:-1], k_seq_len)
+      bias = jax.ShapeDtypeStruct(bias_shape, bias.dtype)
+    if mask is not None:
+      mask_shape = (split_k, *mask.shape[:-1], k_seq_len)
+      mask = jax.ShapeDtypeStruct(mask_shape, mask.dtype)
+
+  return q, k, v, bias, mask
+
+
 def load_bcast(
     ref: Any,
     idx: tuple[int | jax.Array | pl.Slice, ...],
@@ -112,114 +235,77 @@ def load_bcast(
 
   new_idx = tuple(new_idx)
   if bcast_dims:
-    value = plgpu.load(ref, new_idx, layout=ld_layout, optimized=optimized)
+    value = plgpu.load(ref.at[new_idx], layout=ld_layout, optimized=optimized)
   else:  # Scalar value.
     value = ref[new_idx]
   value = jax.lax.broadcast_in_dim(value, shape, bcast_dims)
   return value if layout is None else plgpu.layout_cast(value, layout)
 
 
-def num_bits(dtype: jax.typing.DTypeLike) -> int:
-  fn = jnp.finfo if jnp.issubdtype(dtype, jnp.floating) else jnp.iinfo
-  return fn(dtype).bits
-
-
-def tile_swizzle_transforms(
-    shape: tuple[int, ...], dtype: jax.typing.DTypeLike, what: str = ""
-) -> tuple[plgpu.TilingTransform, plgpu.SwizzleTransform]:
-  """Returns tiling and swizzling transforms."""
-  elem_bits = num_bits(dtype)
-  swizzle = plgpu.find_swizzle(shape[-1] * elem_bits, what)
-  tiling = (8, 8 * swizzle // elem_bits)
-  return plgpu.TilingTransform(tiling), plgpu.SwizzleTransform(swizzle)
-
-
-def warpgroup_barrier():
-  plgpu.inline_mgpu()(lambda _: mgpu.warpgroup_barrier())()
-
-
-@plgpu.inline_mgpu()
-def fence_async_shared_cta(_):
-  space = nvvm.SharedSpace.shared_cta
-  nvvm.fence_proxy(nvvm.ProxyKind.async_shared, space=space)
-
-
-def _bar_operation(operation: str, barrier_id: int | jax.Array, num_threads: int):
-  if isinstance(barrier_id, int):
-
-    @plgpu.inline_mgpu()
-    def bar_op(_):
-      llvm.inline_asm(
-          ir.Type.parse("!llvm.void"),
-          [],
-          f"bar.{operation} {barrier_id}, {num_threads};",
-          "",
-          has_side_effects=True,
-      )
-
-    bar_op()
-  else:
-    @plgpu.inline_mgpu(arg_types=(plgpu.Layout.WG_SPLAT,))
-    def bar_op(_, barrier_id):
-      llvm.inline_asm(
-          ir.Type.parse("!llvm.void"),
-          [barrier_id.registers[()]],
-          f"bar.{operation} $0, {num_threads};",
-          "r",
-          has_side_effects=True,
-      )
-
-    bar_op(barrier_id)
-
-bar_arrive = functools.partial(_bar_operation, "arrive")
-bar_sync = functools.partial(_bar_operation, "sync")
-
-
 def unpack_bool_bits_tmem_native(a):
   """Unpacks boolean bits from an int packed array in TMEM_NATIVE layout."""
-  packed_bits = num_bits(a.dtype)
+  packed_bits = mgpu_lib.num_bits(a.dtype)
   if packed_bits not in {4, 8, 16}:
     raise ValueError("Only 4, 8, 16 boolean packing is supported")
   target_cols = a.shape[1] * packed_bits
+  out_layout = plgpu.Layout.TCGEN05_TMEM_NATIVE
+  out_mgpu_layout = out_layout.to_mgpu()
+
   @plgpu.inline_mgpu(
       arg_types=(plgpu.Layout.TCGEN05_TMEM_NATIVE(32 // packed_bits),),
       return_type=plgpu.ShapeDtypeStruct(
           (128, target_cols),
-          jnp.bool,
-          plgpu.Layout.TCGEN05_TMEM_NATIVE,
+          jnp.bool_,
+          out_layout,
       ),
   )
   def unpack_booleans(_, fa: mgpu.FragmentedArray):
     out_registers = np.empty(
-        mgpu.TMEM_NATIVE_LAYOUT.registers_shape((128, target_cols)),
+        out_mgpu_layout.registers_shape((128, target_cols)),
         dtype=object,
     )
-    i1_type = ir.IntegerType.get_signless(1)
-    out_ty = ir.VectorType.get((2,), i1_type)
-    vec32_i1_type = ir.VectorType.get((32,), i1_type)
-    regs_per_32_bit = 16
+    i32_type = ir.IntegerType.get_signless(32)
+    out_i32_ty = ir.VectorType.get([2], i32_type)
+    zero_i32_vec = vector.broadcast(out_i32_ty, mgpu.c(0, i32_type))
 
-    for idx, reg_a in np.ndenumerate(fa.registers):
-      bools_32 = vector.bitcast(vec32_i1_type, reg_a)
-      col_idx = idx[1]
-      for i in range(regs_per_32_bit):
-        # TMEM_NATIVE boolean layout expects vec_len=2.
-        # we take our boolean vector and slice it into 16 consecutive pairs.
-        slice_vec = vector.extract_strided_slice(
-            out_ty,
-            bools_32,
-            offsets=[i * 2],
-            sizes=[2],
-            strides=[1]
+    for (row_idx, col_idx, *_), reg_a in np.ndenumerate(fa.registers):
+      vec1_i32_ty = ir.VectorType.get([1], i32_type)
+      reg_v1_i32 = vector.bitcast(vec1_i32_ty, reg_a)
+      reg_i32_scalar = vector.extract(
+          reg_v1_i32,
+          dynamic_position=[],
+          static_position=ir.DenseI64ArrayAttr.get([0]),
+      )
+      reg_v2_i32 = vector.broadcast(out_i32_ty, reg_i32_scalar)
+
+      for i in range(16):
+        mask_low = 1 << (i * 2)
+        mask_high = 1 << (i * 2 + 1)
+        base_mask = vector.broadcast(out_i32_ty, mgpu.c(mask_low, i32_type))
+        bit_mask = vector.insert(
+            mgpu.c(mask_high, i32_type),
+            base_mask,
+            dynamic_position=[],
+            static_position=ir.DenseI64ArrayAttr.get([1]),
         )
-        out_idx = list(idx)
-        out_idx[1] = col_idx * 16 + i
-        out_registers[tuple(out_idx)] = slice_vec
+        and_res = arith.andi(reg_v2_i32, bit_mask)
+        cmp_res = arith.cmpi(arith.CmpIPredicate.ne, and_res, zero_i32_vec)
+        logical_col = col_idx * 16 + i
+        out_registers[row_idx, logical_col] = cmp_res
 
     return mgpu.FragmentedArray(
         _registers=out_registers,
-        _layout=mgpu.TMEM_NATIVE_LAYOUT,
+        _layout=out_mgpu_layout,
         _is_signed=False,
     )
 
   return unpack_booleans(a)
+
+def safe_downcast(
+    arr: jax.Array, target_dtype: jax.typing.DTypeLike
+) -> jax.Array:
+  """Clips the array to the target dtype's range before casting to prevent infinities."""
+  if arr.dtype == target_dtype:
+    return arr
+  finfo = jnp.finfo(target_dtype)
+  return jnp.clip(arr, finfo.min, finfo.max).astype(target_dtype)

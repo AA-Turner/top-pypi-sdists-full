@@ -120,7 +120,7 @@ export declare class Document implements Equatable {
     static from_json_string(s: string, events?: Out<DocumentEvent[]>): Document;
     private static _handle_version;
     static from_json(doc_json: DocJson, events?: Out<DocumentEvent[]>, buffers?: Map<ID, ArrayBuffer>): Document;
-    replace_with_json(json: DocJson): void;
+    replace_with_json(json: DocJson, buffers?: Map<ID, ArrayBuffer>): void;
     create_json_patch(events: DocumentChangedEvent[]): Patch;
     apply_json_patch(patch: Patch, buffers?: Map<ID, ArrayBuffer>): void;
     protected _apply_json_patch(patch: Patch, buffers?: Map<ID, ArrayBuffer>): void;

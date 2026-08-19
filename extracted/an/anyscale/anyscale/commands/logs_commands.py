@@ -118,7 +118,9 @@ def log_cli() -> None:
     help="Access log files of a cluster.",
     cls=AnyscaleCommand,
 )
-@click.option("--id", type=str, required=True, help="Provide a cluster ID.")
+@click.option(
+    "--cluster-id", "--id", "id", type=str, required=True, help="Provide a cluster ID."
+)
 @option_download
 @option_tail
 @argument_glob
@@ -303,7 +305,14 @@ def execute_anyscale_logs_cluster(  # noqa: PLR0913
         "path."
     ),
 )
-@click.option("--id", type=str, required=True, help="Provide a production job ID.")
+@click.option(
+    "--job-id",
+    "--id",
+    "id",
+    type=str,
+    required=True,
+    help="Provide a production job ID.",
+)
 @option_download
 @option_tail
 @argument_glob
@@ -439,7 +448,14 @@ def anyscale_logs_job(  # noqa: PLR0913
     help="Access log files of a workspace.",
     cls=AnyscaleCommand,
 )
-@click.option("--id", type=str, required=True, help="Provide a workspace ID.")
+@click.option(
+    "--workspace-id",
+    "--id",
+    "id",
+    type=str,
+    required=True,
+    help="Provide a workspace ID.",
+)
 @option_download
 @option_tail
 @argument_glob
@@ -505,7 +521,9 @@ def anyscale_logs_workspace(  # noqa: PLR0913
     help="Access log files of a service for a single service version.",
     cls=AnyscaleCommand,
 )
-@click.option("--id", type=str, required=True, help="Provide a service ID.")
+@click.option(
+    "--service-id", "--id", "id", type=str, required=True, help="Provide a service ID."
+)
 @click.option(
     "--version",
     type=str,

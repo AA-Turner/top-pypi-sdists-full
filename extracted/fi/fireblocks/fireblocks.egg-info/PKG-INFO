@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: fireblocks
-Version: 26.0.0
+Version: 27.0.0
 Summary: Fireblocks API
 Home-page: https://github.com/fireblocks/py-sdk/tree/master
 Author: Fireblocks
@@ -513,6 +513,7 @@ Class | Method | HTTP request | Description
 *ReportsBetaApi* | [**get_report**](https://github.com/fireblocks/py-sdk/tree/master/docs/ReportsBetaApi.md#get_report) | **GET** /reports/{reportId} | Get report status
 *ReportsBetaApi* | [**list_reports**](https://github.com/fireblocks/py-sdk/tree/master/docs/ReportsBetaApi.md#list_reports) | **GET** /reports | List reports
 *ResetDeviceApi* | [**reset_device**](https://github.com/fireblocks/py-sdk/tree/master/docs/ResetDeviceApi.md#reset_device) | **POST** /management/users/{id}/reset_device | Resets device
+*SecurityPostureManagementApi* | [**get_security_findings**](https://github.com/fireblocks/py-sdk/tree/master/docs/SecurityPostureManagementApi.md#get_security_findings) | **GET** /security/fspm/findings | Get FSPM security findings
 *SmartTransferApi* | [**approve_dv_p_ticket_term**](https://github.com/fireblocks/py-sdk/tree/master/docs/SmartTransferApi.md#approve_dv_p_ticket_term) | **PUT** /smart_transfers/{ticketId}/terms/{termId}/dvp/approve | Set funding source and approval
 *SmartTransferApi* | [**cancel_ticket**](https://github.com/fireblocks/py-sdk/tree/master/docs/SmartTransferApi.md#cancel_ticket) | **PUT** /smart-transfers/{ticketId}/cancel | Cancel Ticket
 *SmartTransferApi* | [**create_ticket**](https://github.com/fireblocks/py-sdk/tree/master/docs/SmartTransferApi.md#create_ticket) | **POST** /smart-transfers | Create Ticket
@@ -1175,6 +1176,7 @@ Class | Method | HTTP request | Description
  - [GasStationConfiguration](https://github.com/fireblocks/py-sdk/tree/master/docs/GasStationConfiguration.md)
  - [GasStationConfigurationResponse](https://github.com/fireblocks/py-sdk/tree/master/docs/GasStationConfigurationResponse.md)
  - [GasStationPropertiesResponse](https://github.com/fireblocks/py-sdk/tree/master/docs/GasStationPropertiesResponse.md)
+ - [GaslessInfo](https://github.com/fireblocks/py-sdk/tree/master/docs/GaslessInfo.md)
  - [GasslessStandardConfigurations](https://github.com/fireblocks/py-sdk/tree/master/docs/GasslessStandardConfigurations.md)
  - [GasslessStandardConfigurationsGaslessStandardConfigurationsValue](https://github.com/fireblocks/py-sdk/tree/master/docs/GasslessStandardConfigurationsGaslessStandardConfigurationsValue.md)
  - [GenieChatMessage](https://github.com/fireblocks/py-sdk/tree/master/docs/GenieChatMessage.md)
@@ -1194,6 +1196,7 @@ Class | Method | HTTP request | Description
  - [GetDeployableAddressRequest](https://github.com/fireblocks/py-sdk/tree/master/docs/GetDeployableAddressRequest.md)
  - [GetExchangeAccountsCredentialsPublicKeyResponse](https://github.com/fireblocks/py-sdk/tree/master/docs/GetExchangeAccountsCredentialsPublicKeyResponse.md)
  - [GetFilterParameter](https://github.com/fireblocks/py-sdk/tree/master/docs/GetFilterParameter.md)
+ - [GetFindingsExternalResponse](https://github.com/fireblocks/py-sdk/tree/master/docs/GetFindingsExternalResponse.md)
  - [GetLayerZeroDvnConfigResponse](https://github.com/fireblocks/py-sdk/tree/master/docs/GetLayerZeroDvnConfigResponse.md)
  - [GetLayerZeroPeersResponse](https://github.com/fireblocks/py-sdk/tree/master/docs/GetLayerZeroPeersResponse.md)
  - [GetLinkedCollectionsPaginatedResponse](https://github.com/fireblocks/py-sdk/tree/master/docs/GetLinkedCollectionsPaginatedResponse.md)
@@ -1535,6 +1538,7 @@ Class | Method | HTTP request | Description
  - [ScreeningVerdictEnum](https://github.com/fireblocks/py-sdk/tree/master/docs/ScreeningVerdictEnum.md)
  - [ScreeningVerdictMatchedRule](https://github.com/fireblocks/py-sdk/tree/master/docs/ScreeningVerdictMatchedRule.md)
  - [SearchNetworkIdsResponse](https://github.com/fireblocks/py-sdk/tree/master/docs/SearchNetworkIdsResponse.md)
+ - [SecurityFinding](https://github.com/fireblocks/py-sdk/tree/master/docs/SecurityFinding.md)
  - [SepaPaymentInfo](https://github.com/fireblocks/py-sdk/tree/master/docs/SepaPaymentInfo.md)
  - [SessionDTO](https://github.com/fireblocks/py-sdk/tree/master/docs/SessionDTO.md)
  - [SessionMetadata](https://github.com/fireblocks/py-sdk/tree/master/docs/SessionMetadata.md)
@@ -1796,6 +1800,7 @@ Class | Method | HTTP request | Description
  - [TravelRuleGetAllVASPsResponse](https://github.com/fireblocks/py-sdk/tree/master/docs/TravelRuleGetAllVASPsResponse.md)
  - [TravelRuleIssuer](https://github.com/fireblocks/py-sdk/tree/master/docs/TravelRuleIssuer.md)
  - [TravelRuleIssuers](https://github.com/fireblocks/py-sdk/tree/master/docs/TravelRuleIssuers.md)
+ - [TravelRuleLegalNameIdentifier](https://github.com/fireblocks/py-sdk/tree/master/docs/TravelRuleLegalNameIdentifier.md)
  - [TravelRuleLegalPerson](https://github.com/fireblocks/py-sdk/tree/master/docs/TravelRuleLegalPerson.md)
  - [TravelRuleLegalPersonNameIdentifier](https://github.com/fireblocks/py-sdk/tree/master/docs/TravelRuleLegalPersonNameIdentifier.md)
  - [TravelRuleMatchedRule](https://github.com/fireblocks/py-sdk/tree/master/docs/TravelRuleMatchedRule.md)
@@ -1820,6 +1825,7 @@ Class | Method | HTTP request | Description
  - [TravelRuleValidateDateAndPlaceOfBirth](https://github.com/fireblocks/py-sdk/tree/master/docs/TravelRuleValidateDateAndPlaceOfBirth.md)
  - [TravelRuleValidateFullTransactionRequest](https://github.com/fireblocks/py-sdk/tree/master/docs/TravelRuleValidateFullTransactionRequest.md)
  - [TravelRuleValidateGeographicAddress](https://github.com/fireblocks/py-sdk/tree/master/docs/TravelRuleValidateGeographicAddress.md)
+ - [TravelRuleValidateLegalNameIdentifier](https://github.com/fireblocks/py-sdk/tree/master/docs/TravelRuleValidateLegalNameIdentifier.md)
  - [TravelRuleValidateLegalPerson](https://github.com/fireblocks/py-sdk/tree/master/docs/TravelRuleValidateLegalPerson.md)
  - [TravelRuleValidateLegalPersonNameIdentifier](https://github.com/fireblocks/py-sdk/tree/master/docs/TravelRuleValidateLegalPersonNameIdentifier.md)
  - [TravelRuleValidateNationalIdentification](https://github.com/fireblocks/py-sdk/tree/master/docs/TravelRuleValidateNationalIdentification.md)

@@ -28,3 +28,26 @@ jobs:
         env:
           GENEVA_FAULTSWEEP_MAXLEN: "3"
           SWEEP_WORKERS: "24"
+          GENEVA_FAULTSWEEP_VERDICTS_OUT: "/tmp/faultsweep-verdicts-srid-on.json"
+      # srid-off leg: non-stable-row-id sources over the _rowaddr write paths
+      # (backfill/sparse/repair/backfill-skip auto-selected). Verdict parity with
+      # the srid-on leg is MEASURED, not assumed: this leg loads the srid-on
+      # leg's per-case verdicts and fails on any drift among passing verdicts
+      # (srid-off going NOFIRE where srid-on HEALs = silently lost coverage).
+      # The (4 flavors x L=2) matrix here is a subset of the srid-on
+      # (all flavors x L=3) matrix above, so every case has a baseline verdict.
+      #
+      # Runs even when the srid-on leg exits non-zero: that leg is red by design
+      # until the write-completeness fixes land (see the Makefile
+      # test-fault-sweep comment), and the default first-failure job abort would
+      # skip this leg on every nightly until then. The srid-on leg still fails
+      # the job -- it is not marked continue-on-error -- and it writes its
+      # verdicts file before exiting, so the parity baseline is available here.
+      - name: Differential fault sweep, srid-off leg (L=2, verdict parity)
+        if: ${{ !cancelled() }}
+        run: make test-fault-sweep
+        env:
+          GENEVA_FAULTSWEEP_SRID: "off"
+          GENEVA_FAULTSWEEP_MAXLEN: "2"
+          SWEEP_WORKERS: "24"
+          GENEVA_FAULTSWEEP_COMPARE: "/tmp/faultsweep-verdicts-srid-on.json"

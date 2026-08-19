@@ -1,4 +1,4 @@
-import type { ViewStorage, View, ViewOf } from "../../../core/build_views";
+import type { ViewStorage, ChildView, ViewOf } from "../../../core/build_views";
 import { Anchor, HoverMode, LinePolicy, MutedPolicy, PointPolicy, TooltipAttachment } from "../../../core/enums";
 import type { Geometry, GeometryData, PointGeometry, SpanGeometry } from "../../../core/geometry";
 import type * as p from "../../../core/properties";
@@ -17,7 +17,7 @@ import type { ImageIndex, MultiIndices, OpaqueIndices, Selection } from "../../s
 import type { ColumnarDataSource } from "../../sources/columnar_data_source";
 import { InspectTool, InspectToolView } from "./inspect_tool";
 import { FilterDef } from "../../dom/value_ref";
-declare const SortBy: import("../../../core/kinds").Kinds.Nullable<string | (string | [string, 1 | -1 | "ascending" | "descending"])[]>;
+declare const SortBy: import("../../../core/kinds").Kinds.Nullable<string | (string | [string, "ascending" | "descending" | -1 | 1])[]>;
 type SortBy = typeof SortBy["__type__"];
 type TooltipEntry = {
     html: Element;
@@ -53,10 +53,9 @@ export declare class HoverToolView extends InspectToolView {
     protected readonly _ttviews: ViewStorage<Tooltip>;
     protected _template_el?: HTMLElement;
     protected _template_view?: ViewOf<DOMElement>;
-    children_views(): View[];
+    children_views(): ChildView[];
     protected _update_filters(): Promise<void>;
     lazy_initialize(): Promise<void>;
-    remove(): void;
     connect_signals(): void;
     protected _update_ttmodels(): Promise<void>;
     get computed_renderers(): DataRenderer[];

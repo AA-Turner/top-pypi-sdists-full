@@ -1198,7 +1198,7 @@ class Tomography(Experiment):
             # Create a new StructuredWave with the flipped pattern and/or angle
             if available_fields:
                 new_angle_str = format_angle(new_angle)
-                new_field_name = f"field_{flipped_hex}_{new_angle_str}"
+                new_field_name = f"{flipped_hex}_{new_angle_str}"
                 new_field = StructuredWave(
                     fileName=new_field_name,
                     params=self.params,

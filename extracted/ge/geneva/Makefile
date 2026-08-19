@@ -2,6 +2,7 @@
 .PHONY: setup setup11 pydeps test test-fault-sweep bench-ci bench bench-gpu-pipeline bench-gpu-pipeline-bootstrap bench-gpu-pipeline-fused test-integration test-all coverage-report
 .PHONY: test-resetup lint lint-ci fix docs kind kind-teardown kuberay kuberay11 notebook licenses otel-local otel-local-down
 .PHONY: test-integration-gcp test-integration-aws test-stress-gcp test-stress-gcp-explore test-integration-azure
+.PHONY: test-pipeline-gcp test-pipeline-aws test-pipeline-azure
 .PHONY: test-direct-connect-gcp test-direct-connect-aws test-direct-connect-azure
 .PHONY: test-stress-writer-oom-cgroup test-stress-applier-oom-cgroup
 
@@ -43,6 +44,13 @@ test-no-flaky:
 # silent/loud finding) until the write-completeness fixes land. Depth and worker count
 # default low for local runs and are env-overridable; the nightly workflow raises the
 # worker count for its larger runner. See .github/workflows/fault-injection-nightly.yml.
+# differential fault-injection sweep (src/tests/differential_fault_sweep.py).
+# Extra env knobs pass through: GENEVA_FAULTSWEEP_SRID=off sweeps
+# non-stable-row-id sources; GENEVA_FAULTSWEEP_OPS=A,D restricts the op
+# alphabet for ad-hoc deep runs; GENEVA_FAULTSWEEP_FLAVORS restricts flavors;
+# GENEVA_FAULTSWEEP_VERDICTS_OUT / GENEVA_FAULTSWEEP_COMPARE dump per-case
+# verdicts to a JSON file / fail on verdict drift vs such a file (the
+# nightly's srid on/off parity check).
 test-fault-sweep:
 	GENEVA_FAULTSWEEP_MAXLEN=$${GENEVA_FAULTSWEEP_MAXLEN:-1} SWEEP_WORKERS=$${SWEEP_WORKERS:-8} RAY_ENABLE_UV_RUN_RUNTIME_ENV=0 uv run python src/tests/differential_fault_sweep.py
 
@@ -109,17 +117,31 @@ bench-gpu-pipeline: bench-gpu-pipeline-fused
 # GPU-marked tests are excluded from GCP and AWS to avoid GPU node spin-up
 # contention.  They run only on Azure, which has always-on GPU nodes.
 # See GEN-439 for the cross-cloud GPU routing strategy.
+# test_pipeline.py runs as its own target (and its own CI job) so it can execute
+# in parallel with the rest of the integration suite instead of extending a
+# single job's wall-clock. The integration targets below exclude it.
 test-integration-gcp:
-	uv run -m pytest src/integ_tests --ignore=src/integ_tests/direct_connect -m "not phalanx and not gpu" --csp=gcp --test-slug=$(SLUG) $(if $(BUCKET_PATH),--bucket-path=$(BUCKET_PATH)) --cov=src/geneva --cov-append -v -s --cov-report=term-missing --durations=0
+	uv run -m pytest src/integ_tests --ignore=src/integ_tests/direct_connect --ignore=src/integ_tests/test_pipeline.py -m "not phalanx and not gpu" --csp=gcp --test-slug=$(SLUG) $(if $(BUCKET_PATH),--bucket-path=$(BUCKET_PATH)) --cov=src/geneva --cov-append -v -s --cov-report=term-missing --durations=0
 
 test-integration-aws:
-	uv run -m pytest src/integ_tests --ignore=src/integ_tests/direct_connect -m "not phalanx and not gpu" --csp=aws --test-slug=$(SLUG) $(if $(BUCKET_PATH),--bucket-path=$(BUCKET_PATH)) --cov=src/geneva --cov-append -v -s --cov-report=term-missing --durations=0
+	uv run -m pytest src/integ_tests --ignore=src/integ_tests/direct_connect --ignore=src/integ_tests/test_pipeline.py -m "not phalanx and not gpu" --csp=aws --test-slug=$(SLUG) $(if $(BUCKET_PATH),--bucket-path=$(BUCKET_PATH)) --cov=src/geneva --cov-append -v -s --cov-report=term-missing --durations=0
 
 # Azure is the GPU target — GPU-marked tests are NOT excluded here.
 test-integration-azure:
 	# running locally requires AZURE_STORAGE_ACCOUNT_NAME, AZURE_STORAGE_TOKEN env vars
 	# i.e. `export AZURE_STORAGE_TOKEN=$(az account get-access-token --resource https://storage.azure.com/ --query accessToken -o tsv)`
-	AZURE_STORAGE_ACCOUNT_NAME=lancedbdevlancedb uv run -m pytest src/integ_tests --ignore=src/integ_tests/direct_connect -m "not phalanx" --csp=azure --test-slug=$(SLUG) $(if $(BUCKET_PATH),--bucket-path=$(BUCKET_PATH)) --cov=src/geneva --cov-append -v -s --cov-report=term-missing --durations=0
+	AZURE_STORAGE_ACCOUNT_NAME=lancedbdevlancedb uv run -m pytest src/integ_tests --ignore=src/integ_tests/direct_connect --ignore=src/integ_tests/test_pipeline.py -m "not phalanx" --csp=azure --test-slug=$(SLUG) $(if $(BUCKET_PATH),--bucket-path=$(BUCKET_PATH)) --cov=src/geneva --cov-append -v -s --cov-report=term-missing --durations=0
+
+# Pipeline tests, split out from the integration targets above so CI can run
+# them as a parallel job. GPU exclusion mirrors each cloud's integration policy.
+test-pipeline-gcp:
+	uv run -m pytest src/integ_tests/test_pipeline.py -m "not phalanx and not gpu" --csp=gcp --test-slug=$(SLUG) $(if $(BUCKET_PATH),--bucket-path=$(BUCKET_PATH)) --cov=src/geneva --cov-append -v -s --cov-report=term-missing --durations=0
+
+test-pipeline-aws:
+	uv run -m pytest src/integ_tests/test_pipeline.py -m "not phalanx and not gpu" --csp=aws --test-slug=$(SLUG) $(if $(BUCKET_PATH),--bucket-path=$(BUCKET_PATH)) --cov=src/geneva --cov-append -v -s --cov-report=term-missing --durations=0
+
+test-pipeline-azure:
+	AZURE_STORAGE_ACCOUNT_NAME=lancedbdevlancedb uv run -m pytest src/integ_tests/test_pipeline.py -m "not phalanx" --csp=azure --test-slug=$(SLUG) $(if $(BUCKET_PATH),--bucket-path=$(BUCKET_PATH)) --cov=src/geneva --cov-append -v -s --cov-report=term-missing --durations=0
 
 test-phalanx:
 	# run aws integration tests against a local phalanx server. V2 dispatch
@@ -228,7 +250,7 @@ test-direct-connect-aws:
 test-direct-connect-azure:
 	RAY_ENABLE_UV_RUN_RUNTIME_ENV=0 uv run -m pytest src/integ_tests/direct_connect --csp=azure --test-slug=$(SLUG) $(if $(BUCKET_PATH),--bucket-path=$(BUCKET_PATH)) --cov=src/geneva --cov-append -v -s --cov-report=term-missing --durations=0
 
-test-all: test test-integration-gcp test-integration-aws test-integration-azure
+test-all: test test-integration-gcp test-integration-aws test-integration-azure test-pipeline-gcp test-pipeline-aws test-pipeline-azure
 
 coverage-report:
 	uv run coverage xml

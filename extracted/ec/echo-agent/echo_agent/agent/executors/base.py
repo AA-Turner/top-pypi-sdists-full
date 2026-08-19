@@ -9,6 +9,7 @@ from __future__ import annotations
 import asyncio
 import os
 import shutil
+import sys
 import tempfile
 import uuid
 from abc import ABC, abstractmethod
@@ -18,7 +19,38 @@ from pathlib import Path
 
 from loguru import logger
 
+from echo_agent.agent.proc_lifecycle import (
+    record_process_group,
+    subprocess_kwargs,
+    terminate_tree,
+)
 from echo_agent.security.guards import command_uses_network
+
+
+def prepend_interpreter_bin(env: dict[str, str]) -> dict[str, str]:
+    """Put the directory of ``sys.executable`` ahead on PATH.
+
+    A skill script written as ``python3 scripts/foo.py`` inherits the shell's
+    PATH, not ours. When the service is started by launchd, systemd or a
+    desktop launcher, that PATH usually does NOT contain the venv ``bin`` the
+    script's deps were installed into — and ``python3`` resolves to the
+    system interpreter, which has none of them. The skill crashes on the
+    first import.
+
+    Putting ``sys.executable``'s directory ahead makes ``python3`` resolve to
+    the *same* interpreter the agent itself runs under, and therefore to the
+    same venv. We never replace PATH outright — any project-specific dirs the
+    operator arranged survive, just with the venv bin in front so it wins the
+    first match.
+    """
+    exe_dir = os.path.dirname(sys.executable) if sys.executable else ""
+    if not exe_dir:
+        return env
+    existing = env.get("PATH", "/usr/bin:/bin")
+    parts = [p for p in existing.split(os.pathsep) if p]
+    if exe_dir not in parts:
+        env["PATH"] = os.pathsep.join([exe_dir, *parts])
+    return env
 
 
 @dataclass
@@ -85,10 +117,12 @@ class LocalExecutor(BaseExecutor):
         if self._network_policy == "deny" and command_uses_network(request.command):
             return ExecResponse(success=False, stderr="Network access is denied by execution policy", return_code=-1, executor=self.name)
         cwd = request.cwd or self._workspace
-        env = self.inject_credentials({**os.environ}, request.credentials)
+        env = prepend_interpreter_bin(dict(os.environ))
+        env = self.inject_credentials(env, request.credentials)
         env.update(request.env)
         start = datetime.now()
 
+        proc = None
         try:
             proc = await asyncio.create_subprocess_shell(
                 request.command,
@@ -97,7 +131,12 @@ class LocalExecutor(BaseExecutor):
                 stdin=asyncio.subprocess.PIPE if request.stdin else None,
                 cwd=cwd,
                 env=env,
+                **subprocess_kwargs(),
             )
+            # Record the PGID while the leader is alive: a command that
+            # backgrounds work outlives its shell, and after the leader is
+            # reaped its group is no longer discoverable.
+            record_process_group(proc, own_session=True)
             stdout, stderr = await asyncio.wait_for(
                 proc.communicate(request.stdin.encode() if request.stdin else None),
                 timeout=request.timeout,
@@ -112,8 +151,14 @@ class LocalExecutor(BaseExecutor):
                 executor=self.name,
             )
         except asyncio.TimeoutError:
+            if proc is not None:
+                await terminate_tree(proc)
             return ExecResponse(success=False, stderr=f"Timeout after {request.timeout}s", return_code=-1, executor=self.name)
         except Exception as e:
+            if proc is not None:
+                # Sweep unconditionally: an exited leader can still have left
+                # backgrounded grandchildren in the group.
+                await terminate_tree(proc)
             return ExecResponse(success=False, stderr=str(e), return_code=-1, executor=self.name)
 
 
@@ -178,9 +223,10 @@ class SandboxExecutor(BaseExecutor):
         cwd = str(self._resolve_cwd(request.cwd))
         env = self.inject_credentials({"HOME": cwd, "TMPDIR": cwd}, request.credentials)
         env.update(request.env)
-        env["PATH"] = os.environ.get("PATH", "/usr/bin:/bin")
+        env["PATH"] = prepend_interpreter_bin(dict(os.environ))["PATH"]
 
         start = datetime.now()
+        proc = None
         try:
             proc = await asyncio.create_subprocess_shell(
                 request.command,
@@ -189,7 +235,9 @@ class SandboxExecutor(BaseExecutor):
                 stdin=asyncio.subprocess.PIPE if request.stdin else None,
                 cwd=cwd,
                 env=env,
+                **subprocess_kwargs(),
             )
+            record_process_group(proc, own_session=True)
             stdout, stderr = await asyncio.wait_for(
                 proc.communicate(request.stdin.encode() if request.stdin else None),
                 timeout=request.timeout,
@@ -204,8 +252,12 @@ class SandboxExecutor(BaseExecutor):
                 executor=self.name,
             )
         except asyncio.TimeoutError:
+            if proc is not None:
+                await terminate_tree(proc)
             return ExecResponse(success=False, stderr=f"Timeout after {request.timeout}s", return_code=-1, executor=self.name)
         except Exception as e:
+            if proc is not None:
+                await terminate_tree(proc)
             return ExecResponse(success=False, stderr=str(e), return_code=-1, executor=self.name)
 
     def _resolve_cwd(self, requested_cwd: str) -> Path:

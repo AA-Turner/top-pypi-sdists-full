@@ -12,6 +12,7 @@ from dbt.flags import get_flags
 from dbt.graph.selector_methods import MethodManager, MethodName
 from dbt.plugins import dbtPlugin
 from dbt.task import test as dbt_test
+from dbt.task.build import BuildTask
 from dbt.task.compile import CompileRunner, CompileTask
 from dbt.task.run import ModelRunner, RunTask
 from dbt.task.runnable import GraphRunnableTask
@@ -46,9 +47,17 @@ ORIGINALS: t.Dict[str, t.Callable] = {
     "TestRunner.print_result_line": TestRunner.print_result_line,
     "dbt_test.generate_runtime_model_context": dbt_test.generate_runtime_model_context,
     "GraphRunnableTask.defer_to_manifest": GraphRunnableTask.defer_to_manifest,
+    "GraphRunnableTask.get_graph_queue": GraphRunnableTask.get_graph_queue,
+    "BuildTask.get_graph_queue": BuildTask.get_graph_queue,
+    "MethodManager.SELECTOR_METHODS[MethodName.State]": MethodManager.SELECTOR_METHODS[
+        MethodName.State
+    ],
     "CompileTask.defer_to_manifest": CompileTask.defer_to_manifest,
     "RunTask.defer_to_manifest": RunTask.defer_to_manifest,
 }
+
+if hasattr(TestRunner, "build_test_run_result"):
+    ORIGINALS["TestRunner.build_test_run_result"] = TestRunner.build_test_run_result
 
 if MicrobatchModelRunner is not None:
     ORIGINALS["MicrobatchModelRunner.execute"] = MicrobatchModelRunner.execute
@@ -59,8 +68,6 @@ SIGNAL_HANDLER_ORIGINALS: t.Dict[str, t.Union[t.Optional[t.Callable], int]] = {
 }
 
 ENABLED_FOR_COMMANDS = ["run", "build", "seed", "snapshot", "compile", "test", "show"]
-
-_TRUE_VALUES = frozenset({"true", "1", "t", "y", "yes", "on"})
 
 
 def is_supported_command() -> bool:
@@ -82,6 +89,7 @@ def set_runner_overrides() -> None:
         ORIGINALS["ModelRunner.run_with_hooks"],
         ORIGINALS.get("MicrobatchModelRunner.execute"),
         ORIGINALS["dbt_test.generate_runtime_model_context"],
+        ORIGINALS.get("TestRunner.build_test_run_result"),
     )
 
     def compile_override(self: CompileRunner, manifest: Manifest) -> t.Any:
@@ -98,6 +106,9 @@ def set_runner_overrides() -> None:
     def print_result_line(self: TestRunner, result: RunResult) -> None:
         return runner_override.print_result_line_override(self, result)
 
+    def build_test_run_result(self: TestRunner, test: t.Any, result: t.Any) -> RunResult:
+        return runner_override.build_test_run_result_override(self, test, result)
+
     def generate_runtime_model_context_override(
         model: ManifestNode, config: RuntimeConfig, manifest: Manifest
     ) -> t.Dict[str, t.Any]:
@@ -108,6 +119,13 @@ def set_runner_overrides() -> None:
     ) -> RunResult:
         return runner_override.microbatch_execute_override(self, node, manifest)
 
+    def get_graph_queue_override(self: GraphRunnableTask) -> t.Any:
+        runner_override.set_runtime_config(self.config)
+        class_name = self.__class__.__name__
+        if f"{class_name}.get_graph_queue" in ORIGINALS:
+            return ORIGINALS[f"{class_name}.get_graph_queue"](self)
+        return ORIGINALS["GraphRunnableTask.get_graph_queue"](self)
+
     def defer_to_manifest_override(self: GraphRunnableTask, *args: t.Any) -> None:
         runner_override.defer_to_manifest_override(self)
         if self.previous_defer_state or self.previous_state:
@@ -117,6 +135,20 @@ def set_runner_overrides() -> None:
             else:
                 ORIGINALS["GraphRunnableTask.defer_to_manifest"](self, *args)
 
+    def state_selector_override(
+        manifest: Manifest,
+        previous_state: t.Any,
+        arguments: t.List[str],
+        **kwargs: t.Any,
+    ) -> t.Any:
+        return runner_override.create_state_selector_override(
+            manifest,
+            previous_state,
+            arguments,
+            ORIGINALS["MethodManager.SELECTOR_METHODS[MethodName.State]"],
+            **kwargs,
+        )
+
     CompileRunner.compile = compile_override  # ty: ignore[invalid-assignment]
     ModelRunner.compile = compile_override  # ty: ignore[invalid-assignment]
     ModelRunner.execute = execute_override  # ty: ignore[invalid-assignment]
@@ -124,8 +156,13 @@ def set_runner_overrides() -> None:
     SeedRunner.compile = compile_override  # ty: ignore[invalid-assignment]
     SeedRunner.execute = execute_override  # ty: ignore[invalid-assignment]
     TestRunner.print_result_line = print_result_line  # ty: ignore[invalid-assignment]
+    if "TestRunner.build_test_run_result" in ORIGINALS:
+        TestRunner.build_test_run_result = build_test_run_result  # ty: ignore[invalid-assignment]
     dbt_test.generate_runtime_model_context = generate_runtime_model_context_override  # ty: ignore[invalid-assignment]
+    GraphRunnableTask.get_graph_queue = get_graph_queue_override  # ty: ignore[invalid-assignment]
+    BuildTask.get_graph_queue = get_graph_queue_override  # ty: ignore[invalid-assignment]
     GraphRunnableTask.defer_to_manifest = defer_to_manifest_override  # ty: ignore[invalid-assignment]
+    MethodManager.SELECTOR_METHODS[MethodName.State] = state_selector_override  # ty:ignore[invalid-assignment]
     CompileTask.defer_to_manifest = defer_to_manifest_override  # ty: ignore[invalid-assignment]
     RunTask.defer_to_manifest = defer_to_manifest_override  # ty: ignore[invalid-assignment]
     if MicrobatchModelRunner is not None:
@@ -187,8 +224,15 @@ def remove_runner_overrides() -> None:
     SeedRunner.compile = ORIGINALS["SeedRunner.compile"]  # ty: ignore[invalid-assignment]
     SeedRunner.execute = ORIGINALS["SeedRunner.execute"]  # ty: ignore[invalid-assignment]
     TestRunner.print_result_line = ORIGINALS["TestRunner.print_result_line"]  # ty: ignore[invalid-assignment]
+    if "TestRunner.build_test_run_result" in ORIGINALS:
+        TestRunner.build_test_run_result = ORIGINALS["TestRunner.build_test_run_result"]  # ty: ignore[invalid-assignment]
     dbt_test.generate_runtime_model_context = ORIGINALS["dbt_test.generate_runtime_model_context"]  # ty: ignore[invalid-assignment]
+    GraphRunnableTask.get_graph_queue = ORIGINALS["GraphRunnableTask.get_graph_queue"]  # ty: ignore[invalid-assignment,method-assign]
+    BuildTask.get_graph_queue = ORIGINALS["BuildTask.get_graph_queue"]  # ty: ignore[invalid-assignment,method-assign]
     GraphRunnableTask.defer_to_manifest = ORIGINALS["GraphRunnableTask.defer_to_manifest"]  # ty: ignore[invalid-assignment]
+    MethodManager.SELECTOR_METHODS[MethodName.State] = ORIGINALS[
+        "MethodManager.SELECTOR_METHODS[MethodName.State]"
+    ]  # ty: ignore[assignment]  # ty:ignore[invalid-assignment]
     CompileTask.defer_to_manifest = ORIGINALS["CompileTask.defer_to_manifest"]  # ty: ignore[invalid-assignment]
     RunTask.defer_to_manifest = ORIGINALS["RunTask.defer_to_manifest"]  # ty: ignore[invalid-assignment]
     if MicrobatchModelRunner is not None and "MicrobatchModelRunner.execute" in ORIGINALS:
@@ -298,34 +342,16 @@ class RunCachePlugin(dbtPlugin):
         """
         logging.getLogger("sqlglot").setLevel(logging.ERROR)
 
-        if "DBT_ENGINE_MANAGE_STATE" in os.environ:
-            explicitly_disabled = (
-                os.getenv("DBT_ENGINE_MANAGE_STATE", "").lower() not in _TRUE_VALUES
-            )
-        else:
-            disabled_value = (
-                os.getenv("RUN_CACHE_DISABLED") or os.getenv("DBT_RUN_CACHE_DISABLED") or ""
-            )
-            explicitly_disabled = disabled_value.lower() in _TRUE_VALUES
-        if explicitly_disabled:
+        from dbt_state import _is_state_disabled
+
+        if _is_state_disabled():
             # the plugin may have been previously registered with run_cache_enabled meaning
             # that the global method overrides may already be in place
             remove_runner_overrides()
-            try:
-                from dbt_state import events
-                from dbt_state.version import __version__
 
-                events.fire_info_event("dbt-state v{} is disabled", __version__)
-            except Exception:
-                try:
-                    from dbt.adapters.events.types import AdapterEventInfo
-                    from dbt_common.events.functions import fire_event
+            from dbt_state.events import fire_disabled_event
 
-                    fire_event(
-                        AdapterEventInfo(name="RunCache", base_msg="dbt State is disabled", args=[])
-                    )
-                except Exception:
-                    pass
+            fire_disabled_event()
             return
 
         _check_for_legacy_packages()

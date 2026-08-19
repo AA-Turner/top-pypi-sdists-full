@@ -12,9 +12,9 @@ output data files with its data (see ``MultiBaseCheckpointStore``).
 
 import logging
 from typing import TYPE_CHECKING
+from urllib.parse import urlparse, urlunparse
 
 import attrs
-from yarl import URL
 
 if TYPE_CHECKING:
     import lance
@@ -26,6 +26,18 @@ _LOG = logging.getLogger(__name__)
 # Lance layout constant: data files of a dataset-root base live under
 # ``{base}/data``; non-root bases hold data files directly.
 _DATA_DIR = "data"
+
+
+def _join_uri_path(uri: str, segment: str) -> str:
+    """Append a path segment to a URI, keeping its query and fragment.
+
+    An object-store URI may carry credentials in the query (e.g. an Azure SAS
+    token); a plain URL join would drop them and downstream sessions built
+    from the result would read unauthenticated.
+    """
+    parsed = urlparse(uri)
+    path = f"{parsed.path.rstrip('/')}/{segment}"
+    return urlunparse(parsed._replace(path=path))
 
 
 @attrs.define(frozen=True)
@@ -40,12 +52,12 @@ class DatasetBaseInfo:
     def data_dir(self) -> str:
         """Directory holding this base's data files."""
         if self.is_dataset_root:
-            return str(URL(self.uri) / _DATA_DIR)
+            return _join_uri_path(self.uri, _DATA_DIR)
         return self.uri
 
     def checkpoint_root(self, subdir: str) -> str:
         """Checkpoint store root for this base (same subdir as the table)."""
-        return str(URL(self.uri) / subdir)
+        return _join_uri_path(self.uri, subdir)
 
 
 def resolve_dataset_bases(ds: "lance.LanceDataset") -> dict[int, DatasetBaseInfo]:

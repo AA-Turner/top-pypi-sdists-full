@@ -8,12 +8,7 @@
 # Standard library imports
 from dataclasses import dataclass
 from inspect import Parameter
-from typing import (
-    Any,
-    Final,
-    Iterable,
-    Self,
-)
+from typing import Any, Iterable, Self
 
 # Bokeh imports
 from ..core.has_props import HasProps, Setter, abstract
@@ -41,7 +36,7 @@ class Model(HasProps, HasDocumentRef, PropertyCallbackManager, EventCallbackMana
 
     def destroy(self) -> None: ...
 
-    id: Final[ID] = ...
+    id: ID = ...
 
     name: str | None = ...
 

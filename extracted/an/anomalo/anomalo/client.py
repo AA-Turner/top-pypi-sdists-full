@@ -333,13 +333,13 @@ class Client:
 
     def create_table(
         self,
-        name: str = None,
+        name: str | None = None,
         *,
-        anomalo_view_sql: str = None,
+        anomalo_view_sql: str | None = None,
         warehouse_id: int,
-        relation_type: str = None,
-        schema: str = None,
-        table: str = None,
+        relation_type: str | None = None,
+        schema: str | None = None,
+        table: str | None = None,
     ):
         # Determine if we're using anomalo view parameters or table refresh parameters
         anomalo_view_params = name is not None or anomalo_view_sql is not None

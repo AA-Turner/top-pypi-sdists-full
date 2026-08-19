@@ -1,6 +1,6 @@
-Metadata-Version: 2.4
+Metadata-Version: 2.5
 Name: memsearch
-Version: 0.4.17
+Version: 0.4.18
 Summary: Semantic memory search for markdown knowledge bases
 License-Expression: MIT
 License-File: LICENSE

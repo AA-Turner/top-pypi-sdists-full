@@ -29,6 +29,7 @@ from geneva.manifest import GenevaManifest
 from geneva.runners.kuberay.client import KuberayClients
 from geneva.runners.ray.raycluster import RayCluster
 from geneva.utils import dt_now_utc
+from integ_tests.utils import installed_distribution_requirement
 
 _LOG = logging.getLogger(__name__)
 
@@ -183,8 +184,8 @@ def default_manifest(slug: str) -> GenevaManifest:
         .worker_image(default_image(arm=False))
         # pyarrow needed for lance import in test_cluster_startup
         .add_pip("pyarrow>=16.0.0")
-        .add_pip("pylance>=6.0.0b1")
-        .add_pip("lancedb>=0.31.0b9")
+        .add_pip(installed_distribution_requirement("pylance"))
+        .add_pip(installed_distribution_requirement("lancedb"))
         .build()
     )
 
@@ -293,6 +294,7 @@ def session_cluster(
             .image(img)
             .node_selector(worker_node_selector)
             .service_account(geneva_k8s_service_account)
+            .min_replicas(1)  # Prevent CPU worker scale-to-zero during setup
             .build()
         )
         .build()

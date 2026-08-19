@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: swebench
-Version: 5.0.1
+Version: 5.0.2
 Summary: The official SWE-bench package - a benchmark for evaluating LMs on software engineering
 Author-email: SWE-bench team <support@swebench.com>
 License: MIT License

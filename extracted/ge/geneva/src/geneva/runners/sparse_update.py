@@ -38,6 +38,7 @@ import numpy as np
 import pyarrow as pa
 
 from geneva.committer import get_committer
+from geneva.errors import FatalWorkerOOMError
 from geneva.utils.commit_conflict import is_retryable_commit_conflict
 
 if typing.TYPE_CHECKING:
@@ -198,6 +199,10 @@ class RangeSparseResult:
     removed_fragment_ids: list[int]  # fragments where every row matched
     error: str | None = None  # set when the range failed; nothing committed
     source_frag_ids: list[int] = attrs.field(factory=list)  # the whole range covered
+    # Preserve an already-classified worker OOM that the actor process survived
+    # (for example, a nested worker reported it). The sparse driver must shrink
+    # this task instead of demoting it to an ordinary per-range error string.
+    fatal_worker_oom: bool = False
 
 
 def _field_has_blob(field: pa.Field) -> bool:
@@ -247,21 +252,34 @@ def _target_base_for_range(ds: lance.LanceDataset, source_ids: list[int]) -> str
     stride (a raw modulo would collapse to one base when the range size is a
     multiple of the base count). Returns the reference for
     ``write_fragments(target_bases=...)`` (the base name when present, else its
-    path URI), or ``None`` for a single-base dataset / a pylance without
-    multi-base support, preserving the current root-append behavior.
+    path URI), or ``None`` -- routing the range to the dataset root -- for a
+    single-base dataset, a pylance without multi-base support, or a shallow
+    clone (whose manifest re-exposes SOURCE storage as bases; writing there
+    would put clone-primary files under the source prefix).
     """
     base_paths_fn = getattr(getattr(ds, "_ds", None), "base_paths", None)
     if base_paths_fn is None:
         return None
-    # Every entry of base_paths() is a valid target: it returns only the
-    # registered (added) bases -- the primary dataset root is never among them.
-    # Do NOT filter on ``is_dataset_root``; that flag is a data-LAYOUT hint (data
-    # under ``{base}/data`` vs ``{base}`` directly) that a secondary base may
-    # legitimately carry, not a "this is the primary root" marker -- filtering it
-    # would drop real bases and silently fall back to root. Mirrors
-    # resolve_dataset_bases / FragmentBasePlacement.from_dataset.
     bases = list(base_paths_fn().values())
     if not bases:
+        return None
+    # A shallow clone surfaces its source table as an unnamed root-layout base
+    # whose path is not the dataset's own URI (its id varies: 0 when the source
+    # was single-base, max+1 when it was multi-base). When that marker is
+    # present, no entry is a trustworthy write target -- a clone of a multi-base
+    # source re-exposes the source's registered bases verbatim, byte-identical
+    # to natively registered ones -- so route the range to the clone root rather
+    # than write replacement files into the source table's storage. A legitimate
+    # unnamed root-layout secondary base is indistinguishable from this marker
+    # and conservatively also routes to root; register bases with names to keep
+    # the spread.
+    dataset_uri = str(getattr(ds, "uri", "")).rstrip("/")
+    if any(
+        getattr(base, "name", None) is None
+        and getattr(base, "is_dataset_root", False)
+        and str(base.path).rstrip("/") != dataset_uri
+        for base in bases
+    ):
         return None
     bases.sort(key=lambda bp: (getattr(bp, "id", None) or 0, str(bp.path)))
     anchor = source_ids[0] if source_ids else 0
@@ -307,8 +325,10 @@ def sparse_update_range(
     blob_handling = "all_binary" if blob_cols else None
     addr_chunks: list[pa.Array] = []
     counter = {"n": 0}
+    classified_oom: FatalWorkerOOMError | None = None
 
     def replacements() -> Iterator[pa.RecordBatch]:
+        nonlocal classified_oom
         scanner_kwargs: dict[str, typing.Any] = {
             "fragments": frags,
             "columns": names,
@@ -328,7 +348,16 @@ def sparse_update_range(
             addr_chunks.append(addr_col)
             core = batch.select(names)
             counter["n"] += core.num_rows
-            udf_out = udf(core, use_applier=True)
+            try:
+                udf_out = udf(core, use_applier=True)
+            except FatalWorkerOOMError as exc:
+                # ``write_fragments`` consumes this generator through Arrow's C
+                # Data interface, which wraps Python exceptions in ``OSError``.
+                # Retain the exact classified failure so the actor can send its
+                # type to the driver instead of treating it as an ordinary range
+                # error. Other UDF exceptions keep their existing semantics.
+                classified_oom = exc
+                raise
             if isinstance(udf_out, pa.ChunkedArray):
                 udf_out = udf_out.combine_chunks()
             yield pa.record_batch(
@@ -349,24 +378,30 @@ def sparse_update_range(
     )
     # Multi-base: route replacement fragments to a registered base (spread across
     # bases) so repair-write ingress fans out instead of piling on the primary
-    # account. None on single-base datasets -> append to root as before. The base
-    # account is carried in the base URI (abfss), so no base_store_params here;
-    # write_fragments inherits any the dataset was opened with.
+    # account. Explicitly target ds.uri for root writes: a shallow clone's internal
+    # source base must never become the destination for a clone-primary fragment.
+    # The base account is carried in the base URI (abfss), so no base_store_params
+    # are needed; write_fragments inherits any the dataset was opened with.
     target_base = _target_base_for_range(ds, source_ids)
-    target_base_kwargs: dict[str, typing.Any] = (
-        {"target_bases": [target_base]} if target_base is not None else {}
-    )
+    target_base_kwargs: dict[str, typing.Any] = {
+        "target_bases": [target_base or ds.uri]
+    }
     reader = pa.RecordBatchReader.from_batches(ds.schema, replacements())
-    # write-guard-ok: sparse-path durable write, not yet routed through an indirection
-    new_fragments = lance.fragment.write_fragments(
-        reader,
-        ds,
-        mode="append",
-        max_rows_per_group=batch_rows,
-        max_rows_per_file=src_rows or _LANCE_DEFAULT_ROWS_PER_FILE,
-        max_bytes_per_file=src_bytes or _LANCE_DEFAULT_BYTES_PER_FILE,
-        **target_base_kwargs,
-    )
+    try:
+        # write-guard-ok: sparse write lacks an injectable indirection
+        new_fragments = lance.fragment.write_fragments(
+            reader,
+            ds,
+            mode="append",
+            max_rows_per_group=batch_rows,
+            max_rows_per_file=src_rows or _LANCE_DEFAULT_ROWS_PER_FILE,
+            max_bytes_per_file=src_bytes or _LANCE_DEFAULT_BYTES_PER_FILE,
+            **target_base_kwargs,
+        )
+    except Exception as exc:
+        if classified_oom is not None:
+            raise FatalWorkerOOMError(str(classified_oom)) from exc
+        raise
     if counter["n"] == 0:
         return RangeSparseResult([], 0, [], [], [], source_frag_ids=source_ids)
 

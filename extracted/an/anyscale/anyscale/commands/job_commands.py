@@ -62,17 +62,14 @@ from anyscale.util import (
     get_endpoint,
     validate_non_negative_arg,
 )
+from anyscale.utils.entity_arg_utils import validate_exactly_one_name_or_id
 
 
 log = BlockLogger()  # CLI Logger
 
 
 def _validate_job_name_and_id(name: Optional[str], id: Optional[str]):  # noqa: A002
-    if name is None and id is None:
-        raise click.ClickException("One of '--name' and '--id' must be provided.")
-
-    if name is not None and id is not None:
-        raise click.ClickException("Only one of '--name' and '--id' can be provided.")
+    validate_exactly_one_name_or_id(name, id)
 
 
 def _print_job_list_diagnostics(  # noqa: PLR0913
@@ -718,7 +715,7 @@ def _display_jobs_table(jobs: List[JobStatus]) -> None:
         "--json": {
             "status": ReleaseStatus.DEPRECATED,
             "deprecation_info": {"message": "Use -o json instead."},
-        }
+        },
     },
     examples=[
         CommandExample(
@@ -774,7 +771,7 @@ def _display_jobs_table(jobs: List[JobStatus]) -> None:
 )
 @click.option("--name", "-n", required=False, default=None, help="Filter by job name.")
 @click.option(
-    "--id", "--job-id", required=False, default=None, help="Filter by job id."
+    "--job-id", "--id", "id", required=False, default=None, help="Filter by job id."
 )
 @click.option(
     "--project-id",
@@ -1108,7 +1105,7 @@ def list(  # noqa: A001 PLR0913 PLR0912
 @job_cli.command(
     name="archive", short_help="Archive a job.", cls=AnyscaleCommand,
 )
-@click.option("--id", "--job-id", required=False, help="Unique ID of the job.")
+@click.option("--job-id", "--id", "id", required=False, help="Unique ID of the job.")
 @click.option("--name", "-n", required=False, help="Name of the job.")
 @click.option(
     "--cloud",
@@ -1170,7 +1167,7 @@ status will be archived.
 @job_cli.command(
     name="delete", short_help="Delete a job.", cls=AnyscaleCommand,
 )
-@click.option("--id", "--job-id", required=False, help="Unique ID of the job.")
+@click.option("--job-id", "--id", "id", required=False, help="Unique ID of the job.")
 @click.option("--name", "-n", required=False, help="Name of the job.")
 @click.option(
     "--cloud",
@@ -1232,7 +1229,7 @@ def delete(
 @job_cli.command(
     name="terminate", short_help="Terminate a job.", cls=AnyscaleCommand,
 )
-@click.option("--id", "--job-id", required=False, help="Unique ID of the job.")
+@click.option("--job-id", "--id", "id", required=False, help="Unique ID of the job.")
 @click.option("--name", "-n", required=False, help="Name of the job.")
 @click.option(
     "--cloud",
@@ -1300,7 +1297,7 @@ status will be terminated.
 @job_cli.command(
     name="logs", short_help="Print the logs of a job.", cls=AnyscaleCommand,
 )
-@click.option("--id", "--job-id", required=False, help="Unique ID of the job.")
+@click.option("--job-id", "--id", "id", required=False, help="Unique ID of the job.")
 @click.option("--name", "-n", required=False, help="Name of the job.")
 @click.option("--run", required=False, help="Name of the job run.")
 @click.option(
@@ -1437,9 +1434,7 @@ def logs(  # noqa: PLR0913
     short_help="Wait for a job to enter a specific state.",
     cls=AnyscaleCommand,
 )
-@click.option(
-    "--id", "--job-id", required=False, help="Unique ID of the job.",
-)
+@click.option("--job-id", "--id", "id", required=False, help="Unique ID of the job.")
 @click.option("--name", "-n", required=False, help="Name of the job.")
 @click.option(
     "--cloud",
@@ -1522,7 +1517,7 @@ def wait(
         "--json": {
             "status": ReleaseStatus.DEPRECATED,
             "deprecation_info": {"message": "Use -o json instead."},
-        }
+        },
     },
     examples=[
         CommandExample(
@@ -1556,7 +1551,12 @@ def wait(
     name="status", short_help="Get the status of a job.", cls=AnyscaleCommand,
 )
 @click.option(
-    "--id", "--job-id", required=False, default=None, help="Unique ID of the job."
+    "--job-id",
+    "--id",
+    "id",
+    required=False,
+    default=None,
+    help="Unique ID of the job.",
 )
 @click.option("--name", "-n", required=False, default=None, help="Name of the job.")
 @click.option(
@@ -1675,7 +1675,9 @@ def job_tags_cli() -> None:
     ),
     cls=AnyscaleCommand,
 )
-@click.option("--id", "job_id", required=False, help="Unique ID of the job.")
+@click.option(
+    "--job-id", "--id", "job_id", required=False, help="Unique ID of the job."
+)
 @click.option("--name", "-n", required=False, help="Name of the job.")
 @click.option(
     "--tag",
@@ -1727,7 +1729,9 @@ def add_tags(
     ),
     cls=AnyscaleCommand,
 )
-@click.option("--id", "job_id", required=False, help="Unique ID of the job.")
+@click.option(
+    "--job-id", "--id", "job_id", required=False, help="Unique ID of the job."
+)
 @click.option("--name", "-n", required=False, help="Name of the job.")
 @click.option("--key", "keys", multiple=True, help="Tag key to remove. Repeatable.")
 @click.option(
@@ -1765,7 +1769,7 @@ def remove_tags(
         "--json": {
             "status": ReleaseStatus.DEPRECATED,
             "deprecation_info": {"message": "Use -o json instead."},
-        }
+        },
     },
     examples=[
         CommandExample(
@@ -1782,7 +1786,9 @@ def remove_tags(
     help=("List tags for a job.\n\nSpecify the job by name (--name) or by ID (--id)."),
     cls=AnyscaleCommand,
 )
-@click.option("--id", "job_id", required=False, help="Unique ID of the job.")
+@click.option(
+    "--job-id", "--id", "job_id", required=False, help="Unique ID of the job."
+)
 @click.option("--name", "-n", required=False, help="Name of the job.")
 @click.option(
     OUTPUT_FLAG,

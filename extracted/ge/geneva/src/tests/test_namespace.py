@@ -278,6 +278,7 @@ def test_backfill_namespace_client_sends_min_read_version(
     assert captured["props"]["header.x-api-key"] == "secret"
     assert captured["props"]["header.x-lancedb-database"] == "mydb"
     assert captured["props"]["uri"] == "http://localhost:10024"
+    assert captured["props"]["header.user-agent"].startswith("Geneva-Python-Client/")
     # the caller's props are copied, not mutated in place
     assert "header.x-lancedb-min-read-version" not in base_props
 

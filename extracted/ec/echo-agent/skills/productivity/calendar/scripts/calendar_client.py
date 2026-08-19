@@ -2,15 +2,15 @@
 """CalDAV calendar client: list, add, upcoming events."""
 
 import argparse
-import sys
+from echo_agent.dependencies.skill_require import require  # noqa: E402
 from datetime import datetime, timedelta
+
+import caldav  # noqa: E402
+from icalendar import Calendar, Event  # noqa: E402
 
 
 def _get_client(url, username, password):
-    try:
-        import caldav
-    except ImportError:
-        sys.exit("Install: pip install caldav")
+    require("skill.calendar")
     return caldav.DAVClient(url=url, username=username, password=password)
 
 
@@ -41,10 +41,7 @@ def upcoming(url, username, password, days=7, calendar_name=None):
 
 
 def add_event(url, username, password, summary, start_str, end_str=None, calendar_name=None):
-    try:
-        from icalendar import Calendar, Event
-    except ImportError:
-        sys.exit("Install: pip install icalendar")
+    require("skill.calendar")
     client = _get_client(url, username, password)
     principal = client.principal()
     calendars = principal.calendars()

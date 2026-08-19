@@ -9,7 +9,7 @@ export interface NgonView extends Ngon.Data {
 export declare class NgonView extends RadialGlyphView {
     model: Ngon;
     visuals: Ngon.Visuals;
-    load_glglyph(): Promise<typeof import("./webgl/ngon").NgonGL>;
+    load_glglyph(): Promise<typeof import("../../all/main").NgonGL>;
     protected _paint(ctx: Context2d, indices: number[], data?: Partial<Ngon.Data>): void;
     protected _ngon(index: number): [Arrayable<number>, Arrayable<number>];
     protected _hit_point(geometry: PointGeometry): Selection;

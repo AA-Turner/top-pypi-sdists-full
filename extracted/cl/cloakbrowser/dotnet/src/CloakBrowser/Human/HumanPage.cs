@@ -70,6 +70,13 @@ public sealed class HumanPage
         _rawKeyboard = new PlaywrightRawKeyboard(page.Keyboard);
         _scrollPage = new PlaywrightScrollPage(page);
         _evaluator = new PlaywrightEvaluator(page);
+
+        // Invalidate the isolated world on any main-frame nav, not just goto, so
+        // click/form navigations don't leave it bound to a stale doc (#507).
+        _page.FrameNavigated += (_, frame) =>
+        {
+            if (frame == _page.MainFrame) _stealth?.Invalidate();
+        };
     }
 
     /// <summary>

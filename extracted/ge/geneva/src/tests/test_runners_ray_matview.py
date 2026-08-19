@@ -2519,3 +2519,186 @@ def test_materialized_view_limit_grow_past(db, local_ray_context) -> None:
     assert mv.count_rows() == limit, (
         f"After growing past limit: expected {limit} rows but got {mv.count_rows()}"
     )
+
+
+def test_build_dst_to_src_mapping_fails_loudly_on_scan_error(
+    db, local_ray_context, monkeypatch
+) -> None:
+    """A __source_row_id scan error must not be swallowed as "empty".
+
+    ``_build_dst_to_src_mapping`` previously caught a per-fragment scan exception,
+    logged a warning, and treated the fragment as having no rows. That silently
+    dropped the fragment from ``dst_to_src_map`` (so it was never reprocessed) and
+    from ``existing_source_row_ids`` (so its source fragments were re-classified as
+    "new" and re-appended), leaving a stale fragment plus permanent duplicate
+    ``__source_row_id`` rows. The scan error must now propagate so the refresh
+    fails loudly instead of corrupting the view.
+
+    This exercises the mapping builder directly because ``refresh()`` dispatches
+    ``run_ray_copy_table`` into a Ray worker process, out of reach of an in-process
+    monkeypatch.
+    """
+    import lance
+
+    from geneva.apply.task import CopyTableTask
+    from geneva.checkpoint import InMemoryCheckpointStore
+    from geneva.query import (
+        MATVIEW_META_QUERY,
+        GenevaQuery,
+        GenevaQueryBuilder,
+    )
+    from geneva.runners.ray.pipeline import _build_dst_to_src_mapping
+
+    source = make_multifragment_table(
+        db, "gva005_source", num_fragments=2, rows_per_fragment=3
+    )
+
+    @udf
+    def double_value(value: int) -> int:
+        return value * 2
+
+    mv = (
+        source.search(None)
+        .select({"id": "id", "value": "value", "doubled": double_value})
+        .create_materialized_view(db, "gva005_mv")
+    )
+
+    # Populate the MV so destination fragments carry __source_row_id.
+    mv.refresh(_admission_check=False)
+    assert mv.count_rows() == 6
+
+    mv_ds = mv.to_lance()
+    src_ds = source.to_lance()
+
+    # Rebuild the CopyTableTask the refresh pipeline uses for checkpoint checks.
+    query = GenevaQuery.model_validate_json(
+        mv.schema.metadata[MATVIEW_META_QUERY.encode("utf-8")]
+    )
+    packager = mv._conn._packager
+    map_task = CopyTableTask(
+        column_udfs=query.extract_column_udfs(packager),
+        view_name=mv.get_reference().table_name,
+        schema=GenevaQueryBuilder.from_query_object(source, query).schema,
+        override_batch_size=None,
+    )
+
+    # Inject a single transient object-store failure on the first
+    # __source_row_id scan (the per-fragment scan in _build_dst_to_src_mapping).
+    orig_scanner = lance.LanceDataset.scanner
+    state = {"raised": False}
+
+    def faulty_scanner(self, *args, **kwargs):  # noqa: ANN001, ANN002, ANN003, ANN202
+        if not state["raised"] and kwargs.get("columns") == ["__source_row_id"]:
+            state["raised"] = True
+            raise OSError("injected transient object-store error")
+        return orig_scanner(self, *args, **kwargs)
+
+    monkeypatch.setattr(lance.LanceDataset, "scanner", faulty_scanner)
+
+    # Post-fix: the swallowed error now propagates instead of being treated as an
+    # empty fragment (which would silently skip it and duplicate its source rows).
+    with pytest.raises(OSError, match="injected transient object-store error"):
+        _build_dst_to_src_mapping(
+            mv_ds,
+            mv_ds.uri,
+            mv.get_reference(),
+            map_task,
+            InMemoryCheckpointStore(),
+            src_ds,
+        )
+    assert state["raised"], "fault was never triggered"
+
+    # Sanity: without the fault the mapping completes and accounts for every
+    # source row (no fragment silently dropped).
+    state["raised"] = True  # disable further injection
+    result = _build_dst_to_src_mapping(
+        mv_ds,
+        mv_ds.uri,
+        mv.get_reference(),
+        map_task,
+        InMemoryCheckpointStore(),
+        src_ds,
+    )
+    assert len(result.existing_source_row_ids) == 6
+
+
+def test_new_fragment_scan_error_fails_loudly(
+    db, local_ray_context, monkeypatch
+) -> None:
+    """A newly-appended-fragment __source_row_id scan error must raise.
+
+    ``run_ray_copy_table`` scans each newly-appended destination fragment for its
+    ``__source_row_id`` values to compute the source data files recorded in that
+    fragment's checkpoint. That scan previously caught its exception, logged a
+    warning, and moved on, leaving the new fragment's checkpoint without source
+    data file paths -- so a later refresh could not match it and force-reprocessed
+    the fragment (wasted compute). The scan error must now propagate so the
+    refresh fails loudly instead.
+
+    ``run_ray_copy_table`` is driven directly (rather than via ``refresh()``, which
+    dispatches it into a Ray worker process out of reach of an in-process
+    monkeypatch). The fault is scoped to fragment ids that do not exist before the
+    refresh, so it lands on the newly-appended-fragment scan under test and not on
+    the earlier destination-to-source mapping loop (a separate site with its own
+    test).
+    """
+    import lance
+
+    from geneva.runners.ray.pipeline import run_ray_copy_table
+
+    tbl = pa.Table.from_pydict({"value": [0, 1, 2]})
+    source = db.create_table(
+        "gva005b_source",
+        tbl,
+        storage_options={"new_table_enable_stable_row_ids": True},
+    )
+
+    @udf
+    def double_value(value: int) -> int:
+        return value * 2
+
+    mv = (
+        source.search(None)
+        .select({"value": "value", "doubled": double_value})
+        .create_materialized_view(db, "gva005b_mv")
+    )
+
+    # Populate the MV, then record the destination fragment ids that exist before
+    # the incremental refresh under test.
+    mv.refresh(_admission_check=False)
+    assert mv.count_rows() == 3
+    pre_frag_ids = {f.fragment_id for f in mv.to_lance().get_fragments()}
+
+    # Add new source rows so the next refresh appends a brand-new dst fragment.
+    source.add(pa.Table.from_pydict({"value": [3, 4, 5]}))
+
+    # Inject a single transient object-store failure, but only on a __source_row_id
+    # scan of a newly-appended destination fragment (one whose id did not exist
+    # before this refresh). This skips the mapping loop's scans of pre-existing
+    # fragments and lands on the newly-appended-fragment scan under test.
+    orig_scanner = lance.LanceDataset.scanner
+    state = {"raised": False}
+
+    def faulty_scanner(self, *args, **kwargs):  # noqa: ANN001, ANN002, ANN003, ANN202
+        fragments = kwargs.get("fragments")
+        if (
+            not state["raised"]
+            and kwargs.get("columns") == ["__source_row_id"]
+            and fragments
+            and any(f.fragment_id not in pre_frag_ids for f in fragments)
+        ):
+            state["raised"] = True
+            raise OSError("injected transient object-store error")
+        return orig_scanner(self, *args, **kwargs)
+
+    monkeypatch.setattr(lance.LanceDataset, "scanner", faulty_scanner)
+
+    # Post-fix: the swallowed error now propagates instead of leaving the new
+    # fragment's checkpoint without source data files.
+    with pytest.raises(OSError, match="injected transient object-store error"):
+        run_ray_copy_table(
+            mv.get_reference(),
+            mv._conn._packager,
+            _admission_check=False,
+        )
+    assert state["raised"], "fault was never triggered"

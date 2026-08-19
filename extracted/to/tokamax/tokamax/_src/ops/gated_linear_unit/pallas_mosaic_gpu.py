@@ -17,9 +17,10 @@
 from collections.abc import Callable
 import dataclasses
 import functools
-from typing import ClassVar
+from typing import Any, ClassVar, override
+
+import immutabledict
 import jax
-from jax.extend import backend
 import jax.numpy as jnp
 from jaxtyping import Array, Float  # pylint: disable=g-importing-member,g-multiple-import
 from tokamax._src import gpu_utils
@@ -27,23 +28,41 @@ from tokamax._src import precision as precision_lib
 from tokamax._src.ops import op
 from tokamax._src.ops.gated_linear_unit import base
 from tokamax._src.ops.gated_linear_unit import pallas_mosaic_gpu_common as common
-from tokamax._src.ops.gated_linear_unit import pallas_mosaic_gpu_kernel_sm100
-from tokamax._src.ops.gated_linear_unit import pallas_mosaic_gpu_kernel_sm90
-from typing_extensions import override
+from tokamax._src.ops.gated_linear_unit import pallas_mosaic_gpu_kernel_sm100 as sm100
+from tokamax._src.ops.gated_linear_unit import pallas_mosaic_gpu_kernel_sm80 as sm80
+from tokamax._src.ops.gated_linear_unit import pallas_mosaic_gpu_kernel_sm90 as sm90
+
 
 Residuals = base.Residuals
 Config = common.Config
+type Key = immutabledict.immutabledict[str, Any]
+
+
+def _get_kernel_module():
+  if not gpu_utils.has_mosaic_gpu_support():
+    raise NotImplementedError("Mosaic GPU not supported on this platform.")
+  if gpu_utils.is_sm100():
+    return sm100
+  if gpu_utils.is_sm90():
+    return sm90
+  if gpu_utils.is_sm80():
+    return sm80
+  raise NotImplementedError("Only supported for sm80, sm90, and sm100 GPUs.")
 
 
 @dataclasses.dataclass(frozen=True, slots=True)
-class PallasMosaicGpuGatedLinearUnit(base.GatedLinearUnit[Config, None]):
+class PallasMosaicGpuGatedLinearUnit(base.GatedLinearUnit[Config, Key]):
   """Pallas-Mosaic-GPU gated linear unit."""
 
   config_cls: ClassVar[type[Config]] = Config
 
   @override
   def supported_on(self, device: jax.Device) -> bool:
-    return gpu_utils.is_sm90(device) or gpu_utils.is_sm100(device)
+    return (
+        gpu_utils.is_sm80(device)
+        or gpu_utils.is_sm90(device)
+        or gpu_utils.is_sm100(device)
+    )
 
   @override
   def _fwd(
@@ -56,6 +75,7 @@ class PallasMosaicGpuGatedLinearUnit(base.GatedLinearUnit[Config, None]):
       return_residuals: bool,
       config: Config,
   ) -> tuple[Float[Array, "*B M N"], Residuals | None]:
+    # TODO: Add support for unfused weights.
     weights = (
         jnp.stack(weights, axis=-2) if isinstance(weights, tuple) else weights
     )
@@ -75,22 +95,15 @@ class PallasMosaicGpuGatedLinearUnit(base.GatedLinearUnit[Config, None]):
     if not precision_lib.is_default(x.dtype, weights.dtype, precision):
       raise NotImplementedError(f"{precision=} is not supported.")
 
-    if gpu_utils.is_sm100():
-      glu_fn = pallas_mosaic_gpu_kernel_sm100.gated_linear_unit_sm100
-    elif gpu_utils.is_sm90():
-      glu_fn = pallas_mosaic_gpu_kernel_sm90.gated_linear_unit_sm90
-    else:
-      device_kind = backend.get_default_device().device_kind.lower()
-      raise NotImplementedError(f"Unsupported device kind: {device_kind}")
+    glu_fn = _get_kernel_module().gated_linear_unit
     fn = functools.partial(glu_fn, activation=activation, config=config)
     fn = self._with_vmap(fn, fallback_to_sequential=False)
     return fn(x, weights), None
 
   @override
   def _get_heuristics_config(self, ba: op.BoundArguments) -> Config:
-    return Config(
-        tile_m=128,
-        tile_n=64,
-        tile_k=64,
-        num_stages=4,
-    )
+    return _get_kernel_module().get_heuristics_config(ba)
+
+  @override
+  def _get_autotuning_configs(self, ba: op.BoundArguments) -> set[Config]:
+    return _get_kernel_module().get_autotuning_configs(ba)

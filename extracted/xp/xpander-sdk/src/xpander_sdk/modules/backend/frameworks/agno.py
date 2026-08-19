@@ -1491,6 +1491,7 @@ _NO_PROGRESS_MARKERS = (
     "Tool call rejected: the payload arrived as text",
     "Rejected: finalize-only mode is NOT active",
     "Tool disabled:",
+    "This step is waiting for a person to approve it",
     "Org-wide sharing is turned off for this agent",
     # always-on communication builtins' validation refusals (controller builtin_methods)
     "Provide at least one recipient address in `to`",
@@ -1608,6 +1609,63 @@ def _is_tool_disabled(task: Any, effective_name: str) -> bool:
     """True when this tool was disabled earlier in the run (volume/error caps)."""
     disabled = getattr(task, "_xp_disabled_tools", None) if task is not None else None
     return isinstance(disabled, set) and effective_name in disabled
+
+
+# The decision may land months later, so the run wraps up instead of waiting on it.
+AWAITING_APPROVAL_MESSAGE = (
+    "This step is waiting for a person to approve it, and the request has been sent. "
+    "'{tool}' has not run. Do not call it again in this turn. Finish now with a "
+    "short answer saying what is waiting and what happens once it is granted."
+)
+
+
+def _approval_envelope(result: Any, depth: int = 0) -> Optional[Dict[str, Any]]:
+    """The platform's "a person must authorize this" envelope, if that came back.
+
+    Unwraps the shapes a tool result arrives in: a connector refusal is a dict under
+    ``ToolInvocationResult.result``, agno results carry ``.content``. Bounded depth so a
+    large nested payload cannot turn this into a deep walk on every call.
+    """
+    if depth > 2:
+        return None
+    if isinstance(result, dict):
+        return result if result.get("type") == "approval_required" else None
+    for attribute in ("result", "content"):
+        inner = getattr(result, attribute, None)
+        if inner is not None:
+            found = _approval_envelope(inner, depth + 1)
+            if found is not None:
+                return found
+    return None
+
+
+def _mark_awaiting_approval(task: Any, effective_name: str, message: str) -> None:
+    """Record that this run is blocked, so later calls stop rather than pile up."""
+    if task is None:
+        return
+    try:
+        pending = getattr(task, "_xp_awaiting_approval", None)
+        if not isinstance(pending, dict):
+            pending = {}
+            object.__setattr__(task, "_xp_awaiting_approval", pending)
+        pending[effective_name] = message
+    except Exception:
+        # Bookkeeping must never break a tool call.
+        pass
+
+
+def _awaiting_approval_message(task: Any) -> Optional[str]:
+    """The statement for the call this run is already blocked on, if it is blocked."""
+    pending = getattr(task, "_xp_awaiting_approval", None) if task is not None else None
+    if not isinstance(pending, dict) or not pending:
+        return None
+    return next(iter(pending.values()))
+
+
+def _is_awaiting_approval(task: Any) -> bool:
+    """True when a person still has to authorize a call this run already made."""
+    pending = getattr(task, "_xp_awaiting_approval", None) if task is not None else None
+    return bool(pending)
 
 
 # Platform-default hard ceiling on tool calls per run; an explicit positive
@@ -2789,6 +2847,21 @@ async def build_agent_args(
             )
             return STEER_SKIP_STUB
 
+        # Blocked on a person, but never block the run's own way out.
+        if (
+            _is_awaiting_approval(task)
+            and eff_name != "xpfinalize_task"
+            and not _finalize_safe_read_allowed(task, function_name, arguments)
+        ):
+            message = _awaiting_approval_message(task) or AWAITING_APPROVAL_MESSAGE.format(
+                tool=eff_name
+            )
+            warning = _record_no_progress(message)
+            if warning:
+                message = f"{message}\n\n{warning}"
+            _report_blocked_call(task, eff_name, message)
+            return message
+
         # a tool disabled by the volume/error caps stays disabled for the run;
         # each refusal advances the no-progress streak so hammering it converges
         if _is_tool_disabled(task, eff_name):
@@ -3514,6 +3587,16 @@ async def build_agent_args(
                     arguments=arguments,
                     max_retries=2,
                 )
+
+                # Gated by the platform: hand the model the statement it sent back.
+                approval = _approval_envelope(result)
+                if approval is not None:
+                    result = approval.get("message") or AWAITING_APPROVAL_MESSAGE.format(
+                        tool=eff_name
+                    )
+                    # A refusal is settled: the run keeps its other work rather than stopping.
+                    if not approval.get("denied"):
+                        _mark_awaiting_approval(task, eff_name, result)
 
             except Exception as e:
                 error = str(e)

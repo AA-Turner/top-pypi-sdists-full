@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: bleak-esphome
-Version: 3.9.7
+Version: 3.10.4
 Summary: Bleak backend of ESPHome
 License: MIT
 License-File: LICENSE
@@ -18,9 +18,9 @@ Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
 Classifier: Programming Language :: Python :: 3.14
 Classifier: Topic :: Software Development :: Libraries
-Requires-Dist: aioesphomeapi (>=45.3.1)
+Requires-Dist: aioesphomeapi (>=45.12.0)
 Requires-Dist: bleak (>=3.0.2)
-Requires-Dist: bleak-retry-connector (>=4.6.1)
+Requires-Dist: bleak-retry-connector (>=4.6.3)
 Requires-Dist: bluetooth-data-tools (>=1.18.0)
 Requires-Dist: habluetooth (>=6.26.5)
 Requires-Dist: lru-dict (>=1.2.0)

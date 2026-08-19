@@ -1,8 +1,6 @@
 name: Approval bypass notifier
 on:
-  pull_request:
-    types:
-      - closed
+  push:
     branches:
       - main
 permissions:
@@ -10,5 +8,5 @@ permissions:
 jobs:
   notify:
     name: Notify
-    uses: bufbuild/base-workflows/.github/workflows/notify-approval-bypass.yaml@936b87d881ecb3b746df8b7e88ae583de5423a07 # main
+    uses: bufbuild/base-workflows/.github/workflows/notify-approval-bypass.yaml@7c0b54b718244c78f00037343ff7cb33ef7caca9 # main
     secrets: inherit

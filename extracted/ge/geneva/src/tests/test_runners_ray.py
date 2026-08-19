@@ -35,6 +35,7 @@ from geneva import CheckpointStore, connect, udf
 from geneva.apply import DirectFragmentWriteResult
 from geneva.apply.task import DEFAULT_CHECKPOINT_ROWS, BackfillUDFTask, ScanTask
 from geneva.db import Connection
+from geneva.errors import MergeFallbackTargetError
 from geneva.jobs.config import JobConfig
 from geneva.runners.ray.actor_pool import ActorPool, ActorStateSnapshot
 from geneva.runners.ray.jobtracker import (
@@ -952,10 +953,9 @@ def test_fragment_writer_manager_falls_back_on_stable_row_id_commit_errors(
     def _fake_merge_fallback(
         self,
         to_commit: list[tuple[int, object, int]],
-        version: int,
         storage_options: object,
     ) -> None:
-        fallback_calls.append((list(to_commit), version))
+        fallback_calls.append(list(to_commit))
 
     monkeypatch.setattr(
         FragmentWriterManager,
@@ -990,7 +990,7 @@ def test_fragment_writer_manager_falls_back_on_stable_row_id_commit_errors(
 
     manager._commit_if_n_fragments(1)
 
-    assert fallback_calls == [([(0, data_file, 3)], 7)]
+    assert fallback_calls == [[(0, data_file, 3)]]
     assert manager._reconciled_rows_committed_total == 3
 
 
@@ -1076,6 +1076,78 @@ def test_fragment_writer_manager_raises_on_removed_target_fragment(
         manager._commit_if_n_fragments(1)
 
     assert commit_versions == [8]
+
+
+_EXPIRED_TOKEN_MESSAGE = (
+    "LanceError(IO): Generic S3 error: Error performing list request: "
+    "Server returned non-2xx status code: 400 Bad Request: "
+    "<Error><Code>ExpiredToken</Code>"
+    "<Message>The provided token has expired.</Message></Error>"
+)
+
+
+def test_fragment_writer_manager_revends_credentials_on_expired_token(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    # The manager holds job-start credentials; a commit that outlives the
+    # vended token must re-vend and replay rather than fail the job.
+    commit_versions: list[object] = []
+    revends: list[bool] = []
+
+    def _fake_commit(*args: object, **kwargs: object) -> None:
+        commit_versions.append(kwargs.get("read_version"))
+        if len(commit_versions) == 1:
+            raise OSError(_EXPIRED_TOKEN_MESSAGE)
+
+    monkeypatch.setattr(
+        FragmentWriterManager, "_open_dataset_for_metadata", lambda self: None
+    )
+    monkeypatch.setattr(lance.LanceDataset, "commit", _fake_commit)
+    monkeypatch.setattr(
+        FragmentWriterManager,
+        "_refresh_credentials_on_error",
+        lambda self: revends.append(True),
+    )
+
+    manager = _conflict_test_manager(8)
+    manager._commit_if_n_fragments(1)
+
+    # Same read_version both times: a re-vend replays the identical commit.
+    assert commit_versions == [8, 8]
+    assert revends == [True]
+    assert manager._reconciled_rows_committed_total == 3
+
+
+def test_fragment_writer_manager_bounds_credential_revend_retries(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    # A token that stays dead after re-vending must fail the commit instead of
+    # spinning the loop.
+    from geneva.runners.ray.pipeline import GENEVA_COMMIT_CREDENTIAL_REVEND_RETRIES
+
+    commit_attempts: list[object] = []
+    revends: list[bool] = []
+
+    def _fake_commit(*args: object, **kwargs: object) -> NoReturn:
+        commit_attempts.append(kwargs.get("read_version"))
+        raise OSError(_EXPIRED_TOKEN_MESSAGE)
+
+    monkeypatch.setattr(
+        FragmentWriterManager, "_open_dataset_for_metadata", lambda self: None
+    )
+    monkeypatch.setattr(lance.LanceDataset, "commit", _fake_commit)
+    monkeypatch.setattr(
+        FragmentWriterManager,
+        "_refresh_credentials_on_error",
+        lambda self: revends.append(True),
+    )
+
+    manager = _conflict_test_manager(8)
+    with pytest.raises(OSError, match="ExpiredToken"):
+        manager._commit_if_n_fragments(1)
+
+    assert len(revends) == GENEVA_COMMIT_CREDENTIAL_REVEND_RETRIES
+    assert len(commit_attempts) == GENEVA_COMMIT_CREDENTIAL_REVEND_RETRIES + 1
 
 
 # ---------------------------------------------------------------------------
@@ -1358,6 +1430,7 @@ def test_merge_fallback_preserves_stable_row_id_metadata(
     class _FakeDataset:
         lance_schema = pa.schema([pa.field("value", pa.int64())])
         data_storage_version = "2.0"
+        version = 7
 
         def get_fragments(self) -> list[_FakeFragment]:
             return [_FakeFragment()]
@@ -1395,7 +1468,6 @@ def test_merge_fallback_preserves_stable_row_id_metadata(
 
     manager._commit_with_merge_fallback(
         [(0, replacement_file, 3)],
-        version=7,
         storage_options=None,
     )
 
@@ -1405,6 +1477,73 @@ def test_merge_fallback_preserves_stable_row_id_metadata(
     assert fragment_metadata["created_at_version_meta"] is created_meta
     assert fragment_metadata["last_updated_at_version_meta"] is updated_meta
     assert fragment_metadata["deletion_file"] is deletion_file
+
+
+def test_merge_fallback_raises_when_target_fragment_missing(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    # The fallback rebuilds the fragment list from the dataset's current state
+    # on each attempt. An update target absent from that snapshot (removed or
+    # renumbered by a concurrent writer) must fail the commit loudly -- a Merge
+    # built without it would commit successfully and orphan its column file.
+    class _FakeMapTask:
+        def output_schema(self) -> pa.Schema:
+            return pa.schema([pa.field("value", pa.int64())])
+
+        def name(self) -> str:
+            return "fake-map-task"
+
+    original_file = lance.fragment.DataFile("orig.lance", [1, 2], [0, 1], 2, 0)
+    replacement_file = lance.fragment.DataFile("new.lance", [2], [0], 2, 0)
+
+    class _FakeMetadata:
+        deletion_file = None
+        row_id_meta = None
+        created_at_version_meta = None
+        last_updated_at_version_meta = None
+
+    class _FakeFragment:
+        fragment_id = 0
+        physical_rows = 3
+        metadata = _FakeMetadata()
+
+        def data_files(self) -> list[lance.fragment.DataFile]:
+            return [original_file]
+
+    class _FakeDataset:
+        lance_schema = pa.schema([pa.field("value", pa.int64())])
+        data_storage_version = "2.0"
+        version = 7
+
+        def get_fragments(self) -> list[_FakeFragment]:
+            return [_FakeFragment()]
+
+    committed: list[object] = []
+    monkeypatch.setattr(lance, "dataset", lambda *a, **k: _FakeDataset())
+    monkeypatch.setattr(lance.LanceOperation, "Merge", lambda *a, **k: k)
+    monkeypatch.setattr(
+        lance.LanceDataset, "commit", lambda *a, **k: committed.append(k)
+    )
+
+    manager = FragmentWriterManager(
+        dst_read_version=7,
+        ds_uri="memory:///dst.lance",
+        map_task=_FakeMapTask(),
+        checkpoint_store=object(),  # type: ignore[arg-type]
+        where=None,
+        job_tracker=None,
+        commit_granularity=1,
+        expected_tasks={},
+    )
+    manager.output_field_ids = frozenset({2})
+
+    # The dataset snapshot holds only fragment 0; the update targets fragment 3.
+    with pytest.raises(MergeFallbackTargetError, match=r"\[3\]"):
+        manager._commit_with_merge_fallback(
+            [(3, replacement_file, 3)],
+            storage_options=None,
+        )
+    assert not committed
 
 
 @pytest.mark.ray
@@ -1550,10 +1689,19 @@ def test_transient_actor_loss_reschedules_to_surviving_actor_without_replacement
     assert values == [i * 2 for i in range(SIZE)]
 
 
+@pytest.mark.parametrize(
+    ("allow_graceful", "force_ready_future"),
+    [
+        pytest.param(False, False, id="sigkill-liveness-scan"),
+        pytest.param(True, True, id="sigterm-ready-future"),
+    ],
+)
 @pytest.mark.timeout(180)
 def test_lost_worker_node_reschedules_backfill_to_surviving_actor_without_replacement(
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,
+    allow_graceful: bool,
+    force_ready_future: bool,
 ) -> None:
     from ray.cluster_utils import Cluster
     from ray.util.scheduling_strategies import NodeAffinitySchedulingStrategy
@@ -1648,6 +1796,37 @@ def test_lost_worker_node_reschedules_backfill_to_surviving_actor_without_replac
         monkeypatch.setattr(ActorPool, "_actor_liveness_scan_interval_s", 0.0)
         monkeypatch.setattr(pipeline_module, "POLL_INTERVAL_S", 0.05)
 
+        observed_requeries: list[ActorStateSnapshot] = []
+        if force_ready_future:
+            original_actor_state_by_id = getattr(
+                ActorPool,
+                "_actor_state_by_id",
+                None,
+            )
+            if original_actor_state_by_id is not None:
+
+                def record_actor_state_requery(
+                    self: ActorPool,
+                    actor_id: str,
+                ) -> ActorStateSnapshot | None:
+                    snapshot = original_actor_state_by_id(self, actor_id)
+                    if snapshot is not None:
+                        observed_requeries.append(snapshot)
+                    return snapshot
+
+                monkeypatch.setattr(
+                    ActorPool,
+                    "_actor_state_by_id",
+                    record_actor_state_requery,
+                )
+            # Deterministically exercise the future-first race. The production
+            # liveness fallback is covered by the SIGKILL parameter case.
+            monkeypatch.setattr(
+                ActorPool,
+                "_pop_dead_actor_task",
+                lambda self: self.NoResult,
+            )
+
         errors: list[BaseException] = []
         done = threading.Event()
 
@@ -1676,7 +1855,7 @@ def test_lost_worker_node_reschedules_backfill_to_surviving_actor_without_replac
         worker_marker = marker_dir / worker_node_id
         while time.monotonic() < deadline:
             if worker_marker.exists():
-                cluster.remove_node(worker_node, allow_graceful=False)
+                cluster.remove_node(worker_node, allow_graceful=allow_graceful)
                 removed_worker = True
                 break
             if done.is_set():
@@ -1689,6 +1868,14 @@ def test_lost_worker_node_reschedules_backfill_to_surviving_actor_without_replac
             raise AssertionError(f"backfill raised {errors[0]!r}") from errors[0]
 
         assert startup_calls == 2
+        if force_ready_future:
+            assert any(
+                snapshot.state == "DEAD"
+                and snapshot.death_reason == "NODE_DIED"
+                and snapshot.node_id == worker_node_id
+                and snapshot.is_transient_infra_loss
+                for snapshot in observed_requeries
+            )
         values = (
             lance.dataset(lost_worker_tbl_path).to_table().sort_by("a")["b"].to_pylist()
         )
@@ -1831,8 +2018,8 @@ def test_run_ray_add_column_write_fault(
     add_empty_b(lance.dataset(tbl_path), int32_return_none)
     original_ingest = FragmentWriterSession.ingest_task
 
-    def faulty_ingest(self, offset: int, result: Any) -> None:
-        original_ingest(self, offset, result)
+    def faulty_ingest(self, offset: int, result: Any, num_rows: int) -> None:
+        original_ingest(self, offset, result, num_rows)
         if random.random() < 0.5:
             ray.kill(self.actor)
         else:

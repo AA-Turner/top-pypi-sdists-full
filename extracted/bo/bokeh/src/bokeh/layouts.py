@@ -13,6 +13,8 @@
 #-----------------------------------------------------------------------------
 from __future__ import annotations
 
+# pyright: reportArgumentType=false, reportReturnType=false, reportAssignmentType=false, reportAttributeAccessIssue=false, reportGeneralTypeIssues=false, reportOperatorIssue=false, reportCallIssue=false
+
 import logging # isort:skip
 log = logging.getLogger(__name__)
 
@@ -32,8 +34,6 @@ from typing import (
     Iterator,
     Literal,
     Sequence,
-    TypeAlias,
-    TypeVar,
     overload,
 )
 
@@ -63,7 +63,7 @@ if TYPE_CHECKING:
     from .core.enums import LocationType, SizingModeType
     from .core.property.singletons import UndefinedType
 
-    ToolbarOptions = Literal["logo", "autohide", "active_drag", "active_inspect", "active_scroll", "active_tap", "active_multi"]
+    type ToolbarOptions = Literal["logo", "autohide", "active_drag", "active_inspect", "active_scroll", "active_tap", "active_multi"]
 
 #-----------------------------------------------------------------------------
 # Globals and constants
@@ -358,8 +358,7 @@ def gridplot(
     active_taps = [ map_to_proxy(toolbar.active_tap) for toolbar in toolbars ]
     active_multis = [ map_to_proxy(toolbar.active_multi) for toolbar in toolbars ]
 
-    V = TypeVar("V")
-    def assert_unique(values: list[V], name: ToolbarOptions) -> V | UndefinedType:
+    def assert_unique[V](values: list[V], name: ToolbarOptions) -> V | UndefinedType:
         if name in toolbar_options:
             return toolbar_options[name]
         n = len(set(values))
@@ -557,26 +556,26 @@ def grid(children: Any = [], sizing_mode: SizingModeType | None = None, nrows: i
                 ncols = math.ceil(N/nrows)
             layout = col([ row(children[i:i+ncols]) for i in range(0, N, ncols) ])
         else:
-            def traverse(children: list[LayoutDOM], level: int = 0):
+            def traverse_list(children: list[LayoutDOM], level: int = 0):
                 if isinstance(children, list):
                     container = col if level % 2 == 0 else row
-                    return container([ traverse(child, level+1) for child in children ])
+                    return container([ traverse_list(child, level+1) for child in children ])
                 else:
                     return children
 
-            layout = traverse(children)
+            layout = traverse_list(children)
     elif isinstance(children, LayoutDOM):
         def is_usable(child: LayoutDOM) -> bool:
             return _has_auto_sizing(child) and child.spacing == 0
 
-        def traverse(item: LayoutDOM, top_level: bool = False):
+        def traverse_layout(item: LayoutDOM, top_level: bool = False):
             if isinstance(item, FlexBox) and (top_level or is_usable(item)):
                 container = col if isinstance(item, Column) else row
-                return container(list(map(traverse, item.children)))
+                return container(list(map(traverse_layout, item.children)))
             else:
                 return item
 
-        layout = traverse(children, top_level=True)
+        layout = traverse_layout(children, top_level=True)
     elif isinstance(children, str):
         raise NotImplementedError
     else:
@@ -598,17 +597,16 @@ def grid(children: Any = [], sizing_mode: SizingModeType | None = None, nrows: i
 # Dev API
 #-----------------------------------------------------------------------------
 
-T = TypeVar("T", bound=Tool)
-MergeFn: TypeAlias = Callable[[type[T], list[T]], Tool | ToolProxy | None]
+type MergeFn[T] = Callable[[type[T], list[T]], Tool | ToolProxy | None]
+
+@dataclass
+class ToolEntry:
+    tool: Tool
+    props: Any
 
 def group_tools(tools: list[Tool | ToolProxy], *, merge: MergeFn[Tool] | None = None,
         ignore: set[str] | None = None) -> list[Tool | ToolProxy]:
     """ Group common tools into tool proxies. """
-    @dataclass
-    class ToolEntry:
-        tool: Tool
-        props: Any
-
     by_type: defaultdict[type[Tool], list[ToolEntry]] = defaultdict(list)
     computed: list[Tool | ToolProxy] = []
 
@@ -620,10 +618,8 @@ def group_tools(tools: list[Tool | ToolProxy], *, merge: MergeFn[Tool] | None = 
             computed.append(tool)
         else:
             props = tool.properties_with_values()
-            for attr in ignore:
-                if attr in props:
-                    del props[attr]
-            by_type[tool.__class__].append(ToolEntry(tool, props))
+            filtered_props = {k: v for k, v in props.items() if k not in ignore}
+            by_type[tool.__class__].append(ToolEntry(tool, filtered_props))
 
     for cls, entries in by_type.items():
         if merge is not None:
@@ -632,14 +628,17 @@ def group_tools(tools: list[Tool | ToolProxy], *, merge: MergeFn[Tool] | None = 
                 computed.append(merged)
                 continue
 
-        while entries:
-            head, *tail = entries
+        items: list[ToolEntry | None] = list(entries)
+        for i, head in enumerate(items):
+            if head is None:
+                continue
+            items[i] = None
             group: list[Tool] = [head.tool]
-            for item in list(tail):
-                if item.props == head.props:
+            for j in range(i + 1, len(items)):
+                item = items[j]
+                if item is not None and item.props == head.props:
                     group.append(item.tool)
-                    entries.remove(item)
-            entries.remove(head)
+                    items[j] = None
 
             if merge is not None and (tool := merge(cls, group)) is not None:
                 computed.append(tool)
@@ -655,8 +654,7 @@ def group_tools(tools: list[Tool | ToolProxy], *, merge: MergeFn[Tool] | None = 
 def _has_auto_sizing(item: LayoutDOM) -> bool:
     return item.sizing_mode is None and item.width_policy == "auto" and item.height_policy == "auto"
 
-L = TypeVar("L", bound=LayoutDOM)
-def _parse_children_arg(*args: L | list[L], children: list[L] | None = None) -> list[L]:
+def _parse_children_arg[L: LayoutDOM](*args: L | list[L], children: list[L] | None = None) -> list[L]:
     # Set-up Children from args or kwargs
     if len(args) > 0 and children is not None:
         raise ValueError("'children' keyword cannot be used with positional arguments")
@@ -702,9 +700,7 @@ def _create_grid(iterable: Iterable[UIElement | list[UIElement]], sizing_mode: S
     else:
         return row(children=return_list, sizing_mode=sizing_mode, **kwargs)
 
-I = TypeVar("I")
-
-def _chunks(l: Sequence[I], ncols: int) -> Iterator[Sequence[I]]:
+def _chunks[T](l: Sequence[T], ncols: int) -> Iterator[Sequence[T]]:
     """Yield successive n-sized chunks from list, l."""
     assert isinstance(ncols, int), "ncols must be an integer"
     for i in range(0, len(l), ncols):
