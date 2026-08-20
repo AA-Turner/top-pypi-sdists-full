@@ -4,7 +4,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "render_sdk"
-version = "0.7.0"
+version = "0.8.0"
 description = "Python SDK for Render Workflows"
 authors = [{ name = "Render", email = "support@render.com" }]
 readme = "README.md"
@@ -23,8 +23,10 @@ classifiers = [
 ]
 dependencies = [
     "aiohttp>=3.12.14,<4",
-    "openapi-python-client>=0.26.1,<0.27",
     "httpx>=0.28.1,<0.29",
+    # Runtime deps of the generated public_api client.
+    "attrs>=23.2.0",
+    "python-dateutil>=2.8.2,<3",
 ]
 
 [project.optional-dependencies]
@@ -37,33 +39,22 @@ render-workflows = "render_sdk.workflows.cli:main"
 
 [dependency-groups]
 dev = [
-    "pytest>=7.0,<8",
+    "pytest>=9,<10",
     "pytest-cov>=4.0,<5",
     "pytest-asyncio>=0.21.0,<0.22",
     "pytest-mock>=3.10.0,<4",
-    "black>=25.1.0,<26",
-    "isort>=5.0,<6",
     "mypy>=1.18.2,<2",
     "tox>=4.0,<5",
     "redis>=4.2.0",
     "ruff>=0.13,<0.14",
+    "openapi-python-client>=0.26.1,<0.27",
 ]
+
+[tool.uv]
+exclude-newer = "1 week"
 
 [tool.hatch.build.targets.wheel]
 packages = ["render_sdk"]
-
-[tool.black]
-line-length = 88
-target-version = ['py310']
-extend-exclude = '''
-(render_sdk/public_api/)
-'''
-
-[tool.isort]
-profile = "black"
-multi_line_output = 3
-line_length = 88
-extend_skip = ["render_sdk/public_api"]
 
 [tool.mypy]
 python_version = "3.10"
@@ -78,7 +69,10 @@ check_untyped_defs = false
 [tool.pytest.ini_options]
 testpaths = ["**/tests"]
 python_files = ["test_*.py"]
-markers = ["e2e: end-to-end tests requiring RENDER_API_KEY and RENDER_E2E_OWNER_ID"]
+markers = [
+    "e2e: end-to-end tests requiring RENDER_API_KEY and RENDER_E2E_OWNER_ID",
+    "sandbox_e2e: e2e tests needing a sandbox runner (renderd) fleet; routed to their own CI job so they report separately",
+]
 addopts = "-m 'not e2e'"
 
 [tool.ruff]
@@ -88,4 +82,6 @@ exclude = ["render_sdk/public_api/"]
 
 [tool.ruff.lint]
 select = ["E", "F", "I", "B", "UP", "SIM", "S"]
+# Line length: let the formatter choose whether to keep long string literals on one line.
+ignore = ["E501"]
 per-file-ignores = { "*test_*.py" = ["S101", "S106"] }

@@ -26,7 +26,7 @@ from dreadnode.app.tui.theme import (
 
 if t.TYPE_CHECKING:
     from textual.app import ComposeResult
-    from textual.events import Key
+    from textual.events import Key, ScreenResume, ScreenSuspend
     from textual.timer import Timer
 
     from dreadnode.app.client.managed_client import ManagedRuntimeClient
@@ -161,6 +161,19 @@ class ServicesScreen(DreadnodeScreen):
     def on_mount(self) -> None:
         super().on_mount()
         self._render_current_view()
+
+    def on_unmount(self) -> None:
+        # Key handlers stop the detail-refresh timer on normal navigation, but
+        # an app-level pop (e.g. F5 opening the console) bypasses them — stop
+        # it here so the interval never fires against a dead widget tree.
+        self._stop_detail_refresh()
+
+    def on_screen_suspend(self, _event: "ScreenSuspend") -> None:
+        self._stop_detail_refresh()
+
+    def on_screen_resume(self, _event: "ScreenResume") -> None:
+        if self._view == "detail":
+            self._start_detail_refresh()
 
     def on_component_state_changed(self, message: ComponentStateChanged) -> None:
         """Refresh the list (and the cached selection) from the manager.
@@ -1326,6 +1339,12 @@ class ServicesScreen(DreadnodeScreen):
     # ── Rendering dispatch ──
 
     def _render_current_view(self) -> None:
+        # Workers (fetch/refresh/actions) and the detail-refresh interval
+        # re-render via this path. If the screen has unmounted while a worker
+        # was awaiting, query_one would crash with NoMatches — bail out before
+        # touching the DOM.
+        if not self.is_mounted:
+            return
         search = self.query_one("#services-search", Static)
         search.display = self._view == "tool_list"
 

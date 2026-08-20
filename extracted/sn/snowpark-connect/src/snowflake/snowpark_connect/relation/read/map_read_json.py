@@ -959,6 +959,7 @@ def map_read_json(
             _unquote_name,
             cache_if_corrupt_record_present,
             filter_reader_options,
+            snowpark_types_from_columns,
         )
         from snowflake.snowpark_connect.nss.nss_stage_file_reader import (
             nss_read_via_stage_file_reader,
@@ -997,13 +998,26 @@ def map_read_json(
         renamed_df, snowpark_column_names = rename_columns_as_snowflake_standard(
             df, rel.common.plan_id
         )
+        # Memoizable in df_cache_map, but not materialized (SNOW-3717231).
+        # ``can_be_cached=False`` would short-circuit df_cache_map entirely, so every
+        # re-resolution of this read's plan_id re-executes the whole NSS read —
+        # including a full INFER_STAGE_FILE_SCHEMA pass. A schema-less read resolved
+        # twice (e.g. ``df.columns`` -> AnalyzePlan, then an action -> ExecutePlan,
+        # where the read is a nested child rather than the execute root so the analyze
+        # memo does not apply) then infers twice over the whole dataset.
+        # ``without_materialization()`` keeps the memoization while suppressing
+        # df_cache_map's ``cache_result()`` step: unlike the COPY branch below there is
+        # no pre-existing temp table here, so allowing materialization would add a
+        # full table write that the NSS path never used to perform. The COPY branch
+        # avoids the flag for the same memoization reason.
         return DataFrameContainer.create_with_column_mapping(
             dataframe=renamed_df,
             spark_column_names=spark_column_names,
             snowpark_column_names=snowpark_column_names,
-            snowpark_column_types=None,
-            can_be_cached=False,
-        )
+            # Report the Spark types NSS was given for top-level scalars; complex
+            # columns fall back to the dataframe-derived schema (SNOW-3891973).
+            snowpark_column_types=snowpark_types_from_columns(nss_columns, renamed_df),
+        ).without_materialization()
     # ── End NSS branch ────────────────────────────────────────────────────────
 
     else:

@@ -22,8 +22,10 @@ from dreadnode.app.cli.shared import (
     _render_list,
     _sync_progress,
     _visibility_markup,
+    classify_sync_operands,
     configured_dreadnode,
     confirm_destructive,
+    connect_for_sync,
     console,
     ensure_name_only_refs,
     ensure_version,
@@ -31,6 +33,7 @@ from dreadnode.app.cli.shared import (
     print_markdown,
     print_success,
     print_warning,
+    replace_pull_dest,
     resolve_publish_flag,
 )
 
@@ -408,6 +411,32 @@ def _download_capability_files(
         file_dest.write_bytes(content if isinstance(content, bytes) else content.encode())
 
 
+def _download_capability_replacing(
+    api: t.Any,
+    org: str,
+    name: str,
+    version: str,
+    dest: Path,
+) -> None:
+    """Download a capability to *dest*, replacing any existing copy only after a
+    successful download.
+
+    Mirrors ``pull_environment_to_dir``: files land in a sibling staging dir
+    first, so a mid-download failure never destroys the prior copy at *dest*.
+    """
+    import tempfile
+
+    dest.parent.mkdir(parents=True, exist_ok=True)
+    staging = Path(tempfile.mkdtemp(prefix=f".{dest.name}.", dir=dest.parent))
+    try:
+        _download_capability_files(api, org, name, version, staging)
+    except BaseException:
+        shutil.rmtree(staging, ignore_errors=True)
+        raise
+    replace_pull_dest(dest)
+    staging.rename(dest)
+
+
 # ---------------------------------------------------------------------------
 # push
 # ---------------------------------------------------------------------------
@@ -682,12 +711,10 @@ def pull(
 
     dest = (output or Path.cwd() / parsed.name).resolve()
 
-    if dest.exists():
-        if not force:
-            raise FileExistsError(f"{dest} already exists — use --force to overwrite")
-        shutil.rmtree(dest)
+    if (dest.exists() or dest.is_symlink()) and not force:
+        raise FileExistsError(f"{dest} already exists — use --force to overwrite")
 
-    _download_capability_files(api, parsed.org, parsed.name, parsed.version, dest)
+    _download_capability_replacing(api, parsed.org, parsed.name, parsed.version, dest)
     print_success(f"Pulled {parsed.format()} to {dest}")
 
 
@@ -728,9 +755,65 @@ def delete(
 # ---------------------------------------------------------------------------
 
 
+def _pull_capabilities_to_dir(
+    api: t.Any,
+    org: str,
+    directory: Path,
+    *,
+    force: bool,
+    on_progress: t.Callable[[str, str, str | None], None],
+) -> tuple[list[str], list[str], list[tuple[str, str]]]:
+    """Pull every capability in *org* to ``directory/<name>``.
+
+    Returns (pulled, skipped, failed). Additive copy semantics: a name whose
+    destination already exists is skipped unless *force*.
+    """
+    directory.mkdir(parents=True, exist_ok=True)
+
+    items = _collect_pages(
+        lambda page, page_size: api.list_capabilities(org, page=page, limit=page_size),
+        limit=10_000,
+        page_size=100,
+        items_key="capabilities",
+    )
+
+    pulled: list[str] = []
+    skipped: list[str] = []
+    failed: list[tuple[str, str]] = []
+
+    for item in items:
+        name = item.get("name")
+        if not name:
+            continue
+        dest = (directory / name).resolve()
+        # Skip already-present artifacts from the path alone — no version-resolution
+        # API call for a name we won't pull (CLI-SYNC-031, CLI-SYNC-035).
+        if (dest.exists() or dest.is_symlink()) and not force:
+            skipped.append(name)
+            on_progress(name, "skipped", None)
+            continue
+        try:
+            vref = ensure_version(api, "capability", ArtifactRef.parse(name, org))
+        except ValueError as e:
+            # No published version — nothing to pull; not a failure (CLI-SYNC-036).
+            skipped.append(name)
+            on_progress(name, "skipped", str(e))
+            continue
+        try:
+            _download_capability_replacing(api, vref.org, vref.name, vref.version, dest)
+            pulled.append(name)
+            on_progress(name, "pulled", vref.version)
+        except Exception as e:
+            failed.append((name, str(e)))
+            on_progress(name, "failed", str(e))
+
+    return pulled, skipped, failed
+
+
 @cli.command()
 def sync(
-    directory: Path,
+    src: str,
+    dst: str | None = None,
     *,
     force: t.Annotated[bool, cyclopts.Parameter(negative=())] = False,
     publish: t.Annotated[bool, cyclopts.Parameter(negative=())] = False,
@@ -740,21 +823,55 @@ def sync(
     ] = False,
     platform: PlatformArgs = PlatformArgs(),
 ) -> None:
-    """Publish all capabilities from a directory — ideal for CI pipelines.
+    """Bulk-copy capabilities between a local directory and a platform.
 
-    Discovers subdirectories containing capability.yaml, compares each
-    against the registry by content hash, and only publishes those that
-    changed.
+    One operand is a platform URL, the other a local directory; the direction
+    follows from which is which:
+
+    - ``sync <dir> <url>`` — publish every capability under the directory,
+      pushing only those whose content changed (ideal for CI). ``sync <dir>``
+      alone pushes to the platform your connection flags point at.
+    - ``sync <url> <dir>`` — pull every capability in your organization down into
+      the directory (one subfolder per capability), for carrying onto an
+      air-gapped instance.
+
+    The platform URL resolves to a profile you have logged in to; if none
+    matches, the command tells you to ``dn login --server <url>`` first.
 
     Args:
-        directory: Root directory containing capability subdirectories.
-        force: Publish all capabilities even if unchanged.
-        publish: Ensure published capabilities are publicly discoverable.
+        src: A platform URL to pull from, or a directory to push from.
+        dst: A directory to pull into, or a platform URL to push to. Omit to
+            push ``src`` to the connection-flag platform (back-compat form).
+        force: Copy every capability even if unchanged / already present.
+        publish: Ensure published capabilities are publicly discoverable (push only).
     """
     publish = resolve_publish_flag(publish, public_compat)
-    dn = configured_dreadnode(platform)
+    plan = classify_sync_operands(src, dst)
+    api, dn, profile = connect_for_sync(plan, platform)
+
+    if plan.direction == "pull":
+        if publish:
+            print_warning("--publish is ignored when pulling")
+        pulled, skipped, failed = _pull_capabilities_to_dir(
+            api,
+            profile.org_key,
+            plan.directory,
+            force=force,
+            on_progress=_sync_progress,
+        )
+        total = len(pulled) + len(skipped) + len(failed)
+        console.print(
+            f"\nPulled {total}: "
+            f"[green]{len(pulled)} pulled[/green], "
+            f"[dim]{len(skipped)} skipped[/dim], "
+            f"[red]{len(failed)} failed[/red]"
+        )
+        if failed:
+            raise SystemExit(1)
+        return
+
     result = dn.sync_capabilities(
-        directory,
+        plan.directory,
         force=force,
         publish=publish,
         on_progress=_sync_progress,
@@ -1411,6 +1528,7 @@ def validate(
 
     errors: list[tuple[str, str]] = []
     warnings: list[str] = []
+    strict_warnings: list[str] = []
 
     for cap_dir in dirs:
         dir_name = cap_dir.name
@@ -1426,14 +1544,10 @@ def validate(
             hooks = cap.hooks
             policies = cap.policies
 
-            # Deliberately ``error`` only, not ``degraded``. Drops are now recorded
-            # rather than skipped silently, but they surface through
-            # ``component_health`` — the TUI and ``GET /api/runtime``. Gating
-            # ``--strict`` on them would fail CI for intentional shapes (a
-            # compatibility stub that exports nothing is the real-world case) with
-            # no way to suppress the finding short of renaming source files.
-            # Revisit once there is a suppression mechanism.
-            health_issues = [h for h in cap.component_health if h.get("status") == "error"]
+            health_issues = [
+                h for h in cap.component_health if h.get("status") in ("error", "degraded")
+            ]
+            strict_health_issues = [h for h in health_issues if h.get("status") == "error"]
             # Count loadable skills (one SKILL.md per skill), not manifest path
             # entries — `skills_paths` is a list of search roots and overstates
             # the count, especially when entries fail to parse.
@@ -1451,11 +1565,18 @@ def validate(
 
             if health_issues:
                 warnings.append(cap.name)
+                if strict_health_issues:
+                    strict_warnings.append(cap.name)
                 print_warning(f"{cap.name}@{cap.version} ({summary})", indent=2)
                 for h in health_issues:
                     kind = h.get("kind", "?")
                     name = h.get("name", "?")
-                    console.print(f"       {kind}:{name}: {h.get('error', 'unknown')}")
+                    status = h.get("status", "unknown")
+                    console.print(
+                        f"       {kind}:{name} status={status}: {h.get('error', 'unknown')}"
+                    )
+                    if detail := h.get("detail"):
+                        console.print(f"         Fix: {detail}")
             else:
                 print_success(f"{cap.name}@{cap.version} ({summary})", indent=2)
         except (ValueError, FileNotFoundError) as exc:
@@ -1470,5 +1591,5 @@ def validate(
         f"\nValidated {total}: "
         f"[green]{ok_count} ok[/green], [yellow]{warned} warn[/yellow], [red]{failed} failed[/red]"
     )
-    if errors or (strict and warnings):
+    if errors or (strict and strict_warnings):
         raise SystemExit(1)

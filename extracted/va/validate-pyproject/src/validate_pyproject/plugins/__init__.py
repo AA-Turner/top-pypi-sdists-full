@@ -15,8 +15,6 @@ from textwrap import dedent
 from typing import (
     Any,
     Callable,
-    Generator,
-    Iterable,
     NamedTuple,
     Protocol,
 )
@@ -24,6 +22,8 @@ from typing import (
 from .. import __version__
 
 if typing.TYPE_CHECKING:
+    from collections.abc import Generator, Iterable
+
     from ..types import Plugin, Schema
 
 _DEFAULT_MULTI_PRIORITY = 0
@@ -115,7 +115,7 @@ class StoredPlugin:
 
     @property
     def help_text(self) -> str:
-        return self.schema.get("description", "")
+        return self.schema.get("description") or ""
 
     def __str__(self) -> str:
         return self._source
@@ -226,8 +226,8 @@ def list_from_entry_points(
     multi_eps = (
         _SortablePlugin(e.name, p)
         for e in iterate_entry_points("validate_pyproject.multi_schema")
-        for p in load_from_multi_entry_point(e)
         if filtering(e)
+        for p in load_from_multi_entry_point(e)
     )
     eps = chain(tool_eps, multi_eps)
     dedup = {e.key(): e.plugin for e in sorted(eps)}
@@ -245,6 +245,8 @@ class ErrorLoadingPlugin(RuntimeError):
         if entry_point and not plugin:
             plugin = getattr(entry_point, "module", entry_point.name)
 
-        sub = {"package": __package__, "version": __version__, "plugin": plugin}
+        assert __spec__ is not None
+        assert __spec__.parent is not None
+        sub = {"package": __spec__.parent, "version": __version__, "plugin": plugin}
         msg = dedent(self._DESC).format(**sub).splitlines()
         super().__init__(f"{msg[0]}\n{' '.join(msg[1:])}")

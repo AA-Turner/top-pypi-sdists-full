@@ -16,10 +16,12 @@ from snowflake.snowpark_connect.utils.cld_context import (
     get_cld_info,
     get_current_cld_context,
     get_multipart_backtick_flags,
+    is_cld_unified_identifier_rules_enabled,
     is_double_quoted,
     is_in_cld_context,
     record_multipart_backtick_flags,
     set_current_cld_context,
+    should_use_cld_identifier_rules,
     transform_identifier_for_snowflake,
 )
 from snowflake.snowpark_connect.utils.snowpark_connect_logging import logger
@@ -31,15 +33,18 @@ __all__ = [
     "get_current_cld_context",
     "get_multipart_backtick_flags",
     "is_double_quoted",
+    "is_cld_unified_identifier_rules_enabled",
     "is_in_cld_context",
     "record_multipart_backtick_flags",
     "set_current_cld_context",
+    "should_use_cld_identifier_rules",
     "transform_identifier_for_snowflake",
     "is_backtick_quoted",
     "strip_backtick_quotes_if_quoted",
     "unquote_spark_identifier_if_quoted",
     "spark_to_sf_single_id",
     "spark_to_sf_single_id_with_unquoting",
+    "spark_multipart_name_to_snowflake",
     "split_fully_qualified_spark_name",
     "split_fully_qualified_spark_name_with_quoting",
     "FQN",
@@ -154,6 +159,25 @@ def spark_to_sf_single_id(
         is_backtick_quoted=is_backtick_quoted,
         is_cld=is_cld,
         is_column=is_column,
+    )
+
+
+def spark_multipart_name_to_snowflake(
+    qualified_name: str,
+    is_cld: bool | None = None,
+) -> str:
+    """Transform a dot-separated Spark table identifier string to Snowflake SQL.
+
+    Parses per-part backtick flags from ``qualified_name`` itself (same approach
+    as ``map_read_table.get_table_from_name``) so DataFrame write paths honor
+    customer backtick quoting without relying on the SQL AST backtick map.
+    """
+    parts, backtick_flags = split_fully_qualified_spark_name_with_quoting(
+        qualified_name
+    )
+    return ".".join(
+        spark_to_sf_single_id(part, is_backtick_quoted=flag, is_cld=is_cld)
+        for part, flag in zip(parts, backtick_flags)
     )
 
 
@@ -283,6 +307,36 @@ def split_fully_qualified_spark_name_with_quoting(
 UNQUOTED_IDENTIFIER_REGEX = r"([a-zA-Z_])([a-zA-Z0-9_$]{0,254})"
 QUOTED_IDENTIFIER_REGEX = r'"((""|[^"]){0,255})"'
 VALID_IDENTIFIER_REGEX = f"(?:{UNQUOTED_IDENTIFIER_REGEX}|{QUOTED_IDENTIFIER_REGEX})"
+_VALID_UNQUOTED_SNOWFLAKE_IDENTIFIER = re.compile(rf"\A{UNQUOTED_IDENTIFIER_REGEX}\Z")
+
+
+def is_valid_unquoted_snowflake_identifier(name: str) -> bool:
+    """True when ``name`` can appear unquoted in Snowflake SQL."""
+    return bool(_VALID_UNQUOTED_SNOWFLAKE_IDENTIFIER.match(name))
+
+
+def cld_identifier_needs_snowflake_quotes(
+    bare_name: str,
+    *,
+    is_backtick_quoted: bool = False,
+    spark_case_sensitive: bool = False,
+) -> bool:
+    """Whether a bare Spark name needs Snowflake double-quotes under CLD rules.
+
+    Quoting is driven by Snowflake identifier validity and
+    ``spark.sql.caseSensitive``, with a backtick supplement: Spark backticks are
+    not a case-sensitivity signal, but a backtick-quoted name that is not a
+    simple ``\\w+`` identifier may wrap characters that must be quoted in
+    Snowflake (e.g. dots, spaces). Simple backtick names like `` `foo` `` do
+    not force quotes.
+    """
+    if spark_case_sensitive:
+        return True
+    if not is_valid_unquoted_snowflake_identifier(bare_name):
+        return True
+    if is_backtick_quoted and not UNQUOTED_SPARK_IDENTIFIER.match(bare_name):
+        return True
+    return False
 
 
 Self = TypeVar("Self", bound="FQN")

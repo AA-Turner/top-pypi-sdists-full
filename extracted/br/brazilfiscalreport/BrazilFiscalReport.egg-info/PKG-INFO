@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: BrazilFiscalReport
-Version: 1.0.1
+Version: 1.0.2
 Summary: Python library for generating Brazilian auxiliary fiscal documents in PDF from XML documents.
 Author: Engenere
 License:   GNU LESSER GENERAL PUBLIC LICENSE

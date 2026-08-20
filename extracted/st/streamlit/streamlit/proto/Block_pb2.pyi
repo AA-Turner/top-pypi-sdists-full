@@ -394,6 +394,7 @@ class Block(_message.Message):
         TYPE_FIELD_NUMBER: _builtins.int
         OPEN_FIELD_NUMBER: _builtins.int
         ID_FIELD_NUMBER: _builtins.int
+        WRAP_FIELD_NUMBER: _builtins.int
         label: _builtins.str
         help: _builtins.str
         disabled: _builtins.bool
@@ -407,6 +408,10 @@ class Block(_message.Message):
         When absent, the popover may still have a block-level id for CSS
         key styling but should not trigger reruns on toggle.
         """
+        wrap: _builtins.bool
+        """If false, the trigger label ellipsizes on one line instead of wrapping.
+        Absent means the frontend decides the optimal wrapping behavior based on the layout.
+        """
         def __init__(
             self,
             *,
@@ -417,19 +422,24 @@ class Block(_message.Message):
             type: _builtins.str = ...,
             open: _builtins.bool | None = ...,
             id: _builtins.str | None = ...,
+            wrap: _builtins.bool | None = ...,
         ) -> None: ...
-        _HasFieldArgType: _TypeAlias = _typing.Literal["_id", b"_id", "_open", b"_open", "id", b"id", "open", b"open"]  # noqa: Y015
+        _HasFieldArgType: _TypeAlias = _typing.Literal["_id", b"_id", "_open", b"_open", "_wrap", b"_wrap", "id", b"id", "open", b"open", "wrap", b"wrap"]  # noqa: Y015
         def HasField(self, field_name: _HasFieldArgType) -> _builtins.bool: ...
-        _ClearFieldArgType: _TypeAlias = _typing.Literal["_id", b"_id", "_open", b"_open", "disabled", b"disabled", "help", b"help", "icon", b"icon", "id", b"id", "label", b"label", "open", b"open", "type", b"type"]  # noqa: Y015
+        _ClearFieldArgType: _TypeAlias = _typing.Literal["_id", b"_id", "_open", b"_open", "_wrap", b"_wrap", "disabled", b"disabled", "help", b"help", "icon", b"icon", "id", b"id", "label", b"label", "open", b"open", "type", b"type", "wrap", b"wrap"]  # noqa: Y015
         def ClearField(self, field_name: _ClearFieldArgType) -> None: ...
         _WhichOneofReturnType__id: _TypeAlias = _typing.Literal["id"]  # noqa: Y015
         _WhichOneofArgType__id: _TypeAlias = _typing.Literal["_id", b"_id"]  # noqa: Y015
         _WhichOneofReturnType__open: _TypeAlias = _typing.Literal["open"]  # noqa: Y015
         _WhichOneofArgType__open: _TypeAlias = _typing.Literal["_open", b"_open"]  # noqa: Y015
+        _WhichOneofReturnType__wrap: _TypeAlias = _typing.Literal["wrap"]  # noqa: Y015
+        _WhichOneofArgType__wrap: _TypeAlias = _typing.Literal["_wrap", b"_wrap"]  # noqa: Y015
         @_typing.overload
         def WhichOneof(self, oneof_group: _WhichOneofArgType__id) -> _WhichOneofReturnType__id | None: ...
         @_typing.overload
         def WhichOneof(self, oneof_group: _WhichOneofArgType__open) -> _WhichOneofReturnType__open | None: ...
+        @_typing.overload
+        def WhichOneof(self, oneof_group: _WhichOneofArgType__wrap) -> _WhichOneofReturnType__wrap | None: ...
 
     @_typing.final
     class ChatMessage(_message.Message):

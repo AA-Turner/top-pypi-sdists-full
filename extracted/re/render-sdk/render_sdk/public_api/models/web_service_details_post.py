@@ -4,6 +4,7 @@ from typing import TYPE_CHECKING, Any, TypeVar, Union
 from attrs import define as _attrs_define
 from attrs import field as _attrs_field
 
+from ..models.internal_routing import InternalRouting
 from ..models.plan import Plan
 from ..models.pull_request_previews_enabled import PullRequestPreviewsEnabled
 from ..models.region import Region
@@ -30,6 +31,7 @@ class WebServiceDetailsPOST:
     """
     Attributes:
         runtime (ServiceRuntime): Runtime
+        artifact_source_id (Union[Unset, str]):
         autoscaling (Union[Unset, AutoscalingConfig]):
         disk (Union[Unset, ServiceDisk]):
         env (Union[Unset, ServiceEnv]): This field has been deprecated, runtime should be used in its place.
@@ -37,8 +39,13 @@ class WebServiceDetailsPOST:
         health_check_path (Union[Unset, str]):
         maintenance_mode (Union[Unset, MaintenanceMode]):
         num_instances (Union[Unset, int]): Defaults to 1
-        plan (Union[Unset, Plan]): The instance type to use. Note that base services on any paid instance type can't
-            create preview instances with the `free` instance type. Example: starter.
+        internal_routing (Union[Unset, InternalRouting]): How requests from other services in the same workspace are
+            routed to this service's instances. When unset, Render's standard routing is used. `ipOnly` routes requests
+            directly to individual instance IPs. Only available to workspaces that Render has granted access. Can only be
+            set when creating a service.
+        plan (Union[Unset, Plan]): The instance type to use. Legacy variants (`*_legacy`) identify grandfathered plans
+            no longer offered for new services. Note that base services on any paid instance type can't create preview
+            instances with the `free` instance type. Example: starter.
         pre_deploy_command (Union[Unset, str]):
         pull_request_previews_enabled (Union[Unset, PullRequestPreviewsEnabled]): This field has been deprecated.
             previews.generation should be used in its place.
@@ -52,6 +59,7 @@ class WebServiceDetailsPOST:
     """
 
     runtime: ServiceRuntime
+    artifact_source_id: Union[Unset, str] = UNSET
     autoscaling: Union[Unset, "AutoscalingConfig"] = UNSET
     disk: Union[Unset, "ServiceDisk"] = UNSET
     env: Union[Unset, ServiceEnv] = UNSET
@@ -59,6 +67,7 @@ class WebServiceDetailsPOST:
     health_check_path: Union[Unset, str] = UNSET
     maintenance_mode: Union[Unset, "MaintenanceMode"] = UNSET
     num_instances: Union[Unset, int] = UNSET
+    internal_routing: Union[Unset, InternalRouting] = UNSET
     plan: Union[Unset, Plan] = UNSET
     pre_deploy_command: Union[Unset, str] = UNSET
     pull_request_previews_enabled: Union[Unset, PullRequestPreviewsEnabled] = UNSET
@@ -73,6 +82,8 @@ class WebServiceDetailsPOST:
         from ..models.docker_details_post import DockerDetailsPOST
 
         runtime = self.runtime.value
+
+        artifact_source_id = self.artifact_source_id
 
         autoscaling: Union[Unset, dict[str, Any]] = UNSET
         if not isinstance(self.autoscaling, Unset):
@@ -101,6 +112,10 @@ class WebServiceDetailsPOST:
             maintenance_mode = self.maintenance_mode.to_dict()
 
         num_instances = self.num_instances
+
+        internal_routing: Union[Unset, str] = UNSET
+        if not isinstance(self.internal_routing, Unset):
+            internal_routing = self.internal_routing.value
 
         plan: Union[Unset, str] = UNSET
         if not isinstance(self.plan, Unset):
@@ -140,6 +155,8 @@ class WebServiceDetailsPOST:
                 "runtime": runtime,
             }
         )
+        if artifact_source_id is not UNSET:
+            field_dict["artifactSourceId"] = artifact_source_id
         if autoscaling is not UNSET:
             field_dict["autoscaling"] = autoscaling
         if disk is not UNSET:
@@ -154,6 +171,8 @@ class WebServiceDetailsPOST:
             field_dict["maintenanceMode"] = maintenance_mode
         if num_instances is not UNSET:
             field_dict["numInstances"] = num_instances
+        if internal_routing is not UNSET:
+            field_dict["internalRouting"] = internal_routing
         if plan is not UNSET:
             field_dict["plan"] = plan
         if pre_deploy_command is not UNSET:
@@ -185,6 +204,8 @@ class WebServiceDetailsPOST:
 
         d = dict(src_dict)
         runtime = ServiceRuntime(d.pop("runtime"))
+
+        artifact_source_id = d.pop("artifactSourceId", UNSET)
 
         _autoscaling = d.pop("autoscaling", UNSET)
         autoscaling: Union[Unset, AutoscalingConfig]
@@ -239,6 +260,13 @@ class WebServiceDetailsPOST:
 
         num_instances = d.pop("numInstances", UNSET)
 
+        _internal_routing = d.pop("internalRouting", UNSET)
+        internal_routing: Union[Unset, InternalRouting]
+        if isinstance(_internal_routing, Unset):
+            internal_routing = UNSET
+        else:
+            internal_routing = InternalRouting(_internal_routing)
+
         _plan = d.pop("plan", UNSET)
         plan: Union[Unset, Plan]
         if isinstance(_plan, Unset):
@@ -287,6 +315,7 @@ class WebServiceDetailsPOST:
 
         web_service_details_post = cls(
             runtime=runtime,
+            artifact_source_id=artifact_source_id,
             autoscaling=autoscaling,
             disk=disk,
             env=env,
@@ -294,6 +323,7 @@ class WebServiceDetailsPOST:
             health_check_path=health_check_path,
             maintenance_mode=maintenance_mode,
             num_instances=num_instances,
+            internal_routing=internal_routing,
             plan=plan,
             pre_deploy_command=pre_deploy_command,
             pull_request_previews_enabled=pull_request_previews_enabled,

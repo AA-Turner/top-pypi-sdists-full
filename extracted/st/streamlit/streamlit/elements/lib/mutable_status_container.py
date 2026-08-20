@@ -25,7 +25,7 @@ from streamlit.elements.lib.layout_utils import (
     get_width_config,
     validate_width,
 )
-from streamlit.errors import StreamlitAPIException, StreamlitValueError
+from streamlit.errors import StreamlitValueError
 from streamlit.proto.Block_pb2 import Block as BlockProto
 from streamlit.proto.ForwardMsg_pb2 import ForwardMsg
 from streamlit.runtime.scriptrunner_utils.script_run_context import enqueue_message
@@ -67,9 +67,7 @@ class StatusContainer(DeltaGenerator):
         elif state == "error":
             expandable_proto.icon = ":material/error:"
         else:
-            raise StreamlitAPIException(
-                f"Unknown state ({state}). Must be one of 'running', 'complete', or 'error'."
-            )
+            raise StreamlitValueError("state", ["'running'", "'complete'", "'error'"])
 
         block_proto = BlockProto()
         block_proto.allow_empty = True
@@ -164,15 +162,15 @@ class StatusContainer(DeltaGenerator):
             elif state == "error":
                 msg.delta.add_block.expandable.icon = ":material/error:"
             else:
-                raise StreamlitAPIException(
-                    f"Unknown state ({state}). Must be one of 'running', 'complete', or 'error'."
+                raise StreamlitValueError(
+                    "state", ["'running'", "'complete'", "'error'"]
                 )
             self._current_state = state
 
         self._current_proto = msg.delta.add_block
         enqueue_message(msg)
 
-    def __enter__(self) -> Self:  # type: ignore[override]
+    def __enter__(self) -> Self:  # type: ignore[override]  # ty: ignore[invalid-method-override]
         # This is a little dubious: we're returning a different type than
         # our superclass' `__enter__` function. Maybe DeltaGenerator.__enter__
         # should always return `self`?
@@ -181,9 +179,9 @@ class StatusContainer(DeltaGenerator):
 
     def __exit__(
         self,
-        exc_type: type[BaseException] | None,
-        exc_val: BaseException | None,
-        exc_tb: TracebackType | None,
+        typ: type[BaseException] | None,
+        exc: BaseException | None,
+        tb: TracebackType | None,
     ) -> Literal[False]:
         # Only update if the current state is running
         if self._current_state == "running":
@@ -193,10 +191,10 @@ class StatusContainer(DeltaGenerator):
             # (to complete) is applied. Adding a short timeout here allows the frontend
             # to render the update before.
             time.sleep(0.05)
-            if exc_type is not None:
+            if typ is not None:
                 # If an exception was raised in the context,
                 # we want to update the status to error.
                 self.update(state="error")
             else:
                 self.update(state="complete")
-        return super().__exit__(exc_type, exc_val, exc_tb)
+        return super().__exit__(typ, exc, tb)

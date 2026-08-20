@@ -44,9 +44,14 @@ from .models import (
     ExposedPort,
     ExposePortRequest,
     FileUploadResponse,
+    ImageArtifactType,
+    ImageBuildStatus,
     ImageCoordinateState,
+    ImageListItem,
+    ImageListResponse,
     ImageMutationError,
     ImageOwner,
+    ImageOwnerType,
     ImageUpdateItem,
     ImageUpdatePatch,
     ImageUpdateResult,
@@ -74,7 +79,7 @@ from .models import (
 from .process import AsyncSandboxProcess
 from .sandbox import AsyncSandboxClient, AsyncTemplateClient, SandboxClient, TemplateClient
 
-__version__ = "0.2.38"
+__version__ = "0.2.39"
 
 # Deprecated alias for backward compatibility
 TimeoutError = APITimeoutError
@@ -120,6 +125,11 @@ __all__ = [
     "BulkImageTransferResponse",
     "TransferImageResult",
     "ImageVisibility",
+    "ImageBuildStatus",
+    "ImageArtifactType",
+    "ImageOwnerType",
+    "ImageListItem",
+    "ImageListResponse",
     "ImageOwner",
     "PersonalImageOwner",
     "TeamImageOwner",

@@ -3,8 +3,9 @@ from __future__ import absolute_import, print_function, division
 
 import math
 
+from collections import OrderedDict
 from datetime import datetime, date
-from decimal import Decimal
+from decimal import Decimal, localcontext
 from tempfile import NamedTemporaryFile
 
 import pytest
@@ -17,6 +18,7 @@ from petl.util.vis import look
 from petl.test.helpers import ieq
 
 from petl.io.avro import fromavro, toavro, appendavro
+from petl.io.avro import _get_definition_from_type_of, precision_and_scale
 
 from petl.test.io.test_avro_schemas import schema0, schema1, schema2, \
     schema3, schema4, schema5, schema6
@@ -128,6 +130,99 @@ else:
 
     # endregion
 
+    # region Decimal schema inference
+
+    def test_toavro_decimal_zero():
+        # a zero has no digits to take the logarithm of
+        _write_to_avro_file(table_dec_zero, None)
+        _assert_decimal_type(table_dec_zero, 8, 2)
+
+    def test_toavro_decimal_small():
+        # more fractional digits than the default precision of 8
+        _write_to_avro_file(table_dec_small, None)
+        _assert_decimal_type(table_dec_small, 9, 9)
+
+    def test_toavro_decimal_integral():
+        # positive exponents are trailing zeros, not fractional digits
+        _write_to_avro_file(table_dec_integral, None)
+        _assert_decimal_type(table_dec_integral, 8, 0)
+
+    def test_toavro_decimal_mixed_scales():
+        # writing rescales a value to the scale of the schema, so the
+        # precision has to cover the widest unscaled integer of the column
+        _write_to_avro_file(table_dec_mixed, None)
+        _assert_decimal_type(table_dec_mixed, 20, 11)
+
+    def test_toavro_decimal_nested():
+        # arrays and records reach the same inference helper
+        _write_to_avro_file(table_dec_nested, None)
+
+    def test_precision_and_scale_of_each_shape():
+        for value, prec, scale in decimal_shapes:
+            actual = precision_and_scale(value)[:2]
+            assert actual == (prec, scale), \
+                'precision_and_scale(%s): got %r, expected %r' \
+                % (value, actual, (prec, scale))
+
+    def test_inferred_decimal_type_obeys_avro_spec():
+        # the spec asks for a precision "greater than zero" and a scale
+        # "zero or a positive integer less than or equal to the precision"
+        for column in _all_decimal_columns():
+            prec, scale = _infer_decimal_type(column)
+            assert prec > 0, \
+                'column %r got precision %d' % (_labels(column), prec)
+            assert 0 <= scale <= prec, \
+                'column %r got scale %d > precision %d' \
+                % (_labels(column), scale, prec)
+
+    def test_inferred_decimal_type_fits_every_value():
+        # a decimal is `unscaled * 10 ** -scale`, so at the scale of the
+        # schema each value must stay within the declared precision
+        for column in _all_decimal_columns():
+            prec, scale = _infer_decimal_type(column)
+            for value in column:
+                if value is None:
+                    continue
+                digits = _unscaled_digits(value, scale)
+                assert digits <= prec, \
+                    'column %r: %s needs %d digits, precision is %d' \
+                    % (_labels(column), value, digits, prec)
+
+    def test_precision_and_scale_of_unscaled_value():
+        for value, _, _ in decimal_shapes:
+            _, scale, bytes_req, unscaled = precision_and_scale(value)
+            assert (unscaled < 0) == (value < 0), \
+                '%s came back as %d' % (value, unscaled)
+            # the defining identity: unscaled * 10**-scale must equal value,
+            # trailing zeros included (a plain digit-string compare doesn't
+            # catch a positive-exponent value coming back short of them);
+            # a wide context avoids scaleb rounding the widest fixtures
+            with localcontext() as ctx:
+                ctx.prec = 60
+                assert Decimal(unscaled).scaleb(-scale) == value, \
+                    '%s came back as %d at scale %d' % (value, unscaled, scale)
+            assert _significand('{0:f}'.format(value)) \
+                == _significand('%d' % unscaled), \
+                '%s came back as %d' % (value, unscaled)
+            # enough room for the two's complement of the unscaled integer
+            assert 2 ** (8 * bytes_req - 1) > abs(unscaled), \
+                '%s needs more than %d bytes' % (value, bytes_req)
+            assert bytes_req == 1 or 2 ** (8 * bytes_req - 9) <= abs(unscaled), \
+                '%s does not need %d bytes' % (value, bytes_req)
+
+    def test_precision_and_scale_of_non_finite():
+        for value in [Decimal('NaN'), Decimal('Infinity'), Decimal('-Inf')]:
+            try:
+                precision_and_scale(value)
+            except ValueError as vex:
+                # the message has to name the value that cannot be written
+                assert str(value) in '%s' % vex, \
+                    '%s is not reported by: %s' % (value, vex)
+                continue
+            assert False, 'built a decimal schema for %s' % value
+
+    # endregion
+
     # region Execution
 
     def _read_from_mavro_file(test_rows, test_schema, test_expect=None, print_tables=True):
@@ -187,6 +282,51 @@ else:
 
     def _decs(float_value, rounding=12):
         return Decimal(str(round(float_value, rounding)))
+
+    def _assert_decimal_type(test_rows, prec, scale):
+        column = [row[1] for row in test_rows[1:]]
+        actual = _infer_decimal_type(column)
+        assert actual == (prec, scale), \
+            'column %r got %r, expected %r' \
+            % (_labels(column), actual, (prec, scale))
+
+    def _all_decimal_columns():
+        return [[value] for value, _, _ in decimal_shapes] + decimal_columns
+
+    def _labels(column):
+        return [str(value) for value in column]
+
+    def _infer_decimal_type(column):
+        '''the precision and scale petl infers for a column of decimals'''
+        prev = None
+        tdef = None
+        for value in column:
+            curr, dcurr = _get_definition_from_type_of(u'amount', value, prev)
+            # a None row leaves the definition built so far untouched
+            if curr is not None:
+                tdef = curr
+            if dcurr is not None:
+                prev = dcurr
+        return tdef['precision'], tdef['scale']
+
+    def _significand(text):
+        '''the digits of a number, without sign, point or padding zeros'''
+        return text.replace('-', '').replace('.', '').strip('0')
+
+    def _unscaled_digits(value, scale):
+        '''digit count of `value * 10 ** scale`, taken from its text form
+
+        Deliberately built from the fixed point representation instead of
+        `Decimal.as_tuple()`, which is what the code under test reads, and
+        without arithmetic, which would round on the decimal context.
+        '''
+        fixed = '{0:f}'.format(value)
+        fraction = fixed.split('.')[1] if '.' in fixed else ''
+        assert len(fraction) <= scale, \
+            '%s does not fit a scale of %d' % (value, scale)
+        text = fixed.replace('-', '').replace('.', '')
+        text = text + '0' * (scale - len(fraction))
+        return len(text.lstrip('0')) or 1
 
     def _utc(year, month, day, hour=0, minute=0, second=0, microsecond=0):
         u = datetime(year, month, day, hour, minute, second, microsecond)
@@ -328,6 +468,87 @@ else:
              [2, { u'name': u'Joe', u'alias': u'terminator' }]]
 
     table9 = [header8] + rows9
+
+    # (value, precision, scale) of the avro decimal logicalType, where the
+    # precision is the digit count of the unscaled integer and the scale the
+    # count of fractional digits
+    decimal_shapes = [
+        # zeros, in every shape Decimal can hold one
+        (Decimal('0'), 1, 0),
+        (Decimal('-0'), 1, 0),
+        (Decimal('0.0'), 1, 1),
+        (Decimal('0.00'), 2, 2),
+        # a zero keeps the width implied by its own exponent
+        (Decimal('0E+2'), 3, 0),
+        (Decimal('0E-7'), 7, 7),
+        # integers, including the exact powers of ten
+        (Decimal('1'), 1, 0),
+        (Decimal('42'), 2, 0),
+        (Decimal('-99'), 2, 0),
+        (Decimal('10'), 2, 0),
+        (Decimal('100'), 3, 0),
+        (Decimal('12345'), 5, 0),
+        # ordinary fractions
+        (Decimal('1.5'), 2, 1),
+        (Decimal('99.99'), 4, 2),
+        (Decimal('123.45'), 5, 2),
+        (Decimal('100.00'), 5, 2),
+        (Decimal('-3.14159'), 6, 5),
+        # fewer digits than fractional places
+        (Decimal('0.1'), 1, 1),
+        (Decimal('0.001'), 3, 3),
+        (Decimal('0.00000001'), 8, 8),
+        (Decimal('1E-9'), 9, 9),
+        (Decimal('1E-12'), 12, 12),
+        # positive exponents: trailing zeros are part of the integer
+        (Decimal('1E+2'), 3, 0),
+        (Decimal('1.5E+3'), 4, 0),
+        (Decimal('-2E+5'), 6, 0),
+        (Decimal('1E+20'), 21, 0),
+        # more digits than the decimal context holds by default
+        (Decimal('12345678901234.5678'), 18, 4),
+        (Decimal('0.123456789012345678'), 18, 18),
+        (Decimal('123456789012345678901234567890'), 30, 0),
+    ]
+
+    # columns whose values disagree on scale, precision or both
+    decimal_columns = [
+        [Decimal('0.00'), Decimal('12.34')],
+        [Decimal('1'), Decimal('0'), Decimal('-0'), Decimal('0.00')],
+        [Decimal('1.5'), Decimal('0.001')],
+        [Decimal('123456789.1'), Decimal('0.12345678901')],
+        [Decimal('1E-12'), Decimal('1.5')],
+        [Decimal('0.001'), Decimal('1E-12')],
+        [Decimal('1E+7'), Decimal('0.5')],
+        [Decimal('9.99'), Decimal('1E-9'), Decimal('123456.789')],
+        [Decimal('1E+20'), Decimal('0.000001')],
+        [Decimal('0.5'), Decimal('1E+2'), Decimal('1E-8')],
+        [Decimal('1.100'), None, Decimal('0')],
+    ]
+
+    header_dec = [u'name', u'amount']
+
+    table_dec_zero = [header_dec,
+                      [u'pete', Decimal('0.00')],
+                      [u'mike', Decimal('12.34')],
+                      [u'zack', Decimal('-0')]]
+
+    table_dec_small = [header_dec,
+                       [u'pete', Decimal('1E-9')],
+                       [u'mike', Decimal('0.000000025')]]
+
+    table_dec_integral = [header_dec,
+                          [u'pete', Decimal('1E+2')],
+                          [u'mike', Decimal('-2E+5')]]
+
+    table_dec_mixed = [header_dec,
+                       [u'pete', Decimal('123456789.1')],
+                       [u'mike', Decimal('0.12345678901')]]
+
+    table_dec_nested = [[u'name', u'amounts', u'totals'],
+                        [u'pete', [Decimal('0.00'), Decimal('1E-9')],
+                         OrderedDict([(u'due', Decimal('0')),
+                                      (u'paid', Decimal('1E+2'))])]]
 
     # endregion
 

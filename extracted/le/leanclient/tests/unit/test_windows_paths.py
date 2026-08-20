@@ -125,6 +125,7 @@ def test_aio_uri_to_abs_restores_windows_drive(
 
     for uri in (
         "file:///C:/Users/11388/HighDimProb/Main.lean",
+        "file:///C%3A/Users/11388/HighDimProb/Main.lean",
         "file://///C:/Users/11388/HighDimProb/Main.lean",
     ):
         assert client._uri_to_abs(uri) == r"C:\Users\11388\HighDimProb\Main.lean"
@@ -141,6 +142,13 @@ def test_aio_reload_from_disk_reads_utf8(
     client._docs["Unicode.lean"] = doc
 
     updated: dict[str, str] = {}
+    notifications: list[tuple[str, dict]] = []
+
+    class FakeTransport:
+        async def notify(self, method: str, params: dict) -> None:
+            notifications.append((method, params))
+
+    client._transport = FakeTransport()
 
     async def fake_update(path: str, text: str, wait: bool = False) -> DocState:
         updated["text"] = text
@@ -151,6 +159,9 @@ def test_aio_reload_from_disk_reads_utf8(
 
     assert recorded["encoding"] == "utf-8"
     assert updated["text"] == UNICODE_SOURCE
+    assert notifications == [
+        ("textDocument/didSave", {"textDocument": {"uri": doc.uri}})
+    ]
 
 
 def test_aio_disk_lines_reads_utf8(

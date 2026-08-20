@@ -85,7 +85,14 @@ class SecretsScreen(DreadnodeScreen):
                 asyncio.to_thread(self._api.get_secret_presets),
             )
         except Exception as exc:
+            if not self.is_mounted:
+                return
             self._flash_title(f"Error: {exc}", ERROR)
+            return
+
+        # The screen may have been popped while the fetch was in flight —
+        # rendering would query_one against a dead widget tree (NoMatches).
+        if not self.is_mounted:
             return
 
         items: list[dict[str, t.Any]] = []

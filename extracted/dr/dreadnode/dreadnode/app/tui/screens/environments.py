@@ -395,6 +395,8 @@ class EnvironmentScreen(DreadnodeScreen):
                 limit=self._limit,
             )
         except Exception as exc:
+            if not self.is_mounted:
+                return
             self._flash_title(f"Error: {exc}", ERROR)
             return
 

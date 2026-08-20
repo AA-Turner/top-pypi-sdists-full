@@ -4,7 +4,7 @@
 
 use crate::automaton::dfa::DFA;
 use crate::automaton::epsilon_nfa::EpsilonNFA as RustEpsilonNFA;
-use crate::automaton::state::StateId;
+use crate::automaton::state::{StateId, StateSet};
 use crate::automaton::subset_construction::subset_construction;
 use crate::automaton::symbol::{EPSILON, SymbolId};
 use indexmap::IndexMap;
@@ -17,21 +17,18 @@ use pyo3::types::PySet;
     name = "State",
     module = "angr.rustylib.automaton",
     frozen,
-    from_py_object
+    from_py_object,
+    new = "from_fields"
 )]
 #[derive(Clone)]
 pub struct PyState {
     /// The underlying Python value
+    #[pyo3(get)]
     value: Py<PyAny>,
 }
 
 #[pymethods]
 impl PyState {
-    #[new]
-    fn new(value: Py<PyAny>) -> Self {
-        Self { value }
-    }
-
     fn __repr__(&self, py: Python<'_>) -> PyResult<String> {
         let repr = self.value.bind(py).repr()?;
         Ok(format!("State({repr})"))
@@ -48,11 +45,6 @@ impl PyState {
     fn __hash__(&self, py: Python<'_>) -> PyResult<isize> {
         self.value.bind(py).hash()
     }
-
-    #[getter]
-    fn value(&self) -> Py<PyAny> {
-        self.value.clone()
-    }
 }
 
 /// A Symbol wrapper that holds any Python object.
@@ -60,21 +52,18 @@ impl PyState {
     name = "Symbol",
     module = "angr.rustylib.automaton",
     frozen,
-    from_py_object
+    from_py_object,
+    new = "from_fields"
 )]
 #[derive(Clone)]
 pub struct PySymbol {
     /// The underlying Python value
+    #[pyo3(get)]
     value: Py<PyAny>,
 }
 
 #[pymethods]
 impl PySymbol {
-    #[new]
-    fn new(value: Py<PyAny>) -> Self {
-        Self { value }
-    }
-
     fn __repr__(&self, py: Python<'_>) -> PyResult<String> {
         let repr = self.value.bind(py).repr()?;
         Ok(format!("Symbol({repr})"))
@@ -90,11 +79,6 @@ impl PySymbol {
 
     fn __hash__(&self, py: Python<'_>) -> PyResult<isize> {
         self.value.bind(py).hash()
-    }
-
-    #[getter]
-    fn value(&self) -> Py<PyAny> {
-        self.value.clone()
     }
 }
 
@@ -286,6 +270,16 @@ impl PyEpsilonNFA {
     }
 }
 
+impl<'py> IntoPyObject<'py> for &StateSet {
+    type Target = PySet;
+    type Output = Bound<'py, PySet>;
+    type Error = PyErr;
+
+    fn into_pyobject(self, py: Python<'py>) -> Result<Self::Output, Self::Error> {
+        PySet::new(py, self.iter())
+    }
+}
+
 /// A Deterministic Finite Automaton.
 #[pyclass(
     name = "DeterministicFiniteAutomaton",
@@ -308,12 +302,8 @@ impl PyDFA {
 
     /// Get the final states as a set of integer indices.
     #[getter]
-    fn final_states(&self, py: Python<'_>) -> PyResult<Py<PySet>> {
-        let set = PySet::empty(py)?;
-        for state in self.dfa.final_states().iter() {
-            set.add(state)?;
-        }
-        Ok(set.unbind())
+    fn final_states(&self) -> &StateSet {
+        self.dfa.final_states()
     }
 
     /// Check if the DFA's language is empty.

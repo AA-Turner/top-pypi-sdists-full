@@ -1,3 +1,4 @@
+import abc
 import argparse
 import dataclasses
 import inspect
@@ -118,6 +119,8 @@ def parser_context(**kwargs):
 
 parsing_settings: dict = {
     "validate_defaults": False,
+    "validate_subclass_spec_in_any": False,
+    "instantiate_subclass_spec_in_any": None,  # v5.0.0: change default to False
     "parse_optionals_as_positionals": False,
     "add_print_completion_argument": False,
     "stubs_resolver_allow_py_files": False,
@@ -137,6 +140,8 @@ def get_env_var_bool(name: str) -> bool:
 def set_parsing_settings(
     *,
     validate_defaults: bool | None = None,
+    validate_subclass_spec_in_any: bool | None = None,
+    instantiate_subclass_spec_in_any: bool | None = None,
     config_read_mode_urls_enabled: bool | None = None,
     config_read_mode_fsspec_enabled: bool | None = None,
     docstring_parse_style: "docstring_parser.DocstringStyle | None" = None,
@@ -156,6 +161,23 @@ def set_parsing_settings(
         validate_defaults: Whether default values must be valid according to the
             argument type. The default is ``False``, meaning no default
             validation, like in argparse.
+        validate_subclass_spec_in_any: If ``True``, when a value for a type that
+            accepts any value, i.e. ``Any``, ``object``, ``Unvalidated<...>`` or
+            a dict that doesn't validate its values, looks like a subclass spec
+            (i.e. a dict with a ``class_path`` key), it is required to be a
+            valid one, otherwise the parsing fails. For dicts the spec is only
+            validated, since the value is kept as a dict. By default, this is
+            ``False``, meaning that an invalid subclass spec is ignored (a debug
+            log is emitted) and the original value is kept.
+        instantiate_subclass_spec_in_any: Whether ``instantiate`` builds the
+            class when a value for a type that accepts any value, i.e. ``Any``,
+            ``object`` or ``Unvalidated<...>``, is a valid subclass spec. If
+            ``False``, the value is kept as a subclass spec, which the code that
+            receives it can instantiate itself if desired. Currently the default
+            is ``True`` and a deprecation warning is emitted, since from v5.0.0
+            the default will be ``False``. Enabling it is discouraged because it
+            means that any class can be instantiated, so only do it for trusted
+            configs.
         config_read_mode_urls_enabled: Whether to read config files from URLs
             using requests package. Default is ``False``.
         config_read_mode_fsspec_enabled: Whether to read config files from
@@ -201,6 +223,18 @@ def set_parsing_settings(
         parsing_settings["validate_defaults"] = validate_defaults
     elif validate_defaults is not None:
         raise ValueError(f"validate_defaults must be a boolean, but got {validate_defaults}.")
+    # validate_subclass_spec_in_any
+    if isinstance(validate_subclass_spec_in_any, bool):
+        parsing_settings["validate_subclass_spec_in_any"] = validate_subclass_spec_in_any
+    elif validate_subclass_spec_in_any is not None:
+        raise ValueError(f"validate_subclass_spec_in_any must be a boolean, but got {validate_subclass_spec_in_any}.")
+    # instantiate_subclass_spec_in_any
+    if isinstance(instantiate_subclass_spec_in_any, bool):
+        parsing_settings["instantiate_subclass_spec_in_any"] = instantiate_subclass_spec_in_any
+    elif instantiate_subclass_spec_in_any is not None:
+        raise ValueError(
+            f"instantiate_subclass_spec_in_any must be a boolean, but got {instantiate_subclass_spec_in_any}."
+        )
     # config_read_mode
     if config_read_mode_urls_enabled is not None:
         _set_config_read_mode(urls_enabled=config_read_mode_urls_enabled)
@@ -328,6 +362,11 @@ def is_final_class(cls) -> bool:
     return getattr(cls, "__final__", False)
 
 
+def is_abstract_class(cls) -> bool:
+    """Checks whether a class has abstract methods or is explicitly declared as an abstract base class."""
+    return inspect.isabstract(cls) or abc.ABC in getattr(cls, "__bases__", ())
+
+
 def is_generic_class(cls) -> bool:
     return isinstance(cls, _GenericAlias) and getattr(cls, "__module__", "") != "typing"
 
@@ -361,7 +400,8 @@ def get_unaliased_type(cls):
 
 def is_pure_dataclass(cls) -> bool:
     classes = [c for c in inspect.getmro(cls) if c not in {object, Generic}]
-    return all(dataclasses.is_dataclass(c) for c in classes)
+    # bool(classes) since e.g. object itself has no class in its mro that could be a dataclass
+    return bool(classes) and all(dataclasses.is_dataclass(c) for c in classes)
 
 
 subclasses_enabled_types: set[type] = set()
@@ -379,7 +419,10 @@ def is_subclasses_disabled(cls) -> bool:
         return is_subclasses_disabled(cls.__origin__)
     if not inspect.isclass(cls):
         return False
-    subclass_disabled = any(selector(cls) for selector in subclasses_disabled_selectors.values())
+    # abstract classes are not intended to be instantiated from their own fields, so only subclasses make sense
+    subclass_disabled = not is_abstract_class(cls) and any(
+        selector(cls) for selector in subclasses_disabled_selectors.values()
+    )
     if not subclass_disabled:
         subclass_disabled = any(issubclass(cls, disable_type) for disable_type in subclasses_disabled_types)
     if subclass_disabled:

@@ -97,16 +97,17 @@ class Audio(DataType):
         if self._sample_rate is None:
             raise ValueError('Argument "sample_rate" is required when using numpy arrays.')
 
+        data = self._data
+        if not isinstance(data, np.ndarray):
+            raise TypeError("Invalid data type for numpy array processing.")
+
         buffer = io.BytesIO()
         format_name = self._format or "wav"
-        sf.write(buffer, self._data, self._sample_rate, format=format_name)
+        sf.write(buffer, np.asarray(data), self._sample_rate, format=format_name)
         buffer.seek(0)
         audio_bytes = buffer.read()
 
-        if isinstance(self._data, np.ndarray):
-            duration = len(self._data) / float(self._sample_rate)
-        else:
-            raise TypeError("Invalid data type for numpy array processing.")
+        duration = len(data) / float(self._sample_rate)
 
         return audio_bytes, format_name, self._sample_rate, duration
 

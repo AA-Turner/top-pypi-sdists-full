@@ -473,7 +473,15 @@ func (ex *RunExecutor) execJob(ctx context.Context, jobLogFile io.Writer) error 
 	nodeRank := ex.jobSpec.JobNum
 	nodesNum := ex.jobSpec.JobsPerReplica
 	gpusPerNodeNum := ex.clusterInfo.GPUSPerJob
-	gpusNum := nodesNum * gpusPerNodeNum
+	gpusNum := 0
+	if len(ex.clusterInfo.GPUSPerNode) > 0 {
+		for _, n := range ex.clusterInfo.GPUSPerNode {
+			gpusNum += n
+		}
+	} else {
+		// Old servers omit gpus_per_node; fall back to homogeneous math.
+		gpusNum = nodesNum * gpusPerNodeNum
+	}
 
 	mpiHostfilePath := filepath.Join(ex.dstackDir, "mpi/hostfile")
 
@@ -535,16 +543,25 @@ func (ex *RunExecutor) execJob(ctx context.Context, jobLogFile io.Writer) error 
 	envMap := NewEnvMap(ParseEnvList(os.Environ()), jobEnvs, ex.secrets)
 	// `env` interpolation feature is postponed to some future release
 	envMap.Update(ex.jobSpec.Env, false)
+	sanitizeEnv(ctx, envMap)
 
 	const profilePath = "/etc/profile"
 	dstackProfilePath := path.Join(ex.dstackDir, "profile")
-	if err := writeDstackProfile(envMap, dstackProfilePath); err != nil {
+	if err := writeDstackProfile(ctx, envMap, dstackProfilePath); err != nil {
 		log.Warning(ctx, "failed to write dstack_profile", "path", dstackProfilePath, "err", err)
 	} else if err := includeDstackProfile(profilePath, dstackProfilePath); err != nil {
 		log.Warning(ctx, "failed to include dstack_profile", "path", profilePath, "err", err)
 	}
 
-	if err := writeMpiHostfile(ctx, ex.clusterInfo.JobIPs, gpusPerNodeNum, mpiHostfilePath); err != nil {
+	slots := ex.clusterInfo.GPUSPerNode
+	if len(slots) == 0 {
+		// Old servers omit gpus_per_node; fall back to homogeneous per-node GPU count.
+		slots = make([]int, len(ex.clusterInfo.JobIPs))
+		for i := range slots {
+			slots[i] = gpusPerNodeNum
+		}
+	}
+	if err := writeMpiHostfile(ctx, ex.clusterInfo.JobIPs, slots, mpiHostfilePath); err != nil {
 		return fmt.Errorf("write MPI hostfile: %w", err)
 	}
 
@@ -759,7 +776,7 @@ func prepareUserSshDir(user *linuxuser.User) (string, error) {
 	return sshDir, nil
 }
 
-func writeMpiHostfile(ctx context.Context, ips []string, gpusPerNode int, path string) error {
+func writeMpiHostfile(ctx context.Context, ips []string, slots []int, path string) error {
 	if err := os.MkdirAll(filepath.Dir(path), 0o755); err != nil {
 		return fmt.Errorf("create MPI hostfile directory: %w", err)
 	}
@@ -775,16 +792,21 @@ func writeMpiHostfile(ctx context.Context, ips []string, gpusPerNode int, path s
 		}
 	}
 	if len(nonEmptyIps) == len(ips) {
-		var template string
-		if gpusPerNode == 0 {
-			// CPU node: the number of slots defaults to the number of processor cores on that host
-			// See: https://docs.open-mpi.org/en/main/launching-apps/scheduling.html#calculating-the-number-of-slots
-			template = "%s\n"
-		} else {
-			template = fmt.Sprintf("%%s slots=%d\n", gpusPerNode)
+		if len(slots) != len(ips) {
+			return fmt.Errorf(
+				"gpus_per_node length %d != job_ips length %d",
+				len(slots), len(ips),
+			)
 		}
-		for _, ip := range nonEmptyIps {
-			if _, err = fmt.Fprintf(file, template, ip); err != nil {
+		for i, ip := range nonEmptyIps {
+			if slots[i] == 0 {
+				// CPU node: the number of slots defaults to the number of processor cores on that host
+				// See: https://docs.open-mpi.org/en/main/launching-apps/scheduling.html#calculating-the-number-of-slots
+				_, err = fmt.Fprintf(file, "%s\n", ip)
+			} else {
+				_, err = fmt.Fprintf(file, "%s slots=%d\n", ip, slots[i])
+			}
+			if err != nil {
 				return fmt.Errorf("write MPI hostfile line: %w", err)
 			}
 		}
@@ -794,7 +816,7 @@ func writeMpiHostfile(ctx context.Context, ips []string, gpusPerNode int, path s
 	return nil
 }
 
-func writeDstackProfile(env map[string]string, pth string) error {
+func writeDstackProfile(ctx context.Context, env map[string]string, pth string) error {
 	if err := os.MkdirAll(path.Dir(pth), 0o755); err != nil {
 		return fmt.Errorf("create dstack profile directory: %w", err)
 	}
@@ -806,6 +828,12 @@ func writeDstackProfile(env map[string]string, pth string) error {
 	for key, value := range env {
 		switch key {
 		case "HOSTNAME", "USER", "HOME", "SHELL", "SHLVL", "PWD", "_":
+			continue
+		}
+		// `export not-an-identifier=value` is a syntax error that either pollutes stderr on
+		// every login or, depending on the shell, aborts the profile altogether.
+		if !isShellIdentifier(key) {
+			log.Warning(ctx, "Skipped env variable, name is not a valid shell identifier", "var", key)
 			continue
 		}
 		line := fmt.Sprintf("export %s='%s'\n", key, strings.ReplaceAll(value, `'`, `'"'"'`))

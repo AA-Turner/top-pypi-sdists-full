@@ -19,9 +19,10 @@ from dstack._internal.core.models.runs import RunSpec, ServiceModelSpec, Service
 from dstack._internal.core.models.services import OpenAIChatModel
 from dstack._internal.server import settings
 from dstack._internal.server.models import GatewayModel, RunModel
+from dstack._internal.server.services import events
 from dstack._internal.server.services.gateways import (
-    get_gateway_compute_models,
     get_gateway_configuration,
+    get_gateway_replica_models,
     get_project_default_gateway_model,
     get_project_gateway_model_by_reference,
 )
@@ -43,7 +44,7 @@ async def register_service(session: AsyncSession, run_model: RunModel, run_spec:
             session=session,
             project=run_model.project,
             ref=gateway_reference,
-            load_gateway_compute=True,
+            load_gateway_replica=True,
             load_backend_type=True,
         )
         if gateway is None:
@@ -61,7 +62,7 @@ async def register_service(session: AsyncSession, run_model: RunModel, run_spec:
         gateway = await get_project_default_gateway_model(
             session=session,
             project=run_model.project,
-            load_gateway_compute=True,
+            load_gateway_replica=True,
             load_backend_type=True,
         )
         if gateway is None and run_spec.configuration.gateway == True:
@@ -72,8 +73,11 @@ async def register_service(session: AsyncSession, run_model: RunModel, run_spec:
     if gateway is not None:
         service_spec = await _register_service_in_gateway(session, run_model, run_spec, gateway)
         run_model.gateway = gateway
+        # For faster registration
+        for replica_model in get_gateway_replica_models(gateway):
+            replica_model.skip_min_processing_interval = True
     elif not settings.FORBID_SERVICES_WITHOUT_GATEWAY:
-        service_spec = _register_service_in_server(run_model, run_spec)
+        service_spec = _register_service_in_server(session, run_model, run_spec)
     else:
         raise ResourceNotExistsError(
             "This dstack-server installation forbids services without a gateway."
@@ -87,7 +91,7 @@ async def _register_service_in_gateway(
 ) -> ServiceSpec:
     assert run_spec.configuration.type == "service"
 
-    if not get_gateway_compute_models(gateway):
+    if not get_gateway_replica_models(gateway):
         raise ServerClientError("Gateway has no instance associated with it")
 
     if gateway.status != GatewayStatus.RUNNING:
@@ -137,10 +141,18 @@ async def _register_service_in_gateway(
         service_url=service_url,
         model_url=model_url,
     )
+    events.emit(
+        session,
+        "Service assigned to gateway",
+        actor=events.SystemActor(),
+        targets=[events.Target.from_model(run_model), events.Target.from_model(gateway)],
+    )
     return service_spec
 
 
-def _register_service_in_server(run_model: RunModel, run_spec: RunSpec) -> ServiceSpec:
+def _register_service_in_server(
+    session: AsyncSession, run_model: RunModel, run_spec: RunSpec
+) -> ServiceSpec:
     assert run_spec.configuration.type == "service"
     if run_spec.configuration.https not in (
         None,
@@ -170,6 +182,12 @@ def _register_service_in_server(run_model: RunModel, run_spec: RunSpec) -> Servi
         model_url = service_url.rstrip("/") + run_spec.configuration.model.prefix
     else:
         model_url = f"/proxy/models/{run_model.project.name}/"
+    events.emit(
+        session,
+        "Service assigned to run without a gateway",
+        actor=events.SystemActor(),
+        targets=[events.Target.from_model(run_model)],
+    )
     return _get_service_spec(
         configuration=run_spec.configuration,
         service_url=service_url,

@@ -63,6 +63,7 @@ class ConsoleScreen(DreadnodeScreen):
         Binding("l", "cycle_level", "Level", show=True),
         Binding("c", "copy_logs", "Copy", show=True),
         Binding("s", "save_logs", "Save", show=True),
+        Binding("r", "report_bug", "Report bug", show=True),
         Binding("x", "clear_logs", "Clear", show=True),
         Binding("j", "scroll_down", show=False),
         Binding("k", "scroll_up", show=False),
@@ -115,6 +116,10 @@ class ConsoleScreen(DreadnodeScreen):
         self._append_entry(message.entry)
 
     def _append_entry(self, entry: LogEntry) -> None:
+        # A LogEntryAdded message can already be queued when the screen is
+        # popped — don't let a dead widget tree turn a log line into a crash.
+        if not self.is_mounted:
+            return
         self.query_one("#console-log", RichLog).write(self._format_entry(entry))
 
     # -- Formatting --
@@ -179,6 +184,11 @@ class ConsoleScreen(DreadnodeScreen):
         output_path = _LOG_EXPORT_DIR / filename
         output_path.write_text("\n".join(lines), encoding="utf-8", errors="replace")
         self.notify(f"Saved to {output_path}")
+
+    def action_report_bug(self) -> None:
+        handler = getattr(self.app, "action_report_bug", None)
+        if callable(handler):
+            handler("console")
 
     def action_clear_logs(self) -> None:
         self._log_buffer.clear()

@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import typing
 import warnings
+import weakref
 
 from typing_extensions import Literal
 
@@ -93,6 +94,7 @@ class GridFlow(
         self.h_sep = h_sep
         self.v_sep = v_sep
         self.align = align
+        self.first_position: weakref.WeakKeyDictionary[Padding[Columns], int] = weakref.WeakKeyDictionary()
         self._cache_maxcol: int | None = self._get_maxcol(())
         super().__init__(self.generate_display_widget((typing.cast("int", self._cache_maxcol),)))
 
@@ -406,9 +408,8 @@ class GridFlow(
                     p.contents.append((divider, typing.cast("tuple[Literal[WHSettings.WEIGHT], int]", p.options())))
                 c = Columns([], self.h_sep)
                 column_focused = False
-                pad = Padding(typing.cast("Columns", c), self.align)
-                # extra attribute to reference contents position
-                pad.first_position = i
+                pad = Padding(c, self.align)
+                self.first_position[pad] = i
                 p.contents.append((pad, typing.cast("tuple[Literal[WHSettings.WEIGHT], int]", p.options())))
 
             # Use width == maxcol in case of maxcol < width amount
@@ -458,13 +459,16 @@ class GridFlow(
         pile_focus = self._w.focus
         if not pile_focus:
             return
+
         c = typing.cast("Columns", pile_focus.base_widget)
         if c.focus:
             col_focus_position = c.focus_position
         else:
             col_focus_position = 0
-        # pad.first_position was set by generate_display_widget() above
-        self.focus_position = pile_focus.first_position + col_focus_position
+
+        first_position = self.first_position[typing.cast("Padding[Columns]", pile_focus)]
+
+        self.focus_position = first_position + col_focus_position
 
     def keypress(
         self,
@@ -476,11 +480,15 @@ class GridFlow(
         Captures focus changes.
         """
         self.get_display_widget(size)
+        focus_before = self.contents.focus
 
         if (processed := super().keypress(size, key)) is not None:  # type: ignore[safe-super]  # dynamic base
             return processed
 
-        self._set_focus_from_display_widget()
+        # The display widget was built before the keypress was dispatched, so a callback
+        # that set the focus itself is the more recent value and must not be overwritten.
+        if self.contents.focus == focus_before:
+            self._set_focus_from_display_widget()
         return None
 
     def pack(
@@ -530,8 +538,12 @@ class GridFlow(
         focus: bool,
     ) -> Literal[True]:
         self.get_display_widget(size)
+        focus_before = self.contents.focus
         super().mouse_event(size, event, button, col, row, focus)  # type: ignore[safe-super]  # dynamic base
-        self._set_focus_from_display_widget()
+        # Same as in keypress: a callback that set the focus itself wins over the
+        # display widget, which was built before the event was dispatched.
+        if self.contents.focus == focus_before:
+            self._set_focus_from_display_widget()
         return True  # at a minimum we adjusted our focus
 
     def get_pref_col(self, size: tuple[int] | tuple[()]) -> int:

@@ -1,6 +1,6 @@
 [project]
 name = "timezonefinder"
-version = "8.2.5"
+version = "8.3.0"
 description = "python package for finding the timezone of any point on earth (coordinates) offline"
 authors = [{name = "jannikmi", email = "github@michelfe.it"}]
 # Replace with license="MIT" with setuptools>=71
@@ -22,12 +22,21 @@ classifiers = [
 # following the official NumPy support/deprecation schedule:
 # https://numpy.org/neps/nep-0029-deprecation_policy.html#drop-schedule
 # NOTE: When updating requires-python, also update the py_limited_api wheel config in setup.py
+# (tests/test_python_version_support.py fails if the two, or the classifiers above, drift apart)
 requires-python = ">=3.11,<4"
 dependencies = [
     "numpy>=2",
     "h3>=4",
     "cffi<3,>=1.15.1",
     "flatbuffers>=25.2.10",
+    # the packaged boundary data, split out so that a data update needs no code
+    # release. The floor names the oldest dataset this code reads; the
+    # ceiling is the *format* generation (timezonefinder.configs.DATA_FORMAT_VERSION,
+    # the data version's major), so every future release of the current format keeps
+    # satisfying it while a format change becomes a resolver error instead of a
+    # failure at the first lookup. tests/test_data_version.py holds the two numbers
+    # to the constant.
+    "timezonefinder-data>=1.2026.3,<2",
 ]
 
 [project.urls]
@@ -46,11 +55,24 @@ docs = [
 test=[
     "tox",
     "pytest",
+    "hypothesis>=6",
     # used in example scripts
     "pytz>=2022.7.1",
-    # setuptoosl required for integration tests: building sdist and wheel
-    "setuptools>=61",
+    # setuptools required for integration tests: building sdist and wheel.
+    # Floor matches the build requirement below - the tests assert what it produces
+    "setuptools>=62.3",
     "pytest-run-parallel>=0.8.2",
+    # statistically sound benchmark measurement (calibration, warmup, outlier
+    # detection); see benchmarks/. Never combine with pytest-run-parallel's
+    # `--parallel-threads` in the same run - concurrent execution makes
+    # timings meaningless (see CONTRIBUTING.md)
+    "pytest-benchmark>=5,<6",
+    # parsing the CI workflow definitions in tests/test_benchmark_workflows.py
+    "PyYAML>=6",
+    # reading version specifiers and requirements: the tests that hold the
+    # timezonefinder-data bound to DATA_FORMAT_VERSION, and the release guard in
+    # scripts/check_data_dependency.py that build.yml runs with `--with packaging`
+    "packaging>=23",
 ]
 dev = [
     "pre-commit",
@@ -93,8 +115,19 @@ pytz = [
     "pytz>=2022.7.1"
 ]
 
+# One repository, two distributions: `timezonefinder` (this project) and
+# `timezonefinder-data` (the boundary data). The source declaration keeps a local
+# checkout resolving to the workspace member rather than to PyPI, so the two are
+# developed together while being released independently.
+[tool.uv.workspace]
+members = ["packages/*"]
+
+[tool.uv.sources]
+timezonefinder-data = { workspace = true }
+
 [build-system]
-requires = ["setuptools>=61", "cffi"]
+# 62.3: `**` in package-data below is only expanded recursively from that version on
+requires = ["setuptools>=62.3", "cffi"]
 # Use setuptools build backend to build CFFI extensions via setup.py
 build-backend = "setuptools.build_meta"
 
@@ -111,11 +144,13 @@ packages = [
     "timezonefinder.flatbuf.schemas",
 ]
 
+# No data payload here any more - it ships in `timezonefinder-data`. What is left
+# under `timezonefinder/` is the flatbuffers schemas and the C extension sources;
+# tests/test_package_contents.py fails if a `.npy`/`.json` file reappears in this
+# distribution. DATA_LICENSE moved with the database it covers, so there is no
+# `[tool.setuptools.data-files]` entry left to declare.
 [tool.setuptools.package-data]
-timezonefinder = ["**/*.npy", "**/*.fbs", "**/*.txt", "**/*.json", "**/*.c", "**/*.h", ]
-
-[tool.setuptools.data-files]
-"." = ["DATA_LICENSE"]
+timezonefinder = ["**/*.fbs", "**/*.c", "**/*.h", ]
 
 [tool.ruff]
 target-version = "py311"
@@ -125,10 +160,16 @@ src = ["timezonefinder", "tests", "build.py"]
 known-local-folder = ["timezonefinder"]
 
 [tool.pytest.ini_options]
+# excludes benchmarks/ (pytest-benchmark suites) from default collection: `make
+# test`/`make testall` must not run or even collect them. `make benchmarks`
+# passes the path explicitly, which overrides testpaths.
+testpaths = ["tests"]
 markers = [
     "unit: mark test as a unit test",
     "integration: mark test as an integration test",
-    "parallel_threads_limit: mark test with a thread limit for parallel execution"
+    "parallel_threads_limit: mark test with a thread limit for parallel execution",
+    "benchmark: mark a pytest-benchmark test (select the whole suite via `-m benchmark`); also accepts pytest-benchmark's own group/min_rounds/etc. kwargs",
+    "benchmark_core: mark a benchmark as part of the small, CI-tracked core subset (see .github/workflows/benchmark.yml) - pick for signal, not coverage",
 ]
 
 [tool.mypy]
@@ -155,20 +196,17 @@ module = [
     "numba.*",
     "h3",
     "h3.*",
+    "cpuinfo",
 ]
 ignore_missing_imports = true
 
-# Ignore generated/low-level files that are hard to type properly
+# Ignore generated files. `flatc` output is not written by hand and is
+# regenerated by `make flatbuf`, so type errors in it are not actionable here.
+# Keep this list minimal: every module named below is one whose type errors CI
+# will not report - see tests/test_mypy_config.py.
 [[tool.mypy.overrides]]
 module = [
     "timezonefinder.flatbuf.generated.*",
-    "timezonefinder._numba_replacements",
-    "timezonefinder.utils_numba",
-    "timezonefinder.np_binary_helpers",
-    "timezonefinder.flatbuf.io.*",
-    "timezonefinder.coord_accessors",
-    "timezonefinder.polygon_array",
-    "timezonefinder.utils_clang",
 ]
 ignore_errors = true
 

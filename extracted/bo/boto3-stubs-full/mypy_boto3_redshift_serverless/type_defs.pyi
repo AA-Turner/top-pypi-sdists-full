@@ -24,11 +24,14 @@ from typing import Union
 from .literals import (
     LakehouseIdcRegistrationType,
     LakehouseRegistrationType,
+    LogDestinationTypeType,
     LogExportType,
     ManagedWorkgroupStatusType,
     NamespaceStatusType,
     OfferingTypeType,
     PerformanceTargetStatusType,
+    S3TableActionType,
+    S3TableGranularityType,
     SnapshotStatusType,
     StateType,
     UsageLimitBreachActionType,
@@ -179,6 +182,7 @@ __all__ = (
     "RestoreTableFromRecoveryPointResponseTypeDef",
     "RestoreTableFromSnapshotRequestTypeDef",
     "RestoreTableFromSnapshotResponseTypeDef",
+    "S3TablePublishStatusTypeDef",
     "ScheduleOutputTypeDef",
     "ScheduleTypeDef",
     "ScheduleUnionTypeDef",
@@ -276,23 +280,6 @@ class CreateEndpointAccessRequestTypeDef(TypedDict):
     workgroupName: str
     ownerAccount: NotRequired[str]
     vpcSecurityGroupIds: NotRequired[Sequence[str]]
-
-class NamespaceTypeDef(TypedDict):
-    adminPasswordSecretArn: NotRequired[str]
-    adminPasswordSecretKmsKeyId: NotRequired[str]
-    adminUsername: NotRequired[str]
-    catalogArn: NotRequired[str]
-    creationDate: NotRequired[datetime]
-    dbName: NotRequired[str]
-    defaultIamRoleArn: NotRequired[str]
-    iamRoles: NotRequired[list[str]]
-    kmsKeyId: NotRequired[str]
-    lakehouseRegistrationStatus: NotRequired[str]
-    logExports: NotRequired[list[LogExportType]]
-    namespaceArn: NotRequired[str]
-    namespaceId: NotRequired[str]
-    namespaceName: NotRequired[str]
-    status: NotRequired[NamespaceStatusType]
 
 class CreateReservationRequestTypeDef(TypedDict):
     capacity: int
@@ -538,6 +525,13 @@ class ListWorkgroupsRequestTypeDef(TypedDict):
     nextToken: NotRequired[str]
     ownerAccount: NotRequired[str]
 
+class S3TablePublishStatusTypeDef(TypedDict):
+    enabledAll: NotRequired[bool]
+    lastIngestionTimes: NotRequired[dict[str, str]]
+    s3TableGranularity: NotRequired[S3TableGranularityType]
+    s3TableNamespace: NotRequired[str]
+    s3Tables: NotRequired[list[str]]
+
 class NetworkInterfaceTypeDef(TypedDict):
     availabilityZone: NotRequired[str]
     ipv6Address: NotRequired[str]
@@ -626,8 +620,13 @@ class UpdateNamespaceRequestTypeDef(TypedDict):
     defaultIamRoleArn: NotRequired[str]
     iamRoles: NotRequired[Sequence[str]]
     kmsKeyId: NotRequired[str]
+    logDestinationType: NotRequired[LogDestinationTypeType]
     logExports: NotRequired[Sequence[LogExportType]]
     manageAdminPassword: NotRequired[bool]
+    s3TableAction: NotRequired[S3TableActionType]
+    s3TableGranularity: NotRequired[S3TableGranularityType]
+    s3TableKmsKeyId: NotRequired[str]
+    s3TableNames: NotRequired[Sequence[str]]
 
 class UpdateSnapshotCopyConfigurationRequestTypeDef(TypedDict):
     snapshotCopyConfigurationId: str
@@ -756,38 +755,6 @@ class ListSnapshotsResponseTypeDef(TypedDict):
 
 class UpdateSnapshotResponseTypeDef(TypedDict):
     snapshot: SnapshotTypeDef
-    ResponseMetadata: ResponseMetadataTypeDef
-
-class CreateNamespaceResponseTypeDef(TypedDict):
-    namespace: NamespaceTypeDef
-    ResponseMetadata: ResponseMetadataTypeDef
-
-class DeleteNamespaceResponseTypeDef(TypedDict):
-    namespace: NamespaceTypeDef
-    ResponseMetadata: ResponseMetadataTypeDef
-
-class GetNamespaceResponseTypeDef(TypedDict):
-    namespace: NamespaceTypeDef
-    ResponseMetadata: ResponseMetadataTypeDef
-
-class ListNamespacesResponseTypeDef(TypedDict):
-    namespaces: list[NamespaceTypeDef]
-    ResponseMetadata: ResponseMetadataTypeDef
-    nextToken: NotRequired[str]
-
-class RestoreFromRecoveryPointResponseTypeDef(TypedDict):
-    namespace: NamespaceTypeDef
-    recoveryPointId: str
-    ResponseMetadata: ResponseMetadataTypeDef
-
-class RestoreFromSnapshotResponseTypeDef(TypedDict):
-    namespace: NamespaceTypeDef
-    ownerAccount: str
-    snapshotName: str
-    ResponseMetadata: ResponseMetadataTypeDef
-
-class UpdateNamespaceResponseTypeDef(TypedDict):
-    namespace: NamespaceTypeDef
     ResponseMetadata: ResponseMetadataTypeDef
 
 class ListRecoveryPointsRequestTypeDef(TypedDict):
@@ -1007,6 +974,24 @@ class ListScheduledActionsResponseTypeDef(TypedDict):
     ResponseMetadata: ResponseMetadataTypeDef
     nextToken: NotRequired[str]
 
+class NamespaceTypeDef(TypedDict):
+    adminPasswordSecretArn: NotRequired[str]
+    adminPasswordSecretKmsKeyId: NotRequired[str]
+    adminUsername: NotRequired[str]
+    catalogArn: NotRequired[str]
+    creationDate: NotRequired[datetime]
+    dbName: NotRequired[str]
+    defaultIamRoleArn: NotRequired[str]
+    iamRoles: NotRequired[list[str]]
+    kmsKeyId: NotRequired[str]
+    lakehouseRegistrationStatus: NotRequired[str]
+    logExports: NotRequired[list[LogExportType]]
+    namespaceArn: NotRequired[str]
+    namespaceId: NotRequired[str]
+    namespaceName: NotRequired[str]
+    s3TablePublishStatus: NotRequired[S3TablePublishStatusTypeDef]
+    status: NotRequired[NamespaceStatusType]
+
 class VpcEndpointTypeDef(TypedDict):
     networkInterfaces: NotRequired[list[NetworkInterfaceTypeDef]]
     vpcEndpointId: NotRequired[str]
@@ -1037,6 +1022,38 @@ class ListReservationsResponseTypeDef(TypedDict):
     reservationsList: list[ReservationTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     nextToken: NotRequired[str]
+
+class CreateNamespaceResponseTypeDef(TypedDict):
+    namespace: NamespaceTypeDef
+    ResponseMetadata: ResponseMetadataTypeDef
+
+class DeleteNamespaceResponseTypeDef(TypedDict):
+    namespace: NamespaceTypeDef
+    ResponseMetadata: ResponseMetadataTypeDef
+
+class GetNamespaceResponseTypeDef(TypedDict):
+    namespace: NamespaceTypeDef
+    ResponseMetadata: ResponseMetadataTypeDef
+
+class ListNamespacesResponseTypeDef(TypedDict):
+    namespaces: list[NamespaceTypeDef]
+    ResponseMetadata: ResponseMetadataTypeDef
+    nextToken: NotRequired[str]
+
+class RestoreFromRecoveryPointResponseTypeDef(TypedDict):
+    namespace: NamespaceTypeDef
+    recoveryPointId: str
+    ResponseMetadata: ResponseMetadataTypeDef
+
+class RestoreFromSnapshotResponseTypeDef(TypedDict):
+    namespace: NamespaceTypeDef
+    ownerAccount: str
+    snapshotName: str
+    ResponseMetadata: ResponseMetadataTypeDef
+
+class UpdateNamespaceResponseTypeDef(TypedDict):
+    namespace: NamespaceTypeDef
+    ResponseMetadata: ResponseMetadataTypeDef
 
 class EndpointAccessTypeDef(TypedDict):
     address: NotRequired[str]

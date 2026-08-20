@@ -12,7 +12,7 @@ from ...types import Response
 
 
 def _get_kwargs(
-    key_value_id: str,
+    redis_id: str,
     *,
     body: KeyValuePATCHInput,
 ) -> dict[str, Any]:
@@ -20,7 +20,7 @@ def _get_kwargs(
 
     _kwargs: dict[str, Any] = {
         "method": "patch",
-        "url": f"/key-value/{key_value_id}",
+        "url": f"/key-value/{redis_id}",
     }
 
     _kwargs["json"] = body.to_dict()
@@ -92,17 +92,18 @@ def _build_response(
 
 
 def sync_detailed(
-    key_value_id: str,
+    redis_id: str,
     *,
     client: Union[AuthenticatedClient, Client],
     body: KeyValuePATCHInput,
 ) -> Response[Union[Error, KeyValueDetail]]:
     """Update Key Value instance
 
-     Update a Key Value instance by ID.
+     Update a Key Value instance by ID. Note that changing your plan, max memory policy, or persistence
+    mode will restart your Key Value instance.
 
     Args:
-        key_value_id (str):
+        redis_id (str):
         body (KeyValuePATCHInput): Input type for updating a Key Value instance
 
     Raises:
@@ -114,7 +115,7 @@ def sync_detailed(
     """
 
     kwargs = _get_kwargs(
-        key_value_id=key_value_id,
+        redis_id=redis_id,
         body=body,
     )
 
@@ -126,17 +127,18 @@ def sync_detailed(
 
 
 def sync(
-    key_value_id: str,
+    redis_id: str,
     *,
     client: Union[AuthenticatedClient, Client],
     body: KeyValuePATCHInput,
 ) -> Optional[Union[Error, KeyValueDetail]]:
     """Update Key Value instance
 
-     Update a Key Value instance by ID.
+     Update a Key Value instance by ID. Note that changing your plan, max memory policy, or persistence
+    mode will restart your Key Value instance.
 
     Args:
-        key_value_id (str):
+        redis_id (str):
         body (KeyValuePATCHInput): Input type for updating a Key Value instance
 
     Raises:
@@ -148,24 +150,25 @@ def sync(
     """
 
     return sync_detailed(
-        key_value_id=key_value_id,
+        redis_id=redis_id,
         client=client,
         body=body,
     ).parsed
 
 
 async def asyncio_detailed(
-    key_value_id: str,
+    redis_id: str,
     *,
     client: Union[AuthenticatedClient, Client],
     body: KeyValuePATCHInput,
 ) -> Response[Union[Error, KeyValueDetail]]:
     """Update Key Value instance
 
-     Update a Key Value instance by ID.
+     Update a Key Value instance by ID. Note that changing your plan, max memory policy, or persistence
+    mode will restart your Key Value instance.
 
     Args:
-        key_value_id (str):
+        redis_id (str):
         body (KeyValuePATCHInput): Input type for updating a Key Value instance
 
     Raises:
@@ -177,7 +180,7 @@ async def asyncio_detailed(
     """
 
     kwargs = _get_kwargs(
-        key_value_id=key_value_id,
+        redis_id=redis_id,
         body=body,
     )
 
@@ -187,17 +190,18 @@ async def asyncio_detailed(
 
 
 async def asyncio(
-    key_value_id: str,
+    redis_id: str,
     *,
     client: Union[AuthenticatedClient, Client],
     body: KeyValuePATCHInput,
 ) -> Optional[Union[Error, KeyValueDetail]]:
     """Update Key Value instance
 
-     Update a Key Value instance by ID.
+     Update a Key Value instance by ID. Note that changing your plan, max memory policy, or persistence
+    mode will restart your Key Value instance.
 
     Args:
-        key_value_id (str):
+        redis_id (str):
         body (KeyValuePATCHInput): Input type for updating a Key Value instance
 
     Raises:
@@ -210,7 +214,7 @@ async def asyncio(
 
     return (
         await asyncio_detailed(
-            key_value_id=key_value_id,
+            redis_id=redis_id,
             client=client,
             body=body,
         )

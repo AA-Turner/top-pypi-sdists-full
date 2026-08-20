@@ -1,6 +1,6 @@
 Metadata-Version: 2.5
 Name: notebooklm-mcp-cli
-Version: 0.9.12
+Version: 0.9.13
 Summary: Unified CLI and MCP server for Google NotebookLM
 Project-URL: Homepage, https://github.com/jacob-bd/gemini-notebook-mcp-cli
 Project-URL: Repository, https://github.com/jacob-bd/gemini-notebook-mcp-cli
@@ -656,7 +656,7 @@ Special thanks to:
 
 ## Star History
 
-[![Star History Chart](https://api.star-history.com/svg?repos=jacob-bd/gemini-notebook-mcp-cli&type=Date)](https://star-history.com/#jacob-bd/gemini-notebook-mcp-cli&Date)
+[![Star History Chart](https://star-history.dera.page/svg?repos=jacob-bd/gemini-notebook-mcp-cli&type=Date)](https://star-history.dera.page/#jacob-bd/gemini-notebook-mcp-cli&Date)
 
 ## License
 

@@ -14,6 +14,7 @@ are supported herein:
 @author mstarch
 """
 
+import re
 from pathlib import Path
 
 from fprime.fbuild.builder import Build, BuildType
@@ -22,11 +23,7 @@ from fprime.fbuild.target import NoSuchTargetException
 
 from .versioning import VersionException, get_version, FPRIME_PIP_PACKAGES
 
-# Attempt to get pkg_resources from "setuptools"
-try:
-    import pkg_resources
-except ImportError:
-    pkg_resources = None
+import importlib.metadata
 
 
 def package_version_check(package: str, requirement_path: Path):
@@ -35,12 +32,12 @@ def package_version_check(package: str, requirement_path: Path):
         "v"
     )  # Python version
     try:
-        version = pkg_resources.get_distribution(package).version
-        if version != expected_version:
+        ver = importlib.metadata.version(package)
+        if ver != expected_version:
             print(
-                f"[WARNING] {package} has unexpected version. Expected: {expected_version} found {version}"
+                f"[WARNING] {package} has unexpected version. Expected: {expected_version} found {ver}"
             )
-    except pkg_resources.DistributionNotFound:
+    except importlib.metadata.PackageNotFoundError:
         print(f"[WARNING] {package} is not installed")
 
 
@@ -63,11 +60,6 @@ def validate_tools_from_requirements(build: Build):
             f"[WARNING] Could not find 'requirements.txt' in: {possibilities}. Will not check tool versions."
         )
         return
-    # Pre-roll import errors from pkg_resources
-    if pkg_resources is None:
-        print("[WARNING] Cannot import 'pkg_resources'. Will not check tool versions.")
-        return
-
     # Now check each required tool for fprime
     for tool in FPRIME_PIP_PACKAGES:
         for possible in possibilities:
@@ -78,6 +70,71 @@ def validate_tools_from_requirements(build: Build):
                 message = f"[WARNING] {exc}"
         else:
             print(message)
+
+
+def _parse_gitmodules(gitmodules_path: Path):
+    """Parse a .gitmodules file and return a list of submodule paths.
+
+    Args:
+        gitmodules_path: path to the .gitmodules file
+
+    Returns:
+        list of submodule path strings relative to the .gitmodules parent directory
+    """
+    if not gitmodules_path.is_file():
+        return []
+    content = gitmodules_path.read_text()
+    return [
+        match.strip()
+        for match in re.findall(r"^\s*path\s*=\s*(.+)", content, re.MULTILINE)
+    ]
+
+
+def validate_submodules(build: Build):
+    """Check for uninitialized git submodules.
+
+    Parses .gitmodules in the project root and framework path, and warns about any
+    submodule whose directory is empty or missing. Does not attempt to correct the
+    problem. Silently skips if no .gitmodules file exists.
+    """
+    try:
+        _check_submodules(build)
+    except (OSError, UnicodeDecodeError):
+        pass  # Advisory only — never block the build
+
+
+def _check_submodules(build: Build):
+    """Internal implementation of submodule validation."""
+    project_root = build.settings.get("project_root", None)
+    framework_path = build.settings.get("framework_path", None)
+
+    # Collect unique roots to check for .gitmodules
+    roots_to_check = []
+    if project_root is not None:
+        roots_to_check.append(Path(project_root))
+    if framework_path is not None:
+        fw = Path(framework_path)
+        if fw not in roots_to_check:
+            roots_to_check.append(fw)
+
+    # Check submodules declared in .gitmodules
+    for root in roots_to_check:
+        gitmodules_file = root / ".gitmodules"
+        submodule_paths = _parse_gitmodules(gitmodules_file)
+        for sub_path in submodule_paths:
+            full_path = root / sub_path
+            if full_path.is_dir():
+                if not any(full_path.iterdir()):
+                    print(
+                        f"[WARNING] Git submodule '{sub_path}' appears uninitialized "
+                        f"(directory is empty): {full_path}\n"
+                        f"  Run 'git submodule update --init --recursive' to initialize submodules."
+                    )
+            elif not full_path.exists():
+                print(
+                    f"[WARNING] Git submodule '{sub_path}' directory does not exist: {full_path}\n"
+                    f"  Run 'git submodule update --init --recursive' to initialize submodules."
+                )
 
 
 def load_build(parsed, skip_validation=False):
@@ -108,7 +165,13 @@ def load_build(parsed, skip_validation=False):
     # However, the base directory must be setup here. Errors in this load are ignored to allow the command to find
     # build caches related to that set.
     if parsed.command == "generate":
-        build.invent(parsed.platform, build_dir=parsed.build_cache, force=parsed.force)
+        preset = getattr(parsed, "preset", None)
+        build.invent(
+            parsed.platform,
+            build_dir=parsed.build_cache,
+            force=parsed.force,
+            preset=preset,
+        )
     else:
         build.load(
             parsed.platform,
@@ -116,4 +179,5 @@ def load_build(parsed, skip_validation=False):
             skip_validation=skip_validation,
         )
     validate_tools_from_requirements(build)
+    validate_submodules(build)
     return build

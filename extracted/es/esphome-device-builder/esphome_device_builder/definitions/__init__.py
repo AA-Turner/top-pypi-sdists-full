@@ -36,6 +36,7 @@ from ..helpers.lazy_catalog import (
     is_unsafe_catalog_id,
     is_unsafe_manifest_path,
 )
+from ..helpers.version_compat import is_pep440_version
 from ..helpers.yaml import FastestSafeLoader
 from ..migration_rule_kinds import MIGRATION_RULE_EXTRA_FIELDS
 from ..models import (
@@ -567,9 +568,12 @@ class MigrationRule(NamedTuple):
     kind: str
     old: str
     new: str
+    #: First esphome the sync saw the rule against; the fold skips it on older installs.
+    since: str
     component: str = ""
     domain: str = ""
     platform: str = ""
+    removed_in: str | None = None
 
 
 MIGRATION_RULE_KINDS = frozenset(MIGRATION_RULE_EXTRA_FIELDS)
@@ -635,7 +639,17 @@ def _coerce_migration_rule(record: Any) -> MigrationRule | None:
         if value is None:
             return None
         extra[name] = value
-    return MigrationRule(kind=kind, old=old, new=new, **extra)
+    # ``since`` is the version gate: a row without one is not "apply
+    # everywhere" but malformed, so it is dropped like any other bad row.
+    since = record.get("since")
+    removed_in = record.get("removed_in")
+    if not (isinstance(since, str) and is_pep440_version(since)):
+        return None
+    if removed_in is not None and not (
+        isinstance(removed_in, str) and is_pep440_version(removed_in)
+    ):
+        return None
+    return MigrationRule(kind=kind, old=old, new=new, since=since, **extra, removed_in=removed_in)
 
 
 class PlatformCapabilities(NamedTuple):

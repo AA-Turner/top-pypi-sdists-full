@@ -6,6 +6,7 @@ from attrs import field as _attrs_field
 
 from ..models.postgres_plans import PostgresPlans
 from ..models.postgres_version import PostgresVersion
+from ..models.region import Region
 from ..types import UNSET, Unset
 
 if TYPE_CHECKING:
@@ -35,7 +36,9 @@ class PostgresPOSTInput:
         environment_id (Union[Unset, str]):
         disk_size_gb (Union[Unset, int]): The number of gigabytes of disk space to allocate for the database
         enable_disk_autoscaling (Union[Unset, bool]):  Default: False.
-        region (Union[Unset, str]):
+        connection_pool (Union[Unset, str]): What connection pool to use (if any) out of 'pgbouncer' and 'none' Default:
+            'none'.
+        region (Union[Unset, Region]): Defaults to "oregon"
         ip_allow_list (Union[Unset, list['CidrBlockAndDescription']]):
         parameter_overrides (Union[Unset, PostgresParameterOverrides]):
         read_replicas (Union[Unset, list['ReadReplicaInput']]):
@@ -53,7 +56,8 @@ class PostgresPOSTInput:
     environment_id: Union[Unset, str] = UNSET
     disk_size_gb: Union[Unset, int] = UNSET
     enable_disk_autoscaling: Union[Unset, bool] = False
-    region: Union[Unset, str] = UNSET
+    connection_pool: Union[Unset, str] = "none"
+    region: Union[Unset, Region] = UNSET
     ip_allow_list: Union[Unset, list["CidrBlockAndDescription"]] = UNSET
     parameter_overrides: Union[Unset, "PostgresParameterOverrides"] = UNSET
     read_replicas: Union[Unset, list["ReadReplicaInput"]] = UNSET
@@ -84,7 +88,11 @@ class PostgresPOSTInput:
 
         enable_disk_autoscaling = self.enable_disk_autoscaling
 
-        region = self.region
+        connection_pool = self.connection_pool
+
+        region: Union[Unset, str] = UNSET
+        if not isinstance(self.region, Unset):
+            region = self.region.value
 
         ip_allow_list: Union[Unset, list[dict[str, Any]]] = UNSET
         if not isinstance(self.ip_allow_list, Unset):
@@ -130,6 +138,8 @@ class PostgresPOSTInput:
             field_dict["diskSizeGB"] = disk_size_gb
         if enable_disk_autoscaling is not UNSET:
             field_dict["enableDiskAutoscaling"] = enable_disk_autoscaling
+        if connection_pool is not UNSET:
+            field_dict["connectionPool"] = connection_pool
         if region is not UNSET:
             field_dict["region"] = region
         if ip_allow_list is not UNSET:
@@ -172,7 +182,14 @@ class PostgresPOSTInput:
 
         enable_disk_autoscaling = d.pop("enableDiskAutoscaling", UNSET)
 
-        region = d.pop("region", UNSET)
+        connection_pool = d.pop("connectionPool", UNSET)
+
+        _region = d.pop("region", UNSET)
+        region: Union[Unset, Region]
+        if isinstance(_region, Unset):
+            region = UNSET
+        else:
+            region = Region(_region)
 
         ip_allow_list = []
         _ip_allow_list = d.pop("ipAllowList", UNSET)
@@ -210,6 +227,7 @@ class PostgresPOSTInput:
             environment_id=environment_id,
             disk_size_gb=disk_size_gb,
             enable_disk_autoscaling=enable_disk_autoscaling,
+            connection_pool=connection_pool,
             region=region,
             ip_allow_list=ip_allow_list,
             parameter_overrides=parameter_overrides,

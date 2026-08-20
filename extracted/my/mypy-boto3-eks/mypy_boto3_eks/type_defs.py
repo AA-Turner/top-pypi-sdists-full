@@ -34,6 +34,10 @@ from .literals import (
     CapabilityTypeType,
     CapacityTypesType,
     CategoryType,
+    CertificateAuthorityActivatedByType,
+    CertificateAuthorityCreatedByType,
+    CertificateAuthorityDistributionStatusType,
+    CertificateAuthoritySigningStatusType,
     ClusterIssueCodeType,
     ClusterStatusType,
     ClusterVersionStatusType,
@@ -79,6 +83,9 @@ __all__ = (
     "AccessScopeOutputTypeDef",
     "AccessScopeTypeDef",
     "AccessScopeUnionTypeDef",
+    "ActivateCertificateAuthorityRequestTypeDef",
+    "ActivateCertificateAuthorityResponseTypeDef",
+    "ActiveCertificateAuthorityTypeDef",
     "AddonCompatibilityDetailTypeDef",
     "AddonHealthTypeDef",
     "AddonInfoTypeDef",
@@ -117,6 +124,10 @@ __all__ = (
     "CapabilityIssueTypeDef",
     "CapabilitySummaryTypeDef",
     "CapabilityTypeDef",
+    "CertificateAuthorityScheduledEventsTypeDef",
+    "CertificateAuthoritySummaryTypeDef",
+    "CertificateAuthorityTypeDef",
+    "CertificateAuthorityValidityTypeDef",
     "CertificateTypeDef",
     "ClientStatTypeDef",
     "ClusterHealthTypeDef",
@@ -140,6 +151,8 @@ __all__ = (
     "CreateAddonResponseTypeDef",
     "CreateCapabilityRequestTypeDef",
     "CreateCapabilityResponseTypeDef",
+    "CreateCertificateAuthorityRequestTypeDef",
+    "CreateCertificateAuthorityResponseTypeDef",
     "CreateClusterRequestTypeDef",
     "CreateClusterResponseTypeDef",
     "CreateEksAnywhereSubscriptionRequestTypeDef",
@@ -155,6 +168,8 @@ __all__ = (
     "DeleteAddonResponseTypeDef",
     "DeleteCapabilityRequestTypeDef",
     "DeleteCapabilityResponseTypeDef",
+    "DeleteCertificateAuthorityRequestTypeDef",
+    "DeleteCertificateAuthorityResponseTypeDef",
     "DeleteClusterRequestTypeDef",
     "DeleteClusterResponseTypeDef",
     "DeleteEksAnywhereSubscriptionRequestTypeDef",
@@ -181,6 +196,8 @@ __all__ = (
     "DescribeAddonVersionsResponseTypeDef",
     "DescribeCapabilityRequestTypeDef",
     "DescribeCapabilityResponseTypeDef",
+    "DescribeCertificateAuthorityRequestTypeDef",
+    "DescribeCertificateAuthorityResponseTypeDef",
     "DescribeClusterRequestTypeDef",
     "DescribeClusterRequestWaitExtraTypeDef",
     "DescribeClusterRequestWaitTypeDef",
@@ -207,6 +224,7 @@ __all__ = (
     "DescribePodIdentityAssociationRequestTypeDef",
     "DescribePodIdentityAssociationResponseTypeDef",
     "DescribeUpdateRequestTypeDef",
+    "DescribeUpdateRequestWaitTypeDef",
     "DescribeUpdateResponseTypeDef",
     "DisassociateAccessPolicyRequestTypeDef",
     "DisassociateIdentityProviderConfigRequestTypeDef",
@@ -270,6 +288,9 @@ __all__ = (
     "ListCapabilitiesRequestPaginateTypeDef",
     "ListCapabilitiesRequestTypeDef",
     "ListCapabilitiesResponseTypeDef",
+    "ListCertificateAuthoritiesRequestPaginateTypeDef",
+    "ListCertificateAuthoritiesRequestTypeDef",
+    "ListCertificateAuthoritiesResponseTypeDef",
     "ListClustersRequestPaginateTypeDef",
     "ListClustersRequestTypeDef",
     "ListClustersResponseTypeDef",
@@ -436,6 +457,43 @@ AccessScopeTypeDef = TypedDict(
 )
 
 
+class ActivateCertificateAuthorityRequestTypeDef(TypedDict):
+    clusterName: str
+    certificateAuthorityId: str
+    clientRequestToken: NotRequired[str]
+
+
+CertificateAuthoritySummaryTypeDef = TypedDict(
+    "CertificateAuthoritySummaryTypeDef",
+    {
+        "id": NotRequired[str],
+        "createdAt": NotRequired[datetime],
+        "createdBy": NotRequired[CertificateAuthorityCreatedByType],
+        "activatedAt": NotRequired[datetime],
+        "activatedBy": NotRequired[CertificateAuthorityActivatedByType],
+        "signingStatus": NotRequired[CertificateAuthoritySigningStatusType],
+        "distributionStatus": NotRequired[CertificateAuthorityDistributionStatusType],
+    },
+)
+
+
+class ResponseMetadataTypeDef(TypedDict):
+    RequestId: str
+    HTTPStatusCode: int
+    HTTPHeaders: dict[str, str]
+    RetryAttempts: int
+    HostId: NotRequired[str]
+
+
+ActiveCertificateAuthorityTypeDef = TypedDict(
+    "ActiveCertificateAuthorityTypeDef",
+    {
+        "id": NotRequired[str],
+        "activatedBy": NotRequired[CertificateAuthorityActivatedByType],
+    },
+)
+
+
 class AddonCompatibilityDetailTypeDef(TypedDict):
     name: NotRequired[str]
     compatibleVersions: NotRequired[list[str]]
@@ -508,14 +566,6 @@ SsoIdentityTypeDef = TypedDict(
 )
 
 
-class ResponseMetadataTypeDef(TypedDict):
-    RequestId: str
-    HTTPStatusCode: int
-    HTTPHeaders: dict[str, str]
-    RetryAttempts: int
-    HostId: NotRequired[str]
-
-
 class OidcIdentityProviderConfigRequestTypeDef(TypedDict):
     identityProviderConfigName: str
     issuerUrl: str
@@ -565,8 +615,14 @@ CapabilitySummaryTypeDef = TypedDict(
 )
 
 
-class CertificateTypeDef(TypedDict):
-    data: NotRequired[str]
+class CertificateAuthorityScheduledEventsTypeDef(TypedDict):
+    firstAutoActivation: NotRequired[datetime]
+    finalAutoActivation: NotRequired[datetime]
+
+
+class CertificateAuthorityValidityTypeDef(TypedDict):
+    notBefore: NotRequired[datetime]
+    notAfter: NotRequired[datetime]
 
 
 class ClientStatTypeDef(TypedDict):
@@ -656,6 +712,11 @@ CreateAccessEntryRequestTypeDef = TypedDict(
         "type": NotRequired[str],
     },
 )
+
+
+class CreateCertificateAuthorityRequestTypeDef(TypedDict):
+    clusterName: str
+    clientRequestToken: NotRequired[str]
 
 
 class UpgradePolicyRequestTypeDef(TypedDict):
@@ -761,6 +822,12 @@ class DeleteCapabilityRequestTypeDef(TypedDict):
     capabilityName: str
 
 
+class DeleteCertificateAuthorityRequestTypeDef(TypedDict):
+    clusterName: str
+    certificateAuthorityId: str
+    clientRequestToken: NotRequired[str]
+
+
 class DeleteClusterRequestTypeDef(TypedDict):
     name: str
 
@@ -835,6 +902,11 @@ DescribeAddonVersionsRequestTypeDef = TypedDict(
 class DescribeCapabilityRequestTypeDef(TypedDict):
     clusterName: str
     capabilityName: str
+
+
+class DescribeCertificateAuthorityRequestTypeDef(TypedDict):
+    clusterName: str
+    certificateAuthorityId: str
 
 
 class DescribeClusterRequestTypeDef(TypedDict):
@@ -1052,6 +1124,12 @@ class ListCapabilitiesRequestTypeDef(TypedDict):
     maxResults: NotRequired[int]
 
 
+class ListCertificateAuthoritiesRequestTypeDef(TypedDict):
+    clusterName: str
+    maxResults: NotRequired[int]
+    nextToken: NotRequired[str]
+
+
 class ListClustersRequestTypeDef(TypedDict):
     maxResults: NotRequired[int]
     nextToken: NotRequired[str]
@@ -1240,53 +1318,6 @@ class AssociatedAccessPolicyTypeDef(TypedDict):
 AccessScopeUnionTypeDef = Union[AccessScopeTypeDef, AccessScopeOutputTypeDef]
 
 
-class AddonHealthTypeDef(TypedDict):
-    issues: NotRequired[list[AddonIssueTypeDef]]
-
-
-class CreateAddonRequestTypeDef(TypedDict):
-    clusterName: str
-    addonName: str
-    addonVersion: NotRequired[str]
-    serviceAccountRoleArn: NotRequired[str]
-    resolveConflicts: NotRequired[ResolveConflictsType]
-    clientRequestToken: NotRequired[str]
-    tags: NotRequired[Mapping[str, str]]
-    configurationValues: NotRequired[str]
-    podIdentityAssociations: NotRequired[Sequence[AddonPodIdentityAssociationsTypeDef]]
-    namespaceConfig: NotRequired[AddonNamespaceConfigRequestTypeDef]
-
-
-class UpdateAddonRequestTypeDef(TypedDict):
-    clusterName: str
-    addonName: str
-    addonVersion: NotRequired[str]
-    serviceAccountRoleArn: NotRequired[str]
-    resolveConflicts: NotRequired[ResolveConflictsType]
-    clientRequestToken: NotRequired[str]
-    configurationValues: NotRequired[str]
-    podIdentityAssociations: NotRequired[Sequence[AddonPodIdentityAssociationsTypeDef]]
-
-
-class AddonVersionInfoTypeDef(TypedDict):
-    addonVersion: NotRequired[str]
-    architecture: NotRequired[list[str]]
-    computeTypes: NotRequired[list[str]]
-    compatibilities: NotRequired[list[CompatibilityTypeDef]]
-    requiresConfiguration: NotRequired[bool]
-    requiresIamPermissions: NotRequired[bool]
-
-
-class ArgoCdRoleMappingOutputTypeDef(TypedDict):
-    role: ArgoCdRoleType
-    identities: list[SsoIdentityTypeDef]
-
-
-class ArgoCdRoleMappingTypeDef(TypedDict):
-    role: ArgoCdRoleType
-    identities: Sequence[SsoIdentityTypeDef]
-
-
 class CreateAccessEntryResponseTypeDef(TypedDict):
     accessEntry: AccessEntryTypeDef
     ResponseMetadata: ResponseMetadataTypeDef
@@ -1294,14 +1325,6 @@ class CreateAccessEntryResponseTypeDef(TypedDict):
 
 class DescribeAccessEntryResponseTypeDef(TypedDict):
     accessEntry: AccessEntryTypeDef
-    ResponseMetadata: ResponseMetadataTypeDef
-
-
-class DescribeAddonConfigurationResponseTypeDef(TypedDict):
-    addonName: str
-    addonVersion: str
-    configurationSchema: str
-    podIdentityConfiguration: list[AddonPodIdentityConfigurationTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
 
 
@@ -1327,6 +1350,12 @@ class ListAccessPoliciesResponseTypeDef(TypedDict):
 
 class ListAddonsResponseTypeDef(TypedDict):
     addons: list[str]
+    ResponseMetadata: ResponseMetadataTypeDef
+    nextToken: NotRequired[str]
+
+
+class ListCertificateAuthoritiesResponseTypeDef(TypedDict):
+    certificateAuthorities: list[CertificateAuthoritySummaryTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     nextToken: NotRequired[str]
 
@@ -1371,6 +1400,66 @@ class UpdateAccessEntryResponseTypeDef(TypedDict):
     ResponseMetadata: ResponseMetadataTypeDef
 
 
+class CertificateTypeDef(TypedDict):
+    data: NotRequired[str]
+    active: NotRequired[ActiveCertificateAuthorityTypeDef]
+
+
+class AddonHealthTypeDef(TypedDict):
+    issues: NotRequired[list[AddonIssueTypeDef]]
+
+
+class CreateAddonRequestTypeDef(TypedDict):
+    clusterName: str
+    addonName: str
+    addonVersion: NotRequired[str]
+    serviceAccountRoleArn: NotRequired[str]
+    resolveConflicts: NotRequired[ResolveConflictsType]
+    clientRequestToken: NotRequired[str]
+    tags: NotRequired[Mapping[str, str]]
+    configurationValues: NotRequired[str]
+    podIdentityAssociations: NotRequired[Sequence[AddonPodIdentityAssociationsTypeDef]]
+    namespaceConfig: NotRequired[AddonNamespaceConfigRequestTypeDef]
+
+
+class UpdateAddonRequestTypeDef(TypedDict):
+    clusterName: str
+    addonName: str
+    addonVersion: NotRequired[str]
+    serviceAccountRoleArn: NotRequired[str]
+    resolveConflicts: NotRequired[ResolveConflictsType]
+    clientRequestToken: NotRequired[str]
+    configurationValues: NotRequired[str]
+    podIdentityAssociations: NotRequired[Sequence[AddonPodIdentityAssociationsTypeDef]]
+
+
+class DescribeAddonConfigurationResponseTypeDef(TypedDict):
+    addonName: str
+    addonVersion: str
+    configurationSchema: str
+    podIdentityConfiguration: list[AddonPodIdentityConfigurationTypeDef]
+    ResponseMetadata: ResponseMetadataTypeDef
+
+
+class AddonVersionInfoTypeDef(TypedDict):
+    addonVersion: NotRequired[str]
+    architecture: NotRequired[list[str]]
+    computeTypes: NotRequired[list[str]]
+    compatibilities: NotRequired[list[CompatibilityTypeDef]]
+    requiresConfiguration: NotRequired[bool]
+    requiresIamPermissions: NotRequired[bool]
+
+
+class ArgoCdRoleMappingOutputTypeDef(TypedDict):
+    role: ArgoCdRoleType
+    identities: list[SsoIdentityTypeDef]
+
+
+class ArgoCdRoleMappingTypeDef(TypedDict):
+    role: ArgoCdRoleType
+    identities: Sequence[SsoIdentityTypeDef]
+
+
 class AssociateIdentityProviderConfigRequestTypeDef(TypedDict):
     clusterName: str
     oidc: OidcIdentityProviderConfigRequestTypeDef
@@ -1399,6 +1488,24 @@ class ListCapabilitiesResponseTypeDef(TypedDict):
     capabilities: list[CapabilitySummaryTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     nextToken: NotRequired[str]
+
+
+CertificateAuthorityTypeDef = TypedDict(
+    "CertificateAuthorityTypeDef",
+    {
+        "id": NotRequired[str],
+        "createdAt": NotRequired[datetime],
+        "createdBy": NotRequired[CertificateAuthorityCreatedByType],
+        "activatedAt": NotRequired[datetime],
+        "activatedBy": NotRequired[CertificateAuthorityActivatedByType],
+        "signingStatus": NotRequired[CertificateAuthoritySigningStatusType],
+        "distributionStatus": NotRequired[CertificateAuthorityDistributionStatusType],
+        "validity": NotRequired[CertificateAuthorityValidityTypeDef],
+        "scheduledEvents": NotRequired[CertificateAuthorityScheduledEventsTypeDef],
+        "rollbackAvailable": NotRequired[bool],
+        "data": NotRequired[str],
+    },
+)
 
 
 class DeprecationDetailTypeDef(TypedDict):
@@ -1511,6 +1618,15 @@ class DescribeNodegroupRequestWaitTypeDef(TypedDict):
     WaiterConfig: NotRequired[WaiterConfigTypeDef]
 
 
+class DescribeUpdateRequestWaitTypeDef(TypedDict):
+    name: str
+    updateId: str
+    nodegroupName: NotRequired[str]
+    addonName: NotRequired[str]
+    capabilityName: NotRequired[str]
+    WaiterConfig: NotRequired[WaiterConfigTypeDef]
+
+
 DescribeAddonVersionsRequestPaginateTypeDef = TypedDict(
     "DescribeAddonVersionsRequestPaginateTypeDef",
     {
@@ -1556,6 +1672,11 @@ class ListAssociatedAccessPoliciesRequestPaginateTypeDef(TypedDict):
 
 
 class ListCapabilitiesRequestPaginateTypeDef(TypedDict):
+    clusterName: str
+    PaginationConfig: NotRequired[PaginatorConfigTypeDef]
+
+
+class ListCertificateAuthoritiesRequestPaginateTypeDef(TypedDict):
     clusterName: str
     PaginationConfig: NotRequired[PaginatorConfigTypeDef]
 
@@ -1918,6 +2039,11 @@ class ArgoCdConfigResponseTypeDef(TypedDict):
 ArgoCdRoleMappingUnionTypeDef = Union[ArgoCdRoleMappingTypeDef, ArgoCdRoleMappingOutputTypeDef]
 
 
+class DescribeCertificateAuthorityResponseTypeDef(TypedDict):
+    certificateAuthority: CertificateAuthorityTypeDef
+    ResponseMetadata: ResponseMetadataTypeDef
+
+
 class InsightCategorySpecificSummaryTypeDef(TypedDict):
     deprecationDetails: NotRequired[list[DeprecationDetailTypeDef]]
     addonCompatibilityDetails: NotRequired[list[AddonCompatibilityDetailTypeDef]]
@@ -2046,6 +2172,12 @@ class NodeResourcesFitConfigOutputTypeDef(TypedDict):
 ScoringStrategyUnionTypeDef = Union[ScoringStrategyTypeDef, ScoringStrategyOutputTypeDef]
 
 
+class ActivateCertificateAuthorityResponseTypeDef(TypedDict):
+    update: UpdateTypeDef
+    certificateAuthority: CertificateAuthoritySummaryTypeDef
+    ResponseMetadata: ResponseMetadataTypeDef
+
+
 class AssociateEncryptionConfigResponseTypeDef(TypedDict):
     update: UpdateTypeDef
     ResponseMetadata: ResponseMetadataTypeDef
@@ -2059,6 +2191,18 @@ class AssociateIdentityProviderConfigResponseTypeDef(TypedDict):
 
 class CancelUpdateResponseTypeDef(TypedDict):
     update: UpdateTypeDef
+    ResponseMetadata: ResponseMetadataTypeDef
+
+
+class CreateCertificateAuthorityResponseTypeDef(TypedDict):
+    update: UpdateTypeDef
+    certificateAuthority: CertificateAuthoritySummaryTypeDef
+    ResponseMetadata: ResponseMetadataTypeDef
+
+
+class DeleteCertificateAuthorityResponseTypeDef(TypedDict):
+    update: UpdateTypeDef
+    certificateAuthority: CertificateAuthoritySummaryTypeDef
     ResponseMetadata: ResponseMetadataTypeDef
 
 

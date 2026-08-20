@@ -1,10 +1,7 @@
 [project]
 name = "librouteros"
-version = "4.1.1"
+version = "4.2.0"
 description = "Python implementation of MikroTik RouterOS API"
-authors = [
-    { name = "Łukasz Kostka", email = "lukasz.g.kostka@gmail.com" },
-]
 license = "GPL-2.0-or-later"
 readme = "README.rst"
 license-files = ["LICENSE"]
@@ -15,6 +12,10 @@ keywords = [
     "api",
 ]
 dependencies = []
+
+[[project.authors]]
+name = "Łukasz Kostka"
+email = "lukasz.g.kostka@gmail.com"
 
 [project.urls]
 Homepage = "https://github.com/luqasz/librouteros"
@@ -49,14 +50,6 @@ line-length = 120
 docstring-code-format = true
 docstring-code-line-length = 80
 
-[tool.pytest.ini_options]
-addopts = "-ra"
-asyncio_default_fixture_loop_scope = "function"
-asyncio_mode = "auto"
-
-[tool.mypy]
-ignore_missing_imports = true
-
 [tool.ruff.lint]
 extend-select = [
     "A",
@@ -78,8 +71,7 @@ extend-select = [
     "T20",
     "W",
 ]
-ignore = [
-]
+ignore = []
 exclude = [
     "docs/**/*.py",
     "apicli.py",
@@ -100,3 +92,11 @@ exclude = [
 [tool.ruff.lint.flake8-pytest-style]
 parametrize-values-type = "tuple"
 parametrize-names-type = "tuple"
+
+[tool.pytest.ini_options]
+addopts = "-ra"
+asyncio_default_fixture_loop_scope = "function"
+asyncio_mode = "auto"
+
+[tool.mypy]
+ignore_missing_imports = true

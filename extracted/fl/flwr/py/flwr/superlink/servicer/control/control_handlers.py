@@ -78,6 +78,8 @@ from flwr.proto.control_pb2 import (  # pylint: disable=E0611
     GetLoginDetailsResponse,
     GetRunSeriesRequest,
     GetRunSeriesResponse,
+    ListAppsRequest,
+    ListAppsResponse,
     ListAutomationsRequest,
     ListAutomationsResponse,
     ListConnectorsRequest,
@@ -165,10 +167,11 @@ from flwr.superlink.federation.noop_federation_manager import NoOpFederationMana
 class InvalidConnectorRequestError(FlowerError):
     """Exception raised when a connector request is invalid."""
 
-    def __init__(self, reason: str) -> None:
+    def __init__(self, reason: str, public_details: str | None = None) -> None:
         super().__init__(
             ApiErrorCode.INVALID_CONNECTOR_REQUEST,
             f"Invalid connector request: {reason}.",
+            public_details=public_details,
         )
 
 
@@ -186,25 +189,35 @@ def list_connectors(
     account: AccountInfo,
     state: LinkState,
 ) -> ListConnectorsResponse:
-    """List user-connectable OAuth providers and account connection status."""
+    """List OAuth connectors available in the requested federation."""
     log(INFO, "ControlServicer.ListConnectors")
-    _ = request
+    if not request.federation:
+        return ListConnectorsResponse()
+
+    flwr_aid = account.flwr_aid
+    state.federation_manager.ensure_default_federations_exist(flwr_aid=flwr_aid)
+    _validate_federation_membership_in_request(state, flwr_aid, request.federation)
+    federation = state.federation_manager.get_details(request.federation)
+    # Until connectors are federation-scoped, expose account-scoped connectors only
+    # in the personal agent federation.
+    if federation.can_invite_members or federation.can_add_supernodes:
+        return ListConnectorsResponse()
 
     connectors: list[Connector] = []
-    for provider in sorted(
-        connector_registry.OAUTH_CONNECTOR_PROVIDERS,
+    for flow in sorted(
+        connector_registry.OAUTH_FLOWS.values(),
         key=lambda item: item.connector_ref,
     ):
-        connector_ref = provider.connector_ref
+        connector_ref = flow.connector_ref
         connected = (
-            state.get_connector(flwr_aid=account.flwr_aid, connector_ref=connector_ref)
+            state.get_connector(flwr_aid=flwr_aid, connector_ref=connector_ref)
             is not None
         )
         connectors.append(
             Connector(
                 connector_ref=connector_ref,
-                display_name=provider.display_name,
-                description=provider.description,
+                display_name=flow.display_name,
+                description=flow.description,
                 connected=connected,
             )
         )
@@ -222,11 +235,11 @@ def disconnect_connector(
     if not connector_ref:
         raise InvalidConnectorRequestError("connector_ref is required")
     try:
-        connector_registry.get_oauth_connector_provider(connector_ref)
+        connector_registry.get_oauth_flow(connector_ref)
     except ValueError:
         raise FlowerError(
             ApiErrorCode.CONNECTOR_NOT_FOUND,
-            f"OAuth provider for connector '{connector_ref}' was not found.",
+            f"OAuth flow for connector '{connector_ref}' was not found.",
         ) from None
 
     deleted = state.delete_connector(
@@ -254,19 +267,19 @@ def begin_connector_oauth(
     if not redirect_uri:
         raise InvalidConnectorRequestError("redirect_uri is required")
     try:
-        provider = connector_registry.get_oauth_connector_provider(connector_ref)
+        flow = connector_registry.get_oauth_flow(connector_ref)
     except ValueError:
         raise FlowerError(
             ApiErrorCode.CONNECTOR_NOT_FOUND,
-            f"OAuth provider for connector '{connector_ref}' was not found.",
+            f"OAuth flow for connector '{connector_ref}' was not found.",
         ) from None
     try:
-        redirect_uri = provider.resolve_redirect_uri(redirect_uri)
+        redirect_uri = flow.resolve_redirect_uri(redirect_uri)
     except ValueError as err:
         raise InvalidConnectorRequestError(
             "redirect_uri is not allowed for this connector"
         ) from err
-    # Provider implementations can raise arbitrary exceptions; sanitize them.
+    # OAuth flows can raise arbitrary exceptions; sanitize them.
     except Exception as err:  # pylint: disable=broad-exception-caught
         raise ConnectorFailureError(
             f"Connector '{connector_ref}' failed to resolve redirect URI "
@@ -285,12 +298,12 @@ def begin_connector_oauth(
     pkce_challenge = base64.urlsafe_b64encode(digest).rstrip(b"=").decode("ascii")
     expires_at = now() + OAUTH_SESSION_TTL
     try:
-        authorization_url = provider.build_authorization_url(
+        authorization_url = flow.build_authorization_url(
             redirect_uri=redirect_uri,
             state=oauth_state,
             pkce_challenge=pkce_challenge,
         )
-    # Provider implementations can raise arbitrary exceptions; sanitize them.
+    # OAuth flows can raise arbitrary exceptions; sanitize them.
     except Exception as err:  # pylint: disable=broad-exception-caught
         raise ConnectorFailureError(
             f"Connector '{connector_ref}' failed to build authorization URL "
@@ -367,11 +380,11 @@ def complete_connector_oauth(  # pylint: disable=too-many-locals
 
     connector_ref = session.connector_ref.strip().lower()
     try:
-        provider = connector_registry.get_oauth_connector_provider(connector_ref)
+        flow = connector_registry.get_oauth_flow(connector_ref)
     except ValueError:
         raise FlowerError(
             ApiErrorCode.CONNECTOR_NOT_FOUND,
-            f"OAuth provider for connector '{connector_ref}' was not found.",
+            f"OAuth flow for connector '{connector_ref}' was not found.",
         ) from None
     claimed = state.complete_connector_oauth_session(
         oauth_session_id=session.oauth_session_id,
@@ -384,12 +397,12 @@ def complete_connector_oauth(  # pylint: disable=too-many-locals
         )
 
     try:
-        credentials, config = provider.exchange_code(
+        credentials, config = flow.exchange_code(
             code=authorization_code,
             redirect_uri=session.redirect_uri,
             pkce_verifier=session.pkce_verifier,
         )
-    # Provider implementations can raise arbitrary exceptions; sanitize them.
+    # OAuth flows can raise arbitrary exceptions; sanitize them.
     except Exception as err:  # pylint: disable=broad-exception-caught
         raise ConnectorFailureError(
             f"Connector '{connector_ref}' failed to exchange authorization code "
@@ -428,11 +441,11 @@ def validate_run_connector_refs(
         raise InvalidConnectorRequestError("connector_ref is required")
     for connector_ref in canonical_refs:
         try:
-            connector_registry.get_oauth_connector_provider(connector_ref)
+            connector_registry.get_oauth_flow(connector_ref)
         except ValueError:
             raise FlowerError(
                 ApiErrorCode.CONNECTOR_NOT_FOUND,
-                f"OAuth provider for connector '{connector_ref}' was not found.",
+                f"OAuth flow for connector '{connector_ref}' was not found.",
             ) from None
         connector = state.get_connector(account.flwr_aid, connector_ref)
         if connector is None:
@@ -509,6 +522,17 @@ def start_run(  # pylint: disable=too-many-branches,too-many-locals,too-many-sta
             f"federation '{federation_id}'.",
         )
 
+    if connector_refs:
+        federation = state.federation_manager.get_details(federation_id)
+        if federation.can_invite_members or federation.can_add_supernodes:
+            raise InvalidConnectorRequestError(
+                "connector refs are not supported for this federation",
+                public_details=(
+                    "Connectors are currently available only in your personal "
+                    "workspace."
+                ),
+            )
+
     try:
         # Validate user config overrides matches keys in run config in FAB
         fab_config = get_fab_config(fab_file)
@@ -519,9 +543,8 @@ def start_run(  # pylint: disable=too-many-branches,too-many-locals,too-many-sta
         # be bundled locally and submitted through the regular `flwr run` path.
         components = fab_config["tool"]["flwr"]["app"].get("components", {})
         is_agentapp_bundle = "agentapp" in components
-        primary_task_type = (
-            TaskType.AGENT_APP if is_agentapp_bundle else TaskType.SERVER_APP
-        )
+        app_type = TaskType.AGENT_APP if is_agentapp_bundle else TaskType.SERVER_APP
+        primary_task_type = app_type
         resolved_federation_config = None
         runtime = RunTime.DEPLOYMENT
         sim_cfg = state.federation_manager.get_simulation_config(federation_id)
@@ -544,13 +567,19 @@ def start_run(  # pylint: disable=too-many-branches,too-many-locals,too-many-sta
             fab_file,
             verification_dict,
         )
-        fab_hash = state.store_fab(fab)
+        fab_id, fab_version = get_metadata_from_config(fab_config)
+        fab_hash = state.store_app(
+            fab=fab,
+            federation_id=federation_id,
+            app_id=f"@{fab_id}",
+            app_type=app_type,
+            added_by=flwr_aid,
+        )
 
         if fab_hash != fab.hash_str:
             raise ValueError(
                 f"FAB ({fab.hash_str}) hash from request doesn't match contents"
             )
-        fab_id, fab_version = get_metadata_from_config(fab_config)
         series_id = request.series_id if request.HasField("series_id") else None
         series_description: str | None = None
         if primary_task_type == TaskType.AGENT_APP and series_id is None:
@@ -1280,10 +1309,22 @@ def list_federations(
                 description=fed.description,
                 archived=fed.archived,
                 simulation=fed.simulation,
+                can_invite_members=fed.can_invite_members,
+                can_add_supernodes=fed.can_add_supernodes,
             )
             for fed in federations
         ]
     )
+
+
+def list_apps(
+    request: ListAppsRequest, account: AccountInfo, state: LinkState
+) -> ListAppsResponse:
+    """List apps associated with a federation."""
+    federation_id = request.federation_id
+    _validate_federation_membership_in_request(state, account.flwr_aid, federation_id)
+    limit = request.limit if request.HasField("limit") else None
+    return ListAppsResponse(apps=state.list_apps(federation_id, limit))
 
 
 def show_federation(
@@ -1316,6 +1357,8 @@ def show_federation(
         archived=details.archived,
         simulation=details.simulation,
         config=details.config,
+        can_invite_members=details.can_invite_members,
+        can_add_supernodes=details.can_add_supernodes,
     )
     return ShowFederationResponse(federation=federation_proto, now=now().isoformat())
 
@@ -1370,6 +1413,8 @@ def create_federation(
             description=federation.description,
             members=federation.members,
             simulation=federation.simulation,
+            can_invite_members=federation.can_invite_members,
+            can_add_supernodes=federation.can_add_supernodes,
         )
     )
 

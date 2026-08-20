@@ -1,6 +1,5 @@
 use crate::configuration::{KeywordFormatter, KeywordPreprocessor};
 use crate::node::{RefinedArgumentsAtom, RefinedArgumentsNode};
-use crate::two_words_keyword_isolator::TwoWordKeywordMatcher;
 use crate::utils::builtin_schemas;
 use pyo3::exceptions::PyRuntimeError;
 use pyo3::prelude::*;
@@ -11,15 +10,9 @@ use std::collections::HashMap;
 use std::sync::LazyLock;
 
 #[derive(Clone, Debug, Eq, Hash, PartialEq)]
-pub enum SecondKeyword {
-    String(String),
-    Any,
-}
-
-#[derive(Clone, Debug, Eq, Hash, PartialEq)]
 pub struct KeywordMatcher {
-    first: String,
-    second: Option<SecondKeyword>,
+    pub first: String,
+    pub second: Option<String>,
 }
 
 fn single_word_matcher(s: &str) -> KeywordMatcher {
@@ -58,11 +51,11 @@ impl FromPyObject<'_, '_> for KeywordMatcher {
             let (left, right) = (obj.get_item(0)?, obj.get_item(1)?);
 
             let left = left.cast::<PyString>()?.str()?.to_string();
-            let right = Some(if right.is_instance_of::<PyString>() {
-                SecondKeyword::String(right.cast::<PyString>()?.str()?.to_string())
+            let right = if right.is_instance_of::<PyString>() {
+                Some(right.cast::<PyString>()?.str()?.to_string())
             } else {
-                SecondKeyword::Any
-            });
+                None
+            };
 
             (left, right)
         } else {
@@ -78,18 +71,18 @@ enum AccumulatorKind {
     PositionalArguments,
 }
 
-struct Accumulator {
+struct Accumulator<'a> {
     kind: AccumulatorKind,
-    nodes: RefinedArgumentsNode,
+    nodes: RefinedArgumentsNode<'a>,
 }
 
-struct KeywordSplitter {
-    groups: RefinedArgumentsNode,
-    accumulator: Accumulator,
-    comment_accumulator: RefinedArgumentsNode,
+struct KeywordSplitter<'a> {
+    groups: RefinedArgumentsNode<'a>,
+    accumulator: Accumulator<'a>,
+    comment_accumulator: RefinedArgumentsNode<'a>,
 }
 
-impl KeywordSplitter {
+impl<'a> KeywordSplitter<'a> {
     fn flush_accumulators(&mut self) {
         let mut nodes = std::mem::take(&mut self.accumulator.nodes);
         if !nodes.is_empty() {
@@ -109,7 +102,7 @@ impl KeywordSplitter {
         self.groups.append(&mut self.comment_accumulator);
     }
 
-    fn split(&mut self, schema: &ArgumentSchema, arguments: RefinedArgumentsNode) {
+    fn split(&mut self, schema: &ArgumentSchema, arguments: RefinedArgumentsNode<'a>) {
         let mut iterator = arguments.into_iter();
 
         while let Some(argument) = iterator.next() {
@@ -181,10 +174,10 @@ impl ArgumentSchema {
         None
     }
 
-    fn separate_front(
+    fn separate_front<'a>(
         &self,
-        mut arguments: RefinedArgumentsNode,
-    ) -> (RefinedArgumentsNode, RefinedArgumentsNode) {
+        mut arguments: RefinedArgumentsNode<'a>,
+    ) -> (RefinedArgumentsNode<'a>, RefinedArgumentsNode<'a>) {
         match self.find_pivot(&arguments) {
             None => (arguments, vec![]),
             Some(pivot) => {
@@ -194,10 +187,10 @@ impl ArgumentSchema {
         }
     }
 
-    fn split_positional_arguments(
+    fn split_positional_arguments<'a>(
         &self,
-        mut arguments: RefinedArgumentsNode,
-    ) -> RefinedArgumentsNode {
+        mut arguments: RefinedArgumentsNode<'a>,
+    ) -> RefinedArgumentsNode<'a> {
         let last_index = min(arguments.len(), self.front_positional_arguments.len());
         let rest = arguments.split_off(last_index);
         let mut arguments = arguments
@@ -212,7 +205,10 @@ impl ArgumentSchema {
         arguments
     }
 
-    fn split_by_keywords(&self, arguments: RefinedArgumentsNode) -> RefinedArgumentsNode {
+    fn split_by_keywords<'a>(
+        &self,
+        arguments: RefinedArgumentsNode<'a>,
+    ) -> RefinedArgumentsNode<'a> {
         let mut keyword_splitter = KeywordSplitter {
             groups: vec![],
             accumulator: Accumulator {
@@ -225,7 +221,14 @@ impl ArgumentSchema {
         keyword_splitter.groups
     }
 
-    fn split_arguments(&self, mut arguments: RefinedArgumentsNode) -> RefinedArgumentsNode {
+    fn split_arguments<'a>(
+        &self,
+        mut arguments: RefinedArgumentsNode<'a>,
+    ) -> (
+        RefinedArgumentsNode<'a>,
+        RefinedArgumentsNode<'a>,
+        RefinedArgumentsNode<'a>,
+    ) {
         let back = if self.back_positional_arguments.len() > arguments.len() {
             vec![]
         } else {
@@ -236,11 +239,7 @@ impl ArgumentSchema {
         let front = self.split_positional_arguments(front);
         let keyworded_arguments = self.split_by_keywords(tail);
 
-        front
-            .into_iter()
-            .chain(keyworded_arguments)
-            .chain(back)
-            .collect()
+        (front, keyworded_arguments, back)
     }
 
     fn get_section_schema(&self, argument: &RefinedArgumentsAtom) -> Option<&ArgumentSchema> {
@@ -254,11 +253,11 @@ impl ArgumentSchema {
         None
     }
 
-    fn split_multi_value_argument(
+    fn split_multi_value_argument<'a>(
         &self,
-        keyword: RefinedArgumentsAtom,
-        arguments: Vec<RefinedArgumentsAtom>,
-    ) -> RefinedArgumentsAtom {
+        keyword: RefinedArgumentsAtom<'a>,
+        arguments: Vec<RefinedArgumentsAtom<'a>>,
+    ) -> RefinedArgumentsAtom<'a> {
         let Some(section_schema) = self.get_section_schema(&keyword) else {
             return RefinedArgumentsAtom::MultiValueArgument {
                 keyword: Box::new(keyword),
@@ -267,7 +266,7 @@ impl ArgumentSchema {
         };
 
         let rest = section_schema.split_arguments_with_sections(arguments);
-        let mut values = Vec::<RefinedArgumentsAtom>::new();
+        let mut values = Vec::<RefinedArgumentsAtom>::with_capacity(rest.len());
         for argument in rest {
             match argument {
                 RefinedArgumentsAtom::PositionalArguments(mut arguments) => {
@@ -312,8 +311,15 @@ impl ArgumentSchema {
         }
     }
 
-    fn form_sections(&self, arguments: RefinedArgumentsNode) -> RefinedArgumentsNode {
-        let mut result = RefinedArgumentsNode::new();
+    fn form_sections<'a, Arguments>(
+        &self,
+        arguments: Arguments,
+        size_hint: usize,
+    ) -> RefinedArgumentsNode<'a>
+    where
+        Arguments: IntoIterator<Item = RefinedArgumentsAtom<'a>>,
+    {
+        let mut result = RefinedArgumentsNode::with_capacity(size_hint);
         let mut section_schema: Option<&ArgumentSchema> = None;
 
         for argument in arguments {
@@ -339,27 +345,42 @@ impl ArgumentSchema {
         result
     }
 
-    pub fn split_arguments_with_sections(
+    pub fn split_arguments_with_sections<'a>(
         &self,
-        arguments: RefinedArgumentsNode,
-    ) -> RefinedArgumentsNode {
-        let arguments = self.split_arguments(arguments);
-        let preprocessed = arguments
+        arguments: RefinedArgumentsNode<'a>,
+    ) -> RefinedArgumentsNode<'a> {
+        let size_hint = arguments.len();
+        let (front, keyworded_arguments, back) = self.split_arguments(arguments);
+        let preprocessed = front
             .into_iter()
+            .chain(keyworded_arguments)
+            .chain(back)
             .map(|argument| match argument {
                 RefinedArgumentsAtom::MultiValueArgument { keyword, arguments } => {
                     self.split_multi_value_argument(*keyword, arguments)
                 }
                 _ => argument,
-            })
-            .collect();
-        self.form_sections(preprocessed)
+            });
+        self.form_sections(preprocessed, size_hint)
     }
 }
 
-pub struct KeywordValue {
-    first: String,
-    second: Option<String>,
+pub struct KeywordValue<'a> {
+    first: &'a str,
+    second: Option<&'a str>,
+}
+
+impl KeywordMatcher {
+    fn match_value(&self, value: &KeywordValue<'_>) -> bool {
+        let KeywordValue { first, second } = value;
+
+        self.first == *first
+            && match (&self.second, &second) {
+                (Some(matcher), Some(value)) => matcher == *value,
+                (Some(_), _) => false,
+                (None, _) => true,
+            }
+    }
 }
 
 pub fn is_one_of_keywords(
@@ -370,44 +391,10 @@ pub fn is_one_of_keywords(
         return false;
     };
 
-    match keyword_value {
-        KeywordValue {
-            first,
-            second: None,
-        } => {
-            for matcher in matchers {
-                if (matcher.first.as_str() == first) && matcher.second.is_none() {
-                    return true;
-                }
-            }
-            false
-        }
-        KeywordValue {
-            first,
-            second: Some(second),
-        } => {
-            for matcher in matchers {
-                if matcher.first.as_str() != first {
-                    continue;
-                }
-
-                match &matcher.second {
-                    None | Some(SecondKeyword::Any) => {
-                        return true;
-                    }
-                    Some(SecondKeyword::String(matcher_second)) => {
-                        if matcher_second.as_str() == second {
-                            return true;
-                        }
-                    }
-                }
-            }
-            false
-        }
-    }
+    matchers.iter().any(|m| m.match_value(keyword_value))
 }
 
-impl RefinedArgumentsAtom {
+impl RefinedArgumentsAtom<'_> {
     pub fn is_comment(&self) -> bool {
         match self {
             Self::Atom(atom) => atom.is_comment(),
@@ -423,7 +410,7 @@ impl RefinedArgumentsAtom {
         }
     }
 
-    pub fn get_keyword_value(&self) -> Option<KeywordValue> {
+    pub fn get_keyword_value(&self) -> Option<KeywordValue<'_>> {
         match self {
             Self::Atom(atom) => atom.get_value().map(|value| KeywordValue {
                 first: value,
@@ -447,12 +434,12 @@ impl RefinedArgumentsAtom {
     }
 }
 
-fn isolate_unary_operators(
+fn isolate_unary_operators<'a>(
     operators: &[KeywordMatcher],
-    arguments: RefinedArgumentsNode,
-) -> RefinedArgumentsNode {
+    arguments: RefinedArgumentsNode<'a>,
+) -> RefinedArgumentsNode<'a> {
     let mut one_behind: Option<RefinedArgumentsAtom> = None;
-    let mut result = RefinedArgumentsNode::new();
+    let mut result = RefinedArgumentsNode::with_capacity(arguments.len());
     for current in arguments {
         match one_behind {
             None => {
@@ -488,13 +475,13 @@ fn isolate_unary_operators(
     result
 }
 
-fn isolate_binary_tests(
+fn isolate_binary_tests<'a>(
     operators: &[KeywordMatcher],
-    arguments: RefinedArgumentsNode,
-) -> RefinedArgumentsNode {
+    arguments: RefinedArgumentsNode<'a>,
+) -> RefinedArgumentsNode<'a> {
     let mut two_behind: Option<RefinedArgumentsAtom> = None;
     let mut one_behind: Option<RefinedArgumentsAtom> = None;
-    let mut result = RefinedArgumentsNode::new();
+    let mut result = RefinedArgumentsNode::with_capacity(arguments.len());
 
     for current in arguments {
         match (two_behind, one_behind) {
@@ -609,7 +596,7 @@ pub enum CommandSchemaDetails {
     StandardCommand {
         schema: ArgumentSchema,
         signatures: Signatures,
-        two_words_keywords: Vec<TwoWordKeywordMatcher>,
+        two_words_keywords: Vec<KeywordMatcher>,
     },
     SpecializedCommand {
         #[pyo3(attribute("impl"))]
@@ -630,10 +617,61 @@ pub type CommandSchemaMapping = HashMap<String, CommandSchema>;
 pub struct CommandSchemas {
     pub definition_schemas: CommandSchemaMapping,
     pub extension_schemas: CommandSchemaMapping,
+    pub blocks: Vec<(String, BlockCommand)>,
+}
+
+pub struct BlockCommand {
+    pub pattern: String,
+}
+
+fn prepare_blocks<'a, Schemas>(schemas: Schemas) -> Vec<(String, BlockCommand)>
+where
+    Schemas: Iterator<Item = &'a CommandSchema>,
+{
+    schemas
+        .filter_map(|schema| match schema {
+            CommandSchema {
+                canonical_name: Some(canonical_name),
+                block_end: Some(block_end),
+                ..
+            } => Some((
+                canonical_name.trim().to_lowercase(),
+                BlockCommand {
+                    pattern: block_end.clone(),
+                },
+            )),
+            _ => None,
+        })
+        .collect()
 }
 
 impl CommandSchemas {
-    pub fn get(&self, key: &str) -> Option<&CommandSchema> {
+    pub fn new(
+        definition_schemas: CommandSchemaMapping,
+        extension_schemas: CommandSchemaMapping,
+    ) -> Self {
+        let blocks = prepare_blocks(
+            definition_schemas
+                .values()
+                .chain(extension_schemas.values())
+                .chain(builtin_schemas().values()),
+        );
+        Self {
+            definition_schemas,
+            extension_schemas,
+            blocks,
+        }
+    }
+
+    pub fn default() -> Self {
+        Self {
+            definition_schemas: HashMap::new(),
+            extension_schemas: HashMap::new(),
+            blocks: prepare_blocks(builtin_schemas().values()),
+        }
+    }
+
+    pub fn get_impl(&self, key: &str) -> Option<&CommandSchema> {
         self.definition_schemas.get(key).or_else(|| {
             self.extension_schemas
                 .get(key)
@@ -641,9 +679,12 @@ impl CommandSchemas {
         })
     }
 
+    pub fn get(&self, key: &str) -> Option<&CommandSchema> {
+        self.get_impl(key)
+            .or_else(|| self.get_impl(&key.to_lowercase()))
+    }
+
     pub fn contains_key(&self, key: &str) -> bool {
-        self.definition_schemas.contains_key(key)
-            || self.extension_schemas.contains_key(key)
-            || builtin_schemas().contains_key(key)
+        self.get(key).is_some()
     }
 }

@@ -27,6 +27,11 @@ from snowflake.snowpark.exceptions import SnowparkSQLException
 from snowflake.snowpark.types import TimestampTimeZone, TimestampType
 from snowflake.snowpark_connect.error.error_codes import ErrorCodes
 from snowflake.snowpark_connect.error.error_utils import attach_custom_error_code
+from snowflake.snowpark_connect.native_function_target import (
+    CONF_PREFIX as NATIVE_FUNCTION_CONF_PREFIX,
+    conf_key_for as native_function_conf_key_for,
+    parse_conf_value as parse_native_function_conf_value,
+)
 from snowflake.snowpark_connect.type_support import set_integral_types_conversion
 from snowflake.snowpark_connect.utils.concurrent import SynchronizedDict
 from snowflake.snowpark_connect.utils.context import (
@@ -328,6 +333,11 @@ class GlobalConfig:
         # ENCRYPT / DECRYPT (passphrase-derived key) implementation.
         "snowpark.connect.enable_aes_raw_functions": "true",
         "snowpark.connect.enable_partition_specs_in_show_tables": "false",
+        # When true (default), a ``snowpark.connect.nativeFunction.<name>`` entry makes
+        # ``<name>`` resolve to the Snowflake built-in or pre-existing UDF it names, rather
+        # than failing as an unknown function. Kill switch: setting this false makes such
+        # entries inert without the user having to unset them.
+        "snowpark.connect.enableNativeFunctionCalls": "true",
         # Nullability tracking for top-level columns.
         # When false (default), all columns are forced to nullable=True.
         # When true, column nullability from type resolvers is preserved.
@@ -424,6 +434,12 @@ class GlobalConfig:
         # revert to the pre-BCR ARRAY_AGG(...) OVER (... ORDER BY ...) emission
         # (Snowflake ignores the direction for that frame, returning scan order).
         "snowpark.connect.window.collectListHonorOrderByDirection": "true",
+        # POC (SNOW-3758410): when true, apply CLD identifier rules (bare
+        # unquoted names, quote only for backtick/caseSensitive) on all
+        # databases, not only catalog-linked databases. Opt in via
+        # snowpark.connect.identifier.useCldRules=true for regression testing;
+        # default false preserves legacy quoted-uppercase behavior.
+        "snowpark.connect.identifier.useCldRules": "false",
     }
 
     boolean_config_list = [
@@ -465,6 +481,7 @@ class GlobalConfig:
         "snowpark.connect.enableInputTypeCheckForJsonTupleFunction",
         "snowpark.connect.enableInputTypeCheckForExtractValueFunction",
         "snowpark.connect.native_app_mode",
+        "snowpark.connect.identifier.useCldRules",
     ]
 
     int_config_list = [
@@ -596,6 +613,13 @@ class GlobalConfig:
         return key in self.user_set_keys
 
 
+# SNOW-3957220: the customer-facing NSS opt-in from the NSS SCOS v1 rollout plan.
+# Named to match the plan's published contract exactly — customers set this via
+# ``spark.conf.set(...)`` or a code bundle's ``spark_conf`` block. Defined here so the
+# whitelist, the session defaults and ``is_nss_enabled`` all share one spelling; a
+# literal in any of those three would drift silently and make the key unsettable.
+NSS_ENABLED_SESSION_CONFIG = "snowflake.file.nextGenReader.enabled"
+
 SESSION_CONFIG_KEY_WHITELIST = {
     "spark.hadoop.fs.s3a.access.key",
     "spark.hadoop.fs.s3a.secret.key",
@@ -644,10 +668,22 @@ SESSION_CONFIG_KEY_WHITELIST = {
     "snowpark.connect.enableInputTypeCheckForGetJsonObjectFunction",
     "snowpark.connect.enableInputTypeCheckForJsonTupleFunction",
     "snowpark.connect.enableInputTypeCheckForExtractValueFunction",
+    # enableNativeFunctionCalls is deliberately NOT a client config — it is an
+    # operator-only kill switch set via --conf at server startup. Keeping it out
+    # of the allowlist means spark.conf.set() cannot affect other sessions.
     "spark.sql.columnNameOfCorruptRecord",
     # SNOW-3898459: forwarded to the NSS sandbox reader via SPARK_CONF.
     "spark.sql.datetime.java8API.enabled",
     "spark.sql.json.enablePartialResults",
+    # SNOW-3919681: the rest of ``_RELEVANT_SPARK_CONF_KEYS`` — listed for NSS forwarding
+    # but never whitelisted, so ``build_spark_conf`` never saw a client ``conf.set``. Any
+    # key here with a ``default_global_config`` entry needs an identical
+    # ``default_session_config`` one, or ``unset_config_param`` restores ``""``.
+    "spark.sql.session.timeZone",
+    "spark.sql.timestampType",
+    "spark.sql.ansi.enabled",
+    "spark.sql.legacy.timeParserPolicy",
+    "spark.sql.snowflake.arrow.typeMappingVersion",
     # SNOW-3674169: Spark's read-side partition-bytes hint; SCOS uses it as a
     # session-scoped default for Iceberg ``TARGET_FILE_SIZE`` on subsequent
     # CREATE ICEBERG TABLE writes (see ``_build_iceberg_config``).
@@ -657,13 +693,22 @@ SESSION_CONFIG_KEY_WHITELIST = {
     "snowpark.connect.aggregate.coerceStringToNumeric",
     "snowpark.connect.use2000AsTwoDigitCenturyStart",
     "snowpark.connect.window.collectListHonorOrderByDirection",
-    # NSS (Native Spark Sandbox) session-level knobs. Whether NSS is *enabled* is
-    # deliberately NOT a client config — it is gated server-side by the
-    # SCOS_NSS_ENABLED env var (see is_nss_enabled) so customers cannot reach the
-    # experimental read path via spark.conf.set. Only the format-name overrides
-    # remain session knobs.
+    # NSS (Native Spark Sandbox) session-level knobs.
+    #
+    # SNOW-3957220: NSS enablement *is* a client config as of the PuPr rollout. The
+    # earlier design deliberately kept it server-side only (SCOS_NSS_ENABLED) so
+    # customers could not reach the read path via spark.conf.set; the NSS SCOS v1
+    # rollout plan reverses that — customers opt in per session and roll back the
+    # same way. Do not re-hide this key. COPY v1 stays the default when unset.
+    NSS_ENABLED_SESSION_CONFIG,
     "snowpark.connect.nss.json_format_name",
     "snowpark.connect.nss.csv_format_name",
+    "snowpark.connect.identifier.useCldRules",
+    # SNOW-3957419: forwarded to the NSS sandbox reader via SPARK_CONF. Deliberately
+    # left out of ``default_session_config``: an unseeded key reads back as ``""`` and
+    # ``build_spark_conf`` drops it, so only an explicit client ``conf.set`` reaches the
+    # sandbox -- which already defaults this to true via its own ``new SQLConf()``.
+    "spark.sql.csv.parser.columnPruning.enabled",
 }
 
 # Static Spark configs that nonetheless accept a *per-session* override at
@@ -685,6 +730,14 @@ AZURE_ACCOUNT_KEY = re.compile(
 AZURE_SAS_KEY = re.compile(
     r"^fs\.azure\.sas\.fixed\.token\.[^\.]+\.dfs\.core\.windows\.net$"
 )
+# ``snowpark.connect.nativeFunction.<name>`` -- one key per native Snowflake function alias
+# (see ``native_function_target``). The name is user-chosen, so the key set is open-ended and
+# cannot be whitelisted; matched by pattern the same way the Azure keys are. Dots are allowed
+# in the name: that is how a caller opts into invoking the function by its qualified
+# Snowflake spelling, which the SQL parser presents as a single dotted lookup name.
+NATIVE_FUNCTION_KEY = re.compile(
+    re.escape(NATIVE_FUNCTION_CONF_PREFIX) + r"[^\s.](?:\S*[^\s.])?$"
+)
 
 
 def valid_session_config_key(key: str):
@@ -693,19 +746,94 @@ def valid_session_config_key(key: str):
         or key in SESSION_OVERRIDABLE_STATIC  # e.g. spark.sql.extensions
         or AZURE_SAS_KEY.match(key)  # Azure session keys
         or AZURE_ACCOUNT_KEY.match(key)  # Azure account keys
+        or NATIVE_FUNCTION_KEY.match(key)  # native Snowflake function aliases
     )
+
+
+def normalize_native_function_key(key: str) -> str:
+    """Lower-case the ``<name>`` part of a native-function key; pass anything else through.
+
+    Function lookup is case-insensitive -- SCOS resolves a call through
+    ``cache.udfs.has(func_name.lower())`` -- while the key is written in whatever case the
+    user chose, plausibly the Snowflake function's own (``nativeFunction.JW``). Normalising
+    on the way into the session store reconciles the two *once*, so resolving an alias is a
+    single dictionary lookup on a synthesised key instead of a scan of every session config
+    key on every function reference in every query.
+
+    Guarded by ``startswith`` rather than the regex: this runs on every session config read
+    and write, the vast majority of which are not native-function keys.
+    """
+    prefix = NATIVE_FUNCTION_CONF_PREFIX
+    if key.startswith(prefix):
+        return prefix + key[len(prefix) :].lower()
+    return key
+
+
+def get_native_function_conf(session_id: str) -> dict[str, str]:
+    """Every native-function alias declared in ``session_id``, keyed by name.
+
+    Names are already lower-cased in the store (see ``normalize_native_function_key``). An
+    ``unset`` leaves the empty string behind (see ``unset_config_param``), which is filtered
+    out here so it reads as "not declared".
+    """
+    prefix = NATIVE_FUNCTION_CONF_PREFIX
+    return {
+        key[len(prefix) :]: value
+        for key, value in sessions_config[session_id].config.items()
+        if key.startswith(prefix) and value
+    }
+
+
+def clear_native_function_conf(session_id: str, name: str) -> bool:
+    """Remove the native-function alias ``name`` from ``session_id``.
+
+    Returns whether a declaration was actually removed. Backs ``DROP FUNCTION`` on an alias:
+    resolution is lazy, so removing only the materialised handle would let the very next
+    call resolve the declaration again. Matches ``conf.unset``: the session overlay is
+    blanked (an empty value reads as "not declared") and the global entry is dropped along
+    with its user-set mark.
+
+    The session store is keyed by the normalised name, so that side is a direct lookup.
+    ``global_config`` keeps the user's original spelling -- that is what ``conf.get`` reads
+    back -- so retiring it needs a case-insensitive sweep. Only ``DROP FUNCTION`` runs this,
+    so the sweep is not on any hot path.
+    """
+    key = normalize_native_function_key(native_function_conf_key_for(name))
+    session_config = sessions_config[session_id]
+    cleared = bool(session_config.get(key))
+    session_config.set(key, "")
+
+    for global_key in list(global_config.get_all()):
+        if normalize_native_function_key(global_key) == key:
+            global_config.unset(global_key)
+            global_config.unmark_user_set(global_key)
+    return cleared
 
 
 def is_nss_enabled() -> bool:
     """Whether the NSS (Native Spark Sandbox) file-read path is enabled.
 
-    NSS is gated by a **server-side environment variable**, not a client session
-    config: it is an internal/experimental path that must not be reachable by
-    customers via ``spark.conf.set``. Operators and the test/CI harness enable it
-    by starting the SCOS server process with ``SCOS_NSS_ENABLED=true``. Read live
-    from the environment so a server started with the var set applies it to every
-    session.
+    Resolution order (SNOW-3957220):
+
+    1. The session config ``snowflake.file.nextGenReader.enabled``, when the client set
+       it to anything non-empty. This is the customer-facing opt-in from the NSS SCOS v1
+       rollout plan, settable per session via ``spark.conf.set`` or a code bundle's
+       ``spark_conf``. An explicit value wins over the env var in both directions, so a
+       customer can roll back to COPY v1 without a server restart.
+    2. Otherwise the server-side ``SCOS_NSS_ENABLED`` env var. Operators and the test/CI
+       harness rely on this (``tests/scala/start_sas_server.py``, and the ``nssEnabled``
+       switch in the OSS-IO suite's ``KnownFailures``), so it must keep working.
+    3. Otherwise ``False`` — COPY v1 remains the default.
+
+    Read live rather than cached, so a session that sets the config mid-flight affects
+    its next file read. NSS is read-only and covers CSV/JSON only; writes always go
+    through COPY unload regardless of this setting.
     """
+    session_value = get_string_session_config_param(NSS_ENABLED_SESSION_CONFIG).strip()
+    if session_value:
+        # Value space is constrained by CONFIG_ALLOWED_VALUES, so a typo is rejected at
+        # set() time rather than silently read as False here.
+        return str_to_bool(session_value)
     return os.environ.get("SCOS_NSS_ENABLED", "false").strip().lower() in (
         "1",
         "true",
@@ -770,15 +898,27 @@ class SessionConfig:
         # SNOW-3898459: Spark 3.5.3 defaults; non-empty so they are always forwarded.
         "spark.sql.datetime.java8API.enabled": "false",
         "spark.sql.json.enablePartialResults": "true",
+        # SNOW-3919681: mirror ``default_global_config`` verbatim — ``build_spark_conf``
+        # reads the session config, and ``unset_config_param`` takes its post-unset value
+        # from here (a missing entry makes ``conf.unset`` emit ``ALTER SESSION UNSET
+        # TIMEZONE``). ``legacy.timeParserPolicy`` / ``arrow.typeMappingVersion`` are
+        # absent on purpose: no global default either, so unset means unset.
+        "spark.sql.session.timeZone": get_localzone_name(),
+        "spark.sql.timestampType": "TIMESTAMP_LTZ",
+        "spark.sql.ansi.enabled": "false",
         # SNOW-3674169: ``""`` means unset — the Iceberg writer falls back to
         # Snowflake's own ``TARGET_FILE_SIZE`` default (``AUTO``).
         "spark.sql.files.maxPartitionBytes": "",
         # NSS (Native Spark Sandbox) file-ingestion configuration.
-        # Whether NSS is enabled is intentionally NOT a session config: it is gated
-        # by the server-side SCOS_NSS_ENABLED env var (see is_nss_enabled) so it is
-        # never reachable by customers via spark.conf.set. When enabled, CSV/JSON
-        # reads go through the official STAGE_FILE_READER / INFER_STAGE_FILE_SCHEMA
-        # TVFs instead of COPY INTO. Off by default.
+        # When enabled, CSV/JSON reads go through the official STAGE_FILE_READER /
+        # INFER_STAGE_FILE_SCHEMA TVFs instead of COPY INTO.
+        #
+        # SNOW-3957220: the customer-facing opt-in. ``""`` means the session expressed
+        # no preference, in which case the server-side SCOS_NSS_ENABLED env var decides
+        # (see is_nss_enabled). An explicit value always wins over the env var, so a
+        # customer can roll back to COPY v1 mid-flight without a server restart.
+        # Off by default.
+        NSS_ENABLED_SESSION_CONFIG: "",
         # Official TVF names (overridable for named/test deployments).
         "snowpark.connect.nss.stage_file_reader_fqn": os.environ.get(
             "NSS_STAGE_FILE_READER_FQN", "STAGE_FILE_READER"
@@ -804,9 +944,10 @@ class SessionConfig:
         return self.set(key, value)
 
     def get(self, key, default="") -> str:
-        return self.config.get(key, default)
+        return self.config.get(normalize_native_function_key(key), default)
 
     def set(self, key: str, value: str) -> None:
+        key = normalize_native_function_key(key)
         if not valid_session_config_key(key):
             return
 
@@ -814,6 +955,18 @@ class SessionConfig:
 
 
 CONFIG_ALLOWED_VALUES: dict[str, tuple] = {
+    # SNOW-3957220: constrain the NSS opt-in to values ``str_to_bool`` accepts, so a
+    # typo ("ture") is rejected at set() time with INVALID_CONFIG_VALUE rather than
+    # silently read as "NSS off" — a customer must never think NSS is on when it is not.
+    NSS_ENABLED_SESSION_CONFIG: (
+        "",
+        "true",
+        "false",
+        "True",
+        "False",
+        "1",
+        "0",
+    ),
     "snowpark.connect.io.validations.mode": (
         "lenient",
         "strict",
@@ -1193,6 +1346,37 @@ def _verify_is_valid_config_value(key: str, value: Any) -> None:
         attach_custom_error_code(exception, ErrorCodes.INVALID_CONFIG_VALUE)
         raise exception
     _verify_max_partition_bytes_config_value(key, value)
+    _verify_native_function_config_value(key, value)
+
+
+def _verify_native_function_config_value(key: str, value: Any) -> None:
+    """Reject a malformed ``snowpark.connect.nativeFunction.<name>`` value at set time.
+
+    Only the *syntax* of the target is checked, which is what makes this safe to do inside
+    the Config RPC: it is local and free. Whether the target actually exists in Snowflake is
+    deliberately not verified here -- ``conf.set`` is expected to be cheap, and a value may
+    legitimately be set before its target is created (server ``--conf`` at startup, a
+    session-init config block). A non-existent target surfaces as Snowflake's own error,
+    which names it, at first call.
+    """
+    if not NATIVE_FUNCTION_KEY.match(key):
+        return
+    if value is None or str(value).strip() == "":
+        # An unset writes back the empty default; that is a removal, not a declaration.
+        return
+    try:
+        target, type_string = parse_native_function_conf_value(str(value))
+        if type_string is None:
+            logger.warning(
+                "'%s': no return type declared; calls will fail until one is added"
+                " (e.g. '%s:double')",
+                key,
+                target,
+            )
+    except ValueError as parse_error:
+        exception = ValueError(f"Invalid value for '{key}': {parse_error}")
+        attach_custom_error_code(exception, ErrorCodes.INVALID_CONFIG_VALUE)
+        raise exception from parse_error
 
 
 def _verify_max_partition_bytes_config_value(key: str, value: Any) -> None:
@@ -1810,6 +1994,12 @@ def is_column_nullability_tracking_enabled() -> bool:
 def is_complex_type_nullability_enabled() -> bool:
     return str_to_bool(
         global_config.get("snowpark.connect.nullability.trackComplexTypes", "false")
+    )
+
+
+def is_native_function_calls_enabled() -> bool:
+    return str_to_bool(
+        global_config.get("snowpark.connect.enableNativeFunctionCalls", "true")
     )
 
 

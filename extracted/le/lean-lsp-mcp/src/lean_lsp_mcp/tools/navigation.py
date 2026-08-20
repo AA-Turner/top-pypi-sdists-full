@@ -5,15 +5,18 @@ from __future__ import annotations
 import asyncio
 import re
 from pathlib import Path
-from typing import Annotated, List, Optional
+from typing import Annotated
 
-from leanclient.aio import AsyncLeanLSPClient
-from mcp.server.fastmcp import Context
 from mcp.types import ToolAnnotations
 from pydantic import Field
 
 from lean_lsp_mcp import server
-from lean_lsp_mcp.client_utils import get_path_policy, open_synced
+from lean_lsp_mcp.client_utils import (
+    get_client,
+    get_path_policy,
+    open_synced,
+    require_client_for_file,
+)
 from lean_lsp_mcp.models import (
     CompletionItem,
     CompletionsResult,
@@ -22,6 +25,7 @@ from lean_lsp_mcp.models import (
     ReferenceLocation,
     ReferencesResult,
 )
+from lean_lsp_mcp.tool_registry import tool
 from lean_lsp_mcp.utils import (
     COMPLETION_KIND,
     extract_range,
@@ -30,17 +34,80 @@ from lean_lsp_mcp.utils import (
 )
 
 
-@server.mcp.tool(
+def _completion_prefix(content: str, line: int, column: int) -> str:
+    lines = content.splitlines()
+    if line < 1 or line > len(lines):
+        return ""
+    text_before_cursor = lines[line - 1][: column - 1] if column > 0 else ""
+    if text_before_cursor.endswith("."):
+        return ""
+    return re.split(r"[\s()\[\]{},:;.]+", text_before_cursor)[-1].lower()
+
+
+def _sort_completions(
+    completions: list[dict], content: str, line: int, column: int
+) -> None:
+    if any("sortText" in completion for completion in completions):
+        completions.sort(key=lambda completion: completion.get("sortText", "\uffff"))
+        return
+
+    prefix = _completion_prefix(content, line, column)
+    if not prefix:
+        completions.sort(key=lambda completion: completion["label"].lower())
+        return
+
+    def key(completion: dict) -> tuple[int, str]:
+        label = completion["label"].lower()
+        if label.startswith(prefix):
+            return 0, label
+        if prefix in label:
+            return 1, label
+        return 2, label
+
+    completions.sort(key=key)
+
+
+async def _resolve_completion_details(
+    client, completions: list[dict], count: int
+) -> list[dict]:
+    async def resolve(completion: dict) -> dict:
+        if completion.get("detail"):
+            return completion
+        try:
+            return await client.completion_resolve(completion)
+        except Exception:
+            return completion
+
+    if count <= 0:
+        return completions
+    resolved = await asyncio.gather(*(resolve(item) for item in completions[:count]))
+    return [*resolved, *completions[count:]]
+
+
+def _completion_items(completions: list[dict]) -> list[CompletionItem]:
+    return [
+        CompletionItem(
+            label=completion["label"],
+            kind=(
+                COMPLETION_KIND.get(kind) if (kind := completion.get("kind")) else None
+            ),
+            detail=completion.get("detail"),
+        )
+        for completion in completions
+    ]
+
+
+@tool(
     "lean_hover_info",
     annotations=ToolAnnotations(
         title="Hover Info",
-        readOnlyHint=True,
-        idempotentHint=True,
-        openWorldHint=False,
+        read_only_hint=True,
+        idempotent_hint=True,
+        open_world_hint=False,
     ),
 )
 async def hover(
-    ctx: Context,
+    ctx: server.ToolContext,
     file_path: Annotated[
         str, Field(description="Absolute or project-root-relative path to Lean file")
     ],
@@ -51,11 +118,9 @@ async def hover(
     ],
 ) -> HoverInfo:
     """Get type signature and docs for a symbol. Essential for understanding APIs."""
-    rel_path = await server.setup_client_for_file(ctx, file_path)
-    if not rel_path:
-        server._raise_invalid_path(file_path)
+    rel_path = await require_client_for_file(ctx, file_path)
 
-    client: AsyncLeanLSPClient = ctx.request_context.lifespan_context.client
+    client = get_client(ctx)
     await open_synced(ctx, rel_path)
     file_content = client.content(rel_path)
     hover_info = await client.hover(rel_path, line - 1, column - 1)
@@ -81,17 +146,17 @@ async def hover(
     )
 
 
-@server.mcp.tool(
+@tool(
     "lean_completions",
     annotations=ToolAnnotations(
         title="Completions",
-        readOnlyHint=True,
-        idempotentHint=True,
-        openWorldHint=False,
+        read_only_hint=True,
+        idempotent_hint=True,
+        open_world_hint=False,
     ),
 )
 async def completions(
-    ctx: Context,
+    ctx: server.ToolContext,
     file_path: Annotated[
         str, Field(description="Absolute or project-root-relative path to Lean file")
     ],
@@ -106,11 +171,9 @@ async def completions(
     ] = 8,
 ) -> CompletionsResult:
     """Get IDE autocompletions. Use on INCOMPLETE code (after `.` or partial name)."""
-    rel_path = await server.setup_client_for_file(ctx, file_path)
-    if not rel_path:
-        server._raise_invalid_path(file_path)
+    rel_path = await require_client_for_file(ctx, file_path)
 
-    client: AsyncLeanLSPClient = ctx.request_context.lifespan_context.client
+    client = get_client(ctx)
     await open_synced(ctx, rel_path)
     content = client.content(rel_path)
     raw_completions = await client.completions(rel_path, line - 1, column - 1)
@@ -119,77 +182,25 @@ async def completions(
     if not raw_completions:
         return CompletionsResult(items=[])
 
-    # Ranking: when the server fuzzy-scored the items (a partial identifier
-    # precedes the cursor) it emits sortText — trust that ranking. Otherwise
-    # (pure dot-completion) fall back to a local prefix heuristic.
-    if any("sortText" in c for c in raw_completions):
-        raw_completions.sort(key=lambda c: c.get("sortText", "\uffff"))
-    else:
-        lines = content.splitlines()
-        prefix = ""
-        if 0 < line <= len(lines):
-            text_before_cursor = lines[line - 1][: column - 1] if column > 0 else ""
-            if not text_before_cursor.endswith("."):
-                prefix = re.split(r"[\s()\[\]{},:;.]+", text_before_cursor)[-1].lower()
-
-        if prefix:
-
-            def sort_key(c: dict):
-                label_lower = c["label"].lower()
-                if label_lower.startswith(prefix):
-                    return (0, label_lower)
-                elif prefix in label_lower:
-                    return (1, label_lower)
-                else:
-                    return (2, label_lower)
-
-            raw_completions.sort(key=sort_key)
-        else:
-            raw_completions.sort(key=lambda c: c["label"].lower())
-
+    _sort_completions(raw_completions, content, line, column)
     raw_completions = raw_completions[:max_completions]
-
-    # Fill in type signatures for the top results via completionItem/resolve
-    # (cheap: resolves one item each; the server keeps the completion state).
-    async def _resolved(c: dict) -> dict:
-        if c.get("detail"):
-            return c
-        try:
-            return await client.completion_resolve(c)
-        except Exception:
-            return c
-
-    if resolve_details > 0:
-        head = await asyncio.gather(
-            *(_resolved(c) for c in raw_completions[:resolve_details])
-        )
-        raw_completions = list(head) + raw_completions[resolve_details:]
-
-    items: List[CompletionItem] = []
-    for c in raw_completions:
-        kind_int = c.get("kind")
-        items.append(
-            CompletionItem(
-                label=c["label"],
-                kind=COMPLETION_KIND.get(kind_int) if kind_int else None,
-                detail=c.get("detail"),
-            )
-        )
-
-    return CompletionsResult(items=items)
+    raw_completions = await _resolve_completion_details(
+        client, raw_completions, resolve_details
+    )
+    return CompletionsResult(items=_completion_items(raw_completions))
 
 
-@server.mcp.tool(
+@tool(
     "lean_declaration_file",
     annotations=ToolAnnotations(
         title="Declaration Source",
-        readOnlyHint=True,
-        idempotentHint=True,
-        openWorldHint=False,
+        read_only_hint=True,
+        idempotent_hint=True,
+        open_world_hint=False,
     ),
 )
 async def declaration_file(
-    ctx: Context,
+    ctx: server.ToolContext,
     file_path: Annotated[
         str, Field(description="Absolute or project-root-relative path to Lean file")
     ],
@@ -207,11 +218,9 @@ async def declaration_file(
     """Get the source of a symbol's declaration (declaration slice + context).
 
     Set full_file=True for the whole file (can be very large)."""
-    rel_path = await server.setup_client_for_file(ctx, file_path)
-    if not rel_path:
-        server._raise_invalid_path(file_path)
+    rel_path = await require_client_for_file(ctx, file_path)
 
-    client: AsyncLeanLSPClient = ctx.request_context.lifespan_context.client
+    client = get_client(ctx)
     await open_synced(ctx, rel_path)
     orig_file_content = client.content(rel_path)
 
@@ -274,35 +283,35 @@ async def declaration_file(
     )
 
 
-@server.mcp.tool(
+@tool(
     "lean_references",
     annotations=ToolAnnotations(
         title="Find References",
-        readOnlyHint=True,
-        idempotentHint=True,
-        openWorldHint=False,
+        read_only_hint=True,
+        idempotent_hint=True,
+        open_world_hint=False,
     ),
 )
 async def references(
-    ctx: Context,
+    ctx: server.ToolContext,
     file_path: Annotated[str, Field(description="Absolute path to Lean file")],
     line: Annotated[int, Field(description="Line number (1-indexed)", ge=1)],
     column: Annotated[
         int, Field(description="Column at START of identifier (1-indexed)", ge=1)
     ],
     max_results: Annotated[
-        Optional[int],
+        int | None,
         Field(description="Max locations to return (default 50)", ge=1),
     ] = 50,
 ) -> ReferencesResult:
     """Find all references to a symbol (including the declaration). Position cursor at the symbol."""
-    rel_path = await server.setup_client_for_file(ctx, file_path)
-    if not rel_path:
-        raise server.LeanToolError(
-            "Invalid Lean file path: Unable to start LSP server or load file"
-        )
+    rel_path = await require_client_for_file(
+        ctx,
+        file_path,
+        error_message="Invalid Lean file path: Unable to start LSP server or load file",
+    )
 
-    client: AsyncLeanLSPClient = ctx.request_context.lifespan_context.client
+    client = get_client(ctx)
     await open_synced(ctx, rel_path)
 
     try:
@@ -316,7 +325,7 @@ async def references(
     if max_results is not None:
         raw_refs = raw_refs[:max_results]
 
-    items: List[ReferenceLocation] = []
+    items: list[ReferenceLocation] = []
     try:
         policy = get_path_policy(ctx)
     except ValueError as exc:

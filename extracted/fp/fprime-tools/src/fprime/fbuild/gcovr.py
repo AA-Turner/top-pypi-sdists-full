@@ -8,9 +8,9 @@ import os
 from pathlib import Path
 from typing import Dict, List, Tuple, Union
 
-from .enumerator import BuildTargetEnumerator
+from .enumerator import BuildTargetEnumerator, EnumeratedContext
 from .check import CheckTarget
-from .target import CompositeTarget, ExecutableAction, Target, TargetScope
+from .target import CompositeTarget, ExecutableAction, ExecuteContext, TargetScope
 
 
 def _get_project_path(builder: "Build", module: Union[str, Path]) -> Path:
@@ -49,14 +49,14 @@ class Gcovr(ExecutableAction):
 
     EXECUTABLE = "gcovr"
 
-    def is_supported(self, builder: "Build", context: Path):
+    def is_supported(self, builder: "Build", context_path: ExecuteContext):
         """Is supported by the list of build target names
 
         Checks if the build target names supplied will support this target. Is overridden by subclasses.
 
         Args:
             builder: builder to check if this action is supported
-            context: contextual path to check
+            context_path: contextual path to check
 
         Return:
             True if supported false otherwise
@@ -66,7 +66,7 @@ class Gcovr(ExecutableAction):
     def execute(
         self,
         builder: "Build",
-        context: Path,
+        context: ExecuteContext,
         args: Tuple[Dict[str, str], List[str], Dict[str, bool]],
     ):
         """Executes the gcovr target"""
@@ -91,6 +91,7 @@ class Gcovr(ExecutableAction):
         include_port_ac = include_all or options["--port-ac"]
         include_type_ac = include_all or options["--type-ac"]
         include_test_ac = include_all or options["--test-ac"]
+        include_sm_ac = include_all or options["--sm-ac"]
         include_test = include_all or options["--test-sources"]
         build_cache_exclusion_filter_bases = [
             None if include_comp_ac else ".*ComponentAc.[ch]pp",
@@ -101,7 +102,7 @@ class Gcovr(ExecutableAction):
             None if include_test_ac else ".*/.*GTestBase.[ch]pp",
             None if include_test_ac else ".*/.*TesterBase.[ch]pp",
             None if include_test_ac else ".*/.*TesterHelpers.[ch]pp",
-            None if include_test_ac else ".*/.*StateMachineAc.[ch]pp",
+            None if include_sm_ac else ".*/.*StateMachineAc.[ch]pp",
         ]
         raw_source_exclusion_filter_bases = [
             None if include_test else ".*/test/.*",
@@ -148,6 +149,25 @@ class Gcovr(ExecutableAction):
         combined_env = os.environ.copy()
         combined_env.update(builder.settings.get("environment", {}))
         # gcovr is an unhappy beast
+        # Branch coverage cleanup: exclude compiler-generated branches
+        # that produce misleading coverage numbers in C++.
+        branch_cleanup_args = [
+            "--exclude-throw-branches",
+            "--exclude-unreachable-branches",
+        ]
+
+        # Exclude FW_ASSERT branches by default.  Each FW_ASSERT(cond)
+        # expands to a ternary whose error path is virtually never taken,
+        # inflating uncovered-branch counts.  The flag
+        # --enable-fw-assert-branch-coverage turns this exclusion off.
+        if not options.get("--enable-fw-assert-branch-coverage", False):
+            branch_cleanup_args.extend(
+                [
+                    "--exclude-branches-by-pattern",
+                    r".*FW_ASSERT\(.*",
+                ]
+            )
+
         cli_args = (
             [
                 "gcovr",
@@ -157,6 +177,7 @@ class Gcovr(ExecutableAction):
             ]
             + jobs_args
             + list(itertools.chain.from_iterable(exclusion_filter_bases))
+            + branch_cleanup_args
             + [
                 "--exclude",
                 f"{framework_path}/Autocoders",
@@ -181,7 +202,12 @@ class Gcovr(ExecutableAction):
             joined_args = "' '".join(cli_args)
             print(f"[INFO] Running \"'{ joined_args }'\"")
         # gcovr must run in the ac_temporary_path or html details cannot find the Ac files
-        subprocess.call(cli_args, env=combined_env)
+        return_code = subprocess.call(cli_args, env=combined_env)
+        if return_code != 0:
+            print(
+                f"[ERROR] gcovr exited with code {return_code}. Coverage results may be incomplete or missing.",
+                file=sys.stderr,
+            )
 
     def option_args(self):
         """Option arguments"""
@@ -191,7 +217,12 @@ class Gcovr(ExecutableAction):
             ("--port-ac", "[coverage only] Include port autocode in coverage"),
             ("--type-ac", "[coverage only] Include data type autocode in coverage"),
             ("--test-ac", "[coverage only] Include data test autocode in coverage"),
+            ("--sm-ac", "[coverage only] Include state machine autocode in coverage"),
             ("--test-sources", "[coverage only] Include unit test sources in coverage"),
+            (
+                "--enable-fw-assert-branch-coverage",
+                "[coverage only] Include FW_ASSERT branches in branch coverage",
+            ),
         ]
 
     def allows_pass_args(self):
@@ -232,3 +263,11 @@ class GcovrTarget(CompositeTarget):
             *args,
             **kwargs,
         )
+
+
+class ExistingCoverageTarget(CompositeTarget):
+    """Gcovr-only target: calculate coverage from data already on disk without re-running tests"""
+
+    def __init__(self, scope: TargetScope, *args, **kwargs):
+        """Constructor delegating solely to the Gcovr action"""
+        super().__init__([Gcovr(scope)], scope=scope, *args, **kwargs)

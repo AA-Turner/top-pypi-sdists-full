@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: eventsourcing
-Version: 9.5.4
+Version: 9.5.5
 Summary: Event sourcing in Python
 License-Expression: BSD-3-Clause
 License-File: AUTHORS
@@ -8,7 +8,7 @@ License-File: LICENSE
 Keywords: event sourcing,event store,domain driven design,domain-driven design,ddd,cqrs,cqs
 Author: John Bywater
 Author-email: john.bywater@appropriatesoftware.net
-Requires-Python: >=3.10.0
+Requires-Python: >=3.11.0
 Classifier: Development Status :: 5 - Production/Stable
 Classifier: Intended Audience :: Developers
 Classifier: Intended Audience :: Education
@@ -16,7 +16,6 @@ Classifier: Intended Audience :: Science/Research
 Classifier: License :: OSI Approved :: BSD License
 Classifier: Operating System :: OS Independent
 Classifier: Programming Language :: Python :: 3
-Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13

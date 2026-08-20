@@ -456,6 +456,7 @@ class ToolStart(AgentEvent):
     """
 
     tool_call: ToolCall
+    policy_decision: dict[str, t.Any] | None = None
 
     def _get_data(self) -> dict[str, t.Any]:
         try:
@@ -468,6 +469,7 @@ class ToolStart(AgentEvent):
                 "name": self.tool_call.name,
                 "arguments": args,
             },
+            "policy_decision": self.policy_decision,
         }
 
     def __repr__(self) -> str:
@@ -542,6 +544,7 @@ class ToolEnd(AgentEvent):
     error: str | None = None
     error_type: str | None = None
     cost_usd: float | None = None
+    policy_decision: dict[str, t.Any] | None = None
     """Estimated USD cost contributed by this tool call, when the tool
     ran an internal LLM (e.g. ``spawn_agent``). ``None`` for ordinary
     tools — the TUI only accumulates this into the sub-agent cost
@@ -559,6 +562,7 @@ class ToolEnd(AgentEvent):
             "error": self.error,
             "error_type": self.error_type,
             "cost_usd": self.cost_usd,
+            "policy_decision": self.policy_decision,
         }
 
     def __repr__(self) -> str:
@@ -605,6 +609,7 @@ class ToolError(AgentEvent):
 
     tool_call: ToolCall
     error: SerializableError
+    policy_decision: dict[str, t.Any] | None = None
 
     def _get_data(self) -> dict[str, t.Any]:
         return {
@@ -614,6 +619,7 @@ class ToolError(AgentEvent):
             },
             "error": str(self.error),
             "error_type": type(self.error).__name__,
+            "policy_decision": self.policy_decision,
         }
 
     def emit(self, span: "TaskSpan") -> None:
@@ -1005,10 +1011,17 @@ class ReactStep(AgentStep):
             reaction_data["type"] = type(self.reaction).__name__
             if hasattr(self.reaction, "feedback"):
                 reaction_data["feedback"] = self.reaction.feedback
+            if hasattr(self.reaction, "tool_call_id"):
+                reaction_data["tool_call_id"] = self.reaction.tool_call_id
+            if hasattr(self.reaction, "metadata"):
+                reaction_data["metadata"] = self.reaction.metadata
             if hasattr(self.reaction, "reason"):
                 reaction_data["reason"] = self.reaction.reason
             if hasattr(self.reaction, "error"):
-                reaction_data["error"] = str(self.reaction.error)
+                error = self.reaction.error
+                reaction_data["error"] = str(error)
+                if isinstance(error, BaseException):
+                    reaction_data["error_type"] = type(error).__name__
         return {
             "hook_name": self.hook_name,
             "reaction": reaction_data,

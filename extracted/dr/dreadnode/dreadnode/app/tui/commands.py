@@ -72,6 +72,7 @@ SLASH_COMMANDS: list[SlashCommand] = [
     SlashCommand("/sandboxes", "Monitor your sandboxes"),
     SlashCommand("/evaluations", "View workspace evaluation jobs"),
     SlashCommand("/console", "View backend logs"),
+    SlashCommand("/report-bug", "Create a privacy-reviewed diagnostic report"),
     SlashCommand("/copy", "Copy last assistant message (or press y)"),
     SlashCommand("/version", "Show installed Dreadnode version"),
     SlashCommand("/update", "Update Dreadnode CLI to latest version"),

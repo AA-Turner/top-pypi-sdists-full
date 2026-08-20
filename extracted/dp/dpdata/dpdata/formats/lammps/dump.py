@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 from __future__ import annotations
 
+import numbers
 import os
 import sys
 from typing import TYPE_CHECKING
@@ -26,18 +27,35 @@ class UnwrapWarning(UserWarning):
 warnings.simplefilter("once", UnwrapWarning)
 
 
+def _is_data_line(line):
+    """Tell payload lines apart from blanks and ``#`` comments.
+
+    LAMMPS itself never writes either, but concatenated or post-processed
+    trajectories often carry them, and every consumer of a block parses its
+    lines as numbers.
+    """
+    stripped = line.strip()
+    return bool(stripped) and not stripped.startswith("#")
+
+
+def _is_item_header(line, key=None):
+    """Return whether a non-comment line starts with a LAMMPS ITEM header."""
+    prefix = "ITEM:" if key is None else f"ITEM: {key}"
+    return _is_data_line(line) and line.lstrip().startswith(prefix)
+
+
 def _get_block(lines, key):
     for idx in range(len(lines)):
-        if ("ITEM: " + key) in lines[idx]:
+        if _is_item_header(lines[idx], key):
             break
     idx_s = idx + 1
     for idx in range(idx_s, len(lines)):
-        if ("ITEM: ") in lines[idx]:
+        if _is_item_header(lines[idx]):
             break
     idx_e = idx
     if idx_e == len(lines) - 1:
         idx_e += 1
-    return lines[idx_s:idx_e], lines[idx_s - 1]
+    return [ii for ii in lines[idx_s:idx_e] if _is_data_line(ii)], lines[idx_s - 1]
 
 
 def get_atype(lines, type_idx_zero=False):
@@ -175,26 +193,131 @@ def box2dumpbox(orig, box):
     return bounds, tilt
 
 
-def load_file(fname: FileType, begin=0, step=1):
+def _iter_frames(fp):
+    """Yield one LAMMPS dump frame at a time without retaining skipped frames."""
+    frame = []
+    for raw_line in fp:
+        line = raw_line.rstrip("\n")
+        if _is_item_header(line, "TIMESTEP"):
+            if frame:
+                yield frame
+            frame = [line]
+        elif not line:
+            # Blank separators are common in concatenated trajectories and do
+            # not belong to any numeric dump section.
+            continue
+        elif frame:
+            # Ignore any preamble before the first TIMESTEP marker, matching the
+            # historical loader behavior.
+            frame.append(line)
+    if frame:
+        yield frame
+
+
+def _normalize_frame_indices(f_idx):
+    """Validate frame indices while preserving their order and duplicates."""
+    if isinstance(f_idx, numbers.Integral) and not isinstance(f_idx, bool):
+        indices = [int(f_idx)]
+    else:
+        try:
+            indices = list(f_idx)
+        except TypeError as exc:
+            raise TypeError(
+                "f_idx must be an integer or an iterable of integers"
+            ) from exc
+
+    if not indices:
+        raise ValueError("f_idx must not be empty")
+
+    normalized = []
+    for index in indices:
+        if not isinstance(index, numbers.Integral) or isinstance(index, bool):
+            raise TypeError("f_idx must contain only integers")
+        if index < 0:
+            raise ValueError("f_idx must contain only non-negative frame indices")
+        normalized.append(int(index))
+    return normalized
+
+
+def load_file(
+    fname: FileType,
+    begin=0,
+    step=1,
+    f_idx: int | list[int] | np.ndarray | None = None,
+):
+    """Load selected frames from a LAMMPS dump file.
+
+    Parameters
+    ----------
+    fname : FileType
+        Dump file path or an open text file object.
+    begin : int, optional
+        First frame to load when ``f_idx`` is not provided.
+    step : int, optional
+        Interval between loaded frames when ``f_idx`` is not provided.
+    f_idx : int or array-like of int, optional
+        Specific non-negative frame indices to load. The requested order and
+        duplicate indices are preserved. This option cannot be combined with
+        non-default ``begin`` or ``step`` values.
+
+    Returns
+    -------
+    list[str]
+        Lines belonging to the selected frames.
+
+    Raises
+    ------
+    IndexError
+        If any requested frame index is outside the trajectory.
+    TypeError
+        If ``f_idx`` contains a non-integer value.
+    ValueError
+        If ``f_idx`` is empty, contains a negative value, or is combined with
+        non-default ``begin`` or ``step`` values.
+    """
+    if f_idx is not None:
+        if begin != 0 or step != 1:
+            raise ValueError("f_idx cannot be combined with begin or step")
+
+        frame_indices = _normalize_frame_indices(f_idx)
+        requested = set(frame_indices)
+        last_requested = max(requested)
+        selected = {}
+        nframes = 0
+
+        with open_file(fname) as fp:
+            for frame_index, frame in enumerate(_iter_frames(fp)):
+                nframes = frame_index + 1
+                if frame_index in requested:
+                    selected[frame_index] = frame
+                if frame_index == last_requested:
+                    # The generator retains only the current frame, so stopping
+                    # here avoids reading and parsing the remainder of the file.
+                    break
+
+        missing = sorted(requested.difference(selected))
+        if missing:
+            raise IndexError(
+                f"Requested frame indices {missing} are out of range for "
+                f"a trajectory containing {nframes} frames"
+            )
+
+        lines = []
+        for frame_index in frame_indices:
+            lines.extend(selected[frame_index])
+        return lines
+
+    if begin < 0:
+        raise ValueError("begin must be non-negative")
+    if step <= 0:
+        raise ValueError("step must be positive")
+
     lines = []
-    buff = []
-    cc = -1
     with open_file(fname) as fp:
-        while True:
-            line = fp.readline().rstrip("\n")
-            if not line:
-                if cc >= begin and (cc - begin) % step == 0:
-                    lines += buff
-                    buff = []
-                cc += 1
-                return lines
-            if "ITEM: TIMESTEP" in line:
-                if cc >= begin and (cc - begin) % step == 0:
-                    lines += buff
-                    buff = []
-                cc += 1
-            if cc >= begin and (cc - begin) % step == 0:
-                buff.append(line)
+        for frame_index, frame in enumerate(_iter_frames(fp)):
+            if frame_index >= begin and (frame_index - begin) % step == 0:
+                lines.extend(frame)
+    return lines
 
 
 def get_spin_keys(inputfile):
@@ -279,10 +402,150 @@ def get_spin(lines, spin_keys):
         return None
 
 
+def _atom_line_error(line, head):
+    """Return why an ATOMS payload row is unusable, or ``None`` if valid."""
+    keys = head.split()
+    words = line.split()
+    ncols = len(keys) - 2
+    if len(words) < ncols:
+        return f"truncated atom line {line.strip()!r}"
+
+    try:
+        id_idx = keys.index("id") - 2
+        type_idx = keys.index("type") - 2
+    except ValueError:
+        return "ATOMS header is missing an 'id' or 'type' column"
+
+    coord_tp_and_sf = get_coordtype_and_scalefactor(keys)
+    if coord_tp_and_sf is None:
+        return "ATOMS header does not contain atomic coordinates"
+    coordtype, _, _ = coord_tp_and_sf
+
+    try:
+        int(words[id_idx])
+        int(words[type_idx])
+        for key in coordtype:
+            float(words[keys.index(key) - 2])
+    except (ValueError, IndexError):
+        return f"unparsable atom line {line.strip()!r}"
+    return None
+
+
+def _box_line_error(line, head):
+    """Return why a BOX BOUNDS row is unusable, or ``None`` if valid."""
+    words = line.split()
+    ncols = 3 if "xy xz yz" in head else 2
+    if len(words) < ncols:
+        return f"truncated box bound line {line.strip()!r}"
+
+    try:
+        for word in words:
+            float(word)
+    except ValueError:
+        return f"unparsable box bound line {line.strip()!r}"
+    return None
+
+
+def _describe_incomplete_frame(frame_lines):
+    """Return why a dump frame is unusable, or ``None`` when it is intact.
+
+    A run killed mid-write leaves a final frame whose sections are missing or
+    short. Reporting that here keeps the failure legible instead of surfacing
+    as a ragged-array error deep inside the coordinate readers.
+    """
+    for key in ("NUMBER OF ATOMS", "BOX BOUNDS", "ATOMS"):
+        if not any(_is_item_header(line, key) for line in frame_lines):
+            return f"missing the 'ITEM: {key}' section"
+
+    natoms_blk, _ = _get_block(frame_lines, "NUMBER OF ATOMS")
+    if not natoms_blk:
+        return "empty 'ITEM: NUMBER OF ATOMS' section"
+    try:
+        natoms = int(natoms_blk[0])
+    except ValueError:
+        return f"unparsable atom count {natoms_blk[0].strip()!r}"
+
+    box_blk, box_head = _get_block(frame_lines, "BOX BOUNDS")
+    if len(box_blk) < 3:
+        return f"only {len(box_blk)} of 3 box bound lines"
+    for ii in box_blk[:3]:
+        error = _box_line_error(ii, box_head)
+        if error is not None:
+            return error
+
+    atoms_blk, head = _get_block(frame_lines, "ATOMS")
+    if len(atoms_blk) != natoms:
+        return f"{len(atoms_blk)} atom lines for {natoms} atoms"
+    for ii in atoms_blk:
+        error = _atom_line_error(ii, head)
+        if error is not None:
+            return error
+    return None
+
+
+def _drop_incomplete_frames(array_lines):
+    """Keep the intact frames, warning once per frame that is dropped."""
+    kept = []
+    for idx, frame_lines in enumerate(array_lines):
+        reason = _describe_incomplete_frame(frame_lines)
+        if reason is None:
+            kept.append(frame_lines)
+        else:
+            warnings.warn(
+                f"incomplete frame {idx} in the dump file ({reason}); it is ignored"
+            )
+    return kept
+
+
+def _clamp_after_atom_payload(frame_lines):
+    """Discard non-ITEM trailers after the declared atom payload.
+
+    Blank and comment lines may appear inside a post-processed ATOMS block,
+    so the physical line count cannot locate its end. Count only payload lines
+    and leave short frames untouched for ``_describe_incomplete_frame`` to
+    diagnose.
+    """
+    natoms_blk, _ = _get_block(frame_lines, "NUMBER OF ATOMS")
+    if not natoms_blk:
+        return frame_lines
+    try:
+        natoms = int(natoms_blk[0])
+    except ValueError:
+        return frame_lines
+
+    atoms_header = next(
+        (idx for idx, line in enumerate(frame_lines) if _is_item_header(line, "ATOMS")),
+        None,
+    )
+    if atoms_header is None:
+        return frame_lines
+    if natoms == 0:
+        return frame_lines[: atoms_header + 1]
+
+    head = frame_lines[atoms_header]
+    payload_lines = 0
+    for idx in range(atoms_header + 1, len(frame_lines)):
+        if (
+            _is_data_line(frame_lines[idx])
+            and _atom_line_error(frame_lines[idx], head) is None
+        ):
+            payload_lines += 1
+            if payload_lines == natoms:
+                return frame_lines[: idx + 1]
+    return frame_lines
+
+
 def system_data(
     lines, type_map=None, type_idx_zero=True, unwrap=False, input_file=None
 ):
     array_lines = split_traj(lines)
+    if array_lines is None:
+        raise RuntimeError(
+            "no 'ITEM: TIMESTEP' marker found; this is not a LAMMPS dump file"
+        )
+    array_lines = _drop_incomplete_frames(array_lines)
+    if not array_lines:
+        raise RuntimeError("no complete frame found in the dump file")
     lines = array_lines[0]
     system = {}
     system["atom_numbs"] = get_natoms_vec(lines)
@@ -338,21 +601,18 @@ def system_data(
 def split_traj(dump_lines):
     marks = []
     for idx, ii in enumerate(dump_lines):
-        if "ITEM: TIMESTEP" in ii:
+        if _is_item_header(ii, "TIMESTEP"):
             marks.append(idx)
     if len(marks) == 0:
         return None
-    elif len(marks) == 1:
-        return [dump_lines]
-    else:
-        block_size = marks[1] - marks[0]
-        ret = []
-        for ii in marks:
-            ret.append(dump_lines[ii : ii + block_size])
-        # for ii in range(len(marks)-1):
-        #     assert(marks[ii+1] - marks[ii] == block_size)
-        return ret
-    return None
+    # Slice every frame at the next marker instead of reusing the first
+    # frame's length. A truncated final frame, or any extra line anywhere in
+    # the file, otherwise shifts each later frame out of alignment.
+    bounds = [*marks, len(dump_lines)]
+    return [
+        _clamp_after_atom_payload(dump_lines[bounds[ii] : bounds[ii + 1]])
+        for ii in range(len(marks))
+    ]
 
 
 def from_system_data(system, f_idx=0, timestep=0):

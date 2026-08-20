@@ -14,10 +14,10 @@ from functools import lru_cache
 from threading import Condition, Event, Lock, Semaphore, Thread, Timer
 from time import monotonic, sleep, time
 from types import GenericAlias, ModuleType, TracebackType
-from typing import Any, Generic, cast
+from typing import Any, Generic, Self, cast
 from uuid import UUID
 
-from typing_extensions import Self, TypeVar
+from typing_extensions import TypeVar
 
 from eventsourcing.domain import (
     DomainEventProtocol,
@@ -461,7 +461,7 @@ def find_id_convertor(
         for cls in domain_event_cls.__mro__:
             try:
                 annotation = cls.__annotations__["originator_id"]
-            except (KeyError, AttributeError):  # noqa: PERF203
+            except (KeyError, AttributeError):
                 continue
             else:
                 valid_annotations = {
@@ -829,7 +829,7 @@ class BaseInfrastructureFactory(ABC, Generic[TTrackingRecorder]):
     @classmethod
     def construct(
         cls: type[Self],
-        env: Environment | None = None,
+        env: Environment | EnvType | None = None,
     ) -> Self:
         """Constructs concrete infrastructure factory for given
         named application. Reads and resolves persistence
@@ -838,6 +838,8 @@ class BaseInfrastructureFactory(ABC, Generic[TTrackingRecorder]):
         factory_cls: type[Self]
         if env is None:
             env = Environment()
+        elif not isinstance(env, Environment):
+            env = Environment(env=env)
         topic = (
             env.get(
                 cls.PERSISTENCE_MODULE,
@@ -1430,7 +1432,7 @@ class ConnectionPool(ABC, Generic[TConnection]):
             while True:
                 try:
                     conn = self._pool.popleft()
-                except IndexError:  # noqa: PERF203
+                except IndexError:
                     break
                 else:
                     conn.close()

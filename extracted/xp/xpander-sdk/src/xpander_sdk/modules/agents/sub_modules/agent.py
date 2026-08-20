@@ -529,6 +529,7 @@ class Agent(XPanderSharedModel):
         llm_model_provider: Optional[str] = None,
         llm_model_name: Optional[str] = None,
         llm_reasoning_effort: Optional[LLMReasoningEffort] = None,
+        tool_call_limit: Optional[int] = None,
     ) -> Task:
         """
         Asynchronously create a new task and link it to this agent.
@@ -561,7 +562,11 @@ class Agent(XPanderSharedModel):
             user_tokens (Optional[Dict]): User tokens to be passed and injected for MCP Auth.
             llm_model_provider (Optional[str]): Override the agent's configured LLM provider for this task only (e.g. ``"openai"``, ``"anthropic"``). Defaults to the agent's settings when not set.
             llm_model_name (Optional[str]): Override the agent's configured model name for this task only (e.g. ``"gpt-5"``). Defaults to the agent's settings when not set.
-            llm_reasoning_effort (Optional[LLMReasoningEffort]): Override the agent's reasoning effort for this task only. Defaults to the agent's settings when not set.
+            llm_reasoning_effort (Optional[LLMReasoningEffort]): Override the agent's
+                reasoning effort for this task only. Defaults to the agent's settings
+                when not set.
+            tool_call_limit (Optional[int]): Cap tool calls for this task only. Defaults
+                to the agent's settings when not set.
 
         Returns:
             Task: Created Task object linked to this agent.
@@ -604,6 +609,7 @@ class Agent(XPanderSharedModel):
                     "llm_model_provider": llm_model_provider,
                     "llm_model_name": llm_model_name,
                     "llm_reasoning_effort": llm_reasoning_effort,
+                    "tool_call_limit": tool_call_limit,
                 },
             )
             return Task(**created_task, configuration=self.configuration)

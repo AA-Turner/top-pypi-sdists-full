@@ -94,6 +94,7 @@ class WorkbookPushParameters:
     label: Optional[str]
     mode: str
     use_full_path: bool
+    match_folders_by_name: bool
     access_control: Optional[str]
     override_max_interp: bool
     include_inventory: Optional[bool]

@@ -27,6 +27,12 @@ from omnibase_core.models.runtime.model_liveness_registry_entry import (
     ModelLivenessRegistryEntry,
 )
 from omnibase_core.models.runtime.model_output_join_spec import ModelOutputJoinSpec
+from omnibase_core.models.runtime.model_primary_dlq_disposition_receipt import (
+    ModelPrimaryDlqDispositionReceipt,
+)
+from omnibase_core.models.runtime.model_quarantine_disposition_receipt import (
+    ModelQuarantineDispositionReceipt,
+)
 from omnibase_core.models.runtime.model_runtime_address import ModelRuntimeAddress
 from omnibase_core.models.runtime.model_runtime_address_registry import (
     ModelRuntimeAddressRegistry,
@@ -53,6 +59,9 @@ from omnibase_core.models.runtime.model_runtime_target_selector import (
     ModelRuntimeTargetSelector,
 )
 from omnibase_core.models.runtime.model_sampling_policy import ModelSamplingPolicy
+from omnibase_core.models.runtime.model_terminal_disposition_request import (
+    ModelTerminalDispositionRequest,
+)
 from omnibase_core.models.runtime.model_transport_message import (
     ModelTransportMessage,
 )
@@ -95,6 +104,11 @@ __all__ = [
     "ModelLivenessRegistryEntry",
     "ModelOutputJoinSpec",
     "ModelSamplingPolicy",
+    # Canonical quarantine disposition receipt (OMN-15667)
+    "ModelQuarantineDispositionReceipt",
+    # Dual-sink terminal durability (OMN-15666)
+    "ModelPrimaryDlqDispositionReceipt",
+    "ModelTerminalDispositionRequest",
     # Directive payload types (re-exported for convenience)
     "ModelDirectivePayload",
     "ModelDirectivePayloadBase",

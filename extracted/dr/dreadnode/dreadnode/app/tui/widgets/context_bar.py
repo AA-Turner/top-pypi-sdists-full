@@ -63,7 +63,8 @@ class SessionContextBar(Static):
         left.append(f"@{self.agent_name or 'default'}", style=FG_SUBTLE)
         if self.session_label and self.session_label != "none":
             left.append(" · ", style=FG_FAINTEST)
-            left.append(self.session_label, style=FG_MUTED)
+            label_style = "#5f9ea0" if self.session_label.startswith("[guard") else FG_MUTED
+            left.append(self.session_label, style=label_style)
 
         if self.busy:
             left.append(" · ", style=FG_FAINTEST)
@@ -123,7 +124,8 @@ class ContextBar(SessionContextBar):
         left.append(f"@{self.agent_name or 'default'}", style=FG_SUBTLE)
         if self.session_label and self.session_label != "none":
             left.append(" · ", style=FG_FAINTEST)
-            left.append(self.session_label, style=FG_MUTED)
+            label_style = "#5f9ea0" if self.session_label.startswith("[guard") else FG_MUTED
+            left.append(self.session_label, style=label_style)
 
         if self.busy:
             left.append(" · ", style=FG_FAINTEST)

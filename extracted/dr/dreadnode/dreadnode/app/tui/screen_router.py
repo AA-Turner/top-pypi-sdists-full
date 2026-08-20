@@ -6,12 +6,14 @@ from loguru import logger
 from dreadnode.app.api.client import AuthenticationError
 from dreadnode.app.config import Profile
 from dreadnode.app.tui.auth_flow import _platform_client
+from dreadnode.app.tui.bug_report import BugReportContext
 from dreadnode.app.tui.screens import (
     CapabilitiesScreen,
     ConsoleScreen,
     EnvironmentScreen,
     EvaluationsScreen,
     RawSpansScreen,
+    ReportBugScreen,
     RuntimeScreen,
     SandboxScreen,
     SecretsScreen,
@@ -32,6 +34,7 @@ SCREEN_TYPES: dict[str, type] = {
     "evaluations": EvaluationsScreen,
     "console": ConsoleScreen,
     "capabilities": CapabilitiesScreen,
+    "report-bug": ReportBugScreen,
 }
 
 PlatformClientFactory = t.Callable[[], tuple[t.Any, Profile]]
@@ -144,6 +147,71 @@ class ScreenRouter:
         self._host.dismiss_pushed_screens()
         logger.debug("Screen push | screen=ConsoleScreen")
         self._host.push_screen(ConsoleScreen(log_buffer))
+
+    def open_report_bug(self, *, origin: str = "conversation") -> None:
+        """Open the offline-first report flow with a safe runtime snapshot."""
+
+        if self._host.is_screen_open(ReportBugScreen):
+            return
+        api = None
+        organization_key = None
+        workspace_name = None
+        try:
+            api, profile = self._resolve_platform_client()()
+            organization_key = profile.default_organization
+            workspace_name = profile.default_workspace
+        except Exception:
+            logger.debug("Opening bug report without an authenticated platform client")
+
+        runtime_info = self._runtime.runtime_info()
+        sessions = self._sessions.sessions_snapshot()
+        session = sessions.get(self._sessions.active_session_id() or "")
+        capabilities = tuple(
+            (str(capability.name), capability.version)
+            for capability in getattr(runtime_info, "capabilities", [])
+            if getattr(capability, "enabled", True)
+        )
+        context = BugReportContext.collect(
+            runtime_mode=str(getattr(runtime_info, "host_type", "local")),
+            active_screen=origin,
+            session_id=self._sessions.active_session_id(),
+            agent=getattr(getattr(session, "info", None), "agent", None),
+            model=getattr(session, "model", None),
+            capabilities=capabilities,
+            runtime_version=getattr(runtime_info, "version", None),
+        )
+        conversation = self._render_conversation(session)
+
+        self._host.dismiss_pushed_screens()
+        logger.debug("Screen push | screen=ReportBugScreen origin={}", origin)
+        self._host.push_screen(
+            ReportBugScreen(
+                context=context,
+                log_entries=log_buffer.snapshot(),
+                conversation=conversation,
+                api=api,
+                organization_key=organization_key,
+                workspace_name=workspace_name,
+            )
+        )
+
+    @staticmethod
+    def _render_conversation(session: t.Any | None) -> str:
+        if session is None:
+            return ""
+        lines: list[str] = []
+        for entry in getattr(session, "transcript", []):
+            role = str(getattr(entry, "role", "unknown"))
+            content = str(getattr(entry, "content", "") or "")
+            metadata = getattr(entry, "metadata", {}) or {}
+            if role == "assistant" and metadata.get("thinking"):
+                label = "assistant thinking"
+            elif role == "tool":
+                label = f"tool {metadata.get('tool_name') or 'unknown'}"
+            else:
+                label = role
+            lines.extend((f"## {label}", "", content, ""))
+        return "\n".join(lines)
 
     async def open_platform_screen(self, screen_name: str) -> None:
         """Open a platform browser screen.

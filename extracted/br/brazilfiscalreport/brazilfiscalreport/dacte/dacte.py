@@ -5,6 +5,7 @@ import textwrap
 import warnings
 import xml.etree.ElementTree as ET
 from io import BytesIO
+from typing import Optional
 from xml.etree.ElementTree import Element
 
 from barcode.codex import Code128
@@ -43,6 +44,14 @@ def extract_text(node: Element, tag: str) -> str:
     return get_tag_text(node, URL, tag)
 
 
+def to_float(value: Optional[str]) -> float:
+    """Converte valor numérico cru do XML, tolerando ausência/formato inválido."""
+    try:
+        return float(value)
+    except (TypeError, ValueError):
+        return 0.0
+
+
 class Dacte(xFPDF):
     def __init__(self, xml, config: DacteConfig = None):
         super().__init__(unit="mm", format="A4")
@@ -72,7 +81,8 @@ class Dacte(xFPDF):
         self.outros = root.find(f"{URL}toma4")
         self.inf_prot = root.find(f"{URL}infProt")
         self.inf_cte_supl = root.find(f"{URL}infCTeSupl")
-        self.tomador = root.find(f"{URL}toma3") or self.outros
+        toma3 = root.find(f"{URL}toma3")
+        self.tomador = toma3 if toma3 is not None else self.outros
         self.inf_carga = root.find(f"{URL}infCarga")
         self.inf_doc = root.find(f"{URL}infDoc")
         self.v_prest = root.find(f"{URL}vPrest")
@@ -356,7 +366,18 @@ class Dacte(xFPDF):
             w_text = w_rect - 4
         self.set_font(self.default_font, "B", 9)
         self.set_xy(x=x_text, y=y_text)
-        self.multi_cell(w=w_text, h=5, text=self.emit_name, border=0, align="C")
+        # O endereço abaixo é desenhado em Y fixo (y_text + 6), ou seja, só há uma
+        # linha de 5 mm reservada para o nome. Razão social longa quebrava em duas
+        # linhas e a segunda saía por cima da linha "CNPJ: ... IE: ...".
+        self.multi_cell(
+            w=w_text,
+            h=5,
+            text=self.long_field(
+                text=self.emit_name, limit=w_text, font_size=9, font_style="B"
+            ),
+            border=0,
+            align="C",
+        )
         self.set_font(self.default_font, "", 8)
         self.set_xy(x=x_text - 3, y=y_text + 6)
         self.multi_cell(w=w_text + 10, h=3, text=address, border=0, align="C")
@@ -1289,7 +1310,12 @@ class Dacte(xFPDF):
         self.vbc = format_number(extract_text(self.imp, "vBC"), precision=2)
         self.p_icms = format_number(extract_text(self.imp, "pICMS"), precision=2)
         self.v_icms = format_number(extract_text(self.imp, "vICMS"), precision=2)
-        self.v_icms_st = format_number(extract_text(self.imp, "vICMS"), precision=2)
+        # vICMSSTRet (grupo ICMS60) é o único campo de ST do leiaute do CT-e —
+        # aqui vinha o vICMS, ou seja, o ICMS próprio impresso na coluna ICMS ST.
+        # Ausente (CST 00, 20, 45, 90...), format_number devolve "0,00".
+        self.v_icms_st = format_number(
+            extract_text(self.imp, "vICMSSTRet"), precision=2
+        )
         self.p_red_bc = format_number(extract_text(self.imp, "pRedBC"), precision=2)
         g_ibscbs = (
             self.imp_ibscbs.find(f"{URL}gIBSCBS")
@@ -1346,9 +1372,19 @@ class Dacte(xFPDF):
             self.cell(w=col_width / 2, h=4, text=titles[1], align="L")
 
         # Distribuir os componentes em 3 colunas com 3 linhas cada
-        col1 = self.comp_list[:3]  # Primeiros 3 componentes
-        col2 = self.comp_list[3:6]  # Próximos 3 componentes
-        col3 = self.comp_list[6:9]  # Últimos 3 componentes
+        comp_list = self.comp_list
+        # O bloco comporta no máximo 9 linhas; do 10º componente em diante o valor
+        # era simplesmente descartado, sem aviso — e a soma dos componentes
+        # exibidos deixava de bater com o vTPrest impresso ao lado. Agrega o
+        # excedente numa linha "DEMAIS" para preservar a soma. O rótulo não é
+        # "OUTROS" porque xNome é texto livre e um componente real pode se
+        # chamar assim.
+        if len(comp_list) > 9:
+            demais = sum(to_float(valor) for _, valor in comp_list[8:])
+            comp_list = comp_list[:8] + [("DEMAIS", f"{demais:.2f}")]
+        col1 = comp_list[:3]  # Primeiros 3 componentes
+        col2 = comp_list[3:6]  # Próximos 3 componentes
+        col3 = comp_list[6:9]  # Últimos 3 componentes
 
         # Altura inicial para começo dos dados
         data_y = section_start_y + 6
@@ -1358,9 +1394,27 @@ class Dacte(xFPDF):
             current_y = data_y
             for comp in components:
                 self.set_xy(x_start, current_y)
-                self.cell(w=col_width / 2, h=4, text=comp[0], align="L")
+                # cell() não recorta nem quebra: nome largo invadia a coluna do
+                # valor, desenhada logo ao lado em posição absoluta.
+                self.cell(
+                    w=col_width / 2,
+                    h=4,
+                    text=self.long_field(
+                        text=comp[0], limit=col_width / 2, font_size=8
+                    ),
+                    align="L",
+                )
                 self.set_xy(x_start + col_width / 2, current_y)
-                self.cell(w=col_width / 2, h=4, text=comp[1], align="L")
+                # O vComp vinha cru do XML ("331.77"), enquanto o VALOR TOTAL DO
+                # SERVIÇO impresso na coluna ao lado já sai formatado ("1.234,56").
+                # Formatado aqui, e não em comp_list, para o valor seguir numérico
+                # para quem precisar somá-lo.
+                self.cell(
+                    w=col_width / 2,
+                    h=4,
+                    text=format_number(comp[1], precision=2),
+                    align="L",
+                )
                 current_y += 4  # Incrementa a posição Y para o próximo item
 
         # Imprime cada coluna

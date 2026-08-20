@@ -9,6 +9,7 @@ import archinfo
 
 from cle.backends.backend import Backend, register_backend
 from cle.backends.region import Segment
+from cle.errors import CLECompatibilityError
 
 
 class VectorTable(LittleEndianStructure):
@@ -36,24 +37,37 @@ class VectorTable(LittleEndianStructure):
         ("systick_handler", c_uint32),  # 0x3C: SysTick handler
     ]
 
+    # A Cortex-M NVIC drives at most 480 external interrupt lines (ARMv8-M; ARMv7-M allows 240), so
+    # the vector table holds no more IRQ vectors than this however far the image runs on past it.
+    MAX_IRQ_VECTORS = 480
+
+    #: The peripheral IRQ vectors, indexed by IRQ number. They follow the 16 system exception
+    #: vectors the fields above cover. A raw flash image does not record how many IRQ vectors its
+    #: device has, so this holds every one the image has room for, up to what an NVIC can address.
+    irq_handlers: tuple[int, ...] = ()
+
     @property
     def reset_handler_addr(self) -> int:
         """Reset handler address with Thumb bit cleared"""
         return self.reset_handler & (~1)
 
     def get_irq_handler(self, irq_num: int) -> int:
-        """Get peripheral interrupt handler address (IRQ 0+)"""
-        vector_offset = (16 + irq_num) * 4
-        if vector_offset + 4 > len(self._data):
+        """Get peripheral interrupt handler address (IRQ 0+), or 0 if the table holds no such vector"""
+        if irq_num < 0:
+            raise ValueError(f"IRQ number must not be negative: {irq_num}")
+        if irq_num >= len(self.irq_handlers):
             return 0
-        return struct.unpack_from("<I", self._data, vector_offset)[0]
+        return self.irq_handlers[irq_num]
 
     @classmethod
     def from_bytes(cls, data: bytes) -> VectorTable:
         """Create VectorTable from bytes data"""
         if len(data) < cls._size_():
             raise ValueError(f"Data too short for vector table (need at least {cls._size_()} bytes)")
-        return cls.from_buffer_copy(data[: cls._size_()])
+        table = cls.from_buffer_copy(data[: cls._size_()])
+        count = min((len(data) - cls._size_()) // 4, cls.MAX_IRQ_VECTORS)
+        table.irq_handlers = struct.unpack_from(f"<{count}I", data, cls._size_())
+        return table
 
     @classmethod
     def _size_(cls) -> int:
@@ -84,7 +98,7 @@ class STM32Backend(Backend):
     This backend:
     - Implements check_magic_compatibility / is_compatible to let CLE probe the stream.
     - Reads the full blob into memory, extracts initial SP and reset handler.
-    - Passes a concrete entry_point (with Thumb bit masked) into Backend so that loader.entry works.
+    - Passes the reset vector, Thumb bit and all, into Backend so that loader.entry works.
     - Maps the blob at both 0x0 and 0x08000000 addresses.
     - Registers itself under the name "stm32".
     """
@@ -99,36 +113,26 @@ class STM32Backend(Backend):
 
     @classmethod
     def check_magic_compatibility(cls, stream: BinaryIO) -> bool:
-        # CLE calls this to check quickly if a stream matches the backend.
-        # We simply reuse is_compatible semantics (read first 8 bytes, but do not consume the stream).
-        pos = stream.tell()
-        try:
-            head = stream.read(8)
-            return cls.is_compatible(head)
-        finally:
-            stream.seek(pos)
+        # A raw flash image has no magic number, so the vector table heuristic is the only signature
+        # available and there is nothing cheaper to check.
+        return cls.is_compatible(stream)
 
     @classmethod
-    def is_compatible(cls, stream) -> bool:
+    def is_compatible(cls, stream: BinaryIO) -> bool:
         """
-        Accept either a bytes-like object (when called directly) or a stream (when CLE probes)
         Heuristic:
         - at least 64 bytes for full vector table
-        - word0 looks like RAM (0x2000_0000..0x2008_0000)
+        - word0 looks like RAM (RAM_LOW..RAM_HIGH)
         - word1 has Thumb bit set (LSB == 1)
         """
-        # allow being called with a stream or raw bytes
-        if hasattr(stream, "read"):
-            # stream-like
-            pos = stream.tell()
-            try:
-                data = stream.read(64)  # Read enough for full vector table
-            finally:
-                stream.seek(pos)
-        else:
-            data = stream
+        # Loader._static_backend probes every registered backend with the same stream and never
+        # rewinds it in between, so read from the start rather than from wherever the previously
+        # probed backend happened to stop. Every other backend follows the same convention.
+        stream.seek(0)
+        data = stream.read(64)  # Read enough for full vector table
+        stream.seek(0)
 
-        if not data or len(data) < 64:
+        if len(data) < 64:
             return False
 
         try:
@@ -164,18 +168,25 @@ class STM32Backend(Backend):
         binary_stream.seek(orig_pos)
 
         # parse vector table if present
-        vector_table = VectorTable.from_bytes(data)
-        entry = vector_table.reset_handler_addr
+        try:
+            vector_table = VectorTable.from_bytes(data)
+        except ValueError as e:
+            raise CLECompatibilityError("Image is too short to hold a Cortex-M vector table") from e
+
+        # Cortex-M runs Thumb code only, and the reset vector carries the Thumb bit. angr picks the
+        # Thumb lifter from the low bit of the address, so hand the vector over unmasked; the ELF
+        # build of the same firmware reports the same odd entry point.
+        entry = vector_table.reset_handler
 
         # Use a BytesIO so Backend can cache/checksum from a seekable stream
         stream_for_backend = io.BytesIO(data)
 
-        # Pass the parsed entry (absolute) as entry_point so Backend.entry works immediately.
-        # If we didn't find an entry, pass None and leave Backend to handle defaults.
+        # Pass the parsed entry (absolute) as entry_point so Backend.entry works immediately, unless
+        # the caller named one explicitly.
         super().__init__(
             binary=binary,
             binary_stream=stream_for_backend,
-            entry_point=entry if entry is not None else entry_point,
+            entry_point=entry if entry_point is None else entry_point,
             arch=archinfo.ArchARMCortexM(),
             force_rebase=False,
             **kwargs,

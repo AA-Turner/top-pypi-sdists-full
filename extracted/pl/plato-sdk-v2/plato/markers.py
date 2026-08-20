@@ -125,6 +125,10 @@ class WorkspaceMarker:
             transport (server export ``ro`` + client mount ``-o ro``) and the
             fuse transport (VFS-level ``remount,ro`` on the agent VM); use for
             large shared datasets agents read in place.
+        nfs_mount_options: Extra client-side mount options appended to the
+            default NFS ``-o`` string on agent mounts (NFS transport only),
+            e.g. ``"sync"`` for write-through workspaces that another VM
+            tails live.
     """
 
     DEFAULT_DVCIGNORE: tuple[str, ...] = (
@@ -150,6 +154,7 @@ class WorkspaceMarker:
         git_config: GitTransportConfig | None = None,
         commit_strategy: Literal["manifest", "archive"] = "manifest",
         readonly: bool = False,
+        nfs_mount_options: str = "",
     ):
         self.kind = "workspace"
         self.description = description
@@ -163,3 +168,7 @@ class WorkspaceMarker:
         # server export uses `ro` and the client mount adds `-o ro`. Intended
         # for large shared datasets that must never be rsynced per-VM.
         self.readonly = readonly
+        # Extra client-side NFS mount options for agent mounts of this
+        # workspace (NFS transport only), e.g. "sync" for write-through
+        # workspaces another VM tails live.
+        self.nfs_mount_options = nfs_mount_options

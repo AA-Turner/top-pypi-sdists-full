@@ -20,11 +20,16 @@ from snowflake.snowpark_connect.config import (
     should_create_temporary_view_in_snowflake,
 )
 from snowflake.snowpark_connect.dataframe_container import DataFrameContainer
+from snowflake.snowpark_connect.utils.cld_context import (
+    is_cld_unified_identifier_rules_enabled,
+)
 from snowflake.snowpark_connect.utils.concurrent import SynchronizedDict
 from snowflake.snowpark_connect.utils.context import get_spark_session_id
 from snowflake.snowpark_connect.utils.identifiers import (
+    is_backtick_quoted,
     spark_to_sf_single_id,
     spark_to_sf_single_id_with_unquoting,
+    unquote_spark_identifier_if_quoted,
 )
 
 _INTERNAL_VIEW_PREFIX = "__SC_RENAMED_V_"
@@ -172,8 +177,11 @@ def create_temporary_view_from_dataframe(
     case_sensitive_view_name = ".".join(
         [spark_to_sf_single_id_with_unquoting(part) for part in view_name]
     )
+    # Legacy temp-view materialization always uppercases Snowflake view names
+    # (main behavior). CLD rules use the same path when the flag is enabled.
     snowflake_view_name = [
-        spark_to_sf_single_id_with_unquoting(part, True) for part in view_name
+        spark_to_sf_single_id_with_unquoting(part, use_auto_upper_case=True)
+        for part in view_name
     ]
 
     if should_create_temporary_view_in_snowflake():
@@ -236,14 +244,53 @@ def _create_snowflake_temporary_view(
             raise
 
 
+def snowflake_materialized_view_column_name(spark_name: str) -> str:
+    """Map a Spark column name for Snowflake view materialization (temp or SQL DDL)."""
+    if is_cld_unified_identifier_rules_enabled():
+        return _spark_column_name_for_snowflake_view(spark_name)
+    return spark_to_sf_single_id(spark_name, is_column=True)
+
+
+def _column_dedup_key(spark_name: str) -> str:
+    if is_cld_unified_identifier_rules_enabled():
+        return _snowflake_view_column_dedup_key(spark_name)
+    return spark_name.lower()
+
+
+def _column_rename_target(spark_name: str) -> str:
+    return snowflake_materialized_view_column_name(spark_name)
+
+
+def _snowflake_view_column_dedup_key(spark_name: str) -> str:
+    """Case-insensitive Snowflake column identity for duplicate detection."""
+    sf_name = _spark_column_name_for_snowflake_view(spark_name)
+    return unquote_if_quoted(sf_name).lower()
+
+
+def _spark_column_name_for_snowflake_view(spark_name: str) -> str:
+    """Render a Spark column name for Snowflake temp-view materialization.
+
+    Unquote Spark backticks, then delegate to ``spark_to_sf_single_id`` which
+    quotes when Snowflake requires it (invalid unquoted id, caseSensitive) or
+    when backticks wrap a non-simple ``\\w+`` name that may contain special
+    characters. Simple `` `foo` `` names stay unquoted.
+    """
+    is_backtick = is_backtick_quoted(spark_name)
+    bare_name = (
+        unquote_spark_identifier_if_quoted(spark_name) if is_backtick else spark_name
+    )
+    return spark_to_sf_single_id(
+        bare_name, is_column=True, is_backtick_quoted=is_backtick
+    )
+
+
 def _create_column_rename_map(
     columns: list[ColumnNames], rename_duplicated: bool
 ) -> dict:
     if rename_duplicated is False:
         # if we are not renaming duplicated columns, we can just return the original names
         return {
-            col.snowpark_name: spark_to_sf_single_id(col.spark_name, is_column=True)
-            for col in columns
+            col.snowpark_name: _column_rename_target(col.spark_name) for col in columns
         }
 
     column_counts = Counter()
@@ -252,7 +299,7 @@ def _create_column_rename_map(
 
     for col in columns:
         new_column_name = col.spark_name
-        normalized_name = new_column_name.lower()
+        normalized_name = _column_dedup_key(new_column_name)
         column_counts[normalized_name] += 1
 
         if column_counts[normalized_name] > 1:
@@ -265,7 +312,7 @@ def _create_column_rename_map(
 
     if len(renamed_cols) == 0:
         return {
-            col.snowpark_name: spark_to_sf_single_id(col.spark_name, is_column=True)
+            col.snowpark_name: _column_rename_target(col.spark_name)
             for col in not_renamed_cols
         }
 

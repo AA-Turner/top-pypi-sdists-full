@@ -85,6 +85,34 @@ class AppConfig(BaseModel):
     """Feature flags."""
 
 
+class PlatformConfig(BaseModel):
+    """Public platform configuration returned by ``/api/v1/config``."""
+
+    app_version: str
+    api_version: str
+    deployment_mode: str
+    recaptcha_enabled: bool = False
+    recaptcha_site_key: str | None = None
+    credits_enabled: bool = True
+    feedback_enabled: bool = False
+    integrations_enabled: bool = True
+    # False on older platforms whose /feedback rejects diagnostic-report fields.
+    feedback_diagnostics: bool = False
+    website_url: str
+
+
+class FeedbackReceipt(BaseModel):
+    """Stable receipt returned after durable feedback submission."""
+
+    success: bool
+    message: str
+    report_id: str
+    delivery_status: t.Literal["delivered", "partial", "stored"]
+    retained_until: str
+    linear_issue_url: str | None = None
+    linear_issue_id: str | None = None
+
+
 class HealthCheck(BaseModel):
     """Health check response."""
 
@@ -240,6 +268,15 @@ class OrgOwner(BaseModel):
     name: str | None = None
 
 
+class OrganizationPermissions(BaseModel):
+    """What the calling user may do in an organization."""
+
+    create_workspace: bool = False
+    """Whether the user can create workspaces (requires contributor or owner)."""
+    manage_members: bool = False
+    """Whether the user can add/update/remove members (requires owner)."""
+
+
 class Organization(BaseModel):
     """Organization details."""
 
@@ -276,7 +313,9 @@ class Organization(BaseModel):
     member_count: int = 0
     """Current member count for the organization."""
     can_manage_members: bool = False
-    """Whether the calling user can add/remove members."""
+    """Deprecated: read ``permissions.manage_members`` instead."""
+    permissions: OrganizationPermissions = Field(default_factory=OrganizationPermissions)
+    """What the calling user may do in this organization."""
     plan_type: str | None = None
     """Plan type for the organization (e.g. ``pro``, ``enterprise``)."""
     owners: list[OrgOwner] | None = None

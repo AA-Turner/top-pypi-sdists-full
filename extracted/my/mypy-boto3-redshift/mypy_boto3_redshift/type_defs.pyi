@@ -333,6 +333,7 @@ __all__ = (
     "ListRecommendationsMessagePaginateTypeDef",
     "ListRecommendationsMessageTypeDef",
     "ListRecommendationsResultTypeDef",
+    "LoggingPublishStatusTypeDef",
     "LoggingStatusTypeDef",
     "MaintenanceTrackTypeDef",
     "ModifyAquaInputMessageTypeDef",
@@ -435,6 +436,7 @@ __all__ = (
     "RotateEncryptionKeyMessageTypeDef",
     "RotateEncryptionKeyResultTypeDef",
     "S3AccessGrantsScopeUnionTypeDef",
+    "S3TablePublishStatusTypeDef",
     "ScheduledActionFilterTypeDef",
     "ScheduledActionResponseTypeDef",
     "ScheduledActionTypeDef",
@@ -1029,6 +1031,8 @@ class DescribeUsageLimitsMessageTypeDef(TypedDict):
 
 class DisableLoggingMessageTypeDef(TypedDict):
     ClusterIdentifier: str
+    LogDestinationType: NotRequired[LogDestinationTypeType]
+    LogExports: NotRequired[Sequence[str]]
 
 class DisableSnapshotCopyMessageTypeDef(TypedDict):
     ClusterIdentifier: str
@@ -1045,6 +1049,8 @@ class EnableLoggingMessageTypeDef(TypedDict):
     S3KeyPrefix: NotRequired[str]
     LogDestinationType: NotRequired[LogDestinationTypeType]
     LogExports: NotRequired[Sequence[str]]
+    S3TableKmsKeyId: NotRequired[str]
+    S3TableGranularity: NotRequired[str]
 
 class EnableSnapshotCopyMessageTypeDef(TypedDict):
     ClusterIdentifier: str
@@ -1131,6 +1137,13 @@ class ListRecommendationsMessageTypeDef(TypedDict):
     NamespaceArn: NotRequired[str]
     MaxRecords: NotRequired[int]
     Marker: NotRequired[str]
+
+class S3TablePublishStatusTypeDef(TypedDict):
+    S3Tables: NotRequired[list[str]]
+    S3TableNamespace: NotRequired[str]
+    S3TableGranularity: NotRequired[str]
+    EnabledAll: NotRequired[bool]
+    LastIngestionTimes: NotRequired[dict[str, str]]
 
 class ModifyAquaInputMessageTypeDef(TypedDict):
     ClusterIdentifier: str
@@ -1514,17 +1527,6 @@ class LakehouseConfigurationTypeDef(TypedDict):
     LakehouseIdcApplicationArn: str
     LakehouseRegistrationStatus: str
     CatalogArn: str
-    ResponseMetadata: ResponseMetadataTypeDef
-
-class LoggingStatusTypeDef(TypedDict):
-    LoggingEnabled: bool
-    BucketName: str
-    S3KeyPrefix: str
-    LastSuccessfulDeliveryTime: datetime
-    LastFailureTime: datetime
-    LastFailureMessage: str
-    LogDestinationType: LogDestinationTypeType
-    LogExports: list[str]
     ResponseMetadata: ResponseMetadataTypeDef
 
 class ModifyAuthenticationProfileResultTypeDef(TypedDict):
@@ -2321,6 +2323,21 @@ class IntegrationTypeDef(TypedDict):
 class LakeFormationScopeUnionTypeDef(TypedDict):
     LakeFormationQuery: NotRequired[LakeFormationQueryTypeDef]
 
+class LoggingPublishStatusTypeDef(TypedDict):
+    S3Tables: NotRequired[S3TablePublishStatusTypeDef]
+
+class LoggingStatusTypeDef(TypedDict):
+    LoggingEnabled: bool
+    BucketName: str
+    S3KeyPrefix: str
+    LastSuccessfulDeliveryTime: datetime
+    LastFailureTime: datetime
+    LastFailureMessage: str
+    LogDestinationType: LogDestinationTypeType
+    LogExports: list[str]
+    S3Tables: S3TablePublishStatusTypeDef
+    ResponseMetadata: ResponseMetadataTypeDef
+
 class NamespaceIdentifierUnionTypeDef(TypedDict):
     ServerlessIdentifier: NotRequired[ServerlessIdentifierTypeDef]
     ProvisionedIdentifier: NotRequired[ProvisionedIdentifierTypeDef]
@@ -2797,6 +2814,7 @@ class ClusterTypeDef(TypedDict):
     LakehouseRegistrationStatus: NotRequired[str]
     CatalogArn: NotRequired[str]
     ExtraComputeForAutomaticOptimization: NotRequired[str]
+    LoggingPublishStatus: NotRequired[LoggingPublishStatusTypeDef]
 
 class RedshiftIdcApplicationTypeDef(TypedDict):
     IdcInstanceArn: NotRequired[str]

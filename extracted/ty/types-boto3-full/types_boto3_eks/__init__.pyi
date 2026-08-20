@@ -12,6 +12,7 @@ Usage::
     from types_boto3_eks import (
         AddonActiveWaiter,
         AddonDeletedWaiter,
+        CertificateAuthorityUpdateCompleteWaiter,
         Client,
         ClusterActiveWaiter,
         ClusterDeletedWaiter,
@@ -25,6 +26,7 @@ Usage::
         ListAddonsPaginator,
         ListAssociatedAccessPoliciesPaginator,
         ListCapabilitiesPaginator,
+        ListCertificateAuthoritiesPaginator,
         ListClustersPaginator,
         ListEksAnywhereSubscriptionsPaginator,
         ListFargateProfilesPaginator,
@@ -42,6 +44,7 @@ Usage::
 
     addon_active_waiter: AddonActiveWaiter = client.get_waiter("addon_active")
     addon_deleted_waiter: AddonDeletedWaiter = client.get_waiter("addon_deleted")
+    certificate_authority_update_complete_waiter: CertificateAuthorityUpdateCompleteWaiter = client.get_waiter("certificate_authority_update_complete")
     cluster_active_waiter: ClusterActiveWaiter = client.get_waiter("cluster_active")
     cluster_deleted_waiter: ClusterDeletedWaiter = client.get_waiter("cluster_deleted")
     fargate_profile_active_waiter: FargateProfileActiveWaiter = client.get_waiter("fargate_profile_active")
@@ -56,6 +59,7 @@ Usage::
     list_addons_paginator: ListAddonsPaginator = client.get_paginator("list_addons")
     list_associated_access_policies_paginator: ListAssociatedAccessPoliciesPaginator = client.get_paginator("list_associated_access_policies")
     list_capabilities_paginator: ListCapabilitiesPaginator = client.get_paginator("list_capabilities")
+    list_certificate_authorities_paginator: ListCertificateAuthoritiesPaginator = client.get_paginator("list_certificate_authorities")
     list_clusters_paginator: ListClustersPaginator = client.get_paginator("list_clusters")
     list_eks_anywhere_subscriptions_paginator: ListEksAnywhereSubscriptionsPaginator = client.get_paginator("list_eks_anywhere_subscriptions")
     list_fargate_profiles_paginator: ListFargateProfilesPaginator = client.get_paginator("list_fargate_profiles")
@@ -76,6 +80,7 @@ from .paginator import (
     ListAddonsPaginator,
     ListAssociatedAccessPoliciesPaginator,
     ListCapabilitiesPaginator,
+    ListCertificateAuthoritiesPaginator,
     ListClustersPaginator,
     ListEksAnywhereSubscriptionsPaginator,
     ListFargateProfilesPaginator,
@@ -88,6 +93,7 @@ from .paginator import (
 from .waiter import (
     AddonActiveWaiter,
     AddonDeletedWaiter,
+    CertificateAuthorityUpdateCompleteWaiter,
     ClusterActiveWaiter,
     ClusterDeletedWaiter,
     FargateProfileActiveWaiter,
@@ -101,6 +107,7 @@ Client = EKSClient
 __all__ = (
     "AddonActiveWaiter",
     "AddonDeletedWaiter",
+    "CertificateAuthorityUpdateCompleteWaiter",
     "Client",
     "ClusterActiveWaiter",
     "ClusterDeletedWaiter",
@@ -114,6 +121,7 @@ __all__ = (
     "ListAddonsPaginator",
     "ListAssociatedAccessPoliciesPaginator",
     "ListCapabilitiesPaginator",
+    "ListCertificateAuthoritiesPaginator",
     "ListClustersPaginator",
     "ListEksAnywhereSubscriptionsPaginator",
     "ListFargateProfilesPaginator",

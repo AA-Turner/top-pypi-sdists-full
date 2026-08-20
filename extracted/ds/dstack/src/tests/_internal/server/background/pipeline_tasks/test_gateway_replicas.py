@@ -13,7 +13,7 @@ from dstack._internal.core.errors import BackendError, GatewayError
 from dstack._internal.core.models.configurations import ServiceConfiguration
 from dstack._internal.core.models.gateways import (
     ACMGatewayCertificate,
-    GatewayProvisioningData,
+    GatewayReplicaProvisioningData,
     GatewayReplicaStatus,
     GatewayStatus,
 )
@@ -27,7 +27,7 @@ from dstack._internal.server.background.pipeline_tasks.gateway_replicas import (
     GatewayReplicaWorker,
 )
 from dstack._internal.server.models import (
-    GatewayComputeModel,
+    GatewayReplicaModel,
     ServiceRegistrationModel,
     ServiceReplicaRegistrationModel,
 )
@@ -37,14 +37,14 @@ from dstack._internal.server.testing.common import (
     create_backend,
     create_fleet,
     create_gateway,
-    create_gateway_compute,
+    create_gateway_replica,
     create_instance,
     create_job,
     create_project,
     create_repo,
     create_run,
     create_user,
-    get_gateway_compute_configuration,
+    get_gateway_replica_configuration,
     get_job_provisioning_data,
     get_run_spec,
     list_events,
@@ -68,24 +68,24 @@ def fetcher() -> GatewayReplicaFetcher:
     )
 
 
-def _compute_to_pipeline_item(
-    compute: GatewayComputeModel,
+def _replica_to_pipeline_item(
+    replica: GatewayReplicaModel,
 ) -> GatewayReplicaPipelineItem:
-    assert compute.lock_token is not None
-    assert compute.lock_expires_at is not None
+    assert replica.lock_token is not None
+    assert replica.lock_expires_at is not None
     return GatewayReplicaPipelineItem(
-        __tablename__=compute.__tablename__,
-        id=compute.id,
-        lock_token=compute.lock_token,
-        lock_expires_at=compute.lock_expires_at,
+        __tablename__=replica.__tablename__,
+        id=replica.id,
+        lock_token=replica.lock_token,
+        lock_expires_at=replica.lock_expires_at,
         prev_lock_expired=False,
-        status=compute.status,
+        status=replica.status,
     )
 
 
-def _lock_compute(compute: GatewayComputeModel) -> None:
-    compute.lock_token = uuid.uuid4()
-    compute.lock_expires_at = datetime(2025, 1, 2, 3, 4, tzinfo=timezone.utc)
+def _lock_replica(replica: GatewayReplicaModel) -> None:
+    replica.lock_token = uuid.uuid4()
+    replica.lock_expires_at = datetime(2025, 1, 2, 3, 4, tzinfo=timezone.utc)
 
 
 @pytest.mark.asyncio
@@ -106,7 +106,7 @@ class TestGatewayReplicaFetcher:
         now = get_current_datetime()
         stale = now - timedelta(minutes=1)
 
-        submitted = await create_gateway_compute(
+        submitted = await create_gateway_replica(
             session=session,
             gateway_id=gateway.id,
             ip_address=None,
@@ -114,35 +114,35 @@ class TestGatewayReplicaFetcher:
             region=None,
             status=GatewayReplicaStatus.SUBMITTED,
             last_processed_at=stale - timedelta(seconds=3),
-            configuration=get_gateway_compute_configuration().model_dump_json(),
+            configuration=get_gateway_replica_configuration().model_dump_json(),
         )
-        provisioning = await create_gateway_compute(
+        provisioning = await create_gateway_replica(
             session=session,
             gateway_id=gateway.id,
             status=GatewayReplicaStatus.PROVISIONING,
             last_processed_at=stale - timedelta(seconds=2),
         )
-        terminating = await create_gateway_compute(
+        terminating = await create_gateway_replica(
             session=session,
             gateway_id=gateway.id,
             status=GatewayReplicaStatus.TERMINATING,
             active=False,
             last_processed_at=stale - timedelta(seconds=1),
         )
-        running = await create_gateway_compute(
+        running = await create_gateway_replica(
             session=session,
             gateway_id=gateway.id,
             status=GatewayReplicaStatus.RUNNING,
             last_processed_at=stale,
         )
-        terminated = await create_gateway_compute(
+        terminated = await create_gateway_replica(
             session=session,
             gateway_id=gateway.id,
             status=GatewayReplicaStatus.TERMINATED,
             active=False,
             last_processed_at=stale,
         )
-        recent = await create_gateway_compute(
+        recent = await create_gateway_replica(
             session=session,
             gateway_id=gateway.id,
             status=GatewayReplicaStatus.SUBMITTED,
@@ -150,11 +150,11 @@ class TestGatewayReplicaFetcher:
             instance_id=None,
             region=None,
             last_processed_at=now,
-            configuration=get_gateway_compute_configuration().model_dump_json(),
+            configuration=get_gateway_replica_configuration().model_dump_json(),
         )
         recent.created_at = now - timedelta(minutes=2)
         recent.last_processed_at = now
-        locked = await create_gateway_compute(
+        locked = await create_gateway_replica(
             session=session,
             gateway_id=gateway.id,
             status=GatewayReplicaStatus.SUBMITTED,
@@ -162,7 +162,7 @@ class TestGatewayReplicaFetcher:
             instance_id=None,
             region=None,
             last_processed_at=stale + timedelta(seconds=1),
-            configuration=get_gateway_compute_configuration().model_dump_json(),
+            configuration=get_gateway_replica_configuration().model_dump_json(),
         )
         locked.lock_expires_at = now + timedelta(minutes=1)
         locked.lock_token = uuid.uuid4()
@@ -184,8 +184,8 @@ class TestGatewayReplicaFetcher:
             (running.id, GatewayReplicaStatus.RUNNING),
         }
 
-        for compute in [submitted, provisioning, terminating, running, terminated, recent, locked]:
-            await session.refresh(compute)
+        for replica in [submitted, provisioning, terminating, running, terminated, recent, locked]:
+            await session.refresh(replica)
 
         fetched = [submitted, provisioning, terminating, running]
         assert all(c.lock_owner == GatewayReplicaPipeline.__name__ for c in fetched)
@@ -197,6 +197,33 @@ class TestGatewayReplicaFetcher:
         assert recent.lock_owner is None
         assert locked.lock_owner == "OtherPipeline"
 
+    async def test_fetch_includes_recent_replica_with_skip_min_processing_interval(
+        self, test_db, session: AsyncSession, fetcher: GatewayReplicaFetcher
+    ):
+        project = await create_project(session=session)
+        backend = await create_backend(session=session, project_id=project.id)
+        gateway = await create_gateway(
+            session=session,
+            project_id=project.id,
+            backend_id=backend.id,
+            status=GatewayStatus.RUNNING,
+        )
+        now = get_current_datetime()
+        replica = await create_gateway_replica(
+            session=session,
+            gateway_id=gateway.id,
+            status=GatewayReplicaStatus.RUNNING,
+            last_processed_at=now,
+        )
+        replica.skip_min_processing_interval = True
+        await session.commit()
+
+        items = await fetcher.fetch(limit=10)
+
+        assert [item.id for item in items] == [replica.id]
+        await session.refresh(replica)
+        assert not replica.skip_min_processing_interval
+
     @pytest.mark.parametrize(
         "gateway_status,to_be_deleted",
         [
@@ -204,7 +231,7 @@ class TestGatewayReplicaFetcher:
             (GatewayStatus.RUNNING, True),
         ],
     )
-    @pytest.mark.parametrize("legacy_compute", [False, True])
+    @pytest.mark.parametrize("legacy_replica", [False, True])
     async def test_fetch_includes_running_replica_needing_cleanup(
         self,
         test_db,
@@ -212,7 +239,7 @@ class TestGatewayReplicaFetcher:
         fetcher: GatewayReplicaFetcher,
         gateway_status: GatewayStatus,
         to_be_deleted: bool,
-        legacy_compute: bool,
+        legacy_replica: bool,
     ):
         project = await create_project(session=session)
         backend = await create_backend(session=session, project_id=project.id)
@@ -224,15 +251,15 @@ class TestGatewayReplicaFetcher:
         )
         gateway.to_be_deleted = to_be_deleted
         stale = get_current_datetime() - timedelta(minutes=1)
-        if legacy_compute:
-            compute = await create_gateway_compute(
+        if legacy_replica:
+            replica = await create_gateway_replica(
                 session=session,
                 status=GatewayReplicaStatus.RUNNING,
                 last_processed_at=stale,
             )
-            gateway.gateway_compute_id = compute.id
+            gateway.gateway_replica_id = replica.id
         else:
-            compute = await create_gateway_compute(
+            replica = await create_gateway_replica(
                 session=session,
                 gateway_id=gateway.id,
                 status=GatewayReplicaStatus.RUNNING,
@@ -243,7 +270,7 @@ class TestGatewayReplicaFetcher:
         items = await fetcher.fetch(limit=10)
 
         assert len(items) == 1
-        assert items[0].id == compute.id
+        assert items[0].id == replica.id
         assert items[0].status == GatewayReplicaStatus.RUNNING
 
     async def test_fetch_includes_running_replica_with_hard_deleted_gateway(
@@ -252,10 +279,10 @@ class TestGatewayReplicaFetcher:
         session: AsyncSession,
         fetcher: GatewayReplicaFetcher,
     ):
-        # A compute whose gateway was hard-deleted (orphaned). The fetcher should
+        # A replica whose gateway was hard-deleted (orphaned). The fetcher should
         # pick it up so the worker can log the error.
         stale = get_current_datetime() - timedelta(minutes=1)
-        compute = await create_gateway_compute(
+        replica = await create_gateway_replica(
             session=session,
             gateway_id=None,
             status=GatewayReplicaStatus.RUNNING,
@@ -266,16 +293,16 @@ class TestGatewayReplicaFetcher:
         items = await fetcher.fetch(limit=10)
 
         assert len(items) == 1
-        assert items[0].id == compute.id
+        assert items[0].id == replica.id
         assert items[0].status == GatewayReplicaStatus.RUNNING
 
-    @pytest.mark.parametrize("legacy_compute", [False, True])
+    @pytest.mark.parametrize("legacy_replica", [False, True])
     async def test_fetch_includes_running_replica_with_healthy_gateway(
         self,
         test_db,
         session: AsyncSession,
         fetcher: GatewayReplicaFetcher,
-        legacy_compute: bool,
+        legacy_replica: bool,
     ):
         # Healthy running replicas are still fetched periodically so the worker
         # can run gateway state sync (see _process_running_item).
@@ -288,15 +315,15 @@ class TestGatewayReplicaFetcher:
             status=GatewayStatus.RUNNING,
         )
         stale = get_current_datetime() - timedelta(minutes=1)
-        if legacy_compute:
-            compute = await create_gateway_compute(
+        if legacy_replica:
+            replica = await create_gateway_replica(
                 session=session,
                 status=GatewayReplicaStatus.RUNNING,
                 last_processed_at=stale,
             )
-            gateway.gateway_compute_id = compute.id
+            gateway.gateway_replica_id = replica.id
         else:
-            compute = await create_gateway_compute(
+            replica = await create_gateway_replica(
                 session=session,
                 gateway_id=gateway.id,
                 status=GatewayReplicaStatus.RUNNING,
@@ -307,7 +334,7 @@ class TestGatewayReplicaFetcher:
         items = await fetcher.fetch(limit=10)
 
         assert len(items) == 1
-        assert items[0].id == compute.id
+        assert items[0].id == replica.id
         assert items[0].status == GatewayReplicaStatus.RUNNING
 
     async def test_fetch_includes_running_replica_marked_for_scale_in(
@@ -325,19 +352,19 @@ class TestGatewayReplicaFetcher:
             status=GatewayStatus.RUNNING,
         )
         stale = get_current_datetime() - timedelta(minutes=1)
-        compute = await create_gateway_compute(
+        replica = await create_gateway_replica(
             session=session,
             gateway_id=gateway.id,
             status=GatewayReplicaStatus.RUNNING,
             last_processed_at=stale,
         )
-        compute.scale_in = True
+        replica.scale_in = True
         await session.commit()
 
         items = await fetcher.fetch(limit=10)
 
         assert len(items) == 1
-        assert items[0].id == compute.id
+        assert items[0].id == replica.id
         assert items[0].status == GatewayReplicaStatus.RUNNING
 
 
@@ -355,7 +382,7 @@ class TestGatewayReplicaWorkerSubmitted:
             backend_id=backend.id,
             status=GatewayStatus.PROVISIONING,
         )
-        compute = await create_gateway_compute(
+        replica = await create_gateway_replica(
             session=session,
             gateway_id=gateway.id,
             backend_id=backend.id,
@@ -363,9 +390,9 @@ class TestGatewayReplicaWorkerSubmitted:
             instance_id=None,
             region=None,
             status=GatewayReplicaStatus.SUBMITTED,
-            configuration=get_gateway_compute_configuration().model_dump_json(),
+            configuration=get_gateway_replica_configuration().model_dump_json(),
         )
-        _lock_compute(compute)
+        _lock_replica(replica)
         await session.commit()
 
         with patch(
@@ -374,19 +401,21 @@ class TestGatewayReplicaWorkerSubmitted:
             aws = Mock()
             m.return_value = [(backend, aws)]
             aws.compute.return_value = Mock(spec=ComputeMockSpec)
-            aws.compute.return_value.create_gateway.return_value = GatewayProvisioningData(
-                instance_id="i-1234567890",
-                ip_address="2.2.2.2",
-                region="us",
+            aws.compute.return_value.create_gateway_replica.return_value = (
+                GatewayReplicaProvisioningData(
+                    instance_id="i-1234567890",
+                    ip_address="2.2.2.2",
+                    region="us",
+                )
             )
-            await worker.process(_compute_to_pipeline_item(compute))
-            aws.compute.return_value.create_gateway.assert_called_once()
+            await worker.process(_replica_to_pipeline_item(replica))
+            aws.compute.return_value.create_gateway_replica.assert_called_once()
 
-        await session.refresh(compute)
-        assert compute.status == GatewayReplicaStatus.PROVISIONING
-        assert compute.ip_address == "2.2.2.2"
-        assert compute.instance_id == "i-1234567890"
-        assert compute.region == "us"
+        await session.refresh(replica)
+        assert replica.status == GatewayReplicaStatus.PROVISIONING
+        assert replica.ip_address == "2.2.2.2"
+        assert replica.instance_id == "i-1234567890"
+        assert replica.region == "us"
 
     async def test_submitted_backend_error_marks_terminated(
         self, test_db, session: AsyncSession, worker: GatewayReplicaWorker
@@ -399,7 +428,7 @@ class TestGatewayReplicaWorkerSubmitted:
             backend_id=backend.id,
             status=GatewayStatus.PROVISIONING,
         )
-        compute = await create_gateway_compute(
+        replica = await create_gateway_replica(
             session=session,
             gateway_id=gateway.id,
             backend_id=backend.id,
@@ -407,9 +436,9 @@ class TestGatewayReplicaWorkerSubmitted:
             instance_id=None,
             region=None,
             status=GatewayReplicaStatus.SUBMITTED,
-            configuration=get_gateway_compute_configuration().model_dump_json(),
+            configuration=get_gateway_replica_configuration().model_dump_json(),
         )
-        _lock_compute(compute)
+        _lock_replica(replica)
         await session.commit()
 
         with patch(
@@ -418,13 +447,15 @@ class TestGatewayReplicaWorkerSubmitted:
             aws = Mock()
             m.return_value = [(backend, aws)]
             aws.compute.return_value = Mock(spec=ComputeMockSpec)
-            aws.compute.return_value.create_gateway.side_effect = BackendError("Some error")
-            await worker.process(_compute_to_pipeline_item(compute))
+            aws.compute.return_value.create_gateway_replica.side_effect = BackendError(
+                "Some error"
+            )
+            await worker.process(_replica_to_pipeline_item(replica))
 
-        await session.refresh(compute)
-        assert compute.status == GatewayReplicaStatus.TERMINATED
-        assert compute.active is False
-        assert compute.deleted is True
+        await session.refresh(replica)
+        assert replica.status == GatewayReplicaStatus.TERMINATED
+        assert replica.active is False
+        assert replica.deleted is True
 
     async def test_submitted_backend_not_available_marks_terminated(
         self, test_db, session: AsyncSession, worker: GatewayReplicaWorker
@@ -437,7 +468,7 @@ class TestGatewayReplicaWorkerSubmitted:
             backend_id=backend.id,
             status=GatewayStatus.PROVISIONING,
         )
-        compute = await create_gateway_compute(
+        replica = await create_gateway_replica(
             session=session,
             gateway_id=gateway.id,
             backend_id=backend.id,
@@ -445,21 +476,21 @@ class TestGatewayReplicaWorkerSubmitted:
             instance_id=None,
             region=None,
             status=GatewayReplicaStatus.SUBMITTED,
-            configuration=get_gateway_compute_configuration().model_dump_json(),
+            configuration=get_gateway_replica_configuration().model_dump_json(),
         )
-        _lock_compute(compute)
+        _lock_replica(replica)
         await session.commit()
 
         with patch(
             "dstack._internal.server.services.backends.get_project_backends_with_models"
         ) as m:
             m.return_value = []
-            await worker.process(_compute_to_pipeline_item(compute))
+            await worker.process(_replica_to_pipeline_item(replica))
 
-        await session.refresh(compute)
-        assert compute.status == GatewayReplicaStatus.TERMINATED
-        assert compute.active is False
-        assert compute.deleted is True
+        await session.refresh(replica)
+        assert replica.status == GatewayReplicaStatus.TERMINATED
+        assert replica.active is False
+        assert replica.deleted is True
 
     async def test_submitted_skips_provisioning_if_gateway_to_be_deleted(
         self, test_db, session: AsyncSession, worker: GatewayReplicaWorker
@@ -473,7 +504,7 @@ class TestGatewayReplicaWorkerSubmitted:
             status=GatewayStatus.RUNNING,
         )
         gateway.to_be_deleted = True
-        compute = await create_gateway_compute(
+        replica = await create_gateway_replica(
             session=session,
             gateway_id=gateway.id,
             backend_id=backend.id,
@@ -481,21 +512,21 @@ class TestGatewayReplicaWorkerSubmitted:
             instance_id=None,
             region=None,
             status=GatewayReplicaStatus.SUBMITTED,
-            configuration=get_gateway_compute_configuration().model_dump_json(),
+            configuration=get_gateway_replica_configuration().model_dump_json(),
         )
-        _lock_compute(compute)
+        _lock_replica(replica)
         await session.commit()
 
         with patch(
             "dstack._internal.server.services.backends.get_project_backends_with_models"
         ) as m:
-            await worker.process(_compute_to_pipeline_item(compute))
+            await worker.process(_replica_to_pipeline_item(replica))
             m.assert_not_called()
 
-        await session.refresh(compute)
-        assert compute.status == GatewayReplicaStatus.TERMINATED
-        assert compute.active is False
-        assert compute.deleted is True
+        await session.refresh(replica)
+        assert replica.status == GatewayReplicaStatus.TERMINATED
+        assert replica.active is False
+        assert replica.deleted is True
 
     async def test_submitted_skips_provisioning_if_gateway_failed(
         self, test_db, session: AsyncSession, worker: GatewayReplicaWorker
@@ -508,7 +539,7 @@ class TestGatewayReplicaWorkerSubmitted:
             backend_id=backend.id,
             status=GatewayStatus.FAILED,
         )
-        compute = await create_gateway_compute(
+        replica = await create_gateway_replica(
             session=session,
             gateway_id=gateway.id,
             backend_id=backend.id,
@@ -516,21 +547,21 @@ class TestGatewayReplicaWorkerSubmitted:
             instance_id=None,
             region=None,
             status=GatewayReplicaStatus.SUBMITTED,
-            configuration=get_gateway_compute_configuration().model_dump_json(),
+            configuration=get_gateway_replica_configuration().model_dump_json(),
         )
-        _lock_compute(compute)
+        _lock_replica(replica)
         await session.commit()
 
         with patch(
             "dstack._internal.server.services.backends.get_project_backends_with_models"
         ) as m:
-            await worker.process(_compute_to_pipeline_item(compute))
+            await worker.process(_replica_to_pipeline_item(replica))
             m.assert_not_called()
 
-        await session.refresh(compute)
-        assert compute.status == GatewayReplicaStatus.TERMINATED
-        assert compute.active is False
-        assert compute.deleted is True
+        await session.refresh(replica)
+        assert replica.status == GatewayReplicaStatus.TERMINATED
+        assert replica.active is False
+        assert replica.deleted is True
 
     async def test_submitted_unexpected_error_marks_terminated(
         self, test_db, session: AsyncSession, worker: GatewayReplicaWorker
@@ -543,7 +574,7 @@ class TestGatewayReplicaWorkerSubmitted:
             backend_id=backend.id,
             status=GatewayStatus.PROVISIONING,
         )
-        compute = await create_gateway_compute(
+        replica = await create_gateway_replica(
             session=session,
             gateway_id=gateway.id,
             backend_id=backend.id,
@@ -551,9 +582,9 @@ class TestGatewayReplicaWorkerSubmitted:
             instance_id=None,
             region=None,
             status=GatewayReplicaStatus.SUBMITTED,
-            configuration=get_gateway_compute_configuration().model_dump_json(),
+            configuration=get_gateway_replica_configuration().model_dump_json(),
         )
-        _lock_compute(compute)
+        _lock_replica(replica)
         await session.commit()
 
         with patch(
@@ -562,14 +593,16 @@ class TestGatewayReplicaWorkerSubmitted:
             aws = Mock()
             m.return_value = [(backend, aws)]
             aws.compute.return_value = Mock(spec=ComputeMockSpec)
-            aws.compute.return_value.create_gateway.side_effect = RuntimeError("Unexpected!")
-            await worker.process(_compute_to_pipeline_item(compute))
+            aws.compute.return_value.create_gateway_replica.side_effect = RuntimeError(
+                "Unexpected!"
+            )
+            await worker.process(_replica_to_pipeline_item(replica))
 
-        await session.refresh(compute)
-        assert compute.status == GatewayReplicaStatus.TERMINATED
-        assert compute.status_message == "Unexpected error"
-        assert compute.active is False
-        assert compute.deleted is True
+        await session.refresh(replica)
+        assert replica.status == GatewayReplicaStatus.TERMINATED
+        assert replica.status_message == "Unexpected error"
+        assert replica.active is False
+        assert replica.deleted is True
 
     async def test_submitted_to_terminated_when_scaled_in(
         self, test_db, session: AsyncSession, worker: GatewayReplicaWorker
@@ -582,7 +615,7 @@ class TestGatewayReplicaWorkerSubmitted:
             backend_id=backend.id,
             status=GatewayStatus.RUNNING,
         )
-        compute = await create_gateway_compute(
+        replica = await create_gateway_replica(
             session=session,
             gateway_id=gateway.id,
             backend_id=backend.id,
@@ -590,23 +623,23 @@ class TestGatewayReplicaWorkerSubmitted:
             instance_id=None,
             region=None,
             status=GatewayReplicaStatus.SUBMITTED,
-            configuration=get_gateway_compute_configuration().model_dump_json(),
+            configuration=get_gateway_replica_configuration().model_dump_json(),
         )
-        compute.scale_in = True
-        _lock_compute(compute)
+        replica.scale_in = True
+        _lock_replica(replica)
         await session.commit()
 
         with patch(
             "dstack._internal.server.services.backends.get_project_backends_with_models"
         ) as m:
-            await worker.process(_compute_to_pipeline_item(compute))
+            await worker.process(_replica_to_pipeline_item(replica))
             m.assert_not_called()
 
-        await session.refresh(compute)
-        assert compute.status == GatewayReplicaStatus.TERMINATED
-        assert compute.active is False
-        assert compute.deleted is True
-        assert compute.status_message == "Scaled in"
+        await session.refresh(replica)
+        assert replica.status == GatewayReplicaStatus.TERMINATED
+        assert replica.active is False
+        assert replica.deleted is True
+        assert replica.status_message == "Scaled in"
 
 
 @pytest.mark.asyncio
@@ -619,7 +652,7 @@ class TestGatewayReplicaWorkerRunning:
             (GatewayStatus.RUNNING, True),
         ],
     )
-    @pytest.mark.parametrize("legacy_compute", [False, True])
+    @pytest.mark.parametrize("legacy_replica", [False, True])
     @pytest.mark.parametrize("populate_configuration", [True, False])
     async def test_running_to_terminating(
         self,
@@ -628,7 +661,7 @@ class TestGatewayReplicaWorkerRunning:
         worker: GatewayReplicaWorker,
         gateway_status: GatewayStatus,
         to_be_deleted: bool,
-        legacy_compute: bool,
+        legacy_replica: bool,
         populate_configuration: bool,
     ):
         project = await create_project(session=session)
@@ -641,30 +674,30 @@ class TestGatewayReplicaWorkerRunning:
             populate_configuration=populate_configuration,
         )
         gateway.to_be_deleted = to_be_deleted
-        if legacy_compute:
-            compute = await create_gateway_compute(
+        if legacy_replica:
+            replica = await create_gateway_replica(
                 session=session,
                 status=GatewayReplicaStatus.RUNNING,
                 active=True,
                 populate_configuration=populate_configuration,
             )
-            gateway.gateway_compute_id = compute.id
+            gateway.gateway_replica_id = replica.id
         else:
-            compute = await create_gateway_compute(
+            replica = await create_gateway_replica(
                 session=session,
                 gateway_id=gateway.id,
                 status=GatewayReplicaStatus.RUNNING,
                 active=True,
                 populate_configuration=populate_configuration,
             )
-        _lock_compute(compute)
+        _lock_replica(replica)
         await session.commit()
 
-        await worker.process(_compute_to_pipeline_item(compute))
+        await worker.process(_replica_to_pipeline_item(replica))
 
-        await session.refresh(compute)
-        assert compute.status == GatewayReplicaStatus.TERMINATING
-        assert compute.active is False
+        await session.refresh(replica)
+        assert replica.status == GatewayReplicaStatus.TERMINATING
+        assert replica.active is False
 
     async def test_running_to_terminating_when_scaled_in(
         self, test_db, session: AsyncSession, worker: GatewayReplicaWorker
@@ -677,22 +710,22 @@ class TestGatewayReplicaWorkerRunning:
             backend_id=backend.id,
             status=GatewayStatus.RUNNING,
         )
-        compute = await create_gateway_compute(
+        replica = await create_gateway_replica(
             session=session,
             gateway_id=gateway.id,
             status=GatewayReplicaStatus.RUNNING,
             active=True,
         )
-        compute.scale_in = True
-        _lock_compute(compute)
+        replica.scale_in = True
+        _lock_replica(replica)
         await session.commit()
 
-        await worker.process(_compute_to_pipeline_item(compute))
+        await worker.process(_replica_to_pipeline_item(replica))
 
-        await session.refresh(compute)
-        assert compute.status == GatewayReplicaStatus.TERMINATING
-        assert compute.active is False
-        assert compute.status_message == "Scaled in"
+        await session.refresh(replica)
+        assert replica.status == GatewayReplicaStatus.TERMINATING
+        assert replica.active is False
+        assert replica.status_message == "Scaled in"
 
 
 def _get_client_mock(mock_gateway_connection: AsyncMock) -> AsyncMock:
@@ -776,7 +809,7 @@ class TestGatewayReplicaWorkerRunningStateSync:
             backend_id=backend.id,
             status=GatewayStatus.RUNNING,
         )
-        compute = await create_gateway_compute(
+        replica = await create_gateway_replica(
             session=session,
             gateway_id=gateway.id,
             backend_id=backend.id,
@@ -786,16 +819,16 @@ class TestGatewayReplicaWorkerRunningStateSync:
         run, job = await self._create_service_run_and_job(
             session, project, repo, user, gateway, run_name="test-service"
         )
-        _lock_compute(compute)
+        _lock_replica(replica)
         await session.commit()
 
         client_mock = _get_client_mock(mock_gateway_connection)
         client_mock.list_services.return_value = []
 
-        await worker.process(_compute_to_pipeline_item(compute))
+        await worker.process(_replica_to_pipeline_item(replica))
 
         mock_gateway_connection.assert_called_once_with(
-            hostname=compute.ip_address, id_rsa="replica-private-key"
+            hostname=replica.ip_address, id_rsa="replica-private-key"
         )
         client_mock.register_service.assert_called_once_with(
             project=project.name,
@@ -829,7 +862,7 @@ class TestGatewayReplicaWorkerRunningStateSync:
             await session.execute(
                 select(ServiceRegistrationModel).where(
                     ServiceRegistrationModel.run_id == run.id,
-                    ServiceRegistrationModel.gateway_replica_id == compute.id,
+                    ServiceRegistrationModel.gateway_replica_id == replica.id,
                 )
             )
         ).scalar_one()
@@ -841,7 +874,7 @@ class TestGatewayReplicaWorkerRunningStateSync:
             await session.execute(
                 select(ServiceReplicaRegistrationModel).where(
                     ServiceReplicaRegistrationModel.job_id == job.id,
-                    ServiceReplicaRegistrationModel.gateway_replica_id == compute.id,
+                    ServiceReplicaRegistrationModel.gateway_replica_id == replica.id,
                 )
             )
         ).scalar_one()
@@ -849,8 +882,8 @@ class TestGatewayReplicaWorkerRunningStateSync:
 
         events = await list_events(session)
         assert {e.message for e in events} == {
-            f"Service registered on gateway replica {compute.replica_num}",
-            f"Service replica registered on gateway replica {compute.replica_num}",
+            f"Service registered on gateway replica {replica.replica_num}",
+            f"Service replica registered on gateway replica {replica.replica_num}",
         }
 
     async def test_unregisters_dangling_service_and_stale_replica(
@@ -870,7 +903,7 @@ class TestGatewayReplicaWorkerRunningStateSync:
             backend_id=backend.id,
             status=GatewayStatus.RUNNING,
         )
-        compute = await create_gateway_compute(
+        replica = await create_gateway_replica(
             session=session,
             gateway_id=gateway.id,
             backend_id=backend.id,
@@ -900,7 +933,7 @@ class TestGatewayReplicaWorkerRunningStateSync:
             job_status=JobStatus.TERMINATED,
             job_registered=False,
         )
-        _lock_compute(compute)
+        _lock_replica(replica)
         await session.commit()
 
         client_mock = _get_client_mock(mock_gateway_connection)
@@ -922,7 +955,7 @@ class TestGatewayReplicaWorkerRunningStateSync:
             ),
         ]
 
-        await worker.process(_compute_to_pipeline_item(compute))
+        await worker.process(_replica_to_pipeline_item(replica))
 
         client_mock.register_service.assert_not_called()
         client_mock.register_replica.assert_not_called()
@@ -937,7 +970,7 @@ class TestGatewayReplicaWorkerRunningStateSync:
             (
                 await session.execute(
                     select(ServiceRegistrationModel).where(
-                        ServiceRegistrationModel.gateway_replica_id == compute.id,
+                        ServiceRegistrationModel.gateway_replica_id == replica.id,
                     )
                 )
             )
@@ -951,7 +984,7 @@ class TestGatewayReplicaWorkerRunningStateSync:
             (
                 await session.execute(
                     select(ServiceReplicaRegistrationModel).where(
-                        ServiceReplicaRegistrationModel.gateway_replica_id == compute.id,
+                        ServiceReplicaRegistrationModel.gateway_replica_id == replica.id,
                     )
                 )
             )
@@ -963,8 +996,8 @@ class TestGatewayReplicaWorkerRunningStateSync:
 
         events = await list_events(session)
         assert {e.message for e in events} == {
-            f"Service unregistered from gateway replica {compute.replica_num}",
-            f"Service replica unregistered from gateway replica {compute.replica_num}",
+            f"Service unregistered from gateway replica {replica.replica_num}",
+            f"Service replica unregistered from gateway replica {replica.replica_num}",
         }
 
     async def test_deletes_registration_models_for_unregistered_service_and_replica(
@@ -984,7 +1017,7 @@ class TestGatewayReplicaWorkerRunningStateSync:
             backend_id=backend.id,
             status=GatewayStatus.RUNNING,
         )
-        compute = await create_gateway_compute(
+        replica = await create_gateway_replica(
             session=session,
             gateway_id=gateway.id,
             backend_id=backend.id,
@@ -1017,16 +1050,16 @@ class TestGatewayReplicaWorkerRunningStateSync:
         # Pre-existing registration records for everything currently on the
         # gateway, including the ones about to be unregistered.
         live_service_registration = ServiceRegistrationModel(
-            run_id=run1.id, gateway_replica_id=compute.id, is_registered=True
+            run_id=run1.id, gateway_replica_id=replica.id, is_registered=True
         )
         live_replica_registration = ServiceReplicaRegistrationModel(
-            job_id=job1.id, gateway_replica_id=compute.id, is_registered=True
+            job_id=job1.id, gateway_replica_id=replica.id, is_registered=True
         )
         stale_replica_registration = ServiceReplicaRegistrationModel(
-            job_id=stale_job.id, gateway_replica_id=compute.id, is_registered=True
+            job_id=stale_job.id, gateway_replica_id=replica.id, is_registered=True
         )
         dangling_service_registration = ServiceRegistrationModel(
-            run_id=run2.id, gateway_replica_id=compute.id, is_registered=True
+            run_id=run2.id, gateway_replica_id=replica.id, is_registered=True
         )
         session.add_all(
             [
@@ -1036,7 +1069,7 @@ class TestGatewayReplicaWorkerRunningStateSync:
                 dangling_service_registration,
             ]
         )
-        _lock_compute(compute)
+        _lock_replica(replica)
         await session.commit()
 
         client_mock = _get_client_mock(mock_gateway_connection)
@@ -1058,7 +1091,7 @@ class TestGatewayReplicaWorkerRunningStateSync:
             ),
         ]
 
-        await worker.process(_compute_to_pipeline_item(compute))
+        await worker.process(_replica_to_pipeline_item(replica))
 
         client_mock.unregister_service.assert_called_once_with(
             project=project.name, run_name="dangling-service"
@@ -1071,7 +1104,7 @@ class TestGatewayReplicaWorkerRunningStateSync:
             (
                 await session.execute(
                     select(ServiceRegistrationModel).where(
-                        ServiceRegistrationModel.gateway_replica_id == compute.id,
+                        ServiceRegistrationModel.gateway_replica_id == replica.id,
                     )
                 )
             )
@@ -1085,7 +1118,7 @@ class TestGatewayReplicaWorkerRunningStateSync:
             (
                 await session.execute(
                     select(ServiceReplicaRegistrationModel).where(
-                        ServiceReplicaRegistrationModel.gateway_replica_id == compute.id,
+                        ServiceReplicaRegistrationModel.gateway_replica_id == replica.id,
                     )
                 )
             )
@@ -1129,7 +1162,7 @@ class TestGatewayReplicaWorkerRunningStateSync:
             backend_id=backend.id,
             status=GatewayStatus.RUNNING,
         )
-        compute = await create_gateway_compute(
+        replica = await create_gateway_replica(
             session=session,
             gateway_id=gateway.id,
             backend_id=backend.id,
@@ -1150,13 +1183,13 @@ class TestGatewayReplicaWorkerRunningStateSync:
             job_registered=False,
         )
         stale_service_registration = ServiceRegistrationModel(
-            run_id=run.id, gateway_replica_id=compute.id, is_registered=True
+            run_id=run.id, gateway_replica_id=replica.id, is_registered=True
         )
         stale_replica_registration = ServiceReplicaRegistrationModel(
-            job_id=job.id, gateway_replica_id=compute.id, is_registered=True
+            job_id=job.id, gateway_replica_id=replica.id, is_registered=True
         )
         session.add_all([stale_service_registration, stale_replica_registration])
-        _lock_compute(compute)
+        _lock_replica(replica)
         await session.commit()
 
         client_mock = _get_client_mock(mock_gateway_connection)
@@ -1169,7 +1202,7 @@ class TestGatewayReplicaWorkerRunningStateSync:
             ),
         ]
 
-        await worker.process(_compute_to_pipeline_item(compute))
+        await worker.process(_replica_to_pipeline_item(replica))
 
         client_mock.unregister_service.assert_called_once_with(
             project=project.name, run_name="dangling-service"
@@ -1198,8 +1231,8 @@ class TestGatewayReplicaWorkerRunningStateSync:
 
         events = await list_events(session)
         assert {e.message for e in events} == {
-            f"Service unregistered from gateway replica {compute.replica_num}",
-            f"Service replica unregistered from gateway replica {compute.replica_num}",
+            f"Service unregistered from gateway replica {replica.replica_num}",
+            f"Service replica unregistered from gateway replica {replica.replica_num}",
         }
 
     async def test_no_gateway_calls_when_state_already_in_sync(
@@ -1219,7 +1252,7 @@ class TestGatewayReplicaWorkerRunningStateSync:
             backend_id=backend.id,
             status=GatewayStatus.RUNNING,
         )
-        compute = await create_gateway_compute(
+        replica = await create_gateway_replica(
             session=session,
             gateway_id=gateway.id,
             backend_id=backend.id,
@@ -1228,7 +1261,7 @@ class TestGatewayReplicaWorkerRunningStateSync:
         run, job = await self._create_service_run_and_job(
             session, project, repo, user, gateway, run_name="synced-service"
         )
-        _lock_compute(compute)
+        _lock_replica(replica)
         await session.commit()
 
         client_mock = _get_client_mock(mock_gateway_connection)
@@ -1241,7 +1274,7 @@ class TestGatewayReplicaWorkerRunningStateSync:
             ),
         ]
 
-        await worker.process(_compute_to_pipeline_item(compute))
+        await worker.process(_replica_to_pipeline_item(replica))
 
         client_mock.register_service.assert_not_called()
         client_mock.register_replica.assert_not_called()
@@ -1255,7 +1288,7 @@ class TestGatewayReplicaWorkerRunningStateSync:
             await session.execute(
                 select(ServiceRegistrationModel).where(
                     ServiceRegistrationModel.run_id == run.id,
-                    ServiceRegistrationModel.gateway_replica_id == compute.id,
+                    ServiceRegistrationModel.gateway_replica_id == replica.id,
                 )
             )
         ).scalar_one()
@@ -1264,7 +1297,7 @@ class TestGatewayReplicaWorkerRunningStateSync:
             await session.execute(
                 select(ServiceReplicaRegistrationModel).where(
                     ServiceReplicaRegistrationModel.job_id == job.id,
-                    ServiceReplicaRegistrationModel.gateway_replica_id == compute.id,
+                    ServiceReplicaRegistrationModel.gateway_replica_id == replica.id,
                 )
             )
         ).scalar_one()
@@ -1290,7 +1323,7 @@ class TestGatewayReplicaWorkerRunningStateSync:
             backend_id=backend.id,
             status=GatewayStatus.RUNNING,
         )
-        compute = await create_gateway_compute(
+        replica = await create_gateway_replica(
             session=session,
             gateway_id=gateway.id,
             backend_id=backend.id,
@@ -1299,7 +1332,7 @@ class TestGatewayReplicaWorkerRunningStateSync:
         run, job = await self._create_service_run_and_job(
             session, project, repo, user, gateway, run_name="legacy-service"
         )
-        _lock_compute(compute)
+        _lock_replica(replica)
         await session.commit()
 
         client_mock = _get_client_mock(mock_gateway_connection)
@@ -1313,7 +1346,7 @@ class TestGatewayReplicaWorkerRunningStateSync:
             ),
         ]
 
-        await worker.process(_compute_to_pipeline_item(compute))
+        await worker.process(_replica_to_pipeline_item(replica))
 
         client_mock.set_service_id.assert_called_once_with(
             project=project.name, run_name="legacy-service", run_id=run.id
@@ -1340,7 +1373,7 @@ class TestGatewayReplicaWorkerRunningStateSync:
             backend_id=backend.id,
             status=GatewayStatus.RUNNING,
         )
-        compute = await create_gateway_compute(
+        replica = await create_gateway_replica(
             session=session,
             gateway_id=gateway.id,
             backend_id=backend.id,
@@ -1349,7 +1382,7 @@ class TestGatewayReplicaWorkerRunningStateSync:
         run, job = await self._create_service_run_and_job(
             session, project, repo, user, gateway, run_name="legacy-service"
         )
-        _lock_compute(compute)
+        _lock_replica(replica)
         await session.commit()
 
         client_mock = _get_client_mock(mock_gateway_connection)
@@ -1365,7 +1398,7 @@ class TestGatewayReplicaWorkerRunningStateSync:
             ),
         ]
 
-        await worker.process(_compute_to_pipeline_item(compute))
+        await worker.process(_replica_to_pipeline_item(replica))
 
         client_mock.set_service_id.assert_not_called()
         client_mock.unregister_service.assert_called_once_with(
@@ -1400,7 +1433,7 @@ class TestGatewayReplicaWorkerRunningStateSync:
             await session.execute(
                 select(ServiceRegistrationModel).where(
                     ServiceRegistrationModel.run_id == run.id,
-                    ServiceRegistrationModel.gateway_replica_id == compute.id,
+                    ServiceRegistrationModel.gateway_replica_id == replica.id,
                 )
             )
         ).scalar_one()
@@ -1409,7 +1442,7 @@ class TestGatewayReplicaWorkerRunningStateSync:
             await session.execute(
                 select(ServiceReplicaRegistrationModel).where(
                     ServiceReplicaRegistrationModel.job_id == job.id,
-                    ServiceReplicaRegistrationModel.gateway_replica_id == compute.id,
+                    ServiceReplicaRegistrationModel.gateway_replica_id == replica.id,
                 )
             )
         ).scalar_one()
@@ -1419,8 +1452,8 @@ class TestGatewayReplicaWorkerRunningStateSync:
         # be tied to a run for event targeting (only the fresh registration is).
         events = await list_events(session)
         assert {e.message for e in events} == {
-            f"Service registered on gateway replica {compute.replica_num}",
-            f"Service replica registered on gateway replica {compute.replica_num}",
+            f"Service registered on gateway replica {replica.replica_num}",
+            f"Service replica registered on gateway replica {replica.replica_num}",
         }
 
     async def test_does_nothing_when_in_sync_and_registrations_already_exist(
@@ -1440,7 +1473,7 @@ class TestGatewayReplicaWorkerRunningStateSync:
             backend_id=backend.id,
             status=GatewayStatus.RUNNING,
         )
-        compute = await create_gateway_compute(
+        replica = await create_gateway_replica(
             session=session,
             gateway_id=gateway.id,
             backend_id=backend.id,
@@ -1451,18 +1484,18 @@ class TestGatewayReplicaWorkerRunningStateSync:
         )
         existing_service_registration = ServiceRegistrationModel(
             run_id=run.id,
-            gateway_replica_id=compute.id,
+            gateway_replica_id=replica.id,
             is_registered=True,
             register_attempt=0,
         )
         existing_replica_registration = ServiceReplicaRegistrationModel(
             job_id=job.id,
-            gateway_replica_id=compute.id,
+            gateway_replica_id=replica.id,
             is_registered=True,
             register_attempt=0,
         )
         session.add_all([existing_service_registration, existing_replica_registration])
-        _lock_compute(compute)
+        _lock_replica(replica)
         await session.commit()
 
         client_mock = _get_client_mock(mock_gateway_connection)
@@ -1475,7 +1508,7 @@ class TestGatewayReplicaWorkerRunningStateSync:
             ),
         ]
 
-        await worker.process(_compute_to_pipeline_item(compute))
+        await worker.process(_replica_to_pipeline_item(replica))
 
         client_mock.register_service.assert_not_called()
         client_mock.register_replica.assert_not_called()
@@ -1487,7 +1520,7 @@ class TestGatewayReplicaWorkerRunningStateSync:
             (
                 await session.execute(
                     select(ServiceRegistrationModel).where(
-                        ServiceRegistrationModel.gateway_replica_id == compute.id,
+                        ServiceRegistrationModel.gateway_replica_id == replica.id,
                     )
                 )
             )
@@ -1503,7 +1536,7 @@ class TestGatewayReplicaWorkerRunningStateSync:
             (
                 await session.execute(
                     select(ServiceReplicaRegistrationModel).where(
-                        ServiceReplicaRegistrationModel.gateway_replica_id == compute.id,
+                        ServiceReplicaRegistrationModel.gateway_replica_id == replica.id,
                     )
                 )
             )
@@ -1534,7 +1567,7 @@ class TestGatewayReplicaWorkerRunningStateSync:
             backend_id=backend.id,
             status=GatewayStatus.RUNNING,
         )
-        compute = await create_gateway_compute(
+        replica = await create_gateway_replica(
             session=session,
             gateway_id=gateway.id,
             backend_id=backend.id,
@@ -1548,20 +1581,20 @@ class TestGatewayReplicaWorkerRunningStateSync:
         # right after a successful registration, before it could record that).
         stale_service_registration = ServiceRegistrationModel(
             run_id=run.id,
-            gateway_replica_id=compute.id,
+            gateway_replica_id=replica.id,
             is_registered=False,
             register_attempt=3,
             register_status_message="stale error",
         )
         stale_replica_registration = ServiceReplicaRegistrationModel(
             job_id=job.id,
-            gateway_replica_id=compute.id,
+            gateway_replica_id=replica.id,
             is_registered=False,
             register_attempt=2,
             register_status_message="stale replica error",
         )
         session.add_all([stale_service_registration, stale_replica_registration])
-        _lock_compute(compute)
+        _lock_replica(replica)
         await session.commit()
 
         client_mock = _get_client_mock(mock_gateway_connection)
@@ -1574,7 +1607,7 @@ class TestGatewayReplicaWorkerRunningStateSync:
             ),
         ]
 
-        await worker.process(_compute_to_pipeline_item(compute))
+        await worker.process(_replica_to_pipeline_item(replica))
 
         # The gateway already reports it registered, so nothing needs to be
         # (re)registered - only the local bookkeeping needs correcting.
@@ -1637,7 +1670,7 @@ class TestGatewayReplicaWorkerRunningStateSync:
             backend_id=backend.id,
             status=GatewayStatus.RUNNING,
         )
-        compute = await create_gateway_compute(
+        replica = await create_gateway_replica(
             session=session,
             gateway_id=gateway.id,
             backend_id=backend.id,
@@ -1652,13 +1685,13 @@ class TestGatewayReplicaWorkerRunningStateSync:
         # Simulate two earlier failed attempts to register this service.
         existing_registration = ServiceRegistrationModel(
             run_id=run_service_fails.id,
-            gateway_replica_id=compute.id,
+            gateway_replica_id=replica.id,
             is_registered=False,
             register_attempt=2,
             register_status_message="earlier error",
         )
         session.add(existing_registration)
-        _lock_compute(compute)
+        _lock_replica(replica)
         await session.commit()
 
         client_mock = _get_client_mock(mock_gateway_connection)
@@ -1675,7 +1708,7 @@ class TestGatewayReplicaWorkerRunningStateSync:
         client_mock.register_service.side_effect = register_service_side_effect
         client_mock.register_replica.side_effect = register_replica_side_effect
 
-        await worker.process(_compute_to_pipeline_item(compute))
+        await worker.process(_replica_to_pipeline_item(replica))
 
         client_mock.unregister_service.assert_not_called()
         client_mock.unregister_replica.assert_not_called()
@@ -1697,7 +1730,7 @@ class TestGatewayReplicaWorkerRunningStateSync:
             await session.execute(
                 select(ServiceRegistrationModel).where(
                     ServiceRegistrationModel.run_id == run_replica_fails.id,
-                    ServiceRegistrationModel.gateway_replica_id == compute.id,
+                    ServiceRegistrationModel.gateway_replica_id == replica.id,
                 )
             )
         ).scalar_one()
@@ -1709,7 +1742,7 @@ class TestGatewayReplicaWorkerRunningStateSync:
             await session.execute(
                 select(ServiceReplicaRegistrationModel).where(
                     ServiceReplicaRegistrationModel.job_id == job_replica_fails.id,
-                    ServiceReplicaRegistrationModel.gateway_replica_id == compute.id,
+                    ServiceReplicaRegistrationModel.gateway_replica_id == replica.id,
                 )
             )
         ).scalar_one()
@@ -1733,7 +1766,7 @@ class TestGatewayReplicaWorkerRunningStateSync:
             await session.execute(
                 select(ServiceReplicaRegistrationModel).where(
                     ServiceReplicaRegistrationModel.job_id == job_service_fails.id,
-                    ServiceReplicaRegistrationModel.gateway_replica_id == compute.id,
+                    ServiceReplicaRegistrationModel.gateway_replica_id == replica.id,
                 )
             )
         ).scalar_one_or_none()
@@ -1741,14 +1774,14 @@ class TestGatewayReplicaWorkerRunningStateSync:
 
         events = await list_events(session)
         assert {e.message for e in events} == {
-            f"Service registered on gateway replica {compute.replica_num}",
+            f"Service registered on gateway replica {replica.replica_num}",
             (
                 f"Encountered service registration error on gateway replica "
-                f"{compute.replica_num}: {expected_service_register_status_message}"
+                f"{replica.replica_num}: {expected_service_register_status_message}"
             ),
             (
                 f"Encountered service replica registration error on gateway replica "
-                f"{compute.replica_num}: {expected_replica_register_status_message}"
+                f"{replica.replica_num}: {expected_replica_register_status_message}"
             ),
         }
 
@@ -1769,7 +1802,7 @@ class TestGatewayReplicaWorkerRunningStateSync:
             backend_id=backend.id,
             status=GatewayStatus.RUNNING,
         )
-        compute = await create_gateway_compute(
+        replica = await create_gateway_replica(
             session=session,
             gateway_id=gateway.id,
             backend_id=backend.id,
@@ -1785,15 +1818,15 @@ class TestGatewayReplicaWorkerRunningStateSync:
 
         # First tick: the replica registration fails, recording the error and
         # emitting one error event.
-        _lock_compute(compute)
+        _lock_replica(replica)
         await session.commit()
-        await worker.process(_compute_to_pipeline_item(compute))
+        await worker.process(_replica_to_pipeline_item(replica))
 
         replica_registration = (
             await session.execute(
                 select(ServiceReplicaRegistrationModel).where(
                     ServiceReplicaRegistrationModel.job_id == job.id,
-                    ServiceReplicaRegistrationModel.gateway_replica_id == compute.id,
+                    ServiceReplicaRegistrationModel.gateway_replica_id == replica.id,
                 )
             )
         ).scalar_one()
@@ -1802,7 +1835,7 @@ class TestGatewayReplicaWorkerRunningStateSync:
 
         error_message = (
             f"Encountered service replica registration error on gateway replica "
-            f"{compute.replica_num}: boom replica"
+            f"{replica.replica_num}: boom replica"
         )
         events_after_first_tick = await list_events(session)
         assert [e.message for e in events_after_first_tick].count(error_message) == 1
@@ -1810,10 +1843,10 @@ class TestGatewayReplicaWorkerRunningStateSync:
         # Second tick: the replica registration fails again with the exact same
         # error. `register_attempt` keeps incrementing, but no duplicate event is
         # emitted since nothing new happened from the user's perspective.
-        await session.refresh(compute)
-        _lock_compute(compute)
+        await session.refresh(replica)
+        _lock_replica(replica)
         await session.commit()
-        await worker.process(_compute_to_pipeline_item(compute))
+        await worker.process(_replica_to_pipeline_item(replica))
 
         await session.refresh(replica_registration)
         assert replica_registration.register_attempt == 2
@@ -1859,7 +1892,7 @@ class TestGatewayReplicaWorkerRunningStateSync:
             backend_id=backend.id,
             status=GatewayStatus.RUNNING,
         )
-        compute = await create_gateway_compute(
+        replica = await create_gateway_replica(
             session=session,
             gateway_id=gateway.id,
             backend_id=backend.id,
@@ -1889,7 +1922,7 @@ class TestGatewayReplicaWorkerRunningStateSync:
             job_status=JobStatus.TERMINATED,
             job_registered=False,
         )
-        _lock_compute(compute)
+        _lock_replica(replica)
         await session.commit()
 
         client_mock = _get_client_mock(mock_gateway_connection)
@@ -1913,7 +1946,7 @@ class TestGatewayReplicaWorkerRunningStateSync:
         client_mock.unregister_service.side_effect = make_error("boom service")
         client_mock.unregister_replica.side_effect = make_error("boom replica")
 
-        await worker.process(_compute_to_pipeline_item(compute))
+        await worker.process(_replica_to_pipeline_item(replica))
 
         # Both remain registered as far as the gateway is concerned, since we
         # failed to remove them - only the unregister bookkeeping changes.
@@ -1921,7 +1954,7 @@ class TestGatewayReplicaWorkerRunningStateSync:
             await session.execute(
                 select(ServiceRegistrationModel).where(
                     ServiceRegistrationModel.run_id == dangling_run.id,
-                    ServiceRegistrationModel.gateway_replica_id == compute.id,
+                    ServiceRegistrationModel.gateway_replica_id == replica.id,
                 )
             )
         ).scalar_one()
@@ -1933,7 +1966,7 @@ class TestGatewayReplicaWorkerRunningStateSync:
             await session.execute(
                 select(ServiceReplicaRegistrationModel).where(
                     ServiceReplicaRegistrationModel.job_id == stale_job.id,
-                    ServiceReplicaRegistrationModel.gateway_replica_id == compute.id,
+                    ServiceReplicaRegistrationModel.gateway_replica_id == replica.id,
                 )
             )
         ).scalar_one()
@@ -1947,11 +1980,11 @@ class TestGatewayReplicaWorkerRunningStateSync:
         assert {e.message for e in events} == {
             (
                 f"Encountered service unregistration error on gateway replica "
-                f"{compute.replica_num}: {expected_service_status_message}"
+                f"{replica.replica_num}: {expected_service_status_message}"
             ),
             (
                 f"Encountered service replica unregistration error on gateway replica "
-                f"{compute.replica_num}: {expected_replica_status_message}"
+                f"{replica.replica_num}: {expected_replica_status_message}"
             ),
         }
 
@@ -1972,7 +2005,7 @@ class TestGatewayReplicaWorkerRunningStateSync:
             backend_id=backend.id,
             status=GatewayStatus.RUNNING,
         )
-        compute = await create_gateway_compute(
+        replica = await create_gateway_replica(
             session=session,
             gateway_id=gateway.id,
             backend_id=backend.id,
@@ -1988,7 +2021,7 @@ class TestGatewayReplicaWorkerRunningStateSync:
             registered=False,
             replica_num=1,
         )
-        _lock_compute(compute)
+        _lock_replica(replica)
         await session.commit()
 
         client_mock = _get_client_mock(mock_gateway_connection)
@@ -2007,13 +2040,13 @@ class TestGatewayReplicaWorkerRunningStateSync:
 
         # First tick: unregistering the stale replica fails, recording the error
         # and emitting one error event.
-        await worker.process(_compute_to_pipeline_item(compute))
+        await worker.process(_replica_to_pipeline_item(replica))
 
         replica_registration = (
             await session.execute(
                 select(ServiceReplicaRegistrationModel).where(
                     ServiceReplicaRegistrationModel.job_id == stale_job.id,
-                    ServiceReplicaRegistrationModel.gateway_replica_id == compute.id,
+                    ServiceReplicaRegistrationModel.gateway_replica_id == replica.id,
                 )
             )
         ).scalar_one()
@@ -2022,7 +2055,7 @@ class TestGatewayReplicaWorkerRunningStateSync:
 
         error_message = (
             f"Encountered service replica unregistration error on gateway replica "
-            f"{compute.replica_num}: boom replica"
+            f"{replica.replica_num}: boom replica"
         )
         events_after_first_tick = await list_events(session)
         assert [e.message for e in events_after_first_tick].count(error_message) == 1
@@ -2030,10 +2063,10 @@ class TestGatewayReplicaWorkerRunningStateSync:
         # Second tick: unregistering fails again with the exact same error.
         # `unregister_attempt` keeps incrementing, but no duplicate event is
         # emitted since nothing new happened from the user's perspective.
-        await session.refresh(compute)
-        _lock_compute(compute)
+        await session.refresh(replica)
+        _lock_replica(replica)
         await session.commit()
-        await worker.process(_compute_to_pipeline_item(compute))
+        await worker.process(_replica_to_pipeline_item(replica))
 
         await session.refresh(replica_registration)
         assert replica_registration.unregister_attempt == 2
@@ -2046,14 +2079,14 @@ class TestGatewayReplicaWorkerRunningStateSync:
 @pytest.mark.asyncio
 @pytest.mark.parametrize("test_db", ["sqlite", "postgres"], indirect=True)
 class TestGatewayReplicaWorkerProvisioning:
-    @pytest.mark.parametrize("legacy_compute", [False, True])
+    @pytest.mark.parametrize("legacy_replica", [False, True])
     @pytest.mark.parametrize("populate_configuration", [True, False])
     async def test_provisioning_to_running(
         self,
         test_db,
         session: AsyncSession,
         worker: GatewayReplicaWorker,
-        legacy_compute: bool,
+        legacy_replica: bool,
         populate_configuration: bool,
     ):
         project = await create_project(session=session)
@@ -2065,21 +2098,21 @@ class TestGatewayReplicaWorkerProvisioning:
             status=GatewayStatus.PROVISIONING,
             populate_configuration=populate_configuration,
         )
-        if legacy_compute:
-            compute = await create_gateway_compute(
+        if legacy_replica:
+            replica = await create_gateway_replica(
                 session=session,
                 status=GatewayReplicaStatus.PROVISIONING,
                 populate_configuration=populate_configuration,
             )
-            gateway.gateway_compute_id = compute.id
+            gateway.gateway_replica_id = replica.id
         else:
-            compute = await create_gateway_compute(
+            replica = await create_gateway_replica(
                 session=session,
                 gateway_id=gateway.id,
                 status=GatewayReplicaStatus.PROVISIONING,
                 populate_configuration=populate_configuration,
             )
-        _lock_compute(compute)
+        _lock_replica(replica)
         await session.commit()
 
         with patch(
@@ -2087,12 +2120,12 @@ class TestGatewayReplicaWorkerProvisioning:
         ) as pool_add:
             pool_add.return_value = MagicMock()
             pool_add.return_value.client.return_value = MagicMock(AsyncContextManager())
-            await worker.process(_compute_to_pipeline_item(compute))
+            await worker.process(_replica_to_pipeline_item(replica))
             pool_add.assert_called_once()
 
-        await session.refresh(compute)
-        assert compute.status == GatewayReplicaStatus.RUNNING
-        assert compute.active is True
+        await session.refresh(replica)
+        assert replica.status == GatewayReplicaStatus.RUNNING
+        assert replica.active is True
 
     async def test_provisioning_to_running_registers_with_load_balancer(
         self, test_db, session: AsyncSession, worker: GatewayReplicaWorker
@@ -2108,13 +2141,13 @@ class TestGatewayReplicaWorkerProvisioning:
             hostname="gateway-lb.example.com",
             backend_data="lb-backend-data",
         )
-        compute = await create_gateway_compute(
+        replica = await create_gateway_replica(
             session=session,
             gateway_id=gateway.id,
             backend_id=backend.id,
             status=GatewayReplicaStatus.PROVISIONING,
         )
-        _lock_compute(compute)
+        _lock_replica(replica)
         await session.commit()
 
         with (
@@ -2131,20 +2164,20 @@ class TestGatewayReplicaWorkerProvisioning:
             backend_mock.compute.return_value = Mock(spec=ComputeMockSpec)
             get_backends_mock.return_value = [(backend, backend_mock)]
 
-            await worker.process(_compute_to_pipeline_item(compute))
+            await worker.process(_replica_to_pipeline_item(replica))
 
             register_mock = (
                 backend_mock.compute.return_value.register_gateway_replica_with_load_balancer
             )
             register_mock.assert_called_once()
             call_args = register_mock.call_args.args
-            assert call_args[0] == compute.instance_id
+            assert call_args[0] == replica.instance_id
             assert call_args[1].gateway_name == gateway.name
             assert call_args[2] == "lb-backend-data"
 
-        await session.refresh(compute)
-        assert compute.status == GatewayReplicaStatus.RUNNING
-        assert compute.active is True
+        await session.refresh(replica)
+        assert replica.status == GatewayReplicaStatus.RUNNING
+        assert replica.active is True
 
     async def test_provisioning_skips_load_balancer_registration_without_hostname(
         self, test_db, session: AsyncSession, worker: GatewayReplicaWorker
@@ -2157,13 +2190,13 @@ class TestGatewayReplicaWorkerProvisioning:
             backend_id=backend.id,
             status=GatewayStatus.PROVISIONING,
         )
-        compute = await create_gateway_compute(
+        replica = await create_gateway_replica(
             session=session,
             gateway_id=gateway.id,
             backend_id=backend.id,
             status=GatewayReplicaStatus.PROVISIONING,
         )
-        _lock_compute(compute)
+        _lock_replica(replica)
         await session.commit()
 
         with (
@@ -2177,13 +2210,13 @@ class TestGatewayReplicaWorkerProvisioning:
             pool_add.return_value = MagicMock()
             pool_add.return_value.client.return_value = MagicMock(AsyncContextManager())
 
-            await worker.process(_compute_to_pipeline_item(compute))
+            await worker.process(_replica_to_pipeline_item(replica))
 
             get_backends_mock.assert_not_called()
 
-        await session.refresh(compute)
-        assert compute.status == GatewayReplicaStatus.RUNNING
-        assert compute.active is True
+        await session.refresh(replica)
+        assert replica.status == GatewayReplicaStatus.RUNNING
+        assert replica.active is True
 
     async def test_provisioning_to_terminating_when_load_balancer_registration_fails(
         self, test_db, session: AsyncSession, worker: GatewayReplicaWorker
@@ -2199,13 +2232,13 @@ class TestGatewayReplicaWorkerProvisioning:
             hostname="gateway-lb.example.com",
             backend_data="lb-backend-data",
         )
-        compute = await create_gateway_compute(
+        replica = await create_gateway_replica(
             session=session,
             gateway_id=gateway.id,
             backend_id=backend.id,
             status=GatewayReplicaStatus.PROVISIONING,
         )
-        _lock_compute(compute)
+        _lock_replica(replica)
         await session.commit()
 
         with (
@@ -2225,12 +2258,12 @@ class TestGatewayReplicaWorkerProvisioning:
             )
             get_backends_mock.return_value = [(backend, backend_mock)]
 
-            await worker.process(_compute_to_pipeline_item(compute))
+            await worker.process(_replica_to_pipeline_item(replica))
 
-        await session.refresh(compute)
-        assert compute.status == GatewayReplicaStatus.TERMINATING
-        assert compute.active is False
-        assert compute.status_message == "Error registering with load balancer"
+        await session.refresh(replica)
+        assert replica.status == GatewayReplicaStatus.TERMINATING
+        assert replica.active is False
+        assert replica.status_message == "Error registering with load balancer"
 
     async def test_provisioning_to_terminating_when_backend_does_not_support_load_balancer(
         self, test_db, session: AsyncSession, worker: GatewayReplicaWorker
@@ -2246,13 +2279,13 @@ class TestGatewayReplicaWorkerProvisioning:
             hostname="gateway-lb.example.com",
             backend_data="lb-backend-data",
         )
-        compute = await create_gateway_compute(
+        replica = await create_gateway_replica(
             session=session,
             gateway_id=gateway.id,
             backend_id=backend.id,
             status=GatewayReplicaStatus.PROVISIONING,
         )
-        _lock_compute(compute)
+        _lock_replica(replica)
         await session.commit()
 
         with (
@@ -2269,12 +2302,12 @@ class TestGatewayReplicaWorkerProvisioning:
             backend_mock.compute.return_value = Mock(spec=ComputeWithGatewaySupport)
             get_backends_mock.return_value = [(backend, backend_mock)]
 
-            await worker.process(_compute_to_pipeline_item(compute))
+            await worker.process(_replica_to_pipeline_item(replica))
 
-        await session.refresh(compute)
-        assert compute.status == GatewayReplicaStatus.TERMINATING
-        assert compute.active is False
-        assert compute.status_message == "Backend does not support load balancer operations"
+        await session.refresh(replica)
+        assert replica.status == GatewayReplicaStatus.TERMINATING
+        assert replica.active is False
+        assert replica.status_message == "Backend does not support load balancer operations"
 
     async def test_provisioning_waits_for_pending_acm_gateway_migration(
         self, test_db, session: AsyncSession, worker: GatewayReplicaWorker
@@ -2289,31 +2322,31 @@ class TestGatewayReplicaWorkerProvisioning:
             certificate=ACMGatewayCertificate(arn="arn:aws:acm:us:1:certificate/x"),
             hostname=None,  # migration not yet performed
         )
-        compute = await create_gateway_compute(
+        replica = await create_gateway_replica(
             session=session,
             gateway_id=gateway.id,
             backend_id=backend.id,
             status=GatewayReplicaStatus.PROVISIONING,
             hostname_deprecated_readonly="legacy-lb.example.com",
         )
-        _lock_compute(compute)
-        original_last_processed_at = compute.last_processed_at
+        _lock_replica(replica)
+        original_last_processed_at = replica.last_processed_at
         await session.commit()
 
         with patch(
             "dstack._internal.server.services.gateways.gateway_connections_pool.get_or_add"
         ) as pool_add:
-            await worker.process(_compute_to_pipeline_item(compute))
+            await worker.process(_replica_to_pipeline_item(replica))
             pool_add.assert_not_called()
 
-        await session.refresh(compute)
-        assert compute.status == GatewayReplicaStatus.PROVISIONING
-        assert compute.last_processed_at > original_last_processed_at
-        assert compute.lock_token is None
+        await session.refresh(replica)
+        assert replica.status == GatewayReplicaStatus.PROVISIONING
+        assert replica.last_processed_at > original_last_processed_at
+        assert replica.lock_token is None
 
-    @pytest.mark.parametrize("legacy_compute", [False, True])
+    @pytest.mark.parametrize("legacy_replica", [False, True])
     async def test_provisioning_to_terminating_if_connect_fails(
-        self, test_db, session: AsyncSession, worker: GatewayReplicaWorker, legacy_compute: bool
+        self, test_db, session: AsyncSession, worker: GatewayReplicaWorker, legacy_replica: bool
     ):
         project = await create_project(session=session)
         backend = await create_backend(session=session, project_id=project.id)
@@ -2323,36 +2356,36 @@ class TestGatewayReplicaWorkerProvisioning:
             backend_id=backend.id,
             status=GatewayStatus.PROVISIONING,
         )
-        if legacy_compute:
-            compute = await create_gateway_compute(
+        if legacy_replica:
+            replica = await create_gateway_replica(
                 session=session,
                 status=GatewayReplicaStatus.PROVISIONING,
             )
-            gateway.gateway_compute_id = compute.id
+            gateway.gateway_replica_id = replica.id
         else:
-            compute = await create_gateway_compute(
+            replica = await create_gateway_replica(
                 session=session,
                 gateway_id=gateway.id,
                 status=GatewayReplicaStatus.PROVISIONING,
             )
-        _lock_compute(compute)
+        _lock_replica(replica)
         await session.commit()
 
         with patch(
-            "dstack._internal.server.services.gateways.connect_to_gateway_with_retry"
+            "dstack._internal.server.services.gateways.connect_to_gateway_replica_with_retry"
         ) as connect_mock:
             connect_mock.return_value = None
-            await worker.process(_compute_to_pipeline_item(compute))
+            await worker.process(_replica_to_pipeline_item(replica))
             connect_mock.assert_called_once()
 
-        await session.refresh(compute)
-        assert compute.status == GatewayReplicaStatus.TERMINATING
-        assert compute.active is False
-        assert compute.status_message == "Failed to connect to gateway"
+        await session.refresh(replica)
+        assert replica.status == GatewayReplicaStatus.TERMINATING
+        assert replica.active is False
+        assert replica.status_message == "Failed to connect to gateway replica"
 
-    @pytest.mark.parametrize("legacy_compute", [False, True])
+    @pytest.mark.parametrize("legacy_replica", [False, True])
     async def test_provisioning_to_terminating_if_configure_fails(
-        self, test_db, session: AsyncSession, worker: GatewayReplicaWorker, legacy_compute: bool
+        self, test_db, session: AsyncSession, worker: GatewayReplicaWorker, legacy_replica: bool
     ):
         project = await create_project(session=session)
         backend = await create_backend(session=session, project_id=project.id)
@@ -2362,37 +2395,39 @@ class TestGatewayReplicaWorkerProvisioning:
             backend_id=backend.id,
             status=GatewayStatus.PROVISIONING,
         )
-        if legacy_compute:
-            compute = await create_gateway_compute(
+        if legacy_replica:
+            replica = await create_gateway_replica(
                 session=session,
                 status=GatewayReplicaStatus.PROVISIONING,
             )
-            gateway.gateway_compute_id = compute.id
+            gateway.gateway_replica_id = replica.id
         else:
-            compute = await create_gateway_compute(
+            replica = await create_gateway_replica(
                 session=session,
                 gateway_id=gateway.id,
                 status=GatewayReplicaStatus.PROVISIONING,
             )
-        _lock_compute(compute)
+        _lock_replica(replica)
         await session.commit()
 
         with (
             patch(
-                "dstack._internal.server.services.gateways.connect_to_gateway_with_retry"
+                "dstack._internal.server.services.gateways.connect_to_gateway_replica_with_retry"
             ) as connect_mock,
-            patch("dstack._internal.server.services.gateways.configure_gateway") as configure_mock,
+            patch(
+                "dstack._internal.server.services.gateways.configure_gateway_replica"
+            ) as configure_mock,
         ):
             connect_mock.return_value = MagicMock()
             configure_mock.side_effect = Exception("Configure failed")
-            await worker.process(_compute_to_pipeline_item(compute))
+            await worker.process(_replica_to_pipeline_item(replica))
             connect_mock.assert_called_once()
             configure_mock.assert_called_once()
 
-        await session.refresh(compute)
-        assert compute.status == GatewayReplicaStatus.TERMINATING
-        assert compute.active is False
-        assert compute.status_message == "Failed to configure gateway"
+        await session.refresh(replica)
+        assert replica.status == GatewayReplicaStatus.TERMINATING
+        assert replica.active is False
+        assert replica.status_message == "Failed to configure gateway replica"
 
     @pytest.mark.parametrize(
         "gateway_status,to_be_deleted",
@@ -2401,7 +2436,7 @@ class TestGatewayReplicaWorkerProvisioning:
             (GatewayStatus.RUNNING, True),
         ],
     )
-    @pytest.mark.parametrize("legacy_compute", [False, True])
+    @pytest.mark.parametrize("legacy_replica", [False, True])
     async def test_provisioning_to_terminating_if_gateway_needs_cleanup(
         self,
         test_db,
@@ -2409,7 +2444,7 @@ class TestGatewayReplicaWorkerProvisioning:
         worker: GatewayReplicaWorker,
         gateway_status: GatewayStatus,
         to_be_deleted: bool,
-        legacy_compute: bool,
+        legacy_replica: bool,
     ):
         project = await create_project(session=session)
         backend = await create_backend(session=session, project_id=project.id)
@@ -2420,43 +2455,43 @@ class TestGatewayReplicaWorkerProvisioning:
             status=gateway_status,
         )
         gateway.to_be_deleted = to_be_deleted
-        if legacy_compute:
-            compute = await create_gateway_compute(
+        if legacy_replica:
+            replica = await create_gateway_replica(
                 session=session,
                 status=GatewayReplicaStatus.PROVISIONING,
             )
-            gateway.gateway_compute_id = compute.id
+            gateway.gateway_replica_id = replica.id
         else:
-            compute = await create_gateway_compute(
+            replica = await create_gateway_replica(
                 session=session,
                 gateway_id=gateway.id,
                 status=GatewayReplicaStatus.PROVISIONING,
             )
-        _lock_compute(compute)
+        _lock_replica(replica)
         await session.commit()
 
         with patch(
             "dstack._internal.server.background.pipeline_tasks.gateway_replicas._connect_and_configure_gateway_replica"
         ) as connect_mock:
-            await worker.process(_compute_to_pipeline_item(compute))
+            await worker.process(_replica_to_pipeline_item(replica))
             connect_mock.assert_not_called()
 
-        await session.refresh(compute)
-        assert compute.status == GatewayReplicaStatus.TERMINATING
-        assert compute.active is False
+        await session.refresh(replica)
+        assert replica.status == GatewayReplicaStatus.TERMINATING
+        assert replica.active is False
 
 
 @pytest.mark.asyncio
 @pytest.mark.parametrize("test_db", ["sqlite", "postgres"], indirect=True)
 class TestGatewayReplicaWorkerTerminating:
-    @pytest.mark.parametrize("legacy_compute", [False, True])
+    @pytest.mark.parametrize("legacy_replica", [False, True])
     @pytest.mark.parametrize("populate_configuration", [True, False])
     async def test_terminating_to_terminated(
         self,
         test_db,
         session: AsyncSession,
         worker: GatewayReplicaWorker,
-        legacy_compute: bool,
+        legacy_replica: bool,
         populate_configuration: bool,
     ):
         project = await create_project(session=session)
@@ -2468,17 +2503,17 @@ class TestGatewayReplicaWorkerTerminating:
             status=GatewayStatus.FAILED,
             populate_configuration=populate_configuration,
         )
-        if legacy_compute:
-            compute = await create_gateway_compute(
+        if legacy_replica:
+            replica = await create_gateway_replica(
                 session=session,
                 backend_id=backend.id,
                 status=GatewayReplicaStatus.TERMINATING,
                 active=False,
                 populate_configuration=populate_configuration,
             )
-            gateway.gateway_compute_id = compute.id
+            gateway.gateway_replica_id = replica.id
         else:
-            compute = await create_gateway_compute(
+            replica = await create_gateway_replica(
                 session=session,
                 gateway_id=gateway.id,
                 backend_id=backend.id,
@@ -2486,7 +2521,7 @@ class TestGatewayReplicaWorkerTerminating:
                 active=False,
                 populate_configuration=populate_configuration,
             )
-        _lock_compute(compute)
+        _lock_replica(replica)
         await session.commit()
 
         with (
@@ -2501,16 +2536,16 @@ class TestGatewayReplicaWorkerTerminating:
             backend_mock.compute.return_value = Mock(spec=ComputeMockSpec)
             get_backends_mock.return_value = [(backend, backend_mock)]
 
-            await worker.process(_compute_to_pipeline_item(compute))
+            await worker.process(_replica_to_pipeline_item(replica))
 
             get_backends_mock.assert_called_once()
-            backend_mock.compute.return_value.terminate_gateway.assert_called_once()
-            remove_mock.assert_called_once_with(compute.ip_address)
+            backend_mock.compute.return_value.terminate_gateway_replica.assert_called_once()
+            remove_mock.assert_called_once_with(replica.ip_address)
 
-        await session.refresh(compute)
-        assert compute.status == GatewayReplicaStatus.TERMINATED
-        assert compute.active is False
-        assert compute.deleted is True
+        await session.refresh(replica)
+        assert replica.status == GatewayReplicaStatus.TERMINATED
+        assert replica.active is False
+        assert replica.deleted is True
 
     async def test_terminating_to_terminated_deletes_only_own_registration_records(
         self, test_db, session: AsyncSession, worker: GatewayReplicaWorker
@@ -2525,7 +2560,7 @@ class TestGatewayReplicaWorkerTerminating:
             backend_id=backend.id,
             status=GatewayStatus.RUNNING,
         )
-        compute_to_terminate = await create_gateway_compute(
+        replica_to_terminate = await create_gateway_replica(
             session=session,
             gateway_id=gateway.id,
             backend_id=backend.id,
@@ -2533,7 +2568,7 @@ class TestGatewayReplicaWorkerTerminating:
             active=False,
             replica_num=0,
         )
-        other_compute = await create_gateway_compute(
+        other_replica = await create_gateway_replica(
             session=session,
             gateway_id=gateway.id,
             backend_id=backend.id,
@@ -2545,16 +2580,16 @@ class TestGatewayReplicaWorkerTerminating:
         run = await create_run(session=session, project=project, repo=repo, user=user)
         job = await create_job(session=session, run=run)
         terminated_service_registration = ServiceRegistrationModel(
-            run_id=run.id, gateway_replica_id=compute_to_terminate.id, is_registered=True
+            run_id=run.id, gateway_replica_id=replica_to_terminate.id, is_registered=True
         )
         terminated_replica_registration = ServiceReplicaRegistrationModel(
-            job_id=job.id, gateway_replica_id=compute_to_terminate.id, is_registered=True
+            job_id=job.id, gateway_replica_id=replica_to_terminate.id, is_registered=True
         )
         other_service_registration = ServiceRegistrationModel(
-            run_id=run.id, gateway_replica_id=other_compute.id, is_registered=True
+            run_id=run.id, gateway_replica_id=other_replica.id, is_registered=True
         )
         other_replica_registration = ServiceReplicaRegistrationModel(
-            job_id=job.id, gateway_replica_id=other_compute.id, is_registered=True
+            job_id=job.id, gateway_replica_id=other_replica.id, is_registered=True
         )
         session.add_all(
             [
@@ -2564,7 +2599,7 @@ class TestGatewayReplicaWorkerTerminating:
                 other_replica_registration,
             ]
         )
-        _lock_compute(compute_to_terminate)
+        _lock_replica(replica_to_terminate)
         await session.commit()
 
         with (
@@ -2579,20 +2614,20 @@ class TestGatewayReplicaWorkerTerminating:
             backend_mock.compute.return_value = Mock(spec=ComputeMockSpec)
             get_backends_mock.return_value = [(backend, backend_mock)]
 
-            await worker.process(_compute_to_pipeline_item(compute_to_terminate))
+            await worker.process(_replica_to_pipeline_item(replica_to_terminate))
 
-        await session.refresh(compute_to_terminate)
-        assert compute_to_terminate.status == GatewayReplicaStatus.TERMINATED
-        assert compute_to_terminate.deleted is True
+        await session.refresh(replica_to_terminate)
+        assert replica_to_terminate.status == GatewayReplicaStatus.TERMINATED
+        assert replica_to_terminate.deleted is True
 
         remaining_service_registration = (
             (await session.execute(select(ServiceRegistrationModel))).scalars().one()
         )
-        assert remaining_service_registration.gateway_replica_id == other_compute.id
+        assert remaining_service_registration.gateway_replica_id == other_replica.id
         remaining_replica_registration = (
             (await session.execute(select(ServiceReplicaRegistrationModel))).scalars().one()
         )
-        assert remaining_replica_registration.gateway_replica_id == other_compute.id
+        assert remaining_replica_registration.gateway_replica_id == other_replica.id
 
     async def test_terminating_deregisters_from_load_balancer_before_terminating(
         self, test_db, session: AsyncSession, worker: GatewayReplicaWorker
@@ -2608,14 +2643,14 @@ class TestGatewayReplicaWorkerTerminating:
             hostname="gateway-lb.example.com",
             backend_data="lb-backend-data",
         )
-        compute = await create_gateway_compute(
+        replica = await create_gateway_replica(
             session=session,
             gateway_id=gateway.id,
             backend_id=backend.id,
             status=GatewayReplicaStatus.TERMINATING,
             active=False,
         )
-        _lock_compute(compute)
+        _lock_replica(replica)
         await session.commit()
 
         with (
@@ -2630,22 +2665,22 @@ class TestGatewayReplicaWorkerTerminating:
             backend_mock.compute.return_value = Mock(spec=ComputeMockSpec)
             get_backends_mock.return_value = [(backend, backend_mock)]
 
-            await worker.process(_compute_to_pipeline_item(compute))
+            await worker.process(_replica_to_pipeline_item(replica))
 
             deregister_mock = (
                 backend_mock.compute.return_value.deregister_gateway_replica_from_load_balancer
             )
             deregister_mock.assert_called_once()
             call_args = deregister_mock.call_args.args
-            assert call_args[0] == compute.instance_id
+            assert call_args[0] == replica.instance_id
             assert call_args[1].gateway_name == gateway.name
             assert call_args[2] == "lb-backend-data"
-            backend_mock.compute.return_value.terminate_gateway.assert_called_once()
+            backend_mock.compute.return_value.terminate_gateway_replica.assert_called_once()
 
-        await session.refresh(compute)
-        assert compute.status == GatewayReplicaStatus.TERMINATED
-        assert compute.active is False
-        assert compute.deleted is True
+        await session.refresh(replica)
+        assert replica.status == GatewayReplicaStatus.TERMINATED
+        assert replica.active is False
+        assert replica.deleted is True
 
     async def test_terminating_proceeds_when_load_balancer_deregistration_raises(
         self, test_db, session: AsyncSession, worker: GatewayReplicaWorker
@@ -2661,14 +2696,14 @@ class TestGatewayReplicaWorkerTerminating:
             hostname="gateway-lb.example.com",
             backend_data="lb-backend-data",
         )
-        compute = await create_gateway_compute(
+        replica = await create_gateway_replica(
             session=session,
             gateway_id=gateway.id,
             backend_id=backend.id,
             status=GatewayReplicaStatus.TERMINATING,
             active=False,
         )
-        _lock_compute(compute)
+        _lock_replica(replica)
         await session.commit()
 
         with (
@@ -2686,20 +2721,20 @@ class TestGatewayReplicaWorkerTerminating:
             )
             get_backends_mock.return_value = [(backend, backend_mock)]
 
-            await worker.process(_compute_to_pipeline_item(compute))
+            await worker.process(_replica_to_pipeline_item(replica))
 
-            backend_mock.compute.return_value.terminate_gateway.assert_called_once()
+            backend_mock.compute.return_value.terminate_gateway_replica.assert_called_once()
             deregister_mock = (
                 backend_mock.compute.return_value.deregister_gateway_replica_from_load_balancer
             )
             deregister_mock.assert_called_once()
 
-        await session.refresh(compute)
+        await session.refresh(replica)
         # Deregistration failures do not block termination: the load balancer is expected
         # to eventually deregister the (now-terminated) target automatically.
-        assert compute.status == GatewayReplicaStatus.TERMINATED
-        assert compute.active is False
-        assert compute.deleted is True
+        assert replica.status == GatewayReplicaStatus.TERMINATED
+        assert replica.active is False
+        assert replica.deleted is True
 
     async def test_terminating_skips_deregistration_when_gateway_has_no_hostname(
         self, test_db, session: AsyncSession, worker: GatewayReplicaWorker
@@ -2712,14 +2747,14 @@ class TestGatewayReplicaWorkerTerminating:
             backend_id=backend.id,
             status=GatewayStatus.RUNNING,
         )
-        compute = await create_gateway_compute(
+        replica = await create_gateway_replica(
             session=session,
             gateway_id=gateway.id,
             backend_id=backend.id,
             status=GatewayReplicaStatus.TERMINATING,
             active=False,
         )
-        _lock_compute(compute)
+        _lock_replica(replica)
         await session.commit()
 
         with (
@@ -2734,13 +2769,13 @@ class TestGatewayReplicaWorkerTerminating:
             backend_mock.compute.return_value = Mock(spec=ComputeMockSpec)
             get_backends_mock.return_value = [(backend, backend_mock)]
 
-            await worker.process(_compute_to_pipeline_item(compute))
+            await worker.process(_replica_to_pipeline_item(replica))
 
             backend_mock.compute.return_value.deregister_gateway_replica_from_load_balancer.assert_not_called()
-            backend_mock.compute.return_value.terminate_gateway.assert_called_once()
+            backend_mock.compute.return_value.terminate_gateway_replica.assert_called_once()
 
-        await session.refresh(compute)
-        assert compute.status == GatewayReplicaStatus.TERMINATED
+        await session.refresh(replica)
+        assert replica.status == GatewayReplicaStatus.TERMINATED
 
     async def test_terminating_waits_for_pending_acm_gateway_migration(
         self, test_db, session: AsyncSession, worker: GatewayReplicaWorker
@@ -2755,7 +2790,7 @@ class TestGatewayReplicaWorkerTerminating:
             certificate=ACMGatewayCertificate(arn="arn:aws:acm:us:1:certificate/x"),
             hostname=None,  # migration not yet performed by the gateway pipeline
         )
-        compute = await create_gateway_compute(
+        replica = await create_gateway_replica(
             session=session,
             gateway_id=gateway.id,
             backend_id=backend.id,
@@ -2763,8 +2798,8 @@ class TestGatewayReplicaWorkerTerminating:
             active=False,
             hostname_deprecated_readonly="legacy-lb.example.com",
         )
-        _lock_compute(compute)
-        original_last_processed_at = compute.last_processed_at
+        _lock_replica(replica)
+        original_last_processed_at = replica.last_processed_at
         await session.commit()
 
         with patch(
@@ -2774,19 +2809,19 @@ class TestGatewayReplicaWorkerTerminating:
             backend_mock.compute.return_value = Mock(spec=ComputeMockSpec)
             get_backends_mock.return_value = [(backend, backend_mock)]
 
-            await worker.process(_compute_to_pipeline_item(compute))
+            await worker.process(_replica_to_pipeline_item(replica))
 
-            backend_mock.compute.return_value.terminate_gateway.assert_not_called()
+            backend_mock.compute.return_value.terminate_gateway_replica.assert_not_called()
             backend_mock.compute.return_value.deregister_gateway_replica_from_load_balancer.assert_not_called()
 
-        await session.refresh(compute)
-        assert compute.status == GatewayReplicaStatus.TERMINATING
-        assert compute.last_processed_at > original_last_processed_at
-        assert compute.lock_token is None
+        await session.refresh(replica)
+        assert replica.status == GatewayReplicaStatus.TERMINATING
+        assert replica.last_processed_at > original_last_processed_at
+        assert replica.lock_token is None
 
-    @pytest.mark.parametrize("legacy_compute", [False, True])
+    @pytest.mark.parametrize("legacy_replica", [False, True])
     async def test_terminating_to_terminated_if_backend_not_available(
-        self, test_db, session: AsyncSession, worker: GatewayReplicaWorker, legacy_compute: bool
+        self, test_db, session: AsyncSession, worker: GatewayReplicaWorker, legacy_replica: bool
     ):
         project = await create_project(session=session)
         backend = await create_backend(session=session, project_id=project.id)
@@ -2796,39 +2831,39 @@ class TestGatewayReplicaWorkerTerminating:
             backend_id=backend.id,
             status=GatewayStatus.FAILED,
         )
-        if legacy_compute:
-            compute = await create_gateway_compute(
+        if legacy_replica:
+            replica = await create_gateway_replica(
                 session=session,
                 backend_id=backend.id,
                 status=GatewayReplicaStatus.TERMINATING,
                 active=False,
             )
-            gateway.gateway_compute_id = compute.id
+            gateway.gateway_replica_id = replica.id
         else:
-            compute = await create_gateway_compute(
+            replica = await create_gateway_replica(
                 session=session,
                 gateway_id=gateway.id,
                 backend_id=backend.id,
                 status=GatewayReplicaStatus.TERMINATING,
                 active=False,
             )
-        _lock_compute(compute)
+        _lock_replica(replica)
         await session.commit()
 
         with patch(
             "dstack._internal.server.services.backends.get_project_backends_with_models"
         ) as get_backends_mock:
             get_backends_mock.return_value = []
-            await worker.process(_compute_to_pipeline_item(compute))
+            await worker.process(_replica_to_pipeline_item(replica))
 
-        await session.refresh(compute)
-        assert compute.status == GatewayReplicaStatus.TERMINATED
-        assert compute.active is False
-        assert compute.deleted is True
+        await session.refresh(replica)
+        assert replica.status == GatewayReplicaStatus.TERMINATED
+        assert replica.active is False
+        assert replica.deleted is True
 
-    @pytest.mark.parametrize("legacy_compute", [False, True])
+    @pytest.mark.parametrize("legacy_replica", [False, True])
     async def test_terminating_to_terminated_with_no_instance_id(
-        self, test_db, session: AsyncSession, worker: GatewayReplicaWorker, legacy_compute: bool
+        self, test_db, session: AsyncSession, worker: GatewayReplicaWorker, legacy_replica: bool
     ):
         project = await create_project(session=session)
         backend = await create_backend(session=session, project_id=project.id)
@@ -2838,17 +2873,17 @@ class TestGatewayReplicaWorkerTerminating:
             backend_id=backend.id,
             status=GatewayStatus.FAILED,
         )
-        if legacy_compute:
-            compute = await create_gateway_compute(
+        if legacy_replica:
+            replica = await create_gateway_replica(
                 session=session,
                 backend_id=backend.id,
                 instance_id=None,
                 status=GatewayReplicaStatus.TERMINATING,
                 active=False,
             )
-            gateway.gateway_compute_id = compute.id
+            gateway.gateway_replica_id = replica.id
         else:
-            compute = await create_gateway_compute(
+            replica = await create_gateway_replica(
                 session=session,
                 gateway_id=gateway.id,
                 backend_id=backend.id,
@@ -2856,7 +2891,7 @@ class TestGatewayReplicaWorkerTerminating:
                 status=GatewayReplicaStatus.TERMINATING,
                 active=False,
             )
-        _lock_compute(compute)
+        _lock_replica(replica)
         await session.commit()
 
         with (
@@ -2871,19 +2906,19 @@ class TestGatewayReplicaWorkerTerminating:
             backend_mock.compute.return_value = Mock(spec=ComputeMockSpec)
             get_backends_mock.return_value = [(backend, backend_mock)]
 
-            await worker.process(_compute_to_pipeline_item(compute))
+            await worker.process(_replica_to_pipeline_item(replica))
 
-            backend_mock.compute.return_value.terminate_gateway.assert_not_called()
+            backend_mock.compute.return_value.terminate_gateway_replica.assert_not_called()
             remove_mock.assert_not_called()
 
-        await session.refresh(compute)
-        assert compute.status == GatewayReplicaStatus.TERMINATED
-        assert compute.active is False
-        assert compute.deleted is True
+        await session.refresh(replica)
+        assert replica.status == GatewayReplicaStatus.TERMINATED
+        assert replica.active is False
+        assert replica.deleted is True
 
-    @pytest.mark.parametrize("legacy_compute", [False, True])
+    @pytest.mark.parametrize("legacy_replica", [False, True])
     async def test_terminating_retries_if_terminate_fails(
-        self, test_db, session: AsyncSession, worker: GatewayReplicaWorker, legacy_compute: bool
+        self, test_db, session: AsyncSession, worker: GatewayReplicaWorker, legacy_replica: bool
     ):
         project = await create_project(session=session)
         backend = await create_backend(session=session, project_id=project.id)
@@ -2893,24 +2928,24 @@ class TestGatewayReplicaWorkerTerminating:
             backend_id=backend.id,
             status=GatewayStatus.FAILED,
         )
-        if legacy_compute:
-            compute = await create_gateway_compute(
+        if legacy_replica:
+            replica = await create_gateway_replica(
                 session=session,
                 backend_id=backend.id,
                 status=GatewayReplicaStatus.TERMINATING,
                 active=False,
             )
-            gateway.gateway_compute_id = compute.id
+            gateway.gateway_replica_id = replica.id
         else:
-            compute = await create_gateway_compute(
+            replica = await create_gateway_replica(
                 session=session,
                 gateway_id=gateway.id,
                 backend_id=backend.id,
                 status=GatewayReplicaStatus.TERMINATING,
                 active=False,
             )
-        _lock_compute(compute)
-        original_last_processed_at = compute.last_processed_at
+        _lock_replica(replica)
+        original_last_processed_at = replica.last_processed_at
         await session.commit()
 
         with (
@@ -2923,21 +2958,21 @@ class TestGatewayReplicaWorkerTerminating:
         ):
             backend_mock = Mock()
             backend_mock.compute.return_value = Mock(spec=ComputeMockSpec)
-            backend_mock.compute.return_value.terminate_gateway.side_effect = Exception(
+            backend_mock.compute.return_value.terminate_gateway_replica.side_effect = Exception(
                 "Terminate failed"
             )
             get_backends_mock.return_value = [(backend, backend_mock)]
 
-            await worker.process(_compute_to_pipeline_item(compute))
+            await worker.process(_replica_to_pipeline_item(replica))
 
             get_backends_mock.assert_called_once()
-            backend_mock.compute.return_value.terminate_gateway.assert_called_once()
+            backend_mock.compute.return_value.terminate_gateway_replica.assert_called_once()
             remove_mock.assert_not_called()
 
-        await session.refresh(compute)
+        await session.refresh(replica)
         # Not TERMINATED, should retry termination
-        assert compute.status == GatewayReplicaStatus.TERMINATING
-        assert compute.last_processed_at > original_last_processed_at
-        assert compute.lock_token is None
-        assert compute.lock_expires_at is None
-        assert compute.lock_owner is None
+        assert replica.status == GatewayReplicaStatus.TERMINATING
+        assert replica.last_processed_at > original_last_processed_at
+        assert replica.lock_token is None
+        assert replica.lock_expires_at is None
+        assert replica.lock_owner is None

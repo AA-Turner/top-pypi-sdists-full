@@ -7,7 +7,11 @@ import gpuhunt
 import pytest
 
 from dstack._internal.core.errors import ServerClientError
-from dstack._internal.core.models.configurations import ServiceConfiguration, TaskConfiguration
+from dstack._internal.core.models.configurations import (
+    NodeGroup,
+    ServiceConfiguration,
+    TaskConfiguration,
+)
 from dstack._internal.core.models.files import FileArchiveMapping
 from dstack._internal.core.models.profiles import Profile, ProfileRetry
 from dstack._internal.core.models.repos.local import LocalRunRepoData
@@ -88,8 +92,12 @@ def _task_run_spec(
     resources: Optional[dict] = None,
     image: Optional[str] = None,
     docker: Optional[bool] = None,
+    groups: Optional[list[dict]] = None,
 ) -> RunSpec:
     conf: dict[str, Any] = {"type": "task", "commands": ["echo hello"]}
+    if groups is not None:
+        conf.pop("commands", None)
+        conf["groups"] = groups
     if resources is not None:
         conf["resources"] = resources
     if image is not None:
@@ -141,6 +149,102 @@ class TestValidateRunSpecRetryDuration:
         )
 
         with pytest.raises(ServerClientError, match="retry.duration cannot be negative"):
+            validate_run_spec_and_set_defaults(
+                SimpleNamespace(ssh_public_key="ssh-rsa test"), run_spec
+            )
+
+
+class TestValidateRunSpecGroupsIpRefs:
+    def test_rejects_typo_groups_ref_in_node_group_commands(self):
+        run_spec = get_run_spec(
+            repo_id="test-repo",
+            configuration=TaskConfiguration(
+                image="debian",
+                groups=[
+                    NodeGroup(
+                        name="head",
+                        nodes=1,
+                        commands=["echo ${{ groups[0].nodes[0].IP }}"],
+                    ),
+                ],
+            ),
+        )
+
+        with pytest.raises(ServerClientError, match="Illegal reference name"):
+            validate_run_spec_and_set_defaults(
+                SimpleNamespace(ssh_public_key="ssh-rsa test"), run_spec
+            )
+
+    def test_accepts_valid_groups_ref(self):
+        run_spec = get_run_spec(
+            repo_id="test-repo",
+            configuration=TaskConfiguration(
+                image="debian",
+                groups=[
+                    NodeGroup(
+                        name="head",
+                        nodes=1,
+                        commands=["echo ${{ groups[0].nodes[0].IP_ADDRESS }}"],
+                    ),
+                ],
+            ),
+        )
+
+        validate_run_spec_and_set_defaults(
+            SimpleNamespace(ssh_public_key="ssh-rsa test"), run_spec
+        )
+
+    def test_rejects_groups_ref_in_env(self):
+        run_spec = get_run_spec(
+            repo_id="test-repo",
+            configuration=TaskConfiguration(
+                image="debian",
+                commands=["echo ok"],
+                env={"PREFILL_URL": "http://${{ groups[1].nodes[0].IP_ADDRESS }}"},
+            ),
+        )
+
+        with pytest.raises(ServerClientError, match="only supported in commands, not in `env`"):
+            validate_run_spec_and_set_defaults(
+                SimpleNamespace(ssh_public_key="ssh-rsa test"), run_spec
+            )
+
+    def test_rejects_out_of_range_group_index(self):
+        run_spec = get_run_spec(
+            repo_id="test-repo",
+            configuration=TaskConfiguration(
+                image="debian",
+                groups=[
+                    NodeGroup(
+                        name="head",
+                        nodes=1,
+                        commands=["echo ${{ groups[1].nodes[0].IP_ADDRESS }}"],
+                    ),
+                ],
+            ),
+        )
+
+        with pytest.raises(ServerClientError, match="out of range"):
+            validate_run_spec_and_set_defaults(
+                SimpleNamespace(ssh_public_key="ssh-rsa test"), run_spec
+            )
+
+    def test_rejects_out_of_range_node_index(self):
+        run_spec = get_run_spec(
+            repo_id="test-repo",
+            configuration=TaskConfiguration(
+                image="debian",
+                groups=[
+                    NodeGroup(
+                        name="head",
+                        nodes=1,
+                        commands=["echo ${{ groups[0].nodes[1].IP_ADDRESS }}"],
+                    ),
+                ],
+            ),
+        )
+
+        with pytest.raises(ServerClientError, match="out of range"):
             validate_run_spec_and_set_defaults(
                 SimpleNamespace(ssh_public_key="ssh-rsa test"), run_spec
             )
@@ -279,6 +383,52 @@ class TestCheckCanUpdateConfigurationFieldAllowlist:
         _check_can_update_configuration(current, new, ignore_files=True)
 
 
+class TestCheckCanUpdateRunSpecResources:
+    """Non-service configurations cannot be redeployed, so only compatible changes are allowed."""
+
+    def test_allows_relaxing_cpu_arch(self):
+        # Older servers always resolved `cpu.arch`, so re-applying an unchanged configuration
+        # after a server upgrade must not be rejected
+        current = _task_run_spec(resources={"cpu": "x86:2"}, image="ubuntu")
+        new = _task_run_spec(resources={"cpu": 2}, image="ubuntu")
+
+        check_can_update_run_spec(current, new)
+
+    def test_allows_unchanged_resources(self):
+        current = _task_run_spec(resources={"cpu": "x86:2"}, image="ubuntu")
+        new = _task_run_spec(resources={"cpu": "x86:2"}, image="ubuntu")
+
+        check_can_update_run_spec(current, new)
+
+    def test_rejects_setting_cpu_arch(self):
+        current = _task_run_spec(resources={"cpu": 2}, image="ubuntu")
+        new = _task_run_spec(resources={"cpu": "x86:2"}, image="ubuntu")
+
+        with pytest.raises(ServerClientError, match="resources"):
+            check_can_update_run_spec(current, new)
+
+    def test_rejects_changing_cpu_arch(self):
+        current = _task_run_spec(resources={"cpu": "x86:2"}, image="ubuntu")
+        new = _task_run_spec(resources={"cpu": "arm:2"}, image="ubuntu")
+
+        with pytest.raises(ServerClientError, match="resources"):
+            check_can_update_run_spec(current, new)
+
+    def test_rejects_changing_cpu_count(self):
+        current = _task_run_spec(resources={"cpu": "x86:2"}, image="ubuntu")
+        new = _task_run_spec(resources={"cpu": 4}, image="ubuntu")
+
+        with pytest.raises(ServerClientError, match="resources"):
+            check_can_update_run_spec(current, new)
+
+    def test_rejects_changing_other_resources(self):
+        current = _task_run_spec(resources={"cpu": "x86:2", "memory": "8GB"}, image="ubuntu")
+        new = _task_run_spec(resources={"cpu": 2, "memory": "16GB"}, image="ubuntu")
+
+        with pytest.raises(ServerClientError, match="resources"):
+            check_can_update_run_spec(current, new)
+
+
 class TestSetRunSpecResourcesDefaultsGpuVendor:
     @pytest.mark.parametrize(
         ["gpu_spec", "expected_vendor"],
@@ -367,34 +517,6 @@ class TestSetRunSpecResourcesDefaultsGpuVendor:
         assert gpu_spec.vendor == gpuhunt.AcceleratorVendor.NVIDIA
 
 
-class TestSetRunSpecResourcesDefaultsCpuArch:
-    @pytest.mark.parametrize(
-        ["gpu_spec", "expected_arch"],
-        [
-            (None, gpuhunt.CPUArchitecture.X86),
-            ("H100", gpuhunt.CPUArchitecture.X86),
-            ("GH200", gpuhunt.CPUArchitecture.ARM),  # an NVIDIA superchip
-            ("GB200:4", gpuhunt.CPUArchitecture.ARM),
-        ],
-    )
-    def test_sets_arch_detected_by_gpu_names(
-        self, gpu_spec: Optional[str], expected_arch: gpuhunt.CPUArchitecture
-    ):
-        resources = {"gpu": gpu_spec} if gpu_spec is not None else None
-        run_spec = _task_run_spec(resources=resources, image="ubuntu")
-
-        set_run_spec_resources_defaults(run_spec)
-
-        assert run_spec.configuration.resources.cpu.arch == expected_arch
-
-    def test_does_not_override_arch_set_by_the_user(self):
-        run_spec = _task_run_spec(resources={"cpu": "arm:2", "gpu": "H100"}, image="ubuntu")
-
-        set_run_spec_resources_defaults(run_spec)
-
-        assert run_spec.configuration.resources.cpu.arch == gpuhunt.CPUArchitecture.ARM
-
-
 class TestSetRunSpecResourcesDefaultsReplicaGroups:
     def test_sets_defaults_for_every_replica_group(self):
         run_spec = _service_run_spec(
@@ -408,10 +530,10 @@ class TestSetRunSpecResourcesDefaultsReplicaGroups:
         set_run_spec_resources_defaults(run_spec)
 
         groups = run_spec.configuration.replicas
-        assert [(g.resources.gpu.vendor, g.resources.cpu.arch) for g in groups] == [
-            (gpuhunt.AcceleratorVendor.AMD, gpuhunt.CPUArchitecture.X86),
-            (gpuhunt.AcceleratorVendor.NVIDIA, gpuhunt.CPUArchitecture.ARM),
-            (gpuhunt.AcceleratorVendor.NVIDIA, gpuhunt.CPUArchitecture.X86),
+        assert [g.resources.gpu.vendor for g in groups] == [
+            gpuhunt.AcceleratorVendor.AMD,
+            gpuhunt.AcceleratorVendor.NVIDIA,
+            gpuhunt.AcceleratorVendor.NVIDIA,
         ]
 
     @pytest.mark.parametrize(
@@ -449,7 +571,39 @@ class TestSetRunSpecResourcesDefaultsReplicaGroups:
 
         resources = run_spec.configuration.resources
         assert resources.gpu.vendor == gpuhunt.AcceleratorVendor.NVIDIA
-        assert resources.cpu.arch == gpuhunt.CPUArchitecture.X86
+
+
+class TestSetRunSpecResourcesDefaultsNodeGroups:
+    def test_sets_defaults_for_every_node_group(self):
+        run_spec = _task_run_spec(
+            groups=[
+                {"nodes": 1, "commands": ["echo"], "resources": {"gpu": "MI300X"}},
+                {"nodes": 1, "commands": ["echo"], "resources": {"gpu": "GH200"}},
+                {"nodes": 1, "commands": ["echo"]},
+            ],
+        )
+
+        set_run_spec_resources_defaults(run_spec)
+
+        groups = run_spec.configuration.node_groups
+        assert [g.resources.gpu.vendor for g in groups] == [
+            gpuhunt.AcceleratorVendor.AMD,
+            gpuhunt.AcceleratorVendor.NVIDIA,
+            gpuhunt.AcceleratorVendor.NVIDIA,
+        ]
+
+    def test_sets_defaults_for_top_level_resources(self):
+        # Top-level resources are unused when node groups are set, but still normalized
+        # so resubmitting the same configuration produces no spec diff.
+        run_spec = _task_run_spec(
+            groups=[{"nodes": 1, "commands": ["echo"]}],
+            resources={"gpu": "H100"},
+        )
+
+        set_run_spec_resources_defaults(run_spec)
+
+        resources = run_spec.configuration.resources
+        assert resources.gpu.vendor == gpuhunt.AcceleratorVendor.NVIDIA
 
 
 class TestValidateRunSpecGpuVendorAndImage:
@@ -505,18 +659,39 @@ class TestValidateRunSpecGpuVendorAndImage:
 
         _validate(run_spec)
 
+    def test_reports_node_groups_requiring_image(self):
+        run_spec = _task_run_spec(
+            groups=[
+                {"nodes": 1, "commands": ["echo"], "resources": {"gpu": "MI300X"}},
+                {"nodes": 1, "commands": ["echo"], "resources": {"gpu": "H100"}},
+                {"nodes": 1, "commands": ["echo"], "resources": {"gpu": "n300"}},
+            ],
+        )
+
+        with pytest.raises(ServerClientError, match=re.escape("groups[0, 2]")):
+            _validate(run_spec)
+
+    def test_allows_node_group_with_task_level_image(self):
+        run_spec = _task_run_spec(
+            groups=[{"nodes": 1, "commands": ["echo"], "resources": {"gpu": "MI300X"}}],
+            image="rocm",
+        )
+
+        _validate(run_spec)
+
 
 class TestValidateRunSpecCpuArchAndImage:
-    @pytest.mark.parametrize(
-        "resources",
-        [
-            {"cpu": "arm:2"},  # the arch is set by the user
-            {"gpu": "GH200"},  # the arch is inferred from the GPU name
-        ],
-    )
-    def test_rejects_arm_without_image(self, resources: dict):
+    # NOTE: only an explicitly requested ARM arch is validated. The arch is not inferred from
+    # the GPU name, as the actual arch is only known once an offer is selected -- the same
+    # fleet may provide both ARM (e.g., GH200) and x86 (e.g., H200) instances.
+    def test_rejects_arm_without_image(self):
         with pytest.raises(ServerClientError, match="`image` must be set when ARM CPU requested"):
-            _validate(_task_run_spec(resources=resources))
+            _validate(_task_run_spec(resources={"cpu": "arm:2"}))
+
+    def test_allows_arm_gpu_without_image(self):
+        # The run gets `arch: x86` requirements (the default image is x86-only) and is expected
+        # to find no offers rather than to be rejected
+        _validate(_task_run_spec(resources={"gpu": "GH200"}))
 
     def test_allows_arm_with_image(self):
         _validate(_task_run_spec(resources={"cpu": "arm:2"}, image="ubuntu"))
@@ -535,7 +710,7 @@ class TestValidateRunSpecCpuArchAndImage:
             replicas=[
                 {"count": 1, "commands": ["echo"], "resources": {"cpu": "arm:2"}},
                 {"count": 1, "commands": ["echo"]},
-                {"count": 1, "commands": ["echo"], "resources": {"gpu": "GH200"}},
+                {"count": 1, "commands": ["echo"], "resources": {"cpu": "arm:4"}},
             ],
         )
 
@@ -545,6 +720,26 @@ class TestValidateRunSpecCpuArchAndImage:
     def test_allows_replica_group_with_its_own_image(self):
         run_spec = _service_run_spec(
             replicas=[{"count": 1, "image": "ubuntu", "resources": {"cpu": "arm:2"}}],
+        )
+
+        _validate(run_spec)
+
+    def test_reports_node_groups_requiring_image(self):
+        run_spec = _task_run_spec(
+            groups=[
+                {"nodes": 1, "commands": ["echo"], "resources": {"cpu": "arm:2"}},
+                {"nodes": 1, "commands": ["echo"]},
+                {"nodes": 1, "commands": ["echo"], "resources": {"cpu": "arm:4"}},
+            ],
+        )
+
+        with pytest.raises(ServerClientError, match=re.escape("groups[0, 2]")):
+            _validate(run_spec)
+
+    def test_allows_node_group_with_task_level_image(self):
+        run_spec = _task_run_spec(
+            groups=[{"nodes": 1, "commands": ["echo"], "resources": {"cpu": "arm:2"}}],
+            image="ubuntu",
         )
 
         _validate(run_spec)

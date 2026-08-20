@@ -80,7 +80,7 @@ def test_enumerated_action_execution(mock_builder):
         def execute_all(self, builder, context, args):
             pass  # This will be mocked
 
-        def any_supported(self, builder, context):
+        def any_supported(self, builder, context_with_path):
             return True
 
     action = ConcreteEnumeratedAction(TargetScope.LOCAL, mock_enumerator)
@@ -97,14 +97,14 @@ def test_enumerated_action_execution(mock_builder):
 def test_enumerated_action_is_supported(mock_builder):
     """Test that EnumeratedAction.is_supported calls the enumerator and any_supported"""
     mock_enumerator = MagicMock(spec=BuildTargetEnumerator)
-    enumerated_results = ["target1", "target2"]
+    enumerated_results = ["target1", "target2"], Path("/path/to/context")
     mock_enumerator.enumerate.return_value = enumerated_results
 
     class ConcreteEnumeratedAction(EnumeratedAction):
         def execute_all(self, builder, context, args):
             pass
 
-        def any_supported(self, builder, context):
+        def any_supported(self, builder, context_with_path):
             return True  # This will be mocked
 
     action = ConcreteEnumeratedAction(TargetScope.LOCAL, mock_enumerator)
@@ -191,3 +191,19 @@ def test_composite_target_pass_handler():
         [child1, child2, child3], "composite", "", TargetScope.LOCAL
     )
     assert composite.pass_handler() == "handler1,handler3"
+
+
+def test_check_coverage_existing_targets_gcovr_only():
+    """Test that check --coverage --existing targets run gcovr only (no test execution)"""
+    import fprime.fbuild.target_definitions  # noqa: F401 registers targets
+    from fprime.fbuild.gcovr import ExistingCoverageTarget, Gcovr
+
+    for flags in [
+        {"coverage", "existing"},
+        {"coverage", "existing", "recursive"},
+        {"coverage", "existing", "all"},
+    ]:
+        target = Target.get_target("check", flags)
+        assert isinstance(target, ExistingCoverageTarget)
+        assert len(target.targets) == 1
+        assert isinstance(target.targets[0], Gcovr)

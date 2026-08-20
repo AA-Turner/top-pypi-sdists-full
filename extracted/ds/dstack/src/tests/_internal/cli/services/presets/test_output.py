@@ -5,10 +5,10 @@ from io import StringIO
 import pytest
 from rich.table import Table
 
+from dstack._internal.cli.models.presets import PresetWorkload
 from dstack._internal.cli.services.presets import output as output_module
 from dstack._internal.cli.services.presets.output import _add_session, _format_number
-from tests._internal.cli.common import plain_console
-from tests._internal.cli.preset_factories import get_preset
+from tests._internal.cli.common import get_preset, plain_console
 
 pytestmark = pytest.mark.windows
 
@@ -27,7 +27,7 @@ class TestFormatNumber:
 class TestFormatPresetBenchmark:
     def test_formats_second_scale_ttft_without_scientific_notation(self):
         preset = get_preset()
-        ttft = preset.validations[0].benchmark.metrics.ttft_ms
+        ttft = preset.benchmark.metrics.ttft_ms
         ttft.mean = 8148.3
         ttft.p50 = 8151.4
         ttft.p99 = 8334.2
@@ -35,7 +35,7 @@ class TestFormatPresetBenchmark:
         output = output_module.format_preset_benchmark(preset, verbose=True)
 
         # Per-user speed is 1/TPOT (p50 7.4ms), not the aggregate over concurrency.
-        assert output.startswith("tok/s/user=135 ")
+        assert output.startswith("tps/user=133 ")
         assert output_module.format_preset_objective(preset).startswith("[secondary]io=1K/128 ")
         assert "ctx=32K" in output
         assert "ttft=8.15s" in output
@@ -43,31 +43,45 @@ class TestFormatPresetBenchmark:
 
 
 class TestFormatPresetObjective:
-    def test_shows_the_shared_prefix_the_benchmark_actually_used(self):
+    def test_shows_the_requested_shared_prefix(self):
         preset = get_preset()
-        preset.validations[0].benchmark.workload.shared_prefix_tokens = 768
+        preset.configuration.shared_prefix_tokens = 768
 
         assert output_module.format_preset_objective(preset) == (
-            "[secondary]io=1K/128 prefix=75% conc=1[/]"
+            "[secondary]io=1K/128 prefix=75% c=1[/]"
         )
 
-    def test_a_preset_saved_before_the_field_existed_still_loads(self):
-        # `shared_prefix_tokens` is absent from every preset saved so far.
+    def test_treats_an_unset_shared_prefix_as_none_shared(self):
         preset = get_preset()
 
-        assert preset.validations[0].benchmark.workload.shared_prefix_tokens is None
-        assert output_module.format_preset_objective(preset) == (
-            "[secondary]io=1K/128 prefix=0% conc=1[/]"
-        )
+        assert preset.configuration.shared_prefix_tokens is None
+        assert output_module.format_preset_objective(preset) == ("[secondary]io=1K/128 c=1[/]")
 
     def test_shows_the_dataset_instead_of_the_request_shape(self):
-        # With a custom dataset the io shape is measured, not configured, so the
-        # contract cell names the dataset instead.
+        # A dataset defines its own request shape, so the cell names it instead.
         preset = get_preset()
-        preset.validations[0].benchmark.workload.dataset = "spec_bench"
+        preset.configuration.dataset = "spec_bench"
 
         assert output_module.format_preset_objective(preset) == (
-            "[secondary]data=spec_bench conc=1[/]"
+            "[secondary]data=spec_bench c=1[/]"
+        )
+
+    def test_renders_the_requested_workload_not_the_measured_one(self):
+        # They diverge with a dataset, where the benchmark records measured means.
+        preset = get_preset()
+        preset.configuration.dataset = "spec_bench"
+        benchmark = preset.benchmark
+        benchmark.workload = PresetWorkload(
+            api=benchmark.workload.api,
+            num_requests=benchmark.workload.num_requests,
+            input_tokens=347,
+            output_tokens=2451,
+            concurrency=8,
+            dataset="spec_bench",
+        )
+
+        assert output_module.format_preset_objective(preset) == (
+            "[secondary]data=spec_bench c=1[/]"
         )
 
 
@@ -81,7 +95,7 @@ class TestPrintPresets:
         # Both columns wrap rather than clip, so their full content survives even
         # when a long model name would otherwise squeeze them out.
         joined = "".join(output.getvalue().split())
-        assert "conc=1" in joined
+        assert "c=1" in joined
         assert "ttft=108ms" in joined
 
     def test_prints_submitted_column(self, monkeypatch):
@@ -97,7 +111,17 @@ class TestPrintPresets:
 
 def _session_row(session: dict) -> dict:
     table = Table(box=None)
-    for column in ("BASE", "ID", "GPU", "CONSTRAINTS", "BENCHMARK", "", "STATUS", "SUBMITTED"):
+    for column in (
+        "BASE",
+        "ID",
+        "NAME",
+        "RESOURCES",
+        "CONSTRAINTS",
+        "BENCHMARK",
+        "",
+        "STATUS",
+        "SUBMITTED",
+    ):
         table.add_column(column)
     _add_session(table, session)
     return {
@@ -128,8 +152,8 @@ class TestSessionRow:
         assert row["STATUS"] == "[bold sea_green3]trialing[/] [secondary](3/3)[/]"
         # Per-user speed is 1/TPOT, the same definition the preset row uses — not
         # the aggregate over concurrency, which would read 292 here.
-        assert row["BENCHMARK"].startswith("tok/s/user=292")
-        assert row["GPU"] == "A40:48GB:1"
+        assert row["BENCHMARK"].startswith("tps/user=292")
+        assert row["RESOURCES"] == "A40:48GB:1"
 
     def test_shows_the_shared_prefix_when_the_workload_has_one(self):
         row = _session_row(
@@ -145,7 +169,7 @@ class TestSessionRow:
             }
         )
 
-        assert row["CONSTRAINTS"] == ("[secondary]io=8K/1K prefix=90% conc=162[/]")
+        assert row["CONSTRAINTS"] == ("[secondary]io=8K/1K prefix=90% c=162[/]")
 
     def test_shows_the_dataset_for_a_session_with_a_custom_dataset(self):
         row = _session_row(
@@ -156,10 +180,10 @@ class TestSessionRow:
             }
         )
 
-        assert row["CONSTRAINTS"] == ("[secondary]data=spec_bench conc=4[/]")
+        assert row["CONSTRAINTS"] == ("[secondary]data=spec_bench c=4[/]")
 
-    def test_shows_the_shared_prefix_even_when_requests_are_fully_unique(self):
-        # `prefix=0%` is not noise: it decides how much of each request the engine
+    def test_omits_the_shared_prefix_when_requests_are_fully_unique(self):
+        # A zero prefix is the default; only a non-zero share is information.
         # can serve from cache, so a row without it cannot be compared to one with.
         row = _session_row(
             {
@@ -174,7 +198,7 @@ class TestSessionRow:
             }
         )
 
-        assert "prefix=0%" in row["CONSTRAINTS"]
+        assert "prefix" not in row["CONSTRAINTS"]
 
     def test_shows_zero_progress_without_benchmark(self):
         row = _session_row(
@@ -213,7 +237,7 @@ class TestOrdering:
         monkeypatch.setattr(output_module, "console", plain_console(buffer, width=200))
         old = get_preset()
         new = old.model_copy(
-            update={"id": "11aa22bb", "created_at": old.created_at + timedelta(days=2)}
+            update={"id": "11aa22bb", "submitted_at": old.submitted_at + timedelta(days=2)}
         )
         sessions = [
             {
@@ -371,7 +395,7 @@ class TestFailedTrials:
                         "metrics": {
                             "total_output_tokens": tokens,
                             "duration_seconds": 1.0,
-                            "tpot_ms": {"p50": 34.4},
+                            "tpot_ms": {"mean": 41.7, "p50": 34.4},
                             "ttft_ms": {"p50": 4300.0},
                         },
                         "workload": {"concurrency": 4},
@@ -386,6 +410,8 @@ class TestFailedTrials:
 
         assert summary["best"] is None
         assert summary["best_failed"]["tok_s"] == 300.0
+        # Mean, not p50: MTP skews TPOT right, and mean is the delivered rate.
+        assert summary["best_failed"]["tpot_ms"] == 41.7
 
     def test_a_run_that_met_nothing_still_shows_what_it_measured(self):
         row = _session_row(
@@ -411,10 +437,10 @@ class TestFailedTrials:
         )
 
         assert "ttft=4.3s" in row["BENCHMARK"]
-        assert row["GPU"] == "MI300X:192GB:1"
+        assert row["RESOURCES"] == "MI300X:192GB:1"
         # Marked, not just dimmed, so it does not read as a met constraint where
         # styling is absent or invisible to the reader.
-        assert "*tok/s/user" in row["BENCHMARK"]
+        assert "*tps/user" in row["BENCHMARK"]
 
 
 class TestFailedTrialSpark:
@@ -456,3 +482,18 @@ class TestFailedTrialSpark:
         assert spark.count("gold1") == 1
         assert spark.count("indian_red1") == 2
         assert "sea_green3" not in spark
+
+
+def test_warn_respects_stderr_redirect():
+    """`preset -w` suppresses store warnings during refreshes via
+    redirect_stderr; that only works while `error_console` resolves
+    `sys.stderr` at write time."""
+    import io
+    from contextlib import redirect_stderr
+
+    from dstack._internal.cli.utils.common import warn
+
+    buffer = io.StringIO()
+    with redirect_stderr(buffer):
+        warn("torn render", stderr=True)
+    assert "torn render" in buffer.getvalue()

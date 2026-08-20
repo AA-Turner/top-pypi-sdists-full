@@ -9,7 +9,7 @@ T = TypeVar("T", bound="SandboxPOSTEnv")
 
 @_attrs_define
 class SandboxPOSTEnv:
-    """Inline env vars. Merged with env group; inline wins on conflict."""
+    """Inline environment variables injected into the sandbox at creation."""
 
     additional_properties: dict[str, str] = _attrs_field(init=False, factory=dict)
 

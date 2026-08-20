@@ -1867,7 +1867,7 @@ class SearchTools:
           - To read a known entity_id's state: use `ha_get_state` (cheaper).
           - To inspect one automation/script/scene config by id: use the
             matching `ha_config_get_*`.
-          - To list installed add-ons: use `ha_get_addon`.
+          - To list installed Apps (add-ons): use `ha_get_app`.
 
         Config-body search is skipped when `domain_filter`/`area_filter`/
         `state_filter` signal entity-only intent (keeping name lookups off the
@@ -2119,7 +2119,9 @@ class SearchTools:
         receives it.
         """
         ws = await get_websocket_client(
-            url=self._client.base_url, token=self._client.token
+            url=self._client.base_url,
+            token=self._client.token,
+            verify_ssl=getattr(self._client, "verify_ssl", None),
         )
         request = _build_component_search_request(req)
         if visibility is not None:
@@ -3810,7 +3812,9 @@ class SearchTools:
     async def _send_component_overview(self, inputs: _OverviewInputs) -> dict[str, Any]:
         """Send one ``ha_mcp_tools/overview`` command over the per-client WebSocket."""
         ws = await get_websocket_client(
-            url=self._client.base_url, token=self._client.token
+            url=self._client.base_url,
+            token=self._client.token,
+            verify_ssl=getattr(self._client, "verify_ssl", None),
         )
         return await ws.send_command(
             "ha_mcp_tools/overview",
@@ -4362,7 +4366,9 @@ class SearchTools:
     async def _send_component_states(self, entity_ids: list[str]) -> dict[str, Any]:
         """Send one ``ha_mcp_tools/states`` command over the per-client WebSocket."""
         ws = await get_websocket_client(
-            url=self._client.base_url, token=self._client.token
+            url=self._client.base_url,
+            token=self._client.token,
+            verify_ssl=getattr(self._client, "verify_ssl", None),
         )
         return await ws.send_command("ha_mcp_tools/states", entity_ids=entity_ids)
 

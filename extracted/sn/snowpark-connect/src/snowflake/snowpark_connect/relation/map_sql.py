@@ -23,6 +23,7 @@ from google.protobuf.any_pb2 import Any
 from pyspark.errors.exceptions.base import (
     AnalysisException,
     NumberFormatException,
+    ParseException,
     UnsupportedOperationException,
 )
 from sqlglot.expressions import ColumnDef, DataType, FileFormatProperty, Identifier
@@ -63,6 +64,7 @@ from snowflake.snowpark.types import (
 )
 from snowflake.snowpark_connect.config import (
     check_table_supports_operation,
+    clear_native_function_conf,
     emulate_partition_overwrite_for_fdn_tables,
     get_boolean_session_config_param,
     get_return_dml_metadata_enabled,
@@ -172,7 +174,11 @@ from snowflake.snowpark_connect.utils.telemetry import (
     SnowparkConnectNotImplementedError,
     telemetry,
 )
-from snowflake.snowpark_connect.utils.udf_helper import LazySnowparkUdf, LazyUdfBase
+from snowflake.snowpark_connect.utils.udf_helper import (
+    LazySnowparkUdf,
+    LazyUdfBase,
+    NativeFunctionUdf,
+)
 
 from .. import column_name_handler
 from ..expression.map_sql_expression import (
@@ -185,12 +191,17 @@ from ..expression.map_sql_expression import (
 from ..type_support import emulate_decimal_type, is_integral_types_conversion_enabled
 from ..typed_column import TypedColumn
 from ..utils.identifiers import (
+    UNQUOTED_SPARK_IDENTIFIER,
+    is_backtick_quoted,
+    is_cld_unified_identifier_rules_enabled,
     is_in_cld_context,
     record_multipart_backtick_flags,
+    should_use_cld_identifier_rules,
     spark_to_sf_single_id,
     spark_to_sf_single_id_with_unquoting,
     split_fully_qualified_spark_name,
     split_fully_qualified_spark_name_with_quoting,
+    unquote_spark_identifier_if_quoted,
 )
 from ..utils.io_utils import (
     PartitionSpec,
@@ -202,6 +213,7 @@ from ..utils.temporary_view_helper import (
     create_snowflake_temporary_view,
     get_temp_view,
     register_temp_view,
+    snowflake_materialized_view_column_name,
     store_temporary_view_as_dataframe,
     unregister_snowflake_temp_view,
 )
@@ -655,6 +667,26 @@ def _get_original_identifier_from_origin(rel) -> str | None:
     return None
 
 
+def _spark_view_name_part_for_materialization(name_obj: jpype.JObject) -> str:
+    """Return Spark view-name text for Snowflake temp-view materialization.
+
+    Prefer origin SQL when available. Otherwise distinguish Catalyst synthetic
+    backticks on simple names from genuinely quoted dotted/special names —
+    downstream ``spark_to_sf_single_id`` applies Snowflake quoting rules.
+    """
+    origin_text = _get_original_identifier_from_origin(name_obj)
+    if origin_text is not None:
+        return origin_text
+
+    identifier = str(name_obj.identifier())
+    quoted = name_obj.quotedString()
+    if is_backtick_quoted(quoted):
+        inner = unquote_spark_identifier_if_quoted(quoted)
+        if inner != identifier or not UNQUOTED_SPARK_IDENTIFIER.match(identifier):
+            return quoted
+    return identifier
+
+
 def _rename_columns(
     df: snowpark.DataFrame, user_specified_columns, column_map: ColumnNameMap
 ) -> snowpark.DataFrame:
@@ -669,7 +701,7 @@ def _rename_columns(
         return df.select(
             [
                 snowpark_fn.col(orig).alias(
-                    spark_to_sf_single_id(user_col, is_column=True)
+                    snowflake_materialized_view_column_name(user_col)
                 )
                 for orig, user_col in columns
             ]
@@ -1431,10 +1463,21 @@ def _confirm_partition_columns_are_in_spec(
     If any column is not present, the function raises an exception.
     Column ordering is not relevant.
     """
-    # normalize partition field names to account for case sensitivity
-    allowed_partition_columns = {
-        spark_to_sf_single_id(c) for c in partition_spec.columns()
-    }
+    allowed_raw = [spark_to_sf_single_id(c) for c in partition_spec.columns()]
+    if should_use_cld_identifier_rules():
+        # CLD passthrough may emit Category while the table spec still carries
+        # CATEGORY from metastore (same as map_write partition validation).
+        allowed_partition_columns = {c.lower() for c in allowed_raw}
+        for pc in partition_columns:
+            if spark_to_sf_single_id(pc).lower() not in allowed_partition_columns:
+                exception = AnalysisException(
+                    f"[NON_PARTITION_COLUMN] PARTITION clause cannot contain the non-partition column: `{pc}`."
+                )
+                attach_custom_error_code(exception, ErrorCodes.INVALID_INPUT)
+                raise exception
+        return
+
+    allowed_partition_columns = set(allowed_raw)
     for pc in partition_columns:
         if spark_to_sf_single_id(pc) not in allowed_partition_columns:
             exception = AnalysisException(
@@ -1444,14 +1487,145 @@ def _confirm_partition_columns_are_in_spec(
             raise exception
 
 
-def _spark_field_to_sql(field: jpype.JObject, is_column: bool) -> str:
+def _split_options_properties(options_body: str) -> list[str]:
+    """Split an OPTIONS property list on commas outside nested parentheses."""
+    parts: list[str] = []
+    current: list[str] = []
+    paren_depth = 0
+    in_single_quote = False
+    i = 0
+    while i < len(options_body):
+        ch = options_body[i]
+        if ch == "'" and not in_single_quote:
+            in_single_quote = True
+            current.append(ch)
+        elif ch == "'" and in_single_quote:
+            if i + 1 < len(options_body) and options_body[i + 1] == "'":
+                current.append("''")
+                i += 1
+            else:
+                in_single_quote = False
+                current.append(ch)
+        elif not in_single_quote and ch == "(":
+            paren_depth += 1
+            current.append(ch)
+        elif not in_single_quote and ch == ")":
+            paren_depth -= 1
+            current.append(ch)
+        elif not in_single_quote and ch == "," and paren_depth == 0:
+            part = "".join(current).strip()
+            if part:
+                parts.append(part)
+            current = []
+        else:
+            current.append(ch)
+        i += 1
+    part = "".join(current).strip()
+    if part:
+        parts.append(part)
+    return parts
+
+
+def _normalize_options_property_segment(segment: str) -> str:
+    """Insert ``=`` between a shorthand ``('key' value)`` property and its value."""
+    segment = segment.strip()
+    if "=" in segment:
+        return segment
+    if not segment.startswith("'"):
+        return segment
+
+    i = 1
+    while i < len(segment):
+        if segment[i] == "'":
+            if i + 1 < len(segment) and segment[i + 1] == "'":
+                i += 2
+                continue
+            break
+        i += 1
+    else:
+        return segment
+
+    key = segment[: i + 1]
+    value = segment[i + 1 :].strip()
+    if not value:
+        return segment
+    return f"{key} = {value}"
+
+
+def _preprocess_options_shorthand(sql_query: str) -> str:
+    """Normalize Spark OPTIONS shorthand ``('key' value)`` to ``('key' = value)``."""
+    upper = sql_query.upper()
+    search_from = 0
+    while True:
+        idx = upper.find("OPTIONS", search_from)
+        if idx == -1:
+            break
+        j = idx + len("OPTIONS")
+        while j < len(sql_query) and sql_query[j].isspace():
+            j += 1
+        if j >= len(sql_query) or sql_query[j] != "(":
+            search_from = idx + len("OPTIONS")
+            continue
+
+        depth = 0
+        k = j
+        while k < len(sql_query):
+            if sql_query[k] == "(":
+                depth += 1
+            elif sql_query[k] == ")":
+                depth -= 1
+                if depth == 0:
+                    break
+            k += 1
+        if depth != 0:
+            break
+
+        options_body = sql_query[j + 1 : k]
+        normalized_body = ", ".join(
+            _normalize_options_property_segment(part)
+            for part in _split_options_properties(options_body)
+        )
+        sql_query = sql_query[: j + 1] + normalized_body + sql_query[k:]
+        upper = sql_query.upper()
+        search_from = j + 1 + len(normalized_body)
+    return sql_query
+
+
+def _column_backtick_flags_from_create_table_sql(
+    sql_string: str,
+) -> dict[str, bool]:
+    """Map CREATE TABLE column names to Spark backtick-quoted flags from SQL text."""
+    parsed = sqlglot.parse_one(sql_string, dialect="spark")
+    if parsed is None:
+        return {}
+    flags: dict[str, bool] = {}
+    for col_def in parsed.find_all(ColumnDef):
+        col_name = col_def.name
+        if isinstance(col_def.this, Identifier):
+            flags[col_name] = bool(col_def.this.args.get("quoted"))
+        else:
+            flags[col_name] = False
+    return flags
+
+
+def _spark_field_to_sql(
+    field: jpype.JObject,
+    is_column: bool,
+    column_backtick_flags: dict[str, bool] | None = None,
+) -> str:
     # Column names will be uppercased according to "spark.sql.caseSensitive".
     # Struct fields will be left as is. This should allow users to use the same names
     # in spark and Snowflake in most cases.
+    field_name = str(field.name())
+    is_backtick = False
+    if is_column and column_backtick_flags is not None:
+        is_backtick = column_backtick_flags.get(field_name, False)
     if is_column:
-        name = spark_to_sf_single_id(str(field.name()), is_column=True)
+        name = spark_to_sf_single_id(
+            field_name, is_column=True, is_backtick_quoted=is_backtick
+        )
     else:
-        name = quote_name_without_upper_casing(str(field.name()))
+        name = quote_name_without_upper_casing(field_name)
     data_type_str = _spark_datatype_to_sql(field.dataType())
     # TODO: Support comments
     return f"{name} {data_type_str}"
@@ -2063,6 +2237,8 @@ def map_sql_to_pandas_df(
                 )
                 session.sql(snowflake_sql).collect()
                 return pandas.DataFrame(), '{"type": "struct", "fields": []}'
+        if is_cld_unified_identifier_rules_enabled():
+            sql_string = _preprocess_sql_for_cld_rules(sql_string)
         logical_plan = sql_parser().parsePlan(sql_string)
         parsed_pos_args = parse_pos_args(logical_plan, pos_args)
         set_sql_args(named_args, parsed_pos_args)
@@ -2246,8 +2422,15 @@ def map_sql_to_pandas_df(
                 full_table_identifier = get_relation_identifier_name(
                     logical_plan.name(), is_multi_part=True
                 )
+                column_backtick_flags = (
+                    _column_backtick_flags_from_create_table_sql(
+                        _preprocess_options_shorthand(sql_string)
+                    )
+                    if is_cld_unified_identifier_rules_enabled()
+                    else None
+                )
                 columns = ", ".join(
-                    _spark_field_to_sql(f, True)
+                    _spark_field_to_sql(f, True, column_backtick_flags)
                     for f in logical_plan.tableSchema().fields()
                 )
                 comment_opt = logical_plan.tableSpec().comment()
@@ -2422,7 +2605,18 @@ def map_sql_to_pandas_df(
                     )
 
                     def get_cached_view_name() -> str:
-                        if is_global:
+                        if is_cld_unified_identifier_rules_enabled():
+                            view_name_part = _spark_view_name_part_for_materialization(
+                                logical_plan.name()
+                            )
+                            if is_global:
+                                view_name = [
+                                    global_config.spark_sql_globalTempDatabase,
+                                    view_name_part,
+                                ]
+                            else:
+                                view_name = [view_name_part]
+                        elif is_global:
                             view_name = [
                                 global_config.spark_sql_globalTempDatabase,
                                 logical_plan.name().quotedString(),
@@ -2436,8 +2630,18 @@ def map_sql_to_pandas_df(
                         return ".".join(view_name)
 
                     def get_snowflake_view_name() -> list[str]:
-                        snowpark_view_name = str(logical_plan.name().identifier())
-                        snowpark_view_name = spark_to_sf_single_id(snowpark_view_name)
+                        if is_cld_unified_identifier_rules_enabled():
+                            view_name_part = _spark_view_name_part_for_materialization(
+                                logical_plan.name()
+                            )
+                            snowpark_view_name = spark_to_sf_single_id_with_unquoting(
+                                view_name_part,
+                                use_auto_upper_case=True,
+                            )
+                        else:
+                            snowpark_view_name = spark_to_sf_single_id(
+                                str(logical_plan.name().identifier())
+                            )
                         return (
                             [
                                 global_config.spark_sql_globalTempDatabase,
@@ -2576,6 +2780,15 @@ def map_sql_to_pandas_df(
                         }
                     )
                 return pandas.DataFrame(data), ""
+            case "DropFunction" if _drop_native_function_alias(logical_plan):
+                # `DROP FUNCTION f` parses to the v2 `DropFunction`, not to
+                # `DropFunctionCommand` (which only covers DROP TEMPORARY FUNCTION), so
+                # it would otherwise fall through to the generic `Drop*` arm below and be
+                # handed to Snowflake as raw DDL. For a native-function alias there is no
+                # Snowflake object to drop: removing the cache entry and the declaration
+                # that produced it is the whole of the work. Ordinary UDFs keep their
+                # existing behaviour.
+                pass
             case "DropFunctionCommand":
                 func_name = logical_plan.identifier().funcName().lower()
                 input_types, snowpark_name = [], ""
@@ -2588,6 +2801,10 @@ def map_sql_to_pandas_df(
                         udf_entry.name,
                     )
                     cache.udfs.drop(func_name)
+                    if isinstance(udf_entry, NativeFunctionUdf):
+                        # Resolution of an alias is lazy, so the declaration has to go too
+                        # or the next call would rebuild the handle from configuration.
+                        clear_native_function_conf(get_spark_session_id(), func_name)
                 elif udtf_entry is not None:
                     input_types, snowpark_name = (
                         udtf_entry[0].input_types,
@@ -2605,11 +2822,24 @@ def map_sql_to_pandas_df(
                 # For lazy UDFs use _name_to_types (handles zero-arg UDFs where
                 # input_types stays [] even after DDL is emitted).
                 # For all other UxFs, non-empty input_types means DDL was emitted.
+                # A native-function alias has no SCOS-created function at all -- `name`
+                # is only the Spark-side alias and `target` is a built-in or a UDF the
+                # user created themselves -- so it is excluded by type rather than by
+                # input_types being empty. Populating input_types (the natural way to add
+                # arity checking later) would otherwise turn this into a DROP FUNCTION
+                # against the user's own function. Removing the cache entry and its
+                # declaration above is the whole of the work; control falls through to the
+                # same empty-DataFrame result a real DROP produces.
+                _is_native_alias = isinstance(udf_entry, NativeFunctionUdf)
                 _is_lazy = isinstance(udf_entry, LazyUdfBase)
                 _lazy_has_ddl = _is_lazy and bool(
                     getattr(udf_entry, "_name_to_types", None)
                 )
-                if snowpark_name != "" and (_lazy_has_ddl or input_types):
+                if (
+                    not _is_native_alias
+                    and snowpark_name != ""
+                    and (_lazy_has_ddl or input_types)
+                ):
                     if isinstance(udf_entry, LazyUdfBase):
                         # Drop every physical variant registered under this logical name.
                         # A lazy UDF emits one Snowflake function per distinct call-site
@@ -3127,7 +3357,12 @@ def map_sql_to_pandas_df(
                 # Spark: SHOW CREATE TABLE table_name
                 # Snowflake: SELECT get_ddl('table', 'table_name')
                 table_relation = logical_plan.child()
-                table_name = _spark_to_snowflake(table_relation.multipartIdentifier())
+                if is_cld_unified_identifier_rules_enabled():
+                    table_name = get_relation_identifier_name(table_relation, True)
+                else:
+                    table_name = _spark_to_snowflake(
+                        table_relation.multipartIdentifier()
+                    )
 
                 # Convert to Snowflake get_ddl function
                 snowflake_sql = f"SELECT get_ddl('table', '{table_name}') AS ddl"
@@ -3432,6 +3667,41 @@ def map_sql_to_pandas_df(
     return pandas.DataFrame(), '{"type": "struct", "fields": []}'
 
 
+def _drop_native_function_alias(logical_plan: typing.Any) -> bool:
+    """Unregister a native-function alias named by a v2 ``DropFunction`` plan.
+
+    Returns True when the name resolved to a :class:`NativeFunctionUdf`, in which case the
+    caller must not emit any DDL: the handle forwards to a Snowflake built-in or to a UDF
+    the user created themselves, and neither is ours to drop.
+    """
+    try:
+        parts = [
+            str(p) for p in as_java_list(logical_plan.child().multipartIdentifier())
+        ]
+    except Exception as e:
+        # Not fatal -- fall through to the generic Drop handling -- but log it, because a
+        # silent False here is indistinguishable from "not a native alias" and would hide
+        # a plan-shape change behind a confusing Snowflake DDL error.
+        logger.warning("Could not read DROP FUNCTION identifier (%s); ignoring.", e)
+        return False
+    if not parts:
+        return False
+
+    # An alias may be declared under a dotted name, which is how a caller reaches a function
+    # by its qualified Snowflake spelling -- and the parser hands that back as several parts.
+    # Try the joined spelling first, then the bare last part, so `DROP FUNCTION a.b.c` clears
+    # an alias declared as either `a.b.c` or `c`.
+    cache = get_spark_session_cache()
+    for func_name in dict.fromkeys([".".join(parts).lower(), parts[-1].lower()]):
+        if isinstance(cache.udfs.get(func_name), NativeFunctionUdf):
+            cache.udfs.drop(func_name)  # keyed by register_udf in expression/map_udf.py
+            # Resolution is lazy, so the declaration has to go too or the next call to this
+            # name would simply rebuild the handle from configuration.
+            clear_native_function_conf(get_spark_session_id(), func_name)
+            return True
+    return False
+
+
 def get_sql_passthrough() -> bool:
     return get_boolean_session_config_param("snowpark.connect.sql.passthrough")
 
@@ -3466,6 +3736,25 @@ def change_default_to_public(name: str) -> str:
     elif name.upper() == "DEFAULT":
         return "PUBLIC"
     return name
+
+
+def _maybe_raise_empty_identifier_parse_error(sql_query: str) -> None:
+    """Spark rejects ``IDENTIFIER('')`` with ``PARSE_EMPTY_STATEMENT``."""
+    if re.search(r"IDENTIFIER\s*\(\s*''\s*\)", sql_query, re.IGNORECASE):
+        raise ParseException(
+            error_class="PARSE_EMPTY_STATEMENT",
+            message_parameters={},
+        )
+
+
+def _preprocess_sql_for_cld_rules(sql_query: str) -> str:
+    """Apply CLD SQL normalizations before Spark's ``parsePlan``.
+
+    Call only when ``is_cld_unified_identifier_rules_enabled()`` is true.
+    """
+    _maybe_raise_empty_identifier_parse_error(sql_query)
+    sql_query = _preprocess_options_shorthand(sql_query)
+    return _preprocess_identifier_calls(sql_query)
 
 
 def _preprocess_identifier_calls(sql_query: str) -> str:
@@ -3564,6 +3853,8 @@ def map_sql(
         # As such other place in this file we use parsePlan.
         # Main difference between parsePlan() and parseQuery() is, parsePlan() can be called for any SQL statement, while
         # parseQuery() can only be called for query statements.
+        if is_cld_unified_identifier_rules_enabled():
+            sql_stmt = _preprocess_sql_for_cld_rules(sql_stmt)
         logical_plan = sql_parser().parsePlan(sql_stmt)
 
         parsed_pos_args = parse_pos_args(logical_plan, rel.sql.pos_args)

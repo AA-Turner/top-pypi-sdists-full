@@ -1,10 +1,10 @@
 Metadata-Version: 2.4
 Name: statsig
-Version: 0.72.0
+Version: 0.72.1
 Summary: Statsig Python Server SDK
 Home-page: https://github.com/statsig-io/python-sdk
-Author: Tore Hanssen, Jiakan Wang
-Author-email: tore@statsig.com, jkw@statsig.com
+Author: Statsig
+Author-email: support@statsig.com
 License: ISC
 Classifier: Intended Audience :: Developers
 Classifier: Programming Language :: Python

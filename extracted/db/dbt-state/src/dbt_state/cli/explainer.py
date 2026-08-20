@@ -151,6 +151,7 @@ class Explainer:
                 else "infinite (cache never expires)"
             )
             cache_config.add(f"[dim]metadata cache ttl:[/dim] {metadata_cache_ttl}")
+            cache_config.add(f"[dim]allow clones:[/dim] {run_config.allow_clones}")
 
             if run_config.snowflake_get_view_ddl_override:
                 cache_config.add(

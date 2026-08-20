@@ -133,6 +133,29 @@ def _is_transient_api_error(error: BaseException) -> bool:
     return False
 
 
+def _is_tool_array_overflow(error: BaseException | None) -> bool:
+    """Whether ``error`` is an OpenAI/Azure rejection of too many tools.
+
+    OpenAI-family endpoints cap the ``tools`` array at 128 and 400 with
+    ``code: array_above_max_length`` when it is longer. Anthropic has no
+    such cap and never raises this, so matching the provider's own error
+    string keeps the prompt-serialized fallback scoped to models that
+    actually need it — Claude keeps native tool calling untouched.
+    """
+    if error is None:
+        return False
+    text = str(error)
+    cause = getattr(error, "__cause__", None) or getattr(error, "__context__", None)
+    if cause is not None:
+        text += " " + str(cause)
+    lowered = text.lower()
+    return (
+        "array_above_max_length" in lowered
+        or ("tools" in lowered and "array too long" in lowered)
+        or "maximum length 128" in lowered
+    )
+
+
 def _replayable(messages: list[Message]) -> list[Message]:
     """Drop assistant messages that carry nothing worth sending back.
 
@@ -219,6 +242,10 @@ class Agent(Executor[AgentEvent, Trajectory]):
 
     # Private state
     _generator: Generator | None = PrivateAttr(None, init=False)
+    _tool_cap_exceeded: bool = PrivateAttr(False, init=False)
+    """Set once the provider has rejected the tool count (>128 for OpenAI/Azure)
+    so later turns serialize tools up front instead of retrying a doomed api
+    attempt. Write-once True - safe under concurrent run() calls."""
     _current_input: str = PrivateAttr("", init=False)
     _capability: tuple[str, str] | None = PrivateAttr(None, init=False)
     """The (name, version) capability this agent runs under, if any. Bound to
@@ -313,11 +340,17 @@ class Agent(Executor[AgentEvent, Trajectory]):
         """Get conversation history."""
         return self.trajectory.messages
 
-    def _get_transforms(self) -> list[Transform]:
-        """Resolve message transforms for the current configuration."""
+    def _get_transforms(self, tool_mode: ToolMode | None = None) -> list[Transform]:
+        """Resolve message transforms for the current configuration.
+
+        ``tool_mode`` overrides ``self.tool_mode`` for a single generation
+        without mutating shared state - used by the tool-overflow fallback so
+        concurrent ``run()`` calls on one Agent don't clobber each other.
+        """
+        tool_mode = tool_mode if tool_mode is not None else self.tool_mode
         transforms = []
         if self.tools:
-            match self.tool_mode:
+            match tool_mode:
                 case "xml":
                     transforms.append(
                         make_tools_to_xml_transform(self.all_tools, add_tool_stop_token=True)
@@ -334,6 +367,49 @@ class Agent(Executor[AgentEvent, Trajectory]):
 
     async def _generate(self, messages: list[Message]) -> Chat:
         """Execute a single LLM generation step."""
+        if self.tool_mode == "auto" and self.tools:
+            self.tool_mode = (
+                "api" if await self.generator.supports_function_calling() else "json-in-xml"
+            )
+
+        # Effective mode is local to this call - never mutate self.tool_mode for
+        # the fallback, or concurrent run() calls on one shared Agent (e.g.
+        # Evaluation(concurrency > 1)) would clobber each other's mode.
+        effective_mode = self.tool_mode
+        # Once any turn has hit the provider tool cap, serialize up front on
+        # later turns to skip a doomed api attempt. The flag is only ever set
+        # True, so concurrent writers are harmless.
+        if effective_mode == "api" and self.tools and self._tool_cap_exceeded:
+            effective_mode = "json-in-xml"
+
+        chat = await self._generate_once(messages, effective_mode)
+
+        # Non-degrading fallback for the OpenAI/Azure 128-tool ceiling.
+        # GPT-family endpoints 400 with `array_above_max_length` when the
+        # tools array exceeds 128; Claude has no such cap and never hits this.
+        # Retry once with prompt-serialized tools so the full tool surface
+        # stays available instead of failing the turn. Native api mode is
+        # preserved for every model that accepts the tool count. The retry is
+        # gated on the call-local ``effective_mode`` so a sibling call that
+        # flipped the flag can't make this one skip its own recovery.
+        if (
+            chat.failed
+            and effective_mode == "api"
+            and self.tools
+            and _is_tool_array_overflow(chat.error)
+        ):
+            logger.warning(
+                "Model '{}' rejected {} tool definitions (over provider cap); "
+                "retrying with prompt-serialized tools (json-in-xml)",
+                self.generator.model,
+                len(self.all_tools),
+            )
+            self._tool_cap_exceeded = True
+            chat = await self._generate_once(messages, "json-in-xml")
+
+        return chat
+
+    async def _generate_once(self, messages: list[Message], tool_mode: ToolMode) -> Chat:
         messages = list(messages)
         extra = dict(self.generate_params_extra) if self.generate_params_extra else {}
         params_kwargs: dict[str, t.Any] = {
@@ -344,12 +420,7 @@ class Agent(Executor[AgentEvent, Trajectory]):
             params_kwargs["extra"] = extra
         params = GenerateParams(**params_kwargs)
 
-        if self.tool_mode == "auto" and self.tools:
-            self.tool_mode = (
-                "api" if await self.generator.supports_function_calling() else "json-in-xml"
-            )
-
-        transforms = self._get_transforms()
+        transforms = self._get_transforms(tool_mode)
         post_transforms: list[PostTransform | None] = []
         for transform_callback in transforms:
             messages, params, post_transform = await transform_callback(messages, params)
@@ -468,11 +539,32 @@ class Agent(Executor[AgentEvent, Trajectory]):
             (name for name, r in hook_reactions.items() if r is winning_reaction), "unknown"
         )
 
+        reaction_messages: list[Message] = []
+        if isinstance(winning_reaction, RetryWithFeedback):
+            if winning_reaction.tool_call_id:
+                reaction_messages.append(
+                    Message(
+                        "tool",
+                        f"[POLICY DENIED] {winning_reaction.feedback}",
+                        tool_call_id=winning_reaction.tool_call_id,
+                        metadata=winning_reaction.metadata,
+                    )
+                )
+            else:
+                reaction_messages.append(
+                    Message(
+                        "user",
+                        winning_reaction.feedback,
+                        metadata=winning_reaction.metadata,
+                    )
+                )
+
         async for _event in self._dispatch(
             ReactStep(
                 agent_id=self.agent_id,
                 hook_name=winning_hook_name,
                 reaction=winning_reaction,
+                messages=reaction_messages,
             )
         ):
             yield _event
@@ -483,8 +575,7 @@ class Agent(Executor[AgentEvent, Trajectory]):
                 messages.append(Message("user", winning_reaction.feedback))
             raise Continue(messages=messages)
         if isinstance(winning_reaction, RetryWithFeedback):
-            messages = [Message("user", winning_reaction.feedback)]
-            raise Retry(messages=messages)
+            raise Continue(messages=reaction_messages)
 
         raise winning_reaction
 
@@ -670,6 +761,7 @@ class Agent(Executor[AgentEvent, Trajectory]):
                     agent_name=self.name,
                     tool_call=tool_call,
                     error=NameError(error_msg),
+                    policy_decision=start_event.policy_decision,
                 )
                 error_event.emit(t_span)
                 async for event in self._dispatch(error_event):
@@ -678,6 +770,8 @@ class Agent(Executor[AgentEvent, Trajectory]):
                 message = Message.from_model(
                     SystemErrorModel(content=f"Tool '{tool_call.name}' not found.")
                 )
+                if start_event.policy_decision is not None:
+                    message.metadata["policy_decision"] = start_event.policy_decision
 
                 step_event = ToolStep(
                     agent_id=self.agent_id,
@@ -698,6 +792,9 @@ class Agent(Executor[AgentEvent, Trajectory]):
             try:
                 message, stop = await tool.handle_tool_call(tool_call)
 
+                if start_event.policy_decision is not None:
+                    message.metadata["policy_decision"] = start_event.policy_decision
+
                 # Tools that catch their own exceptions (bash non-zero,
                 # @tool(catch=True), MCP isError) lift the failure into
                 # message.metadata. Surface it on ToolEnd so renderers can
@@ -717,6 +814,7 @@ class Agent(Executor[AgentEvent, Trajectory]):
                     error=tool_error,
                     error_type=tool_error_type,
                     cost_usd=tool_cost_usd,
+                    policy_decision=start_event.policy_decision,
                 )
                 async for event in self._dispatch(end_event):
                     yield event
@@ -754,6 +852,7 @@ class Agent(Executor[AgentEvent, Trajectory]):
                     status="errored",
                     tool_call=tool_call,
                     error=e,
+                    policy_decision=start_event.policy_decision,
                 )
                 error_event.emit(t_span)
                 async for event in self._dispatch(error_event):
@@ -1090,11 +1189,17 @@ class Agent(Executor[AgentEvent, Trajectory]):
                         """Run all tools and signal completion."""
                         nonlocal tool_execution_error
                         try:
+                            tool_calls = _messages[-1].tool_calls or []
+                            item_calls = [tc for tc in tool_calls if tc.name == "report_item"]
+                            other_calls = [tc for tc in tool_calls if tc.name != "report_item"]
+
+                            async def run_item_tools() -> None:
+                                for tool_call in item_calls:
+                                    await run_tool_with_queue(tool_call)
+
                             await asyncio.gather(
-                                *[
-                                    run_tool_with_queue(tc)
-                                    for tc in (_messages[-1].tool_calls or [])
-                                ]
+                                *(run_tool_with_queue(tc) for tc in other_calls),
+                                run_item_tools(),
                             )
                         except Exception as exc:
                             tool_execution_error = exc
@@ -1116,9 +1221,21 @@ class Agent(Executor[AgentEvent, Trajectory]):
                                 stopped_by_tool_call = event.tool_call
 
                     await tools_task  # Ensure task completes
-                    if tool_execution_error is not None:
-                        _raise_exception(tool_execution_error)
+                    # Always preserve completed tool results — even when
+                    # one tool was denied, other tools may have finished
+                    # and their results must stay in the conversation.
                     messages.extend(tool_messages)
+                    # A hook retry or continuation (including a ScopeGuard
+                    # denial) still completes this generation boundary. Defer
+                    # that reaction until after GenerationStep so the assistant
+                    # tool call is persisted and can be paired with feedback.
+                    deferred_reaction = (
+                        tool_execution_error
+                        if isinstance(tool_execution_error, (Continue, Retry))
+                        else None
+                    )
+                    if tool_execution_error is not None and deferred_reaction is None:
+                        _raise_exception(tool_execution_error)
 
                     # Emit GenerationEnd AFTER tools (closes generation span)
                     gen_end = GenerationEnd(
@@ -1157,6 +1274,9 @@ class Agent(Executor[AgentEvent, Trajectory]):
                     async for event in self._dispatch(gen_event):
                         yield event
                     gen_event.emit(gen_span)  # Emit after dispatch - metrics attached
+
+                    if deferred_reaction is not None:
+                        _raise_exception(deferred_reaction)
 
                     if stopped_by_tool_call:
                         _raise_exception(

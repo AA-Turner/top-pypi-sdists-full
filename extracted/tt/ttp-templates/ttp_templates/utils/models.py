@@ -100,6 +100,22 @@ class InventoryRecord(BaseModel):
     slot: StrictStr
 
 
+class VlanRecord(BaseModel):
+    vid: StrictInt
+    name: StrictStr
+    description: Union[None, StrictStr]
+
+
+class VrfRecord(BaseModel):
+    name: StrictStr
+    description: Union[None, StrictStr]
+    rd: Union[None, StrictStr]
+    rt_import: List[StrictStr]
+    rt_export: List[StrictStr]
+    route_policy_import: Union[None, StrictStr]
+    route_policy_export: Union[None, StrictStr]
+
+
 class ArpRecord(BaseModel):
     ip: StrictStr
     age: Union[StrictInt, StrictStr]

@@ -2,6 +2,8 @@ import re
 import typing as t
 from dataclasses import dataclass
 
+from dreadnode.core.tls import format_tls_error
+
 ERROR_PREFIX_PATTERN = re.compile(
     r"^(?:litellm\.)?(?P<error_type>[A-Za-z_][\w]*)\s*:\s*(?P<message>.+)$"
 )
@@ -165,6 +167,8 @@ class ErrorHandler:
             else:
                 message = "Model not available on proxy."
             return ErrorResolution(override=message)
+        if tls_message := format_tls_error(error_text, error_type):
+            return ErrorResolution(override=tls_message, flash_message=tls_message)
         if is_proxy_unreachable_error(error_text, error_type):
             return ErrorResolution(
                 override=PROXY_UNREACHABLE_MESSAGE,

@@ -14,6 +14,7 @@ import secrets
 import typing as t
 from datetime import UTC, datetime
 
+import httpx
 from loguru import logger
 from rich.text import Text
 from textual import events, on, work
@@ -61,6 +62,8 @@ _PAUSE_REASONS: dict[str, str] = {
 }
 
 _STATE_ORDER = {"running": 0, "paused": 1, "idle": 2}
+_START_RECOVERY_TIMEOUT_SECONDS = 180.0
+_START_RECOVERY_POLL_INTERVAL_SECONDS = 2.0
 
 
 def _fmt_duration(seconds: int) -> str:
@@ -588,6 +591,11 @@ class RuntimeScreen(DreadnodeScreen):
     # ── Rendering ────────────────────────────────────────────────────────
 
     def _render_current_view(self) -> None:
+        # Workers (runtime-action, data loads) and the refresh interval re-render
+        # via this path. If the screen has unmounted while a worker was awaiting,
+        # query_one would crash with NoMatches — bail out before touching the DOM.
+        if not self.is_mounted:
+            return
         self._render_header()
         if self._view == "logs":
             self._render_logs_view()
@@ -1151,17 +1159,12 @@ class RuntimeScreen(DreadnodeScreen):
             self._clear_pending_action(runtime_id)
         self._load_data()
 
-    def _cache_start_result(self, runtime_id: str, result: dict[str, t.Any]) -> bool:
-        """Cache connection info from a start_runtime response. Returns True if cached.
+    def _cache_runtime_credentials(self, runtime_id: str, result: dict[str, t.Any]) -> bool:
+        """Cache token-bearing runtime connection info. Returns True if cached.
 
         The server only returns ``sandbox_token`` on the request that actually
-        provisions the sandbox. Subsequent /start calls for a still-live
-        sandbox return ``sandbox_token=None`` (the plaintext token is never
-        persisted). We must NOT overwrite the cache in that case — doing so
-        blows away a valid token from our original successful start and
-        leaves us unable to reconnect. If no token is returned, leave the
-        cache alone; ``_do_connect`` handles staleness separately by
-        comparing ``provider_sandbox_id``.
+        provisions or reconnects the sandbox. A tokenless response must not
+        overwrite a usable cached credential.
         """
         from dreadnode.app.tui.runtime_cache import RuntimeTokenCache
 
@@ -1171,7 +1174,7 @@ class RuntimeScreen(DreadnodeScreen):
         provider_sandbox_id = instance.get("provider_sandbox_id")
 
         logger.info(
-            "start_runtime response for {}: token={}, url={}, provider_id={}",
+            "Runtime credential response for {}: token={}, url={}, provider_id={}",
             runtime_id[:8],
             "present" if sandbox_token else "null",
             sandbox_url or "null",
@@ -1188,6 +1191,96 @@ class RuntimeScreen(DreadnodeScreen):
             provider_sandbox_id=provider_sandbox_id,
         )
         return True
+
+    def _get_usable_runtime_credentials(
+        self,
+        runtime_id: str,
+        runtime: dict[str, t.Any],
+    ) -> dict[str, t.Any] | None:
+        from dreadnode.app.tui.runtime_cache import RuntimeTokenCache
+
+        cache = RuntimeTokenCache()
+        cached = cache.get(runtime_id)
+        if cached is None:
+            return None
+
+        instance = runtime.get("instance") or {}
+        current_provider_id = instance.get("provider_sandbox_id")
+        if (
+            not cached.get("sandbox_url")
+            or not cached.get("token")
+            or not cached.get("provider_sandbox_id")
+            or (current_provider_id and cached.get("provider_sandbox_id") != current_provider_id)
+        ):
+            cache.remove(runtime_id)
+            logger.info("Evicted unusable token for {}", runtime_id[:8])
+            return None
+        return cached
+
+    async def _ensure_runtime_credentials(
+        self,
+        runtime_id: str,
+        runtime: dict[str, t.Any],
+    ) -> bool:
+        if self._cache_runtime_credentials(runtime_id, runtime):
+            return True
+        if self._get_usable_runtime_credentials(runtime_id, runtime) is not None:
+            return True
+
+        instance = runtime.get("instance") or {}
+        state = instance.get("state") or runtime.get("status")
+        if state != "running":
+            return False
+
+        result = await asyncio.to_thread(
+            self._api.reconnect_runtime,
+            self._org,
+            self._workspace,
+            runtime_id,
+        )
+        return self._cache_runtime_credentials(runtime_id, result)
+
+    async def _recover_timed_out_start(
+        self,
+        runtime_id: str,
+    ) -> dict[str, t.Any] | None:
+        loop = asyncio.get_running_loop()
+        deadline = loop.time() + _START_RECOVERY_TIMEOUT_SECONDS
+        latest: dict[str, t.Any] | None = None
+
+        while True:
+            try:
+                latest = await asyncio.to_thread(
+                    self._api.get_runtime,
+                    self._org,
+                    self._workspace,
+                    runtime_id,
+                )
+            except Exception as exc:
+                logger.debug("Runtime status poll failed for {}: {}", runtime_id[:8], exc)
+            else:
+                instance = latest.get("instance") or {}
+                state = instance.get("state") or latest.get("status")
+                if state == "running":
+                    return latest
+
+            remaining = deadline - loop.time()
+            if remaining <= 0:
+                break
+            await asyncio.sleep(min(_START_RECOVERY_POLL_INTERVAL_SECONDS, remaining))
+
+        if latest is not None:
+            instance = latest.get("instance") or {}
+            state = instance.get("state") or latest.get("status")
+            if state in {"idle", "failed"}:
+                return await asyncio.to_thread(
+                    self._api.start_runtime,
+                    self._org,
+                    self._workspace,
+                    runtime_id,
+                    **self._requested_runtime_limit_kwargs(),
+                )
+        return None
 
     @work(exclusive=True, group="runtime-action")
     async def _do_create(self, new_key: str) -> None:
@@ -1240,14 +1333,34 @@ class RuntimeScreen(DreadnodeScreen):
     async def _do_start(self, runtime_id: str) -> None:
         self.notify(f"Starting {runtime_id[:8]}…", title="Runtimes", severity="information")
         try:
-            result = await asyncio.to_thread(
-                self._api.start_runtime,
-                self._org,
-                self._workspace,
-                runtime_id,
-                **self._requested_runtime_limit_kwargs(),
-            )
-            if self._cache_start_result(runtime_id, result):
+            try:
+                result = await asyncio.to_thread(
+                    self._api.start_runtime,
+                    self._org,
+                    self._workspace,
+                    runtime_id,
+                    **self._requested_runtime_limit_kwargs(),
+                )
+            except Exception as exc:
+                if not isinstance(exc, httpx.TimeoutException) and not str(exc).startswith("524:"):
+                    raise
+                logger.warning(
+                    "Start response was lost for {}; polling runtime status", runtime_id[:8]
+                )
+                self.notify(
+                    f"Start response timed out for {runtime_id[:8]} — waiting for runtime…",
+                    title="Runtimes",
+                    severity="warning",
+                )
+                result = await self._recover_timed_out_start(runtime_id)
+
+            if result is None:
+                self.notify(
+                    "Runtime did not become ready — try again",
+                    title="Runtimes",
+                    severity="error",
+                )
+            elif await self._ensure_runtime_credentials(runtime_id, result):
                 self.notify(f"Started {runtime_id[:8]}", title="Runtimes", severity="information")
             elif not (result.get("instance") or {}).get("sandbox_url"):
                 self.notify(
@@ -1276,41 +1389,20 @@ class RuntimeScreen(DreadnodeScreen):
 
         self.notify(f"Connecting to {runtime_id[:8]}…", title="Runtimes", severity="information")
 
-        from dreadnode.app.tui.runtime_cache import RuntimeTokenCache
+        cached = self._get_usable_runtime_credentials(runtime_id, runtime)
 
-        cache = RuntimeTokenCache()
-        cached = cache.get(runtime_id)
-
-        # Validate provider_sandbox_id hasn't changed (sandbox reprovisioned)
-        if cached is not None:
-            instance = runtime.get("instance") or {}
-            current_provider_id = instance.get("provider_sandbox_id")
-            if current_provider_id and cached.get("provider_sandbox_id") != current_provider_id:
-                cache.remove(runtime_id)
-                cached = None
-                logger.info("Evicted stale token for {} (sandbox reprovisioned)", runtime_id[:8])
-
-        # No cached token — try calling start_runtime to obtain one
         if cached is None:
-            logger.info("No cached token for {}, attempting start_runtime", runtime_id[:8])
             self.notify(
                 f"Obtaining token for {runtime_id[:8]}…",
                 title="Runtimes",
                 severity="information",
             )
             try:
-                result = await asyncio.to_thread(
-                    self._api.start_runtime,
-                    self._org,
-                    self._workspace,
-                    runtime_id,
-                    **self._requested_runtime_limit_kwargs(),
-                )
-                self._cache_start_result(runtime_id, result)
-                cached = cache.get(runtime_id)
+                await self._ensure_runtime_credentials(runtime_id, runtime)
+                cached = self._get_usable_runtime_credentials(runtime_id, runtime)
             except Exception as exc:
                 logger.warning(
-                    "start_runtime failed during connect for {}: {}", runtime_id[:8], exc
+                    "Credential recovery failed during connect for {}: {}", runtime_id[:8], exc
                 )
 
         if cached is None:

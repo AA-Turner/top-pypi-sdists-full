@@ -38,6 +38,8 @@ class SocketConnectBlockedError(RuntimeError):
         *_args: Any,
         **_kwargs: Any,
     ) -> None:
+        self._allowed = allowed
+        self._host = host
         allowed_str = ",".join(allowed)
         msg = (
             "A test tried to use socket.socket.connect() "
@@ -46,31 +48,34 @@ class SocketConnectBlockedError(RuntimeError):
         warnings.warn(msg, stacklevel=2)
         super().__init__(msg)
 
+    def __reduce__(self) -> tuple[Any, tuple[Any, ...]]:
+        # Reconstruct from the original constructor args so the exception
+        # survives pickling by multiprocessing test runners (e.g. pytest-xdist,
+        # Django's `--parallel`). The default `BaseException.__reduce__` would
+        # replay `self.args` (the formatted message) and miss `host`.
+        return (self.__class__, (self._allowed, self._host))
+
 
 def pytest_addoption(parser: pytest.Parser) -> None:
     group = parser.getgroup("socket")
     group.addoption(
         "--disable-socket",
         action="store_true",
-        dest="disable_socket",
         help="Disable socket.socket by default to block network calls.",
     )
     group.addoption(
         "--force-enable-socket",
         action="store_true",
-        dest="force_enable_socket",
         help="Force enable socket.socket network calls (override --disable-socket).",
     )
     group.addoption(
         "--allow-hosts",
-        dest="allow_hosts",
         metavar="ALLOWED_HOSTS_CSV",
         help="Only allow specified hosts through socket.socket.connect((host, port)).",
     )
     group.addoption(
         "--allow-unix-socket",
         action="store_true",
-        dest="allow_unix_socket",
         help="Allow calls if they are to Unix domain sockets",
     )
 
@@ -353,6 +358,10 @@ def socket_allow_hosts(
             if any(ip in net for net in networks):
                 return _true_connect(inst, *args)
 
+        # Close the real socket before raising. The blocking error is a
+        # RuntimeError, which bypasses callers' `except OSError` cleanup
+        # (e.g. socket.create_connection), so the fd would otherwise leak.
+        inst.close()
         raise SocketConnectBlockedError(allowed_list, host)
 
     socket.socket.connect = guarded_connect  # type: ignore[assignment,method-assign]

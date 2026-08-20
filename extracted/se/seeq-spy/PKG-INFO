@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: seeq_spy
-Version: 202.6
+Version: 202.7
 Summary: Easy-to-use Python interface for Seeq
 Author-email: Seeq Corporation <support@seeq.com>
 License: Seeq Python Library – License File
@@ -496,7 +496,7 @@ The SPy module is the best choice if you're trying to do any of the following:
 
 - Search for signals, conditions, scalars, assets
 - Pull data out of Seeq
-- Import data in a programmatic way (when Seeq Workbench's *CSV Import* capability won't cut it)
+- Import data in a programmatic way (when Seeq Workbench's _CSV Import_ capability won't cut it)
 - Calculate new data in Python and push it into Seeq
 - Create an asset model
 - Programmatically create and manipulate Workbench Analyses or Organizer Topics
@@ -512,7 +512,7 @@ from seeq import spy
 spy.docs.copy()
 ```
 
-Your Jupyter folder will now contain a `SPy Documentation` folder that has a *Tutorial* and *Command Reference*
+Your Jupyter folder will now contain a `SPy Documentation` folder that has a _Tutorial_ and _Command Reference_
 notebook that will walk you through common activities.
 
 For more advanced tasks, you may need to use the `seeq.sdk` module directly as described at
@@ -523,7 +523,7 @@ For more advanced tasks, you may need to use the `seeq.sdk` module directly as d
 The `seeq-spy` module can/should be upgraded separately from the main `seeq` module by doing `pip install -U
 seeq-spy`. It is written to be compatible with Seeq Server version R60 and later.
 
-Read the [Installation](https://python-docs.seeq.com/upgrade-considerations.html) page in the SPy documentation 
+Read the [Installation](https://python-docs.seeq.com/upgrade-considerations.html) page in the SPy documentation
 for further instructions on how to install and upgrade the `seeq-spy` module.
-Check the [Change Log](https://python-docs.seeq.com/changelog.html) and 
+Check the [Change Log](https://python-docs.seeq.com/changelog.html) and
 [Version Considerations](https://python-docs.seeq.com/user_guide/Version%20Considerations.html) pages for more details.

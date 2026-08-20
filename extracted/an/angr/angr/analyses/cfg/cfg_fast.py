@@ -645,8 +645,8 @@ class CFGFast(ForwardAnalysis[CFGNode, CFGNode, CFGJob, int, object], CFGBase): 
         eh_frame=True,
         exceptions=True,
         skip_unmapped_addrs=True,
-        nodecode_window_size=512,
-        nodecode_threshold=0.3,
+        nodecode_window_size=2048,
+        nodecode_threshold=0.6,
         nodecode_step=16483,
         check_funcret_max_job=500,
         indirect_calls_always_return: bool | None = None,
@@ -1595,7 +1595,7 @@ class CFGFast(ForwardAnalysis[CFGNode, CFGNode, CFGJob, int, object], CFGBase): 
         return self._seg_list.sort_ratio_backwards(cutoff_addr - 1, window_size, "nodecode")
 
     def _next_code_addr_smart(self) -> int | None:
-        # in the smart scanning mode, if there are more than N consecutive no-decode cases, we skip an entire window of
+        # in the smart scanning mode, if the consecutive no-decode bytes exceed a threshold, we skip an entire window of
         # bytes.
         nodecode_bytes_ratio = (
             0.0 if self._next_addr is None else self._nodecode_bytes_ratio(self._next_addr, self._nodecode_window_size)
@@ -4721,6 +4721,12 @@ class CFGFast(ForwardAnalysis[CFGNode, CFGNode, CFGJob, int, object], CFGBase): 
                         nodes_to_remove.append(func_addr)
                         continue
 
+            if func_addr in self._function_addresses_from_symbols:
+                # the file's own symbol table names a function here, so this is not something the linear scan
+                # invented out of data. an instruction set the lifter does not implement looks exactly like data
+                # from here, and the tests below cannot tell the two apart.
+                continue
+
             if not (
                 self.kb.functions.is_func_nonreturning(func_addr)
                 or self.kb.functions.is_func_returning_unknown(func_addr)
@@ -5864,6 +5870,16 @@ class CFGFast(ForwardAnalysis[CFGNode, CFGNode, CFGJob, int, object], CFGBase): 
                     pyvex.const.U32(next_func_addr) if self.project.arch.bits == 32 else pyvex.const.U64(next_func_addr)
                 )
                 irsb_string = irsb_string[: irsb.size]
+
+            if (
+                cfg_job.job_type == CFGJobType.COMPLETE_SCANNING
+                and addr == current_function_addr
+                and irsb.jumpkind == "Ijk_NoDecode"
+            ):
+                # linear sweep decided that this block is undecodable. because drop_bad_functions() will remove this
+                # function anyway, we bail out early and mark the whole block as nodecode for performance.
+                self._seg_list.occupy(real_addr, max(irsb.size, 1), "nodecode")
+                return None, None, None, None
 
             # Occupy the block in segment list
             if irsb is not None and irsb.size > 0:

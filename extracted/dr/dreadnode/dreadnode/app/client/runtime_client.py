@@ -419,7 +419,7 @@ class RuntimeClient:
             "updated_at", "last_message_at", "created_at", "message_count"
         ] = "updated_at",
         sort_dir: t.Literal["asc", "desc"] = "desc",
-        archived: t.Literal["active", "archived", "any"] = "active",
+        archived: t.Literal["active", "inactive", "archived", "any"] = "active",
         label: list[str] | None = None,
         user_id: str | None = None,
         project_id: list[str] | None = None,
@@ -484,7 +484,7 @@ class RuntimeClient:
     async def browse_session_facets(
         self,
         *,
-        archived: t.Literal["active", "archived", "any"] = "active",
+        archived: t.Literal["active", "inactive", "archived", "any"] = "active",
         label: list[str] | None = None,
         user_id: str | None = None,
         project_id: list[str] | None = None,

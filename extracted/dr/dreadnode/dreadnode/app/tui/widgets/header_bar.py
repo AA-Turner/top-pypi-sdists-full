@@ -53,6 +53,7 @@ class HeaderBar(Static):
 
         # Session label
         t.append("  \u2502  ", style=FG_FAINTEST)
-        t.append(self.session_label, style=FG_SUBTLE)
+        label_style = "#5f9ea0" if self.session_label.startswith("[guard") else FG_SUBTLE
+        t.append(self.session_label, style=label_style)
 
         return t

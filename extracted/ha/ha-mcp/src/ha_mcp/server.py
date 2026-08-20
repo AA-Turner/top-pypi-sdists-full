@@ -227,6 +227,13 @@ class HomeAssistantSmartMCPServer:
         # the skill guide tool are registered so it can wrap everything)
         self._apply_tool_search()
 
+        # Keep the pre-rename tool names callable for clients that still hold
+        # an older catalog. First in the chain, so everything after it sees the
+        # current name it is keyed on.
+        from .tools.renamed_tool_middleware import RenamedToolAliasMiddleware
+
+        self.mcp.add_middleware(RenamedToolAliasMiddleware())
+
         # Convert Pydantic type-validation errors to structured ToolErrors so
         # models get actionable guidance instead of raw Pydantic messages.
         from .tools.validation_middleware import ValidationErrorMiddleware
@@ -603,14 +610,15 @@ class HomeAssistantSmartMCPServer:
             "conditions actions get show detail"
         ),
         # s09: "create helper" → ha_config_set_helper should outrank remove_helper
-        # Covers all 27 helper types (12 simple + 15 flow-based, unified in #967).
+        # Covers all 29 helper types (12 simple + 17 flow-based, unified in #967).
         "ha_config_set_helper": (
             "create update new add helper "
             "input_boolean input_button input_number input_text input_datetime "
             "input_select counter timer schedule zone person tag "
             "template group utility_meter derivative min_max threshold "
             "integration statistics trend random filter tod "
-            "generic_thermostat switch_as_x generic_hygrostat"
+            "generic_thermostat switch_as_x generic_hygrostat "
+            "history_stats mold_indicator"
         ),
         # Boost tools that compete with ha_search for common queries
         "ha_config_get_script": (
@@ -639,8 +647,8 @@ class HomeAssistantSmartMCPServer:
             "binary_sensor command_line rest mqtt knx platform yaml-only "
             "config file modify add remove replace"
         ),
-        "ha_manage_addon": (
-            "manage addon add-on configure settings options port network boot "
+        "ha_manage_app": (
+            "manage app apps addon add-on configure settings options port network boot "
             "watchdog auto_update supervisor ingress proxy websocket api rest "
             "esphome nodered node-red frigate mosquitto mqtt zigbee2mqtt zigbee "
             "z-wave zwave appdaemon hacs studio code server file editor terminal "

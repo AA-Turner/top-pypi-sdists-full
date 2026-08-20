@@ -267,6 +267,33 @@ cluster.add_nodegroup_capacity("specialized-workload",
    * EKS will handle scaling and management of the node pools
 3. Auto Mode requires specific IAM permissions. The construct will automatically attach the required managed policies.
 
+### Provisioned Control Plane
+
+Amazon EKS Provisioned Control Plane allows you to select a scaling tier to ensure high and predictable performance for demanding workloads such as AI training/inference, high-performance computing, or large-scale data processing.
+
+The scaling tier is configured through the `controlPlaneScalingTier` property using the `ControlPlaneScalingTier` enum-like class.
+
+```python
+cluster = eks.Cluster(self, "HighPerformanceCluster",
+    version=eks.KubernetesVersion.V1_36,
+    control_plane_scaling_tier=eks.ControlPlaneScalingTier.TIER_XL
+)
+```
+
+Available scaling tiers:
+
+* `STANDARD` - Standard control plane (default, no additional cost)
+* `TIER_XL` - Extra-large provisioned tier
+* `TIER_2XL` - 2x extra-large provisioned tier
+* `TIER_4XL` - 4x extra-large provisioned tier
+* `TIER_8XL` - 8x extra-large provisioned tier
+
+For a tier that is not yet available as a named member, use the `ControlPlaneScalingTier.of(...)` escape hatch, for example `eks.ControlPlaneScalingTier.of('tier-16xl')`.
+
+If `controlPlaneScalingTier` is omitted, the EKS service applies its default (`standard`) control plane.
+
+> For more details visit [Amazon EKS Provisioned Control Plane](https://docs.aws.amazon.com/eks/latest/userguide/eks-provisioned-control-plane.html).
+
 ### Managed node groups
 
 Amazon EKS managed node groups automate the provisioning and lifecycle management of nodes (Amazon EC2 instances) for Amazon EKS Kubernetes clusters.
@@ -4591,6 +4618,7 @@ class ClusterAttributes:
         "alb_controller": "albController",
         "cluster_logging": "clusterLogging",
         "cluster_name": "clusterName",
+        "control_plane_scaling_tier": "controlPlaneScalingTier",
         "core_dns_compute_type": "coreDnsComputeType",
         "endpoint_access": "endpointAccess",
         "ip_family": "ipFamily",
@@ -4617,6 +4645,7 @@ class ClusterCommonOptions:
         alb_controller: typing.Optional[typing.Union["AlbControllerOptions", typing.Dict[builtins.str, typing.Any]]] = None,
         cluster_logging: typing.Optional[typing.Sequence["ClusterLoggingTypes"]] = None,
         cluster_name: typing.Optional[builtins.str] = None,
+        control_plane_scaling_tier: typing.Optional["ControlPlaneScalingTier"] = None,
         core_dns_compute_type: typing.Optional["CoreDnsComputeType"] = None,
         endpoint_access: typing.Optional["EndpointAccess"] = None,
         ip_family: typing.Optional["IpFamily"] = None,
@@ -4640,6 +4669,7 @@ class ClusterCommonOptions:
         :param alb_controller: Install the AWS Load Balancer Controller onto the cluster. Default: - The controller is not installed.
         :param cluster_logging: The cluster log types which you want to enable. Default: - none
         :param cluster_name: Name for the cluster. Default: - Automatically generated name
+        :param control_plane_scaling_tier: The scaling tier for the cluster's provisioned control plane. Provisioned Control Plane allows you to select a scaling tier to ensure high and predictable performance for demanding workloads such as AI training/inference, high-performance computing, or large-scale data processing. Default: - Standard control plane (no provisioned tier)
         :param core_dns_compute_type: Controls the "eks.amazonaws.com/compute-type" annotation in the CoreDNS configuration on your cluster to determine which compute type to use for CoreDNS. Default: CoreDnsComputeType.EC2 (for ``FargateCluster`` the default is FARGATE)
         :param endpoint_access: Configure access to the Kubernetes API server endpoint.. Default: EndpointAccess.PUBLIC_AND_PRIVATE
         :param ip_family: Specify which IP family is used to assign Kubernetes pod and service IP addresses. Default: IpFamily.IP_V4
@@ -4672,6 +4702,7 @@ class ClusterCommonOptions:
             
             # additional_helm_chart_values: Any
             # alb_controller_version: eks_v2.AlbControllerVersion
+            # control_plane_scaling_tier: eks_v2.ControlPlaneScalingTier
             # endpoint_access: eks_v2.EndpointAccess
             # key_ref: interfaces_kms.IKeyRef
             # kubernetes_version: eks_v2.KubernetesVersion
@@ -4702,6 +4733,7 @@ class ClusterCommonOptions:
                 ),
                 cluster_logging=[eks_v2.ClusterLoggingTypes.API],
                 cluster_name="clusterName",
+                control_plane_scaling_tier=control_plane_scaling_tier,
                 core_dns_compute_type=eks_v2.CoreDnsComputeType.EC2,
                 endpoint_access=endpoint_access,
                 ip_family=eks_v2.IpFamily.IP_V4,
@@ -4757,6 +4789,7 @@ class ClusterCommonOptions:
             check_type(argname="argument alb_controller", value=alb_controller, expected_type=type_hints["alb_controller"])
             check_type(argname="argument cluster_logging", value=cluster_logging, expected_type=type_hints["cluster_logging"])
             check_type(argname="argument cluster_name", value=cluster_name, expected_type=type_hints["cluster_name"])
+            check_type(argname="argument control_plane_scaling_tier", value=control_plane_scaling_tier, expected_type=type_hints["control_plane_scaling_tier"])
             check_type(argname="argument core_dns_compute_type", value=core_dns_compute_type, expected_type=type_hints["core_dns_compute_type"])
             check_type(argname="argument endpoint_access", value=endpoint_access, expected_type=type_hints["endpoint_access"])
             check_type(argname="argument ip_family", value=ip_family, expected_type=type_hints["ip_family"])
@@ -4782,6 +4815,8 @@ class ClusterCommonOptions:
             self._values["cluster_logging"] = cluster_logging
         if cluster_name is not None:
             self._values["cluster_name"] = cluster_name
+        if control_plane_scaling_tier is not None:
+            self._values["control_plane_scaling_tier"] = control_plane_scaling_tier
         if core_dns_compute_type is not None:
             self._values["core_dns_compute_type"] = core_dns_compute_type
         if endpoint_access is not None:
@@ -4850,6 +4885,21 @@ class ClusterCommonOptions:
         '''
         result = self._values.get("cluster_name")
         return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def control_plane_scaling_tier(self) -> typing.Optional["ControlPlaneScalingTier"]:
+        '''The scaling tier for the cluster's provisioned control plane.
+
+        Provisioned Control Plane allows you to select a scaling tier to ensure
+        high and predictable performance for demanding workloads such as
+        AI training/inference, high-performance computing, or large-scale data processing.
+
+        :default: - Standard control plane (no provisioned tier)
+
+        :see: https://docs.aws.amazon.com/eks/latest/userguide/eks-provisioned-control-plane.html
+        '''
+        result = self._values.get("control_plane_scaling_tier")
+        return typing.cast(typing.Optional["ControlPlaneScalingTier"], result)
 
     @builtins.property
     def core_dns_compute_type(self) -> typing.Optional["CoreDnsComputeType"]:
@@ -5079,6 +5129,7 @@ class ClusterLoggingTypes(enum.Enum):
         "alb_controller": "albController",
         "cluster_logging": "clusterLogging",
         "cluster_name": "clusterName",
+        "control_plane_scaling_tier": "controlPlaneScalingTier",
         "core_dns_compute_type": "coreDnsComputeType",
         "endpoint_access": "endpointAccess",
         "ip_family": "ipFamily",
@@ -5112,6 +5163,7 @@ class ClusterProps(ClusterCommonOptions):
         alb_controller: typing.Optional[typing.Union["AlbControllerOptions", typing.Dict[builtins.str, typing.Any]]] = None,
         cluster_logging: typing.Optional[typing.Sequence["ClusterLoggingTypes"]] = None,
         cluster_name: typing.Optional[builtins.str] = None,
+        control_plane_scaling_tier: typing.Optional["ControlPlaneScalingTier"] = None,
         core_dns_compute_type: typing.Optional["CoreDnsComputeType"] = None,
         endpoint_access: typing.Optional["EndpointAccess"] = None,
         ip_family: typing.Optional["IpFamily"] = None,
@@ -5142,6 +5194,7 @@ class ClusterProps(ClusterCommonOptions):
         :param alb_controller: Install the AWS Load Balancer Controller onto the cluster. Default: - The controller is not installed.
         :param cluster_logging: The cluster log types which you want to enable. Default: - none
         :param cluster_name: Name for the cluster. Default: - Automatically generated name
+        :param control_plane_scaling_tier: The scaling tier for the cluster's provisioned control plane. Provisioned Control Plane allows you to select a scaling tier to ensure high and predictable performance for demanding workloads such as AI training/inference, high-performance computing, or large-scale data processing. Default: - Standard control plane (no provisioned tier)
         :param core_dns_compute_type: Controls the "eks.amazonaws.com/compute-type" annotation in the CoreDNS configuration on your cluster to determine which compute type to use for CoreDNS. Default: CoreDnsComputeType.EC2 (for ``FargateCluster`` the default is FARGATE)
         :param endpoint_access: Configure access to the Kubernetes API server endpoint.. Default: EndpointAccess.PUBLIC_AND_PRIVATE
         :param ip_family: Specify which IP family is used to assign Kubernetes pod and service IP addresses. Default: IpFamily.IP_V4
@@ -5193,6 +5246,7 @@ class ClusterProps(ClusterCommonOptions):
             check_type(argname="argument alb_controller", value=alb_controller, expected_type=type_hints["alb_controller"])
             check_type(argname="argument cluster_logging", value=cluster_logging, expected_type=type_hints["cluster_logging"])
             check_type(argname="argument cluster_name", value=cluster_name, expected_type=type_hints["cluster_name"])
+            check_type(argname="argument control_plane_scaling_tier", value=control_plane_scaling_tier, expected_type=type_hints["control_plane_scaling_tier"])
             check_type(argname="argument core_dns_compute_type", value=core_dns_compute_type, expected_type=type_hints["core_dns_compute_type"])
             check_type(argname="argument endpoint_access", value=endpoint_access, expected_type=type_hints["endpoint_access"])
             check_type(argname="argument ip_family", value=ip_family, expected_type=type_hints["ip_family"])
@@ -5225,6 +5279,8 @@ class ClusterProps(ClusterCommonOptions):
             self._values["cluster_logging"] = cluster_logging
         if cluster_name is not None:
             self._values["cluster_name"] = cluster_name
+        if control_plane_scaling_tier is not None:
+            self._values["control_plane_scaling_tier"] = control_plane_scaling_tier
         if core_dns_compute_type is not None:
             self._values["core_dns_compute_type"] = core_dns_compute_type
         if endpoint_access is not None:
@@ -5307,6 +5363,21 @@ class ClusterProps(ClusterCommonOptions):
         '''
         result = self._values.get("cluster_name")
         return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def control_plane_scaling_tier(self) -> typing.Optional["ControlPlaneScalingTier"]:
+        '''The scaling tier for the cluster's provisioned control plane.
+
+        Provisioned Control Plane allows you to select a scaling tier to ensure
+        high and predictable performance for demanding workloads such as
+        AI training/inference, high-performance computing, or large-scale data processing.
+
+        :default: - Standard control plane (no provisioned tier)
+
+        :see: https://docs.aws.amazon.com/eks/latest/userguide/eks-provisioned-control-plane.html
+        '''
+        result = self._values.get("control_plane_scaling_tier")
+        return typing.cast(typing.Optional["ControlPlaneScalingTier"], result)
 
     @builtins.property
     def core_dns_compute_type(self) -> typing.Optional["CoreDnsComputeType"]:
@@ -5666,6 +5737,79 @@ class ComputeConfig:
         )
 
 
+class ControlPlaneScalingTier(
+    metaclass=jsii.JSIIMeta,
+    jsii_type="aws-cdk-lib.aws_eks_v2.ControlPlaneScalingTier",
+):
+    '''The scaling tier for the EKS cluster provisioned control plane.
+
+    Amazon EKS Provisioned Control Plane lets you select a scaling tier to ensure high and
+    predictable control plane performance for demanding workloads such as AI training/inference,
+    high-performance computing, or large-scale data processing.
+
+    :see: https://docs.aws.amazon.com/eks/latest/userguide/eks-provisioned-control-plane.html
+    :exampleMetadata: infused
+
+    Example::
+
+        cluster = eks.Cluster(self, "HighPerformanceCluster",
+            version=eks.KubernetesVersion.V1_36,
+            control_plane_scaling_tier=eks.ControlPlaneScalingTier.TIER_XL
+        )
+    '''
+
+    @jsii.member(jsii_name="of")
+    @builtins.classmethod
+    def of(cls, tier: builtins.str) -> "ControlPlaneScalingTier":
+        '''A custom scaling tier, for values not yet available as a static member.
+
+        :param tier: the scaling tier value as expected by the EKS API (for example ``tier-16xl``).
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__0ab47fa6a5f52e9c53c95c710b319ba62fe98c9aa868eb857d5b3703ac9eaf75)
+            check_type(argname="argument tier", value=tier, expected_type=type_hints["tier"])
+        return typing.cast("ControlPlaneScalingTier", jsii.sinvoke(cls, "of", [tier]))
+
+    @jsii.python.classproperty
+    @jsii.member(jsii_name="STANDARD")
+    def STANDARD(cls) -> "ControlPlaneScalingTier":
+        '''Standard control plane.
+
+        This is the EKS service default and incurs no additional cost.
+        '''
+        return typing.cast("ControlPlaneScalingTier", jsii.sget(cls, "STANDARD"))
+
+    @jsii.python.classproperty
+    @jsii.member(jsii_name="TIER_2XL")
+    def TIER_2_XL(cls) -> "ControlPlaneScalingTier":
+        '''2x extra-large provisioned control plane tier.'''
+        return typing.cast("ControlPlaneScalingTier", jsii.sget(cls, "TIER_2XL"))
+
+    @jsii.python.classproperty
+    @jsii.member(jsii_name="TIER_4XL")
+    def TIER_4_XL(cls) -> "ControlPlaneScalingTier":
+        '''4x extra-large provisioned control plane tier.'''
+        return typing.cast("ControlPlaneScalingTier", jsii.sget(cls, "TIER_4XL"))
+
+    @jsii.python.classproperty
+    @jsii.member(jsii_name="TIER_8XL")
+    def TIER_8_XL(cls) -> "ControlPlaneScalingTier":
+        '''8x extra-large provisioned control plane tier.'''
+        return typing.cast("ControlPlaneScalingTier", jsii.sget(cls, "TIER_8XL"))
+
+    @jsii.python.classproperty
+    @jsii.member(jsii_name="TIER_XL")
+    def TIER_XL(cls) -> "ControlPlaneScalingTier":
+        '''Extra-large provisioned control plane tier.'''
+        return typing.cast("ControlPlaneScalingTier", jsii.sget(cls, "TIER_XL"))
+
+    @builtins.property
+    @jsii.member(jsii_name="value")
+    def value(self) -> builtins.str:
+        '''The string value of the scaling tier as expected by the EKS API.'''
+        return typing.cast(builtins.str, jsii.get(self, "value"))
+
+
 @jsii.enum(jsii_type="aws-cdk-lib.aws_eks_v2.CoreDnsComputeType")
 class CoreDnsComputeType(enum.Enum):
     '''The type of compute resources to use for CoreDNS.'''
@@ -5937,6 +6081,7 @@ class EndpointAccess(
         "alb_controller": "albController",
         "cluster_logging": "clusterLogging",
         "cluster_name": "clusterName",
+        "control_plane_scaling_tier": "controlPlaneScalingTier",
         "core_dns_compute_type": "coreDnsComputeType",
         "endpoint_access": "endpointAccess",
         "ip_family": "ipFamily",
@@ -5964,6 +6109,7 @@ class FargateClusterProps(ClusterCommonOptions):
         alb_controller: typing.Optional[typing.Union["AlbControllerOptions", typing.Dict[builtins.str, typing.Any]]] = None,
         cluster_logging: typing.Optional[typing.Sequence["ClusterLoggingTypes"]] = None,
         cluster_name: typing.Optional[builtins.str] = None,
+        control_plane_scaling_tier: typing.Optional["ControlPlaneScalingTier"] = None,
         core_dns_compute_type: typing.Optional["CoreDnsComputeType"] = None,
         endpoint_access: typing.Optional["EndpointAccess"] = None,
         ip_family: typing.Optional["IpFamily"] = None,
@@ -5988,6 +6134,7 @@ class FargateClusterProps(ClusterCommonOptions):
         :param alb_controller: Install the AWS Load Balancer Controller onto the cluster. Default: - The controller is not installed.
         :param cluster_logging: The cluster log types which you want to enable. Default: - none
         :param cluster_name: Name for the cluster. Default: - Automatically generated name
+        :param control_plane_scaling_tier: The scaling tier for the cluster's provisioned control plane. Provisioned Control Plane allows you to select a scaling tier to ensure high and predictable performance for demanding workloads such as AI training/inference, high-performance computing, or large-scale data processing. Default: - Standard control plane (no provisioned tier)
         :param core_dns_compute_type: Controls the "eks.amazonaws.com/compute-type" annotation in the CoreDNS configuration on your cluster to determine which compute type to use for CoreDNS. Default: CoreDnsComputeType.EC2 (for ``FargateCluster`` the default is FARGATE)
         :param endpoint_access: Configure access to the Kubernetes API server endpoint.. Default: EndpointAccess.PUBLIC_AND_PRIVATE
         :param ip_family: Specify which IP family is used to assign Kubernetes pod and service IP addresses. Default: IpFamily.IP_V4
@@ -6026,6 +6173,7 @@ class FargateClusterProps(ClusterCommonOptions):
             check_type(argname="argument alb_controller", value=alb_controller, expected_type=type_hints["alb_controller"])
             check_type(argname="argument cluster_logging", value=cluster_logging, expected_type=type_hints["cluster_logging"])
             check_type(argname="argument cluster_name", value=cluster_name, expected_type=type_hints["cluster_name"])
+            check_type(argname="argument control_plane_scaling_tier", value=control_plane_scaling_tier, expected_type=type_hints["control_plane_scaling_tier"])
             check_type(argname="argument core_dns_compute_type", value=core_dns_compute_type, expected_type=type_hints["core_dns_compute_type"])
             check_type(argname="argument endpoint_access", value=endpoint_access, expected_type=type_hints["endpoint_access"])
             check_type(argname="argument ip_family", value=ip_family, expected_type=type_hints["ip_family"])
@@ -6052,6 +6200,8 @@ class FargateClusterProps(ClusterCommonOptions):
             self._values["cluster_logging"] = cluster_logging
         if cluster_name is not None:
             self._values["cluster_name"] = cluster_name
+        if control_plane_scaling_tier is not None:
+            self._values["control_plane_scaling_tier"] = control_plane_scaling_tier
         if core_dns_compute_type is not None:
             self._values["core_dns_compute_type"] = core_dns_compute_type
         if endpoint_access is not None:
@@ -6122,6 +6272,21 @@ class FargateClusterProps(ClusterCommonOptions):
         '''
         result = self._values.get("cluster_name")
         return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def control_plane_scaling_tier(self) -> typing.Optional["ControlPlaneScalingTier"]:
+        '''The scaling tier for the cluster's provisioned control plane.
+
+        Provisioned Control Plane allows you to select a scaling tier to ensure
+        high and predictable performance for demanding workloads such as
+        AI training/inference, high-performance computing, or large-scale data processing.
+
+        :default: - Standard control plane (no provisioned tier)
+
+        :see: https://docs.aws.amazon.com/eks/latest/userguide/eks-provisioned-control-plane.html
+        '''
+        result = self._values.get("control_plane_scaling_tier")
+        return typing.cast(typing.Optional["ControlPlaneScalingTier"], result)
 
     @builtins.property
     def core_dns_compute_type(self) -> typing.Optional["CoreDnsComputeType"]:
@@ -13113,6 +13278,7 @@ class Cluster(
         alb_controller: typing.Optional[typing.Union["AlbControllerOptions", typing.Dict[builtins.str, typing.Any]]] = None,
         cluster_logging: typing.Optional[typing.Sequence["ClusterLoggingTypes"]] = None,
         cluster_name: typing.Optional[builtins.str] = None,
+        control_plane_scaling_tier: typing.Optional["ControlPlaneScalingTier"] = None,
         core_dns_compute_type: typing.Optional["CoreDnsComputeType"] = None,
         endpoint_access: typing.Optional["EndpointAccess"] = None,
         ip_family: typing.Optional["IpFamily"] = None,
@@ -13145,6 +13311,7 @@ class Cluster(
         :param alb_controller: Install the AWS Load Balancer Controller onto the cluster. Default: - The controller is not installed.
         :param cluster_logging: The cluster log types which you want to enable. Default: - none
         :param cluster_name: Name for the cluster. Default: - Automatically generated name
+        :param control_plane_scaling_tier: The scaling tier for the cluster's provisioned control plane. Provisioned Control Plane allows you to select a scaling tier to ensure high and predictable performance for demanding workloads such as AI training/inference, high-performance computing, or large-scale data processing. Default: - Standard control plane (no provisioned tier)
         :param core_dns_compute_type: Controls the "eks.amazonaws.com/compute-type" annotation in the CoreDNS configuration on your cluster to determine which compute type to use for CoreDNS. Default: CoreDnsComputeType.EC2 (for ``FargateCluster`` the default is FARGATE)
         :param endpoint_access: Configure access to the Kubernetes API server endpoint.. Default: EndpointAccess.PUBLIC_AND_PRIVATE
         :param ip_family: Specify which IP family is used to assign Kubernetes pod and service IP addresses. Default: IpFamily.IP_V4
@@ -13178,6 +13345,7 @@ class Cluster(
             alb_controller=alb_controller,
             cluster_logging=cluster_logging,
             cluster_name=cluster_name,
+            control_plane_scaling_tier=control_plane_scaling_tier,
             core_dns_compute_type=core_dns_compute_type,
             endpoint_access=endpoint_access,
             ip_family=ip_family,
@@ -14001,6 +14169,7 @@ class FargateCluster(
         alb_controller: typing.Optional[typing.Union["AlbControllerOptions", typing.Dict[builtins.str, typing.Any]]] = None,
         cluster_logging: typing.Optional[typing.Sequence["ClusterLoggingTypes"]] = None,
         cluster_name: typing.Optional[builtins.str] = None,
+        control_plane_scaling_tier: typing.Optional["ControlPlaneScalingTier"] = None,
         core_dns_compute_type: typing.Optional["CoreDnsComputeType"] = None,
         endpoint_access: typing.Optional["EndpointAccess"] = None,
         ip_family: typing.Optional["IpFamily"] = None,
@@ -14026,6 +14195,7 @@ class FargateCluster(
         :param alb_controller: Install the AWS Load Balancer Controller onto the cluster. Default: - The controller is not installed.
         :param cluster_logging: The cluster log types which you want to enable. Default: - none
         :param cluster_name: Name for the cluster. Default: - Automatically generated name
+        :param control_plane_scaling_tier: The scaling tier for the cluster's provisioned control plane. Provisioned Control Plane allows you to select a scaling tier to ensure high and predictable performance for demanding workloads such as AI training/inference, high-performance computing, or large-scale data processing. Default: - Standard control plane (no provisioned tier)
         :param core_dns_compute_type: Controls the "eks.amazonaws.com/compute-type" annotation in the CoreDNS configuration on your cluster to determine which compute type to use for CoreDNS. Default: CoreDnsComputeType.EC2 (for ``FargateCluster`` the default is FARGATE)
         :param endpoint_access: Configure access to the Kubernetes API server endpoint.. Default: EndpointAccess.PUBLIC_AND_PRIVATE
         :param ip_family: Specify which IP family is used to assign Kubernetes pod and service IP addresses. Default: IpFamily.IP_V4
@@ -14053,6 +14223,7 @@ class FargateCluster(
             alb_controller=alb_controller,
             cluster_logging=cluster_logging,
             cluster_name=cluster_name,
+            control_plane_scaling_tier=control_plane_scaling_tier,
             core_dns_compute_type=core_dns_compute_type,
             endpoint_access=endpoint_access,
             ip_family=ip_family,
@@ -14281,6 +14452,7 @@ __all__ = [
     "ClusterLoggingTypes",
     "ClusterProps",
     "ComputeConfig",
+    "ControlPlaneScalingTier",
     "CoreDnsComputeType",
     "CpuArch",
     "DefaultCapacityType",
@@ -14566,6 +14738,7 @@ def _typecheckingstub__a1a5ef28766020ab8c83202e5d6dffbece016846b78ba995db3af04cf
     alb_controller: typing.Optional[typing.Union[AlbControllerOptions, typing.Dict[builtins.str, typing.Any]]] = None,
     cluster_logging: typing.Optional[typing.Sequence[ClusterLoggingTypes]] = None,
     cluster_name: typing.Optional[builtins.str] = None,
+    control_plane_scaling_tier: typing.Optional[ControlPlaneScalingTier] = None,
     core_dns_compute_type: typing.Optional[CoreDnsComputeType] = None,
     endpoint_access: typing.Optional[EndpointAccess] = None,
     ip_family: typing.Optional[IpFamily] = None,
@@ -14592,6 +14765,7 @@ def _typecheckingstub__abf0bb0ee5c6865eff515f2fc338ed96f254860f01b55add3f4ea5052
     alb_controller: typing.Optional[typing.Union[AlbControllerOptions, typing.Dict[builtins.str, typing.Any]]] = None,
     cluster_logging: typing.Optional[typing.Sequence[ClusterLoggingTypes]] = None,
     cluster_name: typing.Optional[builtins.str] = None,
+    control_plane_scaling_tier: typing.Optional[ControlPlaneScalingTier] = None,
     core_dns_compute_type: typing.Optional[CoreDnsComputeType] = None,
     endpoint_access: typing.Optional[EndpointAccess] = None,
     ip_family: typing.Optional[IpFamily] = None,
@@ -14627,6 +14801,12 @@ def _typecheckingstub__3f2276433261f643c13b2562a74d200173c371ac395d946bc5b30974e
     """Type checking stubs"""
     pass
 
+def _typecheckingstub__0ab47fa6a5f52e9c53c95c710b319ba62fe98c9aa868eb857d5b3703ac9eaf75(
+    tier: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
 def _typecheckingstub__2738ba90423201fc12883e08866d0a856feb778d505f172858bfbbce5d08710c(
     scope: _constructs_77d1e7e8.Construct,
 ) -> None:
@@ -14654,6 +14834,7 @@ def _typecheckingstub__a3435de412248a83f43d99c9de5759414e7750a3260fc08dd8d1d5a7b
     alb_controller: typing.Optional[typing.Union[AlbControllerOptions, typing.Dict[builtins.str, typing.Any]]] = None,
     cluster_logging: typing.Optional[typing.Sequence[ClusterLoggingTypes]] = None,
     cluster_name: typing.Optional[builtins.str] = None,
+    control_plane_scaling_tier: typing.Optional[ControlPlaneScalingTier] = None,
     core_dns_compute_type: typing.Optional[CoreDnsComputeType] = None,
     endpoint_access: typing.Optional[EndpointAccess] = None,
     ip_family: typing.Optional[IpFamily] = None,
@@ -15341,6 +15522,7 @@ def _typecheckingstub__6792a3b69429b43c9b6b098e7633a33fb4c1fab5fd463a43797578ef0
     alb_controller: typing.Optional[typing.Union[AlbControllerOptions, typing.Dict[builtins.str, typing.Any]]] = None,
     cluster_logging: typing.Optional[typing.Sequence[ClusterLoggingTypes]] = None,
     cluster_name: typing.Optional[builtins.str] = None,
+    control_plane_scaling_tier: typing.Optional[ControlPlaneScalingTier] = None,
     core_dns_compute_type: typing.Optional[CoreDnsComputeType] = None,
     endpoint_access: typing.Optional[EndpointAccess] = None,
     ip_family: typing.Optional[IpFamily] = None,
@@ -15571,6 +15753,7 @@ def _typecheckingstub__a57d359552bec9f56bfd2ab32f38ac52a4ec61ae9a0fb389cdf4cb324
     alb_controller: typing.Optional[typing.Union[AlbControllerOptions, typing.Dict[builtins.str, typing.Any]]] = None,
     cluster_logging: typing.Optional[typing.Sequence[ClusterLoggingTypes]] = None,
     cluster_name: typing.Optional[builtins.str] = None,
+    control_plane_scaling_tier: typing.Optional[ControlPlaneScalingTier] = None,
     core_dns_compute_type: typing.Optional[CoreDnsComputeType] = None,
     endpoint_access: typing.Optional[EndpointAccess] = None,
     ip_family: typing.Optional[IpFamily] = None,

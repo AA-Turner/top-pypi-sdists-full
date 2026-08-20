@@ -173,6 +173,10 @@ class CapabilityDocsScreen(DreadnodeScreen):
         )
 
     async def _show_message(self, message: str) -> None:
+        # Workers can land here after the screen was popped — bail out rather
+        # than query (NoMatches) or mount into a removed viewer (MountError).
+        if not self.is_mounted:
+            return
         viewer = self.query_one("#cap-docs-viewer", MarkdownViewer)
         await viewer.document.update(message)
 
@@ -206,6 +210,8 @@ class CapabilityDocsScreen(DreadnodeScreen):
         push_history: bool = True,
         anchor: str | None = None,
     ) -> None:
+        if not self.is_mounted:
+            return
         normalized = _normalize_path(self._root, path)
         if normalized is None:
             await self._show_message(
@@ -242,6 +248,10 @@ class CapabilityDocsScreen(DreadnodeScreen):
             )
             return
 
+        # The document load/update awaited above — the screen may have been
+        # popped in the meantime.
+        if not self.is_mounted:
+            return
         if anchor:
             viewer.document.goto_anchor(anchor)
         self._current_path = normalized

@@ -74,6 +74,15 @@ SNOWPARK_TYPE_NAME_TO_PYSPARK_TYPE_NAME = {
 
 _MAX_DECIMAL_PRECISION = 38
 
+# Shared Snowflake SQL names for TimestampTimeZone variants. Call sites choose their
+# own DEFAULT fallback (``"TIMESTAMP"`` for session mapping vs ``"TIMESTAMP_LTZ"`` for
+# Spark's default timestamp policy) — only the explicit NTZ/LTZ/TZ entries are shared.
+TIMESTAMP_TZ_TO_SF_TYPE = {
+    TimestampTimeZone.NTZ: "TIMESTAMP_NTZ",
+    TimestampTimeZone.LTZ: "TIMESTAMP_LTZ",
+    TimestampTimeZone.TZ: "TIMESTAMP_TZ",
+}
+
 
 @cache
 def _get_struct_type_class():

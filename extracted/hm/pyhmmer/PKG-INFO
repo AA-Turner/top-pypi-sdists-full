@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: pyhmmer
-Version: 0.12.2
+Version: 0.12.3
 Summary: Cython bindings and Python interface to HMMER3.
 Keywords: bioinformatics,profile,HMM,sequence,pfam
 Author-Email: Martin Larralde <martin.larralde@embl.de>

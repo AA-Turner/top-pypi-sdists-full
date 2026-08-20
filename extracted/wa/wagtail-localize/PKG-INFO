@@ -1,6 +1,6 @@
-Metadata-Version: 2.4
+Metadata-Version: 2.5
 Name: wagtail-localize
-Version: 1.13.1
+Version: 1.14.5
 Summary: Translation plugin for Wagtail CMS
 Author-email: Karl Hobley <karl@torchbox.com>
 Maintainer-email: Dan Braghis <dan.braghis@torchbox.com>
@@ -18,28 +18,29 @@ Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
 Classifier: Programming Language :: Python :: 3.14
 Classifier: Framework :: Django
-Classifier: Framework :: Django :: 4.2
-Classifier: Framework :: Django :: 5.1
 Classifier: Framework :: Django :: 5.2
+Classifier: Framework :: Django :: 6.0
+Classifier: Framework :: Django :: 6.1
 Classifier: Framework :: Wagtail
-Classifier: Framework :: Wagtail :: 6
 Classifier: Framework :: Wagtail :: 7
+Classifier: Framework :: Wagtail :: 8
 License-File: LICENSE
-Requires-Dist: Django>=4.2
-Requires-Dist: Wagtail>=6.3
+Requires-Dist: Django>=5.2
+Requires-Dist: Wagtail>=7.0
 Requires-Dist: polib>=1.1,<2.0
 Requires-Dist: typing_extensions>=4.0
-Requires-Dist: mkdocs==1.4.3 ; extra == "documentation"
-Requires-Dist: mkdocs-material>=9.1,<10 ; extra == "documentation"
-Requires-Dist: mkdocstrings[python]==0.22.0 ; extra == "documentation"
-Requires-Dist: mkdocs-autorefs>=0.4.0,<0.5 ; extra == "documentation"
-Requires-Dist: mkdocs-include-markdown-plugin>=4.0.4,<5 ; extra == "documentation"
+Requires-Dist: mkdocs==1.5.3 ; extra == "documentation"
+Requires-Dist: mkdocs-material>=9.2,<9.3 ; extra == "documentation"
+Requires-Dist: mkdocstrings==0.28.3 ; extra == "documentation"
+Requires-Dist: mkdocstrings-python==1.16.12 ; extra == "documentation"
+Requires-Dist: mkdocs-autorefs>=1.0,<2 ; extra == "documentation"
+Requires-Dist: mkdocs-include-markdown-plugin>=7.0,<8 ; extra == "documentation"
 Requires-Dist: pygments>=2.15,<2.16 ; extra == "documentation"
 Requires-Dist: google-cloud-translate>=3.0.0 ; extra == "google"
 Requires-Dist: pre-commit>=4.2.0,<6 ; extra == "linting"
-Requires-Dist: dj-database-url>=2.1.0,<3 ; extra == "testing"
+Requires-Dist: dj-database-url>=2.1.0,<4 ; extra == "testing"
 Requires-Dist: freezegun>=1.2,<2 ; extra == "testing"
-Requires-Dist: django-rq>=2.5,<3.0 ; extra == "testing"
+Requires-Dist: django-rq>=2.5,<5 ; extra == "testing"
 Requires-Dist: google-cloud-translate>=3.0.0 ; extra == "testing"
 Requires-Dist: wagtail-modeladmin>=2.0,<3.0 ; extra == "testing"
 Requires-Dist: coverage>=7.0,<8.0 ; extra == "testing"
@@ -50,6 +51,7 @@ Provides-Extra: documentation
 Provides-Extra: google
 Provides-Extra: linting
 Provides-Extra: testing
+Import-Name: wagtail_localize
 
 # Wagtail localize
 
@@ -71,9 +73,9 @@ Wagtail Localize is a translation plugin for the [Wagtail CMS](https://wagtail.o
 Wagtail Localize requires the following:
 
 - Python (3.10, 3.11, 3.12, 3.13, 3.14)
-- Django (4.2, 5.2, 6.0)
-- Wagtail (6.3 - 7.2) with [internationalisation enabled](https://docs.wagtail.org/en/stable/advanced_topics/i18n.html#configuration)
-- [wagtail-modeladmin](https://pypi.org/project/wagtail-modeladmin/) if `using wagtail_localize.modeladmin` and Wagtail >= 6.3
+- Django (5.2, 6.0, 6.1)
+- Wagtail (7.0, 7.4 and 8.0) with [internationalisation enabled](https://docs.wagtail.org/en/stable/advanced_topics/i18n.html#configuration)
+- [wagtail-modeladmin](https://pypi.org/project/wagtail-modeladmin/) if `using wagtail_localize.modeladmin`
 
 ## Installation
 
@@ -155,7 +157,7 @@ tox
 ```
 
 or, you can run them for a specific environment `tox -e python3.13-django5.2-wagtail7.0` or specific test
-`tox -e python3.13-django5.2-wagtail7.0-sqlite -- wagtail_localize.tests.test_edit_translation.TestGetEditTranslationView`
+`tox -e python3.13-django5.2-wagtail7.0-sqlite -- tests.test_edit_translation.TestGetEditTranslationView`
 
 To run the test app interactively, use `tox -e interactive`, visit `http://127.0.0.1:8020/admin/` and log in with `admin`/`changeme`.
 

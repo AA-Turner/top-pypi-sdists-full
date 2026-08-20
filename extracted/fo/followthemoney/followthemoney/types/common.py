@@ -1,7 +1,7 @@
 from collections.abc import Callable, Sequence
 from inspect import cleandoc
 from itertools import product
-from typing import TYPE_CHECKING, Any, Optional, TypedDict
+from typing import TYPE_CHECKING, Any, TypedDict
 
 from babel.core import Locale
 from normality import stringify
@@ -102,16 +102,17 @@ class PropertyType:
         raw: Value,
         fuzzy: bool = False,
         format: str | None = None,
-        proxy: Optional["EntityProxy"] = None,
+        proxy: "EntityProxy | None" = None,
     ) -> str | None:
         """Convert a raw value into its canonical form for storage on an entity.
 
         Returns `None` if the value is empty or cannot be interpreted as this type.
         The `fuzzy` flag loosens validation for types that support it (dates,
-        identifiers). `format` supplies a type-specific hint — for example, a
-        `strptime` format string for dates. `proxy` is the entity the value is
-        being added to, which some types use for context-aware cleaning (address
-        normalization can use the entity's country, for example).
+        identifiers). `format` supplies a type-specific hint — a `strptime` format
+        string for dates, or the country a phone number is dialed in. `proxy` is
+        the entity the value is being added to, which a few types use for
+        context-aware cleaning (an entity reference cannot point at itself, for
+        example).
 
         This method converts the input to a string, drops null-equivalents, and
         then delegates to `clean_text`. Subclasses normally override `clean_text`
@@ -126,7 +127,7 @@ class PropertyType:
         text: str,
         fuzzy: bool = False,
         format: str | None = None,
-        proxy: Optional["EntityProxy"] = None,
+        proxy: "EntityProxy | None" = None,
     ) -> str | None:
         """Type-specific cleaning hook.
 
@@ -310,7 +311,7 @@ class EnumType(PropertyType):
         text: str,
         fuzzy: bool = False,
         format: str | None = None,
-        proxy: Optional["EntityProxy"] = None,
+        proxy: "EntityProxy | None" = None,
     ) -> str | None:
         """All code values are cleaned to be lowercase and trailing whitespace is
         removed."""

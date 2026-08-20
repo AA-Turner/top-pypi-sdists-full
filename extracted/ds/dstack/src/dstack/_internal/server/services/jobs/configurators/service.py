@@ -2,6 +2,7 @@ from typing import List, Optional
 
 from dstack._internal import settings
 from dstack._internal.core.models.configurations import (
+    NodeGroup,
     PortMapping,
     ReplicaGroup,
     RunConfigurationType,
@@ -9,6 +10,7 @@ from dstack._internal.core.models.configurations import (
 from dstack._internal.core.models.profiles import SpotPolicy
 from dstack._internal.core.models.unix import UnixUser
 from dstack._internal.server.services.jobs.configurators.base import (
+    DUMMY_IMAGE_NAME,
     JobConfigurator,
     get_default_image,
 )
@@ -24,7 +26,7 @@ class ServiceJobConfigurator(JobConfigurator):
                 return group
         return None
 
-    def _shell_commands(self) -> List[str]:
+    def _shell_commands(self, node_group: Optional[NodeGroup] = None) -> List[str]:
         assert self.run_spec.configuration.type == "service"
         group = self._current_replica_group()
         if group is not None:
@@ -94,6 +96,8 @@ class ServiceJobConfigurator(JobConfigurator):
         if self.run_spec.configuration.user is None:
             group = self._current_replica_group()
             if group is not None and group.image is not None:
+                if group.image == DUMMY_IMAGE_NAME:
+                    return None
                 image_config = await self._get_image_config()
                 if image_config.user is None:
                     return None
@@ -124,5 +128,5 @@ class ServiceJobConfigurator(JobConfigurator):
             return group.reservation
         return super()._reservation()
 
-    def _ports(self) -> List[PortMapping]:
+    def _ports(self, node_group: Optional[NodeGroup] = None) -> List[PortMapping]:
         return []

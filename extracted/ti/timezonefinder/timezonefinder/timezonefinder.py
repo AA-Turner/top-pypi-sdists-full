@@ -26,11 +26,12 @@ from timezonefinder.np_binary_helpers import (
     get_zone_positions_path,
     read_per_polygon_vector,
 )
-from timezonefinder.polygon_array import PolygonArray
+from timezonefinder.polygon_array import HoleArray, PolygonArray
 from timezonefinder import utils, utils_clang
 from timezonefinder.configs import (
     DEFAULT_DATA_DIR,
     SHORTCUT_H3_RES,
+    DATA_VERSION_FILENAME,
     CoordLists,
     CoordPairs,
     IntegerLike,
@@ -44,7 +45,6 @@ from timezonefinder.zone_names import read_zone_names
 
 
 class AbstractTimezoneFinder(ABC):
-    # prevent dynamic attribute assignment (-> safe memory)
     """
     Abstract base class for TimezoneFinder instances.
 
@@ -68,11 +68,12 @@ class AbstractTimezoneFinder(ABC):
         data_location: Path to the timezone data directory
     """
 
+    # prevent dynamic attribute assignment (-> safe memory). Every name here must be
+    # assigned by this class or a subclass; an unassigned one is just a hole in that
+    # guarantee, so `test_declared_slots_are_assigned` pins the list against instances.
     __slots__ = [
         "data_location",
         "shortcut_mapping",
-        "in_memory",
-        "_fromfile",
         "timezone_names",
         "zone_ids",
         "holes_dir",
@@ -83,9 +84,6 @@ class AbstractTimezoneFinder(ABC):
 
     zone_ids: np.ndarray
     shortcut_mapping: dict[int, int | np.ndarray]
-    """
-    List of attribute names that store opened binary data files.
-    """
 
     def __init__(
         self,
@@ -95,12 +93,16 @@ class AbstractTimezoneFinder(ABC):
         """
         Initialize the AbstractTimezoneFinder.
 
-        Loads timezone data from binary files, including shortcuts and polygon information.
+        Loads the zone names, the per-polygon zone ids and the shortcut index. These are
+        always held in memory; only the polygon coordinate data a subclass may load is
+        subject to ``in_memory``.
 
         :param bin_file_location: Path to the directory containing binary timezone data.
                                  If None, uses the bundled package data directory.
-        :param in_memory: Ignored for polygon coordinate data (always uses memory-mapped file access).
-                         Kept for API compatibility.
+        :param in_memory: Whether to read the polygon coordinate data into memory instead of
+                         accessing it through a memory-mapped file. Selects the access mode of
+                         ``TimezoneFinder``'s boundary and hole data; ``TimezoneFinderL`` loads
+                         no polygon data at all, so it is without effect there.
         :raises FileNotFoundError: If timezone data files cannot be found at the specified location
         :raises ValueError: If timezone data files are corrupted or in an invalid format
         """
@@ -110,16 +112,15 @@ class AbstractTimezoneFinder(ABC):
 
         self.timezone_names = read_zone_names(self.data_location)
 
-        # Load hybrid shortcut file - contains both zone IDs (for unique zones) and polygon arrays (for ambiguous zones)
-        zone_ids_path = get_zone_ids_path(self.data_location)
-        zone_ids_temp = read_per_polygon_vector(zone_ids_path)
-        zone_id_dtype = zone_ids_temp.dtype
+        self.zone_ids = read_per_polygon_vector(get_zone_ids_path(self.data_location))
 
-        path2shortcut = get_hybrid_shortcut_file_path(zone_id_dtype, self.data_location)
+        # The zone id width picks the shortcut schema: the hybrid shortcut file stores
+        # unique zone ids inline (and polygon arrays for ambiguous cells), so it is
+        # written per width and both files have to agree on it.
+        path2shortcut = get_hybrid_shortcut_file_path(
+            self.zone_ids.dtype, self.data_location
+        )
         self.shortcut_mapping = read_hybrid_shortcuts_binary(path2shortcut)
-
-        zone_ids_path = get_zone_ids_path(self.data_location)
-        self.zone_ids = read_per_polygon_vector(zone_ids_path)
 
     def _iter_boundary_ids_of_zone(self, zone_id: int) -> Iterable[int]:
         """
@@ -136,6 +137,39 @@ class AbstractTimezoneFinder(ABC):
         # NOTE: this has also been added for the last zone
         first_boundary_id_next = zone_positions[zone_id + 1]
         yield from range(first_boundary_id_zone, first_boundary_id_next)
+
+    @property
+    def data_version(self) -> str:
+        """The timezone-boundary-builder release this finder answers from.
+
+        Reads the stamp ``scripts/file_converter.py`` wrote into the data
+        directory at build time (``data_version.txt``), so an installed
+        ``timezonefinder`` can state which dataset it is answering from without
+        reverse-engineering it from the package version - which also changes
+        for unrelated code fixes and, under the automated data-update
+        pipeline, changes together with the data in a way callers cannot
+        distinguish.
+
+        For the packaged data this is the release ``update_data.sh`` downloaded.
+        A data directory compiled from your own GeoJSON reads ``"unknown"``
+        unless ``scripts/file_converter.py --data-version`` named the release it
+        came from, since nothing about the input states it.
+
+        :raises FileNotFoundError: if the data directory carries no stamp, which
+            a directory compiled before this file existed does not.
+        """
+        version_path = self.data_location / DATA_VERSION_FILENAME
+        try:
+            return version_path.read_text(encoding="utf-8").strip()
+        except FileNotFoundError as exc:
+            # every other file of a pre-stamp data directory still loads, so the
+            # bare OS error arrives with no hint that regenerating is the fix
+            raise FileNotFoundError(
+                f"no dataset version stamp at {version_path}. This data directory "
+                "was compiled before the stamp existed - recompile it with "
+                "`scripts/file_converter.py --data-version <timezone-boundary-builder "
+                "release>` to state which boundary data it holds."
+            ) from exc
 
     @property
     def nr_of_zones(self) -> int:
@@ -169,8 +203,10 @@ class AbstractTimezoneFinder(ABC):
 
         :param boundary_id: The numeric identifier of the boundary polygon
         :return: The timezone ID (index into timezone_names)
-        :raises ValueError: If zone_ids are not available or boundary_id is invalid
-        :raises TypeError: If boundary_id cannot be converted to an integer
+        :raises ValueError: If ``boundary_id`` does not select exactly one zone id - out of
+            range, not usable as an index, or selecting several. The underlying ``IndexError``
+            and ``TypeError`` are both re-raised as ``ValueError``, so that is the only type
+            callers have to handle.
         """
         try:
             return int(self.zone_ids[boundary_id])
@@ -195,8 +231,9 @@ class AbstractTimezoneFinder(ABC):
 
         :param zone_id: The numeric ID of the timezone (0-based index)
         :return: The IANA timezone name (e.g., 'Europe/Berlin')
-        :raises ValueError: If zone_id is out of range for the loaded dataset
-        :raises IndexError: If the zone_id index is invalid
+        :raises ValueError: If ``zone_id`` is out of range for the loaded dataset. The
+            underlying ``IndexError`` is re-raised as ``ValueError``.
+        :raises TypeError: If ``zone_id`` is not an integer.
 
         Example:
             >>> tf = TimezoneFinder()
@@ -400,8 +437,6 @@ class TimezoneFinder(AbstractTimezoneFinder):
     # and __weakref__ unless they also define __slots__ (which should only contain names of any additional slots).
     __slots__ = [
         "hole_registry",
-        "_boundaries_file",
-        "_holes_file",
     ]
 
     def __init__(
@@ -415,7 +450,11 @@ class TimezoneFinder(AbstractTimezoneFinder):
         self.boundaries = PolygonArray(
             data_location=self.boundaries_dir, in_memory=in_memory
         )
-        self.holes = PolygonArray(data_location=self.holes_dir, in_memory=in_memory)
+        self.holes = HoleArray(
+            data_location=self.holes_dir,
+            boundaries=self.boundaries,
+            in_memory=in_memory,
+        )
 
         # stores for which polygons (how many) holes exits and the id of the first of those holes
         # since there are very few entries it is feasible to keep them in the memory
@@ -522,7 +561,7 @@ class TimezoneFinder(AbstractTimezoneFinder):
     ) -> list[list[CoordPairs | CoordLists]]:
         """retrieves the geometry of a timezone: multiple boundary polygons with holes
 
-        :param tz_name: one of the names in ``timezone_names.json`` or ``self.timezone_names``
+        :param tz_name: one of the names in ``timezone_names.txt`` or ``self.timezone_names``
         :param tz_id: the id of the timezone (=index in ``self.timezone_names``)
         :param use_id: if ``True`` uses ``tz_id`` instead of ``tz_name``
         :param coords_as_pairs: determines the structure of the polygon representation
@@ -545,7 +584,9 @@ class TimezoneFinder(AbstractTimezoneFinder):
             try:
                 tz_id = self.timezone_names.index(tz_name)
             except ValueError:
-                raise ValueError(f"The timezone '{tz_name}' does not exist.")
+                # deliberately unchained: the underlying "x is not in list" from
+                # ``list.index`` adds nothing over the message built here
+                raise ValueError(f"The timezone '{tz_name}' does not exist.") from None
         if tz_id is None:
             raise ValueError("no timezone id given.")
 
@@ -587,6 +628,13 @@ class TimezoneFinder(AbstractTimezoneFinder):
 
         Since ocean timezones span the whole globe, some timezone will always be matched!
         `None` can only be returned when using custom timezone data without such ocean timezones.
+
+        .. note:: for speed the last remaining zone is returned *without* a point in polygon test:
+            once no other zone can be matched, its polygons cannot change the outcome. With the
+            packaged data this is always correct, since the ocean zones cover the globe and every
+            point therefore lies within one of the candidate polygons. With custom data that leaves
+            areas uncovered it is not: a point inside none of the candidates is still attributed to
+            that last zone. Use :meth:`certain_timezone_at` there, which tests every candidate.
 
         :param lng: longitude of the point in degrees (-180.0 to 180.0)
         :param lat: latitude of the point in degrees (90.0 to -90.0)

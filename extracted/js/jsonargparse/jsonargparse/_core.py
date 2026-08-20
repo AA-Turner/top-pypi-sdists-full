@@ -92,7 +92,13 @@ from ._subcommands import (
     is_branch_key,
     parse_kwargs_context,
 )
-from ._typehints import ActionTypeHint, is_subclass_spec, subclasses_disabled_remove_class_path
+from ._typehints import (
+    ActionTypeHint,
+    is_subclass_spec,
+    replace_type_vars,
+    strip_required_typehint,
+    subclasses_disabled_remove_class_path,
+)
 from ._util import (
     Path,
     argument_error,
@@ -143,6 +149,13 @@ class ActionsContainer(ArgumentLinking, InstantiateMethod, SignatureArguments, a
                 return ActionParser._move_parser_actions(parser, args, kwargs)
             ActionConfigFile._ensure_single_config_argument(self, kwargs["action"])
         if "type" in kwargs:
+            arg_name = args[0] if args else kwargs.get("dest", "")
+            if not arg_name.startswith("-"):
+                is_required = kwargs.get("nargs") not in {"?", "*"}
+            else:
+                is_required = bool(kwargs.get("required", False))
+            kwargs["type"] = strip_required_typehint(kwargs["type"], is_required, f'"{arg_name}"')
+            kwargs["type"] = replace_type_vars(kwargs["type"])
             if is_subclasses_disabled(kwargs["type"]):
                 nested_key = args[0].lstrip("-")
                 self.add_class_arguments(kwargs.pop("type"), nested_key, sub_configs=sub_configs, **kwargs)
@@ -356,6 +369,7 @@ class ArgumentParser(ParserDeprecations, ActionsContainer, argparse.ArgumentPars
         skip_required: bool = False,
         skip_subcommands: bool = False,
         fail_no_subcommand: bool = True,
+        nested_parse: bool = False,
     ) -> Namespace:
         """Common parsing code used by other parse methods.
 
@@ -367,6 +381,8 @@ class ArgumentParser(ParserDeprecations, ActionsContainer, argparse.ArgumentPars
             skip_required: Whether to skip check of required arguments.
             skip_subcommands: Whether to skip subcommand processing.
             fail_no_subcommand: Whether to fail if no subcommand given.
+            nested_parse: Whether the result is to be merged into an ongoing parse of another parser,
+                in which case the internal representation of values must be preserved.
 
         Returns:
             A config object with all parsed values.
@@ -395,7 +411,7 @@ class ArgumentParser(ParserDeprecations, ActionsContainer, argparse.ArgumentPars
             if not skip_validation:
                 self.validate(cfg, skip_required=skip_required)
 
-        if not lenient_check.get():
+        if not lenient_check.get() and not nested_parse:
             cfg = subclasses_disabled_remove_class_path(cfg)
 
         return cfg
@@ -596,7 +612,9 @@ class ArgumentParser(ParserDeprecations, ActionsContainer, argparse.ArgumentPars
         Raises:
             ArgumentError: If the parsing fails and ``exit_on_error=False``.
         """
-        skip_validation, skip_subcommands = get_private_kwargs(kwargs, _skip_validation=False, _skip_subcommands=False)
+        skip_validation, skip_subcommands, nested_parse = get_private_kwargs(
+            kwargs, _skip_validation=False, _skip_subcommands=False, _nested_parse=False
+        )
 
         try:
             cfg = self._parse_defaults_and_environ(defaults, env=True, environ=env)
@@ -606,6 +624,7 @@ class ArgumentParser(ParserDeprecations, ActionsContainer, argparse.ArgumentPars
                 "defaults": defaults,
                 "skip_validation": skip_validation,
                 "skip_subcommands": skip_subcommands,
+                "nested_parse": nested_parse,
             }
             if skip_validation:
                 kwargs["fail_no_subcommand"] = False
@@ -868,8 +887,12 @@ class ArgumentParser(ParserDeprecations, ActionsContainer, argparse.ArgumentPars
                 val = subcfg[key]
                 default = subdefaults[key]
                 class_object_val = None
+                same_class_path = True
                 if is_subclass_spec(val):
+                    if not isinstance(default, dict):
+                        default = {}
                     if val["class_path"] != default.get("class_path"):
+                        same_class_path = False
                         with parser_context(parent_parser=self):
                             parser = ActionTypeHint.get_class_parser(val["class_path"])
                         default = {"init_args": parser.get_defaults().as_dict()}
@@ -877,7 +900,11 @@ class ArgumentParser(ParserDeprecations, ActionsContainer, argparse.ArgumentPars
                     val = val.get("init_args")
                     default = default.get("init_args")
                 if val == default:
-                    del subcfg[key]
+                    if same_class_path:
+                        del subcfg[key]
+                    else:
+                        # only the init_args are defaults, so the class_path is kept
+                        class_object_val.pop("init_args", None)
                 elif isinstance(val, dict) and isinstance(default, dict):
                     self._dump_delete_default_entries(val, default)
                     if class_object_val and class_object_val.get("init_args") == {}:
@@ -1366,12 +1393,16 @@ class ArgumentParser(ParserDeprecations, ActionsContainer, argparse.ArgumentPars
             if action_dest not in cfg and key.endswith("+"):
                 append = True
                 cfg[action_dest] = cfg.pop(key)
+            elif action_dest != key and key in cfg:
+                # the key is an alias of the action's dest, i.e. another accepted name for it
+                cfg[action_dest] = cfg.pop(key)
             value = cfg[action_dest]
             if skip_fn and skip_fn(value):
                 continue
             with parser_context(parent_parser=self, lenient_check=True):
                 value = self._check_value_key(action, value, action_dest, prev_cfg, append=append)
             if isinstance(action, _ActionConfigLoad):
+                value = action.resolve_subclass_spec(value)
                 config_keys.add(action_dest)
                 keys.append(action_dest)
             elif isinstance(action, ActionConfigFile):

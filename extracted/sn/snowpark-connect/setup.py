@@ -41,8 +41,8 @@ setup(
     ],
     python_requires=">=3.10,<3.13",
     install_requires=[
-        "snowpark-connect-deps-1==3.56.6",  # Spark JAR dependencies (59MB)
-        "snowpark-connect-deps-2==3.56.6",  # Other JAR dependencies (53MB)
+        "snowpark-connect-deps-1==3.56.7",  # Spark JAR dependencies (59MB)
+        "snowpark-connect-deps-2==3.56.7",  # Other JAR dependencies (53MB)
         "certifi>=2025.1.31",  # prod-297255-inc0132291
         "cloudpickle",
         "fsspec",
@@ -87,6 +87,6 @@ setup(
             "jdk4py>=21.0.4.0 ; platform_system=='Linux' and platform_machine=='aarch64'",
             "jdk4py==17.0.9.2 ; platform_system!='Linux' or platform_machine!='aarch64'",
         ],
-        "iceberg": ["snowpark-connect-deps-iceberg>=1.0.2"],
+        "iceberg": ["snowpark-connect-deps-iceberg>=1.0.3"],
     },
 )

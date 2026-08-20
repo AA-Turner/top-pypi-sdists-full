@@ -4,7 +4,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "plugin-scanner"
-version = "2.2.114"
+version = "2.2.115"
 description = "Lint, verify, and gate plugin ecosystems for maintainers, CI, and publish workflows."
 readme = "README.md"
 license = "Apache-2.0"
@@ -114,6 +114,7 @@ Documentation = "https://github.com/hashgraph-online/hol-guard/tree/main/docs/gu
 Repository = "https://github.com/hashgraph-online/hol-guard"
 Issues = "https://github.com/hashgraph-online/hol-guard/issues"
 Changelog = "https://github.com/hashgraph-online/hol-guard/releases"
+Dataset = "https://huggingface.co/datasets/HashgraphOnline/hol-plugin-security"
 
 [tool.ruff]
 target-version = "py310"

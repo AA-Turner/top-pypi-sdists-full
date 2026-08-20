@@ -68,6 +68,10 @@ if TYPE_CHECKING:
     from PIL import Image
 
 AnyJSON = Dict[str, Any]
+# "cdn" is an alias for "fal_v3": the legacy fal.media CDN has been disabled, and
+# the "fal_v3" path already uploads directly to the v3 CDN. "cdn" is kept for
+# backwards compatibility and maps onto "fal_v3" (see
+# _normalize_upload_repositories).
 UploadRepositoryId = Literal["fal_v3", "cdn", "fal"]
 LifecyclePreferencePayload = Dict[str, Any]
 ObjectExpiration = Union[
@@ -80,10 +84,10 @@ RUN_URL_FORMAT = f"https://{FAL_RUN_HOST}/"
 QUEUE_URL_FORMAT = f"https://{FAL_QUEUE_RUN_HOST}/"
 REALTIME_URL_FORMAT = f"wss://{FAL_RUN_HOST}/"
 REST_URL = "https://rest.fal.ai"
+
 CDN_URL = "https://v3.fal.media"
-FAL_CDN_FALLBACK_URL = os.environ.get("FAL_CDN_HOST", "https://fal.media")
 DEFAULT_UPLOAD_REPOSITORY: UploadRepositoryId = "fal_v3"
-DEFAULT_UPLOAD_FALLBACK_REPOSITORY: list[UploadRepositoryId] = ["cdn", "fal"]
+DEFAULT_UPLOAD_FALLBACK_REPOSITORY: list[UploadRepositoryId] = ["fal"]
 USER_AGENT = f"fal-client/{__version__} (python)"
 
 MIN_REQUEST_TIMEOUT_SECONDS = 1
@@ -1041,6 +1045,7 @@ INGRESS_ERROR_CODES = [502, 503, 504]
 # to fire when the hang is at the raw SSL socket level (ssl.read()).  Using an
 # httpx.Timeout object with a shorter connect timeout ensures we detect stalls.
 QUEUE_POLL_TIMEOUT = httpx.Timeout(120.0, connect=30.0)
+DEFAULT_QUEUE_POLL_INTERVAL = 0.1
 
 
 def _is_ingress_error(response: httpx.Response) -> bool:
@@ -1169,12 +1174,6 @@ async def _async_maybe_retry_request(
     raise RuntimeError("Failed to perform request")
 
 
-def _cdn_auth_header(auth: AuthCredentials) -> str:
-    if auth.scheme.lower() == "key":
-        return f"Bearer {auth.token}"
-    return auth.header_value
-
-
 def _object_lifecycle_headers(
     headers: dict[str, str],
     object_lifecycle_preference: LifecyclePreferencePayload | None,
@@ -1233,19 +1232,6 @@ def _normalize_upload_lifecycle(
     return normalized or None
 
 
-def _cdn_upload_headers(
-    auth: AuthCredentials,
-    content_type: str,
-    file_name: str | None,
-    object_lifecycle_preference: LifecyclePreferencePayload | None,
-) -> dict[str, str]:
-    headers = {"Content-Type": content_type, "Authorization": _cdn_auth_header(auth)}
-    if file_name is not None:
-        headers["X-Fal-File-Name"] = file_name
-    _object_lifecycle_headers(headers, object_lifecycle_preference)
-    return headers
-
-
 def _storage_upload_headers(
     auth: AuthCredentials,
     object_lifecycle_preference: LifecyclePreferencePayload | None,
@@ -1263,7 +1249,7 @@ def _normalize_upload_repositories(
     repository: UploadRepositoryId | None,
     fallback_repository: UploadRepositoryId | list[UploadRepositoryId] | None,
 ) -> list[UploadRepositoryId]:
-    allowed = {"fal_v3", "cdn", "fal"}
+    allowed = {"fal_v3", "fal"}
     if repository is None:
         repository = DEFAULT_UPLOAD_REPOSITORY
 
@@ -1275,6 +1261,13 @@ def _normalize_upload_repositories(
     ordered = [repository, *fallback_repository]
     deduped: list[UploadRepositoryId] = []
     for entry in ordered:
+        if entry == "cdn":
+            warnings.warn(
+                "`cdn` upload repository is deprecated, falling back to `fal_v3`.",
+                DeprecationWarning,
+                stacklevel=2,
+            )
+            entry = "fal_v3"
         if entry not in allowed:
             raise ValueError(f"Unsupported upload repository '{entry}'")
         if entry not in deduped:
@@ -1365,27 +1358,6 @@ def _upload_v3(
     return response.json()["access_url"]
 
 
-def _upload_cdn(
-    client: httpx.Client,
-    auth: AuthCredentials,
-    *,
-    data: bytes,
-    content_type: str,
-    file_name: str | None,
-    object_lifecycle_preference: LifecyclePreferencePayload | None = None,
-) -> str:
-    response = _maybe_retry_request(
-        client,
-        "POST",
-        FAL_CDN_FALLBACK_URL + "/files/upload",
-        content=data,
-        headers=_cdn_upload_headers(
-            auth, content_type, file_name, object_lifecycle_preference
-        ),
-    )
-    return response.json()["access_url"]
-
-
 async def _async_upload_v3(
     client: httpx.AsyncClient,
     *,
@@ -1398,27 +1370,6 @@ async def _async_upload_v3(
         CDN_URL + "/files/upload",
         content=data,
         headers=headers,
-    )
-    return response.json()["access_url"]
-
-
-async def _async_upload_cdn(
-    client: httpx.AsyncClient,
-    auth: AuthCredentials,
-    *,
-    data: bytes,
-    content_type: str,
-    file_name: str | None,
-    object_lifecycle_preference: LifecyclePreferencePayload | None = None,
-) -> str:
-    response = await _async_maybe_retry_request(
-        client,
-        "POST",
-        FAL_CDN_FALLBACK_URL + "/files/upload",
-        content=data,
-        headers=_cdn_upload_headers(
-            auth, content_type, file_name, object_lifecycle_preference
-        ),
     )
     return response.json()["access_url"]
 
@@ -1514,7 +1465,7 @@ class SyncRequestHandle(_BaseRequestHandle):
         return self._parse_status(response.json())
 
     def iter_events(
-        self, *, with_logs: bool = False, interval: float = 0.1
+        self, *, with_logs: bool = False, interval: float = DEFAULT_QUEUE_POLL_INTERVAL
     ) -> Iterator[Status]:
         """Continuously poll for the status of the request and yield it at each interval till
         the request is completed. If `with_logs` is True, logs will be included in the response.
@@ -1528,9 +1479,9 @@ class SyncRequestHandle(_BaseRequestHandle):
 
             time.sleep(interval)
 
-    def get(self) -> AnyJSON:
+    def get(self, *, interval: float = DEFAULT_QUEUE_POLL_INTERVAL) -> AnyJSON:
         """Wait till the request is completed and return the result of the inference call."""
-        for _ in self.iter_events(with_logs=False):
+        for _ in self.iter_events(with_logs=False, interval=interval):
             continue
 
         response = _maybe_retry_request(
@@ -1591,7 +1542,7 @@ class AsyncRequestHandle(_BaseRequestHandle):
         return self._parse_status(response.json())
 
     async def iter_events(
-        self, *, with_logs: bool = False, interval: float = 0.1
+        self, *, with_logs: bool = False, interval: float = DEFAULT_QUEUE_POLL_INTERVAL
     ) -> AsyncIterator[Status]:
         """Continuously poll for the status of the request and yield it at each interval till
         the request is completed. If `with_logs` is True, logs will be included in the response.
@@ -1605,9 +1556,9 @@ class AsyncRequestHandle(_BaseRequestHandle):
 
             await asyncio.sleep(interval)
 
-    async def get(self) -> AnyJSON:
+    async def get(self, *, interval: float = DEFAULT_QUEUE_POLL_INTERVAL) -> AnyJSON:
         """Wait till the request is completed and return the result."""
-        async for _ in self.iter_events(with_logs=False):
+        async for _ in self.iter_events(with_logs=False, interval=interval):
             continue
 
         response = await _async_maybe_retry_request(
@@ -1807,6 +1758,7 @@ class AsyncClient:
         path: str = "",
         hint: str | None = None,
         with_logs: bool = False,
+        interval: float = DEFAULT_QUEUE_POLL_INTERVAL,
         on_enqueue: Optional[Callable[[str], None | Awaitable[None]]] = None,
         on_queue_update: Optional[Callable[[Status], None | Awaitable[None]]] = None,
         priority: Optional[Priority] = None,
@@ -1817,6 +1769,7 @@ class AsyncClient:
         """Subscribe to an application and wait for the result.
 
         Args:
+            interval: Polling interval in seconds while waiting for request updates.
             start_timeout: Server-side request timeout in seconds. Limits total time spent
                 waiting before processing starts (includes queue wait, retries, and
                 routing). Does not apply once the application begins processing.
@@ -1855,12 +1808,14 @@ class AsyncClient:
                     await result
 
             if on_queue_update is not None:
-                async for event in handle.iter_events(with_logs=with_logs):
+                async for event in handle.iter_events(
+                    with_logs=with_logs, interval=interval
+                ):
                     result = on_queue_update(event)
                     if inspect.isawaitable(result):
                         await result
 
-            return await handle.get()
+            return await handle.get(interval=interval)
 
         if client_timeout is None:
             return await _do_subscribe()
@@ -1905,6 +1860,7 @@ class AsyncClient:
         *,
         path: str = "/stream",
         timeout: float | None = None,
+        headers: dict[str, str] = {},
     ) -> AsyncIterator[dict[str, Any]]:
         """Stream the output of an application with the given arguments (which will be JSON serialized). This is only supported
         at a few select applications at the moment, so be sure to first consult with the documentation of individual applications
@@ -1918,13 +1874,18 @@ class AsyncClient:
         if path:
             url += "/" + path.lstrip("/")
 
+        _headers: dict[str, str] = {**headers}
+        add_fal_app_context_headers(_headers)
+
         async with aconnect_sse(
             client,
             "POST",
             url,
             json=arguments,
             timeout=timeout,
+            headers=_headers,
         ) as events:
+            handle_response_headers(events.response.headers)
             async for event in events.aiter_sse():
                 yield event.json()
 
@@ -1991,25 +1952,6 @@ class AsyncClient:
         for repo in repository_chain:
             if repo == "fal_v3":
                 attempts.append(("fal_v3", _v3_attempt))
-            elif repo == "cdn":
-                if auth is None:
-                    auth = await self._auth
-                if client is None:
-                    client = await self._client
-                attempts.append(
-                    (
-                        "cdn",
-                        partial(
-                            _async_upload_cdn,
-                            client,
-                            auth,
-                            data=data,
-                            content_type=content_type,
-                            file_name=file_name,
-                            object_lifecycle_preference=resolved_lifecycle,
-                        ),
-                    )
-                )
             elif repo == "fal":
                 if auth is None:
                     auth = await self._auth
@@ -2338,6 +2280,7 @@ class SyncClient:
         path: str = "",
         hint: str | None = None,
         with_logs: bool = False,
+        interval: float = DEFAULT_QUEUE_POLL_INTERVAL,
         on_enqueue: Optional[Callable[[str], None]] = None,
         on_queue_update: Optional[Callable[[Status], None]] = None,
         priority: Optional[Priority] = None,
@@ -2348,6 +2291,7 @@ class SyncClient:
         """Subscribe to an application and wait for the result.
 
         Args:
+            interval: Polling interval in seconds while waiting for request updates.
             start_timeout: Server-side request timeout in seconds. Limits total time spent
                 waiting before processing starts (includes queue wait, retries, and
                 routing). Does not apply once the application begins processing.
@@ -2384,10 +2328,10 @@ class SyncClient:
                 on_enqueue(handle.request_id)
 
             if on_queue_update is not None:
-                for event in handle.iter_events(with_logs=with_logs):
+                for event in handle.iter_events(with_logs=with_logs, interval=interval):
                     on_queue_update(event)
 
-            return handle.get()
+            return handle.get(interval=interval)
 
         if client_timeout is None:
             return _do_subscribe()
@@ -2431,6 +2375,7 @@ class SyncClient:
         *,
         path: str = "/stream",
         timeout: float | None = None,
+        headers: dict[str, str] = {},
     ) -> Iterator[dict[str, Any]]:
         """Stream the output of an application with the given arguments (which will be JSON serialized). This is only supported
         at a few select applications at the moment, so be sure to first consult with the documentation of individual applications
@@ -2443,9 +2388,13 @@ class SyncClient:
         if path:
             url += "/" + path.lstrip("/")
 
+        _headers: dict[str, str] = {**headers}
+        add_fal_app_context_headers(_headers)
+
         with connect_sse(
-            self._client, "POST", url, json=arguments, timeout=timeout
+            self._client, "POST", url, json=arguments, timeout=timeout, headers=_headers
         ) as events:
+            handle_response_headers(events.response.headers)
             for event in events.iter_sse():
                 yield event.json()
 
@@ -2504,21 +2453,6 @@ class SyncClient:
                     (
                         "fal_v3",
                         partial(_upload_v3, client, data=data, headers=headers),
-                    )
-                )
-            elif repo == "cdn":
-                attempts.append(
-                    (
-                        "cdn",
-                        partial(
-                            _upload_cdn,
-                            self._client,
-                            auth,
-                            data=data,
-                            content_type=content_type,
-                            file_name=file_name,
-                            object_lifecycle_preference=resolved_lifecycle,
-                        ),
                     )
                 )
             elif repo == "fal":

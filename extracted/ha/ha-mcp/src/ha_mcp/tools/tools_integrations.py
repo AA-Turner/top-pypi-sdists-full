@@ -51,6 +51,10 @@ from .helpers import (
     register_tool_methods,
     validate_identifier_not_empty,
 )
+from .integration_reconfigure import (
+    ReconfigureRunner,
+    reject_reconfigure_only_parameters,
+)
 from .tools_config_helpers import (
     SIMPLE_HELPER_TYPES,
     _get_entities_for_config_entry,
@@ -104,7 +108,7 @@ HelperTypeLiteral = Literal[
     "tag",
     # config-entry subentries
     "config_subentry",
-    # 15 FLOW
+    # 17 FLOW
     "template",
     "group",
     "utility_meter",
@@ -120,6 +124,8 @@ HelperTypeLiteral = Literal[
     "generic_thermostat",
     "switch_as_x",
     "generic_hygrostat",
+    "history_stats",
+    "mold_indicator",
 ]
 assert set(get_args(HelperTypeLiteral)) == (
     SIMPLE_HELPER_TYPES | FLOW_HELPER_TYPES | {"config_subentry"}
@@ -297,7 +303,11 @@ async def _fetch_entries_via_component(
     if domain is not None:
         kwargs["domain"] = domain
     try:
-        ws = await get_websocket_client(url=client.base_url, token=client.token)
+        ws = await get_websocket_client(
+            url=client.base_url,
+            token=client.token,
+            verify_ssl=getattr(client, "verify_ssl", None),
+        )
         raw = await ws.send_command(WS_CONFIG_ENTRIES, **kwargs)
     except (HomeAssistantCommandError, HomeAssistantCommandTimeout) as exc:
         if is_unknown_command(exc):
@@ -763,7 +773,7 @@ class IntegrationTools:
           when HA returned an int, ``None`` otherwise (no override set, or HA
           provided a level name as a string).
 
-        This is distinct from the add-on side, where ``ha_get_addon`` returns
+        This is distinct from the add-on side, where ``ha_get_app`` returns
         Supervisor's lowercase ``"default"`` literal — do not cross-compare.
         """
         try:
@@ -1709,6 +1719,7 @@ class IntegrationTools:
             "source": entry.get("source"),
             "supports_options": entry.get("supports_options", False),
             "supports_unload": entry.get("supports_unload", False),
+            "supports_reconfigure": entry.get("supports_reconfigure", False),
             "disabled_by": entry.get("disabled_by"),
         }
 
@@ -1778,10 +1789,18 @@ class IntegrationTools:
         annotations={
             "openWorldHint": False,
             "destructiveHint": True,
+            "readOnlyHint": False,
+            "idempotentHint": False,
             "title": "Set Integration",
         },
     )
-    @with_auto_backup(domain="integration", id_param="entry_id")
+    @with_auto_backup(
+        domain="integration",
+        id_param="entry_id",
+        # Every reconfigure request validates the entry and confirmation before
+        # the inner apply helper captures the normal edit snapshot.
+        skip_fn=lambda kwargs: bool(kwargs.get("reconfigure")),
+    )
     @log_tool_usage
     async def ha_set_integration(
         self,
@@ -1834,8 +1853,76 @@ class IntegrationTools:
                 default=None,
             ),
         ] = None,
+        reconfigure: Annotated[
+            bool,
+            Field(
+                default=False,
+                description=(
+                    "Use the existing config entry's official reconfigure flow "
+                    "(its connection settings) instead of its options flow. "
+                    "Without confirm_token this is a read-only preflight that "
+                    "returns one."
+                ),
+            ),
+        ] = False,
+        expected_device_id: Annotated[
+            str | None,
+            Field(
+                default=None,
+                description=(
+                    "Requires reconfigure=True. Device registry ID the entry "
+                    "must still own, before and after the change."
+                ),
+            ),
+        ] = None,
+        expected_unique_id: Annotated[
+            str | None,
+            Field(
+                default=None,
+                description=(
+                    "Requires reconfigure=True, AND the ha_mcp_tools custom "
+                    "component: Home Assistant does not expose a config "
+                    "entry's unique_id over its API. Without the component "
+                    "this is rejected — anchor on expected_device_id, "
+                    "expected_mac or expected_entity_ids instead."
+                ),
+            ),
+        ] = None,
+        expected_mac: Annotated[
+            str | None,
+            Field(
+                default=None,
+                description=(
+                    "Requires reconfigure=True. MAC or IEEE the entry's device "
+                    "must still report."
+                ),
+            ),
+        ] = None,
+        expected_entity_ids: Annotated[
+            list[str] | None,
+            JSON_STRING_COERCION,
+            Field(
+                default=None,
+                description=(
+                    "Requires reconfigure=True. Exact entity IDs that must "
+                    "remain associated with the entry."
+                ),
+            ),
+        ] = None,
+        confirm_token: Annotated[
+            str | None,
+            Field(
+                default=None,
+                description=(
+                    "Requires reconfigure=True. A token from a reconfigure "
+                    "preflight; applies the change. Any token still matching "
+                    "the entry's current state and the same requested config "
+                    "is accepted, so a token stays valid while nothing moves."
+                ),
+            ),
+        ] = None,
     ) -> dict[str, Any]:
-        """Manage an integration (config entry): enable/disable, add, or update options.
+        """Manage an integration (config entry): enable/disable, add, update options, or reconfigure.
 
         Modes (pick one):
         - Enable/disable: entry_id + enabled.
@@ -1843,29 +1930,66 @@ class IntegrationTools:
           flow, including menus and multi-step forms.
         - Update options: entry_id + config — drives the entry's options
           flow (what the "Configure" button does in the HA UI).
+        - Reconfigure: entry_id + reconfigure=True + config — drives the
+          existing entry's official reconfigure flow (host, port, credentials).
+          Call it without confirm_token for a read-only preflight; repeat with
+          the token it returns to apply.
 
         WHEN NOT TO USE:
         - Helpers (template, group, utility_meter, ...): use
-          ha_config_set_helper.
+          ha_config_set_helper. The exception is `otp`, which is a helper in
+          the HA UI but is created HERE via domain="otp" — its flow needs a
+          live TOTP code, so ha_config_set_helper deliberately omits it.
         - Config subentries: use
           ha_config_set_helper(helper_type='config_subentry').
         - Removing an entry: use ha_remove_helpers_integrations.
 
         Use ha_get_integration() to find entry IDs, and
         ha_get_integration(entry_id=..., include_schema=True) to inspect the
-        options fields before an update.
+        options fields before an update. Its supports_reconfigure field tells
+        you whether an entry qualifies for reconfigure=True; only integrations
+        implementing async_step_reconfigure do.
 
         Caveats: adding an integration runs its config flow exactly as the HA
         UI would (may pair devices, scan the network, create entities). Flows
         requiring a browser step (OAuth) or an asynchronous provider step
         error out at that step with a structured error instead of completing.
+        Reconfigure edits the settings a live integration connects with: a
+        wrong host or credential takes it offline, and there is no automatic
+        rollback — the returned rollback metadata describes repeating the
+        official flow by hand with the previous values, which this tool cannot
+        read back. The preflight does not validate config keys against the
+        integration's form; wrong field names surface on the confirm call.
 
         EXAMPLES:
         - Disable: ha_set_integration(entry_id="abc123", enabled=False)
         - Add: ha_set_integration(domain="workday", config={"name": "Workday"})
         - Update options: ha_set_integration(entry_id="abc123", config={"scan_interval": 30})
+        - Reconfigure preflight: ha_set_integration(entry_id="abc123", reconfigure=True, config={"host": "10.0.0.5"})
+        - Reconfigure apply: repeat that call adding confirm_token="sha256:..."
         """
         try:
+            if reconfigure:
+                return await ReconfigureRunner(self._client).handle_mode(
+                    entry_id=entry_id,
+                    domain=domain,
+                    enabled=enabled,
+                    config=config,
+                    expected_device_id=expected_device_id,
+                    expected_unique_id=expected_unique_id,
+                    expected_mac=expected_mac,
+                    expected_entity_ids=expected_entity_ids,
+                    confirm_token=confirm_token,
+                )
+
+            reject_reconfigure_only_parameters(
+                confirm_token=confirm_token,
+                expected_device_id=expected_device_id,
+                expected_unique_id=expected_unique_id,
+                expected_mac=expected_mac,
+                expected_entity_ids=expected_entity_ids,
+            )
+
             if domain is not None and entry_id is not None:
                 raise_tool_error(
                     create_error_response(
@@ -2110,10 +2234,10 @@ class IntegrationTools:
         - SIMPLE (12, websocket-delete): input_button, input_boolean,
           input_select, input_number, input_text, input_datetime, counter,
           timer, schedule, zone, person, tag.
-        - FLOW (15, config-entry-delete via entity lookup): template, group,
+        - FLOW (17, config-entry-delete via entity lookup): template, group,
           utility_meter, derivative, min_max, threshold, integration,
           statistics, trend, random, filter, tod, generic_thermostat,
-          switch_as_x, generic_hygrostat.
+          switch_as_x, generic_hygrostat, history_stats, mold_indicator.
 
         ROUTING:
         - SIMPLE helper_type + bare helper_id or entity_id → websocket delete.

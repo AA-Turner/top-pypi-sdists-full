@@ -1,6 +1,6 @@
-Metadata-Version: 2.4
+Metadata-Version: 2.5
 Name: agent-lifecycle-toolkit
-Version: 0.11.0
+Version: 0.12.0
 Summary: The Agent Lifecycle Toolkit (ALTK) is a library of components to help agent builders improve their agent with minimal integration effort and setup.
 Project-URL: homepage, https://altk.ai/
 Project-URL: documentation, https://agenttoolkit.github.io/agent-lifecycle-toolkit/

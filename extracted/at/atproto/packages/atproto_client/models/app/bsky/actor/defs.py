@@ -15,7 +15,7 @@ from atproto_client.models import string_formats
 if t.TYPE_CHECKING:
     from atproto_client import models
     from atproto_client.models.unknown_type import UnknownType
-from atproto_client.models import base
+from atproto_client.models import base, unknown_union
 
 
 class ProfileViewBasic(base.ModelBase):
@@ -217,7 +217,7 @@ class VerificationView(base.ModelBase):
 
 
 Preferences = t.List[
-    te.Annotated[
+    unknown_union.OpenUnion[
         t.Union[
             'models.AppBskyActorDefs.AdultContentPref',
             'models.AppBskyActorDefs.ContentLabelPref',
@@ -235,8 +235,7 @@ Preferences = t.List[
             'models.AppBskyActorDefs.PostInteractionSettingsPref',
             'models.AppBskyActorDefs.VerificationPrefs',
             'models.AppBskyActorDefs.LiveEventPreferences',
-        ],
-        Field(discriminator='py_type'),
+        ]
     ]
 ]
 
@@ -354,7 +353,7 @@ class ThreadViewPref(base.ModelBase):
 class InterestsPref(base.ModelBase):
     """Definition model for :obj:`app.bsky.actor.defs`."""
 
-    tags: t.List[str] = Field(
+    tags: t.List[te.Annotated[str, Field(max_length=640)]] = Field(
         max_length=100
     )  #: A list of tags which describe the account owner's interests gathered during onboarding.
 
@@ -432,9 +431,9 @@ class BskyAppStatePref(base.ModelBase):
     nuxs: te.Annotated[t.Optional[t.List['models.AppBskyActorDefs.Nux']], Field(max_length=100)] = (
         None  #: Storage for NUXs the user has encountered.
     )
-    queued_nudges: te.Annotated[t.Optional[t.List[str]], Field(max_length=1000)] = (
-        None  #: An array of tokens which identify nudges (modals, popups, tours, highlight dots) that should be shown to the user.
-    )
+    queued_nudges: te.Annotated[
+        t.Optional[t.List[te.Annotated[str, Field(max_length=100)]]], Field(max_length=1000)
+    ] = None  #: An array of tokens which identify nudges (modals, popups, tours, highlight dots) that should be shown to the user.
 
     py_type: t.Literal['app.bsky.actor.defs#bskyAppStatePref'] = Field(
         default='app.bsky.actor.defs#bskyAppStatePref', alias='$type', frozen=True
@@ -490,26 +489,24 @@ class LiveEventPreferences(base.ModelBase):
 class PostInteractionSettingsPref(base.ModelBase):
     """Definition model for :obj:`app.bsky.actor.defs`. Default post interaction settings for the account. These values should be applied as default values when creating new posts. These refs should mirror the threadgate and postgate records exactly."""
 
-    postgate_embedding_rules: t.Optional[
-        t.List[te.Annotated[t.Union['models.AppBskyFeedPostgate.DisableRule'], Field(discriminator='py_type')]]
-    ] = Field(
-        max_length=5
-    )  #: Matches postgate record. List of rules defining who can embed this users posts. If value is an empty array or is undefined, no particular rules apply and anyone can embed.
-    threadgate_allow_rules: t.Optional[
-        t.List[
-            te.Annotated[
-                t.Union[
-                    'models.AppBskyFeedThreadgate.MentionRule',
-                    'models.AppBskyFeedThreadgate.FollowerRule',
-                    'models.AppBskyFeedThreadgate.FollowingRule',
-                    'models.AppBskyFeedThreadgate.ListRule',
-                ],
-                Field(discriminator='py_type'),
+    postgate_embedding_rules: te.Annotated[
+        t.Optional[t.List[unknown_union.OpenUnion['models.AppBskyFeedPostgate.DisableRule']]], Field(max_length=5)
+    ] = None  #: Matches postgate record. List of rules defining who can embed this users posts. If value is an empty array or is undefined, no particular rules apply and anyone can embed.
+    threadgate_allow_rules: te.Annotated[
+        t.Optional[
+            t.List[
+                unknown_union.OpenUnion[
+                    t.Union[
+                        'models.AppBskyFeedThreadgate.MentionRule',
+                        'models.AppBskyFeedThreadgate.FollowerRule',
+                        'models.AppBskyFeedThreadgate.FollowingRule',
+                        'models.AppBskyFeedThreadgate.ListRule',
+                    ]
+                ]
             ]
-        ]
-    ] = Field(
-        max_length=5
-    )  #: Matches threadgate record. List of rules defining who can reply to this users posts. If value is an empty array, no one can reply. If value is undefined, anyone can reply.
+        ],
+        Field(max_length=5),
+    ] = None  #: Matches threadgate record. List of rules defining who can reply to this users posts. If value is an empty array, no one can reply. If value is undefined, anyone can reply.
 
     py_type: t.Literal['app.bsky.actor.defs#postInteractionSettingsPref'] = Field(
         default='app.bsky.actor.defs#postInteractionSettingsPref', alias='$type', frozen=True
@@ -522,7 +519,7 @@ class StatusView(base.ModelBase):
     record: 'UnknownType'  #: Record.
     status: t.Union['models.AppBskyActorStatus.Live', str]  #: The status for the account.
     cid: t.Optional[string_formats.Cid] = None  #: Cid.
-    embed: t.Optional[te.Annotated[t.Union['models.AppBskyEmbedExternal.View'], Field(discriminator='py_type')]] = (
+    embed: t.Optional[unknown_union.OpenUnion['models.AppBskyEmbedExternal.View']] = (
         None  #: An optional embed associated with the status.
     )
     expires_at: t.Optional[string_formats.DateTime] = (

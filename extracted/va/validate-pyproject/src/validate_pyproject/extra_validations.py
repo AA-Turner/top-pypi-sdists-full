@@ -5,8 +5,9 @@ JSON Schema library).
 
 import collections
 import itertools
+from collections.abc import Generator, Iterable, Mapping
 from inspect import cleandoc
-from typing import Generator, Iterable, Mapping, TypeVar
+from typing import TypeVar
 
 from .error_reporting import ValidationError
 
@@ -14,10 +15,11 @@ T = TypeVar("T", bound=Mapping)
 
 
 class RedefiningStaticFieldAsDynamic(ValidationError):
-    _DESC = """According to PEP 621:
+    _DESC = """According to PEP 621 (as amended by PEP 808):
 
-    Build back-ends MUST raise an error if the metadata specifies a field
-    statically as well as being listed in dynamic.
+    Build back-ends MUST raise an error if the metadata specifies a
+    non-list/non-table field statically as well as being listed in dynamic.
+    List and table fields may be partially dynamic (PEP 808).
     """
     __doc__ = _DESC
     _URL = (
@@ -50,15 +52,36 @@ class ImportNameMissing(ValidationError):
     _URL = "https://peps.python.org/pep-0794/"
 
 
+_DYNAMIC_TABLE_ARRAY_FIELDS = frozenset(
+    {
+        "authors",
+        "maintainers",
+        "classifiers",
+        "dependencies",
+        "entry-points",
+        "scripts",
+        "gui-scripts",
+        "keywords",
+        "license-files",
+        "optional-dependencies",
+        "urls",
+        "import-names",
+        "import-namespaces",
+    }
+)
+
+
 def validate_project_dynamic(pyproject: T) -> T:
     project_table = pyproject.get("project", {})
     dynamic = project_table.get("dynamic", [])
 
     for field in dynamic:
-        if field in project_table:
+        if field in project_table and field not in _DYNAMIC_TABLE_ARRAY_FIELDS:
             raise RedefiningStaticFieldAsDynamic(
                 message=f"You cannot provide a value for `project.{field}` and "
-                "list it under `project.dynamic` at the same time",
+                "list it under `project.dynamic` at the same time "
+                "(PEP 808 only allows specific list and table fields "
+                "to be partially dynamic)",
                 value={
                     field: project_table[field],
                     "...": " # ...",
@@ -75,7 +98,7 @@ def validate_project_dynamic(pyproject: T) -> T:
     return pyproject
 
 
-def validate_include_depenency(pyproject: T) -> T:
+def validate_include_dependency(pyproject: T) -> T:
     dependency_groups = pyproject.get("dependency-groups", {})
     for key, value in dependency_groups.items():
         for each in value:
@@ -146,6 +169,6 @@ def validate_import_name_issues(pyproject: T) -> T:
 
 EXTRA_VALIDATIONS = (
     validate_project_dynamic,
-    validate_include_depenency,
+    validate_include_dependency,
     validate_import_name_issues,
 )

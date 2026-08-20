@@ -30,6 +30,15 @@ from xrpl.models.transactions.check_cancel import CheckCancel
 from xrpl.models.transactions.check_cash import CheckCash
 from xrpl.models.transactions.check_create import CheckCreate
 from xrpl.models.transactions.clawback import Clawback
+from xrpl.models.transactions.confidential_mpt_clawback import ConfidentialMPTClawback
+from xrpl.models.transactions.confidential_mpt_convert import ConfidentialMPTConvert
+from xrpl.models.transactions.confidential_mpt_convert_back import (
+    ConfidentialMPTConvertBack,
+)
+from xrpl.models.transactions.confidential_mpt_merge_inbox import (
+    ConfidentialMPTMergeInbox,
+)
+from xrpl.models.transactions.confidential_mpt_send import ConfidentialMPTSend
 from xrpl.models.transactions.credential_accept import CredentialAccept
 from xrpl.models.transactions.credential_create import CredentialCreate
 from xrpl.models.transactions.credential_delete import CredentialDelete
@@ -59,6 +68,7 @@ from xrpl.models.transactions.mptoken_issuance_create import (
     MPTokenIssuanceCreate,
     MPTokenIssuanceCreateFlag,
     MPTokenIssuanceCreateFlagInterface,
+    MPTokenIssuanceImmutableFlag,
 )
 from xrpl.models.transactions.mptoken_issuance_destroy import MPTokenIssuanceDestroy
 from xrpl.models.transactions.mptoken_issuance_set import (
@@ -100,10 +110,22 @@ from xrpl.models.transactions.permissioned_domain_delete import PermissionedDoma
 from xrpl.models.transactions.permissioned_domain_set import PermissionedDomainSet
 from xrpl.models.transactions.set_regular_key import SetRegularKey
 from xrpl.models.transactions.signer_list_set import SignerEntry, SignerListSet
+from xrpl.models.transactions.sponsorship_set import (
+    SponsorshipSet,
+    SponsorshipSetFlag,
+    SponsorshipSetFlagInterface,
+)
+from xrpl.models.transactions.sponsorship_transfer import (
+    SponsorshipTransfer,
+    SponsorshipTransferFlag,
+    SponsorshipTransferFlagInterface,
+)
 from xrpl.models.transactions.ticket_create import TicketCreate
 from xrpl.models.transactions.transaction import (
     Memo,
     Signer,
+    SponsorFlag,
+    SponsorSignature,
     Transaction,
     TransactionFlag,
     TransactionFlagInterface,
@@ -163,6 +185,11 @@ __all__ = [
     "CheckCash",
     "CheckCreate",
     "Clawback",
+    "ConfidentialMPTClawback",
+    "ConfidentialMPTConvert",
+    "ConfidentialMPTConvertBack",
+    "ConfidentialMPTMergeInbox",
+    "ConfidentialMPTSend",
     "CredentialAccept",
     "CredentialCreate",
     "CredentialDelete",
@@ -193,6 +220,7 @@ __all__ = [
     "MPTokenIssuanceCreateFlag",
     "MPTokenIssuanceCreateFlagInterface",
     "MPTokenIssuanceDestroy",
+    "MPTokenIssuanceImmutableFlag",
     "MPTokenIssuanceSet",
     "MPTokenIssuanceSetFlag",
     "MPTokenIssuanceSetFlagInterface",
@@ -226,6 +254,14 @@ __all__ = [
     "Signer",
     "SignerEntry",
     "SignerListSet",
+    "SponsorFlag",
+    "SponsorSignature",
+    "SponsorshipSet",
+    "SponsorshipSetFlag",
+    "SponsorshipSetFlagInterface",
+    "SponsorshipTransfer",
+    "SponsorshipTransferFlag",
+    "SponsorshipTransferFlagInterface",
     "TicketCreate",
     "Transaction",
     "TransactionFlag",

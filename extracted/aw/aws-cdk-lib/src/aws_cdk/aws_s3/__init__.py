@@ -1089,41 +1089,53 @@ source_bucket.grant_replication_permission(replication_role,
 
 You can also set a destination bucket from a different account as the replication destination.
 
-In this case, the bucket policy for the destination bucket is required, to configure it through CDK use  `addReplicationPolicy()` method to add bucket policy on destination bucket.
-In a cross-account scenario, where the source and destination buckets are owned by different AWS accounts, you can use a KMS key to encrypt object replicas. However, the KMS key owner must grant the source bucket owner permission to use the KMS key.
-For more information, please refer to https://docs.aws.amazon.com/AmazonS3/latest/userguide/replication-walkthrough-2.html .
-
-> **NOTE:** AWS managed keys don't allow cross-account use, and therefore can't be used to perform cross-account replication.
-
-If you need to override the bucket ownership to destination account pass the account value to the method to provide permissions to override bucket owner.
-`addReplicationPolicy(bucket.replicationRoleArn, true, '11111111111')`;
-
-However, if the destination bucket is a referenced bucket, CDK cannot set the bucket policy,
-so you will need to [configure the necessary bucket policy](https://docs.aws.amazon.com/AmazonS3/latest/userguide/replication-walkthrough-2.html) separately.
+Cross-account replication requires a bucket policy on the destination bucket. If the destination
+bucket is managed by CDK, use `addReplicationPolicy()` to add the required permissions.
 
 ```python
-# The destination bucket in a different account.
-# destination_bucket: s3.IBucket
-# replication_role: iam.IRole
+# A bucket defined in a CDK stack in the destination account.
+# destination_bucket: s3.Bucket
+# The account ID that owns the source bucket.
+# source_account_id: str
+
 
 source_bucket = s3.Bucket(self, "SourceBucket",
     versioned=True,
-    # Optional. If not specified, a new role will be created.
-    replication_role=replication_role,
     replication_rules=[s3.ReplicationRule(
         destination=destination_bucket,
         priority=1,
-        # Whether to want to change replica ownership to the AWS account that owns the destination bucket.
-        # The replicas are owned by same AWS account that owns the source object by default.
+        # Change replica ownership to the account that owns the destination bucket.
         access_control_transition=True
     )
     ]
 )
 
-# Add permissions to the destination after replication role is created
+# Add the required permissions to the destination bucket policy.
 if source_bucket.replication_role_arn:
-    destination_bucket.add_replication_policy(source_bucket.replication_role_arn, True, "111111111111")
+    destination_bucket.add_replication_policy(source_bucket.replication_role_arn, True, source_account_id)
 ```
+
+The account ID passed to `addReplicationPolicy()` is the **source** bucket owner's account ID. CDK
+uses the destination bucket construct's account for the replication configuration.
+
+If the destination bucket uses `ObjectOwnership.BUCKET_OWNER_ENFORCED`, the destination bucket owner
+already owns all replicated objects and `accessControlTransition` is not required. The ownership
+override shown above is useful for ACL-enabled destination buckets.
+
+When importing an existing cross-account destination into the source stack, use
+`Bucket.fromBucketAttributes()` and set its `account` attribute to the destination bucket owner's
+account ID. `Bucket.fromBucketArn()` and `Bucket.fromBucketName()` assume that the bucket belongs to
+the same account as the scope where it is imported. Referenced buckets cannot have their bucket
+policy modified by CDK, so configure the
+[required bucket policy](https://docs.aws.amazon.com/AmazonS3/latest/userguide/replication-walkthrough-2.html)
+separately in the destination account.
+
+In a cross-account scenario, you can use a KMS key to encrypt object replicas. The KMS key owner
+must grant the source bucket owner permission to use the key. AWS managed keys do not allow
+cross-account use and therefore cannot be used for cross-account replication.
+
+For more information, see
+[Changing the replica owner](https://docs.aws.amazon.com/AmazonS3/latest/userguide/replication-change-owner.html).
 
 ## Mixins
 
@@ -19034,15 +19046,20 @@ class IBucket(
         access_control_transition: typing.Optional[builtins.bool] = None,
         account: typing.Optional[builtins.str] = None,
     ) -> None:
-        '''Function to add required permissions to the destination bucket for cross account replication.
+        '''Adds resource policy statements to this bucket that permit cross-account replication.
 
-        These permissions will be added as a resource based policy on the bucket.
+        Call this method on the destination bucket. If the destination bucket is a referenced bucket,
+        its policy cannot be modified by CDK and the permissions must be added in the destination
+        account.
 
-        :param role_arn: -
-        :param access_control_transition: -
-        :param account: -
+        To change replica ownership to the destination bucket owner, set ``accessControlTransition`` to
+        true and provide the source bucket owner's account ID.
 
-        :see: https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-s3-bucket-accesscontroltranslation.html
+        :param role_arn: The ARN of the source bucket's replication role.
+        :param access_control_transition: Whether to change replica ownership to the destination bucket owner.
+        :param account: The source bucket owner's AWS account ID. Required when ``accessControlTransition`` is true.
+
+        :see: https://docs.aws.amazon.com/AmazonS3/latest/userguide/replication-change-owner.html
         '''
         ...
 
@@ -19618,15 +19635,20 @@ class _IBucketProxy(
         access_control_transition: typing.Optional[builtins.bool] = None,
         account: typing.Optional[builtins.str] = None,
     ) -> None:
-        '''Function to add required permissions to the destination bucket for cross account replication.
+        '''Adds resource policy statements to this bucket that permit cross-account replication.
 
-        These permissions will be added as a resource based policy on the bucket.
+        Call this method on the destination bucket. If the destination bucket is a referenced bucket,
+        its policy cannot be modified by CDK and the permissions must be added in the destination
+        account.
 
-        :param role_arn: -
-        :param access_control_transition: -
-        :param account: -
+        To change replica ownership to the destination bucket owner, set ``accessControlTransition`` to
+        true and provide the source bucket owner's account ID.
 
-        :see: https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-s3-bucket-accesscontroltranslation.html
+        :param role_arn: The ARN of the source bucket's replication role.
+        :param access_control_transition: Whether to change replica ownership to the destination bucket owner.
+        :param account: The source bucket owner's AWS account ID. Required when ``accessControlTransition`` is true.
+
+        :see: https://docs.aws.amazon.com/AmazonS3/latest/userguide/replication-change-owner.html
         '''
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__6c2e7fc14ca3997ce00436db7203d2e5669fde630c0dd481f20a6192f12706c7)
@@ -21773,8 +21795,8 @@ class ReplicationRule:
     ) -> None:
         '''Specifies which Amazon S3 objects to replicate and where to store the replicas.
 
-        :param destination: The destination bucket for the replicated objects. The destination can be either in the same AWS account or a cross account. If you want to configure cross-account replication, the destination bucket must have a policy that allows the source bucket to replicate objects to it.
-        :param access_control_transition: Whether to want to change replica ownership to the AWS account that owns the destination bucket. This can only be specified if the source bucket and the destination bucket are not in the same AWS account. Default: - The replicas are owned by same AWS account that owns the source object
+        :param destination: The destination bucket for the replicated objects. The destination can be in the same AWS account or a different account. For cross-account replication, the destination bucket must have a policy that allows the source bucket to replicate objects to it. Use ``addReplicationPolicy()`` to add the required permissions when the destination bucket is managed by CDK. If the destination bucket is referenced, configure the policy separately in the destination account. When importing a cross-account destination into the source stack, use ``Bucket.fromBucketAttributes()`` and set the ``account`` attribute to the destination bucket owner's account ID. ``Bucket.fromBucketArn()`` and ``Bucket.fromBucketName()`` assume the bucket is owned by the same account as the scope in which it is imported.
+        :param access_control_transition: Whether to change replica ownership to the AWS account that owns the destination bucket. This can only be specified if the source bucket and the destination bucket are not in the same AWS account. When enabled, use ``addReplicationPolicy()`` on the destination bucket with the source bucket owner's account ID to grant the required permissions. This is not required when the destination bucket uses ``ObjectOwnership.BUCKET_OWNER_ENFORCED``, because the destination bucket owner automatically owns all objects. Default: - The replicas are owned by the source object owner, unless the destination bucket uses ``ObjectOwnership.BUCKET_OWNER_ENFORCED``
         :param delete_marker_replication: Specifies whether Amazon S3 replicates delete markers. Default: - delete markers in source bucket is not replicated to destination bucket
         :param filter: A filter that identifies the subset of objects to which the replication rule applies. Default: - applies to all objects
         :param id: A unique identifier for the rule. The maximum value is 255 characters. Default: - auto generated random ID
@@ -21869,10 +21891,17 @@ class ReplicationRule:
     def destination(self) -> "IBucket":
         '''The destination bucket for the replicated objects.
 
-        The destination can be either in the same AWS account or a cross account.
+        The destination can be in the same AWS account or a different account.
 
-        If you want to configure cross-account replication,
-        the destination bucket must have a policy that allows the source bucket to replicate objects to it.
+        For cross-account replication, the destination bucket must have a policy that allows the source
+        bucket to replicate objects to it. Use ``addReplicationPolicy()`` to add the required permissions
+        when the destination bucket is managed by CDK. If the destination bucket is referenced, configure
+        the policy separately in the destination account.
+
+        When importing a cross-account destination into the source stack, use
+        ``Bucket.fromBucketAttributes()`` and set the ``account`` attribute to the destination bucket owner's
+        account ID. ``Bucket.fromBucketArn()`` and ``Bucket.fromBucketName()`` assume the bucket is owned by
+        the same account as the scope in which it is imported.
 
         :see: https://docs.aws.amazon.com/AmazonS3/latest/userguide/replication-walkthrough-2.html
         '''
@@ -21882,11 +21911,22 @@ class ReplicationRule:
 
     @builtins.property
     def access_control_transition(self) -> typing.Optional[builtins.bool]:
-        '''Whether to want to change replica ownership to the AWS account that owns the destination bucket.
+        '''Whether to change replica ownership to the AWS account that owns the destination bucket.
 
         This can only be specified if the source bucket and the destination bucket are not in the same AWS account.
 
-        :default: - The replicas are owned by same AWS account that owns the source object
+        When enabled, use ``addReplicationPolicy()`` on the destination bucket with the source bucket
+        owner's account ID to grant the required permissions.
+
+        This is not required when the destination bucket uses ``ObjectOwnership.BUCKET_OWNER_ENFORCED``,
+        because the destination bucket owner automatically owns all objects.
+
+        :default:
+
+        - The replicas are owned by the source object owner, unless the destination bucket uses
+        ``ObjectOwnership.BUCKET_OWNER_ENFORCED``
+
+        :see: https://docs.aws.amazon.com/AmazonS3/latest/userguide/replication-change-owner.html
         '''
         result = self._values.get("access_control_transition")
         return typing.cast(typing.Optional[builtins.bool], result)
@@ -22932,15 +22972,20 @@ class BucketBase(
         access_control_transition: typing.Optional[builtins.bool] = None,
         account: typing.Optional[builtins.str] = None,
     ) -> None:
-        '''Function to add required permissions to the destination bucket for cross account replication.
+        '''Adds resource policy statements to this bucket that permit cross-account replication.
 
-        These permissions will be added as a resource based policy on the bucket
+        Call this method on the destination bucket. If the destination bucket is a referenced bucket,
+        its policy cannot be modified by CDK and the permissions must be added in the destination
+        account.
 
-        :param role_arn: -
-        :param access_control_transition: -
-        :param account: -
+        To change replica ownership to the destination bucket owner, set ``accessControlTransition`` to
+        true and provide the source bucket owner's account ID.
 
-        :see: https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-s3-bucket-accesscontroltranslation.html
+        :param role_arn: The ARN of the source bucket's replication role.
+        :param access_control_transition: Whether to change replica ownership to the destination bucket owner.
+        :param account: The source bucket owner's AWS account ID. Required when ``accessControlTransition`` is true.
+
+        :see: https://docs.aws.amazon.com/AmazonS3/latest/userguide/replication-change-owner.html
         '''
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__2baf8c6982c06606b5434f658a8175f6838f55345a6d423d335af89dfa1728cd)

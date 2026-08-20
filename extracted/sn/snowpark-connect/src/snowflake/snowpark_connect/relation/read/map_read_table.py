@@ -3,6 +3,7 @@
 #
 
 import datetime
+import json
 
 import pyspark.sql.connect.proto.relations_pb2 as relation_proto
 from pyspark.errors.exceptions.base import AnalysisException
@@ -476,9 +477,212 @@ ICEBERG_METADATA_TABLE_BIND_COUNTS = {
 WAP_BRANCH_SPARK_CONFIG = "spark.wap.branch"
 
 UNSUPPORTED_ICEBERG_METADATA_TABLES = {
-    "partitions",
     "position_deletes",
 }
+
+# Metadata tables whose SQL cannot be a static string: the projection depends on
+# the table's partition spec (see _build_partitions_query). Routed like the static
+# tables, but the query is built per-request.
+DYNAMIC_ICEBERG_METADATA_TABLES = frozenset({"partitions"})
+
+# SNOW-3527708: partition-transform -> Spark result type for the `.partitions`
+# `partition` struct. Confirmed against Spark 3.5 / Iceberg 1.9: bucket/year/month/
+# hour surface as INT offsets, `day` surfaces as DATE, identity/truncate keep the
+# source column's type.
+_ICEBERG_PARTITION_TRANSFORM_SF_TYPE = {"year": "INT", "month": "INT", "hour": "INT"}
+
+
+def _iceberg_source_type_to_sf(iceberg_type: str | None) -> str:
+    """Map an Iceberg primitive type string to the Snowflake type used in the
+    structured OBJECT(...) cast for identity/truncate partition fields."""
+    iceberg_type_lower = (iceberg_type or "").lower()
+    if iceberg_type_lower.startswith("decimal"):
+        return "NUMBER" + iceberg_type[len("decimal") :]
+    if iceberg_type_lower.startswith("fixed"):
+        return "BINARY"
+    return {
+        "string": "VARCHAR",
+        "uuid": "VARCHAR",
+        "long": "BIGINT",
+        "int": "INT",
+        "integer": "INT",
+        "boolean": "BOOLEAN",
+        "double": "DOUBLE",
+        "float": "FLOAT",
+        "date": "DATE",
+        "time": "TIME",
+        "timestamp": "TIMESTAMP_NTZ",
+        "timestamptz": "TIMESTAMP_TZ",
+    }.get(iceberg_type_lower, "VARIANT")
+
+
+def _partition_field_sf_type(transform: str, source_iceberg_type: str | None) -> str:
+    transform_lower = (transform or "").lower()
+    if transform_lower.startswith("bucket"):
+        return "INT"
+    if transform_lower == "day":
+        return "DATE"
+    if transform_lower in _ICEBERG_PARTITION_TRANSFORM_SF_TYPE:
+        return _ICEBERG_PARTITION_TRANSFORM_SF_TYPE[transform_lower]
+    # identity, truncate[W]: partition value keeps the source column's type.
+    return _iceberg_source_type_to_sf(source_iceberg_type)
+
+
+def _partition_field_value_expr(name: str, transform: str, sf_type: str) -> str:
+    """SQL to extract one partition field's value from the manifest `partition`
+    object and cast it to its Spark result type."""
+    raw = f"partition:{quote_name_without_upper_casing(name)}"
+    if (transform or "").lower() == "day":
+        # Iceberg stores `day` partition values as INT days-from-epoch; Spark's
+        # `.partitions` surfaces them as DATE, so convert to match.
+        return f"DATEADD('day', {raw}::INT, DATE '1970-01-01')"
+    return f"{raw}::{sf_type}"
+
+
+_PARTITIONS_CTES = """
+        manifest_entries AS (
+            SELECT
+                REGEXP_SUBSTR(MANIFEST_FILE_NAME, '[^/]+$')           AS manifest_basename,
+                MANIFEST_ENTRIES:data_file:content::INT               AS content,
+                MANIFEST_ENTRIES:data_file:partition                  AS partition,
+                MANIFEST_ENTRIES:data_file:record_count::NUMBER       AS record_count,
+                MANIFEST_ENTRIES:data_file:file_size_in_bytes::NUMBER AS file_size,
+                MANIFEST_ENTRIES:snapshot_id::NUMBER                  AS snapshot_id,
+                MANIFEST_ENTRIES:sequence_number::NUMBER              AS sequence_number
+            FROM TABLE(ICEBERG_TABLE_MANIFEST_ENTRIES(?, NULL, 1, TRUE))
+            WHERE MANIFEST_ENTRIES:status::NUMBER != 2
+        ),
+        entry_manifests AS (
+            SELECT DISTINCT
+                REGEXP_SUBSTR(manifest_file:manifest_path::STRING, '[^/]+$') AS manifest_basename,
+                manifest_file:partition_spec_id::INT                         AS spec_id
+            FROM TABLE(ICEBERG_TABLE_MANIFESTS(?))
+        ),
+        snaps AS (
+            SELECT snapshot_id, committed_at
+            FROM TABLE(INFORMATION_SCHEMA.ICEBERG_TABLE_SNAPSHOTS(?))
+        ),
+        joined AS (
+            SELECT e.*, m.spec_id, s.committed_at
+            FROM manifest_entries e
+            LEFT JOIN entry_manifests m USING (manifest_basename)
+            LEFT JOIN snaps s ON e.snapshot_id = s.snapshot_id
+        )
+"""
+
+# Content-split aggregates shared by the partitioned and unpartitioned shapes
+# (0 = data, 1 = position deletes, 2 = equality deletes). last_updated_* take the
+# snapshot with the highest sequence number touching the group.
+_PARTITIONS_AGG_COLS = """
+            SUM(IFF(content = 0, record_count, 0))::NUMBER   AS record_count,
+            COUNT_IF(content = 0)::INT                        AS file_count,
+            SUM(IFF(content = 0, file_size, 0))::NUMBER       AS total_data_file_size_in_bytes,
+            SUM(IFF(content = 1, record_count, 0))::NUMBER    AS position_delete_record_count,
+            COUNT_IF(content = 1)::INT                        AS position_delete_file_count,
+            SUM(IFF(content = 2, record_count, 0))::NUMBER    AS equality_delete_record_count,
+            COUNT_IF(content = 2)::INT                        AS equality_delete_file_count,
+            MAX_BY(committed_at, sequence_number)             AS last_updated_at,
+            MAX_BY(snapshot_id, sequence_number)::NUMBER      AS last_updated_snapshot_id
+"""
+
+
+def _build_partitions_query(
+    session: snowpark.Session, base_table_name: str
+) -> tuple[str, int]:
+    """SNOW-3527708: build the `.partitions` aggregation, shaped by the table's
+    current partition spec. Partitioned tables emit a typed `partition` struct plus
+    `spec_id` and group by them; unpartitioned tables drop both columns and return a
+    single aggregate row (matching Spark). Binds the base table name three times
+    (ICEBERG_TABLE_MANIFEST_ENTRIES, ICEBERG_TABLE_MANIFESTS, ICEBERG_TABLE_SNAPSHOTS).
+    """
+    meta_rows = session.sql(
+        "SELECT METADATA FROM TABLE(INFORMATION_SCHEMA.ICEBERG_TABLE_METADATA(?))",
+        params=[base_table_name],
+    ).collect()
+    metadata = meta_rows[0][0] if meta_rows else None
+    if isinstance(metadata, str):
+        metadata = json.loads(metadata)
+    if not metadata:
+        # A valid managed table always returns metadata here (a missing table
+        # would have failed the read above). An empty result means we cannot
+        # determine the partition spec; defaulting to the unpartitioned shape
+        # would silently drop `partition`/`spec_id` for a partitioned table
+        # (wrong vs Spark), so fail with an actionable error instead.
+        exception = AnalysisException(
+            "Could not read Iceberg table metadata for "
+            f"`{base_table_name}` while building `.partitions` "
+            "(INFORMATION_SCHEMA.ICEBERG_TABLE_METADATA returned no rows). "
+            "Ensure the table is a managed-Iceberg table and its metadata "
+            "has been refreshed."
+        )
+        attach_custom_error_code(exception, ErrorCodes.INTERNAL_ERROR)
+        raise exception
+
+    schemas = metadata.get("schemas", []) or []
+    cur_schema_id = metadata.get("current-schema-id")
+    if cur_schema_id is None and schemas:
+        # `current-schema-id` is absent (older metadata): by Iceberg convention
+        # the highest schema-id is current. Pick it explicitly rather than
+        # merging every schema version, where later ids would clobber earlier
+        # field-id -> type mappings unpredictably.
+        cur_schema_id = max((s.get("schema-id", 0) for s in schemas), default=None)
+    field_types: dict[int, str] = {}
+    for schema in schemas:
+        if schema.get("schema-id") == cur_schema_id:
+            for field in schema.get("fields", []) or []:
+                field_types[field.get("id")] = field.get("type")
+            break
+
+    default_spec_id = metadata.get("default-spec-id", 0)
+    spec_fields: list[dict] = []
+    for spec in metadata.get("partition-specs", []) or []:
+        if spec.get("spec-id") == default_spec_id:
+            spec_fields = spec.get("fields", []) or []
+            break
+
+    if not spec_fields:
+        # Unpartitioned: Spark drops `partition` and `spec_id`, single aggregate row.
+        query = f"WITH {_PARTITIONS_CTES}\n        SELECT\n{_PARTITIONS_AGG_COLS}\n        FROM joined"
+        return query, 3
+
+    obj_pairs, obj_types, value_exprs = [], [], []
+    for field in spec_fields:
+        fname = field.get("name")
+        if fname is None:
+            # A partition-spec field without a name cannot form a valid struct
+            # key/identifier; skip it rather than emit corrupt SQL.
+            continue
+        transform = field.get("transform", "identity")
+        sf_type = _partition_field_sf_type(
+            transform, field_types.get(field.get("source-id"))
+        )
+        # The OBJECT_CONSTRUCT key is a single-quoted string literal, so escape
+        # single quotes; the OBJECT-type field uses a double-quoted identifier via
+        # `quote_name_without_upper_casing`. Both guard unusual-but-valid names.
+        key_literal = fname.replace("'", "''")
+        value_expr = _partition_field_value_expr(fname, transform, sf_type)
+        value_exprs.append(value_expr)
+        obj_pairs.append(f"'{key_literal}', {value_expr}")
+        obj_types.append(f"{quote_name_without_upper_casing(fname)} {sf_type}")
+    partition_struct = (
+        "CAST(OBJECT_CONSTRUCT_KEEP_NULL(\n                "
+        + ",\n                ".join(obj_pairs)
+        + "\n            )::VARIANT AS OBJECT(\n                "
+        + ",\n                ".join(obj_types)
+        + "\n            )) AS partition"
+    )
+    # Group by the per-field partition value expressions (not the raw `partition`
+    # variant column): Snowflake requires every non-aggregate SELECT expression to
+    # appear textually in GROUP BY, and the struct is built from these same
+    # expressions. Grouping by the bare `partition` column instead fails with
+    # "GET(partition, '<field>') is neither an aggregate nor in the group by".
+    group_by = ", ".join([*value_exprs, "spec_id"])
+    query = (
+        f"WITH {_PARTITIONS_CTES}\n        SELECT\n            {partition_struct},\n"
+        f"            spec_id,\n{_PARTITIONS_AGG_COLS}\n        FROM joined\n"
+        f"        GROUP BY {group_by}"
+    )
+    return query, 3
 
 
 def _split_iceberg_metadata_table_name(
@@ -497,6 +701,8 @@ def _split_iceberg_metadata_table_name(
 
     suffix = name_parts[-1].lower()
     if suffix in ICEBERG_METADATA_TABLE_QUERIES:
+        return name_parts[:-1], suffix
+    if suffix in DYNAMIC_ICEBERG_METADATA_TABLES:
         return name_parts[:-1], suffix
     if suffix in UNSUPPORTED_ICEBERG_METADATA_TABLES:
         return name_parts[:-1], suffix
@@ -540,7 +746,10 @@ def _read_iceberg_metadata_table(
     session: snowpark.Session,
     plan_id: int,
 ) -> DataFrameContainer:
-    if metadata_table_name not in ICEBERG_METADATA_TABLE_QUERIES:
+    if (
+        metadata_table_name not in ICEBERG_METADATA_TABLE_QUERIES
+        and metadata_table_name not in DYNAMIC_ICEBERG_METADATA_TABLES
+    ):
         exception = SnowparkConnectNotImplementedError(
             f"Iceberg metadata table '{metadata_table_name}' is not supported"
         )
@@ -557,9 +766,15 @@ def _read_iceberg_metadata_table(
     # asynchronously, so force a synchronous refresh before reading.
     _refresh_iceberg_table_metadata(session, base_table_name)
 
-    query = ICEBERG_METADATA_TABLE_QUERIES[metadata_table_name]
-    # Bind the base table name once per `?` placeholder (see BIND_COUNTS).
-    n_binds = ICEBERG_METADATA_TABLE_BIND_COUNTS.get(metadata_table_name, 1)
+    if metadata_table_name in DYNAMIC_ICEBERG_METADATA_TABLES:
+        # SNOW-3527708: `.partitions` (and future spec-dependent tables) cannot use
+        # a static string — the projection is derived from the table's partition
+        # spec at request time.
+        query, n_binds = _build_partitions_query(session, base_table_name)
+    else:
+        query = ICEBERG_METADATA_TABLE_QUERIES[metadata_table_name]
+        # Bind the base table name once per `?` placeholder (see BIND_COUNTS).
+        n_binds = ICEBERG_METADATA_TABLE_BIND_COUNTS.get(metadata_table_name, 1)
     df = session.sql(query, params=[base_table_name] * n_binds)
     try:
         # Force evaluation here. ``post_process_df`` rewrites Snowflake 2003 into a

@@ -37,6 +37,7 @@ if typing.TYPE_CHECKING:
 
     from urwid import Canvas, CompositeCanvas
 
+    from .container import WidgetContainerListContentsMixin
     from .widget import AbstractFixedWidget, AbstractFlowWidget
 
 
@@ -164,7 +165,12 @@ class Scrollable(WidgetDecoration[WrappedScrollWidget]):
             ch = 0
             last_hidden = False
             first_visible = False
-            for pwi, (w, _o) in enumerate(ow.contents):
+            for pwi, (w, _o) in enumerate(
+                typing.cast(
+                    "WidgetContainerListContentsMixin[tuple[AbstractWidget, typing.Any]]",
+                    ow,
+                ).contents
+            ):
                 wcanv = w.render((maxcol,))
 
                 if wh := wcanv.rows():
@@ -180,21 +186,23 @@ class Scrollable(WidgetDecoration[WrappedScrollWidget]):
                     if not w.selectable():
                         continue
 
-                    ow.focus_position = pwi
+                    typing.cast(
+                        "WidgetContainerListContentsMixin[tuple[AbstractWidget, typing.Any]]",
+                        ow,
+                    ).focus_position = pwi
 
                     st = None
                     nf = ow.focus
                     if hasattr(nf, "key_timeout"):
                         st = nf
-                    elif hasattr(nf, "original_widget"):
-                        no = nf.original_widget
+                    elif (no := getattr(nf, "original_widget", None)) is not None:
                         if hasattr(no, "original_widget"):
                             st = no.original_widget
                         elif hasattr(no, "key_timeout"):
                             st = no
 
                     if st and hasattr(st, "key_timeout") and callable(getattr(st, "keypress", None)):
-                        st.keypress(None, None)
+                        st.keypress(None, None)  # type: ignore[arg-type]  # Do not break legacy API
 
                     break
 
@@ -684,36 +692,46 @@ class ScrollBar(WidgetDecoration[WrappedScrollableWidget]):
     ) -> bool | None:
         ow = self._original_widget
         ow_size = self._original_widget_size
-        handled: bool | None = False
-        if hasattr(ow, "mouse_event"):
-            handled = ow.mouse_event(ow_size, event, button, col, row, focus)
+        supports_scroll = hasattr(ow, "set_scrollpos")
+        on_scrollbar = False
+        ow_col = col
 
-        if not handled and hasattr(ow, "set_scrollpos"):
+        if supports_scroll:
+            # The geometry is needed before the event is passed on: the wrapped widget cannot tell
+            # that a column belongs to the scrollbar, and would answer a click that is not its own.
+            layout = self._scrollbar_layout(size, focus)
+            if layout is not None:
+                if self._scrollbar_side == SCROLLBAR_LEFT:
+                    on_scrollbar = col < layout.sb_width
+                    # The wrapped widget is drawn after the scrollbar, so its own column 0 sits at
+                    # screen column sb_width and the offset has to be taken back out.
+                    ow_col = col - layout.sb_width
+                else:
+                    on_scrollbar = col >= layout.ow_size[0]
+
+                if on_scrollbar and button == 1:
+                    # Move the thumb top to the clicked row, inverting the placement done during render.
+                    thumb_travel = size[1] - layout.thumb_height
+                    if thumb_travel > 0:
+                        newpos = round(row * layout.posmax / thumb_travel)
+                    else:
+                        newpos = 0
+                    ow.set_scrollpos(max(0, min(layout.posmax, newpos)))  # type: ignore[attr-defined]  # gated
+                    return True
+
+        handled: bool | None = False
+        if not on_scrollbar and hasattr(ow, "mouse_event"):
+            handled = ow.mouse_event(ow_size, event, button, ow_col, row, focus)
+
+        if not handled and supports_scroll:
             if button == 4:  # scroll wheel up
                 pos = ow.get_scrollpos(ow_size)
                 newpos = max(pos - 1, 0)
-                ow.set_scrollpos(newpos)
+                ow.set_scrollpos(newpos)  # type: ignore[attr-defined]  # gated
                 return True
             if button == 5:  # scroll wheel down
                 pos = ow.get_scrollpos(ow_size)
-                ow.set_scrollpos(pos + 1)
+                ow.set_scrollpos(pos + 1)  # type: ignore[attr-defined]  # gated
                 return True
-            if button == 1:  # left click may target the scrollbar itself
-                layout = self._scrollbar_layout(size, focus)
-                if layout is not None:
-                    if self._scrollbar_side == SCROLLBAR_LEFT:
-                        on_scrollbar = col < layout.sb_width
-                    else:
-                        on_scrollbar = col >= layout.ow_size[0]
-
-                    if on_scrollbar:
-                        # Move the thumb top to the clicked row, inverting the placement done during render.
-                        thumb_travel = size[1] - layout.thumb_height
-                        if thumb_travel > 0:
-                            newpos = round(row * layout.posmax / thumb_travel)
-                        else:
-                            newpos = 0
-                        ow.set_scrollpos(max(0, min(layout.posmax, newpos)))
-                        return True
 
         return handled

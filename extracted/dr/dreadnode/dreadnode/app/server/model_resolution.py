@@ -111,7 +111,15 @@ def build_turn_generator(config: TurnModelConfig) -> "str | Generator":
     if not config.is_platform_proxy:
         return config.generator_model
 
-    from dreadnode.generators.proxy import build_proxy_generator
+    from dreadnode.generators.proxy import build_proxy_generator, resolve_dn_model_to_generator
+
+    # A configured local runtime registers a lazy platform-proxy provisioner.
+    # ``resolve_turn_model_config`` may run before that provisioner has minted
+    # credentials, notably when a guard policy constructs its judge during a
+    # mid-session policy swap. Give the shared resolver a chance to provision
+    # before treating the missing snapshot as the final configuration.
+    if not config.api_base or not config.api_key:
+        return resolve_dn_model_to_generator(config.generator_model)
 
     return build_proxy_generator(
         config.generator_model,

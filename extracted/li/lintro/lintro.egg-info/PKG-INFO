@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: lintro
-Version: 0.120.0
+Version: 0.123.3
 Summary: A unified CLI tool for code formatting, linting, and quality assurance
 Author-email: lgtm-hq <turbocoder13@gmail.com>
 License-Expression: MIT
@@ -122,6 +122,7 @@ bun add -g @lgtm-hq/lintro         # Node / npm — self-contained, no Python
 
 lintro check .                     # Find issues (alias: chk)
 lintro format .                    # Fix issues (alias: fmt)
+lintro badge                       # shields.io health-score badge
 lintro check --output-format grid  # Beautiful output
 ```
 

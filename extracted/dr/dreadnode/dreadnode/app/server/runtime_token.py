@@ -173,7 +173,6 @@ class RuntimeTokenSource:
         self._current: str | None = None
         self._grace: dict[str, float] = {}
         self._last_read: float | None = None
-        self._last_mtime: float | None = None
         # True once we've read a real token out of the token file. From then on
         # the env var is a retired relic and must never be fallen back to.
         self._file_backed = False
@@ -187,12 +186,8 @@ class RuntimeTokenSource:
         with self._lock:
             self._on_retire = on_retire
 
-    def _read_token(self) -> "tuple[str | None, float | None]":
-        """Read the token plus the token file's mtime (``None`` when env-sourced).
-
-        Kept separate from module-level :func:`read_runtime_token` so the source
-        can gate forced re-reads on the file's mtime; the out-of-process client
-        resolver needs neither the mtime nor the source's cache.
+    def _read_token(self) -> str | None:
+        """Read the token from its authoritative source.
 
         Raises :class:`_TokenUnavailableError` when a token file we have previously
         read successfully becomes unreadable. That must NOT fall back to the env
@@ -204,43 +199,26 @@ class RuntimeTokenSource:
         """
         path_str = os.environ.get(_TOKEN_FILE_ENV)
         if not path_str:
-            return _read_env_token(), None
+            return _read_env_token()
 
         path = Path(path_str)
         try:
-            mtime = path.stat().st_mtime
             value = path.read_text(encoding="utf-8").strip()
         except FileNotFoundError:
             if self._file_backed:
                 raise _TokenUnavailableError(f"{path_str} vanished") from None
             # Never materialized — the env token is still the live one.
-            return _read_env_token(), None
+            return _read_env_token()
         except OSError as exc:
             if self._file_backed:
                 raise _TokenUnavailableError(f"{path_str}: {exc}") from exc
             logger.warning("Failed to read runtime token file {}: {}", path_str, exc)
-            return _read_env_token(), None
+            return _read_env_token()
 
         if value:
             # From here on the file is authoritative; the env is a stale relic.
             self._file_backed = True
-        return (value or None), mtime
-
-    def _file_unchanged(self) -> bool:
-        """Whether the token file's mtime matches the last successful read.
-
-        Used to skip a forced re-read when the file demonstrably hasn't changed,
-        so a burst of invalid tokens can't hammer the filesystem. Returns
-        ``False`` for the env-sourced path (nothing cheap to stat) so it always
-        re-resolves there.
-        """
-        path_str = os.environ.get(_TOKEN_FILE_ENV)
-        if not path_str or self._last_mtime is None:
-            return False
-        try:
-            return Path(path_str).stat().st_mtime == self._last_mtime
-        except OSError:
-            return False
+        return value or None
 
     def _prune(self, now: float) -> None:
         expired = [token for token, expiry in self._grace.items() if expiry <= now]
@@ -260,14 +238,8 @@ class RuntimeTokenSource:
         if not force and cache_fresh:
             self._prune(now)
             return None
-        # A forced re-read on every invalid token would stat+read the file per
-        # request; skip it when the file is provably unchanged.
-        if force and self._current is not None and self._file_unchanged():
-            self._prune(now)
-            return None
-
         try:
-            raw, mtime = self._read_token()
+            raw = self._read_token()
         except _TokenUnavailableError as exc:
             # The token file is unreadable. Keep the last known token — never
             # retire it, and never fall back to the (retired) env token.
@@ -277,7 +249,6 @@ class RuntimeTokenSource:
             return None
 
         self._last_read = now
-        self._last_mtime = mtime
 
         retired: str | None = None
         if raw is None and self._current is not None:
@@ -341,8 +312,7 @@ class RuntimeTokenSource:
         vouch for a rotated-out token for up to ``cache_ttl``, which is long
         enough for the kicked client to open a socket that then outlives the
         rotation (the retire sweep has already run, or hasn't observed the
-        rotation either). The cost is bounded by the mtime gate — a single
-        ``stat`` when the file hasn't changed — and handshakes are rare.
+        rotation either). Handshakes are rare and the token file is tiny.
         """
         with self._lock:
             retired = self._refresh(force=True)
@@ -356,9 +326,9 @@ class RuntimeTokenSource:
     def is_valid(self, presented: str) -> bool:
         """Constant-time check of a presented token against current + grace set.
 
-        On a cache miss the file is re-read once (subject to the mtime gate)
-        before rejecting, so a token the platform just wrote is accepted
-        immediately rather than after the cache TTL elapses.
+        On a cache miss the file is re-read once before rejecting, so a token the
+        platform just wrote is accepted immediately rather than after the cache
+        TTL elapses.
         """
         with self._lock:
             retired = self._refresh(force=False)

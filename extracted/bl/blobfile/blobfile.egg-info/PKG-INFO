@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: blobfile
-Version: 3.2.0
+Version: 3.3.0
 Summary: Read GCS, ABS and local paths with the same interface, clone of tensorflow.io.gfile
 Author: Christopher Hesse
 License: Public Domain

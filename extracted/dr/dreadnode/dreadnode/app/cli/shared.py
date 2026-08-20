@@ -1,14 +1,18 @@
 """Shared utility functions for the cyclopts CLI."""
 
 import json
+import shutil
 import time
 import typing as t
 from dataclasses import dataclass
 from datetime import UTC, datetime
+from pathlib import Path
 from urllib.parse import urlencode
 
 if t.TYPE_CHECKING:
+    from dreadnode.app.api.client import ApiClient
     from dreadnode.app.cli.args import PlatformArgs
+    from dreadnode.app.config import Profile
     from dreadnode.app.main import Dreadnode
 
 from dreadnode.core.log import console
@@ -128,11 +132,10 @@ def confirm_destructive(prompt: str, *, yes: bool) -> bool:
 # ---------------------------------------------------------------------------
 
 
-def configured_dreadnode(args: "PlatformArgs") -> "Dreadnode":
-    """Build a configured Dreadnode instance from CLI args."""
+def dreadnode_from_profile(profile: "Profile") -> "Dreadnode":
+    """Build a configured Dreadnode instance from a resolved profile."""
     from dreadnode.app.main import Dreadnode
 
-    profile = args.resolve()
     return Dreadnode().configure(
         server=profile.url,
         api_key=profile.api_key,
@@ -140,6 +143,11 @@ def configured_dreadnode(args: "PlatformArgs") -> "Dreadnode":
         workspace=profile.workspace,
         project=profile.project,
     )
+
+
+def configured_dreadnode(args: "PlatformArgs") -> "Dreadnode":
+    """Build a configured Dreadnode instance from CLI args."""
+    return dreadnode_from_profile(args.resolve())
 
 
 # ---------------------------------------------------------------------------
@@ -750,9 +758,206 @@ def _wait_for_job(
 
 
 def _sync_progress(name: str, status: str, error: str | None) -> None:
-    if status == "uploaded":
+    if status in ("uploaded", "pulled"):
         print_success(name, indent=2)
     elif status == "skipped":
         print_skip(name, indent=2)
     elif status == "failed":
         print_error(f"{name}: {error}", indent=2)
+
+
+# ---------------------------------------------------------------------------
+# Bulk sync operands (symmetric push / pull)
+# ---------------------------------------------------------------------------
+#
+# Grammar (specs/cli/sync.md, CLI-SYNC-001..013): `sync <src> <dst>` where an
+# operand containing "://" is a platform (named by its URL) and everything else
+# is a local directory. Direction follows the operand types — platform→dir
+# pulls, dir→platform pushes — so there is no `--pull` / `--push` flag. The
+# platform URL resolves to a saved login profile; two credential contexts in a
+# single run (platform→platform) are out of scope.
+
+
+@dataclass(frozen=True, kw_only=True)
+class SyncPlan:
+    """A resolved ``sync`` invocation: a direction, a local directory, and the
+    platform URL to sync against (``None`` for the single-operand back-compat
+    form, which falls back to the connection flags)."""
+
+    direction: t.Literal["push", "pull"]
+    directory: Path
+    platform_url: str | None
+
+
+def _is_platform_ref(operand: str) -> bool:
+    """An operand names a platform iff it carries a URL scheme (CLI-SYNC-002)."""
+    return "://" in operand
+
+
+def classify_sync_operands(src: str, dst: str | None) -> SyncPlan:
+    """Resolve ``sync <src> <dst>`` operands into a :class:`SyncPlan`.
+
+    An operand containing ``://`` is a platform URL; anything else is a local
+    directory (CLI-SYNC-002). Direction is read off the operand types
+    (CLI-SYNC-003). ``sync <dir>`` alone is a back-compat push to the
+    connection-flag platform (CLI-SYNC-004).
+
+    Raises ``ValueError`` for the two "not a sync" shapes: two platforms
+    (CLI-SYNC-021) and two directories (CLI-SYNC-020).
+    """
+    if dst is None:
+        if _is_platform_ref(src):
+            raise ValueError(
+                "sync needs a local directory. To pull, name a directory: "
+                "`sync <url> <dir>`; to push, `sync <dir> <url>`."
+            )
+        return SyncPlan(direction="push", directory=Path(src), platform_url=None)
+
+    src_platform = _is_platform_ref(src)
+    dst_platform = _is_platform_ref(dst)
+
+    if src_platform and dst_platform:
+        raise ValueError(
+            "Both operands are platforms. Sync copies between a platform and a "
+            "directory: pull with `sync <url> <dir>`, then push with `sync <dir> <url>`."
+        )
+    if not src_platform and not dst_platform:
+        raise ValueError(
+            "Neither operand is a platform. Name one side with a URL "
+            "(e.g. https://platform.example.com) — local-to-local copy isn't a sync."
+        )
+    if src_platform:
+        return SyncPlan(direction="pull", directory=Path(dst), platform_url=src)
+    return SyncPlan(direction="push", directory=Path(src), platform_url=dst)
+
+
+def resolve_sync_platform(url: str) -> "Profile":
+    """Resolve a platform-URL operand to a logged-in profile (CLI-SYNC-010..012).
+
+    Reuses the platform's ``UserConfig.find_by_url`` matching (``urls_match``
+    normalization, active > connected > most-recent priority). Raises
+    ``ValueError`` naming the ``dn login`` recovery when no connected profile
+    matches (CLI-SYNC-011).
+    """
+    from dreadnode.app.config import UserConfig
+
+    match = UserConfig.read().find_by_url(url)
+    if match is None or not match[1].api_key:
+        raise ValueError(f"Not logged in to {url} — run `dn login --server {url}` first.")
+    name, profile = match
+    profile._name = name
+    return profile
+
+
+def connect_for_sync(
+    plan: SyncPlan, platform: "PlatformArgs"
+) -> tuple["ApiClient | None", "Dreadnode", "Profile"]:
+    """Build ``(api, dn, profile)`` for a sync run.
+
+    Two-operand syncs resolve their platform from the URL operand
+    (CLI-SYNC-010); the single-operand back-compat form uses the connection
+    flags (CLI-SYNC-004). Either way ``--organization`` / ``DREADNODE_ORGANIZATION``
+    overrides are honored.
+
+    Unlike ``PlatformArgs.connect``, this does not call ``profile.validate_scope``
+    itself, because bulk publish/pull is org-scoped and has no workspace or project
+    to check. Note that it is not a way to skip scope validation altogether:
+    ``dreadnode_from_profile`` calls ``configure()``, which validates and re-raises
+    anything that is not a transient network error.
+
+    ``api`` is only built for pulls, which are the only direction that reads the
+    platform. Push needs nothing but ``dn``, so the single-operand form keeps the
+    pre-symmetric contract (CLI-SYNC-004): it resolves a profile and hands off to
+    ``sync_*``, without a credential gate the old `configured_dreadnode` path
+    never had. Addressing a platform by URL still fails fast, because naming a
+    server you are not logged in to is a mistake worth reporting up front.
+    """
+    import os
+
+    from dreadnode.app.api.client import ApiClient
+
+    if plan.platform_url is None:
+        profile = platform.resolve()
+    else:
+        profile = resolve_sync_platform(plan.platform_url)
+        # Overlay the org override the URL-resolved profile doesn't carry, matching
+        # the overlay platform.resolve() applies for the single-operand form.
+        override_org = platform.organization or os.environ.get("DREADNODE_ORGANIZATION")
+        if override_org:
+            profile = profile.with_overrides(organization=override_org)
+
+    # Only pulls read from the platform, so only pulls need an API client. Push
+    # needs nothing but `dn`, which keeps the single-operand form free of the
+    # credential gate the pre-symmetric `configured_dreadnode` path never had
+    # (CLI-SYNC-004). Every run that named a platform by URL already has
+    # credentials, guaranteed by resolve_sync_platform (CLI-SYNC-011).
+    api = ApiClient(profile.url, api_key=profile.api_key) if plan.direction == "pull" else None
+    return api, dreadnode_from_profile(profile), profile
+
+
+def replace_pull_dest(dest: Path) -> None:
+    """Remove *dest* to make room for a fresh pull, guarding against data loss.
+
+    Never deletes the working directory or an ancestor of it (CLI-SYNC-032); a
+    destination symlink is unlinked, never followed (dereferencing could blow
+    away state far outside the intended target). A missing *dest* is a no-op.
+    """
+    if dest.is_symlink():
+        dest.unlink()
+        return
+    if not dest.exists():
+        return
+    resolved = dest.resolve()
+    cwd = Path.cwd().resolve()
+    if resolved == cwd or resolved in cwd.parents:
+        raise ValueError(
+            f"refusing to overwrite {resolved}: would delete the working directory "
+            "or an ancestor of it"
+        )
+    if dest.is_dir():
+        shutil.rmtree(dest)
+    else:
+        dest.unlink()
+
+
+def pull_environment_to_dir(dn: t.Any, ref_uri: str, dest: Path, *, force: bool) -> bool:
+    """Materialize one environment package into *dest*.
+
+    Pulls ``ref_uri`` (e.g. ``environment://org/name`` or ``…:version``) into the
+    package cache, then copies it to *dest*. Returns ``True`` if the environment
+    was pulled, ``False`` if *dest* already existed and *force* was not set.
+    Raises on pull failure.
+    """
+    if (dest.exists() or dest.is_symlink()) and not force:
+        return False
+    result = dn.pull_package([ref_uri], upgrade=True)
+    if not result.success or result.dest is None:
+        raise RuntimeError("; ".join(result.errors) or "Pull failed")
+    copy_tree_replacing(result.dest, dest)
+    return True
+
+
+def copy_tree_replacing(src: Path, dest: Path) -> None:
+    """Copy *src* onto *dest*, replacing it only once the copy fully succeeds.
+
+    ``shutil.copytree`` is neither atomic nor rolled back on partial failure, so
+    copying straight into *dest* means a disk-full, a permission error on one
+    file, or an interrupt leaves the destination wiped and half-written — after
+    the prior good copy is already gone. Bulk air-gap pulls re-run with
+    ``--force`` over an existing bundle, which is exactly when that matters.
+
+    Files land in a sibling staging dir and move into place with a single
+    rename, so a failed copy never touches *dest* (CLI-SYNC-032).
+    """
+    import tempfile
+
+    dest.parent.mkdir(parents=True, exist_ok=True)
+    staging = Path(tempfile.mkdtemp(prefix=f".{dest.name}.", dir=dest.parent))
+    try:
+        # mkdtemp already created the leaf, so copytree has to merge into it.
+        shutil.copytree(src, staging, dirs_exist_ok=True)
+    except BaseException:
+        shutil.rmtree(staging, ignore_errors=True)
+        raise
+    replace_pull_dest(dest)
+    staging.rename(dest)

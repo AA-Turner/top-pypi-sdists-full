@@ -2,31 +2,31 @@
 
 from __future__ import annotations
 
-from typing import Annotated, Optional
+from typing import Annotated
 
-from mcp.server.fastmcp import Context
 from mcp.types import ToolAnnotations
 from pydantic import Field
 
 from lean_lsp_mcp import server
 from lean_lsp_mcp.client_utils import bind_lean_project_path
 from lean_lsp_mcp.models import BuildResult
+from lean_lsp_mcp.tool_registry import tool
 
 
-@server.mcp.tool(
+@tool(
     "lean_build",
     annotations=ToolAnnotations(
         title="Build Project",
-        readOnlyHint=False,
-        destructiveHint=True,
-        idempotentHint=True,
-        openWorldHint=False,
+        read_only_hint=False,
+        destructive_hint=True,
+        idempotent_hint=True,
+        open_world_hint=False,
     ),
 )
 async def lsp_build(
-    ctx: Context,
+    ctx: server.ToolContext,
     lean_project_path: Annotated[
-        Optional[str], Field(description="Path to Lean project")
+        str | None, Field(description="Path to Lean project")
     ] = None,
     clean: Annotated[bool, Field(description="Run lake clean first (slow)")] = False,
     fetch_cache: Annotated[

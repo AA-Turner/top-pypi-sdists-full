@@ -71,14 +71,12 @@ class SLivenessAnalysis(Analysis):
             live_outs[block_key] = set()
 
         live_on_edges: dict[tuple[tuple[int, int | None], tuple[int, int | None]], set[int]] = {}
+        # blocks whose statements have been walked at least once
+        walked: set[tuple[int, int | None]] = set()
 
-        worklist = deque(networkx.dfs_postorder_nodes(graph, source=entry))
-        worklist_set = set(worklist)
-        single_exit_single_entry_nodes = {
-            node
-            for node in graph
-            if graph.in_degree[node] == 1 and graph.out_degree[node] == 1 and not graph.has_edge(node, node)
-        }
+        order: list[Block] = list(networkx.dfs_postorder_nodes(graph, source=entry))
+        worklist = deque(order)
+        worklist_set = set(order)
 
         while worklist:
             block = worklist.popleft()
@@ -91,19 +89,25 @@ class SLivenessAnalysis(Analysis):
 
             live = set()
             for succ in graph.successors(block):
-                if head_controlled_loop and (block.addr, block.idx) == (succ.addr, succ.idx):
+                succ_key = succ.addr, succ.idx
+                if head_controlled_loop and block_key == succ_key:
                     # this is a head-controlled loop block; we ignore the self-loop edge because all variables defined
                     # in the block after the conditional jump will be dead after leaving the current block
                     continue
-                edge = (block.addr, block.idx), (succ.addr, succ.idx)
+                edge = block_key, succ_key
                 if edge in live_on_edges:
                     live |= live_on_edges[edge]
                 else:
-                    live |= live_ins[(succ.addr, succ.idx)]
+                    live |= live_ins[succ_key]
 
             if live != live_outs[block_key]:
                 changed = True
                 live_outs[block_key] = live.copy()
+            elif block_key in walked:
+                # the live-out set is what it was the last time this block was walked, and the walk depends on
+                # nothing else, so live_ins and live_on_edges are already up to date for this block
+                continue
+            walked.add(block_key)
 
             if head_controlled_loop:
                 # this is a head-controlled loop block; we start scanning from the first condition jump backwards
@@ -168,12 +172,11 @@ class SLivenessAnalysis(Analysis):
                     live_on_edges[key] = live
                     changed = True
 
-            if changed and block not in single_exit_single_entry_nodes:
-                new_nodes = [
-                    node for node in networkx.dfs_postorder_nodes(graph, source=block) if node not in worklist_set
-                ]
-                worklist.extend(new_nodes)
-                worklist_set |= set(new_nodes)
+            if changed:
+                for pred in graph.predecessors(block):
+                    if pred not in worklist_set:
+                        worklist.append(pred)
+                        worklist_set.add(pred)
 
         # set the model accordingly
         self.model.live_ins = live_ins

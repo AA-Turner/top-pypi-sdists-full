@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from typing import Any
 
+from aigie._system_prompt import system_prompt_text
 from aigie.tracing.llm_metadata import normalize_provider
 from aigie.tracing.usage import Usage
 
@@ -39,6 +40,14 @@ def agent_name(agent: Any) -> str:
 
 def tool_span_name(tool_use: dict[str, Any]) -> str:
     return tool_use.get("name") or "tool"
+
+
+def agent_system_prompt(agent: Any) -> str:
+    """The agent's configured system prompt, as text.
+
+    Strands keeps it on the Agent, not in the message list, so no span sees it otherwise.
+    """
+    return system_prompt_text(getattr(agent, "system_prompt", None))
 
 
 def agent_tools(agent: Any) -> list[dict[str, Any]]:

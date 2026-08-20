@@ -28,7 +28,7 @@ use std::collections::HashMap;
 use pyo3::IntoPyObjectExt;
 use pyo3::exceptions::{PyKeyError, PyStopIteration, PyTypeError};
 use pyo3::prelude::*;
-use pyo3::types::{PyDict, PyList, PyMapping, PyTuple};
+use pyo3::types::{PyDict, PyMapping, PyTuple};
 use pyo3::{Borrowed, Py, PyAny};
 use serde::{Deserialize, Serialize};
 
@@ -235,6 +235,24 @@ fn extra_from_py(value: &Bound<'_, PyAny>) -> TagExtra {
     }
 }
 
+impl<'py> IntoPyObject<'py> for &TagExtra {
+    type Target = PyAny;
+    type Output = Bound<'py, PyAny>;
+    type Error = PyErr;
+
+    fn into_pyobject(self, py: Python<'py>) -> Result<Self::Output, Self::Error> {
+        match self {
+            TagExtra::Bool(b) => b.into_bound_py_any(py),
+            TagExtra::Int(i) => i.into_bound_py_any(py),
+            TagExtra::Float(f) => f.into_bound_py_any(py),
+            TagExtra::Str(s) => s.into_bound_py_any(py),
+            TagExtra::IntList(l) => l.into_bound_py_any(py),
+            TagExtra::StrList(l) => l.into_bound_py_any(py),
+            TagExtra::Opaque(o) => Ok(o.bind(py).clone()),
+        }
+    }
+}
+
 /// Tags storage: the four hot keys as struct fields, everything else in
 /// `extras`. See the module docs.
 #[derive(Default, Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
@@ -249,21 +267,6 @@ pub struct Tags {
 }
 
 impl Tags {
-    /// Build a Tags struct from a Python `**kwargs` dict.
-    pub fn from_kwargs(kwargs: Option<&Bound<'_, PyDict>>) -> PyResult<Self> {
-        let mut tags = Self::default();
-        let Some(d) = kwargs else { return Ok(tags) };
-        for (k, v) in d.iter() {
-            let key: String = k.extract()?;
-            tags.set_from_py(&key, &v)?;
-        }
-        Ok(tags)
-    }
-
-    pub fn from_dict(d: Option<&Bound<'_, PyDict>>) -> PyResult<Self> {
-        Self::from_kwargs(d)
-    }
-
     pub fn is_empty(&self) -> bool {
         self.len() == 0
     }
@@ -322,18 +325,13 @@ impl Tags {
                 .block_idx
                 .map(|v| v.into_bound_py_any(py))
                 .transpose()?,
-            other => match self.extras.get(&other) {
-                None => None,
-                Some(v) => Some(match v {
-                    TagExtra::Bool(b) => b.into_bound_py_any(py)?,
-                    TagExtra::Int(i) => i.into_bound_py_any(py)?,
-                    TagExtra::Float(f) => f.into_bound_py_any(py)?,
-                    TagExtra::Str(s) => s.clone().into_bound_py_any(py)?,
-                    TagExtra::IntList(l) => l.clone().into_bound_py_any(py)?,
-                    TagExtra::StrList(l) => l.clone().into_bound_py_any(py)?,
-                    TagExtra::Opaque(o) => o.bind(py).clone(),
-                }),
-            },
+            // Not `Option`'s `IntoPyObject`: it maps `None` to `py.None()`,
+            // turning "tag absent" into "tag present with value None".
+            other => self
+                .extras
+                .get(&other)
+                .map(|v| v.into_pyobject(py))
+                .transpose()?,
         })
     }
 
@@ -376,6 +374,37 @@ impl Tags {
         }
     }
 
+    /// Merge `other` into `self`, with `other` winning on conflicts. Keys
+    /// absent from `other` are left alone.
+    pub fn merge(&mut self, py: Python<'_>, other: Tags) {
+        if other.ins_addr.is_some() {
+            self.ins_addr = other.ins_addr;
+        }
+        if other.vex_block_addr.is_some() {
+            self.vex_block_addr = other.vex_block_addr;
+        }
+        if other.vex_stmt_idx.is_some() {
+            self.vex_stmt_idx = other.vex_stmt_idx;
+        }
+        if other.block_idx.is_some() {
+            self.block_idx = other.block_idx;
+        }
+        for (k, v) in other.extras {
+            // A `None` value deletes the key, matching `set_from_py` (and so
+            // `__setitem__`). The only stored value that can be `None` is an
+            // `Opaque`, which `Deserialize` builds for anything that did not
+            // survive serialization.
+            match &v {
+                TagExtra::Opaque(o) if o.is_none(py) => {
+                    self.extras.remove(&k);
+                }
+                _ => {
+                    self.extras.insert(k, v);
+                }
+            }
+        }
+    }
+
     pub fn to_py_dict<'py>(&self, py: Python<'py>) -> PyResult<Bound<'py, PyDict>> {
         let d = PyDict::new(py);
         for k in self.keys() {
@@ -394,11 +423,16 @@ impl<'py> FromPyObject<'_, 'py> for Tags {
         if obj.is_none() {
             return Ok(Self::default());
         }
+        if let Ok(d) = obj.cast::<PyDict>() {
+            let mut tags = Self::default();
+            for (k, v) in d.iter() {
+                let key: String = k.extract()?;
+                tags.set_from_py(&key, &v)?;
+            }
+            return Ok(tags);
+        }
         if let Ok(view) = obj.extract::<TagsView>() {
             return Ok(view.inner);
-        }
-        if let Ok(d) = obj.cast::<PyDict>() {
-            return Self::from_dict(Some(&d.to_owned()));
         }
         if let Ok(m) = obj.cast::<PyMapping>() {
             let mut tags = Self::default();
@@ -474,9 +508,7 @@ impl TagsView {
                 inner: self.inner.clone(),
                 parent: None,
             };
-            parent
-                .bind(py)
-                .setattr("tags", snapshot.into_pyobject(py)?)?;
+            parent.bind(py).setattr("tags", snapshot)?;
         }
         Ok(())
     }
@@ -538,29 +570,28 @@ impl TagsView {
         self.flush_to_parent(py)
     }
 
-    fn keys<'py>(&self, py: Python<'py>) -> Bound<'py, PyList> {
-        PyList::new(py, self.inner.keys()).expect("keys list")
+    fn keys(&self) -> Vec<String> {
+        self.inner.keys()
     }
 
-    fn values<'py>(&self, py: Python<'py>) -> PyResult<Bound<'py, PyList>> {
-        let list = PyList::empty(py);
-        for k in self.inner.keys() {
-            if let Some(v) = self.inner.get_py(py, &k)? {
-                list.append(v)?;
-            }
-        }
-        Ok(list)
+    fn values<'py>(&self, py: Python<'py>) -> PyResult<Vec<Bound<'py, PyAny>>> {
+        self.inner
+            .keys()
+            .iter()
+            .filter_map(|k| self.inner.get_py(py, k).transpose())
+            .collect()
     }
 
-    fn items<'py>(&self, py: Python<'py>) -> PyResult<Bound<'py, PyList>> {
-        let list = PyList::empty(py);
-        for k in self.inner.keys() {
-            if let Some(v) = self.inner.get_py(py, &k)? {
-                let tup = PyTuple::new(py, [k.into_bound_py_any(py)?, v])?;
-                list.append(tup)?;
-            }
-        }
-        Ok(list)
+    fn items<'py>(&self, py: Python<'py>) -> PyResult<Vec<(String, Bound<'py, PyAny>)>> {
+        self.inner
+            .keys()
+            .into_iter()
+            .filter_map(|k| match self.inner.get_py(py, &k) {
+                Ok(Some(v)) => Some(Ok((k, v))),
+                Ok(None) => None,
+                Err(e) => Some(Err(e)),
+            })
+            .collect()
     }
 
     fn __iter__(slf: PyRef<'_, Self>, py: Python<'_>) -> PyResult<Py<TagsKeyIter>> {
@@ -574,15 +605,7 @@ impl TagsView {
     }
 
     fn update(&mut self, py: Python<'_>, other: Tags) -> PyResult<()> {
-        for k in other.keys() {
-            // Re-extract through the dynamic Python path so we cleanly
-            // overwrite the existing value (and so this works even when
-            // 'other' is a dict whose values are typed differently).
-            let v = other.get_py(py, &k)?;
-            if let Some(v) = v {
-                self.inner.set_from_py(&k, &v)?;
-            }
-        }
+        self.inner.merge(py, other);
         self.flush_to_parent(py)
     }
 
@@ -631,9 +654,6 @@ impl TagsView {
     }
 
     fn __eq__(&self, other: &Bound<'_, PyAny>) -> PyResult<bool> {
-        if let Ok(other_view) = other.extract::<TagsView>() {
-            return Ok(self.inner == other_view.inner);
-        }
         if let Ok(other_tags) = other.extract::<Tags>() {
             return Ok(self.inner == other_tags);
         }
@@ -646,35 +666,21 @@ impl TagsView {
 
     /// Implement ``tags | other`` -- returns a new ``TagsView`` whose state is
     /// the merge of ``self`` and ``other``, with ``other`` winning on conflicts.
-    fn __or__(&self, py: Python<'_>, other: Tags) -> PyResult<Self> {
+    fn __or__(&self, py: Python<'_>, other: Tags) -> Self {
         let mut merged = self.inner.clone();
-        for k in other.keys() {
-            if let Some(v) = other.get_py(py, &k)? {
-                merged.set_from_py(&k, &v)?;
-            }
-        }
-        Ok(Self {
+        merged.merge(py, other);
+        Self {
             inner: merged,
             parent: None,
-        })
+        }
     }
 
-    fn __ror__(&self, py: Python<'_>, mut other: Tags) -> PyResult<Self> {
-        for k in self.inner.keys() {
-            if let Some(v) = self.inner.get_py(py, &k)? {
-                other.set_from_py(&k, &v)?;
-            }
-        }
-        Ok(Self {
+    fn __ror__(&self, py: Python<'_>, mut other: Tags) -> Self {
+        other.merge(py, self.inner.clone());
+        Self {
             inner: other,
             parent: None,
-        })
-    }
-
-    /// `dict(tags)` works by iterating items; provide a fast path returning
-    /// the underlying dict.
-    fn __dict_repr__<'py>(&self, py: Python<'py>) -> PyResult<Bound<'py, PyDict>> {
-        self.inner.to_py_dict(py)
+        }
     }
 
     // Pickle helpers so TagsView round-trips with pickle.

@@ -389,6 +389,7 @@ class ClaudeAgentSDKEvents(
         self._trace_context: Any | None = None
         self._current_user_prompt: str | None = None  # type: ignore[assignment]
         self._first_user_prompt: str | None = None
+        self._system_prompt: str = ""
         self._last_response_text: str | None = None
         self._parent_span_stack: list[str] = []
         self._local_current_parent: str | None = None

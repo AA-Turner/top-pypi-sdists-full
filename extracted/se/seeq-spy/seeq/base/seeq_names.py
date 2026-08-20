@@ -10,6 +10,7 @@ class SeeqNames:
         class Management:
             class Parameters:
                 action = 'action'
+                file_path = 'filePath'
                 project_id = 'projectUuid'
             
             class Actions:
@@ -17,6 +18,7 @@ class SeeqNames:
                 delete_project_folder = 'DELETE_PROJECT_FOLDER'
                 delete_trash_folder = 'DELETE_TRASH_FOLDER'
                 fetch_executing_notebooks = 'FETCH_EXECUTING_NOTEBOOKS'
+                get_project_content = 'GET_PROJECT_CONTENT'
                 get_projects_with_file_system_info = 'GET_PROJECTS_WITH_FILE_SYSTEM_INFO'
                 get_sdl_disk_space = 'GET_SDL_DISK_SPACE'
                 terminate_executing_notebook = 'TERMINATE_EXECUTING_NOTEBOOK'
@@ -348,6 +350,7 @@ class SeeqNames:
         datum_id_column = 'datum id'
         item_id_column = 'item id'
         event_data_column = 'event data'
+        publication_provenance_column = 'publication provenance'
         context_table_prefix = 'context_'
         context_creator_id_column = 'creator_id'
         context_updater_id_column = 'updater_id'
@@ -590,7 +593,6 @@ class SeeqNames:
         custom_agent_schedule = 'CustomAgentSchedule'
     
     class Logging:
-        migrations_complete_file = 'migrations_complete_'
         class RemoteAgents:
             m_d_c_filename_key = 'agentlogfilename'
         
@@ -1465,6 +1467,7 @@ class SeeqNames:
         webhook_url = 'Webhook Url'
         first_run_look_back = 'First Run Look Back'
         capsule_event_types = 'Capsule Event Types'
+        uncertain_capsule_limit_per_condition = 'Uncertain Capsule Limit Per Condition'
         sample_event_types = 'Sample Event Types'
         removed_monitored_series = 'Removed Monitored Series'
         added_monitored_series = 'Added Monitored Series'
@@ -1552,7 +1555,6 @@ class SeeqNames:
         inputs = 'Inputs'
         result_type = 'Result Type'
         view_columns = 'View Columns'
-        filter_grouping = 'Filter Grouping'
         alias_column_id = 'Alias Column ID'
         table_definition_id = 'Table Definition Id'
         constructed_data_id = 'Constructed Data Id'

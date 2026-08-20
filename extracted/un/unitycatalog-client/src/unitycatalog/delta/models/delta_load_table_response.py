@@ -30,7 +30,7 @@ class DeltaLoadTableResponse(BaseModel):
     DeltaLoadTableResponse
     """ # noqa: E501
     metadata: DeltaTableMetadata = Field(description="Complete table metadata including schema and properties")
-    commits: Optional[List[DeltaCommit]] = Field(default=None, description="All unbackfilled CCv2 commits")
+    commits: Optional[List[DeltaCommit]] = Field(default=None, description="All unbackfilled CCv2 commits, in descending version order (newest first). For managed Delta tables the list is complete and contiguous up to latest-table-version and is returned atomically with the metadata; the server bounds its size at write time (ResourceExhaustedException) rather than truncating the response. ")
     uniform: Optional[DeltaUniformMetadata] = None
     latest_table_version: Optional[StrictInt] = Field(default=None, description="The latest ratified table version tracked by the server, including data-only commits. Compare with metadata.last-commit-version which only tracks metadata-changing commits.", alias="latest-table-version")
     __properties: ClassVar[List[str]] = ["metadata", "commits", "uniform", "latest-table-version"]

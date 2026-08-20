@@ -68,7 +68,8 @@ fsspec = [
     "fsspec>=0.8.4",
 ]
 shtab = [
-    "shtab>=1.7.1",
+    # 1.8.2 and 1.9.0 generate corrupted *_COMPGEN values, fixed in 1.9.1
+    "shtab>=1.7.1,!=1.8.2,!=1.9.0",
 ]
 argcomplete = [
     "argcomplete>=3.5.1",
@@ -188,6 +189,8 @@ Villegas = "Villegas"
 legacy_tox_ini = """
 [tox]
 envlist = py{310,311,312,313,314}-{all-extras,no-extras,argparse},omegaconf,pydantic-v1,without-pyyaml,without-future-annotations
+labels =
+    coverage = py{310,311,312,313,314}-{all-extras,no-extras},omegaconf,pydantic-v1,without-pyyaml,without-future-annotations
 skip_missing_interpreters = true
 
 [testenv]
@@ -197,10 +200,14 @@ extras =
     argparse: coverage
 changedir = jsonargparse_tests
 allowlist_externals = rm
-passenv = UV_EXCLUDE_NEWER
+passenv =
+    UV_EXCLUDE_NEWER
+    # Used by the gh CLI to download CPython's test_argparse.py
+    GH_TOKEN
 # Ensure uv installs into the tox env even if UV_SYSTEM_PYTHON=1 set outside
 setenv =
     UV_SYSTEM_PYTHON = 0
+    COVERAGE_FILE = {tox_root}/jsonargparse_tests/.coverage.{env_name}
 commands =
     all-extras: python -m pytest {posargs}
     no-extras: python -m pytest {posargs}
@@ -224,7 +231,8 @@ commands =
 
 [testenv:pydantic-v1]
 extras = coverage
-deps = ./jsonargparse_tests
+# editable, so that changes in the tests source are picked up without recreating the env
+deps = -e ./jsonargparse_tests
 commands =
     # Test with pydantic<2
     python -c "\
@@ -256,7 +264,8 @@ commands =
 
 [testenv:without-future-annotations]
 extras = test,coverage,all
-deps = ./jsonargparse_tests
+# editable, so that changes in the tests source are picked up without recreating the env
+deps = -e ./jsonargparse_tests
 allowlist_externals = sh
 commands =
     sh -c "\
@@ -268,4 +277,14 @@ commands =
     python -m pytest /tmp/_without_future_annotations {posargs}
 commands_post =
     sh -c "rm -rf /tmp/_without_future_annotations"
+
+[testenv:coverage-report]
+skip_install = true
+deps = coverage[toml]
+changedir = jsonargparse_tests
+setenv =
+    COVERAGE_FILE = {tox_root}/jsonargparse_tests/.coverage
+commands =
+    coverage combine
+    coverage html
 """

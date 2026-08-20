@@ -55,7 +55,7 @@ from blobfile._common import (
 
 # https://cloud.google.com/storage/docs/naming
 # https://www.w3.org/TR/xml/#charsets
-INVALID_CHARS = set().union(range(0x0, 0x9)).union(range(0xB, 0xE)).union(range(0xE, 0x20))
+INVALID_CHARS = set().union(range(0x9)).union(range(0xB, 0xE)).union(range(0xE, 0x20))
 
 DEFAULT_AZURE_WRITE_CHUNK_SIZE = 8 * 2**20
 DEFAULT_GOOGLE_WRITE_CHUNK_SIZE = 8 * 2**20
@@ -799,11 +799,11 @@ class Context:
             return f.read()
 
     def write_text(self, path: RemoteOrLocalPath, text: str) -> None:
-        with self.BlobFile(path, "w", partial_writes_on_exc=False) as f:
+        with self.BlobFile(path, "w", streaming=True, partial_writes_on_exc=False) as f:
             f.write(text)
 
     def write_bytes(self, path: RemoteOrLocalPath, data: bytes) -> None:
-        with self.BlobFile(path, "wb", partial_writes_on_exc=False) as f:
+        with self.BlobFile(path, "wb", streaming=True, partial_writes_on_exc=False) as f:
             f.write(data)
 
     @overload
@@ -872,6 +872,8 @@ class Context:
             raise IsADirectoryError(f"Is a directory: '{path}'")
 
         if streaming is None:
+            # It's a little lost to time why streaming defaults to False for writes.
+            # I think it allows for retries within blobfile when writing to GCP.
             streaming = mode in ("r", "rb")
 
         if file_size is not None:
@@ -1148,6 +1150,7 @@ def _parallel_download(
     if return_md5:
         with ctx.BlobFile(dst, "rb") as f:
             return binascii.hexlify(common.block_md5(f)).decode("utf8")
+    return None
 
 
 def _string_overlap(s1: str, s2: str) -> int:

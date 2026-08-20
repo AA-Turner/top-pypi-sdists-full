@@ -1,6 +1,6 @@
-Metadata-Version: 2.4
+Metadata-Version: 2.5
 Name: followthemoney
-Version: 4.10.1
+Version: 4.10.2
 Summary: A data model for anti corruption data modeling and analysis.
 Project-URL: Documentation, https://followthemoney.tech/
 Project-URL: Repository, https://github.com/opensanctions/followthemoney.git
@@ -35,18 +35,18 @@ Classifier: Operating System :: OS Independent
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
+Classifier: Programming Language :: Python :: 3.14
 Requires-Python: >=3.11
 Requires-Dist: babel<3.0.0,>=2.14.0
 Requires-Dist: banal<1.2.0,>=1.0.0
 Requires-Dist: click<9.0.0,>=8.0
-Requires-Dist: networkx<3.5,>=2.5
+Requires-Dist: networkx<3.7,>=2.5
 Requires-Dist: normality<4.0.0,>=3.1.0
 Requires-Dist: openpyxl<4.0.0,>=3.0.5
 Requires-Dist: orjson<4.0,>=3.10.0
 Requires-Dist: phonenumbers<10.0.0,>=8.12.22
 Requires-Dist: prefixdate<1.0.0,>=0.5.0
 Requires-Dist: pydantic<3.0.0,>=2.11.0
-Requires-Dist: pytz>=2021.1
 Requires-Dist: pyyaml<7.0.0,>=5.0.0
 Requires-Dist: rdflib<7.7.0,>=6.2.0
 Requires-Dist: requests<3.0.0,>=2.21.0

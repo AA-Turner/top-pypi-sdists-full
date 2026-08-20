@@ -1,6 +1,6 @@
 [project]
 name = "geocif"
-version = "0.4.928"
+version = "0.4.930"
 
 description = "Models to visualize and forecast crop conditions and yields"
 readme = "README.md"

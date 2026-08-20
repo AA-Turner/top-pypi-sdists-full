@@ -1,0 +1,872 @@
+import unittest
+import uuid
+
+from django.test import TestCase
+from wagtail.blocks import StreamValue
+from wagtail.images import get_image_model
+from wagtail.images.tests.utils import get_test_image_file
+from wagtail.models import Locale, Page
+
+from tests.testapp.models import TestChildObject, TestPage, TestSnippet
+from wagtail_localize.fields import copy_synchronised_fields
+from wagtail_localize.segments import (
+    OverridableSegmentValue,
+    RelatedObjectSegmentValue,
+    StringSegmentValue,
+    TemplateSegmentValue,
+)
+from wagtail_localize.segments.ingest import ingest_segments
+from wagtail_localize.strings import StringValue
+
+
+def make_test_page(**kwargs):
+    root_page = Page.objects.get(id=1)
+    kwargs.setdefault("title", "Test page")
+    return root_page.add_child(instance=TestPage(**kwargs))
+
+
+RICH_TEXT_TEST_INPUT = '<h1>This is a heading</h1><p>This is a paragraph. &lt;foo&gt; <b>Bold text</b></p><ul><li><a href="http://example.com">This is a link</a></li></ul>'
+
+RICH_TEXT_TEST_FRENCH_SEGMENTS = [
+    TemplateSegmentValue(
+        "",
+        "html",
+        '<h1><text position="0"></text></h1><p><text position="1"></text></p><ul><li><text position="2"></text></li></ul>',
+        3,
+        order=9,
+    ),
+    StringSegmentValue("", "Ceci est une rubrique", order=10),
+    StringSegmentValue.from_source_html(
+        "",
+        "Ceci est un paragraphe. &lt;foo&gt; <b>Texte en gras</b>",
+        order=11,
+    ),
+    StringSegmentValue(
+        "",
+        StringValue('<a id="a1">Ceci est un lien</a>'),
+        attrs={"a1": {"href": "http://example.com"}},
+        order=12,
+    ),
+    OverridableSegmentValue(
+        "'http://example.com'",
+        "http://example.fr",
+        order=13,
+    ),
+]
+
+RICH_TEXT_TEST_OUTPUT = '<h1>Ceci est une rubrique</h1><p>Ceci est un paragraphe. &lt;foo&gt; <b>Texte en gras</b></p><ul><li><a href="http://example.fr">Ceci est un lien</a></li></ul>'
+
+
+class TestSegmentIngestion(TestCase):
+    def setUp(self):
+        self.src_locale = Locale.get_default()
+        self.locale = Locale.objects.create(language_code="fr")
+
+    def test_charfield(self):
+        page = make_test_page(test_charfield="Test content")
+        translated_page = page.copy_for_translation(self.locale)
+
+        ingest_segments(
+            page,
+            translated_page,
+            self.src_locale,
+            self.locale,
+            [StringSegmentValue("test_charfield", "Tester le contenu")],
+        )
+
+        self.assertEqual(translated_page.test_charfield, "Tester le contenu")
+
+    def test_textfield(self):
+        page = make_test_page(test_textfield="Test content")
+        translated_page = page.copy_for_translation(self.locale)
+
+        ingest_segments(
+            page,
+            translated_page,
+            self.src_locale,
+            self.locale,
+            [StringSegmentValue("test_textfield", "Tester le contenu")],
+        )
+
+        self.assertEqual(translated_page.test_textfield, "Tester le contenu")
+
+    def test_emailfield(self):
+        page = make_test_page(test_emailfield="test@example.com")
+        translated_page = page.copy_for_translation(self.locale)
+
+        ingest_segments(
+            page,
+            translated_page,
+            self.src_locale,
+            self.locale,
+            [StringSegmentValue("test_emailfield", "test@example.fr")],
+        )
+
+        self.assertEqual(translated_page.test_emailfield, "test@example.fr")
+
+    def test_slugfield(self):
+        page = make_test_page(test_slugfield="test-content")
+        translated_page = page.copy_for_translation(self.locale)
+
+        ingest_segments(
+            page,
+            translated_page,
+            self.src_locale,
+            self.locale,
+            [StringSegmentValue("test_slugfield", "tester-le-contenu")],
+        )
+
+        self.assertEqual(translated_page.test_slugfield, "tester-le-contenu")
+
+    def test_urlfield(self):
+        page = make_test_page(test_urlfield="http://test-content.com/foo")
+        translated_page = page.copy_for_translation(self.locale)
+
+        ingest_segments(
+            page,
+            translated_page,
+            self.src_locale,
+            self.locale,
+            [StringSegmentValue("test_urlfield", "http://test-content.fr/foo")],
+        )
+
+        self.assertEqual(translated_page.test_urlfield, "http://test-content.fr/foo")
+
+    def test_richtextfield(self):
+        page = make_test_page(test_richtextfield=RICH_TEXT_TEST_INPUT)
+        translated_page = page.copy_for_translation(self.locale)
+
+        ingest_segments(
+            page,
+            translated_page,
+            self.src_locale,
+            self.locale,
+            [
+                segment.wrap("test_richtextfield")
+                for segment in RICH_TEXT_TEST_FRENCH_SEGMENTS
+            ],
+        )
+
+        self.assertEqual(translated_page.test_richtextfield, RICH_TEXT_TEST_OUTPUT)
+
+    def test_snippet(self):
+        test_snippet = TestSnippet.objects.create(field="Test content")
+        translated_snippet = test_snippet.copy_for_translation(self.locale)
+        translated_snippet.save()
+
+        # Ingest segments into the snippet
+        ingest_segments(
+            test_snippet,
+            translated_snippet,
+            self.src_locale,
+            self.locale,
+            [StringSegmentValue("field", "Tester le contenu")],
+        )
+
+        translated_snippet.save()
+
+        self.assertEqual(translated_snippet.field, "Tester le contenu")
+
+        # Now ingest a RelatedObjectSegmentValue into the page
+        page = make_test_page(test_snippet=test_snippet)
+        translated_page = page.copy_for_translation(self.locale)
+
+        ingest_segments(
+            page,
+            translated_page,
+            self.src_locale,
+            self.locale,
+            [RelatedObjectSegmentValue.from_instance("test_snippet", test_snippet)],
+        )
+
+        # Check the translated snippet was linked to the translated page
+        self.assertNotEqual(page.test_snippet_id, translated_page.test_snippet_id)
+        self.assertEqual(page.test_snippet.locale, self.src_locale)
+        self.assertEqual(translated_page.test_snippet.locale, self.locale)
+        self.assertEqual(
+            page.test_snippet.translation_key,
+            translated_page.test_snippet.translation_key,
+        )
+
+        self.assertEqual(translated_page.test_snippet.field, "Tester le contenu")
+
+    def test_childobjects(self):
+        page = make_test_page()
+        page.test_childobjects.add(TestChildObject(field="Test content"))
+        page.save()
+
+        child_translation_key = TestChildObject.objects.get().translation_key
+
+        translated_page = page.copy_for_translation(self.locale)
+
+        copy_synchronised_fields(page, translated_page)
+
+        ingest_segments(
+            page,
+            translated_page,
+            self.src_locale,
+            self.locale,
+            [
+                StringSegmentValue(
+                    f"test_childobjects.{child_translation_key}.field",
+                    "Tester le contenu",
+                )
+            ],
+        )
+
+        old_child_object = page.test_childobjects.get()
+        new_child_object = translated_page.test_childobjects.get()
+
+        self.assertNotEqual(old_child_object.id, new_child_object.id)
+        self.assertEqual(old_child_object.locale, self.src_locale)
+        self.assertEqual(new_child_object.locale, self.locale)
+        self.assertEqual(
+            old_child_object.translation_key, new_child_object.translation_key
+        )
+
+        self.assertEqual(new_child_object.field, "Tester le contenu")
+
+    def test_customfield(self):
+        page = make_test_page(test_customfield="Test content")
+
+        translated_page = page.copy_for_translation(self.locale)
+
+        ingest_segments(
+            page,
+            translated_page,
+            self.src_locale,
+            self.locale,
+            [StringSegmentValue("test_customfield.foo", "Tester le contenu")],
+        )
+
+        self.assertEqual(translated_page.test_customfield, "Tester le contenu")
+
+
+def make_test_page_with_streamfield_block(block_id, block_type, block_value, **kwargs):
+    stream_data = [{"id": block_id, "type": block_type, "value": block_value}]
+
+    return make_test_page(
+        test_streamfield=StreamValue(
+            TestPage.test_streamfield.field.stream_block, stream_data, is_lazy=True
+        ),
+        **kwargs,
+    )
+
+
+class TestSegmentIngestionWithStreamField(TestCase):
+    def setUp(self):
+        self.src_locale = Locale.get_default()
+        self.locale = Locale.objects.create(language_code="fr")
+
+    def test_charblock(self):
+        block_id = uuid.uuid4()
+        page = make_test_page_with_streamfield_block(
+            str(block_id), "test_charblock", "Test content"
+        )
+
+        translated_page = page.copy_for_translation(self.locale)
+
+        ingest_segments(
+            page,
+            translated_page,
+            self.src_locale,
+            self.locale,
+            [StringSegmentValue(f"test_streamfield.{block_id}", "Tester le contenu")],
+        )
+
+        translated_page.save()
+        translated_page.refresh_from_db()
+
+        self.assertEqual(
+            list(translated_page.test_streamfield.raw_data),
+            [
+                {
+                    "id": str(block_id),
+                    "type": "test_charblock",
+                    "value": "Tester le contenu",
+                }
+            ],
+        )
+
+    def test_textblock(self):
+        block_id = uuid.uuid4()
+        page = make_test_page_with_streamfield_block(
+            str(block_id), "test_textblock", "Test content"
+        )
+
+        translated_page = page.copy_for_translation(self.locale)
+
+        ingest_segments(
+            page,
+            translated_page,
+            self.src_locale,
+            self.locale,
+            [StringSegmentValue(f"test_streamfield.{block_id}", "Tester le contenu")],
+        )
+
+        translated_page.save()
+        translated_page.refresh_from_db()
+
+        self.assertEqual(
+            list(translated_page.test_streamfield.raw_data),
+            [
+                {
+                    "id": str(block_id),
+                    "type": "test_textblock",
+                    "value": "Tester le contenu",
+                }
+            ],
+        )
+
+    def test_emailblock(self):
+        block_id = uuid.uuid4()
+        page = make_test_page_with_streamfield_block(
+            str(block_id), "test_emailblock", "test@example.com"
+        )
+
+        translated_page = page.copy_for_translation(self.locale)
+
+        ingest_segments(
+            page,
+            translated_page,
+            self.src_locale,
+            self.locale,
+            [StringSegmentValue(f"test_streamfield.{block_id}", "test@example.fr")],
+        )
+
+        translated_page.save()
+        translated_page.refresh_from_db()
+
+        self.assertEqual(
+            list(translated_page.test_streamfield.raw_data),
+            [
+                {
+                    "id": str(block_id),
+                    "type": "test_emailblock",
+                    "value": "test@example.fr",
+                }
+            ],
+        )
+
+    def test_urlblock(self):
+        block_id = uuid.uuid4()
+        page = make_test_page_with_streamfield_block(
+            str(block_id), "test_urlblock", "http://test-content.com/foo"
+        )
+
+        translated_page = page.copy_for_translation(self.locale)
+
+        ingest_segments(
+            page,
+            translated_page,
+            self.src_locale,
+            self.locale,
+            [
+                StringSegmentValue(
+                    f"test_streamfield.{block_id}", "http://test-content.fr/foo"
+                )
+            ],
+        )
+
+        translated_page.save()
+        translated_page.refresh_from_db()
+
+        self.assertEqual(
+            list(translated_page.test_streamfield.raw_data),
+            [
+                {
+                    "id": str(block_id),
+                    "type": "test_urlblock",
+                    "value": "http://test-content.fr/foo",
+                }
+            ],
+        )
+
+    def test_embedblock(self):
+        block_id = uuid.uuid4()
+        page = make_test_page_with_streamfield_block(
+            str(block_id),
+            "test_embedblock",
+            "https://www.youtube.com/watch?v=pGpCHRyUZXQ",
+        )
+
+        translated_page = page.copy_for_translation(self.locale)
+
+        ingest_segments(
+            page,
+            translated_page,
+            self.src_locale,
+            self.locale,
+            [
+                OverridableSegmentValue(
+                    f"test_streamfield.{block_id}",
+                    "https://www.youtube.com/watch?v=aBByJQCaaEA",
+                )
+            ],
+        )
+
+        translated_page.save()
+        translated_page.refresh_from_db()
+
+        self.assertEqual(
+            list(translated_page.test_streamfield.raw_data),
+            [
+                {
+                    "id": str(block_id),
+                    "type": "test_embedblock",
+                    "value": "https://www.youtube.com/watch?v=aBByJQCaaEA",
+                }
+            ],
+        )
+
+    def test_richtextblock(self):
+        block_id = uuid.uuid4()
+        page = make_test_page_with_streamfield_block(
+            str(block_id), "test_richtextblock", RICH_TEXT_TEST_INPUT
+        )
+
+        translated_page = page.copy_for_translation(self.locale)
+
+        ingest_segments(
+            page,
+            translated_page,
+            self.src_locale,
+            self.locale,
+            [
+                segment.wrap(f"test_streamfield.{block_id}")
+                for segment in RICH_TEXT_TEST_FRENCH_SEGMENTS
+            ],
+        )
+
+        translated_page.save()
+        translated_page.refresh_from_db()
+
+        self.assertEqual(
+            list(translated_page.test_streamfield.raw_data),
+            [
+                {
+                    "id": str(block_id),
+                    "type": "test_richtextblock",
+                    "value": RICH_TEXT_TEST_OUTPUT,
+                }
+            ],
+        )
+
+    @unittest.expectedFailure  # Not supported
+    def test_rawhtmlblock(self):
+        block_id = uuid.uuid4()
+        page = make_test_page_with_streamfield_block(
+            str(block_id), "test_rawhtmlblock", RICH_TEXT_TEST_INPUT
+        )
+
+        translated_page = page.copy_for_translation(self.locale)
+
+        ingest_segments(
+            page,
+            translated_page,
+            self.src_locale,
+            self.locale,
+            [
+                segment.wrap(f"test_streamfield.{block_id}")
+                for segment in RICH_TEXT_TEST_FRENCH_SEGMENTS
+            ],
+        )
+
+        translated_page.save()
+        translated_page.refresh_from_db()
+
+        self.assertEqual(
+            list(translated_page.test_streamfield.raw_data),
+            [
+                {
+                    "id": str(block_id),
+                    "type": "test_rawhtmlblock",
+                    "value": RICH_TEXT_TEST_OUTPUT,
+                }
+            ],
+        )
+
+    def test_blockquoteblock(self):
+        block_id = uuid.uuid4()
+        page = make_test_page_with_streamfield_block(
+            str(block_id), "test_blockquoteblock", "Test content"
+        )
+
+        translated_page = page.copy_for_translation(self.locale)
+
+        ingest_segments(
+            page,
+            translated_page,
+            self.src_locale,
+            self.locale,
+            [StringSegmentValue(f"test_streamfield.{block_id}", "Tester le contenu")],
+        )
+
+        translated_page.save()
+        translated_page.refresh_from_db()
+
+        self.assertEqual(
+            list(translated_page.test_streamfield.raw_data),
+            [
+                {
+                    "id": str(block_id),
+                    "type": "test_blockquoteblock",
+                    "value": "Tester le contenu",
+                }
+            ],
+        )
+
+    def test_structblock(self):
+        block_id = uuid.uuid4()
+
+        page = make_test_page_with_streamfield_block(
+            str(block_id),
+            "test_structblock",
+            {"field_a": "Test content", "field_b": "Some more test content"},
+        )
+
+        translated_page = page.copy_for_translation(self.locale)
+
+        ingest_segments(
+            page,
+            translated_page,
+            self.src_locale,
+            self.locale,
+            [
+                StringSegmentValue(
+                    f"test_streamfield.{block_id}.field_a", "Tester le contenu"
+                ),
+                StringSegmentValue(
+                    f"test_streamfield.{block_id}.field_b", "Encore du contenu de test"
+                ),
+            ],
+        )
+
+        translated_page.save()
+        translated_page.refresh_from_db()
+
+        self.assertEqual(
+            list(translated_page.test_streamfield.raw_data),
+            [
+                {
+                    "id": str(block_id),
+                    "type": "test_structblock",
+                    "value": {
+                        "field_a": "Tester le contenu",
+                        "field_b": "Encore du contenu de test",
+                    },
+                }
+            ],
+        )
+
+    def test_imageblock(self):
+        block_id = uuid.uuid4()
+        test_image = get_image_model().objects.create(
+            title="Test image", file=get_test_image_file()
+        )
+        test_image2 = get_image_model().objects.create(
+            title="Test image2", file=get_test_image_file()
+        )
+        page = make_test_page_with_streamfield_block(
+            str(block_id),
+            "test_imageblock",
+            {"image": test_image.pk, "alt_text": "Some test alt text"},
+        )
+
+        translated_page = page.copy_for_translation(self.locale)
+
+        ingest_segments(
+            page,
+            translated_page,
+            self.src_locale,
+            self.locale,
+            [
+                StringSegmentValue(
+                    f"test_streamfield.{block_id}.alt_text",
+                    "Tester le alt_text contenu",
+                ),
+                OverridableSegmentValue(
+                    f"test_streamfield.{block_id}.image",
+                    test_image2.id,
+                ),
+            ],
+        )
+
+        translated_page.save()
+        translated_page.refresh_from_db()
+
+        self.assertEqual(
+            list(translated_page.test_streamfield.raw_data),
+            [
+                {
+                    "id": str(block_id),
+                    "type": "test_imageblock",
+                    "value": {
+                        "image": 2,
+                        "alt_text": "Tester le alt_text contenu",
+                        "decorative": False,
+                    },
+                }
+            ],
+        )
+
+    def test_listblock(self):
+        block_id = uuid.uuid4()
+        page = make_test_page_with_streamfield_block(
+            str(block_id), "test_listblock", ["Test content", "Some more test content"]
+        )
+        translated_page = page.copy_for_translation(self.locale)
+
+        translated_strings = ["Tester le contenu", "Encore du contenu de test"]
+        block_ids = [
+            item.id for item in translated_page.test_streamfield[0].value.bound_blocks
+        ]
+        expected_segments = [
+            StringSegmentValue(
+                f"test_streamfield.{block_id}.{item_id}",
+                translated_strings[index],
+                order=index,
+            )
+            for index, item_id in enumerate(block_ids)
+        ]
+
+        ingest_segments(
+            page, translated_page, self.src_locale, self.locale, expected_segments
+        )
+
+        translated_page.save()
+        translated_page.refresh_from_db()
+
+        self.assertEqual(
+            list(translated_page.test_streamfield.raw_data),
+            [
+                {
+                    "id": str(block_id),
+                    "type": "test_listblock",
+                    "value": [
+                        {
+                            "type": "item",
+                            "value": "Tester le contenu",
+                            "id": block_ids[0],
+                        },
+                        {
+                            "type": "item",
+                            "value": "Encore du contenu de test",
+                            "id": block_ids[1],
+                        },
+                    ],
+                }
+            ],
+        )
+
+    def test_nestedstreamblock(self):
+        block_id = uuid.uuid4()
+        nested_block_id = uuid.uuid4()
+        page = make_test_page_with_streamfield_block(
+            str(block_id),
+            "test_nestedstreamblock",
+            [{"id": str(nested_block_id), "type": "block_a", "value": "Test content"}],
+        )
+
+        translated_page = page.copy_for_translation(self.locale)
+
+        ingest_segments(
+            page,
+            translated_page,
+            self.src_locale,
+            self.locale,
+            [
+                StringSegmentValue(
+                    f"test_streamfield.{block_id}.{nested_block_id}",
+                    "Tester le contenu",
+                )
+            ],
+        )
+
+        translated_page.save()
+        translated_page.refresh_from_db()
+
+        self.assertEqual(
+            list(translated_page.test_streamfield.raw_data),
+            [
+                {
+                    "id": str(block_id),
+                    "type": "test_nestedstreamblock",
+                    "value": [
+                        {
+                            "id": str(nested_block_id),
+                            "type": "block_a",
+                            "value": "Tester le contenu",
+                        }
+                    ],
+                }
+            ],
+        )
+
+    def test_listblock_with_nontranslated_pagechooserblock(self):
+        block_id = uuid.uuid4()
+        nested_block_id = uuid.uuid4()
+        pageblock_id = uuid.uuid4()
+        pageblock_id_2 = uuid.uuid4()
+        page = make_test_page_with_streamfield_block(
+            str(block_id),
+            "test_nestedstreamblock",
+            [
+                {
+                    "id": str(nested_block_id),
+                    "type": "chooser_in_list",
+                    "value": [
+                        {"id": str(pageblock_id), "type": "item", "value": 1},
+                        {"id": str(pageblock_id_2), "type": "item", "value": 2},
+                    ],
+                }
+            ],
+        )
+
+        translated_page = page.copy_for_translation(self.locale)
+
+        ingest_segments(
+            page,
+            translated_page,
+            self.src_locale,
+            self.locale,
+            [
+                OverridableSegmentValue(
+                    f"test_streamfield.{block_id}.{nested_block_id}.{pageblock_id}",
+                    3,
+                ),
+            ],
+        )
+
+        translated_page.save()
+        translated_page.refresh_from_db()
+
+        self.assertEqual(
+            list(translated_page.test_streamfield.raw_data),
+            [
+                {
+                    "id": str(block_id),
+                    "type": "test_nestedstreamblock",
+                    "value": [
+                        {
+                            "id": str(nested_block_id),
+                            "type": "chooser_in_list",
+                            "value": [
+                                {"id": str(pageblock_id), "type": "item", "value": 3},
+                                {"id": str(pageblock_id_2), "type": "item", "value": 2},
+                            ],
+                        }
+                    ],
+                }
+            ],
+        )
+
+    def test_listblock_with_nontranslated_imageblock(self):
+        block_id = uuid.uuid4()
+        imageblock_id = uuid.uuid4()
+        imageblock_id_2 = uuid.uuid4()
+        test_image = get_image_model().objects.create(
+            title="Test image", file=get_test_image_file()
+        )
+        test_image2 = get_image_model().objects.create(
+            title="Test image2", file=get_test_image_file()
+        )
+        test_image3 = get_image_model().objects.create(
+            title="Test image3", file=get_test_image_file()
+        )
+        page = make_test_page_with_streamfield_block(
+            str(block_id),
+            "test_image_chooser_in_listblock",
+            [
+                {
+                    "id": str(imageblock_id),
+                    "type": "item",
+                    "value": test_image.id,
+                },
+                {
+                    "id": str(imageblock_id_2),
+                    "type": "item",
+                    "value": test_image2.id,
+                },
+            ],
+        )
+
+        translated_page = page.copy_for_translation(self.locale)
+
+        ingest_segments(
+            page,
+            translated_page,
+            self.src_locale,
+            self.locale,
+            [
+                OverridableSegmentValue(
+                    f"test_streamfield.{block_id}.{imageblock_id}",
+                    test_image3.id,
+                ),
+            ],
+        )
+
+        translated_page.save()
+        translated_page.refresh_from_db()
+
+        self.assertEqual(
+            list(translated_page.test_streamfield.raw_data),
+            [
+                {
+                    "id": str(block_id),
+                    "type": "test_image_chooser_in_listblock",
+                    "value": [
+                        {
+                            "id": str(imageblock_id),
+                            "type": "item",
+                            "value": test_image3.id,
+                        },
+                        {
+                            "id": str(imageblock_id_2),
+                            "type": "item",
+                            "value": test_image2.id,
+                        },
+                    ],
+                }
+            ],
+        )
+
+    def test_customstructblock(self):
+        block_id = uuid.uuid4()
+        page = make_test_page_with_streamfield_block(
+            str(block_id),
+            "test_customstructblock",
+            {"field_a": "Test content", "field_b": "Some more test content"},
+        )
+
+        translated_page = page.copy_for_translation(self.locale)
+
+        ingest_segments(
+            page,
+            translated_page,
+            self.src_locale,
+            self.locale,
+            [
+                StringSegmentValue(
+                    f"test_streamfield.{block_id}.foo",
+                    "Tester le contenu / Encore du contenu de test",
+                )
+            ],
+        )
+
+        translated_page.save()
+        translated_page.refresh_from_db()
+
+        self.assertEqual(
+            list(translated_page.test_streamfield.raw_data),
+            [
+                {
+                    "id": str(block_id),
+                    "type": "test_customstructblock",
+                    "value": {
+                        "field_a": "Tester le contenu",
+                        "field_b": "Encore du contenu de test",
+                    },
+                }
+            ],
+        )

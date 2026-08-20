@@ -1,28 +1,34 @@
 """
 Whole-file migration of deprecated options to their replacements.
 
-Each migration is a pure, line-for-line ``lines -> lines`` rule in
-``_RULES``; ``render_migrations`` folds them into one splice, so a
-single click brings a config fully up to date. Line edits (never
-parse-and-re-emit) keep comments and formatting intact and let the
-command run against a mid-edit draft that ``automations/parse`` would
-reject. Bespoke rules cover the anchors the generic machinery can't
+Each migration is a pure, line-for-line ``lines -> lines`` rule;
+``render_migrations`` folds them into one splice, so a single click
+brings a config fully up to date. Line edits (never parse-and-re-emit)
+keep comments and formatting intact and let the command run against a
+mid-edit draft that ``automations/parse`` would reject. Bespoke rules
+(``_BESPOKE_RULES``) cover the anchors the generic machinery can't
 express; plain ``cv.rename_key`` pairs arrive data-driven from the
-sync-generated ``migration_rules.index.json``. Exposed as
-``editor/migrate_config``; ``has_pending_migrations`` feeds the
-per-device dashboard flag at scanner load time.
+sync-generated ``migration_rules.index.json``. Every rule carries the
+esphome version that introduced it and is skipped on an older install.
+Exposed as ``editor/migrate_config``; ``has_pending_migrations`` feeds
+the per-device dashboard flag at scanner load time.
 """
 
 from __future__ import annotations
 
+import logging
 import re
 from collections.abc import Callable
-from dataclasses import dataclass
-from functools import cache
+from dataclasses import dataclass, replace
+from functools import cache, partial
+from typing import NamedTuple
+
+from esphome.const import __version__ as _installed_esphome_version
 
 from ..definitions import MigrationRule, load_migration_rules_index
-from ..models.automations import YamlDiff
+from ..models.automations import MigrationChange, YamlDiff
 from .channel_colors import fold_channel_colors_value
+from .version_compat import is_pep440_version, version_at_least
 from .yaml import (
     _split_value_and_comment,
     _strip_yaml_quotes,
@@ -41,6 +47,8 @@ from .yaml.writing_layout import (
     _build_diff_for_append,
     _locate_singleton_block,
 )
+
+_LOGGER = logging.getLogger(__name__)
 
 
 @dataclass(frozen=True)
@@ -72,36 +80,155 @@ _SCALAR_HEADER_RE = re.compile(r"[|>][0-9+-]*\s*$")
 _ETHERNET_CLK_MODE_KEY = "clk_mode"
 
 
-def render_migrations(yaml_text: str) -> tuple[str, YamlDiff] | None:
-    """
-    Apply every known migration to *yaml_text*.
+class MigrationResult(NamedTuple):
+    """The migrated text, its one-splice diff, and the rules that fired."""
 
-    Returns ``(new_text, diff)`` with one contiguous splice covering the
-    changed span, or ``None`` when nothing needed migrating.
+    text: str
+    diff: YamlDiff
+    changes: tuple[MigrationChange, ...]
+
+
+@dataclass(frozen=True)
+class _BespokeRule:
+    """
+    A hand-written rule: its fold, the legacy tokens it needs present, and its change records.
+
+    A multi-edit rule carries one record per edit; a record is reported
+    when a line the fold changed carries its ``old`` key.
+    """
+
+    apply: Callable[[list[str]], list[str]]
+    tokens: frozenset[str]
+    changes: tuple[MigrationChange, ...]
+    #: First esphome with the canonical spelling; every record carries the same value.
+    since: str
+
+
+def render_migrations(
+    yaml_text: str, esphome_version: str = _installed_esphome_version
+) -> MigrationResult | None:
+    """
+    Apply every migration *esphome_version* accepts to *yaml_text*.
+
+    Rules introduced after that esphome are skipped. ``None`` when nothing
+    needed migrating; ``changes`` lists the fired rules in fold order.
     """
     out = yaml_text.splitlines(keepends=True)
-    for rule, _tokens in _RULES:
-        out = rule(out)
+    changes: list[MigrationChange] = []
+    for rule in _bespoke_rules_for(esphome_version):
+        respelled = rule.apply(out)
+        if respelled != out:
+            changes.extend(
+                _stamp_required(change, esphome_version)
+                for change in _fired_bespoke_changes(rule, out, respelled)
+            )
+        out = respelled
+    generated_fired: list[MigrationRule] = []
+    generated = _generated_rules_for(load_migration_rules_index(), esphome_version)
+    out = _apply_generated_renames(out, generated, generated_fired)
     new_text = "".join(out)
     if new_text == yaml_text:
         return None
-    return new_text, _build_diff_for_append(yaml_text, new_text)
+    changes.extend(
+        _stamp_required(_generated_change(rule), esphome_version)
+        for rule in dict.fromkeys(generated_fired)
+    )
+    return MigrationResult(new_text, _build_diff_for_append(yaml_text, new_text), tuple(changes))
 
 
-def has_pending_migrations(yaml_text: str) -> bool:
+def has_pending_migrations(
+    yaml_text: str, esphome_version: str = _installed_esphome_version
+) -> bool:
     """Report whether ``render_migrations`` would change *yaml_text*."""
     # Fleet-scan hot path: the token scan is ~300x cheaper than the fold.
-    if _legacy_token_re(load_migration_rules_index()).search(yaml_text) is None:
+    token_re = _legacy_token_re(load_migration_rules_index(), esphome_version)
+    if token_re.search(yaml_text) is None:
         return False
-    return render_migrations(yaml_text) is not None
+    return render_migrations(yaml_text, esphome_version) is not None
 
 
 @cache
-def _legacy_token_re(rules: tuple[MigrationRule, ...]) -> re.Pattern[str]:
-    """Alternation matching every rule's legacy spelling in key position."""
+def _bespoke_rules_for(esphome_version: str) -> tuple[_BespokeRule, ...]:
+    """Return the bespoke rules *esphome_version* accepts."""
+    if not is_pep440_version(esphome_version):
+        # Cached per version, so this logs once: every gated rule is off.
+        _LOGGER.warning(
+            "Installed esphome version %r is unparseable; config migrations are disabled",
+            esphome_version,
+        )
+    return tuple(r for r in _BESPOKE_RULES if version_at_least(esphome_version, r.since))
+
+
+@cache
+def _generated_rules_for(
+    rules: tuple[MigrationRule, ...], esphome_version: str
+) -> tuple[MigrationRule, ...]:
+    """Return the artifact *rules* *esphome_version* accepts."""
+    return tuple(r for r in rules if version_at_least(esphome_version, r.since))
+
+
+def _fired_bespoke_changes(
+    rule: _BespokeRule, before: list[str], after: list[str]
+) -> tuple[MigrationChange, ...]:
+    """Return the records of *rule* whose ``old`` key sits on a line the fold changed."""
+    # Only the single-record ethernet fold changes the line count; a
+    # positional compare means nothing then, and the one record is the answer.
+    if len(before) != len(after):
+        return rule.changes
+    changed = [b for b, a in zip(before, after, strict=True) if b != a]
+    fired = tuple(
+        c for c in rule.changes if any(_legacy_key_re(c.old).search(line) for line in changed)
+    )
+    # A fold that changed only lines no record names still reports the rule.
+    return fired or rule.changes
+
+
+@cache
+def _legacy_key_re(key: str) -> re.Pattern[str]:
+    """Match *key* in key position, not as a suffix of a dotted or longer key."""
+    return re.compile(rf"(?<![\w.]){re.escape(key)}\s*:")
+
+
+def _stamp_required(change: MigrationChange, esphome_version: str) -> MigrationChange:
+    """Flag *change* required once *esphome_version* has dropped the old spelling."""
+    if change.removed_in is None or not version_at_least(esphome_version, change.removed_in):
+        return change
+    return replace(change, required=True)
+
+
+_GENERATED_CHANGE_KINDS = {
+    "component_key": "key",
+    "component_block_field": "field",
+    "platform_item_field": "field",
+    "platform_channel_colors": "fold",
+}
+
+
+def _generated_change(rule: MigrationRule) -> MigrationChange:
+    """Build the change record for a fired artifact rule."""
+    scope = rule.component or (f"{rule.domain}.{rule.platform}" if rule.platform else "")
+    return MigrationChange(
+        kind=_GENERATED_CHANGE_KINDS[rule.kind],
+        scope=scope,
+        old=rule.old,
+        new=rule.new,
+        since=rule.since,
+        removed_in=rule.removed_in,
+    )
+
+
+@cache
+def _legacy_token_re(rules: tuple[MigrationRule, ...], esphome_version: str) -> re.Pattern[str]:
+    """Alternation matching every accepted rule's legacy spelling in key position."""
     # ``\s*:`` mirrors the loosest matcher (split-on-colon tolerates padding
     # before the colon) so prose mentions don't force the full fold.
-    tokens = _BESPOKE_LEGACY_TOKENS.union(rule.old for rule in rules)
+    tokens = frozenset().union(
+        *(r.tokens for r in _bespoke_rules_for(esphome_version)),
+        (r.old for r in _generated_rules_for(rules, esphome_version)),
+    )
+    if not tokens:
+        # The empty alternation matches everywhere; no rule means no candidate.
+        return re.compile(r"(?!)")
     return re.compile("|".join(re.escape(token) + r"\s*:" for token in sorted(tokens)))
 
 
@@ -121,20 +248,12 @@ def _canonicalize_api_actions(lines: list[str]) -> list[str]:
     )
 
 
-def _canonicalize_action_nodes(lines: list[str]) -> list[str]:
-    """Respell registry-action node ids and their legacy body field."""
-    out = list(lines)
-    for rename, anchor_re in _ANCHOR_RES:
-        out = _apply_action_node_rename(out, rename, anchor_re)
-    return out
-
-
 def _apply_action_node_rename(
     lines: list[str],
     rename: ActionNodeRename,
     anchor_re: re.Pattern[str],
 ) -> list[str]:
-    """Apply one rename table entry across the whole file."""
+    """Respell one registry action's node id and legacy body field across the whole file."""
     out = list(lines)
     in_scalar = _block_scalar_mask(lines)
     for idx, line in enumerate(lines):
@@ -166,17 +285,18 @@ def _apply_action_node_rename(
 # Shapes the generic rules deliberately don't reach — check when the
 # first real pair lands: flow-style list items, and the legacy
 # bare-mapping ``ota:`` / ``time:`` form (implicit platform).
-def _apply_generated_renames(lines: list[str]) -> list[str]:
-    """Apply the sync-discovered rename rules from the generated artifact."""
-    key_rules, block_groups, item_groups, fold_groups = _group_generated_rules(
-        load_migration_rules_index()
-    )
+def _apply_generated_renames(
+    lines: list[str],
+    rules: tuple[MigrationRule, ...],
+    fired: list[MigrationRule],
+) -> list[str]:
+    """Apply the artifact *rules*, appending each one that changed a line to *fired*."""
+    key_rules, block_groups, item_groups, fold_groups = _group_generated_rules(rules)
     out = list(lines)
     headers = top_level_key_index(out)
     # Key respells first, so a same-release field rename inside the
     # renamed block still converges in this single fold pass.
-    for rule in key_rules:
-        _respell_top_level_key(out, headers, rule.old, rule.new)
+    _respell_top_level_keys(out, headers, key_rules, fired)
 
     in_scalar: list[bool] | None = None
 
@@ -188,16 +308,16 @@ def _apply_generated_renames(lines: list[str]) -> list[str]:
             in_scalar = _block_scalar_mask(out)
         return in_scalar
 
-    for component, rules in block_groups.items():
+    for component, block_rules in block_groups.items():
         if (header := headers.get(component)) is not None:
-            _apply_component_block_fields(out, header, rules, mask())
+            _apply_component_block_fields(out, header, block_rules, mask(), fired)
     for domain, by_platform in item_groups.items():
         if (header := headers.get(domain)) is not None:
-            _apply_platform_item_fields(out, header, by_platform, mask())
+            _apply_platform_item_fields(out, header, by_platform, mask(), fired)
     # Folds last — they delete lines, so each re-anchors on fresh indexes.
     for domain, platforms in fold_groups.items():
         if (header := top_level_key_index(out).get(domain)) is not None:
-            out = _fold_channel_colors_items(out, header, platforms)
+            out = _fold_channel_colors_items(out, header, platforms, fired)
     return out
 
 
@@ -207,13 +327,13 @@ def _group_generated_rules(
     list[MigrationRule],
     dict[str, list[MigrationRule]],
     dict[str, dict[str, list[MigrationRule]]],
-    dict[str, set[str]],
+    dict[str, dict[str, MigrationRule]],
 ]:
-    """Split *rules* into key respells, block groups, item groups, and fold platform sets."""
+    """Split *rules* into key respells, block groups, item groups, and per-platform fold rules."""
     key_rules: list[MigrationRule] = []
     block_groups: dict[str, list[MigrationRule]] = {}
     item_groups: dict[str, dict[str, list[MigrationRule]]] = {}
-    fold_groups: dict[str, set[str]] = {}
+    fold_groups: dict[str, dict[str, MigrationRule]] = {}
     for rule in rules:
         # No fallthrough: a kind this build doesn't know is dropped here,
         # never misapplied as some other kind's rename.
@@ -224,7 +344,7 @@ def _group_generated_rules(
         elif rule.kind == "platform_item_field":
             item_groups.setdefault(rule.domain, {}).setdefault(rule.platform, []).append(rule)
         elif rule.kind == "platform_channel_colors":
-            fold_groups.setdefault(rule.domain, set()).add(rule.platform)
+            fold_groups.setdefault(rule.domain, {})[rule.platform] = rule
     return key_rules, block_groups, item_groups, fold_groups
 
 
@@ -233,6 +353,7 @@ def _apply_component_block_fields(
     header: int,
     rules: list[MigrationRule],
     in_scalar: list[bool],
+    fired: list[MigrationRule],
 ) -> None:
     """Rename child keys of the top-level block at *header* in place, mapping or list form."""
     end = block_end_index(lines, header)
@@ -254,11 +375,13 @@ def _apply_component_block_fields(
             hit = _respell_body_field(lines, header, 0, rule.old, rule.new, in_scalar)
             if hit is not None:
                 lines[hit[0]] = hit[1]
+                fired.append(rule)
         return
     for item_start in top_list_item_starts(lines, header, end):
         keys = _item_child_keys(lines, item_start, end, in_scalar)
         for rule in rules:
-            _respell_item_key(lines, keys, rule.old, rule.new)
+            if _respell_item_key(lines, keys, rule.old, rule.new):
+                fired.append(rule)  # noqa: PERF401 — the respell is the point, not the append
 
 
 def _apply_platform_item_fields(
@@ -266,6 +389,7 @@ def _apply_platform_item_fields(
     header: int,
     rules_by_platform: dict[str, list[MigrationRule]],
     in_scalar: list[bool],
+    fired: list[MigrationRule],
 ) -> None:
     """Rename child keys of the ``- platform:`` items in the domain block at *header* in place."""
     end = block_end_index(lines, header)
@@ -278,7 +402,8 @@ def _apply_platform_item_fields(
         if platform is None:
             continue
         for rule in rules_by_platform.get(platform, ()):
-            _respell_item_key(lines, keys, rule.old, rule.new)
+            if _respell_item_key(lines, keys, rule.old, rule.new):
+                fired.append(rule)  # noqa: PERF401 — the respell is the point, not the append
 
 
 def _respell_item_key(
@@ -286,29 +411,32 @@ def _respell_item_key(
     keys: list[tuple[int, int, str]],
     old: str,
     new: str,
-) -> None:
-    """Respell an item's *old* depth-1 key in *lines* and *keys*; no-op on collision or absence."""
+) -> bool:
+    """Respell an item's *old* depth-1 key in *lines* and *keys*; ``False`` on collision/absence."""
     if any(key == new for _idx, _col, key in keys):
-        return
+        return False
     slot = next((i for i, (_idx, _col, key) in enumerate(keys) if key == old), None)
     if slot is None:
-        return
+        return False
     idx, col, _key = keys[slot]
     content = lines[idx].rstrip("\n\r")
     eol = lines[idx][len(content) :]
     lines[idx] = content[:col] + new + content[col + len(old) :] + eol
     keys[slot] = (idx, col, new)
+    return True
 
 
 def _fold_channel_colors_items(
     lines: list[str],
     header: int,
-    platforms: set[str],
+    platforms: dict[str, MigrationRule],
+    fired: list[MigrationRule],
 ) -> list[str]:
     """
     Fold ``rgb_order`` / ``is_rgbw`` / ``is_wrgb`` into ``channel_colors``.
 
-    Applied to the *platforms* items of the domain block at *header*.
+    Applied to the *platforms* items of the domain block at *header*;
+    a platform's rule joins *fired* for each item it folds.
     ``is_wrgb`` prepends ``W`` to the order, ``is_rgbw`` appends it; a
     deleted flag's trailing comment stays behind as its own line. An
     undecodable item is left alone, as is one already carrying
@@ -333,7 +461,10 @@ def _fold_channel_colors_items(
             continue
         entries = {key: (idx, col) for idx, col, key in keys}
         platform = entries.get("platform")
-        if platform is None or _entry_value(lines[platform[0]], platform[1]) not in platforms:
+        if platform is None:
+            continue
+        rule = platforms.get(_entry_value(lines[platform[0]], platform[1]))
+        if rule is None:
             continue
         folded = _fold_channel_colors(lines, entries)
         if folded is None:
@@ -342,6 +473,7 @@ def _fold_channel_colors_items(
         # Deleting the dash line would orphan the rest of the item.
         if item_start in delete:
             continue
+        fired.append(rule)
         content = lines[anchor_idx].rstrip("\n\r")
         eol = lines[anchor_idx][len(content) :] or "\n"
         _old_value, comment = _split_value_and_comment(content[anchor_col:].split(":", 1)[1])
@@ -492,22 +624,35 @@ def _child_block_span(
     return None
 
 
+def _respell_top_level_keys(
+    lines: list[str],
+    headers: dict[str, int],
+    rules: list[MigrationRule],
+    fired: list[MigrationRule],
+) -> None:
+    """Apply each ``component_key`` rule in place, appending the ones that fired to *fired*."""
+    for rule in rules:
+        if _respell_top_level_key(lines, headers, rule.old, rule.new):
+            fired.append(rule)  # noqa: PERF401 — the respell is the point, not the append
+
+
 def _respell_top_level_key(
     lines: list[str],
     headers: dict[str, int],
     legacy: str,
     canonical: str,
-) -> None:
+) -> bool:
     """
     Rename the column-0 ``legacy:`` header in place, keeping *headers* current.
 
-    No-op when a ``canonical:`` block already exists.
+    ``False`` (no-op) when a ``canonical:`` block already exists.
     """
     idx = headers.get(legacy)
     if idx is None or canonical in headers:
-        return
+        return False
     lines[idx] = canonical + lines[idx][len(legacy) :]
     headers[canonical] = headers.pop(legacy)
+    return True
 
 
 def _block_scalar_mask(lines: list[str]) -> list[bool]:
@@ -667,16 +812,57 @@ def _entry_value(line: str, col: int) -> str:
 # Each bespoke rule is paired with the substrings it needs present before it
 # can fire, so a rule can't join the fold without feeding the prefilter; the
 # generated leg's tokens join from the rules index at predicate time.
-_RULES: tuple[tuple[Callable[[list[str]], list[str]], frozenset[str]], ...] = (
-    (
+_BESPOKE_RULES: tuple[_BespokeRule, ...] = (
+    _BespokeRule(
         _canonicalize_api_actions,
         frozenset((*api_actions.BLOCK_KEYS[1:], *api_actions.ITEM_KEYS[1:])),
+        (
+            MigrationChange(
+                "field",
+                "api",
+                api_actions.BLOCK_KEYS[1],
+                api_actions.BLOCK_KEYS[0],
+                since="2024.8.0",
+            ),
+            MigrationChange(
+                "field", "api", api_actions.ITEM_KEYS[1], api_actions.ITEM_KEYS[0], since="2024.8.0"
+            ),
+        ),
+        since="2024.8.0",
     ),
-    (
-        _canonicalize_action_nodes,
-        frozenset(t for r in _ACTION_NODE_RENAMES for t in (r.legacy_id, r.legacy_field)),
+    *(
+        _BespokeRule(
+            partial(_apply_action_node_rename, rename=rename, anchor_re=anchor_re),
+            frozenset((rename.legacy_id, rename.legacy_field)),
+            (
+                MigrationChange(
+                    "action", "", rename.legacy_id, rename.canonical_id, since="2024.8.0"
+                ),
+                MigrationChange(
+                    "field",
+                    rename.canonical_id,
+                    rename.legacy_field,
+                    rename.canonical_field,
+                    since="2024.8.0",
+                ),
+            ),
+            since="2024.8.0",
+        )
+        for rename, anchor_re in _ANCHOR_RES
     ),
-    (_migrate_ethernet_clk, frozenset((_ETHERNET_CLK_MODE_KEY,))),
-    (_apply_generated_renames, frozenset()),
+    _BespokeRule(
+        _migrate_ethernet_clk,
+        frozenset((_ETHERNET_CLK_MODE_KEY,)),
+        (
+            MigrationChange(
+                "convert",
+                "ethernet",
+                _ETHERNET_CLK_MODE_KEY,
+                "clk",
+                since="2025.7.0",
+                removed_in="2026.9.0",
+            ),
+        ),
+        since="2025.7.0",
+    ),
 )
-_BESPOKE_LEGACY_TOKENS = frozenset().union(*(tokens for _, tokens in _RULES))

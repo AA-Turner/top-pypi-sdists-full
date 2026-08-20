@@ -7,7 +7,6 @@ on:
     # branches: [main]
     tags: ['v[0-9]*', '[0-9]+.[0-9]+*']  # Match tags that resemble a version
   pull_request:
-    paths: ['.github/workflows/ci.yml']  # On PRs only when this file itself is changed
   workflow_dispatch:  # Allow manually triggering the workflow
   schedule:
     # Run roughly every 15 days at 00:00 UTC
@@ -30,11 +29,11 @@ jobs:
     outputs:
       wheel-distribution: ${{ steps.wheel-distribution.outputs.path }}
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7
         with: {fetch-depth: 0}  # deep clone for setuptools-scm
-      - uses: actions/setup-python@v6
+      - uses: actions/setup-python@v7
         with: {python-version: "3.x"}
-      - uses: astral-sh/setup-uv@v7
+      - uses: astral-sh/setup-uv@v10.0.1
       - name: Run static analysis and format checkers
         run: >-
           uvx --with tox-uv
@@ -49,7 +48,7 @@ jobs:
       - name: Store the distribution files for use in other stages
         # `tests` and `publish` will use the same pre-built distributions,
         # so we make sure to release the exact same package that was tested
-        uses: actions/upload-artifact@v6
+        uses: actions/upload-artifact@v7
         with:
           name: python-distribution-files
           path: dist/
@@ -57,7 +56,7 @@ jobs:
       - name: Download files used for testing
         run: python tools/cache_urls_for_tests.py
       - name: Store downloaded files
-        uses: actions/upload-artifact@v6
+        uses: actions/upload-artifact@v7
         with:
           name: test-download-files
           path: ${{ env.VALIDATE_PYPROJECT_CACHE_REMOTE }}
@@ -70,26 +69,25 @@ jobs:
     strategy:
       matrix:
         python:
-        - "3.8"   # oldest Python supported by validate-pyproject
+        - "3.9"   # oldest Python supported by validate-pyproject
         - "3.x"   # newest Python that is stable
-        - "3.14"
         platform:
         - ubuntu-latest
         - macos-15-intel
         - windows-latest
     runs-on: ${{ matrix.platform }}
     steps:
-      - uses: actions/checkout@v6
-      - uses: actions/setup-python@v6
+      - uses: actions/checkout@v7
+      - uses: actions/setup-python@v7
         with:
           python-version: ${{ matrix.python }}
           allow-prereleases: true
-      - uses: astral-sh/setup-uv@v7
+      - uses: astral-sh/setup-uv@v10.0.1
       - name: Retrieve pre-built distribution files
-        uses: actions/download-artifact@v7
+        uses: actions/download-artifact@v8
         with: {name: python-distribution-files, path: dist/}
       - name: Retrieve test download files
-        uses: actions/download-artifact@v7
+        uses: actions/download-artifact@v8
         with:
           name: test-download-files
           path: ${{ env.VALIDATE_PYPROJECT_CACHE_REMOTE }}
@@ -109,9 +107,55 @@ jobs:
           flag-name: ${{ matrix.platform }} - py${{ matrix.python }}
           parallel: true
 
-  finalize:
-    needs: test
+  test-mamba:
+    needs: prepare
     runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - name: Setup Micromamba
+        uses: mamba-org/setup-micromamba@v3
+        with:
+          environment-name: test
+          create-args: >-
+            pip
+            pipx
+            tox
+            curl
+      - name: Retrieve pre-built distribution files
+        uses: actions/download-artifact@v8
+        with: {name: python-distribution-files, path: dist/}
+      - name: Retrieve test download files
+        uses: actions/download-artifact@v8
+        with:
+          name: test-download-files
+          path: ${{ env.VALIDATE_PYPROJECT_CACHE_REMOTE }}
+      - name: Run tests
+        shell: bash -el {0}
+        run: >-
+          tox
+          --installpkg '${{ needs.prepare.outputs.wheel-distribution }}'
+          -- -n 5 -rFEx --durations 10 --color yes
+
+  linkcheck:
+    needs: finalize
+    if: github.ref == 'refs/heads/main' || github.ref == 'refs/heads/master'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-python@v7
+        with: {python-version: "3.x"}
+      - uses: astral-sh/setup-uv@v10.0.1
+      - name: Retrieve pre-built distribution files
+        uses: actions/download-artifact@v8
+        with: {name: python-distribution-files, path: dist/}
+      - name: Check links
+        run: >-
+          uvx --with tox-uv
+          tox --installpkg dist/*.whl -e linkcheck -- -q
+
+  finalize:
+    needs: [test, test-mamba]
+    runs-on: ubuntu-slim
     steps:
       - name: Finalize coverage report
         uses: coverallsapp/github-action@master
@@ -124,12 +168,12 @@ jobs:
     if: ${{ github.event_name == 'push' && contains(github.ref, 'refs/tags/') }}
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v6
-      - uses: actions/setup-python@v6
+      - uses: actions/checkout@v7
+      - uses: actions/setup-python@v7
         with: {python-version: "3.x"}
-      - uses: astral-sh/setup-uv@v7
+      - uses: astral-sh/setup-uv@v10.0.1
       - name: Retrieve pre-built distribution files
-        uses: actions/download-artifact@v7
+        uses: actions/download-artifact@v8
         with: {name: python-distribution-files, path: dist/}
       - name: Publish Package
         env:

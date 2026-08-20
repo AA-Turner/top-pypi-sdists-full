@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: librouteros
-Version: 4.1.1
+Version: 4.2.0
 Summary: Python implementation of MikroTik RouterOS API
 Keywords: mikrotik,routeros,api
 Author: Łukasz Kostka

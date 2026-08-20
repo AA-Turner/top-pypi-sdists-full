@@ -1,6 +1,6 @@
 Metadata-Version: 2.5
 Name: dbt-state
-Version: 2.44.3
+Version: 2.45.1
 Summary: dbt plugin that skips redundant model executions by caching results from previous runs
 Project-URL: Homepage, https://state.dbt.com
 License: 

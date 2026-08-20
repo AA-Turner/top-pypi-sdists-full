@@ -278,7 +278,10 @@ def cached_select(X, y, method, cache_dir, compute_fn, log=None, extra=None, met
                 return cached, True
 
     start = time.time()
-    features = list(compute_fn() or [])
+    # NOT `compute_fn() or []` — a selector returning a numpy array raises
+    # ValueError on the truthiness test.
+    _computed = compute_fn()
+    features = [] if _computed is None else list(_computed)
     elapsed = time.time() - start
 
     if key and should_cache is not None and not should_cache():

@@ -1152,6 +1152,7 @@ class AlertType(pycarlo.lib.types.Enum):
     * `METRIC_ANOMALIES`None
     * `METRIC_COMPARISON_ANOMALIES`None
     * `PERFORMANCE_ANOMALIES`None
+    * `PII_MONITOR`None
     * `PSEUDO_INTEGRATION_TEST`None
     * `RULE_RUN_EXECUTION_ERROR`None
     * `SCHEMA_CHANGES`None
@@ -1172,6 +1173,7 @@ class AlertType(pycarlo.lib.types.Enum):
         "METRIC_ANOMALIES",
         "METRIC_COMPARISON_ANOMALIES",
         "PERFORMANCE_ANOMALIES",
+        "PII_MONITOR",
         "PSEUDO_INTEGRATION_TEST",
         "RULE_RUN_EXECUTION_ERROR",
         "SCHEMA_CHANGES",
@@ -1600,6 +1602,20 @@ class ClassifiedAssetType(pycarlo.lib.types.Enum):
 
     __schema__ = schema
     __choices__ = ("FIELD", "TABLE")
+
+
+class ClusterSource(pycarlo.lib.types.Enum):
+    """Where a cluster came from: LLM discovery (AUTO) or a user
+    definition (USER).
+
+    Enumeration Choices:
+
+    * `AUTO`None
+    * `USER`None
+    """
+
+    __schema__ = schema
+    __choices__ = ("AUTO", "USER")
 
 
 class ClusteringDerivation(pycarlo.lib.types.Enum):
@@ -8905,6 +8921,23 @@ class TriageScore(pycarlo.lib.types.Enum):
     __choices__ = ("HIGH", "LOW", "MEDIUM")
 
 
+class TriageState(pycarlo.lib.types.Enum):
+    """Whether triage has ever run for an alert, and the latest attempt's
+    outcome: PENDING (a run is in flight), COMPLETED, ERROR, or
+    NOT_TRIAGED (no run has ever completed and none is in flight).
+
+    Enumeration Choices:
+
+    * `COMPLETED`None
+    * `ERROR`None
+    * `NOT_TRIAGED`None
+    * `PENDING`None
+    """
+
+    __schema__ = schema
+    __choices__ = ("COMPLETED", "ERROR", "NOT_TRIAGED", "PENDING")
+
+
 class TriageTriggerSource(pycarlo.lib.types.Enum):
     """Enumeration Choices:
 
@@ -11776,6 +11809,32 @@ class CreateJiraPerformanceInsightTicketInput(sgqlc.types.Input):
     """
 
 
+class CreateJiraPiiScanFindingTicketInput(sgqlc.types.Input):
+    """Jira ticket details for selected PII scan findings."""
+
+    __schema__ = schema
+    __field_names__ = ("integration_id", "project", "issuetype", "summary", "description", "fields")
+    integration_id = sgqlc.types.Field(sgqlc.types.non_null(UUID), graphql_name="integrationId")
+    """UUID of the Jira integration to create the ticket under."""
+
+    project = sgqlc.types.Field(sgqlc.types.non_null(Int), graphql_name="project")
+    """Jira project id."""
+
+    issuetype = sgqlc.types.Field(sgqlc.types.non_null(Int), graphql_name="issuetype")
+    """Jira issue-type id."""
+
+    summary = sgqlc.types.Field(sgqlc.types.non_null(String), graphql_name="summary")
+    """Ticket summary (must be non-empty)."""
+
+    description = sgqlc.types.Field(String, graphql_name="description")
+    """Ticket description (Markdown)."""
+
+    fields = sgqlc.types.Field(JSONString, graphql_name="fields")
+    """Additional Jira fields keyed by field id (e.g. required custom
+    fields).
+    """
+
+
 class CreateJiraStorageTicketInput(sgqlc.types.Input):
     """Jira ticket details for a set of storage-optimization candidates."""
 
@@ -11971,6 +12030,29 @@ class CreateOrUpdateConversationClusteringSpaceInput(sgqlc.types.Input):
     config_overrides = sgqlc.types.Field(ClusteringConfigInput, graphql_name="configOverrides")
     """Partial config overrides applied on top of the current settings.
     On the create-both opt-in, applies to the intent space only.
+    """
+
+
+class CreateOrUpdateCustomConversationClusterInput(sgqlc.types.Input):
+    __schema__ = schema
+    __field_names__ = ("space_uuid", "cluster_uuid", "name", "description")
+    space_uuid = sgqlc.types.Field(sgqlc.types.non_null(UUID), graphql_name="spaceUuid")
+    """The cluster's intent-facet space. On create, the space to add the
+    cluster to; on update, it must match the target cluster's space —
+    a mismatch reads as an unknown cluster.
+    """
+
+    cluster_uuid = sgqlc.types.Field(UUID, graphql_name="clusterUuid")
+    """Set to update an existing custom cluster; null to create one."""
+
+    name = sgqlc.types.Field(sgqlc.types.non_null(String), graphql_name="name")
+    """Display name. On create it also derives the stable cluster key;
+    renaming later never changes the key, so trends survive a rename.
+    """
+
+    description = sgqlc.types.Field(sgqlc.types.non_null(String), graphql_name="description")
+    """What belongs in this cluster — shown on the card and used verbatim
+    as the classification criteria, so write it for the classifier.
     """
 
 
@@ -15827,6 +15909,22 @@ class PiiFilterStatusPair(sgqlc.types.Input):
 
     enabled = sgqlc.types.Field(Boolean, graphql_name="enabled")
     """Whether the PII filter should be enabled or not."""
+
+
+class PiiScanFindingTicketInput(sgqlc.types.Input):
+    __schema__ = schema
+    __field_names__ = ("warehouse_uuid", "full_table_id", "field_key", "pii_type")
+    warehouse_uuid = sgqlc.types.Field(sgqlc.types.non_null(UUID), graphql_name="warehouseUuid")
+    """Warehouse UUID for the PII finding to include in the ticket."""
+
+    full_table_id = sgqlc.types.Field(sgqlc.types.non_null(String), graphql_name="fullTableId")
+    """Fully qualified table identifier for the PII finding."""
+
+    field_key = sgqlc.types.Field(sgqlc.types.non_null(String), graphql_name="fieldKey")
+    """Column key for the PII finding. Matching is case-insensitive."""
+
+    pii_type = sgqlc.types.Field(sgqlc.types.non_null(PiiType), graphql_name="piiType")
+    """PII type for the finding."""
 
 
 class PineconeConnectionDetails(sgqlc.types.Input):
@@ -23952,8 +24050,9 @@ class AgenticPlatformPipelineExecutionOutput(sgqlc.types.Type):
     """LangGraph run id for this execution."""
 
     last_heartbeat_at = sgqlc.types.Field(DateTime, graphql_name="lastHeartbeatAt")
-    """When the execution's agent thread last showed activity (used to
-    detect stalled runs).
+    """When the execution's agent thread last showed activity, or when a
+    run was attached to it if that is later. Used to detect stalled
+    runs.
     """
 
     created_time = sgqlc.types.Field(sgqlc.types.non_null(DateTime), graphql_name="createdTime")
@@ -24519,19 +24618,60 @@ class AlertGrouping(sgqlc.types.Type):
 
 class AlertInsightResult(sgqlc.types.Type):
     """Result of getAgentAlertInsight: an AI-authored insight about an
-    alert's traces.
+    alert's entities.
     """
 
     __schema__ = schema
-    __field_names__ = ("alert_id", "insight")
+    __field_names__ = (
+        "alert_id",
+        "insight",
+        "entity_ids",
+        "entity_type",
+        "trace_table_mcon",
+        "agent_name",
+        "start_time",
+        "end_time",
+    )
     alert_id = sgqlc.types.Field(sgqlc.types.non_null(String), graphql_name="alertId")
     """Alert UUID"""
 
     insight = sgqlc.types.Field(sgqlc.types.non_null(String), graphql_name="insight")
     """1–3 observational sentences describing the dominant pattern in the
-    alert's traces. Quantified, naming tools/models/errors that recur.
-    No causal verdicts — observational only.
+    alert's sampled entities. Quantified, naming tools/models/errors
+    that recur. No causal verdicts — observational only.
     """
+
+    entity_ids = sgqlc.types.Field(
+        sgqlc.types.non_null(sgqlc.types.list_of(sgqlc.types.non_null(String))),
+        graphql_name="entityIds",
+    )
+    """IDs of the sampled entities used to generate the insight, in the
+    order they were presented to the LLM. The type of each ID is given
+    by entity_type.
+    """
+
+    entity_type = sgqlc.types.Field(sgqlc.types.non_null(String), graphql_name="entityType")
+    """The type of IDs in entity_ids. 'trace' for trace-grain monitors
+    and span-scope eval monitors; 'conversation' for conversation-
+    scope eval monitors. Use this to construct the correct detail-page
+    link.
+    """
+
+    trace_table_mcon = sgqlc.types.Field(
+        sgqlc.types.non_null(String), graphql_name="traceTableMcon"
+    )
+    """MCON of the trace table backing this agent's monitor."""
+
+    agent_name = sgqlc.types.Field(String, graphql_name="agentName")
+    """Name of the agent. Null for platform agents where the name cannot
+    be resolved from the monitor configuration.
+    """
+
+    start_time = sgqlc.types.Field(sgqlc.types.non_null(DateTime), graphql_name="startTime")
+    """Start of the alert's evaluation window (inclusive)."""
+
+    end_time = sgqlc.types.Field(sgqlc.types.non_null(DateTime), graphql_name="endTime")
+    """End of the alert's evaluation window (inclusive)."""
 
 
 class AlertReaction(sgqlc.types.Type):
@@ -28671,6 +28811,7 @@ class ConversationClusterStat(sgqlc.types.Type):
         "name",
         "description",
         "ordinal",
+        "source",
         "conversation_count",
         "share_pct",
         "condition",
@@ -28686,7 +28827,18 @@ class ConversationClusterStat(sgqlc.types.Type):
     """One-line summary of what belongs in this cluster."""
 
     ordinal = sgqlc.types.Field(sgqlc.types.non_null(Int), graphql_name="ordinal")
-    """Display order; Uncategorized sorts last."""
+    """Position within the cluster's source group — custom (USER) and
+    discovered (AUTO) clusters carry independent sequences, so values
+    repeat across groups. The list order (custom first, then
+    discovered, Uncategorized last) is authoritative; don't re-sort by
+    this field alone.
+    """
+
+    source = sgqlc.types.Field(sgqlc.types.non_null(ClusterSource), graphql_name="source")
+    """Where this cluster came from. USER marks a custom (user-defined)
+    cluster — pinned before discovered clusters and stable across
+    taxonomy refreshes.
+    """
 
     conversation_count = sgqlc.types.Field(
         sgqlc.types.non_null(Int), graphql_name="conversationCount"
@@ -28730,6 +28882,8 @@ class ConversationClusterType(sgqlc.types.Type):
         "ordinal",
         "taxonomy_version",
         "derivation",
+        "source",
+        "created_by",
         "rule",
         "condition",
         "source_monitor_uuid",
@@ -28761,7 +28915,11 @@ class ConversationClusterType(sgqlc.types.Type):
     """
 
     ordinal = sgqlc.types.Field(sgqlc.types.non_null(Int), graphql_name="ordinal")
-    """Display order within the taxonomy."""
+    """Position within the cluster's source group — custom (USER) and
+    discovered (AUTO) clusters carry independent sequences, so values
+    repeat across groups. The connection's order (custom first, then
+    discovered) is authoritative; don't re-sort by this field alone.
+    """
 
     taxonomy_version = sgqlc.types.Field(sgqlc.types.non_null(Int), graphql_name="taxonomyVersion")
     """Taxonomy version this cluster belongs to."""
@@ -28770,6 +28928,19 @@ class ConversationClusterType(sgqlc.types.Type):
         sgqlc.types.non_null(ClusteringDerivation), graphql_name="derivation"
     )
     """How membership is computed: LLM classification or FilterGroup SQL."""
+
+    source = sgqlc.types.Field(sgqlc.types.non_null(ClusterSource), graphql_name="source")
+    """Where this cluster came from. USER marks a custom (user-defined)
+    cluster — pinned before discovered clusters and stable across
+    taxonomy refreshes.
+    """
+
+    created_by = sgqlc.types.Field(String, graphql_name="createdBy")
+    """Display label for the user who created this cluster. Returns the
+    user's email for human users; for agent users, returns a derived
+    display label (e.g. ``Agent on <domain>``) — never the agent's
+    internal address. Null on discovered clusters.
+    """
 
     rule = sgqlc.types.Field(String, graphql_name="rule")
     """The cluster's membership criteria rendered for display, e.g.
@@ -29892,6 +30063,12 @@ class CreateJiraTicketForPerformanceInsights(sgqlc.types.Type):
     ticket = sgqlc.types.Field("PerformanceInsightTicket", graphql_name="ticket")
 
 
+class CreateJiraTicketForPiiScanFindings(sgqlc.types.Type):
+    __schema__ = schema
+    __field_names__ = ("ticket",)
+    ticket = sgqlc.types.Field("JiraTicketOutput", graphql_name="ticket")
+
+
 class CreateJiraTicketForStorageCandidates(sgqlc.types.Type):
     __schema__ = schema
     __field_names__ = ("ticket",)
@@ -30307,6 +30484,14 @@ class CreateOrUpdateConversationClusteringSpace(sgqlc.types.Type):
     facet create; both the intent and issue spaces, in that order, for
     the create-both opt-in.
     """
+
+
+class CreateOrUpdateCustomConversationCluster(sgqlc.types.Type):
+    __schema__ = schema
+    __field_names__ = ("cluster",)
+    cluster = sgqlc.types.Field(
+        sgqlc.types.non_null(ConversationClusterType), graphql_name="cluster"
+    )
 
 
 class CreateOrUpdateCustomIntegration(sgqlc.types.Type):
@@ -34302,6 +34487,12 @@ class DeleteConversationClusteringSpace(sgqlc.types.Type):
     success = sgqlc.types.Field(sgqlc.types.non_null(Boolean), graphql_name="success")
 
 
+class DeleteCustomConversationCluster(sgqlc.types.Type):
+    __schema__ = schema
+    __field_names__ = ("success",)
+    success = sgqlc.types.Field(sgqlc.types.non_null(Boolean), graphql_name="success")
+
+
 class DeleteCustomDashboardWidget(sgqlc.types.Type):
     __schema__ = schema
     __field_names__ = ("deleted",)
@@ -35706,6 +35897,25 @@ class Error(sgqlc.types.Type):
     extra = sgqlc.types.Field(GenericScalar, graphql_name="extra")
 
     path = sgqlc.types.Field(sgqlc.types.list_of(sgqlc.types.non_null(String)), graphql_name="path")
+
+
+class EstimatedCostOutput(sgqlc.types.Type):
+    """An estimate of what an insight's flagged workload spends today.
+    This is current spend, not a saving: acting on the insight reduces
+    it by an unknown amount. It is estimated from observed usage
+    priced at the warehouse's rates, so it will not match a bill.
+    """
+
+    __schema__ = schema
+    __field_names__ = ("amount", "currency", "period")
+    amount = sgqlc.types.Field(sgqlc.types.non_null(Float), graphql_name="amount")
+    """Estimated current spend, per 'period'."""
+
+    currency = sgqlc.types.Field(sgqlc.types.non_null(String), graphql_name="currency")
+    """ISO currency code of the amount, e.g. 'USD'."""
+
+    period = sgqlc.types.Field(sgqlc.types.non_null(String), graphql_name="period")
+    """Period the cost is expressed over, e.g. 'month'."""
 
 
 class EstimatedCredits(sgqlc.types.Type):
@@ -40761,7 +40971,10 @@ class InsightImpactOutput(sgqlc.types.Type):
     """Impact quantity, in 'unit' over 'period'."""
 
     unit = sgqlc.types.Field(sgqlc.types.non_null(String), graphql_name="unit")
-    """Unit of 'value', e.g. 'gb', 'tb', 'hours', 'seconds'."""
+    """Unit of 'value': 'mb', 'gb' or 'tb' for storage; 'seconds',
+    'minutes' or 'hours' for time. Normalize across units before
+    comparing or aggregating.
+    """
 
     period = sgqlc.types.Field(sgqlc.types.non_null(String), graphql_name="period")
     """Period 'value' is expressed over, e.g. 'month'."""
@@ -45310,6 +45523,8 @@ class Mutation(sgqlc.types.Type):
         "create_or_update_conversation_clustering_space",
         "refresh_conversation_clustering_space",
         "delete_conversation_clustering_space",
+        "create_or_update_custom_conversation_cluster",
+        "delete_custom_conversation_cluster",
         "create_or_update_agent_trace_table",
         "configure_linear_integration",
         "set_linear_webhook_secret",
@@ -45872,6 +46087,7 @@ class Mutation(sgqlc.types.Type):
         "create_pii_monitor",
         "mark_pii_scan_finding_false_positive",
         "restore_pii_scan_finding_false_positive",
+        "create_jira_ticket_for_pii_scan_findings",
         "create_or_update_bulk_monitor",
         "delete_bulk_monitor",
         "pause_bulk_monitor",
@@ -47059,6 +47275,57 @@ class Mutation(sgqlc.types.Type):
     Arguments:
 
     * `space_uuid` (`UUID!`)None
+    """
+
+    create_or_update_custom_conversation_cluster = sgqlc.types.Field(
+        CreateOrUpdateCustomConversationCluster,
+        graphql_name="createOrUpdateCustomConversationCluster",
+        args=sgqlc.types.ArgDict(
+            (
+                (
+                    "input",
+                    sgqlc.types.Arg(
+                        sgqlc.types.non_null(CreateOrUpdateCustomConversationClusterInput),
+                        graphql_name="input",
+                        default=None,
+                    ),
+                ),
+            )
+        ),
+    )
+    """(experimental) Create or update a custom (user-defined)
+    conversation cluster on an intent clustering space (at most 10 per
+    space). Creating one triggers a bounded re-classification sweep
+    over recent history; recreating a deleted cluster with the same
+    name restores it, trend history intact. Updates apply to future
+    classification only.
+
+    Arguments:
+
+    * `input` (`CreateOrUpdateCustomConversationClusterInput!`)None
+    """
+
+    delete_custom_conversation_cluster = sgqlc.types.Field(
+        DeleteCustomConversationCluster,
+        graphql_name="deleteCustomConversationCluster",
+        args=sgqlc.types.ArgDict(
+            (
+                (
+                    "cluster_uuid",
+                    sgqlc.types.Arg(
+                        sgqlc.types.non_null(UUID), graphql_name="clusterUuid", default=None
+                    ),
+                ),
+            )
+        ),
+    )
+    """(experimental) Soft-delete a custom conversation cluster. Its card
+    disappears immediately; recreating a cluster with the same name
+    restores it, trend history intact.
+
+    Arguments:
+
+    * `cluster_uuid` (`UUID!`)None
     """
 
     create_or_update_agent_trace_table = sgqlc.types.Field(
@@ -68980,6 +69247,42 @@ class Mutation(sgqlc.types.Type):
       restore.
     """
 
+    create_jira_ticket_for_pii_scan_findings = sgqlc.types.Field(
+        CreateJiraTicketForPiiScanFindings,
+        graphql_name="createJiraTicketForPiiScanFindings",
+        args=sgqlc.types.ArgDict(
+            (
+                (
+                    "details",
+                    sgqlc.types.Arg(
+                        sgqlc.types.non_null(CreateJiraPiiScanFindingTicketInput),
+                        graphql_name="details",
+                        default=None,
+                    ),
+                ),
+                (
+                    "findings",
+                    sgqlc.types.Arg(
+                        sgqlc.types.non_null(
+                            sgqlc.types.list_of(sgqlc.types.non_null(PiiScanFindingTicketInput))
+                        ),
+                        graphql_name="findings",
+                        default=None,
+                    ),
+                ),
+            )
+        ),
+    )
+    """(experimental) Create a Jira ticket for selected PII scan
+    findings.
+
+    Arguments:
+
+    * `details` (`CreateJiraPiiScanFindingTicketInput!`)None
+    * `findings` (`[PiiScanFindingTicketInput!]!`): PII findings the
+      Jira ticket should cover.
+    """
+
     create_or_update_bulk_monitor = sgqlc.types.Field(
         CreateOrUpdateBulkMonitor,
         graphql_name="createOrUpdateBulkMonitor",
@@ -71912,6 +72215,7 @@ class PerformancePageInsightOutput(sgqlc.types.Type):
         "related_mcons",
         "related_warehouses",
         "estimated_savings",
+        "estimated_cost",
         "impact",
         "tickets",
     )
@@ -71954,11 +72258,21 @@ class PerformancePageInsightOutput(sgqlc.types.Type):
     Null when the insight has no quantifiable saving.
     """
 
+    estimated_cost = sgqlc.types.Field(EstimatedCostOutput, graphql_name="estimatedCost")
+    """Estimated spend on the insight's flagged workload today, priced
+    from its observed usage and the warehouse's rates. Distinct from
+    'estimatedSavings': acting on the insight reduces this spend by an
+    amount that is often not predictable, so label it as estimated
+    cost rather than savings. Null when no rate could price the
+    workload, and for storage cleanup, where the estimated spend on
+    the tables to remove already equals 'estimatedSavings'.
+    """
+
     impact = sgqlc.types.Field(InsightImpactOutput, graphql_name="impact")
     """The insight's headline impact in its native unit (reclaimable
     storage or recurring compute time). Null when the insight has no
-    storage- or time-based quantity; the dollar figure is on
-    'estimatedSavings'.
+    storage- or time-based quantity; the dollar figures are on
+    'estimatedSavings' and 'estimatedCost'.
     """
 
     tickets = sgqlc.types.Field(
@@ -102799,7 +103113,13 @@ class StorageOptimizationCandidate(sgqlc.types.Type):
 
 class StorageOptimizationCandidatesResult(sgqlc.types.Type):
     __schema__ = schema
-    __field_names__ = ("nodes", "total_count", "page_info", "breakdown_by_risk_level")
+    __field_names__ = (
+        "nodes",
+        "total_count",
+        "total_byte_count_sum",
+        "page_info",
+        "breakdown_by_risk_level",
+    )
     nodes = sgqlc.types.Field(
         sgqlc.types.non_null(
             sgqlc.types.list_of(sgqlc.types.non_null(StorageOptimizationCandidate))
@@ -102810,6 +103130,14 @@ class StorageOptimizationCandidatesResult(sgqlc.types.Type):
 
     total_count = sgqlc.types.Field(sgqlc.types.non_null(Int), graphql_name="totalCount")
     """Total number of candidates across all pages"""
+
+    total_byte_count_sum = sgqlc.types.Field(
+        sgqlc.types.non_null(Float), graphql_name="totalByteCountSum"
+    )
+    """Summed 'totalByteCount' of every candidate matching the current
+    filter, not just the returned page. Candidates with no recorded
+    size do not contribute, and an empty result reports 0.
+    """
 
     page_info = sgqlc.types.Field(
         sgqlc.types.non_null("StorageOptimizationPageInfo"), graphql_name="pageInfo"
@@ -106418,11 +106746,11 @@ class TraceOverviewMetrics(sgqlc.types.Type):
 
     p99_latency = sgqlc.types.Field(Float, graphql_name="p99Latency")
 
-    total_tokens = sgqlc.types.Field(Int, graphql_name="totalTokens")
+    total_tokens = sgqlc.types.Field(BigInt, graphql_name="totalTokens")
 
-    total_prompt_tokens = sgqlc.types.Field(Int, graphql_name="totalPromptTokens")
+    total_prompt_tokens = sgqlc.types.Field(BigInt, graphql_name="totalPromptTokens")
 
-    total_completion_tokens = sgqlc.types.Field(Int, graphql_name="totalCompletionTokens")
+    total_completion_tokens = sgqlc.types.Field(BigInt, graphql_name="totalCompletionTokens")
 
     error_count = sgqlc.types.Field(Int, graphql_name="errorCount")
 
@@ -106454,11 +106782,11 @@ class TraceOverviewMetricsWithComparison(sgqlc.types.Type):
 
     p99_latency = sgqlc.types.Field(Float, graphql_name="p99Latency")
 
-    total_tokens = sgqlc.types.Field(Int, graphql_name="totalTokens")
+    total_tokens = sgqlc.types.Field(BigInt, graphql_name="totalTokens")
 
-    total_prompt_tokens = sgqlc.types.Field(Int, graphql_name="totalPromptTokens")
+    total_prompt_tokens = sgqlc.types.Field(BigInt, graphql_name="totalPromptTokens")
 
-    total_completion_tokens = sgqlc.types.Field(Int, graphql_name="totalCompletionTokens")
+    total_completion_tokens = sgqlc.types.Field(BigInt, graphql_name="totalCompletionTokens")
 
     error_count = sgqlc.types.Field(Int, graphql_name="errorCount")
 
@@ -110901,6 +111229,7 @@ class Alert(sgqlc.types.Type, NodeWithUUID):
         "priority",
         "triage_priority",
         "triage_result",
+        "triage_state",
         "tsa_analysis_thread_id",
         "status",
         "tables",
@@ -110954,12 +111283,15 @@ class Alert(sgqlc.types.Type, NodeWithUUID):
     triage_priority = sgqlc.types.Field(
         sgqlc.types.non_null(TriagePriority), graphql_name="triagePriority"
     )
-    """Consolidated triage priority for this alert. ``HIGH`` / ``MEDIUM``
-    / ``LOW`` are derived from the latest completed triage run's alert
-    confidence and impact. ``PENDING`` when the latest run is in
-    flight. ``NOT_TRIAGED`` when no triage row exists, the latest row
-    is in a terminal non-COMPLETED state, or the latest completed row
-    has null/unmapped scores.
+    """This alert's last known triage verdict. ``HIGH`` / ``MEDIUM`` /
+    ``LOW`` are derived from the latest COMPLETED triage run's alert
+    confidence and impact, and survive a re-triage in flight — a newer
+    PENDING or ERROR row never masks a real prior verdict. ``PENDING``
+    only when no triage has ever completed and a run is in progress.
+    ``NOT_TRIAGED`` when no run has ever completed and none is in
+    progress, or the latest completed row has null/unmapped scores.
+    See ``triageState`` for whether a newer run is currently in flight
+    independent of this verdict.
     """
 
     triage_result = sgqlc.types.Field(TriageAgentRunResult, graphql_name="triageResult")
@@ -110967,6 +111299,19 @@ class Alert(sgqlc.types.Type, NodeWithUUID):
     if never triaged. Always consistent with ``triagePriority``: non-
     null exactly when ``triagePriority`` is HIGH/MEDIUM/LOW, and null
     when it is PENDING or NOT_TRIAGED.
+    """
+
+    triage_state = sgqlc.types.Field(sgqlc.types.non_null(TriageState), graphql_name="triageState")
+    """Whether triage has ever run for this alert, and the latest
+    attempt's outcome. Independent of ``triagePriority`` — a re-triage
+    sitting in ``PENDING`` state can coexist with a real
+    ``triagePriority`` verdict from an earlier completed run. Use this
+    field to render an in-progress indicator without losing the
+    verdict pill. Related to but distinct from
+    ``triageResult.status``: that field only exists when
+    ``triageResult`` is non-null, so its status is always
+    ``COMPLETED``. This field reflects the true latest attempt,
+    including one still running or one that failed.
     """
 
     tsa_analysis_thread_id = sgqlc.types.Field(String, graphql_name="tsaAnalysisThreadId")

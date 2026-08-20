@@ -1880,6 +1880,48 @@ class CfnCoreNetwork(
             check_type(argname="argument resource", value=resource, expected_type=type_hints["resource"])
         return typing.cast(builtins.str, jsii.sinvoke(cls, "arnForCoreNetwork", [resource]))
 
+    @jsii.member(jsii_name="fromCoreNetworkArn")
+    @builtins.classmethod
+    def from_core_network_arn(
+        cls,
+        scope: "_constructs_77d1e7e8.Construct",
+        id: builtins.str,
+        arn: builtins.str,
+    ) -> "_aws_networkmanager_440bf644.ICoreNetworkRef":
+        '''Creates a new ICoreNetworkRef from an ARN.
+
+        :param scope: -
+        :param id: -
+        :param arn: -
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__ce07193a7eb1f10a48d36c0089cf0ee0e6ea82a76b548ec1f06d2aa54231fb99)
+            check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
+            check_type(argname="argument id", value=id, expected_type=type_hints["id"])
+            check_type(argname="argument arn", value=arn, expected_type=type_hints["arn"])
+        return typing.cast("_aws_networkmanager_440bf644.ICoreNetworkRef", jsii.sinvoke(cls, "fromCoreNetworkArn", [scope, id, arn]))
+
+    @jsii.member(jsii_name="fromCoreNetworkId")
+    @builtins.classmethod
+    def from_core_network_id(
+        cls,
+        scope: "_constructs_77d1e7e8.Construct",
+        id: builtins.str,
+        core_network_id: builtins.str,
+    ) -> "_aws_networkmanager_440bf644.ICoreNetworkRef":
+        '''Creates a new ICoreNetworkRef from a coreNetworkId.
+
+        :param scope: -
+        :param id: -
+        :param core_network_id: -
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__16faa597c7a99d52d090ebd35f0b7ba59336b80e0d859cf943abffeeaa7f274d)
+            check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
+            check_type(argname="argument id", value=id, expected_type=type_hints["id"])
+            check_type(argname="argument core_network_id", value=core_network_id, expected_type=type_hints["core_network_id"])
+        return typing.cast("_aws_networkmanager_440bf644.ICoreNetworkRef", jsii.sinvoke(cls, "fromCoreNetworkId", [scope, id, core_network_id]))
+
     @jsii.member(jsii_name="isCfnCoreNetwork")
     @builtins.classmethod
     def is_cfn_core_network(cls, x: typing.Any) -> builtins.bool:
@@ -9531,6 +9573,22 @@ def _typecheckingstub__ef3cb1cd4abb4fa5b383cbcb25ab3b19985891cac9ee903fdc80a4b78
 
 def _typecheckingstub__369dfbd2b8835ef1ae2b98a0e9601f46e1aba9df5923a622d2ee027df62b0b00(
     resource: _aws_networkmanager_440bf644.ICoreNetworkRef,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__ce07193a7eb1f10a48d36c0089cf0ee0e6ea82a76b548ec1f06d2aa54231fb99(
+    scope: _constructs_77d1e7e8.Construct,
+    id: builtins.str,
+    arn: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__16faa597c7a99d52d090ebd35f0b7ba59336b80e0d859cf943abffeeaa7f274d(
+    scope: _constructs_77d1e7e8.Construct,
+    id: builtins.str,
+    core_network_id: builtins.str,
 ) -> None:
     """Type checking stubs"""
     pass

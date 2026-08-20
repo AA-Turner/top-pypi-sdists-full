@@ -89,6 +89,7 @@ from dreadnode.app.tui.widgets.composer import ComposerInput
 from dreadnode.app.tui.widgets.tool import AGENT_OUTPUT_URL_LABEL, ToolCall
 from dreadnode.app.tui.wire_events import parse_wire_event
 from dreadnode.generators.message import Message
+from dreadnode.tools.report_items import classify_report_item_outcome
 
 DN_MODEL_ACCESS_CHANGED_MESSAGE = "Model no longer available — your access may have changed"
 
@@ -167,8 +168,10 @@ def _make_tool_message(
     tool_call_id: str | None = None,
     error: str | None = None,
     error_type: str | None = None,
+    policy_denial: str | None = None,
     report_url: str | None = None,
     web_url_label: str | None = None,
+    policy_decision: dict[str, t.Any] | None = None,
 ) -> Message:
     """Build a ``role="tool"`` Message for the transcript.
 
@@ -194,16 +197,45 @@ def _make_tool_message(
         metadata["error"] = error
     if error_type:
         metadata["error_type"] = error_type
+    if policy_denial:
+        metadata["policy_denial"] = policy_denial
     if report_url:
         metadata["report_url"] = report_url
     if web_url_label:
         metadata["web_url_label"] = web_url_label
+    if policy_decision:
+        metadata["policy_decision"] = policy_decision
     return Message(
         role="tool",
         content=body,
         tool_call_id=tool_call_id,
         metadata=metadata,
     )
+
+
+def _scopeguard_decision_label(decision: we.WirePolicyDecision) -> str | None:
+    """Return a compact, truthful label for an allowed guarded tool call."""
+    if decision.kind != "scopeguard" or decision.runtime_action != "allow":
+        return None
+    if decision.human_approved:
+        return "operator approved"
+    if decision.source == "judge":
+        return "judge allowed"
+    if decision.source == "always_allow":
+        return "guard allowed (allowlist)"
+    return "guard allowed"
+
+
+def _prefix_policy_summary(
+    summary: str | None,
+    decision: we.WirePolicyDecision | None,
+) -> str | None:
+    if decision is None:
+        return summary
+    label = _scopeguard_decision_label(decision)
+    if label is None:
+        return summary
+    return f"{label} · {summary}" if summary else label
 
 
 def _make_error_message(*, title: str, body: str) -> Message:
@@ -330,6 +362,11 @@ def _transcript_from_messages(
             tool_name = msg.get("tool_name") or "tool"
             tool_args = _coerce_tool_args(msg.get("tool_args"))
             summary = _summarize_tool_result(tool_name, tool_args, content) if content else None
+            raw_policy_decision = metadata.get("policy_decision")
+            policy_decision: we.WirePolicyDecision | None = None
+            if isinstance(raw_policy_decision, dict):
+                policy_decision = we.WirePolicyDecision.model_validate(raw_policy_decision)
+                summary = _prefix_policy_summary(summary, policy_decision)
             tool_metadata: dict[str, t.Any] = {
                 "tool_name": tool_name,
                 "tool_args": tool_args,
@@ -340,9 +377,14 @@ def _transcript_from_messages(
                 if report_url:
                     tool_metadata["report_url"] = report_url
             elif tool_name == "report_item":
-                # Match the live path: a failed report_item wrote no items, so
-                # it gets no link (the ``error`` metadata is read below).
-                if agent_output_url and not metadata.get("error"):
+                if (
+                    agent_output_url
+                    and classify_report_item_outcome(
+                        result=content,
+                        error=metadata.get("error"),
+                    )
+                    == "persisted"
+                ):
                     tool_metadata["report_url"] = agent_output_url
                     tool_metadata["web_url_label"] = AGENT_OUTPUT_URL_LABEL
             # Surface persisted error metadata (set by Message.from_model
@@ -350,11 +392,26 @@ def _transcript_from_messages(
             # renders failed calls with the same red treatment as the
             # live event stream.
             persisted_error = metadata.get("error")
+            persisted_policy_denial = metadata.get("policy_denial")
+            if (
+                not persisted_error
+                and not persisted_policy_denial
+                and policy_decision is not None
+                and policy_decision.kind == "scopeguard"
+                and policy_decision.runtime_action == "deny"
+            ):
+                persisted_policy_denial = policy_decision.reason or content.removeprefix(
+                    "[POLICY DENIED] "
+                )
             if persisted_error:
                 tool_metadata["error"] = persisted_error
+            if persisted_policy_denial:
+                tool_metadata["policy_denial"] = persisted_policy_denial
             persisted_error_type = metadata.get("error_type")
             if persisted_error_type:
                 tool_metadata["error_type"] = persisted_error_type
+            if policy_decision is not None:
+                tool_metadata["policy_decision"] = policy_decision.model_dump()
             out.append(
                 Message(
                     role="tool",
@@ -1489,6 +1546,83 @@ class SessionsManager:
     # Event handling
     # ------------------------------------------------------------------
 
+    def _maybe_flash_policy_denial(self, event: dict[str, t.Any]) -> None:
+        """Flash an error when the guard policy fails (auth, judge unreachable)."""
+        data = event.get("data") or {}
+        if data.get("hook_name") != "process_judge_hook_inner":
+            return
+
+        reaction = data.get("reaction") or {}
+        reaction_type = reaction.get("type")
+        if reaction_type == "Finish":
+            message = str(reaction.get("reason") or "")
+            if "process judge unreachable" not in message.lower():
+                return
+        elif reaction_type == "Fail":
+            error = str(reaction.get("error") or "")
+            if not error:
+                return
+            message = f"process judge failed: {error}"
+        else:
+            return
+
+        error_type = str(reaction.get("error_type") or "")
+        is_auth_error = "auth" in error_type.lower() or "authentication" in message.lower()
+        if is_auth_error:
+            self._ui.flash(
+                f"Guard policy judge authentication failed: {message} "
+                "— guard disabled for this session",
+                severity="error",
+            )
+        else:
+            self._ui.flash(f"Guard policy: {message}", severity="error")
+
+    def _render_policy_denial(
+        self,
+        event: we.ReactStep,
+        state: TurnState,
+        session_id: str,
+    ) -> None:
+        """Complete a denied tool row with the judge's operator-visible reason."""
+        reaction = event.data.reaction
+        raw_decision = reaction.metadata.get("policy_decision")
+        if reaction.type != "RetryWithFeedback" or not isinstance(raw_decision, dict):
+            return
+        decision = we.WirePolicyDecision.model_validate(raw_decision)
+        if decision.kind != "scopeguard" or decision.runtime_action != "deny":
+            return
+
+        wire_call = we.WireToolCall(id=reaction.tool_call_id)
+        run = self._tool_run_for_wire_tool_call(state, wire_call)
+        tool_name, tool_args = _tool_name_args_from_run_or_wire(run, wire_call)
+        reason = decision.reason or reaction.feedback or "outside scope"
+        denial = f"[POLICY DENIED] {reason}"
+        tool_call_id = reaction.tool_call_id or (run.tool_call_id if run else None)
+        tool_message = _make_tool_message(
+            tool_name=tool_name,
+            tool_args=tool_args,
+            body=denial,
+            summary=None,
+            tool_call_id=tool_call_id,
+            policy_denial=reason,
+            policy_decision=decision.model_dump(),
+        )
+
+        is_active_session = self.is_active_session(session_id)
+        session_record = self._sessions.get(session_id)
+        widget_key = run.tool_call_id if run is not None else (reaction.tool_call_id or "")
+        widget = self._tool_call_widgets.pop(widget_key, None)
+        if is_active_session:
+            if widget is not None:
+                widget.complete(policy_denial=reason)
+            else:
+                self._ui.query_conversation().append_entry(tool_message)
+            self.sync_progress_indicator(state)
+        else:
+            self.mark_session_unread(session_id)
+        if session_record is not None:
+            session_record.transcript.append(tool_message)
+
     def handle_event(self, event: dict[str, t.Any], session_id: str) -> None:
         """Dispatch one raw runtime event into per-session state and UI.
 
@@ -1498,6 +1632,11 @@ class SessionsManager:
         widget access routes through :attr:`_ui`; all app-reactive
         access routes through :attr:`_context`.
         """
+        # Surface guard infrastructure errors independently of normal policy
+        # denials. The latter render inline on the associated tool row below.
+        if event.get("type", "").lower() == "reactstep":
+            self._maybe_flash_policy_denial(event)
+
         wire_event = parse_wire_event(event)
         if wire_event is None:
             return  # Unknown/invalid event — already logged by the parser.
@@ -1523,6 +1662,10 @@ class SessionsManager:
             self._context.set_cost_usd(next_state.usage_cost_usd)
             self._context.set_cost_unknown(next_state.cost_unknown)
             self._context.set_subagent_cost_usd(next_state.usage_subagent_cost_usd)
+
+        if isinstance(wire_event, we.ReactStep):
+            self._render_policy_denial(wire_event, next_state, session_id)
+            return
 
         if isinstance(wire_event, we.Cancelled):
             logger.debug("Server confirmed turn cancellation for session {}", session_id[:8])
@@ -1610,6 +1753,8 @@ class SessionsManager:
             tool_name, tool_args = _tool_name_args_from_run_or_wire(run, wire_event.data.tool_call)
             result = wire_event.data.result
             summary = _summarize_tool_result(tool_name, tool_args, result)
+            policy_decision = wire_event.data.policy_decision
+            summary = _prefix_policy_summary(summary, policy_decision)
             full_details = self.tool_result_details(result)
             tool_call_id = wire_event.data.tool_call.id or (run.tool_call_id if run else None)
             tool_error = wire_event.data.error
@@ -1654,7 +1799,10 @@ class SessionsManager:
                 expanded_body = content_arg if isinstance(content_arg, str) else None
                 format_arg = tool_args.get("format")
                 expanded_body_format = format_arg if isinstance(format_arg, str) else "markdown"
-            elif tool_name == "report_item" and not tool_error:
+            elif (
+                tool_name == "report_item"
+                and classify_report_item_outcome(result=result, error=tool_error) == "persisted"
+            ):
                 # Point users at the web app's Agent Output page, where the
                 # structured items they just emitted land — the TUI renders them
                 # only as a tool row, so this is the discoverability handoff.
@@ -1674,6 +1822,9 @@ class SessionsManager:
                 error_type=tool_error_type,
                 report_url=report_url,
                 web_url_label=web_url_label,
+                policy_decision=(
+                    policy_decision.model_dump() if policy_decision is not None else None
+                ),
             )
             # Update the in-progress widget in place, or append a new one. The
             # conversation view is anchored, so it stays pinned to the bottom on

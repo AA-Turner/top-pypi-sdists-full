@@ -367,6 +367,18 @@ allowed_files:
     added: "2026-05-17"
     review: "2026-12-13"
 
+  - file: "src/omnibase_core/event_bus/util_consumer_group.py"
+    reason: >-
+      MSK IAM consumer-group pattern mirror loader (OMN-15639) — identical two-step pipeline to the aislop_rule_loader
+      entry above: yaml.safe_load() → ModelConsumerGroupIamPatterns.model_validate(). The raw mapping
+      is never used unvalidated, and the model is frozen/extra=forbid so a malformed mirror fails at load
+      rather than degrading into a silently-empty authorized-pattern set. Reading via omnibase_core.utils.util_safe_yaml_loader
+      was the first implementation and is the reason this entry exists rather than reusing that helper:
+      it adds a new importer to the `utils` hub, which the OMN-14340 import-layering ratchet tracks and
+      fails a test on, and this module has no other reason to depend on utils.
+    added: "2026-08-02"
+    review: "2027-02-02"
+
   - file: "src/omnibase_core/validators/breaking_schema_change.py"
     reason: >-
       Breaking-schema-change validator (OMN-12621) — must read adjacent *.topic-schema.yaml declarations
@@ -399,6 +411,19 @@ allowed_files:
       and node_compliance_scan_compute/handler.py. Malformed YAML raises yaml.YAMLError, which the handler
       surfaces as an ERROR finding (fail loud, never silent-green).
     added: "2026-07-16"
+    review: "2026-12-13"
+
+  - file: "src/omnibase_core/validation/validator_receipt_honesty.py"
+    reason: >-
+      Receipt-honesty CI gate (OMN-12791) file scanner. _scan_receipt_file walks arbitrary drift/dod_receipts/**/command.yaml
+      files on disk and must tolerate files that are not valid YAML or that fail ModelDodReceipt schema
+      validation (both are the structural receipt-gate's job to catch, not this honesty gate's) — it wraps
+      yaml.safe_load(fh) in a try/except (yaml.YAMLError, OSError) that returns None on failure, then
+      immediately hands the parsed dict to ModelDodReceipt.model_validate(raw) for the actual typed validation
+      (wrapped in its own try/except ValidationError/ValueError, also returning None). This is the exact
+      YAML-parse-before-Pydantic-validate pipeline shape this allowlist exists for (same pattern as validator_architecture.py
+      / validator_types.py above), not manual field-by-field validation bypassing Pydantic.
+    added: "2026-08-12"
     review: "2026-12-13"
 
 # Specific filenames that are allowed (matched by basename)

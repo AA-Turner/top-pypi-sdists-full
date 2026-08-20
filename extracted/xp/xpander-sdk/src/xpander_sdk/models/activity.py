@@ -1,6 +1,8 @@
 from datetime import datetime
 from enum import Enum
-from typing import Any, List, Literal, Optional, Union
+from typing import Annotated, Any, List, Literal, Optional, Union
+
+from pydantic import BeforeValidator, ConfigDict
 
 from xpander_sdk.models.events import ToolCallRequestReasoning
 from xpander_sdk.models.shared import XPanderSharedModel
@@ -125,6 +127,22 @@ AgentActivityThreadGatewayDecisionType = Union[
 ]
 
 
+class AgentActivityThreadOtherEntry(XPanderSharedModel):
+    """An entry kind this SDK version does not model.
+
+    The platform adds activity kinds continuously - approval cards, questions, secret prompts,
+    live surfaces - and an SDK pinned months earlier cannot know them. Without this, one unknown
+    entry made the whole activity log unreadable rather than costing only its own detail, so the
+    fields every entry shares are kept and the rest is preserved verbatim.
+    """
+
+    model_config = ConfigDict(extra="allow")
+
+    id: Optional[str] = None
+    created_at: Optional[datetime] = None
+    agent_id: Optional[str] = None
+
+
 AgentActivityThreadMessageType = Union[
     AgentActivityThreadMessage,
     AgentActivityThreadToolCall,
@@ -136,13 +154,36 @@ AgentActivityThreadMessageType = Union[
     AgentActivityThreadGatewayStopExecution,
     AgentActivityThreadGatewayContinueExecution,
     AgentActivityThreadGatewayGetExecutionsResult,
+    AgentActivityThreadOtherEntry,
 ]
+
+# The gateway card kinds this version models; anything else is newer than this SDK.
+_MODELLED_ACTIONS = frozenset(
+    {
+        "create_execution",
+        "ask_execution",
+        "stop_execution",
+        "continue_execution",
+        "get_executions_result",
+    }
+)
+
+
+def _route_entry(value: Any) -> Any:
+    """Send an entry naming an unmodelled action straight to the permissive kind."""
+    if isinstance(value, dict):
+        action = value.get("action")
+        if isinstance(action, str) and action not in _MODELLED_ACTIONS:
+            return AgentActivityThreadOtherEntry(**value)
+    return value
 
 
 class AgentActivityThread(XPanderSharedModel):
     id: str
     created_at: datetime
-    messages: List[AgentActivityThreadMessageType]
+    messages: List[
+        Annotated[AgentActivityThreadMessageType, BeforeValidator(_route_entry)]
+    ]
     user: Optional[User] = None
 
 

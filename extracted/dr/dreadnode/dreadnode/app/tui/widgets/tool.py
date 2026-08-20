@@ -31,6 +31,7 @@ from dreadnode.app.tui.theme import (
     FG_MUTED,
     FG_SUBTLE,
     LINK,
+    WARNING,
 )
 
 if TYPE_CHECKING:
@@ -474,6 +475,7 @@ class ToolCall(Widget):
     meta: reactive[str] = reactive("", layout=True)
     details: reactive[str] = reactive("", layout=True)
     error: reactive[str] = reactive("", layout=True)
+    policy_denial: reactive[str] = reactive("", layout=True)
     url: reactive[str] = reactive("", layout=True)
     url_label: reactive[str] = reactive("", layout=True)
     expanded_body: reactive[str] = reactive("", layout=True)
@@ -486,6 +488,7 @@ class ToolCall(Widget):
         details: str = "",
         meta: str | None = None,
         error: str | None = None,
+        policy_denial: str | None = None,
         url: str | None = None,
         url_label: str | None = None,
         expanded_body: str | None = None,
@@ -497,6 +500,7 @@ class ToolCall(Widget):
         self.details = details
         self.meta = meta or ""
         self.error = error or ""
+        self.policy_denial = policy_denial or ""
         self.url = url or ""
         self.url_label = url_label or ""
         self.expanded_body = expanded_body or ""
@@ -552,6 +556,7 @@ class ToolCall(Widget):
         meta: str | None = None,
         details: str = "",
         error: str | None = None,
+        policy_denial: str | None = None,
         url: str | None = None,
         url_label: str | None = None,
         expanded_body: str | None = None,
@@ -563,6 +568,8 @@ class ToolCall(Widget):
         self.details = details
         if error:
             self.error = error
+        if policy_denial:
+            self.policy_denial = policy_denial
         if url:
             self.url = url
         if url_label:
@@ -581,6 +588,12 @@ class ToolCall(Widget):
 
     def render(self) -> RenderableType:
         """Render the tool call."""
+        if self.policy_denial:
+            return render_tool_call(
+                self.tool_name,
+                meta=f"[ policy denied ] : {self.policy_denial}",
+                meta_style=WARNING,
+            )
         if self.error:
             visible_error = self._get_visible_error()
             return render_tool_call(

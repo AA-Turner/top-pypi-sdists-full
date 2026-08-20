@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: python-fasthtml
-Version: 0.14.11
+Version: 0.14.12
 Summary: The fastest way to create an HTML app
 Author-email: Jeremy Howard and contributors <github@jhoward.fastmail.fm>
 License: Apache-2.0
@@ -15,7 +15,7 @@ Classifier: Programming Language :: Python :: 3 :: Only
 Requires-Python: >=3.10
 Description-Content-Type: text/markdown
 License-File: LICENSE
-Requires-Dist: fastcore>=2.1.2
+Requires-Dist: fastcore>=2.2.7
 Requires-Dist: python-dateutil
 Requires-Dist: starlette>=1.0.1
 Requires-Dist: oauthlib
@@ -128,7 +128,6 @@ The capabilities of FastHTML are vast and growing, and not all the features and 
 Then explore the small but growing third-party ecosystem of FastHTML tutorials, notebooks, libraries, and components:
 
 - [FastHTML Gallery](https://gallery.fastht.ml): Learn from minimal examples of components (ie chat bubbles, click-to-edit, infinite scroll, etc)
-- [Creating Custom FastHTML Tags for Markdown Rendering](https://isaac-flath.github.io/website/posts/boots/FasthtmlTutorial.html) by Isaac Flath
 - [How to Build a Simple Login System in FastHTML](https://blog.mariusvach.com/posts/login-fasthtml) by Marius Vach
 - Your tutorial here!
 

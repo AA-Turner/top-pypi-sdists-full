@@ -160,7 +160,7 @@ def _tool_name(tool: t.Any) -> str:
     return getattr(tool, "name", "")
 
 
-_ITEM_TOOL_NAMES = {"report_item", "update_item", "link_items"}
+_ITEM_WRITE_TOOL_NAMES = {"report_item", "update_item", "link_items"}
 
 
 def _selected_builtin_item_types(capability: Capability) -> set[str]:
@@ -168,6 +168,13 @@ def _selected_builtin_item_types(capability: Capability) -> set[str]:
     from dreadnode.items.config import selected_builtin_item_types
 
     return selected_builtin_item_types(getattr(capability, "manifest", None))
+
+
+def _selected_registry_item_types(capability: Capability) -> set[str]:
+    """Identifier-only specialized item types selected by a capability."""
+    from dreadnode.items.config import selected_registry_item_types
+
+    return selected_registry_item_types(getattr(capability, "manifest", None))
 
 
 def _capability_items_enabled(capability: Capability) -> bool:
@@ -399,8 +406,8 @@ def create_agent(
     """Create an agent from a loaded capability.
 
     Tool assembly order:
-    1. Inherent tools (from default_tools()) — always present, except item tools
-       which are capability opt-in
+    1. Inherent tools (from default_tools() plus session-scoped toolsets) — always
+       present when their platform context is available
     2. Extra tools (from global capability pool) — additive, skip duplicates
     3. Agent tool rules filter the combined pool (empty rules = all tools)
 
@@ -449,8 +456,8 @@ def create_agent(
     if background_context:
         instructions = instructions + "\n\n" + background_context
 
-    # 1. Inherent tools — always present. Item tools are capability opt-in and
-    # added below only when the manifest asks for built-ins or custom types.
+    # 1. Inherent tools — always present. Item mutation tools are capability
+    # opt-in and added below only when the manifest selects output types.
     base = default_tools(additional_toolsets=inherent_toolsets, include_items=False)
 
     pool: list[t.Any] = list(base.values())
@@ -523,12 +530,13 @@ def create_agent(
     # only when `produces` selects built-ins or custom item types. The legacy
     # `items` key is still honored for compatibility.
     if capability is not None:
-        pool = [item for item in pool if _tool_name(item) not in _ITEM_TOOL_NAMES]
-        pool_names -= _ITEM_TOOL_NAMES
+        pool = [item for item in pool if _tool_name(item) not in _ITEM_WRITE_TOOL_NAMES]
+        pool_names -= _ITEM_WRITE_TOOL_NAMES
 
         if _capability_items_enabled(capability):
             try:
                 from dreadnode.tools.report_items import (
+                    ItemTypeRegistryUnavailableError,
                     build_capability_report_item,
                     link_items,
                     update_item,
@@ -537,7 +545,10 @@ def create_agent(
                 report_item_tool = build_capability_report_item(
                     capability,
                     builtin_types=_selected_builtin_item_types(capability),
+                    registry_types=_selected_registry_item_types(capability),
                 )
+            except ItemTypeRegistryUnavailableError:
+                raise
             except Exception as exc:
                 logger.warning(
                     "Failed to build typed report_item for capability {}: {}",
@@ -547,7 +558,7 @@ def create_agent(
                 report_item_tool = None
             if report_item_tool is not None:
                 pool.extend([report_item_tool, update_item, link_items])
-                pool_names |= _ITEM_TOOL_NAMES
+                pool_names |= _ITEM_WRITE_TOOL_NAMES
 
     # 3. Apply agent's tool rules (empty dict = all tools pass)
     rules = agent_def.tools if agent_def else {}
@@ -2002,9 +2013,9 @@ class SessionRuntime:
             self._session_dir.mkdir(parents=True, exist_ok=True)
         return self._session_dir
 
-    def _resolve_capability_id(self) -> str | None:
+    def _resolve_capability_id(self, capability: Capability | None = None) -> str | None:
         """Resolve a capability identifier for tool-write provenance."""
-        capability = self._capability
+        capability = capability or self._capability
         if capability is None:
             return None
 
@@ -2035,12 +2046,99 @@ class SessionRuntime:
             capability_id=self._resolve_capability_id(),
         )
 
+    def _submission_toolset(self, capability: Capability | None = None) -> t.Any | None:
+        """Build a session-scoped Submission toolset when the capability can emit items."""
+        capability = capability or self._capability
+        if capability is None or not _capability_items_enabled(capability):
+            return None
+        # Platform capability labels are reserved and immutable after session
+        # creation. A per-turn agent from another capability therefore cannot
+        # stage under this session without falsifying provenance.
+        bound_capability = self._capability
+        if bound_capability is None or (
+            capability.name != bound_capability.name
+            or capability.version != bound_capability.version
+        ):
+            return None
+        if not self.project_key:
+            return None
+
+        ctx = self._get_api_context()
+        if ctx is None:
+            return None
+        api, org, workspace = ctx
+
+        from dreadnode.tools.submission import Submission
+
+        toolset = Submission(
+            session_id=self.session_id,
+            project_key=self.project_key,
+            capability_name=capability.name,
+            capability_version=capability.version,
+        )
+        try:
+            actions = toolset._list_agent_actions(
+                api,
+                org,
+                workspace,
+                self.project_key,
+                first_only=True,
+            )
+        except Exception:
+            logger.debug(
+                "Submission action gating fetch failed | session={}",
+                self.session_id[:8],
+                exc_info=True,
+            )
+            return None
+        if not actions:
+            return None
+        return toolset
+
+    async def _submission_toolset_for_turn(self, capability: Capability | None) -> t.Any | None:
+        """Run the platform-backed staging preflight without blocking the event loop."""
+        return await asyncio.to_thread(self._submission_toolset, capability)
+
+    def _item_reads_toolset(self) -> t.Any | None:
+        """Build item reads only when the platform confirms effective access."""
+        if not self.project_key:
+            return None
+
+        ctx = self._get_api_context()
+        if ctx is None:
+            return None
+        api, org, workspace = ctx
+
+        try:
+            payload = api.get_item_access(org, workspace, self.project_key)
+        except Exception:
+            # Fail closed for this turn. Agent instances are rebuilt per turn,
+            # so a transient outage or changed grant is re-evaluated next time.
+            logger.debug(
+                "Item access resolution failed | session={}",
+                self.session_id[:8],
+                exc_info=True,
+            )
+            return None
+        if not isinstance(payload, dict) or payload.get("read") is not True:
+            return None
+
+        from dreadnode.tools.report_items import ItemReads
+
+        return ItemReads(project_key=self.project_key)
+
+    async def _resolve_item_reads_toolset(self) -> t.Any | None:
+        """Resolve per-turn item access without blocking the server event loop."""
+        return await asyncio.to_thread(self._item_reads_toolset)
+
     def _create_agent(
         self,
         *,
         model: str | None = None,
         agent_name: str | None = None,
         generate_params_extra: dict[str, t.Any] | None = None,
+        submission_toolset: t.Any | None = None,
+        item_reads_toolset: t.Any | None = None,
     ) -> Agent:
         """Create a fresh agent for this turn.
 
@@ -2064,6 +2162,13 @@ class SessionRuntime:
         project_memory_toolset = self._project_memory_toolset()
         if project_memory_toolset is not None:
             inherent_toolsets.append(project_memory_toolset)
+        if submission_toolset is not None:
+            inherent_toolsets.append(submission_toolset)
+        if item_reads_toolset is not None:
+            # Agent tool policy applies to methods, not their containing
+            # Toolset. Keep the bound methods so they retain project state
+            # while exposing their actual wire names to ``filter_tools``.
+            inherent_toolsets.extend(item_reads_toolset.get_tools())
 
         agent = create_agent(
             effective_model,
@@ -2151,6 +2256,21 @@ class SessionRuntime:
             new_name,
         )
 
+        # Sync the permission bridge on the existing agent (if any) so
+        # the new policy's bridge needs are reflected immediately.
+        from dreadnode.policies.guard import GuardSessionPolicy
+        from dreadnode.tools.interaction import RuntimePermissionBridge
+
+        if self._agent is not None:
+            if policy.needs_permission_bridge and self._agent._permission_bridge is None:
+                self._agent._permission_bridge = RuntimePermissionBridge()
+            elif not policy.needs_permission_bridge:
+                self._agent._permission_bridge = None
+
+            if isinstance(policy, GuardSessionPolicy):
+                agent = self._agent
+                policy._permission_ref = lambda: agent._permission_bridge
+
     def _wire_server_tools(self, agent: Agent) -> None:
         """Add tools that need server context to an already-created agent."""
         from dreadnode.agents.subagent import create_subagent_tool
@@ -2163,12 +2283,19 @@ class SessionRuntime:
         # the existing prompt.required/respond HITL UX is preserved. The native
         # engine ignores it (it uses the ask_user tool directly).
         #
-        # Policy-aware: only attach the bridge for non-autonomous (HITL) policies.
-        # An autonomous policy auto-denies human prompts, so gating *every* tool
-        # through it would deny all tool use — wrong for headless/eval. Leaving
-        # the bridge off lets a foreign engine run tools freely, matching native
-        # autonomous behavior where per-tool prompts don't fire.
-        agent._permission_bridge = None if self._policy.is_autonomous else RuntimePermissionBridge()
+        # Policy-aware: attach the bridge when the policy needs it (interactive
+        # policies, or guard policies with ASK capabilities). Autonomous policies
+        # without ASK skip the bridge so foreign engines run tools freely.
+        agent._permission_bridge = (
+            RuntimePermissionBridge() if self._policy.needs_permission_bridge else None
+        )
+
+        # Wire the guard policy's permission ref to the agent's bridge so
+        # ASK decisions can pause for operator approval at call time.
+        from dreadnode.policies.guard import GuardSessionPolicy
+
+        if isinstance(self._policy, GuardSessionPolicy):
+            self._policy._permission_ref = lambda: agent._permission_bridge
 
         # Skills — pooled from all capabilities, or standalone capability
         all_skills: list = []
@@ -2893,10 +3020,17 @@ class SessionRuntime:
                     turn_status = "failed"
                     continue
 
+                turn_capability = self._capability
+                if request.agent and self._registry is not None:
+                    _, turn_capability, _ = self._registry.resolve(agent_name=request.agent)
+                submission_toolset = await self._submission_toolset_for_turn(turn_capability)
+                item_reads_toolset = await self._resolve_item_reads_toolset()
                 agent = self._create_agent(
                     model=request.model,
                     agent_name=request.agent,
                     generate_params_extra=request.generate_params_extra,
+                    submission_toolset=submission_toolset,
+                    item_reads_toolset=item_reads_toolset,
                 )
                 _log_chat_timing(
                     self.session_id, request.turn_id, "agent_created", request.queued_at_monotonic
@@ -2923,13 +3057,14 @@ class SessionRuntime:
                     # carry the turn-id and emit callbacks to the
                     # ``ask_user()`` tool site without it needing a
                     # reference to the session.
-                    if self._policy.is_autonomous:
+                    # Tool-approval prompts from the guard judge must
+                    # reach the operator even in autonomous mode — the
+                    # whole point of ASK is human-in-the-loop gating.
+                    is_tool_approval = any(q.header == "Tool approval" for q in prompt.questions)
+                    if self._policy.is_autonomous and not is_tool_approval:
                         # No human is in the loop. Resolve instantly with
                         # ``cancel`` so the agent's ``ask_user()`` raises
                         # ``UserCancelled`` without touching any transport.
-                        # The mode-aware reason is a follow-up — see the
-                        # ``HumanInputResponder`` plan in
-                        # docs/later/SESSION_POLICY_REFACTOR.md.
                         return HumanInputResponse(
                             request_id=prompt.request_id,
                             action="cancel",
@@ -4632,6 +4767,20 @@ def _populate_registry(instance: t.Any) -> None:
 
     # Resolve capability flags after all capabilities are loaded
     _resolve_all_flags(registry, instance)
+
+    # Tool and hook discovery is lazy on Capability, but runtime health must be
+    # complete before the first session touches either collection. Materialize
+    # both at startup so GET /api/runtime never races component diagnostics.
+    for component_kind, materialize in (
+        ("tool", registry.all_tools),
+        ("hook", registry.all_hooks),
+    ):
+        try:
+            materialize()
+        except Exception:
+            logger.opt(exception=True).warning(
+                "Capability {} discovery failed during runtime load", component_kind
+            )
 
 
 def _resolve_all_flags(registry: capability_manager.CapabilityRegistry, _instance: t.Any) -> None:

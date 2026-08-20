@@ -1051,6 +1051,7 @@ __all__ = (
     "VideoCodecSettingsTypeDef",
     "VideoDescriptionOutputTypeDef",
     "VideoDescriptionTypeDef",
+    "VideoPositionRectangleTypeDef",
     "VideoSelectorColorSpaceSettingsTypeDef",
     "VideoSelectorPidTypeDef",
     "VideoSelectorProgramIdTypeDef",
@@ -2843,6 +2844,13 @@ UpdateSdiSourceRequestTypeDef = TypedDict(
         "Type": NotRequired[SdiSourceTypeType],
     },
 )
+
+
+class VideoPositionRectangleTypeDef(TypedDict):
+    Height: int
+    Width: int
+    X: int
+    Y: int
 
 
 class VideoSelectorPidTypeDef(TypedDict):
@@ -5815,6 +5823,8 @@ class VideoDescriptionOutputTypeDef(TypedDict):
     ScalingBehavior: NotRequired[VideoDescriptionScalingBehaviorType]
     Sharpness: NotRequired[int]
     Width: NotRequired[int]
+    CropRectangle: NotRequired[VideoPositionRectangleTypeDef]
+    OutputPositionRectangle: NotRequired[VideoPositionRectangleTypeDef]
 
 
 class VideoDescriptionTypeDef(TypedDict):
@@ -5825,6 +5835,8 @@ class VideoDescriptionTypeDef(TypedDict):
     ScalingBehavior: NotRequired[VideoDescriptionScalingBehaviorType]
     Sharpness: NotRequired[int]
     Width: NotRequired[int]
+    CropRectangle: NotRequired[VideoPositionRectangleTypeDef]
+    OutputPositionRectangle: NotRequired[VideoPositionRectangleTypeDef]
 
 
 DescribeInputResponseTypeDef = TypedDict(

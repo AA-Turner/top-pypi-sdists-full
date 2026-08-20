@@ -21,11 +21,15 @@ from dreadnode.app.cli.shared import (
     _hint,
     _print_json,
     _render_list,
+    _sync_progress,
     _visibility_markup,
+    configured_dreadnode,
     confirm_destructive,
     console,
+    print_error,
     print_success,
     print_warning,
+    pull_environment_to_dir,
 )
 
 cli = cyclopts.App(
@@ -424,12 +428,49 @@ def info(
 # ---------------------------------------------------------------------------
 
 
+def _rehome_manifest_member(
+    member: str | dict[str, t.Any], target_org: str, leaf: str | None = None
+) -> str | dict[str, t.Any]:
+    """Rewrite a manifest member's org to *target_org*, preserving name/version/notes.
+
+    ``push --with-members`` republishes every member environment under the pushing
+    profile's org, so the manifest must reference members there or it would dangle
+    (CLI-SYNC-041). Only the org segment of the task name changes; the pinned
+    version and notes are preserved.
+
+    *leaf* overrides the leaf name taken from the manifest. Callers that know the
+    identity a member was actually published under should pass it, because the
+    manifest leaf and the published name can differ (see the caller in ``push``).
+    """
+    if isinstance(member, str):
+        ref, sep, version = member.partition("@")
+        resolved_leaf = leaf or ref.split("/")[-1]
+        rehomed = f"{target_org}/{resolved_leaf}"
+        return f"{rehomed}@{version}" if sep else rehomed
+    if isinstance(member, dict):
+        out = dict(member)
+        resolved_leaf = leaf or str(out.get("task_name", "")).split("/")[-1]
+        out["task_name"] = f"{target_org}/{resolved_leaf}"
+        return out
+    return member
+
+
+def _member_task_name(member: str | dict[str, t.Any]) -> str:
+    """The org-qualified task name of a manifest member, ignoring any version."""
+    if isinstance(member, dict):
+        return str(member.get("task_name", ""))
+    if isinstance(member, str):
+        return member.partition("@")[0].strip().strip("/")
+    return ""
+
+
 @cli.command(alias="upload")
 def push(
     path: Path | None = None,
     *,
     name: str | None = None,
     public: t.Annotated[bool | None, cyclopts.Parameter(name="--public")] = None,
+    with_members: t.Annotated[bool, cyclopts.Parameter(negative=())] = False,
     as_json: t.Annotated[bool, cyclopts.Parameter(name="--json", negative=())] = False,
     platform: PlatformArgs = PlatformArgs(),
 ) -> None:
@@ -440,15 +481,25 @@ def push(
     the result is public, any member that is not publicly runnable is surfaced
     as a warning but never blocks the write (TSS-VIS-002/003).
 
+    Pass ``--with-members`` to push a bundle produced by ``pull --with-members``:
+    every member task environment under the directory is published first (so the
+    manifest never references tasks that don't yet exist on the target), then the
+    manifest is upserted. If any member fails to publish, the manifest is not
+    written.
+
     Args:
         path: Manifest file or a directory containing task-set.yaml
-            (default: ./task-set.yaml).
+            (default: ./task-set.yaml). With ``--with-members`` this must be the
+            bundle directory.
         name: Override the manifest's set name.
         public: Force is_public on (--public) or off (--no-public),
             overriding the manifest.
+        with_members: First publish member task environments found under the
+            directory, then upsert the manifest.
         as_json: Output the resulting set as JSON.
     """
-    request = _load_task_set_manifest(path or Path("task-set.yaml"))
+    manifest_source = path or Path("task-set.yaml")
+    request = _load_task_set_manifest(manifest_source)
     if name:
         request["name"] = name
     if public is not None:
@@ -459,6 +510,70 @@ def push(
         raise ValueError("task-set.yaml must include a 'name' (or pass --name)")
 
     api, profile = platform.connect()
+
+    if with_members:
+        # Local import: dreadnode.app.main imports the CLI modules.
+        from dreadnode.app.main import _load_environment_metadata
+
+        bundle_dir = Path(manifest_source).expanduser()
+        if not bundle_dir.is_dir():
+            bundle_dir = bundle_dir.parent
+        dn = configured_dreadnode(platform)
+        env_result = dn.sync_environments(
+            bundle_dir,
+            on_progress=_sync_progress,
+            on_status=lambda msg: console.print(msg),
+        )
+        console.print(
+            f"Members: [green]{len(env_result.uploaded)} pushed[/green], "
+            f"[dim]{len(env_result.skipped)} skipped[/dim], "
+            f"[red]{len(env_result.failed)} failed[/red]"
+        )
+        if not env_result.ok:
+            raise RuntimeError("Member environments failed to publish — manifest not written")
+
+        # Members were republished under this profile's org; rewrite the manifest
+        # refs to match so the pushed set never dangles (CLI-SYNC-041).
+        #
+        # The published identity is each bundle directory's `task.yaml` name, which
+        # is what sync_environments reports — NOT the manifest leaf. `push --name`
+        # overrides the registry name without rewriting task.yaml, so a member
+        # published as <org>/newname can still declare `name: oldname` inside. Keying
+        # off the manifest leaf would reject that bundle even though every member
+        # published fine, so rehome to what actually landed.
+        published = set(env_result.uploaded) | set(env_result.skipped)
+        original_members = request.get("members", [])
+        rehomed_members: list[str | dict[str, t.Any]] = []
+        leaf_source: dict[str, str] = {}
+
+        for original in original_members:
+            source_name = _member_task_name(original)
+            member_dir = bundle_dir / source_name
+            if not (member_dir / "task.yaml").is_file():
+                raise FileNotFoundError(
+                    f"member '{source_name}' has no task environment in the bundle — "
+                    "re-pull with --with-members or drop it from task-set.yaml"
+                )
+            leaf, _version = _load_environment_metadata(member_dir)
+            if leaf not in published:
+                raise RuntimeError(
+                    f"member '{source_name}' declares '{leaf}' in its task.yaml but was "
+                    "not published under that name — refusing to write a manifest that "
+                    "would reference a missing member"
+                )
+            # Two members sharing a published name across source orgs (acme/foo +
+            # beta/foo) both land on <org>/foo, silently merging into one task.
+            prior = leaf_source.get(leaf)
+            if prior is not None and prior != source_name:
+                raise ValueError(
+                    f"members '{prior}' and '{source_name}' both rehome to "
+                    f"'{profile.org_key}/{leaf}' — cross-org members sharing a leaf "
+                    "name can't be pushed into a single org"
+                )
+            leaf_source[leaf] = source_name
+            rehomed_members.append(_rehome_manifest_member(original, profile.org_key, leaf))
+
+        request["members"] = rehomed_members
 
     try:
         api.get_task_set(profile.org_key, set_name)
@@ -619,11 +734,49 @@ def remove(
 # ---------------------------------------------------------------------------
 
 
+def _pull_set_members(
+    dn: t.Any,
+    detail: dict[str, t.Any],
+    directory: Path,
+    *,
+    force: bool,
+) -> tuple[list[str], list[str], list[tuple[str, str]]]:
+    """Pull each member environment of a set into ``directory/<org>/<name>``.
+
+    Members carry their org-qualified ``task_name`` and the author's pinned
+    version (if any); a bare member pulls the latest. The destination is keyed by
+    the **org-qualified** name so members that share a leaf name across orgs don't
+    collide (CLI-SYNC-040). Returns (pulled, skipped, failed) by short task name.
+    """
+    pulled: list[str] = []
+    skipped: list[str] = []
+    failed: list[tuple[str, str]] = []
+
+    for member in detail.get("members") or []:
+        task_name = member.get("task_name")
+        if not task_name:
+            continue
+        pinned = member.get("task_version_pinned")
+        short = task_name.split("/")[-1]
+        ref_uri = f"environment://{task_name}" + (f":{pinned}" if pinned else "")
+        dest = (directory / task_name).resolve()
+        try:
+            if pull_environment_to_dir(dn, ref_uri, dest, force=force):
+                pulled.append(short)
+            else:
+                skipped.append(short)
+        except Exception as e:
+            failed.append((short, str(e)))
+
+    return pulled, skipped, failed
+
+
 @cli.command(alias="export")
 def pull(
     ref: str,
     path: Path | None = None,
     *,
+    with_members: t.Annotated[bool, cyclopts.Parameter(negative=())] = False,
     force: t.Annotated[bool, cyclopts.Parameter(negative=())] = False,
     platform: PlatformArgs = PlatformArgs(),
 ) -> None:
@@ -633,20 +786,37 @@ def pull(
     (never the read-time resolved version), so a pull/edit/push round-trip
     doesn't silently pin bare references.
 
+    A set is a bookmark, not a bundle — by default only the manifest is written.
+    Pass ``--with-members`` to also pull each member's task environment into the
+    target directory (one subfolder per task), producing a self-contained bundle
+    you can carry onto an air-gapped instance and push there.
+
     Args:
         ref: Task set to export (e.g. apex-web or acme/apex-web).
         path: File or directory to write task-set.yaml into
-            (default: ./task-set.yaml).
-        force: Overwrite an existing manifest at the target path.
+            (default: ./task-set.yaml). With ``--with-members`` this is always
+            treated as a directory.
+        with_members: Also pull each member's task environment alongside the manifest.
+        force: Overwrite an existing manifest / member directories at the target.
     """
     api, profile = platform.connect()
     set_ref = ArtifactRef.parse(ref, profile.org_key)
     if set_ref.version is not None:
         raise ValueError("task sets are not versioned — drop the '@version' suffix")
 
-    target = (path or Path("task-set.yaml")).expanduser()
-    if target.is_dir():
-        target = target / "task-set.yaml"
+    if with_members:
+        base_dir = (path or Path()).expanduser()
+        if base_dir.exists() and not base_dir.is_dir():
+            raise NotADirectoryError(
+                f"{base_dir} is not a directory — --with-members writes a bundle directory"
+            )
+        base_dir.mkdir(parents=True, exist_ok=True)
+        target = base_dir / "task-set.yaml"
+    else:
+        base_dir = None
+        target = (path or Path("task-set.yaml")).expanduser()
+        if target.is_dir():
+            target = target / "task-set.yaml"
     if target.exists() and not force:
         raise FileExistsError(f"{target} already exists — use --force to overwrite")
 
@@ -659,6 +829,21 @@ def pull(
     print_success(
         f"Exported [cyan]{set_ref.qualified_name}[/cyan] to {target} ({member_count} members)"
     )
+
+    if with_members and base_dir is not None:
+        dn = configured_dreadnode(platform)
+        pulled, skipped, failed = _pull_set_members(dn, detail, base_dir, force=force)
+        for name in pulled:
+            print_success(name, indent=2)
+        for name, err in failed:
+            print_error(f"{name}: {err}", indent=2)
+        console.print(
+            f"Members: [green]{len(pulled)} pulled[/green], "
+            f"[dim]{len(skipped)} skipped[/dim], [red]{len(failed)} failed[/red]"
+        )
+        if failed:
+            raise SystemExit(1)
+
     _hint(f"dn task-set push {target}")
 
 

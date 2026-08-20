@@ -1,12 +1,11 @@
 use std::time::Duration;
 
-use backtrace::Backtrace;
 use libafl::{
     executors::{Executor, ExitKind, HasObservers, HasTimeout, SetTimeout},
     observers::MapObserver,
     state::HasExecutions,
 };
-use libafl_bolts::{AsSliceMut, tuples::RefIndexable};
+use libafl_bolts::{ToSliceMut, tuples::RefIndexable};
 use pyo3::prelude::*;
 
 use crate::fuzzer::{EM, I, OT, S, Z};
@@ -17,6 +16,7 @@ pub struct PyExecutorInner<S> {
     observers: OT,
     timeout: Option<Duration>,
     cached_engine: Option<Py<PyAny>>,
+    emulator_cls: Py<PyAny>,
     phantom: std::marker::PhantomData<S>,
 }
 
@@ -32,12 +32,18 @@ impl<S> PyExecutorInner<S> {
                 "Expected a callable function",
             ));
         }
+        let emulator_cls = base_state
+            .py()
+            .import("angr.emulator")?
+            .getattr("Emulator")?
+            .unbind();
         Ok(PyExecutorInner {
             base_state: base_state.unbind(),
             apply_fn: apply_fn.unbind(),
             observers,
             timeout,
             cached_engine: None,
+            emulator_cls,
             phantom: std::marker::PhantomData,
         })
     }
@@ -53,9 +59,8 @@ impl Executor<EM, I, S, Z> for PyExecutorInner<S> {
     ) -> Result<ExitKind, libafl::Error> {
         *state.executions_mut() += 1;
 
-        let (emulator, exit) =
-            Python::attach(|py| {
-                || -> _ {
+        let (emulator, exit) = Python::attach(|py| {
+            || -> _ {
                 // Step 1: Copy the base state and run the apply function
                 // Copy base state by calling python copy function
                 let copied_state = self.base_state.bind(py).getattr("copy")?.call0()?;
@@ -77,9 +82,9 @@ impl Executor<EM, I, S, Z> for PyExecutorInner<S> {
                     engine
                 };
 
-                let emulator = py
-                    .import("angr.emulator")?
-                    .getattr("Emulator")?
+                let emulator = self
+                    .emulator_cls
+                    .bind(py)
                     .call1((&icicle_engine, &copied_state))?;
 
                 // Step 2.5: Set breakpoints to detect normal returns.
@@ -88,9 +93,10 @@ impl Executor<EM, I, S, Z> for PyExecutorInner<S> {
                 // the return address via cc.return_addr (works for shellcode where
                 // the apply_fn pushes a return address onto the stack).
                 let globals = copied_state.getattr("globals")?;
-                let user_bps = globals.call_method1("get", ("_fuzzer_breakpoints", py.None()))?;
-                if !user_bps.is_none() {
-                    let bp_list: Vec<u64> = user_bps.extract()?;
+                let user_bps: Option<Vec<u64>> = globals
+                    .call_method1("get", ("_fuzzer_breakpoints",))?
+                    .extract()?;
+                if let Some(bp_list) = user_bps {
                     for bp in bp_list {
                         emulator.call_method1("add_breakpoint", (bp,))?;
                         emulator.call_method1("add_breakpoint", (bp & !1,))?;
@@ -104,9 +110,11 @@ impl Executor<EM, I, S, Z> for PyExecutorInner<S> {
                         .call_method1("get_value", (&copied_state,))?
                         .getattr("concrete_value")?
                         .extract()
-                        .map_err(|e| pyo3::exceptions::PyRuntimeError::new_err(
-                            format!("Could not read return address from state: {e}"),
-                        ))?;
+                        .map_err(|e| {
+                            pyo3::exceptions::PyRuntimeError::new_err(format!(
+                                "Could not read return address from state: {e}"
+                            ))
+                        })?;
                     emulator.call_method1("add_breakpoint", (return_addr,))?;
                     emulator.call_method1("add_breakpoint", (return_addr & !1,))?;
                 }
@@ -122,45 +130,33 @@ impl Executor<EM, I, S, Z> for PyExecutorInner<S> {
             .map_err(|e: PyErr| {
                 if let Some(traceback) = e.traceback(py) {
                     if let Ok(traceback_str) = traceback.format() {
-                        libafl::Error::Unknown(
-                            format!("Python error building emulator: {e}\n{traceback_str:?}"),
-                            Backtrace::new(),
-                        )
+                        libafl::Error::unknown(format!(
+                            "Python error building emulator: {e}\n{traceback_str:?}"
+                        ))
                     } else {
-                        libafl::Error::Unknown(
-                            format!(
-                                "Python error building emulator (traceback formatting failed): {e}"
-                            ),
-                            Backtrace::new(),
-                        )
+                        libafl::Error::unknown(format!(
+                            "Python error building emulator (traceback formatting failed): {e}"
+                        ))
                     }
                 } else {
-                    libafl::Error::Unknown(
-                        format!("Python error building emulator (no traceback available): {e}"),
-                        Backtrace::new(),
-                    )
+                    libafl::Error::unknown(format!(
+                        "Python error building emulator (no traceback available): {e}"
+                    ))
                 }
             })
-            })?;
+        })?;
 
         // Step 3: Handle the result
         let result = match exit.as_str() {
             "INSTRUCTION_LIMIT" => Ok(ExitKind::Timeout),
             "BREAKPOINT" => Ok(ExitKind::Ok),
-            "NO_SUCCESSORS" => Err(libafl::Error::Unknown(
-                "No successors found".to_string(),
-                Backtrace::new(),
-            )),
+            "NO_SUCCESSORS" => Err(libafl::Error::unknown("No successors found")),
             "MEMORY_ERROR" => Ok(ExitKind::Crash),
-            "FAILURE" => Err(libafl::Error::Unknown(
-                "Unexpected exit reason".to_string(),
-                Backtrace::new(),
-            )),
+            "FAILURE" => Err(libafl::Error::unknown("Emulator reported a failure")),
             "EXIT" => Ok(ExitKind::Ok),
-            _ => Err(libafl::Error::Unknown(
-                "Unexpected exit reason".to_string(),
-                Backtrace::new(),
-            )),
+            other => Err(libafl::Error::unknown(format!(
+                "Unrecognized emulator stop reason: {other}"
+            ))),
         };
 
         // Step 4: Copy the edge map from edge_hitmap plugin to the observer to provide feedback
@@ -172,23 +168,15 @@ impl Executor<EM, I, S, Z> for PyExecutorInner<S> {
                 .getattr("edge_hitmap")?
                 .extract()
         })
-        .map_err(|e| {
-            libafl::Error::Unknown(
-                format!("Python error extracting hitmap: {e}"),
-                Backtrace::new(),
-            )
-        })?;
+        .map_err(|e| libafl::Error::unknown(format!("Python error extracting hitmap: {e}")))?;
         if py_hitmap.len() != self.observers.0.usable_count() {
-            return Err(libafl::Error::Unknown(
-                format!(
-                    "Hitmap length {} does not match observer length {}",
-                    py_hitmap.len(),
-                    self.observers.0.usable_count()
-                ),
-                Backtrace::new(),
-            ));
+            return Err(libafl::Error::unknown(format!(
+                "Hitmap length {} does not match observer length {}",
+                py_hitmap.len(),
+                self.observers.0.usable_count()
+            )));
         }
-        self.observers.0.as_slice_mut().copy_from_slice(&py_hitmap);
+        self.observers.0.to_slice_mut().copy_from_slice(&py_hitmap);
 
         result
     }

@@ -4,12 +4,20 @@ This hook sits in front of every real tool call, so the cases that matter most
 where nothing should change.
 """
 
+import asyncio
+import time
+
+from pathlib import Path
 from types import SimpleNamespace
+from typing import Any, Dict
+
+import pytest
 
 from xpander_sdk.modules.agents.models.agent import (
     AgentGraphItemHITLSettings,
     AgentToolApprovalApprovers,
 )
+from xpander_sdk.modules.backend.frameworks import agno as agno_module
 from xpander_sdk.modules.backend.frameworks.agno import (
     AWAITING_APPROVAL_MESSAGE,
     _approval_envelope,
@@ -140,3 +148,196 @@ class TestTheRefusalFeedsTheBreaker:
 
         message = AWAITING_APPROVAL_MESSAGE.format(tool="gmail_send")
         assert any(marker in message for marker in _NO_PROGRESS_MARKERS)
+
+
+class TestASuppressedAttemptIsNotAnEvent:
+    """A held run must not read as an agent retrying against its own gate."""
+
+    @staticmethod
+    def _guard_block() -> str:
+        """The awaiting-approval guard, up to the next guard that follows it."""
+        source = Path(agno_module.__file__).read_text()
+        start = source.index("_is_awaiting_approval(task)")
+        end = source.index("_is_tool_disabled(task, eff_name)", start)
+        return source[start:end]
+
+    def test_the_approval_block_reports_nothing(self) -> None:
+        """The guard writes no activity entry for a call it refused."""
+        # A suppressed attempt logged as a failed call reads as a retry against the gate.
+        assert "_report_blocked_call" not in self._guard_block()
+
+    def test_the_guard_after_it_still_reports(self) -> None:
+        """Only the approval case is quiet; every other guard still emits."""
+        # Silence was the original bug there: a stuck run looked like nothing was happening.
+        source = Path(agno_module.__file__).read_text()
+        after = source[source.index("_is_tool_disabled(task, eff_name)") :]
+        assert "_report_blocked_call" in after[:2000]
+
+
+class TestHoldingASelfApproveCallOpen:
+    """Nobody was asked but the person watching, so the call waits instead of the run parking."""
+
+    def _agent(self) -> SimpleNamespace:
+        """The minimum an agent needs to be polled against: an id and a configuration."""
+        return SimpleNamespace(id="agent-1", configuration=SimpleNamespace())
+
+    @pytest.mark.asyncio
+    async def test_it_returns_the_decision_once_the_person_answers(
+        self, monkeypatch
+    ) -> None:
+        answers = [{"settled": False}, {"settled": True, "approved": True}]
+
+        class _Client:
+            """A platform that answers pending, then settled."""
+
+            def __init__(self, **_kw) -> None:
+                pass
+
+            async def make_request(self, **_kw) -> Dict[str, Any]:
+                """Return the next scripted status."""
+                return answers.pop(0)
+
+        monkeypatch.setattr(agno_module, "APIClient", _Client)
+        monkeypatch.setattr(agno_module, "SELF_APPROVE_POLL_SECONDS", 0)
+        out = await agno_module._await_self_approval(self._agent(), "req-1", 30)
+        assert out == {"settled": True, "approved": True}
+
+    @pytest.mark.asyncio
+    async def test_it_gives_up_at_the_window_rather_than_holding_forever(
+        self, monkeypatch
+    ) -> None:
+        class _Client:
+            """A platform where nobody ever answers."""
+
+            def __init__(self, **_kw) -> None:
+                pass
+
+            async def make_request(self, **_kw) -> Dict[str, Any]:
+                """Never settle."""
+                return {"settled": False}
+
+        monkeypatch.setattr(agno_module, "APIClient", _Client)
+        monkeypatch.setattr(agno_module, "SELF_APPROVE_POLL_SECONDS", 0)
+        # None is not a failure: the caller falls through and parks exactly as it always did.
+        assert (
+            await agno_module._await_self_approval(self._agent(), "req-1", 0.05) is None
+        )
+
+    @pytest.mark.asyncio
+    async def test_a_platform_blip_costs_the_poll_and_not_the_hold(
+        self, monkeypatch
+    ) -> None:
+        calls = {"n": 0}
+
+        class _Client:
+            def __init__(self, **_kw):
+                pass
+
+            async def make_request(self, **_kw) -> Dict[str, Any]:
+                """Fail once, then settle."""
+                calls["n"] += 1
+                if calls["n"] == 1:
+                    raise RuntimeError("connection reset")
+                return {"settled": True, "approved": True}
+
+        monkeypatch.setattr(agno_module, "APIClient", _Client)
+        monkeypatch.setattr(agno_module, "SELF_APPROVE_POLL_SECONDS", 0)
+        out = await agno_module._await_self_approval(self._agent(), "req-1", 30)
+        assert out and out["approved"] is True
+
+    @pytest.mark.asyncio
+    async def test_no_window_means_no_hold_at_all(self, monkeypatch) -> None:
+        # An envelope with no wait_seconds is the old shape and must behave like the old shape.
+        called = {"n": 0}
+
+        class _Client:
+            """Records that it was constructed at all, which it must not be."""
+
+            def __init__(self, **_kw) -> None:
+                called["n"] += 1
+
+            async def make_request(self, **_kw) -> Dict[str, Any]:
+                """Would settle, if it were ever reached."""
+                return {"settled": True, "approved": True}
+
+        monkeypatch.setattr(agno_module, "APIClient", _Client)
+        assert (
+            await agno_module._await_self_approval(self._agent(), "req-1", None) is None
+        )
+        assert (
+            await agno_module._await_self_approval(self._agent(), "req-1", "nonsense")
+            is None
+        )
+        assert called["n"] == 0
+
+    @pytest.mark.asyncio
+    async def test_it_never_holds_longer_than_its_own_ceiling(
+        self, monkeypatch
+    ) -> None:
+        # The window comes off the wire, so an absurd value must not strand a worker.
+        waited = []
+
+        class _Client:
+            """A platform that never settles, to prove the ceiling ends the hold."""
+
+            def __init__(self, **_kw) -> None:
+                pass
+
+            async def make_request(self, **_kw) -> Dict[str, Any]:
+                """Never settle."""
+                waited.append(1)
+                return {"settled": False}
+
+        monkeypatch.setattr(agno_module, "APIClient", _Client)
+        monkeypatch.setattr(agno_module, "SELF_APPROVE_POLL_SECONDS", 0)
+        monkeypatch.setattr(agno_module, "SELF_APPROVE_MAX_WAIT_SECONDS", 0.05)
+        assert (
+            await agno_module._await_self_approval(self._agent(), "req-1", 10_000)
+            is None
+        )
+
+    @pytest.mark.asyncio
+    async def test_one_slow_poll_cannot_outlive_the_window(self, monkeypatch) -> None:
+        """A hung request must end with the hold, not with the client's own long timeout."""
+
+        class _Client:
+            """A platform that accepts the request and never answers it."""
+
+            def __init__(self, **_kw) -> None:
+                pass
+
+            async def make_request(self, **_kw) -> Dict[str, Any]:
+                """Hang for far longer than any hold window."""
+                await asyncio.sleep(60)
+                return {"settled": True, "approved": True}
+
+        monkeypatch.setattr(agno_module, "APIClient", _Client)
+        monkeypatch.setattr(agno_module, "SELF_APPROVE_POLL_SECONDS", 0)
+        started = time.monotonic()
+        assert (
+            await agno_module._await_self_approval(self._agent(), "req-1", 0.2) is None
+        )
+        assert time.monotonic() - started < 5
+
+
+class TestWhatTheModelReadsWhenSomeoneSaysNo:
+    """A decline is a settled fact with a next step, never an error to retry against."""
+
+    def test_it_names_the_decider_and_offers_a_way_on(self) -> None:
+        message = agno_module._declined_message(
+            {"decided_by_name": "Dana Cohen"}, "gmail_send"
+        )
+        assert "Dana Cohen declined" in message
+        assert "gmail_send" in message
+        assert "answer now" in message
+
+    def test_it_carries_the_reason_when_one_was_given(self) -> None:
+        message = agno_module._declined_message(
+            {"decided_by_name": "Dana", "decision_note": "wrong recipient list"},
+            "gmail_send",
+        )
+        assert 'They said: "wrong recipient list"' in message
+
+    def test_it_reads_fine_when_nobody_is_named(self) -> None:
+        message = agno_module._declined_message({}, "gmail_send")
+        assert message.startswith("The person who was asked declined")

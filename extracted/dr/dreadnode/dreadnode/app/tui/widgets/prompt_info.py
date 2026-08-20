@@ -28,7 +28,8 @@ class PromptInfo(Static):
         parts: list[tuple[str, str] | Text] = []
 
         if self.session_label:
-            parts.append((self.session_label, FG_SUBTLE))
+            label_style = "#5f9ea0" if self.session_label.startswith("[guard") else FG_SUBTLE
+            parts.append((self.session_label, label_style))
         if self.workspace_label:
             parts.append((self.workspace_label, FG_MUTED))
         if self.agent_name:

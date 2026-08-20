@@ -33,12 +33,12 @@ def push(
         workbooks: Union[Workbook, List[Workbook], WorkbookList],
         *,
         path: Optional[Union[str, Callable]] = None,
+        path_options: Optional[str] = None,
         owner: Optional[str] = None,
         label: Optional[str] = None,
         datasource: Optional[str] = None,
         datasource_map_folder: Optional[Union[str, Path]] = None,
         mode: str = WorkbookPushMode.NORMAL,
-        use_full_path: bool = False,
         access_control: Optional[str] = None,
         override_max_interp: bool = False,
         include_inventory: Optional[bool] = None,
@@ -57,7 +57,8 @@ def push(
         quiet: Optional[bool] = None,
         status: Optional[Status] = None,
         session: Optional[Session] = None,
-        scope_globals_to_workbook: Optional[bool] = None
+        scope_globals_to_workbook: Optional[bool] = None,
+        use_full_path: Optional[bool] = None
 ) -> pd.DataFrame:
     """
     Pushes workbooks into Seeq using a list of Workbook object definitions.
@@ -91,6 +92,30 @@ def push(
         Workbook instance as its sole argument and must return the desired path
         string (or None) for that workbook. This allows you to route different
         workbooks to different folders in a single push call.
+
+    path_options : str, optional
+        A comma-delimited combination of options that control how containing
+        folders are reconstructed at the destination. Two independent
+        settings can be specified, each of which is optional and defaults
+        independently if omitted:
+
+        - 'full' or 'relative' (default 'relative'): If 'full', the original
+          full path for an item is reconstructed, as opposed to the path
+          that is relative to the Path property supplied to the
+          spy.workbooks.search() call that originally helped create these
+          workbook definitions. Note that this full path will still be
+          inside the folder specified by the 'path' argument, if supplied.
+
+        - 'reconcile by id' or 'reconcile by name' (default 'reconcile by
+          id'): Determines how SPy matches containing (ancestor) folders
+          against folders that may already exist on the target server. The
+          default, 'reconcile by id', matches folders via their Data ID
+          (derived from the original folder's ID), which is how SPy has
+          always behaved. 'reconcile by name' instead matches (or creates)
+          folders purely by name within their parent folder, ignoring Data
+          ID entirely.
+
+        Example: path_options='full,reconcile by name'
 
     owner : str, default None
         Determines the ownership of pushed workbooks and folders.
@@ -148,13 +173,6 @@ def push(
         parameter constraints (path, owner, label, and datasource must be None;
         reconcile_inventory_by must be 'id'; global_inventory must be
         'overwrite' or 'do not touch').
-
-    use_full_path : bool, default False
-        If True, the original full path for an item is reconstructed, as
-        opposed to the path that is relative to the Path property supplied to
-        the spy.workbooks.search() call that originally helped create these
-        workbook definitions. Note that this full path will still be inside
-        the folder specified by the 'path' argument, if supplied.
 
     access_control : str, default None
         Specifies how Access Control Lists should be treated, via the
@@ -285,6 +303,11 @@ def push(
         Deprecated. Use global_inventory instead: 'copy global' is the
         equivalent of False, 'copy local' is the equivalent of True.
 
+    use_full_path : bool, optional
+        Deprecated, use path_options instead: 'full' is equivalent to
+        use_full_path=True, 'relative' (the default) is equivalent to
+        use_full_path=False. Cannot be combined with path_options.
+
     Returns
     -------
     pandas.DataFrame
@@ -326,9 +349,22 @@ def push(
         # Doesn't make sense to refresh when we're not actually pushing
         refresh = False
 
+    if path_options is not None:
+        if use_full_path is not None:
+            raise SPyValueError('use_full_path argument cannot be combined with path_options. Use path_options '
+                                'only.')
+        use_full_path, match_folders_by_name = _folder.parse_path_options_str(path_options)
+    elif use_full_path is not None:
+        status.warn(f'use_full_path={use_full_path} is deprecated. Use path_options='
+                    f'"{"full" if use_full_path else "relative"}" instead.')
+        match_folders_by_name = False
+    else:
+        use_full_path, match_folders_by_name = False, False
+
     if not callable(path):
         if path == _folder.ORIGINAL_FOLDER and not use_full_path:
-            raise SPyValueError('You must specify use_full_path=True when path=spy.workbooks.ORIGINAL_FOLDER')
+            raise SPyValueError('You must specify path_options="full" (or the deprecated use_full_path=True) when '
+                                'path=spy.workbooks.ORIGINAL_FOLDER')
 
         if path == _folder.ORIGINAL_FOLDER and not session.user.is_admin:
             raise SPyValueError('Must be an admin to use path=spy.workbooks.ORIGINAL_FOLDER')
@@ -387,8 +423,9 @@ def push(
             raise SPyValueError('label must be None when mode="in-place datasource swap"')
         if datasource is not None:
             raise SPyValueError('datasource must be None when mode="in-place datasource swap"')
-        if use_full_path is not False:
-            raise SPyValueError('use_full_path must be False when mode="in-place datasource swap"')
+        if use_full_path or match_folders_by_name:
+            raise SPyValueError('path_options must be left at its default (or use_full_path must be False) when '
+                                'mode="in-place datasource swap"')
         if access_control is not None:
             raise SPyValueError('access_control must be None when mode="in-place datasource swap"')
         if override_max_interp is not False:
@@ -507,6 +544,7 @@ def push(
                 label=label,
                 mode=mode,
                 use_full_path=use_full_path,
+                match_folders_by_name=match_folders_by_name,
                 access_control=access_control,
                 override_max_interp=override_max_interp,
                 include_inventory=include_inventory,
@@ -559,7 +597,8 @@ def push(
                     if context.current_params.mode != WorkbookPushMode.IN_PLACE_DATASOURCE_SWAP:
                         search_folder_id, workbook_folder_id = workbook.push_containing_folders(
                             context, item_map, push_params.use_full_path, push_params.path,
-                            push_params.owner, push_params.label, push_params.access_control)
+                            push_params.owner, push_params.label, push_params.access_control,
+                            match_folders_by_name=push_params.match_folders_by_name)
                     else:
                         if 'Ancestors' not in workbook or len(workbook['Ancestors']) == 0:
                             workbook_folder_id = None

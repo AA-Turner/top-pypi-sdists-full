@@ -86,7 +86,10 @@ _COMMAND_GROUPS: list[tuple[str, list[str]]] = [
             "/environments",
         ],
     ),
-    ("Tools", ["/skills", "/mcp", "/tools", "/update", "/copy", "/quit"]),
+    ("Tools", ["/skills", "/mcp", "/tools", "/copy", "/quit"]),
+    # The group a user scans for when something is misbehaving — keep it
+    # last so it's where the eye lands after "none of the above helped".
+    ("Troubleshoot", ["/report-bug", "/console", "/version", "/update"]),
 ]
 
 # Colors
@@ -126,8 +129,17 @@ def render_help() -> Text:
     t.append("  Commands\n", style=f"bold {_HEADING}")
     for group, cmd_names in _COMMAND_GROUPS:
         commands = [n for n in cmd_names if n in _CMD_LOOKUP]
-        t.append(f"    {group:<12}", style=_DESC)
+        t.append(f"    {group:<14} ", style=_DESC)
         t.append(" ".join(commands), style=_CMD)
         t.append("\n")
+
+    # Mirrors the pricing pointer under Status: one muted line answering the
+    # question the user actually opened `?` with. The privacy phrasing is
+    # deliberate — hesitation to share diagnostics is the main reason bug
+    # reports don't get filed.
+    t.append("\n")
+    t.append("    Something broken?  ", style=_DESC)
+    t.append("/report-bug", style=_KEY)
+    t.append(" lets you review exactly what is shared before sending\n", style=_DESC)
 
     return t

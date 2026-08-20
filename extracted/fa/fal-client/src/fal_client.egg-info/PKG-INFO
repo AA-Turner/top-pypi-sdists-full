@@ -1,12 +1,13 @@
 Metadata-Version: 2.4
 Name: fal_client
-Version: 1.0.0
+Version: 1.0.1
 Summary: Python client for fal.ai
 Author: Features & Labels <support@fal.ai>
 Project-URL: homepage, https://fal.ai
 Project-URL: repository, https://github.com/fal-ai/fal
 Requires-Python: >=3.8
 Description-Content-Type: text/markdown
+License-File: LICENSE
 Requires-Dist: aiofiles<26,>=24.1.0
 Requires-Dist: asyncstdlib<4,>=3.12.5
 Requires-Dist: httpx<1,>=0.21.0
@@ -24,6 +25,7 @@ Requires-Dist: pytest-mock; extra == "test"
 Requires-Dist: pillow; extra == "test"
 Provides-Extra: dev
 Requires-Dist: fal_client[docs,test]; extra == "dev"
+Dynamic: license-file
 
 # fal.ai Python client
 
@@ -71,7 +73,7 @@ asyncio.run(main())
 
 ## Uploading files
 
-If the model requires files as input, you can upload them directly to fal.media (our CDN) and pass the URLs to the client. Here's an example:
+If the model requires files as input, you can upload them directly to fal's CDN and pass the URLs to the client. Here's an example:
 
 ```python
 import fal_client

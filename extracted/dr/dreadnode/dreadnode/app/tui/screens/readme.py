@@ -79,12 +79,22 @@ class ReadmeScreen(DreadnodeScreen):
         try:
             payload = await self._fetcher()
         except NotFoundError:
+            if not self.is_mounted:
+                return
             await viewer.document.update(f"# README not available\n\n{self._empty_message}")
             return
         except Exception as exc:
+            if not self.is_mounted:
+                return
             await viewer.document.update(
                 f"# Failed to load README\n\n```\n{exc}\n```",
             )
+            return
+
+        # The screen may have been popped while the fetch was in flight —
+        # ``document.update`` mounts children into the (removed) viewer and
+        # would raise a MountError.
+        if not self.is_mounted:
             return
 
         content = str(payload.get("content") or "").strip()

@@ -837,22 +837,30 @@ def create(
             "and `dn capability list` for available capabilities."
         )
 
-    api, profile = platform.connect()
-    secret_selectors = request.pop("_secret_selectors", None)
-    if secret_selectors is not None:
-        resolved_secret_ids = _resolve_secret_ids(api, list(secret_selectors))
-        if resolved_secret_ids:
-            request["secret_ids"] = resolved_secret_ids
-        else:
-            request.pop("secret_ids", None)
-    project_key = request.pop("project", None)
-    if project_key:
-        project = api.get_project(profile.org_key, profile.workspace_key, project_key)
-        request["project_id"] = str(project.id)
-    if "project_id" not in request and profile.project_id:
-        request["project_id"] = profile.project_id
+    if not console.is_terminal and not as_json:
+        console.print("[dim]Submitting evaluation...[/dim]")
+    status = (
+        console.status("[dim]Submitting evaluation...[/dim]")
+        if console.is_terminal and not as_json
+        else contextlib.nullcontext()
+    )
+    with status:
+        api, profile = platform.connect()
+        secret_selectors = request.pop("_secret_selectors", None)
+        if secret_selectors is not None:
+            resolved_secret_ids = _resolve_secret_ids(api, list(secret_selectors))
+            if resolved_secret_ids:
+                request["secret_ids"] = resolved_secret_ids
+            else:
+                request.pop("secret_ids", None)
+        project_key = request.pop("project", None)
+        if project_key:
+            project = api.get_project(profile.org_key, profile.workspace_key, project_key)
+            request["project_id"] = str(project.id)
+        if "project_id" not in request and profile.project_id:
+            request["project_id"] = profile.project_id
 
-    payload = api.create_evaluation(profile.org_key, profile.workspace_key, request)
+        payload = api.create_evaluation(profile.org_key, profile.workspace_key, request)
 
     eval_id = str(payload.get("id", ""))
 

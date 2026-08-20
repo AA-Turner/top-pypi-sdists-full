@@ -4,7 +4,7 @@ from __future__ import annotations
 import logging
 import os
 from collections import defaultdict
-from collections.abc import Container, Iterable
+from collections.abc import Iterable
 from enum import Enum
 from typing import TYPE_CHECKING, Any
 
@@ -78,6 +78,58 @@ _l = logging.getLogger(__name__)
 # When enabled (env var VERIFY_INCREMENTAL_RD), every incremental reaching-definitions update is checked against a
 # full rebuild. Used to validate the incremental update; off by default because the full rebuild defeats its purpose.
 _VERIFY_INCREMENTAL_RD = os.environ.get("VERIFY_INCREMENTAL_RD", "").lower() not in {"", "0", "no", "false"}
+
+
+def _strongly_connected_components(succs: dict[int, set[int]]):
+    """
+    Iterative Tarjan SCC over a plain adjacency map. Yields sets of node IDs, like
+    networkx.strongly_connected_components().
+    """
+    index_of: dict[int, int] = {}
+    lowlink: dict[int, int] = {}
+    on_stack: set[int] = set()
+    stack: list[int] = []
+    counter = 0
+
+    for root, root_succs in succs.items():
+        if root in index_of:
+            continue
+        work = [(root, iter(root_succs))]
+        index_of[root] = lowlink[root] = counter
+        counter += 1
+        stack.append(root)
+        on_stack.add(root)
+
+        while work:
+            node, it = work[-1]
+            advanced = False
+            for succ in it:
+                if succ not in index_of:
+                    index_of[succ] = lowlink[succ] = counter
+                    counter += 1
+                    stack.append(succ)
+                    on_stack.add(succ)
+                    work.append((succ, iter(succs[succ])))
+                    advanced = True
+                    break
+                if succ in on_stack and index_of[succ] < lowlink[node]:
+                    lowlink[node] = index_of[succ]
+            if advanced:
+                continue
+
+            work.pop()
+            if work:
+                parent = work[-1][0]
+                lowlink[parent] = min(lowlink[parent], lowlink[node])
+            if lowlink[node] == index_of[node]:
+                scc = set()
+                while True:
+                    member = stack.pop()
+                    on_stack.discard(member)
+                    scc.add(member)
+                    if member == node:
+                        break
+                yield scc
 
 
 class HasVVarNotification(Exception):
@@ -208,6 +260,11 @@ class AILSimplifier(Analysis):
         self._arg_vvars = arg_vvars
         self._avoid_vvar_ids = avoid_vvar_ids if avoid_vvar_ids is not None else set()
         self._propagator_dead_vvar_ids: set[int] = set()
+        # per-block cache of dirty/ccall-defined vvar IDs, keyed by block key, validated by block identity
+        self._dirty_vvar_scan_cache: dict[tuple[int, int | None], tuple[Block, set[int]]] = {}
+        # only set to True when any simplification pass has modified the graph or updated any blocks.
+        # skips _remove_dead_assignments if this flag is False.
+        self._should_eliminate_dead_assignments: bool = True
 
         self._calls_to_remove: set[AILCodeLocation] = set()
         self._assignments_to_remove: set[AILCodeLocation] = set()
@@ -335,6 +392,7 @@ class AILSimplifier(Analysis):
 
         AILGraphWalker(self.func_graph, _handler, replace_nodes=True).walk()
         self.blocks = {}
+        self._should_eliminate_dead_assignments = True
 
     def _compute_reaching_definitions(self) -> SRDAModel:
         # Computing reaching definitions or return the cached one
@@ -372,6 +430,7 @@ class AILSimplifier(Analysis):
         )
         self._propagator = prop
         self._propagator_dead_vvar_ids = prop.dead_vvar_ids
+        self._should_eliminate_dead_assignments = True
         return prop
 
     @timethis
@@ -935,7 +994,8 @@ class AILSimplifier(Analysis):
                 block, reps, self._ail_manager, gp=self._gp, replace_loads=replace_loads
             )
             replaced |= r
-            self.blocks[block] = new_block
+            if r:
+                self.blocks[block] = new_block
 
         if replaced:
             # blocks have been rebuilt - expression propagation results are no longer reliable
@@ -1097,6 +1157,9 @@ class AILSimplifier(Analysis):
         # out-of-date
         updated_locs: set[AILCodeLocation] = set()
 
+        # built on-demand
+        stack_defs_by_offset: dict[int, list[Definition[atoms.VirtualVariable, AILCodeLocation]]] | None = None
+
         for _, atom in sorted_loc_and_atoms:
             eqs = equivalences[atom]
             filtered_eqs: list[tuple[Equivalence, VirtualVariable, bool]] = []
@@ -1167,14 +1230,9 @@ class AILSimplifier(Analysis):
             rd = self._compute_reaching_definitions()
             the_def = None
             if to_replace_is_def:
-                # find defs
-                defs: Container[Definition[atoms.VirtualVariable, AILCodeLocation]] = []
-                for def_ in rd.all_definitions:
-                    if def_.atom.varid == to_replace.varid:
-                        defs.append(def_)
-                if len(defs) != 1:
+                the_def = rd.get_definition_by_varid(to_replace.varid)
+                if the_def is None:
                     continue
-                the_def = defs[0]
             else:
                 # find uses
                 defs = rd.get_uses_by_location(eq.codeloc)
@@ -1200,38 +1258,42 @@ class AILSimplifier(Analysis):
                 # (a) the on-stack or in-register copy of it has never been modified in this function
                 # (b) the function argument register has never been updated.
                 #     TODO: we may loosen requirement (b) once we have real register versioning in AIL.
-                defs = [def_ for def_ in rd.all_definitions if def_.codeloc == eq.codeloc]
+                defs = rd.get_defs_by_location(eq.codeloc)
                 all_uses_with_def = None
                 replace_with = None
                 remove_initial_assignment = None
                 def_eq_rel = DefEqRelation.DEF_IS_FUNCARG
 
-                if defs and len(defs) == 1:
-                    arg_copy_def = defs[0]
+                if len(defs) == 1:
+                    arg_copy_def = next(iter(defs))
                     if (isinstance(arg_copy_def.atom, atoms.VirtualVariable) and arg_copy_def.atom.was_stack) or (
                         isinstance(arg_copy_def.atom, atoms.VirtualVariable) and arg_copy_def.atom.was_reg
                     ):
                         # found the copied definition (either a stack variable or a register variable)
 
                         # Make sure there is no other write to this stack location if the copy is a stack variable
-                        if (
-                            isinstance(arg_copy_def.atom, atoms.VirtualVariable)
-                            and arg_copy_def.atom.was_stack
-                            and any(
-                                (def_ != arg_copy_def and def_.atom.stack_offset == arg_copy_def.atom.stack_offset)
-                                for def_ in rd.all_definitions
-                                if isinstance(def_.atom, atoms.VirtualVariable) and def_.atom.was_stack
-                            )
-                        ):
-                            continue
+                        if isinstance(arg_copy_def.atom, atoms.VirtualVariable) and arg_copy_def.atom.was_stack:
+                            if stack_defs_by_offset is None:
+                                stack_defs_by_offset = defaultdict(list)
+                                for def_ in rd.all_definitions:
+                                    if def_.atom.was_stack:
+                                        stack_defs_by_offset[def_.atom.stack_offset].append(def_)
+                            if any(
+                                def_ != arg_copy_def
+                                for def_ in stack_defs_by_offset.get(arg_copy_def.atom.stack_offset, ())
+                            ):
+                                continue
 
-                        # Make sure the register is never updated across this function
-                        if any(
-                            (def_ != the_def and def_.atom == the_def.atom)
-                            for def_ in rd.all_definitions
-                            if isinstance(def_.atom, atoms.VirtualVariable)
-                            and def_.atom.was_reg
-                            and rd.get_vvar_uses(def_.atom)
+                        # Make sure the register is never updated across this function. Only the definition of
+                        # the_def's own vvar id can have an equal atom (atom equality is (varid, size)), and SSA gives
+                        # that id exactly one definition, so this is a single lookup rather than a full scan.
+                        other_def = rd.get_definition_by_varid(the_def.atom.varid)
+                        if (
+                            other_def is not None
+                            and other_def != the_def
+                            and other_def.atom == the_def.atom
+                            and other_def.atom.was_reg
+                            and rd.get_vvar_uses(other_def.atom)
                         ):
                             continue
 
@@ -1267,13 +1329,7 @@ class AILSimplifier(Analysis):
                     def_eq_rel = DefEqRelation.DEF_EQ_SAME_BLOCK
                 else:
                     # the definition is in the predecessor block of the eq
-                    eq_block = next(
-                        iter(
-                            bb
-                            for bb in self.func_graph
-                            if bb.addr == eq.codeloc.block_addr and bb.idx == eq.codeloc.block_idx
-                        )
-                    )
+                    eq_block = addr_and_idx_to_block[(eq.codeloc.block_addr, eq.codeloc.block_idx)]
                     eq_block_preds = set(self.func_graph.predecessors(eq_block))
                     if not any(
                         pred.addr == the_def.codeloc.block_addr and pred.idx == the_def.codeloc.block_idx
@@ -1840,6 +1896,14 @@ class AILSimplifier(Analysis):
 
     @timethis
     def _iteratively_remove_dead_assignments(self) -> bool:
+        if (
+            not self._should_eliminate_dead_assignments
+            and not self.blocks
+            and not self._calls_to_remove
+            and not self._assignments_to_remove
+        ):
+            # nothing that _remove_dead_assignments() reads has changed since it last reported nothing to remove
+            return False
         anything_removed = False
         while True:
             r, changed_block_keys = self._remove_dead_assignments()
@@ -1859,6 +1923,8 @@ class AILSimplifier(Analysis):
                     self._verify_incremental_reaching_definitions()
             # propagation results are no longer reliable after removing statements
             self._propagator = None
+
+        self._should_eliminate_dead_assignments = False
 
         # NoOp placeholders are left in the graph and the reaching-definitions cache is kept valid: subsequent
         # simplification steps reuse it instead of rebuilding from scratch. The placeholders are compacted away once,
@@ -2168,21 +2234,32 @@ class AILSimplifier(Analysis):
     def _find_cyclic_dependent_phis_and_dirty_vvars(self, rd: SRDAModel, dead_vvar_ids: set[int]) -> set[int]:
         blocks_dict: dict[tuple[int, int | None], Block] = {(bb.addr, bb.idx): bb for bb in self.func_graph}
 
-        # find dirty vvars and vexccall vvars
         dirty_vvar_ids = set()
+        # cache dirty or ccall vvar IDs per block to avoid re-scanning
+        # TODO: Move this cache to ailment.Block once per-block defs/uses cache lands on master.
+        cache = self._dirty_vvar_scan_cache
         for bb in self.func_graph:
-            for stmt in bb.statements:
-                # reg/tmp = ccall(...)
-                # we see tmps when it's used in a cycle;
-                # see binary ddc2b4cbf6ac841524375cdf82b93b9948f8ea09bbf6e8bf3410e6bc410a9d95 function 0x18001722c
-                # block 0x18001724c
-                if (
-                    isinstance(stmt, Assignment)
-                    and isinstance(stmt.dst, VirtualVariable)
-                    and (stmt.dst.was_reg or stmt.dst.was_tmp)
-                    and isinstance(stmt.src, (DirtyExpression, VEXCCallExpression))
-                ):
-                    dirty_vvar_ids.add(stmt.dst.varid)
+            key = bb.addr, bb.idx
+            entry = cache.get(key)
+            if entry is not None and entry[0] is bb:
+                block_dirty_ids = entry[1]
+            else:
+                block_dirty_ids = set()
+                for stmt in bb.statements:
+                    # reg/tmp = ccall(...)
+                    # we see tmps when it's used in a cycle;
+                    # see binary ddc2b4cbf6ac841524375cdf82b93b9948f8ea09bbf6e8bf3410e6bc410a9d95 function 0x18001722c
+                    # block 0x18001724c
+                    if (
+                        isinstance(stmt, Assignment)
+                        and isinstance(stmt.dst, VirtualVariable)
+                        and (stmt.dst.was_reg or stmt.dst.was_tmp)
+                        and isinstance(stmt.src, (DirtyExpression, VEXCCallExpression))
+                    ):
+                        block_dirty_ids.add(stmt.dst.varid)
+                cache[key] = bb, block_dirty_ids
+            if block_dirty_ids:
+                dirty_vvar_ids |= block_dirty_ids
 
         phi_and_dirty_vvar_ids = (rd.phi_vvar_ids | dirty_vvar_ids).difference(dead_vvar_ids)
 
@@ -2200,18 +2277,25 @@ class AILSimplifier(Analysis):
                     vvar_used_by[used_by_varid].add(var_id)  # probably unnecessary
             vvar_used_by[var_id] |= self._get_vvar_used_by(var_id, rd, blocks_dict).difference(dead_vvar_ids)
 
-        g = networkx.DiGraph()
+        # build a plain adjacency map instead of a throwaway networkx DiGraph for better performance. the performance
+        # improvement is observable on notepad.exe:NPInit
+        # TODO: Investigate if switching to rustworkx eliminates the need for this optimization.
         dummy_vvar_id = -1
+        succs_map: dict[int, set[int]] = {}
         for var_id, used_by_initial in vvar_used_by.items():
-            for u in used_by_initial:
-                if u is None:
-                    # we can't have None in networkx.DiGraph
-                    g.add_edge(var_id, dummy_vvar_id)
-                else:
-                    g.add_edge(var_id, u)
+            if not used_by_initial:
+                continue
+            targets = {dummy_vvar_id if u is None else u for u in used_by_initial}
+            if var_id in succs_map:
+                succs_map[var_id] |= targets
+            else:
+                succs_map[var_id] = set(targets)
+            for target in targets:
+                if target not in succs_map:
+                    succs_map[target] = set()
 
         cyclic_dependent_phi_varids = set()
-        for scc in networkx.strongly_connected_components(g):
+        for scc in _strongly_connected_components(succs_map):
             if len(scc) == 1:
                 continue
 
@@ -2222,11 +2306,9 @@ class AILSimplifier(Analysis):
                 if varid in vvar_used_by and None in vvar_used_by[varid]:
                     bail = True
                     break
-                if bail is False:
-                    succs = list(g.successors(varid))
-                    if any(succ_varid not in scc for succ_varid in succs):
-                        bail = True
-                        break
+                if any(succ_varid not in scc for succ_varid in succs_map[varid]):
+                    bail = True
+                    break
             if bail:
                 continue
 

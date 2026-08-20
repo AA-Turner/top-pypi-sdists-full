@@ -40,6 +40,7 @@ class CMakeHandler:
         self._cmake_cache = None
         self.verbose = False
         self.cached_help_targets = []
+        self.source_locations = None
         try:
             self._run_cmake(["--help"], print_output=False)
         except Exception as exc:
@@ -163,9 +164,17 @@ class CMakeHandler:
         Gets the locations that can be used as the root of an include tree. Common directories are placed in these
         include locations. These include standard builds, configs, etc.
 
+        When source_locations has been set (from fprime-source-locations.fprime-util),
+        those are used directly. Otherwise falls back to reading FPRIME_PROJECT_ROOT,
+        FPRIME_LIBRARY_LOCATIONS, and FPRIME_FRAMEWORK_PATH from the CMake cache.
+
         :param cmake_dir: directory of a CMake build, or directory containing a CMake project
         :return: []  List of include locations. Order: project, lib, lib, ..., F prime core
         """
+        if self.source_locations:
+            mapped = [os.path.abspath(str(loc)) for loc in self.source_locations]
+            return list(collections.OrderedDict.fromkeys(mapped).keys())
+
         # Reading config fields. If the cmake_dir is a project dir, a build cache may be setup.
         # !! Note: using a project dir will cause file-system side effects, and incur a one-time cost to setup cache !!
         config_fields = self.get_fprime_configuration(
@@ -256,7 +265,13 @@ class CMakeHandler:
         return self._read_values_from_cache(fields, build_dir=cmake_dir)
 
     def generate_build(
-        self, source_dir, build_dir, args=None, ignore_output=False, environment=None
+        self,
+        source_dir,
+        build_dir,
+        args=None,
+        ignore_output=False,
+        environment=None,
+        preset=None,
     ):
         """Generate a build directory for purposes of the build.
 
@@ -265,6 +280,7 @@ class CMakeHandler:
         :param args: arguments to hand to CMake.
         :param ignore_output: do not print the output where the user can see it
         :param environment: environment to set when generating
+        :param preset: CMake preset name to pass via --preset. None means no preset.
         """
 
         if not os.path.exists(build_dir):
@@ -278,11 +294,15 @@ class CMakeHandler:
             ),
             args.keys(),
         )
+        build_dir_abs = os.path.abspath(build_dir)
+        cmake_args = ["-S", source_dir] + list(fleshed_args)
+        if preset:
+            cmake_args.extend(["--preset", preset, "-B", build_dir_abs])
         # Creating a file to mark the directory as a F Prime directory
         (Path(build_dir) / ".fprime-build-dir").touch()
         self.cmake_validate_source_dir(source_dir)
         self._run_cmake(
-            ["-S", source_dir] + list(fleshed_args),
+            cmake_args,
             workdir=build_dir,
             print_output=not ignore_output,
             write_override=True,

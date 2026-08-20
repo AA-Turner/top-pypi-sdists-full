@@ -160,10 +160,32 @@ _RELEASE_LINE_RE = re.compile(r"^v?(\d+)\.(\d+)")
 
 def release_line_at_least(version: str, minimum: tuple[int, int]) -> bool:
     """Whether *version*'s ``YYYY.MM`` release line is at or past *minimum*; unparseable is no."""
+    line = _release_line(version)
+    return line is not None and line >= minimum
+
+
+def version_at_least(version: str, minimum: str) -> bool:
+    """
+    Whether *version* is at or past *minimum*.
+
+    Two pinnable versions order exactly (``2026.8.0b4 < 2026.8.0b5``);
+    anything else (a ``-dev`` build) orders by ``YYYY.MM`` release line;
+    unparseable is no. A local segment (``+abc``) never affects the order.
+    """
+    version = version.split("+", 1)[0]
+    minimum = minimum.split("+", 1)[0]
+    if is_pinnable_version(version) and is_pinnable_version(minimum):
+        return pinnable_version_key(version) >= pinnable_version_key(minimum)
+    floor = _release_line(minimum)
+    return floor is not None and release_line_at_least(version, floor)
+
+
+def _release_line(version: str) -> tuple[int, int] | None:
+    """Parse *version*'s ``YYYY.MM`` release line; ``None`` when unparseable."""
     match = _RELEASE_LINE_RE.match(version)
     if match is None:
-        return False
-    return (int(match[1]), int(match[2])) >= minimum
+        return None
+    return int(match[1]), int(match[2])
 
 
 def _release_key(version: str) -> str:

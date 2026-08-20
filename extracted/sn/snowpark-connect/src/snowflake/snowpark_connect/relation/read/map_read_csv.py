@@ -182,10 +182,12 @@ def _nss_read_csv(
     # the 2-char COPY-escaped escape/quote/sep back to a single char for Spark).
     from snowflake.snowpark_connect.nss.nss_scan_options import (
         _unquote_name,
+        as_all_string_columns,
         cache_if_corrupt_record_present,
         columns_from_spark_schema,
         filter_reader_options,
         py_schema_as_nullable,
+        snowpark_types_from_columns,
     )
     from snowflake.snowpark_connect.nss.nss_stage_file_reader import (
         nss_read_via_stage_file_reader,
@@ -219,6 +221,8 @@ def _nss_read_csv(
             corrupt_record_column=corrupt_record_column_name,
             reader_options=nss_reader_options,
         )
+        if not options._get_config_setting("inferschema"):
+            nss_columns = as_all_string_columns(nss_columns)
     else:
         from snowflake.snowpark_connect.relation.read.map_read import (
             parse_data_source_schema_to_spark,
@@ -270,13 +274,26 @@ def _nss_read_csv(
     renamed_df, snowpark_column_names = rename_columns_as_snowflake_standard(
         df, rel.common.plan_id
     )
+    # Memoizable in df_cache_map, but not materialized (SNOW-3717231).
+    # ``can_be_cached=False`` would short-circuit df_cache_map entirely, so every
+    # re-resolution of this read's plan_id re-executes the whole NSS read — including a
+    # full INFER_STAGE_FILE_SCHEMA pass when the caller supplied no schema. A read
+    # resolved twice (e.g. ``df.columns`` -> AnalyzePlan, then an action -> ExecutePlan,
+    # where the read is a nested child rather than the execute root so the analyze memo
+    # does not apply) then infers twice over the whole dataset.
+    # ``without_materialization()`` keeps the memoization while suppressing
+    # df_cache_map's ``cache_result()`` step: unlike the COPY branch below there is no
+    # pre-existing temp table here, so allowing materialization would add a full table
+    # write that the NSS path never used to perform. The COPY branch avoids the flag
+    # for the same memoization reason.
     return DataFrameContainer.create_with_column_mapping(
         dataframe=renamed_df,
         spark_column_names=spark_column_names,
         snowpark_column_names=snowpark_column_names,
-        snowpark_column_types=None,
-        can_be_cached=False,
-    )
+        # Report the Spark types NSS was given for top-level scalars; complex columns
+        # fall back to the dataframe-derived schema (SNOW-3891973).
+        snowpark_column_types=snowpark_types_from_columns(nss_columns, renamed_df),
+    ).without_materialization()
 
 
 def map_read_csv(

@@ -1,20 +1,21 @@
 Metadata-Version: 2.4
 Name: cosmos-xenna
-Version: 0.5.7
+Version: 0.5.8
 Requires-Dist: attrs
 Requires-Dist: cattrs
 Requires-Dist: jinja2
 Requires-Dist: loguru
 Requires-Dist: pulp
-Requires-Dist: ray[default]>=2.46.0
+Requires-Dist: ray[default]>=2.56.0,<2.57.0
 Requires-Dist: tabulate
 Requires-Dist: obstore<0.9.0
 Requires-Dist: portpicker>=1.6.0
 Requires-Dist: huggingface-hub>=0.30.2 ; extra == 'examples'
+Requires-Dist: pillow>=12.3.0 ; extra == 'examples'
 Requires-Dist: requests>=2.32.3 ; extra == 'examples'
-Requires-Dist: torch>=2.6.0 ; extra == 'examples'
+Requires-Dist: torch>=2.13.0 ; extra == 'examples'
 Requires-Dist: torchvision>=0.21.0 ; extra == 'examples'
-Requires-Dist: transformers>=4.51.3 ; extra == 'examples'
+Requires-Dist: transformers>=5.14.1 ; extra == 'examples'
 Requires-Dist: gpustat ; extra == 'gpu'
 Requires-Dist: pynvml ; extra == 'gpu'
 Provides-Extra: examples
@@ -638,6 +639,12 @@ uv run examples/simple_vlm_inference.py
 ```
 
 This will auto-sync dependencies if needed and execute the command in the UV-managed virtualenv.
+
+When imported, Cosmos-xenna defaults `RAY_ENABLE_UV_RUN_RUNTIME_ENV` to `0`. This prevents Ray from wrapping
+worker startup in nested `uv run` commands, which can hang worker initialization. Applications that need Ray's
+uv runtime-environment integration can opt back in by setting `RAY_ENABLE_UV_RUN_RUNTIME_ENV=1` before importing
+`cosmos_xenna`. Due to import ordering, in certain scenarios, the environmant may need to be set before importing
+anything from Ray.
 
 ### VSCode integration
 

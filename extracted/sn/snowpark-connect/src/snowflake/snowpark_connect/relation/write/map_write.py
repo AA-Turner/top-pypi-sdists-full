@@ -127,6 +127,8 @@ from snowflake.snowpark_connect.utils.iceberg_partition_utils import (
 )
 from snowflake.snowpark_connect.utils.identifiers import (
     is_in_cld_context,
+    should_use_cld_identifier_rules,
+    spark_multipart_name_to_snowflake,
     spark_to_sf_single_id,
     split_fully_qualified_spark_name,
 )
@@ -264,6 +266,8 @@ def get_param_from_options(
 
 
 def _spark_to_snowflake(multipart_id: str) -> str:
+    if should_use_cld_identifier_rules():
+        return spark_multipart_name_to_snowflake(multipart_id)
     return ".".join(
         spark_to_sf_single_id(part)
         for part in split_fully_qualified_spark_name(multipart_id)
@@ -676,7 +680,13 @@ def _validate_partition_columns_match_spec(
         for c in partition_cols
     ]
 
-    if provided_partition_cols != table_partition_cols:
+    if should_use_cld_identifier_rules():
+        partition_cols_match = [c.lower() for c in provided_partition_cols] == [
+            c.lower() for c in table_partition_cols
+        ]
+    else:
+        partition_cols_match = provided_partition_cols == table_partition_cols
+    if not partition_cols_match:
         exception = IllegalArgumentException(
             "The provided partitioning does not match the table partitioning: "
             f"provided [{', '.join(partition_cols)}] vs table [{', '.join(table_partition_spec.columns())}]."
@@ -1381,6 +1391,7 @@ def map_write(request: proto_base.ExecutePlanRequest):
                             table_name=snowpark_table_name,
                             mode="append",
                             column_order=_column_order_for_write,
+                            table_exists=True,
                         )
                     else:
                         writer.saveAsTable(
@@ -1432,6 +1443,11 @@ def map_write(request: proto_base.ExecutePlanRequest):
                             table_name=snowpark_table_name,
                             mode="append",
                             column_order=_column_order_for_write,
+                            # Write-path fix (not identifier casing): after
+                            # _prepare_iceberg_write_dataframe the table already
+                            # exists; without table_exists=True Snowpark re-attempts
+                            # CREATE and append fails (merge-gate test_spark_write_*).
+                            table_exists=isinstance(table_schema_or_error, DataType),
                         )
                     else:
                         _validate_schema_and_get_writer(
@@ -1467,6 +1483,9 @@ def map_write(request: proto_base.ExecutePlanRequest):
                                 table_name=snowpark_table_name,
                                 mode="append",
                                 column_order=_column_order_for_write,
+                                # Table was just created above; tell Snowpark not
+                                # to CREATE again (same rationale as append path).
+                                table_exists=True,
                             )
                         else:
                             _get_writer_for_table_creation(input_df).saveAsTable(

@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: opentelemetry-exporter-gcp-logging
-Version: 1.14.0a0
+Version: 1.15.0a0
 Summary: Google Cloud Logging exporter for OpenTelemetry
 Home-page: https://github.com/GoogleCloudPlatform/opentelemetry-operations-python/tree/main/opentelemetry-exporter-gcp-logging
 Author: Google

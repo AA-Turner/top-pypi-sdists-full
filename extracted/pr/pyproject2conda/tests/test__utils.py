@@ -19,7 +19,7 @@ if TYPE_CHECKING:
 def test_list_to_string() -> None:
     assert utils.list_to_str(["a", "b"], eol=True) == "a\nb\n"
     assert utils.list_to_str(["a", "b"], eol=False) == "a\nb"
-    assert utils.list_to_str(None) == ""  # noqa: PLC1901  # pylint: disable=use-implicit-booleaness-not-comparison-to-string
+    assert utils.list_to_str(None) == ""  # ruff:ignore[compare-to-empty-string]  # pylint: disable=use-implicit-booleaness-not-comparison-to-string
 
 
 def test_template() -> None:
@@ -41,12 +41,16 @@ def test_template() -> None:
         (None, "3.10", ["3.10"]),
         ("3.12", "3.11", ["3.12"]),
         ("3.11", None, ["3.11"]),
+        # an empty file exists but holds nothing, so it should be skipped
+        # rather than indexed
+        (None, "", []),
+        ("", "3.11", ["3.11"]),
     ],
 )
 def test_default_pythons(
     example_path: Path,
-    python_version_default: str,
-    python_version: str,
+    python_version_default: str | None,
+    python_version: str | None,
     expected: list[str],
 ) -> None:
     for name, version in zip(
@@ -169,7 +173,7 @@ def test__get_standard_format_dict(
     env_name: str | None, python_version: str | None, expected: dict[str, str]
 ) -> None:
     assert (
-        utils._get_standard_format_dict(  # noqa: SLF001  # pylint: disable=protected-access
+        utils._get_standard_format_dict(  # ruff:ignore[private-member-access]  # pylint: disable=protected-access
             env_name=env_name, python_version=python_version
         )
         == expected

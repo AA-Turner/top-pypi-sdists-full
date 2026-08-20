@@ -842,7 +842,7 @@ def delegate_to_widget_mixin(attribute_name: str) -> type[Widget]:
             return get_delegate(self).keypress(size, key)
 
         @property
-        def move_cursor_to_coords(self) -> Callable[[[tuple[()] | tuple[int] | tuple[int, int], int, int]], bool]:
+        def move_cursor_to_coords(self) -> Callable[[tuple[()] | tuple[int] | tuple[int, int], int, int], bool]:
             # TODO(Aleksei):  Get rid of property usage after getting rid of "if getattr"
             return get_delegate(self).move_cursor_to_coords
 
@@ -862,7 +862,7 @@ def delegate_to_widget_mixin(attribute_name: str) -> type[Widget]:
             return get_delegate(self).sizing
 
         @property
-        def pack(self) -> Callable[[tuple[()] | tuple[int] | tuple[int, int], bool], tuple[int, int]]:
+        def pack(self) -> Callable[[tuple[()] | tuple[int] | tuple[int, int], bool], tuple[int, int]]:  # type: ignore[override]
             return get_delegate(self).pack
 
     return DelegateToWidgetMixin

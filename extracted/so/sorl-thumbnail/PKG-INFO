@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: sorl-thumbnail
-Version: 13.0.0
+Version: 13.1.0
 Summary: Thumbnails for Django
 Author-email: Mikko Hellsing <mikko@aino.se>
 Maintainer-email: Jazzband <roadies@jazzband.co>
@@ -45,13 +45,13 @@ Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
+Classifier: Programming Language :: Python :: 3.14
 Classifier: Topic :: Internet :: WWW/HTTP :: Dynamic Content
 Classifier: Topic :: Multimedia :: Graphics
 Classifier: Framework :: Django
-Classifier: Framework :: Django :: 4.2
-Classifier: Framework :: Django :: 5.0
-Classifier: Framework :: Django :: 5.1
 Classifier: Framework :: Django :: 5.2
+Classifier: Framework :: Django :: 6.0
+Classifier: Framework :: Django :: 6.1
 Requires-Python: >=3.10
 Description-Content-Type: text/x-rst
 License-File: LICENSE
@@ -62,6 +62,8 @@ Provides-Extra: pil
 Requires-Dist: pillow; extra == "pil"
 Provides-Extra: wand
 Requires-Dist: wand; extra == "wand"
+Provides-Extra: avif
+Requires-Dist: pillow-avif-plugin; extra == "avif"
 Dynamic: license-file
 
 |jazzband-badge| |pypi| |python-badge| |django-badge| |docs| |gh-actions| |codecov|
@@ -79,7 +81,6 @@ Features at a glance
 - Admin integration with possibility to delete
 - Dummy generation (placeholders)
 - Flexible, simple syntax, generates no html
-- ImageField for model that deletes thumbnails (only compatible with django 1.2.5 or less)
 - CSS style cropping options
 - Back smart cropping, and remove borders from the images when cropping
 - Margin calculation for vertical positioning

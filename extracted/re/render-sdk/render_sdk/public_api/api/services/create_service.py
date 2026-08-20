@@ -45,6 +45,11 @@ def _parse_response(*, client: Union[AuthenticatedClient, Client], response: htt
 
         return response_402
 
+    if response.status_code == 404:
+        response_404 = Error.from_dict(response.json())
+
+        return response_404
+
     if response.status_code == 406:
         response_406 = Error.from_dict(response.json())
 

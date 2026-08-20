@@ -35,8 +35,8 @@ class DeltaTableMetadata(BaseModel):
     created_time: StrictInt = Field(description="Creation time in epoch milliseconds", alias="created-time")
     updated_time: StrictInt = Field(description="Last update time in epoch milliseconds", alias="updated-time")
     columns: DeltaStructType
-    partition_columns: Optional[List[StrictStr]] = Field(default=None, description="Partition column names", alias="partition-columns")
-    properties: Dict[str, StrictStr] = Field(description="Table properties")
+    partition_columns: Optional[List[StrictStr]] = Field(default=None, description="Partition column names (logical schema column names)", alias="partition-columns")
+    properties: Dict[str, StrictStr] = Field(description="Table properties. Besides the table's metaData.configuration entries, the map carries server-derived keys (delta.minReaderVersion, delta.minWriterVersion, delta.feature.*, delta.clusteringColumns, delta.rowTracking.rowIdHighWaterMark, delta.lastUpdateVersion, delta.lastCommitTimestamp) that clients must not write back to the Delta log or send in set-properties / remove-properties. ")
     last_commit_version: Optional[StrictInt] = Field(default=None, description="The version of the last commit that changed table metadata (delta.lastUpdateVersion). Data-only commits do not update this value.", alias="last-commit-version")
     last_commit_timestamp_ms: Optional[StrictInt] = Field(default=None, description="Timestamp of the last commit that changed table metadata, in epoch milliseconds (delta.lastCommitTimestamp).", alias="last-commit-timestamp-ms")
     __properties: ClassVar[List[str]] = ["etag", "table-type", "table-uuid", "location", "created-time", "updated-time", "columns", "partition-columns", "properties", "last-commit-version", "last-commit-timestamp-ms"]

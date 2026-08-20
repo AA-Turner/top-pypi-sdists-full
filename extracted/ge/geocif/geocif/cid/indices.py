@@ -188,6 +188,13 @@ def _read_input_csv(path: Union[str, Path], keep_regions=None) -> pd.DataFrame:
     del probe
 
     region_col = next((c for c in _REGION_COL_CANDIDATES if c in keep), None)
+    if keep_regions and region_col is None:
+        # Say so rather than silently returning every region — a filter that
+        # quietly no-ops is exactly how the 1,759-vs-1,004 county bug hid.
+        logger.warning(
+            f"run_regions CID filter requested but {Path(path).name} has none of "
+            f"{list(_REGION_COL_CANDIDATES)} — reading ALL regions unfiltered"
+        )
     if not keep_regions or region_col is None:
         return pd.read_csv(path, usecols=keep, dtype=dtypes)
 

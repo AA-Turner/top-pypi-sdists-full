@@ -3392,6 +3392,54 @@ async fn build_edge(
         // into leviculum's valid band edge-side; an override can't escape the
         // DoS bound.)
         link_keepalive: Some(std::time::Duration::from_secs(30)),
+        // CIRISEdge#508 item (d) — this is the composition root of the node
+        // that actually wedged. leviculum's 256 default is documented as sized
+        // for "small std platforms" with servers expected to override, and no
+        // edge embedder could take that advice until v18.0.1 exposed the field.
+        // Edge clamps into 16..=65_536 so this cannot escape its DoS bound.
+        //
+        // HEADROOM, NOT A CURE, and #508 says so in its own priority order:
+        // capacity is item (d), LAST, behind the completion-mirror eviction of
+        // live links and the single mutex that stall the consumer
+        // (leviculum#56-#59). On the live canonical the control channel was
+        // saturated because the consumer could not run, not because 256 was
+        // too small — a larger channel would have delayed the flood, not
+        // stopped it.
+        control_channel_capacity: Some(4096),
+        // CIRISEdge#499 — scope-native addressing. A canonical/serve node MUST
+        // stay federation-visible: `false` makes it point-to-point only, and
+        // edge warns that flipping a deployed node to invisible on upgrade
+        // silently removes it from the mesh. This node announces by design.
+        federation_visible: true,
+        // CIRISEdge#492 (v17.5.0) — legacy-path posture. `interfaces` is empty
+        // above, so the legacy `listen_addr` + `bootstrap_peers` path is what
+        // runs and these two govern it.
+        //
+        // Both `None` = pre-v17.5.0 behaviour, unchanged. A substrate adopt is
+        // the wrong place to move a fabric node's network posture.
+        //
+        // `ifac: None` at THIS layer. Not "no IFAC" as a policy — the member-only
+        // posture and its rotating PQC passphrase are EDGE's to hold
+        // (CIRISEdge#492 + persist v34's `key_grant` TransitMembership scope,
+        // rotated by supersession). The composition root declaring an IFAC here
+        // would be a second place that decides who may transit, competing with
+        // the layer that actually distributes the material — and a passphrase
+        // spelled in two places is the shape this codebase keeps paying for.
+        //
+        // Contrast the lens relay, which sets `transit: Some(false)`: that is a
+        // node declaring it relays for NOBODY, which is its own fact to state.
+        // Whom we relay FOR is edge's.
+        ifac: None,
+        // `transit: None` = leviculum's default (relay-by-default). Relay stays
+        // ON here deliberately: this node IS the NAT-traversal infra, and a
+        // mobile edge holding one outbound link to 0.0.0.0:4242 gets its inbound
+        // routed back down that link only because this port carries transit.
+        // `Some(false)` would silently strand every NAT'd peer.
+        //
+        // Distinct from `enable_transport` above — that is the node-wide
+        // Transport-node mode; this is the legacy path's relay posture. Two axes,
+        // not one knob spelled twice.
+        transit: None,
     };
     // CIRISServer#125 — gate the Reticulum announce's federation-IDENTITY
     // attestation on the `net.announce_ownership` opt-in (default FALSE). The
@@ -3557,9 +3605,43 @@ async fn build_edge(
     )))]
     let _ = resolved;
 
+    // ── ARM SCOPE-NATIVE ADDRESSING (CIRISServer#451 item 2) ───────────────
+    //
+    // Group addresses derive from directory state and are NEVER announced
+    // (CC 5.4.6, default-deny for unregistered destinations). Until this is
+    // installed the scope gates are deliberately DEFAULT-OPEN — edge is
+    // explicit that the arming event is the server's call, not an upstream
+    // wait, so leaving it unarmed is a decision to keep every scope addressed
+    // by one `sha256(fed_pubkey)[..16]` that an observer can link across every
+    // context the node participates in.
+    //
+    // THE TRADE, because this node is on the paying side of it. Edge draws the
+    // line at federation visibility: a node that is NOT federation-visible is
+    // point-to-point anyway and gains unlinkable per-context addresses for
+    // nothing. A node that IS visible — this one — moves its SCOPED flows off
+    // the federation plane onto one-hop delivery. That is a real cost and the
+    // reason edge keeps this separate from `federation_visible` rather than
+    // riding it.
+    //
+    // Armed deliberately: the fleet upgrades together before trace testing, so
+    // there is no window where an armed node and an unarmed peer disagree about
+    // where a scoped flow is addressed.
+    //
+    // `DEFAULT_CONVERGENCE_WINDOW` (300s) is how long a superseded epoch stays
+    // reachable after a rotation. Seal earlier and a peer that has not re-keyed
+    // is cut off; later and a rotated-away address stays live longer. Taking
+    // edge's default rather than inventing a number we have no measurement for.
+    let builder =
+        builder.scope_native_addressing(ciris_edge::scope_lifecycle::DEFAULT_CONVERGENCE_WINDOW);
+
     let edge = builder
         .build()
         .map_err(|e| anyhow::anyhow!("build shared Edge: {e}"))?;
+    tracing::info!(
+        convergence_secs = ciris_edge::scope_lifecycle::DEFAULT_CONVERGENCE_WINDOW.as_secs(),
+        "scope-native addressing ARMED — scoped flows are one-hop and their \
+         destinations are never announced (CC 5.4.6)"
+    );
     tracing::info!(ret = %cfg.listen_addr, "shared reticulum edge runtime built");
     Ok(edge)
 }

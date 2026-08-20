@@ -45,6 +45,11 @@ from .types import (
     AssetStatus,
     AssetThumbnail,
     AssetThumbnailStatus,
+    AssetTranscriptionEntry,
+    AssetTranscriptionError,
+    AssetTranscriptionResponse,
+    AssetTranscriptionStatus,
+    AssetTranscriptionUtterance,
     AssetTypeFilter,
     AsyncResponseFormat,
     AsyncResponseFormatSegmentTimeFormat,
@@ -144,6 +149,7 @@ from .types import (
     Import,
     ImportDetail,
     ImportItem,
+    ImportItemAction,
     ImportItemError,
     ImportItemStatus,
     ImportProvider,
@@ -363,7 +369,12 @@ from . import (
     search,
     tasks,
 )
-from .assets import AssetsCreateRequestMethod, AssetsListRequestAssetTypesItem, AssetsListResponse
+from .assets import (
+    AssetsCreateRequestMethod,
+    AssetsListRequestAssetTypesItem,
+    AssetsListResponse,
+    AssetsRetrieveTranscriptionRequestIncludeItem,
+)
 from .client import AsyncTwelveLabs, TwelveLabs
 from .data_connectors import (
     AuthorizeConnectionRequestProvider,
@@ -375,7 +386,12 @@ from .data_connectors import (
 from .entity_collections import EntityCollectionsListRequestSortBy, EntityCollectionsListResponse
 from .environment import TwelveLabsEnvironment
 from .imports import ImportFilesRequestItemsItem, ListImportsResponse
-from .indexes import IndexesCreateRequestModelsItem, IndexesCreateResponse, IndexesListResponse
+from .indexes import (
+    IndexesCreateRequestModelsItem,
+    IndexesCreateRequestModelsItemModelName,
+    IndexesCreateResponse,
+    IndexesListResponse,
+)
 from .knowledge_store_item_collections import (
     KnowledgeStoreItemCollectionsListItemsResponse,
     KnowledgeStoreItemCollectionsListRequestSortBy,
@@ -454,10 +470,16 @@ __all__ = [
     "AssetStatus",
     "AssetThumbnail",
     "AssetThumbnailStatus",
+    "AssetTranscriptionEntry",
+    "AssetTranscriptionError",
+    "AssetTranscriptionResponse",
+    "AssetTranscriptionStatus",
+    "AssetTranscriptionUtterance",
     "AssetTypeFilter",
     "AssetsCreateRequestMethod",
     "AssetsListRequestAssetTypesItem",
     "AssetsListResponse",
+    "AssetsRetrieveTranscriptionRequestIncludeItem",
     "AsyncResponseFormat",
     "AsyncResponseFormatSegmentTimeFormat",
     "AsyncResponseFormatType",
@@ -569,6 +591,7 @@ __all__ = [
     "ImportDetail",
     "ImportFilesRequestItemsItem",
     "ImportItem",
+    "ImportItemAction",
     "ImportItemError",
     "ImportItemStatus",
     "ImportProvider",
@@ -590,6 +613,7 @@ __all__ = [
     "IndexedAssetsListRequestSize",
     "IndexedAssetsListRequestWidth",
     "IndexesCreateRequestModelsItem",
+    "IndexesCreateRequestModelsItemModelName",
     "IndexesCreateResponse",
     "IndexesListResponse",
     "IngestionConfig",

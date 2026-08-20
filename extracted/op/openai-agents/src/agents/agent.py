@@ -548,11 +548,18 @@ class Agent(AgentBase, Generic[TContext]):
     def clone(self, **kwargs: Any) -> Agent[TContext]:
         """Make a copy of the agent, with the given arguments changed.
         Notes:
-            - Uses `dataclasses.replace`, which performs a **shallow copy**.
-            - Mutable attributes like `tools` and `handoffs` are shallow-copied:
-              new list objects are created only if overridden, but their contents
-              (tool functions and handoff objects) are shared with the original.
-            - To modify these independently, pass new lists when calling `clone()`.
+            - Uses `dataclasses.replace`, which performs a **shallow copy** and never copies a
+              list attribute such as `tools`, `handoffs`, `mcp_servers`, `input_guardrails`, or
+              `output_guardrails`. Each of those attributes is whatever the merged arguments hold.
+            - An attribute you do not pass arrives as the original agent's own list, so both
+              agents hold that one list and its entries. Appending through either agent, for
+              example `cloned.tools.append(extra_tool)`, therefore also changes the other.
+            - An attribute you do pass is used exactly as given, so it shares a list or an entry
+              with the original agent only where you reused one. `agent.clone(tools=agent.tools)`
+              still shares that list, while `agent.clone(tools=[other_tool])` shares nothing.
+            - To give the clone a list that no other agent holds, pass a new one, for example
+              `agent.clone(tools=[*agent.tools, extra_tool])`. The entries copied into it remain
+              the same objects the original agent holds.
         Example:
             ```python
             new_agent = agent.clone(instructions="New instructions")
@@ -862,18 +869,19 @@ class Agent(AgentBase, Generic[TContext]):
                         should_record_run_result = False
                     elif status in ("approved", "rejected"):
                         resume_state = resolved_pending_result.to_state()
-                        if resume_state._context is not None:
-                            # Keep accumulating nested post-resume usage on the parent
-                            # ToolContext accumulator. resolve_resumed_context only
-                            # replaces application .context and would otherwise leave
-                            # the restored nested wrapper on a detached Usage object.
-                            resume_state._context.usage = context.usage
                         record_agent_tool_resume_state(
                             context.tool_call,
                             resume_state,
                             scope_id=tool_state_scope_id,
                             approval_items=resolved_pending_result.interruptions,
                         )
+
+                # A cached nested Agent.as_tool() resume reuses resume_state without
+                # going through the branch above, so rebind usage on both paths: nested
+                # post-resume model turns must accrue on the current outer ToolContext,
+                # not on the detached copy _copy_for_run_state now isolates.
+                if resume_state is not None and resume_state._context is not None:
+                    resume_state._context.usage = context.usage
 
             if run_result is None:
                 if on_stream is not None:

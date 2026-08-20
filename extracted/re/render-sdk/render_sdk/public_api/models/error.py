@@ -15,16 +15,22 @@ class Error:
     Attributes:
         id (Union[Unset, str]):
         message (Union[Unset, str]):
+        code (Union[Unset, str]): A stable, machine-readable identifier present on specific errors that clients can
+            handle specially. Each endpoint documents the codes it can return. The errorCode schema lists the full
+            vocabulary of codes.
     """
 
     id: Union[Unset, str] = UNSET
     message: Union[Unset, str] = UNSET
+    code: Union[Unset, str] = UNSET
     additional_properties: dict[str, Any] = _attrs_field(init=False, factory=dict)
 
     def to_dict(self) -> dict[str, Any]:
         id = self.id
 
         message = self.message
+
+        code = self.code
 
         field_dict: dict[str, Any] = {}
         field_dict.update(self.additional_properties)
@@ -33,6 +39,8 @@ class Error:
             field_dict["id"] = id
         if message is not UNSET:
             field_dict["message"] = message
+        if code is not UNSET:
+            field_dict["code"] = code
 
         return field_dict
 
@@ -43,9 +51,12 @@ class Error:
 
         message = d.pop("message", UNSET)
 
+        code = d.pop("code", UNSET)
+
         error = cls(
             id=id,
             message=message,
+            code=code,
         )
 
         error.additional_properties = d

@@ -146,13 +146,15 @@ class SnowparkUdfBase(ABC):
             return is cast back.
           * ``PYTHON_INLINE``: args pass through; a VARIANT-backed Map/Struct return is
             reconstructed via ``PARSE_JSON`` then cast.
+          * ``NATIVE_FUNCTION``: no boundary; args pass through and the result is cast to
+            the declared return type.
         """
         match self.kind:
             case UdfKind.SCALA_UDF | UdfKind.JAVA_UDAF:
                 args: list = encode_jvm_udf_args(self, typed_args, column_mapping)
             case UdfKind.PYTHON_REGISTERED | UdfKind.JAVA_SCALAR:
                 args = [snowpark_fn.cast(tc.col, VariantType()) for tc in typed_args]
-            case UdfKind.PYTHON_INLINE:
+            case UdfKind.PYTHON_INLINE | UdfKind.NATIVE_FUNCTION:
                 args = [tc.col for tc in typed_args]
 
         raw = self._call(args, typed_args, session)
@@ -164,6 +166,11 @@ class SnowparkUdfBase(ABC):
             case UdfKind.SCALA_UDF | UdfKind.JAVA_UDAF:
                 col = decode_jvm_udf_result(raw, rt)
             case UdfKind.PYTHON_REGISTERED | UdfKind.JAVA_SCALAR:
+                col = snowpark_fn.cast(raw, rt)
+            case UdfKind.NATIVE_FUNCTION:
+                # Intentionally separate from PYTHON_REGISTERED/JAVA_SCALAR: native
+                # functions never go through the VARIANT boundary, so if that branch
+                # later adds VARIANT unwrapping, this one must stay a plain cast.
                 col = snowpark_fn.cast(raw, rt)
             case UdfKind.PYTHON_INLINE:
                 col = snowpark_fn.parse_json(raw).cast(rt)
@@ -192,6 +199,55 @@ class SnowparkUDF(SnowparkUdfBase):
             self.input_types[position] if position < len(self.input_types) else None
         )
         return is_decomposable_struct(declared)
+
+
+@dataclass
+class NativeFunctionUdf(SnowparkUdfBase):
+    """Handle that forwards a registered name to a native Snowflake function.
+
+    Backs native function passthrough: a ``snowpark.connect.nativeFunction.<name>`` config
+    entry names a Snowflake built-in or a pre-existing UDF, and calls to ``<name>`` are
+    rewritten to invoke that function directly. No Python is ever executed and no Snowflake
+    object is created.
+
+    Two invariants that differ from every other handle:
+
+    * The Snowflake function lives in ``target``, **not** in ``name``. Everywhere else
+      ``name`` is a physical function SCOS created and may ``DROP``; here it is only the
+      logical Spark-side name. Keeping the two apart means a stray ``DROP FUNCTION`` can
+      never reach the user's own permanent UDF. ``DropFunctionCommand`` additionally
+      short-circuits on this type.
+    * ``input_types`` is always empty, mirroring ``LazyUdfBase``. Nothing on the invoke
+      path reads it -- arguments come from the call site, and with no DDL of our own there
+      is no signature to coerce them to; Snowflake resolves the overload. Leaving it empty
+      also keeps ``DropFunctionCommand``'s "was DDL emitted?" check false. It exists at all
+      because that check reads the attribute.
+    * ``declaration`` records the exact config value this handle was built from, so a
+      lookup can tell whether it is still current. Config is the source of truth and can be
+      re-set or unset at any time, and there is no hook that fires on either, so a handle
+      cached without this would keep answering for a declaration the user has already
+      changed -- silently calling the wrong Snowflake function.
+    """
+
+    target: str
+    declaration: str
+    input_types: list[DataType] = field(default_factory=list, init=False)
+
+    def __post_init__(self) -> None:
+        assert self.kind is UdfKind.NATIVE_FUNCTION
+
+    def _call(
+        self,
+        converted_args: list["snowpark_fn.Column"],
+        typed_args: list[TypedColumn],
+        session: Session,
+    ) -> "snowpark_fn.Column":
+        return snowpark_fn.call_function(self.target, *converted_args)
+
+    def decomposes_struct_arg(self, position: int, call_site_type: DataType) -> bool:
+        # There is no generated DDL to stay in lockstep with: a struct argument is passed
+        # to the native function as-is.
+        return False
 
 
 @dataclass

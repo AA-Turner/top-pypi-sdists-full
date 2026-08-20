@@ -9,6 +9,7 @@ import typing as t
 import webbrowser
 from datetime import UTC, datetime
 
+from rich.markup import escape
 from rich.text import Text
 from textual import on, work
 from textual.binding import Binding
@@ -55,6 +56,14 @@ class _AuthBanner(Static):
         return t
 
 
+class _MessageAlreadyShownError(RuntimeError):
+    """The modal has already rendered a fuller message than this exception carries.
+
+    Callers must not overwrite the widget: the on-screen text may hold a key
+    the exception deliberately omits, and it is the user's only copy.
+    """
+
+
 def _new_device_login_api_key_name() -> str:
     return f"dreadnode-{secrets.token_hex(3)}"
 
@@ -96,6 +105,7 @@ class AuthModal(ModalScreen[Profile | None]):
         self._device_status = ""
         self._device_error: str | None = None
         self._api_key_error: str | None = None
+        self._api_key_status: str | None = None
         self._user_code = ""
         self._verification_url = ""
         self._active_view: t.Literal["method", "device", "api_key"] = "method"
@@ -119,7 +129,11 @@ class AuthModal(ModalScreen[Profile | None]):
     def compose(self) -> ComposeResult:
         with Vertical(id="auth-modal"):
             yield _AuthBanner(id="auth-banner")
-            yield Static("", id="auth-reason")
+            # Widgets carrying error text or server-supplied values opt out of
+            # markup. Left as markup, a bracketed fragment either aborts the
+            # render (Pydantic's "[type=missing, ...]") or silently vanishes
+            # (a redaction placeholder) and the user sees nothing at all.
+            yield Static("", id="auth-reason", markup=False)
             yield Static("", id="auth-update-banner")
             with Container(id="auth-form-wrapper"), Vertical(id="auth-content"):
                 yield Static(
@@ -134,21 +148,26 @@ class AuthModal(ModalScreen[Profile | None]):
                         id="auth-method-help",
                     )
                 with Vertical(id="auth-device", classes="-hidden"):
-                    yield Static("Waiting for browser authorization...", id="auth-status")
+                    yield Static(
+                        "Waiting for browser authorization...",
+                        id="auth-status",
+                        markup=False,
+                    )
                     yield Static("", id="auth-user-code")
                     yield Static("", id="auth-verification-url")
                     yield Static("", id="auth-device-help")
-                    yield Static("", id="auth-error")
+                    yield Static("", id="auth-error", markup=False)
                 with Vertical(id="auth-key", classes="-hidden"):
                     yield Static("Paste your API key:", id="auth-key-title")
                     with Horizontal(id="auth-key-bar"):
                         yield Static(">", id="auth-key-chevron")
-                        yield Input(placeholder="dn_...", id="auth-api-key")
+                        yield Input(placeholder="dn_...", id="auth-api-key", password=True)
                     yield Static(
                         "Enter to submit, Esc to go back",
                         id="auth-key-help",
                     )
-                    yield Static("", id="auth-key-error")
+                    yield Static("", id="auth-key-status", markup=False)
+                    yield Static("", id="auth-key-error", markup=False)
 
     def on_mount(self) -> None:
         if self._reason:
@@ -227,6 +246,11 @@ class AuthModal(ModalScreen[Profile | None]):
         if not api_key:
             self._set_api_key_error("API key is required.")
             return
+        # The field is masked, so without this the screen is unchanged after
+        # Enter and there is nothing to distinguish "working" from "ignored".
+        # Users re-submit, and each press starts another auth worker.
+        self._set_api_key_error("")
+        self._set_api_key_status("Verifying API key...")
         self._submit_api_key(api_key)
 
     def _render_method_options(self) -> None:
@@ -255,6 +279,7 @@ class AuthModal(ModalScreen[Profile | None]):
         self.query_one("#auth-device", Vertical).add_class("-hidden")
         self.query_one("#auth-key", Vertical).remove_class("-hidden")
         self._set_api_key_error("")
+        self._set_api_key_status("")
         self.query_one("#auth-api-key", Input).focus()
 
     def _select_method(self, index: int) -> None:
@@ -302,15 +327,26 @@ class AuthModal(ModalScreen[Profile | None]):
 
     def _set_api_key_error(self, message: str) -> None:
         self._api_key_error = message or None
+        if message:
+            self._set_api_key_status("")
         if self.is_mounted:
             self.query_one("#auth-key-error", Static).update(message)
+
+    def _set_api_key_status(self, message: str) -> None:
+        self._api_key_status = message or None
+        if self.is_mounted:
+            self.query_one("#auth-key-status", Static).update(message)
 
     def _set_device_code_display(self, user_code: str, verification_url: str) -> None:
         self._user_code = user_code
         self._verification_url = verification_url
         if self.is_mounted:
-            self.query_one("#auth-user-code", Static).update(f"[bold]{user_code}[/]")
-            self.query_one("#auth-verification-url", Static).update(f"[dim]{verification_url}[/]")
+            # These keep markup for their styling, so the server-supplied
+            # values have to be escaped or a stray bracket aborts the render.
+            self.query_one("#auth-user-code", Static).update(f"[bold]{escape(user_code)}[/]")
+            self.query_one("#auth-verification-url", Static).update(
+                f"[dim]{escape(verification_url)}[/]"
+            )
 
     @work(exit_on_error=False, group="auth")
     async def _start_device_code_flow(self) -> None:
@@ -318,13 +354,28 @@ class AuthModal(ModalScreen[Profile | None]):
         if profile is not None:
             self.dismiss(profile)
 
-    @work(exit_on_error=False, group="auth")
+    # Exclusive: a second Enter supersedes the first attempt rather than
+    # running alongside it. Concurrent attempts each write the profile, and
+    # that write truncates the config file in place.
+    @work(exit_on_error=False, group="auth", exclusive=True)
     async def _submit_api_key(self, api_key: str) -> None:
         try:
             profile = await self._authenticate_with_api_key(api_key)
-        except Exception as exc:
-            self._set_api_key_error(str(exc))
+        except _MessageAlreadyShownError:
+            # The screen already holds a fuller message than this exception
+            # carries; overwriting it drops the part that tells the user what
+            # happened to their key.
             return
+        except Exception as exc:
+            # Some exceptions render as an empty string; without a fallback the
+            # screen reverts to its pre-Enter state and the user cannot tell a
+            # failure from a dropped keypress.
+            self._set_api_key_error(str(exc) or type(exc).__name__)
+            return
+        # Deliberately not a `finally`: cancellation runs it too, and a
+        # superseding attempt has already written its own status by then --
+        # blanking it leaves auth in flight with nothing on screen.
+        self._set_api_key_status("")
         self.dismiss(profile)
 
     def on_unmount(self) -> None:
@@ -357,7 +408,7 @@ class AuthModal(ModalScreen[Profile | None]):
         try:
             payload = await self._to_thread(api.create_device_code)
         except Exception as exc:
-            self._set_device_error(str(exc))
+            self._set_device_error(str(exc) or type(exc).__name__)
             return None
 
         user_code = t.cast("str | None", payload.get("user_code"))
@@ -438,8 +489,10 @@ class AuthModal(ModalScreen[Profile | None]):
         if cached_api_key is not None and cached_user is not None:
             try:
                 return await self._build_profile(cached_api_key, cached_user, error_target="device")
+            except _MessageAlreadyShownError:
+                return None
             except Exception as exc:
-                self._set_device_error(str(exc))
+                self._set_device_error(str(exc) or type(exc).__name__)
                 return None
 
         try:
@@ -463,8 +516,10 @@ class AuthModal(ModalScreen[Profile | None]):
             return None
         try:
             return await self._build_profile(api_key, user, error_target="device")
+        except _MessageAlreadyShownError:
+            return None
         except Exception as exc:
-            self._set_device_error(str(exc))
+            self._set_device_error(str(exc) or type(exc).__name__)
             return None
 
     async def _resolve_cached_key(self, user_id: str) -> tuple[str | None, t.Any | None]:
@@ -503,7 +558,7 @@ class AuthModal(ModalScreen[Profile | None]):
         if not orgs:
             raise RuntimeError(
                 f"No organizations found. Complete onboarding at {self._server_url} "
-                "in your browser, then press r to retry."
+                "in your browser, then sign in again."
             )
 
         default_org = orgs[0].key
@@ -546,12 +601,21 @@ class AuthModal(ModalScreen[Profile | None]):
         try:
             return await self._to_thread(_save_profile, target_name, profile)
         except Exception as exc:
-            message = f"Profile save failed: {exc}. Please copy your API key: {api_key}"
+            # The key is only worth showing when the user cannot recover it
+            # any other way: the device flow mints it server-side and nothing
+            # has persisted it yet. Someone who pasted their own key already
+            # has it, so showing it there is pure exposure -- it renders on
+            # screen and is captured by any screenshot or terminal scrollback.
+            message = f"Profile save failed: {exc}."
             if error_target == "api_key":
-                self._set_api_key_error(message)
+                self._set_api_key_error(f"{message} Your API key was not saved.")
             else:
-                self._set_device_error(message)
-            raise RuntimeError(message) from exc
+                self._set_device_error(f"{message} Please copy your API key: {api_key}")
+            # Never carries the key: this propagates into logs and test output.
+            # Marked so callers leave the on-screen message alone -- theirs is
+            # the key-less one, and overwriting loses the only copy the user
+            # will ever see of a key the platform minted server-side.
+            raise _MessageAlreadyShownError(message) from exc
 
     async def _authenticate_with_api_key(self, api_key: str) -> Profile:
         api = ApiClient(self._server_url, api_key=api_key)

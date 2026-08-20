@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: fiftyone
-Version: 1.20.1
+Version: 1.21.0
 Summary: FiftyOne: the open-source tool for building high-quality datasets and computer vision models
 Home-page: https://github.com/voxel51/fiftyone
 Author: Voxel51, Inc.
@@ -72,9 +72,9 @@ Requires-Dist: rtree<2
 Requires-Dist: scikit-learn<2
 Requires-Dist: scikit-image<1
 Requires-Dist: scipy<2
-Requires-Dist: fiftyone-brain<0.24,>=0.23.0
+Requires-Dist: fiftyone-brain<0.25,>=0.24.0
 Requires-Dist: fiftyone-db<2.0,>=0.4
-Requires-Dist: voxel51-eta<0.17,>=0.16.0
+Requires-Dist: voxel51-eta<0.18,>=0.17
 Provides-Extra: multimodal-mcap
 Requires-Dist: protobuf==6.33.6; extra == "multimodal-mcap"
 Provides-Extra: multimodal

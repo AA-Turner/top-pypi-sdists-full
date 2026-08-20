@@ -1,19 +1,19 @@
 Metadata-Version: 2.4
 Name: collate-sqllineage
-Version: 2.1.5
+Version: 2.1.6
 Summary: Collate SQL Lineage for Analysis Tool powered by Python and sqlfluff based on sqllineage.
 Author: Collate Committers
 Classifier: Development Status :: 5 - Production/Stable
 Classifier: License :: OSI Approved :: MIT License
 Classifier: Operating System :: OS Independent
 Classifier: Programming Language :: Python :: 3
+Classifier: Programming Language :: Python :: 3.9
 Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
-Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: Implementation :: CPython
-Requires-Python: >=3.10
+Requires-Python: >=3.9
 Description-Content-Type: text/markdown
-Requires-Dist: sqlparse==0.6.0
+Requires-Dist: sqlparse==0.5.4
 Requires-Dist: networkx>=2.4
 Requires-Dist: collate-sqlfluff==3.5.3
 Requires-Dist: sqlglot==29.0.1

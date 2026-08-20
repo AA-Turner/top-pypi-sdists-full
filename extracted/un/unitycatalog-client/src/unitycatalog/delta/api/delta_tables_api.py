@@ -1003,7 +1003,7 @@ class DeltaTablesApi:
     ) -> DeltaLoadTableResponse:
         """Load table metadata
 
-        Load table metadata including columns, properties, and optionally credentials. 
+        Load table metadata including columns, properties, unbackfilled commits, and the latest table version. Credentials are not included; clients obtain them from the dedicated credentials endpoints. 
 
         :param catalog: Catalog name (required)
         :type catalog: str
@@ -1045,6 +1045,7 @@ class DeltaTablesApi:
 
         _response_types_map: Dict[str, Optional[str]] = {
             '200': "DeltaLoadTableResponse",
+            '400': "DeltaErrorResponse",
             '401': "DeltaErrorResponse",
             '403': "DeltaErrorResponse",
             '404': "DeltaErrorResponse",
@@ -1081,7 +1082,7 @@ class DeltaTablesApi:
     ) -> ApiResponse[DeltaLoadTableResponse]:
         """Load table metadata
 
-        Load table metadata including columns, properties, and optionally credentials. 
+        Load table metadata including columns, properties, unbackfilled commits, and the latest table version. Credentials are not included; clients obtain them from the dedicated credentials endpoints. 
 
         :param catalog: Catalog name (required)
         :type catalog: str
@@ -1123,6 +1124,7 @@ class DeltaTablesApi:
 
         _response_types_map: Dict[str, Optional[str]] = {
             '200': "DeltaLoadTableResponse",
+            '400': "DeltaErrorResponse",
             '401': "DeltaErrorResponse",
             '403': "DeltaErrorResponse",
             '404': "DeltaErrorResponse",
@@ -1159,7 +1161,7 @@ class DeltaTablesApi:
     ) -> RESTResponseType:
         """Load table metadata
 
-        Load table metadata including columns, properties, and optionally credentials. 
+        Load table metadata including columns, properties, unbackfilled commits, and the latest table version. Credentials are not included; clients obtain them from the dedicated credentials endpoints. 
 
         :param catalog: Catalog name (required)
         :type catalog: str
@@ -1201,6 +1203,7 @@ class DeltaTablesApi:
 
         _response_types_map: Dict[str, Optional[str]] = {
             '200': "DeltaLoadTableResponse",
+            '400': "DeltaErrorResponse",
             '401': "DeltaErrorResponse",
             '403': "DeltaErrorResponse",
             '404': "DeltaErrorResponse",
@@ -2259,7 +2262,7 @@ class DeltaTablesApi:
     ) -> DeltaLoadTableResponse:
         """Update table
 
-        Update table properties, columns, or commit Delta changes. Unlike IRC, this endpoint does not support table creation. This endpoint also covers the coordinated commit flow described in the Unity Catalog Managed Tables Specification. 
+        Update table properties, columns, or commit Delta changes. Unlike IRC, this endpoint does not support table creation. This endpoint also covers the coordinated commit flow described in the Unity Catalog Managed Tables Specification. Replaying an already-accepted add-commit (same version and file-name) is an idempotent whole-request no-op that returns 200, so a client that lost the response can safely resend. 
 
         :param catalog: Catalog name (required)
         :type catalog: str
@@ -2345,7 +2348,7 @@ class DeltaTablesApi:
     ) -> ApiResponse[DeltaLoadTableResponse]:
         """Update table
 
-        Update table properties, columns, or commit Delta changes. Unlike IRC, this endpoint does not support table creation. This endpoint also covers the coordinated commit flow described in the Unity Catalog Managed Tables Specification. 
+        Update table properties, columns, or commit Delta changes. Unlike IRC, this endpoint does not support table creation. This endpoint also covers the coordinated commit flow described in the Unity Catalog Managed Tables Specification. Replaying an already-accepted add-commit (same version and file-name) is an idempotent whole-request no-op that returns 200, so a client that lost the response can safely resend. 
 
         :param catalog: Catalog name (required)
         :type catalog: str
@@ -2431,7 +2434,7 @@ class DeltaTablesApi:
     ) -> RESTResponseType:
         """Update table
 
-        Update table properties, columns, or commit Delta changes. Unlike IRC, this endpoint does not support table creation. This endpoint also covers the coordinated commit flow described in the Unity Catalog Managed Tables Specification. 
+        Update table properties, columns, or commit Delta changes. Unlike IRC, this endpoint does not support table creation. This endpoint also covers the coordinated commit flow described in the Unity Catalog Managed Tables Specification. Replaying an already-accepted add-commit (same version and file-name) is an idempotent whole-request no-op that returns 200, so a client that lost the response can safely resend. 
 
         :param catalog: Catalog name (required)
         :type catalog: str

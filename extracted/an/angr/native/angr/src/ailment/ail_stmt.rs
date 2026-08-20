@@ -18,7 +18,7 @@ use std::sync::Arc;
 
 use pyo3::exceptions::{PyAttributeError, PyTypeError};
 use pyo3::prelude::*;
-use pyo3::types::{PyBytes, PyDict, PyList};
+use pyo3::types::PyBytes;
 
 use crate::ailment::ail_expr::{AilExpression, CFGTarget, Expression, VariantIdx, next};
 use crate::ailment::enums::StatementKind;
@@ -86,7 +86,7 @@ pub enum StmtInner {
     Store {
         addr: Arc<AilExpression>,
         data: Arc<AilExpression>,
-        /// Signed to accommodate the ``UNDETERMINED_SIZE = -0xC0DE`` sentinel.
+        /// Signed so that callers passing a negative size get a faithful value back.
         size: i32,
         endness: String,
         guard: Option<Arc<AilExpression>>,
@@ -245,10 +245,6 @@ impl AilStatement {
         self.inner.kind()
     }
 
-    pub fn kind_str(&self) -> &'static str {
-        self.inner.kind().as_str()
-    }
-
     pub fn cached_hash_or_compute(&self) -> i64 {
         if let Some(h) = self.header.cached_hash.get() {
             return h;
@@ -262,11 +258,7 @@ impl AilStatement {
     /// ``manager.next_atom()``. Mirrors the expression-side helper;
     /// MultiStatementExpression's stmts are walked through this when
     /// the parent Expression's ``deep_copy_ail`` recurses.
-    pub fn deep_copy_ail_stmt(
-        &self,
-        py: Python<'_>,
-        manager: &Bound<'_, PyAny>,
-    ) -> PyResult<AilStatement> {
+    pub fn deep_copy_ail_stmt(&self, manager: &Bound<'_, PyAny>) -> PyResult<AilStatement> {
         let new_idx: i64 = manager.call_method0("next_atom")?.extract()?;
         let vmap = manager.getattr("variable_map")?;
         if !vmap.is_none() {
@@ -274,22 +266,22 @@ impl AilStatement {
         }
         let new_header = StmtHeader::new(new_idx, self.header.tags.clone());
         let recurse = |child: &AilExpression| -> PyResult<Arc<AilExpression>> {
-            Ok(Arc::new(child.deep_copy_ail(py, manager)?))
+            Ok(Arc::new(child.deep_copy_ail(manager)?))
         };
         let recurse_opt = |o: &Option<Arc<AilExpression>>| -> PyResult<Option<Arc<AilExpression>>> {
             match o {
                 None => Ok(None),
-                Some(c) => Ok(Some(Arc::new(c.deep_copy_ail(py, manager)?))),
+                Some(c) => Ok(Some(Arc::new(c.deep_copy_ail(manager)?))),
             }
         };
         let recurse_vec = |v: &Vec<AilExpression>| -> PyResult<Vec<AilExpression>> {
-            v.iter().map(|x| x.deep_copy_ail(py, manager)).collect()
+            v.iter().map(|x| x.deep_copy_ail(manager)).collect()
         };
         // Deep copy a CFGTarget: recursively deep-copy the inner
         // expression for ``Expr``, clone the string for ``Symbol``.
         let dc_target = |t: &CFGTarget| -> PyResult<CFGTarget> {
             match t {
-                CFGTarget::Expr(e) => Ok(CFGTarget::Expr(Arc::new(e.deep_copy_ail(py, manager)?))),
+                CFGTarget::Expr(e) => Ok(CFGTarget::Expr(Arc::new(e.deep_copy_ail(manager)?))),
                 CFGTarget::Symbol(s) => Ok(CFGTarget::Symbol(s.clone())),
             }
         };
@@ -862,13 +854,6 @@ impl Statement {
         let pykind = Python::attach(|py| stmt_pykind_for(py, stmt.kind()));
         Self { stmt, pykind }
     }
-
-    /// Public stringifier used by stmt-bearing expressions (e.g.
-    /// MultiStatementExpression's ``__str__``). Same logic as the
-    /// ``#[getter]``-exposed ``__str__``.
-    pub fn render(&self, py: Python<'_>) -> PyResult<String> {
-        self.__str__(py)
-    }
 }
 
 #[pymethods]
@@ -881,9 +866,9 @@ impl Statement {
         idx: i64,
         dst: AilExpression,
         src: AilExpression,
-        kwargs: Option<&Bound<'_, PyDict>>,
+        kwargs: Option<Tags>,
     ) -> PyResult<Self> {
-        let tags = Tags::from_kwargs(kwargs)?;
+        let tags = kwargs.unwrap_or_default();
         Ok(Self::wrap(AilStatement {
             header: StmtHeader::new(idx, tags),
             inner: StmtInner::Assignment {
@@ -899,9 +884,9 @@ impl Statement {
         idx: i64,
         dst: AilExpression,
         src: AilExpression,
-        kwargs: Option<&Bound<'_, PyDict>>,
+        kwargs: Option<Tags>,
     ) -> PyResult<Self> {
-        let tags = Tags::from_kwargs(kwargs)?;
+        let tags = kwargs.unwrap_or_default();
         Ok(Self::wrap(AilStatement {
             header: StmtHeader::new(idx, tags),
             inner: StmtInner::WeakAssignment {
@@ -913,8 +898,8 @@ impl Statement {
 
     #[staticmethod]
     #[pyo3(signature = (idx, name, **kwargs))]
-    fn _new_label(idx: i64, name: String, kwargs: Option<&Bound<'_, PyDict>>) -> PyResult<Self> {
-        let tags = Tags::from_kwargs(kwargs)?;
+    fn _new_label(idx: i64, name: String, kwargs: Option<Tags>) -> PyResult<Self> {
+        let tags = kwargs.unwrap_or_default();
         Ok(Self::wrap(AilStatement {
             header: StmtHeader::new(idx, tags),
             inner: StmtInner::Label { name },
@@ -931,9 +916,9 @@ impl Statement {
         size: i32,
         endness: String,
         guard: Option<AilExpression>,
-        kwargs: Option<&Bound<'_, PyDict>>,
+        kwargs: Option<Tags>,
     ) -> PyResult<Self> {
-        let tags = Tags::from_kwargs(kwargs)?;
+        let tags = kwargs.unwrap_or_default();
         Ok(Self::wrap(AilStatement {
             header: StmtHeader::new(idx, tags),
             inner: StmtInner::Store {
@@ -952,9 +937,9 @@ impl Statement {
         idx: i64,
         target: CFGTarget,
         target_idx: Option<i64>,
-        kwargs: Option<&Bound<'_, PyDict>>,
+        kwargs: Option<Tags>,
     ) -> PyResult<Self> {
-        let tags = Tags::from_kwargs(kwargs)?;
+        let tags = kwargs.unwrap_or_default();
         Ok(Self::wrap(AilStatement {
             header: StmtHeader::new(idx, tags),
             inner: StmtInner::Jump { target, target_idx },
@@ -974,9 +959,9 @@ impl Statement {
         false_target: Option<CFGTarget>,
         true_target_idx: Option<i64>,
         false_target_idx: Option<i64>,
-        kwargs: Option<&Bound<'_, PyDict>>,
+        kwargs: Option<Tags>,
     ) -> PyResult<Self> {
-        let tags = Tags::from_kwargs(kwargs)?;
+        let tags = kwargs.unwrap_or_default();
         Ok(Self::wrap(AilStatement {
             header: StmtHeader::new(idx, tags),
             inner: StmtInner::ConditionalJump {
@@ -996,9 +981,9 @@ impl Statement {
         expr: AilExpression,
         ret_expr: Option<AilExpression>,
         fp_ret_expr: Option<AilExpression>,
-        kwargs: Option<&Bound<'_, PyDict>>,
+        kwargs: Option<Tags>,
     ) -> PyResult<Self> {
-        let tags = Tags::from_kwargs(kwargs)?;
+        let tags = kwargs.unwrap_or_default();
         Ok(Self::wrap(AilStatement {
             header: StmtHeader::new(idx, tags),
             inner: StmtInner::SideEffectStatement {
@@ -1013,19 +998,15 @@ impl Statement {
     #[pyo3(signature = (idx, ret_exprs, **kwargs))]
     fn _new_return(
         idx: i64,
-        ret_exprs: Bound<'_, PyAny>,
-        kwargs: Option<&Bound<'_, PyDict>>,
+        ret_exprs: Option<Vec<AilExpression>>,
+        kwargs: Option<Tags>,
     ) -> PyResult<Self> {
-        let tags = Tags::from_kwargs(kwargs)?;
-        let mut v = Vec::new();
-        if !ret_exprs.is_none() {
-            for item in ret_exprs.try_iter()? {
-                v.push(item?.extract::<AilExpression>()?);
-            }
-        }
+        let tags = kwargs.unwrap_or_default();
         Ok(Self::wrap(AilStatement {
             header: StmtHeader::new(idx, tags),
-            inner: StmtInner::Return { ret_exprs: v },
+            inner: StmtInner::Return {
+                ret_exprs: ret_exprs.unwrap_or_default(),
+            },
         }))
     }
 
@@ -1044,9 +1025,9 @@ impl Statement {
         old_lo: AilExpression,
         old_hi: Option<AilExpression>,
         endness: String,
-        kwargs: Option<&Bound<'_, PyDict>>,
+        kwargs: Option<Tags>,
     ) -> PyResult<Self> {
-        let tags = Tags::from_kwargs(kwargs)?;
+        let tags = kwargs.unwrap_or_default();
         Ok(Self::wrap(AilStatement {
             header: StmtHeader::new(idx, tags),
             inner: StmtInner::CAS {
@@ -1067,9 +1048,9 @@ impl Statement {
     fn _new_dirty_statement(
         idx: i64,
         dirty: AilExpression,
-        kwargs: Option<&Bound<'_, PyDict>>,
+        kwargs: Option<Tags>,
     ) -> PyResult<Self> {
-        let tags = Tags::from_kwargs(kwargs)?;
+        let tags = kwargs.unwrap_or_default();
         Ok(Self::wrap(AilStatement {
             header: StmtHeader::new(idx, tags),
             inner: StmtInner::DirtyStatement {
@@ -1080,8 +1061,8 @@ impl Statement {
 
     #[staticmethod]
     #[pyo3(signature = (idx, **kwargs))]
-    fn _new_no_op(idx: i64, kwargs: Option<&Bound<'_, PyDict>>) -> PyResult<Self> {
-        let tags = Tags::from_kwargs(kwargs)?;
+    fn _new_no_op(idx: i64, kwargs: Option<Tags>) -> PyResult<Self> {
+        let tags = kwargs.unwrap_or_default();
         Ok(Self::wrap(AilStatement {
             header: StmtHeader::new(idx, tags),
             inner: StmtInner::NoOp,
@@ -1115,7 +1096,7 @@ impl Statement {
     /// String name of the variant, for repr/debug.
     #[getter]
     fn kind_name(&self) -> &'static str {
-        self.stmt.kind_str()
+        self.stmt.kind().as_str()
     }
 
     /// Cached ``Py<int>`` form of the kind tag. Pre-materialized at
@@ -1171,33 +1152,27 @@ impl Statement {
 
     /// Assignment.dst / WeakAssignment.dst (operand subtree)
     #[getter]
-    fn dst(&self, py: Python<'_>) -> PyResult<Py<PyAny>> {
+    fn dst(&self) -> PyResult<&AilExpression> {
         match &self.stmt.inner {
-            StmtInner::Assignment { dst, .. } | StmtInner::WeakAssignment { dst, .. } => {
-                Ok(Py::new(py, Expression::wrap((**dst).clone()))?.into_any())
-            }
+            StmtInner::Assignment { dst, .. } | StmtInner::WeakAssignment { dst, .. } => Ok(&**dst),
             _ => Err(PyAttributeError::new_err("no 'dst' on this Statement")),
         }
     }
 
     /// Store.addr / CAS.addr
     #[getter]
-    fn addr(&self, py: Python<'_>) -> PyResult<Py<PyAny>> {
+    fn addr(&self) -> PyResult<&AilExpression> {
         match &self.stmt.inner {
-            StmtInner::Store { addr, .. } | StmtInner::CAS { addr, .. } => {
-                Ok(Py::new(py, Expression::wrap((**addr).clone()))?.into_any())
-            }
+            StmtInner::Store { addr, .. } | StmtInner::CAS { addr, .. } => Ok(&**addr),
             _ => Err(PyAttributeError::new_err("no 'addr' on this Statement")),
         }
     }
 
     /// Store.data
     #[getter]
-    fn data(&self, py: Python<'_>) -> PyResult<Py<PyAny>> {
+    fn data(&self) -> PyResult<&AilExpression> {
         match &self.stmt.inner {
-            StmtInner::Store { data, .. } => {
-                Ok(Py::new(py, Expression::wrap((**data).clone()))?.into_any())
-            }
+            StmtInner::Store { data, .. } => Ok(&**data),
             _ => Err(PyAttributeError::new_err("no 'data' on this Statement")),
         }
     }
@@ -1224,14 +1199,9 @@ impl Statement {
 
     /// Store.guard
     #[getter]
-    fn guard(&self, py: Python<'_>) -> PyResult<Option<Py<PyAny>>> {
+    fn guard(&self) -> PyResult<Option<&AilExpression>> {
         match &self.stmt.inner {
-            StmtInner::Store { guard, .. } => match guard {
-                Some(g) => Ok(Some(
-                    Py::new(py, Expression::wrap((**g).clone()))?.into_any(),
-                )),
-                None => Ok(None),
-            },
+            StmtInner::Store { guard, .. } => Ok(guard.as_deref()),
             _ => Err(PyAttributeError::new_err("no 'guard' on this Statement")),
         }
     }
@@ -1239,9 +1209,9 @@ impl Statement {
     /// Jump.target / ConditionalJump callers reach for true_target/false_target
     /// (distinct getters below)
     #[getter]
-    fn target<'py>(&self, py: Python<'py>) -> PyResult<Bound<'py, PyAny>> {
+    fn target(&self) -> PyResult<&CFGTarget> {
         match &self.stmt.inner {
-            StmtInner::Jump { target, .. } => target.into_pyobject(py),
+            StmtInner::Jump { target, .. } => Ok(target),
             _ => Err(PyAttributeError::new_err("no 'target' on this Statement")),
         }
     }
@@ -1259,11 +1229,9 @@ impl Statement {
 
     /// ConditionalJump.condition
     #[getter]
-    fn condition(&self, py: Python<'_>) -> PyResult<Py<PyAny>> {
+    fn condition(&self) -> PyResult<&AilExpression> {
         match &self.stmt.inner {
-            StmtInner::ConditionalJump { condition, .. } => {
-                Ok(Py::new(py, Expression::wrap((**condition).clone()))?.into_any())
-            }
+            StmtInner::ConditionalJump { condition, .. } => Ok(&**condition),
             _ => Err(PyAttributeError::new_err(
                 "no 'condition' on this Statement",
             )),
@@ -1272,12 +1240,9 @@ impl Statement {
 
     /// ConditionalJump.true_target
     #[getter]
-    fn true_target<'py>(&self, py: Python<'py>) -> PyResult<Option<Bound<'py, PyAny>>> {
+    fn true_target(&self) -> PyResult<Option<&CFGTarget>> {
         match &self.stmt.inner {
-            StmtInner::ConditionalJump { true_target, .. } => match true_target {
-                Some(t) => Ok(Some(t.into_pyobject(py)?)),
-                None => Ok(None),
-            },
+            StmtInner::ConditionalJump { true_target, .. } => Ok(true_target.as_ref()),
             _ => Err(PyAttributeError::new_err(
                 "no 'true_target' on this Statement",
             )),
@@ -1286,12 +1251,9 @@ impl Statement {
 
     /// ConditionalJump.false_target
     #[getter]
-    fn false_target<'py>(&self, py: Python<'py>) -> PyResult<Option<Bound<'py, PyAny>>> {
+    fn false_target(&self) -> PyResult<Option<&CFGTarget>> {
         match &self.stmt.inner {
-            StmtInner::ConditionalJump { false_target, .. } => match false_target {
-                Some(t) => Ok(Some(t.into_pyobject(py)?)),
-                None => Ok(None),
-            },
+            StmtInner::ConditionalJump { false_target, .. } => Ok(false_target.as_ref()),
             _ => Err(PyAttributeError::new_err(
                 "no 'false_target' on this Statement",
             )),
@@ -1426,11 +1388,9 @@ impl Statement {
 
     /// SideEffectStatement.expr
     #[getter]
-    fn expr(&self, py: Python<'_>) -> PyResult<Py<PyAny>> {
+    fn expr(&self) -> PyResult<&AilExpression> {
         match &self.stmt.inner {
-            StmtInner::SideEffectStatement { expr, .. } => {
-                Ok(Py::new(py, Expression::wrap((**expr).clone()))?.into_any())
-            }
+            StmtInner::SideEffectStatement { expr, .. } => Ok(&**expr),
             _ => Err(PyAttributeError::new_err("no 'expr' on this Statement")),
         }
     }
@@ -1449,28 +1409,18 @@ impl Statement {
 
     /// SideEffectStatement.ret_expr
     #[getter]
-    fn ret_expr(&self, py: Python<'_>) -> PyResult<Option<Py<PyAny>>> {
+    fn ret_expr(&self) -> PyResult<Option<&AilExpression>> {
         match &self.stmt.inner {
-            StmtInner::SideEffectStatement { ret_expr, .. } => match ret_expr {
-                Some(e) => Ok(Some(
-                    Py::new(py, Expression::wrap((**e).clone()))?.into_any(),
-                )),
-                None => Ok(None),
-            },
+            StmtInner::SideEffectStatement { ret_expr, .. } => Ok(ret_expr.as_deref()),
             _ => Err(PyAttributeError::new_err("no 'ret_expr' on this Statement")),
         }
     }
 
     /// SideEffectStatement.fp_ret_expr
     #[getter]
-    fn fp_ret_expr(&self, py: Python<'_>) -> PyResult<Option<Py<PyAny>>> {
+    fn fp_ret_expr(&self) -> PyResult<Option<&AilExpression>> {
         match &self.stmt.inner {
-            StmtInner::SideEffectStatement { fp_ret_expr, .. } => match fp_ret_expr {
-                Some(e) => Ok(Some(
-                    Py::new(py, Expression::wrap((**e).clone()))?.into_any(),
-                )),
-                None => Ok(None),
-            },
+            StmtInner::SideEffectStatement { fp_ret_expr, .. } => Ok(fp_ret_expr.as_deref()),
             _ => Err(PyAttributeError::new_err(
                 "no 'fp_ret_expr' on this Statement",
             )),
@@ -1479,16 +1429,9 @@ impl Statement {
 
     /// Return.ret_exprs
     #[getter]
-    fn ret_exprs<'py>(&self, py: Python<'py>) -> PyResult<Bound<'py, PyList>> {
+    fn ret_exprs(&self) -> PyResult<&[AilExpression]> {
         match &self.stmt.inner {
-            StmtInner::Return { ret_exprs } => {
-                let l = PyList::empty(py);
-                for e in ret_exprs {
-                    let py_e = Py::new(py, Expression::wrap(e.clone()))?;
-                    l.append(py_e)?;
-                }
-                Ok(l)
-            }
+            StmtInner::Return { ret_exprs } => Ok(ret_exprs),
             _ => Err(PyAttributeError::new_err(
                 "no 'ret_exprs' on this Statement",
             )),
@@ -1496,15 +1439,11 @@ impl Statement {
     }
 
     #[setter]
-    fn set_ret_exprs(&mut self, value: Bound<'_, PyAny>) -> PyResult<()> {
+    fn set_ret_exprs(&mut self, value: Vec<AilExpression>) -> PyResult<()> {
         match &mut self.stmt.inner {
             StmtInner::Return { ret_exprs } => {
-                let mut new_vec: Vec<AilExpression> = Vec::new();
-                for item in value.try_iter()? {
-                    new_vec.push(item?.extract::<AilExpression>()?);
-                }
                 self.stmt.header.cached_hash.clear();
-                *ret_exprs = new_vec;
+                *ret_exprs = value;
                 Ok(())
             }
             _ => Err(PyAttributeError::new_err(
@@ -1515,76 +1454,53 @@ impl Statement {
 
     /// CAS.data_lo / data_hi / expd_lo / expd_hi / old_lo / old_hi
     #[getter]
-    fn data_lo(&self, py: Python<'_>) -> PyResult<Py<PyAny>> {
+    fn data_lo(&self) -> PyResult<&AilExpression> {
         match &self.stmt.inner {
-            StmtInner::CAS { data_lo, .. } => {
-                Ok(Py::new(py, Expression::wrap((**data_lo).clone()))?.into_any())
-            }
+            StmtInner::CAS { data_lo, .. } => Ok(&**data_lo),
             _ => Err(PyAttributeError::new_err("no 'data_lo' on this Statement")),
         }
     }
     #[getter]
-    fn data_hi(&self, py: Python<'_>) -> PyResult<Option<Py<PyAny>>> {
+    fn data_hi(&self) -> PyResult<Option<&AilExpression>> {
         match &self.stmt.inner {
-            StmtInner::CAS { data_hi, .. } => match data_hi {
-                Some(e) => Ok(Some(
-                    Py::new(py, Expression::wrap((**e).clone()))?.into_any(),
-                )),
-                None => Ok(None),
-            },
+            StmtInner::CAS { data_hi, .. } => Ok(data_hi.as_deref()),
             _ => Err(PyAttributeError::new_err("no 'data_hi' on this Statement")),
         }
     }
     #[getter]
-    fn expd_lo(&self, py: Python<'_>) -> PyResult<Py<PyAny>> {
+    fn expd_lo(&self) -> PyResult<&AilExpression> {
         match &self.stmt.inner {
-            StmtInner::CAS { expd_lo, .. } => {
-                Ok(Py::new(py, Expression::wrap((**expd_lo).clone()))?.into_any())
-            }
+            StmtInner::CAS { expd_lo, .. } => Ok(&**expd_lo),
             _ => Err(PyAttributeError::new_err("no 'expd_lo' on this Statement")),
         }
     }
     #[getter]
-    fn expd_hi(&self, py: Python<'_>) -> PyResult<Option<Py<PyAny>>> {
+    fn expd_hi(&self) -> PyResult<Option<&AilExpression>> {
         match &self.stmt.inner {
-            StmtInner::CAS { expd_hi, .. } => match expd_hi {
-                Some(e) => Ok(Some(
-                    Py::new(py, Expression::wrap((**e).clone()))?.into_any(),
-                )),
-                None => Ok(None),
-            },
+            StmtInner::CAS { expd_hi, .. } => Ok(expd_hi.as_deref()),
             _ => Err(PyAttributeError::new_err("no 'expd_hi' on this Statement")),
         }
     }
     #[getter]
-    fn old_lo(&self, py: Python<'_>) -> PyResult<Py<PyAny>> {
+    fn old_lo(&self) -> PyResult<&AilExpression> {
         match &self.stmt.inner {
-            StmtInner::CAS { old_lo, .. } => {
-                Ok(Py::new(py, Expression::wrap((**old_lo).clone()))?.into_any())
-            }
+            StmtInner::CAS { old_lo, .. } => Ok(&**old_lo),
             _ => Err(PyAttributeError::new_err("no 'old_lo' on this Statement")),
         }
     }
     #[getter]
-    fn old_hi(&self, py: Python<'_>) -> PyResult<Option<Py<PyAny>>> {
+    fn old_hi(&self) -> PyResult<Option<&AilExpression>> {
         match &self.stmt.inner {
-            StmtInner::CAS { old_hi, .. } => match old_hi {
-                Some(e) => Ok(Some(
-                    Py::new(py, Expression::wrap((**e).clone()))?.into_any(),
-                )),
-                None => Ok(None),
-            },
+            StmtInner::CAS { old_hi, .. } => Ok(old_hi.as_deref()),
             _ => Err(PyAttributeError::new_err("no 'old_hi' on this Statement")),
         }
     }
 
     /// DirtyStatement.dirty
     #[getter]
-    fn dirty(&self, py: Python<'_>) -> PyResult<Py<PyAny>> {
+    fn dirty(&self) -> PyResult<&AilExpression> {
         match &self.stmt.inner {
-            StmtInner::DirtyStatement { dirty } => {
-                Ok(Py::new(py, Expression::wrap((**dirty).clone()))?.into_any())
-            }
+            StmtInner::DirtyStatement { dirty } => Ok(&**dirty),
             _ => Err(PyAttributeError::new_err("no 'dirty' on this Statement")),
         }
     }
@@ -1602,11 +1518,9 @@ impl Statement {
 
     /// Assignment.src / WeakAssignment.src
     #[getter]
-    fn src(&self, py: Python<'_>) -> PyResult<Py<PyAny>> {
+    fn src(&self) -> PyResult<&AilExpression> {
         match &self.stmt.inner {
-            StmtInner::Assignment { src, .. } | StmtInner::WeakAssignment { src, .. } => {
-                Ok(Py::new(py, Expression::wrap((**src).clone()))?.into_any())
-            }
+            StmtInner::Assignment { src, .. } | StmtInner::WeakAssignment { src, .. } => Ok(&**src),
             _ => Err(PyAttributeError::new_err("no 'src' on this Statement")),
         }
     }
@@ -1647,7 +1561,7 @@ impl Statement {
 
     /// Assignment/WeakAssignment/Store/CJump/SES/Return/CAS/Dirty depth
     #[getter]
-    fn depth(&self, py: Python<'_>) -> PyResult<u32> {
+    fn depth(&self) -> PyResult<u32> {
         match &self.stmt.inner {
             StmtInner::Assignment { dst, src } | StmtInner::WeakAssignment { dst, src } => {
                 Ok(dst.header.depth.max(src.header.depth) + 1)
@@ -1672,13 +1586,10 @@ impl Statement {
                 .max(old_lo.header.depth)
                 + 1),
             StmtInner::DirtyStatement { dirty } => Ok(dirty.header.depth + 1),
-            StmtInner::Jump { target, .. } => {
-                let _ = py;
-                Ok(match target {
-                    CFGTarget::Expr(e) => e.header.depth + 1,
-                    CFGTarget::Symbol(_) => 1,
-                })
-            }
+            StmtInner::Jump { target, .. } => Ok(match target {
+                CFGTarget::Expr(e) => e.header.depth + 1,
+                CFGTarget::Symbol(_) => 1,
+            }),
             _ => Err(PyAttributeError::new_err("no 'depth' on this Statement")),
         }
     }
@@ -1731,18 +1642,18 @@ impl Statement {
     }
 
     /// ``copy()`` -- shallow clone (same idx).
-    fn copy(&self, py: Python<'_>) -> PyResult<Py<Self>> {
-        Py::new(py, self.clone())
+    fn copy(&self) -> Self {
+        self.clone()
     }
 
     /// ``deep_copy(manager)`` -- recursive clone with fresh idx.
-    fn deep_copy(&self, py: Python<'_>, manager: &Bound<'_, PyAny>) -> PyResult<Py<Self>> {
-        let new = self.stmt.deep_copy_ail_stmt(py, manager)?;
-        Py::new(py, Statement::wrap(new))
+    fn deep_copy(&self, manager: &Bound<'_, PyAny>) -> PyResult<AilStatement> {
+        // Untyped: copy.deepcopy passes _DeepcopyManager, not a Manager.
+        self.stmt.deep_copy_ail_stmt(manager)
     }
 
-    fn __copy__(&self, py: Python<'_>) -> PyResult<Py<Self>> {
-        self.copy(py)
+    fn __copy__(&self) -> Self {
+        self.copy()
     }
 
     fn __deepcopy__<'py>(slf: Bound<'py, Self>, memo: Bound<'py, PyAny>) -> PyResult<Py<PyAny>> {
@@ -1755,16 +1666,14 @@ impl Statement {
 
     /// Python ``pickle`` protocol via ``to_bytes`` / ``from_bytes``.
     /// Same lossy-field caveat as ``Expression.__reduce__``.
-    fn __reduce__<'py>(slf: Bound<'py, Self>) -> PyResult<Py<PyAny>> {
+    #[allow(clippy::type_complexity)]
+    fn __reduce__<'py>(
+        slf: Bound<'py, Self>,
+    ) -> PyResult<(Bound<'py, PyAny>, (Bound<'py, PyBytes>,))> {
         let py = slf.py();
         let bytes = slf.borrow().to_bytes(py)?;
         let from_bytes = py.get_type::<Statement>().getattr("from_bytes")?;
-        let args = pyo3::types::PyTuple::new(py, [bytes.into_any()])?;
-        let tup = pyo3::types::PyTuple::new(
-            py,
-            [from_bytes.unbind().into_any(), args.into_any().unbind()],
-        )?;
-        Ok(tup.into_any().unbind())
+        Ok((from_bytes, (bytes,)))
     }
 
     fn __eq__(slf: Bound<'_, Self>, other: &Bound<'_, PyAny>) -> PyResult<bool> {
@@ -1785,16 +1694,16 @@ impl Statement {
         self.__str__(py)
     }
 
-    fn __str__(&self, py: Python<'_>) -> PyResult<String> {
+    pub fn __str__(&self, py: Python<'_>) -> PyResult<String> {
         match &self.stmt.inner {
             StmtInner::Assignment { dst, src } => {
-                let d = Expression::wrap((**dst).clone()).render(py)?;
-                let s = Expression::wrap((**src).clone()).render(py)?;
+                let d = Expression::wrap((**dst).clone()).__str__(py)?;
+                let s = Expression::wrap((**src).clone()).__str__(py)?;
                 Ok(format!("{} = {}", d, s))
             }
             StmtInner::WeakAssignment { dst, src } => {
-                let d = Expression::wrap((**dst).clone()).render(py)?;
-                let s = Expression::wrap((**src).clone()).render(py)?;
+                let d = Expression::wrap((**dst).clone()).__str__(py)?;
+                let s = Expression::wrap((**src).clone()).__str__(py)?;
                 Ok(format!("{} =w {}", d, s))
             }
             StmtInner::Label { name } => Ok(format!("Label {}:", name)),
@@ -1806,12 +1715,12 @@ impl Statement {
                 guard,
                 ..
             } => {
-                let a = Expression::wrap((**addr).clone()).render(py)?;
-                let d = Expression::wrap((**data).clone()).render(py)?;
+                let a = Expression::wrap((**addr).clone()).__str__(py)?;
+                let d = Expression::wrap((**data).clone()).__str__(py)?;
                 let g = match guard {
                     Some(gx) => format!(
                         " (guarded by {})",
-                        Expression::wrap((**gx).clone()).render(py)?
+                        Expression::wrap((**gx).clone()).__str__(py)?
                     ),
                     None => String::new(),
                 };
@@ -1822,7 +1731,7 @@ impl Statement {
             }
             StmtInner::Jump { target, .. } => {
                 let s = match target {
-                    CFGTarget::Expr(e) => Expression::wrap((**e).clone()).render(py)?,
+                    CFGTarget::Expr(e) => Expression::wrap((**e).clone()).__str__(py)?,
                     CFGTarget::Symbol(name) => name.clone(),
                 };
                 Ok(format!("Goto({})", s))
@@ -1833,10 +1742,10 @@ impl Statement {
                 false_target,
                 ..
             } => {
-                let c = Expression::wrap((**condition).clone()).render(py)?;
+                let c = Expression::wrap((**condition).clone()).__str__(py)?;
                 let render = |opt: &Option<CFGTarget>| -> PyResult<String> {
                     Ok(match opt {
-                        Some(CFGTarget::Expr(e)) => Expression::wrap((**e).clone()).render(py)?,
+                        Some(CFGTarget::Expr(e)) => Expression::wrap((**e).clone()).__str__(py)?,
                         Some(CFGTarget::Symbol(s)) => s.clone(),
                         None => "None".into(),
                     })
@@ -1846,13 +1755,13 @@ impl Statement {
                 Ok(format!("if ({}) {{ Goto {} }} else {{ Goto {} }}", c, t, f))
             }
             StmtInner::SideEffectStatement { expr, .. } => {
-                Ok(Expression::wrap((**expr).clone()).render(py)?)
+                Ok(Expression::wrap((**expr).clone()).__str__(py)?)
             }
             StmtInner::Return { ret_exprs } => {
-                let parts: Vec<String> = ret_exprs
+                let parts = ret_exprs
                     .iter()
-                    .map(|e| Expression::wrap(e.clone()).render(py).unwrap_or_default())
-                    .collect();
+                    .map(|e| Expression::wrap(e.clone()).__str__(py))
+                    .collect::<PyResult<Vec<String>>>()?;
                 Ok(format!("Return ({})", parts.join(", ")))
             }
             StmtInner::CAS {
@@ -1865,20 +1774,20 @@ impl Statement {
                 old_hi,
                 endness,
             } => {
-                let a = Expression::wrap((**addr).clone()).render(py)?;
-                let dl = Expression::wrap((**data_lo).clone()).render(py)?;
+                let a = Expression::wrap((**addr).clone()).__str__(py)?;
+                let dl = Expression::wrap((**data_lo).clone()).__str__(py)?;
                 let dh = match data_hi {
-                    Some(x) => Expression::wrap((**x).clone()).render(py)?,
+                    Some(x) => Expression::wrap((**x).clone()).__str__(py)?,
                     None => "None".into(),
                 };
-                let el = Expression::wrap((**expd_lo).clone()).render(py)?;
+                let el = Expression::wrap((**expd_lo).clone()).__str__(py)?;
                 let eh = match expd_hi {
-                    Some(x) => Expression::wrap((**x).clone()).render(py)?,
+                    Some(x) => Expression::wrap((**x).clone()).__str__(py)?,
                     None => "None".into(),
                 };
-                let ol = Expression::wrap((**old_lo).clone()).render(py)?;
+                let ol = Expression::wrap((**old_lo).clone()).__str__(py)?;
                 let oh = match old_hi {
-                    Some(x) => Expression::wrap((**x).clone()).render(py)?,
+                    Some(x) => Expression::wrap((**x).clone()).__str__(py)?,
                     None => "None".into(),
                 };
                 Ok(format!(
@@ -1887,7 +1796,7 @@ impl Statement {
                 ))
             }
             StmtInner::DirtyStatement { dirty } => {
-                Ok(Expression::wrap((**dirty).clone()).render(py)?)
+                Ok(Expression::wrap((**dirty).clone()).__str__(py)?)
             }
             StmtInner::NoOp => Ok("NoOp".to_string()),
         }
@@ -1904,14 +1813,8 @@ impl Statement {
     /// Inverse of ``to_bytes``; the pickle path (``__reduce__``) restores
     /// through this classmethod.
     #[classmethod]
-    fn from_bytes<'py>(
-        _cls: &Bound<'_, pyo3::types::PyType>,
-        py: Python<'py>,
-        data: &[u8],
-    ) -> PyResult<Py<Statement>> {
-        let stmt: AilStatement = postcard::from_bytes(data)
-            .map_err(|e| PyTypeError::new_err(format!("deserialize: {}", e)))?;
-        Py::new(py, Statement::wrap(stmt))
+    fn from_bytes(_cls: &Bound<'_, pyo3::types::PyType>, data: &[u8]) -> PyResult<AilStatement> {
+        postcard::from_bytes(data).map_err(|e| PyTypeError::new_err(format!("deserialize: {}", e)))
     }
 }
 
@@ -1942,6 +1845,16 @@ impl<'py> IntoPyObject<'py> for AilStatement {
 
     fn into_pyobject(self, py: Python<'py>) -> Result<Self::Output, Self::Error> {
         Bound::new(py, Statement::wrap(self))
+    }
+}
+
+impl<'py> IntoPyObject<'py> for &AilStatement {
+    type Target = Statement;
+    type Output = Bound<'py, Statement>;
+    type Error = PyErr;
+
+    fn into_pyobject(self, py: Python<'py>) -> Result<Self::Output, Self::Error> {
+        Bound::new(py, Statement::wrap(self.clone()))
     }
 }
 

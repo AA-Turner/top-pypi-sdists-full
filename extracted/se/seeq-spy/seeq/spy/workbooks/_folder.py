@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from typing import List, Optional
+from typing import List, Optional, Tuple
 
 from seeq.sdk import *
 from seeq.spy import _common
@@ -22,6 +22,46 @@ PUBLIC = '__Public__'
 SHARED_OR_PUBLIC = '__Shared_or_Public__'
 
 SYNTHETIC_FOLDERS = [MY_FOLDER, SHARED, CORPORATE, ALL, USERS, PUBLIC, SHARED_OR_PUBLIC]
+
+PATH_OPTIONS_FULL = 'full'
+PATH_OPTIONS_RELATIVE = 'relative'
+PATH_OPTIONS_RECONCILE_BY_ID = 'reconcile by id'
+PATH_OPTIONS_RECONCILE_BY_NAME = 'reconcile by name'
+
+
+def parse_path_options_str(path_options: str) -> Tuple[bool, bool]:
+    use_full_path = None
+    match_by_name = None
+
+    for part in path_options.split(','):
+        if part == PATH_OPTIONS_FULL:
+            if use_full_path is not None:
+                raise SPyValueError(f'path_options argument cannot specify both "{PATH_OPTIONS_FULL}" and '
+                                    f'"{PATH_OPTIONS_RELATIVE}"')
+            use_full_path = True
+        elif part == PATH_OPTIONS_RELATIVE:
+            if use_full_path is not None:
+                raise SPyValueError(f'path_options argument cannot specify both "{PATH_OPTIONS_FULL}" and '
+                                    f'"{PATH_OPTIONS_RELATIVE}"')
+            use_full_path = False
+        elif part == PATH_OPTIONS_RECONCILE_BY_ID:
+            if match_by_name is not None:
+                raise SPyValueError(f'path_options argument cannot specify both '
+                                    f'"{PATH_OPTIONS_RECONCILE_BY_ID}" and "{PATH_OPTIONS_RECONCILE_BY_NAME}"')
+            match_by_name = False
+        elif part == PATH_OPTIONS_RECONCILE_BY_NAME:
+            if match_by_name is not None:
+                raise SPyValueError(f'path_options argument cannot specify both '
+                                    f'"{PATH_OPTIONS_RECONCILE_BY_ID}" and "{PATH_OPTIONS_RECONCILE_BY_NAME}"')
+            match_by_name = True
+        else:
+            raise SPyValueError(
+                f'Invalid path_options argument: "{part}". path_options must be a comma-delimited combination of '
+                f'one of "{PATH_OPTIONS_FULL}"/"{PATH_OPTIONS_RELATIVE}" and one of '
+                f'"{PATH_OPTIONS_RECONCILE_BY_ID}"/"{PATH_OPTIONS_RECONCILE_BY_NAME}". For example: '
+                f'path_options="{PATH_OPTIONS_RELATIVE},{PATH_OPTIONS_RECONCILE_BY_NAME}"')
+
+    return use_full_path if use_full_path is not None else False, match_by_name if match_by_name is not None else False
 
 
 def massage_ancestors(session: Session, item: Item):
@@ -124,8 +164,9 @@ class Folder(ItemWithOwnerAndAcl):
 
             content_dict = {content.name.lower(): content for content in folders.content}
             if self.name.lower() in content_dict and content_dict[self.name.lower()].type == 'Folder':
-                Status.log_if(status, f'Found existing folder by name: {self.name}')
-                return content_dict[self.name.lower()]
+                found_folder = content_dict[self.name.lower()]
+                Status.log_if(status, f'Found existing folder "{found_folder.name}" ({found_folder.id}) by name')
+                return found_folder
 
             if len(folders.content) < limit:
                 break
@@ -135,7 +176,7 @@ class Folder(ItemWithOwnerAndAcl):
         return None
 
     def push(self, context: WorkbookPushContext, parent_folder_id, datasource_output,
-             item_map: ItemMap, *, owner=None, label=None):
+             item_map: ItemMap, *, owner=None, label=None, match_by_name: bool = False):
         session = context.session
         status = context.status
         items_api = ItemsApi(session.client)
@@ -165,10 +206,13 @@ class Folder(ItemWithOwnerAndAcl):
                            f'({home_folder.id})')
             return home_folder
 
-        folder_item = self.find_me(session, label, datasource_output, status=status)
-
-        if folder_item is None and self.provenance == Item.CONSTRUCTOR:
+        if match_by_name:
             folder_item = self._find_by_name(session, parent_folder_id, status)
+        else:
+            folder_item = self.find_me(session, label, datasource_output, status=status)
+
+            if folder_item is None and self.provenance == Item.CONSTRUCTOR:
+                folder_item = self._find_by_name(session, parent_folder_id, status)
 
         folder_output: Optional[FolderOutputV1] = None
         if not folder_item:
@@ -182,7 +226,7 @@ class Folder(ItemWithOwnerAndAcl):
             check_for_reserved_folder_name(folder_input.name)
             if not context.dry_run:
                 folder_output = safely(lambda: folders_api.create_folder(body=folder_input),
-                                       action_description=f'create Folder {folder_input.name}',
+                                       action_description=f'create Folder "{folder_input.name}"',
                                        status=status)  # type: FolderOutputV1
                 if folder_output is not None:
                     status.log(f'Created Folder "{folder_output.name}" under parent ID {parent_folder_id}')
@@ -190,15 +234,19 @@ class Folder(ItemWithOwnerAndAcl):
                 status.log(f'[Dry Run] Would create Folder "{folder_input.name}" under parent ID'
                            f' {parent_folder_id}')
 
-            props = [
-                ScalarPropertyV1(name='Datasource Class', value=datasource_output.datasource_class),
-                ScalarPropertyV1(name='Datasource ID', value=datasource_output.datasource_id),
-                ScalarPropertyV1(name='Data ID', value=self._construct_data_id(label))]
+            if not match_by_name:
+                # Folders reconciled by name are intentionally not tracked via Data ID, since that's the whole
+                # point of matching by name -- stamping a Data ID here risks a collision (e.g. two ancestor
+                # folders that share the same source ID/Custody ID being pushed to different destinations).
+                props = [
+                    ScalarPropertyV1(name='Datasource Class', value=datasource_output.datasource_class),
+                    ScalarPropertyV1(name='Datasource ID', value=datasource_output.datasource_id),
+                    ScalarPropertyV1(name='Data ID', value=self._construct_data_id(label))]
 
-            new_folder_id_str = f' {folder_output.id}' if folder_output is not None else ''
-            safely(lambda: items_api.set_properties(id=folder_output.id, body=props),
-                   action_description=f'set common properties (e.g. Data ID) for new Folder{new_folder_id_str}',
-                   status=status, dry_run=context.dry_run)
+                new_folder_id_str = f' {folder_output.id}' if folder_output is not None else ''
+                safely(lambda: items_api.set_properties(id=folder_output.id, body=props),
+                       action_description=f'set common properties (e.g. Data ID) for new Folder{new_folder_id_str}',
+                       status=status, dry_run=context.dry_run)
         else:
             folder_output = safely(lambda: folders_api.get_folder(folder_id=folder_item.id),
                                    action_description=f'get Folder {folder_item.id}',

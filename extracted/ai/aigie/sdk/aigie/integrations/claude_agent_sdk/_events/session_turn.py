@@ -83,6 +83,9 @@ class SessionTurnEvents(CompletionEvents):
         system_prompt = options.get("system_prompt", "")
         if system_prompt:
             self._drift_detector.capture_system_prompt(system_prompt)
+        # The goal arrives on the options, not in a message, so the root span is the
+        # only place it can be recorded — the drift detector is in-process only.
+        self._system_prompt = system_prompt if self.capture_messages else ""
 
         # The session span IS the trace root (root.id == trace_id, parent None,
         # carries the trace name/input/metadata/tags). No separate trace event
@@ -90,16 +93,19 @@ class SessionTurnEvents(CompletionEvents):
         self.session_span_id = self.trace_id
         session_start_iso = _utc_isoformat()
         self._session_start_iso = session_start_iso
+        session_input: dict[str, Any] = {
+            "session_type": "stateful",
+            "model": trace_metadata["model"],
+        }
+        if self._system_prompt:
+            session_input["system_prompt"] = self._system_prompt
         session_span_data = {
             "id": self.session_span_id,
             "trace_id": self.trace_id,
             "parent_id": None,
             "name": trace_name,
             "type": "agent",
-            "input": {
-                "session_type": "stateful",
-                "model": trace_metadata["model"],
-            },
+            "input": session_input,
             "status": "pending",
             "tags": [*self.tags, "claude_agent_sdk", "session"],
             "metadata": trace_metadata,
@@ -146,9 +152,13 @@ class SessionTurnEvents(CompletionEvents):
         if self.session_span_id:
             session_tokens = self.total_input_tokens + self.total_output_tokens
             # Surface the conversation on the root span, not just session metadata.
+            # This update replaces the root's input wholesale, so every field set
+            # at session start has to be restated or it is dropped on close.
             session_input: dict[str, Any] = {"session_type": "stateful"}
             if self.metadata.get("model"):
                 session_input["model"] = self.metadata["model"]
+            if self._system_prompt:
+                session_input["system_prompt"] = self._system_prompt
             if self._first_user_prompt is not None:
                 session_input["prompt"] = self._first_user_prompt
             session_output: dict[str, Any] = {

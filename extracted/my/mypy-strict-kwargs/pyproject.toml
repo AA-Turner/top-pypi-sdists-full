@@ -40,34 +40,36 @@ optional-dependencies.dev = [
     "check-manifest==0.51",
     "deptry==0.25.1",
     "doc8==2.0.0",
-    "doccmd==2026.5.25",
+    "doccmd==2026.8.16",
     "interrogate==1.7.0",
-    "mypy[faster-cache]==2.3.0",
-    "prek==0.4.10",
+    "mypy[faster-cache]==2.3.1",
+    "no-defaults==2.1.0",
+    "prek==0.4.13",
     "pydocstringformatter==1.0.0",
-    "pylint[spelling]==4.0.6",
+    "pylint[spelling]==4.0.7",
     "pylint-per-file-ignores==3.2.1",
-    "pyproject-fmt==2.25.3",
-    "pyrefly==1.1.1",
+    "pyproject-fmt==2.28.0",
+    "pyrefly==1.2.0",
     "pyright==1.1.411",
     "pyroma==5.0.1",
     "pytest==9.1.1",
     "pytest-cov==7.1.0",
     "pytest-mypy-plugins==4.0.3",
     "pyyaml==6.0.3",
-    "ruff==0.15.22",
+    "ruff==0.16.3",
     # We add shellcheck-py not only for shell scripts and shell code blocks,
     # but also because having it installed means that ``actionlint-py`` will
     # use it to lint shell commands in GitHub workflow files.
     "shellcheck-py==0.11.0.1",
     "shfmt-py==4.0.0",
     "sphinx-lint==1.0.2",
-    "strict-kwargs==2026.6.8.post1",
+    "strict-kwargs==2026.8.16",
     "towncrier==25.8.0",
-    "ty==0.0.60",
+    "ty==0.0.72",
+    "vale==3.13.0.0",
     "vulture==2.16",
     "yamlfix==1.19.1",
-    "zizmor==1.27.0",
+    "zizmor==1.29.0",
 ]
 optional-dependencies.release = [ "check-wheel-contents==0.6.3", "towncrier==25.8.0" ]
 urls.Documentation = "https://mypy-strict-kwargs.readthedocs.io/en/latest/"
@@ -99,6 +101,8 @@ lint.select = [
 lint.ignore = [
     # Ruff warns that this conflicts with the formatter.
     "COM812",
+    # The project copyright notice is in the LICENSE file.
+    "CPY001",
     # Allow our chosen docstring line-style - pydocstringformatter handles formatting
     # but doesn't enforce D205 (blank line after summary) or D212 (summary on first line).
     "D205",
@@ -126,6 +130,7 @@ lint.per-file-ignores."tests/*" = [
 lint.unfixable = [
     "ERA001",
 ]
+lint.external = [ "NOD" ]
 lint.flake8-tidy-imports.banned-api."typing.cast".msg = "typing.cast is banned: use explicit type narrowing or a typed variable instead."
 lint.pydocstyle.convention = "google"
 
@@ -256,6 +261,7 @@ ignore = [
     ".git_archival.txt",
     ".pre-commit-config.yaml",
     ".prettierrc",
+    ".vale.ini",
     ".vscode/*",
     ".yamlfmt",
     "CHANGELOG.rst",
@@ -291,6 +297,7 @@ exclude = [ ".venv" ]
 ignore_names = [
     # mypy hooks:
     # https://mypy.readthedocs.io/en/latest/extending_mypy.html#current-list-of-plugin-hooks.
+    "get_attribute_hook",
     "get_base_class_hook",
     "get_function_signature_hook",
     "get_method_signature_hook",
@@ -305,6 +312,7 @@ max_supported_python = "3.14"
 [tool.mypy]
 files = [ "." ]
 exclude = [ "build" ]
+exclude_gitignore = true
 follow_untyped_imports = true
 strict = true
 plugins = [
@@ -393,3 +401,7 @@ ignore_path = [
 [tool.yamlfix]
 section_whitelines = 1
 whitelines = 1
+
+[tool.no_defaults]
+private_only = true
+per_file_enforcement."tests/**" = "all"

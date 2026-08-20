@@ -6,17 +6,16 @@ use std::collections::BTreeSet;
 
 fn simplify_argument(node: Argument) -> Argument {
     match node {
-        Argument::Bracket(BracketArgument {
-            bracket_width,
-            value,
-            ..
-        }) => Argument::Bracket(BracketArgument {
-            bracket_width,
-            value,
-            position: None,
-        }),
-        Argument::Complex { arguments } => Argument::Complex {
+        Argument::Bracket(BracketArgument { value, whole, .. }) => {
+            Argument::Bracket(BracketArgument {
+                value,
+                whole,
+                position: None,
+            })
+        }
+        Argument::Complex { arguments, .. } => Argument::Complex {
             arguments: simplify_arguments(arguments),
+            as_value: String::new(),
         },
         Argument::Quoted { value, .. } => Argument::Quoted {
             value,
@@ -33,11 +32,8 @@ fn simplify_argument(node: Argument) -> Argument {
 fn simplify_commented_argument_comment(node: CommentedArgumentComment) -> CommentedArgumentComment {
     match node {
         CommentedArgumentComment::BracketComment(_) => node,
-        CommentedArgumentComment::LineComment { comment, .. } => {
-            CommentedArgumentComment::LineComment {
-                comment: simplify_line_comment(comment),
-                newline: String::new(),
-            }
+        CommentedArgumentComment::LineComment(comment) => {
+            CommentedArgumentComment::LineComment(simplify_line_comment(&comment))
         }
     }
 }
@@ -52,7 +48,9 @@ fn simplify_arguments_atom(node: ArgumentsAtom) -> ArgumentsAtom {
         }
         ArgumentsAtom::Argument(node) => ArgumentsAtom::Argument(simplify_argument(node)),
         ArgumentsAtom::BracketComment(_) => node,
-        ArgumentsAtom::LineComment(node) => ArgumentsAtom::LineComment(simplify_line_comment(node)),
+        ArgumentsAtom::LineComment(node) => {
+            ArgumentsAtom::LineComment(simplify_line_comment(&node))
+        }
     }
 }
 
@@ -90,17 +88,17 @@ fn simplify_command(node: Command) -> Command {
             None => Command::Invocation(simplify_command_invocation(node)),
             Some(line_comment) => Command::Element {
                 command_invocation: simplify_command_invocation(node),
-                line_comment: Some(simplify_line_comment(line_comment)),
+                line_comment: Some(simplify_line_comment(&line_comment)),
             },
         },
         Command::Invocation(node) => Command::Invocation(simplify_command_invocation(node)),
     }
 }
 
-fn simplify_line_comment(node: LineComment) -> LineComment {
+fn simplify_line_comment<'a>(node: &LineComment<'a>) -> LineComment<'a> {
     let LineComment { value } = node;
     LineComment {
-        value: value.trim_end().to_string(),
+        value: value.trim_end(),
     }
 }
 
@@ -125,7 +123,7 @@ pub fn simplify_file_elements(nodes: Vec<FileElement>) -> Vec<FileElement> {
             } => {
                 result.push(FileElement::NonCommandElement {
                     bracket_comments,
-                    line_comment: line_comment.map(simplify_line_comment),
+                    line_comment: line_comment.map(|x| simplify_line_comment(&x)),
                 });
             }
             FileElement::NewlineOrGap { .. } => (),

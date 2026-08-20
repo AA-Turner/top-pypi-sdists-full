@@ -98,7 +98,7 @@ class MoleculeStructure:
 
     @property
     def value(self) -> str:
-        """ Chemical structure in SMILES or molfile format. """
+        """ Chemical structure in SMILES or molfile format. Pass an empty SMILES string to create a Molecule with no defined structure (equivalent to leaving the structure blank in the app's sketcher). """
         if isinstance(self._value, Unset):
             raise NotPresentError(self, "value")
         return self._value

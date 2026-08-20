@@ -1,6 +1,6 @@
 [project]
 name = "nextcloud-mcp-server"
-version = "0.178.1"
+version = "0.179.0"
 description = "Model Context Protocol (MCP) server for Nextcloud integration - enables AI assistants to interact with Nextcloud data"
 readme = "README.md"
 requires-python = ">=3.11"
@@ -173,7 +173,7 @@ dev = [
     "pytest-xdist>=3.6.1",
     "ruff>=0.11.13",
     "reportlab>=4.0.0",
-    "ty>=0.0.72,<0.0.73",
+    "ty>=0.0.73,<0.0.74",
     "pytest-otel>=2.0.1",
     "procrastinate>=3.8",
     "psycopg[binary,pool]>=3.2",

@@ -28,7 +28,7 @@ import uuid
 from collections.abc import Awaitable, Callable, Mapping
 from dataclasses import dataclass
 from pathlib import Path
-from typing import cast
+from typing import Final, cast
 
 import yaml
 from pydantic import BaseModel
@@ -37,6 +37,7 @@ from omnibase_core.enums.enum_cli_exit_code import EnumCLIExitCode
 from omnibase_core.enums.enum_core_error_code import EnumCoreErrorCode
 from omnibase_core.enums.enum_workflow_result import EnumWorkflowResult
 from omnibase_core.errors.model_onex_error import ModelOnexError
+from omnibase_core.event_bus.util_consumer_group import derive_service_group_id
 from omnibase_core.protocols.runtime.protocol_local_runtime_bus import (
     ProtocolLocalRuntimeBus,
     UnsubscribeCallback,
@@ -52,6 +53,36 @@ from omnibase_core.protocols.runtime.protocol_local_runtime_payload_model import
 )
 
 logger = logging.getLogger(__name__)
+
+# Service token for consumer groups minted by this runtime.
+RUNTIME_LOCAL_SERVICE: Final[str] = "omnibase_core"
+
+# Node name for the subscription that watches the declared terminal event.
+TERMINAL_CONSUMER_NODE_NAME: Final[str] = "runtime_local_terminal"
+
+
+def derive_runtime_local_group_id(node_name: str) -> str:
+    """Derive the consumer group ID for a RuntimeLocal subscription.
+
+    RuntimeLocal is NOT local-only: ``_create_kafka_event_bus()`` loads ``EventBusKafka``
+    through the ``onex.backends`` entry point when ``--backend event_bus=kafka``, so the
+    names minted here reach MSK. Before OMN-15639 they were f-string literals
+    (``f"runtime-local-{handler}"``, ``"runtime-local-terminal"``) that no MSK IAM
+    pattern authorized, and every in-cluster ``onex delegate --bus kafka`` submission
+    died with ``GroupAuthorizationFailedError`` before publishing.
+
+    The environment token is resolved from ``ENVIRONMENT`` rather than hardcoded — the
+    adjacent ``EventBusInmemory(environment="local", ...)`` default is a local-bus
+    concern and must not leak into a name the broker sees.
+
+    Args:
+        node_name: Handler or subscription name.
+
+    Returns:
+        An environment-qualified, IAM-authorized consumer group ID.
+    """
+    return derive_service_group_id(node_name, service=RUNTIME_LOCAL_SERVICE)
+
 
 # Known backend protocol keys that --backend can override.
 # kafka_bootstrap is a Kafka-specific tuning knob: when ``event_bus=kafka`` is
@@ -226,6 +257,9 @@ class RuntimeLocal:
         state_root: Root directory for disk state (default ``.onex_state``).
         backend_overrides: Optional backend key-value overrides.
         timeout: Maximum execution time in seconds (default 300).
+        run_id: Identity anchor stamped into ``workflow_result.json`` (OMN-15449).
+            Defaults to a freshly minted UUID when the caller has no run_id of
+            its own to propagate.
     """
 
     def __init__(
@@ -236,12 +270,20 @@ class RuntimeLocal:
         backend_overrides: dict[str, str] | None = None,
         input_path: Path | None = None,
         timeout: int = 300,
+        run_id: uuid.UUID | None = None,
     ) -> None:
         self.workflow_path = workflow_path
         self.state_root = state_root
         self.backend_overrides = backend_overrides or {}
         self.input_path = input_path
         self.timeout = timeout
+        # OMN-15449: identity anchor stamped into workflow_result.json so a
+        # caller reading that FIXED, non-run-scoped path back can verify the
+        # content it sees is THIS run's own output rather than a different
+        # (concurrent, or leftover-from-a-skipped-write) run's. Callers that
+        # need the join (e.g. receipt_mode.py) pass their own run_id; callers
+        # that don't care mint one so the field is always present.
+        self.run_id: uuid.UUID = run_id if run_id is not None else uuid.uuid4()
 
         self._contract: RawWorkflowMap = {}
         self._result: EnumWorkflowResult = EnumWorkflowResult.TIMEOUT
@@ -560,7 +602,7 @@ class RuntimeLocal:
         await bus.subscribe(
             terminal_topic,
             on_message=_on_terminal_msg,
-            group_id="runtime-local-terminal",
+            group_id=derive_runtime_local_group_id(TERMINAL_CONSUMER_NODE_NAME),
         )
         logger.info("RuntimeLocal: subscribed to terminal topic '%s'", terminal_topic)
 
@@ -1177,7 +1219,7 @@ class RuntimeLocal:
             unsub = await bus.subscribe(
                 entry.input_topic,
                 on_message=adapter.on_message,
-                group_id=f"runtime-local-{entry.handler_name}",
+                group_id=derive_runtime_local_group_id(entry.handler_name),
             )
             unsubscribe_handles.append(unsub)
 
@@ -1192,7 +1234,7 @@ class RuntimeLocal:
         unsub = await bus.subscribe(
             terminal_topic,
             on_message=_on_terminal_msg,
-            group_id="runtime-local-terminal",
+            group_id=derive_runtime_local_group_id(TERMINAL_CONSUMER_NODE_NAME),
         )
         unsubscribe_handles.append(unsub)
 
@@ -1677,7 +1719,15 @@ class RuntimeLocal:
                     "and no handler spec found (need handler_routing.default_handler "
                     "or handler.module/class)."
                 )
-                return EnumWorkflowResult.FAILED
+                self._result = EnumWorkflowResult.FAILED
+                # OMN-15449: this path used to return without writing state,
+                # leaving whatever a PREVIOUS run against the same state_root
+                # had written in place for the next reader to find. Writing
+                # this run's own (failed) state — including its run_id — means
+                # a caller reading workflow_result.json back sees THIS run's
+                # outcome, never a leftover one.
+                self._write_state()
+                return self._result
 
         terminal_topic_name = str(terminal_topic)
         logger.info(
@@ -1931,6 +1981,14 @@ class RuntimeLocal:
             "result": self._result.value,
             "exit_code": self.exit_code,
             "workflow": str(self.workflow_path),
+            # OMN-15449: identity anchor. workflow_result.json is a FIXED path
+            # shared by every RuntimeLocal invocation against the same
+            # state_root — a concurrent invocation (or a stale leftover from a
+            # run whose write path was skipped) can otherwise be read back as
+            # if it were this run's own output. run_id lets a caller (e.g.
+            # receipt_mode.py) verify the file it reads actually belongs to
+            # the run it just executed before trusting its content.
+            "run_id": str(self.run_id),
         }
         if self._terminal_payload is not None:
             data["terminal_payload"] = self._terminal_payload

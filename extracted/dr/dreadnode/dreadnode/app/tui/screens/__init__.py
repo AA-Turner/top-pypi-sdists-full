@@ -9,6 +9,7 @@ from dreadnode.app.tui.screens.environments import EnvironmentScreen
 from dreadnode.app.tui.screens.evaluations import EvaluationsScreen
 from dreadnode.app.tui.screens.models import ModelBrowserScreen
 from dreadnode.app.tui.screens.raw_spans import RawSpansScreen
+from dreadnode.app.tui.screens.report_bug import ReportBugScreen
 from dreadnode.app.tui.screens.runtimes import RuntimeScreen
 from dreadnode.app.tui.screens.sandboxes import SandboxScreen
 from dreadnode.app.tui.screens.secrets import SecretsScreen
@@ -28,6 +29,7 @@ __all__ = [
     "EvaluationsScreen",
     "ModelBrowserScreen",
     "RawSpansScreen",
+    "ReportBugScreen",
     "RuntimeScreen",
     "SandboxScreen",
     "SecretsScreen",

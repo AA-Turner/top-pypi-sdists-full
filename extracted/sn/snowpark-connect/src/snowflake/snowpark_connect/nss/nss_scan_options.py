@@ -32,14 +32,22 @@ from pyspark.sql.types import (
     ArrayType as PyArrayType,
     DataType as PyDataType,
     MapType as PyMapType,
+    StringType as PyStringType,
     StructField as PyStructField,
     StructType as PyStructType,
     _parse_datatype_json_string,
 )
 
 from snowflake.snowpark import DataFrame
-from snowflake.snowpark.types import ArrayType, DataType, MapType, StructType
+from snowflake.snowpark.types import (
+    ArrayType,
+    DataType,
+    MapType,
+    StructType,
+    TimestampType,
+)
 from snowflake.snowpark_connect.type_mapping import (
+    TIMESTAMP_TZ_TO_SF_TYPE,
     map_pyspark_types_to_snowpark_types,
     map_type_to_snowflake_type,
 )
@@ -125,12 +133,14 @@ _ALLOWED_READ_OPTIONS = {
 
 # spark.sql.* session confs that change how the sandbox Spark reader decodes files.
 # Only these are forwarded as SPARK_CONF (keeps the blob small + deterministic).
-# ``arrow.typeMappingVersion`` decides integer column widths (V1 -> NUMBER(38,0));
-# forwarded when the session sets it so an explicit client choice reaches the sandbox
-# (not pinned to a value — an unset conf simply drops out via build_spark_conf).
 #
-# A key listed here only forwards if it is also in SESSION_CONFIG_KEY_WHITELIST;
-# adding a key here without whitelisting it is a silent no-op (SNOW-3898459).
+# A key here only forwards if it is also in SESSION_CONFIG_KEY_WHITELIST; adding one
+# without whitelisting it is a silent no-op (SNOW-3898459, SNOW-3919681). Enforced by
+# ``test_every_forwarded_key_is_reachable``.
+#
+# Keys with a ``default_session_config`` entry forward that default even when the client
+# never calls ``conf.set``. ``legacy.timeParserPolicy`` and ``arrow.typeMappingVersion``
+# (integer column widths, V1 -> NUMBER(38,0)) have none, so they drop out when unset.
 _RELEVANT_SPARK_CONF_KEYS = (
     "spark.sql.session.timeZone",
     "spark.sql.timestampType",
@@ -143,6 +153,11 @@ _RELEVANT_SPARK_CONF_KEYS = (
     "spark.sql.json.enablePartialResults",
     # Also a READER_OPTION; forwarded for completeness (backend gap: SNOW-3899671).
     "spark.sql.columnNameOfCorruptRecord",
+    # SNOW-3957419: governs UnivocityParser.parsedSchema in the sandbox. With pruning on
+    # (Spark's default) parsedSchema == requiredSchema, so the token-count check never
+    # fires and a short row is never malformed -- DROPMALFORMED then keeps rows it should
+    # drop whenever the query projects a subset of columns.
+    "spark.sql.csv.parser.columnPruning.enabled",
 )
 
 
@@ -285,7 +300,8 @@ def cache_if_corrupt_record_present(
     corrupt_record_column_name: str | None,
     columns: list["NssColumn"],
 ) -> DataFrame:
-    """Materialize the NSS read when its schema carries the corrupt-record column.
+    """Materialize the NSS read when its schema carries the corrupt-record column
+    *alongside* at least one data column.
 
     A later projection down to only that column (``.filter(c.isNotNull).select(c)``)
     otherwise trips the sandbox's raw-file corrupt-record restriction
@@ -293,9 +309,19 @@ def cache_if_corrupt_record_present(
     instead of the raw file is Spark's own prescribed workaround. Falls back to the
     ``_corrupt_record`` default so the guard also covers reads that never resolved an
     explicit name (SNOW-3899671).
+
+    When the inferred schema is the corrupt-record column *only* — the file is
+    unparseable under the requested options, so inference found no data field — caching
+    is skipped (SNOW-3913953). There is no later projection to defend against, and
+    ``cache_result()`` would have to execute the very ``STAGE_FILE_READER`` query the
+    sandbox's guard rejects, turning the mitigation into the trigger. Skipping it also
+    matches upstream Spark, which serves ``df.schema`` from inference without scanning
+    and only raises ``AnalysisException`` when an action actually references the column
+    (verified against Spark 3.5.3: ``.schema`` succeeds, ``collect()`` raises).
     """
     effective = corrupt_record_column_name or "_corrupt_record"
-    if any(_unquote_name(c.name) == effective for c in columns):
+    names = [_unquote_name(c.name) for c in columns]
+    if effective in names and len(names) > 1:
         return df.cache_result()
     return df
 
@@ -310,8 +336,11 @@ def _sf_data_type(dt: DataType) -> str:
     top-level nullability travels in the record's ``NULLABLE`` field). This matches the
     backend UT examples exactly, e.g. ``OBJECT(id INT, addr OBJECT(city VARCHAR, zip INT))``,
     ``ARRAY(OBJECT(event_id INT, event_type VARCHAR))``, ``MAP(VARCHAR, INT)``, ``ARRAY(INT)``.
-    Scalars delegate to the shared Snowflake type mapper (INT/BIGINT/NUMBER are all
-    ``NUMBER(38,0)`` in Snowflake, so the exact integer keyword is immaterial).
+    Timestamps are rendered variant-faithfully via ``TIMESTAMP_TZ_TO_SF_TYPE`` (DEFAULT
+    stays bare ``TIMESTAMP`` so the session's TIMESTAMP_TYPE_MAPPING applies —
+    SNOW-3891973); other scalars delegate to the shared Snowflake type mapper
+    (INT/BIGINT/NUMBER are all ``NUMBER(38,0)`` in Snowflake, so the exact integer
+    keyword is immaterial).
     """
     if isinstance(dt, ArrayType):
         if dt.element_type is None:
@@ -326,6 +355,13 @@ def _sf_data_type(dt: DataType) -> str:
             f"{_unquote_name(f.name)} {_sf_data_type(f.datatype)}" for f in dt.fields
         )
         return f"OBJECT({fields})"
+    if isinstance(dt, TimestampType):
+        # Bare ``TIMESTAMP`` when no variant was expressed — session default wins.
+        return TIMESTAMP_TZ_TO_SF_TYPE.get(dt.tz, "TIMESTAMP")
+    # Integer widths are deliberately not narrowed: the vectorized-Arrow UDTF emits SB16
+    # for every integral column (SNOW-3814066), so a sub-19 precision (e.g. NUMBER(10,0))
+    # fails the read with "produced fixed_size_binary[16] but expected fixed_size_binary[8]".
+    # Clients see the correct Spark type via snowpark_types_from_columns regardless.
     return map_type_to_snowflake_type(dt, structured=True)
 
 
@@ -336,10 +372,60 @@ def _sf_data_type_from_spark_json(spark_type_json: str) -> str:
     ``SF_DATA_TYPE`` for GS column materialization. This is the *only* transform applied to
     the column's type; ``SPARK_DATA_TYPE`` itself is carried through untouched.
     """
+    return _sf_data_type(_snowpark_type_from_spark_json(spark_type_json))
+
+
+def _snowpark_type_from_spark_json(spark_type_json: str) -> DataType:
+    """Convert a Spark ``DataType.json()`` string to its Snowpark equivalent."""
     # Quote nested struct field names before the snowpark hop so their original case is
     # preserved (an unquoted name would be upper-cased); ``_sf_data_type`` unquotes them.
     py_dt = _quote_py(_parse_datatype_json_string(spark_type_json))
-    return _sf_data_type(map_pyspark_types_to_snowpark_types(py_dt))
+    return map_pyspark_types_to_snowpark_types(py_dt)
+
+
+def _is_top_level_scalar(dt: DataType) -> bool:
+    """A column whose top-level type is neither struct, array, nor map."""
+    return not isinstance(dt, (StructType, ArrayType, MapType))
+
+
+def snowpark_types_from_columns(
+    columns: list[NssColumn],
+    dataframe: DataFrame,
+) -> list[DataType]:
+    """Snowpark column types for ``DataFrameContainer.create_with_column_mapping``.
+
+    For **top-level scalar** columns the type is derived from each column's
+    ``spark_type`` — the Spark type INFER_STAGE_FILE_SCHEMA returned or the caller
+    declared — so the schema SCOS reports is the one it was given. This preserves the
+    Integer-vs-Long (both ``NUMBER(38,0)``) and TIMESTAMP_NTZ-vs-TIMESTAMP distinctions
+    the TVF's Snowflake column metadata cannot express (SNOW-3891973).
+
+    Complex (struct / array / map) columns are deliberately **not** reported from the
+    NSS Spark type: the nested Arrow / ``NUMBER(38,0)`` round-trip cannot honor a nested
+    Spark schema, and reporting it regresses complex reads (null-collapsed nested values,
+    pushdown type clashes). Those columns fall back to the schema SCOS derives from the
+    dataframe itself — the pre-fix behavior. The fallback ``describe`` runs only when a
+    complex column is actually present.
+
+    Reading ``dataframe.schema`` populates Snowpark's ``@cached_property`` schema on the
+    df. ``DataFrameContainer.create_with_column_mapping`` then calls ``set_schema_getter``,
+    which *keeps* any already-cached schema instead of installing the mixed NSS types.
+    Clear the cache after the fallback read so scalar Integer / TIMESTAMP_NTZ fidelity
+    survives on mixed (scalar + complex) schemas.
+    """
+    types = [_snowpark_type_from_spark_json(c.spark_type) for c in columns]
+    if all(_is_top_level_scalar(t) for t in types):
+        return types
+    fallback_fields = dataframe.schema.fields
+    assert len(fallback_fields) == len(
+        types
+    ), f"schema mismatch: {len(fallback_fields)} dataframe fields vs {len(types)} nss columns"
+    # Drop the Snowflake-derived schema cache so set_schema_getter installs ours.
+    dataframe.__dict__.pop("schema", None)
+    return [
+        t if _is_top_level_scalar(t) else fallback_fields[i].datatype
+        for i, t in enumerate(types)
+    ]
 
 
 def _map_py_field_names(dt: PyDataType, fn: Callable[[str], str]) -> PyDataType:
@@ -408,6 +494,27 @@ def columns_from_spark_schema(schema: PyStructType) -> list[NssColumn]:
     no Snowpark round-trip, matching the JSON form ``INFER_STAGE_FILE_SCHEMA`` emits.
     """
     return [NssColumn(f.name, f.dataType.json(), f.nullable) for f in schema.fields]
+
+
+# Spark ``DataType.json()`` for ``StringType`` — the JSON form ``NssColumn.spark_type`` holds.
+_STRING_SPARK_TYPE_JSON = PyStringType().json()
+
+
+def as_all_string_columns(columns: list[NssColumn]) -> list[NssColumn]:
+    """Flatten inferred column types to ``StringType``, keeping names and order.
+
+    Spark only widens types when ``inferSchema=true``: ``CSVInferSchema.infer`` guards the
+    type aggregation on ``options.inferSchemaFlag`` and its else-branch is
+    ``header.map(fieldName => StructField(fieldName, StringType, nullable = true))``
+    (Spark 3.5.3 ``CSVInferSchema.scala``). ``inferSchema`` defaults to false, so a plain
+    ``spark.read.option("header", "true").csv(...)`` yields all-string columns.
+    ``INFER_STAGE_FILE_SCHEMA`` always types the columns, so undo that here rather than
+    forwarding ``inferSchema`` to the TVF: Spark's own row parser does not consume the flag
+    either (only ``CSVInferSchema`` does), so the schema is the whole of its effect.
+    """
+    return [
+        c._replace(spark_type=_STRING_SPARK_TYPE_JSON, nullable=True) for c in columns
+    ]
 
 
 def build_data_schema(columns: list[NssColumn]) -> list[dict]:

@@ -1,7 +1,9 @@
 """Main API client used by the Python SDK and CLI."""
 
+import ssl
 import typing as t
 from urllib.parse import quote as _url_quote
+from uuid import UUID
 
 import httpx
 
@@ -12,6 +14,7 @@ from dreadnode.app.api.models import (
     CreateTrainingJobBase,
     CreditBalance,
     CreditsPricing,
+    FeedbackReceipt,
     HealthCheck,
     OptimizationJob,
     OptimizationJobArtifacts,
@@ -22,6 +25,7 @@ from dreadnode.app.api.models import (
     Organization,
     Package,
     PaymentMethod,
+    PlatformConfig,
     Project,
     ProviderPresetsList,
     StorageCredentials,
@@ -41,6 +45,7 @@ from dreadnode.app.api.models import (
     Workspace,
 )
 from dreadnode.core.exceptions import InsufficientCreditsError
+from dreadnode.core.tls import create_platform_ssl_context
 from dreadnode.version import VERSION
 
 _TRANSPORT_ERRORS = (
@@ -97,6 +102,7 @@ class ApiClient:
         api_key: str | None = None,
         timeout: int = 30,
         default_org: str | None = None,
+        ssl_context: ssl.SSLContext | None = None,
     ):
         """
         Initialize the API client.
@@ -106,6 +112,7 @@ class ApiClient:
             api_key: API key for authentication (X-API-Key header).
             timeout: Request timeout in seconds.
             default_org: Optional default organization key for org-scoped endpoints.
+            ssl_context: Optional platform TLS context override.
         """
         api_base_url, server_root_url = self._normalize_base_urls(base_url)
         self._base_url = api_base_url
@@ -125,6 +132,7 @@ class ApiClient:
             headers=headers,
             base_url=self._base_url,
             timeout=httpx.Timeout(timeout, connect=5),
+            verify=ssl_context or create_platform_ssl_context(),
         )
 
     @property
@@ -244,6 +252,18 @@ class ApiClient:
         """GET /api/ or GET /api/health - Health check."""
         response = self.request("GET", "/health")
         return HealthCheck(**response.json())
+
+    def get_config(self) -> PlatformConfig:
+        """Return public platform capabilities used to gate optional workflows."""
+
+        response = self.request("GET", "/config")
+        return PlatformConfig(**response.json())
+
+    def submit_feedback(self, payload: dict[str, t.Any]) -> FeedbackReceipt:
+        """Submit a sanitized feedback report and return its stable receipt."""
+
+        response = self.request("POST", "/feedback", json_data=payload, timeout=60)
+        return FeedbackReceipt(**response.json())
 
     # =========================================================================
     # Auth (public routes)
@@ -961,6 +981,11 @@ class ApiClient:
     # Items (structured records emitted by agents)
     # =========================================================================
 
+    def get_organization_item_type(self, org: str, identifier: str) -> dict[str, t.Any]:
+        """GET /org/{org}/item-types/{identifier} - Get one registry contract."""
+        response = self.request("GET", f"/org/{org}/item-types/{identifier}")
+        return t.cast("dict[str, t.Any]", response.json())
+
     def create_item(
         self,
         org: str,
@@ -1030,6 +1055,195 @@ class ApiClient:
         )
         return t.cast("dict[str, t.Any]", response.json())
 
+    @staticmethod
+    def _item_read_params(
+        *,
+        item_type: str | None = None,
+        severity: list[str] | None = None,
+        status: list[str] | None = None,
+        min_severity: str | None = None,
+        category: str | None = None,
+        capability: list[str] | None = None,
+        source: list[str] | None = None,
+        session_id: str | None = None,
+        ref: str | None = None,
+        q: str | None = None,
+        created_after: str | None = None,
+        created_before: str | None = None,
+    ) -> dict[str, t.Any]:
+        optional = {
+            "item_type": item_type,
+            "severity": severity,
+            "status": status,
+            "min_severity": min_severity,
+            "category": category,
+            "capability": capability,
+            "source": source,
+            "session_id": session_id,
+            "ref": ref,
+            "q": q,
+            "created_after": created_after,
+            "created_before": created_before,
+        }
+        return {key: value for key, value in optional.items() if value is not None}
+
+    def get_item(
+        self,
+        org: str,
+        workspace: str,
+        project: str,
+        item: str,
+    ) -> dict[str, t.Any]:
+        """Read one visible project item by UUID or exact agent-assigned ref."""
+        try:
+            item_id = str(UUID(item))
+        except (TypeError, ValueError):
+            item_id = None
+        if item_id is None:
+            response = self.request(
+                "GET",
+                f"/org/{org}/ws/{workspace}/projects/{project}/items",
+                params={"ref": item, "limit": 1},
+            )
+            items = response.json().get("items", [])
+            if not items:
+                raise NotFoundError(f"404: No item found for '{item}'")
+            return t.cast("dict[str, t.Any]", items[0])
+
+        response = self.request(
+            "GET",
+            f"/org/{org}/ws/{workspace}/projects/{project}/items/{item_id}",
+        )
+        return t.cast("dict[str, t.Any]", response.json())
+
+    def get_item_access(
+        self,
+        org: str,
+        workspace: str,
+        project: str,
+    ) -> dict[str, bool]:
+        """Return this credential's effective item grants for a project."""
+        response = self.request(
+            "GET",
+            f"/org/{org}/ws/{workspace}/projects/{project}/items/access",
+        )
+        return t.cast("dict[str, bool]", response.json())
+
+    def get_item_links(
+        self,
+        org: str,
+        workspace: str,
+        project: str,
+        item_id: str,
+    ) -> dict[str, t.Any]:
+        """List readable incoming and outgoing links for an item."""
+        response = self.request(
+            "GET",
+            f"/org/{org}/ws/{workspace}/projects/{project}/items/{item_id}/links",
+        )
+        return t.cast("dict[str, t.Any]", response.json())
+
+    def list_items(
+        self,
+        org: str,
+        workspace: str,
+        project: str,
+        *,
+        item_type: str | None = None,
+        severity: list[str] | None = None,
+        status: list[str] | None = None,
+        min_severity: str | None = None,
+        category: str | None = None,
+        capability: list[str] | None = None,
+        source: list[str] | None = None,
+        session_id: str | None = None,
+        ref: str | None = None,
+        q: str | None = None,
+        created_after: str | None = None,
+        created_before: str | None = None,
+        sort: str = "created_at",
+        order: str = "desc",
+        page: int = 1,
+        limit: int = 50,
+    ) -> dict[str, t.Any]:
+        """List visible project items with filtering, search, and pagination."""
+        params = self._item_read_params(
+            item_type=item_type,
+            severity=severity,
+            status=status,
+            min_severity=min_severity,
+            category=category,
+            capability=capability,
+            source=source,
+            session_id=session_id,
+            ref=ref,
+            q=q,
+            created_after=created_after,
+            created_before=created_before,
+        )
+        params.update({"sort": sort, "order": order, "page": page, "limit": limit})
+        response = self.request(
+            "GET",
+            f"/org/{org}/ws/{workspace}/projects/{project}/items",
+            params=params,
+        )
+        return t.cast("dict[str, t.Any]", response.json())
+
+    def search_items(
+        self,
+        org: str,
+        workspace: str,
+        project: str,
+        query: str,
+        **filters: t.Any,
+    ) -> dict[str, t.Any]:
+        """Search visible project items using the paginated item list contract."""
+        if not query.strip():
+            raise ValueError("query must not be empty")
+        filters.setdefault("sort", "relevance")
+        return self.list_items(org, workspace, project, q=query, **filters)
+
+    def get_item_facets(
+        self,
+        org: str,
+        workspace: str,
+        project: str,
+        *,
+        item_type: str | None = None,
+        severity: list[str] | None = None,
+        status: list[str] | None = None,
+        min_severity: str | None = None,
+        category: str | None = None,
+        capability: list[str] | None = None,
+        source: list[str] | None = None,
+        session_id: str | None = None,
+        ref: str | None = None,
+        q: str | None = None,
+        created_after: str | None = None,
+        created_before: str | None = None,
+    ) -> dict[str, t.Any]:
+        """Return disjunctive facets for the visible, filtered item corpus."""
+        params = self._item_read_params(
+            item_type=item_type,
+            severity=severity,
+            status=status,
+            min_severity=min_severity,
+            category=category,
+            capability=capability,
+            source=source,
+            session_id=session_id,
+            ref=ref,
+            q=q,
+            created_after=created_after,
+            created_before=created_before,
+        )
+        response = self.request(
+            "GET",
+            f"/org/{org}/ws/{workspace}/projects/{project}/items/facets",
+            params=params,
+        )
+        return t.cast("dict[str, t.Any]", response.json())
+
     def resolve_item_ref(self, org: str, workspace: str, project: str, ref: str) -> str | None:
         """Resolve an agent-assigned ref to an item id, or None if not found."""
         response = self.request(
@@ -1051,6 +1265,7 @@ class ApiClient:
         title: str | None = None,
         status: str | None = None,
         notes: str | None = None,
+        clear_status: bool = False,
     ) -> dict[str, t.Any]:
         """PATCH …/projects/{project}/items/{item_id} - Edit an item.
 
@@ -1059,7 +1274,15 @@ class ApiClient:
         be patched alone; omitted keys are unchanged, not deleted). ``title``
         updates the promoted label; ``status``/``notes`` route into the mutable
         disposition overlay. Only provided fields change.
+
+        ``clear_status=True`` sends an explicit ``"status": null``, which the
+        API treats as un-triage: the stored status is removed and a finding
+        derives ``needs_review`` again. (A plain ``status=None`` argument means
+        "unchanged" — None fields are dropped from the payload — hence the
+        separate flag.) Mutually exclusive with ``status``.
         """
+        if clear_status and status is not None:
+            raise ValueError("Pass either status or clear_status, not both")
         payload: dict[str, t.Any] = {}
         if data is not None:
             payload["data"] = data
@@ -1067,6 +1290,8 @@ class ApiClient:
             payload["title"] = title
         if status is not None:
             payload["status"] = status
+        elif clear_status:
+            payload["status"] = None
         if notes is not None:
             payload["notes"] = notes
         response = self.request(
@@ -1100,6 +1325,93 @@ class ApiClient:
             "POST",
             f"/org/{org}/ws/{workspace}/projects/{project}/items/{item_id}/links",
             json_data=body,
+        )
+        return t.cast("dict[str, t.Any]", response.json())
+
+    def list_submission_actions(
+        self,
+        org: str,
+        workspace: str,
+        project: str,
+        *,
+        page: int = 1,
+        limit: int = 200,
+    ) -> dict[str, t.Any]:
+        """GET …/item-submission-actions - List project item submission actions."""
+        response = self.request(
+            "GET",
+            f"/org/{org}/ws/{workspace}/projects/{project}/item-submission-actions",
+            params={"page": page, "limit": limit},
+        )
+        return t.cast("dict[str, t.Any]", response.json())
+
+    def list_org_submission_actions(
+        self,
+        org: str,
+        *,
+        page: int = 1,
+        limit: int = 200,
+    ) -> dict[str, t.Any]:
+        """GET /org/{org}/integrations/actions - List accessible org actions."""
+        response = self.request(
+            "GET",
+            f"/org/{org}/integrations/actions",
+            params={"page": page, "limit": limit},
+        )
+        return t.cast("dict[str, t.Any]", response.json())
+
+    def list_submission_stages(
+        self,
+        org: str,
+        workspace: str,
+        project: str,
+        *,
+        page: int = 1,
+        limit: int = 50,
+        action_id: str | None = None,
+        item_type: str | None = None,
+        severity: str | None = None,
+        status: str | None = "staged",
+        created_after: str | None = None,
+        created_before: str | None = None,
+    ) -> dict[str, t.Any]:
+        """GET …/item-submission-stages - List project submission stages."""
+        params: dict[str, t.Any] = {"page": page, "limit": limit}
+        if action_id is not None:
+            params["action_id"] = action_id
+        if item_type is not None:
+            params["item_type"] = item_type
+        if severity is not None:
+            params["severity"] = severity
+        if status is not None:
+            params["status"] = status
+        if created_after is not None:
+            params["created_after"] = created_after
+        if created_before is not None:
+            params["created_before"] = created_before
+
+        response = self.request(
+            "GET",
+            f"/org/{org}/ws/{workspace}/projects/{project}/item-submission-stages",
+            params=params,
+        )
+        return t.cast("dict[str, t.Any]", response.json())
+
+    def create_submission_stage(
+        self,
+        org: str,
+        workspace: str,
+        project: str,
+        *,
+        item_id: str,
+        action_id: str,
+        provenance: dict[str, t.Any],
+    ) -> dict[str, t.Any]:
+        """POST …/items/{item_id}/submission-stages - Stage an item."""
+        response = self.request(
+            "POST",
+            f"/org/{org}/ws/{workspace}/projects/{project}/items/{item_id}/submission-stages",
+            json_data={"action_id": action_id, "provenance": provenance},
         )
         return t.cast("dict[str, t.Any]", response.json())
 
@@ -1179,6 +1491,31 @@ class ApiClient:
         response = self.request(
             "POST",
             f"/org/{org}/ws/{workspace}/projects/{project}/project-memory/get",
+            json_data=payload,
+        )
+        return t.cast("dict[str, t.Any]", response.json())
+
+    def get_project_memory_history(
+        self,
+        org: str,
+        workspace: str,
+        project: str,
+        *,
+        memory_id: str,
+        scope_kind: str = "project",
+        project_filter: str | None = None,
+    ) -> dict[str, t.Any]:
+        """POST /org/{org}/ws/{workspace}/projects/{project}/project-memory/history."""
+        payload: dict[str, t.Any] = {
+            "memory_id": memory_id,
+            "scope_kind": scope_kind,
+        }
+        if project_filter is not None:
+            payload["project_filter"] = project_filter
+
+        response = self.request(
+            "POST",
+            f"/org/{org}/ws/{workspace}/projects/{project}/project-memory/history",
             json_data=payload,
         )
         return t.cast("dict[str, t.Any]", response.json())
@@ -1673,6 +2010,23 @@ class ApiClient:
         response = self.request(
             "POST",
             f"/org/{org}/ws/{workspace}/runtimes/{runtime_id}/start",
+            json_data=json_data,
+        )
+        return t.cast("dict[str, t.Any]", response.json())
+
+    def reconnect_runtime(
+        self,
+        org: str,
+        workspace: str,
+        runtime_id: str,
+        *,
+        secret_ids: list[str] | None = None,
+    ) -> dict[str, t.Any]:
+        """POST /org/{org}/ws/{workspace}/runtimes/{runtime_id}/reconnect - Rotate credentials."""
+        json_data = {"secret_ids": secret_ids} if secret_ids is not None else None
+        response = self.request(
+            "POST",
+            f"/org/{org}/ws/{workspace}/runtimes/{runtime_id}/reconnect",
             json_data=json_data,
         )
         return t.cast("dict[str, t.Any]", response.json())
@@ -2878,7 +3232,7 @@ class ApiClient:
         limit: int = 20,
         project_id: str | list[str] | None = None,
         user_id: str | None = None,
-        archived: t.Literal["active", "archived", "any"] = "active",
+        archived: t.Literal["active", "inactive", "archived", "any"] = "active",
         label: list[str] | None = None,
         origin: list[str] | None = None,
         sort_by: t.Literal[
@@ -2926,7 +3280,7 @@ class ApiClient:
         *,
         project_id: str | list[str] | None = None,
         user_id: str | None = None,
-        archived: t.Literal["active", "archived", "any"] = "active",
+        archived: t.Literal["active", "inactive", "archived", "any"] = "active",
         label: list[str] | None = None,
         origin: list[str] | None = None,
         search: str | None = None,

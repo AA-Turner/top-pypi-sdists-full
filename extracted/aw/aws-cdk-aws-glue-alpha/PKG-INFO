@@ -1,6 +1,6 @@
 Metadata-Version: 2.1
 Name: aws-cdk.aws-glue-alpha
-Version: 2.265.0a0
+Version: 2.266.0a0
 Summary: The CDK Construct Library for AWS::Glue
 Home-page: https://github.com/aws/aws-cdk
 Author: Amazon Web Services
@@ -24,7 +24,7 @@ Requires-Python: >=3.10
 Description-Content-Type: text/markdown
 License-File: LICENSE
 License-File: NOTICE
-Requires-Dist: aws-cdk-lib<3.0.0,>=2.265.0
+Requires-Dist: aws-cdk-lib<3.0.0,>=2.266.0
 Requires-Dist: constructs<11.0.0,>=10.5.0
 Requires-Dist: jsii<2.0.0,>=1.139.0
 Requires-Dist: publication>=0.0.3
@@ -105,7 +105,9 @@ similar constructors. ETL jobs default to the G2 worker type, but you can
 override this default with other supported worker type values (G1, G2, G4
 and G8). ETL jobs defaults to Glue version 4.0, which you can override to 3.0.
 The following ETL features are enabled by default:
-`—enable-metrics, —enable-spark-ui, —enable-continuous-cloudwatch-log.`
+`—enable-metrics, —enable-continuous-cloudwatch-log.`
+The Spark UI (`—enable-spark-ui`) is off by default; enable it by setting the
+`sparkUI` prop.
 You can find more details about version, worker type and other features in
 [Glue's public documentation](https://docs.aws.amazon.com/glue/latest/dg/aws-glue-api-jobs-job.html).
 
@@ -147,7 +149,10 @@ glue.PySparkEtlJob(stack, "PySparkETLJob",
     script=script,
     glue_version=glue.GlueVersion.V5_1,
     continuous_logging=glue.ContinuousLoggingProps(enabled=False),
-    worker_type=glue.WorkerType.G_2X,
+    worker_configuration=glue.WorkerConfiguration(
+        worker_type=glue.WorkerType.G_2X,
+        number_of_workers=2
+    ),
     max_concurrent_runs=100,
     timeout=cdk.Duration.hours(2),
     connections=[glue.Connection.from_connection_name(stack, "Connection", "connectionName")],
@@ -157,7 +162,6 @@ glue.PySparkEtlJob(stack, "PySparkETLJob",
         "SecondTagName": "SecondTagValue",
         "XTagName": "XTagValue"
     },
-    number_of_workers=2,
     max_retries=2
 )
 ```
@@ -167,11 +171,12 @@ glue.PySparkEtlJob(stack, "PySparkETLJob",
 Streaming jobs are similar to ETL jobs, except that they perform ETL on data
 streams using the Apache Spark Structured Streaming framework. Some Spark
 job features are not available to Streaming ETL jobs. They support Scala
-and pySpark languages. PySpark streaming jobs default Python 3.9,
-which you can override with any non-deprecated version of Python. It
+and pySpark languages. PySpark streaming jobs run on Python 3. It
 defaults to the G2 worker type and Glue 4.0, both of which you can override.
 The following best practice features are enabled by default:
-`—enable-metrics, —enable-spark-ui, —enable-continuous-cloudwatch-log`.
+`—enable-metrics, —enable-continuous-cloudwatch-log`.
+The Spark UI (`—enable-spark-ui`) is off by default; enable it by setting the
+`sparkUI` prop.
 
 Reference the pyspark-streaming-jobs.test.ts and scalaspark-streaming-jobs.test.ts
 unit tests for examples of required-only and optional job parameters when creating
@@ -205,7 +210,10 @@ glue.PySparkStreamingJob(stack, "PySparkStreamingJob",
     script=script,
     glue_version=glue.GlueVersion.V5_1,
     continuous_logging=glue.ContinuousLoggingProps(enabled=False),
-    worker_type=glue.WorkerType.G_2X,
+    worker_configuration=glue.WorkerConfiguration(
+        worker_type=glue.WorkerType.G_2X,
+        number_of_workers=2
+    ),
     max_concurrent_runs=100,
     timeout=cdk.Duration.hours(2),
     connections=[glue.Connection.from_connection_name(stack, "Connection", "connectionName")],
@@ -215,7 +223,6 @@ glue.PySparkStreamingJob(stack, "PySparkStreamingJob",
         "SecondTagName": "SecondTagValue",
         "XTagName": "XTagValue"
     },
-    number_of_workers=2,
     max_retries=2
 )
 ```
@@ -226,7 +233,9 @@ The flexible execution class is appropriate for non-urgent jobs such as
 pre-production jobs, testing, and one-time data loads. Flexible jobs default
 to Glue version 5.0 and worker type `G_2X`. The following best practice
 features are enabled by default:
-`—enable-metrics, —enable-spark-ui, —enable-continuous-cloudwatch-log`
+`—enable-metrics, —enable-continuous-cloudwatch-log`
+The Spark UI (`—enable-spark-ui`) is off by default; enable it by setting the
+`sparkUI` prop.
 
 Reference the pyspark-flex-etl-jobs.test.ts and scalaspark-flex-etl-jobs.test.ts
 unit tests for examples of required-only and optional job parameters when creating
@@ -253,14 +262,17 @@ import aws_cdk.aws_iam as iam
 # role: iam.IRole
 # script: glue.Code
 
-glue.PySparkEtlJob(stack, "pySparkEtlJob",
-    job_name="pySparkEtlJob",
+glue.PySparkFlexEtlJob(stack, "pySparkFlexEtlJob",
+    job_name="pySparkFlexEtlJob",
     description="This is a description",
     role=role,
     script=script,
     glue_version=glue.GlueVersion.V5_1,
     continuous_logging=glue.ContinuousLoggingProps(enabled=False),
-    worker_type=glue.WorkerType.G_2X,
+    worker_configuration=glue.WorkerConfiguration(
+        worker_type=glue.WorkerType.G_2X,
+        number_of_workers=2
+    ),
     max_concurrent_runs=100,
     timeout=cdk.Duration.hours(2),
     connections=[glue.Connection.from_connection_name(stack, "Connection", "connectionName")],
@@ -270,7 +282,6 @@ glue.PySparkEtlJob(stack, "pySparkEtlJob",
         "SecondTagName": "SecondTagValue",
         "XTagName": "XTagValue"
     },
-    number_of_workers=2,
     max_retries=2
 )
 ```
@@ -312,14 +323,13 @@ import aws_cdk.aws_iam as iam
 glue.PythonShellJob(stack, "PythonShellJob",
     job_name="PythonShellJobCustomName",
     description="This is a description",
-    python_version=glue.PythonVersion.TWO,
+    python_version=glue.PythonVersion.THREE_NINE,
     max_capacity=glue.MaxCapacity.DPU_1,
     role=role,
     script=script,
     extra_python_files=[extra_python_file],
-    glue_version=glue.GlueVersion.V2_0,
+    glue_version=glue.GlueVersion.V3_0,
     continuous_logging=glue.ContinuousLoggingProps(enabled=False),
-    worker_type=glue.WorkerType.G_2X,
     max_concurrent_runs=100,
     timeout=cdk.Duration.hours(2),
     connections=[glue.Connection.from_connection_name(stack, "Connection", "connectionName")],
@@ -329,7 +339,6 @@ glue.PythonShellJob(stack, "PythonShellJob",
         "SecondTagName": "SecondTagValue",
         "XTagName": "XTagValue"
     },
-    number_of_workers=2,
     max_retries=2
 )
 ```
@@ -394,10 +403,12 @@ glue.PySparkEtlJob(stack, "PySparkETLJob",
 
 ### Uploading scripts from the CDK app repository to S3
 
-Similar to other L2 constructs, the Glue L2 automates uploading / updating
-scripts to S3 via an optional fromAsset parameter pointing to a script
-in the local file structure. You provide the existing S3 bucket and
-path to which you'd like the script to be uploaded.
+Similar to other L2 constructs, the Glue L2 automates uploading local
+scripts to S3. Use `glue.Code.fromAsset(path)` to point at a script in your
+local file structure; it is uploaded to the CDK-managed asset bucket. To
+reference a script that already exists in S3, use
+`glue.Code.fromBucket(bucket, key)`, which performs no upload. A `script` is
+required for every job.
 
 Reference the unit tests for examples of repo and S3 code target examples.
 
@@ -409,14 +420,34 @@ jobs, and triggers. Standalone triggers are an anti-pattern, so you must
 create triggers from within a workflow using the L2 construct.
 
 Within a workflow object, there are functions to create different
-types of triggers with actions and predicates. You then add those triggers
-to jobs.
+types of triggers with actions and predicates. You add triggers to the
+workflow, and each trigger references the jobs or crawlers it runs as its
+actions.
 
-StartOnCreation defaults to true for all trigger types, but you can
-override it if you prefer for your trigger not to start on creation.
+`startOnCreation` applies to scheduled triggers (and, via
+`ConditionalTriggerOptions`, conditional triggers) only. It defaults to `false`,
+but you can override it if you prefer for your trigger to start on creation.
 
 Reference the workflow-triggers.test.ts unit tests for examples of creating
 workflows and triggers.
+
+```python
+import aws_cdk as cdk
+import aws_cdk.aws_iam as iam
+# stack: cdk.Stack
+# role: iam.IRole
+# script: glue.Code
+
+
+# Create a job to run from the workflow
+job = glue.PySparkEtlJob(stack, "Job", role=role, script=script)
+
+# Create a workflow and add a trigger that runs the job
+workflow = glue.Workflow(stack, "Workflow")
+workflow.add_on_demand_trigger("OnDemandTrigger",
+    actions=[glue.Action(job=job)]
+)
+```
 
 #### **1. On-Demand Triggers**
 
@@ -428,7 +459,7 @@ actions list using the job or crawler objects using conditional types.
 #### **2. Scheduled Triggers**
 
 You can create scheduled triggers using cron expressions. This construct
-provides daily, weekly, and monthly convenience functions,
+provides daily and weekly convenience functions,
 as well as a custom function that allows you to create your own
 custom timing using the [existing event Schedule class](https://docs.aws.amazon.com/cdk/api/v2/docs/aws-cdk-lib.aws_events.Schedule.html)
 without having to build your own cron expressions. The L2 extracts
@@ -513,32 +544,29 @@ See [Adding a Connection to Your Data Store](https://docs.aws.amazon.com/glue/la
 
 A `SecurityConfiguration` is a set of security properties that can be used by AWS Glue to encrypt data at rest.
 
+Each encryption config is built with a factory that pairs the encryption mode
+with its key, so illegal combinations (such as an S3-managed encryption carrying
+a KMS key) cannot be expressed:
+
 ```python
 glue.SecurityConfiguration(self, "MySecurityConfiguration",
-    cloud_watch_encryption=glue.CloudWatchEncryption(
-        mode=glue.CloudWatchEncryptionMode.KMS
-    ),
-    job_bookmarks_encryption=glue.JobBookmarksEncryption(
-        mode=glue.JobBookmarksEncryptionMode.CLIENT_SIDE_KMS
-    ),
-    s3_encryption=glue.S3Encryption(
-        mode=glue.S3EncryptionMode.KMS
-    )
+    cloud_watch_encryption=glue.CloudWatchEncryption.kms(),
+    job_bookmarks_encryption=glue.JobBookmarksEncryption.client_side_kms(),
+    s3_encryption=glue.S3Encryption.kms()
 )
 ```
 
-By default, a shared KMS key is created for use with the encryption configurations that require one. You can also supply your own key for each encryption config, for example, for CloudWatch encryption:
+By default, a shared KMS key is created for use with the encryption configurations that require one. You can also supply your own key to any factory, for example, for CloudWatch encryption:
 
 ```python
 # key: kms.Key
 
 glue.SecurityConfiguration(self, "MySecurityConfiguration",
-    cloud_watch_encryption=glue.CloudWatchEncryption(
-        mode=glue.CloudWatchEncryptionMode.KMS,
-        kms_key=key
-    )
+    cloud_watch_encryption=glue.CloudWatchEncryption.kms(key)
 )
 ```
+
+Use `glue.S3Encryption.s3Managed()` for S3-managed (SSE-S3) encryption, which takes no key.
 
 See [documentation](https://docs.aws.amazon.com/glue/latest/dg/encryption-security-configuration.html) for more info for Glue encrypting data written by Crawlers, Jobs, and Development Endpoints.
 
@@ -602,7 +630,7 @@ glue.Catalog(self, "MyCatalog",
 ### Encryption at rest
 
 Configure Data Catalog encryption at rest through the `encryptionAtRest` option
-(on `Catalog.encryptAccount`, the `Catalog` constructor, or the import factories).
+(on `Catalog.encryptAccount` or the `Catalog` constructor).
 It accepts a `DataCatalogEncryptionAtRest` describing the mode:
 
 ```python
@@ -867,7 +895,7 @@ glue.S3Table(self, "MyTable",
 Alternatively, you can call the `addPartitionIndex()` function on a table:
 
 ```python
-# my_table: glue.Table
+# my_table: glue.S3Table
 
 my_table.add_partition_index(
     index_name="my-index",
@@ -1106,6 +1134,25 @@ glue.ExternalTable(self, "MyTable",
 )
 ```
 
+## Data Quality Ruleset
+
+A `DataQualityRuleset` defines a set of data quality rules — authored in Glue's
+Data Quality Definition Language (DQDL) — that are evaluated against a table in
+the Data Catalog.
+
+```python
+glue.DataQualityRuleset(self, "MyRuleset",
+    ruleset_name="my_ruleset",
+    dqdl=glue.Dqdl.from_string("Rules = [ RowCount > 100, IsComplete \"order_id\" ]"),
+    target_table=glue.DataQualityTargetTable("my_database", "my_table")
+)
+```
+
+Build the DQDL document with `Dqdl.fromString(...)`. Glue parses and validates the
+DQDL when the ruleset is deployed; see the
+[DQDL reference](https://docs.aws.amazon.com/glue/latest/dg/dqdl.html) for the
+full rule syntax.
+
 ## [Encryption](https://docs.aws.amazon.com/athena/latest/ug/encryption.html)
 
 When the table creates its own S3 bucket (i.e. you do not pass an explicit `bucket`), that bucket enforces SSL: a bucket policy denies any request made over plain HTTP. If you provide your own bucket, enabling `enforceSSL` on it is your responsibility.
@@ -1210,6 +1257,29 @@ glue.S3Table(self, "MyTable",
 
 *Note: you cannot provide a `Bucket` when creating the `S3Table` if you wish to use server-side encryption (`KMS`, `KMS_MANAGED` or `S3_MANAGED`)*.
 
+### Marking table data as encrypted
+
+Both `S3Table` and `ExternalTable` set the `has_encrypted_data` table parameter, which
+Athena reads when querying client-side (`CSE-KMS`) encrypted datasets. It defaults to `true`.
+Set `hasEncryptedData` to `false` when the underlying data is not encrypted:
+
+```python
+# my_database: glue.Database
+
+glue.S3Table(self, "MyTable",
+    has_encrypted_data=False,
+    database=my_database,
+    columns=[glue.Column(
+        name="col1",
+        type=glue.Schema.STRING
+    )],
+    data_format=glue.DataFormat.JSON
+)
+```
+
+Do not set `has_encrypted_data` through the free-form `parameters` map as well - a value
+there that conflicts with `hasEncryptedData` is rejected at synthesis time.
+
 ## Types
 
 A table's schema is a collection of columns, each of which have a `name` and a `type`. Types are recursive structures, consisting of primitive and complex types:
@@ -1228,7 +1298,7 @@ glue.S3Table(self, "MyTable",
     ), glue.Column(
         name="map_column",
         type=glue.Schema.map(glue.Schema.STRING, glue.Schema.TIMESTAMP),
-        comment="map<string,string>"
+        comment="map<string,timestamp>"
     ), glue.Column(
         name="struct_column",
         type=glue.Schema.struct([

@@ -4484,6 +4484,772 @@ class FearGreedIndex(QuantConnect.Data.BaseData):
         ...
 
 
+class ECB(System.Object):
+    """This class has no documentation."""
+
+    class StressAreas(System.Object):
+        """
+        The economies the systemic stress index covers, as the tickers used to subscribe to
+        ECBSystemicStress, e.g.
+        AddData<ECBSystemicStress>(ECB.StressAreas.EuroArea).
+        
+        Only the euro area aggregate carries the full decomposition into market segments. The
+        euro area countries publish the headline index and their own sovereign stress, so their
+        segment columns are empty. Three sit outside the euro, which the ECB tracks to place
+        euro area stress against the rest of the world: the United Kingdom, the United States
+        and China publish the headline index alone.
+        """
+
+        EURO_AREA: str = "U2"
+        """The euro area as a whole, the only series with the full segment decomposition."""
+
+        AUSTRIA: str = "AT"
+        """Austria."""
+
+        BELGIUM: str = "BE"
+        """Belgium."""
+
+        FINLAND: str = "FI"
+        """Finland."""
+
+        FRANCE: str = "FR"
+        """France."""
+
+        GERMANY: str = "DE"
+        """Germany."""
+
+        IRELAND: str = "IE"
+        """Ireland."""
+
+        ITALY: str = "IT"
+        """Italy."""
+
+        NETHERLANDS: str = "NL"
+        """The Netherlands."""
+
+        PORTUGAL: str = "PT"
+        """Portugal."""
+
+        SPAIN: str = "ES"
+        """Spain."""
+
+        CHINA: str = "CN"
+        """China, tracked for comparison and outside the euro area."""
+
+        UNITED_KINGDOM: str = "GB"
+        """The United Kingdom, tracked for comparison and outside the euro area."""
+
+        UNITED_STATES: str = "US"
+        """The United States, tracked for comparison and outside the euro area."""
+
+    class PolicyRates(System.Object):
+        """
+        The ticker used to subscribe to the euro area policy rates, e.g.
+        AddData<ECBPolicyRates>(ECB.PolicyRates.EuroArea).
+        
+        The ECB sets one set of rates for the whole euro area, so there is a single ticker
+        here rather than one per country.
+        """
+
+        EURO_AREA: str = "U2"
+        """The euro area, the only area the ECB sets policy rates for."""
+
+    class YieldCurves(System.Object):
+        """
+        The euro area yield curves, as the tickers used to subscribe to
+        ECBYieldCurve, e.g. AddData<ECBYieldCurve>(ECB.YieldCurves.AaaSpot).
+        
+        Two things vary. The basket is which bonds the curve is fitted to: triple A rated
+        issuers only, or every euro area government issuer regardless of rating. The gap
+        between the two is a credit spread, and it widens in a sovereign crisis.
+        
+        The curve type is what the rate means. Spot is the yield on a zero coupon bond
+        maturing at that point and is the usual choice. Par is the coupon a bond issued today
+        at that maturity would carry. Forward is the instantaneous rate the curve implies for
+        that future moment, which is the one to read for what the market expects the ECB to do.
+        """
+
+        AAA_SPOT: str = "AAA_SPOT"
+        """
+        Spot rates fitted to triple A rated euro area government bonds. The default choice
+        and the curve the ECB headlines.
+        """
+
+        AAA_PAR: str = "AAA_PAR"
+        """Par yields fitted to triple A rated euro area government bonds."""
+
+        AAA_FORWARD: str = "AAA_FORWARD"
+        """Instantaneous forward rates fitted to triple A rated euro area government bonds."""
+
+        ALL_ISSUERS_SPOT: str = "ALL_SPOT"
+        """
+        Spot rates fitted to all euro area government bonds, whatever the issuer rating.
+        Against the triple A curve this carries the periphery credit spread.
+        """
+
+        ALL_ISSUERS_PAR: str = "ALL_PAR"
+        """Par yields fitted to all euro area government bonds, whatever the issuer rating."""
+
+        ALL_ISSUERS_FORWARD: str = "ALL_FORWARD"
+        """
+        Instantaneous forward rates fitted to all euro area government bonds, whatever the
+        issuer rating.
+        """
+
+
+class ECBYieldCurve(QuantConnect.Data.BaseData):
+    """
+    The euro area government bond yield curve, estimated daily by the European Central Bank
+    and published as annualised percentage rates. The shape of this curve is what the market
+    thinks the ECB will do with rates, so its slope leads the European cycle the same way the
+    Treasury curve leads the US one.
+    
+    Ten standard maturities from three months to thirty years. The curve starts at three
+    months, so there is no one month or two month rate to read.
+    
+    One file per curve, one row per TARGET business day. Subscribe with a curve constant, for
+    example AddData<ECBYieldCurve>(ECB.YieldCurves.AaaSpot) for the spot curve fitted to
+    triple A rated government bonds.
+    """
+
+    @property
+    def three_month(self) -> typing.Optional[float]:
+        """Three month rate, the short end of the curve."""
+        ...
+
+    @three_month.setter
+    def three_month(self, value: typing.Optional[float]) -> None:
+        ...
+
+    @property
+    def six_month(self) -> typing.Optional[float]:
+        """Six month rate."""
+        ...
+
+    @six_month.setter
+    def six_month(self, value: typing.Optional[float]) -> None:
+        ...
+
+    @property
+    def one_year(self) -> typing.Optional[float]:
+        """One year rate."""
+        ...
+
+    @one_year.setter
+    def one_year(self, value: typing.Optional[float]) -> None:
+        ...
+
+    @property
+    def two_year(self) -> typing.Optional[float]:
+        """
+        Two year rate. The most policy sensitive point on the curve, and the one that moves
+        most on a change in rate expectations.
+        """
+        ...
+
+    @two_year.setter
+    def two_year(self, value: typing.Optional[float]) -> None:
+        ...
+
+    @property
+    def three_year(self) -> typing.Optional[float]:
+        """Three year rate."""
+        ...
+
+    @three_year.setter
+    def three_year(self, value: typing.Optional[float]) -> None:
+        ...
+
+    @property
+    def five_year(self) -> typing.Optional[float]:
+        """Five year rate."""
+        ...
+
+    @five_year.setter
+    def five_year(self, value: typing.Optional[float]) -> None:
+        ...
+
+    @property
+    def seven_year(self) -> typing.Optional[float]:
+        """Seven year rate."""
+        ...
+
+    @seven_year.setter
+    def seven_year(self, value: typing.Optional[float]) -> None:
+        ...
+
+    @property
+    def ten_year(self) -> typing.Optional[float]:
+        """
+        Ten year rate, the benchmark point of the curve. This is also the data point's Value.
+        Against the two year it gives the slope, which is the usual regime signal.
+        """
+        ...
+
+    @ten_year.setter
+    def ten_year(self, value: typing.Optional[float]) -> None:
+        ...
+
+    @property
+    def twenty_year(self) -> typing.Optional[float]:
+        """Twenty year rate."""
+        ...
+
+    @twenty_year.setter
+    def twenty_year(self, value: typing.Optional[float]) -> None:
+        ...
+
+    @property
+    def thirty_year(self) -> typing.Optional[float]:
+        """Thirty year rate, the long end of the curve."""
+        ...
+
+    @thirty_year.setter
+    def thirty_year(self, value: typing.Optional[float]) -> None:
+        ...
+
+    @property
+    def end_time(self) -> datetime.datetime:
+        """
+        The moment the ECB released this curve, which is when LEAN makes the data point
+        available. A curve is published around midday Frankfurt time on the business day after
+        the one it describes, so it is never available on the day itself.
+        See https://www.ecb.europa.eu/stats/financial_markets_and_interest_rates/euro_area_yield_curves/
+        """
+        ...
+
+    @end_time.setter
+    def end_time(self, value: datetime.datetime) -> None:
+        ...
+
+    @overload
+    def __init__(self) -> None:
+        """Creates a new default instance."""
+        ...
+
+    @overload
+    def __init__(self, csv: typing.List[str]) -> None:
+        """
+        Creates a new instance from the columns of a row produced by the data processor.
+        
+        :param csv: Columns of the row: date, release stamp, then one per maturity
+        """
+        ...
+
+    def clone(self) -> QuantConnect.Data.BaseData:
+        """
+        Clones the instance.
+        
+        :returns: A clone of the instance.
+        """
+        ...
+
+    def data_time_zone(self) -> typing.Any:
+        """
+        Gets the time zone the data is published in. The ECB publishes on Frankfurt time,
+        which shares the Berlin zone.
+        
+        :returns: The data time zone.
+        """
+        ...
+
+    def default_resolution(self) -> QuantConnect.Resolution:
+        """
+        Gets the default resolution for this data.
+        
+        :returns: Daily resolution.
+        """
+        ...
+
+    def get_source(self, config: QuantConnect.Data.SubscriptionDataConfig, date: datetime.datetime, is_live_mode: bool) -> QuantConnect.Data.SubscriptionDataSource:
+        """
+        Specifies the location of the data and directs LEAN where to load it from.
+        
+        :param config: Subscription configuration
+        :param date: Algorithm date
+        :param is_live_mode: Is live mode
+        :returns: Subscription data source pointing at this curve's file.
+        """
+        ...
+
+    def is_sparse_data(self) -> bool:
+        """
+        Indicates whether the data is sparse. The curve only prints on TARGET business days,
+        so a daily subscription will ask for days that legitimately have no file entry.
+        
+        :returns: True.
+        """
+        ...
+
+    def reader(self, config: QuantConnect.Data.SubscriptionDataConfig, line: str, date: datetime.datetime, is_live_mode: bool) -> QuantConnect.Data.BaseData:
+        """
+        Parses one line of the source file into a data point.
+        
+        :param config: Subscription configuration
+        :param line: Line of the source CSV
+        :param date: Date the request was made for
+        :param is_live_mode: Is live mode
+        :returns: Instance of the class with the parsed data.
+        """
+        ...
+
+    def requires_mapping(self) -> bool:
+        """
+        Indicates whether the data source requires mapping. This curve describes the euro area
+        as a whole, not a security whose ticker can change.
+        
+        :returns: False.
+        """
+        ...
+
+    def supported_resolutions(self) -> typing.List[QuantConnect.Resolution]:
+        """
+        Gets the resolutions this data supports.
+        
+        :returns: Daily resolution only.
+        """
+        ...
+
+    def to_string(self) -> str:
+        """
+        Formats the instance as a string for logging and debugging.
+        
+        :returns: String describing the data point.
+        """
+        ...
+
+
+class ECBSystemicStress(QuantConnect.Data.BaseData):
+    """
+    The Composite Indicator of Systemic Stress, the European Central Bank's measure of how
+    much stress the financial system is under. It aggregates fifteen market-based stress
+    measures across five segments and weights them by how strongly the segments are moving
+    together, so it rises further when trouble is broad than when one market is upset on its
+    own. The scale runs from zero to one.
+    
+    The euro area file carries the full decomposition: the headline index, the contribution of
+    each of the five market segments, the correlation contribution, and two sovereign stress
+    aggregates. Euro area countries publish the headline index and their own sovereign stress
+    only, and the economies outside the euro publish the headline index alone, so the remaining
+    columns are empty for them. Read a column against null rather than assuming zero.
+    
+    One file per economy, from 1980, carrying a row for each day the ECB computed the index.
+    That is every weekday, plus the occasional weekend it prints. Subscribe with an economy
+    constant, for example AddData<ECBSystemicStress>(ECB.StressAreas.EuroArea).
+    
+    A whole week of readings is released together, so an algorithm receives the newest reading
+    of each batch rather than one point per day: the readings that share a release arrive as
+    the single point that was current when the batch went out. A typed History call follows the
+    same path and returns those same points, one per batch. The daily readings are all in the
+    file, and a dataframe history request returns every one of them, which is how to reach both
+    the days in between and the history back-computed before the 2012 debut.
+    """
+
+    @property
+    def composite(self) -> typing.Optional[float]:
+        """The composite indicator itself, from zero to one. This is also the data point's Value."""
+        ...
+
+    @composite.setter
+    def composite(self, value: typing.Optional[float]) -> None:
+        ...
+
+    @property
+    def sovereign_stress(self) -> typing.Optional[float]:
+        """
+        Stress in this economy's government bond market. Published for the euro area
+        countries only. It is empty for the euro area aggregate, which carries the two weighted
+        sovereign columns instead, and empty for the economies outside the euro.
+        """
+        ...
+
+    @sovereign_stress.setter
+    def sovereign_stress(self, value: typing.Optional[float]) -> None:
+        ...
+
+    @property
+    def bond_market_contribution(self) -> typing.Optional[float]:
+        """How much the bond market segment adds to the composite. Euro area only."""
+        ...
+
+    @bond_market_contribution.setter
+    def bond_market_contribution(self, value: typing.Optional[float]) -> None:
+        ...
+
+    @property
+    def equity_market_contribution(self) -> typing.Optional[float]:
+        """How much the equity market segment adds to the composite. Euro area only."""
+        ...
+
+    @equity_market_contribution.setter
+    def equity_market_contribution(self, value: typing.Optional[float]) -> None:
+        ...
+
+    @property
+    def financial_intermediaries_contribution(self) -> typing.Optional[float]:
+        """
+        How much the financial intermediaries segment adds to the composite, the banks and
+        insurers whose stress spreads fastest to the real economy. Euro area only.
+        """
+        ...
+
+    @financial_intermediaries_contribution.setter
+    def financial_intermediaries_contribution(self, value: typing.Optional[float]) -> None:
+        ...
+
+    @property
+    def foreign_exchange_contribution(self) -> typing.Optional[float]:
+        """How much the foreign exchange segment adds to the composite. Euro area only."""
+        ...
+
+    @foreign_exchange_contribution.setter
+    def foreign_exchange_contribution(self, value: typing.Optional[float]) -> None:
+        ...
+
+    @property
+    def money_market_contribution(self) -> typing.Optional[float]:
+        """How much the money market segment adds to the composite. Euro area only."""
+        ...
+
+    @money_market_contribution.setter
+    def money_market_contribution(self, value: typing.Optional[float]) -> None:
+        ...
+
+    @property
+    def correlation_contribution(self) -> typing.Optional[float]:
+        """
+        How much of the composite comes from the segments moving together rather than from any
+        one of them. This is what separates a systemic episode from an isolated one, and it is
+        the term that turns negative when the segments are uncorrelated. Euro area only.
+        """
+        ...
+
+    @correlation_contribution.setter
+    def correlation_contribution(self, value: typing.Optional[float]) -> None:
+        ...
+
+    @property
+    def sovereign_stress_equal_weighted(self) -> typing.Optional[float]:
+        """
+        Euro area sovereign stress with every member country weighted equally, so a small
+        country in trouble shows up as loudly as a large one. Euro area only.
+        """
+        ...
+
+    @sovereign_stress_equal_weighted.setter
+    def sovereign_stress_equal_weighted(self, value: typing.Optional[float]) -> None:
+        ...
+
+    @property
+    def sovereign_stress_gdp_weighted(self) -> typing.Optional[float]:
+        """
+        Euro area sovereign stress weighted by the size of each economy, so it tracks the
+        large member states. Euro area only.
+        """
+        ...
+
+    @sovereign_stress_gdp_weighted.setter
+    def sovereign_stress_gdp_weighted(self, value: typing.Optional[float]) -> None:
+        ...
+
+    @property
+    def end_time(self) -> datetime.datetime:
+        """
+        The moment the ECB released this reading, which is when LEAN makes the data point
+        available. The index is daily but published in a weekly batch, so a reading waits
+        between one and seven days for the next release. The ECB introduced the index in 2012
+        and computed the earlier years with it, so every reading from before then carries the
+        day the series debuted rather than a date the index did not yet exist on.
+        See https://data.ecb.europa.eu/data/datasets/CISS
+        """
+        ...
+
+    @end_time.setter
+    def end_time(self, value: datetime.datetime) -> None:
+        ...
+
+    @overload
+    def __init__(self) -> None:
+        """Creates a new default instance."""
+        ...
+
+    @overload
+    def __init__(self, csv: typing.List[str]) -> None:
+        """
+        Creates a new instance from the columns of a row produced by the data processor.
+        
+        :param csv: Columns of the row: date, release stamp, then one per series
+        """
+        ...
+
+    def clone(self) -> QuantConnect.Data.BaseData:
+        """
+        Clones the instance.
+        
+        :returns: A clone of the instance.
+        """
+        ...
+
+    def data_time_zone(self) -> typing.Any:
+        """
+        Specifies the data time zone for this data type.
+        
+        :returns: The Frankfurt time zone the ECB publishes in.
+        """
+        ...
+
+    def default_resolution(self) -> QuantConnect.Resolution:
+        """
+        Gets the default resolution for this data and security type.
+        
+        :returns: Daily resolution.
+        """
+        ...
+
+    def get_source(self, config: QuantConnect.Data.SubscriptionDataConfig, date: datetime.datetime, is_live_mode: bool) -> QuantConnect.Data.SubscriptionDataSource:
+        """
+        Specifies the location of the data and directs LEAN where to load it from.
+        
+        :param config: Subscription configuration
+        :param date: Algorithm date
+        :param is_live_mode: Is live mode
+        :returns: Subscription data source pointing at this economy's file.
+        """
+        ...
+
+    def is_sparse_data(self) -> bool:
+        """
+        Indicates whether the data is sparse.
+        
+        :returns: True: one file per economy, and the index does not print every calendar day.
+        """
+        ...
+
+    def reader(self, config: QuantConnect.Data.SubscriptionDataConfig, line: str, date: datetime.datetime, is_live_mode: bool) -> QuantConnect.Data.BaseData:
+        """
+        Parses one line of the source file into a data point.
+        
+        :param config: Subscription configuration
+        :param line: Line of the source CSV
+        :param date: Date the request was made for
+        :param is_live_mode: Is live mode
+        :returns: Instance of the class with the parsed data.
+        """
+        ...
+
+    def requires_mapping(self) -> bool:
+        """
+        Indicates whether the data source can undergo rename proof standardization.
+        
+        :returns: False: the index is not tied to a tradable security.
+        """
+        ...
+
+    def supported_resolutions(self) -> typing.List[QuantConnect.Resolution]:
+        """
+        Gets the supported resolution for this data and security type.
+        
+        :returns: Daily resolution.
+        """
+        ...
+
+    def to_string(self) -> str:
+        """
+        Converts the instance to a string.
+        
+        :returns: A string containing the composite reading.
+        """
+        ...
+
+
+class ECBPolicyRates(QuantConnect.Data.BaseData):
+    """
+    The rates the European Central Bank sets for the euro area, alongside the overnight rate
+    the market actually trades at. The three policy rates form a corridor the ECB steers
+    liquidity within: the deposit facility is its floor, the marginal lending facility its
+    ceiling, and the main refinancing operations rate sits between them. The euro short-term
+    rate is where unsecured overnight borrowing settles inside that corridor, so the gap
+    between it and the deposit facility is a direct read on how loose funding conditions are.
+    
+    One row per weekday, from 1999, including the TARGET holidays the system closes on.
+    Weekends are dropped: an administered rate stays in force until the ECB changes it, so a
+    weekend row would only repeat the Friday. The euro short-term rate only exists on TARGET
+    business days and only from October 2019, so it is empty before then and on closures.
+    
+    One file for the euro area. Subscribe with
+    AddData<ECBPolicyRates>(ECB.PolicyRates.EuroArea).
+    """
+
+    @property
+    def main_refinancing_rate(self) -> typing.Optional[float]:
+        """
+        The main refinancing operations rate, the headline policy rate of the euro area and
+        the one quoted when the ECB is said to have raised or cut. This is also the data
+        point's Value.
+        """
+        ...
+
+    @main_refinancing_rate.setter
+    def main_refinancing_rate(self, value: typing.Optional[float]) -> None:
+        ...
+
+    @property
+    def deposit_facility_rate(self) -> typing.Optional[float]:
+        """
+        The deposit facility rate, paid on funds banks park at the ECB overnight. It is the
+        floor of the corridor and, since 2014, the rate that actually steers euro money
+        markets.
+        """
+        ...
+
+    @deposit_facility_rate.setter
+    def deposit_facility_rate(self, value: typing.Optional[float]) -> None:
+        ...
+
+    @property
+    def marginal_lending_rate(self) -> typing.Optional[float]:
+        """
+        The marginal lending facility rate, charged on overnight credit from the ECB against
+        collateral. It is the ceiling of the corridor.
+        """
+        ...
+
+    @marginal_lending_rate.setter
+    def marginal_lending_rate(self, value: typing.Optional[float]) -> None:
+        ...
+
+    @property
+    def euro_short_term_rate(self) -> typing.Optional[float]:
+        """
+        The euro short-term rate, the volume-weighted rate at which euro area banks borrow
+        unsecured overnight from financial counterparties. Unlike the three rates above it is
+        measured from real transactions rather than set by the ECB. Empty before October 2019
+        and on days the TARGET system is closed.
+        """
+        ...
+
+    @euro_short_term_rate.setter
+    def euro_short_term_rate(self, value: typing.Optional[float]) -> None:
+        ...
+
+    @property
+    def end_time(self) -> datetime.datetime:
+        """
+        The moment these rates became available, which is when LEAN makes the data point
+        available. The policy rates are known in advance, but the euro short-term rate for a
+        given day is only published at 08:00 Frankfurt time on the next TARGET business day,
+        so the row is not complete until then. A row that never carries one, which is every row
+        before October 2019 and every row inside a TARGET closure, is stamped at the next
+        weekday instead, unless the row before it is waiting on a later print: the stamps are
+        held at a running maximum so the column never steps backwards, which is why 25 December
+        2019 reads 27 December rather than 26.
+        
+        Rows around a TARGET closure can share a release. LEAN keeps one data point per symbol
+        per slice, so only the most recent of them arrives, and that is the row inside the
+        closure, whose overnight rate is empty. Check it against null rather than assuming the
+        reopening delivers the rate that printed that morning.
+        See https://www.ecb.europa.eu/stats/financial_markets_and_interest_rates/euro_short-term_rate/
+        """
+        ...
+
+    @end_time.setter
+    def end_time(self, value: datetime.datetime) -> None:
+        ...
+
+    @overload
+    def __init__(self) -> None:
+        """Creates a new default instance."""
+        ...
+
+    @overload
+    def __init__(self, csv: typing.List[str]) -> None:
+        """
+        Creates a new instance from the columns of a row produced by the data processor.
+        
+        :param csv: Columns of the row: date, release stamp, then one per rate
+        """
+        ...
+
+    def clone(self) -> QuantConnect.Data.BaseData:
+        """
+        Clones the instance.
+        
+        :returns: A clone of the instance.
+        """
+        ...
+
+    def data_time_zone(self) -> typing.Any:
+        """
+        Specifies the data time zone for this data type.
+        
+        :returns: The Frankfurt time zone the ECB publishes in.
+        """
+        ...
+
+    def default_resolution(self) -> QuantConnect.Resolution:
+        """
+        Gets the default resolution for this data and security type.
+        
+        :returns: Daily resolution.
+        """
+        ...
+
+    def get_source(self, config: QuantConnect.Data.SubscriptionDataConfig, date: datetime.datetime, is_live_mode: bool) -> QuantConnect.Data.SubscriptionDataSource:
+        """
+        Specifies the location of the data and directs LEAN where to load it from.
+        
+        :param config: Subscription configuration
+        :param date: Algorithm date
+        :param is_live_mode: Is live mode
+        :returns: Subscription data source pointing at the policy rates file.
+        """
+        ...
+
+    def is_sparse_data(self) -> bool:
+        """
+        Indicates whether the data is sparse.
+        
+        :returns: False: a single file holds every day of the history.
+        """
+        ...
+
+    def reader(self, config: QuantConnect.Data.SubscriptionDataConfig, line: str, date: datetime.datetime, is_live_mode: bool) -> QuantConnect.Data.BaseData:
+        """
+        Parses one line of the source file into a data point.
+        
+        :param config: Subscription configuration
+        :param line: Line of the source CSV
+        :param date: Date the request was made for
+        :param is_live_mode: Is live mode
+        :returns: Instance of the class with the parsed data.
+        """
+        ...
+
+    def requires_mapping(self) -> bool:
+        """
+        Indicates whether the data source can undergo rename proof standardization.
+        
+        :returns: False: the rates are not tied to a tradable security.
+        """
+        ...
+
+    def supported_resolutions(self) -> typing.List[QuantConnect.Resolution]:
+        """
+        Gets the supported resolution for this data and security type.
+        
+        :returns: Daily resolution.
+        """
+        ...
+
+    def to_string(self) -> str:
+        """
+        Converts the instance to a string.
+        
+        :returns: A string containing the corridor and the overnight rate.
+        """
+        ...
+
+
 class CryptoUniverse(QuantConnect.Data.UniverseSelection.BaseDataCollection):
     """Crypto Coarse Fundamental object for crpyto universe selection"""
 

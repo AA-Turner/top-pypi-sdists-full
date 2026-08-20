@@ -1,22 +1,15 @@
 [build-system]
 build-backend = "uv_build"
-requires = [
-    "uv-build>=0.11.8,<0.12.0",
-]
+requires = ["uv-build>=0.12.3,<0.13.0"]
 
 [project]
 name = "pyproject2conda"
-version = "0.23.1"
+version = "0.23.2"
 description = "A script to convert a Python project declared on a pyproject.toml to a conda environment."
 readme = "README.md"
-keywords = [
-    "pyproject2conda",
-]
+keywords = ["pyproject2conda"]
 license = "NIST-PD"
-license-files = [ "LICENSE" ]
-authors = [
-    { name = "William P. Krekelberg", email = "wpk@nist.gov" },
-]
+license-files = ["LICENSE"]
 requires-python = ">=3.10"
 classifiers = [
     "Development Status :: 2 - Pre-Alpha",
@@ -35,9 +28,13 @@ dependencies = [
     "packaging>=26.1",
     "pydantic>=2.12.5",
     "tomli; python_version<'3.11'",
-    "typer",
+    "typer>=0.26.2",
     "typing-extensions; python_version<'3.12'",
 ]
+
+[[project.authors]]
+name = "William P. Krekelberg"
+email = "wpk@nist.gov"
 
 [project.scripts]
 p2c = "pyproject2conda.cli:app"
@@ -48,40 +45,22 @@ Documentation = "https://pages.nist.gov/pyproject2conda/"
 Homepage = "https://github.com/usnistgov/pyproject2conda"
 
 [dependency-groups]
-dev = [
-    { include-group = "cog" },
-    { include-group = "mypy" },
-    { include-group = "nox" },
-    { include-group = "pytest-accept" },
-    { include-group = "test" },
-    { include-group = "type" },
-]
 test = [
     "pytest-cov",
     "pytest-sugar",
     "pytest-xdist",
     { include-group = "pytest" },
 ]
-type = [
-    "types-click",
-    { include-group = "nox" },
-    { include-group = "pylint" },
-    { include-group = "pytest" },
-    { include-group = "typecheck-runner" },
-]
 docs = [
     "autodocsumm",
     "myst-parser",
     "sphinx>=5.3.0",
-    # other
     "sphinx-autodoc-typehints",
     "sphinx-book-theme",
-    "sphinx-click",
     "sphinx-copybutton",
+    "sphinxcontrib-typer",
 ]
-# other groups
-basedpyright = [ "basedpyright>=1.39.3" ]
-cog = [ "cogapp" ]
+basedpyright = ["basedpyright>=1.39.9"]
 docs-live = [
     "sphinx-autobuild",
     { include-group = "docs" },
@@ -91,55 +70,171 @@ docs-spelling = [
     "sphinxcontrib-spelling",
     { include-group = "docs" },
 ]
-ipython = [ "ipython" ]
-mypy = [ "mypy[faster-cache]>=1.20.2" ]
-nox = [ "nox>=2026.4.10" ]
-pylint = [ "pylint" ]
-pytest = [ "pytest" ]
-pytest-accept = [ "pytest-accept" ]
-test-extras = [
-    { include-group = "test" },
-]
-typecheck-runner = [ "typecheck-runner>=0.2.0; python_version>'3.9'" ]
+ipython = ["ipython"]
+mypy = ["mypy[faster-cache]>=2.3.0"]
+nox = ["nox>=2026.8.10"]
+pylint = ["pylint"]
+pytest = ["pytest"]
+pytest-accept = ["pytest-accept"]
+typecheck-runner = ["typecheck-runner>=0.2.0; python_version>'3.9'"]
 
-# * uv -------------------------------------------------------------------------
+[[dependency-groups.dev]]
+include-group = "mypy"
+
+[[dependency-groups.dev]]
+include-group = "nox"
+
+[[dependency-groups.dev]]
+include-group = "pytest-accept"
+
+[[dependency-groups.dev]]
+include-group = "test"
+
+[[dependency-groups.dev]]
+include-group = "type"
+
+[[dependency-groups.type]]
+include-group = "nox"
+
+[[dependency-groups.type]]
+include-group = "pylint"
+
+[[dependency-groups.type]]
+include-group = "pytest"
+
+[[dependency-groups.type]]
+include-group = "typecheck-runner"
+
+[[dependency-groups.test-extras]]
+include-group = "test"
+
 [tool.uv]
 required-version = ">=0.11.8"
-default-groups = [ "dev" ]
+default-groups = ["dev"]
 fork-strategy = "requires-python"
 exclude-newer = "7 days"
 managed = true
-build-backend.source-include = [ "tests/**" ]
-pip.annotation-style = "line"
-pip.generate-hashes = true
 
-[tool.uv.dependency-groups]
-dev.requires-python = ">=3.14"
-docs.requires-python = ">=3.14"
-docs-live.requires-python = ">=3.14"
-docs-spelling.requires-python = ">=3.14"
-# other tools
-cog.requires-python = ">=3.14"
-ipython.requires-python = ">=3.14"
-mypy.requires-python = ">=3.14"
-nox.requires-python = ">=3.14"
+[tool.uv.build-backend]
+source-exclude = [".*cache"]
+source-include = ["tests/**"]
 
-# * Checks ---------------------------------------------------------------------
+[tool.uv.pip]
+annotation-style = "line"
+generate-hashes = true
+
+[tool.uv.dependency-groups.dev]
+requires-python = ">=3.14"
+
+[tool.uv.dependency-groups.docs]
+requires-python = ">=3.14"
+
+[tool.uv.dependency-groups.docs-live]
+requires-python = ">=3.14"
+
+[tool.uv.dependency-groups.docs-spelling]
+requires-python = ">=3.14"
+
+[tool.uv.dependency-groups.ipython]
+requires-python = ">=3.14"
+
+[tool.uv.dependency-groups.mypy]
+requires-python = ">=3.14"
+
+[tool.uv.dependency-groups.nox]
+requires-python = ">=3.14"
+
+[tool.ruff]
+extend-include = ["*.ipynb"]
+extend-exclude = [
+    "**vendored",
+    ".numba_cache",
+    ".venv",
+    "dist-conda",
+]
+fix = true
+unsafe-fixes = true
+
+[tool.ruff.format]
+docstring-code-format = true
+preview = true
+
+[tool.ruff.lint]
+preview = true
+select = ["ALL"]
+unfixable = [
+    "PLR6104",
+    "ERA",
+    "T",
+]
+ignore = [
+    "ANN401",
+    "COM",
+    "CPY",
+    "D105",
+    "D107",
+    "D203",
+    "D205",
+    "D212",
+    "D400",
+    "D401",
+    "DOC201",
+    "DOC501",
+    "E501",
+    "E731",
+    "FBT",
+    "PLC0415",
+    "S404",
+    "S603",
+    "S607",
+    "TID252",
+]
+
+[tool.ruff.lint.isort]
+known-first-party = ["pyproject2conda"]
+
+[tool.ruff.lint.pydocstyle]
+convention = "numpy"
+
+[tool.ruff.lint.pylint]
+max-args = 15
+max-positional-args = 15
+max-public-methods = 30
+
+[tool.ruff.lint.ruff]
+strictly-empty-init-modules = false
+
+[tool.ruff.lint.flake8-type-checking]
+runtime-evaluated-base-classes = ["pydantic.BaseModel"]
+
+[tool.ruff.lint.per-file-ignores]
+"src/**" = [
+    "NPY",
+    "PD",
+]
+"tests/**" = [
+    "D",
+    "S101",
+    "ANN",
+    "PLC2701",
+]
+
 [tool.repo-review]
 ignore = [
-    "NOX103", # I prefer using "nox.options.sessions"
-    "PC111",  # use doccmd instead of blacken-docs
-    "PC140",  # do this externally
-    "PC160",  # use typos
-    "PC170",  # pygrep
+    "NOX103",
+    "PC111",
+    "PC140",
+    "PC160",
+    "PC170",
 ]
 
 [tool.check-wheel-contents]
-src_dir = [ "src" ]
-toplevel = [ "pyproject2conda" ]
+src_dir = ["src"]
+toplevel = ["pyproject2conda"]
 
 [tool.pyproject-fmt]
-# max_supported_python = "3.13"
+indent = 4
+keep_full_version = true
 expand_tables = [
     "project.entry-points",
     "project.optional-dependencies",
@@ -149,49 +244,55 @@ expand_tables = [
     "tool.pyproject2conda",
     "tool.pyright.executionEnvironments",
     "tool.pytest",
+    "tool.ruff.format",
+    "tool.ruff.lint",
+    "tool.ruff.lint.per-file-ignores",
+    "tool.ty.overrides",
     "tool.typos",
     "tool.uv.dependency-groups",
+    "tool.uv.exclude-newer-package",
 ]
-indent = 4
-keep_full_version = true
 
 [tool.typos.default.extend-identifiers]
 CPY = "CPY"
 
-# * typecheck ---------------------------------------------------------------------
 [tool.mypy]
 files = [
+    "noxfile.py",
     "src",
     "tests",
-    # tools
-    "noxfile.py",
     "tools",
 ]
-strict = true
-# options
 check_untyped_defs = true
+warn_unused_ignores = true
+warn_return_any = true
+warn_unreachable = true
 enable_error_code = [
     "ignore-without-code",
     "redundant-expr",
     "truthy-bool",
 ]
-warn_return_any = true
-warn_unreachable = true
+strict = true
 warn_unused_configs = true
-warn_unused_ignores = true
 
 [tool.pyrefly]
-enabled-ignores = [ "pyrefly" ]
+enabled-ignores = ["pyrefly"]
 project-includes = [
+    "noxfile.py",
     "src",
     "tests",
-    # tools
-    "noxfile.py",
     "tools",
 ]
-search-path = [ "." ]
+search-path = ["."]
 
 [tool.pyright]
+typeCheckingMode = "strict"
+include = [
+    "noxfile.py",
+    "src",
+    "tests",
+    "tools",
+]
 exclude = [
     "**/.mypy_cache",
     "**/.mypy_cache",
@@ -203,28 +304,15 @@ exclude = [
     ".tox/**",
     ".venv/**",
 ]
-include = [
-    "src",
-    "tests",
-    # tools
-    "noxfile.py",
-    "tools",
-]
-strict = [
-    "noxfile.py",
-    "src",
-    "tools/*.py",
-]
-typeCheckingMode = "standard"
-# options
-# reportMissingSuperCall = true
-deprecateTypingAliases = true
-enableReachabilityAnalysis = false
 enableTypeIgnoreComments = false
+deprecateTypingAliases = true
 reportCallInDefaultInitializer = true
 reportImplicitOverride = true
+reportImplicitStringConcatenation = false
 reportImportCycles = true
 reportOverlappingOverload = true
+reportPrivateImportUsage = false
+reportPrivateUsage = false
 reportPropertyTypeMismatch = true
 reportUninitializedInstanceVariable = true
 reportUnnecessaryTypeIgnoreComment = true
@@ -232,32 +320,30 @@ reportUnreachable = "warning"
 reportUntypedClassDecorator = true
 reportUntypedFunctionDecorator = true
 reportUnusedCallResult = true
-# type-checkers should type-check; linters should lint
-reportImplicitStringConcatenation = false
-reportPrivateImportUsage = false
-reportPrivateUsage = false
 reportUnusedImport = false
 reportUnusedVariable = false
+enableReachabilityAnalysis = false
 
 [[tool.pyright.executionEnvironments]]
 root = "tests"
-# reportCallIssue = false
-# reportArgumentType = false
-# reportMissingImports = false
 reportUnusedCallResult = false
+reportMissingParameterType = false
+reportUnknownParameterType = false
+reportUnknownMemberType = false
+reportUnknownArgumentType = false
+reportUnknownVariableType = false
 
-[tool.ty]
-# Disable support for `type: ignore` comments
-analysis.respect-type-ignore-comments = false
-src.include = [
+[tool.ty.src]
+include = [
+    "noxfile.py",
     "src",
     "tests",
-    # tools
-    "noxfile.py",
     "tools",
 ]
 
-# * Testing --------------------------------------------------------------------
+[tool.ty.analysis]
+respect-type-ignore-comments = false
+
 [tool.pytest.ini_options]
 addopts = [
     "--cov-config=pyproject.toml",
@@ -273,40 +359,40 @@ testpaths = [
     "pyproject2conda",
     "tests",
 ]
-# options
-filterwarnings = [ "error" ]
+filterwarnings = ["error"]
 log_cli_level = "INFO"
 log_level = "INFO"
 minversion = "8"
 strict_xfail = "true"
 
-[tool.coverage]
-run.branch = true
-run.source = [
-    "pyproject2conda",
-]
-paths.source = [
+[tool.coverage.run]
+branch = true
+source = ["pyproject2conda"]
+
+[tool.coverage.paths]
+source = [
     "src/",
-    # needed for testing source if not editable install
     ".nox/**/site-packages/",
     "*/.nox/**/site-packages",
     "*/src",
 ]
-report.exclude_also = [
+
+[tool.coverage.report]
+exclude_also = [
     "@overload",
     "if TYPE_CHECKING:",
 ]
-report.include = [
-    "src/*",
-]
-report.omit = [
+include = ["src/*"]
+omit = [
     "*/__main__.py",
     "*/_typing.py",
     "*/vendored/*",
 ]
-report.show_missing = true
+show_missing = true
 
-# * Dependency creation --------------------------------------------------------
+[tool.commitizen]
+use_shortcuts = true
+
 [tool.pyproject2conda]
 template-python = "requirements/py{py}-{env}"
 template = "requirements/{env}"
@@ -314,10 +400,10 @@ name = "py{py}-{env}"
 python = "default"
 channels = "conda-forge"
 style = "yaml"
-deps = [ "pip" ]
+conda-deps = "pip"
 
-[tool.pyproject2conda.dependencies]
-pytest-accept = { pip = true }
+[tool.pyproject2conda.dependencies.pytest-accept]
+pip = true
 
 [tool.pyproject2conda.envs.dev]
 groups = "dev"
@@ -332,22 +418,20 @@ python = "all"
 skip-package = true
 
 [tool.pyproject2conda.envs.uvx-tools]
-reqs = [
-    # these used solely for specking tools to be run via uvx ...
-    "conda-lock>=4.0.0",
+pip-deps = [
+    "conda-lock>=4.0.2",
     "copier-template-extensions>=0.3.3",
-    "copier>=9.14.3",
-    "grayskull>=3.1.0",
-    "prek>=0.3.11",
-    "pyrefly>=0.62.0",
-    "pyright>=1.1.409",
+    "copier>=9.17.1",
+    "grayskull>=3.1.1",
+    "prek>=0.4.13",
+    "pyrefly>=1.2.0",
+    "pyright>=1.1.411",
     "rooster>=0.1.1",
-    "twine>=6.2.0",
-    "ty>=0.0.32",
+    "twine>=7.0.0",
+    "ty>=0.0.70",
 ]
 groups = [
     "basedpyright",
-    "cog",
     "mypy",
     "nox",
     "typecheck-runner",
@@ -355,25 +439,44 @@ groups = [
 skip-package = true
 style = "requirements"
 
-# * Other tools ----------------------------------------------------------------
-[tool.commitizen]
-use_shortcuts = true
+[tool.uv-locker]
+scripts = [
+    "noxfile.py",
+    "tools/check_dist_version.py",
+    "tools/cog_runner.py",
+]
+
+[[tool.uv-locker.requirements]]
+path = "requirements/uvx-tools.txt"
+output-file = "requirements/lock/uvx-tools.txt"
+python = "min"
+options = [
+    "--no-deps",
+    "--no-strip-extras",
+    "--universal",
+]
 
 [tool.rooster]
 changelog_contributors = true
-major-labels = [ "breaking" ]
-minor_labels = [ "enhancement" ]
-patch-labels = [ "bug", "documentation" ]
-# options
-ignore-labels = [ "internal" ]
-require-labels = [ "breaking", "bug", "documentation", "enhancement" ]
-version_files = [
-    "pyproject.toml",
+major-labels = ["breaking"]
+minor_labels = ["enhancement"]
+patch-labels = [
+    "bug",
+    "documentation",
 ]
-# sections
-section-labels."Breaking changes" = [ "breaking" ]
-section-labels."Bug fixes" = [ "bug" ]
-section-labels.Documentation = [ "documentation" ]
-section-labels.Enhancements = [ "enhancement" ]
-section-labels.Internal = [ "internal" ]
-section-labels."Other changes" = [ "__unknown__" ]
+ignore-labels = ["internal"]
+require-labels = [
+    "breaking",
+    "bug",
+    "documentation",
+    "enhancement",
+]
+version_files = ["pyproject.toml"]
+
+[tool.rooster.section-labels]
+"Breaking changes" = ["breaking"]
+"Bug fixes" = ["bug"]
+Documentation = ["documentation"]
+Enhancements = ["enhancement"]
+Internal = ["internal"]
+"Other changes" = ["__unknown__"]

@@ -156,6 +156,9 @@ def _draw_regions(ax, df_comb, merge_col, name_col, series, dict_lup, use_key,
             ax.add_feature(region_feature, linewidth=lw)
 
             if annotate_regions or annotate_values:
+                # NOTE: the county-scale suppression is applied by the caller
+                # (plot_map passes an already-resolved annotate_regions), and
+                # annotate_values is resolved with it — see plot_map.
                 lon, lat = region["geometry"].centroid.x, region["geometry"].centroid.y
                 # Transform lat/lon centroid into the axes projection so labels
                 # land correctly under any projection (identity for PlateCarree,
@@ -567,8 +570,12 @@ def _plot_map_pygmt(
         "projection": _gmt_projection_for(name_country),
         "title": title or "", "label": label or "",
         "do_borders": bool(do_borders),
+        # `or annotate_values` here would BYPASS the suppression entirely:
+        # diagnostics.mape_choropleth / metric_choropleth hardcode
+        # annotate_values=True, so every county map would still be labelled.
+        # Suppress the whole annotation at county scale, not just the name.
         "annotate": bool(
-            (effective_annotate_regions(annotate_regions, len(gdf)) or annotate_values)
+            effective_annotate_regions(annotate_regions or annotate_values, len(gdf))
             and "_label" in gdf.columns
         ),
         # Draw admin_1 (state/province) boundaries so individual units are
@@ -712,11 +719,14 @@ def plot_map(
     )
     # Same rule as the pygmt backend: per-region name labels are unreadable
     # once there are more polygons than _ANNOTATE_MAX_REGIONS (county scale).
+    _keep_labels = effective_annotate_regions(
+        annotate_regions or annotate_values, len(df_comb)
+    )
     _draw_regions(
         ax, df_comb, merge_col, name_col, series, dict_lup, use_key,
         cmap, norm, alpha_feature, do_borders,
-        effective_annotate_regions(annotate_regions, len(df_comb)),
-        annotate_region_column, annotate_values, value_fmt,
+        annotate_regions and _keep_labels,
+        annotate_region_column, annotate_values and _keep_labels, value_fmt,
     )
 
     if title:

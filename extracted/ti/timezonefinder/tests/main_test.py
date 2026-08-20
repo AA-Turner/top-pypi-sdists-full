@@ -1,7 +1,6 @@
 from importlib.util import find_spec
 import warnings
 
-import numpy as np
 import pytest
 
 from scripts.configs import THRES_DTYPE_H
@@ -12,10 +11,14 @@ from tests.auxiliaries import (
     validate_polygon_coordinates,
 )
 from tests.global_functions_test import single_location_test
-from tests.locations import BASIC_TEST_LOCATIONS, EDGE_TEST_CASES, TEST_LOCATIONS
+from tests.locations import (
+    BASIC_TEST_LOCATIONS,
+    EDGE_TEST_CASES,
+    OUT_OF_RANGE_COORDINATES,
+    TEST_LOCATIONS,
+)
 from timezonefinder.configs import (
     DEFAULT_DATA_DIR,
-    INT2COORD_FACTOR,
 )
 from timezonefinder.zone_names import read_zone_names
 from timezonefinder.timezonefinder import (
@@ -44,6 +47,8 @@ class TestBaseTimezoneFinderClass:
     bin_file_dir = None
     on_land_pt_fct_name = "timezone_at"
     test_locations = BASIC_TEST_LOCATIONS
+    # the lookup methods this class exposes that take lng/lat keyword-only
+    keyword_only_methods = ("timezone_at", "timezone_at_land")
 
     @pytest.fixture(scope="class", autouse=True)
     def _init_test_instance(
@@ -100,29 +105,24 @@ class TestBaseTimezoneFinderClass:
         for lng, lat, _expected in EDGE_TEST_CASES:
             self.check_timezone_at_results(lng, lat)
 
+    @pytest.mark.parametrize("lng, lat", OUT_OF_RANGE_COORDINATES)
+    def test_out_of_range_coordinates_rejected(self, lng, lat):
+        """One test case per coordinate: sharing a ``pytest.raises`` block would
+        leave it at the first coordinate to raise and never reach the others."""
         with pytest.raises(ValueError):
-            self.check_timezone_at_results(lng=180.0 + INT2COORD_FACTOR, lat=90.0)
-            self.check_timezone_at_results(
-                lng=-180.0 - INT2COORD_FACTOR, lat=90.0 + INT2COORD_FACTOR
-            )
-            self.check_timezone_at_results(lng=-180.0, lat=90.0 + INT2COORD_FACTOR)
-            self.check_timezone_at_results(lng=180.0 + INT2COORD_FACTOR, lat=-90.0)
-            self.check_timezone_at_results(lng=180.0, lat=-90.0 - INT2COORD_FACTOR)
-            self.check_timezone_at_results(lng=-180.0 - INT2COORD_FACTOR, lat=-90.0)
-            self.check_timezone_at_results(
-                lng=-180.0 - INT2COORD_FACTOR, lat=-90.01 - INT2COORD_FACTOR
-            )
+            self.test_instance.timezone_at(lng=lng, lat=lat)
 
-    def test_kwargs_only(self):
-        # calling timezonefinder fcts without keyword arguments should raise an error
+    def test_kwargs_only(self, method_name):
+        """lng/lat are keyword-only, so every positional call shape must be
+        rejected - each in its own ``pytest.raises`` block, since the first one
+        to raise ends the block."""
+        method = getattr(self.test_instance, method_name)
         with pytest.raises(TypeError):
-            self.test_instance.timezone_at(23.0, 42.0)
-            self.test_instance.timezone_at(23.0, lng=42.0)
-            self.test_instance.timezone_at(23.0, lat=42.0)
-
-            self.test_instance.timezone_at_land(23.0, 42.0)
-            self.test_instance.timezone_at_land(23.0, lng=42.0)
-            self.test_instance.timezone_at_land(23.0, lat=42.0)
+            method(23.0, 42.0)
+        with pytest.raises(TypeError):
+            method(23.0, lng=42.0)
+        with pytest.raises(TypeError):
+            method(23.0, lat=42.0)
 
     @staticmethod
     def run_location_tests(test_fct, lat, lng, loc, expected_orig):
@@ -139,6 +139,8 @@ class TestBaseTimezoneFinderClass:
             )
         elif metafunc.function.__name__ == "test_unambiguous_timezone_at":
             metafunc.parametrize("lat, lng, loc, expected", BASIC_TEST_LOCATIONS)
+        elif metafunc.function.__name__ == "test_kwargs_only":
+            metafunc.parametrize("method_name", cls.keyword_only_methods)
 
     def test_timezone_at(self, lat, lng, loc, expected):
         self.run_location_tests(self.test_instance.timezone_at, lat, lng, loc, expected)
@@ -180,20 +182,32 @@ class TestTimezonefinderClass(TestBaseTimezoneFinderClass):
     class_under_test = TimezoneFinder
     on_land_pt_fct_name = "timezone_at_land"
     test_locations = TEST_LOCATIONS
-
-    def test_kwargs_only(self):
-        super().test_kwargs_only()
-
-        with pytest.raises(TypeError):
-            self.test_instance.certain_timezone_at(23.0, 42.0)
-            self.test_instance.certain_timezone_at(23.0, lng=42.0)
-            self.test_instance.certain_timezone_at(23.0, lat=42.0)
+    keyword_only_methods = (
+        *TestBaseTimezoneFinderClass.keyword_only_methods,
+        "certain_timezone_at",
+    )
 
     def test_nr_of_polygons(self):
         res = self.test_instance.nr_of_polygons
         assert isinstance(res, int)
         assert res > 0
         assert res < THRES_DTYPE_H
+
+    @pytest.mark.unit
+    def test_packaged_coordinate_layout(self):
+        """Every packaged polygon must decode to longitudes in row 0, latitudes in row 1.
+
+        Coordinates are stored one axis at a time; reading a file written in the old
+        interleaved layout produces a correctly shaped array of nonsense, which the
+        range checks below catch. Deliberately not marked ``slow``: a stale or
+        unmigrated ``coordinates.bin`` should fail in ``make test``, and sweeping the
+        whole dataset without the per-polygon printing below costs well under a second.
+        """
+        for polygons in (self.test_instance.boundaries, self.test_instance.holes):
+            for poly_id in range(len(polygons)):
+                coords = polygons.coords_of(poly_id)
+                assert coords.flags["C_CONTIGUOUS"]
+                validate_polygon_coordinates(coords)
 
     # test if all polygon coordinates can be retrieved
     # NOTE: too many polygons, so this test is not parametrized
@@ -239,16 +253,12 @@ class TestTimezonefinderClass(TestBaseTimezoneFinderClass):
         ):
             metafunc.parametrize("lat, lng, loc, expected", cls.test_locations)
 
+    @pytest.mark.usefixtures("strict_numpy_warnings")
     def test_overflow(self):
         longitude = -123.2
         latitude = 48.4
-        # make numpy overflow runtime warning raise an error
-
-        np.seterr(all="warn")
-        import warnings
-
-        warnings.filterwarnings("error")
-        # must not raise a warning
+        # the fixture promotes numpy overflow warnings to errors: this lookup
+        # must complete without raising one
         self.test_instance.certain_timezone_at(
             lat=float(latitude), lng=float(longitude)
         )
@@ -293,28 +303,29 @@ class TestTimezonefinderClass(TestBaseTimezoneFinderClass):
         check_pairwise_geometry(geometry_from_id)
         check_pairwise_geometry(geometry_from_name)
 
-    def test_get_geometry_error_handling(self):
-        """Test error handling for get_geometry() with invalid inputs"""
+    # with use_id=False the zone is looked up by name and tz_id is irrelevant,
+    # so an unknown name must be rejected whether or not an id accompanies it
+    @pytest.mark.parametrize("tz_id", [None, 0])
+    @pytest.mark.parametrize("tz_name", ["", "wrong_tz_name"])
+    def test_get_geometry_rejects_unknown_zone_name(self, tz_name, tz_id):
+        with pytest.raises(ValueError):
+            self.test_instance.get_geometry(
+                tz_name=tz_name, tz_id=tz_id, use_id=False, coords_as_pairs=False
+            )
+
+    def test_get_geometry_rejects_zone_id_past_the_last_zone(self):
         nr_timezones = len(self.test_instance.timezone_names)
         with pytest.raises(ValueError):
             self.test_instance.get_geometry(
-                tz_name="", tz_id=None, use_id=False, coords_as_pairs=False
-            )
-            self.test_instance.get_geometry(
-                tz_name="", tz_id=0, use_id=False, coords_as_pairs=False
-            )
-            self.test_instance.get_geometry(
-                tz_name="wrong_tz_name", tz_id=None, use_id=False, coords_as_pairs=False
-            )
-            self.test_instance.get_geometry(
-                tz_name="wrong_tz_name", tz_id=0, use_id=False, coords_as_pairs=False
-            )
-            # id does not exist
-            self.test_instance.get_geometry(
                 tz_name=None, tz_id=nr_timezones, use_id=True, coords_as_pairs=False
             )
+
+    def test_get_geometry_rejects_negative_zone_id(self):
+        """A negative id is a valid Python index into the zone list, so the range
+        check has to reject it rather than relying on the lookup to fail."""
+        with pytest.raises(ValueError):
             self.test_instance.get_geometry(
-                tz_name="", tz_id=-1, use_id=True, coords_as_pairs=False
+                tz_name=None, tz_id=-1, use_id=True, coords_as_pairs=False
             )
 
     def test_get_geometry_invalid_timezone_error_message(self):
@@ -337,171 +348,71 @@ class TestTimezonefinderClassTestMEM(TestTimezonefinderClass):
 
 @pytest.mark.unit
 class TestTimezonefinderCleanup:
-    """Test cleanup behavior and exception handling in __del__"""
+    """Test cleanup behavior and exception handling in ``__del__``."""
+
+    # Must match the `except` tuple in `TimezoneFinder.__del__`: these are the
+    # errors a not-fully-initialised or already-cleaned-up resource raises, and
+    # they are swallowed. Adding one there without adding it here leaves the new
+    # exception untested.
+    SUPPRESSED_ERRORS = (AttributeError, FileNotFoundError, OSError, ValueError)
+    # Everything else must reach the caller as a ResourceWarning instead.
+    WARNED_ERRORS = (RuntimeError, TypeError)
+
+    @staticmethod
+    def _finder_failing_cleanup(error: Exception) -> TimezoneFinder:
+        """Return a finder whose ``cleanup()`` raises ``error``."""
+
+        class FailingCleanupTimezoneFinder(TimezoneFinder):
+            # bound as a default argument, not captured from the enclosing
+            # scope: the instance is collected (re-entering __del__) after this
+            # call has returned, and a closure would raise whatever the name
+            # refers to by then
+            def cleanup(self, error=error):
+                raise error
+
+        return FailingCleanupTimezoneFinder()
+
+    @staticmethod
+    def _resource_warnings_of_del(tf: TimezoneFinder) -> list:
+        """Call ``__del__`` and return only the ResourceWarnings it emitted."""
+        with warnings.catch_warnings(record=True) as recorded:
+            warnings.simplefilter("always")
+            tf.__del__()
+            return [w for w in recorded if issubclass(w.category, ResourceWarning)]
 
     def test_cleanup_no_error(self):
-        """Test that cleanup in __del__ succeeds when no errors occur"""
-        tf = TimezoneFinder()
-        # Cleanup should not raise any warnings
-        with warnings.catch_warnings(record=True) as w:
-            warnings.simplefilter("always")
-            tf.__del__()
-            # No warnings should be emitted for successful cleanup
-            # Filter out unrelated warnings
-            resource_warnings = [
-                x for x in w if issubclass(x.category, ResourceWarning)
-            ]
-            assert len(resource_warnings) == 0
+        """A cleanup that succeeds emits no ResourceWarning."""
+        assert self._resource_warnings_of_del(TimezoneFinder()) == []
 
-    def test_cleanup_attribute_error_suppressed(self):
-        """Test that AttributeError during cleanup is silently suppressed"""
+    @pytest.mark.parametrize("error_type", SUPPRESSED_ERRORS)
+    def test_expected_cleanup_error_is_suppressed(self, error_type):
+        tf = self._finder_failing_cleanup(error_type("expected during cleanup"))
+        assert self._resource_warnings_of_del(tf) == []
 
-        # Create a subclass where we can override cleanup to raise AttributeError
-        class TestTimezoneFinder(TimezoneFinder):
-            def cleanup(self):
-                raise AttributeError("missing attribute")
+    @pytest.mark.parametrize("error_type", WARNED_ERRORS)
+    def test_unexpected_cleanup_error_warns(self, error_type):
+        tf = self._finder_failing_cleanup(error_type("unexpected during cleanup"))
+        assert len(self._resource_warnings_of_del(tf)) == 1
 
-        tf = TestTimezoneFinder()
-        # Should not raise or warn
-        with warnings.catch_warnings(record=True) as w:
-            warnings.simplefilter("always")
-            # This should not raise an exception
-            tf.__del__()
-            # No ResourceWarning should be emitted for expected error
-            resource_warnings = [
-                x for x in w if issubclass(x.category, ResourceWarning)
-            ]
-            assert len(resource_warnings) == 0
-
-    def test_cleanup_file_not_found_error_suppressed(self):
-        """Test that FileNotFoundError during cleanup is silently suppressed"""
-
-        class TestTimezoneFinder(TimezoneFinder):
-            def cleanup(self):
-                raise FileNotFoundError("file not found")
-
-        tf = TestTimezoneFinder()
-        with warnings.catch_warnings(record=True) as w:
-            warnings.simplefilter("always")
-            tf.__del__()
-            resource_warnings = [
-                x for x in w if issubclass(x.category, ResourceWarning)
-            ]
-            assert len(resource_warnings) == 0
-
-    def test_cleanup_os_error_suppressed(self):
-        """Test that OSError during cleanup is silently suppressed"""
-
-        class TestTimezoneFinder(TimezoneFinder):
-            def cleanup(self):
-                raise OSError("OS error")
-
-        tf = TestTimezoneFinder()
-        with warnings.catch_warnings(record=True) as w:
-            warnings.simplefilter("always")
-            tf.__del__()
-            resource_warnings = [
-                x for x in w if issubclass(x.category, ResourceWarning)
-            ]
-            assert len(resource_warnings) == 0
-
-    def test_cleanup_value_error_suppressed(self):
-        """Test that ValueError during cleanup is silently suppressed"""
-
-        class TestTimezoneFinder(TimezoneFinder):
-            def cleanup(self):
-                raise ValueError("invalid value")
-
-        tf = TestTimezoneFinder()
-        with warnings.catch_warnings(record=True) as w:
-            warnings.simplefilter("always")
-            tf.__del__()
-            resource_warnings = [
-                x for x in w if issubclass(x.category, ResourceWarning)
-            ]
-            assert len(resource_warnings) == 0
-
-    def test_cleanup_unexpected_error_warned(self):
-        """Test that unexpected errors during cleanup emit a ResourceWarning"""
-
-        class TestTimezoneFinder(TimezoneFinder):
-            def cleanup(self):
-                raise RuntimeError("unexpected error")
-
-        tf = TestTimezoneFinder()
-        with warnings.catch_warnings(record=True) as w:
-            warnings.simplefilter("always")
-            tf.__del__()
-            # Should emit exactly one ResourceWarning
-            resource_warnings = [
-                x for x in w if issubclass(x.category, ResourceWarning)
-            ]
-            assert len(resource_warnings) == 1
-            assert "Error during TimezoneFinder cleanup" in str(
-                resource_warnings[0].message
-            )
-            assert "unexpected error" in str(resource_warnings[0].message)
-
-    def test_cleanup_warning_includes_error_message(self):
-        """Test that ResourceWarning includes the error message for debugging"""
+    def test_cleanup_warning_names_the_cause(self):
+        """The ResourceWarning has to be debuggable from its text alone."""
         error_msg = "specific error details"
+        recorded = self._resource_warnings_of_del(
+            self._finder_failing_cleanup(RuntimeError(error_msg))
+        )
+        assert len(recorded) == 1
+        warning_text = str(recorded[0].message)
+        assert "Error during TimezoneFinder cleanup" in warning_text
+        assert error_msg in warning_text
 
-        class TestTimezoneFinder(TimezoneFinder):
-            def cleanup(self):
-                raise RuntimeError(error_msg)
-
-        tf = TestTimezoneFinder()
-        with warnings.catch_warnings(record=True) as w:
-            warnings.simplefilter("always")
+    @pytest.mark.parametrize("error_type", SUPPRESSED_ERRORS + WARNED_ERRORS)
+    def test_cleanup_does_not_raise_to_user(self, error_type):
+        """``__del__`` never raises to user code, whichever error cleanup hits."""
+        tf = self._finder_failing_cleanup(error_type("error during cleanup"))
+        try:
             tf.__del__()
-            resource_warnings = [
-                x for x in w if issubclass(x.category, ResourceWarning)
-            ]
-            assert len(resource_warnings) == 1
-            warning_text = str(resource_warnings[0].message)
-            assert error_msg in warning_text
-
-    def test_cleanup_type_error_warned(self):
-        """Test that TypeError during cleanup emits a ResourceWarning"""
-
-        class TestTimezoneFinder(TimezoneFinder):
-            def cleanup(self):
-                raise TypeError("type mismatch")
-
-        tf = TestTimezoneFinder()
-        with warnings.catch_warnings(record=True) as w:
-            warnings.simplefilter("always")
-            tf.__del__()
-            resource_warnings = [
-                x for x in w if issubclass(x.category, ResourceWarning)
-            ]
-            assert len(resource_warnings) == 1
-
-    def test_cleanup_does_not_raise_to_user(self):
-        """Test that __del__ never raises exceptions to user code"""
-        errors = [
-            AttributeError("attr error"),
-            FileNotFoundError("file error"),
-            RuntimeError("runtime error"),
-            ValueError("value error"),
-        ]
-
-        for error in errors:
-            error_type = type(error).__name__
-
-            class TestTimezoneFinder(TimezoneFinder):
-                def cleanup(self):
-                    raise error
-
-            tf = TestTimezoneFinder()
-            # This should never raise an exception
-            try:
-                tf.__del__()
-            except Exception as e:
-                pytest.fail(
-                    f"__del__ raised {type(e).__name__} when cleanup raised {error_type}: {e}"
-                )
-
-
-# TEST equality for all results. in_memory_mode = True/False must not change the results
-# TEST equality for all results. in_memory_mode = True/False must not change the results
+        except Exception as e:
+            pytest.fail(
+                f"__del__ raised {type(e).__name__} when cleanup raised "
+                f"{error_type.__name__}: {e}"
+            )

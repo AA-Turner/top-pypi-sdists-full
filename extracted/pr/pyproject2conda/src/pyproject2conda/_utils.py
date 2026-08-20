@@ -55,9 +55,9 @@ def get_default_pythons(path: str | Path = ".python-version") -> list[str]:
     """Get default python value from .python-version file"""
     path = Path(path)
     if path.exists():
-        out = path.read_text().split()
-        # only keep major.minor
-        out[0] = ".".join(out[0].split(".")[:2])
+        if out := path.read_text().split():
+            # only keep major.minor
+            out[0] = ".".join(out[0].split(".")[:2])
         return out
     return []
 
@@ -226,7 +226,7 @@ def validate_list_of_str(s: Iterable[str] | None) -> list[str]:
     if s is None:
         return []
     if isinstance(s, list):
-        return s  # ty: ignore[invalid-return-type]
+        return s
     if isinstance(s, str):
         return [s]
     return list(s)

@@ -13,7 +13,7 @@ from typing import TYPE_CHECKING
 import pytest
 from pydantic import ValidationError
 
-import pyproject2conda
+from pyproject2conda import __version__
 from pyproject2conda import _schema as mod
 from pyproject2conda._config import PyProject2CondaConfig
 from pyproject2conda._schema import PyProject2CondaSchema
@@ -389,7 +389,7 @@ def test_option_override_base(
 
 
 def test_option_override_base3_default_python_error(
-    example_path: Path,  # noqa: ARG001
+    example_path: Path,  # ruff:ignore[unused-function-argument]
     simple_config: PyProject2CondaConfig,
 ) -> None:
     # using default python without a version
@@ -434,7 +434,7 @@ def test_option_override_all_pythons(
     a = list(simple_config_classifiers.iter_envs(envs=["base4"]))
     b = list(simple_config_classifiers.iter_envs(envs=["base5"]))
 
-    assert len(a) == len(b) == 5
+    assert len(a) == len(b) == 5  # ruff: ignore[magic-value-comparison]
 
     assert a[0] == (
         "yaml",
@@ -565,7 +565,7 @@ def test_config_errors() -> None:
 
     # raise error for bad env
     c = PyProject2CondaConfig.from_string(s)
-    with pytest.raises(ValueError):
+    with pytest.raises(ValueError, match=r"env hello not in config"):
         c.schema.get_env("hello")
 
     s1 = """
@@ -578,7 +578,7 @@ def test_config_errors() -> None:
 
     # raise error for bad env
     with pytest.raises(ValidationError):
-        c = PyProject2CondaConfig.from_string(s1)
+        _ = PyProject2CondaConfig.from_string(s1)
 
 
 @pytest.mark.parametrize(
@@ -673,10 +673,7 @@ def test_config_python_include_version() -> None:
 def test_version(runner) -> None:
     result = runner.invoke(app, ["--version"])
 
-    assert (
-        result.stdout.strip()
-        == f"pyproject2conda, version {pyproject2conda.__version__}"
-    )
+    assert result.stdout.strip() == f"pyproject2conda, version {__version__}"
 
 
 def get_times(path: Path) -> dict[Path, float]:

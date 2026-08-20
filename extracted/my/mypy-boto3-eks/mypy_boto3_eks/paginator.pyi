@@ -19,6 +19,7 @@ Usage::
         ListAddonsPaginator,
         ListAssociatedAccessPoliciesPaginator,
         ListCapabilitiesPaginator,
+        ListCertificateAuthoritiesPaginator,
         ListClustersPaginator,
         ListEksAnywhereSubscriptionsPaginator,
         ListFargateProfilesPaginator,
@@ -39,6 +40,7 @@ Usage::
     list_addons_paginator: ListAddonsPaginator = client.get_paginator("list_addons")
     list_associated_access_policies_paginator: ListAssociatedAccessPoliciesPaginator = client.get_paginator("list_associated_access_policies")
     list_capabilities_paginator: ListCapabilitiesPaginator = client.get_paginator("list_capabilities")
+    list_certificate_authorities_paginator: ListCertificateAuthoritiesPaginator = client.get_paginator("list_certificate_authorities")
     list_clusters_paginator: ListClustersPaginator = client.get_paginator("list_clusters")
     list_eks_anywhere_subscriptions_paginator: ListEksAnywhereSubscriptionsPaginator = client.get_paginator("list_eks_anywhere_subscriptions")
     list_fargate_profiles_paginator: ListFargateProfilesPaginator = client.get_paginator("list_fargate_profiles")
@@ -72,6 +74,8 @@ from .type_defs import (
     ListAssociatedAccessPoliciesResponseTypeDef,
     ListCapabilitiesRequestPaginateTypeDef,
     ListCapabilitiesResponseTypeDef,
+    ListCertificateAuthoritiesRequestPaginateTypeDef,
+    ListCertificateAuthoritiesResponseTypeDef,
     ListClustersRequestPaginateTypeDef,
     ListClustersResponseTypeDef,
     ListEksAnywhereSubscriptionsRequestPaginateTypeDef,
@@ -103,6 +107,7 @@ __all__ = (
     "ListAddonsPaginator",
     "ListAssociatedAccessPoliciesPaginator",
     "ListCapabilitiesPaginator",
+    "ListCertificateAuthoritiesPaginator",
     "ListClustersPaginator",
     "ListEksAnywhereSubscriptionsPaginator",
     "ListFargateProfilesPaginator",
@@ -239,6 +244,24 @@ class ListCapabilitiesPaginator(_ListCapabilitiesPaginatorBase):
         """
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/eks/paginator/ListCapabilities.html#EKS.Paginator.ListCapabilities.paginate)
         [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_eks/paginators/#listcapabilitiespaginator)
+        """
+
+if TYPE_CHECKING:
+    _ListCertificateAuthoritiesPaginatorBase = Paginator[ListCertificateAuthoritiesResponseTypeDef]
+else:
+    _ListCertificateAuthoritiesPaginatorBase = Paginator  # type: ignore[assignment]
+
+class ListCertificateAuthoritiesPaginator(_ListCertificateAuthoritiesPaginatorBase):
+    """
+    [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/eks/paginator/ListCertificateAuthorities.html#EKS.Paginator.ListCertificateAuthorities)
+    [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_eks/paginators/#listcertificateauthoritiespaginator)
+    """
+    def paginate(  # type: ignore[override]
+        self, **kwargs: Unpack[ListCertificateAuthoritiesRequestPaginateTypeDef]
+    ) -> PageIterator[ListCertificateAuthoritiesResponseTypeDef]:
+        """
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/eks/paginator/ListCertificateAuthorities.html#EKS.Paginator.ListCertificateAuthorities.paginate)
+        [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_eks/paginators/#listcertificateauthoritiespaginator)
         """
 
 if TYPE_CHECKING:

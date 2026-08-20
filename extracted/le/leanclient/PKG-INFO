@@ -1,6 +1,6 @@
-Metadata-Version: 2.4
+Metadata-Version: 2.5
 Name: leanclient
-Version: 0.13.0
+Version: 0.13.2
 Summary: Interact with the Lean theorem prover language server
 Project-URL: Homepage, https://github.com/oOo0oOo/leanclient
 Project-URL: Repository, https://github.com/oOo0oOo/leanclient
@@ -12,6 +12,7 @@ Requires-Python: >=3.10
 Requires-Dist: orjson>=3.11.1
 Requires-Dist: psutil>=5.9
 Requires-Dist: tqdm>=4.67.1
+Requires-Dist: watchfiles>=1.2.0
 Provides-Extra: dev
 Requires-Dist: gprof2dot>=2024.6.6; extra == 'dev'
 Requires-Dist: ipykernel>=6.29.5; extra == 'dev'

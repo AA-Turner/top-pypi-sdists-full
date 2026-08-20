@@ -22,6 +22,7 @@ class ItemProducesConfig(NamedTuple):
 
     enabled: bool
     builtin_types: set[str]
+    registry_types: set[str]
     custom_types: dict[str, str]
 
 
@@ -45,6 +46,17 @@ def _coerce_builtin_types(value: object) -> set[str]:
                 selected.add(item_type)
         return selected
     return set()
+
+
+def _coerce_registry_types(value: object) -> set[str]:
+    values = [value] if isinstance(value, str) else value
+    if not isinstance(values, cabc.Iterable) or isinstance(values, (dict, bytes)):
+        return set()
+    return {
+        identifier
+        for raw in values
+        if (identifier := str(raw).strip()) and _coerce_builtin_type(identifier) is None
+    }
 
 
 def _coerce_custom_types(value: object) -> dict[str, str]:
@@ -72,60 +84,82 @@ def _legacy_builtin_types(items_cfg: object) -> set[str]:
 def parse_item_produces_config(manifest: object) -> ItemProducesConfig:
     """Normalize structured-item manifest config.
 
-    New manifests use one ``produces`` key:
+    New manifests use one ``outputs`` key:
 
-    - ``produces: true`` enables built-in ``finding`` and ``asset``
-    - ``produces: false`` disables all item tools
-    - ``produces: finding`` or ``produces: [finding, asset]`` selects built-ins
-    - ``produces: {type_name: "module:Class"}`` declares custom item types
-    - ``produces: {enabled: true, values: [...], custom: {...}}`` mixes forms
+    - ``outputs: true`` enables built-in ``finding`` and ``asset``
+    - ``outputs: false`` disables all item tools
+    - ``outputs: finding`` or ``outputs: [finding, attack_surface]`` selects registry types
+    - ``outputs: {type_name: "module:Class"}`` declares custom item types
+    - ``outputs: {enabled: true, values: [...], custom: {...}}`` mixes forms
 
-    The legacy ``items`` key still contributes built-in selections unless either
-    ``produces: false`` or ``items.enabled: false`` explicitly disables items.
+    When ``outputs`` is absent, deprecated ``produces`` and legacy ``items``
+    retain their combined behavior and disable semantics.
     """
 
-    produces_cfg = getattr(manifest, "produces", None)
-    items_cfg = getattr(manifest, "items", None)
-    if produces_cfg is False:
-        return ItemProducesConfig(enabled=False, builtin_types=set(), custom_types={})
+    fields_set = getattr(manifest, "model_fields_set", None)
+    outputs_present = (
+        "outputs" in fields_set if isinstance(fields_set, set) else hasattr(manifest, "outputs")
+    )
+    output_cfg = (
+        getattr(manifest, "outputs", None)
+        if outputs_present
+        else getattr(manifest, "produces", None)
+    )
+    items_cfg = None if outputs_present else getattr(manifest, "items", None)
+    if output_cfg is False:
+        return ItemProducesConfig(
+            enabled=False, builtin_types=set(), registry_types=set(), custom_types={}
+        )
     if (
         isinstance(items_cfg, dict)
         and t.cast("dict[str, object]", items_cfg).get("enabled") is False
     ):
-        return ItemProducesConfig(enabled=False, builtin_types=set(), custom_types={})
+        return ItemProducesConfig(
+            enabled=False, builtin_types=set(), registry_types=set(), custom_types={}
+        )
 
     builtin_types: set[str] = set()
+    registry_types: set[str] = set()
     custom_types: dict[str, str] = {}
 
-    if produces_cfg is True:
+    if output_cfg is True:
         builtin_types.update(BUILTIN_ITEM_TYPES)
-    elif isinstance(produces_cfg, str | list):
-        builtin_types.update(_coerce_builtin_types(produces_cfg))
-    elif isinstance(produces_cfg, dict):
-        produces = t.cast("dict[str, object]", produces_cfg)
-        if produces.get("enabled") is False:
-            return ItemProducesConfig(enabled=False, builtin_types=set(), custom_types={})
-        raw_types = produces.get("values", produces.get("types"))
+    elif isinstance(output_cfg, str | list):
+        builtin_types.update(_coerce_builtin_types(output_cfg))
+        registry_types.update(_coerce_registry_types(output_cfg))
+    elif isinstance(output_cfg, dict):
+        outputs = t.cast("dict[str, object]", output_cfg)
+        if outputs.get("enabled") is False:
+            return ItemProducesConfig(
+                enabled=False,
+                builtin_types=set(),
+                registry_types=set(),
+                custom_types={},
+            )
+        raw_types = outputs.get("values", outputs.get("types"))
         if raw_types is not None:
             builtin_types.update(_coerce_builtin_types(raw_types))
-        elif produces.get("enabled") is True:
+            registry_types.update(_coerce_registry_types(raw_types))
+        elif outputs.get("enabled") is True:
             builtin_types.update(BUILTIN_ITEM_TYPES)
 
-        custom_types.update(_coerce_custom_types(produces.get("custom")))
+        custom_types.update(_coerce_custom_types(outputs.get("custom")))
         custom_types.update(
             _coerce_custom_types(
                 {
                     key: value
-                    for key, value in produces.items()
+                    for key, value in outputs.items()
                     if str(key) not in _RESERVED_PRODUCES_KEYS
                 }
             )
         )
 
     builtin_types.update(_legacy_builtin_types(items_cfg))
+    registry_types.difference_update(custom_types)
     return ItemProducesConfig(
-        enabled=bool(builtin_types or custom_types),
+        enabled=bool(builtin_types or registry_types or custom_types),
         builtin_types=builtin_types,
+        registry_types=registry_types,
         custom_types=custom_types,
     )
 
@@ -142,6 +176,13 @@ def custom_item_type_refs(manifest: object) -> dict[str, str]:
 
     config = parse_item_produces_config(manifest)
     return dict(config.custom_types) if config.enabled else {}
+
+
+def selected_registry_item_types(manifest: object) -> set[str]:
+    """Return identifier-only specialized item types selected by a manifest."""
+
+    config = parse_item_produces_config(manifest)
+    return set(config.registry_types) if config.enabled else set()
 
 
 def item_tools_enabled(manifest: object) -> bool:

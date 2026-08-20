@@ -7,11 +7,9 @@ import time
 import urllib.parse
 import urllib.request
 from pathlib import Path
-from typing import Annotated, List, Literal, Optional
+from typing import Annotated, Literal
 
 import orjson
-from leanclient.aio import AsyncLeanLSPClient
-from mcp.server.fastmcp import Context
 from mcp.types import ToolAnnotations
 from pydantic import Field
 
@@ -19,9 +17,17 @@ from lean_lsp_mcp import config, server
 from lean_lsp_mcp.client_utils import (
     bind_lean_project_path,
     build_lean_path_policy,
+    get_client,
     open_synced,
+    require_client_for_file,
+    running_shared_client,
 )
+from lean_lsp_mcp.file_utils import LeanPathPolicy
 from lean_lsp_mcp.loogle import LoogleQueryError, loogle_remote
+from lean_lsp_mcp.search_utils import (
+    merge_local_search_matches,
+    workspace_symbol_matches,
+)
 from lean_lsp_mcp.models import (
     LeanFinderResult,
     LeanFinderResults,
@@ -36,27 +42,72 @@ from lean_lsp_mcp.models import (
     StateSearchResult,
     StateSearchResults,
 )
+from lean_lsp_mcp.tool_registry import tool
 
 
 class LocalSearchError(Exception):
     pass
 
 
-@server.mcp.tool(
+async def _with_index_matches(
+    source_matches: list[dict[str, str]],
+    query: str,
+    limit: int,
+    policy: LeanPathPolicy,
+) -> list[dict[str, str]]:
+    """Add declarations that exist in the symbol index but not in source text.
+
+    Ripgrep can only match declarations someone wrote. Mathlib derives a large
+    part of its API from attributes: ``@[to_additive]`` alone accounts for
+    roughly sixteen thousand declarations, and ``@[simps]``, ``@[to_dual]`` and
+    ``@[mk_iff]`` add thousands more. Those names never appear as source text,
+    so a source-only search reports them as absent, which reads as "this lemma
+    does not exist" rather than "this search cannot see it".
+
+    The language server answers ``workspace/symbol`` from the compiled
+    ``.ilean`` index and does know them.
+
+    Returns *source_matches* unchanged when no language server is running for
+    the project. Starting one costs a full ``lake serve`` boot, and a search is
+    not the right moment to pay it.
+    """
+    client = running_shared_client(policy.project_root)
+    if client is None:
+        return source_matches
+
+    try:
+        # wait_for_index=0: report what the index has now rather than stalling
+        # a search behind index loading.
+        symbols, _index_ready = await client.workspace_symbol(
+            query, max_results=limit, wait_for_index=0.0, timeout=2.0
+        )
+    except Exception as exc:  # a search must survive a symbol query failure
+        server.logger.warning(f"workspace/symbol lookup failed: {exc}")
+        return source_matches
+
+    return merge_local_search_matches(
+        source_matches,
+        workspace_symbol_matches(symbols, policy),
+        query,
+        limit,
+    )
+
+
+@tool(
     "lean_local_search",
     annotations=ToolAnnotations(
         title="Local Search",
-        readOnlyHint=True,
-        idempotentHint=True,
-        openWorldHint=False,
+        read_only_hint=True,
+        idempotent_hint=True,
+        open_world_hint=False,
     ),
 )
 async def local_search(
-    ctx: Context,
+    ctx: server.ToolContext,
     query: Annotated[str, Field(description="Declaration name or prefix")],
     limit: Annotated[int, Field(description="Max matches", ge=1)] = 10,
     project_root: Annotated[
-        Optional[str], Field(description="Project root (inferred if omitted)")
+        str | None, Field(description="Project root (inferred if omitted)")
     ] = None,
 ) -> LocalSearchResults:
     """Fast local search to verify declarations exist. Use BEFORE trying a lemma name."""
@@ -87,12 +138,16 @@ async def local_search(
 
     try:
         policy = build_lean_path_policy(resolved_root)
+        normalized_query = query.strip()
         raw_results = await asyncio.to_thread(
             server.lean_local_search,
-            query=query.strip(),
+            query=normalized_query,
             limit=limit,
             project_root=policy.project_root,
             path_policy=policy,
+        )
+        raw_results = await _with_index_matches(
+            raw_results, normalized_query, limit, policy
         )
         results = [
             LocalSearchResult(name=r["name"], kind=r["kind"], file=r["file"])
@@ -103,13 +158,13 @@ async def local_search(
         raise LocalSearchError(f"Search failed: {exc}")
 
 
-@server.mcp.tool(
+@tool(
     "lean_leansearch",
     annotations=ToolAnnotations(
         title="LeanSearch",
-        readOnlyHint=True,
-        idempotentHint=True,
-        openWorldHint=True,
+        read_only_hint=True,
+        idempotent_hint=True,
+        open_world_hint=True,
     ),
 )
 # leansearch.net raised capacity to ~40 req/s (per-IP ~120 req/min) and asked
@@ -118,7 +173,7 @@ async def local_search(
 # per-IP limit, which the maintainers adjust dynamically as capacity allows.
 @server.rate_limited("leansearch", *config.RATE_LIMITS["leansearch"])
 async def leansearch(
-    ctx: Context,
+    ctx: server.ToolContext,
     query: Annotated[str, Field(description="Natural language or Lean term query")],
     num_results: Annotated[int, Field(description="Max results", ge=1)] = 5,
 ) -> LeanSearchResults:
@@ -158,17 +213,17 @@ async def leansearch(
     return LeanSearchResults(items=items)
 
 
-@server.mcp.tool(
+@tool(
     "lean_loogle",
     annotations=ToolAnnotations(
         title="Loogle",
-        readOnlyHint=True,
-        idempotentHint=True,
-        openWorldHint=True,
+        read_only_hint=True,
+        idempotent_hint=True,
+        open_world_hint=True,
     ),
 )
 async def loogle(
-    ctx: Context,
+    ctx: server.ToolContext,
     query: Annotated[
         str, Field(description="Type pattern, constant, or name substring")
     ],
@@ -233,18 +288,18 @@ async def loogle(
     return LoogleResults(items=result)
 
 
-@server.mcp.tool(
+@tool(
     "lean_leanfinder",
     annotations=ToolAnnotations(
         title="Lean Finder",
-        readOnlyHint=True,
-        idempotentHint=True,
-        openWorldHint=True,
+        read_only_hint=True,
+        idempotent_hint=True,
+        open_world_hint=True,
     ),
 )
 @server.rate_limited("leanfinder", *config.RATE_LIMITS["leanfinder"])
 async def leanfinder(
-    ctx: Context,
+    ctx: server.ToolContext,
     query: Annotated[str, Field(description="Mathematical concept or proof state")],
     num_results: Annotated[int, Field(description="Max results", ge=1)] = 5,
     version: Annotated[
@@ -279,7 +334,7 @@ async def leanfinder(
     if isinstance(data, dict) and "error" in data:
         raise server.LeanToolError(str(data["error"]))
 
-    results: List[LeanFinderResult] = []
+    results: list[LeanFinderResult] = []
     for r in data.get("results", []):
         results.append(
             LeanFinderResult(
@@ -295,13 +350,13 @@ async def leanfinder(
     return LeanFinderResults(items=results)
 
 
-@server.mcp.tool(
+@tool(
     "lean_state_search",
     annotations=ToolAnnotations(
         title="State Search",
-        readOnlyHint=True,
-        idempotentHint=True,
-        openWorldHint=True,
+        read_only_hint=True,
+        idempotent_hint=True,
+        open_world_hint=True,
     ),
 )
 @server.rate_limited(
@@ -312,7 +367,7 @@ async def leanfinder(
     ),
 )
 async def state_search(
-    ctx: Context,
+    ctx: server.ToolContext,
     file_path: Annotated[
         str, Field(description="Absolute or project-root-relative path to Lean file")
     ],
@@ -321,11 +376,9 @@ async def state_search(
     num_results: Annotated[int, Field(description="Max results", ge=1)] = 5,
 ) -> StateSearchResults:
     """Find lemmas to close the goal at a position. Searches premise-search.com."""
-    rel_path = await server.setup_client_for_file(ctx, file_path)
-    if not rel_path:
-        server._raise_invalid_path(file_path)
+    rel_path = await require_client_for_file(ctx, file_path)
 
-    client: AsyncLeanLSPClient = ctx.request_context.lifespan_context.client
+    client = get_client(ctx)
     await open_synced(ctx, rel_path)
     goal = await client.goal(rel_path, line - 1, column - 1)
 
@@ -354,13 +407,13 @@ async def state_search(
     return StateSearchResults(items=items)
 
 
-@server.mcp.tool(
+@tool(
     "lean_hammer_premise",
     annotations=ToolAnnotations(
         title="Hammer Premises",
-        readOnlyHint=True,
-        idempotentHint=True,
-        openWorldHint=True,
+        read_only_hint=True,
+        idempotent_hint=True,
+        open_world_hint=True,
     ),
 )
 @server.rate_limited(
@@ -369,7 +422,7 @@ async def state_search(
     bypass=lambda: server._custom_backend("LEAN_HAMMER_URL", config.DEFAULT_HAMMER_URL),
 )
 async def hammer_premise(
-    ctx: Context,
+    ctx: server.ToolContext,
     file_path: Annotated[
         str, Field(description="Absolute or project-root-relative path to Lean file")
     ],
@@ -381,11 +434,9 @@ async def hammer_premise(
 
     Returns lemma names to try with `simp only [...]`, `aesop`, or as hints.
     """
-    rel_path = await server.setup_client_for_file(ctx, file_path)
-    if not rel_path:
-        server._raise_invalid_path(file_path)
+    rel_path = await require_client_for_file(ctx, file_path)
 
-    client: AsyncLeanLSPClient = ctx.request_context.lifespan_context.client
+    client = get_client(ctx)
     await open_synced(ctx, rel_path)
     goal = await client.goal(rel_path, line - 1, column - 1)
 

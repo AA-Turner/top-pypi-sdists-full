@@ -172,6 +172,25 @@ class SimpleTestCase(BaseTestCase):
             'default',
         )
 
+        self.assertEqual(
+            im.serialize_storage(use_backend_name=True),
+            'tests.thumbnail_tests.storage.TestStorage',
+        )
+        self.assertEqual(
+            ImageFile('http://www.image.jpg').serialize_storage(use_backend_name=True),
+            'sorl.thumbnail.images.UrlStorage',
+        )
+        self.assertEqual(
+            ImageFile('http://www.image.jpg', default.storage).serialize_storage(
+                use_backend_name=True
+            ),
+            'tests.thumbnail_tests.storage.TestStorage',
+        )
+        self.assertEqual(
+            ImageFile('getit', default_storage).serialize_storage(use_backend_name=True),
+            'tests.thumbnail_tests.storage.TestStorage',
+        )
+
     @unittest.skipIf(platform.system() == "Darwin", 'quality is saved a different way on os x')
     def test_quality(self):
         im = ImageFile(Item.objects.get(image='500x500.jpg').image)
@@ -250,6 +269,20 @@ class SimpleTestCase(BaseTestCase):
         t = self.BACKEND.get_thumbnail(item.image, '100x100', colorspace="RGBA", format="JPEG")
         self.assertEqual(t.x, 100)
         self.assertEqual(t.y, 100)
+
+    def test_calculate_scaling_factor_noop_crop(self):
+        engine = PILEngine()
+
+        factor_none = engine._calculate_scaling_factor(800, 600, (400, 400), {'crop': None})
+        factor_noop = engine._calculate_scaling_factor(800, 600, (400, 400), {'crop': 'noop'})
+        factor_center = engine._calculate_scaling_factor(800, 600, (400, 400), {'crop': 'center'})
+
+        # crop='noop' must scale identically to crop being unset (fit-within-bounds).
+        self.assertEqual(factor_noop, factor_none)
+        # A real crop value should still use the max()-based, crop-fitting behavior.
+        self.assertNotEqual(factor_noop, factor_center)
+        self.assertEqual(factor_center, max(400 / 800, 400 / 600))
+        self.assertEqual(factor_none, min(400 / 800, 400 / 600))
 
     def test_falsey_file_argument(self):
         with self.assertRaises(ValueError):

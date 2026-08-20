@@ -12,10 +12,10 @@ jobs:
         python-version: ["3.10", "3.13"]
 
     steps:
-    - uses: actions/checkout@v6
+    - uses: actions/checkout@v7
     # set up conda
     - name: Set up Python ${{ matrix.python-version }}
-      uses: actions/setup-python@v6
+      uses: actions/setup-python@v7
       with:
         python-version: ${{ matrix.python-version }}
     - uses: astral-sh/setup-uv@v7
@@ -26,11 +26,11 @@ jobs:
           **/pyproject.toml
         cache-suffix: "py${{ matrix.python-version }}"
     - name: Install dependencies
-      run: uv pip install --system .[test,amber,ase,pymatgen] coverage ./tests/plugin rdkit openbabel-wheel
+      run: uv pip install --system .[test,amber,ase,pymatgen] coverage ./tests/plugin rdkit 'openbabel>=3.2.0'
     - name: Test
       run: cd tests && coverage run --source=../dpdata -m unittest && cd .. && coverage combine tests/.coverage && coverage report
     - name: Run codecov
-      uses: codecov/codecov-action@v6
+      uses: codecov/codecov-action@v7
       env:
         CODECOV_TOKEN: ${{ secrets.CODECOV_TOKEN }}
       with:

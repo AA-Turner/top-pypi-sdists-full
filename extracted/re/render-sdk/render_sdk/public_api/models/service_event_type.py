@@ -2,9 +2,13 @@ from enum import Enum
 
 
 class ServiceEventType(str, Enum):
+    ARTIFACT_FETCH_FAILED = "artifact_fetch_failed"
+    ARTIFACT_SOURCE_CHANGED = "artifact_source_changed"
     AUTOSCALING_CONFIG_CHANGED = "autoscaling_config_changed"
     AUTOSCALING_ENDED = "autoscaling_ended"
     AUTOSCALING_STARTED = "autoscaling_started"
+    AUTO_DEPLOY_DISABLED = "auto_deploy_disabled"
+    AUTO_DEPLOY_ENABLED = "auto_deploy_enabled"
     BRANCH_DELETED = "branch_deleted"
     BUILD_ENDED = "build_ended"
     BUILD_STARTED = "build_started"

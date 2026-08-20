@@ -71,6 +71,7 @@ class Workspace:
         api_key: str = "",
         session_id: str = "",
         commit_strategy: str = "manifest",
+        nfs_mount_options: str = "",
     ):
         self._repo_root = path
         self.path = path / "data" if tracked else path
@@ -86,6 +87,9 @@ class Workspace:
         self.api_key = api_key
         self.session_id = session_id
         self.commit_strategy = commit_strategy
+        # Extra client-side NFS mount options for this workspace's agent
+        # mounts (e.g. "sync" for live-tailed write-through workspaces).
+        self.nfs_mount_options = nfs_mount_options
         self._transport: Transport | None = None
         self._sts_credentials: dict[str, str] = {}
         self._sts_expires_at: float = 0
@@ -156,6 +160,7 @@ class Workspace:
             api_key=self.api_key,
             session_id=self.session_id,
             commit_strategy=self.commit_strategy,
+            nfs_mount_options=self.nfs_mount_options,
         )
 
     def mount(
@@ -336,7 +341,7 @@ class Workspace:
         else:
             await nfs_server.add_export(str(self.path), fsid=export_fsid, readonly=readonly)
 
-        t = nfs_server.with_path(str(self.path), readonly=readonly)
+        t = nfs_server.with_path(str(self.path), readonly=readonly, mount_options=self.nfs_mount_options)
         t.mount_path = self.mount_path
         self.transport = t
         return nfs_server

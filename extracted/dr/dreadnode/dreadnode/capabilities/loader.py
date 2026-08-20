@@ -479,6 +479,25 @@ def _parse_capability_file(content: str, manifest_path: Path) -> CapabilityManif
 
     _validate_contract(parsed, manifest_path)
 
+    deprecated_output_keys = [key for key in ("produces", "items") if key in parsed]
+    if deprecated_output_keys:
+        aliases = ", ".join(f"'{key}'" for key in deprecated_output_keys)
+        if "outputs" in parsed:
+            logger.warning(
+                "Capability manifest {} declares 'outputs' with deprecated key(s) {}; "
+                "'outputs' takes precedence and the deprecated declarations are ignored",
+                manifest_path,
+                aliases,
+            )
+        else:
+            logger.warning(
+                "Capability manifest {} uses deprecated key(s) {}; use 'outputs' instead",
+                manifest_path,
+                aliases,
+            )
+
+    output_config = {key: parsed[key] for key in ("outputs", "produces", "items") if key in parsed}
+
     return CapabilityManifest(
         schema_version=parsed["schema"],
         name=parsed["name"],
@@ -498,8 +517,7 @@ def _parse_capability_file(content: str, manifest_path: Path) -> CapabilityManif
         dependencies=parsed.get("dependencies"),
         checks=parsed.get("checks"),
         flags=parsed.get("flags"),
-        produces=parsed.get("produces"),
-        items=parsed.get("items"),
+        **output_config,
     )
 
 

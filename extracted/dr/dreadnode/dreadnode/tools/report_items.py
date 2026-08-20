@@ -9,19 +9,19 @@ Transport is **direct POST + span backup** (the chosen design): every emit
 works, reconciled platform-side — and (2) best-effort POSTs to the platform for
 immediate UI visibility. POST failure → debug log; the span backup is the net.
 
-Validation: built-in types validate against their Pydantic model here so the
-agent gets immediate feedback. Capability-defined types validate against the
-Pydantic models referenced by the capability's ``produces`` config and against
-their registered schema platform-side.
+Validation: built-ins and legacy declarations validate against local Pydantic
+models. Identifier-only specialized types use the capability's exact platform
+registry contract for both the tool schema and local validation.
 """
 
+import json
 import typing as t
 from uuid import UUID, uuid4
 
 from loguru import logger
-from pydantic import BaseModel, ValidationError
+from pydantic import BaseModel, Field, ValidationError
 
-from dreadnode.agents.tools import tool
+from dreadnode.agents.tools import Toolset, tool, tool_method
 from dreadnode.items.models import (
     ASSET_TYPE,
     FINDING_TYPE,
@@ -30,12 +30,15 @@ from dreadnode.items.models import (
     ItemSeverity,
 )
 
-# Registry of built-in type → validation model. Capability-defined types are
-# resolved against their registered schema platform-side (Phase 4).
+# Registry of built-in type → local validation model.
 BUILTIN_ITEM_SCHEMAS: dict[str, type[BaseModel]] = {
     FINDING_TYPE: Finding,
     ASSET_TYPE: Asset,
 }
+
+
+class ItemTypeRegistryUnavailableError(RuntimeError):
+    """A platform-defined output cannot be typed without its pinned contract."""
 
 
 def _trace_context() -> tuple[str | None, str | None, str | None]:
@@ -78,8 +81,306 @@ def _resolve_identity() -> tuple[str, str, str] | None:
     return profile.org_key, profile.workspace_key, project
 
 
+class ItemReads(Toolset):
+    """Compact, project-scoped reads over the durable Agent Output corpus."""
+
+    project_key: str = Field(..., min_length=1, description="Active project key.")
+
+    @tool_method(name="read_item")
+    def read_item(
+        self,
+        item: t.Annotated[
+            str,
+            "The exact item ref assigned by an agent, or the item's UUID.",
+        ],
+        *,
+        include_links: t.Annotated[
+            bool,
+            "Include readable incoming and outgoing item links.",
+        ] = True,
+    ) -> dict[str, t.Any]:
+        """Read one complete structured item and its graph neighborhood."""
+        try:
+            api, org, workspace, project = self._resolve_context()
+            payload = api.get_item(org, workspace, project, item)
+            links: list[dict[str, t.Any]] = []
+            if include_links:
+                item_id = self._require_item_id(payload)
+                links_payload = api.get_item_links(
+                    org,
+                    workspace,
+                    project,
+                    item_id,
+                )
+                raw_links = (
+                    links_payload.get("links", []) if isinstance(links_payload, dict) else []
+                )
+                if isinstance(raw_links, list):
+                    links = [link for link in raw_links if isinstance(link, dict)]
+        except Exception as exc:
+            return self._error_response("read_item", exc)
+        return {
+            "ok": True,
+            "operation": "read_item",
+            "project": project,
+            "item": payload,
+            "links": links,
+            "error": None,
+        }
+
+    @staticmethod
+    def _require_item_id(payload: t.Any) -> str:
+        item_id = payload.get("id") if isinstance(payload, dict) else None
+        if not isinstance(item_id, str) or not item_id:
+            raise ValueError("Item response did not include an id")
+        return item_id
+
+    @tool_method(name="list_items")
+    def list_items(
+        self,
+        *,
+        item_type: t.Annotated[str | None, "Exact item type filter."] = None,
+        severity: t.Annotated[
+            list[str] | None,
+            "Severity values to include (OR semantics).",
+        ] = None,
+        status: t.Annotated[
+            list[str] | None,
+            "Effective status values to include (OR semantics).",
+        ] = None,
+        min_severity: t.Annotated[
+            str | None,
+            "Minimum severity threshold, such as high.",
+        ] = None,
+        category: t.Annotated[str | None, "Exact category filter."] = None,
+        capability: t.Annotated[
+            list[str] | None,
+            "Producing capability names to include.",
+        ] = None,
+        source: t.Annotated[
+            list[str] | None,
+            "Provenance values to include: api, runtime, or extracted.",
+        ] = None,
+        session_id: t.Annotated[str | None, "Exact originating session UUID."] = None,
+        sort: t.Annotated[
+            t.Literal["created_at", "severity", "status"],
+            "Sort field.",
+        ] = "created_at",
+        order: t.Annotated[t.Literal["asc", "desc"], "Sort direction."] = "desc",
+        page: t.Annotated[int, "Page number, starting at 1."] = 1,
+        limit: t.Annotated[int, "Maximum summaries to return (1-200)."] = 50,
+        include_facets: t.Annotated[
+            bool,
+            "Include filter-aware value counts in the response.",
+        ] = False,
+    ) -> dict[str, t.Any]:
+        """List compact item summaries for iterative traversal."""
+        return self._list(
+            operation="list_items",
+            query=None,
+            item_type=item_type,
+            severity=severity,
+            status=status,
+            min_severity=min_severity,
+            category=category,
+            capability=capability,
+            source=source,
+            session_id=session_id,
+            sort=sort,
+            order=order,
+            page=page,
+            limit=limit,
+            include_facets=include_facets,
+        )
+
+    @tool_method(name="search_items")
+    def search_items(
+        self,
+        query: t.Annotated[
+            str,
+            "Non-empty full-text query over item metadata and structured payloads.",
+        ],
+        *,
+        item_type: t.Annotated[str | None, "Exact item type filter."] = None,
+        severity: t.Annotated[list[str] | None, "Severity values to include."] = None,
+        status: t.Annotated[list[str] | None, "Effective status values to include."] = None,
+        min_severity: t.Annotated[str | None, "Minimum severity threshold."] = None,
+        category: t.Annotated[str | None, "Exact category filter."] = None,
+        capability: t.Annotated[
+            list[str] | None,
+            "Producing capability names to include.",
+        ] = None,
+        source: t.Annotated[list[str] | None, "Provenance values to include."] = None,
+        session_id: t.Annotated[str | None, "Exact originating session UUID."] = None,
+        sort: t.Annotated[
+            t.Literal["created_at", "severity", "status", "relevance"],
+            "Sort field.",
+        ] = "relevance",
+        order: t.Annotated[t.Literal["asc", "desc"], "Sort direction."] = "desc",
+        page: t.Annotated[int, "Page number, starting at 1."] = 1,
+        limit: t.Annotated[int, "Maximum summaries to return (1-200)."] = 50,
+        include_facets: t.Annotated[
+            bool,
+            "Include filter-aware value counts in the response.",
+        ] = False,
+    ) -> dict[str, t.Any]:
+        """Search items and return compact summaries with bounded match previews."""
+        if not query.strip():
+            return self._error_response("search_items", ValueError("query must not be empty"))
+        return self._list(
+            operation="search_items",
+            query=query,
+            item_type=item_type,
+            severity=severity,
+            status=status,
+            min_severity=min_severity,
+            category=category,
+            capability=capability,
+            source=source,
+            session_id=session_id,
+            sort=sort,
+            order=order,
+            page=page,
+            limit=limit,
+            include_facets=include_facets,
+        )
+
+    def _list(
+        self,
+        *,
+        operation: str,
+        query: str | None,
+        item_type: str | None,
+        severity: list[str] | None,
+        status: list[str] | None,
+        min_severity: str | None,
+        category: str | None,
+        capability: list[str] | None,
+        source: list[str] | None,
+        session_id: str | None,
+        sort: str,
+        order: str,
+        page: int,
+        limit: int,
+        include_facets: bool,
+    ) -> dict[str, t.Any]:
+        try:
+            api, org, workspace, project = self._resolve_context()
+            payload = api.list_items(
+                org,
+                workspace,
+                project,
+                item_type=item_type,
+                severity=severity,
+                status=status,
+                min_severity=min_severity,
+                category=category,
+                capability=capability,
+                source=source,
+                session_id=session_id,
+                q=query,
+                sort=sort,
+                order=order,
+                page=page,
+                limit=limit,
+            )
+            raw_items = payload.get("items", []) if isinstance(payload, dict) else []
+            if not isinstance(raw_items, list):
+                raw_items = []
+            summaries = [
+                self._compact_item(item, query=query)
+                for item in raw_items
+                if isinstance(item, dict)
+            ]
+            facets = None
+            if include_facets:
+                facets = api.get_item_facets(
+                    org,
+                    workspace,
+                    project,
+                    item_type=item_type,
+                    severity=severity,
+                    status=status,
+                    min_severity=min_severity,
+                    category=category,
+                    capability=capability,
+                    source=source,
+                    session_id=session_id,
+                    q=query,
+                )
+        except Exception as exc:
+            return self._error_response(operation, exc)
+
+        current_page = int(payload.get("page", page))
+        has_next = bool(payload.get("has_next", False))
+        return {
+            "ok": True,
+            "operation": operation,
+            "project": project,
+            "items": summaries,
+            "total": int(payload.get("total", len(summaries))),
+            "page": current_page,
+            "limit": int(payload.get("limit", limit)),
+            "total_pages": int(payload.get("total_pages", 0)),
+            "has_next": has_next,
+            "next_page": current_page + 1 if has_next else None,
+            "facets": facets,
+            "error": None,
+        }
+
+    @staticmethod
+    def _compact_item(item: dict[str, t.Any], *, query: str | None) -> dict[str, t.Any]:
+        data = item.get("data")
+        if not isinstance(data, dict):
+            data = {}
+        disposition = item.get("disposition")
+        if not isinstance(disposition, dict):
+            disposition = {}
+        summary = {
+            "id": item.get("id"),
+            "ref": item.get("ref"),
+            "item_type": item.get("item_type"),
+            "title": item.get("title"),
+            "severity": data.get("severity"),
+            "category": data.get("category"),
+            "effective_status": item.get("effective_status") or disposition.get("status"),
+            "capability": item.get("capability"),
+            "source": item.get("source"),
+            "session_id": item.get("session_id"),
+            "created_at": item.get("created_at"),
+            "updated_at": item.get("updated_at"),
+            "data_keys": sorted(str(key) for key in data)[:20],
+        }
+        if query is not None:
+            payload_text = json.dumps(data, ensure_ascii=False, sort_keys=True, default=str)
+            start = payload_text.casefold().find(query.casefold())
+            if start >= 0:
+                left = max(0, start - 120)
+                right = min(len(payload_text), start + len(query) + 120)
+                summary["match_preview"] = payload_text[left:right]
+        return summary
+
+    def _resolve_context(self) -> tuple[t.Any, str, str, str]:
+        from dreadnode import _get_default_instance
+
+        instance = _get_default_instance()
+        if not instance.can_sync:
+            raise RuntimeError("Platform sync is disabled for this runtime session")
+        profile = instance.profile
+        return instance.api, profile.org_key, profile.workspace_key, self.project_key
+
+    @staticmethod
+    def _error_response(operation: str, exc: Exception) -> dict[str, t.Any]:
+        return {
+            "ok": False,
+            "operation": operation,
+            "items": [],
+            "error": str(exc),
+        }
+
+
 def _is_payload_rejection(error: str | None) -> bool:
-    """True only for a clear client payload rejection (HTTP 400/422) — the agent
+    """True only for a clear client request rejection (HTTP 400/404/422) — the agent
     must fix its data and retry.
 
     The platform's error strings are prefixed with the status code. Transport,
@@ -90,7 +391,110 @@ def _is_payload_rejection(error: str | None) -> bool:
     if not error:
         return False
     code = error.split(":", 1)[0].strip()
-    return code in ("400", "422")
+    return code in ("400", "422") or (code == "404" and "Target " in error)
+
+
+ReportItemOutcome = t.Literal["persisted", "trace_only", "rejected"]
+
+
+def classify_report_item_outcome(
+    *,
+    item_id: str | None = None,
+    post_error: str | None = None,
+    result: str | None = None,
+    error: str | None = None,
+) -> ReportItemOutcome:
+    """Classify a report_item emit or its string result without new metadata."""
+    if error or _is_payload_rejection(post_error):
+        return "rejected"
+    if item_id:
+        return "persisted"
+    if result:
+        details = result.rpartition("(")[2].removesuffix(")")
+        if any(part.strip().startswith("id: ") for part in details.split(",")):
+            return "persisted"
+    return "trace_only"
+
+
+def _report_item_result(
+    *,
+    item_type: str,
+    title: str | None,
+    ref: str | None,
+    item_id: str | None,
+    post_error: str | None,
+) -> str:
+    outcome = classify_report_item_outcome(item_id=item_id, post_error=post_error)
+    if outcome == "rejected":
+        raise ValueError(f"Item was not saved to the platform: {post_error}")
+    if post_error is not None:
+        return (
+            f"Reported {item_type} '{title or '(untitled)'}' (recorded to "
+            "trace; platform write deferred — will reconcile)"
+        )
+    if outcome == "trace_only":
+        ref_text = f"ref: {ref}; " if ref else ""
+        return (
+            f"Reported {item_type} '{title or '(untitled)'}' ({ref_text}recorded to trace; "
+            "id unavailable — platform write unconfirmed)"
+        )
+    handle = f"ref: {ref}, id: {item_id}" if ref else f"id: {item_id}"
+    return f"Reported {item_type} '{title or '(untitled)'}' ({handle})"
+
+
+def _check_registry_binding(item_type: str) -> None:
+    """Discover the online contract; local model validation remains the fallback."""
+    identity = _resolve_identity()
+    if identity is None:
+        return
+
+    from dreadnode import _get_default_instance
+    from dreadnode.app.api.client import NotFoundError
+
+    org, _, _ = identity
+    try:
+        detail = _get_default_instance().api.get_organization_item_type(org, item_type)
+    except NotFoundError:
+        logger.warning(
+            "Item type '{}' is missing or inactive in the platform registry; "
+            "continuing with durable local validation",
+            item_type,
+        )
+        return
+    except Exception as exc:
+        logger.warning(
+            "Registry lookup for item_type '{}' failed ({}); using local model validation",
+            item_type,
+            exc,
+        )
+        return
+
+    capability, capability_version = _capability_context()
+    if capability is None and capability_version is None:
+        return
+    usage = detail.get("capability_usage")
+    if not isinstance(usage, list) or not any(
+        isinstance(entry, dict)
+        and _matches_capability_name(entry.get("capability_name"), capability)
+        and entry.get("capability_version") == capability_version
+        for entry in usage
+    ):
+        logger.warning(
+            "Item type '{}' is not bound to capability '{}' version '{}'; "
+            "continuing with durable local validation",
+            item_type,
+            capability,
+            capability_version,
+        )
+
+
+def _format_item_handle(item_id: str | None, ref: str | None) -> str:
+    handles = [
+        handle
+        for handle in (f"id: {item_id}" if item_id else None, f"ref: {ref}" if ref else None)
+        if handle is not None
+    ]
+    return ", ".join(handles) or "id unavailable"
 
 
 def _emit_item(
@@ -214,8 +618,9 @@ def _validate_payload(
     """
     schema = BUILTIN_ITEM_SCHEMAS.get(item_type)
     if schema is None:
-        title = data.get("title")
-        return dict(data), (title if isinstance(title, str) else None), None, None
+        raise ValueError(
+            f"Unknown item_type '{item_type}': custom types require a capability-defined model."
+        )
 
     try:
         validated = schema.model_validate(data)
@@ -292,6 +697,7 @@ def report_item(
     # not a promoted/disposition field).
     if severity is not None:
         clean_data = {**clean_data, "severity": severity}
+    _check_registry_binding(item_type)
     api_links: list[dict[str, t.Any]] = []
     for link in links or []:
         if not link.get("relationship"):
@@ -317,23 +723,12 @@ def report_item(
         ref=ref,
         links=api_links or None,
     )
-    if _is_payload_rejection(post_error):
-        # Only a payload rejection (400/422) is the agent's to fix — surface it
-        # so it can correct and retry.
-        raise ValueError(f"Item was not saved to the platform: {post_error}")
-    if post_error is not None:
-        # Transient failure (transport/auth/5xx): the item rode along on the span
-        # and will be reconciled from the trace — don't fail the agent's turn.
-        return (
-            f"Reported {item_type} '{final_title or '(untitled)'}' (recorded to "
-            "trace; platform write deferred — will reconcile)"
-        )
-    handle = f"ref: {ref}" if ref else (f"id: {item_id}" if item_id else "id unavailable")
-    if item_id is not None or ref is not None:
-        return f"Reported {item_type} '{final_title or '(untitled)'}' ({handle})"
-    return (
-        f"Reported {item_type} '{final_title or '(untitled)'}' (recorded to trace; "
-        "id unavailable — assign a ref to enable editing/linking)"
+    return _report_item_result(
+        item_type=item_type,
+        title=final_title,
+        ref=ref,
+        item_id=item_id,
+        post_error=post_error,
     )
 
 
@@ -369,14 +764,24 @@ def update_item(
         str | None,
         "Free-form notes to record on the item — e.g. WHY you dismissed or "
         "verified a finding (the evidence and reasoning behind the status). "
-        "Recorded in the disposition overlay alongside status.",
+        "Recorded in the disposition overlay alongside status. Notes alone do "
+        "not change the status.",
     ] = None,
+    clear_status: t.Annotated[
+        bool,
+        "Set true to remove a previously-set status, returning the finding to "
+        "the untriaged 'needs review' queue (undoes a prior triage decision). "
+        "Cannot be combined with status.",
+    ] = False,
 ) -> str:
     """Edit an item you previously reported (correct data, change severity/status).
 
-    ``status``/``notes`` update the triage overlay; ``severity`` is folded into the
-    item's data. Only provided fields change. Address the item by its ref or id.
+    ``status``/``notes`` update the triage overlay; ``clear_status`` un-triages.
+    Only provided fields change. Address the item by its ref or id.
     """
+    if clear_status and status is not None:
+        # Surfaced to the agent as a tool error so it can correct and retry.
+        raise ValueError("Pass either status or clear_status, not both.")
     identity = _resolve_identity()
     if identity is None:
         return "Cannot update item: no platform connection configured for this run."
@@ -400,6 +805,7 @@ def update_item(
         title=title,
         status=status,
         notes=notes,
+        clear_status=clear_status,
     )
     return f"Updated item {item}"
 
@@ -460,6 +866,75 @@ def link_items(
 # ===========================================================================
 
 
+def _matches_capability_name(value: object, capability_name: str | None) -> bool:
+    if not isinstance(value, str) or not capability_name:
+        return False
+    normalized_capability = capability_name.strip().strip("/").lower()
+    normalized_binding = value.strip().strip("/").lower()
+    if "/" in normalized_capability:
+        return normalized_binding == normalized_capability
+    return normalized_binding == normalized_capability or normalized_binding.endswith(
+        f"/{normalized_capability}"
+    )
+
+
+def _resolve_registry_contracts(
+    capability: t.Any, identifiers: t.Iterable[str]
+) -> dict[str, dict[str, t.Any]]:
+    selected = sorted(set(identifiers))
+    if not selected:
+        return {}
+    identity = _resolve_identity()
+    if identity is None:
+        raise ItemTypeRegistryUnavailableError(
+            "Platform-defined capability outputs require a platform connection to "
+            f"load their pinned contracts: {', '.join(selected)}"
+        )
+
+    from dreadnode import _get_default_instance
+
+    org, _, _ = identity
+    api = _get_default_instance().api
+    manifest = getattr(capability, "manifest", None)
+    capability_name = getattr(capability, "name", None) or getattr(manifest, "name", None)
+    capability_version = getattr(capability, "version", None) or getattr(manifest, "version", None)
+    contracts: dict[str, dict[str, t.Any]] = {}
+    for identifier in selected:
+        try:
+            detail = api.get_organization_item_type(org, identifier)
+        except Exception as exc:
+            raise ItemTypeRegistryUnavailableError(
+                f"Could not load pinned platform contract for output {identifier!r}: {exc}"
+            ) from exc
+        usage = detail.get("capability_usage")
+        binding = next(
+            (
+                entry
+                for entry in usage or []
+                if isinstance(entry, dict)
+                and _matches_capability_name(entry.get("capability_name"), capability_name)
+                and entry.get("capability_version") == capability_version
+            ),
+            None,
+        )
+        if binding is None:
+            raise ItemTypeRegistryUnavailableError(
+                f"Output {identifier!r} is not bound to capability "
+                f"{capability_name!r} version {capability_version!r}"
+            )
+        contract = binding.get("contract")
+        if not isinstance(contract, dict):
+            current = detail.get("current_contract")
+            if isinstance(current, dict) and binding.get("bound_version") == current.get("version"):
+                contract = current
+        if not isinstance(contract, dict) or not isinstance(contract.get("json_schema"), dict):
+            raise ItemTypeRegistryUnavailableError(
+                f"Platform did not return the pinned contract for output {identifier!r}"
+            )
+        contracts[identifier] = contract
+    return contracts
+
+
 def _resolve_produces_models(capability: t.Any) -> dict[str, type[BaseModel]]:
     """Import the capability's `produces` Pydantic classes from its on-disk code."""
     import importlib.util
@@ -507,8 +982,10 @@ def _resolve_produces_models(capability: t.Any) -> dict[str, type[BaseModel]]:
     return out
 
 
-def _item_parameters_schema(types: dict[str, type[BaseModel]]) -> dict[str, t.Any]:
-    """Build the report_item parameter schema from the type models.
+def _item_parameters_schema(
+    types: dict[str, type[BaseModel] | dict[str, t.Any]],
+) -> dict[str, t.Any]:
+    """Build the report_item parameter schema from local or registry contracts.
 
     A JSON tool schema must be an object, so we encode `item_type` (enum) + the
     union of all types' fields. Single type → its required fields are required;
@@ -520,17 +997,30 @@ def _item_parameters_schema(types: dict[str, type[BaseModel]]) -> dict[str, t.An
     field_schema: dict[str, dict[str, t.Any]] = {}
     field_owners: dict[str, list[str]] = {}
     type_required: dict[str, list[str]] = {}
-    for tname, model in types.items():
-        sch = deref_json(model.model_json_schema(), is_json_schema=True)
+    for tname, definition in types.items():
+        raw_schema = (
+            definition.model_json_schema()
+            if isinstance(definition, type) and issubclass(definition, BaseModel)
+            else definition["json_schema"]
+        )
+        sch = deref_json(raw_schema, is_json_schema=True)
         type_required[tname] = list(sch.get("required", []))
         for fname, fsch in (sch.get("properties") or {}).items():
             field_owners.setdefault(fname, []).append(tname)
             field_schema.setdefault(fname, dict(fsch))
 
     type_lines = []
-    for n, m in types.items():
-        doc = (m.__doc__ or "").strip().splitlines()
-        type_lines.append(f"'{n}'" + (f": {doc[0].strip()}" if doc else ""))
+    for name, definition in types.items():
+        description = (
+            (definition.__doc__ or "").strip().splitlines()[0]
+            if isinstance(definition, type)
+            and issubclass(definition, BaseModel)
+            and (definition.__doc__ or "").strip()
+            else str(definition.get("description") or "").strip()
+            if isinstance(definition, dict)
+            else ""
+        )
+        type_lines.append(f"'{name}'" + (f": {description}" if description else ""))
 
     properties: dict[str, t.Any] = {
         "item_type": {
@@ -579,7 +1069,7 @@ def _item_parameters_schema(types: dict[str, type[BaseModel]]) -> dict[str, t.An
 
 
 def _make_item_handler(
-    types: dict[str, type[BaseModel]],
+    types: dict[str, type[BaseModel] | dict[str, t.Any]],
 ) -> t.Callable[..., str]:
     """Closure handler: validate the chosen type, emit, surface failures."""
 
@@ -592,24 +1082,41 @@ def _make_item_handler(
         ref = kwargs.pop("ref", None)
         links_in = kwargs.pop("links", None) or []
 
-        model = types[item_type]
-        try:
-            validated = model.model_validate(kwargs)
-        except ValidationError as exc:
-            raise ValueError(f"Invalid {item_type} payload: {exc.errors()}") from exc
+        definition = types[item_type]
+        if isinstance(definition, type) and issubclass(definition, BaseModel):
+            try:
+                validated = definition.model_validate(kwargs)
+            except ValidationError as exc:
+                raise ValueError(f"Invalid {item_type} payload: {exc.errors()}") from exc
+            payload = validated.model_dump(mode="json")
+            title = getattr(validated, "title", None)
+            schema_ref = (
+                f"{item_type}@1" if item_type in BUILTIN_ITEM_SCHEMAS else f"{item_type}@produces"
+            )
+        else:
+            from jsonschema import Draft202012Validator, FormatChecker
+
+            validator = Draft202012Validator(
+                definition["json_schema"], format_checker=FormatChecker()
+            )
+            errors = sorted(validator.iter_errors(kwargs), key=lambda error: list(error.path))
+            if errors:
+                error = errors[0]
+                path = "/".join(str(part) for part in error.absolute_path) or "$"
+                raise ValueError(f"Invalid {item_type} payload at {path}: {error.message}")
+            payload = kwargs
+            title = payload.get("title")
+            schema_ref = f"{item_type}@{definition['version']['version']}"
+        _check_registry_binding(item_type)
 
         api_links = [
             {"target_ref": link["target_ref"], "relationship": link["relationship"]}
             for link in links_in
             if isinstance(link, dict) and link.get("target_ref") and link.get("relationship")
         ]
-        schema_ref = (
-            f"{item_type}@1" if item_type in BUILTIN_ITEM_SCHEMAS else f"{item_type}@produces"
-        )
-        title = getattr(validated, "title", None)
         item_id, post_error = _emit_item(
             item_type=item_type,
-            payload=validated.model_dump(mode="json"),
+            payload=payload,
             title=title,
             # Untriaged on report; severity (if any) is already in the payload.
             status=None,
@@ -618,15 +1125,13 @@ def _make_item_handler(
             ref=ref,
             links=api_links or None,
         )
-        if _is_payload_rejection(post_error):
-            raise ValueError(f"Item was not saved to the platform: {post_error}")
-        if post_error is not None:
-            return (
-                f"Reported {item_type} '{title or '(untitled)'}' (recorded to "
-                "trace; platform write deferred — will reconcile)"
-            )
-        handle = f"ref: {ref}" if ref else (f"id: {item_id}" if item_id else "id unavailable")
-        return f"Reported {item_type} '{title or '(untitled)'}' ({handle})"
+        return _report_item_result(
+            item_type=item_type,
+            title=title,
+            ref=ref,
+            item_id=item_id,
+            post_error=post_error,
+        )
 
     return report_item_dynamic
 
@@ -635,6 +1140,7 @@ def build_capability_report_item(
     capability: t.Any,
     *,
     builtin_types: t.Iterable[str] | None = None,
+    registry_types: t.Iterable[str] | None = None,
 ) -> t.Any:
     """Build a typed report_item Tool for a capability's produced item types.
 
@@ -644,18 +1150,26 @@ def build_capability_report_item(
     the explicit built-ins the manifest opted into.
     """
     from dreadnode.agents.tools import Tool
+    from dreadnode.items.config import selected_registry_item_types
 
     produces_models = _resolve_produces_models(capability)
+    selected_registry_types = (
+        set(registry_types)
+        if registry_types is not None
+        else selected_registry_item_types(getattr(capability, "manifest", None))
+    )
+    registry_contracts = _resolve_registry_contracts(capability, selected_registry_types)
     selected_builtin_types = set(builtin_types or [])
     if builtin_types is None and produces_models:
         selected_builtin_types = set(BUILTIN_ITEM_SCHEMAS)
 
-    types: dict[str, type[BaseModel]] = {
+    types: dict[str, type[BaseModel] | dict[str, t.Any]] = {
         name: model
         for name, model in BUILTIN_ITEM_SCHEMAS.items()
         if name in selected_builtin_types
     }
     types.update(produces_models)
+    types.update(registry_contracts)
     if not types:
         return None
 

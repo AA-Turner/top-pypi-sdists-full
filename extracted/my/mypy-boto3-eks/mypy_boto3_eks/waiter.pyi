@@ -14,6 +14,7 @@ Usage::
     from mypy_boto3_eks.waiter import (
         AddonActiveWaiter,
         AddonDeletedWaiter,
+        CertificateAuthorityUpdateCompleteWaiter,
         ClusterActiveWaiter,
         ClusterDeletedWaiter,
         FargateProfileActiveWaiter,
@@ -27,6 +28,7 @@ Usage::
 
     addon_active_waiter: AddonActiveWaiter = client.get_waiter("addon_active")
     addon_deleted_waiter: AddonDeletedWaiter = client.get_waiter("addon_deleted")
+    certificate_authority_update_complete_waiter: CertificateAuthorityUpdateCompleteWaiter = client.get_waiter("certificate_authority_update_complete")
     cluster_active_waiter: ClusterActiveWaiter = client.get_waiter("cluster_active")
     cluster_deleted_waiter: ClusterDeletedWaiter = client.get_waiter("cluster_deleted")
     fargate_profile_active_waiter: FargateProfileActiveWaiter = client.get_waiter("fargate_profile_active")
@@ -51,6 +53,7 @@ from .type_defs import (
     DescribeFargateProfileRequestWaitTypeDef,
     DescribeNodegroupRequestWaitExtraTypeDef,
     DescribeNodegroupRequestWaitTypeDef,
+    DescribeUpdateRequestWaitTypeDef,
 )
 
 if sys.version_info >= (3, 12):
@@ -61,6 +64,7 @@ else:
 __all__ = (
     "AddonActiveWaiter",
     "AddonDeletedWaiter",
+    "CertificateAuthorityUpdateCompleteWaiter",
     "ClusterActiveWaiter",
     "ClusterDeletedWaiter",
     "FargateProfileActiveWaiter",
@@ -93,6 +97,19 @@ class AddonDeletedWaiter(Waiter):
         """
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/eks/waiter/AddonDeleted.html#EKS.Waiter.AddonDeleted.wait)
         [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_eks/waiters/#addondeletedwaiter)
+        """
+
+class CertificateAuthorityUpdateCompleteWaiter(Waiter):
+    """
+    [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/eks/waiter/CertificateAuthorityUpdateComplete.html#EKS.Waiter.CertificateAuthorityUpdateComplete)
+    [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_eks/waiters/#certificateauthorityupdatecompletewaiter)
+    """
+    def wait(  # type: ignore[override]
+        self, **kwargs: Unpack[DescribeUpdateRequestWaitTypeDef]
+    ) -> None:
+        """
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/eks/waiter/CertificateAuthorityUpdateComplete.html#EKS.Waiter.CertificateAuthorityUpdateComplete.wait)
+        [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_eks/waiters/#certificateauthorityupdatecompletewaiter)
         """
 
 class ClusterActiveWaiter(Waiter):

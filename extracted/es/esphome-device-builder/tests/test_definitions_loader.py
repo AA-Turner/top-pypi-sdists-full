@@ -385,6 +385,7 @@ def test_load_migration_rules_reads_every_kind(tmp_path: Path) -> None:
                         "component": "mycomp",
                         "old": "a",
                         "new": "b",
+                        "since": "2026.8.0b1",
                     },
                     {
                         "kind": "platform_item_field",
@@ -392,22 +393,35 @@ def test_load_migration_rules_reads_every_kind(tmp_path: Path) -> None:
                         "platform": "sgp4x",
                         "old": "voc",
                         "new": "voc_index",
+                        "since": "2026.8.0b1",
+                        "removed_in": None,
                     },
-                    {"kind": "component_key", "old": "rp2040", "new": "rp2"},
+                    {
+                        "kind": "component_key",
+                        "old": "rp2040",
+                        "new": "rp2",
+                        "since": "2026.7.0",
+                        "removed_in": "2027.7.0",
+                    },
                 ]
             }
         )
     )
     assert _load_migration_rules(json_path) == (
-        MigrationRule(kind="component_block_field", old="a", new="b", component="mycomp"),
+        MigrationRule(
+            kind="component_block_field", old="a", new="b", component="mycomp", since="2026.8.0b1"
+        ),
         MigrationRule(
             kind="platform_item_field",
             old="voc",
             new="voc_index",
             domain="sensor",
             platform="sgp4x",
+            since="2026.8.0b1",
         ),
-        MigrationRule(kind="component_key", old="rp2040", new="rp2"),
+        MigrationRule(
+            kind="component_key", old="rp2040", new="rp2", since="2026.7.0", removed_in="2027.7.0"
+        ),
     )
 
 
@@ -431,14 +445,58 @@ def test_load_migration_rules_reads_every_kind(tmp_path: Path) -> None:
             id="non_string_domain",
         ),
         pytest.param({"kind": "component_key", "old": "rp2040"}, id="component_key_no_new"),
+        pytest.param(
+            {"kind": "component_key", "old": "rp2040", "new": "rp2", "since": 2026},
+            id="non_string_since",
+        ),
+        pytest.param(
+            {
+                "kind": "component_key",
+                "old": "rp2040",
+                "new": "rp2",
+                "since": "2026.7.0",
+                "removed_in": "",
+            },
+            id="empty_removed_in",
+        ),
+        pytest.param(
+            {
+                "kind": "component_key",
+                "old": "rp2040",
+                "new": "rp2",
+                "since": "2026.7.0",
+                "removed_in": "soon",
+            },
+            id="non_pep440_removed_in",
+        ),
+        pytest.param(
+            {"kind": "component_key", "old": "rp2040", "new": "rp2", "since": "2026.8.0bX"},
+            id="non_pep440_since",
+        ),
+        pytest.param(
+            {"kind": "component_key", "old": "rp2040", "new": "rp2"},
+            id="missing_since",
+        ),
+        pytest.param(
+            {"kind": "component_key", "old": "rp2040", "new": "rp2", "since": None},
+            id="null_since",
+        ),
     ],
 )
 def test_load_migration_rules_drops_malformed_records(tmp_path: Path, record: object) -> None:
     json_path = tmp_path / "migration_rules.index.json"
-    keep = {"kind": "component_block_field", "component": "ok", "old": "a", "new": "b"}
+    keep = {
+        "kind": "component_block_field",
+        "component": "ok",
+        "old": "a",
+        "new": "b",
+        "since": "2026.8.0b1",
+    }
     json_path.write_bytes(orjson.dumps({"rules": [record, keep]}))
     assert _load_migration_rules(json_path) == (
-        MigrationRule(kind="component_block_field", old="a", new="b", component="ok"),
+        MigrationRule(
+            kind="component_block_field", old="a", new="b", component="ok", since="2026.8.0b1"
+        ),
     )
 
 

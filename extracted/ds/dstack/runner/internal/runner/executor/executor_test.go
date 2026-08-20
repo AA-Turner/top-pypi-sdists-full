@@ -279,12 +279,95 @@ func TestWriteDstackProfile(t *testing.T) {
 	script := fmt.Sprintf(`. '%s'; printf '%%s' "$VAR"`, path)
 	for _, value := range testCases {
 		env := map[string]string{"VAR": value}
-		writeDstackProfile(env, path)
+		writeDstackProfile(t.Context(), env, path)
 		cmd := exec.CommandContext(t.Context(), "/bin/sh", "-c", script)
 		out, err := cmd.Output()
 		assert.NoError(t, err)
 		assert.Equal(t, value, string(out))
 	}
+}
+
+func TestWriteDstackProfile_NotShellIdentifiers(t *testing.T) {
+	tmp := t.TempDir()
+	path := tmp + "/dstack_profile"
+	script := fmt.Sprintf(`. '%s'; printf '%%s' "$VAR"`, path)
+	env := map[string]string{
+		"VAR":               "value",
+		"NOT-AN-IDENTIFIER": "value",
+		"0NOTANIDENTIFIER":  "value",
+		"NOT AN IDENTIFIER": "value",
+		"BASH_FUNC_foo%%":   "() {  echo hi\n}",
+	}
+
+	require.NoError(t, writeDstackProfile(t.Context(), env, path))
+
+	cmd := exec.CommandContext(t.Context(), "/bin/sh", "-c", script)
+	var stderr bytes.Buffer
+	cmd.Stderr = &stderr
+	out, err := cmd.Output()
+	// Some shells only complain about a bad name, others abort the profile altogether,
+	// leaving VAR unset
+	assert.NoError(t, err)
+	assert.Empty(t, stderr.String())
+	assert.Equal(t, "value", string(out))
+}
+
+func TestWriteMpiHostfile(t *testing.T) {
+	tmp := t.TempDir()
+
+	t.Run("heterogeneous_slots", func(t *testing.T) {
+		path := filepath.Join(tmp, "hostfile_hetero")
+		err := writeMpiHostfile(
+			t.Context(),
+			[]string{"10.0.0.1", "10.0.0.2", "10.0.0.3"},
+			[]int{8, 4, 0},
+			path,
+		)
+		require.NoError(t, err)
+		content, err := os.ReadFile(path)
+		require.NoError(t, err)
+		assert.Equal(t, "10.0.0.1 slots=8\n10.0.0.2 slots=4\n10.0.0.3\n", string(content))
+	})
+
+	t.Run("homogeneous_slots", func(t *testing.T) {
+		path := filepath.Join(tmp, "hostfile_homo")
+		err := writeMpiHostfile(
+			t.Context(),
+			[]string{"10.0.0.1", "10.0.0.2"},
+			[]int{4, 4},
+			path,
+		)
+		require.NoError(t, err)
+		content, err := os.ReadFile(path)
+		require.NoError(t, err)
+		assert.Equal(t, "10.0.0.1 slots=4\n10.0.0.2 slots=4\n", string(content))
+	})
+
+	t.Run("slots_length_mismatch", func(t *testing.T) {
+		path := filepath.Join(tmp, "hostfile_mismatch")
+		err := writeMpiHostfile(
+			t.Context(),
+			[]string{"10.0.0.1", "10.0.0.2"},
+			[]int{8},
+			path,
+		)
+		require.Error(t, err)
+		assert.Contains(t, err.Error(), "gpus_per_node length 1 != job_ips length 2")
+	})
+
+	t.Run("empty_ip_writes_empty_hostfile", func(t *testing.T) {
+		path := filepath.Join(tmp, "hostfile_empty_ip")
+		err := writeMpiHostfile(
+			t.Context(),
+			[]string{"10.0.0.1", ""},
+			[]int{8, 4},
+			path,
+		)
+		require.NoError(t, err)
+		content, err := os.ReadFile(path)
+		require.NoError(t, err)
+		assert.Equal(t, "", string(content))
+	})
 }
 
 func TestExecutor_Logs(t *testing.T) {

@@ -45,6 +45,7 @@ from dstack._internal.server import settings as server_settings
 from dstack._internal.server.db import get_db, is_db_postgres, is_db_sqlite
 from dstack._internal.server.models import (
     FleetModel,
+    GatewayReplicaModel,
     JobModel,
     MemberModel,
     ProbeModel,
@@ -56,7 +57,7 @@ from dstack._internal.server.models import (
 from dstack._internal.server.services import events, services
 from dstack._internal.server.services import projects as projects_services
 from dstack._internal.server.services import repos as repos_services
-from dstack._internal.server.services.gateways import get_gateway_compute_models
+from dstack._internal.server.services.gateways import get_gateway_replica_models
 from dstack._internal.server.services.jobs import (
     check_can_attach_job_volumes,
     get_job_configured_volumes,
@@ -160,7 +161,7 @@ def gateway_registration_failed(run_model: RunModel) -> bool:
         return False
     running_gateway_replica_ids = {
         replica.id
-        for replica in get_gateway_compute_models(run_model.gateway)
+        for replica in get_gateway_replica_models(run_model.gateway)
         if replica.status == GatewayReplicaStatus.RUNNING
     }
     if not running_gateway_replica_ids:
@@ -850,6 +851,8 @@ async def submit_run(
         if pipeline_hinter is not None:
             pipeline_hinter.hint_fetch(JobModel.__name__)
             pipeline_hinter.hint_fetch(RunModel.__name__)
+            if run_model.gateway is not None or run_model.gateway_id is not None:
+                pipeline_hinter.hint_fetch(GatewayReplicaModel.__name__)
         await session.refresh(run_model)
 
         run = await get_run_by_id(session, project, run_model.id)
@@ -1195,7 +1198,7 @@ async def _validate_run_volumes(
     # that won't be created immediately (e.g. range of replicas or nodes).
     nodes = 1
     if run_spec.configuration.type == "task":
-        nodes = run_spec.configuration.nodes
+        nodes = run_spec.configuration.nodes_num
     for job_num in range(nodes):
         volumes = await get_job_configured_volumes(
             session=session, project=project, run_spec=run_spec, job_num=job_num

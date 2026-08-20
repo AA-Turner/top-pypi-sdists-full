@@ -1,6 +1,6 @@
 Metadata-Version: 2.5
 Name: code-puppy
-Version: 0.0.742
+Version: 0.0.746
 Summary: Code generation agent
 Project-URL: repository, https://github.com/mpfaffenberger/code_puppy
 Project-URL: HomePage, https://github.com/mpfaffenberger/code_puppy
@@ -30,6 +30,7 @@ Requires-Dist: packaging>=24.0
 Requires-Dist: pillow>=10.0.0
 Requires-Dist: playwright>=1.40.0; sys_platform != 'android'
 Requires-Dist: prompt-toolkit>=3.0.52
+Requires-Dist: pydantic-ai-harness==0.23.0
 Requires-Dist: pydantic-ai-slim[anthropic,mcp,openai]==2.31.0
 Requires-Dist: pydantic>=2.4.0
 Requires-Dist: pyfiglet>=0.8.post1

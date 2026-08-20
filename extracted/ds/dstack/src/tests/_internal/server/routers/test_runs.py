@@ -59,7 +59,7 @@ from dstack._internal.server.testing.common import (
     create_export,
     create_fleet,
     create_gateway,
-    create_gateway_compute,
+    create_gateway_replica,
     create_instance,
     create_job,
     create_project,
@@ -346,6 +346,9 @@ def get_dev_env_run_plan_dict(
                     "file_archives": [],
                     "service_port": None,
                     "probes": [],
+                    "node_group_index": 0,
+                    "node_group_name": "0",
+                    "node_group_job_index": 0,
                 },
                 "offers": [json.loads(o.model_dump_json()) for o in offers],
                 "total_offers": total_offers,
@@ -593,6 +596,9 @@ def get_dev_env_run_dict(
                     "file_archives": [],
                     "service_port": None,
                     "probes": [],
+                    "node_group_index": 0,
+                    "node_group_name": "0",
+                    "node_group_job_index": 0,
                 },
                 "job_submissions": [
                     {
@@ -3968,7 +3974,7 @@ class TestSubmitService:
                 name=gateway_name,
                 wildcard_domain=f"{gateway_name}.example",
             )
-            await create_gateway_compute(
+            await create_gateway_replica(
                 session=session,
                 backend_id=backend.id,
                 gateway_id=gateway.id,
@@ -3999,15 +4005,24 @@ class TestSubmitService:
         res = await session.execute(select(RunModel))
         run = res.scalar_one()
         assert (run.gateway_id is not None) == is_gateway
+        event_messages = {e.message for e in await list_events(session)}
+        if is_gateway:
+            assert "Service assigned to gateway" in event_messages
+            assert "Service assigned to run without a gateway" not in event_messages
+        else:
+            assert "Service assigned to gateway" not in event_messages
+            assert "Service assigned to run without a gateway" in event_messages
 
     @pytest.mark.asyncio
     @pytest.mark.parametrize("populate_configuration", [True, False])
+    @pytest.mark.parametrize("legacy_replica", [False, True])
     async def test_submit_to_gateway_by_name(
         self,
         test_db,
         session: AsyncSession,
         client: AsyncClient,
         populate_configuration: bool,
+        legacy_replica: bool,
     ) -> None:
         user = await create_user(session=session, global_role=GlobalRole.USER)
         project = await create_project(session=session, owner=user, name="test-project")
@@ -4025,12 +4040,21 @@ class TestSubmitService:
             wildcard_domain="my-gateway.example",
             populate_configuration=populate_configuration,
         )
-        await create_gateway_compute(
-            session=session,
-            backend_id=backend.id,
-            gateway_id=gateway.id,
-            populate_configuration=populate_configuration,
-        )
+        if legacy_replica:
+            gateway_replica = await create_gateway_replica(
+                session=session,
+                backend_id=backend.id,
+                populate_configuration=populate_configuration,
+            )
+            gateway.gateway_replica_id = gateway_replica.id
+            await session.commit()
+        else:
+            gateway_replica = await create_gateway_replica(
+                session=session,
+                backend_id=backend.id,
+                gateway_id=gateway.id,
+                populate_configuration=populate_configuration,
+            )
         run_spec = get_service_run_spec(
             repo_id=repo.name,
             run_name="test-service",
@@ -4052,6 +4076,8 @@ class TestSubmitService:
         res = await session.execute(select(RunModel))
         run = res.scalar_one()
         assert run.gateway_id is not None
+        await session.refresh(gateway_replica)
+        assert gateway_replica.skip_min_processing_interval
 
     @pytest.mark.asyncio
     async def test_return_error_if_specified_gateway_not_exists(
@@ -4136,7 +4162,7 @@ class TestSubmitService:
             name="exported-gateway",
             wildcard_domain="exported-gateway.example",
         )
-        await create_gateway_compute(session=session, backend_id=backend.id, gateway_id=gateway.id)
+        await create_gateway_replica(session=session, backend_id=backend.id, gateway_id=gateway.id)
 
         importer_user = await create_user(
             session=session, global_role=GlobalRole.USER, name="importer_user"
@@ -4230,7 +4256,7 @@ class TestSubmitService:
             backend_id=backend.id,
             status=GatewayStatus.RUNNING,
         )
-        await create_gateway_compute(session=session, backend_id=backend.id, gateway_id=gateway.id)
+        await create_gateway_replica(session=session, backend_id=backend.id, gateway_id=gateway.id)
 
         service_project = await create_project(session=session, owner=user, name="service-project")
         # The project's default_gateway_id may point to the gateway (e.g., if the gateway was
@@ -4290,7 +4316,7 @@ class TestSubmitService:
             name="exported-gateway",
             wildcard_domain="${{ run.project_name }}.example.com",
         )
-        await create_gateway_compute(session=session, backend_id=backend.id, gateway_id=gateway.id)
+        await create_gateway_replica(session=session, backend_id=backend.id, gateway_id=gateway.id)
 
         importer_user = await create_user(
             session=session, global_role=GlobalRole.USER, name="importer_user"
@@ -4354,7 +4380,7 @@ class TestSubmitService:
             name="exported-gateway",
             wildcard_domain="${{ run.unknown_variable }}.example.com",
         )
-        await create_gateway_compute(session=session, backend_id=backend.id, gateway_id=gateway.id)
+        await create_gateway_replica(session=session, backend_id=backend.id, gateway_id=gateway.id)
 
         importer_user = await create_user(
             session=session, global_role=GlobalRole.USER, name="importer_user"
@@ -4425,7 +4451,7 @@ class TestSubmitService:
             wildcard_domain="example.com",
             forbid_new_services=True,
         )
-        await create_gateway_compute(session=session, backend_id=backend.id, gateway_id=gateway.id)
+        await create_gateway_replica(session=session, backend_id=backend.id, gateway_id=gateway.id)
         project.default_gateway_id = gateway.id
         await session.commit()
 
@@ -4469,7 +4495,7 @@ class TestSubmitService:
             wildcard_domain="example.com",
             forbid_new_services=True,
         )
-        await create_gateway_compute(session=session, backend_id=backend.id, gateway_id=gateway.id)
+        await create_gateway_replica(session=session, backend_id=backend.id, gateway_id=gateway.id)
 
         response = await client.post(
             f"/api/project/{project.name}/runs/apply",

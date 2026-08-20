@@ -341,7 +341,7 @@ __all__ = [
     "EvalStats",
 ]
 
-__version__ = "0.4.3"
+__version__ = "0.4.4"
 
 
 # Lazy imports for performance

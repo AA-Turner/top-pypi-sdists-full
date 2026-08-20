@@ -24,9 +24,12 @@ from dreadnode.app.cli.shared import (
     _render_list,
     _sync_progress,
     _visibility_markup,
+    classify_sync_operands,
     configured_dreadnode,
     confirm_destructive,
+    connect_for_sync,
     console,
+    copy_tree_replacing,
     ensure_name_only_refs,
     ensure_version,
     print_error,
@@ -34,6 +37,7 @@ from dreadnode.app.cli.shared import (
     print_markdown,
     print_success,
     print_warning,
+    pull_environment_to_dir,
     resolve_publish_flag,
 )
 from dreadnode.core.util import valid_version
@@ -769,17 +773,26 @@ def info(
 def pull(
     ref: str,
     *,
+    output: t.Annotated[Path | None, cyclopts.Parameter(name="--output", alias="-o")] = None,
+    force: t.Annotated[bool, cyclopts.Parameter(negative=())] = False,
     upgrade: t.Annotated[bool, cyclopts.Parameter(negative=())] = False,
     platform: PlatformArgs = PlatformArgs(),
 ) -> None:
     """Download a task for local development or inspection.
 
-    Pulls the task from the registry and extracts it to the local
-    package cache. Use this to inspect how a task is built, fork it,
-    or test it locally with docker compose.
+    Pulls the task from the registry into the local package cache. Use
+    this to inspect how a task is built, fork it, or test it locally
+    with docker compose. Pass ``--output`` to also materialize it to a
+    directory you choose — useful for carrying an environment onto an
+    air-gapped instance and pushing it there.
 
     Args:
         ref: Task to pull (e.g. my-task or acme/my-task).
+        output: Also copy the task to this directory. Defaults to the
+            package cache only. Implies --upgrade, so the copy you carry
+            out is always a complete fresh extraction rather than whatever
+            the cache happens to hold.
+        force: Overwrite the output directory if it already exists.
         upgrade: Re-download even if already cached locally.
     """
     dn = configured_dreadnode(platform)
@@ -788,12 +801,29 @@ def pull(
 
     package_ref = f"environment://{parsed.qualified_name}"
 
-    result = dn.pull_package([package_ref], upgrade=upgrade)
+    # Fail on an existing destination before downloading anything (CLI-SYNC-033),
+    # not after a full pull.
+    dest = output.resolve() if output is not None else None
+    if dest is not None and (dest.exists() or dest.is_symlink()) and not force:
+        raise FileExistsError(f"{dest} already exists — use --force to overwrite")
+
+    # When materializing to a chosen directory we need a fresh extraction: the
+    # cache-skip path doesn't report a dest, and a carried-out copy should be
+    # complete regardless of what's already cached.
+    result = dn.pull_package([package_ref], upgrade=upgrade or output is not None)
 
     if not result.success:
         raise RuntimeError("; ".join(result.errors) or "Pull failed")
 
     display = parsed.with_version(result.version).format() if result.version else parsed.format()
+
+    if dest is not None:
+        if result.dest is None:
+            raise RuntimeError("Pull succeeded but no cached files were found to copy")
+        copy_tree_replacing(result.dest, dest)
+        print_success(f"Pulled {display} to {dest}")
+        return
+
     if result.dest:
         console.print(f"Pulled {display} to {result.dest}")
     else:
@@ -837,9 +867,73 @@ def delete(
 # ---------------------------------------------------------------------------
 
 
+def _pull_environments_to_dir(
+    dn: t.Any,
+    api: t.Any,
+    org: str,
+    directory: Path,
+    *,
+    force: bool,
+    on_progress: t.Callable[[str, str, str | None], None],
+) -> tuple[list[str], list[str], list[tuple[str, str]]]:
+    """Pull every task environment in *org* to ``directory/<name>``.
+
+    Returns (pulled, skipped, failed). Additive copy semantics: a name whose
+    destination already exists is skipped unless *force*.
+    """
+    directory.mkdir(parents=True, exist_ok=True)
+
+    items = _collect_pages(
+        lambda page, page_size: api.list_tasks(org, page=page, limit=page_size),
+        limit=10_000,
+        page_size=100,
+        items_key="tasks",
+    )
+
+    pulled: list[str] = []
+    skipped: list[str] = []
+    failed: list[tuple[str, str]] = []
+
+    for item in items:
+        name = item.get("name")
+        if not name:
+            continue
+        dest = (directory / name).resolve()
+        # Skip already-present environments from the path alone — no
+        # version-resolution API call for a name we won't pull (CLI-SYNC-035).
+        if (dest.exists() or dest.is_symlink()) and not force:
+            skipped.append(name)
+            on_progress(name, "skipped", None)
+            continue
+        try:
+            vref = ensure_version(api, "task", ArtifactRef.parse(name, org))
+        except ValueError as e:
+            # No published version — nothing to pull; not a failure (CLI-SYNC-036).
+            skipped.append(name)
+            on_progress(name, "skipped", str(e))
+            continue
+        try:
+            # Address the resolved version, not the registry `latest` tag, so the
+            # bytes on disk match the version we report (CLI-SYNC-034).
+            pull_environment_to_dir(
+                dn, f"environment://{vref.qualified_name}:{vref.version}", dest, force=force
+            )
+            pulled.append(name)
+            on_progress(name, "pulled", vref.version)
+        except Exception as e:
+            failed.append((name, str(e)))
+            on_progress(name, "failed", str(e))
+
+    return pulled, skipped, failed
+
+
+_DEFAULT_SYNC_WORKERS = 8
+
+
 @cli.command()
 def sync(
-    directory: Path,
+    src: str,
+    dst: str | None = None,
     *,
     force: t.Annotated[bool, cyclopts.Parameter(negative=())] = False,
     publish: t.Annotated[bool, cyclopts.Parameter(negative=())] = False,
@@ -847,28 +941,65 @@ def sync(
         bool,
         cyclopts.Parameter(name="--public", negative=(), show=False),
     ] = False,
-    workers: int = 8,
+    workers: int = _DEFAULT_SYNC_WORKERS,
     skip_validate: t.Annotated[bool, cyclopts.Parameter(negative=())] = False,
     platform: PlatformArgs = PlatformArgs(),
 ) -> None:
-    """Publish all tasks from a directory — ideal for CI pipelines.
+    """Bulk-copy task environments between a local directory and a platform.
 
-    Discovers subdirectories containing task.yaml, compares each
-    against the registry by content hash, and only publishes those
-    that changed.
+    One operand is a platform URL, the other a local directory; the direction
+    follows from which is which:
+
+    - ``sync <dir> <url>`` — publish every task under the directory, pushing
+      only those whose content changed (ideal for CI). ``sync <dir>`` alone
+      pushes to the platform your connection flags point at.
+    - ``sync <url> <dir>`` — pull every task in your organization down into the
+      directory (one subfolder per task), for carrying onto an air-gapped
+      instance.
+
+    The platform URL resolves to a profile you have logged in to; if none
+    matches, the command tells you to ``dn login --server <url>`` first.
 
     Args:
-        directory: Root directory containing task subdirectories.
-        force: Publish all tasks even if unchanged.
-        publish: Ensure published tasks are publicly discoverable.
-        workers: Number of parallel upload workers.
-        skip_validate: Skip local validation (upload even tasks the platform
-            would reject at ingest). Not recommended.
+        src: A platform URL to pull from, or a directory to push from.
+        dst: A directory to pull into, or a platform URL to push to. Omit to
+            push ``src`` to the connection-flag platform (back-compat form).
+        force: Copy every task even if unchanged / already present.
+        publish: Ensure published tasks are publicly discoverable (push only).
+        workers: Number of parallel upload workers (push only).
+        skip_validate: Skip local validation on push (upload even tasks the
+            platform would reject at ingest). Not recommended.
     """
     publish = resolve_publish_flag(publish, public_compat)
-    dn = configured_dreadnode(platform)
+    plan = classify_sync_operands(src, dst)
+    api, dn, profile = connect_for_sync(plan, platform)
+
+    if plan.direction == "pull":
+        if publish:
+            print_warning("--publish is ignored when pulling")
+        if skip_validate or workers != _DEFAULT_SYNC_WORKERS:
+            print_warning("--workers and --skip-validate only apply to push; ignoring")
+        pulled, skipped, failed = _pull_environments_to_dir(
+            dn,
+            api,
+            profile.org_key,
+            plan.directory,
+            force=force,
+            on_progress=_sync_progress,
+        )
+        total = len(pulled) + len(skipped) + len(failed)
+        console.print(
+            f"\nPulled {total}: "
+            f"[green]{len(pulled)} pulled[/green], "
+            f"[dim]{len(skipped)} skipped[/dim], "
+            f"[red]{len(failed)} failed[/red]"
+        )
+        if failed:
+            raise SystemExit(1)
+        return
+
     result = dn.sync_environments(
-        directory,
+        plan.directory,
         force=force,
         publish=publish,
         max_workers=workers,

@@ -108,7 +108,10 @@ def add_stage_information(df, method, label=""):
     df["Percentage Season"] = float("nan")
 
     # Group by Region and Harvest Year
-    grouped = df.groupby(["Region", "Harvest Year"])
+    # observed=True: this groupby is ITERATED, so a categorical Region would
+    # otherwise yield one empty group per unused level (1,004 county levels
+    # even when the frame holds a handful). No-op under object dtype.
+    grouped = df.groupby(["Region", "Harvest Year"], observed=True)
 
     # Loop through groups with tqdm
     desc = f"Computing Percentage Season ({label})" if label else "Computing Percentage Season"

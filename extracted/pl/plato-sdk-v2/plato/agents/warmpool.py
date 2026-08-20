@@ -33,6 +33,8 @@ _PROVISION_VM_ATTEMPT_LIMIT = 3
 # evictable idle VM. Bounded polling avoids a lost-wakeup deadlock when an idle
 # VM appears between a failed eviction scan and the condition wait.
 _BUDGET_WAIT_RETRY_S = 1.0
+# Bound on the best-effort pre-release workspace flush (dead NFS server).
+_FLUSH_TIMEOUT_S = 30
 # Slack added on top of attempts*timeout for the aggregate ceilings below —
 # covers one daemon re-bootstrap (scp + ssh + readiness poll) per cycle.
 _LIFECYCLE_BUDGET_SLACK_S = 120.0
@@ -235,6 +237,10 @@ class WarmPool:
     ) -> None:
         """Return a VM to the pool or destroy it if reset/health-check fails."""
         await self._mark_not_in_use(pooled_vm.alias)
+
+        # Flush outstanding NFS write-back BEFORE any teardown path — both the
+        # reset (lazy umount) and destroy paths otherwise drop dirty pages.
+        await self._flush_workspace_writes(pooled_vm, workspace_paths)
 
         if destroy or not pooled_vm.healthy or self._closed:
             await self._destroy_vm(pooled_vm)
@@ -712,6 +718,41 @@ class WarmPool:
         )
         return False, detail
 
+    async def health_check(self, pooled_vm: PooledVM) -> bool:
+        """Public health probe for a checked-out VM (used by runtime leases)."""
+        return await self._health_check(pooled_vm)
+
+    async def _flush_workspace_writes(self, pooled_vm: PooledVM, workspace_paths: list[str]) -> None:
+        """Flush dirty NFS pages for each workspace before reset/destroy.
+
+        The reset path historically did a lazy ``umount -l`` with no sync, so
+        an agent that exited moments before release could lose its final
+        writes: the NFS client's not-yet-written-back pages were dropped with
+        the detach, leaving permanent zero-holes in files on the server (seen
+        live as a codex rollout truncated to NULs when its lane was released
+        ~6s after codex-exec exited). ``sync -f`` (syncfs) on each mountpoint
+        forces write-back to the NFS server first. Best-effort and bounded:
+        a dead server must not wedge release.
+        """
+        if not workspace_paths:
+            return
+        syncs = " ; ".join(f"sync -f {shlex.quote(str(Path(path)))} 2>/dev/null || sync" for path in workspace_paths)
+        try:
+            exit_code, _, stderr = await pooled_vm.vm_runtime.exec(
+                pooled_vm.runtime_info.runtime_id,
+                f"({syncs}) ; true",
+                timeout=_FLUSH_TIMEOUT_S,
+            )
+            if exit_code != 0:
+                logger.warning(
+                    "Workspace write flush on %s exited %d: %s",
+                    pooled_vm.alias,
+                    exit_code,
+                    (stderr or "").strip()[-200:],
+                )
+        except Exception:
+            logger.warning("Workspace write flush failed on %s (best-effort)", pooled_vm.alias, exc_info=True)
+
     async def _health_check(self, pooled_vm: PooledVM) -> bool:
         """Health-check a pooled VM: ``health_check_attempts`` tries with
         backoff, shared by BOTH transports.
@@ -817,7 +858,13 @@ def _runtime_reset_commands(workspace_paths: list[str]) -> list[str]:
     for workspace_path in workspace_paths:
         quoted_path = shlex.quote(str(Path(workspace_path)))
         commands.append(
-            f"umount -l {quoted_path} 2>/dev/null; rm -rf {quoted_path} 2>/dev/null; mkdir -p {quoted_path}"
+            # sync -f first: a lazy detach silently drops not-yet-written-back
+            # NFS pages (permanent zero-holes server-side). Prefer a bounded
+            # real umount so outstanding writes complete; fall back to a lazy
+            # detach only when the mount is wedged (dead server, busy fd).
+            f"sync -f {quoted_path} 2>/dev/null || sync; "
+            f"timeout 30 umount {quoted_path} 2>/dev/null || umount -l {quoted_path} 2>/dev/null; "
+            f"rm -rf {quoted_path} 2>/dev/null; mkdir -p {quoted_path}"
         )
     commands += [
         # /var/tmp glob is scoped to plato-* on purpose. Wiping all of /var/tmp
@@ -830,3 +877,84 @@ def _runtime_reset_commands(workspace_paths: list[str]) -> list[str]:
         "sed -i '/runtime\\.plato\\.internal/d' /etc/hosts 2>/dev/null; true",
     ]
     return commands
+
+
+class RuntimeLease:
+    """One task's bound pooled VM, released after an idle window.
+
+    Used when ``AgentConfig.runtime_idle_release_seconds`` is set: instead of
+    returning the VM to the pool after every run, the run path binds it here
+    and the next run checks it back out — an interactive lane keeps a stable
+    VM across turns. The idle timer starts at ``bind()`` (turn end) and is
+    cancelled by ``checkout()`` (next turn start), so it can never fire
+    mid-run. Every transition holds ``_lock``: a run racing the idle expiry
+    either checks the VM out first (timer cancelled, reuse) or finds the
+    lease empty (release already committed, acquire fresh) — no half-states.
+
+    When the lease ENDS (idle expiry, shutdown) the VM is DESTROYED rather
+    than returned to the pool: ten idle chat lanes must not inflate standing
+    capacity to ten VMs. The pool's replenish loop maintains the configured
+    warm floor independently of lane count, which is the correct standing
+    capacity for fast first-acquires.
+    """
+
+    def __init__(self, pool: WarmPool, idle_seconds: float) -> None:
+        self._pool = pool
+        self._idle_seconds = idle_seconds
+        self._lock = asyncio.Lock()
+        self._pooled: PooledVM | None = None
+        self._workspace_paths: list[str] = []
+        self._timer: asyncio.Task[None] | None = None
+        # Setup identity of the bound VM (see AgentTask._setup_fingerprint):
+        # a reuse may skip install/env setup only when this matches. Read by
+        # the run path after checkout(); only meaningful for the checked-out VM.
+        self.last_fingerprint: str | None = None
+
+    async def checkout(self) -> PooledVM | None:
+        """Take the bound VM for a run (cancelling the idle timer), or None."""
+        async with self._lock:
+            self._cancel_timer()
+            pooled, self._pooled = self._pooled, None
+            return pooled
+
+    async def bind(
+        self,
+        pooled: PooledVM,
+        workspace_paths: list[str],
+        fingerprint: str | None = None,
+    ) -> None:
+        """Bind a VM after a successful run and start the idle timer."""
+        async with self._lock:
+            self._cancel_timer()
+            self._pooled = pooled
+            self._workspace_paths = list(workspace_paths)
+            self.last_fingerprint = fingerprint
+            self._timer = asyncio.create_task(self._expire(), name="runtime-lease-idle")
+
+    async def release(self, *, destroy: bool = True) -> None:
+        """End the lease now (shutdown / teardown): destroy the bound VM."""
+        async with self._lock:
+            self._cancel_timer()
+            pooled, self._pooled = self._pooled, None
+            paths = self._workspace_paths
+        if pooled is not None:
+            await asyncio.shield(self._pool.release(pooled, workspace_paths=paths, destroy=destroy))
+
+    def _cancel_timer(self) -> None:
+        if self._timer is not None:
+            self._timer.cancel()
+            self._timer = None
+
+    async def _expire(self) -> None:
+        await asyncio.sleep(self._idle_seconds)
+        async with self._lock:
+            pooled, self._pooled = self._pooled, None
+            paths = self._workspace_paths
+            self._timer = None
+        if pooled is not None:
+            logger.info(
+                "Runtime lease idle for %.0fs; destroying %s (the pool floor replenishes independently)",
+                self._idle_seconds,
+                pooled.alias,
+            )
+            await asyncio.shield(self._pool.release(pooled, workspace_paths=paths, destroy=True))

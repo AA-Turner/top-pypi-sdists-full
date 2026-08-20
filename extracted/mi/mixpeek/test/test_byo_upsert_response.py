@@ -41,6 +41,11 @@ class TestBYOUpsertResponse(unittest.TestCase):
                     ''
                     ],
                 write_token = '',
+                dropped_payload_fields = {
+                    'key' : [
+                        ''
+                        ]
+                    },
                 consistency = mixpeek.models.write_consistency.WriteConsistency(
                     retriever_visible = '', 
                     recommended_header = '', 

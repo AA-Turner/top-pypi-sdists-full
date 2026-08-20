@@ -30,6 +30,7 @@ from dreadnode.core.metric import (
     MetricDict,
     MetricsLike,
 )
+from dreadnode.core.tls import create_platform_http_session
 from dreadnode.core.types.common import (
     INHERITED,
     AnyDict,
@@ -373,6 +374,7 @@ class Dreadnode:
                             headers={"X-Api-Key": self.api_key},
                             timeout=30,  # 30s (default 10s causes span loss on slow networks)
                             compression=Compression.Gzip,
+                            session=create_platform_http_session(),
                         ),
                     ),
                 ),

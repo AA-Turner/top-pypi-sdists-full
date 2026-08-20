@@ -257,6 +257,7 @@ class Tasks(ModuleBase):
         llm_model_provider: Optional[str] = None,
         llm_model_name: Optional[str] = None,
         llm_reasoning_effort: Optional[LLMReasoningEffort] = None,
+        tool_call_limit: Optional[int] = None,
     ) -> Task:
         """
         Asynchronously create a new task for a specific agent.
@@ -294,6 +295,8 @@ class Tasks(ModuleBase):
             llm_model_provider (Optional[str]): Override the agent's configured LLM provider for this task only (e.g. ``"openai"``, ``"anthropic"``). Defaults to the agent's settings when not set.
             llm_model_name (Optional[str]): Override the agent's configured model name for this task only (e.g. ``"gpt-5"``). Defaults to the agent's settings when not set.
             llm_reasoning_effort (Optional[LLMReasoningEffort]): Override the agent's reasoning effort for this task only. Defaults to the agent's settings when not set.
+            tool_call_limit (Optional[int]): Cap tool calls for this task only.
+                Defaults to the agent's settings when not set.
 
         Returns:
             Task: Newly created task object containing all initial configuration data.
@@ -342,6 +345,7 @@ class Tasks(ModuleBase):
                     "title": title,
                     "think_mode": think_mode.value,
                     "disable_attachment_injection": disable_attachment_injection,
+                    "tool_call_limit": tool_call_limit,
                     "user_tokens": user_tokens,
                     "return_metrics": return_metrics,
                     "llm_model_provider": llm_model_provider,

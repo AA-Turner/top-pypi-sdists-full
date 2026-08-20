@@ -18,7 +18,7 @@ import pprint
 import re  # noqa: F401
 import json
 
-from pydantic import BaseModel, ConfigDict, Field, StrictFloat, StrictInt, StrictStr
+from pydantic import BaseModel, ConfigDict, Field, StrictBool, StrictFloat, StrictInt, StrictStr
 from typing import Any, ClassVar, Dict, List, Union
 from mixpeek.models.slow_query_details import SlowQueryDetails
 from typing import Optional, Set
@@ -31,9 +31,11 @@ class SlowQueriesResponse(BaseModel):
     namespace_id: StrictStr = Field(description="Namespace ID analyzed")
     time_range_days: StrictInt = Field(description="Number of days analyzed")
     latency_threshold_ms: Union[StrictFloat, StrictInt] = Field(description="Latency threshold used")
-    slow_queries: List[SlowQueryDetails] = Field(description="Slow query details")
-    total_slow_queries: StrictInt = Field(description="Total slow queries found")
-    __properties: ClassVar[List[str]] = ["namespace_id", "time_range_days", "latency_threshold_ms", "slow_queries", "total_slow_queries"]
+    slow_queries: List[SlowQueryDetails] = Field(description="Slow query details, newest-slowest first, capped at `limit`")
+    total_slow_queries: StrictInt = Field(description="Slow queries in the whole window, NOT the length of `slow_queries`. Falls back to the returned count when `total_is_exact` is false.")
+    returned_count: StrictInt = Field(description="How many entries `slow_queries` actually contains")
+    total_is_exact: StrictBool = Field(description="False when the total could not be counted (analytics backend unreachable) and `total_slow_queries` is a floor, not a total.")
+    __properties: ClassVar[List[str]] = ["namespace_id", "time_range_days", "latency_threshold_ms", "slow_queries", "total_slow_queries", "returned_count", "total_is_exact"]
 
     model_config = ConfigDict(
         populate_by_name=True,
@@ -97,7 +99,9 @@ class SlowQueriesResponse(BaseModel):
             "time_range_days": obj.get("time_range_days"),
             "latency_threshold_ms": obj.get("latency_threshold_ms"),
             "slow_queries": [SlowQueryDetails.from_dict(_item) for _item in obj["slow_queries"]] if obj.get("slow_queries") is not None else None,
-            "total_slow_queries": obj.get("total_slow_queries")
+            "total_slow_queries": obj.get("total_slow_queries"),
+            "returned_count": obj.get("returned_count"),
+            "total_is_exact": obj.get("total_is_exact")
         })
         return _obj
 

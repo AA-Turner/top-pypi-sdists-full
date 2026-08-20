@@ -400,6 +400,12 @@ def auto_train(
                 "verbose": False,
             }
 
+            # The optimize=False path is the one production actually takes
+            # (usa_admin2 sets optimize = False), so the per-worker thread
+            # budget has to be applied HERE too — the two sites in
+            # optimized_model() only run when optimize=True.
+            hyperparams.setdefault("thread_count", ml_threads.thread_count(-1))
+
             if model_name in ("catboost", "catboost_quantile"):
                 model_cls = CatBoostRegressor if model_type == "REGRESSION" else CatBoostClassifier
                 model = model_cls(**hyperparams, cat_features=cat_features)

@@ -1,10 +1,10 @@
-Metadata-Version: 2.4
+Metadata-Version: 2.5
 Name: icalendar
-Version: 7.2.2
+Version: 7.3.0
 Summary: RFC 5545 compatible parser and generator of iCalendar files
 Project-URL: Homepage, https://icalendar.readthedocs.io/en/stable/
 Project-URL: Repository, https://github.com/collective/icalendar
-Project-URL: source_archive, https://github.com/collective/icalendar/archive/ad87bcf719fde8088a77c724bc2ae8f09545e0e4.zip
+Project-URL: source_archive, https://github.com/collective/icalendar/archive/138c8453db34fbb584bbcbc592fd7bd4b972e8ef.zip
 Project-URL: Issues, https://github.com/collective/icalendar/issues
 Project-URL: Documentation, https://icalendar.readthedocs.io/en/stable/
 Project-URL: Changelog, https://icalendar.readthedocs.io/en/stable/changelog.html
@@ -139,6 +139,9 @@ Related projects
 
 `sphinx-icalendar <https://pypi.org/project/sphinx-icalendar/>`_
     Provides calendar code blocks and syntax highlighting in a tabbed interface for documentation as an extension to Sphinx.
+
+`Python Calendaring Ecosystem <https://pycal.org/>`_
+    The standards compliant, integrated Python calendar packages.
 
 Change log
 ==========

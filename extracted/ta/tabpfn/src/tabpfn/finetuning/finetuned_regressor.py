@@ -23,6 +23,9 @@ from sklearn.utils.validation import check_is_fitted
 from tabpfn import TabPFNRegressor
 from tabpfn.finetuning.finetuned_base import EvalResult, FinetunedTabPFNBase
 from tabpfn.finetuning.train_util import clone_model_for_evaluation
+from tabpfn.regression_metrics import (
+    ranked_probability_score_loss_from_bar_logits,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -94,22 +97,22 @@ def _compute_regression_loss(  # noqa: C901
         total_loss = total_loss + ce_loss_weight * ce_losses_BQ.mean()
 
     if crps_loss_weight > 0.0:
-        crps_loss = _ranked_probability_score_loss_from_bar_logits(
+        crps_losses_BQ = ranked_probability_score_loss_from_bar_logits(
             logits_BQL=logits_BQL,
             targets_BQ=targets_BQ,
             bardist_loss_fn=bardist_loss_fn,
             loss_type="crps",
         )
-        total_loss = total_loss + crps_loss_weight * crps_loss
+        total_loss = total_loss + crps_loss_weight * crps_losses_BQ.mean()
 
     if crls_loss_weight > 0.0:
-        crls_loss = _ranked_probability_score_loss_from_bar_logits(
+        crls_losses_BQ = ranked_probability_score_loss_from_bar_logits(
             logits_BQL=logits_BQL,
             targets_BQ=targets_BQ,
             bardist_loss_fn=bardist_loss_fn,
             loss_type="crls",
         )
-        total_loss = total_loss + crls_loss_weight * crls_loss
+        total_loss = total_loss + crls_loss_weight * crls_losses_BQ.mean()
 
     if mse_loss_weight > 0.0 or mae_loss_weight > 0.0:
         predictions_mean_BQ = bardist_loss_fn.mean(logits_BQL)
@@ -132,90 +135,6 @@ def _compute_regression_loss(  # noqa: C901
             total_loss = total_loss + mae_loss_weight * mae_terms_BQ.mean()
 
     return total_loss
-
-
-def _ranked_probability_score_loss_from_bar_logits(
-    *,
-    logits_BQL: torch.Tensor,
-    targets_BQ: torch.Tensor,
-    bardist_loss_fn: Any,
-    loss_type: Literal["crps", "crls"] = "crps",
-) -> torch.Tensor:
-    """Compute a ranked-probability loss from bar distribution logits.
-
-    This implements scoring rules for *ordered categorical* outcomes via the
-    cumulative distribution function (CDF), using the bar bins as ordered
-    categories. Definitions taken from https://scoringrules.readthedocs.io/en/latest/theory.html
-
-        CRPS (squared): sum_k=1^K w_k (CDF(k) - y_k)^2
-        CRLS (log):     -sum_k=1^K w_k log(|CDF(k) + y_k - 1|)
-
-    where K is the number of bins, w_k is the width of bin k, CDF(k) is the predicted
-    cumulative probability up to bin k, and y_k is the target cumulative
-    probability up to bin k.
-    The weighting uses bar/bin widths of the bar distribution.
-
-    Note that this is the RPS/RLS loss weighted by the bar/bin widths, so we refer
-    to it as 'Continuous' RPS/CRLS loss, i.e. CRPS/CRLS loss.
-
-    Shapes suffixes:
-        B=batch * estimators, L=logits, Q=n_queries.
-
-    Args:
-        logits_BQL: Bar distribution logits of shape (B, Q, L).
-        targets_BQ: Targets of shape (B, Q)
-        bardist_loss_fn: The BarDistribution instance used for bin mapping and
-            bucket index mapping.
-        loss_type: Which variant to compute. "crps" uses squared CDF differences,
-            "crls" uses a log score applied to the cumulative probabilities.
-
-    Returns:
-        A scalar mean loss.
-    """
-    bucket_widths_L = bardist_loss_fn.bucket_widths.to(logits_BQL.device)
-    assert bucket_widths_L.shape == (logits_BQL.shape[-1],), (
-        f"bucket_widths_L.shape: {bucket_widths_L.shape} "
-        f"logits_BQL.shape: {logits_BQL.shape}"
-    )
-    probs_BQL = torch.softmax(logits_BQL, dim=-1)
-    pred_cdf_BQL = torch.cumsum(probs_BQL, dim=-1)
-
-    ignore_loss_mask_BQ = torch.isnan(targets_BQ)
-    # Filled with zeros if the target is NaN.
-    # Will be ignored in final loss below.
-    filled_targets_BQ = torch.where(
-        ignore_loss_mask_BQ, torch.zeros_like(targets_BQ), targets_BQ
-    )
-
-    target_bins_BQ = bardist_loss_fn.map_to_bucket_idx(filled_targets_BQ).clamp(
-        0, bardist_loss_fn.num_bars - 1
-    )
-    # The target CDF is a step function: 0 for bins < target_bin, 1 for bins >=
-    # target_bin.
-    bin_indices_L = torch.arange(probs_BQL.shape[-1], device=probs_BQL.device)
-    target_cdf_BQL = (bin_indices_L.view(1, 1, -1) >= target_bins_BQ.unsqueeze(-1)).to(
-        probs_BQL.dtype
-    )
-
-    if loss_type == "crps":
-        cdf_diff_BQL = pred_cdf_BQL - target_cdf_BQL
-        cdf_term_losses_BQL = cdf_diff_BQL.square()
-    else:
-        eps = torch.finfo(pred_cdf_BQL.dtype).eps
-        cdf = pred_cdf_BQL.clamp(eps, 1 - eps)
-        # target_cdf_BQL is binary, so we can expand the log(|CDF(k) + y_k - 1|) term
-        # into two separate terms and use log1p. This is numerically more stable.
-        cdf_term_losses_BQL = target_cdf_BQL * (-torch.log(cdf)) + (
-            1 - target_cdf_BQL
-        ) * (-torch.log1p(-cdf))
-
-    weighted_term_losses_BQL = cdf_term_losses_BQL * bucket_widths_L.view(1, 1, -1)
-    crps_losses_BQ = weighted_term_losses_BQL.sum(dim=-1)
-
-    if ignore_loss_mask_BQ.any():
-        crps_losses_BQ[ignore_loss_mask_BQ] = 0.0
-
-    return crps_losses_BQ.mean()
 
 
 class FinetunedTabPFNRegressor(FinetunedTabPFNBase, RegressorMixin):
@@ -284,6 +203,9 @@ class FinetunedTabPFNRegressor(FinetunedTabPFNBase, RegressorMixin):
             Defaults to 8.
         use_activation_checkpointing: Whether to use activation checkpointing to
             reduce memory usage. Defaults to True.
+        shard_estimators_across_gpus: When True under DDP, shard the fine-tuning
+            estimators across ranks to reduce per-rank activation memory. Defaults
+            to False.
         save_checkpoint_interval: Number of epochs between checkpoint saves. This
             only has an effect if `output_dir` is provided during the `fit()` call.
             If None, no intermediate checkpoints are saved. The best model checkpoint
@@ -343,6 +265,7 @@ class FinetunedTabPFNRegressor(FinetunedTabPFNBase, RegressorMixin):
         n_estimators_validation: int = 2,
         n_estimators_final_inference: int = 8,
         use_activation_checkpointing: bool = True,
+        shard_estimators_across_gpus: bool = False,
         save_checkpoint_interval: int | None = 10,
         use_fixed_preprocessing_seed: bool = True,
         experiment_logger: FinetuningLogger | None = None,
@@ -379,6 +302,7 @@ class FinetunedTabPFNRegressor(FinetunedTabPFNBase, RegressorMixin):
             n_estimators_validation=n_estimators_validation,
             n_estimators_final_inference=n_estimators_final_inference,
             use_activation_checkpointing=use_activation_checkpointing,
+            shard_estimators_across_gpus=shard_estimators_across_gpus,
             save_checkpoint_interval=save_checkpoint_interval,
             use_fixed_preprocessing_seed=use_fixed_preprocessing_seed,
             experiment_logger=experiment_logger,
@@ -463,14 +387,14 @@ class FinetunedTabPFNRegressor(FinetunedTabPFNBase, RegressorMixin):
         num_bars = bardist_loss_fn.num_bars
         assert y_query_batch.shape[1] == Q
         assert B == 1
-        assert self.n_estimators_finetune == E
+        assert self._local_n_estimators_ == E
         assert num_bars == L
 
         # Reshape for bar distribution loss: treat estimator dim as batch dim
         # permute to shape (B, E, Q, L) then reshape to (B*E, Q, L)
         logits_BQL = logits_QBEL.permute(1, 2, 0, 3).reshape(B * E, Q, L)
 
-        targets_BQ = y_query_batch.repeat(B * self.n_estimators_finetune, 1).to(
+        targets_BQ = y_query_batch.repeat(B * self._local_n_estimators_, 1).to(
             self.device
         )
 

@@ -100,6 +100,20 @@ class WireUsage(BaseModel):
     cost_usd: float | None = None
 
 
+class WirePolicyDecision(BaseModel):
+    """ScopeGuard decision metadata attached to tool lifecycle events."""
+
+    model_config = ConfigDict(extra="ignore")
+
+    kind: str | None = None
+    source: str | None = None
+    judge_action: str | None = None
+    runtime_action: str | None = None
+    reason: str | None = None
+    latency_ms: int | None = None
+    human_approved: bool | None = None
+
+
 # =============================================================================
 # AgentStart / AgentEnd / AgentError / AgentStalled
 # =============================================================================
@@ -281,6 +295,7 @@ class GenerationError(_Envelope):
 class ToolStartData(BaseModel):
     model_config = ConfigDict(extra="ignore")
     tool_call: WireToolCall = Field(default_factory=WireToolCall)
+    policy_decision: WirePolicyDecision | None = None
 
 
 class ToolStart(_Envelope):
@@ -304,6 +319,7 @@ class ToolEndData(BaseModel):
     # LLM spend). ``None`` for ordinary tools. The TUI accumulates this
     # into a separate sub-agent cost display, not the main session cost.
     cost_usd: float | None = None
+    policy_decision: WirePolicyDecision | None = None
 
 
 class ToolEnd(_Envelope):
@@ -316,6 +332,7 @@ class ToolErrorData(BaseModel):
     tool_call: WireToolCall = Field(default_factory=WireToolCall)
     error: str | None = None
     error_type: str | None = None
+    policy_decision: WirePolicyDecision | None = None
 
 
 class ToolError(_Envelope):
@@ -334,6 +351,36 @@ class ToolStepData(BaseModel):
 class ToolStep(_Envelope):
     type: t.Literal["toolstep"]
     data: ToolStepData = Field(default_factory=ToolStepData)
+
+
+# =============================================================================
+# Hook reactions
+# =============================================================================
+
+
+class WireReaction(BaseModel):
+    model_config = ConfigDict(extra="ignore")
+
+    type: str | None = None
+    feedback: str | None = None
+    reason: str | None = None
+    error: str | None = None
+    error_type: str | None = None
+    tool_call_id: str | None = None
+    metadata: dict[str, t.Any] = Field(default_factory=dict)
+
+
+class ReactStepData(BaseModel):
+    model_config = ConfigDict(extra="ignore")
+
+    hook_name: str | None = None
+    step: int | None = None
+    reaction: WireReaction = Field(default_factory=WireReaction)
+
+
+class ReactStep(_Envelope):
+    type: t.Literal["reactstep"]
+    data: ReactStepData = Field(default_factory=ReactStepData)
 
 
 # =============================================================================
@@ -425,6 +472,7 @@ WireEvent = t.Annotated[
         ToolEnd,
         ToolError,
         ToolStep,
+        ReactStep,
         UserInputRequired,
         Cancelled,
         RuntimeErrorEvent,
@@ -440,7 +488,7 @@ _ADAPTER: TypeAdapter[WireEvent] = TypeAdapter(WireEvent)
 # to the wire (``server/app.py`` emit loop); the TUI whitelist above
 # intentionally excludes these because no TUI state reacts to them.
 # Listing them here avoids one WARNING per occurrence during normal runs.
-_IGNORED_WIRE_TYPES: frozenset[str] = frozenset({"reactstep"})
+_IGNORED_WIRE_TYPES: frozenset[str] = frozenset()
 
 
 def parse_wire_event(raw: dict[str, t.Any]) -> WireEvent | None:

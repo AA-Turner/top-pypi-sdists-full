@@ -10,6 +10,7 @@ import shutil
 import typing as t
 from pathlib import Path
 
+import httpx
 from gepa.utils.stop_condition import MaxTrackedCandidatesStopper, NoImprovementStopper
 from pydantic import BaseModel, ConfigDict, Field
 
@@ -25,6 +26,7 @@ from dreadnode.app.server.app import create_agent
 from dreadnode.capabilities.capability import Capability
 from dreadnode.core.metric import Metric
 from dreadnode.core.scorer import scorer
+from dreadnode.core.tls import create_platform_ssl_context
 from dreadnode.evaluations.evaluation import current_dataset_row
 from dreadnode.generators.proxy import resolve_dn_model_to_generator
 from dreadnode.optimization.adapters.agent import DreadnodeAgentAdapter
@@ -188,18 +190,28 @@ def _resolve_reflection_lm(model: str) -> ReflectionLM:
     proxy_generator = _build_platform_proxy_generator(model)
     if proxy_generator is None:
         return model
+    api_base = proxy_generator.params.api_base
+    if not isinstance(api_base, str) or not api_base:
+        raise RuntimeError("Missing platform proxy API base URL")
 
     def _completion(prompt: ReflectionPrompt) -> str:
         import litellm
+        from openai import OpenAI
 
         messages = [{"role": "user", "content": prompt}] if isinstance(prompt, str) else prompt
-        completion = litellm.completion(
-            model=proxy_generator.model,
-            messages=messages,
+        with OpenAI(
             api_key=proxy_generator.api_key,
-            api_base=proxy_generator.params.api_base,
-            custom_llm_provider="litellm_proxy",
-        )
+            base_url=api_base,
+            http_client=httpx.Client(verify=create_platform_ssl_context()),
+        ) as client:
+            completion = litellm.completion(
+                model=proxy_generator.model,
+                messages=messages,
+                api_key=proxy_generator.api_key,
+                api_base=api_base,
+                custom_llm_provider="litellm_proxy",
+                client=client,
+            )
         content = completion.choices[0].message.content
         return content if isinstance(content, str) else str(content)
 

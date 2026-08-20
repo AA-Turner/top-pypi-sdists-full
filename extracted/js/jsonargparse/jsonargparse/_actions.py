@@ -1,5 +1,6 @@
 """Collection of useful actions to define arguments."""
 
+import os
 import re
 import sys
 from argparse import SUPPRESS, _HelpAction, _VersionAction
@@ -107,6 +108,21 @@ class ActionConfigFile(Action):
         if isinstance(action, ActionConfigFile) and getattr(container, "_print_config", None) is not None:
             if "%s" in container._print_config:
                 container._print_config = container._print_config % action.dest
+            elif (
+                container._print_config == "--print_config"
+                and action.dest != "config"
+                and os.getenv("JSONARGPARSE_DEPRECATION_WARNINGS", "").lower() == "all"
+            ):
+                from ._deprecated import deprecation_warning
+
+                deprecation_warning(
+                    "print_config_default_name",
+                    "From v5.0.0 the print config argument will by default reuse the name of the config "
+                    'argument as "--print_%s". The current default is always "--print_config", but in v5.0.0 '
+                    f'with a config argument named "{action.dest}" it will become "--print_{action.dest}". '
+                    'To keep the current name set print_config="--print_config" explicitly.',
+                    stacklevel=2,
+                )
             assert container._print_config.startswith("--")
             container.add_argument(container._print_config, action=_ActionPrintConfig)
 
@@ -229,6 +245,10 @@ class _ActionPrintConfig(NonParsingAction):
         return False
 
 
+class SubclassesDisabledError(TypeError):
+    """Raised when a class_path is given for a type that has subclasses disabled."""
+
+
 class _ActionConfigLoad(Action):
     def __init__(self, basetype: type | None = None, **kwargs):
         if len(kwargs) == 0:
@@ -253,14 +273,56 @@ class _ActionConfigLoad(Action):
         namespace[self.dest] = loaded_value
         return None
 
+    def resolve_subclass_spec(self, value):
+        """Resolves a subclass spec given for a subclasses disabled type, e.g. a dataclass.
+
+        These types are added as a group, such that their init args are individual arguments. Still a
+        subclass spec is accepted, so that the accepted values are the same as for the optional
+        counterpart of the type, which is added as a single typehint argument.
+        """
+        from ._typehints import is_subclass_spec, resolve_class_path_by_name, subclasses_disabled_message
+
+        if self.basetype is None or not is_subclasses_disabled(self.basetype):
+            return value
+
+        def resolve_class(class_path):
+            try:
+                return import_object(resolve_class_path_by_name(self.basetype, class_path))
+            except Exception:
+                return None
+
+        if isinstance(value, str):
+            if resolve_class(value) is None:
+                return value  # not a class path, e.g. a path to a config file
+            value = Namespace(class_path=value)
+        elif not is_subclass_spec(value):
+            return value
+        class_path = value["class_path"]
+        if resolve_class(class_path) is not self.basetype:
+            raise SubclassesDisabledError(subclasses_disabled_message(self.basetype, class_path))
+        resolved = Namespace()
+        for key in ["init_args", "dict_kwargs"]:
+            sub_value = value.get(key)
+            if isinstance(sub_value, dict):
+                sub_value = Namespace(sub_value)
+            if isinstance(sub_value, Namespace):
+                resolved.update(sub_value)
+        return resolved
+
     def _load_config(self, value, parser):
         try:
-            cfg, cfg_path = parse_value_or_config(value)
-            if not isinstance(cfg, dict):
+            cfg = self.resolve_subclass_spec(value)
+            cfg_path = None
+            if cfg is value:
+                cfg, cfg_path = parse_value_or_config(value)
+                cfg = self.resolve_subclass_spec(cfg)
+            if not isinstance(cfg, (dict, Namespace)):
                 raise TypeError(f'Parser key "{self.dest}": Unable to load config "{value}"')
             with load_config_path_context(cfg_path), change_to_path_dir(cfg_path):
                 cfg = parser._apply_actions(cfg, parent_key=self.dest)
             return cfg
+        except SubclassesDisabledError as ex:
+            raise TypeError(f'Parser key "{self.dest}":\n{indent_text(str(ex))}') from ex
         except (TypeError,) + get_loader_exceptions() as ex:
             str_ex = indent_text(f"- {ex}")
             raise TypeError(f'Parser key "{self.dest}":\nUnable to load config {value!r}\n{str_ex}') from ex
@@ -272,12 +334,6 @@ class _ActionConfigLoad(Action):
 class _ActionHelpClassPath(NonParsingAction):
     sub_add_kwargs: dict[str, Any] = {}
 
-    @classmethod
-    def get_help_types(cls, typehint) -> tuple | None:
-        from ._typehints import get_subclass_or_closed_types
-
-        return get_subclass_or_closed_types(typehint=typehint, also_lists=True, callable_return=True)
-
     def __init__(self, typehint=None, **kwargs):
         if typehint is not None:
             self._typehint = typehint
@@ -286,24 +342,34 @@ class _ActionHelpClassPath(NonParsingAction):
             super().__init__(**kwargs)
 
     def update_init_kwargs(self, kwargs):
-        from ._typehints import is_protocol
+        from ._typehints import get_help_types, is_protocol, is_typed_dict
 
         self._typehint = kwargs.pop("_typehint")
-        self._help_types = self.get_help_types(self._typehint)
-        assert self._help_types and all(isinstance(b, type) for b in self._help_types)
-        self._single_class = len(self._help_types) == 1 and is_subclasses_disabled(self._help_types[0])
+        self._help_types = get_help_types(self._typehint)
+        typed_dicts = [t for t in self._help_types if is_typed_dict(t)]
+        # a subscripted generic typed dict is a generic alias instead of a class, see get_typed_dict_type
+        assert self._help_types and all(isinstance(b, type) for b in self._help_types if b not in typed_dicts)
+        # a single type means that the help refers to it, so no value is expected
+        single_type = len(self._help_types) == 1 and (is_subclasses_disabled(self._help_types[0]) or bool(typed_dicts))
         self._basename = iter_to_set_str(t.__name__ for t in self._help_types)
 
         if len(self._help_types) == 1:
-            kwargs["nargs"] = 0 if self._single_class else "?"
+            kwargs["nargs"] = 0 if single_type else "?"
 
-        if self._single_class:
+        if single_type:
             msg = ""
         else:
             kwargs["metavar"] = "CLASS_PATH_OR_NAME"
             self._kind = "subclass of"
             if any(is_protocol(b) for b in self._help_types):
                 self._kind = "subclass or implementer of protocol"
+            if typed_dicts:
+                # a typed dict is given by name, since it doesn't accept a class path
+                if len(typed_dicts) == len(self._help_types):
+                    kwargs["metavar"] = "NAME"
+                    self._kind = "typed dict"
+                else:
+                    self._kind = "class or typed dict"
             msg = f"the given {self._kind} "
 
         kwargs["default"] = SUPPRESS
@@ -315,24 +381,31 @@ class _ActionHelpClassPath(NonParsingAction):
             return type(self)(**kwargs)
         return self.print_help(args)
 
+    def resolve_help_type(self, value, option_string):
+        from ._typehints import implements_protocol, is_typed_dict, resolve_class_path_by_name
+
+        if self.nargs == 0 or (self.nargs == "?" and value is None):
+            return self._help_types[0]
+        typed_dict = next((t for t in self._help_types if is_typed_dict(t) and t.__name__ == value), None)
+        if typed_dict:
+            return typed_dict
+        # typed dicts excluded since they don't have subclasses that a class path could refer to
+        class_types = tuple(t for t in self._help_types if not is_typed_dict(t))
+        val_class = None
+        if class_types:
+            try:
+                val_class = import_object(resolve_class_path_by_name(class_types, value))
+            except Exception as ex:
+                raise TypeError(f"{option_string}: {ex}") from ex
+        if not any(is_subclass(val_class, b) or implements_protocol(val_class, b) for b in class_types):
+            raise TypeError(f'{option_string}: "{value}" is not a {self._kind} {self._basename}')
+        return val_class
+
     def print_help(self, call_args):
-        from ._typehints import (
-            adapt_partial_callable_class,
-            implements_protocol,
-            resolve_class_path_by_name,
-        )
+        from ._typehints import adapt_partial_callable_class
 
         parser, _, value, option_string = call_args
-        try:
-            if self.nargs == 0 or (self.nargs == "?" and value is None):
-                val_class = self._help_types[0]
-            else:
-                val_class = import_object(resolve_class_path_by_name(self._help_types, value))
-        except Exception as ex:
-            raise TypeError(f"{option_string}: {ex}") from ex
-
-        if not any(is_subclass(val_class, b) or implements_protocol(val_class, b) for b in self._help_types):
-            raise TypeError(f'{option_string}: Class "{value}" is not a {self._kind} {self._basename}')
+        val_class = self.resolve_help_type(value, option_string)
         dest = re.sub("\\.help$", "", self.dest)
         subparser = type(parser)(description=f"Help for {option_string}={get_import_path(val_class)}")
         val = Namespace(class_path=get_import_path(val_class))

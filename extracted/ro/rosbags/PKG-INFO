@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: rosbags
-Version: 0.11.4
+Version: 0.11.5
 Summary: Pure Python library to read, modify, convert, and write rosbag files.
 Author-email: Ternaris <team@ternaris.com>
 License-Expression: Apache-2.0

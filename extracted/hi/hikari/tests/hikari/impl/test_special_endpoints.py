@@ -136,6 +136,80 @@ class TestRepositionChannelHelper:
         assert reposition_channel_helper.parent == undefined.UNDEFINED
 
 
+class TestReactorIterator:
+    @pytest.mark.asyncio
+    async def test_aiter(self):
+        expected_route = routes.GET_REACTIONS.compile(channel=432123, message=595959, emoji="rooYay:123")
+        mock_payload_1 = {"id": "45234"}
+        mock_payload_2 = {"id": "452745"}
+        mock_payload_3 = {"id": "45237656"}
+        mock_payload_4 = {"id": "452345666"}
+        mock_payload_5 = {"id": "4523456744"}
+        mock_result_1 = mock.Mock()
+        mock_result_2 = mock.Mock()
+        mock_result_3 = mock.Mock()
+        mock_result_4 = mock.Mock()
+        mock_result_5 = mock.Mock()
+        mock_entity_factory = mock.Mock()
+        mock_entity_factory.deserialize_user.side_effect = [
+            mock_result_1,
+            mock_result_2,
+            mock_result_3,
+            mock_result_4,
+            mock_result_5,
+        ]
+        mock_request = mock.AsyncMock(
+            side_effect=[[mock_payload_1, mock_payload_2, mock_payload_3], [mock_payload_4, mock_payload_5], []]
+        )
+        iterator = special_endpoints.ReactorIterator(
+            entity_factory=mock_entity_factory,
+            request_call=mock_request,
+            channel=432123,
+            message=595959,
+            emoji="rooYay:123",
+        )
+
+        result = await iterator
+
+        assert result == [mock_result_1, mock_result_2, mock_result_3, mock_result_4, mock_result_5]
+        mock_entity_factory.deserialize_user.assert_has_calls(
+            [
+                mock.call(mock_payload_1),
+                mock.call(mock_payload_2),
+                mock.call(mock_payload_3),
+                mock.call(mock_payload_4),
+                mock.call(mock_payload_5),
+            ]
+        )
+        mock_request.assert_has_awaits(
+            [
+                mock.call(compiled_route=expected_route, query={"limit": "100"}),
+                mock.call(compiled_route=expected_route, query={"after": "45237656", "limit": "100"}),
+                mock.call(compiled_route=expected_route, query={"after": "4523456744", "limit": "100"}),
+            ]
+        )
+
+    @pytest.mark.asyncio
+    async def test_aiter_with_reaction_type(self):
+        expected_route = routes.GET_REACTIONS.compile(channel=432123, message=595959, emoji="rooYay:123")
+        mock_entity_factory = mock.Mock()
+        mock_request = mock.AsyncMock(return_value=[])
+        iterator = special_endpoints.ReactorIterator(
+            entity_factory=mock_entity_factory,
+            request_call=mock_request,
+            channel=432123,
+            message=595959,
+            emoji="rooYay:123",
+            reaction_type=messages.ReactionType.BURST,
+        )
+
+        result = await iterator
+
+        assert result == []
+        mock_entity_factory.deserialize_user.assert_not_called()
+        mock_request.assert_awaited_once_with(compiled_route=expected_route, query={"limit": "100", "type": "1"})
+
+
 class TestOwnGuildIterator:
     @pytest.mark.asyncio
     async def test_aiter(self):
@@ -250,6 +324,80 @@ class TestOwnGuildIterator:
         order_key = "before" if newest_first else "after"
         query = {order_key: "123321", "with_counts": "true"}
         mock_request.assert_awaited_once_with(compiled_route=expected_route, query=query)
+
+
+class TestMemberIterator:
+    @pytest.mark.asyncio
+    async def test_aiter(self):
+        expected_route = routes.GET_GUILD_MEMBERS.compile(guild=10000)
+        mock_entity_factory = mock.Mock()
+        mock_payload_1 = {"user": {"id": "45234"}}
+        mock_payload_2 = {"user": {"id": "452745"}}
+        mock_payload_3 = {"user": {"id": "45237656"}}
+        mock_payload_4 = {"user": {"id": "452345666"}}
+        mock_payload_5 = {"user": {"id": "4523456744"}}
+        mock_result_1 = mock.Mock()
+        mock_result_2 = mock.Mock()
+        mock_result_3 = mock.Mock()
+        mock_result_4 = mock.Mock()
+        mock_result_5 = mock.Mock()
+        mock_entity_factory.deserialize_member.side_effect = [
+            mock_result_1,
+            mock_result_2,
+            mock_result_3,
+            mock_result_4,
+            mock_result_5,
+        ]
+        mock_request = mock.AsyncMock(
+            side_effect=[[mock_payload_1, mock_payload_2, mock_payload_3], [mock_payload_4, mock_payload_5], []]
+        )
+        iterator = special_endpoints.MemberIterator(
+            entity_factory=mock_entity_factory, request_call=mock_request, guild=10000
+        )
+
+        result = await iterator
+
+        assert result == [mock_result_1, mock_result_2, mock_result_3, mock_result_4, mock_result_5]
+        mock_entity_factory.deserialize_member.assert_has_calls(
+            [
+                mock.call(mock_payload_1, guild_id=10000),
+                mock.call(mock_payload_2, guild_id=10000),
+                mock.call(mock_payload_3, guild_id=10000),
+                mock.call(mock_payload_4, guild_id=10000),
+                mock.call(mock_payload_5, guild_id=10000),
+            ]
+        )
+        mock_request.assert_has_awaits(
+            [
+                mock.call(compiled_route=expected_route, query={"limit": "1000"}),
+                mock.call(compiled_route=expected_route, query={"after": "45237656", "limit": "1000"}),
+                mock.call(compiled_route=expected_route, query={"after": "4523456744", "limit": "1000"}),
+            ]
+        )
+
+    @pytest.mark.asyncio
+    async def test_aiter_when_first_id(self):
+        expected_route = routes.GET_GUILD_MEMBERS.compile(guild=10000)
+        mock_entity_factory = mock.Mock()
+        mock_payload_1 = {"user": {"id": "45234"}}
+        mock_payload_2 = {"user": {"id": "452745"}}
+        mock_result_1 = mock.Mock()
+        mock_result_2 = mock.Mock()
+        mock_entity_factory.deserialize_member.side_effect = [mock_result_1, mock_result_2]
+        mock_request = mock.AsyncMock(side_effect=[[mock_payload_1, mock_payload_2], []])
+        iterator = special_endpoints.MemberIterator(
+            entity_factory=mock_entity_factory, request_call=mock_request, guild=10000, first_id="123321"
+        )
+
+        result = await iterator
+
+        assert result == [mock_result_1, mock_result_2]
+        mock_request.assert_has_awaits(
+            [
+                mock.call(compiled_route=expected_route, query={"after": "123321", "limit": "1000"}),
+                mock.call(compiled_route=expected_route, query={"after": "452745", "limit": "1000"}),
+            ]
+        )
 
 
 class TestGuildBanIterator:
@@ -1099,6 +1247,7 @@ class TestInteractionMessageBuilder:
     def test_build(self):
         mock_entity_factory = mock.Mock()
         mock_component = mock.Mock()
+        mock_component.build.return_value = ({}, [])
         mock_embed = object()
         mock_serialized_embed = object()
         mock_entity_factory.serialize_embed.return_value = (mock_serialized_embed, [])
@@ -1122,7 +1271,7 @@ class TestInteractionMessageBuilder:
             "type": base_interactions.ResponseType.MESSAGE_CREATE,
             "data": {
                 "content": "a content",
-                "components": [mock_component.build.return_value],
+                "components": [mock_component.build.return_value[0]],
                 "embeds": [mock_serialized_embed],
                 "flags": 2323,
                 "tts": True,

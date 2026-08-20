@@ -193,8 +193,8 @@
         def call(self) -> None:
             super(B, self).method(1)
 
-# Fall back to zero-argument super() MRO when the first argument is not a
-# simple name or attribute (e.g. an index expression).
+# Skip the check when the first argument is not a simple name or attribute
+# (e.g. an index expression).
 - case: super_method_explicit_super_non_name
   mypy_config: |
     [mypy]
@@ -208,10 +208,9 @@
             classes = (B,)
             super(classes[0], self).method(1)
   out: |-
-    main:7: error: Too many positional arguments for "method" of "B"  [call-arg]
     main:7: error: "method" undefined in superclass  [misc]
 
-# Fall back when the first argument name does not resolve to a type.
+# Skip the check when the first argument name does not name a type.
 - case: super_method_explicit_super_non_type
   mypy_config: |
     [mypy]
@@ -226,10 +225,9 @@
         def method(self, a: int) -> None:
             super(x, self).method(1)
   out: |-
-    main:8: error: Too many positional arguments for "method" of "B"  [call-arg]
     main:8: error: Argument 1 for "super" must be a type object; got a non-type instance  [arg-type]
 
-# Fall back when the explicit type is not in the current class MRO.
+# Skip the check when the explicit type is not in the current class MRO.
 - case: super_method_explicit_super_not_in_mro
   mypy_config: |
     [mypy]
@@ -245,7 +243,6 @@
         def method(self, a: int) -> None:
             super(Unrelated, self).method(1)
   out: |-
-    main:9: error: Too many positional arguments for "method" of "B"  [call-arg]
     main:9: error: Argument 2 for "super" not an instance of argument 1  [misc]
 
 - case: super_method_keyword_argument
@@ -1139,3 +1136,1693 @@
     str(1)
   out: |-
     main:5: error: Too many positional arguments for "not_ignored"  [call-arg]
+
+- case: async_context_manager
+  mypy_config: |
+    [mypy]
+    plugins = mypy_strict_kwargs
+  main: |-
+    from types import TracebackType
+
+    class Resource:
+        async def __aenter__(self) -> "Resource":
+            return self
+
+        async def __aexit__(
+            self,
+            exc_type: type[BaseException] | None,
+            exc_value: BaseException | None,
+            traceback: TracebackType | None,
+        ) -> None:
+            return None
+
+    async def use(resource: Resource) -> None:
+        async with resource:
+            pass
+        await resource.__aexit__(None, None, None)
+  out: |-
+    main:18: error: Too many positional arguments for "__aexit__" of "Resource"  [call-arg]
+
+- case: reflected_divmod
+  mypy_config: |
+    [mypy]
+    plugins = mypy_strict_kwargs
+  main: |-
+    class Number:
+        def __divmod__(self, other: int) -> tuple[int, int]:
+            return (0, 0)
+
+        def __rdivmod__(self, other: int) -> tuple[int, int]:
+            return (0, 0)
+
+    def use(number: Number) -> None:
+        divmod(number, 1)
+        divmod(1, number)
+        number.__rdivmod__(1)
+  out: |-
+    main:11: error: Too many positional arguments for "__rdivmod__" of "Number"  [call-arg]
+
+- case: implicit_operator_methods
+  mypy_config: |
+    [mypy]
+    plugins = mypy_strict_kwargs
+  main: |-
+    class Number:
+        def __add__(self, other: int) -> "Number":
+            return self
+
+        def __radd__(self, other: int) -> "Number":
+            return self
+
+        def __getitem__(self, key: int) -> int:
+            return key
+
+        def __setitem__(self, key: int, value: int) -> None:
+            return None
+
+        def __format__(self, format_spec: str) -> str:
+            return format_spec
+
+    def use(number: Number) -> None:
+        number + 1
+        1 + number
+        number[1]
+        number[1] = 2
+        format(number, "x")
+
+- case: descriptor_delete_and_set_name
+  mypy_config: |
+    [mypy]
+    plugins = mypy_strict_kwargs
+  main: |-
+    class Descriptor:
+        def __get__(self, instance: object, owner: type | None = None) -> int:
+            return 1
+
+        def __delete__(self, instance: object) -> None:
+            return None
+
+        def __set_name__(self, owner: type, name: str) -> None:
+            return None
+
+    class Holder:
+        attribute = Descriptor()
+
+    def use(holder: Holder) -> None:
+        del holder.attribute
+        Descriptor().__delete__(holder)
+  out: |-
+    main:16: error: Too many positional arguments for "__delete__" of "Descriptor"  [call-arg]
+
+- case: super_fixed_length_spreads
+  mypy_config: |
+    [mypy]
+    plugins = mypy_strict_kwargs
+  main: |-
+    class Base:
+        def method(self, value: int) -> None:
+            return None
+
+        def two(self, first: int, /, second: int = 0) -> None:
+            return None
+
+    class Child(Base):
+        def call(self, values: tuple[int], unknown: tuple[int, ...]) -> None:
+            super().method(*(*(1,),))
+            super().two(*(1, *(2,)))
+            super().method(*(*(), 1))
+            super().method(*[*(1,)])
+            super().two(*[1, *(2,)])
+            super().method(*[*(), 1])
+            super().method(*(*(), *(1,)))
+            super().method(*[*(), *(1,)])
+            super().method(*(*values,))
+            super().method(*[*values])
+            super().method(*((*(1,),)))
+            super().method(*(*(*(1,),),))
+            super().method(*(*unknown,))
+            super().method(*(*(*unknown,),))
+            super().method(*[*unknown, 1])
+  out: |-
+    main:10: error: Too many positional arguments for "method" of "Base"  [call-arg]
+    main:11: error: Too many positional arguments for "two" of "Base"  [call-arg]
+    main:12: error: Too many positional arguments for "method" of "Base"  [call-arg]
+    main:13: error: Too many positional arguments for "method" of "Base"  [call-arg]
+    main:14: error: Too many positional arguments for "two" of "Base"  [call-arg]
+    main:15: error: Too many positional arguments for "method" of "Base"  [call-arg]
+    main:16: error: Too many positional arguments for "method" of "Base"  [call-arg]
+    main:17: error: Too many positional arguments for "method" of "Base"  [call-arg]
+    main:18: error: Too many positional arguments for "method" of "Base"  [call-arg]
+    main:19: error: Too many positional arguments for "method" of "Base"  [call-arg]
+    main:20: error: Too many positional arguments for "method" of "Base"  [call-arg]
+    main:21: error: Too many positional arguments for "method" of "Base"  [call-arg]
+
+- case: super_fixed_tuple_annotation_unpacks
+  mypy_config: |
+    [mypy]
+    plugins = mypy_strict_kwargs
+  main: |-
+    import typing
+    from typing import Unpack
+
+    import typing_extensions
+
+    class Base:
+        def zero(self, value: int = 0) -> None:
+            return None
+
+        def one(self, first: int, /, second: int = 0) -> None:
+            return None
+
+        def two(self, first: int, second: int, /, third: int = 0) -> None:
+            return None
+
+        def three(
+            self, first: int, second: int, third: int, /, fourth: int = 0
+        ) -> None:
+            return None
+
+    class Child(Base):
+        def empty_unpack(self, args: tuple[*tuple[()]]) -> None:
+            super().zero(*args)
+
+        def empty_tuple(self, args: tuple[()]) -> None:
+            super().zero(*args)
+
+        def trailing_empty_unpack(self, args: tuple[int, *tuple[()]]) -> None:
+            super().one(*args)
+
+        def leading_empty_unpack(self, args: tuple[*tuple[()], int]) -> None:
+            super().one(*args)
+
+        def variadic_unpack(self, args: tuple[*tuple[int, ...]]) -> None:
+            super().zero(*args)
+
+        def pair_unpack(self, args: tuple[*tuple[int, int]]) -> None:
+            super().one(*args)
+
+        def nested_pair_unpack(
+            self, args: tuple[*tuple[*tuple[int, int]]]
+        ) -> None:
+            super().one(*args)
+
+        def pair_unpack_then_item(
+            self, args: tuple[*tuple[int, int], int]
+        ) -> None:
+            super().two(*args)
+
+        def legacy_unpack(self, args: tuple[Unpack[tuple[int, int]]]) -> None:
+            super().one(*args)
+
+        def qualified_unpack(
+            self, args: tuple[typing.Unpack[tuple[int, int]]]
+        ) -> None:
+            super().one(*args)
+
+        def extensions_unpack(
+            self, args: tuple[typing_extensions.Unpack[tuple[int, int]]]
+        ) -> None:
+            super().one(*args)
+
+        def two_pair_unpacks(
+            self, args: tuple[*tuple[int, int], *tuple[int, int]]
+        ) -> None:
+            super().three(*args)
+
+        def pair_unpack_then_items(
+            self, args: tuple[*tuple[int, int], int, int]
+        ) -> None:
+            super().three(*args)
+  out: |-
+    main:38: error: Too many positional arguments for "one" of "Base"  [call-arg]
+    main:43: error: Too many positional arguments for "one" of "Base"  [call-arg]
+    main:48: error: Too many positional arguments for "two" of "Base"  [call-arg]
+    main:51: error: Too many positional arguments for "one" of "Base"  [call-arg]
+    main:56: error: Too many positional arguments for "one" of "Base"  [call-arg]
+    main:61: error: Too many positional arguments for "one" of "Base"  [call-arg]
+    main:66: error: Too many positional arguments for "three" of "Base"  [call-arg]
+    main:71: error: Too many positional arguments for "three" of "Base"  [call-arg]
+
+- case: super_fixed_tuple_shadowing
+  mypy_config: |
+    [mypy]
+    plugins = mypy_strict_kwargs
+  main: |-
+    from collections.abc import Callable, Iterator
+    from contextlib import contextmanager
+
+    args: list[int] = [1]
+
+    @contextmanager
+    def values() -> Iterator[list[int]]:
+        yield [1]
+
+    @contextmanager
+    def pair_values() -> Iterator[tuple[list[int], int]]:
+        yield ([1], 0)
+
+    @contextmanager
+    def ignored() -> Iterator[None]:
+        yield
+
+    class Values:
+        def __iter__(self) -> Iterator[int]:
+            return iter([1])
+
+    def decorate(function: Callable[[], None]) -> Values:
+        return Values()
+
+    class Base:
+        def method(self, first: int, /, second: int = 0) -> None:
+            return None
+
+    class Child(Base):
+        def simple_assignment(self, args: tuple[int, int]) -> None:
+            def inner() -> None:
+                args = [1]
+                super(Child, self).method(*args)
+
+        def annotated_assignment(self, args: tuple[int, int]) -> None:
+            def inner() -> None:
+                args: list[int] = [1]
+                super(Child, self).method(*args)
+
+        def destructuring_assignment(self, args: tuple[int, int]) -> None:
+            def inner() -> None:
+                args, _ = ([1], 0)
+                super(Child, self).method(*args)
+
+        def list_destructuring(self, args: tuple[int, int]) -> None:
+            def inner() -> None:
+                [args] = [[1]]
+                super(Child, self).method(*args)
+
+        def starred_assignment(self, args: tuple[int, int]) -> None:
+            def inner() -> None:
+                *args, = [1]
+                super(Child, self).method(*args)
+
+        def chained_assignment(self, args: tuple[int, int]) -> None:
+            def inner() -> None:
+                other = args = [1]
+                super(Child, self).method(*args)
+
+        def operator_assignment(self, args: tuple[int, int]) -> None:
+            def inner() -> None:
+                args = [1]
+                args += [2]
+                super(Child, self).method(*args)
+
+        def deleted_name(self, args: tuple[int, int]) -> None:
+            def inner() -> None:
+                del args
+                super(Child, self).method(*args)
+
+        def attribute_target(self, args: tuple[int, int]) -> None:
+            self.other = [1]
+            super(Child, self).method(*args)
+
+        def loop_target(self, args: tuple[int, int]) -> None:
+            def inner() -> None:
+                for args in [[1]]:
+                    super(Child, self).method(*args)
+
+        def destructuring_loop_target(self, args: tuple[int, int]) -> None:
+            def inner() -> None:
+                for args, _ in [([1], 0)]:
+                    super(Child, self).method(*args)
+
+        def starred_loop_target(self, args: tuple[int, int]) -> None:
+            def inner() -> None:
+                for [*args] in [[1]]:
+                    super(Child, self).method(*args)
+
+        def list_comprehension(self, args: tuple[int, int]) -> None:
+            def inner() -> None:
+                [super(Child, self).method(*args) for args in [[1]]]
+
+        def set_comprehension(self, args: tuple[int, int]) -> None:
+            def inner() -> None:
+                {super(Child, self).method(*args) for args in [[1]]}
+
+        def dict_comprehension(self, args: tuple[int, int]) -> None:
+            def inner() -> None:
+                {0: super(Child, self).method(*args) for args in [[1]]}
+
+        def generator_expression(self, args: tuple[int, int]) -> None:
+            def inner() -> None:
+                list(super(Child, self).method(*args) for args in [[1]])
+
+        def destructuring_comprehension(self, args: tuple[int, int]) -> None:
+            def inner() -> None:
+                [super(Child, self).method(*args) for args, _ in [([1], 0)]]
+
+        def starred_comprehension(self, args: tuple[int, int]) -> None:
+            def inner() -> None:
+                [super(Child, self).method(*args) for [*args] in [[1]]]
+
+        def later_generator(self, args: tuple[int, int]) -> None:
+            def inner() -> None:
+                [super(Child, self).method(*args) for _ in [0] for args in [[1]]]
+
+        def comprehension_walrus(self, args: tuple[int, int]) -> None:
+            def inner() -> None:
+                [(args := [1]) for _ in [0]]
+                super(Child, self).method(*args)
+
+        def assignment_expression(self, args: tuple[int, int]) -> None:
+            def inner() -> None:
+                if args := [1]:
+                    super(Child, self).method(*args)
+
+        def context_manager(self, args: tuple[int, int]) -> None:
+            def inner() -> None:
+                with values() as args:
+                    super(Child, self).method(*args)
+
+        def destructuring_context_manager(self, args: tuple[int, int]) -> None:
+            def inner() -> None:
+                with pair_values() as (args, _):
+                    super(Child, self).method(*args)
+
+        def starred_context_manager(self, args: tuple[int, int]) -> None:
+            def inner() -> None:
+                with values() as [*args]:
+                    super(Child, self).method(*args)
+
+        def later_context_manager(self, args: tuple[int, int]) -> None:
+            def inner() -> None:
+                with ignored(), values() as args:
+                    super(Child, self).method(*args)
+
+        def exception_target(self, args: tuple[int, int]) -> None:
+            def inner() -> None:
+                try:
+                    pass
+                except Exception as args:  # type: ignore[assignment]
+                    super(Child, self).method(*args)  # type: ignore[misc]
+
+        def match_capture(self, args: tuple[int, int]) -> None:
+            def inner() -> None:
+                match [1]:
+                    case args:
+                        super(Child, self).method(*args)
+
+        def match_mapping_capture(self, args: tuple[int, int]) -> None:
+            def inner() -> None:
+                match {"a": [1]}:
+                    case {"a": args}:
+                        super(Child, self).method(*args)
+
+        def match_mapping_rest(self, args: tuple[int, int]) -> None:
+            def inner() -> None:
+                match {"a": [1]}:
+                    case {**args}:
+                        super(Child, self).method(*args)  # type: ignore[arg-type]
+
+        def match_sequence_capture(self, args: tuple[int, int]) -> None:
+            def inner() -> None:
+                match [[1]]:
+                    case [args]:
+                        super(Child, self).method(*args)
+
+        def match_starred_capture(self, args: tuple[int, int]) -> None:
+            def inner() -> None:
+                match [1]:
+                    case [*args]:
+                        super(Child, self).method(*args)
+
+        def match_class_capture(self, args: tuple[int, int]) -> None:
+            def inner() -> None:
+                match Values():
+                    case Values(__iter__=args):
+                        super(Child, self).method(*args())
+
+        def match_or_capture(self, args: tuple[int, int]) -> None:
+            def inner() -> None:
+                match [1]:
+                    case ([1] as args) | ([2] as args):
+                        super(Child, self).method(*args)
+
+        def match_value_pattern(self, args: tuple[int, int]) -> None:
+            def inner(other: list[int]) -> None:
+                match other:
+                    case [Values.__module__]:
+                        pass
+                    case None:
+                        pass
+
+        def global_declaration(self, args: tuple[int, int]) -> None:
+            def inner() -> None:
+                global args
+                super(Child, self).method(*args)
+
+        def nonlocal_declaration(self, args: tuple[int, int]) -> None:
+            def middle() -> None:
+                args = [1]
+
+                def inner() -> None:
+                    nonlocal args
+                    super(Child, self).method(*args)
+
+        def decorated_function(self, args: tuple[int, int]) -> None:
+            @decorate  # type: ignore[no-redef]
+            def args() -> None:
+                pass
+
+            super(Child, self).method(*args)
+
+        def class_definition(self, args: tuple[int, int]) -> None:
+            class args:  # type: ignore[no-redef]
+                pass
+
+            super(Child, self).method(*args)  # type: ignore[misc]
+
+        def imported_name(self, args: tuple[int, int]) -> None:
+            import glob as args  # type: ignore[no-redef,assignment]
+
+            super(Child, self).method(*args)  # type: ignore[misc]
+
+        def imported_from_name(self, args: tuple[int, int]) -> None:
+            from glob import glob as args  # type: ignore[no-redef,assignment]
+
+            super(Child, self).method(*args)  # type: ignore[misc]
+
+        def still_reported(self, args: tuple[int, int]) -> None:
+            super(Child, self).method(*args)
+  out: |-
+    main:73: error: Too many positional arguments for "method" of "Base"  [call-arg]
+    main:242: error: Too many positional arguments for "method" of "Base"  [call-arg]
+
+- case: super_fixed_tuple_shadowing_async
+  mypy_config: |
+    [mypy]
+    plugins = mypy_strict_kwargs
+  main: |-
+    from collections.abc import AsyncIterator
+    from contextlib import asynccontextmanager
+
+    async def alist() -> AsyncIterator[list[int]]:
+        yield [1]
+
+    async def apairs() -> AsyncIterator[tuple[list[int], int]]:
+        yield ([1], 0)
+
+    @asynccontextmanager
+    async def avalues() -> AsyncIterator[list[int]]:
+        yield [1]
+
+    class Base:
+        def method(self, first: int, /, second: int = 0) -> None:
+            return None
+
+    class Child(Base):
+        def async_loop_target(self, args: tuple[int, int]) -> None:
+            async def inner() -> None:
+                async for args in alist():
+                    super(Child, self).method(*args)
+
+        def destructuring_async_loop(self, args: tuple[int, int]) -> None:
+            async def inner() -> None:
+                async for args, _ in apairs():
+                    super(Child, self).method(*args)
+
+        def async_context_manager(self, args: tuple[int, int]) -> None:
+            async def inner() -> None:
+                async with avalues() as args:
+                    super(Child, self).method(*args)
+
+        def async_comprehension(self, args: tuple[int, int]) -> None:
+            async def inner() -> None:
+                [super(Child, self).method(*args) async for args in alist()]
+
+        def still_reported(self, args: tuple[int, int]) -> None:
+            super(Child, self).method(*args)
+  out: |-
+    main:39: error: Too many positional arguments for "method" of "Base"  [call-arg]
+
+- case: super_fixed_tuple_annotation_aliases
+  mypy_config: |
+    [mypy]
+    plugins = mypy_strict_kwargs
+  main: |-
+    import typing as t
+    from typing import (
+        Annotated,
+        NamedTuple,
+        Never,
+        NewType,
+        Tuple as FixedTuple,
+        TypeAlias,
+        TypeVar,
+        TypeVarTuple,
+        Unpack,
+    )
+
+    from typing_extensions import TypeAliasType
+
+    T = TypeVar("T")
+    Ts = TypeVarTuple("Ts")
+    Legacy: TypeAlias = tuple[int]
+    LegacyGeneric: TypeAlias = tuple[T]
+    LegacyVariadic: TypeAlias = tuple[Unpack[Ts]]
+    AliasType = TypeAliasType("AliasType", tuple[int])
+    NewArgs = NewType("NewArgs", tuple[int])
+    FuncNamed = NamedTuple("FuncNamed", [("value", int)])
+    VariadicAlias: TypeAlias = tuple[int, ...]
+    NestedUnpack: TypeAlias = tuple[Unpack[tuple[int, int]]]
+    NestedVariadic: TypeAlias = tuple[Unpack[tuple[Unpack[Ts]]]]
+
+    class ClassNamed(NamedTuple):
+        value: int
+
+    class Base:
+        def method(self, value: int) -> None:
+            return None
+
+        def two(self, first: int, /, second: int = 0) -> None:
+            return None
+
+    class Child(Base):
+        def alias_import(self, args: FixedTuple[int]) -> None:
+            super().method(*args)
+
+        def module_alias(self, args: t.Tuple[int]) -> None:
+            super().method(*args)
+
+        def legacy_alias(self, args: Legacy) -> None:
+            super().method(*args)
+
+        def annotated(self, args: Annotated[tuple[int], "metadata"]) -> None:
+            super().method(*args)
+
+        def never_union(self, args: tuple[int] | Never) -> None:
+            super().method(*args)
+
+        def new_type(self, args: NewArgs) -> None:
+            super().method(*args)
+
+        def class_named_tuple(self, args: ClassNamed) -> None:
+            super().method(*args)
+
+        def functional_named_tuple(self, args: FuncNamed) -> None:
+            super().method(*args)
+
+        def legacy_generic(self, args: LegacyGeneric[int]) -> None:
+            super().method(*args)
+
+        def alias_type(self, args: AliasType) -> None:
+            super().method(*args)
+
+        def legacy_variadic(self, args: LegacyVariadic[int, int]) -> None:
+            super().two(*args)
+
+        def nested_unpack(self, args: NestedUnpack) -> None:
+            super().two(*args)
+
+        def nested_variadic(self, args: NestedVariadic[int, int]) -> None:
+            super().two(*args)
+
+        def mixed_union(self, args: tuple[int] | tuple[int, int]) -> None:
+            super().two(*args)
+
+        def variadic_alias(self, args: VariadicAlias) -> None:
+            super().method(*args)
+
+        def optional_tuple(self, args: tuple[int] | None) -> None:
+            if args is not None:
+                super().method(*args)
+  out: |-
+    main:40: error: Too many positional arguments for "method" of "Base"  [call-arg]
+    main:43: error: Too many positional arguments for "method" of "Base"  [call-arg]
+    main:46: error: Too many positional arguments for "method" of "Base"  [call-arg]
+    main:49: error: Too many positional arguments for "method" of "Base"  [call-arg]
+    main:52: error: Too many positional arguments for "method" of "Base"  [call-arg]
+    main:55: error: Too many positional arguments for "method" of "Base"  [call-arg]
+    main:58: error: Too many positional arguments for "method" of "Base"  [call-arg]
+    main:61: error: Too many positional arguments for "method" of "Base"  [call-arg]
+    main:64: error: Too many positional arguments for "method" of "Base"  [call-arg]
+    main:67: error: Too many positional arguments for "method" of "Base"  [call-arg]
+    main:70: error: Too many positional arguments for "two" of "Base"  [call-arg]
+    main:73: error: Too many positional arguments for "two" of "Base"  [call-arg]
+
+- case: super_fixed_tuple_annotation_pep_695_aliases
+  skip: sys.version_info < (3, 12)
+  mypy_config: |
+    [mypy]
+    plugins = mypy_strict_kwargs
+  main: |-
+    type Modern = tuple[int]
+    type ModernGeneric[T] = tuple[T]
+    type ModernVariadic[*Ts] = tuple[*Ts]
+
+    class Base:
+        def method(self, value: int) -> None:
+            return None
+
+        def two(self, first: int, /, second: int = 0) -> None:
+            return None
+
+    class Child(Base):
+        def modern_alias(self, args: Modern) -> None:
+            super().method(*args)
+
+        def modern_generic(self, args: ModernGeneric[int]) -> None:
+            super().method(*args)
+
+        def modern_variadic(self, args: ModernVariadic[int, int]) -> None:
+            super().two(*args)
+  out: |-
+    main:14: error: Too many positional arguments for "method" of "Base"  [call-arg]
+    main:17: error: Too many positional arguments for "method" of "Base"  [call-arg]
+    main:20: error: Too many positional arguments for "two" of "Base"  [call-arg]
+
+- case: super_known_length_literal_spreads
+  mypy_config: |
+    [mypy]
+    plugins = mypy_strict_kwargs
+  main: |-
+    class Base:
+        def method(self, value: int) -> None:
+            return None
+
+        def text(self, value: str) -> None:
+            return None
+
+        def two(self, first: int, /, second: int = 0) -> None:
+            return None
+
+    class Child(Base):
+        def set_literal(self) -> None:
+            super().method(*{1})
+
+        def dict_literal(self) -> None:
+            super().method(*{1: None})
+
+        def string_literal(self) -> None:
+            super().text(*"x")
+
+        def bytes_literal(self) -> None:
+            super().method(*b"x")
+
+        def nested_set(self) -> None:
+            super().two(*(1, *{2}))
+
+        def dict_spread(self, other: dict[int, None]) -> None:
+            super().method(*{**other})
+
+        def escaped_bytes(self) -> None:
+            super().method(*b"\x00")
+
+        def unknown_set(self, other: set[int]) -> None:
+            super().method(*{*other})
+  out: |-
+    main:13: error: Too many positional arguments for "method" of "Base"  [call-arg]
+    main:16: error: Too many positional arguments for "method" of "Base"  [call-arg]
+    main:19: error: Too many positional arguments for "text" of "Base"  [call-arg]
+    main:22: error: Too many positional arguments for "method" of "Base"  [call-arg]
+    main:25: error: Too many positional arguments for "two" of "Base"  [call-arg]
+
+- case: super_explicit_start_type
+  mypy_config: |
+    [mypy]
+    plugins = mypy_strict_kwargs
+  main: |-
+    from typing import Final
+
+    class A:
+        def method(self, value: int, /) -> None:
+            return None
+
+    class Namespace:
+        class B(A):
+            def method(self, value: int) -> None:
+                return None
+
+    class B2(A):
+        def method(self, value: int) -> None:
+            return None
+
+    Alias = B2
+    FinalAlias: Final = B2
+    NotAClass = 1
+    CyclicAlias: Final = CyclicAlias  # type: ignore[misc, name-defined, used-before-def]
+
+    for LoopAlias in (B2,):
+        pass
+
+    class C(Namespace.B):
+        def call(self) -> None:
+            super(Namespace.B, self).method(1)
+
+    class D(B2):
+        ClassAlias: Final = B2
+
+        def alias(self) -> None:
+            super(Alias, self).method(1)
+
+        def final_alias(self) -> None:
+            super(FinalAlias, self).method(1)
+
+        def direct(self) -> None:
+            super(B2, self).method(1)
+
+        def reported(self) -> None:
+            super(D, self).method(1)
+
+        def not_a_class(self) -> None:
+            super(NotAClass, self).method(1)  # type: ignore[arg-type, call-arg]
+
+        def cyclic(self) -> None:
+            super(CyclicAlias, self).method(1)
+
+        def loop_alias(self) -> None:
+            super(LoopAlias, self).method(1)
+
+        def class_alias(self) -> None:
+            super(D.ClassAlias, self).method(1)
+  out: |-
+    main:41: error: Too many positional arguments for "method" of "B2"  [call-arg]
+
+- case: functools_partial_bound_arguments
+  mypy_config: |
+    [mypy]
+    plugins = mypy_strict_kwargs
+  main: |-
+    from functools import partial, partialmethod
+
+    def function(value: int) -> None: ...
+
+    def positional_only(value: int, /) -> None: ...
+
+    class C:
+        def __init__(self, value: int) -> None: ...
+
+        def method(self, value: int) -> None: ...
+
+        def implementation(self, value: int) -> None: ...
+
+        def implementation_positional(self, value: int, /) -> None: ...
+
+        bound = partialmethod(implementation, 1)
+        bound_ok = partialmethod(implementation, value=1)
+        bound_positional = partialmethod(implementation_positional, 1)
+
+    c = C(value=1)
+    a = partial(function, 1)
+    a_ok = partial(function, value=1)
+    b = partial(c.method, 1)
+    d = partial(C, 1)
+    e = partial(positional_only, 1)
+    f = partial(function)
+    g = partial(lambda value: None, 1)
+
+    class Callable:
+        def __call__(self, value: int) -> None: ...
+
+    h = partial(Callable(), 1)
+  out: |-
+    main:16: error: Too many positional arguments for "implementation" of "C"  [call-arg]
+    main:21: error: Too many positional arguments for "function"  [call-arg]
+    main:23: error: Too many positional arguments for "method" of "C"  [call-arg]
+    main:24: error: Too many positional arguments for "C"  [call-arg]
+
+- case: super_non_method_members
+  mypy_config: |
+    [mypy]
+    plugins = mypy_strict_kwargs
+  main: |-
+    from collections.abc import Callable
+    from typing import Any, cast
+
+    def implementation(self: object, value: int) -> None: ...
+    def plain(value: int) -> None: ...
+    def class_implementation(cls: type[object], value: int) -> None: ...
+    alias = plain
+
+    class Helpers:
+        @staticmethod
+        def helper(value: int) -> None: ...
+
+        @staticmethod
+        def class_helper(cls: type[object], value: int) -> None: ...
+
+    class CallableObject:
+        def __call__(self, value: int) -> None: ...
+
+    class Holder:
+        def bound(self, value: int) -> None: ...
+
+    def decorate(function: Callable[..., None]) -> Callable[..., None]:
+        return function
+
+    class DecoratedCall:
+        @decorate
+        def __call__(self, value: int) -> None: ...
+
+    class NotCallable:
+        pass
+
+    class Base:
+        assigned_function = implementation
+        assigned_class_method = classmethod(class_implementation)
+        lambda_static_method = staticmethod(lambda value: None)
+        callable_object = CallableObject()
+        qualified_static_method = staticmethod(Helpers.helper)
+        aliased_static_method = staticmethod(alias)
+        lambda_class_method = classmethod(lambda cls, value: None)
+        conditional_static_method = staticmethod(plain if True else plain)
+        tuple_static_method = staticmethod((plain,)[0])
+        dict_static_method = staticmethod({"a": plain}["a"])
+        list_static_method = staticmethod([plain][0])
+        qualified_class_method = classmethod(Helpers.class_helper)
+        conditional_class_method = classmethod(
+            class_implementation if True else class_implementation
+        )
+        tuple_class_method = classmethod((class_implementation,)[0])
+        dict_class_method = classmethod({"a": class_implementation}["a"])
+        list_class_method = classmethod([class_implementation][0])
+        callable_static_method = staticmethod(CallableObject())
+        bound_static_method = staticmethod(Holder().bound)
+        anonymous = staticmethod(cast(Callable[[int], None], plain))
+        positional_only = staticmethod(lambda value, /: None)
+        decorated_call = DecoratedCall()
+        not_callable = NotCallable()
+        field = 0
+        any_member: Any = plain
+
+    class Child(Base):
+        def call(self) -> None:
+            super().assigned_function(1)
+            super().assigned_class_method(1)
+            super().lambda_static_method(1)
+            super().callable_object(1)
+            super().qualified_static_method(1)
+            super().aliased_static_method(1)
+            super().lambda_class_method(1)
+            super().conditional_static_method(1)
+            super().tuple_static_method(1)
+            super().dict_static_method(1)
+            super().list_static_method(1)
+            super().qualified_class_method(1)
+            super().conditional_class_method(1)
+            super().tuple_class_method(1)
+            super().dict_class_method(1)
+            super().list_class_method(1)
+            super().callable_static_method(1)
+            super().bound_static_method(1)
+            super().anonymous(1)
+            super().positional_only(1)
+            super().assigned_function(value=1)
+            super().decorated_call(1)
+            super().not_callable(1)  # type: ignore[operator]
+            super().field
+            super().any_member(1)
+  out: |-
+    main:62: error: Too many positional arguments for "assigned_function" of "Base"  [call-arg]
+    main:63: error: Too many positional arguments for "assigned_class_method" of "Base"  [call-arg]
+    main:64: error: Too many positional arguments for "lambda_static_method" of "Base"  [call-arg]
+    main:65: error: Too many positional arguments for "callable_object" of "Base"  [call-arg]
+    main:66: error: Too many positional arguments for "qualified_static_method" of "Base"  [call-arg]
+    main:67: error: Too many positional arguments for "aliased_static_method" of "Base"  [call-arg]
+    main:68: error: Too many positional arguments for "lambda_class_method" of "Base"  [call-arg]
+    main:69: error: Too many positional arguments for "conditional_static_method" of "Base"  [call-arg]
+    main:70: error: Too many positional arguments for "tuple_static_method" of "Base"  [call-arg]
+    main:71: error: Too many positional arguments for "dict_static_method" of "Base"  [call-arg]
+    main:72: error: Too many positional arguments for "list_static_method" of "Base"  [call-arg]
+    main:73: error: Too many positional arguments for "qualified_class_method" of "Base"  [call-arg]
+    main:74: error: Too many positional arguments for "conditional_class_method" of "Base"  [call-arg]
+    main:75: error: Too many positional arguments for "tuple_class_method" of "Base"  [call-arg]
+    main:76: error: Too many positional arguments for "dict_class_method" of "Base"  [call-arg]
+    main:77: error: Too many positional arguments for "list_class_method" of "Base"  [call-arg]
+    main:78: error: Too many positional arguments for "callable_static_method" of "Base"  [call-arg]
+    main:79: error: Too many positional arguments for "bound_static_method" of "Base"  [call-arg]
+
+- case: super_non_method_member_ignore_names
+  disable_cache: true
+  files:
+    - path: pyproject.toml
+      content: |
+        [tool.mypy]
+        plugins = ["mypy_strict_kwargs"]
+
+        [tool.mypy_strict_kwargs]
+        ignore_names = ["main.Base.assigned"]
+  main: |-
+    def implementation(self: object, value: int) -> None: ...
+
+    class Base:
+        assigned = implementation
+        other = implementation
+
+    class Child(Base):
+        def call(self) -> None:
+            super().assigned(1)
+            super().other(1)
+  out: |-
+    main:10: error: Too many positional arguments for "other" of "Base"  [call-arg]
+
+- case: super_constant_sequence_expressions
+  mypy_config: |
+    [mypy]
+    plugins = mypy_strict_kwargs
+  main: |-
+    class Base:
+        def method(self, value: int) -> None:
+            return None
+
+    class Child(Base):
+        def i612(self) -> None:
+            args: tuple[int] = (1,)
+            super().method(*args)
+
+        def i650(self) -> None:
+            args = (1,)
+            super().method(*args)
+
+        def i653(self, condition: bool) -> None:
+            super().method(*((1,) if condition else (2,)))
+
+        def i654(self) -> None:
+            super().method(*(() + (1,)))
+
+        def i660(self) -> None:
+            super().method(*((1,) * 1))
+
+        def i661(self) -> None:
+            super().method(*(0, 1)[:1])
+
+        def i662(self) -> None:
+            super().method(*((1,),)[0])
+
+        def i663(self) -> None:
+            super().method(*[(1,)][0])
+
+        def i664(self) -> None:
+            super().method(*{0: (1,)}[0])
+
+        def i665(self) -> None:
+            super().method(*(args := (1,)))
+
+        def i669(self) -> None:
+            super().method(*(() or (1,)))
+
+        def i670(self) -> None:
+            super().method(*((1,) and (2,)))
+
+        def reassigned(self, condition: bool) -> None:
+            args = [1]
+            if condition:
+                args = [1, 2]
+            super().method(*args)
+
+        def unknown(self, other: tuple[int, ...]) -> None:
+            args = other
+            super().method(*args)
+
+        def dict_int_key(self) -> None:
+            super().method(*{0: (1, 2), 1: (1,)}[1])
+
+        def dict_str_key(self) -> None:
+            super().method(*{"b": (1, 2), "a": (1,)}["a"])
+
+        def dict_missing_str_key(self) -> None:
+            super().method(*{"b": (1,)}["a"])
+
+        def truthy_or(self) -> None:
+            super().method(*((1,) or (2,)))
+
+        def falsy_and(self) -> None:
+            super().method(*(() and (1,)))
+
+        def dict_missing_key(self) -> None:
+            super().method(*{0: (1,)}[1])
+
+        def spread_slice(self, other: tuple[int, ...]) -> None:
+            super().method(*(1, *other)[:1])
+
+        def variable_slice(self, stop: int) -> None:
+            super().method(*(0, 1)[:stop])
+
+        def strided_slice(self) -> None:
+            super().method(*(0, 1, 2)[::2])
+
+        def unknown_concatenation(self, other: tuple[int, ...]) -> None:
+            super().method(*((1,) + other))
+
+        def unsupported_operator(self, other: set[int]) -> None:
+            super().method(*({1} - other))
+
+        def variable_length_annotation(self) -> None:
+            args: tuple[int, ...] = (1,)
+            super().method(*args)
+  out: |-
+    main:8: error: Too many positional arguments for "method" of "Base"  [call-arg]
+    main:12: error: Too many positional arguments for "method" of "Base"  [call-arg]
+    main:15: error: Too many positional arguments for "method" of "Base"  [call-arg]
+    main:18: error: Too many positional arguments for "method" of "Base"  [call-arg]
+    main:21: error: Too many positional arguments for "method" of "Base"  [call-arg]
+    main:24: error: Too many positional arguments for "method" of "Base"  [call-arg]
+    main:27: error: Too many positional arguments for "method" of "Base"  [call-arg]
+    main:30: error: Too many positional arguments for "method" of "Base"  [call-arg]
+    main:33: error: Too many positional arguments for "method" of "Base"  [call-arg]
+    main:36: error: Too many positional arguments for "method" of "Base"  [call-arg]
+    main:39: error: Too many positional arguments for "method" of "Base"  [call-arg]
+    main:42: error: Too many positional arguments for "method" of "Base"  [call-arg]
+    main:55: error: Too many positional arguments for "method" of "Base"  [call-arg]
+    main:58: error: Too many positional arguments for "method" of "Base"  [call-arg]
+    main:64: error: Too many positional arguments for "method" of "Base"  [call-arg]
+    main:67: error: Too few arguments for "method" of "Base"  [call-arg]
+    main:79: error: Too many arguments for "method" of "Base"  [call-arg]
+
+- case: super_module_level_fixed_tuples
+  mypy_config: |
+    [mypy]
+    plugins = mypy_strict_kwargs
+  main: |-
+    ARGS: tuple[int] = (1,)
+    INFERRED = (1,)
+    REBOUND = [1]
+    REBOUND = [1, 2]
+    UNKNOWN: tuple[int, ...] = (1,)
+
+    class Base:
+        def method(self, value: int) -> None:
+            return None
+
+    class Child(Base):
+        def annotated(self) -> None:
+            super().method(*ARGS)
+
+        def inferred(self) -> None:
+            super().method(*INFERRED)
+
+        def rebound(self) -> None:
+            super().method(*REBOUND)
+
+        def unknown(self) -> None:
+            super().method(*UNKNOWN)
+  out: |-
+    main:13: error: Too many positional arguments for "method" of "Base"  [call-arg]
+    main:16: error: Too many positional arguments for "method" of "Base"  [call-arg]
+
+- case: super_iterated_fixed_tuples
+  mypy_config: |
+    [mypy]
+    plugins = mypy_strict_kwargs
+  main: |-
+    from collections.abc import AsyncIterator, Iterable
+
+    GLOBAL_VALUES: tuple[tuple[int], ...] = ((1,),)
+
+    class Base:
+        def method(self, value: int) -> None:
+            return None
+
+    class Child(Base):
+        def i672(self, values: tuple[tuple[int], ...]) -> None:
+            for args in values:
+                super().method(*args)
+
+        def i673(self, values: tuple[tuple[int], ...]) -> None:
+            [super().method(*args) for args in values]
+
+        def i674(self, value: tuple[int]) -> None:
+            match value:
+                case args:
+                    super().method(*args)
+
+        async def i703(self, values: AsyncIterator[tuple[int]]) -> None:
+            async for args in values:
+                super().method(*args)
+
+        async def i704(self, values: AsyncIterator[tuple[int]]) -> None:
+            [super().method(*args) async for args in values]
+
+        def iterable(self, values: Iterable[tuple[int]]) -> None:
+            for args in values:
+                super().method(*args)
+
+        def listed(self, values: list[tuple[int]]) -> None:
+            for args in values:
+                super().method(*args)
+
+        def variable_length(self, values: list[tuple[int, ...]]) -> None:
+            for args in values:
+                super().method(*args)
+
+        def unknown_iterable(self, values: object) -> None:
+            for args in values:  # type: ignore[attr-defined]
+                super().method(*args)
+
+        def fixed_tuple_of_tuples(self, values: tuple[tuple[int], tuple[int]]) -> None:
+            for args in values:
+                super().method(*args)
+
+        def mapping(self, values: dict[str, tuple[int]]) -> None:
+            for args in values:
+                super().method(*args)  # type: ignore[misc]
+
+        def shadowed_iterable(self, values: tuple[tuple[int], ...]) -> None:
+            def inner() -> None:
+                values = [(1, 2)]
+                for args in values:
+                    super(Child, self).method(*args)
+
+        def global_iterable(self) -> None:
+            for args in GLOBAL_VALUES:
+                super().method(*args)
+
+        def union_iterable(
+            self, values: tuple[tuple[int], ...] | None
+        ) -> None:
+            assert values is not None
+            for args in values:
+                super().method(*args)
+
+        def literal_iterable(self) -> None:
+            for args in [(1,), (2,)]:
+                super().method(*args)
+  out: |-
+    main:12: error: Too many positional arguments for "method" of "Base"  [call-arg]
+    main:15: error: Too many positional arguments for "method" of "Base"  [call-arg]
+    main:20: error: Too many positional arguments for "method" of "Base"  [call-arg]
+    main:24: error: Too many positional arguments for "method" of "Base"  [call-arg]
+    main:27: error: Too many positional arguments for "method" of "Base"  [call-arg]
+    main:31: error: Too many positional arguments for "method" of "Base"  [call-arg]
+    main:35: error: Too many positional arguments for "method" of "Base"  [call-arg]
+    main:57: error: Too many arguments for "method" of "Base"  [call-arg]
+
+- case: super_declared_expression_lengths
+  mypy_config: |
+    [mypy]
+    plugins = mypy_strict_kwargs
+  main: |-
+    import operator
+    from typing import assert_type, cast
+
+    def get_args() -> tuple[int]:
+        return (1,)
+
+    async def get_args_async() -> tuple[int]:
+        return (1,)
+
+    def get_unknown() -> tuple[int, ...]:
+        return (1,)
+
+    def untyped():
+        return (1,)
+
+    class Holder:
+        args: tuple[int] = (1,)
+
+    class Base:
+        def method(self, value: int) -> None:
+            return None
+
+    class Child(Base):
+        args: tuple[int] = (1,)
+        variable: tuple[int, ...] = (1,)
+        holder = Holder()
+
+        def i613(self) -> None:
+            super().method(*get_args())
+
+        def i614(self) -> None:
+            super().method(*self.args)
+
+        def i652(self, value: object) -> None:
+            super().method(*cast(tuple[int], value))
+
+        def i666(self) -> None:
+            super().method(*assert_type((1,), tuple[int]))
+
+        def i668(self) -> None:
+            super().method(*operator.getitem(((1,),), 0))
+
+        async def i671(self) -> None:
+            super().method(*await get_args_async())
+
+        def unknown_call(self) -> None:
+            super().method(*get_unknown())
+
+        def unknown_attribute(self) -> None:
+            super().method(*self.variable)
+
+        def untyped_call(self) -> None:
+            super().method(*untyped())  # type: ignore[no-untyped-call]
+
+        def selected_callee(self) -> None:
+            super().method(*[get_args][0]())
+
+        def nested_attribute(self) -> None:
+            super().method(*self.holder.args)
+
+        def unrelated_attribute(self, holder: Holder) -> None:
+            super().method(*holder.args)
+  out: |-
+    main:29: error: Too many positional arguments for "method" of "Base"  [call-arg]
+    main:32: error: Too many positional arguments for "method" of "Base"  [call-arg]
+    main:35: error: Too many positional arguments for "method" of "Base"  [call-arg]
+    main:38: error: Too many positional arguments for "method" of "Base"  [call-arg]
+    main:41: error: Too many positional arguments for "method" of "Base"  [call-arg]
+    main:44: error: Too many positional arguments for "method" of "Base"  [call-arg]
+
+- case: super_context_manager_fixed_tuples
+  mypy_config: |
+    [mypy]
+    plugins = mypy_strict_kwargs
+  main: |-
+    from collections.abc import AsyncIterator, Generator, Iterator
+    from contextlib import asynccontextmanager, contextmanager
+    from typing import TypeVar
+
+    T = TypeVar("T")
+
+    def keep(function: T) -> T:
+        return function
+
+    @contextmanager
+    def values() -> Iterator[tuple[int]]:
+        yield (1,)
+
+    @asynccontextmanager
+    async def async_values() -> AsyncIterator[tuple[int]]:
+        yield (1,)
+
+    @keep
+    @contextmanager
+    def outer_decorated() -> Iterator[tuple[int]]:
+        yield (1,)
+
+    @contextmanager
+    def unknown_values() -> Iterator[tuple[int, ...]]:
+        yield (1,)
+
+    @contextmanager
+    def generator_values() -> Generator[tuple[int], None, None]:
+        yield (1,)
+
+    @contextmanager
+    def unannotated():
+        yield (1,)
+
+    class Manual:
+        def __enter__(self) -> tuple[int]:
+            return (1,)
+
+        def __exit__(self, *args: object) -> None:
+            return None
+
+    def plain_manager() -> Manual:
+        return Manual()
+
+    @keep
+    def decorated_manager() -> Manual:
+        return Manual()
+
+    class Base:
+        def method(self, value: int) -> None:
+            return None
+
+    class Child(Base):
+        def context_manager(self) -> None:
+            with values() as args:
+                super().method(*args)
+
+        async def async_context_manager(self) -> None:
+            async with async_values() as args:
+                super().method(*args)
+
+        def outer_decorated_manager(self) -> None:
+            with outer_decorated() as args:
+                super().method(*args)
+
+        def selected_manager(self) -> None:
+            with [values][0]() as args:
+                super().method(*args)
+
+        def variable_manager(self, manager: Manual) -> None:
+            with manager as args:
+                super().method(*args)
+
+        def undecorated_manager(self) -> None:
+            with plain_manager() as args:
+                super().method(*args)
+
+        def variable_length_manager(self) -> None:
+            with unknown_values() as args:
+                super().method(*args)
+
+        def generator_manager(self) -> None:
+            with generator_values() as args:
+                super().method(*args)
+
+        def unannotated_manager(self) -> None:
+            with unannotated() as args:  # type: ignore[no-untyped-call]
+                super().method(*args)
+
+        def decorated_plain_manager(self) -> None:
+            with decorated_manager() as args:
+                super().method(*args)
+
+        def manual_manager(self) -> None:
+            with Manual() as args:
+                super().method(*args)
+  out: |-
+    main:56: error: Too many positional arguments for "method" of "Base"  [call-arg]
+    main:60: error: Too many positional arguments for "method" of "Base"  [call-arg]
+    main:64: error: Too many positional arguments for "method" of "Base"  [call-arg]
+
+- case: super_comprehension_and_nonlocal_scopes
+  mypy_config: |
+    [mypy]
+    plugins = mypy_strict_kwargs
+  main: |-
+    class Base:
+        def method(self, first: int, /, second: int = 0) -> None:
+            return None
+
+    class Child(Base):
+        def leftmost_iterable(self, args: tuple[int, int]) -> None:
+            [None for args in [super().method(*args)]]
+
+        def later_iterable(self, args: tuple[int, int]) -> None:
+            [None for _ in [0] for args in [super().method(*args)]]
+
+        def nonlocal_declaration_only(self, args: tuple[int, int]) -> None:
+            def inner() -> None:
+                nonlocal args
+                super(Child, self).method(*args)
+
+        def nonlocal_assignment(self, args: tuple[int, int]) -> None:
+            def inner() -> None:
+                nonlocal args
+                args = (1,)  # type: ignore[assignment]
+
+            super(Child, self).method(*args)
+
+    class Number:
+        def __rpow__(self, base: int, modulo: int | None = None) -> "Number":
+            return self
+
+    def use(number: Number) -> object:
+        return 2**number
+  out: |-
+    main:7: error: Too many positional arguments for "method" of "Base"  [call-arg]
+    main:15: error: Too many positional arguments for "method" of "Base"  [call-arg]
+
+- case: super_union_walrus_and_global_lengths
+  mypy_config: |
+    [mypy]
+    plugins = mypy_strict_kwargs
+  main: |-
+    from typing import Never, TypeAlias, Union
+
+    UnionAlias: TypeAlias = Union[tuple[int], Never]
+    PipeAlias: TypeAlias = tuple[int] | Never
+    MixedAlias: TypeAlias = tuple[int] | tuple[int, int]
+    PartialAlias: TypeAlias = tuple[int] | list[int]
+    VALUES = (1,)
+
+    class Base:
+        def method(self, value: int) -> None:
+            return None
+
+    def nested() -> None:
+        values = [1]
+
+        def inner() -> None:
+            nonlocal values
+            values = [1, 2]
+
+    class Child(Base):
+        def union_spelling(self, args: Union[tuple[int], Never]) -> None:
+            super().method(*args)
+
+        def union_alias(self, args: UnionAlias) -> None:
+            super().method(*args)
+
+        def pipe_alias(self, args: PipeAlias) -> None:
+            super().method(*args)
+
+        def mixed_alias(self, args: MixedAlias) -> None:
+            super().method(*args)
+
+        def partial_alias(self, args: PartialAlias) -> None:
+            super().method(*args)
+
+        def walrus_reuse(self) -> None:
+            if args := (1,):
+                super().method(*args)
+
+        def global_then_assign(self) -> None:
+            global VALUES
+            VALUES = (1,)
+            super().method(*VALUES)
+
+        def global_only(self, VALUES: tuple[int, int]) -> None:
+            def inner() -> None:
+                global VALUES
+                super(Child, self).method(*VALUES)
+
+        def module_value(self) -> None:
+            super().method(*VALUES)
+  out: |-
+    main:22: error: Too many positional arguments for "method" of "Base"  [call-arg]
+    main:25: error: Too many positional arguments for "method" of "Base"  [call-arg]
+    main:28: error: Too many positional arguments for "method" of "Base"  [call-arg]
+    main:38: error: Too many positional arguments for "method" of "Base"  [call-arg]
+    main:43: error: Too many positional arguments for "method" of "Base"  [call-arg]
+    main:51: error: Too many positional arguments for "method" of "Base"  [call-arg]
+
+- case: super_explicit_start_type_from_another_module
+  mypy_config: |
+    [mypy]
+    plugins = mypy_strict_kwargs
+  files:
+    - path: shared.py
+      content: |
+        from typing import Final
+
+        class A:
+            def method(self, value: int, /) -> None:
+                return None
+
+        class B(A):
+            def method(self, value: int) -> None:
+                return None
+
+        Alias: Final = B
+  main: |-
+    from shared import Alias, B
+
+    class C(B):
+        def call(self) -> None:
+            super(Alias, self).method(1)
+
+        def reported(self) -> None:
+            super(C, self).method(1)
+  out: |-
+    main:8: error: Too many positional arguments for "method" of "B"  [call-arg]
+
+- case: super_fixed_tuple_nonlocal_ownership
+  mypy_config: |
+    [mypy]
+    plugins = mypy_strict_kwargs
+  main: |-
+    class Base:
+        def method(self, first: int, /, second: int = 0) -> None:
+            return None
+
+    class Child(Base):
+        def rebound(self, args: tuple[int, int]) -> None:
+            def inner() -> None:
+                nonlocal args
+                args = [1]  # type: ignore[assignment]
+
+            super(Child, self).method(*args)
+
+        def rebound_in_nearest_scope(self, args: tuple[int, int]) -> None:
+            def middle() -> None:
+                args = [1]
+
+                def inner() -> None:
+                    nonlocal args
+                    args = [2]
+
+            super(Child, self).method(*args)
+
+        def outer_owner(self, values: tuple[int, int]) -> None:
+            def middle() -> None:
+                def inner() -> None:
+                    nonlocal values
+                    values = [1]  # type: ignore[assignment]
+
+            super(Child, self).method(*values)
+
+        def unowned(self, args: tuple[int, int]) -> None:
+            def middle(values) -> None:
+                def inner() -> None:
+                    nonlocal values
+                    values = [1]
+
+            super(Child, self).method(*args)
+  out: |-
+    main:21: error: Too many positional arguments for "method" of "Base"  [call-arg]
+    main:37: error: Too many positional arguments for "method" of "Base"  [call-arg]
+
+- case: super_global_and_repeated_nonlocal_bindings
+  mypy_config: |
+    [mypy]
+    plugins = mypy_strict_kwargs
+  main: |-
+    ARGS: tuple[int, ...] = (1,)
+
+    class Base:
+        def method(self, first: int, /, second: int = 0) -> None:
+            return None
+
+    class Child(Base):
+        def global_hides(self, ARGS: tuple[int, int]) -> None:
+            def inner() -> None:
+                global ARGS
+                copy = ARGS
+                super(Child, self).method(*copy)
+
+        def double_nonlocal(self, args: tuple[int, ...]) -> None:
+            def middle() -> None:
+                def first() -> None:
+                    nonlocal args
+                    args = (1, 2)
+
+                def second() -> None:
+                    nonlocal args
+                    args = (1,)
+
+            super(Child, self).method(*args)
+
+- case: super_nonlocal_without_a_known_owner
+  mypy_config: |
+    [mypy]
+    plugins = mypy_strict_kwargs
+  main: |-
+    class Base:
+        def method(self, first: int, /, second: int = 0) -> None:
+            return None
+
+    class Child(Base):
+        def unannotated_owner(self, args) -> None:
+            def inner() -> None:
+                nonlocal args
+                args = (1, 2)
+
+            super(Child, self).method(*args)
+
+        def disagreeing(self, args) -> None:
+            def first() -> None:
+                nonlocal args
+                args = (1, 2)
+
+            def second() -> None:
+                nonlocal args
+                args = (1,)
+
+            super(Child, self).method(*args)
+  out: |-
+    main:11: error: Too many positional arguments for "method" of "Base"  [call-arg]
+
+- case: super_nonlocal_owners_and_analyzed_unions
+  mypy_config: |
+    [mypy]
+    plugins = mypy_strict_kwargs
+  main: |-
+    from typing import Never
+
+    class Base:
+        def method(self, first: int, /, second: int = 0) -> None:
+            return None
+
+    def get_pair() -> tuple[int, int] | Never:
+        return (1, 2)
+
+    class Child(Base):
+        attribute: tuple[int, int] | Never = (1, 2)
+
+        def nearer_parameter(self, args: tuple[int]) -> None:
+            def middle(args) -> None:
+                def inner() -> None:
+                    nonlocal args
+                    args = (1, 2)
+
+            super(Child, self).method(*args)
+
+        def walrus_nonlocal(self, args: tuple[int, int]) -> None:
+            def inner() -> None:
+                nonlocal args
+                if args := (1,):  # type: ignore[assignment]
+                    pass
+
+            super(Child, self).method(*args)
+
+        def analyzed_union_attribute(self) -> None:
+            super(Child, self).method(*self.attribute)
+
+        def analyzed_union_return(self) -> None:
+            super(Child, self).method(*get_pair())
+  out: |-
+    main:30: error: Too many positional arguments for "method" of "Base"  [call-arg]
+    main:33: error: Too many positional arguments for "method" of "Base"  [call-arg]
+
+# ``mypy`` rejects a ``nonlocal`` name which no enclosing scope binds
+# before the nested function, so the plugin never finds an owner here.
+- case: super_nonlocal_without_an_owner
+  mypy_config: |
+    [mypy]
+    plugins = mypy_strict_kwargs
+  main: |-
+    class Base:
+        def method(self, first: int, /, second: int = 0) -> None:
+            return None
+
+    class Child(Base):
+        def call(self, args: tuple[int, int]) -> None:
+            def inner() -> None:
+                nonlocal values
+                values = (1, 2)
+
+            values = (1,)
+            super(Child, self).method(*args)
+  out: |-
+    main:8: error: No binding for nonlocal "values" found  [misc]
+    main:12: error: Too many positional arguments for "method" of "Base"  [call-arg]
+
+- case: super_assignment_expression_outside_a_function
+  mypy_config: |
+    [mypy]
+    plugins = mypy_strict_kwargs
+  main: |-
+    class Base:
+        def method(self, value: int) -> None:
+            return None
+
+    if module_args := (1,):
+        pass
+
+    [comprehension_args := (1,) for _ in [0]]
+
+    class Holder:
+        class_args = [class_walrus := (1,)]
+
+    class Child(Base):
+        def module_level(self) -> None:
+            super().method(*module_args)
+
+        def module_comprehension(self) -> None:
+            super().method(*comprehension_args)
+
+        def class_level(self) -> None:
+            super().method(*Holder.class_args[0])
+  out: |-
+    main:15: error: Too many positional arguments for "method" of "Base"  [call-arg]
+    main:18: error: Too many positional arguments for "method" of "Base"  [call-arg]

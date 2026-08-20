@@ -398,6 +398,7 @@ if TYPE_CHECKING:
     )
     from .videodelta import VideoDelta, VideoDeltaMimeType, VideoDeltaTypedDict
     from .videoresponseformat import (
+        Resolution,
         VideoResponseFormat,
         VideoResponseFormatAspectRatio,
         VideoResponseFormatDelivery,
@@ -655,6 +656,7 @@ __all__ = [
     "RagStoreConfigParam",
     "Ranking",
     "RankingParam",
+    "Resolution",
     "ResponseFormat",
     "ResponseFormatParam",
     "ResponseModality",
@@ -1150,6 +1152,7 @@ _dynamic_imports: dict[str, str] = {
     "VideoDelta": ".videodelta",
     "VideoDeltaMimeType": ".videodelta",
     "VideoDeltaTypedDict": ".videodelta",
+    "Resolution": ".videoresponseformat",
     "VideoResponseFormat": ".videoresponseformat",
     "VideoResponseFormatAspectRatio": ".videoresponseformat",
     "VideoResponseFormatDelivery": ".videoresponseformat",

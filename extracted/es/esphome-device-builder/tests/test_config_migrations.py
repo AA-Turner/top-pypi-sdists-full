@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import logging
 from collections.abc import Callable
 
 import pytest
@@ -67,7 +68,7 @@ def _on_boot(*body: str) -> str:
 def test_legacy_api_block_and_items() -> None:
     result = render_migrations(_LEGACY_API_YAML)
     assert result is not None
-    new_text, diff = result
+    new_text, diff, _changes = result
     assert "services:" not in new_text
     assert "- service:" not in new_text
     assert "actions:" in new_text
@@ -87,23 +88,24 @@ def test_already_canonical_returns_none() -> None:
 
 
 def test_prefilter_covers_every_bespoke_rule() -> None:
-    """A rule joining ``_RULES`` without a firing fixture here fails the set compare."""
+    """A rule joining ``_BESPOKE_RULES`` without a firing fixture here fails the set compare."""
     fixtures = {
-        "_canonicalize_api_actions": _LEGACY_API_YAML,
-        "_canonicalize_action_nodes": _LEGACY_HA_YAML,
-        "_migrate_ethernet_clk": _ETHERNET_YAML,
+        ("api", "services"): _LEGACY_API_YAML,
+        ("", "homeassistant.service"): _LEGACY_HA_YAML,
+        ("ethernet", "clk_mode"): _ETHERNET_YAML,
     }
     rules = {}
-    for rule, tokens in migrations._RULES:
-        if rule.__name__ == "_apply_generated_renames":
-            continue
-        assert tokens, rule.__name__
-        rules[rule.__name__] = rule
+    for rule in migrations._BESPOKE_RULES:
+        assert rule.tokens, rule.changes
+        assert all(change.since is not None for change in rule.changes), rule.changes
+        # The gate reads the first record's since; every record must agree.
+        assert len({change.since for change in rule.changes}) == 1, rule.changes
+        rules[rule.changes[0].scope, rule.changes[0].old] = rule
     assert set(rules) == set(fixtures)
-    for name, text in fixtures.items():
+    for key, text in fixtures.items():
         lines = text.splitlines(keepends=True)
-        assert rules[name](lines) != lines, name
-        assert has_pending_migrations(text) is True, name
+        assert rules[key].apply(lines) != lines, key
+        assert has_pending_migrations(text) is True, key
     assert has_pending_migrations(_respell(_LEGACY_API_YAML)) is False
 
 
@@ -133,7 +135,7 @@ def test_legacy_items_under_canonical_block() -> None:
     text = _LEGACY_API_YAML.replace("services:", "actions:")
     result = render_migrations(text)
     assert result is not None
-    new_text, _diff = result
+    new_text = result.text
     assert "- service:" not in new_text
     assert "- action: pause_va" in new_text
 
@@ -141,7 +143,7 @@ def test_legacy_items_under_canonical_block() -> None:
 def test_homeassistant_id_and_field() -> None:
     result = render_migrations(_LEGACY_HA_YAML)
     assert result is not None
-    new_text, _diff = result
+    new_text = result.text
     assert "homeassistant.service:" not in new_text
     assert new_text.count("homeassistant.action:") == 2
     assert "          service:" not in new_text
@@ -156,7 +158,7 @@ def test_homeassistant_id_only_when_field_canonical() -> None:
     text = _LEGACY_HA_YAML.replace("service: light.turn_on", "action: light.turn_on")
     result = render_migrations(text)
     assert result is not None
-    new_text, _diff = result
+    new_text = result.text
     assert "homeassistant.service:" not in new_text
     assert "action: light.turn_on" in new_text
 
@@ -172,7 +174,7 @@ def test_collision_skips_field_but_respells_id() -> None:
 """
     result = render_migrations(text)
     assert result is not None
-    new_text, _diff = result
+    new_text = result.text
     assert "homeassistant.action:" in new_text
     # Both keys kept — respelling would emit a duplicate ``action:``.
     assert "service: light.turn_on" in new_text
@@ -238,7 +240,7 @@ def test_inline_legacy_services_key_respelled() -> None:
 """
     result = render_migrations(text)
     assert result is not None
-    new_text, _diff = result
+    new_text = result.text
     assert "actions: []" in new_text
 
 
@@ -249,7 +251,7 @@ def test_multiple_sites_single_spanning_diff() -> None:
     text = _LEGACY_API_YAML + "\n" + ha_script
     result = render_migrations(text)
     assert result is not None
-    new_text, diff = result
+    new_text, diff, _changes = result
     assert "services:" not in new_text
     assert "homeassistant.service:" not in new_text
     assert 1 <= diff.fromLine < diff.toLine <= len(text.splitlines())
@@ -265,7 +267,7 @@ def test_nested_inside_api_action_body() -> None:
 """
     result = render_migrations(text)
     assert result is not None
-    new_text, _diff = result
+    new_text = result.text
     assert "homeassistant.action:" in new_text
     assert "action: switch.toggle" in new_text
     assert "- action: run_it" in new_text
@@ -289,7 +291,7 @@ def test_comment_lines_do_not_pick_the_body_indent() -> None:
     )
     result = render_migrations(text)
     assert result is not None
-    new_text, _diff = result
+    new_text = result.text
     assert "action: light.turn_on" in new_text
     assert "# call the light service" in new_text
 
@@ -302,7 +304,7 @@ def test_brace_in_trailing_comment_keeps_block_body_respell() -> None:
     )
     result = render_migrations(text)
     assert result is not None
-    new_text, _diff = result
+    new_text = result.text
     assert "homeassistant.action:  # TODO {see later}" in new_text
     assert "action: light.turn_on" in new_text
 
@@ -328,7 +330,7 @@ def test_anchor_after_block_scalar_still_respells() -> None:
     )
     result = render_migrations(text)
     assert result is not None
-    new_text, _diff = result
+    new_text = result.text
     # The scalar body keeps its legacy text; the real node respells.
     assert "homeassistant.service: not_yaml" in new_text
     assert "- homeassistant.action:" in new_text
@@ -351,7 +353,7 @@ def test_api_legacy_item_beside_collision_item_still_respells() -> None:
     )
     result = render_migrations(text)
     assert result is not None
-    new_text, _diff = result
+    new_text = result.text
     assert "actions:" in new_text
     # The collision item keeps both keys; the clean item respells.
     assert "- action: a" in new_text
@@ -362,7 +364,7 @@ def test_api_legacy_item_beside_collision_item_still_respells() -> None:
 def test_bodyless_anchor_respells_id_only() -> None:
     result = render_migrations("esphome:\n  on_boot:\n    then:\n      - homeassistant.service:\n")
     assert result is not None
-    new_text, _diff = result
+    new_text = result.text
     assert "- homeassistant.action:" in new_text
 
 
@@ -489,7 +491,7 @@ wifi:
 """
 
 
-_RP2_RULE = MigrationRule(kind="component_key", old="rp2040", new="rp2")
+_RP2_RULE = MigrationRule(kind="component_key", old="rp2040", new="rp2", since="2024.1.0")
 
 
 def test_rp2040_platform_key_respelled_to_rp2(generated_rules: RuleSetter) -> None:
@@ -537,10 +539,15 @@ def test_committed_artifact_migrates_rp2040() -> None:
 
 
 _VOC_RULE = MigrationRule(
-    kind="platform_item_field", old="voc", new="voc_index", domain="sensor", platform="sgp4x"
+    kind="platform_item_field",
+    old="voc",
+    new="voc_index",
+    since="2024.1.0",
+    domain="sensor",
+    platform="sgp4x",
 )
 _BLOCK_RULE = MigrationRule(
-    kind="component_block_field", old="old_key", new="new_key", component="mycomp"
+    kind="component_block_field", old="old_key", new="new_key", since="2024.1.0", component="mycomp"
 )
 
 _SGP4X_YAML = """sensor:
@@ -712,6 +719,7 @@ _CHANNEL_RULES = (
         kind="platform_channel_colors",
         old="rgb_order",
         new="channel_colors",
+        since="2024.1.0",
         domain="light",
         platform="esp32_rmt_led_strip",
     ),
@@ -719,6 +727,7 @@ _CHANNEL_RULES = (
         kind="platform_channel_colors",
         old="rgb_order",
         new="channel_colors",
+        since="2024.1.0",
         domain="light",
         platform="rp2040_pio_led_strip",
     ),
@@ -924,7 +933,7 @@ def test_channel_colors_composes_with_other_rules(generated_rules: RuleSetter) -
     text = _LEGACY_API_YAML + "\n" + _CHANNEL_ITEM + "    is_wrgb: true\n"
     result = render_migrations(text)
     assert result is not None
-    new_text, diff = result
+    new_text, diff, _changes = result
     assert "actions:" in new_text
     assert "    channel_colors: WGRB\n" in new_text
     assert diff.fromLine <= diff.toLine
@@ -935,7 +944,7 @@ def test_generated_and_bespoke_rules_share_one_diff(generated_rules: RuleSetter)
     text = _LEGACY_API_YAML + "\n" + _SGP4X_YAML
     result = render_migrations(text)
     assert result is not None
-    new_text, diff = result
+    new_text, diff, _changes = result
     assert "actions:" in new_text
     assert "voc_index:" in new_text
     assert diff.fromLine <= diff.toLine
@@ -949,7 +958,9 @@ def test_prefilter_covers_every_generated_rule_kind(generated_rules: RuleSetter)
         "platform_channel_colors": (_CHANNEL_RULES[0], _LED_STRIP_YAML),
         "component_block_field": (_BLOCK_RULE, "mycomp:\n  old_key: 1\n"),
     }
-    assert set(firing) == set(MIGRATION_RULE_EXTRA_FIELDS)
+    assert (
+        set(firing) == set(MIGRATION_RULE_EXTRA_FIELDS) == set(migrations._GENERATED_CHANGE_KINDS)
+    )
     for kind, (rule, text) in firing.items():
         generated_rules(rule)
         assert render_migrations(text) is not None, kind
@@ -962,3 +973,137 @@ def test_prefilter_agrees_with_fold_on_every_fixture() -> None:
     assert len(fixtures) >= 5
     for name, text in fixtures.items():
         assert has_pending_migrations(text) is (render_migrations(text) is not None), name
+
+
+# ---------------------------------------------------------------------------
+# Version gating and change records
+# ---------------------------------------------------------------------------
+
+_GATED_VOC_RULE = _VOC_RULE._replace(since="2026.8.0b1", removed_in="2027.2.0")
+
+
+@pytest.mark.parametrize(
+    ("esphome_version", "applies"),
+    [
+        pytest.param("2026.7.3", False, id="earlier_release"),
+        pytest.param("2026.8.0b1", True, id="same_beta"),
+        pytest.param("2026.8.0", True, id="final"),
+        pytest.param("2026.9.0-dev", True, id="dev"),
+        pytest.param("2026.4.0", False, id="much_earlier"),
+    ],
+)
+def test_rule_skipped_on_an_esphome_older_than_since(
+    generated_rules: RuleSetter, esphome_version: str, applies: bool
+) -> None:
+    generated_rules(_GATED_VOC_RULE)
+    assert (render_migrations(_SGP4X_YAML, esphome_version) is not None) is applies
+    assert has_pending_migrations(_SGP4X_YAML, esphome_version) is applies
+
+
+def test_unparseable_installed_version_disables_migrations_loudly(
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    migrations._bespoke_rules_for.cache_clear()
+    with caplog.at_level(logging.WARNING):
+        assert has_pending_migrations(_LEGACY_API_YAML, "0.0.0-fork-x") is False
+        assert render_migrations(_LEGACY_API_YAML, "0.0.0-fork-x") is None
+    assert "unparseable" in caplog.text
+
+
+def test_bespoke_rules_are_gated_too() -> None:
+    """The api respell arrived in 2024.8; an older esphome gets no nudge for it."""
+    assert render_migrations(_LEGACY_API_YAML, "2024.7.0") is None
+    assert has_pending_migrations(_LEGACY_API_YAML, "2024.7.0") is False
+    assert render_migrations(_LEGACY_API_YAML, "2024.8.0") is not None
+
+
+def test_changes_name_each_fired_rule_once(generated_rules: RuleSetter) -> None:
+    generated_rules(_GATED_VOC_RULE, *_CHANNEL_RULES, _RP2_RULE, _BLOCK_RULE)
+    text = (
+        _LEGACY_API_YAML
+        + "\n"
+        + _SGP4X_YAML
+        + _LED_STRIP_YAML
+        + "rp2040:\n  board: pico\n"
+        + "mycomp:\n  old_key: 1\n"
+    )
+    result = render_migrations(text, "2026.8.0")
+    assert result is not None
+    assert sorted((c.kind, c.scope, c.old, c.new) for c in result.changes) == [
+        ("field", "api", "service", "action"),
+        ("field", "api", "services", "actions"),
+        ("field", "mycomp", "old_key", "new_key"),
+        ("field", "sensor.sgp4x", "voc", "voc_index"),
+        ("fold", "light.esp32_rmt_led_strip", "rgb_order", "channel_colors"),
+        ("fold", "light.rp2040_pio_led_strip", "rgb_order", "channel_colors"),
+        ("key", "", "rp2040", "rp2"),
+    ]
+    voc = next(c for c in result.changes if c.old == "voc")
+    assert (voc.since, voc.removed_in, voc.required) == ("2026.8.0b1", "2027.2.0", False)
+
+
+def test_changes_carry_the_bespoke_versions() -> None:
+    result = render_migrations(_LEGACY_HA_YAML + _ETHERNET_YAML)
+    assert result is not None
+    assert [(c.kind, c.scope, c.old, c.new, c.since, c.removed_in) for c in result.changes] == [
+        ("action", "", "homeassistant.service", "homeassistant.action", "2024.8.0", None),
+        ("field", "homeassistant.action", "service", "action", "2024.8.0", None),
+        ("convert", "ethernet", "clk_mode", "clk", "2025.7.0", "2026.9.0"),
+    ]
+
+
+@pytest.mark.parametrize(
+    ("text", "expected"),
+    [
+        pytest.param(
+            "api:\n  actions:\n    - service: hi\n      then: []\n",
+            [("api", "service", "action")],
+            id="api_item_only",
+        ),
+        pytest.param(
+            "api:\n  services:\n    - action: hi\n      then: []\n",
+            [("api", "services", "actions")],
+            id="api_block_only",
+        ),
+        pytest.param(
+            _on_boot("      - homeassistant.action:", "          service: light.turn_on"),
+            [("homeassistant.action", "service", "action")],
+            id="homeassistant_field_only",
+        ),
+        pytest.param(
+            _on_boot("      - homeassistant.service:", "          action: light.turn_on"),
+            [("", "homeassistant.service", "homeassistant.action")],
+            id="homeassistant_id_only",
+        ),
+        pytest.param(
+            _on_boot("      - homeassistant.service: {service: light.turn_on}"),
+            [
+                ("", "homeassistant.service", "homeassistant.action"),
+                ("homeassistant.action", "service", "action"),
+            ],
+            id="homeassistant_flow_both",
+        ),
+    ],
+)
+def test_multi_edit_bespoke_rules_report_only_the_edits_made(
+    text: str, expected: list[tuple[str, str, str]]
+) -> None:
+    result = render_migrations(text)
+    assert result is not None
+    assert [(c.scope, c.old, c.new) for c in result.changes] == expected
+
+
+def test_change_is_required_once_the_install_drops_the_old_spelling(
+    generated_rules: RuleSetter,
+) -> None:
+    generated_rules(_GATED_VOC_RULE)
+    result = render_migrations(_SGP4X_YAML, "2027.2.0")
+    assert result is not None
+    assert result.changes[0].required is True
+
+
+def test_unfired_rules_are_not_reported(generated_rules: RuleSetter) -> None:
+    generated_rules(_GATED_VOC_RULE, _RP2_RULE)
+    result = render_migrations(_SGP4X_YAML, "2026.8.0")
+    assert result is not None
+    assert [c.old for c in result.changes] == ["voc"]

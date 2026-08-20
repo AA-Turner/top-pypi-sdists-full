@@ -15,12 +15,10 @@ import os
 import re
 import string
 import typing
-from itertools import chain as _chain
 
 if typing.TYPE_CHECKING:
     import builtins
-
-    from typing_extensions import Literal
+    from typing import Literal
 
 _logger = logging.getLogger(__name__)
 
@@ -133,15 +131,25 @@ def pep508_versionspec(value: str) -> bool:
 # PEP 517
 
 
+def _is_dotted_identifier(value: str) -> bool:
+    """Every dot-separated segment of ``value`` must be a valid Python identifier
+    (and there must be at least one, i.e. ``value`` must be non-empty).
+    """
+    parts = value.split(".")
+    return all(python_identifier(part.strip()) for part in parts)
+
+
 def pep517_backend_reference(value: str) -> bool:
     """See PyPA's specification for defining build-backend references
     introduced in :pep:`517#source-trees`.
 
     This is similar to an entry-point reference (e.g., ``package.module:object``).
     """
-    module, _, obj = value.partition(":")
-    identifiers = (i.strip() for i in _chain(module.split("."), obj.split(".")))
-    return all(python_identifier(i) for i in identifiers if i)
+    module, sep, obj = value.partition(":")
+    if not _is_dotted_identifier(module):
+        return False
+    # If a separator is present, the object part must also be a valid dotted identifier
+    return _is_dotted_identifier(obj) if sep else True
 
 
 # -------------------------------------------------------------------------------------
@@ -153,9 +161,10 @@ def _download_classifiers() -> str:
     from email.message import Message
     from urllib.request import urlopen
 
+    _TIMEOUT = 10  # seconds; avoids hanging indefinitely in pre-commit hooks
     url = "https://pypi.org/pypi?:action=list_classifiers"
     context = ssl.create_default_context()
-    with urlopen(url, context=context) as response:  # noqa: S310 (audit URLs)
+    with urlopen(url, context=context, timeout=_TIMEOUT) as response:
         headers = Message()
         headers["content_type"] = response.getheader("content-type", "text/plain")
         return response.read().decode(headers.get_param("charset", "utf-8"))  # type: ignore[no-any-return]
@@ -169,7 +178,7 @@ class _TroveClassifier:
     option (classifiers will be validated anyway during the upload to PyPI).
     """
 
-    downloaded: None | Literal[False] | set[str]
+    downloaded: Literal[False] | set[str] | None
     """
     None => not cached yet
     False => unavailable
@@ -270,9 +279,9 @@ def url(value: str) -> bool:
 # https://packaging.python.org/specifications/entry-points/
 ENTRYPOINT_PATTERN = r"[^\[\s=]([^=]*[^\s=])?"
 ENTRYPOINT_REGEX = re.compile(f"^{ENTRYPOINT_PATTERN}$", re.IGNORECASE)
-RECOMMEDED_ENTRYPOINT_PATTERN = r"[\w.-]+"
-RECOMMEDED_ENTRYPOINT_REGEX = re.compile(
-    f"^{RECOMMEDED_ENTRYPOINT_PATTERN}$", re.IGNORECASE
+RECOMMENDED_ENTRYPOINT_PATTERN = r"[\w.-]+"
+RECOMMENDED_ENTRYPOINT_REGEX = re.compile(
+    f"^{RECOMMENDED_ENTRYPOINT_PATTERN}$", re.IGNORECASE
 )
 ENTRYPOINT_GROUP_PATTERN = r"\w+(\.\w+)*"
 ENTRYPOINT_GROUP_REGEX = re.compile(f"^{ENTRYPOINT_GROUP_PATTERN}$", re.IGNORECASE)
@@ -334,9 +343,9 @@ def python_entrypoint_name(value: str) -> bool:
     """
     if not ENTRYPOINT_REGEX.match(value):
         return False
-    if not RECOMMEDED_ENTRYPOINT_REGEX.match(value):
+    if not RECOMMENDED_ENTRYPOINT_REGEX.match(value):
         msg = f"Entry point `{value}` does not follow recommended pattern: "
-        msg += RECOMMEDED_ENTRYPOINT_PATTERN
+        msg += RECOMMENDED_ENTRYPOINT_PATTERN
         _logger.warning(msg)
     return True
 
@@ -349,10 +358,16 @@ def python_entrypoint_reference(value: str) -> bool:
     See ``Data model >object reference`` in the :ref:`PyPA's entry-points specification
     <pypa:entry-points>`.
     """
-    module, _, rest = value.partition(":")
+    module, sep, rest = value.partition(":")
+    if not _is_dotted_identifier(module):
+        return False
+    if not sep:
+        # No object reference: ``importable.module`` is sufficient.
+        return True
+
     if "[" in rest:
         obj, _, extras_ = rest.partition("[")
-        if extras_.strip()[-1] != "]":
+        if not extras_.strip().endswith("]"):
             return False
         extras = (x.strip() for x in extras_.strip(string.whitespace + "[]").split(","))
         if not all(pep508_identifier(e) for e in extras):
@@ -361,9 +376,8 @@ def python_entrypoint_reference(value: str) -> bool:
     else:
         obj = rest
 
-    module_parts = module.split(".")
-    identifiers = _chain(module_parts, obj.split(".")) if rest else iter(module_parts)
-    return all(python_identifier(i.strip()) for i in identifiers)
+    # A separator was present, so the object reference is required and must be valid.
+    return _is_dotted_identifier(obj)
 
 
 def uint8(value: builtins.int) -> bool:
@@ -443,7 +457,7 @@ except ImportError:  # pragma: no cover
 VALID_IMPORT_NAME = re.compile(
     r"""
     ^                                  # start of string
-        [A-Za-z_][A-Za-z_0-9]+         # a valid Python identifier
+        [A-Za-z_][A-Za-z_0-9]*         # a valid Python identifier
         (?:\.[A-Za-z_][A-Za-z_0-9]*)*  # optionally followed by .identifier's
     (?:\s*;\s*private)?                # optionally followed by ; private
     $                                  # end of string

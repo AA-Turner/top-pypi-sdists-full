@@ -20,6 +20,9 @@ ATOM_STYLE_COLUMNS = {
     "molecular": (0, 2, 3, 4, 5, True, False, None),
     "dipole": (0, 1, 3, 4, 5, False, True, 2),
     "sphere": (0, 1, 4, 5, 6, False, False, None),
+    # LAMMPS ``atom_style spin`` stores x/y/z in the same columns as atomic
+    # style, followed by a unit spin direction and its magnetic moment.
+    "spin": (0, 1, 2, 3, 4, False, False, None),
 }
 
 
@@ -69,6 +72,10 @@ def detect_atom_style(lines: list[str]) -> str | None:
                 val = float(first_line[2])
                 # If it's a small float, likely a charge
                 if abs(val) < 10 and val != int(val):
+                    return "charge"
+                # Neutral charge is numerically integral (0.0), but the
+                # decimal/exponent notation still identifies a charge column.
+                if any(ch in first_line[2].lower() for ch in (".", "e")):
                     return "charge"
                 else:
                     # Likely molecule ID (integer), so bond/molecular style
@@ -327,6 +334,11 @@ def get_charges(lines: list[str], atom_style: str = "atomic") -> np.ndarray | No
 
 
 def get_spins(lines: list[str], atom_style: str = "atomic") -> np.ndarray | None:
+    # This branch predates explicit LAMMPS spin-style support and stores spin
+    # columns only in dpdata's legacy atomic layout. Other registered styles
+    # use their extra columns for unrelated physical quantities.
+    if atom_style != "atomic":
+        return None
     atom_lines = get_atoms(lines)
     if len(atom_lines[0].split()) < 8:
         return None
@@ -411,7 +423,9 @@ def system_data(
     if charges is not None:
         system["charges"] = np.array([charges])
 
-    spins = get_spins(lines, atom_style=atom_style)
+    spins = get_spins(
+        lines, atom_style="atomic" if atom_style == "spin" else atom_style
+    )
     if spins is not None:
         system["spins"] = np.array([spins])
 
@@ -567,7 +581,11 @@ def from_system_data(system, f_idx=0):
             ret += mass_fmt % (ii + 1, mass, atom_name)
         ret += "\n"
 
-    ret += "Atoms # atomic\n"
+    # The extra direction/magnitude columns have an official LAMMPS layout:
+    # they belong to ``atom_style spin``, not ``atom_style atomic``.  Using the
+    # matching section annotation lets ``read_data`` validate the rows.
+    atom_style = "spin" if "spins" in system else "atomic"
+    ret += f"Atoms # {atom_style}\n"
     ret += "\n"
     coord_fmt = (
         ptr_int_fmt

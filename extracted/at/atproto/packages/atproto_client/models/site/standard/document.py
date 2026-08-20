@@ -15,7 +15,7 @@ from atproto_client.models import string_formats
 if t.TYPE_CHECKING:
     from atproto_client import models
     from atproto_client.models.blob_ref import BlobRef
-from atproto_client.models import base
+from atproto_client.models import base, unknown_union
 
 
 class Contributor(base.ModelBase):
@@ -47,16 +47,16 @@ class Record(base.RecordModelBase):
     description: te.Annotated[t.Optional[str], Field(max_length=30000)] = (
         None  #: A brief description or excerpt from the document.
     )
-    labels: t.Optional[
-        te.Annotated[t.Union['models.ComAtprotoLabelDefs.SelfLabels'], Field(discriminator='py_type')]
-    ] = None  #: Self-label values for this post. Effectively content warnings.
+    labels: t.Optional[unknown_union.OpenUnion['models.ComAtprotoLabelDefs.SelfLabels']] = (
+        None  #: Self-label values for this post. Effectively content warnings.
+    )
     links: t.Optional[te.Annotated[t.Union['base.UnknownUnionModel'], Field()]] = (
         None  #: Array of values describing relationships between this document and external resources.
     )
     path: t.Optional[str] = (
         None  #: Combine with site or publication url to construct a canonical URL to the document. Prepend with a leading slash.
     )
-    tags: t.Optional[t.List[str]] = (
+    tags: t.Optional[t.List[te.Annotated[str, Field(max_length=1280)]]] = (
         None  #: Array of strings used to tag or categorize the document. Avoid prepending tags with hashtags.
     )
     text_content: t.Optional[str] = (

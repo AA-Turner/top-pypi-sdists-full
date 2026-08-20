@@ -34,6 +34,7 @@ from .paginator import (
     ListAddonsPaginator,
     ListAssociatedAccessPoliciesPaginator,
     ListCapabilitiesPaginator,
+    ListCertificateAuthoritiesPaginator,
     ListClustersPaginator,
     ListEksAnywhereSubscriptionsPaginator,
     ListFargateProfilesPaginator,
@@ -44,6 +45,8 @@ from .paginator import (
     ListUpdatesPaginator,
 )
 from .type_defs import (
+    ActivateCertificateAuthorityRequestTypeDef,
+    ActivateCertificateAuthorityResponseTypeDef,
     AssociateAccessPolicyRequestTypeDef,
     AssociateAccessPolicyResponseTypeDef,
     AssociateEncryptionConfigRequestTypeDef,
@@ -58,6 +61,8 @@ from .type_defs import (
     CreateAddonResponseTypeDef,
     CreateCapabilityRequestTypeDef,
     CreateCapabilityResponseTypeDef,
+    CreateCertificateAuthorityRequestTypeDef,
+    CreateCertificateAuthorityResponseTypeDef,
     CreateClusterRequestTypeDef,
     CreateClusterResponseTypeDef,
     CreateEksAnywhereSubscriptionRequestTypeDef,
@@ -73,6 +78,8 @@ from .type_defs import (
     DeleteAddonResponseTypeDef,
     DeleteCapabilityRequestTypeDef,
     DeleteCapabilityResponseTypeDef,
+    DeleteCertificateAuthorityRequestTypeDef,
+    DeleteCertificateAuthorityResponseTypeDef,
     DeleteClusterRequestTypeDef,
     DeleteClusterResponseTypeDef,
     DeleteEksAnywhereSubscriptionRequestTypeDef,
@@ -95,6 +102,8 @@ from .type_defs import (
     DescribeAddonVersionsResponseTypeDef,
     DescribeCapabilityRequestTypeDef,
     DescribeCapabilityResponseTypeDef,
+    DescribeCertificateAuthorityRequestTypeDef,
+    DescribeCertificateAuthorityResponseTypeDef,
     DescribeClusterRequestTypeDef,
     DescribeClusterResponseTypeDef,
     DescribeClusterVersionsRequestTypeDef,
@@ -128,6 +137,8 @@ from .type_defs import (
     ListAssociatedAccessPoliciesResponseTypeDef,
     ListCapabilitiesRequestTypeDef,
     ListCapabilitiesResponseTypeDef,
+    ListCertificateAuthoritiesRequestTypeDef,
+    ListCertificateAuthoritiesResponseTypeDef,
     ListClustersRequestTypeDef,
     ListClustersResponseTypeDef,
     ListEksAnywhereSubscriptionsRequestTypeDef,
@@ -174,6 +185,7 @@ from .type_defs import (
 from .waiter import (
     AddonActiveWaiter,
     AddonDeletedWaiter,
+    CertificateAuthorityUpdateCompleteWaiter,
     ClusterActiveWaiter,
     ClusterDeletedWaiter,
     FargateProfileActiveWaiter,
@@ -245,6 +257,17 @@ class EKSClient(BaseClient):
         [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_eks/client/#generate_presigned_url)
         """
 
+    def activate_certificate_authority(
+        self, **kwargs: Unpack[ActivateCertificateAuthorityRequestTypeDef]
+    ) -> ActivateCertificateAuthorityResponseTypeDef:
+        """
+        Activates a successor certificate authority (CA) as the signing certificate
+        authority for your cluster, completing a CA rotation.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/eks/client/activate_certificate_authority.html)
+        [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_eks/client/#activate_certificate_authority)
+        """
+
     def associate_access_policy(
         self, **kwargs: Unpack[AssociateAccessPolicyRequestTypeDef]
     ) -> AssociateAccessPolicyResponseTypeDef:
@@ -313,6 +336,17 @@ class EKSClient(BaseClient):
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/eks/client/create_capability.html)
         [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_eks/client/#create_capability)
+        """
+
+    def create_certificate_authority(
+        self, **kwargs: Unpack[CreateCertificateAuthorityRequestTypeDef]
+    ) -> CreateCertificateAuthorityResponseTypeDef:
+        """
+        Appends a successor certificate authority (CA) to your cluster, beginning the
+        CA rotation process.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/eks/client/create_certificate_authority.html)
+        [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_eks/client/#create_certificate_authority)
         """
 
     def create_cluster(
@@ -394,6 +428,16 @@ class EKSClient(BaseClient):
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/eks/client/delete_capability.html)
         [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_eks/client/#delete_capability)
+        """
+
+    def delete_certificate_authority(
+        self, **kwargs: Unpack[DeleteCertificateAuthorityRequestTypeDef]
+    ) -> DeleteCertificateAuthorityResponseTypeDef:
+        """
+        Deletes a certificate authority (CA) from your cluster.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/eks/client/delete_certificate_authority.html)
+        [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_eks/client/#delete_certificate_authority)
         """
 
     def delete_cluster(
@@ -506,6 +550,18 @@ class EKSClient(BaseClient):
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/eks/client/describe_capability.html)
         [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_eks/client/#describe_capability)
+        """
+
+    def describe_certificate_authority(
+        self, **kwargs: Unpack[DescribeCertificateAuthorityRequestTypeDef]
+    ) -> DescribeCertificateAuthorityResponseTypeDef:
+        """
+        Returns detailed information about a certificate authority (CA) in your
+        cluster, including its validity period, signing and distribution status,
+        provenance, scheduled auto-activation events, and public certificate data.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/eks/client/describe_certificate_authority.html)
+        [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_eks/client/#describe_certificate_authority)
         """
 
     def describe_cluster(
@@ -674,6 +730,16 @@ class EKSClient(BaseClient):
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/eks/client/list_capabilities.html)
         [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_eks/client/#list_capabilities)
+        """
+
+    def list_certificate_authorities(
+        self, **kwargs: Unpack[ListCertificateAuthoritiesRequestTypeDef]
+    ) -> ListCertificateAuthoritiesResponseTypeDef:
+        """
+        Lists the certificate authorities (CAs) for your cluster.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/eks/client/list_certificate_authorities.html)
+        [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_eks/client/#list_certificate_authorities)
         """
 
     def list_clusters(
@@ -978,6 +1044,17 @@ class EKSClient(BaseClient):
 
     @overload  # type: ignore[override]
     def get_paginator(  # type: ignore[override]
+        self, operation_name: Literal["list_certificate_authorities"]
+    ) -> ListCertificateAuthoritiesPaginator:
+        """
+        Create a paginator for an operation.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/eks/client/get_paginator.html)
+        [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_eks/client/#get_paginator)
+        """
+
+    @overload  # type: ignore[override]
+    def get_paginator(  # type: ignore[override]
         self, operation_name: Literal["list_clusters"]
     ) -> ListClustersPaginator:
         """
@@ -1079,6 +1156,17 @@ class EKSClient(BaseClient):
     def get_waiter(  # type: ignore[override]
         self, waiter_name: Literal["addon_deleted"]
     ) -> AddonDeletedWaiter:
+        """
+        Returns an object that can wait for some condition.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/eks/client/get_waiter.html)
+        [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_eks/client/#get_waiter)
+        """
+
+    @overload  # type: ignore[override]
+    def get_waiter(  # type: ignore[override]
+        self, waiter_name: Literal["certificate_authority_update_complete"]
+    ) -> CertificateAuthorityUpdateCompleteWaiter:
         """
         Returns an object that can wait for some condition.
 

@@ -112,7 +112,7 @@ def check(
         include_venv: Whether to include virtual environment directories.
         output: Path to an output file for results.
         output_format: Format for displaying results (grid, json, etc).
-        group_by: How to group issues in output (file, code, none, auto).
+        group_by: How to group issues in output (file, code, none, auto, category).
         ignore_conflicts: Whether to ignore tool configuration conflicts.
         verbose: Whether to show verbose output during execution.
         no_log: Whether to disable logging to file.
@@ -189,7 +189,7 @@ def format(
         tool_options: Tool-specific configuration options.
         exclude: Comma-separated patterns of files/dirs to exclude.
         include_venv: Whether to include virtual environment directories.
-        group_by: How to group issues in output (file, code, none, auto).
+        group_by: How to group issues in output (file, code, none, auto, category).
         output: Path to an output file for results.
         output_format: Format for displaying results (grid, json, etc).
         verbose: Whether to show verbose output during execution.
@@ -378,6 +378,7 @@ def check_run(
     transport: str | None = None,
     score: bool = False,
     fail_under: float | None = None,
+    ai_enabled: bool = True,
 ) -> RunArtifact:
     """Check files and return the full run artifact.
 
@@ -408,6 +409,7 @@ def check_run(
         transport: Override AI transport (``api`` or ``cli``).
         score: Print only the health score, suppressing the summary.
         fail_under: Exit non-zero if the health score is below this value.
+        ai_enabled: Whether post-execution AI enhancement may run.
 
     Returns:
         RunArtifact: Everything the run produced.
@@ -436,6 +438,7 @@ def check_run(
         transport=transport,
         score=score,
         fail_under=fail_under,
+        ai_enabled=ai_enabled,
     )
 
 

@@ -1027,14 +1027,14 @@ class CapabilitiesScreen(DreadnodeScreen):
         agents_list = item.get("agents", [])
         if is_installed and (components or agents_list):
             text.append("\nComponents\n", style=f"bold {FG_SUBTLE}")
-            inline_components: list[tuple[str, str, str, str]] = []
+            inline_components: list[tuple[str, str, str, str, str]] = []
             for agent in agents_list:
                 aname = (
                     agent.get("name", "?")
                     if isinstance(agent, dict)
                     else getattr(agent, "name", "?")
                 )
-                inline_components.append(("agent".ljust(10), aname, "ok", ""))
+                inline_components.append(("agent".ljust(10), aname, "ok", "", ""))
             for c in components:
                 kind = c.get("kind", "?") if isinstance(c, dict) else getattr(c, "kind", "?")
                 if kind == "agent":
@@ -1044,21 +1044,26 @@ class CapabilitiesScreen(DreadnodeScreen):
                     c.get("status", "ok") if isinstance(c, dict) else getattr(c, "status", "ok")
                 )
                 error = c.get("error", "") if isinstance(c, dict) else getattr(c, "error", "")
-                inline_components.append((kind.replace("_", " ").ljust(10), cname, status, error))
+                detail = c.get("detail", "") if isinstance(c, dict) else getattr(c, "detail", "")
+                inline_components.append(
+                    (kind.replace("_", " ").ljust(10), cname, status, error, detail)
+                )
 
-            for kind_label, cname, status, error in inline_components[
+            for kind_label, cname, status, error, detail in inline_components[
                 :_MAX_INLINE_DETAIL_COMPONENTS
             ]:
                 text.append(f"  {kind_label}  ", style=FG_MUTED)
-                if status == "error":
+                if status in ("error", "enabled_failed"):
                     text.append(f"✗ {cname}", style=ERROR)
-                    if error:
-                        text.append(f" ({error})", style=FG_SUBTLE)
-                elif status == "degraded":
-                    text.append(f"{cname}", style=WARNING)
+                elif status in ("degraded", "connecting", "needs_auth"):
+                    text.append(f"! {cname}", style=WARNING)
                 else:
                     text.append(f"{cname}", style=FG_SUBTLE)
+                if error:
+                    text.append(f" ({error})", style=FG_SUBTLE)
                 text.append("\n")
+                if detail:
+                    text.append(f"                {detail}\n", style=FG_FAINTEST)
             if len(inline_components) > _MAX_INLINE_DETAIL_COMPONENTS:
                 remaining = len(inline_components) - _MAX_INLINE_DETAIL_COMPONENTS
                 text.append(

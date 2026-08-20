@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: atlas-provider-sqlalchemy
-Version: 0.5.0
+Version: 0.5.1
 Summary: Load sqlalchemy models into an Atlas project.
 License-File: LICENSE
 Author: Your Name
@@ -152,6 +152,7 @@ The provider supports the following databases:
 * SQLite
 * Microsoft SQL Server
 * ClickHouse
+* Snowflake
 
 ### FAQ
 

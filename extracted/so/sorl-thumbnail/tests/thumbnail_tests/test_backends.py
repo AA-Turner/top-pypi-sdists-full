@@ -56,6 +56,7 @@ class PreserveFormatTest(TestCase):
         self.assertEqual(self.backend._get_format(FakeFile('foo.jpeg')), 'JPEG')
         self.assertEqual(self.backend._get_format(FakeFile('foo.png')), 'PNG')
         self.assertEqual(self.backend._get_format(FakeFile('foo.gif')), 'GIF')
+        self.assertEqual(self.backend._get_format(FakeFile('foo.avif')), 'AVIF')
 
     def test_double_extension(self):
         self.assertEqual(self.backend._get_format(FakeFile('foo.ext.jpg')), 'JPEG')
@@ -132,7 +133,7 @@ class TestInputCase(unittest.TestCase):
     def test_nonascii(self):
         # also test the get_thumbnail shortcut
         th = get_thumbnail(self.name, '200x200')
-        self.assertEqual(th.url, '/media/test/cache/79/48/79489fd416471a8850d1c7c6f7a28343.jpg')
+        self.assertEqual(th.url, '/media/test/cache/f5/26/f52608b56718f62abc45a90ff9459f2c.jpg')
 
     def tearDown(self):
         shutil.rmtree(settings.MEDIA_ROOT)

@@ -1390,7 +1390,8 @@ class Workbook(ItemWithOwnerAndAcl):
         return folder_id
 
     def push_containing_folders(self, context: WorkbookPushContext, item_map: ItemMap, use_full_path,
-                                path, owner, label, access_control) -> Tuple[Optional[str], Optional[str]]:
+                                path, owner, label, access_control,
+                                match_folders_by_name=False) -> Tuple[Optional[str], Optional[str]]:
         session = context.session
         status = context.status
 
@@ -1492,7 +1493,8 @@ class Workbook(ItemWithOwnerAndAcl):
                     status.log(
                         f'Creating ancestor {folder} under parent folder ID {parent_folder_id}')
                     parent_folder = folder.push(context, parent_folder_id, context.datasource_output,
-                                                item_map, owner=owner, label=label)
+                                                item_map, owner=owner, label=label,
+                                                match_by_name=match_folders_by_name)
 
                     if parent_folder is None:
                         continue

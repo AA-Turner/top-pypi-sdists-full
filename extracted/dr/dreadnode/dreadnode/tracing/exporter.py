@@ -3,7 +3,9 @@ import typing as t
 
 from loguru import logger
 from opentelemetry.exporter.otlp.proto.http.trace_exporter import OTLPSpanExporter
+from requests import Session
 
+from dreadnode.core.tls import create_platform_http_session
 from dreadnode.version import VERSION
 
 
@@ -12,8 +14,8 @@ class CustomOTLPSpanExporter(OTLPSpanExporter):
 
     _BILLING_WARNING_INTERVAL_SECONDS = 60.0
 
-    def __init__(self, **kwargs: t.Any) -> None:
-        super().__init__(**kwargs)
+    def __init__(self, *, session: Session | None = None, **kwargs: t.Any) -> None:
+        super().__init__(session=session or create_platform_http_session(), **kwargs)
         self._last_billing_warning_monotonic = 0.0
 
         otlp_user_agent = self._session.headers.get("User-Agent")

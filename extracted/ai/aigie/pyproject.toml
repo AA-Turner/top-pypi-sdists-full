@@ -14,15 +14,15 @@ build-backend = "setuptools.build_meta"
 # docs/python-standards.md.
 [dependency-groups]
 dev = [
-    "pytest>=7.0.0",
-    "pytest-asyncio>=0.21.0",
+    "pytest>=9.1.1",
+    "pytest-asyncio>=1.4.0",
     "pytest-cov",
-    "ruff>=0.15.12",
+    "ruff>=0.16.3",
     "mypy>=1.10.0",
-    "pre-commit>=3.7.0",
+    "pre-commit>=4.6.2",
     # Autonomous v2 build/lint tooling — ADR 0001
-    "grpcio-tools>=1.60",
-    "import-linter>=2.0",
+    "grpcio-tools>=1.83.0",
+    "import-linter>=2.13",
 ]
 
 [tool.uv]

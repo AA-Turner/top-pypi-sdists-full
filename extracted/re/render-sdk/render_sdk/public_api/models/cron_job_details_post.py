@@ -24,6 +24,7 @@ class CronJobDetailsPOST:
     Attributes:
         runtime (ServiceRuntime): Runtime
         schedule (str):
+        artifact_source_id (Union[Unset, str]):
         env (Union[Unset, ServiceEnv]): This field has been deprecated, runtime should be used in its place.
         env_specific_details (Union['DockerDetails', 'NativeEnvironmentDetails', Unset]):
         plan (Union[Unset, PaidPlan]): Defaults to `starter` when creating a new database.
@@ -32,6 +33,7 @@ class CronJobDetailsPOST:
 
     runtime: ServiceRuntime
     schedule: str
+    artifact_source_id: Union[Unset, str] = UNSET
     env: Union[Unset, ServiceEnv] = UNSET
     env_specific_details: Union["DockerDetails", "NativeEnvironmentDetails", Unset] = UNSET
     plan: Union[Unset, PaidPlan] = UNSET
@@ -44,6 +46,8 @@ class CronJobDetailsPOST:
         runtime = self.runtime.value
 
         schedule = self.schedule
+
+        artifact_source_id = self.artifact_source_id
 
         env: Union[Unset, str] = UNSET
         if not isinstance(self.env, Unset):
@@ -73,6 +77,8 @@ class CronJobDetailsPOST:
                 "schedule": schedule,
             }
         )
+        if artifact_source_id is not UNSET:
+            field_dict["artifactSourceId"] = artifact_source_id
         if env is not UNSET:
             field_dict["env"] = env
         if env_specific_details is not UNSET:
@@ -93,6 +99,8 @@ class CronJobDetailsPOST:
         runtime = ServiceRuntime(d.pop("runtime"))
 
         schedule = d.pop("schedule")
+
+        artifact_source_id = d.pop("artifactSourceId", UNSET)
 
         _env = d.pop("env", UNSET)
         env: Union[Unset, ServiceEnv]
@@ -137,6 +145,7 @@ class CronJobDetailsPOST:
         cron_job_details_post = cls(
             runtime=runtime,
             schedule=schedule,
+            artifact_source_id=artifact_source_id,
             env=env,
             env_specific_details=env_specific_details,
             plan=plan,

@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import json
 import logging
 import sys
 import traceback
@@ -75,6 +76,7 @@ class QueryCacheGrpcClient:
         os_name: str = "",
         invocation_id: str = "",
         cloud_run_id: str = "",
+        max_attempts: int = 3,
     ):
         """Initialize gRPC client.
 
@@ -88,6 +90,8 @@ class QueryCacheGrpcClient:
             os_name: Client operating system name
             invocation_id: dbt's per-invocation UUID for this run
             cloud_run_id: dbt platform run ID, if running on the dbt platform (else empty)
+            max_attempts: Total attempts per request when a transient (UNAVAILABLE)
+                transport error such as 'connection reset by peer' occurs
         """
         self._session_id = session_id
         self.server_address = server_address
@@ -101,13 +105,16 @@ class QueryCacheGrpcClient:
             InvocationInfoInterceptor(invocation_id=invocation_id, cloud_run_id=cloud_run_id),
         ]
 
+        channel_options = _retry_channel_options(max_attempts)
         if channel_credentials:
-            channel = grpc.secure_channel(server_address, channel_credentials)
+            channel = grpc.secure_channel(
+                server_address, channel_credentials, options=channel_options
+            )
             if not org_id:
                 raise ValueError("Organization ID must be provided when using secure channel")
             interceptors.append(OrgIdInterceptor(org_id))
         else:
-            channel = grpc.insecure_channel(server_address)
+            channel = grpc.insecure_channel(server_address, options=channel_options)
 
         self.channel = grpc.intercept_channel(channel, *interceptors)
 
@@ -203,6 +210,7 @@ class QueryCacheGrpcClient:
         return QueryCacheGrpcClient(
             server_address=grpc_address,
             timeout=float(run_cache_config.api_client_timeout),
+            max_attempts=run_cache_config.api_client_max_attempts,
             channel_credentials=channel_credentials,
             org_id=org_id,
             session_id=session_id,
@@ -495,6 +503,37 @@ class QueryCacheGrpcClient:
         exc_tb: t.Optional[TracebackType],
     ) -> None:
         self.close()
+
+
+def _retry_channel_options(max_attempts: int) -> t.List[t.Tuple[str, t.Any]]:
+    """Build channel options enabling gRPC's retry policy for all methods.
+
+    Only ``UNAVAILABLE`` is retried, which is how transient transport failures such as
+    'connection reset by peer' surface. Retries use exponential backoff.
+
+    gRPC caps ``maxAttempts`` at 5 and rejects the whole service config if it exceeds
+    that, so higher configured values are clamped here.
+    """
+    if max_attempts <= 1:
+        return []
+
+    service_config = {
+        "methodConfig": [
+            {
+                "name": [{}],
+                "retryPolicy": {
+                    "maxAttempts": min(max_attempts, 5),
+                    "initialBackoff": "1s",
+                    "maxBackoff": "10s",
+                    "backoffMultiplier": 2,
+                    "retryableStatusCodes": ["UNAVAILABLE"],
+                },
+            }
+        ]
+    }
+    # grpc.enable_retries defaults to on (grpcio >= 1.40), so the service config alone
+    # is enough to activate the policy.
+    return [("grpc.service_config", json.dumps(service_config))]
 
 
 def _get_root_certificates() -> t.Optional[bytes]:

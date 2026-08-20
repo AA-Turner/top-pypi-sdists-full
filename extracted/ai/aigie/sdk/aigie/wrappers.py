@@ -25,6 +25,7 @@ from collections.abc import AsyncIterator, Callable, Iterator
 from datetime import datetime, timezone
 from typing import Any
 
+from aigie._system_prompt import system_prompt_text
 from aigie.context_manager import (
     RunContext,
     get_current_span_context,
@@ -1044,11 +1045,15 @@ class AnthropicWrapper:
             start_time=datetime.now(timezone.utc),
         )
 
-        if system:
-            run_ctx.metadata["system_prompt"] = system if isinstance(system, str) else str(system)
+        system_text = system_prompt_text(system)
+        if system_text:
+            run_ctx.metadata["system_prompt"] = system_text
 
         # Store input/output as separate fields, NOT inside metadata
-        span_input = {"messages": messages}
+        # Not a message, but still part of what the model was asked.
+        span_input: dict[str, Any] = {"messages": messages}
+        if system_text:
+            span_input["system_prompt"] = system_text
         span_output = None
         span_usage = None
         span_cost = None
@@ -1150,10 +1155,14 @@ class AnthropicWrapper:
             start_time=datetime.now(timezone.utc),
         )
 
-        if system:
-            run_ctx.metadata["system_prompt"] = system if isinstance(system, str) else str(system)
+        system_text = system_prompt_text(system)
+        if system_text:
+            run_ctx.metadata["system_prompt"] = system_text
 
-        span_input = {"messages": messages}
+        # Not a message, but still part of what the model was asked.
+        span_input: dict[str, Any] = {"messages": messages}
+        if system_text:
+            span_input["system_prompt"] = system_text
         span_output = None
         span_usage = None
         span_cost = None

@@ -1175,6 +1175,9 @@ class _AppCommandActions:
     def screen_router_open_console(self) -> None:
         self._app._screen_router.open_console()
 
+    def screen_router_open_report_bug(self) -> None:
+        self._app._screen_router.open_report_bug()
+
     def screen_router_open_raw_spans_screen(self) -> None:
         self._app._screen_router.open_raw_spans_screen()
 
@@ -1588,6 +1591,8 @@ class DreadnodeTextualApp(App[None]):
         self._initial_prompt = initial_prompt
         self._initial_policy = initial_policy
         self._project_memory_preload_limit = project_memory_preload_limit
+        self._scope_state: dict[str, tuple[t.Any, str | None]] = {}
+        self._guard_config: dict[str, dict[str, t.Any]] = {}
         self.model: str = initial_model or self._model_from_profile(profile)
         self._model_explicitly_set: bool = initial_model is not None
         from dreadnode.app.tui.connection import RuntimeConnectionManager
@@ -2486,6 +2491,9 @@ class DreadnodeTextualApp(App[None]):
     def action_open_console(self) -> None:
         self._screen_router.open_console()
 
+    def action_report_bug(self, origin: str = "conversation") -> None:
+        self._screen_router.open_report_bug(origin=origin)
+
     def action_open_traces(self) -> None:
         if not self._require_authenticated():
             return
@@ -3008,8 +3016,9 @@ class DreadnodeTextualApp(App[None]):
     async def _policy_command(self, args: list[str]) -> None:
         """Generic policy swap command: ``/policy <name> [k=v ...]``.
 
-        With no args, flashes the list of registered policy names so
-        the user can discover what capabilities contributed. With a
+        With no args, flashes the public registered policy names so
+        the user can discover what capabilities contributed. Experimental
+        built-ins remain callable by name without being advertised. With a
         name alone, swaps to that policy with default params. With
         ``k=v`` pairs trailing, forwards them as the policy spec —
         integer-looking values are coerced to int, ``true``/``false``
@@ -3024,14 +3033,23 @@ class DreadnodeTextualApp(App[None]):
         from dreadnode.policies import registered_policy_names
 
         if not args:
-            names = registered_policy_names()
+            names = [name for name in registered_policy_names() if name != "guard"]
             self._flash(f"Registered policies: {', '.join(names)}", severity="info")
+            return
+
+        if args[0] == "scope":
+            await self._open_scope_modal()
             return
 
         session = self._active_session()
         if session is None:
-            self._flash("No active session — start one first", severity="warning")
-            return
+            # Auto-create a session so the user doesn't have to send a
+            # message first just to set a policy.
+            await self._create_new_session_impl(None)
+            session = self._active_session()
+            if session is None:
+                self._flash("Failed to create session", severity="error")
+                return
 
         name = args[0]
         spec: dict[str, t.Any] = {"name": name}
@@ -3041,6 +3059,23 @@ class DreadnodeTextualApp(App[None]):
                 return
             key, raw = kv.split("=", 1)
             spec[key.strip()] = _coerce_policy_arg(raw.strip())
+
+        # Guard policy: merge with previous config so partial changes
+        # persist (e.g. changing judge_model keeps the scope, and
+        # changing preset keeps the judge_model).
+        if name == "guard":
+            prev = self._guard_config.get(session.info.session_id, {})
+            merged = {**prev, **spec}
+            # If the user explicitly set a preset or scope, clear the
+            # other so they don't conflict (scope takes precedence in
+            # GuardSessionPolicy, which would silently ignore preset).
+            if "preset" in spec:
+                merged.pop("scope", None)
+            if "scope" in spec:
+                merged.pop("preset", None)
+            if "judge_model" not in merged:
+                merged["judge_model"] = "dn/claude-sonnet-4-6"
+            spec = merged
 
         try:
             result = await self.managed_client.set_session_policy(
@@ -3052,13 +3087,94 @@ class DreadnodeTextualApp(App[None]):
             self._flash(f"Policy swap failed: {exc}", severity="error")
             return
 
+        # Store the guard config for future merges
+        if name == "guard":
+            self._guard_config[session.info.session_id] = spec
+            # Clear stale scope modal state if preset changed via command
+            if "preset" in spec and "scope" not in spec:
+                self._scope_state.pop(session.info.session_id, None)
+
         session.info.policy_name = str(result.get("policy_name", "interactive"))
         session.info.policy_is_autonomous = bool(result.get("policy_is_autonomous", False))
         session.info.policy_display_label = str(result.get("policy_display_label", "") or "")
 
+        # Track judge model for display in session label
+        judge_model = spec.get("judge_model", "")
+        if judge_model:
+            session.info.policy_display_label = self._guard_display_label(str(judge_model))
+
         self._sync_sessions()
         self._update_context()
-        self._flash(f"Policy: {session.info.policy_name}", severity="info")
+        self._flash(f"Policy {session.info.policy_name} updated", severity="info")
+
+    @staticmethod
+    def _guard_display_label(judge_model: str) -> str:
+        """Build a short display label, e.g. ``guard · dn/claude-sonnet-4-6``."""
+        return f"guard \u00b7 {judge_model}"
+
+    async def _open_scope_modal(self) -> None:
+        """Push the interactive scope policy configuration modal."""
+        from dreadnode.app.tui.widgets.scope_modal import ScopePolicyModal
+
+        session = self._active_session()
+        if session is None:
+            await self._create_new_session_impl(None)
+            session = self._active_session()
+            if session is None:
+                self._flash("Failed to create session", severity="error")
+                return
+
+        saved = self._scope_state.get(session.info.session_id)
+        if saved:
+            caps, preset = saved
+            self.push_screen(ScopePolicyModal(caps, preset), callback=self._on_scope_result)
+        else:
+            self.push_screen(ScopePolicyModal(), callback=self._on_scope_result)
+
+    def _on_scope_result(self, result: dict[str, t.Any] | None) -> None:
+        """Apply the scope config returned by the scope modal."""
+        from dreadnode.policies.scope import ScopeCapabilities
+
+        if result is None:
+            return
+
+        session = self._active_session()
+        if session is None:
+            return
+
+        # Persist scope state locally so the modal can restore it.
+        caps = ScopeCapabilities(**result.get("capabilities", {}))
+        preset = result.get("preset")
+        self._scope_state[session.info.session_id] = (caps, preset)
+
+        # Merge with previous guard config to preserve judge_model
+        prev = self._guard_config.get(session.info.session_id, {})
+        spec: dict[str, t.Any] = {
+            "name": "guard",
+            "judge_model": prev.get("judge_model", "dn/claude-sonnet-4-6"),
+            "scope": result,
+        }
+        self._guard_config[session.info.session_id] = spec
+
+        async def _apply() -> None:
+            try:
+                api_result = await self.managed_client.set_session_policy(
+                    session.info.session_id,
+                    spec,
+                )
+            except Exception as exc:
+                logger.opt(exception=True).warning("Scope policy swap failed")
+                self._flash(f"Scope policy failed: {exc}", severity="error")
+                return
+
+            session.info.policy_name = str(api_result.get("policy_name", "interactive"))
+            session.info.policy_is_autonomous = bool(api_result.get("policy_is_autonomous", False))
+            session.info.policy_display_label = self._guard_display_label(spec["judge_model"])
+            self._sync_sessions()
+            self._update_context()
+            self._flash(f"Policy {session.info.policy_name} (scope) updated", severity="info")
+
+        self.run_worker(_apply(), exclusive=True, group="scope-policy")
 
     async def _set_session_policy_command(
         self,
@@ -4489,7 +4605,7 @@ class DreadnodeTextualApp(App[None]):
         reported = sum(
             1
             for run in state.tool_runs.values()
-            if run.tool_name == "report_item" and run.status == "completed"
+            if run.tool_name == "report_item" and run.persisted
         )
         if reported == 0:
             return

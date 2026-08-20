@@ -17,7 +17,7 @@ import pprint
 import re  # noqa: F401
 import json
 
-from pydantic import BaseModel, ConfigDict, Field, StrictInt
+from pydantic import BaseModel, ConfigDict, Field, StrictInt, StrictStr
 from typing import Any, ClassVar, Dict, List, Optional
 from unitycatalog.client.models.aws_credentials import AwsCredentials
 from unitycatalog.client.models.azure_user_delegation_sas import AzureUserDelegationSAS
@@ -33,7 +33,8 @@ class TemporaryCredentials(BaseModel):
     azure_user_delegation_sas: Optional[AzureUserDelegationSAS] = None
     gcp_oauth_token: Optional[GcpOauthToken] = None
     expiration_time: Optional[StrictInt] = Field(default=None, description="Server time when the credential will expire, in epoch milliseconds. The API client is advised to cache the credential given this expiration time. ")
-    __properties: ClassVar[List[str]] = ["aws_temp_credentials", "azure_user_delegation_sas", "gcp_oauth_token", "expiration_time"]
+    url: Optional[StrictStr] = Field(default=None, description="The normalized URL of the storage path the temporary credential was generated for.")
+    __properties: ClassVar[List[str]] = ["aws_temp_credentials", "azure_user_delegation_sas", "gcp_oauth_token", "expiration_time", "url"]
 
     model_config = ConfigDict(
         populate_by_name=True,
@@ -98,7 +99,8 @@ class TemporaryCredentials(BaseModel):
             "aws_temp_credentials": AwsCredentials.from_dict(obj["aws_temp_credentials"]) if obj.get("aws_temp_credentials") is not None else None,
             "azure_user_delegation_sas": AzureUserDelegationSAS.from_dict(obj["azure_user_delegation_sas"]) if obj.get("azure_user_delegation_sas") is not None else None,
             "gcp_oauth_token": GcpOauthToken.from_dict(obj["gcp_oauth_token"]) if obj.get("gcp_oauth_token") is not None else None,
-            "expiration_time": obj.get("expiration_time")
+            "expiration_time": obj.get("expiration_time"),
+            "url": obj.get("url")
         })
         return _obj
 

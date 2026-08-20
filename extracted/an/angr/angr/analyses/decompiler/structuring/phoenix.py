@@ -589,7 +589,16 @@ class PhoenixStructurer(StructurerBase):
                                 drop_succ = True
 
                             new_node = SequenceNode(node.addr, nodes=[node] if drop_succ else [node, succ])
-                            loop_node = LoopNode("do-while", edge_cond_succhead, new_node, addr=node.addr)
+                            loop_node = LoopNode(
+                                "do-while",
+                                edge_cond_succhead,
+                                new_node,
+                                addr=node.addr,
+                                # when the latch is folded into the loop condition it stops being a node of its own,
+                                # so remember where a continue has to land; otherwise jumps to it become gotos to a
+                                # label that no longer exists
+                                continue_addr=succ.addr if drop_succ else None,
+                            )
 
                             self.replace_nodes_both(
                                 node, loop_node, old_node_1=succ, self_loop=False, drop_refinement_marks=True
@@ -3057,6 +3066,10 @@ class PhoenixStructurer(StructurerBase):
             ):
                 # this is a head of an incomplete switch-case construct (that we will definitely be structuring later),
                 # so we do not want to remove any edges going out of this block
+                continue
+            if dst in graph and graph.in_degree[dst] == 1 and dst is not head:
+                # dst would be left with no way in, and no schema can reattach an isolated node
+                other_edges.append((src, dst))
                 continue
             src_dominates_dst = dominates_by_intervals(dominance_intervals, src, dst)
             if not src_dominates_dst and not dominates_by_intervals(dominance_intervals, dst, src):

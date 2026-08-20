@@ -19,9 +19,9 @@ import constructs._jsii
 
 __jsii_assembly__ = jsii.JSIIAssembly.load(
     "@aws-cdk/aws-amplify-alpha",
-    "2.265.0-alpha.0",
+    "2.266.0-alpha.0",
     __name__[0:-6],
-    "aws-amplify-alpha@2.265.0-alpha.0.jsii.tgz",
+    "aws-amplify-alpha@2.266.0-alpha.0.jsii.tgz",
 )
 
 __all__ = [

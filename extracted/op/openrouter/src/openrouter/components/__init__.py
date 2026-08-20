@@ -991,6 +991,7 @@ if TYPE_CHECKING:
         EnumCapabilityTypedDict,
     )
     from .errorevent import ErrorEvent, ErrorEventType, ErrorEventTypedDict
+    from .failabletoolcallstatus import FailableToolCallStatus
     from .filecitation import FileCitation, FileCitationType, FileCitationTypedDict
     from .filedeleteresponse import (
         FileDeleteResponse,
@@ -3018,6 +3019,8 @@ if TYPE_CHECKING:
         SupportedFrameImage,
         SupportedResolution,
         SupportedSize,
+        UpscaleFactor,
+        UpscaleFactorTypedDict,
         VideoModel,
         VideoModelTypedDict,
     )
@@ -3822,6 +3825,7 @@ __all__ = [
     "ErrorEventType",
     "ErrorEventTypedDict",
     "Event",
+    "FailableToolCallStatus",
     "FailedModel",
     "FailedModelTypedDict",
     "FieldT",
@@ -5289,6 +5293,8 @@ __all__ = [
     "UpdateWorkspaceRequestTypedDict",
     "UpdateWorkspaceResponse",
     "UpdateWorkspaceResponseTypedDict",
+    "UpscaleFactor",
+    "UpscaleFactorTypedDict",
     "UpsertWorkspaceBudgetRequest",
     "UpsertWorkspaceBudgetRequestTypedDict",
     "UpsertWorkspaceBudgetResponse",
@@ -6061,6 +6067,7 @@ _dynamic_imports: dict[str, str] = {
     "ErrorEvent": ".errorevent",
     "ErrorEventType": ".errorevent",
     "ErrorEventTypedDict": ".errorevent",
+    "FailableToolCallStatus": ".failabletoolcallstatus",
     "FileCitation": ".filecitation",
     "FileCitationType": ".filecitation",
     "FileCitationTypedDict": ".filecitation",
@@ -7578,6 +7585,8 @@ _dynamic_imports: dict[str, str] = {
     "SupportedFrameImage": ".videomodel",
     "SupportedResolution": ".videomodel",
     "SupportedSize": ".videomodel",
+    "UpscaleFactor": ".videomodel",
+    "UpscaleFactorTypedDict": ".videomodel",
     "VideoModel": ".videomodel",
     "VideoModelTypedDict": ".videomodel",
     "VideoModelsListResponse": ".videomodelslistresponse",

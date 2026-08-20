@@ -356,7 +356,7 @@ class _ParsedSearch:
     """
 
     free_text: str = ""
-    archived: t.Literal["active", "archived", "any"] = "active"
+    archived: t.Literal["active", "inactive", "archived", "any"] = "active"
     origin: str | None = None
     project: str | None = None
 
@@ -378,7 +378,7 @@ class _ParsedSearch:
 
 def _parse_search(query: str) -> _ParsedSearch:
     text_terms: list[str] = []
-    archived: t.Literal["active", "archived", "any"] = "active"
+    archived: t.Literal["active", "inactive", "archived", "any"] = "active"
     origin: str | None = None
     project: str | None = None
     for token in query.split():
@@ -386,9 +386,9 @@ def _parse_search(query: str) -> _ParsedSearch:
             key, value = token.split(":", 1)
             key = key.strip().lower()
             value = value.strip()
-            if key == "status" and value in {"active", "archived", "any"}:
+            if key == "status" and value in {"active", "inactive", "archived", "any"}:
                 archived = t.cast(
-                    "t.Literal['active', 'archived', 'any']",
+                    "t.Literal['active', 'inactive', 'archived', 'any']",
                     value,
                 )
                 continue
@@ -804,6 +804,12 @@ class SessionPickerScreen(Screen[str | None]):
             title="Sessions",
             severity="information",
         )
+        # The screen may have been popped while the mutation was in flight.
+        # The optimistic update above still matters (it patches shared
+        # records the parent app renders from), but rendering would
+        # query_one against a dead widget tree (NoMatches).
+        if not self.is_mounted:
+            return
         # Surgical render — only the affected row changes. Avoids the
         # full ``table.clear()`` + rebuild flash that ``_render_all``
         # would cause on every action. We also intentionally do NOT

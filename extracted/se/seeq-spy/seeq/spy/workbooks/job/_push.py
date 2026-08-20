@@ -28,12 +28,12 @@ def push(
         *,
         resume: bool = True,
         path: Optional[Union[str, Callable]] = None,
+        path_options: Optional[str] = None,
         owner: Optional[str] = None,
         label: Optional[str] = None,
         datasource: Optional[str] = None,
         datasource_map_folder: Optional[Union[str, Path]] = None,
         mode: str = WorkbookPushMode.NORMAL,
-        use_full_path: bool = False,
         access_control: Optional[str] = None,
         override_max_interp: bool = False,
         global_inventory: Optional[str] = None,
@@ -44,7 +44,8 @@ def push(
         quiet: Optional[bool] = None,
         status: Optional[Status] = None,
         session: Optional[Session] = None,
-        scope_globals_to_workbook: Optional[bool] = None
+        scope_globals_to_workbook: Optional[bool] = None,
+        use_full_path: Optional[bool] = None
 ) -> pd.DataFrame:
     """
     Pushes the definitions for each workbook that was pulled by the
@@ -82,6 +83,30 @@ def push(
         Workbook instance as its sole argument and must return the desired path
         string (or None) for that workbook. This allows you to route different
         workbooks to different folders in a single push call.
+
+    path_options : str, optional
+        A comma-delimited combination of options that control how containing
+        folders are reconstructed at the destination. Two independent
+        settings can be specified, each of which is optional and defaults
+        independently if omitted:
+
+        - 'full' or 'relative' (default 'relative'): If 'full', the original
+          full path for an item is reconstructed, as opposed to the path
+          that is relative to the Path property supplied to the
+          spy.workbooks.search() call that originally helped create these
+          workbook definitions. Note that this full path will still be
+          inside the folder specified by the 'path' argument, if supplied.
+
+        - 'reconcile by id' or 'reconcile by name' (default 'reconcile by
+          id'): Determines how SPy matches containing (ancestor) folders
+          against folders that may already exist on the target server. The
+          default, 'reconcile by id', matches folders via their Data ID
+          (derived from the original folder's ID), which is how SPy has
+          always behaved. 'reconcile by name' instead matches (or creates)
+          folders purely by name within their parent folder, ignoring Data
+          ID entirely.
+
+        Example: path_options='full,reconcile by name'
 
     owner : str, default None
         Determines the ownership of pushed workbooks and folders.
@@ -138,13 +163,6 @@ def push(
         parameter constraints (path, owner, label, and datasource must be None;
         reconcile_inventory_by must be 'id'; global_inventory must be either
         'overwrite' or 'do not touch').
-
-    use_full_path : bool, default False
-        If True, the original full path for an item is reconstructed, as
-        opposed to the path that is relative to the Path property supplied to
-        the spy.workbooks.search() call that originally helped create these
-        workbook definitions. Note that this full path will still be inside
-        the folder specified by the 'path' argument, if supplied.
 
     access_control : str, default None
         Specifies how Access Control Lists should be treated, via the
@@ -222,6 +240,11 @@ def push(
         Deprecated. Use global_inventory instead: 'copy global' is the
         equivalent of False, 'copy local' is the equivalent of True.
 
+    use_full_path : bool, optional
+        Deprecated, use path_options instead: 'full' is equivalent to
+        use_full_path=True, 'relative' (the default) is equivalent to
+        use_full_path=False. Cannot be combined with path_options.
+
     """
     input_args = locals()
 
@@ -263,7 +286,7 @@ def push(
     create_dummy_items_in_workbook = get_dummy_workbook_name(job_folder) if create_dummy_items else None
 
     spy.workbooks.push(workbook_list, path=path, owner=owner, label=label, datasource=datasource, mode=mode,
-                       use_full_path=use_full_path, access_control=access_control,
+                       use_full_path=use_full_path, path_options=path_options, access_control=access_control,
                        override_max_interp=override_max_interp, global_inventory=global_inventory,
                        datasource_map_folder=job_datasource_map_folder, refresh=False,
                        create_dummy_items_in_workbook=create_dummy_items_in_workbook,
@@ -364,7 +387,8 @@ class WorkbookFolderRef(Workbook):
         return self.real.datasource_maps
 
     def push_containing_folders(self, context: WorkbookPushContext, item_map: ItemMap, use_full_path,
-                                parent_folder_id, owner, label, access_control) -> Tuple[Optional[str], Optional[str]]:
+                                parent_folder_id, owner, label, access_control,
+                                match_folders_by_name=False) -> Tuple[Optional[str], Optional[str]]:
         if _PUSH_COMPLETE.is_complete(self.workbook_folder):
             d = _PUSH_COMPLETE.get_data(self.workbook_folder)
 
@@ -375,7 +399,8 @@ class WorkbookFolderRef(Workbook):
             return self._search_folder_id, self._parent_folder_id
 
         self._search_folder_id, self._parent_folder_id = self.real.push_containing_folders(
-            context, item_map, use_full_path, parent_folder_id, owner, label, access_control)
+            context, item_map, use_full_path, parent_folder_id, owner, label, access_control,
+            match_folders_by_name=match_folders_by_name)
 
         return self._search_folder_id, self._parent_folder_id
 

@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: flash-attn-4
-Version: 4.0.0b26
+Version: 4.0.0b27
 Summary: Flash Attention CUTE (CUDA Template Engine) implementation
 Author: Tri Dao
 License: BSD 3-Clause License
@@ -16,7 +16,7 @@ Requires-Python: >=3.10
 Description-Content-Type: text/markdown
 License-File: LICENSE
 License-File: AUTHORS
-Requires-Dist: nvidia-cutlass-dsl==4.6.0.dev0
+Requires-Dist: nvidia-cutlass-dsl>=4.6.2
 Requires-Dist: torch
 Requires-Dist: einops
 Requires-Dist: typing_extensions
@@ -24,7 +24,7 @@ Requires-Dist: apache-tvm-ffi<0.2,>=0.1.12
 Requires-Dist: torch-c-dlpack-ext
 Requires-Dist: quack-kernels>=0.5.3
 Provides-Extra: cu13
-Requires-Dist: nvidia-cutlass-dsl[cu13]==4.6.0.dev0; extra == "cu13"
+Requires-Dist: nvidia-cutlass-dsl[cu13]>=4.6.2; extra == "cu13"
 Provides-Extra: dev
 Requires-Dist: pytest; extra == "dev"
 Requires-Dist: pytest-xdist; extra == "dev"

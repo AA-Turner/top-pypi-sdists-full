@@ -36,12 +36,62 @@ class UdfMonitor:
             self._registered[name] = udf
 
     def get(self, name: str) -> SnowparkUdfBase | None:
+        # Imported here, not at module scope: udf_helper reaches back into config, which
+        # imports this module.
+        from snowflake.snowpark_connect.utils.udf_helper import NativeFunctionUdf
+
         with self._lock.reader():
-            return self._registered.get(name)
+            registered = self._registered.get(name)
+        if registered is not None and not isinstance(registered, NativeFunctionUdf):
+            return registered
+        return self._resolve_native_alias(name, registered)
 
     def has(self, name: str) -> bool:
-        with self._lock.reader():
-            return name in self._registered
+        return self.get(name) is not None
+
+    def _resolve_native_alias(
+        self,
+        name: str,
+        registered: SnowparkUdfBase | None,
+    ) -> SnowparkUdfBase | None:
+        """Materialise, revalidate, or withdraw a config-declared native-function alias.
+
+        ``registered`` is the cached alias for ``name``, or ``None`` if nothing is cached.
+
+        The fallback lives here rather than at the call sites so that every consumer of the
+        name registry -- function resolution, ``DROP FUNCTION`` -- sees a declared alias the
+        same way it sees an explicitly registered UDF, with no change to any of them.
+
+        Configuration is the source of truth and nothing fires when it changes, so a cached
+        alias is re-checked against the live declaration on every lookup: an unset withdraws
+        it, and a re-set rebuilds it. Comparing the declaration *string* keeps that check
+        cheap -- the expensive part, parsing the Spark type, only runs when it differs.
+
+        Resolution deliberately does not hold the lock: it reads configuration and builds a
+        handle, and a ``ReadWriteLock`` reader cannot be upgraded to a writer. A concurrent
+        resolution of the same name is harmless -- resolution is deterministic, so the
+        second ``register`` overwrites an equivalent handle.
+        """
+        from snowflake.snowpark_connect.native_function_registry import (
+            current_declaration,
+            resolve_native_function,
+        )
+
+        declaration = current_declaration(name)
+        if declaration is None:
+            if registered is not None:
+                with self._lock.writer():
+                    if self._registered.get(name) is registered:
+                        self._registered.pop(name, None)
+            return None
+        if registered is not None and registered.declaration == declaration:
+            return registered
+
+        resolved = resolve_native_function(name)
+        if resolved is None:  # pragma: no cover - declaration withdrawn mid-resolution
+            return None
+        self.register(name, resolved)
+        return resolved
 
     def drop(self, name: str) -> None:
         """Atomically remove a registered UDF and evict any stale cached

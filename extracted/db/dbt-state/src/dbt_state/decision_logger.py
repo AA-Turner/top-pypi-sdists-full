@@ -51,6 +51,7 @@ class RunConfigEntry:
     metadata_cache_ttl_seconds: int
     org_id: t.Optional[str]
     snowflake_get_view_ddl_override: t.Optional[str]
+    allow_clones: bool
 
     # relevant dbt config
     profile_name: str
@@ -80,6 +81,7 @@ class RunStartEntry:
                 clone_incremental_in_dev=run_cache_config.clone_incremental_in_dev,
                 metadata_cache_ttl_seconds=run_cache_config.metadata_cache_ttl,
                 snowflake_get_view_ddl_override=run_cache_config.snowflake_get_view_ddl_override,
+                allow_clones=run_cache_config.allow_clones,
                 # dbt
                 profile_name=dbt_config.profile_name,
                 target_name=dbt_config.target_name,

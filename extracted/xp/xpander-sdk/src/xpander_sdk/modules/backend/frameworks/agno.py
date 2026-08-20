@@ -3,6 +3,7 @@ import hashlib
 import json
 import re
 import shlex
+import time
 import uuid
 from collections import deque
 from os import getenv, environ
@@ -82,6 +83,7 @@ from xpander_sdk.models.generic import LLMCredentials
 from xpander_sdk.models.shared import OutputFormat, ThinkMode
 from xpander_sdk.modules.agents.agents_module import Agents
 from xpander_sdk.modules.agents.models.agent import (
+    AgentDeploymentType,
     AgentGraphItemType,
     LLMReasoningEffort,
     SourceNodeType,
@@ -134,6 +136,8 @@ from xpander_sdk.modules.tools_repository.models.tool_invocation_result import (
 )
 from xpander_sdk.modules.tools_repository.sub_modules.dynamic_tools import (
     dynamic_tools_active,
+    dynamic_tools_min_tools,
+    hidden_tools,
     log_dynamic_tools_decision,
     reset_dynamic_run_state,
 )
@@ -1639,6 +1643,69 @@ def _approval_envelope(result: Any, depth: int = 0) -> Optional[Dict[str, Any]]:
     return None
 
 
+SELF_APPROVE_POLL_SECONDS = 2.0
+# Whatever the platform asks for, never hold a call longer than this.
+SELF_APPROVE_MAX_WAIT_SECONDS = 600
+# APIClient's own timeout is sized for tool calls, so one slow poll could outlive the whole hold.
+SELF_APPROVE_POLL_TIMEOUT_SECONDS = 10.0
+
+
+async def _await_self_approval(
+    agent: Any, request_id: str, wait_seconds: Any
+) -> Optional[Dict[str, Any]]:
+    """Poll until the person answers, or give up and let the run park as it always did.
+
+    A self-approve call has nobody to reach: the one person who can answer is already watching
+    the run, and answers on the card the platform just raised in their conversation. So the call
+    is held here rather than the run being parked.
+
+    Returns the settled status, or None if it never settled - which is not a failure, only the
+    end of holding. Never raises: a poll that cannot reach the platform costs the hold, not the
+    run. Every wait is bounded by the deadline, so the hold cannot outlive its window.
+    """
+    try:
+        budget = float(wait_seconds or 0)
+    except (TypeError, ValueError):
+        return None
+    if budget <= 0:
+        return None
+    budget = min(budget, SELF_APPROVE_MAX_WAIT_SECONDS)
+
+    client = APIClient(configuration=agent.configuration)
+    path = APIRoute.ToolApprovalStatus.format(agent_id=agent.id, request_id=request_id)
+    deadline = time.monotonic() + budget
+    while True:
+        remaining = deadline - time.monotonic()
+        if remaining <= 0:
+            return None
+        await asyncio.sleep(min(SELF_APPROVE_POLL_SECONDS, remaining))
+        remaining = deadline - time.monotonic()
+        if remaining <= 0:
+            return None
+        try:
+            status = await asyncio.wait_for(
+                client.make_request(path=path, method="GET"),
+                timeout=min(SELF_APPROVE_POLL_TIMEOUT_SECONDS, remaining),
+            )
+        except Exception:
+            # A blip must not end the hold; the person may still be reading the card.
+            continue
+        if isinstance(status, dict) and status.get("settled"):
+            return status
+
+
+def _declined_message(settled: Dict[str, Any], effective_name: str) -> str:
+    """What the model reads when the person said no: a fact and a next step, never an error."""
+    who = settled.get("decided_by_name") or "The person who was asked"
+    note = settled.get("decision_note")
+    reason = f' They said: "{note}".' if note else ""
+    return (
+        f"{who} declined this step, so '{effective_name}' has not run and will not run in this "
+        f"turn.{reason} Continue with the rest of the work, or answer now with what you have "
+        "and say which step was declined."
+    )
+
+
 def _mark_awaiting_approval(task: Any, effective_name: str, message: str) -> None:
     """Record that this run is blocked, so later calls stop rather than pile up."""
     if task is None:
@@ -2255,7 +2322,9 @@ async def build_agent_args(
             args=args, agent=xpander_agent, task=task, model=model, is_async=is_async
         )
         _configure_knowledge_bases(args=args, agent=xpander_agent)
-        _configure_additional_context(args=args, agent=xpander_agent, task=task)
+        _configure_additional_context(
+            args=args, agent=xpander_agent, task=task, is_member=is_member
+        )
         # Configure pre-hooks (guardrails, etc.)
         _configure_pre_hooks(args=args, agent=xpander_agent, model=model)
 
@@ -2853,13 +2922,13 @@ async def build_agent_args(
             and eff_name != "xpfinalize_task"
             and not _finalize_safe_read_allowed(task, function_name, arguments)
         ):
-            message = _awaiting_approval_message(task) or AWAITING_APPROVAL_MESSAGE.format(
-                tool=eff_name
-            )
+            message = _awaiting_approval_message(
+                task
+            ) or AWAITING_APPROVAL_MESSAGE.format(tool=eff_name)
             warning = _record_no_progress(message)
             if warning:
                 message = f"{message}\n\n{warning}"
-            _report_blocked_call(task, eff_name, message)
+            # Not reported: a suppressed attempt logged as a failed call reads as a retry.
             return message
 
         # a tool disabled by the volume/error caps stays disabled for the run;
@@ -3590,10 +3659,36 @@ async def build_agent_args(
 
                 # Gated by the platform: hand the model the statement it sent back.
                 approval = _approval_envelope(result)
-                if approval is not None:
-                    result = approval.get("message") or AWAITING_APPROVAL_MESSAGE.format(
-                        tool=eff_name
+                if approval is not None and approval.get("self_approve"):
+                    # Nobody to reach but the person already watching the run, so the call is
+                    # held open here rather than ending the turn on it.
+                    settled = await _await_self_approval(
+                        xpander_agent,
+                        approval.get("request_id") or "",
+                        approval.get("wait_seconds"),
                     )
+                    if settled and settled.get("approved"):
+                        # Re-issued, not replayed: the platform redeems the approval against
+                        # the very arguments it was granted for.
+                        result = await _invoke_with_transient_retry(
+                            function_name=function_name,
+                            function_call=function_call,
+                            arguments=arguments,
+                            max_retries=2,
+                        )
+                        approval = _approval_envelope(result)
+                    elif settled:
+                        approval = {
+                            **approval,
+                            "denied": True,
+                            "message": _declined_message(settled, eff_name),
+                        }
+                    # Nothing settled inside the window: fall through and park as always.
+
+                if approval is not None:
+                    result = approval.get(
+                        "message"
+                    ) or AWAITING_APPROVAL_MESSAGE.format(tool=eff_name)
                     # A refusal is settled: the run keeps its other work rather than stopping.
                     if not approval.get("denied"):
                         _mark_awaiting_approval(task, eff_name, result)
@@ -5657,7 +5752,10 @@ def _configure_knowledge_bases(args: Dict[str, Any], agent: Agent) -> None:
 
 
 def _configure_additional_context(
-    args: Dict[str, Any], agent: Agent, task: Optional[Task]
+    args: Dict[str, Any],
+    agent: Agent,
+    task: Optional[Task],
+    is_member: bool = False,
 ) -> None:
     if task and task.additional_context:
         existing = args.get("additional_context", "")
@@ -5668,9 +5766,13 @@ def _configure_additional_context(
         )
 
     # 0 == None == unset (legacy backend default, which every default agent carries) -
-    # without a fallback here that meant agno ran with NO tool-call ceiling at all
+    # without a fallback here that meant agno ran with NO tool-call ceiling at all.
+    # The task's budget wins on the ROOT agent: a scheduled run knows how much work it is
+    # worth. Members keep their own ceiling - agno has no run-wide budget, so handing each
+    # member the task's number would multiply it by the team size instead of bounding the run.
+    task_limit = None if is_member else (task.tool_call_limit if task else None)
     args["tool_call_limit"] = (
-        agent.agno_settings.tool_call_limit or DEFAULT_TOOL_CALL_LIMIT
+        task_limit or agent.agno_settings.tool_call_limit or DEFAULT_TOOL_CALL_LIMIT
     )
 
 
@@ -5929,12 +6031,64 @@ async def _resolve_agent_tools(
         )
         return None
 
+    async def _build_workspace_mcp_tool(mcp: MCPServerDetails) -> Optional[Any]:
+        """Host a local MCP server in the agent's workspace and expose its tools here."""
+        if not getattr(agent, "workspace_tools_enabled", True):
+            logger.warning(
+                f"MCP server '{mcp.name or mcp.command}' is local but agent {agent.id} has no "
+                f"workspace; skipping this tool for the run"
+            )
+            notes.append(
+                f"{mcp.name or mcp.command}: unavailable - a local MCP server runs in the "
+                f"agent's workspace, which is turned off for this agent."
+            )
+            return None
+
+        from xpander_sdk.modules.backend.utils.workspace_mcp import WorkspaceMCPTools
+
+        toolkit = WorkspaceMCPTools(
+            agent_id=agent.id,
+            command=mcp.command,
+            configuration=agent.configuration,
+            server_name=mcp.name or mcp.command,
+            env_vars=mcp.env_vars or {},
+            include_tools=mcp.allowed_tools or None,
+        )
+        try:
+            # Connected here, not by agno: the call is also what starts an idled-out workspace.
+            await toolkit.connect()
+        except asyncio.CancelledError:
+            raise
+        except Exception as e:
+            logger.warning(
+                f"[workspace-mcp] '{mcp.name or mcp.command}' unavailable this run: "
+                f"{type(e).__name__}: {e}"
+            )
+            notes.append(
+                f"{mcp.name or mcp.command}: temporarily unavailable (could not start in the "
+                f"agent's workspace this run)."
+            )
+            return None
+        if not toolkit.functions:
+            notes.append(f"{mcp.name or mcp.command}: started but exposed no tools.")
+            return None
+        return await _finalize_toolkit(toolkit, mcp.name or mcp.command, None)
+
     # Build one MCPTools per server. Remote servers each run a preflight probe
     # (~100-800ms); gathering them concurrently makes the wall-time the slowest
     # probe instead of their sum. Returns None for servers we deliberately skip.
     async def _build_mcp_tool(mcp: MCPServerDetails) -> Optional[MCPTools]:
         transport = mcp.transport.value.lower()
         if mcp.type == MCPServerType.Local:
+            if not (mcp.command or "").strip():
+                logger.warning(
+                    f"MCP server '{mcp.name or 'local'}' is type=local with no command; skipping"
+                )
+                notes.append(
+                    f"{mcp.name or 'local MCP server'}: misconfigured (no command to run). "
+                    f"Fix it in agent settings."
+                )
+                return None
 
             # protection for serverless xpander
             is_aws_mcp = (
@@ -5946,15 +6100,10 @@ async def _resolve_agent_tools(
                 )
                 return None
 
-            if not (mcp.command or "").strip():
-                logger.warning(
-                    f"MCP server '{mcp.name or 'local'}' is type=local with no command; skipping"
-                )
-                notes.append(
-                    f"{mcp.name or 'local MCP server'}: misconfigured (no command to run). "
-                    f"Fix it in agent settings."
-                )
-                return None
+            # Only a dedicated container can spawn a stdio server in-process; every other
+            # agent runs in the shared worker and hosts it in its own workspace instead.
+            if agent.deployment_type != AgentDeploymentType.Container:
+                return await _build_workspace_mcp_tool(mcp)
 
             command_parts = shlex.split(mcp.command)
             return await _finalize_toolkit(
@@ -6181,6 +6330,42 @@ async def _resolve_agent_tools(
         for tool in built
         if tool is not None and not isinstance(tool, BaseException)
     ]
+
+    # The size gate ran before any server connected, so MCP tools are counted only now.
+    if (
+        not use_dynamic
+        and bool(getattr(agent, "use_dynamic_tools", False))
+        and mcp_tools
+    ):
+        threshold = dynamic_tools_min_tools()
+        # Unconnected toolkits yield no proxies, so collapsing one would drop its tools.
+        collapsible = [
+            (mcp, toolkit)
+            for mcp, toolkit in zip(mcp_servers, built)
+            if toolkit is not None
+            and not isinstance(toolkit, BaseException)
+            and getattr(toolkit, "functions", None)
+        ]
+        mcp_tool_count = sum(len(toolkit.functions) for _, toolkit in collapsible)
+        catalog_count = len(hidden_tools(agent.tools.dynamic_catalog))
+        if (
+            collapsible
+            and threshold > 0
+            and (catalog_count + mcp_tool_count) >= threshold
+        ):
+            collapsed = {id(toolkit) for _, toolkit in collapsible}
+            for mcp, toolkit in collapsible:
+                agent.tools._dynamic_mcp_proxies.extend(
+                    build_mcp_proxies(
+                        toolkit, server_name=mcp.name or mcp.command, server_url=mcp.url
+                    )
+                )
+                agent.tools._dynamic_mcp_toolkits.append(toolkit)
+            logger.info(
+                f"[dynamic-mcp] collapsed {mcp_tool_count} MCP tools behind the dynamic "
+                f"meta-tools: {catalog_count} catalog + {mcp_tool_count} MCP >= {threshold}"
+            )
+            mcp_tools = [t for t in mcp_tools if id(t) not in collapsed]
 
     return agent.tools.functions + mcp_tools
 

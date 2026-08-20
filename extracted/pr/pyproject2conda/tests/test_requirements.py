@@ -1,16 +1,21 @@
 # mypy: disable-error-code="no-untyped-def, no-untyped-call"
-# pylint: disable=duplicate-code,empty-comment
+# pylint: disable=duplicate-code,empty-comment,protected-access
+# ruff:file-ignore[private-member-access]
 from __future__ import annotations
 
 import locale
 import tempfile
 from textwrap import dedent
+from typing import TYPE_CHECKING, TypedDict, cast
 
 import pytest
 from pydantic import ValidationError
 
 from pyproject2conda import requirements
 from pyproject2conda._config import PyProject2CondaConfig
+
+if TYPE_CHECKING:
+    from collections.abc import Iterable
 
 
 def test_header() -> None:
@@ -46,6 +51,12 @@ def test_header() -> None:
     assert out == header
 
 
+class StyleDict(TypedDict, total=False):
+    extras: Iterable[str]
+    groups: Iterable[str]
+    extras_or_groups: Iterable[str]
+
+
 def test_optional_write() -> None:
     from pathlib import Path
 
@@ -65,8 +76,8 @@ def test_optional_write() -> None:
 def test_output_to_yaml() -> None:
     from pyproject2conda.requirements import _conda_yaml
 
-    with pytest.raises(ValueError):
-        s = _conda_yaml()
+    with pytest.raises(ValueError, match=r"Must have at least one conda dependency.*"):
+        _ = _conda_yaml()
 
     s = _conda_yaml(
         conda_deps=["a", "pip"],
@@ -135,7 +146,7 @@ def test_infer() -> None:
     )
 
     d = requirements.RequirementsConfig.from_string(toml)
-    with pytest.raises(ValueError):
+    with pytest.raises(ValueError, match=r"No value for `requires-python`.*"):
         d.to_conda_yaml(python_include="infer")
 
 
@@ -154,10 +165,12 @@ def test_pip_requirements() -> None:
     [project.optional-dependencies]
     test = ["pytest", "test-optional"]
     dev = ["hello[test]", "dev-package"]
+    an-extra = ["a", "b"]
 
     [dependency-groups]
     test = ["pytest", "test-optional-group"]
     dev = [{include-group= "test"}, "dev-package-group"]
+    a-group = ["c", "d"]
         """
     )
 
@@ -190,8 +203,16 @@ def test_pip_requirements() -> None:
     assert d.to_requirements(pip_deps=["hello"], extras="dev") == expected
     assert d.to_requirements(pip_deps=["hello"], extras_or_groups="dev") == expected
 
+    # by design, if key in both extra and groups, return extra
+    assert d._resolve_extras_and_groups(extras_or_groups="dev") == (["dev"], [])
+    assert d._resolve_extras_and_groups(extras_or_groups="an-extra") == (
+        ["an-extra"],
+        [],
+    )
+    assert d._resolve_extras_and_groups(extras_or_groups="a_group") == ([], ["a-group"])
+
     with pytest.raises(KeyError, match=r"extra-or-group.*"):
-        d._resolve_extras_and_groups(extras_or_groups="a-dummy-group")  # noqa: SLF001  # pylint: disable=protected-access
+        d._resolve_extras_and_groups(extras_or_groups="a-dummy-group")
 
     expected = dedent(
         """\
@@ -259,6 +280,19 @@ def test_to_conda_requirements_simple_validate() -> None:
 
     with pytest.raises(ValueError, match=r"Can only.*"):
         d.to_conda_requirements(channels=["a", "b"], prepend_channel=True)
+
+    # just ignores channels
+    conda_str, pip_str = d.to_conda_requirements(
+        channels=["a", "b"], prepend_channel=False
+    )
+    expected_conda = dedent("""
+    athing
+    bthing
+    cthing
+    dthing
+    """)
+    assert conda_str.strip() == expected_conda.strip()
+    assert not pip_str.strip()
 
 
 def test_package_name() -> None:
@@ -440,7 +474,7 @@ def test_complete(style, toml) -> None:
     channels = PyProject2CondaConfig.from_string(toml).get_env(None).channels
 
     # test unknown extra
-    with pytest.raises(KeyError):
+    with pytest.raises(KeyError, match=r"a-thing"):
         d.to_conda_yaml(extras="a-thing")
 
     assert set(
@@ -462,8 +496,7 @@ def test_complete(style, toml) -> None:
     """
     assert dedent(expected) == d.to_requirements(
         skip_package=True,
-        # pyrefly: ignore [bad-argument-type]
-        **{style: "build-system.requires"},  # type: ignore[arg-type]  # pyright: ignore[reportArgumentType]  # ty:ignore[invalid-argument-type]
+        **cast("StyleDict", {style: "build-system.requires"}),
     )
 
     expected = """\
@@ -559,8 +592,7 @@ dependencies:
 
     assert dedent(expected) == out
 
-    # pyrefly: ignore [bad-argument-type]
-    out = d.to_conda_yaml(**{style: "test"})  # type: ignore[arg-type]  # pyright: ignore[reportArgumentType]  # ty:ignore[invalid-argument-type]
+    out = d.to_conda_yaml(**cast("StyleDict", {style: "test"}))
 
     expected = """\
 dependencies:
@@ -575,8 +607,7 @@ dependencies:
 
     assert dedent(expected) == out
 
-    # pyrefly: ignore [bad-argument-type]
-    out = d.to_conda_yaml(**{style: "dist-pypi"}, skip_package=True)  # type: ignore[arg-type]  # pyright: ignore[reportArgumentType]  # ty:ignore[invalid-argument-type]
+    out = d.to_conda_yaml(**cast("StyleDict", {style: "dist-pypi"}), skip_package=True)
 
     expected = """\
 dependencies:
@@ -603,8 +634,9 @@ dependencies:
       - athing
     """
 
-    # pyrefly: ignore [bad-argument-type]
-    assert dedent(expected) == d.to_conda_yaml(**{style: "dev"}, channels=channels)  # type: ignore[arg-type]  # pyright: ignore[reportArgumentType]  # ty:ignore[invalid-argument-type]
+    assert dedent(expected) == d.to_conda_yaml(
+        **cast("StyleDict", {style: "dev"}), channels=channels
+    )
 
     # Test deps/reqs
     expected = """\
@@ -740,7 +772,7 @@ dependencies:
     # check output has no dependencies:
     for attr in ("to_conda_yaml", "to_requirements"):
         f = getattr(d, attr)
-        with pytest.raises(ValueError):
+        with pytest.raises(ValueError, match=r"No dependencies for this environment"):
             f()
 
         assert f(allow_empty=True) == "No dependencies for this environment\n"
@@ -878,19 +910,6 @@ dependencies:
     )
 
     expected = """\
-dependencies:
-  - python<3.11,>=3.8
-  - bthing-conda>2.0
-  - conda-forge::cthing
-  - pip
-  - pip:
-      - athing>0.5
-    """
-    assert dedent(expected) == d.to_conda_yaml(
-        python_include="infer",
-    )
-
-    expected = """\
     athing>0.5
     bthing>1.0
     cthing; python_version < "3.10"
@@ -921,10 +940,10 @@ def test_include_pip() -> None:
     )
 
     expected = """\
-    dependencies:
-      - athing
-      - xthing
-      - pip
+dependencies:
+  - athing
+  - xthing
+  - pip
     """
 
     d = requirements.RequirementsConfig.from_string(toml)

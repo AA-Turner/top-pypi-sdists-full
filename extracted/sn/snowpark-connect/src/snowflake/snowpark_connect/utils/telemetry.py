@@ -32,6 +32,7 @@ from snowflake.snowpark import Session
 from snowflake.snowpark._internal.utils import get_os_name, get_python_version
 from snowflake.snowpark.version import VERSION as snowpark_version
 from snowflake.snowpark_connect.error.error_codes import ErrorCodes
+from snowflake.snowpark_connect.native_function_target import split_target
 from snowflake.snowpark_connect.utils.snowpark_connect_logging import logger
 from snowflake.snowpark_connect.version import VERSION as sas_version
 
@@ -828,6 +829,28 @@ class Telemetry:
             summary["udf_usage"] = defaultdict(int)
 
         summary["udf_usage"][udf_name] += 1
+
+    @safe
+    def report_native_function_target(self, target: str) -> None:
+        """Record a Snowflake function reached through ``register_native_snowflake_function``.
+
+        The chief purpose is to show which Snowflake built-ins users are reaching for that
+        SCOS does not map, so they can be implemented natively.
+
+        Only the function name (last dot-separated component) is recorded to avoid
+        sending customer-owned database or schema names to telemetry.
+        """
+        if self._not_in_request():
+            return
+
+        summary = self._request_summary.get()
+
+        if "native_function_targets" not in summary:
+            summary["native_function_targets"] = defaultdict(int)
+
+        # Strip DB/schema qualification; record only the function name.
+        function_name = split_target(target)[-1]
+        summary["native_function_targets"][function_name] += 1
 
     def _report_io(
         self, op: str, io_type: str, options: dict[str, str] | None = None

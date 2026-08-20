@@ -24,6 +24,7 @@ from dreadnode.generators.message import Message, make_compaction_message
 if t.TYPE_CHECKING:
     from datetime import datetime
 
+    from dreadnode.agents.engines.base import PermissionBridge
     from dreadnode.agents.process_judge import ProcessJudge
 
 
@@ -669,17 +670,55 @@ async def _substitute_tool_summaries(
     return result
 
 
-def _deny_reaction(reason: str, on_deny: OnDeny) -> Reaction:
+def _deny_reaction(
+    reason: str,
+    on_deny: OnDeny,
+    tool_call_id: str | None = None,
+    *,
+    policy_decision: dict[str, t.Any] | None = None,
+) -> Reaction:
     if on_deny == "retry":
-        return RetryWithFeedback(feedback=reason)
+        return RetryWithFeedback(
+            feedback=reason,
+            tool_call_id=tool_call_id,
+            metadata={"policy_decision": policy_decision} if policy_decision else {},
+        )
     return Finish(reason=f"policy denied: {reason}")
 
 
-def _judge_error_reaction(exc: Exception, on_judge_error: OnJudgeError) -> Reaction | None:
+def _decision_metadata(
+    *,
+    source: t.Literal["judge", "always_allow", "always_deny"],
+    judge_action: t.Literal["allow", "deny", "ask"] | None,
+    runtime_action: t.Literal["allow", "deny"],
+    reason: str,
+    latency_ms: int | None = None,
+    human_approved: bool | None = None,
+) -> dict[str, t.Any]:
+    """Build the transcript-safe policy decision attached to one tool call."""
+    return {
+        "kind": "scopeguard",
+        "source": source,
+        "judge_action": judge_action,
+        "runtime_action": runtime_action,
+        "reason": reason,
+        "latency_ms": latency_ms,
+        "human_approved": human_approved,
+    }
+
+
+def _judge_error_reaction(
+    exc: Exception,
+    on_judge_error: OnJudgeError,
+) -> Reaction | None:
     from loguru import logger
 
     if on_judge_error == "deny":
-        return Finish(reason=f"process judge unreachable: {exc}")
+        detail = str(exc).strip()
+        error = type(exc).__name__
+        if detail:
+            error = f"{error}: {detail}"
+        return Finish(reason=f"process judge unreachable ({error}); tool call denied")
     if on_judge_error == "allow":
         logger.warning("process judge errored, allowing tool call: {}", exc)
         return None
@@ -695,6 +734,7 @@ def process_judge_hook(
     always_allow: t.Sequence[str] = (),
     always_deny: t.Sequence[str] = (),
     context_provider: t.Callable[[ToolStart], dict[str, t.Any]] | None = None,
+    permission: "PermissionBridge | t.Callable[[], PermissionBridge | None] | None" = None,
 ) -> Hook:
     """Pre-tool-call gating hook backed by a :class:`ProcessJudge`.
 
@@ -716,25 +756,41 @@ def process_judge_hook(
     - allow → ``None`` (tool runs).
     - deny + ``on_deny="retry"`` → :class:`RetryWithFeedback`.
     - deny + ``on_deny="finish"`` → :class:`Finish` with ``"policy denied: …"``.
-    - judge raises + ``on_judge_error="deny"`` → :class:`Finish`.
+    - ask + ``permission`` available → pauses for operator approval,
+      then ``None`` (approved) or deny reaction (rejected).
+    - ask + no ``permission`` → deny reaction (operator unavailable).
+    - judge raises + ``on_judge_error="deny"`` → :class:`Finish`
+      (hard stop; auth errors also disable the hook).
     - judge raises + ``on_judge_error="allow"`` → ``None`` plus warn-level log.
     - judge raises + ``on_judge_error="fail"`` → :class:`Fail`.
     """
+    import json
     import time
 
     deny_set = set(always_deny)
     allow_set = set(always_allow) - deny_set
+
+    def _resolve_permission() -> "PermissionBridge | None":
+        if hasattr(permission, "request_tool_approval"):
+            return permission  # type: ignore[return-value]
+        if callable(permission):
+            return permission()
+        return None
 
     _last_messages: list[Message] = []
     # Per-session cache of tool-output summaries keyed by tool_call_id.
     # Tool results are immutable within a run and tool_call_id is unique,
     # so each unique result is summarized at most once.
     _summary_cache: dict[str, str] = {}
+    _disabled = False
 
     @hook(AgentEvent)
     async def process_judge_hook_inner(event: AgentEvent) -> Reaction | None:
-        nonlocal _last_messages
+        nonlocal _last_messages, _disabled
         from dreadnode import log_metric
+
+        if _disabled:
+            return None
 
         if isinstance(event, GenerationStart):
             _last_messages = list(event.messages)
@@ -747,6 +803,14 @@ def process_judge_hook(
         start = time.monotonic()
 
         if tool_name in deny_set:
+            reason = f"tool {tool_name!r} is in always_deny list"
+            policy_decision = _decision_metadata(
+                source="always_deny",
+                judge_action=None,
+                runtime_action="deny",
+                reason=reason,
+            )
+            event.policy_decision = policy_decision
             log_metric(
                 "process_judge.deny",
                 1,
@@ -756,9 +820,20 @@ def process_judge_hook(
                     "reason": "always_deny",
                 },
             )
-            return _deny_reaction(f"tool {tool_name!r} is in always_deny list", on_deny)
+            return _deny_reaction(
+                reason,
+                on_deny,
+                event.tool_call.id,
+                policy_decision=policy_decision,
+            )
 
         if tool_name in allow_set:
+            event.policy_decision = _decision_metadata(
+                source="always_allow",
+                judge_action=None,
+                runtime_action="allow",
+                reason=f"tool {tool_name!r} is in always_allow list",
+            )
             log_metric(
                 "process_judge.allow",
                 1,
@@ -806,10 +881,29 @@ def process_judge_hook(
                     "latency_ms": latency_ms,
                 },
             )
+            # Auth errors are persistent — disable the hook after the
+            # first failure so the agent doesn't loop. The first call still
+            # emits the configured Finish/Fail ReactStep so the TUI can flash
+            # the error. Subsequent calls pass through.
+            if "auth" in type(exc).__name__.lower():
+                from loguru import logger as _logger
+
+                _logger.error(
+                    "Guard policy disabled: judge model authentication failed ({})",
+                    exc,
+                )
+                _disabled = True
             return _judge_error_reaction(exc, on_judge_error)
 
         latency_ms = int((time.monotonic() - start) * 1000)
-        if decision.allow:
+        if decision.action == "allow":
+            event.policy_decision = _decision_metadata(
+                source="judge",
+                judge_action="allow",
+                runtime_action="allow",
+                reason=decision.reason,
+                latency_ms=latency_ms,
+            )
             log_metric(
                 "process_judge.allow",
                 1,
@@ -821,6 +915,67 @@ def process_judge_hook(
             )
             return None
 
+        if decision.action == "ask":
+            log_metric(
+                "process_judge.ask",
+                1,
+                attributes={
+                    "tool_name": tool_name,
+                    "reason": decision.reason,
+                    "latency_ms": latency_ms,
+                },
+            )
+            bridge = _resolve_permission()
+            if bridge is not None:
+                try:
+                    tool_input = json.loads(event.tool_call.function.arguments)
+                except (json.JSONDecodeError, TypeError):
+                    tool_input = {"_raw": event.tool_call.function.arguments}
+                approved = await bridge.request_tool_approval(
+                    tool_name=tool_name,
+                    tool_input=tool_input,
+                )
+                event.policy_decision = _decision_metadata(
+                    source="judge",
+                    judge_action="ask",
+                    runtime_action="allow" if approved else "deny",
+                    reason=decision.reason,
+                    latency_ms=latency_ms,
+                    human_approved=approved,
+                )
+                log_metric(
+                    "process_judge.ask_resolved",
+                    1,
+                    attributes={
+                        "tool_name": tool_name,
+                        "approved": approved,
+                    },
+                )
+                if approved:
+                    return None
+            if event.policy_decision is None:
+                event.policy_decision = _decision_metadata(
+                    source="judge",
+                    judge_action="ask",
+                    runtime_action="deny",
+                    reason=decision.reason,
+                    latency_ms=latency_ms,
+                    human_approved=None,
+                )
+            return _deny_reaction(
+                f"operator approval required: {decision.reason}",
+                on_deny,
+                event.tool_call.id,
+                policy_decision=event.policy_decision,
+            )
+
+        event.policy_decision = _decision_metadata(
+            source="judge",
+            judge_action="deny",
+            runtime_action="deny",
+            reason=decision.reason,
+            latency_ms=latency_ms,
+        )
         log_metric(
             "process_judge.deny",
             1,
@@ -831,6 +986,11 @@ def process_judge_hook(
                 "latency_ms": latency_ms,
             },
         )
-        return _deny_reaction(decision.reason, on_deny)
+        return _deny_reaction(
+            decision.reason,
+            on_deny,
+            event.tool_call.id,
+            policy_decision=event.policy_decision,
+        )
 
     return process_judge_hook_inner

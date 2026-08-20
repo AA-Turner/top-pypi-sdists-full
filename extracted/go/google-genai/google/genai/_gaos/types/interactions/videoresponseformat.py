@@ -46,6 +46,18 @@ VideoResponseFormatDelivery = Union[
 r"""The delivery mode for the video output."""
 
 
+Resolution = Union[
+    Literal[
+        "360p",
+        "720p",
+        "1080p",
+        "4k",
+    ],
+    UnrecognizedStr,
+]
+r"""The video output resolution. Defaults to 720p."""
+
+
 class VideoResponseFormatParam(TypedDict):
     r"""Configuration for video output format."""
 
@@ -59,6 +71,8 @@ class VideoResponseFormatParam(TypedDict):
     r"""The Cloud Storage URI to store the video output. Required for Vertex if
     delivery mode is URI.
     """
+    resolution: NotRequired[Resolution]
+    r"""The video output resolution. Defaults to 720p."""
     type: Literal["video"]
 
 
@@ -79,6 +93,9 @@ class VideoResponseFormat(BaseModel):
     delivery mode is URI.
     """
 
+    resolution: Optional[Resolution] = None
+    r"""The video output resolution. Defaults to 720p."""
+
     type: Annotated[
         Annotated[Literal["video"], AfterValidator(validate_const("video"))],
         pydantic.Field(alias="type"),
@@ -86,7 +103,9 @@ class VideoResponseFormat(BaseModel):
 
     @model_serializer(mode="wrap")
     def serialize_model(self, handler):
-        optional_fields = set(["aspect_ratio", "delivery", "duration", "gcs_uri"])
+        optional_fields = set(
+            ["aspect_ratio", "delivery", "duration", "gcs_uri", "resolution"]
+        )
         serialized = handler(self)
         m = {}
 

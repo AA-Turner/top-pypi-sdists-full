@@ -7,24 +7,25 @@ the test targets.
 import shutil
 import subprocess
 import sys
+from pathlib import Path
 from typing import Tuple, Dict, List
 
 from fprime.fbuild.types import NoTargetFoundException
 from fprime.fbuild.target import (
-    TargetContext,
     TargetScope,
     EnumeratedAction,
     CompositeTarget,
 )
 
 from fprime.fbuild.target import BuildSystemTarget
-from .enumerator import BuildTargetEnumerator
+from .enumerator import BuildTargetEnumerator, EnumeratedContext
 
 
 class Check(EnumeratedAction):
     """Target invoking CTest executable to run tests"""
 
     EXECUTABLE = "ctest"
+    TEST_DIR_FILE = "test-dir.fprime-util"
 
     def __init__(
         self, scope: TargetScope, build_target_enumerator: BuildTargetEnumerator = None
@@ -32,7 +33,7 @@ class Check(EnumeratedAction):
         """Initialize this action with the test enumerator"""
         super().__init__(scope=scope, build_target_enumerator=build_target_enumerator)
 
-    def any_supported(self, builder: "Build", context: TargetContext):
+    def any_supported(self, builder: "Build", context_with_path: EnumeratedContext):
         """Check if this target is supported in the given context
 
         This will determine if two conditions are met:
@@ -42,15 +43,23 @@ class Check(EnumeratedAction):
         if not bool(shutil.which(self.EXECUTABLE)):
             print("[ERROR] CTest not found", file=sys.stderr)
             return False
+        context, _ = context_with_path
         return len(context) > 0
 
     def execute_all(
         self,
         builder: "Build",
-        context: TargetContext,
+        context_with_path: EnumeratedContext,
         args: Tuple[Dict[str, str], List[str], Dict[str, bool]],
     ):
         """Execute this target"""
+        context, context_path = context_with_path
+        build_cache_path = (
+            builder.get_build_cache_path(context_path)
+            if context_path
+            else builder.build_dir
+        )
+        test_directory = self._resolve_test_directory(build_cache_path)
 
         if not context:
             # This only happens if the provided path does not contain tests
@@ -63,7 +72,7 @@ class Check(EnumeratedAction):
         cli_args = [
             self.EXECUTABLE,
             "--test-dir",
-            str(builder.build_dir),
+            str(test_directory),
             "--no-tests=error",
         ]
         make_args = args[0]
@@ -81,6 +90,7 @@ class Check(EnumeratedAction):
         ):
             cli_args.append("-V")
 
+        print(f"[INFO] Running CTest with context: {context}")
         # When not "all" append a regex to filter tests. .* works as a regex
         if context and context != ["all"]:
             test_regex = f"^({'|'.join(context)})$"
@@ -94,6 +104,33 @@ class Check(EnumeratedAction):
 
         # Check ensures errors result in this process erroring
         subprocess.run(cli_args, check=True)
+
+    @staticmethod
+    def _resolve_test_directory(build_cache_path: Path) -> Path:
+        """Resolve the CTest test directory from the build cache path.
+
+        Checks for a test-dir.fprime-util file in the build cache path. If found, the
+        path within is used as the CTest test directory. This allows the build system to
+        decouple the test directory from the enumeration directory, which is necessary
+        when tests are registered in sibling directories (e.g. component tests enumerated
+        from a deployment context).
+
+        When the file is not found, falls back to the build cache path itself.
+
+        Args:
+            build_cache_path: path within the build cache for the current context
+
+        Returns:
+            Path to use as the CTest --test-dir
+        """
+        test_dir_file = build_cache_path / Check.TEST_DIR_FILE
+        if test_dir_file.is_file():
+            test_dir_content = test_dir_file.read_text().strip()
+            resolved = Path(test_dir_content)
+            if not resolved.is_absolute():
+                resolved = (build_cache_path / resolved).resolve()
+            return resolved
+        return build_cache_path
 
 
 class CheckTarget(CompositeTarget):

@@ -38,7 +38,7 @@ if t.TYPE_CHECKING:
 
 
 ENV_VAR_PREFIXES = ("DBT_ENGINE_STATE_", "DBT_ENV_SECRET_STATE_", "RUN_CACHE_", "DBT_RUN_CACHE_")
-CONFIG_KEY_PREFIX = "run_cache_"
+CONFIG_KEY_PREFIXES = ("run_cache_", "")
 LOCKED_CONFIG = ("disable_telemetry",)
 DISABLE_TELEMETRY = False
 
@@ -76,6 +76,7 @@ DEFER_LOG_LEVEL_DEFAULT = "off"
 FRESHNESS_TOLERANCE_DEFAULT = 2700  # 45 minutes
 METADATA_CACHE_TTL_DEFAULT = 0  # infinite (cache never expires)
 API_CLIENT_TIMEOUT_DEFAULT = 60  # seconds
+API_CLIENT_MAX_ATTEMPTS_DEFAULT = 3  # total attempts per request on transient (UNAVAILABLE) errors
 CLIENT_ID_DEFAULT = "2fd87cd5-69a6-4c5f-9097-747a58f0edf6"
 
 
@@ -207,6 +208,7 @@ class RunCacheConfig:
     api_client_timeout: int = field(
         default=API_CLIENT_TIMEOUT_DEFAULT, metadata={"parser": _parse_time}
     )
+    api_client_max_attempts: int = API_CLIENT_MAX_ATTEMPTS_DEFAULT
     oauth_client_id: str = field(default=CLIENT_ID_DEFAULT, metadata={"sensitive": True})
     oauth_client_secret: t.Optional[str] = field(default=None, metadata={"sensitive": True})
     dbt_platform_tokens: t.List[DbtPlatformToken] = field(
@@ -273,11 +275,13 @@ class RunCacheConfig:
             if target_name in outputs:
                 target_config = outputs[target_name]
                 for field_name, field_and_type in config_fields.items():
-                    config_key = f"{CONFIG_KEY_PREFIX}{field_name}"
-                    if config_key in target_config:
-                        config[field_name] = cls._convert_value(
-                            target_config[config_key], field_and_type
-                        )
+                    for config_key_prefix in CONFIG_KEY_PREFIXES:
+                        config_key = f"{config_key_prefix}{field_name}"
+                        if config_key in target_config:
+                            config[field_name] = cls._convert_value(
+                                target_config[config_key], field_and_type
+                            )
+                            break
 
                 # map metadata_warehouse -> snowflake_metadata_warehouse for snowflake targets
                 if (
@@ -318,9 +322,11 @@ class RunCacheConfig:
             flags = renderer.render_data(flags)
 
         for field_name, field_and_type in config_fields.items():
-            config_key = f"{CONFIG_KEY_PREFIX}{field_name}"
-            if config_key in flags:
-                config[field_name] = cls._convert_value(flags[config_key], field_and_type)
+            for config_key_prefix in CONFIG_KEY_PREFIXES:
+                config_key = f"{config_key_prefix}{field_name}"
+                if config_key in flags:
+                    config[field_name] = cls._convert_value(flags[config_key], field_and_type)
+                    break
 
         # state-org-id in the dbt-cloud section takes precedence over flags
         if runtime_config.dbt_cloud and (org_id := runtime_config.dbt_cloud.get("state-org-id")):
@@ -483,17 +489,25 @@ class RunCacheConfig:
 
         Returns None if the key is not found in either location.
         """
-        prefixed_key = f"{CONFIG_KEY_PREFIX}{key}"
+        prefixed_keys = [f"{config_key_prefix}{key}" for config_key_prefix in CONFIG_KEY_PREFIXES]
 
-        # Check meta first to avoid the deprecation warning that newer dbt versions emit
-        # when BaseConfig.get() finds a key in meta but not in _extra.
-        if hasattr(node_config, "meta_get"):
-            value = node_config.meta_get(prefixed_key)
-        else:
-            value = (getattr(node_config, "meta", None) or {}).get(prefixed_key)
-        if value is not None:
-            return value
-        return node_config.get(prefixed_key)
+        for prefixed_key in prefixed_keys:
+            # Check meta first to avoid the deprecation warning that newer dbt versions emit
+            # when BaseConfig.get() finds a key in meta but not in _extra.
+            if hasattr(node_config, "meta_get"):
+                value = node_config.meta_get(prefixed_key)
+            else:
+                value = (getattr(node_config, "meta", None) or {}).get(prefixed_key)
+            if value is not None:
+                return value
+
+            # dbt 1.7 doesnt have node_config.get()
+            if hasattr(node_config, "get"):
+                value = node_config.get(prefixed_key, default=None)
+                if value is not None:
+                    return value
+
+        return None
 
     @staticmethod
     def _get_node_config_state_value(

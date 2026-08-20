@@ -49,7 +49,9 @@ class TestSlowQueriesResponse(unittest.TestCase):
                             ''
                             ], )
                     ],
-                total_slow_queries = 56
+                total_slow_queries = 56,
+                returned_count = 56,
+                total_is_exact = True
             )
         else:
             return SlowQueriesResponse(
@@ -67,6 +69,8 @@ class TestSlowQueriesResponse(unittest.TestCase):
                             ], )
                     ],
                 total_slow_queries = 56,
+                returned_count = 56,
+                total_is_exact = True,
         )
         """
 

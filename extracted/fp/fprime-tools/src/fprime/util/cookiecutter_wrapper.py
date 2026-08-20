@@ -100,7 +100,7 @@ def new_component(build: Build, parsed_args: "argparse.Namespace"):
         return 1
 
     try:
-        proj_root = build.get_settings("project_root", None)
+        proj_root = build.get_settings("project_root", None) or build.cmake_root
 
         # Checks if component_cookiecutter is set in settings.ini file, else uses local component_cookiecutter template as default
         if (
@@ -127,11 +127,6 @@ def new_component(build: Build, parsed_args: "argparse.Namespace"):
 
         gen_path = Path(cookiecutter(source, extra_context=extra_context)).resolve()
 
-        if proj_root is None:
-            print(
-                f"[INFO] Created component directory without adding to build system nor generating implementation {gen_path}"
-            )
-            return 0
         # Attempt to register to CMakeLists.txt or project.cmake
         register_with_cmake(
             gen_path,
@@ -197,7 +192,7 @@ def new_deployment(build: Build, parsed_args: "argparse.Namespace"):
     if rel_path:
         extra_context["__include_path_prefix"] = f"{rel_path}/"
     # Use current working directory name as default namespace, unless at project root
-    project_root: Path = build.get_settings("project_root", None)
+    project_root: Path = build.get_settings("project_root", None) or build.cmake_root
     if not project_root.samefile(Path.cwd()):
         extra_context["deployment_namespace"] = Path.cwd().name
 
@@ -212,7 +207,7 @@ def new_deployment(build: Build, parsed_args: "argparse.Namespace"):
         # Attempt to register to CMakeLists.txt or project.cmake
         register_with_cmake(
             gen_path,
-            Path(build.get_settings("project_root", None)).resolve(),
+            (build.get_settings("project_root", None) or build.cmake_root).resolve(),
             build.cmake_root,
         )
 
@@ -254,7 +249,7 @@ def new_subtopology(build: Build, parsed_args: "argparse.Namespace"):
         # Attempt to register to CMakeLists.txt or project.cmake
         register_with_cmake(
             gen_path,
-            Path(build.get_settings("project_root", None)).resolve(),
+            (build.get_settings("project_root", None) or build.cmake_root).resolve(),
             build.cmake_root,
         )
 
@@ -293,7 +288,7 @@ def new_module(build: Build, parsed_args: "argparse.Namespace", source=None):
         # Attempt to register to CMakeLists.txt or project.cmake
         register_with_cmake(
             gen_path,
-            Path(build.get_settings("project_root", None)).resolve(),
+            (build.get_settings("project_root", None) or build.cmake_root).resolve(),
             build.cmake_root,
         )
     except OutputDirExistsException as out_directory_error:
@@ -314,6 +309,54 @@ def new_module(build: Build, parsed_args: "argparse.Namespace", source=None):
             file=sys.stderr,
         )
         return 1
+    return 0
+
+
+def new_rule_based_testing(build: Build, parsed_args: "argparse.Namespace"):
+    """Creates a new rules based testing scaffold using cookiecutter"""
+
+    cwd = Path.cwd()
+    if cwd.name == "ut" and cwd.parent.name == "test":
+        print(
+            "[ERROR] Wrong location. Cannot be run from the test/ut directory."
+            " Please navigate to the component directory and try again."
+        )
+        return 1
+
+    source = (
+        os.path.dirname(__file__)
+        + "/../cookiecutter_templates/cookiecutter-fprime-rules-test"
+    )
+    # Extra contextual information for cookiecutter
+    extra_context = {}
+    rel_path = get_directory_path_relative_to_root(build)
+    extra_context["__include_path_prefix"] = f"{rel_path}" if rel_path else ""
+    cwd = Path.cwd()
+
+    extra_context["_component_name"] = cwd.name
+    extra_context["_component_namespace"] = (
+        cwd.parent.parent.name if cwd.parent.name == "Components" else cwd.name
+    )
+    try:
+        print(extra_context)
+        gen_path = Path(
+            cookiecutter(
+                source,
+                extra_context=extra_context,
+                overwrite_if_exists=True,  # needed to add to existing test/ut directory
+                skip_if_file_exists=True,  # safety
+            )
+        ).resolve()
+    except OutputDirExistsException as out_directory_error:
+        print(
+            f"{out_directory_error}. Use --overwrite to overwrite (will not delete non-generated files).",
+            file=sys.stderr,
+        )
+        return 1
+    print(
+        f"[INFO] Rule-based test scaffold successfully created in {gen_path}/test/ut/ \n"
+        "[INFO] For next steps, refer to the F Prime How-To Guide on Rule-Based Testing"
+    )
     return 0
 
 

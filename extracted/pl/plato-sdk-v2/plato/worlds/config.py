@@ -192,6 +192,23 @@ class AgentConfig(BaseModel):
         default="login",
         description=("Name of the flow to replay for pre-agent login. Only honored when ``browser_tooling`` is True."),
     )
+    runtime_idle_release_seconds: float | None = Field(
+        default=None,
+        gt=0,
+        description=(
+            "When set, the pooled runtime acquired for a task stays bound to "
+            "that task after each successful run; after this many seconds "
+            "without a new run (or on a failed run / shutdown) the VM is "
+            "DESTROYED — idle lanes shed capacity entirely while the pool's "
+            "warm floor replenishes independently for fast first-acquires. "
+            "Interactive lanes get a stable VM across "
+            "turns instead of paying a pool acquire per message. Process-safe "
+            "by construction: agent runners exit at the end of every run, so "
+            "no agent process exists between runs, and the idle timer is "
+            "cancelled before a run starts so it can never fire mid-run. "
+            "None (default) keeps the release-after-every-run behavior."
+        ),
+    )
 
 
 # =============================================================================

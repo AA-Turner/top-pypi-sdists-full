@@ -4,11 +4,11 @@ build-backend = "poetry.core.masonry.api"
 
 [project]
 name = "eventsourcing"
-version = "9.5.4"
+version = "9.5.5"
 description = "Event sourcing in Python"
 license = "BSD-3-Clause"
 readme = "README.md"
-requires-python = ">=3.10.0"
+requires-python = ">=3.11.0"
 authors = [
     { "name" = "John Bywater", "email" = "john.bywater@appropriatesoftware.net" },
 ]
@@ -22,7 +22,6 @@ classifiers = [
     "License :: OSI Approved :: BSD License",
     "Operating System :: OS Independent",
     "Programming Language :: Python :: 3",
-    "Programming Language :: Python :: 3.10",
     "Programming Language :: Python :: 3.11",
     "Programming Language :: Python :: 3.12",
     "Programming Language :: Python :: 3.13",
@@ -68,7 +67,8 @@ pydantic = { version = "*"}
 orjson = { version = "*"}
 msgspec = { version = "*"}
 pytest = { version = "*"}
-eventsourcing-umadb = { version = ">=0.3.1", allow-prereleases = true }
+eventsourcing-umadb = { version = "<0.4" }
+#eventsourcing-umadb = {path = "../eventsourcing-umadb", develop = true}
 
 [tool.poetry.group.docs.dependencies]
 Sphinx = { version = "*"}
@@ -78,7 +78,7 @@ pytest-benchmark = { version = "*", extras = ["histogram"]}
 
 [tool.black]
 line-length = 88
-target-version = ["py310"]
+target-version = ["py311"]
 include = '\.pyi?$'
 preview = true
 exclude = '''
@@ -160,8 +160,8 @@ sections = "FUTURE,STDLIB,THIRDPARTY,FIRSTPARTY,LOCALFOLDER"
 line-length = 88
 #indent-width = 4
 
-# Assume Python 3.10
-target-version = "py310"
+# Assume Python 3.11
+target-version = "py311"
 
 [tool.ruff.lint]
 select = [
@@ -185,6 +185,7 @@ ignore = [
     "PLR0912", # Too many branches
     "S101", # Use of `assert` detected
     "PLR2004", # Magic value used in comparison
+    "CPY001",
 
 ]
 
@@ -250,5 +251,5 @@ include = [
     "examples",
     "tests",
 ]
-pythonVersion = "3.10"
+pythonVersion = "3.11"
 typeCheckingMode = "standard"

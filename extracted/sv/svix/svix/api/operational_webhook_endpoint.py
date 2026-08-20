@@ -11,7 +11,7 @@ from ..models import (
     OperationalWebhookEndpointOut,
     OperationalWebhookEndpointSecretIn,
     OperationalWebhookEndpointSecretOut,
-    OperationalWebhookEndpointUpdate,
+    OperationalWebhookEndpointUpsertIn,
 )
 from .common import ApiBaseAsync, ApiBaseSync, BaseOptions, serialize_params
 
@@ -107,10 +107,10 @@ class OperationalWebhookEndpointAsync(ApiBaseAsync):
         )
         return OperationalWebhookEndpointOut.model_validate(response.json())
 
-    async def update(
+    async def upsert(
         self,
         endpoint_id: str,
-        operational_webhook_endpoint_update: OperationalWebhookEndpointUpdate,
+        operational_webhook_endpoint_upsert_in: OperationalWebhookEndpointUpsertIn,
     ) -> OperationalWebhookEndpointOut:
         """Create or update an operational webhook endpoint."""
         response = await self._request_asyncio(
@@ -119,7 +119,7 @@ class OperationalWebhookEndpointAsync(ApiBaseAsync):
             path_params={
                 "endpoint_id": endpoint_id,
             },
-            json_body=operational_webhook_endpoint_update.model_dump_json(
+            json_body=operational_webhook_endpoint_upsert_in.model_dump_json(
                 exclude_unset=True, by_alias=True
             ),
         )
@@ -159,7 +159,7 @@ class OperationalWebhookEndpointAsync(ApiBaseAsync):
     ) -> None:
         """Rotates an operational webhook endpoint's signing secret.
 
-        The previous secret will remain valid for the next 24 hours."""
+        The previous secret will remain valid for the specified grace period (default 24 hours)."""
         await self._request_asyncio(
             method="post",
             path="/api/v1/operational-webhook/endpoint/{endpoint_id}/secret/rotate",
@@ -186,7 +186,7 @@ class OperationalWebhookEndpointAsync(ApiBaseAsync):
         )
         return OperationalWebhookEndpointHeadersOut.model_validate(response.json())
 
-    async def update_headers(
+    async def set_headers(
         self,
         endpoint_id: str,
         operational_webhook_endpoint_headers_in: OperationalWebhookEndpointHeadersIn,
@@ -252,10 +252,10 @@ class OperationalWebhookEndpoint(ApiBaseSync):
         )
         return OperationalWebhookEndpointOut.model_validate(response.json())
 
-    def update(
+    def upsert(
         self,
         endpoint_id: str,
-        operational_webhook_endpoint_update: OperationalWebhookEndpointUpdate,
+        operational_webhook_endpoint_upsert_in: OperationalWebhookEndpointUpsertIn,
     ) -> OperationalWebhookEndpointOut:
         """Create or update an operational webhook endpoint."""
         response = self._request_sync(
@@ -264,7 +264,7 @@ class OperationalWebhookEndpoint(ApiBaseSync):
             path_params={
                 "endpoint_id": endpoint_id,
             },
-            json_body=operational_webhook_endpoint_update.model_dump_json(
+            json_body=operational_webhook_endpoint_upsert_in.model_dump_json(
                 exclude_unset=True, by_alias=True
             ),
         )
@@ -304,7 +304,7 @@ class OperationalWebhookEndpoint(ApiBaseSync):
     ) -> None:
         """Rotates an operational webhook endpoint's signing secret.
 
-        The previous secret will remain valid for the next 24 hours."""
+        The previous secret will remain valid for the specified grace period (default 24 hours)."""
         self._request_sync(
             method="post",
             path="/api/v1/operational-webhook/endpoint/{endpoint_id}/secret/rotate",
@@ -329,7 +329,7 @@ class OperationalWebhookEndpoint(ApiBaseSync):
         )
         return OperationalWebhookEndpointHeadersOut.model_validate(response.json())
 
-    def update_headers(
+    def set_headers(
         self,
         endpoint_id: str,
         operational_webhook_endpoint_headers_in: OperationalWebhookEndpointHeadersIn,

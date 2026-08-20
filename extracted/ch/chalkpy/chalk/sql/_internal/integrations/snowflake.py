@@ -368,6 +368,16 @@ class SnowflakeSourceImpl(BaseSQLSource):
         BaseSQLSource.__init__(
             self, name=name, engine_args=engine_args, async_engine_args={}, permission_tags=permission_tags
         )
+        # A top-level "host" engine arg is shorthand for connect_args["host"] (a custom hostname
+        # the driver connects to instead of <account>.snowflakecomputing.com, e.g. through a
+        # PrivateLink or proxy). create_engine() rejects a host kwarg, so it must be folded into
+        # connect_args; an explicit connect_args host wins over the shorthand. This runs after
+        # BaseSQLSource.__init__ because that constructor setdefault-merges the named
+        # integration's ENGINE_ARGUMENTS into both raw dicts, which can reintroduce the key.
+        for raw_args in (self._raw_engine_args, self._raw_async_engine_args):
+            args_host = raw_args.pop("host", None)
+            if args_host is not None:
+                raw_args.setdefault("connect_args", {}).setdefault("host", args_host)
 
     kind = SQLSourceKind.snowflake
 

@@ -33,11 +33,11 @@ if(BUILD_MQT_QCEC_BINDINGS)
 endif()
 
 # cmake-format: off
-set(MQT_CORE_MINIMUM_VERSION 3.8.0
+set(MQT_CORE_MINIMUM_VERSION 3.9.0
     CACHE STRING "MQT Core minimum version")
-set(MQT_CORE_VERSION 3.8.0
+set(MQT_CORE_VERSION 3.9.0
     CACHE STRING "MQT Core version")
-set(MQT_CORE_REV "ae42c97dc7073b8728a8ab23d06aabe4ee25c7e5"
+set(MQT_CORE_REV "9d4820d564e585759ada3757950cce9a7f836f1a"
     CACHE STRING "MQT Core identifier (tag, branch or commit hash)")
 set(MQT_CORE_REPO_OWNER "munich-quantum-toolkit"
 	  CACHE STRING "MQT Core repository owner (change when using a fork)")
@@ -48,6 +48,28 @@ FetchContent_Declare(
   GIT_TAG ${MQT_CORE_REV}
   FIND_PACKAGE_ARGS ${MQT_CORE_MINIMUM_VERSION})
 list(APPEND FETCH_PACKAGES mqt-core)
+
+set(JSON_VERSION
+    3.12.0
+    CACHE STRING "nlohmann_json version")
+set(JSON_URL https://github.com/nlohmann/json/releases/download/v${JSON_VERSION}/json.tar.xz)
+set(JSON_SystemInclude
+    ON
+    CACHE INTERNAL "Treat the library headers like system headers")
+FetchContent_Declare(nlohmann_json URL ${JSON_URL} FIND_PACKAGE_ARGS ${JSON_VERSION})
+list(APPEND FETCH_PACKAGES nlohmann_json)
+
+set(BOOST_MP_STANDALONE
+    ON
+    CACHE INTERNAL "Use standalone Boost.Multiprecision")
+set(MQT_QCEC_BOOST_VERSION
+    1_89_0
+    CACHE INTERNAL "Boost version")
+set(MQT_QCEC_BOOST_URL
+    https://github.com/boostorg/multiprecision/archive/refs/tags/Boost_${MQT_QCEC_BOOST_VERSION}.tar.gz
+)
+FetchContent_Declare(boost_mp URL ${MQT_QCEC_BOOST_URL})
+list(APPEND FETCH_PACKAGES boost_mp)
 
 if(BUILD_MQT_QCEC_TESTS)
   set(gtest_force_shared_crt
@@ -63,3 +85,5 @@ endif()
 
 # Make all declared dependencies available.
 FetchContent_MakeAvailable(${FETCH_PACKAGES})
+
+get_target_property(MQT_QCEC_BOOST_INCLUDE_DIRS Boost::multiprecision INTERFACE_INCLUDE_DIRECTORIES)

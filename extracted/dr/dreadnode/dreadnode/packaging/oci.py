@@ -21,6 +21,7 @@ import inspect
 import io
 import json
 import os
+import re
 import tarfile
 import typing as t
 from dataclasses import dataclass, field
@@ -525,6 +526,13 @@ def _resolve_produced_item_types(
 
     resolved: list[dict[str, t.Any]] = []
     for type_name, ref in (produces or {}).items():
+        if not re.fullmatch(r"[a-z][a-z0-9_]{0,63}", type_name) or type_name in {
+            "finding",
+            "asset",
+        }:
+            raise ValueError(
+                f"produces item type identifier {type_name!r} must be lowercase snake_case, at most 64 characters, and not a built-in type"
+            )
         module_ref, sep, class_name = ref.partition(":")
         if not sep or not class_name:
             raise ValueError(f"produces['{type_name}'] must be 'module:ClassName', got '{ref}'")
@@ -588,6 +596,32 @@ def build_capability(source_dir: Path, *, name: str | None = None) -> OCIImage:
             skill_paths.append(str(skill_root.parent.relative_to(cap.path)))
 
     manifest_dict = json.loads(cap.manifest.model_dump_json())
+    declared_output_fields = cap.manifest.model_fields_set & {"outputs", "produces", "items"}
+    if "outputs" not in declared_output_fields and declared_output_fields:
+        from dreadnode.items.config import parse_item_produces_config
+
+        output_config = parse_item_produces_config(cap.manifest)
+        if not output_config.enabled:
+            manifest_dict["outputs"] = False
+        elif (
+            output_config.builtin_types == {"finding", "asset"}
+            and not output_config.registry_types
+            and not output_config.custom_types
+        ):
+            manifest_dict["outputs"] = True
+        elif not output_config.custom_types:
+            manifest_dict["outputs"] = sorted(
+                output_config.builtin_types | output_config.registry_types
+            )
+        else:
+            manifest_dict["outputs"] = dict(output_config.custom_types)
+            selected_identifiers = output_config.builtin_types | output_config.registry_types
+            if selected_identifiers:
+                manifest_dict["outputs"]["values"] = sorted(selected_identifiers)
+    elif "outputs" not in declared_output_fields:
+        manifest_dict.pop("outputs", None)
+    manifest_dict.pop("produces", None)
+    manifest_dict.pop("items", None)
     capability_root = cap.path.resolve()
 
     # Build raw (pre-interpolated) server config lookup for display metadata.
@@ -618,10 +652,8 @@ def build_capability(source_dir: Path, *, name: str | None = None) -> OCIImage:
         except ValueError:
             return None
 
-    # Resolve custom `produces` Pydantic classes → JSON Schemas at BUILD time.
-    # The platform never executes capability code, so extraction happens here
-    # and the schemas travel in the package. A bad reference fails the build
-    # loudly.
+    # Resolve optional local `outputs` Pydantic classes → JSON Schemas at BUILD
+    # time. Identifier-only platform types need no capability-local model.
     from dreadnode.items.config import custom_item_type_refs
 
     item_types_list = _resolve_produced_item_types(

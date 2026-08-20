@@ -14,6 +14,7 @@ from angr.ailment.constant import UNDETERMINED_SIZE
 from angr.ailment.expression import BinaryOp, StackBaseOffset
 from angr.analyses.analysis import Analysis, register_analysis
 from angr.analyses.decompiler.notes.deobfuscated_strings import DeobfuscatedStringsNote
+from angr.analyses.decompiler.peephole_optimizations.cas_intrinsics import cas_intrinsic_name
 from angr.analyses.decompiler.region_identifier import MultiNode
 from angr.analyses.decompiler.structurer_nodes import (
     BreakNode,
@@ -2979,6 +2980,7 @@ class CStructuredCodeGenerator(BaseStructuredCodeGenerator, Analysis, Serializab
             Stmt.Return: self._handle_Stmt_Return,
             Stmt.Label: self._handle_Stmt_Label,
             Stmt.DirtyStatement: self._handle_Stmt_Dirty,
+            Stmt.CAS: self._handle_Stmt_CAS,
             # AIL expressions
             Expr.Register: self._handle_Expr_Register,
             Expr.Load: self._handle_Expr_Load,
@@ -4112,6 +4114,23 @@ class CStructuredCodeGenerator(BaseStructuredCodeGenerator, Analysis, Serializab
         dirty = self._handle(stmt.dirty)
         return CDirtyStatement(dirty, codegen=self)
 
+    def _handle_Stmt_CAS(self, stmt: Stmt.CAS, **kwargs):
+        # CASIntrinsics normally rewrites compare-and-swap statements into intrinsic calls before we get here, but it
+        # only recognizes a handful of statement shapes. Render whatever it left behind as the same intrinsic call
+        # instead of failing the whole function.
+        if stmt.old_hi is None:
+            os_name = self.project.simos.name if self.project.simos is not None else None
+            call = Expr.Call(
+                stmt.idx,
+                cas_intrinsic_name(f"cmpxchg{stmt.bits}", os_name),
+                args=[stmt.addr, stmt.data_lo, stmt.expd_lo],
+                bits=stmt.bits,
+                **stmt.tags,
+            )
+            return self._handle(Stmt.Assignment(stmt.idx, stmt.old_lo, call, **stmt.tags), is_expr=False)
+        # a double-width CAS writes two destinations, which no single C expression captures
+        return CUnsupportedStatement(stmt, codegen=self)
+
     #
     # AIL expression handlers
     #
@@ -4146,7 +4165,7 @@ class CStructuredCodeGenerator(BaseStructuredCodeGenerator, Analysis, Serializab
             expr_size = expr.size
             expr_bits = expr.bits
 
-        if expr.size > 100 and isinstance(expr.addr, Expr.Const):
+        if expr_size > 100 and isinstance(expr.addr, Expr.Const):
             return self._handle_Expr_Const(expr.addr, type_=SimTypePointer(SimTypeChar()).with_arch(self.project.arch))
 
         ty = self.default_simtype_from_bits(expr_bits)

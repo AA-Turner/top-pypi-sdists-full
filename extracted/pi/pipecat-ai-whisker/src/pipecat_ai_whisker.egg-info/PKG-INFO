@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: pipecat-ai-whisker
-Version: 2.0.0
+Version: 2.0.1
 Summary: A real-time debugger for Pipecat
 License-Expression: BSD-2-Clause
 Project-URL: Source, https://github.com/pipecat-ai/whisker

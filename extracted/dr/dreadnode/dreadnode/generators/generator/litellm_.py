@@ -1,14 +1,17 @@
 import asyncio
 import base64
+import contextlib
 import datetime
 import re
 import typing as t
 import warnings
 
+import httpx
 from loguru import logger
 
 from dreadnode.agents.tools import FunctionDefinition, ToolDefinition
 from dreadnode.app.model_catalog import infer_provider
+from dreadnode.core.tls import create_platform_ssl_context
 from dreadnode.generators.exceptions import GeneratorWarning, ProcessingError
 from dreadnode.generators.generator.base import (
     Fixup,
@@ -37,6 +40,24 @@ if t.TYPE_CHECKING:
 # Suppress pydantic serialization warnings from litellm types (Message, Choices, etc.)
 # whose runtime fields don't match their declared schema.
 warnings.filterwarnings("ignore", message="Pydantic serializer warnings", module="pydantic")
+
+
+@contextlib.asynccontextmanager
+async def _platform_proxy_client(
+    params: dict[str, t.Any],
+    api_key: str | None,
+) -> t.AsyncIterator[t.Any | None]:
+    if params.get("custom_llm_provider") != "litellm_proxy":
+        yield None
+        return
+
+    from openai import AsyncOpenAI
+
+    api_base = params.get("api_base")
+    if not isinstance(api_base, str) or not api_base:
+        raise RuntimeError("Missing platform proxy API base URL")
+    async with httpx.AsyncClient(verify=create_platform_ssl_context()) as http_client:
+        yield AsyncOpenAI(api_key=api_key, base_url=api_base, http_client=http_client)
 
 
 class OpenAIToolsWithImageURLsFixup(Fixup):
@@ -1018,15 +1039,17 @@ class LiteLLMGenerator(Generator):
             )
 
             compatibility_flags = _compatibility_flags_for_model(self.model)
-            response = await acompletion(
-                model=self.model,
-                messages=[
-                    message.to_openai(compatibility_flags=compatibility_flags)
-                    for message in messages
-                ],
-                api_key=self.api_key,
-                **merged,
-            )
+            async with _platform_proxy_client(merged, self.api_key) as client:
+                response = await acompletion(
+                    model=self.model,
+                    messages=[
+                        message.to_openai(compatibility_flags=compatibility_flags)
+                        for message in messages
+                    ],
+                    api_key=self.api_key,
+                    **({"client": client} if client is not None else {}),
+                    **merged,
+                )
 
             self._last_request_time = datetime.datetime.now(tz=datetime.UTC)
 
@@ -1066,12 +1089,15 @@ class LiteLLMGenerator(Generator):
             if self._wrap is not None:
                 atext_completion = self._wrap(atext_completion)
 
-            response = await atext_completion(
-                prompt=text,
-                model=self.model,
-                api_key=self.api_key,
-                **self.params.merge_with(params).to_dict(),
-            )
+            merged = self.params.merge_with(params).to_dict()
+            async with _platform_proxy_client(merged, self.api_key) as client:
+                response = await atext_completion(
+                    prompt=text,
+                    model=self.model,
+                    api_key=self.api_key,
+                    **({"client": client} if client is not None else {}),
+                    **merged,
+                )
 
             self._last_request_time = datetime.datetime.now(tz=datetime.UTC)
             return self._parse_text_completion_response(response)

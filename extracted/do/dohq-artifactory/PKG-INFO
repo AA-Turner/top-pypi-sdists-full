@@ -1,6 +1,6 @@
-Metadata-Version: 2.1
+Metadata-Version: 2.4
 Name: dohq-artifactory
-Version: 1.0.1
+Version: 1.0.2
 Summary: A Python interface to Artifactory
 Home-page: https://devopshq.github.io/artifactory/
 Download-URL: https://github.com/devopshq/artifactory
@@ -12,14 +12,15 @@ Classifier: Intended Audience :: Developers
 Classifier: License :: OSI Approved :: MIT License
 Classifier: Operating System :: OS Independent
 Classifier: Programming Language :: Python :: 3
-Classifier: Programming Language :: Python :: 3.8
 Classifier: Programming Language :: Python :: 3.9
 Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
+Classifier: Programming Language :: Python :: 3.14
 Classifier: Topic :: Software Development :: Libraries
 Classifier: Topic :: System :: Filesystems
+Requires-Python: >=3.9
 License-File: LICENSE
 Requires-Dist: requests>=2.30.0
 Requires-Dist: python-dateutil
@@ -29,5 +30,17 @@ Requires-Dist: pytest>=7.0.0; extra == "tests"
 Requires-Dist: responses>=0.23.1; extra == "tests"
 Requires-Dist: mock; extra == "tests"
 Requires-Dist: flake8; extra == "tests"
+Dynamic: author
+Dynamic: author-email
+Dynamic: classifier
+Dynamic: description
+Dynamic: download-url
+Dynamic: home-page
+Dynamic: license
+Dynamic: license-file
+Dynamic: provides-extra
+Dynamic: requires-dist
+Dynamic: requires-python
+Dynamic: summary
 
 See full documentation here: https://devopshq.github.io/artifactory/

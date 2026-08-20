@@ -720,6 +720,7 @@ class BaseWorld(PreviewMixin, RuntimeMixin, ChronosSessionMixin, ABC, Generic[Co
                 api_key=repo_info.api_key,
                 session_id=self.chronos.session_id if self.chronos else "",
                 commit_strategy=getattr(marker, "commit_strategy", "manifest"),
+                nfs_mount_options=getattr(marker, "nfs_mount_options", ""),
             )
 
             await workspace.init()

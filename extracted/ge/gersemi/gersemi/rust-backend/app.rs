@@ -16,6 +16,7 @@ use crate::warning_sink::{flush_warnings, register_warning_sink, WarningSink};
 use pyo3::exceptions::PyRuntimeError;
 use pyo3::{pyclass, pymethods, Py, PyAny, PyResult, Python};
 use rayon::ThreadPoolBuilder;
+use std::collections::HashMap;
 use std::path::{Path, PathBuf};
 
 pub struct StatusCode {
@@ -41,7 +42,7 @@ pub struct App {
 }
 
 fn split_files_by_formatting_state(
-    cache: &mut Cache,
+    cache: &Cache,
     files: Vec<PathBuf>,
     configuration: &OutcomeConfiguration,
 ) -> PyResult<(Vec<PathBuf>, Vec<PathBuf>)> {
@@ -76,14 +77,30 @@ fn has_stdin_mixed_with_files(paths: &[PathBuf]) -> bool {
     (number_of_stdin_paths > 0) && (number_of_stdin_paths != paths.len())
 }
 
-fn find_closest_dot_gersemirc(path: &Path) -> Option<PathBuf> {
-    for parent in path.ancestors() {
-        let result = parent.join(".gersemirc");
-        if result.exists() {
-            return Some(result);
+fn find_closest_dot_gersemirc(
+    path: &Path,
+    cache: &mut HashMap<PathBuf, Option<PathBuf>>,
+) -> Option<PathBuf> {
+    let parent = path.parent();
+
+    let result = match parent {
+        None => None,
+        Some(dir) => {
+            if let Some(cached) = cache.get(dir) {
+                return cached.clone();
+            }
+
+            let candidate = dir.join(".gersemirc");
+            let result = if candidate.exists() {
+                Some(candidate)
+            } else {
+                find_closest_dot_gersemirc(dir, cache)
+            };
+            cache.insert(dir.to_path_buf(), result.clone());
+            result
         }
-    }
-    None
+    };
+    result
 }
 
 #[pymethods]
@@ -132,7 +149,7 @@ impl App {
             outcome,
         };
         let (already_formatted_files, files_to_format) =
-            split_files_by_formatting_state(&mut self.cache, files, &configuration.outcome)?;
+            split_files_by_formatting_state(&self.cache, files, &configuration.outcome)?;
 
         for code in handle_already_formatted_files(
             &configuration,
@@ -146,7 +163,7 @@ impl App {
             py,
             &configuration,
             &self.args.mode,
-            &mut self.cache,
+            &self.cache,
             files_to_format,
         )? {
             self.status_code.add(code);
@@ -184,8 +201,9 @@ impl App {
         }
 
         let mut result = Vec::new();
+        let mut dot_gersemirc_cache = HashMap::new();
         for source in sources {
-            let config_file = find_closest_dot_gersemirc(&source);
+            let config_file = find_closest_dot_gersemirc(&source, &mut dot_gersemirc_cache);
             match result.iter_mut().find(|(key, _)| *key == config_file) {
                 None => result.push((config_file, vec![source])),
                 Some((_, values)) => values.push(source),

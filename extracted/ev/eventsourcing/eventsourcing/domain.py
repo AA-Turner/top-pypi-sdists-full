@@ -38,8 +38,7 @@ from eventsourcing.utils import (
 
 if TYPE_CHECKING:
     from collections.abc import Iterable, Sequence
-
-    from typing_extensions import Self
+    from typing import Self
 
 
 TZINFO: tzinfo = resolve_topic(os.getenv("TZINFO_TOPIC", "datetime:timezone.utc"))
@@ -1317,7 +1316,7 @@ class BaseAggregate(Generic[TAggregateID], metaclass=MetaAggregate):
             raise ProgrammingError(msg)
 
         # Get the class annotations.
-        class_annotations = cls.__dict__.get("__annotations__", {})
+        class_annotations = cls.__dict__.get("__annotations__", {})  # noqa: RUF063
         try:
             class_annotations.pop("id")
             _annotations_mention_id.add(cls)

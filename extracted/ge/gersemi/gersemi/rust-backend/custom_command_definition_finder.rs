@@ -5,7 +5,7 @@ use crate::node::{
     Argument, Arguments, ArgumentsAtom, ArgumentsNode, BracketArgument, Command, CommandInvocation,
     FileElement, Position, Start,
 };
-use crate::parser::Parser;
+use crate::parser::{is_function_or_macro, Parser};
 use crate::utils::{get_files, normalize_newlines, read_code};
 use pyo3::{PyResult, Python};
 use rayon::iter::{IntoParallelIterator, ParallelIterator};
@@ -44,9 +44,11 @@ fn into_arguments(node: ArgumentsNode) -> Arguments {
         .collect()
 }
 
-fn new_command(identifier: &str, node: ArgumentsNode) -> Option<(Argument, Vec<String>)> {
-    let is_function_or_macro = (identifier == "function") || (identifier == "macro");
-    if !is_function_or_macro {
+fn new_command<'a>(
+    identifier: &str,
+    node: ArgumentsNode<'a>,
+) -> Option<(Argument<'a>, Vec<String>)> {
+    if !is_function_or_macro(identifier) {
         return None;
     }
 
@@ -56,7 +58,7 @@ fn new_command(identifier: &str, node: ArgumentsNode) -> Option<(Argument, Vec<S
 
     let positional_arguments = positional_arguments
         .iter()
-        .map(Argument::get_value)
+        .map(|x| Argument::get_value(x).to_string())
         .collect();
     Some((name?, positional_arguments))
 }
@@ -85,7 +87,7 @@ fn get_command_start(node: &Argument) -> Option<Position> {
         Argument::Bracket(BracketArgument { position, .. })
         | Argument::Quoted { position, .. }
         | Argument::Unquoted { position, .. } => position.clone(),
-        Argument::Complex { arguments } => match arguments.first() {
+        Argument::Complex { arguments, .. } => match arguments.first() {
             None => None,
             Some(node) => match node {
                 ArgumentsAtom::Argument(argument)
@@ -143,7 +145,7 @@ impl CustomCommandInterpreter {
             .or_insert(vec![])
             .push((
                 CustomCommandContent {
-                    canonical_name,
+                    canonical_name: canonical_name.to_string(),
                     positional_arguments,
                     keywords,
                     block_end,
@@ -200,7 +202,7 @@ impl CustomCommandInterpreter {
 
     fn cmake_parse_arguments(&self, children: &Arguments) -> Option<Keywords> {
         let first_child = children.first()?.get_value();
-        let part = match first_child.as_str() {
+        let part = match first_child {
             "PARSE_ARGV" => [children.get(3), children.get(4), children.get(5)],
             "PARSE_ARGN" => [children.get(2), children.get(3), children.get(4)],
             _ => [children.get(1), children.get(2), children.get(3)],
@@ -211,9 +213,10 @@ impl CustomCommandInterpreter {
         };
 
         Some(Keywords {
-            options: self.eval_variables(options.get_value()),
-            one_value_keywords: self.eval_variables(one_value_arguments.get_value()),
-            multi_value_keywords: self.eval_variables(multi_value_arguments.get_value()),
+            options: self.eval_variables(options.get_value().to_string()),
+            one_value_keywords: self.eval_variables(one_value_arguments.get_value().to_string()),
+            multi_value_keywords: self
+                .eval_variables(multi_value_arguments.get_value().to_string()),
             hints: vec![],
         })
     }
@@ -222,19 +225,19 @@ impl CustomCommandInterpreter {
         let arguments = arguments
             .iter()
             .map(Argument::get_value)
-            .collect::<Vec<String>>();
+            .collect::<Vec<_>>();
         let Some(name) = arguments.first() else {
             return;
         };
         let arguments = &arguments[1..];
 
         let mut result = Vec::<String>::new();
-        for value in arguments.iter().map(|a| self.eval_variables(a.clone())) {
+        for value in arguments.iter().map(|a| self.eval_variables(a.to_string())) {
             for item in value {
                 result.push(item);
             }
         }
-        self.stack.insert(name.clone(), result);
+        self.stack.insert(name.to_string(), result);
     }
 
     fn command_invocation(&mut self, identifier: &str, arguments: &Arguments) -> Option<Keywords> {
@@ -288,17 +291,14 @@ fn has_custom_command_definition(code: &str) -> bool {
 }
 
 pub fn find_custom_command_definitions(
-    text: String,
+    text: &str,
     filepath: String,
 ) -> PyResult<HashMap<String, Vec<CustomCommand>>> {
-    if !has_custom_command_definition(&text) {
+    if !has_custom_command_definition(text) {
         return Ok(HashMap::new());
     }
 
-    let schemas = CommandSchemas {
-        definition_schemas: HashMap::new(),
-        extension_schemas: HashMap::new(),
-    };
+    let schemas = CommandSchemas::default();
     let parser = Parser::new(text, &schemas);
 
     let mut interpreter = CustomCommandInterpreter {
@@ -352,7 +352,7 @@ pub fn find_all_custom_command_definitions(
                 match read_code(&f) {
                     Ok(code) => {
                         let code = normalize_newlines(&code);
-                        match find_custom_command_definitions(code, path.clone()) {
+                        match find_custom_command_definitions(&code, path.clone()) {
                             Ok(def) => Ok(def),
                             Err(err) => Err((path, err)),
                         }

@@ -65,6 +65,7 @@ from dreadnode.app.tui.status_messages import (
     STATUS_STARTING,
     STATUS_SYNCING,
 )
+from dreadnode.core.tls import format_tls_error
 
 if t.TYPE_CHECKING:
     from dreadnode.app.tui.update_check import UpdateInfo
@@ -556,7 +557,9 @@ class ProfileRuntimeController:
         except Exception as exc:
             logger.warning("Platform connection failed during profile apply: {}", exc)
             if self._enter_connection_failed is not None:
-                self._enter_connection_failed(f"Unable to reach {profile.url}")
+                self._enter_connection_failed(
+                    format_tls_error(exc) or f"Unable to reach {profile.url}"
+                )
             return False
 
         # Login/profile-switch lands the user on a clean slate — no session
@@ -830,6 +833,10 @@ class BootAndAuthRecoveryController:
                 response = await asyncio.to_thread(api._request, "GET", "/user")
             except httpx.RequestError as exc:
                 logger.warning("Boot: connection attempt {} failed: {}", attempt + 1, exc)
+                if tls_message := format_tls_error(exc):
+                    if self._enter_connection_failed is not None:
+                        self._enter_connection_failed(tls_message)
+                    return False
                 if attempt < len(backoffs):
                     await asyncio.sleep(backoffs[attempt])
                     continue
@@ -910,7 +917,9 @@ class BootAndAuthRecoveryController:
         except Exception as exc:
             logger.warning("Profile switch to {} failed: {}", profile_name, exc)
             if self._enter_connection_failed is not None:
-                self._enter_connection_failed(f"Unable to reach {profile.url}")
+                self._enter_connection_failed(
+                    format_tls_error(exc) or f"Unable to reach {profile.url}"
+                )
             return
         if not applied:
             return
@@ -941,7 +950,10 @@ class BootAndAuthRecoveryController:
             self._ui.set_connection_status(STATUS_AUTH_REQUIRED)
             self._ui.set_status(STATUS_AUTH_REQUIRED, busy=False)
             logger.warning("Login failed: {}", exc)
-            self._invoke_show_auth_modal(server_url, reason="Login failed — please try again")
+            self._invoke_show_auth_modal(
+                server_url,
+                reason=format_tls_error(exc) or "Login failed — please try again",
+            )
             return
         self._ui.flash(
             "Restarting runtime to apply platform authentication",

@@ -1,6 +1,6 @@
-Metadata-Version: 2.4
+Metadata-Version: 2.5
 Name: zipstream-ng
-Version: 1.9.2
+Version: 1.9.3
 Summary: A modern and easy to use streamable zip file generator
 Project-URL: Repository, https://github.com/pR0Ps/zipstream-ng
 Project-URL: Changelog, https://github.com/pR0Ps/zipstream-ng/blob/master/CHANGELOG.md

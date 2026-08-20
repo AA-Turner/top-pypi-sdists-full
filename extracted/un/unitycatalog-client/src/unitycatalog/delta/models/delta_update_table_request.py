@@ -19,6 +19,7 @@ import json
 
 from pydantic import BaseModel, ConfigDict, Field
 from typing import Any, ClassVar, Dict, List
+from typing_extensions import Annotated
 from unitycatalog.delta.models.delta_table_requirement import DeltaTableRequirement
 from unitycatalog.delta.models.delta_table_update import DeltaTableUpdate
 from typing import Optional, Set
@@ -26,10 +27,10 @@ from typing_extensions import Self
 
 class DeltaUpdateTableRequest(BaseModel):
     """
-    Request to update a table with requirements and updates
+    Request to update a table with requirements and updates. All actions apply atomically. Shape rules: updates must be non-empty; at most one action of each type and at most one requirement of each type per request; an assert-table-uuid requirement is always required; set-properties / remove-properties must not touch the same key, and set-domain-metadata / remove-domain-metadata must not touch the same domain. 
     """ # noqa: E501
-    requirements: List[DeltaTableRequirement] = Field(description="Pre-conditions that must be met for the update")
-    updates: List[DeltaTableUpdate] = Field(description="Updates to apply to the table")
+    requirements: Annotated[List[DeltaTableRequirement], Field(min_length=1)] = Field(description="Pre-conditions that must be met for the update")
+    updates: Annotated[List[DeltaTableUpdate], Field(min_length=1)] = Field(description="Updates to apply to the table")
     __properties: ClassVar[List[str]] = ["requirements", "updates"]
 
     model_config = ConfigDict(

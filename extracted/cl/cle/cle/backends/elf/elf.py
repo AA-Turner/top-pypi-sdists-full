@@ -24,6 +24,7 @@ from sortedcontainers import SortedDict
 
 from cle.address_translator import AT
 from cle.backends.backend import ExceptionHandling, FunctionHint, FunctionHintSource, register_backend
+from cle.backends.gopclntab import GoPclntab, register_gopclntab_symbols
 from cle.backends.inlined_function import InlinedFunction
 from cle.errors import CLECompatibilityError, CLEError, CLEInvalidBinaryError
 from cle.patched_stream import PatchedStream
@@ -171,6 +172,9 @@ class ELF(MetaELF):
         self.compilation_units: list[CompilationUnit] | None = None
         self.functions_debug_info: dict[int, Subprogram] = {}
 
+        # Go
+        self.gopclntab: GoPclntab | None = None
+
         # misc
         self._entry = self._reader.header.e_entry
         self.is_relocatable = self._reader.header.e_type == "ET_REL"
@@ -237,6 +241,9 @@ class ELF(MetaELF):
                 debug_filename = os.path.join("/usr/lib/debug", os.path.realpath(self.binary))
                 if os.path.isfile(debug_filename):
                     self.__process_debug_file(debug_filename)
+
+        # Go binaries keep a full function table even when stripped
+        self.gopclntab = register_gopclntab_symbols(self)
 
         # call the methods defined by MetaELF
         self._ppc64_abiv1_entry_fix()
@@ -1289,6 +1296,16 @@ class ELF(MetaELF):
         if isinstance(symtab, sections.NullSection):
             # Oh my god Atmel please stop
             symtab = self._reader.get_section_by_name(".symtab")
+        if symtab is None and section.header.get("sh_type") != "SHT_RELR":
+            # A stripped object can still carry a relocation section whose linked symbol table was stripped away.
+            # Without the table there is nothing that can be registered.
+            # RELR sections are exempt: their entries carry no symbol index.
+            log.warning(
+                "%s: relocation section %s has no symbol table to resolve its entries against; skipping it.",
+                self.binary,
+                section.name,
+            )
+            return
         relocs = []
         for readelf_reloc in section.iter_relocations():
             # Handle packed RELR relocations specially

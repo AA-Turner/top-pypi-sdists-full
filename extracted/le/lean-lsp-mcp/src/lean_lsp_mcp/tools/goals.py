@@ -2,35 +2,35 @@
 
 from __future__ import annotations
 
-from typing import Annotated, Literal, Optional
+from typing import Annotated, Literal
 
-from leanclient.aio import AsyncLeanLSPClient, LeanRequestTimeout
-from mcp.server.fastmcp import Context
+from leanclient.aio import LeanRequestTimeout
 from mcp.types import ToolAnnotations
 from pydantic import Field
 
 from lean_lsp_mcp import server
-from lean_lsp_mcp.client_utils import open_synced
+from lean_lsp_mcp.client_utils import get_client, open_synced, require_client_for_file
 from lean_lsp_mcp.models import GoalState, StructuredGoal, TermGoalState
+from lean_lsp_mcp.tool_registry import tool
 
 
-@server.mcp.tool(
+@tool(
     "lean_goal",
     annotations=ToolAnnotations(
         title="Proof Goals",
-        readOnlyHint=True,
-        idempotentHint=True,
-        openWorldHint=False,
+        read_only_hint=True,
+        idempotent_hint=True,
+        open_world_hint=False,
     ),
 )
 async def goal(
-    ctx: Context,
+    ctx: server.ToolContext,
     file_path: Annotated[
         str, Field(description="Absolute or project-root-relative path to Lean file")
     ],
     line: Annotated[int, Field(description="Line number (1-indexed)", ge=1)],
     column: Annotated[
-        Optional[int],
+        int | None,
         Field(description="Column (1-indexed). Omit for before/after", ge=1),
     ] = None,
     format: Annotated[
@@ -38,7 +38,7 @@ async def goal(
         Field(description="Output format: 'text' (default) or 'structured'"),
     ] = "text",
     timeout_s: Annotated[
-        Optional[float],
+        float | None,
         Field(
             description=(
                 "Max seconds to wait for elaboration. On timeout returns "
@@ -55,11 +55,9 @@ async def goal(
     proof is finished at this point; status='no_goal_at_position' means the
     position carries no proof state (e.g. outside a proof).
     """
-    rel_path = await server.setup_client_for_file(ctx, file_path)
-    if not rel_path:
-        server._raise_invalid_path(file_path)
+    rel_path = await require_client_for_file(ctx, file_path)
 
-    client: AsyncLeanLSPClient = ctx.request_context.lifespan_context.client
+    client = get_client(ctx)
     await open_synced(ctx, rel_path)
     content = client.content(rel_path)
     lines = content.splitlines()
@@ -108,31 +106,29 @@ async def goal(
     )
 
 
-@server.mcp.tool(
+@tool(
     "lean_term_goal",
     annotations=ToolAnnotations(
         title="Term Goal",
-        readOnlyHint=True,
-        idempotentHint=True,
-        openWorldHint=False,
+        read_only_hint=True,
+        idempotent_hint=True,
+        open_world_hint=False,
     ),
 )
 async def term_goal(
-    ctx: Context,
+    ctx: server.ToolContext,
     file_path: Annotated[
         str, Field(description="Absolute or project-root-relative path to Lean file")
     ],
     line: Annotated[int, Field(description="Line number (1-indexed)", ge=1)],
     column: Annotated[
-        Optional[int], Field(description="Column (defaults to end of line)", ge=1)
+        int | None, Field(description="Column (defaults to end of line)", ge=1)
     ] = None,
 ) -> TermGoalState:
     """Get the expected type at a position."""
-    rel_path = await server.setup_client_for_file(ctx, file_path)
-    if not rel_path:
-        server._raise_invalid_path(file_path)
+    rel_path = await require_client_for_file(ctx, file_path)
 
-    client: AsyncLeanLSPClient = ctx.request_context.lifespan_context.client
+    client = get_client(ctx)
     await open_synced(ctx, rel_path)
     content = client.content(rel_path)
     lines = content.splitlines()

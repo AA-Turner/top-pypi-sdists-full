@@ -135,14 +135,14 @@ def var(template, path=None, transform=None):
     sensitive = _is_sensitive_template(template_str)
 
     # Check if this is a pure single-variable reference (type-preserving).
-    # V3 forbids braces in the name class ("[^{}]+") so fullmatch only accepts a
-    # genuine whole-string placeholder; a non-greedy ".+?" would expand across
-    # interior "}" to satisfy the anchor, misreading "${A}x${B}" as one var
-    # (-> ""). Gated on kane_version: V4 keeps the legacy ".+?" behavior
-    # unchanged (the multi-placeholder bug is deliberately not fixed for V4).
-    from testmu import _configure
-
-    _name = r"[^{}]+" if _configure.get("kane_version", "v4") == "v3" else r".+?"
+    # The name class forbids braces ("[^{}]+") in EVERY kane version so fullmatch
+    # only accepts a genuine whole-string placeholder; a non-greedy ".+?" expands
+    # across interior "}" to satisfy the anchor, collapsing any template that both
+    # starts and ends with a delimiter into one bogus name -- "${A}x${B}" ->
+    # "A}x${B", "{{smart.random_int}}.{{smart.random_int}}" ->
+    # "smart.random_int}}.{{smart.random_int" -- which resolves to "" instead of
+    # interpolating each placeholder.
+    _name = r"[^{}]+"
     pure_mustache = re.fullmatch(r"\{\{(" + _name + r")\}\}", template_str)
     if pure_mustache:
         resolved = _resolve_single(pure_mustache.group(1))

@@ -3347,10 +3347,24 @@ class Geocif:
         ].fillna(-1)
         df.loc[:, "Area"] = df["Area"].fillna(-1)
         
+        # observed=True is REQUIRED, not cosmetic. pivot_table is an
+        # aggregation: with any categorical grouper and observed=False (the
+        # pandas default) it materialises the full cartesian product of every
+        # grouper's levels. Measured on pandas 2.3.3 with this exact index /
+        # columns / values on a real-shaped frame: object dtype -> (2200, 489)
+        # in 0.8 s; categorical + observed=False -> MemoryError trying to
+        # allocate 8.79 PiB; categorical + observed=True -> identical (2200,
+        # 489), bit-identical values, same runtime. The continuous index levels
+        # (yield/area/production) crossed with 1,004 Region categories are what
+        # explode. Under object dtype this flag is a verified no-op, so it is
+        # safe on its own and is a prerequisite for reading these columns as
+        # category. Leave dropna at its default — that is what prunes unused
+        # Index levels so they cannot become phantom columns.
         df = df.pivot_table(
             index=self.fixed_columns + [self.target] + self.statistics_columns,
             columns=["Index", "Stage_ID"],
             values="CID",
+            observed=True,
         ).reset_index()
         
         # Restore NaN

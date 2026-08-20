@@ -3,6 +3,7 @@ import uuid
 from datetime import timedelta
 from unittest.mock import AsyncMock, patch
 
+import gpuhunt
 import pytest
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -40,7 +41,7 @@ from dstack._internal.server.testing.common import (
     create_backend,
     create_fleet,
     create_gateway,
-    create_gateway_compute,
+    create_gateway_replica,
     create_instance,
     create_job,
     create_project,
@@ -195,7 +196,7 @@ class TestRunActiveWorker:
             backend_id=backend.id,
             status=GatewayStatus.RUNNING,
         )
-        gateway_compute = await create_gateway_compute(session=session, gateway_id=gateway.id)
+        gateway_replica = await create_gateway_replica(session=session, gateway_id=gateway.id)
         run = await create_run(
             session=session,
             project=project,
@@ -219,7 +220,7 @@ class TestRunActiveWorker:
         session.add(
             ServiceRegistrationModel(
                 run_id=run.id,
-                gateway_replica_id=gateway_compute.id,
+                gateway_replica_id=gateway_replica.id,
                 is_registered=False,
                 register_attempt=3,
                 register_status_message="Connection refused",
@@ -248,10 +249,10 @@ class TestRunActiveWorker:
             backend_id=backend.id,
             status=GatewayStatus.RUNNING,
         )
-        gateway_compute_1 = await create_gateway_compute(
+        gateway_replica_1 = await create_gateway_replica(
             session=session, gateway_id=gateway.id, replica_num=0
         )
-        gateway_compute_2 = await create_gateway_compute(
+        gateway_replica_2 = await create_gateway_replica(
             session=session, gateway_id=gateway.id, replica_num=1
         )
         run = await create_run(
@@ -277,7 +278,7 @@ class TestRunActiveWorker:
         session.add(
             ServiceRegistrationModel(
                 run_id=run.id,
-                gateway_replica_id=gateway_compute_1.id,
+                gateway_replica_id=gateway_replica_1.id,
                 is_registered=False,
                 register_attempt=3,
                 register_status_message="Connection refused",
@@ -286,7 +287,7 @@ class TestRunActiveWorker:
         session.add(
             ServiceRegistrationModel(
                 run_id=run.id,
-                gateway_replica_id=gateway_compute_2.id,
+                gateway_replica_id=gateway_replica_2.id,
                 is_registered=True,
                 register_attempt=0,
             )
@@ -314,11 +315,11 @@ class TestRunActiveWorker:
             backend_id=backend.id,
             status=GatewayStatus.RUNNING,
         )
-        gateway_compute_1 = await create_gateway_compute(
+        gateway_replica_1 = await create_gateway_replica(
             session=session, gateway_id=gateway.id, replica_num=0
         )
         # Second running replica has not attempted registration yet (e.g. just came up).
-        await create_gateway_compute(session=session, gateway_id=gateway.id, replica_num=1)
+        await create_gateway_replica(session=session, gateway_id=gateway.id, replica_num=1)
         run = await create_run(
             session=session,
             project=project,
@@ -342,7 +343,7 @@ class TestRunActiveWorker:
         session.add(
             ServiceRegistrationModel(
                 run_id=run.id,
-                gateway_replica_id=gateway_compute_1.id,
+                gateway_replica_id=gateway_replica_1.id,
                 is_registered=False,
                 register_attempt=3,
                 register_status_message="Connection refused",
@@ -371,12 +372,12 @@ class TestRunActiveWorker:
             backend_id=backend.id,
             status=GatewayStatus.RUNNING,
         )
-        gateway_compute_running = await create_gateway_compute(
+        gateway_replica_running = await create_gateway_replica(
             session=session, gateway_id=gateway.id, replica_num=0
         )
         # Terminated replica successfully registered before going away — should be ignored,
         # since only currently running replicas count towards the predicate.
-        gateway_compute_terminating = await create_gateway_compute(
+        gateway_replica_terminating = await create_gateway_replica(
             session=session,
             gateway_id=gateway.id,
             replica_num=1,
@@ -405,7 +406,7 @@ class TestRunActiveWorker:
         session.add(
             ServiceRegistrationModel(
                 run_id=run.id,
-                gateway_replica_id=gateway_compute_running.id,
+                gateway_replica_id=gateway_replica_running.id,
                 is_registered=False,
                 register_attempt=3,
                 register_status_message="Connection refused",
@@ -414,7 +415,7 @@ class TestRunActiveWorker:
         session.add(
             ServiceRegistrationModel(
                 run_id=run.id,
-                gateway_replica_id=gateway_compute_terminating.id,
+                gateway_replica_id=gateway_replica_terminating.id,
                 is_registered=True,
                 register_attempt=0,
             )
@@ -1201,6 +1202,71 @@ class TestRunActiveWorker:
         await session.refresh(job)
         assert job.deployment_num == 1
 
+    async def test_service_in_place_deployment_bump_on_cpu_arch_widening(
+        self, test_db, session: AsyncSession, worker: RunWorker, image_config_mock
+    ) -> None:
+        """
+        A replica submitted when `cpu.arch` was always resolved to a specific value is not
+        redeployed after the arch becomes unset (`any arch supported by the image`).
+        """
+        project = await create_project(session=session)
+        user = await create_user(session=session)
+        repo = await create_repo(session=session, project_id=project.id)
+        run_spec = get_run_spec(
+            repo_id=repo.name,
+            run_name="service-run",
+            configuration=ServiceConfiguration(
+                port=8080,
+                image="debian",
+                commands=["echo Hi!"],
+            ),
+        )
+        run = await create_run(
+            session=session,
+            project=project,
+            repo=repo,
+            user=user,
+            run_name="service-run",
+            run_spec=run_spec,
+            status=RunStatus.RUNNING,
+            deployment_num=1,
+        )
+        # `image_config_mock` reports a single-arch image, so the job spec gets `arch: x86`
+        job = await create_job(
+            session=session,
+            run=run,
+            status=JobStatus.RUNNING,
+            deployment_num=0,
+            registered=True,
+            ready=True,
+        )
+        assert get_job_spec(job).requirements.resources.cpu.arch == gpuhunt.CPUArchitecture.X86
+        lock_run(run)
+        await session.commit()
+
+        # The same image now reports both architectures, so the new job spec leaves `arch` unset
+        with patch(
+            "dstack._internal.server.services.jobs.configurators.base"
+            "._get_image_config_and_cpu_architectures",
+            return_value=(
+                image_config_mock,
+                {gpuhunt.CPUArchitecture.X86, gpuhunt.CPUArchitecture.ARM},
+            ),
+        ):
+            await worker.process(run_to_pipeline_item(run))
+
+        session.expire_all()
+        await session.refresh(run)
+        assert run.status == RunStatus.RUNNING
+
+        res = await session.execute(select(JobModel).where(JobModel.run_id == run.id))
+        jobs = list(res.scalars().all())
+        # No surge replica created, the existing one is marked as up-to-date
+        assert len(jobs) == 1
+        assert jobs[0].id == job.id
+        assert jobs[0].status == JobStatus.RUNNING
+        assert jobs[0].deployment_num == 1
+
     async def test_service_rolling_deployment_scale_up(
         self, test_db, session: AsyncSession, worker: RunWorker
     ) -> None:
@@ -1341,10 +1407,10 @@ class TestRunActiveWorker:
             backend_id=backend.id,
             status=GatewayStatus.RUNNING,
         )
-        gateway_compute_1 = await create_gateway_compute(
+        gateway_replica_1 = await create_gateway_replica(
             session=session, gateway_id=gateway.id, replica_num=0
         )
-        gateway_compute_2 = await create_gateway_compute(
+        gateway_replica_2 = await create_gateway_replica(
             session=session, gateway_id=gateway.id, replica_num=1
         )
         run_spec = get_run_spec(
@@ -1391,7 +1457,7 @@ class TestRunActiveWorker:
         session.add(
             ServiceReplicaRegistrationModel(
                 job_id=old_job.id,
-                gateway_replica_id=gateway_compute_1.id,
+                gateway_replica_id=gateway_replica_1.id,
                 is_registered=True,
                 register_attempt=0,
             )
@@ -1399,7 +1465,7 @@ class TestRunActiveWorker:
         session.add(
             ServiceReplicaRegistrationModel(
                 job_id=old_job.id,
-                gateway_replica_id=gateway_compute_2.id,
+                gateway_replica_id=gateway_replica_2.id,
                 is_registered=True,
                 register_attempt=0,
             )
@@ -1408,7 +1474,7 @@ class TestRunActiveWorker:
         session.add(
             ServiceReplicaRegistrationModel(
                 job_id=new_job.id,
-                gateway_replica_id=gateway_compute_1.id,
+                gateway_replica_id=gateway_replica_1.id,
                 is_registered=True,
                 register_attempt=0,
             )
@@ -1418,7 +1484,7 @@ class TestRunActiveWorker:
             session.add(
                 ServiceReplicaRegistrationModel(
                     job_id=new_job.id,
-                    gateway_replica_id=gateway_compute_2.id,
+                    gateway_replica_id=gateway_replica_2.id,
                     is_registered=False,
                     register_attempt=2,
                 )
@@ -1451,10 +1517,10 @@ class TestRunActiveWorker:
             backend_id=backend.id,
             status=GatewayStatus.RUNNING,
         )
-        gateway_compute_1 = await create_gateway_compute(
+        gateway_replica_1 = await create_gateway_replica(
             session=session, gateway_id=gateway.id, replica_num=0
         )
-        gateway_compute_2 = await create_gateway_compute(
+        gateway_replica_2 = await create_gateway_replica(
             session=session, gateway_id=gateway.id, replica_num=1
         )
         run_spec = get_run_spec(
@@ -1497,11 +1563,11 @@ class TestRunActiveWorker:
             ready=True,
             replica_num=1,
         )
-        for gateway_compute in (gateway_compute_1, gateway_compute_2):
+        for gateway_replica in (gateway_replica_1, gateway_replica_2):
             session.add(
                 ServiceReplicaRegistrationModel(
                     job_id=old_job.id,
-                    gateway_replica_id=gateway_compute.id,
+                    gateway_replica_id=gateway_replica.id,
                     is_registered=True,
                     register_attempt=0,
                 )
@@ -1509,7 +1575,7 @@ class TestRunActiveWorker:
             session.add(
                 ServiceReplicaRegistrationModel(
                     job_id=new_job.id,
-                    gateway_replica_id=gateway_compute.id,
+                    gateway_replica_id=gateway_replica.id,
                     is_registered=True,
                     register_attempt=0,
                 )

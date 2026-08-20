@@ -5,7 +5,8 @@ import sys
 import textwrap
 from dataclasses import is_dataclass
 from importlib import import_module
-from typing import Any, ForwardRef, TypeAlias, Union, get_type_hints
+from types import UnionType
+from typing import Any, ForwardRef, TypeAlias, TypeVar, Union, get_type_hints
 
 from ._typehints import mapping_origin_types, sequence_origin_types, tuple_set_origin_types
 from ._util import get_typehint_origin
@@ -243,30 +244,73 @@ def _enrich_globals_for_string_forward_refs(global_vars: dict[str, Any]) -> None
         _update_missing_from_module_vars(global_vars, missing, mod_vars)
 
 
+def update_module_global_vars(module: str, global_vars: dict, logger: logging.Logger | None) -> None:
+    """Adds to global_vars the names of a module, including those of its TYPE_CHECKING blocks."""
+    for key, value in vars(import_module(module)).items():  # needed for pydantic-v1
+        if key not in global_vars:
+            global_vars[key] = value
+    try:
+        module_source = inspect.getsource(sys.modules[module]) if module in sys.modules else ""
+        if "TYPE_CHECKING" in module_source:
+            TypeCheckingVisitor().update_aliases(module_source, module, global_vars, logger)
+    except Exception as ex:
+        if logger:
+            logger.debug(f"Failed to update aliases for TYPE_CHECKING blocks in {module}", exc_info=ex)
+
+
 def get_global_vars(obj: Any, logger: logging.Logger | None) -> dict:
     global_vars = getattr(obj, "__globals__", {}).copy()
     if is_dataclass(obj):
         next_mro = inspect.getmro(obj)[1]  # type: ignore[arg-type]
         if is_dataclass(next_mro):
             global_vars.update(get_global_vars(next_mro, logger))
-    for key, value in vars(import_module(obj.__module__)).items():  # needed for pydantic-v1
-        if key not in global_vars:
-            global_vars[key] = value
-    try:
-        module_source = inspect.getsource(sys.modules[obj.__module__]) if obj.__module__ in sys.modules else ""
-        if "TYPE_CHECKING" in module_source:
-            TypeCheckingVisitor().update_aliases(module_source, obj.__module__, global_vars, logger)
-    except Exception as ex:
-        if logger:
-            logger.debug(f"Failed to update aliases for TYPE_CHECKING blocks in {obj.__module__}", exc_info=ex)
+    update_module_global_vars(obj.__module__, global_vars, logger)
     _enrich_globals_for_string_forward_refs(global_vars)
     return global_vars
 
 
-def get_types(obj: Any, logger: logging.Logger | None = None) -> dict:
+def is_type_like(value: Any) -> bool:
+    """Whether a value could be used as a type annotation."""
+    from ._optionals import is_alias_type
+
+    return isinstance(value, (type, TypeVar, UnionType)) or hasattr(value, "__origin__") or bool(is_alias_type(value))
+
+
+def get_owner_class(component: Any) -> type | None:
+    """Returns the class in whose body a method is defined, resolved from its qualified name."""
+    qualname = getattr(component, "__qualname__", "")
+    module = sys.modules.get(getattr(component, "__module__", None))  # type: ignore[arg-type]
+    parts = qualname.split(".")[:-1]
+    if not parts or "<locals>" in parts or module is None:
+        return None
+    owner: Any = module
+    for part in parts:
+        owner = getattr(owner, part, None)
+        if owner is None:
+            return None
+    return owner if inspect.isclass(owner) else None
+
+
+def get_local_vars(owner: Any) -> dict:
+    """Returns the type-like names defined in the body of a class.
+
+    The annotations of a method are evaluated in the scope of the body of the
+    class that defines it, so names defined there, e.g. a nested class, must be
+    resolvable. Only type-like values are collected, so that unrelated class
+    attributes never shadow a module global.
+    """
+    if not inspect.isclass(owner):  # None when the method has no owner, i.e. a plain function
+        return {}
+    return {key: value for key, value in vars(owner).items() if is_type_like(value)}
+
+
+def get_types(obj: Any, logger: logging.Logger | None = None, parent: Any = None) -> dict:
     global_vars = get_global_vars(obj, logger)
+    # Locals are only needed for methods. For a class get_type_hints already uses as locals
+    # the namespace of each of the bases that the annotations come from.
+    local_vars = None if inspect.isclass(obj) else get_local_vars(get_owner_class(obj) or parent)
     try:
-        types = get_type_hints(obj, global_vars)
+        types = get_type_hints(obj, global_vars, local_vars)
     except Exception as ex1:
         types = ex1
     if not isinstance(types, Exception) and all(not type_requires_eval(t) for t in types.values()):
@@ -285,6 +329,7 @@ def get_types(obj: Any, logger: logging.Logger | None = None) -> dict:
 
     aliases = __builtins__.copy()  # type: ignore[attr-defined]
     aliases.update(global_vars)
+    aliases.update(local_vars or {})
     ex = None
     if isinstance(types, Exception):
         ex = types
@@ -313,7 +358,7 @@ def evaluate_postponed_annotations(params, component, parent, logger):
         if is_dataclass(parent) and component.__name__ == "__init__":
             types = get_types(parent, logger)
         else:
-            types = get_types(component, logger)
+            types = get_types(component, logger, parent)
     except Exception as ex:
         logger.debug(f"Unable to evaluate types for {component}", exc_info=ex)
         return
@@ -330,8 +375,9 @@ def get_return_type(component, logger=None):
     return_type = inspect.signature(component).return_annotation
     if type_requires_eval(return_type):
         global_vars = get_global_vars(component, logger)
+        local_vars = get_local_vars(get_owner_class(component))
         try:
-            return_type = get_type_hints(component, global_vars)["return"]
+            return_type = get_type_hints(component, global_vars, local_vars)["return"]
         except Exception as ex:
             if logger:
                 logger.debug(f"Unable to evaluate types for {component}", exc_info=ex)

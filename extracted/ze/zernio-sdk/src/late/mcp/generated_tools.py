@@ -3059,8 +3059,9 @@ def register_generated_tools(mcp, _get_client):
                 call_to_action: CTA button label. Send it together with `linkUrl` — a CTA without a
         destination produces a button that goes nowhere, so sending one alone is a 400.
 
-        **Meta**: validated against the Meta CTA enum (same values as
-        POST /v1/ads/create), e.g. `LEARN_MORE`, `SHOP_NOW`, `SIGN_UP`.
+        **Meta**: the CTA enum of POST /v1/ads/create plus
+        `VIEW_INSTAGRAM_PROFILE`, which is accepted on boost only. For that
+        value `linkUrl` is typically the Instagram profile URL.
 
         **TikTok**: pass-through to `call_to_action` on the Spark Ad creative; the
         platform validates the value. See TikTok's "Enumeration - Call-to-Action".
@@ -3485,6 +3486,8 @@ def register_generated_tools(mcp, _get_client):
                 bid_strategy: Deprecated: send it inside `platformSpecificData` instead (Meta today; TikTok's nested shape is planned). The flat field keeps working during the deprecation window; sending both shapes returns a 400.
 
         Meta bid strategy applied to the ad set.
+
+        OpenAI Ads: required on every ad group via this flat field, the only channel it supports (`platformSpecificData` is Meta/LinkedIn-only and returns 400 for OpenAI). No auto-bid option exists; send `LOWEST_COST_WITH_BID_CAP` or `COST_CAP` together with `bidAmount`, omitting it returns 400.
                 bid_amount: Deprecated: send it inside `platformSpecificData` instead (Meta today; TikTok's nested shape is planned). The flat field keeps working during the deprecation window; sending both shapes returns a 400.
 
         Bid cap in WHOLE currency units (USD: 5 = $5.00; JPY: 100 = ¥100). Required when
@@ -12621,7 +12624,7 @@ def register_generated_tools(mcp, _get_client):
 
             Args:
                 title
-                content: Post caption/text. Optional when media is attached, all platforms have customContent, or every platform entry is a LinkedIn plain repost (platformSpecificData.reshareUrl with no text). Required for text-only posts.
+                content: Post caption/text. Optional when media is attached, all platforms have customContent, every platform entry is an X Article (platformSpecificData.article), or every platform entry is a LinkedIn plain repost (platformSpecificData.reshareUrl with no text). Required for other text-only posts.
                 media_items
                 platforms: Target platforms and accounts for this post. Required for non-draft posts (returns 400 if empty). Drafts can omit platforms.
                 scheduled_for

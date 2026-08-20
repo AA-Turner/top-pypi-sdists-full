@@ -41,6 +41,17 @@ def register_charge(data: dict) -> None:
 @Format.register("lmp")
 @Format.register("lammps/lmp")
 class LAMMPSLmpFormat(Format):
+    """LAMMPS data file describing one simulation snapshot.
+
+    `LAMMPS <https://www.lammps.org/>`_ (Large-scale Atomic/Molecular
+    Massively Parallel Simulator) is a classical molecular dynamics code.
+
+    The reader supports common ``Atoms`` styles, including atomic, charge,
+    full, molecular, dipole, and sphere layouts. A ``type_map`` is usually
+    needed because LAMMPS data files store numeric atom types rather than
+    element symbols.
+    """
+
     @Format.post("shift_orig_zero")
     def from_system(
         self, file_name: FileType, type_map=None, atom_style="auto", **kwargs
@@ -60,7 +71,7 @@ class LAMMPSLmpFormat(Format):
         atom_style : str, optional
             The LAMMPS atom style. Default is "auto" which attempts to detect
             the style automatically from the file. Can also be explicitly set to:
-            atomic, full, charge, bond, angle, molecular, dipole, sphere
+            atomic, full, charge, bond, angle, molecular, dipole, sphere, spin
         **kwargs : dict
             Other parameters
 
@@ -70,6 +81,7 @@ class LAMMPSLmpFormat(Format):
             System data dictionary with additional data based on atom style:
             - charges: For styles with charge information (full, charge, dipole)
             - molecule_ids: For styles with molecule information (full, bond, angle, molecular)
+            - spins: For spin style with spin vectors
 
         Examples
         --------
@@ -100,6 +112,7 @@ class LAMMPSLmpFormat(Format):
         - molecular: atom-ID molecule-ID atom-type x y z
         - dipole: atom-ID atom-type charge x y z mux muy muz
         - sphere: atom-ID atom-type diameter density x y z
+        - spin: atom-ID atom-type x y z spx spy spz sp
         """
         with open_file(file_name) as fp:
             lines = [line.rstrip("\n") for line in fp]
@@ -133,6 +146,17 @@ class LAMMPSLmpFormat(Format):
 @Format.register("dump")
 @Format.register("lammps/dump")
 class LAMMPSDumpFormat(Format):
+    """LAMMPS text dump trajectory.
+
+    `LAMMPS <https://www.lammps.org/>`_ (Large-scale Atomic/Molecular
+    Massively Parallel Simulator) is a classical molecular dynamics code.
+
+    The reader handles scaled, unscaled, wrapped, and image-flag coordinates,
+    supports frame subsampling, and can use a LAMMPS input file to resolve
+    additional atom-style information. Numeric atom types can be mapped to
+    elements with ``type_map``.
+    """
+
     @Format.post("shift_orig_zero")
     def from_system(
         self,
@@ -142,6 +166,7 @@ class LAMMPSDumpFormat(Format):
         step: int = 1,
         unwrap: bool = False,
         input_file: str = None,
+        f_idx: int | list[int] | np.ndarray | None = None,
         **kwargs,
     ):
         """Read the data from a lammps dump file.
@@ -160,13 +185,21 @@ class LAMMPSDumpFormat(Format):
             Whether to unwrap the coordinates
         input_file : str, optional
             The input file name
+        f_idx : int or array-like of int, optional
+            Specific non-negative frame indices to load. The requested order
+            and duplicate indices are preserved. Cannot be combined with
+            non-default ``begin`` or ``step`` values.
+        **kwargs : dict
+            Additional format arguments accepted for API compatibility.
 
         Returns
         -------
         dict
             The system data
         """
-        lines = dpdata.formats.lammps.dump.load_file(file_name, begin=begin, step=step)
+        lines = dpdata.formats.lammps.dump.load_file(
+            file_name, begin=begin, step=step, f_idx=f_idx
+        )
         data = dpdata.formats.lammps.dump.system_data(
             lines, type_map, unwrap=unwrap, input_file=input_file
         )

@@ -24,10 +24,10 @@ lint = [
   {include-group = "pylint"}
 ]
 pre-commit = [
-  "prek==0.4.11"
+  "prek==0.4.13"
 ]
 pylint = [
-  "pylint==4.0.6"
+  "pylint==4.0.7"
 ]
 test = [
   "pytest-cov==7.1.0",
@@ -37,7 +37,7 @@ test = [
 ]
 types = [
   "setuptools>=61.2",
-  "ty==0.0.65",
+  "ty==0.0.73",
   "types-lxml==2026.2.16"
 ]
 
@@ -118,7 +118,7 @@ spellcheck = [
   "pyenchant==3.3.0"
 ]
 subtitles = [
-  "aeidon>=1.15,<1.17"
+  "aeidon>=1.15,<2.1"
 ]
 toml = [
   "tomlkit>=0.13.0,<0.16.0"
@@ -515,7 +515,7 @@ Wil = "Wil"
 extend-exclude = [
   "docs/commands/poterminology_stopword_file.rst",
   "tests/odf_xliff/*.xlf",
-  "tests/translate/filters/test_checks.py",
+  "tests/translate/filters/checks/",
   "tests/translate/lang/test_*.py",
   "tests/translate/lang/test_identify.py",
   "tests/translate/tools/data/pocount_syntax_errors/",

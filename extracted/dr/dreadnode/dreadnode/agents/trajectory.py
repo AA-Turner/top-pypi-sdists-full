@@ -16,6 +16,7 @@ from dreadnode.agents.events import (
     AgentStep,
     GenerationEnd,
     GenerationStep,
+    ReactStep,
     ToolStep,
     event_from_dict,
     event_to_dict,
@@ -57,6 +58,18 @@ class Trajectory(BaseModel):
                 continue
 
             if isinstance(step, ToolStep):
+                pending_tool_messages.extend(step.messages)
+                continue
+
+            # RetryWithFeedback reactions can contribute a tool-role policy
+            # result before the denied generation's GenerationStep is emitted.
+            # Buffer it like a ToolStep so logical chat order remains assistant
+            # tool call -> policy result, regardless of lifecycle event order.
+            if (
+                isinstance(step, ReactStep)
+                and step.messages
+                and all(message.role == "tool" for message in step.messages)
+            ):
                 pending_tool_messages.extend(step.messages)
                 continue
 

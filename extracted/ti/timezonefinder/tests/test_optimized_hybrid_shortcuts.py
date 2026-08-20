@@ -6,12 +6,25 @@ from pathlib import Path
 
 import numpy as np
 import pytest
+from h3.api import numpy_int as h3
 
+from timezonefinder import TimezoneFinder, TimezoneFinderL
+from timezonefinder.configs import SHORTCUT_H3_RES
 from timezonefinder.flatbuf.io.hybrid_shortcuts import (
+    SHORTCUT_SCHEMAS,
+    ShortcutSchema,
     get_hybrid_shortcut_file_path,
     read_hybrid_shortcuts_binary,
     write_hybrid_shortcuts_flatbuffers,
 )
+from timezonefinder.utils import coord2int
+
+SCHEMA_IDS = [schema.dtype_name for schema in SHORTCUT_SCHEMAS]
+
+
+def schema_of(zone_id_dtype: np.dtype) -> ShortcutSchema:
+    """Return the registry entry for a dtype, so no test restates a zone id limit."""
+    return next(s for s in SHORTCUT_SCHEMAS if s.zone_id_dtype == zone_id_dtype)
 
 
 class TestOptimizedHybridShortcuts:
@@ -38,7 +51,7 @@ class TestOptimizedHybridShortcuts:
 
     def _create_test_data(self, zone_id_dtype):
         """Helper to create test data appropriate for the given dtype."""
-        max_zone_id = 255 if zone_id_dtype.itemsize == 1 else 65535
+        max_zone_id = schema_of(zone_id_dtype).max_zone_id
 
         # Create test data that fits within the dtype limits
         base_zone_id = min(42, max_zone_id)
@@ -61,7 +74,8 @@ class TestOptimizedHybridShortcuts:
     def _create_temp_file(self, zone_id_dtype, suffix_prefix=""):
         """Helper to create a temporary file path for testing."""
         suffix = f"_{suffix_prefix}" if suffix_prefix else ""
-        suffix += "_uint8.fbs" if zone_id_dtype.itemsize == 1 else "_uint16.fbs"
+        # the reader picks its schema from this marker, hence not a plain ".bin"
+        suffix += f"_{schema_of(zone_id_dtype).dtype_name}.bin"
         with tempfile.NamedTemporaryFile(suffix=suffix, delete=False) as tmp_file:
             return Path(tmp_file.name)
 
@@ -108,11 +122,37 @@ class TestOptimizedHybridShortcuts:
         file_path = get_hybrid_shortcut_file_path(zone_id_dtype, test_dir)
 
         if zone_id_dtype.itemsize == 1:
-            assert file_path.name == "hybrid_shortcuts_uint8.fbs"
+            assert file_path.name == "hybrid_shortcuts_uint8.bin"
         else:
-            assert file_path.name == "hybrid_shortcuts_uint16.fbs"
+            assert file_path.name == "hybrid_shortcuts_uint16.bin"
 
         assert file_path.parent == test_dir
+
+    @pytest.mark.parametrize("schema", SHORTCUT_SCHEMAS, ids=SCHEMA_IDS)
+    def test_generated_file_name_round_trips(self, schema, tmp_path):
+        """A file written to its generated path must be readable from that path.
+
+        Every other round-trip test names its own scratch file, so the two halves of
+        this contract were never checked against each other: the writer derives the
+        name from the zone id width, and the reader recovers that width from the name.
+        Drop the marker from one side and the failure only shows up at load time, on
+        the shipped binary.
+
+        Storing ``max_zone_id`` also pins the registry's limit to what the schema can
+        actually hold - a value one too large would be rejected by the writer.
+        """
+        unique_hex, list_hex = 0x85283473FFFFFFF, 0x8528344FFFFFFFF
+        data = {unique_hex: schema.max_zone_id, list_hex: [1, 2, 3]}
+
+        path = get_hybrid_shortcut_file_path(schema.zone_id_dtype, tmp_path)
+        assert path.name == schema.file_name
+        write_hybrid_shortcuts_flatbuffers(data, schema.zone_id_dtype, path)
+
+        read_back = read_hybrid_shortcuts_binary(path)
+        assert int(read_back[unique_hex]) == schema.max_zone_id
+        np.testing.assert_array_equal(
+            read_back[list_hex], np.array([1, 2, 3], dtype=np.uint16)
+        )
 
     def test_zone_id_validation(self, zone_id_dtype, temp_file_path):
         """Test that zone IDs are validated against dtype limits."""
@@ -206,7 +246,7 @@ class TestOptimizedHybridShortcuts:
 
     def _create_large_test_data(self, zone_id_dtype, size):
         """Helper to create large test datasets."""
-        max_zone_id = 255 if zone_id_dtype.itemsize == 1 else 65535
+        max_zone_id = schema_of(zone_id_dtype).max_zone_id
 
         large_data = {}
         for i in range(size):
@@ -231,36 +271,27 @@ class TestOptimizedHybridShortcuts:
             with pytest.raises(ValueError):
                 get_hybrid_shortcut_file_path(invalid_dtype)
 
-    def test_auto_detection_from_filename(self):
-        """Test that schema type is auto-detected from filename."""
-        test_data = {0x85283473FFFFFFF: 42}
+    def test_file_name_carries_no_schema_information(self, tmp_path):
+        """A name with no zone id marker is read all the same.
 
-        uint8_path = self._create_temp_file(np.dtype("<u1"))
-        uint16_path = self._create_temp_file(np.dtype("<u2"))
+        The schema comes from the identifier stamped into the buffer, so the reader
+        does not need the name to say anything. Rejection of a buffer whose identifier
+        is missing or foreign lives in ``tests/test_flatbuf_format_guard.py``.
+        """
+        path = tmp_path / "hybrid_shortcuts.bin"
+        write_hybrid_shortcuts_flatbuffers(
+            {0x85283473FFFFFFF: 42}, np.dtype("<u1"), path
+        )
 
-        try:
-            # Write files using both schemas
-            uint8_data = self._write_and_read_roundtrip(
-                test_data, np.dtype("<u1"), uint8_path
-            )
-            uint16_data = self._write_and_read_roundtrip(
-                test_data, np.dtype("<u2"), uint16_path
-            )
-
-            # Both should read the same data
-            assert uint8_data == uint16_data
-            assert int(uint8_data[0x85283473FFFFFFF]) == 42
-
-        finally:
-            uint8_path.unlink(missing_ok=True)
-            uint16_path.unlink(missing_ok=True)
+        assert read_hybrid_shortcuts_binary(path) == {0x85283473FFFFFFF: 42}
 
     @pytest.mark.parallel_threads_limit("auto")
-    def test_single_element_arrays_should_not_occur(
-        self, zone_id_dtype, temp_file_path
-    ):
-        path = temp_file_path()
-        """Test documenting that single-element arrays currently occur but should be optimized.
+    def test_single_element_arrays_round_trip(self, zone_id_dtype, temp_file_path):
+        """The format preserves a one-element polygon array rather than collapsing it.
+
+        Single-element arrays should not be produced in the first place - a lone polygon with a
+        unique timezone belongs in the shortcut as a zone id - but where they do occur the
+        serialisation round-trips them unchanged, which is what this pins.
 
         This test demonstrates that the current shortcut generation logic produces
         single-element arrays when it should optimize them to store zone IDs directly.
@@ -271,6 +302,7 @@ class TestOptimizedHybridShortcuts:
         with unique timezones and store their zone ID directly, this test should be
         updated to assert that single-element arrays do NOT occur.
         """
+        path = temp_file_path()
         try:
             # Create test data representing the current suboptimal behavior
             test_data = {
@@ -326,57 +358,97 @@ class TestOptimizedHybridShortcuts:
         finally:
             path.unlink(missing_ok=True)
 
-    def test_runtime_handling_of_single_element_arrays(self):
-        """Test that the runtime code correctly handles single-element arrays.
 
-        This test verifies that the len(shortcut_value) == 1 case in
-        AbstractTimezoneFinder._timezone_id_from_shortcut works correctly
-        even with the suboptimal single-element array data structure.
+@pytest.mark.unit
+class TestSingleElementShortcutArraysAtRuntime:
+    """Drive the real lookup path over a shortcut cell holding a one-element array.
+
+    Nothing in the binary format forbids one - the test above round-trips it - so the
+    runtime has to resolve it even though the generator is expected to collapse such a
+    cell into a bare zone id.
+
+    Replaces ``test_runtime_handling_of_single_element_arrays``, which built a local
+    ``MockTimezoneFinder`` and then asserted that mock's own arithmetic, touching no
+    library code, and whose docstring named ``_timezone_id_from_shortcut`` - a method
+    that no longer exists.
+    """
+
+    LNG, LAT = -74.0059, 40.7128  # New York
+
+    @staticmethod
+    def _point_at(hex_id: int) -> dict[str, float]:
+        """Query kwargs for a point inside ``hex_id`` - its own centre."""
+        lat, lng = h3.cell_to_latlng(hex_id)
+        return {"lng": lng, "lat": lat}
+
+    @classmethod
+    def _override(cls, finder, boundary_id: int, hex_id: int | None = None) -> int:
+        """Point a cell at exactly one boundary polygon. Returns the cell."""
+        if hex_id is None:
+            hex_id = h3.latlng_to_cell(cls.LAT, cls.LNG, SHORTCUT_H3_RES)
+        finder.shortcut_mapping[hex_id] = np.array([boundary_id], dtype=np.uint16)
+        return hex_id
+
+    @pytest.mark.parametrize("finder_cls", [TimezoneFinder, TimezoneFinderL])
+    def test_resolves_to_the_zone_of_that_polygon(self, finder_cls):
+        """One candidate means no ambiguity left to resolve, so its zone is the answer.
+
+        ``TimezoneFinder.timezone_at`` reaches this without a point-in-polygon test:
+        ``get_last_change_idx`` returns 0 for a one-element array, the candidate loop
+        breaks immediately and the trailing "last possible zone" return takes over.
         """
-        from timezonefinder.configs import IntegerLike
-        import numpy as np
+        with finder_cls() as finder:
+            boundary_id = 0
+            expected = finder.zone_name_from_boundary_id(boundary_id)
+            query = {"lng": self.LNG, "lat": self.LAT}
+            assert finder.timezone_at(**query) != expected, (
+                "precondition: the point must not already resolve to that zone, "
+                "otherwise this passes without the override taking effect"
+            )
 
-        # Mock the zone mapping for testing
-        class MockTimezoneFinder:
-            def zone_id_of(self, boundary_id: IntegerLike) -> int:
-                # Simple mock: return boundary_id + 1000 as zone_id
-                return int(boundary_id) + 1000
+            self._override(finder, boundary_id)
 
-        mock_finder = MockTimezoneFinder()
+            assert finder.timezone_at(**query) == expected
 
-        # Test the logic that handles len(shortcut_value) == 1
-        test_cases = [
-            ([100], 1100),  # Single element array should return zone_id_of(100) = 1100
-            ([200], 1200),  # Single element array should return zone_id_of(200) = 1200
-            ([42], 1042),  # Single element array should return zone_id_of(42) = 1042
-        ]
+    @pytest.mark.parametrize("finder_cls", [TimezoneFinder, TimezoneFinderL])
+    def test_is_never_reported_as_a_unique_zone(self, finder_cls):
+        """Unique cells are stored as a bare int, so an array is by definition not one.
 
-        for shortcut_value, expected_zone_id in test_cases:
-            shortcut_array = np.array(shortcut_value, dtype=np.uint16)
+        Starts from a cell the real data *does* report as unique, so the ``None`` below
+        is caused by the array rather than by the cell having been ambiguous anyway.
+        """
+        with finder_cls() as finder:
+            unique_hex_id = next(
+                hex_id
+                for hex_id, value in finder.shortcut_mapping.items()
+                if isinstance(value, int)
+            )
+            query = self._point_at(unique_hex_id)
+            assert finder.unique_timezone_at(**query) is not None
 
-            # Simulate the len(shortcut_value) == 1 case
-            if len(shortcut_array) == 1:
-                # This is the logic from timezonefinder.py line ~220
-                actual_zone_id = mock_finder.zone_id_of(shortcut_array[0])
+            self._override(finder, 0, hex_id=unique_hex_id)
 
-                assert actual_zone_id == expected_zone_id, (
-                    f"Expected zone_id {expected_zone_id} for shortcut_value {shortcut_value}, "
-                    f"but got {actual_zone_id}"
-                )
+            assert finder.unique_timezone_at(**query) is None
 
-                # Verify that shortcut_array[0] is indeed a numpy scalar, not an array
-                element = shortcut_array[0]
-                assert isinstance(element, np.integer), (
-                    f"Expected numpy integer, got {type(element)}"
-                )
-                assert not isinstance(element, np.ndarray), (
-                    "shortcut_array[0] should be scalar, not array"
-                )
+    def test_certain_timezone_at_still_checks_the_geometry(self):
+        """The exhaustive lookup must not inherit the shortcut above.
 
-        print(f"✓ Successfully tested {len(test_cases)} single-element array cases")
-        print(
-            "✓ Verified that shortcut_array[0] returns numpy scalars compatible with IntegerLike"
-        )
+        It iterates the array and runs the real point-in-polygon test, so a lone
+        candidate whose bounding box excludes the point yields no match at all.
+        """
+        with TimezoneFinder() as finder:
+            query = {"lng": self.LNG, "lat": self.LAT}
+            x, y = coord2int(self.LNG), coord2int(self.LAT)
+            distant_boundary_id = next(
+                i
+                for i in range(finder.nr_of_polygons)
+                if finder.boundaries.outside_bbox(i, x, y)
+            )
+            assert finder.certain_timezone_at(**query) is not None
+
+            self._override(finder, distant_boundary_id)
+
+            assert finder.certain_timezone_at(**query) is None
 
 
 if __name__ == "__main__":

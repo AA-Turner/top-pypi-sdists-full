@@ -1,6 +1,6 @@
-Metadata-Version: 2.4
+Metadata-Version: 2.5
 Name: render_sdk
-Version: 0.7.0
+Version: 0.8.0
 Summary: Python SDK for Render Workflows
 Author-email: Render <support@render.com>
 License-File: LICENSE
@@ -16,8 +16,9 @@ Classifier: Programming Language :: Python :: 3.13
 Classifier: Programming Language :: Python :: 3.14
 Requires-Python: <4.0,>=3.10
 Requires-Dist: aiohttp<4,>=3.12.14
+Requires-Dist: attrs>=23.2.0
 Requires-Dist: httpx<0.29,>=0.28.1
-Requires-Dist: openapi-python-client<0.27,>=0.26.1
+Requires-Dist: python-dateutil<3,>=2.8.2
 Provides-Extra: key-value
 Requires-Dist: redis>=4.2.0; extra == 'key-value'
 Description-Content-Type: text/markdown

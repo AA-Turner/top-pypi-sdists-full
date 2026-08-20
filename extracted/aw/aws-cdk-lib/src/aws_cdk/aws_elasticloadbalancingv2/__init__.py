@@ -895,6 +895,7 @@ target_group = elbv2.ApplicationTargetGroup(self, "LambdaTargetGroup",
     targets=[targets.LambdaTarget(lambda_function)],
 
     # Enable multi-value headers
+    target_type=elbv2.TargetType.LAMBDA,
     multi_value_headers_enabled=True
 )
 ```

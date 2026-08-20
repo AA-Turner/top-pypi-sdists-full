@@ -7,7 +7,7 @@ from ..models import (
     ConnectorIn,
     ConnectorOut,
     ConnectorPatch,
-    ConnectorUpdate,
+    ConnectorUpsertIn,
     ListResponseConnectorOut,
 )
 from .common import ApiBaseAsync, ApiBaseSync, BaseOptions, serialize_params
@@ -87,8 +87,8 @@ class ConnectorAsync(ApiBaseAsync):
         )
         return ConnectorOut.model_validate(response.json())
 
-    async def update(
-        self, connector_id: str, connector_update: ConnectorUpdate
+    async def upsert(
+        self, connector_id: str, connector_upsert_in: ConnectorUpsertIn
     ) -> ConnectorOut:
         """Create or update a connector."""
         response = await self._request_asyncio(
@@ -97,7 +97,7 @@ class ConnectorAsync(ApiBaseAsync):
             path_params={
                 "connector_id": connector_id,
             },
-            json_body=connector_update.model_dump_json(
+            json_body=connector_upsert_in.model_dump_json(
                 exclude_unset=True, by_alias=True
             ),
         )
@@ -171,8 +171,8 @@ class Connector(ApiBaseSync):
         )
         return ConnectorOut.model_validate(response.json())
 
-    def update(
-        self, connector_id: str, connector_update: ConnectorUpdate
+    def upsert(
+        self, connector_id: str, connector_upsert_in: ConnectorUpsertIn
     ) -> ConnectorOut:
         """Create or update a connector."""
         response = self._request_sync(
@@ -181,7 +181,7 @@ class Connector(ApiBaseSync):
             path_params={
                 "connector_id": connector_id,
             },
-            json_body=connector_update.model_dump_json(
+            json_body=connector_upsert_in.model_dump_json(
                 exclude_unset=True, by_alias=True
             ),
         )

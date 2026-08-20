@@ -16,7 +16,8 @@ if t.TYPE_CHECKING:
     from dreadnode.tools.project_memory import ProjectMemory
     from dreadnode.tools.read import read
     from dreadnode.tools.report import report
-    from dreadnode.tools.report_items import link_items, report_item, update_item
+    from dreadnode.tools.report_items import ItemReads, link_items, report_item, update_item
+    from dreadnode.tools.submission import Submission
     from dreadnode.tools.think import think
     from dreadnode.tools.todo import todo
     from dreadnode.tools.web_extract import web_extract
@@ -28,8 +29,10 @@ if t.TYPE_CHECKING:
 # defines an attribute of the same name.
 
 __all__ = [
+    "ItemReads",
     "Memory",
     "ProjectMemory",
+    "Submission",
     "UserCancelled",
     "apply_patch",
     "ask_user",
@@ -61,6 +64,7 @@ __all__ = [
 _SUBMODULE_OVERRIDES: dict[str, str] = {
     "Memory": "memory",
     "ProjectMemory": "project_memory",
+    "Submission": "submission",
     "delete_lines": "editing",
     "edit_file": "editing",
     "insert_lines": "editing",
@@ -71,6 +75,7 @@ _SUBMODULE_OVERRIDES: dict[str, str] = {
     "confirm": "interaction",
     "UserCancelled": "interaction",
     "report_item": "report_items",
+    "ItemReads": "report_items",
     "update_item": "report_items",
     "link_items": "report_items",
 }

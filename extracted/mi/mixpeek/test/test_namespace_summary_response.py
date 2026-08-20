@@ -49,7 +49,8 @@ class TestNamespaceSummaryResponse(unittest.TestCase):
                         very_slow_query_count = 56, 
                         priority_score = 1.337, 
                         recommendation = '', 
-                        mongodb_index_command = '', )
+                        mongodb_index_command = '', 
+                        index_kind = '', )
                     ],
                 most_queried_fields = [
                     mixpeek.models.field_query_metrics.FieldQueryMetrics(
@@ -94,7 +95,8 @@ class TestNamespaceSummaryResponse(unittest.TestCase):
                         very_slow_query_count = 56, 
                         priority_score = 1.337, 
                         recommendation = '', 
-                        mongodb_index_command = '', )
+                        mongodb_index_command = '', 
+                        index_kind = '', )
                     ],
                 most_queried_fields = [
                     mixpeek.models.field_query_metrics.FieldQueryMetrics(

@@ -3,6 +3,7 @@ import inspect
 import locale
 import os
 import re
+import shlex
 from collections import defaultdict
 from contextlib import contextmanager, suppress
 from contextvars import ContextVar
@@ -13,15 +14,24 @@ from subprocess import PIPE, Popen
 from typing import Literal, Union
 
 from ._actions import ActionConfigFile, ActionFail, _ActionConfigLoad, _ActionHelpClassPath, remove_actions
-from ._common import NonParsingAction, get_optionals_as_positionals_actions, get_parsing_setting
+from ._common import (
+    NonParsingAction,
+    get_optionals_as_positionals_actions,
+    get_parsing_setting,
+    is_subclasses_disabled,
+)
+from ._optionals import get_pydantic_path_type
 from ._parameter_resolvers import get_signature_parameters
 from ._typehints import (
     ActionTypeHint,
     callable_origin_types,
     get_all_subclass_paths,
     get_callable_return_type,
+    get_typed_dict_key_type,
     get_typehint_origin,
+    is_single_subclass_or_closed_type,
     is_subclass,
+    is_typed_dict,
     type_to_str,
 )
 from ._util import NoneType, Path, import_object, merge_config, unique
@@ -152,7 +162,7 @@ def get_shtab_script(parser, shell: str, preambles: list[str] | None = None) -> 
     if not preambles:
         preambles = []
     if shell == "bash":
-        preambles += [bash_compgen_typehint.strip().replace("%s", prog)]
+        preambles += [bash_compgen_typehint.strip().replace("{prog}", prog)]
     with prepare_actions_context(shell, prog, preambles):
         shtab_prepare_actions(parser)
     return shtab.complete(parser, shell, preamble="\n".join(preambles))
@@ -209,7 +219,10 @@ def shtab_prepare_action(action, parser) -> None:
             subtypes = [s for s in typehint.__args__ if s not in {NoneType, str, dict, list, tuple, bytes}]
             if len(subtypes) == 1:
                 typehint = subtypes[0]
-        if is_subclass(typehint, Path):
+        pydantic_path_type = get_pydantic_path_type(typehint)
+        if pydantic_path_type:
+            complete = shtab.DIRECTORY if pydantic_path_type == "dir" else shtab.FILE
+        elif is_subclass(typehint, Path):
             assert hasattr(typehint, "_mode")
             if "f" in typehint._mode:
                 complete = shtab.FILE
@@ -244,36 +257,38 @@ def shtab_prepare_action(action, parser) -> None:
         action.choices = choices
 
 
-bash_compgen_typehint_name = "_jsonargparse_%s_compgen_typehint"
+# "{prog}" is a placeholder replaced with the normalized prog name, see get_shtab_script.
+bash_compgen_typehint_name = "_jsonargparse_{prog}_compgen_typehint"
+# When there are zero completions only a message is printed, so readline doesn't redraw the
+# prompt. A SIGWINCH doesn't help since readline redraws only if the terminal size changed.
+# Thus, ask the terminal for a device status report (\\e[5n) and bind its reply (\\e[0n) to
+# redraw-current-line, making readline itself redraw once the completion function returns.
 bash_compgen_typehint = """
-_jsonargparse_%%s_matched_choices() {
-  local TOTAL=$(echo "$1" | wc -w | tr -d " ")
-  if [ "$TOTAL" != 0 ]; then
-    local MATCH=$(echo "$2" | wc -w | tr -d " ")
-    printf "; $MATCH/$TOTAL matched choices"
-  fi
-}
+[[ $- == *i* ]] && bind '"\\e[0n": redraw-current-line' 2>/dev/null
 %(name)s() {
-  local REQUIRE_PREFIX="$4"
+  local CHOICES="$1" WORD="$2" MESSAGE="$3" REQUIRE_PREFIX="$4" TOTAL="$5"
+  local IFS=$'\\n'  # choices may contain spaces, so split matches on newline only
   local MATCH=()
-  if [ "$REQUIRE_PREFIX" = 1 ] && [ -z "$2" ]; then
+  if [ "$REQUIRE_PREFIX" = 1 ] && [ -z "$WORD" ]; then
     MATCH=()
   else
-    MATCH=( $(IFS=" " compgen -W "$1" "$2") )
+    MATCH=( $(IFS=" " compgen -W "$CHOICES" "$WORD") )
+  fi
+  local MATCHED=""
+  if [ "$TOTAL" != 0 ]; then
+    MATCHED="; ${#MATCH[@]}/$TOTAL matched choices"
   fi
   if [ ${#MATCH[@]} = 0 ]; then
     if [ "$COMP_TYPE" = 63 ]; then
-      MATCHED=$(_jsonargparse_%%s_matched_choices "$1" "${MATCH[*]}")
-      printf "%(b)s\\n$3$MATCHED\\n%(n)s" >&2
-      kill -WINCH $$
+      printf "%(b)s\\n%%s%%s\\n%(n)s" "$MESSAGE" "$MATCHED" >&2
+      printf '\\033[5n' >&2
     fi
   else
     for match in "${MATCH[@]}"; do
       echo "$match"
     done
     if [ "$COMP_TYPE" = 63 ]; then
-      MATCHED=$(_jsonargparse_%%s_matched_choices "$1" "${MATCH[*]}")
-      printf "%(b)s\\n$3$MATCHED%(n)s" >&2
+      printf "%(b)s\\n%%s%%s%(n)s" "$MESSAGE" "$MATCHED" >&2
     fi
   fi
 }
@@ -285,15 +300,19 @@ _jsonargparse_%%s_matched_choices() {
 
 
 def add_bash_typehint_completion(parser, action, message, choices, require_prefix=False) -> None:
-    fn_typehint = norm_name(bash_compgen_typehint_name % shtab_prog.get())
+    fn_typehint = norm_name(bash_compgen_typehint_name.replace("{prog}", shtab_prog.get()))
     fn_name = parser.prog.replace(" [options] ", "_")
     fn_name = norm_name(f"_jsonargparse_{fn_name}_{action.dest}_typehint")
-    fn = '{fn_name}(){{ {fn_typehint} "{choices}" "$1" "{message}" {require_prefix}; }}'.format(
+    # choices are quoted twice: once so that compgen -W splits them into the intended words,
+    # and once so that the whole word list reaches the function as a single argument.
+    wordlist = shlex.quote(" ".join(shlex.quote(c) for c in choices))
+    fn = '{fn_name}(){{ {fn_typehint} {choices} "$1" {message} {require_prefix} {total}; }}'.format(
         fn_name=fn_name,
         fn_typehint=fn_typehint,
-        choices=" ".join(choices),
-        message=message,
+        choices=wordlist,
+        message=shlex.quote(message),
         require_prefix=1 if require_prefix else 0,
+        total=len(choices),
     )
     shtab_preambles.get().append(fn)
     action.complete = {"bash": fn_name}
@@ -328,7 +347,7 @@ def get_typehint_choices(typehint, prefix, parser, skip, added_subclasses=None) 
             has_explicit_choices = False
             has_open_values = False
             for subtype in typehint.__args__:
-                if subtype in added_subclasses or subtype is object:
+                if subtype in added_subclasses:
                     continue
                 subchoices, subexplicit, subopen = get_choices_state(subtype)
                 choices.extend(subchoices)
@@ -340,6 +359,15 @@ def get_typehint_choices(typehint, prefix, parser, skip, added_subclasses=None) 
             added_subclasses.add(typehint)
             choices = add_subactions_and_get_subclass_choices(typehint, prefix, parser, skip, added_subclasses)
             return choices, True, False
+
+        if is_typed_dict(typehint) or (
+            is_single_subclass_or_closed_type(typehint, origin) and is_subclasses_disabled(typehint)
+        ):
+            # a dataclass-like type is only inlined as a group when not in a union and a typed
+            # dict never is, so their init args or keys need to be added as options to complete them
+            added_subclasses.add(typehint)
+            add_subactions_and_get_subclass_choices(typehint, prefix, parser, skip, added_subclasses, closed_type=True)
+            return [], False, True
 
         if origin in callable_origin_types:
             return_type = get_callable_return_type(typehint)
@@ -357,26 +385,32 @@ def get_typehint_choices(typehint, prefix, parser, skip, added_subclasses=None) 
     return choices, require_prefix
 
 
-def add_subactions_and_get_subclass_choices(typehint, prefix, parser, skip, added_subclasses) -> list[str]:
-    choices = []
-    paths = get_all_subclass_paths(typehint)
+def add_subactions_and_get_subclass_choices(
+    typehint, prefix, parser, skip, added_subclasses, closed_type: bool = False
+) -> list[str]:
+    choices: list[str] = []
     init_args = defaultdict(list)
     subclasses = defaultdict(list)
-    for path in paths:
-        choices.append(path)
+    # a closed type is not a choice, since only its init args are accepted
+    classes: list = [typehint] if closed_type else get_all_subclass_paths(typehint)
+    for class_or_path in classes:
+        name = class_or_path if isinstance(class_or_path, str) else class_or_path.__name__
+        if isinstance(class_or_path, str):
+            choices.append(class_or_path)
         try:
-            cls = import_object(path)
+            cls = import_object(class_or_path) if isinstance(class_or_path, str) else class_or_path
             params = get_signature_parameters(cls, None, parser._logger)
         except Exception as ex:
-            parser._logger.debug(f"Unable to get signature parameters for '{path}': {ex}")
+            parser._logger.debug(f"Unable to get signature parameters for '{name}': {ex}")
             continue
         num_skip = next((s for s in skip if isinstance(s, int)), 0)
         if num_skip > 0:
             params = params[num_skip:]
         for param in params:
             if param.name not in skip:
-                init_args[param.name].append(param.annotation)
-                subclasses[param.name].append(path.rsplit(".", 1)[-1])
+                # the wrappers of typed dict keys only state requiredness, not the type to complete
+                init_args[param.name].append(get_typed_dict_key_type(param.annotation))
+                subclasses[param.name].append(name.rsplit(".", 1)[-1])
 
     if prefix is not None:
         for name, subtypes in init_args.items():
@@ -388,8 +422,9 @@ def add_subactions_and_get_subclass_choices(typehint, prefix, parser, skip, adde
                         subtype, option_string, parser, skip, added_subclasses
                     )
                     if shtab_shell.get() == "bash":
-                        message = f"Expected type: {type_to_str(subtype)}; "
-                        message += f"Accepted by subclasses: {', '.join(subclasses[name])}"
+                        message = f"Expected type: {type_to_str(subtype)}"
+                        if not closed_type:
+                            message += f"; Accepted by subclasses: {', '.join(subclasses[name])}"
                         add_bash_typehint_completion(
                             parser,
                             action,
@@ -407,8 +442,11 @@ def get_help_class_choices(typehint) -> list[str]:
     choices = []
     if get_typehint_origin(typehint) == Union:
         for subtype in typehint.__args__:
-            if inspect.isclass(subtype):
+            # a subscripted generic typed dict is a generic alias instead of a class
+            if inspect.isclass(subtype) or is_typed_dict(subtype):
                 choices.extend(get_help_class_choices(subtype))
+    elif is_typed_dict(typehint):
+        choices = [typehint.__name__]  # typed dicts don't accept a class path, only their name
     else:
         choices = get_all_subclass_paths(typehint)
     return choices

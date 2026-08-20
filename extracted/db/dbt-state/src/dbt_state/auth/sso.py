@@ -133,12 +133,16 @@ class SsoAuth:
         self._configured_org_id = org_id
         self._dbt_platform_tokens = dbt_platform_tokens or []
 
-        try:
-            auth_json_path.mkdir(parents=True, exist_ok=True)
-        except OSError as e:
-            # a read-only or foreign-owned home directory (common in containers running as an
-            # arbitrary uid) must not prevent authentication, only credential caching
-            _warn_config_dir_not_writable(auth_json_path, e)
+        # in a headless environment we don't cache the token to disk, so there's no reason to
+        # create the config directory either (and doing so may fail on read-only or foreign-owned
+        # home directories, common in containers running as an arbitrary uid)
+        if not self._is_headless_environment():
+            try:
+                auth_json_path.mkdir(parents=True, exist_ok=True)
+            except OSError as e:
+                # a read-only or foreign-owned home directory (common in containers running as an
+                # arbitrary uid) must not prevent authentication, only credential caching
+                _warn_config_dir_not_writable(auth_json_path, e)
         self._auth_json_path = auth_json_path
 
         self._session = OAuth2Session(

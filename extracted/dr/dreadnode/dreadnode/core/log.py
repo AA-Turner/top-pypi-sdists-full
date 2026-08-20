@@ -7,6 +7,7 @@ Three modes:
     3. TUI: buffer capture via enable_tui_capture() + install_stdlib_intercept().
 """
 
+import contextlib
 import logging
 import os
 import pathlib
@@ -111,6 +112,20 @@ log_buffer = LogBuffer()
 # Track TUI capture state so configure_logging() can re-add the sink
 _tui_capture_level: str | None = None
 _tui_capture_sink_id: int | None = None
+_tui_file_sink_id: int | None = None
+
+_TUI_LOG_MAX_SIZE = "2 MB"
+_TUI_LOG_RETENTION = 2
+
+
+def _private_log_opener(path: str, flags: int) -> int:
+    """Open a persistent diagnostic log without following links."""
+
+    flags |= getattr(os, "O_NOFOLLOW", 0)
+    file_descriptor = os.open(path, flags, 0o600)
+    with contextlib.suppress(OSError):
+        os.fchmod(file_descriptor, 0o600)
+    return file_descriptor
 
 
 def _tui_filter(record: dict) -> bool:
@@ -141,20 +156,10 @@ def _tui_sink(message: t.Any) -> None:
     log_buffer.push(entry)
 
 
-def enable_tui_capture(level: str = "trace") -> int:
-    """Replace all loguru sinks with the TUI ring-buffer sink.
+def _add_tui_sinks(level: str) -> tuple[int, int | None]:
+    """Install the in-memory capture and bounded persistent TUI self-log."""
 
-    Removes existing sinks (including stderr) so log output doesn't
-    corrupt the Textual interface.  Returns the new sink ID for removal.
-    """
-    global _tui_capture_level, _tui_capture_sink_id  # noqa: PLW0603 - intentional process-wide TUI logging state
-    _tui_capture_level = level
-    # Remove the default stderr sink so log output doesn't render
-    # over the Textual TUI. Logs are captured into the ring buffer
-    # and displayed inside the TUI's console panel instead.
-    logger.remove()
-    logger.enable("dreadnode")
-    _tui_capture_sink_id = logger.add(  # ty: ignore[no-matching-overload] - loguru stub mismatch
+    buffer_sink_id = logger.add(  # ty: ignore[no-matching-overload] - loguru stub mismatch
         _tui_sink,
         format="{message}",
         level=level.upper(),
@@ -163,6 +168,49 @@ def enable_tui_capture(level: str = "trace") -> int:
         backtrace=False,
         diagnose=False,
     )
+
+    # The persistent self-log feeds bug-report bundles as the "previous logs"
+    # category, which is shared without the explicit TRACE/conversation consent —
+    # TRACE records (prompts, model payloads) stay in the in-memory buffer only.
+    file_level = "DEBUG" if level.upper() == "TRACE" else level.upper()
+    file_sink_id: int | None = None
+    with contextlib.suppress(OSError, ValueError):
+        from dreadnode.app import paths
+
+        paths.LOGS_DIR.mkdir(parents=True, exist_ok=True)
+        file_sink_id = logger.add(
+            paths.LOGS_DIR / "tui.log",
+            format=(
+                "{time:YYYY-MM-DDTHH:mm:ss.SSSZ} {level: <8} {name}:{function}:{line}  {message}"
+            ),
+            level=file_level,
+            filter=_tui_filter,
+            colorize=False,
+            backtrace=False,
+            diagnose=False,
+            rotation=_TUI_LOG_MAX_SIZE,
+            retention=_TUI_LOG_RETENTION,
+            opener=_private_log_opener,
+        )
+    return buffer_sink_id, file_sink_id
+
+
+def enable_tui_capture(level: str = "trace") -> int:
+    """Replace all loguru sinks with the TUI ring-buffer sink.
+
+    Removes existing sinks (including stderr) so log output doesn't
+    corrupt the Textual interface.  Returns the new sink ID for removal.
+    """
+    global _tui_capture_level  # noqa: PLW0603 - intentional process-wide TUI state
+    global _tui_capture_sink_id
+    global _tui_file_sink_id
+    _tui_capture_level = level
+    # Remove the default stderr sink so log output doesn't render
+    # over the Textual TUI. Logs are captured into the ring buffer
+    # and displayed inside the TUI's console panel instead.
+    logger.remove()
+    logger.enable("dreadnode")
+    _tui_capture_sink_id, _tui_file_sink_id = _add_tui_sinks(level)
     return _tui_capture_sink_id
 
 
@@ -247,7 +295,8 @@ def configure_logging(
     """
     resolved_level = _resolve_level(level)
 
-    global _tui_capture_sink_id  # noqa: PLW0603 - intentional process-wide logger sink state
+    global _tui_capture_sink_id
+    global _tui_file_sink_id
 
     logger.remove()
     logger.enable("dreadnode")
@@ -269,14 +318,7 @@ def configure_logging(
 
     # Re-add TUI capture sink if it was previously enabled
     if _tui_capture_level is not None:
-        _tui_capture_sink_id = logger.add(
-            _tui_sink,
-            format="{message}",
-            level=_tui_capture_level.upper(),
-            colorize=False,
-            backtrace=False,
-            diagnose=False,
-        )
+        _tui_capture_sink_id, _tui_file_sink_id = _add_tui_sinks(_tui_capture_level)
 
     if log_file is not None:
         logger.add(log_file, level=log_file_level.upper())

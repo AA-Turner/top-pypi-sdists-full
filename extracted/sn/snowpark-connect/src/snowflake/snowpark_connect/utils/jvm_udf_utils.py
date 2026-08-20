@@ -515,6 +515,10 @@ class UdfKind(Enum):
     * ``PYTHON_INLINE``     – Inline Python UDF (``df.mapPartitions`` etc.): arguments
       pass through unchanged; a VARIANT-backed Map/Struct return is reconstructed via
       PARSE_JSON then cast.
+    * ``NATIVE_FUNCTION``   – Not a UDF at all: a handle forwarding to a Snowflake
+      built-in or a pre-existing UDF (see ``NativeFunctionUdf``). There is no marshalling
+      boundary, so arguments pass through unchanged and the result is cast to the declared
+      return type. Nothing is ever created or dropped in Snowflake for this kind.
     """
 
     SCALA_UDF = "scala_udf"
@@ -522,6 +526,7 @@ class UdfKind(Enum):
     PYTHON_REGISTERED = "python_registered"
     JAVA_SCALAR = "java_scalar"
     PYTHON_INLINE = "python_inline"
+    NATIVE_FUNCTION = "native_function"
 
 
 def jvm_marshal_kind(dt: snowpark_type.DataType | None) -> JvmMarshalKind:

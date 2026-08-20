@@ -2243,6 +2243,25 @@ def execute_jar(
         all_opts = existing + (jvm_options or []) + required_flags
         os.environ["JAVA_OPTS"] = " ".join(dict.fromkeys(all_opts))
 
+        # 3b. Configure ``JAVA_HOME`` (and ``JAVA_LD_LIBRARY_PATH``) so JPype
+        #     can locate ``libjvm.so`` when ``start_jvm`` runs below. Skipped
+        #     silently when ``JAVA_HOME`` is already set (idempotent).
+        #
+        #     Regular Python DataFrame clients hit this via
+        #     ``init_spark_session``, but ``execute_jar`` has its own entry
+        #     point and used to skip the setup entirely. That was fine on
+        #     SPCS (``jdk4py`` populates ``JAVA_HOME`` at import time via
+        #     ``_setup_spark_environment``) and on local dev shells (users
+        #     already have ``JAVA_HOME`` set), but broke ``EXECUTE CODE
+        #     BUNDLE (compute_type=warehouse, language=scala)``: Snowflake
+        #     autogenerates a warehouse Python UDF wrapper whose ``run()``
+        #     calls ``execute_jar(**kwargs)``, and that sandbox exports
+        #     ``CONDA_PREFIX`` (with ``openjdk`` installed) but not
+        #     ``JAVA_HOME``. Without this call ``jpype.startJVM()`` raises
+        #     ``JVMNotFoundException: No JVM shared library file (libjvm.so)
+        #     found``.
+        _setup_spark_environment()
+
         # 4. Start SCOS thick server (which starts JVM + gRPC server).
         # Native App procs running EXECUTE AS OWNER cannot run ALTER SESSION
         # SET (SNOW-2245971). Only skip when native_app_mode is set — a

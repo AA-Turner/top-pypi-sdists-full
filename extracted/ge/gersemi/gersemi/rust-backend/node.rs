@@ -7,17 +7,10 @@ pub struct Position {
 }
 
 #[derive(Debug, Clone, Eq, Ord, PartialEq, PartialOrd)]
-pub struct BracketArgument {
-    pub bracket_width: usize,
-    pub value: String,
+pub struct BracketArgument<'a> {
+    pub value: &'a str,
+    pub whole: &'a str,
     pub position: Option<Position>,
-}
-
-impl BracketArgument {
-    pub fn flatten(&self) -> String {
-        let equal_signs = "=".repeat(self.bracket_width);
-        format!("[{equal_signs}[{}]{equal_signs}]", self.value)
-    }
 }
 
 #[derive(Debug, Clone, Eq, Ord, PartialEq, PartialOrd)]
@@ -28,70 +21,58 @@ pub enum InlineHintKind {
 }
 
 #[derive(Debug, Clone, Eq, Ord, PartialEq, PartialOrd)]
-pub enum Argument {
-    Bracket(BracketArgument),
+pub enum Argument<'a> {
+    Bracket(BracketArgument<'a>),
     Complex {
-        arguments: ArgumentsNode,
+        arguments: ArgumentsNode<'a>,
+        as_value: String,
     },
     Quoted {
-        value: String,
+        value: &'a str,
         position: Option<Position>,
     },
     Unquoted {
-        value: String,
+        value: &'a str,
         position: Option<Position>,
     },
     InlineHint {
         kind: InlineHintKind,
-        value: String,
+        value: &'a str,
     },
 }
 
-pub type Arguments = Vec<Argument>;
+pub type Arguments<'a> = Vec<Argument<'a>>;
 
-impl Argument {
-    pub fn get_value(&self) -> String {
+impl Argument<'_> {
+    pub fn get_value(&self) -> &str {
         match self {
-            Self::Complex { arguments } => arguments
-                .iter()
-                .filter_map(|x| match x {
-                    ArgumentsAtom::Argument(node)
-                    | ArgumentsAtom::CommentedArgument { argument: node, .. } => {
-                        Some(node.get_value())
-                    }
-                    ArgumentsAtom::BracketComment(_) | ArgumentsAtom::LineComment(_) => None,
-                })
-                .collect::<Vec<_>>()
-                .join(" "),
-            Self::Bracket(BracketArgument { value, .. })
+            Self::Complex { as_value, .. } => as_value.as_str(),
+            Self::InlineHint { value, .. }
+            | Self::Bracket(BracketArgument { value, .. })
             | Self::Quoted { value, .. }
-            | Self::Unquoted { value, .. }
-            | Self::InlineHint { value, .. } => value.clone(),
+            | Self::Unquoted { value, .. } => value,
         }
     }
 }
 
 #[derive(Clone, Debug, Eq, Ord, PartialEq, PartialOrd)]
-pub enum CommentedArgumentComment {
-    BracketComment(BracketComment),
-    LineComment {
-        comment: LineComment,
-        newline: String,
-    },
+pub enum CommentedArgumentComment<'a> {
+    BracketComment(BracketComment<'a>),
+    LineComment(LineComment<'a>),
 }
 
 #[derive(Debug, Clone, Eq, Ord, PartialEq, PartialOrd)]
-pub enum ArgumentsAtom {
+pub enum ArgumentsAtom<'a> {
     CommentedArgument {
-        argument: Argument,
-        comment: CommentedArgumentComment,
+        argument: Argument<'a>,
+        comment: CommentedArgumentComment<'a>,
     },
-    Argument(Argument),
-    BracketComment(BracketComment),
-    LineComment(LineComment),
+    Argument(Argument<'a>),
+    BracketComment(BracketComment<'a>),
+    LineComment(LineComment<'a>),
 }
 
-impl ArgumentsAtom {
+impl ArgumentsAtom<'_> {
     pub fn is_comment(&self) -> bool {
         match self {
             ArgumentsAtom::CommentedArgument { .. } | ArgumentsAtom::Argument(_) => false,
@@ -99,7 +80,7 @@ impl ArgumentsAtom {
         }
     }
 
-    pub fn get_value(&self) -> Option<String> {
+    pub fn get_value(&self) -> Option<&str> {
         match self {
             ArgumentsAtom::CommentedArgument { argument, .. }
             | ArgumentsAtom::Argument(argument) => Some(argument.get_value()),
@@ -108,33 +89,33 @@ impl ArgumentsAtom {
     }
 }
 
-pub type ArgumentsNode = Vec<ArgumentsAtom>;
+pub type ArgumentsNode<'a> = Vec<ArgumentsAtom<'a>>;
 
 #[derive(Clone, Eq, Ord, PartialEq, PartialOrd)]
-pub enum CommandInvocation {
+pub enum CommandInvocation<'a> {
     KnownCommand {
         identifier: String,
-        arguments: ArgumentsNode,
+        arguments: ArgumentsNode<'a>,
     },
     CustomCommand {
         indentation: String,
         identifier: String,
-        arguments: ArgumentsNode,
-        formatted_node: String,
+        arguments: ArgumentsNode<'a>,
+        formatted_node: &'a str,
         position: Position,
     },
 }
 
 #[derive(Clone, Eq, Ord, PartialEq, PartialOrd)]
-pub enum Command {
+pub enum Command<'a> {
     Element {
-        command_invocation: CommandInvocation,
-        line_comment: Option<LineComment>,
+        command_invocation: CommandInvocation<'a>,
+        line_comment: Option<LineComment<'a>>,
     },
-    Invocation(CommandInvocation),
+    Invocation(CommandInvocation<'a>),
 }
 
-impl Command {
+impl Command<'_> {
     pub fn command_name(&self) -> &str {
         match self {
             Self::Element {
@@ -149,32 +130,32 @@ impl Command {
 }
 
 #[derive(Clone, Debug, Eq, Ord, PartialEq, PartialOrd)]
-pub struct BracketComment {
-    pub value: String,
+pub struct BracketComment<'a> {
+    pub value: &'a str,
 }
 
 #[derive(Clone, Debug, Eq, Ord, PartialEq, PartialOrd)]
-pub struct LineComment {
-    pub value: String,
+pub struct LineComment<'a> {
+    pub value: &'a str,
 }
 
 #[derive(Clone, Eq, Ord, PartialEq, PartialOrd)]
-pub enum FileElement {
+pub enum FileElement<'a> {
     Block {
-        start: Command,
-        body: Vec<FileElement>,
-        end: Command,
+        start: Command<'a>,
+        body: Vec<FileElement<'a>>,
+        end: Command<'a>,
     },
-    Command(Command),
+    Command(Command<'a>),
     StandaloneIdentifier {
-        value: String,
+        value: &'a str,
     },
     NonCommandElement {
-        bracket_comments: Vec<BracketComment>,
-        line_comment: Option<LineComment>,
+        bracket_comments: Vec<BracketComment<'a>>,
+        line_comment: Option<LineComment<'a>>,
     },
     NewlineOrGap {
-        value: String,
+        value: &'a str,
     },
 }
 
@@ -182,10 +163,10 @@ const BLOCK_END: &str = "gersemi: block_end ";
 const HINTS: &str = "gersemi: hints";
 const IGNORE: &str = "gersemi: ignore";
 
-impl FileElement {
+impl FileElement<'_> {
     fn get_standalone_line_comment_content(&self) -> Option<&str> {
         if let Self::NonCommandElement {
-            line_comment: Some(LineComment { ref value }),
+            line_comment: Some(LineComment { value }),
             ..
         } = self
         {
@@ -214,52 +195,52 @@ impl FileElement {
 }
 
 #[derive(Clone)]
-pub struct Start {
-    pub children: Vec<FileElement>,
+pub struct Start<'a> {
+    pub children: Vec<FileElement<'a>>,
 }
 
 #[derive(Debug, Clone)]
-pub enum RefinedArgumentsAtom {
-    Atom(ArgumentsAtom),
+pub enum RefinedArgumentsAtom<'a> {
+    Atom(ArgumentsAtom<'a>),
     BinaryOperation {
-        lhs: Box<RefinedArgumentsAtom>,
-        operation: Box<RefinedArgumentsAtom>,
-        rhs: Box<RefinedArgumentsAtom>,
+        lhs: Box<RefinedArgumentsAtom<'a>>,
+        operation: Box<RefinedArgumentsAtom<'a>>,
+        rhs: Box<RefinedArgumentsAtom<'a>>,
     },
     UnaryOperation {
-        operation: Box<RefinedArgumentsAtom>,
-        operand: Option<Box<RefinedArgumentsAtom>>,
+        operation: Box<RefinedArgumentsAtom<'a>>,
+        operand: Option<Box<RefinedArgumentsAtom<'a>>>,
     },
     OptionArgument {
-        keyword: Box<RefinedArgumentsAtom>,
+        keyword: Box<RefinedArgumentsAtom<'a>>,
     },
     OneValueArgument {
-        keyword: Box<RefinedArgumentsAtom>,
-        arguments: Vec<RefinedArgumentsAtom>,
+        keyword: Box<RefinedArgumentsAtom<'a>>,
+        arguments: Vec<RefinedArgumentsAtom<'a>>,
     },
     MultiValueArgument {
-        keyword: Box<RefinedArgumentsAtom>,
-        arguments: Vec<RefinedArgumentsAtom>,
+        keyword: Box<RefinedArgumentsAtom<'a>>,
+        arguments: Vec<RefinedArgumentsAtom<'a>>,
     },
-    PositionalArguments(Vec<RefinedArgumentsAtom>),
+    PositionalArguments(Vec<RefinedArgumentsAtom<'a>>),
     Section {
-        header: Box<RefinedArgumentsAtom>,
-        values: Vec<RefinedArgumentsAtom>,
+        header: Box<RefinedArgumentsAtom<'a>>,
+        values: Vec<RefinedArgumentsAtom<'a>>,
     },
     KeywordArgument {
-        first: ArgumentsAtom,
-        in_between: Vec<ArgumentsAtom>,
-        second: ArgumentsAtom,
+        first: ArgumentsAtom<'a>,
+        in_between: Vec<ArgumentsAtom<'a>>,
+        second: ArgumentsAtom<'a>,
     },
     Pair {
-        first: Box<RefinedArgumentsAtom>,
-        rest: Vec<RefinedArgumentsAtom>,
+        first: Box<RefinedArgumentsAtom<'a>>,
+        rest: Vec<RefinedArgumentsAtom<'a>>,
     },
 }
 
-pub type RefinedArgumentsNode = Vec<RefinedArgumentsAtom>;
+pub type RefinedArgumentsNode<'a> = Vec<RefinedArgumentsAtom<'a>>;
 
-impl RefinedArgumentsAtom {
+impl RefinedArgumentsAtom<'_> {
     pub fn is_commented_argument(&self) -> bool {
         matches!(
             self,
@@ -267,7 +248,7 @@ impl RefinedArgumentsAtom {
         )
     }
 
-    pub fn get_value(&self) -> Option<String> {
+    pub fn get_value(&self) -> Option<&str> {
         match self {
             Self::Atom(atom) => atom.get_value(),
             _ => None,

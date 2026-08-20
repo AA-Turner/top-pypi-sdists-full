@@ -1,6 +1,6 @@
-Metadata-Version: 2.4
+Metadata-Version: 2.5
 Name: omnibase_core
-Version: 0.46.8
+Version: 0.46.9
 Summary: ONEX Core Framework - Base classes and essential implementations
 Project-URL: Homepage, https://github.com/OmniNode-ai/omnibase_core
 Project-URL: Repository, https://github.com/OmniNode-ai/omnibase_core
@@ -19,7 +19,7 @@ Classifier: Typing :: Typed
 Requires-Python: >=3.12
 Requires-Dist: blake3<2.0.0,>=1.0.8
 Requires-Dist: click<9.0.0,>=8.3.1
-Requires-Dist: cryptography<50.0.0,>=46.0.3
+Requires-Dist: cryptography<51.0.0,>=50.0.0
 Requires-Dist: deepdiff<10.0.0,>=8.0.0
 Requires-Dist: dependency-injector<5.0.0,>=4.48.3
 Requires-Dist: httpx<1.0.0,>=0.27.0
@@ -40,6 +40,8 @@ Requires-Dist: confluent-kafka<3.0.0,>=2.12.0; extra == 'full'
 Requires-Dist: omnibase-spi>=0.20.2; extra == 'full'
 Requires-Dist: prometheus-client<1.0.0,>=0.21.0; extra == 'full'
 Requires-Dist: psutil>=7.2.1; extra == 'full'
+Requires-Dist: pytest-asyncio>=1.3.0; extra == 'full'
+Requires-Dist: pytest>=8.4.0; extra == 'full'
 Requires-Dist: redis<9.0.0,>=5.0.0; extra == 'full'
 Requires-Dist: sqlglot<31.0.0,>=26.0.0; extra == 'full'
 Provides-Extra: kafka
@@ -51,6 +53,9 @@ Provides-Extra: spi
 Requires-Dist: omnibase-spi>=0.20.2; extra == 'spi'
 Provides-Extra: sql-parser
 Requires-Dist: sqlglot<31.0.0,>=26.0.0; extra == 'sql-parser'
+Provides-Extra: testing
+Requires-Dist: pytest-asyncio>=1.3.0; extra == 'testing'
+Requires-Dist: pytest>=8.4.0; extra == 'testing'
 Description-Content-Type: text/markdown
 
 # omnibase_core

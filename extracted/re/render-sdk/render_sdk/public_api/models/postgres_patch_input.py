@@ -24,6 +24,8 @@ class PostgresPATCHInput:
         plan (Union[Unset, PostgresPlans]):
         disk_size_gb (Union[Unset, int]): The number of gigabytes of disk space to allocate for the database
         enable_disk_autoscaling (Union[Unset, bool]):
+        connection_pool (Union[Unset, str]): What connection pool to use (if any) out of 'pgbouncer' and 'none' Default:
+            'none'.
         enable_high_availability (Union[Unset, bool]):
         datadog_api_key (Union[Unset, str]): The Datadog API key for the Datadog agent to monitor the database. Pass
             empty string to remove. Restarts Postgres on change.
@@ -38,6 +40,7 @@ class PostgresPATCHInput:
     plan: Union[Unset, PostgresPlans] = UNSET
     disk_size_gb: Union[Unset, int] = UNSET
     enable_disk_autoscaling: Union[Unset, bool] = UNSET
+    connection_pool: Union[Unset, str] = "none"
     enable_high_availability: Union[Unset, bool] = UNSET
     datadog_api_key: Union[Unset, str] = UNSET
     datadog_site: Union[Unset, str] = UNSET
@@ -56,6 +59,8 @@ class PostgresPATCHInput:
         disk_size_gb = self.disk_size_gb
 
         enable_disk_autoscaling = self.enable_disk_autoscaling
+
+        connection_pool = self.connection_pool
 
         enable_high_availability = self.enable_high_availability
 
@@ -92,6 +97,8 @@ class PostgresPATCHInput:
             field_dict["diskSizeGB"] = disk_size_gb
         if enable_disk_autoscaling is not UNSET:
             field_dict["enableDiskAutoscaling"] = enable_disk_autoscaling
+        if connection_pool is not UNSET:
+            field_dict["connectionPool"] = connection_pool
         if enable_high_availability is not UNSET:
             field_dict["enableHighAvailability"] = enable_high_availability
         if datadog_api_key is not UNSET:
@@ -127,6 +134,8 @@ class PostgresPATCHInput:
 
         enable_disk_autoscaling = d.pop("enableDiskAutoscaling", UNSET)
 
+        connection_pool = d.pop("connectionPool", UNSET)
+
         enable_high_availability = d.pop("enableHighAvailability", UNSET)
 
         datadog_api_key = d.pop("datadogAPIKey", UNSET)
@@ -161,6 +170,7 @@ class PostgresPATCHInput:
             plan=plan,
             disk_size_gb=disk_size_gb,
             enable_disk_autoscaling=enable_disk_autoscaling,
+            connection_pool=connection_pool,
             enable_high_availability=enable_high_availability,
             datadog_api_key=datadog_api_key,
             datadog_site=datadog_site,

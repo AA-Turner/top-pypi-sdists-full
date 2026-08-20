@@ -251,7 +251,7 @@ class TuiArgs(PlatformScopeArgs):
         str | None,
         cyclopts.Parameter(
             group=TUI_GROUP,
-            help="Session policy to launch with (e.g. 'guard'). Overrides --auto when set.",
+            help="Session policy name to launch with. Overrides --auto when set.",
         ),
     ] = None
     policy_arg: t.Annotated[

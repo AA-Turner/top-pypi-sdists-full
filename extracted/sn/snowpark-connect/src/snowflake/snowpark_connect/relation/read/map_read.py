@@ -9,6 +9,7 @@ import logging
 import os
 import re
 from pathlib import Path
+from typing import Any
 
 import pyspark.sql.connect.proto.relations_pb2 as relation_proto
 from pyspark.errors.exceptions.base import AnalysisException
@@ -170,7 +171,19 @@ def map_read(
             options = dict(rel.read.data_source.options)
             telemetry.report_io_read(read_format, options)
             session: snowpark.Session = get_or_create_snowpark_session()
-            if len(rel.read.data_source.paths) > 0:
+            # Spark DataSource: when load() has no path args, paths come from
+            # options("paths") ++ options("path") (SPARK-32621 / SNOW-3390108).
+            source_paths = list(rel.read.data_source.paths)
+            if not source_paths:
+                option_paths = _paths_from_read_options(options)
+                if option_paths:
+                    source_paths = option_paths
+                    options = {
+                        k: v
+                        for k, v in options.items()
+                        if k.lower() not in ("path", "paths")
+                    }
+            if len(source_paths) > 0:
                 if options.get("path"):
                     raise AnalysisException(
                         "There is a 'path' or 'paths' option set and load() is called with path parameters. "
@@ -185,8 +198,7 @@ def map_read(
                 # `Path(...)` normalization (SNOW-3428536). Collapse redundant
                 # slashes so cloud/stage paths match Spark (SNOW-3585393).
                 clean_source_paths = [
-                    _normalize_read_source_path(path)
-                    for path in rel.read.data_source.paths
+                    _normalize_read_source_path(path) for path in source_paths
                 ]
 
                 result = _read_file(
@@ -333,6 +345,57 @@ def _normalize_read_source_path(path: str) -> str:
         original,
         str(Path(unescape_glob_metacharacters(collapsed))),
     )
+
+
+def _paths_from_read_options(options: dict[str, Any]) -> list[str]:
+    """Resolve Spark DataSource ``path`` / ``paths`` options when load() has no path args.
+
+    Mirrors Spark FileDataSourceV2 / DataSource behavior:
+    ``paths`` (JSON array of strings) first, then ``path``. Keys are matched
+    case-insensitively. Invalid ``paths`` values fail fast (Spark's
+    ``FileDataSourceV2.readPathsToSeq``), rather than being stringified into
+    unintended path strings.
+    """
+    key_by_lower = {k.lower(): k for k in options}
+    resolved: list[str] = []
+    if "paths" in key_by_lower:
+        resolved.extend(_parse_paths_option(options[key_by_lower["paths"]]))
+    if "path" in key_by_lower:
+        resolved.append(str(options[key_by_lower["path"]]))
+    return resolved
+
+
+def _parse_paths_option(raw: Any) -> list[str]:
+    """Parse the Spark ``paths`` option as a JSON array of strings.
+
+    Spark uses Jackson ``readValue(paths, Seq[String])``; non-array / invalid
+    JSON must not silently become a path like ``\"None\"``.
+    """
+    if isinstance(raw, list):
+        parsed = raw
+    elif isinstance(raw, str):
+        try:
+            parsed = json.loads(raw)
+        except json.JSONDecodeError as exc:
+            exception = AnalysisException(
+                f"The 'paths' option must be a JSON array of strings, got: {raw!r}"
+            )
+            attach_custom_error_code(exception, ErrorCodes.INVALID_CONFIG_VALUE)
+            raise exception from exc
+    else:
+        exception = AnalysisException(
+            f"The 'paths' option must be a JSON array of strings, got: {raw!r}"
+        )
+        attach_custom_error_code(exception, ErrorCodes.INVALID_CONFIG_VALUE)
+        raise exception
+
+    if not isinstance(parsed, list) or any(not isinstance(p, str) for p in parsed):
+        exception = AnalysisException(
+            f"The 'paths' option must be a JSON array of strings, got: {raw!r}"
+        )
+        attach_custom_error_code(exception, ErrorCodes.INVALID_CONFIG_VALUE)
+        raise exception
+    return list(parsed)
 
 
 # TODO: [SNOW-2465948] Remove this once Snowpark fixes the issue with stage paths.

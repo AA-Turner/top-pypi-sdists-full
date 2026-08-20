@@ -1,11 +1,12 @@
 import asyncio
 
+import httpx
 from sqlalchemy import select
 
 from dstack._internal.core.errors import SSHError
 from dstack._internal.server.db import get_db, get_session_ctx
 from dstack._internal.server.models import (
-    GatewayComputeModel,
+    GatewayReplicaModel,
 )
 from dstack._internal.server.services.gateways import (
     GatewayConnection,
@@ -31,7 +32,7 @@ async def process_gateways_connections():
 async def _remove_inactive_connections():
     async with get_session_ctx() as session:
         res = await session.execute(
-            select(GatewayComputeModel.ip_address).where(GatewayComputeModel.active == True)
+            select(GatewayReplicaModel.ip_address).where(GatewayReplicaModel.active == True)
         )
     active_connection_ips = {ip for ip in res.scalars().all() if ip is not None}
     for conn in await gateway_connections_pool.all():
@@ -60,4 +61,9 @@ async def _process_connection(conn: GatewayConnection):
         logger.warning("Connection to gateway %s failed: %s", conn.ip_address, e)
         return
 
-    await conn.try_collect_stats()
+    try:
+        await conn.try_collect_stats()
+    except httpx.HTTPError as e:
+        logger.warning("Failed to collect stats from gateway %s: %r", conn.ip_address, e)
+    except Exception:
+        logger.exception("Failed to collect stats from gateway %s", conn.ip_address)

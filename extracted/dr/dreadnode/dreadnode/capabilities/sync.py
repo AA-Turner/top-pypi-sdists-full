@@ -224,6 +224,12 @@ def _extract_tar_to_dir(data: bytes, target: Path) -> None:
             dest = target / normalized
             dest.parent.mkdir(parents=True, exist_ok=True)
             dest.write_bytes(f.read())
+            # Preserve the executable bit from the tar member. Capability
+            # scripts (install scripts, tool wrappers like scripts/pd-tool)
+            # ship as 0755 but write_bytes creates 0644, so a stripped +x
+            # left runtime checks (`test -x`) and direct execs failing.
+            if member.mode & 0o111:
+                dest.chmod(dest.stat().st_mode | (member.mode & 0o111))
 
 
 class CapabilitySyncClient:

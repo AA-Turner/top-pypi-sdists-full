@@ -3,6 +3,7 @@
 Console script for pyproject2conda (:mod:`~pyproject2conda.cli`)
 ================================================================
 """
+# ruff:file-ignore[print,too-many-positional-arguments,too-many-arguments]
 
 from __future__ import annotations
 
@@ -28,7 +29,7 @@ from ._compat import tomllib
 from ._typing_compat import override
 
 if TYPE_CHECKING:
-    import click
+    from typing import Any
 
 # * Logger -----------------------------------------------------------------------------
 
@@ -78,7 +79,7 @@ class _AliasedGroup(TyperGroup):
     """Provide aliasing for commands"""
 
     @override
-    def get_command(self, ctx: click.Context, cmd_name: str) -> click.Command | None:
+    def get_command(self, ctx: Any, cmd_name: str) -> Any | None:
         if (rv := super().get_command(ctx, cmd_name)) is not None:
             return rv
         if not (
@@ -90,23 +91,23 @@ class _AliasedGroup(TyperGroup):
         ctx.fail(
             "Too many matches: {}".format(", ".join(sorted(matches)))
         )  # pragma: no cover
-        return None  # type: ignore[unreachable]  # pragma: no cover  # pyright: ignore[reportUnreachable]
+        return None  # pragma: no cover
 
     @override
-    def list_commands(self, ctx: click.Context) -> list[str]:  # noqa: ARG002
+    def list_commands(self, ctx: Any) -> list[str]:  # ruff:ignore[unused-method-argument]
         return list(self.commands)
 
 
-app_typer: typer.Typer = typer.Typer(cls=_AliasedGroup, no_args_is_help=True)
+app: typer.Typer = typer.Typer(cls=_AliasedGroup, no_args_is_help=True)
 
 
-@app_typer.callback()
+@app.callback()
 def main(
-    version: Annotated[  # noqa: ARG001
+    version: Annotated[  # ruff:ignore[unused-function-argument]
         bool,
         typer.Option("--version", "-v", callback=_callback_version, is_eager=True),
     ] = False,
-    columns: Annotated[  # noqa: ARG001
+    columns: Annotated[  # ruff:ignore[unused-function-argument]
         int | None,
         typer.Option(
             "--columns",
@@ -480,11 +481,11 @@ def _log_creating(
 
 # * Commands ---------------------------------------------------------------------------
 # ** List
-# @app_typer.command("l", hidden=True)
-@app_typer.command("list")
+# @app.command("l", hidden=True)
+@app.command("list")
 def create_list(
     pyproject_filename: PYPROJECT_CLI,
-    verbose: VERBOSE_CLI = None,  # noqa: ARG001
+    verbose: VERBOSE_CLI = None,  # ruff:ignore[unused-function-argument]
 ) -> None:
     """List available extras."""
     logger.info("pyproject_filename: %s", pyproject_filename)
@@ -502,8 +503,8 @@ def create_list(
 
 
 # ** Yaml
-# @app_typer.command("y", hidden=True)
-@app_typer.command()
+# @app.command("y", hidden=True)
+@app.command()
 def yaml(
     pyproject_filename: PYPROJECT_CLI,
     extras: EXTRAS_CLI = None,
@@ -583,8 +584,8 @@ def yaml(
 
 
 # ** Requirements
-# @app_typer.command("r", hidden=True)
-@app_typer.command()
+# @app.command("r", hidden=True)
+@app.command()
 def requirements(
     pyproject_filename: PYPROJECT_CLI,
     extras: EXTRAS_CLI = None,
@@ -595,7 +596,7 @@ def requirements(
     header: HEADER_CLI = None,
     custom_command: CUSTOM_COMMAND_CLI = None,
     overwrite: OVERWRITE_CLI = Overwrite.force,
-    verbose: VERBOSE_CLI = None,  # noqa: ARG001
+    verbose: VERBOSE_CLI = None,  # ruff:ignore[unused-function-argument]
     pip_deps: PIP_DEPS_CLI = None,
     allow_empty: Annotated[bool, ALLOW_EMPTY_OPTION] = False,
 ) -> None:
@@ -625,8 +626,8 @@ def requirements(
 # ** From project
 
 
-# @app_typer.command("p", hidden=True)
-@app_typer.command()
+# @app.command("p", hidden=True)
+@app.command()
 def project(
     pyproject_filename: PYPROJECT_CLI,
     envs: ENVS_CLI = None,
@@ -707,8 +708,8 @@ def project(
 # ** Conda requirements
 
 
-# @app_typer.command("cr", hidden=True)
-@app_typer.command()
+# @app.command("cr", hidden=True)
+@app.command()
 def conda_requirements(
     pyproject_filename: PYPROJECT_CLI,
     path_conda: Annotated[Path | None, typer.Argument()] = None,
@@ -728,7 +729,7 @@ def conda_requirements(
     # paths,
     conda_deps: CONDA_DEPS_CLI = None,
     pip_deps: PIP_DEPS_CLI = None,
-    verbose: VERBOSE_CLI = None,  # noqa: ARG001
+    verbose: VERBOSE_CLI = None,  # ruff:ignore[unused-function-argument]
 ) -> None:
     """
     Create requirement files for conda and pip.
@@ -782,8 +783,8 @@ def conda_requirements(
 
 
 # ** json
-# @app_typer.command("j", hidden=True)
-@app_typer.command("json")
+# @app.command("j", hidden=True)
+@app.command("json")
 def to_json(
     pyproject_filename: PYPROJECT_CLI,
     extras: EXTRAS_CLI = None,
@@ -797,7 +798,7 @@ def to_json(
     skip_package: SKIP_PACKAGE_CLI = False,
     conda_deps: CONDA_DEPS_CLI = None,
     pip_deps: PIP_DEPS_CLI = None,
-    verbose: VERBOSE_CLI = None,  # noqa: ARG001
+    verbose: VERBOSE_CLI = None,  # ruff:ignore[unused-function-argument]
     overwrite: OVERWRITE_CLI = Overwrite.force,
 ) -> None:
     """
@@ -848,21 +849,3 @@ def to_json(
             json.dump(result, f)
     else:
         print(json.dumps(result))  # , indent=2))
-
-
-# * Click app
-# # If need be, can work directly with click
-# @click.group(cls=_AliasedGroup)
-# @click.version_option(version=__version__)
-# def app_click() -> None:
-#     pass
-# typer_click_object = typer.main.get_command(app_typer)  # noqa: ERA001
-# app = click.CommandCollection(sources=[app_click, typer_click_object], cls=_AliasedGroup)  # noqa: ERA001
-
-# Just use the click app....
-app: click.Command = typer.main.get_command(app_typer)
-
-
-# ** Main
-if __name__ == "__main__":
-    app()  # pragma: no cover

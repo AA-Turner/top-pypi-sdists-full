@@ -914,7 +914,8 @@ class Quart(App):
         """
         config = HyperConfig()
         config.access_log_format = "%(h)s %(r)s %(s)s %(b)s %(D)s"
-        config.accesslog = "-"
+        config.accesslog = self.logger
+        config.errorlog = self.logger
         if host.startswith("unix:") or host.startswith("fd:"):
             config.bind = [f"{host}"]
         else:
@@ -923,7 +924,6 @@ class Quart(App):
         config.certfile = certfile
         if debug is not None:
             self.debug = debug
-        config.errorlog = config.accesslog
         config.keyfile = keyfile
 
         return serve(self, config, shutdown_trigger=shutdown_trigger)
@@ -1790,15 +1790,15 @@ class Quart(App):
 
         try:
             async with self.app_context():
-                for func in self.after_serving_funcs:
-                    await self.ensure_async(func)()
-                for gen in self.while_serving_gens:
+                for gen in reversed(self.while_serving_gens):
                     try:
                         await gen.__anext__()
                     except StopAsyncIteration:
                         pass
                     else:
                         raise RuntimeError("While serving generator didn't terminate")
+                for func in self.after_serving_funcs:
+                    await self.ensure_async(func)()
         except Exception as error:
             await got_serving_exception.send_async(
                 self,

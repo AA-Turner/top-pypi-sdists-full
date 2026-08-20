@@ -638,9 +638,11 @@ class TaskSpan(Span, t.Generic[R]):
             full_path,
             type(filesystem).__name__,
         )
-        if not filesystem.exists(full_path):
-            with filesystem.open(full_path, "wb") as f:
-                f.write(data_bytes)
+        # The key is content-addressed, so overwriting it with the same bytes is
+        # idempotent. Avoid a separate exists() call: legacy s3fs turns a miss
+        # into an unbounded directory listing, which can block runtime servers.
+        with filesystem.open(full_path, "wb") as f:
+            f.write(data_bytes)
         return str(filesystem.unstrip_protocol(full_path))
 
     def _create_object_by_hash(self, serialized: Serialized, object_hash: str) -> Object:

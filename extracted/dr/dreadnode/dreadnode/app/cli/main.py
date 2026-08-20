@@ -34,6 +34,7 @@ from dreadnode.app.cli.task_set import cli as task_set_cli
 from dreadnode.app.cli.train import cli as train_cli
 from dreadnode.app.cli.worlds import cli as worlds_cli
 from dreadnode.app.model_catalog import resolve_model
+from dreadnode.core.tls import format_tls_error
 
 DEBUG = bool(os.getenv("DREADNODE_DEBUG"))
 
@@ -119,7 +120,7 @@ def _meta(
         if DEBUG:
             raise
         logger.exception("Unhandled exception")
-        message = str(exc) or exc.__class__.__name__
+        message = format_tls_error(exc) or str(exc) or exc.__class__.__name__
         print_error(f"{message} [dim]({exc.__class__.__name__})[/dim]")
         sys.exit(1)
 

@@ -162,7 +162,7 @@ class ThinkingBlock(Widget):
         super().__init__(**kwargs)
         self._body = body
         self._expanded = False
-        self._content = Static(classes="reasoning-body")
+        self._content = Static(classes="reasoning-body", markup=False)
         self._more = Static(classes="reasoning-more")
 
     def compose(self) -> ComposeResult:
@@ -322,6 +322,7 @@ def _render_message(message: Message) -> list[t.Any]:
         label = _format_tool_label(tool_name, tool_args)
         summary = _meta(message, "summary")
         error = _meta(message, "error")
+        policy_denial = _meta(message, "policy_denial")
         report_url = _meta(message, "report_url") or None
         url_label = _meta(message, "web_url_label") or None
         expanded_body: str | None = None
@@ -337,6 +338,7 @@ def _render_message(message: Message) -> list[t.Any]:
                 details=content.strip(),
                 meta=summary,
                 error=error,
+                policy_denial=policy_denial,
                 url=report_url,
                 url_label=url_label,
                 expanded_body=expanded_body,

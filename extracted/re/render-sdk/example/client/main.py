@@ -22,10 +22,10 @@ from render_sdk.client.errors import RenderError, TaskRunError
 render = Render()
 
 # Replace with your workflow slug and task name
-task_slug = "my-workflow-slug/calculate_square"
+task_slug = "my-workflow-slug/task-name"
 # Input data can be specified as a list of positional arguments or a
 # dictionary of named arguments
-input_data: dict[str, Any] = [3]
+input_data: dict[str, Any] = {"arg1": 3}
 
 # run_task() starts a task and waits for the result in one call
 try:
@@ -46,7 +46,7 @@ print(f"Task run details: {details.id} status={details.status}")
 
 # Cancel a task run
 task_run2 = render.workflows.start_task(task_slug, input_data)
-# render.workflows.cancel_task_run(task_run2.id)
+render.workflows.cancel_task_run(task_run2.id)
 print(f"Cancelled task run: {task_run2.id}")
 
 # Stream task run events. This is useful when you want to monitor

@@ -48,6 +48,7 @@ from langsmith.sandbox._exceptions import (
     SandboxConnectTimeoutError,
     SandboxNotReadyError,
     SandboxOperationError,
+    SandboxRetryableConnectionError,
     SandboxServerReloadError,
     TunnelConnectionRefusedError,
     TunnelError,
@@ -59,6 +60,8 @@ from langsmith.sandbox._models import (
     AsyncCommandHandle,
     AsyncServiceURL,
     CommandHandle,
+    DownloadContentDisposition,
+    DownloadURL,
     ExecutionResult,
     OutputChunk,
     ResourceStatus,
@@ -112,6 +115,8 @@ __all__ = [
     "ExecutionResult",
     "Snapshot",
     "ServiceURL",
+    "DownloadURL",
+    "DownloadContentDisposition",
     "AsyncServiceURL",
     # WebSocket streaming models
     "CommandHandle",
@@ -151,6 +156,7 @@ __all__ = [
     "SandboxAPIError",
     "SandboxAuthenticationError",
     "SandboxConnectionError",
+    "SandboxRetryableConnectionError",
     "SandboxConnectTimeoutError",
     "SandboxServerReloadError",
     # Resource errors (type-based with resource_type attribute)

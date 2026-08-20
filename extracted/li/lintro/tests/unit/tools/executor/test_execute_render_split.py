@@ -20,6 +20,7 @@ import lintro.utils.tool_executor as te
 from lintro.enums.action import Action
 from lintro.models.core.run_artifact import RunArtifact
 from lintro.models.core.tool_result import ToolResult
+from lintro.parsers.ruff.ruff_issue import RuffIssue
 from lintro.tools import tool_manager
 from lintro.utils.execution.run_context import RunContext
 from lintro.utils.execution.run_renderer import render_run
@@ -113,6 +114,7 @@ def _context(
     fake_logger: Any,
     output_format: str = "grid",
     score_only: bool = False,
+    group_by: str = "auto",
 ) -> RunContext:
     """Build a run context wired to test doubles.
 
@@ -121,6 +123,7 @@ def _context(
         fake_logger: Console logger double.
         output_format: Output format the run was asked for.
         score_only: Whether stdout carries only the numeric score.
+        group_by: How issues should be grouped in formatted output.
 
     Returns:
         RunContext: A context safe to hand to either phase.
@@ -136,6 +139,7 @@ def _context(
         lintro_config=get_config(),
         clean_stdout_output=output_format in ("json", "sarif", "csv", "markdown"),
         score_only=score_only,
+        group_by=group_by,
     )
 
 
@@ -258,6 +262,153 @@ def test_execute_run_streams_results_through_the_callback(
     assert_that(seen).is_equal_to(["ruff"])
 
 
+def _console_texts(fake_logger: Any) -> str:
+    """Join all console_output text passed to the fake logger.
+
+    Args:
+        fake_logger: FakeLogger instance whose calls were recorded.
+
+    Returns:
+        A single string of all console_output text arguments.
+    """
+    parts: list[str] = []
+    for name, args, kwargs in fake_logger.calls:
+        if name != "console_output":
+            continue
+        if "text" in kwargs:
+            parts.append(str(kwargs["text"]))
+        elif args:
+            parts.append(str(args[0]))
+    return "\n".join(parts)
+
+
+def test_execute_run_prints_detection_notice_on_human_output(
+    monkeypatch: pytest.MonkeyPatch,
+    executor_doubles: None,
+    tmp_path: Path,
+    fake_logger: Any,
+) -> None:
+    """A language-scoped run prints the no-config notice on human output.
+
+    Args:
+        monkeypatch: Pytest monkeypatch fixture.
+        executor_doubles: Neutralized executor collaborators.
+        tmp_path: Temporary directory standing in for the run directory.
+        fake_logger: Console logger double.
+    """
+    monkeypatch.setattr(
+        te,
+        "get_tools_to_run",
+        lambda tools, action, **_kw: ToolsToRunResult(
+            to_run=["ruff"],
+            detected_languages=["python"],
+            scoped_by_detection=True,
+        ),
+    )
+    monkeypatch.setattr(
+        tool_manager,
+        "get_tool",
+        lambda name: _FakeTool(issues_count=0),
+    )
+    ctx = _context(tmp_path=tmp_path, fake_logger=fake_logger)
+
+    _run_execute(ctx=ctx, tools=None)
+
+    assert_that(_console_texts(fake_logger)).contains("No config found")
+    assert_that(_console_texts(fake_logger)).contains("lintro init")
+
+
+@pytest.mark.parametrize(
+    ("output_format", "score_only"),
+    [
+        ("json", False),
+        ("grid", True),
+    ],
+    ids=["json", "score-only"],
+)
+def test_execute_run_hides_detection_notice_on_machine_or_score_output(
+    monkeypatch: pytest.MonkeyPatch,
+    executor_doubles: None,
+    tmp_path: Path,
+    fake_logger: Any,
+    output_format: str,
+    score_only: bool,
+) -> None:
+    """JSON stdout and ``--score`` suppress the language-scope notice.
+
+    Args:
+        monkeypatch: Pytest monkeypatch fixture.
+        executor_doubles: Neutralized executor collaborators.
+        tmp_path: Temporary directory standing in for the run directory.
+        fake_logger: Console logger double.
+        output_format: Output format the run was asked for.
+        score_only: Whether stdout carries only the numeric score.
+    """
+    monkeypatch.setattr(
+        te,
+        "get_tools_to_run",
+        lambda tools, action, **_kw: ToolsToRunResult(
+            to_run=["ruff"],
+            detected_languages=["python"],
+            scoped_by_detection=True,
+        ),
+    )
+    monkeypatch.setattr(
+        tool_manager,
+        "get_tool",
+        lambda name: _FakeTool(issues_count=0),
+    )
+    ctx = _context(
+        tmp_path=tmp_path,
+        fake_logger=fake_logger,
+        output_format=output_format,
+        score_only=score_only,
+    )
+
+    _run_execute(ctx=ctx, tools=None, output_format=output_format)
+
+    assert_that(_console_texts(fake_logger)).does_not_contain("No config found")
+
+
+def test_execute_run_forwards_paths_as_scan_roots(
+    monkeypatch: pytest.MonkeyPatch,
+    executor_doubles: None,
+    tmp_path: Path,
+    fake_logger: Any,
+) -> None:
+    """Default chk/fmt runs pass scan paths into language detection.
+
+    Args:
+        monkeypatch: Pytest monkeypatch fixture.
+        executor_doubles: Neutralized executor collaborators.
+        tmp_path: Temporary directory standing in for the run directory.
+        fake_logger: Console logger double.
+    """
+    captured: dict[str, object] = {}
+
+    def fake_get_tools(
+        tools: str | None,
+        action: object,
+        **kwargs: object,
+    ) -> ToolsToRunResult:
+        captured["tools"] = tools
+        captured["scan_roots"] = kwargs.get("scan_roots")
+        return ToolsToRunResult(to_run=["ruff"])
+
+    monkeypatch.setattr(te, "get_tools_to_run", fake_get_tools)
+    monkeypatch.setattr(
+        tool_manager,
+        "get_tool",
+        lambda name: _FakeTool(issues_count=0),
+    )
+    ctx = _context(tmp_path=tmp_path, fake_logger=fake_logger)
+
+    _run_execute(ctx=ctx, tools=None, paths=["src/app.py"])
+
+    assert_that(captured["tools"]).is_none()
+    assert_that(captured["scan_roots"]).is_equal_to(["src/app.py"])
+
+
 def test_execute_run_marks_an_unknown_tool_selection_as_early_exit(
     monkeypatch: pytest.MonkeyPatch,
     executor_doubles: None,
@@ -338,6 +489,47 @@ def test_render_run_emits_json(
     payload = json.loads(capsys.readouterr().out)
     assert_that(payload["summary"]["total_issues"]).is_equal_to(2)
     assert_that(payload["results"][0]["tool"]).is_equal_to("ruff")
+
+
+def test_render_run_enriches_categories_before_json_stdout(
+    tmp_path: Path,
+    fake_logger: Any,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    """``--group-by category`` writes canonical labels onto issues before JSON."""
+    issue = RuffIssue(file="a.py", line=1, code="S105", message="hardcoded")
+    results = [
+        ToolResult(
+            name="ruff",
+            success=False,
+            issues_count=1,
+            issues=[issue],
+        ),
+    ]
+    artifact = RunArtifact(
+        tool_results=results,
+        action=Action.CHECK,
+        workspace_root=Path.cwd(),
+        health=health_score_for_results(results),
+        total_issues=1,
+        total_fixed=0,
+        total_remaining=1,
+        exit_code=1,
+    )
+    ctx = _context(
+        tmp_path=tmp_path,
+        fake_logger=fake_logger,
+        output_format="json",
+        group_by="category",
+    )
+
+    render_run(artifact, ctx=ctx, output_format="json")
+
+    payload = json.loads(capsys.readouterr().out)
+    assert_that(issue.category).is_equal_to("Security")
+    assert_that(payload["results"][0]["issues"][0]["category"]).is_equal_to(
+        "Security",
+    )
 
 
 def test_render_run_emits_sarif(

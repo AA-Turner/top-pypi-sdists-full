@@ -6,11 +6,12 @@ from loguru import logger
 
 from dreadnode.app.tui import wire_events as we
 from dreadnode.app.tui.turn_state_phase import TurnStatePhase, phase_for_human_prompt
+from dreadnode.tools.report_items import classify_report_item_outcome
 
 if t.TYPE_CHECKING:
     from dreadnode.app.api.models import HumanPrompt
 
-ToolStatus = t.Literal["running", "completed", "errored"]
+ToolStatus = t.Literal["running", "completed", "denied", "errored"]
 
 
 @dataclass(slots=True)
@@ -31,6 +32,7 @@ class ToolRun:
     summary: str | None = None
     error: str | None = None
     partial: bool = False
+    persisted: bool = False
 
 
 @dataclass(slots=True)
@@ -180,11 +182,19 @@ def reduce_event(
             status=end_status,
             now=now,
         )
-        if event.data.error:
-            key = _tool_key_for_call(next_state, tc.id, tc.name, is_end=True)
-            run = next_state.tool_runs.get(key)
-            if run is not None:
+        key = _tool_key_for_call(next_state, tc.id, tc.name, is_end=True)
+        run = next_state.tool_runs.get(key)
+        if run is not None:
+            if event.data.error:
                 run.error = event.data.error
+            if run.tool_name == "report_item":
+                run.persisted = (
+                    classify_report_item_outcome(
+                        result=event.data.result,
+                        error=event.data.error,
+                    )
+                    == "persisted"
+                )
         # Accumulate sub-agent LLM cost carried on the ToolEnd event
         # (set by ``spawn_agent`` via message metadata). Kept separate
         # from the main ``usage_cost_usd`` so the footer can show it
@@ -210,6 +220,41 @@ def reduce_event(
 
     elif isinstance(event, we.ToolStep):
         pass  # Intermediate tool progress — no phase change
+
+    elif isinstance(event, we.ReactStep):
+        reaction = event.data.reaction
+        decision = reaction.metadata.get("policy_decision")
+        if (
+            reaction.type == "RetryWithFeedback"
+            and isinstance(decision, dict)
+            and decision.get("kind") == "scopeguard"
+            and decision.get("runtime_action") == "deny"
+        ):
+            next_state = _finish_tool(
+                next_state,
+                tool_call_id=reaction.tool_call_id,
+                tool_name=None,
+                tool_args={},
+                status="denied",
+                now=now,
+            )
+            key = _tool_key_for_call(
+                next_state,
+                reaction.tool_call_id,
+                None,
+                is_end=True,
+            )
+            run = next_state.tool_runs.get(key)
+            if run is not None:
+                reason = str(decision.get("reason") or reaction.feedback or "outside scope")
+                run.error = f"[POLICY DENIED] {reason}"
+            # A retry-style policy denial feeds the reason back to the model and
+            # starts another generation. It is not a terminal tool failure.
+            next_state.phase = (
+                TurnStatePhase.RUNNING_TOOLS
+                if _has_running_tools(next_state)
+                else TurnStatePhase.GENERATING
+            )
 
     elif isinstance(event, we.UserInputRequired):
         prompt = event.data  # HumanPrompt

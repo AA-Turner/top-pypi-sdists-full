@@ -1,126 +1,112 @@
 [build-system]
-build-backend = "setuptools.build_meta"
-requires = [
-  "setuptools>=77",
-]
+build-backend = "uv_build"
+requires = ["uv-build>=0.12.1,<0.13"]
 
 [project]
 name = "patchy"
-version = "2.10.0"
+version = "3.0.0"
 description = "Patch the inner source of python functions at runtime."
 readme = "README.rst"
-keywords = [
-  "patchy",
-]
+keywords = ["patchy"]
 license = "MIT"
-license-files = [ "LICENSE" ]
-authors = [
-  { name = "Adam Johnson", email = "me@adamj.eu" },
-]
-requires-python = ">=3.9"
+license-files = ["LICENSE"]
+requires-python = ">=3.10"
 classifiers = [
-  "Development Status :: 5 - Production/Stable",
-  "Intended Audience :: Developers",
-  "Natural Language :: English",
-  "Operating System :: OS Independent",
-  "Programming Language :: Python :: 3 :: Only",
-  "Programming Language :: Python :: 3.9",
-  "Programming Language :: Python :: 3.10",
-  "Programming Language :: Python :: 3.11",
-  "Programming Language :: Python :: 3.12",
-  "Programming Language :: Python :: 3.13",
-  "Programming Language :: Python :: 3.14",
-  "Typing :: Typed",
+    "Development Status :: 5 - Production/Stable",
+    "Intended Audience :: Developers",
+    "Natural Language :: English",
+    "Operating System :: OS Independent",
+    "Programming Language :: Python :: 3 :: Only",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Programming Language :: Python :: 3.14",
+    "Programming Language :: Python :: 3.15",
+    "Typing :: Typed",
 ]
-dependencies = [  ]
-urls = { Changelog = "https://github.com/adamchainz/patchy/blob/main/CHANGELOG.rst", Funding = "https://adamj.eu/books/", Repository = "https://github.com/adamchainz/patchy" }
+dependencies = ["unipatch"]
+
+[[project.authors]]
+name = "Adam Johnson"
+email = "me@adamj.eu"
+
+[project.urls]
+Changelog = "https://github.com/adamchainz/patchy/blob/main/CHANGELOG.rst"
+Funding = "https://adamj.eu/books/"
+Repository = "https://github.com/adamchainz/patchy"
 
 [dependency-groups]
 test = [
-  "coverage[toml]",
-  "pkgutil-resolve-name; python_version<'3.9'",
-  "pytest",
-  "pytest-randomly",
+    "coverage[toml]",
+    "pkgutil-resolve-name; python_version<'3.9'",
+    "pytest>=9",
+    "pytest-randomly",
 ]
 
-[tool.ruff]
-lint.select = [
-  # flake8-bugbear
-  "B",
-  # flake8-comprehensions
-  "C4",
-  # pycodestyle
-  "E",
-  # Pyflakes errors
-  "F",
-  # isort
-  "I",
-  # flake8-simplify
-  "SIM",
-  # flake8-tidy-imports
-  "TID",
-  # pyupgrade
-  "UP",
-  # Pyflakes warnings
-  "W",
+[tool.ruff.lint]
+select = [
+    "B",
+    "C4",
+    "E",
+    "F",
+    "I",
+    "SIM",
+    "TID",
+    "UP",
+    "W",
 ]
-lint.ignore = [
-  # flake8-bugbear opinionated rules
-  "B9",
-  # line-too-long
-  "E501",
-  # suppressible-exception
-  "SIM105",
-  # if-else-block-instead-of-if-exp
-  "SIM108",
+ignore = [
+    "B9",
+    "E501",
+    "SIM105",
+    "SIM108",
 ]
-lint.extend-safe-fixes = [
-  # non-pep585-annotation
-  "UP006",
-]
-lint.isort.required-imports = [ "from __future__ import annotations" ]
+extend-safe-fixes = ["UP006"]
+
+[tool.ruff.lint.isort]
+required-imports = ["from __future__ import annotations"]
 
 [tool.pyproject-fmt]
-max_supported_python = "3.14"
-
-[tool.pytest.ini_options]
-addopts = """\
-    --strict-config
-    --strict-markers
-    """
-xfail_strict = true
-
-[tool.coverage.run]
-branch = true
-parallel = true
-source = [
-  "patchy",
-  "tests",
-]
-
-[tool.coverage.paths]
-source = [
-  "src",
-  ".tox/**/site-packages",
-]
-
-[tool.coverage.report]
-show_missing = true
+max_supported_python = "3.15"
 
 [tool.mypy]
-enable_error_code = [
-  "ignore-without-code",
-  "redundant-expr",
-  "truthy-bool",
-]
 mypy_path = "src/"
 namespace_packages = false
-strict = true
 warn_unreachable = true
+enable_error_code = [
+    "ignore-without-code",
+    "redundant-expr",
+    "truthy-bool",
+]
+strict = true
 
 [[tool.mypy.overrides]]
 module = "tests.*"
 allow_untyped_defs = true
+
+[tool.pytest]
+strict = true
+
+[tool.coverage.run]
+branch = true
+data_file = ".coverage/cov"
+parallel = true
+source = [
+    "patchy",
+    "tests",
+]
+
+[tool.coverage.paths]
+source = [
+    "src",
+    ".tox/**/site-packages",
+]
+
+[tool.coverage.report]
+show_missing = true
+skip_covered = true
+skip_empty = true
 
 [tool.rstcheck]
 report_level = "ERROR"

@@ -10,7 +10,7 @@ use libafl::{
     NopInputFilter, StdFuzzer,
     events::SimpleEventManager,
     feedbacks::{CrashFeedback, MaxMapFeedback},
-    inputs::{BytesInput, NopToTargetBytes},
+    inputs::{BytesInput, BytesInputConverter},
     observers::OwnedMapObserver,
     schedulers::QueueScheduler,
     stages::StdMutationalStage,
@@ -21,7 +21,7 @@ use libafl_bolts::{
     tuples::{tuple_list, tuple_list_type},
 };
 use pyo3::exceptions::PyRuntimeError;
-use pyo3::{Py, exceptions::PyTypeError, prelude::*};
+use pyo3::{exceptions::PyTypeError, prelude::*};
 
 use crate::fuzzer::{
     corpus::{DynCorpus, PyInMemoryCorpus, PyOnDiskCorpus},
@@ -42,7 +42,7 @@ pub(crate) type OT = tuple_list_type!(O);
 pub(crate) type Z = StdFuzzer<
     QueueScheduler,
     MaxMapFeedback<O, O>,
-    NopToTargetBytes,
+    BytesInputConverter,
     NopInputFilter,
     CrashFeedback,
 >;
@@ -126,7 +126,7 @@ impl Fuzzer {
         let fuzzer: StdFuzzer<
             QueueScheduler,
             MaxMapFeedback<OwnedMapObserver<u8>, OwnedMapObserver<u8>>,
-            NopToTargetBytes,
+            BytesInputConverter,
             NopInputFilter,
             CrashFeedback,
         > = StdFuzzer::new(QueueScheduler::new(), feedback, objective);
@@ -157,12 +157,12 @@ impl Fuzzer {
         })
     }
 
-    fn corpus(&self) -> PyResult<Py<PyAny>> {
-        Python::attach(|py| self.fuzzer_state.corpus().to_py(py))
+    fn corpus(&self) -> &C {
+        self.fuzzer_state.corpus()
     }
 
-    fn solutions(&self) -> PyResult<Py<PyAny>> {
-        Python::attach(|py| self.fuzzer_state.solutions().to_py(py))
+    fn solutions(&self) -> &C {
+        self.fuzzer_state.solutions()
     }
 
     #[getter]

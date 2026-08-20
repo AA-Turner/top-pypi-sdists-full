@@ -51,7 +51,7 @@ class BackMsg(_message.Message):
     BACKEND_OPERATION_REQUEST_FIELD_NUMBER: _builtins.int
     DEBUG_LAST_BACKMSG_ID_FIELD_NUMBER: _builtins.int
     clear_cache: _builtins.bool
-    """Requests that the app's @st_cache be cleared"""
+    """Requests that the app's cached data and resources be cleared"""
     set_run_on_save: _builtins.bool
     """Requests that the runOnSave behavior for this app be set
     to the given value

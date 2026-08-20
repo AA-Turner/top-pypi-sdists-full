@@ -115,7 +115,6 @@ def _load_credentials() -> dict[str, Any]:
         }
 
     # look for a refresh token in the az command line credentials
-    # we could also try to use any found access tokens
     msal_tokens_path = os.path.expanduser("~/.azure/msal_token_cache.json")
     if os.path.exists(msal_tokens_path):
         with open(msal_tokens_path) as f:
@@ -124,24 +123,6 @@ def _load_credentials() -> dict[str, Any]:
                 if token["credential_type"] != "RefreshToken":
                     continue
                 return {"_azure_auth": "refresh", "refresh_token": token["secret"]}
-
-    access_tokens_path = os.path.expanduser("~/.azure/accessTokens.json")
-    if os.path.exists(access_tokens_path):
-        with open(access_tokens_path) as f:
-            tokens = json.load(f)
-            best_token = None
-            for token in tokens:
-                if "refreshToken" not in token:
-                    continue
-                creds = {"_azure_auth": "refresh", "refresh_token": token["refreshToken"]}
-                if best_token is None:
-                    best_token = creds
-                else:
-                    # expiresOn may be missing for tokens from service principals
-                    if token.get("expiresOn", "") > best_token.get("expiresOn", ""):
-                        best_token = creds
-            if best_token is not None:
-                return best_token
 
     return {}
 
@@ -1075,7 +1056,11 @@ class StreamingWriteFile(BaseStreamingWriteFile):
             partial_writes_on_exc=partial_writes_on_exc,
         )
         if not conf.use_blind_writes:
-            self._prepare_write()
+            try:
+                self._prepare_write()
+            except BaseException:
+                self.had_exception = True
+                raise
 
     def _prepare_write(self) -> None:
         # block blobs let you upload up to 100,000 "uncommitted" blocks with user-chosen block ids
@@ -1400,8 +1385,7 @@ def list_blobs(conf: Config, path: str, delimiter: str | None = None) -> Iterato
 
 
 def entry_from_dirpath(path: str) -> DirEntry:
-    if path.endswith("/"):
-        path = path[:-1]
+    path = path.removesuffix("/")
     _, _, obj = split_path(path)
     name = obj.split("/")[-1]
     return DirEntry(name=name, path=path, is_dir=True, is_file=False, stat=None)
@@ -1608,8 +1592,7 @@ def join_paths(conf: Config, url: str, relpath: str) -> str:
     if not blob.endswith("/"):
         blob += "/"
     blob = path_join(blob, relpath)
-    if blob.startswith("/"):
-        blob = blob[1:]
+    blob = blob.removeprefix("/")
     return combine_path(conf, account, container, blob)
 
 

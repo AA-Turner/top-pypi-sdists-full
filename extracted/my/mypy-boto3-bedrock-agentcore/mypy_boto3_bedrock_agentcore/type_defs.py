@@ -198,6 +198,7 @@ __all__ = (
     "ExecutionSummaryClusteringResultContentTypeDef",
     "ExternalProxyOutputTypeDef",
     "ExternalProxyTypeDef",
+    "ExtractionConfigTypeDef",
     "ExtractionJobFilterInputTypeDef",
     "ExtractionJobMessagesTypeDef",
     "ExtractionJobMetadataTypeDef",
@@ -357,6 +358,9 @@ __all__ = (
     "LiveViewStreamTypeDef",
     "McpDescriptorTypeDef",
     "MemoryContentTypeDef",
+    "MemoryJsonDataOutputTypeDef",
+    "MemoryJsonDataTypeDef",
+    "MemoryJsonDataUnionTypeDef",
     "MemoryMetadataFilterExpressionTypeDef",
     "MemoryRecordCreateInputTypeDef",
     "MemoryRecordDeleteInputTypeDef",
@@ -605,6 +609,7 @@ class ResponseMetadataTypeDef(TypedDict):
 
 class MemoryRecordDeleteInputTypeDef(TypedDict):
     memoryRecordId: str
+    namespace: NotRequired[str]
 
 
 class EvaluatorTypeDef(TypedDict):
@@ -866,6 +871,10 @@ class ControlStatsTypeDef(TypedDict):
     mean: float
 
 
+class ExtractionConfigTypeDef(TypedDict):
+    namespaceVariables: NotRequired[Mapping[str, str]]
+
+
 class MetadataValueTypeDef(TypedDict):
     stringValue: NotRequired[str]
 
@@ -908,6 +917,7 @@ class DeleteEventInputTypeDef(TypedDict):
 class DeleteMemoryRecordInputTypeDef(TypedDict):
     memoryId: str
     memoryRecordId: str
+    namespace: NotRequired[str]
 
 
 class DeletePaymentInstrumentRequestTypeDef(TypedDict):
@@ -1039,6 +1049,7 @@ class GetEventInputTypeDef(TypedDict):
 class GetMemoryRecordInputTypeDef(TypedDict):
     memoryId: str
     memoryRecordId: str
+    namespace: NotRequired[str]
 
 
 class GetPaymentInstrumentBalanceRequestTypeDef(TypedDict):
@@ -1427,6 +1438,14 @@ class ToolsDefinitionTypeDef(TypedDict):
 
 class MemoryContentTypeDef(TypedDict):
     text: NotRequired[str]
+
+
+class MemoryJsonDataOutputTypeDef(TypedDict):
+    content: dict[str, Any]
+
+
+class MemoryJsonDataTypeDef(TypedDict):
+    content: Mapping[str, Any]
 
 
 class MemoryRecordLeftExpressionTypeDef(TypedDict):
@@ -2203,6 +2222,9 @@ class McpDescriptorTypeDef(TypedDict):
     tools: ToolsDefinitionTypeDef
 
 
+MemoryJsonDataUnionTypeDef = Union[MemoryJsonDataTypeDef, MemoryJsonDataOutputTypeDef]
+
+
 class MemoryRecordSummaryTypeDef(TypedDict):
     memoryRecordId: str
     content: MemoryContentTypeDef
@@ -2453,11 +2475,7 @@ class CodeInterpreterResultTypeDef(TypedDict):
 class PayloadTypeOutputTypeDef(TypedDict):
     conversational: NotRequired[ConversationalTypeDef]
     blob: NotRequired[dict[str, Any]]
-
-
-class PayloadTypeTypeDef(TypedDict):
-    conversational: NotRequired[ConversationalTypeDef]
-    blob: NotRequired[Mapping[str, Any]]
+    json: NotRequired[MemoryJsonDataOutputTypeDef]
 
 
 class EvaluationReferenceInputTypeDef(TypedDict):
@@ -2569,6 +2587,12 @@ class DescriptorsTypeDef(TypedDict):
     a2a: NotRequired[A2aDescriptorTypeDef]
     custom: NotRequired[CustomDescriptorTypeDef]
     agentSkills: NotRequired[AgentSkillsDescriptorTypeDef]
+
+
+class PayloadTypeTypeDef(TypedDict):
+    conversational: NotRequired[ConversationalTypeDef]
+    blob: NotRequired[Mapping[str, Any]]
+    json: NotRequired[MemoryJsonDataUnionTypeDef]
 
 
 class ListMemoryRecordsOutputTypeDef(TypedDict):
@@ -2759,6 +2783,7 @@ class MemoryRecordUpdateInputTypeDef(TypedDict):
     timestamp: TimestampTypeDef
     content: NotRequired[MemoryContentTypeDef]
     namespaces: NotRequired[Sequence[str]]
+    sourceNamespaces: NotRequired[Sequence[str]]
     memoryStrategyId: NotRequired[str]
     metadata: NotRequired[Mapping[str, MemoryRecordMetadataValueUnionTypeDef]]
 
@@ -2794,9 +2819,6 @@ class EventTypeDef(TypedDict):
     payload: list[PayloadTypeOutputTypeDef]
     branch: NotRequired[BranchTypeDef]
     metadata: NotRequired[dict[str, MetadataValueTypeDef]]
-
-
-PayloadTypeUnionTypeDef = Union[PayloadTypeTypeDef, PayloadTypeOutputTypeDef]
 
 
 class EvaluateRequestTypeDef(TypedDict):
@@ -2901,6 +2923,9 @@ class RegistryRecordSummaryTypeDef(TypedDict):
     createdAt: datetime
     updatedAt: datetime
     description: NotRequired[str]
+
+
+PayloadTypeUnionTypeDef = Union[PayloadTypeTypeDef, PayloadTypeOutputTypeDef]
 
 
 class CreateABTestRequestTypeDef(TypedDict):
@@ -3045,18 +3070,6 @@ class ListEventsOutputTypeDef(TypedDict):
     nextToken: NotRequired[str]
 
 
-class CreateEventInputTypeDef(TypedDict):
-    memoryId: str
-    actorId: str
-    eventTimestamp: TimestampTypeDef
-    payload: Sequence[PayloadTypeUnionTypeDef]
-    sessionId: NotRequired[str]
-    branch: NotRequired[BranchTypeDef]
-    clientToken: NotRequired[str]
-    metadata: NotRequired[Mapping[str, MetadataValueTypeDef]]
-    extractionMode: NotRequired[Literal["SKIP"]]
-
-
 ListEventsInputPaginateTypeDef = TypedDict(
     "ListEventsInputPaginateTypeDef",
     {
@@ -3129,6 +3142,19 @@ class PaymentInstrumentDetailsTypeDef(TypedDict):
 class SearchRegistryRecordsResponseTypeDef(TypedDict):
     registryRecords: list[RegistryRecordSummaryTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
+
+
+class CreateEventInputTypeDef(TypedDict):
+    memoryId: str
+    actorId: str
+    eventTimestamp: TimestampTypeDef
+    payload: Sequence[PayloadTypeUnionTypeDef]
+    sessionId: NotRequired[str]
+    branch: NotRequired[BranchTypeDef]
+    clientToken: NotRequired[str]
+    metadata: NotRequired[Mapping[str, MetadataValueTypeDef]]
+    extractionMode: NotRequired[Literal["SKIP"]]
+    extractionConfig: NotRequired[ExtractionConfigTypeDef]
 
 
 class GetBrowserSessionResponseTypeDef(TypedDict):

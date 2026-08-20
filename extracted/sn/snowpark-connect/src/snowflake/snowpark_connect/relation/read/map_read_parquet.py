@@ -66,6 +66,7 @@ from snowflake.snowpark_connect.relation.read.utils import (
     normalize_stage_path,
     rename_columns_as_snowflake_standard,
 )
+from snowflake.snowpark_connect.type_mapping import TIMESTAMP_TZ_TO_SF_TYPE
 from snowflake.snowpark_connect.type_support import emulate_integral_types
 from snowflake.snowpark_connect.utils.io_utils import (
     cached_file_format,
@@ -1231,13 +1232,6 @@ def _build_parquet_typed_transformations(
     return target_cols, transforms, StructType(loading_fields)
 
 
-_TIMESTAMP_TZ_TO_SF_TYPE = {
-    TimestampTimeZone.NTZ: "TIMESTAMP_NTZ",
-    TimestampTimeZone.LTZ: "TIMESTAMP_LTZ",
-    TimestampTimeZone.TZ: "TIMESTAMP_TZ",
-}
-
-
 def _explicit_timestamp_sf_type(dt: DataType) -> str:
     """Return the Snowflake SQL type name for a typed-projection cast.
 
@@ -1262,7 +1256,7 @@ def _explicit_timestamp_sf_type(dt: DataType) -> str:
     Spark-default-timestamp policy.
     """
     if isinstance(dt, TimestampType):
-        return _TIMESTAMP_TZ_TO_SF_TYPE.get(dt.tz, "TIMESTAMP_LTZ")
+        return TIMESTAMP_TZ_TO_SF_TYPE.get(dt.tz, "TIMESTAMP_LTZ")
     return convert_sp_to_sf_type(dt)
 
 

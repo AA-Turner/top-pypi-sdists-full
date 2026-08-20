@@ -6,6 +6,7 @@ from .cartfile import CARTFile
 from .cgc import CGC, BackedCGC
 from .coff import Coff
 from .elf import ELF, ELFCore, MetaELF
+from .gopclntab import GoFunction, GoPclntab, GoSymbol
 from .ihex import Hex
 from .java.apk import Apk
 from .java.jar import Jar
@@ -18,6 +19,7 @@ from .region import Region, Section, Segment
 from .regions import Regions
 from .srec import SRec
 from .static_archive import StaticArchive
+from .stm32 import STM32Backend
 from .symbol import Symbol, SymbolSubType, SymbolType
 from .te import TE
 from .uefi_firmware import UefiFirmware
@@ -53,6 +55,7 @@ __all__ = [
     "Soot",
     "XBE",
     "StaticArchive",
+    "STM32Backend",
     "Region",
     "Segment",
     "Section",
@@ -60,6 +63,9 @@ __all__ = [
     "Symbol",
     "SymbolType",
     "SymbolSubType",
+    "GoFunction",
+    "GoPclntab",
+    "GoSymbol",
     "UefiFirmware",
     "TE",
     "Universal2",

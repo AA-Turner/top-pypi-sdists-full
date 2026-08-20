@@ -6,6 +6,7 @@ import typing as t
 from pathlib import Path
 
 import cyclopts
+import httpx
 
 from dreadnode.app.cli.args import PlatformScopeArgs
 from dreadnode.app.cli.shared import (
@@ -873,7 +874,15 @@ _ATTACK_REGISTRY.update(_LEGACY_ATTACK_REGISTRY)
 
 
 def _discover_transforms() -> dict[str, str]:
-    """Automatically discover all available transform functions from all modules."""
+    """Automatically discover transform factory functions from all modules.
+
+    A transform factory is a public function that returns a ``Transform``.
+    Filtering on the return annotation (rather than a name heuristic) keeps
+    imported helpers that happen to share a transform module - ``dataclass``,
+    ``get_generator``, ``indent``, ``shorten_string`` and similar - out of the
+    registry and its count. The prior name-based heuristic admitted ~18 such
+    helpers, inflating the reported transform count.
+    """
     import importlib
     import inspect
 
@@ -881,49 +890,23 @@ def _discover_transforms() -> dict[str, str]:
 
     registry = {}
 
-    # Iterate through all transform modules
     for module_name in __lazy_submodules__:
         try:
-            # Import the module
             module = importlib.import_module(f"dreadnode.transforms.{module_name}")
-
-            # Find all callable transform functions
-            for name, _obj in inspect.getmembers(module, inspect.isfunction):
-                # Skip private/internal functions, test helpers, and utility functions
-                if name.startswith("_") or name in ["Config", "dedent", "print_chars"]:
-                    continue
-
-                try:
-                    # More inclusive discovery - include all transform functions
-
-                    # Include all transform functions unless they're clearly utility/helper functions
-                    # This gives users maximum choice in available transforms
-                    if not (
-                        name
-                        in [
-                            "Transform",
-                            "Generator",
-                            "t",
-                            "typing",
-                            "inspect",
-                            "importlib",
-                            "functools",
-                        ]  # Common imports
-                        or (
-                            name[0].isupper() and len(name) > 3
-                        )  # Skip classes (Transform, GenerateParams, etc.)
-                        or name.endswith(("_test", "_helper"))  # Skip test helpers
-                        or name
-                        in ["dedent", "print_chars", "Config"]  # Skip known utility functions
-                    ):
-                        registry[name] = f"dreadnode.transforms.{module_name}:{name}"
-                except (AttributeError, TypeError, ImportError):
-                    # Skip functions that can't be inspected or have missing dependencies
-                    continue
-
         except (ImportError, AttributeError):
-            # Skip modules that can't be imported (optional dependencies like confusables, etc.)
+            # Skip modules that can't be imported (optional deps like confusables)
             continue
+
+        for name, obj in inspect.getmembers(module, inspect.isfunction):
+            if name.startswith("_"):
+                continue
+            try:
+                return_annotation = inspect.signature(obj).return_annotation
+            except (ValueError, TypeError):
+                continue
+            if "Transform" not in str(return_annotation):
+                continue
+            registry[name] = f"dreadnode.transforms.{module_name}:{name}"
 
     return registry
 
@@ -1060,6 +1043,7 @@ def _resolve_transforms(names: list[str], *, adapter_model: str | None = None) -
 def _build_target(model: str, max_tokens: int = 1024) -> t.Any:
     """Build a target task function for the given model."""
     from dreadnode import task
+    from dreadnode.core.tls import create_platform_ssl_context
     from dreadnode.generators.proxy import resolve_dn_model_to_generator
 
     @task
@@ -1074,17 +1058,28 @@ def _build_target(model: str, max_tokens: int = 1024) -> t.Any:
         }
         if isinstance(resolved_model, str):
             request_kwargs["model"] = resolved_model
+            resp = await acompletion(**request_kwargs)
         else:
+            from openai import AsyncOpenAI
+
+            api_base = resolved_model.params.api_base
+            if not isinstance(api_base, str) or not api_base:
+                raise RuntimeError("Missing platform proxy API base URL")
             request_kwargs.update(
                 {
                     "model": resolved_model.model,
                     "api_key": resolved_model.api_key,
-                    "api_base": resolved_model.params.api_base,
+                    "api_base": api_base,
                     "custom_llm_provider": "litellm_proxy",
                 }
             )
+            async with AsyncOpenAI(
+                api_key=resolved_model.api_key,
+                base_url=api_base,
+                http_client=httpx.AsyncClient(verify=create_platform_ssl_context()),
+            ) as client:
+                resp = await acompletion(**request_kwargs, client=client)
 
-        resp = await acompletion(**request_kwargs)
         return resp.choices[0].message.content
 
     return target

@@ -1,6 +1,6 @@
-Metadata-Version: 2.1
+Metadata-Version: 2.4
 Name: validate-pyproject
-Version: 0.25
+Version: 0.26
 Summary: Validation library and CLI tool for checking on 'pyproject.toml' files using JSON Schema
 Author-email: Anderson Bravalheri <andersonbravalheri@gmail.com>
 License: MPL-2.0 and MIT and BSD-3-Clause
@@ -16,18 +16,20 @@ Classifier: Operating System :: OS Independent
 Classifier: Programming Language :: Python
 Classifier: Topic :: Software Development :: Quality Assurance
 Classifier: Typing :: Typed
-Requires-Python: >=3.8
+Requires-Python: >=3.9
 Description-Content-Type: text/x-rst
 License-File: LICENSE.txt
 License-File: NOTICE.txt
 License-File: AUTHORS.rst
-Requires-Dist: fastjsonschema<=3,>=2.16.2
+Requires-Dist: fastjsonschema<=3,>=2.16.2; python_version >= "3.10"
+Requires-Dist: fastjsonschema!=2.22.0,<=3,>=2.16.2; python_version < "3.10"
 Provides-Extra: all
 Requires-Dist: packaging>=24.2; extra == "all"
 Requires-Dist: tomli>=1.2.1; python_version < "3.11" and extra == "all"
 Requires-Dist: trove-classifiers>=2021.10.20; extra == "all"
 Provides-Extra: store
 Requires-Dist: validate-pyproject-schema-store; extra == "store"
+Dynamic: license-file
 
 .. These are examples of badges you might want to add to your README:
    please update the URLs accordingly
@@ -185,8 +187,8 @@ weight than installing the entire package.
 
 If you want to write a custom plugin for your tool, please consider also contributing a copy to SchemaStore.
 
-pre-commit
-==========
+pre-commit / prek
+=================
 
 ``validate-pyproject`` can be installed as a pre-commit hook:
 
@@ -201,13 +203,13 @@ pre-commit
             # Optional extra validations from SchemaStore:
             additional_dependencies: ["validate-pyproject-schema-store[all]"]
 
-By default, this ``pre-commit`` hook will only validate the ``pyproject.toml``
-file at the root of the project repository.
+By default, this ``pre-commit`` / ``prek`` hook will only validate the
+``pyproject.toml`` file at the root of the project repository.
 You can customize that by defining a `custom regular expression pattern`_ using
 the ``files`` parameter.
 
-You can also use ``pre-commit autoupdate`` to update to the latest stable
-version of ``validate-pyproject`` (recommended).
+You can also use ``pre-commit autoupdate`` or ``prek auto-update`` to update to
+the latest stable version of ``validate-pyproject`` (recommended).
 
 You can also use `validate-pyproject-schema-store`_ as a pre-commit hook, which
 allows pre-commit to pin and update that instead of ``validate-pyproject`` itself.

@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: dbt-metricflow
-Version: 0.13.0
+Version: 0.14.0
 Summary: Execute commands against the MetricFlow semantic layer with dbt.
 Project-URL: Source Code, https://github.com/dbt-labs/metricflow/tree/main/dbt-metricflow
 Author-email: dbt Labs <info@dbtlabs.com>
@@ -12,15 +12,18 @@ Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
+Classifier: Programming Language :: Python :: 3.14
 Classifier: Programming Language :: Python :: Implementation :: CPython
 Classifier: Programming Language :: Python :: Implementation :: PyPy
-Requires-Python: <3.14,>=3.10
+Requires-Python: <3.15,>=3.10
 Requires-Dist: click>=8.1.6
-Requires-Dist: dbt-core<1.12.0,>=1.10.4
+Requires-Dist: dbt-core<1.13,>=1.11
 Requires-Dist: halo<0.1.0,>=0.0.31
 Requires-Dist: jinja2<3.7.0,>=3.1.6
-Requires-Dist: metricflow==0.211.0
+Requires-Dist: metricflow==0.212.0
 Requires-Dist: update-checker<0.19.0,>=0.18.0
+Provides-Extra: dbt-athena
+Requires-Dist: dbt-athena-community<1.10.0,>=1.8.0; extra == 'dbt-athena'
 Provides-Extra: dbt-bigquery
 Requires-Dist: dbt-bigquery; extra == 'dbt-bigquery'
 Provides-Extra: dbt-databricks

@@ -29,6 +29,7 @@ def test_settings():
                 "settings_file": full_path("settings-data/settings-empty.ini"),
                 "default_toolchain": "native",
                 "default_ut_toolchain": "native",
+                "preset": "",
                 "framework_path": full_path(".."),
                 "install_destination": full_path("settings-data/build-artifacts"),
                 "library_locations": [],
@@ -47,6 +48,7 @@ def test_settings():
                 "settings_file": full_path("settings-data/settings-custom-install.ini"),
                 "default_toolchain": "native",
                 "default_ut_toolchain": "native",
+                "preset": "",
                 "framework_path": full_path(".."),
                 "install_destination": full_path("test"),
                 "library_locations": [],
@@ -69,6 +71,7 @@ def test_settings():
                 ),
                 "default_toolchain": "custom1",
                 "default_ut_toolchain": "custom2",
+                "preset": "",
                 "framework_path": full_path(".."),
                 "install_destination": full_path("settings-data/build-artifacts"),
                 "library_locations": [],
@@ -91,6 +94,7 @@ def test_settings():
                 ),
                 "default_toolchain": "native",
                 "default_ut_toolchain": "native",
+                "preset": "",
                 "framework_path": full_path(".."),
                 "install_destination": full_path("settings-data/build-artifacts"),
                 "library_locations": [],
@@ -113,6 +117,7 @@ def test_settings():
                 ),
                 "default_toolchain": "native",
                 "default_ut_toolchain": "native",
+                "preset": "",
                 "framework_path": full_path(".."),
                 "install_destination": full_path("settings-data/build-artifacts"),
                 "library_locations": [],
@@ -133,11 +138,31 @@ def test_settings():
                 "settings_file": full_path("settings-data/settings-environment.ini"),
                 "default_toolchain": "native",
                 "default_ut_toolchain": "native",
+                "preset": "",
                 "framework_path": full_path(".."),
                 "install_destination": full_path("settings-data/build-artifacts"),
                 "library_locations": [],
                 "environment_file": full_path("settings-data/settings-environment.ini"),
                 "environment": {"MY_VARIABLE": "my value", "MY_VARIABLE_2": "abc:123"},
+                "component_cookiecutter": "default",
+                "deployment_cookiecutter": "default",
+                "project_root": full_path(".."),
+                "config_directory": full_path("..") / "config",
+                "default_cmake_options": "",
+            },
+        },
+        {
+            "file": "settings-preset.ini",
+            "expected": {
+                "settings_file": full_path("settings-data/settings-preset.ini"),
+                "default_toolchain": "native",
+                "default_ut_toolchain": "native",
+                "preset": "my-preset",
+                "framework_path": full_path(".."),
+                "install_destination": full_path("settings-data/build-artifacts"),
+                "library_locations": [],
+                "environment_file": full_path("settings-data/settings-preset.ini"),
+                "environment": {},
                 "component_cookiecutter": "default",
                 "deployment_cookiecutter": "default",
                 "project_root": full_path(".."),
@@ -155,3 +180,17 @@ def test_settings():
         assert (
             case["expected"] == results
         ), f'{fp}: Expected {case["expected"]}, got {results}'
+
+
+def test_settings_no_ini():
+    """When no settings.ini exists, no defaults are supplied."""
+    fp = full_path("settings-data/nonexistent-settings.ini")
+    results = IniSettings.load(fp)
+    # Only environment (empty) should be present; no defaulted keys
+    assert "framework_path" not in results
+    assert "project_root" not in results
+    assert "default_toolchain" not in results
+    assert "library_locations" not in results
+    assert "install_destination" not in results
+    assert "settings_file" not in results
+    assert results["environment"] == {}

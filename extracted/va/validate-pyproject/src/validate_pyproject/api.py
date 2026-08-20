@@ -6,22 +6,19 @@ from __future__ import annotations
 
 import json
 import logging
-import sys
 import typing
+from collections.abc import Iterator, Mapping, Sequence
 from enum import Enum
 from functools import partial, reduce
 from types import MappingProxyType, ModuleType
 from typing import (
     Callable,
-    Iterator,
-    Mapping,
-    Sequence,
     TypeVar,
 )
 
 import fastjsonschema as FJS
 
-from . import errors, formats
+from . import _resources, errors, formats
 from .error_reporting import detailed_errors
 from .extra_validations import EXTRA_VALIDATIONS
 from .types import FormatValidationFn, Schema, ValidationFn
@@ -32,19 +29,11 @@ if typing.TYPE_CHECKING:  # pragma: no cover
     from .plugins import PluginProtocol
 
 
-if sys.version_info >= (3, 9):  # pragma: no cover
-    from importlib.resources import files
-
-    def read_text(package: str | ModuleType, resource: str) -> str:
-        """:meta private:"""
-        return files(package).joinpath(resource).read_text(encoding="utf-8")
-
-else:  # pragma: no cover
-    from importlib.resources import read_text as read_text  # noqa: PLC0414
-
-
 __all__ = ["Validator"]
 
+assert __spec__ is not None
+assert __spec__.parent is not None
+_PARENT = __spec__.parent
 
 T = TypeVar("T", bound=Mapping)
 AllPlugins = Enum("AllPlugins", "ALL_PLUGINS")  #: :meta private:
@@ -65,18 +54,18 @@ def _get_public_functions(module: ModuleType) -> Mapping[str, FormatValidationFn
 FORMAT_FUNCTIONS = MappingProxyType(_get_public_functions(formats))
 
 
-def load(name: str, package: str = __package__, ext: str = ".schema.json") -> Schema:
+def load(name: str, package: str = _PARENT, ext: str = ".schema.json") -> Schema:
     """Load the schema from a JSON Schema file.
     The returned dict-like object is immutable.
 
     :meta private: (low level detail)
     """
-    return Schema(json.loads(read_text(package, f"{name}{ext}")))
+    return Schema(json.loads(_resources.read_text(package, f"{name}{ext}")))
 
 
 def load_builtin_plugin(name: str) -> Schema:
     """:meta private: (low level detail)"""
-    return load(name, f"{__package__}.plugins")
+    return load(name, f"{_PARENT}.plugins")
 
 
 class SchemaRegistry(Mapping[str, Schema]):
@@ -105,7 +94,7 @@ class SchemaRegistry(Mapping[str, Schema]):
         project_table_schema = load(PROJECT_TABLE_SCHEMA)
         self._ensure_compatibility(PROJECT_TABLE_SCHEMA, project_table_schema)
         sid = project_table_schema["$id"]
-        top_level["project"] = {"$ref": sid}
+        top_properties["project"] = {"$ref": sid}
         origin = f"{__name__} - project metadata"
         self._schemas = {sid: ("project", origin, project_table_schema)}
 
@@ -154,7 +143,14 @@ class SchemaRegistry(Mapping[str, Schema]):
             raise errors.SchemaMissingId(reference or "<extra>")
         sid = schema["$id"]
         if sid in self._schemas and sid != allow_overwrite:
-            raise errors.SchemaWithDuplicatedId(sid)
+            existing = self._schemas[sid][-1]
+            if dict(existing) != dict(schema):
+                raise errors.SchemaWithDuplicatedId(sid)
+            _logger.warning(
+                f"Duplicate schema {sid!r} for `tool.{reference}` ignored "
+                "(same schema already registered)"
+            )
+            return existing
         version = schema.get("$schema")
         # Support schemas with missing trailing # (incorrect, but required before 0.15)
         if version and version.rstrip("#") != self.spec_version.rstrip("#"):

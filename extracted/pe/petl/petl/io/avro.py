@@ -2,7 +2,6 @@
 from __future__ import absolute_import, division, print_function
 
 import sys
-import math
 from collections import OrderedDict
 from datetime import datetime, date, time
 from decimal import Decimal
@@ -481,30 +480,48 @@ def _get_precision_from_decimal(curr, val, prev):
     else:
         prec, scale, _, _ = precision_and_scale(val)
     if prev is not None:
-        # get the greatests precision and scale of the sample
+        # the schema has to hold the greatest integer part and the greatest
+        # scale of the sample, so combine those before adding them back up:
+        # a value is rescaled to the scale of the schema when written, which
+        # widens its unscaled integer by the difference between both scales
         prec0, scale0 = prev.get('precision'), prev.get('scale')
-        prec, scale = max(prec, prec0), max(scale, scale0)
-    prec = max(prec, 8)
+        int_digits = max(prec - scale, prec0 - scale0)
+        scale = max(scale, scale0)
+        prec = int_digits + scale
     curr = {'precision': prec, 'scale': scale, }
-    return curr, prec, scale
+    # leave some room for the values coming after the sample, but keep the
+    # running estimate free of it so that it does not accumulate
+    return curr, max(prec, 8), scale
 
 
 def precision_and_scale(numeric_value):
-    sign, digits, exp = numeric_value.as_tuple()
-    number = 0
-    for digit in digits:
-        number = (number * 10) + digit
-    # delta = exp + scale
-    delta = 1
-    number = 10 ** delta * number
-    inumber = int(number)
+    '''get the avro decimal logicalType properties of a Decimal value
 
-    bits_req = inumber.bit_length() + 1
-    bytes_req = (bits_req + 8) // 8
+    The avro spec defines a decimal as `unscaled * 10**-scale`, so the scale
+    is the number of fractional digits and the precision is the number of
+    digits of the unscaled integer. The spec also requires the scale to be
+    "zero or a positive integer less than or equal to the precision".
+    '''
+    if not numeric_value.is_finite():
+        raise ValueError(
+            'cannot build an avro decimal schema for %s: not a finite number'
+            % numeric_value)
+    sign, digits, exp = numeric_value.as_tuple()
+    # a positive exponent means trailing zeros, not fractional digits
+    scale = -exp if exp < 0 else 0
+    # the unscaled integer spans the integer part plus the fractional digits
+    int_digits = len(digits) + exp
+    prec = max(int_digits + scale, scale, 1)
+
+    inumber = 0
+    for digit in digits:
+        inumber = (inumber * 10) + digit
+    if exp > 0:
+        # scale is 0 here, so the trailing zeros belong in the unscaled int
+        inumber *= 10 ** exp
+    bytes_req = (inumber.bit_length() + 8) // 8
     if sign:
         inumber = - inumber
-    prec = int(math.ceil(math.log10(abs(inumber))))
-    scale = abs(exp)
     return prec, scale, bytes_req, inumber
 
 

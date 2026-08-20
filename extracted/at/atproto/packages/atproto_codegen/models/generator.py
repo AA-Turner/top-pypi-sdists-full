@@ -93,6 +93,7 @@ def _get_model_imports() -> str:
         f'{_(1)}from atproto_client.models.blob_ref import BlobRef',
         f'{_(1)}from atproto_core.cid import CIDType',
         'from atproto_client.models import base',
+        'from atproto_client.models import unknown_union',
         '',
         '',
     ]
@@ -234,13 +235,12 @@ def _get_ref_union_typehint(nsid: NSID, field_type_def: models.LexRefUnion, *, o
         # union of unknown types but it must have $type field.
         def_names.append('base.UnknownUnionModel')
 
-    # unbelievable but it's true. If schema doesn't describe the right type in Union
-    # we should fall back to the plain data
-    # maybe it's for the records that have custom fields... idk
-    # ref: https://github.com/bluesky-social/atproto/blob/b01e47b61730d05a780f7a42667b91ccaa192e8e/packages/lex-cli/src/codegen/lex-gen.ts#L325
-    # grep by "{$type: string; [k: string]: unknown}" string
-    # TODO(MarshalX): use 'base.UnknownDict' and convert to DotDict
-    # append 't.Dict[str, t.Any]' to def_names  # FIXME(MarshalX): support pydantic
+    # an open union may carry a $type this SDK release doesn't know yet; OpenUnion adds the DotDict
+    # fallback so such members don't fail the whole response. ref: https://github.com/MarshalX/atproto/issues/354
+    if not is_unknown_union and not field_type_def.closed:
+        quoted = [f"'{name}'" for name in def_names]
+        members = quoted[0] if len(quoted) == 1 else f't.Union[{", ".join(quoted)}]'
+        return _get_optional_typehint(f'unknown_union.OpenUnion[{members}]', optional=optional)
 
     def_names = ', '.join([f"'{name}'" for name in def_names])
 
@@ -279,6 +279,9 @@ def _get_model_field_typehint(  # noqa: C901
         items_type_hint = _get_model_field_typehint(
             nsid, field_type_def.items, optional=False, is_input_type=is_input_type
         )
+        items_constraints_field = _get_constraints_field(field_type_def.items)
+        if items_constraints_field:
+            items_type_hint = f'te.Annotated[{items_type_hint}, {items_constraints_field}]'
         return _get_optional_typehint(f't.List[{items_type_hint}]', optional=optional)
 
     if field_type is models.LexRef:
@@ -301,7 +304,45 @@ def _get_model_field_typehint(  # noqa: C901
     raise ValueError(f'Unknown field type {field_type.__name__}')
 
 
-def _get_model_field_value(  # noqa: C901
+def _get_type_constraints(
+    field_type_def: t.Union[models.LexPrimitive, models.LexArray, models.LexBlob],
+) -> t.Dict[str, t.Any]:
+    """Pydantic constraints implied by the type itself (not by default, const, or alias)."""
+    constraints = {}
+
+    field_type = type(field_type_def)
+
+    if field_type in (models.LexString, models.LexArray):
+        if field_type_def.min_length is not None:
+            constraints['min_length'] = field_type_def.min_length
+        if field_type_def.max_length is not None:
+            constraints['max_length'] = field_type_def.max_length
+
+    elif field_type in (models.LexInteger, models.LexNumber):
+        if field_type_def.minimum is not None:
+            constraints['ge'] = field_type_def.minimum
+        if field_type_def.maximum is not None:
+            constraints['le'] = field_type_def.maximum
+
+    return constraints
+
+
+def _get_field_code(field_params: t.Dict[str, t.Any]) -> str:
+    """Generate the Field call from the pydantic field params."""
+    params = ', '.join(f'{name}={value!r}' for name, value in field_params.items())
+    return f'Field({params})'
+
+
+def _get_constraints_field(field_type_def: t.Union[models.LexPrimitive, models.LexArray, models.LexBlob]) -> str:
+    """Generate the Field with constraints of the type itself. Empty string if there are no constraints."""
+    constraints = _get_type_constraints(field_type_def)
+    if not constraints:
+        return ''
+
+    return _get_field_code(constraints)
+
+
+def _get_model_field_value(
     field_type_def: t.Union[models.LexPrimitive, models.LexArray, models.LexBlob],
     alias_name: t.Optional[str] = None,
     *,
@@ -317,10 +358,6 @@ def _get_model_field_value(  # noqa: C901
 
     default: t.Any = not_set
     alias: t.Union[str, not_set] = alias_name or not_set
-    min_length: t.Union[int, not_set] = not_set
-    max_length: t.Union[int, not_set] = not_set
-    ge: t.Union[int, not_set] = not_set
-    le: t.Union[int, not_set] = not_set
     frozen: t.Union[bool, not_set] = not_set
 
     field_type = type(field_type_def)
@@ -329,37 +366,11 @@ def _get_model_field_value(  # noqa: C901
     if field_type in (models.LexRef, models.LexRefUnion):
         return {'value': '', 'needs_annotated': False}
 
-    if field_type == models.LexInteger:
-        if field_type_def.default is not None:
-            default = field_type_def.default
-        if field_type_def.minimum is not None:
-            ge = field_type_def.minimum
-        if field_type_def.maximum is not None:
-            le = field_type_def.maximum
-        if field_type_def.const is not None:
-            frozen = field_type_def.const
-
-    elif field_type == models.LexString:
+    if field_type in (models.LexInteger, models.LexString, models.LexBoolean):
         if field_type_def.default is not None:
             default = field_type_def.default
         if field_type_def.const is not None:
             frozen = field_type_def.const
-        if field_type_def.min_length is not None:
-            min_length = field_type_def.min_length
-        if field_type_def.max_length is not None:
-            max_length = field_type_def.max_length
-
-    elif field_type == models.LexBoolean:
-        if field_type_def.default is not None:
-            default = field_type_def.default
-        if field_type_def.const is not None:
-            frozen = field_type_def.const
-
-    elif field_type is models.LexArray:
-        if field_type_def.min_length is not None:
-            min_length = field_type_def.min_length
-        if field_type_def.max_length is not None:
-            max_length = field_type_def.max_length
 
     if default is not_set and optional:
         default = None
@@ -367,47 +378,26 @@ def _get_model_field_value(  # noqa: C901
     field_params = {
         'default': default,
         'alias': alias,
-        'min_length': min_length,
-        'max_length': max_length,
-        'ge': ge,
-        'le': le,
+        **_get_type_constraints(field_type_def),
         'frozen': frozen,
     }
 
-    # Check if there are any field constraints besides default
-    has_field_constraints = any(value is not not_set and name != 'default' for name, value in field_params.items())
+    field_params = {name: value for name, value in field_params.items() if value is not not_set}
+    non_default_params = {name: value for name, value in field_params.items() if name != 'default'}
 
-    values = []
-    only_default = default is not not_set
+    if not non_default_params:
+        if 'default' not in field_params:
+            return {'value': '', 'needs_annotated': False}
 
-    for name, value in field_params.items():
-        if value is not_set:
-            continue
+        # simple assignment instead of Field
+        return {'value': repr(field_params['default']), 'needs_annotated': False}
 
-        str_value = f"'{value}'" if isinstance(value, str) else str(value)
+    if optional:
+        # for optional fields with constraints, exclude default from Field to avoid pydantic warning.
+        # the Annotated pattern is used instead
+        field_params.pop('default', None)
 
-        if name == 'default':
-            default = str_value
-        else:
-            only_default = False
-
-        # For optional fields with constraints, exclude default from Field to avoid pydantic warning
-        if optional and has_field_constraints and name == 'default':
-            continue
-
-        values.append(f'{name}={str_value}')
-
-    # If only default value and it's None, return simple assignment
-    if only_default:
-        return {'value': default, 'needs_annotated': False}
-
-    if not values:
-        return {'value': '', 'needs_annotated': False}
-
-    field_params_str = ', '.join(values)
-    # For optional fields with Field constraints, use Annotated pattern
-    needs_annotated = optional and has_field_constraints
-    return {'value': f'Field({field_params_str})', 'needs_annotated': needs_annotated}
+    return {'value': _get_field_code(field_params), 'needs_annotated': optional}
 
 
 def _get_req_fields_set(lex_obj: t.Union[models.LexObject, models.LexXrpcParameters]) -> set:
@@ -511,8 +501,7 @@ def _get_model(
         description = _get_field_docstring(field_name, field_type_def)
 
         # Handle Annotated pattern for optional fields with Field constraints
-        # Skip if type hint already uses Annotated (e.g., ref unions)
-        if field_value_info['needs_annotated'] and 'te.Annotated[' not in type_hint:
+        if field_value_info['needs_annotated']:
             # Wrap type in Annotated and add Field metadata
             type_hint = f'te.Annotated[{type_hint}, {field_value_info["value"]}]'
             value_def = ' = None'
@@ -682,7 +671,13 @@ def _generate_def_token(nsid: NSID, def_name: str, def_model: models.LexToken) -
 
 
 def _generate_def_array(nsid: NSID, def_name: str, def_model: models.LexArray) -> str:
-    return f'{get_def_model_name(def_name)} = {_get_model_field_typehint(nsid, def_model, optional=False)}\n'
+    type_hint = _get_model_field_typehint(nsid, def_model, optional=False)
+
+    constraints_field = _get_constraints_field(def_model)
+    if constraints_field:
+        type_hint = f'te.Annotated[{type_hint}, {constraints_field}]'
+
+    return f'{get_def_model_name(def_name)} = {type_hint}\n'
 
 
 def _generate_def_string(nsid: NSID, def_name: str, def_model: models.LexString) -> str:
@@ -815,9 +810,11 @@ def _generate_record_type_database(lex_db: builder.BuiltRecordModels) -> None:
 
     unknown_record_type_hint_lines.append(']')
     unknown_record_type_pydantic_lines.append('], Field(discriminator="py_type")]')
+    unknown_record_type_pydantic_lines.append('UnknownType: te.TypeAlias = te.Annotated[')
     unknown_record_type_pydantic_lines.append(
-        "UnknownType: te.TypeAlias = t.Union[UnknownRecordTypePydantic, 'dot_dict.DotDictType']"
+        f"{_(4)}t.Union[UnknownRecordTypePydantic, 'dot_dict.DotDictType'], Field(union_mode='left_to_right')"
     )
+    unknown_record_type_pydantic_lines.append(']')
     unknown_record_type_pydantic_lines.append(
         'UnknownInputType: te.TypeAlias = t.Union[UnknownType, t.Dict[str, t.Any]]'
     )

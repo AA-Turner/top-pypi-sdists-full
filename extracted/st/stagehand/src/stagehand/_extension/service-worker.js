@@ -53446,7 +53446,7 @@ var WebTracerProvider = class extends BasicTracerProvider {
 };
 var package_default = {
 	name: "@browserbasehq/stagehand-extension",
-	version: "1.0.0",
+	version: "1.0.1",
 	"private": true,
 	type: "module",
 	scripts: {
@@ -56935,7 +56935,8 @@ var StagehandRuntime = class {
 		}
 	}
 	async initialize(params, logger = this.logger) {
-		if (this.state.getState().status !== "created") throw new Error("Stagehand has already been initialized");
+		const state = this.state.getState();
+		if (state.status === "closed") throw new Error("Stagehand has been closed and cannot be initialized again");
 		if (this.initializationInProgress) throw new Error("Stagehand initialization is already in progress");
 		this.initializationInProgress = true;
 		try {
@@ -56945,7 +56946,7 @@ var StagehandRuntime = class {
 				await this.replaceBrowserConnection({ cdpUrl: params.browserCdpUrl }, logger);
 			}
 			const pages = await this.runWithTelemetryContext(Symbol("stagehand.init"), logger, async () => {
-				await this.browserSession?.prepareForInitialization?.();
+				if (state.status === "created") await this.browserSession?.prepareForInitialization?.();
 				return await this.contextPages();
 			});
 			this.tracing.configure(params.telemetry, params.clientInfo);

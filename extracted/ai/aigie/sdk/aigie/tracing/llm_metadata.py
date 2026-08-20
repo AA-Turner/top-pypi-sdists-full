@@ -12,6 +12,8 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import Any
 
+from aigie._system_prompt import system_prompt_text
+
 CANONICAL_PROVIDERS = frozenset(
     {
         "openai",
@@ -201,7 +203,7 @@ def extract_prompt_content(  # noqa: PLR0915 — message normalization across 3 
             role = getattr(prompt, "type", "user")
             content = prompt.content
             if isinstance(role, str) and role.lower() == "system":
-                system_prompt = content
+                system_prompt = system_prompt_text(content)
             else:
                 messages.append({"role": role, "content": content})
             continue
@@ -209,7 +211,7 @@ def extract_prompt_content(  # noqa: PLR0915 — message normalization across 3 
             role = prompt.get("role", "user")
             content = prompt.get("content", str(prompt))
             if isinstance(role, str) and role.lower() == "system":
-                system_prompt = content
+                system_prompt = system_prompt_text(content)
             else:
                 messages.append({"role": role, "content": content})
     return system_prompt, messages

@@ -59,8 +59,8 @@ from dstack._internal.server.db import get_db, get_session_ctx
 from dstack._internal.server.models import (
     ExportedFleetModel,
     FleetModel,
-    GatewayComputeModel,
     GatewayModel,
+    GatewayReplicaModel,
     ImportModel,
     InstanceModel,
     JobModel,
@@ -79,7 +79,10 @@ from dstack._internal.server.services.backends.provisioning import (
     get_instance_specific_mounts,
     resolve_provisioning_image,
 )
-from dstack._internal.server.services.gateways import get_gateway_compute_models
+from dstack._internal.server.services.gateways import (
+    get_gateway_replica_models,
+    skip_gateway_replicas_min_processing_interval,
+)
 from dstack._internal.server.services.instances import (
     get_instance_remote_connection_info,
     get_instance_ssh_private_keys,
@@ -120,6 +123,12 @@ from dstack._internal.server.utils import tracing
 from dstack._internal.utils.common import get_current_datetime, get_or_error, run_async
 from dstack._internal.utils.interpolator import InterpolatorError
 from dstack._internal.utils.logging import get_logger
+from dstack._internal.utils.nodes_interpolator import (
+    find_groups_ip_refs,
+    interpolate_groups_ip_address,
+    validate_groups_ref_bounds,
+    validate_groups_refs,
+)
 
 logger = get_logger(__name__)
 
@@ -325,6 +334,7 @@ class JobRunningWorker(Worker[JobRunningPipelineItem]):
         await _apply_process_result(
             item=item,
             job_model=context.job_model,
+            run_model=context.run_model,
             result=result,
         )
         new_status = result.job_update_map.get("status")
@@ -333,6 +343,8 @@ class JobRunningWorker(Worker[JobRunningPipelineItem]):
         # Hint run pipeline for fast run transition to RUNNING status.
         if new_status == JobStatus.RUNNING and context.job_model.run.status != RunStatus.RUNNING:
             self._pipeline_hinter.hint_fetch(RunModel.__name__)
+        if context.run_model.gateway_id is not None and result.job_update_map.get("registered"):
+            self._pipeline_hinter.hint_fetch(GatewayReplicaModel.__name__)
 
 
 @dataclass
@@ -507,16 +519,32 @@ async def _prepare_startup_context(
 ) -> Optional[_StartupContext]:
     job_provisioning_data = get_or_error(context.job_provisioning_data)
 
+    # `_get_cluster_info` below requires every job in the replica to have provisioning
+    # data, so gate on that rather than on job statuses. A `SUBMITTED` job is simply not
+    # provisioned yet, while a job that has no provisioning data and is no longer
+    # `SUBMITTED` reached a terminal state without ever provisioning (e.g. due to no
+    # capacity) and never will. Deferring in the latter case is what allows recovery:
+    # the run pipeline retries or fails the replica, but it can only lock the run's jobs
+    # once this job is unlocked, which does not happen if we raise here.
     for other_job in context.run.jobs:
-        if (
-            other_job.job_spec.replica_num == context.job.job_spec.replica_num
-            and other_job.job_submissions[-1].status == JobStatus.SUBMITTED
-        ):
+        if other_job.job_spec.replica_num != context.job.job_spec.replica_num:
+            continue
+        other_job_submission = other_job.job_submissions[-1]
+        if other_job_submission.job_provisioning_data is not None:
+            continue
+        if other_job_submission.status == JobStatus.SUBMITTED:
             logger.debug(
                 "%s: waiting for all jobs in the replica to be provisioned",
                 fmt(context.job_model),
             )
-            return None
+        else:
+            logger.debug(
+                "%s: job %s in the replica has no provisioning data, waiting for the run"
+                " to be retried or terminated",
+                fmt(context.job_model),
+                other_job.job_spec.job_name,
+            )
+        return None
 
     # If this run has a router replica group and this job is a worker, gate
     # startup on the router replica's state. The helper returns None for the
@@ -608,6 +636,44 @@ async def _prepare_startup_context(
         )
         return None
 
+    commands = context.job.job_spec.commands
+    try:
+        for c in commands:
+            validate_groups_refs(c)
+    except InterpolatorError as e:
+        _terminate_job(
+            job_model=context.job_model,
+            job_update_map=result.job_update_map,
+            termination_reason=JobTerminationReason.TERMINATED_BY_SERVER,
+            termination_reason_message=f"Groups IP interpolation error: {e.args[0]}",
+        )
+        return None
+
+    # Hetero commands may reference peer nodes via ${{ groups[i].nodes[j].IP_ADDRESS }}.
+    # Wait until every referenced node has an internal IP, then substitute placeholders
+    # in-place before the job is sent to the runner. Bad refs are rejected above;
+    # out-of-range or still-missing IPs terminate the job below.
+    if any(find_groups_ip_refs(c) for c in commands):
+        nodes_view = _build_nodes_ip_view(context.run.jobs, context.job.job_spec.replica_num)
+        try:
+            if not _referenced_ips_ready(commands, nodes_view):
+                logger.debug(
+                    "%s: waiting for referenced node group IPs",
+                    fmt(context.job_model),
+                )
+                return None
+            context.job.job_spec.commands = [
+                interpolate_groups_ip_address(c, nodes_view) for c in commands
+            ]
+        except InterpolatorError as e:
+            _terminate_job(
+                job_model=context.job_model,
+                job_update_map=result.job_update_map,
+                termination_reason=JobTerminationReason.TERMINATED_BY_SERVER,
+                termination_reason_message=f"Groups IP interpolation error: {e.args[0]}",
+            )
+            return None
+
     return _StartupContext(
         cluster_info=cluster_info,
         volumes=volumes,
@@ -671,12 +737,12 @@ async def _fetch_run_model(
     if include_gateway:
         query = query.options(
             joinedload(RunModel.gateway)
-            .selectinload(GatewayModel.gateway_computes)
-            .load_only(GatewayComputeModel.id, GatewayComputeModel.status),
+            .selectinload(GatewayModel.gateway_replicas)
+            .load_only(GatewayReplicaModel.id, GatewayReplicaModel.status),
         ).options(
             joinedload(RunModel.gateway)
-            .joinedload(GatewayModel.gateway_compute)
-            .load_only(GatewayComputeModel.id, GatewayComputeModel.status),
+            .joinedload(GatewayModel.gateway_replica)
+            .load_only(GatewayReplicaModel.id, GatewayReplicaModel.status),
         )
     if replica_num is not None:
         assert run_spec is not None, "run_spec must be provided when replica_num is set"
@@ -1024,6 +1090,7 @@ def _server_access_enabled(context: _ProcessContext) -> bool:
 async def _apply_process_result(
     item: JobRunningPipelineItem,
     job_model: JobModel,
+    run_model: RunModel,
     result: _ProcessResult,
 ) -> None:
     set_processed_update_map_fields(result.job_update_map)
@@ -1060,6 +1127,9 @@ async def _apply_process_result(
                 .where(RunModel.id == job_model.run_id)
                 .values(skip_min_processing_interval=True)
             )
+
+        if run_model.gateway_id is not None and result.job_update_map.get("registered"):
+            await skip_gateway_replicas_min_processing_interval(session, run_model.gateway_id)
 
         _emit_result_events(session=session, job_model=job_model, result=result)
 
@@ -1249,7 +1319,7 @@ def _job_gateway_registration_failed(gateway: GatewayModel | None, job_model: Jo
         return False
     running_gateway_replica_ids = {
         replica.id
-        for replica in get_gateway_compute_models(gateway)
+        for replica in get_gateway_replica_models(gateway)
         if replica.status == GatewayReplicaStatus.RUNNING
     }
     if not running_gateway_replica_ids:
@@ -1727,18 +1797,58 @@ def _reset_disconnected_at(job_model: JobModel, result: _ProcessResult) -> None:
         result.job_update_map["disconnected_at"] = None
 
 
+def _build_nodes_ip_view(jobs: list[Job], replica_num: int) -> list[list[str]]:
+    replica_jobs = [job for job in jobs if job.job_spec.replica_num == replica_num]
+    if not replica_jobs:
+        return []
+    max_group_index = max(job.job_spec.node_group_index for job in replica_jobs)
+    nodes: list[list[str]] = [[] for _ in range(max_group_index + 1)]
+    for job in replica_jobs:
+        group_index = job.job_spec.node_group_index
+        local_index = job.job_spec.node_group_job_index
+        while len(nodes[group_index]) <= local_index:
+            nodes[group_index].append("")
+        ip = ""
+        if job.job_submissions:
+            jpd = job.job_submissions[-1].job_provisioning_data
+            if jpd is not None:
+                ip = jpd.internal_ip or ""
+        nodes[group_index][local_index] = ip
+    return nodes
+
+
+def _referenced_ips_ready(commands: list[str], nodes_view: list[list[str]]) -> bool:
+    group_sizes = [len(g) for g in nodes_view]
+    for command in commands:
+        validate_groups_ref_bounds(command, group_sizes)
+        for group_index, node_index in find_groups_ip_refs(command):
+            # Wait until every referenced slot has a non-empty internal IP.
+            if not nodes_view[group_index][node_index]:
+                return False
+    return True
+
+
 def _get_cluster_info(
     jobs: list[Job],
     replica_num: int,
     job_provisioning_data: JobProvisioningData,
     job_runtime_data: Optional[JobRuntimeData],
 ) -> ClusterInfo:
-    job_ips = []
-    for job in jobs:
-        if job.job_spec.replica_num == replica_num:
-            job_ips.append(
-                get_or_error(job.job_submissions[-1].job_provisioning_data).internal_ip or ""
-            )
+    job_ips: list[str] = []
+    gpus_per_node: list[int] = []
+    replica_jobs = sorted(
+        (job for job in jobs if job.job_spec.replica_num == replica_num),
+        key=lambda j: j.job_spec.job_num,
+    )
+    for job in replica_jobs:
+        submission = job.job_submissions[-1]
+        jpd = get_or_error(submission.job_provisioning_data)
+        job_ips.append(jpd.internal_ip or "")
+        jrd = submission.job_runtime_data
+        if jrd is not None and jrd.offer is not None:
+            gpus_per_node.append(len(jrd.offer.instance.resources.gpus))
+        else:
+            gpus_per_node.append(len(jpd.instance_type.resources.gpus))
     gpus_per_job = len(job_provisioning_data.instance_type.resources.gpus)
     if job_runtime_data is not None and job_runtime_data.offer is not None:
         gpus_per_job = len(job_runtime_data.offer.instance.resources.gpus)
@@ -1746,6 +1856,7 @@ def _get_cluster_info(
         job_ips=job_ips,
         master_job_ip=job_ips[0],
         gpus_per_job=gpus_per_job,
+        gpus_per_node=gpus_per_node,
     )
 
 

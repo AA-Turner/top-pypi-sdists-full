@@ -26,9 +26,10 @@ from dreadnode.agents.hooks import (
 from dreadnode.agents.process_judge import ProcessJudge
 from dreadnode.core.hook import Hook
 from dreadnode.policies import HeadlessSessionPolicy
+from dreadnode.policies.scope import Policy, ScopeConfig
 
 if t.TYPE_CHECKING:
-    from dreadnode.agents.engines.base import PolicyFacet
+    from dreadnode.agents.engines.base import PermissionBridge, PolicyFacet
 
 
 class GuardSessionPolicy(HeadlessSessionPolicy):
@@ -39,64 +40,55 @@ class GuardSessionPolicy(HeadlessSessionPolicy):
     ``max_steps``), and runs every tool call past a
     :class:`ProcessJudge` for allow/deny.
 
+    Scope can be configured two ways:
+
+    - **Structured scope** via ``scope`` (full :class:`ScopeConfig`) or
+      the ``preset`` shortcut (``recon_only``, ``standard_pentest``,
+      ``red_team``). The scope model defines capability categories
+      (reconnaissance, exploitation, credential access, etc.) and target
+      boundaries (networks, domains, services, cloud resources, identities).
+      The resolved scope is rendered to a natural-language rubric for the
+      judge. Any additional ``rubric`` text is appended after the scope rubric.
+
+    - **Freeform rubric** via ``rubric`` — a plain-text string or YAML path
+      layered on top of the safety-floor default.
+
     The judge sees a slice of the live trajectory selected by
     ``transcript_strategy``. The default ``intent_plus_calls`` shows the
-    user task plus the prior tool-call sequence (no responses) — the same
-    cut Anthropic's auto-mode uses for its own per-call gating. The other
-    options trade prompt size and injection surface against how much
-    context the judge has to reason with:
+    user task plus the prior tool-call sequence (no responses).
 
-    - ``rubric_only`` — no transcript. Judge sees only the proposed call
-      against the rubric. Cheapest, lowest signal.
-    - ``intent_only`` — system + user-authored messages. The original
-      smallest cut, useful when the rubric encodes everything you care
-      about and you don't want intermediate state to drift the judge.
-    - ``intent_plus_calls`` *(default)* — adds the assistant tool-call
-      sequence with any prose stripped from each call (no tool result
-      content, no model justification text). The judge sees what the
-      agent has been calling, not the words it used to justify those
-      calls.
-    - ``intent_plus_outputs_summary`` — ``intent_plus_calls`` plus tool
-      results whose content has been replaced with a short LLM summary
-      produced by the judge model. Assistant prose is stripped the same
-      way; the judge sees calls + summarized results, no model-authored
-      narrative. Caches per-``tool_call_id`` so each result is summarized
-      at most once per session. Costs an extra summary call per unique
-      tool result, billed via the judge model.
-    - ``full`` — the entire trajectory, including assistant prose. The
-      only strategy that surfaces the model's justification text to the
-      judge. Maximum context, maximum surface.
+    Transcript strategies:
 
-    The captured intent is also trimmed to fit the judge model's context
-    window: the system message and the original user task always survive,
-    older tool-call/result messages drop first when the rendered transcript
-    would exceed the budget. The trim emits a ``process_judge.intent_trimmed``
-    metric with ``dropped_messages`` and ``strategy`` attributes.
-
-    The judge prompt is prefix-cached by default (``cache=true``). The rubric
-    and instructions sit in the system message, and the transcript is emitted as
-    append-only per-message blocks with a rolling breakpoint on the latest
-    transcript block. Each judgement within a session can read the prior call's
-    transcript prefix at the cache-read rate (~0.1x) instead of full price. The
-    prompt layout is identical with caching off — ``cache`` only toggles the
-    ``cache_control`` markers, so decisions never change. Set ``cache=false`` to
-    disable it (e.g. on a judge model or provider without prompt caching).
+    - ``rubric_only`` — no transcript, cheapest.
+    - ``intent_only`` — system + user-authored messages only.
+    - ``intent_plus_calls`` *(default)* — adds tool-call sequence, no results.
+    - ``intent_plus_outputs_summary`` — adds LLM-summarized tool results.
+    - ``full`` — entire trajectory including assistant prose.
 
     Example::
 
-        # Mid-session swap from the TUI:
-        # /policy guard judge_model=anthropic/claude-haiku-4-5
-        # /policy guard judge_model=anthropic/claude-haiku-4-5 transcript_strategy=full
+        # TUI — preset shortcut:
+        # /policy guard judge_model=anthropic/claude-haiku-4-5 preset=standard_pentest
 
-        # Or from the API:
+        # TUI — freeform rubric:
+        # /policy guard judge_model=anthropic/claude-haiku-4-5 rubric="In-scope: api.example.com"
+
+        # API — full scope config:
         POST /api/sessions/{id}/policy
         {
           "name": "guard",
           "judge_model": "anthropic/claude-haiku-4-5",
-          "rubric": "In-scope: api.example.com only",
-          "transcript_strategy": "intent_plus_calls",
-          "cache": true,
-          "max_steps": 20
+          "scope": {
+            "preset": "standard_pentest",
+            "boundaries": {
+              "in_scope": [{"cidr": "10.0.1.0/24", "label": "DMZ"}],
+              "out_of_scope": [{"host": "10.0.1.5", "label": "monitoring"}]
+            },
+            "capabilities": {
+              "lateral_movement": {"policy": "deny"},
+              "credential_access": {"password_spraying": "allow"}
+            }
+          }
         }
     """
 
@@ -108,16 +100,31 @@ class GuardSessionPolicy(HeadlessSessionPolicy):
         default=None,
         description=(
             "Optional user rubric layered on top of the safety-floor default "
-            "unless ``replace_default_rubric`` is true."
+            "(or appended after a scope-rendered rubric when ``scope`` or "
+            "``preset`` is also set)."
+        ),
+    )
+    scope: ScopeConfig | None = Field(
+        default=None,
+        description=(
+            "Structured scope configuration with capability categories and "
+            "target boundaries. Resolved and rendered to a rubric for the judge. "
+            'Use ``preset`` as a shortcut for ``scope={"preset": "..."}``.'
+        ),
+    )
+    preset: str | None = Field(
+        default=None,
+        description=(
+            'Shortcut for ``scope={"preset": "..."}``. Sets a named baseline '
+            "scope config (``recon_only``, ``standard_pentest``, ``red_team``). "
+            "Ignored when ``scope`` is explicitly provided."
         ),
     )
     replace_default_rubric: bool = False
     cache: bool = Field(
         default=True,
         description=(
-            "Prefix-cache the judge prompt. The guard judges one call at a time, "
-            "in order, within a live session, so each judgement can read the "
-            "prior call's transcript prefix at the cache-read rate. Set false to "
+            "Prefix-cache the judge prompt. Set false to "
             "drop the cache_control markers; decisions are identical either way."
         ),
     )
@@ -127,9 +134,25 @@ class GuardSessionPolicy(HeadlessSessionPolicy):
     on_judge_error: OnJudgeError = "deny"
     always_allow: tuple[str, ...] = ()
     always_deny: tuple[str, ...] = ()
+    ask_behavior: t.Literal["prompt", "deny"] = Field(
+        default="prompt",
+        description=(
+            "How judge ASK decisions resolve. ``prompt`` requests attended operator "
+            "approval; ``deny`` fails closed without creating a pending prompt for "
+            "headless/background/eval sessions."
+        ),
+    )
 
     _judge: ProcessJudge = PrivateAttr()
     _judge_hook: Hook = PrivateAttr()
+    _effective_scope: ScopeConfig | None = PrivateAttr(default=None)
+    _has_ask_capabilities: bool = PrivateAttr(default=False)
+    _permission_ref: "t.Callable[[], PermissionBridge | None] | None" = PrivateAttr(default=None)
+
+    @property
+    def needs_permission_bridge(self) -> bool:
+        """Guard needs the bridge when scope has ASK capabilities."""
+        return self._has_ask_capabilities and self.ask_behavior == "prompt"
 
     def required_facets(self) -> "set[PolicyFacet]":
         # The guard judge gates/steers every tool call mid-loop (GUARD_STEERING)
@@ -148,15 +171,36 @@ class GuardSessionPolicy(HeadlessSessionPolicy):
             raise ValueError(f"always_allow and always_deny share entries: {sorted(overlap)}")
         return self
 
+    def _build_effective_rubric(self) -> str | Path | None:
+        """Build the effective rubric from scope config and/or freeform rubric.
+
+        Resolution:
+        - If ``scope`` is set, resolve and render it to a rubric string.
+        - If ``preset`` is set (and ``scope`` is not), create a ScopeConfig from it.
+        - If ``rubric`` is also set, append it after the scope rubric.
+        - If neither scope nor rubric is set, return None (safety-floor default only).
+        """
+        scope_config = self.scope
+        if scope_config is None and self.preset is not None:
+            scope_config = ScopeConfig(preset=self.preset)
+
+        if scope_config is not None:
+            self._effective_scope = scope_config
+            resolved = scope_config.resolve()
+            self._has_ask_capabilities = any(
+                Policy.ASK in subs.values() for subs in resolved.categories.values()
+            )
+            scope_rubric = resolved.render_rubric()
+
+            if self.rubric is not None:
+                # Append freeform rubric after scope-rendered rubric
+                freeform = self.rubric if isinstance(self.rubric, str) else self.rubric.read_text()
+                return f"{scope_rubric}\n\n## Additional Rules\n{freeform}"
+            return scope_rubric
+
+        return self.rubric
+
     def model_post_init(self, _ctx: t.Any) -> None:
-        # Route the judge through the same model-resolution layer the agent
-        # uses for its turn generator. ``dn/<provider>/<name>`` resolves to
-        # the platform's LiteLLM proxy (DREADNODE_LLM_BASE / DREADNODE_LLM_API_KEY
-        # or local LITELLM_PUBLIC_URL / LITELLM_MASTER_KEY fallbacks). Direct
-        # provider strings pass through as-is so the user's own provider
-        # API key is honored. The intent: judge billing semantics match the
-        # agent's — pay-via-platform if you picked a dn/ model, pay your
-        # provider directly if you picked an explicit one.
         from dreadnode.app.server.model_resolution import (
             build_turn_generator,
             resolve_turn_model_config,
@@ -169,9 +213,11 @@ class GuardSessionPolicy(HeadlessSessionPolicy):
         )
         resolved_judge_model = build_turn_generator(judge_model_config)
 
+        effective_rubric = self._build_effective_rubric()
+
         self._judge = ProcessJudge(
             model=resolved_judge_model,
-            rubric=self.rubric,
+            rubric=effective_rubric,
             replace_default_rubric=self.replace_default_rubric,
             cache=self.cache,
         )
@@ -182,6 +228,7 @@ class GuardSessionPolicy(HeadlessSessionPolicy):
             on_judge_error=self.on_judge_error,
             always_allow=self.always_allow,
             always_deny=self.always_deny,
+            permission=lambda: self._permission_ref() if self._permission_ref else None,
         )
 
     @property

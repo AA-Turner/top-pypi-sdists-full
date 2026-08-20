@@ -30,11 +30,15 @@ from ._typehints import (
     get_subclass_names,
     is_list_pathlike,
     is_optional,
+    is_subclass_container_typehint,
     not_required_types,
+    replace_type_vars,
+    replace_unvalidatable_typehints,
     sequence_origin_types,
+    strip_required_typehint,
 )
 from ._util import NoneType, get_import_path, get_private_kwargs, get_typehint_origin, iter_to_set_str
-from .typing import _LazyInitBaseClass, register_pydantic_type
+from .typing import _LazyInitBaseClass, register_pydantic_types
 
 kinds = inspect._ParameterKind
 inspect_empty = inspect._empty
@@ -338,6 +342,28 @@ class SignatureArguments(LoggerProperty):
         name = param.name
         kind = param.kind
         annotation = param.annotation
+        src = get_parameter_origins(param.component, param.parent)
+        skip_message = f'Skipping parameter "{name}" from "{src}" because of: '
+        # Before anything is done with the annotation, so that a type that jsonargparse
+        # is unable to handle can be worked around by skipping the parameter.
+        if skip and name in skip:
+            self.logger.debug(skip_message + "Parameter requested to be skipped.")
+            return
+        unvalidated: list = []
+        try:
+            annotation = replace_type_vars(annotation)  # before the check of what can be validated
+            register_pydantic_types(annotation)
+            unvalidatable_replaced = replace_unvalidatable_typehints(annotation, unvalidated)
+        except Exception as ex:
+            raise ValueError(f'Unable to add parameter "{name}" from "{src}": {ex}') from ex
+        if unvalidated:
+            reasons = " ".join(f"{u.name}: {u.reason}." for u in unvalidated)
+            self.logger.debug(
+                f'Parameter "{name}" from "{src}" has a type that can\'t be fully validated: '
+                f"{annotation}. {reasons} These parts are shown in the help as Unvalidated<...> "
+                "and accept any value without validation."
+            )
+            annotation = unvalidatable_replaced
         if default == inspect_empty:
             default = param.default
             if default == inspect_empty:
@@ -366,8 +392,10 @@ class SignatureArguments(LoggerProperty):
             is_non_positional = False  # Can be positional
         else:
             raise RuntimeError(f"The code should never reach here: kind={kind}")  # pragma: no cover
-        src = get_parameter_origins(param.component, param.parent)
-        skip_message = f'Skipping parameter "{name}" from "{src}" because of: '
+        if annotation != inspect_empty:
+            # Checked before linked_targets and fail_untyped adjust is_required, since the wrappers
+            # are meant to agree with the requiredness that the signature itself defines.
+            annotation = strip_required_typehint(annotation, is_required, f'parameter "{name}" from "{src}"')
         if not fail_untyped and annotation == inspect_empty:
             if is_required and os.environ.get("JSONARGPARSE_DEPRECATION_WARNINGS", "").lower() == "all":
                 deprecation_warning(
@@ -387,9 +415,6 @@ class SignatureArguments(LoggerProperty):
             is_required_link_target = True
         if not is_required and name[0] == "_":
             return
-        elif skip and name in skip:
-            self.logger.debug(skip_message + "Parameter requested to be skipped.")
-            return
         if is_factory_class(default):
             default = param.parent.__dataclass_fields__[name].default_factory()
         if annotation == inspect_empty and not is_required:
@@ -407,6 +432,8 @@ class SignatureArguments(LoggerProperty):
         subclasses_disabled = is_subclasses_disabled(annotation)
         dest = (nested_key + "." if nested_key else "") + name
         args = [dest if is_required and as_positional and not is_non_positional else "--" + dest]
+        if param.aliases and args[0].startswith("--"):
+            args += self._get_alias_args(param, nested_key, container, subclasses_disabled, src)
         if param.origin:
             parser = container
             if not isinstance(container, ArgumentParser):
@@ -421,32 +448,32 @@ class SignatureArguments(LoggerProperty):
                 )
         if annotation in {str, int, float, bool} or is_subclass(annotation, (str, int, float)) or subclasses_disabled:
             kwargs["type"] = annotation
-            register_pydantic_type(annotation)
         elif annotation != inspect_empty:
-            try:
-                is_subclass_typehint = ActionTypeHint.is_subclass_typehint(annotation, all_subtypes=False)
-                is_return_subclass_typehint = ActionTypeHint.is_return_subclass_typehint(annotation)
-                kwargs["type"] = annotation
-                sub_add_kwargs: dict = {"fail_untyped": fail_untyped, "sub_configs": sub_configs}
-                if is_subclass_typehint or is_return_subclass_typehint:
-                    prefix = f"{name}.init_args."
-                    nested_skip = {s[len(prefix) :] for s in skip or [] if s.startswith(prefix)}
-                    sub_add_kwargs["skip"] = nested_skip
-                else:
-                    register_pydantic_type(annotation)
-                enable_path = sub_configs and (
-                    is_subclass_typehint or is_return_subclass_typehint or is_list_pathlike(annotation)
-                )
-                args = ActionTypeHint.prepare_add_argument(
-                    args=args,
-                    kwargs=kwargs,
-                    enable_path=enable_path,
-                    container=container,
-                    logger=self.logger,
-                    sub_add_kwargs=sub_add_kwargs,
-                )
-            except ValueError as ex:
-                self.logger.debug(skip_message + str(ex))
+            # No need to handle unsupported types here, since replace_unvalidatable_typehints
+            # already replaced them by a type that accepts any value without validation.
+            is_subclass_typehint = ActionTypeHint.is_subclass_typehint(annotation, all_subtypes=False)
+            is_return_subclass_typehint = ActionTypeHint.is_return_subclass_typehint(annotation)
+            kwargs["type"] = annotation
+            sub_add_kwargs: dict = {"fail_untyped": fail_untyped, "sub_configs": sub_configs}
+            if is_subclass_typehint or is_return_subclass_typehint:
+                prefix = f"{name}.init_args."
+                nested_skip = {s[len(prefix) :] for s in skip or [] if s.startswith(prefix)}
+                sub_add_kwargs["skip"] = nested_skip
+            # also_closed since dataclass-like types accept a sub-config when not added as a group
+            enable_path = sub_configs and (
+                ActionTypeHint.is_subclass_typehint(annotation, all_subtypes=False, also_closed=True)
+                or is_return_subclass_typehint
+                or is_list_pathlike(annotation)
+                or is_subclass_container_typehint(annotation, also_closed=True)
+            )
+            args = ActionTypeHint.prepare_add_argument(
+                args=args,
+                kwargs=kwargs,
+                enable_path=enable_path,
+                container=container,
+                logger=self.logger,
+                sub_add_kwargs=sub_add_kwargs,
+            )
         if "type" in kwargs or "action" in kwargs:
             sub_add_kwargs = {
                 "fail_untyped": fail_untyped,
@@ -467,6 +494,23 @@ class SignatureArguments(LoggerProperty):
                 "With fail_untyped=True, all mandatory parameters must have a supported"
                 f" type. Parameter '{name}' from '{src}' does not specify a type."
             )
+
+    def _get_alias_args(self, param, nested_key, container, subclasses_disabled, src) -> list[str]:
+        """Option strings for the aliases of a parameter, i.e. other names accepted for it."""
+        skip_message = f'Skipping aliases of parameter "{param.name}" from "{src}" because of: '
+        if subclasses_disabled:
+            self.logger.debug(
+                skip_message + "aliases are not supported for subclasses-disabled types added as a group of arguments."
+            )
+            return []
+        prefix = f"--{nested_key}." if nested_key else "--"
+        alias_args = []
+        for alias in param.aliases:
+            if f"{prefix}{alias}" in container._option_string_actions:
+                self.logger.debug(skip_message + f"alias '{alias}' conflicts with an already added argument.")
+            else:
+                alias_args.append(f"{prefix}{alias}")
+        return alias_args
 
     def add_subclass_arguments(
         self,
@@ -566,6 +610,8 @@ class SignatureArguments(LoggerProperty):
             name = obj.__name__ if nested_key is None else nested_key
             group = self.add_argument_group(strip_title(doc_group), name=name)
             if config_load and nested_key is not None:
+                if config_load_type is None and inspect.isclass(obj):
+                    config_load_type = obj
                 group.add_argument("--" + nested_key, action=_ActionConfigLoad(basetype=config_load_type))
             if inspect.isclass(obj) and nested_key is not None and instantiate:
                 group.dest = nested_key.replace("-", "_")

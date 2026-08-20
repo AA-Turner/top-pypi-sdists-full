@@ -26,9 +26,9 @@ class DeltaReportMetricsRequestReportCommitReportFileSizeHistogram(BaseModel):
     """
     Histogram tracking file counts and total bytes across size ranges
     """ # noqa: E501
-    sorted_bin_boundaries: List[StrictInt] = Field(description="Sorted bin boundary values", alias="sorted-bin-boundaries")
-    file_counts: List[StrictInt] = Field(description="Count of files in each bin", alias="file-counts")
-    total_bytes: List[StrictInt] = Field(description="Total bytes in each bin", alias="total-bytes")
+    sorted_bin_boundaries: List[StrictInt] = Field(description="Sorted bin boundaries. Each element is the start of a bin (inclusive) and the next element is the end (exclusive). The first element must be 0. ", alias="sorted-bin-boundaries")
+    file_counts: List[StrictInt] = Field(description="Count of files in each bin. Length must match sorted-bin-boundaries.", alias="file-counts")
+    total_bytes: List[StrictInt] = Field(description="Total bytes in each bin. Length must match sorted-bin-boundaries.", alias="total-bytes")
     commit_version: Optional[StrictInt] = Field(default=None, description="The commit version this histogram is for", alias="commit-version")
     __properties: ClassVar[List[str]] = ["sorted-bin-boundaries", "file-counts", "total-bytes", "commit-version"]
 

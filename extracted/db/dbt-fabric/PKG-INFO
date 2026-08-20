@@ -1,6 +1,6 @@
-Metadata-Version: 2.4
+Metadata-Version: 2.5
 Name: dbt-fabric
-Version: 1.11.0
+Version: 1.11.1
 Summary: A Microsoft Fabric Synapse Data Warehouse adapter plugin for dbt
 Project-URL: Setup & configuration, https://docs.getdbt.com/reference/warehouse-profiles/fabric-profile
 Project-URL: Documentation & usage, https://docs.getdbt.com/reference/resource-configs/fabric-configs
@@ -15,9 +15,10 @@ Classifier: License :: OSI Approved :: MIT License
 Classifier: Operating System :: MacOS :: MacOS X
 Classifier: Operating System :: Microsoft :: Windows
 Classifier: Operating System :: POSIX :: Linux
+Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
-Requires-Python: <3.14,>=3.12
+Requires-Python: <3.14,>=3.11
 Requires-Dist: azure-core>=1.26.0
 Requires-Dist: azure-identity>=1.14.0
 Requires-Dist: dbt-adapters<2.0,>=1.15.5

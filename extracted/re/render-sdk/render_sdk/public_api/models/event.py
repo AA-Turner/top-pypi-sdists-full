@@ -9,6 +9,10 @@ from dateutil.parser import isoparse
 from ..models.event_type import EventType
 
 if TYPE_CHECKING:
+    from ..models.artifact_fetch_failed import ArtifactFetchFailed
+    from ..models.artifact_source_changed import ArtifactSourceChanged
+    from ..models.auto_deploy_disabled import AutoDeployDisabled
+    from ..models.auto_deploy_enabled import AutoDeployEnabled
     from ..models.autoscaling_config_changed import AutoscalingConfigChanged
     from ..models.autoscaling_ended import AutoscalingEnded
     from ..models.autoscaling_started import AutoscalingStarted
@@ -45,6 +49,8 @@ if TYPE_CHECKING:
     from ..models.postgres_backup_failed import PostgresBackupFailed
     from ..models.postgres_backup_started import PostgresBackupStarted
     from ..models.postgres_cluster_leader_changed import PostgresClusterLeaderChanged
+    from ..models.postgres_connection_pool_changed import PostgresConnectionPoolChanged
+    from ..models.postgres_connection_pool_enabled_changed import PostgresConnectionPoolEnabledChanged
     from ..models.postgres_created import PostgresCreated
     from ..models.postgres_disk_size_changed import PostgresDiskSizeChanged
     from ..models.postgres_ha_status_changed import PostgresHAStatusChanged
@@ -83,20 +89,22 @@ class Event:
         timestamp (datetime.datetime):
         service_id (str):
         type_ (EventType):
-        details (Union['AutoscalingConfigChanged', 'AutoscalingEnded', 'AutoscalingStarted', 'BranchDeleted',
-            'BuildEnded', 'BuildStarted', 'CommitIgnored', 'CronJobRunEnded', 'CronJobRunStarted', 'DeployEnded',
-            'DeployStarted', 'DiskCreated', 'DiskDeleted', 'DiskUpdated', 'EdgeCacheDisabled', 'EdgeCacheEnabled',
-            'EdgeCachePurged', 'ImagePullFailed', 'InitialDeployHookEnded', 'InitialDeployHookStarted',
-            'InstanceCountChanged', 'InstanceTypeChanged', 'JobRunEnded', 'KeyValueAvailable', 'KeyValueConfigRestart',
-            'KeyValueUnhealthy', 'MaintenanceEnded', 'MaintenanceModeEnabled', 'MaintenanceModeURIUpdated',
-            'MaintenanceStarted', 'PipelineMinutesExhausted', 'PostgresAvailable', 'PostgresBackupCompleted',
-            'PostgresBackupFailed', 'PostgresBackupStarted', 'PostgresClusterLeaderChanged', 'PostgresCreated',
-            'PostgresDiskSizeChanged', 'PostgresHAStatusChanged', 'PostgresPITRCheckpointCompleted',
-            'PostgresPITRCheckpointFailed', 'PostgresPITRCheckpointStarted', 'PostgresReadReplicaStale',
-            'PostgresReadReplicasChanged', 'PostgresRestarted', 'PostgresUnavailable', 'PostgresUpgradeFailed',
-            'PostgresUpgradeStarted', 'PostgresUpgradeSucceeded', 'PreDeployEnded', 'PreDeployStarted', 'ServerAvailable',
-            'ServerFailed', 'ServerHardwareFailure', 'ServerRestarted', 'ServiceResumed', 'ServiceSuspended',
-            'SuspenderAdded', 'SuspenderRemoved', 'ZeroDowntimeRedeployEnded', 'ZeroDowntimeRedeployStarted']):
+        details (Union['ArtifactFetchFailed', 'ArtifactSourceChanged', 'AutoDeployDisabled', 'AutoDeployEnabled',
+            'AutoscalingConfigChanged', 'AutoscalingEnded', 'AutoscalingStarted', 'BranchDeleted', 'BuildEnded',
+            'BuildStarted', 'CommitIgnored', 'CronJobRunEnded', 'CronJobRunStarted', 'DeployEnded', 'DeployStarted',
+            'DiskCreated', 'DiskDeleted', 'DiskUpdated', 'EdgeCacheDisabled', 'EdgeCacheEnabled', 'EdgeCachePurged',
+            'ImagePullFailed', 'InitialDeployHookEnded', 'InitialDeployHookStarted', 'InstanceCountChanged',
+            'InstanceTypeChanged', 'JobRunEnded', 'KeyValueAvailable', 'KeyValueConfigRestart', 'KeyValueUnhealthy',
+            'MaintenanceEnded', 'MaintenanceModeEnabled', 'MaintenanceModeURIUpdated', 'MaintenanceStarted',
+            'PipelineMinutesExhausted', 'PostgresAvailable', 'PostgresBackupCompleted', 'PostgresBackupFailed',
+            'PostgresBackupStarted', 'PostgresClusterLeaderChanged', 'PostgresConnectionPoolChanged',
+            'PostgresConnectionPoolEnabledChanged', 'PostgresCreated', 'PostgresDiskSizeChanged', 'PostgresHAStatusChanged',
+            'PostgresPITRCheckpointCompleted', 'PostgresPITRCheckpointFailed', 'PostgresPITRCheckpointStarted',
+            'PostgresReadReplicaStale', 'PostgresReadReplicasChanged', 'PostgresRestarted', 'PostgresUnavailable',
+            'PostgresUpgradeFailed', 'PostgresUpgradeStarted', 'PostgresUpgradeSucceeded', 'PreDeployEnded',
+            'PreDeployStarted', 'ServerAvailable', 'ServerFailed', 'ServerHardwareFailure', 'ServerRestarted',
+            'ServiceResumed', 'ServiceSuspended', 'SuspenderAdded', 'SuspenderRemoved', 'ZeroDowntimeRedeployEnded',
+            'ZeroDowntimeRedeployStarted']):
     """
 
     id: str
@@ -104,6 +112,10 @@ class Event:
     service_id: str
     type_: EventType
     details: Union[
+        "ArtifactFetchFailed",
+        "ArtifactSourceChanged",
+        "AutoDeployDisabled",
+        "AutoDeployEnabled",
         "AutoscalingConfigChanged",
         "AutoscalingEnded",
         "AutoscalingStarted",
@@ -140,6 +152,8 @@ class Event:
         "PostgresBackupFailed",
         "PostgresBackupStarted",
         "PostgresClusterLeaderChanged",
+        "PostgresConnectionPoolChanged",
+        "PostgresConnectionPoolEnabledChanged",
         "PostgresCreated",
         "PostgresDiskSizeChanged",
         "PostgresHAStatusChanged",
@@ -169,6 +183,10 @@ class Event:
     additional_properties: dict[str, Any] = _attrs_field(init=False, factory=dict)
 
     def to_dict(self) -> dict[str, Any]:
+        from ..models.artifact_fetch_failed import ArtifactFetchFailed
+        from ..models.artifact_source_changed import ArtifactSourceChanged
+        from ..models.auto_deploy_disabled import AutoDeployDisabled
+        from ..models.auto_deploy_enabled import AutoDeployEnabled
         from ..models.autoscaling_config_changed import AutoscalingConfigChanged
         from ..models.autoscaling_ended import AutoscalingEnded
         from ..models.autoscaling_started import AutoscalingStarted
@@ -204,6 +222,8 @@ class Event:
         from ..models.postgres_backup_failed import PostgresBackupFailed
         from ..models.postgres_backup_started import PostgresBackupStarted
         from ..models.postgres_cluster_leader_changed import PostgresClusterLeaderChanged
+        from ..models.postgres_connection_pool_changed import PostgresConnectionPoolChanged
+        from ..models.postgres_connection_pool_enabled_changed import PostgresConnectionPoolEnabledChanged
         from ..models.postgres_created import PostgresCreated
         from ..models.postgres_disk_size_changed import PostgresDiskSizeChanged
         from ..models.postgres_ha_status_changed import PostgresHAStatusChanged
@@ -239,7 +259,11 @@ class Event:
         type_ = self.type_.value
 
         details: dict[str, Any]
-        if isinstance(self.details, AutoscalingConfigChanged):
+        if isinstance(self.details, ArtifactFetchFailed):
+            details = self.details.to_dict()
+        elif isinstance(self.details, ArtifactSourceChanged):
+            details = self.details.to_dict()
+        elif isinstance(self.details, AutoscalingConfigChanged):
             details = self.details.to_dict()
         elif isinstance(self.details, AutoscalingEnded):
             details = self.details.to_dict()
@@ -319,6 +343,10 @@ class Event:
             details = self.details.to_dict()
         elif isinstance(self.details, EdgeCachePurged):
             details = self.details.to_dict()
+        elif isinstance(self.details, AutoDeployDisabled):
+            details = self.details.to_dict()
+        elif isinstance(self.details, AutoDeployEnabled):
+            details = self.details.to_dict()
         elif isinstance(self.details, PostgresAvailable):
             details = self.details.to_dict()
         elif isinstance(self.details, PostgresBackupCompleted):
@@ -328,6 +356,10 @@ class Event:
         elif isinstance(self.details, PostgresBackupStarted):
             details = self.details.to_dict()
         elif isinstance(self.details, PostgresClusterLeaderChanged):
+            details = self.details.to_dict()
+        elif isinstance(self.details, PostgresConnectionPoolChanged):
+            details = self.details.to_dict()
+        elif isinstance(self.details, PostgresConnectionPoolEnabledChanged):
             details = self.details.to_dict()
         elif isinstance(self.details, PostgresCreated):
             details = self.details.to_dict()
@@ -378,6 +410,10 @@ class Event:
 
     @classmethod
     def from_dict(cls: type[T], src_dict: Mapping[str, Any]) -> T:
+        from ..models.artifact_fetch_failed import ArtifactFetchFailed
+        from ..models.artifact_source_changed import ArtifactSourceChanged
+        from ..models.auto_deploy_disabled import AutoDeployDisabled
+        from ..models.auto_deploy_enabled import AutoDeployEnabled
         from ..models.autoscaling_config_changed import AutoscalingConfigChanged
         from ..models.autoscaling_ended import AutoscalingEnded
         from ..models.autoscaling_started import AutoscalingStarted
@@ -414,6 +450,8 @@ class Event:
         from ..models.postgres_backup_failed import PostgresBackupFailed
         from ..models.postgres_backup_started import PostgresBackupStarted
         from ..models.postgres_cluster_leader_changed import PostgresClusterLeaderChanged
+        from ..models.postgres_connection_pool_changed import PostgresConnectionPoolChanged
+        from ..models.postgres_connection_pool_enabled_changed import PostgresConnectionPoolEnabledChanged
         from ..models.postgres_created import PostgresCreated
         from ..models.postgres_disk_size_changed import PostgresDiskSizeChanged
         from ..models.postgres_ha_status_changed import PostgresHAStatusChanged
@@ -452,6 +490,10 @@ class Event:
         def _parse_details(
             data: object,
         ) -> Union[
+            "ArtifactFetchFailed",
+            "ArtifactSourceChanged",
+            "AutoDeployDisabled",
+            "AutoDeployEnabled",
             "AutoscalingConfigChanged",
             "AutoscalingEnded",
             "AutoscalingStarted",
@@ -488,6 +530,8 @@ class Event:
             "PostgresBackupFailed",
             "PostgresBackupStarted",
             "PostgresClusterLeaderChanged",
+            "PostgresConnectionPoolChanged",
+            "PostgresConnectionPoolEnabledChanged",
             "PostgresCreated",
             "PostgresDiskSizeChanged",
             "PostgresHAStatusChanged",
@@ -517,7 +561,7 @@ class Event:
             try:
                 if not isinstance(data, dict):
                     raise TypeError()
-                componentsschemasservice_event_details_type_0 = AutoscalingConfigChanged.from_dict(data)
+                componentsschemasservice_event_details_type_0 = ArtifactFetchFailed.from_dict(data)
 
                 return componentsschemasservice_event_details_type_0
             except:  # noqa: E722
@@ -525,7 +569,7 @@ class Event:
             try:
                 if not isinstance(data, dict):
                     raise TypeError()
-                componentsschemasservice_event_details_type_1 = AutoscalingEnded.from_dict(data)
+                componentsschemasservice_event_details_type_1 = ArtifactSourceChanged.from_dict(data)
 
                 return componentsschemasservice_event_details_type_1
             except:  # noqa: E722
@@ -533,7 +577,7 @@ class Event:
             try:
                 if not isinstance(data, dict):
                     raise TypeError()
-                componentsschemasservice_event_details_type_2 = AutoscalingStarted.from_dict(data)
+                componentsschemasservice_event_details_type_2 = AutoscalingConfigChanged.from_dict(data)
 
                 return componentsschemasservice_event_details_type_2
             except:  # noqa: E722
@@ -541,7 +585,7 @@ class Event:
             try:
                 if not isinstance(data, dict):
                     raise TypeError()
-                componentsschemasservice_event_details_type_3 = BranchDeleted.from_dict(data)
+                componentsschemasservice_event_details_type_3 = AutoscalingEnded.from_dict(data)
 
                 return componentsschemasservice_event_details_type_3
             except:  # noqa: E722
@@ -549,7 +593,7 @@ class Event:
             try:
                 if not isinstance(data, dict):
                     raise TypeError()
-                componentsschemasservice_event_details_type_4 = BuildEnded.from_dict(data)
+                componentsschemasservice_event_details_type_4 = AutoscalingStarted.from_dict(data)
 
                 return componentsschemasservice_event_details_type_4
             except:  # noqa: E722
@@ -557,7 +601,7 @@ class Event:
             try:
                 if not isinstance(data, dict):
                     raise TypeError()
-                componentsschemasservice_event_details_type_5 = BuildStarted.from_dict(data)
+                componentsschemasservice_event_details_type_5 = BranchDeleted.from_dict(data)
 
                 return componentsschemasservice_event_details_type_5
             except:  # noqa: E722
@@ -565,7 +609,7 @@ class Event:
             try:
                 if not isinstance(data, dict):
                     raise TypeError()
-                componentsschemasservice_event_details_type_6 = CommitIgnored.from_dict(data)
+                componentsschemasservice_event_details_type_6 = BuildEnded.from_dict(data)
 
                 return componentsschemasservice_event_details_type_6
             except:  # noqa: E722
@@ -573,7 +617,7 @@ class Event:
             try:
                 if not isinstance(data, dict):
                     raise TypeError()
-                componentsschemasservice_event_details_type_7 = CronJobRunEnded.from_dict(data)
+                componentsschemasservice_event_details_type_7 = BuildStarted.from_dict(data)
 
                 return componentsschemasservice_event_details_type_7
             except:  # noqa: E722
@@ -581,7 +625,7 @@ class Event:
             try:
                 if not isinstance(data, dict):
                     raise TypeError()
-                componentsschemasservice_event_details_type_8 = CronJobRunStarted.from_dict(data)
+                componentsschemasservice_event_details_type_8 = CommitIgnored.from_dict(data)
 
                 return componentsschemasservice_event_details_type_8
             except:  # noqa: E722
@@ -589,7 +633,7 @@ class Event:
             try:
                 if not isinstance(data, dict):
                     raise TypeError()
-                componentsschemasservice_event_details_type_9 = DeployEnded.from_dict(data)
+                componentsschemasservice_event_details_type_9 = CronJobRunEnded.from_dict(data)
 
                 return componentsschemasservice_event_details_type_9
             except:  # noqa: E722
@@ -597,7 +641,7 @@ class Event:
             try:
                 if not isinstance(data, dict):
                     raise TypeError()
-                componentsschemasservice_event_details_type_10 = DeployStarted.from_dict(data)
+                componentsschemasservice_event_details_type_10 = CronJobRunStarted.from_dict(data)
 
                 return componentsschemasservice_event_details_type_10
             except:  # noqa: E722
@@ -605,7 +649,7 @@ class Event:
             try:
                 if not isinstance(data, dict):
                     raise TypeError()
-                componentsschemasservice_event_details_type_11 = DiskCreated.from_dict(data)
+                componentsschemasservice_event_details_type_11 = DeployEnded.from_dict(data)
 
                 return componentsschemasservice_event_details_type_11
             except:  # noqa: E722
@@ -613,7 +657,7 @@ class Event:
             try:
                 if not isinstance(data, dict):
                     raise TypeError()
-                componentsschemasservice_event_details_type_12 = DiskUpdated.from_dict(data)
+                componentsschemasservice_event_details_type_12 = DeployStarted.from_dict(data)
 
                 return componentsschemasservice_event_details_type_12
             except:  # noqa: E722
@@ -621,7 +665,7 @@ class Event:
             try:
                 if not isinstance(data, dict):
                     raise TypeError()
-                componentsschemasservice_event_details_type_13 = DiskDeleted.from_dict(data)
+                componentsschemasservice_event_details_type_13 = DiskCreated.from_dict(data)
 
                 return componentsschemasservice_event_details_type_13
             except:  # noqa: E722
@@ -629,7 +673,7 @@ class Event:
             try:
                 if not isinstance(data, dict):
                     raise TypeError()
-                componentsschemasservice_event_details_type_14 = ImagePullFailed.from_dict(data)
+                componentsschemasservice_event_details_type_14 = DiskUpdated.from_dict(data)
 
                 return componentsschemasservice_event_details_type_14
             except:  # noqa: E722
@@ -637,7 +681,7 @@ class Event:
             try:
                 if not isinstance(data, dict):
                     raise TypeError()
-                componentsschemasservice_event_details_type_15 = InitialDeployHookStarted.from_dict(data)
+                componentsschemasservice_event_details_type_15 = DiskDeleted.from_dict(data)
 
                 return componentsschemasservice_event_details_type_15
             except:  # noqa: E722
@@ -645,7 +689,7 @@ class Event:
             try:
                 if not isinstance(data, dict):
                     raise TypeError()
-                componentsschemasservice_event_details_type_16 = InitialDeployHookEnded.from_dict(data)
+                componentsschemasservice_event_details_type_16 = ImagePullFailed.from_dict(data)
 
                 return componentsschemasservice_event_details_type_16
             except:  # noqa: E722
@@ -653,7 +697,7 @@ class Event:
             try:
                 if not isinstance(data, dict):
                     raise TypeError()
-                componentsschemasservice_event_details_type_17 = InstanceCountChanged.from_dict(data)
+                componentsschemasservice_event_details_type_17 = InitialDeployHookStarted.from_dict(data)
 
                 return componentsschemasservice_event_details_type_17
             except:  # noqa: E722
@@ -661,7 +705,7 @@ class Event:
             try:
                 if not isinstance(data, dict):
                     raise TypeError()
-                componentsschemasservice_event_details_type_18 = JobRunEnded.from_dict(data)
+                componentsschemasservice_event_details_type_18 = InitialDeployHookEnded.from_dict(data)
 
                 return componentsschemasservice_event_details_type_18
             except:  # noqa: E722
@@ -669,7 +713,7 @@ class Event:
             try:
                 if not isinstance(data, dict):
                     raise TypeError()
-                componentsschemasservice_event_details_type_19 = MaintenanceModeEnabled.from_dict(data)
+                componentsschemasservice_event_details_type_19 = InstanceCountChanged.from_dict(data)
 
                 return componentsschemasservice_event_details_type_19
             except:  # noqa: E722
@@ -677,7 +721,7 @@ class Event:
             try:
                 if not isinstance(data, dict):
                     raise TypeError()
-                componentsschemasservice_event_details_type_20 = MaintenanceModeURIUpdated.from_dict(data)
+                componentsschemasservice_event_details_type_20 = JobRunEnded.from_dict(data)
 
                 return componentsschemasservice_event_details_type_20
             except:  # noqa: E722
@@ -685,7 +729,7 @@ class Event:
             try:
                 if not isinstance(data, dict):
                     raise TypeError()
-                componentsschemasservice_event_details_type_21 = MaintenanceEnded.from_dict(data)
+                componentsschemasservice_event_details_type_21 = MaintenanceModeEnabled.from_dict(data)
 
                 return componentsschemasservice_event_details_type_21
             except:  # noqa: E722
@@ -693,7 +737,7 @@ class Event:
             try:
                 if not isinstance(data, dict):
                     raise TypeError()
-                componentsschemasservice_event_details_type_22 = MaintenanceStarted.from_dict(data)
+                componentsschemasservice_event_details_type_22 = MaintenanceModeURIUpdated.from_dict(data)
 
                 return componentsschemasservice_event_details_type_22
             except:  # noqa: E722
@@ -701,7 +745,7 @@ class Event:
             try:
                 if not isinstance(data, dict):
                     raise TypeError()
-                componentsschemasservice_event_details_type_23 = PipelineMinutesExhausted.from_dict(data)
+                componentsschemasservice_event_details_type_23 = MaintenanceEnded.from_dict(data)
 
                 return componentsschemasservice_event_details_type_23
             except:  # noqa: E722
@@ -709,7 +753,7 @@ class Event:
             try:
                 if not isinstance(data, dict):
                     raise TypeError()
-                componentsschemasservice_event_details_type_24 = InstanceTypeChanged.from_dict(data)
+                componentsschemasservice_event_details_type_24 = MaintenanceStarted.from_dict(data)
 
                 return componentsschemasservice_event_details_type_24
             except:  # noqa: E722
@@ -717,7 +761,7 @@ class Event:
             try:
                 if not isinstance(data, dict):
                     raise TypeError()
-                componentsschemasservice_event_details_type_25 = PreDeployEnded.from_dict(data)
+                componentsschemasservice_event_details_type_25 = PipelineMinutesExhausted.from_dict(data)
 
                 return componentsschemasservice_event_details_type_25
             except:  # noqa: E722
@@ -725,7 +769,7 @@ class Event:
             try:
                 if not isinstance(data, dict):
                     raise TypeError()
-                componentsschemasservice_event_details_type_26 = PreDeployStarted.from_dict(data)
+                componentsschemasservice_event_details_type_26 = InstanceTypeChanged.from_dict(data)
 
                 return componentsschemasservice_event_details_type_26
             except:  # noqa: E722
@@ -733,7 +777,7 @@ class Event:
             try:
                 if not isinstance(data, dict):
                     raise TypeError()
-                componentsschemasservice_event_details_type_27 = ServerAvailable.from_dict(data)
+                componentsschemasservice_event_details_type_27 = PreDeployEnded.from_dict(data)
 
                 return componentsschemasservice_event_details_type_27
             except:  # noqa: E722
@@ -741,7 +785,7 @@ class Event:
             try:
                 if not isinstance(data, dict):
                     raise TypeError()
-                componentsschemasservice_event_details_type_28 = ServerFailed.from_dict(data)
+                componentsschemasservice_event_details_type_28 = PreDeployStarted.from_dict(data)
 
                 return componentsschemasservice_event_details_type_28
             except:  # noqa: E722
@@ -749,7 +793,7 @@ class Event:
             try:
                 if not isinstance(data, dict):
                     raise TypeError()
-                componentsschemasservice_event_details_type_29 = ServerHardwareFailure.from_dict(data)
+                componentsschemasservice_event_details_type_29 = ServerAvailable.from_dict(data)
 
                 return componentsschemasservice_event_details_type_29
             except:  # noqa: E722
@@ -757,7 +801,7 @@ class Event:
             try:
                 if not isinstance(data, dict):
                     raise TypeError()
-                componentsschemasservice_event_details_type_30 = ServerRestarted.from_dict(data)
+                componentsschemasservice_event_details_type_30 = ServerFailed.from_dict(data)
 
                 return componentsschemasservice_event_details_type_30
             except:  # noqa: E722
@@ -765,7 +809,7 @@ class Event:
             try:
                 if not isinstance(data, dict):
                     raise TypeError()
-                componentsschemasservice_event_details_type_31 = ServiceResumed.from_dict(data)
+                componentsschemasservice_event_details_type_31 = ServerHardwareFailure.from_dict(data)
 
                 return componentsschemasservice_event_details_type_31
             except:  # noqa: E722
@@ -773,7 +817,7 @@ class Event:
             try:
                 if not isinstance(data, dict):
                     raise TypeError()
-                componentsschemasservice_event_details_type_32 = ServiceSuspended.from_dict(data)
+                componentsschemasservice_event_details_type_32 = ServerRestarted.from_dict(data)
 
                 return componentsschemasservice_event_details_type_32
             except:  # noqa: E722
@@ -781,7 +825,7 @@ class Event:
             try:
                 if not isinstance(data, dict):
                     raise TypeError()
-                componentsschemasservice_event_details_type_33 = SuspenderAdded.from_dict(data)
+                componentsschemasservice_event_details_type_33 = ServiceResumed.from_dict(data)
 
                 return componentsschemasservice_event_details_type_33
             except:  # noqa: E722
@@ -789,7 +833,7 @@ class Event:
             try:
                 if not isinstance(data, dict):
                     raise TypeError()
-                componentsschemasservice_event_details_type_34 = SuspenderRemoved.from_dict(data)
+                componentsschemasservice_event_details_type_34 = ServiceSuspended.from_dict(data)
 
                 return componentsschemasservice_event_details_type_34
             except:  # noqa: E722
@@ -797,7 +841,7 @@ class Event:
             try:
                 if not isinstance(data, dict):
                     raise TypeError()
-                componentsschemasservice_event_details_type_35 = ZeroDowntimeRedeployEnded.from_dict(data)
+                componentsschemasservice_event_details_type_35 = SuspenderAdded.from_dict(data)
 
                 return componentsschemasservice_event_details_type_35
             except:  # noqa: E722
@@ -805,7 +849,7 @@ class Event:
             try:
                 if not isinstance(data, dict):
                     raise TypeError()
-                componentsschemasservice_event_details_type_36 = ZeroDowntimeRedeployStarted.from_dict(data)
+                componentsschemasservice_event_details_type_36 = SuspenderRemoved.from_dict(data)
 
                 return componentsschemasservice_event_details_type_36
             except:  # noqa: E722
@@ -813,7 +857,7 @@ class Event:
             try:
                 if not isinstance(data, dict):
                     raise TypeError()
-                componentsschemasservice_event_details_type_37 = EdgeCacheDisabled.from_dict(data)
+                componentsschemasservice_event_details_type_37 = ZeroDowntimeRedeployEnded.from_dict(data)
 
                 return componentsschemasservice_event_details_type_37
             except:  # noqa: E722
@@ -821,7 +865,7 @@ class Event:
             try:
                 if not isinstance(data, dict):
                     raise TypeError()
-                componentsschemasservice_event_details_type_38 = EdgeCacheEnabled.from_dict(data)
+                componentsschemasservice_event_details_type_38 = ZeroDowntimeRedeployStarted.from_dict(data)
 
                 return componentsschemasservice_event_details_type_38
             except:  # noqa: E722
@@ -829,9 +873,41 @@ class Event:
             try:
                 if not isinstance(data, dict):
                     raise TypeError()
-                componentsschemasservice_event_details_type_39 = EdgeCachePurged.from_dict(data)
+                componentsschemasservice_event_details_type_39 = EdgeCacheDisabled.from_dict(data)
 
                 return componentsschemasservice_event_details_type_39
+            except:  # noqa: E722
+                pass
+            try:
+                if not isinstance(data, dict):
+                    raise TypeError()
+                componentsschemasservice_event_details_type_40 = EdgeCacheEnabled.from_dict(data)
+
+                return componentsschemasservice_event_details_type_40
+            except:  # noqa: E722
+                pass
+            try:
+                if not isinstance(data, dict):
+                    raise TypeError()
+                componentsschemasservice_event_details_type_41 = EdgeCachePurged.from_dict(data)
+
+                return componentsschemasservice_event_details_type_41
+            except:  # noqa: E722
+                pass
+            try:
+                if not isinstance(data, dict):
+                    raise TypeError()
+                componentsschemasservice_event_details_type_42 = AutoDeployDisabled.from_dict(data)
+
+                return componentsschemasservice_event_details_type_42
+            except:  # noqa: E722
+                pass
+            try:
+                if not isinstance(data, dict):
+                    raise TypeError()
+                componentsschemasservice_event_details_type_43 = AutoDeployEnabled.from_dict(data)
+
+                return componentsschemasservice_event_details_type_43
             except:  # noqa: E722
                 pass
             try:
@@ -877,7 +953,7 @@ class Event:
             try:
                 if not isinstance(data, dict):
                     raise TypeError()
-                componentsschemaspostgres_event_details_type_5 = PostgresCreated.from_dict(data)
+                componentsschemaspostgres_event_details_type_5 = PostgresConnectionPoolChanged.from_dict(data)
 
                 return componentsschemaspostgres_event_details_type_5
             except:  # noqa: E722
@@ -885,7 +961,7 @@ class Event:
             try:
                 if not isinstance(data, dict):
                     raise TypeError()
-                componentsschemaspostgres_event_details_type_6 = PostgresDiskSizeChanged.from_dict(data)
+                componentsschemaspostgres_event_details_type_6 = PostgresConnectionPoolEnabledChanged.from_dict(data)
 
                 return componentsschemaspostgres_event_details_type_6
             except:  # noqa: E722
@@ -893,7 +969,7 @@ class Event:
             try:
                 if not isinstance(data, dict):
                     raise TypeError()
-                componentsschemaspostgres_event_details_type_7 = PostgresHAStatusChanged.from_dict(data)
+                componentsschemaspostgres_event_details_type_7 = PostgresCreated.from_dict(data)
 
                 return componentsschemaspostgres_event_details_type_7
             except:  # noqa: E722
@@ -901,7 +977,7 @@ class Event:
             try:
                 if not isinstance(data, dict):
                     raise TypeError()
-                componentsschemaspostgres_event_details_type_8 = PostgresReadReplicasChanged.from_dict(data)
+                componentsschemaspostgres_event_details_type_8 = PostgresDiskSizeChanged.from_dict(data)
 
                 return componentsschemaspostgres_event_details_type_8
             except:  # noqa: E722
@@ -909,7 +985,7 @@ class Event:
             try:
                 if not isinstance(data, dict):
                     raise TypeError()
-                componentsschemaspostgres_event_details_type_9 = PostgresRestarted.from_dict(data)
+                componentsschemaspostgres_event_details_type_9 = PostgresHAStatusChanged.from_dict(data)
 
                 return componentsschemaspostgres_event_details_type_9
             except:  # noqa: E722
@@ -917,7 +993,7 @@ class Event:
             try:
                 if not isinstance(data, dict):
                     raise TypeError()
-                componentsschemaspostgres_event_details_type_10 = PostgresUnavailable.from_dict(data)
+                componentsschemaspostgres_event_details_type_10 = PostgresReadReplicasChanged.from_dict(data)
 
                 return componentsschemaspostgres_event_details_type_10
             except:  # noqa: E722
@@ -925,7 +1001,7 @@ class Event:
             try:
                 if not isinstance(data, dict):
                     raise TypeError()
-                componentsschemaspostgres_event_details_type_11 = PostgresUpgradeFailed.from_dict(data)
+                componentsschemaspostgres_event_details_type_11 = PostgresRestarted.from_dict(data)
 
                 return componentsschemaspostgres_event_details_type_11
             except:  # noqa: E722
@@ -933,7 +1009,7 @@ class Event:
             try:
                 if not isinstance(data, dict):
                     raise TypeError()
-                componentsschemaspostgres_event_details_type_12 = PostgresUpgradeStarted.from_dict(data)
+                componentsschemaspostgres_event_details_type_12 = PostgresUnavailable.from_dict(data)
 
                 return componentsschemaspostgres_event_details_type_12
             except:  # noqa: E722
@@ -941,7 +1017,7 @@ class Event:
             try:
                 if not isinstance(data, dict):
                     raise TypeError()
-                componentsschemaspostgres_event_details_type_13 = PostgresUpgradeSucceeded.from_dict(data)
+                componentsschemaspostgres_event_details_type_13 = PostgresUpgradeFailed.from_dict(data)
 
                 return componentsschemaspostgres_event_details_type_13
             except:  # noqa: E722
@@ -949,7 +1025,7 @@ class Event:
             try:
                 if not isinstance(data, dict):
                     raise TypeError()
-                componentsschemaspostgres_event_details_type_14 = PostgresPITRCheckpointStarted.from_dict(data)
+                componentsschemaspostgres_event_details_type_14 = PostgresUpgradeStarted.from_dict(data)
 
                 return componentsschemaspostgres_event_details_type_14
             except:  # noqa: E722
@@ -957,7 +1033,7 @@ class Event:
             try:
                 if not isinstance(data, dict):
                     raise TypeError()
-                componentsschemaspostgres_event_details_type_15 = PostgresPITRCheckpointFailed.from_dict(data)
+                componentsschemaspostgres_event_details_type_15 = PostgresUpgradeSucceeded.from_dict(data)
 
                 return componentsschemaspostgres_event_details_type_15
             except:  # noqa: E722
@@ -965,7 +1041,7 @@ class Event:
             try:
                 if not isinstance(data, dict):
                     raise TypeError()
-                componentsschemaspostgres_event_details_type_16 = PostgresPITRCheckpointCompleted.from_dict(data)
+                componentsschemaspostgres_event_details_type_16 = PostgresPITRCheckpointStarted.from_dict(data)
 
                 return componentsschemaspostgres_event_details_type_16
             except:  # noqa: E722
@@ -973,9 +1049,25 @@ class Event:
             try:
                 if not isinstance(data, dict):
                     raise TypeError()
-                componentsschemaspostgres_event_details_type_17 = PostgresReadReplicaStale.from_dict(data)
+                componentsschemaspostgres_event_details_type_17 = PostgresPITRCheckpointFailed.from_dict(data)
 
                 return componentsschemaspostgres_event_details_type_17
+            except:  # noqa: E722
+                pass
+            try:
+                if not isinstance(data, dict):
+                    raise TypeError()
+                componentsschemaspostgres_event_details_type_18 = PostgresPITRCheckpointCompleted.from_dict(data)
+
+                return componentsschemaspostgres_event_details_type_18
+            except:  # noqa: E722
+                pass
+            try:
+                if not isinstance(data, dict):
+                    raise TypeError()
+                componentsschemaspostgres_event_details_type_19 = PostgresReadReplicaStale.from_dict(data)
+
+                return componentsschemaspostgres_event_details_type_19
             except:  # noqa: E722
                 pass
             try:

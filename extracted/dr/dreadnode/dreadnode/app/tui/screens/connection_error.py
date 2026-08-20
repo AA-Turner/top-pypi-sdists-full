@@ -19,6 +19,7 @@ from dreadnode.app.tui.theme import (
     FG_SUBTLE,
     pick_logo,
 )
+from dreadnode.core.tls import TLS_TRUST_DOCS_URL
 
 if t.TYPE_CHECKING:
     from textual.app import ComposeResult
@@ -120,7 +121,8 @@ class ConnectionErrorScreen(ModalScreen[bool]):
         self.query_one("#conn-error-message", Static).update(msg)
 
         status = Text(justify="center")
-        status.append(STATUS_URL, style=f"underline {FG_MUTED} link {STATUS_URL}")
+        status_url = TLS_TRUST_DOCS_URL if TLS_TRUST_DOCS_URL in message else STATUS_URL
+        status.append(status_url, style=f"underline {FG_MUTED} link {status_url}")
         self.query_one("#conn-error-status", Static).update(status)
 
         hint = Text(justify="center")

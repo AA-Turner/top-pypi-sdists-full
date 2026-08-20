@@ -37,7 +37,7 @@ dependencies = [
     "cryptography>=41.0.7,<51",
     "zstandard (>=0.24.0,<0.26.0)",
 ]
-version = "0.0.70"
+version = "0.0.71"
 
 [project.scripts]
 atp = "atproto_cli:atproto_cli"

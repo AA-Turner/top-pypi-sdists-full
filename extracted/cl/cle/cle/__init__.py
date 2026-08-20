@@ -7,7 +7,7 @@ The primary interface to CLE is the Loader class.
 
 from __future__ import annotations
 
-__version__ = "9.3.2"
+__version__ = "9.3.3"
 
 from .address_translator import AT, AddressTranslator
 from .backends import (
@@ -26,6 +26,9 @@ from .backends import (
     ExceptionHandling,
     FunctionHint,
     FunctionHintSource,
+    GoFunction,
+    GoPclntab,
+    GoSymbol,
     Hex,
     Jar,
     MachO,
@@ -40,6 +43,7 @@ from .backends import (
     Soot,
     SRec,
     StaticArchive,
+    STM32Backend,
     Symbol,
     SymbolSubType,
     SymbolType,
@@ -95,6 +99,9 @@ __all__ = [
     "ExceptionHandling",
     "FunctionHint",
     "FunctionHintSource",
+    "GoFunction",
+    "GoPclntab",
+    "GoSymbol",
     "Hex",
     "SRec",
     "Jar",
@@ -108,6 +115,7 @@ __all__ = [
     "Segment",
     "Soot",
     "StaticArchive",
+    "STM32Backend",
     "Universal2",
     "register_backend",
     "ExternObject",

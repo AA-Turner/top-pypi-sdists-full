@@ -32,7 +32,6 @@ from typing import (
 from unicodedata import normalize
 
 from jinja2.exceptions import TemplateError
-from jinja2.loaders import FileSystemLoader
 from jinja2.utils import import_string
 from packaging.version import Version
 from pathspec import PathSpec, __version__ as pathspec_version
@@ -44,7 +43,12 @@ from pydantic_core import to_jsonable_python
 from questionary import confirm, unsafe_prompt
 
 from ._deprecation import deprecate_answers_file_template_path
-from ._jinja_ext import SandboxedEnvironment, YieldExtension, get_yield_context
+from ._jinja_ext import (
+    CopierTemplateLoader,
+    SandboxedEnvironment,
+    YieldExtension,
+    get_yield_context,
+)
 from ._settings import Settings, SettingsModel, is_trusted_repository
 from ._subproject import Subproject
 from ._template import Task, Template
@@ -82,6 +86,11 @@ from .errors import (
     UserMessageError,
     YieldTagInFileError,
 )
+
+if sys.version_info < (3, 11):
+    from typing_extensions import Self
+else:
+    from typing import Self
 
 _T = TypeVar("_T")
 _P = ParamSpec("_P")
@@ -262,7 +271,7 @@ class Worker:
     answers: AnswersMap = field(default_factory=AnswersMap, init=False)
     _cleanup_hooks: list[Callable[[], None]] = field(default_factory=list, init=False)
 
-    def __enter__(self) -> Worker:
+    def __enter__(self) -> Self:
         """Allow using worker as a context manager."""
         return self
 
@@ -427,7 +436,9 @@ class Worker:
 
             extra_env = {k[1:].upper(): str(v) for k, v in extra_context.items()}
             with local.cwd(working_directory), local.env(**extra_env):
-                process = subprocess.run(task_cmd, shell=use_shell, env=dict(local.env))
+                process = subprocess.run(
+                    task_cmd, shell=use_shell, check=False, env=dict(local.env)
+                )
                 if process.returncode:
                     raise TaskError.from_process(process)
 
@@ -613,7 +624,7 @@ class Worker:
                 try:
                     answer = question.parse_answer(self.answers.last[var_name])
                     question.validate_answer(answer)
-                except Exception:
+                except Exception:  # noqa: BLE001
                     del self.answers.last[var_name]
             # Skip a question when the skip condition is met.
             if not question.get_when():
@@ -701,8 +712,7 @@ class Worker:
 
         Respects template settings.
         """
-        paths = [str(self.template.local_abspath)]
-        loader = FileSystemLoader(paths)
+        loader = CopierTemplateLoader(self.template.local_abspath)
         default_extensions = [
             "jinja2_ansible_filters.AnsibleCoreFiltersExtension",
             YieldExtension,
@@ -1062,7 +1072,7 @@ class Worker:
         context pairs.
         """
         if rendered_parts is None:
-            rendered_parts = tuple()
+            rendered_parts = ()
 
         if not parts:
             rendered_path = Path(*rendered_parts)
@@ -1273,7 +1283,7 @@ class Worker:
                 self._render_template()
             if not self.quiet:
                 # TODO Unify printing tools
-                print("")  # padding space
+                print()  # padding space
             if not self.skip_tasks:
                 with Phase.use(Phase.TASKS):
                     self._execute_tasks(self.template.tasks)
@@ -1284,7 +1294,7 @@ class Worker:
         self._print_message(self.template.message_after_copy)
         if not self.quiet:
             # TODO Unify printing tools
-            print("")  # padding space
+            print()  # padding space
 
     @as_operation("copy")
     def run_recopy(self) -> None:
@@ -1411,22 +1421,22 @@ class Worker:
                 # project to avoid recreating them during the update.
                 # Files listed in `skip_if_exists` should only be skipped if they exist.
                 # They should even be recreated if deleted intentionally.
-                files_removed = git(
-                    "diff-tree",
-                    "-r",
-                    "--diff-filter=D",
-                    "--name-only",
-                    "HEAD",
-                    subproject_head,
-                ).splitlines()
-                exclude_plus_removed = list(
-                    set(self.exclude).union(
-                        f"/{escape_git_path(path)}"
-                        for path in map(normalize_git_path, files_removed)
-                        if not (subproject_top / path).exists()
-                        and not self.match_skip(Path(path))
+                files_removed = [
+                    path
+                    for path in map(
+                        normalize_git_path,
+                        git(
+                            "diff-tree",
+                            "-r",
+                            "--diff-filter=D",
+                            "--name-only",
+                            "HEAD",
+                            subproject_head,
+                        ).splitlines(),
                     )
-                )
+                    if not (subproject_top / path).exists()
+                    and not self.match_skip(Path(path))
+                ]
             # Clear last answers cache to load possible answers migration, if
             # skip_answered flag is not set
             if self.skip_answered is False:
@@ -1436,8 +1446,6 @@ class Worker:
             # Do a normal update in final destination
             with replace(
                 self,
-                # Don't regenerate intentionally deleted paths
-                exclude=exclude_plus_removed,
                 # Files can change due to the historical diff, and those
                 # changes are not detected in this process, so it's better to
                 # say nothing than lie.
@@ -1447,6 +1455,9 @@ class Worker:
                 current_worker.run_copy()
                 self.answers = current_worker.answers
                 self.answers.external = self._external_data()
+            # Don't regenerate intentionally deleted paths
+            for filename in files_removed:
+                (subproject_top / filename).unlink(missing_ok=True)
             # Render with the same answers in an empty dir to avoid pollution
             with replace(
                 self,
@@ -1462,11 +1473,13 @@ class Worker:
                 defaults=True,
                 quiet=True,
                 src_path=self.subproject.template.url,  # type: ignore[union-attr]
-                exclude=exclude_plus_removed,
                 vcs_ref=self.resolved_vcs_ref,
                 ask=(),
             ) as new_worker:
                 new_worker.run_copy()
+            # Don't regenerate intentionally deleted paths
+            for filename in files_removed:
+                Path(new_copy, filename).unlink(missing_ok=True)
             with local.cwd(new_copy):
                 self._git_initialize_repo()
                 new_copy_head = git("rev-parse", "HEAD").strip()

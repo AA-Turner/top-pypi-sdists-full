@@ -4438,7 +4438,7 @@ class RetrieversApi:
     ) -> PatchRetrieverResponse:
         """Patch Retriever
 
-        Update a retriever's metadata.  Editable fields: - name, description, tags, display_config: metadata - collection_identifiers: re-points + re-validates stage feature URIs - stages (BACKE-1287): edit stages in place on an UNPUBLISHED retriever   (change a filter/operator/rerank without clone+repoint+delete); the full   stage list is replaced + re-validated as on create. A PUBLISHED retriever's   stages stay immutable — clone or unpublish to change them.  input_schema and budget_limits remain immutable; use POST /{retriever_id}/clone.
+        Update a retriever's metadata.  Editable fields: - name, description, tags, display_config: metadata - collection_identifiers: re-points + re-validates stage feature URIs - stages (BACKE-1287): edit stages in place on an UNPUBLISHED retriever   (change a filter/operator/rerank without clone+repoint+delete); the full   stage list is replaced + re-validated as on create. A PUBLISHED retriever's   stages stay immutable — clone or unpublish to change them. - input_schema: NON-BREAKING evolution only (add default/examples/description   to a field, add a new optional field). Breaking changes — removing a field,   changing a type, making a field newly required — are rejected with 422   naming each one; clone the retriever for those.  budget_limits remains immutable; use POST /{retriever_id}/clone.
 
         :param retriever_id: Retriever ID or name. (required)
         :type retriever_id: str
@@ -4515,7 +4515,7 @@ class RetrieversApi:
     ) -> ApiResponse[PatchRetrieverResponse]:
         """Patch Retriever
 
-        Update a retriever's metadata.  Editable fields: - name, description, tags, display_config: metadata - collection_identifiers: re-points + re-validates stage feature URIs - stages (BACKE-1287): edit stages in place on an UNPUBLISHED retriever   (change a filter/operator/rerank without clone+repoint+delete); the full   stage list is replaced + re-validated as on create. A PUBLISHED retriever's   stages stay immutable — clone or unpublish to change them.  input_schema and budget_limits remain immutable; use POST /{retriever_id}/clone.
+        Update a retriever's metadata.  Editable fields: - name, description, tags, display_config: metadata - collection_identifiers: re-points + re-validates stage feature URIs - stages (BACKE-1287): edit stages in place on an UNPUBLISHED retriever   (change a filter/operator/rerank without clone+repoint+delete); the full   stage list is replaced + re-validated as on create. A PUBLISHED retriever's   stages stay immutable — clone or unpublish to change them. - input_schema: NON-BREAKING evolution only (add default/examples/description   to a field, add a new optional field). Breaking changes — removing a field,   changing a type, making a field newly required — are rejected with 422   naming each one; clone the retriever for those.  budget_limits remains immutable; use POST /{retriever_id}/clone.
 
         :param retriever_id: Retriever ID or name. (required)
         :type retriever_id: str
@@ -4592,7 +4592,7 @@ class RetrieversApi:
     ) -> RESTResponseType:
         """Patch Retriever
 
-        Update a retriever's metadata.  Editable fields: - name, description, tags, display_config: metadata - collection_identifiers: re-points + re-validates stage feature URIs - stages (BACKE-1287): edit stages in place on an UNPUBLISHED retriever   (change a filter/operator/rerank without clone+repoint+delete); the full   stage list is replaced + re-validated as on create. A PUBLISHED retriever's   stages stay immutable — clone or unpublish to change them.  input_schema and budget_limits remain immutable; use POST /{retriever_id}/clone.
+        Update a retriever's metadata.  Editable fields: - name, description, tags, display_config: metadata - collection_identifiers: re-points + re-validates stage feature URIs - stages (BACKE-1287): edit stages in place on an UNPUBLISHED retriever   (change a filter/operator/rerank without clone+repoint+delete); the full   stage list is replaced + re-validated as on create. A PUBLISHED retriever's   stages stay immutable — clone or unpublish to change them. - input_schema: NON-BREAKING evolution only (add default/examples/description   to a field, add a new optional field). Breaking changes — removing a field,   changing a type, making a field newly required — are rejected with 422   naming each one; clone the retriever for those.  budget_limits remains immutable; use POST /{retriever_id}/clone.
 
         :param retriever_id: Retriever ID or name. (required)
         :type retriever_id: str

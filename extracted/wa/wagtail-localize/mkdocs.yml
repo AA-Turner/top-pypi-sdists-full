@@ -1,0 +1,77 @@
+site_name: Wagtail Localize
+site_url: https://wagtail-localize.org
+repo_url: https://github.com/wagtail/wagtail-localize/
+edit_uri: blob/main/docs/
+theme:
+  name: 'material'
+  custom_dir: docs/theme_overrides
+  palette:
+    primary: teal
+  features:
+    - navigation.tabs
+    - navigation.sections
+    - content.code.copy
+  logo: assets/favicon.png
+  favicon: assets/favicon.png
+
+markdown_extensions:
+  - admonition
+  - pymdownx.highlight:
+      pygments_lang_class: true
+  - pymdownx.superfences:
+      custom_fences:
+        - name: mermaid
+          class: mermaid
+          format: !!python/name:pymdownx.superfences.fence_code_format
+  - pymdownx.tabbed:
+      alternate_style: true
+extra_css:
+  - stylesheets/mkdocstrings.css
+plugins:
+  - search
+  - autorefs
+  - mkdocstrings:
+      handlers:
+        python:
+          options:
+            show_root_toc_entry: false
+            show_signature_annotations: true
+          paths:
+            - src
+  - include-markdown
+nav:
+  - Home: index.md
+  - Tutorial:
+      - 1. Project set up: tutorial/1-project-set-up.md
+      - 2. Configure Wagtail Localize: tutorial/2-configure-wagtail-localize.md
+      - 3. Translating Content: tutorial/3-content.md
+      - 4. Translating Templates: tutorial/4-templates.md
+  - How To Guides:
+      - Installation guide: how-to/installation.md
+      - Configuring translatable fields: how-to/field-configuration.md
+      - Translatable ModelAdmin: how-to/modeladmin.md
+      - Configuring background tasks: how-to/configure-background-tasks.md
+      - Integrations:
+          - Pontoon: how-to/integrations/pontoon.md
+          - Machine Translation: how-to/integrations/machine-translation.md
+      - Migrate from other translation plugins:
+          - wagtailtrans: how-to/migrate/wagtailtrans.md
+  - Reference:
+      - Translatable Fields: ref/translatable-fields.md
+      - Strings: ref/strings.md
+      - Segments:
+          - Value Types: ref/segments/types.md
+          - Extraction: ref/segments/extract.md
+          - Ingestion: ref/segments/ingest.md
+      - Models:
+          - Translation Memory: ref/models/translation-memory.md
+          - Translation Management: ref/models/translation-management.md
+          - Translatable segments: ref/models/translatable-segments.md
+          - Overridable segments: ref/models/overridable-segments.md
+          - Settings: ref/models/settings.md
+      - Synctree module: ref/synctree.md
+  - Explanations:
+      - Segments: concept/segments.md
+      - Content Paths: concept/content-paths.md
+      - Auto-generation of Translatable Fields: concept/translatable-fields-autogen.md
+      - Tree Synchronisation: concept/tree-synchronisation.md

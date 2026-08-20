@@ -357,6 +357,8 @@ class EvaluationsScreen(DreadnodeScreen):
             )
             self._evaluations = data.get("items", [])
         except Exception as exc:
+            if not self.is_mounted:
+                return
             self._flash_title(f"Error: {exc}", ERROR)
             return
 

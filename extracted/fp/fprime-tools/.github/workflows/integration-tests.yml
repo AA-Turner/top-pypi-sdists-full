@@ -5,6 +5,7 @@ on:
     branches: [ devel ]
   pull_request:
     branches: [ devel ]
+
 # Cancel in-progress runs if a newer run is started on a given PR
 concurrency:
   group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
@@ -12,22 +13,36 @@ concurrency:
 
 jobs:
   fprime-integration:
-
     runs-on: ubuntu-latest
     strategy:
       fail-fast: false
       matrix:
-        python-version: ["3.9", "3.10", "3.11", "3.12", "3.13"]
-        fprime-version: ["v3.4.3", "v3.5.1", "v3.6.0", "devel"]
+        python-version: [ "3.10", "3.11", "3.12", "3.13", "3.14" ]
+        fprime-version: [ "v3.4.3", "v3.5.1", "v3.6.0", "devel" ]
         exclude:
-        - python-version: 3.13
-          fprime-version: v3.4.3
-        - python-version: 3.13
-          fprime-version: v3.5.1
-        - python-version: 3.12
-          fprime-version: v3.4.3
-        - python-version: 3.12
-          fprime-version: v3.5.1
+          - python-version: 3.14
+            fprime-version: v3.4.3
+          - python-version: 3.14
+            fprime-version: v3.5.1
+          - python-version: 3.14
+            fprime-version: v3.6.0
+          - python-version: 3.13
+            fprime-version: v3.4.3
+          - python-version: 3.13
+            fprime-version: v3.5.1
+          - python-version: 3.12
+            fprime-version: v3.4.3
+          - python-version: 3.12
+            fprime-version: v3.5.1
+        include:
+          - fprime-version: v3.4.3
+            ref-path: Ref
+          - fprime-version: v3.5.1
+            ref-path: Ref
+          - fprime-version: v3.6.0
+            ref-path: Ref
+          - fprime-version: devel
+            ref-path: TestDeploymentsProject/Ref
     steps:
       - uses: actions/checkout@v4
       - name: Set up Python ${{ matrix.python-version }}
@@ -46,29 +61,27 @@ jobs:
         run: pip install -U .
       # 0x72ad3277 is Fw/Types/Assert.cpp, a file that should be consistent across releases
       - name: Test generation and building on Ref
-        working-directory: fprime/Ref
+        working-directory: fprime/${{ matrix.ref-path }}
         run: |
           fprime-util generate --make
           fprime-util build
           fprime-util hash-to-file 0x72ad3277
       - name: Test generation and building on Ref with Ninja
-        working-directory: fprime/Ref
+        working-directory: fprime/${{ matrix.ref-path }}
         run: |
           fprime-util generate --build-cache ./build-ninja
           fprime-util build --build-cache ./build-ninja
           fprime-util hash-to-file 0x72ad3277 --build-cache ./build-ninja
-      # 0xf610caa8 is Svc/BufferManager/test/ut/BufferManagerTestMain.cpp, a file that should be consistent
+      # 0x880811b1 is Ref/SignalGen/test/ut/SignalGenTestMain.cpp, a deployment UT built regardless of framework UT settings
       - name: Test special generation on Ref UTs
-        working-directory: fprime/Ref
+        working-directory: fprime/${{ matrix.ref-path }}
         run: |
           fprime-util generate --make --build-cache ./special-cache --ut -DFPRIME_ENABLE_AUTOCODER_UTS=OFF
           fprime-util build --build-cache ./special-cache
-          fprime-util hash-to-file 0xf610caa8 --build-cache ./special-cache
-
+          fprime-util hash-to-file 0x880811b1 --build-cache ./special-cache
 
   visualizer-integration:
     runs-on: ubuntu-latest
-
     steps:
       - name: Checkout fprime-tools
         uses: actions/checkout@v4
@@ -89,10 +102,9 @@ jobs:
           pip install -U -e .
       - name: Check fprime-util visualize
         run: |
-          cd fprime/Ref/Top
+          cd fprime/TestDeploymentsProject/Ref/Top
           fprime-util generate
 
-          timeout 20s fprime-util visualize  > visualizer.log 2>&1 || true
-
+          timeout 20s fprime-util visualize > visualizer.log 2>&1 || true
           grep -q "Generated layout TXT file" visualizer.log
           grep -q "Running on http://" visualizer.log

@@ -8,15 +8,16 @@ This module provides utilities for detecting and managing CLD context,
 which affects how identifiers are quoted and cased when sent to Snowflake.
 
 Decision Logic (from design doc):
-    if CLD:
+    Effective rule set is CLD when either (a) the session is on a CLD, or
+    (b) ``snowpark.connect.identifier.useCldRules`` is true (POC opt-in flag,
+    default false).
+
+    if CLD rules apply:
         Default: no double quotes
-        If backtick identifier OR spark.sql.caseSensitive=True:
-            Add double quotes
-        If spark.sql.caseSensitive=True:
-            Keep as is (no uppercase)
-        Else:
-            UPPERCASE
-    Else (Non-CLD):
+        If spark.sql.caseSensitive=True, invalid unquoted Snowflake id, or
+        backtick-quoted non-\\w+ name: add double quotes, preserve casing
+        Else: passthrough bare identifier
+    Else (legacy non-CLD):
         Default: double quotes
         If spark.sql.caseSensitive=True:
             Keep as is
@@ -111,6 +112,48 @@ def set_current_cld_context(info: CLDInfo) -> None:
 def is_in_cld_context() -> bool:
     """Check if the current request is in a CLD context."""
     return _current_cld_context.get().is_cld
+
+
+def should_use_cld_identifier_rules(is_cld: bool | None = None) -> bool:
+    """Return whether CLD identifier rules should apply for this identifier.
+
+    Used by :func:`transform_identifier_for_snowflake` and other identifier
+    rendering that must follow real CLD session semantics on main.
+
+    When ``snowpark.connect.identifier.useCldRules`` is enabled, CLD rules apply
+    to all databases (POC for unifying identifier rendering without CLD
+    detection). Otherwise, CLD rules apply when the session is on a CLD or when
+    the caller passes ``is_cld=True``.
+
+    **Unified-rules behavior** (SQL preprocess, temp-view column renames, etc.) must
+    gate on :func:`is_cld_unified_identifier_rules_enabled` instead. That helper
+    checks only the global flag so ``useCldRules=false`` (the default) has no
+    effect even inside a CLD session — see Felix's review on this function.
+    """
+    from snowflake.snowpark_connect.config import global_config
+
+    if global_config.snowpark_connect_identifier_useCldRules:
+        return True
+
+    if is_cld is None:
+        return is_in_cld_context()
+    return is_cld
+
+
+def is_cld_unified_identifier_rules_enabled() -> bool:
+    """Return whether the SNOW-3758410 unified-rules flag is explicitly enabled.
+
+    Gate new SCOS behavior introduced for unified CLD identifier rules on this
+    helper only. Unlike :func:`should_use_cld_identifier_rules`, this does not
+    consult CLD session context, preserving the guarantee that the default-off
+    flag is a no-op for unified-rules changes.
+
+    Identifier rendering and existing CLD write paths (e.g. ``_spark_to_snowflake``
+    on a CLD session) continue to use :func:`should_use_cld_identifier_rules`.
+    """
+    from snowflake.snowpark_connect.config import global_config
+
+    return global_config.snowpark_connect_identifier_useCldRules
 
 
 def record_multipart_backtick_flags(
@@ -353,10 +396,6 @@ def transform_identifier_for_snowflake(
     Returns:
         The transformed identifier ready for Snowflake SQL
     """
-    # Use context if not explicitly provided
-    if is_cld is None:
-        is_cld = is_in_cld_context()
-
     # Caller is responsible for passing `is_backtick_quoted` per identifier
     # reference. We no longer fall back to a request-global name-keyed set:
     # that fallback caused cross-contamination between identifiers that
@@ -368,13 +407,18 @@ def transform_identifier_for_snowflake(
     from snowflake.snowpark_connect.config import global_config
 
     spark_case_sensitive = global_config.spark_sql_caseSensitive
+    use_cld_rules = should_use_cld_identifier_rules(is_cld)
 
-    if is_cld:
-        # CLD rules:
-        # - Default: no double quotes
-        # - Add double quotes if backtick-quoted OR caseSensitive=True
-        # - No casing change and keep as is
-        should_quote = is_backtick_quoted or spark_case_sensitive
+    if use_cld_rules:
+        from snowflake.snowpark_connect.utils.identifiers import (
+            cld_identifier_needs_snowflake_quotes,
+        )
+
+        should_quote = cld_identifier_needs_snowflake_quotes(
+            name,
+            is_backtick_quoted=is_backtick_quoted,
+            spark_case_sensitive=spark_case_sensitive,
+        )
 
         if should_quote:
             # Quote the identifier and keep as is

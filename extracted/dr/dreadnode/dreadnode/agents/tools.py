@@ -181,9 +181,10 @@ async def offload_tool_output(
     (``~/.dreadnode`` by default; honors ``configure(cache=...)``).
     """
     from dreadnode import _get_default_instance
-    from dreadnode.storage.storage import write_timestamped
+    from dreadnode.storage.storage import Storage, write_timestamped
 
-    output_dir = _get_default_instance().storage.tool_output_path
+    instance = _get_default_instance()
+    output_dir = Storage(cache=instance.cache).tool_output_path
     safe_id = re.sub(r"[^a-zA-Z0-9_-]", "_", tool_call_id)
     file_path = await asyncio.to_thread(write_timestamped, output_dir, f"{safe_id}.txt", content)
 

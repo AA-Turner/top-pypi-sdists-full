@@ -205,6 +205,7 @@ class Task(XPanderSharedModel):
         output_schema (Optional[Dict]): Schema for the task's output.
         events_streaming (Optional[bool]): Flag indicating if the task has events streaming.
         additional_context (Optional[str]): Additional context to be passed to the agent.
+        tool_call_limit (Optional[int]): Max tool calls for this task; overrides the agent's setting.
         instructions_override (Optional[str]): Additional instructions to be appended to the agent's system prompt.
         test_run_node_id (Optional[str]): Internal test purpose workflow node id to execute.
         user_oidc_token (Optional[str]): OIDC Token to be used for pre-auth
@@ -263,6 +264,7 @@ class Task(XPanderSharedModel):
     is_gateway: Optional[bool] = False
     is_app: Optional[bool] = False
     additional_context: Optional[str] = None
+    tool_call_limit: Optional[int] = None
     instructions_override: Optional[str] = None
     test_run_node_id: Optional[str] = None
     user_oidc_token: Optional[str] = None

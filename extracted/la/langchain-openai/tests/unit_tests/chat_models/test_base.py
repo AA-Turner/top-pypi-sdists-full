@@ -13,7 +13,18 @@ import httpx
 import httpx2
 import openai
 import pytest
-from langchain_core.exceptions import ContextOverflowError
+from langchain_core.exceptions import (
+    ContextOverflowError,
+    ModelAPIError,
+    ModelAuthenticationError,
+    ModelConnectionError,
+    ModelError,
+    ModelInvalidRequestError,
+    ModelNotFoundError,
+    ModelPermissionDeniedError,
+    ModelRateLimitError,
+    ModelTimeoutError,
+)
 from langchain_core.load import dumps, loads
 from langchain_core.messages import (
     AIMessage,
@@ -2098,6 +2109,30 @@ def test_create_chat_result_avoids_parsed_model_dump_warning() -> None:
     assert result.generations[0].message.additional_kwargs["parsed"] == ModelOutput(
         output="Paris"
     )
+
+
+def test_create_chat_result_raises_on_unexpected_response_type() -> None:
+    """A non-JSON response body must surface a clear error, not an `AttributeError`."""
+    llm = ChatOpenAI(model=OPENAI_TEST_MODEL)
+
+    with pytest.raises(ValueError, match="got str") as exc_info:
+        llm._create_chat_result("<html><body>Moved</body></html>")  # type: ignore[arg-type]
+    assert "Moved" in str(exc_info.value)
+
+    with pytest.raises(ValueError, match="got object"):
+        llm._create_chat_result(object())  # type: ignore[arg-type]
+
+
+def test_create_chat_result_truncates_unexpected_response_body() -> None:
+    """A large response body must not be echoed in full in the error message."""
+    llm = ChatOpenAI(model=OPENAI_TEST_MODEL)
+    body = "<html>" + "x" * 5000 + "</html>"
+
+    with pytest.raises(ValueError, match="got str") as exc_info:
+        llm._create_chat_result(body)  # type: ignore[arg-type]
+    message = str(exc_info.value)
+    assert len(message) < len(body)
+    assert message.endswith("...")
 
 
 @pytest.mark.skipif(
@@ -4831,6 +4866,57 @@ def test_context_overflow_error_backwards_compatibility() -> None:
     # Verify it's both types (multiple inheritance)
     assert isinstance(exc_info.value, openai.BadRequestError)
     assert isinstance(exc_info.value, ContextOverflowError)
+
+
+@pytest.mark.parametrize(
+    ("status_code", "sdk_error_type", "model_error_type", "is_retryable"),
+    [
+        (400, openai.BadRequestError, ModelInvalidRequestError, False),
+        (401, openai.AuthenticationError, ModelAuthenticationError, False),
+        (403, openai.PermissionDeniedError, ModelPermissionDeniedError, False),
+        (404, openai.NotFoundError, ModelNotFoundError, False),
+        (429, openai.RateLimitError, ModelRateLimitError, True),
+        (500, openai.InternalServerError, ModelAPIError, True),
+    ],
+)
+def test_openai_error_classification(
+    status_code: int,
+    sdk_error_type: type[openai.APIStatusError],
+    model_error_type: type[ModelError],
+    *,
+    is_retryable: bool,
+) -> None:
+    """Provider errors are raised as both the SDK type and the LangChain type."""
+    request = httpx2.Request("POST", "https://api.openai.com/v1/chat/completions")
+    response = httpx2.Response(status_code, request=request)
+    sdk_error = sdk_error_type("model request failed", response=response, body=None)
+    model = ChatOpenAI(api_key=SecretStr("test"))
+
+    with patch.object(model.client, "with_raw_response") as mock_client:
+        mock_client.create.side_effect = sdk_error
+        with pytest.raises(sdk_error_type) as exc_info:
+            model.invoke("test")
+
+    assert isinstance(exc_info.value, model_error_type)
+    assert exc_info.value.is_retryable is is_retryable
+
+
+def test_openai_transport_error_classification() -> None:
+    """Timeout and connection failures are classified without a status code."""
+    request = httpx2.Request("POST", "https://api.openai.com/v1/chat/completions")
+    model = ChatOpenAI(api_key=SecretStr("test"))
+
+    for sdk_error, model_error_type in (
+        (openai.APITimeoutError(request), ModelTimeoutError),
+        (openai.APIConnectionError(request=request), ModelConnectionError),
+    ):
+        with patch.object(model.client, "with_raw_response") as mock_client:
+            mock_client.create.side_effect = sdk_error
+            with pytest.raises(type(sdk_error)) as exc_info:
+                model.invoke("test")
+
+        assert isinstance(exc_info.value, model_error_type)
+        assert exc_info.value.is_retryable is True
 
 
 def test_metadata_versions() -> None:

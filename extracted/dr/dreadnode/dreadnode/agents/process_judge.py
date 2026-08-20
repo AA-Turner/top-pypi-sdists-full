@@ -14,6 +14,7 @@ any user-supplied rubric under a ``## Project-specific scope`` header
 unless ``replace_default_rubric=True``.
 """
 
+import re
 import typing as t
 from dataclasses import dataclass
 from pathlib import Path
@@ -31,18 +32,27 @@ _DEFAULT_RUBRIC_PATH: Path = (
 
 _USER_RUBRIC_HEADER = "## Project-specific scope"
 
+_PASSING_RE = re.compile(r"<passing>(.*?)</passing>", re.DOTALL | re.IGNORECASE)
+
+
+Action = t.Literal["allow", "deny", "ask"]
+
 
 @dataclass(slots=True)
 class ProcessDecision:
     """Outcome of one :class:`ProcessJudge` invocation.
 
-    Two-valued by design — the agent will run an allowed call or won't run
-    a denied one. A "warn" mode is deliberately absent; the gating layer
-    cannot usefully half-allow a tool call.
+    Three-valued: ``allow`` runs the call, ``deny`` blocks it, ``ask``
+    pauses execution and requests operator approval before proceeding.
     """
 
-    allow: bool
+    action: Action
     reason: str
+
+    @property
+    def allow(self) -> bool:
+        """Backward-compatible check — True only for explicit allow."""
+        return self.action == "allow"
 
 
 class ProcessJudge:
@@ -148,7 +158,7 @@ class ProcessJudge:
                 metadata) merged into the rendered intent.
 
         Returns:
-            A :class:`ProcessDecision` with ``allow`` and a short reason.
+            A :class:`ProcessDecision` with ``action`` and a short reason.
         """
         from dreadnode.scorers.judge import parse_judgement
 
@@ -161,8 +171,22 @@ class ProcessJudge:
         if isinstance(result, BaseException):
             raise result
 
-        judgement = parse_judgement(result.message.content or "")
-        return ProcessDecision(allow=judgement.passing, reason=judgement.reason)
+        raw = result.message.content or ""
+        action = self._extract_action(raw)
+        judgement = parse_judgement(raw)
+        return ProcessDecision(action=action, reason=judgement.reason)
+
+    @staticmethod
+    def _extract_action(raw: str) -> Action:
+        """Extract the three-valued action from a raw judge response."""
+        match = _PASSING_RE.search(raw)
+        if match:
+            value = match.group(1).strip().lower()
+            if value == "ask":
+                return "ask"
+            if value in ("true", "yes", "1", "pass"):
+                return "allow"
+        return "deny"
 
     def _build_messages(
         self,
@@ -297,4 +321,4 @@ class ProcessJudge:
         )
 
 
-__all__ = ["ProcessDecision", "ProcessJudge"]
+__all__ = ["Action", "ProcessDecision", "ProcessJudge"]

@@ -7,15 +7,15 @@ use crate::node::{
 
 fn get_argument_value(argument: &Argument) -> String {
     match argument {
-        Argument::Bracket(arg) => arg.flatten(),
-        Argument::Complex { arguments } => {
+        Argument::Bracket(arg) => arg.whole.to_string(),
+        Argument::Complex { arguments, .. } => {
             format!(
                 "({})",
                 arguments.iter().map(get_atom_value).collect::<String>()
             )
         }
         Argument::Quoted { value, .. } => format!("\"{value}\""),
-        Argument::Unquoted { value, .. } | Argument::InlineHint { value, .. } => value.clone(),
+        Argument::Unquoted { value, .. } | Argument::InlineHint { value, .. } => value.to_string(),
     }
 }
 
@@ -23,17 +23,16 @@ fn get_atom_value(atom: &ArgumentsAtom) -> String {
     match atom {
         ArgumentsAtom::CommentedArgument { argument, comment } => {
             let comment_value = match comment {
-                CommentedArgumentComment::BracketComment(BracketComment { value })
-                | CommentedArgumentComment::LineComment {
-                    comment: LineComment { value },
-                    ..
-                } => value,
+                CommentedArgumentComment::BracketComment(BracketComment { value }) => {
+                    value.to_string()
+                }
+                CommentedArgumentComment::LineComment(LineComment { value }) => value.to_string(),
             };
             format!("{}{}", get_argument_value(argument), comment_value)
         }
         ArgumentsAtom::Argument(argument) => get_argument_value(argument),
         ArgumentsAtom::BracketComment(BracketComment { value })
-        | ArgumentsAtom::LineComment(LineComment { value }) => value.clone(),
+        | ArgumentsAtom::LineComment(LineComment { value }) => value.to_string(),
     }
 }
 
@@ -99,7 +98,7 @@ fn get_node_value(atom: &RefinedArgumentsAtom) -> String {
     result
 }
 
-type Bucket = Vec<RefinedArgumentsAtom>;
+type Bucket<'a> = Vec<RefinedArgumentsAtom<'a>>;
 
 fn get_node_value_impl(atom: &RefinedArgumentsAtom, case_insensitive: bool) -> String {
     let value = get_node_value(atom);

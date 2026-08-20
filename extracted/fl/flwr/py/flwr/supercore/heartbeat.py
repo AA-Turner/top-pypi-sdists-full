@@ -21,6 +21,7 @@ import threading
 from collections.abc import Callable
 
 import grpc
+import httpx
 
 from flwr.common.constant import (
     HEARTBEAT_BASE_MULTIPLIER,
@@ -30,10 +31,10 @@ from flwr.common.constant import (
 )
 
 # pylint: disable=E0611
-from flwr.proto.appio_pb2 import SendTaskHeartbeatRequest
-from flwr.proto.clientappio_pb2_grpc import ClientAppIoStub
-from flwr.proto.serverappio_pb2_grpc import ServerAppIoStub
+from flwr.proto.runtime_pb2 import SendTaskHeartbeatRequest
+from flwr.proto.runtime_pb2_grpc import RuntimeStub
 from flwr.supercore.retry import RetryInvoker, exponential
+from flwr.supercore.runtime import RuntimeHttpStub
 
 # pylint: enable=E0611
 
@@ -119,13 +120,13 @@ class HeartbeatSender:
 
 
 def make_task_heartbeat_fn_grpc(
-    stub: ServerAppIoStub | ClientAppIoStub,
+    stub: RuntimeStub,
 ) -> Callable[[], bool]:
     """Get the function to send a heartbeat to gRPC endpoint from a task executor.
 
     Parameters
     ----------
-    stub : ServerAppIoStub | ClientAppIoStub
+    stub : RuntimeStub
         gRPC stub to send the heartbeat.
 
     Returns
@@ -137,7 +138,7 @@ def make_task_heartbeat_fn_grpc(
     req = SendTaskHeartbeatRequest()
 
     def fn() -> bool:
-        # Call ServerAppIo API
+        # Call Runtime API
         try:
             res = stub.SendTaskHeartbeat(req)
         except grpc.RpcError as e:
@@ -151,6 +152,32 @@ def make_task_heartbeat_fn_grpc(
         # Raise SIGINT to trigger graceful shutdown if heartbeat failed
         if not res.success:
             # Never reach here due to token authentication unless race conditions occur
+            signal.raise_signal(signal.SIGINT)
+        return True
+
+    return fn
+
+
+def make_task_heartbeat_fn_http(
+    client: RuntimeHttpStub,
+) -> Callable[[], bool]:
+    """Get the function to send a heartbeat to an HTTP Runtime endpoint."""
+    req = SendTaskHeartbeatRequest()
+
+    def fn() -> bool:
+        try:
+            res = client.SendTaskHeartbeat(req)
+        except httpx.TransportError:
+            return False
+        except httpx.HTTPStatusError as err:
+            if err.response.status_code in (
+                httpx.codes.SERVICE_UNAVAILABLE,  # 503
+                httpx.codes.GATEWAY_TIMEOUT,  # 504
+            ):
+                return False
+            raise
+
+        if not res.success:
             signal.raise_signal(signal.SIGINT)
         return True
 

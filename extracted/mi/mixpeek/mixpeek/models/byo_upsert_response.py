@@ -31,8 +31,9 @@ class BYOUpsertResponse(BaseModel):
     inserted: StrictInt = Field(description="Number of documents upserted.")
     document_ids: List[StrictStr] = Field(description="IDs of all upserted documents.")
     write_token: Optional[StrictStr] = Field(default=None, description="Opaque token for read-your-writes consistency (only when requested).")
+    dropped_payload_fields: Optional[Dict[str, List[StrictStr]]] = Field(default=None, description="document_id -> payload field names that were REMOVED before storage because they collide with reserved internal field names. Their values are not stored anywhere and are not readable back. Rename the field (e.g. 'source_type' -> 'my_source_type') or nest it under 'metadata' to keep the value. Empty when nothing was dropped.")
     consistency: Optional[WriteConsistency] = Field(default=None, description="How and when this write becomes visible to retriever reads.")
-    __properties: ClassVar[List[str]] = ["inserted", "document_ids", "write_token", "consistency"]
+    __properties: ClassVar[List[str]] = ["inserted", "document_ids", "write_token", "dropped_payload_fields", "consistency"]
 
     model_config = ConfigDict(
         populate_by_name=True,
@@ -91,6 +92,7 @@ class BYOUpsertResponse(BaseModel):
             "inserted": obj.get("inserted"),
             "document_ids": obj.get("document_ids"),
             "write_token": obj.get("write_token"),
+            "dropped_payload_fields": obj.get("dropped_payload_fields"),
             "consistency": WriteConsistency.from_dict(obj["consistency"]) if obj.get("consistency") is not None else None
         })
         return _obj

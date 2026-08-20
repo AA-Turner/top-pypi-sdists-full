@@ -700,8 +700,7 @@ def _get_entries(bucket: str, result: Mapping[str, Any]) -> Iterator[DirEntry]:
 
 
 def entry_from_dirpath(path: str) -> DirEntry:
-    if path.endswith("/"):
-        path = path[:-1]
+    path = path.removesuffix("/")
     _, obj = split_path(path)
     name = obj.split("/")[-1]
     return DirEntry(name=name, path=path, is_dir=True, is_file=False, stat=None)
@@ -782,8 +781,7 @@ def join_paths(conf: Config, a: str, b: str) -> str:
 
     bucket, obj = split_path(a)
     obj = path_join(obj, b)
-    if obj.startswith("/"):
-        obj = obj[1:]
+    obj = obj.removeprefix("/")
     return combine_path(bucket, obj)
 
 

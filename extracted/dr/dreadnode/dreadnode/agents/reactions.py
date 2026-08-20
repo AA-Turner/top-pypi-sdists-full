@@ -36,6 +36,8 @@ class Retry(Reaction):
 @dataclass
 class RetryWithFeedback(Reaction):
     feedback: str
+    tool_call_id: str | None = None
+    metadata: dict[str, object] = Field(default_factory=dict)
 
 
 @dataclass(config=ConfigDict(arbitrary_types_allowed=True))

@@ -28,7 +28,7 @@ class DeltaCommit(BaseModel):
     """ # noqa: E501
     version: StrictInt = Field(description="Commit version")
     timestamp: StrictInt = Field(description="In-commit timestamp, in epoch milliseconds")
-    file_name: StrictStr = Field(description="UUID-based commit file name", alias="file-name")
+    file_name: StrictStr = Field(description="UUID-based name of the staged commit file under _delta_log/_staged_commits/. Written by the committing client and returned verbatim to readers, which read the file at that path; when the same version is also published as _delta_log/<v>.json, this catalog-named file is the authoritative copy. ", alias="file-name")
     file_size: StrictInt = Field(description="Commit file size in bytes", alias="file-size")
     file_modification_timestamp: StrictInt = Field(description="File modification timestamp, in epoch milliseconds", alias="file-modification-timestamp")
     __properties: ClassVar[List[str]] = ["version", "timestamp", "file-name", "file-size", "file-modification-timestamp"]

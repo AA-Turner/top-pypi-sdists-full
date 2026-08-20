@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: earthkit-data
-Version: 1.1.1
+Version: 1.2.0
 Summary: A format-agnostic Python interface for geospatial data
 Author-email: "European Centre for Medium-Range Weather Forecasts (ECMWF)" <software.support@ecmwf.int>
 License-Expression: Apache-2.0
@@ -98,6 +98,7 @@ Provides-Extra: s3
 Requires-Dist: aws-requests-auth; extra == "s3"
 Requires-Dist: botocore; extra == "s3"
 Provides-Extra: test
+Requires-Dist: astropy; extra == "test"
 Requires-Dist: earthkit-data-demo-source; extra == "test"
 Requires-Dist: nbconvert; extra == "test"
 Requires-Dist: nbformat; extra == "test"

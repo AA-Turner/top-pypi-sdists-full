@@ -1,9 +1,18 @@
+import re
 import shlex
 import typing as t
 from contextlib import redirect_stderr, redirect_stdout
 from io import StringIO
 
 from dreadnode.agents.tools import tool
+
+_ANSI_ESCAPES = re.compile(r"\x1b\[[0-9;]*[A-Za-z]")
+
+
+def _plain(text: str) -> str:
+    # Newer typer/rich render help with ANSI styling even when stdout is not
+    # a terminal; this tool returns text for agents, so keep it plain.
+    return _ANSI_ESCAPES.sub("", text)
 
 
 def _normalize_tokens(command: str | None) -> list[str]:
@@ -44,16 +53,18 @@ def dreadnode_cli(
             cli(tokens)
         except SystemExit as exc:
             if exc.code not in (0, None):
-                error_output = stderr.getvalue().strip() or stdout.getvalue().strip()
+                error_output = (
+                    _plain(stderr.getvalue()).strip() or _plain(stdout.getvalue()).strip()
+                )
                 if error_output:
                     raise RuntimeError(error_output) from exc
                 raise RuntimeError(f"dreadnode CLI help failed with exit code {exc.code}") from exc
 
-    output = stdout.getvalue().strip()
+    output = _plain(stdout.getvalue()).strip()
     if output:
         return output
 
-    error_output = stderr.getvalue().strip()
+    error_output = _plain(stderr.getvalue()).strip()
     if error_output:
         return error_output
 

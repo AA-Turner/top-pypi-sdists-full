@@ -41,8 +41,7 @@ from eventsourcing.utils import Environment, get_topic
 
 if TYPE_CHECKING:
     from collections.abc import Iterator, Sequence
-
-    from typing_extensions import Never
+    from typing import Never
 
 
 class RecorderTestCase(TestCase, ABC):
@@ -50,6 +49,21 @@ class RecorderTestCase(TestCase, ABC):
 
     def new_originator_id(self) -> UUID | str:
         return uuid4()
+
+    def assert_events_eq(
+        self,
+        events1: Sequence[StoredEvent],
+        events2: Sequence[StoredEvent],
+    ) -> None:
+        self.assertEqual(len(events1), len(events2))
+        for i in range(len(events1)):
+            self.assert_event_eq(events1[i], events2[i])
+
+    def assert_event_eq(self, event1: StoredEvent, event2: StoredEvent) -> None:
+        self.assertEqual(event1.originator_id, event2.originator_id)
+        self.assertEqual(event1.originator_version, event2.originator_version)
+        self.assertEqual(event1.topic, event2.topic)
+        self.assertEqual(event1.state, event2.state)
 
 
 class AggregateRecorderTestCase(RecorderTestCase, ABC):

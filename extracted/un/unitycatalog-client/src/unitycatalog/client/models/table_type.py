@@ -31,6 +31,7 @@ class TableType(str, Enum):
     STREAMING_TABLE = 'STREAMING_TABLE'
     MATERIALIZED_VIEW = 'MATERIALIZED_VIEW'
     METRIC_VIEW = 'METRIC_VIEW'
+    VIEW = 'VIEW'
 
     @classmethod
     def from_json(cls, json_str: str) -> Self:

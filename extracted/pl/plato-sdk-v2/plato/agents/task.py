@@ -37,7 +37,7 @@ from plato.utils.subprocess import run_ssh
 
 if TYPE_CHECKING:
     from plato.agents.execution import AgentExecutionManager
-    from plato.agents.warmpool import WarmPool
+    from plato.agents.warmpool import RuntimeLease, WarmPool
     from plato.v2.async_.session import Session
     from plato.worlds.config import AgentConfig
 
@@ -98,6 +98,10 @@ class AgentTask:
         self._agent_containers = agent_containers
         self._agent_code_path = agent_code_path
         self._warm_pool = warm_pool
+        # Direct-pool runtime lease (runtime_idle_release_seconds); created
+        # lazily on the first leased run. The manager path keeps its own
+        # per-task leases — this one is only for tasks given a pool directly.
+        self._runtime_lease: RuntimeLease | None = None
         self._world_runtime_info = world_runtime_info
         # Set during _run_on_runtime so exit conditions / hooks can access the agent VM
         self.runtime_info: RuntimeInfo | None = None
@@ -455,15 +459,55 @@ class AgentTask:
         return await self._run_impl(instruction, display_name)
 
     async def _run_with_warm_pool(self, instruction: str, display_name: str | None = None) -> str:
+        from plato.agents.warmpool import RuntimeLease
+
         assert self._warm_pool is not None
         mounts = [mount.clone_for_run() for mount in self._all_mounts()]
-        pooled_runtime = await self._warm_pool.acquire()
+
+        idle_seconds = self._agent.runtime_idle_release_seconds
+        lease: RuntimeLease | None = None
+        pooled_runtime = None
+        if idle_seconds is not None:
+            if self._runtime_lease is None:
+                self._runtime_lease = RuntimeLease(self._warm_pool, idle_seconds)
+            lease = self._runtime_lease
+            pooled_runtime = await lease.checkout()
+            if pooled_runtime is not None:
+                # A cancellation between checkout and the run's own handlers
+                # would orphan the VM — destroy it on the way out.
+                try:
+                    leased_healthy = await self._warm_pool.health_check(pooled_runtime)
+                except BaseException:
+                    with contextlib.suppress(Exception):
+                        await asyncio.shield(
+                            self._warm_pool.release(
+                                pooled_runtime,
+                                workspace_paths=[mount.agent_path for mount in mounts],
+                                destroy=True,
+                            )
+                        )
+                    raise
+                if not leased_healthy:
+                    await asyncio.shield(
+                        self._warm_pool.release(
+                            pooled_runtime,
+                            workspace_paths=[mount.agent_path for mount in mounts],
+                            destroy=True,
+                        )
+                    )
+                    pooled_runtime = None
+        skip_vm_setup = (
+            pooled_runtime is not None and lease is not None and lease.last_fingerprint == self._setup_fingerprint()
+        )
+        if pooled_runtime is None:
+            pooled_runtime = await self._warm_pool.acquire()
         try:
             agent_id = await self._run_on_runtime(
                 pooled_runtime.runtime_info,
                 instruction,
                 display_name=display_name,
                 mounts=mounts,
+                skip_vm_setup=skip_vm_setup,
             )
         except Exception:
             await asyncio.shield(
@@ -488,6 +532,17 @@ class AgentTask:
                 )
             raise
 
+        if lease is not None:
+            # Shielded: a cancellation mid-bind must not leave the VM neither
+            # bound nor released.
+            await asyncio.shield(
+                lease.bind(
+                    pooled_runtime,
+                    [mount.agent_path for mount in mounts],
+                    fingerprint=self._setup_fingerprint(),
+                )
+            )
+            return agent_id
         # Shielded so a cancellation mid-release cannot leave the VM
         # half-returned (neither idle nor destroyed).
         await asyncio.shield(
@@ -531,6 +586,40 @@ class AgentTask:
                     logger.warning("Failed to clean up agent VM %s", info.runtime_id, exc_info=True)
         raise last_error  # type: ignore[misc]
 
+    async def _install_and_configure(
+        self,
+        info: RuntimeInfo,
+        agent_ctx: AgentContext,
+        *,
+        skip_vm_setup: bool,
+    ) -> None:
+        """Install agent code + write env on the VM, unless a leased reuse of
+        an already-prepared runtime makes both redundant (install re-runs with
+        --force-reinstall and dominated leased-turn latency: ~5-10s of a ~10s
+        follow-up). Skipped ONLY when the caller verified the runtime came
+        from an active lease binding with a matching setup fingerprint."""
+
+        if skip_vm_setup:
+            logger.info("Reusing leased runtime %s: skipping agent install/env setup", info.runtime_id)
+            return
+        # Code sync + env setup are independent SSH operations — run concurrently.
+        await asyncio.gather(
+            vm_setup.install_agent_code(info, agent_ctx),
+            vm_setup.setup_agent_env(info, self._session, self._world_runtime_info),
+        )
+
+    def _setup_fingerprint(self) -> str:
+        """Identity of the per-VM setup steps a leased reuse may skip.
+
+        Covers the inputs of ``install_agent_code`` (package/version, image,
+        dev code path) — NOT the per-run agent ``config`` dict, which is
+        consumed at execute time by the runner on the VM (and mutates every
+        turn, e.g. ``continue_session``), so it never affects what setup
+        installed.
+        """
+
+        return f"{self._agent.package}|{self._agent.image}|{self._agent_code_path}"
+
     async def _run_on_runtime(
         self,
         info: RuntimeInfo,
@@ -538,6 +627,7 @@ class AgentTask:
         *,
         display_name: str | None,
         mounts: list[AgentWorkspaceMount],
+        skip_vm_setup: bool = False,
     ) -> str:
         self.runtime_info = info
         self._current_runtime_info = info
@@ -549,7 +639,6 @@ class AgentTask:
         final_error: Exception | None = None
 
         try:
-            # Code sync + env setup are independent SSH operations — run concurrently.
             agent_ctx = AgentContext(
                 image=self._agent.image,
                 package=self._agent.package,
@@ -561,10 +650,7 @@ class AgentTask:
                 runtime=runtime_dict,
                 agent_code_path=self._agent_code_path,
             )
-            await asyncio.gather(
-                vm_setup.install_agent_code(info, agent_ctx),
-                vm_setup.setup_agent_env(info, self._session, self._world_runtime_info),
-            )
+            await self._install_and_configure(info, agent_ctx, skip_vm_setup=skip_vm_setup)
 
             # Resolve runner path (needs agent code installed)
             runner_path = await vm_setup.resolve_runner_path(info)

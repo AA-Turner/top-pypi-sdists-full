@@ -137,7 +137,8 @@ def parse_pos_oneline(pos_line):
 
     Parameters
     ----------
-    pos_line : A line from the atom position block.
+    pos_line : str
+        A line from the atom position block.
 
     Returns
     -------
@@ -571,6 +572,11 @@ def make_unlabeled_stru(
         If True, then only filename will be written in the STRU file, and make a soft link to the real file.
     dest_dir : str, optional
         The destination directory to make the soft link of the pseudo potential files and orbital files.
+    **kwargs : dict
+        Additional arguments accepted for format API compatibility.
+
+    Notes
+    -----
     For velocity, mag, angle1, angle2, sc, and lambda_, if the value is None, then the corresponding information will not be written.
     ABACUS support defining "mag" and "angle1"/"angle2" at the same time, and in this case, the "mag" only define the norm of the magnetic moment, and "angle1" and "angle2" define the direction of the magnetic moment.
     If data has spins, then it will be written as mag to STRU file; while if mag is passed at the same time, then mag will be used.
@@ -802,7 +808,9 @@ def make_unlabeled_stru(
                         ["1" if ii else "0" for ii in sc[iatomtype]]
                     )
                 elif isinstance(ndarray2list(sc[iatomtype]), (int, float, bool)):
-                    iout += " sc " + "1" if sc[iatomtype] else "0"
+                    # Parenthesize the conditional expression so both True
+                    # and False values retain the ``sc`` field separator.
+                    iout += " sc " + ("1" if sc[iatomtype] else "0")
 
             if lambda_ is not None:
                 if isinstance(ndarray2list(lambda_[iatomtype]), (list, tuple)) and len(

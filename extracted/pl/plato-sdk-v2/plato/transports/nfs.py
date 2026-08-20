@@ -53,6 +53,7 @@ class NFSTransport(Transport):
         ssh_key_path: Path,
         mount_path: str | None = None,
         readonly: bool = False,
+        mount_options: str = "",
     ) -> None:
         self.path = path
         self.world_vm_ip = world_vm_ip
@@ -62,6 +63,9 @@ class NFSTransport(Transport):
         # line uses `ro` and the agent-side mount adds `-o ro`, so a
         # misconfigured client cannot write even if it drops the mount flag.
         self.readonly = readonly
+        # Extra client-side mount options appended to the default -o string,
+        # e.g. "sync" for write-through workspaces that another VM tails live.
+        self.mount_options = mount_options
 
     async def initialize(self) -> None:
         """Install kernel NFS server, write exports, and start the service."""
@@ -224,9 +228,15 @@ class NFSTransport(Transport):
 
         # Step 2: mount with bounded per-attempt timeout and retries.
         ro_opt = ",ro" if self.readonly else ""
+        extra_opt = f",{self.mount_options}" if self.mount_options else ""
+        # Idempotent for reused VMs (runtime leases skip the pool reset that
+        # used to unmount workspaces): an already-mounted path is success, not
+        # a second stacked mount. A genuine mount failure still exits non-zero
+        # so the retry loop below is unaffected.
         mount_cmd = (
+            f"mountpoint -q {remote} || "
             f"timeout 30 mount -t nfs -o vers=3,hard,timeo=300,retrans=5,nolock,"
-            f"rsize=32768,wsize=32768{ro_opt} {nfs_src} {remote}"
+            f"rsize=32768,wsize=32768{ro_opt}{extra_opt} {nfs_src} {remote}"
         )
         t0 = _time.monotonic()
         last_err = ""
@@ -339,13 +349,27 @@ class NFSTransport(Transport):
     async def prepare(self) -> None:
         await self._setup_workspace_path(self.path)
 
-    def with_path(self, path: str, readonly: bool | None = None) -> NFSTransport:
-        """Clone for a sub-path. ``readonly`` INHERITS from this transport unless
-        explicitly overridden — per-agent mount clones (mounts.py, base.py) call
-        this without the flag, and dropping it would strip ``-o ro`` from the
-        client mount, silently degrading dual-end enforcement to export-only."""
+    def with_path(
+        self,
+        path: str,
+        readonly: bool | None = None,
+        mount_options: str | None = None,
+    ) -> NFSTransport:
+        """Clone for a sub-path. ``readonly`` and ``mount_options`` INHERIT from
+        this transport unless explicitly overridden — per-agent mount clones
+        (mounts.py, base.py) call this without the flags, and dropping them
+        would strip ``-o ro`` (or a workspace's write-through options) from the
+        client mount, silently degrading enforcement to export-only."""
         sub_mount = None
         if self.mount_path and path.startswith(self.path + "/"):
             sub_mount = self.mount_path + path[len(self.path) :]
         effective_readonly = self.readonly if readonly is None else readonly
-        return NFSTransport(path, self.world_vm_ip, self.ssh_key_path, sub_mount, readonly=effective_readonly)
+        effective_options = self.mount_options if mount_options is None else mount_options
+        return NFSTransport(
+            path,
+            self.world_vm_ip,
+            self.ssh_key_path,
+            sub_mount,
+            readonly=effective_readonly,
+            mount_options=effective_options,
+        )

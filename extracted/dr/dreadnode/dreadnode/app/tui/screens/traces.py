@@ -410,8 +410,15 @@ class TracesScreen(DreadnodeScreen):
             rows = result.get("data", [])
             meta = result.get("meta", [])
         except Exception as exc:
+            if not self.is_mounted:
+                return
             title = self.query_one("#traces-title", Static)
             title.update(f"[bold {FG}] Waterfall[/]  [{ERROR}]{exc}[/]{self._SUBTITLE}")
+            return
+
+        # The screen may have been popped while the fetch was in flight —
+        # rendering would query_one against a dead widget tree (NoMatches).
+        if not self.is_mounted:
             return
 
         # Parse span data from ClickHouse columnar response

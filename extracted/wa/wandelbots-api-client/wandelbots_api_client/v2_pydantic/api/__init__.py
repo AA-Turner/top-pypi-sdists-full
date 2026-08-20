@@ -1,6 +1,7 @@
 # flake8: noqa
 
 # import apis into api package
+from .action_chunk_streaming_api import ActionChunkStreamingApi
 from .application_api import ApplicationApi
 from .bus_inputs_outputs_api import BUSInputsOutputsApi
 from .cell_api import CellApi
@@ -29,6 +30,7 @@ from .virtual_controller_inputs_outputs_api import VirtualControllerInputsOutput
 
 
 __all__ = [
+    "ActionChunkStreamingApi",
     "ApplicationApi",
     "BUSInputsOutputsApi",
     "CellApi",

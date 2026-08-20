@@ -8,7 +8,7 @@ from typing import Any
 
 from pyspark.errors.exceptions.base import IllegalArgumentException
 
-from snowflake.snowpark_connect.config import global_config, str_to_bool
+from snowflake.snowpark_connect.config import global_config, is_nss_enabled, str_to_bool
 from snowflake.snowpark_connect.date_time_format_mapping import (
     convert_java_datetime_format_for_fileformat,
 )
@@ -810,20 +810,57 @@ class JsonReaderConfig(ReaderWriterConfig):
             options,
         )
         self._validate_encoding()
+        self._validate_sampling_ratio()
+        self._validate_rows_to_infer_schema_under_nss()
+
+    def _validate_sampling_ratio(self) -> None:
+        """Reject non-positive samplingRatio (Spark JsonUtils.sample / SPARK-32621)."""
+        if "samplingratio" not in self.user_option_keys:
+            return
+        ratio = self._get_config_setting("samplingratio")
+        if ratio <= 0:
+            exception = IllegalArgumentException(
+                f"samplingRatio ({ratio}) should be greater than 0"
+            )
+            attach_custom_error_code(exception, ErrorCodes.INVALID_FUNCTION_ARGUMENT)
+            raise exception
+
+    def _validate_rows_to_infer_schema_under_nss(self) -> None:
+        """Reject rowsToInferSchema under NSS; nudge users to samplingRatio.
+
+        ``rowsToInferSchema`` only affects the COPY / INFER_SCHEMA path. Under
+        NSS, schema inference uses Spark's samplingRatio, so an explicit
+        rowsToInferSchema would otherwise be silently ignored.
+        """
+        if "rowstoinferschema" not in self.user_option_keys:
+            return
+        if not is_nss_enabled():
+            return
+        exception = IllegalArgumentException(
+            "The rowsToInferSchema option is not allowed when Native Spark "
+            "Sandbox (NSS) is enabled; use samplingRatio instead to control "
+            "schema inference sampling."
+        )
+        attach_custom_error_code(exception, ErrorCodes.INVALID_FUNCTION_ARGUMENT)
+        raise exception
 
     def _validate_encoding(self) -> None:
         """
         Validate the encoding option for JSON reading.
 
-        This implements two validations from Spark:
+        This implements three validations from Spark:
         1. SPARK-23723: Throw UnsupportedCharsetException for invalid charset names
         2. SPARK-24190: Throw IllegalArgumentException when UTF-16/32 is used with
            multiLine=false (these encodings use multi-byte line separators)
+        3. JSONOptionsInRead.checkedEncoding: non-UTF-8 encodings require an
+           explicit lineSep when multiLine is false (SNOW-3390108)
 
         Additionally canonicalizes the encoding name to the uppercase form Snowflake
         expects (e.g. "UTF8", "utf-8", "Utf-8" all become "UTF-8") using
         codecs.lookup().name and stores it back in self.config["encoding"].
         """
+        # Preserve the user-supplied spelling for error messages (Spark uses ``enc``
+        # as provided, e.g. ``UTF-16LE``, not the codecs canonical ``UTF-16-LE``).
         encoding = self.config.get("encoding", "utf-8")
 
         # SPARK-23723: Validate the charset name and canonicalize it to the
@@ -839,6 +876,18 @@ class JsonReaderConfig(ReaderWriterConfig):
         if not is_multiline and canonical.lower() in self._ENCODING_DENYLIST:
             exception = IllegalArgumentException(
                 f"encoding must not be included in the denyList when multiLine is disabled: {canonical}"
+            )
+            attach_custom_error_code(exception, ErrorCodes.INVALID_FUNCTION_ARGUMENT)
+            raise exception
+
+        # Spark JSONOptionsInRead.checkedEncoding: lineSep is required unless
+        # multiLine is on or the charset is UTF-8.
+        line_sep = self.config.get("linesep")
+        has_line_sep = line_sep is not None and line_sep != ""
+        is_utf8 = canonical.upper() == "UTF-8"
+        if not is_multiline and not is_utf8 and not has_line_sep:
+            exception = IllegalArgumentException(
+                f"The lineSep option must be specified for the {encoding} encoding"
             )
             attach_custom_error_code(exception, ErrorCodes.INVALID_FUNCTION_ARGUMENT)
             raise exception

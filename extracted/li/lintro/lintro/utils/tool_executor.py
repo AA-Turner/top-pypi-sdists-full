@@ -94,6 +94,7 @@ def build_run_context(
     debug: bool = False,
     no_art: bool = False,
     dry_run: bool = False,
+    group_by: str = "auto",
 ) -> RunContext:
     """Create the run-scoped state shared by the execute and render phases.
 
@@ -108,6 +109,7 @@ def build_run_context(
         debug: Whether to show DEBUG messages on the console.
         no_art: Whether to suppress the decorative ASCII art.
         dry_run: Whether this is a ``fmt --dry-run`` preview.
+        group_by: How to group issues in formatted and JSON output.
 
     Returns:
         RunContext: The shared context for this run.
@@ -165,6 +167,7 @@ def build_run_context(
         lintro_config=lintro_config,
         clean_stdout_output=clean_stdout_output,
         score_only=score_only,
+        group_by=group_by,
     )
 
 
@@ -446,6 +449,7 @@ def execute_run(
             tools,
             ctx.selection_action,
             ignore_conflicts=ignore_conflicts,
+            scan_roots=list(paths),
         )
     except ValueError as e:
         logger.console_output(f"Error: {e}")
@@ -457,6 +461,24 @@ def execute_run(
 
     tools_to_run = tools_result.to_run
     skipped_tools = tools_result.skipped
+
+    # On a no-config first run the toolset is scoped to detected languages;
+    # tell the user what was selected and how to customize. Suppressed for
+    # machine-readable stdout and score-only mode.
+    if (
+        tools_result.scoped_by_detection
+        and not ctx.clean_stdout_output
+        and not ctx.score_only
+    ):
+        from lintro.utils.execution.tool_configuration import format_detection_notice
+
+        logger.console_output(
+            text=format_detection_notice(
+                detected_languages=tools_result.detected_languages,
+                to_run=tools_to_run,
+            ),
+            color="cyan",
+        )
 
     if not tools_to_run and not skipped_tools:
         logger.console_output("No tools to run.")
@@ -746,6 +768,7 @@ def run_lint_tools_simple(
         debug=debug,
         no_art=no_art,
         dry_run=dry_run,
+        group_by=group_by,
     )
     from lintro.utils.execution.run_renderer import make_result_display
 
@@ -771,6 +794,7 @@ def run_lint_tools_simple(
             output_format=output_format,
             raw_output=raw_output,
             action=ctx.action,
+            group_by=group_by,
         ),
     )
     render_run(

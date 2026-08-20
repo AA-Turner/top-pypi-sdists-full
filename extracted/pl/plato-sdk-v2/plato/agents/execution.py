@@ -5,13 +5,14 @@ from __future__ import annotations
 import asyncio
 import logging
 import uuid
+import weakref
 from collections.abc import Awaitable, Callable
 from contextlib import asynccontextmanager, suppress
 from typing import TYPE_CHECKING
 
 from plato.agents.mounts import AgentWorkspaceMount, GitCheckoutPolicy, GitSyncPolicy
 from plato.agents.vm_setup import make_agent_pool_prefix
-from plato.agents.warmpool import AgentVMBudget, WarmPool
+from plato.agents.warmpool import AgentVMBudget, RuntimeLease, WarmPool
 from plato.git_ops.merge import delete_remote_ref, merge_ref_to_main
 from plato.git_ops.repo import trust_git_directory
 from plato.rpc.errors import RetryableInfraError
@@ -95,6 +96,11 @@ class AgentExecutionManager:
             alias_prefix=make_agent_pool_prefix(agent_config.package, agent_config.image, agent_config.config),
         )
         self._integration_lock = asyncio.Lock()
+        # Per-task runtime leases (runtime_idle_release_seconds): the manager
+        # is shared by every lane with this config, so bindings are keyed by
+        # the AgentTask itself. Weak keys: a dropped task cannot alias a new
+        # one, and its lease timer still fires to return the VM.
+        self._leases: weakref.WeakKeyDictionary[AgentTask, RuntimeLease] = weakref.WeakKeyDictionary()
 
     def update_vm_timeout(self, total_agents: int) -> None:
         """Recompute the pool's VM sandbox timeout for a (possibly larger) agent count."""
@@ -108,6 +114,11 @@ class AgentExecutionManager:
             self._warm_pool._vm_timeout = new_timeout
 
     async def shutdown(self) -> None:
+        leases = list(self._leases.values())
+        self._leases.clear()
+        for lease in leases:
+            with suppress(Exception):
+                await lease.release()
         await self._warm_pool.shutdown()
 
     async def run(
@@ -132,8 +143,58 @@ class AgentExecutionManager:
         agent_id: str | None = None
         successful_runtime = None
         last_error: Exception | None = None
+
+        # Runtime lease: reuse the task's bound VM from the previous run when
+        # configured. A stale/unhealthy binding is destroyed and the run falls
+        # through to a fresh acquire; retry attempts always acquire fresh.
+        idle_seconds = self._agent_config.runtime_idle_release_seconds
+        lease: RuntimeLease | None = None
+        leased_runtime = None
+        if idle_seconds is not None:
+            lease = self._leases.get(task)
+            if lease is None:
+                lease = RuntimeLease(self._warm_pool, idle_seconds)
+                self._leases[task] = lease
+            leased_runtime = await lease.checkout()
+            if leased_runtime is not None:
+                # From checkout until the attempt loop's own handlers own the
+                # VM, a cancellation here would orphan it — checked out of the
+                # lease AND never released, pinning a pool slot forever.
+                try:
+                    leased_healthy = await self._warm_pool.health_check(leased_runtime)
+                except BaseException:
+                    with suppress(Exception):
+                        await asyncio.shield(
+                            self._warm_pool.release(
+                                leased_runtime,
+                                workspace_paths=[mount.agent_path for mount in run_mounts],
+                                destroy=True,
+                            )
+                        )
+                    raise
+                if not leased_healthy:
+                    logger.warning(
+                        "Leased runtime %s failed its health check; acquiring a fresh VM",
+                        leased_runtime.runtime_info.runtime_id,
+                    )
+                    await asyncio.shield(
+                        self._warm_pool.release(
+                            leased_runtime,
+                            workspace_paths=[mount.agent_path for mount in run_mounts],
+                            destroy=True,
+                        )
+                    )
+                    leased_runtime = None
+
         for attempt in range(1, _WARM_POOL_RUN_ATTEMPTS + 1):
-            pooled_runtime = await self._warm_pool.acquire()
+            if leased_runtime is not None:
+                pooled_runtime, leased_runtime = leased_runtime, None
+                # Reuse of an already-prepared VM: skip agent install/env setup
+                # when the lease's recorded setup identity still matches.
+                skip_vm_setup = lease is not None and lease.last_fingerprint == task._setup_fingerprint()
+            else:
+                pooled_runtime = await self._warm_pool.acquire()
+                skip_vm_setup = False
             published_transport: GitTransport | None = None
             try:
                 published_transport = await self._prepare_git_mount(run_mounts, task_name)
@@ -144,6 +205,7 @@ class AgentExecutionManager:
                     instruction,
                     display_name=display_name,
                     mounts=run_mounts,
+                    skip_vm_setup=skip_vm_setup,
                 )
                 successful_runtime = pooled_runtime
                 break
@@ -224,15 +286,27 @@ class AgentExecutionManager:
         if agent_id is None or successful_runtime is None:
             raise RuntimeError(f"Agent task {task_name} did not produce a result")
 
-        # Shielded: a cancellation landing exactly during the success-path
-        # release must not abandon the VM half-returned (neither idle nor
-        # destroyed).
-        await asyncio.shield(
-            self._warm_pool.release(
-                successful_runtime,
-                workspace_paths=[mount.agent_path for mount in run_mounts],
+        if lease is not None:
+            # Keep the VM bound to this task; the lease's idle timer destroys
+            # it if no follow-up run arrives in time. Shielded: a cancellation
+            # mid-bind must not leave the VM neither bound nor released.
+            await asyncio.shield(
+                lease.bind(
+                    successful_runtime,
+                    [mount.agent_path for mount in run_mounts],
+                    fingerprint=task._setup_fingerprint(),
+                )
             )
-        )
+        else:
+            # Shielded: a cancellation landing exactly during the success-path
+            # release must not abandon the VM half-returned (neither idle nor
+            # destroyed).
+            await asyncio.shield(
+                self._warm_pool.release(
+                    successful_runtime,
+                    workspace_paths=[mount.agent_path for mount in run_mounts],
+                )
+            )
 
         # Only auto-merge if no review gate handled it AND the mount opts in.
         # A task that publishes a route/feature branch purely to produce side

@@ -781,6 +781,12 @@ __all__ = (
     "ModifyReflectionConfigurationTypeDef",
     "ModifySelfManagedConfigurationTypeDef",
     "ModifyStrategyConfigurationTypeDef",
+    "NamespaceKeyEntryOutputTypeDef",
+    "NamespaceKeyEntryTypeDef",
+    "NamespaceKeyEntryUnionTypeDef",
+    "NamespaceKeyValidationOutputTypeDef",
+    "NamespaceKeyValidationTypeDef",
+    "NamespaceKeyValidationUnionTypeDef",
     "NetworkConfigurationOutputTypeDef",
     "NetworkConfigurationTypeDef",
     "NetworkConfigurationUnionTypeDef",
@@ -2707,6 +2713,16 @@ class ProviderPrefixTypeDef(TypedDict):
 class ModifyInvocationConfigurationInputTypeDef(TypedDict):
     topicArn: NotRequired[str]
     payloadDeliveryBucketName: NotRequired[str]
+
+
+class NamespaceKeyValidationOutputTypeDef(TypedDict):
+    allowedValues: NotRequired[list[str]]
+    regexPattern: NotRequired[str]
+
+
+class NamespaceKeyValidationTypeDef(TypedDict):
+    allowedValues: NotRequired[Sequence[str]]
+    regexPattern: NotRequired[str]
 
 
 class NumberValidationTypeDef(TypedDict):
@@ -4637,6 +4653,16 @@ class ModelMappingTypeDef(TypedDict):
     providerPrefix: NotRequired[ProviderPrefixTypeDef]
 
 
+class NamespaceKeyEntryOutputTypeDef(TypedDict):
+    key: str
+    validation: NotRequired[NamespaceKeyValidationOutputTypeDef]
+
+
+NamespaceKeyValidationUnionTypeDef = Union[
+    NamespaceKeyValidationTypeDef, NamespaceKeyValidationOutputTypeDef
+]
+
+
 class RatingScaleOutputTypeDef(TypedDict):
     numerical: NotRequired[list[NumericalScaleDefinitionTypeDef]]
     categorical: NotRequired[list[CategoricalScaleDefinitionTypeDef]]
@@ -5312,6 +5338,11 @@ class InferenceProviderTargetConfigurationTypeDef(TypedDict):
     operations: NotRequired[Sequence[InferenceOperationConfigurationTypeDef]]
 
 
+class NamespaceKeyEntryTypeDef(TypedDict):
+    key: str
+    validation: NotRequired[NamespaceKeyValidationUnionTypeDef]
+
+
 class CredentialProviderTypeDef(TypedDict):
     oauthCredentialProvider: NotRequired[OAuthCredentialProviderUnionTypeDef]
     apiKeyCredentialProvider: NotRequired[ApiKeyCredentialProviderTypeDef]
@@ -5846,6 +5877,7 @@ class InferenceTargetConfigurationTypeDef(TypedDict):
     provider: NotRequired[InferenceProviderTargetConfigurationTypeDef]
 
 
+NamespaceKeyEntryUnionTypeDef = Union[NamespaceKeyEntryTypeDef, NamespaceKeyEntryOutputTypeDef]
 CredentialProviderUnionTypeDef = Union[CredentialProviderTypeDef, CredentialProviderOutputTypeDef]
 HarnessGatewayOutboundAuthUnionTypeDef = Union[
     HarnessGatewayOutboundAuthTypeDef, HarnessGatewayOutboundAuthOutputTypeDef
@@ -7180,6 +7212,7 @@ MemoryTypeDef = TypedDict(
         "failureReason": NotRequired[str],
         "strategies": NotRequired[list[MemoryStrategyTypeDef]],
         "indexedKeys": NotRequired[list[IndexedKeyTypeDef]],
+        "namespaceKeys": NotRequired[list[NamespaceKeyEntryOutputTypeDef]],
         "streamDeliveryResources": NotRequired[StreamDeliveryResourcesOutputTypeDef],
         "managedByResourceArn": NotRequired[str],
     },
@@ -7314,6 +7347,7 @@ class CreateMemoryInputTypeDef(TypedDict):
     memoryExecutionRoleArn: NotRequired[str]
     memoryStrategies: NotRequired[Sequence[MemoryStrategyInputTypeDef]]
     indexedKeys: NotRequired[Sequence[IndexedKeyTypeDef]]
+    namespaceKeys: NotRequired[Sequence[NamespaceKeyEntryUnionTypeDef]]
     streamDeliveryResources: NotRequired[StreamDeliveryResourcesUnionTypeDef]
     tags: NotRequired[Mapping[str, str]]
 
@@ -7332,4 +7366,5 @@ class UpdateMemoryInputTypeDef(TypedDict):
     memoryExecutionRoleArn: NotRequired[str]
     memoryStrategies: NotRequired[ModifyMemoryStrategiesTypeDef]
     addIndexedKeys: NotRequired[Sequence[IndexedKeyTypeDef]]
+    namespaceKeys: NotRequired[Sequence[NamespaceKeyEntryUnionTypeDef]]
     streamDeliveryResources: NotRequired[StreamDeliveryResourcesUnionTypeDef]

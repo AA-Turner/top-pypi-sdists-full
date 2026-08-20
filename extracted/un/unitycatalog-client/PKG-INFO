@@ -1,6 +1,6 @@
-Metadata-Version: 2.4
+Metadata-Version: 2.5
 Name: unitycatalog-client
-Version: 0.5.1
+Version: 0.6.0
 Summary: Official Python SDK for Unity Catalog
 Project-URL: homepage, https://www.unitycatalog.io/
 Project-URL: issues, https://github.com/unitycatalog/unitycatalog/issues

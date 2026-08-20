@@ -75,7 +75,9 @@ similar constructors. ETL jobs default to the G2 worker type, but you can
 override this default with other supported worker type values (G1, G2, G4
 and G8). ETL jobs defaults to Glue version 4.0, which you can override to 3.0.
 The following ETL features are enabled by default:
-`—enable-metrics, —enable-spark-ui, —enable-continuous-cloudwatch-log.`
+`—enable-metrics, —enable-continuous-cloudwatch-log.`
+The Spark UI (`—enable-spark-ui`) is off by default; enable it by setting the
+`sparkUI` prop.
 You can find more details about version, worker type and other features in
 [Glue's public documentation](https://docs.aws.amazon.com/glue/latest/dg/aws-glue-api-jobs-job.html).
 
@@ -117,7 +119,10 @@ glue.PySparkEtlJob(stack, "PySparkETLJob",
     script=script,
     glue_version=glue.GlueVersion.V5_1,
     continuous_logging=glue.ContinuousLoggingProps(enabled=False),
-    worker_type=glue.WorkerType.G_2X,
+    worker_configuration=glue.WorkerConfiguration(
+        worker_type=glue.WorkerType.G_2X,
+        number_of_workers=2
+    ),
     max_concurrent_runs=100,
     timeout=cdk.Duration.hours(2),
     connections=[glue.Connection.from_connection_name(stack, "Connection", "connectionName")],
@@ -127,7 +132,6 @@ glue.PySparkEtlJob(stack, "PySparkETLJob",
         "SecondTagName": "SecondTagValue",
         "XTagName": "XTagValue"
     },
-    number_of_workers=2,
     max_retries=2
 )
 ```
@@ -137,11 +141,12 @@ glue.PySparkEtlJob(stack, "PySparkETLJob",
 Streaming jobs are similar to ETL jobs, except that they perform ETL on data
 streams using the Apache Spark Structured Streaming framework. Some Spark
 job features are not available to Streaming ETL jobs. They support Scala
-and pySpark languages. PySpark streaming jobs default Python 3.9,
-which you can override with any non-deprecated version of Python. It
+and pySpark languages. PySpark streaming jobs run on Python 3. It
 defaults to the G2 worker type and Glue 4.0, both of which you can override.
 The following best practice features are enabled by default:
-`—enable-metrics, —enable-spark-ui, —enable-continuous-cloudwatch-log`.
+`—enable-metrics, —enable-continuous-cloudwatch-log`.
+The Spark UI (`—enable-spark-ui`) is off by default; enable it by setting the
+`sparkUI` prop.
 
 Reference the pyspark-streaming-jobs.test.ts and scalaspark-streaming-jobs.test.ts
 unit tests for examples of required-only and optional job parameters when creating
@@ -175,7 +180,10 @@ glue.PySparkStreamingJob(stack, "PySparkStreamingJob",
     script=script,
     glue_version=glue.GlueVersion.V5_1,
     continuous_logging=glue.ContinuousLoggingProps(enabled=False),
-    worker_type=glue.WorkerType.G_2X,
+    worker_configuration=glue.WorkerConfiguration(
+        worker_type=glue.WorkerType.G_2X,
+        number_of_workers=2
+    ),
     max_concurrent_runs=100,
     timeout=cdk.Duration.hours(2),
     connections=[glue.Connection.from_connection_name(stack, "Connection", "connectionName")],
@@ -185,7 +193,6 @@ glue.PySparkStreamingJob(stack, "PySparkStreamingJob",
         "SecondTagName": "SecondTagValue",
         "XTagName": "XTagValue"
     },
-    number_of_workers=2,
     max_retries=2
 )
 ```
@@ -196,7 +203,9 @@ The flexible execution class is appropriate for non-urgent jobs such as
 pre-production jobs, testing, and one-time data loads. Flexible jobs default
 to Glue version 5.0 and worker type `G_2X`. The following best practice
 features are enabled by default:
-`—enable-metrics, —enable-spark-ui, —enable-continuous-cloudwatch-log`
+`—enable-metrics, —enable-continuous-cloudwatch-log`
+The Spark UI (`—enable-spark-ui`) is off by default; enable it by setting the
+`sparkUI` prop.
 
 Reference the pyspark-flex-etl-jobs.test.ts and scalaspark-flex-etl-jobs.test.ts
 unit tests for examples of required-only and optional job parameters when creating
@@ -223,14 +232,17 @@ import aws_cdk.aws_iam as iam
 # role: iam.IRole
 # script: glue.Code
 
-glue.PySparkEtlJob(stack, "pySparkEtlJob",
-    job_name="pySparkEtlJob",
+glue.PySparkFlexEtlJob(stack, "pySparkFlexEtlJob",
+    job_name="pySparkFlexEtlJob",
     description="This is a description",
     role=role,
     script=script,
     glue_version=glue.GlueVersion.V5_1,
     continuous_logging=glue.ContinuousLoggingProps(enabled=False),
-    worker_type=glue.WorkerType.G_2X,
+    worker_configuration=glue.WorkerConfiguration(
+        worker_type=glue.WorkerType.G_2X,
+        number_of_workers=2
+    ),
     max_concurrent_runs=100,
     timeout=cdk.Duration.hours(2),
     connections=[glue.Connection.from_connection_name(stack, "Connection", "connectionName")],
@@ -240,7 +252,6 @@ glue.PySparkEtlJob(stack, "pySparkEtlJob",
         "SecondTagName": "SecondTagValue",
         "XTagName": "XTagValue"
     },
-    number_of_workers=2,
     max_retries=2
 )
 ```
@@ -282,14 +293,13 @@ import aws_cdk.aws_iam as iam
 glue.PythonShellJob(stack, "PythonShellJob",
     job_name="PythonShellJobCustomName",
     description="This is a description",
-    python_version=glue.PythonVersion.TWO,
+    python_version=glue.PythonVersion.THREE_NINE,
     max_capacity=glue.MaxCapacity.DPU_1,
     role=role,
     script=script,
     extra_python_files=[extra_python_file],
-    glue_version=glue.GlueVersion.V2_0,
+    glue_version=glue.GlueVersion.V3_0,
     continuous_logging=glue.ContinuousLoggingProps(enabled=False),
-    worker_type=glue.WorkerType.G_2X,
     max_concurrent_runs=100,
     timeout=cdk.Duration.hours(2),
     connections=[glue.Connection.from_connection_name(stack, "Connection", "connectionName")],
@@ -299,7 +309,6 @@ glue.PythonShellJob(stack, "PythonShellJob",
         "SecondTagName": "SecondTagValue",
         "XTagName": "XTagValue"
     },
-    number_of_workers=2,
     max_retries=2
 )
 ```
@@ -364,10 +373,12 @@ glue.PySparkEtlJob(stack, "PySparkETLJob",
 
 ### Uploading scripts from the CDK app repository to S3
 
-Similar to other L2 constructs, the Glue L2 automates uploading / updating
-scripts to S3 via an optional fromAsset parameter pointing to a script
-in the local file structure. You provide the existing S3 bucket and
-path to which you'd like the script to be uploaded.
+Similar to other L2 constructs, the Glue L2 automates uploading local
+scripts to S3. Use `glue.Code.fromAsset(path)` to point at a script in your
+local file structure; it is uploaded to the CDK-managed asset bucket. To
+reference a script that already exists in S3, use
+`glue.Code.fromBucket(bucket, key)`, which performs no upload. A `script` is
+required for every job.
 
 Reference the unit tests for examples of repo and S3 code target examples.
 
@@ -379,14 +390,34 @@ jobs, and triggers. Standalone triggers are an anti-pattern, so you must
 create triggers from within a workflow using the L2 construct.
 
 Within a workflow object, there are functions to create different
-types of triggers with actions and predicates. You then add those triggers
-to jobs.
+types of triggers with actions and predicates. You add triggers to the
+workflow, and each trigger references the jobs or crawlers it runs as its
+actions.
 
-StartOnCreation defaults to true for all trigger types, but you can
-override it if you prefer for your trigger not to start on creation.
+`startOnCreation` applies to scheduled triggers (and, via
+`ConditionalTriggerOptions`, conditional triggers) only. It defaults to `false`,
+but you can override it if you prefer for your trigger to start on creation.
 
 Reference the workflow-triggers.test.ts unit tests for examples of creating
 workflows and triggers.
+
+```python
+import aws_cdk as cdk
+import aws_cdk.aws_iam as iam
+# stack: cdk.Stack
+# role: iam.IRole
+# script: glue.Code
+
+
+# Create a job to run from the workflow
+job = glue.PySparkEtlJob(stack, "Job", role=role, script=script)
+
+# Create a workflow and add a trigger that runs the job
+workflow = glue.Workflow(stack, "Workflow")
+workflow.add_on_demand_trigger("OnDemandTrigger",
+    actions=[glue.Action(job=job)]
+)
+```
 
 #### **1. On-Demand Triggers**
 
@@ -398,7 +429,7 @@ actions list using the job or crawler objects using conditional types.
 #### **2. Scheduled Triggers**
 
 You can create scheduled triggers using cron expressions. This construct
-provides daily, weekly, and monthly convenience functions,
+provides daily and weekly convenience functions,
 as well as a custom function that allows you to create your own
 custom timing using the [existing event Schedule class](https://docs.aws.amazon.com/cdk/api/v2/docs/aws-cdk-lib.aws_events.Schedule.html)
 without having to build your own cron expressions. The L2 extracts
@@ -483,32 +514,29 @@ See [Adding a Connection to Your Data Store](https://docs.aws.amazon.com/glue/la
 
 A `SecurityConfiguration` is a set of security properties that can be used by AWS Glue to encrypt data at rest.
 
+Each encryption config is built with a factory that pairs the encryption mode
+with its key, so illegal combinations (such as an S3-managed encryption carrying
+a KMS key) cannot be expressed:
+
 ```python
 glue.SecurityConfiguration(self, "MySecurityConfiguration",
-    cloud_watch_encryption=glue.CloudWatchEncryption(
-        mode=glue.CloudWatchEncryptionMode.KMS
-    ),
-    job_bookmarks_encryption=glue.JobBookmarksEncryption(
-        mode=glue.JobBookmarksEncryptionMode.CLIENT_SIDE_KMS
-    ),
-    s3_encryption=glue.S3Encryption(
-        mode=glue.S3EncryptionMode.KMS
-    )
+    cloud_watch_encryption=glue.CloudWatchEncryption.kms(),
+    job_bookmarks_encryption=glue.JobBookmarksEncryption.client_side_kms(),
+    s3_encryption=glue.S3Encryption.kms()
 )
 ```
 
-By default, a shared KMS key is created for use with the encryption configurations that require one. You can also supply your own key for each encryption config, for example, for CloudWatch encryption:
+By default, a shared KMS key is created for use with the encryption configurations that require one. You can also supply your own key to any factory, for example, for CloudWatch encryption:
 
 ```python
 # key: kms.Key
 
 glue.SecurityConfiguration(self, "MySecurityConfiguration",
-    cloud_watch_encryption=glue.CloudWatchEncryption(
-        mode=glue.CloudWatchEncryptionMode.KMS,
-        kms_key=key
-    )
+    cloud_watch_encryption=glue.CloudWatchEncryption.kms(key)
 )
 ```
+
+Use `glue.S3Encryption.s3Managed()` for S3-managed (SSE-S3) encryption, which takes no key.
 
 See [documentation](https://docs.aws.amazon.com/glue/latest/dg/encryption-security-configuration.html) for more info for Glue encrypting data written by Crawlers, Jobs, and Development Endpoints.
 
@@ -572,7 +600,7 @@ glue.Catalog(self, "MyCatalog",
 ### Encryption at rest
 
 Configure Data Catalog encryption at rest through the `encryptionAtRest` option
-(on `Catalog.encryptAccount`, the `Catalog` constructor, or the import factories).
+(on `Catalog.encryptAccount` or the `Catalog` constructor).
 It accepts a `DataCatalogEncryptionAtRest` describing the mode:
 
 ```python
@@ -837,7 +865,7 @@ glue.S3Table(self, "MyTable",
 Alternatively, you can call the `addPartitionIndex()` function on a table:
 
 ```python
-# my_table: glue.Table
+# my_table: glue.S3Table
 
 my_table.add_partition_index(
     index_name="my-index",
@@ -1076,6 +1104,25 @@ glue.ExternalTable(self, "MyTable",
 )
 ```
 
+## Data Quality Ruleset
+
+A `DataQualityRuleset` defines a set of data quality rules — authored in Glue's
+Data Quality Definition Language (DQDL) — that are evaluated against a table in
+the Data Catalog.
+
+```python
+glue.DataQualityRuleset(self, "MyRuleset",
+    ruleset_name="my_ruleset",
+    dqdl=glue.Dqdl.from_string("Rules = [ RowCount > 100, IsComplete \"order_id\" ]"),
+    target_table=glue.DataQualityTargetTable("my_database", "my_table")
+)
+```
+
+Build the DQDL document with `Dqdl.fromString(...)`. Glue parses and validates the
+DQDL when the ruleset is deployed; see the
+[DQDL reference](https://docs.aws.amazon.com/glue/latest/dg/dqdl.html) for the
+full rule syntax.
+
 ## [Encryption](https://docs.aws.amazon.com/athena/latest/ug/encryption.html)
 
 When the table creates its own S3 bucket (i.e. you do not pass an explicit `bucket`), that bucket enforces SSL: a bucket policy denies any request made over plain HTTP. If you provide your own bucket, enabling `enforceSSL` on it is your responsibility.
@@ -1180,6 +1227,29 @@ glue.S3Table(self, "MyTable",
 
 *Note: you cannot provide a `Bucket` when creating the `S3Table` if you wish to use server-side encryption (`KMS`, `KMS_MANAGED` or `S3_MANAGED`)*.
 
+### Marking table data as encrypted
+
+Both `S3Table` and `ExternalTable` set the `has_encrypted_data` table parameter, which
+Athena reads when querying client-side (`CSE-KMS`) encrypted datasets. It defaults to `true`.
+Set `hasEncryptedData` to `false` when the underlying data is not encrypted:
+
+```python
+# my_database: glue.Database
+
+glue.S3Table(self, "MyTable",
+    has_encrypted_data=False,
+    database=my_database,
+    columns=[glue.Column(
+        name="col1",
+        type=glue.Schema.STRING
+    )],
+    data_format=glue.DataFormat.JSON
+)
+```
+
+Do not set `has_encrypted_data` through the free-form `parameters` map as well - a value
+there that conflicts with `hasEncryptedData` is rejected at synthesis time.
+
 ## Types
 
 A table's schema is a collection of columns, each of which have a `name` and a `type`. Types are recursive structures, consisting of primitive and complex types:
@@ -1198,7 +1268,7 @@ glue.S3Table(self, "MyTable",
     ), glue.Column(
         name="map_column",
         type=glue.Schema.map(glue.Schema.STRING, glue.Schema.TIMESTAMP),
-        comment="map<string,string>"
+        comment="map<string,timestamp>"
     ), glue.Column(
         name="struct_column",
         type=glue.Schema.struct([
@@ -1770,114 +1840,42 @@ class ClassificationString(
         return typing.cast(builtins.str, jsii.get(self, "value"))
 
 
-@jsii.data_type(
+class CloudWatchEncryption(
+    metaclass=jsii.JSIIMeta,
     jsii_type="@aws-cdk/aws-glue-alpha.CloudWatchEncryption",
-    jsii_struct_bases=[],
-    name_mapping={"mode": "mode", "kms_key": "kmsKey"},
-)
-class CloudWatchEncryption:
-    def __init__(
-        self,
-        *,
-        mode: "CloudWatchEncryptionMode",
-        kms_key: typing.Optional["_aws_cdk_interfaces_aws_kms_ceddda9d.IKeyRef"] = None,
-    ) -> None:
-        '''(experimental) CloudWatch Logs encryption configuration.
+):
+    '''(experimental) CloudWatch Logs encryption configuration for a ``SecurityConfiguration``.
 
-        :param mode: (experimental) Encryption mode.
-        :param kms_key: (experimental) The KMS key to be used to encrypt the data. Default: A key will be created if one is not provided.
+    CloudWatch Logs support only server-side encryption with a KMS key.
 
-        :stability: experimental
-        :exampleMetadata: infused
-
-        Example::
-
-            glue.SecurityConfiguration(self, "MySecurityConfiguration",
-                cloud_watch_encryption=glue.CloudWatchEncryption(
-                    mode=glue.CloudWatchEncryptionMode.KMS
-                ),
-                job_bookmarks_encryption=glue.JobBookmarksEncryption(
-                    mode=glue.JobBookmarksEncryptionMode.CLIENT_SIDE_KMS
-                ),
-                s3_encryption=glue.S3Encryption(
-                    mode=glue.S3EncryptionMode.KMS
-                )
-            )
-        '''
-        if __debug__:
-            type_hints = cached_type_hints(_typecheckingstub__ceec14d1d7029d8fb7df76e4abb14bc79250421d85a9584f0271d9e7c4f4ef3f)
-            check_type(argname="argument mode", value=mode, expected_type=type_hints["mode"])
-            check_type(argname="argument kms_key", value=kms_key, expected_type=type_hints["kms_key"])
-        self._values: typing.Dict[builtins.str, typing.Any] = {
-            "mode": mode,
-        }
-        if kms_key is not None:
-            self._values["kms_key"] = kms_key
-
-    @builtins.property
-    def mode(self) -> "CloudWatchEncryptionMode":
-        '''(experimental) Encryption mode.
-
-        :stability: experimental
-        '''
-        result = self._values.get("mode")
-        assert result is not None, "Required property 'mode' is missing"
-        return typing.cast("CloudWatchEncryptionMode", result)
-
-    @builtins.property
-    def kms_key(
-        self,
-    ) -> typing.Optional["_aws_cdk_interfaces_aws_kms_ceddda9d.IKeyRef"]:
-        '''(experimental) The KMS key to be used to encrypt the data.
-
-        :default: A key will be created if one is not provided.
-
-        :stability: experimental
-        '''
-        result = self._values.get("kms_key")
-        return typing.cast(typing.Optional["_aws_cdk_interfaces_aws_kms_ceddda9d.IKeyRef"], result)
-
-    def __eq__(self, rhs: typing.Any) -> builtins.bool:
-        return isinstance(rhs, self.__class__) and rhs._values == self._values
-
-    def __ne__(self, rhs: typing.Any) -> builtins.bool:
-        return not (rhs == self)
-
-    def __repr__(self) -> str:
-        return "CloudWatchEncryption(%s)" % ", ".join(
-            k + "=" + repr(v) for k, v in self._values.items()
-        )
-
-
-@jsii.enum(jsii_type="@aws-cdk/aws-glue-alpha.CloudWatchEncryptionMode")
-class CloudWatchEncryptionMode(enum.Enum):
-    '''(experimental) Encryption mode for CloudWatch Logs.
-
-    :see: https://docs.aws.amazon.com/glue/latest/webapi/API_CloudWatchEncryption.html#Glue-Type-CloudWatchEncryption-CloudWatchEncryptionMode
     :stability: experimental
     :exampleMetadata: infused
 
     Example::
 
         glue.SecurityConfiguration(self, "MySecurityConfiguration",
-            cloud_watch_encryption=glue.CloudWatchEncryption(
-                mode=glue.CloudWatchEncryptionMode.KMS
-            ),
-            job_bookmarks_encryption=glue.JobBookmarksEncryption(
-                mode=glue.JobBookmarksEncryptionMode.CLIENT_SIDE_KMS
-            ),
-            s3_encryption=glue.S3Encryption(
-                mode=glue.S3EncryptionMode.KMS
-            )
+            cloud_watch_encryption=glue.CloudWatchEncryption.kms(),
+            job_bookmarks_encryption=glue.JobBookmarksEncryption.client_side_kms(),
+            s3_encryption=glue.S3Encryption.kms()
         )
     '''
 
-    KMS = "KMS"
-    '''(experimental) Server-side encryption (SSE) with an AWS KMS key managed by the account owner.
+    @jsii.member(jsii_name="kms")
+    @builtins.classmethod
+    def kms(
+        cls,
+        kms_key: typing.Optional["_aws_cdk_interfaces_aws_kms_ceddda9d.IKeyRef"] = None,
+    ) -> "CloudWatchEncryption":
+        '''(experimental) Server-side encryption (SSE) with an AWS KMS key managed by the account owner.
 
-    :see: https://docs.aws.amazon.com/AmazonS3/latest/dev/UsingKMSEncryption.html
-    :stability: experimental
-    '''
+        :param kms_key: the KMS key used to encrypt the data. A key is created if one is not provided.
+
+        :stability: experimental
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__1f88fc64cc736f508e1d560c28b0596a00dc22376289f3fd63a0d9b2e8119e7e)
+            check_type(argname="argument kms_key", value=kms_key, expected_type=type_hints["kms_key"])
+        return typing.cast("CloudWatchEncryption", jsii.sinvoke(cls, "kms", [kms_key]))
 
 
 class Code(metaclass=jsii.JSIIAbstractClass, jsii_type="@aws-cdk/aws-glue-alpha.Code"):
@@ -1895,19 +1893,13 @@ class Code(metaclass=jsii.JSIIAbstractClass, jsii_type="@aws-cdk/aws-glue-alpha.
         # script: glue.Code
         
         
-        # Disable both metrics for cost optimization
-        glue.PySparkEtlJob(stack, "CostOptimizedJob",
-            role=role,
-            script=script,
-            enable_metrics=False,
-            enable_observability_metrics=False
-        )
+        # Create a job to run from the workflow
+        job = glue.PySparkEtlJob(stack, "Job", role=role, script=script)
         
-        # Selective control - keep observability, disable profiling
-        glue.PySparkEtlJob(stack, "SelectiveJob",
-            role=role,
-            script=script,
-            enable_metrics=False
+        # Create a workflow and add a trigger that runs the job
+        workflow = glue.Workflow(stack, "Workflow")
+        workflow.add_on_demand_trigger("OnDemandTrigger",
+            actions=[glue.Action(job=job)]
         )
     '''
 
@@ -3308,7 +3300,10 @@ class ContinuousLoggingProps:
                 script=script,
                 glue_version=glue.GlueVersion.V5_1,
                 continuous_logging=glue.ContinuousLoggingProps(enabled=False),
-                worker_type=glue.WorkerType.G_2X,
+                worker_configuration=glue.WorkerConfiguration(
+                    worker_type=glue.WorkerType.G_2X,
+                    number_of_workers=2
+                ),
                 max_concurrent_runs=100,
                 timeout=cdk.Duration.hours(2),
                 connections=[glue.Connection.from_connection_name(stack, "Connection", "connectionName")],
@@ -3318,7 +3313,6 @@ class ContinuousLoggingProps:
                     "SecondTagName": "SecondTagValue",
                     "XTagName": "XTagValue"
                 },
-                number_of_workers=2,
                 max_retries=2
             )
         '''
@@ -3578,11 +3572,9 @@ class DataFormat(
             data_format=glue.DataFormat.JSON,
             partition_projection={
                 "date": glue.PartitionProjectionConfiguration.date(
-                    min="2020-01-01",
-                    max="2023-12-31",
-                    format="yyyy-MM-dd",
-                    interval=1,  # optional, defaults to 1
-                    interval_unit=glue.DateIntervalUnit.DAYS
+                    min="NOW-3YEARS",
+                    max="NOW",
+                    format="yyyy-MM-dd"
                 )
             }
         )
@@ -3864,7 +3856,7 @@ class DataFormatProps:
     jsii_type="@aws-cdk/aws-glue-alpha.DataQualityRulesetProps",
     jsii_struct_bases=[],
     name_mapping={
-        "ruleset_dqdl": "rulesetDqdl",
+        "dqdl": "dqdl",
         "target_table": "targetTable",
         "client_token": "clientToken",
         "description": "description",
@@ -3877,7 +3869,7 @@ class DataQualityRulesetProps:
     def __init__(
         self,
         *,
-        ruleset_dqdl: builtins.str,
+        dqdl: "Dqdl",
         target_table: "DataQualityTargetTable",
         client_token: typing.Optional[builtins.str] = None,
         description: typing.Optional[builtins.str] = None,
@@ -3887,7 +3879,7 @@ class DataQualityRulesetProps:
     ) -> None:
         '''(experimental) Construction properties for ``DataQualityRuleset``.
 
-        :param ruleset_dqdl: (experimental) The dqdl of the ruleset.
+        :param dqdl: (experimental) The DQDL document defining the ruleset's data quality rules. Build it with ``Dqdl.fromString(...)``.
         :param target_table: (experimental) The target table of the ruleset.
         :param client_token: (experimental) The client token of the ruleset.
         :param description: (experimental) The description of the ruleset.
@@ -3896,34 +3888,19 @@ class DataQualityRulesetProps:
         :param tags: (experimental) Key-Value pairs that define tags for the ruleset. Default: empty tags
 
         :stability: experimental
-        :exampleMetadata: fixture=_generated
+        :exampleMetadata: infused
 
         Example::
 
-            # The code below shows an example of how to instantiate this type.
-            # The values are placeholders you should change.
-            import aws_cdk.aws_glue_alpha as glue_alpha
-            import aws_cdk as cdk
-            
-            # data_quality_target_table: glue_alpha.DataQualityTargetTable
-            
-            data_quality_ruleset_props = glue_alpha.DataQualityRulesetProps(
-                ruleset_dqdl="rulesetDqdl",
-                target_table=data_quality_target_table,
-            
-                # the properties below are optional
-                client_token="clientToken",
-                description="description",
-                removal_policy=cdk.RemovalPolicy.DESTROY,
-                ruleset_name="rulesetName",
-                tags={
-                    "tags_key": "tags"
-                }
+            glue.DataQualityRuleset(self, "MyRuleset",
+                ruleset_name="my_ruleset",
+                dqdl=glue.Dqdl.from_string("Rules = [ RowCount > 100, IsComplete \"order_id\" ]"),
+                target_table=glue.DataQualityTargetTable("my_database", "my_table")
             )
         '''
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__abda2570732c667a87dd412c9aa6c70d5db49ac0b525ecc9c3c801e1271e451a)
-            check_type(argname="argument ruleset_dqdl", value=ruleset_dqdl, expected_type=type_hints["ruleset_dqdl"])
+            check_type(argname="argument dqdl", value=dqdl, expected_type=type_hints["dqdl"])
             check_type(argname="argument target_table", value=target_table, expected_type=type_hints["target_table"])
             check_type(argname="argument client_token", value=client_token, expected_type=type_hints["client_token"])
             check_type(argname="argument description", value=description, expected_type=type_hints["description"])
@@ -3931,7 +3908,7 @@ class DataQualityRulesetProps:
             check_type(argname="argument ruleset_name", value=ruleset_name, expected_type=type_hints["ruleset_name"])
             check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
-            "ruleset_dqdl": ruleset_dqdl,
+            "dqdl": dqdl,
             "target_table": target_table,
         }
         if client_token is not None:
@@ -3946,15 +3923,16 @@ class DataQualityRulesetProps:
             self._values["tags"] = tags
 
     @builtins.property
-    def ruleset_dqdl(self) -> builtins.str:
-        '''(experimental) The dqdl of the ruleset.
+    def dqdl(self) -> "Dqdl":
+        '''(experimental) The DQDL document defining the ruleset's data quality rules.
+
+        Build it with ``Dqdl.fromString(...)``.
 
         :stability: experimental
-        :attribute: true
         '''
-        result = self._values.get("ruleset_dqdl")
-        assert result is not None, "Required property 'ruleset_dqdl' is missing"
-        return typing.cast(builtins.str, result)
+        result = self._values.get("dqdl")
+        assert result is not None, "Required property 'dqdl' is missing"
+        return typing.cast("Dqdl", result)
 
     @builtins.property
     def target_table(self) -> "DataQualityTargetTable":
@@ -4039,15 +4017,15 @@ class DataQualityTargetTable(
     '''(experimental) Properties of a DataQualityTargetTable.
 
     :stability: experimental
-    :exampleMetadata: fixture=_generated
+    :exampleMetadata: infused
 
     Example::
 
-        # The code below shows an example of how to instantiate this type.
-        # The values are placeholders you should change.
-        import aws_cdk.aws_glue_alpha as glue_alpha
-        
-        data_quality_target_table = glue_alpha.DataQualityTargetTable("databaseName", "tableName")
+        glue.DataQualityRuleset(self, "MyRuleset",
+            ruleset_name="my_ruleset",
+            dqdl=glue.Dqdl.from_string("Rules = [ RowCount > 100, IsComplete \"order_id\" ]"),
+            target_table=glue.DataQualityTargetTable("my_database", "my_table")
+        )
     '''
 
     def __init__(self, database_name: builtins.str, table_name: builtins.str) -> None:
@@ -4447,6 +4425,40 @@ class DatePartitionProjectionConfigurationProps:
         )
 
 
+class Dqdl(metaclass=jsii.JSIIMeta, jsii_type="@aws-cdk/aws-glue-alpha.Dqdl"):
+    '''(experimental) The Data Quality Definition Language (DQDL) document for a ``DataQualityRuleset``.
+
+    DQDL is an authored string that Glue parses and validates at deploy time. Build
+    one from a raw DQDL string with {@link Dqdl.fromString}.
+
+    :see: https://docs.aws.amazon.com/glue/latest/dg/dqdl.html
+    :stability: experimental
+    :exampleMetadata: infused
+
+    Example::
+
+        glue.DataQualityRuleset(self, "MyRuleset",
+            ruleset_name="my_ruleset",
+            dqdl=glue.Dqdl.from_string("Rules = [ RowCount > 100, IsComplete \"order_id\" ]"),
+            target_table=glue.DataQualityTargetTable("my_database", "my_table")
+        )
+    '''
+
+    @jsii.member(jsii_name="fromString")
+    @builtins.classmethod
+    def from_string(cls, dqdl: builtins.str) -> "Dqdl":
+        '''(experimental) Create a ``Dqdl`` from a raw DQDL string.
+
+        :param dqdl: the DQDL document, e.g. ``Rules = [ RowCount > 100 ]``.
+
+        :stability: experimental
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__930bbf5e9717083d6925db7850d0c9cbc75868f58ac0b9d5c47e8c192f882ebe)
+            check_type(argname="argument dqdl", value=dqdl, expected_type=type_hints["dqdl"])
+        return typing.cast("Dqdl", jsii.sinvoke(cls, "fromString", [dqdl]))
+
+
 @jsii.data_type(
     jsii_type="@aws-cdk/aws-glue-alpha.EnumPartitionProjectionConfigurationProps",
     jsii_struct_bases=[],
@@ -4636,7 +4648,10 @@ class GlueVersion(enum.Enum):
             script=script,
             glue_version=glue.GlueVersion.V5_1,
             continuous_logging=glue.ContinuousLoggingProps(enabled=False),
-            worker_type=glue.WorkerType.G_2X,
+            worker_configuration=glue.WorkerConfiguration(
+                worker_type=glue.WorkerType.G_2X,
+                number_of_workers=2
+            ),
             max_concurrent_runs=100,
             timeout=cdk.Duration.hours(2),
             connections=[glue.Connection.from_connection_name(stack, "Connection", "connectionName")],
@@ -4646,7 +4661,6 @@ class GlueVersion(enum.Enum):
                 "SecondTagName": "SecondTagValue",
                 "XTagName": "XTagValue"
             },
-            number_of_workers=2,
             max_retries=2
         )
     '''
@@ -6929,114 +6943,43 @@ class _JobBaseProxy(
 typing.cast(typing.Any, JobBase).__jsii_proxy_class__ = lambda : _JobBaseProxy
 
 
-@jsii.data_type(
+class JobBookmarksEncryption(
+    metaclass=jsii.JSIIMeta,
     jsii_type="@aws-cdk/aws-glue-alpha.JobBookmarksEncryption",
-    jsii_struct_bases=[],
-    name_mapping={"mode": "mode", "kms_key": "kmsKey"},
-)
-class JobBookmarksEncryption:
-    def __init__(
-        self,
-        *,
-        mode: "JobBookmarksEncryptionMode",
-        kms_key: typing.Optional["_aws_cdk_interfaces_aws_kms_ceddda9d.IKeyRef"] = None,
-    ) -> None:
-        '''(experimental) Job bookmarks encryption configuration.
+):
+    '''(experimental) Job bookmarks encryption configuration for a ``SecurityConfiguration``.
 
-        :param mode: (experimental) Encryption mode.
-        :param kms_key: (experimental) The KMS key to be used to encrypt the data. Default: A key will be created if one is not provided.
+    Job bookmarks support only client-side encryption with a KMS key.
 
-        :stability: experimental
-        :exampleMetadata: infused
-
-        Example::
-
-            glue.SecurityConfiguration(self, "MySecurityConfiguration",
-                cloud_watch_encryption=glue.CloudWatchEncryption(
-                    mode=glue.CloudWatchEncryptionMode.KMS
-                ),
-                job_bookmarks_encryption=glue.JobBookmarksEncryption(
-                    mode=glue.JobBookmarksEncryptionMode.CLIENT_SIDE_KMS
-                ),
-                s3_encryption=glue.S3Encryption(
-                    mode=glue.S3EncryptionMode.KMS
-                )
-            )
-        '''
-        if __debug__:
-            type_hints = cached_type_hints(_typecheckingstub__61a555ea81acfe554401802d7d44d70d3e1a6f96890ffbc28283fadb7ea81f9e)
-            check_type(argname="argument mode", value=mode, expected_type=type_hints["mode"])
-            check_type(argname="argument kms_key", value=kms_key, expected_type=type_hints["kms_key"])
-        self._values: typing.Dict[builtins.str, typing.Any] = {
-            "mode": mode,
-        }
-        if kms_key is not None:
-            self._values["kms_key"] = kms_key
-
-    @builtins.property
-    def mode(self) -> "JobBookmarksEncryptionMode":
-        '''(experimental) Encryption mode.
-
-        :stability: experimental
-        '''
-        result = self._values.get("mode")
-        assert result is not None, "Required property 'mode' is missing"
-        return typing.cast("JobBookmarksEncryptionMode", result)
-
-    @builtins.property
-    def kms_key(
-        self,
-    ) -> typing.Optional["_aws_cdk_interfaces_aws_kms_ceddda9d.IKeyRef"]:
-        '''(experimental) The KMS key to be used to encrypt the data.
-
-        :default: A key will be created if one is not provided.
-
-        :stability: experimental
-        '''
-        result = self._values.get("kms_key")
-        return typing.cast(typing.Optional["_aws_cdk_interfaces_aws_kms_ceddda9d.IKeyRef"], result)
-
-    def __eq__(self, rhs: typing.Any) -> builtins.bool:
-        return isinstance(rhs, self.__class__) and rhs._values == self._values
-
-    def __ne__(self, rhs: typing.Any) -> builtins.bool:
-        return not (rhs == self)
-
-    def __repr__(self) -> str:
-        return "JobBookmarksEncryption(%s)" % ", ".join(
-            k + "=" + repr(v) for k, v in self._values.items()
-        )
-
-
-@jsii.enum(jsii_type="@aws-cdk/aws-glue-alpha.JobBookmarksEncryptionMode")
-class JobBookmarksEncryptionMode(enum.Enum):
-    '''(experimental) Encryption mode for Job Bookmarks.
-
-    :see: https://docs.aws.amazon.com/glue/latest/webapi/API_JobBookmarksEncryption.html#Glue-Type-JobBookmarksEncryption-JobBookmarksEncryptionMode
     :stability: experimental
     :exampleMetadata: infused
 
     Example::
 
         glue.SecurityConfiguration(self, "MySecurityConfiguration",
-            cloud_watch_encryption=glue.CloudWatchEncryption(
-                mode=glue.CloudWatchEncryptionMode.KMS
-            ),
-            job_bookmarks_encryption=glue.JobBookmarksEncryption(
-                mode=glue.JobBookmarksEncryptionMode.CLIENT_SIDE_KMS
-            ),
-            s3_encryption=glue.S3Encryption(
-                mode=glue.S3EncryptionMode.KMS
-            )
+            cloud_watch_encryption=glue.CloudWatchEncryption.kms(),
+            job_bookmarks_encryption=glue.JobBookmarksEncryption.client_side_kms(),
+            s3_encryption=glue.S3Encryption.kms()
         )
     '''
 
-    CLIENT_SIDE_KMS = "CLIENT_SIDE_KMS"
-    '''(experimental) Client-side encryption (CSE) with an AWS KMS key managed by the account owner.
+    @jsii.member(jsii_name="clientSideKms")
+    @builtins.classmethod
+    def client_side_kms(
+        cls,
+        kms_key: typing.Optional["_aws_cdk_interfaces_aws_kms_ceddda9d.IKeyRef"] = None,
+    ) -> "JobBookmarksEncryption":
+        '''(experimental) Client-side encryption (CSE) with an AWS KMS key managed by the account owner.
 
-    :see: https://docs.aws.amazon.com/AmazonS3/latest/dev/UsingClientSideEncryption.html
-    :stability: experimental
-    '''
+        :param kms_key: the KMS key used to encrypt the data. A key is created if one is not provided.
+
+        :see: https://docs.aws.amazon.com/AmazonS3/latest/dev/UsingClientSideEncryption.html
+        :stability: experimental
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__8799542eea726904c0332b476c0c0b92c6d42f78273fd15f6728fa5d6da5518e)
+            check_type(argname="argument kms_key", value=kms_key, expected_type=type_hints["kms_key"])
+        return typing.cast("JobBookmarksEncryption", jsii.sinvoke(cls, "clientSideKms", [kms_key]))
 
 
 @jsii.enum(jsii_type="@aws-cdk/aws-glue-alpha.JobLanguage")
@@ -7068,16 +7011,13 @@ class JobLanguage(enum.Enum):
         "continuous_logging": "continuousLogging",
         "default_arguments": "defaultArguments",
         "description": "description",
-        "enable_profiling_metrics": "enableProfilingMetrics",
         "glue_version": "glueVersion",
         "job_name": "jobName",
         "max_concurrent_runs": "maxConcurrentRuns",
         "max_retries": "maxRetries",
-        "number_of_workers": "numberOfWorkers",
         "security_configuration": "securityConfiguration",
         "tags": "tags",
         "timeout": "timeout",
-        "worker_type": "workerType",
     },
 )
 class JobProps:
@@ -7090,16 +7030,13 @@ class JobProps:
         continuous_logging: typing.Optional[typing.Union["ContinuousLoggingProps", typing.Dict[builtins.str, typing.Any]]] = None,
         default_arguments: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
         description: typing.Optional[builtins.str] = None,
-        enable_profiling_metrics: typing.Optional[builtins.bool] = None,
         glue_version: typing.Optional["GlueVersion"] = None,
         job_name: typing.Optional[builtins.str] = None,
         max_concurrent_runs: typing.Optional[jsii.Number] = None,
         max_retries: typing.Optional[jsii.Number] = None,
-        number_of_workers: typing.Optional[jsii.Number] = None,
         security_configuration: typing.Optional["ISecurityConfiguration"] = None,
         tags: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
         timeout: typing.Optional["_aws_cdk_ceddda9d.Duration"] = None,
-        worker_type: typing.Optional["WorkerType"] = None,
     ) -> None:
         '''(experimental) JobProps will be used to create new Glue Jobs using this L2 Construct.
 
@@ -7109,16 +7046,13 @@ class JobProps:
         :param continuous_logging: (experimental) Enables continuous logging with the specified props. Default: - continuous logging is enabled.
         :param default_arguments: (experimental) Default Arguments (optional) The default arguments for every run of this Glue job, specified as name-value pairs. These are emitted verbatim into the CloudFormation template, so avoid placing secrets here in plaintext. Pass secrets to the job at runtime through AWS Secrets Manager instead. A synthesis-time warning is emitted when an argument key looks like a credential and holds a plaintext literal. Default: - no arguments
         :param description: (experimental) Description (optional) Developer-specified description of the Glue job. Default: - no value
-        :param enable_profiling_metrics: (experimental) Enables the collection of metrics for job profiling. Default: - no profiling metrics emitted.
         :param glue_version: (experimental) Glue Version The version of Glue to use to execute this job. Default: 3.0 for ETL
         :param job_name: (experimental) Name of the Glue job (optional) Developer-specified name of the Glue job. Default: - a name is automatically generated
         :param max_concurrent_runs: (experimental) Max Concurrent Runs (optional) The maximum number of runs this Glue job can concurrently run. An error is returned when this threshold is reached. The maximum value you can specify is controlled by a service limit. Default: 1
         :param max_retries: (experimental) Max Retries (optional) Maximum number of retry attempts Glue performs if the job fails. Default: 0
-        :param number_of_workers: (experimental) Number of Workers (optional) Number of workers for Glue to use during job execution. Default: 10
         :param security_configuration: (experimental) Security Configuration (optional) Defines the encryption options for the Glue job. Default: - no security configuration.
         :param tags: (experimental) Tags (optional) A list of key:value pairs of tags to apply to this Glue job resources. Default: {} - no tags
         :param timeout: (experimental) Timeout (optional) The maximum time that a job run can consume resources before it is terminated and enters TIMEOUT status. Specified in minutes. Default: 2880 (2 days for non-streaming)
-        :param worker_type: (experimental) Worker Type (optional) Type of Worker for Glue to use during job execution Enum options: Standard, G_1X, G_2X, G_025X. G_4X, G_8X, Z_2X Default: WorkerType.G_1X
 
         :stability: experimental
         :exampleMetadata: fixture=_generated
@@ -7157,18 +7091,15 @@ class JobProps:
                     "default_arguments_key": "defaultArguments"
                 },
                 description="description",
-                enable_profiling_metrics=False,
                 glue_version=glue_alpha.GlueVersion.V0_9,
                 job_name="jobName",
                 max_concurrent_runs=123,
                 max_retries=123,
-                number_of_workers=123,
                 security_configuration=security_configuration,
                 tags={
                     "tags_key": "tags"
                 },
-                timeout=cdk.Duration.minutes(30),
-                worker_type=glue_alpha.WorkerType.STANDARD
+                timeout=cdk.Duration.minutes(30)
             )
         '''
         if isinstance(continuous_logging, dict):
@@ -7181,16 +7112,13 @@ class JobProps:
             check_type(argname="argument continuous_logging", value=continuous_logging, expected_type=type_hints["continuous_logging"])
             check_type(argname="argument default_arguments", value=default_arguments, expected_type=type_hints["default_arguments"])
             check_type(argname="argument description", value=description, expected_type=type_hints["description"])
-            check_type(argname="argument enable_profiling_metrics", value=enable_profiling_metrics, expected_type=type_hints["enable_profiling_metrics"])
             check_type(argname="argument glue_version", value=glue_version, expected_type=type_hints["glue_version"])
             check_type(argname="argument job_name", value=job_name, expected_type=type_hints["job_name"])
             check_type(argname="argument max_concurrent_runs", value=max_concurrent_runs, expected_type=type_hints["max_concurrent_runs"])
             check_type(argname="argument max_retries", value=max_retries, expected_type=type_hints["max_retries"])
-            check_type(argname="argument number_of_workers", value=number_of_workers, expected_type=type_hints["number_of_workers"])
             check_type(argname="argument security_configuration", value=security_configuration, expected_type=type_hints["security_configuration"])
             check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
             check_type(argname="argument timeout", value=timeout, expected_type=type_hints["timeout"])
-            check_type(argname="argument worker_type", value=worker_type, expected_type=type_hints["worker_type"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
             "role": role,
             "script": script,
@@ -7203,8 +7131,6 @@ class JobProps:
             self._values["default_arguments"] = default_arguments
         if description is not None:
             self._values["description"] = description
-        if enable_profiling_metrics is not None:
-            self._values["enable_profiling_metrics"] = enable_profiling_metrics
         if glue_version is not None:
             self._values["glue_version"] = glue_version
         if job_name is not None:
@@ -7213,16 +7139,12 @@ class JobProps:
             self._values["max_concurrent_runs"] = max_concurrent_runs
         if max_retries is not None:
             self._values["max_retries"] = max_retries
-        if number_of_workers is not None:
-            self._values["number_of_workers"] = number_of_workers
         if security_configuration is not None:
             self._values["security_configuration"] = security_configuration
         if tags is not None:
             self._values["tags"] = tags
         if timeout is not None:
             self._values["timeout"] = timeout
-        if worker_type is not None:
-            self._values["worker_type"] = worker_type
 
     @builtins.property
     def role(self) -> "_aws_cdk_aws_iam_ceddda9d.IRole":
@@ -7306,18 +7228,6 @@ class JobProps:
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
-    def enable_profiling_metrics(self) -> typing.Optional[builtins.bool]:
-        '''(experimental) Enables the collection of metrics for job profiling.
-
-        :default: - no profiling metrics emitted.
-
-        :see: https://docs.aws.amazon.com/glue/latest/dg/aws-glue-programming-etl-glue-arguments.html
-        :stability: experimental
-        '''
-        result = self._values.get("enable_profiling_metrics")
-        return typing.cast(typing.Optional[builtins.bool], result)
-
-    @builtins.property
     def glue_version(self) -> typing.Optional["GlueVersion"]:
         '''(experimental) Glue Version The version of Glue to use to execute this job.
 
@@ -7365,17 +7275,6 @@ class JobProps:
         return typing.cast(typing.Optional[jsii.Number], result)
 
     @builtins.property
-    def number_of_workers(self) -> typing.Optional[jsii.Number]:
-        '''(experimental) Number of Workers (optional) Number of workers for Glue to use during job execution.
-
-        :default: 10
-
-        :stability: experimental
-        '''
-        result = self._values.get("number_of_workers")
-        return typing.cast(typing.Optional[jsii.Number], result)
-
-    @builtins.property
     def security_configuration(self) -> typing.Optional["ISecurityConfiguration"]:
         '''(experimental) Security Configuration (optional) Defines the encryption options for the Glue job.
 
@@ -7409,19 +7308,6 @@ class JobProps:
         '''
         result = self._values.get("timeout")
         return typing.cast(typing.Optional["_aws_cdk_ceddda9d.Duration"], result)
-
-    @builtins.property
-    def worker_type(self) -> typing.Optional["WorkerType"]:
-        '''(experimental) Worker Type (optional) Type of Worker for Glue to use during job execution Enum options: Standard, G_1X, G_2X, G_025X.
-
-        G_4X, G_8X, Z_2X
-
-        :default: WorkerType.G_1X
-
-        :stability: experimental
-        '''
-        result = self._values.get("worker_type")
-        return typing.cast(typing.Optional["WorkerType"], result)
 
     def __eq__(self, rhs: typing.Any) -> builtins.bool:
         return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -7536,14 +7422,13 @@ class MaxCapacity(enum.Enum):
         glue.PythonShellJob(stack, "PythonShellJob",
             job_name="PythonShellJobCustomName",
             description="This is a description",
-            python_version=glue.PythonVersion.TWO,
+            python_version=glue.PythonVersion.THREE_NINE,
             max_capacity=glue.MaxCapacity.DPU_1,
             role=role,
             script=script,
             extra_python_files=[extra_python_file],
-            glue_version=glue.GlueVersion.V2_0,
+            glue_version=glue.GlueVersion.V3_0,
             continuous_logging=glue.ContinuousLoggingProps(enabled=False),
-            worker_type=glue.WorkerType.G_2X,
             max_concurrent_runs=100,
             timeout=cdk.Duration.hours(2),
             connections=[glue.Connection.from_connection_name(stack, "Connection", "connectionName")],
@@ -7553,7 +7438,6 @@ class MaxCapacity(enum.Enum):
                 "SecondTagName": "SecondTagValue",
                 "XTagName": "XTagValue"
             },
-            number_of_workers=2,
             max_retries=2
         )
     '''
@@ -7655,7 +7539,7 @@ class OutputFormat(
         # The values are placeholders you should change.
         import aws_cdk.aws_glue_alpha as glue_alpha
         
-        output_format = glue_alpha.OutputFormat("className")
+        output_format = glue_alpha.OutputFormat.AVRO
     '''
 
     def __init__(self, class_name: builtins.str) -> None:
@@ -7671,13 +7555,13 @@ class OutputFormat(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="AVRO")
-    def AVRO(cls) -> "InputFormat":
+    def AVRO(cls) -> "OutputFormat":
         '''(experimental) OutputFormat for Avro files.
 
         :see: https://svn.apache.org/repos/infra/websites/production/hive/content/javadocs/r3.1.3/api/org/apache/hadoop/hive/ql/io/avro/AvroContainerOutputFormat.html
         :stability: experimental
         '''
-        return typing.cast("InputFormat", jsii.sget(cls, "AVRO"))
+        return typing.cast("OutputFormat", jsii.sget(cls, "AVRO"))
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="HIVE_IGNORE_KEY_TEXT")
@@ -7691,13 +7575,13 @@ class OutputFormat(
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="ORC")
-    def ORC(cls) -> "InputFormat":
+    def ORC(cls) -> "OutputFormat":
         '''(experimental) OutputFormat for Orc files.
 
         :see: https://svn.apache.org/repos/infra/websites/production/hive/content/javadocs/r3.1.3/api/org/apache/hadoop/hive/ql/io/orc/OrcOutputFormat.html
         :stability: experimental
         '''
-        return typing.cast("InputFormat", jsii.sget(cls, "ORC"))
+        return typing.cast("OutputFormat", jsii.sget(cls, "ORC"))
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="PARQUET")
@@ -7740,7 +7624,7 @@ class PartitionIndex:
 
         Example::
 
-            # my_table: glue.Table
+            # my_table: glue.S3Table
             
             my_table.add_partition_index(
                 index_name="my-index",
@@ -8134,16 +8018,13 @@ class PredicateLogical(enum.Enum):
         "continuous_logging": "continuousLogging",
         "default_arguments": "defaultArguments",
         "description": "description",
-        "enable_profiling_metrics": "enableProfilingMetrics",
         "glue_version": "glueVersion",
         "job_name": "jobName",
         "max_concurrent_runs": "maxConcurrentRuns",
         "max_retries": "maxRetries",
-        "number_of_workers": "numberOfWorkers",
         "security_configuration": "securityConfiguration",
         "tags": "tags",
         "timeout": "timeout",
-        "worker_type": "workerType",
         "extra_python_files": "extraPythonFiles",
         "job_run_queuing_enabled": "jobRunQueuingEnabled",
         "max_capacity": "maxCapacity",
@@ -8160,16 +8041,13 @@ class PythonShellJobProps(JobProps):
         continuous_logging: typing.Optional[typing.Union["ContinuousLoggingProps", typing.Dict[builtins.str, typing.Any]]] = None,
         default_arguments: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
         description: typing.Optional[builtins.str] = None,
-        enable_profiling_metrics: typing.Optional[builtins.bool] = None,
         glue_version: typing.Optional["GlueVersion"] = None,
         job_name: typing.Optional[builtins.str] = None,
         max_concurrent_runs: typing.Optional[jsii.Number] = None,
         max_retries: typing.Optional[jsii.Number] = None,
-        number_of_workers: typing.Optional[jsii.Number] = None,
         security_configuration: typing.Optional["ISecurityConfiguration"] = None,
         tags: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
         timeout: typing.Optional["_aws_cdk_ceddda9d.Duration"] = None,
-        worker_type: typing.Optional["WorkerType"] = None,
         extra_python_files: typing.Optional[typing.Sequence["Code"]] = None,
         job_run_queuing_enabled: typing.Optional[builtins.bool] = None,
         max_capacity: typing.Optional["MaxCapacity"] = None,
@@ -8183,16 +8061,13 @@ class PythonShellJobProps(JobProps):
         :param continuous_logging: (experimental) Enables continuous logging with the specified props. Default: - continuous logging is enabled.
         :param default_arguments: (experimental) Default Arguments (optional) The default arguments for every run of this Glue job, specified as name-value pairs. These are emitted verbatim into the CloudFormation template, so avoid placing secrets here in plaintext. Pass secrets to the job at runtime through AWS Secrets Manager instead. A synthesis-time warning is emitted when an argument key looks like a credential and holds a plaintext literal. Default: - no arguments
         :param description: (experimental) Description (optional) Developer-specified description of the Glue job. Default: - no value
-        :param enable_profiling_metrics: (experimental) Enables the collection of metrics for job profiling. Default: - no profiling metrics emitted.
         :param glue_version: (experimental) Glue Version The version of Glue to use to execute this job. Default: 3.0 for ETL
         :param job_name: (experimental) Name of the Glue job (optional) Developer-specified name of the Glue job. Default: - a name is automatically generated
         :param max_concurrent_runs: (experimental) Max Concurrent Runs (optional) The maximum number of runs this Glue job can concurrently run. An error is returned when this threshold is reached. The maximum value you can specify is controlled by a service limit. Default: 1
         :param max_retries: (experimental) Max Retries (optional) Maximum number of retry attempts Glue performs if the job fails. Default: 0
-        :param number_of_workers: (experimental) Number of Workers (optional) Number of workers for Glue to use during job execution. Default: 10
         :param security_configuration: (experimental) Security Configuration (optional) Defines the encryption options for the Glue job. Default: - no security configuration.
         :param tags: (experimental) Tags (optional) A list of key:value pairs of tags to apply to this Glue job resources. Default: {} - no tags
         :param timeout: (experimental) Timeout (optional) The maximum time that a job run can consume resources before it is terminated and enters TIMEOUT status. Specified in minutes. Default: 2880 (2 days for non-streaming)
-        :param worker_type: (experimental) Worker Type (optional) Type of Worker for Glue to use during job execution Enum options: Standard, G_1X, G_2X, G_025X. G_4X, G_8X, Z_2X Default: WorkerType.G_1X
         :param extra_python_files: (experimental) Additional Python files that AWS Glue adds to the Python path before executing your script. Only individual files are supported, directories are not supported. Equivalent to the ``--extra-py-files`` job argument. Default: - no extra Python files
         :param job_run_queuing_enabled: (experimental) Specifies whether job run queuing is enabled for the job runs for this job. A value of true means job run queuing is enabled for the job runs. If false or not populated, the job runs will not be considered for queueing. If this field does not match the value set in the job run, then the value from the job run field will be used. This property must be set to false for flex jobs. If this property is enabled, maxRetries must be set to zero. Default: false
         :param max_capacity: (experimental) The total number of DPU to assign to the Python Job. Default: 0.0625
@@ -8221,16 +8096,13 @@ class PythonShellJobProps(JobProps):
             check_type(argname="argument continuous_logging", value=continuous_logging, expected_type=type_hints["continuous_logging"])
             check_type(argname="argument default_arguments", value=default_arguments, expected_type=type_hints["default_arguments"])
             check_type(argname="argument description", value=description, expected_type=type_hints["description"])
-            check_type(argname="argument enable_profiling_metrics", value=enable_profiling_metrics, expected_type=type_hints["enable_profiling_metrics"])
             check_type(argname="argument glue_version", value=glue_version, expected_type=type_hints["glue_version"])
             check_type(argname="argument job_name", value=job_name, expected_type=type_hints["job_name"])
             check_type(argname="argument max_concurrent_runs", value=max_concurrent_runs, expected_type=type_hints["max_concurrent_runs"])
             check_type(argname="argument max_retries", value=max_retries, expected_type=type_hints["max_retries"])
-            check_type(argname="argument number_of_workers", value=number_of_workers, expected_type=type_hints["number_of_workers"])
             check_type(argname="argument security_configuration", value=security_configuration, expected_type=type_hints["security_configuration"])
             check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
             check_type(argname="argument timeout", value=timeout, expected_type=type_hints["timeout"])
-            check_type(argname="argument worker_type", value=worker_type, expected_type=type_hints["worker_type"])
             check_type(argname="argument extra_python_files", value=extra_python_files, expected_type=type_hints["extra_python_files"])
             check_type(argname="argument job_run_queuing_enabled", value=job_run_queuing_enabled, expected_type=type_hints["job_run_queuing_enabled"])
             check_type(argname="argument max_capacity", value=max_capacity, expected_type=type_hints["max_capacity"])
@@ -8247,8 +8119,6 @@ class PythonShellJobProps(JobProps):
             self._values["default_arguments"] = default_arguments
         if description is not None:
             self._values["description"] = description
-        if enable_profiling_metrics is not None:
-            self._values["enable_profiling_metrics"] = enable_profiling_metrics
         if glue_version is not None:
             self._values["glue_version"] = glue_version
         if job_name is not None:
@@ -8257,16 +8127,12 @@ class PythonShellJobProps(JobProps):
             self._values["max_concurrent_runs"] = max_concurrent_runs
         if max_retries is not None:
             self._values["max_retries"] = max_retries
-        if number_of_workers is not None:
-            self._values["number_of_workers"] = number_of_workers
         if security_configuration is not None:
             self._values["security_configuration"] = security_configuration
         if tags is not None:
             self._values["tags"] = tags
         if timeout is not None:
             self._values["timeout"] = timeout
-        if worker_type is not None:
-            self._values["worker_type"] = worker_type
         if extra_python_files is not None:
             self._values["extra_python_files"] = extra_python_files
         if job_run_queuing_enabled is not None:
@@ -8358,18 +8224,6 @@ class PythonShellJobProps(JobProps):
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
-    def enable_profiling_metrics(self) -> typing.Optional[builtins.bool]:
-        '''(experimental) Enables the collection of metrics for job profiling.
-
-        :default: - no profiling metrics emitted.
-
-        :see: https://docs.aws.amazon.com/glue/latest/dg/aws-glue-programming-etl-glue-arguments.html
-        :stability: experimental
-        '''
-        result = self._values.get("enable_profiling_metrics")
-        return typing.cast(typing.Optional[builtins.bool], result)
-
-    @builtins.property
     def glue_version(self) -> typing.Optional["GlueVersion"]:
         '''(experimental) Glue Version The version of Glue to use to execute this job.
 
@@ -8417,17 +8271,6 @@ class PythonShellJobProps(JobProps):
         return typing.cast(typing.Optional[jsii.Number], result)
 
     @builtins.property
-    def number_of_workers(self) -> typing.Optional[jsii.Number]:
-        '''(experimental) Number of Workers (optional) Number of workers for Glue to use during job execution.
-
-        :default: 10
-
-        :stability: experimental
-        '''
-        result = self._values.get("number_of_workers")
-        return typing.cast(typing.Optional[jsii.Number], result)
-
-    @builtins.property
     def security_configuration(self) -> typing.Optional["ISecurityConfiguration"]:
         '''(experimental) Security Configuration (optional) Defines the encryption options for the Glue job.
 
@@ -8461,19 +8304,6 @@ class PythonShellJobProps(JobProps):
         '''
         result = self._values.get("timeout")
         return typing.cast(typing.Optional["_aws_cdk_ceddda9d.Duration"], result)
-
-    @builtins.property
-    def worker_type(self) -> typing.Optional["WorkerType"]:
-        '''(experimental) Worker Type (optional) Type of Worker for Glue to use during job execution Enum options: Standard, G_1X, G_2X, G_025X.
-
-        G_4X, G_8X, Z_2X
-
-        :default: WorkerType.G_1X
-
-        :stability: experimental
-        '''
-        result = self._values.get("worker_type")
-        return typing.cast(typing.Optional["WorkerType"], result)
 
     @builtins.property
     def extra_python_files(self) -> typing.Optional[typing.List["Code"]]:
@@ -8560,14 +8390,13 @@ class PythonVersion(enum.Enum):
         glue.PythonShellJob(stack, "PythonShellJob",
             job_name="PythonShellJobCustomName",
             description="This is a description",
-            python_version=glue.PythonVersion.TWO,
+            python_version=glue.PythonVersion.THREE_NINE,
             max_capacity=glue.MaxCapacity.DPU_1,
             role=role,
             script=script,
             extra_python_files=[extra_python_file],
-            glue_version=glue.GlueVersion.V2_0,
+            glue_version=glue.GlueVersion.V3_0,
             continuous_logging=glue.ContinuousLoggingProps(enabled=False),
-            worker_type=glue.WorkerType.G_2X,
             max_concurrent_runs=100,
             timeout=cdk.Duration.hours(2),
             connections=[glue.Connection.from_connection_name(stack, "Connection", "connectionName")],
@@ -8577,7 +8406,6 @@ class PythonVersion(enum.Enum):
                 "SecondTagName": "SecondTagValue",
                 "XTagName": "XTagValue"
             },
-            number_of_workers=2,
             max_retries=2
         )
     '''
@@ -8609,19 +8437,17 @@ class PythonVersion(enum.Enum):
         "continuous_logging": "continuousLogging",
         "default_arguments": "defaultArguments",
         "description": "description",
-        "enable_profiling_metrics": "enableProfilingMetrics",
         "glue_version": "glueVersion",
         "job_name": "jobName",
         "max_concurrent_runs": "maxConcurrentRuns",
         "max_retries": "maxRetries",
-        "number_of_workers": "numberOfWorkers",
         "security_configuration": "securityConfiguration",
         "tags": "tags",
         "timeout": "timeout",
-        "worker_type": "workerType",
         "enable_metrics": "enableMetrics",
         "enable_observability_metrics": "enableObservabilityMetrics",
         "job_run_queuing_enabled": "jobRunQueuingEnabled",
+        "number_of_workers": "numberOfWorkers",
         "runtime": "runtime",
     },
 )
@@ -8635,19 +8461,17 @@ class RayJobProps(JobProps):
         continuous_logging: typing.Optional[typing.Union["ContinuousLoggingProps", typing.Dict[builtins.str, typing.Any]]] = None,
         default_arguments: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
         description: typing.Optional[builtins.str] = None,
-        enable_profiling_metrics: typing.Optional[builtins.bool] = None,
         glue_version: typing.Optional["GlueVersion"] = None,
         job_name: typing.Optional[builtins.str] = None,
         max_concurrent_runs: typing.Optional[jsii.Number] = None,
         max_retries: typing.Optional[jsii.Number] = None,
-        number_of_workers: typing.Optional[jsii.Number] = None,
         security_configuration: typing.Optional["ISecurityConfiguration"] = None,
         tags: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
         timeout: typing.Optional["_aws_cdk_ceddda9d.Duration"] = None,
-        worker_type: typing.Optional["WorkerType"] = None,
         enable_metrics: typing.Optional[builtins.bool] = None,
         enable_observability_metrics: typing.Optional[builtins.bool] = None,
         job_run_queuing_enabled: typing.Optional[builtins.bool] = None,
+        number_of_workers: typing.Optional[jsii.Number] = None,
         runtime: typing.Optional["Runtime"] = None,
     ) -> None:
         '''(deprecated) Properties for creating a Ray Glue job.
@@ -8658,19 +8482,17 @@ class RayJobProps(JobProps):
         :param continuous_logging: (experimental) Enables continuous logging with the specified props. Default: - continuous logging is enabled.
         :param default_arguments: (experimental) Default Arguments (optional) The default arguments for every run of this Glue job, specified as name-value pairs. These are emitted verbatim into the CloudFormation template, so avoid placing secrets here in plaintext. Pass secrets to the job at runtime through AWS Secrets Manager instead. A synthesis-time warning is emitted when an argument key looks like a credential and holds a plaintext literal. Default: - no arguments
         :param description: (experimental) Description (optional) Developer-specified description of the Glue job. Default: - no value
-        :param enable_profiling_metrics: (experimental) Enables the collection of metrics for job profiling. Default: - no profiling metrics emitted.
         :param glue_version: (experimental) Glue Version The version of Glue to use to execute this job. Default: 3.0 for ETL
         :param job_name: (experimental) Name of the Glue job (optional) Developer-specified name of the Glue job. Default: - a name is automatically generated
         :param max_concurrent_runs: (experimental) Max Concurrent Runs (optional) The maximum number of runs this Glue job can concurrently run. An error is returned when this threshold is reached. The maximum value you can specify is controlled by a service limit. Default: 1
         :param max_retries: (experimental) Max Retries (optional) Maximum number of retry attempts Glue performs if the job fails. Default: 0
-        :param number_of_workers: (experimental) Number of Workers (optional) Number of workers for Glue to use during job execution. Default: 10
         :param security_configuration: (experimental) Security Configuration (optional) Defines the encryption options for the Glue job. Default: - no security configuration.
         :param tags: (experimental) Tags (optional) A list of key:value pairs of tags to apply to this Glue job resources. Default: {} - no tags
         :param timeout: (experimental) Timeout (optional) The maximum time that a job run can consume resources before it is terminated and enters TIMEOUT status. Specified in minutes. Default: 2880 (2 days for non-streaming)
-        :param worker_type: (experimental) Worker Type (optional) Type of Worker for Glue to use during job execution Enum options: Standard, G_1X, G_2X, G_025X. G_4X, G_8X, Z_2X Default: WorkerType.G_1X
         :param enable_metrics: (deprecated) Enable profiling metrics for the Glue job. When enabled, adds '--enable-metrics' to job arguments. Default: true
         :param enable_observability_metrics: (deprecated) Enable observability metrics for the Glue job. When enabled, adds '--enable-observability-metrics': 'true' to job arguments. Default: true
         :param job_run_queuing_enabled: (deprecated) Specifies whether job run queuing is enabled for the job runs for this job. A value of true means job run queuing is enabled for the job runs. If false or not populated, the job runs will not be considered for queueing. If this field does not match the value set in the job run, then the value from the job run field will be used. This property must be set to false for flex jobs. If this property is enabled, maxRetries must be set to zero. Default: - no job run queuing
+        :param number_of_workers: (deprecated) The number of workers allocated when a job runs. Ray jobs only support the Z.2X worker type, so the worker type is not configurable. Default: 3
         :param runtime: (deprecated) Sets the Ray runtime environment version. Default: - Runtime version will default to Ray2.4
 
         :deprecated:
@@ -8718,7 +8540,6 @@ class RayJobProps(JobProps):
                 description="description",
                 enable_metrics=False,
                 enable_observability_metrics=False,
-                enable_profiling_metrics=False,
                 glue_version=glue_alpha.GlueVersion.V0_9,
                 job_name="jobName",
                 job_run_queuing_enabled=False,
@@ -8730,8 +8551,7 @@ class RayJobProps(JobProps):
                 tags={
                     "tags_key": "tags"
                 },
-                timeout=cdk.Duration.minutes(30),
-                worker_type=glue_alpha.WorkerType.STANDARD
+                timeout=cdk.Duration.minutes(30)
             )
         '''
         if isinstance(continuous_logging, dict):
@@ -8744,19 +8564,17 @@ class RayJobProps(JobProps):
             check_type(argname="argument continuous_logging", value=continuous_logging, expected_type=type_hints["continuous_logging"])
             check_type(argname="argument default_arguments", value=default_arguments, expected_type=type_hints["default_arguments"])
             check_type(argname="argument description", value=description, expected_type=type_hints["description"])
-            check_type(argname="argument enable_profiling_metrics", value=enable_profiling_metrics, expected_type=type_hints["enable_profiling_metrics"])
             check_type(argname="argument glue_version", value=glue_version, expected_type=type_hints["glue_version"])
             check_type(argname="argument job_name", value=job_name, expected_type=type_hints["job_name"])
             check_type(argname="argument max_concurrent_runs", value=max_concurrent_runs, expected_type=type_hints["max_concurrent_runs"])
             check_type(argname="argument max_retries", value=max_retries, expected_type=type_hints["max_retries"])
-            check_type(argname="argument number_of_workers", value=number_of_workers, expected_type=type_hints["number_of_workers"])
             check_type(argname="argument security_configuration", value=security_configuration, expected_type=type_hints["security_configuration"])
             check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
             check_type(argname="argument timeout", value=timeout, expected_type=type_hints["timeout"])
-            check_type(argname="argument worker_type", value=worker_type, expected_type=type_hints["worker_type"])
             check_type(argname="argument enable_metrics", value=enable_metrics, expected_type=type_hints["enable_metrics"])
             check_type(argname="argument enable_observability_metrics", value=enable_observability_metrics, expected_type=type_hints["enable_observability_metrics"])
             check_type(argname="argument job_run_queuing_enabled", value=job_run_queuing_enabled, expected_type=type_hints["job_run_queuing_enabled"])
+            check_type(argname="argument number_of_workers", value=number_of_workers, expected_type=type_hints["number_of_workers"])
             check_type(argname="argument runtime", value=runtime, expected_type=type_hints["runtime"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
             "role": role,
@@ -8770,8 +8588,6 @@ class RayJobProps(JobProps):
             self._values["default_arguments"] = default_arguments
         if description is not None:
             self._values["description"] = description
-        if enable_profiling_metrics is not None:
-            self._values["enable_profiling_metrics"] = enable_profiling_metrics
         if glue_version is not None:
             self._values["glue_version"] = glue_version
         if job_name is not None:
@@ -8780,22 +8596,20 @@ class RayJobProps(JobProps):
             self._values["max_concurrent_runs"] = max_concurrent_runs
         if max_retries is not None:
             self._values["max_retries"] = max_retries
-        if number_of_workers is not None:
-            self._values["number_of_workers"] = number_of_workers
         if security_configuration is not None:
             self._values["security_configuration"] = security_configuration
         if tags is not None:
             self._values["tags"] = tags
         if timeout is not None:
             self._values["timeout"] = timeout
-        if worker_type is not None:
-            self._values["worker_type"] = worker_type
         if enable_metrics is not None:
             self._values["enable_metrics"] = enable_metrics
         if enable_observability_metrics is not None:
             self._values["enable_observability_metrics"] = enable_observability_metrics
         if job_run_queuing_enabled is not None:
             self._values["job_run_queuing_enabled"] = job_run_queuing_enabled
+        if number_of_workers is not None:
+            self._values["number_of_workers"] = number_of_workers
         if runtime is not None:
             self._values["runtime"] = runtime
 
@@ -8881,18 +8695,6 @@ class RayJobProps(JobProps):
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
-    def enable_profiling_metrics(self) -> typing.Optional[builtins.bool]:
-        '''(experimental) Enables the collection of metrics for job profiling.
-
-        :default: - no profiling metrics emitted.
-
-        :see: https://docs.aws.amazon.com/glue/latest/dg/aws-glue-programming-etl-glue-arguments.html
-        :stability: experimental
-        '''
-        result = self._values.get("enable_profiling_metrics")
-        return typing.cast(typing.Optional[builtins.bool], result)
-
-    @builtins.property
     def glue_version(self) -> typing.Optional["GlueVersion"]:
         '''(experimental) Glue Version The version of Glue to use to execute this job.
 
@@ -8940,17 +8742,6 @@ class RayJobProps(JobProps):
         return typing.cast(typing.Optional[jsii.Number], result)
 
     @builtins.property
-    def number_of_workers(self) -> typing.Optional[jsii.Number]:
-        '''(experimental) Number of Workers (optional) Number of workers for Glue to use during job execution.
-
-        :default: 10
-
-        :stability: experimental
-        '''
-        result = self._values.get("number_of_workers")
-        return typing.cast(typing.Optional[jsii.Number], result)
-
-    @builtins.property
     def security_configuration(self) -> typing.Optional["ISecurityConfiguration"]:
         '''(experimental) Security Configuration (optional) Defines the encryption options for the Glue job.
 
@@ -8984,19 +8775,6 @@ class RayJobProps(JobProps):
         '''
         result = self._values.get("timeout")
         return typing.cast(typing.Optional["_aws_cdk_ceddda9d.Duration"], result)
-
-    @builtins.property
-    def worker_type(self) -> typing.Optional["WorkerType"]:
-        '''(experimental) Worker Type (optional) Type of Worker for Glue to use during job execution Enum options: Standard, G_1X, G_2X, G_025X.
-
-        G_4X, G_8X, Z_2X
-
-        :default: WorkerType.G_1X
-
-        :stability: experimental
-        '''
-        result = self._values.get("worker_type")
-        return typing.cast(typing.Optional["WorkerType"], result)
 
     @builtins.property
     def enable_metrics(self) -> typing.Optional[builtins.bool]:
@@ -9040,6 +8818,19 @@ class RayJobProps(JobProps):
         '''
         result = self._values.get("job_run_queuing_enabled")
         return typing.cast(typing.Optional[builtins.bool], result)
+
+    @builtins.property
+    def number_of_workers(self) -> typing.Optional[jsii.Number]:
+        '''(deprecated) The number of workers allocated when a job runs.
+
+        Ray jobs only support the Z.2X worker type, so the worker type is not configurable.
+
+        :default: 3
+
+        :stability: deprecated
+        '''
+        result = self._values.get("number_of_workers")
+        return typing.cast(typing.Optional[jsii.Number], result)
 
     @builtins.property
     def runtime(self) -> typing.Optional["Runtime"]:
@@ -9139,83 +8930,55 @@ class S3Code(Code, metaclass=jsii.JSIIMeta, jsii_type="@aws-cdk/aws-glue-alpha.S
         return typing.cast("CodeConfig", jsii.invoke(self, "bind", [_scope, grantable]))
 
 
-@jsii.data_type(
+class S3Encryption(
+    metaclass=jsii.JSIIMeta,
     jsii_type="@aws-cdk/aws-glue-alpha.S3Encryption",
-    jsii_struct_bases=[],
-    name_mapping={"mode": "mode", "kms_key": "kmsKey"},
-)
-class S3Encryption:
-    def __init__(
-        self,
-        *,
-        mode: "S3EncryptionMode",
+):
+    '''(experimental) S3 encryption configuration for a ``SecurityConfiguration``.
+
+    Use {@link S3Encryption.s3Managed} for SSE-S3 or {@link S3Encryption.kms} for
+    SSE-KMS. Because these are separate factories, a KMS key can never be paired
+    with S3-managed encryption.
+
+    :stability: experimental
+    :exampleMetadata: infused
+
+    Example::
+
+        glue.SecurityConfiguration(self, "MySecurityConfiguration",
+            cloud_watch_encryption=glue.CloudWatchEncryption.kms(),
+            job_bookmarks_encryption=glue.JobBookmarksEncryption.client_side_kms(),
+            s3_encryption=glue.S3Encryption.kms()
+        )
+    '''
+
+    @jsii.member(jsii_name="kms")
+    @builtins.classmethod
+    def kms(
+        cls,
         kms_key: typing.Optional["_aws_cdk_interfaces_aws_kms_ceddda9d.IKeyRef"] = None,
-    ) -> None:
-        '''(experimental) S3 encryption configuration.
+    ) -> "S3Encryption":
+        '''(experimental) Server-side encryption (SSE) with an AWS KMS key managed by the account owner.
 
-        :param mode: (experimental) Encryption mode.
-        :param kms_key: (experimental) The KMS key to be used to encrypt the data. Default: no kms key if mode = S3_MANAGED. A key will be created if one is not provided and mode = KMS.
+        :param kms_key: the KMS key used to encrypt the data. A key is created if one is not provided.
 
+        :see: https://docs.aws.amazon.com/AmazonS3/latest/dev/UsingKMSEncryption.html
         :stability: experimental
-        :exampleMetadata: infused
-
-        Example::
-
-            glue.SecurityConfiguration(self, "MySecurityConfiguration",
-                cloud_watch_encryption=glue.CloudWatchEncryption(
-                    mode=glue.CloudWatchEncryptionMode.KMS
-                ),
-                job_bookmarks_encryption=glue.JobBookmarksEncryption(
-                    mode=glue.JobBookmarksEncryptionMode.CLIENT_SIDE_KMS
-                ),
-                s3_encryption=glue.S3Encryption(
-                    mode=glue.S3EncryptionMode.KMS
-                )
-            )
         '''
         if __debug__:
-            type_hints = cached_type_hints(_typecheckingstub__d972222b3b5c087e70a7ab859853e97f1579eeee2ede763d551c41d4076f740e)
-            check_type(argname="argument mode", value=mode, expected_type=type_hints["mode"])
+            type_hints = cached_type_hints(_typecheckingstub__5966825f76b0928b999155cb9520d466beb9558e71e26ce21f86c25f88507e5a)
             check_type(argname="argument kms_key", value=kms_key, expected_type=type_hints["kms_key"])
-        self._values: typing.Dict[builtins.str, typing.Any] = {
-            "mode": mode,
-        }
-        if kms_key is not None:
-            self._values["kms_key"] = kms_key
+        return typing.cast("S3Encryption", jsii.sinvoke(cls, "kms", [kms_key]))
 
-    @builtins.property
-    def mode(self) -> "S3EncryptionMode":
-        '''(experimental) Encryption mode.
+    @jsii.member(jsii_name="s3Managed")
+    @builtins.classmethod
+    def s3_managed(cls) -> "S3Encryption":
+        '''(experimental) Server-side encryption (SSE) with an Amazon S3-managed key.
 
+        :see: https://docs.aws.amazon.com/AmazonS3/latest/dev/UsingServerSideEncryption.html
         :stability: experimental
         '''
-        result = self._values.get("mode")
-        assert result is not None, "Required property 'mode' is missing"
-        return typing.cast("S3EncryptionMode", result)
-
-    @builtins.property
-    def kms_key(
-        self,
-    ) -> typing.Optional["_aws_cdk_interfaces_aws_kms_ceddda9d.IKeyRef"]:
-        '''(experimental) The KMS key to be used to encrypt the data.
-
-        :default: no kms key if mode = S3_MANAGED. A key will be created if one is not provided and mode = KMS.
-
-        :stability: experimental
-        '''
-        result = self._values.get("kms_key")
-        return typing.cast(typing.Optional["_aws_cdk_interfaces_aws_kms_ceddda9d.IKeyRef"], result)
-
-    def __eq__(self, rhs: typing.Any) -> builtins.bool:
-        return isinstance(rhs, self.__class__) and rhs._values == self._values
-
-    def __ne__(self, rhs: typing.Any) -> builtins.bool:
-        return not (rhs == self)
-
-    def __repr__(self) -> str:
-        return "S3Encryption(%s)" % ", ".join(
-            k + "=" + repr(v) for k, v in self._values.items()
-        )
+        return typing.cast("S3Encryption", jsii.sinvoke(cls, "s3Managed", []))
 
 
 @jsii.enum(jsii_type="@aws-cdk/aws-glue-alpha.S3EncryptionMode")
@@ -9224,21 +8987,6 @@ class S3EncryptionMode(enum.Enum):
 
     :see: https://docs.aws.amazon.com/glue/latest/webapi/API_S3Encryption.html#Glue-Type-S3Encryption-S3EncryptionMode
     :stability: experimental
-    :exampleMetadata: infused
-
-    Example::
-
-        glue.SecurityConfiguration(self, "MySecurityConfiguration",
-            cloud_watch_encryption=glue.CloudWatchEncryption(
-                mode=glue.CloudWatchEncryptionMode.KMS
-            ),
-            job_bookmarks_encryption=glue.JobBookmarksEncryption(
-                mode=glue.JobBookmarksEncryptionMode.CLIENT_SIDE_KMS
-            ),
-            s3_encryption=glue.S3Encryption(
-                mode=glue.S3EncryptionMode.KMS
-            )
-        )
     '''
 
     S3_MANAGED = "S3_MANAGED"
@@ -9268,21 +9016,18 @@ class Schema(metaclass=jsii.JSIIMeta, jsii_type="@aws-cdk/aws-glue-alpha.Schema"
         glue.S3Table(self, "MyTable",
             database=my_database,
             columns=[glue.Column(
-                name="data",
+                name="col1",
                 type=glue.Schema.STRING
             )],
             partition_keys=[glue.Column(
-                name="date",
-                type=glue.Schema.STRING
+                name="year",
+                type=glue.Schema.SMALL_INT
+            ), glue.Column(
+                name="month",
+                type=glue.Schema.SMALL_INT
             )],
             data_format=glue.DataFormat.JSON,
-            partition_projection={
-                "date": glue.PartitionProjectionConfiguration.date(
-                    min="NOW-3YEARS",
-                    max="NOW",
-                    format="yyyy-MM-dd"
-                )
-            }
+            enable_partition_filtering=True
         )
     '''
 
@@ -9531,7 +9276,10 @@ class SecurityConfiguration(
             script=script,
             glue_version=glue.GlueVersion.V5_1,
             continuous_logging=glue.ContinuousLoggingProps(enabled=False),
-            worker_type=glue.WorkerType.G_2X,
+            worker_configuration=glue.WorkerConfiguration(
+                worker_type=glue.WorkerType.G_2X,
+                number_of_workers=2
+            ),
             max_concurrent_runs=100,
             timeout=cdk.Duration.hours(2),
             connections=[glue.Connection.from_connection_name(stack, "Connection", "connectionName")],
@@ -9541,7 +9289,6 @@ class SecurityConfiguration(
                 "SecondTagName": "SecondTagValue",
                 "XTagName": "XTagValue"
             },
-            number_of_workers=2,
             max_retries=2
         )
     '''
@@ -9551,10 +9298,10 @@ class SecurityConfiguration(
         scope: "_constructs_77d1e7e8.Construct",
         id: builtins.str,
         *,
-        cloud_watch_encryption: typing.Optional[typing.Union["CloudWatchEncryption", typing.Dict[builtins.str, typing.Any]]] = None,
-        job_bookmarks_encryption: typing.Optional[typing.Union["JobBookmarksEncryption", typing.Dict[builtins.str, typing.Any]]] = None,
+        cloud_watch_encryption: typing.Optional["CloudWatchEncryption"] = None,
+        job_bookmarks_encryption: typing.Optional["JobBookmarksEncryption"] = None,
         removal_policy: typing.Optional["_aws_cdk_ceddda9d.RemovalPolicy"] = None,
-        s3_encryption: typing.Optional[typing.Union["S3Encryption", typing.Dict[builtins.str, typing.Any]]] = None,
+        s3_encryption: typing.Optional["S3Encryption"] = None,
         security_configuration_name: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
@@ -9672,10 +9419,10 @@ class SecurityConfigurationProps:
     def __init__(
         self,
         *,
-        cloud_watch_encryption: typing.Optional[typing.Union["CloudWatchEncryption", typing.Dict[builtins.str, typing.Any]]] = None,
-        job_bookmarks_encryption: typing.Optional[typing.Union["JobBookmarksEncryption", typing.Dict[builtins.str, typing.Any]]] = None,
+        cloud_watch_encryption: typing.Optional["CloudWatchEncryption"] = None,
+        job_bookmarks_encryption: typing.Optional["JobBookmarksEncryption"] = None,
         removal_policy: typing.Optional["_aws_cdk_ceddda9d.RemovalPolicy"] = None,
-        s3_encryption: typing.Optional[typing.Union["S3Encryption", typing.Dict[builtins.str, typing.Any]]] = None,
+        s3_encryption: typing.Optional["S3Encryption"] = None,
         security_configuration_name: typing.Optional[builtins.str] = None,
     ) -> None:
         '''(experimental) Constructions properties of ``SecurityConfiguration``.
@@ -9692,23 +9439,11 @@ class SecurityConfigurationProps:
         Example::
 
             glue.SecurityConfiguration(self, "MySecurityConfiguration",
-                cloud_watch_encryption=glue.CloudWatchEncryption(
-                    mode=glue.CloudWatchEncryptionMode.KMS
-                ),
-                job_bookmarks_encryption=glue.JobBookmarksEncryption(
-                    mode=glue.JobBookmarksEncryptionMode.CLIENT_SIDE_KMS
-                ),
-                s3_encryption=glue.S3Encryption(
-                    mode=glue.S3EncryptionMode.KMS
-                )
+                cloud_watch_encryption=glue.CloudWatchEncryption.kms(),
+                job_bookmarks_encryption=glue.JobBookmarksEncryption.client_side_kms(),
+                s3_encryption=glue.S3Encryption.kms()
             )
         '''
-        if isinstance(cloud_watch_encryption, dict):
-            cloud_watch_encryption = CloudWatchEncryption(**cloud_watch_encryption)
-        if isinstance(job_bookmarks_encryption, dict):
-            job_bookmarks_encryption = JobBookmarksEncryption(**job_bookmarks_encryption)
-        if isinstance(s3_encryption, dict):
-            s3_encryption = S3Encryption(**s3_encryption)
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__3b8dd2838cd56b87c144ac347e4b66a78dd0c85a6196f1282adce12bd2e94f36)
             check_type(argname="argument cloud_watch_encryption", value=cloud_watch_encryption, expected_type=type_hints["cloud_watch_encryption"])
@@ -10052,19 +9787,17 @@ class SparkExtraCodeProps:
         "continuous_logging": "continuousLogging",
         "default_arguments": "defaultArguments",
         "description": "description",
-        "enable_profiling_metrics": "enableProfilingMetrics",
         "glue_version": "glueVersion",
         "job_name": "jobName",
         "max_concurrent_runs": "maxConcurrentRuns",
         "max_retries": "maxRetries",
-        "number_of_workers": "numberOfWorkers",
         "security_configuration": "securityConfiguration",
         "tags": "tags",
         "timeout": "timeout",
-        "worker_type": "workerType",
         "enable_metrics": "enableMetrics",
         "enable_observability_metrics": "enableObservabilityMetrics",
         "spark_ui": "sparkUI",
+        "worker_configuration": "workerConfiguration",
     },
 )
 class SparkJobProps(JobProps):
@@ -10077,19 +9810,17 @@ class SparkJobProps(JobProps):
         continuous_logging: typing.Optional[typing.Union["ContinuousLoggingProps", typing.Dict[builtins.str, typing.Any]]] = None,
         default_arguments: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
         description: typing.Optional[builtins.str] = None,
-        enable_profiling_metrics: typing.Optional[builtins.bool] = None,
         glue_version: typing.Optional["GlueVersion"] = None,
         job_name: typing.Optional[builtins.str] = None,
         max_concurrent_runs: typing.Optional[jsii.Number] = None,
         max_retries: typing.Optional[jsii.Number] = None,
-        number_of_workers: typing.Optional[jsii.Number] = None,
         security_configuration: typing.Optional["ISecurityConfiguration"] = None,
         tags: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
         timeout: typing.Optional["_aws_cdk_ceddda9d.Duration"] = None,
-        worker_type: typing.Optional["WorkerType"] = None,
         enable_metrics: typing.Optional[builtins.bool] = None,
         enable_observability_metrics: typing.Optional[builtins.bool] = None,
         spark_ui: typing.Optional[typing.Union["SparkUIProps", typing.Dict[builtins.str, typing.Any]]] = None,
+        worker_configuration: typing.Optional[typing.Union["WorkerConfiguration", typing.Dict[builtins.str, typing.Any]]] = None,
     ) -> None:
         '''(experimental) Common properties for different types of Spark jobs.
 
@@ -10099,19 +9830,17 @@ class SparkJobProps(JobProps):
         :param continuous_logging: (experimental) Enables continuous logging with the specified props. Default: - continuous logging is enabled.
         :param default_arguments: (experimental) Default Arguments (optional) The default arguments for every run of this Glue job, specified as name-value pairs. These are emitted verbatim into the CloudFormation template, so avoid placing secrets here in plaintext. Pass secrets to the job at runtime through AWS Secrets Manager instead. A synthesis-time warning is emitted when an argument key looks like a credential and holds a plaintext literal. Default: - no arguments
         :param description: (experimental) Description (optional) Developer-specified description of the Glue job. Default: - no value
-        :param enable_profiling_metrics: (experimental) Enables the collection of metrics for job profiling. Default: - no profiling metrics emitted.
         :param glue_version: (experimental) Glue Version The version of Glue to use to execute this job. Default: 3.0 for ETL
         :param job_name: (experimental) Name of the Glue job (optional) Developer-specified name of the Glue job. Default: - a name is automatically generated
         :param max_concurrent_runs: (experimental) Max Concurrent Runs (optional) The maximum number of runs this Glue job can concurrently run. An error is returned when this threshold is reached. The maximum value you can specify is controlled by a service limit. Default: 1
         :param max_retries: (experimental) Max Retries (optional) Maximum number of retry attempts Glue performs if the job fails. Default: 0
-        :param number_of_workers: (experimental) Number of Workers (optional) Number of workers for Glue to use during job execution. Default: 10
         :param security_configuration: (experimental) Security Configuration (optional) Defines the encryption options for the Glue job. Default: - no security configuration.
         :param tags: (experimental) Tags (optional) A list of key:value pairs of tags to apply to this Glue job resources. Default: {} - no tags
         :param timeout: (experimental) Timeout (optional) The maximum time that a job run can consume resources before it is terminated and enters TIMEOUT status. Specified in minutes. Default: 2880 (2 days for non-streaming)
-        :param worker_type: (experimental) Worker Type (optional) Type of Worker for Glue to use during job execution Enum options: Standard, G_1X, G_2X, G_025X. G_4X, G_8X, Z_2X Default: WorkerType.G_1X
         :param enable_metrics: (experimental) Enable profiling metrics for the Glue job. When enabled, adds '--enable-metrics' to job arguments. Default: true
         :param enable_observability_metrics: (experimental) Enable observability metrics for the Glue job. When enabled, adds '--enable-observability-metrics': 'true' to job arguments. Default: true
         :param spark_ui: (experimental) Enables the Spark UI debugging and monitoring with the specified props. Default: - Spark UI debugging and monitoring is disabled.
+        :param worker_configuration: (experimental) The worker type and the number of workers allocated when a job runs. Default: - the job runs with the G_1X worker type and 10 workers.
 
         :stability: experimental
         :exampleMetadata: fixture=_generated
@@ -10154,12 +9883,10 @@ class SparkJobProps(JobProps):
                 description="description",
                 enable_metrics=False,
                 enable_observability_metrics=False,
-                enable_profiling_metrics=False,
                 glue_version=glue_alpha.GlueVersion.V0_9,
                 job_name="jobName",
                 max_concurrent_runs=123,
                 max_retries=123,
-                number_of_workers=123,
                 security_configuration=security_configuration,
                 spark_ui=glue_alpha.SparkUIProps(
                     bucket=bucket,
@@ -10169,13 +9896,18 @@ class SparkJobProps(JobProps):
                     "tags_key": "tags"
                 },
                 timeout=cdk.Duration.minutes(30),
-                worker_type=glue_alpha.WorkerType.STANDARD
+                worker_configuration=glue_alpha.WorkerConfiguration(
+                    number_of_workers=123,
+                    worker_type=glue_alpha.WorkerType.STANDARD
+                )
             )
         '''
         if isinstance(continuous_logging, dict):
             continuous_logging = ContinuousLoggingProps(**continuous_logging)
         if isinstance(spark_ui, dict):
             spark_ui = SparkUIProps(**spark_ui)
+        if isinstance(worker_configuration, dict):
+            worker_configuration = WorkerConfiguration(**worker_configuration)
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__2ffa813def4de32811719999bd6b7dba325e92cf2f2ca903cddce94612be51a0)
             check_type(argname="argument role", value=role, expected_type=type_hints["role"])
@@ -10184,19 +9916,17 @@ class SparkJobProps(JobProps):
             check_type(argname="argument continuous_logging", value=continuous_logging, expected_type=type_hints["continuous_logging"])
             check_type(argname="argument default_arguments", value=default_arguments, expected_type=type_hints["default_arguments"])
             check_type(argname="argument description", value=description, expected_type=type_hints["description"])
-            check_type(argname="argument enable_profiling_metrics", value=enable_profiling_metrics, expected_type=type_hints["enable_profiling_metrics"])
             check_type(argname="argument glue_version", value=glue_version, expected_type=type_hints["glue_version"])
             check_type(argname="argument job_name", value=job_name, expected_type=type_hints["job_name"])
             check_type(argname="argument max_concurrent_runs", value=max_concurrent_runs, expected_type=type_hints["max_concurrent_runs"])
             check_type(argname="argument max_retries", value=max_retries, expected_type=type_hints["max_retries"])
-            check_type(argname="argument number_of_workers", value=number_of_workers, expected_type=type_hints["number_of_workers"])
             check_type(argname="argument security_configuration", value=security_configuration, expected_type=type_hints["security_configuration"])
             check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
             check_type(argname="argument timeout", value=timeout, expected_type=type_hints["timeout"])
-            check_type(argname="argument worker_type", value=worker_type, expected_type=type_hints["worker_type"])
             check_type(argname="argument enable_metrics", value=enable_metrics, expected_type=type_hints["enable_metrics"])
             check_type(argname="argument enable_observability_metrics", value=enable_observability_metrics, expected_type=type_hints["enable_observability_metrics"])
             check_type(argname="argument spark_ui", value=spark_ui, expected_type=type_hints["spark_ui"])
+            check_type(argname="argument worker_configuration", value=worker_configuration, expected_type=type_hints["worker_configuration"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
             "role": role,
             "script": script,
@@ -10209,8 +9939,6 @@ class SparkJobProps(JobProps):
             self._values["default_arguments"] = default_arguments
         if description is not None:
             self._values["description"] = description
-        if enable_profiling_metrics is not None:
-            self._values["enable_profiling_metrics"] = enable_profiling_metrics
         if glue_version is not None:
             self._values["glue_version"] = glue_version
         if job_name is not None:
@@ -10219,22 +9947,20 @@ class SparkJobProps(JobProps):
             self._values["max_concurrent_runs"] = max_concurrent_runs
         if max_retries is not None:
             self._values["max_retries"] = max_retries
-        if number_of_workers is not None:
-            self._values["number_of_workers"] = number_of_workers
         if security_configuration is not None:
             self._values["security_configuration"] = security_configuration
         if tags is not None:
             self._values["tags"] = tags
         if timeout is not None:
             self._values["timeout"] = timeout
-        if worker_type is not None:
-            self._values["worker_type"] = worker_type
         if enable_metrics is not None:
             self._values["enable_metrics"] = enable_metrics
         if enable_observability_metrics is not None:
             self._values["enable_observability_metrics"] = enable_observability_metrics
         if spark_ui is not None:
             self._values["spark_ui"] = spark_ui
+        if worker_configuration is not None:
+            self._values["worker_configuration"] = worker_configuration
 
     @builtins.property
     def role(self) -> "_aws_cdk_aws_iam_ceddda9d.IRole":
@@ -10318,18 +10044,6 @@ class SparkJobProps(JobProps):
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
-    def enable_profiling_metrics(self) -> typing.Optional[builtins.bool]:
-        '''(experimental) Enables the collection of metrics for job profiling.
-
-        :default: - no profiling metrics emitted.
-
-        :see: https://docs.aws.amazon.com/glue/latest/dg/aws-glue-programming-etl-glue-arguments.html
-        :stability: experimental
-        '''
-        result = self._values.get("enable_profiling_metrics")
-        return typing.cast(typing.Optional[builtins.bool], result)
-
-    @builtins.property
     def glue_version(self) -> typing.Optional["GlueVersion"]:
         '''(experimental) Glue Version The version of Glue to use to execute this job.
 
@@ -10377,17 +10091,6 @@ class SparkJobProps(JobProps):
         return typing.cast(typing.Optional[jsii.Number], result)
 
     @builtins.property
-    def number_of_workers(self) -> typing.Optional[jsii.Number]:
-        '''(experimental) Number of Workers (optional) Number of workers for Glue to use during job execution.
-
-        :default: 10
-
-        :stability: experimental
-        '''
-        result = self._values.get("number_of_workers")
-        return typing.cast(typing.Optional[jsii.Number], result)
-
-    @builtins.property
     def security_configuration(self) -> typing.Optional["ISecurityConfiguration"]:
         '''(experimental) Security Configuration (optional) Defines the encryption options for the Glue job.
 
@@ -10421,19 +10124,6 @@ class SparkJobProps(JobProps):
         '''
         result = self._values.get("timeout")
         return typing.cast(typing.Optional["_aws_cdk_ceddda9d.Duration"], result)
-
-    @builtins.property
-    def worker_type(self) -> typing.Optional["WorkerType"]:
-        '''(experimental) Worker Type (optional) Type of Worker for Glue to use during job execution Enum options: Standard, G_1X, G_2X, G_025X.
-
-        G_4X, G_8X, Z_2X
-
-        :default: WorkerType.G_1X
-
-        :stability: experimental
-        '''
-        result = self._values.get("worker_type")
-        return typing.cast(typing.Optional["WorkerType"], result)
 
     @builtins.property
     def enable_metrics(self) -> typing.Optional[builtins.bool]:
@@ -10472,6 +10162,17 @@ class SparkJobProps(JobProps):
         '''
         result = self._values.get("spark_ui")
         return typing.cast(typing.Optional["SparkUIProps"], result)
+
+    @builtins.property
+    def worker_configuration(self) -> typing.Optional["WorkerConfiguration"]:
+        '''(experimental) The worker type and the number of workers allocated when a job runs.
+
+        :default: - the job runs with the G_1X worker type and 10 workers.
+
+        :stability: experimental
+        '''
+        result = self._values.get("worker_configuration")
+        return typing.cast(typing.Optional["WorkerConfiguration"], result)
 
     def __eq__(self, rhs: typing.Any) -> builtins.bool:
         return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -11262,6 +10963,7 @@ class TableBase(
         compressed: typing.Optional[builtins.bool] = None,
         description: typing.Optional[builtins.str] = None,
         enable_partition_filtering: typing.Optional[builtins.bool] = None,
+        has_encrypted_data: typing.Optional[builtins.bool] = None,
         parameters: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
         partition_indexes: typing.Optional[typing.Sequence[typing.Union["PartitionIndex", typing.Dict[builtins.str, typing.Any]]]] = None,
         partition_keys: typing.Optional[typing.Sequence[typing.Union["Column", typing.Dict[builtins.str, typing.Any]]]] = None,
@@ -11279,6 +10981,7 @@ class TableBase(
         :param compressed: (experimental) Indicates whether the table's data is compressed or not. Default: false
         :param description: (experimental) Description of the table. Default: generated
         :param enable_partition_filtering: (experimental) Enables partition filtering. Default: - The parameter is not defined
+        :param has_encrypted_data: (experimental) Whether the data stored in the table is encrypted. This sets the ``has_encrypted_data`` table parameter. Athena reads it when querying client-side (CSE-KMS) encrypted datasets; for server-side encrypted (SSE-S3 / SSE-KMS) or unencrypted data it has no effect, since Amazon S3 decrypts server-side encrypted objects transparently. Do not also set ``has_encrypted_data`` through ``parameters`` - use this property instead. A conflicting value in ``parameters`` is rejected. Default: true
         :param parameters: (experimental) The key/value pairs define properties associated with the table. The key/value pairs that are allowed to be submitted are not limited, however their functionality is not guaranteed. Default: - The parameter is not defined
         :param partition_indexes: (experimental) Partition indexes on the table. A maximum of 3 indexes are allowed on a table. Keys in the index must be part of the table's partition keys. Default: table has no partition indexes
         :param partition_keys: (experimental) Partition columns of the table. Default: table is not partitioned
@@ -11300,6 +11003,7 @@ class TableBase(
             compressed=compressed,
             description=description,
             enable_partition_filtering=enable_partition_filtering,
+            has_encrypted_data=has_encrypted_data,
             parameters=parameters,
             partition_indexes=partition_indexes,
             partition_keys=partition_keys,
@@ -11513,6 +11217,18 @@ class TableBase(
         return typing.cast("DataFormat", jsii.get(self, "dataFormat"))
 
     @builtins.property
+    @jsii.member(jsii_name="hasEncryptedData")
+    def _has_encrypted_data(self) -> builtins.bool:
+        '''(experimental) Whether the data stored in the table is encrypted.
+
+        Emitted as the
+        ``has_encrypted_data`` table parameter.
+
+        :stability: experimental
+        '''
+        return typing.cast(builtins.bool, jsii.get(self, "hasEncryptedData"))
+
+    @builtins.property
     @jsii.member(jsii_name="parameters")
     def _parameters(self) -> typing.Mapping[builtins.str, builtins.str]:
         '''(experimental) The tables' properties associated with the table.
@@ -11683,6 +11399,7 @@ typing.cast(typing.Any, TableBase).__jsii_proxy_class__ = lambda : _TableBasePro
         "compressed": "compressed",
         "description": "description",
         "enable_partition_filtering": "enablePartitionFiltering",
+        "has_encrypted_data": "hasEncryptedData",
         "parameters": "parameters",
         "partition_indexes": "partitionIndexes",
         "partition_keys": "partitionKeys",
@@ -11702,6 +11419,7 @@ class TableBaseProps:
         compressed: typing.Optional[builtins.bool] = None,
         description: typing.Optional[builtins.str] = None,
         enable_partition_filtering: typing.Optional[builtins.bool] = None,
+        has_encrypted_data: typing.Optional[builtins.bool] = None,
         parameters: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
         partition_indexes: typing.Optional[typing.Sequence[typing.Union["PartitionIndex", typing.Dict[builtins.str, typing.Any]]]] = None,
         partition_keys: typing.Optional[typing.Sequence[typing.Union["Column", typing.Dict[builtins.str, typing.Any]]]] = None,
@@ -11717,6 +11435,7 @@ class TableBaseProps:
         :param compressed: (experimental) Indicates whether the table's data is compressed or not. Default: false
         :param description: (experimental) Description of the table. Default: generated
         :param enable_partition_filtering: (experimental) Enables partition filtering. Default: - The parameter is not defined
+        :param has_encrypted_data: (experimental) Whether the data stored in the table is encrypted. This sets the ``has_encrypted_data`` table parameter. Athena reads it when querying client-side (CSE-KMS) encrypted datasets; for server-side encrypted (SSE-S3 / SSE-KMS) or unencrypted data it has no effect, since Amazon S3 decrypts server-side encrypted objects transparently. Do not also set ``has_encrypted_data`` through ``parameters`` - use this property instead. A conflicting value in ``parameters`` is rejected. Default: true
         :param parameters: (experimental) The key/value pairs define properties associated with the table. The key/value pairs that are allowed to be submitted are not limited, however their functionality is not guaranteed. Default: - The parameter is not defined
         :param partition_indexes: (experimental) Partition indexes on the table. A maximum of 3 indexes are allowed on a table. Keys in the index must be part of the table's partition keys. Default: table has no partition indexes
         :param partition_keys: (experimental) Partition columns of the table. Default: table is not partitioned
@@ -11757,6 +11476,7 @@ class TableBaseProps:
                 compressed=False,
                 description="description",
                 enable_partition_filtering=False,
+                has_encrypted_data=False,
                 parameters={
                     "parameters_key": "parameters"
                 },
@@ -11792,6 +11512,7 @@ class TableBaseProps:
             check_type(argname="argument compressed", value=compressed, expected_type=type_hints["compressed"])
             check_type(argname="argument description", value=description, expected_type=type_hints["description"])
             check_type(argname="argument enable_partition_filtering", value=enable_partition_filtering, expected_type=type_hints["enable_partition_filtering"])
+            check_type(argname="argument has_encrypted_data", value=has_encrypted_data, expected_type=type_hints["has_encrypted_data"])
             check_type(argname="argument parameters", value=parameters, expected_type=type_hints["parameters"])
             check_type(argname="argument partition_indexes", value=partition_indexes, expected_type=type_hints["partition_indexes"])
             check_type(argname="argument partition_keys", value=partition_keys, expected_type=type_hints["partition_keys"])
@@ -11810,6 +11531,8 @@ class TableBaseProps:
             self._values["description"] = description
         if enable_partition_filtering is not None:
             self._values["enable_partition_filtering"] = enable_partition_filtering
+        if has_encrypted_data is not None:
+            self._values["has_encrypted_data"] = has_encrypted_data
         if parameters is not None:
             self._values["parameters"] = parameters
         if partition_indexes is not None:
@@ -11887,6 +11610,26 @@ class TableBaseProps:
         :stability: experimental
         '''
         result = self._values.get("enable_partition_filtering")
+        return typing.cast(typing.Optional[builtins.bool], result)
+
+    @builtins.property
+    def has_encrypted_data(self) -> typing.Optional[builtins.bool]:
+        '''(experimental) Whether the data stored in the table is encrypted.
+
+        This sets the ``has_encrypted_data`` table parameter. Athena reads it when
+        querying client-side (CSE-KMS) encrypted datasets; for server-side
+        encrypted (SSE-S3 / SSE-KMS) or unencrypted data it has no effect, since
+        Amazon S3 decrypts server-side encrypted objects transparently.
+
+        Do not also set ``has_encrypted_data`` through ``parameters`` - use this
+        property instead. A conflicting value in ``parameters`` is rejected.
+
+        :default: true
+
+        :see: https://docs.aws.amazon.com/athena/latest/ug/creating-tables-based-on-encrypted-datasets-in-s3.html
+        :stability: experimental
+        '''
+        result = self._values.get("has_encrypted_data")
         return typing.cast(typing.Optional[builtins.bool], result)
 
     @builtins.property
@@ -12299,11 +12042,9 @@ class Type:
                 data_format=glue.DataFormat.JSON,
                 partition_projection={
                     "date": glue.PartitionProjectionConfiguration.date(
-                        min="2020-01-01",
-                        max="2023-12-31",
-                        format="yyyy-MM-dd",
-                        interval=1,  # optional, defaults to 1
-                        interval_unit=glue.DateIntervalUnit.DAYS
+                        min="NOW-3YEARS",
+                        max="NOW",
+                        format="yyyy-MM-dd"
                     )
                 }
             )
@@ -12349,6 +12090,104 @@ class Type:
         )
 
 
+@jsii.data_type(
+    jsii_type="@aws-cdk/aws-glue-alpha.WorkerConfiguration",
+    jsii_struct_bases=[],
+    name_mapping={"number_of_workers": "numberOfWorkers", "worker_type": "workerType"},
+)
+class WorkerConfiguration:
+    def __init__(
+        self,
+        *,
+        number_of_workers: jsii.Number,
+        worker_type: "WorkerType",
+    ) -> None:
+        '''(experimental) The worker configuration for a Spark job.
+
+        The worker type and the number of workers are set together: providing this
+        configuration requires both values, so a Spark job can never be given one
+        without the other.
+
+        :param number_of_workers: (experimental) The number of workers of the given ``workerType`` that are allocated when a job runs.
+        :param worker_type: (experimental) The type of predefined worker that is allocated when a job runs. Enum options: Standard, G_1X, G_2X, G_025X, G_4X, G_8X, Z_2X
+
+        :stability: experimental
+        :exampleMetadata: infused
+
+        Example::
+
+            import aws_cdk as cdk
+            import aws_cdk.aws_iam as iam
+            # stack: cdk.Stack
+            # role: iam.IRole
+            # script: glue.Code
+            
+            glue.PySparkEtlJob(stack, "PySparkETLJob",
+                job_name="PySparkETLJobCustomName",
+                description="This is a description",
+                role=role,
+                script=script,
+                glue_version=glue.GlueVersion.V5_1,
+                continuous_logging=glue.ContinuousLoggingProps(enabled=False),
+                worker_configuration=glue.WorkerConfiguration(
+                    worker_type=glue.WorkerType.G_2X,
+                    number_of_workers=2
+                ),
+                max_concurrent_runs=100,
+                timeout=cdk.Duration.hours(2),
+                connections=[glue.Connection.from_connection_name(stack, "Connection", "connectionName")],
+                security_configuration=glue.SecurityConfiguration.from_security_configuration_name(stack, "SecurityConfig", "securityConfigName"),
+                tags={
+                    "FirstTagName": "FirstTagValue",
+                    "SecondTagName": "SecondTagValue",
+                    "XTagName": "XTagValue"
+                },
+                max_retries=2
+            )
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__4dfa0599b5bdfe6db9b8b208dedc51e7dfa85ba2bdd2bba1e72ee5b02dda8a14)
+            check_type(argname="argument number_of_workers", value=number_of_workers, expected_type=type_hints["number_of_workers"])
+            check_type(argname="argument worker_type", value=worker_type, expected_type=type_hints["worker_type"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "number_of_workers": number_of_workers,
+            "worker_type": worker_type,
+        }
+
+    @builtins.property
+    def number_of_workers(self) -> jsii.Number:
+        '''(experimental) The number of workers of the given ``workerType`` that are allocated when a job runs.
+
+        :stability: experimental
+        '''
+        result = self._values.get("number_of_workers")
+        assert result is not None, "Required property 'number_of_workers' is missing"
+        return typing.cast(jsii.Number, result)
+
+    @builtins.property
+    def worker_type(self) -> "WorkerType":
+        '''(experimental) The type of predefined worker that is allocated when a job runs.
+
+        Enum options: Standard, G_1X, G_2X, G_025X, G_4X, G_8X, Z_2X
+
+        :stability: experimental
+        '''
+        result = self._values.get("worker_type")
+        assert result is not None, "Required property 'worker_type' is missing"
+        return typing.cast("WorkerType", result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "WorkerConfiguration(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
 @jsii.enum(jsii_type="@aws-cdk/aws-glue-alpha.WorkerType")
 class WorkerType(enum.Enum):
     '''(experimental) The type of predefined worker that is allocated when a job runs.
@@ -12371,7 +12210,10 @@ class WorkerType(enum.Enum):
             script=script,
             glue_version=glue.GlueVersion.V5_1,
             continuous_logging=glue.ContinuousLoggingProps(enabled=False),
-            worker_type=glue.WorkerType.G_2X,
+            worker_configuration=glue.WorkerConfiguration(
+                worker_type=glue.WorkerType.G_2X,
+                number_of_workers=2
+            ),
             max_concurrent_runs=100,
             timeout=cdk.Duration.hours(2),
             connections=[glue.Connection.from_connection_name(stack, "Connection", "connectionName")],
@@ -12381,7 +12223,6 @@ class WorkerType(enum.Enum):
                 "SecondTagName": "SecondTagValue",
                 "XTagName": "XTagValue"
             },
-            number_of_workers=2,
             max_retries=2
         )
     '''
@@ -13329,7 +13170,10 @@ class Connection(
             script=script,
             glue_version=glue.GlueVersion.V5_1,
             continuous_logging=glue.ContinuousLoggingProps(enabled=False),
-            worker_type=glue.WorkerType.G_2X,
+            worker_configuration=glue.WorkerConfiguration(
+                worker_type=glue.WorkerType.G_2X,
+                number_of_workers=2
+            ),
             max_concurrent_runs=100,
             timeout=cdk.Duration.hours(2),
             connections=[glue.Connection.from_connection_name(stack, "Connection", "connectionName")],
@@ -13339,7 +13183,6 @@ class Connection(
                 "SecondTagName": "SecondTagValue",
                 "XTagName": "XTagValue"
             },
-            number_of_workers=2,
             max_retries=2
         )
     '''
@@ -13613,29 +13456,14 @@ class DataQualityRuleset(
     '''(experimental) A Glue Data Quality ruleset.
 
     :stability: experimental
-    :exampleMetadata: fixture=_generated
+    :exampleMetadata: infused
 
     Example::
 
-        # The code below shows an example of how to instantiate this type.
-        # The values are placeholders you should change.
-        import aws_cdk.aws_glue_alpha as glue_alpha
-        import aws_cdk as cdk
-        
-        # data_quality_target_table: glue_alpha.DataQualityTargetTable
-        
-        data_quality_ruleset = glue_alpha.DataQualityRuleset(self, "MyDataQualityRuleset",
-            ruleset_dqdl="rulesetDqdl",
-            target_table=data_quality_target_table,
-        
-            # the properties below are optional
-            client_token="clientToken",
-            description="description",
-            removal_policy=cdk.RemovalPolicy.DESTROY,
-            ruleset_name="rulesetName",
-            tags={
-                "tags_key": "tags"
-            }
+        glue.DataQualityRuleset(self, "MyRuleset",
+            ruleset_name="my_ruleset",
+            dqdl=glue.Dqdl.from_string("Rules = [ RowCount > 100, IsComplete \"order_id\" ]"),
+            target_table=glue.DataQualityTargetTable("my_database", "my_table")
         )
     '''
 
@@ -13644,7 +13472,7 @@ class DataQualityRuleset(
         scope: "_constructs_77d1e7e8.Construct",
         id: builtins.str,
         *,
-        ruleset_dqdl: builtins.str,
+        dqdl: "Dqdl",
         target_table: "DataQualityTargetTable",
         client_token: typing.Optional[builtins.str] = None,
         description: typing.Optional[builtins.str] = None,
@@ -13655,7 +13483,7 @@ class DataQualityRuleset(
         '''
         :param scope: -
         :param id: -
-        :param ruleset_dqdl: (experimental) The dqdl of the ruleset.
+        :param dqdl: (experimental) The DQDL document defining the ruleset's data quality rules. Build it with ``Dqdl.fromString(...)``.
         :param target_table: (experimental) The target table of the ruleset.
         :param client_token: (experimental) The client token of the ruleset.
         :param description: (experimental) The description of the ruleset.
@@ -13670,7 +13498,7 @@ class DataQualityRuleset(
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
         props = DataQualityRulesetProps(
-            ruleset_dqdl=ruleset_dqdl,
+            dqdl=dqdl,
             target_table=target_table,
             client_token=client_token,
             description=description,
@@ -13881,13 +13709,6 @@ class Database(
         '''
         return typing.cast(typing.Optional[builtins.str], jsii.get(self, "locationUri"))
 
-    @location_uri.setter
-    def location_uri(self, value: typing.Optional[builtins.str]) -> None:
-        if __debug__:
-            type_hints = cached_type_hints(_typecheckingstub__90e333b7e65b52ce7350f1362e32d0548570ec42483de3019c80f233c116f3aa)
-            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "locationUri", value) # pyright: ignore[reportArgumentType]
-
 
 class ExternalTable(
     TableBase,
@@ -13931,6 +13752,7 @@ class ExternalTable(
         compressed: typing.Optional[builtins.bool] = None,
         description: typing.Optional[builtins.str] = None,
         enable_partition_filtering: typing.Optional[builtins.bool] = None,
+        has_encrypted_data: typing.Optional[builtins.bool] = None,
         parameters: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
         partition_indexes: typing.Optional[typing.Sequence[typing.Union["PartitionIndex", typing.Dict[builtins.str, typing.Any]]]] = None,
         partition_keys: typing.Optional[typing.Sequence[typing.Union["Column", typing.Dict[builtins.str, typing.Any]]]] = None,
@@ -13950,6 +13772,7 @@ class ExternalTable(
         :param compressed: (experimental) Indicates whether the table's data is compressed or not. Default: false
         :param description: (experimental) Description of the table. Default: generated
         :param enable_partition_filtering: (experimental) Enables partition filtering. Default: - The parameter is not defined
+        :param has_encrypted_data: (experimental) Whether the data stored in the table is encrypted. This sets the ``has_encrypted_data`` table parameter. Athena reads it when querying client-side (CSE-KMS) encrypted datasets; for server-side encrypted (SSE-S3 / SSE-KMS) or unencrypted data it has no effect, since Amazon S3 decrypts server-side encrypted objects transparently. Do not also set ``has_encrypted_data`` through ``parameters`` - use this property instead. A conflicting value in ``parameters`` is rejected. Default: true
         :param parameters: (experimental) The key/value pairs define properties associated with the table. The key/value pairs that are allowed to be submitted are not limited, however their functionality is not guaranteed. Default: - The parameter is not defined
         :param partition_indexes: (experimental) Partition indexes on the table. A maximum of 3 indexes are allowed on a table. Keys in the index must be part of the table's partition keys. Default: table has no partition indexes
         :param partition_keys: (experimental) Partition columns of the table. Default: table is not partitioned
@@ -13973,6 +13796,7 @@ class ExternalTable(
             compressed=compressed,
             description=description,
             enable_partition_filtering=enable_partition_filtering,
+            has_encrypted_data=has_encrypted_data,
             parameters=parameters,
             partition_indexes=partition_indexes,
             partition_keys=partition_keys,
@@ -14096,6 +13920,7 @@ class ExternalTable(
         "compressed": "compressed",
         "description": "description",
         "enable_partition_filtering": "enablePartitionFiltering",
+        "has_encrypted_data": "hasEncryptedData",
         "parameters": "parameters",
         "partition_indexes": "partitionIndexes",
         "partition_keys": "partitionKeys",
@@ -14117,6 +13942,7 @@ class ExternalTableProps(TableBaseProps):
         compressed: typing.Optional[builtins.bool] = None,
         description: typing.Optional[builtins.str] = None,
         enable_partition_filtering: typing.Optional[builtins.bool] = None,
+        has_encrypted_data: typing.Optional[builtins.bool] = None,
         parameters: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
         partition_indexes: typing.Optional[typing.Sequence[typing.Union["PartitionIndex", typing.Dict[builtins.str, typing.Any]]]] = None,
         partition_keys: typing.Optional[typing.Sequence[typing.Union["Column", typing.Dict[builtins.str, typing.Any]]]] = None,
@@ -14134,6 +13960,7 @@ class ExternalTableProps(TableBaseProps):
         :param compressed: (experimental) Indicates whether the table's data is compressed or not. Default: false
         :param description: (experimental) Description of the table. Default: generated
         :param enable_partition_filtering: (experimental) Enables partition filtering. Default: - The parameter is not defined
+        :param has_encrypted_data: (experimental) Whether the data stored in the table is encrypted. This sets the ``has_encrypted_data`` table parameter. Athena reads it when querying client-side (CSE-KMS) encrypted datasets; for server-side encrypted (SSE-S3 / SSE-KMS) or unencrypted data it has no effect, since Amazon S3 decrypts server-side encrypted objects transparently. Do not also set ``has_encrypted_data`` through ``parameters`` - use this property instead. A conflicting value in ``parameters`` is rejected. Default: true
         :param parameters: (experimental) The key/value pairs define properties associated with the table. The key/value pairs that are allowed to be submitted are not limited, however their functionality is not guaranteed. Default: - The parameter is not defined
         :param partition_indexes: (experimental) Partition indexes on the table. A maximum of 3 indexes are allowed on a table. Keys in the index must be part of the table's partition keys. Default: table has no partition indexes
         :param partition_keys: (experimental) Partition columns of the table. Default: table is not partitioned
@@ -14172,6 +13999,7 @@ class ExternalTableProps(TableBaseProps):
             check_type(argname="argument compressed", value=compressed, expected_type=type_hints["compressed"])
             check_type(argname="argument description", value=description, expected_type=type_hints["description"])
             check_type(argname="argument enable_partition_filtering", value=enable_partition_filtering, expected_type=type_hints["enable_partition_filtering"])
+            check_type(argname="argument has_encrypted_data", value=has_encrypted_data, expected_type=type_hints["has_encrypted_data"])
             check_type(argname="argument parameters", value=parameters, expected_type=type_hints["parameters"])
             check_type(argname="argument partition_indexes", value=partition_indexes, expected_type=type_hints["partition_indexes"])
             check_type(argname="argument partition_keys", value=partition_keys, expected_type=type_hints["partition_keys"])
@@ -14194,6 +14022,8 @@ class ExternalTableProps(TableBaseProps):
             self._values["description"] = description
         if enable_partition_filtering is not None:
             self._values["enable_partition_filtering"] = enable_partition_filtering
+        if has_encrypted_data is not None:
+            self._values["has_encrypted_data"] = has_encrypted_data
         if parameters is not None:
             self._values["parameters"] = parameters
         if partition_indexes is not None:
@@ -14271,6 +14101,26 @@ class ExternalTableProps(TableBaseProps):
         :stability: experimental
         '''
         result = self._values.get("enable_partition_filtering")
+        return typing.cast(typing.Optional[builtins.bool], result)
+
+    @builtins.property
+    def has_encrypted_data(self) -> typing.Optional[builtins.bool]:
+        '''(experimental) Whether the data stored in the table is encrypted.
+
+        This sets the ``has_encrypted_data`` table parameter. Athena reads it when
+        querying client-side (CSE-KMS) encrypted datasets; for server-side
+        encrypted (SSE-S3 / SSE-KMS) or unencrypted data it has no effect, since
+        Amazon S3 decrypts server-side encrypted objects transparently.
+
+        Do not also set ``has_encrypted_data`` through ``parameters`` - use this
+        property instead. A conflicting value in ``parameters`` is rejected.
+
+        :default: true
+
+        :see: https://docs.aws.amazon.com/athena/latest/ug/creating-tables-based-on-encrypted-datasets-in-s3.html
+        :stability: experimental
+        '''
+        result = self._values.get("has_encrypted_data")
         return typing.cast(typing.Optional[builtins.bool], result)
 
     @builtins.property
@@ -14765,34 +14615,24 @@ class OnDemandTriggerOptions(TriggerOptions):
         :param name: (experimental) A name for the trigger. Default: - no name is provided
 
         :stability: experimental
-        :exampleMetadata: fixture=_generated
+        :exampleMetadata: infused
 
         Example::
 
-            # The code below shows an example of how to instantiate this type.
-            # The values are placeholders you should change.
-            import aws_cdk.aws_glue_alpha as glue_alpha
             import aws_cdk as cdk
-            from aws_cdk import aws_glue as glue
+            import aws_cdk.aws_iam as iam
+            # stack: cdk.Stack
+            # role: iam.IRole
+            # script: glue.Code
             
-            # cfn_crawler: glue.CfnCrawler
-            # job: glue_alpha.Job
-            # security_configuration: glue_alpha.SecurityConfiguration
             
-            on_demand_trigger_options = glue_alpha.OnDemandTriggerOptions(
-                actions=[glue_alpha.Action(
-                    arguments={
-                        "arguments_key": "arguments"
-                    },
-                    crawler=cfn_crawler,
-                    job=job,
-                    security_configuration=security_configuration,
-                    timeout=cdk.Duration.minutes(30)
-                )],
+            # Create a job to run from the workflow
+            job = glue.PySparkEtlJob(stack, "Job", role=role, script=script)
             
-                # the properties below are optional
-                description="description",
-                name="name"
+            # Create a workflow and add a trigger that runs the job
+            workflow = glue.Workflow(stack, "Workflow")
+            workflow.add_on_demand_trigger("OnDemandTrigger",
+                actions=[glue.Action(job=job)]
             )
         '''
         if __debug__:
@@ -14862,19 +14702,17 @@ class OnDemandTriggerOptions(TriggerOptions):
         "continuous_logging": "continuousLogging",
         "default_arguments": "defaultArguments",
         "description": "description",
-        "enable_profiling_metrics": "enableProfilingMetrics",
         "glue_version": "glueVersion",
         "job_name": "jobName",
         "max_concurrent_runs": "maxConcurrentRuns",
         "max_retries": "maxRetries",
-        "number_of_workers": "numberOfWorkers",
         "security_configuration": "securityConfiguration",
         "tags": "tags",
         "timeout": "timeout",
-        "worker_type": "workerType",
         "enable_metrics": "enableMetrics",
         "enable_observability_metrics": "enableObservabilityMetrics",
         "spark_ui": "sparkUI",
+        "worker_configuration": "workerConfiguration",
         "extra_files": "extraFiles",
         "extra_jars": "extraJars",
         "extra_jars_first": "extraJarsFirst",
@@ -14893,19 +14731,17 @@ class PySparkEtlJobProps(SparkJobProps):
         continuous_logging: typing.Optional[typing.Union["ContinuousLoggingProps", typing.Dict[builtins.str, typing.Any]]] = None,
         default_arguments: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
         description: typing.Optional[builtins.str] = None,
-        enable_profiling_metrics: typing.Optional[builtins.bool] = None,
         glue_version: typing.Optional["GlueVersion"] = None,
         job_name: typing.Optional[builtins.str] = None,
         max_concurrent_runs: typing.Optional[jsii.Number] = None,
         max_retries: typing.Optional[jsii.Number] = None,
-        number_of_workers: typing.Optional[jsii.Number] = None,
         security_configuration: typing.Optional["ISecurityConfiguration"] = None,
         tags: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
         timeout: typing.Optional["_aws_cdk_ceddda9d.Duration"] = None,
-        worker_type: typing.Optional["WorkerType"] = None,
         enable_metrics: typing.Optional[builtins.bool] = None,
         enable_observability_metrics: typing.Optional[builtins.bool] = None,
         spark_ui: typing.Optional[typing.Union["SparkUIProps", typing.Dict[builtins.str, typing.Any]]] = None,
+        worker_configuration: typing.Optional[typing.Union["WorkerConfiguration", typing.Dict[builtins.str, typing.Any]]] = None,
         extra_files: typing.Optional[typing.Sequence["Code"]] = None,
         extra_jars: typing.Optional[typing.Sequence["Code"]] = None,
         extra_jars_first: typing.Optional[builtins.bool] = None,
@@ -14921,19 +14757,17 @@ class PySparkEtlJobProps(SparkJobProps):
         :param continuous_logging: (experimental) Enables continuous logging with the specified props. Default: - continuous logging is enabled.
         :param default_arguments: (experimental) Default Arguments (optional) The default arguments for every run of this Glue job, specified as name-value pairs. These are emitted verbatim into the CloudFormation template, so avoid placing secrets here in plaintext. Pass secrets to the job at runtime through AWS Secrets Manager instead. A synthesis-time warning is emitted when an argument key looks like a credential and holds a plaintext literal. Default: - no arguments
         :param description: (experimental) Description (optional) Developer-specified description of the Glue job. Default: - no value
-        :param enable_profiling_metrics: (experimental) Enables the collection of metrics for job profiling. Default: - no profiling metrics emitted.
         :param glue_version: (experimental) Glue Version The version of Glue to use to execute this job. Default: 3.0 for ETL
         :param job_name: (experimental) Name of the Glue job (optional) Developer-specified name of the Glue job. Default: - a name is automatically generated
         :param max_concurrent_runs: (experimental) Max Concurrent Runs (optional) The maximum number of runs this Glue job can concurrently run. An error is returned when this threshold is reached. The maximum value you can specify is controlled by a service limit. Default: 1
         :param max_retries: (experimental) Max Retries (optional) Maximum number of retry attempts Glue performs if the job fails. Default: 0
-        :param number_of_workers: (experimental) Number of Workers (optional) Number of workers for Glue to use during job execution. Default: 10
         :param security_configuration: (experimental) Security Configuration (optional) Defines the encryption options for the Glue job. Default: - no security configuration.
         :param tags: (experimental) Tags (optional) A list of key:value pairs of tags to apply to this Glue job resources. Default: {} - no tags
         :param timeout: (experimental) Timeout (optional) The maximum time that a job run can consume resources before it is terminated and enters TIMEOUT status. Specified in minutes. Default: 2880 (2 days for non-streaming)
-        :param worker_type: (experimental) Worker Type (optional) Type of Worker for Glue to use during job execution Enum options: Standard, G_1X, G_2X, G_025X. G_4X, G_8X, Z_2X Default: WorkerType.G_1X
         :param enable_metrics: (experimental) Enable profiling metrics for the Glue job. When enabled, adds '--enable-metrics' to job arguments. Default: true
         :param enable_observability_metrics: (experimental) Enable observability metrics for the Glue job. When enabled, adds '--enable-observability-metrics': 'true' to job arguments. Default: true
         :param spark_ui: (experimental) Enables the Spark UI debugging and monitoring with the specified props. Default: - Spark UI debugging and monitoring is disabled.
+        :param worker_configuration: (experimental) The worker type and the number of workers allocated when a job runs. Default: - the job runs with the G_1X worker type and 10 workers.
         :param extra_files: (experimental) Additional files, such as configuration files that AWS Glue copies to the working directory of your script before executing it. Default: - no extra files specified.
         :param extra_jars: (experimental) Extra Jars S3 URL (optional) S3 URL where additional jar dependencies are located. Default: - no extra jar files
         :param extra_jars_first: (experimental) Setting this value to true prioritizes the customer's extra JAR files in the classpath. Default: false - priority is not given to user-provided jars
@@ -14953,25 +14787,21 @@ class PySparkEtlJobProps(SparkJobProps):
             # script: glue.Code
             
             
-            # Disable both metrics for cost optimization
-            glue.PySparkEtlJob(stack, "CostOptimizedJob",
-                role=role,
-                script=script,
-                enable_metrics=False,
-                enable_observability_metrics=False
-            )
+            # Create a job to run from the workflow
+            job = glue.PySparkEtlJob(stack, "Job", role=role, script=script)
             
-            # Selective control - keep observability, disable profiling
-            glue.PySparkEtlJob(stack, "SelectiveJob",
-                role=role,
-                script=script,
-                enable_metrics=False
+            # Create a workflow and add a trigger that runs the job
+            workflow = glue.Workflow(stack, "Workflow")
+            workflow.add_on_demand_trigger("OnDemandTrigger",
+                actions=[glue.Action(job=job)]
             )
         '''
         if isinstance(continuous_logging, dict):
             continuous_logging = ContinuousLoggingProps(**continuous_logging)
         if isinstance(spark_ui, dict):
             spark_ui = SparkUIProps(**spark_ui)
+        if isinstance(worker_configuration, dict):
+            worker_configuration = WorkerConfiguration(**worker_configuration)
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__7d1f0248e91f0e304122bfc575cd46be082ce53b491ae4ac58657dde66d7729c)
             check_type(argname="argument role", value=role, expected_type=type_hints["role"])
@@ -14980,19 +14810,17 @@ class PySparkEtlJobProps(SparkJobProps):
             check_type(argname="argument continuous_logging", value=continuous_logging, expected_type=type_hints["continuous_logging"])
             check_type(argname="argument default_arguments", value=default_arguments, expected_type=type_hints["default_arguments"])
             check_type(argname="argument description", value=description, expected_type=type_hints["description"])
-            check_type(argname="argument enable_profiling_metrics", value=enable_profiling_metrics, expected_type=type_hints["enable_profiling_metrics"])
             check_type(argname="argument glue_version", value=glue_version, expected_type=type_hints["glue_version"])
             check_type(argname="argument job_name", value=job_name, expected_type=type_hints["job_name"])
             check_type(argname="argument max_concurrent_runs", value=max_concurrent_runs, expected_type=type_hints["max_concurrent_runs"])
             check_type(argname="argument max_retries", value=max_retries, expected_type=type_hints["max_retries"])
-            check_type(argname="argument number_of_workers", value=number_of_workers, expected_type=type_hints["number_of_workers"])
             check_type(argname="argument security_configuration", value=security_configuration, expected_type=type_hints["security_configuration"])
             check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
             check_type(argname="argument timeout", value=timeout, expected_type=type_hints["timeout"])
-            check_type(argname="argument worker_type", value=worker_type, expected_type=type_hints["worker_type"])
             check_type(argname="argument enable_metrics", value=enable_metrics, expected_type=type_hints["enable_metrics"])
             check_type(argname="argument enable_observability_metrics", value=enable_observability_metrics, expected_type=type_hints["enable_observability_metrics"])
             check_type(argname="argument spark_ui", value=spark_ui, expected_type=type_hints["spark_ui"])
+            check_type(argname="argument worker_configuration", value=worker_configuration, expected_type=type_hints["worker_configuration"])
             check_type(argname="argument extra_files", value=extra_files, expected_type=type_hints["extra_files"])
             check_type(argname="argument extra_jars", value=extra_jars, expected_type=type_hints["extra_jars"])
             check_type(argname="argument extra_jars_first", value=extra_jars_first, expected_type=type_hints["extra_jars_first"])
@@ -15011,8 +14839,6 @@ class PySparkEtlJobProps(SparkJobProps):
             self._values["default_arguments"] = default_arguments
         if description is not None:
             self._values["description"] = description
-        if enable_profiling_metrics is not None:
-            self._values["enable_profiling_metrics"] = enable_profiling_metrics
         if glue_version is not None:
             self._values["glue_version"] = glue_version
         if job_name is not None:
@@ -15021,22 +14847,20 @@ class PySparkEtlJobProps(SparkJobProps):
             self._values["max_concurrent_runs"] = max_concurrent_runs
         if max_retries is not None:
             self._values["max_retries"] = max_retries
-        if number_of_workers is not None:
-            self._values["number_of_workers"] = number_of_workers
         if security_configuration is not None:
             self._values["security_configuration"] = security_configuration
         if tags is not None:
             self._values["tags"] = tags
         if timeout is not None:
             self._values["timeout"] = timeout
-        if worker_type is not None:
-            self._values["worker_type"] = worker_type
         if enable_metrics is not None:
             self._values["enable_metrics"] = enable_metrics
         if enable_observability_metrics is not None:
             self._values["enable_observability_metrics"] = enable_observability_metrics
         if spark_ui is not None:
             self._values["spark_ui"] = spark_ui
+        if worker_configuration is not None:
+            self._values["worker_configuration"] = worker_configuration
         if extra_files is not None:
             self._values["extra_files"] = extra_files
         if extra_jars is not None:
@@ -15132,18 +14956,6 @@ class PySparkEtlJobProps(SparkJobProps):
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
-    def enable_profiling_metrics(self) -> typing.Optional[builtins.bool]:
-        '''(experimental) Enables the collection of metrics for job profiling.
-
-        :default: - no profiling metrics emitted.
-
-        :see: https://docs.aws.amazon.com/glue/latest/dg/aws-glue-programming-etl-glue-arguments.html
-        :stability: experimental
-        '''
-        result = self._values.get("enable_profiling_metrics")
-        return typing.cast(typing.Optional[builtins.bool], result)
-
-    @builtins.property
     def glue_version(self) -> typing.Optional["GlueVersion"]:
         '''(experimental) Glue Version The version of Glue to use to execute this job.
 
@@ -15191,17 +15003,6 @@ class PySparkEtlJobProps(SparkJobProps):
         return typing.cast(typing.Optional[jsii.Number], result)
 
     @builtins.property
-    def number_of_workers(self) -> typing.Optional[jsii.Number]:
-        '''(experimental) Number of Workers (optional) Number of workers for Glue to use during job execution.
-
-        :default: 10
-
-        :stability: experimental
-        '''
-        result = self._values.get("number_of_workers")
-        return typing.cast(typing.Optional[jsii.Number], result)
-
-    @builtins.property
     def security_configuration(self) -> typing.Optional["ISecurityConfiguration"]:
         '''(experimental) Security Configuration (optional) Defines the encryption options for the Glue job.
 
@@ -15235,19 +15036,6 @@ class PySparkEtlJobProps(SparkJobProps):
         '''
         result = self._values.get("timeout")
         return typing.cast(typing.Optional["_aws_cdk_ceddda9d.Duration"], result)
-
-    @builtins.property
-    def worker_type(self) -> typing.Optional["WorkerType"]:
-        '''(experimental) Worker Type (optional) Type of Worker for Glue to use during job execution Enum options: Standard, G_1X, G_2X, G_025X.
-
-        G_4X, G_8X, Z_2X
-
-        :default: WorkerType.G_1X
-
-        :stability: experimental
-        '''
-        result = self._values.get("worker_type")
-        return typing.cast(typing.Optional["WorkerType"], result)
 
     @builtins.property
     def enable_metrics(self) -> typing.Optional[builtins.bool]:
@@ -15286,6 +15074,17 @@ class PySparkEtlJobProps(SparkJobProps):
         '''
         result = self._values.get("spark_ui")
         return typing.cast(typing.Optional["SparkUIProps"], result)
+
+    @builtins.property
+    def worker_configuration(self) -> typing.Optional["WorkerConfiguration"]:
+        '''(experimental) The worker type and the number of workers allocated when a job runs.
+
+        :default: - the job runs with the G_1X worker type and 10 workers.
+
+        :stability: experimental
+        '''
+        result = self._values.get("worker_configuration")
+        return typing.cast(typing.Optional["WorkerConfiguration"], result)
 
     @builtins.property
     def extra_files(self) -> typing.Optional[typing.List["Code"]]:
@@ -15385,19 +15184,17 @@ class PySparkEtlJobProps(SparkJobProps):
         "continuous_logging": "continuousLogging",
         "default_arguments": "defaultArguments",
         "description": "description",
-        "enable_profiling_metrics": "enableProfilingMetrics",
         "glue_version": "glueVersion",
         "job_name": "jobName",
         "max_concurrent_runs": "maxConcurrentRuns",
         "max_retries": "maxRetries",
-        "number_of_workers": "numberOfWorkers",
         "security_configuration": "securityConfiguration",
         "tags": "tags",
         "timeout": "timeout",
-        "worker_type": "workerType",
         "enable_metrics": "enableMetrics",
         "enable_observability_metrics": "enableObservabilityMetrics",
         "spark_ui": "sparkUI",
+        "worker_configuration": "workerConfiguration",
         "extra_files": "extraFiles",
         "extra_jars": "extraJars",
         "extra_jars_first": "extraJarsFirst",
@@ -15415,19 +15212,17 @@ class PySparkFlexEtlJobProps(SparkJobProps):
         continuous_logging: typing.Optional[typing.Union["ContinuousLoggingProps", typing.Dict[builtins.str, typing.Any]]] = None,
         default_arguments: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
         description: typing.Optional[builtins.str] = None,
-        enable_profiling_metrics: typing.Optional[builtins.bool] = None,
         glue_version: typing.Optional["GlueVersion"] = None,
         job_name: typing.Optional[builtins.str] = None,
         max_concurrent_runs: typing.Optional[jsii.Number] = None,
         max_retries: typing.Optional[jsii.Number] = None,
-        number_of_workers: typing.Optional[jsii.Number] = None,
         security_configuration: typing.Optional["ISecurityConfiguration"] = None,
         tags: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
         timeout: typing.Optional["_aws_cdk_ceddda9d.Duration"] = None,
-        worker_type: typing.Optional["WorkerType"] = None,
         enable_metrics: typing.Optional[builtins.bool] = None,
         enable_observability_metrics: typing.Optional[builtins.bool] = None,
         spark_ui: typing.Optional[typing.Union["SparkUIProps", typing.Dict[builtins.str, typing.Any]]] = None,
+        worker_configuration: typing.Optional[typing.Union["WorkerConfiguration", typing.Dict[builtins.str, typing.Any]]] = None,
         extra_files: typing.Optional[typing.Sequence["Code"]] = None,
         extra_jars: typing.Optional[typing.Sequence["Code"]] = None,
         extra_jars_first: typing.Optional[builtins.bool] = None,
@@ -15442,19 +15237,17 @@ class PySparkFlexEtlJobProps(SparkJobProps):
         :param continuous_logging: (experimental) Enables continuous logging with the specified props. Default: - continuous logging is enabled.
         :param default_arguments: (experimental) Default Arguments (optional) The default arguments for every run of this Glue job, specified as name-value pairs. These are emitted verbatim into the CloudFormation template, so avoid placing secrets here in plaintext. Pass secrets to the job at runtime through AWS Secrets Manager instead. A synthesis-time warning is emitted when an argument key looks like a credential and holds a plaintext literal. Default: - no arguments
         :param description: (experimental) Description (optional) Developer-specified description of the Glue job. Default: - no value
-        :param enable_profiling_metrics: (experimental) Enables the collection of metrics for job profiling. Default: - no profiling metrics emitted.
         :param glue_version: (experimental) Glue Version The version of Glue to use to execute this job. Default: 3.0 for ETL
         :param job_name: (experimental) Name of the Glue job (optional) Developer-specified name of the Glue job. Default: - a name is automatically generated
         :param max_concurrent_runs: (experimental) Max Concurrent Runs (optional) The maximum number of runs this Glue job can concurrently run. An error is returned when this threshold is reached. The maximum value you can specify is controlled by a service limit. Default: 1
         :param max_retries: (experimental) Max Retries (optional) Maximum number of retry attempts Glue performs if the job fails. Default: 0
-        :param number_of_workers: (experimental) Number of Workers (optional) Number of workers for Glue to use during job execution. Default: 10
         :param security_configuration: (experimental) Security Configuration (optional) Defines the encryption options for the Glue job. Default: - no security configuration.
         :param tags: (experimental) Tags (optional) A list of key:value pairs of tags to apply to this Glue job resources. Default: {} - no tags
         :param timeout: (experimental) Timeout (optional) The maximum time that a job run can consume resources before it is terminated and enters TIMEOUT status. Specified in minutes. Default: 2880 (2 days for non-streaming)
-        :param worker_type: (experimental) Worker Type (optional) Type of Worker for Glue to use during job execution Enum options: Standard, G_1X, G_2X, G_025X. G_4X, G_8X, Z_2X Default: WorkerType.G_1X
         :param enable_metrics: (experimental) Enable profiling metrics for the Glue job. When enabled, adds '--enable-metrics' to job arguments. Default: true
         :param enable_observability_metrics: (experimental) Enable observability metrics for the Glue job. When enabled, adds '--enable-observability-metrics': 'true' to job arguments. Default: true
         :param spark_ui: (experimental) Enables the Spark UI debugging and monitoring with the specified props. Default: - Spark UI debugging and monitoring is disabled.
+        :param worker_configuration: (experimental) The worker type and the number of workers allocated when a job runs. Default: - the job runs with the G_1X worker type and 10 workers.
         :param extra_files: (experimental) Additional files, such as configuration files that AWS Glue copies to the working directory of your script before executing it. Default: - no extra files specified.
         :param extra_jars: (experimental) Extra Jars S3 URL (optional) S3 URL where additional jar dependencies are located. Default: - no extra jar files
         :param extra_jars_first: (experimental) Setting this value to true prioritizes the customer's extra JAR files in the classpath. Default: false - priority is not given to user-provided jars
@@ -15478,6 +15271,8 @@ class PySparkFlexEtlJobProps(SparkJobProps):
             continuous_logging = ContinuousLoggingProps(**continuous_logging)
         if isinstance(spark_ui, dict):
             spark_ui = SparkUIProps(**spark_ui)
+        if isinstance(worker_configuration, dict):
+            worker_configuration = WorkerConfiguration(**worker_configuration)
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__1ef29eff48bb24670d76df296a115400d888e6edb0be2d4d7fe4f859401b1ff9)
             check_type(argname="argument role", value=role, expected_type=type_hints["role"])
@@ -15486,19 +15281,17 @@ class PySparkFlexEtlJobProps(SparkJobProps):
             check_type(argname="argument continuous_logging", value=continuous_logging, expected_type=type_hints["continuous_logging"])
             check_type(argname="argument default_arguments", value=default_arguments, expected_type=type_hints["default_arguments"])
             check_type(argname="argument description", value=description, expected_type=type_hints["description"])
-            check_type(argname="argument enable_profiling_metrics", value=enable_profiling_metrics, expected_type=type_hints["enable_profiling_metrics"])
             check_type(argname="argument glue_version", value=glue_version, expected_type=type_hints["glue_version"])
             check_type(argname="argument job_name", value=job_name, expected_type=type_hints["job_name"])
             check_type(argname="argument max_concurrent_runs", value=max_concurrent_runs, expected_type=type_hints["max_concurrent_runs"])
             check_type(argname="argument max_retries", value=max_retries, expected_type=type_hints["max_retries"])
-            check_type(argname="argument number_of_workers", value=number_of_workers, expected_type=type_hints["number_of_workers"])
             check_type(argname="argument security_configuration", value=security_configuration, expected_type=type_hints["security_configuration"])
             check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
             check_type(argname="argument timeout", value=timeout, expected_type=type_hints["timeout"])
-            check_type(argname="argument worker_type", value=worker_type, expected_type=type_hints["worker_type"])
             check_type(argname="argument enable_metrics", value=enable_metrics, expected_type=type_hints["enable_metrics"])
             check_type(argname="argument enable_observability_metrics", value=enable_observability_metrics, expected_type=type_hints["enable_observability_metrics"])
             check_type(argname="argument spark_ui", value=spark_ui, expected_type=type_hints["spark_ui"])
+            check_type(argname="argument worker_configuration", value=worker_configuration, expected_type=type_hints["worker_configuration"])
             check_type(argname="argument extra_files", value=extra_files, expected_type=type_hints["extra_files"])
             check_type(argname="argument extra_jars", value=extra_jars, expected_type=type_hints["extra_jars"])
             check_type(argname="argument extra_jars_first", value=extra_jars_first, expected_type=type_hints["extra_jars_first"])
@@ -15516,8 +15309,6 @@ class PySparkFlexEtlJobProps(SparkJobProps):
             self._values["default_arguments"] = default_arguments
         if description is not None:
             self._values["description"] = description
-        if enable_profiling_metrics is not None:
-            self._values["enable_profiling_metrics"] = enable_profiling_metrics
         if glue_version is not None:
             self._values["glue_version"] = glue_version
         if job_name is not None:
@@ -15526,22 +15317,20 @@ class PySparkFlexEtlJobProps(SparkJobProps):
             self._values["max_concurrent_runs"] = max_concurrent_runs
         if max_retries is not None:
             self._values["max_retries"] = max_retries
-        if number_of_workers is not None:
-            self._values["number_of_workers"] = number_of_workers
         if security_configuration is not None:
             self._values["security_configuration"] = security_configuration
         if tags is not None:
             self._values["tags"] = tags
         if timeout is not None:
             self._values["timeout"] = timeout
-        if worker_type is not None:
-            self._values["worker_type"] = worker_type
         if enable_metrics is not None:
             self._values["enable_metrics"] = enable_metrics
         if enable_observability_metrics is not None:
             self._values["enable_observability_metrics"] = enable_observability_metrics
         if spark_ui is not None:
             self._values["spark_ui"] = spark_ui
+        if worker_configuration is not None:
+            self._values["worker_configuration"] = worker_configuration
         if extra_files is not None:
             self._values["extra_files"] = extra_files
         if extra_jars is not None:
@@ -15635,18 +15424,6 @@ class PySparkFlexEtlJobProps(SparkJobProps):
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
-    def enable_profiling_metrics(self) -> typing.Optional[builtins.bool]:
-        '''(experimental) Enables the collection of metrics for job profiling.
-
-        :default: - no profiling metrics emitted.
-
-        :see: https://docs.aws.amazon.com/glue/latest/dg/aws-glue-programming-etl-glue-arguments.html
-        :stability: experimental
-        '''
-        result = self._values.get("enable_profiling_metrics")
-        return typing.cast(typing.Optional[builtins.bool], result)
-
-    @builtins.property
     def glue_version(self) -> typing.Optional["GlueVersion"]:
         '''(experimental) Glue Version The version of Glue to use to execute this job.
 
@@ -15694,17 +15471,6 @@ class PySparkFlexEtlJobProps(SparkJobProps):
         return typing.cast(typing.Optional[jsii.Number], result)
 
     @builtins.property
-    def number_of_workers(self) -> typing.Optional[jsii.Number]:
-        '''(experimental) Number of Workers (optional) Number of workers for Glue to use during job execution.
-
-        :default: 10
-
-        :stability: experimental
-        '''
-        result = self._values.get("number_of_workers")
-        return typing.cast(typing.Optional[jsii.Number], result)
-
-    @builtins.property
     def security_configuration(self) -> typing.Optional["ISecurityConfiguration"]:
         '''(experimental) Security Configuration (optional) Defines the encryption options for the Glue job.
 
@@ -15738,19 +15504,6 @@ class PySparkFlexEtlJobProps(SparkJobProps):
         '''
         result = self._values.get("timeout")
         return typing.cast(typing.Optional["_aws_cdk_ceddda9d.Duration"], result)
-
-    @builtins.property
-    def worker_type(self) -> typing.Optional["WorkerType"]:
-        '''(experimental) Worker Type (optional) Type of Worker for Glue to use during job execution Enum options: Standard, G_1X, G_2X, G_025X.
-
-        G_4X, G_8X, Z_2X
-
-        :default: WorkerType.G_1X
-
-        :stability: experimental
-        '''
-        result = self._values.get("worker_type")
-        return typing.cast(typing.Optional["WorkerType"], result)
 
     @builtins.property
     def enable_metrics(self) -> typing.Optional[builtins.bool]:
@@ -15789,6 +15542,17 @@ class PySparkFlexEtlJobProps(SparkJobProps):
         '''
         result = self._values.get("spark_ui")
         return typing.cast(typing.Optional["SparkUIProps"], result)
+
+    @builtins.property
+    def worker_configuration(self) -> typing.Optional["WorkerConfiguration"]:
+        '''(experimental) The worker type and the number of workers allocated when a job runs.
+
+        :default: - the job runs with the G_1X worker type and 10 workers.
+
+        :stability: experimental
+        '''
+        result = self._values.get("worker_configuration")
+        return typing.cast(typing.Optional["WorkerConfiguration"], result)
 
     @builtins.property
     def extra_files(self) -> typing.Optional[typing.List["Code"]]:
@@ -15871,19 +15635,17 @@ class PySparkFlexEtlJobProps(SparkJobProps):
         "continuous_logging": "continuousLogging",
         "default_arguments": "defaultArguments",
         "description": "description",
-        "enable_profiling_metrics": "enableProfilingMetrics",
         "glue_version": "glueVersion",
         "job_name": "jobName",
         "max_concurrent_runs": "maxConcurrentRuns",
         "max_retries": "maxRetries",
-        "number_of_workers": "numberOfWorkers",
         "security_configuration": "securityConfiguration",
         "tags": "tags",
         "timeout": "timeout",
-        "worker_type": "workerType",
         "enable_metrics": "enableMetrics",
         "enable_observability_metrics": "enableObservabilityMetrics",
         "spark_ui": "sparkUI",
+        "worker_configuration": "workerConfiguration",
         "extra_files": "extraFiles",
         "extra_jars": "extraJars",
         "extra_jars_first": "extraJarsFirst",
@@ -15901,19 +15663,17 @@ class PySparkStreamingJobProps(SparkJobProps):
         continuous_logging: typing.Optional[typing.Union["ContinuousLoggingProps", typing.Dict[builtins.str, typing.Any]]] = None,
         default_arguments: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
         description: typing.Optional[builtins.str] = None,
-        enable_profiling_metrics: typing.Optional[builtins.bool] = None,
         glue_version: typing.Optional["GlueVersion"] = None,
         job_name: typing.Optional[builtins.str] = None,
         max_concurrent_runs: typing.Optional[jsii.Number] = None,
         max_retries: typing.Optional[jsii.Number] = None,
-        number_of_workers: typing.Optional[jsii.Number] = None,
         security_configuration: typing.Optional["ISecurityConfiguration"] = None,
         tags: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
         timeout: typing.Optional["_aws_cdk_ceddda9d.Duration"] = None,
-        worker_type: typing.Optional["WorkerType"] = None,
         enable_metrics: typing.Optional[builtins.bool] = None,
         enable_observability_metrics: typing.Optional[builtins.bool] = None,
         spark_ui: typing.Optional[typing.Union["SparkUIProps", typing.Dict[builtins.str, typing.Any]]] = None,
+        worker_configuration: typing.Optional[typing.Union["WorkerConfiguration", typing.Dict[builtins.str, typing.Any]]] = None,
         extra_files: typing.Optional[typing.Sequence["Code"]] = None,
         extra_jars: typing.Optional[typing.Sequence["Code"]] = None,
         extra_jars_first: typing.Optional[builtins.bool] = None,
@@ -15928,19 +15688,17 @@ class PySparkStreamingJobProps(SparkJobProps):
         :param continuous_logging: (experimental) Enables continuous logging with the specified props. Default: - continuous logging is enabled.
         :param default_arguments: (experimental) Default Arguments (optional) The default arguments for every run of this Glue job, specified as name-value pairs. These are emitted verbatim into the CloudFormation template, so avoid placing secrets here in plaintext. Pass secrets to the job at runtime through AWS Secrets Manager instead. A synthesis-time warning is emitted when an argument key looks like a credential and holds a plaintext literal. Default: - no arguments
         :param description: (experimental) Description (optional) Developer-specified description of the Glue job. Default: - no value
-        :param enable_profiling_metrics: (experimental) Enables the collection of metrics for job profiling. Default: - no profiling metrics emitted.
         :param glue_version: (experimental) Glue Version The version of Glue to use to execute this job. Default: 3.0 for ETL
         :param job_name: (experimental) Name of the Glue job (optional) Developer-specified name of the Glue job. Default: - a name is automatically generated
         :param max_concurrent_runs: (experimental) Max Concurrent Runs (optional) The maximum number of runs this Glue job can concurrently run. An error is returned when this threshold is reached. The maximum value you can specify is controlled by a service limit. Default: 1
         :param max_retries: (experimental) Max Retries (optional) Maximum number of retry attempts Glue performs if the job fails. Default: 0
-        :param number_of_workers: (experimental) Number of Workers (optional) Number of workers for Glue to use during job execution. Default: 10
         :param security_configuration: (experimental) Security Configuration (optional) Defines the encryption options for the Glue job. Default: - no security configuration.
         :param tags: (experimental) Tags (optional) A list of key:value pairs of tags to apply to this Glue job resources. Default: {} - no tags
         :param timeout: (experimental) Timeout (optional) The maximum time that a job run can consume resources before it is terminated and enters TIMEOUT status. Specified in minutes. Default: 2880 (2 days for non-streaming)
-        :param worker_type: (experimental) Worker Type (optional) Type of Worker for Glue to use during job execution Enum options: Standard, G_1X, G_2X, G_025X. G_4X, G_8X, Z_2X Default: WorkerType.G_1X
         :param enable_metrics: (experimental) Enable profiling metrics for the Glue job. When enabled, adds '--enable-metrics' to job arguments. Default: true
         :param enable_observability_metrics: (experimental) Enable observability metrics for the Glue job. When enabled, adds '--enable-observability-metrics': 'true' to job arguments. Default: true
         :param spark_ui: (experimental) Enables the Spark UI debugging and monitoring with the specified props. Default: - Spark UI debugging and monitoring is disabled.
+        :param worker_configuration: (experimental) The worker type and the number of workers allocated when a job runs. Default: - the job runs with the G_1X worker type and 10 workers.
         :param extra_files: (experimental) Additional files, such as configuration files that AWS Glue copies to the working directory of your script before executing it. Default: - no extra files specified.
         :param extra_jars: (experimental) Extra Jars S3 URL (optional) S3 URL where additional jar dependencies are located. Default: - no extra jar files
         :param extra_jars_first: (experimental) Setting this value to true prioritizes the customer's extra JAR files in the classpath. Default: false - priority is not given to user-provided jars
@@ -15964,6 +15722,8 @@ class PySparkStreamingJobProps(SparkJobProps):
             continuous_logging = ContinuousLoggingProps(**continuous_logging)
         if isinstance(spark_ui, dict):
             spark_ui = SparkUIProps(**spark_ui)
+        if isinstance(worker_configuration, dict):
+            worker_configuration = WorkerConfiguration(**worker_configuration)
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__d84214ee15ab52fd8652e96b7efef9a28fd9d1e00434523677b07bd720c2b923)
             check_type(argname="argument role", value=role, expected_type=type_hints["role"])
@@ -15972,19 +15732,17 @@ class PySparkStreamingJobProps(SparkJobProps):
             check_type(argname="argument continuous_logging", value=continuous_logging, expected_type=type_hints["continuous_logging"])
             check_type(argname="argument default_arguments", value=default_arguments, expected_type=type_hints["default_arguments"])
             check_type(argname="argument description", value=description, expected_type=type_hints["description"])
-            check_type(argname="argument enable_profiling_metrics", value=enable_profiling_metrics, expected_type=type_hints["enable_profiling_metrics"])
             check_type(argname="argument glue_version", value=glue_version, expected_type=type_hints["glue_version"])
             check_type(argname="argument job_name", value=job_name, expected_type=type_hints["job_name"])
             check_type(argname="argument max_concurrent_runs", value=max_concurrent_runs, expected_type=type_hints["max_concurrent_runs"])
             check_type(argname="argument max_retries", value=max_retries, expected_type=type_hints["max_retries"])
-            check_type(argname="argument number_of_workers", value=number_of_workers, expected_type=type_hints["number_of_workers"])
             check_type(argname="argument security_configuration", value=security_configuration, expected_type=type_hints["security_configuration"])
             check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
             check_type(argname="argument timeout", value=timeout, expected_type=type_hints["timeout"])
-            check_type(argname="argument worker_type", value=worker_type, expected_type=type_hints["worker_type"])
             check_type(argname="argument enable_metrics", value=enable_metrics, expected_type=type_hints["enable_metrics"])
             check_type(argname="argument enable_observability_metrics", value=enable_observability_metrics, expected_type=type_hints["enable_observability_metrics"])
             check_type(argname="argument spark_ui", value=spark_ui, expected_type=type_hints["spark_ui"])
+            check_type(argname="argument worker_configuration", value=worker_configuration, expected_type=type_hints["worker_configuration"])
             check_type(argname="argument extra_files", value=extra_files, expected_type=type_hints["extra_files"])
             check_type(argname="argument extra_jars", value=extra_jars, expected_type=type_hints["extra_jars"])
             check_type(argname="argument extra_jars_first", value=extra_jars_first, expected_type=type_hints["extra_jars_first"])
@@ -16002,8 +15760,6 @@ class PySparkStreamingJobProps(SparkJobProps):
             self._values["default_arguments"] = default_arguments
         if description is not None:
             self._values["description"] = description
-        if enable_profiling_metrics is not None:
-            self._values["enable_profiling_metrics"] = enable_profiling_metrics
         if glue_version is not None:
             self._values["glue_version"] = glue_version
         if job_name is not None:
@@ -16012,22 +15768,20 @@ class PySparkStreamingJobProps(SparkJobProps):
             self._values["max_concurrent_runs"] = max_concurrent_runs
         if max_retries is not None:
             self._values["max_retries"] = max_retries
-        if number_of_workers is not None:
-            self._values["number_of_workers"] = number_of_workers
         if security_configuration is not None:
             self._values["security_configuration"] = security_configuration
         if tags is not None:
             self._values["tags"] = tags
         if timeout is not None:
             self._values["timeout"] = timeout
-        if worker_type is not None:
-            self._values["worker_type"] = worker_type
         if enable_metrics is not None:
             self._values["enable_metrics"] = enable_metrics
         if enable_observability_metrics is not None:
             self._values["enable_observability_metrics"] = enable_observability_metrics
         if spark_ui is not None:
             self._values["spark_ui"] = spark_ui
+        if worker_configuration is not None:
+            self._values["worker_configuration"] = worker_configuration
         if extra_files is not None:
             self._values["extra_files"] = extra_files
         if extra_jars is not None:
@@ -16121,18 +15875,6 @@ class PySparkStreamingJobProps(SparkJobProps):
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
-    def enable_profiling_metrics(self) -> typing.Optional[builtins.bool]:
-        '''(experimental) Enables the collection of metrics for job profiling.
-
-        :default: - no profiling metrics emitted.
-
-        :see: https://docs.aws.amazon.com/glue/latest/dg/aws-glue-programming-etl-glue-arguments.html
-        :stability: experimental
-        '''
-        result = self._values.get("enable_profiling_metrics")
-        return typing.cast(typing.Optional[builtins.bool], result)
-
-    @builtins.property
     def glue_version(self) -> typing.Optional["GlueVersion"]:
         '''(experimental) Glue Version The version of Glue to use to execute this job.
 
@@ -16180,17 +15922,6 @@ class PySparkStreamingJobProps(SparkJobProps):
         return typing.cast(typing.Optional[jsii.Number], result)
 
     @builtins.property
-    def number_of_workers(self) -> typing.Optional[jsii.Number]:
-        '''(experimental) Number of Workers (optional) Number of workers for Glue to use during job execution.
-
-        :default: 10
-
-        :stability: experimental
-        '''
-        result = self._values.get("number_of_workers")
-        return typing.cast(typing.Optional[jsii.Number], result)
-
-    @builtins.property
     def security_configuration(self) -> typing.Optional["ISecurityConfiguration"]:
         '''(experimental) Security Configuration (optional) Defines the encryption options for the Glue job.
 
@@ -16224,19 +15955,6 @@ class PySparkStreamingJobProps(SparkJobProps):
         '''
         result = self._values.get("timeout")
         return typing.cast(typing.Optional["_aws_cdk_ceddda9d.Duration"], result)
-
-    @builtins.property
-    def worker_type(self) -> typing.Optional["WorkerType"]:
-        '''(experimental) Worker Type (optional) Type of Worker for Glue to use during job execution Enum options: Standard, G_1X, G_2X, G_025X.
-
-        G_4X, G_8X, Z_2X
-
-        :default: WorkerType.G_1X
-
-        :stability: experimental
-        '''
-        result = self._values.get("worker_type")
-        return typing.cast(typing.Optional["WorkerType"], result)
 
     @builtins.property
     def enable_metrics(self) -> typing.Optional[builtins.bool]:
@@ -16275,6 +15993,17 @@ class PySparkStreamingJobProps(SparkJobProps):
         '''
         result = self._values.get("spark_ui")
         return typing.cast(typing.Optional["SparkUIProps"], result)
+
+    @builtins.property
+    def worker_configuration(self) -> typing.Optional["WorkerConfiguration"]:
+        '''(experimental) The worker type and the number of workers allocated when a job runs.
+
+        :default: - the job runs with the G_1X worker type and 10 workers.
+
+        :stability: experimental
+        '''
+        result = self._values.get("worker_configuration")
+        return typing.cast(typing.Optional["WorkerConfiguration"], result)
 
     @builtins.property
     def extra_files(self) -> typing.Optional[typing.List["Code"]]:
@@ -16391,16 +16120,13 @@ class PythonShellJob(
         continuous_logging: typing.Optional[typing.Union["ContinuousLoggingProps", typing.Dict[builtins.str, typing.Any]]] = None,
         default_arguments: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
         description: typing.Optional[builtins.str] = None,
-        enable_profiling_metrics: typing.Optional[builtins.bool] = None,
         glue_version: typing.Optional["GlueVersion"] = None,
         job_name: typing.Optional[builtins.str] = None,
         max_concurrent_runs: typing.Optional[jsii.Number] = None,
         max_retries: typing.Optional[jsii.Number] = None,
-        number_of_workers: typing.Optional[jsii.Number] = None,
         security_configuration: typing.Optional["ISecurityConfiguration"] = None,
         tags: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
         timeout: typing.Optional["_aws_cdk_ceddda9d.Duration"] = None,
-        worker_type: typing.Optional["WorkerType"] = None,
     ) -> None:
         '''(experimental) PythonShellJob constructor.
 
@@ -16416,16 +16142,13 @@ class PythonShellJob(
         :param continuous_logging: (experimental) Enables continuous logging with the specified props. Default: - continuous logging is enabled.
         :param default_arguments: (experimental) Default Arguments (optional) The default arguments for every run of this Glue job, specified as name-value pairs. These are emitted verbatim into the CloudFormation template, so avoid placing secrets here in plaintext. Pass secrets to the job at runtime through AWS Secrets Manager instead. A synthesis-time warning is emitted when an argument key looks like a credential and holds a plaintext literal. Default: - no arguments
         :param description: (experimental) Description (optional) Developer-specified description of the Glue job. Default: - no value
-        :param enable_profiling_metrics: (experimental) Enables the collection of metrics for job profiling. Default: - no profiling metrics emitted.
         :param glue_version: (experimental) Glue Version The version of Glue to use to execute this job. Default: 3.0 for ETL
         :param job_name: (experimental) Name of the Glue job (optional) Developer-specified name of the Glue job. Default: - a name is automatically generated
         :param max_concurrent_runs: (experimental) Max Concurrent Runs (optional) The maximum number of runs this Glue job can concurrently run. An error is returned when this threshold is reached. The maximum value you can specify is controlled by a service limit. Default: 1
         :param max_retries: (experimental) Max Retries (optional) Maximum number of retry attempts Glue performs if the job fails. Default: 0
-        :param number_of_workers: (experimental) Number of Workers (optional) Number of workers for Glue to use during job execution. Default: 10
         :param security_configuration: (experimental) Security Configuration (optional) Defines the encryption options for the Glue job. Default: - no security configuration.
         :param tags: (experimental) Tags (optional) A list of key:value pairs of tags to apply to this Glue job resources. Default: {} - no tags
         :param timeout: (experimental) Timeout (optional) The maximum time that a job run can consume resources before it is terminated and enters TIMEOUT status. Specified in minutes. Default: 2880 (2 days for non-streaming)
-        :param worker_type: (experimental) Worker Type (optional) Type of Worker for Glue to use during job execution Enum options: Standard, G_1X, G_2X, G_025X. G_4X, G_8X, Z_2X Default: WorkerType.G_1X
 
         :stability: experimental
         '''
@@ -16444,16 +16167,13 @@ class PythonShellJob(
             continuous_logging=continuous_logging,
             default_arguments=default_arguments,
             description=description,
-            enable_profiling_metrics=enable_profiling_metrics,
             glue_version=glue_version,
             job_name=job_name,
             max_concurrent_runs=max_concurrent_runs,
             max_retries=max_retries,
-            number_of_workers=number_of_workers,
             security_configuration=security_configuration,
             tags=tags,
             timeout=timeout,
-            worker_type=worker_type,
         )
 
         jsii.create(self.__class__, self, [scope, id, props])
@@ -16557,7 +16277,6 @@ class RayJob(Job, metaclass=jsii.JSIIMeta, jsii_type="@aws-cdk/aws-glue-alpha.Ra
             description="description",
             enable_metrics=False,
             enable_observability_metrics=False,
-            enable_profiling_metrics=False,
             glue_version=glue_alpha.GlueVersion.V0_9,
             job_name="jobName",
             job_run_queuing_enabled=False,
@@ -16569,8 +16288,7 @@ class RayJob(Job, metaclass=jsii.JSIIMeta, jsii_type="@aws-cdk/aws-glue-alpha.Ra
             tags={
                 "tags_key": "tags"
             },
-            timeout=cdk.Duration.minutes(30),
-            worker_type=glue_alpha.WorkerType.STANDARD
+            timeout=cdk.Duration.minutes(30)
         )
     '''
 
@@ -16582,6 +16300,7 @@ class RayJob(Job, metaclass=jsii.JSIIMeta, jsii_type="@aws-cdk/aws-glue-alpha.Ra
         enable_metrics: typing.Optional[builtins.bool] = None,
         enable_observability_metrics: typing.Optional[builtins.bool] = None,
         job_run_queuing_enabled: typing.Optional[builtins.bool] = None,
+        number_of_workers: typing.Optional[jsii.Number] = None,
         runtime: typing.Optional["Runtime"] = None,
         role: "_aws_cdk_aws_iam_ceddda9d.IRole",
         script: "Code",
@@ -16589,16 +16308,13 @@ class RayJob(Job, metaclass=jsii.JSIIMeta, jsii_type="@aws-cdk/aws-glue-alpha.Ra
         continuous_logging: typing.Optional[typing.Union["ContinuousLoggingProps", typing.Dict[builtins.str, typing.Any]]] = None,
         default_arguments: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
         description: typing.Optional[builtins.str] = None,
-        enable_profiling_metrics: typing.Optional[builtins.bool] = None,
         glue_version: typing.Optional["GlueVersion"] = None,
         job_name: typing.Optional[builtins.str] = None,
         max_concurrent_runs: typing.Optional[jsii.Number] = None,
         max_retries: typing.Optional[jsii.Number] = None,
-        number_of_workers: typing.Optional[jsii.Number] = None,
         security_configuration: typing.Optional["ISecurityConfiguration"] = None,
         tags: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
         timeout: typing.Optional["_aws_cdk_ceddda9d.Duration"] = None,
-        worker_type: typing.Optional["WorkerType"] = None,
     ) -> None:
         '''(deprecated) RayJob constructor.
 
@@ -16607,6 +16323,7 @@ class RayJob(Job, metaclass=jsii.JSIIMeta, jsii_type="@aws-cdk/aws-glue-alpha.Ra
         :param enable_metrics: (deprecated) Enable profiling metrics for the Glue job. When enabled, adds '--enable-metrics' to job arguments. Default: true
         :param enable_observability_metrics: (deprecated) Enable observability metrics for the Glue job. When enabled, adds '--enable-observability-metrics': 'true' to job arguments. Default: true
         :param job_run_queuing_enabled: (deprecated) Specifies whether job run queuing is enabled for the job runs for this job. A value of true means job run queuing is enabled for the job runs. If false or not populated, the job runs will not be considered for queueing. If this field does not match the value set in the job run, then the value from the job run field will be used. This property must be set to false for flex jobs. If this property is enabled, maxRetries must be set to zero. Default: - no job run queuing
+        :param number_of_workers: (deprecated) The number of workers allocated when a job runs. Ray jobs only support the Z.2X worker type, so the worker type is not configurable. Default: 3
         :param runtime: (deprecated) Sets the Ray runtime environment version. Default: - Runtime version will default to Ray2.4
         :param role: (experimental) IAM Role (required) IAM Role to use for Glue job execution Must be specified by the developer because the L2 doesn't have visibility into the actions the script(s) takes during the job execution The role must trust the Glue service principal (glue.amazonaws.com) and be granted sufficient permissions.
         :param script: (experimental) Script Code Location (required) Script to run when the Glue job executes. Can be uploaded from the local directory structure using fromAsset or referenced via S3 location using fromBucket
@@ -16614,16 +16331,13 @@ class RayJob(Job, metaclass=jsii.JSIIMeta, jsii_type="@aws-cdk/aws-glue-alpha.Ra
         :param continuous_logging: (experimental) Enables continuous logging with the specified props. Default: - continuous logging is enabled.
         :param default_arguments: (experimental) Default Arguments (optional) The default arguments for every run of this Glue job, specified as name-value pairs. These are emitted verbatim into the CloudFormation template, so avoid placing secrets here in plaintext. Pass secrets to the job at runtime through AWS Secrets Manager instead. A synthesis-time warning is emitted when an argument key looks like a credential and holds a plaintext literal. Default: - no arguments
         :param description: (experimental) Description (optional) Developer-specified description of the Glue job. Default: - no value
-        :param enable_profiling_metrics: (experimental) Enables the collection of metrics for job profiling. Default: - no profiling metrics emitted.
         :param glue_version: (experimental) Glue Version The version of Glue to use to execute this job. Default: 3.0 for ETL
         :param job_name: (experimental) Name of the Glue job (optional) Developer-specified name of the Glue job. Default: - a name is automatically generated
         :param max_concurrent_runs: (experimental) Max Concurrent Runs (optional) The maximum number of runs this Glue job can concurrently run. An error is returned when this threshold is reached. The maximum value you can specify is controlled by a service limit. Default: 1
         :param max_retries: (experimental) Max Retries (optional) Maximum number of retry attempts Glue performs if the job fails. Default: 0
-        :param number_of_workers: (experimental) Number of Workers (optional) Number of workers for Glue to use during job execution. Default: 10
         :param security_configuration: (experimental) Security Configuration (optional) Defines the encryption options for the Glue job. Default: - no security configuration.
         :param tags: (experimental) Tags (optional) A list of key:value pairs of tags to apply to this Glue job resources. Default: {} - no tags
         :param timeout: (experimental) Timeout (optional) The maximum time that a job run can consume resources before it is terminated and enters TIMEOUT status. Specified in minutes. Default: 2880 (2 days for non-streaming)
-        :param worker_type: (experimental) Worker Type (optional) Type of Worker for Glue to use during job execution Enum options: Standard, G_1X, G_2X, G_025X. G_4X, G_8X, Z_2X Default: WorkerType.G_1X
 
         :stability: deprecated
         '''
@@ -16635,6 +16349,7 @@ class RayJob(Job, metaclass=jsii.JSIIMeta, jsii_type="@aws-cdk/aws-glue-alpha.Ra
             enable_metrics=enable_metrics,
             enable_observability_metrics=enable_observability_metrics,
             job_run_queuing_enabled=job_run_queuing_enabled,
+            number_of_workers=number_of_workers,
             runtime=runtime,
             role=role,
             script=script,
@@ -16642,16 +16357,13 @@ class RayJob(Job, metaclass=jsii.JSIIMeta, jsii_type="@aws-cdk/aws-glue-alpha.Ra
             continuous_logging=continuous_logging,
             default_arguments=default_arguments,
             description=description,
-            enable_profiling_metrics=enable_profiling_metrics,
             glue_version=glue_version,
             job_name=job_name,
             max_concurrent_runs=max_concurrent_runs,
             max_retries=max_retries,
-            number_of_workers=number_of_workers,
             security_configuration=security_configuration,
             tags=tags,
             timeout=timeout,
-            worker_type=worker_type,
         )
 
         jsii.create(self.__class__, self, [scope, id, props])
@@ -16730,11 +16442,9 @@ class S3Table(
             data_format=glue.DataFormat.JSON,
             partition_projection={
                 "date": glue.PartitionProjectionConfiguration.date(
-                    min="2020-01-01",
-                    max="2023-12-31",
-                    format="yyyy-MM-dd",
-                    interval=1,  # optional, defaults to 1
-                    interval_unit=glue.DateIntervalUnit.DAYS
+                    min="NOW-3YEARS",
+                    max="NOW",
+                    format="yyyy-MM-dd"
                 )
             }
         )
@@ -16755,6 +16465,7 @@ class S3Table(
         compressed: typing.Optional[builtins.bool] = None,
         description: typing.Optional[builtins.str] = None,
         enable_partition_filtering: typing.Optional[builtins.bool] = None,
+        has_encrypted_data: typing.Optional[builtins.bool] = None,
         parameters: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
         partition_indexes: typing.Optional[typing.Sequence[typing.Union["PartitionIndex", typing.Dict[builtins.str, typing.Any]]]] = None,
         partition_keys: typing.Optional[typing.Sequence[typing.Union["Column", typing.Dict[builtins.str, typing.Any]]]] = None,
@@ -16767,7 +16478,7 @@ class S3Table(
         :param scope: -
         :param id: -
         :param bucket: (experimental) S3 bucket in which to store data. Default: one is created for you
-        :param encryption: (experimental) The kind of encryption to secure the data with. You can only provide this option if you are not explicitly passing in a bucket. If you choose ``SSE-KMS``, you *can* provide an un-managed KMS key with ``encryptionKey``. If you choose ``CSE-KMS``, you *must* provide an un-managed KMS key with ``encryptionKey``. Default: BucketEncryption.S3_MANAGED
+        :param encryption: (experimental) The kind of encryption to secure the data with. You can only provide this option if you are not explicitly passing in a bucket. If you choose ``SSE-KMS``, you *can* provide an un-managed KMS key with ``encryptionKey``. If you choose ``CSE-KMS``, you *may* provide an un-managed KMS key with ``encryptionKey``; one is created automatically if omitted. Default: BucketEncryption.S3_MANAGED
         :param encryption_key: (experimental) External KMS key to use for bucket encryption. The ``encryption`` property must be ``SSE-KMS`` or ``CSE-KMS``. Default: key is managed by KMS.
         :param s3_prefix: (experimental) S3 prefix under which table objects are stored. When the table shares a bucket with other tables or consumers, set this so that the ``grant*`` methods scope S3 access to this table's data. Without a prefix, those grants cover the entire bucket. Default: - No prefix. The data will be stored under the root of the bucket.
         :param columns: (experimental) Columns of the table.
@@ -16776,6 +16487,7 @@ class S3Table(
         :param compressed: (experimental) Indicates whether the table's data is compressed or not. Default: false
         :param description: (experimental) Description of the table. Default: generated
         :param enable_partition_filtering: (experimental) Enables partition filtering. Default: - The parameter is not defined
+        :param has_encrypted_data: (experimental) Whether the data stored in the table is encrypted. This sets the ``has_encrypted_data`` table parameter. Athena reads it when querying client-side (CSE-KMS) encrypted datasets; for server-side encrypted (SSE-S3 / SSE-KMS) or unencrypted data it has no effect, since Amazon S3 decrypts server-side encrypted objects transparently. Do not also set ``has_encrypted_data`` through ``parameters`` - use this property instead. A conflicting value in ``parameters`` is rejected. Default: true
         :param parameters: (experimental) The key/value pairs define properties associated with the table. The key/value pairs that are allowed to be submitted are not limited, however their functionality is not guaranteed. Default: - The parameter is not defined
         :param partition_indexes: (experimental) Partition indexes on the table. A maximum of 3 indexes are allowed on a table. Keys in the index must be part of the table's partition keys. Default: table has no partition indexes
         :param partition_keys: (experimental) Partition columns of the table. Default: table is not partitioned
@@ -16801,6 +16513,7 @@ class S3Table(
             compressed=compressed,
             description=description,
             enable_partition_filtering=enable_partition_filtering,
+            has_encrypted_data=has_encrypted_data,
             parameters=parameters,
             partition_indexes=partition_indexes,
             partition_keys=partition_keys,
@@ -16966,6 +16679,7 @@ class S3Table(
         "compressed": "compressed",
         "description": "description",
         "enable_partition_filtering": "enablePartitionFiltering",
+        "has_encrypted_data": "hasEncryptedData",
         "parameters": "parameters",
         "partition_indexes": "partitionIndexes",
         "partition_keys": "partitionKeys",
@@ -16989,6 +16703,7 @@ class S3TableProps(TableBaseProps):
         compressed: typing.Optional[builtins.bool] = None,
         description: typing.Optional[builtins.str] = None,
         enable_partition_filtering: typing.Optional[builtins.bool] = None,
+        has_encrypted_data: typing.Optional[builtins.bool] = None,
         parameters: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
         partition_indexes: typing.Optional[typing.Sequence[typing.Union["PartitionIndex", typing.Dict[builtins.str, typing.Any]]]] = None,
         partition_keys: typing.Optional[typing.Sequence[typing.Union["Column", typing.Dict[builtins.str, typing.Any]]]] = None,
@@ -17008,6 +16723,7 @@ class S3TableProps(TableBaseProps):
         :param compressed: (experimental) Indicates whether the table's data is compressed or not. Default: false
         :param description: (experimental) Description of the table. Default: generated
         :param enable_partition_filtering: (experimental) Enables partition filtering. Default: - The parameter is not defined
+        :param has_encrypted_data: (experimental) Whether the data stored in the table is encrypted. This sets the ``has_encrypted_data`` table parameter. Athena reads it when querying client-side (CSE-KMS) encrypted datasets; for server-side encrypted (SSE-S3 / SSE-KMS) or unencrypted data it has no effect, since Amazon S3 decrypts server-side encrypted objects transparently. Do not also set ``has_encrypted_data`` through ``parameters`` - use this property instead. A conflicting value in ``parameters`` is rejected. Default: true
         :param parameters: (experimental) The key/value pairs define properties associated with the table. The key/value pairs that are allowed to be submitted are not limited, however their functionality is not guaranteed. Default: - The parameter is not defined
         :param partition_indexes: (experimental) Partition indexes on the table. A maximum of 3 indexes are allowed on a table. Keys in the index must be part of the table's partition keys. Default: table has no partition indexes
         :param partition_keys: (experimental) Partition columns of the table. Default: table is not partitioned
@@ -17016,7 +16732,7 @@ class S3TableProps(TableBaseProps):
         :param stored_as_sub_directories: (experimental) Indicates whether the table data is stored in subdirectories. Default: false
         :param table_name: (experimental) Name of the table. Default: - generated by CDK.
         :param bucket: (experimental) S3 bucket in which to store data. Default: one is created for you
-        :param encryption: (experimental) The kind of encryption to secure the data with. You can only provide this option if you are not explicitly passing in a bucket. If you choose ``SSE-KMS``, you *can* provide an un-managed KMS key with ``encryptionKey``. If you choose ``CSE-KMS``, you *must* provide an un-managed KMS key with ``encryptionKey``. Default: BucketEncryption.S3_MANAGED
+        :param encryption: (experimental) The kind of encryption to secure the data with. You can only provide this option if you are not explicitly passing in a bucket. If you choose ``SSE-KMS``, you *can* provide an un-managed KMS key with ``encryptionKey``. If you choose ``CSE-KMS``, you *may* provide an un-managed KMS key with ``encryptionKey``; one is created automatically if omitted. Default: BucketEncryption.S3_MANAGED
         :param encryption_key: (experimental) External KMS key to use for bucket encryption. The ``encryption`` property must be ``SSE-KMS`` or ``CSE-KMS``. Default: key is managed by KMS.
         :param s3_prefix: (experimental) S3 prefix under which table objects are stored. When the table shares a bucket with other tables or consumers, set this so that the ``grant*`` methods scope S3 access to this table's data. Without a prefix, those grants cover the entire bucket. Default: - No prefix. The data will be stored under the root of the bucket.
 
@@ -17057,6 +16773,7 @@ class S3TableProps(TableBaseProps):
             check_type(argname="argument compressed", value=compressed, expected_type=type_hints["compressed"])
             check_type(argname="argument description", value=description, expected_type=type_hints["description"])
             check_type(argname="argument enable_partition_filtering", value=enable_partition_filtering, expected_type=type_hints["enable_partition_filtering"])
+            check_type(argname="argument has_encrypted_data", value=has_encrypted_data, expected_type=type_hints["has_encrypted_data"])
             check_type(argname="argument parameters", value=parameters, expected_type=type_hints["parameters"])
             check_type(argname="argument partition_indexes", value=partition_indexes, expected_type=type_hints["partition_indexes"])
             check_type(argname="argument partition_keys", value=partition_keys, expected_type=type_hints["partition_keys"])
@@ -17079,6 +16796,8 @@ class S3TableProps(TableBaseProps):
             self._values["description"] = description
         if enable_partition_filtering is not None:
             self._values["enable_partition_filtering"] = enable_partition_filtering
+        if has_encrypted_data is not None:
+            self._values["has_encrypted_data"] = has_encrypted_data
         if parameters is not None:
             self._values["parameters"] = parameters
         if partition_indexes is not None:
@@ -17164,6 +16883,26 @@ class S3TableProps(TableBaseProps):
         :stability: experimental
         '''
         result = self._values.get("enable_partition_filtering")
+        return typing.cast(typing.Optional[builtins.bool], result)
+
+    @builtins.property
+    def has_encrypted_data(self) -> typing.Optional[builtins.bool]:
+        '''(experimental) Whether the data stored in the table is encrypted.
+
+        This sets the ``has_encrypted_data`` table parameter. Athena reads it when
+        querying client-side (CSE-KMS) encrypted datasets; for server-side
+        encrypted (SSE-S3 / SSE-KMS) or unencrypted data it has no effect, since
+        Amazon S3 decrypts server-side encrypted objects transparently.
+
+        Do not also set ``has_encrypted_data`` through ``parameters`` - use this
+        property instead. A conflicting value in ``parameters`` is rejected.
+
+        :default: true
+
+        :see: https://docs.aws.amazon.com/athena/latest/ug/creating-tables-based-on-encrypted-datasets-in-s3.html
+        :stability: experimental
+        '''
+        result = self._values.get("has_encrypted_data")
         return typing.cast(typing.Optional[builtins.bool], result)
 
     @builtins.property
@@ -17302,7 +17041,8 @@ class S3TableProps(TableBaseProps):
         You can only provide this option if you are not explicitly passing in a bucket.
 
         If you choose ``SSE-KMS``, you *can* provide an un-managed KMS key with ``encryptionKey``.
-        If you choose ``CSE-KMS``, you *must* provide an un-managed KMS key with ``encryptionKey``.
+        If you choose ``CSE-KMS``, you *may* provide an un-managed KMS key with ``encryptionKey``;
+        one is created automatically if omitted.
 
         :default: BucketEncryption.S3_MANAGED
 
@@ -17361,19 +17101,17 @@ class S3TableProps(TableBaseProps):
         "continuous_logging": "continuousLogging",
         "default_arguments": "defaultArguments",
         "description": "description",
-        "enable_profiling_metrics": "enableProfilingMetrics",
         "glue_version": "glueVersion",
         "job_name": "jobName",
         "max_concurrent_runs": "maxConcurrentRuns",
         "max_retries": "maxRetries",
-        "number_of_workers": "numberOfWorkers",
         "security_configuration": "securityConfiguration",
         "tags": "tags",
         "timeout": "timeout",
-        "worker_type": "workerType",
         "enable_metrics": "enableMetrics",
         "enable_observability_metrics": "enableObservabilityMetrics",
         "spark_ui": "sparkUI",
+        "worker_configuration": "workerConfiguration",
         "class_name": "className",
         "extra_files": "extraFiles",
         "extra_jars": "extraJars",
@@ -17392,19 +17130,17 @@ class ScalaSparkEtlJobProps(SparkJobProps):
         continuous_logging: typing.Optional[typing.Union["ContinuousLoggingProps", typing.Dict[builtins.str, typing.Any]]] = None,
         default_arguments: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
         description: typing.Optional[builtins.str] = None,
-        enable_profiling_metrics: typing.Optional[builtins.bool] = None,
         glue_version: typing.Optional["GlueVersion"] = None,
         job_name: typing.Optional[builtins.str] = None,
         max_concurrent_runs: typing.Optional[jsii.Number] = None,
         max_retries: typing.Optional[jsii.Number] = None,
-        number_of_workers: typing.Optional[jsii.Number] = None,
         security_configuration: typing.Optional["ISecurityConfiguration"] = None,
         tags: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
         timeout: typing.Optional["_aws_cdk_ceddda9d.Duration"] = None,
-        worker_type: typing.Optional["WorkerType"] = None,
         enable_metrics: typing.Optional[builtins.bool] = None,
         enable_observability_metrics: typing.Optional[builtins.bool] = None,
         spark_ui: typing.Optional[typing.Union["SparkUIProps", typing.Dict[builtins.str, typing.Any]]] = None,
+        worker_configuration: typing.Optional[typing.Union["WorkerConfiguration", typing.Dict[builtins.str, typing.Any]]] = None,
         class_name: builtins.str,
         extra_files: typing.Optional[typing.Sequence["Code"]] = None,
         extra_jars: typing.Optional[typing.Sequence["Code"]] = None,
@@ -17420,19 +17156,17 @@ class ScalaSparkEtlJobProps(SparkJobProps):
         :param continuous_logging: (experimental) Enables continuous logging with the specified props. Default: - continuous logging is enabled.
         :param default_arguments: (experimental) Default Arguments (optional) The default arguments for every run of this Glue job, specified as name-value pairs. These are emitted verbatim into the CloudFormation template, so avoid placing secrets here in plaintext. Pass secrets to the job at runtime through AWS Secrets Manager instead. A synthesis-time warning is emitted when an argument key looks like a credential and holds a plaintext literal. Default: - no arguments
         :param description: (experimental) Description (optional) Developer-specified description of the Glue job. Default: - no value
-        :param enable_profiling_metrics: (experimental) Enables the collection of metrics for job profiling. Default: - no profiling metrics emitted.
         :param glue_version: (experimental) Glue Version The version of Glue to use to execute this job. Default: 3.0 for ETL
         :param job_name: (experimental) Name of the Glue job (optional) Developer-specified name of the Glue job. Default: - a name is automatically generated
         :param max_concurrent_runs: (experimental) Max Concurrent Runs (optional) The maximum number of runs this Glue job can concurrently run. An error is returned when this threshold is reached. The maximum value you can specify is controlled by a service limit. Default: 1
         :param max_retries: (experimental) Max Retries (optional) Maximum number of retry attempts Glue performs if the job fails. Default: 0
-        :param number_of_workers: (experimental) Number of Workers (optional) Number of workers for Glue to use during job execution. Default: 10
         :param security_configuration: (experimental) Security Configuration (optional) Defines the encryption options for the Glue job. Default: - no security configuration.
         :param tags: (experimental) Tags (optional) A list of key:value pairs of tags to apply to this Glue job resources. Default: {} - no tags
         :param timeout: (experimental) Timeout (optional) The maximum time that a job run can consume resources before it is terminated and enters TIMEOUT status. Specified in minutes. Default: 2880 (2 days for non-streaming)
-        :param worker_type: (experimental) Worker Type (optional) Type of Worker for Glue to use during job execution Enum options: Standard, G_1X, G_2X, G_025X. G_4X, G_8X, Z_2X Default: WorkerType.G_1X
         :param enable_metrics: (experimental) Enable profiling metrics for the Glue job. When enabled, adds '--enable-metrics' to job arguments. Default: true
         :param enable_observability_metrics: (experimental) Enable observability metrics for the Glue job. When enabled, adds '--enable-observability-metrics': 'true' to job arguments. Default: true
         :param spark_ui: (experimental) Enables the Spark UI debugging and monitoring with the specified props. Default: - Spark UI debugging and monitoring is disabled.
+        :param worker_configuration: (experimental) The worker type and the number of workers allocated when a job runs. Default: - the job runs with the G_1X worker type and 10 workers.
         :param class_name: (experimental) Class name (required for Scala scripts) Package and class name for the entry point of Glue job execution for Java scripts.
         :param extra_files: (experimental) Additional files, such as configuration files that AWS Glue copies to the working directory of your script before executing it. Default: - no extra files specified.
         :param extra_jars: (experimental) Extra Jars S3 URL (optional) S3 URL where additional jar dependencies are located. Default: - no extra jar files
@@ -17482,7 +17216,6 @@ class ScalaSparkEtlJobProps(SparkJobProps):
                 description="description",
                 enable_metrics=False,
                 enable_observability_metrics=False,
-                enable_profiling_metrics=False,
                 extra_files=[code],
                 extra_jars=[code],
                 extra_jars_first=False,
@@ -17492,7 +17225,6 @@ class ScalaSparkEtlJobProps(SparkJobProps):
                 max_concurrent_runs=123,
                 max_retries=123,
                 notify_delay_after=cdk.Duration.minutes(30),
-                number_of_workers=123,
                 security_configuration=security_configuration,
                 spark_ui=glue_alpha.SparkUIProps(
                     bucket=bucket,
@@ -17502,13 +17234,18 @@ class ScalaSparkEtlJobProps(SparkJobProps):
                     "tags_key": "tags"
                 },
                 timeout=cdk.Duration.minutes(30),
-                worker_type=glue_alpha.WorkerType.STANDARD
+                worker_configuration=glue_alpha.WorkerConfiguration(
+                    number_of_workers=123,
+                    worker_type=glue_alpha.WorkerType.STANDARD
+                )
             )
         '''
         if isinstance(continuous_logging, dict):
             continuous_logging = ContinuousLoggingProps(**continuous_logging)
         if isinstance(spark_ui, dict):
             spark_ui = SparkUIProps(**spark_ui)
+        if isinstance(worker_configuration, dict):
+            worker_configuration = WorkerConfiguration(**worker_configuration)
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__7dc0f0fa237cf7965aab0946ff23b7cd81480bfae21863d601973dccf06d88b9)
             check_type(argname="argument role", value=role, expected_type=type_hints["role"])
@@ -17517,19 +17254,17 @@ class ScalaSparkEtlJobProps(SparkJobProps):
             check_type(argname="argument continuous_logging", value=continuous_logging, expected_type=type_hints["continuous_logging"])
             check_type(argname="argument default_arguments", value=default_arguments, expected_type=type_hints["default_arguments"])
             check_type(argname="argument description", value=description, expected_type=type_hints["description"])
-            check_type(argname="argument enable_profiling_metrics", value=enable_profiling_metrics, expected_type=type_hints["enable_profiling_metrics"])
             check_type(argname="argument glue_version", value=glue_version, expected_type=type_hints["glue_version"])
             check_type(argname="argument job_name", value=job_name, expected_type=type_hints["job_name"])
             check_type(argname="argument max_concurrent_runs", value=max_concurrent_runs, expected_type=type_hints["max_concurrent_runs"])
             check_type(argname="argument max_retries", value=max_retries, expected_type=type_hints["max_retries"])
-            check_type(argname="argument number_of_workers", value=number_of_workers, expected_type=type_hints["number_of_workers"])
             check_type(argname="argument security_configuration", value=security_configuration, expected_type=type_hints["security_configuration"])
             check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
             check_type(argname="argument timeout", value=timeout, expected_type=type_hints["timeout"])
-            check_type(argname="argument worker_type", value=worker_type, expected_type=type_hints["worker_type"])
             check_type(argname="argument enable_metrics", value=enable_metrics, expected_type=type_hints["enable_metrics"])
             check_type(argname="argument enable_observability_metrics", value=enable_observability_metrics, expected_type=type_hints["enable_observability_metrics"])
             check_type(argname="argument spark_ui", value=spark_ui, expected_type=type_hints["spark_ui"])
+            check_type(argname="argument worker_configuration", value=worker_configuration, expected_type=type_hints["worker_configuration"])
             check_type(argname="argument class_name", value=class_name, expected_type=type_hints["class_name"])
             check_type(argname="argument extra_files", value=extra_files, expected_type=type_hints["extra_files"])
             check_type(argname="argument extra_jars", value=extra_jars, expected_type=type_hints["extra_jars"])
@@ -17549,8 +17284,6 @@ class ScalaSparkEtlJobProps(SparkJobProps):
             self._values["default_arguments"] = default_arguments
         if description is not None:
             self._values["description"] = description
-        if enable_profiling_metrics is not None:
-            self._values["enable_profiling_metrics"] = enable_profiling_metrics
         if glue_version is not None:
             self._values["glue_version"] = glue_version
         if job_name is not None:
@@ -17559,22 +17292,20 @@ class ScalaSparkEtlJobProps(SparkJobProps):
             self._values["max_concurrent_runs"] = max_concurrent_runs
         if max_retries is not None:
             self._values["max_retries"] = max_retries
-        if number_of_workers is not None:
-            self._values["number_of_workers"] = number_of_workers
         if security_configuration is not None:
             self._values["security_configuration"] = security_configuration
         if tags is not None:
             self._values["tags"] = tags
         if timeout is not None:
             self._values["timeout"] = timeout
-        if worker_type is not None:
-            self._values["worker_type"] = worker_type
         if enable_metrics is not None:
             self._values["enable_metrics"] = enable_metrics
         if enable_observability_metrics is not None:
             self._values["enable_observability_metrics"] = enable_observability_metrics
         if spark_ui is not None:
             self._values["spark_ui"] = spark_ui
+        if worker_configuration is not None:
+            self._values["worker_configuration"] = worker_configuration
         if extra_files is not None:
             self._values["extra_files"] = extra_files
         if extra_jars is not None:
@@ -17668,18 +17399,6 @@ class ScalaSparkEtlJobProps(SparkJobProps):
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
-    def enable_profiling_metrics(self) -> typing.Optional[builtins.bool]:
-        '''(experimental) Enables the collection of metrics for job profiling.
-
-        :default: - no profiling metrics emitted.
-
-        :see: https://docs.aws.amazon.com/glue/latest/dg/aws-glue-programming-etl-glue-arguments.html
-        :stability: experimental
-        '''
-        result = self._values.get("enable_profiling_metrics")
-        return typing.cast(typing.Optional[builtins.bool], result)
-
-    @builtins.property
     def glue_version(self) -> typing.Optional["GlueVersion"]:
         '''(experimental) Glue Version The version of Glue to use to execute this job.
 
@@ -17727,17 +17446,6 @@ class ScalaSparkEtlJobProps(SparkJobProps):
         return typing.cast(typing.Optional[jsii.Number], result)
 
     @builtins.property
-    def number_of_workers(self) -> typing.Optional[jsii.Number]:
-        '''(experimental) Number of Workers (optional) Number of workers for Glue to use during job execution.
-
-        :default: 10
-
-        :stability: experimental
-        '''
-        result = self._values.get("number_of_workers")
-        return typing.cast(typing.Optional[jsii.Number], result)
-
-    @builtins.property
     def security_configuration(self) -> typing.Optional["ISecurityConfiguration"]:
         '''(experimental) Security Configuration (optional) Defines the encryption options for the Glue job.
 
@@ -17771,19 +17479,6 @@ class ScalaSparkEtlJobProps(SparkJobProps):
         '''
         result = self._values.get("timeout")
         return typing.cast(typing.Optional["_aws_cdk_ceddda9d.Duration"], result)
-
-    @builtins.property
-    def worker_type(self) -> typing.Optional["WorkerType"]:
-        '''(experimental) Worker Type (optional) Type of Worker for Glue to use during job execution Enum options: Standard, G_1X, G_2X, G_025X.
-
-        G_4X, G_8X, Z_2X
-
-        :default: WorkerType.G_1X
-
-        :stability: experimental
-        '''
-        result = self._values.get("worker_type")
-        return typing.cast(typing.Optional["WorkerType"], result)
 
     @builtins.property
     def enable_metrics(self) -> typing.Optional[builtins.bool]:
@@ -17822,6 +17517,17 @@ class ScalaSparkEtlJobProps(SparkJobProps):
         '''
         result = self._values.get("spark_ui")
         return typing.cast(typing.Optional["SparkUIProps"], result)
+
+    @builtins.property
+    def worker_configuration(self) -> typing.Optional["WorkerConfiguration"]:
+        '''(experimental) The worker type and the number of workers allocated when a job runs.
+
+        :default: - the job runs with the G_1X worker type and 10 workers.
+
+        :stability: experimental
+        '''
+        result = self._values.get("worker_configuration")
+        return typing.cast(typing.Optional["WorkerConfiguration"], result)
 
     @builtins.property
     def class_name(self) -> builtins.str:
@@ -17920,19 +17626,17 @@ class ScalaSparkEtlJobProps(SparkJobProps):
         "continuous_logging": "continuousLogging",
         "default_arguments": "defaultArguments",
         "description": "description",
-        "enable_profiling_metrics": "enableProfilingMetrics",
         "glue_version": "glueVersion",
         "job_name": "jobName",
         "max_concurrent_runs": "maxConcurrentRuns",
         "max_retries": "maxRetries",
-        "number_of_workers": "numberOfWorkers",
         "security_configuration": "securityConfiguration",
         "tags": "tags",
         "timeout": "timeout",
-        "worker_type": "workerType",
         "enable_metrics": "enableMetrics",
         "enable_observability_metrics": "enableObservabilityMetrics",
         "spark_ui": "sparkUI",
+        "worker_configuration": "workerConfiguration",
         "class_name": "className",
         "extra_files": "extraFiles",
         "extra_jars": "extraJars",
@@ -17950,19 +17654,17 @@ class ScalaSparkFlexEtlJobProps(SparkJobProps):
         continuous_logging: typing.Optional[typing.Union["ContinuousLoggingProps", typing.Dict[builtins.str, typing.Any]]] = None,
         default_arguments: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
         description: typing.Optional[builtins.str] = None,
-        enable_profiling_metrics: typing.Optional[builtins.bool] = None,
         glue_version: typing.Optional["GlueVersion"] = None,
         job_name: typing.Optional[builtins.str] = None,
         max_concurrent_runs: typing.Optional[jsii.Number] = None,
         max_retries: typing.Optional[jsii.Number] = None,
-        number_of_workers: typing.Optional[jsii.Number] = None,
         security_configuration: typing.Optional["ISecurityConfiguration"] = None,
         tags: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
         timeout: typing.Optional["_aws_cdk_ceddda9d.Duration"] = None,
-        worker_type: typing.Optional["WorkerType"] = None,
         enable_metrics: typing.Optional[builtins.bool] = None,
         enable_observability_metrics: typing.Optional[builtins.bool] = None,
         spark_ui: typing.Optional[typing.Union["SparkUIProps", typing.Dict[builtins.str, typing.Any]]] = None,
+        worker_configuration: typing.Optional[typing.Union["WorkerConfiguration", typing.Dict[builtins.str, typing.Any]]] = None,
         class_name: builtins.str,
         extra_files: typing.Optional[typing.Sequence["Code"]] = None,
         extra_jars: typing.Optional[typing.Sequence["Code"]] = None,
@@ -17986,19 +17688,17 @@ class ScalaSparkFlexEtlJobProps(SparkJobProps):
         :param continuous_logging: (experimental) Enables continuous logging with the specified props. Default: - continuous logging is enabled.
         :param default_arguments: (experimental) Default Arguments (optional) The default arguments for every run of this Glue job, specified as name-value pairs. These are emitted verbatim into the CloudFormation template, so avoid placing secrets here in plaintext. Pass secrets to the job at runtime through AWS Secrets Manager instead. A synthesis-time warning is emitted when an argument key looks like a credential and holds a plaintext literal. Default: - no arguments
         :param description: (experimental) Description (optional) Developer-specified description of the Glue job. Default: - no value
-        :param enable_profiling_metrics: (experimental) Enables the collection of metrics for job profiling. Default: - no profiling metrics emitted.
         :param glue_version: (experimental) Glue Version The version of Glue to use to execute this job. Default: 3.0 for ETL
         :param job_name: (experimental) Name of the Glue job (optional) Developer-specified name of the Glue job. Default: - a name is automatically generated
         :param max_concurrent_runs: (experimental) Max Concurrent Runs (optional) The maximum number of runs this Glue job can concurrently run. An error is returned when this threshold is reached. The maximum value you can specify is controlled by a service limit. Default: 1
         :param max_retries: (experimental) Max Retries (optional) Maximum number of retry attempts Glue performs if the job fails. Default: 0
-        :param number_of_workers: (experimental) Number of Workers (optional) Number of workers for Glue to use during job execution. Default: 10
         :param security_configuration: (experimental) Security Configuration (optional) Defines the encryption options for the Glue job. Default: - no security configuration.
         :param tags: (experimental) Tags (optional) A list of key:value pairs of tags to apply to this Glue job resources. Default: {} - no tags
         :param timeout: (experimental) Timeout (optional) The maximum time that a job run can consume resources before it is terminated and enters TIMEOUT status. Specified in minutes. Default: 2880 (2 days for non-streaming)
-        :param worker_type: (experimental) Worker Type (optional) Type of Worker for Glue to use during job execution Enum options: Standard, G_1X, G_2X, G_025X. G_4X, G_8X, Z_2X Default: WorkerType.G_1X
         :param enable_metrics: (experimental) Enable profiling metrics for the Glue job. When enabled, adds '--enable-metrics' to job arguments. Default: true
         :param enable_observability_metrics: (experimental) Enable observability metrics for the Glue job. When enabled, adds '--enable-observability-metrics': 'true' to job arguments. Default: true
         :param spark_ui: (experimental) Enables the Spark UI debugging and monitoring with the specified props. Default: - Spark UI debugging and monitoring is disabled.
+        :param worker_configuration: (experimental) The worker type and the number of workers allocated when a job runs. Default: - the job runs with the G_1X worker type and 10 workers.
         :param class_name: (experimental) The fully qualified Scala class name that serves as the entry point for the job.
         :param extra_files: (experimental) Additional files, such as configuration files that AWS Glue copies to the working directory of your script before executing it. Default: - no extra files specified.
         :param extra_jars: (experimental) Extra Jars S3 URL (optional) S3 URL where additional jar dependencies are located. Default: - no extra jar files
@@ -18047,7 +17747,6 @@ class ScalaSparkFlexEtlJobProps(SparkJobProps):
                 description="description",
                 enable_metrics=False,
                 enable_observability_metrics=False,
-                enable_profiling_metrics=False,
                 extra_files=[code],
                 extra_jars=[code],
                 extra_jars_first=False,
@@ -18056,7 +17755,6 @@ class ScalaSparkFlexEtlJobProps(SparkJobProps):
                 max_concurrent_runs=123,
                 max_retries=123,
                 notify_delay_after=cdk.Duration.minutes(30),
-                number_of_workers=123,
                 security_configuration=security_configuration,
                 spark_ui=glue_alpha.SparkUIProps(
                     bucket=bucket,
@@ -18066,13 +17764,18 @@ class ScalaSparkFlexEtlJobProps(SparkJobProps):
                     "tags_key": "tags"
                 },
                 timeout=cdk.Duration.minutes(30),
-                worker_type=glue_alpha.WorkerType.STANDARD
+                worker_configuration=glue_alpha.WorkerConfiguration(
+                    number_of_workers=123,
+                    worker_type=glue_alpha.WorkerType.STANDARD
+                )
             )
         '''
         if isinstance(continuous_logging, dict):
             continuous_logging = ContinuousLoggingProps(**continuous_logging)
         if isinstance(spark_ui, dict):
             spark_ui = SparkUIProps(**spark_ui)
+        if isinstance(worker_configuration, dict):
+            worker_configuration = WorkerConfiguration(**worker_configuration)
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__c8ceab9d0640505293413a9e030a887b86040fff73ca1bc6ccb20257953f0cf5)
             check_type(argname="argument role", value=role, expected_type=type_hints["role"])
@@ -18081,19 +17784,17 @@ class ScalaSparkFlexEtlJobProps(SparkJobProps):
             check_type(argname="argument continuous_logging", value=continuous_logging, expected_type=type_hints["continuous_logging"])
             check_type(argname="argument default_arguments", value=default_arguments, expected_type=type_hints["default_arguments"])
             check_type(argname="argument description", value=description, expected_type=type_hints["description"])
-            check_type(argname="argument enable_profiling_metrics", value=enable_profiling_metrics, expected_type=type_hints["enable_profiling_metrics"])
             check_type(argname="argument glue_version", value=glue_version, expected_type=type_hints["glue_version"])
             check_type(argname="argument job_name", value=job_name, expected_type=type_hints["job_name"])
             check_type(argname="argument max_concurrent_runs", value=max_concurrent_runs, expected_type=type_hints["max_concurrent_runs"])
             check_type(argname="argument max_retries", value=max_retries, expected_type=type_hints["max_retries"])
-            check_type(argname="argument number_of_workers", value=number_of_workers, expected_type=type_hints["number_of_workers"])
             check_type(argname="argument security_configuration", value=security_configuration, expected_type=type_hints["security_configuration"])
             check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
             check_type(argname="argument timeout", value=timeout, expected_type=type_hints["timeout"])
-            check_type(argname="argument worker_type", value=worker_type, expected_type=type_hints["worker_type"])
             check_type(argname="argument enable_metrics", value=enable_metrics, expected_type=type_hints["enable_metrics"])
             check_type(argname="argument enable_observability_metrics", value=enable_observability_metrics, expected_type=type_hints["enable_observability_metrics"])
             check_type(argname="argument spark_ui", value=spark_ui, expected_type=type_hints["spark_ui"])
+            check_type(argname="argument worker_configuration", value=worker_configuration, expected_type=type_hints["worker_configuration"])
             check_type(argname="argument class_name", value=class_name, expected_type=type_hints["class_name"])
             check_type(argname="argument extra_files", value=extra_files, expected_type=type_hints["extra_files"])
             check_type(argname="argument extra_jars", value=extra_jars, expected_type=type_hints["extra_jars"])
@@ -18112,8 +17813,6 @@ class ScalaSparkFlexEtlJobProps(SparkJobProps):
             self._values["default_arguments"] = default_arguments
         if description is not None:
             self._values["description"] = description
-        if enable_profiling_metrics is not None:
-            self._values["enable_profiling_metrics"] = enable_profiling_metrics
         if glue_version is not None:
             self._values["glue_version"] = glue_version
         if job_name is not None:
@@ -18122,22 +17821,20 @@ class ScalaSparkFlexEtlJobProps(SparkJobProps):
             self._values["max_concurrent_runs"] = max_concurrent_runs
         if max_retries is not None:
             self._values["max_retries"] = max_retries
-        if number_of_workers is not None:
-            self._values["number_of_workers"] = number_of_workers
         if security_configuration is not None:
             self._values["security_configuration"] = security_configuration
         if tags is not None:
             self._values["tags"] = tags
         if timeout is not None:
             self._values["timeout"] = timeout
-        if worker_type is not None:
-            self._values["worker_type"] = worker_type
         if enable_metrics is not None:
             self._values["enable_metrics"] = enable_metrics
         if enable_observability_metrics is not None:
             self._values["enable_observability_metrics"] = enable_observability_metrics
         if spark_ui is not None:
             self._values["spark_ui"] = spark_ui
+        if worker_configuration is not None:
+            self._values["worker_configuration"] = worker_configuration
         if extra_files is not None:
             self._values["extra_files"] = extra_files
         if extra_jars is not None:
@@ -18229,18 +17926,6 @@ class ScalaSparkFlexEtlJobProps(SparkJobProps):
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
-    def enable_profiling_metrics(self) -> typing.Optional[builtins.bool]:
-        '''(experimental) Enables the collection of metrics for job profiling.
-
-        :default: - no profiling metrics emitted.
-
-        :see: https://docs.aws.amazon.com/glue/latest/dg/aws-glue-programming-etl-glue-arguments.html
-        :stability: experimental
-        '''
-        result = self._values.get("enable_profiling_metrics")
-        return typing.cast(typing.Optional[builtins.bool], result)
-
-    @builtins.property
     def glue_version(self) -> typing.Optional["GlueVersion"]:
         '''(experimental) Glue Version The version of Glue to use to execute this job.
 
@@ -18288,17 +17973,6 @@ class ScalaSparkFlexEtlJobProps(SparkJobProps):
         return typing.cast(typing.Optional[jsii.Number], result)
 
     @builtins.property
-    def number_of_workers(self) -> typing.Optional[jsii.Number]:
-        '''(experimental) Number of Workers (optional) Number of workers for Glue to use during job execution.
-
-        :default: 10
-
-        :stability: experimental
-        '''
-        result = self._values.get("number_of_workers")
-        return typing.cast(typing.Optional[jsii.Number], result)
-
-    @builtins.property
     def security_configuration(self) -> typing.Optional["ISecurityConfiguration"]:
         '''(experimental) Security Configuration (optional) Defines the encryption options for the Glue job.
 
@@ -18332,19 +18006,6 @@ class ScalaSparkFlexEtlJobProps(SparkJobProps):
         '''
         result = self._values.get("timeout")
         return typing.cast(typing.Optional["_aws_cdk_ceddda9d.Duration"], result)
-
-    @builtins.property
-    def worker_type(self) -> typing.Optional["WorkerType"]:
-        '''(experimental) Worker Type (optional) Type of Worker for Glue to use during job execution Enum options: Standard, G_1X, G_2X, G_025X.
-
-        G_4X, G_8X, Z_2X
-
-        :default: WorkerType.G_1X
-
-        :stability: experimental
-        '''
-        result = self._values.get("worker_type")
-        return typing.cast(typing.Optional["WorkerType"], result)
 
     @builtins.property
     def enable_metrics(self) -> typing.Optional[builtins.bool]:
@@ -18383,6 +18044,17 @@ class ScalaSparkFlexEtlJobProps(SparkJobProps):
         '''
         result = self._values.get("spark_ui")
         return typing.cast(typing.Optional["SparkUIProps"], result)
+
+    @builtins.property
+    def worker_configuration(self) -> typing.Optional["WorkerConfiguration"]:
+        '''(experimental) The worker type and the number of workers allocated when a job runs.
+
+        :default: - the job runs with the G_1X worker type and 10 workers.
+
+        :stability: experimental
+        '''
+        result = self._values.get("worker_configuration")
+        return typing.cast(typing.Optional["WorkerConfiguration"], result)
 
     @builtins.property
     def class_name(self) -> builtins.str:
@@ -18465,19 +18137,17 @@ class ScalaSparkFlexEtlJobProps(SparkJobProps):
         "continuous_logging": "continuousLogging",
         "default_arguments": "defaultArguments",
         "description": "description",
-        "enable_profiling_metrics": "enableProfilingMetrics",
         "glue_version": "glueVersion",
         "job_name": "jobName",
         "max_concurrent_runs": "maxConcurrentRuns",
         "max_retries": "maxRetries",
-        "number_of_workers": "numberOfWorkers",
         "security_configuration": "securityConfiguration",
         "tags": "tags",
         "timeout": "timeout",
-        "worker_type": "workerType",
         "enable_metrics": "enableMetrics",
         "enable_observability_metrics": "enableObservabilityMetrics",
         "spark_ui": "sparkUI",
+        "worker_configuration": "workerConfiguration",
         "class_name": "className",
         "extra_files": "extraFiles",
         "extra_jars": "extraJars",
@@ -18495,19 +18165,17 @@ class ScalaSparkStreamingJobProps(SparkJobProps):
         continuous_logging: typing.Optional[typing.Union["ContinuousLoggingProps", typing.Dict[builtins.str, typing.Any]]] = None,
         default_arguments: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
         description: typing.Optional[builtins.str] = None,
-        enable_profiling_metrics: typing.Optional[builtins.bool] = None,
         glue_version: typing.Optional["GlueVersion"] = None,
         job_name: typing.Optional[builtins.str] = None,
         max_concurrent_runs: typing.Optional[jsii.Number] = None,
         max_retries: typing.Optional[jsii.Number] = None,
-        number_of_workers: typing.Optional[jsii.Number] = None,
         security_configuration: typing.Optional["ISecurityConfiguration"] = None,
         tags: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
         timeout: typing.Optional["_aws_cdk_ceddda9d.Duration"] = None,
-        worker_type: typing.Optional["WorkerType"] = None,
         enable_metrics: typing.Optional[builtins.bool] = None,
         enable_observability_metrics: typing.Optional[builtins.bool] = None,
         spark_ui: typing.Optional[typing.Union["SparkUIProps", typing.Dict[builtins.str, typing.Any]]] = None,
+        worker_configuration: typing.Optional[typing.Union["WorkerConfiguration", typing.Dict[builtins.str, typing.Any]]] = None,
         class_name: builtins.str,
         extra_files: typing.Optional[typing.Sequence["Code"]] = None,
         extra_jars: typing.Optional[typing.Sequence["Code"]] = None,
@@ -18522,19 +18190,17 @@ class ScalaSparkStreamingJobProps(SparkJobProps):
         :param continuous_logging: (experimental) Enables continuous logging with the specified props. Default: - continuous logging is enabled.
         :param default_arguments: (experimental) Default Arguments (optional) The default arguments for every run of this Glue job, specified as name-value pairs. These are emitted verbatim into the CloudFormation template, so avoid placing secrets here in plaintext. Pass secrets to the job at runtime through AWS Secrets Manager instead. A synthesis-time warning is emitted when an argument key looks like a credential and holds a plaintext literal. Default: - no arguments
         :param description: (experimental) Description (optional) Developer-specified description of the Glue job. Default: - no value
-        :param enable_profiling_metrics: (experimental) Enables the collection of metrics for job profiling. Default: - no profiling metrics emitted.
         :param glue_version: (experimental) Glue Version The version of Glue to use to execute this job. Default: 3.0 for ETL
         :param job_name: (experimental) Name of the Glue job (optional) Developer-specified name of the Glue job. Default: - a name is automatically generated
         :param max_concurrent_runs: (experimental) Max Concurrent Runs (optional) The maximum number of runs this Glue job can concurrently run. An error is returned when this threshold is reached. The maximum value you can specify is controlled by a service limit. Default: 1
         :param max_retries: (experimental) Max Retries (optional) Maximum number of retry attempts Glue performs if the job fails. Default: 0
-        :param number_of_workers: (experimental) Number of Workers (optional) Number of workers for Glue to use during job execution. Default: 10
         :param security_configuration: (experimental) Security Configuration (optional) Defines the encryption options for the Glue job. Default: - no security configuration.
         :param tags: (experimental) Tags (optional) A list of key:value pairs of tags to apply to this Glue job resources. Default: {} - no tags
         :param timeout: (experimental) Timeout (optional) The maximum time that a job run can consume resources before it is terminated and enters TIMEOUT status. Specified in minutes. Default: 2880 (2 days for non-streaming)
-        :param worker_type: (experimental) Worker Type (optional) Type of Worker for Glue to use during job execution Enum options: Standard, G_1X, G_2X, G_025X. G_4X, G_8X, Z_2X Default: WorkerType.G_1X
         :param enable_metrics: (experimental) Enable profiling metrics for the Glue job. When enabled, adds '--enable-metrics' to job arguments. Default: true
         :param enable_observability_metrics: (experimental) Enable observability metrics for the Glue job. When enabled, adds '--enable-observability-metrics': 'true' to job arguments. Default: true
         :param spark_ui: (experimental) Enables the Spark UI debugging and monitoring with the specified props. Default: - Spark UI debugging and monitoring is disabled.
+        :param worker_configuration: (experimental) The worker type and the number of workers allocated when a job runs. Default: - the job runs with the G_1X worker type and 10 workers.
         :param class_name: (experimental) Class name (required for Scala scripts) Package and class name for the entry point of Glue job execution for Java scripts.
         :param extra_files: (experimental) Additional files, such as configuration files that AWS Glue copies to the working directory of your script before executing it. Default: - no extra files specified.
         :param extra_jars: (experimental) Extra Jars S3 URL (optional) S3 URL where additional jar dependencies are located. Default: - no extra jar files
@@ -18583,7 +18249,6 @@ class ScalaSparkStreamingJobProps(SparkJobProps):
                 description="description",
                 enable_metrics=False,
                 enable_observability_metrics=False,
-                enable_profiling_metrics=False,
                 extra_files=[code],
                 extra_jars=[code],
                 extra_jars_first=False,
@@ -18592,7 +18257,6 @@ class ScalaSparkStreamingJobProps(SparkJobProps):
                 job_run_queuing_enabled=False,
                 max_concurrent_runs=123,
                 max_retries=123,
-                number_of_workers=123,
                 security_configuration=security_configuration,
                 spark_ui=glue_alpha.SparkUIProps(
                     bucket=bucket,
@@ -18602,13 +18266,18 @@ class ScalaSparkStreamingJobProps(SparkJobProps):
                     "tags_key": "tags"
                 },
                 timeout=cdk.Duration.minutes(30),
-                worker_type=glue_alpha.WorkerType.STANDARD
+                worker_configuration=glue_alpha.WorkerConfiguration(
+                    number_of_workers=123,
+                    worker_type=glue_alpha.WorkerType.STANDARD
+                )
             )
         '''
         if isinstance(continuous_logging, dict):
             continuous_logging = ContinuousLoggingProps(**continuous_logging)
         if isinstance(spark_ui, dict):
             spark_ui = SparkUIProps(**spark_ui)
+        if isinstance(worker_configuration, dict):
+            worker_configuration = WorkerConfiguration(**worker_configuration)
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__178abebbd3eb26dd5a8490688d5ab2b0ca85ce375356790e6e875c4666ecedd5)
             check_type(argname="argument role", value=role, expected_type=type_hints["role"])
@@ -18617,19 +18286,17 @@ class ScalaSparkStreamingJobProps(SparkJobProps):
             check_type(argname="argument continuous_logging", value=continuous_logging, expected_type=type_hints["continuous_logging"])
             check_type(argname="argument default_arguments", value=default_arguments, expected_type=type_hints["default_arguments"])
             check_type(argname="argument description", value=description, expected_type=type_hints["description"])
-            check_type(argname="argument enable_profiling_metrics", value=enable_profiling_metrics, expected_type=type_hints["enable_profiling_metrics"])
             check_type(argname="argument glue_version", value=glue_version, expected_type=type_hints["glue_version"])
             check_type(argname="argument job_name", value=job_name, expected_type=type_hints["job_name"])
             check_type(argname="argument max_concurrent_runs", value=max_concurrent_runs, expected_type=type_hints["max_concurrent_runs"])
             check_type(argname="argument max_retries", value=max_retries, expected_type=type_hints["max_retries"])
-            check_type(argname="argument number_of_workers", value=number_of_workers, expected_type=type_hints["number_of_workers"])
             check_type(argname="argument security_configuration", value=security_configuration, expected_type=type_hints["security_configuration"])
             check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
             check_type(argname="argument timeout", value=timeout, expected_type=type_hints["timeout"])
-            check_type(argname="argument worker_type", value=worker_type, expected_type=type_hints["worker_type"])
             check_type(argname="argument enable_metrics", value=enable_metrics, expected_type=type_hints["enable_metrics"])
             check_type(argname="argument enable_observability_metrics", value=enable_observability_metrics, expected_type=type_hints["enable_observability_metrics"])
             check_type(argname="argument spark_ui", value=spark_ui, expected_type=type_hints["spark_ui"])
+            check_type(argname="argument worker_configuration", value=worker_configuration, expected_type=type_hints["worker_configuration"])
             check_type(argname="argument class_name", value=class_name, expected_type=type_hints["class_name"])
             check_type(argname="argument extra_files", value=extra_files, expected_type=type_hints["extra_files"])
             check_type(argname="argument extra_jars", value=extra_jars, expected_type=type_hints["extra_jars"])
@@ -18648,8 +18315,6 @@ class ScalaSparkStreamingJobProps(SparkJobProps):
             self._values["default_arguments"] = default_arguments
         if description is not None:
             self._values["description"] = description
-        if enable_profiling_metrics is not None:
-            self._values["enable_profiling_metrics"] = enable_profiling_metrics
         if glue_version is not None:
             self._values["glue_version"] = glue_version
         if job_name is not None:
@@ -18658,22 +18323,20 @@ class ScalaSparkStreamingJobProps(SparkJobProps):
             self._values["max_concurrent_runs"] = max_concurrent_runs
         if max_retries is not None:
             self._values["max_retries"] = max_retries
-        if number_of_workers is not None:
-            self._values["number_of_workers"] = number_of_workers
         if security_configuration is not None:
             self._values["security_configuration"] = security_configuration
         if tags is not None:
             self._values["tags"] = tags
         if timeout is not None:
             self._values["timeout"] = timeout
-        if worker_type is not None:
-            self._values["worker_type"] = worker_type
         if enable_metrics is not None:
             self._values["enable_metrics"] = enable_metrics
         if enable_observability_metrics is not None:
             self._values["enable_observability_metrics"] = enable_observability_metrics
         if spark_ui is not None:
             self._values["spark_ui"] = spark_ui
+        if worker_configuration is not None:
+            self._values["worker_configuration"] = worker_configuration
         if extra_files is not None:
             self._values["extra_files"] = extra_files
         if extra_jars is not None:
@@ -18765,18 +18428,6 @@ class ScalaSparkStreamingJobProps(SparkJobProps):
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
-    def enable_profiling_metrics(self) -> typing.Optional[builtins.bool]:
-        '''(experimental) Enables the collection of metrics for job profiling.
-
-        :default: - no profiling metrics emitted.
-
-        :see: https://docs.aws.amazon.com/glue/latest/dg/aws-glue-programming-etl-glue-arguments.html
-        :stability: experimental
-        '''
-        result = self._values.get("enable_profiling_metrics")
-        return typing.cast(typing.Optional[builtins.bool], result)
-
-    @builtins.property
     def glue_version(self) -> typing.Optional["GlueVersion"]:
         '''(experimental) Glue Version The version of Glue to use to execute this job.
 
@@ -18824,17 +18475,6 @@ class ScalaSparkStreamingJobProps(SparkJobProps):
         return typing.cast(typing.Optional[jsii.Number], result)
 
     @builtins.property
-    def number_of_workers(self) -> typing.Optional[jsii.Number]:
-        '''(experimental) Number of Workers (optional) Number of workers for Glue to use during job execution.
-
-        :default: 10
-
-        :stability: experimental
-        '''
-        result = self._values.get("number_of_workers")
-        return typing.cast(typing.Optional[jsii.Number], result)
-
-    @builtins.property
     def security_configuration(self) -> typing.Optional["ISecurityConfiguration"]:
         '''(experimental) Security Configuration (optional) Defines the encryption options for the Glue job.
 
@@ -18868,19 +18508,6 @@ class ScalaSparkStreamingJobProps(SparkJobProps):
         '''
         result = self._values.get("timeout")
         return typing.cast(typing.Optional["_aws_cdk_ceddda9d.Duration"], result)
-
-    @builtins.property
-    def worker_type(self) -> typing.Optional["WorkerType"]:
-        '''(experimental) Worker Type (optional) Type of Worker for Glue to use during job execution Enum options: Standard, G_1X, G_2X, G_025X.
-
-        G_4X, G_8X, Z_2X
-
-        :default: WorkerType.G_1X
-
-        :stability: experimental
-        '''
-        result = self._values.get("worker_type")
-        return typing.cast(typing.Optional["WorkerType"], result)
 
     @builtins.property
     def enable_metrics(self) -> typing.Optional[builtins.bool]:
@@ -18919,6 +18546,17 @@ class ScalaSparkStreamingJobProps(SparkJobProps):
         '''
         result = self._values.get("spark_ui")
         return typing.cast(typing.Optional["SparkUIProps"], result)
+
+    @builtins.property
+    def worker_configuration(self) -> typing.Optional["WorkerConfiguration"]:
+        '''(experimental) The worker type and the number of workers allocated when a job runs.
+
+        :default: - the job runs with the G_1X worker type and 10 workers.
+
+        :stability: experimental
+        '''
+        result = self._values.get("worker_configuration")
+        return typing.cast(typing.Optional["WorkerConfiguration"], result)
 
     @builtins.property
     def class_name(self) -> builtins.str:
@@ -19029,22 +18667,20 @@ class SparkJob(
         enable_metrics: typing.Optional[builtins.bool] = None,
         enable_observability_metrics: typing.Optional[builtins.bool] = None,
         spark_ui: typing.Optional[typing.Union["SparkUIProps", typing.Dict[builtins.str, typing.Any]]] = None,
+        worker_configuration: typing.Optional[typing.Union["WorkerConfiguration", typing.Dict[builtins.str, typing.Any]]] = None,
         role: "_aws_cdk_aws_iam_ceddda9d.IRole",
         script: "Code",
         connections: typing.Optional[typing.Sequence["IConnection"]] = None,
         continuous_logging: typing.Optional[typing.Union["ContinuousLoggingProps", typing.Dict[builtins.str, typing.Any]]] = None,
         default_arguments: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
         description: typing.Optional[builtins.str] = None,
-        enable_profiling_metrics: typing.Optional[builtins.bool] = None,
         glue_version: typing.Optional["GlueVersion"] = None,
         job_name: typing.Optional[builtins.str] = None,
         max_concurrent_runs: typing.Optional[jsii.Number] = None,
         max_retries: typing.Optional[jsii.Number] = None,
-        number_of_workers: typing.Optional[jsii.Number] = None,
         security_configuration: typing.Optional["ISecurityConfiguration"] = None,
         tags: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
         timeout: typing.Optional["_aws_cdk_ceddda9d.Duration"] = None,
-        worker_type: typing.Optional["WorkerType"] = None,
     ) -> None:
         '''
         :param scope: -
@@ -19052,22 +18688,20 @@ class SparkJob(
         :param enable_metrics: (experimental) Enable profiling metrics for the Glue job. When enabled, adds '--enable-metrics' to job arguments. Default: true
         :param enable_observability_metrics: (experimental) Enable observability metrics for the Glue job. When enabled, adds '--enable-observability-metrics': 'true' to job arguments. Default: true
         :param spark_ui: (experimental) Enables the Spark UI debugging and monitoring with the specified props. Default: - Spark UI debugging and monitoring is disabled.
+        :param worker_configuration: (experimental) The worker type and the number of workers allocated when a job runs. Default: - the job runs with the G_1X worker type and 10 workers.
         :param role: (experimental) IAM Role (required) IAM Role to use for Glue job execution Must be specified by the developer because the L2 doesn't have visibility into the actions the script(s) takes during the job execution The role must trust the Glue service principal (glue.amazonaws.com) and be granted sufficient permissions.
         :param script: (experimental) Script Code Location (required) Script to run when the Glue job executes. Can be uploaded from the local directory structure using fromAsset or referenced via S3 location using fromBucket
         :param connections: (experimental) Connections (optional) List of connections to use for this Glue job Connections are used to connect to other AWS Service or resources within a VPC. Default: [] - no connections are added to the job
         :param continuous_logging: (experimental) Enables continuous logging with the specified props. Default: - continuous logging is enabled.
         :param default_arguments: (experimental) Default Arguments (optional) The default arguments for every run of this Glue job, specified as name-value pairs. These are emitted verbatim into the CloudFormation template, so avoid placing secrets here in plaintext. Pass secrets to the job at runtime through AWS Secrets Manager instead. A synthesis-time warning is emitted when an argument key looks like a credential and holds a plaintext literal. Default: - no arguments
         :param description: (experimental) Description (optional) Developer-specified description of the Glue job. Default: - no value
-        :param enable_profiling_metrics: (experimental) Enables the collection of metrics for job profiling. Default: - no profiling metrics emitted.
         :param glue_version: (experimental) Glue Version The version of Glue to use to execute this job. Default: 3.0 for ETL
         :param job_name: (experimental) Name of the Glue job (optional) Developer-specified name of the Glue job. Default: - a name is automatically generated
         :param max_concurrent_runs: (experimental) Max Concurrent Runs (optional) The maximum number of runs this Glue job can concurrently run. An error is returned when this threshold is reached. The maximum value you can specify is controlled by a service limit. Default: 1
         :param max_retries: (experimental) Max Retries (optional) Maximum number of retry attempts Glue performs if the job fails. Default: 0
-        :param number_of_workers: (experimental) Number of Workers (optional) Number of workers for Glue to use during job execution. Default: 10
         :param security_configuration: (experimental) Security Configuration (optional) Defines the encryption options for the Glue job. Default: - no security configuration.
         :param tags: (experimental) Tags (optional) A list of key:value pairs of tags to apply to this Glue job resources. Default: {} - no tags
         :param timeout: (experimental) Timeout (optional) The maximum time that a job run can consume resources before it is terminated and enters TIMEOUT status. Specified in minutes. Default: 2880 (2 days for non-streaming)
-        :param worker_type: (experimental) Worker Type (optional) Type of Worker for Glue to use during job execution Enum options: Standard, G_1X, G_2X, G_025X. G_4X, G_8X, Z_2X Default: WorkerType.G_1X
 
         :stability: experimental
         '''
@@ -19079,22 +18713,20 @@ class SparkJob(
             enable_metrics=enable_metrics,
             enable_observability_metrics=enable_observability_metrics,
             spark_ui=spark_ui,
+            worker_configuration=worker_configuration,
             role=role,
             script=script,
             connections=connections,
             continuous_logging=continuous_logging,
             default_arguments=default_arguments,
             description=description,
-            enable_profiling_metrics=enable_profiling_metrics,
             glue_version=glue_version,
             job_name=job_name,
             max_concurrent_runs=max_concurrent_runs,
             max_retries=max_retries,
-            number_of_workers=number_of_workers,
             security_configuration=security_configuration,
             tags=tags,
             timeout=timeout,
-            worker_type=worker_type,
         )
 
         jsii.create(self.__class__, self, [scope, id, props])
@@ -19106,43 +18738,39 @@ class SparkJob(
         enable_metrics: typing.Optional[builtins.bool] = None,
         enable_observability_metrics: typing.Optional[builtins.bool] = None,
         spark_ui: typing.Optional[typing.Union["SparkUIProps", typing.Dict[builtins.str, typing.Any]]] = None,
+        worker_configuration: typing.Optional[typing.Union["WorkerConfiguration", typing.Dict[builtins.str, typing.Any]]] = None,
         role: "_aws_cdk_aws_iam_ceddda9d.IRole",
         script: "Code",
         connections: typing.Optional[typing.Sequence["IConnection"]] = None,
         continuous_logging: typing.Optional[typing.Union["ContinuousLoggingProps", typing.Dict[builtins.str, typing.Any]]] = None,
         default_arguments: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
         description: typing.Optional[builtins.str] = None,
-        enable_profiling_metrics: typing.Optional[builtins.bool] = None,
         glue_version: typing.Optional["GlueVersion"] = None,
         job_name: typing.Optional[builtins.str] = None,
         max_concurrent_runs: typing.Optional[jsii.Number] = None,
         max_retries: typing.Optional[jsii.Number] = None,
-        number_of_workers: typing.Optional[jsii.Number] = None,
         security_configuration: typing.Optional["ISecurityConfiguration"] = None,
         tags: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
         timeout: typing.Optional["_aws_cdk_ceddda9d.Duration"] = None,
-        worker_type: typing.Optional["WorkerType"] = None,
     ) -> typing.Mapping[builtins.str, builtins.str]:
         '''
         :param enable_metrics: (experimental) Enable profiling metrics for the Glue job. When enabled, adds '--enable-metrics' to job arguments. Default: true
         :param enable_observability_metrics: (experimental) Enable observability metrics for the Glue job. When enabled, adds '--enable-observability-metrics': 'true' to job arguments. Default: true
         :param spark_ui: (experimental) Enables the Spark UI debugging and monitoring with the specified props. Default: - Spark UI debugging and monitoring is disabled.
+        :param worker_configuration: (experimental) The worker type and the number of workers allocated when a job runs. Default: - the job runs with the G_1X worker type and 10 workers.
         :param role: (experimental) IAM Role (required) IAM Role to use for Glue job execution Must be specified by the developer because the L2 doesn't have visibility into the actions the script(s) takes during the job execution The role must trust the Glue service principal (glue.amazonaws.com) and be granted sufficient permissions.
         :param script: (experimental) Script Code Location (required) Script to run when the Glue job executes. Can be uploaded from the local directory structure using fromAsset or referenced via S3 location using fromBucket
         :param connections: (experimental) Connections (optional) List of connections to use for this Glue job Connections are used to connect to other AWS Service or resources within a VPC. Default: [] - no connections are added to the job
         :param continuous_logging: (experimental) Enables continuous logging with the specified props. Default: - continuous logging is enabled.
         :param default_arguments: (experimental) Default Arguments (optional) The default arguments for every run of this Glue job, specified as name-value pairs. These are emitted verbatim into the CloudFormation template, so avoid placing secrets here in plaintext. Pass secrets to the job at runtime through AWS Secrets Manager instead. A synthesis-time warning is emitted when an argument key looks like a credential and holds a plaintext literal. Default: - no arguments
         :param description: (experimental) Description (optional) Developer-specified description of the Glue job. Default: - no value
-        :param enable_profiling_metrics: (experimental) Enables the collection of metrics for job profiling. Default: - no profiling metrics emitted.
         :param glue_version: (experimental) Glue Version The version of Glue to use to execute this job. Default: 3.0 for ETL
         :param job_name: (experimental) Name of the Glue job (optional) Developer-specified name of the Glue job. Default: - a name is automatically generated
         :param max_concurrent_runs: (experimental) Max Concurrent Runs (optional) The maximum number of runs this Glue job can concurrently run. An error is returned when this threshold is reached. The maximum value you can specify is controlled by a service limit. Default: 1
         :param max_retries: (experimental) Max Retries (optional) Maximum number of retry attempts Glue performs if the job fails. Default: 0
-        :param number_of_workers: (experimental) Number of Workers (optional) Number of workers for Glue to use during job execution. Default: 10
         :param security_configuration: (experimental) Security Configuration (optional) Defines the encryption options for the Glue job. Default: - no security configuration.
         :param tags: (experimental) Tags (optional) A list of key:value pairs of tags to apply to this Glue job resources. Default: {} - no tags
         :param timeout: (experimental) Timeout (optional) The maximum time that a job run can consume resources before it is terminated and enters TIMEOUT status. Specified in minutes. Default: 2880 (2 days for non-streaming)
-        :param worker_type: (experimental) Worker Type (optional) Type of Worker for Glue to use during job execution Enum options: Standard, G_1X, G_2X, G_025X. G_4X, G_8X, Z_2X Default: WorkerType.G_1X
 
         :stability: experimental
         '''
@@ -19150,22 +18778,20 @@ class SparkJob(
             enable_metrics=enable_metrics,
             enable_observability_metrics=enable_observability_metrics,
             spark_ui=spark_ui,
+            worker_configuration=worker_configuration,
             role=role,
             script=script,
             connections=connections,
             continuous_logging=continuous_logging,
             default_arguments=default_arguments,
             description=description,
-            enable_profiling_metrics=enable_profiling_metrics,
             glue_version=glue_version,
             job_name=job_name,
             max_concurrent_runs=max_concurrent_runs,
             max_retries=max_retries,
-            number_of_workers=number_of_workers,
             security_configuration=security_configuration,
             tags=tags,
             timeout=timeout,
-            worker_type=worker_type,
         )
 
         return typing.cast(typing.Mapping[builtins.str, builtins.str], jsii.invoke(self, "nonExecutableCommonArguments", [props]))
@@ -19290,6 +18916,7 @@ class Table(
         compressed: typing.Optional[builtins.bool] = None,
         description: typing.Optional[builtins.str] = None,
         enable_partition_filtering: typing.Optional[builtins.bool] = None,
+        has_encrypted_data: typing.Optional[builtins.bool] = None,
         parameters: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
         partition_indexes: typing.Optional[typing.Sequence[typing.Union["PartitionIndex", typing.Dict[builtins.str, typing.Any]]]] = None,
         partition_keys: typing.Optional[typing.Sequence[typing.Union["Column", typing.Dict[builtins.str, typing.Any]]]] = None,
@@ -19302,7 +18929,7 @@ class Table(
         :param scope: -
         :param id: -
         :param bucket: (experimental) S3 bucket in which to store data. Default: one is created for you
-        :param encryption: (experimental) The kind of encryption to secure the data with. You can only provide this option if you are not explicitly passing in a bucket. If you choose ``SSE-KMS``, you *can* provide an un-managed KMS key with ``encryptionKey``. If you choose ``CSE-KMS``, you *must* provide an un-managed KMS key with ``encryptionKey``. Default: BucketEncryption.S3_MANAGED
+        :param encryption: (experimental) The kind of encryption to secure the data with. You can only provide this option if you are not explicitly passing in a bucket. If you choose ``SSE-KMS``, you *can* provide an un-managed KMS key with ``encryptionKey``. If you choose ``CSE-KMS``, you *may* provide an un-managed KMS key with ``encryptionKey``; one is created automatically if omitted. Default: BucketEncryption.S3_MANAGED
         :param encryption_key: (experimental) External KMS key to use for bucket encryption. The ``encryption`` property must be ``SSE-KMS`` or ``CSE-KMS``. Default: key is managed by KMS.
         :param s3_prefix: (experimental) S3 prefix under which table objects are stored. When the table shares a bucket with other tables or consumers, set this so that the ``grant*`` methods scope S3 access to this table's data. Without a prefix, those grants cover the entire bucket. Default: - No prefix. The data will be stored under the root of the bucket.
         :param columns: (experimental) Columns of the table.
@@ -19311,6 +18938,7 @@ class Table(
         :param compressed: (experimental) Indicates whether the table's data is compressed or not. Default: false
         :param description: (experimental) Description of the table. Default: generated
         :param enable_partition_filtering: (experimental) Enables partition filtering. Default: - The parameter is not defined
+        :param has_encrypted_data: (experimental) Whether the data stored in the table is encrypted. This sets the ``has_encrypted_data`` table parameter. Athena reads it when querying client-side (CSE-KMS) encrypted datasets; for server-side encrypted (SSE-S3 / SSE-KMS) or unencrypted data it has no effect, since Amazon S3 decrypts server-side encrypted objects transparently. Do not also set ``has_encrypted_data`` through ``parameters`` - use this property instead. A conflicting value in ``parameters`` is rejected. Default: true
         :param parameters: (experimental) The key/value pairs define properties associated with the table. The key/value pairs that are allowed to be submitted are not limited, however their functionality is not guaranteed. Default: - The parameter is not defined
         :param partition_indexes: (experimental) Partition indexes on the table. A maximum of 3 indexes are allowed on a table. Keys in the index must be part of the table's partition keys. Default: table has no partition indexes
         :param partition_keys: (experimental) Partition columns of the table. Default: table is not partitioned
@@ -19336,6 +18964,7 @@ class Table(
             compressed=compressed,
             description=description,
             enable_partition_filtering=enable_partition_filtering,
+            has_encrypted_data=has_encrypted_data,
             parameters=parameters,
             partition_indexes=partition_indexes,
             partition_keys=partition_keys,
@@ -19367,6 +18996,7 @@ class Table(
         "compressed": "compressed",
         "description": "description",
         "enable_partition_filtering": "enablePartitionFiltering",
+        "has_encrypted_data": "hasEncryptedData",
         "parameters": "parameters",
         "partition_indexes": "partitionIndexes",
         "partition_keys": "partitionKeys",
@@ -19390,6 +19020,7 @@ class TableProps(S3TableProps):
         compressed: typing.Optional[builtins.bool] = None,
         description: typing.Optional[builtins.str] = None,
         enable_partition_filtering: typing.Optional[builtins.bool] = None,
+        has_encrypted_data: typing.Optional[builtins.bool] = None,
         parameters: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
         partition_indexes: typing.Optional[typing.Sequence[typing.Union["PartitionIndex", typing.Dict[builtins.str, typing.Any]]]] = None,
         partition_keys: typing.Optional[typing.Sequence[typing.Union["Column", typing.Dict[builtins.str, typing.Any]]]] = None,
@@ -19409,6 +19040,7 @@ class TableProps(S3TableProps):
         :param compressed: (experimental) Indicates whether the table's data is compressed or not. Default: false
         :param description: (experimental) Description of the table. Default: generated
         :param enable_partition_filtering: (experimental) Enables partition filtering. Default: - The parameter is not defined
+        :param has_encrypted_data: (experimental) Whether the data stored in the table is encrypted. This sets the ``has_encrypted_data`` table parameter. Athena reads it when querying client-side (CSE-KMS) encrypted datasets; for server-side encrypted (SSE-S3 / SSE-KMS) or unencrypted data it has no effect, since Amazon S3 decrypts server-side encrypted objects transparently. Do not also set ``has_encrypted_data`` through ``parameters`` - use this property instead. A conflicting value in ``parameters`` is rejected. Default: true
         :param parameters: (experimental) The key/value pairs define properties associated with the table. The key/value pairs that are allowed to be submitted are not limited, however their functionality is not guaranteed. Default: - The parameter is not defined
         :param partition_indexes: (experimental) Partition indexes on the table. A maximum of 3 indexes are allowed on a table. Keys in the index must be part of the table's partition keys. Default: table has no partition indexes
         :param partition_keys: (experimental) Partition columns of the table. Default: table is not partitioned
@@ -19417,7 +19049,7 @@ class TableProps(S3TableProps):
         :param stored_as_sub_directories: (experimental) Indicates whether the table data is stored in subdirectories. Default: false
         :param table_name: (experimental) Name of the table. Default: - generated by CDK.
         :param bucket: (experimental) S3 bucket in which to store data. Default: one is created for you
-        :param encryption: (experimental) The kind of encryption to secure the data with. You can only provide this option if you are not explicitly passing in a bucket. If you choose ``SSE-KMS``, you *can* provide an un-managed KMS key with ``encryptionKey``. If you choose ``CSE-KMS``, you *must* provide an un-managed KMS key with ``encryptionKey``. Default: BucketEncryption.S3_MANAGED
+        :param encryption: (experimental) The kind of encryption to secure the data with. You can only provide this option if you are not explicitly passing in a bucket. If you choose ``SSE-KMS``, you *can* provide an un-managed KMS key with ``encryptionKey``. If you choose ``CSE-KMS``, you *may* provide an un-managed KMS key with ``encryptionKey``; one is created automatically if omitted. Default: BucketEncryption.S3_MANAGED
         :param encryption_key: (experimental) External KMS key to use for bucket encryption. The ``encryption`` property must be ``SSE-KMS`` or ``CSE-KMS``. Default: key is managed by KMS.
         :param s3_prefix: (experimental) S3 prefix under which table objects are stored. When the table shares a bucket with other tables or consumers, set this so that the ``grant*`` methods scope S3 access to this table's data. Without a prefix, those grants cover the entire bucket. Default: - No prefix. The data will be stored under the root of the bucket.
 
@@ -19460,6 +19092,7 @@ class TableProps(S3TableProps):
                 enable_partition_filtering=False,
                 encryption=glue_alpha.TableEncryption.S3_MANAGED,
                 encryption_key=key,
+                has_encrypted_data=False,
                 parameters={
                     "parameters_key": "parameters"
                 },
@@ -19496,6 +19129,7 @@ class TableProps(S3TableProps):
             check_type(argname="argument compressed", value=compressed, expected_type=type_hints["compressed"])
             check_type(argname="argument description", value=description, expected_type=type_hints["description"])
             check_type(argname="argument enable_partition_filtering", value=enable_partition_filtering, expected_type=type_hints["enable_partition_filtering"])
+            check_type(argname="argument has_encrypted_data", value=has_encrypted_data, expected_type=type_hints["has_encrypted_data"])
             check_type(argname="argument parameters", value=parameters, expected_type=type_hints["parameters"])
             check_type(argname="argument partition_indexes", value=partition_indexes, expected_type=type_hints["partition_indexes"])
             check_type(argname="argument partition_keys", value=partition_keys, expected_type=type_hints["partition_keys"])
@@ -19518,6 +19152,8 @@ class TableProps(S3TableProps):
             self._values["description"] = description
         if enable_partition_filtering is not None:
             self._values["enable_partition_filtering"] = enable_partition_filtering
+        if has_encrypted_data is not None:
+            self._values["has_encrypted_data"] = has_encrypted_data
         if parameters is not None:
             self._values["parameters"] = parameters
         if partition_indexes is not None:
@@ -19603,6 +19239,26 @@ class TableProps(S3TableProps):
         :stability: experimental
         '''
         result = self._values.get("enable_partition_filtering")
+        return typing.cast(typing.Optional[builtins.bool], result)
+
+    @builtins.property
+    def has_encrypted_data(self) -> typing.Optional[builtins.bool]:
+        '''(experimental) Whether the data stored in the table is encrypted.
+
+        This sets the ``has_encrypted_data`` table parameter. Athena reads it when
+        querying client-side (CSE-KMS) encrypted datasets; for server-side
+        encrypted (SSE-S3 / SSE-KMS) or unencrypted data it has no effect, since
+        Amazon S3 decrypts server-side encrypted objects transparently.
+
+        Do not also set ``has_encrypted_data`` through ``parameters`` - use this
+        property instead. A conflicting value in ``parameters`` is rejected.
+
+        :default: true
+
+        :see: https://docs.aws.amazon.com/athena/latest/ug/creating-tables-based-on-encrypted-datasets-in-s3.html
+        :stability: experimental
+        '''
+        result = self._values.get("has_encrypted_data")
         return typing.cast(typing.Optional[builtins.bool], result)
 
     @builtins.property
@@ -19741,7 +19397,8 @@ class TableProps(S3TableProps):
         You can only provide this option if you are not explicitly passing in a bucket.
 
         If you choose ``SSE-KMS``, you *can* provide an un-managed KMS key with ``encryptionKey``.
-        If you choose ``CSE-KMS``, you *must* provide an un-managed KMS key with ``encryptionKey``.
+        If you choose ``CSE-KMS``, you *may* provide an un-managed KMS key with ``encryptionKey``;
+        one is created automatically if omitted.
 
         :default: BucketEncryption.S3_MANAGED
 
@@ -19955,21 +19612,24 @@ class Workflow(
     actions: [{ job: job }],
     });
     :stability: experimental
-    :exampleMetadata: fixture=_generated
+    :exampleMetadata: infused
 
     Example::
 
-        # The code below shows an example of how to instantiate this type.
-        # The values are placeholders you should change.
-        import aws_cdk.aws_glue_alpha as glue_alpha
+        import aws_cdk as cdk
+        import aws_cdk.aws_iam as iam
+        # stack: cdk.Stack
+        # role: iam.IRole
+        # script: glue.Code
         
-        workflow = glue_alpha.Workflow(self, "MyWorkflow",
-            default_run_properties={
-                "default_run_properties_key": "defaultRunProperties"
-            },
-            description="description",
-            max_concurrent_runs=123,
-            workflow_name="workflowName"
+        
+        # Create a job to run from the workflow
+        job = glue.PySparkEtlJob(stack, "Job", role=role, script=script)
+        
+        # Create a workflow and add a trigger that runs the job
+        workflow = glue.Workflow(stack, "Workflow")
+        workflow.add_on_demand_trigger("OnDemandTrigger",
+            actions=[glue.Action(job=job)]
         )
     '''
 
@@ -20631,7 +20291,8 @@ class PySparkEtlJob(
     can override this default with other supported worker type values
     (G1, G2, G4 and G8). ETL jobs defaults to Glue version 4.0, which you can
     override to 3.0. The following ETL features are enabled by default:
-    —enable-metrics, —enable-spark-ui, —enable-continuous-cloudwatch-log.
+    --enable-metrics, --enable-continuous-cloudwatch-log. The Spark UI
+    (--enable-spark-ui) is off by default; enable it by setting the ``sparkUI`` prop.
     You can find more details about version, worker type and other features
     in Glue's public documentation.
 
@@ -20647,19 +20308,13 @@ class PySparkEtlJob(
         # script: glue.Code
         
         
-        # Disable both metrics for cost optimization
-        glue.PySparkEtlJob(stack, "CostOptimizedJob",
-            role=role,
-            script=script,
-            enable_metrics=False,
-            enable_observability_metrics=False
-        )
+        # Create a job to run from the workflow
+        job = glue.PySparkEtlJob(stack, "Job", role=role, script=script)
         
-        # Selective control - keep observability, disable profiling
-        glue.PySparkEtlJob(stack, "SelectiveJob",
-            role=role,
-            script=script,
-            enable_metrics=False
+        # Create a workflow and add a trigger that runs the job
+        workflow = glue.Workflow(stack, "Workflow")
+        workflow.add_on_demand_trigger("OnDemandTrigger",
+            actions=[glue.Action(job=job)]
         )
     '''
 
@@ -20677,22 +20332,20 @@ class PySparkEtlJob(
         enable_metrics: typing.Optional[builtins.bool] = None,
         enable_observability_metrics: typing.Optional[builtins.bool] = None,
         spark_ui: typing.Optional[typing.Union["SparkUIProps", typing.Dict[builtins.str, typing.Any]]] = None,
+        worker_configuration: typing.Optional[typing.Union["WorkerConfiguration", typing.Dict[builtins.str, typing.Any]]] = None,
         role: "_aws_cdk_aws_iam_ceddda9d.IRole",
         script: "Code",
         connections: typing.Optional[typing.Sequence["IConnection"]] = None,
         continuous_logging: typing.Optional[typing.Union["ContinuousLoggingProps", typing.Dict[builtins.str, typing.Any]]] = None,
         default_arguments: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
         description: typing.Optional[builtins.str] = None,
-        enable_profiling_metrics: typing.Optional[builtins.bool] = None,
         glue_version: typing.Optional["GlueVersion"] = None,
         job_name: typing.Optional[builtins.str] = None,
         max_concurrent_runs: typing.Optional[jsii.Number] = None,
         max_retries: typing.Optional[jsii.Number] = None,
-        number_of_workers: typing.Optional[jsii.Number] = None,
         security_configuration: typing.Optional["ISecurityConfiguration"] = None,
         tags: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
         timeout: typing.Optional["_aws_cdk_ceddda9d.Duration"] = None,
-        worker_type: typing.Optional["WorkerType"] = None,
     ) -> None:
         '''(experimental) PySparkEtlJob constructor.
 
@@ -20707,22 +20360,20 @@ class PySparkEtlJob(
         :param enable_metrics: (experimental) Enable profiling metrics for the Glue job. When enabled, adds '--enable-metrics' to job arguments. Default: true
         :param enable_observability_metrics: (experimental) Enable observability metrics for the Glue job. When enabled, adds '--enable-observability-metrics': 'true' to job arguments. Default: true
         :param spark_ui: (experimental) Enables the Spark UI debugging and monitoring with the specified props. Default: - Spark UI debugging and monitoring is disabled.
+        :param worker_configuration: (experimental) The worker type and the number of workers allocated when a job runs. Default: - the job runs with the G_1X worker type and 10 workers.
         :param role: (experimental) IAM Role (required) IAM Role to use for Glue job execution Must be specified by the developer because the L2 doesn't have visibility into the actions the script(s) takes during the job execution The role must trust the Glue service principal (glue.amazonaws.com) and be granted sufficient permissions.
         :param script: (experimental) Script Code Location (required) Script to run when the Glue job executes. Can be uploaded from the local directory structure using fromAsset or referenced via S3 location using fromBucket
         :param connections: (experimental) Connections (optional) List of connections to use for this Glue job Connections are used to connect to other AWS Service or resources within a VPC. Default: [] - no connections are added to the job
         :param continuous_logging: (experimental) Enables continuous logging with the specified props. Default: - continuous logging is enabled.
         :param default_arguments: (experimental) Default Arguments (optional) The default arguments for every run of this Glue job, specified as name-value pairs. These are emitted verbatim into the CloudFormation template, so avoid placing secrets here in plaintext. Pass secrets to the job at runtime through AWS Secrets Manager instead. A synthesis-time warning is emitted when an argument key looks like a credential and holds a plaintext literal. Default: - no arguments
         :param description: (experimental) Description (optional) Developer-specified description of the Glue job. Default: - no value
-        :param enable_profiling_metrics: (experimental) Enables the collection of metrics for job profiling. Default: - no profiling metrics emitted.
         :param glue_version: (experimental) Glue Version The version of Glue to use to execute this job. Default: 3.0 for ETL
         :param job_name: (experimental) Name of the Glue job (optional) Developer-specified name of the Glue job. Default: - a name is automatically generated
         :param max_concurrent_runs: (experimental) Max Concurrent Runs (optional) The maximum number of runs this Glue job can concurrently run. An error is returned when this threshold is reached. The maximum value you can specify is controlled by a service limit. Default: 1
         :param max_retries: (experimental) Max Retries (optional) Maximum number of retry attempts Glue performs if the job fails. Default: 0
-        :param number_of_workers: (experimental) Number of Workers (optional) Number of workers for Glue to use during job execution. Default: 10
         :param security_configuration: (experimental) Security Configuration (optional) Defines the encryption options for the Glue job. Default: - no security configuration.
         :param tags: (experimental) Tags (optional) A list of key:value pairs of tags to apply to this Glue job resources. Default: {} - no tags
         :param timeout: (experimental) Timeout (optional) The maximum time that a job run can consume resources before it is terminated and enters TIMEOUT status. Specified in minutes. Default: 2880 (2 days for non-streaming)
-        :param worker_type: (experimental) Worker Type (optional) Type of Worker for Glue to use during job execution Enum options: Standard, G_1X, G_2X, G_025X. G_4X, G_8X, Z_2X Default: WorkerType.G_1X
 
         :stability: experimental
         '''
@@ -20740,22 +20391,20 @@ class PySparkEtlJob(
             enable_metrics=enable_metrics,
             enable_observability_metrics=enable_observability_metrics,
             spark_ui=spark_ui,
+            worker_configuration=worker_configuration,
             role=role,
             script=script,
             connections=connections,
             continuous_logging=continuous_logging,
             default_arguments=default_arguments,
             description=description,
-            enable_profiling_metrics=enable_profiling_metrics,
             glue_version=glue_version,
             job_name=job_name,
             max_concurrent_runs=max_concurrent_runs,
             max_retries=max_retries,
-            number_of_workers=number_of_workers,
             security_configuration=security_configuration,
             tags=tags,
             timeout=timeout,
-            worker_type=worker_type,
         )
 
         jsii.create(self.__class__, self, [scope, id, props])
@@ -20801,8 +20450,9 @@ class PySparkFlexEtlJob(
     Flexible job runs are supported for jobs using AWS Glue version 3.0 or later and G.1X or
     G.2X worker types but will default to the latest version of Glue (currently Glue 3.0.)
 
-    Similar to ETL, we’ll enable these features: —enable-metrics, —enable-spark-ui,
-    —enable-continuous-cloudwatch-log
+    Similar to ETL, we’ll enable these features: --enable-metrics,
+    --enable-continuous-cloudwatch-log. The Spark UI (--enable-spark-ui) is off by
+    default; enable it by setting the ``sparkUI`` prop.
 
     :stability: experimental
     :exampleMetadata: infused
@@ -20831,22 +20481,20 @@ class PySparkFlexEtlJob(
         enable_metrics: typing.Optional[builtins.bool] = None,
         enable_observability_metrics: typing.Optional[builtins.bool] = None,
         spark_ui: typing.Optional[typing.Union["SparkUIProps", typing.Dict[builtins.str, typing.Any]]] = None,
+        worker_configuration: typing.Optional[typing.Union["WorkerConfiguration", typing.Dict[builtins.str, typing.Any]]] = None,
         role: "_aws_cdk_aws_iam_ceddda9d.IRole",
         script: "Code",
         connections: typing.Optional[typing.Sequence["IConnection"]] = None,
         continuous_logging: typing.Optional[typing.Union["ContinuousLoggingProps", typing.Dict[builtins.str, typing.Any]]] = None,
         default_arguments: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
         description: typing.Optional[builtins.str] = None,
-        enable_profiling_metrics: typing.Optional[builtins.bool] = None,
         glue_version: typing.Optional["GlueVersion"] = None,
         job_name: typing.Optional[builtins.str] = None,
         max_concurrent_runs: typing.Optional[jsii.Number] = None,
         max_retries: typing.Optional[jsii.Number] = None,
-        number_of_workers: typing.Optional[jsii.Number] = None,
         security_configuration: typing.Optional["ISecurityConfiguration"] = None,
         tags: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
         timeout: typing.Optional["_aws_cdk_ceddda9d.Duration"] = None,
-        worker_type: typing.Optional["WorkerType"] = None,
     ) -> None:
         '''(experimental) PySparkFlexEtlJob constructor.
 
@@ -20860,22 +20508,20 @@ class PySparkFlexEtlJob(
         :param enable_metrics: (experimental) Enable profiling metrics for the Glue job. When enabled, adds '--enable-metrics' to job arguments. Default: true
         :param enable_observability_metrics: (experimental) Enable observability metrics for the Glue job. When enabled, adds '--enable-observability-metrics': 'true' to job arguments. Default: true
         :param spark_ui: (experimental) Enables the Spark UI debugging and monitoring with the specified props. Default: - Spark UI debugging and monitoring is disabled.
+        :param worker_configuration: (experimental) The worker type and the number of workers allocated when a job runs. Default: - the job runs with the G_1X worker type and 10 workers.
         :param role: (experimental) IAM Role (required) IAM Role to use for Glue job execution Must be specified by the developer because the L2 doesn't have visibility into the actions the script(s) takes during the job execution The role must trust the Glue service principal (glue.amazonaws.com) and be granted sufficient permissions.
         :param script: (experimental) Script Code Location (required) Script to run when the Glue job executes. Can be uploaded from the local directory structure using fromAsset or referenced via S3 location using fromBucket
         :param connections: (experimental) Connections (optional) List of connections to use for this Glue job Connections are used to connect to other AWS Service or resources within a VPC. Default: [] - no connections are added to the job
         :param continuous_logging: (experimental) Enables continuous logging with the specified props. Default: - continuous logging is enabled.
         :param default_arguments: (experimental) Default Arguments (optional) The default arguments for every run of this Glue job, specified as name-value pairs. These are emitted verbatim into the CloudFormation template, so avoid placing secrets here in plaintext. Pass secrets to the job at runtime through AWS Secrets Manager instead. A synthesis-time warning is emitted when an argument key looks like a credential and holds a plaintext literal. Default: - no arguments
         :param description: (experimental) Description (optional) Developer-specified description of the Glue job. Default: - no value
-        :param enable_profiling_metrics: (experimental) Enables the collection of metrics for job profiling. Default: - no profiling metrics emitted.
         :param glue_version: (experimental) Glue Version The version of Glue to use to execute this job. Default: 3.0 for ETL
         :param job_name: (experimental) Name of the Glue job (optional) Developer-specified name of the Glue job. Default: - a name is automatically generated
         :param max_concurrent_runs: (experimental) Max Concurrent Runs (optional) The maximum number of runs this Glue job can concurrently run. An error is returned when this threshold is reached. The maximum value you can specify is controlled by a service limit. Default: 1
         :param max_retries: (experimental) Max Retries (optional) Maximum number of retry attempts Glue performs if the job fails. Default: 0
-        :param number_of_workers: (experimental) Number of Workers (optional) Number of workers for Glue to use during job execution. Default: 10
         :param security_configuration: (experimental) Security Configuration (optional) Defines the encryption options for the Glue job. Default: - no security configuration.
         :param tags: (experimental) Tags (optional) A list of key:value pairs of tags to apply to this Glue job resources. Default: {} - no tags
         :param timeout: (experimental) Timeout (optional) The maximum time that a job run can consume resources before it is terminated and enters TIMEOUT status. Specified in minutes. Default: 2880 (2 days for non-streaming)
-        :param worker_type: (experimental) Worker Type (optional) Type of Worker for Glue to use during job execution Enum options: Standard, G_1X, G_2X, G_025X. G_4X, G_8X, Z_2X Default: WorkerType.G_1X
 
         :stability: experimental
         '''
@@ -20892,22 +20538,20 @@ class PySparkFlexEtlJob(
             enable_metrics=enable_metrics,
             enable_observability_metrics=enable_observability_metrics,
             spark_ui=spark_ui,
+            worker_configuration=worker_configuration,
             role=role,
             script=script,
             connections=connections,
             continuous_logging=continuous_logging,
             default_arguments=default_arguments,
             description=description,
-            enable_profiling_metrics=enable_profiling_metrics,
             glue_version=glue_version,
             job_name=job_name,
             max_concurrent_runs=max_concurrent_runs,
             max_retries=max_retries,
-            number_of_workers=number_of_workers,
             security_configuration=security_configuration,
             tags=tags,
             timeout=timeout,
-            worker_type=worker_type,
         )
 
         jsii.create(self.__class__, self, [scope, id, props])
@@ -20954,7 +20598,8 @@ class PySparkStreamingJob(
     Similar to ETL jobs, streaming job supports Scala and Python languages. Similar to ETL,
     it supports G1 and G2 worker type and 2.0, 3.0 and 4.0 version. We’ll default to G2 worker
     and 4.0 version for streaming jobs which developers can override.
-    We will enable —enable-metrics, —enable-spark-ui, —enable-continuous-cloudwatch-log.
+    We will enable --enable-metrics, --enable-continuous-cloudwatch-log. The Spark UI
+    (--enable-spark-ui) is off by default; enable it by setting the ``sparkUI`` prop.
 
     :stability: experimental
     :exampleMetadata: infused
@@ -20983,22 +20628,20 @@ class PySparkStreamingJob(
         enable_metrics: typing.Optional[builtins.bool] = None,
         enable_observability_metrics: typing.Optional[builtins.bool] = None,
         spark_ui: typing.Optional[typing.Union["SparkUIProps", typing.Dict[builtins.str, typing.Any]]] = None,
+        worker_configuration: typing.Optional[typing.Union["WorkerConfiguration", typing.Dict[builtins.str, typing.Any]]] = None,
         role: "_aws_cdk_aws_iam_ceddda9d.IRole",
         script: "Code",
         connections: typing.Optional[typing.Sequence["IConnection"]] = None,
         continuous_logging: typing.Optional[typing.Union["ContinuousLoggingProps", typing.Dict[builtins.str, typing.Any]]] = None,
         default_arguments: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
         description: typing.Optional[builtins.str] = None,
-        enable_profiling_metrics: typing.Optional[builtins.bool] = None,
         glue_version: typing.Optional["GlueVersion"] = None,
         job_name: typing.Optional[builtins.str] = None,
         max_concurrent_runs: typing.Optional[jsii.Number] = None,
         max_retries: typing.Optional[jsii.Number] = None,
-        number_of_workers: typing.Optional[jsii.Number] = None,
         security_configuration: typing.Optional["ISecurityConfiguration"] = None,
         tags: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
         timeout: typing.Optional["_aws_cdk_ceddda9d.Duration"] = None,
-        worker_type: typing.Optional["WorkerType"] = None,
     ) -> None:
         '''(experimental) PySparkStreamingJob constructor.
 
@@ -21012,22 +20655,20 @@ class PySparkStreamingJob(
         :param enable_metrics: (experimental) Enable profiling metrics for the Glue job. When enabled, adds '--enable-metrics' to job arguments. Default: true
         :param enable_observability_metrics: (experimental) Enable observability metrics for the Glue job. When enabled, adds '--enable-observability-metrics': 'true' to job arguments. Default: true
         :param spark_ui: (experimental) Enables the Spark UI debugging and monitoring with the specified props. Default: - Spark UI debugging and monitoring is disabled.
+        :param worker_configuration: (experimental) The worker type and the number of workers allocated when a job runs. Default: - the job runs with the G_1X worker type and 10 workers.
         :param role: (experimental) IAM Role (required) IAM Role to use for Glue job execution Must be specified by the developer because the L2 doesn't have visibility into the actions the script(s) takes during the job execution The role must trust the Glue service principal (glue.amazonaws.com) and be granted sufficient permissions.
         :param script: (experimental) Script Code Location (required) Script to run when the Glue job executes. Can be uploaded from the local directory structure using fromAsset or referenced via S3 location using fromBucket
         :param connections: (experimental) Connections (optional) List of connections to use for this Glue job Connections are used to connect to other AWS Service or resources within a VPC. Default: [] - no connections are added to the job
         :param continuous_logging: (experimental) Enables continuous logging with the specified props. Default: - continuous logging is enabled.
         :param default_arguments: (experimental) Default Arguments (optional) The default arguments for every run of this Glue job, specified as name-value pairs. These are emitted verbatim into the CloudFormation template, so avoid placing secrets here in plaintext. Pass secrets to the job at runtime through AWS Secrets Manager instead. A synthesis-time warning is emitted when an argument key looks like a credential and holds a plaintext literal. Default: - no arguments
         :param description: (experimental) Description (optional) Developer-specified description of the Glue job. Default: - no value
-        :param enable_profiling_metrics: (experimental) Enables the collection of metrics for job profiling. Default: - no profiling metrics emitted.
         :param glue_version: (experimental) Glue Version The version of Glue to use to execute this job. Default: 3.0 for ETL
         :param job_name: (experimental) Name of the Glue job (optional) Developer-specified name of the Glue job. Default: - a name is automatically generated
         :param max_concurrent_runs: (experimental) Max Concurrent Runs (optional) The maximum number of runs this Glue job can concurrently run. An error is returned when this threshold is reached. The maximum value you can specify is controlled by a service limit. Default: 1
         :param max_retries: (experimental) Max Retries (optional) Maximum number of retry attempts Glue performs if the job fails. Default: 0
-        :param number_of_workers: (experimental) Number of Workers (optional) Number of workers for Glue to use during job execution. Default: 10
         :param security_configuration: (experimental) Security Configuration (optional) Defines the encryption options for the Glue job. Default: - no security configuration.
         :param tags: (experimental) Tags (optional) A list of key:value pairs of tags to apply to this Glue job resources. Default: {} - no tags
         :param timeout: (experimental) Timeout (optional) The maximum time that a job run can consume resources before it is terminated and enters TIMEOUT status. Specified in minutes. Default: 2880 (2 days for non-streaming)
-        :param worker_type: (experimental) Worker Type (optional) Type of Worker for Glue to use during job execution Enum options: Standard, G_1X, G_2X, G_025X. G_4X, G_8X, Z_2X Default: WorkerType.G_1X
 
         :stability: experimental
         '''
@@ -21044,22 +20685,20 @@ class PySparkStreamingJob(
             enable_metrics=enable_metrics,
             enable_observability_metrics=enable_observability_metrics,
             spark_ui=spark_ui,
+            worker_configuration=worker_configuration,
             role=role,
             script=script,
             connections=connections,
             continuous_logging=continuous_logging,
             default_arguments=default_arguments,
             description=description,
-            enable_profiling_metrics=enable_profiling_metrics,
             glue_version=glue_version,
             job_name=job_name,
             max_concurrent_runs=max_concurrent_runs,
             max_retries=max_retries,
-            number_of_workers=number_of_workers,
             security_configuration=security_configuration,
             tags=tags,
             timeout=timeout,
-            worker_type=worker_type,
         )
 
         jsii.create(self.__class__, self, [scope, id, props])
@@ -21150,7 +20789,6 @@ class ScalaSparkEtlJob(
             description="description",
             enable_metrics=False,
             enable_observability_metrics=False,
-            enable_profiling_metrics=False,
             extra_files=[code],
             extra_jars=[code],
             extra_jars_first=False,
@@ -21160,7 +20798,6 @@ class ScalaSparkEtlJob(
             max_concurrent_runs=123,
             max_retries=123,
             notify_delay_after=cdk.Duration.minutes(30),
-            number_of_workers=123,
             security_configuration=security_configuration,
             spark_ui=glue_alpha.SparkUIProps(
                 bucket=bucket,
@@ -21170,7 +20807,10 @@ class ScalaSparkEtlJob(
                 "tags_key": "tags"
             },
             timeout=cdk.Duration.minutes(30),
-            worker_type=glue_alpha.WorkerType.STANDARD
+            worker_configuration=glue_alpha.WorkerConfiguration(
+                number_of_workers=123,
+                worker_type=glue_alpha.WorkerType.STANDARD
+            )
         )
     '''
 
@@ -21188,22 +20828,20 @@ class ScalaSparkEtlJob(
         enable_metrics: typing.Optional[builtins.bool] = None,
         enable_observability_metrics: typing.Optional[builtins.bool] = None,
         spark_ui: typing.Optional[typing.Union["SparkUIProps", typing.Dict[builtins.str, typing.Any]]] = None,
+        worker_configuration: typing.Optional[typing.Union["WorkerConfiguration", typing.Dict[builtins.str, typing.Any]]] = None,
         role: "_aws_cdk_aws_iam_ceddda9d.IRole",
         script: "Code",
         connections: typing.Optional[typing.Sequence["IConnection"]] = None,
         continuous_logging: typing.Optional[typing.Union["ContinuousLoggingProps", typing.Dict[builtins.str, typing.Any]]] = None,
         default_arguments: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
         description: typing.Optional[builtins.str] = None,
-        enable_profiling_metrics: typing.Optional[builtins.bool] = None,
         glue_version: typing.Optional["GlueVersion"] = None,
         job_name: typing.Optional[builtins.str] = None,
         max_concurrent_runs: typing.Optional[jsii.Number] = None,
         max_retries: typing.Optional[jsii.Number] = None,
-        number_of_workers: typing.Optional[jsii.Number] = None,
         security_configuration: typing.Optional["ISecurityConfiguration"] = None,
         tags: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
         timeout: typing.Optional["_aws_cdk_ceddda9d.Duration"] = None,
-        worker_type: typing.Optional["WorkerType"] = None,
     ) -> None:
         '''(experimental) ScalaSparkEtlJob constructor.
 
@@ -21218,22 +20856,20 @@ class ScalaSparkEtlJob(
         :param enable_metrics: (experimental) Enable profiling metrics for the Glue job. When enabled, adds '--enable-metrics' to job arguments. Default: true
         :param enable_observability_metrics: (experimental) Enable observability metrics for the Glue job. When enabled, adds '--enable-observability-metrics': 'true' to job arguments. Default: true
         :param spark_ui: (experimental) Enables the Spark UI debugging and monitoring with the specified props. Default: - Spark UI debugging and monitoring is disabled.
+        :param worker_configuration: (experimental) The worker type and the number of workers allocated when a job runs. Default: - the job runs with the G_1X worker type and 10 workers.
         :param role: (experimental) IAM Role (required) IAM Role to use for Glue job execution Must be specified by the developer because the L2 doesn't have visibility into the actions the script(s) takes during the job execution The role must trust the Glue service principal (glue.amazonaws.com) and be granted sufficient permissions.
         :param script: (experimental) Script Code Location (required) Script to run when the Glue job executes. Can be uploaded from the local directory structure using fromAsset or referenced via S3 location using fromBucket
         :param connections: (experimental) Connections (optional) List of connections to use for this Glue job Connections are used to connect to other AWS Service or resources within a VPC. Default: [] - no connections are added to the job
         :param continuous_logging: (experimental) Enables continuous logging with the specified props. Default: - continuous logging is enabled.
         :param default_arguments: (experimental) Default Arguments (optional) The default arguments for every run of this Glue job, specified as name-value pairs. These are emitted verbatim into the CloudFormation template, so avoid placing secrets here in plaintext. Pass secrets to the job at runtime through AWS Secrets Manager instead. A synthesis-time warning is emitted when an argument key looks like a credential and holds a plaintext literal. Default: - no arguments
         :param description: (experimental) Description (optional) Developer-specified description of the Glue job. Default: - no value
-        :param enable_profiling_metrics: (experimental) Enables the collection of metrics for job profiling. Default: - no profiling metrics emitted.
         :param glue_version: (experimental) Glue Version The version of Glue to use to execute this job. Default: 3.0 for ETL
         :param job_name: (experimental) Name of the Glue job (optional) Developer-specified name of the Glue job. Default: - a name is automatically generated
         :param max_concurrent_runs: (experimental) Max Concurrent Runs (optional) The maximum number of runs this Glue job can concurrently run. An error is returned when this threshold is reached. The maximum value you can specify is controlled by a service limit. Default: 1
         :param max_retries: (experimental) Max Retries (optional) Maximum number of retry attempts Glue performs if the job fails. Default: 0
-        :param number_of_workers: (experimental) Number of Workers (optional) Number of workers for Glue to use during job execution. Default: 10
         :param security_configuration: (experimental) Security Configuration (optional) Defines the encryption options for the Glue job. Default: - no security configuration.
         :param tags: (experimental) Tags (optional) A list of key:value pairs of tags to apply to this Glue job resources. Default: {} - no tags
         :param timeout: (experimental) Timeout (optional) The maximum time that a job run can consume resources before it is terminated and enters TIMEOUT status. Specified in minutes. Default: 2880 (2 days for non-streaming)
-        :param worker_type: (experimental) Worker Type (optional) Type of Worker for Glue to use during job execution Enum options: Standard, G_1X, G_2X, G_025X. G_4X, G_8X, Z_2X Default: WorkerType.G_1X
 
         :stability: experimental
         '''
@@ -21251,22 +20887,20 @@ class ScalaSparkEtlJob(
             enable_metrics=enable_metrics,
             enable_observability_metrics=enable_observability_metrics,
             spark_ui=spark_ui,
+            worker_configuration=worker_configuration,
             role=role,
             script=script,
             connections=connections,
             continuous_logging=continuous_logging,
             default_arguments=default_arguments,
             description=description,
-            enable_profiling_metrics=enable_profiling_metrics,
             glue_version=glue_version,
             job_name=job_name,
             max_concurrent_runs=max_concurrent_runs,
             max_retries=max_retries,
-            number_of_workers=number_of_workers,
             security_configuration=security_configuration,
             tags=tags,
             timeout=timeout,
-            worker_type=worker_type,
         )
 
         jsii.create(self.__class__, self, [scope, id, props])
@@ -21357,7 +20991,6 @@ class ScalaSparkFlexEtlJob(
             description="description",
             enable_metrics=False,
             enable_observability_metrics=False,
-            enable_profiling_metrics=False,
             extra_files=[code],
             extra_jars=[code],
             extra_jars_first=False,
@@ -21366,7 +20999,6 @@ class ScalaSparkFlexEtlJob(
             max_concurrent_runs=123,
             max_retries=123,
             notify_delay_after=cdk.Duration.minutes(30),
-            number_of_workers=123,
             security_configuration=security_configuration,
             spark_ui=glue_alpha.SparkUIProps(
                 bucket=bucket,
@@ -21376,7 +21008,10 @@ class ScalaSparkFlexEtlJob(
                 "tags_key": "tags"
             },
             timeout=cdk.Duration.minutes(30),
-            worker_type=glue_alpha.WorkerType.STANDARD
+            worker_configuration=glue_alpha.WorkerConfiguration(
+                number_of_workers=123,
+                worker_type=glue_alpha.WorkerType.STANDARD
+            )
         )
     '''
 
@@ -21393,22 +21028,20 @@ class ScalaSparkFlexEtlJob(
         enable_metrics: typing.Optional[builtins.bool] = None,
         enable_observability_metrics: typing.Optional[builtins.bool] = None,
         spark_ui: typing.Optional[typing.Union["SparkUIProps", typing.Dict[builtins.str, typing.Any]]] = None,
+        worker_configuration: typing.Optional[typing.Union["WorkerConfiguration", typing.Dict[builtins.str, typing.Any]]] = None,
         role: "_aws_cdk_aws_iam_ceddda9d.IRole",
         script: "Code",
         connections: typing.Optional[typing.Sequence["IConnection"]] = None,
         continuous_logging: typing.Optional[typing.Union["ContinuousLoggingProps", typing.Dict[builtins.str, typing.Any]]] = None,
         default_arguments: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
         description: typing.Optional[builtins.str] = None,
-        enable_profiling_metrics: typing.Optional[builtins.bool] = None,
         glue_version: typing.Optional["GlueVersion"] = None,
         job_name: typing.Optional[builtins.str] = None,
         max_concurrent_runs: typing.Optional[jsii.Number] = None,
         max_retries: typing.Optional[jsii.Number] = None,
-        number_of_workers: typing.Optional[jsii.Number] = None,
         security_configuration: typing.Optional["ISecurityConfiguration"] = None,
         tags: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
         timeout: typing.Optional["_aws_cdk_ceddda9d.Duration"] = None,
-        worker_type: typing.Optional["WorkerType"] = None,
     ) -> None:
         '''(experimental) ScalaSparkFlexEtlJob constructor.
 
@@ -21422,22 +21055,20 @@ class ScalaSparkFlexEtlJob(
         :param enable_metrics: (experimental) Enable profiling metrics for the Glue job. When enabled, adds '--enable-metrics' to job arguments. Default: true
         :param enable_observability_metrics: (experimental) Enable observability metrics for the Glue job. When enabled, adds '--enable-observability-metrics': 'true' to job arguments. Default: true
         :param spark_ui: (experimental) Enables the Spark UI debugging and monitoring with the specified props. Default: - Spark UI debugging and monitoring is disabled.
+        :param worker_configuration: (experimental) The worker type and the number of workers allocated when a job runs. Default: - the job runs with the G_1X worker type and 10 workers.
         :param role: (experimental) IAM Role (required) IAM Role to use for Glue job execution Must be specified by the developer because the L2 doesn't have visibility into the actions the script(s) takes during the job execution The role must trust the Glue service principal (glue.amazonaws.com) and be granted sufficient permissions.
         :param script: (experimental) Script Code Location (required) Script to run when the Glue job executes. Can be uploaded from the local directory structure using fromAsset or referenced via S3 location using fromBucket
         :param connections: (experimental) Connections (optional) List of connections to use for this Glue job Connections are used to connect to other AWS Service or resources within a VPC. Default: [] - no connections are added to the job
         :param continuous_logging: (experimental) Enables continuous logging with the specified props. Default: - continuous logging is enabled.
         :param default_arguments: (experimental) Default Arguments (optional) The default arguments for every run of this Glue job, specified as name-value pairs. These are emitted verbatim into the CloudFormation template, so avoid placing secrets here in plaintext. Pass secrets to the job at runtime through AWS Secrets Manager instead. A synthesis-time warning is emitted when an argument key looks like a credential and holds a plaintext literal. Default: - no arguments
         :param description: (experimental) Description (optional) Developer-specified description of the Glue job. Default: - no value
-        :param enable_profiling_metrics: (experimental) Enables the collection of metrics for job profiling. Default: - no profiling metrics emitted.
         :param glue_version: (experimental) Glue Version The version of Glue to use to execute this job. Default: 3.0 for ETL
         :param job_name: (experimental) Name of the Glue job (optional) Developer-specified name of the Glue job. Default: - a name is automatically generated
         :param max_concurrent_runs: (experimental) Max Concurrent Runs (optional) The maximum number of runs this Glue job can concurrently run. An error is returned when this threshold is reached. The maximum value you can specify is controlled by a service limit. Default: 1
         :param max_retries: (experimental) Max Retries (optional) Maximum number of retry attempts Glue performs if the job fails. Default: 0
-        :param number_of_workers: (experimental) Number of Workers (optional) Number of workers for Glue to use during job execution. Default: 10
         :param security_configuration: (experimental) Security Configuration (optional) Defines the encryption options for the Glue job. Default: - no security configuration.
         :param tags: (experimental) Tags (optional) A list of key:value pairs of tags to apply to this Glue job resources. Default: {} - no tags
         :param timeout: (experimental) Timeout (optional) The maximum time that a job run can consume resources before it is terminated and enters TIMEOUT status. Specified in minutes. Default: 2880 (2 days for non-streaming)
-        :param worker_type: (experimental) Worker Type (optional) Type of Worker for Glue to use during job execution Enum options: Standard, G_1X, G_2X, G_025X. G_4X, G_8X, Z_2X Default: WorkerType.G_1X
 
         :stability: experimental
         '''
@@ -21454,22 +21085,20 @@ class ScalaSparkFlexEtlJob(
             enable_metrics=enable_metrics,
             enable_observability_metrics=enable_observability_metrics,
             spark_ui=spark_ui,
+            worker_configuration=worker_configuration,
             role=role,
             script=script,
             connections=connections,
             continuous_logging=continuous_logging,
             default_arguments=default_arguments,
             description=description,
-            enable_profiling_metrics=enable_profiling_metrics,
             glue_version=glue_version,
             job_name=job_name,
             max_concurrent_runs=max_concurrent_runs,
             max_retries=max_retries,
-            number_of_workers=number_of_workers,
             security_configuration=security_configuration,
             tags=tags,
             timeout=timeout,
-            worker_type=worker_type,
         )
 
         jsii.create(self.__class__, self, [scope, id, props])
@@ -21560,7 +21189,6 @@ class ScalaSparkStreamingJob(
             description="description",
             enable_metrics=False,
             enable_observability_metrics=False,
-            enable_profiling_metrics=False,
             extra_files=[code],
             extra_jars=[code],
             extra_jars_first=False,
@@ -21569,7 +21197,6 @@ class ScalaSparkStreamingJob(
             job_run_queuing_enabled=False,
             max_concurrent_runs=123,
             max_retries=123,
-            number_of_workers=123,
             security_configuration=security_configuration,
             spark_ui=glue_alpha.SparkUIProps(
                 bucket=bucket,
@@ -21579,7 +21206,10 @@ class ScalaSparkStreamingJob(
                 "tags_key": "tags"
             },
             timeout=cdk.Duration.minutes(30),
-            worker_type=glue_alpha.WorkerType.STANDARD
+            worker_configuration=glue_alpha.WorkerConfiguration(
+                number_of_workers=123,
+                worker_type=glue_alpha.WorkerType.STANDARD
+            )
         )
     '''
 
@@ -21596,22 +21226,20 @@ class ScalaSparkStreamingJob(
         enable_metrics: typing.Optional[builtins.bool] = None,
         enable_observability_metrics: typing.Optional[builtins.bool] = None,
         spark_ui: typing.Optional[typing.Union["SparkUIProps", typing.Dict[builtins.str, typing.Any]]] = None,
+        worker_configuration: typing.Optional[typing.Union["WorkerConfiguration", typing.Dict[builtins.str, typing.Any]]] = None,
         role: "_aws_cdk_aws_iam_ceddda9d.IRole",
         script: "Code",
         connections: typing.Optional[typing.Sequence["IConnection"]] = None,
         continuous_logging: typing.Optional[typing.Union["ContinuousLoggingProps", typing.Dict[builtins.str, typing.Any]]] = None,
         default_arguments: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
         description: typing.Optional[builtins.str] = None,
-        enable_profiling_metrics: typing.Optional[builtins.bool] = None,
         glue_version: typing.Optional["GlueVersion"] = None,
         job_name: typing.Optional[builtins.str] = None,
         max_concurrent_runs: typing.Optional[jsii.Number] = None,
         max_retries: typing.Optional[jsii.Number] = None,
-        number_of_workers: typing.Optional[jsii.Number] = None,
         security_configuration: typing.Optional["ISecurityConfiguration"] = None,
         tags: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
         timeout: typing.Optional["_aws_cdk_ceddda9d.Duration"] = None,
-        worker_type: typing.Optional["WorkerType"] = None,
     ) -> None:
         '''(experimental) ScalaSparkStreamingJob constructor.
 
@@ -21625,22 +21253,20 @@ class ScalaSparkStreamingJob(
         :param enable_metrics: (experimental) Enable profiling metrics for the Glue job. When enabled, adds '--enable-metrics' to job arguments. Default: true
         :param enable_observability_metrics: (experimental) Enable observability metrics for the Glue job. When enabled, adds '--enable-observability-metrics': 'true' to job arguments. Default: true
         :param spark_ui: (experimental) Enables the Spark UI debugging and monitoring with the specified props. Default: - Spark UI debugging and monitoring is disabled.
+        :param worker_configuration: (experimental) The worker type and the number of workers allocated when a job runs. Default: - the job runs with the G_1X worker type and 10 workers.
         :param role: (experimental) IAM Role (required) IAM Role to use for Glue job execution Must be specified by the developer because the L2 doesn't have visibility into the actions the script(s) takes during the job execution The role must trust the Glue service principal (glue.amazonaws.com) and be granted sufficient permissions.
         :param script: (experimental) Script Code Location (required) Script to run when the Glue job executes. Can be uploaded from the local directory structure using fromAsset or referenced via S3 location using fromBucket
         :param connections: (experimental) Connections (optional) List of connections to use for this Glue job Connections are used to connect to other AWS Service or resources within a VPC. Default: [] - no connections are added to the job
         :param continuous_logging: (experimental) Enables continuous logging with the specified props. Default: - continuous logging is enabled.
         :param default_arguments: (experimental) Default Arguments (optional) The default arguments for every run of this Glue job, specified as name-value pairs. These are emitted verbatim into the CloudFormation template, so avoid placing secrets here in plaintext. Pass secrets to the job at runtime through AWS Secrets Manager instead. A synthesis-time warning is emitted when an argument key looks like a credential and holds a plaintext literal. Default: - no arguments
         :param description: (experimental) Description (optional) Developer-specified description of the Glue job. Default: - no value
-        :param enable_profiling_metrics: (experimental) Enables the collection of metrics for job profiling. Default: - no profiling metrics emitted.
         :param glue_version: (experimental) Glue Version The version of Glue to use to execute this job. Default: 3.0 for ETL
         :param job_name: (experimental) Name of the Glue job (optional) Developer-specified name of the Glue job. Default: - a name is automatically generated
         :param max_concurrent_runs: (experimental) Max Concurrent Runs (optional) The maximum number of runs this Glue job can concurrently run. An error is returned when this threshold is reached. The maximum value you can specify is controlled by a service limit. Default: 1
         :param max_retries: (experimental) Max Retries (optional) Maximum number of retry attempts Glue performs if the job fails. Default: 0
-        :param number_of_workers: (experimental) Number of Workers (optional) Number of workers for Glue to use during job execution. Default: 10
         :param security_configuration: (experimental) Security Configuration (optional) Defines the encryption options for the Glue job. Default: - no security configuration.
         :param tags: (experimental) Tags (optional) A list of key:value pairs of tags to apply to this Glue job resources. Default: {} - no tags
         :param timeout: (experimental) Timeout (optional) The maximum time that a job run can consume resources before it is terminated and enters TIMEOUT status. Specified in minutes. Default: 2880 (2 days for non-streaming)
-        :param worker_type: (experimental) Worker Type (optional) Type of Worker for Glue to use during job execution Enum options: Standard, G_1X, G_2X, G_025X. G_4X, G_8X, Z_2X Default: WorkerType.G_1X
 
         :stability: experimental
         '''
@@ -21657,22 +21283,20 @@ class ScalaSparkStreamingJob(
             enable_metrics=enable_metrics,
             enable_observability_metrics=enable_observability_metrics,
             spark_ui=spark_ui,
+            worker_configuration=worker_configuration,
             role=role,
             script=script,
             connections=connections,
             continuous_logging=continuous_logging,
             default_arguments=default_arguments,
             description=description,
-            enable_profiling_metrics=enable_profiling_metrics,
             glue_version=glue_version,
             job_name=job_name,
             max_concurrent_runs=max_concurrent_runs,
             max_retries=max_retries,
-            number_of_workers=number_of_workers,
             security_configuration=security_configuration,
             tags=tags,
             timeout=timeout,
-            worker_type=worker_type,
         )
 
         jsii.create(self.__class__, self, [scope, id, props])
@@ -21715,7 +21339,6 @@ __all__ = [
     "CatalogProps",
     "ClassificationString",
     "CloudWatchEncryption",
-    "CloudWatchEncryptionMode",
     "Code",
     "CodeConfig",
     "Column",
@@ -21743,6 +21366,7 @@ __all__ = [
     "DatabaseProps",
     "DateIntervalUnit",
     "DatePartitionProjectionConfigurationProps",
+    "Dqdl",
     "EnumPartitionProjectionConfigurationProps",
     "EventBatchingCondition",
     "ExecutionClass",
@@ -21764,7 +21388,6 @@ __all__ = [
     "JobAttributes",
     "JobBase",
     "JobBookmarksEncryption",
-    "JobBookmarksEncryptionMode",
     "JobLanguage",
     "JobProps",
     "JobState",
@@ -21827,6 +21450,7 @@ __all__ = [
     "TriggerSchedule",
     "Type",
     "WeeklyScheduleTriggerOptions",
+    "WorkerConfiguration",
     "WorkerType",
     "Workflow",
     "WorkflowAttributes",
@@ -21872,9 +21496,7 @@ def _typecheckingstub__2bfce587a58c2deea97e71eeab8754a97692804f6d43271eda89c6257
     """Type checking stubs"""
     pass
 
-def _typecheckingstub__ceec14d1d7029d8fb7df76e4abb14bc79250421d85a9584f0271d9e7c4f4ef3f(
-    *,
-    mode: CloudWatchEncryptionMode,
+def _typecheckingstub__1f88fc64cc736f508e1d560c28b0596a00dc22376289f3fd63a0d9b2e8119e7e(
     kms_key: typing.Optional[_aws_cdk_interfaces_aws_kms_ceddda9d.IKeyRef] = None,
 ) -> None:
     """Type checking stubs"""
@@ -22013,7 +21635,7 @@ def _typecheckingstub__f5302ed9f621270e44cf453ed62f78ee39e66f12961a87e084ec3d874
 
 def _typecheckingstub__abda2570732c667a87dd412c9aa6c70d5db49ac0b525ecc9c3c801e1271e451a(
     *,
-    ruleset_dqdl: builtins.str,
+    dqdl: Dqdl,
     target_table: DataQualityTargetTable,
     client_token: typing.Optional[builtins.str] = None,
     description: typing.Optional[builtins.str] = None,
@@ -22049,6 +21671,12 @@ def _typecheckingstub__48fd6dee3d59bed3adba9ad20063bd1666e567655b8b7bdca390054a4
     min: builtins.str,
     interval: typing.Optional[jsii.Number] = None,
     interval_unit: typing.Optional[DateIntervalUnit] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__930bbf5e9717083d6925db7850d0c9cbc75868f58ac0b9d5c47e8c192f882ebe(
+    dqdl: builtins.str,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -22304,9 +21932,7 @@ def _typecheckingstub__d7a8d02d32cc082a6ff2a1e0f1652f9b32b59c7e9908524f3e8b2ccbd
     """Type checking stubs"""
     pass
 
-def _typecheckingstub__61a555ea81acfe554401802d7d44d70d3e1a6f96890ffbc28283fadb7ea81f9e(
-    *,
-    mode: JobBookmarksEncryptionMode,
+def _typecheckingstub__8799542eea726904c0332b476c0c0b92c6d42f78273fd15f6728fa5d6da5518e(
     kms_key: typing.Optional[_aws_cdk_interfaces_aws_kms_ceddda9d.IKeyRef] = None,
 ) -> None:
     """Type checking stubs"""
@@ -22320,16 +21946,13 @@ def _typecheckingstub__9f47dc7b3a9514a79f7f82e52c4441b82161dce2eb5b67f2221166077
     continuous_logging: typing.Optional[typing.Union[ContinuousLoggingProps, typing.Dict[builtins.str, typing.Any]]] = None,
     default_arguments: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
     description: typing.Optional[builtins.str] = None,
-    enable_profiling_metrics: typing.Optional[builtins.bool] = None,
     glue_version: typing.Optional[GlueVersion] = None,
     job_name: typing.Optional[builtins.str] = None,
     max_concurrent_runs: typing.Optional[jsii.Number] = None,
     max_retries: typing.Optional[jsii.Number] = None,
-    number_of_workers: typing.Optional[jsii.Number] = None,
     security_configuration: typing.Optional[ISecurityConfiguration] = None,
     tags: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
     timeout: typing.Optional[_aws_cdk_ceddda9d.Duration] = None,
-    worker_type: typing.Optional[WorkerType] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -22364,16 +21987,13 @@ def _typecheckingstub__92a5b134cff0782ae2081737ca265c082c41e163672815acc2d80960f
     continuous_logging: typing.Optional[typing.Union[ContinuousLoggingProps, typing.Dict[builtins.str, typing.Any]]] = None,
     default_arguments: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
     description: typing.Optional[builtins.str] = None,
-    enable_profiling_metrics: typing.Optional[builtins.bool] = None,
     glue_version: typing.Optional[GlueVersion] = None,
     job_name: typing.Optional[builtins.str] = None,
     max_concurrent_runs: typing.Optional[jsii.Number] = None,
     max_retries: typing.Optional[jsii.Number] = None,
-    number_of_workers: typing.Optional[jsii.Number] = None,
     security_configuration: typing.Optional[ISecurityConfiguration] = None,
     tags: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
     timeout: typing.Optional[_aws_cdk_ceddda9d.Duration] = None,
-    worker_type: typing.Optional[WorkerType] = None,
     extra_python_files: typing.Optional[typing.Sequence[Code]] = None,
     job_run_queuing_enabled: typing.Optional[builtins.bool] = None,
     max_capacity: typing.Optional[MaxCapacity] = None,
@@ -22390,19 +22010,17 @@ def _typecheckingstub__0688d93fe3342e908d24430e0cf83d44b81116d86a5789bf7fabe7d05
     continuous_logging: typing.Optional[typing.Union[ContinuousLoggingProps, typing.Dict[builtins.str, typing.Any]]] = None,
     default_arguments: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
     description: typing.Optional[builtins.str] = None,
-    enable_profiling_metrics: typing.Optional[builtins.bool] = None,
     glue_version: typing.Optional[GlueVersion] = None,
     job_name: typing.Optional[builtins.str] = None,
     max_concurrent_runs: typing.Optional[jsii.Number] = None,
     max_retries: typing.Optional[jsii.Number] = None,
-    number_of_workers: typing.Optional[jsii.Number] = None,
     security_configuration: typing.Optional[ISecurityConfiguration] = None,
     tags: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
     timeout: typing.Optional[_aws_cdk_ceddda9d.Duration] = None,
-    worker_type: typing.Optional[WorkerType] = None,
     enable_metrics: typing.Optional[builtins.bool] = None,
     enable_observability_metrics: typing.Optional[builtins.bool] = None,
     job_run_queuing_enabled: typing.Optional[builtins.bool] = None,
+    number_of_workers: typing.Optional[jsii.Number] = None,
     runtime: typing.Optional[Runtime] = None,
 ) -> None:
     """Type checking stubs"""
@@ -22422,9 +22040,7 @@ def _typecheckingstub__18fa6b6bc6e19007515f753b3e849efd4b7a16720ea785b0e155f2007
     """Type checking stubs"""
     pass
 
-def _typecheckingstub__d972222b3b5c087e70a7ab859853e97f1579eeee2ede763d551c41d4076f740e(
-    *,
-    mode: S3EncryptionMode,
+def _typecheckingstub__5966825f76b0928b999155cb9520d466beb9558e71e26ce21f86c25f88507e5a(
     kms_key: typing.Optional[_aws_cdk_interfaces_aws_kms_ceddda9d.IKeyRef] = None,
 ) -> None:
     """Type checking stubs"""
@@ -22468,10 +22084,10 @@ def _typecheckingstub__cd628a6199f5b5fb7644771f78b6cc6d9230e3c38bba0463810d192bc
     scope: _constructs_77d1e7e8.Construct,
     id: builtins.str,
     *,
-    cloud_watch_encryption: typing.Optional[typing.Union[CloudWatchEncryption, typing.Dict[builtins.str, typing.Any]]] = None,
-    job_bookmarks_encryption: typing.Optional[typing.Union[JobBookmarksEncryption, typing.Dict[builtins.str, typing.Any]]] = None,
+    cloud_watch_encryption: typing.Optional[CloudWatchEncryption] = None,
+    job_bookmarks_encryption: typing.Optional[JobBookmarksEncryption] = None,
     removal_policy: typing.Optional[_aws_cdk_ceddda9d.RemovalPolicy] = None,
-    s3_encryption: typing.Optional[typing.Union[S3Encryption, typing.Dict[builtins.str, typing.Any]]] = None,
+    s3_encryption: typing.Optional[S3Encryption] = None,
     security_configuration_name: typing.Optional[builtins.str] = None,
 ) -> None:
     """Type checking stubs"""
@@ -22487,10 +22103,10 @@ def _typecheckingstub__4a85db96fd444625c46f4574190ecd86214bed327c2f826ee3294853f
 
 def _typecheckingstub__3b8dd2838cd56b87c144ac347e4b66a78dd0c85a6196f1282adce12bd2e94f36(
     *,
-    cloud_watch_encryption: typing.Optional[typing.Union[CloudWatchEncryption, typing.Dict[builtins.str, typing.Any]]] = None,
-    job_bookmarks_encryption: typing.Optional[typing.Union[JobBookmarksEncryption, typing.Dict[builtins.str, typing.Any]]] = None,
+    cloud_watch_encryption: typing.Optional[CloudWatchEncryption] = None,
+    job_bookmarks_encryption: typing.Optional[JobBookmarksEncryption] = None,
     removal_policy: typing.Optional[_aws_cdk_ceddda9d.RemovalPolicy] = None,
-    s3_encryption: typing.Optional[typing.Union[S3Encryption, typing.Dict[builtins.str, typing.Any]]] = None,
+    s3_encryption: typing.Optional[S3Encryption] = None,
     security_configuration_name: typing.Optional[builtins.str] = None,
 ) -> None:
     """Type checking stubs"""
@@ -22520,19 +22136,17 @@ def _typecheckingstub__2ffa813def4de32811719999bd6b7dba325e92cf2f2ca903cddce9461
     continuous_logging: typing.Optional[typing.Union[ContinuousLoggingProps, typing.Dict[builtins.str, typing.Any]]] = None,
     default_arguments: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
     description: typing.Optional[builtins.str] = None,
-    enable_profiling_metrics: typing.Optional[builtins.bool] = None,
     glue_version: typing.Optional[GlueVersion] = None,
     job_name: typing.Optional[builtins.str] = None,
     max_concurrent_runs: typing.Optional[jsii.Number] = None,
     max_retries: typing.Optional[jsii.Number] = None,
-    number_of_workers: typing.Optional[jsii.Number] = None,
     security_configuration: typing.Optional[ISecurityConfiguration] = None,
     tags: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
     timeout: typing.Optional[_aws_cdk_ceddda9d.Duration] = None,
-    worker_type: typing.Optional[WorkerType] = None,
     enable_metrics: typing.Optional[builtins.bool] = None,
     enable_observability_metrics: typing.Optional[builtins.bool] = None,
     spark_ui: typing.Optional[typing.Union[SparkUIProps, typing.Dict[builtins.str, typing.Any]]] = None,
+    worker_configuration: typing.Optional[typing.Union[WorkerConfiguration, typing.Dict[builtins.str, typing.Any]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -22675,6 +22289,7 @@ def _typecheckingstub__3498ddd8b03f8ca1e3bea08a9f07832747b340c2a3681dc513148655f
     compressed: typing.Optional[builtins.bool] = None,
     description: typing.Optional[builtins.str] = None,
     enable_partition_filtering: typing.Optional[builtins.bool] = None,
+    has_encrypted_data: typing.Optional[builtins.bool] = None,
     parameters: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
     partition_indexes: typing.Optional[typing.Sequence[typing.Union[PartitionIndex, typing.Dict[builtins.str, typing.Any]]]] = None,
     partition_keys: typing.Optional[typing.Sequence[typing.Union[Column, typing.Dict[builtins.str, typing.Any]]]] = None,
@@ -22744,6 +22359,7 @@ def _typecheckingstub__c621f615cea5a292fe84c07e10ca61e7529536864f1701be1f19b1684
     compressed: typing.Optional[builtins.bool] = None,
     description: typing.Optional[builtins.str] = None,
     enable_partition_filtering: typing.Optional[builtins.bool] = None,
+    has_encrypted_data: typing.Optional[builtins.bool] = None,
     parameters: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
     partition_indexes: typing.Optional[typing.Sequence[typing.Union[PartitionIndex, typing.Dict[builtins.str, typing.Any]]]] = None,
     partition_keys: typing.Optional[typing.Sequence[typing.Union[Column, typing.Dict[builtins.str, typing.Any]]]] = None,
@@ -22774,6 +22390,14 @@ def _typecheckingstub__c5fb0ad30c447263aceddf4b77f71aec991966bf6e2dc3a181ff40091
     *,
     input_string: builtins.str,
     is_primitive: builtins.bool,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__4dfa0599b5bdfe6db9b8b208dedc51e7dfa85ba2bdd2bba1e72ee5b02dda8a14(
+    *,
+    number_of_workers: jsii.Number,
+    worker_type: WorkerType,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -22977,7 +22601,7 @@ def _typecheckingstub__9e874ec3f48fcb87408229a566f69396601cc87f18c40fa5579a09664
     scope: _constructs_77d1e7e8.Construct,
     id: builtins.str,
     *,
-    ruleset_dqdl: builtins.str,
+    dqdl: Dqdl,
     target_table: DataQualityTargetTable,
     client_token: typing.Optional[builtins.str] = None,
     description: typing.Optional[builtins.str] = None,
@@ -23025,12 +22649,6 @@ def _typecheckingstub__6b20be4513bbaa9c562fcfb165fa327a8e6c6d38a0b15481eca8493b9
     """Type checking stubs"""
     pass
 
-def _typecheckingstub__90e333b7e65b52ce7350f1362e32d0548570ec42483de3019c80f233c116f3aa(
-    value: typing.Optional[builtins.str],
-) -> None:
-    """Type checking stubs"""
-    pass
-
 def _typecheckingstub__f5b251bd575556272c98729ccada78c9d0fedbddd35e4e50ccd72649f6882227(
     scope: _constructs_77d1e7e8.Construct,
     id: builtins.str,
@@ -23043,6 +22661,7 @@ def _typecheckingstub__f5b251bd575556272c98729ccada78c9d0fedbddd35e4e50ccd72649f
     compressed: typing.Optional[builtins.bool] = None,
     description: typing.Optional[builtins.str] = None,
     enable_partition_filtering: typing.Optional[builtins.bool] = None,
+    has_encrypted_data: typing.Optional[builtins.bool] = None,
     parameters: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
     partition_indexes: typing.Optional[typing.Sequence[typing.Union[PartitionIndex, typing.Dict[builtins.str, typing.Any]]]] = None,
     partition_keys: typing.Optional[typing.Sequence[typing.Union[Column, typing.Dict[builtins.str, typing.Any]]]] = None,
@@ -23080,6 +22699,7 @@ def _typecheckingstub__a91c342ce35e1b47ced3892e3796a41cbe78a15258e691c0f83319c7b
     compressed: typing.Optional[builtins.bool] = None,
     description: typing.Optional[builtins.str] = None,
     enable_partition_filtering: typing.Optional[builtins.bool] = None,
+    has_encrypted_data: typing.Optional[builtins.bool] = None,
     parameters: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
     partition_indexes: typing.Optional[typing.Sequence[typing.Union[PartitionIndex, typing.Dict[builtins.str, typing.Any]]]] = None,
     partition_keys: typing.Optional[typing.Sequence[typing.Union[Column, typing.Dict[builtins.str, typing.Any]]]] = None,
@@ -23166,19 +22786,17 @@ def _typecheckingstub__7d1f0248e91f0e304122bfc575cd46be082ce53b491ae4ac58657dde6
     continuous_logging: typing.Optional[typing.Union[ContinuousLoggingProps, typing.Dict[builtins.str, typing.Any]]] = None,
     default_arguments: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
     description: typing.Optional[builtins.str] = None,
-    enable_profiling_metrics: typing.Optional[builtins.bool] = None,
     glue_version: typing.Optional[GlueVersion] = None,
     job_name: typing.Optional[builtins.str] = None,
     max_concurrent_runs: typing.Optional[jsii.Number] = None,
     max_retries: typing.Optional[jsii.Number] = None,
-    number_of_workers: typing.Optional[jsii.Number] = None,
     security_configuration: typing.Optional[ISecurityConfiguration] = None,
     tags: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
     timeout: typing.Optional[_aws_cdk_ceddda9d.Duration] = None,
-    worker_type: typing.Optional[WorkerType] = None,
     enable_metrics: typing.Optional[builtins.bool] = None,
     enable_observability_metrics: typing.Optional[builtins.bool] = None,
     spark_ui: typing.Optional[typing.Union[SparkUIProps, typing.Dict[builtins.str, typing.Any]]] = None,
+    worker_configuration: typing.Optional[typing.Union[WorkerConfiguration, typing.Dict[builtins.str, typing.Any]]] = None,
     extra_files: typing.Optional[typing.Sequence[Code]] = None,
     extra_jars: typing.Optional[typing.Sequence[Code]] = None,
     extra_jars_first: typing.Optional[builtins.bool] = None,
@@ -23197,19 +22815,17 @@ def _typecheckingstub__1ef29eff48bb24670d76df296a115400d888e6edb0be2d4d7fe4f8594
     continuous_logging: typing.Optional[typing.Union[ContinuousLoggingProps, typing.Dict[builtins.str, typing.Any]]] = None,
     default_arguments: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
     description: typing.Optional[builtins.str] = None,
-    enable_profiling_metrics: typing.Optional[builtins.bool] = None,
     glue_version: typing.Optional[GlueVersion] = None,
     job_name: typing.Optional[builtins.str] = None,
     max_concurrent_runs: typing.Optional[jsii.Number] = None,
     max_retries: typing.Optional[jsii.Number] = None,
-    number_of_workers: typing.Optional[jsii.Number] = None,
     security_configuration: typing.Optional[ISecurityConfiguration] = None,
     tags: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
     timeout: typing.Optional[_aws_cdk_ceddda9d.Duration] = None,
-    worker_type: typing.Optional[WorkerType] = None,
     enable_metrics: typing.Optional[builtins.bool] = None,
     enable_observability_metrics: typing.Optional[builtins.bool] = None,
     spark_ui: typing.Optional[typing.Union[SparkUIProps, typing.Dict[builtins.str, typing.Any]]] = None,
+    worker_configuration: typing.Optional[typing.Union[WorkerConfiguration, typing.Dict[builtins.str, typing.Any]]] = None,
     extra_files: typing.Optional[typing.Sequence[Code]] = None,
     extra_jars: typing.Optional[typing.Sequence[Code]] = None,
     extra_jars_first: typing.Optional[builtins.bool] = None,
@@ -23227,19 +22843,17 @@ def _typecheckingstub__d84214ee15ab52fd8652e96b7efef9a28fd9d1e00434523677b07bd72
     continuous_logging: typing.Optional[typing.Union[ContinuousLoggingProps, typing.Dict[builtins.str, typing.Any]]] = None,
     default_arguments: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
     description: typing.Optional[builtins.str] = None,
-    enable_profiling_metrics: typing.Optional[builtins.bool] = None,
     glue_version: typing.Optional[GlueVersion] = None,
     job_name: typing.Optional[builtins.str] = None,
     max_concurrent_runs: typing.Optional[jsii.Number] = None,
     max_retries: typing.Optional[jsii.Number] = None,
-    number_of_workers: typing.Optional[jsii.Number] = None,
     security_configuration: typing.Optional[ISecurityConfiguration] = None,
     tags: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
     timeout: typing.Optional[_aws_cdk_ceddda9d.Duration] = None,
-    worker_type: typing.Optional[WorkerType] = None,
     enable_metrics: typing.Optional[builtins.bool] = None,
     enable_observability_metrics: typing.Optional[builtins.bool] = None,
     spark_ui: typing.Optional[typing.Union[SparkUIProps, typing.Dict[builtins.str, typing.Any]]] = None,
+    worker_configuration: typing.Optional[typing.Union[WorkerConfiguration, typing.Dict[builtins.str, typing.Any]]] = None,
     extra_files: typing.Optional[typing.Sequence[Code]] = None,
     extra_jars: typing.Optional[typing.Sequence[Code]] = None,
     extra_jars_first: typing.Optional[builtins.bool] = None,
@@ -23263,16 +22877,13 @@ def _typecheckingstub__cf957fffa6063a485485a9901ecfb6eddf77eb6d14270f51d1e144b76
     continuous_logging: typing.Optional[typing.Union[ContinuousLoggingProps, typing.Dict[builtins.str, typing.Any]]] = None,
     default_arguments: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
     description: typing.Optional[builtins.str] = None,
-    enable_profiling_metrics: typing.Optional[builtins.bool] = None,
     glue_version: typing.Optional[GlueVersion] = None,
     job_name: typing.Optional[builtins.str] = None,
     max_concurrent_runs: typing.Optional[jsii.Number] = None,
     max_retries: typing.Optional[jsii.Number] = None,
-    number_of_workers: typing.Optional[jsii.Number] = None,
     security_configuration: typing.Optional[ISecurityConfiguration] = None,
     tags: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
     timeout: typing.Optional[_aws_cdk_ceddda9d.Duration] = None,
-    worker_type: typing.Optional[WorkerType] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -23284,6 +22895,7 @@ def _typecheckingstub__f7beec401782b29b227bf0ea4c127741d2963c96d556c701232fc9b8d
     enable_metrics: typing.Optional[builtins.bool] = None,
     enable_observability_metrics: typing.Optional[builtins.bool] = None,
     job_run_queuing_enabled: typing.Optional[builtins.bool] = None,
+    number_of_workers: typing.Optional[jsii.Number] = None,
     runtime: typing.Optional[Runtime] = None,
     role: _aws_cdk_aws_iam_ceddda9d.IRole,
     script: Code,
@@ -23291,16 +22903,13 @@ def _typecheckingstub__f7beec401782b29b227bf0ea4c127741d2963c96d556c701232fc9b8d
     continuous_logging: typing.Optional[typing.Union[ContinuousLoggingProps, typing.Dict[builtins.str, typing.Any]]] = None,
     default_arguments: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
     description: typing.Optional[builtins.str] = None,
-    enable_profiling_metrics: typing.Optional[builtins.bool] = None,
     glue_version: typing.Optional[GlueVersion] = None,
     job_name: typing.Optional[builtins.str] = None,
     max_concurrent_runs: typing.Optional[jsii.Number] = None,
     max_retries: typing.Optional[jsii.Number] = None,
-    number_of_workers: typing.Optional[jsii.Number] = None,
     security_configuration: typing.Optional[ISecurityConfiguration] = None,
     tags: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
     timeout: typing.Optional[_aws_cdk_ceddda9d.Duration] = None,
-    worker_type: typing.Optional[WorkerType] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -23319,6 +22928,7 @@ def _typecheckingstub__2b5cd7a8c51600d473f125b7e52d34d32dba95265780e87640a28f30e
     compressed: typing.Optional[builtins.bool] = None,
     description: typing.Optional[builtins.str] = None,
     enable_partition_filtering: typing.Optional[builtins.bool] = None,
+    has_encrypted_data: typing.Optional[builtins.bool] = None,
     parameters: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
     partition_indexes: typing.Optional[typing.Sequence[typing.Union[PartitionIndex, typing.Dict[builtins.str, typing.Any]]]] = None,
     partition_keys: typing.Optional[typing.Sequence[typing.Union[Column, typing.Dict[builtins.str, typing.Any]]]] = None,
@@ -23356,6 +22966,7 @@ def _typecheckingstub__4a30697598fc2a32c5e111aebc024dd5935b49f4f1807d70f75c9a4e8
     compressed: typing.Optional[builtins.bool] = None,
     description: typing.Optional[builtins.str] = None,
     enable_partition_filtering: typing.Optional[builtins.bool] = None,
+    has_encrypted_data: typing.Optional[builtins.bool] = None,
     parameters: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
     partition_indexes: typing.Optional[typing.Sequence[typing.Union[PartitionIndex, typing.Dict[builtins.str, typing.Any]]]] = None,
     partition_keys: typing.Optional[typing.Sequence[typing.Union[Column, typing.Dict[builtins.str, typing.Any]]]] = None,
@@ -23379,19 +22990,17 @@ def _typecheckingstub__7dc0f0fa237cf7965aab0946ff23b7cd81480bfae21863d601973dccf
     continuous_logging: typing.Optional[typing.Union[ContinuousLoggingProps, typing.Dict[builtins.str, typing.Any]]] = None,
     default_arguments: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
     description: typing.Optional[builtins.str] = None,
-    enable_profiling_metrics: typing.Optional[builtins.bool] = None,
     glue_version: typing.Optional[GlueVersion] = None,
     job_name: typing.Optional[builtins.str] = None,
     max_concurrent_runs: typing.Optional[jsii.Number] = None,
     max_retries: typing.Optional[jsii.Number] = None,
-    number_of_workers: typing.Optional[jsii.Number] = None,
     security_configuration: typing.Optional[ISecurityConfiguration] = None,
     tags: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
     timeout: typing.Optional[_aws_cdk_ceddda9d.Duration] = None,
-    worker_type: typing.Optional[WorkerType] = None,
     enable_metrics: typing.Optional[builtins.bool] = None,
     enable_observability_metrics: typing.Optional[builtins.bool] = None,
     spark_ui: typing.Optional[typing.Union[SparkUIProps, typing.Dict[builtins.str, typing.Any]]] = None,
+    worker_configuration: typing.Optional[typing.Union[WorkerConfiguration, typing.Dict[builtins.str, typing.Any]]] = None,
     class_name: builtins.str,
     extra_files: typing.Optional[typing.Sequence[Code]] = None,
     extra_jars: typing.Optional[typing.Sequence[Code]] = None,
@@ -23410,19 +23019,17 @@ def _typecheckingstub__c8ceab9d0640505293413a9e030a887b86040fff73ca1bc6ccb202579
     continuous_logging: typing.Optional[typing.Union[ContinuousLoggingProps, typing.Dict[builtins.str, typing.Any]]] = None,
     default_arguments: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
     description: typing.Optional[builtins.str] = None,
-    enable_profiling_metrics: typing.Optional[builtins.bool] = None,
     glue_version: typing.Optional[GlueVersion] = None,
     job_name: typing.Optional[builtins.str] = None,
     max_concurrent_runs: typing.Optional[jsii.Number] = None,
     max_retries: typing.Optional[jsii.Number] = None,
-    number_of_workers: typing.Optional[jsii.Number] = None,
     security_configuration: typing.Optional[ISecurityConfiguration] = None,
     tags: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
     timeout: typing.Optional[_aws_cdk_ceddda9d.Duration] = None,
-    worker_type: typing.Optional[WorkerType] = None,
     enable_metrics: typing.Optional[builtins.bool] = None,
     enable_observability_metrics: typing.Optional[builtins.bool] = None,
     spark_ui: typing.Optional[typing.Union[SparkUIProps, typing.Dict[builtins.str, typing.Any]]] = None,
+    worker_configuration: typing.Optional[typing.Union[WorkerConfiguration, typing.Dict[builtins.str, typing.Any]]] = None,
     class_name: builtins.str,
     extra_files: typing.Optional[typing.Sequence[Code]] = None,
     extra_jars: typing.Optional[typing.Sequence[Code]] = None,
@@ -23440,19 +23047,17 @@ def _typecheckingstub__178abebbd3eb26dd5a8490688d5ab2b0ca85ce375356790e6e875c466
     continuous_logging: typing.Optional[typing.Union[ContinuousLoggingProps, typing.Dict[builtins.str, typing.Any]]] = None,
     default_arguments: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
     description: typing.Optional[builtins.str] = None,
-    enable_profiling_metrics: typing.Optional[builtins.bool] = None,
     glue_version: typing.Optional[GlueVersion] = None,
     job_name: typing.Optional[builtins.str] = None,
     max_concurrent_runs: typing.Optional[jsii.Number] = None,
     max_retries: typing.Optional[jsii.Number] = None,
-    number_of_workers: typing.Optional[jsii.Number] = None,
     security_configuration: typing.Optional[ISecurityConfiguration] = None,
     tags: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
     timeout: typing.Optional[_aws_cdk_ceddda9d.Duration] = None,
-    worker_type: typing.Optional[WorkerType] = None,
     enable_metrics: typing.Optional[builtins.bool] = None,
     enable_observability_metrics: typing.Optional[builtins.bool] = None,
     spark_ui: typing.Optional[typing.Union[SparkUIProps, typing.Dict[builtins.str, typing.Any]]] = None,
+    worker_configuration: typing.Optional[typing.Union[WorkerConfiguration, typing.Dict[builtins.str, typing.Any]]] = None,
     class_name: builtins.str,
     extra_files: typing.Optional[typing.Sequence[Code]] = None,
     extra_jars: typing.Optional[typing.Sequence[Code]] = None,
@@ -23469,22 +23074,20 @@ def _typecheckingstub__8fbd2cbc25f1bca6ef290d592a0caaacb6be8da071335ebfe9f73523d
     enable_metrics: typing.Optional[builtins.bool] = None,
     enable_observability_metrics: typing.Optional[builtins.bool] = None,
     spark_ui: typing.Optional[typing.Union[SparkUIProps, typing.Dict[builtins.str, typing.Any]]] = None,
+    worker_configuration: typing.Optional[typing.Union[WorkerConfiguration, typing.Dict[builtins.str, typing.Any]]] = None,
     role: _aws_cdk_aws_iam_ceddda9d.IRole,
     script: Code,
     connections: typing.Optional[typing.Sequence[IConnection]] = None,
     continuous_logging: typing.Optional[typing.Union[ContinuousLoggingProps, typing.Dict[builtins.str, typing.Any]]] = None,
     default_arguments: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
     description: typing.Optional[builtins.str] = None,
-    enable_profiling_metrics: typing.Optional[builtins.bool] = None,
     glue_version: typing.Optional[GlueVersion] = None,
     job_name: typing.Optional[builtins.str] = None,
     max_concurrent_runs: typing.Optional[jsii.Number] = None,
     max_retries: typing.Optional[jsii.Number] = None,
-    number_of_workers: typing.Optional[jsii.Number] = None,
     security_configuration: typing.Optional[ISecurityConfiguration] = None,
     tags: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
     timeout: typing.Optional[_aws_cdk_ceddda9d.Duration] = None,
-    worker_type: typing.Optional[WorkerType] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -23514,6 +23117,7 @@ def _typecheckingstub__1146b20665153f742431bb500cb6e71362a22d8446ea9e132183e7be2
     compressed: typing.Optional[builtins.bool] = None,
     description: typing.Optional[builtins.str] = None,
     enable_partition_filtering: typing.Optional[builtins.bool] = None,
+    has_encrypted_data: typing.Optional[builtins.bool] = None,
     parameters: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
     partition_indexes: typing.Optional[typing.Sequence[typing.Union[PartitionIndex, typing.Dict[builtins.str, typing.Any]]]] = None,
     partition_keys: typing.Optional[typing.Sequence[typing.Union[Column, typing.Dict[builtins.str, typing.Any]]]] = None,
@@ -23533,6 +23137,7 @@ def _typecheckingstub__0336d5abace2b9645857eae2fba5aa1c4bbb0db1762c5d5031d2f8c64
     compressed: typing.Optional[builtins.bool] = None,
     description: typing.Optional[builtins.str] = None,
     enable_partition_filtering: typing.Optional[builtins.bool] = None,
+    has_encrypted_data: typing.Optional[builtins.bool] = None,
     parameters: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
     partition_indexes: typing.Optional[typing.Sequence[typing.Union[PartitionIndex, typing.Dict[builtins.str, typing.Any]]]] = None,
     partition_keys: typing.Optional[typing.Sequence[typing.Union[Column, typing.Dict[builtins.str, typing.Any]]]] = None,
@@ -23674,22 +23279,20 @@ def _typecheckingstub__327d74fee281b2b0d3a8881dfc5d5dc7ee1df1b54cc0e95df5cc6b254
     enable_metrics: typing.Optional[builtins.bool] = None,
     enable_observability_metrics: typing.Optional[builtins.bool] = None,
     spark_ui: typing.Optional[typing.Union[SparkUIProps, typing.Dict[builtins.str, typing.Any]]] = None,
+    worker_configuration: typing.Optional[typing.Union[WorkerConfiguration, typing.Dict[builtins.str, typing.Any]]] = None,
     role: _aws_cdk_aws_iam_ceddda9d.IRole,
     script: Code,
     connections: typing.Optional[typing.Sequence[IConnection]] = None,
     continuous_logging: typing.Optional[typing.Union[ContinuousLoggingProps, typing.Dict[builtins.str, typing.Any]]] = None,
     default_arguments: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
     description: typing.Optional[builtins.str] = None,
-    enable_profiling_metrics: typing.Optional[builtins.bool] = None,
     glue_version: typing.Optional[GlueVersion] = None,
     job_name: typing.Optional[builtins.str] = None,
     max_concurrent_runs: typing.Optional[jsii.Number] = None,
     max_retries: typing.Optional[jsii.Number] = None,
-    number_of_workers: typing.Optional[jsii.Number] = None,
     security_configuration: typing.Optional[ISecurityConfiguration] = None,
     tags: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
     timeout: typing.Optional[_aws_cdk_ceddda9d.Duration] = None,
-    worker_type: typing.Optional[WorkerType] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -23706,22 +23309,20 @@ def _typecheckingstub__df8099e58d980930cb131b7b6143370cec5ab0c0d687c1577ad0f5bc9
     enable_metrics: typing.Optional[builtins.bool] = None,
     enable_observability_metrics: typing.Optional[builtins.bool] = None,
     spark_ui: typing.Optional[typing.Union[SparkUIProps, typing.Dict[builtins.str, typing.Any]]] = None,
+    worker_configuration: typing.Optional[typing.Union[WorkerConfiguration, typing.Dict[builtins.str, typing.Any]]] = None,
     role: _aws_cdk_aws_iam_ceddda9d.IRole,
     script: Code,
     connections: typing.Optional[typing.Sequence[IConnection]] = None,
     continuous_logging: typing.Optional[typing.Union[ContinuousLoggingProps, typing.Dict[builtins.str, typing.Any]]] = None,
     default_arguments: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
     description: typing.Optional[builtins.str] = None,
-    enable_profiling_metrics: typing.Optional[builtins.bool] = None,
     glue_version: typing.Optional[GlueVersion] = None,
     job_name: typing.Optional[builtins.str] = None,
     max_concurrent_runs: typing.Optional[jsii.Number] = None,
     max_retries: typing.Optional[jsii.Number] = None,
-    number_of_workers: typing.Optional[jsii.Number] = None,
     security_configuration: typing.Optional[ISecurityConfiguration] = None,
     tags: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
     timeout: typing.Optional[_aws_cdk_ceddda9d.Duration] = None,
-    worker_type: typing.Optional[WorkerType] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -23738,22 +23339,20 @@ def _typecheckingstub__db0d9c08e93dc8ac4aa26bd9cbdc4f728b7fed72e75da00734b4bea75
     enable_metrics: typing.Optional[builtins.bool] = None,
     enable_observability_metrics: typing.Optional[builtins.bool] = None,
     spark_ui: typing.Optional[typing.Union[SparkUIProps, typing.Dict[builtins.str, typing.Any]]] = None,
+    worker_configuration: typing.Optional[typing.Union[WorkerConfiguration, typing.Dict[builtins.str, typing.Any]]] = None,
     role: _aws_cdk_aws_iam_ceddda9d.IRole,
     script: Code,
     connections: typing.Optional[typing.Sequence[IConnection]] = None,
     continuous_logging: typing.Optional[typing.Union[ContinuousLoggingProps, typing.Dict[builtins.str, typing.Any]]] = None,
     default_arguments: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
     description: typing.Optional[builtins.str] = None,
-    enable_profiling_metrics: typing.Optional[builtins.bool] = None,
     glue_version: typing.Optional[GlueVersion] = None,
     job_name: typing.Optional[builtins.str] = None,
     max_concurrent_runs: typing.Optional[jsii.Number] = None,
     max_retries: typing.Optional[jsii.Number] = None,
-    number_of_workers: typing.Optional[jsii.Number] = None,
     security_configuration: typing.Optional[ISecurityConfiguration] = None,
     tags: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
     timeout: typing.Optional[_aws_cdk_ceddda9d.Duration] = None,
-    worker_type: typing.Optional[WorkerType] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -23771,22 +23370,20 @@ def _typecheckingstub__3531464a00fcaee4dedc194dffa8743ca4d59d92cc35e1ec406f90fe4
     enable_metrics: typing.Optional[builtins.bool] = None,
     enable_observability_metrics: typing.Optional[builtins.bool] = None,
     spark_ui: typing.Optional[typing.Union[SparkUIProps, typing.Dict[builtins.str, typing.Any]]] = None,
+    worker_configuration: typing.Optional[typing.Union[WorkerConfiguration, typing.Dict[builtins.str, typing.Any]]] = None,
     role: _aws_cdk_aws_iam_ceddda9d.IRole,
     script: Code,
     connections: typing.Optional[typing.Sequence[IConnection]] = None,
     continuous_logging: typing.Optional[typing.Union[ContinuousLoggingProps, typing.Dict[builtins.str, typing.Any]]] = None,
     default_arguments: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
     description: typing.Optional[builtins.str] = None,
-    enable_profiling_metrics: typing.Optional[builtins.bool] = None,
     glue_version: typing.Optional[GlueVersion] = None,
     job_name: typing.Optional[builtins.str] = None,
     max_concurrent_runs: typing.Optional[jsii.Number] = None,
     max_retries: typing.Optional[jsii.Number] = None,
-    number_of_workers: typing.Optional[jsii.Number] = None,
     security_configuration: typing.Optional[ISecurityConfiguration] = None,
     tags: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
     timeout: typing.Optional[_aws_cdk_ceddda9d.Duration] = None,
-    worker_type: typing.Optional[WorkerType] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -23803,22 +23400,20 @@ def _typecheckingstub__c45fb25248ac17e75b6beafe427e181daa7b993fc5b05859e6d9c0733
     enable_metrics: typing.Optional[builtins.bool] = None,
     enable_observability_metrics: typing.Optional[builtins.bool] = None,
     spark_ui: typing.Optional[typing.Union[SparkUIProps, typing.Dict[builtins.str, typing.Any]]] = None,
+    worker_configuration: typing.Optional[typing.Union[WorkerConfiguration, typing.Dict[builtins.str, typing.Any]]] = None,
     role: _aws_cdk_aws_iam_ceddda9d.IRole,
     script: Code,
     connections: typing.Optional[typing.Sequence[IConnection]] = None,
     continuous_logging: typing.Optional[typing.Union[ContinuousLoggingProps, typing.Dict[builtins.str, typing.Any]]] = None,
     default_arguments: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
     description: typing.Optional[builtins.str] = None,
-    enable_profiling_metrics: typing.Optional[builtins.bool] = None,
     glue_version: typing.Optional[GlueVersion] = None,
     job_name: typing.Optional[builtins.str] = None,
     max_concurrent_runs: typing.Optional[jsii.Number] = None,
     max_retries: typing.Optional[jsii.Number] = None,
-    number_of_workers: typing.Optional[jsii.Number] = None,
     security_configuration: typing.Optional[ISecurityConfiguration] = None,
     tags: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
     timeout: typing.Optional[_aws_cdk_ceddda9d.Duration] = None,
-    worker_type: typing.Optional[WorkerType] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -23835,22 +23430,20 @@ def _typecheckingstub__1ea5c033f6ebef3ce7a903821d4289a54ea02a63c6adc3dc1b36a567c
     enable_metrics: typing.Optional[builtins.bool] = None,
     enable_observability_metrics: typing.Optional[builtins.bool] = None,
     spark_ui: typing.Optional[typing.Union[SparkUIProps, typing.Dict[builtins.str, typing.Any]]] = None,
+    worker_configuration: typing.Optional[typing.Union[WorkerConfiguration, typing.Dict[builtins.str, typing.Any]]] = None,
     role: _aws_cdk_aws_iam_ceddda9d.IRole,
     script: Code,
     connections: typing.Optional[typing.Sequence[IConnection]] = None,
     continuous_logging: typing.Optional[typing.Union[ContinuousLoggingProps, typing.Dict[builtins.str, typing.Any]]] = None,
     default_arguments: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
     description: typing.Optional[builtins.str] = None,
-    enable_profiling_metrics: typing.Optional[builtins.bool] = None,
     glue_version: typing.Optional[GlueVersion] = None,
     job_name: typing.Optional[builtins.str] = None,
     max_concurrent_runs: typing.Optional[jsii.Number] = None,
     max_retries: typing.Optional[jsii.Number] = None,
-    number_of_workers: typing.Optional[jsii.Number] = None,
     security_configuration: typing.Optional[ISecurityConfiguration] = None,
     tags: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
     timeout: typing.Optional[_aws_cdk_ceddda9d.Duration] = None,
-    worker_type: typing.Optional[WorkerType] = None,
 ) -> None:
     """Type checking stubs"""
     pass

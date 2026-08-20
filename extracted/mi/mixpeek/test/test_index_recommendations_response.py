@@ -48,7 +48,8 @@ class TestIndexRecommendationsResponse(unittest.TestCase):
                         very_slow_query_count = 56, 
                         priority_score = 1.337, 
                         recommendation = '', 
-                        mongodb_index_command = '', )
+                        mongodb_index_command = '', 
+                        index_kind = '', )
                     ],
                 summary = {
                     'key' : 56
@@ -68,7 +69,8 @@ class TestIndexRecommendationsResponse(unittest.TestCase):
                         very_slow_query_count = 56, 
                         priority_score = 1.337, 
                         recommendation = '', 
-                        mongodb_index_command = '', )
+                        mongodb_index_command = '', 
+                        index_kind = '', )
                     ],
                 summary = {
                     'key' : 56

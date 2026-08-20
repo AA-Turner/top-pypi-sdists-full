@@ -1,6 +1,6 @@
-Metadata-Version: 2.4
+Metadata-Version: 2.5
 Name: hdmf
-Version: 6.1.0
+Version: 6.2.0
 Summary: A hierarchical data modeling framework for modern science data standards
 Project-URL: Homepage, https://github.com/hdmf-dev/hdmf
 Project-URL: Bug Tracker, https://github.com/hdmf-dev/hdmf/issues

@@ -132,6 +132,12 @@ class StrandsHookProvider:
             else None
         )
         metadata = merge_metadata(_BASE_META)
+        # Configuration rather than a message, so it belongs on the metadata envelope
+        # rather than in `input`, whatever shape that takes.
+        if self._flag("capture_inputs") and (
+            system_prompt := _spans.agent_system_prompt(event.agent)
+        ):
+            metadata["system_prompt"] = system_prompt
         # In strands_session, the sentinel root is not an invocation.
         if not boundary.tool_catalog_stamped:
             self._stamp_tool_catalog(event.agent, metadata, boundary.trace_id)

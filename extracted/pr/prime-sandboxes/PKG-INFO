@@ -1,6 +1,6 @@
 Metadata-Version: 2.5
 Name: prime-sandboxes
-Version: 0.2.38
+Version: 0.2.39
 Summary: Prime Intellect Sandboxes SDK - Manage remote code execution environments
 Project-URL: Homepage, https://github.com/PrimeIntellect-ai/prime
 Project-URL: Documentation, https://github.com/PrimeIntellect-ai/prime/tree/main/packages/prime-sandboxes
@@ -23,7 +23,7 @@ Classifier: Topic :: Software Development :: Libraries :: Python Modules
 Requires-Python: >=3.10
 Requires-Dist: aiofiles>=23.0.0
 Requires-Dist: certifi
-Requires-Dist: connect-python>=0.8.0
+Requires-Dist: connectrpc<0.12,>=0.11.1
 Requires-Dist: httpx>=0.25.0
 Requires-Dist: protobuf>=6.31.1
 Requires-Dist: pydantic>=2.0.0
@@ -136,6 +136,22 @@ async def main():
         await client.delete(sandbox.id)
 
 asyncio.run(main())
+```
+
+## List Platform Images
+
+Use a platform admin or manager key with sandbox-read access to list platform images:
+
+```python
+from prime_sandboxes import ImageArtifactType, ImageBuildStatus, ImageClient
+
+page = ImageClient().list(platform=True)
+vm_images = [
+    image.display_ref
+    for image in page.data
+    if image.artifact_type == ImageArtifactType.VM_SANDBOX
+    and image.status == ImageBuildStatus.COMPLETED
+]
 ```
 
 ## Authentication

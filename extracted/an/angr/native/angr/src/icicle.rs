@@ -19,6 +19,7 @@ use icicle_vm::{
 };
 
 use pyo3::{
+    buffer::PyBuffer,
     exceptions::{PyKeyError, PyRuntimeError},
     prelude::*,
 };
@@ -366,7 +367,8 @@ impl Icicle {
         Ok(buf)
     }
 
-    pub fn mem_write(&mut self, addr: u64, data: Vec<u8>) -> PyResult<()> {
+    pub fn mem_write(&mut self, py: Python<'_>, addr: u64, data: PyBuffer<u8>) -> PyResult<()> {
+        let data = data.to_vec(py)?;
         self.invalidate_code_range(addr, data.len() as u64);
         // The cache invalidation above makes this write safe; suppress the
         // mmu's SMC guard for just this call so it doesn't reject sync
@@ -430,9 +432,8 @@ impl Icicle {
     }
 
     #[setter]
-    pub fn set_pc(&mut self, pc: u64) -> PyResult<()> {
+    pub fn set_pc(&mut self, pc: u64) {
         self.vm.cpu.write_pc(pc);
-        Ok(())
     }
 
     #[getter]
@@ -444,7 +445,7 @@ impl Icicle {
     pub fn set_isa_mode(&mut self, mode: u8) {
         // https://github.com/icicle-emu/icicle-emu/issues/70#issuecomment-2857265222
         self.vm.cpu.set_isa_mode(mode);
-        self.set_pc(self.get_pc()).unwrap();
+        self.set_pc(self.get_pc());
     }
 
     // Execution

@@ -35,7 +35,7 @@ import typing as t
 from loguru import logger
 from pydantic import ConfigDict, Field, PrivateAttr
 
-from dreadnode.agents.events import AgentStart, AgentStep
+from dreadnode.agents.events import AgentStart, GenerationStep
 from dreadnode.agents.reactions import Finish
 from dreadnode.core.hook import Hook, hook
 from dreadnode.core.meta.config import Model
@@ -91,6 +91,16 @@ class SessionPolicy(Model):
         return facets
 
     @property
+    def needs_permission_bridge(self) -> bool:
+        """Whether the runtime should attach a ``PermissionBridge`` to the agent.
+
+        Defaults to ``True`` for interactive (non-autonomous) policies.
+        Subclasses may override to request the bridge even in autonomous
+        mode (e.g. guard policies with ASK capabilities).
+        """
+        return not self.is_autonomous
+
+    @property
     def hooks(self) -> list[Hook]:
         """All hooks declared on this policy, bound to ``self``.
 
@@ -128,9 +138,10 @@ class HeadlessSessionPolicy(SessionPolicy):
 
     The runtime reads ``is_autonomous=True`` and resolves
     ``ask_user()`` to ``deny`` instantly without touching any
-    transport. When set, ``max_steps`` is enforced by an ``AgentStep`` hook
+    transport. When set, ``max_steps`` is enforced by a ``GenerationStep`` hook
     that emits ``Finish(reason="max_steps=N reached")`` once the turn has run
-    ``max_steps`` react cycles. Explicit ``None`` keeps the session autonomous
+    ``max_steps`` model turns. Tool fan-out and duplicate lifecycle events do
+    not consume additional budget. Explicit ``None`` keeps the session autonomous
     without adding a policy step ceiling. The reset on ``AgentStart`` makes the
     counter per-turn rather than per-session, so a long chat with multiple turns
     each gets the full budget.
@@ -156,8 +167,8 @@ class HeadlessSessionPolicy(SessionPolicy):
     async def reset_step_count(self, _event: AgentStart) -> None:
         self._count = 0
 
-    @hook(AgentStep)
-    async def stop_on_max_steps(self, _event: AgentStep) -> Finish | None:
+    @hook(GenerationStep)
+    async def stop_on_max_steps(self, _event: GenerationStep) -> Finish | None:
         if self.max_steps is None:
             return None
         self._count += 1

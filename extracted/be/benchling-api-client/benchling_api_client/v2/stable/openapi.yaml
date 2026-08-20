@@ -30641,7 +30641,9 @@ components:
           - molfile
           type: string
         value:
-          description: Chemical structure in SMILES or molfile format.
+          description: Chemical structure in SMILES or molfile format. Pass an empty
+            SMILES string to create a Molecule with no defined structure (equivalent
+            to leaving the structure blank in the app's sketcher).
           example: Nc1nc(=O)n([H:1])cc1C1CC1
           type: string
       type: object

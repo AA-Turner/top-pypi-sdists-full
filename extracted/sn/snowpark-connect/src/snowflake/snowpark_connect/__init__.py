@@ -8,6 +8,7 @@ import sys
 
 sys.path.append(str(pathlib.Path(__file__).parent / "includes/python"))
 
+from .native_functions import register_native_snowflake_function  # noqa: E402, F401
 from .server import get_session  # noqa: E402, F401
 from .server import init_spark_session  # noqa: E402, F401
 from .server import start_session  # noqa: E402, F401

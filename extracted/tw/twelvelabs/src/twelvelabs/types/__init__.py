@@ -56,6 +56,11 @@ from .asset_source_type import AssetSourceType
 from .asset_status import AssetStatus
 from .asset_thumbnail import AssetThumbnail
 from .asset_thumbnail_status import AssetThumbnailStatus
+from .asset_transcription_entry import AssetTranscriptionEntry
+from .asset_transcription_error import AssetTranscriptionError
+from .asset_transcription_response import AssetTranscriptionResponse
+from .asset_transcription_status import AssetTranscriptionStatus
+from .asset_transcription_utterance import AssetTranscriptionUtterance
 from .asset_type_filter import AssetTypeFilter
 from .async_response_format import AsyncResponseFormat
 from .async_response_format_segment_time_format import AsyncResponseFormatSegmentTimeFormat
@@ -157,6 +162,7 @@ from .image_search_system_metadata import ImageSearchSystemMetadata
 from .import_ import Import
 from .import_detail import ImportDetail
 from .import_item import ImportItem
+from .import_item_action import ImportItemAction
 from .import_item_error import ImportItemError
 from .import_item_status import ImportItemStatus
 from .import_provider import ImportProvider
@@ -392,6 +398,11 @@ __all__ = [
     "AssetStatus",
     "AssetThumbnail",
     "AssetThumbnailStatus",
+    "AssetTranscriptionEntry",
+    "AssetTranscriptionError",
+    "AssetTranscriptionResponse",
+    "AssetTranscriptionStatus",
+    "AssetTranscriptionUtterance",
     "AssetTypeFilter",
     "AsyncResponseFormat",
     "AsyncResponseFormatSegmentTimeFormat",
@@ -491,6 +502,7 @@ __all__ = [
     "Import",
     "ImportDetail",
     "ImportItem",
+    "ImportItemAction",
     "ImportItemError",
     "ImportItemStatus",
     "ImportProvider",

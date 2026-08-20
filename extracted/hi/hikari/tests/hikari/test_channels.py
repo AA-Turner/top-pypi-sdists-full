@@ -270,6 +270,7 @@ class TestTextChannel:
 
         await model.send(
             content="test content",
+            nonce="abc123",
             tts=True,
             attachment=mock_attachment,
             attachments=mock_attachments,
@@ -291,6 +292,7 @@ class TestTextChannel:
         model.app.rest.create_message.assert_awaited_once_with(
             channel=12345679,
             content="test content",
+            nonce="abc123",
             tts=True,
             attachment=mock_attachment,
             attachments=mock_attachments,
@@ -326,6 +328,7 @@ class TestGuildChannel:
             name="foo1",
             type=channels.ChannelType.GUILD_VOICE,
             guild_id=snowflakes.Snowflake(123456789),
+            application_id=None,
             parent_id=None,
         )
 
@@ -406,10 +409,12 @@ class TestPermissibleGuildChannel:
             name="foo1",
             type=channels.ChannelType.GUILD_VOICE,
             guild_id=snowflakes.Snowflake(123456789),
+            application_id=None,
             is_nsfw=True,
             parent_id=None,
             position=54,
             permission_overwrites=[],
+            flags=channels.ChannelFlag.NONE,
         )
 
     @pytest.mark.asyncio

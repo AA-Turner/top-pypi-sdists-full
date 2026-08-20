@@ -200,6 +200,7 @@ class CommandActions(t.Protocol):
     def screen_router_open_projects_screen(self) -> None: ...
     def screen_router_open_platform_screen(self, name: str) -> None: ...
     def screen_router_open_console(self) -> None: ...
+    def screen_router_open_report_bug(self) -> None: ...
     def screen_router_open_raw_spans_screen(self) -> None: ...
     def screen_router_open_capabilities_screen(self) -> None: ...
     def screen_router_open_services_screen(self) -> None: ...
@@ -254,6 +255,7 @@ _UNAUTHENTICATED_COMMANDS: frozenset[str] = frozenset(
         "profile",
         "profiles",
         "console",
+        "report-bug",
         "thinking",
         "version",
         "update",
@@ -322,6 +324,7 @@ class CommandDispatcher:
             "env": lambda: self._actions.screen_router_open_platform_screen("environments"),
             "secrets": lambda: self._actions.screen_router_open_platform_screen("secrets"),
             "console": self._actions.screen_router_open_console,
+            "report-bug": self._actions.screen_router_open_report_bug,
             "traces": lambda: self._actions.screen_router_open_platform_screen("traces"),
             "spans": self._actions.screen_router_open_raw_spans_screen,
             "sandboxes": lambda: self._actions.screen_router_open_platform_screen("sandboxes"),
